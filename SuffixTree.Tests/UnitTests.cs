@@ -9,9 +9,9 @@ namespace SuffixTree.Tests
     /// <summary>
     /// Comprehensive unit tests for SuffixTree implementation.
     /// 
-    /// Test Hierarchy (114 tests total):
+    /// Test Hierarchy (115 tests total):
     /// 1. Build (13) - tree creation, validation, edge cases [incl. 6 TestCase variants]
-    /// 2. Contains (10) - substring search with string and Span overloads
+    /// 2. Contains (11) - substring search with string and Span overloads
     /// 3. FindAllOccurrences/CountOccurrences (13) - position finding
     /// 4. LongestRepeatedSubstring (11) - LRS algorithm verification
     /// 5. LongestCommonSubstring (13) - LCS algorithm (all API variants)
@@ -125,6 +125,14 @@ namespace SuffixTree.Tests
             var st = SuffixTree.Build("abc");
             Assert.That(st.Contains(""), Is.True);
             Assert.That(st.Contains(ReadOnlySpan<char>.Empty), Is.True);
+        }
+
+        [Test]
+        public void Contains_EmptyTree_NonEmptyPattern_ReturnsFalse()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.Contains("a"), Is.False);
+            Assert.That(st.Contains("abc"), Is.False);
         }
 
         [Test]
@@ -953,7 +961,7 @@ namespace SuffixTree.Tests
 
         #endregion
 
-        #region Algorithm-Specific Tests (Ukkonen's Edge Cases)
+        #region 11. Algorithm-Specific Tests (Ukkonen's Edge Cases)
 
         [Test]
         public void Algorithm_AbcAbxAbcd_TrickyCase()
@@ -1061,7 +1069,7 @@ namespace SuffixTree.Tests
 
         #endregion
 
-        #region Regression Tests (Specific Edge Cases)
+        #region 12. Regression Tests (Specific Edge Cases)
 
         [Test]
         public void Regression_TerminatorCharacter_SuffixesAreExplicit()
@@ -1187,7 +1195,7 @@ namespace SuffixTree.Tests
 
         #endregion
 
-        #region Span API Tests
+        #region 13. Span API Tests
 
         [Test]
         public void Contains_Span_FromStringSlice_Works()
