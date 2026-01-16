@@ -50,6 +50,9 @@ namespace SuffixTree
         /// <summary>The string content stored as a list for efficient appending.</summary>
         private readonly List<char> _chars = new List<char>();
 
+        /// <summary>Indicates whether the tree has been sealed (no more additions allowed).</summary>
+        private bool _isSealed;
+
         // ============================================================
         // Active Point - tracks where we are in the tree during construction
         // ============================================================
@@ -124,6 +127,10 @@ namespace SuffixTree
         /// <exception cref="ArgumentException">If value contains the null character '\0'.</exception>
         public void AddString(string value)
         {
+            if (_isSealed)
+                throw new InvalidOperationException(
+                    "Cannot add strings to a sealed suffix tree. Create a new tree instead.");
+
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
 
@@ -142,11 +149,10 @@ namespace SuffixTree
             // Add terminator to convert implicit suffixes to explicit leaves
             ExtendTree(TERMINATOR);
 
-            // Reset state for potential next string
-            _remainder = 0;
-            _activeNode = _root;
-            _activeEdgeIndex = -1;
-            _activeLength = 0;
+            // Seal the tree - no more modifications allowed
+            _isSealed = true;
+
+            // Clear construction state (not needed anymore, helps GC)
             _lastCreatedInternalNode = null;
         }
 

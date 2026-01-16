@@ -32,6 +32,13 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void AddString_AfterBuild_ShouldThrow()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<InvalidOperationException>(() => st.AddString("def"));
+        }
+
+        [Test]
         public void Build_WithEmptyString_ShouldNotThrow()
         {
             Assert.DoesNotThrow(() => SuffixTree.Build(""));
