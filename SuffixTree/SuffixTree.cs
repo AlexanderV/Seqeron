@@ -157,7 +157,7 @@ namespace SuffixTree
                     //         |           →            |  \
                     //       (existing)              (existing) c
                     // ============================================================
-                    var leaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS };
+                    var leaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS, Parent = _activeNode };
                     _activeNode.Children[c] = leaf;
 
                     // Set suffix link for previously created internal node
@@ -205,18 +205,20 @@ namespace SuffixTree
                     var splitNode = new SuffixTreeNode
                     {
                         Start = activeEdge.Start,
-                        End = activeEdge.Start + _activeLength
+                        End = activeEdge.Start + _activeLength,
+                        Parent = _activeNode
                     };
 
                     // Replace old edge with new internal node
                     _activeNode.Children[activeEdgeChar] = splitNode;
 
                     // Create new leaf for current character
-                    var newLeaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS };
+                    var newLeaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS, Parent = splitNode };
                     splitNode.Children[c] = newLeaf;
 
                     // Move old edge to be child of split node
                     activeEdge.Start += _activeLength;
+                    activeEdge.Parent = splitNode;
                     splitNode.Children[_chars[activeEdge.Start]] = activeEdge;
 
                     // Track this internal node for suffix link setup

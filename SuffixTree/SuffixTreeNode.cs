@@ -32,6 +32,12 @@ namespace SuffixTree
         /// </summary>
         public SuffixTreeNode SuffixLink { get; set; }
 
+        /// <summary>
+        /// Parent node reference for O(depth) path reconstruction.
+        /// Null for root node.
+        /// </summary>
+        public SuffixTreeNode Parent { get; set; }
+
         /// <summary>True if this is a leaf node (edge grows with string).</summary>
         public bool IsLeaf => End == BOUNDLESS;
     }
