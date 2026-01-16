@@ -15,6 +15,22 @@ namespace SuffixTree
         string Text { get; }
 
         /// <summary>
+        /// Gets the total number of nodes in the tree (including root).
+        /// </summary>
+        int NodeCount { get; }
+
+        /// <summary>
+        /// Gets the number of leaf nodes in the tree.
+        /// Equal to the length of the original text (one leaf per suffix).
+        /// </summary>
+        int LeafCount { get; }
+
+        /// <summary>
+        /// Gets the maximum depth of the tree (longest path from root to leaf in characters).
+        /// </summary>
+        int MaxDepth { get; }
+
+        /// <summary>
         /// Checks if the specified string is a substring of the tree content.
         /// </summary>
         /// <param name="value">The substring to search for.</param>
