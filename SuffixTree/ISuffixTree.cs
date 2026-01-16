@@ -31,6 +31,14 @@ namespace SuffixTree
         IReadOnlyList<int> FindAllOccurrences(string pattern);
 
         /// <summary>
+        /// Finds all starting positions where the pattern occurs in the original string.
+        /// Zero-allocation overload for performance-critical scenarios.
+        /// </summary>
+        /// <param name="pattern">The pattern to search for.</param>
+        /// <returns>Collection of 0-based starting positions of all occurrences.</returns>
+        IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern);
+
+        /// <summary>
         /// Counts the number of occurrences of a pattern in the text.
         /// </summary>
         /// <param name="pattern">The pattern to count.</param>
