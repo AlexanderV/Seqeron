@@ -121,10 +121,16 @@ namespace SuffixTree
         /// </summary>
         /// <param name="value">The string to add.</param>
         /// <exception cref="ArgumentNullException">If value is null.</exception>
+        /// <exception cref="ArgumentException">If value contains the null character '\0'.</exception>
         public void AddString(string value)
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
+
+            if (value.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(value));
 
             if (value.Length == 0)
                 return;

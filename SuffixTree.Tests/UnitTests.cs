@@ -26,6 +26,12 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void Build_WithNullCharacter_ShouldThrow()
+        {
+            Assert.Throws<ArgumentException>(() => SuffixTree.Build("abc\0def"));
+        }
+
+        [Test]
         public void Build_WithEmptyString_ShouldNotThrow()
         {
             Assert.DoesNotThrow(() => SuffixTree.Build(""));
