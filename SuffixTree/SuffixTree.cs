@@ -934,30 +934,55 @@ namespace SuffixTree
         /// <summary>
         /// Creates a detailed string representation of the tree structure.
         /// Useful for debugging and visualization.
+        /// Uses iterative traversal to avoid StackOverflow on deep trees.
         /// </summary>
         public string PrintTree()
         {
             var sb = new StringBuilder();
             sb.AppendLine($"Content length: {_chars?.Length ?? 0}");
             sb.AppendLine();
-            PrintNode(sb, _root, 0);
-            return sb.ToString();
-        }
 
-        private void PrintNode(StringBuilder sb, SuffixTreeNode node, int depth)
-        {
-            var nodeLabel = LabelOf(node);
-            var leafMark = node.IsLeaf ? "..." : "";
-            var linkMark = node.SuffixLink != null && node.SuffixLink != _root && !node.IsLeaf
-                ? $" -> {FirstCharOf(node.SuffixLink)}"
-                : "";
+            // Iterative DFS: stack stores (node, depth, childIndex, sortedChildren)
+            var stack = new Stack<(SuffixTreeNode Node, int Depth, int ChildIndex, List<SuffixTreeNode> SortedChildren)>();
 
-            sb.AppendLine($"{new string(' ', depth)}{depth}:{nodeLabel}{leafMark}{linkMark}");
+            // Print root first
+            var rootLabel = LabelOf(_root);
+            sb.AppendLine($"0:{rootLabel}");
 
-            foreach (var child in node.Children.OrderBy(kvp => kvp.Key))
+            var rootChildren = _root.Children.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value).ToList();
+            if (rootChildren.Count > 0)
+                stack.Push((_root, 0, 0, rootChildren));
+
+            while (stack.Count > 0)
             {
-                PrintNode(sb, child.Value, depth + 1);
+                var (node, depth, childIndex, sortedChildren) = stack.Pop();
+
+                if (childIndex < sortedChildren.Count)
+                {
+                    // More children to process
+                    stack.Push((node, depth, childIndex + 1, sortedChildren));
+
+                    var child = sortedChildren[childIndex];
+                    int childDepth = depth + 1;
+
+                    // Print this child
+                    var nodeLabel = LabelOf(child);
+                    var leafMark = child.IsLeaf ? "..." : "";
+                    var linkMark = child.SuffixLink != null && child.SuffixLink != _root && !child.IsLeaf
+                        ? $" -> {FirstCharOf(child.SuffixLink)}"
+                        : "";
+                    sb.AppendLine($"{new string(' ', childDepth)}{childDepth}:{nodeLabel}{leafMark}{linkMark}");
+
+                    // If child has children, push it for processing
+                    if (!child.IsLeaf && child.Children.Count > 0)
+                    {
+                        var grandChildren = child.Children.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value).ToList();
+                        stack.Push((child, childDepth, 0, grandChildren));
+                    }
+                }
             }
+
+            return sb.ToString();
         }
     }
 }
