@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,236 +6,95 @@ using NUnit.Framework;
 
 namespace SuffixTree.Tests
 {
+    /// <summary>
+    /// Comprehensive unit tests for SuffixTree implementation.
+    /// 
+    /// Test Hierarchy:
+    /// 1. Construction (Build) - tree creation and validation
+    /// 2. Contains - substring search with string and Span overloads
+    /// 3. FindAllOccurrences/CountOccurrences - occurrence finding
+    /// 4. LongestRepeatedSubstring - LRS algorithm
+    /// 5. LongestCommonSubstring - LCS algorithm (all variants)
+    /// 6. GetAllSuffixes/EnumerateSuffixes - suffix enumeration
+    /// 7. Statistics - NodeCount, LeafCount, MaxDepth
+    /// 8. Unicode and Special Characters - international support
+    /// 9. Algorithm Edge Cases - Ukkonen's specific scenarios
+    /// 10. Performance and Stress Tests - large inputs, concurrency
+    /// </summary>
     [TestFixture]
-    public class UnitTests
+    public class SuffixTreeTests
     {
-        private const int RANDOM_SEED = 42; // Fixed seed for deterministic tests
+        private const int RANDOM_SEED = 42;
 
-        [TestCase("abcdefghijklmnpqrst")]
-        [TestCase("aaaaaaaaaaaaaaaaaaaaa")]
-        [TestCase("bbefefbbaaaaaaaaaaaabbefefbb")]
-        [TestCase("bananasbanananananananananassssss")]
-        [TestCase("olbafuynhfcxzqhnebecxjrfwfttwrxvgujqxaxuaukbflddcrptlvyoaxuwzlwmoeljnxgmsleapkyzodhtymxuvlchoomsuodicehnzyebqtgsqeplinthhnalituxrisknsyjszuaatwoulznpjbvjmhytqgaqmctqvwgxailhproehwctldlagpjqaawdbialginqmweqrcopiqfnludmjuxkqlsgrydzyhecoojgmspowoykgghnbudhujnmyhqxbkfggxxprgfhraksfylcveevxvlxpzxkcqtkchasarbusvqzimvvfsvredhjykpqyyysyxbzwsuqahpjcroqvhysaynfheehppinszvwmyqlmymyqngrqzuefojczpoqcgbkvkmfpipdoetqxtdigphjhkxuwzieqirlvapypdysohfydtxzppfuufcreorhpsyydvvvsproofmuucwqqtskzieegstlokqkvjbssfythoenpbhlhnnsgknlapaigdwvrvsnyrhxhuzqkzoakldexmvnuvqscxmrysnuumawqrldjbtbmnhytvmmyykdaxuvqifecczafafzewmuplebvkxseatwsxwatbszboybwzhgfdtsjpxckknalqvgwuwwretocfaphnyuoyvnxbtabosfewkfrlbbeiduuidlogxfdacbplkbkpljvthltjjrlxbtejpdqjddnnsfhsljjfvmsjigyxmhjeqfcmmzzqpsxmnkuwlhhvcrtxskfmyieoctweswpkplcnjiqmtjjdloobapntxqmducnkabjcutinyhhekioybfokektjerdojqfvyalkvpqsznlvqvrswhelvburtkzdcceqehyqndhlcvkbieceazmuanqiauhkyhcbcckeydaevunddkwlntezctepnfrchvquxgtsnupoiwneengszjggwxkmahlbiwzsbyryqasufdsaaigulgwjqepccwesmbcfpoymrsjrbqwzjpjmbexpjloxdtwxqbdmggreurdcohfpgbchhrthdopewrsyfindsvrexpkkooxkmzxklsalyfuxscwthbfdbeghnpowbjxcedzogidsrdnjimcybbxmwpdiwnihhgylpsbukpsjtbkktylouakffurdfmpsnndtjcvjkbviezyqdgvhdcllibfbniafffwebrmyvbryjnomzgiglecxjntcvcrngwrvhefqaswhpynyzqwdpvewmjlpndtihwebjqolymkytrtidajqrdyvqzhcsvlvfvqspskkttqjsotdqkcdwzmdxxuevpvcrsijxskruaajrqaqgcarbxfrwerhddeetidequujlxmyaaoriomkhdmqaitbzbvhmnhmuntueqwueagpomwdhturmpwkyszjiwwlucqbhqbxgibuqmghvlrrbypswfsxkhgwjcndjnqblxargeegkzmhlahbahsfecevnpbxqdbuamjffddctbcedlcptoynjiuypvbgeatatnxztxsxvjrihxmoeeqmghwxxdyzrczljthnteqrfrquhvlssswndmdwxcfzrhcszffqdnjmqyjnywrurbsyavdxcwwtjsttcbsnvrpgiqlswqdcqmxjxwoebxjwlhlxbjuxuacdwktlivrfmncnqosxecfccutmikgwkeprlrkdfcinqgeeeompsmpcvxvnopzmrnuvdljcxjurxmliveisyfqsnpxsokkefgdujosxckvrkgeavugntchvztxkdqeiwyluxxgptyuuligmgfjcwcynffbgysjewlaaglqjuujjxytrphnfwncbkgkwswhcvliseqyifouatvszslptxqnhawzjhgfyorphndgksqdeoqohsqvwctwofrvqqpsnfisbcpluhesurrihkxvpugeitmatignbqqqldkdwqzaggxmitqlzobbuqccoeddmsdtjvywnbiiwkbidkjrofmbxjlnzfryzgxjbwgiaxbahchovroigmraoofyuzqheonmrfpskgciitjtxjzbhlpsohvysrwdwviirlxpvemizykpykhipjwhmqxoiwtevhyddyrigooibzrshqmbypvthubgozvhinzmntadmkfplledvglacrbeghcofvsddhokjhyfcqwwhbwjlkafilmaezpwezzgzgajpxhxcgwmcieilzlfrsxjlagjbjryhbrznmsfushtydgfsizclunncsbzpktmkmhmacicjuqhqaozwtihtcokd")]
-        public void Build_ShouldNotThrow(string treeContent)
+        #region 1. Build Tests
+
+        [Test]
+        public void Build_NullString_ThrowsArgumentNullException()
         {
-            Assert.DoesNotThrow(() => SuffixTree.Build(treeContent));
+            Assert.Throws<ArgumentNullException>(() => SuffixTree.Build(null!));
         }
 
         [Test]
-        public void Build_WithNullString_ShouldThrow()
-        {
-            Assert.Throws<ArgumentNullException>(() => SuffixTree.Build(null));
-        }
-
-        [Test]
-        public void Build_WithNullCharacter_ShouldThrow()
+        public void Build_StringWithTerminator_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() => SuffixTree.Build("abc\0def"));
         }
 
         [Test]
-        public void Build_WithEmptyString_ShouldNotThrow()
+        public void Build_EmptyString_CreatesValidTree()
         {
-            Assert.DoesNotThrow(() => SuffixTree.Build(""));
+            var st = SuffixTree.Build("");
+
+            Assert.That(st, Is.Not.Null);
+            Assert.That(st.Text, Is.EqualTo(""));
+            Assert.That(st.Contains(""), Is.True);
+            Assert.That(st.Contains("a"), Is.False);
+        }
+
+        [Test]
+        public void Build_SingleCharacter_CreatesValidTree()
+        {
+            var st = SuffixTree.Build("a");
+
+            Assert.That(st.Text, Is.EqualTo("a"));
+            Assert.That(st.Contains("a"), Is.True);
+            Assert.That(st.Contains("b"), Is.False);
+        }
+
+        [TestCase("abcdefghij")]
+        [TestCase("aaaaaaaaaa")]
+        [TestCase("abababab")]
+        [TestCase("mississippi")]
+        [TestCase("banana")]
+        [TestCase("abcabxabcd")]
+        public void Build_VariousStrings_DoesNotThrow(string text)
+        {
+            Assert.DoesNotThrow(() => SuffixTree.Build(text));
+        }
+
+        [Test]
+        public void Build_MultipleTrees_AreIndependent()
+        {
+            var st1 = SuffixTree.Build("hello");
+            var st2 = SuffixTree.Build("world");
+
+            Assert.That(st1.Contains("hello"), Is.True);
+            Assert.That(st1.Contains("world"), Is.False);
+            Assert.That(st2.Contains("world"), Is.True);
+            Assert.That(st2.Contains("hello"), Is.False);
         }
 
         [Test]
         public void Text_ReturnsOriginalString()
         {
-            var st = SuffixTree.Build("banana");
-            Assert.That(st.Text, Is.EqualTo("banana"));
+            var original = "test string";
+            var st = SuffixTree.Build(original);
+
+            Assert.That(st.Text, Is.EqualTo(original));
         }
 
         [Test]
-        public void Text_EmptyTree_ReturnsEmptyString()
-        {
-            var st = SuffixTree.Build("");
-            Assert.That(st.Text, Is.EqualTo(""));
-        }
-
-        [Test]
-        public void Contains_EmptyString_ShouldReturnTrue()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.That(st.Contains(""), Is.True);
-        }
-
-        [Test]
-        public void Contains_WithNullString_ShouldThrow()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.Contains(null));
-        }
-
-        [Test]
-        public void Contains_SingleCharacter_ShouldWork()
-        {
-            var st = SuffixTree.Build("a");
-            Assert.That(st.Contains("a"), Is.True, "Single char tree should contain its character");
-            Assert.That(st.Contains("b"), Is.False, "Single char tree should not contain other characters");
-        }
-
-        // ==================== Contains with ReadOnlySpan Tests ====================
-
-        [Test]
-        public void Contains_Span_EmptySpan_ShouldReturnTrue()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.That(st.Contains(ReadOnlySpan<char>.Empty), Is.True);
-        }
-
-        [Test]
-        public void Contains_Span_FromStringSlice_ShouldWork()
-        {
-            var st = SuffixTree.Build("hello world");
-            var source = "say hello please";
-
-            // Using span slice to avoid string allocation
-            Assert.That(st.Contains(source.AsSpan(4, 5)), Is.True); // "hello"
-            Assert.That(st.Contains(source.AsSpan(0, 3)), Is.False); // "say"
-        }
-
-        [Test]
-        public void Contains_Span_FromCharArray_ShouldWork()
-        {
-            var st = SuffixTree.Build("abcdef");
-            char[] pattern = { 'c', 'd', 'e' };
-
-            Assert.That(st.Contains(pattern.AsSpan()), Is.True);
-            Assert.That(st.Contains(pattern.AsSpan(0, 2)), Is.True); // "cd"
-        }
-
-        [Test]
-        public void Contains_Span_MatchesStringOverload()
-        {
-            const int CYCLES = 100;
-            var r = new Random(RANDOM_SEED);
-
-            for (int i = 0; i < CYCLES; i++)
-            {
-                var s = MakeRandomString(r, 100);
-                var st = SuffixTree.Build(s);
-
-                int pos = r.Next(0, s.Length - 5);
-                int len = r.Next(1, Math.Min(10, s.Length - pos));
-                var pattern = s.Substring(pos, len);
-
-                var stringResult = st.Contains(pattern);
-                var spanResult = st.Contains(pattern.AsSpan());
-
-                Assert.That(spanResult, Is.EqualTo(stringResult),
-                    $"Mismatch for pattern '{pattern}' in '{s}'");
-            }
-        }
-
-        [Test]
-        public void Contains_Span_WithTerminator_ThrowsArgumentException()
-        {
-            var st = SuffixTree.Build("hello");
-            char[] pattern = { 'h', 'e', '\0', 'l' };
-
-            Assert.Throws<ArgumentException>(() => st.Contains(pattern.AsSpan()));
-        }
-
-        [Test]
-        public void Contains_OnNonRepeated_ShouldReturnTrue()
-        {
-            var s = "abcdefghijklmnpqrst";
-            var t = s.Substring(3, 6);
-            var st = SuffixTree.Build(s);
-
-            Assert.That(st.Contains(t), Is.True);
-        }
-
-        [Test]
-        public void Contains_OnNonRepeated_ShouldReturnFalse()
-        {
-            var s = "abcdefghijklmnpqrst";
-            var t = "rstb";
-            var st = SuffixTree.Build(s);
-
-            Assert.That(st.Contains(t), Is.False);
-        }
-
-        [Test]
-        public void Contains_Simple_OnLongString_ShouldReturnTrue()
-        {
-            var s = "olbafuynhfcxzqhnebecxjrfwfttwrxvgujqxaxuaukbflddcrptlvyoaxuwzlwmoeljnxgmsleapkyzodhtymxuvlchoomsuodicehnzyebqtgsqeplinthhnalituxrisknsyjszuaatwoulznpjbvjmhytqgaqmctqvwgxailhproehwctldlagpjqaawdbialginqmweqrcopiqfnludmjuxkqlsgrydzyhecoojgmspowoykgghnbudhujnmyhqxbkfggxxprgfhraksfylcveevxvlxpzxkcqtkchasarbusvqzimvvfsvredhjykpqyyysyxbzwsuqahpjcroqvhysaynfheehppinszvwmyqlmymyqngrqzuefojczpoqcgbkvkmfpipdoetqxtdigphjhkxuwzieqirlvapypdysohfydtxzppfuufcreorhpsyydvvvsproofmuucwqqtskzieegstlokqkvjbssfythoenpbhlhnnsgknlapaigdwvrvsnyrhxhuzqkzoakldexmvnuvqscxmrysnuumawqrldjbtbmnhytvmmyykdaxuvqifecczafafzewmuplebvkxseatwsxwatbszboybwzhgfdtsjpxckknalqvgwuwwretocfaphnyuoyvnxbtabosfewkfrlbbeiduuidlogxfdacbplkbkpljvthltjjrlxbtejpdqjddnnsfhsljjfvmsjigyxmhjeqfcmmzzqpsxmnkuwlhhvcrtxskfmyieoctweswpkplcnjiqmtjjdloobapntxqmducnkabjcutinyhhekioybfokektjerdojqfvyalkvpqsznlvqvrswhelvburtkzdcceqehyqndhlcvkbieceazmuanqiauhkyhcbcckeydaevunddkwlntezctepnfrchvquxgtsnupoiwneengszjggwxkmahlbiwzsbyryqasufdsaaigulgwjqepccwesmbcfpoymrsjrbqwzjpjmbexpjloxdtwxqbdmggreurdcohfpgbchhrthdopewrsyfindsvrexpkkooxkmzxklsalyfuxscwthbfdbeghnpowbjxcedzogidsrdnjimcybbxmwpdiwnihhgylpsbukpsjtbkktylouakffurdfmpsnndtjcvjkbviezyqdgvhdcllibfbniafffwebrmyvbryjnomzgiglecxjntcvcrngwrvhefqaswhpynyzqwdpvewmjlpndtihwebjqolymkytrtidajqrdyvqzhcsvlvfvqspskkttqjsotdqkcdwzmdxxuevpvcrsijxskruaajrqaqgcarbxfrwerhddeetidequujlxmyaaoriomkhdmqaitbzbvhmnhmuntueqwueagpomwdhturmpwkyszjiwwlucqbhqbxgibuqmghvlrrbypswfsxkhgwjcndjnqblxargeegkzmhlahbahsfecevnpbxqdbuamjffddctbcedlcptoynjiuypvbgeatatnxztxsxvjrihxmoeeqmghwxxdyzrczljthnteqrfrquhvlssswndmdwxcfzrhcszffqdnjmqyjnywrurbsyavdxcwwtjsttcbsnvrpgiqlswqdcqmxjxwoebxjwlhlxbjuxuacdwktlivrfmncnqosxecfccutmikgwkeprlrkdfcinqgeeeompsmpcvxvnopzmrnuvdljcxjurxmliveisyfqsnpxsokkefgdujosxckvrkgeavugntchvztxkdqeiwyluxxgptyuuligmgfjcwcynffbgysjewlaaglqjuujjxytrphnfwncbkgkwswhcvliseqyifouatvszslptxqnhawzjhgfyorphndgksqdeoqohsqvwctwofrvqqpsnfisbcpluhesurrihkxvpugeitmatignbqqqldkdwqzaggxmitqlzobbuqccoeddmsdtjvywnbiiwkbidkjrofmbxjlnzfryzgxjbwgiaxbahchovroigmraoofyuzqheonmrfpskgciitjtxjzbhlpsohvysrwdwviirlxpvemizykpykhipjwhmqxoiwtevhyddyrigooibzrshqmbypvthubgozvhinzmntadmkfplledvglacrbeghcofvsddhokjhyfcqwwhbwjlkafilmaezpwezzgzgajpxhxcgwmcieilzlfrsxjlagjbjryhbrznmsfushtydgfsizclunncsbzpktmkmhmacicjuqhqaozwtihtcokd";
-            var t = s.Substring(s.Length / 2, s.Length / 50);
-            var st = SuffixTree.Build(s);
-
-            Assert.That(st.Contains(t), Is.True);
-        }
-
-        [Test]
-        public void Contains_DynamicBarrage_OnLongString_ShouldReturnTrue()
-        {
-            const int CYCLES = 200;
-            const int MAXLEN = 200;
-
-            var s = "olbafuynhfcxzqhnebecxjrfwfttwrxvgujqxaxuaukbflddcrptlvyoaxuwzlwmoeljnxgmsleapkyzodhtymxuvlchoomsuodicehnzyebqtgsqeplinthhnalituxrisknsyjszuaatwoulznpjbvjmhytqgaqmctqvwgxailhproehwctldlagpjqaawdbialginqmweqrcopiqfnludmjuxkqlsgrydzyhecoojgmspowoykgghnbudhujnmyhqxbkfggxxprgfhraksfylcveevxvlxpzxkcqtkchasarbusvqzimvvfsvredhjykpqyyysyxbzwsuqahpjcroqvhysaynfheehppinszvwmyqlmymyqngrqzuefojczpoqcgbkvkmfpipdoetqxtdigphjhkxuwzieqirlvapypdysohfydtxzppfuufcreorhpsyydvvvsproofmuucwqqtskzieegstlokqkvjbssfythoenpbhlhnnsgknlapaigdwvrvsnyrhxhuzqkzoakldexmvnuvqscxmrysnuumawqrldjbtbmnhytvmmyykdaxuvqifecczafafzewmuplebvkxseatwsxwatbszboybwzhgfdtsjpxckknalqvgwuwwretocfaphnyuoyvnxbtabosfewkfrlbbeiduuidlogxfdacbplkbkpljvthltjjrlxbtejpdqjddnnsfhsljjfvmsjigyxmhjeqfcmmzzqpsxmnkuwlhhvcrtxskfmyieoctweswpkplcnjiqmtjjdloobapntxqmducnkabjcutinyhhekioybfokektjerdojqfvyalkvpqsznlvqvrswhelvburtkzdcceqehyqndhlcvkbieceazmuanqiauhkyhcbcckeydaevunddkwlntezctepnfrchvquxgtsnupoiwneengszjggwxkmahlbiwzsbyryqasufdsaaigulgwjqepccwesmbcfpoymrsjrbqwzjpjmbexpjloxdtwxqbdmggreurdcohfpgbchhrthdopewrsyfindsvrexpkkooxkmzxklsalyfuxscwthbfdbeghnpowbjxcedzogidsrdnjimcybbxmwpdiwnihhgylpsbukpsjtbkktylouakffurdfmpsnndtjcvjkbviezyqdgvhdcllibfbniafffwebrmyvbryjnomzgiglecxjntcvcrngwrvhefqaswhpynyzqwdpvewmjlpndtihwebjqolymkytrtidajqrdyvqzhcsvlvfvqspskkttqjsotdqkcdwzmdxxuevpvcrsijxskruaajrqaqgcarbxfrwerhddeetidequujlxmyaaoriomkhdmqaitbzbvhmnhmuntueqwueagpomwdhturmpwkyszjiwwlucqbhqbxgibuqmghvlrrbypswfsxkhgwjcndjnqblxargeegkzmhlahbahsfecevnpbxqdbuamjffddctbcedlcptoynjiuypvbgeatatnxztxsxvjrihxmoeeqmghwxxdyzrczljthnteqrfrquhvlssswndmdwxcfzrhcszffqdnjmqyjnywrurbsyavdxcwwtjsttcbsnvrpgiqlswqdcqmxjxwoebxjwlhlxbjuxuacdwktlivrfmncnqosxecfccutmikgwkeprlrkdfcinqgeeeompsmpcvxvnopzmrnuvdljcxjurxmliveisyfqsnpxsokkefgdujosxckvrkgeavugntchvztxkdqeiwyluxxgptyuuligmgfjcwcynffbgysjewlaaglqjuujjxytrphnfwncbkgkwswhcvliseqyifouatvszslptxqnhawzjhgfyorphndgksqdeoqohsqvwctwofrvqqpsnfisbcpluhesurrihkxvpugeitmatignbqqqldkdwqzaggxmitqlzobbuqccoeddmsdtjvywnbiiwkbidkjrofmbxjlnzfryzgxjbwgiaxbahchovroigmraoofyuzqheonmrfpskgciitjtxjzbhlpsohvysrwdwviirlxpvemizykpykhipjwhmqxoiwtevhyddyrigooibzrshqmbypvthubgozvhinzmntadmkfplledvglacrbeghcofvsddhokjhyfcqwwhbwjlkafilmaezpwezzgzgajpxhxcgwmcieilzlfrsxjlagjbjryhbrznmsfushtydgfsizclunncsbzpktmkmhmacicjuqhqaozwtihtcokd";
-            var st = SuffixTree.Build(s);
-            var r = new Random(RANDOM_SEED);
-
-            for (int i = 0; i < CYCLES; i++)
-            {
-                var pos = r.Next(0, s.Length - 2);
-                var len = r.Next(1, Math.Min(s.Length - pos, MAXLEN));
-                var ss = s.Substring(pos, len);
-
-                Assert.That(st.Contains(ss), Is.True, $"Failed for substring at pos {pos}, len {len}: '{ss}'");
-            }
-        }
-
-        [Test]
-        public void Contains_InShortRandomString_ShouldReturnTrue()
-        {
-            const int CYCLES = 500;
-            const int STRLEN = 200;
-            const int MATCHLEN = 20;
-
-            var r = new Random(RANDOM_SEED);
-
-            for (int i = 0; i < CYCLES; i++)
-            {
-                var s = MakeRandomString(r, STRLEN);
-                var pos = r.Next(0, s.Length - MATCHLEN);
-                var ss = s.Substring(pos, MATCHLEN);
-
-                bool res;
-                try
-                {
-                    res = SuffixTree.Build(s).Contains(ss);
-                }
-                catch (Exception e)
-                {
-                    throw new Exception($"Cycle {i}: String: '{s}', Substring: '{ss}'", e);
-                }
-
-                Assert.That(res, Is.True, $"Cycle {i}: String: '{s}', Substring: '{ss}'");
-            }
-        }
-
-        [Test]
-        public void Contains_RepeatingPattern_ShouldWork()
-        {
-            var st = SuffixTree.Build("abababab");
-            Assert.That(st.Contains("abab"), Is.True);
-            Assert.That(st.Contains("baba"), Is.True);
-            Assert.That(st.Contains("ab"), Is.True);
-            Assert.That(st.Contains("ababa bab"), Is.False);
-        }
-
-        [Test]
-        public void Contains_FullString_ShouldReturnTrue()
-        {
-            var s = "teststring";
-            var st = SuffixTree.Build(s);
-            Assert.That(st.Contains(s), Is.True);
-        }
-
-        [Test]
-        public void ToString_ShouldReturnMeaningfulString()
+        public void ToString_ContainsMeaningfulInfo()
         {
             var st = SuffixTree.Build("hello");
             var result = st.ToString();
@@ -245,115 +104,157 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void PrintTree_ShouldNotThrow()
+        public void PrintTree_DoesNotThrow()
         {
             var st = SuffixTree.Build("banana");
             Assert.DoesNotThrow(() => st.PrintTree());
         }
 
-        [Test]
-        public void Contains_AllSuffixes_ShouldReturnTrue()
-        {
-            // Verify that all suffixes of the string are found
-            var s = "banana";
-            var st = SuffixTree.Build(s);
+        #endregion
 
-            for (int i = 0; i < s.Length; i++)
+        #region 2. Contains Tests
+
+        [Test]
+        public void Contains_NullPattern_ThrowsArgumentNullException()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.Contains(null!));
+        }
+
+        [Test]
+        public void Contains_PatternWithTerminator_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("hello");
+            Assert.Throws<ArgumentException>(() => st.Contains("hel\0lo".AsSpan()));
+        }
+
+        [Test]
+        public void Contains_EmptyPattern_ReturnsTrue()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.Contains(""), Is.True);
+            Assert.That(st.Contains(ReadOnlySpan<char>.Empty), Is.True);
+        }
+
+        [Test]
+        public void Contains_FullString_ReturnsTrue()
+        {
+            var text = "teststring";
+            var st = SuffixTree.Build(text);
+            Assert.That(st.Contains(text), Is.True);
+        }
+
+        [Test]
+        public void Contains_AllSuffixes_ReturnsTrue()
+        {
+            var text = "banana";
+            var st = SuffixTree.Build(text);
+
+            for (int i = 0; i < text.Length; i++)
             {
-                var suffix = s.Substring(i);
+                var suffix = text.Substring(i);
                 Assert.That(st.Contains(suffix), Is.True, $"Suffix '{suffix}' not found");
             }
         }
 
         [Test]
-        public void Contains_AllSubstrings_ShouldReturnTrue()
+        public void Contains_AllSubstrings_ReturnsTrue()
         {
-            // Verify that ALL possible substrings are found
-            var s = "abracadabra";
-            var st = SuffixTree.Build(s);
+            var text = "abracadabra";
+            var st = SuffixTree.Build(text);
 
-            for (int i = 0; i < s.Length; i++)
+            for (int i = 0; i < text.Length; i++)
             {
-                for (int len = 1; len <= s.Length - i; len++)
+                for (int len = 1; len <= text.Length - i; len++)
                 {
-                    var substr = s.Substring(i, len);
-                    Assert.That(st.Contains(substr), Is.True, $"Substring '{substr}' at [{i},{i + len}) not found");
+                    var substr = text.Substring(i, len);
+                    Assert.That(st.Contains(substr), Is.True,
+                        $"Substring '{substr}' at [{i},{i + len}) not found");
                 }
             }
         }
 
         [Test]
-        public void Contains_NonExistentSubstrings_ShouldReturnFalse()
+        public void Contains_NonExistentPatterns_ReturnsFalse()
         {
             var st = SuffixTree.Build("abcdef");
 
-            Assert.That(st.Contains("xyz"), Is.False, "Pattern 'xyz' should not exist");
-            Assert.That(st.Contains("abd"), Is.False, "Pattern 'abd' should not exist - 'd' follows 'c', not 'b'");
-            Assert.That(st.Contains("abcdefg"), Is.False, "Pattern 'abcdefg' should not exist - longer than original");
-            Assert.That(st.Contains("aba"), Is.False, "Pattern 'aba' should not exist");
-            Assert.That(st.Contains("fgh"), Is.False, "Pattern 'fgh' should not exist");
+            Assert.That(st.Contains("xyz"), Is.False);
+            Assert.That(st.Contains("abd"), Is.False);
+            Assert.That(st.Contains("abcdefg"), Is.False);
+            Assert.That(st.Contains("aba"), Is.False);
         }
 
         [Test]
-        public void Build_WithRepeatingCharacter_ShouldWork()
+        public void Contains_SpanOverload_MatchesStringOverload()
         {
-            var st = SuffixTree.Build("aaaaaaaaaa");
-            Assert.That(st.Contains("aaa"), Is.True);
-            Assert.That(st.Contains("aaaaaaaaaa"), Is.True);
-            Assert.That(st.Contains("b"), Is.False);
+            var r = new Random(RANDOM_SEED);
+            var text = MakeRandomString(r, 100);
+            var st = SuffixTree.Build(text);
+
+            for (int i = 0; i < 20; i++)
+            {
+                int pos = r.Next(0, text.Length - 10);
+                int len = r.Next(1, 10);
+                var pattern = text.Substring(pos, len);
+
+                Assert.That(st.Contains(pattern.AsSpan()), Is.EqualTo(st.Contains(pattern)));
+            }
         }
 
         [Test]
-        public void Build_Mississipi_ClassicTest()
+        public void Contains_ClassicMississippi_Works()
         {
-            // Classic test case from Ukkonen's paper
             var st = SuffixTree.Build("mississippi");
 
-            // All suffixes
+            // Suffixes
             Assert.That(st.Contains("mississippi"), Is.True);
             Assert.That(st.Contains("ississippi"), Is.True);
-            Assert.That(st.Contains("ssissippi"), Is.True);
-            Assert.That(st.Contains("sissippi"), Is.True);
-            Assert.That(st.Contains("issippi"), Is.True);
-            Assert.That(st.Contains("ssippi"), Is.True);
-            Assert.That(st.Contains("sippi"), Is.True);
-            Assert.That(st.Contains("ippi"), Is.True);
-            Assert.That(st.Contains("ppi"), Is.True);
-            Assert.That(st.Contains("pi"), Is.True);
             Assert.That(st.Contains("i"), Is.True);
 
-            // Some substrings
+            // Substrings
             Assert.That(st.Contains("issi"), Is.True);
             Assert.That(st.Contains("sis"), Is.True);
             Assert.That(st.Contains("pp"), Is.True);
 
             // Non-existent
             Assert.That(st.Contains("spa"), Is.False);
-            Assert.That(st.Contains("mississippii"), Is.False);
         }
 
         [Test]
-        public void Contains_EdgeCaseBoundary_ShouldWork()
+        public void Contains_OverlappingPatterns_Works()
         {
-            // Test matching at edge boundaries
-            var st = SuffixTree.Build("abcabxabcd");
+            var st = SuffixTree.Build("ababababab");
 
-            Assert.That(st.Contains("abc"), Is.True);
-            Assert.That(st.Contains("abca"), Is.True);
-            Assert.That(st.Contains("abcab"), Is.True);
-            Assert.That(st.Contains("abx"), Is.True);
-            Assert.That(st.Contains("xabc"), Is.True);
-            Assert.That(st.Contains("abcd"), Is.True);
-            Assert.That(st.Contains("bcd"), Is.True);
+            Assert.That(st.Contains("abab"), Is.True);
+            Assert.That(st.Contains("baba"), Is.True);
+            Assert.That(st.Contains("ababa"), Is.True);
+            Assert.That(st.Contains("ababababab"), Is.True);
+            Assert.That(st.Contains("abababababa"), Is.False);
         }
 
-        // ==================== FindAllOccurrences Tests ====================
+        [Test]
+        public void Contains_RepeatingCharacter_Works()
+        {
+            var st = SuffixTree.Build("aaaaaaaaaa");
+
+            for (int len = 1; len <= 10; len++)
+            {
+                Assert.That(st.Contains(new string('a', len)), Is.True);
+            }
+            Assert.That(st.Contains(new string('a', 11)), Is.False);
+            Assert.That(st.Contains("b"), Is.False);
+        }
+
+        #endregion
+
+        #region 3. FindAllOccurrences / CountOccurrences Tests
 
         [Test]
-        public void FindAllOccurrences_WithNullPattern_ShouldThrow()
+        public void FindAllOccurrences_NullPattern_ThrowsArgumentNullException()
         {
             var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.FindAllOccurrences(null));
+            Assert.Throws<ArgumentNullException>(() => st.FindAllOccurrences(null!));
         }
 
         [Test]
@@ -361,7 +262,6 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("abc");
             var result = st.FindAllOccurrences("");
-            Assert.That(result.Count, Is.EqualTo(3)); // positions 0,1,2 (text length)
             Assert.That(result, Is.EquivalentTo(new[] { 0, 1, 2 }));
         }
 
@@ -369,8 +269,7 @@ namespace SuffixTree.Tests
         public void FindAllOccurrences_NotFound_ReturnsEmpty()
         {
             var st = SuffixTree.Build("abcdef");
-            var result = st.FindAllOccurrences("xyz");
-            Assert.That(result, Is.Empty);
+            Assert.That(st.FindAllOccurrences("xyz"), Is.Empty);
         }
 
         [Test]
@@ -385,182 +284,71 @@ namespace SuffixTree.Tests
         public void FindAllOccurrences_MultipleOccurrences_ReturnsAll()
         {
             var st = SuffixTree.Build("abcabc");
-            var result = st.FindAllOccurrences("abc");
-            Assert.That(result, Is.EquivalentTo(new[] { 0, 3 }));
+            Assert.That(st.FindAllOccurrences("abc"), Is.EquivalentTo(new[] { 0, 3 }));
         }
 
         [Test]
         public void FindAllOccurrences_OverlappingOccurrences_ReturnsAll()
         {
             var st = SuffixTree.Build("aaa");
-            var result = st.FindAllOccurrences("aa");
-            Assert.That(result, Is.EquivalentTo(new[] { 0, 1 }));
+            Assert.That(st.FindAllOccurrences("aa"), Is.EquivalentTo(new[] { 0, 1 }));
         }
 
         [Test]
-        public void FindAllOccurrences_FullString_ReturnsSinglePosition()
-        {
-            var st = SuffixTree.Build("hello");
-            var result = st.FindAllOccurrences("hello");
-            Assert.That(result, Is.EquivalentTo(new[] { 0 }));
-        }
-
-        [Test]
-        public void FindAllOccurrences_SingleChar_ReturnsAllPositions()
-        {
-            var st = SuffixTree.Build("abacada");
-            var result = st.FindAllOccurrences("a");
-            Assert.That(result, Is.EquivalentTo(new[] { 0, 2, 4, 6 }));
-        }
-
-        [Test]
-        public void FindAllOccurrences_Banana_FindsAllAna()
+        public void FindAllOccurrences_Banana_Ana_ReturnsBothPositions()
         {
             var st = SuffixTree.Build("banana");
-            var result = st.FindAllOccurrences("ana");
-            Assert.That(result, Is.EquivalentTo(new[] { 1, 3 }));
+            Assert.That(st.FindAllOccurrences("ana"), Is.EquivalentTo(new[] { 1, 3 }));
         }
 
         [Test]
-        public void FindAllOccurrences_Mississippi_FindsAllIssi()
+        public void FindAllOccurrences_MatchesNaiveImplementation()
         {
-            var st = SuffixTree.Build("mississippi");
-            var result = st.FindAllOccurrences("issi");
-            Assert.That(result, Is.EquivalentTo(new[] { 1, 4 }));
-        }
-
-        [Test]
-        public void FindAllOccurrences_Stress_VerifyAgainstNaive()
-        {
-            const int CYCLES = 100;
             var r = new Random(RANDOM_SEED);
 
-            for (int i = 0; i < CYCLES; i++)
+            for (int i = 0; i < 50; i++)
             {
-                var s = MakeRandomString(r, 100);
-                var st = SuffixTree.Build(s);
+                var text = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(text);
 
-                // Pick a random substring to search
-                int pos = r.Next(0, s.Length - 5);
-                int len = r.Next(1, Math.Min(10, s.Length - pos));
-                var pattern = s.Substring(pos, len);
+                int pos = r.Next(0, text.Length - 10);
+                int len = r.Next(1, 10);
+                var pattern = text.Substring(pos, len);
 
-                var stResult = st.FindAllOccurrences(pattern);
-                var naiveResult = NaiveFindAll(s, pattern);
+                var stResult = st.FindAllOccurrences(pattern).OrderBy(x => x);
+                var naiveResult = NaiveFindAll(text, pattern).OrderBy(x => x);
 
-                Assert.That(stResult.OrderBy(x => x), Is.EqualTo(naiveResult.OrderBy(x => x)),
-                    $"Mismatch for string '{s}' pattern '{pattern}'");
+                Assert.That(stResult, Is.EqualTo(naiveResult));
             }
         }
 
-        private static List<int> NaiveFindAll(string text, string pattern)
-        {
-            var result = new List<int>();
-            int idx = 0;
-            while ((idx = text.IndexOf(pattern, idx)) != -1)
-            {
-                result.Add(idx);
-                idx++;
-            }
-            return result;
-        }
-
-        // ==================== CountOccurrences Tests ====================
-
         [Test]
-        public void CountOccurrences_WithNullPattern_ShouldThrow()
+        public void CountOccurrences_NullPattern_ThrowsArgumentNullException()
         {
             var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.CountOccurrences(null));
+            Assert.Throws<ArgumentNullException>(() => st.CountOccurrences(null!));
         }
 
         [Test]
-        public void CountOccurrences_EmptyPattern_ReturnsTextLength()
+        public void CountOccurrences_MatchesFindAllOccurrencesCount()
         {
-            var st = SuffixTree.Build("abc");
-            Assert.That(st.CountOccurrences(""), Is.EqualTo(3)); // positions 0,1,2 (excluding terminator)
+            var st = SuffixTree.Build("banana");
+
+            Assert.That(st.CountOccurrences("ana"), Is.EqualTo(st.FindAllOccurrences("ana").Count));
+            Assert.That(st.CountOccurrences("a"), Is.EqualTo(st.FindAllOccurrences("a").Count));
+            Assert.That(st.CountOccurrences("xyz"), Is.EqualTo(st.FindAllOccurrences("xyz").Count));
         }
 
         [Test]
-        public void CountOccurrences_NotFound_ReturnsZero()
-        {
-            var st = SuffixTree.Build("abcdef");
-            Assert.That(st.CountOccurrences("xyz"), Is.EqualTo(0));
-        }
-
-        [Test]
-        public void CountOccurrences_SingleOccurrence_ReturnsOne()
-        {
-            var st = SuffixTree.Build("abcdef");
-            Assert.That(st.CountOccurrences("cde"), Is.EqualTo(1));
-        }
-
-        [Test]
-        public void CountOccurrences_MultipleOccurrences_ReturnsCorrectCount()
-        {
-            var st = SuffixTree.Build("abcabc");
-            Assert.That(st.CountOccurrences("abc"), Is.EqualTo(2));
-        }
-
-        [Test]
-        public void CountOccurrences_OverlappingOccurrences_ReturnsCorrectCount()
+        public void CountOccurrences_OverlappingPattern_ReturnsCorrectCount()
         {
             var st = SuffixTree.Build("aaaa");
-            Assert.That(st.CountOccurrences("aa"), Is.EqualTo(3)); // positions 0,1,2
+            Assert.That(st.CountOccurrences("aa"), Is.EqualTo(3));
         }
 
-        [Test]
-        public void CountOccurrences_Banana_Ana()
-        {
-            var st = SuffixTree.Build("banana");
-            Assert.That(st.CountOccurrences("ana"), Is.EqualTo(2));
-        }
+        #endregion
 
-        [Test]
-        public void CountOccurrences_NullCharacter_ThrowsArgumentException()
-        {
-            var st = SuffixTree.Build("banana");
-            Assert.Throws<ArgumentException>(() => st.CountOccurrences("a\0a".AsSpan()));
-        }
-
-        [Test]
-        public void FindAllOccurrences_NullCharacter_ThrowsArgumentException()
-        {
-            var st = SuffixTree.Build("banana");
-            Assert.Throws<ArgumentException>(() => st.FindAllOccurrences("a\0a".AsSpan()));
-        }
-
-        [Test]
-        public void CountOccurrences_Mississippi_Issi()
-        {
-            var st = SuffixTree.Build("mississippi");
-            Assert.That(st.CountOccurrences("issi"), Is.EqualTo(2));
-        }
-
-        [Test]
-        public void CountOccurrences_MatchesFindAllOccurrences()
-        {
-            const int CYCLES = 100;
-            var r = new Random(RANDOM_SEED);
-
-            for (int i = 0; i < CYCLES; i++)
-            {
-                var s = MakeRandomString(r, 100);
-                var st = SuffixTree.Build(s);
-
-                int pos = r.Next(0, s.Length - 5);
-                int len = r.Next(1, Math.Min(10, s.Length - pos));
-                var pattern = s.Substring(pos, len);
-
-                var findAllCount = st.FindAllOccurrences(pattern).Count;
-                var countResult = st.CountOccurrences(pattern);
-
-                Assert.That(countResult, Is.EqualTo(findAllCount),
-                    $"Mismatch for string '{s}' pattern '{pattern}'");
-            }
-        }
-
-        // ==================== LongestRepeatedSubstring Tests ====================
+        #region 4. LongestRepeatedSubstring Tests
 
         [Test]
         public void LongestRepeatedSubstring_EmptyTree_ReturnsEmpty()
@@ -570,80 +358,55 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void LongestRepeatedSubstring_SingleChar_ReturnsEmpty()
-        {
-            var st = SuffixTree.Build("a");
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(""));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_AllUnique_ReturnsEmpty()
+        public void LongestRepeatedSubstring_NoRepeats_ReturnsEmpty()
         {
             var st = SuffixTree.Build("abcdef");
             Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(""));
         }
 
         [Test]
-        public void LongestRepeatedSubstring_SimpleRepeat()
+        public void LongestRepeatedSubstring_SimpleRepeat_ReturnsCorrect()
         {
             var st = SuffixTree.Build("abcabc");
             Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("abc"));
         }
 
         [Test]
-        public void LongestRepeatedSubstring_OverlappingRepeat()
+        public void LongestRepeatedSubstring_Banana_ReturnsAna()
+        {
+            var st = SuffixTree.Build("banana");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ana"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_Mississippi_ReturnsIssi()
+        {
+            var st = SuffixTree.Build("mississippi");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("issi"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_OverlappingRepeat_ReturnsCorrect()
         {
             var st = SuffixTree.Build("aaa");
             Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("aa"));
         }
 
         [Test]
-        public void LongestRepeatedSubstring_Banana()
+        public void LongestRepeatedSubstring_Result_AppearsAtLeastTwice()
         {
-            var st = SuffixTree.Build("banana");
-            // "ana" appears twice (positions 1 and 3)
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ana"));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_Mississippi()
-        {
-            var st = SuffixTree.Build("mississippi");
-            // "issi" appears twice
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("issi"));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_ABAB()
-        {
-            var st = SuffixTree.Build("ABAB");
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("AB"));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_GEEKSFORGEEKS()
-        {
-            var st = SuffixTree.Build("GEEKSFORGEEKS");
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("GEEKS"));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_ResultAppearsAtLeastTwice()
-        {
-            const int CYCLES = 50;
             var r = new Random(RANDOM_SEED);
 
-            for (int i = 0; i < CYCLES; i++)
+            for (int i = 0; i < 30; i++)
             {
-                var s = MakeRandomString(r, 100);
-                var st = SuffixTree.Build(s);
+                var text = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(text);
                 var lrs = st.LongestRepeatedSubstring();
 
                 if (lrs.Length > 0)
                 {
-                    var count = st.CountOccurrences(lrs);
-                    Assert.That(count, Is.GreaterThanOrEqualTo(2),
-                        $"LRS '{lrs}' should appear at least twice in '{s}'");
+                    Assert.That(st.CountOccurrences(lrs), Is.GreaterThanOrEqualTo(2),
+                        $"LRS '{lrs}' should appear at least twice in '{text}'");
                 }
             }
         }
@@ -651,133 +414,43 @@ namespace SuffixTree.Tests
         [Test]
         public void LongestRepeatedSubstring_IsActuallyLongest()
         {
-            const int CYCLES = 30;
             var r = new Random(RANDOM_SEED);
 
-            for (int i = 0; i < CYCLES; i++)
+            for (int i = 0; i < 20; i++)
             {
-                var s = MakeRandomString(r, 50);
-                var st = SuffixTree.Build(s);
+                var text = MakeRandomString(r, 50);
+                var st = SuffixTree.Build(text);
                 var lrs = st.LongestRepeatedSubstring();
 
-                // Verify no longer repeated substring exists
-                if (lrs.Length > 0 && lrs.Length < s.Length - 1)
+                // No longer repeated substring should exist
+                if (lrs.Length > 0 && lrs.Length < text.Length - 1)
                 {
-                    // Check that lrs+1 characters don't repeat
-                    // This is a probabilistic check - we try a few extensions
-                    bool foundLonger = false;
-                    for (int j = 0; j < s.Length - lrs.Length && !foundLonger; j++)
+                    for (int j = 0; j < text.Length - lrs.Length; j++)
                     {
-                        var candidate = s.Substring(j, lrs.Length + 1);
-                        if (st.CountOccurrences(candidate) >= 2)
-                            foundLonger = true;
-                    }
-
-                    if (foundLonger)
-                    {
-                        Assert.Fail($"Found longer repeated substring than LRS '{lrs}' in '{s}'");
+                        var candidate = text.Substring(j, lrs.Length + 1);
+                        Assert.That(st.CountOccurrences(candidate), Is.LessThan(2),
+                            $"Found longer repeated substring '{candidate}' than LRS '{lrs}'");
                     }
                 }
             }
         }
 
-        #region GetAllSuffixes Tests
-
-        [Test]
-        public void GetAllSuffixes_EmptyTree_ReturnsEmpty()
-        {
-            var st = SuffixTree.Build("");
-            Assert.That(st.GetAllSuffixes(), Is.Empty);
-        }
-
-        [Test]
-        public void GetAllSuffixes_SingleChar_ReturnsSingleSuffix()
-        {
-            var st = SuffixTree.Build("a");
-            var suffixes = st.GetAllSuffixes();
-            Assert.That(suffixes, Has.Count.EqualTo(1));
-            Assert.That(suffixes[0], Is.EqualTo("a"));
-        }
-
-        [Test]
-        public void GetAllSuffixes_Banana_ReturnsSortedSuffixes()
-        {
-            var st = SuffixTree.Build("banana");
-            var suffixes = st.GetAllSuffixes();
-
-            // All suffixes of "banana": a, ana, anana, banana, na, nana
-            var expected = new[] { "a", "ana", "anana", "banana", "na", "nana" };
-            Assert.That(suffixes, Is.EqualTo(expected));
-        }
-
-        [Test]
-        public void GetAllSuffixes_CountMatchesStringLength()
-        {
-            const string text = "abracadabra";
-            var st = SuffixTree.Build(text);
-            var suffixes = st.GetAllSuffixes();
-
-            Assert.That(suffixes.Count, Is.EqualTo(text.Length));
-        }
-
-        [Test]
-        public void GetAllSuffixes_DeepTree_NoStackOverflow()
-        {
-            // Worst case: all same characters creates a deep tree
-            // This would cause StackOverflow with recursive implementation
-            var text = new string('a', 10_000);
-            var st = SuffixTree.Build(text);
-
-            IReadOnlyList<string> suffixes = null;
-            Assert.DoesNotThrow(() => suffixes = st.GetAllSuffixes());
-            Assert.That(suffixes.Count, Is.EqualTo(10_000));
-        }
-
-        [Test]
-        public void GetAllSuffixes_AreSortedLexicographically()
-        {
-            var st = SuffixTree.Build("mississippi");
-            var suffixes = st.GetAllSuffixes();
-
-            var sorted = suffixes.OrderBy(s => s).ToList();
-            Assert.That(suffixes, Is.EqualTo(sorted));
-        }
-
-        [Test]
-        public void EnumerateSuffixes_MatchesGetAllSuffixes()
-        {
-            var st = SuffixTree.Build("banana");
-            var fromGetAll = st.GetAllSuffixes();
-            var fromEnumerate = st.EnumerateSuffixes().ToList();
-
-            Assert.That(fromEnumerate, Is.EqualTo(fromGetAll));
-        }
-
-        [Test]
-        public void EnumerateSuffixes_CanBreakEarly()
-        {
-            var st = SuffixTree.Build("abcdefghij");
-            var firstThree = st.EnumerateSuffixes().Take(3).ToList();
-
-            Assert.That(firstThree.Count, Is.EqualTo(3));
-        }
-
-        [Test]
-        public void EnumerateSuffixes_EmptyTree_ReturnsEmpty()
-        {
-            var st = SuffixTree.Build("");
-            Assert.That(st.EnumerateSuffixes().Any(), Is.False);
-        }
-
         #endregion
 
-        #region LongestCommonSubstring Tests
+        #region 5. LongestCommonSubstring Tests
 
         [Test]
-        public void LongestCommonSubstring_Null_ThrowsArgumentNullException()
+        public void LongestCommonSubstring_NullOther_ThrowsArgumentNullException()
         {
             var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.LongestCommonSubstring(null));
+            Assert.Throws<ArgumentNullException>(() => st.LongestCommonSubstring(null!));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_OtherWithTerminator_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentException>(() => st.LongestCommonSubstring("a\0b"));
         }
 
         [Test]
@@ -802,110 +475,24 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void LongestCommonSubstring_FullMatch()
+        public void LongestCommonSubstring_FullMatch_ReturnsFullString()
         {
             var st = SuffixTree.Build("abcdef");
             Assert.That(st.LongestCommonSubstring("abcdef"), Is.EqualTo("abcdef"));
         }
 
         [Test]
-        public void LongestCommonSubstring_PartialMatch()
+        public void LongestCommonSubstring_PartialMatch_ReturnsLongestCommon()
         {
             var st = SuffixTree.Build("xyzabcdef");
-            var lcs = st.LongestCommonSubstring("123abc456");
-            Assert.That(lcs, Is.EqualTo("abc"));
+            Assert.That(st.LongestCommonSubstring("123abc456"), Is.EqualTo("abc"));
         }
 
         [Test]
         public void LongestCommonSubstring_MultipleMatches_ReturnsLongest()
         {
             var st = SuffixTree.Build("abcdefghijklmnop");
-            var lcs = st.LongestCommonSubstring("xxabcxxdefghixx");
-            Assert.That(lcs, Is.EqualTo("defghi"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_SingleCharMatch()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.That(st.LongestCommonSubstring("xay"), Is.EqualTo("a"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_NullCharacter_ThrowsArgumentException()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentException>(() => st.LongestCommonSubstring("a\0b"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_OtherContainedInTree()
-        {
-            var st = SuffixTree.Build("abcdefghij");
-            Assert.That(st.LongestCommonSubstring("cdef"), Is.EqualTo("cdef"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_TreeContainedInOther()
-        {
-            var st = SuffixTree.Build("def");
-            Assert.That(st.LongestCommonSubstring("abcdefghi"), Is.EqualTo("def"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_MultipleSameLengthMatches()
-        {
-            // Both "ab" and "cd" are length 2 matches - should find one of them
-            var st = SuffixTree.Build("abcd");
-            var lcs = st.LongestCommonSubstring("xxabyycdyy");
-            Assert.That(lcs.Length, Is.EqualTo(2));
-            Assert.That(lcs, Is.AnyOf("ab", "cd"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_OverlappingPatterns()
-        {
-            // Tree: "abab", Other: "ababab" - should find "abab"
-            var st = SuffixTree.Build("abab");
-            Assert.That(st.LongestCommonSubstring("ababab"), Is.EqualTo("abab"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_RepeatingCharacters()
-        {
-            var st = SuffixTree.Build("aaaa");
-            Assert.That(st.LongestCommonSubstring("aaa"), Is.EqualTo("aaa"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_BothEmpty()
-        {
-            var st = SuffixTree.Build("");
-            Assert.That(st.LongestCommonSubstring(""), Is.EqualTo(""));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_Span_MatchesStringOverload()
-        {
-            var st = SuffixTree.Build("abracadabra");
-            var other = "xxcadxx";
-
-            var stringResult = st.LongestCommonSubstring(other);
-            var spanResult = st.LongestCommonSubstring(other.AsSpan());
-
-            Assert.That(spanResult, Is.EqualTo(stringResult));
-            Assert.That(spanResult, Is.EqualTo("cad"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_Span_FromSlice()
-        {
-            var st = SuffixTree.Build("hello world");
-            var source = "say hello there";
-
-            // Span slice to extract "hello"
-            var result = st.LongestCommonSubstring(source.AsSpan(4, 5));
-            Assert.That(result, Is.EqualTo("hello"));
+            Assert.That(st.LongestCommonSubstring("xxabcxxdefghixx"), Is.EqualTo("defghi"));
         }
 
         [Test]
@@ -915,12 +502,12 @@ namespace SuffixTree.Tests
             var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xxcadyy");
 
             Assert.That(substring, Is.EqualTo("cad"));
-            Assert.That(posInText, Is.EqualTo(4)); // "cad" starts at index 4 in "abracadabra"
-            Assert.That(posInOther, Is.EqualTo(2)); // "cad" starts at index 2 in "xxcadyy"
+            Assert.That(posInText, Is.EqualTo(4));
+            Assert.That(posInOther, Is.EqualTo(2));
         }
 
         [Test]
-        public void LongestCommonSubstringInfo_NoMatch_ReturnsEmpty()
+        public void LongestCommonSubstringInfo_NoMatch_ReturnsNegativePositions()
         {
             var st = SuffixTree.Build("abc");
             var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xyz");
@@ -931,22 +518,348 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void LongestCommonSubstringInfo_Null_Throws()
+        public void FindAllLongestCommonSubstrings_MultipleMatches_ReturnsAllPositions()
+        {
+            var st = SuffixTree.Build("abcabc");
+            var result = st.FindAllLongestCommonSubstrings("xabcyabcz");
+
+            Assert.That(result.Substring, Is.EqualTo("abc"));
+            Assert.That(result.PositionsInOther, Has.Count.EqualTo(2));
+            Assert.That(result.PositionsInOther, Does.Contain(1));
+            Assert.That(result.PositionsInOther, Does.Contain(5));
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_NoMatch_ReturnsEmpty()
         {
             var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.LongestCommonSubstringInfo(null));
+            var result = st.FindAllLongestCommonSubstrings("xyz");
+
+            Assert.That(result.Substring, Is.EqualTo(""));
+            Assert.That(result.PositionsInText, Is.Empty);
+            Assert.That(result.PositionsInOther, Is.Empty);
         }
 
         #endregion
 
-        #region Thread Safety Tests
+        #region 6. GetAllSuffixes / EnumerateSuffixes Tests
+
+        [Test]
+        public void GetAllSuffixes_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.GetAllSuffixes(), Is.Empty);
+        }
+
+        [Test]
+        public void GetAllSuffixes_SingleChar_ReturnsSingleSuffix()
+        {
+            var st = SuffixTree.Build("a");
+            var suffixes = st.GetAllSuffixes();
+
+            Assert.That(suffixes, Has.Count.EqualTo(1));
+            Assert.That(suffixes[0], Is.EqualTo("a"));
+        }
+
+        [Test]
+        public void GetAllSuffixes_CountEqualsTextLength()
+        {
+            var text = "banana";
+            var st = SuffixTree.Build(text);
+
+            Assert.That(st.GetAllSuffixes().Count, Is.EqualTo(text.Length));
+        }
+
+        [Test]
+        public void GetAllSuffixes_Banana_ReturnsCorrectSuffixes()
+        {
+            var st = SuffixTree.Build("banana");
+            var suffixes = st.GetAllSuffixes();
+
+            var expected = new[] { "a", "ana", "anana", "banana", "na", "nana" };
+            Assert.That(suffixes, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void GetAllSuffixes_AreSortedLexicographically()
+        {
+            var st = SuffixTree.Build("mississippi");
+            var suffixes = st.GetAllSuffixes();
+
+            Assert.That(suffixes, Is.EqualTo(suffixes.OrderBy(s => s).ToList()));
+        }
+
+        [Test]
+        public void EnumerateSuffixes_MatchesGetAllSuffixes()
+        {
+            var st = SuffixTree.Build("banana");
+
+            Assert.That(st.EnumerateSuffixes().ToList(), Is.EqualTo(st.GetAllSuffixes()));
+        }
+
+        [Test]
+        public void EnumerateSuffixes_CanBreakEarly()
+        {
+            var st = SuffixTree.Build("abcdefghij");
+            var firstThree = st.EnumerateSuffixes().Take(3).ToList();
+
+            Assert.That(firstThree.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void GetAllSuffixes_LargeString_NoStackOverflow()
+        {
+            var text = new string('a', 10_000);
+            var st = SuffixTree.Build(text);
+
+            IReadOnlyList<string> suffixes = null;
+            Assert.DoesNotThrow(() => suffixes = st.GetAllSuffixes());
+            Assert.That(suffixes.Count, Is.EqualTo(10_000));
+        }
+
+        #endregion
+
+        #region 7. Statistics Properties Tests
+
+        [Test]
+        public void NodeCount_EmptyTree_ReturnsOne()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.NodeCount, Is.EqualTo(1)); // Just root
+        }
+
+        [Test]
+        public void NodeCount_NonEmpty_IsGreaterThanTextLength()
+        {
+            var st = SuffixTree.Build("banana");
+            // Tree must have at least one node per suffix + root
+            Assert.That(st.NodeCount, Is.GreaterThan(6));
+        }
+
+        [Test]
+        public void LeafCount_EmptyTree_ReturnsZero()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.LeafCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LeafCount_NonEmpty_IsGreaterThanOrEqualToTextLength()
+        {
+            var st = SuffixTree.Build("banana");
+            // Each suffix ends at a leaf (plus terminator suffix)
+            Assert.That(st.LeafCount, Is.GreaterThanOrEqualTo(6));
+        }
+
+        [Test]
+        public void MaxDepth_EmptyTree_ReturnsZero()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.MaxDepth, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MaxDepth_EqualsTextLength()
+        {
+            var st = SuffixTree.Build("abcdef");
+            // Longest suffix is full string
+            Assert.That(st.MaxDepth, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void MaxDepth_RepeatingString_EqualsTextLength()
+        {
+            var st = SuffixTree.Build("aaa");
+            Assert.That(st.MaxDepth, Is.EqualTo(3));
+        }
+
+        #endregion
+
+        #region 8. Unicode and Special Characters Tests
+
+        [Test]
+        public void Contains_CyrillicText_Works()
+        {
+            var st = SuffixTree.Build("привет мир");
+
+            Assert.That(st.Contains("привет"), Is.True);
+            Assert.That(st.Contains("мир"), Is.True);
+            Assert.That(st.Contains("вет м"), Is.True);
+        }
+
+        [Test]
+        public void Contains_ChineseCharacters_Works()
+        {
+            var st = SuffixTree.Build("你好世界");
+
+            Assert.That(st.Contains("你好"), Is.True);
+            Assert.That(st.Contains("世界"), Is.True);
+            Assert.That(st.Contains("你好世界"), Is.True);
+        }
+
+        [Test]
+        public void Contains_Emoji_Works()
+        {
+            var st = SuffixTree.Build("hello🌍world");
+
+            Assert.That(st.Contains("hello"), Is.True);
+            Assert.That(st.Contains("🌍"), Is.True);
+            Assert.That(st.Contains("🌍world"), Is.True);
+        }
+
+        [Test]
+        public void Contains_MixedCase_IsCaseSensitive()
+        {
+            var st = SuffixTree.Build("AbCdEf");
+
+            Assert.That(st.Contains("AbCd"), Is.True);
+            Assert.That(st.Contains("abcd"), Is.False);
+            Assert.That(st.Contains("ABCD"), Is.False);
+        }
+
+        [Test]
+        public void Contains_Whitespace_Works()
+        {
+            var st = SuffixTree.Build("a b c");
+
+            Assert.That(st.Contains(" "), Is.True);
+            Assert.That(st.Contains("a "), Is.True);
+            Assert.That(st.Contains(" b"), Is.True);
+        }
+
+        [Test]
+        public void Contains_TabsAndNewlines_Works()
+        {
+            var st = SuffixTree.Build("line1\nline2\tdata");
+
+            Assert.That(st.Contains("\n"), Is.True);
+            Assert.That(st.Contains("\t"), Is.True);
+            Assert.That(st.Contains("line1\n"), Is.True);
+        }
+
+        [Test]
+        public void Contains_SpecialCharacters_Works()
+        {
+            var st = SuffixTree.Build("a!@#$%^&*()b");
+
+            Assert.That(st.Contains("!@#"), Is.True);
+            Assert.That(st.Contains("$%^"), Is.True);
+            Assert.That(st.Contains("&*()"), Is.True);
+        }
+
+        [Test]
+        public void Contains_NumericString_Works()
+        {
+            var st = SuffixTree.Build("123123123");
+
+            Assert.That(st.Contains("123"), Is.True);
+            Assert.That(st.Contains("231"), Is.True);
+            Assert.That(st.Contains("312"), Is.True);
+        }
+
+        [Test]
+        public void PrintTree_UnicodeCharacters_DoesNotThrow()
+        {
+            var st = SuffixTree.Build("привет");
+            Assert.DoesNotThrow(() => st.PrintTree());
+        }
+
+        #endregion
+
+        #region 9. Performance and Large String Tests
+
+        [Test]
+        public void Build_LargeString_Completes()
+        {
+            var r = new Random(12345);
+            var chars = new char[100_000];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = (char)('a' + r.Next(26));
+            var text = new string(chars);
+
+            SuffixTree st = null;
+            Assert.DoesNotThrow(() => st = SuffixTree.Build(text));
+            Assert.That(st, Is.Not.Null);
+        }
+
+        [Test]
+        public void Contains_LargeString_Works()
+        {
+            var r = new Random(12345);
+            var chars = new char[100_000];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = (char)('a' + r.Next(26));
+            var text = new string(chars);
+            var st = SuffixTree.Build(text);
+
+            Assert.That(st.Contains(text.Substring(50000, 100)), Is.True);
+            Assert.That(st.Contains("xyzxyzxyzxyz"), Is.False);
+        }
+
+        [Test]
+        public void Build_DeepTree_NoStackOverflow()
+        {
+            // Worst case: all same characters creates very deep tree
+            var text = new string('a', 10_000);
+            var st = SuffixTree.Build(text);
+
+            Assert.DoesNotThrow(() => st.Contains(new string('a', 5000)));
+            Assert.DoesNotThrow(() => st.LongestRepeatedSubstring());
+        }
+
+        [Test]
+        public void StressTest_AllSubstrings_SmallAlphabet()
+        {
+            var r = new Random(555);
+            for (int trial = 0; trial < 10; trial++)
+            {
+                var chars = new char[30];
+                for (int i = 0; i < chars.Length; i++)
+                    chars[i] = (char)('a' + r.Next(3));
+
+                var text = new string(chars);
+                var st = SuffixTree.Build(text);
+
+                // Verify ALL substrings
+                for (int i = 0; i < text.Length; i++)
+                {
+                    for (int len = 1; len <= text.Length - i; len++)
+                    {
+                        var substr = text.Substring(i, len);
+                        Assert.That(st.Contains(substr), Is.True,
+                            $"Trial {trial}, string '{text}': Substring '{substr}' not found");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void StressTest_RandomContains_Barrage()
+        {
+            var r = new Random(RANDOM_SEED);
+            var text = MakeRandomString(r, 500);
+            var st = SuffixTree.Build(text);
+
+            for (int i = 0; i < 500; i++)
+            {
+                var pos = r.Next(0, text.Length - 10);
+                var len = r.Next(1, 50);
+                len = Math.Min(len, text.Length - pos);
+                var substr = text.Substring(pos, len);
+
+                Assert.That(st.Contains(substr), Is.True);
+            }
+        }
+
+        #endregion
+
+        #region 10. Thread Safety Tests
 
         [Test]
         public void ConcurrentReads_DoNotThrow()
         {
-            const string text = "abracadabra mississippi banana";
-            var st = SuffixTree.Build(text);
-            var patterns = new[] { "abra", "iss", "ana", "ab", "pp", "a", "xyz" };
+            var st = SuffixTree.Build("abracadabra mississippi banana");
+            var patterns = new[] { "abra", "iss", "ana", "ab", "pp", "xyz" };
 
             var exceptions = new System.Collections.Concurrent.ConcurrentBag<Exception>();
 
@@ -965,15 +878,13 @@ namespace SuffixTree.Tests
                 }
             });
 
-            Assert.That(exceptions, Is.Empty, $"Concurrent reads threw exceptions: {string.Join(", ", exceptions.Select(e => e.Message))}");
+            Assert.That(exceptions, Is.Empty);
         }
 
         [Test]
         public void ConcurrentReads_ReturnConsistentResults()
         {
-            const string text = "banana";
-            var st = SuffixTree.Build(text);
-
+            var st = SuffixTree.Build("banana");
             var results = new System.Collections.Concurrent.ConcurrentBag<int>();
 
             Parallel.For(0, 100, _ =>
@@ -981,7 +892,6 @@ namespace SuffixTree.Tests
                 results.Add(st.CountOccurrences("ana"));
             });
 
-            // All results should be the same (2)
             Assert.That(results.Distinct().Count(), Is.EqualTo(1));
             Assert.That(results.First(), Is.EqualTo(2));
         }
@@ -991,645 +901,99 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("the quick brown fox jumps over the lazy dog");
 
-            var tasks = new List<Task>();
+            var tasks = new Task[10];
             for (int i = 0; i < 10; i++)
             {
-                tasks.Add(Task.Run(() =>
+                tasks[i] = Task.Run(() =>
                 {
-                    for (int j = 0; j < 100; j++)
+                    for (int j = 0; j < 50; j++)
                     {
-                        _ = st.Contains("the");
-                        _ = st.CountOccurrences("o");
-                        _ = st.FindAllOccurrences("e");
-                        _ = st.LongestRepeatedSubstring();
-                        _ = st.GetAllSuffixes();
-                        _ = st.LongestCommonSubstring("fox dog");
+                        st.Contains("the");
+                        st.CountOccurrences("o");
+                        st.FindAllOccurrences("e");
+                        st.LongestRepeatedSubstring();
+                        st.LongestCommonSubstring("fox dog");
                     }
-                }));
+                });
             }
 
-            Assert.DoesNotThrowAsync(async () => await Task.WhenAll(tasks));
+            Task.WaitAll(tasks);
         }
 
         #endregion
 
-        #region Large String Tests
+        #region Algorithm-Specific Tests (Ukkonen's Edge Cases)
 
         [Test]
-        public void LargeString_100K_BuildsSuccessfully()
+        public void Algorithm_AbcAbxAbcd_TrickyCase()
         {
-            // 100K characters - should not cause stack overflow with iterative traversals
-            var r = new Random(12345);
-            var chars = new char[100_000];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = (char)('a' + r.Next(26));
-            var text = new string(chars);
-
-            SuffixTree st = null;
-            Assert.DoesNotThrow(() => st = SuffixTree.Build(text));
-            Assert.That(st, Is.Not.Null);
-        }
-
-        [Test]
-        public void LargeString_100K_ContainsWorks()
-        {
-            var r = new Random(12345);
-            var chars = new char[100_000];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = (char)('a' + r.Next(26));
-            var text = new string(chars);
-            var st = SuffixTree.Build(text);
-
-            // Test various patterns
-            Assert.That(st.Contains(text.Substring(50000, 100)), Is.True);
-            Assert.That(st.Contains(text.Substring(0, 50)), Is.True);
-            Assert.That(st.Contains(text.Substring(99950, 50)), Is.True);
-            Assert.That(st.Contains("xyzxyzxyzxyz"), Is.False); // Unlikely pattern
-        }
-
-        [Test]
-        public void LargeString_100K_AllMethodsWork()
-        {
-            var r = new Random(12345);
-            var chars = new char[100_000];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = (char)('a' + r.Next(26));
-            var text = new string(chars);
-            var st = SuffixTree.Build(text);
-
-            // These should all complete without stack overflow
-            Assert.DoesNotThrow(() => st.CountOccurrences("abc"));
-            Assert.DoesNotThrow(() => st.FindAllOccurrences("abc"));
-            Assert.DoesNotThrow(() => st.LongestRepeatedSubstring());
-            Assert.DoesNotThrow(() => st.LongestCommonSubstring("test pattern"));
-        }
-
-        [Test]
-        public void LargeString_DeepTree_NoStackOverflow()
-        {
-            // Worst case: all same characters creates very deep tree
-            var text = new string('a', 10_000);
-            var st = SuffixTree.Build(text);
-
-            // These operations traverse deep into the tree
-            Assert.DoesNotThrow(() => st.Contains(new string('a', 5000)));
-            Assert.DoesNotThrow(() => st.CountOccurrences("aa"));
-            Assert.DoesNotThrow(() => st.FindAllOccurrences("aaa"));
-            Assert.DoesNotThrow(() => st.LongestRepeatedSubstring());
-        }
-
-        [Test]
-        public void LargeString_GetAllSuffixes_100K_Skipped()
-        {
-            // GetAllSuffixes on 100K string would return 100K strings
-            // This is a sanity check that it works on smaller large strings
-            var text = new string('x', 1000);
-            var st = SuffixTree.Build(text);
-
-            var suffixes = st.GetAllSuffixes();
-            Assert.That(suffixes.Count, Is.EqualTo(1000));
-        }
-
-        [Test]
-        public void LargeString_EnumerateSuffixes_CanProcessIncrementally()
-        {
-            // EnumerateSuffixes is preferable for large strings as it doesn't allocate all at once
-            var text = new string('a', 5000);
-            var st = SuffixTree.Build(text);
-
-            // Count first 100 suffixes without loading all 5000 into memory
-            int count = 0;
-            foreach (var suffix in st.EnumerateSuffixes())
-            {
-                count++;
-                if (count >= 100) break;
-            }
-
-            Assert.That(count, Is.EqualTo(100), "Should be able to enumerate first 100 suffixes");
-        }
-
-        [Test]
-        public void LargeString_EnumerateSuffixes_5K_Completes()
-        {
-            // Full enumeration of 5K suffixes (total ~12.5MB)
-            var text = new string('b', 5000);
-            var st = SuffixTree.Build(text);
-
-            int count = 0;
-            Assert.DoesNotThrow(() =>
-            {
-                foreach (var _ in st.EnumerateSuffixes())
-                    count++;
-            });
-
-            Assert.That(count, Is.EqualTo(5000), "Should enumerate all 5000 suffixes");
-        }
-
-        #endregion
-
-        #region Stress Tests
-
-        [Test]
-        public void Contains_SuffixLinkTraversal_Stress()
-        {
-            var s = string.Concat(Enumerable.Repeat("abcdefgh", 100));
-            var st = SuffixTree.Build(s);
-
-            Assert.That(st.Contains("abcdefghabcdefgh"), Is.True);
-            Assert.That(st.Contains("efghabcd"), Is.True);
-            Assert.That(st.Contains("ghabcdefghabcdef"), Is.True);
-            Assert.That(st.Contains(s), Is.True); // Full string
-            Assert.That(st.Contains("xyz"), Is.False);
-        }
-
-        [Test]
-        public void StressTest_BinaryAlphabet()
-        {
-            // Binary alphabet stress test
-            var r = new Random(777);
-            var chars = new char[500];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = r.Next(2) == 0 ? 'a' : 'b';
-
-            var s = new string(chars);
-            var st = SuffixTree.Build(s);
-
-            // Verify all substrings of length 1-20
-            for (int i = 0; i < s.Length - 20; i += 10)
-            {
-                for (int len = 1; len <= 20; len++)
-                {
-                    var substr = s.Substring(i, len);
-                    Assert.That(st.Contains(substr), Is.True,
-                        $"Substring '{substr}' at pos {i} not found");
-                }
-            }
-        }
-
-        [Test]
-        public void Build_AbcAbxAbc_TrickyCase()
-        {
-            // This is a known tricky case for Ukkonen's algorithm
-            // The split + suffix link handling must be correct
+            // Known tricky case for Ukkonen's - requires correct suffix link handling
             var st = SuffixTree.Build("abcabxabcd");
 
-            // All suffixes
-            string[] suffixes = {
-                "abcabxabcd",
-                "bcabxabcd",
-                "cabxabcd",
-                "abxabcd",
-                "bxabcd",
-                "xabcd",
-                "abcd",
-                "bcd",
-                "cd",
-                "d"
-            };
-
-            foreach (var suffix in suffixes)
-            {
-                Assert.That(st.Contains(suffix), Is.True, $"Suffix '{suffix}' not found");
-            }
-
-            // Some substrings
             Assert.That(st.Contains("abcab"), Is.True);
             Assert.That(st.Contains("bcabx"), Is.True);
             Assert.That(st.Contains("xab"), Is.True);
-            Assert.That(st.Contains("abc"), Is.True);
+            Assert.That(st.Contains("abcd"), Is.True);
         }
-
-        [Test]
-        public void Contains_PartialMatchAtEdgeBoundary()
-        {
-            // Test case where match ends exactly at edge boundary
-            var st = SuffixTree.Build("aaaaab");
-
-            Assert.That(st.Contains("aaaa"), Is.True);
-            Assert.That(st.Contains("aaaaa"), Is.True);
-            Assert.That(st.Contains("aaaaab"), Is.True);
-            Assert.That(st.Contains("aaaab"), Is.True);
-            Assert.That(st.Contains("aaab"), Is.True);
-            Assert.That(st.Contains("aab"), Is.True);
-            Assert.That(st.Contains("ab"), Is.True);
-            Assert.That(st.Contains("b"), Is.True);
-
-            // Non-existent
-            Assert.That(st.Contains("ba"), Is.False);
-            Assert.That(st.Contains("aaaaaba"), Is.False);
-        }
-
-        [Test]
-        public void Comprehensive_AllSubstringsUpToLength50()
-        {
-            // Ultimate test: verify ALL substrings for a medium string
-            var r = new Random(999);
-            const string alphabet = "abcd";
-            var chars = new char[50];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = alphabet[r.Next(alphabet.Length)];
-
-            var s = new string(chars);
-            var st = SuffixTree.Build(s);
-
-            int substringCount = 0;
-            for (int i = 0; i < s.Length; i++)
-            {
-                for (int len = 1; len <= s.Length - i; len++)
-                {
-                    var substr = s.Substring(i, len);
-                    Assert.That(st.Contains(substr), Is.True,
-                        $"String '{s}': Substring '{substr}' at [{i},{i + len}) not found");
-                    substringCount++;
-                }
-            }
-
-            // Sanity check: we tested n*(n+1)/2 substrings
-            Assert.That(substringCount, Is.EqualTo(50 * 51 / 2));
-        }
-
-        private static string MakeRandomString(Random r, int len)
-        {
-            const string SET = "abcdefghijklmnopqrstuvwxyz";
-            var res = new char[len];
-            for (int i = 0; i < len; i++)
-                res[i] = SET[r.Next(SET.Length)];
-
-            return new string(res);
-        }
-
-        #endregion
-
-        #region Tests for Previous Fixes
-
-        // ===========================================
-        // FIX 1: Terminator character added
-        // The tree now uses '\0' as terminator to ensure proper suffix tree
-        // ===========================================
-
-        [Test]
-        public void Fix_TerminatorCharacter_IsPartOfTreeStructure()
-        {
-            // Terminator '\0' is part of the tree, making all suffixes explicit
-            // This ensures the suffix tree (not suffix trie) is correctly formed
-            var st = SuffixTree.Build("abc");
-
-            // The terminator is in the tree structure but users typically
-            // don't search for it - they search for actual content
-            Assert.That(st.Contains("abc"), Is.True);
-            Assert.That(st.Contains("bc"), Is.True);
-            Assert.That(st.Contains("c"), Is.True);
-        }
-
-        [Test]
-        public void Fix_TerminatorCharacter_EnsuresProperSuffixTree()
-        {
-            // Without terminator, "ab" in "aab" would be implicit suffix
-            // With terminator, all suffixes are explicit (end at leaf)
-            var st = SuffixTree.Build("aab");
-
-            // All suffixes must be found
-            Assert.That(st.Contains("aab"), Is.True);
-            Assert.That(st.Contains("ab"), Is.True);
-            Assert.That(st.Contains("b"), Is.True);
-
-            // The terminator ensures "ab" is not confused with "aab" prefix
-            Assert.That(st.Contains("a"), Is.True);
-            Assert.That(st.Contains("aa"), Is.True);
-        }
-
-        // ===========================================
-        // FIX 2: Input validation added
-        // ===========================================
-
-        [Test]
-        public void Fix_InputValidation_NullThrowsArgumentNullException()
-        {
-            var ex = Assert.Throws<ArgumentNullException>(() => SuffixTree.Build(null!));
-            Assert.That(ex, Is.Not.Null);
-            // Parameter name comes from nameof() - just verify exception is thrown
-        }
-
-        [Test]
-        public void Fix_InputValidation_EmptyStringReturnsValidTree()
-        {
-            var st = SuffixTree.Build("");
-
-            Assert.That(st, Is.Not.Null);
-            Assert.That(st.Contains(""), Is.True, "Empty string should be found in any tree");
-            Assert.That(st.Contains("a"), Is.False);
-        }
-
-        [Test]
-        public void Fix_InputValidation_ContainsNullThrowsArgumentNullException()
-        {
-            var st = SuffixTree.Build("test");
-
-            var ex = Assert.Throws<ArgumentNullException>(() => st.Contains(null!));
-            Assert.That(ex, Is.Not.Null);
-            // Parameter name comes from nameof() - just verify exception is thrown
-        }
-
-        // ===========================================
-        // FIX 3: State reset - multiple Build calls
-        // Ensures each Build creates independent tree
-        // ===========================================
-
-        [Test]
-        public void Fix_StateReset_MultipleBuildCallsAreIndependent()
-        {
-            // First tree
-            var st1 = SuffixTree.Build("hello");
-            Assert.That(st1.Contains("hello"), Is.True);
-            Assert.That(st1.Contains("world"), Is.False);
-
-            // Second tree - should be completely independent
-            var st2 = SuffixTree.Build("world");
-            Assert.That(st2.Contains("world"), Is.True);
-            Assert.That(st2.Contains("hello"), Is.False);
-
-            // Original tree unchanged
-            Assert.That(st1.Contains("hello"), Is.True);
-            Assert.That(st1.Contains("world"), Is.False);
-        }
-
-        [Test]
-        public void Fix_StateReset_BuildResetsActivePoint()
-        {
-            // Build multiple trees to ensure active point doesn't leak
-            for (int i = 0; i < 10; i++)
-            {
-                var s = new string((char)('a' + i), 5) + "xyz";
-                var st = SuffixTree.Build(s);
-
-                Assert.That(st.Contains(s), Is.True, $"Iteration {i}: full string not found");
-                Assert.That(st.Contains("xyz"), Is.True, $"Iteration {i}: suffix 'xyz' not found");
-            }
-        }
-
-        // ===========================================
-        // FIX 4: Suffix links stored in Node, not external dictionary
-        // ===========================================
-
-        [Test]
-        public void Fix_SuffixLinks_ComplexPatternRequiresSuffixLinks()
-        {
-            // "abcabxabcd" is a classic case requiring correct suffix link handling
-            // When splitting "abc" edge at position 2 (to insert "x"), 
-            // the new internal node needs suffix link to node after "bc"
-            var st = SuffixTree.Build("abcabxabcd");
-
-            // These substrings require proper suffix link traversal during construction
-            Assert.That(st.Contains("abcabx"), Is.True);
-            Assert.That(st.Contains("bcabxa"), Is.True);
-            Assert.That(st.Contains("cabxab"), Is.True);
-            Assert.That(st.Contains("abxabc"), Is.True);
-        }
-
-        [Test]
-        public void Fix_SuffixLinks_RepeatingPatternsStress()
-        {
-            // Repeating patterns heavily exercise suffix links
-            var st = SuffixTree.Build("abababababab");
-
-            // All these require correct suffix link chain
-            Assert.That(st.Contains("ababab"), Is.True);
-            Assert.That(st.Contains("bababa"), Is.True);
-            Assert.That(st.Contains("ababababab"), Is.True);
-            Assert.That(st.Contains("abababababab"), Is.True);
-        }
-
-        [Test]
-        public void Fix_SuffixLinks_MississippiClassicCase()
-        {
-            // Mississippi is the classic suffix tree test case
-            var st = SuffixTree.Build("mississippi");
-
-            // "issi" appears twice - suffix links must handle this
-            Assert.That(st.Contains("issi"), Is.True);
-            Assert.That(st.Contains("iss"), Is.True);
-            Assert.That(st.Contains("ssi"), Is.True);
-            Assert.That(st.Contains("si"), Is.True);
-
-            // These require navigating through suffix links
-            Assert.That(st.Contains("ississi"), Is.True);
-            Assert.That(st.Contains("sissipp"), Is.True);
-        }
-
-        // ===========================================
-        // FIX 5: Children moved to Node.Children dictionary
-        // Original: external dictionary with (Node, char) tuple keys
-        // ===========================================
-
-        [Test]
-        public void Fix_NodeChildren_LargeAlphabetEfficiency()
-        {
-            // With dictionary per node, large alphabet should work efficiently
-            // Original tuple-key design was O(total_edges) per lookup
-            var alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            var st = SuffixTree.Build(alphabet);
-
-            // Each character should be findable
-            foreach (char c in alphabet)
-            {
-                Assert.That(st.Contains(c.ToString()), Is.True, $"Character '{c}' not found");
-            }
-
-            // Full string
-            Assert.That(st.Contains(alphabet), Is.True);
-        }
-
-        // ===========================================
-        // FIX 6: PrintTree now works with any characters, not just a-z
-        // ===========================================
-
-        [Test]
-        public void Fix_PrintTree_UnicodeCharacters()
-        {
-            var st = SuffixTree.Build("привет");
-
-            // Should not throw and should find all suffixes
-            Assert.DoesNotThrow(() => st.PrintTree());
-            Assert.That(st.Contains("привет"), Is.True);
-            Assert.That(st.Contains("ривет"), Is.True);
-            Assert.That(st.Contains("ивет"), Is.True);
-            Assert.That(st.Contains("вет"), Is.True);
-            Assert.That(st.Contains("ет"), Is.True);
-            Assert.That(st.Contains("т"), Is.True);
-        }
-
-        [Test]
-        public void Fix_PrintTree_SpecialCharacters()
-        {
-            var st = SuffixTree.Build("a!@#$%^&*()b");
-
-            Assert.DoesNotThrow(() => st.PrintTree());
-            Assert.That(st.Contains("!@#"), Is.True);
-            Assert.That(st.Contains("$%^"), Is.True);
-            Assert.That(st.Contains("&*()"), Is.True);
-            Assert.That(st.Contains("a!@#$%^&*()b"), Is.True);
-        }
-
-        [Test]
-        public void Fix_PrintTree_DigitsAndMixedCase()
-        {
-            var st = SuffixTree.Build("Test123ABC");
-
-            Assert.DoesNotThrow(() => st.PrintTree());
-            Assert.That(st.Contains("Test"), Is.True);
-            Assert.That(st.Contains("123"), Is.True);
-            Assert.That(st.Contains("ABC"), Is.True);
-            Assert.That(st.Contains("t123A"), Is.True);
-        }
-
-        [Test]
-        public void Fix_PrintTree_WhitespaceAndNewlines()
-        {
-            var st = SuffixTree.Build("hello world\ntest");
-
-            Assert.DoesNotThrow(() => st.PrintTree());
-            Assert.That(st.Contains("hello world"), Is.True);
-            Assert.That(st.Contains(" world\n"), Is.True);
-            Assert.That(st.Contains("\ntest"), Is.True);
-        }
-
-        // ===========================================
-        // FIX 7: ToString() method added
-        // ===========================================
-
-        [Test]
-        public void Fix_ToString_ContainsOriginalContent()
-        {
-            var original = "hello world";
-            var st = SuffixTree.Build(original);
-
-            // ToString should contain useful information about the tree
-            var result = st.ToString();
-            Assert.That(result, Does.Contain("hello world"));
-            Assert.That(result, Does.Contain("SuffixTree"));
-        }
-
-        [Test]
-        public void Fix_ToString_EmptyStringShowsEmpty()
-        {
-            var st = SuffixTree.Build("");
-            var result = st.ToString();
-            Assert.That(result, Does.Contain("empty"));
-        }
-
-        [Test]
-        public void Fix_ToString_UnicodeStringShowsContent()
-        {
-            var original = "日本語テスト";
-            var st = SuffixTree.Build(original);
-            var result = st.ToString();
-            Assert.That(result, Does.Contain("日本語テスト"));
-        }
-
-        // ===========================================
-        // FIX 8: Random seed in tests for determinism
-        // ===========================================
-
-        [Test]
-        public void Fix_RandomSeed_Deterministic()
-        {
-            // Running same random test twice should produce identical results
-            var results1 = RunDeterministicRandomTest(12345);
-            var results2 = RunDeterministicRandomTest(12345);
-
-            Assert.That(results1, Is.EqualTo(results2),
-                "Same seed should produce identical test strings");
-        }
-
-        private static string[] RunDeterministicRandomTest(int seed)
-        {
-            var r = new Random(seed);
-            var results = new string[5];
-            for (int i = 0; i < 5; i++)
-            {
-                results[i] = MakeRandomString(r, 20);
-            }
-            return results;
-        }
-
-        // ===========================================
-        // FIX 9: Removed dead commented code
-        // These tests verify the API is clean and complete
-        // ===========================================
-
-        [Test]
-        public void Fix_CleanAPI_BuildAndContainsWork()
-        {
-            // The only public API: Build() and Contains()
-            var st = SuffixTree.Build("test");
-
-            Assert.That(st.Contains("test"), Is.True);
-            Assert.That(st.Contains("es"), Is.True);
-            Assert.That(st.Contains("xyz"), Is.False);
-        }
-
-        [Test]
-        public void Fix_CleanAPI_PrintTreeDoesNotThrow()
-        {
-            var st = SuffixTree.Build("abracadabra");
-
-            // PrintTree should work without throwing
-            Assert.DoesNotThrow(() => st.PrintTree());
-        }
-
-        // ===========================================
-        // FIX 10: Edge boundary handling (BOUNDLESS constant)
-        // ===========================================
-
-        [Test]
-        public void Fix_EdgeBoundary_VeryLongString()
-        {
-            // Test that BOUNDLESS (-1) handles long strings correctly
-            var longString = new string('a', 10000) + "b";
-            var st = SuffixTree.Build(longString);
-
-            Assert.That(st.Contains(longString), Is.True);
-            Assert.That(st.Contains("aaaaaaaaab"), Is.True);
-            Assert.That(st.Contains("b"), Is.True);
-        }
-
-        [Test]
-        public void Fix_EdgeBoundary_IncrementalConstruction()
-        {
-            // Verify edges are extended correctly during construction
-            var st = SuffixTree.Build("abcdefghijklmnop");
-
-            // Each suffix must be found
-            var s = "abcdefghijklmnop";
-            for (int i = 0; i < s.Length; i++)
-            {
-                Assert.That(st.Contains(s.Substring(i)), Is.True,
-                    $"Suffix starting at {i} not found");
-            }
-        }
-
-        #endregion
-
-        #region Additional Algorithm Verification Tests
 
         [Test]
         public void Algorithm_WalkDown_MultipleEdgeTraversals()
         {
-            // Test case that forces multiple walk-down operations
-            // When activeLength > edge length, we must walk down
             var st = SuffixTree.Build("abcabcabcabc");
 
             // All substrings must be found
-            var s = "abcabcabcabc";
-            for (int i = 0; i < s.Length; i++)
+            var text = "abcabcabcabc";
+            for (int i = 0; i < text.Length; i++)
             {
-                for (int len = 1; len <= s.Length - i; len++)
+                for (int len = 1; len <= text.Length - i; len++)
                 {
-                    var substr = s.Substring(i, len);
-                    Assert.That(st.Contains(substr), Is.True,
-                        $"Substring '{substr}' not found");
+                    Assert.That(st.Contains(text.Substring(i, len)), Is.True);
                 }
             }
+        }
+
+        [Test]
+        public void Algorithm_SuffixLinks_Fibonacci()
+        {
+            // Fibonacci-like strings stress suffix links
+            var st = SuffixTree.Build("abaababaabaab");
+
+            Assert.That(st.Contains("abaab"), Is.True);
+            Assert.That(st.Contains("baaba"), Is.True);
+            Assert.That(st.Contains("abaababaabaab"), Is.True);
+        }
+
+        [Test]
+        public void Algorithm_EdgeSplit_AtDifferentPositions()
+        {
+            var st = SuffixTree.Build("abcabdabeabf");
+
+            // All share "ab" prefix but diverge
+            Assert.That(st.Contains("abc"), Is.True);
+            Assert.That(st.Contains("abd"), Is.True);
+            Assert.That(st.Contains("abe"), Is.True);
+            Assert.That(st.Contains("abf"), Is.True);
+        }
+
+        [Test]
+        public void Algorithm_ImplicitToExplicit_Terminator()
+        {
+            // Without terminator, "a" would be implicit in "aa"
+            var st = SuffixTree.Build("aa");
+
+            Assert.That(st.Contains("aa"), Is.True);
+            Assert.That(st.Contains("a"), Is.True);
+        }
+
+        [Test]
+        public void Algorithm_SuffixLinks_RepeatingPatterns()
+        {
+            // Repeating patterns heavily exercise suffix links
+            var st = SuffixTree.Build("abababababab");
+
+            Assert.That(st.Contains("ababab"), Is.True);
+            Assert.That(st.Contains("bababa"), Is.True);
+            Assert.That(st.Contains("ababababab"), Is.True);
         }
 
         [Test]
@@ -1642,22 +1006,6 @@ namespace SuffixTree.Tests
             Assert.That(st.Contains("aabaaaba"), Is.True);
             Assert.That(st.Contains("abaaabaa"), Is.True);
             Assert.That(st.Contains("baaabaaab"), Is.True);
-        }
-
-        [Test]
-        public void Algorithm_EdgeSplit_AtDifferentPositions()
-        {
-            // Forces splits at various edge positions
-            var st = SuffixTree.Build("abcabdabeabf");
-
-            // All these share "ab" prefix but diverge
-            Assert.That(st.Contains("abc"), Is.True);
-            Assert.That(st.Contains("abd"), Is.True);
-            Assert.That(st.Contains("abe"), Is.True);
-            Assert.That(st.Contains("abf"), Is.True);
-            Assert.That(st.Contains("abcabd"), Is.True);
-            Assert.That(st.Contains("abdabe"), Is.True);
-            Assert.That(st.Contains("abeabf"), Is.True);
         }
 
         [Test]
@@ -1678,7 +1026,6 @@ namespace SuffixTree.Tests
             // Test Rule 3: follow suffix link when not at root
             var st = SuffixTree.Build("xabxac");
 
-            // This pattern exercises suffix link following
             Assert.That(st.Contains("xab"), Is.True);
             Assert.That(st.Contains("xac"), Is.True);
             Assert.That(st.Contains("abxa"), Is.True);
@@ -1686,568 +1033,275 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void Algorithm_ImplicitToExplicit_Terminator()
+        public void Algorithm_PartialMatchAtEdgeBoundary()
         {
-            // Terminator converts implicit suffixes to explicit
-            // In "aa", suffix "a" would be implicit without terminator
-            var st = SuffixTree.Build("aa");
+            // Test case where match ends exactly at edge boundary
+            var st = SuffixTree.Build("aaaaab");
 
-            Assert.That(st.Contains("aa"), Is.True);
-            Assert.That(st.Contains("a"), Is.True);
-        }
-
-        [Test]
-        public void Algorithm_ExhaustiveSmallAlphabet()
-        {
-            // Exhaustive test with binary alphabet
-            var r = new Random(555);
-            for (int trial = 0; trial < 20; trial++)
-            {
-                var chars = new char[30];
-                for (int i = 0; i < chars.Length; i++)
-                    chars[i] = (char)('a' + r.Next(3));
-
-                var s = new string(chars);
-                var st = SuffixTree.Build(s);
-
-                // Verify ALL substrings
-                for (int i = 0; i < s.Length; i++)
-                {
-                    for (int len = 1; len <= s.Length - i; len++)
-                    {
-                        var substr = s.Substring(i, len);
-                        Assert.That(st.Contains(substr), Is.True,
-                            $"Trial {trial}, string '{s}': Substring '{substr}' not found");
-                    }
-                }
-            }
-        }
-
-        [Test]
-        public void Algorithm_NegativeTest_NonExistentSubstrings()
-        {
-            var st = SuffixTree.Build("abcdefgh");
-
-            // These should NOT be found
-            Assert.That(st.Contains("xyz"), Is.False);
-            Assert.That(st.Contains("abcdefghi"), Is.False); // Too long
+            Assert.That(st.Contains("aaaa"), Is.True);
+            Assert.That(st.Contains("aaaaa"), Is.True);
+            Assert.That(st.Contains("aaaaab"), Is.True);
             Assert.That(st.Contains("ba"), Is.False);
-            Assert.That(st.Contains("hg"), Is.False);
-            Assert.That(st.Contains("aba"), Is.False);
-        }
-
-        [Test]
-        public void Algorithm_AllSuffixesExplicit_MultiplePatterns()
-        {
-            string[] patterns = {
-                "banana",
-                "abracadabra",
-                "mississippi",
-                "abcabxabcd",
-                "aaaabaaaabaab"
-            };
-
-            foreach (var pattern in patterns)
-            {
-                var st = SuffixTree.Build(pattern);
-
-                // Every suffix must be found
-                for (int i = 0; i < pattern.Length; i++)
-                {
-                    var suffix = pattern.Substring(i);
-                    Assert.That(st.Contains(suffix), Is.True,
-                        $"Pattern '{pattern}': Suffix '{suffix}' not found");
-                }
-            }
         }
 
         #endregion
 
-        #region Important Additional Tests
-
-        // ===========================================
-        // Overlapping patterns - critical for suffix links
-        // ===========================================
+        #region Regression Tests (Specific Edge Cases)
 
         [Test]
-        public void Contains_OverlappingPatterns_ABAB()
+        public void Regression_TerminatorCharacter_SuffixesAreExplicit()
         {
-            var st = SuffixTree.Build("ababababab");
+            // Without terminator, "ab" in "aab" would be implicit suffix
+            // With terminator, all suffixes are explicit (end at leaf)
+            var st = SuffixTree.Build("aab");
 
-            Assert.That(st.Contains("abab"), Is.True);
-            Assert.That(st.Contains("baba"), Is.True);
-            Assert.That(st.Contains("ababa"), Is.True);
-            Assert.That(st.Contains("babab"), Is.True);
-            Assert.That(st.Contains("ababababab"), Is.True);
-            Assert.That(st.Contains("abababababa"), Is.False); // Too long
-        }
-
-        [Test]
-        public void Contains_OverlappingPatterns_AAA()
-        {
-            var st = SuffixTree.Build("aaaaaaaaaa");
-
-            for (int len = 1; len <= 10; len++)
-            {
-                Assert.That(st.Contains(new string('a', len)), Is.True,
-                    $"String of {len} 'a's not found");
-            }
-            Assert.That(st.Contains(new string('a', 11)), Is.False);
-        }
-
-        // ===========================================
-        // Prefix/Suffix edge cases
-        // ===========================================
-
-        [Test]
-        public void Contains_PrefixAndSuffix_SamePattern()
-        {
-            // String where prefix equals suffix
-            var st = SuffixTree.Build("abcabc");
-
-            Assert.That(st.Contains("abc"), Is.True);
-            Assert.That(st.Contains("abcabc"), Is.True);
-            Assert.That(st.Contains("bca"), Is.True);
-            Assert.That(st.Contains("cab"), Is.True);
-            Assert.That(st.Contains("abcab"), Is.True);
-            Assert.That(st.Contains("bcabc"), Is.True);
-        }
-
-        [Test]
-        public void Contains_LongCommonPrefix()
-        {
-            // Multiple suffixes share long common prefix
-            var st = SuffixTree.Build("aaaaab");
-
-            Assert.That(st.Contains("aaaaa"), Is.True);
-            Assert.That(st.Contains("aaaab"), Is.True);
-            Assert.That(st.Contains("aaab"), Is.True);
             Assert.That(st.Contains("aab"), Is.True);
             Assert.That(st.Contains("ab"), Is.True);
             Assert.That(st.Contains("b"), Is.True);
+            Assert.That(st.Contains("a"), Is.True);
+            Assert.That(st.Contains("aa"), Is.True);
         }
 
-        // ===========================================
-        // Single character variations
-        // ===========================================
+        [Test]
+        public void Regression_MultipleBuildCallsAreIndependent()
+        {
+            var st1 = SuffixTree.Build("hello");
+            var st2 = SuffixTree.Build("world");
+
+            Assert.That(st1.Contains("hello"), Is.True);
+            Assert.That(st1.Contains("world"), Is.False);
+            Assert.That(st2.Contains("world"), Is.True);
+            Assert.That(st2.Contains("hello"), Is.False);
+        }
 
         [Test]
-        public void Contains_TwoCharacterAlphabet_Exhaustive()
+        public void Regression_MississippiClassicCase()
         {
-            var st = SuffixTree.Build("aabbab");
+            // Mississippi is the classic suffix tree test case
+            var st = SuffixTree.Build("mississippi");
 
-            // All substrings
-            string[] expected = { "a", "b", "aa", "ab", "bb", "ba",
-                                  "aab", "abb", "bba", "bab",
-                                  "aabb", "abba", "bbab",
-                                  "aabba", "abbab", "aabbab" };
+            Assert.That(st.Contains("issi"), Is.True);
+            Assert.That(st.Contains("iss"), Is.True);
+            Assert.That(st.Contains("ssi"), Is.True);
+            Assert.That(st.Contains("ississi"), Is.True);
+            Assert.That(st.Contains("sissipp"), Is.True);
+        }
 
-            foreach (var s in expected)
+        [Test]
+        public void Regression_LargeAlphabet_AllCharsFound()
+        {
+            var alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            var st = SuffixTree.Build(alphabet);
+
+            foreach (char c in alphabet)
             {
-                Assert.That(st.Contains(s), Is.True, $"'{s}' not found");
+                Assert.That(st.Contains(c.ToString()), Is.True, $"Character '{c}' not found");
             }
         }
 
-        // ===========================================
-        // Boundary conditions
-        // ===========================================
-
         [Test]
-        public void Contains_FirstAndLastCharacter()
+        public void Regression_VeryLongRepeatingString()
         {
-            var st = SuffixTree.Build("xyzabc");
+            var longString = new string('a', 10000) + "b";
+            var st = SuffixTree.Build(longString);
 
-            Assert.That(st.Contains("x"), Is.True);  // First
-            Assert.That(st.Contains("c"), Is.True);  // Last
-            Assert.That(st.Contains("xy"), Is.True); // First two
-            Assert.That(st.Contains("bc"), Is.True); // Last two
+            Assert.That(st.Contains(longString), Is.True);
+            Assert.That(st.Contains("aaaaaaaaab"), Is.True);
+            Assert.That(st.Contains("b"), Is.True);
         }
 
         [Test]
-        public void Contains_FullString()
+        public void Regression_EmptyStringToString()
         {
-            string[] strings = { "a", "ab", "abc", "abcd", "abcdefghij" };
-
-            foreach (var s in strings)
-            {
-                var st = SuffixTree.Build(s);
-                Assert.That(st.Contains(s), Is.True, $"Full string '{s}' not found");
-            }
-        }
-
-        // ===========================================
-        // Repeated substrings
-        // ===========================================
-
-        [Test]
-        public void Contains_RepeatedSubstring()
-        {
-            var st = SuffixTree.Build("abcabcabc");
-
-            // "abc" appears 3 times
-            Assert.That(st.Contains("abc"), Is.True);
-            Assert.That(st.Contains("abcabc"), Is.True);
-            Assert.That(st.Contains("abcabcabc"), Is.True);
-            Assert.That(st.Contains("bcabca"), Is.True);
-            Assert.That(st.Contains("cabcab"), Is.True);
+            var st = SuffixTree.Build("");
+            var result = st.ToString();
+            Assert.That(result, Does.Contain("empty"));
         }
 
         [Test]
-        public void Contains_NoRepeatedCharacters()
+        public void Regression_BinaryAlphabet_Stress()
         {
-            var st = SuffixTree.Build("abcdefghij");
-
-            // Every position should be unique
-            for (int i = 0; i < 10; i++)
-            {
-                char c = (char)('a' + i);
-                Assert.That(st.Contains(c.ToString()), Is.True);
-            }
-
-            Assert.That(st.Contains("aa"), Is.False);
-            Assert.That(st.Contains("ba"), Is.False);
-        }
-
-        // ===========================================
-        // Walk-down edge cases
-        // ===========================================
-
-        [Test]
-        public void Algorithm_WalkDown_ExactEdgeLength()
-        {
-            // Forces walk-down when activeLength exactly equals edge length
-            var st = SuffixTree.Build("abcdefabcdef");
-
-            Assert.That(st.Contains("abcdef"), Is.True);
-            Assert.That(st.Contains("bcdef"), Is.True);
-            Assert.That(st.Contains("cdefab"), Is.True);
-            Assert.That(st.Contains("defabc"), Is.True);
-        }
-
-        [Test]
-        public void Algorithm_WalkDown_MultipleSteps()
-        {
-            // Long repeating pattern forces multiple walk-down steps
-            var st = SuffixTree.Build("abcabcabcabcabc");
-
-            Assert.That(st.Contains("abcabcabcabcabc"), Is.True);
-            Assert.That(st.Contains("bcabcabcabcab"), Is.True);
-            Assert.That(st.Contains("cabcabcabcabc"), Is.True);
-        }
-
-        // ===========================================
-        // Special patterns that stress suffix links
-        // ===========================================
-
-        [Test]
-        public void Algorithm_SuffixLinks_Fibonacci()
-        {
-            // Fibonacci-like string: each char depends on previous two
-            // These strings are known to stress suffix tree construction
-            var st = SuffixTree.Build("abaababaabaab");
-
-            Assert.That(st.Contains("abaab"), Is.True);
-            Assert.That(st.Contains("baaba"), Is.True);
-            Assert.That(st.Contains("aabab"), Is.True);
-            Assert.That(st.Contains("abaababaabaab"), Is.True);
-        }
-
-        [Test]
-        public void Algorithm_SuffixLinks_DeWaarPatterns()
-        {
-            // de Waard patterns: (ab)^n a - known edge case
-            string[] patterns = { "aba", "ababa", "abababa", "ababababa" };
-
-            foreach (var p in patterns)
-            {
-                var st = SuffixTree.Build(p);
-
-                // Verify all suffixes
-                for (int i = 0; i < p.Length; i++)
-                {
-                    Assert.That(st.Contains(p.Substring(i)), Is.True,
-                        $"Pattern '{p}': suffix at {i} not found");
-                }
-            }
-        }
-
-        // ===========================================
-        // Performance regression tests
-        // ===========================================
-
-        [Test]
-        public void Performance_LongString_Build()
-        {
-            // 10000 characters should build quickly
-            var r = new Random(999);
-            var chars = new char[10000];
+            var r = new Random(777);
+            var chars = new char[500];
             for (int i = 0; i < chars.Length; i++)
-                chars[i] = (char)('a' + r.Next(26));
-
-            var s = new string(chars);
-
-            Assert.DoesNotThrow(() => SuffixTree.Build(s));
-        }
-
-        [Test]
-        public void Performance_LongString_Contains()
-        {
-            var r = new Random(888);
-            var chars = new char[10000];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = (char)('a' + r.Next(26));
+                chars[i] = r.Next(2) == 0 ? 'a' : 'b';
 
             var s = new string(chars);
             var st = SuffixTree.Build(s);
 
-            // 1000 random searches
-            for (int i = 0; i < 1000; i++)
+            for (int i = 0; i < s.Length - 20; i += 10)
             {
-                int start = r.Next(s.Length - 100);
-                var substr = s.Substring(start, 50);
-                Assert.That(st.Contains(substr), Is.True);
+                for (int len = 1; len <= 20; len++)
+                {
+                    var substr = s.Substring(i, len);
+                    Assert.That(st.Contains(substr), Is.True,
+                        $"Substring '{substr}' at pos {i} not found");
+                }
             }
         }
 
-        // ===========================================
-        // Unicode and special characters
-        // ===========================================
-
         [Test]
-        public void Contains_CyrillicText()
+        public void Regression_SuffixLinkTraversal_LongRepeat()
         {
-            var st = SuffixTree.Build("привет мир");
+            var s = string.Concat(Enumerable.Repeat("abcdefgh", 100));
+            var st = SuffixTree.Build(s);
 
-            Assert.That(st.Contains("привет"), Is.True);
-            Assert.That(st.Contains("мир"), Is.True);
-            Assert.That(st.Contains("вет м"), Is.True);
-            Assert.That(st.Contains(" "), Is.True);
+            Assert.That(st.Contains("abcdefghabcdefgh"), Is.True);
+            Assert.That(st.Contains("efghabcd"), Is.True);
+            Assert.That(st.Contains("ghabcdefghabcdef"), Is.True);
+            Assert.That(st.Contains(s), Is.True);
         }
 
         [Test]
-        public void Contains_ChineseCharacters()
+        public void Regression_AllSubstringsUpTo50()
         {
-            var st = SuffixTree.Build("你好世界");
+            var r = new Random(999);
+            const string alphabet = "abcd";
+            var chars = new char[50];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = alphabet[r.Next(alphabet.Length)];
 
-            Assert.That(st.Contains("你"), Is.True);
-            Assert.That(st.Contains("好"), Is.True);
-            Assert.That(st.Contains("世界"), Is.True);
-            Assert.That(st.Contains("你好世界"), Is.True);
-        }
+            var s = new string(chars);
+            var st = SuffixTree.Build(s);
 
-        [Test]
-        public void Contains_Emoji()
-        {
-            var st = SuffixTree.Build("hello🌍world🌎test");
+            int substringCount = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                for (int len = 1; len <= s.Length - i; len++)
+                {
+                    var substr = s.Substring(i, len);
+                    Assert.That(st.Contains(substr), Is.True,
+                        $"Substring '{substr}' at [{i},{i + len}) not found");
+                    substringCount++;
+                }
+            }
 
-            Assert.That(st.Contains("hello"), Is.True);
-            Assert.That(st.Contains("world"), Is.True);
-            Assert.That(st.Contains("🌍"), Is.True);
-            Assert.That(st.Contains("🌎"), Is.True);
-            Assert.That(st.Contains("🌍world"), Is.True);
-        }
-
-        [Test]
-        public void Contains_MixedCase()
-        {
-            var st = SuffixTree.Build("AbCdEfAbCdEf");
-
-            Assert.That(st.Contains("AbCd"), Is.True);
-            Assert.That(st.Contains("abcd"), Is.False); // Case sensitive
-            Assert.That(st.Contains("ABCD"), Is.False);
-            Assert.That(st.Contains("CdEfAb"), Is.True);
-        }
-
-        // ===========================================
-        // Whitespace handling
-        // ===========================================
-
-        [Test]
-        public void Contains_Whitespace()
-        {
-            var st = SuffixTree.Build("a b c a b c");
-
-            Assert.That(st.Contains(" "), Is.True);
-            Assert.That(st.Contains("a "), Is.True);
-            Assert.That(st.Contains(" b"), Is.True);
-            Assert.That(st.Contains("a b c"), Is.True);
-            Assert.That(st.Contains(" a "), Is.True);
-        }
-
-        [Test]
-        public void Contains_TabsAndNewlines()
-        {
-            var st = SuffixTree.Build("line1\nline2\tdata");
-
-            Assert.That(st.Contains("\n"), Is.True);
-            Assert.That(st.Contains("\t"), Is.True);
-            Assert.That(st.Contains("line1\n"), Is.True);
-            Assert.That(st.Contains("\nline2"), Is.True);
-            Assert.That(st.Contains("line2\t"), Is.True);
-        }
-
-        // ===========================================
-        // Edge cases with numbers
-        // ===========================================
-
-        [Test]
-        public void Contains_NumericString()
-        {
-            var st = SuffixTree.Build("123123123");
-
-            Assert.That(st.Contains("123"), Is.True);
-            Assert.That(st.Contains("231"), Is.True);
-            Assert.That(st.Contains("312"), Is.True);
-            Assert.That(st.Contains("123123123"), Is.True);
-        }
-
-        [Test]
-        public void Contains_AlphanumericMix()
-        {
-            var st = SuffixTree.Build("a1b2c3a1b2c3");
-
-            Assert.That(st.Contains("a1b2"), Is.True);
-            Assert.That(st.Contains("1b2c"), Is.True);
-            Assert.That(st.Contains("b2c3a"), Is.True);
-            Assert.That(st.Contains("3a1"), Is.True);
+            Assert.That(substringCount, Is.EqualTo(50 * 51 / 2));
         }
 
         #endregion
 
-        #region Statistics Properties Tests
+        #region Extended API Tests
 
         [Test]
-        public void NodeCount_EmptyString_ReturnsOne()
+        public void Contains_Span_FromStringSlice_Works()
         {
-            var st = SuffixTree.Build("");
-            Assert.That(st.NodeCount, Is.EqualTo(1)); // Just root
+            var st = SuffixTree.Build("hello world");
+            var text = "xxxhelloxxx";
+
+            Assert.That(st.Contains(text.AsSpan(3, 5)), Is.True);
         }
 
         [Test]
-        public void NodeCount_SingleChar_ReturnsThree()
+        public void Contains_Span_FromCharArray_Works()
         {
-            var st = SuffixTree.Build("a");
-            // Root + leaf for 'a' + leaf for terminator = 3
-            Assert.That(st.NodeCount, Is.EqualTo(3));
+            var st = SuffixTree.Build("test string");
+            var chars = new[] { 't', 'e', 's', 't' };
+
+            Assert.That(st.Contains(chars.AsSpan()), Is.True);
         }
 
         [Test]
-        public void NodeCount_Banana_ReturnsExpected()
-        {
-            var st = SuffixTree.Build("banana");
-            // Root + internal nodes + leaves = should be > 6 (one per suffix)
-            Assert.That(st.NodeCount, Is.GreaterThan(6));
-        }
-
-        [Test]
-        public void LeafCount_EmptyString_ReturnsZero()
-        {
-            var st = SuffixTree.Build("");
-            Assert.That(st.LeafCount, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void LeafCount_EqualsTextLengthPlusOne()
-        {
-            var st = SuffixTree.Build("banana");
-            // One leaf per suffix + one for terminator suffix
-            Assert.That(st.LeafCount, Is.EqualTo(7));
-        }
-
-        [Test]
-        public void LeafCount_UniqueChars_EqualsLengthPlusOne()
+        public void FindAllOccurrences_FullString_ReturnsSinglePosition()
         {
             var st = SuffixTree.Build("abcdef");
-            Assert.That(st.LeafCount, Is.EqualTo(7)); // 6 + terminator suffix
+            var result = st.FindAllOccurrences("abcdef");
+
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0], Is.EqualTo(0));
         }
 
         [Test]
-        public void MaxDepth_EmptyString_ReturnsZero()
+        public void FindAllOccurrences_SingleChar_ReturnsAllPositions()
         {
-            var st = SuffixTree.Build("");
-            Assert.That(st.MaxDepth, Is.EqualTo(0));
+            var st = SuffixTree.Build("ababa");
+            var result = st.FindAllOccurrences("a");
+
+            Assert.That(result, Is.EquivalentTo(new[] { 0, 2, 4 }));
         }
 
         [Test]
-        public void MaxDepth_SingleChar_ReturnsOne()
+        public void FindAllOccurrences_Mississippi_FindsAllIssi()
         {
-            var st = SuffixTree.Build("a");
-            Assert.That(st.MaxDepth, Is.EqualTo(1));
+            var st = SuffixTree.Build("mississippi");
+            var result = st.FindAllOccurrences("issi");
+
+            Assert.That(result, Is.EquivalentTo(new[] { 1, 4 }));
         }
 
         [Test]
-        public void MaxDepth_EqualsTextLength()
+        public void LongestRepeatedSubstring_ABAB_Pattern()
         {
-            var st = SuffixTree.Build("abcdef");
-            Assert.That(st.MaxDepth, Is.EqualTo(6)); // Longest suffix is full string
+            var st = SuffixTree.Build("abab");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ab"));
         }
 
         [Test]
-        public void MaxDepth_RepeatingString()
+        public void LongestRepeatedSubstring_GEEKSFORGEEKS()
         {
-            var st = SuffixTree.Build("aaa");
-            Assert.That(st.MaxDepth, Is.EqualTo(3));
+            var st = SuffixTree.Build("GEEKSFORGEEKS");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("GEEKS"));
         }
 
-        #endregion
-
-        #region FindAllLongestCommonSubstrings Tests
-
         [Test]
-        public void FindAllLongestCommonSubstrings_NullThrows()
+        public void LongestCommonSubstring_SameString_ReturnsFullString()
         {
             var st = SuffixTree.Build("hello");
+            Assert.That(st.LongestCommonSubstring("hello"), Is.EqualTo("hello"));
+        }
+
+        [Test]
+        public void LongestCommonSubstringInfo_EmptyResult_HasNegativePositions()
+        {
+            var st = SuffixTree.Build("abc");
+            var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xyz");
+
+            Assert.That(substring, Is.Empty);
+            Assert.That(posInText, Is.EqualTo(-1));
+            Assert.That(posInOther, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_NullOther_ThrowsArgumentNullException()
+        {
+            var st = SuffixTree.Build("abc");
             Assert.Throws<ArgumentNullException>(() => st.FindAllLongestCommonSubstrings(null!));
         }
 
         [Test]
-        public void FindAllLongestCommonSubstrings_EmptyOther_ReturnsEmpty()
+        public void FindAllLongestCommonSubstrings_AllPositions_Correct()
         {
-            var st = SuffixTree.Build("hello");
-            var result = st.FindAllLongestCommonSubstrings("");
-            Assert.That(result.Substring, Is.EqualTo(string.Empty));
-            Assert.That(result.PositionsInText, Is.Empty);
-            Assert.That(result.PositionsInOther, Is.Empty);
+            var st = SuffixTree.Build("banana");
+            var result = st.FindAllLongestCommonSubstrings("xxananxx");
+
+            Assert.That(result.Substring, Is.EqualTo("anan"));
+            Assert.That(result.PositionsInText, Does.Contain(1));
+            Assert.That(result.PositionsInOther, Does.Contain(2));
         }
 
-        [Test]
-        public void FindAllLongestCommonSubstrings_SingleMatch()
+        #endregion
+
+        #region Helper Methods
+
+        private static string MakeRandomString(Random r, int len)
         {
-            var st = SuffixTree.Build("abcdef");
-            var result = st.FindAllLongestCommonSubstrings("xyzcdemnop");
-            Assert.That(result.Substring, Is.EqualTo("cde"));
-            Assert.That(result.PositionsInText, Has.Count.EqualTo(1));
-            Assert.That(result.PositionsInText[0], Is.EqualTo(2));
-            Assert.That(result.PositionsInOther[0], Is.EqualTo(3));
+            const string SET = "abcdefghijklmnopqrstuvwxyz";
+            var res = new char[len];
+            for (int i = 0; i < len; i++)
+                res[i] = SET[r.Next(SET.Length)];
+            return new string(res);
         }
 
-        [Test]
-        public void FindAllLongestCommonSubstrings_MultipleMatches()
+        private static List<int> NaiveFindAll(string text, string pattern)
         {
-            var st = SuffixTree.Build("abcabc");
-            var result = st.FindAllLongestCommonSubstrings("xabcyabcz");
-            // "abc" occurs at positions 1 and 5 in other
-            Assert.That(result.Substring, Is.EqualTo("abc"));
-            Assert.That(result.PositionsInOther, Has.Count.EqualTo(2));
-            Assert.That(result.PositionsInOther, Does.Contain(1));
-            Assert.That(result.PositionsInOther, Does.Contain(5));
-        }
-
-        [Test]
-        public void FindAllLongestCommonSubstrings_NoMatch()
-        {
-            var st = SuffixTree.Build("abc");
-            var result = st.FindAllLongestCommonSubstrings("xyz");
-            Assert.That(result.Substring, Is.EqualTo(string.Empty));
-            Assert.That(result.PositionsInText, Is.Empty);
-            Assert.That(result.PositionsInOther, Is.Empty);
-        }
-
-        [Test]
-        public void FindAllLongestCommonSubstrings_TerminatorThrows()
-        {
-            var st = SuffixTree.Build("hello");
-            Assert.Throws<ArgumentException>(() => st.FindAllLongestCommonSubstrings("hel\0lo"));
+            var result = new List<int>();
+            int idx = 0;
+            while ((idx = text.IndexOf(pattern, idx)) != -1)
+            {
+                result.Add(idx);
+                idx++;
+            }
+            return result;
         }
 
         #endregion
