@@ -475,6 +475,127 @@ namespace SuffixTree.Tests
             }
         }
 
+        // ==================== LongestRepeatedSubstring Tests ====================
+
+        [Test]
+        public void LongestRepeatedSubstring_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_SingleChar_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("a");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_AllUnique_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_SimpleRepeat()
+        {
+            var st = SuffixTree.Build("abcabc");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("abc"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_OverlappingRepeat()
+        {
+            var st = SuffixTree.Build("aaa");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("aa"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_Banana()
+        {
+            var st = SuffixTree.Build("banana");
+            // "ana" appears twice (positions 1 and 3)
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ana"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_Mississippi()
+        {
+            var st = SuffixTree.Build("mississippi");
+            // "issi" appears twice
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("issi"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_ABAB()
+        {
+            var st = SuffixTree.Build("ABAB");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("AB"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_GEEKSFORGEEKS()
+        {
+            var st = SuffixTree.Build("GEEKSFORGEEKS");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("GEEKS"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_ResultAppearsAtLeastTwice()
+        {
+            const int CYCLES = 50;
+            var r = new Random(RANDOM_SEED);
+
+            for (int i = 0; i < CYCLES; i++)
+            {
+                var s = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(s);
+                var lrs = st.LongestRepeatedSubstring();
+
+                if (lrs.Length > 0)
+                {
+                    var count = st.CountOccurrences(lrs);
+                    Assert.That(count, Is.GreaterThanOrEqualTo(2),
+                        $"LRS '{lrs}' should appear at least twice in '{s}'");
+                }
+            }
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_IsActuallyLongest()
+        {
+            const int CYCLES = 30;
+            var r = new Random(RANDOM_SEED);
+
+            for (int i = 0; i < CYCLES; i++)
+            {
+                var s = MakeRandomString(r, 50);
+                var st = SuffixTree.Build(s);
+                var lrs = st.LongestRepeatedSubstring();
+
+                // Verify no longer repeated substring exists
+                if (lrs.Length > 0 && lrs.Length < s.Length - 1)
+                {
+                    // Check that lrs+1 characters don't repeat
+                    // This is a probabilistic check - we try a few extensions
+                    bool foundLonger = false;
+                    for (int j = 0; j < s.Length - lrs.Length && !foundLonger; j++)
+                    {
+                        var candidate = s.Substring(j, lrs.Length + 1);
+                        if (st.CountOccurrences(candidate) >= 2)
+                            foundLonger = true;
+                    }
+                    
+                    if (foundLonger)
+                    {
+                        Assert.Fail($"Found longer repeated substring than LRS '{lrs}' in '{s}'");
+                    }
+                }
+            }
+        }
+
         [Test]
         public void Contains_SuffixLinkTraversal_Stress()
         {

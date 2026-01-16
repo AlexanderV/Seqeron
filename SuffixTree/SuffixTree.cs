@@ -566,6 +566,106 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Finds the longest substring that appears at least twice in the text.
+        /// 
+        /// Algorithm: The longest repeated substring corresponds to the deepest 
+        /// internal node in the suffix tree. Internal nodes represent branching points
+        /// where multiple suffixes share a common prefix.
+        /// 
+        /// Time complexity: O(n) where n is the text length.
+        /// </summary>
+        /// <returns>
+        /// The longest repeated substring, or empty string if no repetition exists
+        /// (i.e., all characters are unique).
+        /// </returns>
+        public string LongestRepeatedSubstring()
+        {
+            if (_chars.Count <= 1)
+                return string.Empty;
+
+            int maxDepth = 0;
+            Node deepestNode = null;
+            
+            FindDeepestInternalNode(_root, 0, ref maxDepth, ref deepestNode);
+
+            if (deepestNode == null)
+                return string.Empty;
+
+            // Reconstruct the substring from root to deepestNode
+            return ReconstructPath(deepestNode, maxDepth);
+        }
+
+        /// <summary>
+        /// Recursively finds the deepest internal node.
+        /// </summary>
+        private void FindDeepestInternalNode(Node node, int depth, ref int maxDepth, ref Node deepestNode)
+        {
+            int currentDepth = depth + LengthOf(node);
+
+            // Only internal nodes (non-leaves) represent repeated substrings
+            if (!node.IsLeaf && node.Children.Count > 0)
+            {
+                if (currentDepth > maxDepth)
+                {
+                    maxDepth = currentDepth;
+                    deepestNode = node;
+                }
+            }
+
+            foreach (var child in node.Children.Values)
+            {
+                FindDeepestInternalNode(child, currentDepth, ref maxDepth, ref deepestNode);
+            }
+        }
+
+        /// <summary>
+        /// Reconstructs the path label from root to a given node.
+        /// </summary>
+        private string ReconstructPath(Node targetNode, int pathLength)
+        {
+            // We need to trace from root to targetNode
+            // Since nodes don't store parent references, we'll do a DFS to find the path
+            var path = new List<Node>();
+            if (FindPathToNode(_root, targetNode, path))
+            {
+                var sb = new StringBuilder(pathLength);
+                foreach (var node in path)
+                {
+                    if (node == _root) continue;
+                    int len = LengthOf(node);
+                    for (int i = 0; i < len; i++)
+                    {
+                        char c = _chars[node.Start + i];
+                        if (c == TERMINATOR) break; // Don't include terminator
+                        sb.Append(c);
+                    }
+                }
+                return sb.ToString();
+            }
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Finds the path from source to target node using DFS.
+        /// </summary>
+        private bool FindPathToNode(Node current, Node target, List<Node> path)
+        {
+            path.Add(current);
+            
+            if (current == target)
+                return true;
+
+            foreach (var child in current.Children.Values)
+            {
+                if (FindPathToNode(child, target, path))
+                    return true;
+            }
+
+            path.RemoveAt(path.Count - 1);
+            return false;
+        }
+
+        /// <summary>
         /// Recursively collects all leaf positions starting from the given node.
         /// </summary>
         /// <param name="node">Node to start collecting from.</param>
