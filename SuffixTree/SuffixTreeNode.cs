@@ -6,7 +6,7 @@ namespace SuffixTree
     /// <summary>
     /// Internal node representation for suffix tree.
     /// Each edge is implicitly stored as (Start, End) indices into the character array.
-    /// 
+    ///
     /// Memory optimization: Uses hybrid children storage.
     /// - Inline array for ≤4 children (most common case) - avoids Dictionary overhead
     /// - Dictionary for >4 children - efficient lookup for large alphabet
@@ -29,7 +29,7 @@ namespace SuffixTree
         public int Start { get; set; }
 
         /// <summary>
-        /// End index of edge label (exclusive). 
+        /// End index of edge label (exclusive).
         /// BOUNDLESS (-1) means this is a leaf edge that grows automatically.
         /// </summary>
         public int End { get; set; }
