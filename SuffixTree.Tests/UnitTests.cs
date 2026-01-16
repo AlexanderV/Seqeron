@@ -67,6 +67,59 @@ namespace SuffixTree.Tests
             Assert.That(st.Contains("b"), Is.False);
         }
 
+        // ==================== Contains with ReadOnlySpan Tests ====================
+
+        [Test]
+        public void Contains_Span_EmptySpan_ShouldReturnTrue()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.Contains(ReadOnlySpan<char>.Empty), Is.True);
+        }
+
+        [Test]
+        public void Contains_Span_FromStringSlice_ShouldWork()
+        {
+            var st = SuffixTree.Build("hello world");
+            var source = "say hello please";
+
+            // Using span slice to avoid string allocation
+            Assert.That(st.Contains(source.AsSpan(4, 5)), Is.True); // "hello"
+            Assert.That(st.Contains(source.AsSpan(0, 3)), Is.False); // "say"
+        }
+
+        [Test]
+        public void Contains_Span_FromCharArray_ShouldWork()
+        {
+            var st = SuffixTree.Build("abcdef");
+            char[] pattern = { 'c', 'd', 'e' };
+
+            Assert.That(st.Contains(pattern.AsSpan()), Is.True);
+            Assert.That(st.Contains(pattern.AsSpan(0, 2)), Is.True); // "cd"
+        }
+
+        [Test]
+        public void Contains_Span_MatchesStringOverload()
+        {
+            const int CYCLES = 100;
+            var r = new Random(RANDOM_SEED);
+
+            for (int i = 0; i < CYCLES; i++)
+            {
+                var s = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(s);
+
+                int pos = r.Next(0, s.Length - 5);
+                int len = r.Next(1, Math.Min(10, s.Length - pos));
+                var pattern = s.Substring(pos, len);
+
+                var stringResult = st.Contains(pattern);
+                var spanResult = st.Contains(pattern.AsSpan());
+
+                Assert.That(spanResult, Is.EqualTo(stringResult),
+                    $"Mismatch for pattern '{pattern}' in '{s}'");
+            }
+        }
+
         [Test]
         public void Contains_OnNonRepeated_ShouldReturnTrue()
         {

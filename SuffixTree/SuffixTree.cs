@@ -385,6 +385,19 @@ namespace SuffixTree
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
 
+            return Contains(value.AsSpan());
+        }
+
+        /// <summary>
+        /// Checks if the specified character span is a substring of the tree content.
+        /// This overload avoids string allocation when searching with spans or slices.
+        /// 
+        /// Time complexity: O(m) where m is the length of the search span.
+        /// </summary>
+        /// <param name="value">The character span to search for.</param>
+        /// <returns>True if the substring exists, false otherwise.</returns>
+        public bool Contains(ReadOnlySpan<char> value)
+        {
             if (value.Length == 0)
                 return true; // Empty string is always a substring
 
