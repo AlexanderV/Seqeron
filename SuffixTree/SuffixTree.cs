@@ -38,7 +38,7 @@ namespace SuffixTree
         /// <summary>Current position in _chars (0-based index of last added character).</summary>
         private int _position = -1;
 
-        private Node _root;
+        private readonly Node _root;
 
         /// <summary>
         /// Last internal node created in current phase.
@@ -48,7 +48,7 @@ namespace SuffixTree
         private Node _lastCreatedInternalNode;
 
         /// <summary>The string content stored as a list for efficient appending.</summary>
-        private List<char> _chars = new List<char>();
+        private readonly List<char> _chars = new List<char>();
 
         // ============================================================
         // Active Point - tracks where we are in the tree during construction
