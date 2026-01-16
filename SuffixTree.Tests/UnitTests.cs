@@ -721,6 +721,19 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void GetAllSuffixes_DeepTree_NoStackOverflow()
+        {
+            // Worst case: all same characters creates a deep tree
+            // This would cause StackOverflow with recursive implementation
+            var text = new string('a', 10_000);
+            var st = SuffixTree.Build(text);
+
+            IReadOnlyList<string> suffixes = null;
+            Assert.DoesNotThrow(() => suffixes = st.GetAllSuffixes());
+            Assert.That(suffixes.Count, Is.EqualTo(10_000));
+        }
+
+        [Test]
         public void GetAllSuffixes_AreSortedLexicographically()
         {
             var st = SuffixTree.Build("mississippi");
