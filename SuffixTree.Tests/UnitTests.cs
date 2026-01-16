@@ -121,6 +121,15 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void Contains_Span_WithTerminator_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("hello");
+            char[] pattern = { 'h', 'e', '\0', 'l' };
+
+            Assert.Throws<ArgumentException>(() => st.Contains(pattern.AsSpan()));
+        }
+
+        [Test]
         public void Contains_OnNonRepeated_ShouldReturnTrue()
         {
             var s = "abcdefghijklmnpqrst";

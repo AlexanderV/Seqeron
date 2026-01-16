@@ -362,10 +362,17 @@ namespace SuffixTree
         /// </summary>
         /// <param name="value">The character span to search for.</param>
         /// <returns>True if the substring exists, false otherwise.</returns>
+        /// <exception cref="ArgumentException">If value contains the null character '\0'.</exception>
         public bool Contains(ReadOnlySpan<char> value)
         {
             if (value.Length == 0)
                 return true; // Empty string is always a substring
+
+            // Check for terminator character in input
+            if (value.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    "Search value cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(value));
 
             var node = _root;
             int i = 0;
