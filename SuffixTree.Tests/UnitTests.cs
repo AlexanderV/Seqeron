@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
@@ -274,6 +275,123 @@ namespace SuffixTree.Tests
             Assert.That(st.Contains("xabc"), Is.True);
             Assert.That(st.Contains("abcd"), Is.True);
             Assert.That(st.Contains("bcd"), Is.True);
+        }
+
+        // ==================== FindAllOccurrences Tests ====================
+
+        [Test]
+        public void FindAllOccurrences_WithNullPattern_ShouldThrow()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.FindAllOccurrences(null));
+        }
+
+        [Test]
+        public void FindAllOccurrences_EmptyPattern_ReturnsAllPositions()
+        {
+            var st = SuffixTree.Build("abc");
+            var result = st.FindAllOccurrences("");
+            Assert.That(result.Count, Is.EqualTo(4)); // positions 0,1,2,3 (including end)
+        }
+
+        [Test]
+        public void FindAllOccurrences_NotFound_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abcdef");
+            var result = st.FindAllOccurrences("xyz");
+            Assert.That(result, Is.Empty);
+        }
+
+        [Test]
+        public void FindAllOccurrences_SingleOccurrence_ReturnsCorrectPosition()
+        {
+            var st = SuffixTree.Build("abcdef");
+            var result = st.FindAllOccurrences("cde");
+            Assert.That(result, Is.EquivalentTo(new[] { 2 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_MultipleOccurrences_ReturnsAll()
+        {
+            var st = SuffixTree.Build("abcabc");
+            var result = st.FindAllOccurrences("abc");
+            Assert.That(result, Is.EquivalentTo(new[] { 0, 3 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_OverlappingOccurrences_ReturnsAll()
+        {
+            var st = SuffixTree.Build("aaa");
+            var result = st.FindAllOccurrences("aa");
+            Assert.That(result, Is.EquivalentTo(new[] { 0, 1 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_FullString_ReturnsSinglePosition()
+        {
+            var st = SuffixTree.Build("hello");
+            var result = st.FindAllOccurrences("hello");
+            Assert.That(result, Is.EquivalentTo(new[] { 0 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_SingleChar_ReturnsAllPositions()
+        {
+            var st = SuffixTree.Build("abacada");
+            var result = st.FindAllOccurrences("a");
+            Assert.That(result, Is.EquivalentTo(new[] { 0, 2, 4, 6 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_Banana_FindsAllAna()
+        {
+            var st = SuffixTree.Build("banana");
+            var result = st.FindAllOccurrences("ana");
+            Assert.That(result, Is.EquivalentTo(new[] { 1, 3 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_Mississippi_FindsAllIssi()
+        {
+            var st = SuffixTree.Build("mississippi");
+            var result = st.FindAllOccurrences("issi");
+            Assert.That(result, Is.EquivalentTo(new[] { 1, 4 }));
+        }
+
+        [Test]
+        public void FindAllOccurrences_Stress_VerifyAgainstNaive()
+        {
+            const int CYCLES = 100;
+            var r = new Random(RANDOM_SEED);
+
+            for (int i = 0; i < CYCLES; i++)
+            {
+                var s = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(s);
+
+                // Pick a random substring to search
+                int pos = r.Next(0, s.Length - 5);
+                int len = r.Next(1, Math.Min(10, s.Length - pos));
+                var pattern = s.Substring(pos, len);
+
+                var stResult = st.FindAllOccurrences(pattern);
+                var naiveResult = NaiveFindAll(s, pattern);
+
+                Assert.That(stResult.OrderBy(x => x), Is.EqualTo(naiveResult.OrderBy(x => x)),
+                    $"Mismatch for string '{s}' pattern '{pattern}'");
+            }
+        }
+
+        private static List<int> NaiveFindAll(string text, string pattern)
+        {
+            var result = new List<int>();
+            int idx = 0;
+            while ((idx = text.IndexOf(pattern, idx)) != -1)
+            {
+                result.Add(idx);
+                idx++;
+            }
+            return result;
         }
 
         [Test]

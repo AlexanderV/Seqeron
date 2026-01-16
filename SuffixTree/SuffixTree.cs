@@ -416,6 +416,112 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Finds all starting positions where the pattern occurs in the original string.
+        /// 
+        /// Algorithm: 
+        /// 1. Navigate to the node representing the pattern (like Contains)
+        /// 2. Collect all leaf positions in the subtree (each leaf = one occurrence)
+        /// 
+        /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
+        /// </summary>
+        /// <param name="pattern">The pattern to search for.</param>
+        /// <returns>Collection of 0-based starting positions of all occurrences.</returns>
+        /// <exception cref="ArgumentNullException">If pattern is null.</exception>
+        public IReadOnlyList<int> FindAllOccurrences(string pattern)
+        {
+            if (pattern == null)
+                throw new ArgumentNullException(nameof(pattern));
+
+            var results = new List<int>();
+
+            if (pattern.Length == 0)
+            {
+                // Empty pattern matches at every position
+                int textLength = _chars.Count - 1; // Exclude terminator
+                for (int p = 0; p <= textLength; p++)
+                    results.Add(p);
+                return results;
+            }
+
+            // Navigate to the node/edge representing the pattern
+            var node = _root;
+            int i = 0;
+            int depthFromRoot = 0; // Total characters matched from root
+
+            while (i < pattern.Length)
+            {
+                if (!node.Children.TryGetValue(pattern[i], out var child))
+                    return results; // Pattern not found
+
+                int edgeLength = LengthOf(child);
+                int j = 0;
+
+                while (j < edgeLength && i < pattern.Length)
+                {
+                    if (_chars[child.Start + j] != pattern[i])
+                        return results; // Mismatch
+                    i++;
+                    j++;
+                }
+
+                if (j == edgeLength)
+                {
+                    // Fully traversed this edge
+                    depthFromRoot += edgeLength;
+                    node = child;
+                }
+                else
+                {
+                    // Pattern ends in middle of edge 'child'
+                    // We pass depthFromRoot (depth to parent), CollectLeaves will add child's edge
+                    CollectLeaves(child, depthFromRoot, results);
+                    return results;
+                }
+            }
+
+            // Pattern matched exactly to a node - collect all leaves in subtree
+            // depthFromRoot already includes path to 'node', so we pass depth BEFORE node's edge
+            // But wait - depthFromRoot was updated to include node's edge. Let's trace:
+            // After loop: depthFromRoot = sum of all edges INCLUDING node's edge
+            // In CollectLeaves we'll add node's edge again - that's wrong!
+            // 
+            // Actually, 'node' here IS the node we landed on after following edges.
+            // So depthFromRoot includes all edges UP TO AND INCLUDING the edge to 'node'.
+            // But CollectLeaves expects depth EXCLUDING node's own edge.
+            // So we need: CollectLeaves(node, depthFromRoot - LengthOf(node), results)
+            // But that's getting complicated. Let me redesign.
+            CollectLeaves(node, depthFromRoot - LengthOf(node), results);
+            return results;
+        }
+
+        /// <summary>
+        /// Recursively collects all leaf positions starting from the given node.
+        /// </summary>
+        /// <param name="node">Node to start collecting from.</param>
+        /// <param name="depth">Depth from root to this node (sum of edge lengths on path, NOT including this node's edge).</param>
+        /// <param name="results">List to collect results into.</param>
+        private void CollectLeaves(Node node, int depth, List<int> results)
+        {
+            // Add current node's edge length to get total depth
+            int currentDepth = depth + LengthOf(node);
+            
+            if (node.IsLeaf)
+            {
+                // This leaf represents a suffix of length = currentDepth
+                int suffixLength = currentDepth;
+                int startPosition = _chars.Count - suffixLength;
+                results.Add(startPosition);
+                return;
+            }
+
+            // Recurse into children, passing currentDepth as their starting depth
+            foreach (var child in node.Children.Values)
+            {
+                CollectLeaves(child, currentDepth, results);
+            }
+        }
+
+        /// <summary>
         /// Returns a brief string representation of the tree.
         /// </summary>
         public override string ToString()
