@@ -33,13 +33,6 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void AddString_AfterBuild_ShouldThrow()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.Throws<InvalidOperationException>(() => st.AddString("def"));
-        }
-
-        [Test]
         public void Build_WithEmptyString_ShouldNotThrow()
         {
             Assert.DoesNotThrow(() => SuffixTree.Build(""));
@@ -924,8 +917,8 @@ namespace SuffixTree.Tests
         }
 
         // ===========================================
-        // FIX 3: State reset - multiple AddString calls
-        // Original bug: state leaked between AddString calls
+        // FIX 3: State reset - multiple Build calls
+        // Ensures each Build creates independent tree
         // ===========================================
 
         [Test]
@@ -947,7 +940,7 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void Fix_StateReset_AddStringResetsActivePoint()
+        public void Fix_StateReset_BuildResetsActivePoint()
         {
             // Build multiple trees to ensure active point doesn't leak
             for (int i = 0; i < 10; i++)

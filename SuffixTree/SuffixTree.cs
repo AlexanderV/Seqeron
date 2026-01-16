@@ -44,9 +44,6 @@ namespace SuffixTree
         /// <summary>The string content stored as a character array.</summary>
         private char[] _chars;
 
-        /// <summary>Indicates whether the tree has been sealed (no more additions allowed).</summary>
-        private bool _isSealed;
-
         // ============================================================
         // Active Point - tracks where we are in the tree during construction
         // ============================================================
@@ -79,24 +76,20 @@ namespace SuffixTree
         public static SuffixTree Build(string value)
         {
             var t = new SuffixTree();
-            t.AddString(value);
+            t.BuildInternal(value);
             return t;
         }
 
         /// <summary>
-        /// Extends the suffix tree with the specified string.
-        /// A unique terminator character ($) is automatically appended to ensure
+        /// Internal method to construct the suffix tree from a string.
+        /// A unique terminator character is automatically appended to ensure
         /// all suffixes are explicit (end at leaf nodes).
         /// </summary>
-        /// <param name="value">The string to add.</param>
+        /// <param name="value">The string to build tree from.</param>
         /// <exception cref="ArgumentNullException">If value is null.</exception>
         /// <exception cref="ArgumentException">If value contains the null character '\0'.</exception>
-        public void AddString(string value)
+        private void BuildInternal(string value)
         {
-            if (_isSealed)
-                throw new InvalidOperationException(
-                    "Cannot add strings to a sealed suffix tree. Create a new tree instead.");
-
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
 
@@ -106,7 +99,10 @@ namespace SuffixTree
                     nameof(value));
 
             if (value.Length == 0)
+            {
+                _chars = Array.Empty<char>();
                 return;
+            }
 
             // Pre-allocate array for string + terminator
             _chars = new char[value.Length + 1];
@@ -117,9 +113,6 @@ namespace SuffixTree
 
             // Add terminator to convert implicit suffixes to explicit leaves
             ExtendTree(TERMINATOR);
-
-            // Seal the tree - no more modifications allowed
-            _isSealed = true;
 
             // Clear construction state (not needed anymore, helps GC)
             _lastCreatedInternalNode = null;
