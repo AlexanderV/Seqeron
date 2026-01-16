@@ -862,6 +862,65 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Finds all positions where the longest common substring occurs.
+        /// Time complexity: O(n * m) where n is tree text length, m is other length.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>
+        /// A tuple containing: the substring, all positions in tree's text, all positions in other.
+        /// Returns (empty string, empty list, empty list) if no common substring exists.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">If other is null.</exception>
+        /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
+        public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
+        {
+            if (other == null)
+                throw new ArgumentNullException(nameof(other));
+
+            if (other.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(other));
+
+            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
+                return (string.Empty, Array.Empty<int>(), Array.Empty<int>());
+
+            int maxLen = 0;
+            var matchesInOther = new List<(int StartInOther, int StartInText)>();
+
+            for (int start = 0; start < other.Length; start++)
+            {
+                var (matchLen, startInText) = MatchFromRootWithPosition(other.AsSpan(), start);
+                if (matchLen > maxLen)
+                {
+                    maxLen = matchLen;
+                    matchesInOther.Clear();
+                    matchesInOther.Add((start, startInText));
+                }
+                else if (matchLen == maxLen && maxLen > 0)
+                {
+                    matchesInOther.Add((start, startInText));
+                }
+            }
+
+            if (maxLen == 0)
+                return (string.Empty, Array.Empty<int>(), Array.Empty<int>());
+
+            string substring = other.Substring(matchesInOther[0].StartInOther, maxLen);
+
+            var positionsInText = new List<int>();
+            var positionsInOther = new List<int>();
+
+            foreach (var (startInOther, startInText) in matchesInOther)
+            {
+                positionsInOther.Add(startInOther);
+                positionsInText.Add(startInText);
+            }
+
+            return (substring, positionsInText, positionsInOther);
+        }
+
+        /// <summary>
         /// Matches characters from 'other' starting at 'start' against the tree from root.
         /// Returns the number of characters matched and the starting position in tree's text.
         /// </summary>
