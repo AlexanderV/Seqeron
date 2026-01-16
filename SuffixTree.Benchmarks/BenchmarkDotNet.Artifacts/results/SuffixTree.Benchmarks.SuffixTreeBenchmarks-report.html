@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>SuffixTree.Benchmarks.SuffixTreeBenchmarks-20260116-140004</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.22631.6060/23H2/2023Update/SunValley3)
+11th Gen Intel Core i7-1185G7 3.00GHz (Max: 1.80GHz), 1 CPU, 8 logical and 4 physical cores
+.NET SDK 9.0.306
+  [Host]   : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v4
+  .NET 8.0 : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>Job=.NET 8.0  Runtime=.NET 8.0  
+</code></pre>
+
+<table>
+<thead><tr><th>Method     </th><th>Mean      </th><th>Error     </th><th>StdDev    </th><th>Median    </th><th>Rank</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Build_Short</td><td>7,140.35 ns</td><td>476.713 ns</td><td>1,383.030 ns</td><td>6,628.82 ns</td><td>9</td><td>3.7231</td><td>0.2594</td><td>-</td><td>23448 B</td>
+</tr><tr><td>Build_Medium</td><td>1,843,875.14 ns</td><td>30,102.510 ns</td><td>45,056.024 ns</td><td>1,830,939.65 ns</td><td>12</td><td>574.2188</td><td>507.8125</td><td>-</td><td>3607848 B</td>
+</tr><tr><td>Build_Long</td><td>67,534,499.38 ns</td><td>1,317,828.524 ns</td><td>1,517,613.288 ns</td><td>67,506,637.50 ns</td><td>16</td><td>6250.0000</td><td>3375.0000</td><td>500.0000</td><td>36267185 B</td>
+</tr><tr><td>Build_DNA</td><td>50,561,671.52 ns</td><td>1,421,939.042 ns</td><td>3,987,269.813 ns</td><td>50,343,108.33 ns</td><td>15</td><td>2583.3333</td><td>1333.3333</td><td>166.6667</td><td>15619147 B</td>
+</tr><tr><td>Contains_Short</td><td>25.76 ns</td><td>1.100 ns</td><td>3.157 ns</td><td>24.72 ns</td><td>2</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Contains_Medium</td><td>55.70 ns</td><td>0.957 ns</td><td>1.244 ns</td><td>55.66 ns</td><td>4</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Contains_Long</td><td>57.95 ns</td><td>1.052 ns</td><td>1.669 ns</td><td>57.68 ns</td><td>4</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Contains_DNA</td><td>117.51 ns</td><td>2.375 ns</td><td>5.690 ns</td><td>116.73 ns</td><td>5</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Contains_NotFound</td><td>10.36 ns</td><td>0.230 ns</td><td>0.551 ns</td><td>10.23 ns</td><td>1</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Count_Medium</td><td>905.79 ns</td><td>17.358 ns</td><td>17.825 ns</td><td>908.24 ns</td><td>6</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Count_Long</td><td>33,701.55 ns</td><td>784.006 ns</td><td>2,224.095 ns</td><td>33,215.67 ns</td><td>10</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>Count_DNA</td><td>2,073.82 ns</td><td>92.306 ns</td><td>263.353 ns</td><td>1,993.63 ns</td><td>7</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>FindAll_Short</td><td>49.01 ns</td><td>1.322 ns</td><td>3.619 ns</td><td>48.02 ns</td><td>3</td><td>0.0114</td><td>-</td><td>-</td><td>72 B</td>
+</tr><tr><td>FindAll_Medium</td><td>1,073.74 ns</td><td>21.201 ns</td><td>46.979 ns</td><td>1,059.67 ns</td><td>6</td><td>0.1030</td><td>-</td><td>-</td><td>648 B</td>
+</tr><tr><td>FindAll_Long</td><td>33,133.65 ns</td><td>662.591 ns</td><td>1,353.499 ns</td><td>32,861.69 ns</td><td>10</td><td>1.2817</td><td>-</td><td>-</td><td>8424 B</td>
+</tr><tr><td>FindAll_DNA</td><td>2,652.50 ns</td><td>53.020 ns</td><td>98.275 ns</td><td>2,637.13 ns</td><td>8</td><td>0.3548</td><td>-</td><td>-</td><td>2232 B</td>
+</tr><tr><td>LRS_Short</td><td>1,003.86 ns</td><td>52.067 ns</td><td>152.705 ns</td><td>985.90 ns</td><td>6</td><td>0.0315</td><td>-</td><td>-</td><td>200 B</td>
+</tr><tr><td>LRS_Medium</td><td>494,276.76 ns</td><td>13,300.560 ns</td><td>36,410.070 ns</td><td>482,099.22 ns</td><td>11</td><td>5.8594</td><td>-</td><td>-</td><td>38872 B</td>
+</tr><tr><td>LRS_Long</td><td>20,284,161.61 ns</td><td>405,407.690 ns</td><td>809,643.025 ns</td><td>20,208,968.75 ns</td><td>14</td><td>-</td><td>-</td><td>-</td><td>391712 B</td>
+</tr><tr><td>LRS_DNA</td><td>7,249,440.54 ns</td><td>181,019.555 ns</td><td>513,522.386 ns</td><td>7,096,237.89 ns</td><td>13</td><td>-</td><td>-</td><td>-</td><td>488 B</td>
+</tr></tbody></table>
+</body>
+</html>
