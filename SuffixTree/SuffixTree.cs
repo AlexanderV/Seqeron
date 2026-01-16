@@ -21,12 +21,6 @@ namespace SuffixTree
     public class SuffixTree : ISuffixTree
     {
         /// <summary>
-        /// Sentinel value indicating an open-ended (growing) edge.
-        /// Leaf edges use this to automatically extend as new characters are added.
-        /// </summary>
-        private const int BOUNDLESS = -1;
-
-        /// <summary>
         /// Unique terminator character appended to ensure all suffixes are explicit.
         /// Without this, some suffixes may remain implicit (e.g., "a" in "aa").
         /// </summary>
@@ -38,14 +32,14 @@ namespace SuffixTree
         /// <summary>Current position in _chars (0-based index of last added character).</summary>
         private int _position = -1;
 
-        private readonly Node _root;
+        private readonly SuffixTreeNode _root;
 
         /// <summary>
         /// Last internal node created in current phase.
         /// Used to set up suffix link chain: when we create a new internal node,
         /// we link the previous one to it.
         /// </summary>
-        private Node _lastCreatedInternalNode;
+        private SuffixTreeNode _lastCreatedInternalNode;
 
         /// <summary>The string content stored as a character array.</summary>
         private char[] _chars;
@@ -61,7 +55,7 @@ namespace SuffixTree
         // ============================================================
 
         /// <summary>The node we're currently at (or descended from).</summary>
-        private Node _activeNode;
+        private SuffixTreeNode _activeNode;
 
         /// <summary>Index in _chars of the first character of the active edge (-1 = none).</summary>
         private int _activeEdgeIndex = -1;
@@ -69,37 +63,9 @@ namespace SuffixTree
         /// <summary>How many characters along the active edge we've matched.</summary>
         private int _activeLength = 0;
 
-        /// <summary>
-        /// Internal node representation.
-        /// Each edge is implicitly stored as (Start, End) indices into _chars.
-        /// </summary>
-        private class Node
-        {
-            /// <summary>Start index of edge label in _chars.</summary>
-            public int Start { get; set; }
-
-            /// <summary>
-            /// End index of edge label (exclusive). 
-            /// BOUNDLESS (-1) means this is a leaf edge that grows automatically.
-            /// </summary>
-            public int End { get; set; }
-
-            /// <summary>Children edges, keyed by first character.</summary>
-            public Dictionary<char, Node> Children { get; } = new Dictionary<char, Node>();
-
-            /// <summary>
-            /// Suffix link: connects node for "xα" to node for "α".
-            /// Used for O(1) jumps between suffixes during construction.
-            /// </summary>
-            public Node SuffixLink { get; set; }
-
-            /// <summary>True if this is a leaf node (edge grows with string).</summary>
-            public bool IsLeaf => End == BOUNDLESS;
-        }
-
         public SuffixTree()
         {
-            _root = new Node { Start = 0, End = 0 };
+            _root = new SuffixTreeNode { Start = 0, End = 0 };
             _root.SuffixLink = _root; // Root's suffix link points to itself
             _activeNode = _root;
         }
@@ -186,7 +152,7 @@ namespace SuffixTree
 
                 char activeEdgeChar = _chars[_activeEdgeIndex];
 
-                if (!_activeNode.Children.TryGetValue(activeEdgeChar, out Node activeEdge))
+                if (!_activeNode.Children.TryGetValue(activeEdgeChar, out SuffixTreeNode activeEdge))
                 {
                     // ============================================================
                     // RULE 1: No edge starts with this character - create new leaf
@@ -198,7 +164,7 @@ namespace SuffixTree
                     //         |           →            |  \
                     //       (existing)              (existing) c
                     // ============================================================
-                    var leaf = new Node { Start = _position, End = BOUNDLESS };
+                    var leaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS };
                     _activeNode.Children[c] = leaf;
 
                     // Set suffix link for previously created internal node
@@ -243,7 +209,7 @@ namespace SuffixTree
                     //       [leaf]               "c"      "x"  (new leaf + old suffix)
                     //                          [new]     [old]
                     // ============================================================
-                    var splitNode = new Node
+                    var splitNode = new SuffixTreeNode
                     {
                         Start = activeEdge.Start,
                         End = activeEdge.Start + _activeLength
@@ -253,7 +219,7 @@ namespace SuffixTree
                     _activeNode.Children[activeEdgeChar] = splitNode;
 
                     // Create new leaf for current character
-                    var newLeaf = new Node { Start = _position, End = BOUNDLESS };
+                    var newLeaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS };
                     splitNode.Children[c] = newLeaf;
 
                     // Move old edge to be child of split node
@@ -306,7 +272,7 @@ namespace SuffixTree
         ///   After:  activeNode=node_after_abc, activeLength=2
         /// </summary>
         /// <returns>True if we moved (caller should restart loop), false otherwise.</returns>
-        private bool WalkDownIfNeeded(Node edge)
+        private bool WalkDownIfNeeded(SuffixTreeNode edge)
         {
             int edgeLength = LengthOf(edge);
             if (_activeLength >= edgeLength)
@@ -323,7 +289,7 @@ namespace SuffixTree
         /// Sets suffix link from previously created internal node to the given node.
         /// Called after each extension to maintain suffix link invariants.
         /// </summary>
-        private void AddSuffixLink(Node node)
+        private void AddSuffixLink(SuffixTreeNode node)
         {
             if (_lastCreatedInternalNode != null)
             {
@@ -337,7 +303,7 @@ namespace SuffixTree
         /// The next internal node created (or activeNode if Rule 1/3) will receive
         /// a suffix link FROM this node.
         /// </summary>
-        private void SetLastCreatedInternalNode(Node node)
+        private void SetLastCreatedInternalNode(SuffixTreeNode node)
         {
             if (_lastCreatedInternalNode != null)
                 _lastCreatedInternalNode.SuffixLink = node;
@@ -349,15 +315,15 @@ namespace SuffixTree
         /// Calculates the length of an edge.
         /// For leaves (End == BOUNDLESS), the edge extends to current position.
         /// </summary>
-        private int LengthOf(Node edge)
-            => (edge.End == BOUNDLESS ? _position + 1 : edge.End) - edge.Start;
+        private int LengthOf(SuffixTreeNode edge)
+            => (edge.End == SuffixTreeNode.BOUNDLESS ? _position + 1 : edge.End) - edge.Start;
 
         /// <summary>Returns the first character of an edge's label.</summary>
-        private char FirstCharOf(Node edge)
+        private char FirstCharOf(SuffixTreeNode edge)
             => _chars[edge.Start];
 
         /// <summary>Returns the full label of an edge (for debugging).</summary>
-        private string LabelOf(Node edge)
+        private string LabelOf(SuffixTreeNode edge)
         {
             var length = LengthOf(edge);
             var sb = new StringBuilder(length);
@@ -568,7 +534,7 @@ namespace SuffixTree
         /// <summary>
         /// Recursively counts all leaves in a subtree.
         /// </summary>
-        private int CountLeaves(Node node)
+        private int CountLeaves(SuffixTreeNode node)
         {
             if (node.IsLeaf)
                 return 1;
@@ -600,7 +566,7 @@ namespace SuffixTree
                 return string.Empty;
 
             int maxDepth = 0;
-            Node deepestNode = null;
+            SuffixTreeNode deepestNode = null;
 
             FindDeepestInternalNode(_root, 0, ref maxDepth, ref deepestNode);
 
@@ -614,7 +580,7 @@ namespace SuffixTree
         /// <summary>
         /// Recursively finds the deepest internal node.
         /// </summary>
-        private void FindDeepestInternalNode(Node node, int depth, ref int maxDepth, ref Node deepestNode)
+        private void FindDeepestInternalNode(SuffixTreeNode node, int depth, ref int maxDepth, ref SuffixTreeNode deepestNode)
         {
             int currentDepth = depth + LengthOf(node);
 
@@ -637,11 +603,11 @@ namespace SuffixTree
         /// <summary>
         /// Reconstructs the path label from root to a given node.
         /// </summary>
-        private string ReconstructPath(Node targetNode, int pathLength)
+        private string ReconstructPath(SuffixTreeNode targetNode, int pathLength)
         {
             // We need to trace from root to targetNode
             // Since nodes don't store parent references, we'll do a DFS to find the path
-            var path = new List<Node>();
+            var path = new List<SuffixTreeNode>();
             if (FindPathToNode(_root, targetNode, path))
             {
                 var sb = new StringBuilder(pathLength);
@@ -664,7 +630,7 @@ namespace SuffixTree
         /// <summary>
         /// Finds the path from source to target node using DFS.
         /// </summary>
-        private bool FindPathToNode(Node current, Node target, List<Node> path)
+        private bool FindPathToNode(SuffixTreeNode current, SuffixTreeNode target, List<SuffixTreeNode> path)
         {
             path.Add(current);
 
@@ -687,7 +653,7 @@ namespace SuffixTree
         /// <param name="node">Node to start collecting from.</param>
         /// <param name="depth">Depth from root to this node (sum of edge lengths on path, NOT including this node's edge).</param>
         /// <param name="results">List to collect results into.</param>
-        private void CollectLeaves(Node node, int depth, List<int> results)
+        private void CollectLeaves(SuffixTreeNode node, int depth, List<int> results)
         {
             // Add current node's edge length to get total depth
             int currentDepth = depth + LengthOf(node);
@@ -736,7 +702,7 @@ namespace SuffixTree
             return sb.ToString();
         }
 
-        private void PrintNode(StringBuilder sb, Node node, int depth)
+        private void PrintNode(StringBuilder sb, SuffixTreeNode node, int depth)
         {
             var nodeLabel = LabelOf(node);
             var leafMark = node.IsLeaf ? "..." : "";
