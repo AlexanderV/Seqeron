@@ -922,7 +922,8 @@ namespace SuffixTree
             if (_chars == null || _chars.Length == 0)
                 return "SuffixTree (empty)";
 
-            var content = new string(_chars.Where(c => c != TERMINATOR).ToArray());
+            // Exclude terminator - it's always the last character
+            var content = new string(_chars, 0, _chars.Length - 1);
             if (content.Length > MAX_TOSTRING_CONTENT_LENGTH)
                 content = content.Substring(0, MAX_TOSTRING_CONTENT_LENGTH - 3) + "...";
 
