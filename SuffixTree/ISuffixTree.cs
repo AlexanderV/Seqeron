@@ -38,6 +38,14 @@ namespace SuffixTree
         int CountOccurrences(string pattern);
 
         /// <summary>
+        /// Counts the number of occurrences of a pattern in the text.
+        /// Zero-allocation overload for performance-critical scenarios.
+        /// </summary>
+        /// <param name="pattern">The pattern to count.</param>
+        /// <returns>Number of times the pattern occurs in the text.</returns>
+        int CountOccurrences(ReadOnlySpan<char> pattern);
+
+        /// <summary>
         /// Finds the longest substring that appears at least twice in the text.
         /// </summary>
         /// <returns>The longest repeated substring, or empty string if none exists.</returns>

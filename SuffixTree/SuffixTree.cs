@@ -496,13 +496,23 @@ namespace SuffixTree
             if (pattern == null)
                 throw new ArgumentNullException(nameof(pattern));
 
+            return CountOccurrences(pattern.AsSpan());
+        }
+
+        /// <summary>
+        /// Counts the number of occurrences of a pattern in the text.
+        /// Zero-allocation overload for performance-critical scenarios.
+        /// </summary>
+        /// <param name="pattern">The pattern to count.</param>
+        /// <returns>Number of times the pattern occurs in the text.</returns>
+        public int CountOccurrences(ReadOnlySpan<char> pattern)
+        {
             if (pattern.Length == 0)
                 return _chars.Length - 1; // Empty pattern matches at every position (excluding terminator)
 
             // Navigate to the node/edge representing the pattern
             var node = _root;
             int i = 0;
-            int depthFromRoot = 0;
 
             while (i < pattern.Length)
             {
@@ -522,7 +532,6 @@ namespace SuffixTree
 
                 if (j == edgeLength)
                 {
-                    depthFromRoot += edgeLength;
                     node = child;
                 }
                 else
