@@ -1123,7 +1123,8 @@ namespace SuffixTree
                     var linkMark = child.SuffixLink != null && child.SuffixLink != _root && !child.IsLeaf
                         ? $" -> {FirstCharOf(child.SuffixLink)}"
                         : "";
-                    sb.AppendLine($"{new string(' ', childDepth)}{childDepth}:{nodeLabel}{leafMark}{linkMark}");
+                    sb.Append(' ', childDepth);
+                    sb.AppendLine($"{childDepth}:{nodeLabel}{leafMark}{linkMark}");
 
                     // If child has children, push it for processing
                     if (!child.IsLeaf && child.Children.Count > 0)
