@@ -625,59 +625,75 @@ namespace SuffixTree
                 return Array.Empty<string>();
 
             var suffixes = new List<string>();
-            var sb = new StringBuilder();
 
-            // DFS traversal collecting all suffixes (paths to leaves)
-            CollectSuffixes(_root, sb, suffixes);
+            // Iterative DFS traversal collecting all suffixes (paths to leaves)
+            // Stack stores: (node, childIndex, pathLength) where childIndex tracks which children we've visited
+            var stack = new Stack<(SuffixTreeNode Node, int ChildIndex, List<char> SortedKeys)>();
+            var path = new List<char>();
+
+            // Start with root's sorted children
+            var rootKeys = _root.Children.Keys.ToList();
+            rootKeys.Sort();
+            stack.Push((_root, 0, rootKeys));
+
+            while (stack.Count > 0)
+            {
+                var (node, childIndex, sortedKeys) = stack.Pop();
+
+                if (childIndex < sortedKeys.Count)
+                {
+                    // More children to process - push back with next index
+                    stack.Push((node, childIndex + 1, sortedKeys));
+
+                    var childKey = sortedKeys[childIndex];
+                    var child = node.Children[childKey];
+
+                    // Add child's edge label to path
+                    int edgeLen = LengthOf(child);
+                    int charsAdded = 0;
+                    for (int i = 0; i < edgeLen; i++)
+                    {
+                        char c = _chars[child.Start + i];
+                        if (c == TERMINATOR) break;
+                        path.Add(c);
+                        charsAdded++;
+                    }
+
+                    if (child.IsLeaf)
+                    {
+                        // Collect suffix
+                        if (path.Count > 0)
+                            suffixes.Add(new string(path.ToArray()));
+                        // Backtrack
+                        path.RemoveRange(path.Count - charsAdded, charsAdded);
+                    }
+                    else
+                    {
+                        // Push child for processing with its sorted children
+                        var childKeys = child.Children.Keys.ToList();
+                        childKeys.Sort();
+                        stack.Push((child, 0, childKeys));
+                    }
+                }
+                else
+                {
+                    // All children processed - backtrack (remove this node's edge from path)
+                    if (node != _root)
+                    {
+                        int edgeLen = LengthOf(node);
+                        int charsToRemove = 0;
+                        for (int i = 0; i < edgeLen; i++)
+                        {
+                            if (_chars[node.Start + i] == TERMINATOR) break;
+                            charsToRemove++;
+                        }
+                        if (charsToRemove > 0 && path.Count >= charsToRemove)
+                            path.RemoveRange(path.Count - charsToRemove, charsToRemove);
+                    }
+                }
+            }
 
             return suffixes;
-        }
-
-        /// <summary>
-        /// Recursively collects all suffixes by traversing to leaves.
-        /// Uses sorted child iteration for lexicographic order.
-        /// </summary>
-        private void CollectSuffixes(SuffixTreeNode node, StringBuilder path, List<string> results)
-        {
-            if (node.IsLeaf)
-            {
-                // Append this edge's label (excluding terminator)
-                int len = LengthOf(node);
-                for (int i = 0; i < len; i++)
-                {
-                    char c = _chars[node.Start + i];
-                    if (c == TERMINATOR) break;
-                    path.Append(c);
-                }
-                if (path.Length > 0)
-                    results.Add(path.ToString());
-                // Remove what we added
-                int charsAdded = len;
-                if (_chars[node.Start + len - 1] == TERMINATOR) charsAdded--;
-                path.Length -= charsAdded > 0 ? charsAdded : 0;
-                return;
-            }
-
-            // For non-root internal nodes, add edge label
-            int edgeLen = 0;
-            if (node != _root)
-            {
-                edgeLen = LengthOf(node);
-                for (int i = 0; i < edgeLen; i++)
-                    path.Append(_chars[node.Start + i]);
-            }
-
-            // Visit children in sorted order for lexicographic output
-            var sortedKeys = node.Children.Keys.ToList();
-            sortedKeys.Sort();
-            foreach (var key in sortedKeys)
-            {
-                CollectSuffixes(node.Children[key], path, results);
-            }
-
-            // Backtrack
-            if (edgeLen > 0)
-                path.Length -= edgeLen;
         }
 
         /// <summary>
