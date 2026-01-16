@@ -47,8 +47,8 @@ namespace SuffixTree
         /// </summary>
         private Node _lastCreatedInternalNode;
 
-        /// <summary>The string content stored as a list for efficient appending.</summary>
-        private readonly List<char> _chars = new List<char>();
+        /// <summary>The string content stored as a character array.</summary>
+        private char[] _chars;
 
         /// <summary>Indicates whether the tree has been sealed (no more additions allowed).</summary>
         private bool _isSealed;
@@ -142,6 +142,9 @@ namespace SuffixTree
             if (value.Length == 0)
                 return;
 
+            // Pre-allocate array for string + terminator
+            _chars = new char[value.Length + 1];
+
             // Process each character - Ukkonen's online construction
             foreach (var c in value)
                 ExtendTree(c);
@@ -168,8 +171,8 @@ namespace SuffixTree
         /// </summary>
         private void ExtendTree(char c)
         {
-            _chars.Add(c);
             _position++;
+            _chars[_position] = c;
             _remainder++;
             _lastCreatedInternalNode = null;
 
@@ -437,7 +440,7 @@ namespace SuffixTree
             if (pattern.Length == 0)
             {
                 // Empty pattern matches at every position
-                int textLength = _chars.Count - 1; // Exclude terminator
+                int textLength = _chars.Length - 1; // Exclude terminator
                 for (int p = 0; p <= textLength; p++)
                     results.Add(p);
                 return results;
@@ -510,7 +513,7 @@ namespace SuffixTree
                 throw new ArgumentNullException(nameof(pattern));
 
             if (pattern.Length == 0)
-                return _chars.Count; // Empty pattern matches at every position including end
+                return _chars.Length; // Empty pattern matches at every position including end
 
             // Navigate to the node/edge representing the pattern
             var node = _root;
@@ -580,12 +583,12 @@ namespace SuffixTree
         /// </returns>
         public string LongestRepeatedSubstring()
         {
-            if (_chars.Count <= 1)
+            if (_chars == null || _chars.Length <= 1)
                 return string.Empty;
 
             int maxDepth = 0;
             Node deepestNode = null;
-            
+
             FindDeepestInternalNode(_root, 0, ref maxDepth, ref deepestNode);
 
             if (deepestNode == null)
@@ -651,7 +654,7 @@ namespace SuffixTree
         private bool FindPathToNode(Node current, Node target, List<Node> path)
         {
             path.Add(current);
-            
+
             if (current == target)
                 return true;
 
@@ -680,7 +683,7 @@ namespace SuffixTree
             {
                 // This leaf represents a suffix of length = currentDepth
                 int suffixLength = currentDepth;
-                int startPosition = _chars.Count - suffixLength;
+                int startPosition = _chars.Length - suffixLength;
                 results.Add(startPosition);
                 return;
             }
@@ -697,14 +700,14 @@ namespace SuffixTree
         /// </summary>
         public override string ToString()
         {
-            if (_chars.Count == 0)
+            if (_chars == null || _chars.Length == 0)
                 return "SuffixTree (empty)";
 
             var content = new string(_chars.Where(c => c != TERMINATOR).ToArray());
             if (content.Length > 50)
                 content = content.Substring(0, 47) + "...";
 
-            return $"SuffixTree (length: {_chars.Count}, content: \"{content}\")";
+            return $"SuffixTree (length: {_chars.Length}, content: \"{content}\")";
         }
 
         /// <summary>
@@ -714,7 +717,7 @@ namespace SuffixTree
         public string PrintTree()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"Content length: {_chars.Count}");
+            sb.AppendLine($"Content length: {_chars?.Length ?? 0}");
             sb.AppendLine();
             PrintNode(sb, _root, 0);
             return sb.ToString();
