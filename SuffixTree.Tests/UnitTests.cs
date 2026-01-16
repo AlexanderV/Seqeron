@@ -2113,5 +2113,143 @@ namespace SuffixTree.Tests
         }
 
         #endregion
+
+        #region Statistics Properties Tests
+
+        [Test]
+        public void NodeCount_EmptyString_ReturnsOne()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.NodeCount, Is.EqualTo(1)); // Just root
+        }
+
+        [Test]
+        public void NodeCount_SingleChar_ReturnsThree()
+        {
+            var st = SuffixTree.Build("a");
+            // Root + leaf for 'a' + leaf for terminator = 3
+            Assert.That(st.NodeCount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void NodeCount_Banana_ReturnsExpected()
+        {
+            var st = SuffixTree.Build("banana");
+            // Root + internal nodes + leaves = should be > 6 (one per suffix)
+            Assert.That(st.NodeCount, Is.GreaterThan(6));
+        }
+
+        [Test]
+        public void LeafCount_EmptyString_ReturnsZero()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.LeafCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LeafCount_EqualsTextLengthPlusOne()
+        {
+            var st = SuffixTree.Build("banana");
+            // One leaf per suffix + one for terminator suffix
+            Assert.That(st.LeafCount, Is.EqualTo(7));
+        }
+
+        [Test]
+        public void LeafCount_UniqueChars_EqualsLengthPlusOne()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.LeafCount, Is.EqualTo(7)); // 6 + terminator suffix
+        }
+
+        [Test]
+        public void MaxDepth_EmptyString_ReturnsZero()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.MaxDepth, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MaxDepth_SingleChar_ReturnsOne()
+        {
+            var st = SuffixTree.Build("a");
+            Assert.That(st.MaxDepth, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MaxDepth_EqualsTextLength()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.MaxDepth, Is.EqualTo(6)); // Longest suffix is full string
+        }
+
+        [Test]
+        public void MaxDepth_RepeatingString()
+        {
+            var st = SuffixTree.Build("aaa");
+            Assert.That(st.MaxDepth, Is.EqualTo(3));
+        }
+
+        #endregion
+
+        #region FindAllLongestCommonSubstrings Tests
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_NullThrows()
+        {
+            var st = SuffixTree.Build("hello");
+            Assert.Throws<ArgumentNullException>(() => st.FindAllLongestCommonSubstrings(null!));
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_EmptyOther_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("hello");
+            var result = st.FindAllLongestCommonSubstrings("");
+            Assert.That(result.Substring, Is.EqualTo(string.Empty));
+            Assert.That(result.PositionsInText, Is.Empty);
+            Assert.That(result.PositionsInOther, Is.Empty);
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_SingleMatch()
+        {
+            var st = SuffixTree.Build("abcdef");
+            var result = st.FindAllLongestCommonSubstrings("xyzcdemnop");
+            Assert.That(result.Substring, Is.EqualTo("cde"));
+            Assert.That(result.PositionsInText, Has.Count.EqualTo(1));
+            Assert.That(result.PositionsInText[0], Is.EqualTo(2));
+            Assert.That(result.PositionsInOther[0], Is.EqualTo(3));
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_MultipleMatches()
+        {
+            var st = SuffixTree.Build("abcabc");
+            var result = st.FindAllLongestCommonSubstrings("xabcyabcz");
+            // "abc" occurs at positions 1 and 5 in other
+            Assert.That(result.Substring, Is.EqualTo("abc"));
+            Assert.That(result.PositionsInOther, Has.Count.EqualTo(2));
+            Assert.That(result.PositionsInOther, Does.Contain(1));
+            Assert.That(result.PositionsInOther, Does.Contain(5));
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_NoMatch()
+        {
+            var st = SuffixTree.Build("abc");
+            var result = st.FindAllLongestCommonSubstrings("xyz");
+            Assert.That(result.Substring, Is.EqualTo(string.Empty));
+            Assert.That(result.PositionsInText, Is.Empty);
+            Assert.That(result.PositionsInOther, Is.Empty);
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_TerminatorThrows()
+        {
+            var st = SuffixTree.Build("hello");
+            Assert.Throws<ArgumentException>(() => st.FindAllLongestCommonSubstrings("hel\0lo"));
+        }
+
+        #endregion
     }
 }
