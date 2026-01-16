@@ -587,7 +587,7 @@ namespace SuffixTree.Tests
                         if (st.CountOccurrences(candidate) >= 2)
                             foundLonger = true;
                     }
-                    
+
                     if (foundLonger)
                     {
                         Assert.Fail($"Found longer repeated substring than LRS '{lrs}' in '{s}'");
