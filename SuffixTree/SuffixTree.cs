@@ -702,7 +702,8 @@ namespace SuffixTree
         /// Algorithm: For each position in 'other', walk down the tree as far as possible,
         /// tracking the maximum depth (characters matched) across all positions.
         /// 
-        /// Time complexity: O(m) where m is the length of 'other'.
+        /// Time complexity: O(n * m) where n is tree text length, m is other length.
+        /// For optimal O(n + m), use generalized suffix tree.
         /// </summary>
         /// <param name="other">The string to compare against.</param>
         /// <returns>The longest common substring, or empty string if none exists.</returns>
@@ -716,99 +717,65 @@ namespace SuffixTree
                 return string.Empty;
 
             int maxLen = 0;
-            int maxEndPos = 0; // End position in 'other' (exclusive)
+            int maxStartPos = 0; // Start position in 'other'
 
             // For each starting position in 'other', find how far we can match
-            // Optimization: use sliding window - when we fall off, we don't restart from scratch
-            var node = _root;
-            int depth = 0; // Current depth in tree (characters matched)
-            int edgePos = 0; // Position within current edge (0 if at node)
-            SuffixTreeNode currentEdge = null;
-
-            for (int i = 0; i < other.Length; i++)
+            for (int start = 0; start < other.Length; start++)
             {
-                char c = other[i];
-                bool matched = false;
-
-                while (!matched)
+                int matchLen = MatchFromRoot(other, start);
+                if (matchLen > maxLen)
                 {
-                    if (currentEdge == null)
-                    {
-                        // At a node, try to follow edge starting with c
-                        if (node.Children.TryGetValue(c, out currentEdge))
-                        {
-                            edgePos = 1; // Matched first char of edge
-                            depth++;
-                            matched = true;
-                        }
-                        else if (node == _root)
-                        {
-                            // Can't match from root, move to next char
-                            break;
-                        }
-                        else
-                        {
-                            // Follow suffix link or go to root
-                            if (node.SuffixLink != null && node.SuffixLink != _root)
-                            {
-                                node = node.SuffixLink;
-                                depth -= 1; // Approximation - suffix link removes first char
-                            }
-                            else
-                            {
-                                node = _root;
-                                depth = 0;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // In the middle of an edge
-                        int edgeLen = LengthOf(currentEdge);
-                        if (edgePos < edgeLen && _chars[currentEdge.Start + edgePos] == c)
-                        {
-                            edgePos++;
-                            depth++;
-                            matched = true;
-
-                            if (edgePos == edgeLen)
-                            {
-                                // Finished this edge, move to child node
-                                node = currentEdge;
-                                currentEdge = null;
-                                edgePos = 0;
-                            }
-                        }
-                        else if (edgePos < edgeLen)
-                        {
-                            // Mismatch in middle of edge - need to backtrack
-                            node = _root;
-                            currentEdge = null;
-                            depth = 0;
-                            edgePos = 0;
-                        }
-                        else
-                        {
-                            // Edge exhausted, move to node
-                            node = currentEdge;
-                            currentEdge = null;
-                            edgePos = 0;
-                        }
-                    }
-                }
-
-                // Update max if current depth is better
-                if (depth > maxLen)
-                {
-                    maxLen = depth;
-                    maxEndPos = i + 1;
+                    maxLen = matchLen;
+                    maxStartPos = start;
                 }
             }
 
             if (maxLen == 0)
                 return string.Empty;
 
-            return other.Substring(maxEndPos - maxLen, maxLen);
+            return other.Substring(maxStartPos, maxLen);
+        }
+
+        /// <summary>
+        /// Matches characters from 'other' starting at 'start' against the tree from root.
+        /// Returns the number of characters matched.
+        /// </summary>
+        private int MatchFromRoot(string other, int start)
+        {
+            var node = _root;
+            int i = start;
+            int matched = 0;
+
+            while (i < other.Length)
+            {
+                char c = other[i];
+
+                if (!node.Children.TryGetValue(c, out var child))
+                    break; // No edge starting with c
+
+                // Match along this edge
+                int edgeLen = LengthOf(child);
+                int j = 0;
+
+                while (j < edgeLen && i < other.Length)
+                {
+                    char edgeChar = _chars[child.Start + j];
+                    if (edgeChar == TERMINATOR || edgeChar != other[i])
+                        return matched; // Mismatch or hit terminator
+
+                    matched++;
+                    i++;
+                    j++;
+                }
+
+                if (j < edgeLen)
+                    break; // Didn't finish edge (hit terminator or end of other)
+
+                // Move to child node
+                node = child;
+            }
+
+            return matched;
         }
 
         /// <summary>
