@@ -73,18 +73,6 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void Build_MultipleTrees_AreIndependent()
-        {
-            var st1 = SuffixTree.Build("hello");
-            var st2 = SuffixTree.Build("world");
-
-            Assert.That(st1.Contains("hello"), Is.True);
-            Assert.That(st1.Contains("world"), Is.False);
-            Assert.That(st2.Contains("world"), Is.True);
-            Assert.That(st2.Contains("hello"), Is.False);
-        }
-
-        [Test]
         public void Text_ReturnsOriginalString()
         {
             var original = "test string";
@@ -200,25 +188,6 @@ namespace SuffixTree.Tests
 
                 Assert.That(st.Contains(pattern.AsSpan()), Is.EqualTo(st.Contains(pattern)));
             }
-        }
-
-        [Test]
-        public void Contains_ClassicMississippi_Works()
-        {
-            var st = SuffixTree.Build("mississippi");
-
-            // Suffixes
-            Assert.That(st.Contains("mississippi"), Is.True);
-            Assert.That(st.Contains("ississippi"), Is.True);
-            Assert.That(st.Contains("i"), Is.True);
-
-            // Substrings
-            Assert.That(st.Contains("issi"), Is.True);
-            Assert.That(st.Contains("sis"), Is.True);
-            Assert.That(st.Contains("pp"), Is.True);
-
-            // Non-existent
-            Assert.That(st.Contains("spa"), Is.False);
         }
 
         [Test]
@@ -346,6 +315,13 @@ namespace SuffixTree.Tests
             Assert.That(st.CountOccurrences("aa"), Is.EqualTo(3));
         }
 
+        [Test]
+        public void CountOccurrences_EmptyPattern_ReturnsTextLength()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.CountOccurrences(""), Is.EqualTo(3));
+        }
+
         #endregion
 
         #region 4. LongestRepeatedSubstring Tests
@@ -433,6 +409,20 @@ namespace SuffixTree.Tests
                     }
                 }
             }
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_ABAB_Pattern()
+        {
+            var st = SuffixTree.Build("abab");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ab"));
+        }
+
+        [Test]
+        public void LongestRepeatedSubstring_GEEKSFORGEEKS()
+        {
+            var st = SuffixTree.Build("GEEKSFORGEEKS");
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("GEEKS"));
         }
 
         #endregion
@@ -538,6 +528,20 @@ namespace SuffixTree.Tests
             Assert.That(result.Substring, Is.EqualTo(""));
             Assert.That(result.PositionsInText, Is.Empty);
             Assert.That(result.PositionsInOther, Is.Empty);
+        }
+
+        [Test]
+        public void FindAllLongestCommonSubstrings_NullOther_ThrowsArgumentNullException()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.FindAllLongestCommonSubstrings(null!));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_SameString_ReturnsFullString()
+        {
+            var st = SuffixTree.Build("hello");
+            Assert.That(st.LongestCommonSubstring("hello"), Is.EqualTo("hello"));
         }
 
         #endregion
@@ -1065,13 +1069,20 @@ namespace SuffixTree.Tests
         [Test]
         public void Regression_MultipleBuildCallsAreIndependent()
         {
+            // Verify that multiple trees are truly independent
             var st1 = SuffixTree.Build("hello");
             var st2 = SuffixTree.Build("world");
+            var st3 = SuffixTree.Build("test");
 
             Assert.That(st1.Contains("hello"), Is.True);
             Assert.That(st1.Contains("world"), Is.False);
+            Assert.That(st1.Contains("test"), Is.False);
+
             Assert.That(st2.Contains("world"), Is.True);
             Assert.That(st2.Contains("hello"), Is.False);
+
+            Assert.That(st3.Contains("test"), Is.True);
+            Assert.That(st3.Text, Is.EqualTo("test"));
         }
 
         [Test]
@@ -1080,11 +1091,22 @@ namespace SuffixTree.Tests
             // Mississippi is the classic suffix tree test case
             var st = SuffixTree.Build("mississippi");
 
+            // All suffixes
+            Assert.That(st.Contains("mississippi"), Is.True);
+            Assert.That(st.Contains("ississippi"), Is.True);
+            Assert.That(st.Contains("i"), Is.True);
+
+            // Key substrings
             Assert.That(st.Contains("issi"), Is.True);
             Assert.That(st.Contains("iss"), Is.True);
             Assert.That(st.Contains("ssi"), Is.True);
+            Assert.That(st.Contains("sis"), Is.True);
+            Assert.That(st.Contains("pp"), Is.True);
             Assert.That(st.Contains("ississi"), Is.True);
             Assert.That(st.Contains("sissipp"), Is.True);
+
+            // Non-existent
+            Assert.That(st.Contains("spa"), Is.False);
         }
 
         [Test]
@@ -1181,7 +1203,7 @@ namespace SuffixTree.Tests
 
         #endregion
 
-        #region Extended API Tests
+        #region Span API Tests
 
         [Test]
         public void Contains_Span_FromStringSlice_Works()
@@ -1202,81 +1224,24 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void FindAllOccurrences_FullString_ReturnsSinglePosition()
-        {
-            var st = SuffixTree.Build("abcdef");
-            var result = st.FindAllOccurrences("abcdef");
-
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result[0], Is.EqualTo(0));
-        }
-
-        [Test]
-        public void FindAllOccurrences_SingleChar_ReturnsAllPositions()
-        {
-            var st = SuffixTree.Build("ababa");
-            var result = st.FindAllOccurrences("a");
-
-            Assert.That(result, Is.EquivalentTo(new[] { 0, 2, 4 }));
-        }
-
-        [Test]
-        public void FindAllOccurrences_Mississippi_FindsAllIssi()
-        {
-            var st = SuffixTree.Build("mississippi");
-            var result = st.FindAllOccurrences("issi");
-
-            Assert.That(result, Is.EquivalentTo(new[] { 1, 4 }));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_ABAB_Pattern()
-        {
-            var st = SuffixTree.Build("abab");
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ab"));
-        }
-
-        [Test]
-        public void LongestRepeatedSubstring_GEEKSFORGEEKS()
-        {
-            var st = SuffixTree.Build("GEEKSFORGEEKS");
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("GEEKS"));
-        }
-
-        [Test]
-        public void LongestCommonSubstring_SameString_ReturnsFullString()
-        {
-            var st = SuffixTree.Build("hello");
-            Assert.That(st.LongestCommonSubstring("hello"), Is.EqualTo("hello"));
-        }
-
-        [Test]
-        public void LongestCommonSubstringInfo_EmptyResult_HasNegativePositions()
-        {
-            var st = SuffixTree.Build("abc");
-            var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xyz");
-
-            Assert.That(substring, Is.Empty);
-            Assert.That(posInText, Is.EqualTo(-1));
-            Assert.That(posInOther, Is.EqualTo(-1));
-        }
-
-        [Test]
-        public void FindAllLongestCommonSubstrings_NullOther_ThrowsArgumentNullException()
-        {
-            var st = SuffixTree.Build("abc");
-            Assert.Throws<ArgumentNullException>(() => st.FindAllLongestCommonSubstrings(null!));
-        }
-
-        [Test]
-        public void FindAllLongestCommonSubstrings_AllPositions_Correct()
+        public void FindAllOccurrences_Span_MatchesStringOverload()
         {
             var st = SuffixTree.Build("banana");
-            var result = st.FindAllLongestCommonSubstrings("xxananxx");
+            var pattern = "ana";
 
-            Assert.That(result.Substring, Is.EqualTo("anan"));
-            Assert.That(result.PositionsInText, Does.Contain(1));
-            Assert.That(result.PositionsInOther, Does.Contain(2));
+            var stringResult = st.FindAllOccurrences(pattern);
+            var spanResult = st.FindAllOccurrences(pattern.AsSpan());
+
+            Assert.That(spanResult, Is.EquivalentTo(stringResult));
+        }
+
+        [Test]
+        public void CountOccurrences_Span_MatchesStringOverload()
+        {
+            var st = SuffixTree.Build("mississippi");
+            var pattern = "issi";
+
+            Assert.That(st.CountOccurrences(pattern.AsSpan()), Is.EqualTo(st.CountOccurrences(pattern)));
         }
 
         #endregion
