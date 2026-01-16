@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-143%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-165%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -55,17 +55,34 @@ Or add the project reference to your solution.
 // Build a suffix tree
 var tree = SuffixTree.Build("banana");
 
+// Access original text
+string text = tree.Text;  // "banana"
+
 // Check if substring exists
 bool found = tree.Contains("nan");  // true
 bool notFound = tree.Contains("xyz");  // false
 
-// All suffixes are searchable
-tree.Contains("banana");  // true
-tree.Contains("anana");   // true
-tree.Contains("nana");    // true
-tree.Contains("ana");     // true
-tree.Contains("na");      // true
-tree.Contains("a");       // true
+// Zero-allocation search with Span
+bool exists = tree.Contains("ana".AsSpan());
+
+// Find all occurrences
+var positions = tree.FindAllOccurrences("ana");  // [1, 3]
+int count = tree.CountOccurrences("ana");  // 2
+
+// Longest repeated substring
+string lrs = tree.LongestRepeatedSubstring();  // "ana"
+
+// Longest common substring with positions
+var (substring, posInText, posInOther) = tree.LongestCommonSubstringInfo("bandana");
+
+// Get all suffixes (sorted)
+var suffixes = tree.GetAllSuffixes();
+
+// Lazy enumeration for large strings
+foreach (var suffix in tree.EnumerateSuffixes())
+{
+    Console.WriteLine(suffix);
+}
 
 // Debug: print tree structure
 Console.WriteLine(tree.PrintTree());
@@ -82,7 +99,7 @@ SuffixTree.sln
 ├── SuffixTree.Console/      # Stress test console app
 │   └── Program.cs           # Exhaustive verification tests
 ├── SuffixTree.Tests/        # Unit tests (NUnit)
-│   └── UnitTests.cs         # 143 comprehensive tests
+│   └── UnitTests.cs         # 165 comprehensive tests
 └── SuffixTree.Benchmarks/   # Performance benchmarks
     └── SuffixTreeBenchmarks.cs
 ```
