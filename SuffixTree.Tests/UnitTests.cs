@@ -703,6 +703,68 @@ namespace SuffixTree.Tests
 
         #endregion
 
+        #region LongestCommonSubstring Tests
+
+        [Test]
+        public void LongestCommonSubstring_Null_ThrowsArgumentNullException()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.LongestCommonSubstring(null));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_EmptyOther_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.LongestCommonSubstring(""), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.LongestCommonSubstring("abc"), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_NoCommon_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.LongestCommonSubstring("xyz"), Is.EqualTo(""));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_FullMatch()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.LongestCommonSubstring("abcdef"), Is.EqualTo("abcdef"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_PartialMatch()
+        {
+            var st = SuffixTree.Build("xyzabcdef");
+            var lcs = st.LongestCommonSubstring("123abc456");
+            Assert.That(lcs, Is.EqualTo("abc"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_MultipleMatches_ReturnsLongest()
+        {
+            var st = SuffixTree.Build("abcdefghijklmnop");
+            var lcs = st.LongestCommonSubstring("xxabcxxdefghixx");
+            Assert.That(lcs, Is.EqualTo("defghi"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_SingleCharMatch()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.LongestCommonSubstring("xay"), Is.EqualTo("a"));
+        }
+
+        #endregion
+
         #region Stress Tests
 
         [Test]
