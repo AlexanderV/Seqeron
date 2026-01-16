@@ -60,6 +60,13 @@ namespace SuffixTree
         /// <summary>How many characters along the active edge we've matched.</summary>
         private int _activeLength = 0;
 
+        /// <summary>
+        /// Gets the original text that this suffix tree was built from (without terminator).
+        /// </summary>
+        public string Text => _chars == null || _chars.Length <= 1
+            ? string.Empty
+            : new string(_chars, 0, _chars.Length - 1);
+
         private SuffixTree()
         {
             _root = new SuffixTreeNode { Start = 0, End = 0 };

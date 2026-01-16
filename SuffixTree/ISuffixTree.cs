@@ -10,6 +10,11 @@ namespace SuffixTree
     public interface ISuffixTree
     {
         /// <summary>
+        /// Gets the original text that this suffix tree was built from.
+        /// </summary>
+        string Text { get; }
+
+        /// <summary>
         /// Checks if the specified string is a substring of the tree content.
         /// </summary>
         /// <param name="value">The substring to search for.</param>

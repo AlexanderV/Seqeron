@@ -40,6 +40,20 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void Text_ReturnsOriginalString()
+        {
+            var st = SuffixTree.Build("banana");
+            Assert.That(st.Text, Is.EqualTo("banana"));
+        }
+
+        [Test]
+        public void Text_EmptyTree_ReturnsEmptyString()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.Text, Is.EqualTo(""));
+        }
+
+        [Test]
         public void Contains_EmptyString_ShouldReturnTrue()
         {
             var st = SuffixTree.Build("abc");
