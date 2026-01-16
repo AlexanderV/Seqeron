@@ -643,10 +643,18 @@ namespace SuffixTree
 
         /// <summary>
         /// Returns all suffixes of the original string in sorted order.
-        /// Suffix trees naturally store suffixes in lexicographic order when traversing
-        /// children by character order.
         /// 
-        /// Useful for debugging, educational purposes, and verifying tree correctness.
+        /// Implementation uses iterative DFS with explicit stack to avoid StackOverflow
+        /// on deep trees (e.g., strings with many repeated characters).
+        /// 
+        /// Algorithm:
+        /// 1. Traverse tree depth-first, visiting children in sorted character order
+        /// 2. Track current path in StringBuilder (edge labels from root to current position)
+        /// 3. When reaching a leaf, the path represents a complete suffix
+        /// 4. Backtrack by removing characters when returning from child nodes
+        /// 
+        /// Memory: O(n²) for result (n suffixes of average length n/2).
+        /// For large strings, prefer EnumerateSuffixes() for lazy evaluation.
         /// </summary>
         /// <returns>All suffixes sorted lexicographically.</returns>
         public IReadOnlyList<string> GetAllSuffixes()
