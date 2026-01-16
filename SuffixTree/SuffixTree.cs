@@ -708,10 +708,16 @@ namespace SuffixTree
         /// <param name="other">The string to compare against.</param>
         /// <returns>The longest common substring, or empty string if none exists.</returns>
         /// <exception cref="ArgumentNullException">If other is null.</exception>
+        /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
         public string LongestCommonSubstring(string other)
         {
             if (other == null)
                 throw new ArgumentNullException(nameof(other));
+
+            if (other.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(other));
 
             if (other.Length == 0 || _chars == null || _chars.Length <= 1)
                 return string.Empty;

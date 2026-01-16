@@ -764,6 +764,13 @@ namespace SuffixTree.Tests
             Assert.That(st.LongestCommonSubstring("xay"), Is.EqualTo("a"));
         }
 
+        [Test]
+        public void LongestCommonSubstring_NullCharacter_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentException>(() => st.LongestCommonSubstring("a\0b"));
+        }
+
         #endregion
 
         #region Thread Safety Tests
