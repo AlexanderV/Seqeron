@@ -1090,6 +1090,41 @@ namespace SuffixTree.Tests
             Assert.That(suffixes.Count, Is.EqualTo(1000));
         }
 
+        [Test]
+        public void LargeString_EnumerateSuffixes_CanProcessIncrementally()
+        {
+            // EnumerateSuffixes is preferable for large strings as it doesn't allocate all at once
+            var text = new string('a', 5000);
+            var st = SuffixTree.Build(text);
+
+            // Count first 100 suffixes without loading all 5000 into memory
+            int count = 0;
+            foreach (var suffix in st.EnumerateSuffixes())
+            {
+                count++;
+                if (count >= 100) break;
+            }
+
+            Assert.That(count, Is.EqualTo(100), "Should be able to enumerate first 100 suffixes");
+        }
+
+        [Test]
+        public void LargeString_EnumerateSuffixes_5K_Completes()
+        {
+            // Full enumeration of 5K suffixes (total ~12.5MB)
+            var text = new string('b', 5000);
+            var st = SuffixTree.Build(text);
+
+            int count = 0;
+            Assert.DoesNotThrow(() =>
+            {
+                foreach (var _ in st.EnumerateSuffixes())
+                    count++;
+            });
+
+            Assert.That(count, Is.EqualTo(5000), "Should enumerate all 5000 suffixes");
+        }
+
         #endregion
 
         #region Stress Tests
