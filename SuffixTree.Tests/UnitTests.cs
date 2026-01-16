@@ -344,7 +344,8 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("abc");
             var result = st.FindAllOccurrences("");
-            Assert.That(result.Count, Is.EqualTo(4)); // positions 0,1,2,3 (including end)
+            Assert.That(result.Count, Is.EqualTo(3)); // positions 0,1,2 (text length)
+            Assert.That(result, Is.EquivalentTo(new[] { 0, 1, 2 }));
         }
 
         [Test]
@@ -457,10 +458,10 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void CountOccurrences_EmptyPattern_ReturnsTextLengthPlusOne()
+        public void CountOccurrences_EmptyPattern_ReturnsTextLength()
         {
             var st = SuffixTree.Build("abc");
-            Assert.That(st.CountOccurrences(""), Is.EqualTo(4)); // 0,1,2,3
+            Assert.That(st.CountOccurrences(""), Is.EqualTo(3)); // positions 0,1,2 (excluding terminator)
         }
 
         [Test]
