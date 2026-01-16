@@ -9,18 +9,18 @@ namespace SuffixTree.Tests
     /// <summary>
     /// Comprehensive unit tests for SuffixTree implementation.
     /// 
-    /// Test Hierarchy (113 tests total):
-    /// 1. Build (10) - tree creation, validation, edge cases
-    /// 2. Contains (11) - substring search with string and Span overloads
-    /// 3. FindAllOccurrences/CountOccurrences (12) - position finding
+    /// Test Hierarchy (114 tests total):
+    /// 1. Build (13) - tree creation, validation, edge cases [incl. 6 TestCase variants]
+    /// 2. Contains (10) - substring search with string and Span overloads
+    /// 3. FindAllOccurrences/CountOccurrences (13) - position finding
     /// 4. LongestRepeatedSubstring (11) - LRS algorithm verification
     /// 5. LongestCommonSubstring (13) - LCS algorithm (all API variants)
     /// 6. GetAllSuffixes/EnumerateSuffixes (9) - suffix enumeration
     /// 7. Statistics (7) - NodeCount, LeafCount, MaxDepth
-    /// 8. Unicode and Special Characters (10) - international support
+    /// 8. Unicode and Special Characters (9) - international support
     /// 9. Performance and Large String (5) - stress testing
     /// 10. Thread Safety (3) - concurrent access
-    /// 11. Algorithm-Specific (10) - Ukkonen's edge cases
+    /// 11. Algorithm-Specific (9) - Ukkonen's edge cases
     /// 12. Regression (8) - historical bug prevention
     /// 13. Span API (4) - ReadOnlySpan overloads
     /// </summary>
@@ -242,6 +242,13 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("abcdef");
             Assert.That(st.FindAllOccurrences("xyz"), Is.Empty);
+        }
+
+        [Test]
+        public void FindAllOccurrences_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.FindAllOccurrences("a"), Is.Empty);
         }
 
         [Test]
@@ -663,11 +670,16 @@ namespace SuffixTree.Tests
         }
 
         [Test]
-        public void LeafCount_EqualsNumberOfSuffixes()
+        public void LeafCount_EqualsTextLengthPlusOne()
         {
-            // LeafCount should equal number of suffixes (text length) + 1 for terminator
-            var st = SuffixTree.Build("banana");
-            Assert.That(st.LeafCount, Is.EqualTo(7)); // 6 suffixes + terminator
+            // LeafCount equals text length + 1 (for terminator suffix)
+            var texts = new[] { "a", "ab", "banana", "mississippi" };
+            foreach (var text in texts)
+            {
+                var st = SuffixTree.Build(text);
+                Assert.That(st.LeafCount, Is.EqualTo(text.Length + 1),
+                    $"LeafCount for '{text}' should be {text.Length + 1}");
+            }
         }
 
         [Test]
