@@ -155,10 +155,12 @@ The implementation follows Ukkonen's canonical algorithm with:
 
 1. **Active Point** — tracks current position in tree (`activeNode`, `activeEdge`, `activeLength`)
 2. **Suffix Links** — enable O(1) jumps between internal nodes
-3. **Rule 1** — handle extension at root node
-4. **Rule 3** — implicit extension (showstopper)
-5. **Walk-Down** — traverse edges when `activeLength >= edgeLength`
-6. **Terminator** — `'\0'` character ensures all suffixes end at leaves
+3. **Remainder** — counts pending suffixes to be inserted
+4. **Rule 1** — no matching edge exists → create new leaf
+5. **Rule 2** — mismatch in middle of edge → split edge, create internal node
+6. **Rule 3** — character matches → suffix exists implicitly (showstopper)
+7. **Walk-Down** — traverse edges when `activeLength >= edgeLength`
+8. **Terminator** — `'\0'` character ensures all suffixes end at leaves
 
 ### Understanding Suffix Trees
 
@@ -453,7 +455,7 @@ dotnet build
 ## Testing
 
 ```bash
-# Run unit tests (88 tests)
+# Run unit tests (181 tests)
 dotnet test
 
 # Run stress tests (1M+ substring verifications)
@@ -466,14 +468,16 @@ The test suite includes:
 
 - **Basic operations** — build, contains, edge cases
 - **Algorithm verification** — suffix links, walk-down, edge splitting
-- **Stress tests** — random strings up to 5000 characters
+- **Stress tests** — random strings up to 100,000 characters
 - **Unicode tests** — Cyrillic, Chinese, emoji, mixed content
+- **Statistics tests** — NodeCount, LeafCount, MaxDepth
+- **LCS tests** — LongestCommonSubstring with all positions
 - **Performance tests** — 10,000+ character strings
 - **Regression tests** — all previously fixed bugs
 
 ### Verified Correctness
 
-- **88 unit tests** — all passing
+- **181 unit tests** — all passing
 - **1,137,909 substrings** — verified in stress tests
 - **313 test strings** — including edge cases like "mississippi", "abracadabra"
 
@@ -574,6 +578,49 @@ string lcs = tree.LongestCommonSubstring("xxcdefxx");  // "cdef"
 ```
 
 **Time Complexity:** O(m) where m is length of other string
+
+---
+
+### `LongestCommonSubstringInfo(string other)`
+
+Finds the longest common substring with position information.
+
+```csharp
+var tree = SuffixTree.Build("abcdefgh");
+var (substring, posInText, posInOther) = tree.LongestCommonSubstringInfo("xxcdefxx");
+// substring="cdef", posInText=2, posInOther=2
+```
+
+**Time Complexity:** O(m) where m is length of other string
+
+---
+
+### `FindAllLongestCommonSubstrings(string other)`
+
+Finds all positions where the longest common substring occurs.
+
+```csharp
+var tree = SuffixTree.Build("abcabc");
+var (substring, positionsInText, positionsInOther) = tree.FindAllLongestCommonSubstrings("xabcyabcz");
+// substring="abc", positionsInOther=[1, 5]
+```
+
+**Time Complexity:** O(m) where m is length of other string
+
+---
+
+### `NodeCount`, `LeafCount`, `MaxDepth`
+
+Tree statistics properties.
+
+```csharp
+var tree = SuffixTree.Build("banana");
+int nodes = tree.NodeCount;    // Total nodes including root
+int leaves = tree.LeafCount;   // Number of leaf nodes (suffixes + 1)
+int depth = tree.MaxDepth;     // Maximum depth in characters
+```
+
+**Time Complexity:** O(n) for each property
 
 ---
 
