@@ -26,6 +26,11 @@ namespace SuffixTree
         /// </summary>
         private const char TERMINATOR = '\0';
 
+        /// <summary>
+        /// Maximum content length displayed in ToString() before truncation.
+        /// </summary>
+        private const int MAX_TOSTRING_CONTENT_LENGTH = 50;
+
         /// <summary>Number of suffixes that still need explicit insertion.</summary>
         private int _remainder;
 
@@ -918,8 +923,8 @@ namespace SuffixTree
                 return "SuffixTree (empty)";
 
             var content = new string(_chars.Where(c => c != TERMINATOR).ToArray());
-            if (content.Length > 50)
-                content = content.Substring(0, 47) + "...";
+            if (content.Length > MAX_TOSTRING_CONTENT_LENGTH)
+                content = content.Substring(0, MAX_TOSTRING_CONTENT_LENGTH - 3) + "...";
 
             return $"SuffixTree (length: {_chars.Length}, content: \"{content}\")";
         }
