@@ -126,6 +126,7 @@ namespace SuffixTree
             _activeNode = null;
             _activeEdgeIndex = -1;
             _activeLength = 0;
+            _remainder = 0;
         }
 
         /// <summary>
