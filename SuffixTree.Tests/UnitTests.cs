@@ -908,6 +908,35 @@ namespace SuffixTree.Tests
             Assert.That(result, Is.EqualTo("hello"));
         }
 
+        [Test]
+        public void LongestCommonSubstringInfo_ReturnsCorrectPositions()
+        {
+            var st = SuffixTree.Build("abracadabra");
+            var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xxcadyy");
+
+            Assert.That(substring, Is.EqualTo("cad"));
+            Assert.That(posInText, Is.EqualTo(4)); // "cad" starts at index 4 in "abracadabra"
+            Assert.That(posInOther, Is.EqualTo(2)); // "cad" starts at index 2 in "xxcadyy"
+        }
+
+        [Test]
+        public void LongestCommonSubstringInfo_NoMatch_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abc");
+            var (substring, posInText, posInOther) = st.LongestCommonSubstringInfo("xyz");
+
+            Assert.That(substring, Is.EqualTo(""));
+            Assert.That(posInText, Is.EqualTo(-1));
+            Assert.That(posInOther, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void LongestCommonSubstringInfo_Null_Throws()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.LongestCommonSubstringInfo(null));
+        }
+
         #endregion
 
         #region Thread Safety Tests

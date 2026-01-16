@@ -861,6 +861,56 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Finds the longest common substring with position information.
+        /// 
+        /// Time complexity: O(n * m) where n is tree text length, m is other length.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>
+        /// A tuple containing: the substring, position in tree's text, position in other.
+        /// Returns (empty string, -1, -1) if no common substring exists.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">If other is null.</exception>
+        /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
+        public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
+        {
+            if (other == null)
+                throw new ArgumentNullException(nameof(other));
+
+            if (other.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(other));
+
+            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
+                return (string.Empty, -1, -1);
+
+            int maxLen = 0;
+            int maxStartInOther = 0;
+
+            for (int start = 0; start < other.Length; start++)
+            {
+                int matchLen = MatchFromRoot(other.AsSpan(), start);
+                if (matchLen > maxLen)
+                {
+                    maxLen = matchLen;
+                    maxStartInOther = start;
+                }
+            }
+
+            if (maxLen == 0)
+                return (string.Empty, -1, -1);
+
+            string substring = other.Substring(maxStartInOther, maxLen);
+
+            // Find position in tree's text
+            var occurrences = FindAllOccurrences(substring);
+            int positionInText = occurrences.Count > 0 ? occurrences[0] : -1;
+
+            return (substring, positionInText, maxStartInOther);
+        }
+
+        /// <summary>
         /// Matches characters from 'other' starting at 'start' against the tree from root.
         /// Returns the number of characters matched.
         /// </summary>
