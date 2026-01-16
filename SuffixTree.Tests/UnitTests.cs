@@ -71,8 +71,8 @@ namespace SuffixTree.Tests
         public void Contains_SingleCharacter_ShouldWork()
         {
             var st = SuffixTree.Build("a");
-            Assert.That(st.Contains("a"), Is.True);
-            Assert.That(st.Contains("b"), Is.False);
+            Assert.That(st.Contains("a"), Is.True, "Single char tree should contain its character");
+            Assert.That(st.Contains("b"), Is.False, "Single char tree should not contain other characters");
         }
 
         // ==================== Contains with ReadOnlySpan Tests ====================
@@ -287,11 +287,11 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("abcdef");
 
-            Assert.That(st.Contains("xyz"), Is.False);
-            Assert.That(st.Contains("abd"), Is.False);  // 'd' follows 'c', not 'b'
-            Assert.That(st.Contains("abcdefg"), Is.False);  // longer than original
-            Assert.That(st.Contains("aba"), Is.False);
-            Assert.That(st.Contains("fgh"), Is.False);
+            Assert.That(st.Contains("xyz"), Is.False, "Pattern 'xyz' should not exist");
+            Assert.That(st.Contains("abd"), Is.False, "Pattern 'abd' should not exist - 'd' follows 'c', not 'b'");
+            Assert.That(st.Contains("abcdefg"), Is.False, "Pattern 'abcdefg' should not exist - longer than original");
+            Assert.That(st.Contains("aba"), Is.False, "Pattern 'aba' should not exist");
+            Assert.That(st.Contains("fgh"), Is.False, "Pattern 'fgh' should not exist");
         }
 
         [Test]
