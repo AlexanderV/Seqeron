@@ -455,7 +455,7 @@ dotnet build
 ## Testing
 
 ```bash
-# Run unit tests (181 tests)
+# Run unit tests (118 tests after refactoring)
 dotnet test
 
 # Run stress tests (1M+ substring verifications)
