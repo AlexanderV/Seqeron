@@ -116,6 +116,9 @@ namespace SuffixTree
 
             // Clear construction state (not needed anymore, helps GC)
             _lastCreatedInternalNode = null;
+            _activeNode = null;
+            _activeEdgeIndex = -1;
+            _activeLength = 0;
         }
 
         /// <summary>
