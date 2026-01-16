@@ -63,7 +63,7 @@ namespace SuffixTree
         /// <summary>How many characters along the active edge we've matched.</summary>
         private int _activeLength = 0;
 
-        public SuffixTree()
+        private SuffixTree()
         {
             _root = new SuffixTreeNode { Start = 0, End = 0 };
             _root.SuffixLink = _root; // Root's suffix link points to itself
