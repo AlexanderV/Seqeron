@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-125%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-143%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -82,7 +82,7 @@ SuffixTree.sln
 ├── SuffixTree.Console/      # Stress test console app
 │   └── Program.cs           # Exhaustive verification tests
 ├── SuffixTree.Tests/        # Unit tests (NUnit)
-│   └── UnitTests.cs         # 125 comprehensive tests
+│   └── UnitTests.cs         # 143 comprehensive tests
 └── SuffixTree.Benchmarks/   # Performance benchmarks
     └── SuffixTreeBenchmarks.cs
 ```
@@ -487,6 +487,80 @@ bool found = tree.Contains("world");  // true
 **Throws:** `ArgumentNullException` if value is null
 
 **Time Complexity:** O(m) where m is the length of the search string
+
+---
+
+### `Contains(ReadOnlySpan<char> value)`
+
+Zero-allocation overload for performance-critical scenarios.
+
+```csharp
+bool found = tree.Contains("world".AsSpan());  // true
+```
+
+---
+
+### `CountOccurrences(string pattern)` / `CountOccurrences(ReadOnlySpan<char> pattern)`
+
+Counts how many times a pattern appears in the text.
+
+```csharp
+var tree = SuffixTree.Build("banana");
+int count = tree.CountOccurrences("ana");  // 2
+```
+
+**Time Complexity:** O(m + k) where m is pattern length, k is number of occurrences
+
+---
+
+### `FindAllOccurrences(string pattern)` / `FindAllOccurrences(ReadOnlySpan<char> pattern)`
+
+Finds all starting positions where the pattern occurs.
+
+```csharp
+var tree = SuffixTree.Build("banana");
+var positions = tree.FindAllOccurrences("ana");  // [1, 3]
+```
+
+**Time Complexity:** O(m + k) where m is pattern length, k is number of occurrences
+
+---
+
+### `LongestRepeatedSubstring()`
+
+Finds the longest substring that appears at least twice.
+
+```csharp
+var tree = SuffixTree.Build("banana");
+string lrs = tree.LongestRepeatedSubstring();  // "ana"
+```
+
+**Time Complexity:** O(n)
+
+---
+
+### `LongestCommonSubstring(string other)`
+
+Finds the longest common substring between the tree's text and another string.
+
+```csharp
+var tree = SuffixTree.Build("abcdefgh");
+string lcs = tree.LongestCommonSubstring("xxcdefxx");  // "cdef"
+```
+
+**Time Complexity:** O(m) where m is length of other string
+
+---
+
+### `GetAllSuffixes()`
+
+Returns all suffixes in lexicographic order (useful for debugging).
+
+```csharp
+var tree = SuffixTree.Build("banana");
+var suffixes = tree.GetAllSuffixes();
+// ["a", "ana", "anana", "banana", "na", "nana"]
+```
 
 ---
 
