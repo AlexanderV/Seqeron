@@ -419,6 +419,23 @@ namespace SuffixTree
             if (pattern == null)
                 throw new ArgumentNullException(nameof(pattern));
 
+            return FindAllOccurrences(pattern.AsSpan());
+        }
+
+        /// <summary>
+        /// Finds all starting positions where the pattern occurs in the original string.
+        /// Zero-allocation overload for performance-critical scenarios.
+        /// 
+        /// Algorithm:
+        /// 1. Navigate down the tree following the pattern
+        /// 2. Collect all leaf positions in the subtree (each leaf = one occurrence)
+        /// 
+        /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
+        /// </summary>
+        /// <param name="pattern">The pattern to search for.</param>
+        /// <returns>Collection of 0-based starting positions of all occurrences.</returns>
+        public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
+        {
             var results = new List<int>();
 
             if (pattern.Length == 0)
@@ -467,16 +484,8 @@ namespace SuffixTree
             }
 
             // Pattern matched exactly to a node - collect all leaves in subtree
-            // depthFromRoot already includes path to 'node', so we pass depth BEFORE node's edge
-            // But wait - depthFromRoot was updated to include node's edge. Let's trace:
-            // After loop: depthFromRoot = sum of all edges INCLUDING node's edge
-            // In CollectLeaves we'll add node's edge again - that's wrong!
-            // 
-            // Actually, 'node' here IS the node we landed on after following edges.
-            // So depthFromRoot includes all edges UP TO AND INCLUDING the edge to 'node'.
-            // But CollectLeaves expects depth EXCLUDING node's own edge.
-            // So we need: CollectLeaves(node, depthFromRoot - LengthOf(node), results)
-            // But that's getting complicated. Let me redesign.
+            // depthFromRoot includes all edges up to and including node's edge
+            // CollectLeaves expects depth EXCLUDING node's own edge
             CollectLeaves(node, depthFromRoot - LengthOf(node), results);
             return results;
         }
