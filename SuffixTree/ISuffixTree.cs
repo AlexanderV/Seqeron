@@ -65,5 +65,12 @@ namespace SuffixTree
         /// </summary>
         /// <returns>All suffixes sorted lexicographically.</returns>
         IReadOnlyList<string> GetAllSuffixes();
+
+        /// <summary>
+        /// Finds the longest common substring between this tree's text and another string.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>The longest common substring, or empty string if none exists.</returns>
+        string LongestCommonSubstring(string other);
     }
 }

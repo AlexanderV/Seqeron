@@ -681,6 +681,121 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Finds the longest common substring between this tree's text and another string.
+        /// 
+        /// Algorithm: For each position in 'other', walk down the tree as far as possible,
+        /// tracking the maximum depth (characters matched) across all positions.
+        /// 
+        /// Time complexity: O(m) where m is the length of 'other'.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>The longest common substring, or empty string if none exists.</returns>
+        /// <exception cref="ArgumentNullException">If other is null.</exception>
+        public string LongestCommonSubstring(string other)
+        {
+            if (other == null)
+                throw new ArgumentNullException(nameof(other));
+
+            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
+                return string.Empty;
+
+            int maxLen = 0;
+            int maxEndPos = 0; // End position in 'other' (exclusive)
+
+            // For each starting position in 'other', find how far we can match
+            // Optimization: use sliding window - when we fall off, we don't restart from scratch
+            var node = _root;
+            int depth = 0; // Current depth in tree (characters matched)
+            int edgePos = 0; // Position within current edge (0 if at node)
+            SuffixTreeNode currentEdge = null;
+
+            for (int i = 0; i < other.Length; i++)
+            {
+                char c = other[i];
+                bool matched = false;
+
+                while (!matched)
+                {
+                    if (currentEdge == null)
+                    {
+                        // At a node, try to follow edge starting with c
+                        if (node.Children.TryGetValue(c, out currentEdge))
+                        {
+                            edgePos = 1; // Matched first char of edge
+                            depth++;
+                            matched = true;
+                        }
+                        else if (node == _root)
+                        {
+                            // Can't match from root, move to next char
+                            break;
+                        }
+                        else
+                        {
+                            // Follow suffix link or go to root
+                            if (node.SuffixLink != null && node.SuffixLink != _root)
+                            {
+                                node = node.SuffixLink;
+                                depth -= 1; // Approximation - suffix link removes first char
+                            }
+                            else
+                            {
+                                node = _root;
+                                depth = 0;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // In the middle of an edge
+                        int edgeLen = LengthOf(currentEdge);
+                        if (edgePos < edgeLen && _chars[currentEdge.Start + edgePos] == c)
+                        {
+                            edgePos++;
+                            depth++;
+                            matched = true;
+
+                            if (edgePos == edgeLen)
+                            {
+                                // Finished this edge, move to child node
+                                node = currentEdge;
+                                currentEdge = null;
+                                edgePos = 0;
+                            }
+                        }
+                        else if (edgePos < edgeLen)
+                        {
+                            // Mismatch in middle of edge - need to backtrack
+                            node = _root;
+                            currentEdge = null;
+                            depth = 0;
+                            edgePos = 0;
+                        }
+                        else
+                        {
+                            // Edge exhausted, move to node
+                            node = currentEdge;
+                            currentEdge = null;
+                            edgePos = 0;
+                        }
+                    }
+                }
+
+                // Update max if current depth is better
+                if (depth > maxLen)
+                {
+                    maxLen = depth;
+                    maxEndPos = i + 1;
+                }
+            }
+
+            if (maxLen == 0)
+                return string.Empty;
+
+            return other.Substring(maxEndPos - maxLen, maxLen);
+        }
+
+        /// <summary>
         /// Finds the deepest internal node using iterative traversal.
         /// Avoids stack overflow for deep trees.
         /// </summary>
