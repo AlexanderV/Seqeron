@@ -532,18 +532,32 @@ namespace SuffixTree
         }
 
         /// <summary>
-        /// Recursively counts all leaves in a subtree.
+        /// Counts all leaves in a subtree using iterative traversal.
+        /// Avoids stack overflow for deep trees.
         /// </summary>
         private int CountLeaves(SuffixTreeNode node)
         {
-            if (node.IsLeaf)
-                return 1;
-
             int count = 0;
-            foreach (var child in node.Children.Values)
+            var stack = new Stack<SuffixTreeNode>();
+            stack.Push(node);
+
+            while (stack.Count > 0)
             {
-                count += CountLeaves(child);
+                var current = stack.Pop();
+
+                if (current.IsLeaf)
+                {
+                    count++;
+                }
+                else
+                {
+                    foreach (var child in current.Children.Values)
+                    {
+                        stack.Push(child);
+                    }
+                }
             }
+
             return count;
         }
 
