@@ -62,6 +62,12 @@ namespace SuffixTree
         /// </summary>
         public SuffixTreeNode Parent { get; set; }
 
+        /// <summary>
+        /// Depth from root (sum of edge lengths on path from root to THIS node's parent,
+        /// i.e., depth BEFORE this node's edge). Used for O(1) LRS lookups.
+        /// </summary>
+        public int DepthFromRoot { get; set; }
+
         /// <summary>True if this is a leaf node (edge grows with string).</summary>
         public bool IsLeaf => End == BOUNDLESS;
 
