@@ -509,7 +509,7 @@ namespace SuffixTree
         /// More efficient than FindAllOccurrences when you only need the count.
         /// 
         /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
-        /// Space complexity: O(1) additional space (no list allocation).
+        /// Space complexity: O(h) where h is tree height (for traversal stack).
         /// </summary>
         /// <param name="pattern">The pattern to count.</param>
         /// <returns>Number of times the pattern occurs in the text.</returns>
