@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace SuffixTree.Tests
@@ -761,6 +762,80 @@ namespace SuffixTree.Tests
         {
             var st = SuffixTree.Build("abc");
             Assert.That(st.LongestCommonSubstring("xay"), Is.EqualTo("a"));
+        }
+
+        #endregion
+
+        #region Thread Safety Tests
+
+        [Test]
+        public void ConcurrentReads_DoNotThrow()
+        {
+            const string text = "abracadabra mississippi banana";
+            var st = SuffixTree.Build(text);
+            var patterns = new[] { "abra", "iss", "ana", "ab", "pp", "a", "xyz" };
+
+            var exceptions = new System.Collections.Concurrent.ConcurrentBag<Exception>();
+
+            Parallel.For(0, 1000, i =>
+            {
+                try
+                {
+                    var pattern = patterns[i % patterns.Length];
+                    _ = st.Contains(pattern);
+                    _ = st.CountOccurrences(pattern);
+                    _ = st.FindAllOccurrences(pattern);
+                }
+                catch (Exception ex)
+                {
+                    exceptions.Add(ex);
+                }
+            });
+
+            Assert.That(exceptions, Is.Empty, $"Concurrent reads threw exceptions: {string.Join(", ", exceptions.Select(e => e.Message))}");
+        }
+
+        [Test]
+        public void ConcurrentReads_ReturnConsistentResults()
+        {
+            const string text = "banana";
+            var st = SuffixTree.Build(text);
+
+            var results = new System.Collections.Concurrent.ConcurrentBag<int>();
+
+            Parallel.For(0, 100, _ =>
+            {
+                results.Add(st.CountOccurrences("ana"));
+            });
+
+            // All results should be the same (2)
+            Assert.That(results.Distinct().Count(), Is.EqualTo(1));
+            Assert.That(results.First(), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ConcurrentReads_AllMethods_Stress()
+        {
+            var st = SuffixTree.Build("the quick brown fox jumps over the lazy dog");
+
+            var tasks = new List<Task>();
+            for (int i = 0; i < 10; i++)
+            {
+                tasks.Add(Task.Run(() =>
+                {
+                    for (int j = 0; j < 100; j++)
+                    {
+                        _ = st.Contains("the");
+                        _ = st.CountOccurrences("o");
+                        _ = st.FindAllOccurrences("e");
+                        _ = st.LongestRepeatedSubstring();
+                        _ = st.GetAllSuffixes();
+                        _ = st.LongestCommonSubstring("fox dog");
+                    }
+                }));
+            }
+
+            Assert.DoesNotThrowAsync(async () => await Task.WhenAll(tasks));
         }
 
         #endregion
