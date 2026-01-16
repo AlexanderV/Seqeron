@@ -840,6 +840,85 @@ namespace SuffixTree.Tests
 
         #endregion
 
+        #region Large String Tests
+
+        [Test]
+        public void LargeString_100K_BuildsSuccessfully()
+        {
+            // 100K characters - should not cause stack overflow with iterative traversals
+            var r = new Random(12345);
+            var chars = new char[100_000];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = (char)('a' + r.Next(26));
+            var text = new string(chars);
+
+            SuffixTree st = null;
+            Assert.DoesNotThrow(() => st = SuffixTree.Build(text));
+            Assert.That(st, Is.Not.Null);
+        }
+
+        [Test]
+        public void LargeString_100K_ContainsWorks()
+        {
+            var r = new Random(12345);
+            var chars = new char[100_000];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = (char)('a' + r.Next(26));
+            var text = new string(chars);
+            var st = SuffixTree.Build(text);
+
+            // Test various patterns
+            Assert.That(st.Contains(text.Substring(50000, 100)), Is.True);
+            Assert.That(st.Contains(text.Substring(0, 50)), Is.True);
+            Assert.That(st.Contains(text.Substring(99950, 50)), Is.True);
+            Assert.That(st.Contains("xyzxyzxyzxyz"), Is.False); // Unlikely pattern
+        }
+
+        [Test]
+        public void LargeString_100K_AllMethodsWork()
+        {
+            var r = new Random(12345);
+            var chars = new char[100_000];
+            for (int i = 0; i < chars.Length; i++)
+                chars[i] = (char)('a' + r.Next(26));
+            var text = new string(chars);
+            var st = SuffixTree.Build(text);
+
+            // These should all complete without stack overflow
+            Assert.DoesNotThrow(() => st.CountOccurrences("abc"));
+            Assert.DoesNotThrow(() => st.FindAllOccurrences("abc"));
+            Assert.DoesNotThrow(() => st.LongestRepeatedSubstring());
+            Assert.DoesNotThrow(() => st.LongestCommonSubstring("test pattern"));
+        }
+
+        [Test]
+        public void LargeString_DeepTree_NoStackOverflow()
+        {
+            // Worst case: all same characters creates very deep tree
+            var text = new string('a', 10_000);
+            var st = SuffixTree.Build(text);
+
+            // These operations traverse deep into the tree
+            Assert.DoesNotThrow(() => st.Contains(new string('a', 5000)));
+            Assert.DoesNotThrow(() => st.CountOccurrences("aa"));
+            Assert.DoesNotThrow(() => st.FindAllOccurrences("aaa"));
+            Assert.DoesNotThrow(() => st.LongestRepeatedSubstring());
+        }
+
+        [Test]
+        public void LargeString_GetAllSuffixes_100K_Skipped()
+        {
+            // GetAllSuffixes on 100K string would return 100K strings
+            // This is a sanity check that it works on smaller large strings
+            var text = new string('x', 1000);
+            var st = SuffixTree.Build(text);
+
+            var suffixes = st.GetAllSuffixes();
+            Assert.That(suffixes.Count, Is.EqualTo(1000));
+        }
+
+        #endregion
+
         #region Stress Tests
 
         [Test]
