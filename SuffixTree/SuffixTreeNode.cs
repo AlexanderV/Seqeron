@@ -23,8 +23,19 @@ namespace SuffixTree
         /// </summary>
         public int End { get; set; }
 
-        /// <summary>Children edges, keyed by first character.</summary>
-        public Dictionary<char, SuffixTreeNode> Children { get; } = new Dictionary<char, SuffixTreeNode>();
+        /// <summary>Backing field for lazy Children initialization.</summary>
+        private Dictionary<char, SuffixTreeNode> _children;
+
+        /// <summary>
+        /// Children edges, keyed by first character.
+        /// Lazily initialized to save memory for leaf nodes.
+        /// </summary>
+        public Dictionary<char, SuffixTreeNode> Children => _children ??= new Dictionary<char, SuffixTreeNode>();
+
+        /// <summary>
+        /// Returns true if this node has any children without triggering lazy initialization.
+        /// </summary>
+        public bool HasChildren => _children != null && _children.Count > 0;
 
         /// <summary>
         /// Suffix link: connects node for "xα" to node for "α".
