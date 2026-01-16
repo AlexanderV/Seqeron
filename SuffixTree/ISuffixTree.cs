@@ -94,6 +94,16 @@ namespace SuffixTree
         string LongestCommonSubstring(ReadOnlySpan<char> other);
 
         /// <summary>
+        /// Finds the longest common substring with position information.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>
+        /// A tuple containing: the substring, position in tree's text, position in other.
+        /// Returns (empty string, -1, -1) if no common substring exists.
+        /// </returns>
+        (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other);
+
+        /// <summary>
         /// Creates a detailed string representation of the tree structure.
         /// Useful for debugging and visualization.
         /// </summary>
