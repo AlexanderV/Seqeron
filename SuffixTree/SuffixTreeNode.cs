@@ -11,7 +11,7 @@ namespace SuffixTree
     /// - Inline array for ≤4 children (most common case) - avoids Dictionary overhead
     /// - Dictionary for >4 children - efficient lookup for large alphabet
     /// </summary>
-    internal class SuffixTreeNode
+    internal sealed class SuffixTreeNode
     {
         /// <summary>
         /// Sentinel value indicating an open-ended (growing) edge.
@@ -37,8 +37,8 @@ namespace SuffixTree
         // Hybrid children storage: inline array for small, Dictionary for large
         private byte _inlineCount;
         private char _key0, _key1, _key2, _key3;
-        private SuffixTreeNode _child0, _child1, _child2, _child3;
-        private Dictionary<char, SuffixTreeNode> _overflow;
+        private SuffixTreeNode? _child0, _child1, _child2, _child3;
+        private Dictionary<char, SuffixTreeNode>? _overflow;
 
         /// <summary>
         /// Returns true if this node has any children.
@@ -54,13 +54,13 @@ namespace SuffixTree
         /// Suffix link: connects node for "xα" to node for "α".
         /// Used for O(1) jumps between suffixes during construction.
         /// </summary>
-        public SuffixTreeNode SuffixLink { get; set; }
+        public SuffixTreeNode? SuffixLink { get; set; }
 
         /// <summary>
         /// Parent node reference for O(depth) path reconstruction.
         /// Null for root node.
         /// </summary>
-        public SuffixTreeNode Parent { get; set; }
+        public SuffixTreeNode? Parent { get; set; }
 
         /// <summary>
         /// Depth from root (sum of edge lengths on path from root to THIS node's parent,
@@ -81,7 +81,7 @@ namespace SuffixTree
         /// Tries to get a child by key character.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetChild(char key, out SuffixTreeNode child)
+        public bool TryGetChild(char key, out SuffixTreeNode? child)
         {
             if (_overflow != null)
                 return _overflow.TryGetValue(key, out child);
@@ -130,13 +130,13 @@ namespace SuffixTree
                 // Promote to Dictionary
                 _overflow = new Dictionary<char, SuffixTreeNode>(8)
                 {
-                    [_key0] = _child0,
-                    [_key1] = _child1,
-                    [_key2] = _child2,
-                    [_key3] = _child3,
+                    [_key0] = _child0!,
+                    [_key1] = _child1!,
+                    [_key2] = _child2!,
+                    [_key3] = _child3!,
                     [key] = child
                 };
-                // Clear inline storage (optional, helps GC)
+                // Clear inline storage (helps GC)
                 _child0 = _child1 = _child2 = _child3 = null;
             }
         }
@@ -153,10 +153,10 @@ namespace SuffixTree
             }
             else
             {
-                if (_inlineCount > 0) yield return _child0;
-                if (_inlineCount > 1) yield return _child1;
-                if (_inlineCount > 2) yield return _child2;
-                if (_inlineCount > 3) yield return _child3;
+                if (_inlineCount > 0) yield return _child0!;
+                if (_inlineCount > 1) yield return _child1!;
+                if (_inlineCount > 2) yield return _child2!;
+                if (_inlineCount > 3) yield return _child3!;
             }
         }
 
@@ -172,10 +172,10 @@ namespace SuffixTree
             }
             else
             {
-                if (_inlineCount > 0) yield return (_key0, _child0);
-                if (_inlineCount > 1) yield return (_key1, _child1);
-                if (_inlineCount > 2) yield return (_key2, _child2);
-                if (_inlineCount > 3) yield return (_key3, _child3);
+                if (_inlineCount > 0) yield return (_key0, _child0!);
+                if (_inlineCount > 1) yield return (_key1, _child1!);
+                if (_inlineCount > 2) yield return (_key2, _child2!);
+                if (_inlineCount > 3) yield return (_key3, _child3!);
             }
         }
 
@@ -196,25 +196,6 @@ namespace SuffixTree
                 if (_inlineCount > 1) keys.Add(_key1);
                 if (_inlineCount > 2) keys.Add(_key2);
                 if (_inlineCount > 3) keys.Add(_key3);
-            }
-        }
-
-        // Legacy property for compatibility - avoid using in new code
-        [System.Obsolete("Use TryGetChild/SetChild instead for better performance")]
-        public Dictionary<char, SuffixTreeNode> Children
-        {
-            get
-            {
-                if (_overflow != null)
-                    return _overflow;
-
-                // Create Dictionary on demand (legacy compatibility)
-                var dict = new Dictionary<char, SuffixTreeNode>(_inlineCount);
-                if (_inlineCount > 0) dict[_key0] = _child0;
-                if (_inlineCount > 1) dict[_key1] = _child1;
-                if (_inlineCount > 2) dict[_key2] = _child2;
-                if (_inlineCount > 3) dict[_key3] = _child3;
-                return dict;
             }
         }
     }

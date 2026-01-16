@@ -45,10 +45,10 @@ namespace SuffixTree
         /// Used to set up suffix link chain: when we create a new internal node,
         /// we link the previous one to it.
         /// </summary>
-        private SuffixTreeNode _lastCreatedInternalNode;
+        private SuffixTreeNode? _lastCreatedInternalNode;
 
         /// <summary>Deepest internal node found during construction (for O(1) LRS).</summary>
-        private SuffixTreeNode _deepestInternalNode;
+        private SuffixTreeNode? _deepestInternalNode;
 
         /// <summary>Depth of the deepest internal node (sum of edge lengths from root).</summary>
         private int _maxInternalDepth;
@@ -63,7 +63,7 @@ namespace SuffixTree
         private int _cachedMaxDepth;
 
         /// <summary>The string content stored as a character array.</summary>
-        private char[] _chars;
+        private char[] _chars = [];
 
         // ============================================================
         // Active Point - tracks where we are in the tree during construction
@@ -73,13 +73,13 @@ namespace SuffixTree
         // ============================================================
 
         /// <summary>The node we're currently at (or descended from).</summary>
-        private SuffixTreeNode _activeNode;
+        private SuffixTreeNode? _activeNode;
 
         /// <summary>Index in _chars of the first character of the active edge (-1 = none).</summary>
         private int _activeEdgeIndex = -1;
 
         /// <summary>How many characters along the active edge we've matched.</summary>
-        private int _activeLength = 0;
+        private int _activeLength;
 
         /// <summary>Cached original text (without terminator).</summary>
         private string _text = string.Empty;
@@ -206,8 +206,7 @@ namespace SuffixTree
         /// <exception cref="ArgumentException">If value contains the null character '\0'.</exception>
         private void BuildInternal(string value)
         {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
+            ArgumentNullException.ThrowIfNull(value);
 
             if (value.Contains(TERMINATOR))
                 throw new ArgumentException(
@@ -273,7 +272,7 @@ namespace SuffixTree
 
                 char activeEdgeChar = _chars[_activeEdgeIndex];
 
-                if (!_activeNode.TryGetChild(activeEdgeChar, out SuffixTreeNode activeEdge))
+                if (!_activeNode!.TryGetChild(activeEdgeChar, out SuffixTreeNode? activeEdge))
                 {
                     // ============================================================
                     // RULE 1: No edge starts with this character - create new leaf
@@ -294,11 +293,11 @@ namespace SuffixTree
                 else
                 {
                     // Edge exists - need to check if we should walk down first
-                    if (WalkDownIfNeeded(activeEdge))
+                    if (WalkDownIfNeeded(activeEdge!))
                         continue; // Active point moved, restart this iteration
 
                     // Check if next character on edge matches
-                    if (_chars[activeEdge.Start + _activeLength] == c)
+                    if (_chars[activeEdge!.Start + _activeLength] == c)
                     {
                         // ============================================================
                         // RULE 3: Character matches - suffix exists implicitly (SHOWSTOPPER)
@@ -494,8 +493,7 @@ namespace SuffixTree
         /// <exception cref="ArgumentNullException">If value is null.</exception>
         public bool Contains(string value)
         {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
+            ArgumentNullException.ThrowIfNull(value);
 
             return Contains(value.AsSpan());
         }
@@ -526,7 +524,7 @@ namespace SuffixTree
             while (i < value.Length)
             {
                 // Try to find edge starting with current character
-                if (!node.TryGetChild(value[i], out var child))
+                if (!node.TryGetChild(value[i], out var child) || child is null)
                     return false; // No matching edge - substring doesn't exist
 
                 int edgeLength = LengthOf(child);
@@ -564,8 +562,7 @@ namespace SuffixTree
         /// <exception cref="ArgumentNullException">If pattern is null.</exception>
         public IReadOnlyList<int> FindAllOccurrences(string pattern)
         {
-            if (pattern == null)
-                throw new ArgumentNullException(nameof(pattern));
+            ArgumentNullException.ThrowIfNull(pattern);
 
             return FindAllOccurrences(pattern.AsSpan());
         }
@@ -608,7 +605,7 @@ namespace SuffixTree
 
             while (i < pattern.Length)
             {
-                if (!node.TryGetChild(pattern[i], out var child))
+                if (!node.TryGetChild(pattern[i], out var child) || child is null)
                     return results; // Pattern not found
 
                 int edgeLength = LengthOf(child);
@@ -656,8 +653,7 @@ namespace SuffixTree
         /// <exception cref="ArgumentNullException">If pattern is null.</exception>
         public int CountOccurrences(string pattern)
         {
-            if (pattern == null)
-                throw new ArgumentNullException(nameof(pattern));
+            ArgumentNullException.ThrowIfNull(pattern);
 
             return CountOccurrences(pattern.AsSpan());
         }
@@ -685,7 +681,7 @@ namespace SuffixTree
 
             while (i < pattern.Length)
             {
-                if (!node.TryGetChild(pattern[i], out var child))
+                if (!node.TryGetChild(pattern[i], out var child) || child is null)
                     return 0; // Pattern not found
 
                 int edgeLength = LengthOf(child);
@@ -810,7 +806,8 @@ namespace SuffixTree
                     stack.Push((node, childIndex + 1, sortedKeys));
 
                     var childKey = sortedKeys[childIndex];
-                    node.TryGetChild(childKey, out var child);
+                    if (!node.TryGetChild(childKey, out var child) || child is null)
+                        continue;
 
                     // Add child's edge label to path
                     int edgeLen = LengthOf(child);
@@ -874,8 +871,7 @@ namespace SuffixTree
         /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
         public string LongestCommonSubstring(string other)
         {
-            if (other == null)
-                throw new ArgumentNullException(nameof(other));
+            ArgumentNullException.ThrowIfNull(other);
 
             return LongestCommonSubstring(other.AsSpan());
         }
@@ -902,7 +898,7 @@ namespace SuffixTree
                     $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
                     nameof(other));
 
-            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
+            if (other.Length == 0 || _chars.Length <= 1)
                 return string.Empty;
 
             int maxLen = 0;
@@ -911,7 +907,7 @@ namespace SuffixTree
             // Current position in tree
             var currentNode = _root;
             int edgeOffset = 0; // Position within current edge (0 = at node)
-            SuffixTreeNode currentEdge = null; // The edge we're currently on (null if at node)
+            SuffixTreeNode? currentEdge = null; // The edge we're currently on (null if at node)
             int currentMatchLen = 0; // Current match length
 
             int i = 0;
@@ -956,10 +952,10 @@ namespace SuffixTree
                         matched = true;
 
                         // Check if edge is just one character
-                        int edgeLen = LengthOf(child);
+                        int edgeLen = LengthOf(child!);
                         if (edgeOffset >= edgeLen)
                         {
-                            currentNode = child;
+                            currentNode = child!;
                             currentEdge = null;
                             edgeOffset = 0;
                         }
@@ -1050,10 +1046,10 @@ namespace SuffixTree
                                         currentEdge = child;
                                         edgeOffset = 1;
                                         newMatchLen++;
-                                        int edgeLen = LengthOf(child);
+                                        int edgeLen = LengthOf(child!);
                                         if (edgeOffset >= edgeLen)
                                         {
-                                            currentNode = child;
+                                            currentNode = child!;
                                             currentEdge = null;
                                             edgeOffset = 0;
                                         }
@@ -1089,15 +1085,14 @@ namespace SuffixTree
         /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
         public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
         {
-            if (other == null)
-                throw new ArgumentNullException(nameof(other));
+            ArgumentNullException.ThrowIfNull(other);
 
             if (other.Contains(TERMINATOR))
                 throw new ArgumentException(
                     $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
                     nameof(other));
 
-            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
+            if (other.Length == 0 || _chars.Length <= 1)
                 return (string.Empty, -1, -1);
 
             int maxLen = 0;
@@ -1135,16 +1130,15 @@ namespace SuffixTree
         /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
         public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
         {
-            if (other == null)
-                throw new ArgumentNullException(nameof(other));
+            ArgumentNullException.ThrowIfNull(other);
 
             if (other.Contains(TERMINATOR))
                 throw new ArgumentException(
                     $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
                     nameof(other));
 
-            if (other.Length == 0 || _chars == null || _chars.Length <= 1)
-                return (string.Empty, Array.Empty<int>(), Array.Empty<int>());
+            if (other.Length == 0 || _chars.Length <= 1)
+                return (string.Empty, [], []);
 
             int maxLen = 0;
             var matchesInOther = new List<(int StartInOther, int StartInText)>();
@@ -1199,7 +1193,7 @@ namespace SuffixTree
             {
                 char c = other[i];
 
-                if (!node.TryGetChild(c, out var child))
+                if (!node.TryGetChild(c, out var child) || child is null)
                     break; // No edge starting with c
 
                 // Track the start position in tree's text (first character matched)
@@ -1305,15 +1299,16 @@ namespace SuffixTree
         /// </summary>
         public override string ToString()
         {
-            if (_chars == null || _chars.Length == 0)
+            if (_chars.Length == 0)
                 return "SuffixTree (empty)";
 
             // Exclude terminator - it's always the last character
             var content = new string(_chars, 0, _chars.Length - 1);
             if (content.Length > MAX_TOSTRING_CONTENT_LENGTH)
-                content = content.Substring(0, MAX_TOSTRING_CONTENT_LENGTH - 3) + "...";
+                content = string.Concat(content.AsSpan(0, MAX_TOSTRING_CONTENT_LENGTH - 3), "...");
 
-            return $"SuffixTree (length: {_chars.Length}, content: \"{content}\")";
+            return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"SuffixTree (length: {_chars.Length}, content: \"{content}\")");
         }
 
         /// <summary>
@@ -1324,9 +1319,10 @@ namespace SuffixTree
         public string PrintTree()
         {
             // Estimate capacity: ~50 chars per node, string of n chars has at most 2n-1 nodes
-            int estimatedNodes = Math.Max(1, (_chars?.Length ?? 0) * 2);
+            int estimatedNodes = Math.Max(1, _chars.Length * 2);
             var sb = new StringBuilder(Math.Max(256, estimatedNodes * 50));
-            sb.AppendLine($"Content length: {_chars?.Length ?? 0}");
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            sb.Append(ci, $"Content length: {_chars.Length}").AppendLine();
             sb.AppendLine();
 
             // Iterative DFS: stack stores (node, depth, childIndex, sortedChildren)
@@ -1335,7 +1331,7 @@ namespace SuffixTree
 
             // Print root first
             var rootLabel = LabelOf(_root);
-            sb.AppendLine($"0:{rootLabel}");
+            sb.Append(ci, $"0:{rootLabel}").AppendLine();
 
             var rootChildren = GetSortedChildren(_root, keyBuffer);
             if (rootChildren.Count > 0)
@@ -1360,7 +1356,7 @@ namespace SuffixTree
                         ? $" -> {FirstCharOf(child.SuffixLink)}"
                         : "";
                     sb.Append(' ', childDepth);
-                    sb.AppendLine($"{childDepth}:{nodeLabel}{leafMark}{linkMark}");
+                    sb.Append(ci, $"{childDepth}:{nodeLabel}{leafMark}{linkMark}").AppendLine();
 
                     // If child has children, push it for processing
                     if (!child.IsLeaf && child.ChildCount > 0)
@@ -1377,7 +1373,7 @@ namespace SuffixTree
         /// <summary>
         /// Returns children of a node sorted by edge character.
         /// </summary>
-        private List<SuffixTreeNode> GetSortedChildren(SuffixTreeNode node, List<char> keyBuffer)
+        private static List<SuffixTreeNode> GetSortedChildren(SuffixTreeNode node, List<char> keyBuffer)
         {
             node.GetKeys(keyBuffer);
             keyBuffer.Sort();
@@ -1385,7 +1381,7 @@ namespace SuffixTree
             foreach (var key in keyBuffer)
             {
                 node.TryGetChild(key, out var child);
-                result.Add(child);
+                result.Add(child!);
             }
             return result;
         }
