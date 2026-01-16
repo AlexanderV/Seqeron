@@ -858,6 +858,30 @@ namespace SuffixTree.Tests
             Assert.That(st.LongestCommonSubstring(""), Is.EqualTo(""));
         }
 
+        [Test]
+        public void LongestCommonSubstring_Span_MatchesStringOverload()
+        {
+            var st = SuffixTree.Build("abracadabra");
+            var other = "xxcadxx";
+
+            var stringResult = st.LongestCommonSubstring(other);
+            var spanResult = st.LongestCommonSubstring(other.AsSpan());
+
+            Assert.That(spanResult, Is.EqualTo(stringResult));
+            Assert.That(spanResult, Is.EqualTo("cad"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_Span_FromSlice()
+        {
+            var st = SuffixTree.Build("hello world");
+            var source = "say hello there";
+
+            // Span slice to extract "hello"
+            var result = st.LongestCommonSubstring(source.AsSpan(4, 5));
+            Assert.That(result, Is.EqualTo("hello"));
+        }
+
         #endregion
 
         #region Thread Safety Tests

@@ -744,6 +744,20 @@ namespace SuffixTree
             if (other == null)
                 throw new ArgumentNullException(nameof(other));
 
+            return LongestCommonSubstring(other.AsSpan());
+        }
+
+        /// <summary>
+        /// Finds the longest common substring between this tree's text and another character span.
+        /// Zero-allocation overload for performance-critical scenarios.
+        /// 
+        /// Time complexity: O(n * m) where n is tree text length, m is other length.
+        /// </summary>
+        /// <param name="other">The character span to compare against.</param>
+        /// <returns>The longest common substring, or empty string if none exists.</returns>
+        /// <exception cref="ArgumentException">If other contains the null character '\0'.</exception>
+        public string LongestCommonSubstring(ReadOnlySpan<char> other)
+        {
             if (other.Contains(TERMINATOR))
                 throw new ArgumentException(
                     $"Input string cannot contain the null character '\\0' as it is used as internal terminator.",
@@ -769,14 +783,14 @@ namespace SuffixTree
             if (maxLen == 0)
                 return string.Empty;
 
-            return other.Substring(maxStartPos, maxLen);
+            return other.Slice(maxStartPos, maxLen).ToString();
         }
 
         /// <summary>
         /// Matches characters from 'other' starting at 'start' against the tree from root.
         /// Returns the number of characters matched.
         /// </summary>
-        private int MatchFromRoot(string other, int start)
+        private int MatchFromRoot(ReadOnlySpan<char> other, int start)
         {
             var node = _root;
             int i = start;
