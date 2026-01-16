@@ -495,6 +495,77 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Counts the number of occurrences of a pattern in the text.
+        /// More efficient than FindAllOccurrences when you only need the count.
+        /// 
+        /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
+        /// Space complexity: O(1) additional space (no list allocation).
+        /// </summary>
+        /// <param name="pattern">The pattern to count.</param>
+        /// <returns>Number of times the pattern occurs in the text.</returns>
+        /// <exception cref="ArgumentNullException">If pattern is null.</exception>
+        public int CountOccurrences(string pattern)
+        {
+            if (pattern == null)
+                throw new ArgumentNullException(nameof(pattern));
+
+            if (pattern.Length == 0)
+                return _chars.Count; // Empty pattern matches at every position including end
+
+            // Navigate to the node/edge representing the pattern
+            var node = _root;
+            int i = 0;
+            int depthFromRoot = 0;
+
+            while (i < pattern.Length)
+            {
+                if (!node.Children.TryGetValue(pattern[i], out var child))
+                    return 0; // Pattern not found
+
+                int edgeLength = LengthOf(child);
+                int j = 0;
+
+                while (j < edgeLength && i < pattern.Length)
+                {
+                    if (_chars[child.Start + j] != pattern[i])
+                        return 0; // Mismatch
+                    i++;
+                    j++;
+                }
+
+                if (j == edgeLength)
+                {
+                    depthFromRoot += edgeLength;
+                    node = child;
+                }
+                else
+                {
+                    // Pattern ends in middle of edge - count leaves from here
+                    return CountLeaves(child);
+                }
+            }
+
+            // Pattern matched exactly to a node - count all leaves in subtree
+            return CountLeaves(node);
+        }
+
+        /// <summary>
+        /// Recursively counts all leaves in a subtree.
+        /// </summary>
+        private int CountLeaves(Node node)
+        {
+            if (node.IsLeaf)
+                return 1;
+
+            int count = 0;
+            foreach (var child in node.Children.Values)
+            {
+                count += CountLeaves(child);
+            }
+            return count;
+        }
+
+        /// <summary>
         /// Recursively collects all leaf positions starting from the given node.
         /// </summary>
         /// <param name="node">Node to start collecting from.</param>
@@ -504,7 +575,7 @@ namespace SuffixTree
         {
             // Add current node's edge length to get total depth
             int currentDepth = depth + LengthOf(node);
-            
+
             if (node.IsLeaf)
             {
                 // This leaf represents a suffix of length = currentDepth

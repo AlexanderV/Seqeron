@@ -394,6 +394,87 @@ namespace SuffixTree.Tests
             return result;
         }
 
+        // ==================== CountOccurrences Tests ====================
+
+        [Test]
+        public void CountOccurrences_WithNullPattern_ShouldThrow()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.Throws<ArgumentNullException>(() => st.CountOccurrences(null));
+        }
+
+        [Test]
+        public void CountOccurrences_EmptyPattern_ReturnsTextLengthPlusOne()
+        {
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.CountOccurrences(""), Is.EqualTo(4)); // 0,1,2,3
+        }
+
+        [Test]
+        public void CountOccurrences_NotFound_ReturnsZero()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.CountOccurrences("xyz"), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CountOccurrences_SingleOccurrence_ReturnsOne()
+        {
+            var st = SuffixTree.Build("abcdef");
+            Assert.That(st.CountOccurrences("cde"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CountOccurrences_MultipleOccurrences_ReturnsCorrectCount()
+        {
+            var st = SuffixTree.Build("abcabc");
+            Assert.That(st.CountOccurrences("abc"), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CountOccurrences_OverlappingOccurrences_ReturnsCorrectCount()
+        {
+            var st = SuffixTree.Build("aaaa");
+            Assert.That(st.CountOccurrences("aa"), Is.EqualTo(3)); // positions 0,1,2
+        }
+
+        [Test]
+        public void CountOccurrences_Banana_Ana()
+        {
+            var st = SuffixTree.Build("banana");
+            Assert.That(st.CountOccurrences("ana"), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CountOccurrences_Mississippi_Issi()
+        {
+            var st = SuffixTree.Build("mississippi");
+            Assert.That(st.CountOccurrences("issi"), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CountOccurrences_MatchesFindAllOccurrences()
+        {
+            const int CYCLES = 100;
+            var r = new Random(RANDOM_SEED);
+
+            for (int i = 0; i < CYCLES; i++)
+            {
+                var s = MakeRandomString(r, 100);
+                var st = SuffixTree.Build(s);
+
+                int pos = r.Next(0, s.Length - 5);
+                int len = r.Next(1, Math.Min(10, s.Length - pos));
+                var pattern = s.Substring(pos, len);
+
+                var findAllCount = st.FindAllOccurrences(pattern).Count;
+                var countResult = st.CountOccurrences(pattern);
+
+                Assert.That(countResult, Is.EqualTo(findAllCount),
+                    $"Mismatch for string '{s}' pattern '{pattern}'");
+            }
+        }
+
         [Test]
         public void Contains_SuffixLinkTraversal_Stress()
         {
