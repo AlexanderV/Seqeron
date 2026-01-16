@@ -662,29 +662,38 @@ namespace SuffixTree
         }
 
         /// <summary>
-        /// Recursively collects all leaf positions starting from the given node.
+        /// Collects all leaf positions starting from the given node using iterative traversal.
+        /// Avoids stack overflow for deep trees.
         /// </summary>
         /// <param name="node">Node to start collecting from.</param>
         /// <param name="depth">Depth from root to this node (sum of edge lengths on path, NOT including this node's edge).</param>
         /// <param name="results">List to collect results into.</param>
         private void CollectLeaves(SuffixTreeNode node, int depth, List<int> results)
         {
-            // Add current node's edge length to get total depth
-            int currentDepth = depth + LengthOf(node);
+            // Stack stores (node, depthBeforeNode) pairs
+            var stack = new Stack<(SuffixTreeNode Node, int Depth)>();
+            stack.Push((node, depth));
 
-            if (node.IsLeaf)
+            while (stack.Count > 0)
             {
-                // This leaf represents a suffix of length = currentDepth
-                int suffixLength = currentDepth;
-                int startPosition = _chars.Length - suffixLength;
-                results.Add(startPosition);
-                return;
-            }
+                var (current, currentDepthBefore) = stack.Pop();
+                int currentDepth = currentDepthBefore + LengthOf(current);
 
-            // Recurse into children, passing currentDepth as their starting depth
-            foreach (var child in node.Children.Values)
-            {
-                CollectLeaves(child, currentDepth, results);
+                if (current.IsLeaf)
+                {
+                    // This leaf represents a suffix of length = currentDepth
+                    int suffixLength = currentDepth;
+                    int startPosition = _chars.Length - suffixLength;
+                    results.Add(startPosition);
+                }
+                else
+                {
+                    // Push children with current depth as their starting depth
+                    foreach (var child in current.Children.Values)
+                    {
+                        stack.Push((child, currentDepth));
+                    }
+                }
             }
         }
 
