@@ -53,6 +53,15 @@ namespace SuffixTree
         /// <summary>Depth of the deepest internal node (sum of edge lengths from root).</summary>
         private int _maxInternalDepth;
 
+        /// <summary>Cached total node count (calculated once after construction).</summary>
+        private int _cachedNodeCount;
+
+        /// <summary>Cached total leaf count (calculated once after construction).</summary>
+        private int _cachedLeafCount;
+
+        /// <summary>Cached max tree depth (calculated once after construction).</summary>
+        private int _cachedMaxDepth;
+
         /// <summary>The string content stored as a character array.</summary>
         private char[] _chars;
 
@@ -82,101 +91,89 @@ namespace SuffixTree
 
         /// <summary>
         /// Gets the total number of nodes in the tree (including root).
-        /// Time complexity: O(n) where n is the number of nodes.
+        /// Time complexity: O(1) - calculated once after construction.
         /// </summary>
-        public int NodeCount => CountNodes();
+        public int NodeCount => _cachedNodeCount;
 
         /// <summary>
         /// Gets the number of leaf nodes in the tree.
         /// Equal to the length of the original text (one leaf per suffix).
-        /// Time complexity: O(n) where n is the number of nodes.
+        /// Time complexity: O(1) - calculated once after construction.
         /// </summary>
-        public int LeafCount => CountLeaves();
+        public int LeafCount => _cachedLeafCount;
 
         /// <summary>
         /// Gets the maximum depth of the tree (longest path from root to leaf in characters).
+        /// Time complexity: O(1) - calculated once after construction.
+        /// </summary>
+        public int MaxDepth => _cachedMaxDepth;
+
+        /// <summary>
+        /// Calculates all tree statistics in a single post-order DFS pass.
+        /// Sets LeafCount for each node and caches NodeCount, LeafCount, MaxDepth.
         /// Time complexity: O(n) where n is the number of nodes.
         /// </summary>
-        public int MaxDepth => CalculateMaxDepth();
-
-        private int CountNodes()
+        private void CalculateTreeStatistics()
         {
             if (_chars == null || _chars.Length == 0)
-                return 1; // Just root
-
-            int count = 0;
-            var stack = new Stack<SuffixTreeNode>();
-            stack.Push(_root);
-
-            while (stack.Count > 0)
             {
-                var node = stack.Pop();
-                count++;
-
-                if (node.HasChildren)
-                {
-                    foreach (var child in node.GetChildren())
-                        stack.Push(child);
-                }
+                _cachedNodeCount = 1; // Just root
+                _cachedLeafCount = 0;
+                _cachedMaxDepth = 0;
+                return;
             }
 
-            return count;
-        }
+            // Post-order DFS to calculate leaf counts bottom-up
+            // We need to process children before parents
+            var stack = new Stack<(SuffixTreeNode Node, int Depth, bool Visited)>();
+            stack.Push((_root, 0, false));
 
-        private int CountLeaves()
-        {
-            if (_chars == null || _chars.Length == 0)
-                return 0;
-
-            int count = 0;
-            var stack = new Stack<SuffixTreeNode>();
-            stack.Push(_root);
-
-            while (stack.Count > 0)
-            {
-                var node = stack.Pop();
-
-                if (node.IsLeaf)
-                    count++;
-                else if (node.HasChildren)
-                {
-                    foreach (var child in node.GetChildren())
-                        stack.Push(child);
-                }
-            }
-
-            return count;
-        }
-
-        private int CalculateMaxDepth()
-        {
-            if (_chars == null || _chars.Length == 0)
-                return 0;
-
+            int nodeCount = 0;
+            int leafCount = 0;
             int maxDepth = 0;
-            var stack = new Stack<(SuffixTreeNode Node, int Depth)>();
-            stack.Push((_root, 0));
 
             while (stack.Count > 0)
             {
-                var (node, depth) = stack.Pop();
-                int currentDepth = depth + (node == _root ? 0 : LengthOf(node));
+                var (node, depth, visited) = stack.Pop();
 
-                if (node.IsLeaf)
+                if (visited)
                 {
-                    // Don't count terminator in depth
-                    int actualDepth = currentDepth > 0 ? currentDepth - 1 : 0;
-                    if (actualDepth > maxDepth)
-                        maxDepth = actualDepth;
+                    // Post-order: all children processed, calculate this node's leaf count
+                    nodeCount++;
+
+                    if (node.IsLeaf)
+                    {
+                        node.LeafCount = 1;
+                        leafCount++;
+                        if (depth > maxDepth) maxDepth = depth;
+                    }
+                    else
+                    {
+                        // Sum of all children's leaf counts
+                        int sum = 0;
+                        foreach (var child in node.GetChildren())
+                            sum += child.LeafCount;
+                        node.LeafCount = sum;
+                    }
                 }
-                else if (node.HasChildren)
+                else
                 {
-                    foreach (var child in node.GetChildren())
-                        stack.Push((child, currentDepth));
+                    // Pre-order: push self for post-processing, then push children
+                    int currentDepth = depth + (node == _root ? 0 : LengthOf(node));
+                    stack.Push((node, currentDepth, true));
+
+                    if (node.HasChildren)
+                    {
+                        foreach (var child in node.GetChildren())
+                            stack.Push((child, currentDepth, false));
+                    }
                 }
             }
 
-            return maxDepth;
+            _cachedNodeCount = nodeCount;
+            _cachedLeafCount = leafCount;
+            // Subtract 1 for terminator character (not counted in MaxDepth)
+            _cachedMaxDepth = maxDepth > 0 ? maxDepth - 1 : 0;
         }
 
         private SuffixTree()
@@ -221,6 +218,7 @@ namespace SuffixTree
             {
                 _chars = Array.Empty<char>();
                 _text = string.Empty;
+                CalculateTreeStatistics(); // Sets _cachedNodeCount = 1 for root
                 return;
             }
 
@@ -236,6 +234,9 @@ namespace SuffixTree
 
             // Cache the original text (without terminator)
             _text = value;
+
+            // Calculate leaf counts and statistics (one-time O(n) pass)
+            CalculateTreeStatistics();
 
             // Clear construction state (not needed anymore, helps GC)
             _lastCreatedInternalNode = null;
@@ -704,43 +705,13 @@ namespace SuffixTree
                 }
                 else
                 {
-                    // Pattern ends in middle of edge - count leaves from here
-                    return CountLeaves(child);
+                    // Pattern ends in middle of edge - return leaf count of this subtree
+                    return child.LeafCount;
                 }
             }
 
             // Pattern matched exactly to a node - count all leaves in subtree
-            return CountLeaves(node);
-        }
-
-        /// <summary>
-        /// Counts all leaves in a subtree using iterative traversal.
-        /// Avoids stack overflow for deep trees.
-        /// </summary>
-        private int CountLeaves(SuffixTreeNode node)
-        {
-            int count = 0;
-            var stack = new Stack<SuffixTreeNode>();
-            stack.Push(node);
-
-            while (stack.Count > 0)
-            {
-                var current = stack.Pop();
-
-                if (current.IsLeaf)
-                {
-                    count++;
-                }
-                else
-                {
-                    foreach (var child in current.GetChildren())
-                    {
-                        stack.Push(child);
-                    }
-                }
-            }
-
-            return count;
+            return node.LeafCount;
         }
 
         /// <summary>
