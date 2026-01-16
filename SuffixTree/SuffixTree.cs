@@ -108,7 +108,7 @@ namespace SuffixTree
 
                 if (node.HasChildren)
                 {
-                    foreach (var child in node.Children.Values)
+                    foreach (var child in node.GetChildren())
                         stack.Push(child);
                 }
             }
@@ -133,7 +133,7 @@ namespace SuffixTree
                     count++;
                 else if (node.HasChildren)
                 {
-                    foreach (var child in node.Children.Values)
+                    foreach (var child in node.GetChildren())
                         stack.Push(child);
                 }
             }
@@ -164,7 +164,7 @@ namespace SuffixTree
                 }
                 else if (node.HasChildren)
                 {
-                    foreach (var child in node.Children.Values)
+                    foreach (var child in node.GetChildren())
                         stack.Push((child, currentDepth));
                 }
             }
@@ -265,7 +265,7 @@ namespace SuffixTree
 
                 char activeEdgeChar = _chars[_activeEdgeIndex];
 
-                if (!_activeNode.Children.TryGetValue(activeEdgeChar, out SuffixTreeNode activeEdge))
+                if (!_activeNode.TryGetChild(activeEdgeChar, out SuffixTreeNode activeEdge))
                 {
                     // ============================================================
                     // RULE 1: No edge starts with this character - create new leaf
@@ -278,7 +278,7 @@ namespace SuffixTree
                     //       (existing)              (existing) c
                     // ============================================================
                     var leaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS, Parent = _activeNode };
-                    _activeNode.Children[c] = leaf;
+                    _activeNode.SetChild(c, leaf);
 
                     // Set suffix link for previously created internal node
                     AddSuffixLink(_activeNode);
@@ -330,16 +330,16 @@ namespace SuffixTree
                     };
 
                     // Replace old edge with new internal node
-                    _activeNode.Children[activeEdgeChar] = splitNode;
+                    _activeNode.SetChild(activeEdgeChar, splitNode);
 
                     // Create new leaf for current character
                     var newLeaf = new SuffixTreeNode { Start = _position, End = SuffixTreeNode.BOUNDLESS, Parent = splitNode };
-                    splitNode.Children[c] = newLeaf;
+                    splitNode.SetChild(c, newLeaf);
 
                     // Move old edge to be child of split node
                     activeEdge.Start += _activeLength;
                     activeEdge.Parent = splitNode;
-                    splitNode.Children[_chars[activeEdge.Start]] = activeEdge;
+                    splitNode.SetChild(_chars[activeEdge.Start], activeEdge);
 
                     // Track this internal node for suffix link setup
                     SetLastCreatedInternalNode(splitNode);
@@ -495,7 +495,7 @@ namespace SuffixTree
             while (i < value.Length)
             {
                 // Try to find edge starting with current character
-                if (!node.Children.TryGetValue(value[i], out var child))
+                if (!node.TryGetChild(value[i], out var child))
                     return false; // No matching edge - substring doesn't exist
 
                 int edgeLength = LengthOf(child);
@@ -577,7 +577,7 @@ namespace SuffixTree
 
             while (i < pattern.Length)
             {
-                if (!node.Children.TryGetValue(pattern[i], out var child))
+                if (!node.TryGetChild(pattern[i], out var child))
                     return results; // Pattern not found
 
                 int edgeLength = LengthOf(child);
@@ -654,7 +654,7 @@ namespace SuffixTree
 
             while (i < pattern.Length)
             {
-                if (!node.Children.TryGetValue(pattern[i], out var child))
+                if (!node.TryGetChild(pattern[i], out var child))
                     return 0; // Pattern not found
 
                 int edgeLength = LengthOf(child);
@@ -703,7 +703,7 @@ namespace SuffixTree
                 }
                 else
                 {
-                    foreach (var child in current.Children.Values)
+                    foreach (var child in current.GetChildren())
                     {
                         stack.Push(child);
                     }
@@ -789,9 +789,11 @@ namespace SuffixTree
             // Stack stores: (node, childIndex, sortedKeys) where childIndex tracks which children we've visited
             var stack = new Stack<(SuffixTreeNode Node, int ChildIndex, List<char> SortedKeys)>();
             var path = new StringBuilder(_chars!.Length); // Capacity = max possible path length
+            var keyBuffer = new List<char>(8); // Reusable buffer for keys
 
             // Start with root's sorted children
-            var rootKeys = _root.Children.Keys.ToList();
+            _root.GetKeys(keyBuffer);
+            var rootKeys = new List<char>(keyBuffer);
             rootKeys.Sort();
             stack.Push((_root, 0, rootKeys));
 
@@ -805,7 +807,7 @@ namespace SuffixTree
                     stack.Push((node, childIndex + 1, sortedKeys));
 
                     var childKey = sortedKeys[childIndex];
-                    var child = node.Children[childKey];
+                    node.TryGetChild(childKey, out var child);
 
                     // Add child's edge label to path
                     int edgeLen = LengthOf(child);
@@ -829,7 +831,8 @@ namespace SuffixTree
                     else
                     {
                         // Push child for processing with its sorted children
-                        var childKeys = child.Children.Keys.ToList();
+                        child.GetKeys(keyBuffer);
+                        var childKeys = new List<char>(keyBuffer);
                         childKeys.Sort();
                         stack.Push((child, 0, childKeys));
                     }
@@ -1034,7 +1037,7 @@ namespace SuffixTree
             {
                 char c = other[i];
 
-                if (!node.Children.TryGetValue(c, out var child))
+                if (!node.TryGetChild(c, out var child))
                     break; // No edge starting with c
 
                 // Track the start position in tree's text (first character matched)
@@ -1080,7 +1083,7 @@ namespace SuffixTree
             {
                 char c = other[i];
 
-                if (!node.Children.TryGetValue(c, out var child))
+                if (!node.TryGetChild(c, out var child))
                     break; // No edge starting with c
 
                 // Match along this edge
@@ -1126,7 +1129,7 @@ namespace SuffixTree
                 int currentDepth = depthBefore + LengthOf(current);
 
                 // Only internal nodes (non-leaves) represent repeated substrings
-                if (!current.IsLeaf && current.Children.Count > 0)
+                if (!current.IsLeaf && current.ChildCount > 0)
                 {
                     if (currentDepth > maxDepth)
                     {
@@ -1135,7 +1138,7 @@ namespace SuffixTree
                     }
                 }
 
-                foreach (var child in current.Children.Values)
+                foreach (var child in current.GetChildren())
                 {
                     stack.Push((child, currentDepth));
                 }
@@ -1205,7 +1208,7 @@ namespace SuffixTree
                 else
                 {
                     // Push children with current depth as their starting depth
-                    foreach (var child in current.Children.Values)
+                    foreach (var child in current.GetChildren())
                     {
                         stack.Push((child, currentDepth));
                     }
@@ -1244,12 +1247,13 @@ namespace SuffixTree
 
             // Iterative DFS: stack stores (node, depth, childIndex, sortedChildren)
             var stack = new Stack<(SuffixTreeNode Node, int Depth, int ChildIndex, List<SuffixTreeNode> SortedChildren)>();
+            var keyBuffer = new List<char>(8);
 
             // Print root first
             var rootLabel = LabelOf(_root);
             sb.AppendLine($"0:{rootLabel}");
 
-            var rootChildren = GetSortedChildren(_root);
+            var rootChildren = GetSortedChildren(_root, keyBuffer);
             if (rootChildren.Count > 0)
                 stack.Push((_root, 0, 0, rootChildren));
 
@@ -1275,9 +1279,9 @@ namespace SuffixTree
                     sb.AppendLine($"{childDepth}:{nodeLabel}{leafMark}{linkMark}");
 
                     // If child has children, push it for processing
-                    if (!child.IsLeaf && child.Children.Count > 0)
+                    if (!child.IsLeaf && child.ChildCount > 0)
                     {
-                        var grandChildren = GetSortedChildren(child);
+                        var grandChildren = GetSortedChildren(child, keyBuffer);
                         stack.Push((child, childDepth, 0, grandChildren));
                     }
                 }
@@ -1289,13 +1293,16 @@ namespace SuffixTree
         /// <summary>
         /// Returns children of a node sorted by edge character.
         /// </summary>
-        private static List<SuffixTreeNode> GetSortedChildren(SuffixTreeNode node)
+        private List<SuffixTreeNode> GetSortedChildren(SuffixTreeNode node, List<char> keyBuffer)
         {
-            var keys = node.Children.Keys.ToList();
-            keys.Sort();
-            var result = new List<SuffixTreeNode>(keys.Count);
-            foreach (var key in keys)
-                result.Add(node.Children[key]);
+            node.GetKeys(keyBuffer);
+            keyBuffer.Sort();
+            var result = new List<SuffixTreeNode>(keyBuffer.Count);
+            foreach (var key in keyBuffer)
+            {
+                node.TryGetChild(key, out var child);
+                result.Add(child);
+            }
             return result;
         }
     }
