@@ -94,6 +94,230 @@ The implementation follows Ukkonen's canonical algorithm with:
 5. **Walk-Down** — traverse edges when `activeLength >= edgeLength`
 6. **Terminator** — `'\0'` character ensures all suffixes end at leaves
 
+### Understanding Suffix Trees
+
+A suffix tree for string S is a tree where:
+- Each **edge** is labeled with a non-empty substring of S
+- Each **internal node** (except root) has at least 2 children
+- No two edges from the same node start with the same character
+- Each **leaf** represents a unique suffix of S
+- Concatenating edge labels from root to leaf gives the suffix
+
+**Example:** For string "banana", the suffixes are:
+```
+banana  (position 0)
+anana   (position 1)
+nana    (position 2)
+ana     (position 3)
+na      (position 4)
+a       (position 5)
+```
+
+### Naive vs Ukkonen's Algorithm
+
+**Naive approach** (O(n²)):
+```
+for each suffix s[i..n]:
+    insert suffix into trie
+```
+This is slow because we process each suffix independently.
+
+**Ukkonen's approach** (O(n)):
+```
+for each character s[i]:
+    extend ALL current suffixes simultaneously
+```
+The key insight: when we add character `c` to the tree, ALL existing suffixes need to be extended with `c`. Ukkonen's algorithm does this in amortized O(1) time per suffix using clever tricks.
+
+### The Three Extension Rules
+
+When extending suffix tree with new character `c`:
+
+**Rule 1: Create new leaf**
+```
+Current position is at a node, no edge starts with 'c'
+→ Create new leaf edge labeled 'c'
+
+     [node]                    [node]
+        |           →            |  \
+      (existing)              (existing) c
+```
+
+**Rule 2: Split edge**
+```
+Current position is in middle of edge, next char ≠ 'c'
+→ Split edge, create new internal node, add leaf for 'c'
+
+     [node]                    [node]
+        |                         |
+      "abc"          →          "ab"
+        |                      /    \
+      [leaf]               "c"      "x..."
+                          [new]     [old]
+```
+
+**Rule 3: Do nothing (showstopper)**
+```
+Character 'c' already exists at current position
+→ Suffix is already implicitly in tree, stop phase
+
+This is the key optimization! When we find 'c' already exists,
+ALL remaining suffixes will also match (they're shorter).
+```
+
+### The Active Point
+
+The **active point** tracks where we are in the tree:
+
+```csharp
+activeNode   // Which node we're at (or descended from)
+activeEdge   // Which edge we're on (first character)
+activeLength // How far along that edge
+```
+
+**Why is this needed?**
+
+When Rule 3 fires, we don't insert anything - we just note that the suffix exists implicitly. But we need to remember WHERE it exists for the next phase. The active point tracks this location.
+
+**Example:** Building "aab"
+```
+After 'a':   activeNode=root, activeEdge='a', activeLength=1
+             (we're 1 char into the 'a' edge)
+             
+After 'aa':  activeNode=root, activeEdge='a', activeLength=2
+             (we're 2 chars into the 'a' edge - it grew!)
+             
+After 'aab': Split! The 'aa' edge becomes 'a' with children 'a' and 'b'
+```
+
+### Suffix Links
+
+**Problem:** After inserting suffix s[j..i], we need to insert s[j+1..i].
+
+**Naive solution:** Walk from root each time → O(n) per suffix → O(n²) total
+
+**Suffix links solution:** Jump directly!
+
+```
+A suffix link connects internal node for "xα" to node for "α"
+(where x is a single character and α is a string)
+
+Example: node for "an" links to node for "n"
+         node for "ana" links to node for "na"
+```
+
+**In code:**
+```csharp
+class Node {
+    Node SuffixLink;  // Points to node representing shorter suffix
+}
+```
+
+After inserting at node X, follow suffix link to node Y, then continue inserting. This gives us O(1) amortized time per suffix!
+
+### The Remainder Variable
+
+`remainder` counts how many suffixes still need explicit insertion.
+
+**Why?** When Rule 3 fires, we stop but DON'T decrement remainder. These "pending" suffixes will be handled in future phases.
+
+```
+Building "aab":
+
+Phase 1 ('a'): Insert 'a', remainder=0
+Phase 2 ('a'): Rule 3! 'a' edge exists. remainder=1
+Phase 3 ('b'): 
+  - Insert "ab" (split 'aa' edge), remainder=1
+  - Follow suffix link to root
+  - Insert "b", remainder=0
+```
+
+### Walk-Down Operation
+
+When `activeLength >= edgeLength`, we must "walk down" to the next node:
+
+```csharp
+if (activeLength >= edgeLength) {
+    activeNode = edge;           // Move to end of edge
+    activeLength -= edgeLength;  // Remaining length
+    activeEdge = next character; // Start of next edge
+}
+```
+
+**Example:** If activeLength=5 but edge "abc" has length 3:
+```
+Before: activeNode=root, activeEdge='a', activeLength=5
+        (conceptually at position 5 along "abc...")
+        
+After:  activeNode=node_after_abc, activeEdge=?, activeLength=2
+        (now 2 chars into the next edge)
+```
+
+### Terminator Character
+
+**Problem:** Some suffixes may remain implicit after processing.
+
+**Example:** In "aa", suffix "a" is implicit (it's a prefix of "aa").
+
+**Solution:** Add unique terminator '$' (we use '\0'):
+```
+"aa" → "aa$"
+Now suffix "a$" is different from "aa$", both are explicit leaves.
+```
+
+This ensures every suffix ends at a unique leaf, giving us a proper suffix tree (not a suffix trie).
+
+### Complete Algorithm Pseudocode
+
+```
+function BuildSuffixTree(s):
+    s = s + '$'  // Add terminator
+    create root node
+    activeNode = root
+    activeEdge = none
+    activeLength = 0
+    remainder = 0
+    
+    for each character c in s:
+        remainder++
+        lastCreatedNode = null
+        
+        while remainder > 0:
+            if activeLength == 0:
+                activeEdge = c
+            
+            if no edge starting with activeEdge:
+                // Rule 1: create leaf
+                create leaf edge from activeNode
+                setSuffixLink(lastCreatedNode, activeNode)
+            else:
+                edge = getEdge(activeNode, activeEdge)
+                if walkDownNeeded(edge):
+                    continue  // Restart with updated active point
+                
+                if characterAtPosition == c:
+                    // Rule 3: showstopper
+                    activeLength++
+                    setSuffixLink(lastCreatedNode, activeNode)
+                    break
+                
+                // Rule 2: split edge
+                splitNode = splitEdge(edge, activeLength)
+                create leaf from splitNode for c
+                setSuffixLink(lastCreatedNode, splitNode)
+                lastCreatedNode = splitNode
+            
+            remainder--
+            
+            if activeNode == root and activeLength > 0:
+                // Rule 1 variant: stay at root, adjust active point
+                activeLength--
+                activeEdge = s[currentPosition - remainder + 1]
+            else:
+                // Follow suffix link (or go to root)
+                activeNode = activeNode.suffixLink ?? root
+```
+
 ### How It Works
 
 Ukkonen's algorithm builds the suffix tree incrementally, processing one character at a time:
