@@ -18,7 +18,7 @@ namespace SuffixTree
     /// - Remainder: counts pending suffixes to be inserted
     /// - Terminator: ensures all suffixes are explicit (end at leaves)
     /// </summary>
-    public class SuffixTree
+    public class SuffixTree : ISuffixTree
     {
         /// <summary>
         /// Sentinel value indicating an open-ended (growing) edge.
