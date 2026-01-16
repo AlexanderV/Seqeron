@@ -65,12 +65,13 @@ namespace SuffixTree
         /// <summary>How many characters along the active edge we've matched.</summary>
         private int _activeLength = 0;
 
+        /// <summary>Cached original text (without terminator).</summary>
+        private string _text = string.Empty;
+
         /// <summary>
         /// Gets the original text that this suffix tree was built from (without terminator).
         /// </summary>
-        public string Text => _chars == null || _chars.Length <= 1
-            ? string.Empty
-            : new string(_chars, 0, _chars.Length - 1);
+        public string Text => _text;
 
         private SuffixTree()
         {
@@ -113,6 +114,7 @@ namespace SuffixTree
             if (value.Length == 0)
             {
                 _chars = Array.Empty<char>();
+                _text = string.Empty;
                 return;
             }
 
@@ -125,6 +127,9 @@ namespace SuffixTree
 
             // Add terminator to convert implicit suffixes to explicit leaves
             ExtendTree(TERMINATOR);
+
+            // Cache the original text (without terminator)
+            _text = value;
 
             // Clear construction state (not needed anymore, helps GC)
             _lastCreatedInternalNode = null;
