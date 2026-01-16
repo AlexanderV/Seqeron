@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-165%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-181%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -58,6 +58,11 @@ var tree = SuffixTree.Build("banana");
 // Access original text
 string text = tree.Text;  // "banana"
 
+// Tree statistics
+int nodes = tree.NodeCount;    // Total nodes in tree
+int leaves = tree.LeafCount;   // Number of leaf nodes
+int depth = tree.MaxDepth;     // Maximum depth in characters
+
 // Check if substring exists
 bool found = tree.Contains("nan");  // true
 bool notFound = tree.Contains("xyz");  // false
@@ -74,6 +79,9 @@ string lrs = tree.LongestRepeatedSubstring();  // "ana"
 
 // Longest common substring with positions
 var (substring, posInText, posInOther) = tree.LongestCommonSubstringInfo("bandana");
+
+// Find ALL positions of longest common substring
+var (lcs, positionsInText, positionsInOther) = tree.FindAllLongestCommonSubstrings("xabcyabcz");
 
 // Get all suffixes (sorted)
 var suffixes = tree.GetAllSuffixes();
@@ -99,7 +107,7 @@ SuffixTree.sln
 ├── SuffixTree.Console/      # Stress test console app
 │   └── Program.cs           # Exhaustive verification tests
 ├── SuffixTree.Tests/        # Unit tests (NUnit)
-│   └── UnitTests.cs         # 165 comprehensive tests
+│   └── UnitTests.cs         # 181 comprehensive tests
 └── SuffixTree.Benchmarks/   # Performance benchmarks
     └── SuffixTreeBenchmarks.cs
 ```
