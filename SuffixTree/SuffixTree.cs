@@ -895,14 +895,16 @@ namespace SuffixTree
 
             int maxLen = 0;
             int maxStartInOther = 0;
+            int maxStartInText = -1;
 
             for (int start = 0; start < other.Length; start++)
             {
-                int matchLen = MatchFromRoot(other.AsSpan(), start);
+                var (matchLen, startInText) = MatchFromRootWithPosition(other.AsSpan(), start);
                 if (matchLen > maxLen)
                 {
                     maxLen = matchLen;
                     maxStartInOther = start;
+                    maxStartInText = startInText;
                 }
             }
 
@@ -910,12 +912,54 @@ namespace SuffixTree
                 return (string.Empty, -1, -1);
 
             string substring = other.Substring(maxStartInOther, maxLen);
+            return (substring, maxStartInText, maxStartInOther);
+        }
 
-            // Find position in tree's text
-            var occurrences = FindAllOccurrences(substring);
-            int positionInText = occurrences.Count > 0 ? occurrences[0] : -1;
+        /// <summary>
+        /// Matches characters from 'other' starting at 'start' against the tree from root.
+        /// Returns the number of characters matched and the starting position in tree's text.
+        /// </summary>
+        private (int MatchLength, int StartPositionInText) MatchFromRootWithPosition(ReadOnlySpan<char> other, int start)
+        {
+            var node = _root;
+            int i = start;
+            int matched = 0;
+            int matchStartInText = -1;
 
-            return (substring, positionInText, maxStartInOther);
+            while (i < other.Length)
+            {
+                char c = other[i];
+
+                if (!node.Children.TryGetValue(c, out var child))
+                    break; // No edge starting with c
+
+                // Track the start position in tree's text (first character matched)
+                if (matched == 0)
+                    matchStartInText = child.Start;
+
+                // Match along this edge
+                int edgeLen = LengthOf(child);
+                int j = 0;
+
+                while (j < edgeLen && i < other.Length)
+                {
+                    char edgeChar = _chars[child.Start + j];
+                    if (edgeChar == TERMINATOR || edgeChar != other[i])
+                        return (matched, matchStartInText);
+
+                    matched++;
+                    i++;
+                    j++;
+                }
+
+                if (j < edgeLen)
+                    break; // Didn't finish edge (hit terminator or end of other)
+
+                // Move to child node
+                node = child;
+            }
+
+            return (matched, matchStartInText);
         }
 
         /// <summary>
