@@ -579,10 +579,7 @@ namespace SuffixTree
             if (_chars == null || _chars.Length <= 1)
                 return string.Empty;
 
-            int maxDepth = 0;
-            SuffixTreeNode deepestNode = null;
-
-            FindDeepestInternalNode(_root, 0, ref maxDepth, ref deepestNode);
+            var (deepestNode, maxDepth) = FindDeepestInternalNode();
 
             if (deepestNode == null)
                 return string.Empty;
@@ -592,26 +589,39 @@ namespace SuffixTree
         }
 
         /// <summary>
-        /// Recursively finds the deepest internal node.
+        /// Finds the deepest internal node using iterative traversal.
+        /// Avoids stack overflow for deep trees.
         /// </summary>
-        private void FindDeepestInternalNode(SuffixTreeNode node, int depth, ref int maxDepth, ref SuffixTreeNode deepestNode)
+        private (SuffixTreeNode Node, int Depth) FindDeepestInternalNode()
         {
-            int currentDepth = depth + LengthOf(node);
+            int maxDepth = 0;
+            SuffixTreeNode deepestNode = null;
 
-            // Only internal nodes (non-leaves) represent repeated substrings
-            if (!node.IsLeaf && node.Children.Count > 0)
+            var stack = new Stack<(SuffixTreeNode Node, int DepthBefore)>();
+            stack.Push((_root, 0));
+
+            while (stack.Count > 0)
             {
-                if (currentDepth > maxDepth)
+                var (current, depthBefore) = stack.Pop();
+                int currentDepth = depthBefore + LengthOf(current);
+
+                // Only internal nodes (non-leaves) represent repeated substrings
+                if (!current.IsLeaf && current.Children.Count > 0)
                 {
-                    maxDepth = currentDepth;
-                    deepestNode = node;
+                    if (currentDepth > maxDepth)
+                    {
+                        maxDepth = currentDepth;
+                        deepestNode = current;
+                    }
+                }
+
+                foreach (var child in current.Children.Values)
+                {
+                    stack.Push((child, currentDepth));
                 }
             }
 
-            foreach (var child in node.Children.Values)
-            {
-                FindDeepestInternalNode(child, currentDepth, ref maxDepth, ref deepestNode);
-            }
+            return (deepestNode, maxDepth);
         }
 
         /// <summary>
