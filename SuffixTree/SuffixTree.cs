@@ -1185,6 +1185,9 @@ namespace SuffixTree
         /// Matches characters from 'other' starting at 'start' against the tree from root.
         /// Returns the number of characters matched and the starting position in tree's text.
         /// </summary>
+        /// <param name="other">The character span to match against.</param>
+        /// <param name="start">Starting position in 'other'.</param>
+        /// <returns>Tuple of (match length, start position in text). Position is -1 if no match.</returns>
         private (int MatchLength, int StartPositionInText) MatchFromRootWithPosition(ReadOnlySpan<char> other, int start)
         {
             var node = _root;
@@ -1226,84 +1229,6 @@ namespace SuffixTree
             }
 
             return (matched, matchStartInText);
-        }
-
-        /// <summary>
-        /// Matches characters from 'other' starting at 'start' against the tree from root.
-        /// Returns the number of characters matched.
-        /// </summary>
-        private int MatchFromRoot(ReadOnlySpan<char> other, int start)
-        {
-            var node = _root;
-            int i = start;
-            int matched = 0;
-
-            while (i < other.Length)
-            {
-                char c = other[i];
-
-                if (!node.TryGetChild(c, out var child))
-                    break; // No edge starting with c
-
-                // Match along this edge
-                int edgeLen = LengthOf(child);
-                int j = 0;
-
-                while (j < edgeLen && i < other.Length)
-                {
-                    char edgeChar = _chars[child.Start + j];
-                    if (edgeChar == TERMINATOR || edgeChar != other[i])
-                        return matched; // Mismatch or hit terminator
-
-                    matched++;
-                    i++;
-                    j++;
-                }
-
-                if (j < edgeLen)
-                    break; // Didn't finish edge (hit terminator or end of other)
-
-                // Move to child node
-                node = child;
-            }
-
-            return matched;
-        }
-
-        /// <summary>
-        /// Finds the deepest internal node using iterative traversal.
-        /// Avoids stack overflow for deep trees.
-        /// </summary>
-        private (SuffixTreeNode Node, int Depth) FindDeepestInternalNode()
-        {
-            int maxDepth = 0;
-            SuffixTreeNode deepestNode = null;
-
-            var stack = new Stack<(SuffixTreeNode Node, int DepthBefore)>();
-            stack.Push((_root, 0));
-
-            while (stack.Count > 0)
-            {
-                var (current, depthBefore) = stack.Pop();
-                int currentDepth = depthBefore + LengthOf(current);
-
-                // Only internal nodes (non-leaves) represent repeated substrings
-                if (!current.IsLeaf && current.ChildCount > 0)
-                {
-                    if (currentDepth > maxDepth)
-                    {
-                        maxDepth = currentDepth;
-                        deepestNode = current;
-                    }
-                }
-
-                foreach (var child in current.GetChildren())
-                {
-                    stack.Push((child, currentDepth));
-                }
-            }
-
-            return (deepestNode, maxDepth);
         }
 
         /// <summary>
