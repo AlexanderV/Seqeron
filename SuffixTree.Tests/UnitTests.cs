@@ -503,6 +503,20 @@ namespace SuffixTree.Tests
         }
 
         [Test]
+        public void CountOccurrences_NullCharacter_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("banana");
+            Assert.Throws<ArgumentException>(() => st.CountOccurrences("a\0a".AsSpan()));
+        }
+
+        [Test]
+        public void FindAllOccurrences_NullCharacter_ThrowsArgumentException()
+        {
+            var st = SuffixTree.Build("banana");
+            Assert.Throws<ArgumentException>(() => st.FindAllOccurrences("a\0a".AsSpan()));
+        }
+
+        [Test]
         public void CountOccurrences_Mississippi_Issi()
         {
             var st = SuffixTree.Build("mississippi");

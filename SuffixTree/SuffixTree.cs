@@ -434,8 +434,14 @@ namespace SuffixTree
         /// </summary>
         /// <param name="pattern">The pattern to search for.</param>
         /// <returns>Collection of 0-based starting positions of all occurrences.</returns>
+        /// <exception cref="ArgumentException">If pattern contains the null character '\0'.</exception>
         public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
         {
+            if (pattern.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Pattern cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(pattern));
+
             var results = new List<int>();
 
             if (pattern.Length == 0)
@@ -514,8 +520,14 @@ namespace SuffixTree
         /// </summary>
         /// <param name="pattern">The pattern to count.</param>
         /// <returns>Number of times the pattern occurs in the text.</returns>
+        /// <exception cref="ArgumentException">If pattern contains the null character '\0'.</exception>
         public int CountOccurrences(ReadOnlySpan<char> pattern)
         {
+            if (pattern.Contains(TERMINATOR))
+                throw new ArgumentException(
+                    $"Pattern cannot contain the null character '\\0' as it is used as internal terminator.",
+                    nameof(pattern));
+
             if (pattern.Length == 0)
                 return _chars.Length - 1; // Empty pattern matches at every position (excluding terminator)
 
