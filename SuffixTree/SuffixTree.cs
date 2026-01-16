@@ -956,8 +956,8 @@ namespace SuffixTree
         /// </summary>
         public string PrintTree()
         {
-            // Estimate capacity: ~50 chars per node, rough estimate of 2n nodes for n-length string
-            int estimatedNodes = (_chars?.Length ?? 0) * 2;
+            // Estimate capacity: ~50 chars per node, string of n chars has at most 2n-1 nodes
+            int estimatedNodes = Math.Max(1, (_chars?.Length ?? 0) * 2);
             var sb = new StringBuilder(Math.Max(256, estimatedNodes * 50));
             sb.AppendLine($"Content length: {_chars?.Length ?? 0}");
             sb.AppendLine();
@@ -969,7 +969,7 @@ namespace SuffixTree
             var rootLabel = LabelOf(_root);
             sb.AppendLine($"0:{rootLabel}");
 
-            var rootChildren = _root.Children.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value).ToList();
+            var rootChildren = GetSortedChildren(_root);
             if (rootChildren.Count > 0)
                 stack.Push((_root, 0, 0, rootChildren));
 
@@ -996,13 +996,26 @@ namespace SuffixTree
                     // If child has children, push it for processing
                     if (!child.IsLeaf && child.Children.Count > 0)
                     {
-                        var grandChildren = child.Children.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value).ToList();
+                        var grandChildren = GetSortedChildren(child);
                         stack.Push((child, childDepth, 0, grandChildren));
                     }
                 }
             }
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Returns children of a node sorted by edge character.
+        /// </summary>
+        private static List<SuffixTreeNode> GetSortedChildren(SuffixTreeNode node)
+        {
+            var keys = node.Children.Keys.ToList();
+            keys.Sort();
+            var result = new List<SuffixTreeNode>(keys.Count);
+            foreach (var key in keys)
+                result.Add(node.Children[key]);
+            return result;
         }
     }
 }
