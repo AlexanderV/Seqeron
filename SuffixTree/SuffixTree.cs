@@ -628,49 +628,35 @@ namespace SuffixTree
 
         /// <summary>
         /// Reconstructs the path label from root to a given node.
+        /// Uses Parent references for O(depth) traversal instead of O(n) DFS search.
         /// </summary>
         private string ReconstructPath(SuffixTreeNode targetNode, int pathLength)
         {
-            // We need to trace from root to targetNode
-            // Since nodes don't store parent references, we'll do a DFS to find the path
-            var path = new List<SuffixTreeNode>();
-            if (FindPathToNode(_root, targetNode, path))
+            // Walk from targetNode up to root, collecting nodes
+            var pathFromTarget = new List<SuffixTreeNode>();
+            var current = targetNode;
+
+            while (current != null && current != _root)
             {
-                var sb = new StringBuilder(pathLength);
-                foreach (var node in path)
+                pathFromTarget.Add(current);
+                current = current.Parent;
+            }
+
+            // Reverse to get root-to-target order
+            var sb = new StringBuilder(pathLength);
+            for (int i = pathFromTarget.Count - 1; i >= 0; i--)
+            {
+                var node = pathFromTarget[i];
+                int len = LengthOf(node);
+                for (int j = 0; j < len; j++)
                 {
-                    if (node == _root) continue;
-                    int len = LengthOf(node);
-                    for (int i = 0; i < len; i++)
-                    {
-                        char c = _chars[node.Start + i];
-                        if (c == TERMINATOR) break; // Don't include terminator
-                        sb.Append(c);
-                    }
+                    char c = _chars[node.Start + j];
+                    if (c == TERMINATOR) break; // Don't include terminator
+                    sb.Append(c);
                 }
-                return sb.ToString();
-            }
-            return string.Empty;
-        }
-
-        /// <summary>
-        /// Finds the path from source to target node using DFS.
-        /// </summary>
-        private bool FindPathToNode(SuffixTreeNode current, SuffixTreeNode target, List<SuffixTreeNode> path)
-        {
-            path.Add(current);
-
-            if (current == target)
-                return true;
-
-            foreach (var child in current.Children.Values)
-            {
-                if (FindPathToNode(child, target, path))
-                    return true;
             }
 
-            path.RemoveAt(path.Count - 1);
-            return false;
+            return sb.ToString();
         }
 
         /// <summary>
