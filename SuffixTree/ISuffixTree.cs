@@ -77,5 +77,12 @@ namespace SuffixTree
         /// <param name="other">The string to compare against.</param>
         /// <returns>The longest common substring, or empty string if none exists.</returns>
         string LongestCommonSubstring(string other);
+
+        /// <summary>
+        /// Creates a detailed string representation of the tree structure.
+        /// Useful for debugging and visualization.
+        /// </summary>
+        /// <returns>A multi-line string showing the tree structure.</returns>
+        string PrintTree();
     }
 }
