@@ -812,6 +812,52 @@ namespace SuffixTree.Tests
             Assert.Throws<ArgumentException>(() => st.LongestCommonSubstring("a\0b"));
         }
 
+        [Test]
+        public void LongestCommonSubstring_OtherContainedInTree()
+        {
+            var st = SuffixTree.Build("abcdefghij");
+            Assert.That(st.LongestCommonSubstring("cdef"), Is.EqualTo("cdef"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_TreeContainedInOther()
+        {
+            var st = SuffixTree.Build("def");
+            Assert.That(st.LongestCommonSubstring("abcdefghi"), Is.EqualTo("def"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_MultipleSameLengthMatches()
+        {
+            // Both "ab" and "cd" are length 2 matches - should find one of them
+            var st = SuffixTree.Build("abcd");
+            var lcs = st.LongestCommonSubstring("xxabyycdyy");
+            Assert.That(lcs.Length, Is.EqualTo(2));
+            Assert.That(lcs, Is.AnyOf("ab", "cd"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_OverlappingPatterns()
+        {
+            // Tree: "abab", Other: "ababab" - should find "abab"
+            var st = SuffixTree.Build("abab");
+            Assert.That(st.LongestCommonSubstring("ababab"), Is.EqualTo("abab"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_RepeatingCharacters()
+        {
+            var st = SuffixTree.Build("aaaa");
+            Assert.That(st.LongestCommonSubstring("aaa"), Is.EqualTo("aaa"));
+        }
+
+        [Test]
+        public void LongestCommonSubstring_BothEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.LongestCommonSubstring(""), Is.EqualTo(""));
+        }
+
         #endregion
 
         #region Thread Safety Tests
