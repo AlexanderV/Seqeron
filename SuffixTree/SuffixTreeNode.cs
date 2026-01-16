@@ -68,6 +68,12 @@ namespace SuffixTree
         /// </summary>
         public int DepthFromRoot { get; set; }
 
+        /// <summary>
+        /// Number of leaves in this node's subtree. For leaf nodes, this is 1.
+        /// Calculated once after tree construction for O(1) CountOccurrences.
+        /// </summary>
+        public int LeafCount { get; set; }
+
         /// <summary>True if this is a leaf node (edge grows with string).</summary>
         public bool IsLeaf => End == BOUNDLESS;
 
