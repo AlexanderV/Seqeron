@@ -727,6 +727,80 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Enumerates all suffixes of the original string in sorted order lazily.
+        /// Use this for large strings to avoid O(n²) memory allocation from GetAllSuffixes.
+        /// 
+        /// Each suffix is yielded one at a time, allowing early termination
+        /// and streaming processing without loading all suffixes into memory.
+        /// </summary>
+        /// <returns>Lazy enumerable of suffixes sorted lexicographically.</returns>
+        public IEnumerable<string> EnumerateSuffixes()
+        {
+            if (_chars == null || _chars.Length <= 1)
+                yield break;
+
+            // Iterative DFS traversal yielding suffixes (paths to leaves)
+            var stack = new Stack<(SuffixTreeNode Node, int ChildIndex, List<char> SortedKeys)>();
+            var path = new StringBuilder(_chars.Length);
+
+            // Start with root's sorted children
+            var rootKeys = _root.Children.Keys.ToList();
+            rootKeys.Sort();
+            stack.Push((_root, 0, rootKeys));
+
+            while (stack.Count > 0)
+            {
+                var (node, childIndex, sortedKeys) = stack.Pop();
+
+                if (childIndex < sortedKeys.Count)
+                {
+                    stack.Push((node, childIndex + 1, sortedKeys));
+
+                    var childKey = sortedKeys[childIndex];
+                    var child = node.Children[childKey];
+
+                    int edgeLen = LengthOf(child);
+                    int charsAdded = 0;
+                    for (int i = 0; i < edgeLen; i++)
+                    {
+                        char c = _chars[child.Start + i];
+                        if (c == TERMINATOR) break;
+                        path.Append(c);
+                        charsAdded++;
+                    }
+
+                    if (child.IsLeaf)
+                    {
+                        if (path.Length > 0)
+                            yield return path.ToString();
+                        path.Length -= charsAdded;
+                    }
+                    else
+                    {
+                        var childKeys = child.Children.Keys.ToList();
+                        childKeys.Sort();
+                        stack.Push((child, 0, childKeys));
+                    }
+                }
+                else
+                {
+                    if (node != _root)
+                    {
+                        int edgeLen = LengthOf(node);
+                        int charsToRemove = 0;
+                        for (int i = 0; i < edgeLen; i++)
+                        {
+                            if (_chars[node.Start + i] == TERMINATOR) break;
+                            charsToRemove++;
+                        }
+                        if (charsToRemove > 0 && path.Length >= charsToRemove)
+                            path.Length -= charsToRemove;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Finds the longest common substring between this tree's text and another string.
         /// 
         /// Algorithm: For each position in 'other', walk down the tree as far as possible,

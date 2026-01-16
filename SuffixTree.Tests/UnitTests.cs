@@ -743,6 +743,32 @@ namespace SuffixTree.Tests
             Assert.That(suffixes, Is.EqualTo(sorted));
         }
 
+        [Test]
+        public void EnumerateSuffixes_MatchesGetAllSuffixes()
+        {
+            var st = SuffixTree.Build("banana");
+            var fromGetAll = st.GetAllSuffixes();
+            var fromEnumerate = st.EnumerateSuffixes().ToList();
+
+            Assert.That(fromEnumerate, Is.EqualTo(fromGetAll));
+        }
+
+        [Test]
+        public void EnumerateSuffixes_CanBreakEarly()
+        {
+            var st = SuffixTree.Build("abcdefghij");
+            var firstThree = st.EnumerateSuffixes().Take(3).ToList();
+
+            Assert.That(firstThree.Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EnumerateSuffixes_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.EnumerateSuffixes().Any(), Is.False);
+        }
+
         #endregion
 
         #region LongestCommonSubstring Tests

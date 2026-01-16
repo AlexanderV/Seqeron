@@ -72,6 +72,13 @@ namespace SuffixTree
         IReadOnlyList<string> GetAllSuffixes();
 
         /// <summary>
+        /// Enumerates all suffixes of the original string in sorted order lazily.
+        /// Use this for large strings to avoid O(n²) memory allocation.
+        /// </summary>
+        /// <returns>Lazy enumerable of suffixes sorted lexicographically.</returns>
+        IEnumerable<string> EnumerateSuffixes();
+
+        /// <summary>
         /// Finds the longest common substring between this tree's text and another string.
         /// </summary>
         /// <param name="other">The string to compare against.</param>
