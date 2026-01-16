@@ -165,4 +165,24 @@ public class SuffixTreeBenchmarks
     public string LRS_DNA() => _dnaTree.LongestRepeatedSubstring();
 
     #endregion
+
+    #region LongestCommonSubstring Benchmarks
+
+    [Benchmark]
+    [BenchmarkCategory("LCS")]
+    public string LCS_Short() => _shortTree.LongestCommonSubstring("quick brown fox");
+
+    [Benchmark]
+    [BenchmarkCategory("LCS")]
+    public string LCS_Medium() => _mediumTree.LongestCommonSubstring("dolor sit amet consectetur");
+
+    [Benchmark]
+    [BenchmarkCategory("LCS")]
+    public string LCS_Long() => _longTree.LongestCommonSubstring("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod");
+
+    [Benchmark]
+    [BenchmarkCategory("LCS")]
+    public string LCS_DNA() => _dnaTree.LongestCommonSubstring(_dnaText.Substring(10000, 100));
+
+    #endregion
 }
