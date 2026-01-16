@@ -73,6 +73,105 @@ namespace SuffixTree
         /// </summary>
         public string Text => _text;
 
+        /// <summary>
+        /// Gets the total number of nodes in the tree (including root).
+        /// Time complexity: O(n) where n is the number of nodes.
+        /// </summary>
+        public int NodeCount => CountNodes();
+
+        /// <summary>
+        /// Gets the number of leaf nodes in the tree.
+        /// Equal to the length of the original text (one leaf per suffix).
+        /// Time complexity: O(n) where n is the number of nodes.
+        /// </summary>
+        public int LeafCount => CountLeaves();
+
+        /// <summary>
+        /// Gets the maximum depth of the tree (longest path from root to leaf in characters).
+        /// Time complexity: O(n) where n is the number of nodes.
+        /// </summary>
+        public int MaxDepth => CalculateMaxDepth();
+
+        private int CountNodes()
+        {
+            if (_chars == null || _chars.Length == 0)
+                return 1; // Just root
+
+            int count = 0;
+            var stack = new Stack<SuffixTreeNode>();
+            stack.Push(_root);
+
+            while (stack.Count > 0)
+            {
+                var node = stack.Pop();
+                count++;
+
+                if (node.HasChildren)
+                {
+                    foreach (var child in node.Children.Values)
+                        stack.Push(child);
+                }
+            }
+
+            return count;
+        }
+
+        private int CountLeaves()
+        {
+            if (_chars == null || _chars.Length == 0)
+                return 0;
+
+            int count = 0;
+            var stack = new Stack<SuffixTreeNode>();
+            stack.Push(_root);
+
+            while (stack.Count > 0)
+            {
+                var node = stack.Pop();
+
+                if (node.IsLeaf)
+                    count++;
+                else if (node.HasChildren)
+                {
+                    foreach (var child in node.Children.Values)
+                        stack.Push(child);
+                }
+            }
+
+            return count;
+        }
+
+        private int CalculateMaxDepth()
+        {
+            if (_chars == null || _chars.Length == 0)
+                return 0;
+
+            int maxDepth = 0;
+            var stack = new Stack<(SuffixTreeNode Node, int Depth)>();
+            stack.Push((_root, 0));
+
+            while (stack.Count > 0)
+            {
+                var (node, depth) = stack.Pop();
+                int currentDepth = depth + (node == _root ? 0 : LengthOf(node));
+
+                if (node.IsLeaf)
+                {
+                    // Don't count terminator in depth
+                    int actualDepth = currentDepth > 0 ? currentDepth - 1 : 0;
+                    if (actualDepth > maxDepth)
+                        maxDepth = actualDepth;
+                }
+                else if (node.HasChildren)
+                {
+                    foreach (var child in node.Children.Values)
+                        stack.Push((child, currentDepth));
+                }
+            }
+
+            return maxDepth;
+        }
+
         private SuffixTree()
         {
             _root = new SuffixTreeNode { Start = 0, End = 0 };
