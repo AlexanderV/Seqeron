@@ -58,5 +58,12 @@ namespace SuffixTree
         /// </summary>
         /// <returns>The longest repeated substring, or empty string if none exists.</returns>
         string LongestRepeatedSubstring();
+
+        /// <summary>
+        /// Returns all suffixes of the original string in sorted order.
+        /// Useful for debugging and educational purposes.
+        /// </summary>
+        /// <returns>All suffixes sorted lexicographically.</returns>
+        IReadOnlyList<string> GetAllSuffixes();
     }
 }

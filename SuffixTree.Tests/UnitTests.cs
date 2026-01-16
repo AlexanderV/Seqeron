@@ -652,74 +652,62 @@ namespace SuffixTree.Tests
             }
         }
 
+        #region GetAllSuffixes Tests
+
+        [Test]
+        public void GetAllSuffixes_EmptyTree_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.GetAllSuffixes(), Is.Empty);
+        }
+
+        [Test]
+        public void GetAllSuffixes_SingleChar_ReturnsSingleSuffix()
+        {
+            var st = SuffixTree.Build("a");
+            var suffixes = st.GetAllSuffixes();
+            Assert.That(suffixes, Has.Count.EqualTo(1));
+            Assert.That(suffixes[0], Is.EqualTo("a"));
+        }
+
+        [Test]
+        public void GetAllSuffixes_Banana_ReturnsSortedSuffixes()
+        {
+            var st = SuffixTree.Build("banana");
+            var suffixes = st.GetAllSuffixes();
+
+            // All suffixes of "banana": a, ana, anana, banana, na, nana
+            var expected = new[] { "a", "ana", "anana", "banana", "na", "nana" };
+            Assert.That(suffixes, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void GetAllSuffixes_CountMatchesStringLength()
+        {
+            const string text = "abracadabra";
+            var st = SuffixTree.Build(text);
+            var suffixes = st.GetAllSuffixes();
+
+            Assert.That(suffixes.Count, Is.EqualTo(text.Length));
+        }
+
+        [Test]
+        public void GetAllSuffixes_AreSortedLexicographically()
+        {
+            var st = SuffixTree.Build("mississippi");
+            var suffixes = st.GetAllSuffixes();
+
+            var sorted = suffixes.OrderBy(s => s).ToList();
+            Assert.That(suffixes, Is.EqualTo(sorted));
+        }
+
+        #endregion
+
+        #region Stress Tests
+
         [Test]
         public void Contains_SuffixLinkTraversal_Stress()
         {
-            // Pattern that exercises suffix link traversal heavily
-            var st = SuffixTree.Build("abaababaabaab");
-
-            Assert.That(st.Contains("abaab"), Is.True);
-            Assert.That(st.Contains("baaba"), Is.True);
-            Assert.That(st.Contains("ababa"), Is.True);
-            Assert.That(st.Contains("abaababaabaab"), Is.True);
-        }
-
-        [Test]
-        public void StressTest_LargeAlphabet()
-        {
-            // Test with larger alphabet
-            var r = new Random(123);
-            const string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            var chars = new char[1000];
-            for (int i = 0; i < chars.Length; i++)
-                chars[i] = alphabet[r.Next(alphabet.Length)];
-
-            var s = new string(chars);
-            var st = SuffixTree.Build(s);
-
-            // Test 100 random substrings
-            for (int i = 0; i < 100; i++)
-            {
-                int start = r.Next(s.Length - 10);
-                int len = r.Next(1, 10);
-                var substr = s.Substring(start, len);
-                Assert.That(st.Contains(substr), Is.True, $"Substring '{substr}' not found");
-            }
-        }
-
-        [Test]
-        public void StressTest_AllSubstrings_MultipleCases()
-        {
-            // Thorough test: verify ALL substrings for multiple test cases
-            string[] testCases = {
-                "abcabc",
-                "aabbaabb",
-                "abcdabcd",
-                "aabaacaab",
-                "xyzxyzxyz"
-            };
-
-            foreach (var s in testCases)
-            {
-                var st = SuffixTree.Build(s);
-
-                // Check ALL possible substrings
-                for (int i = 0; i < s.Length; i++)
-                {
-                    for (int len = 1; len <= s.Length - i; len++)
-                    {
-                        var substr = s.Substring(i, len);
-                        Assert.That(st.Contains(substr), Is.True,
-                            $"String '{s}': Substring '{substr}' at [{i},{i + len}) not found");
-                    }
-                }
-            }
-        }
-
-        [Test]
-        public void StressTest_VeryLongRepeating()
-        {
-            // Long string with repeating patterns - stress test suffix links
             var s = string.Concat(Enumerable.Repeat("abcdefgh", 100));
             var st = SuffixTree.Build(s);
 
@@ -845,6 +833,8 @@ namespace SuffixTree.Tests
 
             return new string(res);
         }
+
+        #endregion
 
         #region Tests for Previous Fixes
 

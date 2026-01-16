@@ -612,6 +612,75 @@ namespace SuffixTree
         }
 
         /// <summary>
+        /// Returns all suffixes of the original string in sorted order.
+        /// Suffix trees naturally store suffixes in lexicographic order when traversing
+        /// children by character order.
+        /// 
+        /// Useful for debugging, educational purposes, and verifying tree correctness.
+        /// </summary>
+        /// <returns>All suffixes sorted lexicographically.</returns>
+        public IReadOnlyList<string> GetAllSuffixes()
+        {
+            if (_chars == null || _chars.Length <= 1)
+                return Array.Empty<string>();
+
+            var suffixes = new List<string>();
+            var sb = new StringBuilder();
+
+            // DFS traversal collecting all suffixes (paths to leaves)
+            CollectSuffixes(_root, sb, suffixes);
+
+            return suffixes;
+        }
+
+        /// <summary>
+        /// Recursively collects all suffixes by traversing to leaves.
+        /// Uses sorted child iteration for lexicographic order.
+        /// </summary>
+        private void CollectSuffixes(SuffixTreeNode node, StringBuilder path, List<string> results)
+        {
+            if (node.IsLeaf)
+            {
+                // Append this edge's label (excluding terminator)
+                int len = LengthOf(node);
+                for (int i = 0; i < len; i++)
+                {
+                    char c = _chars[node.Start + i];
+                    if (c == TERMINATOR) break;
+                    path.Append(c);
+                }
+                if (path.Length > 0)
+                    results.Add(path.ToString());
+                // Remove what we added
+                int charsAdded = len;
+                if (_chars[node.Start + len - 1] == TERMINATOR) charsAdded--;
+                path.Length -= charsAdded > 0 ? charsAdded : 0;
+                return;
+            }
+
+            // For non-root internal nodes, add edge label
+            int edgeLen = 0;
+            if (node != _root)
+            {
+                edgeLen = LengthOf(node);
+                for (int i = 0; i < edgeLen; i++)
+                    path.Append(_chars[node.Start + i]);
+            }
+
+            // Visit children in sorted order for lexicographic output
+            var sortedKeys = node.Children.Keys.ToList();
+            sortedKeys.Sort();
+            foreach (var key in sortedKeys)
+            {
+                CollectSuffixes(node.Children[key], path, results);
+            }
+
+            // Backtrack
+            if (edgeLen > 0)
+                path.Length -= edgeLen;
+        }
+
+        /// <summary>
         /// Finds the deepest internal node using iterative traversal.
         /// Avoids stack overflow for deep trees.
         /// </summary>
