@@ -418,9 +418,9 @@ namespace SuffixTree
 
             if (pattern.Length == 0)
             {
-                // Empty pattern matches at every position
+                // Empty pattern matches at every position in original text
                 int textLength = _chars.Length - 1; // Exclude terminator
-                for (int p = 0; p <= textLength; p++)
+                for (int p = 0; p < textLength; p++)
                     results.Add(p);
                 return results;
             }
@@ -492,7 +492,7 @@ namespace SuffixTree
                 throw new ArgumentNullException(nameof(pattern));
 
             if (pattern.Length == 0)
-                return _chars.Length; // Empty pattern matches at every position including end
+                return _chars.Length - 1; // Empty pattern matches at every position (excluding terminator)
 
             // Navigate to the node/edge representing the pattern
             var node = _root;
