@@ -104,6 +104,16 @@ namespace SuffixTree
         (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other);
 
         /// <summary>
+        /// Finds all positions where the longest common substring occurs.
+        /// </summary>
+        /// <param name="other">The string to compare against.</param>
+        /// <returns>
+        /// A tuple containing: the substring, all positions in tree's text, all positions in other.
+        /// Returns (empty string, empty list, empty list) if no common substring exists.
+        /// </returns>
+        (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other);
+
+        /// <summary>
         /// Creates a detailed string representation of the tree structure.
         /// Useful for debugging and visualization.
         /// </summary>
