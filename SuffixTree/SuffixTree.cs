@@ -931,7 +931,9 @@ namespace SuffixTree
         /// </summary>
         public string PrintTree()
         {
-            var sb = new StringBuilder();
+            // Estimate capacity: ~50 chars per node, rough estimate of 2n nodes for n-length string
+            int estimatedNodes = (_chars?.Length ?? 0) * 2;
+            var sb = new StringBuilder(Math.Max(256, estimatedNodes * 50));
             sb.AppendLine($"Content length: {_chars?.Length ?? 0}");
             sb.AppendLine();
 
