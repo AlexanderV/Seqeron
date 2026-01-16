@@ -657,9 +657,9 @@ namespace SuffixTree
             var suffixes = new List<string>();
 
             // Iterative DFS traversal collecting all suffixes (paths to leaves)
-            // Stack stores: (node, childIndex, pathLength) where childIndex tracks which children we've visited
+            // Stack stores: (node, childIndex, sortedKeys) where childIndex tracks which children we've visited
             var stack = new Stack<(SuffixTreeNode Node, int ChildIndex, List<char> SortedKeys)>();
-            var path = new List<char>();
+            var path = new StringBuilder(_chars.Length); // Capacity = max possible path length
 
             // Start with root's sorted children
             var rootKeys = _root.Children.Keys.ToList();
@@ -685,17 +685,17 @@ namespace SuffixTree
                     {
                         char c = _chars[child.Start + i];
                         if (c == TERMINATOR) break;
-                        path.Add(c);
+                        path.Append(c);
                         charsAdded++;
                     }
 
                     if (child.IsLeaf)
                     {
                         // Collect suffix
-                        if (path.Count > 0)
-                            suffixes.Add(new string(path.ToArray()));
+                        if (path.Length > 0)
+                            suffixes.Add(path.ToString());
                         // Backtrack
-                        path.RemoveRange(path.Count - charsAdded, charsAdded);
+                        path.Length -= charsAdded;
                     }
                     else
                     {
@@ -717,8 +717,8 @@ namespace SuffixTree
                             if (_chars[node.Start + i] == TERMINATOR) break;
                             charsToRemove++;
                         }
-                        if (charsToRemove > 0 && path.Count >= charsToRemove)
-                            path.RemoveRange(path.Count - charsToRemove, charsToRemove);
+                        if (charsToRemove > 0 && path.Length >= charsToRemove)
+                            path.Length -= charsToRemove;
                     }
                 }
             }
