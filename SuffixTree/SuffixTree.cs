@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -8,11 +8,11 @@ namespace SuffixTree
 {
     /// <summary>
     /// Implementation of Ukkonen's online suffix tree construction algorithm.
-    /// 
+    ///
     /// A suffix tree is a compressed trie containing all suffixes of a given string.
     /// This implementation builds the tree in O(n) time and allows O(m) substring search,
     /// where n is the text length and m is the pattern length.
-    /// 
+    ///
     /// Key concepts:
     /// - Active Point: tracks current position (activeNode, activeEdge, activeLength)
     /// - Suffix Links: enable O(1) jumps between internal nodes
@@ -248,7 +248,7 @@ namespace SuffixTree
         /// <summary>
         /// Extends the suffix tree with one character.
         /// This is the core of Ukkonen's algorithm - each call processes one "phase".
-        /// 
+        ///
         /// In each phase, we must extend ALL current suffixes with the new character.
         /// The key insight is that we can do this in amortized O(1) per suffix using:
         /// - Rule 3 (showstopper): if suffix already exists, stop immediately
@@ -304,7 +304,7 @@ namespace SuffixTree
                         // ============================================================
                         // The suffix we're trying to insert already exists in the tree!
                         // This is the key optimization: we stop processing immediately.
-                        // 
+                        //
                         // Why? All remaining suffixes are SHORTER, so if this one exists,
                         // they must also exist (as prefixes of this one).
                         //
@@ -396,11 +396,11 @@ namespace SuffixTree
 
         /// <summary>
         /// Walk down the tree if activeLength exceeds current edge length.
-        /// 
+        ///
         /// This handles the case where our "position" conceptually extends
         /// past the current edge into a child edge. We need to move activeNode
         /// to the end of this edge and adjust activeLength accordingly.
-        /// 
+        ///
         /// Example: If activeLength=5 but edge "abc" has length 3:
         ///   Before: activeNode=parent, activeEdge='a', activeLength=5
         ///   After:  activeNode=node_after_abc, activeLength=2
@@ -482,10 +482,10 @@ namespace SuffixTree
 
         /// <summary>
         /// Checks if the specified string is a substring of the tree content.
-        /// 
+        ///
         /// Algorithm: Walk down the tree following edges that match the pattern.
         /// If we can match all characters, the substring exists.
-        /// 
+        ///
         /// Time complexity: O(m) where m is the length of the search string.
         /// </summary>
         /// <param name="value">The substring to search for.</param>
@@ -501,7 +501,7 @@ namespace SuffixTree
         /// <summary>
         /// Checks if the specified character span is a substring of the tree content.
         /// This overload avoids string allocation when searching with spans or slices.
-        /// 
+        ///
         /// Time complexity: O(m) where m is the length of the search span.
         /// </summary>
         /// <param name="value">The character span to search for.</param>
@@ -550,11 +550,11 @@ namespace SuffixTree
 
         /// <summary>
         /// Finds all starting positions where the pattern occurs in the original string.
-        /// 
-        /// Algorithm: 
+        ///
+        /// Algorithm:
         /// 1. Navigate to the node representing the pattern (like Contains)
         /// 2. Collect all leaf positions in the subtree (each leaf = one occurrence)
-        /// 
+        ///
         /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
         /// </summary>
         /// <param name="pattern">The pattern to search for.</param>
@@ -570,11 +570,11 @@ namespace SuffixTree
         /// <summary>
         /// Finds all starting positions where the pattern occurs in the original string.
         /// Zero-allocation overload for performance-critical scenarios.
-        /// 
+        ///
         /// Algorithm:
         /// 1. Navigate down the tree following the pattern
         /// 2. Collect all leaf positions in the subtree (each leaf = one occurrence)
-        /// 
+        ///
         /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
         /// </summary>
         /// <param name="pattern">The pattern to search for.</param>
@@ -644,7 +644,7 @@ namespace SuffixTree
         /// <summary>
         /// Counts the number of occurrences of a pattern in the text.
         /// More efficient than FindAllOccurrences when you only need the count.
-        /// 
+        ///
         /// Time complexity: O(m + k) where m is pattern length and k is number of occurrences.
         /// Space complexity: O(h) where h is tree height (for traversal stack).
         /// </summary>
@@ -712,14 +712,14 @@ namespace SuffixTree
 
         /// <summary>
         /// Finds the longest substring that appears at least twice in the text.
-        /// 
-        /// Algorithm: The longest repeated substring corresponds to the deepest 
+        ///
+        /// Algorithm: The longest repeated substring corresponds to the deepest
         /// internal node in the suffix tree. Internal nodes represent branching points
         /// where multiple suffixes share a common prefix.
-        /// 
+        ///
         /// Optimization: The deepest internal node is tracked during construction,
         /// making this operation O(depth) instead of O(n).
-        /// 
+        ///
         /// Time complexity: O(depth) where depth is the length of the result.
         /// </summary>
         /// <returns>
@@ -741,16 +741,16 @@ namespace SuffixTree
 
         /// <summary>
         /// Returns all suffixes of the original string in sorted order.
-        /// 
+        ///
         /// Implementation uses iterative DFS with explicit stack to avoid StackOverflow
         /// on deep trees (e.g., strings with many repeated characters).
-        /// 
+        ///
         /// Algorithm:
         /// 1. Traverse tree depth-first, visiting children in sorted character order
         /// 2. Track current path in StringBuilder (edge labels from root to current position)
         /// 3. When reaching a leaf, the path represents a complete suffix
         /// 4. Backtrack by removing characters when returning from child nodes
-        /// 
+        ///
         /// Memory: O(n²) for result (n suffixes of average length n/2).
         /// For large strings, prefer EnumerateSuffixes() for lazy evaluation.
         /// </summary>
@@ -766,7 +766,7 @@ namespace SuffixTree
         /// <summary>
         /// Enumerates all suffixes of the original string in sorted order lazily.
         /// Use this for large strings to avoid O(n²) memory allocation from GetAllSuffixes.
-        /// 
+        ///
         /// Each suffix is yielded one at a time, allowing early termination
         /// and streaming processing without loading all suffixes into memory.
         /// </summary>
@@ -858,11 +858,11 @@ namespace SuffixTree
 
         /// <summary>
         /// Finds the longest common substring between this tree's text and another string.
-        /// 
+        ///
         /// Algorithm: Uses suffix links for O(m) traversal instead of O(m²) naive approach.
         /// Maintains position in tree while scanning 'other', using suffix links to backtrack
         /// efficiently when mismatches occur.
-        /// 
+        ///
         /// Time complexity: O(m) where m is the length of 'other'.
         /// </summary>
         /// <param name="other">The string to compare against.</param>
@@ -879,13 +879,13 @@ namespace SuffixTree
         /// <summary>
         /// Finds the longest common substring between this tree's text and another character span.
         /// Zero-allocation overload for performance-critical scenarios.
-        /// 
+        ///
         /// Algorithm: O(m) using suffix links.
         /// - Walk through 'other' character by character
         /// - Maintain current position in tree (node + offset on edge)
         /// - On mismatch, use suffix link to efficiently move to next shorter suffix
         /// - Track maximum match length throughout
-        /// 
+        ///
         /// Time complexity: O(m) where m is the length of 'other'.
         /// </summary>
         /// <param name="other">The character span to compare against.</param>
@@ -1073,7 +1073,7 @@ namespace SuffixTree
 
         /// <summary>
         /// Finds the longest common substring with position information.
-        /// 
+        ///
         /// Time complexity: O(n * m) where n is tree text length, m is other length.
         /// </summary>
         /// <param name="other">The string to compare against.</param>
