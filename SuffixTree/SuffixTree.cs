@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SuffixTree
@@ -45,6 +46,12 @@ namespace SuffixTree
         /// we link the previous one to it.
         /// </summary>
         private SuffixTreeNode _lastCreatedInternalNode;
+
+        /// <summary>Deepest internal node found during construction (for O(1) LRS).</summary>
+        private SuffixTreeNode _deepestInternalNode;
+
+        /// <summary>Depth of the deepest internal node (sum of edge lengths from root).</summary>
+        private int _maxInternalDepth;
 
         /// <summary>The string content stored as a character array.</summary>
         private char[] _chars;
@@ -322,11 +329,16 @@ namespace SuffixTree
                     //       [leaf]               "c"      "x"  (new leaf + old suffix)
                     //                          [new]     [old]
                     // ============================================================
+
+                    // Calculate depth for the new split node
+                    int splitNodeDepth = GetNodeDepth(_activeNode) + _activeLength;
+
                     var splitNode = new SuffixTreeNode
                     {
                         Start = activeEdge.Start,
                         End = activeEdge.Start + _activeLength,
-                        Parent = _activeNode
+                        Parent = _activeNode,
+                        DepthFromRoot = GetNodeDepth(_activeNode)
                     };
 
                     // Replace old edge with new internal node
@@ -340,6 +352,13 @@ namespace SuffixTree
                     activeEdge.Start += _activeLength;
                     activeEdge.Parent = splitNode;
                     splitNode.SetChild(_chars[activeEdge.Start], activeEdge);
+
+                    // Update deepest internal node tracking for O(1) LRS
+                    if (splitNodeDepth > _maxInternalDepth)
+                    {
+                        _maxInternalDepth = splitNodeDepth;
+                        _deepestInternalNode = splitNode;
+                    }
 
                     // Track this internal node for suffix link setup
                     SetLastCreatedInternalNode(splitNode);
@@ -424,6 +443,17 @@ namespace SuffixTree
                 _lastCreatedInternalNode.SuffixLink = node;
 
             _lastCreatedInternalNode = node;
+        }
+
+        /// <summary>
+        /// Gets the total depth from root to the END of this node's edge.
+        /// For root, returns 0.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int GetNodeDepth(SuffixTreeNode node)
+        {
+            if (node == _root) return 0;
+            return node.DepthFromRoot + LengthOf(node);
         }
 
         /// <summary>
@@ -720,7 +750,10 @@ namespace SuffixTree
         /// internal node in the suffix tree. Internal nodes represent branching points
         /// where multiple suffixes share a common prefix.
         /// 
-        /// Time complexity: O(n) where n is the text length.
+        /// Optimization: The deepest internal node is tracked during construction,
+        /// making this operation O(depth) instead of O(n).
+        /// 
+        /// Time complexity: O(depth) where depth is the length of the result.
         /// </summary>
         /// <returns>
         /// The longest repeated substring, or empty string if no repetition exists
@@ -731,13 +764,12 @@ namespace SuffixTree
             if (_chars == null || _chars.Length <= 1)
                 return string.Empty;
 
-            var (deepestNode, maxDepth) = FindDeepestInternalNode();
-
-            if (deepestNode == null)
+            // Use cached deepest internal node (tracked during construction)
+            if (_deepestInternalNode == null || _maxInternalDepth == 0)
                 return string.Empty;
 
             // Reconstruct the substring from root to deepestNode
-            return ReconstructPath(deepestNode, maxDepth);
+            return ReconstructPath(_deepestInternalNode, _maxInternalDepth);
         }
 
         /// <summary>
