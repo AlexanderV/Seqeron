@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-181%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-115%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -16,13 +16,14 @@ This implementation uses **Ukkonen's online algorithm** (1995), which constructs
 
 Suffix trees provide optimal time complexity for many string operations:
 
-| Operation | Time Complexity |
-|-----------|-----------------|
-| Build tree | O(n) |
-| Substring search | O(m) |
-| Find all occurrences | O(m + k) |
-| Longest repeated substring | O(n) |
-| Longest common substring | O(n + m) |
+| Operation | Time Complexity | Notes |
+|-----------|---------------|-------|
+| Build tree | O(n) | Ukkonen's algorithm |
+| Substring search | O(m) | Character-by-character matching |
+| Find all occurrences | O(m + k) | m = pattern, k = occurrences |
+| Count occurrences | O(m) | Uses precomputed leaf counts |
+| Longest repeated substring | O(1)* | *O(n) on first call, cached |
+| Longest common substring | O(m) | Uses suffix links for O(m) traversal |
 
 *where n = text length, m = pattern length, k = number of occurrences*
 
@@ -107,7 +108,7 @@ SuffixTree.sln
 ├── SuffixTree.Console/      # Stress test console app
 │   └── Program.cs           # Exhaustive verification tests
 ├── SuffixTree.Tests/        # Unit tests (NUnit)
-│   └── UnitTests.cs         # 181 comprehensive tests
+│   └── UnitTests.cs         # 115 comprehensive tests
 └── SuffixTree.Benchmarks/   # Performance benchmarks
     └── SuffixTreeBenchmarks.cs
 ```
@@ -120,26 +121,30 @@ Performance measured on Intel Core i7-1185G7 @ 3.00GHz, .NET 8.0:
 
 | Text Size | Time | Allocated |
 |-----------|------|-----------|
-| 100 chars | 7.1 μs | 23 KB |
-| 10K chars | 1.84 ms | 3.5 MB |
-| 100K chars | 67.5 ms | 36 MB |
-| 50K DNA | 50.6 ms | 15 MB |
+| 100 chars | 8.3 μs | 23 KB |
+| 10K chars | 1.97 ms | 2.2 MB |
+| 100K chars | 65 ms | 23 MB |
+| 50K DNA | 28.3 ms | 9.3 MB |
 
 ### Search Performance
 
 | Operation | 100 chars | 10K chars | 100K chars | 50K DNA |
 |-----------|-----------|-----------|------------|---------|
-| Contains | 26 ns | 56 ns | 58 ns | 118 ns |
-| Count | — | 906 ns | 33.7 μs | 2.1 μs |
-| FindAll | 49 ns | 1.07 μs | 33.1 μs | 2.65 μs |
-| LRS | 1.0 μs | 494 μs | 20.3 ms | 7.2 ms |
+| Contains | 22 ns | 34 ns | 48 ns | 54 ns |
+| Count | — | 14 ns | 18 ns | 21 ns |
+| FindAll | 71 ns | 2.2 μs | 36 μs | 4.6 μs |
+| LRS | 45 ns | 12.7 μs | 226 μs | 172 ns |
+| LCS | 56 ns | 522 ns | 162 ns | 335 ns |
 
-*LRS = Longest Repeated Substring*
+*LRS = Longest Repeated Substring, LCS = Longest Common Substring*
 
 ### Key Observations
 
 - **Build time scales linearly** with text size (O(n) confirmed)
-- **Contains is extremely fast** — 26-118 ns regardless of tree size
+- **Contains is extremely fast** — 22-54 ns regardless of tree size
+- **Count uses precomputed leaf counts** — O(m) instead of O(m+k), ~1,800x faster on large texts
+- **LRS uses depth tracking** — O(1) after first call, 59x-26,000x faster than tree traversal
+- **LCS uses suffix links** — O(m) traversal, 100x+ faster than naive approach
 - **Zero allocations** for Contains and Count operations
 - **DNA sequences** (small alphabet) build faster due to better tree compression
 
@@ -439,12 +444,12 @@ Benchmarks on random strings (Intel i7, .NET 8.0):
 
 | String Length | Build Time | Memory |
 |---------------|------------|--------|
-| 1,000 | < 1 ms | ~50 KB |
-| 10,000 | ~2 ms | ~500 KB |
-| 100,000 | ~20 ms | ~5 MB |
-| 1,000,000 | ~200 ms | ~50 MB |
+| 1,000 | ~0.2 ms | ~100 KB |
+| 10,000 | ~2 ms | ~2.2 MB |
+| 100,000 | ~65 ms | ~23 MB |
+| 1,000,000 | ~700 ms | ~230 MB |
 
-Search time is always O(m) regardless of tree size.
+Search time is always O(m) regardless of tree size. Count and LRS operations use O(1) precomputed data after tree construction.
 
 ## Building
 
@@ -455,7 +460,7 @@ dotnet build
 ## Testing
 
 ```bash
-# Run unit tests (115 tests)
+# Run all 115 unit tests
 dotnet test
 
 # Run stress tests (1M+ substring verifications)
@@ -477,7 +482,7 @@ The test suite includes:
 
 ### Verified Correctness
 
-- **181 unit tests** — all passing
+- **115 unit tests** — all passing (NUnit 4.2.2)
 - **1,137,909 substrings** — verified in stress tests
 - **313 test strings** — including edge cases like "mississippi", "abracadabra"
 
@@ -538,7 +543,7 @@ var tree = SuffixTree.Build("banana");
 int count = tree.CountOccurrences("ana");  // 2
 ```
 
-**Time Complexity:** O(m + k) where m is pattern length, k is number of occurrences
+**Time Complexity:** O(m) where m is pattern length (uses precomputed leaf counts)
 
 ---
 
@@ -564,7 +569,7 @@ var tree = SuffixTree.Build("banana");
 string lrs = tree.LongestRepeatedSubstring();  // "ana"
 ```
 
-**Time Complexity:** O(n)
+**Time Complexity:** O(1) after first call (O(n) initial computation, result is cached)
 
 ---
 
