@@ -21,23 +21,44 @@ namespace SuffixTree
         {
             ArgumentNullException.ThrowIfNull(value);
             if (value.Length == 0) return true;
+            return ContainsCore(value.AsSpan());
+        }
+
+        private bool ContainsCore(ReadOnlySpan<char> value)
+        {
             var node = _root;
+            var textSpan = _text.AsSpan();
             int i = 0;
 
             while (i < value.Length)
             {
-                if (!node.TryGetChild(value[i], out var child) || child is null)
+                if (!node.TryGetChild(value[i], out var child))
                     return false;
 
+                int edgeStart = child!.Start;
                 int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < value.Length)
+                int remaining = value.Length - i;
+                int compareLen = edgeLength < remaining ? edgeLength : remaining;
+
+                if (edgeStart + compareLen > textSpan.Length)
+                    return false;
+
+                // Use SIMD for longer comparisons (>=8 chars), scalar for short
+                if (compareLen >= 8)
                 {
-                    if (GetSymbolAt(child.Start + j) != value[i])
+                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(value.Slice(i, compareLen)))
                         return false;
-                    i++;
-                    j++;
                 }
+                else
+                {
+                    for (int j = 0; j < compareLen; j++)
+                    {
+                        if (textSpan[edgeStart + j] != value[i + j])
+                            return false;
+                    }
+                }
+
+                i += compareLen;
                 node = child;
             }
             return true;
@@ -152,26 +173,7 @@ namespace SuffixTree
         public bool Contains(ReadOnlySpan<char> value)
         {
             if (value.IsEmpty) return true;
-            var node = _root;
-            int i = 0;
-
-            while (i < value.Length)
-            {
-                if (!node.TryGetChild(value[i], out var child) || child is null)
-                    return false;
-
-                int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < value.Length)
-                {
-                    if (GetSymbolAt(child.Start + j) != value[i])
-                        return false;
-                    i++;
-                    j++;
-                }
-                node = child;
-            }
-            return true;
+            return ContainsCore(value);
         }
 
         public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
