@@ -84,6 +84,17 @@ namespace SuffixTree
             int edgeOffset = 0;
             int currentMatchLen = 0;
 
+            // Local function to finalize edge traversal when offset reaches edge length
+            void TryFinalizeEdge()
+            {
+                if (currentEdge != null && edgeOffset >= LengthOf(currentEdge))
+                {
+                    currentNode = currentEdge;
+                    currentEdge = null;
+                    edgeOffset = 0;
+                }
+            }
+
             for (int i = 0; i < other.Length; i++)
             {
                 char c = other[i];
@@ -96,12 +107,7 @@ namespace SuffixTree
                         {
                             edgeOffset++;
                             currentMatchLen++;
-                            if (edgeOffset >= LengthOf(currentEdge))
-                            {
-                                currentNode = currentEdge;
-                                currentEdge = null;
-                                edgeOffset = 0;
-                            }
+                            TryFinalizeEdge();
                             break;
                         }
                     }
@@ -112,12 +118,7 @@ namespace SuffixTree
                             currentEdge = nextChild;
                             edgeOffset = 1;
                             currentMatchLen++;
-                            if (edgeOffset >= LengthOf(currentEdge))
-                            {
-                                currentNode = currentEdge;
-                                currentEdge = null;
-                                edgeOffset = 0;
-                            }
+                            TryFinalizeEdge();
                             break;
                         }
                     }
@@ -132,7 +133,7 @@ namespace SuffixTree
 
                     int nodeDepth = GetNodeDepth(currentNode);
                     int remaining = currentMatchLen - nodeDepth;
-                    
+
                     if (remaining > 0)
                     {
                         int pos = i - remaining; // Character at current relative position in 'other'
@@ -142,7 +143,7 @@ namespace SuffixTree
                         while (remaining > 0)
                         {
                             if (!currentNode.TryGetChild(other[pos], out var nextChild) || nextChild == null)
-                                break; 
+                                break;
 
                             int edgeLen = LengthOf(nextChild);
                             if (edgeLen <= remaining)

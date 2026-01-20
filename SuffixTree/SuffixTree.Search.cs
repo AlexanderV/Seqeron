@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SuffixTree
@@ -10,6 +11,7 @@ namespace SuffixTree
         [ThreadStatic]
         private static List<SuffixTreeNode>? _sharedSearchBuffer;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static List<SuffixTreeNode> GetSearchBuffer()
         {
             _sharedSearchBuffer ??= new List<SuffixTreeNode>(64);
@@ -24,20 +26,21 @@ namespace SuffixTree
             return ContainsCore(value.AsSpan());
         }
 
-        private bool ContainsCore(ReadOnlySpan<char> value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool ContainsCore(ReadOnlySpan<char> pattern)
         {
             var node = _root;
             var textSpan = _text.AsSpan();
             int i = 0;
 
-            while (i < value.Length)
+            while (i < pattern.Length)
             {
-                if (!node.TryGetChild(value[i], out var child))
+                if (!node.TryGetChild(pattern[i], out var child))
                     return false;
 
                 int edgeStart = child!.Start;
                 int edgeLength = LengthOf(child);
-                int remaining = value.Length - i;
+                int remaining = pattern.Length - i;
                 int compareLen = edgeLength < remaining ? edgeLength : remaining;
 
                 if (edgeStart + compareLen > textSpan.Length)
@@ -46,14 +49,14 @@ namespace SuffixTree
                 // Use SIMD for longer comparisons (>=8 chars), scalar for short
                 if (compareLen >= 8)
                 {
-                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(value.Slice(i, compareLen)))
+                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(pattern.Slice(i, compareLen)))
                         return false;
                 }
                 else
                 {
                     for (int j = 0; j < compareLen; j++)
                     {
-                        if (textSpan[edgeStart + j] != value[i + j])
+                        if (textSpan[edgeStart + j] != pattern[i + j])
                             return false;
                     }
                 }
@@ -62,6 +65,51 @@ namespace SuffixTree
                 node = child;
             }
             return true;
+        }
+
+        /// <summary>
+        /// Core pattern matching with hybrid SIMD optimization.
+        /// Returns the node where pattern ends and whether full match was found.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private (SuffixTreeNode node, bool matched) MatchPatternCore(ReadOnlySpan<char> pattern)
+        {
+            var node = _root;
+            var textSpan = _text.AsSpan();
+            int i = 0;
+
+            while (i < pattern.Length)
+            {
+                if (!node.TryGetChild(pattern[i], out var child))
+                    return (node, false);
+
+                int edgeStart = child!.Start;
+                int edgeLength = LengthOf(child);
+                int remaining = pattern.Length - i;
+                int compareLen = edgeLength < remaining ? edgeLength : remaining;
+
+                if (edgeStart + compareLen > textSpan.Length)
+                    return (node, false);
+
+                // Use SIMD for longer comparisons (>=8 chars), scalar for short
+                if (compareLen >= 8)
+                {
+                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(pattern.Slice(i, compareLen)))
+                        return (node, false);
+                }
+                else
+                {
+                    for (int j = 0; j < compareLen; j++)
+                    {
+                        if (textSpan[edgeStart + j] != pattern[i + j])
+                            return (node, false);
+                    }
+                }
+
+                i += compareLen;
+                node = child;
+            }
+            return (node, true);
         }
 
         public IReadOnlyList<int> FindAllOccurrences(string pattern)
@@ -74,34 +122,8 @@ namespace SuffixTree
                 return results;
             }
 
-            var node = _root;
-            int i = 0;
-
-            while (i < pattern.Length)
-            {
-                if (!node.TryGetChild(pattern[i], out var child) || child is null)
-                    return results;
-
-                int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < pattern.Length)
-                {
-                    if (GetSymbolAt(child.Start + j) != pattern[i])
-                        return results;
-                    i++;
-                    j++;
-                }
-
-                if (j == edgeLength)
-                {
-                    node = child;
-                }
-                else
-                {
-                    CollectLeaves(child, child.DepthFromRoot, results);
-                    return results;
-                }
-            }
+            var (node, matched) = MatchPatternCore(pattern.AsSpan());
+            if (!matched) return results;
 
             CollectLeaves(node, node.DepthFromRoot, results);
             return results;
@@ -112,27 +134,8 @@ namespace SuffixTree
             ArgumentNullException.ThrowIfNull(pattern);
             if (pattern.Length == 0) return _text.Length;
 
-            var node = _root;
-            int i = 0;
-
-            while (i < pattern.Length)
-            {
-                if (!node.TryGetChild(pattern[i], out var child) || child is null)
-                    return 0;
-
-                int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < pattern.Length)
-                {
-                    if (GetSymbolAt(child.Start + j) != pattern[i])
-                        return 0;
-                    i++;
-                    j++;
-                }
-                node = child;
-            }
-
-            return node.LeafCount;
+            var (node, matched) = MatchPatternCore(pattern.AsSpan());
+            return matched ? node.LeafCount : 0;
         }
 
         [ThreadStatic]
@@ -181,34 +184,8 @@ namespace SuffixTree
             var results = new List<int>();
             if (pattern.IsEmpty) return results;
 
-            var node = _root;
-            int i = 0;
-
-            while (i < pattern.Length)
-            {
-                if (!node.TryGetChild(pattern[i], out var child) || child is null)
-                    return results;
-
-                int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < pattern.Length)
-                {
-                    if (GetSymbolAt(child.Start + j) != pattern[i])
-                        return results;
-                    i++;
-                    j++;
-                }
-
-                if (j == edgeLength)
-                {
-                    node = child;
-                }
-                else
-                {
-                    CollectLeaves(child, child.DepthFromRoot, results);
-                    return results;
-                }
-            }
+            var (node, matched) = MatchPatternCore(pattern);
+            if (!matched) return results;
 
             CollectLeaves(node, node.DepthFromRoot, results);
             return results;
@@ -218,27 +195,8 @@ namespace SuffixTree
         {
             if (pattern.IsEmpty) return 0;
 
-            var node = _root;
-            int i = 0;
-
-            while (i < pattern.Length)
-            {
-                if (!node.TryGetChild(pattern[i], out var child) || child is null)
-                    return 0;
-
-                int edgeLength = LengthOf(child);
-                int j = 0;
-                while (j < edgeLength && i < pattern.Length)
-                {
-                    if (GetSymbolAt(child.Start + j) != pattern[i])
-                        return 0;
-                    i++;
-                    j++;
-                }
-                node = child;
-            }
-
-            return node.LeafCount;
+            var (node, matched) = MatchPatternCore(pattern);
+            return matched ? node.LeafCount : 0;
         }
 
         public IEnumerable<string> EnumerateSuffixes() => EnumerateSuffixesCore();

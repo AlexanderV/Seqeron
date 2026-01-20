@@ -66,6 +66,7 @@ namespace SuffixTree
             }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         private void AddSuffixLink(SuffixTreeNode node)
         {
             if (_lastCreatedInternalNode != null)
