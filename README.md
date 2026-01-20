@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-115%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-201%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -32,8 +32,9 @@ Suffix trees provide optimal time complexity for many string operations:
 - **O(n) construction** — linear time tree building using Ukkonen's algorithm
 - **O(m) substring search** — efficient pattern matching
 - **Full Unicode support** — works with any characters (Cyrillic, Chinese, emoji, etc.)
-- **Terminator character** — ensures all suffixes are explicit (proper suffix tree)
-- **Suffix links** — optimized traversal during construction
+- **Binary data support** — handles null characters and control characters
+- **Terminator key** — uses internal key (-1) to avoid conflicts with any input character
+- **Suffix links** — optimized traversal during construction and LCS queries
 - **Thread-safe reads** — built tree can be queried from multiple threads
 - **Memory efficient** — uses edge compression (not a trie)
 - **.NET 8.0** — modern SDK-style project
@@ -107,8 +108,13 @@ SuffixTree.sln
 │   └── ISuffixTree.cs       # Public interface
 ├── SuffixTree.Console/      # Stress test console app
 │   └── Program.cs           # Exhaustive verification tests
-├── SuffixTree.Tests/        # Unit tests (NUnit)
-│   └── UnitTests.cs         # 115 comprehensive tests
+├── SuffixTree.Tests/        # Unit tests (NUnit) - 201 tests
+│   ├── Algorithms/          # LCS, LRS, suffix enumeration (62 tests)
+│   ├── Compatibility/       # Unicode, binary data (36 tests)
+│   ├── Core/                # Build, statistics, diagnostics (21 tests)
+│   ├── Regression/          # Bug prevention tests (7 tests)
+│   ├── Robustness/          # Edge cases, stress, threading (26 tests)
+│   └── Search/              # Contains, Count, FindAll (45 tests)
 └── SuffixTree.Benchmarks/   # Performance benchmarks
     └── SuffixTreeBenchmarks.cs
 ```
@@ -121,20 +127,20 @@ Performance measured on Intel Core i7-1185G7 @ 3.00GHz, .NET 8.0:
 
 | Text Size | Time | Allocated |
 |-----------|------|-----------|
-| 100 chars | 8.3 μs | 23 KB |
-| 10K chars | 1.97 ms | 2.2 MB |
-| 100K chars | 65 ms | 23 MB |
-| 50K DNA | 28.3 ms | 9.3 MB |
+| 100 chars | 6 μs | 19 KB |
+| 10K chars | 1.14 ms | 2 MB |
+| 100K chars | 42 ms | 20 MB |
+| 50K DNA | 16 ms | 8 MB |
 
 ### Search Performance
 
 | Operation | 100 chars | 10K chars | 100K chars | 50K DNA |
 |-----------|-----------|-----------|------------|---------|
-| Contains | 22 ns | 34 ns | 48 ns | 54 ns |
-| Count | — | 14 ns | 18 ns | 21 ns |
-| FindAll | 71 ns | 2.2 μs | 36 μs | 4.6 μs |
-| LRS | 45 ns | 12.7 μs | 226 μs | 172 ns |
-| LCS | 56 ns | 522 ns | 162 ns | 335 ns |
+| Contains | 23 ns | 35 ns | 54 ns | 54 ns |
+| Count | — | 12 ns | 18 ns | 15 ns |
+| FindAll | 65 ns | 1.4 μs | 23 μs | 3 μs |
+| LRS | 8 ns | 823 ns | 154 μs | 9 ns |
+| LCS | 176 ns | 429 ns | 608 ns | 881 ns |
 
 *LRS = Longest Repeated Substring, LCS = Longest Common Substring*
 
@@ -165,7 +171,7 @@ The implementation follows Ukkonen's canonical algorithm with:
 5. **Rule 2** — mismatch in middle of edge → split edge, create internal node
 6. **Rule 3** — character matches → suffix exists implicitly (showstopper)
 7. **Walk-Down** — traverse edges when `activeLength >= edgeLength`
-8. **Terminator** — `'\0'` character ensures all suffixes end at leaves
+8. **Terminator** — internal key (`-1`) ensures all suffixes end at leaves without conflicting with any input character
 
 ### Understanding Suffix Trees
 
@@ -460,7 +466,7 @@ dotnet build
 ## Testing
 
 ```bash
-# Run all 115 unit tests
+# Run all 201 unit tests
 dotnet test
 
 # Run stress tests (1M+ substring verifications)
@@ -469,22 +475,24 @@ dotnet run --project SuffixTree.Console
 
 ### Test Coverage
 
-The test suite includes:
+The test suite is organized into 6 categories:
 
-- **Basic operations** — build, contains, edge cases
-- **Algorithm verification** — suffix links, walk-down, edge splitting
-- **Stress tests** — random strings up to 100,000 characters
-- **Unicode tests** — Cyrillic, Chinese, emoji, mixed content
-- **Statistics tests** — NodeCount, LeafCount, MaxDepth
-- **LCS tests** — LongestCommonSubstring with all positions
-- **Performance tests** — 10,000+ character strings
-- **Regression tests** — all previously fixed bugs
+| Category | Tests | Description |
+|----------|-------|-------------|
+| **Algorithms** | 62 | LCS, LRS, suffix enumeration |
+| **Search** | 45 | Contains, Count, FindAll |
+| **Compatibility** | 36 | Unicode, binary data, null chars |
+| **Robustness** | 26 | Edge cases, stress, thread safety |
+| **Core** | 21 | Build, statistics, diagnostics |
+| **Regression** | 7 | Previously fixed bugs |
 
 ### Verified Correctness
 
-- **115 unit tests** — all passing (NUnit 4.2.2)
-- **1,137,909 substrings** — verified in stress tests
-- **313 test strings** — including edge cases like "mississippi", "abracadabra"
+- **201 unit tests** — all passing (NUnit 4.2.2)
+- **Full Unicode support** — Cyrillic, Chinese, Greek, emoji, surrogate pairs
+- **Binary data support** — null characters, control characters
+- **Thread safety** — concurrent read operations verified
+- **Classic test cases** — "mississippi", "banana", "abracadabra"
 
 ## API Reference
 
