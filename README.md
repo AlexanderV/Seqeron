@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-201%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-210%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -57,6 +57,20 @@ Or add the project reference to your solution.
 // Build a suffix tree
 var tree = SuffixTree.Build("banana");
 
+// Safe building with TryBuild (no exceptions)
+if (SuffixTree.TryBuild(userInput, out var safeTree))
+{
+    // Use safeTree
+}
+
+// Build from Memory<char> or Span (useful for buffers/pools)
+ReadOnlyMemory<char> buffer = GetBuffer();
+var memTree = SuffixTree.Build(buffer);
+
+// Empty tree singleton (cached instance)
+var empty = SuffixTree.Empty;
+bool isEmpty = empty.IsEmpty;  // true
+
 // Access original text
 string text = tree.Text;  // "banana"
 
@@ -102,20 +116,40 @@ Console.WriteLine(tree.PrintTree());
 
 ```
 SuffixTree.sln
-├── SuffixTree/              # Core library
-│   ├── SuffixTree.cs        # Ukkonen's algorithm implementation
-│   ├── SuffixTreeNode.cs    # Internal node class
-│   └── ISuffixTree.cs       # Public interface
-├── SuffixTree.Console/      # Stress test console app
-│   └── Program.cs           # Exhaustive verification tests
-├── SuffixTree.Tests/        # Unit tests (NUnit) - 201 tests
-│   ├── Algorithms/          # LCS, LRS, suffix enumeration (62 tests)
-│   ├── Compatibility/       # Unicode, binary data (36 tests)
-│   ├── Core/                # Build, statistics, diagnostics (21 tests)
-│   ├── Regression/          # Bug prevention tests (7 tests)
-│   ├── Robustness/          # Edge cases, stress, threading (26 tests)
-│   └── Search/              # Contains, Count, FindAll (45 tests)
-└── SuffixTree.Benchmarks/   # Performance benchmarks
+├── SuffixTree/                    # Core library (.NET 8.0)
+│   ├── SuffixTree.cs              # Main class, Build API, properties
+│   ├── SuffixTree.Construction.cs # Ukkonen's algorithm implementation
+│   ├── SuffixTree.Search.cs       # Contains, FindAll, Count operations
+│   ├── SuffixTree.Algorithms.cs   # LRS, LCS, suffix enumeration
+│   ├── SuffixTree.Diagnostics.cs  # PrintTree, validation, debugging
+│   ├── SuffixTreeNode.cs          # Internal node class
+│   └── ISuffixTree.cs             # Public interface
+├── SuffixTree.Console/            # Stress test console app
+│   └── Program.cs                 # Exhaustive verification tests
+├── SuffixTree.Tests/              # Unit tests (NUnit) — 210 tests
+│   ├── Algorithms/                # LCS, LRS, suffix enumeration (62 tests)
+│   │   ├── LongestCommonSubstringTests.cs
+│   │   ├── LongestRepeatedSubstringTests.cs
+│   │   └── SuffixEnumerationTests.cs
+│   ├── Compatibility/             # Unicode, binary data (36 tests)
+│   │   ├── BinaryDataTests.cs
+│   │   └── UnicodeTests.cs
+│   ├── Core/                      # Build, statistics, diagnostics (34 tests)
+│   │   ├── BuildTests.cs
+│   │   ├── DiagnosticsTests.cs
+│   │   └── StatisticsTests.cs
+│   ├── Regression/                # Bug prevention tests (7 tests)
+│   │   └── RegressionTests.cs
+│   ├── Robustness/                # Edge cases, stress, threading (26 tests)
+│   │   ├── EdgeCaseTests.cs
+│   │   ├── StressTests.cs
+│   │   └── ThreadSafetyTests.cs
+│   └── Search/                    # Contains, Count, FindAll (45 tests)
+│       ├── ContainsTests.cs
+│       ├── CountOccurrencesTests.cs
+│       └── FindAllOccurrencesTests.cs
+└── SuffixTree.Benchmarks/         # Performance benchmarks
+    ├── Program.cs
     └── SuffixTreeBenchmarks.cs
 ```
 
@@ -466,7 +500,7 @@ dotnet build
 ## Testing
 
 ```bash
-# Run all 201 unit tests
+# Run all 214 unit tests
 dotnet test
 
 # Run stress tests (1M+ substring verifications)
@@ -488,7 +522,7 @@ The test suite is organized into 6 categories:
 
 ### Verified Correctness
 
-- **201 unit tests** — all passing (NUnit 4.2.2)
+- **214 unit tests** — all passing (NUnit 4.2.2)
 - **Full Unicode support** — Cyrillic, Chinese, Greek, emoji, surrogate pairs
 - **Binary data support** — null characters, control characters
 - **Thread safety** — concurrent read operations verified

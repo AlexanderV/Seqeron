@@ -14,7 +14,8 @@ namespace SuffixTree.Tests.Core
         [Test]
         public void Build_NullString_ThrowsArgumentNullException()
         {
-            Assert.Throws<ArgumentNullException>(() => SuffixTree.Build(null!));
+            string nullString = null!;
+            Assert.Throws<ArgumentNullException>(() => SuffixTree.Build(nullString));
         }
 
         [Test]
@@ -143,6 +144,126 @@ namespace SuffixTree.Tests.Core
                 Assert.That(st1.Contains("world"), Is.False);
                 Assert.That(st2.Contains("hello"), Is.False);
             });
+        }
+
+        #endregion
+
+        #region TryBuild API
+
+        [Test]
+        public void TryBuild_NullString_ReturnsFalse()
+        {
+            bool result = SuffixTree.TryBuild(null, out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.False);
+                Assert.That(tree, Is.Null);
+            });
+        }
+
+        [Test]
+        public void TryBuild_ValidString_ReturnsTrueWithTree()
+        {
+            bool result = SuffixTree.TryBuild("banana", out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.True);
+                Assert.That(tree, Is.Not.Null);
+                Assert.That(tree!.Text, Is.EqualTo("banana"));
+                Assert.That(tree.Contains("nan"), Is.True);
+            });
+        }
+
+        [Test]
+        public void TryBuild_EmptyString_ReturnsTrueWithEmptyTree()
+        {
+            bool result = SuffixTree.TryBuild("", out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.True);
+                Assert.That(tree, Is.Not.Null);
+                Assert.That(tree!.IsEmpty, Is.True);
+            });
+        }
+
+        #endregion
+
+        #region IsEmpty Property
+
+        [Test]
+        public void IsEmpty_EmptyString_ReturnsTrue()
+        {
+            var st = SuffixTree.Build("");
+            Assert.That(st.IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void IsEmpty_NonEmptyString_ReturnsFalse()
+        {
+            var st = SuffixTree.Build("a");
+            Assert.That(st.IsEmpty, Is.False);
+        }
+
+        [Test]
+        public void Empty_StaticProperty_ReturnsEmptyTree()
+        {
+            var empty = SuffixTree.Empty;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(empty, Is.Not.Null);
+                Assert.That(empty.IsEmpty, Is.True);
+                Assert.That(empty.Text, Is.EqualTo(""));
+                Assert.That(empty.LeafCount, Is.EqualTo(0));
+            });
+        }
+
+        #endregion
+
+        #region Memory/Span Build API
+
+        [Test]
+        public void Build_ReadOnlyMemory_CreatesValidTree()
+        {
+            ReadOnlyMemory<char> memory = "banana".AsMemory();
+            var tree = SuffixTree.Build(memory);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree, Is.Not.Null);
+                Assert.That(tree.Text, Is.EqualTo("banana"));
+                Assert.That(tree.Contains("nan"), Is.True);
+            });
+        }
+
+        [Test]
+        public void Build_ReadOnlySpan_CreatesValidTree()
+        {
+            ReadOnlySpan<char> span = "banana".AsSpan();
+            var tree = SuffixTree.Build(span);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree, Is.Not.Null);
+                Assert.That(tree.Text, Is.EqualTo("banana"));
+                Assert.That(tree.Contains("nan"), Is.True);
+            });
+        }
+
+        #endregion
+
+        #region Empty Singleton
+
+        [Test]
+        public void Empty_ReturnsSameInstance()
+        {
+            var empty1 = SuffixTree.Empty;
+            var empty2 = SuffixTree.Empty;
+
+            Assert.That(empty1, Is.SameAs(empty2));
         }
 
         #endregion
