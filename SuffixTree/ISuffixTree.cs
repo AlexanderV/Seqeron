@@ -5,30 +5,77 @@ namespace SuffixTree
 {
     /// <summary>
     /// Interface for suffix tree operations.
-    /// Provides substring search and pattern matching capabilities.
+    /// <para>
+    /// Provides efficient substring search and pattern matching capabilities with O(m) time complexity
+    /// where m is the pattern length.
+    /// </para>
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A suffix tree is a compressed trie of all suffixes of a string. This data structure enables
+    /// solving many string problems in optimal time:
+    /// </para>
+    /// <list type="table">
+    /// <listheader>
+    /// <term>Operation</term>
+    /// <description>Time Complexity</description>
+    /// </listheader>
+    /// <item>
+    /// <term>Substring search</term>
+    /// <description>O(m)</description>
+    /// </item>
+    /// <item>
+    /// <term>Count occurrences</term>
+    /// <description>O(m)</description>
+    /// </item>
+    /// <item>
+    /// <term>Find all occurrences</term>
+    /// <description>O(m + k) where k = number of matches</description>
+    /// </item>
+    /// <item>
+    /// <term>Longest repeated substring</term>
+    /// <description>O(1) cached</description>
+    /// </item>
+    /// <item>
+    /// <term>Longest common substring</term>
+    /// <description>O(m)</description>
+    /// </item>
+    /// </list>
+    /// </remarks>
     public interface ISuffixTree
     {
         /// <summary>
         /// Gets the original text that this suffix tree was built from.
         /// </summary>
+        /// <value>The original text string. Never null, but may be empty.</value>
         string Text { get; }
 
         /// <summary>
         /// Gets the total number of nodes in the tree (including root).
         /// </summary>
+        /// <value>A positive integer representing the node count.</value>
         int NodeCount { get; }
 
         /// <summary>
         /// Gets the number of leaf nodes in the tree.
-        /// Equal to the length of the original text (one leaf per suffix).
         /// </summary>
+        /// <value>
+        /// Equal to <c>Text.Length + 1</c> for non-empty text (one leaf per suffix plus terminator),
+        /// or 0 for empty text.
+        /// </value>
         int LeafCount { get; }
 
         /// <summary>
         /// Gets the maximum depth of the tree (longest path from root to leaf in characters).
         /// </summary>
+        /// <value>The length of the longest suffix, which equals <c>Text.Length + 1</c>.</value>
         int MaxDepth { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether this tree is empty (built from an empty string).
+        /// </summary>
+        /// <value>True if the tree was built from an empty string; otherwise, false.</value>
+        bool IsEmpty { get; }
 
         /// <summary>
         /// Checks if the specified string is a substring of the tree content.

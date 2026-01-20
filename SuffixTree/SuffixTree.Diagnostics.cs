@@ -67,8 +67,8 @@ namespace SuffixTree
             }
 
             return (
-                nodeCount, 
-                leafCount > 0 ? leafCount - 1 : 0, 
+                nodeCount,
+                leafCount > 0 ? leafCount - 1 : 0,
                 maxDepth > 0 ? maxDepth - 1 : 0,
                 deepestInternalNode,
                 maxInternalDepth
