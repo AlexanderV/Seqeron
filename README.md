@@ -127,27 +127,27 @@ Performance measured on Intel Core i7-1185G7 @ 3.00GHz, .NET 8.0:
 
 | Text Size | Time | Allocated |
 |-----------|------|-----------|
-| 100 chars | 6 μs | 19 KB |
-| 10K chars | 1.14 ms | 2 MB |
-| 100K chars | 42 ms | 20 MB |
-| 50K DNA | 16 ms | 8 MB |
+| 100 chars | 7 μs | 19 KB |
+| 10K chars | 1.36 ms | 2 MB |
+| 100K chars | 52 ms | 20 MB |
+| 50K DNA | 20 ms | 8 MB |
 
 ### Search Performance
 
 | Operation | 100 chars | 10K chars | 100K chars | 50K DNA |
 |-----------|-----------|-----------|------------|---------|
-| Contains | 23 ns | 35 ns | 54 ns | 54 ns |
-| Count | — | 12 ns | 18 ns | 15 ns |
-| FindAll | 65 ns | 1.4 μs | 23 μs | 3 μs |
-| LRS | 8 ns | 823 ns | 154 μs | 9 ns |
-| LCS | 176 ns | 429 ns | 608 ns | 881 ns |
+| Contains | 18 ns | 25 ns | 33 ns | 37 ns |
+| Count | — | 16 ns | 27 ns | 21 ns |
+| FindAll | 50 ns | 1.4 μs | 25 μs | 3 μs |
+| LRS | 8 ns | 877 ns | 161 μs | 9 ns |
+| LCS | 183 ns | 476 ns | 676 ns | 980 ns |
 
 *LRS = Longest Repeated Substring, LCS = Longest Common Substring*
 
 ### Key Observations
 
 - **Build time scales linearly** with text size (O(n) confirmed)
-- **Contains is extremely fast** — 22-54 ns regardless of tree size
+- **Contains is extremely fast** — 18-37 ns regardless of tree size (hybrid SIMD optimization)
 - **Count uses precomputed leaf counts** — O(m) instead of O(m+k), ~1,800x faster on large texts
 - **LRS uses depth tracking** — O(1) after first call, 59x-26,000x faster than tree traversal
 - **LCS uses suffix links** — O(m) traversal, 100x+ faster than naive approach
