@@ -52,7 +52,7 @@ public class RepeatFinderTests
         var sequence = new DnaSequence("AAGATAGATAGATAGATAAA");
         var results = RepeatFinder.FindMicrosatellites(sequence, 4, 4, 3).ToList();
 
-        Assert.That(results.Any(r => r.RepeatUnit == "GATA" || r.RepeatUnit == "ATAG" || 
+        Assert.That(results.Any(r => r.RepeatUnit == "GATA" || r.RepeatUnit == "ATAG" ||
                                      r.RepeatUnit == "TAGA" || r.RepeatUnit == "AGAT"));
         Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
     }

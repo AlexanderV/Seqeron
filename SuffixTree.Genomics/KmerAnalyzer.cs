@@ -76,7 +76,7 @@ namespace SuffixTree.Genomics
         public static IEnumerable<string> FindMostFrequentKmers(string sequence, int k)
         {
             var counts = CountKmers(sequence, k);
-            
+
             if (counts.Count == 0)
                 yield break;
 
@@ -312,7 +312,7 @@ namespace SuffixTree.Genomics
         public static KmerStatistics AnalyzeKmers(string sequence, int k)
         {
             var counts = CountKmers(sequence, k);
-            
+
             if (counts.Count == 0)
             {
                 return new KmerStatistics(

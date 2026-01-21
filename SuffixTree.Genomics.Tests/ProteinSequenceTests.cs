@@ -176,7 +176,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var protein = new ProteinSequence("MMMKKLLAA");
             var composition = protein.AminoAcidComposition();
-            
+
             Assert.That(composition['M'], Is.EqualTo(3));
             Assert.That(composition['K'], Is.EqualTo(2));
             Assert.That(composition['L'], Is.EqualTo(2));
@@ -188,7 +188,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var protein = new ProteinSequence("MKVL");
             var composition = protein.AminoAcidComposition();
-            
+
             Assert.That(composition.Values, Is.All.EqualTo(1));
             Assert.That(composition.Count, Is.EqualTo(4));
         }

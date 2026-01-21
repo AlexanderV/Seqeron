@@ -118,7 +118,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // AGA is Arg in standard, but Stop in vertebrate mitochondrial
             var dna = new DnaSequence("ATGAGA");
-            
+
             var standardProtein = Translator.Translate(dna, GeneticCode.Standard);
             Assert.That(standardProtein.Sequence, Is.EqualTo("MR"));
 
@@ -131,7 +131,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // CUU is Leu in standard, but Thr in yeast mitochondrial
             var dna = new DnaSequence("ATGCTT");
-            
+
             var standardProtein = Translator.Translate(dna, GeneticCode.Standard);
             Assert.That(standardProtein.Sequence, Is.EqualTo("ML"));
 
@@ -194,7 +194,7 @@ namespace SuffixTree.Genomics.Tests
             for (int i = 0; i < 100; i++)
                 sb.Append("GCT");
             sb.Append("TAA");
-            
+
             var sequence = new DnaSequence(sb.ToString());
             var orfs = Translator.FindOrfs(sequence, minLength: 100).ToList();
 
@@ -208,7 +208,7 @@ namespace SuffixTree.Genomics.Tests
             // No ATG in sequence
             var dna = new DnaSequence("GCTGCTGCT");
             var orfs = Translator.FindOrfs(dna, minLength: 1).ToList();
-            
+
             Assert.That(orfs, Is.Empty);
         }
 
@@ -218,7 +218,7 @@ namespace SuffixTree.Genomics.Tests
             // ATG GCT TAA = 2 amino acids (M A), filtered by minLength=100
             var dna = new DnaSequence("ATGGCTTAA");
             var orfs = Translator.FindOrfs(dna, minLength: 100).ToList();
-            
+
             Assert.That(orfs, Is.Empty);
         }
 
@@ -228,7 +228,7 @@ namespace SuffixTree.Genomics.Tests
             // ATG GCT TAA = 2 amino acids (M A)
             var dna = new DnaSequence("ATGGCTTAA");
             var orfs = Translator.FindOrfs(dna, minLength: 2).ToList();
-            
+
             Assert.That(orfs, Has.Count.EqualTo(1));
             Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MA"));
         }
@@ -239,7 +239,7 @@ namespace SuffixTree.Genomics.Tests
             // Create a sequence with ORF only on reverse strand
             var dna = new DnaSequence("GCTGCTGCT");
             var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
-            
+
             Assert.That(orfs, Is.Empty);
         }
 
@@ -249,7 +249,7 @@ namespace SuffixTree.Genomics.Tests
             // ATG GCT TAA in frame 0
             var dna = new DnaSequence("ATGGCTTAA");
             var orfs = Translator.FindOrfs(dna, minLength: 2).ToList();
-            
+
             Assert.That(orfs[0].Frame, Is.EqualTo(1)); // Frame 1 = first reading frame
         }
 
@@ -270,7 +270,7 @@ namespace SuffixTree.Genomics.Tests
             // FVNQHLCGSHLVEALYLVCGERGFFYTPKT
             var dna = new DnaSequence("TTCGTGAACCAGCACCTGTGCGGCTCCCACCTGGTGGAAGCTCTGTACCTGGTGTGTGGGGAGCGTGGCTTCTTCTACACACCCAAGACC");
             var protein = Translator.Translate(dna);
-            
+
             // Check it starts with F (Phe)
             Assert.That(protein[0], Is.EqualTo('F'));
             Assert.That(protein.Length, Is.EqualTo(30));
