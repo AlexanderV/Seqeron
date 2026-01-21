@@ -234,7 +234,7 @@ ORIGIN
     public void Parse_JoinLocation_DetectsJoin()
     {
         var record = GenBankParser.Parse(ComplexFeaturesRecord).First();
-        
+
         // Look for any feature with join location
         var featureWithJoin = record.Features.FirstOrDefault(f => f.Location.IsJoin);
 
