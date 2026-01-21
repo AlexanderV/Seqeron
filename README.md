@@ -3,7 +3,7 @@
 A high-performance implementation of **Ukkonen's suffix tree algorithm** in C#.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-210%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-243%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -22,8 +22,8 @@ Suffix trees provide optimal time complexity for many string operations:
 | Substring search | O(m) | Character-by-character matching |
 | Find all occurrences | O(m + k) | m = pattern, k = occurrences |
 | Count occurrences | O(m) | Uses precomputed leaf counts |
-| Longest repeated substring | O(1)* | *O(n) on first call, cached |
-| Longest common substring | O(m) | Uses suffix links for O(m) traversal |
+| Longest repeated substring | O(1) | Precomputed during construction |
+| Longest common substring | O(m) | Amortized, uses suffix links |
 
 *where n = text length, m = pattern length, k = number of occurrences*
 
@@ -126,17 +126,20 @@ SuffixTree.sln
 │   └── ISuffixTree.cs             # Public interface
 ├── SuffixTree.Console/            # Stress test console app
 │   └── Program.cs                 # Exhaustive verification tests
-├── SuffixTree.Tests/              # Unit tests (NUnit) — 210 tests
-│   ├── Algorithms/                # LCS, LRS, suffix enumeration (62 tests)
+├── SuffixTree.Tests/              # Unit tests (NUnit) — 243 tests
+│   ├── Algorithms/                # LCS, LRS, suffix enumeration (77 tests)
+│   │   ├── BruteForceVerificationTests.cs  # Property-based tests
+│   │   ├── LiteratureExamplesTests.cs      # Ukkonen, Gusfield examples
 │   │   ├── LongestCommonSubstringTests.cs
 │   │   ├── LongestRepeatedSubstringTests.cs
 │   │   └── SuffixEnumerationTests.cs
 │   ├── Compatibility/             # Unicode, binary data (36 tests)
 │   │   ├── BinaryDataTests.cs
 │   │   └── UnicodeTests.cs
-│   ├── Core/                      # Build, statistics, diagnostics (34 tests)
+│   ├── Core/                      # Build, statistics, invariants (48 tests)
 │   │   ├── BuildTests.cs
 │   │   ├── DiagnosticsTests.cs
+│   │   ├── InvariantTests.cs      # Suffix tree invariants from theory
 │   │   └── StatisticsTests.cs
 │   ├── Regression/                # Bug prevention tests (7 tests)
 │   │   └── RegressionTests.cs
@@ -530,7 +533,9 @@ The test suite is organized into 6 categories:
 
 ## API Reference
 
-### `SuffixTree.Build(string value)`
+### Static Factory Methods
+
+#### `SuffixTree.Build(string value)`
 
 Creates a new suffix tree from the given string.
 
@@ -545,38 +550,122 @@ var tree = SuffixTree.Build("hello world");
 
 **Throws:** `ArgumentNullException` if value is null
 
+**Time Complexity:** O(n) where n is the length of the string
+
 ---
 
-### `Contains(string value)`
+#### `SuffixTree.TryBuild(string? value, out SuffixTree? tree)`
+
+Attempts to create a suffix tree without throwing exceptions.
+
+```csharp
+if (SuffixTree.TryBuild(userInput, out var tree))
+{
+    // Use tree safely
+}
+```
+
+**Parameters:**
+- `value` — the string to build the tree from (can be null)
+- `tree` — the resulting tree if successful, null otherwise
+
+**Returns:** `true` if tree was created successfully, `false` if value was null
+
+---
+
+#### `SuffixTree.Build(ReadOnlyMemory<char> value)`
+
+Creates a suffix tree from a character memory buffer.
+
+```csharp
+ReadOnlyMemory<char> buffer = "hello".AsMemory();
+var tree = SuffixTree.Build(buffer);
+```
+
+**Use case:** Working with ArrayPool buffers or sliced memory
+
+---
+
+#### `SuffixTree.Build(ReadOnlySpan<char> value)`
+
+Creates a suffix tree from a character span.
+
+```csharp
+ReadOnlySpan<char> span = "hello".AsSpan();
+var tree = SuffixTree.Build(span);
+```
+
+**Note:** Allocates a new string internally (spans cannot be stored)
+
+---
+
+#### `SuffixTree.Empty`
+
+Returns a cached singleton instance of an empty suffix tree.
+
+```csharp
+var empty = SuffixTree.Empty;
+Assert.That(empty.IsEmpty, Is.True);
+Assert.That(SuffixTree.Empty, Is.SameAs(empty)); // Same instance
+```
+
+---
+
+### Instance Properties
+
+#### `Text`
+
+Gets the original text that the tree was built from.
+
+```csharp
+var tree = SuffixTree.Build("hello");
+string text = tree.Text;  // "hello"
+```
+
+---
+
+#### `IsEmpty`
+
+Indicates whether the tree was built from an empty string.
+
+```csharp
+var tree = SuffixTree.Build("");
+bool isEmpty = tree.IsEmpty;  // true
+```
+
+---
+
+#### `NodeCount`, `LeafCount`, `MaxDepth`
+
+Tree statistics properties (computed during construction, O(1) access).
+
+```csharp
+var tree = SuffixTree.Build("banana");
+int nodes = tree.NodeCount;    // Total nodes including root
+int leaves = tree.LeafCount;   // Number of leaf nodes
+int depth = tree.MaxDepth;     // Maximum depth in characters
+```
+
+---
+
+### Search Methods
+
+#### `Contains(string value)` / `Contains(ReadOnlySpan<char> value)`
 
 Checks if the given string is a substring of the tree content.
 
 ```csharp
 bool found = tree.Contains("world");  // true
+bool fast = tree.Contains("world".AsSpan());  // zero-allocation
 ```
-
-**Parameters:**
-- `value` — the substring to search for (cannot be null)
-
-**Returns:** `true` if substring exists, `false` otherwise
-
-**Throws:** `ArgumentNullException` if value is null
 
 **Time Complexity:** O(m) where m is the length of the search string
 
----
-
-### `Contains(ReadOnlySpan<char> value)`
-
-Zero-allocation overload for performance-critical scenarios.
-
-```csharp
-bool found = tree.Contains("world".AsSpan());  // true
-```
+**Throws:** `ArgumentNullException` if string value is null
 
 ---
 
-### `CountOccurrences(string pattern)` / `CountOccurrences(ReadOnlySpan<char> pattern)`
+#### `CountOccurrences(string pattern)` / `CountOccurrences(ReadOnlySpan<char> pattern)`
 
 Counts how many times a pattern appears in the text.
 
@@ -585,11 +674,11 @@ var tree = SuffixTree.Build("banana");
 int count = tree.CountOccurrences("ana");  // 2
 ```
 
-**Time Complexity:** O(m) where m is pattern length (uses precomputed leaf counts)
+**Time Complexity:** O(m) — uses precomputed leaf counts, no tree traversal
 
 ---
 
-### `FindAllOccurrences(string pattern)` / `FindAllOccurrences(ReadOnlySpan<char> pattern)`
+#### `FindAllOccurrences(string pattern)` / `FindAllOccurrences(ReadOnlySpan<char> pattern)`
 
 Finds all starting positions where the pattern occurs.
 
@@ -602,7 +691,9 @@ var positions = tree.FindAllOccurrences("ana");  // [1, 3]
 
 ---
 
-### `LongestRepeatedSubstring()`
+### Algorithm Methods
+
+#### `LongestRepeatedSubstring()`
 
 Finds the longest substring that appears at least twice.
 
@@ -611,11 +702,11 @@ var tree = SuffixTree.Build("banana");
 string lrs = tree.LongestRepeatedSubstring();  // "ana"
 ```
 
-**Time Complexity:** O(1) after first call (O(n) initial computation, result is cached)
+**Time Complexity:** O(1) — precomputed during tree construction
 
 ---
 
-### `LongestCommonSubstring(string other)`
+#### `LongestCommonSubstring(string other)` / `LongestCommonSubstring(ReadOnlySpan<char> other)`
 
 Finds the longest common substring between the tree's text and another string.
 
@@ -624,11 +715,11 @@ var tree = SuffixTree.Build("abcdefgh");
 string lcs = tree.LongestCommonSubstring("xxcdefxx");  // "cdef"
 ```
 
-**Time Complexity:** O(m) where m is length of other string
+**Time Complexity:** O(m) amortized, where m is length of other string
 
 ---
 
-### `LongestCommonSubstringInfo(string other)`
+#### `LongestCommonSubstringInfo(string other)`
 
 Finds the longest common substring with position information.
 
@@ -638,42 +729,25 @@ var (substring, posInText, posInOther) = tree.LongestCommonSubstringInfo("xxcdef
 // substring="cdef", posInText=2, posInOther=2
 ```
 
-**Time Complexity:** O(m) where m is length of other string
-
 ---
 
-### `FindAllLongestCommonSubstrings(string other)`
+#### `FindAllLongestCommonSubstrings(string other)`
 
 Finds all positions where the longest common substring occurs.
 
 ```csharp
 var tree = SuffixTree.Build("abcabc");
 var (substring, positionsInText, positionsInOther) = tree.FindAllLongestCommonSubstrings("xabcyabcz");
-// substring="abc", positionsInOther=[1, 5]
+// substring="abc", positionsInText=[0, 3], positionsInOther=[1, 5]
 ```
-
-**Time Complexity:** O(m) where m is length of other string
 
 ---
 
-### `NodeCount`, `LeafCount`, `MaxDepth`
+### Enumeration Methods
 
-Tree statistics properties.
+#### `GetAllSuffixes()`
 
-```csharp
-var tree = SuffixTree.Build("banana");
-int nodes = tree.NodeCount;    // Total nodes including root
-int leaves = tree.LeafCount;   // Number of leaf nodes (suffixes + 1)
-int depth = tree.MaxDepth;     // Maximum depth in characters
-```
-
-**Time Complexity:** O(n) for each property
-
----
-
-### `GetAllSuffixes()`
-
-Returns all suffixes in lexicographic order (useful for debugging).
+Returns all suffixes in lexicographic order.
 
 ```csharp
 var tree = SuffixTree.Build("banana");
@@ -681,11 +755,30 @@ var suffixes = tree.GetAllSuffixes();
 // ["a", "ana", "anana", "banana", "na", "nana"]
 ```
 
+**Time Complexity:** O(n²) — total length of all suffixes
+
 ---
 
-### `PrintTree()`
+#### `EnumerateSuffixes()`
 
-Returns a detailed string representation of the tree structure (for debugging).
+Lazily enumerates all suffixes in lexicographic order.
+
+```csharp
+foreach (var suffix in tree.EnumerateSuffixes())
+{
+    Console.WriteLine(suffix);
+}
+```
+
+**Use case:** Large strings where O(n²) memory is prohibitive
+
+---
+
+### Diagnostic Methods
+
+#### `PrintTree()`
+
+Returns a detailed string representation of the tree structure.
 
 ```csharp
 Console.WriteLine(tree.PrintTree());
@@ -693,12 +786,12 @@ Console.WriteLine(tree.PrintTree());
 
 ---
 
-### `ToString()`
+#### `ToString()`
 
 Returns a summary of the tree content.
 
 ```csharp
-Console.WriteLine(tree);  // "SuffixTree (length: 12, content: "hello world")"
+Console.WriteLine(tree);  // "SuffixTree (Nodes: 12, Leaves: 7, Text: "banana")"
 ```
 
 ## Applications
