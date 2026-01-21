@@ -15,6 +15,7 @@ public static class MotifFinder
 
     /// <summary>
     /// Finds all occurrences of an exact motif in a sequence.
+    /// Uses SuffixTree for O(m+k) pattern matching where m=motif length, k=occurrences.
     /// </summary>
     /// <param name="sequence">DNA sequence to search.</param>
     /// <param name="motif">Motif pattern to find.</param>
@@ -24,15 +25,13 @@ public static class MotifFinder
         ArgumentNullException.ThrowIfNull(sequence);
         if (string.IsNullOrEmpty(motif)) yield break;
 
-        string seq = sequence.Sequence;
         string motifUpper = motif.ToUpperInvariant();
 
-        for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
+        // Use SuffixTree for efficient pattern matching
+        var positions = sequence.SuffixTree.FindAllOccurrences(motifUpper);
+        foreach (int pos in positions.OrderBy(p => p))
         {
-            if (seq.Substring(i, motifUpper.Length) == motifUpper)
-            {
-                yield return i;
-            }
+            yield return pos;
         }
     }
 

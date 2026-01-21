@@ -295,6 +295,8 @@ public static class RepeatFinder
         int maxLength,
         int minSpacing)
     {
+        // Use SuffixTree for efficient O(m+k) pattern matching instead of O(n) per pattern
+        var suffixTree = global::SuffixTree.SuffixTree.Build(seq);
         var reported = new HashSet<(int, int, int)>();
 
         for (int len = minLength; len <= maxLength; len++)
@@ -303,22 +305,21 @@ public static class RepeatFinder
             {
                 string repeat = seq.Substring(i, len);
 
-                // Search for second occurrence
-                for (int j = i + len + minSpacing; j <= seq.Length - len; j++)
+                // Use SuffixTree.FindAllOccurrences for O(m+k) lookup
+                var occurrences = suffixTree.FindAllOccurrences(repeat);
+
+                foreach (int j in occurrences.Where(p => p > i + len - 1 + minSpacing).OrderBy(p => p))
                 {
-                    if (seq.Substring(j, len) == repeat)
+                    var key = (i, j, len);
+                    if (!reported.Contains(key))
                     {
-                        var key = (i, j, len);
-                        if (!reported.Contains(key))
-                        {
-                            reported.Add(key);
-                            yield return new DirectRepeatResult(
-                                FirstPosition: i,
-                                SecondPosition: j,
-                                RepeatSequence: repeat,
-                                Length: len,
-                                Spacing: j - i - len);
-                        }
+                        reported.Add(key);
+                        yield return new DirectRepeatResult(
+                            FirstPosition: i,
+                            SecondPosition: j,
+                            RepeatSequence: repeat,
+                            Length: len,
+                            Spacing: j - i - len);
                     }
                 }
             }

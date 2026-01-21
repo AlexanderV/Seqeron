@@ -610,38 +610,19 @@ public static class ComparativeGenomics
 
     private static double FindBestFragmentMatch(string fragment, string genome)
     {
-        // Use k-mer based approximation for speed
-        const int k = 15;
-        double bestIdentity = 0;
+        // Use SuffixTree for efficient longest common substring search
+        var suffixTree = global::SuffixTree.SuffixTree.Build(genome.ToUpperInvariant());
+        string lcs = suffixTree.LongestCommonSubstring(fragment.ToUpperInvariant());
 
-        var fragmentKmers = new HashSet<string>();
-        for (int i = 0; i <= fragment.Length - k; i++)
-            fragmentKmers.Add(fragment.Substring(i, k).ToUpperInvariant());
+        // Calculate identity based on LCS length relative to fragment length
+        double identity = fragment.Length > 0 ? (double)lcs.Length / fragment.Length : 0;
 
-        // Slide window over genome
-        int windowSize = fragment.Length;
-        for (int pos = 0; pos <= genome.Length - windowSize; pos += windowSize / 4)
-        {
-            int end = Math.Min(pos + windowSize, genome.Length);
-            string window = genome.Substring(pos, end - pos);
-
-            var windowKmers = new HashSet<string>();
-            for (int i = 0; i <= window.Length - k; i++)
-                windowKmers.Add(window.Substring(i, k).ToUpperInvariant());
-
-            int shared = fragmentKmers.Intersect(windowKmers).Count();
-            double identity = (double)shared / Math.Max(fragmentKmers.Count, 1);
-
-            bestIdentity = Math.Max(bestIdentity, identity);
-
-            if (bestIdentity > 0.95) break; // Good enough match found
-        }
-
-        return bestIdentity;
+        return Math.Min(identity, 1.0);
     }
 
     /// <summary>
     /// Generates a dot plot comparison between two sequences.
+    /// Uses SuffixTree for efficient O(m+k) word matching.
     /// </summary>
     public static IEnumerable<(int x, int y)> GenerateDotPlot(
         string sequence1,
@@ -652,28 +633,18 @@ public static class ComparativeGenomics
         if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
             yield break;
 
-        // Build index of words in sequence2
-        var wordIndex = new Dictionary<string, List<int>>();
+        // Build SuffixTree on sequence2 for efficient pattern matching
+        var suffixTree = global::SuffixTree.SuffixTree.Build(sequence2.ToUpperInvariant());
 
-        for (int j = 0; j <= sequence2.Length - wordSize; j += stepSize)
-        {
-            string word = sequence2.Substring(j, wordSize).ToUpperInvariant();
-            if (!wordIndex.ContainsKey(word))
-                wordIndex[word] = new List<int>();
-            wordIndex[word].Add(j);
-        }
-
-        // Find matching words in sequence1
+        // Find matching words from sequence1 in sequence2
         for (int i = 0; i <= sequence1.Length - wordSize; i += stepSize)
         {
             string word = sequence1.Substring(i, wordSize).ToUpperInvariant();
+            var positions = suffixTree.FindAllOccurrences(word);
 
-            if (wordIndex.TryGetValue(word, out var positions))
+            foreach (int j in positions)
             {
-                foreach (int j in positions)
-                {
-                    yield return (i, j);
-                }
+                yield return (i, j);
             }
         }
     }
