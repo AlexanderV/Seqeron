@@ -479,7 +479,7 @@ public class ComparativeGenomicsTests
         // Use completely different patterns to ensure distinct fragments
         string pattern1 = "ATGCATGCATGCATGCATGCATGCATGCATGC"; // 32bp repeating pattern
         string pattern2 = "TTTTAAAATTTTAAAATTTTAAAATTTTAAAA"; // Completely different pattern
-        
+
         // Build genomes with distinct halves (2000bp each for reliable fragment comparison)
         string sharedPart = string.Concat(Enumerable.Repeat(pattern1, 63)); // ~2000bp
         string diffPart1 = string.Concat(Enumerable.Repeat(pattern2, 63));
