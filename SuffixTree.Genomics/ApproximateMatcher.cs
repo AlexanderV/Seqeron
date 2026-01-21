@@ -107,7 +107,7 @@ namespace SuffixTree.Genomics
                             distance,
                             Array.Empty<int>().ToList().AsReadOnly(),
                             (window.Length == pat.Length && distance == HammingDistanceFast(pat, window))
-                                ? MismatchType.Substitution 
+                                ? MismatchType.Substitution
                                 : MismatchType.Edit
                         );
                     }
@@ -281,7 +281,7 @@ namespace SuffixTree.Genomics
             for (int i = 0; i <= seq.Length - k; i++)
             {
                 string kmer = seq.Substring(i, k);
-                
+
                 // Generate all patterns within d mismatches
                 foreach (string neighbor in GenerateNeighbors(kmer, d))
                 {
@@ -357,7 +357,7 @@ namespace SuffixTree.Genomics
     {
         /// <summary>Only substitutions (Hamming distance).</summary>
         Substitution,
-        
+
         /// <summary>Insertions, deletions, and substitutions (edit distance).</summary>
         Edit
     }

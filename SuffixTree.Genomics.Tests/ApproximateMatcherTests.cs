@@ -38,7 +38,7 @@ namespace SuffixTree.Genomics.Tests
         [Test]
         public void HammingDistance_DifferentLengths_ThrowsException()
         {
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 ApproximateMatcher.HammingDistance("ACGT", "ACG"));
         }
 
@@ -105,7 +105,7 @@ namespace SuffixTree.Genomics.Tests
         public void FindWithMismatches_ExactMatch_FoundWithZeroMismatches()
         {
             var matches = ApproximateMatcher.FindWithMismatches("ACGTACGT", "ACGT", 0).ToList();
-            
+
             Assert.That(matches, Has.Count.EqualTo(2));
             Assert.That(matches[0].Position, Is.EqualTo(0));
             Assert.That(matches[1].Position, Is.EqualTo(4));
@@ -116,7 +116,7 @@ namespace SuffixTree.Genomics.Tests
         public void FindWithMismatches_OneMismatch_Found()
         {
             var matches = ApproximateMatcher.FindWithMismatches("ACGTACGT", "ACGG", 1).ToList();
-            
+
             Assert.That(matches, Has.Count.EqualTo(2));
             Assert.That(matches[0].Distance, Is.EqualTo(1));
             Assert.That(matches[0].MismatchPositions, Does.Contain(3));
@@ -126,7 +126,7 @@ namespace SuffixTree.Genomics.Tests
         public void FindWithMismatches_TooManyMismatches_NotFound()
         {
             var matches = ApproximateMatcher.FindWithMismatches("ACGT", "TGCA", 2).ToList();
-            
+
             Assert.That(matches, Is.Empty);
         }
 
@@ -135,7 +135,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // Find AAAA in TTTTAAAATTTT with up to 2 mismatches
             var matches = ApproximateMatcher.FindWithMismatches("TTTTAAAATTTT", "AAAA", 2).ToList();
-            
+
             // Should find exact match at position 4, and approximate matches
             var exactMatch = matches.FirstOrDefault(m => m.Distance == 0);
             Assert.That(exactMatch.Position, Is.EqualTo(4));
@@ -158,7 +158,7 @@ namespace SuffixTree.Genomics.Tests
         [Test]
         public void FindWithMismatches_NegativeMismatches_ThrowsException()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => 
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 ApproximateMatcher.FindWithMismatches("ACGT", "AC", -1).ToList());
         }
 
@@ -167,7 +167,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var dna = new DnaSequence("ACGTACGT");
             var matches = ApproximateMatcher.FindWithMismatches(dna, "ACGT", 0).ToList();
-            
+
             Assert.That(matches, Has.Count.EqualTo(2));
         }
 
@@ -179,7 +179,7 @@ namespace SuffixTree.Genomics.Tests
         public void FindWithEdits_ExactMatch_Found()
         {
             var matches = ApproximateMatcher.FindWithEdits("ACGTACGT", "ACGT", 0).ToList();
-            
+
             Assert.That(matches, Has.Count.EqualTo(2));
         }
 
@@ -188,7 +188,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // Looking for ACT in ACGT (G is inserted)
             var matches = ApproximateMatcher.FindWithEdits("ACGT", "ACT", 1).ToList();
-            
+
             Assert.That(matches.Any(m => m.Distance == 1), Is.True);
         }
 
@@ -197,7 +197,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // Looking for ACGGT in ACGT (G is deleted in sequence)
             var matches = ApproximateMatcher.FindWithEdits("ACGT", "ACG", 1).ToList();
-            
+
             Assert.That(matches.Any(m => m.Distance == 0), Is.True);
         }
 
@@ -209,7 +209,7 @@ namespace SuffixTree.Genomics.Tests
         public void FindBestMatch_ExactMatch_ReturnsZeroDistance()
         {
             var result = ApproximateMatcher.FindBestMatch("ACGTACGT", "ACGT");
-            
+
             Assert.That(result, Is.Not.Null);
             Assert.That(result!.Value.Distance, Is.EqualTo(0));
             Assert.That(result!.Value.IsExact, Is.True);
@@ -220,7 +220,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // TTTTTTTT vs ACGT: best match is TTTT with 3 mismatches (A→T, C→T, G→T)
             var result = ApproximateMatcher.FindBestMatch("TTTTTTTT", "ACGT");
-            
+
             Assert.That(result, Is.Not.Null);
             Assert.That(result!.Value.Distance, Is.EqualTo(3)); // T matches T at position 3
         }
@@ -268,7 +268,7 @@ namespace SuffixTree.Genomics.Tests
             // In ACGT, 2-mers are AC, CG, GT
             // With 1 mismatch, AC matches CC, AA, AG, TC, etc.
             var result = ApproximateMatcher.FindFrequentKmersWithMismatches("ACGT", 2, 0).ToList();
-            
+
             Assert.That(result, Has.Count.EqualTo(3)); // AC, CG, GT each appear once
         }
 
@@ -277,7 +277,7 @@ namespace SuffixTree.Genomics.Tests
         {
             // AAAAAA has 3 occurrences of AAAA
             var result = ApproximateMatcher.FindFrequentKmersWithMismatches("AAAAAA", 4, 0).ToList();
-            
+
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].Kmer, Is.EqualTo("AAAA"));
             Assert.That(result[0].Count, Is.EqualTo(3));
@@ -286,14 +286,14 @@ namespace SuffixTree.Genomics.Tests
         [Test]
         public void FindFrequentKmersWithMismatches_InvalidK_ThrowsException()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => 
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 ApproximateMatcher.FindFrequentKmersWithMismatches("ACGT", 0, 1).ToList());
         }
 
         [Test]
         public void FindFrequentKmersWithMismatches_NegativeD_ThrowsException()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => 
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 ApproximateMatcher.FindFrequentKmersWithMismatches("ACGT", 2, -1).ToList());
         }
 

@@ -61,7 +61,7 @@ namespace SuffixTree.Genomics.Tests
             // 20 bp primer
             string primer = "ACGTACGTACGTACGTACGT";
             double tm = PrimerDesigner.CalculateMeltingTemperature(primer);
-            
+
             // Should be in reasonable range for 50% GC
             Assert.That(tm, Is.GreaterThan(40).And.LessThan(70));
         }
@@ -79,7 +79,7 @@ namespace SuffixTree.Genomics.Tests
             string primer = "ACGTACGTACGTACGTACGT";
             double tmBase = PrimerDesigner.CalculateMeltingTemperature(primer);
             double tmSalt = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-            
+
             // Salt correction typically lowers Tm for physiological concentrations
             Assert.That(tmSalt, Is.Not.EqualTo(tmBase));
         }
@@ -207,7 +207,7 @@ namespace SuffixTree.Genomics.Tests
         {
             double gcRich = PrimerDesigner.Calculate3PrimeStability("ACGTGCGCG");
             double atRich = PrimerDesigner.Calculate3PrimeStability("ACGTATATAT");
-            
+
             // GC-rich 3' end should be more stable (more negative)
             Assert.That(gcRich, Is.LessThan(atRich));
         }
@@ -229,7 +229,7 @@ namespace SuffixTree.Genomics.Tests
             // A well-designed 20bp primer with ~50% GC
             string primer = "ACGTACGTACGTACGTACGT";
             var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            
+
             Assert.That(candidate.Sequence, Is.EqualTo(primer));
             Assert.That(candidate.Length, Is.EqualTo(20));
             Assert.That(candidate.GcContent, Is.EqualTo(50.0));
@@ -240,7 +240,7 @@ namespace SuffixTree.Genomics.Tests
         public void EvaluatePrimer_TooShort_NotValid()
         {
             var candidate = PrimerDesigner.EvaluatePrimer("ACGT", 0, true);
-            
+
             Assert.That(candidate.IsValid, Is.False);
             Assert.That(candidate.Issues, Does.Contain("Length 4 outside range [18-25]"));
         }
@@ -250,7 +250,7 @@ namespace SuffixTree.Genomics.Tests
         {
             string primer = "ACGTAAAAAAACGTACGTAC"; // 20bp with 6x A run
             var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            
+
             Assert.That(candidate.Issues.Any(i => i.Contains("Homopolymer")), Is.True);
         }
 
@@ -259,7 +259,7 @@ namespace SuffixTree.Genomics.Tests
         {
             string primer = "ACGTACGTACGTACGTACGT";
             var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            
+
             Assert.That(candidate.Score, Is.GreaterThan(0));
         }
 
@@ -284,7 +284,7 @@ namespace SuffixTree.Genomics.Tests
             sb.Append("TAGCTAGCTAGCTAGCTAGCTAGC"); // 24 bp
             sb.Append("CGATCGATCGATCGATCGATCGAT"); // 24 bp
             sb.Append("ACGTACGTACGTACGTACGTACGT"); // 24 bp
-            
+
             var template = new DnaSequence(
                 "ACGTACGTACGTACGTACGTACGT" +
                 "GCTAGCTAGCTAGCTAGCTAGCTA" +
@@ -297,7 +297,7 @@ namespace SuffixTree.Genomics.Tests
             );
 
             var result = PrimerDesigner.DesignPrimers(template, 80, 120);
-            
+
             Assert.That(result, Is.Not.Null);
             // May or may not find valid primers depending on sequence
         }
@@ -306,8 +306,8 @@ namespace SuffixTree.Genomics.Tests
         public void DesignPrimers_InvalidTarget_ThrowsException()
         {
             var template = new DnaSequence("ACGTACGTACGTACGTACGT");
-            
-            Assert.Throws<ArgumentException>(() => 
+
+            Assert.Throws<ArgumentException>(() =>
                 PrimerDesigner.DesignPrimers(template, 15, 10));
         }
 
@@ -315,8 +315,8 @@ namespace SuffixTree.Genomics.Tests
         public void DesignPrimers_TargetOutOfRange_ThrowsException()
         {
             var template = new DnaSequence("ACGTACGTACGTACGTACGT");
-            
-            Assert.Throws<ArgumentException>(() => 
+
+            Assert.Throws<ArgumentException>(() =>
                 PrimerDesigner.DesignPrimers(template, 0, 100));
         }
 
@@ -329,7 +329,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
             var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, true).ToList();
-            
+
             Assert.That(candidates, Has.Count.GreaterThan(0));
         }
 
@@ -338,7 +338,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
             var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, true).ToList();
-            
+
             Assert.That(candidates.All(c => c.IsForward), Is.True);
         }
 
@@ -347,7 +347,7 @@ namespace SuffixTree.Genomics.Tests
         {
             var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
             var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, false).ToList();
-            
+
             Assert.That(candidates.All(c => !c.IsForward), Is.True);
         }
 
@@ -359,7 +359,7 @@ namespace SuffixTree.Genomics.Tests
         public void DefaultParameters_HasReasonableValues()
         {
             var param = PrimerDesigner.DefaultParameters;
-            
+
             Assert.That(param.MinLength, Is.EqualTo(18));
             Assert.That(param.MaxLength, Is.EqualTo(25));
             Assert.That(param.OptimalLength, Is.EqualTo(20));
@@ -396,7 +396,7 @@ namespace SuffixTree.Genomics.Tests
             string primer = "ACGTACGTACGTACGT";
             var defaultResult = PrimerDesigner.EvaluatePrimer(primer, 0, true);
             var customResult = PrimerDesigner.EvaluatePrimer(primer, 0, true, customParams);
-            
+
             Assert.That(defaultResult.Issues.Any(i => i.Contains("Length")), Is.True);
             Assert.That(customResult.Issues.Any(i => i.Contains("Length")), Is.False);
         }
@@ -411,7 +411,7 @@ namespace SuffixTree.Genomics.Tests
             // A typical good primer for PCR
             string primer = "ATGCGATCGATCGATCGATC"; // 20bp, 50% GC
             var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            
+
             Assert.That(candidate.GcContent, Is.InRange(40, 60));
             Assert.That(candidate.Length, Is.InRange(18, 25));
             Assert.That(candidate.HomopolymerLength, Is.LessThanOrEqualTo(4));
@@ -423,7 +423,7 @@ namespace SuffixTree.Genomics.Tests
             // A primer with multiple issues
             string primer = "GGGGGGGGGGGGGGGGGGGG"; // 20bp, 100% GC, long homopolymer
             var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            
+
             Assert.That(candidate.IsValid, Is.False);
             Assert.That(candidate.GcContent, Is.EqualTo(100.0));
             Assert.That(candidate.HomopolymerLength, Is.EqualTo(20));

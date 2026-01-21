@@ -17,7 +17,7 @@ namespace SuffixTree.Genomics
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
-        public static ProteinSequence Translate(DnaSequence dna, GeneticCode? geneticCode = null, 
+        public static ProteinSequence Translate(DnaSequence dna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
             if (dna == null)
@@ -34,7 +34,7 @@ namespace SuffixTree.Genomics
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
-        public static ProteinSequence Translate(RnaSequence rna, GeneticCode? geneticCode = null, 
+        public static ProteinSequence Translate(RnaSequence rna, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
             if (rna == null)
@@ -51,7 +51,7 @@ namespace SuffixTree.Genomics
         /// <param name="frame">Reading frame (0, 1, or 2).</param>
         /// <param name="toFirstStop">Stop translation at first stop codon.</param>
         /// <returns>The translated protein sequence.</returns>
-        public static ProteinSequence Translate(string sequence, GeneticCode? geneticCode = null, 
+        public static ProteinSequence Translate(string sequence, GeneticCode? geneticCode = null,
             int frame = 0, bool toFirstStop = false)
         {
             if (string.IsNullOrEmpty(sequence))
@@ -69,7 +69,7 @@ namespace SuffixTree.Genomics
         /// <param name="minLength">Minimum ORF length in amino acids (default: 100).</param>
         /// <param name="searchBothStrands">Search both forward and reverse complement strands.</param>
         /// <returns>Enumerable of ORF results.</returns>
-        public static IEnumerable<OrfResult> FindOrfs(DnaSequence dna, GeneticCode? geneticCode = null, 
+        public static IEnumerable<OrfResult> FindOrfs(DnaSequence dna, GeneticCode? geneticCode = null,
             int minLength = 100, bool searchBothStrands = true)
         {
             if (dna == null)
@@ -96,7 +96,7 @@ namespace SuffixTree.Genomics
         /// <param name="dna">The DNA sequence to translate.</param>
         /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
         /// <returns>Dictionary with frame keys (-3 to +3, excluding 0) and protein values.</returns>
-        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(DnaSequence dna, 
+        public static IReadOnlyDictionary<int, ProteinSequence> TranslateSixFrames(DnaSequence dna,
             GeneticCode? geneticCode = null)
         {
             if (dna == null)
@@ -119,7 +119,7 @@ namespace SuffixTree.Genomics
             return result;
         }
 
-        private static ProteinSequence TranslateSequence(string sequence, GeneticCode geneticCode, 
+        private static ProteinSequence TranslateSequence(string sequence, GeneticCode geneticCode,
             int frame, bool toFirstStop)
         {
             if (frame < 0 || frame > 2)
@@ -133,7 +133,7 @@ namespace SuffixTree.Genomics
             {
                 string codon = rnaSequence.Substring(i, 3);
                 char aa = geneticCode.Translate(codon);
-                
+
                 if (toFirstStop && aa == '*')
                     break;
 
@@ -143,7 +143,7 @@ namespace SuffixTree.Genomics
             return new ProteinSequence(sb.ToString());
         }
 
-        private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode, 
+        private static IEnumerable<OrfResult> FindOrfsInSequence(string sequence, GeneticCode geneticCode,
             int minLength, bool isReverseComplement)
         {
             var rnaSequence = sequence.Replace('T', 'U');

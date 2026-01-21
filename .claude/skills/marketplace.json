@@ -1,0 +1,32 @@
+{
+  "name": "clean-code-skills",
+  "version": "2.0.0",
+  "description": "Comprehensive Clean Code and Clean Architecture skills for AI coding assistants. Master software craftsmanship with Uncle Bob's principles, SOLID, DDD, and architectural patterns.",
+  "author": "AlexanderV",
+  "repository": "https://github.com/AlexanderV/skills",
+  "license": "MIT",
+  "keywords": [
+    "clean-code",
+    "clean-architecture",
+    "solid",
+    "ddd",
+    "domain-driven-design",
+    "hexagonal-architecture",
+    "refactoring",
+    "code-quality",
+    "best-practices",
+    "software-craftsmanship"
+  ],
+  "skills": [
+    {
+      "name": "clean-code",
+      "path": "clean-code",
+      "description": "Write clean, maintainable, and readable code following Robert C. Martin's Clean Code principles"
+    },
+    {
+      "name": "clean-architecture",
+      "path": "clean-architecture",
+      "description": "Design software with Clean Architecture, DDD, SOLID, and hexagonal/onion patterns"
+    }
+  ]
+}

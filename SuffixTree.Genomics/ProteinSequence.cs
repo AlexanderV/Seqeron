@@ -190,18 +190,18 @@ namespace SuffixTree.Genomics
             return Math.Round(pI, 2);
         }
 
-        private static double CalculateCharge(double pH, int nTerm, int cTerm, 
+        private static double CalculateCharge(double pH, int nTerm, int cTerm,
             int asp, int glu, int cys, int tyr, int his, int lys, int arg)
         {
             // Positive charges
-            double positive = 
+            double positive =
                 nTerm * (1 / (1 + Math.Pow(10, pH - 9.69))) +
                 his * (1 / (1 + Math.Pow(10, pH - 6.0))) +
                 lys * (1 / (1 + Math.Pow(10, pH - 10.5))) +
                 arg * (1 / (1 + Math.Pow(10, pH - 12.5)));
 
             // Negative charges
-            double negative = 
+            double negative =
                 cTerm * (1 / (1 + Math.Pow(10, 2.34 - pH))) +
                 asp * (1 / (1 + Math.Pow(10, 3.9 - pH))) +
                 glu * (1 / (1 + Math.Pow(10, 4.1 - pH))) +
@@ -236,11 +236,26 @@ namespace SuffixTree.Genomics
 
             var hydropathy = new Dictionary<char, double>
             {
-                ['A'] = 1.8,  ['C'] = 2.5,  ['D'] = -3.5, ['E'] = -3.5,
-                ['F'] = 2.8,  ['G'] = -0.4, ['H'] = -3.2, ['I'] = 4.5,
-                ['K'] = -3.9, ['L'] = 3.8,  ['M'] = 1.9,  ['N'] = -3.5,
-                ['P'] = -1.6, ['Q'] = -3.5, ['R'] = -4.5, ['S'] = -0.8,
-                ['T'] = -0.7, ['V'] = 4.2,  ['W'] = -0.9, ['Y'] = -1.3
+                ['A'] = 1.8,
+                ['C'] = 2.5,
+                ['D'] = -3.5,
+                ['E'] = -3.5,
+                ['F'] = 2.8,
+                ['G'] = -0.4,
+                ['H'] = -3.2,
+                ['I'] = 4.5,
+                ['K'] = -3.9,
+                ['L'] = 3.8,
+                ['M'] = 1.9,
+                ['N'] = -3.5,
+                ['P'] = -1.6,
+                ['Q'] = -3.5,
+                ['R'] = -4.5,
+                ['S'] = -0.8,
+                ['T'] = -0.7,
+                ['V'] = 4.2,
+                ['W'] = -0.9,
+                ['Y'] = -1.3
             };
 
             double sum = 0;
@@ -265,9 +280,9 @@ namespace SuffixTree.Genomics
         {
             if (_sequence.Length == 0) return 0;
 
-            int count = _sequence.Count(aa => 
+            int count = _sequence.Count(aa =>
                 Properties.TryGetValue(aa, out var props) && props.Type == type);
-            
+
             return Math.Round((double)count / _sequence.Length * 100, 2);
         }
 
@@ -307,7 +322,7 @@ namespace SuffixTree.Genomics
                 yield break;
 
             var normalizedPattern = pattern.ToUpperInvariant();
-            
+
             for (int i = 0; i <= _sequence.Length - normalizedPattern.Length; i++)
             {
                 if (_sequence.Substring(i, normalizedPattern.Length) == normalizedPattern)

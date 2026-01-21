@@ -404,9 +404,9 @@ public class RestrictionAnalyzerTests
         var compatiblePairs = RestrictionAnalyzer.FindCompatibleEnzymes().ToList();
 
         Assert.That(compatiblePairs, Has.Count.GreaterThan(0));
-        
+
         // Check that BamHI and BglII are in the list
-        Assert.That(compatiblePairs.Any(p => 
+        Assert.That(compatiblePairs.Any(p =>
             (p.Enzyme1 == "BamHI" && p.Enzyme2 == "BglII") ||
             (p.Enzyme1 == "BglII" && p.Enzyme2 == "BamHI")));
     }

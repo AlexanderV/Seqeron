@@ -113,7 +113,7 @@ public static class SequenceAssembler
                 var overlap = FindOverlap(reads[i], reads[j], minOverlap, minIdentity);
                 if (overlap.HasValue)
                 {
-                    overlaps.Add(new Overlap(i, j, overlap.Value.length, 
+                    overlaps.Add(new Overlap(i, j, overlap.Value.length,
                         overlap.Value.pos1, overlap.Value.pos2));
                 }
             }
@@ -492,7 +492,7 @@ public static class SequenceAssembler
             int matches = 0;
             for (int i = 0; i < read.Length; i++)
             {
-                if (char.ToUpperInvariant(reference[pos + i]) == 
+                if (char.ToUpperInvariant(reference[pos + i]) ==
                     char.ToUpperInvariant(read[i]))
                     matches++;
             }
@@ -606,20 +606,20 @@ public static class SequenceAssembler
             for (int i = 0; i <= read.Length - kmerSize; i++)
             {
                 string kmer = read.Substring(i, kmerSize).ToUpperInvariant();
-                
+
                 if (kmerCounts.GetValueOrDefault(kmer, 0) < minKmerFrequency)
                 {
                     // Try to correct by substituting middle base
                     int midPos = i + kmerSize / 2;
                     char original = char.ToUpperInvariant(sb[midPos]);
-                    
+
                     foreach (char replacement in new[] { 'A', 'C', 'G', 'T' })
                     {
                         if (replacement == original) continue;
 
                         sb[midPos] = replacement;
                         string newKmer = sb.ToString().Substring(i, kmerSize).ToUpperInvariant();
-                        
+
                         if (kmerCounts.GetValueOrDefault(newKmer, 0) >= minKmerFrequency)
                         {
                             break; // Keep correction

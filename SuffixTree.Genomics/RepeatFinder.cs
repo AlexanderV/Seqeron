@@ -81,7 +81,7 @@ public static class RepeatFinder
                 if (repeats >= minRepeats)
                 {
                     int end = i + (repeats * unitLen) - 1;
-                    
+
                     // Avoid reporting overlapping/contained repeats
                     if (!reported.Any(r => r.Start <= i && r.End >= end))
                     {
@@ -382,9 +382,9 @@ public static class RepeatFinder
         int maxLength = 12)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        if (minLength < 4 || minLength % 2 != 0) 
+        if (minLength < 4 || minLength % 2 != 0)
             throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
-        if (maxLength < minLength) 
+        if (maxLength < minLength)
             throw new ArgumentOutOfRangeException(nameof(maxLength));
 
         return FindPalindromesCore(sequence.Sequence, minLength, maxLength);

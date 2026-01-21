@@ -38,9 +38,9 @@ namespace SuffixTree.Genomics
         /// </summary>
         public IReadOnlySet<string> StopCodons => _stopCodons;
 
-        private GeneticCode(string name, int tableNumber, 
-            Dictionary<string, char> codonTable, 
-            HashSet<string> startCodons, 
+        private GeneticCode(string name, int tableNumber,
+            Dictionary<string, char> codonTable,
+            HashSet<string> startCodons,
             HashSet<string> stopCodons)
         {
             Name = name;
@@ -61,7 +61,7 @@ namespace SuffixTree.Genomics
                 throw new ArgumentException("Codon must be exactly 3 characters.", nameof(codon));
 
             var normalized = codon.ToUpperInvariant().Replace('T', 'U');
-            
+
             if (_codonTable.TryGetValue(normalized, out char aa))
                 return aa;
 
@@ -75,7 +75,7 @@ namespace SuffixTree.Genomics
         {
             if (string.IsNullOrEmpty(codon) || codon.Length != 3)
                 return false;
-            
+
             var normalized = codon.ToUpperInvariant().Replace('T', 'U');
             return _startCodons.Contains(normalized);
         }
@@ -87,7 +87,7 @@ namespace SuffixTree.Genomics
         {
             if (string.IsNullOrEmpty(codon) || codon.Length != 3)
                 return false;
-            
+
             var normalized = codon.ToUpperInvariant().Replace('T', 'U');
             return _stopCodons.Contains(normalized);
         }
@@ -145,47 +145,90 @@ namespace SuffixTree.Genomics
             var table = new Dictionary<string, char>
             {
                 // Phenylalanine (F)
-                ["UUU"] = 'F', ["UUC"] = 'F',
+                ["UUU"] = 'F',
+                ["UUC"] = 'F',
                 // Leucine (L)
-                ["UUA"] = 'L', ["UUG"] = 'L', ["CUU"] = 'L', ["CUC"] = 'L', ["CUA"] = 'L', ["CUG"] = 'L',
+                ["UUA"] = 'L',
+                ["UUG"] = 'L',
+                ["CUU"] = 'L',
+                ["CUC"] = 'L',
+                ["CUA"] = 'L',
+                ["CUG"] = 'L',
                 // Isoleucine (I)
-                ["AUU"] = 'I', ["AUC"] = 'I', ["AUA"] = 'I',
+                ["AUU"] = 'I',
+                ["AUC"] = 'I',
+                ["AUA"] = 'I',
                 // Methionine (M) - Start
                 ["AUG"] = 'M',
                 // Valine (V)
-                ["GUU"] = 'V', ["GUC"] = 'V', ["GUA"] = 'V', ["GUG"] = 'V',
+                ["GUU"] = 'V',
+                ["GUC"] = 'V',
+                ["GUA"] = 'V',
+                ["GUG"] = 'V',
                 // Serine (S)
-                ["UCU"] = 'S', ["UCC"] = 'S', ["UCA"] = 'S', ["UCG"] = 'S', ["AGU"] = 'S', ["AGC"] = 'S',
+                ["UCU"] = 'S',
+                ["UCC"] = 'S',
+                ["UCA"] = 'S',
+                ["UCG"] = 'S',
+                ["AGU"] = 'S',
+                ["AGC"] = 'S',
                 // Proline (P)
-                ["CCU"] = 'P', ["CCC"] = 'P', ["CCA"] = 'P', ["CCG"] = 'P',
+                ["CCU"] = 'P',
+                ["CCC"] = 'P',
+                ["CCA"] = 'P',
+                ["CCG"] = 'P',
                 // Threonine (T)
-                ["ACU"] = 'T', ["ACC"] = 'T', ["ACA"] = 'T', ["ACG"] = 'T',
+                ["ACU"] = 'T',
+                ["ACC"] = 'T',
+                ["ACA"] = 'T',
+                ["ACG"] = 'T',
                 // Alanine (A)
-                ["GCU"] = 'A', ["GCC"] = 'A', ["GCA"] = 'A', ["GCG"] = 'A',
+                ["GCU"] = 'A',
+                ["GCC"] = 'A',
+                ["GCA"] = 'A',
+                ["GCG"] = 'A',
                 // Tyrosine (Y)
-                ["UAU"] = 'Y', ["UAC"] = 'Y',
+                ["UAU"] = 'Y',
+                ["UAC"] = 'Y',
                 // Stop codons (*)
-                ["UAA"] = '*', ["UAG"] = '*', ["UGA"] = '*',
+                ["UAA"] = '*',
+                ["UAG"] = '*',
+                ["UGA"] = '*',
                 // Histidine (H)
-                ["CAU"] = 'H', ["CAC"] = 'H',
+                ["CAU"] = 'H',
+                ["CAC"] = 'H',
                 // Glutamine (Q)
-                ["CAA"] = 'Q', ["CAG"] = 'Q',
+                ["CAA"] = 'Q',
+                ["CAG"] = 'Q',
                 // Asparagine (N)
-                ["AAU"] = 'N', ["AAC"] = 'N',
+                ["AAU"] = 'N',
+                ["AAC"] = 'N',
                 // Lysine (K)
-                ["AAA"] = 'K', ["AAG"] = 'K',
+                ["AAA"] = 'K',
+                ["AAG"] = 'K',
                 // Aspartic acid (D)
-                ["GAU"] = 'D', ["GAC"] = 'D',
+                ["GAU"] = 'D',
+                ["GAC"] = 'D',
                 // Glutamic acid (E)
-                ["GAA"] = 'E', ["GAG"] = 'E',
+                ["GAA"] = 'E',
+                ["GAG"] = 'E',
                 // Cysteine (C)
-                ["UGU"] = 'C', ["UGC"] = 'C',
+                ["UGU"] = 'C',
+                ["UGC"] = 'C',
                 // Tryptophan (W)
                 ["UGG"] = 'W',
                 // Arginine (R)
-                ["CGU"] = 'R', ["CGC"] = 'R', ["CGA"] = 'R', ["CGG"] = 'R', ["AGA"] = 'R', ["AGG"] = 'R',
+                ["CGU"] = 'R',
+                ["CGC"] = 'R',
+                ["CGA"] = 'R',
+                ["CGG"] = 'R',
+                ["AGA"] = 'R',
+                ["AGG"] = 'R',
                 // Glycine (G)
-                ["GGU"] = 'G', ["GGC"] = 'G', ["GGA"] = 'G', ["GGG"] = 'G'
+                ["GGU"] = 'G',
+                ["GGC"] = 'G',
+                ["GGA"] = 'G',
+                ["GGG"] = 'G'
             };
 
             var startCodons = new HashSet<string> { "AUG" };
@@ -202,31 +245,71 @@ namespace SuffixTree.Genomics
                 // UGA = W (not stop)
                 // AGA, AGG = * (stop, not R)
                 // AUA = M (not I)
-                
-                ["UUU"] = 'F', ["UUC"] = 'F',
-                ["UUA"] = 'L', ["UUG"] = 'L', ["CUU"] = 'L', ["CUC"] = 'L', ["CUA"] = 'L', ["CUG"] = 'L',
-                ["AUU"] = 'I', ["AUC"] = 'I',
+
+                ["UUU"] = 'F',
+                ["UUC"] = 'F',
+                ["UUA"] = 'L',
+                ["UUG"] = 'L',
+                ["CUU"] = 'L',
+                ["CUC"] = 'L',
+                ["CUA"] = 'L',
+                ["CUG"] = 'L',
+                ["AUU"] = 'I',
+                ["AUC"] = 'I',
                 ["AUA"] = 'M', // Different from standard
                 ["AUG"] = 'M',
-                ["GUU"] = 'V', ["GUC"] = 'V', ["GUA"] = 'V', ["GUG"] = 'V',
-                ["UCU"] = 'S', ["UCC"] = 'S', ["UCA"] = 'S', ["UCG"] = 'S', ["AGU"] = 'S', ["AGC"] = 'S',
-                ["CCU"] = 'P', ["CCC"] = 'P', ["CCA"] = 'P', ["CCG"] = 'P',
-                ["ACU"] = 'T', ["ACC"] = 'T', ["ACA"] = 'T', ["ACG"] = 'T',
-                ["GCU"] = 'A', ["GCC"] = 'A', ["GCA"] = 'A', ["GCG"] = 'A',
-                ["UAU"] = 'Y', ["UAC"] = 'Y',
-                ["UAA"] = '*', ["UAG"] = '*',
-                ["CAU"] = 'H', ["CAC"] = 'H',
-                ["CAA"] = 'Q', ["CAG"] = 'Q',
-                ["AAU"] = 'N', ["AAC"] = 'N',
-                ["AAA"] = 'K', ["AAG"] = 'K',
-                ["GAU"] = 'D', ["GAC"] = 'D',
-                ["GAA"] = 'E', ["GAG"] = 'E',
-                ["UGU"] = 'C', ["UGC"] = 'C',
+                ["GUU"] = 'V',
+                ["GUC"] = 'V',
+                ["GUA"] = 'V',
+                ["GUG"] = 'V',
+                ["UCU"] = 'S',
+                ["UCC"] = 'S',
+                ["UCA"] = 'S',
+                ["UCG"] = 'S',
+                ["AGU"] = 'S',
+                ["AGC"] = 'S',
+                ["CCU"] = 'P',
+                ["CCC"] = 'P',
+                ["CCA"] = 'P',
+                ["CCG"] = 'P',
+                ["ACU"] = 'T',
+                ["ACC"] = 'T',
+                ["ACA"] = 'T',
+                ["ACG"] = 'T',
+                ["GCU"] = 'A',
+                ["GCC"] = 'A',
+                ["GCA"] = 'A',
+                ["GCG"] = 'A',
+                ["UAU"] = 'Y',
+                ["UAC"] = 'Y',
+                ["UAA"] = '*',
+                ["UAG"] = '*',
+                ["CAU"] = 'H',
+                ["CAC"] = 'H',
+                ["CAA"] = 'Q',
+                ["CAG"] = 'Q',
+                ["AAU"] = 'N',
+                ["AAC"] = 'N',
+                ["AAA"] = 'K',
+                ["AAG"] = 'K',
+                ["GAU"] = 'D',
+                ["GAC"] = 'D',
+                ["GAA"] = 'E',
+                ["GAG"] = 'E',
+                ["UGU"] = 'C',
+                ["UGC"] = 'C',
                 ["UGA"] = 'W', // Different from standard
                 ["UGG"] = 'W',
-                ["CGU"] = 'R', ["CGC"] = 'R', ["CGA"] = 'R', ["CGG"] = 'R',
-                ["AGA"] = '*', ["AGG"] = '*', // Different from standard
-                ["GGU"] = 'G', ["GGC"] = 'G', ["GGA"] = 'G', ["GGG"] = 'G'
+                ["CGU"] = 'R',
+                ["CGC"] = 'R',
+                ["CGA"] = 'R',
+                ["CGG"] = 'R',
+                ["AGA"] = '*',
+                ["AGG"] = '*', // Different from standard
+                ["GGU"] = 'G',
+                ["GGC"] = 'G',
+                ["GGA"] = 'G',
+                ["GGG"] = 'G'
             };
 
             var startCodons = new HashSet<string> { "AUG", "AUA", "AUU", "AUC" };
@@ -243,32 +326,71 @@ namespace SuffixTree.Genomics
                 // UGA = W (not stop)
                 // AUA = M (not I)
                 // CGA, CGC = absent
-                
-                ["UUU"] = 'F', ["UUC"] = 'F',
-                ["UUA"] = 'L', ["UUG"] = 'L',
-                ["CUU"] = 'T', ["CUC"] = 'T', ["CUA"] = 'T', ["CUG"] = 'T', // Different from standard
-                ["AUU"] = 'I', ["AUC"] = 'I',
+
+                ["UUU"] = 'F',
+                ["UUC"] = 'F',
+                ["UUA"] = 'L',
+                ["UUG"] = 'L',
+                ["CUU"] = 'T',
+                ["CUC"] = 'T',
+                ["CUA"] = 'T',
+                ["CUG"] = 'T', // Different from standard
+                ["AUU"] = 'I',
+                ["AUC"] = 'I',
                 ["AUA"] = 'M', // Different from standard
                 ["AUG"] = 'M',
-                ["GUU"] = 'V', ["GUC"] = 'V', ["GUA"] = 'V', ["GUG"] = 'V',
-                ["UCU"] = 'S', ["UCC"] = 'S', ["UCA"] = 'S', ["UCG"] = 'S', ["AGU"] = 'S', ["AGC"] = 'S',
-                ["CCU"] = 'P', ["CCC"] = 'P', ["CCA"] = 'P', ["CCG"] = 'P',
-                ["ACU"] = 'T', ["ACC"] = 'T', ["ACA"] = 'T', ["ACG"] = 'T',
-                ["GCU"] = 'A', ["GCC"] = 'A', ["GCA"] = 'A', ["GCG"] = 'A',
-                ["UAU"] = 'Y', ["UAC"] = 'Y',
-                ["UAA"] = '*', ["UAG"] = '*',
-                ["CAU"] = 'H', ["CAC"] = 'H',
-                ["CAA"] = 'Q', ["CAG"] = 'Q',
-                ["AAU"] = 'N', ["AAC"] = 'N',
-                ["AAA"] = 'K', ["AAG"] = 'K',
-                ["GAU"] = 'D', ["GAC"] = 'D',
-                ["GAA"] = 'E', ["GAG"] = 'E',
-                ["UGU"] = 'C', ["UGC"] = 'C',
+                ["GUU"] = 'V',
+                ["GUC"] = 'V',
+                ["GUA"] = 'V',
+                ["GUG"] = 'V',
+                ["UCU"] = 'S',
+                ["UCC"] = 'S',
+                ["UCA"] = 'S',
+                ["UCG"] = 'S',
+                ["AGU"] = 'S',
+                ["AGC"] = 'S',
+                ["CCU"] = 'P',
+                ["CCC"] = 'P',
+                ["CCA"] = 'P',
+                ["CCG"] = 'P',
+                ["ACU"] = 'T',
+                ["ACC"] = 'T',
+                ["ACA"] = 'T',
+                ["ACG"] = 'T',
+                ["GCU"] = 'A',
+                ["GCC"] = 'A',
+                ["GCA"] = 'A',
+                ["GCG"] = 'A',
+                ["UAU"] = 'Y',
+                ["UAC"] = 'Y',
+                ["UAA"] = '*',
+                ["UAG"] = '*',
+                ["CAU"] = 'H',
+                ["CAC"] = 'H',
+                ["CAA"] = 'Q',
+                ["CAG"] = 'Q',
+                ["AAU"] = 'N',
+                ["AAC"] = 'N',
+                ["AAA"] = 'K',
+                ["AAG"] = 'K',
+                ["GAU"] = 'D',
+                ["GAC"] = 'D',
+                ["GAA"] = 'E',
+                ["GAG"] = 'E',
+                ["UGU"] = 'C',
+                ["UGC"] = 'C',
                 ["UGA"] = 'W', // Different from standard
                 ["UGG"] = 'W',
-                ["CGU"] = 'R', ["CGC"] = 'R', ["CGA"] = 'R', ["CGG"] = 'R',
-                ["AGA"] = 'R', ["AGG"] = 'R',
-                ["GGU"] = 'G', ["GGC"] = 'G', ["GGA"] = 'G', ["GGG"] = 'G'
+                ["CGU"] = 'R',
+                ["CGC"] = 'R',
+                ["CGA"] = 'R',
+                ["CGG"] = 'R',
+                ["AGA"] = 'R',
+                ["AGG"] = 'R',
+                ["GGU"] = 'G',
+                ["GGC"] = 'G',
+                ["GGA"] = 'G',
+                ["GGG"] = 'G'
             };
 
             var startCodons = new HashSet<string> { "AUG", "AUA" };
@@ -282,27 +404,70 @@ namespace SuffixTree.Genomics
             // Same as standard genetic code
             var table = new Dictionary<string, char>
             {
-                ["UUU"] = 'F', ["UUC"] = 'F',
-                ["UUA"] = 'L', ["UUG"] = 'L', ["CUU"] = 'L', ["CUC"] = 'L', ["CUA"] = 'L', ["CUG"] = 'L',
-                ["AUU"] = 'I', ["AUC"] = 'I', ["AUA"] = 'I',
+                ["UUU"] = 'F',
+                ["UUC"] = 'F',
+                ["UUA"] = 'L',
+                ["UUG"] = 'L',
+                ["CUU"] = 'L',
+                ["CUC"] = 'L',
+                ["CUA"] = 'L',
+                ["CUG"] = 'L',
+                ["AUU"] = 'I',
+                ["AUC"] = 'I',
+                ["AUA"] = 'I',
                 ["AUG"] = 'M',
-                ["GUU"] = 'V', ["GUC"] = 'V', ["GUA"] = 'V', ["GUG"] = 'V',
-                ["UCU"] = 'S', ["UCC"] = 'S', ["UCA"] = 'S', ["UCG"] = 'S', ["AGU"] = 'S', ["AGC"] = 'S',
-                ["CCU"] = 'P', ["CCC"] = 'P', ["CCA"] = 'P', ["CCG"] = 'P',
-                ["ACU"] = 'T', ["ACC"] = 'T', ["ACA"] = 'T', ["ACG"] = 'T',
-                ["GCU"] = 'A', ["GCC"] = 'A', ["GCA"] = 'A', ["GCG"] = 'A',
-                ["UAU"] = 'Y', ["UAC"] = 'Y',
-                ["UAA"] = '*', ["UAG"] = '*', ["UGA"] = '*',
-                ["CAU"] = 'H', ["CAC"] = 'H',
-                ["CAA"] = 'Q', ["CAG"] = 'Q',
-                ["AAU"] = 'N', ["AAC"] = 'N',
-                ["AAA"] = 'K', ["AAG"] = 'K',
-                ["GAU"] = 'D', ["GAC"] = 'D',
-                ["GAA"] = 'E', ["GAG"] = 'E',
-                ["UGU"] = 'C', ["UGC"] = 'C',
+                ["GUU"] = 'V',
+                ["GUC"] = 'V',
+                ["GUA"] = 'V',
+                ["GUG"] = 'V',
+                ["UCU"] = 'S',
+                ["UCC"] = 'S',
+                ["UCA"] = 'S',
+                ["UCG"] = 'S',
+                ["AGU"] = 'S',
+                ["AGC"] = 'S',
+                ["CCU"] = 'P',
+                ["CCC"] = 'P',
+                ["CCA"] = 'P',
+                ["CCG"] = 'P',
+                ["ACU"] = 'T',
+                ["ACC"] = 'T',
+                ["ACA"] = 'T',
+                ["ACG"] = 'T',
+                ["GCU"] = 'A',
+                ["GCC"] = 'A',
+                ["GCA"] = 'A',
+                ["GCG"] = 'A',
+                ["UAU"] = 'Y',
+                ["UAC"] = 'Y',
+                ["UAA"] = '*',
+                ["UAG"] = '*',
+                ["UGA"] = '*',
+                ["CAU"] = 'H',
+                ["CAC"] = 'H',
+                ["CAA"] = 'Q',
+                ["CAG"] = 'Q',
+                ["AAU"] = 'N',
+                ["AAC"] = 'N',
+                ["AAA"] = 'K',
+                ["AAG"] = 'K',
+                ["GAU"] = 'D',
+                ["GAC"] = 'D',
+                ["GAA"] = 'E',
+                ["GAG"] = 'E',
+                ["UGU"] = 'C',
+                ["UGC"] = 'C',
                 ["UGG"] = 'W',
-                ["CGU"] = 'R', ["CGC"] = 'R', ["CGA"] = 'R', ["CGG"] = 'R', ["AGA"] = 'R', ["AGG"] = 'R',
-                ["GGU"] = 'G', ["GGC"] = 'G', ["GGA"] = 'G', ["GGG"] = 'G'
+                ["CGU"] = 'R',
+                ["CGC"] = 'R',
+                ["CGA"] = 'R',
+                ["CGG"] = 'R',
+                ["AGA"] = 'R',
+                ["AGG"] = 'R',
+                ["GGU"] = 'G',
+                ["GGC"] = 'G',
+                ["GGA"] = 'G',
+                ["GGG"] = 'G'
             };
 
             // Bacteria can use alternative start codons

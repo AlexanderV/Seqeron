@@ -37,8 +37,8 @@ namespace SuffixTree.Genomics
         /// <param name="parameters">Primer design parameters (optional).</param>
         /// <returns>Primer pair result.</returns>
         public static PrimerPairResult DesignPrimers(
-            DnaSequence template, 
-            int targetStart, 
+            DnaSequence template,
+            int targetStart,
             int targetEnd,
             PrimerParameters? parameters = null)
         {
@@ -117,7 +117,7 @@ namespace SuffixTree.Genomics
         /// Evaluates a single primer candidate.
         /// </summary>
         public static PrimerCandidate EvaluatePrimer(
-            string sequence, 
+            string sequence,
             int position,
             bool isForward,
             PrimerParameters? parameters = null)
@@ -222,10 +222,10 @@ namespace SuffixTree.Genomics
         public static double CalculateMeltingTemperatureWithSalt(string primer, double naConcentration = 50)
         {
             double baseTm = CalculateMeltingTemperature(primer);
-            
+
             // Salt correction: Tm = Tm_basic + 16.6 * log10([Na+])
             double saltCorrection = 16.6 * Math.Log10(naConcentration / 1000.0);
-            
+
             return Math.Round(baseTm + saltCorrection, 1);
         }
 
@@ -367,14 +367,22 @@ namespace SuffixTree.Genomics
             // Values are ΔG in kcal/mol for each dinucleotide
             var deltaG = new Dictionary<string, double>
             {
-                ["AA"] = -1.0, ["TT"] = -1.0,
-                ["AT"] = -0.88, ["TA"] = -0.58,
-                ["CA"] = -1.45, ["TG"] = -1.45,
-                ["GT"] = -1.44, ["AC"] = -1.44,
-                ["CT"] = -1.28, ["AG"] = -1.28,
-                ["GA"] = -1.30, ["TC"] = -1.30,
-                ["CG"] = -2.17, ["GC"] = -2.24,
-                ["GG"] = -1.84, ["CC"] = -1.84
+                ["AA"] = -1.0,
+                ["TT"] = -1.0,
+                ["AT"] = -0.88,
+                ["TA"] = -0.58,
+                ["CA"] = -1.45,
+                ["TG"] = -1.45,
+                ["GT"] = -1.44,
+                ["AC"] = -1.44,
+                ["CT"] = -1.28,
+                ["AG"] = -1.28,
+                ["GA"] = -1.30,
+                ["TC"] = -1.30,
+                ["CG"] = -2.17,
+                ["GC"] = -2.24,
+                ["GG"] = -1.84,
+                ["CC"] = -1.84
             };
 
             double totalDeltaG = 0;
@@ -447,8 +455,10 @@ namespace SuffixTree.Genomics
             {
                 sb.Append(sequence[i] switch
                 {
-                    'A' => 'T', 'T' => 'A',
-                    'C' => 'G', 'G' => 'C',
+                    'A' => 'T',
+                    'T' => 'A',
+                    'C' => 'G',
+                    'G' => 'C',
                     _ => sequence[i]
                 });
             }
