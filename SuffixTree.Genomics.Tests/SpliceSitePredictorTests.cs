@@ -251,7 +251,7 @@ public class SpliceSitePredictorTests
     [Test]
     public void PredictGeneStructure_ReturnsExons()
     {
-        string sequence = "AUGCCCAAAGGG" + "GUAAGU" + new string('A', 70) + 
+        string sequence = "AUGCCCAAAGGG" + "GUAAGU" + new string('A', 70) +
                          "UUUUUUUUUUUUUU" + "CAG" + "GCCUUUAAA";
 
         var structure = PredictGeneStructure(sequence, minExonLength: 5, minScore: 0.2);
@@ -292,8 +292,8 @@ public class SpliceSitePredictorTests
     [Test]
     public void PredictGeneStructure_ExonPhase_Calculated()
     {
-        string sequence = "AUGCCC" + "GUAAGU" + new string('A', 70) + 
-                         "UUUUUUUUUUUUUU" + "CAG" + "AAA" + "GUAAGU" + 
+        string sequence = "AUGCCC" + "GUAAGU" + new string('A', 70) +
+                         "UUUUUUUUUUUUUU" + "CAG" + "AAA" + "GUAAGU" +
                          new string('A', 70) + "UUUUUUUUUUUUUU" + "CAG" + "GGGCCC";
 
         var structure = PredictGeneStructure(sequence, minExonLength: 3, minScore: 0.2);
