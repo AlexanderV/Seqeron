@@ -68,54 +68,54 @@ public static class ProteinMotifFinder
     {
         // N-glycosylation site
         ["PS00001"] = new("PS00001", "ASN_GLYCOSYLATION", "N-{P}-[ST]-{P}", @"N[^P][ST][^P]", "N-glycosylation site"),
-        
+
         // Protein kinase C phosphorylation site
         ["PS00005"] = new("PS00005", "PKC_PHOSPHO_SITE", "[ST]-x-[RK]", @"[ST].[RK]", "Protein kinase C phosphorylation site"),
-        
+
         // Casein kinase II phosphorylation site
         ["PS00006"] = new("PS00006", "CK2_PHOSPHO_SITE", "[ST]-x(2)-[DE]", @"[ST].{2}[DE]", "Casein kinase II phosphorylation site"),
-        
+
         // cAMP/cGMP-dependent protein kinase phosphorylation site
         ["PS00004"] = new("PS00004", "CAMP_PHOSPHO_SITE", "[RK](2)-x-[ST]", @"[RK]{2}.[ST]", "cAMP-dependent phosphorylation site"),
-        
+
         // Tyrosine kinase phosphorylation site
         ["PS00007"] = new("PS00007", "TYR_PHOSPHO_SITE", "[RK]-x(2,3)-[DE]-x(2,3)-Y", @"[RK].{2,3}[DE].{2,3}Y", "Tyrosine kinase phosphorylation site"),
-        
+
         // N-myristoylation site
         ["PS00008"] = new("PS00008", "MYRISTYL", "G-{EDRKHPFYW}-x(2)-[STAGCN]-{P}", @"G[^EDRKHPFYW].{2}[STAGCN][^P]", "N-myristoylation site"),
-        
+
         // Amidation site
         ["PS00009"] = new("PS00009", "AMIDATION", "x-G-[RK]-[RK]", @".G[RK][RK]", "Amidation site"),
-        
+
         // Cell attachment sequence (RGD)
         ["PS00016"] = new("PS00016", "RGD", "R-G-D", @"RGD", "Cell attachment sequence"),
-        
+
         // ATP/GTP-binding site motif A (P-loop)
         ["PS00017"] = new("PS00017", "ATP_GTP_A", "[AG]-x(4)-G-K-[ST]", @"[AG].{4}GK[ST]", "ATP/GTP-binding site motif A (P-loop)"),
-        
+
         // EF-hand calcium-binding domain
-        ["PS00018"] = new("PS00018", "EF_HAND_1", "D-x-[DNS]-{ILVFYW}-[DENSTG]-[DNQGHRK]-{GP}-[LIVMC]-[DENQSTAGC]-x(2)-[DE]", 
+        ["PS00018"] = new("PS00018", "EF_HAND_1", "D-x-[DNS]-{ILVFYW}-[DENSTG]-[DNQGHRK]-{GP}-[LIVMC]-[DENQSTAGC]-x(2)-[DE]",
             @"D.[DNS][^ILVFYW][DENSTG][DNQGHRK][^GP][LIVMC][DENQSTAGC].{2}[DE]", "EF-hand calcium-binding domain"),
-        
+
         // Zinc finger C2H2 type signature
-        ["PS00028"] = new("PS00028", "ZINC_FINGER_C2H2_1", "C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H", 
+        ["PS00028"] = new("PS00028", "ZINC_FINGER_C2H2_1", "C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H",
             @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H", "Zinc finger C2H2 type"),
-        
+
         // Leucine zipper pattern
         ["PS00029"] = new("PS00029", "LEUCINE_ZIPPER", "L-x(6)-L-x(6)-L-x(6)-L", @"L.{6}L.{6}L.{6}L", "Leucine zipper pattern"),
-        
+
         // Nuclear localization signal (NLS)
         ["NLS1"] = new("NLS1", "NLS_MONOPARTITE", "[KR]-[KR]-x-[KR]", @"[KR][KR].[KR]", "Monopartite nuclear localization signal"),
-        
+
         // Nuclear export signal (NES)
         ["NES1"] = new("NES1", "NES", "L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]", @"L.{2,3}[LIVFM].{2,3}L.[LI]", "Nuclear export signal"),
-        
+
         // SUMO interaction motif
         ["SIM1"] = new("SIM1", "SUMO_INTERACTION", "[VIL]-x-[VIL]-[VIL]", @"[VIL].[VIL][VIL]", "SUMO interaction motif"),
-        
+
         // WW domain binding motif
         ["WW1"] = new("WW1", "WW_BINDING", "P-P-x-Y", @"PP.Y", "WW domain binding motif (PY motif)"),
-        
+
         // SH3 domain binding motif
         ["SH3_1"] = new("SH3_1", "SH3_BINDING_1", "P-x-x-P", @"P..P", "SH3 domain binding motif class I"),
     };
@@ -171,7 +171,7 @@ public static class ProteinMotifFinder
         foreach (Match match in matches)
         {
             double score = CalculateMotifScore(match.Value, regexPattern);
-            
+
             yield return new MotifMatch(
                 Start: match.Index,
                 End: match.Index + match.Length - 1,
@@ -453,7 +453,7 @@ public static class ProteinMotifFinder
                 // End of region
                 int start = regionStart.Value;
                 int end = i - 1 + windowSize;
-                
+
                 if (end - start >= 15) // Minimum TM helix length
                 {
                     yield return (start, Math.Min(end, upper.Length - 1), maxScore);
@@ -469,7 +469,7 @@ public static class ProteinMotifFinder
         {
             int start = regionStart.Value;
             int end = hydropathy.Count - 1 + windowSize;
-            
+
             if (end - start >= 15)
             {
                 yield return (start, Math.Min(end, upper.Length - 1), maxScore);
@@ -582,7 +582,7 @@ public static class ProteinMotifFinder
             {
                 int start = regionStart.Value;
                 int end = i - 1 + windowSize / 2;
-                
+
                 if (end - start >= 10)
                 {
                     yield return (start, end, maxScore);
@@ -597,7 +597,7 @@ public static class ProteinMotifFinder
         {
             int start = regionStart.Value;
             int end = profile.Count - 1 + windowSize / 2;
-            
+
             if (end - start >= 10)
             {
                 yield return (start, Math.Min(end, upper.Length - 1), maxScore);
@@ -683,7 +683,7 @@ public static class ProteinMotifFinder
             {
                 int start = regionStart.Value;
                 int end = i - 1 + windowSize;
-                
+
                 if (end - start >= 21) // Minimum 3 heptads
                 {
                     yield return (start, Math.Min(end, upper.Length - 1), maxScore);
@@ -698,7 +698,7 @@ public static class ProteinMotifFinder
         {
             int start = regionStart.Value;
             int end = profile.Count - 1 + windowSize;
-            
+
             if (end - start >= 21)
             {
                 yield return (start, Math.Min(end, upper.Length - 1), maxScore);

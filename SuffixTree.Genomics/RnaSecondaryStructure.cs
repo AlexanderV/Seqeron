@@ -385,8 +385,8 @@ public static class RnaSecondaryStructure
 
         // Initialize
         for (int i = 0; i < n; i++)
-        for (int j = 0; j < n; j++)
-            dp[i, j] = 0;
+            for (int j = 0; j < n; j++)
+                dp[i, j] = 0;
 
         // Fill DP table
         for (int length = minLoopSize + 2; length <= n; length++)
