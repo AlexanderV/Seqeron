@@ -3,12 +3,12 @@ using NUnit.Framework;
 namespace SuffixTree.Genomics.Tests
 {
     /// <summary>
-    /// Test suite for ApproximateMatcher methods NOT covered by PAT-APPROX-001.
+    /// Test suite for ApproximateMatcher utility methods.
     /// 
-    /// PAT-APPROX-001 (Hamming Distance) tests are in: ApproximateMatcher_HammingDistance_Tests.cs
-    /// PAT-APPROX-002 (Edit Distance) tests are in this file (Edit Distance region)
+    /// PAT-APPROX-001 (Hamming Distance) tests: ApproximateMatcher_HammingDistance_Tests.cs
+    /// PAT-APPROX-002 (Edit Distance) tests: ApproximateMatcher_EditDistance_Tests.cs
     /// 
-    /// This file also contains tests for utility methods:
+    /// This file contains tests for utility methods:
     /// - FindBestMatch
     /// - CountApproximateOccurrences
     /// - FindFrequentKmersWithMismatches
@@ -16,91 +16,6 @@ namespace SuffixTree.Genomics.Tests
     [TestFixture]
     public class ApproximateMatcherTests
     {
-        #region Edit Distance (PAT-APPROX-002 scope)
-
-        [Test]
-        public void EditDistance_IdenticalStrings_ReturnsZero()
-        {
-            int distance = ApproximateMatcher.EditDistance("ACGT", "ACGT");
-            Assert.That(distance, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void EditDistance_OneSubstitution_ReturnsOne()
-        {
-            int distance = ApproximateMatcher.EditDistance("ACGT", "ACGG");
-            Assert.That(distance, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void EditDistance_OneInsertion_ReturnsOne()
-        {
-            int distance = ApproximateMatcher.EditDistance("ACGT", "ACGGT");
-            Assert.That(distance, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void EditDistance_OneDeletion_ReturnsOne()
-        {
-            int distance = ApproximateMatcher.EditDistance("ACGT", "ACT");
-            Assert.That(distance, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void EditDistance_EmptyAndNonEmpty_ReturnsLength()
-        {
-            Assert.That(ApproximateMatcher.EditDistance("", "ACGT"), Is.EqualTo(4));
-            Assert.That(ApproximateMatcher.EditDistance("ACGT", ""), Is.EqualTo(4));
-        }
-
-        [Test]
-        public void EditDistance_ComplexCase_CalculatesCorrectly()
-        {
-            // GATTACA → GCATGCU
-            // Requires: G→G, A→C, T→A, T→T, A→G, C→C, insert U
-            int distance = ApproximateMatcher.EditDistance("GATTACA", "GCATGCU");
-            Assert.That(distance, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void EditDistance_CaseInsensitive()
-        {
-            int distance = ApproximateMatcher.EditDistance("acgt", "ACGT");
-            Assert.That(distance, Is.EqualTo(0));
-        }
-
-        #endregion
-
-        #region Find With Edits (PAT-APPROX-002 scope)
-
-        [Test]
-        public void FindWithEdits_ExactMatch_Found()
-        {
-            var matches = ApproximateMatcher.FindWithEdits("ACGTACGT", "ACGT", 0).ToList();
-
-            Assert.That(matches, Has.Count.EqualTo(2));
-        }
-
-        [Test]
-        public void FindWithEdits_WithInsertion_Found()
-        {
-            // Looking for ACT in ACGT (G is inserted)
-            var matches = ApproximateMatcher.FindWithEdits("ACGT", "ACT", 1).ToList();
-
-            Assert.That(matches.Any(m => m.Distance == 1), Is.True);
-        }
-
-        [Test]
-        public void FindWithEdits_WithDeletion_Found()
-        {
-            // Looking for ACGGT in ACGT (G is deleted in sequence)
-            var matches = ApproximateMatcher.FindWithEdits("ACGT", "ACG", 1).ToList();
-
-            Assert.That(matches.Any(m => m.Distance == 0), Is.True);
-        }
-
-        #endregion
-
         #region Find Best Match (uses Hamming internally - utility method)
 
         [Test]
