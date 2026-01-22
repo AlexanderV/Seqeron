@@ -308,7 +308,7 @@ public static class ProbeDesigner
         int maxProbes = 5)
     {
         // Get reverse complement for antisense probes
-        string antisense = GetReverseComplement(mRnaSequence);
+        string antisense = DnaSequence.GetReverseComplementString(mRnaSequence);
 
         foreach (var probe in DesignProbes(antisense, parameters, maxProbes))
         {
@@ -359,7 +359,7 @@ public static class ProbeDesigner
 
         // Add stem sequences (GC-rich for stability)
         string stem5 = new string('G', stemLength / 2) + new string('C', stemLength - stemLength / 2);
-        string stem3 = GetReverseComplement(stem5);
+        string stem3 = DnaSequence.GetReverseComplementString(stem5);
 
         string beaconSequence = stem5 + bestLoop + stem3;
         double beaconTm = CalculateTm(bestLoop); // Loop Tm is target Tm
@@ -591,7 +591,7 @@ public static class ProbeDesigner
 
     private static double CalculateSelfComplementarity(string sequence)
     {
-        string revComp = GetReverseComplement(sequence);
+        string revComp = DnaSequence.GetReverseComplementString(sequence);
         int matches = 0;
 
         for (int i = 0; i < sequence.Length; i++)
@@ -614,7 +614,7 @@ public static class ProbeDesigner
             {
                 string left = sequence.Substring(i, stemLen);
                 string right = sequence.Substring(i + stemLen + 3, stemLen);
-                string rightRC = GetReverseComplement(right);
+                string rightRC = DnaSequence.GetReverseComplementString(right);
 
                 int matches = 0;
                 for (int j = 0; j < stemLen; j++)
@@ -655,32 +655,6 @@ public static class ProbeDesigner
         }
 
         return false;
-    }
-
-    private static string GetReverseComplement(string sequence)
-    {
-        var result = new char[sequence.Length];
-
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            char c = sequence[sequence.Length - 1 - i];
-            result[i] = c switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                'a' => 't',
-                't' => 'a',
-                'g' => 'c',
-                'c' => 'g',
-                'U' => 'A',
-                'u' => 'a',
-                _ => 'N'
-            };
-        }
-
-        return new string(result);
     }
 
     private static IEnumerable<int> FindApproximateMatches(

@@ -162,7 +162,7 @@ public static class RestrictionAnalyzer
         }
 
         // Check reverse strand (complement sequence)
-        string revComp = GetReverseComplement(seq);
+        string revComp = DnaSequence.GetReverseComplementString(seq);
         for (int i = 0; i <= revComp.Length - pattern.Length; i++)
         {
             if (MatchesPattern(revComp, i, pattern))
@@ -441,27 +441,6 @@ public static class RestrictionAnalyzer
                 Math.Abs(cutDiff)),
             _ => ""
         };
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static string GetReverseComplement(string sequence)
-    {
-        var complement = new char[sequence.Length];
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            complement[sequence.Length - 1 - i] = sequence[i] switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                _ => sequence[i]
-            };
-        }
-        return new string(complement);
     }
 
     #endregion

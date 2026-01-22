@@ -307,7 +307,7 @@ namespace SuffixTree.Genomics
                 return false;
 
             var seq = sequence.ToUpperInvariant();
-            var revComp = GetReverseComplement(seq);
+            var revComp = DnaSequence.GetReverseComplementString(seq);
 
             // Check for self-complementary regions
             for (int i = 0; i <= seq.Length - minStemLength; i++)
@@ -334,7 +334,7 @@ namespace SuffixTree.Genomics
                 return false;
 
             var seq1 = primer1.ToUpperInvariant();
-            var seq2 = GetReverseComplement(primer2.ToUpperInvariant());
+            var seq2 = DnaSequence.GetReverseComplementString(primer2.ToUpperInvariant());
 
             // Check 3' end complementarity (most problematic for extension)
             int checkLength = Math.Min(8, Math.Min(seq1.Length, seq2.Length));
@@ -446,23 +446,6 @@ namespace SuffixTree.Genomics
             }
 
             return Math.Max(0, score);
-        }
-
-        private static string GetReverseComplement(string sequence)
-        {
-            var sb = new StringBuilder(sequence.Length);
-            for (int i = sequence.Length - 1; i >= 0; i--)
-            {
-                sb.Append(sequence[i] switch
-                {
-                    'A' => 'T',
-                    'T' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => sequence[i]
-                });
-            }
-            return sb.ToString();
         }
 
         private static string Reverse(string s)

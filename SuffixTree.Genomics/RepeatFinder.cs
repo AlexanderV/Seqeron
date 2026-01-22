@@ -194,7 +194,7 @@ public static class RepeatFinder
             for (int armLen = minArmLength; i + armLen <= seq.Length; armLen++)
             {
                 string leftArm = seq.Substring(i, armLen);
-                string leftArmRevComp = GetReverseComplement(leftArm);
+                string leftArmRevComp = DnaSequence.GetReverseComplementString(leftArm);
 
                 // Search for right arm
                 int minJ = i + armLen + minLoopLength;
@@ -229,23 +229,6 @@ public static class RepeatFinder
                 }
             }
         }
-    }
-
-    private static string GetReverseComplement(string sequence)
-    {
-        var complement = new char[sequence.Length];
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            complement[sequence.Length - 1 - i] = sequence[i] switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                _ => sequence[i]
-            };
-        }
-        return new string(complement);
     }
 
     #endregion
@@ -416,7 +399,7 @@ public static class RepeatFinder
             for (int i = 0; i <= seq.Length - len; i++)
             {
                 string candidate = seq.Substring(i, len);
-                string revComp = GetReverseComplement(candidate);
+                string revComp = DnaSequence.GetReverseComplementString(candidate);
 
                 if (candidate == revComp)
                 {
