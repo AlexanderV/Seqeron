@@ -73,8 +73,13 @@ namespace SuffixTree.Genomics.Tests
             Assert.That(positions, Has.Count.EqualTo(2));
         }
 
+        // Note: Comprehensive Palindrome Detection tests are in RepeatFinder_Palindrome_Tests.cs
+        // See Test Unit REP-PALIN-001
+        // These are minimal smoke tests for GenomicAnalyzer.FindPalindromes API
+
         [Test]
-        public void FindPalindromes_EcoRI_FindsIt()
+        [Description("Smoke test: GenomicAnalyzer.FindPalindromes finds EcoRI site")]
+        public void FindPalindromes_EcoRI_SmokeTest()
         {
             // EcoRI site: GAATTC (is a palindrome in DNA sense)
             var dna = new DnaSequence("AAAGAATTCAAA");
@@ -82,17 +87,17 @@ namespace SuffixTree.Genomics.Tests
 
             Assert.That(palindromes, Has.Count.EqualTo(1));
             Assert.That(palindromes[0].Sequence, Is.EqualTo("GAATTC"));
-            Assert.That(palindromes[0].Position, Is.EqualTo(3));
         }
 
         [Test]
-        public void FindPalindromes_MultipleSites_FindsAll()
+        [Description("Smoke test: GenomicAnalyzer.FindPalindromes finds multiple sites")]
+        public void FindPalindromes_MultipleSites_SmokeTest()
         {
             // Two restriction sites
             var dna = new DnaSequence("GAATTCAAAAGAATTC");
             var palindromes = GenomicAnalyzer.FindPalindromes(dna, minLength: 6, maxLength: 6).ToList();
 
-            Assert.That(palindromes.Count(p => p.Sequence == "GAATTC"), Is.EqualTo(2));
+            Assert.That(palindromes, Has.Count.EqualTo(2));
         }
 
         [Test]
