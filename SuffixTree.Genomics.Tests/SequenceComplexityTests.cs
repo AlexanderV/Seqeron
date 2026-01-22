@@ -37,20 +37,103 @@ public class SequenceComplexityTests
     }
 
     [Test]
-    public void CalculateLinguisticComplexity_RangeIsZeroToOne()
+    public void CalculateLinguisticComplexity_RangeIsZeroToOne_ForMultipleSequences()
     {
-        var sequence = new DnaSequence("ATGCATGCATGC");
-        double lc = SequenceComplexity.CalculateLinguisticComplexity(sequence);
+        // Range invariant: 0 ≤ LC ≤ 1 for all valid inputs
+        // Source: Troyanskaya et al. (2002), mathematical definition
+        var testSequences = new[]
+        {
+            "A",                           // Single nucleotide
+            "AAAA",                        // Homopolymer
+            "ATGC",                        // All bases once
+            "ATGCATGCATGC",               // Repeated pattern
+            "ATGCTAGCATGCAATGCTAGCATGC",  // Random-like
+            new string('A', 100),          // Long homopolymer
+            string.Concat(Enumerable.Repeat("ATGC", 25))  // Long varied
+        };
 
-        Assert.That(lc, Is.GreaterThanOrEqualTo(0));
+        Assert.Multiple(() =>
+        {
+            foreach (string seq in testSequences)
+            {
+                double lc = SequenceComplexity.CalculateLinguisticComplexity(seq);
+                Assert.That(lc, Is.GreaterThanOrEqualTo(0), $"LC < 0 for sequence: {seq[..Math.Min(20, seq.Length)]}...");
+                Assert.That(lc, Is.LessThanOrEqualTo(1), $"LC > 1 for sequence: {seq[..Math.Min(20, seq.Length)]}...");
+            }
+        });
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_StringOverload_MatchesDnaSequenceOverload()
+    {
+        // API consistency: string overload should produce same result as DnaSequence
+        const string sequence = "ATGCTAGCATGCAATG";
+        var dnaSeq = new DnaSequence(sequence);
+
+        double lcString = SequenceComplexity.CalculateLinguisticComplexity(sequence);
+        double lcDna = SequenceComplexity.CalculateLinguisticComplexity(dnaSeq);
+
+        Assert.That(lcString, Is.EqualTo(lcDna).Within(1e-10));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_SingleNucleotide_ReturnsPositiveValue()
+    {
+        // Single nucleotide has vocabulary of size 1 at word length 1
+        // Source: Definition - vocabulary exists
+        double lc = SequenceComplexity.CalculateLinguisticComplexity("A");
+
+        Assert.That(lc, Is.GreaterThan(0));
         Assert.That(lc, Is.LessThanOrEqualTo(1));
     }
 
     [Test]
-    public void CalculateLinguisticComplexity_StringOverload_Works()
+    public void CalculateLinguisticComplexity_DinucleotideRepeat_LowerThanRandom()
     {
-        double lc = SequenceComplexity.CalculateLinguisticComplexity("ATGCATGC");
-        Assert.That(lc, Is.GreaterThan(0));
+        // Repetitive dinucleotide pattern has reduced vocabulary
+        // Source: Orlov & Potapov (2004) - repetitive patterns have lower complexity
+        string repetitive = string.Concat(Enumerable.Repeat("AT", 20)); // ATATATATAT...
+        string varied = "ATGCTAGCATGCAATGCTAGCATGCAATGCTAGCAT";
+
+        double lcRepetitive = SequenceComplexity.CalculateLinguisticComplexity(repetitive);
+        double lcVaried = SequenceComplexity.CalculateLinguisticComplexity(varied);
+
+        Assert.That(lcRepetitive, Is.LessThan(lcVaried));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_MaxWordLengthParameter_AffectsResult()
+    {
+        // maxWordLength parameter controls vocabulary depth
+        var sequence = new DnaSequence("ATGCTAGCATGCAATGCTAGC");
+
+        double lc2 = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 2);
+        double lc5 = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 5);
+        double lc10 = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 10);
+
+        // Different maxWordLength values should produce different results
+        // (unless sequence is too short to see the difference)
+        Assert.That(lc2, Is.Not.EqualTo(lc10).Within(1e-10));
+        Assert.That(lc5, Is.Not.EqualTo(lc10).Within(1e-10));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_LowercaseInput_HandledCorrectly()
+    {
+        // Case insensitivity for robustness
+        const string upper = "ATGCTAGCATGC";
+        const string lower = "atgctagcatgc";
+        const string mixed = "AtGcTaGcAtGc";
+
+        double lcUpper = SequenceComplexity.CalculateLinguisticComplexity(upper);
+        double lcLower = SequenceComplexity.CalculateLinguisticComplexity(lower);
+        double lcMixed = SequenceComplexity.CalculateLinguisticComplexity(mixed);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lcLower, Is.EqualTo(lcUpper).Within(1e-10));
+            Assert.That(lcMixed, Is.EqualTo(lcUpper).Within(1e-10));
+        });
     }
 
     #endregion
@@ -358,6 +441,32 @@ public class SequenceComplexityTests
         var sequence = new DnaSequence("ATGC");
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: 0));
+    }
+
+    [Test]
+    public void CalculateLinguisticComplexity_NegativeWordLength_ThrowsException()
+    {
+        var sequence = new DnaSequence("ATGC");
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength: -1));
+    }
+
+    [Test]
+    public void FindLowComplexityRegions_InvalidWindowSize_ThrowsException()
+    {
+        var sequence = new DnaSequence("ATGCATGCATGC");
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 0).ToList());
+    }
+
+    [Test]
+    public void MaskLowComplexity_ResultLengthEqualsInputLength()
+    {
+        // Invariant: masked sequence length equals input length
+        var sequence = new DnaSequence(new string('A', 100) + "ATGCTAGCATGCAATG");
+        string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 1.0);
+
+        Assert.That(masked.Length, Is.EqualTo(sequence.Length));
     }
 
     [Test]

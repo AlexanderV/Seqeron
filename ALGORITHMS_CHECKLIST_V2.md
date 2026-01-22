@@ -11,10 +11,10 @@
 | Метрика | Значение |
 |---------|----------|
 | **Total Test Units** | 100 |
-| **Completed** | 4 |
+| **Completed** | 5 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 96 |
+| **Not Started** | 95 |
 
 ---
 
@@ -26,7 +26,7 @@
 | ☑ | SEQ-COMP-001 | Composition | 3 | Wikipedia, Biopython | [SEQ-COMP-001.md](TestSpecs/SEQ-COMP-001.md) | SequenceExtensions_Complement_Tests.cs |
 | ☑ | SEQ-REVCOMP-001 | Composition | 4 | Wikipedia, Biopython | [SEQ-REVCOMP-001.md](TestSpecs/SEQ-REVCOMP-001.md) | SequenceExtensions_ReverseComplement_Tests.cs |
 | ☑ | SEQ-VALID-001 | Composition | 4 | Wikipedia, IUPAC 1970, Bioinformatics.org | [SEQ-VALID-001.md](TestSpecs/SEQ-VALID-001.md) | SequenceExtensions_SequenceValidation_Tests.cs |
-| ☐ | SEQ-COMPLEX-001 | Composition | 4 | - | - | - |
+| ☑ | SEQ-COMPLEX-001 | Composition | 4 | Wikipedia, Troyanskaya (2002), Orlov (2004) | [SEQ-COMPLEX-001.md](TestSpecs/SEQ-COMPLEX-001.md) | SequenceComplexityTests.cs |
 | ☐ | SEQ-ENTROPY-001 | Composition | 2 | - | - | - |
 | ☐ | SEQ-GCSKEW-001 | Composition | 4 | - | - | - |
 | ☐ | PAT-EXACT-001 | Matching | 4 | - | - | - |
