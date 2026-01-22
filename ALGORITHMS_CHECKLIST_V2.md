@@ -11,10 +11,10 @@
 | Метрика | Значение |
 |---------|----------|
 | **Total Test Units** | 100 |
-| **Completed** | 7 |
+| **Completed** | 8 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 93 |
+| **Not Started** | 92 |
 
 ---
 
@@ -29,7 +29,7 @@
 | ☑ | SEQ-COMPLEX-001 | Composition | 4 | Wikipedia, Troyanskaya (2002), Orlov (2004) | [SEQ-COMPLEX-001.md](TestSpecs/SEQ-COMPLEX-001.md) | SequenceComplexityTests.cs |
 | ☑ | SEQ-ENTROPY-001 | Composition | 2 | Wikipedia (Entropy, Sequence logo, K-mer), Shannon (1948) | [SEQ-ENTROPY-001.md](TestSpecs/SEQ-ENTROPY-001.md) | SequenceComplexityTests.cs |
 | ☑ | SEQ-GCSKEW-001 | Composition | 4 | Wikipedia, Lobry (1996), Grigoriev (1998) | [SEQ-GCSKEW-001.md](TestSpecs/SEQ-GCSKEW-001.md) | GcSkewCalculatorTests.cs |
-| ☐ | PAT-EXACT-001 | Matching | 4 | - | - | - |
+| ☑ | PAT-EXACT-001 | Matching | 4 | Wikipedia, Gusfield (1997), Rosalind | [PAT-EXACT-001.md](TestSpecs/PAT-EXACT-001.md) | FindAllOccurrencesTests.cs, ContainsTests.cs, CountOccurrencesTests.cs |
 | ☐ | PAT-APPROX-001 | Matching | 2 | - | - | - |
 | ☐ | PAT-APPROX-002 | Matching | 2 | - | - | - |
 | ☐ | PAT-IUPAC-001 | Matching | 2 | - | - | - |

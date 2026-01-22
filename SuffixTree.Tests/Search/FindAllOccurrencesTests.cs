@@ -138,6 +138,41 @@ namespace SuffixTree.Tests.Search
             });
         }
 
+        /// <summary>
+        /// Classic test case from Gusfield (1997) "Algorithms on Strings, Trees and Sequences".
+        /// The "mississippi" string is a standard benchmark for suffix tree algorithms.
+        /// </summary>
+        [Test]
+        public void FindAll_Mississippi_IssiPattern_FindsOverlappingOccurrences()
+        {
+            // Source: Gusfield (1997), p.92
+            var st = SuffixTree.Build("mississippi");
+
+            var result = st.FindAllOccurrences("issi").OrderBy(x => x).ToList();
+
+            Assert.That(result, Is.EqualTo(new[] { 1, 4 }), "'issi' occurs at positions 1 and 4");
+        }
+
+        /// <summary>
+        /// Test case from Rosalind bioinformatics platform (SUBS problem).
+        /// Demonstrates overlapping occurrences in DNA sequence context.
+        /// Source: https://rosalind.info/problems/subs/
+        /// </summary>
+        [Test]
+        public void FindAll_RosalindSubs_FindsOverlappingDnaMotif()
+        {
+            // Rosalind SUBS problem: find all occurrences of motif in DNA string
+            // Note: Rosalind uses 1-indexed positions; we use 0-indexed
+            var st = SuffixTree.Build("GATATATGCATATACTT");
+
+            var result = st.FindAllOccurrences("ATAT").OrderBy(x => x).ToList();
+
+            // Rosalind output (1-indexed): 2, 4, 10
+            // Our output (0-indexed): 1, 3, 9
+            Assert.That(result, Is.EqualTo(new[] { 1, 3, 9 }),
+                "ATAT occurs at positions 1, 3, 9 (0-indexed); Rosalind expects 2, 4, 10 (1-indexed)");
+        }
+
         #endregion
 
         #region No Occurrences
