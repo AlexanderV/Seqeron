@@ -14,11 +14,13 @@ Primer structure analysis evaluates PCR primers for secondary structure formatio
 
 | Method | Description | Complexity |
 |--------|-------------|------------|
-| `HasHairpinPotential(seq, minStemLength)` | Detects self-complementary regions that can form hairpin structures | O(m²) |
+| `HasHairpinPotential(seq, minStemLength, minLoopLength)` | Detects self-complementary regions that can form hairpin structures | O(n²) for <100bp, O(n) for ≥100bp* |
 | `HasPrimerDimer(primer1, primer2, minComp)` | Detects 3' end complementarity between primers | O(n) |
 | `Calculate3PrimeStability(seq)` | Calculates ΔG of the 3' pentamer using nearest-neighbor thermodynamics | O(1) |
 | `FindLongestHomopolymer(seq)` | Finds longest mononucleotide repeat (e.g., AAAA) | O(n) |
 | `FindLongestDinucleotideRepeat(seq)` | Finds longest dinucleotide repeat (e.g., ATATAT) | O(n) |
+
+*Uses suffix tree optimization for long sequences (≥100bp)
 
 ## Theory
 
@@ -74,10 +76,24 @@ Alternating dinucleotide patterns (e.g., ATATAT, GCGCGC):
 
 ### Hairpin Detection Algorithm
 
-The implementation checks for self-complementary regions:
+The implementation uses two strategies based on sequence length:
+
+#### Simple Algorithm (for sequences <100bp)
+O(n²) nested loop approach optimized for short primers:
 1. Extract fragment of minStemLength at position i
-2. Search for complementary sequence at position j ≥ i + minStemLength + 3 (loop)
+2. Search for complementary sequence at position j ≥ i + minStemLength + minLoopLength
 3. Compare fragment against reverse of target for complementarity
+
+#### Suffix Tree Algorithm (for sequences ≥100bp)
+O(n) approach using the SuffixTree library:
+1. Build suffix tree on sequence: O(n)
+2. Compute reverse complement of sequence
+3. For each position p in revComp, search for stems via `FindAllOccurrences`: O(m + k)
+4. Check loop constraint: j ≥ i + stemLength + loopLength
+5. Position mapping: position p in revComp corresponds to position (n - p - stemLength) in original
+
+**Break-even point:** ~100bp based on suffix tree construction overhead vs O(n²) iterations.
+For typical PCR primers (18-25bp), the simple algorithm is faster.
 
 ### Primer-Dimer Detection Algorithm
 

@@ -13,13 +13,15 @@
 
 ## Methods Under Test
 
-| Method | Class | Type | Test Depth |
+| Method | Class | Type | Complexity |
 |--------|-------|------|------------|
-| `HasHairpinPotential(seq, minStemLength)` | PrimerDesigner | Canonical | Deep |
-| `HasPrimerDimer(primer1, primer2, minComp)` | PrimerDesigner | Canonical | Deep |
-| `Calculate3PrimeStability(seq)` | PrimerDesigner | Canonical | Deep |
-| `FindLongestHomopolymer(seq)` | PrimerDesigner | Canonical | Deep |
-| `FindLongestDinucleotideRepeat(seq)` | PrimerDesigner | Canonical | Deep |
+| `HasHairpinPotential(seq, minStemLength, minLoopLength)` | PrimerDesigner | Canonical | O(n²) <100bp, O(n) ≥100bp* |
+| `HasPrimerDimer(primer1, primer2, minComp)` | PrimerDesigner | Canonical | O(n) |
+| `Calculate3PrimeStability(seq)` | PrimerDesigner | Canonical | O(1) |
+| `FindLongestHomopolymer(seq)` | PrimerDesigner | Canonical | O(n) |
+| `FindLongestDinucleotideRepeat(seq)` | PrimerDesigner | Canonical | O(n) |
+
+*Uses suffix tree optimization for long sequences (≥100bp)
 
 ## Evidence Sources
 
