@@ -2,14 +2,14 @@
 
 ## Overview
 
-Библиотека интеграций для SuffixTree.Genomics, обеспечивающая подключение к внешним биоинформатическим базам данных, веб-сервисам и парсинг структурных форматов.
+Integration library for SuffixTree.Genomics, providing connections to external bioinformatics databases, web services, and structural format parsing.
 
-**Цели:**
-- Clean Architecture с четким разделением слоев
-- Dependency Injection для всех внешних зависимостей
-- Характеристические тесты (contract tests) для внешних API
+**Goals:**
+- Clean Architecture with clear layer separation
+- Dependency Injection for all external dependencies
+- Contract tests for external APIs
 - Resilience patterns (retry, circuit breaker, timeout)
-- Полная поддержка async/await и CancellationToken
+- Full async/await and CancellationToken support
 
 ---
 
@@ -202,7 +202,7 @@ SuffixTree.Genomics.Integration.Tests/
 │   └── Caching/
 │       └── CacheKeyGeneratorTests.cs
 │
-├── Contract/                              # Характеристические тесты API контрактов
+├── Contract/                              # API contract tests
 │   ├── Ncbi/
 │   │   ├── NcbiBlastContractTests.cs     # BLAST API response schema
 │   │   ├── NcbiEntrezContractTests.cs    # Entrez response schema
@@ -306,17 +306,17 @@ SuffixTree.Genomics.Integration.Tests.csproj
 ```
 
 **Tests (5):**
-- [ ] ProjectCompilationTests.cs — проект компилируется без ошибок
+- [ ] ProjectCompilationTests.cs — project compiles without errors
 
 ---
 
 ### 1.2 Core Abstractions
 
 **Tasks:**
-- [ ] `IIntegrationClient` — базовый интерфейс для всех клиентов
-- [ ] `Result<T>` — результат операции (success/failure pattern)
-- [ ] `IntegrationException` — иерархия исключений
-- [ ] `DatabaseIdentifier` — унифицированный идентификатор
+- [ ] `IIntegrationClient` — base interface for all clients
+- [ ] `Result<T>` — operation result (success/failure pattern)
+- [ ] `IntegrationException` — exception hierarchy
+- [ ] `DatabaseIdentifier` — unified identifier
 
 **Files:**
 ```
@@ -393,13 +393,13 @@ public readonly struct Result<T>
 ### 2.1 BLAST Domain Models
 
 **Tasks:**
-- [ ] `BlastProgram` — enum программ BLAST
-- [ ] `BlastDatabase` — enum баз данных
-- [ ] `BlastQuery` — параметры запроса
-- [ ] `BlastResult` — контейнер результата
-- [ ] `BlastHit` — одно совпадение
+- [ ] `BlastProgram` — BLAST program enum
+- [ ] `BlastDatabase` — database enum
+- [ ] `BlastQuery` — query parameters
+- [ ] `BlastResult` — result container
+- [ ] `BlastHit` — single hit
 - [ ] `BlastHsp` — High-scoring Segment Pair
-- [ ] `BlastStatistics` — статистика
+- [ ] `BlastStatistics` — statistics
 
 **Files:**
 ```
@@ -466,9 +466,9 @@ public readonly record struct BlastHsp(
 ### 2.2 BLAST Client Interface & Implementation
 
 **Tasks:**
-- [ ] `IBlastClient` — интерфейс
-- [ ] `NcbiBlastClient` — реализация NCBI BLAST REST API
-- [ ] `BlastXmlParser` — парсер XML ответа
+- [ ] `IBlastClient` — interface
+- [ ] `NcbiBlastClient` — implementation NCBI BLAST REST API
+- [ ] `BlastXmlParser` — XML response parser
 - [ ] Retry/timeout policies
 
 **Files:**
@@ -587,9 +587,9 @@ public enum BlastJobStatus
 ### 2.3 BLAST Service (Orchestration)
 
 **Tasks:**
-- [ ] `BlastService` — высокоуровневый сервис
-- [ ] Интеграция с `DnaSequence` и `ProteinSequence`
-- [ ] Extension methods для fluent API
+- [ ] `BlastService` — high-level service
+- [ ] Integration with `DnaSequence` and `ProteinSequence`
+- [ ] Extension methods for fluent API
 
 **Files:**
 ```
@@ -654,10 +654,10 @@ public static class DnaSequenceExtensions
 ### 3.1 Entrez Domain Models
 
 **Tasks:**
-- [ ] `EntrezDatabase` — enum баз данных
-- [ ] `EntrezRecord` — GenBank/RefSeq запись
-- [ ] `SequenceFeature` — аннотации (CDS, gene, etc.)
-- [ ] `CrossReference` — перекрестные ссылки
+- [ ] `EntrezDatabase` — database enum
+- [ ] `EntrezRecord` — GenBank/RefSeq record
+- [ ] `SequenceFeature` — annotations (CDS, gene, etc.)
+- [ ] `CrossReference` — cross-references
 
 **Files:**
 ```
@@ -733,10 +733,10 @@ public sealed class SequenceFeature
 ### 3.2 Entrez Client Interface & Implementation
 
 **Tasks:**
-- [ ] `IEntrezClient` — интерфейс E-utilities
-- [ ] `NcbiEntrezClient` — реализация
-- [ ] `GenBankParser` — парсер GenBank формата
-- [ ] Rate limiting (NCBI требует max 3 req/sec без API key, 10/sec с key)
+- [ ] `IEntrezClient` — interface E-utilities
+- [ ] `NcbiEntrezClient` — implementation
+- [ ] `GenBankParser` — GenBank format parser
+- [ ] Rate limiting (NCBI requires max 3 req/sec without API key, 10/sec with key)
 
 **Files:**
 ```
@@ -863,9 +863,9 @@ public sealed class EntrezSearchResult
 ### 3.3 Sequence Fetch Service
 
 **Tasks:**
-- [ ] `SequenceFetchService` — унифицированный сервис
-- [ ] Конвертация `EntrezRecord` → `DnaSequence`/`ProteinSequence`
-- [ ] Batch операции с throttling
+- [ ] `SequenceFetchService` — unified service
+- [ ] Convert `EntrezRecord` → `DnaSequence`/`ProteinSequence`
+- [ ] Batch operations with throttling
 
 **Files:**
 ```
@@ -884,10 +884,10 @@ Services/
 ### 4.1 UniProt Domain Models
 
 **Tasks:**
-- [ ] `UniProtEntry` — полная запись UniProt
-- [ ] `UniProtFeature` — аннотации (domains, sites, etc.)
-- [ ] `GoAnnotation` — Gene Ontology термины
-- [ ] `ProteinEvidence` — уровень доказательности
+- [ ] `UniProtEntry` — complete UniProt entry
+- [ ] `UniProtFeature` — annotations (domains, sites, etc.)
+- [ ] `GoAnnotation` — Gene Ontology terms
+- [ ] `ProteinEvidence` — evidence level
 
 **Files:**
 ```
@@ -969,10 +969,10 @@ public enum UniProtFeatureType
 ### 4.2 UniProt Client
 
 **Tasks:**
-- [ ] `IUniProtClient` — интерфейс
-- [ ] `UniProtClient` — реализация REST API
-- [ ] `UniProtXmlParser` — парсер XML
-- [ ] `UniProtTxtParser` — парсер текстового формата
+- [ ] `IUniProtClient` — interface
+- [ ] `UniProtClient` — implementation REST API
+- [ ] `UniProtXmlParser` — XML parser
+- [ ] `UniProtTxtParser` — text format parser
 
 **Files:**
 ```
@@ -1041,10 +1041,10 @@ public interface IUniProtClient : IIntegrationClient
 ### 5.1 Ensembl Domain Models
 
 **Tasks:**
-- [ ] `EnsemblGene` — ген
-- [ ] `EnsemblTranscript` — транскрипт
-- [ ] `EnsemblExon` — экзон
-- [ ] `EnsemblVariant` — вариант
+- [ ] `EnsemblGene` — gene
+- [ ] `EnsemblTranscript` — transcript
+- [ ] `EnsemblExon` — exon
+- [ ] `EnsemblVariant` — variant
 
 **Files:**
 ```
@@ -1066,9 +1066,9 @@ Domain/Sequences/
 ### 5.2 Ensembl Client
 
 **Tasks:**
-- [ ] `IEnsemblClient` — интерфейс
-- [ ] `EnsemblClient` — реализация REST API
-- [ ] `EnsemblJsonParser` — парсер JSON
+- [ ] `IEnsemblClient` — interface
+- [ ] `EnsemblClient` — implementation REST API
+- [ ] `EnsemblJsonParser` — JSON parser
 
 **Files:**
 ```
@@ -1138,11 +1138,11 @@ public interface IEnsemblClient : IIntegrationClient
 ### 6.1 Structure Domain Models
 
 **Tasks:**
-- [ ] `ProteinStructure` — 3D структура
-- [ ] `Chain` — цепь
-- [ ] `Residue` — остаток
-- [ ] `Atom` — атом с координатами
-- [ ] `SecondaryStructureElement` — вторичная структура
+- [ ] `ProteinStructure` — 3D structure
+- [ ] `Chain` — chain
+- [ ] `Residue` — residue
+- [ ] `Atom` — atom with coordinates
+- [ ] `SecondaryStructureElement` — secondary structure
 
 **Files:**
 ```
@@ -1247,9 +1247,9 @@ public enum ExperimentalMethod
 ### 6.2 PDB File Parser
 
 **Tasks:**
-- [ ] `PdbFileParser` — парсер legacy PDB формата
-- [ ] `MmCifParser` — парсер mmCIF формата
-- [ ] `StructureValidator` — валидация
+- [ ] `PdbFileParser` — legacy PDB format parser
+- [ ] `MmCifParser` — mmCIF format parser
+- [ ] `StructureValidator` — validation
 
 **Files:**
 ```
@@ -1348,9 +1348,9 @@ public interface IStructureParser
 ### 6.3 RCSB PDB Client
 
 **Tasks:**
-- [ ] `IRcsbPdbClient` — интерфейс
-- [ ] `RcsbPdbClient` — реализация REST API
-- [ ] Поиск структур по последовательности
+- [ ] `IRcsbPdbClient` — interface
+- [ ] `RcsbPdbClient` — implementation REST API
+- [ ] Search structures by sequence
 
 **Files:**
 ```
@@ -1436,9 +1436,9 @@ public sealed class PdbSearchHit
 ### 6.4 Structure Service
 
 **Tasks:**
-- [ ] `StructureService` — высокоуровневый сервис
-- [ ] Интеграция с `ProteinSequence`
-- [ ] Кэширование структур
+- [ ] `StructureService` — high-level service
+- [ ] Integration with `ProteinSequence`
+- [ ] Structure caching
 - [ ] Extension methods
 
 **Files:**
@@ -1558,9 +1558,9 @@ public sealed class ResilienceOptions
 ### 7.2 Caching Infrastructure
 
 **Tasks:**
-- [ ] `MemoryCacheProvider` — in-memory кэш
-- [ ] `FileCacheProvider` — файловый кэш для структур
-- [ ] `CacheKeyGenerator` — генерация ключей
+- [ ] `MemoryCacheProvider` — in-memory cache
+- [ ] `FileCacheProvider` — file cache for structures
+- [ ] `CacheKeyGenerator` — key generation
 - [ ] Cache invalidation policies
 
 **Files:**
@@ -1582,7 +1582,7 @@ Caching/
 ### 7.3 Dependency Injection Setup
 
 **Tasks:**
-- [ ] `ServiceCollectionExtensions` — регистрация сервисов
+- [ ] `ServiceCollectionExtensions` — service registration
 - [ ] Configuration binding
 - [ ] Health checks registration
 
@@ -1664,7 +1664,7 @@ public static class ServiceCollectionExtensions
 ### 8.1 ID Mapping Service
 
 **Tasks:**
-- [ ] `CrossReferenceService` — маппинг между базами данных
+- [ ] `CrossReferenceService` — database ID mapping
 - [ ] UniProt ID mapping API
 - [ ] NCBI ID converter
 - [ ] Ensembl xrefs
@@ -1750,9 +1750,9 @@ public enum DatabaseType
 ### Test Categories
 
 ```
-[Category("Unit")]        - 225 tests (быстрые, изолированные)
-[Category("Contract")]    - 38 tests (проверка схемы ответов)
-[Category("Integration")] - 39 tests (реальные API, требуют сети)
+[Category("Unit")]        - 225 tests (fast, isolated)
+[Category("Contract")]    - 38 tests (response schema validation)
+[Category("Integration")] - 39 tests (real APIs, require network)
 ```
 
 ### CI/CD Configuration
@@ -1770,22 +1770,22 @@ public enum DatabaseType
 
 ---
 
-### Definition of Done (для каждого компонента)
+### Definition of Done (per component)
 
-- [ ] Реализация с XML документацией
+- [ ] Implementation with XML documentation
 - [ ] Nullable annotations
-- [ ] Unit тесты (min 5 на компонент)
-- [ ] Contract тесты для внешних API
-- [ ] Integration тесты (помечены `[Category("Integration")]`)
+- [ ] Unit tests (min 5 per component)
+- [ ] Contract tests for external APIs
+- [ ] Integration tests (marked `[Category("Integration")]`)
 - [ ] Async/await + CancellationToken support
 - [ ] Resilience (retry, timeout, circuit breaker)
-- [ ] Caching где применимо
-- [ ] Logging через ILogger<T>
-- [ ] Примеры использования в XML docs
+- [ ] Caching where applicable
+- [ ] Logging via ILogger<T>
+- [ ] Usage examples in XML docs
 
 ---
 
-### Quick Start (после реализации)
+### Quick Start (after implementation)
 
 ```csharp
 // Program.cs

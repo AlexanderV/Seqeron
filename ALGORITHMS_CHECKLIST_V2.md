@@ -1,15 +1,15 @@
 # Algorithms Checklist v2.0
 
-**Дата:** 2026-01-22
-**Версия:** 2.1 (100% Coverage)
-**Библиотека:** SuffixTree.Genomics
+**Date:** 2026-01-22
+**Version:** 2.1 (100% Coverage)
+**Library:** SuffixTree.Genomics
 
 ---
 
 ## Quick Reference
 
-| Метрика | Значение |
-|---------|----------|
+| Metric | Value |
+|--------|-------|
 | **Total Test Units** | 100 |
 | **Completed** | 8 |
 | **In Progress** | 0 |
@@ -130,35 +130,35 @@
 | ☐ | QUALITY-PHRED-001 | Quality | 3 | - | - | - |
 | ☐ | QUALITY-STATS-001 | Quality | 2 | - | - | - |
 
-**Статусы:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
+**Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
 ---
 
 ## Definition of Done (DoD)
 
-### Обязательные критерии
+### Required Criteria
 
-| # | Критерий | Артефакт |
-|---|----------|----------|
-| 1 | TestSpec создан | `TestSpecs/{TestUnitID}.md` |
-| 2 | Тесты написаны | `*.Tests/{Class}_{Method}_Tests.cs` |
-| 3 | Покрытие веток ≥ 80% | Coverage report |
-| 4 | Edge cases покрыты | null, empty, boundary, error |
-| 5 | Тесты проходят | CI green |
-| 6 | Evidence задокументирован | PR/commit link в Registry |
+| # | Criterion | Artifact |
+|---|-----------|----------|
+| 1 | TestSpec created | `TestSpecs/{TestUnitID}.md` |
+| 2 | Tests written | `*.Tests/{Class}_{Method}_Tests.cs` |
+| 3 | Branch coverage ≥ 80% | Coverage report |
+| 4 | Edge cases covered | null, empty, boundary, error |
+| 5 | Tests pass | CI green |
+| 6 | Evidence documented | PR/commit link in Registry |
 
-### Критерии качества тестов
+### Test Quality Criteria
 
-- [ ] Тесты независимы (не зависят от порядка)
-- [ ] Тесты детерминированы (без random без seed)
+- [ ] Tests are independent (order-independent)
+- [ ] Tests are deterministic (no random without seed)
 - [ ] Naming: `Method_Scenario_ExpectedResult`
-- [ ] Структура: Arrange-Act-Assert
-- [ ] Один assert на логическую проверку
+- [ ] Structure: Arrange-Act-Assert
+- [ ] One assert per logical check
 
-### Для алгоритмов O(n²) и выше
+### For O(n²) and Higher Algorithms
 
-- [ ] Property-based test для инварианта
-- [ ] Performance baseline зафиксирован
+- [ ] Property-based test for invariant
+- [ ] Performance baseline recorded
 
 ---
 
@@ -168,14 +168,14 @@
 
 #### SEQ-GC-001: GC Content Calculation
 
-| Поле | Значение |
-|------|----------|
+| Field | Value |
+|-------|-------|
 | **Canonical** | `SequenceExtensions.CalculateGcContent(ReadOnlySpan<char>)` |
 | **Complexity** | O(n) |
-| **Invariant** | 0 ≤ result ≤ 100 (percentage) или 0 ≤ result ≤ 1 (fraction) |
+| **Invariant** | 0 ≤ result ≤ 100 (percentage) or 0 ≤ result ≤ 1 (fraction) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateGcContent(ReadOnlySpan<char>)` | SequenceExtensions | Canonical |
 | `CalculateGcFraction(ReadOnlySpan<char>)` | SequenceExtensions | Variant (0-1) |
@@ -194,14 +194,14 @@
 
 #### SEQ-COMP-001: DNA Complement
 
-| Поле | Значение |
-|------|----------|
+| Field | Value |
+|-------|-------|
 | **Canonical** | `SequenceExtensions.GetComplementBase(char)` |
-| **Complexity** | O(n) для последовательности |
+| **Complexity** | O(n) for sequence |
 | **Invariant** | Complement(Complement(x)) = x |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `GetComplementBase(char)` | SequenceExtensions | Canonical |
 | `TryGetComplement(ReadOnlySpan, Span)` | SequenceExtensions | Span API |
@@ -218,14 +218,14 @@
 
 #### SEQ-REVCOMP-001: Reverse Complement
 
-| Поле | Значение |
-|------|----------|
+| Field | Value |
+|-------|-------|
 | **Canonical** | `SequenceExtensions.TryGetReverseComplement(ReadOnlySpan, Span)` |
 | **Complexity** | O(n) |
 | **Invariant** | RevComp(RevComp(x)) = x |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `TryGetReverseComplement(ReadOnlySpan, Span)` | SequenceExtensions | Canonical |
 | `ReverseComplement()` | DnaSequence | Instance |
@@ -242,13 +242,13 @@
 
 #### SEQ-VALID-001: Sequence Validation
 
-| Поле | Значение |
-|------|----------|
+| Field | Value |
+|-------|-------|
 | **Canonical** | `SequenceExtensions.IsValidDna(ReadOnlySpan<char>)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `IsValidDna(ReadOnlySpan<char>)` | SequenceExtensions | Canonical DNA |
 | `IsValidRna(ReadOnlySpan<char>)` | SequenceExtensions | Canonical RNA |
@@ -268,13 +268,13 @@
 
 #### PAT-EXACT-001: Exact Pattern Search
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SuffixTree.FindAllOccurrences(string)` |
 | **Complexity** | O(m + k) where m=pattern length, k=occurrences |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindAllOccurrences(string)` | SuffixTree/DnaSequence | Canonical |
 | `Contains(string)` | SuffixTree/DnaSequence | Existence check |
@@ -293,14 +293,14 @@
 
 #### PAT-APPROX-001: Approximate Matching (Hamming)
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ApproximateMatcher.FindWithMismatches(...)` |
 | **Complexity** | O(n × m) |
-| **Invariant** | HammingDistance требует equal length |
+| **Invariant** | HammingDistance requires equal length |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindWithMismatches(seq, pattern, max)` | ApproximateMatcher | Canonical |
 | `HammingDistance(s1, s2)` | ApproximateMatcher | Distance |
@@ -315,14 +315,14 @@
 
 #### PAT-APPROX-002: Approximate Matching (Edit Distance)
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ApproximateMatcher.FindWithEdits(...)` |
 | **Complexity** | O(n × m²) |
 | **Invariant** | EditDistance(a,b) = EditDistance(b,a) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindWithEdits(seq, pattern, maxEdits)` | ApproximateMatcher | Canonical |
 | `EditDistance(s1, s2)` | ApproximateMatcher | Distance |
@@ -337,13 +337,13 @@
 
 #### PAT-IUPAC-001: IUPAC Degenerate Matching
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MotifFinder.FindDegenerateMotif(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindDegenerateMotif(seq, motif)` | MotifFinder | Canonical |
 | `MatchesIupac(nucleotide, iupacCode)` | IupacHelper | Helper |
@@ -357,13 +357,13 @@
 
 #### PAT-PWM-001: Position Weight Matrix
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MotifFinder.ScanWithPwm(...)` |
 | **Complexity** | O(n × m) where m=PWM width |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CreatePwm(alignedSequences)` | MotifFinder | Construction |
 | `ScanWithPwm(seq, pwm, threshold)` | MotifFinder | Scanning |
@@ -380,14 +380,14 @@
 
 #### REP-STR-001: Microsatellite Detection (STR)
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RepeatFinder.FindMicrosatellites(...)` |
 | **Complexity** | O(n × U × R) where U=maxUnitLength, R=maxRepeats |
 | **Invariant** | Result positions are non-overlapping (or document overlap policy) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindMicrosatellites(DnaSequence, ...)` | RepeatFinder | Canonical |
 | `FindMicrosatellites(string, ...)` | RepeatFinder | Overload |
@@ -405,13 +405,13 @@
 
 #### REP-TANDEM-001: Tandem Repeat Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.FindTandemRepeats(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindTandemRepeats(seq, minUnit, maxUnit, minReps)` | GenomicAnalyzer | Canonical |
 | `GetTandemRepeatSummary(seq, minRepeats)` | RepeatFinder | Summary |
@@ -420,13 +420,13 @@
 
 #### REP-INV-001: Inverted Repeat Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RepeatFinder.FindInvertedRepeats(...)` |
 | **Complexity** | O(n² × L) where L=maxLoopLength |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindInvertedRepeats(seq, minArm, maxLoop)` | RepeatFinder | Canonical |
 
@@ -439,13 +439,13 @@
 
 #### REP-DIRECT-001: Direct Repeat Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RepeatFinder.FindDirectRepeats(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindDirectRepeats(seq, minLen, maxLen, minSpacing)` | RepeatFinder | Canonical |
 
@@ -453,14 +453,14 @@
 
 #### REP-PALIN-001: Palindrome Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RepeatFinder.FindPalindromes(...)` |
 | **Complexity** | O(n²) |
 | **Invariant** | Palindrome = reverse complement equals self |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindPalindromes(seq, minLen, maxLen)` | RepeatFinder | Canonical |
 | `FindPalindromes(seq, minLen, maxLen)` | GenomicAnalyzer | Alternate |
@@ -471,13 +471,13 @@
 
 #### CRISPR-PAM-001: PAM Site Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CrisprDesigner.FindPamSites(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindPamSites(seq, systemType)` | CrisprDesigner | Canonical |
 | `GetSystem(systemType)` | CrisprDesigner | System info |
@@ -494,13 +494,13 @@
 
 #### CRISPR-GUIDE-001: Guide RNA Design
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CrisprDesigner.DesignGuideRnas(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DesignGuideRnas(seq, start, end, type)` | CrisprDesigner | Canonical |
 | `EvaluateGuideRna(guide, type, params)` | CrisprDesigner | Scoring |
@@ -509,13 +509,13 @@
 
 #### CRISPR-OFF-001: Off-Target Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CrisprDesigner.FindOffTargets(...)` |
-| **Complexity** | O(n × m) с maxMismatches; может быть выше |
+| **Complexity** | O(n × m) with maxMismatches; may be higher |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindOffTargets(guide, genome, maxMismatches)` | CrisprDesigner | Canonical |
 | `CalculateSpecificityScore(guide, genome, type)` | CrisprDesigner | Score |
@@ -524,14 +524,14 @@
 
 #### PRIMER-TM-001: Melting Temperature
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PrimerDesigner.CalculateMeltingTemperature(...)` |
 | **Complexity** | O(n) |
 | **Formula** | Wallace rule (<14bp), Marmur-Doty (≥14bp) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateMeltingTemperature(primer)` | PrimerDesigner | Canonical |
 | `CalculateMeltingTemperatureWithSalt(primer, Na)` | PrimerDesigner | Salt corrected |
@@ -552,13 +552,13 @@
 
 #### PRIMER-DESIGN-001: Primer Pair Design
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PrimerDesigner.DesignPrimers(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DesignPrimers(template, start, end, params)` | PrimerDesigner | Canonical |
 | `EvaluatePrimer(seq, pos, isForward, params)` | PrimerDesigner | Single primer |
@@ -574,13 +574,13 @@
 
 #### PRIMER-STRUCT-001: Primer Structure Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PrimerDesigner.HasHairpinPotential(...)` |
 | **Complexity** | O(m²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `HasHairpinPotential(seq, minStemLength)` | PrimerDesigner | Hairpin |
 | `HasPrimerDimer(primer1, primer2, minComp)` | PrimerDesigner | Dimer |
@@ -592,13 +592,13 @@
 
 #### RESTR-FIND-001: Restriction Site Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RestrictionAnalyzer.FindSites(...)` |
 | **Complexity** | O(n × k) where k=enzymes |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindSites(seq, enzymeNames)` | RestrictionAnalyzer | Canonical |
 | `FindAllSites(seq)` | RestrictionAnalyzer | All 40+ enzymes |
@@ -610,13 +610,13 @@
 
 #### RESTR-DIGEST-001: Digest Simulation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RestrictionAnalyzer.Digest(...)` |
 | **Complexity** | O(n + k log k) where k=cut sites |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Digest(seq, enzymeNames)` | RestrictionAnalyzer | Canonical |
 | `GetDigestSummary(seq, enzymeNames)` | RestrictionAnalyzer | Summary |
@@ -628,14 +628,14 @@
 
 #### ANNOT-ORF-001: ORF Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomeAnnotator.FindOrfs(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | ORF starts with start codon, ends with stop codon |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindOrfs(dna, minLen, bothStrands, requireStart)` | GenomeAnnotator | Canonical |
 | `FindLongestOrfsPerFrame(dna, bothStrands)` | GenomeAnnotator | Per-frame |
@@ -651,13 +651,13 @@
 
 #### ANNOT-GENE-001: Gene Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomeAnnotator.PredictGenes(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `PredictGenes(dna, minOrfLen, prefix)` | GenomeAnnotator | Canonical |
 | `FindRibosomeBindingSites(dna, window)` | GenomeAnnotator | RBS/SD |
@@ -666,13 +666,13 @@
 
 #### ANNOT-PROM-001: Promoter Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomeAnnotator.FindPromoterMotifs(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindPromoterMotifs(dna)` | GenomeAnnotator | Canonical |
 
@@ -682,13 +682,13 @@
 
 #### ANNOT-GFF-001: GFF3 I/O
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomeAnnotator.ParseGff3(...)` / `ToGff3(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ParseGff3(lines)` | GenomeAnnotator | Parse |
 | `ToGff3(annotations, seqId)` | GenomeAnnotator | Export |
@@ -699,14 +699,14 @@
 
 #### KMER-COUNT-001: K-mer Counting
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `KmerAnalyzer.CountKmers(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | Sum of counts = n - k + 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CountKmers(seq, k)` | KmerAnalyzer | Canonical |
 | `CountKmersSpan(seq, k)` | SequenceExtensions | Span API |
@@ -716,13 +716,13 @@
 
 #### KMER-FREQ-001: K-mer Frequency Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `KmerAnalyzer.GetKmerSpectrum(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `GetKmerSpectrum(seq, k)` | KmerAnalyzer | Spectrum |
 | `GetKmerFrequencies(seq, k)` | KmerAnalyzer | Normalized |
@@ -732,13 +732,13 @@
 
 #### KMER-FIND-001: K-mer Search
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `KmerAnalyzer.FindMostFrequentKmers(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindMostFrequentKmers(seq, k)` | KmerAnalyzer | Most frequent |
 | `FindUniqueKmers(seq, k)` | KmerAnalyzer | Count = 1 |
@@ -750,14 +750,14 @@
 
 #### ALIGN-GLOBAL-001: Global Alignment (Needleman-Wunsch)
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAligner.GlobalAlign(...)` |
 | **Complexity** | O(n × m) |
 | **Invariant** | Optimal global alignment score |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `GlobalAlign(seq1, seq2, scoring)` | SequenceAligner | Canonical |
 
@@ -765,14 +765,14 @@
 
 #### ALIGN-LOCAL-001: Local Alignment (Smith-Waterman)
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAligner.LocalAlign(...)` |
 | **Complexity** | O(n × m) |
 | **Invariant** | Score ≥ 0, finds best local match |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `LocalAlign(seq1, seq2, scoring)` | SequenceAligner | Canonical |
 
@@ -780,13 +780,13 @@
 
 #### ALIGN-SEMI-001: Semi-Global Alignment
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAligner.SemiGlobalAlign(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `SemiGlobalAlign(seq1, seq2, scoring)` | SequenceAligner | Canonical |
 
@@ -794,13 +794,13 @@
 
 #### ALIGN-MULTI-001: Multiple Sequence Alignment
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAligner.MultipleAlign(...)` |
 | **Complexity** | O(n² × m) progressive alignment |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `MultipleAlign(sequences)` | SequenceAligner | Canonical |
 
@@ -810,13 +810,13 @@
 
 #### PHYLO-DIST-001: Distance Matrix
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PhylogeneticAnalyzer.CalculateDistanceMatrix(...)` |
 | **Complexity** | O(n² × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateDistanceMatrix(seqs, method)` | PhylogeneticAnalyzer | Canonical |
 | `CalculatePairwiseDistance(s1, s2, method)` | PhylogeneticAnalyzer | Single pair |
@@ -827,13 +827,13 @@
 
 #### PHYLO-TREE-001: Tree Construction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PhylogeneticAnalyzer.BuildTree(...)` |
 | **Complexity** | O(n³) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `BuildTree(seqs, distMethod, treeMethod)` | PhylogeneticAnalyzer | Canonical |
 
@@ -843,13 +843,13 @@
 
 #### PHYLO-NEWICK-001: Newick I/O
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PhylogeneticAnalyzer.ToNewick(...)` / `ParseNewick(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ToNewick(treeNode)` | PhylogeneticAnalyzer | Export |
 | `ParseNewick(newickString)` | PhylogeneticAnalyzer | Parse |
@@ -858,13 +858,13 @@
 
 #### PHYLO-COMP-001: Tree Comparison
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PhylogeneticAnalyzer.RobinsonFouldsDistance(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `RobinsonFouldsDistance(tree1, tree2)` | PhylogeneticAnalyzer | Topology |
 | `FindMRCA(root, taxon1, taxon2)` | PhylogeneticAnalyzer | MRCA |
@@ -876,14 +876,14 @@
 
 #### POP-FREQ-001: Allele Frequencies
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | p + q = 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateAlleleFrequencies(hom_maj, het, hom_min)` | PopulationGeneticsAnalyzer | Canonical |
 | `CalculateMAF(genotypes)` | PopulationGeneticsAnalyzer | MAF |
@@ -893,13 +893,13 @@
 
 #### POP-DIV-001: Diversity Statistics
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.CalculateDiversityStatistics(...)` |
 | **Complexity** | O(n² × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateNucleotideDiversity(seqs)` | PopulationGeneticsAnalyzer | π |
 | `CalculateWattersonTheta(segSites, n)` | PopulationGeneticsAnalyzer | θ |
@@ -910,14 +910,14 @@
 
 #### POP-HW-001: Hardy-Weinberg Test
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.TestHardyWeinberg(...)` |
 | **Complexity** | O(1) per variant |
 | **Invariant** | Expected: p², 2pq, q² |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `TestHardyWeinberg(variantId, counts)` | PopulationGeneticsAnalyzer | Canonical |
 
@@ -925,14 +925,14 @@
 
 #### POP-FST-001: F-Statistics
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.CalculateFst(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ Fst ≤ 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateFst(pop1, pop2)` | PopulationGeneticsAnalyzer | Canonical |
 | `CalculateFStatistics(variantData)` | PopulationGeneticsAnalyzer | Fis, Fit, Fst |
@@ -941,13 +941,13 @@
 
 #### POP-LD-001: Linkage Disequilibrium
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.CalculateLD(...)` |
 | **Complexity** | O(n) per pair |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateLD(var1, var2, genotypes)` | PopulationGeneticsAnalyzer | D', r² |
 | `FindHaplotypeBlocks(variants)` | PopulationGeneticsAnalyzer | Blocks |
@@ -958,14 +958,14 @@
 
 #### CHROM-TELO-001: Telomere Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ChromosomeAnalyzer.AnalyzeTelomeres(...)` |
 | **Complexity** | O(n) |
 | **Constant** | Human telomere repeat: TTAGGG |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `AnalyzeTelomeres(chrName, seq, repeat, ...)` | ChromosomeAnalyzer | Canonical |
 | `EstimateTelomereLengthFromTSRatio(tsRatio)` | ChromosomeAnalyzer | qPCR estimate |
@@ -974,13 +974,13 @@
 
 #### CHROM-CENT-001: Centromere Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ChromosomeAnalyzer.AnalyzeCentromere(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `AnalyzeCentromere(chrName, seq, windowSize)` | ChromosomeAnalyzer | Canonical |
 
@@ -988,13 +988,13 @@
 
 #### CHROM-KARYO-001: Karyotype Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ChromosomeAnalyzer.AnalyzeKaryotype(...)` |
 | **Complexity** | O(k) where k=chromosomes |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `AnalyzeKaryotype(chromosomes, ploidy)` | ChromosomeAnalyzer | Canonical |
 | `DetectPloidy(depths, expected)` | ChromosomeAnalyzer | Ploidy |
@@ -1003,13 +1003,13 @@
 
 #### CHROM-ANEU-001: Aneuploidy Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ChromosomeAnalyzer.DetectAneuploidy(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DetectAneuploidy(depthData, medianDepth)` | ChromosomeAnalyzer | Canonical |
 | `IdentifyWholeChromosomeAneuploidy(cnStates)` | ChromosomeAnalyzer | Classification |
@@ -1018,13 +1018,13 @@
 
 #### CHROM-SYNT-001: Synteny Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ChromosomeAnalyzer.FindSyntenyBlocks(...)` |
 | **Complexity** | O(n log n) — requires verification |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindSyntenyBlocks(orthologPairs, minGenes)` | ChromosomeAnalyzer | Canonical |
 | `DetectRearrangements(syntenyBlocks)` | ChromosomeAnalyzer | Rearrangements |
@@ -1035,13 +1035,13 @@
 
 #### META-CLASS-001: Taxonomic Classification
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.ClassifyReads(...)` |
 | **Complexity** | O(n × m) where n=reads, m=read length |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ClassifyReads(reads, kmerDB, k)` | MetagenomicsAnalyzer | Canonical |
 | `BuildKmerDatabase(refGenomes, k)` | MetagenomicsAnalyzer | DB construction |
@@ -1050,13 +1050,13 @@
 
 #### META-PROF-001: Taxonomic Profile
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.GenerateTaxonomicProfile(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `GenerateTaxonomicProfile(classifications)` | MetagenomicsAnalyzer | Canonical |
 
@@ -1064,13 +1064,13 @@
 
 #### META-ALPHA-001: Alpha Diversity
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.CalculateAlphaDiversity(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateAlphaDiversity(abundances)` | MetagenomicsAnalyzer | Canonical |
 
@@ -1080,13 +1080,13 @@
 
 #### META-BETA-001: Beta Diversity
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.CalculateBetaDiversity(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateBetaDiversity(sample1, sample2)` | MetagenomicsAnalyzer | Canonical |
 
@@ -1096,13 +1096,13 @@
 
 #### META-BIN-001: Genome Binning
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.BinContigs(...)` |
 | **Complexity** | O(n × k × i) where k=bins, i=iterations — needs verification |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `BinContigs(contigs, numBins, minBinSize)` | MetagenomicsAnalyzer | Canonical |
 
@@ -1112,13 +1112,13 @@
 
 #### CODON-OPT-001: Sequence Optimization
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CodonOptimizer.OptimizeSequence(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `OptimizeSequence(seq, organism, strategy)` | CodonOptimizer | Canonical |
 
@@ -1128,14 +1128,14 @@
 
 #### CODON-CAI-001: CAI Calculation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CodonOptimizer.CalculateCAI(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ CAI ≤ 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateCAI(codingSeq, codonTable)` | CodonOptimizer | Canonical |
 
@@ -1143,13 +1143,13 @@
 
 #### CODON-RARE-001: Rare Codon Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CodonOptimizer.FindRareCodons(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindRareCodons(seq, codonTable, threshold)` | CodonOptimizer | Canonical |
 
@@ -1157,13 +1157,13 @@
 
 #### CODON-USAGE-001: Codon Usage Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `CodonOptimizer.CalculateCodonUsage(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateCodonUsage(seq)` | CodonOptimizer | Canonical |
 | `CompareCodonUsage(seq1, seq2)` | CodonOptimizer | Comparison |
@@ -1176,13 +1176,13 @@
 
 #### TRANS-CODON-001: Codon Translation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GeneticCode.Translate(...)` |
 | **Complexity** | O(1) per codon |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Translate(codon)` | GeneticCode | Canonical |
 | `IsStartCodon(codon)` | GeneticCode | Check |
@@ -1195,13 +1195,13 @@
 
 #### TRANS-PROT-001: Protein Translation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `Translator.Translate(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Translate(dna, geneticCode)` | Translator | Canonical |
 
@@ -1211,14 +1211,14 @@
 
 #### PARSE-FASTA-001: FASTA Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `FastaParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | FastaParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(fastaContent)` | FastaParser | Canonical |
 | `ParseFile(filePath)` | FastaParser | File |
@@ -1236,14 +1236,14 @@
 
 #### PARSE-FASTQ-001: FASTQ Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `FastqParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | FastqParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content, encoding)` | FastqParser | Canonical |
 | `ParseFile(filePath, encoding)` | FastqParser | File |
@@ -1260,14 +1260,14 @@
 
 #### PARSE-BED-001: BED File Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `BedParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | BedParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content, format)` | BedParser | Canonical |
 | `ParseFile(filePath, format)` | BedParser | File |
@@ -1285,14 +1285,14 @@
 
 #### PARSE-VCF-001: VCF Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `VcfParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | VcfParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content)` | VcfParser | Canonical |
 | `ParseFile(filePath)` | VcfParser | File |
@@ -1309,14 +1309,14 @@
 
 #### PARSE-GFF-001: GFF/GTF Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GffParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | GffParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content)` | GffParser | Canonical |
 | `ParseFile(filePath)` | GffParser | File |
@@ -1326,14 +1326,14 @@
 
 #### PARSE-GENBANK-001: GenBank Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenBankParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | GenBankParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content)` | GenBankParser | Canonical |
 | `ParseFile(filePath)` | GenBankParser | File |
@@ -1343,14 +1343,14 @@
 
 #### PARSE-EMBL-001: EMBL Parsing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `EmblParser.Parse(...)` |
 | **Complexity** | O(n) |
 | **Class** | EmblParser |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Parse(content)` | EmblParser | Canonical |
 | `ParseFile(filePath)` | EmblParser | File |
@@ -1361,14 +1361,14 @@
 
 #### SEQ-COMPLEX-001: Linguistic Complexity
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceComplexity.CalculateLinguisticComplexity(...)` |
 | **Complexity** | O(n × k) |
 | **Invariant** | 0 ≤ result ≤ 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateLinguisticComplexity(seq, maxLen)` | SequenceComplexity | Canonical |
 | `CalculateLinguisticComplexity(string, maxLen)` | SequenceComplexity | String |
@@ -1379,14 +1379,14 @@
 
 #### SEQ-ENTROPY-001: Shannon Entropy
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceComplexity.CalculateShannonEntropy(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ result ≤ 2 for DNA |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateShannonEntropy(sequence)` | SequenceComplexity | Canonical |
 | `CalculateKmerEntropy(seq, k)` | SequenceComplexity | K-mer based |
@@ -1395,14 +1395,14 @@
 
 #### SEQ-GCSKEW-001: GC Skew
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GcSkewCalculator.CalculateGcSkew(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | -1 ≤ result ≤ 1 |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateGcSkew(sequence)` | GcSkewCalculator | Canonical |
 | `CalculateWindowedGcSkew(seq, window, step)` | GcSkewCalculator | Windowed |
@@ -1415,14 +1415,14 @@
 
 #### RNA-STRUCT-001: Secondary Structure Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RnaSecondaryStructure.Predict(...)` |
 | **Complexity** | O(n³) |
 | **Class** | RnaSecondaryStructure |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Predict(sequence)` | RnaSecondaryStructure | Canonical |
 | `PredictWithConstraints(seq, constraints)` | RnaSecondaryStructure | Constrained |
@@ -1433,13 +1433,13 @@
 
 #### RNA-STEMLOOP-001: Stem-Loop Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RnaSecondaryStructure.FindStemLoops(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindStemLoops(sequence, minStem, maxLoop)` | RnaSecondaryStructure | Canonical |
 | `FindHairpins(sequence, params)` | RnaSecondaryStructure | Hairpins |
@@ -1449,13 +1449,13 @@
 
 #### RNA-ENERGY-001: Free Energy Calculation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `RnaSecondaryStructure.CalculateFreeEnergy(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateFreeEnergy(structure)` | RnaSecondaryStructure | Canonical |
 | `CalculateStackingEnergy(bp1, bp2)` | RnaSecondaryStructure | Stacking |
@@ -1466,14 +1466,14 @@
 
 #### MIRNA-SEED-001: Seed Sequence Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MiRnaAnalyzer.GetSeedSequence(...)` |
 | **Complexity** | O(1) |
 | **Class** | MiRnaAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `GetSeedSequence(miRnaSequence)` | MiRnaAnalyzer | Canonical |
 | `CreateMiRna(name, sequence)` | MiRnaAnalyzer | Factory |
@@ -1483,13 +1483,13 @@
 
 #### MIRNA-TARGET-001: Target Site Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MiRnaAnalyzer.FindTargetSites(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindTargetSites(mRna, miRna, minScore)` | MiRnaAnalyzer | Canonical |
 | `ScoreTargetSite(site)` | MiRnaAnalyzer | Scoring |
@@ -1503,13 +1503,13 @@
 
 #### MIRNA-PRECURSOR-001: Pre-miRNA Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `MiRnaAnalyzer.FindPreMiRnas(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindPreMiRnas(sequence)` | MiRnaAnalyzer | Canonical |
 | `ValidateHairpin(structure)` | MiRnaAnalyzer | Validation |
@@ -1520,14 +1520,14 @@
 
 #### SPLICE-DONOR-001: Donor Site Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SpliceSitePredictor.FindDonorSites(...)` |
 | **Complexity** | O(n) |
 | **Class** | SpliceSitePredictor |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindDonorSites(sequence, minScore)` | SpliceSitePredictor | Canonical |
 | `ScoreDonorSite(context)` | SpliceSitePredictor | Scoring |
@@ -1536,13 +1536,13 @@
 
 #### SPLICE-ACCEPTOR-001: Acceptor Site Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SpliceSitePredictor.FindAcceptorSites(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindAcceptorSites(sequence, minScore)` | SpliceSitePredictor | Canonical |
 | `ScoreAcceptorSite(context)` | SpliceSitePredictor | Scoring |
@@ -1551,13 +1551,13 @@
 
 #### SPLICE-PREDICT-001: Gene Structure Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SpliceSitePredictor.PredictGeneStructure(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `PredictGeneStructure(sequence)` | SpliceSitePredictor | Canonical |
 | `FindIntrons(sequence)` | SpliceSitePredictor | Introns |
@@ -1569,14 +1569,14 @@
 
 #### DISORDER-PRED-001: Disorder Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `DisorderPredictor.PredictDisorder(...)` |
 | **Complexity** | O(n) |
 | **Class** | DisorderPredictor |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `PredictDisorder(sequence, windowSize, threshold)` | DisorderPredictor | Canonical |
 | `CalculateDisorderScore(window)` | DisorderPredictor | Score |
@@ -1586,13 +1586,13 @@
 
 #### DISORDER-REGION-001: Disordered Region Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `DisorderPredictor.IdentifyDisorderedRegions(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `IdentifyDisorderedRegions(predictions, minLen)` | DisorderPredictor | Canonical |
 | `ClassifyRegionType(region)` | DisorderPredictor | Classification |
@@ -1603,14 +1603,14 @@
 
 #### PROTMOTIF-FIND-001: Motif Search
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ProteinMotifFinder.FindMotifs(...)` |
 | **Complexity** | O(n × m) |
 | **Class** | ProteinMotifFinder |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindMotifs(sequence, patterns)` | ProteinMotifFinder | Canonical |
 | `FindAllKnownMotifs(sequence)` | ProteinMotifFinder | All patterns |
@@ -1620,13 +1620,13 @@
 
 #### PROTMOTIF-PROSITE-001: PROSITE Pattern Matching
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ProteinMotifFinder.MatchPrositePattern(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `MatchPrositePattern(sequence, pattern)` | ProteinMotifFinder | Canonical |
 | `ParsePrositePattern(pattern)` | ProteinMotifFinder | Parse |
@@ -1641,13 +1641,13 @@
 
 #### PROTMOTIF-DOMAIN-001: Domain Prediction
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ProteinMotifFinder.PredictDomains(...)` |
 | **Complexity** | O(n × d) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `PredictDomains(sequence)` | ProteinMotifFinder | Canonical |
 | `PredictSignalPeptide(sequence)` | ProteinMotifFinder | Signal |
@@ -1658,14 +1658,14 @@
 
 #### EPIGEN-CPG-001: CpG Site Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `EpigeneticsAnalyzer.FindCpGSites(...)` |
 | **Complexity** | O(n) |
 | **Class** | EpigeneticsAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindCpGSites(sequence)` | EpigeneticsAnalyzer | Canonical |
 | `FindCpGIslands(sequence, params)` | EpigeneticsAnalyzer | Islands |
@@ -1675,13 +1675,13 @@
 
 #### EPIGEN-METHYL-001: Methylation Analysis
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `EpigeneticsAnalyzer.FindMethylationSites(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindMethylationSites(sequence)` | EpigeneticsAnalyzer | Canonical |
 | `CalculateMethylationProfile(sites)` | EpigeneticsAnalyzer | Profile |
@@ -1691,13 +1691,13 @@
 
 #### EPIGEN-DMR-001: Differentially Methylated Regions
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `EpigeneticsAnalyzer.FindDMRs(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindDMRs(profile1, profile2, threshold)` | EpigeneticsAnalyzer | Canonical |
 | `AnnotateDMRs(dmrs, annotations)` | EpigeneticsAnalyzer | Annotate |
@@ -1708,14 +1708,14 @@
 
 #### VARIANT-CALL-001: Variant Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `VariantCaller.CallVariants(...)` |
 | **Complexity** | O(n × m) |
 | **Class** | VariantCaller |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CallVariants(reference, query)` | VariantCaller | Canonical |
 | `CallVariantsFromAlignment(aligned1, aligned2)` | VariantCaller | From alignment |
@@ -1725,13 +1725,13 @@
 
 #### VARIANT-SNP-001: SNP Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `VariantCaller.FindSnps(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindSnps(reference, query)` | VariantCaller | Canonical |
 | `FindSnpsDirect(ref, query)` | VariantCaller | Direct (no alignment) |
@@ -1740,13 +1740,13 @@
 
 #### VARIANT-INDEL-001: Indel Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `VariantCaller.FindInsertions/FindDeletions(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindInsertions(reference, query)` | VariantCaller | Insertions |
 | `FindDeletions(reference, query)` | VariantCaller | Deletions |
@@ -1755,14 +1755,14 @@
 
 #### VARIANT-ANNOT-001: Variant Annotation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `VariantAnnotator.Annotate(...)` |
 | **Complexity** | O(v × g) |
 | **Class** | VariantAnnotator |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `Annotate(variants, annotations)` | VariantAnnotator | Canonical |
 | `PredictFunctionalImpact(variant)` | VariantAnnotator | Impact |
@@ -1773,14 +1773,14 @@
 
 #### SV-DETECT-001: SV Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `StructuralVariantAnalyzer.DetectSVs(...)` |
 | **Complexity** | O(n log n) |
 | **Class** | StructuralVariantAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DetectSVs(readPairs, splitReads)` | StructuralVariantAnalyzer | Canonical |
 | `FindDiscordantPairs(readPairs, params)` | StructuralVariantAnalyzer | Discordant |
@@ -1795,13 +1795,13 @@
 
 #### SV-BREAKPOINT-001: Breakpoint Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `StructuralVariantAnalyzer.FindBreakpoints(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindBreakpoints(splitReads)` | StructuralVariantAnalyzer | Canonical |
 | `RefineBreakpoint(region, reads)` | StructuralVariantAnalyzer | Refinement |
@@ -1810,13 +1810,13 @@
 
 #### SV-CNV-001: Copy Number Variation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `StructuralVariantAnalyzer.DetectCNV(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DetectCNV(depthData, window)` | StructuralVariantAnalyzer | Canonical |
 | `SegmentCopyNumber(logRatios)` | StructuralVariantAnalyzer | Segmentation |
@@ -1827,14 +1827,14 @@
 
 #### ASSEMBLY-OLC-001: Overlap-Layout-Consensus
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAssembler.AssembleOLC(...)` |
 | **Complexity** | O(n² × m) |
 | **Class** | SequenceAssembler |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `AssembleOLC(reads, params)` | SequenceAssembler | Canonical |
 | `FindAllOverlaps(reads, minOverlap, minId)` | SequenceAssembler | Overlaps |
@@ -1843,13 +1843,13 @@
 
 #### ASSEMBLY-DBG-001: De Bruijn Graph Assembly
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAssembler.AssembleDeBruijn(...)` |
 | **Complexity** | O(n × k) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `AssembleDeBruijn(reads, params)` | SequenceAssembler | Canonical |
 | `BuildDeBruijnGraph(reads, k)` | SequenceAssembler | Graph construction |
@@ -1858,14 +1858,14 @@
 
 #### ASSEMBLY-STATS-001: Assembly Statistics
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `GenomeAssemblyAnalyzer.CalculateStatistics(...)` |
 | **Complexity** | O(n log n) |
 | **Class** | GenomeAssemblyAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateStatistics(contigs)` | GenomeAssemblyAnalyzer | Canonical |
 | `CalculateN50(contigs)` | GenomeAssemblyAnalyzer | N50 |
@@ -1878,14 +1878,14 @@
 
 #### TRANS-EXPR-001: Expression Quantification
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `TranscriptomeAnalyzer.CalculateTPM(...)` |
 | **Complexity** | O(n) |
 | **Class** | TranscriptomeAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateTPM(geneCounts)` | TranscriptomeAnalyzer | TPM |
 | `CalculateFPKM(count, length, total)` | TranscriptomeAnalyzer | FPKM |
@@ -1895,13 +1895,13 @@
 
 #### TRANS-DIFF-001: Differential Expression
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `TranscriptomeAnalyzer.FindDifferentiallyExpressed(...)` |
 | **Complexity** | O(g × s) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindDifferentiallyExpressed(cond1, cond2, alpha)` | TranscriptomeAnalyzer | Canonical |
 | `CalculateFoldChange(expr1, expr2)` | TranscriptomeAnalyzer | Fold change |
@@ -1910,13 +1910,13 @@
 
 #### TRANS-SPLICE-001: Alternative Splicing
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `TranscriptomeAnalyzer.DetectAlternativeSplicing(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DetectAlternativeSplicing(isoforms)` | TranscriptomeAnalyzer | Canonical |
 | `CalculatePSI(event, reads)` | TranscriptomeAnalyzer | Percent spliced in |
@@ -1927,14 +1927,14 @@
 
 #### COMPGEN-SYNTENY-001: Synteny Detection
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ComparativeGenomics.FindSyntenicBlocks(...)` |
 | **Complexity** | O(n²) |
 | **Class** | ComparativeGenomics |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindSyntenicBlocks(genes1, genes2, orthologs)` | ComparativeGenomics | Canonical |
 | `VisualizeSynteny(blocks)` | ComparativeGenomics | Visualization |
@@ -1943,13 +1943,13 @@
 
 #### COMPGEN-ORTHO-001: Ortholog Identification
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ComparativeGenomics.FindOrthologs(...)` |
 | **Complexity** | O(n × m) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `FindOrthologs(genes1, genes2, minIdentity)` | ComparativeGenomics | Canonical |
 | `FindParalogs(genes, minIdentity)` | ComparativeGenomics | Paralogs |
@@ -1958,13 +1958,13 @@
 
 #### COMPGEN-REARR-001: Genome Rearrangements
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ComparativeGenomics.DetectRearrangements(...)` |
 | **Complexity** | O(n log n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DetectRearrangements(blocks)` | ComparativeGenomics | Canonical |
 | `ClassifyRearrangement(event)` | ComparativeGenomics | Classification |
@@ -1975,14 +1975,14 @@
 
 #### PANGEN-CORE-001: Core/Accessory Genome
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PanGenomeAnalyzer.ConstructPanGenome(...)` |
 | **Complexity** | O(g² × s) |
 | **Class** | PanGenomeAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ConstructPanGenome(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
 | `IdentifyCoreGenes(clusters, threshold)` | PanGenomeAnalyzer | Core genes |
@@ -1991,13 +1991,13 @@
 
 #### PANGEN-CLUSTER-001: Gene Clustering
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `PanGenomeAnalyzer.ClusterGenes(...)` |
 | **Complexity** | O(g² × s) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ClusterGenes(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
 | `GeneratePresenceAbsenceMatrix(clusters)` | PanGenomeAnalyzer | Matrix |
@@ -2008,14 +2008,14 @@
 
 #### QUALITY-PHRED-001: Phred Score Handling
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `QualityScoreAnalyzer.ParseQualityString(...)` |
 | **Complexity** | O(n) |
 | **Class** | QualityScoreAnalyzer |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ParseQualityString(qualStr, encoding)` | QualityScoreAnalyzer | Canonical |
 | `ToQualityString(scores, encoding)` | QualityScoreAnalyzer | Export |
@@ -2025,13 +2025,13 @@
 
 #### QUALITY-STATS-001: Quality Statistics
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `QualityScoreAnalyzer.CalculateStatistics(...)` |
 | **Complexity** | O(n) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `CalculateStatistics(scores)` | QualityScoreAnalyzer | Canonical |
 | `CalculateQ30Percentage(scores)` | QualityScoreAnalyzer | Q30 |
@@ -2042,14 +2042,14 @@
 
 #### PROBE-DESIGN-001: Hybridization Probe Design
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ProbeDesigner.DesignProbes(...)` |
 | **Complexity** | O(n²) |
 | **Class** | ProbeDesigner |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `DesignProbes(template, params)` | ProbeDesigner | Canonical |
 | `DesignTilingProbes(template, overlap)` | ProbeDesigner | Tiling |
@@ -2059,13 +2059,13 @@
 
 #### PROBE-VALID-001: Probe Validation
 
-| Поле | Значение |
+| Field | Value |
 |------|----------|
 | **Canonical** | `ProbeDesigner.ValidateProbe(...)` |
 | **Complexity** | O(n × g) |
 
 **Methods:**
-| Метод | Класс | Тип |
+| Method | Class | Type |
 |-------|-------|-----|
 | `ValidateProbe(probe, genome)` | ProbeDesigner | Canonical |
 | `CheckSpecificity(probe, database)` | ProbeDesigner | Specificity |
@@ -2352,5 +2352,5 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 
 ---
 
-*Сгенерировано: 2026-01-22*
-*Версия чек-листа: 2.1 (100% Coverage)*
+*Generated: 2026-01-22*
+*Checklist version: 2.1 (100% Coverage)*

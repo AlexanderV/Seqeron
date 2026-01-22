@@ -1,47 +1,47 @@
-# SuffixTree.Genomics - План реалізації
+# SuffixTree.Genomics - Implementation Plan
 
-## Архітектурні принципи
+## Architectural Principles
 
 ### Clean Architecture
 ```
 SuffixTree.Genomics/
-├── Core/                    # Доменні моделі та інтерфейси
+├── Core/                    # Domain models and interfaces
 │   ├── Sequences/           # DnaSequence, RnaSequence, ProteinSequence
 │   ├── Interfaces/          # ISequence, ISequenceAnalyzer, IAligner
-│   └── Results/             # Result types для алгоритмів
-├── Analysis/                # Аналітичні алгоритми
-│   ├── Repeats/             # Пошук повторів
-│   ├── Motifs/              # Пошук мотивів
-│   ├── Structure/           # Вторинна структура
-│   └── Statistics/          # Статистичний аналіз
-├── Alignment/               # Вирівнювання послідовностей
-├── Comparison/              # Порівняльна геноміка
-├── Applications/            # Практичні застосування (праймери, CRISPR)
-└── IO/                      # Парсери форматів (FASTA, GenBank, etc.)
+│   └── Results/             # Result types for algorithms
+├── Analysis/                # Analytical algorithms
+│   ├── Repeats/             # Repeat search
+│   ├── Motifs/              # Motif search
+│   ├── Structure/           # Secondary structure
+│   └── Statistics/          # Statistical analysis
+├── Alignment/               # Sequence alignment
+├── Comparison/              # Comparative genomics
+├── Applications/            # Practical applications (primers, CRISPR)
+└── IO/                      # Format parsers (FASTA, GenBank, etc.)
 ```
 
 ### Coding Standards
-- **Immutable результати**: всі Result types - readonly struct
-- **Fluent API**: для налаштування параметрів алгоритмів
-- **Lazy evaluation**: IEnumerable для великих результатів
-- **Memory efficient**: Span/Memory для роботи з послідовностями
-- **Cancellation support**: CancellationToken для довгих операцій
-- **Nullable annotations**: повна підтримка nullable reference types
+- **Immutable results**: all Result types - readonly struct
+- **Fluent API**: for configuring algorithm parameters
+- **Lazy evaluation**: IEnumerable for large results
+- **Memory efficient**: Span/Memory for working with sequences
+- **Cancellation support**: CancellationToken for long operations
+- **Nullable annotations**: full support for nullable reference types
 
 ---
 
-## Фаза 1: Core Foundation (Week 1-2)
+## Phase 1: Core Foundation (Week 1-2)
 
-### 1.1 Базові типи послідовностей
+### 1.1 Basic Sequence Types
 
-#### Завдання
-- [ ] `ISequence` - базовий інтерфейс
-- [ ] `RnaSequence` - РНК послідовність (A, C, G, U)
-- [ ] `ProteinSequence` - амінокислотна послідовність (20 AA)
-- [ ] `IupacDnaSequence` - ДНК з IUPAC кодами (N, R, Y, etc.)
-- [ ] `QualitySequence` - послідовність з якістю (FASTQ)
+#### Tasks
+- [ ] `ISequence` - base interface
+- [ ] `RnaSequence` - RNA sequence (A, C, G, U)
+- [ ] `ProteinSequence` - amino acid sequence (20 AA)
+- [ ] `IupacDnaSequence` - DNA with IUPAC codes (N, R, Y, etc.)
+- [ ] `QualitySequence` - sequence with quality (FASTQ)
 
-#### Файли
+#### Files
 ```
 Core/Sequences/
 ├── ISequence.cs
@@ -53,21 +53,21 @@ Core/Sequences/
 └── QualitySequence.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] RnaSequenceTests.cs (10 тестів)
-- [ ] ProteinSequenceTests.cs (10 тестів)
-- [ ] IupacDnaSequenceTests.cs (5 тестів)
+#### Tests (25 tests)
+- [ ] RnaSequenceTests.cs (10 tests)
+- [ ] ProteinSequenceTests.cs (10 tests)
+- [ ] IupacDnaSequenceTests.cs (5 tests)
 
 ---
 
-### 1.2 Генетичний код та трансляція
+### 1.2 Genetic Code and Translation
 
-#### Завдання
-- [ ] `GeneticCode` - таблиця кодонів (Standard, Mitochondrial, etc.)
-- [ ] `Translator` - трансляція ДНК/РНК → білок
-- [ ] `CodonTable` - частоти кодонів для організмів
+#### Tasks
+- [ ] `GeneticCode` - codon table (Standard, Mitochondrial, etc.)
+- [ ] `Translator` - DNA/RNA → protein translation
+- [ ] `CodonTable` - codon frequencies for organisms
 
-#### Файли
+#### Files
 ```
 Core/Translation/
 ├── GeneticCode.cs
@@ -76,22 +76,22 @@ Core/Translation/
 └── TranslationResult.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] GeneticCodeTests.cs (5 тестів)
-- [ ] TranslatorTests.cs (10 тестів)
+#### Tests (15 tests)
+- [ ] GeneticCodeTests.cs (5 tests)
+- [ ] TranslatorTests.cs (10 tests)
 
 ---
 
-## Фаза 2: DNA Analysis (Week 3-4)
+## Phase 2: DNA Analysis (Week 3-4)
 
-### 2.1 Exact Pattern Matching (вже частково є)
+### 2.1 Exact Pattern Matching (partially exists)
 
-#### Завдання
-- [ ] Рефакторинг `FindMotif` → `PatternMatcher`
-- [ ] Підтримка IUPAC wildcard patterns
-- [ ] Batch pattern matching (множинний пошук)
+#### Tasks
+- [ ] Refactor `FindMotif` → `PatternMatcher`
+- [ ] Support IUPAC wildcard patterns
+- [ ] Batch pattern matching (multiple search)
 
-#### Файли
+#### Files
 ```
 Analysis/Motifs/
 ├── PatternMatcher.cs
@@ -100,24 +100,24 @@ Analysis/Motifs/
 └── BatchPatternMatcher.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] PatternMatcherTests.cs (10 тестів)
-- [ ] IupacPatternMatcherTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] PatternMatcherTests.cs (10 tests)
+- [ ] IupacPatternMatcherTests.cs (10 tests)
 
 ---
 
-### 2.2 Approximate Matching (з мутаціями)
+### 2.2 Approximate Matching (with mutations)
 
-#### Завдання
-- [ ] `ApproximateMatcher` - пошук з k помилками
-- [ ] Підтримка різних типів помилок:
-  - Substitutions (заміни)
-  - Insertions (вставки)
-  - Deletions (видалення)
+#### Tasks
+- [ ] `ApproximateMatcher` - search with k errors
+- [ ] Support different error types:
+  - Substitutions
+  - Insertions
+  - Deletions
 - [ ] Edit distance (Levenshtein)
-- [ ] Hamming distance (тільки заміни)
+- [ ] Hamming distance (substitutions only)
 
-#### Файли
+#### Files
 ```
 Analysis/Motifs/
 ├── ApproximateMatcher.cs
@@ -126,21 +126,21 @@ Analysis/Motifs/
 └── MismatchType.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] ApproximateMatcherTests.cs (15 тестів)
-- [ ] EditDistanceTests.cs (10 тестів)
+#### Tests (25 tests)
+- [ ] ApproximateMatcherTests.cs (15 tests)
+- [ ] EditDistanceTests.cs (10 tests)
 
 ---
 
-### 2.3 Repeat Analysis (розширення існуючого)
+### 2.3 Repeat Analysis (extending existing)
 
-#### Завдання
-- [ ] `SupermaximalRepeatFinder` - максимальні повтори
-- [ ] `InvertedRepeatFinder` - інвертовані повтори
+#### Tasks
+- [ ] `SupermaximalRepeatFinder` - maximal repeats
+- [ ] `InvertedRepeatFinder` - inverted repeats
 - [ ] `MicrosatelliteFinder` - STR (Short Tandem Repeats)
 - [ ] `MinisatelliteFinder` - VNTR
 
-#### Файли
+#### Files
 ```
 Analysis/Repeats/
 ├── RepeatFinder.cs (refactor existing)
@@ -151,21 +151,21 @@ Analysis/Repeats/
 └── RepeatClassifier.cs
 ```
 
-#### Тести (30 тестів)
-- [ ] SupermaximalRepeatFinderTests.cs (10 тестів)
-- [ ] InvertedRepeatFinderTests.cs (10 тестів)
-- [ ] MicrosatelliteFinderTests.cs (10 тестів)
+#### Tests (30 tests)
+- [ ] SupermaximalRepeatFinderTests.cs (10 tests)
+- [ ] InvertedRepeatFinderTests.cs (10 tests)
+- [ ] MicrosatelliteFinderTests.cs (10 tests)
 
 ---
 
 ### 2.4 Unique Substring Analysis
 
-#### Завдання
-- [ ] `ShortestUniqueSubstring` - для праймерів
-- [ ] `MinimalUniqueSubstrings` - всі мінімальні унікальні
-- [ ] `UniqueKmerFinder` - унікальні k-mers
+#### Tasks
+- [ ] `ShortestUniqueSubstring` - for primers
+- [ ] `MinimalUniqueSubstrings` - all minimal unique
+- [ ] `UniqueKmerFinder` - unique k-mers
 
-#### Файли
+#### Files
 ```
 Analysis/Unique/
 ├── ShortestUniqueSubstringFinder.cs
@@ -174,23 +174,23 @@ Analysis/Unique/
 └── UniquenessResult.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] ShortestUniqueSubstringTests.cs (10 тестів)
-- [ ] UniqueKmerFinderTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] ShortestUniqueSubstringTests.cs (10 tests)
+- [ ] UniqueKmerFinderTests.cs (10 tests)
 
 ---
 
-## Фаза 3: RNA Analysis (Week 5-6)
+## Phase 3: RNA Analysis (Week 5-6)
 
 ### 3.1 RNA Secondary Structure
 
-#### Завдання
-- [ ] `StemLoopFinder` - пошук stem-loop структур
-- [ ] `HairpinFinder` - пошук шпильок
-- [ ] `PseudoknotDetector` - детекція псевдовузлів
-- [ ] `FreeEnergyCalculator` - ΔG розрахунок
+#### Tasks
+- [ ] `StemLoopFinder` - stem-loop structure search
+- [ ] `HairpinFinder` - hairpin search
+- [ ] `PseudoknotDetector` - pseudoknot detection
+- [ ] `FreeEnergyCalculator` - ΔG calculation
 
-#### Файли
+#### Files
 ```
 Analysis/Structure/
 ├── Rna/
@@ -202,21 +202,21 @@ Analysis/Structure/
 │   └── BasePair.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] StemLoopFinderTests.cs (10 тестів)
-- [ ] HairpinFinderTests.cs (10 тестів)
-- [ ] FreeEnergyCalculatorTests.cs (5 тестів)
+#### Tests (25 tests)
+- [ ] StemLoopFinderTests.cs (10 tests)
+- [ ] HairpinFinderTests.cs (10 tests)
+- [ ] FreeEnergyCalculatorTests.cs (5 tests)
 
 ---
 
 ### 3.2 Splicing Analysis
 
-#### Завдання
-- [ ] `SpliceSiteFinder` - донорні/акцепторні сайти
-- [ ] `IntronExonPredictor` - передбачення інтронів/екзонів
-- [ ] `AlternativeSplicingDetector` - альтернативний сплайсинг
+#### Tasks
+- [ ] `SpliceSiteFinder` - donor/acceptor sites
+- [ ] `IntronExonPredictor` - intron/exon prediction
+- [ ] `AlternativeSplicingDetector` - alternative splicing
 
-#### Файли
+#### Files
 ```
 Analysis/Splicing/
 ├── SpliceSiteFinder.cs
@@ -225,20 +225,20 @@ Analysis/Splicing/
 └── AlternativeSplicingDetector.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] SpliceSiteFinderTests.cs (10 тестів)
-- [ ] IntronExonPredictorTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] SpliceSiteFinderTests.cs (10 tests)
+- [ ] IntronExonPredictorTests.cs (10 tests)
 
 ---
 
 ### 3.3 miRNA Analysis
 
-#### Завдання
-- [ ] `MiRnaTargetPredictor` - передбачення мішеней miRNA
-- [ ] `SeedMatcher` - пошук seed region matches
-- [ ] `MiRnaScorer` - скоринг взаємодії
+#### Tasks
+- [ ] `MiRnaTargetPredictor` - miRNA target prediction
+- [ ] `SeedMatcher` - seed region match search
+- [ ] `MiRnaScorer` - interaction scoring
 
-#### Файли
+#### Files
 ```
 Analysis/MiRna/
 ├── MiRnaTargetPredictor.cs
@@ -248,22 +248,22 @@ Analysis/MiRna/
 └── MiRnaDatabase.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] MiRnaTargetPredictorTests.cs (10 тестів)
-- [ ] SeedMatcherTests.cs (5 тестів)
+#### Tests (15 tests)
+- [ ] MiRnaTargetPredictorTests.cs (10 tests)
+- [ ] SeedMatcherTests.cs (5 tests)
 
 ---
 
-## Фаза 4: Protein Analysis (Week 7-8)
+## Phase 4: Protein Analysis (Week 7-8)
 
 ### 4.1 Protein Motifs
 
-#### Завдання
-- [ ] `ProteinMotifFinder` - PROSITE-подібні патерни
-- [ ] `PrositeParser` - парсер PROSITE формату
-- [ ] `RegexMotifMatcher` - regex для білків
+#### Tasks
+- [ ] `ProteinMotifFinder` - PROSITE-like patterns
+- [ ] `PrositeParser` - PROSITE format parser
+- [ ] `RegexMotifMatcher` - regex for proteins
 
-#### Файли
+#### Files
 ```
 Analysis/Protein/
 ├── ProteinMotifFinder.cs
@@ -273,21 +273,21 @@ Analysis/Protein/
 └── ProteinMotifResult.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] ProteinMotifFinderTests.cs (10 тестів)
-- [ ] PrositeParserTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] ProteinMotifFinderTests.cs (10 tests)
+- [ ] PrositeParserTests.cs (10 tests)
 
 ---
 
 ### 4.2 Protein Structure Prediction
 
-#### Завдання
-- [ ] `SignalPeptidePredictor` - сигнальні пептиди
-- [ ] `TransmembranePredictor` - TM домени
-- [ ] `CoiledCoilPredictor` - coiled-coil структури
-- [ ] `DisorderPredictor` - неструктуровані регіони
+#### Tasks
+- [ ] `SignalPeptidePredictor` - signal peptides
+- [ ] `TransmembranePredictor` - TM domains
+- [ ] `CoiledCoilPredictor` - coiled-coil structures
+- [ ] `DisorderPredictor` - disordered regions
 
-#### Файли
+#### Files
 ```
 Analysis/Protein/
 ├── SignalPeptidePredictor.cs
@@ -297,26 +297,26 @@ Analysis/Protein/
 └── ProteinRegion.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] SignalPeptidePredictorTests.cs (7 тестів)
-- [ ] TransmembranePredictorTests.cs (8 тестів)
-- [ ] CoiledCoilPredictorTests.cs (5 тестів)
-- [ ] DisorderPredictorTests.cs (5 тестів)
+#### Tests (25 tests)
+- [ ] SignalPeptidePredictorTests.cs (7 tests)
+- [ ] TransmembranePredictorTests.cs (8 tests)
+- [ ] CoiledCoilPredictorTests.cs (5 tests)
+- [ ] DisorderPredictorTests.cs (5 tests)
 
 ---
 
 ### 4.3 Protein Properties
 
-#### Завдання
+#### Tasks
 - [ ] `ProteinPropertiesCalculator`:
   - Molecular weight
   - Isoelectric point (pI)
   - GRAVY (hydropathicity)
   - Instability index
   - Aliphatic index
-- [ ] `AminoAcidComposition` - склад амінокислот
+- [ ] `AminoAcidComposition` - amino acid composition
 
-#### Файли
+#### Files
 ```
 Analysis/Protein/
 ├── ProteinPropertiesCalculator.cs
@@ -325,23 +325,23 @@ Analysis/Protein/
 └── ProteinProperties.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] ProteinPropertiesCalculatorTests.cs (10 тестів)
-- [ ] AminoAcidCompositionTests.cs (5 тестів)
+#### Tests (15 tests)
+- [ ] ProteinPropertiesCalculatorTests.cs (10 tests)
+- [ ] AminoAcidCompositionTests.cs (5 tests)
 
 ---
 
-## Фаза 5: Sequence Alignment (Week 9-10)
+## Phase 5: Sequence Alignment (Week 9-10)
 
 ### 5.1 Pairwise Alignment
 
-#### Завдання
+#### Tasks
 - [ ] `GlobalAligner` - Needleman-Wunsch
 - [ ] `LocalAligner` - Smith-Waterman
 - [ ] `SemiGlobalAligner` - overlap alignment
-- [ ] `ScoringMatrix` - BLOSUM, PAM матриці
+- [ ] `ScoringMatrix` - BLOSUM, PAM matrices
 
-#### Файли
+#### Files
 ```
 Alignment/
 ├── Pairwise/
@@ -358,21 +358,21 @@ Alignment/
 │   └── ScoringMatrixLoader.cs
 ```
 
-#### Тести (30 тестів)
-- [ ] GlobalAlignerTests.cs (10 тестів)
-- [ ] LocalAlignerTests.cs (10 тестів)
-- [ ] ScoringMatrixTests.cs (10 тестів)
+#### Tests (30 tests)
+- [ ] GlobalAlignerTests.cs (10 tests)
+- [ ] LocalAlignerTests.cs (10 tests)
+- [ ] ScoringMatrixTests.cs (10 tests)
 
 ---
 
 ### 5.2 Multiple Sequence Alignment
 
-#### Завдання
+#### Tasks
 - [ ] `ProgressiveAligner` - progressive MSA
-- [ ] `ConsensusBuilder` - побудова консенсусу
-- [ ] `AlignmentScorer` - оцінка якості MSA
+- [ ] `ConsensusBuilder` - consensus building
+- [ ] `AlignmentScorer` - MSA quality scoring
 
-#### Файли
+#### Files
 ```
 Alignment/
 ├── Multiple/
@@ -383,20 +383,20 @@ Alignment/
 │   └── MultipleAlignment.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] ProgressiveAlignerTests.cs (10 тестів)
-- [ ] ConsensusBuilderTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] ProgressiveAlignerTests.cs (10 tests)
+- [ ] ConsensusBuilderTests.cs (10 tests)
 
 ---
 
 ### 5.3 Suffix Tree-based Alignment
 
-#### Завдання
+#### Tasks
 - [ ] `MummerAligner` - MUM-based alignment
 - [ ] `MaximalUniqueMatchFinder` - MUM finder
 - [ ] `AnchorChainer` - chaining anchors
 
-#### Файли
+#### Files
 ```
 Alignment/
 ├── SuffixTreeBased/
@@ -406,23 +406,23 @@ Alignment/
 │   └── MummerResult.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] MummerAlignerTests.cs (10 тестів)
-- [ ] MaximalUniqueMatchFinderTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] MummerAlignerTests.cs (10 tests)
+- [ ] MaximalUniqueMatchFinderTests.cs (10 tests)
 
 ---
 
-## Фаза 6: Comparative Genomics (Week 11-12)
+## Phase 6: Comparative Genomics (Week 11-12)
 
 ### 6.1 Genome Comparison
 
-#### Завдання
+#### Tasks
 - [ ] `SnpDetector` - SNP detection
 - [ ] `IndelDetector` - insertion/deletion detection
 - [ ] `SyntenyFinder` - synteny blocks
 - [ ] `GeneDuplicationFinder` - gene duplications
 
-#### Файли
+#### Files
 ```
 Comparison/
 ├── SnpDetector.cs
@@ -434,21 +434,21 @@ Comparison/
 └── SyntenyBlock.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] SnpDetectorTests.cs (8 тестів)
-- [ ] IndelDetectorTests.cs (7 тестів)
-- [ ] SyntenyFinderTests.cs (10 тестів)
+#### Tests (25 tests)
+- [ ] SnpDetectorTests.cs (8 tests)
+- [ ] IndelDetectorTests.cs (7 tests)
+- [ ] SyntenyFinderTests.cs (10 tests)
 
 ---
 
 ### 6.2 Pan-Genome Analysis
 
-#### Завдання
+#### Tasks
 - [ ] `CoreGenomeFinder` - core genome
 - [ ] `PanGenomeBuilder` - pan genome
 - [ ] `AccessoryGeneFinder` - accessory genes
 
-#### Файли
+#### Files
 ```
 Comparison/
 ├── PanGenome/
@@ -458,23 +458,23 @@ Comparison/
 │   └── PanGenomeResult.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] CoreGenomeFinderTests.cs (8 тестів)
-- [ ] PanGenomeBuilderTests.cs (7 тестів)
+#### Tests (15 tests)
+- [ ] CoreGenomeFinderTests.cs (8 tests)
+- [ ] PanGenomeBuilderTests.cs (7 tests)
 
 ---
 
-## Фаза 7: Statistics (Week 13)
+## Phase 7: Statistics (Week 13)
 
 ### 7.1 Sequence Statistics
 
-#### Завдання
+#### Tasks
 - [ ] `KmerAnalyzer` - k-mer spectrum
 - [ ] `SequenceComplexity` - linguistic complexity
 - [ ] `EntropyCalculator` - Shannon entropy
 - [ ] `GcSkewCalculator` - GC skew analysis
 
-#### Файли
+#### Files
 ```
 Analysis/Statistics/
 ├── KmerAnalyzer.cs
@@ -485,22 +485,22 @@ Analysis/Statistics/
 └── StatisticsResult.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] KmerAnalyzerTests.cs (10 тестів)
-- [ ] SequenceComplexityTests.cs (5 тестів)
-- [ ] EntropyCalculatorTests.cs (5 тестів)
-- [ ] GcSkewCalculatorTests.cs (5 тестів)
+#### Tests (25 tests)
+- [ ] KmerAnalyzerTests.cs (10 tests)
+- [ ] SequenceComplexityTests.cs (5 tests)
+- [ ] EntropyCalculatorTests.cs (5 tests)
+- [ ] GcSkewCalculatorTests.cs (5 tests)
 
 ---
 
 ### 7.2 Codon Analysis
 
-#### Завдання
+#### Tasks
 - [ ] `CodonUsageAnalyzer` - codon usage bias
 - [ ] `CaiCalculator` - Codon Adaptation Index
 - [ ] `RscuCalculator` - Relative Synonymous Codon Usage
 
-#### Файли
+#### Files
 ```
 Analysis/Statistics/
 ├── CodonUsageAnalyzer.cs
@@ -509,23 +509,23 @@ Analysis/Statistics/
 └── CodonUsageTable.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] CodonUsageAnalyzerTests.cs (8 тестів)
-- [ ] CaiCalculatorTests.cs (7 тестів)
+#### Tests (15 tests)
+- [ ] CodonUsageAnalyzerTests.cs (8 tests)
+- [ ] CaiCalculatorTests.cs (7 tests)
 
 ---
 
-## Фаза 8: Practical Applications (Week 14-15)
+## Phase 8: Practical Applications (Week 14-15)
 
 ### 8.1 Primer Design
 
-#### Завдання
-- [ ] `PrimerDesigner` - дизайн PCR праймерів
-- [ ] `PrimerValidator` - валідація праймерів
-- [ ] `MeltingTemperatureCalculator` - Tm розрахунок
-- [ ] `PrimerDimerChecker` - перевірка димерів
+#### Tasks
+- [ ] `PrimerDesigner` - PCR primer design
+- [ ] `PrimerValidator` - primer validation
+- [ ] `MeltingTemperatureCalculator` - Tm calculation
+- [ ] `PrimerDimerChecker` - dimer checking
 
-#### Файли
+#### Files
 ```
 Applications/Primers/
 ├── PrimerDesigner.cs
@@ -537,22 +537,22 @@ Applications/Primers/
 └── PrimerDesignOptions.cs
 ```
 
-#### Тести (30 тестів)
-- [ ] PrimerDesignerTests.cs (10 тестів)
-- [ ] PrimerValidatorTests.cs (10 тестів)
-- [ ] MeltingTemperatureCalculatorTests.cs (10 тестів)
+#### Tests (30 tests)
+- [ ] PrimerDesignerTests.cs (10 tests)
+- [ ] PrimerValidatorTests.cs (10 tests)
+- [ ] MeltingTemperatureCalculatorTests.cs (10 tests)
 
 ---
 
 ### 8.2 CRISPR Guide RNA
 
-#### Завдання
-- [ ] `GuideRnaDesigner` - дизайн gRNA
-- [ ] `PamFinder` - пошук PAM sequences
-- [ ] `OffTargetPredictor` - передбачення off-targets
-- [ ] `GuideRnaScorer` - скоринг gRNA
+#### Tasks
+- [ ] `GuideRnaDesigner` - gRNA design
+- [ ] `PamFinder` - PAM sequence search
+- [ ] `OffTargetPredictor` - off-target prediction
+- [ ] `GuideRnaScorer` - gRNA scoring
 
-#### Файли
+#### Files
 ```
 Applications/Crispr/
 ├── GuideRnaDesigner.cs
@@ -564,22 +564,22 @@ Applications/Crispr/
 └── CrisprSystem.cs
 ```
 
-#### Тести (25 тестів)
-- [ ] GuideRnaDesignerTests.cs (10 тестів)
-- [ ] PamFinderTests.cs (5 тестів)
-- [ ] OffTargetPredictorTests.cs (10 тестів)
+#### Tests (25 tests)
+- [ ] GuideRnaDesignerTests.cs (10 tests)
+- [ ] PamFinderTests.cs (5 tests)
+- [ ] OffTargetPredictorTests.cs (10 tests)
 
 ---
 
 ### 8.3 Restriction Analysis
 
-#### Завдання
+#### Tasks
 - [ ] `RestrictionMapper` - restriction map
-- [ ] `RestrictionEnzymeDatabase` - база ензимів
-- [ ] `DigestSimulator` - симуляція рестрикції
-- [ ] `FragmentAnalyzer` - аналіз фрагментів
+- [ ] `RestrictionEnzymeDatabase` - enzyme database
+- [ ] `DigestSimulator` - restriction simulation
+- [ ] `FragmentAnalyzer` - fragment analysis
 
-#### Файли
+#### Files
 ```
 Applications/Restriction/
 ├── RestrictionMapper.cs
@@ -590,20 +590,20 @@ Applications/Restriction/
 └── RestrictionSite.cs
 ```
 
-#### Тести (20 тестів)
-- [ ] RestrictionMapperTests.cs (10 тестів)
-- [ ] DigestSimulatorTests.cs (10 тестів)
+#### Tests (20 tests)
+- [ ] RestrictionMapperTests.cs (10 tests)
+- [ ] DigestSimulatorTests.cs (10 tests)
 
 ---
 
 ### 8.4 Probe Design
 
-#### Завдання
-- [ ] `ProbeDesigner` - дизайн гібридизаційних зондів
-- [ ] `ProbeSpecificityChecker` - перевірка специфічності
-- [ ] `OligoAnalyzer` - аналіз олігонуклеотидів
+#### Tasks
+- [ ] `ProbeDesigner` - hybridization probe design
+- [ ] `ProbeSpecificityChecker` - specificity checking
+- [ ] `OligoAnalyzer` - oligonucleotide analysis
 
-#### Файли
+#### Files
 ```
 Applications/Probes/
 ├── ProbeDesigner.cs
@@ -613,17 +613,17 @@ Applications/Probes/
 └── ProbeDesignOptions.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] ProbeDesignerTests.cs (10 тестів)
-- [ ] OligoAnalyzerTests.cs (5 тестів)
+#### Tests (15 tests)
+- [ ] ProbeDesignerTests.cs (10 tests)
+- [ ] OligoAnalyzerTests.cs (5 tests)
 
 ---
 
-## Фаза 9: File Formats (Week 16)
+## Phase 9: File Formats (Week 16)
 
 ### 9.1 Input Formats
 
-#### Завдання
+#### Tasks
 - [ ] `GenBankParser` - GenBank format
 - [ ] `EmblParser` - EMBL format
 - [ ] `FastqParser` - FASTQ with quality
@@ -631,7 +631,7 @@ Applications/Probes/
 - [ ] `BedParser` - BED format
 - [ ] `VcfParser` - VCF (variants)
 
-#### Файли
+#### Files
 ```
 IO/
 ├── Parsers/
@@ -649,24 +649,24 @@ IO/
 │   └── VcfVariant.cs
 ```
 
-#### Тести (35 тестів)
-- [ ] GenBankParserTests.cs (8 тестів)
-- [ ] FastqParserTests.cs (7 тестів)
-- [ ] GffParserTests.cs (7 тестів)
-- [ ] BedParserTests.cs (6 тестів)
-- [ ] VcfParserTests.cs (7 тестів)
+#### Tests (35 tests)
+- [ ] GenBankParserTests.cs (8 tests)
+- [ ] FastqParserTests.cs (7 tests)
+- [ ] GffParserTests.cs (7 tests)
+- [ ] BedParserTests.cs (6 tests)
+- [ ] VcfParserTests.cs (7 tests)
 
 ---
 
 ### 9.2 Output Formats
 
-#### Завдання
+#### Tasks
 - [ ] `FastaWriter` - FASTA output (refactor)
 - [ ] `GenBankWriter` - GenBank output
 - [ ] `GffWriter` - GFF output
 - [ ] `ReportGenerator` - HTML/JSON reports
 
-#### Файли
+#### Files
 ```
 IO/
 ├── Writers/
@@ -676,16 +676,16 @@ IO/
 │   └── ReportGenerator.cs
 ```
 
-#### Тести (15 тестів)
-- [ ] WriterTests.cs (15 тестів)
+#### Tests (15 tests)
+- [ ] WriterTests.cs (15 tests)
 
 ---
 
-## Підсумок
+## Summary
 
-### Загальна статистика
+### Overall Statistics
 
-| Фаза | Тиждень | Алгоритми | Тести |
+| Phase | Week | Algorithms | Tests |
 |------|---------|-----------|-------|
 | 1. Core Foundation | 1-2 | 8 | 40 |
 | 2. DNA Analysis | 3-4 | 12 | 95 |
@@ -698,9 +698,9 @@ IO/
 | 9. File Formats | 16 | 10 | 50 |
 | **TOTAL** | **16 weeks** | **89 algorithms** | **545 tests** |
 
-### Пріоритети (MVP)
+### Priorities (MVP)
 
-**High Priority (реалізувати першими):**
+**High Priority (implement first):**
 1. ✅ DnaSequence (done)
 2. ✅ GenomicAnalyzer basics (done)
 3. ✅ FastaParser (done)
@@ -722,30 +722,29 @@ IO/
 
 ---
 
-## Команди для виконання
+## Commands to Execute
 
 ```bash
-# Створення структури
+# Create structure
 mkdir -p SuffixTree.Genomics/Core/Sequences
 mkdir -p SuffixTree.Genomics/Core/Translation
 mkdir -p SuffixTree.Genomics/Analysis/Repeats
 mkdir -p SuffixTree.Genomics/Analysis/Motifs
 # ... etc
 
-# Запуск тестів
+# Run tests
 dotnet test --filter "FullyQualifiedName~Genomics"
 
-# Запуск з покриттям
+# Run with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
 ---
 
-## Definition of Done (для кожного алгоритму)
+## Definition of Done (per algorithm)
 
-- [ ] Реалізація з XML документацією
-- [ ] Unit тести (мін. 5 на алгоритм)
-- [ ] Integration тести з реальними даними
+- [ ] Implementation with XML documentation
+- [ ] Unit tests (min. 5 per algorithm)
+- [ ] Integration tests with real data
 - [ ] Performance benchmarks
-- [ ] README документація
-- [ ] Приклади використання
+- [ ] README documentation
