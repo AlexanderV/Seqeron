@@ -116,79 +116,8 @@ public class RepeatFinderTests
 
     #endregion
 
-    #region Inverted Repeat Detection Tests
-
-    [Test]
-    public void FindInvertedRepeats_SimpleHairpin_FindsRepeat()
-    {
-        // GCGC...loop...GCGC (GCGC revcomp = GCGC)
-        var sequence = new DnaSequence("AAGCGCAAAAGCGCAA");
-        var results = RepeatFinder.FindInvertedRepeats(sequence, 4, 10, 3).ToList();
-
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        var hairpin = results.First(r => r.ArmLength == 4);
-        Assert.That(hairpin.CanFormHairpin, Is.True);
-    }
-
-    [Test]
-    public void FindInvertedRepeats_PerfectPalindrome_FindsRepeat()
-    {
-        // GAATTC...loop...GAATTC complement reversed = GAATTC
-        var sequence = new DnaSequence("GAATTCAAAAGAATTC");
-        var results = RepeatFinder.FindInvertedRepeats(sequence, 4, 10, 3).ToList();
-
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void FindInvertedRepeats_NoInvertedRepeats_ReturnsEmpty()
-    {
-        var sequence = new DnaSequence("AAAAAAAAAAAAAA");
-        var results = RepeatFinder.FindInvertedRepeats(sequence, 4, 10, 3).ToList();
-
-        // AAA revcomp = TTT, so no match
-        Assert.That(results, Is.Empty);
-    }
-
-    [Test]
-    public void FindInvertedRepeats_MinArmLength_RespectsThreshold()
-    {
-        var sequence = new DnaSequence("GCAAGC"); // GC revcomp = GC
-        var results4 = RepeatFinder.FindInvertedRepeats(sequence, 4, 10, 0).ToList();
-        var results2 = RepeatFinder.FindInvertedRepeats(sequence, 2, 10, 0).ToList();
-
-        Assert.That(results4, Is.Empty);
-        Assert.That(results2.Any(r => r.ArmLength == 2));
-    }
-
-    [Test]
-    public void FindInvertedRepeats_StringOverload_Works()
-    {
-        var results = RepeatFinder.FindInvertedRepeats("GCGCAAAAGCGC", 4, 10, 3).ToList();
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void FindInvertedRepeats_EmptySequence_ReturnsEmpty()
-    {
-        var results = RepeatFinder.FindInvertedRepeats("", 4, 10, 3).ToList();
-        Assert.That(results, Is.Empty);
-    }
-
-    [Test]
-    public void FindInvertedRepeats_TotalLength_CalculatedCorrectly()
-    {
-        var sequence = new DnaSequence("GCGCAAAAGCGC");
-        var results = RepeatFinder.FindInvertedRepeats(sequence, 4, 10, 3).ToList();
-
-        if (results.Count > 0)
-        {
-            var result = results[0];
-            Assert.That(result.TotalLength, Is.EqualTo(2 * result.ArmLength + result.LoopLength));
-        }
-    }
-
-    #endregion
+    // Note: Inverted Repeat Detection tests have been moved to RepeatFinder_InvertedRepeat_Tests.cs
+    // See Test Unit REP-INV-001
 
     #region Direct Repeat Detection Tests
 
