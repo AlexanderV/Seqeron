@@ -11,10 +11,10 @@
 | Метрика | Значение |
 |---------|----------|
 | **Total Test Units** | 100 |
-| **Completed** | 2 |
+| **Completed** | 3 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 98 |
+| **Not Started** | 97 |
 
 ---
 
@@ -24,7 +24,7 @@
 |--------|--------------|------|---------|----------|----------|--------------|
 | ☑ | SEQ-GC-001 | Composition | 5 | Wikipedia, Biopython | [SEQ-GC-001.md](TestSpecs/SEQ-GC-001.md) | SequenceExtensions_CalculateGcContent_Tests.cs |
 | ☑ | SEQ-COMP-001 | Composition | 3 | Wikipedia, Biopython | [SEQ-COMP-001.md](TestSpecs/SEQ-COMP-001.md) | SequenceExtensions_Complement_Tests.cs |
-| ☐ | SEQ-REVCOMP-001 | Composition | 4 | - | - | - |
+| ☑ | SEQ-REVCOMP-001 | Composition | 4 | Wikipedia, Biopython | [SEQ-REVCOMP-001.md](TestSpecs/SEQ-REVCOMP-001.md) | SequenceExtensions_ReverseComplement_Tests.cs |
 | ☐ | SEQ-VALID-001 | Composition | 4 | - | - | - |
 | ☐ | SEQ-COMPLEX-001 | Composition | 4 | - | - | - |
 | ☐ | SEQ-ENTROPY-001 | Composition | 2 | - | - | - |
