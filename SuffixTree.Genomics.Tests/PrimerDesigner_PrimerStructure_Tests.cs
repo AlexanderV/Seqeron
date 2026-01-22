@@ -258,6 +258,39 @@ public class PrimerDesigner_PrimerStructure_Tests
         Assert.That(result, Is.False);
     }
 
+    /// <summary>
+    /// Long sequence (>100bp) uses suffix tree optimization.
+    /// Source: Performance optimization test.
+    /// </summary>
+    [Test]
+    public void HasHairpinPotential_LongSequence_UsesSuffixTreeOptimization()
+    {
+        // Create 150bp sequence with hairpin potential
+        // ACGT...ACGT pattern at start and end (complementary when reversed)
+        var sb = new System.Text.StringBuilder();
+        sb.Append("ACGTACGTACGT"); // 12bp stem region
+        sb.Append(new string('A', 126)); // spacer (loop + filler)
+        sb.Append("ACGTACGTACGT"); // 12bp complementary region
+        string longSeq = sb.ToString(); // 150bp total
+
+        // Should detect hairpin using suffix tree (>100bp threshold)
+        bool result = PrimerDesigner.HasHairpinPotential(longSeq);
+        Assert.That(result, Is.True);
+    }
+
+    /// <summary>
+    /// Long sequence without hairpin returns false.
+    /// Source: Performance optimization test.
+    /// </summary>
+    [Test]
+    public void HasHairpinPotential_LongSequenceNoHairpin_ReturnsFalse()
+    {
+        // All A's cannot form hairpin (A is complementary to T, not A)
+        string longSeq = new string('A', 150);
+        bool result = PrimerDesigner.HasHairpinPotential(longSeq);
+        Assert.That(result, Is.False);
+    }
+
     #endregion
 
     #region HasPrimerDimer Tests

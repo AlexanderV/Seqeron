@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using SuffixTree.Genomics;
 
 namespace SuffixTree.Benchmarks;
 
@@ -183,6 +184,43 @@ public class SuffixTreeBenchmarks
     [Benchmark]
     [BenchmarkCategory("LCS")]
     public string LCS_DNA() => _dnaTree.LongestCommonSubstring(_dnaText.Substring(10000, 100));
+
+    #endregion
+
+    #region HasHairpinPotential Benchmarks (Genomics)
+
+    private string _shortPrimer = null!;
+    private string _mediumSequence = null!;
+    private string _longSequence = null!;
+
+    [GlobalSetup(Target = nameof(Hairpin_ShortPrimer))]
+    public void SetupHairpin()
+    {
+        // Typical primer length (20bp)
+        _shortPrimer = "ACGTACGTACGTACGTACGT";
+
+        // Medium sequence (50bp) - below threshold
+        _mediumSequence = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC";
+
+        // Long sequence (200bp) - above suffix tree threshold
+        var sb = new System.Text.StringBuilder();
+        sb.Append("ACGTACGTACGT"); // stem region
+        sb.Append(new string('A', 176));
+        sb.Append("ACGTACGTACGT"); // complementary stem
+        _longSequence = sb.ToString();
+    }
+
+    [Benchmark]
+    [BenchmarkCategory("Hairpin")]
+    public bool Hairpin_ShortPrimer() => PrimerDesigner.HasHairpinPotential(_shortPrimer);
+
+    [Benchmark]
+    [BenchmarkCategory("Hairpin")]
+    public bool Hairpin_MediumSequence() => PrimerDesigner.HasHairpinPotential(_mediumSequence);
+
+    [Benchmark]
+    [BenchmarkCategory("Hairpin")]
+    public bool Hairpin_LongSequence() => PrimerDesigner.HasHairpinPotential(_longSequence);
 
     #endregion
 }
