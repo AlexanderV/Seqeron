@@ -117,44 +117,28 @@ public class MotifFinderTests
 
     #endregion
 
-    #region PWM Tests
+    #region PWM Tests (Smoke - comprehensive tests in MotifFinder_PWM_Tests)
+
+    // NOTE: Comprehensive PWM tests are in MotifFinder_PWM_Tests.cs (PAT-PWM-001)
+    // These tests are retained as smoke tests for MotifFinder API verification.
 
     [Test]
-    public void CreatePwm_SingleSequence_CreatesMatrix()
+    [Description("Smoke: CreatePwm returns valid matrix")]
+    public void CreatePwm_Smoke_ReturnsValidMatrix()
     {
         var sequences = new[] { "ATGC" };
         var pwm = MotifFinder.CreatePwm(sequences);
 
-        Assert.That(pwm.Length, Is.EqualTo(4));
-        Assert.That(pwm.Consensus, Is.EqualTo("ATGC"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(pwm.Length, Is.EqualTo(4));
+            Assert.That(pwm.Consensus, Is.EqualTo("ATGC"));
+        });
     }
 
     [Test]
-    public void CreatePwm_MultipleSequences_CreatesAverageMatrix()
-    {
-        var sequences = new[] { "ATGC", "ATGC", "ATGC" };
-        var pwm = MotifFinder.CreatePwm(sequences);
-
-        Assert.That(pwm.Consensus, Is.EqualTo("ATGC"));
-    }
-
-    [Test]
-    public void CreatePwm_EmptySequences_ThrowsException()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            MotifFinder.CreatePwm(Array.Empty<string>()));
-    }
-
-    [Test]
-    public void CreatePwm_UnequalLengths_ThrowsException()
-    {
-        var sequences = new[] { "ATGC", "ATG" };
-        Assert.Throws<ArgumentException>(() =>
-            MotifFinder.CreatePwm(sequences));
-    }
-
-    [Test]
-    public void ScanWithPwm_FindsExactMatch()
+    [Description("Smoke: ScanWithPwm finds trained sequence")]
+    public void ScanWithPwm_Smoke_FindsMatch()
     {
         var sequences = new[] { "ATGC", "ATGC", "ATGC" };
         var pwm = MotifFinder.CreatePwm(sequences);
@@ -162,29 +146,7 @@ public class MotifFinderTests
         var sequence = new DnaSequence("AAAATGCAAA");
         var matches = MotifFinder.ScanWithPwm(sequence, pwm, threshold: 0).ToList();
 
-        Assert.That(matches.Count, Is.GreaterThan(0));
         Assert.That(matches.Any(m => m.MatchedSequence == "ATGC"));
-    }
-
-    [Test]
-    public void ScanWithPwm_ReturnsScores()
-    {
-        var sequences = new[] { "AAAA" };
-        var pwm = MotifFinder.CreatePwm(sequences);
-
-        var sequence = new DnaSequence("AAAA");
-        var matches = MotifFinder.ScanWithPwm(sequence, pwm).ToList();
-
-        Assert.That(matches[0].Score, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void Pwm_MaxMinScore_Calculated()
-    {
-        var sequences = new[] { "ATGC" };
-        var pwm = MotifFinder.CreatePwm(sequences);
-
-        Assert.That(pwm.MaxScore, Is.GreaterThan(pwm.MinScore));
     }
 
     #endregion
@@ -389,28 +351,7 @@ public class MotifFinderTests
             MotifFinder.FindDegenerateMotif(null!, "ATG").ToList());
     }
 
-    [Test]
-    public void CreatePwm_NullSequences_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.CreatePwm(null!));
-    }
-
-    [Test]
-    public void ScanWithPwm_NullSequence_ThrowsException()
-    {
-        var pwm = MotifFinder.CreatePwm(new[] { "ATGC" });
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.ScanWithPwm(null!, pwm).ToList());
-    }
-
-    [Test]
-    public void ScanWithPwm_NullPwm_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGC");
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.ScanWithPwm(sequence, null!).ToList());
-    }
+    // NOTE: PWM null tests moved to MotifFinder_PWM_Tests.cs (PAT-PWM-001)
 
     [Test]
     public void DiscoverMotifs_NullSequence_ThrowsException()

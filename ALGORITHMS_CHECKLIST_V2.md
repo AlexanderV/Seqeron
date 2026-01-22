@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 10 |
+| **Completed** | 12 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 90 |
+| **Not Started** | 88 |
 
 ---
 
@@ -33,7 +33,7 @@
 | ☑ | PAT-APPROX-001 | Matching | 2 | Wikipedia (Hamming), Rosalind (HAMM), Gusfield (1997), Navarro (2001) | [PAT-APPROX-001.md](TestSpecs/PAT-APPROX-001.md) | ApproximateMatcher_HammingDistance_Tests.cs |
 | ☑ | PAT-APPROX-002 | Matching | 2 | Wikipedia (Levenshtein, Edit Distance), Rosetta Code, Navarro (2001) | [PAT-APPROX-002.md](TestSpecs/PAT-APPROX-002.md) | ApproximateMatcher_EditDistance_Tests.cs |
 | ☑ | PAT-IUPAC-001 | Matching | 2 | Wikipedia (Nucleic acid notation), IUPAC-IUB 1970, Bioinformatics.org | [PAT-IUPAC-001.md](TestSpecs/PAT-IUPAC-001.md) | IupacMotifMatchingTests.cs |
-| ☐ | PAT-PWM-001 | Matching | 2 | - | - | - |
+| ☑ | PAT-PWM-001 | Matching | 2 | Wikipedia (PWM), Kel et al. (2003), Rosalind (CONS), Nishida (2008) | [PAT-PWM-001.md](TestSpecs/PAT-PWM-001.md) | MotifFinder_PWM_Tests.cs |
 | ☐ | REP-STR-001 | Repeats | 4 | - | - | - |
 | ☐ | REP-TANDEM-001 | Repeats | 2 | - | - | - |
 | ☐ | REP-INV-001 | Repeats | 1 | - | - | - |
