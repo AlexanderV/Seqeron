@@ -144,6 +144,7 @@ public class SequenceComplexityTests
     public void CalculateShannonEntropy_EqualBases_ReturnsTwo()
     {
         // Equal distribution of all 4 bases = max entropy (2 bits)
+        // Source: Wikipedia - Entropy (information theory), H_max = log2(4) = 2
         var sequence = new DnaSequence("ATGCATGCATGCATGC");
         double entropy = SequenceComplexity.CalculateShannonEntropy(sequence);
 
@@ -153,7 +154,8 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateShannonEntropy_SingleBase_ReturnsZero()
     {
-        // Only one base type = zero entropy
+        // Only one base type = zero entropy (no uncertainty)
+        // Source: Wikipedia - Entropy (information theory), H = 0 when p = 1
         var sequence = new DnaSequence("AAAAAAA");
         double entropy = SequenceComplexity.CalculateShannonEntropy(sequence);
 
@@ -164,6 +166,7 @@ public class SequenceComplexityTests
     public void CalculateShannonEntropy_TwoBases_ReturnsOne()
     {
         // Two bases equally distributed = 1 bit entropy
+        // Source: Binary entropy H = -2 × (0.5 × log2(0.5)) = 1
         var sequence = new DnaSequence("ATATATAT");
         double entropy = SequenceComplexity.CalculateShannonEntropy(sequence);
 
@@ -173,15 +176,83 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateShannonEntropy_EmptySequence_ReturnsZero()
     {
+        // Empty sequence = no information content
+        // Source: Convention, no data = no entropy
         double entropy = SequenceComplexity.CalculateShannonEntropy("");
         Assert.That(entropy, Is.EqualTo(0));
     }
 
     [Test]
-    public void CalculateShannonEntropy_StringOverload_Works()
+    public void CalculateShannonEntropy_StringOverload_MatchesDnaSequenceOverload()
     {
-        double entropy = SequenceComplexity.CalculateShannonEntropy("ATGC");
-        Assert.That(entropy, Is.EqualTo(2.0).Within(0.01));
+        // API consistency: string overload should produce same result as DnaSequence
+        const string sequence = "ATGCATGCATGCATGC";
+        var dnaSeq = new DnaSequence(sequence);
+
+        double entropyString = SequenceComplexity.CalculateShannonEntropy(sequence);
+        double entropyDna = SequenceComplexity.CalculateShannonEntropy(dnaSeq);
+
+        Assert.That(entropyString, Is.EqualTo(entropyDna).Within(1e-10));
+    }
+
+    [Test]
+    public void CalculateShannonEntropy_RangeIsZeroToTwo_ForDnaSequences()
+    {
+        // Invariant INV-ENT-001: 0 ≤ H ≤ 2 for any DNA sequence
+        // Source: Wikipedia - max entropy = log2(alphabet size) = log2(4) = 2
+        var testSequences = new[]
+        {
+            "A",                           // Single nucleotide
+            "AAAA",                         // Homopolymer
+            "ATGC",                         // All bases once
+            "ATGCATGCATGC",                 // Repeated pattern
+            "ATGCTAGCATGCAATGCTAGCATGC",   // Random-like
+            new string('A', 100),           // Long homopolymer
+            string.Concat(Enumerable.Repeat("ATGC", 25))  // Long varied
+        };
+
+        Assert.Multiple(() =>
+        {
+            foreach (string seq in testSequences)
+            {
+                double entropy = SequenceComplexity.CalculateShannonEntropy(seq);
+                Assert.That(entropy, Is.GreaterThanOrEqualTo(0),
+                    $"Entropy < 0 for sequence: {seq[..Math.Min(20, seq.Length)]}...");
+                Assert.That(entropy, Is.LessThanOrEqualTo(2.0),
+                    $"Entropy > 2 for sequence: {seq[..Math.Min(20, seq.Length)]}...");
+            }
+        });
+    }
+
+    [Test]
+    public void CalculateShannonEntropy_ThreeBases_ReturnsLog2Of3()
+    {
+        // Three bases equally distributed = log2(3) ≈ 1.585 bits
+        // Source: Shannon entropy formula for n=3 uniform symbols
+        var sequence = new DnaSequence("ATGATGATG"); // A, T, G each 33.3%
+        double entropy = SequenceComplexity.CalculateShannonEntropy(sequence);
+
+        double expectedEntropy = Math.Log2(3); // ≈ 1.585
+        Assert.That(entropy, Is.EqualTo(expectedEntropy).Within(0.01));
+    }
+
+    [Test]
+    public void CalculateShannonEntropy_LowercaseInput_HandledCorrectly()
+    {
+        // Case insensitivity for robustness
+        const string upper = "ATGCATGCATGC";
+        const string lower = "atgcatgcatgc";
+        const string mixed = "AtGcAtGcAtGc";
+
+        double entropyUpper = SequenceComplexity.CalculateShannonEntropy(upper);
+        double entropyLower = SequenceComplexity.CalculateShannonEntropy(lower);
+        double entropyMixed = SequenceComplexity.CalculateShannonEntropy(mixed);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entropyLower, Is.EqualTo(entropyUpper).Within(1e-10));
+            Assert.That(entropyMixed, Is.EqualTo(entropyUpper).Within(1e-10));
+        });
     }
 
     #endregion
@@ -191,6 +262,7 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateKmerEntropy_VariedDinucleotides_ReturnsHigh()
     {
+        // Source: High k-mer diversity = high entropy
         var sequence = new DnaSequence("ATGCATGCATGCATGC");
         double entropy = SequenceComplexity.CalculateKmerEntropy(sequence, k: 2);
 
@@ -198,8 +270,10 @@ public class SequenceComplexityTests
     }
 
     [Test]
-    public void CalculateKmerEntropy_RepeatedDinucleotides_ReturnsLow()
+    public void CalculateKmerEntropy_RepeatedDinucleotides_ReturnsZero()
     {
+        // Homopolymer has only one k-mer type = zero entropy
+        // Source: Single symbol = zero entropy
         var sequence = new DnaSequence("AAAAAAAAAA");
         double entropy = SequenceComplexity.CalculateKmerEntropy(sequence, k: 2);
 
@@ -209,10 +283,53 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateKmerEntropy_SequenceShorterThanK_ReturnsZero()
     {
+        // No k-mers extractable = zero entropy
         var sequence = new DnaSequence("AT");
         double entropy = SequenceComplexity.CalculateKmerEntropy(sequence, k: 5);
 
         Assert.That(entropy, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void CalculateKmerEntropy_InvalidK_ThrowsException()
+    {
+        // Parameter validation: k must be >= 1
+        var sequence = new DnaSequence("ATGCATGC");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SequenceComplexity.CalculateKmerEntropy(sequence, k: 0));
+    }
+
+    [Test]
+    public void CalculateKmerEntropy_NullSequence_ThrowsException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            SequenceComplexity.CalculateKmerEntropy((DnaSequence)null!, k: 2));
+    }
+
+    [Test]
+    public void CalculateKmerEntropy_RangeIsNonNegative_ForDnaSequences()
+    {
+        // K-mer entropy should always be >= 0
+        var testSequences = new[]
+        {
+            ("ATGC", 1),
+            ("ATGCATGC", 2),
+            ("ATGCATGCATGC", 3),
+            ("AAAAAAAAAA", 2),
+            ("ATATATATAT", 2)
+        };
+
+        Assert.Multiple(() =>
+        {
+            foreach (var (seq, k) in testSequences)
+            {
+                var dnaSeq = new DnaSequence(seq);
+                double entropy = SequenceComplexity.CalculateKmerEntropy(dnaSeq, k);
+                Assert.That(entropy, Is.GreaterThanOrEqualTo(0),
+                    $"K-mer entropy < 0 for sequence: {seq}, k={k}");
+            }
+        });
     }
 
     #endregion
