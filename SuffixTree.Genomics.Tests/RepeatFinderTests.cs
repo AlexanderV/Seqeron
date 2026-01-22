@@ -122,75 +122,8 @@ public class RepeatFinderTests
     // Note: Direct Repeat Detection tests have been moved to RepeatFinder_DirectRepeat_Tests.cs
     // See Test Unit REP-DIRECT-001
 
-    #region Palindrome Detection Tests
-
-    [Test]
-    public void FindPalindromes_EcoRISite_FindsPalindrome()
-    {
-        // EcoRI site: GAATTC (reverse complement = GAATTC)
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-        var results = RepeatFinder.FindPalindromes(sequence, 6, 6).ToList();
-
-        Assert.That(results, Has.Count.EqualTo(1));
-        Assert.That(results[0].Sequence, Is.EqualTo("GAATTC"));
-        Assert.That(results[0].Position, Is.EqualTo(3));
-    }
-
-    [Test]
-    public void FindPalindromes_HindIIISite_FindsPalindrome()
-    {
-        // HindIII site: AAGCTT (reverse complement = AAGCTT)
-        var sequence = new DnaSequence("CCCAAGCTTCCC");
-        var results = RepeatFinder.FindPalindromes(sequence, 6, 6).ToList();
-
-        Assert.That(results, Has.Count.EqualTo(1));
-        Assert.That(results[0].Sequence, Is.EqualTo("AAGCTT"));
-    }
-
-    [Test]
-    public void FindPalindromes_ShortPalindrome_FindsFourBasePalindrome()
-    {
-        // AATT, TTAA, GCGC, CGCG are 4bp palindromes
-        var sequence = new DnaSequence("AAGCGCAA");
-        var results = RepeatFinder.FindPalindromes(sequence, 4, 4).ToList();
-
-        Assert.That(results, Has.Count.EqualTo(1));
-        Assert.That(results[0].Sequence, Is.EqualTo("GCGC"));
-    }
-
-    [Test]
-    public void FindPalindromes_MultiplePalindromes_FindsAll()
-    {
-        var sequence = new DnaSequence("GAATTCAAAGAATTC");
-        var results = RepeatFinder.FindPalindromes(sequence, 6, 6).ToList();
-
-        Assert.That(results, Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public void FindPalindromes_NoPalindromes_ReturnsEmpty()
-    {
-        var sequence = new DnaSequence("AAAAAAAAAA");
-        var results = RepeatFinder.FindPalindromes(sequence, 4, 12).ToList();
-
-        Assert.That(results, Is.Empty);
-    }
-
-    [Test]
-    public void FindPalindromes_StringOverload_Works()
-    {
-        var results = RepeatFinder.FindPalindromes("GAATTC", 6, 6).ToList();
-        Assert.That(results, Has.Count.EqualTo(1));
-    }
-
-    [Test]
-    public void FindPalindromes_EmptySequence_ReturnsEmpty()
-    {
-        var results = RepeatFinder.FindPalindromes("", 4, 12).ToList();
-        Assert.That(results, Is.Empty);
-    }
-
-    #endregion
+    // Note: Palindrome Detection tests have been moved to RepeatFinder_Palindrome_Tests.cs
+    // See Test Unit REP-PALIN-001
 
     #region Tandem Repeat Summary Tests
 
@@ -274,14 +207,6 @@ public class RepeatFinderTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             RepeatFinder.FindInvertedRepeats((DnaSequence)null!, 4, 10, 3).ToList());
-    }
-
-    [Test]
-    public void FindPalindromes_OddMinLength_ThrowsException()
-    {
-        var sequence = new DnaSequence("GAATTC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            RepeatFinder.FindPalindromes(sequence, 5, 12).ToList());
     }
 
     #endregion
