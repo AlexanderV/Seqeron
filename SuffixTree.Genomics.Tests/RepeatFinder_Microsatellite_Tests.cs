@@ -451,61 +451,8 @@ public class RepeatFinder_Microsatellite_Tests
 
     #endregion
 
-    #region Tandem Repeat Summary Integration
-
-    /// <summary>
-    /// GetTandemRepeatSummary should accurately aggregate microsatellite data.
-    /// </summary>
-    [Test]
-    public void GetTandemRepeatSummary_WithMixedRepeats_CorrectStatistics()
-    {
-        var sequence = new DnaSequence("AAAAAACGTCGTCGTACACACACATGATGATG");
-
-        var summary = RepeatFinder.GetTandemRepeatSummary(sequence, 3);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(summary.TotalRepeats, Is.GreaterThan(0));
-            Assert.That(summary.TotalRepeatBases, Is.GreaterThan(0));
-            Assert.That(summary.PercentageOfSequence, Is.GreaterThan(0));
-        });
-    }
-
-    /// <summary>
-    /// Longest repeat should be correctly identified.
-    /// </summary>
-    [Test]
-    public void GetTandemRepeatSummary_LongestRepeat_CorrectlyIdentified()
-    {
-        var sequence = new DnaSequence("AAACAGCAGCAGCAGCAGCAGAAA"); // 6x CAG = 18bp
-
-        var summary = RepeatFinder.GetTandemRepeatSummary(sequence, 3);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(summary.LongestRepeat, Is.Not.Null);
-            Assert.That(summary.LongestRepeat!.Value.TotalLength, Is.EqualTo(18));
-        });
-    }
-
-    /// <summary>
-    /// No repeats should result in zero summary.
-    /// </summary>
-    [Test]
-    public void GetTandemRepeatSummary_NoRepeats_ZeroValues()
-    {
-        var sequence = new DnaSequence("ACGT");
-
-        var summary = RepeatFinder.GetTandemRepeatSummary(sequence, 3);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(summary.TotalRepeats, Is.EqualTo(0));
-            Assert.That(summary.TotalRepeatBases, Is.EqualTo(0));
-        });
-    }
-
-    #endregion
+    // NOTE: GetTandemRepeatSummary tests are in RepeatFinderTests.cs (canonical location)
+    // Duplicate tests removed as part of REP-TANDEM-001 consolidation.
 
     #region Cancellation Smoke Test
 
