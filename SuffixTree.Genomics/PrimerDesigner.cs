@@ -287,25 +287,94 @@ namespace SuffixTree.Genomics
 
         /// <summary>
         /// Checks if primer has potential to form hairpin structure.
+        /// Uses O(n²) algorithm for short sequences, suffix tree O(n) for long sequences.
         /// </summary>
-        public static bool HasHairpinPotential(string sequence, int minStemLength = 4)
+        /// <param name="sequence">DNA sequence to check.</param>
+        /// <param name="minStemLength">Minimum stem length (default 4).</param>
+        /// <param name="minLoopLength">Minimum loop length (default 3).</param>
+        /// <returns>True if hairpin potential detected.</returns>
+        public static bool HasHairpinPotential(string sequence, int minStemLength = 4, int minLoopLength = 3)
         {
-            if (string.IsNullOrEmpty(sequence) || sequence.Length < minStemLength * 2 + 3)
+            if (string.IsNullOrEmpty(sequence) || sequence.Length < minStemLength * 2 + minLoopLength)
                 return false;
 
             var seq = sequence.ToUpperInvariant();
-            var revComp = DnaSequence.GetReverseComplementString(seq);
 
+            // For short sequences (typical primers), use simple O(n²) approach
+            // Break-even point is ~100bp based on suffix tree construction overhead
+            if (seq.Length < 100)
+            {
+                return HasHairpinPotentialSimple(seq, minStemLength, minLoopLength);
+            }
+
+            // For longer sequences, use suffix tree for O(n) lookup
+            return HasHairpinPotentialWithSuffixTree(seq, minStemLength, minLoopLength);
+        }
+
+        /// <summary>
+        /// Simple O(n²) hairpin detection for short sequences.
+        /// </summary>
+        private static bool HasHairpinPotentialSimple(string seq, int minStemLength, int minLoopLength)
+        {
             // Check for self-complementary regions
             for (int i = 0; i <= seq.Length - minStemLength; i++)
             {
                 string fragment = seq.Substring(i, minStemLength);
-                // Look for complementary sequence at least 3 positions away
-                for (int j = i + minStemLength + 3; j <= seq.Length - minStemLength; j++)
+                // Look for complementary sequence at least minLoopLength positions away
+                for (int j = i + minStemLength + minLoopLength; j <= seq.Length - minStemLength; j++)
                 {
                     string target = seq.Substring(j, minStemLength);
                     if (AreComplementary(fragment, Reverse(target)))
                         return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Suffix tree-based O(n) hairpin detection for long sequences.
+        /// 
+        /// Algorithm: A hairpin forms when a substring S at position i is complementary
+        /// to a substring at position j (in reverse). This is equivalent to:
+        /// - seq[i..i+k] being present in revComp at some position p
+        /// - The positions must satisfy: j = n - p - k, and j >= i + k + minLoopLength
+        /// 
+        /// We build a suffix tree on seq and search for all substrings of revComp,
+        /// checking if any match satisfies the loop constraint.
+        /// </summary>
+        private static bool HasHairpinPotentialWithSuffixTree(string seq, int minStemLength, int minLoopLength)
+        {
+            var revComp = DnaSequence.GetReverseComplementString(seq);
+            var tree = global::SuffixTree.SuffixTree.Build(seq);
+
+            // For each position in revComp, find matches in seq via suffix tree
+            // and check if they form valid hairpin (sufficient loop distance)
+            int n = seq.Length;
+
+            // Slide through revComp looking for stems
+            for (int p = 0; p <= n - minStemLength; p++)
+            {
+                var pattern = revComp.AsSpan(p, minStemLength);
+                var matches = tree.FindAllOccurrences(pattern);
+
+                foreach (int i in matches)
+                {
+                    // Position in revComp p corresponds to position (n - p - minStemLength) in seq
+                    // when we reverse complement back
+                    int j = n - p - minStemLength;
+
+                    // Check if positions form valid hairpin: j >= i + minStemLength + minLoopLength
+                    // Also check i and j don't overlap with the stem itself
+                    if (j >= i + minStemLength + minLoopLength && j + minStemLength <= n)
+                    {
+                        return true;
+                    }
+                    // Also check the reverse case: i is the 3' stem, j is the 5' stem
+                    if (i >= j + minStemLength + minLoopLength && i + minStemLength <= n)
+                    {
+                        return true;
+                    }
                 }
             }
 
