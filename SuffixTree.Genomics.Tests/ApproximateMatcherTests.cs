@@ -2,49 +2,21 @@ using NUnit.Framework;
 
 namespace SuffixTree.Genomics.Tests
 {
+    /// <summary>
+    /// Test suite for ApproximateMatcher methods NOT covered by PAT-APPROX-001.
+    /// 
+    /// PAT-APPROX-001 (Hamming Distance) tests are in: ApproximateMatcher_HammingDistance_Tests.cs
+    /// PAT-APPROX-002 (Edit Distance) tests are in this file (Edit Distance region)
+    /// 
+    /// This file also contains tests for utility methods:
+    /// - FindBestMatch
+    /// - CountApproximateOccurrences
+    /// - FindFrequentKmersWithMismatches
+    /// </summary>
     [TestFixture]
     public class ApproximateMatcherTests
     {
-        #region Hamming Distance
-
-        [Test]
-        public void HammingDistance_IdenticalStrings_ReturnsZero()
-        {
-            int distance = ApproximateMatcher.HammingDistance("ACGT", "ACGT");
-            Assert.That(distance, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void HammingDistance_OneDifference_ReturnsOne()
-        {
-            int distance = ApproximateMatcher.HammingDistance("ACGT", "ACGG");
-            Assert.That(distance, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void HammingDistance_AllDifferent_ReturnsLength()
-        {
-            int distance = ApproximateMatcher.HammingDistance("AAAA", "TTTT");
-            Assert.That(distance, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void HammingDistance_CaseInsensitive()
-        {
-            int distance = ApproximateMatcher.HammingDistance("acgt", "ACGT");
-            Assert.That(distance, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void HammingDistance_DifferentLengths_ThrowsException()
-        {
-            Assert.Throws<ArgumentException>(() =>
-                ApproximateMatcher.HammingDistance("ACGT", "ACG"));
-        }
-
-        #endregion
-
-        #region Edit Distance
+        #region Edit Distance (PAT-APPROX-002 scope)
 
         [Test]
         public void EditDistance_IdenticalStrings_ReturnsZero()
@@ -99,81 +71,7 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Find With Mismatches
-
-        [Test]
-        public void FindWithMismatches_ExactMatch_FoundWithZeroMismatches()
-        {
-            var matches = ApproximateMatcher.FindWithMismatches("ACGTACGT", "ACGT", 0).ToList();
-
-            Assert.That(matches, Has.Count.EqualTo(2));
-            Assert.That(matches[0].Position, Is.EqualTo(0));
-            Assert.That(matches[1].Position, Is.EqualTo(4));
-            Assert.That(matches.All(m => m.Distance == 0), Is.True);
-        }
-
-        [Test]
-        public void FindWithMismatches_OneMismatch_Found()
-        {
-            var matches = ApproximateMatcher.FindWithMismatches("ACGTACGT", "ACGG", 1).ToList();
-
-            Assert.That(matches, Has.Count.EqualTo(2));
-            Assert.That(matches[0].Distance, Is.EqualTo(1));
-            Assert.That(matches[0].MismatchPositions, Does.Contain(3));
-        }
-
-        [Test]
-        public void FindWithMismatches_TooManyMismatches_NotFound()
-        {
-            var matches = ApproximateMatcher.FindWithMismatches("ACGT", "TGCA", 2).ToList();
-
-            Assert.That(matches, Is.Empty);
-        }
-
-        [Test]
-        public void FindWithMismatches_MultipleMismatches_AllReturned()
-        {
-            // Find AAAA in TTTTAAAATTTT with up to 2 mismatches
-            var matches = ApproximateMatcher.FindWithMismatches("TTTTAAAATTTT", "AAAA", 2).ToList();
-
-            // Should find exact match at position 4, and approximate matches
-            var exactMatch = matches.FirstOrDefault(m => m.Distance == 0);
-            Assert.That(exactMatch.Position, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void FindWithMismatches_EmptyPattern_ReturnsEmpty()
-        {
-            var matches = ApproximateMatcher.FindWithMismatches("ACGT", "", 1).ToList();
-            Assert.That(matches, Is.Empty);
-        }
-
-        [Test]
-        public void FindWithMismatches_PatternLongerThanSequence_ReturnsEmpty()
-        {
-            var matches = ApproximateMatcher.FindWithMismatches("ACG", "ACGT", 1).ToList();
-            Assert.That(matches, Is.Empty);
-        }
-
-        [Test]
-        public void FindWithMismatches_NegativeMismatches_ThrowsException()
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                ApproximateMatcher.FindWithMismatches("ACGT", "AC", -1).ToList());
-        }
-
-        [Test]
-        public void FindWithMismatches_DnaSequence_Works()
-        {
-            var dna = new DnaSequence("ACGTACGT");
-            var matches = ApproximateMatcher.FindWithMismatches(dna, "ACGT", 0).ToList();
-
-            Assert.That(matches, Has.Count.EqualTo(2));
-        }
-
-        #endregion
-
-        #region Find With Edits
+        #region Find With Edits (PAT-APPROX-002 scope)
 
         [Test]
         public void FindWithEdits_ExactMatch_Found()
@@ -203,7 +101,7 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Find Best Match
+        #region Find Best Match (uses Hamming internally - utility method)
 
         [Test]
         public void FindBestMatch_ExactMatch_ReturnsZeroDistance()
@@ -241,9 +139,10 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Count Approximate Occurrences
+        #region Count Approximate Occurrences (delegates to FindWithMismatches - smoke tests)
 
         [Test]
+        [Description("Smoke test: CountApproximateOccurrences delegates to FindWithMismatches")]
         public void CountApproximateOccurrences_ExactMatches_CountsCorrectly()
         {
             int count = ApproximateMatcher.CountApproximateOccurrences("ACGTACGT", "ACGT", 0);
@@ -299,34 +198,7 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Real-World Cases
-
-        [Test]
-        public void FindWithMismatches_SNP_Detection()
-        {
-            // Simulating SNP detection - looking for a reference allele with possible mutations
-            string genome = "ATGCGATCGATCGATCGATCG";
-            string reference = "GATC"; // Looking for GATC pattern
-
-            var matches = ApproximateMatcher.FindWithMismatches(genome, reference, 1).ToList();
-
-            // Should find multiple matches, some exact, some with 1 mismatch
-            Assert.That(matches.Count(m => m.Distance == 0), Is.GreaterThan(0));
-        }
-
-        [Test]
-        public void FindWithMismatches_PrimerBinding_WithMismatches()
-        {
-            // Simulating primer binding - primer might bind with mismatches
-            string template = "ATGCATGCATGCATGCATGCATGC";
-            string primer = "ATGC";
-
-            var bindings = ApproximateMatcher.FindWithMismatches(template, primer, 1).ToList();
-
-            // Should find multiple binding sites
-            Assert.That(bindings, Has.Count.GreaterThan(0));
-        }
-
-        #endregion
+        // Note: Real-world use case tests for FindWithMismatches are in
+        // ApproximateMatcher_HammingDistance_Tests.cs (PAT-APPROX-001)
     }
 }
