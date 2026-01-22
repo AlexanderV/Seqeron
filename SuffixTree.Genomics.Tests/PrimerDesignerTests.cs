@@ -59,137 +59,65 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Homopolymer Detection
+        // NOTE: Primer Structure tests moved to PrimerDesigner_PrimerStructure_Tests.cs
+        // as part of PRIMER-STRUCT-001 Test Unit consolidation.
+        // The following are smoke tests for integration verification.
 
-        [Test]
-        public void FindLongestHomopolymer_NoHomopolymer_Returns1()
-        {
-            int run = PrimerDesigner.FindLongestHomopolymer("ACGT");
-            Assert.That(run, Is.EqualTo(1));
-        }
+        #region Primer Structure - Smoke Tests
 
+        /// <summary>
+        /// Smoke test for homopolymer detection.
+        /// Full tests in PrimerDesigner_PrimerStructure_Tests.cs.
+        /// </summary>
         [Test]
-        public void FindLongestHomopolymer_HasHomopolymer_ReturnsLength()
+        public void FindLongestHomopolymer_SmokeTest_ReturnsValidValue()
         {
             int run = PrimerDesigner.FindLongestHomopolymer("ACAAAAGT");
             Assert.That(run, Is.EqualTo(4)); // AAAA
         }
 
+        /// <summary>
+        /// Smoke test for dinucleotide repeat detection.
+        /// Full tests in PrimerDesigner_PrimerStructure_Tests.cs.
+        /// </summary>
         [Test]
-        public void FindLongestHomopolymer_AllSame_ReturnsFullLength()
-        {
-            int run = PrimerDesigner.FindLongestHomopolymer("AAAAAA");
-            Assert.That(run, Is.EqualTo(6));
-        }
-
-        [Test]
-        public void FindLongestHomopolymer_EmptySequence_Returns0()
-        {
-            int run = PrimerDesigner.FindLongestHomopolymer("");
-            Assert.That(run, Is.EqualTo(0));
-        }
-
-        #endregion
-
-        #region Dinucleotide Repeats
-
-        [Test]
-        public void FindLongestDinucleotideRepeat_NoRepeat_Returns1OrLess()
-        {
-            int repeat = PrimerDesigner.FindLongestDinucleotideRepeat("ACGT");
-            Assert.That(repeat, Is.LessThanOrEqualTo(1));
-        }
-
-        [Test]
-        public void FindLongestDinucleotideRepeat_HasRepeat_ReturnsCount()
+        public void FindLongestDinucleotideRepeat_SmokeTest_ReturnsValidValue()
         {
             int repeat = PrimerDesigner.FindLongestDinucleotideRepeat("ACACACACG");
             Assert.That(repeat, Is.EqualTo(4)); // ACACACAC = 4 x AC
         }
 
+        /// <summary>
+        /// Smoke test for hairpin detection.
+        /// Full tests in PrimerDesigner_PrimerStructure_Tests.cs.
+        /// </summary>
         [Test]
-        public void FindLongestDinucleotideRepeat_ShortSequence_Returns0()
+        public void HasHairpinPotential_SmokeTest_ReturnsExpectedValue()
         {
-            int repeat = PrimerDesigner.FindLongestDinucleotideRepeat("ACG");
-            Assert.That(repeat, Is.EqualTo(0));
-        }
-
-        #endregion
-
-        #region Hairpin Detection
-
-        [Test]
-        public void HasHairpinPotential_NoHairpin_ReturnsFalse()
-        {
-            // Non-self-complementary sequence (AAAA cannot form hairpin with itself)
-            bool hasHairpin = PrimerDesigner.HasHairpinPotential("AAAACCCCAAAA");
-            Assert.That(hasHairpin, Is.False);
-        }
-
-        [Test]
-        public void HasHairpinPotential_SelfComplementary_ReturnsTrue()
-        {
-            // ACGT...ACGT pattern - reverse of ACGT is TGCA which is complementary to ACGT
             bool hasHairpin = PrimerDesigner.HasHairpinPotential("ACGTACGTACGT");
             Assert.That(hasHairpin, Is.True);
         }
 
+        /// <summary>
+        /// Smoke test for primer-dimer detection.
+        /// Full tests in PrimerDesigner_PrimerStructure_Tests.cs.
+        /// </summary>
         [Test]
-        public void HasHairpinPotential_ShortSequence_ReturnsFalse()
+        public void HasPrimerDimer_SmokeTest_ReturnsExpectedValue()
         {
-            bool hasHairpin = PrimerDesigner.HasHairpinPotential("ACGT");
-            Assert.That(hasHairpin, Is.False);
-        }
-
-        #endregion
-
-        #region Primer Dimer Detection
-
-        [Test]
-        public void HasPrimerDimer_NoComplementarity_ReturnsFalse()
-        {
-            // Primers where 3' ends don't form complementary pairs
-            // primer1 ends with CCCC, revcomp(primer2) starts with CCCC -> C-C is not complementary
-            bool hasDimer = PrimerDesigner.HasPrimerDimer("AAAACCCCCCCC", "GGGGGGGGTTTT");
-            Assert.That(hasDimer, Is.False);
-        }
-
-        [Test]
-        public void HasPrimerDimer_Complementary3Ends_ReturnsTrue()
-        {
-            // primer1 ends with AAAA, primer2 ends with TTTT -> revcomp of primer2 ends with AAAA
-            // 3' of primer1 = AAAA, 3' of revcomp(primer2) = AAAA - these are same not complementary
-            // Actually: primer1=ACGTACGTACGT, revcomp=ACGTACGTACGT -> 3' of p1 vs 5' of revcomp
             bool hasDimer = PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA");
-            Assert.That(hasDimer, Is.True); // 3' of p1=AAAA, revcomp(p2) starts with TTTTTTTT -> A-T complementary
+            Assert.That(hasDimer, Is.True);
         }
 
+        /// <summary>
+        /// Smoke test for 3' stability calculation.
+        /// Full tests in PrimerDesigner_PrimerStructure_Tests.cs.
+        /// </summary>
         [Test]
-        public void HasPrimerDimer_EmptyPrimers_ReturnsFalse()
+        public void Calculate3PrimeStability_SmokeTest_ReturnsNegativeValue()
         {
-            bool hasDimer = PrimerDesigner.HasPrimerDimer("", "ACGT");
-            Assert.That(hasDimer, Is.False);
-        }
-
-        #endregion
-
-        #region 3' Stability
-
-        [Test]
-        public void Calculate3PrimeStability_GCRich_MoreNegative()
-        {
-            double gcRich = PrimerDesigner.Calculate3PrimeStability("ACGTGCGCG");
-            double atRich = PrimerDesigner.Calculate3PrimeStability("ACGTATATAT");
-
-            // GC-rich 3' end should be more stable (more negative)
-            Assert.That(gcRich, Is.LessThan(atRich));
-        }
-
-        [Test]
-        public void Calculate3PrimeStability_ShortSequence_Returns0()
-        {
-            double stability = PrimerDesigner.Calculate3PrimeStability("ACGT");
-            Assert.That(stability, Is.EqualTo(0));
+            double stability = PrimerDesigner.Calculate3PrimeStability("ACGTGCGCG");
+            Assert.That(stability, Is.LessThan(0));
         }
 
         #endregion
