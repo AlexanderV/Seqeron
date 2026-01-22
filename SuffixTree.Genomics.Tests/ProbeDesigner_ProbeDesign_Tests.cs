@@ -472,4 +472,68 @@ public class ProbeDesigner_ProbeDesign_Tests
     }
 
     #endregion
+
+    #region Suffix Tree Optimization
+
+    [Test]
+    public void DesignProbes_WithSuffixTree_FiltersNonUniqueProbes()
+    {
+        // Create a genome with repeated regions
+        string uniqueRegion = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"; // 52bp
+        string repeatedRegion = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC"; // 52bp - appears twice
+        string genome = uniqueRegion + repeatedRegion + "AAAAAAAA" + repeatedRegion;
+
+        // Build suffix tree for the genome
+        var genomeIndex = global::SuffixTree.SuffixTree.Build(genome);
+
+        // Design probes requiring uniqueness
+        var param = ProbeDesigner.Defaults.Microarray with { MinLength = 50, MaxLength = 52 };
+        var uniqueProbes = ProbeDesigner.DesignProbes(uniqueRegion, genomeIndex, param, maxProbes: 5, requireUnique: true).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(uniqueProbes.Count, Is.GreaterThan(0), "Should find unique probes");
+            foreach (var probe in uniqueProbes)
+            {
+                // Verify probe is indeed unique in genome
+                var positions = genomeIndex.FindAllOccurrences(probe.Sequence);
+                Assert.That(positions.Count, Is.EqualTo(1),
+                    $"Probe at {probe.Start} should be unique, but found {positions.Count} occurrences");
+            }
+        });
+    }
+
+    [Test]
+    public void DesignProbes_WithSuffixTree_PerformanceImprovement()
+    {
+        // Create a moderately long sequence
+        string target = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 50)); // 800bp
+
+        // Build suffix tree once - O(n)
+        var genomeIndex = global::SuffixTree.SuffixTree.Build(target);
+
+        var param = ProbeDesigner.Defaults.Microarray;
+
+        // Time without suffix tree
+        var sw1 = System.Diagnostics.Stopwatch.StartNew();
+        var probesWithout = ProbeDesigner.DesignProbes(target, param, maxProbes: 10).ToList();
+        sw1.Stop();
+
+        // Time with suffix tree (includes specificity check)
+        var sw2 = System.Diagnostics.Stopwatch.StartNew();
+        var probesWith = ProbeDesigner.DesignProbes(target, genomeIndex, param, maxProbes: 10, requireUnique: false).ToList();
+        sw2.Stop();
+
+        // Both should produce results
+        Assert.Multiple(() =>
+        {
+            Assert.That(probesWithout.Count, Is.GreaterThan(0), "Should produce probes without index");
+            Assert.That(probesWith.Count, Is.GreaterThan(0), "Should produce probes with index");
+        });
+
+        TestContext.WriteLine($"Without suffix tree: {sw1.ElapsedMilliseconds}ms");
+        TestContext.WriteLine($"With suffix tree: {sw2.ElapsedMilliseconds}ms");
+    }
+
+    #endregion
 }

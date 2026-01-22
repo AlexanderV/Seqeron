@@ -134,15 +134,102 @@ public static class ProbeDesigner
             yield break;
 
         targetSequence = targetSequence.ToUpperInvariant();
+
+        // Use optimized evaluation with prefix sums for O(1) GC lookup
+        var candidates = DesignProbesOptimized(targetSequence, param, maxProbes);
+
+        foreach (var probe in candidates)
+        {
+            yield return probe;
+        }
+    }
+
+    /// <summary>
+    /// Designs probes with genome-wide specificity check using suffix tree.
+    /// O(n × m) for probe generation + O(m) per specificity check.
+    /// </summary>
+    /// <param name="targetSequence">Target sequence to design probes for.</param>
+    /// <param name="genomeIndex">Pre-built suffix tree index for the genome (enables O(m) specificity lookup).</param>
+    /// <param name="parameters">Probe design parameters.</param>
+    /// <param name="maxProbes">Maximum number of probes to return.</param>
+    /// <param name="requireUnique">If true, only return probes unique in the genome.</param>
+    public static IEnumerable<Probe> DesignProbes(
+        string targetSequence,
+        global::SuffixTree.ISuffixTree genomeIndex,
+        ProbeParameters? parameters = null,
+        int maxProbes = 10,
+        bool requireUnique = true)
+    {
+        var param = parameters ?? Defaults.Microarray;
+
+        if (string.IsNullOrEmpty(targetSequence) || targetSequence.Length < param.MinLength)
+            yield break;
+
+        targetSequence = targetSequence.ToUpperInvariant();
+
+        // Get candidates using optimized method
+        var candidates = DesignProbesOptimized(targetSequence, param, maxProbes * 5); // Get more candidates for filtering
+
+        int returned = 0;
+        foreach (var probe in candidates)
+        {
+            if (returned >= maxProbes)
+                yield break;
+
+            // Fast O(m) specificity check using suffix tree
+            double specificity = CheckSpecificity(probe.Sequence, genomeIndex);
+
+            if (requireUnique && specificity < 1.0)
+                continue; // Skip non-unique probes
+
+            // Boost score based on specificity
+            var adjustedProbe = probe with
+            {
+                Score = probe.Score * specificity
+            };
+
+            returned++;
+            yield return adjustedProbe;
+        }
+    }
+
+    /// <summary>
+    /// Optimized probe design using prefix sums for O(1) GC content calculation.
+    /// Total complexity: O(n × m) where n = sequence length, m = length range.
+    /// </summary>
+    private static List<Probe> DesignProbesOptimized(
+        string targetSequence,
+        ProbeParameters param,
+        int maxProbes)
+    {
+        int n = targetSequence.Length;
+
+        // Precompute GC prefix sums for O(1) GC content queries
+        // gcPrefixSum[i] = count of G/C in sequence[0..i-1]
+        int[] gcPrefixSum = new int[n + 1];
+        for (int i = 0; i < n; i++)
+        {
+            char c = targetSequence[i];
+            gcPrefixSum[i + 1] = gcPrefixSum[i] + (c == 'G' || c == 'C' ? 1 : 0);
+        }
+
         var candidates = new List<(Probe Probe, double Score)>();
 
         // Scan for candidate probes
-        for (int length = param.MinLength; length <= param.MaxLength && length <= targetSequence.Length; length++)
+        for (int length = param.MinLength; length <= param.MaxLength && length <= n; length++)
         {
-            for (int start = 0; start <= targetSequence.Length - length; start++)
+            for (int start = 0; start <= n - length; start++)
             {
+                // O(1) GC content using prefix sums
+                int gcCount = gcPrefixSum[start + length] - gcPrefixSum[start];
+                double gc = (double)gcCount / length;
+
+                // Early rejection based on GC - saves expensive substring operations
+                if (gc < param.MinGc - 0.1 || gc > param.MaxGc + 0.1)
+                    continue;
+
                 string probeSeq = targetSequence.Substring(start, length);
-                var probe = EvaluateProbe(probeSeq, start, param);
+                var probe = EvaluateProbeWithGc(probeSeq, start, param, gc);
 
                 if (probe.HasValue)
                 {
@@ -152,10 +239,90 @@ public static class ProbeDesigner
         }
 
         // Return top probes sorted by score
-        foreach (var candidate in candidates.OrderByDescending(c => c.Score).Take(maxProbes))
+        return candidates
+            .OrderByDescending(c => c.Score)
+            .Take(maxProbes)
+            .Select(c => c.Probe)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Evaluates probe with pre-calculated GC content (avoids redundant calculation).
+    /// </summary>
+    private static Probe? EvaluateProbeWithGc(string sequence, int start, ProbeParameters param, double gc)
+    {
+        var warnings = new List<string>();
+        double score = 1.0;
+
+        // GC already calculated - just check bounds
+        if (gc < param.MinGc || gc > param.MaxGc)
         {
-            yield return candidate.Probe;
+            score -= 0.3;
+            warnings.Add($"GC content {gc:P0} outside range");
         }
+
+        // Calculate Tm
+        double tm = CalculateTm(sequence);
+        if (tm < param.MinTm || tm > param.MaxTm)
+        {
+            score -= 0.3;
+            warnings.Add($"Tm {tm:F1}°C outside range");
+        }
+
+        // Check homopolymers
+        int maxHomopolymer = GetMaxHomopolymerLength(sequence);
+        if (maxHomopolymer > param.MaxHomopolymer)
+        {
+            score -= 0.2;
+            warnings.Add($"Homopolymer run of {maxHomopolymer}");
+        }
+
+        // Check self-complementarity
+        double selfComp = CalculateSelfComplementarity(sequence);
+        if (selfComp > param.MaxSelfComplementarity)
+        {
+            score -= 0.2;
+            warnings.Add($"High self-complementarity {selfComp:P0}");
+        }
+
+        // Check for secondary structure potential
+        if (param.AvoidSecondaryStructure)
+        {
+            bool hasStructure = HasSecondaryStructurePotential(sequence);
+            if (hasStructure)
+            {
+                score -= 0.15;
+                warnings.Add("Potential secondary structure");
+            }
+        }
+
+        // Check for repeats
+        if (HasSimpleRepeats(sequence))
+        {
+            score -= 0.1;
+            warnings.Add("Contains simple repeats");
+        }
+
+        // Penalize extreme positions
+        double positionPenalty = 0;
+        if (sequence.StartsWith("G") || sequence.StartsWith("C"))
+            positionPenalty += 0.02;
+        if (sequence.EndsWith("G") || sequence.EndsWith("C"))
+            positionPenalty += 0.02;
+        score -= positionPenalty;
+
+        if (score <= 0)
+            return null;
+
+        return new Probe(
+            sequence,
+            start,
+            start + sequence.Length - 1,
+            tm,
+            gc,
+            Math.Max(0, score),
+            ProbeType.Standard,
+            warnings);
     }
 
     /// <summary>
