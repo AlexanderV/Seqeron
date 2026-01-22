@@ -27,25 +27,8 @@ namespace SuffixTree.Genomics.Tests
             Assert.That(repeat.IsEmpty, Is.True);
         }
 
-        [Test]
-        public void FindTandemRepeats_SimpleTandem_FindsIt()
-        {
-            var dna = new DnaSequence("ATGATGATG");
-            var tandems = GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength: 3, minRepetitions: 3).ToList();
-
-            Assert.That(tandems, Has.Count.GreaterThanOrEqualTo(1));
-            Assert.That(tandems.Any(t => t.Unit == "ATG" && t.Repetitions == 3), Is.True);
-        }
-
-        [Test]
-        public void FindTandemRepeats_DiNucleotide_FindsIt()
-        {
-            var dna = new DnaSequence("CACACACA");
-            var tandems = GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength: 2, minRepetitions: 4).ToList();
-
-            Assert.That(tandems, Has.Count.GreaterThanOrEqualTo(1));
-            Assert.That(tandems.Any(t => t.Unit == "CA" && t.Repetitions == 4), Is.True);
-        }
+        // NOTE: FindTandemRepeats tests moved to GenomicAnalyzer_TandemRepeat_Tests.cs
+        // as part of REP-TANDEM-001 consolidation with comprehensive coverage.
 
         [Test]
         public void FindRepeats_MultipleRepeats_FindsAll()

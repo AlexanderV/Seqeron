@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 13 |
+| **Completed** | 14 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 87 |
+| **Not Started** | 86 |
 
 ---
 
@@ -35,7 +35,7 @@
 | ☑ | PAT-IUPAC-001 | Matching | 2 | Wikipedia (Nucleic acid notation), IUPAC-IUB 1970, Bioinformatics.org | [PAT-IUPAC-001.md](TestSpecs/PAT-IUPAC-001.md) | IupacMotifMatchingTests.cs |
 | ☑ | PAT-PWM-001 | Matching | 2 | Wikipedia (PWM), Kel et al. (2003), Rosalind (CONS), Nishida (2008) | [PAT-PWM-001.md](TestSpecs/PAT-PWM-001.md) | MotifFinder_PWM_Tests.cs |
 | ☑ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008) | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
-| ☐ | REP-TANDEM-001 | Repeats | 2 | - | - | - |
+| ☑ | REP-TANDEM-001 | Repeats | 2 | Wikipedia (Tandem repeat, Microsatellite), Richard et al. (2008) | [REP-TANDEM-001.md](TestSpecs/REP-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs |
 | ☐ | REP-INV-001 | Repeats | 1 | - | - | - |
 | ☐ | REP-DIRECT-001 | Repeats | 1 | - | - | - |
 | ☐ | REP-PALIN-001 | Repeats | 2 | - | - | - |
