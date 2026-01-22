@@ -27,8 +27,37 @@ The `DesignProbes` method generates hybridization probes for a target sequence:
 
 ### Complexity
 
-- **Time**: O(n² × m) where n = sequence length, m = probe length range
+- **Time**: O(n × m) where n = sequence length, m = length range (optimized with prefix sums)
 - **Space**: O(k) where k = number of valid candidates
+
+### Optimization: GC Prefix Sums
+
+The implementation precomputes GC content prefix sums for O(1) GC lookup at any position, reducing the inner loop complexity:
+
+```csharp
+// Precompute: O(n)
+int[] gcPrefixSum = new int[n + 1];
+for (int i = 0; i < n; i++)
+    gcPrefixSum[i + 1] = gcPrefixSum[i] + (IsGC(seq[i]) ? 1 : 0);
+
+// Query: O(1)
+double gc = (double)(gcPrefixSum[end] - gcPrefixSum[start]) / length;
+```
+
+### Optimization: Suffix Tree for Specificity
+
+For genome-wide probe design, the suffix tree enables O(m) uniqueness checking:
+
+```csharp
+// Build once: O(n) for entire genome
+var genomeIndex = SuffixTree.Build(genome);
+
+// Check specificity: O(m) per probe
+var positions = genomeIndex.FindAllOccurrences(probeSequence);
+bool isUnique = positions.Count == 1;
+```
+
+This is crucial for FISH probes where specificity is paramount.
 
 ## Quality Criteria
 
