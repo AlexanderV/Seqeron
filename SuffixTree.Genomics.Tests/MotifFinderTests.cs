@@ -58,9 +58,13 @@ public class MotifFinderTests
 
     #endregion
 
-    #region Degenerate Motif Finding Tests
+    #region Degenerate Motif Finding Tests (Smoke - comprehensive tests in IupacMotifMatchingTests)
+
+    // NOTE: Comprehensive IUPAC degenerate motif tests are in IupacMotifMatchingTests.cs (PAT-IUPAC-001)
+    // These tests are retained as smoke tests for MotifFinder API verification.
 
     [Test]
+    [Description("Smoke: R (purine) pattern works via MotifFinder API")]
     public void FindDegenerateMotif_PurineR_MatchesAG()
     {
         var sequence = new DnaSequence("ATGCATGC");
@@ -70,6 +74,7 @@ public class MotifFinderTests
     }
 
     [Test]
+    [Description("Smoke: Y (pyrimidine) pattern works via MotifFinder API")]
     public void FindDegenerateMotif_PyrimidineY_MatchesCT()
     {
         var sequence = new DnaSequence("CATTAT");
@@ -79,6 +84,7 @@ public class MotifFinderTests
     }
 
     [Test]
+    [Description("Smoke: N (any) pattern works via MotifFinder API")]
     public void FindDegenerateMotif_AnyN_MatchesAll()
     {
         var sequence = new DnaSequence("ATGC");
@@ -89,6 +95,7 @@ public class MotifFinderTests
     }
 
     [Test]
+    [Description("Smoke: W (weak) pattern works via MotifFinder API")]
     public void FindDegenerateMotif_WeakW_MatchesAT()
     {
         var sequence = new DnaSequence("ATATAT");
@@ -98,6 +105,7 @@ public class MotifFinderTests
     }
 
     [Test]
+    [Description("Smoke: MatchedSequence property works correctly")]
     public void FindDegenerateMotif_ReturnsMatchedSequence()
     {
         var sequence = new DnaSequence("CAGCTG");
@@ -372,7 +380,9 @@ public class MotifFinderTests
             MotifFinder.FindExactMotif(null!, "ATG").ToList());
     }
 
+    // NOTE: Canonical null test for FindDegenerateMotif is in IupacMotifMatchingTests.cs (PAT-IUPAC-001)
     [Test]
+    [Description("Smoke: Null sequence throws ArgumentNullException")]
     public void FindDegenerateMotif_NullSequence_ThrowsException()
     {
         Assert.Throws<ArgumentNullException>(() =>
