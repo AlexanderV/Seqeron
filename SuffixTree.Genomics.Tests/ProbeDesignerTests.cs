@@ -178,40 +178,39 @@ public class ProbeDesignerTests
 
     #endregion
 
-    #region Validation Tests
+    #region Validation Tests (Smoke - detailed tests in ProbeDesigner_ProbeValidation_Tests.cs)
 
     [Test]
-    public void ValidateProbe_UniqueProbe_HighSpecificity()
+    [Category("Smoke")]
+    public void ValidateProbe_BasicFunctionality_Smoke()
     {
+        // Smoke test: Verify ValidateProbe returns valid result
+        // Detailed tests in ProbeDesigner_ProbeValidation_Tests.cs (PROBE-VALID-001)
         string probe = "ACGTACGTACGTACGTACGT";
         var references = new[] { "NNNNACGTACGTACGTACGTACGTNNNN" };
 
         var validation = ProbeDesigner.ValidateProbe(probe, references);
 
-        Assert.That(validation.OffTargetHits, Is.EqualTo(1));
-        Assert.That(validation.SpecificityScore, Is.EqualTo(1.0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(validation.SpecificityScore, Is.InRange(0.0, 1.0));
+            Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0));
+            Assert.That(validation.Issues, Is.Not.Null);
+        });
     }
 
     [Test]
-    public void ValidateProbe_MultipleHits_LowSpecificity()
+    [Category("Smoke")]
+    public void CheckSpecificity_BasicFunctionality_Smoke()
     {
-        string probe = "AAAAAAAAAA";
-        var references = new[] { "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" };
+        // Smoke test: Verify CheckSpecificity works with suffix tree
+        // Detailed tests in ProbeDesigner_ProbeValidation_Tests.cs (PROBE-VALID-001)
+        string genome = "ACGTACGTACGTACGTACGTACGTACGT";
+        var genomeIndex = global::SuffixTree.SuffixTree.Build(genome);
 
-        var validation = ProbeDesigner.ValidateProbe(probe, references);
+        double specificity = ProbeDesigner.CheckSpecificity("ACGTACGT", genomeIndex);
 
-        Assert.That(validation.OffTargetHits, Is.GreaterThan(1));
-        Assert.That(validation.SpecificityScore, Is.LessThan(1.0));
-    }
-
-    [Test]
-    public void ValidateProbe_HighSelfComplementarity_ReportsIssue()
-    {
-        string probe = "GCGCGCGCGCGCGCGCGCGC"; // Palindromic
-
-        var validation = ProbeDesigner.ValidateProbe(probe, Enumerable.Empty<string>());
-
-        Assert.That(validation.SelfComplementarity, Is.GreaterThan(0.3));
+        Assert.That(specificity, Is.InRange(0.0, 1.0));
     }
 
     #endregion
