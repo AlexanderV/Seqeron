@@ -80,20 +80,6 @@ public static class GenomeAnnotator
     };
 
     /// <summary>
-    /// Gets reverse complement without strict validation.
-    /// </summary>
-    private static string GetReverseComplement(string sequence)
-    {
-        var sb = new StringBuilder(sequence.Length);
-        for (int i = sequence.Length - 1; i >= 0; i--)
-        {
-            char c = sequence[i];
-            sb.Append(ComplementMap.GetValueOrDefault(c, c));
-        }
-        return sb.ToString();
-    }
-
-    /// <summary>
     /// Finds all open reading frames in a DNA sequence.
     /// </summary>
     /// <param name="dnaSequence">The DNA sequence to search.</param>
@@ -121,7 +107,7 @@ public static class GenomeAnnotator
         // Search reverse complement
         if (searchBothStrands)
         {
-            string revComp = GetReverseComplement(dnaSequence);
+            string revComp = DnaSequence.GetReverseComplementString(dnaSequence);
             foreach (var orf in FindOrfsInStrand(revComp, geneticCode, minLength, requireStartCodon, true))
             {
                 // Adjust coordinates for reverse strand
@@ -582,7 +568,7 @@ public static class GenomeAnnotator
             for (int len = minLength; len <= (sequence.Length - i) / 2 && len <= 100; len++)
             {
                 string arm1 = sequence.Substring(i, len);
-                string arm1RevComp = GetReverseComplement(arm1);
+                string arm1RevComp = DnaSequence.GetReverseComplementString(arm1);
 
                 // Look for reverse complement downstream
                 for (int j = i + len; j <= sequence.Length - len; j++)

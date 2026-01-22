@@ -201,29 +201,8 @@ public static class MetagenomicsAnalyzer
 
     private static string GetCanonicalKmer(string kmer)
     {
-        string revComp = GetReverseComplement(kmer);
+        string revComp = DnaSequence.GetReverseComplementString(kmer);
         return string.Compare(kmer, revComp, StringComparison.Ordinal) <= 0 ? kmer : revComp;
-    }
-
-    private static string GetReverseComplement(string sequence)
-    {
-        var sb = new StringBuilder(sequence.Length);
-        for (int i = sequence.Length - 1; i >= 0; i--)
-        {
-            sb.Append(sequence[i] switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                'a' => 't',
-                't' => 'a',
-                'g' => 'c',
-                'c' => 'g',
-                _ => 'N'
-            });
-        }
-        return sb.ToString();
     }
 
     private static Dictionary<string, string> ParseTaxonomyString(string taxonomy)

@@ -99,7 +99,7 @@ public static class CrisprDesigner
         }
 
         // Search reverse strand
-        string revComp = GetReverseComplement(seq);
+        string revComp = DnaSequence.GetReverseComplementString(seq);
         for (int i = 0; i <= revComp.Length - pamPattern.Length; i++)
         {
             if (MatchesPam(revComp, i, pamPattern))
@@ -124,7 +124,7 @@ public static class CrisprDesigner
 
                     yield return new PamSite(
                         Position: forwardPos,
-                        PamSequence: GetReverseComplement(revComp.Substring(i, pamPattern.Length)),
+                        PamSequence: DnaSequence.GetReverseComplementString(revComp.Substring(i, pamPattern.Length)),
                         TargetSequence: target,
                         TargetStart: revTargetStart,
                         IsForwardStrand: false,
@@ -456,23 +456,6 @@ public static class CrisprDesigner
 
     #region Helper Methods
 
-    private static string GetReverseComplement(string sequence)
-    {
-        var complement = new char[sequence.Length];
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            complement[sequence.Length - 1 - i] = sequence[i] switch
-            {
-                'A' => 'T',
-                'T' => 'A',
-                'G' => 'C',
-                'C' => 'G',
-                _ => sequence[i]
-            };
-        }
-        return new string(complement);
-    }
-
     private static double CalculateGcContent(string sequence)
     {
         if (string.IsNullOrEmpty(sequence)) return 0;
@@ -487,7 +470,7 @@ public static class CrisprDesigner
 
     private static double CalculateSelfComplementarity(string sequence)
     {
-        string revComp = GetReverseComplement(sequence);
+        string revComp = DnaSequence.GetReverseComplementString(sequence);
         int matches = 0;
         int total = sequence.Length;
 

@@ -247,7 +247,7 @@ public static class ChromosomeAnalyzer
 
         sequence = sequence.ToUpperInvariant();
         telomereRepeat = telomereRepeat.ToUpperInvariant();
-        string telomereRepeatRC = GetReverseComplement(telomereRepeat);
+        string telomereRepeatRC = DnaSequence.GetReverseComplementString(telomereRepeat);
 
         // Analyze 5' end (should have CCCTAA repeats = reverse complement)
         int search5End = Math.Min(searchLength, sequence.Length);
@@ -839,32 +839,6 @@ public static class ChromosomeAnalyzer
     #endregion
 
     #region Utility Methods
-
-    /// <summary>
-    /// Gets reverse complement of DNA sequence.
-    /// </summary>
-    private static string GetReverseComplement(string sequence)
-    {
-        var complement = new char[sequence.Length];
-
-        for (int i = 0; i < sequence.Length; i++)
-        {
-            complement[sequence.Length - 1 - i] = sequence[i] switch
-            {
-                'A' => 'T',
-                'a' => 't',
-                'T' => 'A',
-                't' => 'a',
-                'G' => 'C',
-                'g' => 'c',
-                'C' => 'G',
-                'c' => 'g',
-                _ => 'N'
-            };
-        }
-
-        return new string(complement);
-    }
 
     /// <summary>
     /// Calculates chromosome arm ratio (p/q).

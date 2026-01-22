@@ -159,5 +159,32 @@ namespace SuffixTree.Genomics
                 return false;
             }
         }
+
+        /// <summary>
+        /// Gets the reverse complement of a DNA sequence string.
+        /// Static helper method for use when a full DnaSequence object is not needed.
+        /// </summary>
+        /// <param name="sequence">DNA sequence string.</param>
+        /// <returns>Reverse complement string.</returns>
+        public static string GetReverseComplementString(string sequence)
+        {
+            if (string.IsNullOrEmpty(sequence))
+                return sequence;
+
+            var result = new char[sequence.Length];
+            for (int i = 0; i < sequence.Length; i++)
+            {
+                result[sequence.Length - 1 - i] = char.ToUpperInvariant(sequence[i]) switch
+                {
+                    'A' => 'T',
+                    'T' => 'A',
+                    'C' => 'G',
+                    'G' => 'C',
+                    'U' => 'A', // Support RNA too
+                    _ => sequence[i]
+                };
+            }
+            return new string(result);
+        }
     }
 }

@@ -133,7 +133,7 @@ namespace SuffixTree.Genomics
                 for (int start = 0; start <= seq.Length - len; start++)
                 {
                     string subseq = seq.Substring(start, len);
-                    string revComp = GetReverseComplement(subseq);
+                    string revComp = DnaSequence.GetReverseComplementString(subseq);
 
                     if (subseq == revComp)
                     {
@@ -312,23 +312,6 @@ namespace SuffixTree.Genomics
         #endregion
 
         #region Helper Methods
-
-        private static string GetReverseComplement(string seq)
-        {
-            var sb = new System.Text.StringBuilder(seq.Length);
-            for (int i = seq.Length - 1; i >= 0; i--)
-            {
-                sb.Append(seq[i] switch
-                {
-                    'A' => 'T',
-                    'T' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => seq[i]
-                });
-            }
-            return sb.ToString();
-        }
 
         private static HashSet<string> GetKmers(string sequence, int k)
         {
