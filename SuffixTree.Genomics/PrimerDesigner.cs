@@ -198,19 +198,16 @@ namespace SuffixTree.Genomics
             var seq = primer.ToUpperInvariant();
 
             // For short primers (< 14 bp), use Wallace rule
-            if (seq.Length < 14)
+            if (seq.Length < ThermoConstants.WallaceMaxLength)
             {
                 int at = seq.Count(c => c == 'A' || c == 'T');
                 int gc = seq.Count(c => c == 'G' || c == 'C');
-                return 2 * at + 4 * gc;
+                return ThermoConstants.CalculateWallaceTm(at, gc);
             }
 
             // For longer primers, use basic nearest-neighbor approximation
-            // Tm = 64.9 + 41 * (G+C-16.4) / N
             int gcCount = seq.Count(c => c == 'G' || c == 'C');
-            double tm = 64.9 + 41.0 * (gcCount - 16.4) / seq.Length;
-
-            return Math.Max(0, tm);
+            return Math.Max(0, ThermoConstants.CalculateMarmurDotyTm(gcCount, seq.Length));
         }
 
         /// <summary>
@@ -222,25 +219,15 @@ namespace SuffixTree.Genomics
         public static double CalculateMeltingTemperatureWithSalt(string primer, double naConcentration = 50)
         {
             double baseTm = CalculateMeltingTemperature(primer);
-
-            // Salt correction: Tm = Tm_basic + 16.6 * log10([Na+])
-            double saltCorrection = 16.6 * Math.Log10(naConcentration / 1000.0);
-
+            double saltCorrection = ThermoConstants.CalculateSaltCorrection(naConcentration);
             return Math.Round(baseTm + saltCorrection, 1);
         }
 
         /// <summary>
         /// Calculates GC content as a percentage.
         /// </summary>
-        public static double CalculateGcContent(string sequence)
-        {
-            if (string.IsNullOrEmpty(sequence))
-                return 0;
-
-            var seq = sequence.ToUpperInvariant();
-            int gcCount = seq.Count(c => c == 'G' || c == 'C');
-            return (double)gcCount / seq.Length * 100;
-        }
+        public static double CalculateGcContent(string sequence) =>
+            string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcContentFast();
 
         /// <summary>
         /// Finds the longest homopolymer run (consecutive identical nucleotides).

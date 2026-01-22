@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace SuffixTree.Genomics
 {
@@ -60,12 +61,41 @@ namespace SuffixTree.Genomics
         }
 
         /// <summary>
+        /// Finds all approximate matches with cancellation support.
+        /// </summary>
+        /// <param name="sequence">The sequence to search in.</param>
+        /// <param name="pattern">The pattern to find.</param>
+        /// <param name="maxMismatches">Maximum number of allowed mismatches.</param>
+        /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+        /// <returns>Enumerable of match results.</returns>
+        public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
+            string sequence,
+            string pattern,
+            int maxMismatches,
+            CancellationToken cancellationToken)
+        {
+            return CancellableOperations.FindWithMismatches(sequence, pattern, maxMismatches, cancellationToken);
+        }
+
+        /// <summary>
         /// Finds all approximate matches of a pattern in a DNA sequence with at most k mismatches.
         /// </summary>
         public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
             DnaSequence sequence, string pattern, int maxMismatches)
         {
             return FindWithMismatches(sequence.Sequence, pattern, maxMismatches);
+        }
+
+        /// <summary>
+        /// Finds all approximate matches in a DNA sequence with cancellation support.
+        /// </summary>
+        public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
+            DnaSequence sequence,
+            string pattern,
+            int maxMismatches,
+            CancellationToken cancellationToken)
+        {
+            return FindWithMismatches(sequence.Sequence, pattern, maxMismatches, cancellationToken);
         }
 
         /// <summary>

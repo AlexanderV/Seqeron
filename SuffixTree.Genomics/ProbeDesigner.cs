@@ -543,28 +543,25 @@ public static class ProbeDesigner
 
     #region Helper Methods
 
-    private static double CalculateGcContent(string sequence)
-    {
-        int gc = sequence.Count(c => c == 'G' || c == 'C');
-        return sequence.Length > 0 ? gc / (double)sequence.Length : 0;
-    }
+    private static double CalculateGcContent(string sequence) =>
+        sequence.Length > 0 ? sequence.CalculateGcFractionFast() : 0;
 
     private static double CalculateTm(string sequence)
     {
         int length = sequence.Length;
 
-        if (length < 14)
+        if (length < ThermoConstants.WallaceMaxLength)
         {
             // Wallace rule for short oligos
             int at = sequence.Count(c => c == 'A' || c == 'T');
             int gc = sequence.Count(c => c == 'G' || c == 'C');
-            return 2 * at + 4 * gc;
+            return ThermoConstants.CalculateWallaceTm(at, gc);
         }
         else
         {
             // Salt-adjusted formula
             double gc = CalculateGcContent(sequence);
-            return 81.5 + 16.6 * Math.Log10(0.05) + 41 * gc - 600.0 / length;
+            return ThermoConstants.CalculateSaltAdjustedTm(gc, length);
         }
     }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace SuffixTree.Genomics;
 
@@ -120,6 +121,26 @@ public static class SequenceAssembler
         }
 
         return overlaps;
+    }
+
+    /// <summary>
+    /// Finds all overlaps between reads with cancellation support.
+    /// Useful for large read sets.
+    /// </summary>
+    /// <param name="reads">Collection of sequence reads.</param>
+    /// <param name="minOverlap">Minimum overlap length.</param>
+    /// <param name="minIdentity">Minimum identity threshold (0.0-1.0).</param>
+    /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <returns>List of overlaps found.</returns>
+    public static IReadOnlyList<Overlap> FindAllOverlaps(
+        IReadOnlyList<string> reads,
+        int minOverlap,
+        double minIdentity,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        return CancellableOperations.FindAllOverlaps(reads, minOverlap, minIdentity, cancellationToken, progress);
     }
 
     /// <summary>

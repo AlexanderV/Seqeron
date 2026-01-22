@@ -435,12 +435,8 @@ public static class CrisprDesigner
 
     #region Helper Methods
 
-    private static double CalculateGcContent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence)) return 0;
-        int gcCount = sequence.Count(c => c == 'G' || c == 'C');
-        return (double)gcCount / sequence.Length * 100;
-    }
+    private static double CalculateGcContent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcContentFast();
 
     private static bool HasPolyT(string sequence, int length)
     {

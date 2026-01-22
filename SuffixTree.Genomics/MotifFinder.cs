@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace SuffixTree.Genomics;
 
@@ -102,6 +103,33 @@ public static class MotifFinder
                     Score: 1.0);
             }
         }
+    }
+
+    /// <summary>
+    /// Finds all occurrences of a degenerate motif with cancellation support.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="motif">Motif pattern with IUPAC ambiguity codes.</param>
+    /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+    /// <returns>Motif matches with positions.</returns>
+    public static IEnumerable<MotifMatch> FindDegenerateMotif(
+        DnaSequence sequence,
+        string motif,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CancellableOperations.FindDegenerateMotif(sequence.Sequence, motif, cancellationToken);
+    }
+
+    /// <summary>
+    /// Finds degenerate motif in a raw string with cancellation support.
+    /// </summary>
+    public static IEnumerable<MotifMatch> FindDegenerateMotif(
+        string sequence,
+        string motif,
+        CancellationToken cancellationToken)
+    {
+        return CancellableOperations.FindDegenerateMotif(sequence, motif, cancellationToken);
     }
 
     #endregion

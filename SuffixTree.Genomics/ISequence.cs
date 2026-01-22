@@ -409,14 +409,8 @@ public class QualitySequence : SequenceBase
         var complement = new char[Length];
         for (int i = 0; i < Length; i++)
         {
-            complement[i] = _sequence[i] switch
-            {
-                'A' or 'a' => 'T',
-                'T' or 't' => 'A',
-                'G' or 'g' => 'C',
-                'C' or 'c' => 'G',
-                _ => 'N'
-            };
+            char comp = SequenceExtensions.GetComplementBase(_sequence[i]);
+            complement[i] = comp == _sequence[i] ? 'N' : comp; // Unknown bases become N
         }
         return new QualitySequence(new string(complement), _qualities);
     }
@@ -440,14 +434,8 @@ public class QualitySequence : SequenceBase
         for (int i = 0; i < Length; i++)
         {
             char c = _sequence[Length - 1 - i];
-            result[i] = c switch
-            {
-                'A' or 'a' => 'T',
-                'T' or 't' => 'A',
-                'G' or 'g' => 'C',
-                'C' or 'c' => 'G',
-                _ => 'N'
-            };
+            char comp = SequenceExtensions.GetComplementBase(c);
+            result[i] = comp == c ? 'N' : comp; // Unknown bases become N
             revQual[i] = _qualities[Length - 1 - i];
         }
         return new QualitySequence(new string(result), revQual);

@@ -477,13 +477,8 @@ public static class MetagenomicsAnalyzer
         }
     }
 
-    private static double CalculateGcContent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-        int gc = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
-        return (double)gc / sequence.Length;
-    }
+    private static double CalculateGcContent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     private static Dictionary<string, double> CalculateTetraNucleotideFrequency(string sequence)
     {

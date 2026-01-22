@@ -445,17 +445,19 @@ public static class SequenceStatistics
 
         var comp = CalculateNucleotideComposition(dnaSequence);
 
-        if (useWallaceRule && dnaSequence.Length < 14)
+        if (useWallaceRule && dnaSequence.Length < ThermoConstants.WallaceMaxLength)
         {
             // Wallace rule for short oligos: Tm = 2(A+T) + 4(G+C)
-            return 2 * (comp.CountA + comp.CountT) + 4 * (comp.CountG + comp.CountC);
+            return ThermoConstants.CalculateWallaceTm(
+                comp.CountA + comp.CountT,
+                comp.CountG + comp.CountC);
         }
         else
         {
-            // GC formula: Tm = 64.9 + 41*(G+C-16.4)/(A+T+G+C)
+            // GC formula (Marmur-Doty)
             int total = comp.CountA + comp.CountT + comp.CountG + comp.CountC;
             if (total == 0) return 0;
-            return 64.9 + 41.0 * (comp.CountG + comp.CountC - 16.4) / total;
+            return ThermoConstants.CalculateMarmurDotyTm(comp.CountG + comp.CountC, total);
         }
     }
 

@@ -460,8 +460,7 @@ public static class ChromosomeAnalyzer
         for (int i = 0; i < sequence.Length - windowSize; i += windowSize)
         {
             string window = sequence.Substring(i, windowSize);
-            int gc = window.Count(c => c == 'G' || c == 'C');
-            gcValues.Add(gc / (double)windowSize);
+            gcValues.Add(window.CalculateGcFractionFast());
         }
 
         if (gcValues.Count < 2)
@@ -521,9 +520,8 @@ public static class ChromosomeAnalyzer
             string region = sequence[i..end];
 
             // Calculate GC content
-            int gc = region.Count(c => c == 'G' || c == 'C');
             int total = region.Count(c => c != 'N');
-            double gcContent = total > 0 ? gc / (double)total : 0.5;
+            double gcContent = total > 0 ? region.CalculateGcFractionFast() : 0.5;
 
             // Determine stain type
             string stain;

@@ -171,17 +171,7 @@ public static class RnaSecondaryStructure
     /// <summary>
     /// Gets the complement of a base (RNA).
     /// </summary>
-    public static char GetComplement(char base_)
-    {
-        return char.ToUpperInvariant(base_) switch
-        {
-            'A' => 'U',
-            'U' => 'A',
-            'G' => 'C',
-            'C' => 'G',
-            _ => 'N'
-        };
-    }
+    public static char GetComplement(char base_) => SequenceExtensions.GetRnaComplementBase(base_);
 
     #endregion
 

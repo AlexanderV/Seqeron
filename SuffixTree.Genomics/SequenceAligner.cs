@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace SuffixTree.Genomics;
 
@@ -77,6 +78,42 @@ public static class SequenceAligner
             sequence1.ToUpperInvariant(),
             sequence2.ToUpperInvariant(),
             scoring ?? SimpleDna);
+    }
+
+    /// <summary>
+    /// Performs global alignment with cancellation support.
+    /// Recommended for aligning long sequences.
+    /// </summary>
+    /// <param name="sequence1">First sequence string.</param>
+    /// <param name="sequence2">Second sequence string.</param>
+    /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
+    /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <returns>Alignment result with aligned sequences and score.</returns>
+    public static AlignmentResult GlobalAlign(
+        string sequence1,
+        string sequence2,
+        ScoringMatrix? scoring,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        return CancellableOperations.GlobalAlign(sequence1, sequence2, scoring, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// Performs global alignment on DNA sequences with cancellation support.
+    /// </summary>
+    public static AlignmentResult GlobalAlign(
+        DnaSequence sequence1,
+        DnaSequence sequence2,
+        ScoringMatrix? scoring,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence1);
+        ArgumentNullException.ThrowIfNull(sequence2);
+
+        return GlobalAlign(sequence1.Sequence, sequence2.Sequence, scoring, cancellationToken, progress);
     }
 
     private static AlignmentResult GlobalAlignCore(string seq1, string seq2, ScoringMatrix scoring)

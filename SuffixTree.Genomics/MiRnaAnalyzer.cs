@@ -612,14 +612,8 @@ public static class MiRnaAnalyzer
     /// <summary>
     /// Calculates the GC content of a sequence.
     /// </summary>
-    public static double CalculateGcContent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        int gc = sequence.ToUpperInvariant().Count(c => c == 'G' || c == 'C');
-        return (double)gc / sequence.Length;
-    }
+    public static double CalculateGcContent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     /// <summary>
     /// Generates all possible seed sequences for a given miRNA.

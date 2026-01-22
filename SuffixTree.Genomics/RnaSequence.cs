@@ -91,13 +91,7 @@ namespace SuffixTree.Genomics
         /// <summary>
         /// Calculates GC content (percentage of G and C nucleotides).
         /// </summary>
-        public double GcContent()
-        {
-            if (_sequence.Length == 0) return 0;
-
-            int gcCount = _sequence.Count(c => c == 'G' || c == 'C');
-            return (double)gcCount / _sequence.Length * 100;
-        }
+        public double GcContent() => _sequence.CalculateGcContentFast();
 
         /// <summary>
         /// Reverse transcribes RNA to DNA (U → T).

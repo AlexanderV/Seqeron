@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SuffixTree.Genomics
 {
@@ -40,11 +42,60 @@ namespace SuffixTree.Genomics
         }
 
         /// <summary>
+        /// Counts all k-mers in a sequence with cancellation support.
+        /// </summary>
+        /// <param name="sequence">The sequence to analyze.</param>
+        /// <param name="k">The k-mer length.</param>
+        /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+        /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+        /// <returns>Dictionary mapping k-mers to their counts.</returns>
+        public static Dictionary<string, int> CountKmers(
+            string sequence,
+            int k,
+            CancellationToken cancellationToken,
+            IProgress<double>? progress = null)
+        {
+            return CancellableOperations.CountKmers(sequence, k, cancellationToken, progress);
+        }
+
+        /// <summary>
+        /// Counts all k-mers in a sequence asynchronously.
+        /// </summary>
+        public static Task<Dictionary<string, int>> CountKmersAsync(
+            string sequence,
+            int k,
+            CancellationToken cancellationToken = default,
+            IProgress<double>? progress = null)
+        {
+            return CancellableOperations.CountKmersAsync(sequence, k, cancellationToken, progress);
+        }
+
+        /// <summary>
         /// Counts k-mers in a DNA sequence.
         /// </summary>
         public static Dictionary<string, int> CountKmers(DnaSequence dna, int k)
         {
             return CountKmers(dna.Sequence, k);
+        }
+
+        /// <summary>
+        /// Counts k-mers in a DNA sequence with cancellation support.
+        /// </summary>
+        public static Dictionary<string, int> CountKmers(
+            DnaSequence dna,
+            int k,
+            CancellationToken cancellationToken,
+            IProgress<double>? progress = null)
+        {
+            return CountKmers(dna.Sequence, k, cancellationToken, progress);
+        }
+
+        /// <summary>
+        /// Counts k-mers using Span-based optimization (more memory efficient).
+        /// </summary>
+        public static Dictionary<string, int> CountKmersSpan(ReadOnlySpan<char> sequence, int k)
+        {
+            return sequence.CountKmersSpan(k);
         }
 
         /// <summary>

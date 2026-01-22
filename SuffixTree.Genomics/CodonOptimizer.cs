@@ -658,14 +658,8 @@ public static class CodonOptimizer
         return StandardGeneticCode.GetValueOrDefault(codon, "X");
     }
 
-    private static double CalculateGcContent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-
-        int gc = sequence.Count(c => c == 'G' || c == 'C');
-        return (double)gc / sequence.Length;
-    }
+    private static double CalculateGcContent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     private static double GetCodonGcContent(string codon)
     {

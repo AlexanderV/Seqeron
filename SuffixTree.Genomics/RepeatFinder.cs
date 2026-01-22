@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace SuffixTree.Genomics;
 
@@ -36,6 +37,29 @@ public static class RepeatFinder
     }
 
     /// <summary>
+    /// Finds microsatellites with cancellation support.
+    /// </summary>
+    /// <param name="sequence">DNA sequence to search.</param>
+    /// <param name="minUnitLength">Minimum repeat unit length.</param>
+    /// <param name="maxUnitLength">Maximum repeat unit length.</param>
+    /// <param name="minRepeats">Minimum number of repeats.</param>
+    /// <param name="cancellationToken">Cancellation token for long-running operations.</param>
+    /// <param name="progress">Optional progress reporter (0.0 to 1.0).</param>
+    /// <returns>Collection of microsatellite repeats found.</returns>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        DnaSequence sequence,
+        int minUnitLength,
+        int maxUnitLength,
+        int minRepeats,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CancellableOperations.FindMicrosatellites(
+            sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
+    }
+
+    /// <summary>
     /// Finds microsatellites in a raw sequence string.
     /// </summary>
     public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
@@ -49,6 +73,21 @@ public static class RepeatFinder
 
         foreach (var result in FindMicrosatellitesCore(sequence.ToUpperInvariant(), minUnitLength, maxUnitLength, minRepeats))
             yield return result;
+    }
+
+    /// <summary>
+    /// Finds microsatellites in a raw sequence string with cancellation support.
+    /// </summary>
+    public static IEnumerable<MicrosatelliteResult> FindMicrosatellites(
+        string sequence,
+        int minUnitLength,
+        int maxUnitLength,
+        int minRepeats,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        return CancellableOperations.FindMicrosatellites(
+            sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
     }
 
     private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCore(

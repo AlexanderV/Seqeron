@@ -107,37 +107,8 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region GC Content
-
-        [Test]
-        public void GcContent_AllGC_Returns100()
-        {
-            var rna = new RnaSequence("GCGCGC");
-            Assert.That(rna.GcContent(), Is.EqualTo(100.0));
-        }
-
-        [Test]
-        public void GcContent_NoGC_Returns0()
-        {
-            var rna = new RnaSequence("AUAUAU");
-            Assert.That(rna.GcContent(), Is.EqualTo(0.0));
-        }
-
-        [Test]
-        public void GcContent_HalfGC_Returns50()
-        {
-            var rna = new RnaSequence("ACGU");
-            Assert.That(rna.GcContent(), Is.EqualTo(50.0));
-        }
-
-        [Test]
-        public void GcContent_Empty_Returns0()
-        {
-            var rna = new RnaSequence("");
-            Assert.That(rna.GcContent(), Is.EqualTo(0.0));
-        }
-
-        #endregion
+        // Note: GC Content detailed tests are in SequenceExtensions_CalculateGcContent_Tests.cs
+        // RnaSequence.GcContent() delegates to SequenceExtensions.CalculateGcContentFast()
 
         #region AU Content
 

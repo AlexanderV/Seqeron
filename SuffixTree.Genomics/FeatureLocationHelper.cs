@@ -17,7 +17,7 @@ namespace SuffixTree.Genomics
         /// <param name="location">The feature location.</param>
         /// <returns>The extracted sequence, reverse complemented if needed.</returns>
         private static string ExtractSequenceInternal(
-            string fullSequence, 
+            string fullSequence,
             IReadOnlyList<(int Start, int End)> parts,
             int start,
             int end,

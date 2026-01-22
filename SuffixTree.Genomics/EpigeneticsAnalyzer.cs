@@ -270,12 +270,8 @@ public static class EpigeneticsAnalyzer
         }
     }
 
-    private static double CalculateGcContent(string sequence)
-    {
-        if (string.IsNullOrEmpty(sequence))
-            return 0;
-        return sequence.Count(c => c == 'G' || c == 'C') / (double)sequence.Length;
-    }
+    private static double CalculateGcContent(string sequence) =>
+        string.IsNullOrEmpty(sequence) ? 0 : sequence.CalculateGcFractionFast();
 
     #endregion
 

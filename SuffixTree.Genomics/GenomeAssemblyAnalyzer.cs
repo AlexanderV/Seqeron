@@ -988,11 +988,8 @@ public static class GenomeAssemblyAnalyzer
                 int end = Math.Min(i + windowSize, upper.Length);
                 string window = upper[i..end];
 
-                int gc = window.Count(c => c == 'G' || c == 'C');
                 int nCount = window.Count(c => c == 'N');
-                int bases = window.Length - nCount;
-
-                double gcContent = bases > 0 ? gc / (double)bases : 0;
+                double gcContent = window.CalculateGcFractionFast();
                 double complexity = CalculateLinguisticComplexity(window);
 
                 yield return (id, i, end - i, gcContent, nCount, complexity);

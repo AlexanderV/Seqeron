@@ -53,19 +53,12 @@ namespace SuffixTree.Genomics
         /// </summary>
         public DnaSequence Complement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            foreach (char c in _sequence)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(c switch
-                {
-                    'A' => 'T',
-                    'T' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => c
-                });
+                result[i] = SequenceExtensions.GetComplementBase(_sequence[i]);
             }
-            return new DnaSequence(sb.ToString());
+            return new DnaSequence(new string(result));
         }
 
         /// <summary>
@@ -74,32 +67,19 @@ namespace SuffixTree.Genomics
         /// </summary>
         public DnaSequence ReverseComplement()
         {
-            var sb = new StringBuilder(_sequence.Length);
-            for (int i = _sequence.Length - 1; i >= 0; i--)
+            var result = new char[_sequence.Length];
+            for (int i = 0; i < _sequence.Length; i++)
             {
-                sb.Append(_sequence[i] switch
-                {
-                    'A' => 'T',
-                    'T' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    _ => _sequence[i]
-                });
+                result[i] = SequenceExtensions.GetComplementBase(_sequence[_sequence.Length - 1 - i]);
             }
-            return new DnaSequence(sb.ToString());
+            return new DnaSequence(new string(result));
         }
 
         /// <summary>
         /// Calculates GC content (percentage of G and C nucleotides).
         /// Higher GC content = higher melting temperature.
         /// </summary>
-        public double GcContent()
-        {
-            if (_sequence.Length == 0) return 0;
-
-            int gcCount = _sequence.Count(c => c == 'G' || c == 'C');
-            return (double)gcCount / _sequence.Length * 100;
-        }
+        public double GcContent() => _sequence.CalculateGcContentFast();
 
         /// <summary>
         /// Transcribes DNA to RNA (T → U).
@@ -174,17 +154,52 @@ namespace SuffixTree.Genomics
             var result = new char[sequence.Length];
             for (int i = 0; i < sequence.Length; i++)
             {
-                result[sequence.Length - 1 - i] = char.ToUpperInvariant(sequence[i]) switch
-                {
-                    'A' => 'T',
-                    'T' => 'A',
-                    'C' => 'G',
-                    'G' => 'C',
-                    'U' => 'A', // Support RNA too
-                    _ => sequence[i]
-                };
+                result[sequence.Length - 1 - i] = SequenceExtensions.GetComplementBase(sequence[i]);
             }
             return new string(result);
         }
+
+        #region Span-based Methods
+
+        /// <summary>
+        /// Gets the sequence as a ReadOnlySpan for high-performance operations.
+        /// </summary>
+        public ReadOnlySpan<char> AsSpan() => _sequence.AsSpan();
+
+        /// <summary>
+        /// Gets a slice of the sequence as a ReadOnlySpan.
+        /// </summary>
+        public ReadOnlySpan<char> AsSpan(int start, int length) => _sequence.AsSpan(start, length);
+
+        /// <summary>
+        /// Calculates GC content using Span-based optimization.
+        /// More efficient for repeated calls.
+        /// </summary>
+        public double GcContentFast() => AsSpan().CalculateGcContent();
+
+        /// <summary>
+        /// Writes the complement to a destination span.
+        /// Returns true if successful, false if destination is too small.
+        /// </summary>
+        public bool TryWriteComplement(Span<char> destination)
+            => AsSpan().TryGetComplement(destination);
+
+        /// <summary>
+        /// Writes the reverse complement to a destination span.
+        /// Returns true if successful, false if destination is too small.
+        /// </summary>
+        public bool TryWriteReverseComplement(Span<char> destination)
+            => AsSpan().TryGetReverseComplement(destination);
+
+        /// <summary>
+        /// Gets the reverse complement into a stack-allocated or pooled buffer.
+        /// </summary>
+        /// <param name="sequence">Source DNA sequence span.</param>
+        /// <param name="destination">Destination span (must be same length as source).</param>
+        /// <returns>True if successful.</returns>
+        public static bool TryGetReverseComplement(ReadOnlySpan<char> sequence, Span<char> destination)
+            => sequence.TryGetReverseComplement(destination);
+
+        #endregion
     }
 }
