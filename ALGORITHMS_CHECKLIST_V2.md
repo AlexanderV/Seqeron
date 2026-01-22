@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 18 |
+| **Completed** | 19 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 82 |
+| **Not Started** | 81 |
 
 ---
 
@@ -41,7 +41,7 @@
 | ☑ | REP-PALIN-001 | Repeats | 2 | Wikipedia (Palindromic sequence, Restriction enzyme), Rosalind REVP | [REP-PALIN-001.md](TestSpecs/REP-PALIN-001.md) | RepeatFinder_Palindrome_Tests.cs |
 | ☑ | CRISPR-PAM-001 | MolTools | 2 | Wikipedia (Protospacer adjacent motif, CRISPR), Jinek et al. (2012), Zetsche et al. (2015) | [CRISPR-PAM-001.md](TestSpecs/CRISPR-PAM-001.md) | CrisprDesigner_PAM_Tests.cs |
 | ☑ | CRISPR-GUIDE-001 | MolTools | 2 | Wikipedia (Guide RNA, CRISPR gene editing, PAM), Addgene CRISPR Guide | [CRISPR-GUIDE-001.md](TestSpecs/CRISPR-GUIDE-001.md) | CrisprDesigner_GuideRNA_Tests.cs |
-| ☐ | CRISPR-OFF-001 | MolTools | 2 | - | - | - |
+| ☑ | CRISPR-OFF-001 | MolTools | 2 | Wikipedia (Off-target genome editing), Hsu et al. (2013), Fu et al. (2013) | [CRISPR-OFF-001.md](TestSpecs/CRISPR-OFF-001.md) | CrisprDesigner_OffTarget_Tests.cs |
 | ☐ | PRIMER-TM-001 | MolTools | 2 | - | - | - |
 | ☐ | PRIMER-DESIGN-001 | MolTools | 3 | - | - | - |
 | ☐ | PRIMER-STRUCT-001 | MolTools | 3 | - | - | - |
