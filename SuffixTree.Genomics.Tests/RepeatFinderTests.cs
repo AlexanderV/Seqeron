@@ -119,64 +119,8 @@ public class RepeatFinderTests
     // Note: Inverted Repeat Detection tests have been moved to RepeatFinder_InvertedRepeat_Tests.cs
     // See Test Unit REP-INV-001
 
-    #region Direct Repeat Detection Tests
-
-    [Test]
-    public void FindDirectRepeats_SimpleRepeat_FindsRepeat()
-    {
-        var sequence = new DnaSequence("ACGTACGTAAAAACGTACGT");
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 1).ToList();
-
-        Assert.That(results.Any(r => r.Length >= 5));
-    }
-
-    [Test]
-    public void FindDirectRepeats_AdjacentRepeats_FindsRepeat()
-    {
-        var sequence = new DnaSequence("ACGTAACGTA");
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 0).ToList();
-
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(results[0].RepeatSequence, Is.EqualTo("ACGTA"));
-    }
-
-    [Test]
-    public void FindDirectRepeats_NoRepeats_ReturnsEmpty()
-    {
-        var sequence = new DnaSequence("ACGTACGT");
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 1).ToList();
-
-        Assert.That(results, Is.Empty);
-    }
-
-    [Test]
-    public void FindDirectRepeats_SpacingCalculation_Correct()
-    {
-        var sequence = new DnaSequence("ACGTATTTTACGTA");
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 1).ToList();
-
-        if (results.Count > 0)
-        {
-            var result = results.First(r => r.RepeatSequence == "ACGTA");
-            Assert.That(result.Spacing, Is.EqualTo(4)); // TTTT between repeats
-        }
-    }
-
-    [Test]
-    public void FindDirectRepeats_StringOverload_Works()
-    {
-        var results = RepeatFinder.FindDirectRepeats("ACGTAACGTA", 5, 10, 0).ToList();
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void FindDirectRepeats_EmptySequence_ReturnsEmpty()
-    {
-        var results = RepeatFinder.FindDirectRepeats("", 5, 10, 1).ToList();
-        Assert.That(results, Is.Empty);
-    }
-
-    #endregion
+    // Note: Direct Repeat Detection tests have been moved to RepeatFinder_DirectRepeat_Tests.cs
+    // See Test Unit REP-DIRECT-001
 
     #region Palindrome Detection Tests
 

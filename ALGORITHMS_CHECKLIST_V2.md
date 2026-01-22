@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 15 |
+| **Completed** | 16 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 85 |
+| **Not Started** | 84 |
 
 ---
 
@@ -37,7 +37,7 @@
 | ☑ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008) | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
 | ☑ | REP-TANDEM-001 | Repeats | 2 | Wikipedia (Tandem repeat, Microsatellite), Richard et al. (2008) | [REP-TANDEM-001.md](TestSpecs/REP-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs |
 | ☑ | REP-INV-001 | Repeats | 1 | Wikipedia (Inverted repeat, Stem-loop, Palindromic sequence), EMBOSS einverted, Pearson (1996), Bissler (1998) | [REP-INV-001.md](TestSpecs/REP-INV-001.md) | RepeatFinder_InvertedRepeat_Tests.cs |
-| ☐ | REP-DIRECT-001 | Repeats | 1 | - | - | - |
+| ☑ | REP-DIRECT-001 | Repeats | 1 | Wikipedia (Direct repeat, Repeated sequence), Ussery (2009), Richard (2021) | [REP-DIRECT-001.md](TestSpecs/REP-DIRECT-001.md) | RepeatFinder_DirectRepeat_Tests.cs |
 | ☐ | REP-PALIN-001 | Repeats | 2 | - | - | - |
 | ☐ | CRISPR-PAM-001 | MolTools | 2 | - | - | - |
 | ☐ | CRISPR-GUIDE-001 | MolTools | 2 | - | - | - |
