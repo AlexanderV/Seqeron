@@ -28,7 +28,11 @@ namespace SuffixTree.Genomics.Tests
             Assert.That(dna.Sequence, Is.EqualTo("ACGT"));
         }
 
+        // Note: Comprehensive validation tests are in SequenceExtensions_SequenceValidation_Tests.cs (SEQ-VALID-001)
+        // Factory/constructor tests here verify delegation to validation logic
+
         [Test]
+        [Description("Smoke test: Constructor throws on invalid nucleotide")]
         public void Constructor_InvalidNucleotide_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() => new DnaSequence("ACGX"));
@@ -43,6 +47,7 @@ namespace SuffixTree.Genomics.Tests
         }
 
         [Test]
+        [Description("Smoke test: TryCreate returns true for valid sequence")]
         public void TryCreate_ValidSequence_ReturnsTrue()
         {
             bool result = DnaSequence.TryCreate("ACGT", out var dna);
@@ -51,6 +56,7 @@ namespace SuffixTree.Genomics.Tests
         }
 
         [Test]
+        [Description("Smoke test: TryCreate returns false for invalid sequence")]
         public void TryCreate_InvalidSequence_ReturnsFalse()
         {
             bool result = DnaSequence.TryCreate("ACGX", out var dna);

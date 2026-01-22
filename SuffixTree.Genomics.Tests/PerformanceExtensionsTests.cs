@@ -95,22 +95,20 @@ public class PerformanceExtensionsTests
         Assert.That(distance, Is.EqualTo(1));
     }
 
+    // Note: Comprehensive IsValidDna/IsValidRna tests are in SequenceExtensions_SequenceValidation_Tests.cs (SEQ-VALID-001)
+    // Smoke tests retained here for span-based API verification
+
     [Test]
-    public void IsValidDna_ValidSequence_ReturnsTrue()
+    [Description("Smoke test: IsValidDna span API works correctly")]
+    public void IsValidDna_ValidSequence_SmokeTest()
     {
         ReadOnlySpan<char> sequence = "ACGTACGT".AsSpan();
         Assert.That(sequence.IsValidDna(), Is.True);
     }
 
     [Test]
-    public void IsValidDna_InvalidSequence_ReturnsFalse()
-    {
-        ReadOnlySpan<char> sequence = "ACGTXCGT".AsSpan();
-        Assert.That(sequence.IsValidDna(), Is.False);
-    }
-
-    [Test]
-    public void IsValidRna_ValidSequence_ReturnsTrue()
+    [Description("Smoke test: IsValidRna span API works correctly")]
+    public void IsValidRna_ValidSequence_SmokeTest()
     {
         ReadOnlySpan<char> sequence = "ACGUACGU".AsSpan();
         Assert.That(sequence.IsValidRna(), Is.True);
