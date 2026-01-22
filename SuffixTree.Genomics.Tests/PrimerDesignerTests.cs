@@ -37,44 +37,17 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Melting Temperature
+        // NOTE: Melting Temperature tests moved to PrimerDesigner_MeltingTemperature_Tests.cs
+        // as part of PRIMER-TM-001 Test Unit consolidation.
 
+        #region Melting Temperature - Smoke Test
+
+        /// <summary>
+        /// Smoke test verifying PrimerDesigner's Tm calculation is available.
+        /// Full Tm tests are in PrimerDesigner_MeltingTemperature_Tests.cs.
+        /// </summary>
         [Test]
-        public void CalculateMeltingTemperature_ShortPrimer_UsesWallaceRule()
-        {
-            // ATATATAT: 8 AT bases = 2*8 + 4*0 = 16
-            double tm = PrimerDesigner.CalculateMeltingTemperature("ATATATAT");
-            Assert.That(tm, Is.EqualTo(16.0));
-        }
-
-        [Test]
-        public void CalculateMeltingTemperature_ShortAllGC_HighTm()
-        {
-            // GCGCGCGC: 0 AT + 8 GC = 2*0 + 4*8 = 32
-            double tm = PrimerDesigner.CalculateMeltingTemperature("GCGCGCGC");
-            Assert.That(tm, Is.EqualTo(32.0));
-        }
-
-        [Test]
-        public void CalculateMeltingTemperature_LongPrimer_UsesNearestNeighbor()
-        {
-            // 20 bp primer
-            string primer = "ACGTACGTACGTACGTACGT";
-            double tm = PrimerDesigner.CalculateMeltingTemperature(primer);
-
-            // Should be in reasonable range for 50% GC
-            Assert.That(tm, Is.GreaterThan(40).And.LessThan(70));
-        }
-
-        [Test]
-        public void CalculateMeltingTemperature_EmptyPrimer_Returns0()
-        {
-            double tm = PrimerDesigner.CalculateMeltingTemperature("");
-            Assert.That(tm, Is.EqualTo(0.0));
-        }
-
-        [Test]
-        public void CalculateMeltingTemperatureWithSalt_AppliesSaltCorrection()
+        public void CalculateMeltingTemperature_SmokeTest_ReturnsValidValue()
         {
             string primer = "ACGTACGTACGTACGTACGT";
             double tmBase = PrimerDesigner.CalculateMeltingTemperature(primer);

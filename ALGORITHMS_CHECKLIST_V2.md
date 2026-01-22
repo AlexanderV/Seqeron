@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 19 |
+| **Completed** | 20 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 81 |
+| **Not Started** | 80 |
 
 ---
 
@@ -42,7 +42,7 @@
 | ☑ | CRISPR-PAM-001 | MolTools | 2 | Wikipedia (Protospacer adjacent motif, CRISPR), Jinek et al. (2012), Zetsche et al. (2015) | [CRISPR-PAM-001.md](TestSpecs/CRISPR-PAM-001.md) | CrisprDesigner_PAM_Tests.cs |
 | ☑ | CRISPR-GUIDE-001 | MolTools | 2 | Wikipedia (Guide RNA, CRISPR gene editing, PAM), Addgene CRISPR Guide | [CRISPR-GUIDE-001.md](TestSpecs/CRISPR-GUIDE-001.md) | CrisprDesigner_GuideRNA_Tests.cs |
 | ☑ | CRISPR-OFF-001 | MolTools | 2 | Wikipedia (Off-target genome editing), Hsu et al. (2013), Fu et al. (2013) | [CRISPR-OFF-001.md](TestSpecs/CRISPR-OFF-001.md) | CrisprDesigner_OffTarget_Tests.cs |
-| ☐ | PRIMER-TM-001 | MolTools | 2 | - | - | - |
+| ☑ | PRIMER-TM-001 | MolTools | 2 | Wikipedia (Nucleic acid thermodynamics), Marmur & Doty (1962), SantaLucia (1998), Owczarzy (2004) | [PRIMER-TM-001.md](TestSpecs/PRIMER-TM-001.md) | PrimerDesigner_MeltingTemperature_Tests.cs |
 | ☐ | PRIMER-DESIGN-001 | MolTools | 3 | - | - | - |
 | ☐ | PRIMER-STRUCT-001 | MolTools | 3 | - | - | - |
 | ☐ | PROBE-DESIGN-001 | MolTools | 3 | - | - | - |
