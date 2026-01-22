@@ -11,10 +11,10 @@
 | Метрика | Значение |
 |---------|----------|
 | **Total Test Units** | 100 |
-| **Completed** | 1 |
+| **Completed** | 2 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 99 |
+| **Not Started** | 98 |
 
 ---
 
@@ -23,7 +23,7 @@
 | Status | Test Unit ID | Area | Methods | Evidence | TestSpec | Test File(s) |
 |--------|--------------|------|---------|----------|----------|--------------|
 | ☑ | SEQ-GC-001 | Composition | 5 | Wikipedia, Biopython | [SEQ-GC-001.md](TestSpecs/SEQ-GC-001.md) | SequenceExtensions_CalculateGcContent_Tests.cs |
-| ☐ | SEQ-COMP-001 | Composition | 3 | - | - | - |
+| ☑ | SEQ-COMP-001 | Composition | 3 | Wikipedia, Biopython | [SEQ-COMP-001.md](TestSpecs/SEQ-COMP-001.md) | SequenceExtensions_Complement_Tests.cs |
 | ☐ | SEQ-REVCOMP-001 | Composition | 4 | - | - | - |
 | ☐ | SEQ-VALID-001 | Composition | 4 | - | - | - |
 | ☐ | SEQ-COMPLEX-001 | Composition | 4 | - | - | - |

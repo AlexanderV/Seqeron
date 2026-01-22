@@ -42,8 +42,12 @@ public class PerformanceExtensionsTests
         Assert.That(sequence.CalculateGcContent(), Is.EqualTo(0.0));
     }
 
+    // Note: Comprehensive TryGetComplement tests are in SequenceExtensions_Complement_Tests.cs
+    // These are retained as smoke tests for span-based performance verification
+
     [Test]
-    public void TryGetComplement_ReturnsCorrectComplement()
+    [Description("Smoke test: TryGetComplement span API works correctly")]
+    public void TryGetComplement_SpanApi_SmokeTest()
     {
         ReadOnlySpan<char> source = "ACGT".AsSpan();
         Span<char> destination = stackalloc char[4];
@@ -54,19 +58,10 @@ public class PerformanceExtensionsTests
         Assert.That(new string(destination), Is.EqualTo("TGCA"));
     }
 
+    // Note: Comprehensive TryGetReverseComplement tests will be in SEQ-REVCOMP-001
     [Test]
-    public void TryGetComplement_DestinationTooSmall_ReturnsFalse()
-    {
-        ReadOnlySpan<char> source = "ACGT".AsSpan();
-        Span<char> destination = stackalloc char[2];
-
-        bool success = source.TryGetComplement(destination);
-
-        Assert.That(success, Is.False);
-    }
-
-    [Test]
-    public void TryGetReverseComplement_ReturnsCorrectResult()
+    [Description("Smoke test: TryGetReverseComplement span API works correctly")]
+    public void TryGetReverseComplement_SpanApi_SmokeTest()
     {
         ReadOnlySpan<char> source = "ACGT".AsSpan();
         Span<char> destination = stackalloc char[4];

@@ -70,20 +70,15 @@ namespace SuffixTree.Genomics.Tests
         #region Complement
 
         [Test]
-        public void Complement_ReturnsCorrectComplement()
+        [Description("Smoke test: RnaSequence.Complement() delegates to SequenceExtensions.GetRnaComplementBase")]
+        public void Complement_DelegatesToGetRnaComplementBase_SmokeTest()
         {
             var rna = new RnaSequence("ACGU");
             var complement = rna.Complement();
             Assert.That(complement.Sequence, Is.EqualTo("UGCA"));
         }
 
-        [Test]
-        public void Complement_LongerSequence_ReturnsCorrectComplement()
-        {
-            var rna = new RnaSequence("AAUUCCGG");
-            var complement = rna.Complement();
-            Assert.That(complement.Sequence, Is.EqualTo("UUAAGGCC"));
-        }
+        // Comprehensive RNA complement tests are in SequenceExtensions_Complement_Tests.cs
 
         #endregion
 

@@ -63,20 +63,15 @@ namespace SuffixTree.Genomics.Tests
         #region Complement
 
         [Test]
-        public void Complement_ReturnsCorrectComplement()
+        [Description("Smoke test: DnaSequence.Complement() delegates to SequenceExtensions.GetComplementBase")]
+        public void Complement_DelegatesToGetComplementBase_SmokeTest()
         {
             var dna = new DnaSequence("ACGT");
             var complement = dna.Complement();
             Assert.That(complement.Sequence, Is.EqualTo("TGCA"));
         }
 
-        [Test]
-        public void Complement_LongerSequence_ReturnsCorrectComplement()
-        {
-            var dna = new DnaSequence("AATTCCGG");
-            var complement = dna.Complement();
-            Assert.That(complement.Sequence, Is.EqualTo("TTAAGGCC"));
-        }
+        // Comprehensive complement tests are in SequenceExtensions_Complement_Tests.cs
 
         #endregion
 
