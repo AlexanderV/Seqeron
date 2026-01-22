@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 17 |
+| **Completed** | 18 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 83 |
+| **Not Started** | 82 |
 
 ---
 
@@ -40,7 +40,7 @@
 | ☑ | REP-DIRECT-001 | Repeats | 1 | Wikipedia (Direct repeat, Repeated sequence), Ussery (2009), Richard (2021) | [REP-DIRECT-001.md](TestSpecs/REP-DIRECT-001.md) | RepeatFinder_DirectRepeat_Tests.cs |
 | ☑ | REP-PALIN-001 | Repeats | 2 | Wikipedia (Palindromic sequence, Restriction enzyme), Rosalind REVP | [REP-PALIN-001.md](TestSpecs/REP-PALIN-001.md) | RepeatFinder_Palindrome_Tests.cs |
 | ☑ | CRISPR-PAM-001 | MolTools | 2 | Wikipedia (Protospacer adjacent motif, CRISPR), Jinek et al. (2012), Zetsche et al. (2015) | [CRISPR-PAM-001.md](TestSpecs/CRISPR-PAM-001.md) | CrisprDesigner_PAM_Tests.cs |
-| ☐ | CRISPR-GUIDE-001 | MolTools | 2 | - | - | - |
+| ☑ | CRISPR-GUIDE-001 | MolTools | 2 | Wikipedia (Guide RNA, CRISPR gene editing, PAM), Addgene CRISPR Guide | [CRISPR-GUIDE-001.md](TestSpecs/CRISPR-GUIDE-001.md) | CrisprDesigner_GuideRNA_Tests.cs |
 | ☐ | CRISPR-OFF-001 | MolTools | 2 | - | - | - |
 | ☐ | PRIMER-TM-001 | MolTools | 2 | - | - | - |
 | ☐ | PRIMER-DESIGN-001 | MolTools | 3 | - | - | - |
