@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 14 |
+| **Completed** | 15 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 86 |
+| **Not Started** | 85 |
 
 ---
 
@@ -36,7 +36,7 @@
 | ☑ | PAT-PWM-001 | Matching | 2 | Wikipedia (PWM), Kel et al. (2003), Rosalind (CONS), Nishida (2008) | [PAT-PWM-001.md](TestSpecs/PAT-PWM-001.md) | MotifFinder_PWM_Tests.cs |
 | ☑ | REP-STR-001 | Repeats | 4 | Wikipedia (Microsatellite, Trinucleotide repeat disorder), Richard et al. (2008) | [REP-STR-001.md](TestSpecs/REP-STR-001.md) | RepeatFinder_Microsatellite_Tests.cs |
 | ☑ | REP-TANDEM-001 | Repeats | 2 | Wikipedia (Tandem repeat, Microsatellite), Richard et al. (2008) | [REP-TANDEM-001.md](TestSpecs/REP-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs, RepeatFinderTests.cs |
-| ☐ | REP-INV-001 | Repeats | 1 | - | - | - |
+| ☑ | REP-INV-001 | Repeats | 1 | Wikipedia (Inverted repeat, Stem-loop, Palindromic sequence), EMBOSS einverted, Pearson (1996), Bissler (1998) | [REP-INV-001.md](TestSpecs/REP-INV-001.md) | RepeatFinder_InvertedRepeat_Tests.cs |
 | ☐ | REP-DIRECT-001 | Repeats | 1 | - | - | - |
 | ☐ | REP-PALIN-001 | Repeats | 2 | - | - | - |
 | ☐ | CRISPR-PAM-001 | MolTools | 2 | - | - | - |
