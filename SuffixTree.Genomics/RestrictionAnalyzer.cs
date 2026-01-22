@@ -222,25 +222,7 @@ public static class RestrictionAnalyzer
         return true;
     }
 
-    private static bool MatchesIupac(char nucleotide, char iupacCode) => iupacCode switch
-    {
-        'A' => nucleotide == 'A',
-        'C' => nucleotide == 'C',
-        'G' => nucleotide == 'G',
-        'T' => nucleotide == 'T',
-        'N' => nucleotide is 'A' or 'C' or 'G' or 'T',
-        'R' => nucleotide is 'A' or 'G',
-        'Y' => nucleotide is 'C' or 'T',
-        'S' => nucleotide is 'G' or 'C',
-        'W' => nucleotide is 'A' or 'T',
-        'K' => nucleotide is 'G' or 'T',
-        'M' => nucleotide is 'A' or 'C',
-        'B' => nucleotide is 'C' or 'G' or 'T',
-        'D' => nucleotide is 'A' or 'G' or 'T',
-        'H' => nucleotide is 'A' or 'C' or 'T',
-        'V' => nucleotide is 'A' or 'C' or 'G',
-        _ => nucleotide == iupacCode
-    };
+    private static bool MatchesIupac(char nucleotide, char iupacCode) => IupacHelper.MatchesIupac(nucleotide, iupacCode);
 
     #endregion
 
