@@ -170,7 +170,7 @@ namespace SuffixTree.Genomics
         {
             // Start with standard table and apply differences
             var table = CreateStandardCodonTable();
-            
+
             // Yeast mitochondrial differences:
             table["CUU"] = 'T'; // Leucine → Threonine
             table["CUC"] = 'T'; // Leucine → Threonine

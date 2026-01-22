@@ -554,37 +554,7 @@ public static partial class GenBankParser
     /// Extracts a subsequence based on a feature location.
     /// </summary>
     public static string ExtractSequence(GenBankRecord record, Location location)
-    {
-        if (string.IsNullOrEmpty(record.Sequence))
-            return "";
-
-        var sb = new StringBuilder();
-
-        if (location.Parts.Count > 0)
-        {
-            foreach (var (start, end) in location.Parts)
-            {
-                var realStart = Math.Max(0, start - 1); // GenBank is 1-based
-                var realEnd = Math.Min(record.Sequence.Length, end);
-                if (realStart < realEnd)
-                {
-                    sb.Append(record.Sequence[realStart..realEnd]);
-                }
-            }
-        }
-        else if (location.Start > 0 && location.End > 0)
-        {
-            var realStart = Math.Max(0, location.Start - 1);
-            var realEnd = Math.Min(record.Sequence.Length, location.End);
-            if (realStart < realEnd)
-            {
-                sb.Append(record.Sequence[realStart..realEnd]);
-            }
-        }
-
-        var seq = sb.ToString();
-        return location.IsComplement ? new DnaSequence(seq).ReverseComplement().Sequence : seq;
-    }
+        => FeatureLocationHelper.ExtractSequence(record.Sequence, location);
 
     /// <summary>
     /// Gets qualifier value from a feature.
