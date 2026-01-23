@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 /ignore/*.txt
+/docs/MCP-Server-Plan.md
