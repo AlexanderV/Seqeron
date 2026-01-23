@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 29 |
+| **Completed** | 30 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 71 |
+| **Not Started** | 70 |
 
 ---
 
@@ -55,7 +55,7 @@
 | ☑ | ANNOT-GFF-001 | Annotation | 2 | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 | [ANNOT-GFF-001.md](TestSpecs/ANNOT-GFF-001.md) | GenomeAnnotator_GFF3_Tests.cs |
 | ☑ | KMER-COUNT-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind (KMER, BA1E) | [KMER-COUNT-001.md](TestSpecs/KMER-COUNT-001.md) | KmerAnalyzer_CountKmers_Tests.cs |
 | ☑ | KMER-FREQ-001 | K-mer | 3 | Wikipedia (K-mer, Entropy), Shannon (1948), Rosalind KMER | [KMER-FREQ-001.md](TestSpecs/KMER-FREQ-001.md) | KmerAnalyzer_Frequency_Tests.cs |
-| ☐ | KMER-FIND-001 | K-mer | 3 | - | - | - |
+| ☑ | KMER-FIND-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind BA1B (frequent words), Rosalind BA1E (clump finding) | [KMER-FIND-001.md](TestSpecs/KMER-FIND-001.md) | KmerAnalyzer_Find_Tests.cs |
 | ☐ | ALIGN-GLOBAL-001 | Alignment | 1 | - | - | - |
 | ☐ | ALIGN-LOCAL-001 | Alignment | 1 | - | - | - |
 | ☐ | ALIGN-SEMI-001 | Alignment | 1 | - | - | - |

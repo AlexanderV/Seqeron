@@ -3,49 +3,23 @@ using NUnit.Framework;
 namespace SuffixTree.Genomics.Tests
 {
     /// <summary>
-    /// Tests for K-mer analysis methods.
+    /// Tests for auxiliary K-mer analysis methods not covered by dedicated test units.
     /// 
     /// Covered by dedicated test files:
     /// - KMER-COUNT-001: KmerAnalyzer_CountKmers_Tests.cs
     /// - KMER-FREQ-001: KmerAnalyzer_Frequency_Tests.cs
+    /// - KMER-FIND-001: KmerAnalyzer_Find_Tests.cs
     /// 
-    /// Future Test Units:
-    /// - KMER-FIND-001: FindMostFrequentKmers, FindUniqueKmers, FindClumps
-    /// 
-    /// This file contains tests pending consolidation into KMER-FIND-001
-    /// and auxiliary method tests (KmerDistance, GenerateAllKmers, etc.)
+    /// This file contains tests for auxiliary methods:
+    /// - KmerDistance
+    /// - FindKmersWithMinCount
+    /// - GenerateAllKmers
+    /// - FindKmerPositions
+    /// - AnalyzeKmers
     /// </summary>
     [TestFixture]
     public class KmerAnalyzerTests
     {
-        #region Most Frequent K-mers
-
-        [Test]
-        public void FindMostFrequentKmers_SingleMostFrequent_ReturnsIt()
-        {
-            var mostFrequent = KmerAnalyzer.FindMostFrequentKmers("AAACGT", 2).ToList();
-
-            Assert.That(mostFrequent, Does.Contain("AA"));
-        }
-
-        [Test]
-        public void FindMostFrequentKmers_MultipleMostFrequent_ReturnsAll()
-        {
-            // In ACGTACGT, ACGT appears twice, but so do multiple overlapping sequences
-            var mostFrequent = KmerAnalyzer.FindMostFrequentKmers("ACGTACGT", 4).ToList();
-
-            Assert.That(mostFrequent, Does.Contain("ACGT"));
-        }
-
-        [Test]
-        public void FindMostFrequentKmers_EmptySequence_ReturnsEmpty()
-        {
-            var mostFrequent = KmerAnalyzer.FindMostFrequentKmers("", 4).ToList();
-            Assert.That(mostFrequent, Is.Empty);
-        }
-
-        #endregion
-
         #region K-mer Distance
 
         [Test]
@@ -69,22 +43,6 @@ namespace SuffixTree.Genomics.Tests
             double distance2 = KmerAnalyzer.KmerDistance("ACGT", "TTTT", 2);
 
             Assert.That(distance1, Is.LessThan(distance2));
-        }
-
-        #endregion
-
-        #region Unique K-mers
-
-        [Test]
-        public void FindUniqueKmers_ReturnsKmersAppearingOnce()
-        {
-            // In ACGTACGT: ACGT appears twice, others appear once
-            var unique = KmerAnalyzer.FindUniqueKmers("ACGTACGT", 4).ToList();
-
-            Assert.That(unique, Does.Contain("CGTA"));
-            Assert.That(unique, Does.Contain("GTAC"));
-            Assert.That(unique, Does.Contain("TACG"));
-            Assert.That(unique, Does.Not.Contain("ACGT"));
         }
 
         #endregion
@@ -147,35 +105,6 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Find Clumps
-
-        [Test]
-        public void FindClumps_SimpleClump_Found()
-        {
-            // AAAAA has AAA appearing 3 times in a window of 5
-            var clumps = KmerAnalyzer.FindClumps("AAAAA", 3, 5, 3).ToList();
-
-            Assert.That(clumps, Does.Contain("AAA"));
-        }
-
-        [Test]
-        public void FindClumps_NoClump_ReturnsEmpty()
-        {
-            // Looking for 3 occurrences in window of 4, but sequence too short
-            var clumps = KmerAnalyzer.FindClumps("ACGT", 2, 4, 3).ToList();
-
-            Assert.That(clumps, Is.Empty);
-        }
-
-        [Test]
-        public void FindClumps_InvalidParameters_ReturnsEmpty()
-        {
-            var clumps = KmerAnalyzer.FindClumps("ACGT", 5, 4, 2).ToList(); // k > window
-            Assert.That(clumps, Is.Empty);
-        }
-
-        #endregion
-
         #region Find K-mer Positions
 
         [Test]
@@ -234,17 +163,6 @@ namespace SuffixTree.Genomics.Tests
             var counts = KmerAnalyzer.CountKmers(promotor, 4);
 
             Assert.That(counts["TATA"], Is.EqualTo(2));
-        }
-
-        [Test]
-        public void FindClumps_RepetitiveRegion()
-        {
-            // Simulating a region with repetitive elements
-            string sequence = "AAAAACGTAAAAACGT";
-            var clumps = KmerAnalyzer.FindClumps(sequence, 4, 8, 2).ToList();
-
-            // AAAA should form a clump
-            Assert.That(clumps, Does.Contain("AAAA"));
         }
 
         #endregion
