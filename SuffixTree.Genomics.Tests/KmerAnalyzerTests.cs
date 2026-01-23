@@ -2,63 +2,16 @@ using NUnit.Framework;
 
 namespace SuffixTree.Genomics.Tests
 {
+    /// <summary>
+    /// Tests for K-mer analysis methods (excluding CountKmers - see KmerAnalyzer_CountKmers_Tests.cs).
+    /// 
+    /// Future Test Units:
+    /// - KMER-FREQ-001: GetKmerSpectrum, GetKmerFrequencies, CalculateKmerEntropy
+    /// - KMER-FIND-001: FindMostFrequentKmers, FindUniqueKmers, FindClumps
+    /// </summary>
     [TestFixture]
     public class KmerAnalyzerTests
     {
-        #region Count K-mers
-
-        [Test]
-        public void CountKmers_SimpleSequence_CountsCorrectly()
-        {
-            var counts = KmerAnalyzer.CountKmers("ACGTACGT", 4);
-
-            Assert.That(counts["ACGT"], Is.EqualTo(2));
-            Assert.That(counts["CGTA"], Is.EqualTo(1));
-            Assert.That(counts["GTAC"], Is.EqualTo(1));
-            Assert.That(counts["TACG"], Is.EqualTo(1));
-        }
-
-        [Test]
-        public void CountKmers_AllSame_SingleCount()
-        {
-            var counts = KmerAnalyzer.CountKmers("AAAA", 2);
-
-            Assert.That(counts.Count, Is.EqualTo(1));
-            Assert.That(counts["AA"], Is.EqualTo(3));
-        }
-
-        [Test]
-        public void CountKmers_EmptySequence_ReturnsEmptyDictionary()
-        {
-            var counts = KmerAnalyzer.CountKmers("", 4);
-            Assert.That(counts, Is.Empty);
-        }
-
-        [Test]
-        public void CountKmers_KLargerThanSequence_ReturnsEmptyDictionary()
-        {
-            var counts = KmerAnalyzer.CountKmers("ACG", 4);
-            Assert.That(counts, Is.Empty);
-        }
-
-        [Test]
-        public void CountKmers_InvalidK_ThrowsException()
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.CountKmers("ACGT", 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.CountKmers("ACGT", -1));
-        }
-
-        [Test]
-        public void CountKmers_DnaSequence_Works()
-        {
-            var dna = new DnaSequence("ACGTACGT");
-            var counts = KmerAnalyzer.CountKmers(dna, 4);
-
-            Assert.That(counts["ACGT"], Is.EqualTo(2));
-        }
-
-        #endregion
-
         #region K-mer Spectrum
 
         [Test]
@@ -304,23 +257,7 @@ namespace SuffixTree.Genomics.Tests
 
         #endregion
 
-        #region Count K-mers Both Strands
-
-        [Test]
-        public void CountKmersBothStrands_CountsBothStrands()
-        {
-            var dna = new DnaSequence("ACGT");
-            var counts = KmerAnalyzer.CountKmersBothStrands(dna, 2);
-
-            // Forward: AC, CG, GT
-            // Reverse (ACGT is palindrome): AC, CG, GT
-            // Each appears twice total
-            Assert.That(counts["AC"], Is.EqualTo(2));
-            Assert.That(counts["CG"], Is.EqualTo(2));
-            Assert.That(counts["GT"], Is.EqualTo(2));
-        }
-
-        #endregion
+        // Note: CountKmersBothStrands tests moved to KmerAnalyzer_CountKmers_Tests.cs (KMER-COUNT-001)
 
         #region Analyze K-mers
 
