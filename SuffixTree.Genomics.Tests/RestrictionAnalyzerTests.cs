@@ -1,243 +1,32 @@
+// Tests for RESTR-DIGEST-001: Restriction Digest Simulation
+// For RESTR-FIND-001 tests (FindSites, FindAllSites, GetEnzyme), see RestrictionAnalyzer_FindSites_Tests.cs
+
 using NUnit.Framework;
 using SuffixTree.Genomics;
 using System.Linq;
 
 namespace SuffixTree.Genomics.Tests;
 
+/// <summary>
+/// Tests for Digest, Map, and Compatibility functionality.
+/// For FindSites/GetEnzyme tests, see RestrictionAnalyzer_FindSites_Tests.cs (RESTR-FIND-001).
+/// </summary>
 [TestFixture]
 public class RestrictionAnalyzerTests
 {
-    #region Enzyme Database Tests
+    #region Smoke Tests for FindSites (Integration)
 
+    /// <summary>
+    /// Smoke test: Basic FindSites functionality.
+    /// Detailed tests in RestrictionAnalyzer_FindSites_Tests.cs.
+    /// </summary>
     [Test]
-    public void GetEnzyme_EcoRI_ReturnsCorrectEnzyme()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("EcoRI");
-
-        Assert.That(enzyme, Is.Not.Null);
-        Assert.That(enzyme!.Name, Is.EqualTo("EcoRI"));
-        Assert.That(enzyme.RecognitionSequence, Is.EqualTo("GAATTC"));
-        Assert.That(enzyme.CutPositionForward, Is.EqualTo(1));
-        Assert.That(enzyme.CutPositionReverse, Is.EqualTo(5));
-    }
-
-    [Test]
-    public void GetEnzyme_CaseInsensitive_Works()
-    {
-        var enzyme1 = RestrictionAnalyzer.GetEnzyme("EcoRI");
-        var enzyme2 = RestrictionAnalyzer.GetEnzyme("ecori");
-        var enzyme3 = RestrictionAnalyzer.GetEnzyme("ECORI");
-
-        Assert.That(enzyme1, Is.Not.Null);
-        Assert.That(enzyme2, Is.Not.Null);
-        Assert.That(enzyme3, Is.Not.Null);
-        Assert.That(enzyme1!.Name, Is.EqualTo(enzyme2!.Name));
-        Assert.That(enzyme2.Name, Is.EqualTo(enzyme3!.Name));
-    }
-
-    [Test]
-    public void GetEnzyme_UnknownEnzyme_ReturnsNull()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("UnknownEnzyme");
-        Assert.That(enzyme, Is.Null);
-    }
-
-    [Test]
-    public void GetEnzyme_BamHI_ReturnsCorrectEnzyme()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("BamHI");
-
-        Assert.That(enzyme, Is.Not.Null);
-        Assert.That(enzyme!.RecognitionSequence, Is.EqualTo("GGATCC"));
-    }
-
-    [Test]
-    public void Enzymes_ContainsCommonEnzymes()
-    {
-        var enzymes = RestrictionAnalyzer.Enzymes;
-
-        Assert.That(enzymes.ContainsKey("EcoRI"));
-        Assert.That(enzymes.ContainsKey("BamHI"));
-        Assert.That(enzymes.ContainsKey("HindIII"));
-        Assert.That(enzymes.ContainsKey("NotI"));
-        Assert.That(enzymes.Count, Is.GreaterThan(30));
-    }
-
-    [Test]
-    public void GetEnzymesByCutLength_SixCutters_ReturnsEnzymes()
-    {
-        var sixCutters = RestrictionAnalyzer.GetEnzymesByCutLength(6).ToList();
-
-        Assert.That(sixCutters, Has.Count.GreaterThan(10));
-        Assert.That(sixCutters.All(e => e.RecognitionSequence.Length == 6));
-    }
-
-    [Test]
-    public void GetBluntCutters_ReturnsBluntEnzymes()
-    {
-        var bluntCutters = RestrictionAnalyzer.GetBluntCutters().ToList();
-
-        Assert.That(bluntCutters, Has.Count.GreaterThan(0));
-        Assert.That(bluntCutters.All(e => e.IsBluntEnd));
-    }
-
-    [Test]
-    public void GetStickyCutters_ReturnsStickyEnzymes()
-    {
-        var stickyCutters = RestrictionAnalyzer.GetStickyCutters().ToList();
-
-        Assert.That(stickyCutters, Has.Count.GreaterThan(0));
-        Assert.That(stickyCutters.All(e => !e.IsBluntEnd));
-    }
-
-    #endregion
-
-    #region Enzyme Properties Tests
-
-    [Test]
-    public void RestrictionEnzyme_EcoRI_HasFivePrimeOverhang()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("EcoRI")!;
-
-        Assert.That(enzyme.IsBluntEnd, Is.False);
-        Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.FivePrime));
-    }
-
-    [Test]
-    public void RestrictionEnzyme_PstI_HasThreePrimeOverhang()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("PstI")!;
-
-        Assert.That(enzyme.IsBluntEnd, Is.False);
-        Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.ThreePrime));
-    }
-
-    [Test]
-    public void RestrictionEnzyme_EcoRV_IsBlunt()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("EcoRV")!;
-
-        Assert.That(enzyme.IsBluntEnd, Is.True);
-        Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.Blunt));
-    }
-
-    [Test]
-    public void RestrictionEnzyme_RecognitionLength_Correct()
-    {
-        var ecoRI = RestrictionAnalyzer.GetEnzyme("EcoRI")!;
-        var notI = RestrictionAnalyzer.GetEnzyme("NotI")!;
-
-        Assert.That(ecoRI.RecognitionLength, Is.EqualTo(6));
-        Assert.That(notI.RecognitionLength, Is.EqualTo(8));
-    }
-
-    #endregion
-
-    #region Site Finding Tests
-
-    [Test]
-    public void FindSites_EcoRI_FindsSite()
+    public void FindSites_EcoRI_FindsSite_Smoke()
     {
         var sequence = new DnaSequence("AAAGAATTCAAA");
         var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI").ToList();
 
         Assert.That(sites.Any(s => s.IsForwardStrand && s.Position == 3));
-    }
-
-    [Test]
-    public void FindSites_MultipleSites_FindsAll()
-    {
-        var sequence = new DnaSequence("GAATTCAAAGAATTC");
-        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI")
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        Assert.That(sites, Has.Count.EqualTo(2));
-        Assert.That(sites[0].Position, Is.EqualTo(0));
-        Assert.That(sites[1].Position, Is.EqualTo(9));
-    }
-
-    [Test]
-    public void FindSites_NoSites_ReturnsEmpty()
-    {
-        var sequence = new DnaSequence("AAAAAAAAAA");
-        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI").ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindSites_StringOverload_Works()
-    {
-        var sites = RestrictionAnalyzer.FindSites("AAAGAATTCAAA", "EcoRI").ToList();
-        Assert.That(sites.Any(s => s.Position == 3));
-    }
-
-    [Test]
-    public void FindSites_UnknownEnzyme_ThrowsException()
-    {
-        var sequence = new DnaSequence("ACGT");
-        Assert.Throws<ArgumentException>(() =>
-            RestrictionAnalyzer.FindSites(sequence, "UnknownEnzyme").ToList());
-    }
-
-    [Test]
-    public void FindSites_MultipleEnzymes_FindsAllSites()
-    {
-        var sequence = new DnaSequence("GAATTCAAAGGATCC");
-        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI", "BamHI")
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        Assert.That(sites.Any(s => s.Enzyme.Name == "EcoRI"));
-        Assert.That(sites.Any(s => s.Enzyme.Name == "BamHI"));
-    }
-
-    [Test]
-    public void FindSites_ReturnsCutPosition()
-    {
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI")
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        Assert.That(sites[0].CutPosition, Is.EqualTo(4)); // 3 + 1
-    }
-
-    [Test]
-    public void FindSites_ReturnsRecognizedSequence()
-    {
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI")
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        Assert.That(sites[0].RecognizedSequence, Is.EqualTo("GAATTC"));
-    }
-
-    [Test]
-    public void FindSites_CustomEnzyme_Works()
-    {
-        var customEnzyme = new RestrictionEnzyme("CustomI", "ATAT", 2, 2, "Custom");
-        var sequence = new DnaSequence("AAATATAAA");
-        var sites = RestrictionAnalyzer.FindSites(sequence, customEnzyme)
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        Assert.That(sites, Has.Count.EqualTo(1));
-        Assert.That(sites[0].Enzyme.Name, Is.EqualTo("CustomI"));
-    }
-
-    [Test]
-    public void FindAllSites_FindsMultipleEnzymes()
-    {
-        var sequence = new DnaSequence("GAATTCGGATCCAAGCTT");
-        var sites = RestrictionAnalyzer.FindAllSites(sequence)
-            .Where(s => s.IsForwardStrand)
-            .ToList();
-
-        var enzymeNames = sites.Select(s => s.Enzyme.Name).Distinct().ToList();
-        Assert.That(enzymeNames, Has.Count.GreaterThanOrEqualTo(3));
     }
 
     #endregion
@@ -413,29 +202,7 @@ public class RestrictionAnalyzerTests
 
     #endregion
 
-    #region Edge Cases
-
-    [Test]
-    public void FindSites_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            RestrictionAnalyzer.FindSites((DnaSequence)null!, "EcoRI").ToList());
-    }
-
-    [Test]
-    public void FindSites_EmptyEnzymeName_ThrowsException()
-    {
-        var sequence = new DnaSequence("ACGT");
-        Assert.Throws<ArgumentNullException>(() =>
-            RestrictionAnalyzer.FindSites(sequence, "").ToList());
-    }
-
-    [Test]
-    public void FindSites_EmptyStringSequence_ReturnsEmpty()
-    {
-        var sites = RestrictionAnalyzer.FindSites("", "EcoRI").ToList();
-        Assert.That(sites, Is.Empty);
-    }
+    #region Edge Cases (Digest/Map)
 
     [Test]
     public void Digest_NullSequence_ThrowsException()
