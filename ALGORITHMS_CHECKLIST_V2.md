@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 28 |
+| **Completed** | 29 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 72 |
+| **Not Started** | 71 |
 
 ---
 
@@ -54,7 +54,7 @@
 | ☑ | ANNOT-PROM-001 | Annotation | 1 | Wikipedia (Promoter, Pribnow box), Pribnow (1975), Harley & Reynolds (1987) | [ANNOT-PROM-001.md](TestSpecs/ANNOT-PROM-001.md) | GenomeAnnotator_PromoterMotif_Tests.cs |
 | ☑ | ANNOT-GFF-001 | Annotation | 2 | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 | [ANNOT-GFF-001.md](TestSpecs/ANNOT-GFF-001.md) | GenomeAnnotator_GFF3_Tests.cs |
 | ☑ | KMER-COUNT-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind (KMER, BA1E) | [KMER-COUNT-001.md](TestSpecs/KMER-COUNT-001.md) | KmerAnalyzer_CountKmers_Tests.cs |
-| ☐ | KMER-FREQ-001 | K-mer | 3 | - | - | - |
+| ☑ | KMER-FREQ-001 | K-mer | 3 | Wikipedia (K-mer, Entropy), Shannon (1948), Rosalind KMER | [KMER-FREQ-001.md](TestSpecs/KMER-FREQ-001.md) | KmerAnalyzer_Frequency_Tests.cs |
 | ☐ | KMER-FIND-001 | K-mer | 3 | - | - | - |
 | ☐ | ALIGN-GLOBAL-001 | Alignment | 1 | - | - | - |
 | ☐ | ALIGN-LOCAL-001 | Alignment | 1 | - | - | - |

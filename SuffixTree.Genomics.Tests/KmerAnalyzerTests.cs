@@ -3,29 +3,21 @@ using NUnit.Framework;
 namespace SuffixTree.Genomics.Tests
 {
     /// <summary>
-    /// Tests for K-mer analysis methods (excluding CountKmers - see KmerAnalyzer_CountKmers_Tests.cs).
+    /// Tests for K-mer analysis methods.
+    /// 
+    /// Covered by dedicated test files:
+    /// - KMER-COUNT-001: KmerAnalyzer_CountKmers_Tests.cs
+    /// - KMER-FREQ-001: KmerAnalyzer_Frequency_Tests.cs
     /// 
     /// Future Test Units:
-    /// - KMER-FREQ-001: GetKmerSpectrum, GetKmerFrequencies, CalculateKmerEntropy
     /// - KMER-FIND-001: FindMostFrequentKmers, FindUniqueKmers, FindClumps
+    /// 
+    /// This file contains tests pending consolidation into KMER-FIND-001
+    /// and auxiliary method tests (KmerDistance, GenerateAllKmers, etc.)
     /// </summary>
     [TestFixture]
     public class KmerAnalyzerTests
     {
-        #region K-mer Spectrum
-
-        [Test]
-        public void GetKmerSpectrum_ReturnsFrequencyDistribution()
-        {
-            // ACGTACGT: ACGT appears 2 times, others appear 1 time
-            var spectrum = KmerAnalyzer.GetKmerSpectrum("ACGTACGT", 4);
-
-            Assert.That(spectrum[1], Is.EqualTo(3)); // 3 k-mers appear once
-            Assert.That(spectrum[2], Is.EqualTo(1)); // 1 k-mer appears twice
-        }
-
-        #endregion
-
         #region Most Frequent K-mers
 
         [Test]
@@ -50,28 +42,6 @@ namespace SuffixTree.Genomics.Tests
         {
             var mostFrequent = KmerAnalyzer.FindMostFrequentKmers("", 4).ToList();
             Assert.That(mostFrequent, Is.Empty);
-        }
-
-        #endregion
-
-        #region K-mer Frequencies
-
-        [Test]
-        public void GetKmerFrequencies_SumsToOne()
-        {
-            var frequencies = KmerAnalyzer.GetKmerFrequencies("ACGTACGT", 2);
-            double total = frequencies.Values.Sum();
-
-            Assert.That(total, Is.EqualTo(1.0).Within(0.0001));
-        }
-
-        [Test]
-        public void GetKmerFrequencies_CalculatesCorrectly()
-        {
-            // AAA: AA appears twice out of 2 possible 2-mers
-            var frequencies = KmerAnalyzer.GetKmerFrequencies("AAA", 2);
-
-            Assert.That(frequencies["AA"], Is.EqualTo(1.0));
         }
 
         #endregion
@@ -173,36 +143,6 @@ namespace SuffixTree.Genomics.Tests
         {
             Assert.Throws<ArgumentException>(() =>
                 KmerAnalyzer.GenerateAllKmers(2, "").ToList());
-        }
-
-        #endregion
-
-        #region K-mer Entropy
-
-        [Test]
-        public void CalculateKmerEntropy_UniformDistribution_HighEntropy()
-        {
-            // All unique k-mers = high entropy
-            double entropy = KmerAnalyzer.CalculateKmerEntropy("ACGT", 1);
-
-            // Maximum entropy for 4 symbols = log2(4) = 2
-            Assert.That(entropy, Is.EqualTo(2.0).Within(0.0001));
-        }
-
-        [Test]
-        public void CalculateKmerEntropy_SingleRepeated_ZeroEntropy()
-        {
-            double entropy = KmerAnalyzer.CalculateKmerEntropy("AAAA", 2);
-
-            // Only one k-mer, so entropy is 0
-            Assert.That(entropy, Is.EqualTo(0.0));
-        }
-
-        [Test]
-        public void CalculateKmerEntropy_EmptySequence_ReturnsZero()
-        {
-            double entropy = KmerAnalyzer.CalculateKmerEntropy("", 2);
-            Assert.That(entropy, Is.EqualTo(0.0));
         }
 
         #endregion
