@@ -38,69 +38,8 @@ public class GenomeAnnotatorTests
         return sb.ToString();
     }
 
-    #region FindRibosomeBindingSites Tests
-
-    [Test]
-    public void FindRibosomeBindingSites_FindsShinedalgarno()
-    {
-        // AGGAGG upstream of ATG
-        string sequence = "GGGGAGGAGGGGGGGATG" + new string('A', 294) + "TAA";
-
-        var rbsSites = GenomeAnnotator.FindRibosomeBindingSites(sequence).ToList();
-
-        // May or may not find depending on distance
-        Assert.That(rbsSites, Is.Not.Null);
-    }
-
-    [Test]
-    public void FindRibosomeBindingSites_CorrectDistance()
-    {
-        // Position RBS 8bp upstream of start
-        string sequence = "GGGGG" + "AGGAGG" + "GGGGGGGG" + "ATG" + new string('A', 294) + "TAA";
-
-        var rbsSites = GenomeAnnotator.FindRibosomeBindingSites(
-            sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
-
-        Assert.That(rbsSites.Any(r => r.sequence.Contains("AGGAGG") || r.sequence.Contains("GGAGG")), Is.True);
-    }
-
-    #endregion
-
-    #region PredictGenes Tests
-
-    [Test]
-    public void PredictGenes_ReturnsGeneAnnotations()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA" +
-                         "ATG" + new string('C', 294) + "TAG";
-
-        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
-
-        Assert.That(genes.Count, Is.GreaterThan(0));
-        Assert.That(genes.All(g => g.Type == "CDS"), Is.True);
-    }
-
-    [Test]
-    public void PredictGenes_AssignsGeneIds()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA";
-
-        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50, prefix: "test").ToList();
-
-        Assert.That(genes.All(g => g.GeneId.StartsWith("test_")), Is.True);
-    }
-
-    [Test]
-    public void PredictGenes_IncludesStrandInfo()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA";
-
-        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
-
-        Assert.That(genes.All(g => g.Strand == '+' || g.Strand == '-'), Is.True);
-    }
-
-    #endregion
+    // NOTE: FindRibosomeBindingSites and PredictGenes tests moved to
+    // GenomeAnnotator_Gene_Tests.cs as part of ANNOT-GENE-001 consolidation.
 
     #region GFF3 Parsing Tests
 
