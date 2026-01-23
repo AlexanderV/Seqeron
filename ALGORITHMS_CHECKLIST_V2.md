@@ -1,6 +1,6 @@
 # Algorithms Checklist v2.0
 
-**Date:** 2026-01-22
+**Date:** 2026-01-23
 **Version:** 2.1 (100% Coverage)
 **Library:** SuffixTree.Genomics
 
@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 22 |
+| **Completed** | 23 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 78 |
+| **Not Started** | 77 |
 
 ---
 
@@ -48,7 +48,7 @@
 | ☑ | PROBE-DESIGN-001 | MolTools | 3 | Wikipedia (Nucleic acid thermodynamics, Hybridization probe, FISH, DNA microarray), SantaLucia (1998) | [PROBE-DESIGN-001.md](TestSpecs/PROBE-DESIGN-001.md) | ProbeDesigner_ProbeDesign_Tests.cs |
 | ☑ | PROBE-VALID-001 | MolTools | 2 | Wikipedia (Hybridization probe, DNA microarray, Off-target genome editing, BLAST), Amann & Ludwig (2000) | [PROBE-VALID-001.md](TestSpecs/PROBE-VALID-001.md) | ProbeDesigner_ProbeValidation_Tests.cs |
 | ☑ | RESTR-FIND-001 | MolTools | 2 | Wikipedia (Restriction enzyme, Restriction site, EcoRI), Roberts (1976), REBASE | [RESTR-FIND-001.md](TestSpecs/RESTR-FIND-001.md) | RestrictionAnalyzer_FindSites_Tests.cs |
-| ☐ | RESTR-DIGEST-001 | MolTools | 2 | - | - | - |
+| ☑ | RESTR-DIGEST-001 | MolTools | 2 | Wikipedia (Restriction digest, Restriction enzyme, Restriction map), Addgene Protocol, Roberts (1976), REBASE | [RESTR-DIGEST-001.md](TestSpecs/RESTR-DIGEST-001.md) | RestrictionAnalyzer_Digest_Tests.cs |
 | ☐ | ANNOT-ORF-001 | Annotation | 3 | - | - | - |
 | ☐ | ANNOT-GENE-001 | Annotation | 2 | - | - | - |
 | ☐ | ANNOT-PROM-001 | Annotation | 1 | - | - | - |
