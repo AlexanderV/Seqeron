@@ -153,39 +153,8 @@ public class GenomeAnnotatorTests
 
     #endregion
 
-    #region FindPromoterMotifs Tests
-
-    [Test]
-    public void FindPromoterMotifs_FindsMinus35Box()
-    {
-        string sequence = "GGGTTGACAGGGGGGGGGGGGGGGGGTATAAATGGG";
-
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        Assert.That(motifs.Any(m => m.type == "-35 box"), Is.True);
-    }
-
-    [Test]
-    public void FindPromoterMotifs_FindsMinus10Box()
-    {
-        string sequence = "GGGTTGACAGGGGGGGGGGGGGGGGGTATAAATGGG";
-
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        Assert.That(motifs.Any(m => m.type == "-10 box"), Is.True);
-    }
-
-    [Test]
-    public void FindPromoterMotifs_NoMotifs_ReturnsEmpty()
-    {
-        string sequence = "CCCCCCCCCCCCCCCCCCCC"; // Use C instead of G to avoid false positives
-
-        var motifs = GenomeAnnotator.FindPromoterMotifs(sequence).ToList();
-
-        Assert.That(motifs.Count, Is.EqualTo(0));
-    }
-
-    #endregion
+    // NOTE: FindPromoterMotifs tests moved to GenomeAnnotator_PromoterMotif_Tests.cs
+    // as part of ANNOT-PROM-001 consolidation.
 
     #region CalculateCodingPotential Tests
 
