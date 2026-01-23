@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 23 |
+| **Completed** | 24 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 77 |
+| **Not Started** | 76 |
 
 ---
 
@@ -49,7 +49,7 @@
 | ☑ | PROBE-VALID-001 | MolTools | 2 | Wikipedia (Hybridization probe, DNA microarray, Off-target genome editing, BLAST), Amann & Ludwig (2000) | [PROBE-VALID-001.md](TestSpecs/PROBE-VALID-001.md) | ProbeDesigner_ProbeValidation_Tests.cs |
 | ☑ | RESTR-FIND-001 | MolTools | 2 | Wikipedia (Restriction enzyme, Restriction site, EcoRI), Roberts (1976), REBASE | [RESTR-FIND-001.md](TestSpecs/RESTR-FIND-001.md) | RestrictionAnalyzer_FindSites_Tests.cs |
 | ☑ | RESTR-DIGEST-001 | MolTools | 2 | Wikipedia (Restriction digest, Restriction enzyme, Restriction map), Addgene Protocol, Roberts (1976), REBASE | [RESTR-DIGEST-001.md](TestSpecs/RESTR-DIGEST-001.md) | RestrictionAnalyzer_Digest_Tests.cs |
-| ☐ | ANNOT-ORF-001 | Annotation | 3 | - | - | - |
+| ☑ | ANNOT-ORF-001 | Annotation | 3 | Wikipedia (ORF), Rosalind ORF, NCBI ORF Finder, Deonier (2005), Claverie (1997) | [ANNOT-ORF-001.md](TestSpecs/ANNOT-ORF-001.md) | GenomeAnnotator_ORF_Tests.cs |
 | ☐ | ANNOT-GENE-001 | Annotation | 2 | - | - | - |
 | ☐ | ANNOT-PROM-001 | Annotation | 1 | - | - | - |
 | ☐ | ANNOT-GFF-001 | Annotation | 2 | - | - | - |

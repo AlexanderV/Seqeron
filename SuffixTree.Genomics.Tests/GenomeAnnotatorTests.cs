@@ -6,6 +6,10 @@ using System.Text;
 
 namespace SuffixTree.Genomics.Tests;
 
+/// <summary>
+/// Tests for GenomeAnnotator methods NOT covered by ANNOT-ORF-001.
+/// ORF-related tests are in GenomeAnnotator_ORF_Tests.cs.
+/// </summary>
 [TestFixture]
 public class GenomeAnnotatorTests
 {
@@ -33,122 +37,6 @@ public class GenomeAnnotatorTests
         }
         return sb.ToString();
     }
-
-    #region FindOrfs Tests
-
-    [Test]
-    public void FindOrfs_SimpleOrf_FindsIt()
-    {
-        // ATG + 99 codons + TAA = 300 bp ORF (100 aa including stop)
-        string orf = "ATG" + new string('A', 294) + "TAA";
-        string sequence = "GGGGG" + orf + "GGGGG"; // Use G instead of N
-
-        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 50).ToList();
-
-        Assert.That(orfs.Count, Is.GreaterThan(0));
-        Assert.That(orfs.Any(o => o.ProteinSequence.Length >= 50), Is.True);
-    }
-
-    [Test]
-    public void FindOrfs_NoStartCodon_ReturnsEmpty()
-    {
-        string sequence = "GGGGGGGGGGTAAGGGGGGGGG";
-
-        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 1, requireStartCodon: true).ToList();
-
-        Assert.That(orfs.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindOrfs_NoStopCodon_ReturnsEmpty()
-    {
-        string sequence = "ATGGGGGGGGGGGGGGG"; // No stop
-
-        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 1, requireStartCodon: true).ToList();
-
-        Assert.That(orfs.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindOrfs_MultipleFrames_FindsAll()
-    {
-        // Create ORFs in different frames
-        string frame1Orf = "ATG" + "AAA".PadRight(297, 'A').Substring(0, 297) + "TAA"; // 300bp
-        string frame2Orf = "NATG" + new string('C', 297) + "TAG"; // Frame 2
-
-        var orfs1 = GenomeAnnotator.FindOrfs(frame1Orf, minLength: 50).ToList();
-        Assert.That(orfs1.Any(o => o.Frame == 1), Is.True);
-    }
-
-    [Test]
-    public void FindOrfs_ReverseStrand_FinitsOrfs()
-    {
-        // ATG...TAA on reverse strand = TTA...CAT when reversed
-        string forwardOrfRevComp = GetReverseComplement("ATG" + new string('A', 294) + "TAA");
-        string sequence = "GGGGG" + forwardOrfRevComp + "GGGGG";
-
-        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 50, searchBothStrands: true).ToList();
-
-        Assert.That(orfs.Any(o => o.IsReverseComplement), Is.True);
-    }
-
-    [Test]
-    public void FindOrfs_BelowMinLength_Excluded()
-    {
-        string shortOrf = "ATGAAATAA"; // 3 aa
-
-        var orfs = GenomeAnnotator.FindOrfs(shortOrf, minLength: 10).ToList();
-
-        Assert.That(orfs.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindOrfs_EmptySequence_ReturnsEmpty()
-    {
-        var orfs = GenomeAnnotator.FindOrfs("", minLength: 1).ToList();
-        Assert.That(orfs.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindOrfs_AlternativeStartCodons_Detected()
-    {
-        // GTG is also a start codon
-        string gtgOrf = "GTG" + new string('A', 294) + "TAA";
-
-        var orfs = GenomeAnnotator.FindOrfs(gtgOrf, minLength: 50).ToList();
-
-        Assert.That(orfs.Count, Is.GreaterThan(0));
-    }
-
-    #endregion
-
-    #region FindLongestOrfsPerFrame Tests
-
-    [Test]
-    public void FindLongestOrfsPerFrame_ReturnsFramesDictionary()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA";
-
-        var longestOrfs = GenomeAnnotator.FindLongestOrfsPerFrame(sequence);
-
-        Assert.That(longestOrfs.ContainsKey(1), Is.True);
-        Assert.That(longestOrfs.ContainsKey(2), Is.True);
-        Assert.That(longestOrfs.ContainsKey(3), Is.True);
-    }
-
-    [Test]
-    public void FindLongestOrfsPerFrame_BothStrands_IncludesNegativeFrames()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA";
-
-        var longestOrfs = GenomeAnnotator.FindLongestOrfsPerFrame(sequence, searchBothStrands: true);
-
-        Assert.That(longestOrfs.ContainsKey(-1), Is.True);
-        Assert.That(longestOrfs.ContainsKey(-2), Is.True);
-        Assert.That(longestOrfs.ContainsKey(-3), Is.True);
-    }
-
-    #endregion
 
     #region FindRibosomeBindingSites Tests
 
@@ -474,32 +362,6 @@ public class GenomeAnnotatorTests
         var usage = GenomeAnnotator.GetCodonUsage(sequence);
 
         Assert.That(usage["ATG"], Is.EqualTo(3));
-    }
-
-    #endregion
-
-    #region Edge Cases
-
-    [Test]
-    public void FindOrfs_SingleStrand_OnlyForward()
-    {
-        string sequence = "ATG" + new string('A', 294) + "TAA";
-
-        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 50, searchBothStrands: false).ToList();
-
-        Assert.That(orfs.All(o => !o.IsReverseComplement), Is.True);
-    }
-
-    [Test]
-    public void FindOrfs_WithoutRequiredStart_FindsMore()
-    {
-        string sequence = "GGGGGG" + new string('A', 300) + "TAA";
-
-        var orfsWithStart = GenomeAnnotator.FindOrfs(sequence, minLength: 50, requireStartCodon: true).ToList();
-        var orfsWithoutStart = GenomeAnnotator.FindOrfs(sequence, minLength: 50, requireStartCodon: false).ToList();
-
-        // Without required start should find same or more
-        Assert.That(orfsWithoutStart.Count, Is.GreaterThanOrEqualTo(orfsWithStart.Count));
     }
 
     #endregion
