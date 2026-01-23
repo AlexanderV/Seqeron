@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 26 |
+| **Completed** | 27 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 74 |
+| **Not Started** | 73 |
 
 ---
 
@@ -52,7 +52,7 @@
 | ☑ | ANNOT-ORF-001 | Annotation | 3 | Wikipedia (ORF), Rosalind ORF, NCBI ORF Finder, Deonier (2005), Claverie (1997) | [ANNOT-ORF-001.md](TestSpecs/ANNOT-ORF-001.md) | GenomeAnnotator_ORF_Tests.cs |
 | ☑ | ANNOT-GENE-001 | Annotation | 2 | Wikipedia (Gene prediction, Shine-Dalgarno, RBS), Shine & Dalgarno (1975), Chen (1994), Laursen (2005) | [ANNOT-GENE-001.md](TestSpecs/ANNOT-GENE-001.md) | GenomeAnnotator_Gene_Tests.cs |
 | ☑ | ANNOT-PROM-001 | Annotation | 1 | Wikipedia (Promoter, Pribnow box), Pribnow (1975), Harley & Reynolds (1987) | [ANNOT-PROM-001.md](TestSpecs/ANNOT-PROM-001.md) | GenomeAnnotator_PromoterMotif_Tests.cs |
-| ☐ | ANNOT-GFF-001 | Annotation | 2 | - | - | - |
+| ☑ | ANNOT-GFF-001 | Annotation | 2 | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 | [ANNOT-GFF-001.md](TestSpecs/ANNOT-GFF-001.md) | GenomeAnnotator_GFF3_Tests.cs |
 | ☐ | KMER-COUNT-001 | K-mer | 3 | - | - | - |
 | ☐ | KMER-FREQ-001 | K-mer | 3 | - | - | - |
 | ☐ | KMER-FIND-001 | K-mer | 3 | - | - | - |
