@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_validate",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSequence.TryCreate",
+  "docRef": "SuffixTree.Genomics/RnaSequence.cs#L176",
+  "description": "Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The RNA sequence to validate",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean",
+        "description": "Whether the sequence is valid RNA"
+      },
+      "length": {
+        "type": "integer",
+        "description": "Length of the sequence"
+      },
+      "error": {
+        "type": "string",
+        "description": "Error message if invalid (null if valid)"
+      }
+    },
+    "required": ["valid", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Valid RNA",
+      "input": { "sequence": "AUGCAUGC" },
+      "output": { "valid": true, "length": 8, "error": null }
+    },
+    {
+      "name": "Invalid RNA (contains T)",
+      "input": { "sequence": "AUGTATGC" },
+      "output": { "valid": false, "length": 8, "error": "Invalid nucleotide 'T' at position 3" }
+    }
+  ]
+}
