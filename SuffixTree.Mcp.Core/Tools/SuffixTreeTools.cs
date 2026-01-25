@@ -36,6 +36,31 @@ public static class SuffixTreeTools
 
         return new SuffixTreeContainsResult(found);
     }
+
+    /// <summary>
+    /// Count occurrences of a pattern in text using suffix tree.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_count")]
+    [Description("Count the number of occurrences of a pattern in text using suffix tree.")]
+    public static SuffixTreeCountResult SuffixTreeCount(
+        [Description("The text to search in")] string text,
+        [Description("The pattern to count")] string pattern)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        }
+
+        if (pattern == null)
+        {
+            throw new ArgumentException("Pattern cannot be null", nameof(pattern));
+        }
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+        var count = tree.CountOccurrences(pattern);
+
+        return new SuffixTreeCountResult(count);
+    }
 }
 
 /// <summary>
@@ -43,3 +68,9 @@ public static class SuffixTreeTools
 /// </summary>
 /// <param name="Found">Whether the pattern was found in the text.</param>
 public record SuffixTreeContainsResult(bool Found);
+
+/// <summary>
+/// Result of suffix_tree_count operation.
+/// </summary>
+/// <param name="Count">Number of pattern occurrences in the text.</param>
+public record SuffixTreeCountResult(int Count);

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_count",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.CountOccurrences",
+  "docRef": "SuffixTree/SuffixTree.Search.cs#L132",
+  "description": "Count the number of occurrences of a pattern in text using suffix tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text to search in",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "The pattern to count"
+      }
+    },
+    "required": ["text", "pattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "count": {
+        "type": "integer",
+        "description": "Number of pattern occurrences in the text",
+        "minimum": 0
+      }
+    },
+    "required": ["count"]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Text cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Pattern cannot be null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Count overlapping occurrences",
+      "input": { "text": "banana", "pattern": "ana" },
+      "output": { "count": 2 }
+    },
+    {
+      "name": "Pattern not found",
+      "input": { "text": "banana", "pattern": "xyz" },
+      "output": { "count": 0 }
+    }
+  ]
+}

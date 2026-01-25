@@ -253,19 +253,19 @@
 - [x] i) Create `suffix_tree_contains.md`
 - [x] j) Add traceability row
 
-#### 4.1.2 `suffix_tree_count`
+#### 4.1.2 `suffix_tree_count` - **Status: Ready**
 - **HasDocs**: ✓
-- **DocRef**: SuffixTree.cs#xml
-- [ ] a) Link MethodId: `SuffixTree.CountOccurrences`
-- [ ] b) Freeze toolName: `suffix_tree_count`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ text: string, pattern: string }`
-- [ ] d) Define outputSchema: `{ count: integer }`
-- [ ] e) Define errors: 1001, 1002
-- [ ] f) Test: `SuffixTreeCount_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SuffixTreeCount_Binding_InvokesSuccessfully`
-- [ ] h) Create `suffix_tree_count.mcp.json`
-- [ ] i) Create `suffix_tree_count.md`
-- [ ] j) Add traceability row
+- **DocRef**: SuffixTree/SuffixTree.Search.cs#L132
+- [x] a) Link MethodId: `SuffixTree.CountOccurrences`
+- [x] b) Freeze toolName: `suffix_tree_count`, serverName: `Core`
+- [x] c) Define inputSchema: `{ text: string, pattern: string }`
+- [x] d) Define outputSchema: `{ count: integer }`
+- [x] e) Define errors: 1001, 1002
+- [x] f) Test: `SuffixTreeCount_Schema_ValidatesCorrectly`
+- [x] g) Test: `SuffixTreeCount_Binding_InvokesSuccessfully`
+- [x] h) Create `suffix_tree_count.mcp.json`
+- [x] i) Create `suffix_tree_count.md`
+- [x] j) Add traceability row
 
 #### 4.1.3 `suffix_tree_find_all`
 - **HasDocs**: ✓
