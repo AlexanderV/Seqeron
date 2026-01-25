@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_lrs",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.LongestRepeatedSubstring",
+  "docRef": "SuffixTree/SuffixTree.Algorithms.cs#L14",
+  "description": "Find the longest repeated substring in text using suffix tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": { "type": "string", "minLength": 1 }
+    },
+    "required": ["text"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "substring": { "type": "string" },
+      "length": { "type": "integer" }
+    },
+    "required": ["substring", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Text cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Find longest repeat",
+      "input": { "text": "banana" },
+      "output": { "substring": "ana", "length": 3 }
+    }
+  ]
+}
