@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_stats",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.Properties",
+  "docRef": "SuffixTree/SuffixTree.cs#L206",
+  "description": "Get statistics about a suffix tree: node count, leaf count, max depth, and text length.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": { "type": "string", "minLength": 1 }
+    },
+    "required": ["text"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "nodeCount": { "type": "integer" },
+      "leafCount": { "type": "integer" },
+      "maxDepth": { "type": "integer" },
+      "textLength": { "type": "integer" }
+    },
+    "required": ["nodeCount", "leafCount", "maxDepth", "textLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Text cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Get tree statistics",
+      "input": { "text": "banana" },
+      "output": { "nodeCount": 10, "leafCount": 7, "maxDepth": 6, "textLength": 6 }
+    }
+  ]
+}

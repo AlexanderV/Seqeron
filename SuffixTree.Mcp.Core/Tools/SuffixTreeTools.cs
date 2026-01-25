@@ -130,6 +130,24 @@ public static class SuffixTreeTools
 
         return new SuffixTreeLcsResult(lcs, lcs.Length);
     }
+
+    /// <summary>
+    /// Get statistics about a suffix tree built from text.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_stats")]
+    [Description("Get statistics about a suffix tree: node count, leaf count, max depth, and text length.")]
+    public static SuffixTreeStatsResult SuffixTreeStats(
+        [Description("The text to analyze")] string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        }
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+
+        return new SuffixTreeStatsResult(tree.NodeCount, tree.LeafCount, tree.MaxDepth, text.Length);
+    }
 }
 
 /// <summary>
@@ -159,3 +177,8 @@ public record SuffixTreeLrsResult(string Substring, int Length);
 /// Result of suffix_tree_lcs operation.
 /// </summary>
 public record SuffixTreeLcsResult(string Substring, int Length);
+
+/// <summary>
+/// Result of suffix_tree_stats operation.
+/// </summary>
+public record SuffixTreeStatsResult(int NodeCount, int LeafCount, int MaxDepth, int TextLength);
