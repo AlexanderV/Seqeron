@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "amino_acid_composition",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateAminoAcidComposition",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L98",
+  "description": "Calculate amino acid composition, molecular weight, and other properties of a protein sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The protein sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "integer", "description": "Number of amino acids" },
+      "counts": { "type": "object", "description": "Count of each amino acid" },
+      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
+      "isoelectricPoint": { "type": "number", "description": "Isoelectric point (pI)" },
+      "hydrophobicity": { "type": "number", "description": "Average hydrophobicity" },
+      "chargedResidueRatio": { "type": "number", "description": "Ratio of charged residues" },
+      "aromaticResidueRatio": { "type": "number", "description": "Ratio of aromatic residues" }
+    },
+    "required": ["length", "counts", "molecularWeight", "isoelectricPoint"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2002, "message": "Invalid protein sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Protein composition",
+      "input": { "sequence": "MAEGEITTFT" },
+      "output": { "length": 10, "counts": {"M": 1, "A": 1, "E": 2, "G": 1, "I": 1, "T": 3, "F": 1} }
+    }
+  ]
+}
