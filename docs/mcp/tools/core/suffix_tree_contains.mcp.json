@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_contains",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.Contains",
+  "docRef": "SuffixTree/SuffixTree.Search.cs#L22",
+  "description": "Check if a pattern exists in text using suffix tree. Returns true if pattern is found, false otherwise.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text to search in",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "The pattern to search for"
+      }
+    },
+    "required": ["text", "pattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean",
+        "description": "Whether the pattern was found in the text"
+      }
+    },
+    "required": ["found"]
+  },
+  "errors": [
+    {
+      "code": 1001,
+      "message": "Text cannot be null or empty"
+    },
+    {
+      "code": 1002,
+      "message": "Pattern cannot be null"
+    }
+  ],
+  "examples": [
+    {
+      "name": "Find substring",
+      "input": { "text": "banana", "pattern": "ana" },
+      "output": { "found": true }
+    },
+    {
+      "name": "Pattern not found",
+      "input": { "text": "banana", "pattern": "xyz" },
+      "output": { "found": false }
+    }
+  ]
+}
