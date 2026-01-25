@@ -12,3 +12,4 @@
 | find_longest_common_region | Core | GenomicAnalyzer.FindLongestCommonRegion | GenomicAnalyzer.cs#L178 | 2/2 | ✓ | ✓ | Ready |
 | calculate_similarity | Core | GenomicAnalyzer.CalculateSimilarity | GenomicAnalyzer.cs#L238 | 2/2 | ✓ | ✓ | Ready |
 | hamming_distance | Core | ApproximateMatcher.HammingDistance | ApproximateMatcher.cs#L163 | 2/2 | ✓ | ✓ | Ready |
+| edit_distance | Core | ApproximateMatcher.EditDistance | ApproximateMatcher.cs#L186 | 2/2 | ✓ | ✓ | Ready |

@@ -230,6 +230,24 @@ public static class SuffixTreeTools
         var distance = global::SuffixTree.Genomics.ApproximateMatcher.HammingDistance(sequence1, sequence2);
         return new HammingDistanceResult(distance);
     }
+
+    /// <summary>
+    /// Calculate edit distance (Levenshtein distance) between two sequences.
+    /// </summary>
+    [McpServerTool(Name = "edit_distance")]
+    [Description("Calculate edit distance (Levenshtein distance) between two sequences. Returns minimum number of edits needed.")]
+    public static EditDistanceResult EditDistance(
+        [Description("The first sequence")] string sequence1,
+        [Description("The second sequence")] string sequence2)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+
+        var distance = global::SuffixTree.Genomics.ApproximateMatcher.EditDistance(sequence1, sequence2);
+        return new EditDistanceResult(distance);
+    }
 }
 
 /// <summary>
@@ -284,3 +302,8 @@ public record CalculateSimilarityResult(double Similarity);
 /// Result of hamming_distance operation.
 /// </summary>
 public record HammingDistanceResult(int Distance);
+
+/// <summary>
+/// Result of edit_distance operation.
+/// </summary>
+public record EditDistanceResult(int Distance);
