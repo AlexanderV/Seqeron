@@ -24,3 +24,4 @@
 | molecular_weight_protein | Sequence | SequenceStatistics.CalculateMolecularWeight | SequenceStatistics.cs#L159 | 2/2 | ✓ | ✓ | Ready |
 | molecular_weight_nucleotide | Sequence | SequenceStatistics.CalculateNucleotideMolecularWeight | SequenceStatistics.cs#L180 | 2/2 | ✓ | ✓ | Ready |
 | isoelectric_point | Sequence | SequenceStatistics.CalculateIsoelectricPoint | SequenceStatistics.cs#L228 | 2/2 | ✓ | ✓ | Ready |
+| hydrophobicity | Sequence | SequenceStatistics.CalculateHydrophobicity | SequenceStatistics.cs#L306 | 2/2 | ✓ | ✓ | Ready |

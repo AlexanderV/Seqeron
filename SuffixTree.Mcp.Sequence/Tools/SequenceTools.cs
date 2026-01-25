@@ -244,6 +244,24 @@ public static class SequenceTools
         var pI = global::SuffixTree.Genomics.SequenceStatistics.CalculateIsoelectricPoint(sequence);
         return new IsoelectricPointResult(pI);
     }
+
+    /// <summary>
+    /// Calculate hydrophobicity (GRAVY index) of a protein sequence.
+    /// </summary>
+    [McpServerTool(Name = "hydrophobicity")]
+    [Description("Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. Positive values indicate hydrophobic, negative indicate hydrophilic.")]
+    public static HydrophobicityResult Hydrophobicity(
+        [Description("The protein sequence")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (!global::SuffixTree.Genomics.ProteinSequence.TryCreate(sequence, out _))
+            throw new ArgumentException("Invalid protein sequence", nameof(sequence));
+
+        var gravy = global::SuffixTree.Genomics.SequenceStatistics.CalculateHydrophobicity(sequence);
+        return new HydrophobicityResult(gravy);
+    }
 }
 
 /// <summary>
@@ -302,3 +320,8 @@ public record MolecularWeightNucleotideResult(double MolecularWeight, string Uni
 /// Result of isoelectric_point operation.
 /// </summary>
 public record IsoelectricPointResult(double PI);
+
+/// <summary>
+/// Result of hydrophobicity operation.
+/// </summary>
+public record HydrophobicityResult(double Gravy);

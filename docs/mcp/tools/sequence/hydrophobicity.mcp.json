@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "hydrophobicity",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateHydrophobicity",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L306",
+  "description": "Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. Positive values indicate hydrophobic, negative indicate hydrophilic.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The protein sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "gravy": { "type": "number", "description": "GRAVY index (positive=hydrophobic, negative=hydrophilic)" }
+    },
+    "required": ["gravy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2002, "message": "Invalid protein sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Mixed protein",
+      "input": { "sequence": "MAEGEITTFT" },
+      "output": { "gravy": -0.12 }
+    },
+    {
+      "name": "Hydrophobic protein",
+      "input": { "sequence": "ILVILVILVV" },
+      "output": { "gravy": 4.2 }
+    }
+  ]
+}
