@@ -210,6 +210,22 @@ public static class SequenceTools
         var mw = global::SuffixTree.Genomics.SequenceStatistics.CalculateMolecularWeight(sequence);
         return new MolecularWeightProteinResult(mw, "Da");
     }
+
+    /// <summary>
+    /// Calculate molecular weight of a DNA or RNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "molecular_weight_nucleotide")]
+    [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).")]
+    public static MolecularWeightNucleotideResult MolecularWeightNucleotide(
+        [Description("The DNA or RNA sequence")] string sequence,
+        [Description("True for DNA, false for RNA (default: true)")] bool isDna = true)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var mw = global::SuffixTree.Genomics.SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
+        return new MolecularWeightNucleotideResult(mw, "Da", isDna ? "DNA" : "RNA");
+    }
 }
 
 /// <summary>
@@ -258,3 +274,8 @@ public record AminoAcidCompositionResult(
 /// Result of molecular_weight_protein operation.
 /// </summary>
 public record MolecularWeightProteinResult(double MolecularWeight, string Unit);
+
+/// <summary>
+/// Result of molecular_weight_nucleotide operation.
+/// </summary>
+public record MolecularWeightNucleotideResult(double MolecularWeight, string Unit, string SequenceType);

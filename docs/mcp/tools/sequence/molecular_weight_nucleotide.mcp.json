@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "molecular_weight_nucleotide",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateNucleotideMolecularWeight",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L180",
+  "description": "Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA or RNA sequence",
+        "minLength": 1
+      },
+      "isDna": {
+        "type": "boolean",
+        "description": "True for DNA, false for RNA (default: true)",
+        "default": true
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
+      "unit": { "type": "string", "description": "Unit of measurement (Da)" },
+      "sequenceType": { "type": "string", "description": "DNA or RNA" }
+    },
+    "required": ["molecularWeight", "unit", "sequenceType"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA molecular weight",
+      "input": { "sequence": "ATGC", "isDna": true },
+      "output": { "molecularWeight": 1307.8, "unit": "Da", "sequenceType": "DNA" }
+    },
+    {
+      "name": "RNA molecular weight",
+      "input": { "sequence": "AUGC", "isDna": false },
+      "output": { "molecularWeight": 1357.2, "unit": "Da", "sequenceType": "RNA" }
+    }
+  ]
+}
