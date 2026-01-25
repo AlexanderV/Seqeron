@@ -111,6 +111,39 @@ public static class SequenceTools
         var rna = global::SuffixTree.Genomics.RnaSequence.FromDna(dna!);
         return new RnaFromDnaResult(rna.ToString());
     }
+
+    /// <summary>
+    /// Validate a protein (amino acid) sequence.
+    /// </summary>
+    [McpServerTool(Name = "protein_validate")]
+    [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids.")]
+    public static ProteinValidateResult ProteinValidate(
+        [Description("The protein sequence to validate")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var isValid = global::SuffixTree.Genomics.ProteinSequence.TryCreate(sequence, out _);
+
+        if (isValid)
+        {
+            return new ProteinValidateResult(true, sequence.Length, null);
+        }
+        else
+        {
+            // Find the invalid character for error message
+            var upperSeq = sequence.ToUpperInvariant();
+            var validChars = global::SuffixTree.Genomics.ProteinSequence.ValidCharacters;
+            for (int i = 0; i < upperSeq.Length; i++)
+            {
+                if (!validChars.Contains(upperSeq[i]))
+                {
+                    return new ProteinValidateResult(false, sequence.Length, $"Invalid amino acid '{sequence[i]}' at position {i}");
+                }
+            }
+            return new ProteinValidateResult(false, sequence.Length, "Invalid sequence");
+        }
+    }
 }
 
 /// <summary>
@@ -132,3 +165,8 @@ public record RnaValidateResult(bool Valid, int Length, string? Error);
 /// Result of rna_from_dna operation.
 /// </summary>
 public record RnaFromDnaResult(string Rna);
+
+/// <summary>
+/// Result of protein_validate operation.
+/// </summary>
+public record ProteinValidateResult(bool Valid, int Length, string? Error);

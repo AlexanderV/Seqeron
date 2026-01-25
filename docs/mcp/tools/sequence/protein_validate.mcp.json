@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "protein_validate",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ProteinSequence.TryCreate",
+  "docRef": "SuffixTree.Genomics/ProteinSequence.cs#L357",
+  "description": "Validate a protein sequence. Returns whether the sequence contains only valid amino acids.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The protein sequence to validate",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean",
+        "description": "Whether the sequence is a valid protein"
+      },
+      "length": {
+        "type": "integer",
+        "description": "Length of the sequence"
+      },
+      "error": {
+        "type": "string",
+        "description": "Error message if invalid (null if valid)"
+      }
+    },
+    "required": ["valid", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Valid protein",
+      "input": { "sequence": "MAEGEITTFT" },
+      "output": { "valid": true, "length": 10, "error": null }
+    },
+    {
+      "name": "Invalid protein",
+      "input": { "sequence": "MAEGEITTFJ" },
+      "output": { "valid": false, "length": 10, "error": "Invalid amino acid 'J' at position 9" }
+    }
+  ]
+}
