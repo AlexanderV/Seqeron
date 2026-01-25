@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "edit_distance",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.EditDistance",
+  "docRef": "SuffixTree.Genomics/ApproximateMatcher.cs#L186",
+  "description": "Calculate edit distance (Levenshtein distance) between two sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "The first sequence",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "The second sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": {
+        "type": "integer",
+        "description": "Minimum number of edits (insertions, deletions, substitutions) needed",
+        "minimum": 0
+      }
+    },
+    "required": ["distance"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
+    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Identical sequences",
+      "input": { "sequence1": "ATGC", "sequence2": "ATGC" },
+      "output": { "distance": 0 }
+    },
+    {
+      "name": "Classic kitten-sitting",
+      "input": { "sequence1": "kitten", "sequence2": "sitting" },
+      "output": { "distance": 3 }
+    }
+  ]
+}
