@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "count_approximate_occurrences",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "ApproximateMatcher.CountApproximateOccurrences",
+  "docRef": "SuffixTree.Genomics/ApproximateMatcher.cs#L283",
+  "description": "Count approximate occurrences of a pattern in a sequence, allowing mismatches.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to search in",
+        "minLength": 1
+      },
+      "pattern": {
+        "type": "string",
+        "description": "The pattern to find",
+        "minLength": 1
+      },
+      "maxMismatches": {
+        "type": "integer",
+        "description": "Maximum number of allowed mismatches",
+        "minimum": 0
+      }
+    },
+    "required": ["sequence", "pattern", "maxMismatches"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "count": {
+        "type": "integer",
+        "description": "Number of approximate occurrences found",
+        "minimum": 0
+      }
+    },
+    "required": ["count"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1002, "message": "Pattern cannot be null or empty" },
+    { "code": 1005, "message": "MaxMismatches cannot be negative" }
+  ],
+  "examples": [
+    {
+      "name": "Exact matches only",
+      "input": { "sequence": "ATGATGATG", "pattern": "ATG", "maxMismatches": 0 },
+      "output": { "count": 3 }
+    },
+    {
+      "name": "With mismatches allowed",
+      "input": { "sequence": "ATGCTGATG", "pattern": "ATG", "maxMismatches": 1 },
+      "output": { "count": 3 }
+    }
+  ]
+}

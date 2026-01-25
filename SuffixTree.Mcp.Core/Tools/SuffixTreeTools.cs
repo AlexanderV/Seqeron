@@ -248,6 +248,27 @@ public static class SuffixTreeTools
         var distance = global::SuffixTree.Genomics.ApproximateMatcher.EditDistance(sequence1, sequence2);
         return new EditDistanceResult(distance);
     }
+
+    /// <summary>
+    /// Count approximate occurrences of a pattern in a sequence.
+    /// </summary>
+    [McpServerTool(Name = "count_approximate_occurrences")]
+    [Description("Count approximate occurrences of a pattern in a sequence, allowing up to maxMismatches substitutions.")]
+    public static CountApproximateOccurrencesResult CountApproximateOccurrences(
+        [Description("The sequence to search in")] string sequence,
+        [Description("The pattern to find")] string pattern,
+        [Description("Maximum number of allowed mismatches")] int maxMismatches)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(pattern))
+            throw new ArgumentException("Pattern cannot be null or empty", nameof(pattern));
+        if (maxMismatches < 0)
+            throw new ArgumentException("MaxMismatches cannot be negative", nameof(maxMismatches));
+
+        var count = global::SuffixTree.Genomics.ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+        return new CountApproximateOccurrencesResult(count);
+    }
 }
 
 /// <summary>
@@ -307,3 +328,8 @@ public record HammingDistanceResult(int Distance);
 /// Result of edit_distance operation.
 /// </summary>
 public record EditDistanceResult(int Distance);
+
+/// <summary>
+/// Result of count_approximate_occurrences operation.
+/// </summary>
+public record CountApproximateOccurrencesResult(int Count);
