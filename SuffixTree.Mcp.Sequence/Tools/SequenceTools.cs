@@ -41,9 +41,33 @@ public static class SequenceTools
             return new DnaValidateResult(false, sequence.Length, "Invalid sequence");
         }
     }
+
+    /// <summary>
+    /// Get the reverse complement of a DNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "dna_reverse_complement")]
+    [Description("Get the reverse complement of a DNA sequence. A↔T, C↔G, then reversed.")]
+    public static DnaReverseComplementResult DnaReverseComplement(
+        [Description("The DNA sequence")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        // Validate DNA first
+        if (!global::SuffixTree.Genomics.DnaSequence.TryCreate(sequence, out _))
+            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+
+        var reverseComplement = global::SuffixTree.Genomics.DnaSequence.GetReverseComplementString(sequence);
+        return new DnaReverseComplementResult(reverseComplement);
+    }
 }
 
 /// <summary>
 /// Result of dna_validate operation.
 /// </summary>
 public record DnaValidateResult(bool Valid, int Length, string? Error);
+
+/// <summary>
+/// Result of dna_reverse_complement operation.
+/// </summary>
+public record DnaReverseComplementResult(string ReverseComplement);

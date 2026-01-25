@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dna_reverse_complement",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DnaSequence.GetReverseComplementString",
+  "docRef": "SuffixTree.Genomics/DnaSequence.cs#L149",
+  "description": "Get the reverse complement of a DNA sequence. A↔T, C↔G, then reversed.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "reverseComplement": {
+        "type": "string",
+        "description": "The reverse complement sequence"
+      }
+    },
+    "required": ["reverseComplement"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Simple reverse complement",
+      "input": { "sequence": "ATGC" },
+      "output": { "reverseComplement": "GCAT" }
+    },
+    {
+      "name": "Self-complementary",
+      "input": { "sequence": "AATT" },
+      "output": { "reverseComplement": "AATT" }
+    }
+  ]
+}
