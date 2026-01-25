@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "thermodynamics",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateThermodynamics",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L381",
+  "description": "Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence",
+        "minLength": 1
+      },
+      "naConcentration": {
+        "type": "number",
+        "description": "Na+ concentration in M (default: 0.05 = 50mM)",
+        "default": 0.05
+      },
+      "primerConcentration": {
+        "type": "number",
+        "description": "Primer concentration in M (default: 0.00000025 = 250nM)",
+        "default": 0.00000025
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "deltaH": { "type": "number", "description": "Enthalpy change (kcal/mol)" },
+      "deltaS": { "type": "number", "description": "Entropy change (cal/mol·K)" },
+      "deltaG": { "type": "number", "description": "Gibbs free energy change at 37°C (kcal/mol)" },
+      "meltingTemperature": { "type": "number", "description": "Melting temperature (°C)" }
+    },
+    "required": ["deltaH", "deltaS", "deltaG", "meltingTemperature"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA duplex thermodynamics",
+      "input": { "sequence": "ATGCGATCGATCG" },
+      "output": { "deltaH": -98.5, "deltaS": -267.2, "deltaG": -15.6, "meltingTemperature": 42.3 }
+    }
+  ]
+}

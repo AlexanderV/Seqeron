@@ -262,6 +262,23 @@ public static class SequenceTools
         var gravy = global::SuffixTree.Genomics.SequenceStatistics.CalculateHydrophobicity(sequence);
         return new HydrophobicityResult(gravy);
     }
+
+    /// <summary>
+    /// Calculate thermodynamic properties of a DNA duplex.
+    /// </summary>
+    [McpServerTool(Name = "thermodynamics")]
+    [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.")]
+    public static ThermodynamicsResult Thermodynamics(
+        [Description("The DNA sequence")] string sequence,
+        [Description("Na+ concentration in M (default: 0.05 = 50mM)")] double naConcentration = 0.05,
+        [Description("Primer concentration in M (default: 0.00000025 = 250nM)")] double primerConcentration = 0.00000025)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var props = global::SuffixTree.Genomics.SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
+        return new ThermodynamicsResult(props.DeltaH, props.DeltaS, props.DeltaG, props.MeltingTemperature);
+    }
 }
 
 /// <summary>
@@ -325,3 +342,8 @@ public record IsoelectricPointResult(double PI);
 /// Result of hydrophobicity operation.
 /// </summary>
 public record HydrophobicityResult(double Gravy);
+
+/// <summary>
+/// Result of thermodynamics operation.
+/// </summary>
+public record ThermodynamicsResult(double DeltaH, double DeltaS, double DeltaG, double MeltingTemperature);
