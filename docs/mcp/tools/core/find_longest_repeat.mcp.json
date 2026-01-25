@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_longest_repeat",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindLongestRepeat",
+  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L20",
+  "description": "Find the longest repeated region in a DNA sequence. Returns the repeat sequence and all positions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "minLength": 1, "description": "DNA sequence (A, T, G, C)" }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "repeat": { "type": "string" },
+      "positions": { "type": "array", "items": { "type": "integer" } },
+      "length": { "type": "integer" }
+    },
+    "required": ["repeat", "positions", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Find repeats in DNA",
+      "input": { "sequence": "ATGATGATG" },
+      "output": { "repeat": "ATG", "positions": [0, 3, 6], "length": 3 }
+    }
+  ]
+}

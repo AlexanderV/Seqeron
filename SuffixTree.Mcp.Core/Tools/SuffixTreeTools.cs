@@ -148,6 +148,25 @@ public static class SuffixTreeTools
 
         return new SuffixTreeStatsResult(tree.NodeCount, tree.LeafCount, tree.MaxDepth, text.Length);
     }
+
+    /// <summary>
+    /// Find the longest repeated region in a DNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "find_longest_repeat")]
+    [Description("Find the longest repeated region in a DNA sequence. Returns the repeat sequence and all positions.")]
+    public static FindLongestRepeatResult FindLongestRepeat(
+        [Description("The DNA sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        }
+
+        var dna = new global::SuffixTree.Genomics.DnaSequence(sequence);
+        var result = global::SuffixTree.Genomics.GenomicAnalyzer.FindLongestRepeat(dna);
+
+        return new FindLongestRepeatResult(result.Sequence, result.Positions.ToArray(), result.Length);
+    }
 }
 
 /// <summary>
@@ -182,3 +201,8 @@ public record SuffixTreeLcsResult(string Substring, int Length);
 /// Result of suffix_tree_stats operation.
 /// </summary>
 public record SuffixTreeStatsResult(int NodeCount, int LeafCount, int MaxDepth, int TextLength);
+
+/// <summary>
+/// Result of find_longest_repeat operation.
+/// </summary>
+public record FindLongestRepeatResult(string Repeat, int[] Positions, int Length);
