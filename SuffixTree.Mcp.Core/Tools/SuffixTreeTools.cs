@@ -167,6 +167,27 @@ public static class SuffixTreeTools
 
         return new FindLongestRepeatResult(result.Sequence, result.Positions.ToArray(), result.Length);
     }
+
+    /// <summary>
+    /// Find the longest common region between two DNA sequences.
+    /// </summary>
+    [McpServerTool(Name = "find_longest_common_region")]
+    [Description("Find the longest common region between two DNA sequences.")]
+    public static FindLongestCommonRegionResult FindLongestCommonRegion(
+        [Description("The first DNA sequence")] string sequence1,
+        [Description("The second DNA sequence")] string sequence2)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+
+        var dna1 = new global::SuffixTree.Genomics.DnaSequence(sequence1);
+        var dna2 = new global::SuffixTree.Genomics.DnaSequence(sequence2);
+        var result = global::SuffixTree.Genomics.GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
+
+        return new FindLongestCommonRegionResult(result.Sequence, result.PositionInFirst, result.PositionInSecond, result.Length);
+    }
 }
 
 /// <summary>
@@ -206,3 +227,8 @@ public record SuffixTreeStatsResult(int NodeCount, int LeafCount, int MaxDepth, 
 /// Result of find_longest_repeat operation.
 /// </summary>
 public record FindLongestRepeatResult(string Repeat, int[] Positions, int Length);
+
+/// <summary>
+/// Result of find_longest_common_region operation.
+/// </summary>
+public record FindLongestCommonRegionResult(string Region, int Position1, int Position2, int Length);

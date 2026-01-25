@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "find_longest_common_region",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
+  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L178",
+  "description": "Find the longest common region between two DNA sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": { "type": "string", "minLength": 1 },
+      "sequence2": { "type": "string", "minLength": 1 }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "region": { "type": "string" },
+      "position1": { "type": "integer" },
+      "position2": { "type": "integer" },
+      "length": { "type": "integer" }
+    },
+    "required": ["region", "position1", "position2", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
+    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Find common region",
+      "input": { "sequence1": "ATGCATGC", "sequence2": "CATGCAT" },
+      "output": { "region": "ATGC", "position1": 0, "position2": 1, "length": 4 }
+    }
+  ]
+}
