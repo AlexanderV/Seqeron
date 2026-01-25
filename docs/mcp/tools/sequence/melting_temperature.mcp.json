@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "melting_temperature",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateMeltingTemperature",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L441",
+  "description": "Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence",
+        "minLength": 1
+      },
+      "useWallaceRule": {
+        "type": "boolean",
+        "description": "Use Wallace rule for short oligos (default: true)",
+        "default": true
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tm": { "type": "number", "description": "Melting temperature" },
+      "unit": { "type": "string", "description": "Temperature unit (°C)" }
+    },
+    "required": ["tm", "unit"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Short primer Tm (Wallace rule)",
+      "input": { "sequence": "ATGCGATCGATCG" },
+      "output": { "tm": 38, "unit": "°C" }
+    },
+    {
+      "name": "GC formula",
+      "input": { "sequence": "ATGCGATCGATCG", "useWallaceRule": false },
+      "output": { "tm": 60.5, "unit": "°C" }
+    }
+  ]
+}

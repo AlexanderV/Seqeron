@@ -26,3 +26,4 @@
 | isoelectric_point | Sequence | SequenceStatistics.CalculateIsoelectricPoint | SequenceStatistics.cs#L228 | 2/2 | ✓ | ✓ | Ready |
 | hydrophobicity | Sequence | SequenceStatistics.CalculateHydrophobicity | SequenceStatistics.cs#L306 | 2/2 | ✓ | ✓ | Ready |
 | thermodynamics | Sequence | SequenceStatistics.CalculateThermodynamics | SequenceStatistics.cs#L381 | 2/2 | ✓ | ✓ | Ready |
+| melting_temperature | Sequence | SequenceStatistics.CalculateMeltingTemperature | SequenceStatistics.cs#L441 | 2/2 | ✓ | ✓ | Ready |
