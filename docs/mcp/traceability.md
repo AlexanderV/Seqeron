@@ -16,3 +16,4 @@
 | count_approximate_occurrences | Core | ApproximateMatcher.CountApproximateOccurrences | ApproximateMatcher.cs#L283 | 2/2 | ✓ | ✓ | Ready |
 | dna_validate | Sequence | DnaSequence.TryCreate | DnaSequence.cs#L129 | 2/2 | ✓ | ✓ | Ready |
 | dna_reverse_complement | Sequence | DnaSequence.GetReverseComplementString | DnaSequence.cs#L149 | 2/2 | ✓ | ✓ | Ready |
+| rna_validate | Sequence | RnaSequence.TryCreate | RnaSequence.cs#L176 | 2/2 | ✓ | ✓ | Ready |
