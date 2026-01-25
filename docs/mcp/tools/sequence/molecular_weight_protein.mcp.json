@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "molecular_weight_protein",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateMolecularWeight",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L159",
+  "description": "Calculate the molecular weight of a protein sequence in Daltons (Da).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The protein sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "molecularWeight": { "type": "number", "description": "Molecular weight in Daltons" },
+      "unit": { "type": "string", "description": "Unit of measurement (Da)" }
+    },
+    "required": ["molecularWeight", "unit"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2002, "message": "Invalid protein sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Protein molecular weight",
+      "input": { "sequence": "MAEGEITTFT" },
+      "output": { "molecularWeight": 1140.25, "unit": "Da" }
+    }
+  ]
+}

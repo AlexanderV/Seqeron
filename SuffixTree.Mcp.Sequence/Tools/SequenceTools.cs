@@ -192,6 +192,24 @@ public static class SequenceTools
             comp.ChargedResidueRatio,
             comp.AromaticResidueRatio);
     }
+
+    /// <summary>
+    /// Calculate molecular weight of a protein sequence.
+    /// </summary>
+    [McpServerTool(Name = "molecular_weight_protein")]
+    [Description("Calculate the molecular weight of a protein sequence in Daltons (Da).")]
+    public static MolecularWeightProteinResult MolecularWeightProtein(
+        [Description("The protein sequence")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (!global::SuffixTree.Genomics.ProteinSequence.TryCreate(sequence, out _))
+            throw new ArgumentException("Invalid protein sequence", nameof(sequence));
+
+        var mw = global::SuffixTree.Genomics.SequenceStatistics.CalculateMolecularWeight(sequence);
+        return new MolecularWeightProteinResult(mw, "Da");
+    }
 }
 
 /// <summary>
@@ -235,3 +253,8 @@ public record AminoAcidCompositionResult(
     double Hydrophobicity,
     double ChargedResidueRatio,
     double AromaticResidueRatio);
+
+/// <summary>
+/// Result of molecular_weight_protein operation.
+/// </summary>
+public record MolecularWeightProteinResult(double MolecularWeight, string Unit);

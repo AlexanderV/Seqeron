@@ -21,3 +21,4 @@
 | protein_validate | Sequence | ProteinSequence.TryCreate | ProteinSequence.cs#L357 | 2/2 | ✓ | ✓ | Ready |
 | nucleotide_composition | Sequence | SequenceStatistics.CalculateNucleotideComposition | SequenceStatistics.cs#L48 | 2/2 | ✓ | ✓ | Ready |
 | amino_acid_composition | Sequence | SequenceStatistics.CalculateAminoAcidComposition | SequenceStatistics.cs#L98 | 2/2 | ✓ | ✓ | Ready |
+| molecular_weight_protein | Sequence | SequenceStatistics.CalculateMolecularWeight | SequenceStatistics.cs#L159 | 2/2 | ✓ | ✓ | Ready |
