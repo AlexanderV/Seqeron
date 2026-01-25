@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_lcs",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.LongestCommonSubstring",
+  "docRef": "SuffixTree/SuffixTree.Algorithms.cs#L28",
+  "description": "Find the longest common substring between two texts using suffix tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text1": { "type": "string", "minLength": 1 },
+      "text2": { "type": "string", "minLength": 1 }
+    },
+    "required": ["text1", "text2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "substring": { "type": "string" },
+      "length": { "type": "integer" }
+    },
+    "required": ["substring", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Text1 cannot be null or empty" },
+    { "code": 1003, "message": "Text2 cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Find common substring",
+      "input": { "text1": "banana", "text2": "panama" },
+      "output": { "substring": "ana", "length": 3 }
+    }
+  ]
+}

@@ -105,6 +105,31 @@ public static class SuffixTreeTools
 
         return new SuffixTreeLrsResult(lrs, lrs.Length);
     }
+
+    /// <summary>
+    /// Find the longest common substring between two texts.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_lcs")]
+    [Description("Find the longest common substring between two texts using suffix tree.")]
+    public static SuffixTreeLcsResult SuffixTreeLcs(
+        [Description("The first text")] string text1,
+        [Description("The second text")] string text2)
+    {
+        if (string.IsNullOrEmpty(text1))
+        {
+            throw new ArgumentException("Text1 cannot be null or empty", nameof(text1));
+        }
+
+        if (string.IsNullOrEmpty(text2))
+        {
+            throw new ArgumentException("Text2 cannot be null or empty", nameof(text2));
+        }
+
+        var tree = global::SuffixTree.SuffixTree.Build(text1);
+        var lcs = tree.LongestCommonSubstring(text2);
+
+        return new SuffixTreeLcsResult(lcs, lcs.Length);
+    }
 }
 
 /// <summary>
@@ -129,3 +154,8 @@ public record SuffixTreeFindAllResult(int[] Positions);
 /// Result of suffix_tree_lrs operation.
 /// </summary>
 public record SuffixTreeLrsResult(string Substring, int Length);
+
+/// <summary>
+/// Result of suffix_tree_lcs operation.
+/// </summary>
+public record SuffixTreeLcsResult(string Substring, int Length);
