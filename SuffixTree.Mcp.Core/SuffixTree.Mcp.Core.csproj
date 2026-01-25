@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\SuffixTree.Genomics\SuffixTree.Genomics.csproj" />
   </ItemGroup>
 
 </Project>
