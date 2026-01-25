@@ -93,6 +93,24 @@ public static class SequenceTools
             return new RnaValidateResult(false, sequence.Length, "Invalid sequence");
         }
     }
+
+    /// <summary>
+    /// Transcribe DNA to RNA (T→U).
+    /// </summary>
+    [McpServerTool(Name = "rna_from_dna")]
+    [Description("Transcribe DNA to RNA by replacing T (thymine) with U (uracil).")]
+    public static RnaFromDnaResult RnaFromDna(
+        [Description("The DNA sequence to transcribe")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (!global::SuffixTree.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+
+        var rna = global::SuffixTree.Genomics.RnaSequence.FromDna(dna!);
+        return new RnaFromDnaResult(rna.ToString());
+    }
 }
 
 /// <summary>
@@ -109,3 +127,8 @@ public record DnaReverseComplementResult(string ReverseComplement);
 /// Result of rna_validate operation.
 /// </summary>
 public record RnaValidateResult(bool Valid, int Length, string? Error);
+
+/// <summary>
+/// Result of rna_from_dna operation.
+/// </summary>
+public record RnaFromDnaResult(string Rna);

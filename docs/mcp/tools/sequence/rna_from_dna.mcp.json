@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "rna_from_dna",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "RnaSequence.FromDna",
+  "docRef": "SuffixTree.Genomics/RnaSequence.cs#L147",
+  "description": "Transcribe DNA to RNA by replacing T (thymine) with U (uracil).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to transcribe",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "rna": {
+        "type": "string",
+        "description": "The transcribed RNA sequence"
+      }
+    },
+    "required": ["rna"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Simple transcription",
+      "input": { "sequence": "ATGC" },
+      "output": { "rna": "AUGC" }
+    },
+    {
+      "name": "All thymine",
+      "input": { "sequence": "TTTT" },
+      "output": { "rna": "UUUU" }
+    }
+  ]
+}

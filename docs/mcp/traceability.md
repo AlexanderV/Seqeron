@@ -17,3 +17,4 @@
 | dna_validate | Sequence | DnaSequence.TryCreate | DnaSequence.cs#L129 | 2/2 | ✓ | ✓ | Ready |
 | dna_reverse_complement | Sequence | DnaSequence.GetReverseComplementString | DnaSequence.cs#L149 | 2/2 | ✓ | ✓ | Ready |
 | rna_validate | Sequence | RnaSequence.TryCreate | RnaSequence.cs#L176 | 2/2 | ✓ | ✓ | Ready |
+| rna_from_dna | Sequence | RnaSequence.FromDna | RnaSequence.cs#L147 | 2/2 | ✓ | ✓ | Ready |
