@@ -226,6 +226,24 @@ public static class SequenceTools
         var mw = global::SuffixTree.Genomics.SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
         return new MolecularWeightNucleotideResult(mw, "Da", isDna ? "DNA" : "RNA");
     }
+
+    /// <summary>
+    /// Calculate isoelectric point (pI) of a protein sequence.
+    /// </summary>
+    [McpServerTool(Name = "isoelectric_point")]
+    [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.")]
+    public static IsoelectricPointResult IsoelectricPoint(
+        [Description("The protein sequence")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (!global::SuffixTree.Genomics.ProteinSequence.TryCreate(sequence, out _))
+            throw new ArgumentException("Invalid protein sequence", nameof(sequence));
+
+        var pI = global::SuffixTree.Genomics.SequenceStatistics.CalculateIsoelectricPoint(sequence);
+        return new IsoelectricPointResult(pI);
+    }
 }
 
 /// <summary>
@@ -279,3 +297,8 @@ public record MolecularWeightProteinResult(double MolecularWeight, string Unit);
 /// Result of molecular_weight_nucleotide operation.
 /// </summary>
 public record MolecularWeightNucleotideResult(double MolecularWeight, string Unit, string SequenceType);
+
+/// <summary>
+/// Result of isoelectric_point operation.
+/// </summary>
+public record IsoelectricPointResult(double PI);
