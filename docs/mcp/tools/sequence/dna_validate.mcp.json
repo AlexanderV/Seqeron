@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "dna_validate",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "DnaSequence.TryCreate",
+  "docRef": "SuffixTree.Genomics/DnaSequence.cs#L129",
+  "description": "Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to validate",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean",
+        "description": "Whether the sequence is valid DNA"
+      },
+      "length": {
+        "type": "integer",
+        "description": "Length of the sequence"
+      },
+      "error": {
+        "type": "string",
+        "description": "Error message if invalid (null if valid)"
+      }
+    },
+    "required": ["valid", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Valid DNA",
+      "input": { "sequence": "ATGCATGC" },
+      "output": { "valid": true, "length": 8, "error": null }
+    },
+    {
+      "name": "Invalid DNA",
+      "input": { "sequence": "ATGXATGC" },
+      "output": { "valid": false, "length": 8, "error": "Invalid nucleotide 'X' at position 3" }
+    }
+  ]
+}
