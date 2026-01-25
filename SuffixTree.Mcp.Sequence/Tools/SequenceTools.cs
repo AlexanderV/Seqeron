@@ -144,6 +144,29 @@ public static class SequenceTools
             return new ProteinValidateResult(false, sequence.Length, "Invalid sequence");
         }
     }
+
+    /// <summary>
+    /// Calculate nucleotide composition of a DNA/RNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "nucleotide_composition")]
+    [Description("Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.")]
+    public static NucleotideCompositionResult NucleotideComposition(
+        [Description("The DNA or RNA sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var comp = global::SuffixTree.Genomics.SequenceStatistics.CalculateNucleotideComposition(sequence);
+        return new NucleotideCompositionResult(
+            comp.Length,
+            comp.CountA,
+            comp.CountT,
+            comp.CountG,
+            comp.CountC,
+            comp.CountU,
+            comp.CountOther,
+            comp.GcContent);
+    }
 }
 
 /// <summary>
@@ -170,3 +193,8 @@ public record RnaFromDnaResult(string Rna);
 /// Result of protein_validate operation.
 /// </summary>
 public record ProteinValidateResult(bool Valid, int Length, string? Error);
+
+/// <summary>
+/// Result of nucleotide_composition operation.
+/// </summary>
+public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent);

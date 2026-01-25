@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "nucleotide_composition",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateNucleotideComposition",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L48",
+  "description": "Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA or RNA sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "integer", "description": "Total sequence length" },
+      "A": { "type": "integer", "description": "Count of adenine" },
+      "T": { "type": "integer", "description": "Count of thymine" },
+      "G": { "type": "integer", "description": "Count of guanine" },
+      "C": { "type": "integer", "description": "Count of cytosine" },
+      "U": { "type": "integer", "description": "Count of uracil (RNA)" },
+      "other": { "type": "integer", "description": "Count of other characters" },
+      "gcContent": { "type": "number", "description": "GC content ratio (0-1)" }
+    },
+    "required": ["length", "A", "T", "G", "C", "U", "other", "gcContent"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA composition",
+      "input": { "sequence": "ATGCATGC" },
+      "output": { "length": 8, "A": 2, "T": 2, "G": 2, "C": 2, "U": 0, "other": 0, "gcContent": 0.5 }
+    }
+  ]
+}
