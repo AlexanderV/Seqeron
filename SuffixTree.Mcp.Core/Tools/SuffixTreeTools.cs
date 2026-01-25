@@ -86,6 +86,25 @@ public static class SuffixTreeTools
 
         return new SuffixTreeFindAllResult(positions.ToArray());
     }
+
+    /// <summary>
+    /// Find the longest repeated substring in text.
+    /// </summary>
+    [McpServerTool(Name = "suffix_tree_lrs")]
+    [Description("Find the longest repeated substring in text using suffix tree.")]
+    public static SuffixTreeLrsResult SuffixTreeLrs(
+        [Description("The text to analyze")] string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new ArgumentException("Text cannot be null or empty", nameof(text));
+        }
+
+        var tree = global::SuffixTree.SuffixTree.Build(text);
+        var lrs = tree.LongestRepeatedSubstring();
+
+        return new SuffixTreeLrsResult(lrs, lrs.Length);
+    }
 }
 
 /// <summary>
@@ -105,3 +124,8 @@ public record SuffixTreeCountResult(int Count);
 /// </summary>
 /// <param name="Positions">Array of positions where pattern was found.</param>
 public record SuffixTreeFindAllResult(int[] Positions);
+
+/// <summary>
+/// Result of suffix_tree_lrs operation.
+/// </summary>
+public record SuffixTreeLrsResult(string Substring, int Length);
