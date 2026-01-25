@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "suffix_tree_find_all",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SuffixTree.FindAllOccurrences",
+  "docRef": "SuffixTree/SuffixTree.Search.cs#L115",
+  "description": "Find all positions where a pattern occurs in text using suffix tree.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": { "type": "string", "minLength": 1 },
+      "pattern": { "type": "string" }
+    },
+    "required": ["text", "pattern"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "positions": { "type": "array", "items": { "type": "integer" } }
+    },
+    "required": ["positions"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Text cannot be null or empty" },
+    { "code": 1002, "message": "Pattern cannot be null" }
+  ],
+  "examples": [
+    {
+      "name": "Find all occurrences",
+      "input": { "text": "banana", "pattern": "ana" },
+      "output": { "positions": [1, 3] }
+    }
+  ]
+}
