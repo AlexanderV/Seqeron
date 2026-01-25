@@ -167,6 +167,31 @@ public static class SequenceTools
             comp.CountOther,
             comp.GcContent);
     }
+
+    /// <summary>
+    /// Calculate amino acid composition of a protein sequence.
+    /// </summary>
+    [McpServerTool(Name = "amino_acid_composition")]
+    [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence.")]
+    public static AminoAcidCompositionResult AminoAcidComposition(
+        [Description("The protein sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (!global::SuffixTree.Genomics.ProteinSequence.TryCreate(sequence, out _))
+            throw new ArgumentException("Invalid protein sequence", nameof(sequence));
+
+        var comp = global::SuffixTree.Genomics.SequenceStatistics.CalculateAminoAcidComposition(sequence);
+        return new AminoAcidCompositionResult(
+            comp.Length,
+            comp.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+            comp.MolecularWeight,
+            comp.IsoelectricPoint,
+            comp.Hydrophobicity,
+            comp.ChargedResidueRatio,
+            comp.AromaticResidueRatio);
+    }
 }
 
 /// <summary>
@@ -198,3 +223,15 @@ public record ProteinValidateResult(bool Valid, int Length, string? Error);
 /// Result of nucleotide_composition operation.
 /// </summary>
 public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent);
+
+/// <summary>
+/// Result of amino_acid_composition operation.
+/// </summary>
+public record AminoAcidCompositionResult(
+    int Length,
+    Dictionary<string, int> Counts,
+    double MolecularWeight,
+    double IsoelectricPoint,
+    double Hydrophobicity,
+    double ChargedResidueRatio,
+    double AromaticResidueRatio);
