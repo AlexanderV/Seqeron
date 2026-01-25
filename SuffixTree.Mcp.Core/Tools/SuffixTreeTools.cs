@@ -188,6 +188,28 @@ public static class SuffixTreeTools
 
         return new FindLongestCommonRegionResult(result.Sequence, result.PositionInFirst, result.PositionInSecond, result.Length);
     }
+
+    /// <summary>
+    /// Calculate similarity between two DNA sequences using k-mer Jaccard index.
+    /// </summary>
+    [McpServerTool(Name = "calculate_similarity")]
+    [Description("Calculate similarity between two DNA sequences using k-mer Jaccard index (0-1 scale).")]
+    public static CalculateSimilarityResult CalculateSimilarity(
+        [Description("The first DNA sequence")] string sequence1,
+        [Description("The second DNA sequence")] string sequence2,
+        [Description("K-mer size (default: 5)")] int kmerSize = 5)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+
+        var dna1 = new global::SuffixTree.Genomics.DnaSequence(sequence1);
+        var dna2 = new global::SuffixTree.Genomics.DnaSequence(sequence2);
+        var similarity = global::SuffixTree.Genomics.GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
+
+        return new CalculateSimilarityResult(similarity);
+    }
 }
 
 /// <summary>
@@ -232,3 +254,8 @@ public record FindLongestRepeatResult(string Repeat, int[] Positions, int Length
 /// Result of find_longest_common_region operation.
 /// </summary>
 public record FindLongestCommonRegionResult(string Region, int Position1, int Position2, int Length);
+
+/// <summary>
+/// Result of calculate_similarity operation.
+/// </summary>
+public record CalculateSimilarityResult(double Similarity);

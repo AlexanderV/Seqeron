@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "calculate_similarity",
+  "serverName": "Core",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenomicAnalyzer.CalculateSimilarity",
+  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L238",
+  "description": "Calculate similarity between two DNA sequences using k-mer Jaccard index (0-1 scale).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": { "type": "string", "minLength": 1 },
+      "sequence2": { "type": "string", "minLength": 1 },
+      "kmerSize": { "type": "integer", "default": 5, "minimum": 1 }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "similarity": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "required": ["similarity"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence1 cannot be null or empty" },
+    { "code": 1003, "message": "Sequence2 cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Calculate similarity",
+      "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC" },
+      "output": { "similarity": 1.0 }
+    }
+  ]
+}
