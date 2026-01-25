@@ -14,3 +14,4 @@
 | hamming_distance | Core | ApproximateMatcher.HammingDistance | ApproximateMatcher.cs#L163 | 2/2 | ✓ | ✓ | Ready |
 | edit_distance | Core | ApproximateMatcher.EditDistance | ApproximateMatcher.cs#L186 | 2/2 | ✓ | ✓ | Ready |
 | count_approximate_occurrences | Core | ApproximateMatcher.CountApproximateOccurrences | ApproximateMatcher.cs#L283 | 2/2 | ✓ | ✓ | Ready |
+| dna_validate | Sequence | DnaSequence.TryCreate | DnaSequence.cs#L129 | 2/2 | ✓ | ✓ | Ready |
