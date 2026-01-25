@@ -279,6 +279,22 @@ public static class SequenceTools
         var props = global::SuffixTree.Genomics.SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
         return new ThermodynamicsResult(props.DeltaH, props.DeltaS, props.DeltaG, props.MeltingTemperature);
     }
+
+    /// <summary>
+    /// Calculate simple melting temperature of a DNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "melting_temperature")]
+    [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.")]
+    public static MeltingTemperatureResult MeltingTemperature(
+        [Description("The DNA sequence")] string sequence,
+        [Description("Use Wallace rule for short oligos (default: true)")] bool useWallaceRule = true)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var tm = global::SuffixTree.Genomics.SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
+        return new MeltingTemperatureResult(tm, "°C");
+    }
 }
 
 /// <summary>
@@ -347,3 +363,8 @@ public record HydrophobicityResult(double Gravy);
 /// Result of thermodynamics operation.
 /// </summary>
 public record ThermodynamicsResult(double DeltaH, double DeltaS, double DeltaG, double MeltingTemperature);
+
+/// <summary>
+/// Result of melting_temperature operation.
+/// </summary>
+public record MeltingTemperatureResult(double Tm, string Unit);
