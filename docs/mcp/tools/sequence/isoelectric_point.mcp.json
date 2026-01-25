@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "isoelectric_point",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateIsoelectricPoint",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L228",
+  "description": "Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The protein sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "pI": { "type": "number", "description": "Isoelectric point (pH value 0-14)" }
+    },
+    "required": ["pI"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 2002, "message": "Invalid protein sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Acidic protein pI",
+      "input": { "sequence": "MAEGEITTFT" },
+      "output": { "pI": 4.21 }
+    },
+    {
+      "name": "Basic protein pI",
+      "input": { "sequence": "MKRLLKR" },
+      "output": { "pI": 11.5 }
+    }
+  ]
+}
