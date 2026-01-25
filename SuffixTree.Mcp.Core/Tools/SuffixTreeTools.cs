@@ -210,6 +210,26 @@ public static class SuffixTreeTools
 
         return new CalculateSimilarityResult(similarity);
     }
+
+    /// <summary>
+    /// Calculate Hamming distance between two sequences of equal length.
+    /// </summary>
+    [McpServerTool(Name = "hamming_distance")]
+    [Description("Calculate Hamming distance between two sequences of equal length. Returns number of positions with different characters.")]
+    public static HammingDistanceResult HammingDistance(
+        [Description("The first sequence")] string sequence1,
+        [Description("The second sequence")] string sequence2)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+        if (sequence1.Length != sequence2.Length)
+            throw new ArgumentException("Sequences must have equal length for Hamming distance");
+
+        var distance = global::SuffixTree.Genomics.ApproximateMatcher.HammingDistance(sequence1, sequence2);
+        return new HammingDistanceResult(distance);
+    }
 }
 
 /// <summary>
@@ -259,3 +279,8 @@ public record FindLongestCommonRegionResult(string Region, int Position1, int Po
 /// Result of calculate_similarity operation.
 /// </summary>
 public record CalculateSimilarityResult(double Similarity);
+
+/// <summary>
+/// Result of hamming_distance operation.
+/// </summary>
+public record HammingDistanceResult(int Distance);
