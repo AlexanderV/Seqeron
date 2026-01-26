@@ -310,6 +310,22 @@ public static class SequenceTools
         var entropy = global::SuffixTree.Genomics.SequenceStatistics.CalculateShannonEntropy(sequence);
         return new ShannonEntropyResult(entropy);
     }
+
+    /// <summary>
+    /// Calculate linguistic complexity of a sequence.
+    /// </summary>
+    [McpServerTool(Name = "linguistic_complexity")]
+    [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
+    public static LinguisticComplexityResult LinguisticComplexity(
+        [Description("The sequence to analyze")] string sequence,
+        [Description("Maximum k-mer length to consider (default: 6)")] int maxK = 6)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var complexity = global::SuffixTree.Genomics.SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
+        return new LinguisticComplexityResult(complexity);
+    }
 }
 
 /// <summary>
@@ -388,3 +404,8 @@ public record MeltingTemperatureResult(double Tm, string Unit);
 /// Result of shannon_entropy operation.
 /// </summary>
 public record ShannonEntropyResult(double Entropy);
+
+/// <summary>
+/// Result of linguistic_complexity operation.
+/// </summary>
+public record LinguisticComplexityResult(double Complexity);
