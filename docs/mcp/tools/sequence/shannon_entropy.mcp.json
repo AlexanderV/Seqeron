@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "shannon_entropy",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.CalculateShannonEntropy",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L580",
+  "description": "Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entropy": { "type": "number", "description": "Shannon entropy value (bits per symbol)" }
+    },
+    "required": ["entropy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA sequence entropy",
+      "input": { "sequence": "ATGCATGCAT" },
+      "output": { "entropy": 2.0 }
+    },
+    {
+      "name": "Low complexity sequence",
+      "input": { "sequence": "AAAAAAAAAA" },
+      "output": { "entropy": 0.0 }
+    }
+  ]
+}
