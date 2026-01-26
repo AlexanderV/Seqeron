@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gc_content",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceExtensions.CalculateGcContentFast",
+  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L41",
+  "description": "Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA or RNA sequence",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "gcContent": { "type": "number", "description": "GC content percentage (0-100)" },
+      "gcCount": { "type": "integer", "description": "Number of G and C nucleotides" },
+      "totalCount": { "type": "integer", "description": "Total sequence length" }
+    },
+    "required": ["gcContent", "gcCount", "totalCount"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "50% GC content",
+      "input": { "sequence": "ATGC" },
+      "output": { "gcContent": 50, "gcCount": 2, "totalCount": 4 }
+    },
+    {
+      "name": "GC-rich sequence",
+      "input": { "sequence": "GCGCGC" },
+      "output": { "gcContent": 100, "gcCount": 6, "totalCount": 6 }
+    }
+  ]
+}

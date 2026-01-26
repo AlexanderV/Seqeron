@@ -347,6 +347,22 @@ public static class SequenceTools
             summary.MeltingTemperature,
             summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
     }
+
+    /// <summary>
+    /// Calculate GC content of a DNA/RNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "gc_content")]
+    [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.")]
+    public static GcContentResult GcContent(
+        [Description("The DNA or RNA sequence")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var gcContent = global::SuffixTree.Genomics.SequenceExtensions.CalculateGcContentFast(sequence);
+        int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
+        return new GcContentResult(gcContent, gcCount, sequence.Length);
+    }
 }
 
 /// <summary>
@@ -441,3 +457,8 @@ public record SummarizeSequenceResult(
     double Complexity,
     double MeltingTemperature,
     Dictionary<string, int> Composition);
+
+/// <summary>
+/// Result of gc_content operation.
+/// </summary>
+public record GcContentResult(double GcContent, int GcCount, int TotalCount);

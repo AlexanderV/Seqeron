@@ -30,3 +30,4 @@
 | shannon_entropy | Sequence | SequenceStatistics.CalculateShannonEntropy | SequenceStatistics.cs#L580 | 2/2 | ✓ | ✓ | Ready |
 | linguistic_complexity | Sequence | SequenceStatistics.CalculateLinguisticComplexity | SequenceStatistics.cs#L615 | 2/2 | ✓ | ✓ | Ready |
 | summarize_sequence | Sequence | SequenceStatistics.SummarizeNucleotideSequence | SequenceStatistics.cs#L775 | 2/2 | ✓ | ✓ | Ready |
+| gc_content | Sequence | SequenceExtensions.CalculateGcContentFast | SequenceExtensions.cs#L41 | 2/2 | ✓ | ✓ | Ready |
