@@ -295,6 +295,21 @@ public static class SequenceTools
         var tm = global::SuffixTree.Genomics.SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
         return new MeltingTemperatureResult(tm, "°C");
     }
+
+    /// <summary>
+    /// Calculate Shannon entropy of a sequence.
+    /// </summary>
+    [McpServerTool(Name = "shannon_entropy")]
+    [Description("Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.")]
+    public static ShannonEntropyResult ShannonEntropy(
+        [Description("The sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var entropy = global::SuffixTree.Genomics.SequenceStatistics.CalculateShannonEntropy(sequence);
+        return new ShannonEntropyResult(entropy);
+    }
 }
 
 /// <summary>
@@ -368,3 +383,8 @@ public record ThermodynamicsResult(double DeltaH, double DeltaS, double DeltaG, 
 /// Result of melting_temperature operation.
 /// </summary>
 public record MeltingTemperatureResult(double Tm, string Unit);
+
+/// <summary>
+/// Result of shannon_entropy operation.
+/// </summary>
+public record ShannonEntropyResult(double Entropy);

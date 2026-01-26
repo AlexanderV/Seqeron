@@ -27,3 +27,4 @@
 | hydrophobicity | Sequence | SequenceStatistics.CalculateHydrophobicity | SequenceStatistics.cs#L306 | 2/2 | ✓ | ✓ | Ready |
 | thermodynamics | Sequence | SequenceStatistics.CalculateThermodynamics | SequenceStatistics.cs#L381 | 2/2 | ✓ | ✓ | Ready |
 | melting_temperature | Sequence | SequenceStatistics.CalculateMeltingTemperature | SequenceStatistics.cs#L441 | 2/2 | ✓ | ✓ | Ready |
+| shannon_entropy | Sequence | SequenceStatistics.CalculateShannonEntropy | SequenceStatistics.cs#L580 | 2/2 | ✓ | ✓ | Ready |
