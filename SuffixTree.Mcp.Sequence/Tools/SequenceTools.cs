@@ -409,6 +409,25 @@ public static class SequenceTools
         bool isValid = global::SuffixTree.Genomics.SequenceExtensions.IsValidRna(sequence.AsSpan());
         return new IsValidRnaResult(isValid, sequence.Length);
     }
+
+    /// <summary>
+    /// Calculate k-mer entropy of a sequence.
+    /// </summary>
+    [McpServerTool(Name = "kmer_entropy")]
+    [Description("Calculate Shannon entropy based on k-mer frequencies. Higher values indicate more complexity.")]
+    public static KmerEntropyResult KmerEntropy(
+        [Description("The sequence to analyze")] string sequence,
+        [Description("K-mer length (default: 2)")] int k = 2)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (k < 1)
+            throw new ArgumentException("K must be at least 1", nameof(k));
+
+        var entropy = global::SuffixTree.Genomics.KmerAnalyzer.CalculateKmerEntropy(sequence, k);
+        return new KmerEntropyResult(entropy, k);
+    }
 }
 
 /// <summary>
@@ -523,3 +542,8 @@ public record IsValidDnaResult(bool IsValid, int Length);
 /// Result of is_valid_rna operation.
 /// </summary>
 public record IsValidRnaResult(bool IsValid, int Length);
+
+/// <summary>
+/// Result of kmer_entropy operation.
+/// </summary>
+public record KmerEntropyResult(double Entropy, int K);
