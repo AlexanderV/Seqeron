@@ -394,6 +394,21 @@ public static class SequenceTools
         bool isValid = global::SuffixTree.Genomics.SequenceExtensions.IsValidDna(sequence.AsSpan());
         return new IsValidDnaResult(isValid, sequence.Length);
     }
+
+    /// <summary>
+    /// Quick validation if a sequence contains only valid RNA characters.
+    /// </summary>
+    [McpServerTool(Name = "is_valid_rna")]
+    [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.")]
+    public static IsValidRnaResult IsValidRna(
+        [Description("The sequence to validate")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        bool isValid = global::SuffixTree.Genomics.SequenceExtensions.IsValidRna(sequence.AsSpan());
+        return new IsValidRnaResult(isValid, sequence.Length);
+    }
 }
 
 /// <summary>
@@ -503,3 +518,8 @@ public record ComplementBaseResult(string Complement, string Original);
 /// Result of is_valid_dna operation.
 /// </summary>
 public record IsValidDnaResult(bool IsValid, int Length);
+
+/// <summary>
+/// Result of is_valid_rna operation.
+/// </summary>
+public record IsValidRnaResult(bool IsValid, int Length);

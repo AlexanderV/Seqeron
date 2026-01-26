@@ -33,3 +33,4 @@
 | gc_content | Sequence | SequenceExtensions.CalculateGcContentFast | SequenceExtensions.cs#L41 | 2/2 | ✓ | ✓ | Ready |
 | complement_base | Sequence | SequenceExtensions.GetComplementBase | SequenceExtensions.cs#L83 | 2/2 | ✓ | ✓ | Ready |
 | is_valid_dna | Sequence | SequenceExtensions.IsValidDna | SequenceExtensions.cs#L210 | 2/2 | ✓ | ✓ | Ready |
+| is_valid_rna | Sequence | SequenceExtensions.IsValidRna | SequenceExtensions.cs#L225 | 2/2 | ✓ | ✓ | Ready |
