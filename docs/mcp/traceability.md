@@ -29,3 +29,4 @@
 | melting_temperature | Sequence | SequenceStatistics.CalculateMeltingTemperature | SequenceStatistics.cs#L441 | 2/2 | ✓ | ✓ | Ready |
 | shannon_entropy | Sequence | SequenceStatistics.CalculateShannonEntropy | SequenceStatistics.cs#L580 | 2/2 | ✓ | ✓ | Ready |
 | linguistic_complexity | Sequence | SequenceStatistics.CalculateLinguisticComplexity | SequenceStatistics.cs#L615 | 2/2 | ✓ | ✓ | Ready |
+| summarize_sequence | Sequence | SequenceStatistics.SummarizeNucleotideSequence | SequenceStatistics.cs#L775 | 2/2 | ✓ | ✓ | Ready |

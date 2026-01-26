@@ -326,6 +326,27 @@ public static class SequenceTools
         var complexity = global::SuffixTree.Genomics.SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
         return new LinguisticComplexityResult(complexity);
     }
+
+    /// <summary>
+    /// Generate comprehensive summary statistics for a DNA/RNA sequence.
+    /// </summary>
+    [McpServerTool(Name = "summarize_sequence")]
+    [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.")]
+    public static SummarizeSequenceResult SummarizeSequence(
+        [Description("The DNA or RNA sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var summary = global::SuffixTree.Genomics.SequenceStatistics.SummarizeNucleotideSequence(sequence);
+        return new SummarizeSequenceResult(
+            summary.Length,
+            summary.GcContent,
+            summary.Entropy,
+            summary.Complexity,
+            summary.MeltingTemperature,
+            summary.Composition.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+    }
 }
 
 /// <summary>
@@ -409,3 +430,14 @@ public record ShannonEntropyResult(double Entropy);
 /// Result of linguistic_complexity operation.
 /// </summary>
 public record LinguisticComplexityResult(double Complexity);
+
+/// <summary>
+/// Result of summarize_sequence operation.
+/// </summary>
+public record SummarizeSequenceResult(
+    int Length,
+    double GcContent,
+    double Entropy,
+    double Complexity,
+    double MeltingTemperature,
+    Dictionary<string, int> Composition);

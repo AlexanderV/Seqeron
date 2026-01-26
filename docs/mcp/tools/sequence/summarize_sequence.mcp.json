@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "summarize_sequence",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
+  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L775",
+  "description": "Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA or RNA sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "length": { "type": "integer", "description": "Sequence length" },
+      "gcContent": { "type": "number", "description": "GC content percentage" },
+      "entropy": { "type": "number", "description": "Shannon entropy" },
+      "complexity": { "type": "number", "description": "Linguistic complexity" },
+      "meltingTemperature": { "type": "number", "description": "Melting temperature (°C)" },
+      "composition": { "type": "object", "description": "Nucleotide counts" }
+    },
+    "required": ["length", "gcContent", "entropy", "complexity", "meltingTemperature", "composition"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "DNA sequence summary",
+      "input": { "sequence": "ATGCGATCGATCG" },
+      "output": {
+        "length": 13,
+        "gcContent": 46.15,
+        "entropy": 1.98,
+        "complexity": 0.85,
+        "meltingTemperature": 38,
+        "composition": { "A": 3, "T": 3, "G": 4, "C": 3, "U": 0, "N": 0 }
+      }
+    }
+  ]
+}
