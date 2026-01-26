@@ -379,6 +379,21 @@ public static class SequenceTools
         char complement = global::SuffixTree.Genomics.SequenceExtensions.GetComplementBase(input);
         return new ComplementBaseResult(complement.ToString(), input.ToString());
     }
+
+    /// <summary>
+    /// Quick validation if a sequence contains only valid DNA characters.
+    /// </summary>
+    [McpServerTool(Name = "is_valid_dna")]
+    [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.")]
+    public static IsValidDnaResult IsValidDna(
+        [Description("The sequence to validate")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        bool isValid = global::SuffixTree.Genomics.SequenceExtensions.IsValidDna(sequence.AsSpan());
+        return new IsValidDnaResult(isValid, sequence.Length);
+    }
 }
 
 /// <summary>
@@ -483,3 +498,8 @@ public record GcContentResult(double GcContent, int GcCount, int TotalCount);
 /// Result of complement_base operation.
 /// </summary>
 public record ComplementBaseResult(string Complement, string Original);
+
+/// <summary>
+/// Result of is_valid_dna operation.
+/// </summary>
+public record IsValidDnaResult(bool IsValid, int Length);

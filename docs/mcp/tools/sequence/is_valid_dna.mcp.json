@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "is_valid_dna",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceExtensions.IsValidDna",
+  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L210",
+  "description": "Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to validate",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isValid": { "type": "boolean", "description": "True if all characters are valid DNA" },
+      "length": { "type": "integer", "description": "Sequence length" }
+    },
+    "required": ["isValid", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Valid DNA",
+      "input": { "sequence": "ATGCGATCG" },
+      "output": { "isValid": true, "length": 9 }
+    },
+    {
+      "name": "Invalid DNA (contains U)",
+      "input": { "sequence": "AUGC" },
+      "output": { "isValid": false, "length": 4 }
+    }
+  ]
+}
