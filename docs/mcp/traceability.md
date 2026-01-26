@@ -31,3 +31,4 @@
 | linguistic_complexity | Sequence | SequenceStatistics.CalculateLinguisticComplexity | SequenceStatistics.cs#L615 | 2/2 | ✓ | ✓ | Ready |
 | summarize_sequence | Sequence | SequenceStatistics.SummarizeNucleotideSequence | SequenceStatistics.cs#L775 | 2/2 | ✓ | ✓ | Ready |
 | gc_content | Sequence | SequenceExtensions.CalculateGcContentFast | SequenceExtensions.cs#L41 | 2/2 | ✓ | ✓ | Ready |
+| complement_base | Sequence | SequenceExtensions.GetComplementBase | SequenceExtensions.cs#L83 | 2/2 | ✓ | ✓ | Ready |

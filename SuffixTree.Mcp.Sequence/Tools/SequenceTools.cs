@@ -363,6 +363,22 @@ public static class SequenceTools
         int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
         return new GcContentResult(gcContent, gcCount, sequence.Length);
     }
+
+    /// <summary>
+    /// Get the complement of a single nucleotide base.
+    /// </summary>
+    [McpServerTool(Name = "complement_base")]
+    [Description("Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).")]
+    public static ComplementBaseResult ComplementBase(
+        [Description("The nucleotide base (A, T, G, C, or U)")] string nucleotide)
+    {
+        if (string.IsNullOrEmpty(nucleotide) || nucleotide.Length != 1)
+            throw new ArgumentException("Must provide exactly one nucleotide character", nameof(nucleotide));
+
+        char input = nucleotide[0];
+        char complement = global::SuffixTree.Genomics.SequenceExtensions.GetComplementBase(input);
+        return new ComplementBaseResult(complement.ToString(), input.ToString());
+    }
 }
 
 /// <summary>
@@ -462,3 +478,8 @@ public record SummarizeSequenceResult(
 /// Result of gc_content operation.
 /// </summary>
 public record GcContentResult(double GcContent, int GcCount, int TotalCount);
+
+/// <summary>
+/// Result of complement_base operation.
+/// </summary>
+public record ComplementBaseResult(string Complement, string Original);

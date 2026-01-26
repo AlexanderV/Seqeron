@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complement_base",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceExtensions.GetComplementBase",
+  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L83",
+  "description": "Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "nucleotide": {
+        "type": "string",
+        "description": "The nucleotide base (A, T, G, C, or U)",
+        "minLength": 1,
+        "maxLength": 1
+      }
+    },
+    "required": ["nucleotide"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "complement": { "type": "string", "description": "The complementary base" },
+      "original": { "type": "string", "description": "The input base" }
+    },
+    "required": ["complement", "original"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Must provide exactly one nucleotide character" }
+  ],
+  "examples": [
+    {
+      "name": "DNA A→T",
+      "input": { "nucleotide": "A" },
+      "output": { "complement": "T", "original": "A" }
+    },
+    {
+      "name": "RNA U→A",
+      "input": { "nucleotide": "U" },
+      "output": { "complement": "A", "original": "U" }
+    }
+  ]
+}
