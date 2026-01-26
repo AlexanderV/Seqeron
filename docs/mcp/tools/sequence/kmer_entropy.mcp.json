@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_entropy",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.CalculateKmerEntropy",
+  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L243",
+  "description": "Calculate Shannon entropy based on k-mer frequencies. Higher values indicate more complexity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to analyze",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (default: 2)",
+        "default": 2,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entropy": { "type": "number", "description": "K-mer entropy (bits)" },
+      "k": { "type": "integer", "description": "K-mer length used" }
+    },
+    "required": ["entropy", "k"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "K must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Dinucleotide entropy",
+      "input": { "sequence": "ATGCATGCAT", "k": 2 },
+      "output": { "entropy": 3.17, "k": 2 }
+    },
+    {
+      "name": "Low complexity",
+      "input": { "sequence": "AAAAAAAAAA", "k": 2 },
+      "output": { "entropy": 0, "k": 2 }
+    }
+  ]
+}
