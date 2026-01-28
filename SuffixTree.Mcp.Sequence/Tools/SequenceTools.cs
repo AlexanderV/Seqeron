@@ -430,6 +430,25 @@ public static class SequenceTools
     }
 
     /// <summary>
+    /// Calculate linguistic complexity using SequenceComplexity class.
+    /// </summary>
+    [McpServerTool(Name = "complexity_linguistic")]
+    [Description("Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.")]
+    public static ComplexityLinguisticResult ComplexityLinguistic(
+        [Description("The DNA sequence to analyze")] string sequence,
+        [Description("Maximum word length to consider (default: 10)")] int maxWordLength = 10)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (maxWordLength < 1)
+            throw new ArgumentException("Max word length must be at least 1", nameof(maxWordLength));
+
+        var complexity = global::SuffixTree.Genomics.SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+        return new ComplexityLinguisticResult(complexity, maxWordLength);
+    }
+
+    /// <summary>
     /// Calculate DUST score for low-complexity filtering.
     /// </summary>
     [McpServerTool(Name = "complexity_dust_score")]
@@ -774,6 +793,11 @@ public record IsValidRnaResult(bool IsValid, int Length);
 /// Result of kmer_entropy operation.
 /// </summary>
 public record KmerEntropyResult(double Entropy, int K);
+
+/// <summary>
+/// Result of complexity_linguistic operation.
+/// </summary>
+public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
 
 /// <summary>
 /// Result of complexity_dust_score operation.

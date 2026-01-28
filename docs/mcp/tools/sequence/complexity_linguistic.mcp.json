@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_linguistic",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateLinguisticComplexity",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L22",
+  "description": "Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to analyze",
+        "minLength": 1
+      },
+      "maxWordLength": {
+        "type": "integer",
+        "description": "Maximum word length to consider (default: 10)",
+        "default": 10,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "complexity": { "type": "number", "description": "Linguistic complexity (0 to 1)" },
+      "maxWordLength": { "type": "integer", "description": "Max word length used" }
+    },
+    "required": ["complexity", "maxWordLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Max word length must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Complex sequence",
+      "input": { "sequence": "ATGCGATCGATCG", "maxWordLength": 10 },
+      "output": { "complexity": 0.85, "maxWordLength": 10 }
+    },
+    {
+      "name": "Low complexity sequence",
+      "input": { "sequence": "AAAAAAAAAA", "maxWordLength": 10 },
+      "output": { "complexity": 0.12, "maxWordLength": 10 }
+    }
+  ]
+}
