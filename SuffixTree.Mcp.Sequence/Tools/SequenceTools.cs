@@ -486,6 +486,74 @@ public static class SequenceTools
         var ratio = global::SuffixTree.Genomics.SequenceComplexity.EstimateCompressionRatio(sequence);
         return new ComplexityCompressionRatioResult(ratio);
     }
+
+    /// <summary>
+    /// Count k-mer frequencies in a sequence.
+    /// </summary>
+    [McpServerTool(Name = "kmer_count")]
+    [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.")]
+    public static KmerCountResult KmerCount(
+        [Description("The sequence to analyze")] string sequence,
+        [Description("K-mer length (default: 3)")] int k = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (k < 1)
+            throw new ArgumentException("K must be at least 1", nameof(k));
+
+        var counts = global::SuffixTree.Genomics.KmerAnalyzer.CountKmers(sequence, k);
+        return new KmerCountResult(counts, k, counts.Count, counts.Values.Sum());
+    }
+
+    /// <summary>
+    /// Calculate k-mer distance between two sequences.
+    /// </summary>
+    [McpServerTool(Name = "kmer_distance")]
+    [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.")]
+    public static KmerDistanceResult KmerDistance(
+        [Description("First sequence")] string sequence1,
+        [Description("Second sequence")] string sequence2,
+        [Description("K-mer length (default: 3)")] int k = 3)
+    {
+        if (string.IsNullOrEmpty(sequence1))
+            throw new ArgumentException("Sequence1 cannot be null or empty", nameof(sequence1));
+
+        if (string.IsNullOrEmpty(sequence2))
+            throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
+
+        if (k < 1)
+            throw new ArgumentException("K must be at least 1", nameof(k));
+
+        var distance = global::SuffixTree.Genomics.KmerAnalyzer.KmerDistance(sequence1, sequence2, k);
+        return new KmerDistanceResult(distance, k);
+    }
+
+    /// <summary>
+    /// Analyze k-mer composition of a sequence.
+    /// </summary>
+    [McpServerTool(Name = "kmer_analyze")]
+    [Description("Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.")]
+    public static KmerAnalyzeResult KmerAnalyze(
+        [Description("The sequence to analyze")] string sequence,
+        [Description("K-mer length (default: 3)")] int k = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (k < 1)
+            throw new ArgumentException("K must be at least 1", nameof(k));
+
+        var stats = global::SuffixTree.Genomics.KmerAnalyzer.AnalyzeKmers(sequence, k);
+        return new KmerAnalyzeResult(
+            stats.TotalKmers,
+            stats.UniqueKmers,
+            stats.MaxCount,
+            stats.MinCount,
+            stats.AverageCount,
+            stats.Entropy,
+            k);
+    }
 }
 
 /// <summary>
@@ -620,3 +688,25 @@ public record ComplexityMaskLowResult(string MaskedSequence, int OriginalLength,
 /// Result of complexity_compression_ratio operation.
 /// </summary>
 public record ComplexityCompressionRatioResult(double CompressionRatio);
+
+/// <summary>
+/// Result of kmer_count operation.
+/// </summary>
+public record KmerCountResult(Dictionary<string, int> Counts, int K, int UniqueKmers, int TotalKmers);
+
+/// <summary>
+/// Result of kmer_distance operation.
+/// </summary>
+public record KmerDistanceResult(double Distance, int K);
+
+/// <summary>
+/// Result of kmer_analyze operation.
+/// </summary>
+public record KmerAnalyzeResult(
+    int TotalKmers,
+    int UniqueKmers,
+    int MaxCount,
+    int MinCount,
+    double AverageCount,
+    double Entropy,
+    int K);

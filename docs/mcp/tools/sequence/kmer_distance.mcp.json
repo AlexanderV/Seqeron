@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_distance",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.KmerDistance",
+  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L165",
+  "description": "Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence1": {
+        "type": "string",
+        "description": "First sequence",
+        "minLength": 1
+      },
+      "sequence2": {
+        "type": "string",
+        "description": "Second sequence",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (default: 3)",
+        "default": 3,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence1", "sequence2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "distance": { "type": "number", "description": "K-mer distance (0 = identical)" },
+      "k": { "type": "integer", "description": "K-mer length used" }
+    },
+    "required": ["distance", "k"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "K must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Identical sequences",
+      "input": { "sequence1": "ATGCATGC", "sequence2": "ATGCATGC", "k": 3 },
+      "output": { "distance": 0, "k": 3 }
+    },
+    {
+      "name": "Different sequences",
+      "input": { "sequence1": "ATGCATGC", "sequence2": "CCCCCCCC", "k": 3 },
+      "output": { "distance": 0.87, "k": 3 }
+    }
+  ]
+}

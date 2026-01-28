@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_count",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.CountKmers",
+  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L20",
+  "description": "Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to analyze",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (default: 3)",
+        "default": 3,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "counts": { "type": "object", "description": "Dictionary of k-mer to count" },
+      "k": { "type": "integer", "description": "K-mer length used" },
+      "uniqueKmers": { "type": "integer", "description": "Number of unique k-mers" },
+      "totalKmers": { "type": "integer", "description": "Total k-mer count" }
+    },
+    "required": ["counts", "k", "uniqueKmers", "totalKmers"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "K must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Count 3-mers",
+      "input": { "sequence": "ATGCATGC", "k": 3 },
+      "output": { "counts": { "ATG": 2, "TGC": 2, "GCA": 1, "CAT": 1 }, "k": 3, "uniqueKmers": 4, "totalKmers": 6 }
+    }
+  ]
+}

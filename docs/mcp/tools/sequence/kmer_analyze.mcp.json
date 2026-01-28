@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "kmer_analyze",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "KmerAnalyzer.AnalyzeKmers",
+  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L363",
+  "description": "Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to analyze",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer length (default: 3)",
+        "default": 3,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalKmers": { "type": "integer", "description": "Total number of k-mers" },
+      "uniqueKmers": { "type": "integer", "description": "Number of unique k-mers" },
+      "maxCount": { "type": "integer", "description": "Maximum k-mer frequency" },
+      "minCount": { "type": "integer", "description": "Minimum k-mer frequency" },
+      "averageCount": { "type": "number", "description": "Average k-mer frequency" },
+      "entropy": { "type": "number", "description": "K-mer entropy (bits)" },
+      "k": { "type": "integer", "description": "K-mer length used" }
+    },
+    "required": ["totalKmers", "uniqueKmers", "maxCount", "minCount", "averageCount", "entropy", "k"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "K must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Analyze DNA sequence",
+      "input": { "sequence": "ATGCATGCATGC", "k": 3 },
+      "output": { "totalKmers": 10, "uniqueKmers": 4, "maxCount": 3, "minCount": 2, "averageCount": 2.5, "entropy": 1.97, "k": 3 }
+    }
+  ]
+}
