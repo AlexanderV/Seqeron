@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_compression_ratio",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.EstimateCompressionRatio",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L391",
+  "description": "Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "compressionRatio": { "type": "number", "description": "Estimated compression ratio (0 to 1)" }
+    },
+    "required": ["compressionRatio"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Complex sequence",
+      "input": { "sequence": "ATGCGATCGATCG" },
+      "output": { "compressionRatio": 0.85 }
+    },
+    {
+      "name": "Repetitive sequence",
+      "input": { "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+      "output": { "compressionRatio": 0.15 }
+    }
+  ]
+}

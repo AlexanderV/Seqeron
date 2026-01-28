@@ -428,6 +428,64 @@ public static class SequenceTools
         var entropy = global::SuffixTree.Genomics.KmerAnalyzer.CalculateKmerEntropy(sequence, k);
         return new KmerEntropyResult(entropy, k);
     }
+
+    /// <summary>
+    /// Calculate DUST score for low-complexity filtering.
+    /// </summary>
+    [McpServerTool(Name = "complexity_dust_score")]
+    [Description("Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.")]
+    public static ComplexityDustScoreResult ComplexityDustScore(
+        [Description("The DNA sequence to analyze")] string sequence,
+        [Description("Word size for triplet counting (default: 3)")] int wordSize = 3)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (wordSize < 1)
+            throw new ArgumentException("Word size must be at least 1", nameof(wordSize));
+
+        var dustScore = global::SuffixTree.Genomics.SequenceComplexity.CalculateDustScore(sequence, wordSize);
+        return new ComplexityDustScoreResult(dustScore, wordSize);
+    }
+
+    /// <summary>
+    /// Mask low-complexity regions using DUST algorithm.
+    /// </summary>
+    [McpServerTool(Name = "complexity_mask_low")]
+    [Description("Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.")]
+    public static ComplexityMaskLowResult ComplexityMaskLow(
+        [Description("The DNA sequence to mask")] string sequence,
+        [Description("Window size for analysis (default: 64)")] int windowSize = 64,
+        [Description("DUST threshold above which to mask (default: 2.0)")] double threshold = 2.0,
+        [Description("Character to use for masking (default: 'N')")] char maskChar = 'N')
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (windowSize < 1)
+            throw new ArgumentException("Window size must be at least 1", nameof(windowSize));
+
+        if (!global::SuffixTree.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+
+        var masked = global::SuffixTree.Genomics.SequenceComplexity.MaskLowComplexity(dna!, windowSize, threshold, maskChar);
+        return new ComplexityMaskLowResult(masked, sequence.Length, maskChar);
+    }
+
+    /// <summary>
+    /// Estimate sequence complexity using compression ratio.
+    /// </summary>
+    [McpServerTool(Name = "complexity_compression_ratio")]
+    [Description("Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.")]
+    public static ComplexityCompressionRatioResult ComplexityCompressionRatio(
+        [Description("The sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var ratio = global::SuffixTree.Genomics.SequenceComplexity.EstimateCompressionRatio(sequence);
+        return new ComplexityCompressionRatioResult(ratio);
+    }
 }
 
 /// <summary>
@@ -547,3 +605,18 @@ public record IsValidRnaResult(bool IsValid, int Length);
 /// Result of kmer_entropy operation.
 /// </summary>
 public record KmerEntropyResult(double Entropy, int K);
+
+/// <summary>
+/// Result of complexity_dust_score operation.
+/// </summary>
+public record ComplexityDustScoreResult(double DustScore, int WordSize);
+
+/// <summary>
+/// Result of complexity_mask_low operation.
+/// </summary>
+public record ComplexityMaskLowResult(string MaskedSequence, int OriginalLength, char MaskChar);
+
+/// <summary>
+/// Result of complexity_compression_ratio operation.
+/// </summary>
+public record ComplexityCompressionRatioResult(double CompressionRatio);

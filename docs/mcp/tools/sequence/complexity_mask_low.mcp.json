@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_mask_low",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.MaskLowComplexity",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L346",
+  "description": "Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to mask",
+        "minLength": 1
+      },
+      "windowSize": {
+        "type": "integer",
+        "description": "Window size for analysis (default: 64)",
+        "default": 64,
+        "minimum": 1
+      },
+      "threshold": {
+        "type": "number",
+        "description": "DUST threshold above which to mask (default: 2.0)",
+        "default": 2.0
+      },
+      "maskChar": {
+        "type": "string",
+        "description": "Character to use for masking (default: 'N')",
+        "default": "N",
+        "maxLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "maskedSequence": { "type": "string", "description": "Sequence with low-complexity regions masked" },
+      "originalLength": { "type": "integer", "description": "Original sequence length" },
+      "maskChar": { "type": "string", "description": "Character used for masking" }
+    },
+    "required": ["maskedSequence", "originalLength", "maskChar"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Window size must be at least 1" },
+    { "code": 2001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Mask low-complexity regions",
+      "input": { "sequence": "ATGCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATGC", "windowSize": 64, "threshold": 2.0, "maskChar": "N" },
+      "output": { "maskedSequence": "ATGCNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNATGC", "originalLength": 68, "maskChar": "N" }
+    }
+  ]
+}

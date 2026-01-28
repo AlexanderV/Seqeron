@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_dust_score",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateDustScore",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L296",
+  "description": "Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to analyze",
+        "minLength": 1
+      },
+      "wordSize": {
+        "type": "integer",
+        "description": "Word size for triplet counting (default: 3)",
+        "default": 3,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "dustScore": { "type": "number", "description": "DUST score (higher = lower complexity)" },
+      "wordSize": { "type": "integer", "description": "Word size used" }
+    },
+    "required": ["dustScore", "wordSize"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Word size must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Complex sequence",
+      "input": { "sequence": "ATGCGATCGATCG", "wordSize": 3 },
+      "output": { "dustScore": 0.45, "wordSize": 3 }
+    },
+    {
+      "name": "Low complexity sequence",
+      "input": { "sequence": "AAAAAAAAAAAA", "wordSize": 3 },
+      "output": { "dustScore": 4.5, "wordSize": 3 }
+    }
+  ]
+}
