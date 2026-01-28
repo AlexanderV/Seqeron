@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "iupac_match",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "IupacDnaSequence.CodesMatch",
+  "docRef": "SuffixTree.Genomics/ISequence.cs#L273",
+  "description": "Check if two IUPAC codes can represent the same nucleotide base.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "code1": { "type": "string", "description": "First IUPAC code", "maxLength": 1, "minLength": 1 },
+      "code2": { "type": "string", "description": "Second IUPAC code", "maxLength": 1, "minLength": 1 }
+    },
+    "required": ["code1", "code2"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": { "type": "boolean", "description": "True if codes can represent same base" },
+      "code1": { "type": "string", "description": "First code" },
+      "code2": { "type": "string", "description": "Second code" }
+    },
+    "required": ["matches", "code1", "code2"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Code must be a single IUPAC character" }
+  ],
+  "examples": [
+    { "name": "R matches A", "input": { "code1": "R", "code2": "A" }, "output": { "matches": true, "code1": "R", "code2": "A" } },
+    { "name": "R does not match Y", "input": { "code1": "R", "code2": "Y" }, "output": { "matches": false, "code1": "R", "code2": "Y" } }
+  ]
+}

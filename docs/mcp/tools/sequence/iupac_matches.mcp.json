@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "iupac_matches",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "IupacHelper.MatchesIupac",
+  "docRef": "SuffixTree.Genomics/IupacHelper.cs#L14",
+  "description": "Check if a specific nucleotide matches an IUPAC ambiguity code.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "nucleotide": { "type": "string", "description": "The nucleotide to check (A, C, G, T)", "maxLength": 1, "minLength": 1 },
+      "iupacCode": { "type": "string", "description": "The IUPAC code to match against", "maxLength": 1, "minLength": 1 }
+    },
+    "required": ["nucleotide", "iupacCode"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "matches": { "type": "boolean", "description": "True if nucleotide matches the IUPAC code" },
+      "nucleotide": { "type": "string", "description": "Input nucleotide" },
+      "iupacCode": { "type": "string", "description": "IUPAC code checked" }
+    },
+    "required": ["matches", "nucleotide", "iupacCode"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Must be a single character" }
+  ],
+  "examples": [
+    { "name": "A matches R", "input": { "nucleotide": "A", "iupacCode": "R" }, "output": { "matches": true, "nucleotide": "A", "iupacCode": "R" } },
+    { "name": "C does not match R", "input": { "nucleotide": "C", "iupacCode": "R" }, "output": { "matches": false, "nucleotide": "C", "iupacCode": "R" } }
+  ]
+}

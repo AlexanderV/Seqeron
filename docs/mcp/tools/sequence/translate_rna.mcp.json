@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "translate_rna",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "Translator.Translate(RnaSequence)",
+  "docRef": "SuffixTree.Genomics/Translator.cs#L37",
+  "description": "Translate an RNA sequence to protein using the standard genetic code.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "The RNA sequence to translate", "minLength": 1 },
+      "frame": { "type": "integer", "description": "Reading frame (0, 1, or 2)", "default": 0, "minimum": 0, "maximum": 2 },
+      "toFirstStop": { "type": "boolean", "description": "Stop at first stop codon", "default": false }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "protein": { "type": "string", "description": "Translated protein sequence" },
+      "frame": { "type": "integer", "description": "Reading frame used" },
+      "rnaLength": { "type": "integer", "description": "Original RNA length" }
+    },
+    "required": ["protein", "frame", "rnaLength"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Frame must be 0, 1, or 2" },
+    { "code": 2001, "message": "Invalid RNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Translate RNA to protein",
+      "input": { "sequence": "AUGCGA", "frame": 0, "toFirstStop": false },
+      "output": { "protein": "MR", "frame": 0, "rnaLength": 6 }
+    }
+  ]
+}

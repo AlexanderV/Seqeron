@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "iupac_code",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "IupacDnaSequence.GetIupacCode",
+  "docRef": "SuffixTree.Genomics/ISequence.cs#L228",
+  "description": "Get the IUPAC ambiguity code that represents a set of nucleotide bases.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "bases": {
+        "type": "string",
+        "description": "Nucleotide bases to encode (e.g., 'AG' for purine R)",
+        "minLength": 1
+      }
+    },
+    "required": ["bases"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "code": { "type": "string", "description": "IUPAC ambiguity code" },
+      "inputBases": { "type": "string", "description": "Input bases" }
+    },
+    "required": ["code", "inputBases"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Bases cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Purine code",
+      "input": { "bases": "AG" },
+      "output": { "code": "R", "inputBases": "AG" }
+    },
+    {
+      "name": "Pyrimidine code",
+      "input": { "bases": "CT" },
+      "output": { "code": "Y", "inputBases": "CT" }
+    }
+  ]
+}

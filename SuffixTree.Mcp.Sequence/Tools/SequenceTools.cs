@@ -554,6 +554,107 @@ public static class SequenceTools
             stats.Entropy,
             k);
     }
+
+    /// <summary>
+    /// Get IUPAC ambiguity code for a set of bases.
+    /// </summary>
+    [McpServerTool(Name = "iupac_code")]
+    [Description("Get the IUPAC ambiguity code that represents a set of nucleotide bases.")]
+    public static IupacCodeResult IupacCode(
+        [Description("Nucleotide bases to encode (e.g., 'AG' for purine R)")] string bases)
+    {
+        if (string.IsNullOrEmpty(bases))
+            throw new ArgumentException("Bases cannot be null or empty", nameof(bases));
+
+        var code = global::SuffixTree.Genomics.IupacDnaSequence.GetIupacCode(bases.ToUpperInvariant());
+        return new IupacCodeResult(code.ToString(), bases.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Check if two IUPAC codes can match the same base.
+    /// </summary>
+    [McpServerTool(Name = "iupac_match")]
+    [Description("Check if two IUPAC codes can represent the same nucleotide base.")]
+    public static IupacMatchResult IupacMatch(
+        [Description("First IUPAC code")] string code1,
+        [Description("Second IUPAC code")] string code2)
+    {
+        if (string.IsNullOrEmpty(code1) || code1.Length != 1)
+            throw new ArgumentException("Code1 must be a single IUPAC character", nameof(code1));
+
+        if (string.IsNullOrEmpty(code2) || code2.Length != 1)
+            throw new ArgumentException("Code2 must be a single IUPAC character", nameof(code2));
+
+        var matches = global::SuffixTree.Genomics.IupacDnaSequence.CodesMatch(code1[0], code2[0]);
+        return new IupacMatchResult(matches, code1.ToUpperInvariant(), code2.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Check if a nucleotide matches an IUPAC ambiguity code.
+    /// </summary>
+    [McpServerTool(Name = "iupac_matches")]
+    [Description("Check if a specific nucleotide matches an IUPAC ambiguity code.")]
+    public static IupacMatchesResult IupacMatches(
+        [Description("The nucleotide to check (A, C, G, T)")] string nucleotide,
+        [Description("The IUPAC code to match against")] string iupacCode)
+    {
+        if (string.IsNullOrEmpty(nucleotide) || nucleotide.Length != 1)
+            throw new ArgumentException("Nucleotide must be a single character (A, C, G, T)", nameof(nucleotide));
+
+        if (string.IsNullOrEmpty(iupacCode) || iupacCode.Length != 1)
+            throw new ArgumentException("IUPAC code must be a single character", nameof(iupacCode));
+
+        var matches = global::SuffixTree.Genomics.IupacHelper.MatchesIupac(
+            char.ToUpperInvariant(nucleotide[0]),
+            char.ToUpperInvariant(iupacCode[0]));
+        return new IupacMatchesResult(matches, nucleotide.ToUpperInvariant(), iupacCode.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Translate DNA sequence to protein.
+    /// </summary>
+    [McpServerTool(Name = "translate_dna")]
+    [Description("Translate a DNA sequence to protein using the standard genetic code.")]
+    public static TranslateDnaResult TranslateDna(
+        [Description("The DNA sequence to translate")] string sequence,
+        [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
+        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (frame < 0 || frame > 2)
+            throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
+
+        if (!global::SuffixTree.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+
+        var protein = global::SuffixTree.Genomics.Translator.Translate(dna!, null, frame, toFirstStop);
+        return new TranslateDnaResult(protein.Sequence, frame, sequence.Length);
+    }
+
+    /// <summary>
+    /// Translate RNA sequence to protein.
+    /// </summary>
+    [McpServerTool(Name = "translate_rna")]
+    [Description("Translate an RNA sequence to protein using the standard genetic code.")]
+    public static TranslateRnaResult TranslateRna(
+        [Description("The RNA sequence to translate")] string sequence,
+        [Description("Reading frame (0, 1, or 2, default: 0)")] int frame = 0,
+        [Description("Stop at first stop codon (default: false)")] bool toFirstStop = false)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (frame < 0 || frame > 2)
+            throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
+
+        if (!global::SuffixTree.Genomics.RnaSequence.TryCreate(sequence, out var rna))
+            throw new ArgumentException("Invalid RNA sequence", nameof(sequence));
+
+        var protein = global::SuffixTree.Genomics.Translator.Translate(rna!, null, frame, toFirstStop);
+        return new TranslateRnaResult(protein.Sequence, frame, sequence.Length);
+    }
 }
 
 /// <summary>
@@ -710,3 +811,28 @@ public record KmerAnalyzeResult(
     double AverageCount,
     double Entropy,
     int K);
+
+/// <summary>
+/// Result of iupac_code operation.
+/// </summary>
+public record IupacCodeResult(string Code, string InputBases);
+
+/// <summary>
+/// Result of iupac_match operation.
+/// </summary>
+public record IupacMatchResult(bool Matches, string Code1, string Code2);
+
+/// <summary>
+/// Result of iupac_matches operation.
+/// </summary>
+public record IupacMatchesResult(bool Matches, string Nucleotide, string IupacCode);
+
+/// <summary>
+/// Result of translate_dna operation.
+/// </summary>
+public record TranslateDnaResult(string Protein, int Frame, int DnaLength);
+
+/// <summary>
+/// Result of translate_rna operation.
+/// </summary>
+public record TranslateRnaResult(string Protein, int Frame, int RnaLength);
