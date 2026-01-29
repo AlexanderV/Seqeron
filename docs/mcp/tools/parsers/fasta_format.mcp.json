@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fasta_format",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastaParser.ToFasta",
+  "docRef": "SuffixTree.Genomics/FastaParser.cs#L78",
+  "description": "Format sequence to FASTA string. Takes ID, sequence, and optional description.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Sequence identifier",
+        "minLength": 1
+      },
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "description": {
+        "type": ["string", "null"],
+        "description": "Optional sequence description"
+      },
+      "lineWidth": {
+        "type": "integer",
+        "description": "Line width for sequence wrapping (default: 80)",
+        "default": 80,
+        "minimum": 1
+      }
+    },
+    "required": ["id", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fasta": { "type": "string", "description": "Formatted FASTA string" }
+    },
+    "required": ["fasta"]
+  },
+  "errors": [
+    { "code": 1001, "message": "ID cannot be null or empty" },
+    { "code": 1002, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Line width must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Format with description",
+      "input": { "id": "seq1", "sequence": "ATGCATGC", "description": "Human gene" },
+      "output": { "fasta": ">seq1 Human gene\nATGCATGC" }
+    },
+    {
+      "name": "Format without description",
+      "input": { "id": "NM_001", "sequence": "GGGGCCCC" },
+      "output": { "fasta": ">NM_001\nGGGGCCCC" }
+    }
+  ]
+}
