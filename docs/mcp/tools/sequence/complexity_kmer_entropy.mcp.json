@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_kmer_entropy",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateKmerEntropy",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L128",
+  "description": "Calculate k-mer based Shannon entropy for DNA complexity analysis.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to analyze",
+        "minLength": 1
+      },
+      "k": {
+        "type": "integer",
+        "description": "K-mer size (default: 2 for dinucleotides)",
+        "default": 2,
+        "minimum": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entropy": { "type": "number", "description": "K-mer entropy (bits)" },
+      "k": { "type": "integer", "description": "K-mer size used" }
+    },
+    "required": ["entropy", "k"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "K must be at least 1" },
+    { "code": 2001, "message": "Invalid DNA sequence" }
+  ],
+  "examples": [
+    {
+      "name": "Dinucleotide entropy",
+      "input": { "sequence": "ATGCATGCAT", "k": 2 },
+      "output": { "entropy": 3.17, "k": 2 }
+    },
+    {
+      "name": "Low complexity",
+      "input": { "sequence": "AAAAAAAAAA", "k": 2 },
+      "output": { "entropy": 0, "k": 2 }
+    }
+  ]
+}

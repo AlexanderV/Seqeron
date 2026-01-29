@@ -464,6 +464,28 @@ public static class SequenceTools
     }
 
     /// <summary>
+    /// Calculate k-mer entropy using SequenceComplexity class.
+    /// </summary>
+    [McpServerTool(Name = "complexity_kmer_entropy")]
+    [Description("Calculate k-mer based Shannon entropy for DNA complexity analysis.")]
+    public static ComplexityKmerEntropyResult ComplexityKmerEntropy(
+        [Description("The DNA sequence to analyze")] string sequence,
+        [Description("K-mer size (default: 2 for dinucleotides)")] int k = 2)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        if (k < 1)
+            throw new ArgumentException("K must be at least 1", nameof(k));
+
+        if (!global::SuffixTree.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+            throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
+
+        var entropy = global::SuffixTree.Genomics.SequenceComplexity.CalculateKmerEntropy(dna!, k);
+        return new ComplexityKmerEntropyResult(entropy, k);
+    }
+
+    /// <summary>
     /// Calculate DUST score for low-complexity filtering.
     /// </summary>
     [McpServerTool(Name = "complexity_dust_score")]
@@ -818,6 +840,11 @@ public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
 /// Result of complexity_shannon operation.
 /// </summary>
 public record ComplexityShannonResult(double Entropy);
+
+/// <summary>
+/// Result of complexity_kmer_entropy operation.
+/// </summary>
+public record ComplexityKmerEntropyResult(double Entropy, int K);
 
 /// <summary>
 /// Result of complexity_dust_score operation.
