@@ -449,6 +449,21 @@ public static class SequenceTools
     }
 
     /// <summary>
+    /// Calculate Shannon entropy using SequenceComplexity class.
+    /// </summary>
+    [McpServerTool(Name = "complexity_shannon")]
+    [Description("Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.")]
+    public static ComplexityShannonResult ComplexityShannon(
+        [Description("The DNA sequence to analyze")] string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+
+        var entropy = global::SuffixTree.Genomics.SequenceComplexity.CalculateShannonEntropy(sequence);
+        return new ComplexityShannonResult(entropy);
+    }
+
+    /// <summary>
     /// Calculate DUST score for low-complexity filtering.
     /// </summary>
     [McpServerTool(Name = "complexity_dust_score")]
@@ -798,6 +813,11 @@ public record KmerEntropyResult(double Entropy, int K);
 /// Result of complexity_linguistic operation.
 /// </summary>
 public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
+
+/// <summary>
+/// Result of complexity_shannon operation.
+/// </summary>
+public record ComplexityShannonResult(double Entropy);
 
 /// <summary>
 /// Result of complexity_dust_score operation.

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "complexity_shannon",
+  "serverName": "Sequence",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "SequenceComplexity.CalculateShannonEntropy",
+  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L78",
+  "description": "Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": "string",
+        "description": "The DNA sequence to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entropy": { "type": "number", "description": "Shannon entropy (0 to 2 bits for DNA)" }
+    },
+    "required": ["entropy"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Sequence cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Complex sequence",
+      "input": { "sequence": "ATGCATGCATGC" },
+      "output": { "entropy": 2.0 }
+    },
+    {
+      "name": "Low complexity sequence",
+      "input": { "sequence": "AAAAAAAAAA" },
+      "output": { "entropy": 0 }
+    }
+  ]
+}
