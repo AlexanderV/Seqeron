@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fasta_write",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastaParser.WriteFile",
+  "docRef": "SuffixTree.Genomics/FastaParser.cs#L98",
+  "description": "Write sequence to a FASTA file. Creates or overwrites the file at specified path.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": {
+        "type": "string",
+        "description": "File path to write FASTA output",
+        "minLength": 1
+      },
+      "id": {
+        "type": "string",
+        "description": "Sequence identifier",
+        "minLength": 1
+      },
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "description": {
+        "type": ["string", "null"],
+        "description": "Optional sequence description"
+      },
+      "lineWidth": {
+        "type": "integer",
+        "description": "Line width for sequence wrapping (default: 80)",
+        "default": 80,
+        "minimum": 1
+      }
+    },
+    "required": ["filePath", "id", "sequence"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": { "type": "string", "description": "Path where file was written" },
+      "entriesWritten": { "type": "integer", "description": "Number of sequences written" },
+      "totalBases": { "type": "integer", "description": "Total number of bases written" }
+    },
+    "required": ["filePath", "entriesWritten", "totalBases"]
+  },
+  "errors": [
+    { "code": 1001, "message": "File path cannot be null or empty" },
+    { "code": 1002, "message": "ID cannot be null or empty" },
+    { "code": 1003, "message": "Sequence cannot be null or empty" },
+    { "code": 1004, "message": "Line width must be at least 1" },
+    { "code": 3001, "message": "Cannot write to file (I/O error)" }
+  ],
+  "examples": [
+    {
+      "name": "Write sequence to file",
+      "input": { "filePath": "/data/output.fasta", "id": "seq1", "sequence": "ATGCATGC", "description": "Human gene" },
+      "output": { "filePath": "/data/output.fasta", "entriesWritten": 1, "totalBases": 8 }
+    }
+  ]
+}
