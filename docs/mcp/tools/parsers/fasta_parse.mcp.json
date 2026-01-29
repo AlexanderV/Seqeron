@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fasta_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastaParser.Parse",
+  "docRef": "SuffixTree.Genomics/FastaParser.cs#L17",
+  "description": "Parse FASTA format string into sequence entries. Returns list of sequences with their IDs, descriptions, and sequences.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTA format content to parse",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": {
+        "type": "array",
+        "description": "List of parsed FASTA entries",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "description": "Sequence identifier" },
+            "description": { "type": ["string", "null"], "description": "Optional sequence description" },
+            "sequence": { "type": "string", "description": "DNA sequence" },
+            "length": { "type": "integer", "description": "Sequence length in base pairs" }
+          },
+          "required": ["id", "sequence", "length"]
+        }
+      },
+      "count": { "type": "integer", "description": "Number of entries parsed" }
+    },
+    "required": ["entries", "count"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Parse multiple sequences",
+      "input": { "content": ">seq1 Human gene\nATGCATGC\n>seq2 Mouse gene\nGGGCCC" },
+      "output": {
+        "entries": [
+          { "id": "seq1", "description": "Human gene", "sequence": "ATGCATGC", "length": 8 },
+          { "id": "seq2", "description": "Mouse gene", "sequence": "GGGCCC", "length": 6 }
+        ],
+        "count": 2
+      }
+    },
+    {
+      "name": "Parse single sequence",
+      "input": { "content": ">NM_001\nATGCGATCGATCG" },
+      "output": {
+        "entries": [
+          { "id": "NM_001", "description": null, "sequence": "ATGCGATCGATCG", "length": 13 }
+        ],
+        "count": 1
+      }
+    }
+  ]
+}
