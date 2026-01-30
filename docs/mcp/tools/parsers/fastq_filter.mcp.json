@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_filter",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.FilterByQuality",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L228",
+  "description": "Filter FASTQ reads by minimum average quality score. Returns reads meeting the quality threshold.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to filter",
+        "minLength": 1
+      },
+      "minQuality": {
+        "type": "number",
+        "description": "Minimum average quality score threshold (e.g., 20 or 30)",
+        "minimum": 0
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content", "minQuality"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": {
+        "type": "array",
+        "description": "List of filtered FASTQ records",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "description": "Sequence identifier" },
+            "description": { "type": ["string", "null"], "description": "Optional sequence description" },
+            "sequence": { "type": "string", "description": "DNA sequence" },
+            "qualityString": { "type": "string", "description": "Raw quality string" },
+            "qualityScores": {
+              "type": "array",
+              "description": "Decoded Phred quality scores",
+              "items": { "type": "integer" }
+            },
+            "length": { "type": "integer", "description": "Sequence length in base pairs" }
+          },
+          "required": ["id", "sequence", "qualityString", "qualityScores", "length"]
+        }
+      },
+      "passedCount": { "type": "integer", "description": "Number of reads that passed the filter" },
+      "totalCount": { "type": "integer", "description": "Total number of input reads" },
+      "passedPercentage": { "type": "number", "description": "Percentage of reads that passed" }
+    },
+    "required": ["entries", "passedCount", "totalCount", "passedPercentage"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Minimum quality must be non-negative" },
+    { "code": 1003, "message": "Invalid encoding. Use 'phred33', 'phred64', or 'auto'" }
+  ],
+  "examples": [
+    {
+      "name": "Filter by Q30 threshold",
+      "input": { "content": "@high_qual\nATGC\n+\nIIII\n@low_qual\nATGC\n+\n!!!!", "minQuality": 30, "encoding": "phred33" },
+      "output": {
+        "entries": [
+          { "id": "high_qual", "description": null, "sequence": "ATGC", "qualityString": "IIII", "qualityScores": [40,40,40,40], "length": 4 }
+        ],
+        "passedCount": 1,
+        "totalCount": 2,
+        "passedPercentage": 50.0
+      }
+    },
+    {
+      "name": "All reads pass filter",
+      "input": { "content": "@read1\nACGT\n+\nIIII\n@read2\nACGT\n+\nHHHH", "minQuality": 30 },
+      "output": {
+        "entries": [
+          { "id": "read1", "description": null, "sequence": "ACGT", "qualityString": "IIII", "qualityScores": [40,40,40,40], "length": 4 },
+          { "id": "read2", "description": null, "sequence": "ACGT", "qualityString": "HHHH", "qualityScores": [39,39,39,39], "length": 4 }
+        ],
+        "passedCount": 2,
+        "totalCount": 2,
+        "passedPercentage": 100.0
+      }
+    }
+  ]
+}

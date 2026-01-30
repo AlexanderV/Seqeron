@@ -142,6 +142,45 @@ public static class ParsersTools
             stats.Q30Percentage,
             stats.GcContent);
     }
+
+    [McpServerTool(Name = "fastq_filter")]
+    [Description("Filter FASTQ reads by minimum average quality score. Returns reads meeting the quality threshold.")]
+    public static FastqFilterResult FastqFilter(
+        [Description("FASTQ format content to filter")] string content,
+        [Description("Minimum average quality score threshold (e.g., 20 or 30)")] double minQuality,
+        [Description("Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+        if (minQuality < 0)
+            throw new ArgumentException("Minimum quality must be non-negative", nameof(minQuality));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        var filtered = FastqParser.FilterByQuality(records, minQuality).ToList();
+
+        var results = filtered.Select(r => new FastqRecordResult(
+            r.Id,
+            r.Description,
+            r.Sequence,
+            r.QualityString,
+            r.QualityScores.ToList(),
+            r.Sequence.Length
+        )).ToList();
+
+        return new FastqFilterResult(
+            results,
+            results.Count,
+            records.Count,
+            records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
+    }
 }
 
 // ========================
@@ -164,3 +203,8 @@ public record FastqStatisticsResult(
     double Q20Percentage,
     double Q30Percentage,
     double GcContent);
+public record FastqFilterResult(
+    List<FastqRecordResult> Entries,
+    int PassedCount,
+    int TotalCount,
+    double PassedPercentage);
