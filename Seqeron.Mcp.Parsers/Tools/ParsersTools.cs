@@ -298,6 +298,70 @@ public static class ParsersTools
             records.Count,
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
+
+    [McpServerTool(Name = "bed_merge")]
+    [Description("Merge overlapping BED records into single intervals. Adjacent or overlapping features on the same chromosome are combined.")]
+    public static BedMergeResult BedMerge(
+        [Description("BED format content to merge")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = BedParser.Parse(content).ToList();
+        var merged = BedParser.MergeOverlapping(records).ToList();
+
+        var results = merged.Select(r => new BedRecordResult(
+            r.Chrom,
+            r.ChromStart,
+            r.ChromEnd,
+            r.Length,
+            r.Name,
+            r.Score,
+            r.Strand?.ToString(),
+            r.ThickStart,
+            r.ThickEnd,
+            r.ItemRgb,
+            r.BlockCount,
+            r.BlockSizes?.ToList(),
+            r.BlockStarts?.ToList()
+        )).ToList();
+
+        return new BedMergeResult(results, results.Count, records.Count);
+    }
+
+    [McpServerTool(Name = "bed_intersect")]
+    [Description("Find intersecting regions between two BED datasets. Returns overlapping portions of features.")]
+    public static BedIntersectResult BedIntersect(
+        [Description("First BED format content (features to intersect)")] string contentA,
+        [Description("Second BED format content (reference features)")] string contentB)
+    {
+        if (string.IsNullOrEmpty(contentA))
+            throw new ArgumentException("Content A cannot be null or empty", nameof(contentA));
+        if (string.IsNullOrEmpty(contentB))
+            throw new ArgumentException("Content B cannot be null or empty", nameof(contentB));
+
+        var recordsA = BedParser.Parse(contentA).ToList();
+        var recordsB = BedParser.Parse(contentB).ToList();
+        var intersected = BedParser.Intersect(recordsA, recordsB).ToList();
+
+        var results = intersected.Select(r => new BedRecordResult(
+            r.Chrom,
+            r.ChromStart,
+            r.ChromEnd,
+            r.Length,
+            r.Name,
+            r.Score,
+            r.Strand?.ToString(),
+            r.ThickStart,
+            r.ThickEnd,
+            r.ItemRgb,
+            r.BlockCount,
+            r.BlockSizes?.ToList(),
+            r.BlockStarts?.ToList()
+        )).ToList();
+
+        return new BedIntersectResult(results, results.Count, recordsA.Count, recordsB.Count);
+    }
 }
 
 // ========================
@@ -345,3 +409,5 @@ public record BedFilterResult(
     int PassedCount,
     int TotalCount,
     double PassedPercentage);
+public record BedMergeResult(List<BedRecordResult> Records, int MergedCount, int OriginalCount);
+public record BedIntersectResult(List<BedRecordResult> Records, int IntersectionCount, int CountA, int CountB);
