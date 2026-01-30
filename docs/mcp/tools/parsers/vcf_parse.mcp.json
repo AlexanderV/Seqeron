@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.Parse",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L116",
+  "description": "Parse VCF (Variant Call Format) content into variant records. Returns chromosome, position, reference/alternate alleles, quality, and filter status.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "VCF format content to parse",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "items": { "$ref": "#/definitions/VcfRecord" }
+      },
+      "count": { "type": "integer" }
+    },
+    "required": ["records", "count"]
+  },
+  "definitions": {
+    "VcfRecord": {
+      "type": "object",
+      "properties": {
+        "chrom": { "type": "string" },
+        "pos": { "type": "integer" },
+        "id": { "type": "string" },
+        "ref": { "type": "string" },
+        "alt": { "type": "array", "items": { "type": "string" } },
+        "qual": { "type": ["number", "null"] },
+        "filter": { "type": "array", "items": { "type": "string" } },
+        "info": { "type": "object" },
+        "variantType": { "type": "string" }
+      },
+      "required": ["chrom", "pos", "ref", "alt", "variantType"]
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Parse VCF variants",
+      "input": { "content": "##fileformat=VCFv4.3\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchr1\t100\trs1\tA\tG\t30\tPASS\tDP=10" },
+      "output": {
+        "records": [{ "chrom": "chr1", "pos": 100, "id": "rs1", "ref": "A", "alt": ["G"], "qual": 30.0, "filter": ["PASS"], "info": { "DP": "10" }, "variantType": "SNP" }],
+        "count": 1
+      }
+    }
+  ]
+}

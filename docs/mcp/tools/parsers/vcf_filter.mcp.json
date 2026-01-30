@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_filter",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.Filter*",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L468",
+  "description": "Filter VCF variants by type, quality, chromosome, or PASS status.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "VCF format content to filter",
+        "minLength": 1
+      },
+      "variantType": {
+        "type": "string",
+        "enum": ["snp", "indel", "insertion", "deletion", "complex"],
+        "description": "Filter by variant type"
+      },
+      "chrom": {
+        "type": "string",
+        "description": "Filter by chromosome name"
+      },
+      "minQuality": {
+        "type": "number",
+        "description": "Minimum quality score"
+      },
+      "passOnly": {
+        "type": "boolean",
+        "default": false,
+        "description": "Only include PASS variants"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": { "type": "array", "items": { "$ref": "#/definitions/VcfRecord" } },
+      "passedCount": { "type": "integer" },
+      "totalCount": { "type": "integer" },
+      "passedPercentage": { "type": "number" }
+    },
+    "required": ["records", "passedCount", "totalCount", "passedPercentage"]
+  },
+  "definitions": {
+    "VcfRecord": {
+      "type": "object",
+      "properties": {
+        "chrom": { "type": "string" },
+        "pos": { "type": "integer" },
+        "ref": { "type": "string" },
+        "alt": { "type": "array", "items": { "type": "string" } },
+        "variantType": { "type": "string" }
+      }
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Invalid variant type" }
+  ],
+  "examples": [
+    {
+      "name": "Filter SNPs only",
+      "input": { "content": "...", "variantType": "snp" },
+      "output": { "records": [], "passedCount": 0, "totalCount": 0, "passedPercentage": 0 }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_statistics",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.CalculateStatistics",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L631",
+  "description": "Calculate statistics for VCF variants. Returns counts by variant type, chromosome distribution, and quality metrics.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "VCF format content to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalVariants": { "type": "integer" },
+      "snpCount": { "type": "integer" },
+      "indelCount": { "type": "integer" },
+      "complexCount": { "type": "integer" },
+      "passingCount": { "type": "integer" },
+      "chromosomeCounts": { "type": "object", "additionalProperties": { "type": "integer" } },
+      "meanQuality": { "type": ["number", "null"] }
+    },
+    "required": ["totalVariants", "snpCount", "indelCount", "complexCount", "passingCount", "chromosomeCounts"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Calculate variant statistics",
+      "input": { "content": "##fileformat=VCFv4.3\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchr1\t100\t.\tA\tG\t30\tPASS\t." },
+      "output": {
+        "totalVariants": 1,
+        "snpCount": 1,
+        "indelCount": 0,
+        "complexCount": 0,
+        "passingCount": 1,
+        "chromosomeCounts": { "chr1": 1 },
+        "meanQuality": 30.0
+      }
+    }
+  ]
+}
