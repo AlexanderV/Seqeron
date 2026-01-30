@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bed_intersect",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "BedParser.Intersect",
+  "docRef": "Seqeron.Genomics/BedParser.cs#L319",
+  "description": "Find intersecting regions between two BED datasets. Returns overlapping portions of features.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contentA": {
+        "type": "string",
+        "description": "First BED format content (features to intersect)",
+        "minLength": 1
+      },
+      "contentB": {
+        "type": "string",
+        "description": "Second BED format content (reference features)",
+        "minLength": 1
+      }
+    },
+    "required": ["contentA", "contentB"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of intersection BED records",
+        "items": { "$ref": "#/definitions/BedRecord" }
+      },
+      "intersectionCount": { "type": "integer", "description": "Number of intersections found" },
+      "countA": { "type": "integer", "description": "Number of records in set A" },
+      "countB": { "type": "integer", "description": "Number of records in set B" }
+    },
+    "required": ["records", "intersectionCount", "countA", "countB"]
+  },
+  "definitions": {
+    "BedRecord": {
+      "type": "object",
+      "properties": {
+        "chrom": { "type": "string" },
+        "chromStart": { "type": "integer" },
+        "chromEnd": { "type": "integer" },
+        "length": { "type": "integer" }
+      },
+      "required": ["chrom", "chromStart", "chromEnd", "length"]
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content A cannot be null or empty" },
+    { "code": 1002, "message": "Content B cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Find overlapping regions",
+      "input": { "contentA": "chr1\t100\t200", "contentB": "chr1\t150\t250" },
+      "output": {
+        "records": [{ "chrom": "chr1", "chromStart": 150, "chromEnd": 200, "length": 50 }],
+        "intersectionCount": 1,
+        "countA": 1,
+        "countB": 1
+      }
+    },
+    {
+      "name": "No overlap",
+      "input": { "contentA": "chr1\t100\t200", "contentB": "chr1\t300\t400" },
+      "output": {
+        "records": [],
+        "intersectionCount": 0,
+        "countA": 1,
+        "countB": 1
+      }
+    }
+  ]
+}

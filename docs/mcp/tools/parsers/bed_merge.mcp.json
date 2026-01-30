@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bed_merge",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "BedParser.MergeOverlapping",
+  "docRef": "Seqeron.Genomics/BedParser.cs#L284",
+  "description": "Merge overlapping BED records into single intervals. Adjacent or overlapping features on the same chromosome are combined.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "BED format content to merge",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of merged BED records",
+        "items": { "$ref": "#/definitions/BedRecord" }
+      },
+      "mergedCount": { "type": "integer", "description": "Number of records after merging" },
+      "originalCount": { "type": "integer", "description": "Number of records before merging" }
+    },
+    "required": ["records", "mergedCount", "originalCount"]
+  },
+  "definitions": {
+    "BedRecord": {
+      "type": "object",
+      "properties": {
+        "chrom": { "type": "string" },
+        "chromStart": { "type": "integer" },
+        "chromEnd": { "type": "integer" },
+        "length": { "type": "integer" }
+      },
+      "required": ["chrom", "chromStart", "chromEnd", "length"]
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Merge overlapping intervals",
+      "input": { "content": "chr1\t100\t200\nchr1\t150\t250\nchr1\t400\t500" },
+      "output": {
+        "records": [
+          { "chrom": "chr1", "chromStart": 100, "chromEnd": 250, "length": 150 },
+          { "chrom": "chr1", "chromStart": 400, "chromEnd": 500, "length": 100 }
+        ],
+        "mergedCount": 2,
+        "originalCount": 3
+      }
+    }
+  ]
+}
