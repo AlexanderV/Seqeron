@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bed_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "BedParser.Parse",
+  "docRef": "Seqeron.Genomics/BedParser.cs#L102",
+  "description": "Parse BED format content into genomic region records. Supports BED3, BED6, and BED12 formats.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "BED format content to parse",
+        "minLength": 1
+      },
+      "format": {
+        "type": "string",
+        "description": "BED format: 'bed3', 'bed6', 'bed12', or 'auto' (default)",
+        "enum": ["bed3", "bed6", "bed12", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of parsed BED records",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chrom": { "type": "string", "description": "Chromosome name" },
+            "chromStart": { "type": "integer", "description": "Start position (0-based)" },
+            "chromEnd": { "type": "integer", "description": "End position (exclusive)" },
+            "length": { "type": "integer", "description": "Feature length" },
+            "name": { "type": ["string", "null"], "description": "Feature name" },
+            "score": { "type": ["integer", "null"], "description": "Score 0-1000" },
+            "strand": { "type": ["string", "null"], "description": "Strand + or -" },
+            "thickStart": { "type": ["integer", "null"], "description": "Thick drawing start" },
+            "thickEnd": { "type": ["integer", "null"], "description": "Thick drawing end" },
+            "itemRgb": { "type": ["string", "null"], "description": "RGB color" },
+            "blockCount": { "type": ["integer", "null"], "description": "Number of blocks" },
+            "blockSizes": { "type": ["array", "null"], "items": { "type": "integer" }, "description": "Block sizes" },
+            "blockStarts": { "type": ["array", "null"], "items": { "type": "integer" }, "description": "Block start positions" }
+          },
+          "required": ["chrom", "chromStart", "chromEnd", "length"]
+        }
+      },
+      "count": { "type": "integer", "description": "Number of records parsed" }
+    },
+    "required": ["records", "count"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Invalid format. Use 'bed3', 'bed6', 'bed12', or 'auto'" }
+  ],
+  "examples": [
+    {
+      "name": "Parse BED3 format",
+      "input": { "content": "chr1\t100\t200\nchr1\t300\t500" },
+      "output": {
+        "records": [
+          { "chrom": "chr1", "chromStart": 100, "chromEnd": 200, "length": 100 },
+          { "chrom": "chr1", "chromStart": 300, "chromEnd": 500, "length": 200 }
+        ],
+        "count": 2
+      }
+    },
+    {
+      "name": "Parse BED6 with gene names",
+      "input": { "content": "chr1\t1000\t5000\tGENE1\t900\t+", "format": "bed6" },
+      "output": {
+        "records": [
+          { "chrom": "chr1", "chromStart": 1000, "chromEnd": 5000, "length": 4000, "name": "GENE1", "score": 900, "strand": "+" }
+        ],
+        "count": 1
+      }
+    }
+  ]
+}
