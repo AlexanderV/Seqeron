@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_statistics",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.CalculateStatistics",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L344",
+  "description": "Calculate quality statistics for FASTQ data. Returns read counts, quality metrics, and GC content.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to analyze",
+        "minLength": 1
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalReads": { "type": "integer", "description": "Total number of reads" },
+      "totalBases": { "type": "integer", "description": "Total number of bases" },
+      "meanReadLength": { "type": "number", "description": "Average read length" },
+      "meanQuality": { "type": "number", "description": "Mean Phred quality score" },
+      "minReadLength": { "type": "integer", "description": "Minimum read length" },
+      "maxReadLength": { "type": "integer", "description": "Maximum read length" },
+      "q20Percentage": { "type": "number", "description": "Percentage of bases with Q >= 20" },
+      "q30Percentage": { "type": "number", "description": "Percentage of bases with Q >= 30" },
+      "gcContent": { "type": "number", "description": "GC content as fraction (0.0-1.0)" }
+    },
+    "required": ["totalReads", "totalBases", "meanReadLength", "meanQuality", "minReadLength", "maxReadLength", "q20Percentage", "q30Percentage", "gcContent"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Invalid encoding. Use 'phred33', 'phred64', or 'auto'" }
+  ],
+  "examples": [
+    {
+      "name": "Basic quality statistics",
+      "input": { "content": "@read1\nATGCATGC\n+\nIIIIIIII\n@read2\nGGGCCC\n+\nHHHHHH" },
+      "output": {
+        "totalReads": 2,
+        "totalBases": 14,
+        "meanReadLength": 7.0,
+        "meanQuality": 39.57,
+        "minReadLength": 6,
+        "maxReadLength": 8,
+        "q20Percentage": 100.0,
+        "q30Percentage": 100.0,
+        "gcContent": 0.5
+      }
+    },
+    {
+      "name": "Low quality data with Phred+33",
+      "input": { "content": "@SRR001\nACGTACGT\n+\n!!!!!!!!", "encoding": "phred33" },
+      "output": {
+        "totalReads": 1,
+        "totalBases": 8,
+        "meanReadLength": 8.0,
+        "meanQuality": 0.0,
+        "minReadLength": 8,
+        "maxReadLength": 8,
+        "q20Percentage": 0.0,
+        "q30Percentage": 0.0,
+        "gcContent": 0.5
+      }
+    }
+  ]
+}

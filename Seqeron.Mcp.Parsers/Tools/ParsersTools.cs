@@ -110,6 +110,38 @@ public static class ParsersTools
 
         return new FastqParseResult(results, results.Count);
     }
+
+    [McpServerTool(Name = "fastq_statistics")]
+    [Description("Calculate quality statistics for FASTQ data. Returns read counts, quality metrics, and GC content.")]
+    public static FastqStatisticsResult FastqStatistics(
+        [Description("FASTQ format content to analyze")] string content,
+        [Description("Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        var stats = FastqParser.CalculateStatistics(records);
+
+        return new FastqStatisticsResult(
+            stats.TotalReads,
+            stats.TotalBases,
+            stats.MeanReadLength,
+            stats.MeanQuality,
+            stats.MinReadLength,
+            stats.MaxReadLength,
+            stats.Q20Percentage,
+            stats.Q30Percentage,
+            stats.GcContent);
+    }
 }
 
 // ========================
@@ -122,3 +154,13 @@ public record FastaFormatResult(string Fasta);
 public record FastaWriteResult(string FilePath, int EntriesWritten, int TotalBases);
 public record FastqRecordResult(string Id, string? Description, string Sequence, string QualityString, List<int> QualityScores, int Length);
 public record FastqParseResult(List<FastqRecordResult> Entries, int Count);
+public record FastqStatisticsResult(
+    int TotalReads,
+    long TotalBases,
+    double MeanReadLength,
+    double MeanQuality,
+    int MinReadLength,
+    int MaxReadLength,
+    double Q20Percentage,
+    double Q30Percentage,
+    double GcContent);
