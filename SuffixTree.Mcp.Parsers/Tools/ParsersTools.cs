@@ -76,6 +76,40 @@ public static class ParsersTools
 
         return new FastaWriteResult(filePath, 1, sequence.Length);
     }
+
+    // ========================
+    // FASTQ Tools
+    // ========================
+
+    [McpServerTool(Name = "fastq_parse")]
+    [Description("Parse FASTQ format string into sequence entries with quality scores. Supports Phred+33 and Phred+64 encodings.")]
+    public static FastqParseResult FastqParse(
+        [Description("FASTQ format content to parse")] string content,
+        [Description("Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        var results = records.Select(r => new FastqRecordResult(
+            r.Id,
+            r.Description,
+            r.Sequence,
+            r.QualityString,
+            r.QualityScores.ToList(),
+            r.Sequence.Length
+        )).ToList();
+
+        return new FastqParseResult(results, results.Count);
+    }
 }
 
 // ========================
