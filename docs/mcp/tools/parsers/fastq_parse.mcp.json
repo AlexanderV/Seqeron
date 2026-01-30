@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.Parse",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L21",
+  "description": "Parse FASTQ format string into sequence entries with quality scores. Supports Phred+33 and Phred+64 encodings.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to parse",
+        "minLength": 1
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33' (Sanger/Illumina 1.8+), 'phred64' (Illumina 1.3-1.7), or 'auto' (default)",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": {
+        "type": "array",
+        "description": "List of parsed FASTQ records",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "description": "Sequence identifier" },
+            "description": { "type": ["string", "null"], "description": "Optional sequence description" },
+            "sequence": { "type": "string", "description": "DNA sequence" },
+            "qualityString": { "type": "string", "description": "Raw quality string" },
+            "qualityScores": {
+              "type": "array",
+              "description": "Decoded Phred quality scores",
+              "items": { "type": "integer" }
+            },
+            "length": { "type": "integer", "description": "Sequence length in base pairs" }
+          },
+          "required": ["id", "sequence", "qualityString", "qualityScores", "length"]
+        }
+      },
+      "count": { "type": "integer", "description": "Number of records parsed" }
+    },
+    "required": ["entries", "count"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Invalid encoding. Use 'phred33', 'phred64', or 'auto'" }
+  ],
+  "examples": [
+    {
+      "name": "Parse FASTQ with auto encoding",
+      "input": { "content": "@read1 sample1\nATGCATGC\n+\nIIIIIIII\n@read2\nGGGCCC\n+\nHHHHHH" },
+      "output": {
+        "entries": [
+          { "id": "read1", "description": "sample1", "sequence": "ATGCATGC", "qualityString": "IIIIIIII", "qualityScores": [40,40,40,40,40,40,40,40], "length": 8 },
+          { "id": "read2", "description": null, "sequence": "GGGCCC", "qualityString": "HHHHHH", "qualityScores": [39,39,39,39,39,39], "length": 6 }
+        ],
+        "count": 2
+      }
+    },
+    {
+      "name": "Parse with Phred+33 encoding",
+      "input": { "content": "@SRR001\nACGT\n+\n!!!!", "encoding": "phred33" },
+      "output": {
+        "entries": [
+          { "id": "SRR001", "description": null, "sequence": "ACGT", "qualityString": "!!!!", "qualityScores": [0,0,0,0], "length": 4 }
+        ],
+        "count": 1
+      }
+    }
+  ]
+}
