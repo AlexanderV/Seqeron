@@ -18,7 +18,7 @@ Calculates Shannon entropy for a DNA sequence (bits per base). Maximum entropy f
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L78](../../../../SuffixTree.Genomics/SequenceComplexity.cs#L78)
+- Source: [SequenceComplexity.cs#L78](../../../../Seqeron.Genomics/SequenceComplexity.cs#L78)
 
 ## Input Schema
 

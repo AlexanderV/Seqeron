@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.EstimateCompressionRatio",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L391",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L391",
   "description": "Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.",
   "inputSchema": {
     "type": "object",

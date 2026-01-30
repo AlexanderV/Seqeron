@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.KmerDistance",
-  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L165",
+  "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L165",
   "description": "Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.",
   "inputSchema": {
     "type": "object",

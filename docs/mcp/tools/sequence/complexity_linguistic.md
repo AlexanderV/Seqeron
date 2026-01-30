@@ -18,7 +18,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L22](../../../../SuffixTree.Genomics/SequenceComplexity.cs#L22)
+- Source: [SequenceComplexity.cs#L22](../../../../Seqeron.Genomics/SequenceComplexity.cs#L22)
 
 ## Input Schema
 

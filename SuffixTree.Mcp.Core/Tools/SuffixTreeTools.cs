@@ -162,8 +162,8 @@ public static class SuffixTreeTools
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         }
 
-        var dna = new global::SuffixTree.Genomics.DnaSequence(sequence);
-        var result = global::SuffixTree.Genomics.GenomicAnalyzer.FindLongestRepeat(dna);
+        var dna = new global::Seqeron.Genomics.DnaSequence(sequence);
+        var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestRepeat(dna);
 
         return new FindLongestRepeatResult(result.Sequence, result.Positions.ToArray(), result.Length);
     }
@@ -182,9 +182,9 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var dna1 = new global::SuffixTree.Genomics.DnaSequence(sequence1);
-        var dna2 = new global::SuffixTree.Genomics.DnaSequence(sequence2);
-        var result = global::SuffixTree.Genomics.GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
+        var dna1 = new global::Seqeron.Genomics.DnaSequence(sequence1);
+        var dna2 = new global::Seqeron.Genomics.DnaSequence(sequence2);
+        var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
 
         return new FindLongestCommonRegionResult(result.Sequence, result.PositionInFirst, result.PositionInSecond, result.Length);
     }
@@ -204,9 +204,9 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var dna1 = new global::SuffixTree.Genomics.DnaSequence(sequence1);
-        var dna2 = new global::SuffixTree.Genomics.DnaSequence(sequence2);
-        var similarity = global::SuffixTree.Genomics.GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
+        var dna1 = new global::Seqeron.Genomics.DnaSequence(sequence1);
+        var dna2 = new global::Seqeron.Genomics.DnaSequence(sequence2);
+        var similarity = global::Seqeron.Genomics.GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
 
         return new CalculateSimilarityResult(similarity);
     }
@@ -227,7 +227,7 @@ public static class SuffixTreeTools
         if (sequence1.Length != sequence2.Length)
             throw new ArgumentException("Sequences must have equal length for Hamming distance");
 
-        var distance = global::SuffixTree.Genomics.ApproximateMatcher.HammingDistance(sequence1, sequence2);
+        var distance = global::Seqeron.Genomics.ApproximateMatcher.HammingDistance(sequence1, sequence2);
         return new HammingDistanceResult(distance);
     }
 
@@ -245,7 +245,7 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var distance = global::SuffixTree.Genomics.ApproximateMatcher.EditDistance(sequence1, sequence2);
+        var distance = global::Seqeron.Genomics.ApproximateMatcher.EditDistance(sequence1, sequence2);
         return new EditDistanceResult(distance);
     }
 
@@ -266,7 +266,7 @@ public static class SuffixTreeTools
         if (maxMismatches < 0)
             throw new ArgumentException("MaxMismatches cannot be negative", nameof(maxMismatches));
 
-        var count = global::SuffixTree.Genomics.ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+        var count = global::Seqeron.Genomics.ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
         return new CountApproximateOccurrencesResult(count);
     }
 }

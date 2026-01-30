@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindLongestCommonRegion",
-  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L178",
+  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L178",
   "description": "Find the longest common region between two DNA sequences.",
   "inputSchema": {
     "type": "object",

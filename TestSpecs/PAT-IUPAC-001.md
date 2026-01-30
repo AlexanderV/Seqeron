@@ -246,7 +246,7 @@ From the IUPAC codes reference:
 
 ### Canonical Test File
 
-- **Location:** `SuffixTree.Genomics.Tests/IupacMotifMatchingTests.cs`
+- **Location:** `Seqeron.Genomics.Tests/IupacMotifMatchingTests.cs`
 - **Contains:** All MatchesIupac and FindDegenerateMotif MUST/SHOULD tests for PAT-IUPAC-001
 - **Status:** New file for comprehensive IUPAC testing
 

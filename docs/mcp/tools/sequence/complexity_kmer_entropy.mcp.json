@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateKmerEntropy",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L128",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L128",
   "description": "Calculate k-mer based Shannon entropy for DNA complexity analysis.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.CalculateGcContentFast",
-  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L41",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L41",
   "description": "Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.SummarizeNucleotideSequence",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L775",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L775",
   "description": "Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.",
   "inputSchema": {
     "type": "object",

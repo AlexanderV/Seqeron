@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ApproximateMatcher.HammingDistance",
-  "docRef": "SuffixTree.Genomics/ApproximateMatcher.cs#L163",
+  "docRef": "Seqeron.Genomics/ApproximateMatcher.cs#L163",
   "description": "Calculate Hamming distance between two sequences of equal length.",
   "inputSchema": {
     "type": "object",

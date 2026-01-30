@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.AnalyzeKmers",
-  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L363",
+  "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L363",
   "description": "Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.",
   "inputSchema": {
     "type": "object",

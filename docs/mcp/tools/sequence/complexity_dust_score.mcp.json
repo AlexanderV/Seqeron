@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateDustScore",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L296",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L296",
   "description": "Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.",
   "inputSchema": {
     "type": "object",

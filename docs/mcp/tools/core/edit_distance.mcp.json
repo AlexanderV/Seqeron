@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ApproximateMatcher.EditDistance",
-  "docRef": "SuffixTree.Genomics/ApproximateMatcher.cs#L186",
+  "docRef": "Seqeron.Genomics/ApproximateMatcher.cs#L186",
   "description": "Calculate edit distance (Levenshtein distance) between two sequences.",
   "inputSchema": {
     "type": "object",

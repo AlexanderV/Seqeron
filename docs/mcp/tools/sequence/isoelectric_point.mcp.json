@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateIsoelectricPoint",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L228",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L228",
   "description": "Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.",
   "inputSchema": {
     "type": "object",

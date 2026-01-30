@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.FindLongestRepeat",
-  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L20",
+  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L20",
   "description": "Find the longest repeated region in a DNA sequence. Returns the repeat sequence and all positions.",
   "inputSchema": {
     "type": "object",

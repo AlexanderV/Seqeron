@@ -187,7 +187,7 @@ This is a canonical bioinformatics test case for Hamming distance between DNA se
 
 ### Canonical Test File
 
-- **Location:** `SuffixTree.Genomics.Tests/ApproximateMatcher_HammingDistance_Tests.cs`
+- **Location:** `Seqeron.Genomics.Tests/ApproximateMatcher_HammingDistance_Tests.cs`
 - **Contains:** All HammingDistance and FindWithMismatches MUST/SHOULD tests for PAT-APPROX-001
 - **Status:** New file to separate Hamming-specific tests from Edit Distance tests
 
@@ -200,7 +200,7 @@ From `ApproximateMatcherTests.cs`:
 
 ### Smoke Tests (Wrapper/Span API)
 
-- **Location:** `SuffixTree.Genomics.Tests/PerformanceExtensionsTests.cs`
+- **Location:** `Seqeron.Genomics.Tests/PerformanceExtensionsTests.cs`
 - **Status:** Contains `HammingDistance_Span_ReturnsCorrectDistance` - retain as smoke test
 
 ### Actions

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "FastaParser.WriteFile",
-  "docRef": "SuffixTree.Genomics/FastaParser.cs#L98",
+  "docRef": "Seqeron.Genomics/FastaParser.cs#L98",
   "description": "Write sequence to a FASTA file. Creates or overwrites the file at specified path.",
   "inputSchema": {
     "type": "object",

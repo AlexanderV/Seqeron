@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "RnaSequence.FromDna",
-  "docRef": "SuffixTree.Genomics/RnaSequence.cs#L147",
+  "docRef": "Seqeron.Genomics/RnaSequence.cs#L147",
   "description": "Transcribe DNA to RNA by replacing T (thymine) with U (uracil).",
   "inputSchema": {
     "type": "object",

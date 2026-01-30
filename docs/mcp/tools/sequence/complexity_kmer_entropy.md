@@ -18,7 +18,7 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L128](../../../../SuffixTree.Genomics/SequenceComplexity.cs#L128)
+- Source: [SequenceComplexity.cs#L128](../../../../Seqeron.Genomics/SequenceComplexity.cs#L128)
 
 ## Input Schema
 

@@ -18,7 +18,7 @@ Calculates the GC content (percentage of G and C nucleotides) of a DNA/RNA seque
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L41](../../../../SuffixTree.Genomics/SequenceExtensions.cs#L41)
+- Source: [SequenceExtensions.cs#L41](../../../../Seqeron.Genomics/SequenceExtensions.cs#L41)
 
 ## Input Schema
 

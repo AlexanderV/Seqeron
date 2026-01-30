@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "KmerAnalyzer.CountKmers",
-  "docRef": "SuffixTree.Genomics/KmerAnalyzer.cs#L20",
+  "docRef": "Seqeron.Genomics/KmerAnalyzer.cs#L20",
   "description": "Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.",
   "inputSchema": {
     "type": "object",

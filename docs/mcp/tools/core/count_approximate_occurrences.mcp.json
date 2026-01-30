@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ApproximateMatcher.CountApproximateOccurrences",
-  "docRef": "SuffixTree.Genomics/ApproximateMatcher.cs#L283",
+  "docRef": "Seqeron.Genomics/ApproximateMatcher.cs#L283",
   "description": "Count approximate occurrences of a pattern in a sequence, allowing mismatches.",
   "inputSchema": {
     "type": "object",

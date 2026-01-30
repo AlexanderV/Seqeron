@@ -70,7 +70,7 @@
 
 ### 3.2 Server: Sequence (35 tools)
 
-- [ ] 3.2.1 Create project `SuffixTree.Mcp.Sequence`
+- [ ] 3.2.1 Create project `Seqeron.Mcp.Sequence`
 - [ ] 3.2.2 Add `Program.cs`
 - [ ] 3.2.3 Create `Tools/DnaTools.cs`
 - [ ] 3.2.4 Create `Tools/RnaTools.cs`
@@ -88,7 +88,7 @@
 
 ### 3.3 Server: Parsers (45 tools)
 
-- [ ] 3.3.1 Create project `SuffixTree.Mcp.Parsers`
+- [ ] 3.3.1 Create project `Seqeron.Mcp.Parsers`
 - [ ] 3.3.2 Add `Program.cs`
 - [ ] 3.3.3 Create `Tools/FastaTools.cs`
 - [ ] 3.3.4 Create `Tools/FastqTools.cs`

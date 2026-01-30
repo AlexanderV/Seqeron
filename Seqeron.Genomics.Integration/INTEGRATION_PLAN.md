@@ -1,8 +1,8 @@
-# SuffixTree.Genomics.Integration - Implementation Plan
+# Seqeron.Genomics.Integration - Implementation Plan
 
 ## Overview
 
-Integration library for SuffixTree.Genomics, providing connections to external bioinformatics databases, web services, and structural format parsing.
+Integration library for Seqeron.Genomics, providing connections to external bioinformatics databases, web services, and structural format parsing.
 
 **Goals:**
 - Clean Architecture with clear layer separation
@@ -55,8 +55,8 @@ Integration library for SuffixTree.Genomics, providing connections to external b
 ## Project Structure
 
 ```
-SuffixTree.Genomics.Integration/
-├── SuffixTree.Genomics.Integration.csproj
+Seqeron.Genomics.Integration/
+├── Seqeron.Genomics.Integration.csproj
 │
 ├── Abstractions/                          # Domain interfaces (no dependencies)
 │   ├── Blast/
@@ -181,8 +181,8 @@ SuffixTree.Genomics.Integration/
 ## Test Project Structure
 
 ```
-SuffixTree.Genomics.Integration.Tests/
-├── SuffixTree.Genomics.Integration.Tests.csproj
+Seqeron.Genomics.Integration.Tests/
+├── Seqeron.Genomics.Integration.Tests.csproj
 │
 ├── Unit/                                  # Pure unit tests (no I/O)
 │   ├── Domain/
@@ -259,8 +259,8 @@ SuffixTree.Genomics.Integration.Tests/
 ### 1.1 Project Setup
 
 **Tasks:**
-- [ ] Create `SuffixTree.Genomics.Integration.csproj`
-- [ ] Create `SuffixTree.Genomics.Integration.Tests.csproj`
+- [ ] Create `Seqeron.Genomics.Integration.csproj`
+- [ ] Create `Seqeron.Genomics.Integration.Tests.csproj`
 - [ ] Configure NuGet dependencies
 - [ ] Setup EditorConfig and analyzers
 
@@ -301,8 +301,8 @@ SuffixTree.Genomics.Integration.Tests/
 
 **Files:**
 ```
-SuffixTree.Genomics.Integration.csproj
-SuffixTree.Genomics.Integration.Tests.csproj
+Seqeron.Genomics.Integration.csproj
+Seqeron.Genomics.Integration.Tests.csproj
 ```
 
 **Tests (5):**

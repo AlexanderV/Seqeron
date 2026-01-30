@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "GenomicAnalyzer.CalculateSimilarity",
-  "docRef": "SuffixTree.Genomics/GenomicAnalyzer.cs#L238",
+  "docRef": "Seqeron.Genomics/GenomicAnalyzer.cs#L238",
   "description": "Calculate similarity between two DNA sequences using k-mer Jaccard index (0-1 scale).",
   "inputSchema": {
     "type": "object",

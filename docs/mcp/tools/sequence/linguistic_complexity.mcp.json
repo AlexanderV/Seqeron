@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateLinguisticComplexity",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L615",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L615",
   "description": "Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.",
   "inputSchema": {
     "type": "object",

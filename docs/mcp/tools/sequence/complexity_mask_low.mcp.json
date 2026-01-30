@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.MaskLowComplexity",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L346",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L346",
   "description": "Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.",
   "inputSchema": {
     "type": "object",

@@ -18,7 +18,7 @@ Computes the k-mer distance between two sequences using Euclidean distance of k-
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L165](../../../../SuffixTree.Genomics/KmerAnalyzer.cs#L165)
+- Source: [KmerAnalyzer.cs#L165](../../../../Seqeron.Genomics/KmerAnalyzer.cs#L165)
 
 ## Input Schema
 

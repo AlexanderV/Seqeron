@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateShannonEntropy",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L580",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L580",
   "description": "Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.",
   "inputSchema": {
     "type": "object",

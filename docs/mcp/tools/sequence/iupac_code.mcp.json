@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "IupacDnaSequence.GetIupacCode",
-  "docRef": "SuffixTree.Genomics/ISequence.cs#L228",
+  "docRef": "Seqeron.Genomics/ISequence.cs#L228",
   "description": "Get the IUPAC ambiguity code that represents a set of nucleotide bases.",
   "inputSchema": {
     "type": "object",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateMolecularWeight",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L159",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L159",
   "description": "Calculate the molecular weight of a protein sequence in Daltons (Da).",
   "inputSchema": {
     "type": "object",

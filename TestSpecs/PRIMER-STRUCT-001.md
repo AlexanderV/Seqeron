@@ -86,7 +86,7 @@
 
 ### Existing Tests (PrimerDesignerTests.cs)
 
-Located in `SuffixTree.Genomics.Tests/PrimerDesignerTests.cs`:
+Located in `Seqeron.Genomics.Tests/PrimerDesignerTests.cs`:
 
 | Test | Status | Action |
 |------|--------|--------|
@@ -118,5 +118,5 @@ Located in `SuffixTree.Genomics.Tests/PrimerDesignerTests.cs`:
 
 ## Test File Location
 
-- **Canonical:** `SuffixTree.Genomics.Tests/PrimerDesigner_PrimerStructure_Tests.cs`
+- **Canonical:** `Seqeron.Genomics.Tests/PrimerDesigner_PrimerStructure_Tests.cs`
 - **Smoke tests:** Remain in `PrimerDesignerTests.cs` for integration testing

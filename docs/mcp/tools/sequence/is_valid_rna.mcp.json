@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.IsValidRna",
-  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L225",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L225",
   "description": "Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.",
   "inputSchema": {
     "type": "object",

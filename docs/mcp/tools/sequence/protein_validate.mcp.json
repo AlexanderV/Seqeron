@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "ProteinSequence.TryCreate",
-  "docRef": "SuffixTree.Genomics/ProteinSequence.cs#L357",
+  "docRef": "Seqeron.Genomics/ProteinSequence.cs#L357",
   "description": "Validate a protein sequence. Returns whether the sequence contains only valid amino acids.",
   "inputSchema": {
     "type": "object",

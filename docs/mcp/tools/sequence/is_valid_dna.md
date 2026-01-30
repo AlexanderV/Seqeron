@@ -18,7 +18,7 @@ Performs a fast check if a sequence contains only valid DNA characters (A, T, G,
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L210](../../../../SuffixTree.Genomics/SequenceExtensions.cs#L210)
+- Source: [SequenceExtensions.cs#L210](../../../../Seqeron.Genomics/SequenceExtensions.cs#L210)
 
 ## Input Schema
 

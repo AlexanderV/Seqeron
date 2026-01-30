@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateShannonEntropy",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L78",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L78",
   "description": "Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.",
   "inputSchema": {
     "type": "object",

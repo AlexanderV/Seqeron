@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "Translator.Translate(RnaSequence)",
-  "docRef": "SuffixTree.Genomics/Translator.cs#L37",
+  "docRef": "Seqeron.Genomics/Translator.cs#L37",
   "description": "Translate an RNA sequence to protein using the standard genetic code.",
   "inputSchema": {
     "type": "object",

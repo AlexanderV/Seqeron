@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "IupacDnaSequence.CodesMatch",
-  "docRef": "SuffixTree.Genomics/ISequence.cs#L273",
+  "docRef": "Seqeron.Genomics/ISequence.cs#L273",
   "description": "Check if two IUPAC codes can represent the same nucleotide base.",
   "inputSchema": {
     "type": "object",

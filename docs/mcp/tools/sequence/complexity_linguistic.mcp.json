@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceComplexity.CalculateLinguisticComplexity",
-  "docRef": "SuffixTree.Genomics/SequenceComplexity.cs#L22",
+  "docRef": "Seqeron.Genomics/SequenceComplexity.cs#L22",
   "description": "Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.",
   "inputSchema": {
     "type": "object",

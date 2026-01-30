@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-23
 **Version:** 2.1 (100% Coverage)
-**Library:** SuffixTree.Genomics
+**Library:** Seqeron.Genomics
 
 ---
 

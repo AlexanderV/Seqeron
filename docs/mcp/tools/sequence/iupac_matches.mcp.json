@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "IupacHelper.MatchesIupac",
-  "docRef": "SuffixTree.Genomics/IupacHelper.cs#L14",
+  "docRef": "Seqeron.Genomics/IupacHelper.cs#L14",
   "description": "Check if a specific nucleotide matches an IUPAC ambiguity code.",
   "inputSchema": {
     "type": "object",

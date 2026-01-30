@@ -166,7 +166,7 @@ These are wrappers that delegate to `SuffixTree.FindAllOccurrences`. Minimal smo
 - **CountOccurrencesTests.cs:** Tests for CountOccurrences method (complete)
 
 ### Wrapper Smoke Tests
-- **Location:** `SuffixTree.Genomics.Tests/MotifFinderTests.cs`
+- **Location:** `Seqeron.Genomics.Tests/MotifFinderTests.cs`
 - **Status:** Contains smoke tests; adequate for wrappers
 
 ### Consolidation Actions

@@ -87,7 +87,7 @@ This TestSpec covers the Linguistic Complexity (LC) calculation for DNA sequence
 ## Audit of Existing Tests
 
 ### Current Test File
-`SuffixTree.Genomics.Tests/SequenceComplexityTests.cs`
+`Seqeron.Genomics.Tests/SequenceComplexityTests.cs`
 
 ### Coverage Analysis
 

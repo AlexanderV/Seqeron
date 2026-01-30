@@ -128,7 +128,7 @@ The `GcSkewCalculator` also provides `CalculateAtSkew()` methods.
 
 ### Current Implementation
 
-The `GcSkewCalculator` in `SuffixTree.Genomics` provides:
+The `GcSkewCalculator` in `Seqeron.Genomics` provides:
 - Core skew calculation with O(n) complexity
 - Sliding window analysis with configurable window and step sizes
 - Cumulative skew for origin/terminus detection

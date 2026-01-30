@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using SuffixTree.Genomics;
+using Seqeron.Genomics;
 
 namespace SuffixTree.Benchmarks;
 

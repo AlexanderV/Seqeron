@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "DnaSequence.GetReverseComplementString",
-  "docRef": "SuffixTree.Genomics/DnaSequence.cs#L149",
+  "docRef": "Seqeron.Genomics/DnaSequence.cs#L149",
   "description": "Get the reverse complement of a DNA sequence. A↔T, C↔G, then reversed.",
   "inputSchema": {
     "type": "object",

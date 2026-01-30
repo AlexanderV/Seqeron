@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.IsValidDna",
-  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L210",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L210",
   "description": "Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.",
   "inputSchema": {
     "type": "object",

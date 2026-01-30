@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "FastaParser.Parse",
-  "docRef": "SuffixTree.Genomics/FastaParser.cs#L17",
+  "docRef": "Seqeron.Genomics/FastaParser.cs#L17",
   "description": "Parse FASTA format string into sequence entries. Returns list of sequences with their IDs, descriptions, and sequences.",
   "inputSchema": {
     "type": "object",

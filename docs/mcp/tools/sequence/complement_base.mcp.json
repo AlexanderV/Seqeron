@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceExtensions.GetComplementBase",
-  "docRef": "SuffixTree.Genomics/SequenceExtensions.cs#L83",
+  "docRef": "Seqeron.Genomics/SequenceExtensions.cs#L83",
   "description": "Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).",
   "inputSchema": {
     "type": "object",

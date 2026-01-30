@@ -18,7 +18,7 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L391](../../../../SuffixTree.Genomics/SequenceComplexity.cs#L391)
+- Source: [SequenceComplexity.cs#L391](../../../../Seqeron.Genomics/SequenceComplexity.cs#L391)
 
 ## Input Schema
 

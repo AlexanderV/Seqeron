@@ -18,7 +18,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L296](../../../../SuffixTree.Genomics/SequenceComplexity.cs#L296)
+- Source: [SequenceComplexity.cs#L296](../../../../Seqeron.Genomics/SequenceComplexity.cs#L296)
 
 ## Input Schema
 

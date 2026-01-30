@@ -1,4 +1,4 @@
-# Полный аудит методов SuffixTree.Genomics
+# Полный аудит методов Seqeron.Genomics
 
 ## Итого: 277 public static методов
 

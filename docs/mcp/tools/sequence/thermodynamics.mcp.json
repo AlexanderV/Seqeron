@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "stability": "stable",
   "methodId": "SequenceStatistics.CalculateThermodynamics",
-  "docRef": "SuffixTree.Genomics/SequenceStatistics.cs#L381",
+  "docRef": "Seqeron.Genomics/SequenceStatistics.cs#L381",
   "description": "Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.",
   "inputSchema": {
     "type": "object",

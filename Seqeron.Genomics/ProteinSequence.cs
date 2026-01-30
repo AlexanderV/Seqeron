@@ -74,7 +74,7 @@ namespace Seqeron.Genomics
         };
 
         private readonly string _sequence;
-        private global::SuffixTree.SuffixTree? _suffixTree;
+        private SuffixTree.SuffixTree? _suffixTree;
 
         /// <summary>
         /// Creates a new protein sequence from a string.
@@ -107,7 +107,7 @@ namespace Seqeron.Genomics
         /// <summary>
         /// Gets or builds the suffix tree for this sequence.
         /// </summary>
-        public global::SuffixTree.SuffixTree SuffixTree => _suffixTree ??= global::SuffixTree.SuffixTree.Build(_sequence);
+        public SuffixTree.SuffixTree SuffixTree => _suffixTree ??= global::SuffixTree.SuffixTree.Build(_sequence);
 
         /// <summary>
         /// Gets the amino acid at the specified position.
