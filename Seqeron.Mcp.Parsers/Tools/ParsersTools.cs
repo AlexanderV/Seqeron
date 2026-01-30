@@ -362,6 +362,122 @@ public static class ParsersTools
 
         return new BedIntersectResult(results, results.Count, recordsA.Count, recordsB.Count);
     }
+
+    // ========================
+    // VCF Tools
+    // ========================
+
+    [McpServerTool(Name = "vcf_parse")]
+    [Description("Parse VCF (Variant Call Format) content into variant records. Returns chromosome, position, reference/alternate alleles, quality, and filter status.")]
+    public static VcfParseResult VcfParse(
+        [Description("VCF format content to parse")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = VcfParser.Parse(content).ToList();
+        var results = records.Select(r => new VcfRecordResult(
+            r.Chrom,
+            r.Pos,
+            r.Id,
+            r.Ref,
+            r.Alt.ToList(),
+            r.Qual,
+            r.Filter.ToList(),
+            r.Info.ToDictionary(kv => kv.Key, kv => kv.Value),
+            VcfParser.ClassifyVariant(r).ToString()
+        )).ToList();
+
+        return new VcfParseResult(results, results.Count);
+    }
+
+    [McpServerTool(Name = "vcf_statistics")]
+    [Description("Calculate statistics for VCF variants. Returns counts by variant type, chromosome distribution, and quality metrics.")]
+    public static VcfStatisticsResult VcfStatistics(
+        [Description("VCF format content to analyze")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = VcfParser.Parse(content).ToList();
+        var stats = VcfParser.CalculateStatistics(records);
+
+        return new VcfStatisticsResult(
+            stats.TotalVariants,
+            stats.SnpCount,
+            stats.IndelCount,
+            stats.ComplexCount,
+            stats.PassingCount,
+            stats.ChromosomeCounts.ToDictionary(kv => kv.Key, kv => kv.Value),
+            stats.MeanQuality);
+    }
+
+    [McpServerTool(Name = "vcf_filter")]
+    [Description("Filter VCF variants by type, quality, chromosome, or PASS status.")]
+    public static VcfFilterResult VcfFilter(
+        [Description("VCF format content to filter")] string content,
+        [Description("Filter by variant type: 'snp', 'indel', 'insertion', 'deletion', 'complex'")] string? variantType = null,
+        [Description("Filter by chromosome name")] string? chrom = null,
+        [Description("Minimum quality score")] double? minQuality = null,
+        [Description("Only include PASS variants")] bool passOnly = false)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = VcfParser.Parse(content).ToList();
+        IEnumerable<VcfParser.VcfRecord> filtered = records;
+
+        // Filter by variant type
+        if (!string.IsNullOrEmpty(variantType))
+        {
+            filtered = variantType.ToLowerInvariant() switch
+            {
+                "snp" => VcfParser.FilterSNPs(filtered),
+                "indel" => VcfParser.FilterIndels(filtered),
+                "insertion" => VcfParser.FilterByType(filtered, VcfParser.VariantType.Insertion),
+                "deletion" => VcfParser.FilterByType(filtered, VcfParser.VariantType.Deletion),
+                "complex" => VcfParser.FilterByType(filtered, VcfParser.VariantType.Complex),
+                _ => throw new ArgumentException($"Invalid variant type: {variantType}. Use 'snp', 'indel', 'insertion', 'deletion', or 'complex'", nameof(variantType))
+            };
+        }
+
+        // Filter by chromosome
+        if (!string.IsNullOrEmpty(chrom))
+        {
+            filtered = VcfParser.FilterByChrom(filtered, chrom);
+        }
+
+        // Filter by quality
+        if (minQuality.HasValue)
+        {
+            filtered = VcfParser.FilterByQuality(filtered, minQuality.Value);
+        }
+
+        // Filter PASS only
+        if (passOnly)
+        {
+            filtered = VcfParser.FilterPassing(filtered);
+        }
+
+        var filteredList = filtered.ToList();
+        var results = filteredList.Select(r => new VcfRecordResult(
+            r.Chrom,
+            r.Pos,
+            r.Id,
+            r.Ref,
+            r.Alt.ToList(),
+            r.Qual,
+            r.Filter.ToList(),
+            r.Info.ToDictionary(kv => kv.Key, kv => kv.Value),
+            VcfParser.ClassifyVariant(r).ToString()
+        )).ToList();
+
+        return new VcfFilterResult(
+            results,
+            results.Count,
+            records.Count,
+            records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
+    }
 }
 
 // ========================
@@ -411,3 +527,27 @@ public record BedFilterResult(
     double PassedPercentage);
 public record BedMergeResult(List<BedRecordResult> Records, int MergedCount, int OriginalCount);
 public record BedIntersectResult(List<BedRecordResult> Records, int IntersectionCount, int CountA, int CountB);
+public record VcfRecordResult(
+    string Chrom,
+    int Pos,
+    string Id,
+    string Ref,
+    List<string> Alt,
+    double? Qual,
+    List<string> Filter,
+    Dictionary<string, string> Info,
+    string VariantType);
+public record VcfParseResult(List<VcfRecordResult> Records, int Count);
+public record VcfStatisticsResult(
+    int TotalVariants,
+    int SnpCount,
+    int IndelCount,
+    int ComplexCount,
+    int PassingCount,
+    Dictionary<string, int> ChromosomeCounts,
+    double? MeanQuality);
+public record VcfFilterResult(
+    List<VcfRecordResult> Records,
+    int PassedCount,
+    int TotalCount,
+    double PassedPercentage);
