@@ -478,6 +478,141 @@ public static class ParsersTools
             records.Count,
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
+
+    // ========================
+    // GFF/GTF Tools
+    // ========================
+
+    [McpServerTool(Name = "gff_parse")]
+    [Description("Parse GFF3/GTF format content into feature records. Supports GFF3, GTF, and GFF2 formats for gene annotations.")]
+    public static GffParseResult GffParse(
+        [Description("GFF/GTF format content to parse")] string content,
+        [Description("Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)")] string format = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var gffFormat = format.ToLowerInvariant() switch
+        {
+            "gff3" => GffParser.GffFormat.GFF3,
+            "gtf" => GffParser.GffFormat.GTF,
+            "gff2" => GffParser.GffFormat.GFF2,
+            "auto" => GffParser.GffFormat.Auto,
+            _ => throw new ArgumentException($"Invalid format: {format}. Use 'gff3', 'gtf', 'gff2', or 'auto'", nameof(format))
+        };
+
+        var records = GffParser.Parse(content, gffFormat).ToList();
+        var results = records.Select(r => new GffRecordResult(
+            r.Seqid,
+            r.Source,
+            r.Type,
+            r.Start,
+            r.End,
+            r.End - r.Start + 1,
+            r.Score,
+            r.Strand.ToString(),
+            r.Phase,
+            r.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            GffParser.GetGeneName(r)
+        )).ToList();
+
+        return new GffParseResult(results, results.Count);
+    }
+
+    [McpServerTool(Name = "gff_statistics")]
+    [Description("Calculate statistics for GFF/GTF annotations. Returns feature type counts, sequence IDs, and gene/exon counts.")]
+    public static GffStatisticsResult GffStatistics(
+        [Description("GFF/GTF format content to analyze")] string content,
+        [Description("Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)")] string format = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var gffFormat = format.ToLowerInvariant() switch
+        {
+            "gff3" => GffParser.GffFormat.GFF3,
+            "gtf" => GffParser.GffFormat.GTF,
+            "gff2" => GffParser.GffFormat.GFF2,
+            "auto" => GffParser.GffFormat.Auto,
+            _ => throw new ArgumentException($"Invalid format: {format}. Use 'gff3', 'gtf', 'gff2', or 'auto'", nameof(format))
+        };
+
+        var records = GffParser.Parse(content, gffFormat).ToList();
+        var stats = GffParser.CalculateStatistics(records);
+
+        return new GffStatisticsResult(
+            stats.TotalFeatures,
+            stats.FeatureTypeCounts.ToDictionary(kv => kv.Key, kv => kv.Value),
+            stats.SequenceIds.ToList(),
+            stats.Sources.ToList(),
+            stats.GeneCount,
+            stats.ExonCount);
+    }
+
+    [McpServerTool(Name = "gff_filter")]
+    [Description("Filter GFF/GTF records by feature type, sequence ID, or genomic region.")]
+    public static GffFilterResult GffFilter(
+        [Description("GFF/GTF format content to filter")] string content,
+        [Description("Filter by feature type (e.g., 'gene', 'exon', 'CDS')")] string? featureType = null,
+        [Description("Filter by sequence ID (chromosome/contig name)")] string? seqid = null,
+        [Description("Filter by region start position (requires seqid and regionEnd)")] int? regionStart = null,
+        [Description("Filter by region end position (requires seqid and regionStart)")] int? regionEnd = null,
+        [Description("Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)")] string format = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var gffFormat = format.ToLowerInvariant() switch
+        {
+            "gff3" => GffParser.GffFormat.GFF3,
+            "gtf" => GffParser.GffFormat.GTF,
+            "gff2" => GffParser.GffFormat.GFF2,
+            "auto" => GffParser.GffFormat.Auto,
+            _ => throw new ArgumentException($"Invalid format: {format}. Use 'gff3', 'gtf', 'gff2', or 'auto'", nameof(format))
+        };
+
+        var records = GffParser.Parse(content, gffFormat).ToList();
+        IEnumerable<GffParser.GffRecord> filtered = records;
+
+        // Filter by feature type
+        if (!string.IsNullOrEmpty(featureType))
+        {
+            filtered = GffParser.FilterByType(filtered, featureType);
+        }
+
+        // Filter by sequence ID
+        if (!string.IsNullOrEmpty(seqid))
+        {
+            filtered = GffParser.FilterBySeqid(filtered, seqid);
+        }
+
+        // Filter by region (requires seqid and both start/end)
+        if (regionStart.HasValue && regionEnd.HasValue && !string.IsNullOrEmpty(seqid))
+        {
+            filtered = GffParser.FilterByRegion(filtered, seqid, regionStart.Value, regionEnd.Value);
+        }
+
+        var filteredList = filtered.ToList();
+        var results = filteredList.Select(r => new GffRecordResult(
+            r.Seqid,
+            r.Source,
+            r.Type,
+            r.Start,
+            r.End,
+            r.End - r.Start + 1,
+            r.Score,
+            r.Strand.ToString(),
+            r.Phase,
+            r.Attributes.ToDictionary(kv => kv.Key, kv => kv.Value),
+            GffParser.GetGeneName(r)
+        )).ToList();
+
+        return new GffFilterResult(
+            results,
+            results.Count,
+            records.Count,
+            records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
+    }
 }
 
 // ========================
@@ -548,6 +683,31 @@ public record VcfStatisticsResult(
     double? MeanQuality);
 public record VcfFilterResult(
     List<VcfRecordResult> Records,
+    int PassedCount,
+    int TotalCount,
+    double PassedPercentage);
+public record GffRecordResult(
+    string Seqid,
+    string Source,
+    string Type,
+    int Start,
+    int End,
+    int Length,
+    double? Score,
+    string Strand,
+    int? Phase,
+    Dictionary<string, string> Attributes,
+    string? GeneName);
+public record GffParseResult(List<GffRecordResult> Records, int Count);
+public record GffStatisticsResult(
+    int TotalFeatures,
+    Dictionary<string, int> FeatureTypeCounts,
+    List<string> SequenceIds,
+    List<string> Sources,
+    int GeneCount,
+    int ExonCount);
+public record GffFilterResult(
+    List<GffRecordResult> Records,
     int PassedCount,
     int TotalCount,
     double PassedPercentage);

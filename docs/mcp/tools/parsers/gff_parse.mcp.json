@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gff_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GffParser.Parse",
+  "docRef": "Seqeron.Genomics/GffParser.cs#L69",
+  "description": "Parse GFF3/GTF format content into feature records. Supports GFF3, GTF, and GFF2 formats for gene annotations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GFF/GTF format content to parse",
+        "minLength": 1
+      },
+      "format": {
+        "type": "string",
+        "enum": ["gff3", "gtf", "gff2", "auto"],
+        "default": "auto",
+        "description": "Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of GFF feature records",
+        "items": { "$ref": "#/definitions/GffRecord" }
+      },
+      "count": { "type": "integer", "description": "Number of records parsed" }
+    },
+    "required": ["records", "count"]
+  },
+  "definitions": {
+    "GffRecord": {
+      "type": "object",
+      "properties": {
+        "seqid": { "type": "string", "description": "Sequence identifier" },
+        "source": { "type": "string", "description": "Feature source" },
+        "type": { "type": "string", "description": "Feature type" },
+        "start": { "type": "integer", "description": "Start position (1-based)" },
+        "end": { "type": "integer", "description": "End position (1-based, inclusive)" },
+        "length": { "type": "integer", "description": "Feature length" },
+        "score": { "type": ["number", "null"], "description": "Feature score" },
+        "strand": { "type": "string", "description": "Strand: '+', '-', or '.'" },
+        "phase": { "type": ["integer", "null"], "description": "Reading frame phase" },
+        "attributes": { "type": "object", "additionalProperties": { "type": "string" } },
+        "geneName": { "type": ["string", "null"], "description": "Extracted gene name" }
+      },
+      "required": ["seqid", "source", "type", "start", "end", "length", "strand", "attributes"]
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Invalid format" }
+  ],
+  "examples": [
+    {
+      "name": "Parse GFF3 gene",
+      "input": { "content": "##gff-version 3\nchr1\tHAVANA\tgene\t100\t500\t.\t+\t.\tID=gene1;Name=TestGene" },
+      "output": {
+        "records": [
+          {
+            "seqid": "chr1",
+            "source": "HAVANA",
+            "type": "gene",
+            "start": 100,
+            "end": 500,
+            "length": 401,
+            "score": null,
+            "strand": "+",
+            "phase": null,
+            "attributes": { "ID": "gene1", "Name": "TestGene" },
+            "geneName": "TestGene"
+          }
+        ],
+        "count": 1
+      }
+    }
+  ]
+}
