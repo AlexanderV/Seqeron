@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "bed_filter",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "BedParser.FilterBy*",
+  "docRef": "Seqeron.Genomics/BedParser.cs#L217",
+  "description": "Filter BED records by chromosome, region, strand, length, or score. All filters are optional and can be combined.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "BED format content to filter",
+        "minLength": 1
+      },
+      "chrom": {
+        "type": "string",
+        "description": "Filter by chromosome name"
+      },
+      "regionStart": {
+        "type": "integer",
+        "description": "Region start position (requires chrom and regionEnd)"
+      },
+      "regionEnd": {
+        "type": "integer",
+        "description": "Region end position (requires chrom and regionStart)"
+      },
+      "strand": {
+        "type": "string",
+        "enum": ["+", "-"],
+        "description": "Filter by strand"
+      },
+      "minLength": {
+        "type": "integer",
+        "description": "Minimum feature length"
+      },
+      "maxLength": {
+        "type": "integer",
+        "description": "Maximum feature length"
+      },
+      "minScore": {
+        "type": "integer",
+        "description": "Minimum score"
+      },
+      "maxScore": {
+        "type": "integer",
+        "description": "Maximum score"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of filtered BED records",
+        "items": { "$ref": "#/definitions/BedRecord" }
+      },
+      "passedCount": { "type": "integer", "description": "Number of records that passed filters" },
+      "totalCount": { "type": "integer", "description": "Total number of input records" },
+      "passedPercentage": { "type": "number", "description": "Percentage of records that passed" }
+    },
+    "required": ["records", "passedCount", "totalCount", "passedPercentage"]
+  },
+  "definitions": {
+    "BedRecord": {
+      "type": "object",
+      "properties": {
+        "chrom": { "type": "string" },
+        "chromStart": { "type": "integer" },
+        "chromEnd": { "type": "integer" },
+        "length": { "type": "integer" },
+        "name": { "type": ["string", "null"] },
+        "score": { "type": ["integer", "null"] },
+        "strand": { "type": ["string", "null"] }
+      },
+      "required": ["chrom", "chromStart", "chromEnd", "length"]
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Strand must be '+' or '-'" }
+  ],
+  "examples": [
+    {
+      "name": "Filter by chromosome",
+      "input": { "content": "chr1\t100\t200\nchr2\t300\t400", "chrom": "chr1" },
+      "output": {
+        "records": [{ "chrom": "chr1", "chromStart": 100, "chromEnd": 200, "length": 100 }],
+        "passedCount": 1,
+        "totalCount": 2,
+        "passedPercentage": 50.0
+      }
+    },
+    {
+      "name": "Filter by strand",
+      "input": { "content": "chr1\t100\t200\tA\t500\t+\nchr1\t300\t400\tB\t500\t-", "strand": "+" },
+      "output": {
+        "records": [{ "chrom": "chr1", "chromStart": 100, "chromEnd": 200, "length": 100, "name": "A", "score": 500, "strand": "+" }],
+        "passedCount": 1,
+        "totalCount": 2,
+        "passedPercentage": 50.0
+      }
+    }
+  ]
+}

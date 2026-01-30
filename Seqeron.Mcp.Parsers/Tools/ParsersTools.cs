@@ -223,6 +223,81 @@ public static class ParsersTools
 
         return new BedParseResult(results, results.Count);
     }
+
+    [McpServerTool(Name = "bed_filter")]
+    [Description("Filter BED records by chromosome, region, strand, length, or score. All filters are optional and can be combined.")]
+    public static BedFilterResult BedFilter(
+        [Description("BED format content to filter")] string content,
+        [Description("Filter by chromosome name (e.g., 'chr1')")] string? chrom = null,
+        [Description("Filter by region start position (requires chrom and regionEnd)")] int? regionStart = null,
+        [Description("Filter by region end position (requires chrom and regionStart)")] int? regionEnd = null,
+        [Description("Filter by strand: '+' or '-'")] string? strand = null,
+        [Description("Filter by minimum feature length")] int? minLength = null,
+        [Description("Filter by maximum feature length")] int? maxLength = null,
+        [Description("Filter by minimum score")] int? minScore = null,
+        [Description("Filter by maximum score")] int? maxScore = null)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = BedParser.Parse(content).ToList();
+        IEnumerable<BedParser.BedRecord> filtered = records;
+
+        // Apply chromosome filter
+        if (!string.IsNullOrEmpty(chrom))
+        {
+            filtered = BedParser.FilterByChrom(filtered, chrom);
+        }
+
+        // Apply region filter (requires both start and end)
+        if (regionStart.HasValue && regionEnd.HasValue && !string.IsNullOrEmpty(chrom))
+        {
+            filtered = BedParser.FilterByRegion(filtered, chrom, regionStart.Value, regionEnd.Value);
+        }
+
+        // Apply strand filter
+        if (!string.IsNullOrEmpty(strand))
+        {
+            if (strand != "+" && strand != "-")
+                throw new ArgumentException("Strand must be '+' or '-'", nameof(strand));
+            filtered = BedParser.FilterByStrand(filtered, strand[0]);
+        }
+
+        // Apply length filter
+        if (minLength.HasValue || maxLength.HasValue)
+        {
+            filtered = BedParser.FilterByLength(filtered, minLength ?? 0, maxLength);
+        }
+
+        // Apply score filter
+        if (minScore.HasValue || maxScore.HasValue)
+        {
+            filtered = BedParser.FilterByScore(filtered, minScore ?? 0, maxScore);
+        }
+
+        var filteredList = filtered.ToList();
+        var results = filteredList.Select(r => new BedRecordResult(
+            r.Chrom,
+            r.ChromStart,
+            r.ChromEnd,
+            r.Length,
+            r.Name,
+            r.Score,
+            r.Strand?.ToString(),
+            r.ThickStart,
+            r.ThickEnd,
+            r.ItemRgb,
+            r.BlockCount,
+            r.BlockSizes?.ToList(),
+            r.BlockStarts?.ToList()
+        )).ToList();
+
+        return new BedFilterResult(
+            results,
+            results.Count,
+            records.Count,
+            records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
+    }
 }
 
 // ========================
@@ -265,3 +340,8 @@ public record BedRecordResult(
     List<int>? BlockSizes = null,
     List<int>? BlockStarts = null);
 public record BedParseResult(List<BedRecordResult> Records, int Count);
+public record BedFilterResult(
+    List<BedRecordResult> Records,
+    int PassedCount,
+    int TotalCount,
+    double PassedPercentage);
