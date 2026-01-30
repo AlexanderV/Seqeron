@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gff_statistics",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GffParser.CalculateStatistics",
+  "docRef": "Seqeron.Genomics/GffParser.cs#L377",
+  "description": "Calculate statistics for GFF/GTF annotations. Returns feature type counts, sequence IDs, and gene/exon counts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GFF/GTF format content to analyze",
+        "minLength": 1
+      },
+      "format": {
+        "type": "string",
+        "enum": ["gff3", "gtf", "gff2", "auto"],
+        "default": "auto",
+        "description": "Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "totalFeatures": { "type": "integer", "description": "Total number of features" },
+      "featureTypeCounts": {
+        "type": "object",
+        "additionalProperties": { "type": "integer" },
+        "description": "Count by feature type"
+      },
+      "sequenceIds": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of unique sequence IDs"
+      },
+      "sources": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of unique annotation sources"
+      },
+      "geneCount": { "type": "integer", "description": "Number of gene features" },
+      "exonCount": { "type": "integer", "description": "Number of exon features" }
+    },
+    "required": ["totalFeatures", "featureTypeCounts", "sequenceIds", "sources", "geneCount", "exonCount"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Get annotation statistics",
+      "input": { "content": "##gff-version 3\nchr1\tHAVANA\tgene\t100\t500\t.\t+\t.\tID=gene1\nchr1\tHAVANA\texon\t100\t200\t.\t+\t.\tID=exon1" },
+      "output": {
+        "totalFeatures": 2,
+        "featureTypeCounts": { "gene": 1, "exon": 1 },
+        "sequenceIds": ["chr1"],
+        "sources": ["HAVANA"],
+        "geneCount": 1,
+        "exonCount": 1
+      }
+    }
+  ]
+}

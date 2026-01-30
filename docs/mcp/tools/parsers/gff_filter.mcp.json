@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "gff_filter",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GffParser.Filter*",
+  "docRef": "Seqeron.Genomics/GffParser.cs#L215",
+  "description": "Filter GFF/GTF records by feature type, sequence ID, or genomic region.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GFF/GTF format content to filter",
+        "minLength": 1
+      },
+      "featureType": {
+        "type": "string",
+        "description": "Filter by feature type (e.g., 'gene', 'exon', 'CDS')"
+      },
+      "seqid": {
+        "type": "string",
+        "description": "Filter by sequence ID (chromosome/contig name)"
+      },
+      "regionStart": {
+        "type": "integer",
+        "description": "Filter by region start position (requires seqid and regionEnd)"
+      },
+      "regionEnd": {
+        "type": "integer",
+        "description": "Filter by region end position (requires seqid and regionStart)"
+      },
+      "format": {
+        "type": "string",
+        "enum": ["gff3", "gtf", "gff2", "auto"],
+        "default": "auto",
+        "description": "Format: 'gff3', 'gtf', 'gff2', or 'auto' (default)"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of filtered GFF records",
+        "items": { "$ref": "#/definitions/GffRecord" }
+      },
+      "passedCount": { "type": "integer", "description": "Number of records that passed filters" },
+      "totalCount": { "type": "integer", "description": "Total number of input records" },
+      "passedPercentage": { "type": "number", "description": "Percentage of records that passed" }
+    },
+    "required": ["records", "passedCount", "totalCount", "passedPercentage"]
+  },
+  "definitions": {
+    "GffRecord": {
+      "type": "object",
+      "properties": {
+        "seqid": { "type": "string" },
+        "source": { "type": "string" },
+        "type": { "type": "string" },
+        "start": { "type": "integer" },
+        "end": { "type": "integer" },
+        "length": { "type": "integer" },
+        "score": { "type": ["number", "null"] },
+        "strand": { "type": "string" },
+        "phase": { "type": ["integer", "null"] },
+        "attributes": { "type": "object", "additionalProperties": { "type": "string" } },
+        "geneName": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Filter genes only",
+      "input": { "content": "...", "featureType": "gene" },
+      "output": { "records": [], "passedCount": 0, "totalCount": 0, "passedPercentage": 0 }
+    },
+    {
+      "name": "Filter by chromosome",
+      "input": { "content": "...", "seqid": "chr1" },
+      "output": { "records": [], "passedCount": 0, "totalCount": 0, "passedPercentage": 0 }
+    }
+  ]
+}
