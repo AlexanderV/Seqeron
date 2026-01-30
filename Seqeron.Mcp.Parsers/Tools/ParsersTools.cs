@@ -181,6 +181,48 @@ public static class ParsersTools
             records.Count,
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
+
+    // ========================
+    // BED Tools
+    // ========================
+
+    [McpServerTool(Name = "bed_parse")]
+    [Description("Parse BED format content into genomic region records. Supports BED3, BED6, and BED12 formats.")]
+    public static BedParseResult BedParse(
+        [Description("BED format content to parse")] string content,
+        [Description("BED format: 'bed3', 'bed6', 'bed12', or 'auto' (default)")] string format = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var bedFormat = format.ToLowerInvariant() switch
+        {
+            "bed3" => BedParser.BedFormat.BED3,
+            "bed6" => BedParser.BedFormat.BED6,
+            "bed12" => BedParser.BedFormat.BED12,
+            "auto" => BedParser.BedFormat.Auto,
+            _ => throw new ArgumentException($"Invalid format: {format}. Use 'bed3', 'bed6', 'bed12', or 'auto'", nameof(format))
+        };
+
+        var records = BedParser.Parse(content, bedFormat).ToList();
+        var results = records.Select(r => new BedRecordResult(
+            r.Chrom,
+            r.ChromStart,
+            r.ChromEnd,
+            r.Length,
+            r.Name,
+            r.Score,
+            r.Strand?.ToString(),
+            r.ThickStart,
+            r.ThickEnd,
+            r.ItemRgb,
+            r.BlockCount,
+            r.BlockSizes?.ToList(),
+            r.BlockStarts?.ToList()
+        )).ToList();
+
+        return new BedParseResult(results, results.Count);
+    }
 }
 
 // ========================
@@ -208,3 +250,18 @@ public record FastqFilterResult(
     int PassedCount,
     int TotalCount,
     double PassedPercentage);
+public record BedRecordResult(
+    string Chrom,
+    int ChromStart,
+    int ChromEnd,
+    int Length,
+    string? Name = null,
+    int? Score = null,
+    string? Strand = null,
+    int? ThickStart = null,
+    int? ThickEnd = null,
+    string? ItemRgb = null,
+    int? BlockCount = null,
+    List<int>? BlockSizes = null,
+    List<int>? BlockStarts = null);
+public record BedParseResult(List<BedRecordResult> Records, int Count);
