@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genbank_statistics",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenBankParser.Statistics",
+  "docRef": "Seqeron.Genomics/GenBankParser.cs",
+  "description": "Calculate statistics for GenBank records. Returns counts of records, features, and sequence lengths.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GenBank format content to analyze",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "recordCount": { "type": "integer", "description": "Number of GenBank records" },
+      "totalFeatures": { "type": "integer", "description": "Total number of features" },
+      "totalSequenceLength": { "type": "integer", "description": "Total sequence length" },
+      "featureTypeCounts": {
+        "type": "object",
+        "additionalProperties": { "type": "integer" },
+        "description": "Count by feature type"
+      },
+      "moleculeTypes": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of molecule types"
+      },
+      "divisions": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of GenBank division codes"
+      },
+      "geneCount": { "type": "integer", "description": "Number of gene features" },
+      "cdsCount": { "type": "integer", "description": "Number of CDS features" }
+    },
+    "required": ["recordCount", "totalFeatures", "totalSequenceLength", "featureTypeCounts", "moleculeTypes", "divisions", "geneCount", "cdsCount"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Get statistics",
+      "input": { "content": "LOCUS..." },
+      "output": {
+        "recordCount": 1,
+        "totalFeatures": 3,
+        "totalSequenceLength": 100,
+        "featureTypeCounts": { "gene": 1 },
+        "moleculeTypes": ["DNA"],
+        "divisions": ["BCT"],
+        "geneCount": 1,
+        "cdsCount": 1
+      }
+    }
+  ]
+}

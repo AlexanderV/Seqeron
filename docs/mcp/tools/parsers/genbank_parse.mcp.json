@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genbank_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenBankParser.Parse",
+  "docRef": "Seqeron.Genomics/GenBankParser.cs#L88",
+  "description": "Parse GenBank flat file format into structured records. Returns locus info, definition, accession, features, and sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GenBank format content to parse",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of GenBank records",
+        "items": { "$ref": "#/definitions/GenBankRecord" }
+      },
+      "count": { "type": "integer", "description": "Number of records parsed" }
+    },
+    "required": ["records", "count"]
+  },
+  "definitions": {
+    "GenBankRecord": {
+      "type": "object",
+      "properties": {
+        "locus": { "type": "string" },
+        "sequenceLength": { "type": "integer" },
+        "moleculeType": { "type": "string" },
+        "topology": { "type": "string" },
+        "division": { "type": "string" },
+        "date": { "type": ["string", "null"] },
+        "definition": { "type": "string" },
+        "accession": { "type": "string" },
+        "version": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "organism": { "type": "string" },
+        "taxonomy": { "type": "string" },
+        "features": { "type": "array", "items": { "$ref": "#/definitions/Feature" } },
+        "actualSequenceLength": { "type": "integer" },
+        "sequence": { "type": "string" }
+      }
+    },
+    "Feature": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "start": { "type": "integer" },
+        "end": { "type": "integer" },
+        "isComplement": { "type": "boolean" },
+        "isJoin": { "type": "boolean" },
+        "rawLocation": { "type": "string" },
+        "qualifiers": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Parse GenBank record",
+      "input": { "content": "LOCUS TEST001 100 bp DNA linear BCT 01-JAN-2024\n..." },
+      "output": {
+        "records": [{ "locus": "TEST001", "sequenceLength": 100 }],
+        "count": 1
+      }
+    }
+  ]
+}

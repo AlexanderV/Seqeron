@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genbank_features",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenBankParser.GetFeatures",
+  "docRef": "Seqeron.Genomics/GenBankParser.cs#L531",
+  "description": "Extract features from GenBank records by feature type (gene, CDS, mRNA, etc.).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "GenBank format content to parse",
+        "minLength": 1
+      },
+      "featureType": {
+        "type": "string",
+        "description": "Feature type to extract (e.g., 'gene', 'CDS', 'mRNA', 'exon')"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "features": {
+        "type": "array",
+        "description": "List of extracted features",
+        "items": { "$ref": "#/definitions/Feature" }
+      },
+      "count": { "type": "integer", "description": "Number of features" },
+      "featureTypeCounts": {
+        "type": "object",
+        "additionalProperties": { "type": "integer" },
+        "description": "Count by feature type"
+      }
+    },
+    "required": ["features", "count", "featureTypeCounts"]
+  },
+  "definitions": {
+    "Feature": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "start": { "type": "integer" },
+        "end": { "type": "integer" },
+        "isComplement": { "type": "boolean" },
+        "isJoin": { "type": "boolean" },
+        "rawLocation": { "type": "string" },
+        "qualifiers": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Extract genes",
+      "input": { "content": "...", "featureType": "gene" },
+      "output": { "features": [], "count": 0, "featureTypeCounts": {} }
+    }
+  ]
+}

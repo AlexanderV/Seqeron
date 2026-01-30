@@ -613,6 +613,131 @@ public static class ParsersTools
             records.Count,
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
+
+    // ========================
+    // GenBank Tools
+    // ========================
+
+    [McpServerTool(Name = "genbank_parse")]
+    [Description("Parse GenBank flat file format into structured records. Returns locus info, definition, accession, features, and sequence.")]
+    public static GenBankParseResult GenBankParse(
+        [Description("GenBank format content to parse")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = GenBankParser.Parse(content).ToList();
+        var results = records.Select(r => new GenBankRecordResult(
+            r.Locus,
+            r.SequenceLength,
+            r.MoleculeType,
+            r.Topology,
+            r.Division,
+            r.Date?.ToString("yyyy-MM-dd"),
+            r.Definition,
+            r.Accession,
+            r.Version,
+            r.Keywords.ToList(),
+            r.Organism,
+            r.Taxonomy,
+            r.Features.Select(f => new GenBankFeatureResult(
+                f.Key,
+                f.Location.Start,
+                f.Location.End,
+                f.Location.IsComplement,
+                f.Location.IsJoin,
+                f.Location.RawLocation,
+                f.Qualifiers.ToDictionary(kv => kv.Key, kv => kv.Value)
+            )).ToList(),
+            r.Sequence.Length,
+            r.Sequence
+        )).ToList();
+
+        return new GenBankParseResult(results, results.Count);
+    }
+
+    [McpServerTool(Name = "genbank_features")]
+    [Description("Extract features from GenBank records by feature type (gene, CDS, mRNA, etc.).")]
+    public static GenBankFeaturesResult GenBankFeatures(
+        [Description("GenBank format content to parse")] string content,
+        [Description("Feature type to extract (e.g., 'gene', 'CDS', 'mRNA', 'exon')")] string? featureType = null)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = GenBankParser.Parse(content).ToList();
+        var allFeatures = new List<GenBankFeatureResult>();
+
+        foreach (var record in records)
+        {
+            IEnumerable<GenBankParser.Feature> features = record.Features;
+
+            if (!string.IsNullOrEmpty(featureType))
+            {
+                features = GenBankParser.GetFeatures(record, featureType);
+            }
+
+            allFeatures.AddRange(features.Select(f => new GenBankFeatureResult(
+                f.Key,
+                f.Location.Start,
+                f.Location.End,
+                f.Location.IsComplement,
+                f.Location.IsJoin,
+                f.Location.RawLocation,
+                f.Qualifiers.ToDictionary(kv => kv.Key, kv => kv.Value)
+            )));
+        }
+
+        // Count by feature type
+        var featureTypeCounts = allFeatures
+            .GroupBy(f => f.Key)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return new GenBankFeaturesResult(allFeatures, allFeatures.Count, featureTypeCounts);
+    }
+
+    [McpServerTool(Name = "genbank_statistics")]
+    [Description("Calculate statistics for GenBank records. Returns counts of records, features, and sequence lengths.")]
+    public static GenBankStatisticsResult GenBankStatistics(
+        [Description("GenBank format content to analyze")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = GenBankParser.Parse(content).ToList();
+
+        var featureTypeCounts = records
+            .SelectMany(r => r.Features)
+            .GroupBy(f => f.Key)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var moleculeTypes = records
+            .Select(r => r.MoleculeType)
+            .Where(m => !string.IsNullOrEmpty(m))
+            .Distinct()
+            .ToList();
+
+        var divisions = records
+            .Select(r => r.Division)
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Distinct()
+            .ToList();
+
+        var totalSequenceLength = records.Sum(r => r.SequenceLength);
+        var totalFeatures = records.Sum(r => r.Features.Count);
+        var geneCount = records.Sum(r => GenBankParser.GetGenes(r).Count());
+        var cdsCount = records.Sum(r => GenBankParser.GetCDS(r).Count());
+
+        return new GenBankStatisticsResult(
+            records.Count,
+            totalFeatures,
+            totalSequenceLength,
+            featureTypeCounts,
+            moleculeTypes,
+            divisions,
+            geneCount,
+            cdsCount);
+    }
 }
 
 // ========================
@@ -711,3 +836,41 @@ public record GffFilterResult(
     int PassedCount,
     int TotalCount,
     double PassedPercentage);
+public record GenBankFeatureResult(
+    string Key,
+    int Start,
+    int End,
+    bool IsComplement,
+    bool IsJoin,
+    string RawLocation,
+    Dictionary<string, string> Qualifiers);
+public record GenBankRecordResult(
+    string Locus,
+    int SequenceLength,
+    string MoleculeType,
+    string Topology,
+    string Division,
+    string? Date,
+    string Definition,
+    string Accession,
+    string Version,
+    List<string> Keywords,
+    string Organism,
+    string Taxonomy,
+    List<GenBankFeatureResult> Features,
+    int ActualSequenceLength,
+    string Sequence);
+public record GenBankParseResult(List<GenBankRecordResult> Records, int Count);
+public record GenBankFeaturesResult(
+    List<GenBankFeatureResult> Features,
+    int Count,
+    Dictionary<string, int> FeatureTypeCounts);
+public record GenBankStatisticsResult(
+    int RecordCount,
+    int TotalFeatures,
+    int TotalSequenceLength,
+    Dictionary<string, int> FeatureTypeCounts,
+    List<string> MoleculeTypes,
+    List<string> Divisions,
+    int GeneCount,
+    int CdsCount);
