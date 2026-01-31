@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_format",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.ToFastqString",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L474",
+  "description": "Format a single FASTQ record to string format.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Sequence identifier",
+        "minLength": 1
+      },
+      "sequence": {
+        "type": "string",
+        "description": "DNA sequence",
+        "minLength": 1
+      },
+      "qualityString": {
+        "type": "string",
+        "description": "Quality string (same length as sequence)",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional sequence description"
+      }
+    },
+    "required": ["id", "sequence", "qualityString"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "fastq": { "type": "string", "description": "Formatted FASTQ string" }
+    },
+    "required": ["fastq"]
+  },
+  "errors": [
+    { "code": 1001, "message": "ID cannot be null or empty" },
+    { "code": 1002, "message": "Sequence cannot be null or empty" },
+    { "code": 1003, "message": "Quality string cannot be null or empty" },
+    { "code": 1004, "message": "Sequence and quality string must have the same length" }
+  ],
+  "examples": [
+    {
+      "name": "Format with description",
+      "input": { "id": "read001", "sequence": "ATGCATGC", "qualityString": "IIIIIIII", "description": "Sample read" },
+      "output": { "fastq": "@read001 Sample read\nATGCATGC\n+\nIIIIIIII" }
+    },
+    {
+      "name": "Format without description",
+      "input": { "id": "read001", "sequence": "ATGC", "qualityString": "IIII" },
+      "output": { "fastq": "@read001\nATGC\n+\nIIII" }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_trim_quality",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.TrimByQuality",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L264",
+  "description": "Trim low-quality bases from both ends of FASTQ reads.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to trim",
+        "minLength": 1
+      },
+      "minQuality": {
+        "type": "integer",
+        "description": "Minimum quality score threshold (default: 20)",
+        "minimum": 0,
+        "default": 20
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33', 'phred64', or 'auto'",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": { "type": "array", "description": "List of trimmed FASTQ records" },
+      "count": { "type": "integer", "description": "Number of records" },
+      "originalBases": { "type": "integer", "description": "Total bases before trimming" },
+      "trimmedBases": { "type": "integer", "description": "Total bases after trimming" },
+      "trimmedPercentage": { "type": "number", "description": "Percentage of bases removed" }
+    },
+    "required": ["entries", "count", "originalBases", "trimmedBases", "trimmedPercentage"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Minimum quality must be non-negative" }
+  ],
+  "examples": [
+    {
+      "name": "Trim low quality ends",
+      "input": { "content": "@read1\nAAAATGCAAAA\n+\n!!!!!IIII!!", "minQuality": 20 },
+      "output": { "entries": [{"id": "read1", "sequence": "TGC"}], "count": 1, "originalBases": 11, "trimmedBases": 3, "trimmedPercentage": 72.7 }
+    }
+  ]
+}

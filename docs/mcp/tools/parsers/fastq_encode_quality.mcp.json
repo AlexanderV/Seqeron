@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_encode_quality",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.EncodeQualityScores",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L189",
+  "description": "Encode Phred quality scores to a quality string.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "scores": {
+        "type": "array",
+        "description": "List of Phred quality scores (0-41)",
+        "items": { "type": "integer", "minimum": 0, "maximum": 41 },
+        "minItems": 1
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33' (default) or 'phred64'",
+        "enum": ["phred33", "phred64"],
+        "default": "phred33"
+      }
+    },
+    "required": ["scores"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "qualityString": { "type": "string", "description": "Encoded quality string" },
+      "length": { "type": "integer", "description": "Length of quality string" }
+    },
+    "required": ["qualityString", "length"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Scores cannot be null or empty" },
+    { "code": 1002, "message": "Invalid encoding. Use 'phred33' or 'phred64'" }
+  ],
+  "examples": [
+    {
+      "name": "Encode to Phred+33",
+      "input": { "scores": [0, 10, 20, 30, 40], "encoding": "phred33" },
+      "output": { "qualityString": "!+5?I", "length": 5 }
+    },
+    {
+      "name": "Encode to Phred+64",
+      "input": { "scores": [0, 10, 20, 30, 40], "encoding": "phred64" },
+      "output": { "qualityString": "@JT^h", "length": 5 }
+    }
+  ]
+}
