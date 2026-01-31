@@ -1107,6 +1107,28 @@ public static class ParsersTools
             cdsCount);
     }
 
+    [McpServerTool(Name = "genbank_parse_location")]
+    [Description("Parse a GenBank feature location string into its components. Handles simple ranges, complement, join, and complex locations.")]
+    public static GenBankLocationResult GenBankParseLocation(
+        [Description("Feature location string (e.g., '100..200', 'complement(100..200)', 'join(100..200,300..400)')")] string locationString)
+    {
+        if (string.IsNullOrEmpty(locationString))
+            throw new ArgumentException("Location string cannot be null or empty", nameof(locationString));
+
+        var location = GenBankParser.ParseLocation(locationString);
+
+        var parts = location.Parts.Select(p => new LocationPartResult(p.Start, p.End, p.End - p.Start + 1)).ToList();
+
+        return new GenBankLocationResult(
+            location.Start,
+            location.End,
+            location.End - location.Start + 1,
+            location.IsComplement,
+            location.IsJoin,
+            parts,
+            location.RawLocation);
+    }
+
     // ========================
     // EMBL Tools
     // ========================
@@ -1390,6 +1412,15 @@ public record GenBankStatisticsResult(
     List<string> Divisions,
     int GeneCount,
     int CdsCount);
+public record LocationPartResult(int Start, int End, int Length);
+public record GenBankLocationResult(
+    int Start,
+    int End,
+    int Length,
+    bool IsComplement,
+    bool IsJoin,
+    List<LocationPartResult> Parts,
+    string RawLocation);
 public record EmblFeatureResult(
     string Key,
     int Start,

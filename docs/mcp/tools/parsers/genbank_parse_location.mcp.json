@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genbank_parse_location",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenBankParser.ParseLocation",
+  "docRef": "Seqeron.Genomics/GenBankParser.cs#L471",
+  "description": "Parse a GenBank feature location string into its components. Handles simple ranges, complement, join, and complex locations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "locationString": {
+        "type": "string",
+        "description": "Feature location string (e.g., '100..200', 'complement(100..200)', 'join(100..200,300..400)')",
+        "minLength": 1
+      }
+    },
+    "required": ["locationString"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "start": { "type": "integer", "description": "Overall start position" },
+      "end": { "type": "integer", "description": "Overall end position" },
+      "length": { "type": "integer", "description": "Total span length" },
+      "isComplement": { "type": "boolean", "description": "True if on complement strand" },
+      "isJoin": { "type": "boolean", "description": "True if joined segments" },
+      "parts": {
+        "type": "array",
+        "description": "Individual location segments",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "integer" },
+            "end": { "type": "integer" },
+            "length": { "type": "integer" }
+          }
+        }
+      },
+      "rawLocation": { "type": "string", "description": "Original location string" }
+    },
+    "required": ["start", "end", "length", "isComplement", "isJoin", "parts", "rawLocation"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Location string cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Simple range",
+      "input": { "locationString": "100..200" },
+      "output": { "start": 100, "end": 200, "length": 101, "isComplement": false, "isJoin": false, "parts": [{"start": 100, "end": 200, "length": 101}], "rawLocation": "100..200" }
+    },
+    {
+      "name": "Complement location",
+      "input": { "locationString": "complement(100..200)" },
+      "output": { "start": 100, "end": 200, "length": 101, "isComplement": true, "isJoin": false, "parts": [{"start": 100, "end": 200, "length": 101}], "rawLocation": "complement(100..200)" }
+    },
+    {
+      "name": "Join location",
+      "input": { "locationString": "join(100..200,300..400)" },
+      "output": { "start": 100, "end": 400, "length": 301, "isComplement": false, "isJoin": true, "parts": [{"start": 100, "end": 200, "length": 101}, {"start": 300, "end": 400, "length": 101}], "rawLocation": "join(100..200,300..400)" }
+    }
+  ]
+}

@@ -248,3 +248,86 @@ ORIGIN
         Assert.That(result.Divisions, Contains.Item("BCT"));
     }
 }
+
+[TestFixture]
+public class GenBankParseLocationTests
+{
+    [Test]
+    public void GenBankParseLocation_Schema_ValidatesCorrectly()
+    {
+        Assert.DoesNotThrow(() => ParsersTools.GenBankParseLocation("100..200"));
+        Assert.Throws<ArgumentException>(() => ParsersTools.GenBankParseLocation(""));
+        Assert.Throws<ArgumentException>(() => ParsersTools.GenBankParseLocation(null!));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_ParsesSimpleRange()
+    {
+        var result = ParsersTools.GenBankParseLocation("100..200");
+
+        Assert.That(result.Start, Is.EqualTo(100));
+        Assert.That(result.End, Is.EqualTo(200));
+        Assert.That(result.Length, Is.EqualTo(101));
+        Assert.That(result.IsComplement, Is.False);
+        Assert.That(result.IsJoin, Is.False);
+        Assert.That(result.Parts.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_ParsesComplement()
+    {
+        var result = ParsersTools.GenBankParseLocation("complement(100..200)");
+
+        Assert.That(result.Start, Is.EqualTo(100));
+        Assert.That(result.End, Is.EqualTo(200));
+        Assert.That(result.IsComplement, Is.True);
+        Assert.That(result.IsJoin, Is.False);
+        Assert.That(result.RawLocation, Is.EqualTo("complement(100..200)"));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_ParsesJoin()
+    {
+        var result = ParsersTools.GenBankParseLocation("join(100..200,300..400)");
+
+        Assert.That(result.Start, Is.EqualTo(100));
+        Assert.That(result.End, Is.EqualTo(400));
+        Assert.That(result.IsComplement, Is.False);
+        Assert.That(result.IsJoin, Is.True);
+        Assert.That(result.Parts.Count, Is.EqualTo(2));
+        Assert.That(result.Parts[0].Start, Is.EqualTo(100));
+        Assert.That(result.Parts[0].End, Is.EqualTo(200));
+        Assert.That(result.Parts[1].Start, Is.EqualTo(300));
+        Assert.That(result.Parts[1].End, Is.EqualTo(400));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_ParsesComplementJoin()
+    {
+        var result = ParsersTools.GenBankParseLocation("complement(join(100..200,300..400))");
+
+        Assert.That(result.IsComplement, Is.True);
+        Assert.That(result.IsJoin, Is.True);
+        Assert.That(result.Parts.Count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_ParsesSinglePosition()
+    {
+        var result = ParsersTools.GenBankParseLocation("150");
+
+        Assert.That(result.Start, Is.EqualTo(150));
+        Assert.That(result.End, Is.EqualTo(150));
+        Assert.That(result.Length, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void GenBankParseLocation_Binding_PreservesRawLocation()
+    {
+        var location = "join(1..100,200..300,400..500)";
+        var result = ParsersTools.GenBankParseLocation(location);
+
+        Assert.That(result.RawLocation, Is.EqualTo(location));
+        Assert.That(result.Parts.Count, Is.EqualTo(3));
+    }
+}
