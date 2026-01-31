@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_phred_to_error",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.PhredToErrorProbability",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L206",
+  "description": "Convert Phred quality score to error probability. Formula: P = 10^(-Q/10).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "phredScore": {
+        "type": "integer",
+        "description": "Phred quality score",
+        "minimum": 0
+      }
+    },
+    "required": ["phredScore"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "phredScore": { "type": "integer", "description": "Input Phred score" },
+      "errorProbability": { "type": "number", "description": "Probability of incorrect base call (0-1)" }
+    },
+    "required": ["phredScore", "errorProbability"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Phred score cannot be negative" }
+  ],
+  "examples": [
+    {
+      "name": "Q10 to probability",
+      "input": { "phredScore": 10 },
+      "output": { "phredScore": 10, "errorProbability": 0.1 }
+    },
+    {
+      "name": "Q20 to probability",
+      "input": { "phredScore": 20 },
+      "output": { "phredScore": 20, "errorProbability": 0.01 }
+    },
+    {
+      "name": "Q30 to probability",
+      "input": { "phredScore": 30 },
+      "output": { "phredScore": 30, "errorProbability": 0.001 }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_detect_encoding",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.DetectEncoding",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L148",
+  "description": "Detect quality score encoding from FASTQ quality string. Returns 'Phred33' or 'Phred64'.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "qualityString": {
+        "type": "string",
+        "description": "Quality string from FASTQ record",
+        "minLength": 1
+      }
+    },
+    "required": ["qualityString"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "encoding": { "type": "string", "description": "Detected encoding: 'Phred33' or 'Phred64'" },
+      "offset": { "type": "integer", "description": "ASCII offset: 33 or 64" }
+    },
+    "required": ["encoding", "offset"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Quality string cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Detect Phred+33",
+      "input": { "qualityString": "!\"#$%&'()*" },
+      "output": { "encoding": "Phred33", "offset": 33 }
+    },
+    {
+      "name": "Detect Phred+64",
+      "input": { "qualityString": "efghijklmn" },
+      "output": { "encoding": "Phred64", "offset": 64 }
+    }
+  ]
+}

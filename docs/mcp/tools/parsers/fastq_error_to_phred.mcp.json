@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_error_to_phred",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.ErrorProbabilityToPhred",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L214",
+  "description": "Convert error probability to Phred quality score. Formula: Q = -10 * log10(P).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "errorProbability": {
+        "type": "number",
+        "description": "Error probability (0-1)",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": ["errorProbability"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "errorProbability": { "type": "number", "description": "Input error probability" },
+      "phredScore": { "type": "integer", "description": "Calculated Phred quality score" }
+    },
+    "required": ["errorProbability", "phredScore"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Error probability must be between 0 and 1" }
+  ],
+  "examples": [
+    {
+      "name": "10% error to Phred",
+      "input": { "errorProbability": 0.1 },
+      "output": { "errorProbability": 0.1, "phredScore": 10 }
+    },
+    {
+      "name": "1% error to Phred",
+      "input": { "errorProbability": 0.01 },
+      "output": { "errorProbability": 0.01, "phredScore": 20 }
+    },
+    {
+      "name": "0.1% error to Phred",
+      "input": { "errorProbability": 0.001 },
+      "output": { "errorProbability": 0.001, "phredScore": 30 }
+    }
+  ]
+}

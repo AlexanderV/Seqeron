@@ -182,6 +182,209 @@ public static class ParsersTools
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
 
+    [McpServerTool(Name = "fastq_detect_encoding")]
+    [Description("Detect quality score encoding from FASTQ quality string. Returns 'Phred33' (Sanger/Illumina 1.8+) or 'Phred64' (Illumina 1.3-1.7).")]
+    public static FastqDetectEncodingResult FastqDetectEncoding(
+        [Description("Quality string from FASTQ record")] string qualityString)
+    {
+        if (string.IsNullOrEmpty(qualityString))
+            throw new ArgumentException("Quality string cannot be null or empty", nameof(qualityString));
+
+        var encoding = FastqParser.DetectEncoding(qualityString);
+        return new FastqDetectEncodingResult(
+            encoding.ToString(),
+            encoding == FastqParser.QualityEncoding.Phred33 ? 33 : 64);
+    }
+
+    [McpServerTool(Name = "fastq_encode_quality")]
+    [Description("Encode Phred quality scores to a quality string.")]
+    public static FastqEncodeQualityResult FastqEncodeQuality(
+        [Description("List of Phred quality scores (0-41)")] List<int> scores,
+        [Description("Quality encoding: 'phred33' (default) or 'phred64'")] string encoding = "phred33")
+    {
+        if (scores == null || scores.Count == 0)
+            throw new ArgumentException("Scores cannot be null or empty", nameof(scores));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33' or 'phred64'", nameof(encoding))
+        };
+
+        var qualityString = FastqParser.EncodeQualityScores(scores, qualityEncoding);
+        return new FastqEncodeQualityResult(qualityString, scores.Count);
+    }
+
+    [McpServerTool(Name = "fastq_phred_to_error")]
+    [Description("Convert Phred quality score to error probability. Formula: P = 10^(-Q/10).")]
+    public static FastqPhredToErrorResult FastqPhredToError(
+        [Description("Phred quality score")] int phredScore)
+    {
+        if (phredScore < 0)
+            throw new ArgumentException("Phred score cannot be negative", nameof(phredScore));
+
+        var errorProbability = FastqParser.PhredToErrorProbability(phredScore);
+        return new FastqPhredToErrorResult(phredScore, errorProbability);
+    }
+
+    [McpServerTool(Name = "fastq_error_to_phred")]
+    [Description("Convert error probability to Phred quality score. Formula: Q = -10 * log10(P).")]
+    public static FastqErrorToPhredResult FastqErrorToPhred(
+        [Description("Error probability (0-1)")] double errorProbability)
+    {
+        if (errorProbability < 0 || errorProbability > 1)
+            throw new ArgumentException("Error probability must be between 0 and 1", nameof(errorProbability));
+
+        var phredScore = FastqParser.ErrorProbabilityToPhred(errorProbability);
+        return new FastqErrorToPhredResult(errorProbability, phredScore);
+    }
+
+    [McpServerTool(Name = "fastq_trim_quality")]
+    [Description("Trim low-quality bases from both ends of FASTQ reads. Removes bases below the quality threshold.")]
+    public static FastqTrimQualityResult FastqTrimQuality(
+        [Description("FASTQ format content to trim")] string content,
+        [Description("Minimum quality score threshold (default: 20)")] int minQuality = 20,
+        [Description("Quality encoding: 'phred33' (default), 'phred64', or 'auto'")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+        if (minQuality < 0)
+            throw new ArgumentException("Minimum quality must be non-negative", nameof(minQuality));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        var trimmed = records.Select(r => FastqParser.TrimByQuality(r, minQuality)).ToList();
+
+        var results = trimmed.Select(r => new FastqRecordResult(
+            r.Id,
+            r.Description,
+            r.Sequence,
+            r.QualityString,
+            r.QualityScores.ToList(),
+            r.Sequence.Length
+        )).ToList();
+
+        var originalBases = records.Sum(r => r.Sequence.Length);
+        var trimmedBases = trimmed.Sum(r => r.Sequence.Length);
+
+        return new FastqTrimQualityResult(
+            results,
+            results.Count,
+            originalBases,
+            trimmedBases,
+            originalBases > 0 ? (double)(originalBases - trimmedBases) / originalBases * 100 : 0);
+    }
+
+    [McpServerTool(Name = "fastq_trim_adapter")]
+    [Description("Trim adapter sequences from FASTQ reads. Searches for adapter at the 3' end and within the sequence.")]
+    public static FastqTrimAdapterResult FastqTrimAdapter(
+        [Description("FASTQ format content to trim")] string content,
+        [Description("Adapter sequence to remove")] string adapter,
+        [Description("Minimum overlap length to consider a match (default: 5)")] int minOverlap = 5,
+        [Description("Quality encoding: 'phred33' (default), 'phred64', or 'auto'")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+        if (string.IsNullOrEmpty(adapter))
+            throw new ArgumentException("Adapter cannot be null or empty", nameof(adapter));
+        if (minOverlap < 1)
+            throw new ArgumentException("Minimum overlap must be at least 1", nameof(minOverlap));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        var trimmed = records.Select(r => FastqParser.TrimAdapter(r, adapter, minOverlap)).ToList();
+
+        var results = trimmed.Select(r => new FastqRecordResult(
+            r.Id,
+            r.Description,
+            r.Sequence,
+            r.QualityString,
+            r.QualityScores.ToList(),
+            r.Sequence.Length
+        )).ToList();
+
+        var readsWithAdapter = records.Zip(trimmed, (original, trim) => original.Sequence.Length != trim.Sequence.Length).Count(x => x);
+        var originalBases = records.Sum(r => r.Sequence.Length);
+        var trimmedBases = trimmed.Sum(r => r.Sequence.Length);
+
+        return new FastqTrimAdapterResult(
+            results,
+            results.Count,
+            readsWithAdapter,
+            originalBases,
+            trimmedBases);
+    }
+
+    [McpServerTool(Name = "fastq_format")]
+    [Description("Format a single FASTQ record to string format.")]
+    public static FastqFormatResult FastqFormat(
+        [Description("Sequence identifier")] string id,
+        [Description("DNA sequence")] string sequence,
+        [Description("Quality string (same length as sequence)")] string qualityString,
+        [Description("Optional sequence description")] string? description = null)
+    {
+        if (string.IsNullOrEmpty(id))
+            throw new ArgumentException("ID cannot be null or empty", nameof(id));
+        if (string.IsNullOrEmpty(sequence))
+            throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
+        if (string.IsNullOrEmpty(qualityString))
+            throw new ArgumentException("Quality string cannot be null or empty", nameof(qualityString));
+        if (sequence.Length != qualityString.Length)
+            throw new ArgumentException("Sequence and quality string must have the same length");
+
+        var record = new FastqParser.FastqRecord(
+            id,
+            description ?? "",
+            sequence,
+            qualityString,
+            FastqParser.DecodeQualityScores(qualityString));
+
+        var fastq = FastqParser.ToFastqString(record);
+        return new FastqFormatResult(fastq.TrimEnd());
+    }
+
+    [McpServerTool(Name = "fastq_write")]
+    [Description("Write FASTQ records to a file. Creates or overwrites the file at specified path.")]
+    public static FastqWriteResult FastqWrite(
+        [Description("File path to write FASTQ output")] string filePath,
+        [Description("FASTQ format content to write")] string content,
+        [Description("Quality encoding for parsing: 'phred33' (default), 'phred64', or 'auto'")] string encoding = "auto")
+    {
+        if (string.IsNullOrEmpty(filePath))
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var qualityEncoding = encoding.ToLowerInvariant() switch
+        {
+            "phred33" => FastqParser.QualityEncoding.Phred33,
+            "phred64" => FastqParser.QualityEncoding.Phred64,
+            "auto" => FastqParser.QualityEncoding.Auto,
+            _ => throw new ArgumentException($"Invalid encoding: {encoding}. Use 'phred33', 'phred64', or 'auto'", nameof(encoding))
+        };
+
+        var records = FastqParser.Parse(content, qualityEncoding).ToList();
+        FastqParser.WriteToFile(filePath, records);
+
+        var totalBases = records.Sum(r => r.Sequence.Length);
+        return new FastqWriteResult(filePath, records.Count, totalBases);
+    }
+
     // ========================
     // BED Tools
     // ========================
@@ -888,6 +1091,24 @@ public record FastqFilterResult(
     int PassedCount,
     int TotalCount,
     double PassedPercentage);
+public record FastqDetectEncodingResult(string Encoding, int Offset);
+public record FastqEncodeQualityResult(string QualityString, int Length);
+public record FastqPhredToErrorResult(int PhredScore, double ErrorProbability);
+public record FastqErrorToPhredResult(double ErrorProbability, int PhredScore);
+public record FastqTrimQualityResult(
+    List<FastqRecordResult> Entries,
+    int Count,
+    long OriginalBases,
+    long TrimmedBases,
+    double TrimmedPercentage);
+public record FastqTrimAdapterResult(
+    List<FastqRecordResult> Entries,
+    int Count,
+    int ReadsWithAdapter,
+    long OriginalBases,
+    long TrimmedBases);
+public record FastqFormatResult(string Fastq);
+public record FastqWriteResult(string FilePath, int RecordsWritten, long TotalBases);
 public record BedRecordResult(
     string Chrom,
     int ChromStart,

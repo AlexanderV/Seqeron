@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_write",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.WriteToFile",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L437",
+  "description": "Write FASTQ records to a file.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": {
+        "type": "string",
+        "description": "File path to write FASTQ output",
+        "minLength": 1
+      },
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to write",
+        "minLength": 1
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding for parsing: 'phred33', 'phred64', or 'auto'",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["filePath", "content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": { "type": "string", "description": "Path to the written file" },
+      "recordsWritten": { "type": "integer", "description": "Number of records written" },
+      "totalBases": { "type": "integer", "description": "Total bases written" }
+    },
+    "required": ["filePath", "recordsWritten", "totalBases"]
+  },
+  "errors": [
+    { "code": 1001, "message": "File path cannot be null or empty" },
+    { "code": 1002, "message": "Content cannot be null or empty" },
+    { "code": 1003, "message": "Invalid encoding. Use 'phred33', 'phred64', or 'auto'" }
+  ],
+  "examples": [
+    {
+      "name": "Write FASTQ file",
+      "input": { "filePath": "/data/output.fastq", "content": "@read1\nATGCATGC\n+\nIIIIIIII\n@read2\nGGGCCC\n+\nHHHHHH" },
+      "output": { "filePath": "/data/output.fastq", "recordsWritten": 2, "totalBases": 14 }
+    }
+  ]
+}

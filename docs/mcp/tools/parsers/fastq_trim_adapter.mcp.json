@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "fastq_trim_adapter",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "FastqParser.TrimAdapter",
+  "docRef": "Seqeron.Genomics/FastqParser.cs#L297",
+  "description": "Trim adapter sequences from FASTQ reads.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "FASTQ format content to trim",
+        "minLength": 1
+      },
+      "adapter": {
+        "type": "string",
+        "description": "Adapter sequence to remove",
+        "minLength": 1
+      },
+      "minOverlap": {
+        "type": "integer",
+        "description": "Minimum overlap length to consider a match (default: 5)",
+        "minimum": 1,
+        "default": 5
+      },
+      "encoding": {
+        "type": "string",
+        "description": "Quality encoding: 'phred33', 'phred64', or 'auto'",
+        "enum": ["phred33", "phred64", "auto"],
+        "default": "auto"
+      }
+    },
+    "required": ["content", "adapter"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "entries": { "type": "array", "description": "List of trimmed FASTQ records" },
+      "count": { "type": "integer", "description": "Number of records" },
+      "readsWithAdapter": { "type": "integer", "description": "Number of reads with adapter found" },
+      "originalBases": { "type": "integer", "description": "Total bases before trimming" },
+      "trimmedBases": { "type": "integer", "description": "Total bases after trimming" }
+    },
+    "required": ["entries", "count", "readsWithAdapter", "originalBases", "trimmedBases"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" },
+    { "code": 1002, "message": "Adapter cannot be null or empty" },
+    { "code": 1003, "message": "Minimum overlap must be at least 1" }
+  ],
+  "examples": [
+    {
+      "name": "Trim adapter",
+      "input": { "content": "@read1\nATGCATGCAAAAAAAA\n+\nIIIIIIIIIIIIIIII", "adapter": "AAAAAAAA" },
+      "output": { "entries": [{"id": "read1", "sequence": "ATGCATGC"}], "count": 1, "readsWithAdapter": 1, "originalBases": 16, "trimmedBases": 8 }
+    }
+  ]
+}
