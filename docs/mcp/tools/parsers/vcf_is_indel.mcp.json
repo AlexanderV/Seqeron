@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_is_indel",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.IsIndel",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L412",
+  "description": "Check if a variant is an indel (insertion or deletion).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "refAllele": { "type": "string", "description": "Reference allele", "minLength": 1 },
+      "altAllele": { "type": "string", "description": "Alternate allele", "minLength": 1 }
+    },
+    "required": ["refAllele", "altAllele"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isIndel": { "type": "boolean", "description": "True if variant is an indel" },
+      "isInsertion": { "type": "boolean", "description": "True if variant is an insertion" },
+      "isDeletion": { "type": "boolean", "description": "True if variant is a deletion" },
+      "refAllele": { "type": "string", "description": "Reference allele" },
+      "altAllele": { "type": "string", "description": "Alternate allele" }
+    },
+    "required": ["isIndel", "isInsertion", "isDeletion", "refAllele", "altAllele"]
+  },
+  "examples": [
+    {
+      "name": "Insertion detected",
+      "input": { "refAllele": "A", "altAllele": "ATG" },
+      "output": { "isIndel": true, "isInsertion": true, "isDeletion": false, "refAllele": "A", "altAllele": "ATG" }
+    },
+    {
+      "name": "Deletion detected",
+      "input": { "refAllele": "ATG", "altAllele": "A" },
+      "output": { "isIndel": true, "isInsertion": false, "isDeletion": true, "refAllele": "ATG", "altAllele": "A" }
+    }
+  ]
+}

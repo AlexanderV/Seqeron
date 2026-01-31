@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_classify",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.ClassifyVariant",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L376",
+  "description": "Classify variant type for a VCF record. Returns SNP, MNP, Insertion, Deletion, Complex, Symbolic, or Unknown.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "refAllele": {
+        "type": "string",
+        "description": "Reference allele",
+        "minLength": 1
+      },
+      "altAllele": {
+        "type": "string",
+        "description": "Alternate allele",
+        "minLength": 1
+      }
+    },
+    "required": ["refAllele", "altAllele"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "variantType": { "type": "string", "description": "Classified variant type" },
+      "refLength": { "type": "integer", "description": "Length of reference allele" },
+      "altLength": { "type": "integer", "description": "Length of alternate allele" },
+      "lengthDifference": { "type": "integer", "description": "Absolute difference between allele lengths" }
+    },
+    "required": ["variantType", "refLength", "altLength", "lengthDifference"]
+  },
+  "errors": [
+    { "code": 1001, "message": "Reference allele cannot be null or empty" },
+    { "code": 1002, "message": "Alternate allele cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Classify SNP",
+      "input": { "refAllele": "A", "altAllele": "G" },
+      "output": { "variantType": "SNP", "refLength": 1, "altLength": 1, "lengthDifference": 0 }
+    },
+    {
+      "name": "Classify insertion",
+      "input": { "refAllele": "A", "altAllele": "ATG" },
+      "output": { "variantType": "Insertion", "refLength": 1, "altLength": 3, "lengthDifference": 2 }
+    }
+  ]
+}

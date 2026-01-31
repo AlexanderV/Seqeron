@@ -682,6 +682,171 @@ public static class ParsersTools
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
 
+    [McpServerTool(Name = "vcf_classify")]
+    [Description("Classify variant type for a VCF record. Returns SNP, MNP, Insertion, Deletion, Complex, Symbolic, or Unknown.")]
+    public static VcfClassifyResult VcfClassify(
+        [Description("Reference allele")] string refAllele,
+        [Description("Alternate allele")] string altAllele)
+    {
+        if (string.IsNullOrEmpty(refAllele))
+            throw new ArgumentException("Reference allele cannot be null or empty", nameof(refAllele));
+        if (string.IsNullOrEmpty(altAllele))
+            throw new ArgumentException("Alternate allele cannot be null or empty", nameof(altAllele));
+
+        // Create a minimal record for classification
+        var record = new VcfParser.VcfRecord(
+            "chr1", 1, ".", refAllele, new[] { altAllele }, null, Array.Empty<string>(),
+            new Dictionary<string, string>());
+
+        var variantType = VcfParser.ClassifyVariant(record);
+        var length = VcfParser.GetVariantLength(record);
+
+        return new VcfClassifyResult(variantType.ToString(), refAllele.Length, altAllele.Length, length);
+    }
+
+    [McpServerTool(Name = "vcf_is_snp")]
+    [Description("Check if a variant is a SNP (Single Nucleotide Polymorphism).")]
+    public static VcfIsSNPResult VcfIsSNP(
+        [Description("Reference allele")] string refAllele,
+        [Description("Alternate allele")] string altAllele)
+    {
+        if (string.IsNullOrEmpty(refAllele))
+            throw new ArgumentException("Reference allele cannot be null or empty", nameof(refAllele));
+        if (string.IsNullOrEmpty(altAllele))
+            throw new ArgumentException("Alternate allele cannot be null or empty", nameof(altAllele));
+
+        var record = new VcfParser.VcfRecord(
+            "chr1", 1, ".", refAllele, new[] { altAllele }, null, Array.Empty<string>(),
+            new Dictionary<string, string>());
+
+        var isSNP = VcfParser.IsSNP(record);
+        return new VcfIsSNPResult(isSNP, refAllele, altAllele);
+    }
+
+    [McpServerTool(Name = "vcf_is_indel")]
+    [Description("Check if a variant is an indel (insertion or deletion).")]
+    public static VcfIsIndelResult VcfIsIndel(
+        [Description("Reference allele")] string refAllele,
+        [Description("Alternate allele")] string altAllele)
+    {
+        if (string.IsNullOrEmpty(refAllele))
+            throw new ArgumentException("Reference allele cannot be null or empty", nameof(refAllele));
+        if (string.IsNullOrEmpty(altAllele))
+            throw new ArgumentException("Alternate allele cannot be null or empty", nameof(altAllele));
+
+        var record = new VcfParser.VcfRecord(
+            "chr1", 1, ".", refAllele, new[] { altAllele }, null, Array.Empty<string>(),
+            new Dictionary<string, string>());
+
+        var isIndel = VcfParser.IsIndel(record);
+        var variantType = VcfParser.ClassifyVariant(record);
+        var isInsertion = variantType == VcfParser.VariantType.Insertion;
+        var isDeletion = variantType == VcfParser.VariantType.Deletion;
+
+        return new VcfIsIndelResult(isIndel, isInsertion, isDeletion, refAllele, altAllele);
+    }
+
+    [McpServerTool(Name = "vcf_variant_length")]
+    [Description("Get the length difference of a variant (absolute difference between ref and alt lengths).")]
+    public static VcfVariantLengthResult VcfVariantLength(
+        [Description("Reference allele")] string refAllele,
+        [Description("Alternate allele")] string altAllele)
+    {
+        if (string.IsNullOrEmpty(refAllele))
+            throw new ArgumentException("Reference allele cannot be null or empty", nameof(refAllele));
+        if (string.IsNullOrEmpty(altAllele))
+            throw new ArgumentException("Alternate allele cannot be null or empty", nameof(altAllele));
+
+        var record = new VcfParser.VcfRecord(
+            "chr1", 1, ".", refAllele, new[] { altAllele }, null, Array.Empty<string>(),
+            new Dictionary<string, string>());
+
+        var length = VcfParser.GetVariantLength(record);
+        return new VcfVariantLengthResult(length, refAllele.Length, altAllele.Length);
+    }
+
+    [McpServerTool(Name = "vcf_is_hom_ref")]
+    [Description("Check if a genotype is homozygous reference (0/0 or 0|0).")]
+    public static VcfGenotypeCheckResult VcfIsHomRef(
+        [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
+    {
+        if (string.IsNullOrEmpty(genotype))
+            throw new ArgumentException("Genotype cannot be null or empty", nameof(genotype));
+
+        var isHomRef = genotype == "0/0" || genotype == "0|0";
+        return new VcfGenotypeCheckResult(isHomRef, genotype, "HomozygousReference");
+    }
+
+    [McpServerTool(Name = "vcf_is_hom_alt")]
+    [Description("Check if a genotype is homozygous alternate (e.g., 1/1, 2/2).")]
+    public static VcfGenotypeCheckResult VcfIsHomAlt(
+        [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
+    {
+        if (string.IsNullOrEmpty(genotype))
+            throw new ArgumentException("Genotype cannot be null or empty", nameof(genotype));
+
+        var alleles = genotype.Replace('|', '/').Split('/');
+        var isHomAlt = alleles.Length == 2 &&
+                       alleles[0] == alleles[1] &&
+                       alleles[0] != "0" &&
+                       alleles[0] != ".";
+
+        return new VcfGenotypeCheckResult(isHomAlt, genotype, "HomozygousAlternate");
+    }
+
+    [McpServerTool(Name = "vcf_is_het")]
+    [Description("Check if a genotype is heterozygous (different alleles).")]
+    public static VcfGenotypeCheckResult VcfIsHet(
+        [Description("Genotype string (e.g., '0/0', '0/1', '1/1')")] string genotype)
+    {
+        if (string.IsNullOrEmpty(genotype))
+            throw new ArgumentException("Genotype cannot be null or empty", nameof(genotype));
+
+        var alleles = genotype.Replace('|', '/').Split('/');
+        var isHet = alleles.Length == 2 && alleles[0] != alleles[1];
+
+        return new VcfGenotypeCheckResult(isHet, genotype, "Heterozygous");
+    }
+
+    [McpServerTool(Name = "vcf_has_flag")]
+    [Description("Check if a VCF INFO field flag is present.")]
+    public static VcfHasFlagResult VcfHasFlag(
+        [Description("VCF format content")] string content,
+        [Description("INFO field flag name to check")] string flag)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+        if (string.IsNullOrEmpty(flag))
+            throw new ArgumentException("Flag cannot be null or empty", nameof(flag));
+
+        var records = VcfParser.Parse(content).ToList();
+        var recordsWithFlag = records.Where(r => VcfParser.HasInfoFlag(r, flag)).ToList();
+
+        return new VcfHasFlagResult(
+            flag,
+            recordsWithFlag.Count,
+            records.Count,
+            records.Count > 0 ? (double)recordsWithFlag.Count / records.Count * 100 : 0);
+    }
+
+    [McpServerTool(Name = "vcf_write")]
+    [Description("Write VCF records to a file. Creates or overwrites the file at specified path.")]
+    public static VcfWriteResult VcfWrite(
+        [Description("File path to write VCF output")] string filePath,
+        [Description("VCF format content to write")] string content)
+    {
+        if (string.IsNullOrEmpty(filePath))
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var (header, records) = VcfParser.ParseWithHeader(content);
+        var recordsList = records.ToList();
+        VcfParser.WriteToFile(filePath, recordsList, header);
+
+        return new VcfWriteResult(filePath, recordsList.Count);
+    }
+
     // ========================
     // GFF/GTF Tools
     // ========================
@@ -1155,6 +1320,13 @@ public record VcfFilterResult(
     int PassedCount,
     int TotalCount,
     double PassedPercentage);
+public record VcfClassifyResult(string VariantType, int RefLength, int AltLength, int LengthDifference);
+public record VcfIsSNPResult(bool IsSNP, string RefAllele, string AltAllele);
+public record VcfIsIndelResult(bool IsIndel, bool IsInsertion, bool IsDeletion, string RefAllele, string AltAllele);
+public record VcfVariantLengthResult(int Length, int RefLength, int AltLength);
+public record VcfGenotypeCheckResult(bool Result, string Genotype, string CheckType);
+public record VcfHasFlagResult(string Flag, int RecordsWithFlag, int TotalRecords, double Percentage);
+public record VcfWriteResult(string FilePath, int RecordsWritten);
 public record GffRecordResult(
     string Seqid,
     string Source,

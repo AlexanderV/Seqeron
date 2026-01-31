@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_is_hom_ref",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.IsHomRef",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L529",
+  "description": "Check if a genotype is homozygous reference (0/0 or 0|0).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genotype": { "type": "string", "description": "Genotype string (e.g., '0/0', '0/1', '1/1')", "minLength": 1 }
+    },
+    "required": ["genotype"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "boolean", "description": "True if homozygous reference" },
+      "genotype": { "type": "string", "description": "Input genotype string" },
+      "checkType": { "type": "string", "description": "Check type identifier" }
+    },
+    "required": ["result", "genotype", "checkType"]
+  },
+  "examples": [
+    { "name": "Homozygous reference", "input": { "genotype": "0/0" }, "output": { "result": true, "genotype": "0/0", "checkType": "HomozygousReference" } },
+    { "name": "Heterozygous", "input": { "genotype": "0/1" }, "output": { "result": false, "genotype": "0/1", "checkType": "HomozygousReference" } }
+  ]
+}

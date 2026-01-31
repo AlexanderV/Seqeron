@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_has_flag",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.HasInfoFlag",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L835",
+  "description": "Check if a VCF INFO field flag is present.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": { "type": "string", "description": "VCF format content", "minLength": 1 },
+      "flag": { "type": "string", "description": "INFO field flag name to check", "minLength": 1 }
+    },
+    "required": ["content", "flag"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "flag": { "type": "string", "description": "Flag name that was checked" },
+      "recordsWithFlag": { "type": "integer", "description": "Number of records with the flag" },
+      "totalRecords": { "type": "integer", "description": "Total number of records" },
+      "percentage": { "type": "number", "description": "Percentage of records with flag" }
+    },
+    "required": ["flag", "recordsWithFlag", "totalRecords", "percentage"]
+  },
+  "examples": [
+    {
+      "name": "Check for DB flag",
+      "input": { "content": "...", "flag": "DB" },
+      "output": { "flag": "DB", "recordsWithFlag": 1, "totalRecords": 2, "percentage": 50.0 }
+    }
+  ]
+}

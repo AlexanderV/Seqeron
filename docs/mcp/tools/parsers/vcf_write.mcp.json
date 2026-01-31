@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_write",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.WriteToFile",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L702",
+  "description": "Write VCF records to a file.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": { "type": "string", "description": "File path to write VCF output", "minLength": 1 },
+      "content": { "type": "string", "description": "VCF format content to write", "minLength": 1 }
+    },
+    "required": ["filePath", "content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "filePath": { "type": "string", "description": "Path to the written file" },
+      "recordsWritten": { "type": "integer", "description": "Number of records written" }
+    },
+    "required": ["filePath", "recordsWritten"]
+  },
+  "examples": [
+    {
+      "name": "Write VCF file",
+      "input": { "filePath": "/data/output.vcf", "content": "..." },
+      "output": { "filePath": "/data/output.vcf", "recordsWritten": 1 }
+    }
+  ]
+}
