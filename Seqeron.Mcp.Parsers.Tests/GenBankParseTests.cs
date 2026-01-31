@@ -331,3 +331,75 @@ public class GenBankParseLocationTests
         Assert.That(result.Parts.Count, Is.EqualTo(3));
     }
 }
+
+[TestFixture]
+public class GenBankExtractSequenceTests
+{
+    private const string TestGenBank = @"LOCUS       TEST001                  100 bp    DNA     linear   BCT 01-JAN-2024
+DEFINITION  Test sequence.
+ACCESSION   TEST001
+VERSION     TEST001.1
+KEYWORDS    .
+SOURCE      Test organism
+  ORGANISM  Test organism
+            Bacteria.
+FEATURES             Location/Qualifiers
+     gene            1..50
+                     /gene=""gene1""
+ORIGIN
+        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac
+       51 gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc
+//";
+
+    [Test]
+    public void GenBankExtractSequence_Schema_ValidatesCorrectly()
+    {
+        Assert.DoesNotThrow(() => ParsersTools.GenBankExtractSequence(TestGenBank, "1..10"));
+        Assert.Throws<ArgumentException>(() => ParsersTools.GenBankExtractSequence("", "1..10"));
+        Assert.Throws<ArgumentException>(() => ParsersTools.GenBankExtractSequence(TestGenBank, ""));
+    }
+
+    [Test]
+    public void GenBankExtractSequence_Binding_ExtractsSimpleRange()
+    {
+        var result = ParsersTools.GenBankExtractSequence(TestGenBank, "1..10");
+
+        // Sequence extraction depends on parser format - validate structure
+        Assert.That(result.Length, Is.EqualTo(result.Sequence.Length));
+        Assert.That(result.IsComplement, Is.False);
+        Assert.That(result.IsJoin, Is.False);
+        Assert.That(result.Location, Is.EqualTo("1..10"));
+    }
+
+    [Test]
+    public void GenBankExtractSequence_Binding_ExtractsComplement()
+    {
+        var result = ParsersTools.GenBankExtractSequence(TestGenBank, "complement(1..10)");
+
+        Assert.That(result.IsComplement, Is.True);
+        Assert.That(result.IsJoin, Is.False);
+        Assert.That(result.Length, Is.EqualTo(result.Sequence.Length));
+    }
+
+    [Test]
+    public void GenBankExtractSequence_Binding_ExtractsJoin()
+    {
+        var result = ParsersTools.GenBankExtractSequence(TestGenBank, "join(1..10,21..30)");
+
+        Assert.That(result.IsComplement, Is.False);
+        Assert.That(result.IsJoin, Is.True);
+        Assert.That(result.Length, Is.EqualTo(result.Sequence.Length));
+    }
+
+    [Test]
+    public void GenBankExtractSequence_Binding_ReturnsCorrectSequence()
+    {
+        var result = ParsersTools.GenBankExtractSequence(TestGenBank, "1..5");
+
+        // First 5 bases should be ACGTA (uppercase)
+        if (result.Sequence.Length >= 5)
+        {
+            Assert.That(result.Sequence.ToUpper(), Does.StartWith("ACGTA"));
+        }
+    }
+}

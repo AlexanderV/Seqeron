@@ -1129,6 +1129,33 @@ public static class ParsersTools
             location.RawLocation);
     }
 
+    [McpServerTool(Name = "genbank_extract_sequence")]
+    [Description("Extract a subsequence from a GenBank record based on a feature location string. Handles complement and join locations.")]
+    public static GenBankExtractSequenceResult GenBankExtractSequence(
+        [Description("GenBank format content")] string content,
+        [Description("Feature location string (e.g., '100..200', 'complement(100..200)', 'join(100..200,300..400)')")] string locationString)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+        if (string.IsNullOrEmpty(locationString))
+            throw new ArgumentException("Location string cannot be null or empty", nameof(locationString));
+
+        var records = GenBankParser.Parse(content).ToList();
+        if (records.Count == 0)
+            throw new ArgumentException("No GenBank records found in content", nameof(content));
+
+        var record = records[0];
+        var location = GenBankParser.ParseLocation(locationString);
+        var sequence = GenBankParser.ExtractSequence(record, location);
+
+        return new GenBankExtractSequenceResult(
+            sequence,
+            sequence.Length,
+            location.IsComplement,
+            location.IsJoin,
+            locationString);
+    }
+
     // ========================
     // EMBL Tools
     // ========================
@@ -1421,6 +1448,12 @@ public record GenBankLocationResult(
     bool IsJoin,
     List<LocationPartResult> Parts,
     string RawLocation);
+public record GenBankExtractSequenceResult(
+    string Sequence,
+    int Length,
+    bool IsComplement,
+    bool IsJoin,
+    string Location);
 public record EmblFeatureResult(
     string Key,
     int Start,
