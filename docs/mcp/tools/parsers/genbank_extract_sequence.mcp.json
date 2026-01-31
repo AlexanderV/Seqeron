@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "genbank_extract_sequence",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "GenBankParser.ExtractSequence",
+  "docRef": "Seqeron.Genomics/GenBankParser.cs",
+  "description": "Extract a subsequence from a GenBank record based on a feature location string. Handles complement and join locations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": { "type": "string", "description": "GenBank format content", "minLength": 1 },
+      "locationString": { "type": "string", "description": "Feature location string (e.g., '100..200', 'complement(100..200)', 'join(100..200,300..400)')", "minLength": 1 }
+    },
+    "required": ["content", "locationString"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "string", "description": "Extracted sequence (uppercase)" },
+      "length": { "type": "integer", "description": "Length of extracted sequence" },
+      "isComplement": { "type": "boolean", "description": "True if sequence is from complement strand" },
+      "isJoin": { "type": "boolean", "description": "True if sequence spans multiple joined segments" },
+      "location": { "type": "string", "description": "Original location string" }
+    },
+    "required": ["sequence", "length", "isComplement", "isJoin", "location"]
+  },
+  "examples": [
+    {
+      "name": "Extract simple range",
+      "input": { "content": "LOCUS TEST001...", "locationString": "1..10" },
+      "output": { "sequence": "ACGTACGTAC", "length": 10, "isComplement": false, "isJoin": false, "location": "1..10" }
+    },
+    {
+      "name": "Extract complement",
+      "input": { "content": "LOCUS TEST001...", "locationString": "complement(1..10)" },
+      "output": { "sequence": "GTACGTACGT", "length": 10, "isComplement": true, "isJoin": false, "location": "complement(1..10)" }
+    },
+    {
+      "name": "Extract joined segments",
+      "input": { "content": "LOCUS TEST001...", "locationString": "join(1..10,21..30)" },
+      "output": { "sequence": "ACGTACGTACACGTACGTAC", "length": 20, "isComplement": false, "isJoin": true, "location": "join(1..10,21..30)" }
+    }
+  ]
+}
