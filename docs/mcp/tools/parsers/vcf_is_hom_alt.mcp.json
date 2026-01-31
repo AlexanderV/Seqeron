@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_is_hom_alt",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.IsHomAlt",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L539",
+  "description": "Check if a genotype is homozygous alternate (e.g., 1/1, 2/2).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "genotype": { "type": "string", "description": "Genotype string (e.g., '0/0', '0/1', '1/1')", "minLength": 1 }
+    },
+    "required": ["genotype"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "boolean", "description": "True if homozygous alternate" },
+      "genotype": { "type": "string", "description": "Input genotype string" },
+      "checkType": { "type": "string", "description": "Check type identifier" }
+    },
+    "required": ["result", "genotype", "checkType"]
+  },
+  "examples": [
+    { "name": "Homozygous alternate", "input": { "genotype": "1/1" }, "output": { "result": true, "genotype": "1/1", "checkType": "HomozygousAlternate" } },
+    { "name": "Heterozygous", "input": { "genotype": "0/1" }, "output": { "result": false, "genotype": "0/1", "checkType": "HomozygousAlternate" } }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "vcf_is_snp",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "VcfParser.IsSNP",
+  "docRef": "Seqeron.Genomics/VcfParser.cs#L407",
+  "description": "Check if a variant is a SNP (Single Nucleotide Polymorphism).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "refAllele": { "type": "string", "description": "Reference allele", "minLength": 1 },
+      "altAllele": { "type": "string", "description": "Alternate allele", "minLength": 1 }
+    },
+    "required": ["refAllele", "altAllele"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isSNP": { "type": "boolean", "description": "True if variant is a SNP" },
+      "refAllele": { "type": "string", "description": "Reference allele" },
+      "altAllele": { "type": "string", "description": "Alternate allele" }
+    },
+    "required": ["isSNP", "refAllele", "altAllele"]
+  },
+  "examples": [
+    {
+      "name": "SNP detected",
+      "input": { "refAllele": "A", "altAllele": "G" },
+      "output": { "isSNP": true, "refAllele": "A", "altAllele": "G" }
+    },
+    {
+      "name": "Not a SNP",
+      "input": { "refAllele": "A", "altAllele": "ATG" },
+      "output": { "isSNP": false, "refAllele": "A", "altAllele": "ATG" }
+    }
+  ]
+}
