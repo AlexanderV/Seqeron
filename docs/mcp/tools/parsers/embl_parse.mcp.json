@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "toolName": "embl_parse",
+  "serverName": "Parsers",
+  "version": "1.0.0",
+  "stability": "stable",
+  "methodId": "EmblParser.Parse",
+  "docRef": "Seqeron.Genomics/EmblParser.cs#L114",
+  "description": "Parse EMBL flat file format into structured records. Returns accession, description, features, and sequence.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "EMBL format content to parse",
+        "minLength": 1
+      }
+    },
+    "required": ["content"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "records": {
+        "type": "array",
+        "description": "List of EMBL records",
+        "items": { "$ref": "#/definitions/EmblRecord" }
+      },
+      "count": { "type": "integer", "description": "Number of records parsed" }
+    },
+    "required": ["records", "count"]
+  },
+  "definitions": {
+    "EmblRecord": {
+      "type": "object",
+      "properties": {
+        "accession": { "type": "string" },
+        "sequenceVersion": { "type": "string" },
+        "dataClass": { "type": "string" },
+        "moleculeType": { "type": "string" },
+        "topology": { "type": "string" },
+        "taxonomicDivision": { "type": "string" },
+        "sequenceLength": { "type": "integer" },
+        "description": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "organism": { "type": "string" },
+        "organismClassification": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "$ref": "#/definitions/Feature" } },
+        "actualSequenceLength": { "type": "integer" },
+        "sequence": { "type": "string" }
+      }
+    },
+    "Feature": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "start": { "type": "integer" },
+        "end": { "type": "integer" },
+        "isComplement": { "type": "boolean" },
+        "isJoin": { "type": "boolean" },
+        "rawLocation": { "type": "string" },
+        "qualifiers": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  },
+  "errors": [
+    { "code": 1001, "message": "Content cannot be null or empty" }
+  ],
+  "examples": [
+    {
+      "name": "Parse EMBL record",
+      "input": { "content": "ID   TEST001; SV 1; linear; DNA; STD; HUM; 100 BP.\n..." },
+      "output": {
+        "records": [{ "accession": "TEST001", "sequenceLength": 100 }],
+        "count": 1
+      }
+    }
+  ]
+}

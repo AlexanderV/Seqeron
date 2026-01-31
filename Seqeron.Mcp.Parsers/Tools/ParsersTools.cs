@@ -738,6 +738,129 @@ public static class ParsersTools
             geneCount,
             cdsCount);
     }
+
+    // ========================
+    // EMBL Tools
+    // ========================
+
+    [McpServerTool(Name = "embl_parse")]
+    [Description("Parse EMBL flat file format into structured records. Returns accession, description, features, and sequence.")]
+    public static EmblParseResult EmblParse(
+        [Description("EMBL format content to parse")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = EmblParser.Parse(content).ToList();
+        var results = records.Select(r => new EmblRecordResult(
+            r.Accession,
+            r.SequenceVersion,
+            r.DataClass,
+            r.MoleculeType,
+            r.Topology,
+            r.TaxonomicDivision,
+            r.SequenceLength,
+            r.Description,
+            r.Keywords.ToList(),
+            r.Organism,
+            r.OrganismClassification.ToList(),
+            r.Features.Select(f => new EmblFeatureResult(
+                f.Key,
+                f.Location.Start,
+                f.Location.End,
+                f.Location.IsComplement,
+                f.Location.IsJoin,
+                f.Location.RawLocation,
+                f.Qualifiers.ToDictionary(kv => kv.Key, kv => kv.Value)
+            )).ToList(),
+            r.Sequence.Length,
+            r.Sequence
+        )).ToList();
+
+        return new EmblParseResult(results, results.Count);
+    }
+
+    [McpServerTool(Name = "embl_features")]
+    [Description("Extract features from EMBL records by feature type (gene, CDS, mRNA, etc.).")]
+    public static EmblFeaturesResult EmblFeatures(
+        [Description("EMBL format content to parse")] string content,
+        [Description("Feature type to extract (e.g., 'gene', 'CDS', 'mRNA', 'exon')")] string? featureType = null)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = EmblParser.Parse(content).ToList();
+        var allFeatures = new List<EmblFeatureResult>();
+
+        foreach (var record in records)
+        {
+            IEnumerable<EmblParser.Feature> features = record.Features;
+
+            if (!string.IsNullOrEmpty(featureType))
+            {
+                features = EmblParser.GetFeatures(record, featureType);
+            }
+
+            allFeatures.AddRange(features.Select(f => new EmblFeatureResult(
+                f.Key,
+                f.Location.Start,
+                f.Location.End,
+                f.Location.IsComplement,
+                f.Location.IsJoin,
+                f.Location.RawLocation,
+                f.Qualifiers.ToDictionary(kv => kv.Key, kv => kv.Value)
+            )));
+        }
+
+        var featureTypeCounts = allFeatures
+            .GroupBy(f => f.Key)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return new EmblFeaturesResult(allFeatures, allFeatures.Count, featureTypeCounts);
+    }
+
+    [McpServerTool(Name = "embl_statistics")]
+    [Description("Calculate statistics for EMBL records. Returns counts of records, features, and sequence lengths.")]
+    public static EmblStatisticsResult EmblStatistics(
+        [Description("EMBL format content to analyze")] string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            throw new ArgumentException("Content cannot be null or empty", nameof(content));
+
+        var records = EmblParser.Parse(content).ToList();
+
+        var featureTypeCounts = records
+            .SelectMany(r => r.Features)
+            .GroupBy(f => f.Key)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var moleculeTypes = records
+            .Select(r => r.MoleculeType)
+            .Where(m => !string.IsNullOrEmpty(m))
+            .Distinct()
+            .ToList();
+
+        var divisions = records
+            .Select(r => r.TaxonomicDivision)
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Distinct()
+            .ToList();
+
+        var totalSequenceLength = records.Sum(r => r.SequenceLength);
+        var totalFeatures = records.Sum(r => r.Features.Count);
+        var geneCount = records.Sum(r => EmblParser.GetGenes(r).Count());
+        var cdsCount = records.Sum(r => EmblParser.GetCDS(r).Count());
+
+        return new EmblStatisticsResult(
+            records.Count,
+            totalFeatures,
+            totalSequenceLength,
+            featureTypeCounts,
+            moleculeTypes,
+            divisions,
+            geneCount,
+            cdsCount);
+    }
 }
 
 // ========================
@@ -866,6 +989,43 @@ public record GenBankFeaturesResult(
     int Count,
     Dictionary<string, int> FeatureTypeCounts);
 public record GenBankStatisticsResult(
+    int RecordCount,
+    int TotalFeatures,
+    int TotalSequenceLength,
+    Dictionary<string, int> FeatureTypeCounts,
+    List<string> MoleculeTypes,
+    List<string> Divisions,
+    int GeneCount,
+    int CdsCount);
+public record EmblFeatureResult(
+    string Key,
+    int Start,
+    int End,
+    bool IsComplement,
+    bool IsJoin,
+    string RawLocation,
+    Dictionary<string, string> Qualifiers);
+public record EmblRecordResult(
+    string Accession,
+    string SequenceVersion,
+    string DataClass,
+    string MoleculeType,
+    string Topology,
+    string TaxonomicDivision,
+    int SequenceLength,
+    string Description,
+    List<string> Keywords,
+    string Organism,
+    List<string> OrganismClassification,
+    List<EmblFeatureResult> Features,
+    int ActualSequenceLength,
+    string Sequence);
+public record EmblParseResult(List<EmblRecordResult> Records, int Count);
+public record EmblFeaturesResult(
+    List<EmblFeatureResult> Features,
+    int Count,
+    Dictionary<string, int> FeatureTypeCounts);
+public record EmblStatisticsResult(
     int RecordCount,
     int TotalFeatures,
     int TotalSequenceLength,
