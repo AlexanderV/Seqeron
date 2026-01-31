@@ -436,6 +436,7 @@ public class RestrictionAnalyzer_FindSites_Tests
     {
         var customEnzyme = new RestrictionEnzyme("CustomI", "ATAT", 2, 2, "Custom enzyme");
         var sequence = new DnaSequence("AAATATAAA");
+        var expectedPosition = sequence.Sequence.IndexOf(customEnzyme.RecognitionSequence, StringComparison.Ordinal);
 
         var sites = RestrictionAnalyzer.FindSites(sequence, customEnzyme)
             .Where(s => s.IsForwardStrand)
@@ -444,7 +445,8 @@ public class RestrictionAnalyzer_FindSites_Tests
         Assert.Multiple(() =>
         {
             Assert.That(sites, Has.Count.EqualTo(1), "Should find custom enzyme site");
-            Assert.That(sites[0].Position, Is.EqualTo(3), "Site should be at position 3");
+            Assert.That(expectedPosition, Is.GreaterThanOrEqualTo(0), "Setup should contain the recognition site");
+            Assert.That(sites[0].Position, Is.EqualTo(expectedPosition), "Site should be at expected position");
             Assert.That(sites[0].Enzyme.Name, Is.EqualTo("CustomI"), "Enzyme name should match");
             Assert.That(sites[0].RecognizedSequence, Is.EqualTo("ATAT"));
         });
