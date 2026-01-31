@@ -85,6 +85,12 @@ The implementation uses `MatchPatternCore` for edge-by-edge traversal:
 
 ---
 
+### Related Documentation
+
+- [Suffix Tree (Ukkonen)](Suffix_Tree.md)
+
+---
+
 ## 4. Genomics Wrappers
 
 ### GenomicAnalyzer.FindMotif

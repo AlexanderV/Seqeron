@@ -30,7 +30,7 @@
 
 ## 1. Preparation
 
-- [ ] 1.1 Create solution `SuffixTree.Mcp.sln`
+- [ ] 1.1 Ensure MCP projects are included in `Seqeron.sln`
 - [ ] 1.2 Create `SuffixTree.Mcp.Shared` project
 - [ ] 1.3 Add `SequenceValidator.cs` helper
 - [ ] 1.4 Add `OutputLimiter.cs` helper

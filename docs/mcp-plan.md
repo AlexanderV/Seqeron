@@ -404,7 +404,7 @@ Legend:
 ## 5. Implementation Roadmap
 
 ### Phase 0: Infrastructure & Traceability
-- [ ] Create solution structure (12 projects + Shared)
+- [ ] Create solution structure in `Seqeron.sln` (12 projects + Shared)
 - [ ] Set up build pipeline
 - [ ] Create traceability matrix template
 - [ ] Define error code catalog
