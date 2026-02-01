@@ -109,46 +109,8 @@ public class ChromosomeAnalyzerTests
     // NOTE: Telomere Analysis Tests moved to ChromosomeAnalyzer_Telomere_Tests.cs
     // as part of CHROM-TELO-001 test unit consolidation
 
-    #region Centromere Analysis Tests
-
-    [Test]
-    public void AnalyzeCentromere_WithRepetitiveRegion_FindsCentromere()
-    {
-        // Create sequence with highly repetitive middle section
-        var random = new System.Random(42);
-        string repeatUnit = "AATGAATATTT";
-        string repetitiveRegion = string.Concat(Enumerable.Repeat(repeatUnit, 10000));
-        string flank = CreateRandomSequence(random, 500000);
-
-        string sequence = flank + repetitiveRegion + flank;
-
-        var result = ChromosomeAnalyzer.AnalyzeCentromere(
-            "chr1", sequence, windowSize: 10000, minAlphaSatelliteContent: 0.1);
-
-        // Should detect something in middle region
-        Assert.That(result.Chromosome, Is.EqualTo("chr1"));
-    }
-
-    [Test]
-    public void AnalyzeCentromere_EmptySequence_ReturnsUnknown()
-    {
-        var result = ChromosomeAnalyzer.AnalyzeCentromere("chr1", "");
-
-        Assert.That(result.CentromereType, Is.EqualTo("Unknown"));
-        Assert.That(result.Start, Is.Null);
-        Assert.That(result.End, Is.Null);
-    }
-
-    [Test]
-    public void AnalyzeCentromere_ShortSequence_HandlesGracefully()
-    {
-        var result = ChromosomeAnalyzer.AnalyzeCentromere(
-            "chr1", "ATCGATCG", windowSize: 100);
-
-        Assert.That(result.CentromereType, Is.EqualTo("Unknown"));
-    }
-
-    #endregion
+    // NOTE: Centromere Analysis Tests moved to ChromosomeAnalyzer_Centromere_Tests.cs
+    // as part of CHROM-CENT-001 test unit consolidation
 
     #region Cytogenetic Band Tests
 
