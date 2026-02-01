@@ -8,34 +8,7 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SequenceAlignerTests
 {
-    #region Semi-Global Alignment Tests
-
-
-    [Test]
-    public void SemiGlobalAlign_ShortInLong_FindsMatch()
-    {
-        var query = new DnaSequence("ATGC");
-        var reference = new DnaSequence("AAAATGCAAA");
-
-        var result = SequenceAligner.SemiGlobalAlign(query, reference);
-
-        Assert.That(result.AlignmentType, Is.EqualTo(AlignmentType.SemiGlobal));
-    }
-
-    [Test]
-    public void SemiGlobalAlign_FreeEndGaps_NoGapPenalty()
-    {
-        var query = new DnaSequence("ATGC");
-        var reference = new DnaSequence("ATGCAAAA");
-
-        var result = SequenceAligner.SemiGlobalAlign(query, reference);
-
-        // Semi-global should not heavily penalize trailing gaps
-        Assert.That(result.Score, Is.GreaterThanOrEqualTo(0));
-        Assert.That(result.AlignedSequence1.Replace("-", ""), Is.EqualTo("ATGC"));
-    }
-
-    #endregion
+    // Semi-Global Alignment tests moved to SequenceAligner_SemiGlobalAlign_Tests.cs (ALIGN-SEMI-001)
 
     #region Scoring Matrix Tests
 
@@ -278,12 +251,7 @@ public class SequenceAlignerTests
 
     #region Edge Cases
 
-    [Test]
-    public void SemiGlobalAlign_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.SemiGlobalAlign(null!, new DnaSequence("ATGC")));
-    }
+    // SemiGlobalAlign_NullSequence test moved to SequenceAligner_SemiGlobalAlign_Tests.cs (ALIGN-SEMI-001)
 
     [Test]
     public void CalculateStatistics_NullAlignment_ThrowsException()
