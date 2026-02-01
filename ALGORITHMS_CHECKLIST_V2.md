@@ -56,7 +56,7 @@
 | ☑ | KMER-COUNT-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind (KMER, BA1E) | [KMER-COUNT-001.md](TestSpecs/KMER-COUNT-001.md) | KmerAnalyzer_CountKmers_Tests.cs |
 | ☑ | KMER-FREQ-001 | K-mer | 3 | Wikipedia (K-mer, Entropy), Shannon (1948), Rosalind KMER | [KMER-FREQ-001.md](TestSpecs/KMER-FREQ-001.md) | KmerAnalyzer_Frequency_Tests.cs |
 | ☑ | KMER-FIND-001 | K-mer | 3 | Wikipedia (K-mer), Rosalind BA1B (frequent words), Rosalind BA1E (clump finding) | [KMER-FIND-001.md](TestSpecs/KMER-FIND-001.md) | KmerAnalyzer_Find_Tests.cs |
-| ☐ | ALIGN-GLOBAL-001 | Alignment | 1 | - | - | - |
+| ☑ | ALIGN-GLOBAL-001 | Alignment | 1 | Wikipedia (Needleman–Wunsch, Sequence alignment) | [ALIGN-GLOBAL-001.md](TestSpecs/ALIGN-GLOBAL-001.md) | SequenceAligner_GlobalAlign_Tests.cs, PerformanceExtensionsTests.cs |
 | ☐ | ALIGN-LOCAL-001 | Alignment | 1 | - | - | - |
 | ☐ | ALIGN-SEMI-001 | Alignment | 1 | - | - | - |
 | ☐ | ALIGN-MULTI-001 | Alignment | 1 | - | - | - |
