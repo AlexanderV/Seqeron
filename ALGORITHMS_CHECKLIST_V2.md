@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 43 |
+| **Completed** | 44 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 57 |
+| **Not Started** | 56 |
 
 ---
 
@@ -75,7 +75,7 @@
 | ☑ | CHROM-ANEU-001 | Chromosome | 2 | Wikipedia (Aneuploidy, Copy Number Variation), Griffiths et al. (2000) | [CHROM-ANEU-001.md](TestSpecs/CHROM-ANEU-001.md) | ChromosomeAnalyzer_Aneuploidy_Tests.cs |
 | ☑ | CHROM-SYNT-001 | Chromosome | 2 | Wikipedia (Synteny, Comparative genomics, Chromosomal rearrangement), Wang et al. (2012), Goel et al. (2019) | [CHROM-SYNT-001.md](TestSpecs/CHROM-SYNT-001.md) | ChromosomeAnalyzer_Synteny_Tests.cs |
 | ☑ | META-CLASS-001 | Metagenomics | 2 | Wikipedia (Metagenomics), Kraken CCB JHU, Wood & Salzberg (2014) | [META-CLASS-001.md](TestSpecs/META-CLASS-001.md) | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs |
-| ☐ | META-PROF-001 | Metagenomics | 1 | - | - | - |
+| ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
 | ☐ | META-ALPHA-001 | Metagenomics | 1 | - | - | - |
 | ☐ | META-BETA-001 | Metagenomics | 1 | - | - | - |
 | ☐ | META-BIN-001 | Metagenomics | 1 | - | - | - |
