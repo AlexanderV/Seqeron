@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 30 |
+| **Completed** | 31 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 70 |
+| **Not Started** | 69 |
 
 ---
 
@@ -59,7 +59,7 @@
 | ☑ | ALIGN-GLOBAL-001 | Alignment | 1 | Wikipedia (Needleman–Wunsch, Sequence alignment) | [ALIGN-GLOBAL-001.md](TestSpecs/ALIGN-GLOBAL-001.md) | SequenceAligner_GlobalAlign_Tests.cs, PerformanceExtensionsTests.cs |
 | ☑ | ALIGN-LOCAL-001 | Alignment | 1 | Wikipedia (Smith–Waterman, Sequence alignment) | [ALIGN-LOCAL-001.md](TestSpecs/ALIGN-LOCAL-001.md) | SequenceAligner_LocalAlign_Tests.cs |
 | ☑ | ALIGN-SEMI-001 | Alignment | 1 | Wikipedia (Sequence alignment, Needleman–Wunsch, Smith–Waterman) | [ALIGN-SEMI-001.md](TestSpecs/ALIGN-SEMI-001.md) | SequenceAligner_SemiGlobalAlign_Tests.cs |
-| ☐ | ALIGN-MULTI-001 | Alignment | 1 | - | - | - |
+| ☑ | ALIGN-MULTI-001 | Alignment | 1 | Wikipedia (Multiple sequence alignment, Clustal) | [ALIGN-MULTI-001.md](TestSpecs/ALIGN-MULTI-001.md) | SequenceAligner_MultipleAlign_Tests.cs |
 | ☐ | PHYLO-DIST-001 | Phylogenetic | 2 | - | - | - |
 | ☐ | PHYLO-TREE-001 | Phylogenetic | 1 | - | - | - |
 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | 2 | - | - | - |

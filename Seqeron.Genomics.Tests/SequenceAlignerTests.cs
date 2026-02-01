@@ -166,88 +166,7 @@ public class SequenceAlignerTests
 
     #endregion
 
-    #region Multiple Alignment Tests
-
-    [Test]
-    public void MultipleAlign_TwoSequences_Aligns()
-    {
-        var sequences = new[]
-        {
-            new DnaSequence("ATGC"),
-            new DnaSequence("ATGC")
-        };
-
-        var result = SequenceAligner.MultipleAlign(sequences);
-
-        Assert.That(result.AlignedSequences.Length, Is.EqualTo(2));
-        Assert.That(result.Consensus, Is.EqualTo("ATGC"));
-    }
-
-    [Test]
-    public void MultipleAlign_ThreeSequences_CreatesConsensus()
-    {
-        var sequences = new[]
-        {
-            new DnaSequence("ATGC"),
-            new DnaSequence("ATGC"),
-            new DnaSequence("ATGC")
-        };
-
-        var result = SequenceAligner.MultipleAlign(sequences);
-
-        Assert.That(result.AlignedSequences.Length, Is.EqualTo(3));
-        Assert.That(result.Consensus, Is.Not.Empty);
-    }
-
-    [Test]
-    public void MultipleAlign_DifferentLengths_PadsWithGaps()
-    {
-        var sequences = new[]
-        {
-            new DnaSequence("ATGCATGC"),
-            new DnaSequence("ATGC")
-        };
-
-        var result = SequenceAligner.MultipleAlign(sequences);
-
-        Assert.That(result.AlignedSequences[0].Length, Is.EqualTo(result.AlignedSequences[1].Length));
-    }
-
-    [Test]
-    public void MultipleAlign_SingleSequence_ReturnsSame()
-    {
-        var sequences = new[] { new DnaSequence("ATGC") };
-
-        var result = SequenceAligner.MultipleAlign(sequences);
-
-        Assert.That(result.AlignedSequences.Length, Is.EqualTo(1));
-        Assert.That(result.Consensus, Is.EqualTo("ATGC"));
-    }
-
-    [Test]
-    public void MultipleAlign_Empty_ReturnsEmpty()
-    {
-        var result = SequenceAligner.MultipleAlign(Array.Empty<DnaSequence>());
-
-        Assert.That(result, Is.EqualTo(MultipleAlignmentResult.Empty));
-    }
-
-    [Test]
-    public void MultipleAlign_ReturnsTotalScore()
-    {
-        var sequences = new[]
-        {
-            new DnaSequence("ATGC"),
-            new DnaSequence("ATGC"),
-            new DnaSequence("ATGC")
-        };
-
-        var result = SequenceAligner.MultipleAlign(sequences);
-
-        Assert.That(result.TotalScore, Is.GreaterThan(0));
-    }
-
-    #endregion
+    // Multiple Alignment tests moved to SequenceAligner_MultipleAlign_Tests.cs (ALIGN-MULTI-001)
 
     #region Edge Cases
 
@@ -265,13 +184,6 @@ public class SequenceAlignerTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             SequenceAligner.FormatAlignment(null!));
-    }
-
-    [Test]
-    public void MultipleAlign_NullSequences_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.MultipleAlign(null!));
     }
 
     #endregion
