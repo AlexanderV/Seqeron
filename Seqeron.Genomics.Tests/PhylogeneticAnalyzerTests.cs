@@ -6,114 +6,18 @@ using System.Linq;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Tests for PhylogeneticAnalyzer tree construction, Newick I/O, and tree analysis.
+/// Tests for PhylogeneticAnalyzer Newick I/O and tree analysis.
+/// Tree construction tests are in PhylogeneticAnalyzer_TreeConstruction_Tests.cs (PHYLO-TREE-001).
 /// Distance matrix tests are in PhylogeneticAnalyzer_DistanceMatrix_Tests.cs (PHYLO-DIST-001).
+/// 
+/// This file covers:
+/// - PHYLO-NEWICK-001: Newick format parsing and export
+/// - PHYLO-COMP-001: Tree comparison (Robinson-Foulds, MRCA, Patristic distance)
 /// </summary>
 [TestFixture]
 public class PhylogeneticAnalyzerTests
 {
-    #region Tree Building Tests
-
-    [Test]
-    public void BuildTree_UPGMA_ReturnsValidTree()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["Human"] = "ACGTACGTAC",
-            ["Chimp"] = "ACGTACGTAC",
-            ["Mouse"] = "ACCTACGTTC",
-            ["Rat"] = "ACCTACGTAC"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(
-            sequences,
-            treeMethod: PhylogeneticAnalyzer.TreeMethod.UPGMA);
-
-        Assert.That(tree.Root, Is.Not.Null);
-        Assert.That(tree.Taxa.Count, Is.EqualTo(4));
-        Assert.That(tree.Method, Is.EqualTo("UPGMA"));
-    }
-
-    [Test]
-    public void BuildTree_NeighborJoining_ReturnsValidTree()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGTACGT",
-            ["B"] = "ACGTACGA",
-            ["C"] = "TCGTACGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(
-            sequences,
-            treeMethod: PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
-
-        Assert.That(tree.Root, Is.Not.Null);
-        Assert.That(tree.Method, Is.EqualTo("NeighborJoining"));
-    }
-
-    [Test]
-    public void BuildTree_ContainsAllTaxa()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["Seq1"] = "AAAA",
-            ["Seq2"] = "CCCC",
-            ["Seq3"] = "GGGG"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).Select(l => l.Name).ToList();
-
-        Assert.That(leaves, Does.Contain("Seq1"));
-        Assert.That(leaves, Does.Contain("Seq2"));
-        Assert.That(leaves, Does.Contain("Seq3"));
-    }
-
-    [Test]
-    public void BuildTree_TwoSequences_CreatesBinaryTree()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGT",
-            ["B"] = "TCGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-
-        Assert.That(tree.Root.Left, Is.Not.Null);
-        Assert.That(tree.Root.Right, Is.Not.Null);
-        Assert.That(tree.Root.Left!.IsLeaf || tree.Root.Right!.IsLeaf, Is.True);
-    }
-
-    [Test]
-    public void BuildTree_ThrowsOnSingleSequence()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["Only"] = "ACGT"
-        };
-
-        Assert.Throws<System.ArgumentException>(() =>
-            PhylogeneticAnalyzer.BuildTree(sequences));
-    }
-
-    [Test]
-    public void BuildTree_ThrowsOnUnequalLengths()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["Short"] = "ACG",
-            ["Long"] = "ACGTAC"
-        };
-
-        Assert.Throws<System.ArgumentException>(() =>
-            PhylogeneticAnalyzer.BuildTree(sequences));
-    }
-
-    #endregion
-
-    #region Newick Format Tests
+    #region Newick Format Tests (PHYLO-NEWICK-001)
 
     [Test]
     public void ToNewick_SimpleTree_ProducesValidFormat()
@@ -219,9 +123,10 @@ public class PhylogeneticAnalyzerTests
 
     #endregion
 
-    #region Tree Analysis Tests
+    #region Tree Analysis Tests (PHYLO-COMP-001)
 
     [Test]
+    [Description("PHYLO-COMP-001: GetLeaves returns all leaf nodes")]
     public void GetLeaves_ReturnsAllLeafNodes()
     {
         var sequences = new Dictionary<string, string>
@@ -337,9 +242,10 @@ public class PhylogeneticAnalyzerTests
 
     #endregion
 
-    #region Robinson-Foulds Distance Tests
+    #region Robinson-Foulds Distance Tests (PHYLO-COMP-001)
 
     [Test]
+    [Description("PHYLO-COMP-001: Identical trees have RF distance = 0")]
     public void RobinsonFouldsDistance_IdenticalTrees_ReturnsZero()
     {
         var sequences = new Dictionary<string, string>
@@ -433,29 +339,10 @@ public class PhylogeneticAnalyzerTests
 
     #endregion
 
-    #region Edge Cases
+    #region Edge Cases (shared helpers)
 
     [Test]
-    public void BuildTree_CaseInsensitive()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "acgt",
-            ["B"] = "ACGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        Assert.That(tree.Root, Is.Not.Null);
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_DifferentLength_Throws()
-    {
-        Assert.Throws<System.ArgumentException>(() =>
-            PhylogeneticAnalyzer.CalculatePairwiseDistance("ACGT", "ACGTACGT"));
-    }
-
-    [Test]
+    [Description("PHYLO-NEWICK-001: ParseNewick throws on empty string")]
     public void ParseNewick_EmptyString_Throws()
     {
         Assert.Throws<System.ArgumentException>(() =>
@@ -463,6 +350,7 @@ public class PhylogeneticAnalyzerTests
     }
 
     [Test]
+    [Description("Tree helper: GetLeaves returns empty for null root")]
     public void GetLeaves_NullRoot_ReturnsEmpty()
     {
         var leaves = PhylogeneticAnalyzer.GetLeaves(null!).ToList();
@@ -470,6 +358,7 @@ public class PhylogeneticAnalyzerTests
     }
 
     [Test]
+    [Description("Tree helper: CalculateTreeLength returns zero for null root")]
     public void CalculateTreeLength_NullRoot_ReturnsZero()
     {
         double length = PhylogeneticAnalyzer.CalculateTreeLength(null!);

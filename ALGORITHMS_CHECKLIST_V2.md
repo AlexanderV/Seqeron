@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 31 |
+| **Completed** | 32 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 69 |
+| **Not Started** | 68 |
 
 ---
 
@@ -61,7 +61,7 @@
 | ☑ | ALIGN-SEMI-001 | Alignment | 1 | Wikipedia (Sequence alignment, Needleman–Wunsch, Smith–Waterman) | [ALIGN-SEMI-001.md](TestSpecs/ALIGN-SEMI-001.md) | SequenceAligner_SemiGlobalAlign_Tests.cs |
 | ☑ | ALIGN-MULTI-001 | Alignment | 1 | Wikipedia (Multiple sequence alignment, Clustal) | [ALIGN-MULTI-001.md](TestSpecs/ALIGN-MULTI-001.md) | SequenceAligner_MultipleAlign_Tests.cs |
 | ☑ | PHYLO-DIST-001 | Phylogenetic | 2 | Wikipedia (Models of DNA evolution, Distance matrices in phylogeny, Jukes-Cantor, Kimura 2-parameter) | [PHYLO-DIST-001.md](TestSpecs/PHYLO-DIST-001.md) | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs |
-| ☐ | PHYLO-TREE-001 | Phylogenetic | 1 | - | - | - |
+| ☑ | PHYLO-TREE-001 | Phylogenetic | 1 | Wikipedia (UPGMA, Neighbor joining, Phylogenetic tree), Saitou & Nei (1987), Sokal & Michener (1958) | [PHYLO-TREE-001.md](TestSpecs/PHYLO-TREE-001.md) | PhylogeneticAnalyzer_TreeConstruction_Tests.cs |
 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | 2 | - | - | - |
 | ☐ | PHYLO-COMP-001 | Phylogenetic | 3 | - | - | - |
 | ☐ | POP-FREQ-001 | PopGen | 3 | - | - | - |
