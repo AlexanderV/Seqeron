@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 42 |
+| **Completed** | 43 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 58 |
+| **Not Started** | 57 |
 
 ---
 
@@ -73,7 +73,7 @@
 | ☑ | CHROM-CENT-001 | Chromosome | 1 | Wikipedia (Centromere, Karyotype, Chromosome), Levan (1964) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs |
 | ☑ | CHROM-KARYO-001 | Chromosome | 2 | Wikipedia (Karyotype, Ploidy, Aneuploidy) | [CHROM-KARYO-001.md](TestSpecs/CHROM-KARYO-001.md) | ChromosomeAnalyzer_Karyotype_Tests.cs |
 | ☑ | CHROM-ANEU-001 | Chromosome | 2 | Wikipedia (Aneuploidy, Copy Number Variation), Griffiths et al. (2000) | [CHROM-ANEU-001.md](TestSpecs/CHROM-ANEU-001.md) | ChromosomeAnalyzer_Aneuploidy_Tests.cs |
-| ☐ | CHROM-SYNT-001 | Chromosome | 2 | - | - | - |
+| ☑ | CHROM-SYNT-001 | Chromosome | 2 | Wikipedia (Synteny, Comparative genomics, Chromosomal rearrangement), Wang et al. (2012), Goel et al. (2019) | [CHROM-SYNT-001.md](TestSpecs/CHROM-SYNT-001.md) | ChromosomeAnalyzer_Synteny_Tests.cs |
 | ☐ | META-CLASS-001 | Metagenomics | 2 | - | - | - |
 | ☐ | META-PROF-001 | Metagenomics | 1 | - | - | - |
 | ☐ | META-ALPHA-001 | Metagenomics | 1 | - | - | - |
