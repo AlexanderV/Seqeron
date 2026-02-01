@@ -12,114 +12,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: Allele Frequency tests (POP-FREQ-001) have been moved to
     // PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs
 
-    #region Diversity Statistics Tests
-
-    [Test]
-    public void CalculateNucleotideDiversity_IdenticalSequences_ReturnsZero()
-    {
-        var sequences = new List<IReadOnlyList<char>>
-        {
-            "ACGT".ToList(),
-            "ACGT".ToList(),
-            "ACGT".ToList()
-        };
-
-        double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
-
-        Assert.That(pi, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateNucleotideDiversity_AllDifferent_ReturnsPositive()
-    {
-        var sequences = new List<IReadOnlyList<char>>
-        {
-            "AAAA".ToList(),
-            "TTTT".ToList()
-        };
-
-        double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
-
-        Assert.That(pi, Is.EqualTo(1.0)); // All positions differ
-    }
-
-    [Test]
-    public void CalculateWattersonTheta_KnownValues_CalculatesCorrectly()
-    {
-        // S = 10, n = 10, L = 1000
-        // a1 = 1 + 1/2 + ... + 1/9 ≈ 2.829
-        // theta = 10 / (2.829 * 1000) ≈ 0.00353
-
-        double theta = PopulationGeneticsAnalyzer.CalculateWattersonTheta(
-            segregatingSites: 10,
-            sampleSize: 10,
-            sequenceLength: 1000);
-
-        Assert.That(theta, Is.GreaterThan(0.003).And.LessThan(0.004));
-    }
-
-    [Test]
-    public void CalculateTajimasD_NeutralEvolution_NearZero()
-    {
-        // Under neutrality, Tajima's D should be near 0
-        // When pi ≈ theta, D ≈ 0
-
-        double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity: 0.01,
-            wattersonTheta: 0.01,
-            segregatingSites: 100,
-            sampleSize: 50);
-
-        Assert.That(Math.Abs(d), Is.LessThan(1));
-    }
-
-    [Test]
-    public void CalculateTajimasD_PositiveSelection_Negative()
-    {
-        // Positive selection: excess of rare variants
-        // pi << theta, D < 0
-
-        double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity: 0.001,
-            wattersonTheta: 0.01,
-            segregatingSites: 100,
-            sampleSize: 50);
-
-        Assert.That(d, Is.LessThan(0));
-    }
-
-    [Test]
-    public void CalculateDiversityStatistics_ReturnsAllMetrics()
-    {
-        var sequences = new List<IReadOnlyList<char>>
-        {
-            "ACGTACGT".ToList(),
-            "ACGTATGT".ToList(),
-            "ACGTACGA".ToList()
-        };
-
-        var stats = PopulationGeneticsAnalyzer.CalculateDiversityStatistics(sequences);
-
-        Assert.That(stats.SampleSize, Is.EqualTo(3));
-        Assert.That(stats.SegregratingSites, Is.GreaterThan(0));
-        Assert.That(stats.NucleotideDiversity, Is.GreaterThanOrEqualTo(0));
-    }
-
-    [Test]
-    public void CalculateDiversityStatistics_SingleSequence_ReturnsZeroDiversity()
-    {
-        var sequences = new List<IReadOnlyList<char>>
-        {
-            "ACGT".ToList()
-        };
-
-        var stats = PopulationGeneticsAnalyzer.CalculateDiversityStatistics(sequences);
-
-        Assert.That(stats.NucleotideDiversity, Is.EqualTo(0));
-        Assert.That(stats.SampleSize, Is.EqualTo(1));
-    }
-
-    #endregion
+    // Note: Diversity Statistics tests (POP-DIV-001) have been moved to
+    // PopulationGeneticsAnalyzer_Diversity_Tests.cs
 
     #region Hardy-Weinberg Tests
 
@@ -526,31 +420,8 @@ public class PopulationGeneticsAnalyzerTests
 
     #region Edge Cases Tests
 
-    [Test]
-    public void CalculateNucleotideDiversity_SingleSequence_ReturnsZero()
-    {
-        var sequences = new List<IReadOnlyList<char>> { "ACGT".ToList() };
-
-        double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
-
-        Assert.That(pi, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateWattersonTheta_SmallSample_HandlesCorrectly()
-    {
-        double theta = PopulationGeneticsAnalyzer.CalculateWattersonTheta(5, 2, 100);
-
-        Assert.That(theta, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateTajimasD_NoSegregratingSites_ReturnsZero()
-    {
-        double d = PopulationGeneticsAnalyzer.CalculateTajimasD(0, 0, 0, 50);
-
-        Assert.That(d, Is.EqualTo(0));
-    }
+    // Note: Diversity edge cases (CalculateNucleotideDiversity, CalculateWattersonTheta,
+    // CalculateTajimasD) have been moved to PopulationGeneticsAnalyzer_Diversity_Tests.cs
 
     [Test]
     public void CalculateFst_EmptyPopulations_ReturnsZero()
