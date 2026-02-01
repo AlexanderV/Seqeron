@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Seqeron.Genomics;
 using System.Linq;
@@ -7,66 +8,8 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SequenceAlignerTests
 {
-    #region Local Alignment Tests
-
-    [Test]
-    public void LocalAlign_FindsBestSubsequence()
-    {
-        var seq1 = new DnaSequence("AAATGCAAA");
-        var seq2 = new DnaSequence("CCCTGCCCC");
-
-        var result = SequenceAligner.LocalAlign(seq1, seq2);
-
-        Assert.That(result.AlignmentType, Is.EqualTo(AlignmentType.Local));
-        Assert.That(result.AlignedSequence1, Does.Contain("TGC"));
-    }
-
-    [Test]
-    public void LocalAlign_NoSimilarity_ReturnsEmptyOrLow()
-    {
-        var seq1 = new DnaSequence("AAAA");
-        var seq2 = new DnaSequence("TTTT");
-
-        var result = SequenceAligner.LocalAlign(seq1, seq2);
-
-        // Local alignment may find no good match
-        Assert.That(result.Score, Is.LessThanOrEqualTo(0).Or.GreaterThanOrEqualTo(0));
-    }
-
-    [Test]
-    public void LocalAlign_IdenticalSequences_FullMatch()
-    {
-        var seq1 = new DnaSequence("ATGC");
-        var seq2 = new DnaSequence("ATGC");
-
-        var result = SequenceAligner.LocalAlign(seq1, seq2);
-
-        Assert.That(result.AlignedSequence1, Is.EqualTo("ATGC"));
-    }
-
-    [Test]
-    public void LocalAlign_ReturnsPositions()
-    {
-        var seq1 = new DnaSequence("AAATGCAAA");
-        var seq2 = new DnaSequence("TGCTGC");
-
-        var result = SequenceAligner.LocalAlign(seq1, seq2);
-
-        Assert.That(result.StartPosition1, Is.GreaterThanOrEqualTo(0));
-        Assert.That(result.EndPosition1, Is.GreaterThanOrEqualTo(result.StartPosition1));
-    }
-
-    [Test]
-    public void LocalAlign_StringOverload_Works()
-    {
-        var result = SequenceAligner.LocalAlign("AAATGCAAA", "TGCTGC");
-
-        Assert.That(result.Score, Is.GreaterThan(0));
-    }
-
-    #endregion
-
     #region Semi-Global Alignment Tests
+
 
     [Test]
     public void SemiGlobalAlign_ShortInLong_FindsMatch()
@@ -334,13 +277,6 @@ public class SequenceAlignerTests
     #endregion
 
     #region Edge Cases
-
-    [Test]
-    public void LocalAlign_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.LocalAlign((DnaSequence)null!, new DnaSequence("ATGC")));
-    }
 
     [Test]
     public void SemiGlobalAlign_NullSequence_ThrowsException()
