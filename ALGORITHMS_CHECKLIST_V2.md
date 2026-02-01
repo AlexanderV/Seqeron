@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 36 |
+| **Completed** | 37 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 64 |
+| **Not Started** | 63 |
 
 ---
 
@@ -66,7 +66,7 @@
 | ☑ | PHYLO-COMP-001 | Phylogenetic | 3 | Wikipedia (Robinson-Foulds, MRCA, Phylogenetic tree), Robinson & Foulds (1981) | [PHYLO-COMP-001.md](TestSpecs/PHYLO-COMP-001.md) | PhylogeneticAnalyzer_TreeComparison_Tests.cs |
 | ☑ | POP-FREQ-001 | PopGen | 3 | Wikipedia (Allele frequency, Minor allele frequency, Genotype frequency), Gillespie (2004) | [POP-FREQ-001.md](TestSpecs/POP-FREQ-001.md) | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs |
 | ☑ | POP-DIV-001 | PopGen | 4 | Wikipedia (Nucleotide diversity, Watterson estimator, Tajima's D), Nei & Li (1979), Watterson (1975), Tajima (1989) | [POP-DIV-001.md](TestSpecs/POP-DIV-001.md) | PopulationGeneticsAnalyzer_Diversity_Tests.cs |
-| ☐ | POP-HW-001 | PopGen | 1 | - | - | - |
+| ☑ | POP-HW-001 | PopGen | 1 | Wikipedia (Hardy-Weinberg principle, Chi-squared test), Hardy (1908), Weinberg (1908), Emigh (1980) | [POP-HW-001.md](TestSpecs/POP-HW-001.md) | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs |
 | ☐ | POP-FST-001 | PopGen | 2 | - | - | - |
 | ☐ | POP-LD-001 | PopGen | 2 | - | - | - |
 | ☐ | CHROM-TELO-001 | Chromosome | 2 | - | - | - |

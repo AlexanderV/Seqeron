@@ -15,64 +15,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: Diversity Statistics tests (POP-DIV-001) have been moved to
     // PopulationGeneticsAnalyzer_Diversity_Tests.cs
 
-    #region Hardy-Weinberg Tests
-
-    [Test]
-    public void TestHardyWeinberg_InEquilibrium_PassesTest()
-    {
-        // Expected under HWE with p = 0.5:
-        // AA: 25, Aa: 50, aa: 25
-
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "V1",
-            observedAA: 25,
-            observedAa: 50,
-            observedaa: 25);
-
-        // Chi-square should be very low for perfect HWE
-        Assert.That(result.ChiSquare, Is.LessThan(1));
-        Assert.That(result.ExpectedAA, Is.EqualTo(25).Within(0.1));
-    }
-
-    [Test]
-    public void TestHardyWeinberg_ExcessHeterozygotes_FailsTest()
-    {
-        // Too many heterozygotes for HWE
-
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "V1",
-            observedAA: 10,
-            observedAa: 80,
-            observedaa: 10);
-
-        Assert.That(result.ChiSquare, Is.GreaterThan(0));
-        // May or may not pass depending on threshold
-    }
-
-    [Test]
-    public void TestHardyWeinberg_CalculatesExpectedCorrectly()
-    {
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "V1",
-            observedAA: 100,
-            observedAa: 0,
-            observedaa: 0);
-
-        // p = 1.0, expected: 100 AA, 0 Aa, 0 aa
-        Assert.That(result.ExpectedAA, Is.EqualTo(100).Within(0.1));
-        Assert.That(result.ExpectedAa, Is.EqualTo(0).Within(0.1));
-    }
-
-    [Test]
-    public void TestHardyWeinberg_ZeroSamples_HandlesGracefully()
-    {
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("V1", 0, 0, 0);
-
-        Assert.That(result.InEquilibrium, Is.True);
-        Assert.That(result.PValue, Is.EqualTo(1));
-    }
-
-    #endregion
+    // Note: Hardy-Weinberg tests (POP-HW-001) have been moved to
+    // PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs
 
     #region F-Statistics Tests
 
