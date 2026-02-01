@@ -6,65 +6,13 @@ using System.Linq;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Tests for MetagenomicsAnalyzer methods NOT covered by META-CLASS-001.
+/// Tests for MetagenomicsAnalyzer methods NOT covered by META-CLASS-001 or META-PROF-001.
 /// For ClassifyReads and BuildKmerDatabase tests, see MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs
+/// For GenerateTaxonomicProfile tests, see MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
 /// </summary>
 [TestFixture]
 public class MetagenomicsAnalyzerTests
 {
-    #region Taxonomic Profile Tests
-
-    [Test]
-    public void GenerateTaxonomicProfile_CalculatesAbundances()
-    {
-        var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
-        {
-            new("read1", "Bacteria", "Proteobacteria", "", "", "", "Escherichia", "coli", 0.9, 100, 110),
-            new("read2", "Bacteria", "Proteobacteria", "", "", "", "Escherichia", "coli", 0.8, 90, 110),
-            new("read3", "Bacteria", "Firmicutes", "", "", "", "Bacillus", "subtilis", 0.85, 95, 110)
-        };
-
-        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
-
-        Assert.That(profile.TotalReads, Is.EqualTo(3));
-        Assert.That(profile.ClassifiedReads, Is.EqualTo(3));
-        Assert.That(profile.KingdomAbundance["Bacteria"], Is.EqualTo(1.0));
-    }
-
-    [Test]
-    public void GenerateTaxonomicProfile_CalculatesDiversity()
-    {
-        var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
-        {
-            new("r1", "Bacteria", "P1", "", "", "", "G1", "sp1", 0.9, 100, 110),
-            new("r2", "Bacteria", "P1", "", "", "", "G1", "sp2", 0.9, 100, 110),
-            new("r3", "Bacteria", "P2", "", "", "", "G2", "sp3", 0.9, 100, 110),
-            new("r4", "Archaea", "P3", "", "", "", "G3", "sp4", 0.9, 100, 110)
-        };
-
-        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
-
-        Assert.That(profile.ShannonDiversity, Is.GreaterThan(0));
-        Assert.That(profile.SimpsonDiversity, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void GenerateTaxonomicProfile_WithUnclassified_ExcludesFromAbundance()
-    {
-        var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
-        {
-            new("read1", "Bacteria", "Proteobacteria", "", "", "", "Escherichia", "coli", 0.9, 100, 110),
-            new("read2", "Unclassified", "", "", "", "", "", "", 0, 0, 110)
-        };
-
-        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
-
-        Assert.That(profile.TotalReads, Is.EqualTo(2));
-        Assert.That(profile.ClassifiedReads, Is.EqualTo(1));
-    }
-
-    #endregion
-
     #region Alpha Diversity Tests
 
     [Test]
