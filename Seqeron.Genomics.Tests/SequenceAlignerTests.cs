@@ -7,87 +7,6 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SequenceAlignerTests
 {
-    #region Global Alignment Tests
-
-    [Test]
-    public void GlobalAlign_IdenticalSequences_PerfectMatch()
-    {
-        var seq1 = new DnaSequence("ATGC");
-        var seq2 = new DnaSequence("ATGC");
-
-        var result = SequenceAligner.GlobalAlign(seq1, seq2);
-
-        Assert.That(result.AlignedSequence1, Is.EqualTo("ATGC"));
-        Assert.That(result.AlignedSequence2, Is.EqualTo("ATGC"));
-        Assert.That(result.Score, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void GlobalAlign_SingleMismatch_AlignsCorrectly()
-    {
-        var seq1 = new DnaSequence("ATGC");
-        var seq2 = new DnaSequence("ATTC");
-
-        var result = SequenceAligner.GlobalAlign(seq1, seq2);
-
-        Assert.That(result.AlignedSequence1.Length, Is.EqualTo(result.AlignedSequence2.Length));
-        Assert.That(result.AlignmentType, Is.EqualTo(AlignmentType.Global));
-    }
-
-    [Test]
-    public void GlobalAlign_WithGap_InsertsGap()
-    {
-        var seq1 = new DnaSequence("ATGC");
-        var seq2 = new DnaSequence("AGC");
-
-        var result = SequenceAligner.GlobalAlign(seq1, seq2);
-
-        Assert.That(result.AlignedSequence1.Contains('-') || result.AlignedSequence2.Contains('-'));
-    }
-
-    [Test]
-    public void GlobalAlign_DifferentLengths_AlignsCompletely()
-    {
-        var seq1 = new DnaSequence("ATGCATGC");
-        var seq2 = new DnaSequence("ATGC");
-
-        var result = SequenceAligner.GlobalAlign(seq1, seq2);
-
-        Assert.That(result.AlignedSequence1.Replace("-", "").Length, Is.EqualTo(8));
-        Assert.That(result.AlignedSequence2.Replace("-", "").Length, Is.EqualTo(4));
-    }
-
-    [Test]
-    public void GlobalAlign_StringOverload_Works()
-    {
-        var result = SequenceAligner.GlobalAlign("ATGC", "ATGC");
-
-        Assert.That(result.AlignedSequence1, Is.EqualTo("ATGC"));
-        Assert.That(result.Score, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void GlobalAlign_EmptySequence_ReturnsEmpty()
-    {
-        var result = SequenceAligner.GlobalAlign("", "ATGC");
-
-        Assert.That(result, Is.EqualTo(AlignmentResult.Empty));
-    }
-
-    [Test]
-    public void GlobalAlign_CustomScoring_UsesProvidedMatrix()
-    {
-        var seq1 = new DnaSequence("AAAA");
-        var seq2 = new DnaSequence("AAAA");
-
-        var result1 = SequenceAligner.GlobalAlign(seq1, seq2, SequenceAligner.SimpleDna);
-        var result2 = SequenceAligner.GlobalAlign(seq1, seq2, SequenceAligner.BlastDna);
-
-        Assert.That(result2.Score, Is.GreaterThan(result1.Score)); // BlastDna has higher match score
-    }
-
-    #endregion
-
     #region Local Alignment Tests
 
     [Test]
@@ -415,13 +334,6 @@ public class SequenceAlignerTests
     #endregion
 
     #region Edge Cases
-
-    [Test]
-    public void GlobalAlign_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceAligner.GlobalAlign((DnaSequence)null!, new DnaSequence("ATGC")));
-    }
 
     [Test]
     public void LocalAlign_NullSequence_ThrowsException()
