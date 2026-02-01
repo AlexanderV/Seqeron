@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 33 |
+| **Completed** | 34 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 67 |
+| **Not Started** | 66 |
 
 ---
 
@@ -63,7 +63,7 @@
 | ☑ | PHYLO-DIST-001 | Phylogenetic | 2 | Wikipedia (Models of DNA evolution, Distance matrices in phylogeny, Jukes-Cantor, Kimura 2-parameter) | [PHYLO-DIST-001.md](TestSpecs/PHYLO-DIST-001.md) | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs |
 | ☑ | PHYLO-TREE-001 | Phylogenetic | 1 | Wikipedia (UPGMA, Neighbor joining, Phylogenetic tree), Saitou & Nei (1987), Sokal & Michener (1958) | [PHYLO-TREE-001.md](TestSpecs/PHYLO-TREE-001.md) | PhylogeneticAnalyzer_TreeConstruction_Tests.cs |
 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | 2 | Wikipedia (Newick format), PHYLIP (Felsenstein), Olsen (1990) | [PHYLO-NEWICK-001.md](TestSpecs/PHYLO-NEWICK-001.md) | PhylogeneticAnalyzer_NewickIO_Tests.cs |
-| ☐ | PHYLO-COMP-001 | Phylogenetic | 3 | - | - | - |
+| ☑ | PHYLO-COMP-001 | Phylogenetic | 3 | Wikipedia (Robinson-Foulds, MRCA, Phylogenetic tree), Robinson & Foulds (1981) | [PHYLO-COMP-001.md](TestSpecs/PHYLO-COMP-001.md) | PhylogeneticAnalyzer_TreeComparison_Tests.cs |
 | ☐ | POP-FREQ-001 | PopGen | 3 | - | - | - |
 | ☐ | POP-DIV-001 | PopGen | 4 | - | - | - |
 | ☐ | POP-HW-001 | PopGen | 1 | - | - | - |
