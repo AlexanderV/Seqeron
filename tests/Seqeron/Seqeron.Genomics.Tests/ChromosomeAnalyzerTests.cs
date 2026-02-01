@@ -74,87 +74,8 @@ public class ChromosomeAnalyzerTests
 
     #endregion
 
-    #region Synteny Analysis Tests
-
-    [Test]
-    public void FindSyntenyBlocks_WithCollinearGenes_FindsBlocks()
-    {
-        var orthologPairs = new List<(string, int, int, string, string, int, int, string)>
-        {
-            ("chr1", 1000, 2000, "gene1", "chrA", 1000, 2000, "geneA"),
-            ("chr1", 3000, 4000, "gene2", "chrA", 3000, 4000, "geneB"),
-            ("chr1", 5000, 6000, "gene3", "chrA", 5000, 6000, "geneC"),
-            ("chr1", 7000, 8000, "gene4", "chrA", 7000, 8000, "geneD"),
-        };
-
-        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
-            orthologPairs, minGenes: 3, maxGap: 10).ToList();
-
-        Assert.That(blocks.Count, Is.GreaterThanOrEqualTo(1));
-        Assert.That(blocks[0].GeneCount, Is.GreaterThanOrEqualTo(3));
-        Assert.That(blocks[0].Strand, Is.EqualTo('+'));
-    }
-
-    [Test]
-    public void FindSyntenyBlocks_WithInvertedGenes_DetectsInversion()
-    {
-        var orthologPairs = new List<(string, int, int, string, string, int, int, string)>
-        {
-            ("chr1", 1000, 2000, "gene1", "chrA", 8000, 9000, "geneA"),
-            ("chr1", 3000, 4000, "gene2", "chrA", 6000, 7000, "geneB"),
-            ("chr1", 5000, 6000, "gene3", "chrA", 4000, 5000, "geneC"),
-            ("chr1", 7000, 8000, "gene4", "chrA", 2000, 3000, "geneD"),
-        };
-
-        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
-            orthologPairs, minGenes: 3, maxGap: 10).ToList();
-
-        Assert.That(blocks.Any(b => b.Strand == '-'), Is.True);
-    }
-
-    [Test]
-    public void FindSyntenyBlocks_TooFewGenes_ReturnsEmpty()
-    {
-        var orthologPairs = new List<(string, int, int, string, string, int, int, string)>
-        {
-            ("chr1", 1000, 2000, "gene1", "chrA", 1000, 2000, "geneA"),
-        };
-
-        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
-            orthologPairs, minGenes: 3).ToList();
-
-        Assert.That(blocks, Is.Empty);
-    }
-
-    [Test]
-    public void DetectRearrangements_WithTranslocation_DetectsTranslocation()
-    {
-        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
-        {
-            new("chr1", 1000, 50000, "chrA", 1000, 50000, '+', 10, 0.95),
-            new("chr1", 60000, 100000, "chrB", 1000, 40000, '+', 8, 0.93)
-        };
-
-        var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
-
-        Assert.That(rearrangements.Any(r => r.Type == "Translocation"), Is.True);
-    }
-
-    [Test]
-    public void DetectRearrangements_WithInversion_DetectsInversion()
-    {
-        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
-        {
-            new("chr1", 1000, 50000, "chrA", 1000, 50000, '+', 10, 0.95),
-            new("chr1", 60000, 100000, "chrA", 60000, 100000, '-', 8, 0.93)
-        };
-
-        var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
-
-        Assert.That(rearrangements.Any(r => r.Type == "Inversion"), Is.True);
-    }
-
-    #endregion
+    // NOTE: Synteny Analysis Tests moved to ChromosomeAnalyzer_Synteny_Tests.cs
+    // as part of CHROM-SYNT-001 test unit consolidation
 
     #region Utility Method Tests
 
