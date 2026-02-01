@@ -1,7 +1,7 @@
 # GC Skew
 
-**Test Unit ID:** SEQ-GCSKEW-001  
-**Algorithm Group:** Sequence Composition  
+**Test Unit ID:** SEQ-GCSKEW-001
+**Algorithm Group:** Sequence Composition
 **Implementation:** `GcSkewCalculator` class
 
 ---

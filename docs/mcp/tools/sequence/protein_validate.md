@@ -18,7 +18,7 @@ Validates whether a sequence contains only valid amino acid codes. Valid charact
 
 ## Core Documentation Reference
 
-- Source: [ProteinSequence.cs#L357](../../../../Seqeron.Genomics/ProteinSequence.cs#L357)
+- Source: [ProteinSequence.cs#L357](../../../../src/Seqeron/Seqeron.Genomics/ProteinSequence.cs#L357)
 
 ## Input Schema
 

@@ -18,7 +18,7 @@ Counts the number of positions where a pattern approximately matches a sequence,
 
 ## Core Documentation Reference
 
-- Source: [ApproximateMatcher.cs#L283](../../../../Seqeron.Genomics/ApproximateMatcher.cs#L283)
+- Source: [ApproximateMatcher.cs#L283](../../../../src/Seqeron/Seqeron.Genomics/ApproximateMatcher.cs#L283)
 - Algorithm: Sliding window with mismatch counting
 
 ## Input Schema

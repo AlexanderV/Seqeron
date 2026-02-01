@@ -1,6 +1,6 @@
 # Suffix Tree (Ukkonen)
 
-**Algorithm Group:** Pattern Matching / String Indexing  
+**Algorithm Group:** Pattern Matching / String Indexing
 **Implementation:** `SuffixTree` project (`SuffixTree/`)
 
 ---

@@ -61,7 +61,7 @@ Cas9 will not successfully bind to or cleave the target DNA sequence if it is no
 
 - **PAM after target (Cas9 systems)**: `[Target 20bp][NGG]`
   - Target region: positions `PAM_pos - guideLength` to `PAM_pos - 1`
-  
+
 - **PAM before target (Cas12a systems)**: `[TTTV][Target 23bp]`
   - Target region: positions `PAM_pos + PAM_length` to `PAM_pos + PAM_length + guideLength - 1`
 

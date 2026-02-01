@@ -50,7 +50,7 @@ The algorithm uses a heuristic sliding-window approach:
 Position ratio = centromere_midpoint / chromosome_length
 
 < 0.15 → Acrocentric
-0.15 - 0.35 → Submetacentric  
+0.15 - 0.35 → Submetacentric
 0.35 - 0.65 → Metacentric
 0.65 - 0.85 → Submetacentric
 > 0.85 → Acrocentric

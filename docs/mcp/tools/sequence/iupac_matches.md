@@ -59,4 +59,3 @@ Determines if a specific nucleotide (A, C, G, T) matches an IUPAC ambiguity code
 
 - [iupac_code](iupac_code.md) - Get IUPAC code for bases
 - [iupac_match](iupac_match.md) - Check if two codes can match
-

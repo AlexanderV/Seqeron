@@ -18,7 +18,7 @@ Calculates comprehensive statistics for GFF/GTF annotation files. Returns featur
 
 ## Core Documentation Reference
 
-- Source: [GffParser.cs#L377](../../../../Seqeron.Genomics/GffParser.cs#L377)
+- Source: [GffParser.cs#L377](../../../../src/Seqeron/Seqeron.Genomics/GffParser.cs#L377)
 
 ## Input Schema
 

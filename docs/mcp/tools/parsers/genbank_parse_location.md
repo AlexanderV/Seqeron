@@ -26,7 +26,7 @@ Returns the overall span, individual parts, and whether the location is on the c
 
 ## Core Documentation Reference
 
-- Source: [GenBankParser.cs#L471](../../../../Seqeron.Genomics/GenBankParser.cs#L471)
+- Source: [GenBankParser.cs#L471](../../../../src/Seqeron/Seqeron.Genomics/GenBankParser.cs#L471)
 
 ## Input Schema
 

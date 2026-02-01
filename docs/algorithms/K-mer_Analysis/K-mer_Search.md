@@ -41,7 +41,7 @@ Where "TGCA" appears 3 times within a 25-bp window.
 
 ### FindMostFrequentKmers
 
-**Input:** Sequence (string), k (k-mer length)  
+**Input:** Sequence (string), k (k-mer length)
 **Output:** Set of k-mers with maximum count
 
 **Algorithm:**
@@ -53,7 +53,7 @@ Where "TGCA" appears 3 times within a 25-bp window.
 
 ### FindUniqueKmers
 
-**Input:** Sequence (string), k (k-mer length)  
+**Input:** Sequence (string), k (k-mer length)
 **Output:** Set of k-mers appearing exactly once
 
 **Algorithm:**
@@ -64,7 +64,7 @@ Where "TGCA" appears 3 times within a 25-bp window.
 
 ### FindClumps
 
-**Input:** Sequence (string), k (k-mer length), L (window size), t (minimum occurrences)  
+**Input:** Sequence (string), k (k-mer length), L (window size), t (minimum occurrences)
 **Output:** Set of k-mers forming (L, t)-clumps
 
 **Algorithm (Sliding Window):**
@@ -124,5 +124,5 @@ The `KmerAnalyzer` class provides:
 
 ---
 
-*Document generated: 2026-01-23*  
+*Document generated: 2026-01-23*
 *Test Unit: KMER-FIND-001*

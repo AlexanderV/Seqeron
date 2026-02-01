@@ -1,7 +1,7 @@
 # Tree Comparison Algorithms
 
-**Test Unit:** PHYLO-COMP-001  
-**Category:** Phylogenetics  
+**Test Unit:** PHYLO-COMP-001
+**Category:** Phylogenetics
 **Implementation:** `PhylogeneticAnalyzer.cs`
 
 ---

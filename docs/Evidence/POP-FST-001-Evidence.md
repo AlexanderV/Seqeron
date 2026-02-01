@@ -1,9 +1,9 @@
 # Evidence Document: POP-FST-001 (F-Statistics)
 
-**Test Unit ID:** POP-FST-001  
-**Algorithm:** Fst (Fixation Index), F-Statistics (Fis, Fit, Fst)  
-**Date:** 2026-02-01  
-**Status:** Evidence Gathered  
+**Test Unit ID:** POP-FST-001
+**Algorithm:** Fst (Fixation Index), F-Statistics (Fis, Fit, Fst)
+**Date:** 2026-02-01
+**Status:** Evidence Gathered
 
 ---
 
@@ -202,7 +202,7 @@ For each locus:
   pBar = (n1*p1 + n2*p2) / (n1 + n2)   // Weighted mean
   variance = weighted variance of p1, p2 around pBar
   het = pBar * (1 - pBar)
-  
+
 Fst = sum(variance) / sum(het)
 ```
 

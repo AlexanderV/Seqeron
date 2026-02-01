@@ -18,7 +18,7 @@ Finds intersecting (overlapping) regions between two sets of BED records. Return
 
 ## Core Documentation Reference
 
-- Source: [BedParser.cs#L319](../../../../Seqeron.Genomics/BedParser.cs#L319)
+- Source: [BedParser.cs#L319](../../../../src/Seqeron/Seqeron.Genomics/BedParser.cs#L319)
 
 ## Input Schema
 

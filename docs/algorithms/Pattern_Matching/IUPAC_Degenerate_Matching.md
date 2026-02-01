@@ -1,7 +1,7 @@
 # IUPAC Degenerate Motif Matching
 
-**Test Unit ID:** PAT-IUPAC-001  
-**Algorithm Group:** Pattern Matching  
+**Test Unit ID:** PAT-IUPAC-001
+**Algorithm Group:** Pattern Matching
 **Implementation:** `MotifFinder.FindDegenerateMotif()`, `IupacHelper.MatchesIupac()`
 
 ---

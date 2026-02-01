@@ -26,15 +26,15 @@ For HTTP-based MCP, the client usually needs a URL instead of a command.
 
 ## How to use in practice
 
-1) Start the server you need (Sequence / Parsers / Core).  
-2) Register it in your MCP client.  
+1) Start the server you need (Sequence / Parsers / Core).
+2) Register it in your MCP client.
 3) Use the tool docs to build prompts and tool calls.
 
 ## Example workflows (prompts and outputs)
 
 ### Example (real workflow): cloning insert QC
 
-**Task:** given an insert in FASTA, report GC% and whether it contains EcoRI (GAATTC) or BamHI (GGATCC) sites (0‑based positions).  
+**Task:** given an insert in FASTA, report GC% and whether it contains EcoRI (GAATTC) or BamHI (GGATCC) sites (0‑based positions).
 This is a standard cloning QC step to avoid cutting sites and to estimate PCR behavior.
 
 **User prompt (in your LLM chat):**
@@ -64,14 +64,14 @@ GCGCGAATTCATGGATCCATAT
 ```
 
 **Tools used (in order):**
-1) `fasta_parse` → sequence = "GCGCGAATTCATGGATCCATAT"  
-2) `gc_content` → gcContent = 45.45, gcCount = 10, totalCount = 22  
-3) `suffix_tree_find_all` (pattern = "GAATTC") → positions = [4]  
+1) `fasta_parse` → sequence = "GCGCGAATTCATGGATCCATAT"
+2) `gc_content` → gcContent = 45.45, gcCount = 10, totalCount = 22
+3) `suffix_tree_find_all` (pattern = "GAATTC") → positions = [4]
 4) `suffix_tree_find_all` (pattern = "GGATCC") → positions = [12]
 
 ### Example (real workflow): PCR primer QC
 
-**Task:** validate primer sequences, compute GC% and Tm, and report the Tm difference.  
+**Task:** validate primer sequences, compute GC% and Tm, and report the Tm difference.
 This is a routine pre‑screen for primer pairs before PCR.
 
 **User prompt (in your LLM chat):**
@@ -106,12 +106,12 @@ tm_diff_c = 4.1
 ```
 
 **Tools used (in order):**
-1) `fasta_parse` → sequences for FWD/REV  
-2) `dna_validate` (FWD) → valid, length = 20  
-3) `dna_validate` (REV) → valid, length = 20  
-4) `gc_content` (FWD) → 50.00%  
-5) `gc_content` (REV) → 60.00%  
-6) `melting_temperature` (FWD) → 51.8°C  
+1) `fasta_parse` → sequences for FWD/REV
+2) `dna_validate` (FWD) → valid, length = 20
+3) `dna_validate` (REV) → valid, length = 20
+4) `gc_content` (FWD) → 50.00%
+5) `gc_content` (REV) → 60.00%
+6) `melting_temperature` (FWD) → 51.8°C
 7) `melting_temperature` (REV) → 55.9°C
 
 ## Servers in this repo (and why split)

@@ -1,7 +1,7 @@
 # Tree Construction Algorithms
 
-**Category:** Phylogenetics  
-**Test Unit:** PHYLO-TREE-001  
+**Category:** Phylogenetics
+**Test Unit:** PHYLO-TREE-001
 **Last Updated:** 2026-02-01
 
 ---

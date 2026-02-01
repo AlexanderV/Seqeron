@@ -18,7 +18,7 @@ Calculates the Hamming distance between two strings of equal length. The Hamming
 
 ## Core Documentation Reference
 
-- Source: [ApproximateMatcher.cs#L163](../../../../Seqeron.Genomics/ApproximateMatcher.cs#L163)
+- Source: [ApproximateMatcher.cs#L163](../../../../src/Seqeron/Seqeron.Genomics/ApproximateMatcher.cs#L163)
 - Algorithm: Character-by-character comparison (case-insensitive)
 
 ## Input Schema

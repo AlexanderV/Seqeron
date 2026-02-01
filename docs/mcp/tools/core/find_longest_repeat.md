@@ -17,7 +17,7 @@ Finds the longest repeated region in a DNA sequence. Useful for detecting tandem
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L20](../../../../Seqeron.Genomics/GenomicAnalyzer.cs#L20)
+- Source: [GenomicAnalyzer.cs#L20](../../../../src/Seqeron/Seqeron.Genomics/GenomicAnalyzer.cs#L20)
 
 ## Input/Output
 

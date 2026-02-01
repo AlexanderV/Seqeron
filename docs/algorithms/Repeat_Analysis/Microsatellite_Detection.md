@@ -1,7 +1,7 @@
 # Microsatellite Detection (Short Tandem Repeats)
 
-**Test Unit:** REP-STR-001  
-**Last Updated:** 2026-01-22  
+**Test Unit:** REP-STR-001
+**Last Updated:** 2026-01-22
 **Status:** Active
 
 ---

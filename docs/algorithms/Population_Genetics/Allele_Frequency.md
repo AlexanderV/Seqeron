@@ -1,8 +1,8 @@
 # Allele Frequency
 
-**Algorithm Group:** Population Genetics  
-**Test Unit:** POP-FREQ-001  
-**Last Updated:** 2026-02-01  
+**Algorithm Group:** Population Genetics
+**Test Unit:** POP-FREQ-001
+**Last Updated:** 2026-02-01
 
 ---
 
@@ -24,7 +24,7 @@ For a biallelic locus with alleles A and a in a diploid population:
 
 Given genotype counts:
 - $n_{AA}$ = number of homozygous major individuals
-- $n_{Aa}$ = number of heterozygous individuals  
+- $n_{Aa}$ = number of heterozygous individuals
 - $n_{aa}$ = number of homozygous minor individuals
 
 The allele frequencies are:

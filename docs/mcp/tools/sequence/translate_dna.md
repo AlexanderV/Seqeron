@@ -80,4 +80,3 @@ Translates a DNA sequence to a protein sequence using the standard genetic code.
 
 - [translate_rna](translate_rna.md) - Translate RNA to protein
 - [rna_from_dna](rna_from_dna.md) - Transcribe DNA to RNA
-

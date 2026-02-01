@@ -122,7 +122,7 @@ The current implementation has these limitations relative to the full Newick spe
 
 ## Test Coverage
 
-See [PHYLO-NEWICK-001.md](../../TestSpecs/PHYLO-NEWICK-001.md) for test specification.
+See [PHYLO-NEWICK-001.md](../../tests/TestSpecs/PHYLO-NEWICK-001.md) for test specification.
 
 ## References
 

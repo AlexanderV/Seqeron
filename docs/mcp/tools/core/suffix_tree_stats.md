@@ -17,7 +17,7 @@ Returns structural statistics about the suffix tree: total nodes, leaf count, ma
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.cs#L206](../../../../SuffixTree/SuffixTree.cs#L206)
+- Source: [SuffixTree.cs#L206](../../../../src/SuffixTree/SuffixTree.cs#L206)
 
 ## Input/Output
 

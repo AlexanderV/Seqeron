@@ -25,7 +25,7 @@ Filters BED records using multiple optional criteria. All filters can be combine
 
 ## Core Documentation Reference
 
-- Source: [BedParser.cs#L217](../../../../Seqeron.Genomics/BedParser.cs#L217)
+- Source: [BedParser.cs#L217](../../../../src/Seqeron/Seqeron.Genomics/BedParser.cs#L217)
 
 ## Input Schema
 

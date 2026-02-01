@@ -1,8 +1,8 @@
 # Diversity Statistics
 
-**Algorithm Group:** Population Genetics  
-**Test Unit:** POP-DIV-001  
-**Last Updated:** 2026-02-01  
+**Algorithm Group:** Population Genetics
+**Test Unit:** POP-DIV-001
+**Last Updated:** 2026-02-01
 
 ---
 

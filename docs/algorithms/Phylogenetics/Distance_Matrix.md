@@ -112,8 +112,8 @@ double[,] CalculateDistanceMatrix(
 
 ```csharp
 double CalculatePairwiseDistance(
-    string seq1, 
-    string seq2, 
+    string seq1,
+    string seq2,
     DistanceMethod method = DistanceMethod.JukesCantor)
 ```
 

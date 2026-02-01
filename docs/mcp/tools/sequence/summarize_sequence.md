@@ -18,7 +18,7 @@ Generates comprehensive summary statistics for a DNA/RNA sequence in a single ca
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L775](../../../../Seqeron.Genomics/SequenceStatistics.cs#L775)
+- Source: [SequenceStatistics.cs#L775](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L775)
 
 ## Input Schema
 
@@ -83,4 +83,3 @@ Generates comprehensive summary statistics for a DNA/RNA sequence in a single ca
 - [shannon_entropy](shannon_entropy.md) - Entropy calculation
 - [linguistic_complexity](linguistic_complexity.md) - Complexity calculation
 - [melting_temperature](melting_temperature.md) - Tm calculation
-

@@ -1,8 +1,8 @@
 # Evidence Artifact: ALIGN-GLOBAL-001
 
-**Test Unit ID:** ALIGN-GLOBAL-001  
-**Algorithm:** Global Alignment (Needleman–Wunsch)  
-**Date Collected:** 2026-02-01  
+**Test Unit ID:** ALIGN-GLOBAL-001
+**Algorithm:** Global Alignment (Needleman–Wunsch)
+**Date Collected:** 2026-02-01
 
 ---
 

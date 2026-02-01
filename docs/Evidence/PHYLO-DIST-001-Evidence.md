@@ -1,9 +1,9 @@
 # PHYLO-DIST-001: Phylogenetic Distance Matrix - Evidence Document
 
 ## Test Unit
-**ID:** PHYLO-DIST-001  
-**Title:** Phylogenetic Distance Matrix Calculation  
-**Status:** Evidence Collected  
+**ID:** PHYLO-DIST-001
+**Title:** Phylogenetic Distance Matrix Calculation
+**Status:** Evidence Collected
 **Last Updated:** 2026-02-01
 
 ---
@@ -11,7 +11,7 @@
 ## 1. Sources Consulted
 
 ### 1.1 Wikipedia - Models of DNA Evolution
-**URL:** https://en.wikipedia.org/wiki/Models_of_DNA_evolution  
+**URL:** https://en.wikipedia.org/wiki/Models_of_DNA_evolution
 **Accessed:** 2026-02-01
 
 **Key Information Extracted:**
@@ -27,7 +27,7 @@
 - Gaps should be ignored in distance calculations
 
 ### 1.2 Wikipedia - Substitution Model
-**URL:** https://en.wikipedia.org/wiki/Substitution_model  
+**URL:** https://en.wikipedia.org/wiki/Substitution_model
 **Accessed:** 2026-02-01
 
 **Key Information Extracted:**
@@ -38,7 +38,7 @@
 - K80 reference: Kimura M (1980) "A simple method for estimating evolutionary rates"
 
 ### 1.3 Wikipedia - Distance Matrices in Phylogeny
-**URL:** https://en.wikipedia.org/wiki/Distance_matrices_in_phylogeny  
+**URL:** https://en.wikipedia.org/wiki/Distance_matrices_in_phylogeny
 **Accessed:** 2026-02-01
 
 **Key Information Extracted:**
@@ -52,27 +52,27 @@
 ## 2. Published Test Cases
 
 ### 2.1 Identity Test Case
-**Source:** Mathematical definition  
+**Source:** Mathematical definition
 **Test:** Two identical sequences should have distance = 0 for all methods
 
 ### 2.2 Complete Difference Test Case
-**Source:** Wikipedia JC69 formula behavior  
+**Source:** Wikipedia JC69 formula behavior
 **Test:** When p ≥ 0.75 (75% differences), JC69 returns +∞ (saturation)
 - Formula: arg = 1 - 4p/3 → when p ≥ 0.75, arg ≤ 0, ln undefined
 
 ### 2.3 Known Distance Values
-**Source:** JC69 formula  
+**Source:** JC69 formula
 **Examples:**
 - p = 0 → d = 0
 - p = 0.125 (1/8) → d = -0.75 × ln(1 - 4×0.125/3) = -0.75 × ln(0.833) ≈ 0.137
 - p = 0.25 → d = -0.75 × ln(1 - 1/3) = -0.75 × ln(0.667) ≈ 0.304
 
 ### 2.4 Symmetry Property
-**Source:** Time-reversibility (Wikipedia Substitution Model)  
+**Source:** Time-reversibility (Wikipedia Substitution Model)
 **Test:** d(seq1, seq2) = d(seq2, seq1)
 
 ### 2.5 Triangle Inequality (expected to hold in most cases)
-**Source:** Metric space properties  
+**Source:** Metric space properties
 **Test:** d(A,C) ≤ d(A,B) + d(B,C) (may not always hold due to correction)
 
 ---

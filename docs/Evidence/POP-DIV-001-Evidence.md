@@ -1,9 +1,9 @@
 # Evidence Document: POP-DIV-001 (Diversity Statistics)
 
-**Test Unit ID:** POP-DIV-001  
-**Algorithm:** Nucleotide Diversity, Watterson's Theta, Tajima's D  
-**Date:** 2026-02-01  
-**Status:** Evidence Gathered  
+**Test Unit ID:** POP-DIV-001
+**Algorithm:** Nucleotide Diversity, Watterson's Theta, Tajima's D
+**Date:** 2026-02-01
+**Status:** Evidence Gathered
 
 ---
 

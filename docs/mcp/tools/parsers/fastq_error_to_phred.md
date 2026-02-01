@@ -28,7 +28,7 @@ Special cases:
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L214](../../../../Seqeron.Genomics/FastqParser.cs#L214)
+- Source: [FastqParser.cs#L214](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L214)
 
 ## Input Schema
 

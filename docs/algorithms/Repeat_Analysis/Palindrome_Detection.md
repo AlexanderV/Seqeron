@@ -202,7 +202,7 @@ Palindrome detection is the foundation for restriction site analysis. Most Type 
 
 ## Test Coverage
 
-See [TestSpec REP-PALIN-001](../../TestSpecs/REP-PALIN-001.md) for complete test specification.
+See [TestSpec REP-PALIN-001](../../tests/TestSpecs/REP-PALIN-001.md) for complete test specification.
 
 Key test categories:
 1. Known restriction enzyme sites (EcoRI, BamHI, HindIII, etc.)

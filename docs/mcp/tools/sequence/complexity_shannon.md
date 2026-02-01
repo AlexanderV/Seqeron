@@ -18,7 +18,7 @@ Calculates Shannon entropy for a DNA sequence (bits per base). Maximum entropy f
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L78](../../../../Seqeron.Genomics/SequenceComplexity.cs#L78)
+- Source: [SequenceComplexity.cs#L78](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L78)
 
 ## Input Schema
 
@@ -94,4 +94,3 @@ Calculates Shannon entropy for a DNA sequence (bits per base). Maximum entropy f
 - [shannon_entropy](shannon_entropy.md) - SequenceStatistics version
 - [complexity_linguistic](complexity_linguistic.md) - Linguistic complexity
 - [complexity_kmer_entropy](complexity_kmer_entropy.md) - K-mer entropy
-

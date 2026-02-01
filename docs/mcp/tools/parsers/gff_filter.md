@@ -18,7 +18,7 @@ Filters GFF/GTF records using various criteria: feature type (gene, exon, CDS), 
 
 ## Core Documentation Reference
 
-- Source: [GffParser.cs#L215](../../../../Seqeron.Genomics/GffParser.cs#L215)
+- Source: [GffParser.cs#L215](../../../../src/Seqeron/Seqeron.Genomics/GffParser.cs#L215)
 
 ## Input Schema
 

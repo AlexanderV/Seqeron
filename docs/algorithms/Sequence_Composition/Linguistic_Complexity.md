@@ -4,7 +4,7 @@
 
 Linguistic Complexity (LC) is a measure of the "vocabulary richness" of a nucleotide sequence, reflecting how many distinct subsequences (subwords) appear in the sequence relative to the maximum possible number.
 
-**Test Unit ID:** SEQ-COMPLEX-001  
+**Test Unit ID:** SEQ-COMPLEX-001
 **Implementation:** `SequenceComplexity.CalculateLinguisticComplexity()`
 
 ## Mathematical Definition

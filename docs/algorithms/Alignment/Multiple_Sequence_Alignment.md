@@ -4,8 +4,8 @@
 
 Multiple Sequence Alignment (MSA) is the process of aligning three or more biological sequences (DNA, RNA, or protein) by inserting gaps to maximize similarity across all sequences simultaneously.
 
-**Implementation:** `SequenceAligner.MultipleAlign()`  
-**Complexity:** O(n² × m) where n = number of sequences, m = average sequence length  
+**Implementation:** `SequenceAligner.MultipleAlign()`
+**Complexity:** O(n² × m) where n = number of sequences, m = average sequence length
 **Algorithm Variant:** Star Alignment (simplified progressive alignment)
 
 ---
@@ -38,7 +38,7 @@ A simplified variant of progressive alignment:
 - Align all other sequences to the center using pairwise alignment
 - Combine alignments into a multiple alignment
 
-**Advantages:** Simple, fast, O(n) pairwise alignments  
+**Advantages:** Simple, fast, O(n) pairwise alignments
 **Disadvantages:** Result depends heavily on center selection; errors in center alignment propagate
 
 ---
@@ -69,10 +69,10 @@ A simplified variant of progressive alignment:
 ```csharp
 public sealed record MultipleAlignmentResult(
     string[] AlignedSequences,  // All sequences aligned to equal length
-    string Consensus,           // Majority-voted consensus sequence  
+    string Consensus,           // Majority-voted consensus sequence
     int TotalScore)             // Sum of pairwise alignment scores
 {
-    public static MultipleAlignmentResult Empty => 
+    public static MultipleAlignmentResult Empty =>
         new(Array.Empty<string>(), "", 0);
 }
 ```

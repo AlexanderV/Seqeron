@@ -17,7 +17,7 @@ Finds the longest substring that appears in both texts. Uses suffix tree for eff
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.Algorithms.cs#L28](../../../../SuffixTree/SuffixTree.Algorithms.cs#L28)
+- Source: [SuffixTree.Algorithms.cs#L28](../../../../src/SuffixTree/SuffixTree.Algorithms.cs#L28)
 
 ## Input/Output
 

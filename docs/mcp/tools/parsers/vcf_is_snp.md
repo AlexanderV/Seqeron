@@ -18,7 +18,7 @@ Determines if a variant is a Single Nucleotide Polymorphism (SNP). A SNP is defi
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L407](../../../../Seqeron.Genomics/VcfParser.cs#L407)
+- Source: [VcfParser.cs#L407](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L407)
 
 ## Input Schema
 

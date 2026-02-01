@@ -18,7 +18,7 @@ Counts all occurrences of a pattern within text using a suffix tree. The algorit
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.Search.cs#L132](../../../../SuffixTree/SuffixTree.Search.cs#L132)
+- Source: [SuffixTree.Search.cs#L132](../../../../src/SuffixTree/SuffixTree.Search.cs#L132)
 - Algorithm: Pattern matching with leaf count aggregation
 
 ## Input Schema

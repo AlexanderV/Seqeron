@@ -1,35 +1,35 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.106
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree", "SuffixTree\SuffixTree.csproj", "{47E0DDD2-AC33-47BF-A560-7405DEB3E3CF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree", "src\SuffixTree\SuffixTree\SuffixTree.csproj", "{47E0DDD2-AC33-47BF-A560-7405DEB3E3CF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Tests", "SuffixTree.Tests\SuffixTree.Tests.csproj", "{4DA29E2B-FCC5-414F-BCBC-64F570515CE7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Tests", "tests\SuffixTree\SuffixTree.Tests\SuffixTree.Tests.csproj", "{4DA29E2B-FCC5-414F-BCBC-64F570515CE7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Console", "SuffixTree.Console\SuffixTree.Console.csproj", "{55F658F5-963A-47C0-9D0B-7629BBCC4402}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Console", "apps\SuffixTree.Console\SuffixTree.Console.csproj", "{55F658F5-963A-47C0-9D0B-7629BBCC4402}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Benchmarks", "SuffixTree.Benchmarks\SuffixTree.Benchmarks.csproj", "{1D84E2DB-8517-4C0B-8DA6-A48931BE5D70}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Benchmarks", "apps\SuffixTree.Benchmarks\SuffixTree.Benchmarks.csproj", "{1D84E2DB-8517-4C0B-8DA6-A48931BE5D70}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics", "Seqeron.Genomics\Seqeron.Genomics.csproj", "{6F1B1649-6270-4AFF-B86F-A2125DDAFD2A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics", "src\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj", "{6F1B1649-6270-4AFF-B86F-A2125DDAFD2A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Tests", "Seqeron.Genomics.Tests\Seqeron.Genomics.Tests.csproj", "{C7ED0559-CA2F-4526-844E-F07D3135F5FE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Tests", "tests\Seqeron\Seqeron.Genomics.Tests\Seqeron.Genomics.Tests.csproj", "{C7ED0559-CA2F-4526-844E-F07D3135F5FE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core", "SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj", "{A316316B-45B5-468B-A754-ED44C4AEC4C6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core", "src\SuffixTree\SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj", "{A316316B-45B5-468B-A754-ED44C4AEC4C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core.Tests", "SuffixTree.Mcp.Core.Tests\SuffixTree.Mcp.Core.Tests.csproj", "{2635BBDF-1331-4975-9E59-BEA62885095A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core.Tests", "tests\SuffixTree\SuffixTree.Mcp.Core.Tests\SuffixTree.Mcp.Core.Tests.csproj", "{2635BBDF-1331-4975-9E59-BEA62885095A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence", "Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj", "{EF320F1A-216F-4650-9103-B56DD7F72716}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence", "src\Seqeron\Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj", "{EF320F1A-216F-4650-9103-B56DD7F72716}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence.Tests", "Seqeron.Mcp.Sequence.Tests\Seqeron.Mcp.Sequence.Tests.csproj", "{FE290F73-0328-420F-BEB3-35248FA16C89}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence.Tests", "tests\Seqeron\Seqeron.Mcp.Sequence.Tests\Seqeron.Mcp.Sequence.Tests.csproj", "{FE290F73-0328-420F-BEB3-35248FA16C89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers", "Seqeron.Mcp.Parsers\Seqeron.Mcp.Parsers.csproj", "{4871A797-FA5C-43FD-9698-5BDB289CF14F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers", "src\Seqeron\Seqeron.Mcp.Parsers\Seqeron.Mcp.Parsers.csproj", "{4871A797-FA5C-43FD-9698-5BDB289CF14F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers.Tests", "Seqeron.Mcp.Parsers.Tests\Seqeron.Mcp.Parsers.Tests.csproj", "{4E970B7D-B686-4FD4-8444-04FF2D34E171}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers.Tests", "tests\Seqeron\Seqeron.Mcp.Parsers.Tests\Seqeron.Mcp.Parsers.Tests.csproj", "{4E970B7D-B686-4FD4-8444-04FF2D34E171}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent", "SuffixTree.Persistent\SuffixTree.Persistent.csproj", "{18A7C999-1A8B-416E-9D55-0B0967A97B42}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent", "src\SuffixTree\SuffixTree.Persistent\SuffixTree.Persistent.csproj", "{18A7C999-1A8B-416E-9D55-0B0967A97B42}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent.Tests", "SuffixTree.Persistent.Tests\SuffixTree.Persistent.Tests.csproj", "{178AA3D4-10E1-4EC8-99E5-2EF069FFFD1E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent.Tests", "tests\SuffixTree\SuffixTree.Persistent.Tests\SuffixTree.Persistent.Tests.csproj", "{178AA3D4-10E1-4EC8-99E5-2EF069FFFD1E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

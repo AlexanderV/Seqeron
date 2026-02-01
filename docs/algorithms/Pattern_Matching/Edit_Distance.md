@@ -4,7 +4,7 @@
 
 Edit distance is a string metric for measuring the difference between two sequences. The Levenshtein distance, named after Soviet mathematician Vladimir Levenshtein (1965), counts the minimum number of single-character edits (insertions, deletions, substitutions) required to transform one string into the other.
 
-**Test Unit:** PAT-APPROX-002  
+**Test Unit:** PAT-APPROX-002
 **Source Files:** `ApproximateMatcher.cs`
 
 ---
@@ -36,7 +36,7 @@ $$
 Edit distance with non-negative cost satisfies the axioms of a metric space:
 
 1. **Identity:** $d(a, b) = 0$ if and only if $a = b$
-2. **Positivity:** $d(a, b) > 0$ when $a \neq b$  
+2. **Positivity:** $d(a, b) > 0$ when $a \neq b$
 3. **Symmetry:** $d(a, b) = d(b, a)$
 4. **Triangle inequality:** $d(a, c) \leq d(a, b) + d(b, c)$
 
@@ -111,7 +111,7 @@ Finds all approximate matches using edit distance:
 
 In bioinformatics, Levenshtein distance measures the difference between biological sequences. The edits correspond to genetic mutations:
 - **Insertion:** Addition of a nucleotide
-- **Deletion:** Removal of a nucleotide  
+- **Deletion:** Removal of a nucleotide
 - **Substitution:** Replacement of one nucleotide with another
 
 A lower distance indicates closer evolutionary or functional relationship.

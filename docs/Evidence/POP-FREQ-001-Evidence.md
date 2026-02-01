@@ -1,9 +1,9 @@
 # Evidence Document: POP-FREQ-001 (Allele Frequencies)
 
-**Test Unit ID:** POP-FREQ-001  
-**Algorithm:** Allele Frequency Calculation (Major/Minor Frequencies, MAF, Filtering)  
-**Date:** 2026-02-01  
-**Status:** Evidence Gathered  
+**Test Unit ID:** POP-FREQ-001
+**Algorithm:** Allele Frequency Calculation (Major/Minor Frequencies, MAF, Filtering)
+**Date:** 2026-02-01
+**Status:** Evidence Gathered
 
 ---
 

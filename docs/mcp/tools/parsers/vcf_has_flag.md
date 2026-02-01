@@ -24,7 +24,7 @@ Common VCF INFO flags:
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L835](../../../../Seqeron.Genomics/VcfParser.cs#L835)
+- Source: [VcfParser.cs#L835](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L835)
 
 ## Input Schema
 

@@ -1,8 +1,8 @@
 # ALIGN-MULTI-001: Multiple Sequence Alignment - Evidence Document
 
 ## Test Unit
-**ID:** ALIGN-MULTI-001  
-**Area:** Alignment  
+**ID:** ALIGN-MULTI-001
+**Area:** Alignment
 **Methods:** `SequenceAligner.MultipleAlign(IEnumerable<DnaSequence>, ScoringMatrix?)`
 
 ---

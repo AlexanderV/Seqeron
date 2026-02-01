@@ -2,8 +2,8 @@
 
 ## Algorithm Overview
 
-**Test Unit ID:** REP-TANDEM-001  
-**Area:** Repeat Analysis  
+**Test Unit ID:** REP-TANDEM-001
+**Area:** Repeat Analysis
 **Complexity:** O(n²) for FindTandemRepeats
 
 ---
@@ -73,8 +73,8 @@ Tandem repeats mutate primarily through **replication slippage**:
 **Signature:**
 ```csharp
 IEnumerable<TandemRepeat> FindTandemRepeats(
-    DnaSequence sequence, 
-    int minUnitLength = 2, 
+    DnaSequence sequence,
+    int minUnitLength = 2,
     int minRepetitions = 2)
 ```
 
@@ -150,7 +150,7 @@ TandemRepeatSummary GetTandemRepeatSummary(
 
 1. **Wikipedia - Tandem repeat**: https://en.wikipedia.org/wiki/Tandem_repeat
    - Definition, terminology, detection methods, biological significance
-   
+
 2. **Wikipedia - Microsatellite (Short tandem repeat)**: https://en.wikipedia.org/wiki/Microsatellite
    - Classification (1-6 bp), mutation mechanisms (slippage), applications (forensics, disease)
    - Richard et al. (2008) - Comparative genomics of DNA repeats

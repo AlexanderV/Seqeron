@@ -71,7 +71,7 @@ For sequences of lengths $n$ (query) and $m$ (reference):
 
 ## Implementation Notes (Seqeron.Genomics)
 
-**Implementation Location:** [Seqeron.Genomics/SequenceAligner.cs](../../../Seqeron.Genomics/SequenceAligner.cs)
+**Implementation Location:** [Seqeron.Genomics/SequenceAligner.cs](../../../src/Seqeron/Seqeron.Genomics/SequenceAligner.cs)
 
 ### Methods
 - `SequenceAligner.SemiGlobalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` – canonical method

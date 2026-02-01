@@ -18,7 +18,7 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L296](../../../../Seqeron.Genomics/SequenceComplexity.cs#L296)
+- Source: [SequenceComplexity.cs#L296](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L296)
 
 ## Input Schema
 
@@ -100,4 +100,3 @@ Calculates the DUST score for a DNA sequence, which is used for low-complexity f
 - [complexity_mask_low](complexity_mask_low.md) - Mask low-complexity regions
 - [shannon_entropy](shannon_entropy.md) - Information-theoretic complexity
 - [linguistic_complexity](linguistic_complexity.md) - K-mer diversity measure
-

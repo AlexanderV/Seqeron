@@ -18,7 +18,7 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L128](../../../../Seqeron.Genomics/SequenceComplexity.cs#L128)
+- Source: [SequenceComplexity.cs#L128](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L128)
 
 ## Input Schema
 
@@ -101,4 +101,3 @@ Calculates Shannon entropy using k-mer frequencies in a DNA sequence. This provi
 - [kmer_entropy](kmer_entropy.md) - KmerAnalyzer version
 - [complexity_shannon](complexity_shannon.md) - Single-base entropy
 - [complexity_linguistic](complexity_linguistic.md) - Linguistic complexity
-
