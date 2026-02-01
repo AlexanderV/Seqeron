@@ -21,80 +21,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: F-Statistics tests (POP-FST-001) have been moved to
     // PopulationGeneticsAnalyzer_FStatistics_Tests.cs
 
-    #region Linkage Disequilibrium Tests
-
-    [Test]
-    public void CalculateLD_PerfectLD_ReturnsHighValues()
-    {
-        // Perfect LD: genotypes always match
-        var genotypes = new List<(int, int)>
-        {
-            (0, 0), (0, 0), (1, 1), (1, 1), (2, 2), (2, 2)
-        };
-
-        var ld = PopulationGeneticsAnalyzer.CalculateLD("V1", "V2", genotypes, 1000);
-
-        Assert.That(ld.RSquared, Is.GreaterThan(0.4)); // High but not perfect due to estimation
-    }
-
-    [Test]
-    public void CalculateLD_NoLD_ReturnsLowValues()
-    {
-        // No LD: random pairing
-        var genotypes = new List<(int, int)>
-        {
-            (0, 2), (2, 0), (1, 1), (0, 1), (2, 1), (1, 0)
-        };
-
-        var ld = PopulationGeneticsAnalyzer.CalculateLD("V1", "V2", genotypes, 1000);
-
-        Assert.That(ld.RSquared, Is.LessThan(0.5));
-    }
-
-    [Test]
-    public void CalculateLD_RecordsDistance()
-    {
-        var genotypes = new List<(int, int)> { (0, 0), (1, 1) };
-
-        var ld = PopulationGeneticsAnalyzer.CalculateLD("V1", "V2", genotypes, 5000);
-
-        Assert.That(ld.Distance, Is.EqualTo(5000));
-        Assert.That(ld.Variant1, Is.EqualTo("V1"));
-        Assert.That(ld.Variant2, Is.EqualTo("V2"));
-    }
-
-    [Test]
-    public void FindHaplotypeBlocks_HighLD_CreatesBlock()
-    {
-        // Create variants in strong LD
-        var genotypes = new List<int> { 0, 0, 1, 1, 2, 2 };
-        var variants = new List<(string, int, IReadOnlyList<int>)>
-        {
-            ("V1", 100, genotypes),
-            ("V2", 200, genotypes),
-            ("V3", 300, genotypes)
-        };
-
-        var blocks = PopulationGeneticsAnalyzer.FindHaplotypeBlocks(variants, ldThreshold: 0.3).ToList();
-
-        Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void FindHaplotypeBlocks_LowLD_NoBlock()
-    {
-        var variants = new List<(string, int, IReadOnlyList<int>)>
-        {
-            ("V1", 100, new List<int> { 0, 1, 2, 0, 1, 2 }),
-            ("V2", 200, new List<int> { 2, 1, 0, 2, 1, 0 })
-        };
-
-        var blocks = PopulationGeneticsAnalyzer.FindHaplotypeBlocks(variants, ldThreshold: 0.9).ToList();
-
-        Assert.That(blocks, Is.Empty);
-    }
-
-    #endregion
+    // Note: Linkage Disequilibrium tests (POP-LD-001) have been moved to
+    // PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs
 
     #region Selection Tests
 
@@ -302,15 +230,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: CalculateFst edge case tests (POP-FST-001) have been moved to
     // PopulationGeneticsAnalyzer_FStatistics_Tests.cs
 
-    [Test]
-    public void CalculateLD_EmptyGenotypes_ReturnsZeroLD()
-    {
-        var ld = PopulationGeneticsAnalyzer.CalculateLD(
-            "V1", "V2", new List<(int, int)>(), 1000);
-
-        Assert.That(ld.RSquared, Is.EqualTo(0));
-        Assert.That(ld.DPrime, Is.EqualTo(0));
-    }
+    // Note: CalculateLD and FindHaplotypeBlocks edge case tests (POP-LD-001) have been moved to
+    // PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs
 
     [Test]
     public void CalculateIHS_InsufficientData_ReturnsZero()
@@ -321,19 +242,6 @@ public class PopulationGeneticsAnalyzerTests
             new List<int> { 0 });
 
         Assert.That(ihs, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindHaplotypeBlocks_SingleVariant_NoBlocks()
-    {
-        var variants = new List<(string, int, IReadOnlyList<int>)>
-        {
-            ("V1", 100, new List<int> { 0, 1, 2 })
-        };
-
-        var blocks = PopulationGeneticsAnalyzer.FindHaplotypeBlocks(variants).ToList();
-
-        Assert.That(blocks, Is.Empty);
     }
 
     #endregion
