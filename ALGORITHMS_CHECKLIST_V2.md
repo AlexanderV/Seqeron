@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 44 |
+| **Completed** | 45 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 56 |
+| **Not Started** | 55 |
 
 ---
 
@@ -76,7 +76,7 @@
 | ☑ | CHROM-SYNT-001 | Chromosome | 2 | Wikipedia (Synteny, Comparative genomics, Chromosomal rearrangement), Wang et al. (2012), Goel et al. (2019) | [CHROM-SYNT-001.md](TestSpecs/CHROM-SYNT-001.md) | ChromosomeAnalyzer_Synteny_Tests.cs |
 | ☑ | META-CLASS-001 | Metagenomics | 2 | Wikipedia (Metagenomics), Kraken CCB JHU, Wood & Salzberg (2014) | [META-CLASS-001.md](TestSpecs/META-CLASS-001.md) | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs |
 | ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
-| ☐ | META-ALPHA-001 | Metagenomics | 1 | - | - | - |
+| ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
 | ☐ | META-BETA-001 | Metagenomics | 1 | - | - | - |
 | ☐ | META-BIN-001 | Metagenomics | 1 | - | - | - |
 | ☐ | CODON-OPT-001 | Codon | 1 | - | - | - |
