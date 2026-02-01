@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 35 |
+| **Completed** | 36 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 65 |
+| **Not Started** | 64 |
 
 ---
 
@@ -65,7 +65,7 @@
 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | 2 | Wikipedia (Newick format), PHYLIP (Felsenstein), Olsen (1990) | [PHYLO-NEWICK-001.md](TestSpecs/PHYLO-NEWICK-001.md) | PhylogeneticAnalyzer_NewickIO_Tests.cs |
 | ☑ | PHYLO-COMP-001 | Phylogenetic | 3 | Wikipedia (Robinson-Foulds, MRCA, Phylogenetic tree), Robinson & Foulds (1981) | [PHYLO-COMP-001.md](TestSpecs/PHYLO-COMP-001.md) | PhylogeneticAnalyzer_TreeComparison_Tests.cs |
 | ☑ | POP-FREQ-001 | PopGen | 3 | Wikipedia (Allele frequency, Minor allele frequency, Genotype frequency), Gillespie (2004) | [POP-FREQ-001.md](TestSpecs/POP-FREQ-001.md) | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs |
-| ☐ | POP-DIV-001 | PopGen | 4 | - | - | - |
+| ☑ | POP-DIV-001 | PopGen | 4 | Wikipedia (Nucleotide diversity, Watterson estimator, Tajima's D), Nei & Li (1979), Watterson (1975), Tajima (1989) | [POP-DIV-001.md](TestSpecs/POP-DIV-001.md) | PopulationGeneticsAnalyzer_Diversity_Tests.cs |
 | ☐ | POP-HW-001 | PopGen | 1 | - | - | - |
 | ☐ | POP-FST-001 | PopGen | 2 | - | - | - |
 | ☐ | POP-LD-001 | PopGen | 2 | - | - | - |
