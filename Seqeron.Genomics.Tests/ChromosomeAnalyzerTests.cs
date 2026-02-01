@@ -106,83 +106,8 @@ public class ChromosomeAnalyzerTests
 
     #endregion
 
-    #region Telomere Analysis Tests
-
-    [Test]
-    public void AnalyzeTelomeres_With3PrimeTelomere_DetectsTelomere()
-    {
-        // Create sequence with TTAGGG repeats at 3' end
-        string telomereRepeats = string.Concat(Enumerable.Repeat("TTAGGG", 200));
-        string sequence = new string('A', 1000) + telomereRepeats;
-
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
-            "chr1", sequence, minTelomereLength: 100);
-
-        Assert.That(result.Has3PrimeTelomere, Is.True);
-        Assert.That(result.TelomereLength3Prime, Is.GreaterThan(500));
-        Assert.That(result.RepeatPurity3Prime, Is.GreaterThan(0.9));
-    }
-
-    [Test]
-    public void AnalyzeTelomeres_With5PrimeTelomere_DetectsTelomere()
-    {
-        // Create sequence with CCCTAA (reverse complement) at 5' end
-        string telomereRepeats = string.Concat(Enumerable.Repeat("CCCTAA", 200));
-        string sequence = telomereRepeats + new string('A', 1000);
-
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
-            "chr1", sequence, minTelomereLength: 100);
-
-        Assert.That(result.Has5PrimeTelomere, Is.True);
-        Assert.That(result.TelomereLength5Prime, Is.GreaterThan(500));
-    }
-
-    [Test]
-    public void AnalyzeTelomeres_CriticallyShort_DetectsCriticalLength()
-    {
-        // Create short telomere
-        string telomereRepeats = string.Concat(Enumerable.Repeat("TTAGGG", 100));
-        string sequence = new string('A', 1000) + telomereRepeats;
-
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
-            "chr1", sequence, minTelomereLength: 100, criticalLength: 10000);
-
-        Assert.That(result.Has3PrimeTelomere, Is.True);
-        Assert.That(result.IsCriticallyShort, Is.True);
-    }
-
-    [Test]
-    public void AnalyzeTelomeres_NoTelomere_ReturnsNoTelomere()
-    {
-        string sequence = new string('A', 1000);
-
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
-            "chr1", sequence, minTelomereLength: 500);
-
-        Assert.That(result.Has5PrimeTelomere, Is.False);
-        Assert.That(result.Has3PrimeTelomere, Is.False);
-    }
-
-    [Test]
-    public void AnalyzeTelomeres_EmptySequence_ReturnsNoTelomere()
-    {
-        var result = ChromosomeAnalyzer.AnalyzeTelomeres("chr1", "");
-
-        Assert.That(result.Has5PrimeTelomere, Is.False);
-        Assert.That(result.Has3PrimeTelomere, Is.False);
-        Assert.That(result.IsCriticallyShort, Is.True);
-    }
-
-    [Test]
-    public void EstimateTelomereLengthFromTSRatio_CalculatesCorrectly()
-    {
-        double length = ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio(
-            tsRatio: 1.5, referenceRatio: 1.0, referenceLength: 7000);
-
-        Assert.That(length, Is.EqualTo(10500));
-    }
-
-    #endregion
+    // NOTE: Telomere Analysis Tests moved to ChromosomeAnalyzer_Telomere_Tests.cs
+    // as part of CHROM-TELO-001 test unit consolidation
 
     #region Centromere Analysis Tests
 

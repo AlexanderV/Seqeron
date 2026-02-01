@@ -69,7 +69,7 @@
 | ☑ | POP-HW-001 | PopGen | 1 | Wikipedia (Hardy-Weinberg principle, Chi-squared test), Hardy (1908), Weinberg (1908), Emigh (1980) | [POP-HW-001.md](TestSpecs/POP-HW-001.md) | PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs |
 | ☑ | POP-FST-001 | PopGen | 2 | Wikipedia (Fixation index, F-statistics), Wright (1965), Weir & Cockerham (1984) | [POP-FST-001.md](TestSpecs/POP-FST-001.md) | PopulationGeneticsAnalyzer_FStatistics_Tests.cs |
 | ☑ | POP-LD-001 | PopGen | 2 | Wikipedia (Linkage disequilibrium, Haplotype block), Lewontin (1964), Hill & Robertson (1968), Gabriel (2002) | [POP-LD-001.md](TestSpecs/POP-LD-001.md) | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs |
-| ☐ | CHROM-TELO-001 | Chromosome | 2 | - | - | - |
+| ☑ | CHROM-TELO-001 | Chromosome | 2 | Wikipedia (Telomere), Meyne (1989), Cawthon (2002) | [CHROM-TELO-001.md](TestSpecs/CHROM-TELO-001.md) | ChromosomeAnalyzer_Telomere_Tests.cs |
 | ☐ | CHROM-CENT-001 | Chromosome | 1 | - | - | - |
 | ☐ | CHROM-KARYO-001 | Chromosome | 2 | - | - | - |
 | ☐ | CHROM-ANEU-001 | Chromosome | 2 | - | - | - |
