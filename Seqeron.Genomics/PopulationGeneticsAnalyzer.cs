@@ -403,44 +403,125 @@ public static class PopulationGeneticsAnalyzer
         if (x < 0)
             return 0;
 
-        // Approximation using incomplete gamma function
-        return LowerIncompleteGamma(df / 2.0, x / 2.0) / Gamma(df / 2.0);
-    }
-
-    private static double LowerIncompleteGamma(double a, double x)
-    {
-        if (x < 0)
+        if (x == 0)
             return 0;
 
-        double sum = 0;
-        double term = 1.0 / a;
-        sum = term;
+        // For df=1, use a more stable formula
+        // CDF = 2 * Phi(sqrt(x)) - 1 where Phi is standard normal CDF
+        // Or use regularized incomplete gamma function
+        return RegularizedGammaP(df / 2.0, x / 2.0);
+    }
 
-        for (int n = 1; n < 100; n++)
+    /// <summary>
+    /// Computes the regularized lower incomplete gamma function P(a, x).
+    /// P(a, x) = γ(a, x) / Γ(a) where γ is the lower incomplete gamma function.
+    /// </summary>
+    private static double RegularizedGammaP(double a, double x)
+    {
+        if (x < 0 || a <= 0)
+            return 0;
+
+        if (x == 0)
+            return 0;
+
+        // Use series expansion for small x, continued fraction for large x
+        if (x < a + 1)
+        {
+            return GammaSeriesP(a, x);
+        }
+        else
+        {
+            return 1.0 - GammaContinuedFractionQ(a, x);
+        }
+    }
+
+    /// <summary>
+    /// Series expansion for regularized incomplete gamma P(a, x).
+    /// </summary>
+    private static double GammaSeriesP(double a, double x)
+    {
+        const int maxIterations = 200;
+        const double epsilon = 1e-14;
+
+        double logGammaA = LogGamma(a);
+        double sum = 1.0 / a;
+        double term = sum;
+
+        for (int n = 1; n < maxIterations; n++)
         {
             term *= x / (a + n);
             sum += term;
-            if (Math.Abs(term) < 1e-10)
+            if (Math.Abs(term) < Math.Abs(sum) * epsilon)
                 break;
         }
 
-        return Math.Pow(x, a) * Math.Exp(-x) * sum;
+        return sum * Math.Exp(-x + a * Math.Log(x) - logGammaA);
     }
 
-    private static double Gamma(double x)
+    /// <summary>
+    /// Continued fraction for regularized incomplete gamma Q(a, x) = 1 - P(a, x).
+    /// </summary>
+    private static double GammaContinuedFractionQ(double a, double x)
     {
-        // Stirling approximation for gamma function
-        if (x < 0.5)
-            return Math.PI / (Math.Sin(Math.PI * x) * Gamma(1 - x));
+        const int maxIterations = 200;
+        const double epsilon = 1e-14;
+        const double tiny = 1e-30;
 
-        x -= 1;
-        double[] g = { 1.0, 0.5772156649015329, -0.6558780715202538, -0.0420026350340952 };
-        double result = g[0];
+        double logGammaA = LogGamma(a);
+        double b = x + 1.0 - a;
+        double c = 1.0 / tiny;
+        double d = 1.0 / b;
+        double h = d;
 
-        for (int i = 1; i < g.Length; i++)
-            result += g[i] * Math.Pow(x, i);
+        for (int n = 1; n < maxIterations; n++)
+        {
+            double an = -n * (n - a);
+            b += 2.0;
+            d = an * d + b;
+            if (Math.Abs(d) < tiny) d = tiny;
+            c = b + an / c;
+            if (Math.Abs(c) < tiny) c = tiny;
+            d = 1.0 / d;
+            double delta = d * c;
+            h *= delta;
+            if (Math.Abs(delta - 1.0) < epsilon)
+                break;
+        }
 
-        return Math.Sqrt(2 * Math.PI / x) * Math.Pow(x / Math.E, x) * result;
+        return Math.Exp(-x + a * Math.Log(x) - logGammaA) * h;
+    }
+
+    /// <summary>
+    /// Computes ln(Γ(x)) using Lanczos approximation.
+    /// </summary>
+    private static double LogGamma(double x)
+    {
+        if (x <= 0)
+            return double.PositiveInfinity;
+
+        // Lanczos approximation coefficients
+        double[] c =
+        {
+            76.18009172947146,
+            -86.50532032941677,
+            24.01409824083091,
+            -1.231739572450155,
+            0.1208650973866179e-2,
+            -0.5395239384953e-5
+        };
+
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.Log(tmp);
+
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++)
+        {
+            y += 1;
+            ser += c[j] / y;
+        }
+
+        return -tmp + Math.Log(2.5066282746310005 * ser / x);
     }
 
     #endregion
