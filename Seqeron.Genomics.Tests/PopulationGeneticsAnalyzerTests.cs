@@ -18,76 +18,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: Hardy-Weinberg tests (POP-HW-001) have been moved to
     // PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs
 
-    #region F-Statistics Tests
-
-    [Test]
-    public void CalculateFst_IdenticalPopulations_ReturnsZero()
-    {
-        var pop1 = new List<(double, int)> { (0.5, 100), (0.3, 100) };
-        var pop2 = new List<(double, int)> { (0.5, 100), (0.3, 100) };
-
-        double fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
-
-        Assert.That(fst, Is.EqualTo(0).Within(0.001));
-    }
-
-    [Test]
-    public void CalculateFst_DifferentPopulations_ReturnsPositive()
-    {
-        var pop1 = new List<(double, int)> { (0.9, 100), (0.8, 100) };
-        var pop2 = new List<(double, int)> { (0.1, 100), (0.2, 100) };
-
-        double fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
-
-        Assert.That(fst, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateFst_FixedDifferences_ReturnsHighFst()
-    {
-        var pop1 = new List<(double, int)> { (1.0, 100) };
-        var pop2 = new List<(double, int)> { (0.0, 100) };
-
-        double fst = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
-
-        Assert.That(fst, Is.GreaterThan(0.5));
-    }
-
-    [Test]
-    public void CalculatePairwiseFst_ThreePopulations_ReturnsMatrix()
-    {
-        var populations = new List<(string, IReadOnlyList<(double, int)>)>
-        {
-            ("Pop1", new List<(double, int)> { (0.5, 100) }),
-            ("Pop2", new List<(double, int)> { (0.6, 100) }),
-            ("Pop3", new List<(double, int)> { (0.9, 100) })
-        };
-
-        var matrix = PopulationGeneticsAnalyzer.CalculatePairwiseFst(populations);
-
-        Assert.That(matrix.GetLength(0), Is.EqualTo(3));
-        Assert.That(matrix.GetLength(1), Is.EqualTo(3));
-        Assert.That(matrix[0, 0], Is.EqualTo(0)); // Diagonal is 0
-        Assert.That(matrix[0, 1], Is.EqualTo(matrix[1, 0])); // Symmetric
-    }
-
-    [Test]
-    public void CalculateFStatistics_ReturnsAllComponents()
-    {
-        var data = new List<(int, int, int, int, double, double)>
-        {
-            (20, 50, 25, 50, 0.4, 0.5),
-            (30, 50, 15, 50, 0.5, 0.3)
-        };
-
-        var stats = PopulationGeneticsAnalyzer.CalculateFStatistics("Pop1", "Pop2", data);
-
-        Assert.That(stats.Population1, Is.EqualTo("Pop1"));
-        Assert.That(stats.Population2, Is.EqualTo("Pop2"));
-        // Fst, Fis, Fit should be between 0 and 1 (or slightly negative for Fis)
-    }
-
-    #endregion
+    // Note: F-Statistics tests (POP-FST-001) have been moved to
+    // PopulationGeneticsAnalyzer_FStatistics_Tests.cs
 
     #region Linkage Disequilibrium Tests
 
@@ -367,15 +299,8 @@ public class PopulationGeneticsAnalyzerTests
     // Note: Diversity edge cases (CalculateNucleotideDiversity, CalculateWattersonTheta,
     // CalculateTajimasD) have been moved to PopulationGeneticsAnalyzer_Diversity_Tests.cs
 
-    [Test]
-    public void CalculateFst_EmptyPopulations_ReturnsZero()
-    {
-        double fst = PopulationGeneticsAnalyzer.CalculateFst(
-            new List<(double, int)>(),
-            new List<(double, int)>());
-
-        Assert.That(fst, Is.EqualTo(0));
-    }
+    // Note: CalculateFst edge case tests (POP-FST-001) have been moved to
+    // PopulationGeneticsAnalyzer_FStatistics_Tests.cs
 
     [Test]
     public void CalculateLD_EmptyGenotypes_ReturnsZeroLD()
