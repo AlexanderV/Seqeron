@@ -6,90 +6,20 @@ using System.Linq;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Tests for MetagenomicsAnalyzer methods NOT covered by META-CLASS-001 or META-PROF-001.
-/// For ClassifyReads and BuildKmerDatabase tests, see MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs
-/// For GenerateTaxonomicProfile tests, see MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
+/// Tests for MetagenomicsAnalyzer methods NOT covered by specific Test Unit files.
+/// 
+/// Test Unit Organization:
+/// - META-CLASS-001: MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs
+/// - META-PROF-001: MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
+/// - META-ALPHA-001: MetagenomicsAnalyzer_AlphaDiversity_Tests.cs
+/// 
+/// This file contains tests for:
+/// - META-BETA-001: Beta Diversity (CalculateBetaDiversity)
+/// - META-BIN-001: Genome Binning (BinContigs)
 /// </summary>
 [TestFixture]
 public class MetagenomicsAnalyzerTests
 {
-    #region Alpha Diversity Tests
-
-    [Test]
-    public void CalculateAlphaDiversity_SingleSpecies_LowDiversity()
-    {
-        var abundances = new Dictionary<string, double>
-        {
-            { "Species1", 1.0 }
-        };
-
-        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
-
-        Assert.That(diversity.ObservedSpecies, Is.EqualTo(1));
-        Assert.That(diversity.ShannonIndex, Is.EqualTo(0));
-        Assert.That(diversity.SimpsonIndex, Is.EqualTo(1.0));
-    }
-
-    [Test]
-    public void CalculateAlphaDiversity_EvenDistribution_HighDiversity()
-    {
-        var abundances = new Dictionary<string, double>
-        {
-            { "Species1", 0.25 },
-            { "Species2", 0.25 },
-            { "Species3", 0.25 },
-            { "Species4", 0.25 }
-        };
-
-        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
-
-        Assert.That(diversity.ObservedSpecies, Is.EqualTo(4));
-        Assert.That(diversity.ShannonIndex, Is.GreaterThan(1.0));
-        Assert.That(diversity.SimpsonIndex, Is.EqualTo(0.25));
-    }
-
-    [Test]
-    public void CalculateAlphaDiversity_UnevenDistribution_CalculatesCorrectly()
-    {
-        var abundances = new Dictionary<string, double>
-        {
-            { "DominantSpecies", 0.9 },
-            { "RareSpecies1", 0.05 },
-            { "RareSpecies2", 0.05 }
-        };
-
-        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
-
-        Assert.That(diversity.ShannonIndex, Is.GreaterThan(0).And.LessThan(1.1));
-        Assert.That(diversity.PielouEvenness, Is.LessThan(1.0));
-    }
-
-    [Test]
-    public void CalculateAlphaDiversity_EmptyAbundances_ReturnsZero()
-    {
-        var abundances = new Dictionary<string, double>();
-        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
-
-        Assert.That(diversity.ObservedSpecies, Is.EqualTo(0));
-        Assert.That(diversity.ShannonIndex, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateAlphaDiversity_CalculatesPielouEvenness()
-    {
-        var abundances = new Dictionary<string, double>
-        {
-            { "Sp1", 0.5 },
-            { "Sp2", 0.5 }
-        };
-
-        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
-
-        Assert.That(diversity.PielouEvenness, Is.EqualTo(1.0).Within(0.01));
-    }
-
-    #endregion
-
     #region Beta Diversity Tests
 
     [Test]
