@@ -17,6 +17,9 @@ public class ChromosomeAnalyzerTests
     // NOTE: Centromere Analysis Tests moved to ChromosomeAnalyzer_Centromere_Tests.cs
     // as part of CHROM-CENT-001 test unit consolidation
 
+    // NOTE: Aneuploidy Detection Tests moved to ChromosomeAnalyzer_Aneuploidy_Tests.cs
+    // as part of CHROM-ANEU-001 test unit consolidation
+
     #region Cytogenetic Band Tests
 
     [Test]
@@ -149,82 +152,6 @@ public class ChromosomeAnalyzerTests
         var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
 
         Assert.That(rearrangements.Any(r => r.Type == "Inversion"), Is.True);
-    }
-
-    #endregion
-
-    #region Aneuploidy Detection Tests
-
-    [Test]
-    public void DetectAneuploidy_WithNormalDepth_ReturnsCopyNumber2()
-    {
-        var depthData = Enumerable.Range(0, 100)
-            .Select(i => ("chr1", i * 1000000, 30.0));
-
-        var results = ChromosomeAnalyzer.DetectAneuploidy(
-            depthData, medianDepth: 30.0, binSize: 1000000).ToList();
-
-        Assert.That(results.All(r => r.CopyNumber == 2), Is.True);
-    }
-
-    [Test]
-    public void DetectAneuploidy_WithTrisomy_ReturnsCopyNumber3()
-    {
-        var depthData = Enumerable.Range(0, 100)
-            .Select(i => ("chr21", i * 1000000, 45.0)); // 1.5x normal depth
-
-        var results = ChromosomeAnalyzer.DetectAneuploidy(
-            depthData, medianDepth: 30.0, binSize: 1000000).ToList();
-
-        Assert.That(results.All(r => r.CopyNumber == 3), Is.True);
-    }
-
-    [Test]
-    public void DetectAneuploidy_WithMonosomy_ReturnsCopyNumber1()
-    {
-        var depthData = Enumerable.Range(0, 100)
-            .Select(i => ("chrX", i * 1000000, 15.0)); // 0.5x normal depth
-
-        var results = ChromosomeAnalyzer.DetectAneuploidy(
-            depthData, medianDepth: 30.0, binSize: 1000000).ToList();
-
-        Assert.That(results.All(r => r.CopyNumber == 1), Is.True);
-    }
-
-    [Test]
-    public void DetectAneuploidy_EmptyInput_ReturnsEmpty()
-    {
-        var results = ChromosomeAnalyzer.DetectAneuploidy(
-            Enumerable.Empty<(string, int, double)>(), 30.0).ToList();
-
-        Assert.That(results, Is.Empty);
-    }
-
-    [Test]
-    public void IdentifyWholeChromosomeAneuploidy_WithTrisomy_IdentifiesTrisomy()
-    {
-        var states = Enumerable.Range(0, 100)
-            .Select(i => new ChromosomeAnalyzer.CopyNumberState(
-                "chr21", i * 1000000, (i + 1) * 1000000 - 1, 3, 0.58, 0.9));
-
-        var results = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
-
-        Assert.That(results.Count, Is.EqualTo(1));
-        Assert.That(results[0].Chromosome, Is.EqualTo("chr21"));
-        Assert.That(results[0].CopyNumber, Is.EqualTo(3));
-        Assert.That(results[0].Type, Is.EqualTo("Trisomy"));
-    }
-
-    [Test]
-    public void IdentifyWholeChromosomeAneuploidy_WithNormalChromosome_ReturnsEmpty()
-    {
-        var states = Enumerable.Range(0, 100)
-            .Select(i => new ChromosomeAnalyzer.CopyNumberState(
-                "chr1", i * 1000000, (i + 1) * 1000000 - 1, 2, 0, 0.95));
-
-        var results = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
-
-        Assert.That(results, Is.Empty);
     }
 
     #endregion

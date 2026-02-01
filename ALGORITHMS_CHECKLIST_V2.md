@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 41 |
+| **Completed** | 42 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 59 |
+| **Not Started** | 58 |
 
 ---
 
@@ -72,7 +72,7 @@
 | ☑ | CHROM-TELO-001 | Chromosome | 2 | Wikipedia (Telomere), Meyne (1989), Cawthon (2002) | [CHROM-TELO-001.md](TestSpecs/CHROM-TELO-001.md) | ChromosomeAnalyzer_Telomere_Tests.cs |
 | ☑ | CHROM-CENT-001 | Chromosome | 1 | Wikipedia (Centromere, Karyotype, Chromosome), Levan (1964) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs |
 | ☑ | CHROM-KARYO-001 | Chromosome | 2 | Wikipedia (Karyotype, Ploidy, Aneuploidy) | [CHROM-KARYO-001.md](TestSpecs/CHROM-KARYO-001.md) | ChromosomeAnalyzer_Karyotype_Tests.cs |
-| ☐ | CHROM-ANEU-001 | Chromosome | 2 | - | - | - |
+| ☑ | CHROM-ANEU-001 | Chromosome | 2 | Wikipedia (Aneuploidy, Copy Number Variation), Griffiths et al. (2000) | [CHROM-ANEU-001.md](TestSpecs/CHROM-ANEU-001.md) | ChromosomeAnalyzer_Aneuploidy_Tests.cs |
 | ☐ | CHROM-SYNT-001 | Chromosome | 2 | - | - | - |
 | ☐ | META-CLASS-001 | Metagenomics | 2 | - | - | - |
 | ☐ | META-PROF-001 | Metagenomics | 1 | - | - | - |
