@@ -179,5 +179,36 @@ namespace SuffixTree
             }
             return sb.ToString();
         }
+
+        /// <inheritdoc/>
+        public void Traverse(ISuffixTreeVisitor visitor)
+        {
+            ArgumentNullException.ThrowIfNull(visitor);
+            TraverseCore(_root, 0, visitor);
+        }
+
+        private void TraverseCore(SuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
+        {
+            visitor.VisitNode(node.Start, node.End, node.LeafCount, node.ChildCount, depth);
+
+            if (!node.IsLeaf)
+            {
+                var keys = new List<int>(node.ChildCount);
+                node.GetKeys(keys);
+                keys.Sort(); // Deterministic order
+
+                int nodeFullDepth = depth + (node == _root ? 0 : LengthOf(node));
+
+                foreach (var key in keys)
+                {
+                    if (node.TryGetChild(key, out var child))
+                    {
+                        visitor.EnterBranch(key);
+                        TraverseCore(child!, nodeFullDepth, visitor);
+                        visitor.ExitBranch();
+                    }
+                }
+            }
+        }
     }
 }

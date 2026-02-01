@@ -182,5 +182,32 @@ namespace SuffixTree
         /// </summary>
         /// <returns>A multi-line string showing the tree structure.</returns>
         string PrintTree();
+
+        /// <summary>
+        /// Performs a deterministic traversal of the tree nodes.
+        /// </summary>
+        /// <param name="visitor">The visitor to receive node information.</param>
+        void Traverse(ISuffixTreeVisitor visitor);
+    }
+
+    /// <summary>
+    /// Visitor interface for deterministic tree traversal.
+    /// </summary>
+    public interface ISuffixTreeVisitor
+    {
+        /// <summary>
+        /// Called when entering a node.
+        /// </summary>
+        void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth);
+        
+        /// <summary>
+        /// Called before visiting a child branch.
+        /// </summary>
+        void EnterBranch(int key);
+        
+        /// <summary>
+        /// Called after visiting a child branch.
+        /// </summary>
+        void ExitBranch();
     }
 }
