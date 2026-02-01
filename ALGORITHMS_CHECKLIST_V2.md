@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 34 |
+| **Completed** | 35 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 66 |
+| **Not Started** | 65 |
 
 ---
 
@@ -64,7 +64,7 @@
 | ☑ | PHYLO-TREE-001 | Phylogenetic | 1 | Wikipedia (UPGMA, Neighbor joining, Phylogenetic tree), Saitou & Nei (1987), Sokal & Michener (1958) | [PHYLO-TREE-001.md](TestSpecs/PHYLO-TREE-001.md) | PhylogeneticAnalyzer_TreeConstruction_Tests.cs |
 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | 2 | Wikipedia (Newick format), PHYLIP (Felsenstein), Olsen (1990) | [PHYLO-NEWICK-001.md](TestSpecs/PHYLO-NEWICK-001.md) | PhylogeneticAnalyzer_NewickIO_Tests.cs |
 | ☑ | PHYLO-COMP-001 | Phylogenetic | 3 | Wikipedia (Robinson-Foulds, MRCA, Phylogenetic tree), Robinson & Foulds (1981) | [PHYLO-COMP-001.md](TestSpecs/PHYLO-COMP-001.md) | PhylogeneticAnalyzer_TreeComparison_Tests.cs |
-| ☐ | POP-FREQ-001 | PopGen | 3 | - | - | - |
+| ☑ | POP-FREQ-001 | PopGen | 3 | Wikipedia (Allele frequency, Minor allele frequency, Genotype frequency), Gillespie (2004) | [POP-FREQ-001.md](TestSpecs/POP-FREQ-001.md) | PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs |
 | ☐ | POP-DIV-001 | PopGen | 4 | - | - | - |
 | ☐ | POP-HW-001 | PopGen | 1 | - | - | - |
 | ☐ | POP-FST-001 | PopGen | 2 | - | - | - |

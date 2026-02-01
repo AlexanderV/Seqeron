@@ -9,83 +9,8 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class PopulationGeneticsAnalyzerTests
 {
-    #region Allele Frequency Tests
-
-    [Test]
-    public void CalculateAlleleFrequencies_EqualGenotypes_Returns50Percent()
-    {
-        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
-            homozygousMajor: 25,
-            heterozygous: 50,
-            homozygousMinor: 25);
-
-        Assert.That(major, Is.EqualTo(0.5).Within(0.001));
-        Assert.That(minor, Is.EqualTo(0.5).Within(0.001));
-    }
-
-    [Test]
-    public void CalculateAlleleFrequencies_AllHomozygousMajor_Returns100Percent()
-    {
-        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
-            homozygousMajor: 100,
-            heterozygous: 0,
-            homozygousMinor: 0);
-
-        Assert.That(major, Is.EqualTo(1.0).Within(0.001));
-        Assert.That(minor, Is.EqualTo(0.0).Within(0.001));
-    }
-
-    [Test]
-    public void CalculateAlleleFrequencies_ZeroSamples_ReturnsZero()
-    {
-        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(0, 0, 0);
-
-        Assert.That(major, Is.EqualTo(0));
-        Assert.That(minor, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateMAF_FromGenotypes_CalculatesCorrectly()
-    {
-        // 10 samples: 5 hom ref (0), 4 het (1), 1 hom alt (2)
-        // Alt alleles = 0*5 + 1*4 + 2*1 = 6
-        // Total = 20, freq = 0.3, MAF = 0.3
-        var genotypes = new[] { 0, 0, 0, 0, 0, 1, 1, 1, 1, 2 };
-
-        double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
-
-        Assert.That(maf, Is.EqualTo(0.3).Within(0.001));
-    }
-
-    [Test]
-    public void CalculateMAF_HighAltFreq_ReturnsMinorAllele()
-    {
-        // All hom alt = freq 1.0, MAF = 0
-        var genotypes = new[] { 2, 2, 2, 2, 2 };
-
-        double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
-
-        Assert.That(maf, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FilterByMAF_FiltersCorrectly()
-    {
-        var variants = new List<PopulationGeneticsAnalyzer.Variant>
-        {
-            new("V1", "chr1", 100, "A", "G", 0.001, 100), // Below threshold
-            new("V2", "chr1", 200, "A", "G", 0.05, 100),  // Within range
-            new("V3", "chr1", 300, "A", "G", 0.3, 100),   // Within range
-            new("V4", "chr1", 400, "A", "G", 0.5, 100)    // Within range
-        };
-
-        var filtered = PopulationGeneticsAnalyzer.FilterByMAF(variants, minMAF: 0.01).ToList();
-
-        Assert.That(filtered, Has.Count.EqualTo(3));
-        Assert.That(filtered.Any(v => v.Id == "V1"), Is.False);
-    }
-
-    #endregion
+    // Note: Allele Frequency tests (POP-FREQ-001) have been moved to
+    // PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs
 
     #region Diversity Statistics Tests
 
