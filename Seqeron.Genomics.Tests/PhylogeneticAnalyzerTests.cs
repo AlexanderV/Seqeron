@@ -6,123 +6,20 @@ using System.Linq;
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Tests for PhylogeneticAnalyzer Newick I/O and tree analysis.
-/// Tree construction tests are in PhylogeneticAnalyzer_TreeConstruction_Tests.cs (PHYLO-TREE-001).
-/// Distance matrix tests are in PhylogeneticAnalyzer_DistanceMatrix_Tests.cs (PHYLO-DIST-001).
+/// Tests for PhylogeneticAnalyzer tree comparison and analysis.
 /// 
-/// This file covers:
-/// - PHYLO-NEWICK-001: Newick format parsing and export
+/// Test Unit coverage:
 /// - PHYLO-COMP-001: Tree comparison (Robinson-Foulds, MRCA, Patristic distance)
+/// 
+/// Other test files:
+/// - PhylogeneticAnalyzer_NewickIO_Tests.cs (PHYLO-NEWICK-001)
+/// - PhylogeneticAnalyzer_TreeConstruction_Tests.cs (PHYLO-TREE-001)
+/// - PhylogeneticAnalyzer_DistanceMatrix_Tests.cs (PHYLO-DIST-001)
 /// </summary>
 [TestFixture]
+[Category("PHYLO-COMP-001")]
 public class PhylogeneticAnalyzerTests
 {
-    #region Newick Format Tests (PHYLO-NEWICK-001)
-
-    [Test]
-    public void ToNewick_SimpleTree_ProducesValidFormat()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGT",
-            ["B"] = "TCGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root);
-
-        Assert.That(newick, Does.EndWith(";"));
-        Assert.That(newick, Does.Contain("A"));
-        Assert.That(newick, Does.Contain("B"));
-    }
-
-    [Test]
-    public void ToNewick_WithBranchLengths_IncludesColons()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGT",
-            ["B"] = "TCGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root, includeBranchLengths: true);
-
-        Assert.That(newick, Does.Contain(":"));
-    }
-
-    [Test]
-    public void ToNewick_WithoutBranchLengths_NoColons()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGT",
-            ["B"] = "TCGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root, includeBranchLengths: false);
-
-        Assert.That(newick, Does.Not.Contain(":"));
-    }
-
-    [Test]
-    public void ParseNewick_SimpleTree_ParsesCorrectly()
-    {
-        string newick = "(A,B);";
-        var node = PhylogeneticAnalyzer.ParseNewick(newick);
-
-        Assert.That(node.IsLeaf, Is.False);
-        Assert.That(node.Left, Is.Not.Null);
-        Assert.That(node.Right, Is.Not.Null);
-    }
-
-    [Test]
-    public void ParseNewick_WithBranchLengths_ExtractsValues()
-    {
-        string newick = "(A:0.1,B:0.2);";
-        var node = PhylogeneticAnalyzer.ParseNewick(newick);
-
-        Assert.That(node.Left!.BranchLength, Is.EqualTo(0.1).Within(0.0001));
-        Assert.That(node.Right!.BranchLength, Is.EqualTo(0.2).Within(0.0001));
-    }
-
-    [Test]
-    public void ParseNewick_NestedTree_ParsesRecursively()
-    {
-        string newick = "((A,B),(C,D));";
-        var node = PhylogeneticAnalyzer.ParseNewick(newick);
-
-        Assert.That(node.IsLeaf, Is.False);
-        Assert.That(node.Left!.IsLeaf, Is.False);
-        Assert.That(node.Right!.IsLeaf, Is.False);
-
-        var leaves = PhylogeneticAnalyzer.GetLeaves(node).Select(l => l.Name).ToList();
-        Assert.That(leaves, Has.Count.EqualTo(4));
-    }
-
-    [Test]
-    public void ParseNewick_RoundTrip_PreservesStructure()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGTACGT",
-            ["B"] = "ACGTACGA",
-            ["C"] = "TCGTACGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root);
-        var parsed = PhylogeneticAnalyzer.ParseNewick(newick);
-
-        var originalLeaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).Select(l => l.Name).OrderBy(n => n);
-        var parsedLeaves = PhylogeneticAnalyzer.GetLeaves(parsed).Select(l => l.Name).OrderBy(n => n);
-
-        Assert.That(parsedLeaves, Is.EqualTo(originalLeaves));
-    }
-
-    #endregion
-
     #region Tree Analysis Tests (PHYLO-COMP-001)
 
     [Test]
@@ -339,18 +236,10 @@ public class PhylogeneticAnalyzerTests
 
     #endregion
 
-    #region Edge Cases (shared helpers)
+    #region Edge Cases (PHYLO-COMP-001 tree helpers)
 
     [Test]
-    [Description("PHYLO-NEWICK-001: ParseNewick throws on empty string")]
-    public void ParseNewick_EmptyString_Throws()
-    {
-        Assert.Throws<System.ArgumentException>(() =>
-            PhylogeneticAnalyzer.ParseNewick(""));
-    }
-
-    [Test]
-    [Description("Tree helper: GetLeaves returns empty for null root")]
+    [Description("PHYLO-COMP-001: GetLeaves returns empty for null root")]
     public void GetLeaves_NullRoot_ReturnsEmpty()
     {
         var leaves = PhylogeneticAnalyzer.GetLeaves(null!).ToList();
@@ -358,7 +247,7 @@ public class PhylogeneticAnalyzerTests
     }
 
     [Test]
-    [Description("Tree helper: CalculateTreeLength returns zero for null root")]
+    [Description("PHYLO-COMP-001: CalculateTreeLength returns zero for null root")]
     public void CalculateTreeLength_NullRoot_ReturnsZero()
     {
         double length = PhylogeneticAnalyzer.CalculateTreeLength(null!);
