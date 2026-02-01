@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 40 |
+| **Completed** | 41 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 60 |
+| **Not Started** | 59 |
 
 ---
 
@@ -71,7 +71,7 @@
 | ☑ | POP-LD-001 | PopGen | 2 | Wikipedia (Linkage disequilibrium, Haplotype block), Lewontin (1964), Hill & Robertson (1968), Gabriel (2002) | [POP-LD-001.md](TestSpecs/POP-LD-001.md) | PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs |
 | ☑ | CHROM-TELO-001 | Chromosome | 2 | Wikipedia (Telomere), Meyne (1989), Cawthon (2002) | [CHROM-TELO-001.md](TestSpecs/CHROM-TELO-001.md) | ChromosomeAnalyzer_Telomere_Tests.cs |
 | ☑ | CHROM-CENT-001 | Chromosome | 1 | Wikipedia (Centromere, Karyotype, Chromosome), Levan (1964) | [CHROM-CENT-001.md](TestSpecs/CHROM-CENT-001.md) | ChromosomeAnalyzer_Centromere_Tests.cs |
-| ☐ | CHROM-KARYO-001 | Chromosome | 2 | - | - | - |
+| ☑ | CHROM-KARYO-001 | Chromosome | 2 | Wikipedia (Karyotype, Ploidy, Aneuploidy) | [CHROM-KARYO-001.md](TestSpecs/CHROM-KARYO-001.md) | ChromosomeAnalyzer_Karyotype_Tests.cs |
 | ☐ | CHROM-ANEU-001 | Chromosome | 2 | - | - | - |
 | ☐ | CHROM-SYNT-001 | Chromosome | 2 | - | - | - |
 | ☐ | META-CLASS-001 | Metagenomics | 2 | - | - | - |
