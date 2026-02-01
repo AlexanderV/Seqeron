@@ -60,7 +60,7 @@
 | ☑ | ALIGN-LOCAL-001 | Alignment | 1 | Wikipedia (Smith–Waterman, Sequence alignment) | [ALIGN-LOCAL-001.md](TestSpecs/ALIGN-LOCAL-001.md) | SequenceAligner_LocalAlign_Tests.cs |
 | ☑ | ALIGN-SEMI-001 | Alignment | 1 | Wikipedia (Sequence alignment, Needleman–Wunsch, Smith–Waterman) | [ALIGN-SEMI-001.md](TestSpecs/ALIGN-SEMI-001.md) | SequenceAligner_SemiGlobalAlign_Tests.cs |
 | ☑ | ALIGN-MULTI-001 | Alignment | 1 | Wikipedia (Multiple sequence alignment, Clustal) | [ALIGN-MULTI-001.md](TestSpecs/ALIGN-MULTI-001.md) | SequenceAligner_MultipleAlign_Tests.cs |
-| ☐ | PHYLO-DIST-001 | Phylogenetic | 2 | - | - | - |
+| ☑ | PHYLO-DIST-001 | Phylogenetic | 2 | Wikipedia (Models of DNA evolution, Distance matrices in phylogeny, Jukes-Cantor, Kimura 2-parameter) | [PHYLO-DIST-001.md](TestSpecs/PHYLO-DIST-001.md) | PhylogeneticAnalyzer_DistanceMatrix_Tests.cs |
 | ☐ | PHYLO-TREE-001 | Phylogenetic | 1 | - | - | - |
 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | 2 | - | - | - |
 | ☐ | PHYLO-COMP-001 | Phylogenetic | 3 | - | - | - |

@@ -5,121 +5,13 @@ using System.Linq;
 
 namespace Seqeron.Genomics.Tests;
 
+/// <summary>
+/// Tests for PhylogeneticAnalyzer tree construction, Newick I/O, and tree analysis.
+/// Distance matrix tests are in PhylogeneticAnalyzer_DistanceMatrix_Tests.cs (PHYLO-DIST-001).
+/// </summary>
 [TestFixture]
 public class PhylogeneticAnalyzerTests
 {
-    #region Distance Calculation Tests
-
-    [Test]
-    public void CalculatePairwiseDistance_IdenticalSequences_ReturnsZero()
-    {
-        string seq = "ACGTACGT";
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(seq, seq);
-        Assert.That(dist, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_CompletelyDifferent_ReturnsHigh()
-    {
-        string seq1 = "AAAA";
-        string seq2 = "TTTT";
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(seq1, seq2);
-        Assert.That(dist, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_PDistance_ReturnsProportionDifferent()
-    {
-        string seq1 = "ACGTACGT";
-        string seq2 = "ACCTACGT"; // 1 difference at position 2
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.PDistance);
-        Assert.That(dist, Is.EqualTo(1.0 / 8.0).Within(0.0001));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_Hamming_ReturnsRawCount()
-    {
-        string seq1 = "ACGTACGT";
-        string seq2 = "TCGTACGA"; // 2 differences
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Hamming);
-        Assert.That(dist, Is.EqualTo(2));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_JukesCantor_GreaterThanPDistance()
-    {
-        string seq1 = "ACGTACGT";
-        string seq2 = "TCGTACGA";
-        double pDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.PDistance);
-        double jcDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.JukesCantor);
-        Assert.That(jcDist, Is.GreaterThan(pDist));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_Kimura2Parameter_CalculatesCorrectly()
-    {
-        // Sequence with known transitions and transversions
-        string seq1 = "AACCGGTT";
-        string seq2 = "AGCGGTTT"; // A->G transition, T->extra T
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
-        Assert.That(dist, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculatePairwiseDistance_WithGaps_IgnoresGapPositions()
-    {
-        string seq1 = "ACGT-CGT";
-        string seq2 = "ACGTACGT";
-        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
-            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Hamming);
-        // Gap position ignored, 7 comparable sites, 0 differences
-        Assert.That(dist, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateDistanceMatrix_ReturnsSymmetricMatrix()
-    {
-        var seqs = new List<string>
-        {
-            "ACGTACGT",
-            "ACCTACGT",
-            "TCGTACGA"
-        };
-
-        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
-
-        Assert.That(matrix.GetLength(0), Is.EqualTo(3));
-        Assert.That(matrix.GetLength(1), Is.EqualTo(3));
-
-        // Symmetric
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                Assert.That(matrix[i, j], Is.EqualTo(matrix[j, i]).Within(0.0001));
-            }
-        }
-    }
-
-    [Test]
-    public void CalculateDistanceMatrix_DiagonalIsZero()
-    {
-        var seqs = new List<string> { "ACGT", "TCGT", "GCGT" };
-        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
-
-        for (int i = 0; i < 3; i++)
-        {
-            Assert.That(matrix[i, i], Is.EqualTo(0));
-        }
-    }
-
-    #endregion
-
     #region Tree Building Tests
 
     [Test]
