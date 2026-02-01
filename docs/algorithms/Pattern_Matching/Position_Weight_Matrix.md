@@ -1,8 +1,8 @@
 # Position Weight Matrix (PWM)
 
-**Algorithm Group:** Pattern Matching  
-**Test Unit:** PAT-PWM-001  
-**Last Updated:** 2026-01-22  
+**Algorithm Group:** Pattern Matching
+**Test Unit:** PAT-PWM-001
+**Last Updated:** 2026-01-22
 
 ---
 
@@ -16,8 +16,8 @@ A Position Weight Matrix (PWM), also known as Position-Specific Scoring Matrix (
 
 ### 2.1 Definition (Wikipedia)
 
-> A position weight matrix (PWM) is a commonly used representation of motifs 
-> (patterns) in biological sequences. PWMs are often derived from a set of aligned 
+> A position weight matrix (PWM) is a commonly used representation of motifs
+> (patterns) in biological sequences. PWMs are often derived from a set of aligned
 > sequences that are thought to be functionally related.
 
 ### 2.2 Construction Process
@@ -51,7 +51,7 @@ Where:
 
 ### 2.3 Pseudocounts (Nishida et al., 2008)
 
-> Pseudocounts are often applied when calculating PPMs if based on a small dataset, 
+> Pseudocounts are often applied when calculating PPMs if based on a small dataset,
 > in order to avoid matrix entries having a value of 0.
 
 This prevents -∞ scores for unseen nucleotides. Common pseudocount values:
@@ -61,8 +61,8 @@ This prevents -∞ scores for unseen nucleotides. Common pseudocount values:
 
 ### 2.4 Scoring (Wikipedia)
 
-> The sequence score can be calculated by adding the relevant values at each 
-> position in the PWM. The score gives an indication of how different the sequence 
+> The sequence score can be calculated by adding the relevant values at each
+> position in the PWM. The score gives an indication of how different the sequence
 > is from a random sequence.
 
 $$Score(S) = \sum_{j=1}^{L} PWM_{S_j, j}$$

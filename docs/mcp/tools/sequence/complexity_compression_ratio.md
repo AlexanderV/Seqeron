@@ -18,7 +18,7 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L391](../../../../Seqeron.Genomics/SequenceComplexity.cs#L391)
+- Source: [SequenceComplexity.cs#L391](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L391)
 
 ## Input Schema
 
@@ -94,4 +94,3 @@ Estimates sequence complexity using an LZ77-like compression approach. The algor
 - [complexity_dust_score](complexity_dust_score.md) - DUST algorithm complexity
 - [shannon_entropy](shannon_entropy.md) - Information-theoretic complexity
 - [linguistic_complexity](linguistic_complexity.md) - K-mer diversity measure
-

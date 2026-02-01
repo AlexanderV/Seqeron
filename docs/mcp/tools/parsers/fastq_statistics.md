@@ -18,7 +18,7 @@ Calculates comprehensive quality statistics for FASTQ sequencing data. Returns r
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L344](../../../../Seqeron.Genomics/FastqParser.cs#L344)
+- Source: [FastqParser.cs#L344](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L344)
 
 ## Input Schema
 

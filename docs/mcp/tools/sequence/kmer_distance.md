@@ -18,7 +18,7 @@ Computes the k-mer distance between two sequences using Euclidean distance of k-
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L165](../../../../Seqeron.Genomics/KmerAnalyzer.cs#L165)
+- Source: [KmerAnalyzer.cs#L165](../../../../src/Seqeron/Seqeron.Genomics/KmerAnalyzer.cs#L165)
 
 ## Input Schema
 
@@ -104,4 +104,3 @@ Computes the k-mer distance between two sequences using Euclidean distance of k-
 - [kmer_count](kmer_count.md) - Count k-mer frequencies
 - [kmer_analyze](kmer_analyze.md) - Comprehensive k-mer statistics
 - [edit_distance](../core/edit_distance.md) - Levenshtein distance
-

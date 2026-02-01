@@ -18,7 +18,7 @@ Calculates the GC content (percentage of G and C nucleotides) of a DNA/RNA seque
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L41](../../../../Seqeron.Genomics/SequenceExtensions.cs#L41)
+- Source: [SequenceExtensions.cs#L41](../../../../src/Seqeron/Seqeron.Genomics/SequenceExtensions.cs#L41)
 
 ## Input Schema
 
@@ -99,4 +99,3 @@ Calculates the GC content (percentage of G and C nucleotides) of a DNA/RNA seque
 
 - [nucleotide_composition](nucleotide_composition.md) - Full composition analysis
 - [summarize_sequence](summarize_sequence.md) - Comprehensive statistics
-

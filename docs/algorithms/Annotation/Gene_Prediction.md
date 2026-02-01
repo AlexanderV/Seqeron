@@ -28,7 +28,7 @@ The Shine-Dalgarno (SD) sequence is a ribosome-binding site in bacterial and arc
 
 **RBS distance constraints** (Chen et al. 1994, Laursen et al. 2005):
 - Minimum distance: 4 bp
-- Maximum distance: ~15 bp  
+- Maximum distance: ~15 bp
 - Optimal distance: 5-9 bp (species-dependent)
 
 ## Algorithm Description

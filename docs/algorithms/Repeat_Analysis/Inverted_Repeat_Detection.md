@@ -1,7 +1,7 @@
 # Inverted Repeat Detection
 
-**Test Unit:** REP-INV-001  
-**Last Updated:** 2026-01-22  
+**Test Unit:** REP-INV-001
+**Last Updated:** 2026-01-22
 **Status:** Active
 
 ---

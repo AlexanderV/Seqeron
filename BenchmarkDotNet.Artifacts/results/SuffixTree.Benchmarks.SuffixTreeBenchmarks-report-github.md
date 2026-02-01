@@ -6,7 +6,7 @@ BenchmarkDotNet v0.15.8, Windows 11 (10.0.22631.6060/23H2/2023Update/SunValley3)
   [Host]   : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v4
   .NET 8.0 : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v4
 
-Job=.NET 8.0  Runtime=.NET 8.0  
+Job=.NET 8.0  Runtime=.NET 8.0
 
 ```
 | Method            | Mean              | Error             | StdDev            | Median            | Rank | Gen0      | Gen1      | Gen2     | Allocated  |

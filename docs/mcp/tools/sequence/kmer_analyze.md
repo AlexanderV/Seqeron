@@ -18,7 +18,7 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L363](../../../../Seqeron.Genomics/KmerAnalyzer.cs#L363)
+- Source: [KmerAnalyzer.cs#L363](../../../../src/Seqeron/Seqeron.Genomics/KmerAnalyzer.cs#L363)
 
 ## Input Schema
 
@@ -103,4 +103,3 @@ Performs comprehensive k-mer analysis on a sequence, returning statistics about 
 - [kmer_count](kmer_count.md) - Get individual k-mer counts
 - [kmer_entropy](kmer_entropy.md) - K-mer entropy only
 - [kmer_distance](kmer_distance.md) - Compare sequences by k-mers
-

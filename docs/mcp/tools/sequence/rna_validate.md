@@ -18,7 +18,7 @@ Validates whether a sequence contains only valid RNA nucleotides (A, C, G, U). R
 
 ## Core Documentation Reference
 
-- Source: [RnaSequence.cs#L176](../../../../Seqeron.Genomics/RnaSequence.cs#L176)
+- Source: [RnaSequence.cs#L176](../../../../src/Seqeron/Seqeron.Genomics/RnaSequence.cs#L176)
 
 ## Input Schema
 

@@ -1,8 +1,8 @@
 # F-Statistics (Fst, Fis, Fit)
 
-**Algorithm Group:** Population Genetics  
-**Test Unit:** POP-FST-001  
-**Last Updated:** 2026-02-01  
+**Algorithm Group:** Population Genetics
+**Test Unit:** POP-FST-001
+**Last Updated:** 2026-02-01
 
 ---
 
@@ -92,7 +92,7 @@ Calculates all three F-statistics (Fis, Fit, Fst) from heterozygosity data.
 public static FStatistics CalculateFStatistics(
     string pop1Name,
     string pop2Name,
-    IEnumerable<(int HetObs1, int N1, int HetObs2, int N2, 
+    IEnumerable<(int HetObs1, int N1, int HetObs2, int N2,
                  double AlleleFreq1, double AlleleFreq2)> variantData)
 ```
 
@@ -113,7 +113,7 @@ Calculates an Fst matrix for multiple populations.
 **Signature:**
 ```csharp
 public static double[,] CalculatePairwiseFst(
-    IEnumerable<(string PopulationId, 
+    IEnumerable<(string PopulationId,
                  IReadOnlyList<(double AlleleFreq, int SampleSize)> Variants)> populations)
 ```
 

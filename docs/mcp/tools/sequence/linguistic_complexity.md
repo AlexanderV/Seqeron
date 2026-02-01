@@ -18,7 +18,7 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L615](../../../../Seqeron.Genomics/SequenceStatistics.cs#L615)
+- Source: [SequenceStatistics.cs#L615](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L615)
 
 ## Input Schema
 
@@ -94,4 +94,3 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 
 - [shannon_entropy](shannon_entropy.md) - Shannon entropy measure
 - [nucleotide_composition](nucleotide_composition.md) - Base composition analysis
-

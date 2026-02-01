@@ -66,7 +66,7 @@ Detect telomeric repeats at both chromosome ends and measure their length and pu
 7. Determine flags based on thresholds
 
 ### Complexity
-**Time:** O(n) where n = min(searchLength, sequence.Length)  
+**Time:** O(n) where n = min(searchLength, sequence.Length)
 **Space:** O(1) auxiliary
 
 ---
@@ -97,7 +97,7 @@ estimatedLength = referenceLength × (tsRatio / referenceRatio)
 Estimated telomere length in base pairs (double).
 
 ### Complexity
-**Time:** O(1)  
+**Time:** O(1)
 **Space:** O(1)
 
 ---

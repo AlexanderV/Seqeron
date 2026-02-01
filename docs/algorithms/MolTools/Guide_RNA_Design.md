@@ -113,7 +113,7 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 1. **GC Content Outside Range**:
    - Below MinGcContent: -20 points
    - Above MaxGcContent: -20 points
-   
+
 2. **Poly-T Detection**:
    - Contains TTTT: -15 points
 
@@ -147,11 +147,11 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 1. **Addgene CRISPR Guide** (https://www.addgene.org/guides/crispr/)
    - Authoritative resource from nonprofit plasmid repository
    - Details on gRNA structure, PAM requirements, seed sequence
-   
+
 2. **Wikipedia: Guide RNA** (https://en.wikipedia.org/wiki/Guide_RNA)
    - GC content >50% optimal
    - Length typically 17-24bp with 20bp standard
-   
+
 3. **Wikipedia: CRISPR gene editing** (https://en.wikipedia.org/wiki/CRISPR_gene_editing)
    - SpCas9 PAM is 5'-NGG-3'
    - Target sequence is 20 bases long

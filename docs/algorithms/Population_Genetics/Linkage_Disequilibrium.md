@@ -4,8 +4,8 @@
 
 Linkage disequilibrium (LD) is a measure of the non-random association of alleles at two or more loci in a population. When alleles at different loci occur together more or less frequently than expected by chance, they are said to be in linkage disequilibrium.
 
-**Algorithm Group:** Population Genetics  
-**Test Unit:** POP-LD-001  
+**Algorithm Group:** Population Genetics
+**Test Unit:** POP-LD-001
 **Complexity:** O(n) per variant pair, where n = number of genotypes
 
 ---
@@ -36,7 +36,7 @@ $$D' = \frac{D}{D_{max}}$$
 
 Where:
 
-$$D_{max} = \begin{cases} 
+$$D_{max} = \begin{cases}
 \min(p_A \times q_B, q_A \times p_B) & \text{if } D < 0 \\
 \min(p_A \times p_B, q_A \times q_B) & \text{if } D \geq 0
 \end{cases}$$

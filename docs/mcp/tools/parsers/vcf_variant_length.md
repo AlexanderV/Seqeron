@@ -18,7 +18,7 @@ Calculates the absolute length difference between reference and alternate allele
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L421](../../../../Seqeron.Genomics/VcfParser.cs#L421)
+- Source: [VcfParser.cs#L421](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L421)
 
 ## Input Schema
 

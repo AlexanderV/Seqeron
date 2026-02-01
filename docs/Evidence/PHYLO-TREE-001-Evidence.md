@@ -1,8 +1,8 @@
 # PHYLO-TREE-001: Tree Construction - Evidence Document
 
-**Test Unit ID:** PHYLO-TREE-001  
-**Algorithm:** Phylogenetic Tree Construction (UPGMA, Neighbor-Joining)  
-**Date:** 2026-02-01  
+**Test Unit ID:** PHYLO-TREE-001
+**Algorithm:** Phylogenetic Tree Construction (UPGMA, Neighbor-Joining)
+**Date:** 2026-02-01
 **Status:** Complete
 
 ---

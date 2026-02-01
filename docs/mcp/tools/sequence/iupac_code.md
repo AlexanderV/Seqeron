@@ -74,4 +74,3 @@ Returns the IUPAC ambiguity code that represents a given set of nucleotide bases
 
 - [iupac_match](iupac_match.md) - Check if codes can match
 - [iupac_matches](iupac_matches.md) - Check nucleotide against code
-

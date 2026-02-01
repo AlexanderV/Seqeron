@@ -18,7 +18,7 @@ Parses GenBank flat file format (.gb, .gbk) into structured records. Returns loc
 
 ## Core Documentation Reference
 
-- Source: [GenBankParser.cs#L88](../../../../Seqeron.Genomics/GenBankParser.cs#L88)
+- Source: [GenBankParser.cs#L88](../../../../src/Seqeron/Seqeron.Genomics/GenBankParser.cs#L88)
 
 ## Input Schema
 

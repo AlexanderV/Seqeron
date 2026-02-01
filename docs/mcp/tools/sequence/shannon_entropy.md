@@ -18,7 +18,7 @@ Calculates Shannon entropy of a sequence, measuring the information content or r
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L580](../../../../Seqeron.Genomics/SequenceStatistics.cs#L580)
+- Source: [SequenceStatistics.cs#L580](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L580)
 
 ## Input Schema
 
@@ -93,4 +93,3 @@ Calculates Shannon entropy of a sequence, measuring the information content or r
 
 - [linguistic_complexity](linguistic_complexity.md) - Linguistic complexity measure
 - [nucleotide_composition](nucleotide_composition.md) - Base composition analysis
-

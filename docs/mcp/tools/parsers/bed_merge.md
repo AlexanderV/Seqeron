@@ -18,7 +18,7 @@ Merges overlapping or adjacent BED records on the same chromosome into single in
 
 ## Core Documentation Reference
 
-- Source: [BedParser.cs#L284](../../../../Seqeron.Genomics/BedParser.cs#L284)
+- Source: [BedParser.cs#L284](../../../../src/Seqeron/Seqeron.Genomics/BedParser.cs#L284)
 
 ## Input Schema
 

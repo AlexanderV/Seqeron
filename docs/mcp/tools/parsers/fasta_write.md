@@ -18,7 +18,7 @@ Writes a DNA sequence to a FASTA format file. Creates a new file or overwrites a
 
 ## Core Documentation Reference
 
-- Source: [FastaParser.cs#L98](../../../../Seqeron.Genomics/FastaParser.cs#L98)
+- Source: [FastaParser.cs#L98](../../../../src/Seqeron/Seqeron.Genomics/FastaParser.cs#L98)
 
 ## Input Schema
 
@@ -86,4 +86,3 @@ Writes a DNA sequence to a FASTA format file. Creates a new file or overwrites a
 
 - [fasta_parse](fasta_parse.md) - Parse FASTA content
 - [fasta_format](fasta_format.md) - Format to FASTA string
-

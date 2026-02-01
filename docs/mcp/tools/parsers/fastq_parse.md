@@ -23,7 +23,7 @@ Supports multiple quality encodings:
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L21](../../../../Seqeron.Genomics/FastqParser.cs#L21)
+- Source: [FastqParser.cs#L21](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L21)
 
 ## Input Schema
 

@@ -21,11 +21,11 @@ A **k-mer** is a substring of length *k* contained within a biological sequence.
 procedure CountKmers(sequence, k):
     L ← length(sequence)
     counts ← empty dictionary
-    
+
     for i ← 0 to L − k:
         kmer ← substring(sequence, i, k)
         counts[kmer] ← counts[kmer] + 1
-    
+
     return counts
 ```
 

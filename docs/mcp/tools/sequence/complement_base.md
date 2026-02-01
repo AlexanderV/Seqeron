@@ -18,7 +18,7 @@ Returns the Watson-Crick complementary base for a given nucleotide. For DNA: Aâ†
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L83](../../../../Seqeron.Genomics/SequenceExtensions.cs#L83)
+- Source: [SequenceExtensions.cs#L83](../../../../src/Seqeron/Seqeron.Genomics/SequenceExtensions.cs#L83)
 
 ## Input Schema
 
@@ -96,4 +96,3 @@ Returns the Watson-Crick complementary base for a given nucleotide. For DNA: Aâ†
 
 - [dna_reverse_complement](dna_reverse_complement.md) - Full sequence reverse complement
 - [nucleotide_composition](nucleotide_composition.md) - Sequence composition analysis
-

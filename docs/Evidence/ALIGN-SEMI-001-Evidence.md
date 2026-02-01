@@ -1,8 +1,8 @@
 # Evidence: ALIGN-SEMI-001
 
-**Test Unit ID:** ALIGN-SEMI-001  
-**Algorithm:** Semi-Global Alignment  
-**Date Collected:** 2026-02-01  
+**Test Unit ID:** ALIGN-SEMI-001
+**Algorithm:** Semi-Global Alignment
+**Date Collected:** 2026-02-01
 
 ---
 
@@ -123,5 +123,5 @@ These assumptions are validated against the current implementation in Seqeron.Ge
 ## 7. References
 
 1. Wikipedia. "Sequence alignment." https://en.wikipedia.org/wiki/Sequence_alignment
-2. Wikipedia. "Needleman–Wunsch algorithm." https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm  
+2. Wikipedia. "Needleman–Wunsch algorithm." https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
 3. Brudno M, Malde S, Poliakov A, Do CB, Couronne O, Dubchak I, Batzoglou S (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics. 19 Suppl 1:i54-62. doi:10.1093/bioinformatics/btg1005

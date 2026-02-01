@@ -80,7 +80,7 @@ G T T G A C
 
 ## Implementation Notes (Seqeron.Genomics)
 
-**Implementation Location:** [Seqeron.Genomics/SequenceAligner.cs](../../../Seqeron.Genomics/SequenceAligner.cs)
+**Implementation Location:** [Seqeron.Genomics/SequenceAligner.cs](../../../src/Seqeron/Seqeron.Genomics/SequenceAligner.cs)
 
 ### Methods
 - `SequenceAligner.LocalAlign(DnaSequence, DnaSequence, ScoringMatrix?)` – canonical method for local alignment

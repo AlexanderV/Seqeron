@@ -1,9 +1,9 @@
 # Evidence Document: POP-HW-001 (Hardy-Weinberg Equilibrium Test)
 
-**Test Unit ID:** POP-HW-001  
-**Algorithm:** Hardy-Weinberg Equilibrium Chi-Square Test  
-**Date:** 2026-02-01  
-**Status:** Evidence Gathered  
+**Test Unit ID:** POP-HW-001
+**Algorithm:** Hardy-Weinberg Equilibrium Chi-Square Test
+**Date:** 2026-02-01
+**Status:** Evidence Gathered
 
 ---
 
@@ -50,7 +50,7 @@ $$q = 1 - p = \frac{2 \times n_{aa} + n_{Aa}}{2n}$$
 
 Where:
 - $n_{AA}$ = observed count of homozygous major genotype
-- $n_{Aa}$ = observed count of heterozygous genotype  
+- $n_{Aa}$ = observed count of heterozygous genotype
 - $n_{aa}$ = observed count of homozygous minor genotype
 - $n = n_{AA} + n_{Aa} + n_{aa}$ = total sample size
 

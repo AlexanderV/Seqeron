@@ -23,7 +23,7 @@ Parses BED (Browser Extensible Data) format content into genomic region records.
 
 ## Core Documentation Reference
 
-- Source: [BedParser.cs#L102](../../../../Seqeron.Genomics/BedParser.cs#L102)
+- Source: [BedParser.cs#L102](../../../../src/Seqeron/Seqeron.Genomics/BedParser.cs#L102)
 
 ## Input Schema
 

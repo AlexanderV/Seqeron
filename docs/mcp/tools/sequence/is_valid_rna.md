@@ -18,7 +18,7 @@ Performs a fast check if a sequence contains only valid RNA characters (A, U, G,
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L225](../../../../Seqeron.Genomics/SequenceExtensions.cs#L225)
+- Source: [SequenceExtensions.cs#L225](../../../../src/Seqeron/Seqeron.Genomics/SequenceExtensions.cs#L225)
 
 ## Input Schema
 
@@ -96,4 +96,3 @@ Performs a fast check if a sequence contains only valid RNA characters (A, U, G,
 
 - [rna_validate](rna_validate.md) - Full validation with error details
 - [is_valid_dna](is_valid_dna.md) - DNA validation
-

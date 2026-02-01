@@ -32,7 +32,7 @@ Common conversions:
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L206](../../../../Seqeron.Genomics/FastqParser.cs#L206)
+- Source: [FastqParser.cs#L206](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L206)
 
 ## Input Schema
 

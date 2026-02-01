@@ -18,7 +18,7 @@ Parses VCF format content into variant records. VCF is the standard format for s
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L116](../../../../Seqeron.Genomics/VcfParser.cs#L116)
+- Source: [VcfParser.cs#L116](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L116)
 
 ## Input Schema
 

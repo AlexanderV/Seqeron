@@ -25,7 +25,7 @@ Reads that become empty after trimming are returned with empty sequence and qual
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L264](../../../../Seqeron.Genomics/FastqParser.cs#L264)
+- Source: [FastqParser.cs#L264](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L264)
 
 ## Input Schema
 

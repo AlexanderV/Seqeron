@@ -33,12 +33,12 @@ From Wikipedia and Robinson (2003):
 function HammingDistance(s1, s2):
     if length(s1) ≠ length(s2):
         throw "Strings must have equal length"
-    
+
     distance = 0
     for i = 0 to length(s1) - 1:
         if s1[i] ≠ s2[i]:
             distance++
-    
+
     return distance
 ```
 
@@ -49,14 +49,14 @@ The approximate pattern matching problem finds all positions in a text where a p
 ```
 function FindWithMismatches(sequence, pattern, maxMismatches):
     results = []
-    
+
     for i = 0 to length(sequence) - length(pattern):
         window = sequence[i : i + length(pattern)]
         distance = HammingDistance(window, pattern)
-        
+
         if distance ≤ maxMismatches:
             results.append((i, window, distance))
-    
+
     return results
 ```
 
@@ -159,5 +159,5 @@ The `ApproximateMatcher` class provides:
 
 ---
 
-*Document generated for Test Unit PAT-APPROX-001*  
+*Document generated for Test Unit PAT-APPROX-001*
 *Last updated: 2026-01-22*

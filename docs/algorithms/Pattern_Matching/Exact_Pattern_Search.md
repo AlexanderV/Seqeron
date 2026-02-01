@@ -1,7 +1,7 @@
 # Exact Pattern Search (Suffix Tree)
 
-**Test Unit ID:** PAT-EXACT-001  
-**Algorithm Group:** Pattern Matching  
+**Test Unit ID:** PAT-EXACT-001
+**Algorithm Group:** Pattern Matching
 **Implementation:** `SuffixTree` class (`SuffixTree.Search.cs`)
 
 ---
@@ -157,8 +157,8 @@ Classic example from Gusfield's textbook:
 
 Bioinformatics problem demonstrating overlapping occurrences:
 
-**Text:** "GATATATGCATATACTT"  
-**Pattern:** "ATAT"  
+**Text:** "GATATATGCATATACTT"
+**Pattern:** "ATAT"
 **Occurrences (0-indexed):** [1, 3, 9]
 
 Note: Rosalind uses 1-indexed positions (2, 4, 10).

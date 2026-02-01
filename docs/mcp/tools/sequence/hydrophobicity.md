@@ -18,7 +18,7 @@ Calculates the grand average of hydropathy (GRAVY) index for a protein sequence 
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L306](../../../../Seqeron.Genomics/SequenceStatistics.cs#L306)
+- Source: [SequenceStatistics.cs#L306](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L306)
 
 ## Input Schema
 
@@ -94,4 +94,3 @@ Calculates the grand average of hydropathy (GRAVY) index for a protein sequence 
 
 - [amino_acid_composition](amino_acid_composition.md) - Full protein composition analysis
 - [isoelectric_point](isoelectric_point.md) - Calculate protein pI
-

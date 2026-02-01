@@ -18,7 +18,7 @@ Finds all positions where a pattern occurs in text using a suffix tree. Returns 
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.Search.cs#L115](../../../../SuffixTree/SuffixTree.Search.cs#L115)
+- Source: [SuffixTree.Search.cs#L115](../../../../src/SuffixTree/SuffixTree.Search.cs#L115)
 - Algorithm: Pattern matching with suffix collection
 
 ## Input Schema

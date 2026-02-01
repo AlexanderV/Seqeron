@@ -17,7 +17,7 @@ Finds the longest substring that appears at least twice in the text. Returns emp
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.Algorithms.cs#L14](../../../../SuffixTree/SuffixTree.Algorithms.cs#L14)
+- Source: [SuffixTree.Algorithms.cs#L14](../../../../src/SuffixTree/SuffixTree.Algorithms.cs#L14)
 
 ## Input/Output
 

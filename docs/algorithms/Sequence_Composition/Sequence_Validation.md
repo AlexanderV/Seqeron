@@ -1,8 +1,8 @@
 # Sequence Validation
 
-**Algorithm Group:** Sequence Composition  
-**Document Version:** 1.0  
-**Last Updated:** 2026-01-22  
+**Algorithm Group:** Sequence Composition
+**Document Version:** 1.0
+**Last Updated:** 2026-01-22
 
 ---
 
@@ -18,12 +18,12 @@ Sequence validation determines whether a nucleic acid string contains only valid
 
 ### 2.1 Source
 
-- **IUPAC-IUB Commission on Biochemical Nomenclature (1970)**  
-  "Abbreviations and symbols for nucleic acids, polynucleotides, and their constituents"  
+- **IUPAC-IUB Commission on Biochemical Nomenclature (1970)**
+  "Abbreviations and symbols for nucleic acids, polynucleotides, and their constituents"
   *Biochemistry* 9(20): 4022–4027. doi:10.1021/bi00822a023
 
-- **NC-IUB (1984)**  
-  "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences"  
+- **NC-IUB (1984)**
+  "Nomenclature for Incompletely Specified Bases in Nucleic Acid Sequences"
   *Nucleic Acids Research* 13(9): 3021–3030. doi:10.1093/nar/13.9.3021
 
 ### 2.2 Standard Nucleotide Codes
@@ -82,7 +82,7 @@ This library implements **strict validation**:
 // Canonical DNA validation
 public static bool IsValidDna(this ReadOnlySpan<char> sequence)
 
-// Canonical RNA validation  
+// Canonical RNA validation
 public static bool IsValidRna(this ReadOnlySpan<char> sequence)
 
 // Factory pattern with validation
@@ -126,7 +126,7 @@ function IsValidRna(sequence):
     return true
 ```
 
-**Time Complexity:** O(n)  
+**Time Complexity:** O(n)
 **Space Complexity:** O(1)
 
 ---

@@ -63,4 +63,3 @@ R (purine) and Y (pyrimidine) have no overlap.
 
 - [iupac_code](iupac_code.md) - Get IUPAC code for bases
 - [iupac_matches](iupac_matches.md) - Check nucleotide against code
-

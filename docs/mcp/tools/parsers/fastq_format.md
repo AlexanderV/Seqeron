@@ -23,7 +23,7 @@ Converts sequence data into a properly formatted FASTQ string. The output follow
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L474](../../../../Seqeron.Genomics/FastqParser.cs#L474)
+- Source: [FastqParser.cs#L474](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L474)
 
 ## Input Schema
 

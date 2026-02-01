@@ -129,8 +129,8 @@ string guide = "ACGTACGTACGTACGTACGT";
 var genome = new DnaSequence("ACGT...long genome...ACGT");
 
 var offTargets = CrisprDesigner.FindOffTargets(
-    guide, 
-    genome, 
+    guide,
+    genome,
     maxMismatches: 3,
     CrisprSystemType.SpCas9);
 

@@ -18,7 +18,7 @@ Searches for a pattern within text using a suffix tree data structure. The suffi
 
 ## Core Documentation Reference
 
-- Source: [SuffixTree.Search.cs#L22](../../../../SuffixTree/SuffixTree.Search.cs#L22)
+- Source: [SuffixTree.Search.cs#L22](../../../../src/SuffixTree/SuffixTree.Search.cs#L22)
 - Algorithm: Ukkonen's suffix tree with O(n) construction and O(m) search
 
 ## Input Schema

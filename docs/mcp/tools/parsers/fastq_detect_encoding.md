@@ -23,7 +23,7 @@ Detection logic:
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L148](../../../../Seqeron.Genomics/FastqParser.cs#L148)
+- Source: [FastqParser.cs#L148](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L148)
 
 ## Input Schema
 

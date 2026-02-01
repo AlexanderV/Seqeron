@@ -18,7 +18,7 @@ Calculates the amino acid composition of a protein sequence, including counts of
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L98](../../../../Seqeron.Genomics/SequenceStatistics.cs#L98)
+- Source: [SequenceStatistics.cs#L98](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L98)
 
 ## Input Schema
 

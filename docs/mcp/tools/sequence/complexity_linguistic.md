@@ -18,7 +18,7 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L22](../../../../Seqeron.Genomics/SequenceComplexity.cs#L22)
+- Source: [SequenceComplexity.cs#L22](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L22)
 
 ## Input Schema
 
@@ -100,4 +100,3 @@ Calculates linguistic complexity (LC) as the ratio of observed to possible subwo
 - [linguistic_complexity](linguistic_complexity.md) - SequenceStatistics version
 - [complexity_shannon](complexity_shannon.md) - Shannon entropy complexity
 - [complexity_dust_score](complexity_dust_score.md) - DUST low-complexity score
-

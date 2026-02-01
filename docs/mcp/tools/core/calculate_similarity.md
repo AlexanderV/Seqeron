@@ -17,7 +17,7 @@ Calculates similarity between two DNA sequences using k-mer Jaccard index. Retur
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L238](../../../../Seqeron.Genomics/GenomicAnalyzer.cs#L238)
+- Source: [GenomicAnalyzer.cs#L238](../../../../src/Seqeron/Seqeron.Genomics/GenomicAnalyzer.cs#L238)
 
 ## Input/Output
 

@@ -1,9 +1,9 @@
 # Evidence Document: PHYLO-COMP-001 (Tree Comparison)
 
-**Test Unit ID:** PHYLO-COMP-001  
-**Algorithm:** Tree Comparison (Robinson-Foulds Distance, MRCA, Patristic Distance)  
-**Date:** 2026-02-01  
-**Status:** Evidence Gathered  
+**Test Unit ID:** PHYLO-COMP-001
+**Algorithm:** Tree Comparison (Robinson-Foulds Distance, MRCA, Patristic Distance)
+**Date:** 2026-02-01
+**Status:** Evidence Gathered
 
 ---
 
