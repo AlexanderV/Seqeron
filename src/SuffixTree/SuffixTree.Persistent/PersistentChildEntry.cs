@@ -18,10 +18,10 @@ public readonly struct PersistentChildEntry
     public long Offset => _offset;
     public bool IsNull => _offset == PersistentConstants.NULL_OFFSET;
 
-    public int Key
+    public uint Key
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.CHILD_OFFSET_KEY);
-        set => _storage.WriteInt32(_offset + PersistentConstants.CHILD_OFFSET_KEY, value);
+        get => _storage.ReadUInt32(_offset + PersistentConstants.CHILD_OFFSET_KEY);
+        set => _storage.WriteUInt32(_offset + PersistentConstants.CHILD_OFFSET_KEY, value);
     }
 
     public long ChildNodeOffset
@@ -36,6 +36,6 @@ public readonly struct PersistentChildEntry
         set => _storage.WriteInt64(_offset + PersistentConstants.CHILD_OFFSET_NEXT, value);
     }
 
-    public static PersistentChildEntry Null(IStorageProvider storage) 
+    public static PersistentChildEntry Null(IStorageProvider storage)
         => new(storage, PersistentConstants.NULL_OFFSET);
 }

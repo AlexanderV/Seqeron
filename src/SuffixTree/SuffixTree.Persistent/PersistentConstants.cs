@@ -5,10 +5,11 @@ public static class PersistentConstants
     public const int NODE_SIZE = 40;
     public const int CHILD_ENTRY_SIZE = 24;
     public const int HEADER_SIZE = 64;
-    public const int BOUNDLESS = -1;
+    public const uint BOUNDLESS = uint.MaxValue;
+    public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
     public const long NULL_OFFSET = -1L;
     public const long MAGIC_NUMBER = 0x5452454558494646L; // "SUFFIXTR"
-    
+
     // Header Layout Offsets
     public const int HEADER_OFFSET_MAGIC = 0;
     public const int HEADER_OFFSET_VERSION = 8;
@@ -17,7 +18,7 @@ public static class PersistentConstants
     public const int HEADER_OFFSET_TEXT_LEN = 32;
     public const int HEADER_OFFSET_NODE_COUNT = 36;
     public const int HEADER_OFFSET_SIZE = 44;
-    
+
     // Node Layout Offsets
     public const int OFFSET_START = 0;
     public const int OFFSET_END = 4;

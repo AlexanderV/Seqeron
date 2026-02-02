@@ -21,18 +21,18 @@ namespace SuffixTree.Persistent
         public static byte[] CalculateLogicalHash(ISuffixTree tree)
         {
             ArgumentNullException.ThrowIfNull(tree);
-            
+
             using (var sha256 = SHA256.Create())
             {
                 var hasher = new HashVisitor(sha256);
-                
+
                 // Hash the text first to bind the tree to a specific string
                 byte[] textBytes = Encoding.Unicode.GetBytes(tree.Text.ToString() ?? string.Empty);
                 sha256.TransformBlock(textBytes, 0, textBytes.Length, null, 0);
-                
+
                 // Hash the tree structure deterministically
                 tree.Traverse(hasher);
-                
+
                 sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 return sha256.Hash!;
             }
@@ -71,7 +71,7 @@ namespace SuffixTree.Persistent
                 long magic = reader.ReadInt64();
                 if (magic != LOGICAL_MAGIC)
                     throw new InvalidDataException("Invalid logical suffix tree format.");
-                
+
                 int version = reader.ReadInt32();
                 if (version != VERSION)
                     throw new NotSupportedException($"Version {version} is not supported.");
@@ -81,10 +81,10 @@ namespace SuffixTree.Persistent
 
                 // Preliminary allocation for header
                 target.Allocate(PersistentConstants.HEADER_SIZE);
-                
+
                 var nodeCount = 0;
                 long rootOffset = ImportNodeRecursive(reader, target, ref nodeCount);
-                
+
                 // Write text
                 long textOffset = target.Allocate(text.Length * 2);
                 for (int i = 0; i < text.Length; i++)
@@ -105,11 +105,11 @@ namespace SuffixTree.Persistent
 
         private static long ImportNodeRecursive(BinaryReader reader, IStorageProvider storage, ref int nodeCount)
         {
-            int start = reader.ReadInt32();
-            int end = reader.ReadInt32();
-            int leafCount = reader.ReadInt32();
+            uint start = reader.ReadUInt32();
+            uint end = reader.ReadUInt32();
+            uint leafCount = reader.ReadUInt32();
             int childCount = reader.ReadInt32();
-            int depth = reader.ReadInt32();
+            uint depth = reader.ReadUInt32();
 
             nodeCount++;
             long nodeOffset = storage.Allocate(PersistentConstants.NODE_SIZE);
@@ -124,7 +124,7 @@ namespace SuffixTree.Persistent
 
             for (int i = 0; i < childCount; i++)
             {
-                int key = reader.ReadInt32();
+                uint key = reader.ReadUInt32();
                 long childOffset = ImportNodeRecursive(reader, storage, ref nodeCount);
                 node.SetChild(key, new PersistentSuffixTreeNode(storage, childOffset));
             }

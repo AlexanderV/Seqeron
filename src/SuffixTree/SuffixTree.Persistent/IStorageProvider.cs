@@ -29,6 +29,16 @@ public interface IStorageProvider : IDisposable
     void WriteInt32(long offset, int value);
 
     /// <summary>
+    /// Reads an unsigned integer from the specified offset.
+    /// </summary>
+    uint ReadUInt32(long offset);
+
+    /// <summary>
+    /// Writes an unsigned integer to the specified offset.
+    /// </summary>
+    void WriteUInt32(long offset, uint value);
+
+    /// <summary>
     /// Reads a 64-bit integer from the specified offset.
     /// </summary>
     long ReadInt64(long offset);

@@ -22,7 +22,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _rootOffset = rootOffset;
-        
+
         if (textSource != null)
         {
             _textSource = textSource;
@@ -32,7 +32,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             // Try to load text from storage
             long textOff = _storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
             int textLen = _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
-            
+
             // If it's a MappedFileStorageProvider, we can use MemoryMappedTextSource for zero-copy
             if (_storage is MappedFileStorageProvider mappedProvider)
             {
@@ -69,16 +69,16 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     public ITextSource Text => _textSource;
 
     public int NodeCount => _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT);
- 
+
     public int LeafCount
     {
         get
         {
-            int rawCount = new PersistentSuffixTreeNode(_storage, _rootOffset).LeafCount;
-            return rawCount > 0 ? rawCount - 1 : 0;
+            uint rawCount = new PersistentSuffixTreeNode(_storage, _rootOffset).LeafCount;
+            return rawCount > 0 ? (int)(rawCount - 1) : 0;
         }
     }
- 
+
     public int MaxDepth => _textSource.Length + 1;
 
     public bool IsEmpty => _textSource.Length == 0;
@@ -110,7 +110,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         var (node, matched) = MatchPatternCore(pattern);
         if (!matched) return results;
 
-        CollectLeaves(node, node.DepthFromRoot, results);
+        CollectLeaves(node, (int)node.DepthFromRoot, results);
         return results;
     }
 
@@ -124,7 +124,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         if (pattern.IsEmpty) return 0;
         var (node, matched) = MatchPatternCore(pattern);
-        return matched ? node.LeafCount : 0;
+        return matched ? (int)node.LeafCount : 0;
     }
 
     public string LongestRepeatedSubstring()
@@ -133,13 +133,13 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         // This usually requires a DFS on the tree to find deepest internal node
         var deepest = FindDeepestInternalNode(new PersistentSuffixTreeNode(_storage, _rootOffset));
         if (deepest.IsNull || deepest.Offset == _rootOffset) return string.Empty;
-        
-        int length = deepest.DepthFromRoot + LengthOf(deepest);
+
+        int length = (int)deepest.DepthFromRoot + LengthOf(deepest);
         // Find one occurrence to get the text
         var occurrences = new List<int>();
-        CollectLeaves(deepest, deepest.DepthFromRoot, occurrences);
+        CollectLeaves(deepest, (int)deepest.DepthFromRoot, occurrences);
         if (occurrences.Count == 0) return string.Empty;
-        
+
         return _textSource.Substring(occurrences[0], length);
     }
 
@@ -170,20 +170,20 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         {
             var entry = new PersistentChildEntry(_storage, currentChildEntryOffset);
             var child = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
-            
+
             int charsAdded = 0;
             int edgeLen = LengthOf(child);
             for (int i = 0; i < edgeLen; i++)
             {
-                int s = GetSymbolAt(child.Start + i);
+                int s = GetSymbolAt((int)child.Start + i);
                 if (s == -1) break;
                 currentPath.Append((char)s);
                 charsAdded++;
             }
-            
+
             foreach (var suffix in EnumerateSuffixesCore(child, currentPath))
                 yield return suffix;
-                
+
             currentPath.Length -= charsAdded;
             currentChildEntryOffset = entry.NextEntryOffset;
         }
@@ -213,10 +213,10 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             {
                 maxLength = matchLen;
                 maxPosOther = i;
-                
+
                 // Find position in text
                 var occurrences = new List<int>();
-                CollectLeaves(matchNode, matchNode.DepthFromRoot, occurrences);
+                CollectLeaves(matchNode, (int)matchNode.DepthFromRoot, occurrences);
                 if (occurrences.Count > 0)
                 {
                     maxPosText = occurrences[0];
@@ -244,10 +244,10 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             {
                 maxLength = matchLen;
                 maxPosOther = i;
-                
+
                 // Find position in text
                 var occurrences = new List<int>();
-                CollectLeaves(matchNode, matchNode.DepthFromRoot, occurrences);
+                CollectLeaves(matchNode, (int)matchNode.DepthFromRoot, occurrences);
                 if (occurrences.Count > 0)
                 {
                     maxPosText = occurrences[0];
@@ -278,11 +278,11 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void TraverseCore(PersistentSuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
     {
-        visitor.VisitNode(node.Start, node.End, node.LeafCount, node.ChildCount, depth);
+        visitor.VisitNode((int)node.Start, (int)node.End, (int)node.LeafCount, node.ChildCount, depth);
 
         if (!node.IsLeaf)
         {
-            var keys = new List<int>();
+            var keys = new List<uint>();
             long currentChildEntryOffset = node.ChildrenHead;
             while (currentChildEntryOffset != PersistentConstants.NULL_OFFSET)
             {
@@ -291,7 +291,8 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
                 currentChildEntryOffset = entry.NextEntryOffset;
             }
 
-            keys.Sort(); // Deterministic order
+            // Sort as signed int to match reference implementation order (terminator -1 first)
+            keys.Sort((a, b) => ((int)a).CompareTo((int)b));
 
             int nodeFullDepth = depth + (node.Offset == _rootOffset ? 0 : LengthOf(node));
 
@@ -299,7 +300,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             {
                 if (node.TryGetChild(key, out var child))
                 {
-                    visitor.EnterBranch(key);
+                    visitor.EnterBranch((int)key);
                     TraverseCore(child, nodeFullDepth, visitor);
                     visitor.ExitBranch();
                 }
@@ -314,7 +315,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         int i = 0;
         while (i < pattern.Length)
         {
-            if (!node.TryGetChild(pattern[i], out var child) || child.IsNull)
+            if (!node.TryGetChild((uint)pattern[i], out var child) || child.IsNull)
                 return (node, false);
 
             int edgeLen = LengthOf(child);
@@ -323,7 +324,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
             for (int j = 0; j < compareLen; j++)
             {
-                if (GetSymbolAt(child.Start + j) != pattern[i + j])
+                if (GetSymbolAt((int)child.Start + j) != pattern[i + j])
                     return (node, false);
             }
 
@@ -339,7 +340,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         int i = 0;
         while (i < pattern.Length)
         {
-            if (!node.TryGetChild(pattern[i], out var child) || child.IsNull)
+            if (!node.TryGetChild((uint)pattern[i], out var child) || child.IsNull)
                 break;
 
             int edgeLen = LengthOf(child);
@@ -349,7 +350,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             int j = 0;
             for (; j < compareLen; j++)
             {
-                if (GetSymbolAt(child.Start + j) != pattern[i + j])
+                if (GetSymbolAt((int)child.Start + j) != pattern[i + j])
                     break;
             }
 
@@ -361,7 +362,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     }
 
     private int LengthOf(PersistentSuffixTreeNode node)
-        => (node.End == PersistentConstants.BOUNDLESS ? _textSource.Length + 1 : node.End) - node.Start;
+        => (int)((node.End == PersistentConstants.BOUNDLESS ? (uint)(_textSource.Length + 1) : node.End) - node.Start);
 
     private int GetSymbolAt(int index)
     {
@@ -394,7 +395,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         if (node.IsLeaf) return PersistentSuffixTreeNode.Null(_storage);
 
         PersistentSuffixTreeNode deepest = node;
-        int maxDepth = node.DepthFromRoot + LengthOf(node);
+        int maxDepth = (int)node.DepthFromRoot + LengthOf(node);
 
         long currentChildEntryOffset = node.ChildrenHead;
         while (currentChildEntryOffset != PersistentConstants.NULL_OFFSET)
@@ -402,10 +403,10 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             var entry = new PersistentChildEntry(_storage, currentChildEntryOffset);
             var child = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
             var deepestInChild = FindDeepestInternalNode(child);
-            
+
             if (!deepestInChild.IsNull)
             {
-                int childDepth = deepestInChild.DepthFromRoot + LengthOf(deepestInChild);
+                int childDepth = (int)deepestInChild.DepthFromRoot + LengthOf(deepestInChild);
                 if (childDepth > maxDepth)
                 {
                     maxDepth = childDepth;
