@@ -45,10 +45,10 @@ namespace SuffixTree
     public interface ISuffixTree
     {
         /// <summary>
-        /// Gets the original text that this suffix tree was built from.
+        /// Gets the original text source that this suffix tree was built from.
         /// </summary>
-        /// <value>The original text string. Never null, but may be empty.</value>
-        string Text { get; }
+        /// <value>The original text source. Never null.</value>
+        ITextSource Text { get; }
 
         /// <summary>
         /// Gets the total number of nodes in the tree (including root).

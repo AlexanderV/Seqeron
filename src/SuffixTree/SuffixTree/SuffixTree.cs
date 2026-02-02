@@ -45,9 +45,9 @@ namespace SuffixTree
         private const int TERMINATOR_KEY = -1;
         private const int MAX_TOSTRING_CONTENT_LENGTH = 50;
 
-        private static readonly SuffixTree _empty = new SuffixTree(string.Empty);
+        private static readonly SuffixTree _empty = new SuffixTree(new StringTextSource(string.Empty));
 
-        private readonly string _text;
+        private readonly ITextSource _text;
         private readonly SuffixTreeNode _root;
         private readonly int _cachedNodeCount;
         private readonly int _cachedLeafCount;
@@ -81,6 +81,16 @@ namespace SuffixTree
         /// </example>
         public static SuffixTree Build(string value)
         {
+            return new SuffixTree(new StringTextSource(value));
+        }
+
+        /// <summary>
+        /// Creates and returns a suffix tree for the specified text source.
+        /// </summary>
+        /// <param name="value">The text source to build the suffix tree from. Cannot be null.</param>
+        /// <returns>A new suffix tree instance.</returns>
+        public static SuffixTree Build(ITextSource value)
+        {
             return new SuffixTree(value);
         }
 
@@ -107,6 +117,24 @@ namespace SuffixTree
         /// </code>
         /// </example>
         public static bool TryBuild(string? value, [NotNullWhen(true)] out SuffixTree? tree)
+        {
+            if (value == null)
+            {
+                tree = null;
+                return false;
+            }
+
+            tree = new SuffixTree(new StringTextSource(value));
+            return true;
+        }
+
+        /// <summary>
+        /// Attempts to create a suffix tree for the specified text source.
+        /// </summary>
+        /// <param name="value">The text source to build the suffix tree from.</param>
+        /// <param name="tree">When this method returns, contains the suffix tree if successful; otherwise, null.</param>
+        /// <returns>True if the suffix tree was created successfully; otherwise, false.</returns>
+        public static bool TryBuild(ITextSource? value, [NotNullWhen(true)] out SuffixTree? tree)
         {
             if (value == null)
             {
@@ -145,7 +173,7 @@ namespace SuffixTree
         /// </example>
         public static SuffixTree Build(ReadOnlyMemory<char> value)
         {
-            return new SuffixTree(new string(value.Span));
+            return new SuffixTree(new StringTextSource(new string(value.Span)));
         }
 
         /// <summary>
@@ -159,10 +187,10 @@ namespace SuffixTree
         /// </remarks>
         public static SuffixTree Build(ReadOnlySpan<char> value)
         {
-            return new SuffixTree(new string(value));
+            return new SuffixTree(new StringTextSource(new string(value)));
         }
 
-        private SuffixTree(string value)
+        private SuffixTree(ITextSource value)
         {
             ArgumentNullException.ThrowIfNull(value);
             _text = value;
@@ -200,7 +228,7 @@ namespace SuffixTree
         }
 
         /// <inheritdoc/>
-        public string Text => _text;
+        public ITextSource Text => _text;
 
         /// <inheritdoc/>
         public int NodeCount => _cachedNodeCount;
@@ -236,8 +264,8 @@ namespace SuffixTree
                 return "SuffixTree (empty)";
 
             var content = _text.Length <= MAX_TOSTRING_CONTENT_LENGTH
-                ? _text
-                : string.Concat(_text.AsSpan(0, MAX_TOSTRING_CONTENT_LENGTH), "...");
+                ? _text.ToString()
+                : string.Concat(_text.Slice(0, MAX_TOSTRING_CONTENT_LENGTH), "...");
             return $"SuffixTree (Nodes: {NodeCount}, Leaves: {LeafCount}, Text: \"{content}\")";
         }
     }

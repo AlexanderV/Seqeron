@@ -17,6 +17,8 @@ public class MappedFileStorageProvider : IStorageProvider
     private long _capacity;
     private long _position;
 
+    internal MemoryMappedViewAccessor Accessor => _accessor;
+
     public MappedFileStorageProvider(string filePath, long initialCapacity = 65536, bool readOnly = false)
     {
         _filePath = filePath;

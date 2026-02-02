@@ -27,7 +27,7 @@ namespace SuffixTree.Persistent
                 var hasher = new HashVisitor(sha256);
                 
                 // Hash the text first to bind the tree to a specific string
-                byte[] textBytes = Encoding.Unicode.GetBytes(tree.Text);
+                byte[] textBytes = Encoding.Unicode.GetBytes(tree.Text.ToString() ?? string.Empty);
                 sha256.TransformBlock(textBytes, 0, textBytes.Length, null, 0);
                 
                 // Hash the tree structure deterministically
@@ -50,7 +50,7 @@ namespace SuffixTree.Persistent
             {
                 writer.Write(LOGICAL_MAGIC);
                 writer.Write(VERSION);
-                writer.Write(tree.Text);
+                writer.Write(tree.Text.ToString() ?? string.Empty);
                 writer.Write(tree.NodeCount);
 
                 var visitor = new ExportVisitor(writer);
