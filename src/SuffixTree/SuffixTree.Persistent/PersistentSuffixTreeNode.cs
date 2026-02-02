@@ -18,16 +18,16 @@ public readonly struct PersistentSuffixTreeNode
     public long Offset => _offset;
     public bool IsNull => _offset == PersistentConstants.NULL_OFFSET;
 
-    public int Start
+    public uint Start
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.OFFSET_START);
-        set => _storage.WriteInt32(_offset + PersistentConstants.OFFSET_START, value);
+        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_START);
+        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_START, value);
     }
 
-    public int End
+    public uint End
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.OFFSET_END);
-        set => _storage.WriteInt32(_offset + PersistentConstants.OFFSET_END, value);
+        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_END);
+        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_END, value);
     }
 
     public long SuffixLink
@@ -36,16 +36,16 @@ public readonly struct PersistentSuffixTreeNode
         set => _storage.WriteInt64(_offset + PersistentConstants.OFFSET_SUFFIX_LINK, value);
     }
 
-    public int DepthFromRoot
+    public uint DepthFromRoot
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.OFFSET_DEPTH);
-        set => _storage.WriteInt32(_offset + PersistentConstants.OFFSET_DEPTH, value);
+        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_DEPTH);
+        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_DEPTH, value);
     }
 
-    public int LeafCount
+    public uint LeafCount
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT);
-        set => _storage.WriteInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT, value);
+        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT);
+        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT, value);
     }
 
     public long ChildrenHead
@@ -62,7 +62,7 @@ public readonly struct PersistentSuffixTreeNode
 
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;
 
-    public bool TryGetChild(int key, out PersistentSuffixTreeNode child)
+    public bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
     {
         long currentOffset = ChildrenHead;
         while (currentOffset != PersistentConstants.NULL_OFFSET)
@@ -79,7 +79,7 @@ public readonly struct PersistentSuffixTreeNode
         return false;
     }
 
-    public void SetChild(int key, PersistentSuffixTreeNode child)
+    public void SetChild(uint key, PersistentSuffixTreeNode child)
     {
         long currentOffset = ChildrenHead;
         long tailOffset = PersistentConstants.NULL_OFFSET;
@@ -118,6 +118,6 @@ public readonly struct PersistentSuffixTreeNode
 
     public bool HasChildren => ChildrenHead != PersistentConstants.NULL_OFFSET;
 
-    public static PersistentSuffixTreeNode Null(IStorageProvider storage) 
+    public static PersistentSuffixTreeNode Null(IStorageProvider storage)
         => new(storage, PersistentConstants.NULL_OFFSET);
 }

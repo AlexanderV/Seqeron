@@ -24,7 +24,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _filePath = filePath;
         _readOnly = readOnly;
         _capacity = initialCapacity;
-        
+
         // Ensure directory exists
         var dir = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -60,7 +60,7 @@ public class MappedFileStorageProvider : IStorageProvider
             _mmf.Dispose();
 
             _capacity = Math.Max(_capacity * 2, capacity);
-            
+
             using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
                 fs.SetLength(_capacity);
@@ -73,7 +73,15 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public int ReadInt32(long offset) => _accessor.ReadInt32(offset);
 
-    public void WriteInt32(long offset, int value) 
+    public void WriteInt32(long offset, int value)
+    {
+        if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        _accessor.Write(offset, value);
+    }
+
+    public uint ReadUInt32(long offset) => _accessor.ReadUInt32(offset);
+
+    public void WriteUInt32(long offset, uint value)
     {
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.Write(offset, value);
