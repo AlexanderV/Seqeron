@@ -8,7 +8,7 @@ namespace SuffixTree
     {
         private (int nodeCount, int leafCount, int maxDepth, SuffixTreeNode? deepestInternalNode, int maxInternalDepth) CalculateTreeStatisticsInternal()
         {
-            if (string.IsNullOrEmpty(_text)) return (1, 0, 0, null, 0);
+            if (_text == null || _text.Length == 0) return (1, 0, 0, null, 0);
 
             var stack = new Stack<(SuffixTreeNode Node, int Depth, bool Visited)>();
             stack.Push((_root, 0, false));

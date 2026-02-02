@@ -30,7 +30,7 @@ namespace SuffixTree.Persistent.Tests
                 builder.Build(text);
                 
                 var tree = PersistentSuffixTree.Load(storage);
-                Assert.That(tree.Text, Is.EqualTo(text));
+                Assert.That(tree.Text.ToString(), Is.EqualTo(text));
                 Assert.That(tree.Contains("fox jumps"), Is.True);
                 Assert.That(tree.Contains("lazy dog"), Is.True);
                 Assert.That(tree.CountOccurrences("the"), Is.EqualTo(2));
@@ -89,7 +89,7 @@ namespace SuffixTree.Persistent.Tests
                 // However, Ukkonen ADDS another terminator. 
                 // We need to ensure searching for the string works even if it has '$'.
                 Assert.That(tree.Contains($"abc{terminator}d"), Is.True);
-                Assert.That(tree.Text, Is.EqualTo(text));
+                Assert.That(tree.Text.ToString(), Is.EqualTo(text));
             }
         }
 
@@ -102,7 +102,7 @@ namespace SuffixTree.Persistent.Tests
             using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
-                Assert.That(tree.Text, Is.EqualTo(text));
+                Assert.That(tree.Text.ToString(), Is.EqualTo(text));
                 Assert.That(tree.LeafCount, Is.EqualTo(1)); // The character is there, but ISuffixTree.LeafCount subtracts 1? 
                 // Wait, if text is "$", and we add "$", we have "$$". 
                 // LeafCount 2, ISuffixTree.LeafCount returns 1. Correct.

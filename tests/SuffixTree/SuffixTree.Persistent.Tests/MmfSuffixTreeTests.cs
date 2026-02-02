@@ -49,7 +49,7 @@ namespace SuffixTree.Persistent.Tests
                 var loadedTree = (ISuffixTree)loadedTreeDisposable!;
                 Assert.Multiple(() =>
                 {
-                    Assert.That(loadedTree.Text, Is.EqualTo(text));
+                    Assert.That(loadedTree.Text.ToString(), Is.EqualTo(text));
                     Assert.That(loadedTree.Contains("abra"), Is.True);
                     Assert.That(loadedTree.CountOccurrences("a"), Is.EqualTo(5));
                     

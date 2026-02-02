@@ -15,6 +15,16 @@ public static class PersistentSuffixTreeFactory
     /// <param name="filePath">Optional file path for MMF storage.</param>
     /// <returns>An implementation of ISuffixTree.</returns>
     public static ISuffixTree Create(string text, string? filePath = null)
+        => Create(new StringTextSource(text), filePath);
+
+    /// <summary>
+    /// Creates a new persistent suffix tree from the specified text source.
+    /// If a filePath is provided, it uses Memory-Mapped Files; otherwise, it uses heap memory.
+    /// </summary>
+    /// <param name="text">The text source to build the tree from.</param>
+    /// <param name="filePath">Optional file path for MMF storage.</param>
+    /// <returns>An implementation of ISuffixTree.</returns>
+    public static ISuffixTree Create(ITextSource text, string? filePath = null)
     {
         IStorageProvider storage = !string.IsNullOrEmpty(filePath)
             ? new MappedFileStorageProvider(filePath)

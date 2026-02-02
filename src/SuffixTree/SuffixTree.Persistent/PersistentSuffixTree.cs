@@ -11,29 +11,49 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 {
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
-    private readonly string _text;
+    private readonly ITextSource _textSource;
 
-    public PersistentSuffixTree(IStorageProvider storage, long rootOffset, string? text = null)
+    public PersistentSuffixTree(IStorageProvider storage, long rootOffset, string text)
+        : this(storage, rootOffset, new StringTextSource(text))
+    {
+    }
+
+    public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _rootOffset = rootOffset;
         
-        if (text != null)
+        if (textSource != null)
         {
-            _text = text;
+            _textSource = textSource;
         }
         else
         {
             // Try to load text from storage
             long textOff = _storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
             int textLen = _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
-            var sb = new StringBuilder(textLen);
-            for (int i = 0; i < textLen; i++)
+            
+            // If it's a MappedFileStorageProvider, we can use MemoryMappedTextSource for zero-copy
+            if (_storage is MappedFileStorageProvider mappedProvider)
             {
-                sb.Append(_storage.ReadChar(textOff + (i * 2)));
+                // We don't want MemoryMappedTextSource to dispose the accessor it doesn't own
+                _textSource = new MemoryMappedTextSource(mappedProvider.Accessor, textOff, textLen);
             }
-            _text = sb.ToString();
+            else
+            {
+                _textSource = new StringTextSource(LoadStringInternal(textOff, textLen));
+            }
         }
+    }
+
+    private string LoadStringInternal(long textOff, int textLen)
+    {
+        var sb = new StringBuilder(textLen);
+        for (int i = 0; i < textLen; i++)
+        {
+            sb.Append(_storage.ReadChar(textOff + (i * 2)));
+        }
+        return sb.ToString();
     }
 
     public static PersistentSuffixTree Load(IStorageProvider storage)
@@ -46,7 +66,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         return new PersistentSuffixTree(storage, root);
     }
 
-    public string Text => _text;
+    public ITextSource Text => _textSource;
 
     public int NodeCount => _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT);
  
@@ -59,9 +79,9 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
  
-    public int MaxDepth => _text.Length + 1;
+    public int MaxDepth => _textSource.Length + 1;
 
-    public bool IsEmpty => _text.Length == 0;
+    public bool IsEmpty => _textSource.Length == 0;
 
     public bool Contains(string value)
     {
@@ -120,7 +140,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         CollectLeaves(deepest, deepest.DepthFromRoot, occurrences);
         if (occurrences.Count == 0) return string.Empty;
         
-        return _text.Substring(occurrences[0], length);
+        return _textSource.Substring(occurrences[0], length);
     }
 
     public IReadOnlyList<string> GetAllSuffixes()
@@ -206,6 +226,37 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
         if (maxLength == 0) return (string.Empty, -1, -1);
         return (other.Substring(maxPosOther, maxLength), maxPosText, maxPosOther);
+    }
+
+    public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)
+    {
+        // LCS implementation for ISuffixTree
+        int maxLength = 0;
+        int maxPosText = -1;
+        int maxPosOther = -1;
+
+        var node = new PersistentSuffixTreeNode(_storage, _rootOffset);
+
+        for (int i = 0; i < other.Length; i++)
+        {
+            var (matchNode, matchLen) = MatchLongestPrefix(other.Slice(i), node);
+            if (matchLen > maxLength)
+            {
+                maxLength = matchLen;
+                maxPosOther = i;
+                
+                // Find position in text
+                var occurrences = new List<int>();
+                CollectLeaves(matchNode, matchNode.DepthFromRoot, occurrences);
+                if (occurrences.Count > 0)
+                {
+                    maxPosText = occurrences[0];
+                }
+            }
+        }
+
+        if (maxLength == 0) return (string.Empty, -1, -1);
+        return (new string(other.Slice(maxPosOther, maxLength)), maxPosText, maxPosOther);
     }
 
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
@@ -310,12 +361,12 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     }
 
     private int LengthOf(PersistentSuffixTreeNode node)
-        => (node.End == PersistentConstants.BOUNDLESS ? _text.Length + 1 : node.End) - node.Start;
+        => (node.End == PersistentConstants.BOUNDLESS ? _textSource.Length + 1 : node.End) - node.Start;
 
     private int GetSymbolAt(int index)
     {
-        if (index >= _text.Length) return -1;
-        return _text[index];
+        if (index >= _textSource.Length) return -1;
+        return _textSource[index];
     }
 
     private void CollectLeaves(PersistentSuffixTreeNode node, int depth, List<int> results)
@@ -323,8 +374,8 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         if (node.IsLeaf)
         {
             int suffixLength = depth + LengthOf(node);
-            int startPosition = (_text.Length + 1) - suffixLength;
-            if (startPosition < _text.Length)
+            int startPosition = (_textSource.Length + 1) - suffixLength;
+            if (startPosition < _textSource.Length)
                 results.Add(startPosition);
             return;
         }

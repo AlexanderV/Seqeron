@@ -30,7 +30,6 @@ namespace SuffixTree
         private bool ContainsCore(ReadOnlySpan<char> pattern)
         {
             var node = _root;
-            var textSpan = _text.AsSpan();
             int i = 0;
 
             while (i < pattern.Length)
@@ -43,20 +42,22 @@ namespace SuffixTree
                 int remaining = pattern.Length - i;
                 int compareLen = edgeLength < remaining ? edgeLength : remaining;
 
-                if (edgeStart + compareLen > textSpan.Length)
+                if (edgeStart + compareLen > _text.Length)
                     return false;
+
+                var edgeSpan = _text.Slice(edgeStart, compareLen);
 
                 // Use SIMD for longer comparisons (>=8 chars), scalar for short
                 if (compareLen >= 8)
                 {
-                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(pattern.Slice(i, compareLen)))
+                    if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
                         return false;
                 }
                 else
                 {
                     for (int j = 0; j < compareLen; j++)
                     {
-                        if (textSpan[edgeStart + j] != pattern[i + j])
+                        if (edgeSpan[j] != pattern[i + j])
                             return false;
                     }
                 }
@@ -75,7 +76,6 @@ namespace SuffixTree
         private (SuffixTreeNode node, bool matched) MatchPatternCore(ReadOnlySpan<char> pattern)
         {
             var node = _root;
-            var textSpan = _text.AsSpan();
             int i = 0;
 
             while (i < pattern.Length)
@@ -88,20 +88,22 @@ namespace SuffixTree
                 int remaining = pattern.Length - i;
                 int compareLen = edgeLength < remaining ? edgeLength : remaining;
 
-                if (edgeStart + compareLen > textSpan.Length)
+                if (edgeStart + compareLen > _text.Length)
                     return (node, false);
+
+                var edgeSpan = _text.Slice(edgeStart, compareLen);
 
                 // Use SIMD for longer comparisons (>=8 chars), scalar for short
                 if (compareLen >= 8)
                 {
-                    if (!textSpan.Slice(edgeStart, compareLen).SequenceEqual(pattern.Slice(i, compareLen)))
+                    if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
                         return (node, false);
                 }
                 else
                 {
                     for (int j = 0; j < compareLen; j++)
                     {
-                        if (textSpan[edgeStart + j] != pattern[i + j])
+                        if (edgeSpan[j] != pattern[i + j])
                             return (node, false);
                     }
                 }

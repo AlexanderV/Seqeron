@@ -11,7 +11,7 @@ public class PersistentSuffixTreeBuilder
 {
     private readonly IStorageProvider _storage;
     private long _rootOffset;
-    private string _text = string.Empty;
+    private ITextSource _text = new StringTextSource(string.Empty);
     private int _nodeCount = 0;
     
     // Algorithm state
@@ -40,7 +40,9 @@ public class PersistentSuffixTreeBuilder
         _activeNodeOffset = _rootOffset;
     }
 
-    public long Build(string text)
+    public long Build(string text) => Build(new StringTextSource(text));
+
+    public long Build(ITextSource text)
     {
         _text = text;
         if (text.Length > 0)

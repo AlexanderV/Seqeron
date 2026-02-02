@@ -26,7 +26,7 @@ namespace SuffixTree.Tests.Core
             Assert.Multiple(() =>
             {
                 Assert.That(st, Is.Not.Null);
-                Assert.That(st.Text, Is.EqualTo(""));
+                Assert.That(st.Text.ToString(), Is.EqualTo(""));
                 Assert.That(st.NodeCount, Is.EqualTo(1), "Empty tree should have only root node");
                 Assert.That(st.LeafCount, Is.EqualTo(0));
                 Assert.That(st.MaxDepth, Is.EqualTo(0));
@@ -44,7 +44,7 @@ namespace SuffixTree.Tests.Core
 
             Assert.Multiple(() =>
             {
-                Assert.That(st.Text, Is.EqualTo("a"));
+                Assert.That(st.Text.ToString(), Is.EqualTo("a"));
                 Assert.That(st.LeafCount, Is.EqualTo(1));
                 Assert.That(st.MaxDepth, Is.EqualTo(1));
             });
@@ -64,7 +64,7 @@ namespace SuffixTree.Tests.Core
 
             Assert.Multiple(() =>
             {
-                Assert.That(st.Text, Is.EqualTo(text));
+                Assert.That(st.Text.ToString(), Is.EqualTo(text));
                 Assert.That(st.LeafCount, Is.EqualTo(text.Length), "LeafCount should equal text length");
                 Assert.That(st.MaxDepth, Is.EqualTo(text.Length), "MaxDepth should equal text length");
             });
@@ -112,7 +112,7 @@ namespace SuffixTree.Tests.Core
             var original = "test string with spaces";
             var st = SuffixTree.Build(original);
 
-            Assert.That(st.Text, Is.EqualTo(original));
+            Assert.That(st.Text.ToString(), Is.EqualTo(original));
         }
 
         [Test]
@@ -121,7 +121,7 @@ namespace SuffixTree.Tests.Core
             var text = "  leading and trailing  ";
             var st = SuffixTree.Build(text);
 
-            Assert.That(st.Text, Is.EqualTo(text));
+            Assert.That(st.Text.ToString(), Is.EqualTo(text));
         }
 
         #endregion
@@ -137,9 +137,9 @@ namespace SuffixTree.Tests.Core
 
             Assert.Multiple(() =>
             {
-                Assert.That(st1.Text, Is.EqualTo("hello"));
-                Assert.That(st2.Text, Is.EqualTo("world"));
-                Assert.That(st3.Text, Is.EqualTo("test"));
+                Assert.That(st1.Text.ToString(), Is.EqualTo("hello"));
+                Assert.That(st2.Text.ToString(), Is.EqualTo("world"));
+                Assert.That(st3.Text.ToString(), Is.EqualTo("test"));
 
                 Assert.That(st1.Contains("world"), Is.False);
                 Assert.That(st2.Contains("hello"), Is.False);
@@ -153,7 +153,7 @@ namespace SuffixTree.Tests.Core
         [Test]
         public void TryBuild_NullString_ReturnsFalse()
         {
-            bool result = SuffixTree.TryBuild(null, out var tree);
+            bool result = SuffixTree.TryBuild((string?)null, out var tree);
 
             Assert.Multiple(() =>
             {
@@ -171,7 +171,7 @@ namespace SuffixTree.Tests.Core
             {
                 Assert.That(result, Is.True);
                 Assert.That(tree, Is.Not.Null);
-                Assert.That(tree!.Text, Is.EqualTo("banana"));
+                Assert.That(tree!.Text.ToString(), Is.EqualTo("banana"));
                 Assert.That(tree.Contains("nan"), Is.True);
             });
         }
@@ -216,7 +216,7 @@ namespace SuffixTree.Tests.Core
             {
                 Assert.That(empty, Is.Not.Null);
                 Assert.That(empty.IsEmpty, Is.True);
-                Assert.That(empty.Text, Is.EqualTo(""));
+                Assert.That(empty.Text.ToString(), Is.EqualTo(""));
                 Assert.That(empty.LeafCount, Is.EqualTo(0));
             });
         }
@@ -234,7 +234,7 @@ namespace SuffixTree.Tests.Core
             Assert.Multiple(() =>
             {
                 Assert.That(tree, Is.Not.Null);
-                Assert.That(tree.Text, Is.EqualTo("banana"));
+                Assert.That(tree.Text.ToString(), Is.EqualTo("banana"));
                 Assert.That(tree.Contains("nan"), Is.True);
             });
         }
@@ -248,7 +248,7 @@ namespace SuffixTree.Tests.Core
             Assert.Multiple(() =>
             {
                 Assert.That(tree, Is.Not.Null);
-                Assert.That(tree.Text, Is.EqualTo("banana"));
+                Assert.That(tree.Text.ToString(), Is.EqualTo("banana"));
                 Assert.That(tree.Contains("nan"), Is.True);
             });
         }
