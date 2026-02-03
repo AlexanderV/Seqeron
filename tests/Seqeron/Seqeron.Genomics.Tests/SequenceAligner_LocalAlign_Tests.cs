@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics;
+using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Tests;
 

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\SuffixTree\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
