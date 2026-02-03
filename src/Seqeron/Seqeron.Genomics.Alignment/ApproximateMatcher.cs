@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Alignment
 {
     /// <summary>
     /// Performs approximate pattern matching with support for mismatches, insertions, and deletions.
@@ -74,7 +74,47 @@ namespace Seqeron.Genomics
             int maxMismatches,
             CancellationToken cancellationToken)
         {
-            return CancellableOperations.FindWithMismatches(sequence, pattern, maxMismatches, cancellationToken);
+            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
+                yield break;
+
+            if (maxMismatches < 0)
+                throw new ArgumentOutOfRangeException(nameof(maxMismatches), "Cannot be negative.");
+
+            var seq = sequence.ToUpperInvariant();
+            var pat = pattern.ToUpperInvariant();
+
+            if (pat.Length > seq.Length)
+                yield break;
+
+            const int checkInterval = 1000;
+            for (int i = 0; i <= seq.Length - pat.Length; i++)
+            {
+                if (i % checkInterval == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                int mismatches = 0;
+                var positions = new List<int>();
+
+                for (int j = 0; j < pat.Length && mismatches <= maxMismatches; j++)
+                {
+                    if (seq[i + j] != pat[j])
+                    {
+                        mismatches++;
+                        positions.Add(j);
+                    }
+                }
+
+                if (mismatches <= maxMismatches)
+                {
+                    yield return new ApproximateMatchResult(
+                        i,
+                        seq.Substring(i, pat.Length),
+                        mismatches,
+                        positions.AsReadOnly(),
+                        MismatchType.Substitution
+                    );
+                }
+            }
         }
 
         /// <summary>
@@ -408,3 +448,4 @@ namespace Seqeron.Genomics
         public bool IsExact => Distance == 0;
     }
 }
+

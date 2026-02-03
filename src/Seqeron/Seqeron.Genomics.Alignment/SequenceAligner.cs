@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Alignment;
 
 /// <summary>
 /// Performs pairwise sequence alignment using dynamic programming algorithms.
@@ -98,7 +98,100 @@ public static class SequenceAligner
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        return CancellableOperations.GlobalAlign(sequence1, sequence2, scoring, cancellationToken, progress);
+        if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
+            return AlignmentResult.Empty;
+
+        var seq1 = sequence1.ToUpperInvariant();
+        var seq2 = sequence2.ToUpperInvariant();
+        var score = scoring ?? SimpleDna;
+
+        int m = seq1.Length;
+        int n = seq2.Length;
+
+        // Initialize scoring matrix
+        var matrix = new int[m + 1, n + 1];
+
+        // Initialize first row and column
+        for (int i = 0; i <= m; i++)
+            matrix[i, 0] = i * score.GapExtend + (i > 0 ? score.GapOpen : 0);
+        for (int j = 0; j <= n; j++)
+            matrix[0, j] = j * score.GapExtend + (j > 0 ? score.GapOpen : 0);
+
+        // Fill the matrix with cancellation checks
+        for (int i = 1; i <= m; i++)
+        {
+            if (i % 100 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report((double)i / m * 0.5); // First half is matrix fill
+            }
+
+            for (int j = 1; j <= n; j++)
+            {
+                int matchScore = seq1[i - 1] == seq2[j - 1] ? score.Match : score.Mismatch;
+
+                int diag = matrix[i - 1, j - 1] + matchScore;
+                int up = matrix[i - 1, j] + score.GapExtend;
+                int left = matrix[i, j - 1] + score.GapExtend;
+
+                matrix[i, j] = Math.Max(diag, Math.Max(up, left));
+            }
+        }
+
+        // Traceback
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(0.75);
+
+        var aligned1 = new System.Text.StringBuilder();
+        var aligned2 = new System.Text.StringBuilder();
+        int ii = m, jj = n;
+
+        while (ii > 0 || jj > 0)
+        {
+            if ((ii + jj) % 200 == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+
+            if (ii > 0 && jj > 0)
+            {
+                int matchScore = seq1[ii - 1] == seq2[jj - 1] ? score.Match : score.Mismatch;
+                if (matrix[ii, jj] == matrix[ii - 1, jj - 1] + matchScore)
+                {
+                    aligned1.Insert(0, seq1[ii - 1]);
+                    aligned2.Insert(0, seq2[jj - 1]);
+                    ii--; jj--;
+                    continue;
+                }
+            }
+
+            if (ii > 0 && matrix[ii, jj] == matrix[ii - 1, jj] + score.GapExtend)
+            {
+                aligned1.Insert(0, seq1[ii - 1]);
+                aligned2.Insert(0, '-');
+                ii--;
+            }
+            else if (jj > 0)
+            {
+                aligned1.Insert(0, '-');
+                aligned2.Insert(0, seq2[jj - 1]);
+                jj--;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        progress?.Report(1.0);
+
+        return new AlignmentResult(
+            AlignedSequence1: aligned1.ToString(),
+            AlignedSequence2: aligned2.ToString(),
+            Score: matrix[m, n],
+            AlignmentType: AlignmentType.Global,
+            StartPosition1: 0,
+            StartPosition2: 0,
+            EndPosition1: seq1.Length - 1,
+            EndPosition2: seq2.Length - 1);
     }
 
     /// <summary>
@@ -559,3 +652,4 @@ public static class SequenceAligner
 
     #endregion
 }
+
