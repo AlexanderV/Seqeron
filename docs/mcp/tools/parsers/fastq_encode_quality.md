@@ -22,7 +22,7 @@ Encoding formula: `ASCII character = score + offset`
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L189](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L189)
+- Source: [FastqParser.cs#L189](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L189)
 
 ## Input Schema
 

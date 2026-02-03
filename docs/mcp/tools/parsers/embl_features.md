@@ -18,7 +18,7 @@ Extracts sequence features from EMBL records. Can filter by feature type (gene, 
 
 ## Core Documentation Reference
 
-- Source: [EmblParser.cs#L575](../../../../src/Seqeron/Seqeron.Genomics/EmblParser.cs#L575)
+- Source: [EmblParser.cs#L575](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs#L575)
 
 ## Input Schema
 

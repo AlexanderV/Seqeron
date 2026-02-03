@@ -18,7 +18,7 @@ Validates whether a sequence contains only valid DNA nucleotides (A, C, G, T). R
 
 ## Core Documentation Reference
 
-- Source: [DnaSequence.cs#L129](../../../../src/Seqeron/Seqeron.Genomics/DnaSequence.cs#L129)
+- Source: [DnaSequence.cs#L129](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/DnaSequence.cs#L129)
 
 ## Input Schema
 

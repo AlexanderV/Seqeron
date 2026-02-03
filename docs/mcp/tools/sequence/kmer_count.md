@@ -18,7 +18,7 @@ Counts all k-mers (substrings of length k) in a sequence and returns their frequ
 
 ## Core Documentation Reference
 
-- Source: [KmerAnalyzer.cs#L20](../../../../src/Seqeron/Seqeron.Genomics/KmerAnalyzer.cs#L20)
+- Source: [KmerAnalyzer.cs#L20](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/KmerAnalyzer.cs#L20)
 
 ## Input Schema
 

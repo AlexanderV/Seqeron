@@ -25,7 +25,7 @@ Case-insensitive matching is used for adapter detection.
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L297](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L297)
+- Source: [FastqParser.cs#L297](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L297)
 
 ## Input Schema
 

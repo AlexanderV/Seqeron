@@ -18,7 +18,7 @@ Determines if a variant is an insertion or deletion (indel). Returns detailed in
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L412](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L412)
+- Source: [VcfParser.cs#L412](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L412)
 
 ## Input Schema
 

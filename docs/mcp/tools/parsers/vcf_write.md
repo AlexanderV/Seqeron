@@ -18,7 +18,7 @@ Writes VCF records to a file at the specified path. Preserves header metadata an
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L702](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L702)
+- Source: [VcfParser.cs#L702](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L702)
 
 ## Input Schema
 

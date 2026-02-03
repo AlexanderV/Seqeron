@@ -26,7 +26,7 @@ Returns the extracted sequence along with metadata about the location.
 
 ## Core Documentation Reference
 
-- Source: [GenBankParser.cs](../../../../src/Seqeron/Seqeron.Genomics/GenBankParser.cs)
+- Source: [GenBankParser.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs)
 
 ## Input Schema
 

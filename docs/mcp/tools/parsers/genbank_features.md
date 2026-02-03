@@ -18,7 +18,7 @@ Extracts sequence features from GenBank records. Can filter by feature type (gen
 
 ## Core Documentation Reference
 
-- Source: [GenBankParser.cs#L531](../../../../src/Seqeron/Seqeron.Genomics/GenBankParser.cs#L531)
+- Source: [GenBankParser.cs#L531](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs#L531)
 
 ## Input Schema
 

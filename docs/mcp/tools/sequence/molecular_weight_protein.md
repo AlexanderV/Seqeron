@@ -18,7 +18,7 @@ Calculates the molecular weight of a protein sequence in Daltons (Da). Uses aver
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L159](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L159)
+- Source: [SequenceStatistics.cs#L159](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L159)
 
 ## Input Schema
 

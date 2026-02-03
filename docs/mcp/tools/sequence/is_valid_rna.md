@@ -18,7 +18,7 @@ Performs a fast check if a sequence contains only valid RNA characters (A, U, G,
 
 ## Core Documentation Reference
 
-- Source: [SequenceExtensions.cs#L225](../../../../src/Seqeron/Seqeron.Genomics/SequenceExtensions.cs#L225)
+- Source: [SequenceExtensions.cs#L225](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceExtensions.cs#L225)
 
 ## Input Schema
 

@@ -18,7 +18,7 @@ Parses GFF3/GTF format content into structured feature records. Supports GFF3, G
 
 ## Core Documentation Reference
 
-- Source: [GffParser.cs#L69](../../../../src/Seqeron/Seqeron.Genomics/GffParser.cs#L69)
+- Source: [GffParser.cs#L69](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GffParser.cs#L69)
 
 ## Input Schema
 

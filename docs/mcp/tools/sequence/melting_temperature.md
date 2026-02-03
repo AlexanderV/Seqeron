@@ -18,7 +18,7 @@ Calculates the melting temperature (Tm) of a DNA sequence using either the Walla
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L441](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L441)
+- Source: [SequenceStatistics.cs#L441](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L441)
 
 ## Input Schema
 

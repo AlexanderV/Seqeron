@@ -18,7 +18,7 @@ Calculates thermodynamic properties of a DNA duplex using the nearest-neighbor m
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L381](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L381)
+- Source: [SequenceStatistics.cs#L381](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L381)
 
 ## Input Schema
 

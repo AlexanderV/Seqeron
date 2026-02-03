@@ -18,7 +18,7 @@ Parses EMBL flat file format (.embl, .dat) into structured records. EMBL format 
 
 ## Core Documentation Reference
 
-- Source: [EmblParser.cs#L114](../../../../src/Seqeron/Seqeron.Genomics/EmblParser.cs#L114)
+- Source: [EmblParser.cs#L114](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs#L114)
 
 ## Input Schema
 

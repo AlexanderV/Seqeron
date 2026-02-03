@@ -18,7 +18,7 @@ Masks low-complexity regions in a DNA sequence using the DUST algorithm. This is
 
 ## Core Documentation Reference
 
-- Source: [SequenceComplexity.cs#L346](../../../../src/Seqeron/Seqeron.Genomics/SequenceComplexity.cs#L346)
+- Source: [SequenceComplexity.cs#L346](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceComplexity.cs#L346)
 
 ## Input Schema
 

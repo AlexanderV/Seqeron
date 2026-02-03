@@ -18,7 +18,7 @@ Calculates linguistic complexity of a sequence based on k-mer diversity. The mea
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L615](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L615)
+- Source: [SequenceStatistics.cs#L615](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L615)
 
 ## Input Schema
 

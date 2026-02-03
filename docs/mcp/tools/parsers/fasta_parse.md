@@ -18,7 +18,7 @@ Parses FASTA format string into individual sequence entries. Each entry includes
 
 ## Core Documentation Reference
 
-- Source: [FastaParser.cs#L17](../../../../src/Seqeron/Seqeron.Genomics/FastaParser.cs#L17)
+- Source: [FastaParser.cs#L17](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastaParser.cs#L17)
 
 ## Input Schema
 

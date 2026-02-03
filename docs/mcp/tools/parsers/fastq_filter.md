@@ -18,7 +18,7 @@ Filters FASTQ reads by minimum average quality score. Returns only reads that me
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L228](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L228)
+- Source: [FastqParser.cs#L228](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L228)
 
 ## Input Schema
 

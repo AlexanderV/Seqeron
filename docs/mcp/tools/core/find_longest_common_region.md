@@ -17,7 +17,7 @@ Finds the longest common substring between two DNA sequences and returns positio
 
 ## Core Documentation Reference
 
-- Source: [GenomicAnalyzer.cs#L178](../../../../src/Seqeron/Seqeron.Genomics/GenomicAnalyzer.cs#L178)
+- Source: [GenomicAnalyzer.cs#L178](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenomicAnalyzer.cs#L178)
 
 ## Input/Output
 

@@ -27,7 +27,7 @@ Variant types:
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L376](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L376)
+- Source: [VcfParser.cs#L376](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L376)
 
 ## Input Schema
 
