@@ -1,4 +1,4 @@
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Helper methods for IUPAC nucleotide code matching.

@@ -18,6 +18,13 @@
   <ItemGroup>
     <ProjectReference Include="..\SuffixTree\SuffixTree.csproj" />
     <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Infrastructure" />
   </ItemGroup>
 
 </Project>

@@ -37,6 +37,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Seqeron", "Seqeron", "{64D6
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Infrastructure", "src\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj", "{8D756A4E-2324-4F94-92AD-5A022F6A69F9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Core", "src\Seqeron\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj", "{229640A0-7982-4605-ACC5-D1D2A12D27FB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -227,6 +229,18 @@ Global
 		{8D756A4E-2324-4F94-92AD-5A022F6A69F9}.Release|x64.Build.0 = Release|Any CPU
 		{8D756A4E-2324-4F94-92AD-5A022F6A69F9}.Release|x86.ActiveCfg = Release|Any CPU
 		{8D756A4E-2324-4F94-92AD-5A022F6A69F9}.Release|x86.Build.0 = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|x64.Build.0 = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Debug|x86.Build.0 = Debug|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|x64.ActiveCfg = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|x64.Build.0 = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|x86.ActiveCfg = Release|Any CPU
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -234,6 +248,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{64D6CA14-029A-7BC3-5F47-A91DDCEB63D8} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8D756A4E-2324-4F94-92AD-5A022F6A69F9} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
+		{229640A0-7982-4605-ACC5-D1D2A12D27FB} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FB506607-7015-46D2-A983-5905B63EA6D9}

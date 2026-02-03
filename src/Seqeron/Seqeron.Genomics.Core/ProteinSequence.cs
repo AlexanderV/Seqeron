@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Represents a protein (amino acid) sequence with validation and common operations.

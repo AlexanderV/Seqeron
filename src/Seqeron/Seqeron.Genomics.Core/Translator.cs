@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Translates DNA or RNA sequences to protein sequences.

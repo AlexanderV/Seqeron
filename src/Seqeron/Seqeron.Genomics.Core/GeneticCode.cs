@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Represents a genetic code table for translating codons to amino acids.

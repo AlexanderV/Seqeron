@@ -20,7 +20,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out var dna);
+        var isValid = global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna);
 
         if (isValid)
         {
@@ -54,10 +54,10 @@ public static class SequenceTools
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
         // Validate DNA first
-        if (!global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out _))
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var reverseComplement = global::Seqeron.Genomics.DnaSequence.GetReverseComplementString(sequence);
+        var reverseComplement = global::Seqeron.Genomics.Core.DnaSequence.GetReverseComplementString(sequence);
         return new DnaReverseComplementResult(reverseComplement);
     }
 
@@ -72,7 +72,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.RnaSequence.TryCreate(sequence, out _);
+        var isValid = global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out _);
 
         if (isValid)
         {
@@ -105,10 +105,10 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (!global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var rna = global::Seqeron.Genomics.RnaSequence.FromDna(dna!);
+        var rna = global::Seqeron.Genomics.Core.RnaSequence.FromDna(dna!);
         return new RnaFromDnaResult(rna.ToString());
     }
 
@@ -123,7 +123,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var isValid = global::Seqeron.Genomics.ProteinSequence.TryCreate(sequence, out _);
+        var isValid = global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _);
 
         if (isValid)
         {
@@ -133,7 +133,7 @@ public static class SequenceTools
         {
             // Find the invalid character for error message
             var upperSeq = sequence.ToUpperInvariant();
-            var validChars = global::Seqeron.Genomics.ProteinSequence.ValidCharacters;
+            var validChars = global::Seqeron.Genomics.Core.ProteinSequence.ValidCharacters;
             for (int i = 0; i < upperSeq.Length; i++)
             {
                 if (!validChars.Contains(upperSeq[i]))
@@ -179,7 +179,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (!global::Seqeron.Genomics.ProteinSequence.TryCreate(sequence, out _))
+        if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
         var comp = global::Seqeron.Genomics.SequenceStatistics.CalculateAminoAcidComposition(sequence);
@@ -204,7 +204,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (!global::Seqeron.Genomics.ProteinSequence.TryCreate(sequence, out _))
+        if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
         var mw = global::Seqeron.Genomics.SequenceStatistics.CalculateMolecularWeight(sequence);
@@ -238,7 +238,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (!global::Seqeron.Genomics.ProteinSequence.TryCreate(sequence, out _))
+        if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
         var pI = global::Seqeron.Genomics.SequenceStatistics.CalculateIsoelectricPoint(sequence);
@@ -256,7 +256,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        if (!global::Seqeron.Genomics.ProteinSequence.TryCreate(sequence, out _))
+        if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
         var gravy = global::Seqeron.Genomics.SequenceStatistics.CalculateHydrophobicity(sequence);
@@ -359,7 +359,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var gcContent = global::Seqeron.Genomics.SequenceExtensions.CalculateGcContentFast(sequence);
+        var gcContent = global::Seqeron.Genomics.Core.SequenceExtensions.CalculateGcContentFast(sequence);
         int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
         return new GcContentResult(gcContent, gcCount, sequence.Length);
     }
@@ -376,7 +376,7 @@ public static class SequenceTools
             throw new ArgumentException("Must provide exactly one nucleotide character", nameof(nucleotide));
 
         char input = nucleotide[0];
-        char complement = global::Seqeron.Genomics.SequenceExtensions.GetComplementBase(input);
+        char complement = global::Seqeron.Genomics.Core.SequenceExtensions.GetComplementBase(input);
         return new ComplementBaseResult(complement.ToString(), input.ToString());
     }
 
@@ -391,7 +391,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.SequenceExtensions.IsValidDna(sequence.AsSpan());
+        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidDna(sequence.AsSpan());
         return new IsValidDnaResult(isValid, sequence.Length);
     }
 
@@ -406,7 +406,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        bool isValid = global::Seqeron.Genomics.SequenceExtensions.IsValidRna(sequence.AsSpan());
+        bool isValid = global::Seqeron.Genomics.Core.SequenceExtensions.IsValidRna(sequence.AsSpan());
         return new IsValidRnaResult(isValid, sequence.Length);
     }
 
@@ -478,7 +478,7 @@ public static class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        if (!global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
         var entropy = global::Seqeron.Genomics.SequenceComplexity.CalculateKmerEntropy(dna!, k);
@@ -521,7 +521,7 @@ public static class SequenceTools
         if (windowSize < 1)
             throw new ArgumentException("Window size must be at least 1", nameof(windowSize));
 
-        if (!global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
         var masked = global::Seqeron.Genomics.SequenceComplexity.MaskLowComplexity(dna!, windowSize, threshold, maskChar);
@@ -622,7 +622,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(bases))
             throw new ArgumentException("Bases cannot be null or empty", nameof(bases));
 
-        var code = global::Seqeron.Genomics.IupacDnaSequence.GetIupacCode(bases.ToUpperInvariant());
+        var code = global::Seqeron.Genomics.Core.IupacDnaSequence.GetIupacCode(bases.ToUpperInvariant());
         return new IupacCodeResult(code.ToString(), bases.ToUpperInvariant());
     }
 
@@ -641,7 +641,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(code2) || code2.Length != 1)
             throw new ArgumentException("Code2 must be a single IUPAC character", nameof(code2));
 
-        var matches = global::Seqeron.Genomics.IupacDnaSequence.CodesMatch(code1[0], code2[0]);
+        var matches = global::Seqeron.Genomics.Core.IupacDnaSequence.CodesMatch(code1[0], code2[0]);
         return new IupacMatchResult(matches, code1.ToUpperInvariant(), code2.ToUpperInvariant());
     }
 
@@ -660,7 +660,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(iupacCode) || iupacCode.Length != 1)
             throw new ArgumentException("IUPAC code must be a single character", nameof(iupacCode));
 
-        var matches = global::Seqeron.Genomics.IupacHelper.MatchesIupac(
+        var matches = global::Seqeron.Genomics.Core.IupacHelper.MatchesIupac(
             char.ToUpperInvariant(nucleotide[0]),
             char.ToUpperInvariant(iupacCode[0]));
         return new IupacMatchesResult(matches, nucleotide.ToUpperInvariant(), iupacCode.ToUpperInvariant());
@@ -682,10 +682,10 @@ public static class SequenceTools
         if (frame < 0 || frame > 2)
             throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
 
-        if (!global::Seqeron.Genomics.DnaSequence.TryCreate(sequence, out var dna))
+        if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var protein = global::Seqeron.Genomics.Translator.Translate(dna!, null, frame, toFirstStop);
+        var protein = global::Seqeron.Genomics.Core.Translator.Translate(dna!, null, frame, toFirstStop);
         return new TranslateDnaResult(protein.Sequence, frame, sequence.Length);
     }
 
@@ -705,10 +705,10 @@ public static class SequenceTools
         if (frame < 0 || frame > 2)
             throw new ArgumentException("Frame must be 0, 1, or 2", nameof(frame));
 
-        if (!global::Seqeron.Genomics.RnaSequence.TryCreate(sequence, out var rna))
+        if (!global::Seqeron.Genomics.Core.RnaSequence.TryCreate(sequence, out var rna))
             throw new ArgumentException("Invalid RNA sequence", nameof(sequence));
 
-        var protein = global::Seqeron.Genomics.Translator.Translate(rna!, null, frame, toFirstStop);
+        var protein = global::Seqeron.Genomics.Core.Translator.Translate(rna!, null, frame, toFirstStop);
         return new TranslateRnaResult(protein.Sequence, frame, sequence.Length);
     }
 }
