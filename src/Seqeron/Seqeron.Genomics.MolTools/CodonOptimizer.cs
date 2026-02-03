@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Provides algorithms for codon optimization and sequence design for heterologous expression.

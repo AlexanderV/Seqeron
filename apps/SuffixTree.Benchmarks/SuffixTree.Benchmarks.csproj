@@ -16,4 +16,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.MolTools" />
+  </ItemGroup>
+
 </Project>

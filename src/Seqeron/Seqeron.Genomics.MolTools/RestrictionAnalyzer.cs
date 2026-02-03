@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Analyzes restriction enzyme sites in DNA sequences.

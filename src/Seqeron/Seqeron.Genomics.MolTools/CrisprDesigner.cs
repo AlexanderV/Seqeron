@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.MolTools;
 
 /// <summary>
 /// Designs CRISPR guide RNAs (gRNAs) and identifies PAM sequences.

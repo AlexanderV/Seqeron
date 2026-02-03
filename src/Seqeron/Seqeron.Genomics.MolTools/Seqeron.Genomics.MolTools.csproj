@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.MolTools</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.MolTools</AssemblyName>
+    
+    <PackageId>Seqeron.Genomics.MolTools</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Seqeron</Authors>
+    <Description>Molecular biology tools: primer design, probe design, CRISPR design, codon optimization.</Description>
+    <PackageTags>bioinformatics;genomics;primer;crispr;codon-optimization</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+  </ItemGroup>
+
+</Project>

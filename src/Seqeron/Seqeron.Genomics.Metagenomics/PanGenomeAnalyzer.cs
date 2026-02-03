@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Metagenomics;
 
 /// <summary>
 /// Provides algorithms for pan-genome analysis.

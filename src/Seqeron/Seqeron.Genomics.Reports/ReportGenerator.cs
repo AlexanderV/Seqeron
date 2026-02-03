@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Reports;
 
 /// <summary>
 /// Generates HTML and JSON reports for genomic analysis results.
