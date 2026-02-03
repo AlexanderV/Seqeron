@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\SuffixTree\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\..\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
   </ItemGroup>

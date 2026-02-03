@@ -1,9 +1,9 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.106
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree", "src\SuffixTree\SuffixTree\SuffixTree.csproj", "{47E0DDD2-AC33-47BF-A560-7405DEB3E3CF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree", "src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj", "{47E0DDD2-AC33-47BF-A560-7405DEB3E3CF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Tests", "tests\SuffixTree\SuffixTree.Tests\SuffixTree.Tests.csproj", "{4DA29E2B-FCC5-414F-BCBC-64F570515CE7}"
 EndProject
@@ -11,23 +11,23 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Console", "apps\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Benchmarks", "apps\SuffixTree.Benchmarks\SuffixTree.Benchmarks.csproj", "{1D84E2DB-8517-4C0B-8DA6-A48931BE5D70}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics", "src\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj", "{6F1B1649-6270-4AFF-B86F-A2125DDAFD2A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics", "src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj", "{6F1B1649-6270-4AFF-B86F-A2125DDAFD2A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Tests", "tests\Seqeron\Seqeron.Genomics.Tests\Seqeron.Genomics.Tests.csproj", "{C7ED0559-CA2F-4526-844E-F07D3135F5FE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core", "src\SuffixTree\SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj", "{A316316B-45B5-468B-A754-ED44C4AEC4C6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core", "src\SuffixTree\Mcp\SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj", "{A316316B-45B5-468B-A754-ED44C4AEC4C6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Mcp.Core.Tests", "tests\SuffixTree\SuffixTree.Mcp.Core.Tests\SuffixTree.Mcp.Core.Tests.csproj", "{2635BBDF-1331-4975-9E59-BEA62885095A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence", "src\Seqeron\Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj", "{EF320F1A-216F-4650-9103-B56DD7F72716}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence", "src\Seqeron\Mcp\Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj", "{EF320F1A-216F-4650-9103-B56DD7F72716}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Sequence.Tests", "tests\Seqeron\Seqeron.Mcp.Sequence.Tests\Seqeron.Mcp.Sequence.Tests.csproj", "{FE290F73-0328-420F-BEB3-35248FA16C89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers", "src\Seqeron\Seqeron.Mcp.Parsers\Seqeron.Mcp.Parsers.csproj", "{4871A797-FA5C-43FD-9698-5BDB289CF14F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers", "src\Seqeron\Mcp\Seqeron.Mcp.Parsers\Seqeron.Mcp.Parsers.csproj", "{4871A797-FA5C-43FD-9698-5BDB289CF14F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Mcp.Parsers.Tests", "tests\Seqeron\Seqeron.Mcp.Parsers.Tests\Seqeron.Mcp.Parsers.Tests.csproj", "{4E970B7D-B686-4FD4-8444-04FF2D34E171}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent", "src\SuffixTree\SuffixTree.Persistent\SuffixTree.Persistent.csproj", "{18A7C999-1A8B-416E-9D55-0B0967A97B42}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent", "src\SuffixTree\Algorithms\SuffixTree.Persistent\SuffixTree.Persistent.csproj", "{18A7C999-1A8B-416E-9D55-0B0967A97B42}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Persistent.Tests", "tests\SuffixTree\SuffixTree.Persistent.Tests\SuffixTree.Persistent.Tests.csproj", "{178AA3D4-10E1-4EC8-99E5-2EF069FFFD1E}"
 EndProject
@@ -35,29 +35,29 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Seqeron", "Seqeron", "{64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Infrastructure", "src\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj", "{8D756A4E-2324-4F94-92AD-5A022F6A69F9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Infrastructure", "src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj", "{8D756A4E-2324-4F94-92AD-5A022F6A69F9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Core", "src\Seqeron\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj", "{229640A0-7982-4605-ACC5-D1D2A12D27FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Core", "src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj", "{229640A0-7982-4605-ACC5-D1D2A12D27FB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.IO", "src\Seqeron\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj", "{24A80235-A525-47BF-8DDB-A77DA00181C8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.IO", "src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj", "{24A80235-A525-47BF-8DDB-A77DA00181C8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Alignment", "src\Seqeron\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj", "{FF455A75-5427-4D9A-91D5-941BD825080A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Alignment", "src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj", "{FF455A75-5427-4D9A-91D5-941BD825080A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Analysis", "src\Seqeron\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj", "{83F46BFC-3488-4225-BB88-A5891918A6BF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Analysis", "src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj", "{83F46BFC-3488-4225-BB88-A5891918A6BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Annotation", "src\Seqeron\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj", "{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Annotation", "src\Seqeron\Algorithms\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj", "{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Phylogenetics", "src\Seqeron\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj", "{AC4B6486-0313-4FAE-9EF3-271FD43AF019}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Phylogenetics", "src\Seqeron\Algorithms\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj", "{AC4B6486-0313-4FAE-9EF3-271FD43AF019}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Population", "src\Seqeron\Seqeron.Genomics.Population\Seqeron.Genomics.Population.csproj", "{642CCFC8-05EF-47A1-A5E9-847AD9CF7FD8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Population", "src\Seqeron\Algorithms\Seqeron.Genomics.Population\Seqeron.Genomics.Population.csproj", "{642CCFC8-05EF-47A1-A5E9-847AD9CF7FD8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Metagenomics", "src\Seqeron\Seqeron.Genomics.Metagenomics\Seqeron.Genomics.Metagenomics.csproj", "{2E309D7C-17DE-48A8-A3E0-BA85FA5AA26A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Metagenomics", "src\Seqeron\Algorithms\Seqeron.Genomics.Metagenomics\Seqeron.Genomics.Metagenomics.csproj", "{2E309D7C-17DE-48A8-A3E0-BA85FA5AA26A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Chromosome", "src\Seqeron\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj", "{9E4CC7E8-1981-4D66-8685-E648B10A3C31}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Chromosome", "src\Seqeron\Algorithms\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj", "{9E4CC7E8-1981-4D66-8685-E648B10A3C31}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.MolTools", "src\Seqeron\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj", "{3E9876EB-709E-4C26-A526-DCFA6B54F70A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.MolTools", "src\Seqeron\Algorithms\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj", "{3E9876EB-709E-4C26-A526-DCFA6B54F70A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Reports", "src\Seqeron\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj", "{140CDC04-3459-4AE4-91AE-3263AE6998FA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Reports", "src\Seqeron\Algorithms\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj", "{140CDC04-3459-4AE4-91AE-3263AE6998FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

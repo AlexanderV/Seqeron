@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SuffixTree\SuffixTree\SuffixTree.csproj" />
-    <ProjectReference Include="..\..\src\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

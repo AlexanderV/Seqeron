@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SuffixTree\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\..\src\SuffixTree\Algorithms\SuffixTree\SuffixTree.csproj" />
   </ItemGroup>
 
 </Project>

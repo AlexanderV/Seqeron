@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Mcp\Seqeron.Mcp.Sequence\Seqeron.Mcp.Sequence.csproj" />
   </ItemGroup>
 
 </Project>
