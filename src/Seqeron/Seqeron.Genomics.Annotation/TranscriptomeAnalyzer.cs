@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Annotation;
 
 /// <summary>
 /// Provides algorithms for transcriptome analysis including expression quantification and differential expression.

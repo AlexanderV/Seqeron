@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.Annotation</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Annotation</AssemblyName>
+    
+    <!-- NuGet Package Properties -->
+    <PackageId>Seqeron.Genomics.Annotation</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Seqeron</Authors>
+    <Description>Genome and variant annotation: gene finding, variant calling, splice site prediction, transcriptome analysis, epigenetics, miRNA analysis.</Description>
+    <PackageTags>bioinformatics;genomics;annotation;variant;epigenetics;mirna</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.IO" />
+    <Using Include="Seqeron.Genomics.Alignment" />
+  </ItemGroup>
+
+</Project>
