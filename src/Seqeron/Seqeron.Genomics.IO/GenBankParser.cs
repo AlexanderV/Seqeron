@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Parser for GenBank flat file format (.gb, .gbk, .genbank).
@@ -636,3 +636,4 @@ public static partial class GenBankParser
 
     #endregion
 }
+

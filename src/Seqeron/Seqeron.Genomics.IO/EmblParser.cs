@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Parser for EMBL flat file format (.embl, .dat).
@@ -618,3 +618,4 @@ public static partial class EmblParser
 
     #endregion
 }
+

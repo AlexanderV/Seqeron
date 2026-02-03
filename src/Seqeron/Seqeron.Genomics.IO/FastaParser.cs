@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.IO
 {
     /// <summary>
     /// Parser for FASTA format - the standard format for biological sequences.
@@ -176,3 +176,4 @@ namespace Seqeron.Genomics
         public override string ToString() => $"{Id} ({Sequence.Length} bp)";
     }
 }
+

@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Parser for FASTQ format files containing sequences with quality scores.
@@ -529,3 +529,4 @@ public static class FastqParser
 
     #endregion
 }
+

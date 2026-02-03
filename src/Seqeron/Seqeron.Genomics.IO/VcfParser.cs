@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Parser for VCF (Variant Call Format) files.
@@ -839,3 +839,4 @@ public static class VcfParser
 
     #endregion
 }
+
