@@ -162,7 +162,7 @@ public static class SuffixTreeTools
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
         }
 
-        var dna = new global::Seqeron.Genomics.DnaSequence(sequence);
+        var dna = new global::Seqeron.Genomics.Core.DnaSequence(sequence);
         var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestRepeat(dna);
 
         return new FindLongestRepeatResult(result.Sequence, result.Positions.ToArray(), result.Length);
@@ -182,8 +182,8 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var dna1 = new global::Seqeron.Genomics.DnaSequence(sequence1);
-        var dna2 = new global::Seqeron.Genomics.DnaSequence(sequence2);
+        var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
+        var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
         var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
 
         return new FindLongestCommonRegionResult(result.Sequence, result.PositionInFirst, result.PositionInSecond, result.Length);
@@ -204,8 +204,8 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var dna1 = new global::Seqeron.Genomics.DnaSequence(sequence1);
-        var dna2 = new global::Seqeron.Genomics.DnaSequence(sequence2);
+        var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
+        var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
         var similarity = global::Seqeron.Genomics.GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
 
         return new CalculateSimilarityResult(similarity);

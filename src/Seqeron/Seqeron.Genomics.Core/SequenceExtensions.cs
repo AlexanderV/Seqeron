@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Core;
 
 /// <summary>
 /// High-performance extension methods for sequence operations.

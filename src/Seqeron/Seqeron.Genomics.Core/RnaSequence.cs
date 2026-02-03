@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Represents an RNA sequence with validation and common operations.
