@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
-using static Seqeron.Genomics.SpliceSitePredictor;
+using Seqeron.Genomics.Annotation;
+using static Seqeron.Genomics.Annotation.SpliceSitePredictor;
 
 namespace Seqeron.Genomics.Tests;
 

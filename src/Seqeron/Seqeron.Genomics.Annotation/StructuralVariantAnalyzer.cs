@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Annotation;
 
 /// <summary>
 /// Provides algorithms for structural variant detection and analysis.

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Annotation;
 
 /// <summary>
 /// Provides algorithms for RNA splice site prediction and intron/exon analysis.

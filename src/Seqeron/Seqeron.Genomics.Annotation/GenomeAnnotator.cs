@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Annotation;
 
 /// <summary>
 /// Provides genome annotation algorithms including ORF finding and gene prediction.

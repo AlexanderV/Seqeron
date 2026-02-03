@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Annotation;
 
 /// <summary>
 /// Provides algorithms for epigenetic analysis including methylation and chromatin state.

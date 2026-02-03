@@ -24,6 +24,7 @@
     <Using Include="Seqeron.Genomics.IO" />
     <Using Include="Seqeron.Genomics.Alignment" />
     <Using Include="Seqeron.Genomics.Analysis" />
+    <Using Include="Seqeron.Genomics.Annotation" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +34,7 @@
     <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj" />
   </ItemGroup>
 
 </Project>
