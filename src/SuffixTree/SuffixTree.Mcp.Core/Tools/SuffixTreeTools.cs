@@ -163,7 +163,7 @@ public static class SuffixTreeTools
         }
 
         var dna = new global::Seqeron.Genomics.Core.DnaSequence(sequence);
-        var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestRepeat(dna);
+        var result = GenomicAnalyzer.FindLongestRepeat(dna);
 
         return new FindLongestRepeatResult(result.Sequence, result.Positions.ToArray(), result.Length);
     }
@@ -184,7 +184,7 @@ public static class SuffixTreeTools
 
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
-        var result = global::Seqeron.Genomics.GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
+        var result = GenomicAnalyzer.FindLongestCommonRegion(dna1, dna2);
 
         return new FindLongestCommonRegionResult(result.Sequence, result.PositionInFirst, result.PositionInSecond, result.Length);
     }
@@ -206,7 +206,7 @@ public static class SuffixTreeTools
 
         var dna1 = new global::Seqeron.Genomics.Core.DnaSequence(sequence1);
         var dna2 = new global::Seqeron.Genomics.Core.DnaSequence(sequence2);
-        var similarity = global::Seqeron.Genomics.GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
+        var similarity = GenomicAnalyzer.CalculateSimilarity(dna1, dna2, kmerSize);
 
         return new CalculateSimilarityResult(similarity);
     }

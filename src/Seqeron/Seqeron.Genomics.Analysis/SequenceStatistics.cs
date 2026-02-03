@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Provides comprehensive statistical analysis of biological sequences.

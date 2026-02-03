@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Finds conserved motifs and patterns in DNA sequences.
@@ -118,7 +118,7 @@ public static class MotifFinder
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return CancellableOperations.FindDegenerateMotif(sequence.Sequence, motif, cancellationToken);
+        return FindDegenerateMotifCore(sequence.Sequence, motif, cancellationToken);
     }
 
     /// <summary>
@@ -129,7 +129,59 @@ public static class MotifFinder
         string motif,
         CancellationToken cancellationToken)
     {
-        return CancellableOperations.FindDegenerateMotif(sequence, motif, cancellationToken);
+        return FindDegenerateMotifCore(sequence, motif, cancellationToken);
+    }
+
+    private static IEnumerable<MotifMatch> FindDegenerateMotifCore(
+        string sequence,
+        string motif,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(motif))
+            yield break;
+
+        var seq = sequence.ToUpperInvariant();
+        var motifUpper = motif.ToUpperInvariant();
+        const int checkInterval = 1000;
+
+        for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
+        {
+            if (i % checkInterval == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+
+            bool matches = true;
+            for (int j = 0; j < motifUpper.Length && matches; j++)
+            {
+                char motifChar = motifUpper[j];
+                char seqChar = seq[i + j];
+
+                matches = motifChar switch
+                {
+                    'A' or 'T' or 'G' or 'C' => motifChar == seqChar,
+                    'R' => seqChar == 'A' || seqChar == 'G',
+                    'Y' => seqChar == 'C' || seqChar == 'T',
+                    'S' => seqChar == 'G' || seqChar == 'C',
+                    'W' => seqChar == 'A' || seqChar == 'T',
+                    'K' => seqChar == 'G' || seqChar == 'T',
+                    'M' => seqChar == 'A' || seqChar == 'C',
+                    'B' => seqChar != 'A',
+                    'D' => seqChar != 'C',
+                    'H' => seqChar != 'G',
+                    'V' => seqChar != 'T',
+                    'N' => true,
+                    _ => motifChar == seqChar
+                };
+            }
+
+            if (matches)
+            {
+                yield return new MotifMatch(
+                    Position: i,
+                    MatchedSequence: seq.Substring(i, motifUpper.Length),
+                    Pattern: motifUpper,
+                    Score: 1.0);
+            }
+        }
     }
 
     #endregion

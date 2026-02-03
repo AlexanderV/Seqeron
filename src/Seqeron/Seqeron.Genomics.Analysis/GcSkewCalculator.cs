@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Calculates GC skew and related metrics for identifying replication origins and termini.

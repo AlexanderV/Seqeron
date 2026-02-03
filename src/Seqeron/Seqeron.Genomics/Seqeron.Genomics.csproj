@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -19,6 +20,7 @@
     <Using Include="Seqeron.Genomics.Infrastructure" />
     <Using Include="Seqeron.Genomics.IO" />
     <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
   </ItemGroup>
 
 </Project>

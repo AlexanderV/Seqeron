@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
-using static Seqeron.Genomics.ProteinMotifFinder;
+using Seqeron.Genomics.Analysis;
+using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -507,3 +508,4 @@ public class ProteinMotifFinderTests
 
     #endregion
 }
+
