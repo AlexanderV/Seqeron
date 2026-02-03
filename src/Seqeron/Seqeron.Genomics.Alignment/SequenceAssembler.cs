@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Alignment;
 
 /// <summary>
 /// Provides genome assembly algorithms for constructing contigs from sequence reads.
@@ -140,7 +140,34 @@ public static class SequenceAssembler
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        return CancellableOperations.FindAllOverlaps(reads, minOverlap, minIdentity, cancellationToken, progress);
+        var overlaps = new List<Overlap>();
+        int total = reads.Count * reads.Count;
+        int processed = 0;
+
+        for (int i = 0; i < reads.Count; i++)
+        {
+            for (int j = 0; j < reads.Count; j++)
+            {
+                if (processed % 100 == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progress?.Report((double)processed / total);
+                }
+                processed++;
+
+                if (i == j) continue;
+
+                var overlap = FindOverlap(reads[i], reads[j], minOverlap, minIdentity);
+                if (overlap.HasValue)
+                {
+                    overlaps.Add(new Overlap(
+                        i, j, overlap.Value.length, overlap.Value.pos1, overlap.Value.pos2));
+                }
+            }
+        }
+
+        progress?.Report(1.0);
+        return overlaps;
     }
 
     /// <summary>
@@ -659,3 +686,4 @@ public static class SequenceAssembler
         return corrected;
     }
 }
+

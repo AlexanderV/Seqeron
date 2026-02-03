@@ -227,7 +227,7 @@ public static class SuffixTreeTools
         if (sequence1.Length != sequence2.Length)
             throw new ArgumentException("Sequences must have equal length for Hamming distance");
 
-        var distance = global::Seqeron.Genomics.ApproximateMatcher.HammingDistance(sequence1, sequence2);
+        var distance = ApproximateMatcher.HammingDistance(sequence1, sequence2);
         return new HammingDistanceResult(distance);
     }
 
@@ -245,7 +245,7 @@ public static class SuffixTreeTools
         if (string.IsNullOrEmpty(sequence2))
             throw new ArgumentException("Sequence2 cannot be null or empty", nameof(sequence2));
 
-        var distance = global::Seqeron.Genomics.ApproximateMatcher.EditDistance(sequence1, sequence2);
+        var distance = ApproximateMatcher.EditDistance(sequence1, sequence2);
         return new EditDistanceResult(distance);
     }
 
@@ -266,7 +266,7 @@ public static class SuffixTreeTools
         if (maxMismatches < 0)
             throw new ArgumentException("MaxMismatches cannot be negative", nameof(maxMismatches));
 
-        var count = global::Seqeron.Genomics.ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+        var count = ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
         return new CountApproximateOccurrencesResult(count);
     }
 }
