@@ -168,6 +168,68 @@ apps/
 docs/                                   # Documentation
 ```
 
+## Package Dependencies
+
+```mermaid
+graph TD
+    subgraph "Level 0"
+        INF[Infrastructure]
+    end
+    
+    subgraph "Level 1"
+        CORE[Core]
+    end
+    
+    subgraph "Level 2"
+        IO[IO]
+        ALN[Alignment]
+        ANA[Analysis]
+    end
+    
+    subgraph "Level 3"
+        ANN[Annotation]
+        PHY[Phylogenetics]
+        POP[Population]
+        META[Metagenomics]
+        MOL[MolTools]
+        CHR[Chromosome]
+    end
+    
+    subgraph "Level 4"
+        REP[Reports]
+    end
+    
+    subgraph "Meta"
+        GEN[Seqeron.Genomics]
+    end
+
+    INF --> CORE
+    CORE --> IO
+    CORE --> ALN
+    INF --> ALN
+    CORE --> ANA
+    
+    IO --> ANN
+    ALN --> ANN
+    ANA --> ANN
+    CORE --> PHY
+    CORE --> POP
+    ANA --> META
+    CORE --> MOL
+    INF --> MOL
+    ANA --> CHR
+    
+    ANN --> REP
+    ANA --> REP
+    
+    REP --> GEN
+    CHR --> GEN
+    MOL --> GEN
+    META --> GEN
+    POP --> GEN
+    PHY --> GEN
+```
+
 ## Documentation
 
 ### For Study
