@@ -47,6 +47,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Analysis",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Annotation", "src\Seqeron\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj", "{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Phylogenetics", "src\Seqeron\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj", "{AC4B6486-0313-4FAE-9EF3-271FD43AF019}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -297,6 +299,18 @@ Global
 		{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}.Release|x64.Build.0 = Release|Any CPU
 		{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}.Release|x86.ActiveCfg = Release|Any CPU
 		{C51F91A1-0E0A-42BD-8694-3B53E8957AEC}.Release|x86.Build.0 = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|x64.Build.0 = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Debug|x86.Build.0 = Debug|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|x64.ActiveCfg = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|x64.Build.0 = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|x86.ActiveCfg = Release|Any CPU
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -309,6 +323,7 @@ Global
 		{FF455A75-5427-4D9A-91D5-941BD825080A} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
 		{83F46BFC-3488-4225-BB88-A5891918A6BF} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
 		{C51F91A1-0E0A-42BD-8694-3B53E8957AEC} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
+		{AC4B6486-0313-4FAE-9EF3-271FD43AF019} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FB506607-7015-46D2-A983-5905B63EA6D9}

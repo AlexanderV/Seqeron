@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -23,6 +24,7 @@
     <Using Include="Seqeron.Genomics.Alignment" />
     <Using Include="Seqeron.Genomics.Analysis" />
     <Using Include="Seqeron.Genomics.Annotation" />
+    <Using Include="Seqeron.Genomics.Phylogenetics" />
   </ItemGroup>
 
 </Project>
