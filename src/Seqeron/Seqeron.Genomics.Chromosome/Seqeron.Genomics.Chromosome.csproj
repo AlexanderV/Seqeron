@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.Chromosome</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Chromosome</AssemblyName>
+    
+    <PackageId>Seqeron.Genomics.Chromosome</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Seqeron</Authors>
+    <Description>Chromosome analysis: karyotyping, centromere/telomere detection, synteny, aneuploidy, genome assembly.</Description>
+    <PackageTags>bioinformatics;genomics;chromosome;karyotype;synteny</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+    <Using Include="Seqeron.Genomics.Analysis" />
+  </ItemGroup>
+
+</Project>

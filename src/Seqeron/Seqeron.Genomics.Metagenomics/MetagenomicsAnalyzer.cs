@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Seqeron.Genomics.Infrastructure;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Metagenomics;
 
 /// <summary>
 /// Provides algorithms for metagenomic analysis and taxonomic classification.

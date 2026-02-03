@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.Population</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Population</AssemblyName>
+    
+    <PackageId>Seqeron.Genomics.Population</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Seqeron</Authors>
+    <Description>Population genetics analysis: allele frequencies, Hardy-Weinberg equilibrium, Fst, genetic diversity.</Description>
+    <PackageTags>bioinformatics;genomics;population-genetics;fst;diversity</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+  </ItemGroup>
+
+</Project>

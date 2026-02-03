@@ -9,6 +9,11 @@
     <ProjectReference Include="..\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Population\Seqeron.Genomics.Population.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Metagenomics\Seqeron.Genomics.Metagenomics.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -25,6 +30,11 @@
     <Using Include="Seqeron.Genomics.Analysis" />
     <Using Include="Seqeron.Genomics.Annotation" />
     <Using Include="Seqeron.Genomics.Phylogenetics" />
+    <Using Include="Seqeron.Genomics.Population" />
+    <Using Include="Seqeron.Genomics.Metagenomics" />
+    <Using Include="Seqeron.Genomics.MolTools" />
+    <Using Include="Seqeron.Genomics.Chromosome" />
+    <Using Include="Seqeron.Genomics.Reports" />
   </ItemGroup>
 
 </Project>
