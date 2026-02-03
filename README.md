@@ -139,19 +139,33 @@ tm_diff_c = 4.1
 
 ```
 Seqeron.sln
-SuffixTree/                 # Suffix tree implementation
-Seqeron.Genomics/           # Core algorithms and sequence model
-Seqeron.Mcp.Sequence/       # MCP server: sequence analysis tools
-Seqeron.Mcp.Parsers/        # MCP server: parser and format tools
-SuffixTree.Mcp.Core/        # MCP server: core algorithms (suffix tree, distances)
-SuffixTree.Tests/           # Suffix tree tests
-Seqeron.Genomics.Tests/     # Genomics tests
-Seqeron.Mcp.Sequence.Tests/ # MCP sequence tool tests
-Seqeron.Mcp.Parsers.Tests/  # MCP parser tool tests
-SuffixTree.Benchmarks/      # Benchmarks
-SuffixTree.Console/         # Stress and verification harness
-TestSpecs/                  # Algorithm test specifications
-docs/                       # Documentation
+src/
+├── SuffixTree/                         # Suffix tree implementation
+├── Seqeron/
+│   ├── Seqeron.Genomics/               # Meta-package (aggregates all modules)
+│   ├── Seqeron.Genomics.Infrastructure/# Base types (StatisticsHelper, AlignmentTypes)
+│   ├── Seqeron.Genomics.Core/          # Sequence models (DNA, RNA, Protein)
+│   ├── Seqeron.Genomics.IO/            # Format parsers (FASTA, GenBank, VCF, etc.)
+│   ├── Seqeron.Genomics.Alignment/     # Sequence alignment algorithms
+│   ├── Seqeron.Genomics.Analysis/      # K-mer, motif, repeat analysis
+│   ├── Seqeron.Genomics.Annotation/    # Genome annotation, variant calling
+│   ├── Seqeron.Genomics.Phylogenetics/ # Phylogenetic analysis
+│   ├── Seqeron.Genomics.Population/    # Population genetics
+│   ├── Seqeron.Genomics.Metagenomics/  # Metagenomic analysis
+│   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, CRISPR, etc.)
+│   ├── Seqeron.Genomics.Chromosome/    # Chromosome-level analysis
+│   ├── Seqeron.Genomics.Reports/       # Report generation
+│   ├── Seqeron.Mcp.Sequence/           # MCP server: sequence analysis tools
+│   └── Seqeron.Mcp.Parsers/            # MCP server: parser and format tools
+tests/
+├── SuffixTree.Tests/                   # Suffix tree tests
+├── Seqeron.Genomics.Tests/             # Genomics tests
+├── Seqeron.Mcp.Sequence.Tests/         # MCP sequence tool tests
+└── Seqeron.Mcp.Parsers.Tests/          # MCP parser tool tests
+apps/
+├── SuffixTree.Benchmarks/              # Benchmarks
+└── SuffixTree.Console/                 # Stress and verification harness
+docs/                                   # Documentation
 ```
 
 ## Documentation
