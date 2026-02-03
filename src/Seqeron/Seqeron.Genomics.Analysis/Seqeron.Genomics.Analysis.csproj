@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Seqeron.Genomics.Analysis</RootNamespace>
+    <AssemblyName>Seqeron.Genomics.Analysis</AssemblyName>
+    
+    <!-- NuGet Package Properties -->
+    <PackageId>Seqeron.Genomics.Analysis</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Seqeron</Authors>
+    <Description>Sequence analysis algorithms: k-mer analysis, GC content, complexity, motif finding, repeat detection, secondary structure prediction.</Description>
+    <PackageTags>bioinformatics;genomics;kmer;analysis;motif;repeats</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.Core" />
+  </ItemGroup>
+
+</Project>

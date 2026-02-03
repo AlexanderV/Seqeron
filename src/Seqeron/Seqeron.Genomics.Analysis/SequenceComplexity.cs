@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Calculates various sequence complexity metrics for detecting low-complexity regions,

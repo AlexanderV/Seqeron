@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
-using static Seqeron.Genomics.RnaSecondaryStructure;
+using Seqeron.Genomics.Analysis;
+using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -527,3 +528,4 @@ public class RnaSecondaryStructureTests
 
     #endregion
 }
+

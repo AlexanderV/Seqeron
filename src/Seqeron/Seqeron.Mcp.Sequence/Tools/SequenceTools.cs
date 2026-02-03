@@ -156,7 +156,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var comp = global::Seqeron.Genomics.SequenceStatistics.CalculateNucleotideComposition(sequence);
+        var comp = SequenceStatistics.CalculateNucleotideComposition(sequence);
         return new NucleotideCompositionResult(
             comp.Length,
             comp.CountA,
@@ -182,7 +182,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var comp = global::Seqeron.Genomics.SequenceStatistics.CalculateAminoAcidComposition(sequence);
+        var comp = SequenceStatistics.CalculateAminoAcidComposition(sequence);
         return new AminoAcidCompositionResult(
             comp.Length,
             comp.Counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
@@ -207,7 +207,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var mw = global::Seqeron.Genomics.SequenceStatistics.CalculateMolecularWeight(sequence);
+        var mw = SequenceStatistics.CalculateMolecularWeight(sequence);
         return new MolecularWeightProteinResult(mw, "Da");
     }
 
@@ -223,7 +223,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var mw = global::Seqeron.Genomics.SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
+        var mw = SequenceStatistics.CalculateNucleotideMolecularWeight(sequence, isDna);
         return new MolecularWeightNucleotideResult(mw, "Da", isDna ? "DNA" : "RNA");
     }
 
@@ -241,7 +241,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var pI = global::Seqeron.Genomics.SequenceStatistics.CalculateIsoelectricPoint(sequence);
+        var pI = SequenceStatistics.CalculateIsoelectricPoint(sequence);
         return new IsoelectricPointResult(pI);
     }
 
@@ -259,7 +259,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.ProteinSequence.TryCreate(sequence, out _))
             throw new ArgumentException("Invalid protein sequence", nameof(sequence));
 
-        var gravy = global::Seqeron.Genomics.SequenceStatistics.CalculateHydrophobicity(sequence);
+        var gravy = SequenceStatistics.CalculateHydrophobicity(sequence);
         return new HydrophobicityResult(gravy);
     }
 
@@ -276,7 +276,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var props = global::Seqeron.Genomics.SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
+        var props = SequenceStatistics.CalculateThermodynamics(sequence, naConcentration, primerConcentration);
         return new ThermodynamicsResult(props.DeltaH, props.DeltaS, props.DeltaG, props.MeltingTemperature);
     }
 
@@ -292,7 +292,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var tm = global::Seqeron.Genomics.SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
+        var tm = SequenceStatistics.CalculateMeltingTemperature(sequence, useWallaceRule);
         return new MeltingTemperatureResult(tm, "°C");
     }
 
@@ -307,7 +307,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var entropy = global::Seqeron.Genomics.SequenceStatistics.CalculateShannonEntropy(sequence);
+        var entropy = SequenceStatistics.CalculateShannonEntropy(sequence);
         return new ShannonEntropyResult(entropy);
     }
 
@@ -323,7 +323,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var complexity = global::Seqeron.Genomics.SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
+        var complexity = SequenceStatistics.CalculateLinguisticComplexity(sequence, maxK);
         return new LinguisticComplexityResult(complexity);
     }
 
@@ -338,7 +338,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var summary = global::Seqeron.Genomics.SequenceStatistics.SummarizeNucleotideSequence(sequence);
+        var summary = SequenceStatistics.SummarizeNucleotideSequence(sequence);
         return new SummarizeSequenceResult(
             summary.Length,
             summary.GcContent,
@@ -425,7 +425,7 @@ public static class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var entropy = global::Seqeron.Genomics.KmerAnalyzer.CalculateKmerEntropy(sequence, k);
+        var entropy = KmerAnalyzer.CalculateKmerEntropy(sequence, k);
         return new KmerEntropyResult(entropy, k);
     }
 
@@ -444,7 +444,7 @@ public static class SequenceTools
         if (maxWordLength < 1)
             throw new ArgumentException("Max word length must be at least 1", nameof(maxWordLength));
 
-        var complexity = global::Seqeron.Genomics.SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
+        var complexity = SequenceComplexity.CalculateLinguisticComplexity(sequence, maxWordLength);
         return new ComplexityLinguisticResult(complexity, maxWordLength);
     }
 
@@ -459,7 +459,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var entropy = global::Seqeron.Genomics.SequenceComplexity.CalculateShannonEntropy(sequence);
+        var entropy = SequenceComplexity.CalculateShannonEntropy(sequence);
         return new ComplexityShannonResult(entropy);
     }
 
@@ -481,7 +481,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var entropy = global::Seqeron.Genomics.SequenceComplexity.CalculateKmerEntropy(dna!, k);
+        var entropy = SequenceComplexity.CalculateKmerEntropy(dna!, k);
         return new ComplexityKmerEntropyResult(entropy, k);
     }
 
@@ -500,7 +500,7 @@ public static class SequenceTools
         if (wordSize < 1)
             throw new ArgumentException("Word size must be at least 1", nameof(wordSize));
 
-        var dustScore = global::Seqeron.Genomics.SequenceComplexity.CalculateDustScore(sequence, wordSize);
+        var dustScore = SequenceComplexity.CalculateDustScore(sequence, wordSize);
         return new ComplexityDustScoreResult(dustScore, wordSize);
     }
 
@@ -524,7 +524,7 @@ public static class SequenceTools
         if (!global::Seqeron.Genomics.Core.DnaSequence.TryCreate(sequence, out var dna))
             throw new ArgumentException("Invalid DNA sequence", nameof(sequence));
 
-        var masked = global::Seqeron.Genomics.SequenceComplexity.MaskLowComplexity(dna!, windowSize, threshold, maskChar);
+        var masked = SequenceComplexity.MaskLowComplexity(dna!, windowSize, threshold, maskChar);
         return new ComplexityMaskLowResult(masked, sequence.Length, maskChar);
     }
 
@@ -539,7 +539,7 @@ public static class SequenceTools
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var ratio = global::Seqeron.Genomics.SequenceComplexity.EstimateCompressionRatio(sequence);
+        var ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
         return new ComplexityCompressionRatioResult(ratio);
     }
 
@@ -558,7 +558,7 @@ public static class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var counts = global::Seqeron.Genomics.KmerAnalyzer.CountKmers(sequence, k);
+        var counts = KmerAnalyzer.CountKmers(sequence, k);
         return new KmerCountResult(counts, k, counts.Count, counts.Values.Sum());
     }
 
@@ -581,7 +581,7 @@ public static class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var distance = global::Seqeron.Genomics.KmerAnalyzer.KmerDistance(sequence1, sequence2, k);
+        var distance = KmerAnalyzer.KmerDistance(sequence1, sequence2, k);
         return new KmerDistanceResult(distance, k);
     }
 
@@ -600,7 +600,7 @@ public static class SequenceTools
         if (k < 1)
             throw new ArgumentException("K must be at least 1", nameof(k));
 
-        var stats = global::Seqeron.Genomics.KmerAnalyzer.AnalyzeKmers(sequence, k);
+        var stats = KmerAnalyzer.AnalyzeKmers(sequence, k);
         return new KmerAnalyzeResult(
             stats.TotalKmers,
             stats.UniqueKmers,

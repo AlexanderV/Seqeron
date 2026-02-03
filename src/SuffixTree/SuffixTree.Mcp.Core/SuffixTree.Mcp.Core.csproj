@@ -21,12 +21,14 @@
     <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
     <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\Seqeron\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Seqeron.Genomics.Core" />
     <Using Include="Seqeron.Genomics.Infrastructure" />
     <Using Include="Seqeron.Genomics.Alignment" />
+    <Using Include="Seqeron.Genomics.Analysis" />
   </ItemGroup>
 
 </Project>

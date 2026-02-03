@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Finds various types of repeats in DNA sequences including microsatellites (STRs),
@@ -55,7 +55,7 @@ public static class RepeatFinder
         IProgress<double>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return CancellableOperations.FindMicrosatellites(
+        return FindMicrosatellitesCancellable(
             sequence.Sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
     }
 
@@ -86,8 +86,81 @@ public static class RepeatFinder
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
-        return CancellableOperations.FindMicrosatellites(
+        return FindMicrosatellitesCancellable(
             sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
+    }
+
+    private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCancellable(
+        string sequence,
+        int minUnitLength,
+        int maxUnitLength,
+        int minRepeats,
+        CancellationToken cancellationToken,
+        IProgress<double>? progress = null)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            yield break;
+
+        var seq = sequence.ToUpperInvariant();
+        var reported = new HashSet<(int Start, int End)>();
+        int totalPositions = seq.Length * (maxUnitLength - minUnitLength + 1);
+        int processed = 0;
+        const int checkInterval = 1000;
+
+        for (int unitLen = minUnitLength; unitLen <= maxUnitLength; unitLen++)
+        {
+            for (int i = 0; i <= seq.Length - unitLen * minRepeats; i++)
+            {
+                if (processed % checkInterval == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    progress?.Report((double)processed / totalPositions);
+                }
+                processed++;
+
+                var unit = seq.Substring(i, unitLen);
+
+                if (IsRedundantUnit(unit))
+                    continue;
+
+                int repeats = 1;
+                int j = i + unitLen;
+
+                while (j + unitLen <= seq.Length && seq.Substring(j, unitLen) == unit)
+                {
+                    repeats++;
+                    j += unitLen;
+                }
+
+                if (repeats >= minRepeats)
+                {
+                    int end = i + (repeats * unitLen) - 1;
+
+                    bool isContained = false;
+                    foreach (var r in reported)
+                    {
+                        if (r.Start <= i && r.End >= end)
+                        {
+                            isContained = true;
+                            break;
+                        }
+                    }
+
+                    if (!isContained)
+                    {
+                        reported.Add((i, end));
+                        yield return new MicrosatelliteResult(
+                            Position: i,
+                            RepeatUnit: unit,
+                            RepeatCount: repeats,
+                            TotalLength: repeats * unitLen,
+                            RepeatType: ClassifyRepeatType(unit));
+                    }
+                }
+            }
+        }
+
+        progress?.Report(1.0);
     }
 
     private static IEnumerable<MicrosatelliteResult> FindMicrosatellitesCore(
