@@ -18,7 +18,7 @@ Determines if a genotype string represents a heterozygous call (e.g., 0/1, 0|1, 
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L554](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L554)
+- Source: [VcfParser.cs#L554](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L554)
 
 ## Input Schema
 

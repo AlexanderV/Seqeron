@@ -18,7 +18,7 @@ Determines if a genotype string represents a homozygous reference call (0/0 or 0
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L529](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L529)
+- Source: [VcfParser.cs#L529](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L529)
 
 ## Input Schema
 

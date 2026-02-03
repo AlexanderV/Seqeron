@@ -18,7 +18,7 @@ Calculates comprehensive statistics for EMBL records. Returns counts of records,
 
 ## Core Documentation Reference
 
-- Source: [EmblParser.cs](../../../../src/Seqeron/Seqeron.Genomics/EmblParser.cs)
+- Source: [EmblParser.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/EmblParser.cs)
 
 ## Input Schema
 

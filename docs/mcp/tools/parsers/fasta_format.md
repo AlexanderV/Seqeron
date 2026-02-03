@@ -18,7 +18,7 @@ Formats a DNA sequence into FASTA format string. Takes a sequence ID, the DNA se
 
 ## Core Documentation Reference
 
-- Source: [FastaParser.cs#L78](../../../../src/Seqeron/Seqeron.Genomics/FastaParser.cs#L78)
+- Source: [FastaParser.cs#L78](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastaParser.cs#L78)
 
 ## Input Schema
 

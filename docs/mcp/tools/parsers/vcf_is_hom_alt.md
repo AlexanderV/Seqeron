@@ -18,7 +18,7 @@ Determines if a genotype string represents a homozygous alternate call (e.g., 1/
 
 ## Core Documentation Reference
 
-- Source: [VcfParser.cs#L539](../../../../src/Seqeron/Seqeron.Genomics/VcfParser.cs#L539)
+- Source: [VcfParser.cs#L539](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/VcfParser.cs#L539)
 
 ## Input Schema
 

@@ -18,7 +18,7 @@ Transcribes a DNA sequence to RNA by replacing thymine (T) with uracil (U). This
 
 ## Core Documentation Reference
 
-- Source: [RnaSequence.cs#L147](../../../../src/Seqeron/Seqeron.Genomics/RnaSequence.cs#L147)
+- Source: [RnaSequence.cs#L147](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/RnaSequence.cs#L147)
 
 ## Input Schema
 

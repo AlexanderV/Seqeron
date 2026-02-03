@@ -18,7 +18,7 @@ Calculates the grand average of hydropathy (GRAVY) index for a protein sequence 
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L306](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L306)
+- Source: [SequenceStatistics.cs#L306](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L306)
 
 ## Input Schema
 

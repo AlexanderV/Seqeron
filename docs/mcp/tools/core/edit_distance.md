@@ -18,7 +18,7 @@ Calculates the edit distance (Levenshtein distance) between two strings. The edi
 
 ## Core Documentation Reference
 
-- Source: [ApproximateMatcher.cs#L186](../../../../src/Seqeron/Seqeron.Genomics/ApproximateMatcher.cs#L186)
+- Source: [ApproximateMatcher.cs#L186](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/ApproximateMatcher.cs#L186)
 - Algorithm: Wagner-Fischer dynamic programming (space-optimized)
 
 ## Input Schema

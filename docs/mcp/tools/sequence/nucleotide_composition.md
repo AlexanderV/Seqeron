@@ -18,7 +18,7 @@ Calculates the nucleotide composition of a DNA or RNA sequence, including counts
 
 ## Core Documentation Reference
 
-- Source: [SequenceStatistics.cs#L48](../../../../src/Seqeron/Seqeron.Genomics/SequenceStatistics.cs#L48)
+- Source: [SequenceStatistics.cs#L48](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/SequenceStatistics.cs#L48)
 
 ## Input Schema
 

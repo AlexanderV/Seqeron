@@ -47,12 +47,12 @@ using (var tree = PersistentSuffixTreeFactory.Load(filePath) as IDisposable)
 
 The library follows Clean Architecture principles:
 
-- **[IStorageProvider](file:///d:/Prototype/src/SuffixTree/SuffixTree.Persistent/IStorageProvider.cs)**: An abstraction layer for memory access.
+- **[IStorageProvider](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/IStorageProvider.cs)**: An abstraction layer for memory access.
   - `HeapStorageProvider`: Uses a byte array for in-memory binary operations.
   - `MappedFileStorageProvider`: Uses `MemoryMappedFile` for disk-based persistence.
-- **[PersistentSuffixTreeNode](file:///d:/Prototype/src/SuffixTree/SuffixTree.Persistent/PersistentSuffixTreeNode.cs)**: A binary handle (struct) to a fixed-size node in storage.
-- **[PersistentSuffixTreeBuilder](file:///d:/Prototype/src/SuffixTree/SuffixTree.Persistent/PersistentSuffixTreeBuilder.cs)**: Implements Ukkonen's algorithm for stream-based construction.
-- **[PersistentSuffixTree](file:///d:/Prototype/src/SuffixTree/SuffixTree.Persistent/PersistentSuffixTree.cs)**: The search engine implementing `ISuffixTree`.
+- **[PersistentSuffixTreeNode](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeNode.cs)**: A binary handle (struct) to a fixed-size node in storage.
+- **[PersistentSuffixTreeBuilder](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeBuilder.cs)**: Implements Ukkonen's algorithm for stream-based construction.
+- **[PersistentSuffixTree](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTree.cs)**: The search engine implementing `ISuffixTree`.
 
 ### Binary Layout (Node)
 Nodes are represented as fixed 40-byte blocks (after adding `ChildCount`) with 64-bit offsets for unlimited file size support.
@@ -72,7 +72,7 @@ Nodes are represented as fixed 40-byte blocks (after adding `ChildCount`) with 6
 
 ## Canonical Operations
 
-The [SuffixTreeSerializer](file:///d:/Prototype/src/SuffixTree/SuffixTree.Persistent/SuffixTreeSerializer.cs) utility provides logical identity and portability for your trees.
+The [SuffixTreeSerializer](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTreeSerializer.cs) utility provides logical identity and portability for your trees.
 
 ### 1. Calculating Logical Hash
 Get a unique fingerprint of the tree structure that is identical across different memory layouts.

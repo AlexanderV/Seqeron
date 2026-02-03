@@ -18,7 +18,7 @@ Computes the reverse complement of a DNA sequence. First, each nucleotide is com
 
 ## Core Documentation Reference
 
-- Source: [DnaSequence.cs#L149](../../../../src/Seqeron/Seqeron.Genomics/DnaSequence.cs#L149)
+- Source: [DnaSequence.cs#L149](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/DnaSequence.cs#L149)
 
 ## Input Schema
 

@@ -22,7 +22,7 @@ The output file is written in UTF-8 encoding with standard FASTQ format:
 
 ## Core Documentation Reference
 
-- Source: [FastqParser.cs#L437](../../../../src/Seqeron/Seqeron.Genomics/FastqParser.cs#L437)
+- Source: [FastqParser.cs#L437](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/FastqParser.cs#L437)
 
 ## Input Schema
 

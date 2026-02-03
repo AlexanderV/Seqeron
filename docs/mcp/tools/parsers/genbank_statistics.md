@@ -18,7 +18,7 @@ Calculates comprehensive statistics for GenBank records. Returns counts of recor
 
 ## Core Documentation Reference
 
-- Source: [GenBankParser.cs](../../../../src/Seqeron/Seqeron.Genomics/GenBankParser.cs)
+- Source: [GenBankParser.cs](../../../../src/Seqeron/Algorithms/Seqeron.Genomics/GenBankParser.cs)
 
 ## Input Schema
 
