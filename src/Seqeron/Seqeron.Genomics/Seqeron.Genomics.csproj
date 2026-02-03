@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\SuffixTree\SuffixTree\SuffixTree.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
     <ProjectReference Include="..\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -15,6 +16,7 @@
   <ItemGroup>
     <Using Include="Seqeron.Genomics.Core" />
     <Using Include="Seqeron.Genomics.Infrastructure" />
+    <Using Include="Seqeron.Genomics.IO" />
   </ItemGroup>
 
 </Project>

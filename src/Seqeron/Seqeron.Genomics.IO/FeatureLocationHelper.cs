@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.IO
 {
     /// <summary>
     /// Helper methods for extracting feature sequences from genomic records.
@@ -67,3 +67,4 @@ namespace Seqeron.Genomics
             => ExtractSequenceInternal(fullSequence, location.Parts, location.Start, location.End, location.IsComplement);
     }
 }
+

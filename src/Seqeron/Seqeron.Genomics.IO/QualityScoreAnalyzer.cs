@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Provides quality score analysis for sequencing data (FASTQ format).
@@ -597,3 +597,4 @@ public static class QualityScoreAnalyzer
         return PhredToQualityString(consensusPhred, encoding);
     }
 }
+

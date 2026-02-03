@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.IO;
 
 /// <summary>
 /// Provides parsers and writers for various bioinformatics file formats.
@@ -1003,3 +1003,4 @@ public static class SequenceIO
 
     #endregion
 }
+
