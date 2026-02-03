@@ -34,19 +34,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Population\Seqeron.Genomics.Population.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Metagenomics\Seqeron.Genomics.Metagenomics.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj" />
-    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Core\Seqeron.Genomics.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.IO\Seqeron.Genomics.IO.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Alignment\Seqeron.Genomics.Alignment.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Analysis\Seqeron.Genomics.Analysis.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Annotation\Seqeron.Genomics.Annotation.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Phylogenetics\Seqeron.Genomics.Phylogenetics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Population\Seqeron.Genomics.Population.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Metagenomics\Seqeron.Genomics.Metagenomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj" />
   </ItemGroup>
 
 </Project>

@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\SuffixTree\SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\SuffixTree\Mcp\SuffixTree.Mcp.Core\SuffixTree.Mcp.Core.csproj" />
   </ItemGroup>
 
 </Project>
