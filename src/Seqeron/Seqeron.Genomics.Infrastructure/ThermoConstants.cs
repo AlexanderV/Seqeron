@@ -1,4 +1,4 @@
-namespace Seqeron.Genomics;
+namespace Seqeron.Genomics.Infrastructure;
 
 /// <summary>
 /// Constants for thermodynamic calculations (melting temperature, etc.).

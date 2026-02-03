@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics\Seqeron.Genomics.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

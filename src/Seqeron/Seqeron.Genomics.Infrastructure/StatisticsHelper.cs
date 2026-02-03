@@ -1,6 +1,6 @@
 using System;
 
-namespace Seqeron.Genomics
+namespace Seqeron.Genomics.Infrastructure
 {
     /// <summary>
     /// Common statistical functions used across genomics analyzers.

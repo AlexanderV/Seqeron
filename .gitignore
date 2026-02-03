@@ -262,3 +262,14 @@ __pycache__/
 *.pyc
 /ignore/*.txt
 /docs/MCP-Server-Plan.md
+
+# Temporary debug/test output files
+staged_files.txt
+test_debug_output*.txt
+test_error*.txt
+test_results.txt
+final_test_results.txt
+build_errors.txt
+build_output*.txt
+build_cleaned.txt
+persistent_*.txt
