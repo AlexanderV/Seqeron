@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 53 |
+| **Completed** | 54 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 47 |
+| **Not Started** | 46 |
 
 ---
 
@@ -86,7 +86,7 @@
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | TRANS-CODON-001.md | GeneticCodeTests.cs |
 | ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](tests/TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
 | ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](tests/TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
-| ☐ | PARSE-FASTQ-001 | FileIO | 4 | - | - | - |
+| ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](tests/TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
 | ☐ | PARSE-BED-001 | FileIO | 6 | - | - | - |
 | ☐ | PARSE-VCF-001 | FileIO | 4 | - | - | - |
 | ☐ | PARSE-GFF-001 | FileIO | 3 | - | - | - |
