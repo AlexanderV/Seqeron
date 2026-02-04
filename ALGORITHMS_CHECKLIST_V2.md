@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 100 |
-| **Completed** | 65 |
+| **Total Test Units** | 107 |
+| **Completed** | 66 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 35 |
+| **Not Started** | 41 |
 
 ---
 
