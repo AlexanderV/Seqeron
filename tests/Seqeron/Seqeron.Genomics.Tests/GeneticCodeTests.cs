@@ -178,28 +178,76 @@ namespace Seqeron.Genomics.Tests
             var expectedTable = new Dictionary<string, char>
             {
                 // First codon position U
-                ["UUU"] = 'F', ["UUC"] = 'F', ["UUA"] = 'L', ["UUG"] = 'L',
-                ["UCU"] = 'S', ["UCC"] = 'S', ["UCA"] = 'S', ["UCG"] = 'S',
-                ["UAU"] = 'Y', ["UAC"] = 'Y', ["UAA"] = '*', ["UAG"] = '*',
-                ["UGU"] = 'C', ["UGC"] = 'C', ["UGA"] = '*', ["UGG"] = 'W',
-                
+                ["UUU"] = 'F',
+                ["UUC"] = 'F',
+                ["UUA"] = 'L',
+                ["UUG"] = 'L',
+                ["UCU"] = 'S',
+                ["UCC"] = 'S',
+                ["UCA"] = 'S',
+                ["UCG"] = 'S',
+                ["UAU"] = 'Y',
+                ["UAC"] = 'Y',
+                ["UAA"] = '*',
+                ["UAG"] = '*',
+                ["UGU"] = 'C',
+                ["UGC"] = 'C',
+                ["UGA"] = '*',
+                ["UGG"] = 'W',
+
                 // First codon position C
-                ["CUU"] = 'L', ["CUC"] = 'L', ["CUA"] = 'L', ["CUG"] = 'L',
-                ["CCU"] = 'P', ["CCC"] = 'P', ["CCA"] = 'P', ["CCG"] = 'P',
-                ["CAU"] = 'H', ["CAC"] = 'H', ["CAA"] = 'Q', ["CAG"] = 'Q',
-                ["CGU"] = 'R', ["CGC"] = 'R', ["CGA"] = 'R', ["CGG"] = 'R',
-                
+                ["CUU"] = 'L',
+                ["CUC"] = 'L',
+                ["CUA"] = 'L',
+                ["CUG"] = 'L',
+                ["CCU"] = 'P',
+                ["CCC"] = 'P',
+                ["CCA"] = 'P',
+                ["CCG"] = 'P',
+                ["CAU"] = 'H',
+                ["CAC"] = 'H',
+                ["CAA"] = 'Q',
+                ["CAG"] = 'Q',
+                ["CGU"] = 'R',
+                ["CGC"] = 'R',
+                ["CGA"] = 'R',
+                ["CGG"] = 'R',
+
                 // First codon position A
-                ["AUU"] = 'I', ["AUC"] = 'I', ["AUA"] = 'I', ["AUG"] = 'M',
-                ["ACU"] = 'T', ["ACC"] = 'T', ["ACA"] = 'T', ["ACG"] = 'T',
-                ["AAU"] = 'N', ["AAC"] = 'N', ["AAA"] = 'K', ["AAG"] = 'K',
-                ["AGU"] = 'S', ["AGC"] = 'S', ["AGA"] = 'R', ["AGG"] = 'R',
-                
+                ["AUU"] = 'I',
+                ["AUC"] = 'I',
+                ["AUA"] = 'I',
+                ["AUG"] = 'M',
+                ["ACU"] = 'T',
+                ["ACC"] = 'T',
+                ["ACA"] = 'T',
+                ["ACG"] = 'T',
+                ["AAU"] = 'N',
+                ["AAC"] = 'N',
+                ["AAA"] = 'K',
+                ["AAG"] = 'K',
+                ["AGU"] = 'S',
+                ["AGC"] = 'S',
+                ["AGA"] = 'R',
+                ["AGG"] = 'R',
+
                 // First codon position G
-                ["GUU"] = 'V', ["GUC"] = 'V', ["GUA"] = 'V', ["GUG"] = 'V',
-                ["GCU"] = 'A', ["GCC"] = 'A', ["GCA"] = 'A', ["GCG"] = 'A',
-                ["GAU"] = 'D', ["GAC"] = 'D', ["GAA"] = 'E', ["GAG"] = 'E',
-                ["GGU"] = 'G', ["GGC"] = 'G', ["GGA"] = 'G', ["GGG"] = 'G'
+                ["GUU"] = 'V',
+                ["GUC"] = 'V',
+                ["GUA"] = 'V',
+                ["GUG"] = 'V',
+                ["GCU"] = 'A',
+                ["GCC"] = 'A',
+                ["GCA"] = 'A',
+                ["GCG"] = 'A',
+                ["GAU"] = 'D',
+                ["GAC"] = 'D',
+                ["GAA"] = 'E',
+                ["GAG"] = 'E',
+                ["GGU"] = 'G',
+                ["GGC"] = 'G',
+                ["GGA"] = 'G',
+                ["GGG"] = 'G'
             };
 
             Assert.That(expectedTable.Count, Is.EqualTo(64), "Test data completeness");
@@ -207,7 +255,7 @@ namespace Seqeron.Genomics.Tests
             foreach (var (codon, expectedAa) in expectedTable)
             {
                 var actualAa = GeneticCode.Standard.Translate(codon);
-                Assert.That(actualAa, Is.EqualTo(expectedAa), 
+                Assert.That(actualAa, Is.EqualTo(expectedAa),
                     $"Codon {codon}: expected {expectedAa}, got {actualAa}");
             }
         }
@@ -707,7 +755,7 @@ namespace Seqeron.Genomics.Tests
         public void GetByTableNumber_AllSupported_ReturnsValidCodes()
         {
             int[] supportedTables = { 1, 2, 3, 11 };
-            
+
             foreach (int tableNum in supportedTables)
             {
                 var code = GeneticCode.GetByTableNumber(tableNum);
