@@ -2,6 +2,21 @@ using NUnit.Framework;
 
 namespace Seqeron.Genomics.Tests
 {
+    /// <summary>
+    /// Tests for Translator protein translation.
+    /// Test Unit: TRANS-PROT-001
+    /// 
+    /// Evidence Sources:
+    ///   - Wikipedia: Translation (biology), Reading frame, Open reading frame
+    ///   - NCBI: The Genetic Codes (translation tables)
+    ///   - Lodish H et al. (2007): Molecular Cell Biology
+    /// 
+    /// Key Invariants:
+    ///   - Codons are read in triplets from 5' to 3'
+    ///   - Frame parameter offsets reading start position
+    ///   - Stop codons (UAA, UAG, UGA) terminate translation
+    ///   - Six-frame translation covers both strands
+    /// </summary>
     [TestFixture]
     public class TranslatorTests
     {
@@ -69,6 +84,13 @@ namespace Seqeron.Genomics.Tests
         public void Translate_NullDna_ThrowsException()
         {
             Assert.Throws<ArgumentNullException>(() => Translator.Translate((DnaSequence)null!));
+        }
+
+        [Test]
+        public void Translate_NullRna_ThrowsException()
+        {
+            // Source: Implementation spec - null input handling
+            Assert.Throws<ArgumentNullException>(() => Translator.Translate((RnaSequence)null!));
         }
 
         #endregion
@@ -177,6 +199,13 @@ namespace Seqeron.Genomics.Tests
             var revFrame1 = Translator.Translate(revComp, frame: 0);
 
             Assert.That(frames[-1].Sequence, Is.EqualTo(revFrame1.Sequence));
+        }
+
+        [Test]
+        public void TranslateSixFrames_NullInput_ThrowsException()
+        {
+            // Source: Implementation spec - null input handling
+            Assert.Throws<ArgumentNullException>(() => Translator.TranslateSixFrames(null!));
         }
 
         #endregion

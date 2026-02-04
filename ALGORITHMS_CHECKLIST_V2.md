@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 51 |
+| **Completed** | 52 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 49 |
+| **Not Started** | 48 |
 
 ---
 
@@ -84,7 +84,7 @@
 | ☑ | CODON-RARE-001 | Codon | 1 | Wikipedia (Codon usage bias), Kazusa, Shu et al. (2006), Sharp & Li (1987) | [CODON-RARE-001.md](tests/TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs |
 | ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](tests/TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | TRANS-CODON-001.md | GeneticCodeTests.cs |
-| ☐ | TRANS-PROT-001 | Translation | 1 | - | - | - |
+| ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](tests/TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
 | ☐ | PARSE-FASTA-001 | FileIO | 4 | - | - | - |
 | ☐ | PARSE-FASTQ-001 | FileIO | 4 | - | - | - |
 | ☐ | PARSE-BED-001 | FileIO | 6 | - | - | - |
