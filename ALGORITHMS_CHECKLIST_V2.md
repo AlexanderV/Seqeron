@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 52 |
+| **Completed** | 53 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 48 |
+| **Not Started** | 47 |
 
 ---
 
@@ -85,7 +85,7 @@
 | ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](tests/TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
 | ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | TRANS-CODON-001.md | GeneticCodeTests.cs |
 | ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](tests/TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
-| ☐ | PARSE-FASTA-001 | FileIO | 4 | - | - | - |
+| ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](tests/TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
 | ☐ | PARSE-FASTQ-001 | FileIO | 4 | - | - | - |
 | ☐ | PARSE-BED-001 | FileIO | 6 | - | - | - |
 | ☐ | PARSE-VCF-001 | FileIO | 4 | - | - | - |
