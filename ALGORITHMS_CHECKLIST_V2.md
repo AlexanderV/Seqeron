@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 47 |
+| **Completed** | 48 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 53 |
+| **Not Started** | 52 |
 
 ---
 
@@ -79,7 +79,7 @@
 | ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
 | ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](tests/TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
 | ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](tests/TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
-| ☐ | CODON-OPT-001 | Codon | 1 | - | - | - |
+| ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](tests/TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
 | ☐ | CODON-CAI-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-RARE-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-USAGE-001 | Codon | 2 | - | - | - |
