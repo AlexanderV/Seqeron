@@ -533,4 +533,239 @@ chr1	100	200";
     }
 
     #endregion
+
+    #region Coordinate System Tests (Evidence: UCSC FAQ, Wikipedia)
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "The first base in a chromosome is numbered 0"
+    /// </summary>
+    [Test]
+    public void Coordinate_ZeroBased_FirstBaseIsZero()
+    {
+        // BED coordinates are 0-based: first base is position 0
+        const string bed = "chr1\t0\t1\tfirst_base";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].ChromStart, Is.EqualTo(0), "First position should be 0");
+            Assert.That(records[0].ChromEnd, Is.EqualTo(1), "End position for single base at 0 should be 1");
+            Assert.That(records[0].Length, Is.EqualTo(1), "Single base should have length 1");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "chromEnd base is not included in the display"
+    /// Wikipedia - "chromEnd is non-inclusive"
+    /// </summary>
+    [Test]
+    public void Coordinate_EndIsNonInclusive_LengthCorrect()
+    {
+        // The first 100 bases: chr1:1-100 in browser = chromStart=0, chromEnd=100
+        const string bed = "chr1\t0\t100\tfirst_100_bases";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].ChromStart, Is.EqualTo(0));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(100));
+            Assert.That(records[0].Length, Is.EqualTo(100), "Length = chromEnd - chromStart");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "chromStart=0, chromEnd=0 to represent an insertion before the first nucleotide"
+    /// </summary>
+    [Test]
+    public void Coordinate_ZeroLength_ValidForInsertions()
+    {
+        // Zero-length features represent insertion points
+        const string bed = "chr1\t5\t5\tinsertion_point";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].ChromStart, Is.EqualTo(5));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(5));
+            Assert.That(records[0].Length, Is.EqualTo(0), "Insertion point has zero length");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia - "chr1:1-100 in browser = chromStart=0, chromEnd=100"
+    /// </summary>
+    [Test]
+    public void Coordinate_BrowserToZeroBased_ConversionCorrect()
+    {
+        // Browser position chr7:127471196-127495720 corresponds to
+        // chromStart=127471195 (0-based), chromEnd=127495720
+        const string bed = "chr7\t127471195\t127495720\tfeature";
+        var records = BedParser.Parse(bed).ToList();
+
+        // Length should be exactly the browser range
+        Assert.That(records[0].Length, Is.EqualTo(127495720 - 127471195));
+    }
+
+    #endregion
+
+    #region BED12 Block Validation Tests (Evidence: UCSC FAQ)
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "the first blockStart value must be 0"
+    /// </summary>
+    [Test]
+    public void Parse_BED12_FirstBlockStartIsZero()
+    {
+        // Valid BED12 with first blockStart = 0
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,300\t0,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].BlockStarts, Is.Not.Null);
+            Assert.That(records[0].BlockStarts![0], Is.EqualTo(0), "First blockStart must be 0");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "number of items in this list should correspond to blockCount"
+    /// </summary>
+    [Test]
+    public void Parse_BED12_BlockCountMatchesArrayLengths()
+    {
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,300\t0,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].BlockCount, Is.EqualTo(3));
+            Assert.That(records[0].BlockSizes, Has.Length.EqualTo(3), "BlockSizes length must match BlockCount");
+            Assert.That(records[0].BlockStarts, Has.Length.EqualTo(3), "BlockStarts length must match BlockCount");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "final blockStart position plus the final blockSize value must equal chromEnd"
+    /// (relative to chromStart, so equals chromEnd - chromStart = Length)
+    /// </summary>
+    [Test]
+    public void Parse_BED12_FinalBlockReachesEnd()
+    {
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,300\t0,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+        var record = records[0];
+
+        // Feature length
+        int featureLength = record.ChromEnd - record.ChromStart; // 4000
+
+        // Last block: starts at 3700 (relative), size 300
+        int lastBlockStart = record.BlockStarts![record.BlockCount!.Value - 1];
+        int lastBlockSize = record.BlockSizes![record.BlockCount!.Value - 1];
+
+        Assert.That(lastBlockStart + lastBlockSize, Is.EqualTo(featureLength),
+            "Final blockStart + final blockSize must equal feature length");
+    }
+
+    /// <summary>
+    /// Verify exon coordinates are calculated correctly from blocks.
+    /// Evidence: UCSC FAQ - "blockStart positions should be calculated relative to chromStart"
+    /// </summary>
+    [Test]
+    public void Parse_BED12_ExonAbsoluteCoordinatesCorrect()
+    {
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,300\t0,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+        var record = records[0];
+
+        // Exon 1: chromStart + blockStarts[0] = 1000 + 0 = 1000
+        //         end = 1000 + 0 + 100 = 1100
+        // Exon 2: 1000 + 1000 = 2000, end = 2000 + 200 = 2200
+        // Exon 3: 1000 + 3700 = 4700, end = 4700 + 300 = 5000
+
+        var exons = BedParser.ExpandBlocks(record).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exons, Has.Count.EqualTo(3));
+            Assert.That(exons[0].ChromStart, Is.EqualTo(1000));
+            Assert.That(exons[0].ChromEnd, Is.EqualTo(1100));
+            Assert.That(exons[1].ChromStart, Is.EqualTo(2000));
+            Assert.That(exons[1].ChromEnd, Is.EqualTo(2200));
+            Assert.That(exons[2].ChromStart, Is.EqualTo(4700));
+            Assert.That(exons[2].ChromEnd, Is.EqualTo(5000));
+        });
+    }
+
+    #endregion
+
+    #region GenomicInterval Tests
+
+    [Test]
+    public void GenomicInterval_Length_CalculatedCorrectly()
+    {
+        var interval = new BedParser.GenomicInterval("chr1", 100, 200);
+        Assert.That(interval.Length, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void GenomicInterval_Union_ReturnsUnion()
+    {
+        var i1 = new BedParser.GenomicInterval("chr1", 100, 200);
+        var i2 = new BedParser.GenomicInterval("chr1", 150, 300);
+
+        var union = i1.Union(i2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(union.Start, Is.EqualTo(100));
+            Assert.That(union.End, Is.EqualTo(300));
+        });
+    }
+
+    [Test]
+    public void GenomicInterval_Intersect_NonOverlapping_ReturnsNull()
+    {
+        var i1 = new BedParser.GenomicInterval("chr1", 100, 200);
+        var i2 = new BedParser.GenomicInterval("chr1", 300, 400);
+
+        var intersection = i1.Intersect(i2);
+
+        Assert.That(intersection, Is.Null);
+    }
+
+    #endregion
+
+    #region Expand Intervals Tests
+
+    [Test]
+    public void ExpandIntervals_ZeroExpansion_Unchanged()
+    {
+        const string bed = "chr1\t100\t200\tname\t0\t+";
+        var records = BedParser.Parse(bed).ToList();
+
+        var expanded = BedParser.ExpandIntervals(records, upstream: 0, downstream: 0).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expanded[0].ChromStart, Is.EqualTo(100));
+            Assert.That(expanded[0].ChromEnd, Is.EqualTo(200));
+        });
+    }
+
+    [Test]
+    public void ExpandIntervals_UpstreamExpansion_ClampsToZero()
+    {
+        const string bed = "chr1\t50\t100\tname\t0\t+";
+        var records = BedParser.Parse(bed).ToList();
+
+        // Expand upstream by 100 from position 50 would go to -50, should clamp to 0
+        var expanded = BedParser.ExpandIntervals(records, upstream: 100, downstream: 0).ToList();
+
+        Assert.That(expanded[0].ChromStart, Is.EqualTo(0), "ChromStart should clamp to 0");
+    }
+
+    #endregion
 }
