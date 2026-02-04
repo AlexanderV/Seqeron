@@ -44,52 +44,7 @@ public class CodonOptimizerTests
 
     #endregion
 
-    #region CAI Calculation Tests
-
-    [Test]
-    public void CalculateCAI_AllOptimalCodons_HighCAI()
-    {
-        // Use only E. coli preferred codons
-        string optimized = "AUGCUGACC"; // M-L-T with good codons
-        double cai = CodonOptimizer.CalculateCAI(optimized, CodonOptimizer.EColiK12);
-        Assert.That(cai, Is.GreaterThan(0.5));
-    }
-
-    [Test]
-    public void CalculateCAI_RareCodons_LowerCAI()
-    {
-        // Use rare codons for E. coli
-        string rare = "AUGCUAACU"; // M-L-T with rare codons
-        double cai = CodonOptimizer.CalculateCAI(rare, CodonOptimizer.EColiK12);
-        Assert.That(cai, Is.LessThan(0.5));
-    }
-
-    [Test]
-    public void CalculateCAI_EmptySequence_ReturnsZero()
-    {
-        double cai = CodonOptimizer.CalculateCAI("", CodonOptimizer.EColiK12);
-        Assert.That(cai, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateCAI_SingleCodon_ReturnsValue()
-    {
-        double cai = CodonOptimizer.CalculateCAI("AUG", CodonOptimizer.EColiK12);
-        Assert.That(cai, Is.EqualTo(1.0)); // AUG is the only codon for Met
-    }
-
-    [Test]
-    public void CalculateCAI_DifferentOrganisms_DifferentResults()
-    {
-        string sequence = "CUGCCGACC"; // L-P-T
-        double ecoliCAI = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-        double yeastCAI = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.Yeast);
-
-        // E. coli prefers CUG, CCG while yeast has different preferences
-        Assert.That(ecoliCAI, Is.Not.EqualTo(yeastCAI));
-    }
-
-    #endregion
+    // NOTE: CAI calculation tests moved to CodonOptimizer_CAI_Tests.cs (CODON-CAI-001)
 
     #region Optimization Strategy Tests
 
