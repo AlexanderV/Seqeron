@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 46 |
+| **Completed** | 47 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 54 |
+| **Not Started** | 53 |
 
 ---
 
@@ -78,7 +78,7 @@
 | ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
 | ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
 | ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](tests/TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
-| ☐ | META-BIN-001 | Metagenomics | 1 | - | - | - |
+| ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](tests/TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
 | ☐ | CODON-OPT-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-CAI-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-RARE-001 | Codon | 1 | - | - | - |
