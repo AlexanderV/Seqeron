@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 100 |
-| **Completed** | 50 |
+| **Completed** | 51 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 50 |
+| **Not Started** | 49 |
 
 ---
 
@@ -82,7 +82,7 @@
 | ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](tests/TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
 | ☑ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987) | [CODON-CAI-001.md](tests/TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
 | ☑ | CODON-RARE-001 | Codon | 1 | Wikipedia (Codon usage bias), Kazusa, Shu et al. (2006), Sharp & Li (1987) | [CODON-RARE-001.md](tests/TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs |
-| ☐ | CODON-USAGE-001 | Codon | 2 | - | - | - |
+| ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](tests/TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
 | ☐ | TRANS-CODON-001 | Translation | 3 | - | - | - |
 | ☐ | TRANS-PROT-001 | Translation | 1 | - | - | - |
 | ☐ | PARSE-FASTA-001 | FileIO | 4 | - | - | - |
