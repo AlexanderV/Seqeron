@@ -186,6 +186,69 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
         Assert.That(VcfParser.GetVariantLength(deletion), Is.EqualTo(2)); // ATG - A = 2
     }
 
+    [Test]
+    public void ClassifyVariant_MNP_ReturnsMnp()
+    {
+        // MNP: Multi-nucleotide polymorphism - ref and alt same length > 1
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	AT	GC	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.MNP));
+    }
+
+    [Test]
+    public void ClassifyVariant_Symbolic_ReturnsSymbolic()
+    {
+        // Symbolic alleles: structural variants like <DEL>, <INS>, <DUP>
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	<DEL>	99	PASS	.
+chr1	200	.	A	<INS>	99	PASS	.
+chr1	300	.	A	<DUP>	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+            Assert.That(VcfParser.ClassifyVariant(records[1]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+            Assert.That(VcfParser.ClassifyVariant(records[2]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+        });
+    }
+
+    [Test]
+    public void ClassifyVariant_Complex_ReturnsComplex()
+    {
+        // Complex: both ref and alt lengths differ but don't fit insertion/deletion pattern
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	ATG	CT	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Complex));
+    }
+
+    [Test]
+    public void ClassifyVariant_BreakendSymbolic_ReturnsSymbolic()
+    {
+        // Breakend notation using [ or ] brackets
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	]chr2:500]A	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+    }
+
     #endregion
 
     #region Filtering Tests
@@ -320,6 +383,90 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
 
         // May be null if AD field is not present
         Assert.Pass();
+    }
+
+    [Test]
+    public void IsHomRef_PhasedGenotype_ReturnsTrue()
+    {
+        // Test phased genotype notation (| instead of /)
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	GT	0|0";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(VcfParser.IsHomRef(records[0], 0), Is.True);
+    }
+
+    [Test]
+    public void IsHomAlt_PhasedGenotype_ReturnsTrue()
+    {
+        // Test phased genotype notation for homozygous alternate
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	GT	1|1";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(VcfParser.IsHomAlt(records[0], 0), Is.True);
+    }
+
+    [Test]
+    public void IsHet_PhasedGenotype_ReturnsTrue()
+    {
+        // Test phased heterozygous genotype
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	GT	0|1";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(VcfParser.IsHet(records[0], 0), Is.True);
+    }
+
+    [Test]
+    public void IsHomAlt_MultiAllelic_DetectsCorrectly()
+    {
+        // Test homozygous for second alternate allele (2/2)
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G,T	99	PASS	.	GT	2/2";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(VcfParser.IsHomAlt(records[0], 0), Is.True);
+    }
+
+    [Test]
+    public void IsHet_MultiAllelicBothAlternate_ReturnsTrue()
+    {
+        // Test heterozygous with both alleles being alternates (1/2)
+        var records = VcfParser.Parse(SimpleVcf).ToList();
+        // Third record has multi-allelic site with 1/2 genotype
+        var multiAllelicRecord = records[2];
+
+        Assert.That(VcfParser.IsHet(multiAllelicRecord, 0), Is.True);
+    }
+
+    [Test]
+    public void GetGenotype_MissingSample_ReturnsNull()
+    {
+        var records = VcfParser.Parse(SimpleVcf).ToList();
+        var gt = VcfParser.GetGenotype(records[0], 99); // Non-existent sample index
+
+        Assert.That(gt, Is.Null);
+    }
+
+    [Test]
+    public void IsHomRef_NoSamples_ReturnsFalse()
+    {
+        var records = VcfParser.Parse(VcfWithIndels).ToList(); // VCF without samples
+        
+        Assert.That(VcfParser.IsHomRef(records[0], 0), Is.False);
     }
 
     #endregion

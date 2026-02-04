@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 107 |
-| **Completed** | 66 |
+| **Completed** | 67 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 41 |
+| **Not Started** | 40 |
 
 ---
 
@@ -88,7 +88,7 @@
 | ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](tests/TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
 | ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](tests/TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
 | ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](tests/TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
-| ☐ | PARSE-VCF-001 | FileIO | 4 | - | - | - |
+| ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](tests/TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
 | ☐ | PARSE-GFF-001 | FileIO | 3 | - | - | - |
 | ☐ | PARSE-GENBANK-001 | FileIO | 3 | - | - | - |
 | ☐ | PARSE-EMBL-001 | FileIO | 2 | - | - | - |
