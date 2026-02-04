@@ -148,33 +148,7 @@ public class CodonOptimizerTests
         Assert.That(usage, Is.Empty);
     }
 
-    [Test]
-    public void FindRareCodons_IdentifiesRare()
-    {
-        // AGA is rare in E. coli (0.07)
-        string sequence = "AUGAGAAGA"; // M-R-R
-        var rare = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.1).ToList();
-
-        Assert.That(rare.Count, Is.GreaterThanOrEqualTo(2));
-        Assert.That(rare.All(r => r.Codon == "AGA"), Is.True);
-    }
-
-    [Test]
-    public void FindRareCodons_ReturnsPosition()
-    {
-        string sequence = "CUGAGA"; // L-R
-        var rare = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.1).ToList();
-
-        var agaCodon = rare.FirstOrDefault(r => r.Codon == "AGA");
-        Assert.That(agaCodon.Position, Is.EqualTo(3)); // Position of AGA
-    }
-
-    [Test]
-    public void FindRareCodons_EmptySequence_ReturnsEmpty()
-    {
-        var rare = CodonOptimizer.FindRareCodons("", CodonOptimizer.EColiK12).ToList();
-        Assert.That(rare, Is.Empty);
-    }
+    // NOTE: FindRareCodons tests moved to CodonOptimizer_FindRareCodons_Tests.cs (CODON-RARE-001)
 
     [Test]
     public void CompareCodonUsage_IdenticalSequences_HighSimilarity()
