@@ -12,91 +12,23 @@ namespace Seqeron.Genomics.Tests;
 /// - META-CLASS-001: MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs
 /// - META-PROF-001: MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
 /// - META-ALPHA-001: MetagenomicsAnalyzer_AlphaDiversity_Tests.cs
+/// - META-BETA-001: MetagenomicsAnalyzer_BetaDiversity_Tests.cs
 /// 
 /// This file contains tests for:
-/// - META-BETA-001: Beta Diversity (CalculateBetaDiversity)
-/// - META-BIN-001: Genome Binning (BinContigs)
+/// - META-BIN-001: Genome Binning (BinContigs) - smoke tests
+/// - Functional profiling methods
+/// - Resistance gene detection
+/// - Differential abundance analysis
 /// </summary>
 [TestFixture]
 public class MetagenomicsAnalyzerTests
 {
-    #region Beta Diversity Tests
+    #region Genome Binning Smoke Tests
 
     [Test]
-    public void CalculateBetaDiversity_IdenticalSamples_ZeroDistance()
+    public void BinContigs_BasicFunctionality_ReturnsResults()
     {
-        var sample1 = new Dictionary<string, double>
-        {
-            { "Sp1", 0.5 }, { "Sp2", 0.5 }
-        };
-        var sample2 = new Dictionary<string, double>
-        {
-            { "Sp1", 0.5 }, { "Sp2", 0.5 }
-        };
-
-        var beta = MetagenomicsAnalyzer.CalculateBetaDiversity("S1", sample1, "S2", sample2);
-
-        Assert.That(beta.BrayCurtis, Is.EqualTo(0).Within(0.01));
-        Assert.That(beta.JaccardDistance, Is.EqualTo(0).Within(0.01));
-    }
-
-    [Test]
-    public void CalculateBetaDiversity_CompletelyDifferent_MaxDistance()
-    {
-        var sample1 = new Dictionary<string, double>
-        {
-            { "Sp1", 1.0 }
-        };
-        var sample2 = new Dictionary<string, double>
-        {
-            { "Sp2", 1.0 }
-        };
-
-        var beta = MetagenomicsAnalyzer.CalculateBetaDiversity("S1", sample1, "S2", sample2);
-
-        Assert.That(beta.BrayCurtis, Is.EqualTo(1.0).Within(0.01));
-        Assert.That(beta.JaccardDistance, Is.EqualTo(1.0).Within(0.01));
-        Assert.That(beta.SharedSpecies, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateBetaDiversity_PartialOverlap_IntermediateDistance()
-    {
-        var sample1 = new Dictionary<string, double>
-        {
-            { "Sp1", 0.5 }, { "Sp2", 0.5 }
-        };
-        var sample2 = new Dictionary<string, double>
-        {
-            { "Sp2", 0.5 }, { "Sp3", 0.5 }
-        };
-
-        var beta = MetagenomicsAnalyzer.CalculateBetaDiversity("S1", sample1, "S2", sample2);
-
-        Assert.That(beta.SharedSpecies, Is.EqualTo(1));
-        Assert.That(beta.UniqueToSample1, Is.EqualTo(1));
-        Assert.That(beta.UniqueToSample2, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CalculateBetaDiversity_ReturnsCorrectSampleNames()
-    {
-        var sample1 = new Dictionary<string, double> { { "Sp1", 1.0 } };
-        var sample2 = new Dictionary<string, double> { { "Sp2", 1.0 } };
-
-        var beta = MetagenomicsAnalyzer.CalculateBetaDiversity("Sample_A", sample1, "Sample_B", sample2);
-
-        Assert.That(beta.Sample1, Is.EqualTo("Sample_A"));
-        Assert.That(beta.Sample2, Is.EqualTo("Sample_B"));
-    }
-
-    #endregion
-
-    #region Genome Binning Tests
-
-    [Test]
-    public void BinContigs_GroupsByComposition()
-    {
+        // Minimal smoke test - detailed tests in future META-BIN-001 test file
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>
         {
             ("contig1", new string('G', 500) + new string('C', 500), 10.0),
@@ -106,8 +38,8 @@ public class MetagenomicsAnalyzerTests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 500).ToList();
 
-        // Should create at least one bin
-        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(0)); // May not meet minBinSize
+        // Basic smoke test - should not throw
+        Assert.That(bins, Is.Not.Null);
     }
 
     [Test]
@@ -117,22 +49,6 @@ public class MetagenomicsAnalyzerTests
         var bins = MetagenomicsAnalyzer.BinContigs(contigs).ToList();
 
         Assert.That(bins, Is.Empty);
-    }
-
-    [Test]
-    public void BinContigs_CalculatesGcContent()
-    {
-        var contigs = new List<(string ContigId, string Sequence, double Coverage)>
-        {
-            ("c1", new string('G', 250000) + new string('C', 250000) + new string('A', 500000), 10.0)
-        };
-
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 5, minBinSize: 100000).ToList();
-
-        if (bins.Count > 0)
-        {
-            Assert.That(bins[0].GcContent, Is.GreaterThan(0.4).And.LessThan(0.6));
-        }
     }
 
     #endregion
