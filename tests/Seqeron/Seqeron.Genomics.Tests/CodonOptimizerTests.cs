@@ -129,52 +129,8 @@ public class CodonOptimizerTests
 
     #endregion
 
-    #region Codon Usage Analysis Tests
-
-    [Test]
-    public void CalculateCodonUsage_CountsCodons()
-    {
-        string sequence = "AUGGCUGCU"; // M-A-A
-        var usage = CodonOptimizer.CalculateCodonUsage(sequence);
-
-        Assert.That(usage["AUG"], Is.EqualTo(1));
-        Assert.That(usage["GCU"], Is.EqualTo(2));
-    }
-
-    [Test]
-    public void CalculateCodonUsage_EmptySequence_ReturnsEmptyDictionary()
-    {
-        var usage = CodonOptimizer.CalculateCodonUsage("");
-        Assert.That(usage, Is.Empty);
-    }
-
+    // NOTE: Codon Usage Analysis tests moved to CodonOptimizer_CodonUsage_Tests.cs (CODON-USAGE-001)
     // NOTE: FindRareCodons tests moved to CodonOptimizer_FindRareCodons_Tests.cs (CODON-RARE-001)
-
-    [Test]
-    public void CompareCodonUsage_IdenticalSequences_HighSimilarity()
-    {
-        string sequence = "AUGGCUGCACUG";
-        double similarity = CodonOptimizer.CompareCodonUsage(sequence, sequence);
-        Assert.That(similarity, Is.EqualTo(1.0));
-    }
-
-    [Test]
-    public void CompareCodonUsage_DifferentSequences_LowerSimilarity()
-    {
-        string seq1 = "CUGCUGCUGCUG"; // All CUG
-        string seq2 = "CUACUACUACUA"; // All CUA
-        double similarity = CodonOptimizer.CompareCodonUsage(seq1, seq2);
-        Assert.That(similarity, Is.LessThan(1.0));
-    }
-
-    [Test]
-    public void CompareCodonUsage_EmptySequences_ReturnsZero()
-    {
-        double similarity = CodonOptimizer.CompareCodonUsage("", "");
-        Assert.That(similarity, Is.EqualTo(0));
-    }
-
-    #endregion
 
     #region Restriction Site Removal Tests
 
