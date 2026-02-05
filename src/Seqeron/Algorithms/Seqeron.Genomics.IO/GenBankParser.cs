@@ -181,12 +181,18 @@ public static partial class GenBankParser
 
         foreach (var line in lines)
         {
-            if (line.Length >= 12 && !char.IsWhiteSpace(line[0]))
+            // Check for section headers: standard 12-char column or short ORIGIN/special sections
+            bool isNewSection = (line.Length >= 12 && !char.IsWhiteSpace(line[0])) ||
+                                line.TrimEnd() == "ORIGIN" ||
+                                (line.StartsWith("ORIGIN", StringComparison.Ordinal) &&
+                                 (line.Length == 6 || char.IsWhiteSpace(line[6])));
+
+            if (isNewSection)
             {
-                // New section
+                // New section - save previous
                 if (!string.IsNullOrEmpty(currentSection))
                 {
-                    sections[currentSection] = currentContent.ToString();
+                    SaveSection(sections, currentSection, currentContent.ToString());
                 }
 
                 var match = SectionHeaderRegex().Match(line);
@@ -197,6 +203,7 @@ public static partial class GenBankParser
                 }
                 else
                 {
+                    // Handle short section names like ORIGIN without trailing content
                     currentSection = line.Trim();
                     currentContent = new StringBuilder();
                 }
@@ -205,16 +212,47 @@ public static partial class GenBankParser
             {
                 // Continuation of current section
                 currentContent.AppendLine();
-                currentContent.Append(line.TrimStart());
+                // FEATURES section needs to preserve leading spaces for proper parsing
+                if (currentSection == "FEATURES")
+                {
+                    currentContent.Append(line);
+                }
+                else
+                {
+                    currentContent.Append(line.TrimStart());
+                }
             }
         }
 
         if (!string.IsNullOrEmpty(currentSection))
         {
-            sections[currentSection] = currentContent.ToString();
+            SaveSection(sections, currentSection, currentContent.ToString());
         }
 
         return sections;
+    }
+
+    /// <summary>
+    /// Saves a section to the dictionary, appending for REFERENCE sections (which can appear multiple times).
+    /// </summary>
+    private static void SaveSection(Dictionary<string, string> sections, string sectionName, string content)
+    {
+        if (sectionName == "REFERENCE")
+        {
+            // REFERENCE sections can appear multiple times - concatenate with newline + section marker
+            if (sections.TryGetValue(sectionName, out var existing))
+            {
+                sections[sectionName] = existing + "\nREFERENCE   " + content;
+            }
+            else
+            {
+                sections[sectionName] = content;
+            }
+        }
+        else
+        {
+            sections[sectionName] = content;
+        }
     }
 
     private static (string Locus, int Length, string MoleculeType, string Topology, string Division, DateTime? Date)
@@ -312,8 +350,9 @@ public static partial class GenBankParser
         var references = new List<Reference>();
         var refBlocks = text.Split(new[] { "\nREFERENCE" }, StringSplitOptions.None);
 
-        // Handle first block specially
-        var blocks = new List<string> { refBlocks[0] };
+        // First block doesn't have "REFERENCE" prefix (it was stripped by ExtractSections)
+        // Add it back so all blocks have consistent format
+        var blocks = new List<string> { "REFERENCE   " + refBlocks[0] };
         blocks.AddRange(refBlocks.Skip(1).Select(b => "REFERENCE" + b));
 
         foreach (var block in blocks.Where(b => !string.IsNullOrWhiteSpace(b)))
