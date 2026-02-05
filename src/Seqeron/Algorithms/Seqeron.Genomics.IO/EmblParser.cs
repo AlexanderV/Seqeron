@@ -145,11 +145,14 @@ public static partial class EmblParser
         var lineGroups = GroupLinesByPrefix(lines);
 
         // Parse ID line
-        var (accession, dataClass, moleculeType, topology, division, seqLength) =
+        var (accession, version, dataClass, moleculeType, topology, division, seqLength) =
             ParseIdLine(GetFirstLine(lineGroups, ID));
 
-        // Parse version
-        var version = ParseAccessionLine(GetFirstLine(lineGroups, SV));
+        // Parse version from separate SV line if not in ID line
+        if (string.IsNullOrEmpty(version))
+        {
+            version = ParseAccessionLine(GetFirstLine(lineGroups, SV));
+        }
         if (string.IsNullOrEmpty(accession))
         {
             accession = ParseAccessionLine(GetLines(lineGroups, AC).FirstOrDefault() ?? "");
@@ -245,16 +248,17 @@ public static partial class EmblParser
         return string.Join(" ", lines).Trim();
     }
 
-    private static (string Accession, string DataClass, string MoleculeType, string Topology,
+    private static (string Accession, string Version, string DataClass, string MoleculeType, string Topology,
         string Division, int Length) ParseIdLine(string line)
     {
         if (string.IsNullOrEmpty(line))
-            return ("", "", "", "", "", 0);
+            return ("", "", "", "", "", "", 0);
 
         // Format: ACCESSION; SV VERSION; TOPOLOGY; MOLECULE; DATA_CLASS; DIVISION; LENGTH BP.
         var parts = line.Split(';').Select(p => p.Trim()).ToArray();
 
         string accession = parts.Length > 0 ? parts[0].Split(' ')[0] : "";
+        string version = "";
         string dataClass = "";
         string moleculeType = "";
         string topology = "";
@@ -270,6 +274,10 @@ public static partial class EmblParser
                 var lengthMatch = LengthRegex().Match(trimmed);
                 if (lengthMatch.Success)
                     length = int.Parse(lengthMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+            }
+            else if (trimmed.StartsWith("SV ", StringComparison.OrdinalIgnoreCase))
+            {
+                version = trimmed[3..].Trim();
             }
             else if (trimmed is "linear" or "circular")
             {
@@ -289,7 +297,7 @@ public static partial class EmblParser
             }
         }
 
-        return (accession, dataClass, moleculeType, topology, division, length);
+        return (accession, version, dataClass, moleculeType, topology, division, length);
     }
 
     private static string ParseAccessionLine(string line)
