@@ -465,7 +465,7 @@ chr1	100	.	A	G,T	99	PASS	.	GT	2/2";
     public void IsHomRef_NoSamples_ReturnsFalse()
     {
         var records = VcfParser.Parse(VcfWithIndels).ToList(); // VCF without samples
-        
+
         Assert.That(VcfParser.IsHomRef(records[0], 0), Is.False);
     }
 
