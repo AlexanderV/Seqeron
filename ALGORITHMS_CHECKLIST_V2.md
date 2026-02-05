@@ -1,7 +1,7 @@
 # Algorithms Checklist v2.0
 
-**Date:** 2026-01-23
-**Version:** 2.1 (100% Coverage)
+**Date:** 2026-02-05
+**Version:** 2.3
 **Library:** Seqeron.Genomics
 
 ---
@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 107 |
-| **Completed** | 67 |
+| **Total Test Units** | 191 |
+| **Completed** | 68 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 40 |
+| **Not Started** | 123 |
 
 ---
 
@@ -89,7 +89,7 @@
 | ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](tests/TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
 | ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](tests/TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
 | ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](tests/TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
-| ☐ | PARSE-GFF-001 | FileIO | 3 | - | - | - |
+| ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](tests/TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
 | ☐ | PARSE-GENBANK-001 | FileIO | 3 | - | - | - |
 | ☐ | PARSE-EMBL-001 | FileIO | 2 | - | - | - |
 | ☐ | RNA-STRUCT-001 | RnaStructure | 4 | - | - | - |
@@ -129,6 +129,98 @@
 | ☐ | PANGEN-CLUSTER-001 | PanGenome | 2 | - | - | - |
 | ☐ | QUALITY-PHRED-001 | Quality | 3 | - | - | - |
 | ☐ | QUALITY-STATS-001 | Quality | 2 | - | - | - |
+| ☐ | SEQ-STATS-001 | Statistics | 3 | - | - | - |
+| ☐ | SEQ-MW-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-PI-001 | Statistics | 1 | - | - | - |
+| ☐ | SEQ-HYDRO-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-THERMO-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-DINUC-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-SECSTRUCT-001 | Statistics | 1 | - | - | - |
+| ☐ | CODON-RSCU-001 | Codon | 1 | - | - | - |
+| ☐ | CODON-ENC-001 | Codon | 1 | - | - | - |
+| ☐ | CODON-STATS-001 | Codon | 1 | - | - | - |
+| ☐ | TRANS-SIXFRAME-001 | Translation | 1 | - | - | - |
+| ☐ | ASSEMBLY-MERGE-001 | Assembly | 1 | - | - | - |
+| ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | - | - | - |
+| ☐ | ASSEMBLY-COVER-001 | Assembly | 1 | - | - | - |
+| ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | - | - | - |
+| ☐ | ASSEMBLY-TRIM-001 | Assembly | 1 | - | - | - |
+| ☐ | ASSEMBLY-CORRECT-001 | Assembly | 1 | - | - | - |
+| ☐ | PAT-APPROX-003 | Matching | 3 | - | - | - |
+| ☐ | ALIGN-STATS-001 | Alignment | 2 | - | - | - |
+| ☐ | EPIGEN-BISULF-001 | Epigenetics | 2 | - | - | - |
+| ☐ | EPIGEN-CHROM-001 | Epigenetics | 3 | - | - | - |
+| ☐ | EPIGEN-AGE-001 | Epigenetics | 1 | - | - | - |
+| ☐ | MIRNA-PAIR-001 | MiRNA | 3 | - | - | - |
+| ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |
+| ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
+| ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
+| ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
+| ☐ | POP-ROH-001 | PopGen | 2 | - | - | - |
+| ☐ | META-FUNC-001 | Metagenomics | 2 | - | - | - |
+| ☐ | META-RESIST-001 | Metagenomics | 1 | - | - | - |
+| ☐ | META-PATHWAY-001 | Metagenomics | 1 | - | - | - |
+| ☐ | META-TAXA-001 | Metagenomics | 1 | - | - | - |
+| ☐ | PHYLO-BOOT-001 | Phylogenetic | 1 | - | - | - |
+| ☐ | PHYLO-STATS-001 | Phylogenetic | 3 | - | - | - |
+| ☐ | ANNOT-CODING-001 | Annotation | 1 | - | - | - |
+| ☐ | ANNOT-REPEAT-001 | Annotation | 2 | - | - | - |
+| ☐ | ANNOT-CODONUSAGE-001 | Annotation | 1 | - | - | - |
+| ☐ | RESTR-FILTER-001 | MolTools | 3 | - | - | - |
+| ☐ | KMER-DIST-001 | K-mer | 1 | - | - | - |
+| ☐ | MOTIF-CONS-001 | Matching | 1 | - | - | - |
+| ☐ | GENOMIC-REPEAT-001 | Analysis | 2 | - | - | - |
+| ☐ | GENOMIC-COMMON-001 | Analysis | 2 | - | - | - |
+| ☐ | GENOMIC-MOTIFS-001 | Analysis | 1 | - | - | - |
+| ☐ | SEQ-RNACOMP-001 | Composition | 1 | - | - | - |
+| ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | - | - | - |
+| ☐ | PROTMOTIF-SP-001 | ProteinMotif | 1 | - | - | - |
+| ☐ | PROTMOTIF-TM-001 | ProteinMotif | 1 | - | - | - |
+| ☐ | PROTMOTIF-CC-001 | ProteinMotif | 1 | - | - | - |
+| ☐ | PROTMOTIF-LC-001 | ProteinMotif | 1 | - | - | - |
+| ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | - | - | - |
+| ☐ | RNA-PAIR-001 | RnaStructure | 3 | - | - | - |
+| ☐ | RNA-HAIRPIN-001 | RnaStructure | 2 | - | - | - |
+| ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
+| ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | - | - | - |
+| ☐ | RNA-DOTBRACKET-001 | RnaStructure | 2 | - | - | - |
+| ☐ | RNA-INVERT-001 | RnaStructure | 1 | - | - | - |
+| ☐ | RNA-PARTITION-001 | RnaStructure | 2 | - | - | - |
+| ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |
+| ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
+| ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
+| ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
+| ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
+| ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
+| ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
+| ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
+| ☐ | COMPGEN-ANI-001 | Comparative | 1 | - | - | - |
+| ☐ | COMPGEN-DOTPLOT-001 | Comparative | 1 | - | - | - |
+| ☐ | MOTIF-DISCOVER-001 | Matching | 1 | - | - | - |
+| ☐ | MOTIF-SHARED-001 | Matching | 1 | - | - | - |
+| ☐ | MOTIF-REGULATORY-001 | Matching | 1 | - | - | - |
+| ☐ | MOTIF-GENERATE-001 | Matching | 1 | - | - | - |
+| ☐ | KMER-ASYNC-001 | K-mer | 1 | - | - | - |
+| ☐ | KMER-UNIQUE-001 | K-mer | 1 | - | - | - |
+| ☐ | KMER-GENERATE-001 | K-mer | 1 | - | - | - |
+| ☐ | KMER-BOTH-001 | K-mer | 1 | - | - | - |
+| ☐ | KMER-STATS-001 | K-mer | 1 | - | - | - |
+| ☐ | KMER-POSITIONS-001 | K-mer | 1 | - | - | - |
+| ☐ | SEQ-ATSKEW-001 | Composition | 1 | - | - | - |
+| ☐ | SEQ-REPLICATION-001 | Composition | 1 | - | - | - |
+| ☐ | SEQ-GC-ANALYSIS-001 | Composition | 1 | - | - | - |
+| ☐ | DISORDER-MORF-001 | ProteinPred | 1 | - | - | - |
+| ☐ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | - | - | - |
+| ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |
+| ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
+| ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |
+| ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
+| ☐ | SEQ-CODON-FREQ-001 | Statistics | 1 | - | - | - |
+| ☐ | SEQ-SUMMARY-001 | Statistics | 1 | - | - | - |
+| ☐ | GENOMIC-TANDEM-001 | Analysis | 1 | - | - | - |
+| ☐ | GENOMIC-SIMILARITY-001 | Analysis | 1 | - | - | - |
+| ☐ | GENOMIC-ORF-001 | Analysis | 1 | - | - | - |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -2072,6 +2164,1438 @@
 
 ---
 
+### 30. Sequence Statistics (7 units) (7 units)
+
+#### SEQ-STATS-001: Sequence Composition Statistics
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateNucleotideComposition(...)` |
+| **Complexity** | O(n) |
+| **Class** | SequenceStatistics |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateNucleotideComposition(sequence)` | SequenceStatistics | Canonical |
+| `CalculateAminoAcidComposition(sequence)` | SequenceStatistics | Protein |
+| `SummarizeNucleotideSequence(sequence)` | SequenceStatistics | Summary |
+
+---
+
+#### SEQ-MW-001: Molecular Weight Calculation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateMolecularWeight(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateMolecularWeight(proteinSequence)` | SequenceStatistics | Protein |
+| `CalculateNucleotideMolecularWeight(sequence, isDna)` | SequenceStatistics | DNA/RNA |
+
+---
+
+#### SEQ-PI-001: Isoelectric Point Calculation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateIsoelectricPoint(...)` |
+| **Complexity** | O(n) |
+| **Invariant** | 0 ≤ pI ≤ 14 |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateIsoelectricPoint(proteinSequence)` | SequenceStatistics | Canonical |
+
+---
+
+#### SEQ-HYDRO-001: Hydrophobicity Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateHydrophobicity(...)` |
+| **Complexity** | O(n) |
+| **Scale** | Kyte-Doolittle |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateHydrophobicity(proteinSequence)` | SequenceStatistics | GRAVY |
+| `CalculateHydrophobicityProfile(sequence, windowSize)` | SequenceStatistics | Profile |
+
+---
+
+#### SEQ-THERMO-001: Thermodynamic Properties
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateThermodynamics(...)` |
+| **Complexity** | O(n) |
+| **Method** | Nearest-neighbor |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateThermodynamics(dnaSequence, naConc, primerConc)` | SequenceStatistics | Canonical |
+| `CalculateMeltingTemperature(dnaSequence, useWallaceRule)` | SequenceStatistics | Simple Tm |
+
+---
+
+#### SEQ-DINUC-001: Dinucleotide Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateDinucleotideFrequencies(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateDinucleotideFrequencies(sequence)` | SequenceStatistics | Frequencies |
+| `CalculateDinucleotideRatios(sequence)` | SequenceStatistics | O/E ratios |
+| `CalculateCodonFrequencies(dnaSequence, readingFrame)` | SequenceStatistics | Codons |
+
+---
+
+#### SEQ-SECSTRUCT-001: Secondary Structure Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.PredictSecondaryStructure(...)` |
+| **Complexity** | O(n) |
+| **Method** | Chou-Fasman propensities |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictSecondaryStructure(proteinSequence, windowSize)` | SequenceStatistics | Canonical |
+
+---
+
+### 31. Codon Usage Analysis (3 units)
+
+#### CODON-RSCU-001: Relative Synonymous Codon Usage
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `CodonUsageAnalyzer.CalculateRscu(...)` |
+| **Complexity** | O(n) |
+| **Class** | CodonUsageAnalyzer |
+| **Invariant** | RSCU = 1 means no bias |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateRscu(sequence)` | CodonUsageAnalyzer | Canonical |
+| `CountCodons(sequence)` | CodonUsageAnalyzer | Counting |
+
+---
+
+#### CODON-ENC-001: Effective Number of Codons
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `CodonUsageAnalyzer.CalculateEnc(...)` |
+| **Complexity** | O(n) |
+| **Invariant** | 20 ≤ ENC ≤ 61 |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateEnc(sequence)` | CodonUsageAnalyzer | Canonical |
+
+---
+
+#### CODON-STATS-001: Codon Usage Statistics
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `CodonUsageAnalyzer.GetStatistics(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetStatistics(sequence)` | CodonUsageAnalyzer | Canonical |
+| `CalculateCai(sequence, referenceRscu)` | CodonUsageAnalyzer | CAI |
+| `EColiOptimalCodons` (property) | CodonUsageAnalyzer | Reference |
+| `HumanOptimalCodons` (property) | CodonUsageAnalyzer | Reference |
+
+---
+
+### 32. Extended Translation (1 unit)
+
+#### TRANS-SIXFRAME-001: Six-Frame Translation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `Translator.TranslateSixFrames(...)` |
+| **Complexity** | O(n) |
+| **Class** | Translator |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `TranslateSixFrames(dna, geneticCode)` | Translator | Canonical |
+| `FindOrfs(dna, geneticCode, minLength, searchBothStrands)` | Translator | ORF finding |
+
+---
+
+### 33. Extended Assembly (6 units)
+
+#### ASSEMBLY-MERGE-001: Contig Merging
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.MergeContigs(...)` |
+| **Complexity** | O(n) |
+| **Class** | SequenceAssembler |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `MergeContigs(contig1, contig2, overlapLength)` | SequenceAssembler | Canonical |
+
+---
+
+#### ASSEMBLY-SCAFFOLD-001: Scaffolding
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.Scaffold(...)` |
+| **Complexity** | O(n + k) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `Scaffold(contigs, links, gapCharacter)` | SequenceAssembler | Canonical |
+
+---
+
+#### ASSEMBLY-COVER-001: Coverage Calculation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.CalculateCoverage(...)` |
+| **Complexity** | O(n × r) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateCoverage(reference, reads, minOverlap)` | SequenceAssembler | Canonical |
+
+---
+
+#### ASSEMBLY-CONSENSUS-001: Consensus Computation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.ComputeConsensus(...)` |
+| **Complexity** | O(n × r) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `ComputeConsensus(alignedReads)` | SequenceAssembler | Canonical |
+
+---
+
+#### ASSEMBLY-TRIM-001: Quality Trimming
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.QualityTrimReads(...)` |
+| **Complexity** | O(n × r) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `QualityTrimReads(reads, minQuality, minLength)` | SequenceAssembler | Canonical |
+
+---
+
+#### ASSEMBLY-CORRECT-001: Error Correction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAssembler.ErrorCorrectReads(...)` |
+| **Complexity** | O(n × r × k) |
+| **Method** | K-mer frequency based |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `ErrorCorrectReads(reads, kmerSize, minKmerFrequency)` | SequenceAssembler | Canonical |
+
+---
+
+### 34. Extended Approximate Matching (1 unit)
+
+#### PAT-APPROX-003: Best Match and Frequency Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ApproximateMatcher.FindBestMatch(...)` |
+| **Complexity** | O(n × m) |
+| **Class** | ApproximateMatcher |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindBestMatch(sequence, pattern)` | ApproximateMatcher | Best single match |
+| `CountApproximateOccurrences(sequence, pattern, maxMismatches)` | ApproximateMatcher | Counting |
+| `FindFrequentKmersWithMismatches(sequence, k, d)` | ApproximateMatcher | Frequency |
+
+---
+
+### 35. Alignment Statistics (1 unit)
+
+#### ALIGN-STATS-001: Alignment Statistics and Formatting
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceAligner.CalculateStatistics(...)` |
+| **Complexity** | O(n) |
+| **Class** | SequenceAligner |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateStatistics(alignment)` | SequenceAligner | Statistics |
+| `FormatAlignment(alignment, lineWidth)` | SequenceAligner | Formatting |
+
+---
+
+### 36. Extended Epigenetics (3 units)
+
+#### EPIGEN-BISULF-001: Bisulfite Sequencing Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `EpigeneticsAnalyzer.SimulateBisulfiteConversion(...)` |
+| **Complexity** | O(n) |
+| **Class** | EpigeneticsAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `SimulateBisulfiteConversion(sequence)` | EpigeneticsAnalyzer | Canonical |
+| `CalculateMethylationFromBisulfite(bsSeq, refSeq)` | EpigeneticsAnalyzer | Calculation |
+| `GenerateMethylationProfile(sites)` | EpigeneticsAnalyzer | Profile |
+
+---
+
+#### EPIGEN-CHROM-001: Chromatin State Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `EpigeneticsAnalyzer.PredictChromatinState(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictChromatinState(histoneMarks)` | EpigeneticsAnalyzer | Canonical |
+| `AnnotateHistoneModifications(peaks, annotations)` | EpigeneticsAnalyzer | Annotation |
+| `FindAccessibleRegions(atacSignal, threshold)` | EpigeneticsAnalyzer | ATAC-seq |
+
+---
+
+#### EPIGEN-AGE-001: Epigenetic Age Estimation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `EpigeneticsAnalyzer.CalculateEpigeneticAge(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateEpigeneticAge(methylationProfile, clockType)` | EpigeneticsAnalyzer | Canonical |
+| `PredictImprintedGenes(methylationProfile)` | EpigeneticsAnalyzer | Imprinting |
+
+---
+
+### 37. Extended MiRNA Analysis (1 unit)
+
+#### MIRNA-PAIR-001: MiRNA-Target Pairing Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MiRnaAnalyzer.AlignMiRnaToTarget(...)` |
+| **Complexity** | O(n × m) |
+| **Class** | MiRnaAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `AlignMiRnaToTarget(miRna, target)` | MiRnaAnalyzer | Canonical |
+| `GetReverseComplement(sequence)` | MiRnaAnalyzer | Helper |
+| `CanPair(base1, base2)` | MiRnaAnalyzer | Pairing check |
+| `IsWobblePair(base1, base2)` | MiRnaAnalyzer | Wobble check |
+
+---
+
+### 38. Extended Pan-Genome Analysis (2 units)
+
+#### PANGEN-HEAP-001: Pan-Genome Growth Model
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PanGenomeAnalyzer.FitHeapsLaw(...)` |
+| **Complexity** | O(n) |
+| **Class** | PanGenomeAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FitHeapsLaw(panGenomeData)` | PanGenomeAnalyzer | Canonical |
+| `CreatePresenceAbsenceMatrix(clusters, genomes)` | PanGenomeAnalyzer | Matrix |
+
+---
+
+#### PANGEN-MARKER-001: Phylogenetic Marker Selection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PanGenomeAnalyzer.SelectPhylogeneticMarkers(...)` |
+| **Complexity** | O(n × g) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `SelectPhylogeneticMarkers(clusters, criteria)` | PanGenomeAnalyzer | Canonical |
+| `GetCoreGeneClusters(clusters, threshold)` | PanGenomeAnalyzer | Core genes |
+| `CreateCoreGenomeAlignment(coreGenes)` | PanGenomeAnalyzer | Alignment |
+| `GetSingletonGenes(clusters)` | PanGenomeAnalyzer | Singletons |
+
+---
+
+### 39. Extended Population Genetics (3 units)
+
+#### POP-SELECT-001: Selection Signature Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PopulationGeneticsAnalyzer.CalculateIHS(...)` |
+| **Complexity** | O(n × h) |
+| **Class** | PopulationGeneticsAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateIHS(haplotypes, positions)` | PopulationGeneticsAnalyzer | iHS |
+| `ScanForSelection(variants, windowSize)` | PopulationGeneticsAnalyzer | Genome-wide |
+
+---
+
+#### POP-ANCESTRY-001: Ancestry Estimation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PopulationGeneticsAnalyzer.EstimateAncestry(...)` |
+| **Complexity** | O(n × k) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `EstimateAncestry(genotypes, refPanels, k)` | PopulationGeneticsAnalyzer | Canonical |
+
+---
+
+#### POP-ROH-001: Runs of Homozygosity
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PopulationGeneticsAnalyzer.FindROH(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindROH(genotypes, minLength, minSnps)` | PopulationGeneticsAnalyzer | Canonical |
+| `CalculateInbreedingFromROH(rohSegments, genomeLength)` | PopulationGeneticsAnalyzer | F_ROH |
+| `CalculatePairwiseFst(pop1, pop2, variants)` | PopulationGeneticsAnalyzer | Fst matrix |
+
+---
+
+### 40. Extended Metagenomics (4 units)
+
+#### META-FUNC-001: Functional Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MetagenomicsAnalyzer.PredictFunctions(...)` |
+| **Complexity** | O(n × g) |
+| **Class** | MetagenomicsAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictFunctions(genes, database)` | MetagenomicsAnalyzer | Canonical |
+| `FindPathwayEnrichment(functions, pathwayDb)` | MetagenomicsAnalyzer | Enrichment |
+
+---
+
+#### META-RESIST-001: Antibiotic Resistance Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MetagenomicsAnalyzer.FindAntibioticResistanceGenes(...)` |
+| **Complexity** | O(n × d) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindAntibioticResistanceGenes(contigs, argDatabase)` | MetagenomicsAnalyzer | Canonical |
+
+---
+
+#### META-PATHWAY-001: Metabolic Pathway Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MetagenomicsAnalyzer.FindPathwayEnrichment(...)` |
+| **Complexity** | O(n × p) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindPathwayEnrichment(functions, pathwayDb)` | MetagenomicsAnalyzer | Canonical |
+
+---
+
+#### META-TAXA-001: Significant Taxa Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MetagenomicsAnalyzer.FindSignificantTaxa(...)` |
+| **Complexity** | O(n × t) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindSignificantTaxa(profiles, groups, pThreshold)` | MetagenomicsAnalyzer | Canonical |
+
+---
+
+### 41. Extended Phylogenetics (2 units)
+
+#### PHYLO-BOOT-001: Bootstrap Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PhylogeneticAnalyzer.Bootstrap(...)` |
+| **Complexity** | O(b × n³) |
+| **Class** | PhylogeneticAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `Bootstrap(sequences, nReplicates, treeMethod)` | PhylogeneticAnalyzer | Canonical |
+
+---
+
+#### PHYLO-STATS-001: Tree Statistics
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `PhylogeneticAnalyzer.GetLeaves(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetLeaves(tree)` | PhylogeneticAnalyzer | Leaves |
+| `CalculateTreeLength(tree)` | PhylogeneticAnalyzer | Total length |
+| `GetTreeDepth(tree)` | PhylogeneticAnalyzer | Max depth |
+
+---
+
+### 42. Extended Annotation (3 units)
+
+#### ANNOT-CODING-001: Coding Potential Calculation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomeAnnotator.CalculateCodingPotential(...)` |
+| **Complexity** | O(n) |
+| **Class** | GenomeAnnotator |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateCodingPotential(sequence)` | GenomeAnnotator | Canonical |
+
+---
+
+#### ANNOT-REPEAT-001: Repetitive Element Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomeAnnotator.FindRepetitiveElements(...)` |
+| **Complexity** | O(n²) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindRepetitiveElements(sequence, minLength)` | GenomeAnnotator | Canonical |
+| `ClassifyRepeat(sequence, repeatDb)` | GenomeAnnotator | Classification |
+
+---
+
+#### ANNOT-CODONUSAGE-001: Codon Usage in Annotations
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomeAnnotator.GetCodonUsage(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetCodonUsage(codingSequences)` | GenomeAnnotator | Canonical |
+
+---
+
+### 43. Extended Restriction Analysis (1 unit)
+
+#### RESTR-FILTER-001: Enzyme Filtering
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RestrictionAnalyzer.GetEnzymesByCutLength(...)` |
+| **Complexity** | O(e) |
+| **Class** | RestrictionAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetEnzymesByCutLength(minLength, maxLength)` | RestrictionAnalyzer | By length |
+| `GetBluntCutters()` | RestrictionAnalyzer | Blunt ends |
+| `GetStickyCutters()` | RestrictionAnalyzer | Sticky ends |
+
+---
+
+### 44. Extended K-mer Analysis (1 unit)
+
+#### KMER-DIST-001: K-mer Distance
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.KmerDistance(...)` |
+| **Complexity** | O(n + m) |
+| **Class** | KmerAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `KmerDistance(seq1, seq2, k)` | KmerAnalyzer | Euclidean distance |
+
+---
+
+### 45. Extended Motif Analysis (1 unit)
+
+#### MOTIF-CONS-001: Consensus from Alignment
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MotifFinder.CreateConsensusFromAlignment(...)` |
+| **Complexity** | O(n × m) |
+| **Class** | MotifFinder |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CreateConsensusFromAlignment(alignedSequences)` | MotifFinder | Canonical |
+
+---
+
+### 46. Extended Genomic Analysis (3 units)
+
+#### GENOMIC-REPEAT-001: Repeat Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.FindLongestRepeat(...)` |
+| **Complexity** | O(n²) |
+| **Class** | GenomicAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindLongestRepeat(sequence)` | GenomicAnalyzer | Longest |
+| `FindRepeats(sequence, minLength)` | GenomicAnalyzer | All repeats |
+
+---
+
+#### GENOMIC-COMMON-001: Common Region Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.FindLongestCommonRegion(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindLongestCommonRegion(seq1, seq2)` | GenomicAnalyzer | Longest |
+| `FindCommonRegions(seq1, seq2, minLength)` | GenomicAnalyzer | All regions |
+
+---
+
+#### GENOMIC-MOTIFS-001: Known Motif Search
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.FindKnownMotifs(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindKnownMotifs(sequence, motifSet)` | GenomicAnalyzer | Canonical |
+
+---
+
+### 47. RNA Complement (1 unit)
+
+#### SEQ-RNACOMP-001: RNA-specific Complement
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceExtensions.GetRnaComplementBase(...)` |
+| **Complexity** | O(1) per base |
+| **Class** | SequenceExtensions |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetRnaComplementBase(char)` | SequenceExtensions | Canonical |
+
+---
+
+### 48. Extended Protein Motif Analysis (6 units)
+
+#### PROTMOTIF-PATTERN-001: Pattern Matching Methods
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.FindMotifByPattern(...)` |
+| **Complexity** | O(n × m) |
+| **Class** | ProteinMotifFinder |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindMotifByPattern(sequence, pattern)` | ProteinMotifFinder | Regex pattern |
+| `FindMotifByProsite(sequence, prositePattern)` | ProteinMotifFinder | PROSITE pattern |
+| `ConvertPrositeToRegex(prositePattern)` | ProteinMotifFinder | Conversion |
+| `FindDomains(sequence)` | ProteinMotifFinder | Domain detection |
+
+---
+
+#### PROTMOTIF-SP-001: Signal Peptide Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.PredictSignalPeptide(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictSignalPeptide(sequence)` | ProteinMotifFinder | Canonical |
+
+---
+
+#### PROTMOTIF-TM-001: Transmembrane Helix Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.PredictTransmembraneHelices(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictTransmembraneHelices(sequence)` | ProteinMotifFinder | Hydropathy analysis |
+
+---
+
+#### PROTMOTIF-CC-001: Coiled-Coil Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.PredictCoiledCoils(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictCoiledCoils(sequence)` | ProteinMotifFinder | Heptad repeat analysis |
+
+---
+
+#### PROTMOTIF-LC-001: Low Complexity Regions
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.FindLowComplexityRegions(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindLowComplexityRegions(sequence)` | ProteinMotifFinder | Compositionally biased |
+
+---
+
+#### PROTMOTIF-COMMON-001: Common Motif Finding
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ProteinMotifFinder.FindCommonMotifs(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindCommonMotifs(sequence)` | ProteinMotifFinder | Canonical |
+| `FindAllKnownMotifs(sequence)` | ProteinMotifFinder | All patterns |
+
+---
+
+### 49. Extended RNA Secondary Structure (7 units)
+
+#### RNA-PAIR-001: RNA Base Pairing
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.CanPair(...)` |
+| **Complexity** | O(1) |
+| **Class** | RnaSecondaryStructure |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CanPair(base1, base2)` | RnaSecondaryStructure | Canonical |
+| `GetBasePairType(base1, base2)` | RnaSecondaryStructure | Pair type |
+| `GetComplement(base)` | RnaSecondaryStructure | RNA complement |
+
+---
+
+#### RNA-HAIRPIN-001: Hairpin Energy Calculation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.CalculateHairpinLoopEnergy(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateHairpinLoopEnergy(loop)` | RnaSecondaryStructure | Hairpin loop |
+| `CalculateStemEnergy(stem)` | RnaSecondaryStructure | Stem region |
+
+---
+
+#### RNA-MFE-001: Minimum Free Energy
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.CalculateMinimumFreeEnergy(...)` |
+| **Complexity** | O(n³) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateMinimumFreeEnergy(sequence)` | RnaSecondaryStructure | MFE calculation |
+| `PredictStructure(sequence)` | RnaSecondaryStructure | Structure prediction |
+
+---
+
+#### RNA-PSEUDOKNOT-001: Pseudoknot Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.DetectPseudoknots(...)` |
+| **Complexity** | O(n²) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `DetectPseudoknots(basePairs)` | RnaSecondaryStructure | Canonical |
+
+---
+
+#### RNA-DOTBRACKET-001: Dot-Bracket Notation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.ParseDotBracket(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `ParseDotBracket(notation)` | RnaSecondaryStructure | Parse |
+| `ValidateDotBracket(notation)` | RnaSecondaryStructure | Validation |
+
+---
+
+#### RNA-INVERT-001: RNA Inverted Repeats
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.FindInvertedRepeats(...)` |
+| **Complexity** | O(n²) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindInvertedRepeats(sequence)` | RnaSecondaryStructure | Potential stems |
+
+---
+
+#### RNA-PARTITION-001: Partition Function
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `RnaSecondaryStructure.CalculateStructureProbability(...)` |
+| **Complexity** | O(n³) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateStructureProbability(sequence)` | RnaSecondaryStructure | Probability |
+| `GenerateRandomRna(length)` | RnaSecondaryStructure | Random generation |
+
+---
+
+### 50. Extended Sequence Complexity (4 units)
+
+#### SEQ-COMPLEX-KMER-001: K-mer Entropy
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceComplexity.CalculateKmerEntropy(...)` |
+| **Complexity** | O(n × k) |
+| **Class** | SequenceComplexity |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateKmerEntropy(sequence, k)` | SequenceComplexity | Shannon entropy using k-mers |
+
+---
+
+#### SEQ-COMPLEX-WINDOW-001: Windowed Complexity
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceComplexity.CalculateWindowedComplexity(...)` |
+| **Complexity** | O(n × w) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateWindowedComplexity(sequence, windowSize)` | SequenceComplexity | Sliding window |
+
+---
+
+#### SEQ-COMPLEX-DUST-001: DUST Score
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceComplexity.CalculateDustScore(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateDustScore(DnaSequence)` | SequenceComplexity | For DnaSequence |
+| `CalculateDustScore(string)` | SequenceComplexity | For string |
+
+---
+
+#### SEQ-COMPLEX-COMPRESS-001: Compression Ratio
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceComplexity.EstimateCompressionRatio(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `EstimateCompressionRatio(sequence)` | SequenceComplexity | Compression-based complexity |
+
+---
+
+### 51. Extended Comparative Genomics (6 units)
+
+#### COMPGEN-RBH-001: Reciprocal Best Hits
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.FindReciprocalBestHits(...)` |
+| **Complexity** | O(n × m) |
+| **Class** | ComparativeGenomics |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindReciprocalBestHits(genes1, genes2)` | ComparativeGenomics | RBH ortholog identification |
+
+---
+
+#### COMPGEN-COMPARE-001: Genome Comparison
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.CompareGenomes(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CompareGenomes(genome1, genome2)` | ComparativeGenomics | Comprehensive comparison |
+
+---
+
+#### COMPGEN-REVERSAL-001: Reversal Distance
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.CalculateReversalDistance(...)` |
+| **Complexity** | O(n log n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateReversalDistance(geneOrder1, geneOrder2)` | ComparativeGenomics | Reversal distance |
+
+---
+
+#### COMPGEN-CLUSTER-001: Conserved Gene Clusters
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.FindConservedClusters(...)` |
+| **Complexity** | O(n × g) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindConservedClusters(genomes)` | ComparativeGenomics | Multi-genome clusters |
+
+---
+
+#### COMPGEN-ANI-001: Average Nucleotide Identity
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.CalculateANI(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateANI(genome1, genome2)` | ComparativeGenomics | ANI calculation |
+
+---
+
+#### COMPGEN-DOTPLOT-001: Dot Plot Generation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ComparativeGenomics.GenerateDotPlot(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GenerateDotPlot(seq1, seq2)` | ComparativeGenomics | Dot plot visualization |
+
+---
+
+### 52. Extended Motif Finding (4 units)
+
+#### MOTIF-DISCOVER-001: Motif Discovery
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MotifFinder.DiscoverMotifs(...)` |
+| **Complexity** | O(n × k) |
+| **Class** | MotifFinder |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `DiscoverMotifs(sequences, k)` | MotifFinder | Overrepresented k-mers |
+
+---
+
+#### MOTIF-SHARED-001: Shared Motifs
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MotifFinder.FindSharedMotifs(...)` |
+| **Complexity** | O(n × m × s) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindSharedMotifs(sequences)` | MotifFinder | Common motifs |
+
+---
+
+#### MOTIF-REGULATORY-001: Regulatory Elements
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MotifFinder.FindRegulatoryElements(...)` |
+| **Complexity** | O(n × r) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindRegulatoryElements(sequence)` | MotifFinder | Known regulatory motifs |
+
+---
+
+#### MOTIF-GENERATE-001: Consensus Generation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `MotifFinder.GenerateConsensus(...)` |
+| **Complexity** | O(n × m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GenerateConsensus(alignedSequences)` | MotifFinder | Consensus sequence |
+
+---
+
+### 53. Extended K-mer Analysis (6 units)
+
+#### KMER-ASYNC-001: Asynchronous K-mer Counting
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.CountKmersAsync(...)` |
+| **Complexity** | O(n) |
+| **Class** | KmerAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CountKmersAsync(sequence, k)` | KmerAnalyzer | Async counting |
+
+---
+
+#### KMER-UNIQUE-001: Unique K-mers
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.FindUniqueKmers(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindUniqueKmers(sequence, k)` | KmerAnalyzer | Canonical |
+
+---
+
+#### KMER-GENERATE-001: K-mer Generation
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.GenerateAllKmers(...)` |
+| **Complexity** | O(4^k) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GenerateAllKmers(k)` | KmerAnalyzer | All possible k-mers |
+
+---
+
+#### KMER-BOTH-001: Both Strand Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.CountKmersBothStrands(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CountKmersBothStrands(sequence, k)` | KmerAnalyzer | Forward + reverse complement |
+
+---
+
+#### KMER-STATS-001: K-mer Statistics
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.AnalyzeKmers(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `AnalyzeKmers(sequence, k)` | KmerAnalyzer | Comprehensive statistics |
+
+---
+
+#### KMER-POSITIONS-001: K-mer Positions
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `KmerAnalyzer.FindKmerPositions(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindKmerPositions(sequence, kmer)` | KmerAnalyzer | Position finding |
+
+---
+
+### 54. Extended GC Skew Analysis (3 units)
+
+#### SEQ-ATSKEW-001: AT Skew
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GcSkewCalculator.CalculateAtSkew(...)` |
+| **Complexity** | O(n) |
+| **Class** | GcSkewCalculator |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateAtSkew(sequence)` | GcSkewCalculator | AT skew calculation |
+
+---
+
+#### SEQ-REPLICATION-001: Replication Origin Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GcSkewCalculator.PredictReplicationOrigin(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictReplicationOrigin(sequence)` | GcSkewCalculator | Origin and terminus |
+
+---
+
+#### SEQ-GC-ANALYSIS-001: Comprehensive GC Analysis
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GcSkewCalculator.AnalyzeGcContent(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `AnalyzeGcContent(sequence)` | GcSkewCalculator | GC skew, content, variability |
+
+---
+
+### 55. Extended Disorder Prediction (3 units)
+
+#### DISORDER-MORF-001: MoRF Prediction
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `DisorderPredictor.PredictMoRFs(...)` |
+| **Complexity** | O(n) |
+| **Class** | DisorderPredictor |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictMoRFs(sequence)` | DisorderPredictor | Molecular Recognition Features |
+
+---
+
+#### DISORDER-PROPENSITY-001: Disorder Propensity
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `DisorderPredictor.GetDisorderPropensity(...)` |
+| **Complexity** | O(1) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `GetDisorderPropensity(aminoAcid)` | DisorderPredictor | Propensity value |
+| `IsDisorderPromoting(aminoAcid)` | DisorderPredictor | Boolean check |
+| `DisorderPromotingAminoAcids` | DisorderPredictor | Property |
+
+---
+
+#### DISORDER-LC-001: Low Complexity in Disorder
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `DisorderPredictor.PredictLowComplexityRegions(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `PredictLowComplexityRegions(sequence)` | DisorderPredictor | Protein low complexity |
+
+---
+
+### 56. Extended Sequence Statistics (6 units)
+
+#### SEQ-COMPOSITION-001: Sequence Composition
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateNucleotideComposition(...)` |
+| **Complexity** | O(n) |
+| **Class** | SequenceStatistics |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateNucleotideComposition(sequence)` | SequenceStatistics | Nucleotide composition |
+| `CalculateAminoAcidComposition(sequence)` | SequenceStatistics | Amino acid composition |
+
+---
+
+#### SEQ-TM-001: Melting Temperature
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateMeltingTemperature(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateMeltingTemperature(sequence)` | SequenceStatistics | Wallace/GC formula |
+| `CalculateThermodynamics(sequence)` | SequenceStatistics | Thermodynamic properties |
+
+---
+
+#### SEQ-ENTROPY-PROFILE-001: Entropy Profile
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateEntropyProfile(...)` |
+| **Complexity** | O(n × w) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateEntropyProfile(sequence, windowSize)` | SequenceStatistics | Sliding window entropy |
+
+---
+
+#### SEQ-GC-PROFILE-001: GC Content Profile
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateGcContentProfile(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateGcContentProfile(sequence, windowSize)` | SequenceStatistics | GC in windows |
+
+---
+
+#### SEQ-CODON-FREQ-001: Codon Frequencies
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.CalculateCodonFrequencies(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateCodonFrequencies(sequence)` | SequenceStatistics | Codon usage |
+
+---
+
+#### SEQ-SUMMARY-001: Sequence Summary
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `SequenceStatistics.SummarizeNucleotideSequence(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `SummarizeNucleotideSequence(sequence)` | SequenceStatistics | Comprehensive summary |
+
+---
+
+### 57. Extended Genomic Analysis (3 units)
+
+#### GENOMIC-TANDEM-001: Tandem Repeat Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.FindTandemRepeats(...)` |
+| **Complexity** | O(n²) |
+| **Class** | GenomicAnalyzer |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindTandemRepeats(sequence)` | GenomicAnalyzer | Consecutive repeating units |
+
+---
+
+#### GENOMIC-SIMILARITY-001: Sequence Similarity
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.CalculateSimilarity(...)` |
+| **Complexity** | O(n + m) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `CalculateSimilarity(seq1, seq2, k)` | GenomicAnalyzer | K-mer based similarity |
+
+---
+
+#### GENOMIC-ORF-001: ORF Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `GenomicAnalyzer.FindOpenReadingFrames(...)` |
+| **Complexity** | O(n) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `FindOpenReadingFrames(sequence)` | GenomicAnalyzer | Potential ORFs |
+
+---
+
 ## Appendix A: Method Index
 
 | Method | Test Unit ID |
@@ -2238,6 +3762,148 @@
 | `TryGetComplement` | SEQ-COMP-001 |
 | `TryGetReverseComplement` | SEQ-REVCOMP-001 |
 | `ValidateProbe` | PROBE-VALID-001 |
+| `CalculateNucleotideComposition` | SEQ-STATS-001 |
+| `CalculateAminoAcidComposition` | SEQ-STATS-001 |
+| `SummarizeNucleotideSequence` | SEQ-STATS-001 |
+| `CalculateMolecularWeight` | SEQ-MW-001 |
+| `CalculateNucleotideMolecularWeight` | SEQ-MW-001 |
+| `CalculateIsoelectricPoint` | SEQ-PI-001 |
+| `CalculateHydrophobicity` | SEQ-HYDRO-001 |
+| `CalculateHydrophobicityProfile` | SEQ-HYDRO-001 |
+| `CalculateThermodynamics` | SEQ-THERMO-001 |
+| `CalculateDinucleotideFrequencies` | SEQ-DINUC-001 |
+| `CalculateDinucleotideRatios` | SEQ-DINUC-001 |
+| `CalculateCodonFrequencies` | SEQ-DINUC-001 |
+| `PredictSecondaryStructure` | SEQ-SECSTRUCT-001 |
+| `CalculateRscu` | CODON-RSCU-001 |
+| `CountCodons` | CODON-RSCU-001 |
+| `CalculateEnc` | CODON-ENC-001 |
+| `GetStatistics` (CodonUsageAnalyzer) | CODON-STATS-001 |
+| `CalculateCai` | CODON-STATS-001 |
+| `EColiOptimalCodons` | CODON-STATS-001 |
+| `HumanOptimalCodons` | CODON-STATS-001 |
+| `TranslateSixFrames` | TRANS-SIXFRAME-001 |
+| `FindOrfs` (Translator) | TRANS-SIXFRAME-001 |
+| `MergeContigs` | ASSEMBLY-MERGE-001 |
+| `Scaffold` | ASSEMBLY-SCAFFOLD-001 |
+| `CalculateCoverage` | ASSEMBLY-COVER-001 |
+| `ComputeConsensus` | ASSEMBLY-CONSENSUS-001 |
+| `QualityTrimReads` | ASSEMBLY-TRIM-001 |
+| `ErrorCorrectReads` | ASSEMBLY-CORRECT-001 |
+| `FindBestMatch` | PAT-APPROX-003 |
+| `CountApproximateOccurrences` | PAT-APPROX-003 |
+| `FindFrequentKmersWithMismatches` | PAT-APPROX-003 |
+| `CalculateStatistics` (SequenceAligner) | ALIGN-STATS-001 |
+| `FormatAlignment` | ALIGN-STATS-001 |
+| `SimulateBisulfiteConversion` | EPIGEN-BISULF-001 |
+| `CalculateMethylationFromBisulfite` | EPIGEN-BISULF-001 |
+| `GenerateMethylationProfile` | EPIGEN-BISULF-001 |
+| `PredictChromatinState` | EPIGEN-CHROM-001 |
+| `AnnotateHistoneModifications` | EPIGEN-CHROM-001 |
+| `FindAccessibleRegions` | EPIGEN-CHROM-001 |
+| `CalculateEpigeneticAge` | EPIGEN-AGE-001 |
+| `PredictImprintedGenes` | EPIGEN-AGE-001 |
+| `AlignMiRnaToTarget` | MIRNA-PAIR-001 |
+| `GetReverseComplement` (MiRnaAnalyzer) | MIRNA-PAIR-001 |
+| `CanPair` | MIRNA-PAIR-001 |
+| `IsWobblePair` | MIRNA-PAIR-001 |
+| `FitHeapsLaw` | PANGEN-HEAP-001 |
+| `CreatePresenceAbsenceMatrix` | PANGEN-HEAP-001 |
+| `SelectPhylogeneticMarkers` | PANGEN-MARKER-001 |
+| `GetCoreGeneClusters` | PANGEN-MARKER-001 |
+| `CreateCoreGenomeAlignment` | PANGEN-MARKER-001 |
+| `GetSingletonGenes` | PANGEN-MARKER-001 |
+| `CalculateIHS` | POP-SELECT-001 |
+| `ScanForSelection` | POP-SELECT-001 |
+| `EstimateAncestry` | POP-ANCESTRY-001 |
+| `FindROH` | POP-ROH-001 |
+| `CalculateInbreedingFromROH` | POP-ROH-001 |
+| `CalculatePairwiseFst` | POP-ROH-001 |
+| `PredictFunctions` | META-FUNC-001 |
+| `FindAntibioticResistanceGenes` | META-RESIST-001 |
+| `FindPathwayEnrichment` | META-PATHWAY-001 |
+| `FindSignificantTaxa` | META-TAXA-001 |
+| `Bootstrap` | PHYLO-BOOT-001 |
+| `GetLeaves` | PHYLO-STATS-001 |
+| `CalculateTreeLength` | PHYLO-STATS-001 |
+| `GetTreeDepth` | PHYLO-STATS-001 |
+| `CalculateCodingPotential` | ANNOT-CODING-001 |
+| `FindRepetitiveElements` | ANNOT-REPEAT-001 |
+| `GetCodonUsage` | ANNOT-CODONUSAGE-001 |
+| `GetEnzymesByCutLength` | RESTR-FILTER-001 |
+| `GetBluntCutters` | RESTR-FILTER-001 |
+| `GetStickyCutters` | RESTR-FILTER-001 |
+| `KmerDistance` | KMER-DIST-001 |
+| `CreateConsensusFromAlignment` | MOTIF-CONS-001 |
+| `FindLongestRepeat` | GENOMIC-REPEAT-001 |
+| `FindRepeats` | GENOMIC-REPEAT-001 |
+| `FindLongestCommonRegion` | GENOMIC-COMMON-001 |
+| `FindCommonRegions` | GENOMIC-COMMON-001 |
+| `FindKnownMotifs` | GENOMIC-MOTIFS-001 |
+| `GetRnaComplementBase` | SEQ-RNACOMP-001 |
+| `FindMotifByPattern` | PROTMOTIF-PATTERN-001 |
+| `FindMotifByProsite` | PROTMOTIF-PATTERN-001 |
+| `ConvertPrositeToRegex` | PROTMOTIF-PATTERN-001 |
+| `FindDomains` | PROTMOTIF-PATTERN-001 |
+| `PredictTransmembraneHelices` | PROTMOTIF-TM-001 |
+| `PredictCoiledCoils` | PROTMOTIF-CC-001 |
+| `FindLowComplexityRegions` (ProteinMotifFinder) | PROTMOTIF-LC-001 |
+| `FindCommonMotifs` | PROTMOTIF-COMMON-001 |
+| `CanPair` (RnaSecondaryStructure) | RNA-PAIR-001 |
+| `GetBasePairType` | RNA-PAIR-001 |
+| `GetComplement` (RnaSecondaryStructure) | RNA-PAIR-001 |
+| `CalculateStemEnergy` | RNA-HAIRPIN-001 |
+| `CalculateHairpinLoopEnergy` | RNA-HAIRPIN-001 |
+| `CalculateMinimumFreeEnergy` | RNA-MFE-001 |
+| `PredictStructure` (RnaSecondaryStructure) | RNA-MFE-001 |
+| `DetectPseudoknots` | RNA-PSEUDOKNOT-001 |
+| `ParseDotBracket` | RNA-DOTBRACKET-001 |
+| `ValidateDotBracket` | RNA-DOTBRACKET-001 |
+| `FindInvertedRepeats` (RnaSecondaryStructure) | RNA-INVERT-001 |
+| `CalculateStructureProbability` | RNA-PARTITION-001 |
+| `GenerateRandomRna` | RNA-PARTITION-001 |
+| `CalculateKmerEntropy` (SequenceComplexity) | SEQ-COMPLEX-KMER-001 |
+| `CalculateWindowedComplexity` | SEQ-COMPLEX-WINDOW-001 |
+| `CalculateDustScore` | SEQ-COMPLEX-DUST-001 |
+| `MaskLowComplexity` (SequenceComplexity) | SEQ-COMPLEX-DUST-001 |
+| `EstimateCompressionRatio` | SEQ-COMPLEX-COMPRESS-001 |
+| `FindReciprocalBestHits` | COMPGEN-RBH-001 |
+| `CompareGenomes` | COMPGEN-COMPARE-001 |
+| `CalculateReversalDistance` | COMPGEN-REVERSAL-001 |
+| `FindConservedClusters` | COMPGEN-CLUSTER-001 |
+| `CalculateANI` | COMPGEN-ANI-001 |
+| `GenerateDotPlot` | COMPGEN-DOTPLOT-001 |
+| `DiscoverMotifs` | MOTIF-DISCOVER-001 |
+| `FindSharedMotifs` | MOTIF-SHARED-001 |
+| `FindRegulatoryElements` | MOTIF-REGULATORY-001 |
+| `GenerateConsensus` | MOTIF-GENERATE-001 |
+| `CountKmersAsync` | KMER-ASYNC-001 |
+| `CountKmersSpan` | KMER-ASYNC-001 |
+| `FindUniqueKmers` | KMER-UNIQUE-001 |
+| `FindKmersWithMinCount` | KMER-UNIQUE-001 |
+| `GenerateAllKmers` | KMER-GENERATE-001 |
+| `CountKmersBothStrands` | KMER-BOTH-001 |
+| `AnalyzeKmers` | KMER-STATS-001 |
+| `FindKmerPositions` | KMER-POSITIONS-001 |
+| `CalculateAtSkew` | SEQ-ATSKEW-001 |
+| `PredictReplicationOrigin` | SEQ-REPLICATION-001 |
+| `AnalyzeGcContent` | SEQ-GC-ANALYSIS-001 |
+| `PredictMoRFs` | DISORDER-MORF-001 |
+| `GetDisorderPropensity` | DISORDER-PROPENSITY-001 |
+| `IsDisorderPromoting` | DISORDER-PROPENSITY-001 |
+| `DisorderPromotingAminoAcids` | DISORDER-PROPENSITY-001 |
+| `OrderPromotingAminoAcids` | DISORDER-PROPENSITY-001 |
+| `PredictLowComplexityRegions` (DisorderPredictor) | DISORDER-LC-001 |
+| `CalculateNucleotideComposition` | SEQ-COMPOSITION-001 |
+| `CalculateAminoAcidComposition` | SEQ-COMPOSITION-001 |
+| `CalculateMeltingTemperature` (SequenceStatistics) | SEQ-TM-001 |
+| `CalculateEntropyProfile` | SEQ-ENTROPY-PROFILE-001 |
+| `CalculateGcContentProfile` | SEQ-GC-PROFILE-001 |
+| `CalculateCodonFrequencies` (SequenceStatistics) | SEQ-CODON-FREQ-001 |
+| `SummarizeNucleotideSequence` | SEQ-SUMMARY-001 |
+| `FindTandemRepeats` (GenomicAnalyzer) | GENOMIC-TANDEM-001 |
+| `CalculateSimilarity` | GENOMIC-SIMILARITY-001 |
+| `FindOpenReadingFrames` | GENOMIC-ORF-001 |
 
 ---
 
@@ -2307,38 +3973,38 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | BedParser | PARSE-BED-001 | ✓ |
 | ChromosomeAnalyzer | CHROM-TELO-001 to CHROM-SYNT-001 | ✓ |
 | CodonOptimizer | CODON-OPT-001 to CODON-USAGE-001 | ✓ |
-| ComparativeGenomics | COMPGEN-SYNTENY-001 to COMPGEN-REARR-001 | ✓ |
+| ComparativeGenomics | COMPGEN-SYNTENY-001 to COMPGEN-DOTPLOT-001 | ✓ |
 | CrisprDesigner | CRISPR-PAM-001 to CRISPR-OFF-001 | ✓ |
-| DisorderPredictor | DISORDER-PRED-001, DISORDER-REGION-001 | ✓ |
+| DisorderPredictor | DISORDER-PRED-001 to DISORDER-LC-001 | ✓ |
 | EmblParser | PARSE-EMBL-001 | ✓ |
 | EpigeneticsAnalyzer | EPIGEN-CPG-001 to EPIGEN-DMR-001 | ✓ |
 | FastaParser | PARSE-FASTA-001 | ✓ |
 | FastqParser | PARSE-FASTQ-001 | ✓ |
-| GcSkewCalculator | SEQ-GCSKEW-001 | ✓ |
+| GcSkewCalculator | SEQ-GCSKEW-001 to SEQ-GC-ANALYSIS-001 | ✓ |
 | GenBankParser | PARSE-GENBANK-001 | ✓ |
 | GenomeAnnotator | ANNOT-ORF-001 to ANNOT-GFF-001 | ✓ |
 | GenomeAssemblyAnalyzer | ASSEMBLY-STATS-001 | ✓ |
-| GenomicAnalyzer | REP-TANDEM-001, REP-PALIN-001 | ✓ |
+| GenomicAnalyzer | REP-TANDEM-001 to GENOMIC-ORF-001 | ✓ |
 | GffParser | PARSE-GFF-001 | ✓ |
 | GeneticCode | TRANS-CODON-001 | ✓ |
 | IupacHelper | PAT-IUPAC-001 | ✓ |
-| KmerAnalyzer | KMER-COUNT-001 to KMER-FIND-001 | ✓ |
+| KmerAnalyzer | KMER-COUNT-001 to KMER-POSITIONS-001 | ✓ |
 | MetagenomicsAnalyzer | META-CLASS-001 to META-BIN-001 | ✓ |
 | MiRnaAnalyzer | MIRNA-SEED-001 to MIRNA-PRECURSOR-001 | ✓ |
-| MotifFinder | PAT-PWM-001, PAT-IUPAC-001 | ✓ |
+| MotifFinder | PAT-PWM-001 to MOTIF-GENERATE-001 | ✓ |
 | PanGenomeAnalyzer | PANGEN-CORE-001, PANGEN-CLUSTER-001 | ✓ |
 | PhylogeneticAnalyzer | PHYLO-DIST-001 to PHYLO-COMP-001 | ✓ |
 | PopulationGeneticsAnalyzer | POP-FREQ-001 to POP-LD-001 | ✓ |
 | PrimerDesigner | PRIMER-TM-001 to PRIMER-STRUCT-001 | ✓ |
 | ProbeDesigner | PROBE-DESIGN-001, PROBE-VALID-001 | ✓ |
-| ProteinMotifFinder | PROTMOTIF-FIND-001 to PROTMOTIF-DOMAIN-001 | ✓ |
+| ProteinMotifFinder | PROTMOTIF-FIND-001 to PROTMOTIF-COMMON-001 | ✓ |
 | QualityScoreAnalyzer | QUALITY-PHRED-001, QUALITY-STATS-001 | ✓ |
 | RepeatFinder | REP-STR-001 to REP-PALIN-001 | ✓ |
 | RestrictionAnalyzer | RESTR-FIND-001, RESTR-DIGEST-001 | ✓ |
-| RnaSecondaryStructure | RNA-STRUCT-001 to RNA-ENERGY-001 | ✓ |
+| RnaSecondaryStructure | RNA-STRUCT-001 to RNA-PARTITION-001 | ✓ |
 | SequenceAligner | ALIGN-GLOBAL-001 to ALIGN-MULTI-001 | ✓ |
 | SequenceAssembler | ASSEMBLY-OLC-001, ASSEMBLY-DBG-001 | ✓ |
-| SequenceComplexity | SEQ-COMPLEX-001, SEQ-ENTROPY-001 | ✓ |
+| SequenceComplexity | SEQ-COMPLEX-001 to SEQ-COMPLEX-COMPRESS-001 | ✓ |
 | SequenceExtensions | SEQ-GC-001 to SEQ-VALID-001 | ✓ |
 | SpliceSitePredictor | SPLICE-DONOR-001 to SPLICE-PREDICT-001 | ✓ |
 | StructuralVariantAnalyzer | SV-DETECT-001 to SV-CNV-001 | ✓ |
@@ -2347,10 +4013,12 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | VariantAnnotator | VARIANT-ANNOT-001 | ✓ |
 | VariantCaller | VARIANT-CALL-001 to VARIANT-INDEL-001 | ✓ |
 | VcfParser | PARSE-VCF-001 | ✓ |
+| SequenceStatistics | SEQ-STATS-001 to SEQ-SUMMARY-001 | ✓ |
+| CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 
-**Total Classes Covered: 42/42 (100%)**
+**Total Classes Covered: 44/44 (100%)**
 
 ---
 
-*Generated: 2026-01-22*
-*Checklist version: 2.1 (100% Coverage)*
+*Generated: 2026-02-05*
+*Checklist version: 2.3 (Full Method Coverage)*

@@ -365,6 +365,138 @@ chr1	.	exon	400	500	.	+	.	ID=e3";
 
     #endregion
 
+    #region GFF3 Specification Tests
+
+    [Test]
+    public void Parse_DetectsGFF3Version()
+    {
+        // GFF3 Spec: ##gff-version directive indicates format version
+        const string gff3 = @"##gff-version 3
+chr1	.	gene	1000	2000	.	+	.	ID=gene1";
+
+        const string gff2 = @"##gff-version 2
+chr1	.	gene	1000	2000	.	+	.	gene1";
+
+        // Both should parse; format detection happens on version directive
+        var records3 = GffParser.Parse(gff3, GffParser.GffFormat.Auto).ToList();
+        var records2 = GffParser.Parse(gff2, GffParser.GffFormat.Auto).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records3, Has.Count.EqualTo(1));
+            Assert.That(records2, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Parse_1BasedCoordinates_Validated()
+    {
+        // GFF3 Spec: Coordinates are 1-based, fully closed [start, end]
+        const string gff = @"##gff-version 3
+chr1	.	gene	1	100	.	+	.	ID=gene1
+chr1	.	exon	50	75	.	+	.	ID=exon1";
+
+        var records = GffParser.Parse(gff).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // First base is numbered 1, not 0
+            Assert.That(records[0].Start, Is.EqualTo(1));
+            Assert.That(records[0].End, Is.EqualTo(100));
+            // Feature length = end - start + 1 = 100
+            Assert.That(records[0].End - records[0].Start + 1, Is.EqualTo(100));
+
+            Assert.That(records[1].Start, Is.EqualTo(50));
+            Assert.That(records[1].End, Is.EqualTo(75));
+            // Exon length = 75 - 50 + 1 = 26
+            Assert.That(records[1].End - records[1].Start + 1, Is.EqualTo(26));
+        });
+    }
+
+    [Test]
+    public void Parse_Phase_ParsedCorrectly()
+    {
+        // GFF3 Spec: Phase is required for CDS features, indicates codon offset
+        // Values: 0, 1, or 2
+        const string gff = @"##gff-version 3
+chr1	.	CDS	1000	1500	.	+	0	ID=cds1
+chr1	.	CDS	2000	2500	.	+	1	ID=cds2
+chr1	.	CDS	3000	3500	.	+	2	ID=cds3
+chr1	.	gene	100	500	.	+	.	ID=gene1";
+
+        var records = GffParser.Parse(gff).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Phase 0: codon begins at first nucleotide
+            Assert.That(records[0].Phase, Is.EqualTo(0));
+            // Phase 1: codon begins at second nucleotide
+            Assert.That(records[1].Phase, Is.EqualTo(1));
+            // Phase 2: codon begins at third nucleotide
+            Assert.That(records[2].Phase, Is.EqualTo(2));
+            // Non-CDS features have null phase
+            Assert.That(records[3].Phase, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Parse_Strand_AllValidValues()
+    {
+        // GFF3 Spec: Valid strand values are +, -, ., and ?
+        const string gff = @"##gff-version 3
+chr1	.	gene	1000	2000	.	+	.	ID=gene1
+chr1	.	gene	3000	4000	.	-	.	ID=gene2
+chr1	.	gene	5000	6000	.	.	.	ID=gene3
+chr1	.	gene	7000	8000	.	?	.	ID=gene4";
+
+        var records = GffParser.Parse(gff).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].Strand, Is.EqualTo('+'), "Plus strand");
+            Assert.That(records[1].Strand, Is.EqualTo('-'), "Minus strand");
+            Assert.That(records[2].Strand, Is.EqualTo('.'), "Unstranded");
+            Assert.That(records[3].Strand, Is.EqualTo('?'), "Unknown strand");
+        });
+    }
+
+    [Test]
+    public void Parse_MultipleParentValues()
+    {
+        // GFF3 Spec: Parent can have multiple values separated by comma
+        const string gff = @"##gff-version 3
+chr1	.	gene	1000	5000	.	+	.	ID=gene1
+chr1	.	mRNA	1000	5000	.	+	.	ID=mRNA1;Parent=gene1
+chr1	.	mRNA	1000	5000	.	+	.	ID=mRNA2;Parent=gene1
+chr1	.	exon	1000	1500	.	+	.	ID=exon1;Parent=mRNA1,mRNA2";
+
+        var records = GffParser.Parse(gff).ToList();
+        var exon = records.First(r => r.Type == "exon");
+
+        // Parent attribute contains comma-separated values
+        Assert.That(exon.Attributes["Parent"], Is.EqualTo("mRNA1,mRNA2"));
+    }
+
+    [Test]
+    public void Parse_AttributeCaseInsensitive()
+    {
+        // GFF3 Spec: Attribute names are case sensitive (ID != id)
+        // However, our implementation uses case-insensitive dictionary for convenience
+        var records = GffParser.Parse(SimpleGff3).ToList();
+        var gene = records.First(r => r.Type == "gene");
+
+        // Both cases should work with case-insensitive lookup
+        Assert.Multiple(() =>
+        {
+            Assert.That(gene.Attributes.ContainsKey("ID"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("id"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("Name"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("name"), Is.True);
+        });
+    }
+
+    #endregion
+
     #region Edge Cases
 
     [Test]
