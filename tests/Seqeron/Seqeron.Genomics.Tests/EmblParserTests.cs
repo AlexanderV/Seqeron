@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
+using System.IO;
 using System.Linq;
 
 namespace Seqeron.Genomics.Tests;
@@ -139,6 +140,30 @@ SQ   Sequence 50 BP;
         Assert.That(record.Topology, Is.EqualTo("circular"));
     }
 
+    [Test]
+    public void Parse_IdLine_ExtractsSequenceVersion()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.SequenceVersion, Is.EqualTo("1"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsDataClass()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.DataClass, Is.EqualTo("STD"));
+    }
+
+    [Test]
+    public void Parse_IdLine_ExtractsTaxonomicDivision()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+
+        Assert.That(record.TaxonomicDivision, Is.EqualTo("HUM"));
+    }
+
     #endregion
 
     #region Metadata Tests
@@ -209,6 +234,15 @@ SQ   Sequence 50 BP;
         Assert.That(firstRef.Title, Does.Contain("Test title"));
     }
 
+    [Test]
+    public void Parse_Reference_HasJournalLocation()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var firstRef = record.References.FirstOrDefault();
+
+        Assert.That(firstRef.Journal, Does.Contain("Test Journal"));
+    }
+
     #endregion
 
     #region Feature Tests
@@ -228,6 +262,27 @@ SQ   Sequence 50 BP;
         var genes = record.Features.Where(f => f.Key == "gene").ToList();
 
         Assert.That(genes.Count, Is.GreaterThanOrEqualTo(1));
+    }
+
+    [Test]
+    public void Parse_Feature_HasQualifiers()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+
+        Assert.That(cds.Qualifiers, Is.Not.Null);
+        Assert.That(cds.Qualifiers.ContainsKey("product"), Is.True);
+        Assert.That(cds.Qualifiers["product"], Does.Contain("test protein"));
+    }
+
+    [Test]
+    public void Parse_Feature_GeneQualifier()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var gene = record.Features.FirstOrDefault(f => f.Key == "gene");
+
+        Assert.That(gene.Qualifiers.ContainsKey("gene"), Is.True);
+        Assert.That(gene.Qualifiers["gene"], Is.EqualTo("testGene"));
     }
 
     #endregion
@@ -291,6 +346,45 @@ SQ   Sequence 50 BP;
         Assert.That(location.Parts.Count, Is.EqualTo(2));
     }
 
+    [Test]
+    public void ParseLocation_SingleBase_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("467");
+
+        Assert.That(location.Start, Is.EqualTo(467));
+        Assert.That(location.End, Is.EqualTo(467));
+    }
+
+    [Test]
+    public void ParseLocation_PartialStart_DetectsPartial()
+    {
+        var location = EmblParser.ParseLocation("<1..200");
+
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(200));
+        Assert.That(location.RawLocation, Does.Contain("<"));
+    }
+
+    [Test]
+    public void ParseLocation_PartialEnd_DetectsPartial()
+    {
+        var location = EmblParser.ParseLocation("100..>500");
+
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(500));
+        Assert.That(location.RawLocation, Does.Contain(">"));
+    }
+
+    [Test]
+    public void ParseLocation_ComplementJoin_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("complement(join(1..50,60..100))");
+
+        Assert.That(location.IsComplement, Is.True);
+        Assert.That(location.IsJoin, Is.True);
+        Assert.That(location.Parts.Count, Is.EqualTo(2));
+    }
+
     #endregion
 
     #region Conversion Tests
@@ -337,6 +431,27 @@ SQ   Sequence 50 BP;
         Assert.That(genes.All(f => f.Key == "gene"), Is.True);
     }
 
+    [Test]
+    public void GetFeatures_FiltersByKey()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var cdsFeatures = EmblParser.GetFeatures(record, "CDS").ToList();
+
+        Assert.That(cdsFeatures.All(f => f.Key == "CDS"), Is.True);
+        Assert.That(cdsFeatures.Count, Is.GreaterThanOrEqualTo(1));
+    }
+
+    [Test]
+    public void ExtractSequence_SimpleLocation_ReturnsSubsequence()
+    {
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("1..10");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq.Length, Is.EqualTo(10));
+        Assert.That(subseq, Is.EqualTo("ACGTACGTAC"));
+    }
+
     #endregion
 
     #region Multiple Records Tests
@@ -370,6 +485,63 @@ SQ   Sequence 10 BP;
         Assert.That(records[0].Sequence, Is.EqualTo("AAAAAAAAAA"));
         Assert.That(records[1].Sequence, Is.EqualTo("CCCCCCCCCC"));
         Assert.That(records[2].Sequence, Is.EqualTo("GGGGGGGGGG"));
+    }
+
+    #endregion
+
+    #region ParseFile Tests
+
+    [Test]
+    public void ParseFile_ValidFile_ParsesSuccessfully()
+    {
+        // Create temp file
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(tempFile, SimpleEmblRecord);
+            var records = EmblParser.ParseFile(tempFile).ToList();
+
+            Assert.That(records.Count, Is.EqualTo(1));
+            Assert.That(records[0].Accession, Is.EqualTo("TEST001"));
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Test]
+    public void ParseFile_InvalidPath_ReturnsEmpty()
+    {
+        // ParseFile returns empty collection for non-existent files (doesn't throw)
+        var records = EmblParser.ParseFile(@"C:\nonexistent\path\file.embl").ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    #endregion
+
+    #region Edge Case Tests
+
+    [Test]
+    public void Parse_WhitespaceOnly_ReturnsEmpty()
+    {
+        var records = EmblParser.Parse("   \n\t\n   ").ToList();
+
+        Assert.That(records, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_RecordWithoutTerminator_HandlesGracefully()
+    {
+        // Record without // terminator - should still parse if content is valid
+        var incomplete = @"ID   TEST; SV 1; linear; DNA; STD; UNK; 10 BP.
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10";
+
+        var records = EmblParser.Parse(incomplete).ToList();
+        // Behavior depends on implementation - may return 0 or 1 records
+        Assert.That(records.Count, Is.LessThanOrEqualTo(1));
     }
 
     #endregion

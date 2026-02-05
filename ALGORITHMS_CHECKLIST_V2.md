@@ -91,7 +91,7 @@
 | ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](tests/TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
 | ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](tests/TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
 | ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](tests/TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
-| ☐ | PARSE-EMBL-001 | FileIO | 2 | - | - | - |
+| ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](tests/TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
 | ☐ | RNA-STRUCT-001 | RnaStructure | 4 | - | - | - |
 | ☐ | RNA-STEMLOOP-001 | RnaStructure | 3 | - | - | - |
 | ☐ | RNA-ENERGY-001 | RnaStructure | 2 | - | - | - |
