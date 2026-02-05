@@ -555,6 +555,9 @@ public static class ProbeDesigner
         IEnumerable<string> referenceSequences,
         int maxMismatches = 3)
     {
+        ArgumentNullException.ThrowIfNull(probeSequence);
+        ArgumentNullException.ThrowIfNull(referenceSequences);
+
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
         int offTargetHits = 0;

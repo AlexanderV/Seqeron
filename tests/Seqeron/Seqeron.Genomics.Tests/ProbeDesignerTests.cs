@@ -314,10 +314,12 @@ public class ProbeDesignerTests
         var probesUpper = ProbeDesigner.DesignProbes(upper, maxProbes: 1).ToList();
         var probesLower = ProbeDesigner.DesignProbes(lower, maxProbes: 1).ToList();
 
-        if (probesUpper.Count > 0 && probesLower.Count > 0)
-        {
-            Assert.That(probesUpper[0].Tm, Is.EqualTo(probesLower[0].Tm).Within(0.1));
-        }
+        // Both MUST produce probes - 60 bp sequence is sufficient
+        Assert.That(probesUpper, Is.Not.Empty, "Upper case sequence must produce probes");
+        Assert.That(probesLower, Is.Not.Empty, "Lower case sequence must produce probes");
+
+        Assert.That(probesUpper[0].Tm, Is.EqualTo(probesLower[0].Tm).Within(0.1),
+            "Case should not affect Tm calculation");
     }
 
     #endregion

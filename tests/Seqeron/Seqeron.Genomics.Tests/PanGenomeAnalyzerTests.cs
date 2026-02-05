@@ -144,6 +144,7 @@ public class PanGenomeAnalyzerTests
     [Test]
     public void ClusterGenes_CalculatesAverageIdentity()
     {
+        // Two identical genes from different genomes MUST cluster together
         var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
         {
             ["g1"] = new List<(string, string)> { ("gene1", "ATGCGATCGATCGATCGATCGATCGATCG") },
@@ -152,11 +153,13 @@ public class PanGenomeAnalyzerTests
 
         var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
 
-        if (clusters.Any(c => c.GeneIds.Count > 1))
-        {
-            var multiGeneCluster = clusters.First(c => c.GeneIds.Count > 1);
-            Assert.That(multiGeneCluster.AverageIdentity, Is.GreaterThan(0.9));
-        }
+        // Two identical 30bp genes MUST be clustered together
+        Assert.That(clusters.Any(c => c.GeneIds.Count > 1), Is.True,
+            "Two identical genes MUST form a multi-gene cluster");
+
+        var multiGeneCluster = clusters.First(c => c.GeneIds.Count > 1);
+        Assert.That(multiGeneCluster.AverageIdentity, Is.GreaterThan(0.9),
+            "Identical sequences should have >90% average identity");
     }
 
     [Test]
@@ -407,10 +410,9 @@ public class PanGenomeAnalyzerTests
 
         var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(clusters, maxMarkers: 1).ToList();
 
-        if (markers.Count > 0)
-        {
-            Assert.That(markers[0].ClusterId, Is.EqualTo("long"));
-        }
+        Assert.That(markers, Has.Count.EqualTo(1), "Should return exactly 1 marker");
+        Assert.That(markers[0].ClusterId, Is.EqualTo("long"),
+            "Should prefer longer sequence (16bp) over shorter (4bp)");
     }
 
     #endregion

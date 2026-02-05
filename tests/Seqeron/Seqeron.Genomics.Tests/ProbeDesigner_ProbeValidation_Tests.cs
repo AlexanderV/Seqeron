@@ -76,26 +76,13 @@ public class ProbeDesigner_ProbeValidation_Tests
     }
 
     [Test]
-    public void ValidateProbe_NullReferences_ThrowsOrHandlesGracefully()
+    public void ValidateProbe_NullReferences_ThrowsArgumentNullException()
     {
-        // M2 variant: Null references behavior
-        // Implementation may throw (ArgumentNullException or NullReferenceException) or handle gracefully
-        try
-        {
-            var validation = ProbeDesigner.ValidateProbe(StandardProbe, null!);
-            // If no exception, validation should be valid
-            Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0));
-        }
-        catch (ArgumentNullException)
-        {
-            // Acceptable: Explicit parameter validation
-            Assert.Pass("ArgumentNullException is acceptable for null references");
-        }
-        catch (NullReferenceException)
-        {
-            // Acceptable: Null dereference during iteration
-            Assert.Pass("NullReferenceException is acceptable for null references");
-        }
+        // Evidence: Methods should validate null parameters
+        // Null references array is invalid input - should throw ArgumentNullException
+        Assert.Throws<ArgumentNullException>(() =>
+            ProbeDesigner.ValidateProbe(StandardProbe, null!),
+            "Null references should throw ArgumentNullException");
     }
 
     #endregion

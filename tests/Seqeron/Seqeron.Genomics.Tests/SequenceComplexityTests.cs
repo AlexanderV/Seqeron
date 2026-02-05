@@ -393,10 +393,10 @@ public class SequenceComplexityTests
         var sequence = new DnaSequence("ATGCATGC" + new string('A', 64) + "ATGCATGC");
         var regions = SequenceComplexity.FindLowComplexityRegions(sequence, windowSize: 32, entropyThreshold: 0.5).ToList();
 
-        if (regions.Count > 0)
-        {
-            Assert.That(regions[0].Sequence, Does.Contain("AAA"));
-        }
+        // 64 consecutive A's should definitely be detected as low complexity
+        Assert.That(regions, Is.Not.Empty, "64 consecutive A's should be detected as low complexity");
+        Assert.That(regions[0].Sequence, Does.Contain("AAA"),
+            "Low complexity region should contain the poly-A stretch");
     }
 
     #endregion

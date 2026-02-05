@@ -240,30 +240,26 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var resultsLong = RepeatFinder.FindInvertedRepeats(sequenceLong, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        if (resultsLong.Count > 0)
+        // GCGC...GCGC is a valid inverted repeat with 4bp arms and 4bp loop
+        Assert.That(resultsLong, Is.Not.Empty, "Should find inverted repeat GCGC...loop...GCGC");
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
+            foreach (var result in resultsLong)
             {
-                foreach (var result in resultsLong)
-                {
-                    Assert.That(result.CanFormHairpin, Is.EqualTo(result.LoopLength >= 3),
-                        $"CanFormHairpin should be true when LoopLength ({result.LoopLength}) ≥ 3");
-                }
-            });
-        }
+                Assert.That(result.CanFormHairpin, Is.EqualTo(result.LoopLength >= 3),
+                    $"CanFormHairpin should be true when LoopLength ({result.LoopLength}) ≥ 3");
+            }
+        });
 
         // Test with loop = 2 (should NOT form hairpin biologically)
         var sequenceShort = new DnaSequence("GCGCAAGCGC"); // loop = 2
         var resultsShort = RepeatFinder.FindInvertedRepeats(sequenceShort, minArmLength: 4, maxLoopLength: 10, minLoopLength: 0).ToList();
 
-        if (resultsShort.Count > 0)
+        // With minLoopLength=0, we might find this, verify CanFormHairpin is correct
+        foreach (var result in resultsShort.Where(r => r.LoopLength < 3))
         {
-            var shortLoopResult = resultsShort.FirstOrDefault(r => r.LoopLength < 3);
-            if (shortLoopResult.ArmLength > 0)
-            {
-                Assert.That(shortLoopResult.CanFormHairpin, Is.False,
-                    "CanFormHairpin should be false when LoopLength < 3");
-            }
+            Assert.That(result.CanFormHairpin, Is.False,
+                "CanFormHairpin should be false when LoopLength < 3");
         }
     }
 
@@ -373,28 +369,40 @@ public class RepeatFinder_InvertedRepeat_Tests
         Assert.That(resultsLower.Count, Is.EqualTo(resultsUpper.Count),
             "Case should not affect result count");
 
-        if (resultsLower.Count > 0)
-        {
-            Assert.That(resultsLower[0].ArmLength, Is.EqualTo(resultsUpper[0].ArmLength));
-        }
+        // Both should find the inverted repeat
+        Assert.That(resultsLower, Is.Not.Empty, "Should find inverted repeat in lowercase input");
+        Assert.That(resultsLower[0].ArmLength, Is.EqualTo(resultsUpper[0].ArmLength),
+            "Arm length should be identical for upper and lower case input");
     }
 
     /// <summary>
-    /// S4: Document behavior for adjacent arms (loop = 0).
+    /// S4: Test minLoopLength=0 allows adjacent palindromic arms detection.
     /// Source: ASSUMPTION - palindromic sequences are edge case.
     /// </summary>
     [Test]
-    public void FindInvertedRepeats_AdjacentArms_BehaviorDocumented()
+    public void FindInvertedRepeats_AdjacentArms_MinLoopZeroAllowsDetection()
     {
-        // GAATTC is a palindrome (revcomp of itself) - adjacent arms would have loop=0
-        var sequence = new DnaSequence("GAATTC"); // This IS a palindrome, but no loop
-        // For inverted repeat detection, we need two separate copies with intervening sequence
+        // Create a proper inverted repeat with zero-length loop
+        // ARM + loop(0) + revcomp(ARM) = GGGC + GCCC
+        // GGGC revcomp = GCCC
+        var sequence = new DnaSequence("GGGCGCCC"); // Adjacent palindromic arms, loop=0
 
-        var resultsNoMinLoop = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 3, maxLoopLength: 10, minLoopLength: 0).ToList();
+        var resultsNoMinLoop = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 0).ToList();
+        var resultsWithMinLoop = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 1).ToList();
 
-        // When minLoopLength=0, adjacent palindromic regions might be found
-        // This documents the behavior for such edge cases
-        Assert.Pass($"With minLoopLength=0, found {resultsNoMinLoop.Count} results (behavior documented)");
+        // With minLoopLength=0, adjacent palindromic regions can be found
+        // With minLoopLength=1, they cannot (loop is 0, which is < 1)
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultsNoMinLoop.Count, Is.GreaterThanOrEqualTo(resultsWithMinLoop.Count),
+                "minLoopLength=0 should find at least as many repeats as minLoopLength=1");
+            // Verify the algorithm respects the minLoopLength parameter
+            foreach (var result in resultsWithMinLoop)
+            {
+                Assert.That(result.LoopLength, Is.GreaterThanOrEqualTo(1),
+                    "All results with minLoopLength=1 must have loop >= 1");
+            }
+        });
     }
 
     /// <summary>
@@ -450,22 +458,20 @@ public class RepeatFinder_InvertedRepeat_Tests
     [Test]
     public void FindInvertedRepeats_LoopSequence_CorrectlyExtracted()
     {
-        var sequence = new DnaSequence("GCGCTTTTAGCGC");
-        //                              0123456789012
-        // Left: GCGC (0-3), Loop: TTTTA (4-8), Right: GCGC (9-12)
-        // Wait: GCGC revcomp = GCGC, so we need: GCGC...loop...GCGC
+        // GCGC is self-complementary (revcomp GCGC = GCGC)
+        // Sequence: GCGC + TTTT (4 nt loop) + GCGC = inverted repeat
+        var seq = new DnaSequence("GCGCTTTTGCGC");
+        //                         012345678901
+        // Left arm: GCGC (0-3), Loop: TTTT (4-7), Right arm: GCGC (8-11)
 
-        // Let's use a clear example
-        var seq2 = new DnaSequence("GCGCTTTTGCGC");
-        //                          012345678901
+        var results = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        var results = RepeatFinder.FindInvertedRepeats(seq2, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
+        // MUST detect the inverted repeat with 4-nucleotide loop
+        Assert.That(results, Is.Not.Empty,
+            "Self-complementary arms GCGC with 4nt loop MUST form detectable inverted repeat");
 
-        if (results.Count > 0)
-        {
-            var result = results.First(r => r.ArmLength == 4);
-            Assert.That(result.Loop, Is.EqualTo("TTTT"), "Loop should be the intervening sequence");
-        }
+        var result = results.First(r => r.ArmLength == 4);
+        Assert.That(result.Loop, Is.EqualTo("TTTT"), "Loop should be the intervening sequence");
     }
 
     #endregion

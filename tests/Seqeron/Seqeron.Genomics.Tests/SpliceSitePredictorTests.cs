@@ -97,19 +97,17 @@ public class SpliceSitePredictorTests
     [Test]
     public void FindAcceptorSites_StrongPPT_HighScore()
     {
-        // Strong polypyrimidine tract - need enough context
-        string strongPpt = "AAAAUCUCUCUCUCUCUCAGAAAA";
-        string weakPpt = "AAAAGAGAGAGAGAGAGAGAGAAAA";
+        // Evidence: Polypyrimidine tract (PPT) is pyrimidine-rich region upstream of AG acceptor
+        // Strong PPT: continuous pyrimidines (U/C); Weak PPT: interrupted by purines (A/G)
+        string strongPpt = "AAAAUCUCUCUCUCUCUCAGAAAA"; // Strong PPT before AG
+        string weakPpt = "AAAAGAGAGAGAGAGAGAGAGAAAA"; // Weak - alternating purines
 
-        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.2).ToList();
-        var weakSites = FindAcceptorSites(weakPpt, minScore: 0.2).ToList();
+        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.1).ToList();
+        var weakSites = FindAcceptorSites(weakPpt, minScore: 0.1).ToList();
 
-        // Strong PPT should find sites; comparison depends on finding both
-        if (strongSites.Any())
-        {
-            Assert.That(strongSites[0].Score, Is.GreaterThan(0));
-        }
-        Assert.Pass("PPT scoring verified");
+        // Strong PPT should produce sites; weak may not
+        Assert.That(strongSites, Is.Not.Empty, "Strong PPT should produce acceptor sites");
+        Assert.That(strongSites[0].Score, Is.GreaterThan(0), "Score should be positive");
     }
 
     [Test]
@@ -123,12 +121,13 @@ public class SpliceSitePredictorTests
     [Test]
     public void FindAcceptorSites_U12NonCanonical_WhenEnabled()
     {
-        string sequence = "UUUUUUUUUUUUUUUUACGG";
+        // Evidence: U12-type introns use AC-AG dinucleotides instead of canonical GT-AG
+        // U12 acceptor has AC dinucleotide
+        string sequence = "UUUUUUUUUUUUUUUUACGG"; // Contains AC
         var sites = FindAcceptorSites(sequence, minScore: 0.1, includeNonCanonical: true).ToList();
 
-        var u12Sites = sites.Where(s => s.Type == SpliceSiteType.U12Acceptor);
-        // May or may not find U12 sites
-        Assert.Pass("U12 acceptor detection verified");
+        // Should find potential U12 sites when non-canonical enabled
+        Assert.That(sites, Is.Not.Empty, "Should find sites with non-canonical enabled");
     }
 
     #endregion

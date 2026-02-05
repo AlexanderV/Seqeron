@@ -140,7 +140,7 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     public void BinContigs_BinIds_AreUnique()
     {
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
-        // Create diverse contigs to generate multiple bins
+        // Create diverse contigs to generate multiple bins - 50 high GC + 50 low GC
         for (int i = 0; i < 100; i++)
         {
             string seq = i < 50 ? CreateHighGcSequence(15000) : CreateLowGcSequence(15000);
@@ -149,12 +149,13 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 50000).ToList();
 
-        if (bins.Count > 0)
-        {
-            var binIds = bins.Select(b => b.BinId).ToList();
-            Assert.That(binIds.Distinct().Count(), Is.EqualTo(binIds.Count),
-                "All bin IDs must be unique");
-        }
+        // 100 contigs × 15kb = 1.5Mb total, minBinSize=50kb → MUST produce bins
+        Assert.That(bins, Is.Not.Empty,
+            "100 diverse 15kb contigs with 50kb min bin size MUST produce at least one bin");
+
+        var binIds = bins.Select(b => b.BinId).ToList();
+        Assert.That(binIds.Distinct().Count(), Is.EqualTo(binIds.Count),
+            "All bin IDs must be unique");
     }
 
     #endregion

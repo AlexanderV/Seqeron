@@ -454,11 +454,18 @@ public class ProteinMotifFinderTests
     [Test]
     public void PredictSignalPeptide_HandlesLowercase()
     {
-        string protein = "mkrllllllllllllllllllasagdddeeefff";
-        var signal = PredictSignalPeptide(protein);
+        // Evidence: Protein sequences should be case-insensitive
+        string proteinLower = "mkrllllllllllllllllllasagdddeeefff";
+        string proteinUpper = "MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
 
-        // Should process lowercase
-        Assert.Pass("Lowercase handling verified");
+        var signalLower = PredictSignalPeptide(proteinLower);
+        var signalUpper = PredictSignalPeptide(proteinUpper);
+
+        // Both should produce consistent results (both null or both not null)
+        bool lowerHasSignal = signalLower != null;
+        bool upperHasSignal = signalUpper != null;
+        Assert.That(lowerHasSignal, Is.EqualTo(upperHasSignal),
+            "Lowercase and uppercase should produce same signal peptide detection result");
     }
 
     #endregion

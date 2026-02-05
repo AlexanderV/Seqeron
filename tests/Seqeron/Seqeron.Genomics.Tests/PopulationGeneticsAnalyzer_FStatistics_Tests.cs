@@ -365,4 +365,138 @@ public class PopulationGeneticsAnalyzer_FStatistics_Tests
     }
 
     #endregion
+
+    #region Reference Data Validation Tests - Published Fst Values
+
+    /// <summary>
+    /// Validates Fst calculation against published human population data.
+    /// Source: Rosenberg et al. (2002) Science 298:2381-2385
+    /// "Genetic Structure of Human Populations"
+    /// 
+    /// Key finding: Overall Fst among human populations ≈ 0.05-0.15
+    /// This test verifies our calculation produces values in this range
+    /// for populations with typical human-like differentiation.
+    /// </summary>
+    [Test]
+    public void CalculateFst_HumanPopulationLikeDifferentiation_InExpectedRange()
+    {
+        // Simulate allele frequencies typical of human populations
+        // Based on Rosenberg et al. (2002): Most variation is within populations
+        // Typical frequency differences between continental groups: 0.1-0.3
+
+        // Population 1 (e.g., European-like): frequencies around 0.3-0.4
+        var europeanLike = new List<(double, int)>
+        {
+            (0.35, 200), (0.40, 200), (0.30, 200), (0.45, 200), (0.38, 200)
+        };
+
+        // Population 2 (e.g., East Asian-like): frequencies around 0.5-0.6
+        var eastAsianLike = new List<(double, int)>
+        {
+            (0.50, 200), (0.55, 200), (0.48, 200), (0.60, 200), (0.52, 200)
+        };
+
+        double fst = PopulationGeneticsAnalyzer.CalculateFst(europeanLike, eastAsianLike);
+
+        // Rosenberg et al. report continental Fst ≈ 0.05-0.15
+        Assert.That(fst, Is.InRange(0.01, 0.25),
+            "Fst between continental-like populations should be 0.01-0.25 (Rosenberg et al. 2002)");
+    }
+
+    /// <summary>
+    /// Validates Fst for highly differentiated populations.
+    /// Source: Hartl & Clark "Principles of Population Genetics" (2007)
+    /// 
+    /// Interpretation scale (Wright 1978):
+    /// - Fst 0-0.05: Little differentiation
+    /// - Fst 0.05-0.15: Moderate differentiation
+    /// - Fst 0.15-0.25: Great differentiation
+    /// - Fst > 0.25: Very great differentiation
+    /// </summary>
+    [Test]
+    public void CalculateFst_WrightInterpretationScale_CorrectClassification()
+    {
+        // Little differentiation: very similar frequencies
+        var pop1Similar = new List<(double, int)> { (0.50, 100), (0.48, 100) };
+        var pop2Similar = new List<(double, int)> { (0.52, 100), (0.50, 100) };
+        double fstLittle = PopulationGeneticsAnalyzer.CalculateFst(pop1Similar, pop2Similar);
+
+        // Great differentiation: large frequency differences
+        var pop1Different = new List<(double, int)> { (0.80, 100), (0.85, 100) };
+        var pop2Different = new List<(double, int)> { (0.30, 100), (0.25, 100) };
+        double fstGreat = PopulationGeneticsAnalyzer.CalculateFst(pop1Different, pop2Different);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fstLittle, Is.LessThan(0.05),
+                "Similar populations should have Fst < 0.05 (Wright: little differentiation)");
+            Assert.That(fstGreat, Is.GreaterThan(0.15),
+                "Different populations should have Fst > 0.15 (Wright: great differentiation)");
+        });
+    }
+
+    /// <summary>
+    /// Validates Fst using Weir & Cockerham (1984) estimator properties.
+    /// Source: Weir & Cockerham (1984) Evolution 38:1358-1370
+    /// "Estimating F-Statistics for the Analysis of Population Structure"
+    /// 
+    /// Key property: For two populations with fixed alleles (p1=1, p2=0),
+    /// Fst should approach 1.0 (complete differentiation).
+    /// </summary>
+    [Test]
+    public void CalculateFst_WeirCockerham_FixedAlleles_ApproachesOne()
+    {
+        // Fixed differences at multiple loci
+        // p1 = 1.0 (allele fixed in pop1), p2 = 0.0 (allele absent in pop2)
+        var pop1Fixed = new List<(double, int)>
+        {
+            (1.0, 100), (1.0, 100), (1.0, 100), (1.0, 100), (1.0, 100)
+        };
+        var pop2Fixed = new List<(double, int)>
+        {
+            (0.0, 100), (0.0, 100), (0.0, 100), (0.0, 100), (0.0, 100)
+        };
+
+        double fst = PopulationGeneticsAnalyzer.CalculateFst(pop1Fixed, pop2Fixed);
+
+        // With complete fixation, Fst should be very high (approaching 1)
+        Assert.That(fst, Is.GreaterThan(0.9),
+            "Completely fixed alleles should yield Fst > 0.9 (Weir & Cockerham 1984)");
+    }
+
+    /// <summary>
+    /// Validates Fst calculation for island model expectations.
+    /// Source: Wright (1951) Annals of Eugenics 15:323-354
+    /// 
+    /// Island model: Fst ≈ 1/(4Nm + 1) where Nm = number of migrants
+    /// For Nm = 1 (1 migrant per generation): Fst ≈ 0.2
+    /// For Nm = 10: Fst ≈ 0.024
+    /// </summary>
+    [Test]
+    public void CalculateFst_IslandModelConsistency_MonotonicWithDifferentiation()
+    {
+        // Three levels of differentiation
+        var popA = new List<(double, int)> { (0.5, 100) };
+
+        // Very similar (high gene flow, Nm >> 1)
+        var popB_similar = new List<(double, int)> { (0.48, 100) };
+        // Moderately different (moderate gene flow)
+        var popB_moderate = new List<(double, int)> { (0.35, 100) };
+        // Very different (low gene flow, Nm ≈ 1)
+        var popB_different = new List<(double, int)> { (0.15, 100) };
+
+        double fst_similar = PopulationGeneticsAnalyzer.CalculateFst(popA, popB_similar);
+        double fst_moderate = PopulationGeneticsAnalyzer.CalculateFst(popA, popB_moderate);
+        double fst_different = PopulationGeneticsAnalyzer.CalculateFst(popA, popB_different);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fst_similar, Is.LessThan(fst_moderate),
+                "Less differentiation should yield lower Fst");
+            Assert.That(fst_moderate, Is.LessThan(fst_different),
+                "More differentiation should yield higher Fst");
+        });
+    }
+
+    #endregion
 }

@@ -145,8 +145,30 @@
 
 ---
 
+## Test Coverage
+
+### Reference Data Tests (Added 2026-02-05)
+Tests validated against Wikipedia and Rosalind examples:
+
+**Wikipedia Needleman-Wunsch:**
+- `GlobalAlign_WikipediaExample_CorrectScore` - GCATGCG vs GATTACA with match=1, mismatch=-1, gap=-1 → score 0
+- `GlobalAlign_WikipediaExample_ValidAlignment` - validates alignment properties
+- `GlobalAlign_IdenticalSequences_PerfectAlignment` - perfect match case
+
+**Rosalind Bioinformatics:**
+- `GlobalAlign_RosalindStyleScoring_CorrectBehavior` - validates BLOSUM62-style scoring
+
+---
+
 ## References
 
 1. Needleman, Saul B. & Wunsch, Christian D. (1970). "A general method applicable to the search for similarities in the amino acid sequence of two proteins". Journal of Molecular Biology. 48(3): 443–53.
 2. Wikipedia contributors. "Needleman–Wunsch algorithm". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-02-01.
 3. Wikipedia contributors. "Sequence alignment". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-02-01.
+4. Rosalind Bioinformatics. "GLOB - Global Alignment with Scoring Matrix". http://rosalind.info/problems/glob/
+
+---
+
+## Change History
+- **2026-02-05**: Added reference data tests from Wikipedia and Rosalind.
+- **2026-02-01**: Initial documentation.

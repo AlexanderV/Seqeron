@@ -768,4 +768,162 @@ chr1	100	200";
     }
 
     #endregion
+
+    #region Reference Data Validation Tests - UCSC Genome Browser
+
+    /// <summary>
+    /// Validates BED format parsing against UCSC Genome Browser specification.
+    /// Source: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
+    /// 
+    /// UCSC BED format specification:
+    /// - Coordinates are 0-based, half-open [start, end)
+    /// - Fields are tab-separated
+    /// - Score is clamped to [0, 1000]
+    /// - BED12 blockStarts are relative to chromStart
+    /// </summary>
+    [Test]
+    public void Parse_UcscBedSpecification_ZeroBasedCoordinates()
+    {
+        // UCSC BED format uses 0-based coordinates
+        // The first 100 bases of chr1 would be: chr1 0 100
+        // Source: UCSC Genome Browser FAQ
+        const string ucscBed = "chr1\t0\t100\tFirst100Bases";
+
+        var records = BedParser.Parse(ucscBed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].ChromStart, Is.EqualTo(0), "UCSC BED uses 0-based start");
+            Assert.That(records[0].ChromEnd, Is.EqualTo(100), "UCSC BED end is exclusive");
+            Assert.That(records[0].Length, Is.EqualTo(100), "Length = end - start = 100 - 0 = 100");
+        });
+    }
+
+    /// <summary>
+    /// UCSC BED12 gene structure format validation.
+    /// Source: UCSC Genome Browser Table Browser output format
+    /// 
+    /// Example based on RefSeq gene NM_001005484 (OR4F5) from UCSC:
+    /// - 3 exons with specific block sizes and starts
+    /// - thickStart/thickEnd define coding region
+    /// </summary>
+    [Test]
+    public void Parse_UcscBed12_GeneStructure_ParsedCorrectly()
+    {
+        // Simplified representation of a 3-exon gene structure (based on UCSC format)
+        // Gene from position 1000-5000 with CDS from 1100-4900, 3 exons
+        const string ucscBed12 = "chr1\t1000\t5000\tTestGene\t900\t+\t1100\t4900\t0,0,255\t3\t100,200,300\t0,1500,3700";
+
+        var records = BedParser.Parse(ucscBed12).ToList();
+        var gene = records[0];
+
+        Assert.Multiple(() =>
+        {
+            // Basic coordinates
+            Assert.That(gene.ChromStart, Is.EqualTo(1000), "Gene start");
+            Assert.That(gene.ChromEnd, Is.EqualTo(5000), "Gene end");
+            Assert.That(gene.Length, Is.EqualTo(4000), "Gene span");
+
+            // Thick region (CDS)
+            Assert.That(gene.ThickStart, Is.EqualTo(1100), "CDS start");
+            Assert.That(gene.ThickEnd, Is.EqualTo(4900), "CDS end");
+
+            // Block structure
+            Assert.That(gene.BlockCount, Is.EqualTo(3), "Number of exons");
+            Assert.That(gene.BlockSizes, Is.EqualTo(new[] { 100, 200, 300 }), "Exon sizes");
+            Assert.That(gene.BlockStarts, Is.EqualTo(new[] { 0, 1500, 3700 }), "Exon starts (relative)");
+
+            // Verify exon positions are relative to chromStart (UCSC specification)
+            // Exon 1: 1000 + 0 = 1000 to 1000 + 100 = 1100
+            // Exon 2: 1000 + 1500 = 2500 to 2500 + 200 = 2700
+            // Exon 3: 1000 + 3700 = 4700 to 4700 + 300 = 5000
+        });
+    }
+
+    /// <summary>
+    /// Validates score range according to UCSC specification.
+    /// Source: UCSC BED FAQ - "A score between 0 and 1000"
+    /// </summary>
+    [Test]
+    public void Parse_UcscScoreRange_ClampedTo1000()
+    {
+        // UCSC specifies score must be in [0, 1000]
+        const string bedWithHighScore = "chr1\t100\t200\tname\t1500\t+";
+        const string bedWithValidScore = "chr1\t100\t200\tname\t750\t+";
+        const string bedWithZeroScore = "chr1\t100\t200\tname\t0\t+";
+
+        var highScoreRecord = BedParser.Parse(bedWithHighScore).First();
+        var validScoreRecord = BedParser.Parse(bedWithValidScore).First();
+        var zeroScoreRecord = BedParser.Parse(bedWithZeroScore).First();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(highScoreRecord.Score, Is.EqualTo(1000), "Score >1000 should be clamped to 1000");
+            Assert.That(validScoreRecord.Score, Is.EqualTo(750), "Valid score preserved");
+            Assert.That(zeroScoreRecord.Score, Is.EqualTo(0), "Zero score preserved");
+        });
+    }
+
+    /// <summary>
+    /// Validates ENCODE ChIP-seq peak format (narrowPeak).
+    /// Source: ENCODE Project - narrowPeak format specification
+    /// https://genome.ucsc.edu/FAQ/FAQformat.html#format12
+    /// 
+    /// narrowPeak is BED6+4 format used for ChIP-seq peaks.
+    /// </summary>
+    [Test]
+    public void Parse_EncodeNarrowPeakStyle_BasicBed6Parsed()
+    {
+        // narrowPeak example: ENCODE CTCF binding site
+        // Based on ENCODE specification (BED6 portion)
+        const string encodePeak = @"chr1	9356548	9356648	CTCF_peak1	500	.
+chr1	9358722	9358822	CTCF_peak2	750	.
+chr7	55086714	55086814	CTCF_peak3	900	+";
+
+        var peaks = BedParser.Parse(encodePeak).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(peaks, Has.Count.EqualTo(3), "Should parse 3 peaks");
+
+            // First peak
+            Assert.That(peaks[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(peaks[0].ChromStart, Is.EqualTo(9356548));
+            Assert.That(peaks[0].ChromEnd, Is.EqualTo(9356648));
+            Assert.That(peaks[0].Length, Is.EqualTo(100), "Typical ChIP-seq peak width");
+            Assert.That(peaks[0].Score, Is.EqualTo(500));
+
+            // Score ordering reflects signal intensity
+            Assert.That(peaks[2].Score, Is.GreaterThan(peaks[0].Score),
+                "Higher score indicates stronger signal");
+        });
+    }
+
+    /// <summary>
+    /// Validates proper handling of the UCSC hg38 coordinate system.
+    /// Source: UCSC hg38 assembly - chromosome 1 is 248,956,422 bp
+    /// </summary>
+    [Test]
+    public void Parse_Hg38Coordinates_LargeCoordinatesHandled()
+    {
+        // Real coordinates from hg38 telomere regions
+        // Source: UCSC Genome Browser hg38 assembly
+        const string hg38Telomeres = @"chr1	0	10000	chr1_5prime_telomere	0	+
+chr1	248946422	248956422	chr1_3prime_telomere	0	-";
+
+        var records = BedParser.Parse(hg38Telomeres).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].ChromStart, Is.EqualTo(0), "5' telomere starts at 0");
+            Assert.That(records[0].ChromEnd, Is.EqualTo(10000));
+
+            Assert.That(records[1].ChromStart, Is.EqualTo(248946422),
+                "3' telomere near chr1 end (hg38 chr1 = 248,956,422 bp)");
+            Assert.That(records[1].ChromEnd, Is.EqualTo(248956422));
+            Assert.That(records[1].Length, Is.EqualTo(10000), "Telomere length");
+        });
+    }
+
+    #endregion
 }

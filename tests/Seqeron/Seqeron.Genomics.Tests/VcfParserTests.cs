@@ -376,13 +376,21 @@ chr1	100	.	A	]chr2:500]A	99	PASS	.";
     [Test]
     public void GetAlleleDepth_ReturnsDepths()
     {
-        // Test with a VCF that has AD field - skip if not available
-        // This is a basic test to ensure the method works
-        var records = VcfParser.Parse(SimpleVcf).ToList();
+        // Evidence: VCF 4.3 spec - AD field contains allele depths as comma-separated integers
+        // Test with a VCF that has AD field
+        const string vcfWithAd = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description=""Allelic depths"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	GT:AD	0/1:15,10";
+
+        var records = VcfParser.Parse(vcfWithAd).ToList();
         var ad = VcfParser.GetAlleleDepth(records[0], 0);
 
-        // May be null if AD field is not present
-        Assert.Pass();
+        Assert.That(ad, Is.Not.Null, "AD field should be parsed");
+        Assert.That(ad, Has.Length.EqualTo(2), "Should have 2 allele depths (REF and ALT)");
+        Assert.That(ad![0], Is.EqualTo(15), "REF depth should be 15");
+        Assert.That(ad[1], Is.EqualTo(10), "ALT depth should be 10");
     }
 
     [Test]
@@ -709,6 +717,199 @@ chr1	100	.	A	G	99	PASS	.";
         {
             File.Delete(tempFile);
         }
+    }
+
+    #endregion
+
+    #region Reference Data Validation Tests - 1000 Genomes Project & ClinVar
+
+    /// <summary>
+    /// Validates VCF parsing against 1000 Genomes Project format.
+    /// Source: 1000 Genomes Project Phase 3 (https://www.internationalgenome.org/)
+    /// 
+    /// This test uses the format and structure from 1000 Genomes VCF files,
+    /// with rs IDs that are real dbSNP identifiers.
+    /// </summary>
+    [Test]
+    public void Parse_1000GenomesFormat_CommonSNPs_ParsedCorrectly()
+    {
+        // Real SNP rs IDs from 1000 Genomes Phase 3 data
+        // rs1805007: MC1R gene, associated with red hair
+        // rs12913832: HERC2/OCA2, associated with blue eyes
+        // rs7412, rs429358: APOE variants
+        const string genomes1000Vcf = @"##fileformat=VCFv4.2
+##INFO=<ID=AF,Number=A,Type=Float,Description=""Allele Frequency"">
+##INFO=<ID=AC,Number=A,Type=Integer,Description=""Allele Count"">
+##INFO=<ID=AN,Number=1,Type=Integer,Description=""Total Alleles"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+16	89919709	rs1805007	C	T	100	PASS	AF=0.0133;AC=67;AN=5008
+15	28365618	rs12913832	A	G	100	PASS	AF=0.218;AC=1093;AN=5008
+19	45411941	rs429358	T	C	100	PASS	AF=0.153;AC=767;AN=5008
+19	45412079	rs7412	C	T	100	PASS	AF=0.077;AC=386;AN=5008";
+
+        var records = VcfParser.Parse(genomes1000Vcf).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(4), "Should parse 4 variants");
+
+            // rs1805007 - MC1R variant (red hair)
+            var mc1r = records.First(r => r.Id == "rs1805007");
+            Assert.That(mc1r.Chrom, Is.EqualTo("16"), "MC1R is on chr16");
+            Assert.That(mc1r.Pos, Is.EqualTo(89919709), "MC1R position in GRCh37");
+            Assert.That(mc1r.Ref, Is.EqualTo("C"));
+            Assert.That(mc1r.Alt[0], Is.EqualTo("T"));
+
+            // rs12913832 - Blue eyes variant
+            var eyes = records.First(r => r.Id == "rs12913832");
+            Assert.That(eyes.Chrom, Is.EqualTo("15"), "HERC2 is on chr15");
+            Assert.That(eyes.Ref, Is.EqualTo("A"));
+            Assert.That(eyes.Alt[0], Is.EqualTo("G"));
+
+            // APOE variants - rs429358 and rs7412 define APOE alleles
+            var apoe1 = records.First(r => r.Id == "rs429358");
+            var apoe2 = records.First(r => r.Id == "rs7412");
+            Assert.That(apoe1.Chrom, Is.EqualTo("19"), "APOE is on chr19");
+            Assert.That(apoe2.Chrom, Is.EqualTo("19"));
+            Assert.That(apoe2.Pos - apoe1.Pos, Is.EqualTo(138),
+                "rs7412 is 138 bp downstream of rs429358");
+        });
+    }
+
+    /// <summary>
+    /// Validates VCF parsing with ClinVar pathogenic variant format.
+    /// Source: ClinVar database (https://www.ncbi.nlm.nih.gov/clinvar/)
+    /// 
+    /// Tests use real ClinVar variant IDs and structures.
+    /// </summary>
+    [Test]
+    public void Parse_ClinVarFormat_PathogenicVariants_ParsedCorrectly()
+    {
+        // Real ClinVar pathogenic variants (simplified format)
+        // BRCA1: c.5266dupC (5382insC) - founder mutation
+        // CFTR: F508del - most common CF mutation
+        const string clinvarVcf = @"##fileformat=VCFv4.3
+##INFO=<ID=CLNSIG,Number=.,Type=String,Description=""Clinical significance"">
+##INFO=<ID=CLNDN,Number=.,Type=String,Description=""Disease name"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+17	43057051	rs80357906	G	GA	.	.	CLNSIG=Pathogenic;CLNDN=Breast-ovarian_cancer
+7	117559590	rs113993960	ATCT	A	.	.	CLNSIG=Pathogenic;CLNDN=Cystic_fibrosis";
+
+        var records = VcfParser.Parse(clinvarVcf).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(2));
+
+            // BRCA1 5382insC - insertion
+            var brca1 = records.First(r => r.Id == "rs80357906");
+            Assert.That(brca1.Chrom, Is.EqualTo("17"), "BRCA1 is on chr17");
+            Assert.That(brca1.Ref, Is.EqualTo("G"));
+            Assert.That(brca1.Alt[0], Is.EqualTo("GA"), "Insertion of A");
+            Assert.That(VcfParser.ClassifyVariant(brca1), Is.EqualTo(VcfParser.VariantType.Insertion));
+            Assert.That(VcfParser.GetVariantLength(brca1), Is.EqualTo(1), "1 bp insertion");
+
+            // CFTR F508del - deletion of 3 bp (TCT = Phe codon)
+            var cftr = records.First(r => r.Id == "rs113993960");
+            Assert.That(cftr.Chrom, Is.EqualTo("7"), "CFTR is on chr7");
+            Assert.That(cftr.Ref, Is.EqualTo("ATCT"));
+            Assert.That(cftr.Alt[0], Is.EqualTo("A"), "Deletion of TCT");
+            Assert.That(VcfParser.ClassifyVariant(cftr), Is.EqualTo(VcfParser.VariantType.Deletion));
+            Assert.That(VcfParser.GetVariantLength(cftr), Is.EqualTo(3), "3 bp deletion (F508del)");
+        });
+    }
+
+    /// <summary>
+    /// Validates multi-allelic variant parsing from 1000 Genomes.
+    /// Source: 1000 Genomes Project VCF specification
+    /// </summary>
+    [Test]
+    public void Parse_1000GenomesMultiAllelic_ParsedCorrectly()
+    {
+        // Multi-allelic site example (common in 1000 Genomes)
+        const string multiAllelicVcf = @"##fileformat=VCFv4.2
+##INFO=<ID=AF,Number=A,Type=Float,Description=""Allele Frequency"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10177	rs367896724	A	AC,AT	100	PASS	AF=0.425,0.003";
+
+        var records = VcfParser.Parse(multiAllelicVcf).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            var variant = records[0];
+
+            Assert.That(variant.Alt, Has.Length.EqualTo(2), "Two alternate alleles");
+            Assert.That(variant.Alt[0], Is.EqualTo("AC"), "First alt: insertion of C");
+            Assert.That(variant.Alt[1], Is.EqualTo("AT"), "Second alt: insertion of T");
+
+            // Both are insertions
+            Assert.That(VcfParser.ClassifyVariant(variant), Is.EqualTo(VcfParser.VariantType.Insertion));
+        });
+    }
+
+    /// <summary>
+    /// Validates VCF 4.3 specification compliance.
+    /// Source: SAMtools hts-specs VCF v4.3 specification
+    /// https://samtools.github.io/hts-specs/VCFv4.3.pdf
+    /// 
+    /// Key specifications tested:
+    /// - POS is 1-based
+    /// - REF and ALT alleles use IUPAC nucleotide codes
+    /// - Missing values represented by "."
+    /// </summary>
+    [Test]
+    public void Parse_VcfSpecification_1BasedCoordinates()
+    {
+        // VCF uses 1-based coordinates (unlike BED which is 0-based)
+        // Source: VCF 4.3 specification, Section 1.4.1
+        const string vcfOneBased = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	1	.	A	G	.	.	.";
+
+        var records = VcfParser.Parse(vcfOneBased).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].Pos, Is.EqualTo(1),
+                "VCF POS=1 means the first base of the chromosome (1-based)");
+            Assert.That(records[0].Id, Is.EqualTo("."), "Missing ID represented as '.'");
+        });
+    }
+
+    /// <summary>
+    /// Validates structural variant notation from VCF 4.3 specification.
+    /// Source: VCF 4.3 specification, Section 5
+    /// </summary>
+    [Test]
+    public void Parse_VcfSpecification_StructuralVariants()
+    {
+        // Structural variant notation per VCF 4.3 spec
+        const string svVcf = @"##fileformat=VCFv4.3
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description=""Type of structural variant"">
+##INFO=<ID=END,Number=1,Type=Integer,Description=""End position"">
+##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=""Difference in length"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1000	.	N	<DEL>	.	.	SVTYPE=DEL;END=2000;SVLEN=-1000
+1	3000	.	N	<DUP>	.	.	SVTYPE=DUP;END=4000;SVLEN=1000
+1	5000	.	N	<INV>	.	.	SVTYPE=INV;END=6000";
+
+        var records = VcfParser.Parse(svVcf).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(3));
+
+            // All should be classified as Symbolic variants
+            Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+            Assert.That(VcfParser.ClassifyVariant(records[1]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+            Assert.That(VcfParser.ClassifyVariant(records[2]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+
+            // Verify ALT notation
+            Assert.That(records[0].Alt[0], Is.EqualTo("<DEL>"), "Deletion SV");
+            Assert.That(records[1].Alt[0], Is.EqualTo("<DUP>"), "Duplication SV");
+            Assert.That(records[2].Alt[0], Is.EqualTo("<INV>"), "Inversion SV");
+        });
     }
 
     #endregion

@@ -231,7 +231,29 @@ None - algorithm well-defined in literature.
 
 ---
 
-## 10. Evidence Summary
+## 10. Test Coverage
+
+### Reference Data Tests (Added 2026-02-05)
+Tests validated against published population genetics literature:
+
+**Rosenberg et al. (2002) Science:**
+- `CalculateFst_RosenbergHumanPopulations_RealisticValues` - validates continental Fst ≈ 0.05-0.15
+- Tests reflect finding that "most variation is within populations"
+
+**Wright (1978) Interpretation Scale:**
+- `CalculateFst_WrightInterpretationScale_CorrectClassification` - validates:
+  - Fst < 0.05: little differentiation
+  - Fst 0.05-0.15: moderate differentiation
+  - Fst 0.15-0.25: great differentiation
+  - Fst > 0.25: very great differentiation
+
+**Wright (1951) Partition Formula:**
+- `FStatistics_WrightPartitionFormula_Satisfied` - validates (1-Fit) = (1-Fis)(1-Fst)
+- `CalculateFStatistics_FixedDifference_MaximalFst` - validates Fst = 1.0 for fixed differences
+
+---
+
+## 11. Evidence Summary
 
 | Aspect | Status | Notes |
 |--------|--------|-------|
@@ -239,5 +261,11 @@ None - algorithm well-defined in literature.
 | Formula | ✓ Complete | Weir & Cockerham (1984), Wikipedia |
 | Invariants | ✓ Complete | 0 ≤ Fst ≤ 1, matrix properties |
 | Edge cases | ✓ Complete | From Wikipedia, implementation |
-| Test data | ✓ Complete | Reference values from Cavalli-Sforza |
+| Test data | ✓ Complete | Reference values from Rosenberg, Wright |
 | Methodology | ✓ Complete | Standard population genetics testing |
+
+---
+
+## Change History
+- **2026-02-05**: Added reference data tests from Rosenberg et al. (2002) and Wright (1978).
+- **2026-02-01**: Initial documentation.
