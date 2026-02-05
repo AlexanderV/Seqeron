@@ -5,11 +5,30 @@ using static Seqeron.Genomics.Analysis.RnaSecondaryStructure;
 
 namespace Seqeron.Genomics.Tests;
 
+/// <summary>
+/// Tests for RNA secondary structure prediction algorithms.
+/// 
+/// Test Unit: RNA-STRUCT-001
+/// 
+/// Evidence Sources:
+/// - Wikipedia (Nucleic acid structure prediction, Nussinov algorithm)
+/// - Nussinov & Jacobson (1980), PNAS 77(11):6309-6313
+/// - Zuker & Stiegler (1981), Nucleic Acids Res 9(1):133-148
+/// - Turner (2004) thermodynamic parameters
+/// 
+/// See: docs/Evidence/RNA-STRUCT-001-Evidence.md
+/// See: tests/TestSpecs/RNA-STRUCT-001.md
+/// </summary>
 [TestFixture]
 public class RnaSecondaryStructureTests
 {
     #region Base Pairing Tests
 
+    /// <summary>
+    /// Evidence: Watson-Crick base pairs (A-U, G-C) and Wobble pairs (G-U) are
+    /// the valid base pairings in RNA secondary structure.
+    /// Source: Wikipedia (Base pair), IUPAC nucleotide code conventions
+    /// </summary>
     [TestCase('A', 'U', true)]
     [TestCase('U', 'A', true)]
     [TestCase('G', 'C', true)]
@@ -66,10 +85,16 @@ public class RnaSecondaryStructureTests
 
     #region Stem-Loop Finding Tests
 
+    /// <summary>
+    /// Evidence: Stem-loop (hairpin) structures form when complementary bases
+    /// within a single RNA strand pair with each other, creating a stem with
+    /// an unpaired loop at the end.
+    /// Source: Wikipedia (Stem-loop), Nussinov & Jacobson (1980)
+    /// </summary>
     [Test]
     public void FindStemLoops_SimpleHairpin_FindsStructure()
     {
-        // Simple hairpin: GGGAAACCC should form stem-loop
+        // Evidence: GGGAAAACCC forms a perfect hairpin with 3bp stem and 4nt loop
         string rna = "GGGAAAACCC";
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
 
@@ -162,6 +187,12 @@ public class RnaSecondaryStructureTests
 
     #region Energy Calculation Tests
 
+    /// <summary>
+    /// Evidence: RNA folding stability is determined by nearest-neighbor
+    /// thermodynamic parameters. Stacking interactions between adjacent base
+    /// pairs provide stabilizing (negative) free energy contributions.
+    /// Source: Turner (2004), Mathews et al. (2004) PNAS 101(19):7287-7292
+    /// </summary>
     [Test]
     public void CalculateStemEnergy_BasePairs_ReturnsNegative()
     {
@@ -190,6 +221,12 @@ public class RnaSecondaryStructureTests
         Assert.That(energy, Is.EqualTo(0));
     }
 
+    /// <summary>
+    /// Evidence: GNRA tetraloops (where N is any base and R is purine) have
+    /// enhanced stability due to specific tertiary interactions.
+    /// GAAA is a canonical GNRA tetraloop with ~3 kcal/mol bonus.
+    /// Source: Heus & Pardi (1991), Turner 2004 parameters
+    /// </summary>
     [Test]
     public void CalculateHairpinLoopEnergy_Tetraloop_HasBonus()
     {
@@ -200,6 +237,11 @@ public class RnaSecondaryStructureTests
         Assert.That(energy_GAAA, Is.LessThan(energy_AAAA));
     }
 
+    /// <summary>
+    /// Evidence: Poly-C loops are destabilized due to electrostatic repulsion
+    /// between the closely spaced negative charges on the phosphate backbone.
+    /// Source: Turner 2004 parameters (all-C loop penalty)
+    /// </summary>
     [Test]
     public void CalculateHairpinLoopEnergy_AllC_HasPenalty()
     {
@@ -250,6 +292,12 @@ public class RnaSecondaryStructureTests
 
     #region Structure Prediction Tests
 
+    /// <summary>
+    /// Evidence: RNA secondary structure prediction uses dynamic programming
+    /// to find optimal base pairing patterns. The result includes sequence,
+    /// dot-bracket notation, and identified structural motifs.
+    /// Source: Nussinov & Jacobson (1980), Zuker & Stiegler (1981)
+    /// </summary>
     [Test]
     public void PredictStructure_SimpleHairpin_ReturnsPrediction()
     {
@@ -263,6 +311,11 @@ public class RnaSecondaryStructureTests
         });
     }
 
+    /// <summary>
+    /// Evidence: Dot-bracket notation must be balanced - every opening
+    /// bracket must have a corresponding closing bracket.
+    /// Source: Wikipedia (Nucleic acid secondary structure representation)
+    /// </summary>
     [Test]
     public void PredictStructure_DotBracket_IsValid()
     {
@@ -296,6 +349,12 @@ public class RnaSecondaryStructureTests
         });
     }
 
+    /// <summary>
+    /// Evidence: In standard secondary structure (without pseudoknots),
+    /// structural elements cannot overlap. This is a fundamental constraint
+    /// that enables efficient dynamic programming solutions.
+    /// Source: Nussinov algorithm (1980), nested vs crossing base pairs
+    /// </summary>
     [Test]
     public void PredictStructure_NonOverlapping_StructuresSelected()
     {
@@ -319,6 +378,12 @@ public class RnaSecondaryStructureTests
 
     #region Pseudoknot Detection Tests
 
+    /// <summary>
+    /// Evidence: A pseudoknot occurs when base pairs cross each other, i.e.,
+    /// for pairs (i,j) and (k,l), we have i < k < j < l. This violates
+    /// the nested structure requirement of standard secondary structure.
+    /// Source: Wikipedia (Pseudoknot), Rivas & Eddy (1999)
+    /// </summary>
     [Test]
     public void DetectPseudoknots_NoCrossing_ReturnsEmpty()
     {
@@ -352,6 +417,12 @@ public class RnaSecondaryStructureTests
 
     #region Dot-Bracket Tests
 
+    /// <summary>
+    /// Evidence: Dot-bracket notation is the standard text representation
+    /// for RNA secondary structure. Dots (.) represent unpaired bases,
+    /// matching parentheses represent base pairs.
+    /// Source: Wikipedia (Nucleic acid secondary structure representation)
+    /// </summary>
     [Test]
     public void ParseDotBracket_SimpleStructure_ReturnsPairs()
     {
