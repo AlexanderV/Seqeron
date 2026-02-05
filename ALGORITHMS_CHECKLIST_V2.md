@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 222 |
-| **Completed** | 69 |
+| **Completed** | 70 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 153 |
+| **Not Started** | 152 |
 
 ---
 
@@ -93,7 +93,7 @@
 | ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](tests/TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
 | ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](tests/TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
 | ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](tests/TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
-| ☐ | RNA-STEMLOOP-001 | RnaStructure | 3 | - | - | - |
+| ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](tests/TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
 | ☐ | RNA-ENERGY-001 | RnaStructure | 2 | - | - | - |
 | ☐ | MIRNA-SEED-001 | MiRNA | 3 | - | - | - |
 | ☐ | MIRNA-TARGET-001 | MiRNA | 2 | - | - | - |

@@ -8,16 +8,22 @@ namespace Seqeron.Genomics.Tests;
 /// <summary>
 /// Tests for RNA secondary structure prediction algorithms.
 /// 
-/// Test Unit: RNA-STRUCT-001
+/// Test Units:
+/// - RNA-STRUCT-001: Secondary Structure Prediction
+/// - RNA-STEMLOOP-001: Stem-Loop Detection
 /// 
 /// Evidence Sources:
-/// - Wikipedia (Nucleic acid structure prediction, Nussinov algorithm)
+/// - Wikipedia (Nucleic acid structure prediction, Stem-loop, Tetraloop, Pseudoknot)
 /// - Nussinov & Jacobson (1980), PNAS 77(11):6309-6313
 /// - Zuker & Stiegler (1981), Nucleic Acids Res 9(1):133-148
 /// - Turner (2004) thermodynamic parameters
+/// - Woese et al. (1990), PNAS 87(21):8467-8471 (tetraloops)
+/// - Heus & Pardi (1991), Science 253(5016):191-194 (GNRA stability)
 /// 
 /// See: docs/Evidence/RNA-STRUCT-001-Evidence.md
+/// See: docs/Evidence/RNA-STEMLOOP-001-Evidence.md
 /// See: tests/TestSpecs/RNA-STRUCT-001.md
+/// See: tests/TestSpecs/RNA-STEMLOOP-001.md
 /// </summary>
 [TestFixture]
 public class RnaSecondaryStructureTests
@@ -83,13 +89,14 @@ public class RnaSecondaryStructureTests
 
     #endregion
 
-    #region Stem-Loop Finding Tests
+    #region Stem-Loop Finding Tests (RNA-STEMLOOP-001)
 
     /// <summary>
     /// Evidence: Stem-loop (hairpin) structures form when complementary bases
     /// within a single RNA strand pair with each other, creating a stem with
     /// an unpaired loop at the end.
     /// Source: Wikipedia (Stem-loop), Nussinov & Jacobson (1980)
+    /// Test Unit: RNA-STEMLOOP-001
     /// </summary>
     [Test]
     public void FindStemLoops_SimpleHairpin_FindsStructure()
@@ -181,6 +188,89 @@ public class RnaSecondaryStructureTests
         Assert.That(sl.DotBracketNotation, Is.Not.Empty, "Dot-bracket notation should be generated");
         Assert.That(sl.DotBracketNotation, Does.Contain("("), "Should contain opening brackets");
         Assert.That(sl.DotBracketNotation, Does.Contain(")"), "Should contain closing brackets");
+    }
+
+    /// <summary>
+    /// Evidence: Empty input should return empty result without exception.
+    /// Test Unit: RNA-STEMLOOP-001, Test ID: EC-001
+    /// </summary>
+    [Test]
+    public void FindStemLoops_EmptyString_ReturnsEmpty()
+    {
+        var stemLoops = FindStemLoops("", minStemLength: 3).ToList();
+
+        Assert.That(stemLoops, Is.Empty);
+    }
+
+    /// <summary>
+    /// Evidence: Null input should return empty result without exception.
+    /// Test Unit: RNA-STEMLOOP-001, Test ID: EC-002
+    /// </summary>
+    [Test]
+    public void FindStemLoops_NullString_ReturnsEmpty()
+    {
+        var stemLoops = FindStemLoops(null!, minStemLength: 3).ToList();
+
+        Assert.That(stemLoops, Is.Empty);
+    }
+
+    /// <summary>
+    /// Evidence: MinStemLength parameter controls minimum stem size.
+    /// Test Unit: RNA-STEMLOOP-001, Test ID: PH-003
+    /// </summary>
+    [Test]
+    public void FindStemLoops_MinStemParameter_RespectsMinimum()
+    {
+        // Sequence: GCGCAAAAGCGC could form 4bp stem
+        string rna = "GCGCAAAAGCGC";
+
+        // With minStemLength=5, should find nothing (max possible is 4)
+        var stemLoops5 = FindStemLoops(rna, minStemLength: 5, minLoopSize: 4).ToList();
+        Assert.That(stemLoops5, Is.Empty, "Should not find stems shorter than minStemLength");
+
+        // With minStemLength=3, should find structure
+        var stemLoops3 = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4).ToList();
+        Assert.That(stemLoops3, Is.Not.Empty, "Should find stems >= minStemLength");
+        Assert.That(stemLoops3.All(sl => sl.Stem.Length >= 3), Is.True);
+    }
+
+    /// <summary>
+    /// Evidence: Loop size parameters constrain search space.
+    /// Source: Wikipedia - "loops fewer than three bases long are sterically impossible"
+    /// Test Unit: RNA-STEMLOOP-001, Test ID: PH-004
+    /// </summary>
+    [Test]
+    public void FindStemLoops_LoopSizeRange_RespectsLimits()
+    {
+        // Sequence with 4-nucleotide loop
+        string rna = "GGGAAAACCC";
+
+        // Exact match: minLoop=4, maxLoop=4
+        var stemLoops4 = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
+        Assert.That(stemLoops4, Is.Not.Empty);
+        Assert.That(stemLoops4.All(sl => sl.Loop.Size == 4), Is.True, "All loops should be exactly 4nt");
+
+        // Exclude: minLoop=5, maxLoop=6 (4nt loop should not be found)
+        var stemLoops56 = FindStemLoops(rna, minStemLength: 3, minLoopSize: 5, maxLoopSize: 6).ToList();
+        Assert.That(stemLoops56.Any(sl => sl.Loop.Size == 4), Is.False, "4nt loop should not be found with minLoop=5");
+    }
+
+    /// <summary>
+    /// Evidence: Minimum biological loop size is 3 nucleotides due to steric constraints.
+    /// Source: Wikipedia - "sterically impossible and thus do not form"
+    /// Test Unit: RNA-STEMLOOP-001
+    /// </summary>
+    [Test]
+    public void FindStemLoops_MinimumLoopSize_BiologicalConstraint()
+    {
+        // Sequence that could theoretically form 2nt loop: GC-AA-GC
+        // But biologically this is sterically impossible
+        string rna = "GCAAGC";
+        var stemLoops = FindStemLoops(rna, minStemLength: 2, minLoopSize: 3).ToList();
+
+        // Should not find hairpin with 2nt loop
+        Assert.That(stemLoops.Any(sl => sl.Loop.Size < 3), Is.False,
+            "Should not find loops smaller than 3nt (biological constraint)");
     }
 
     #endregion
