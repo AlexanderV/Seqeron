@@ -82,13 +82,12 @@ ORIGIN
     {
         var result = ParsersTools.GenBankParse(TestGenBank);
 
-        // Features may or may not be parsed depending on implementation details
+        // Test GenBank has gene and CDS features - parser MUST extract them
         Assert.That(result.Records[0].Features, Is.Not.Null);
-        // If features were parsed, check for expected types
-        if (result.Records[0].Features.Count > 0)
-        {
-            Assert.That(result.Records[0].Features.Any(f => f.Key == "gene" || f.Key == "CDS"), Is.True);
-        }
+        Assert.That(result.Records[0].Features, Is.Not.Empty,
+            "Test GenBank contains gene and CDS features - parser MUST extract them");
+        Assert.That(result.Records[0].Features.Any(f => f.Key == "gene" || f.Key == "CDS"), Is.True,
+            "Features must include gene or CDS entries");
     }
 
     [Test]
@@ -96,17 +95,11 @@ ORIGIN
     {
         var result = ParsersTools.GenBankParse(TestGenBank);
 
-        // Sequence parsing depends on ORIGIN format - check if it was parsed
-        if (!string.IsNullOrEmpty(result.Records[0].Sequence))
-        {
-            Assert.That(result.Records[0].Sequence, Does.StartWith("ACGTACGT"));
-            Assert.That(result.Records[0].ActualSequenceLength, Is.EqualTo(100));
-        }
-        else
-        {
-            // Sequence may be empty depending on parser format requirements
-            Assert.That(result.Records[0].ActualSequenceLength, Is.EqualTo(0));
-        }
+        // Test GenBank has ORIGIN section with 100bp - MUST be parsed
+        Assert.That(result.Records[0].Sequence, Is.Not.Null.And.Not.Empty,
+            "GenBank ORIGIN section with sequence MUST be parsed");
+        Assert.That(result.Records[0].Sequence, Does.StartWith("ACGTACGT"));
+        Assert.That(result.Records[0].ActualSequenceLength, Is.EqualTo(100));
     }
 }
 
@@ -165,11 +158,11 @@ ORIGIN
     {
         var result = ParsersTools.GenBankFeatures(TestGenBank, featureType: "CDS");
 
-        // If CDS was parsed, verify qualifiers
-        if (result.Count > 0)
-        {
-            Assert.That(result.Features[0].Qualifiers, Is.Not.Empty);
-        }
+        // Test GenBank has CDS feature with /gene and /product qualifiers - MUST be parsed
+        Assert.That(result.Count, Is.GreaterThan(0),
+            "Test GenBank contains CDS feature - must be extracted");
+        Assert.That(result.Features[0].Qualifiers, Is.Not.Empty,
+            "CDS feature has /gene and /product qualifiers - must be parsed");
     }
 
     [Test]
@@ -177,16 +170,15 @@ ORIGIN
     {
         var result = ParsersTools.GenBankFeatures(TestGenBank, featureType: "gene");
 
-        // If genes were parsed, verify location
-        if (result.Count > 0)
-        {
-            var gene1 = result.Features.FirstOrDefault(f => f.Qualifiers.GetValueOrDefault("gene") == "gene1");
-            if (gene1 != null)
-            {
-                Assert.That(gene1.Start, Is.EqualTo(1));
-                Assert.That(gene1.End, Is.EqualTo(50));
-            }
-        }
+        // Test GenBank has gene features at 1..50 and 60..90 - MUST be parsed
+        Assert.That(result.Count, Is.GreaterThan(0),
+            "Test GenBank contains gene features - must be extracted");
+
+        var gene1 = result.Features.FirstOrDefault(f => f.Qualifiers.GetValueOrDefault("gene") == "gene1");
+        Assert.That(gene1, Is.Not.Null,
+            "gene1 feature must be found with /gene=\"gene1\" qualifier");
+        Assert.That(gene1!.Start, Is.EqualTo(1), "gene1 location should be 1..50");
+        Assert.That(gene1.End, Is.EqualTo(50), "gene1 location should be 1..50");
     }
 }
 
@@ -396,10 +388,10 @@ ORIGIN
     {
         var result = ParsersTools.GenBankExtractSequence(TestGenBank, "1..5");
 
-        // First 5 bases should be ACGTA (uppercase)
-        if (result.Sequence.Length >= 5)
-        {
-            Assert.That(result.Sequence.ToUpper(), Does.StartWith("ACGTA"));
-        }
+        // Location 1..5 from ORIGIN (acgtacgtac...) should be ACGTA
+        Assert.That(result.Sequence.Length, Is.GreaterThanOrEqualTo(5),
+            "Location 1..5 must extract at least 5 bases");
+        Assert.That(result.Sequence.ToUpper(), Does.StartWith("ACGTA"),
+            "First 5 bases from ORIGIN should be ACGTA");
     }
 }
