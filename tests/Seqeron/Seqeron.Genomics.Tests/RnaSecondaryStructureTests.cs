@@ -378,6 +378,131 @@ public class RnaSecondaryStructureTests
         Assert.That(mfeLong, Is.LessThanOrEqualTo(mfeShort));
     }
 
+    /// <summary>
+    /// Evidence: GC-rich stems are more stable (more negative energy) than AU-rich stems
+    /// due to the three hydrogen bonds in G-C pairs vs two in A-U pairs, and stronger
+    /// base stacking interactions.
+    /// Source: Turner 2004 parameters, NNDB (GC/CG = -3.42 vs AU/UA = -1.10 kcal/mol)
+    /// Test Unit: RNA-ENERGY-001, Test ID: SE-003
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_GCRichVsAURich_GCMoreStable()
+    {
+        // GC-rich stem: G-C, C-G, G-C pairs
+        var gcPairs = new List<BasePair>
+        {
+            new(0, 9, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 8, 'C', 'G', BasePairType.WatsonCrick),
+            new(2, 7, 'G', 'C', BasePairType.WatsonCrick)
+        };
+
+        // AU-rich stem: A-U, U-A, A-U pairs
+        var auPairs = new List<BasePair>
+        {
+            new(0, 9, 'A', 'U', BasePairType.WatsonCrick),
+            new(1, 8, 'U', 'A', BasePairType.WatsonCrick),
+            new(2, 7, 'A', 'U', BasePairType.WatsonCrick)
+        };
+
+        double gcEnergy = CalculateStemEnergy("GCGAAAACGC", gcPairs);
+        double auEnergy = CalculateStemEnergy("AUAAAAAUAU", auPairs);
+
+        Assert.That(gcEnergy, Is.LessThan(auEnergy),
+            "GC-rich stem should be more stable (more negative) than AU-rich stem");
+    }
+
+    /// <summary>
+    /// Evidence: Empty base pairs list should return zero energy (no stacking).
+    /// Test Unit: RNA-ENERGY-001, Test ID: SE-004
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_EmptyBasePairs_ReturnsZero()
+    {
+        var emptyPairs = new List<BasePair>();
+
+        double energy = CalculateStemEnergy("GCGAAAACGC", emptyPairs);
+
+        Assert.That(energy, Is.EqualTo(0), "Empty base pairs should return zero energy");
+    }
+
+    /// <summary>
+    /// Evidence: Hairpin loop initiation energy is always positive (destabilizing).
+    /// A minimum of 3 nucleotides is required for a valid hairpin loop (steric constraint).
+    /// Source: Wikipedia (Stem-loop) - "loops fewer than three bases long are sterically impossible"
+    /// Test Unit: RNA-ENERGY-001, Test ID: HL-003
+    /// </summary>
+    [Test]
+    public void CalculateHairpinLoopEnergy_MinimumLoop_ReturnsPositive()
+    {
+        // Loop of exactly 3 nucleotides (biological minimum)
+        double energy = CalculateHairpinLoopEnergy("AAA", 'G', 'C');
+
+        Assert.That(energy, Is.GreaterThan(0),
+            "Hairpin loop initiation energy should be positive (destabilizing)");
+    }
+
+    /// <summary>
+    /// Evidence: Hairpin loop initiation energies vary with loop size, with
+    /// size 3 being the minimum biological size.
+    /// Source: Turner 2004 - loop initiation: 3nt=5.4, 4nt=5.6, 5nt=5.7, 6nt=5.4 kcal/mol
+    /// Note: Energy doesn't increase monotonically (size 6 is lower than size 5)
+    /// Test Unit: RNA-ENERGY-001, Test ID: HL-005
+    /// </summary>
+    [Test]
+    public void CalculateHairpinLoopEnergy_DifferentSizes_AllPositive()
+    {
+        double energy3 = CalculateHairpinLoopEnergy("AAA", 'G', 'C');
+        double energy4 = CalculateHairpinLoopEnergy("AAAA", 'G', 'C');
+        double energy5 = CalculateHairpinLoopEnergy("AAAAA", 'G', 'C');
+        double energy6 = CalculateHairpinLoopEnergy("AAAAAA", 'G', 'C');
+
+        Assert.Multiple(() =>
+        {
+            // All loop initiation energies should be positive (destabilizing)
+            Assert.That(energy3, Is.GreaterThan(0), "3nt loop should be positive");
+            Assert.That(energy4, Is.GreaterThan(0), "4nt loop should be positive");
+            Assert.That(energy5, Is.GreaterThan(0), "5nt loop should be positive");
+            Assert.That(energy6, Is.GreaterThan(0), "6nt loop should be positive");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: GC-rich hairpins should have lower (more stable) MFE than AU-rich hairpins
+    /// of the same length due to stronger stacking interactions.
+    /// Source: Turner 2004 parameters
+    /// Test Unit: RNA-ENERGY-001, Test ID: MFE-005
+    /// </summary>
+    [Test]
+    public void CalculateMinimumFreeEnergy_GCRichHairpin_MoreStable()
+    {
+        // GC-rich hairpin
+        string gcHairpin = "GCGCAAAAGCGC";
+        // AU-rich hairpin (must use valid complementary pairs)
+        string auHairpin = "AUAUAAAAUAUA";
+
+        double gcMfe = CalculateMinimumFreeEnergy(gcHairpin);
+        double auMfe = CalculateMinimumFreeEnergy(auHairpin);
+
+        // Both should form structures (negative MFE)
+        Assert.That(gcMfe, Is.LessThanOrEqualTo(auMfe),
+            "GC-rich hairpin should be more stable (lower or equal MFE) than AU-rich");
+    }
+
+    /// <summary>
+    /// Evidence: UNCG tetraloops also have stability bonuses like GNRA tetraloops.
+    /// Source: Turner 2004 parameters, Woese et al. (1990)
+    /// Test Unit: RNA-ENERGY-001, Test ID: HL-004
+    /// </summary>
+    [Test]
+    public void CalculateHairpinLoopEnergy_UNCGTetraloop_HasBonus()
+    {
+        double energy_UUCG = CalculateHairpinLoopEnergy("UUCG", 'G', 'C');
+        double energy_UUUU = CalculateHairpinLoopEnergy("UUUU", 'G', 'C');
+
+        Assert.That(energy_UUCG, Is.LessThan(energy_UUUU),
+            "UNCG tetraloop should have stability bonus");
+    }
+
     #endregion
 
     #region Structure Prediction Tests
