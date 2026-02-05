@@ -100,15 +100,13 @@ public class RnaSecondaryStructureTests
     [Test]
     public void FindStemLoops_WithWobblePairs_IncludesWobble()
     {
-        // G-U wobble pair
-        string rna = "GCGAAAACGU";
-        var stemLoops = FindStemLoops(rna, minStemLength: 3, allowWobble: true).ToList();
+        // Evidence: G-U wobble pair is a valid non-Watson-Crick base pair in RNA
+        // Sequence designed to form stem with G-U wobble: GCGU pairs with ACGC (G-C, C-G, G-U, U-A)
+        string rna = "GCGUAAAACGC"; // 5'-GCGU-loop-CGC-3' with G-U wobble possible
+        var stemLoops = FindStemLoops(rna, minStemLength: 2, allowWobble: true).ToList();
 
-        var hasWobble = stemLoops.Any(sl =>
-            sl.Stem.BasePairs.Any(bp => bp.Type == BasePairType.Wobble));
-
-        // May or may not have wobble depending on structure
-        Assert.Pass("Wobble pair detection verified");
+        // With wobble enabled and a sequence containing potential G-U pair, we should find structures
+        Assert.That(stemLoops, Is.Not.Empty, "Should find stem-loops with wobble pairs allowed");
     }
 
     [Test]
@@ -137,28 +135,27 @@ public class RnaSecondaryStructureTests
     [Test]
     public void FindStemLoops_Tetraloop_FindsSpecialLoop()
     {
-        // GNRA tetraloop
-        string rna = "GGGGCGAAACGCCCC";
+        // Evidence: GNRA tetraloops are stable RNA hairpin structures (Heus & Pardi, 1991)
+        // Sequence: GGGG-CGAA-CCCC forms hairpin with CGAA tetraloop (GNRA pattern where N=G, R=A)
+        string rna = "GGGGCGAACCCC"; // Perfect hairpin: 4bp stem + 4nt loop
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
 
-        var hasTetraloop = stemLoops.Any(sl => sl.Loop.Size == 4);
-        // May find tetraloops
-        Assert.Pass("Tetraloop search completed");
+        Assert.That(stemLoops, Is.Not.Empty, "Should find hairpin with tetraloop");
+        Assert.That(stemLoops.Any(sl => sl.Loop.Size == 4), Is.True, "Should have 4-nucleotide tetraloop");
     }
 
     [Test]
     public void FindStemLoops_DotBracket_IsGenerated()
     {
+        // Evidence: Dot-bracket notation is standard for RNA secondary structure
         string rna = "GGGAAAACCC";
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4).ToList();
 
-        if (stemLoops.Any())
-        {
-            var sl = stemLoops[0];
-            Assert.That(sl.DotBracketNotation, Is.Not.Empty);
-            Assert.That(sl.DotBracketNotation, Does.Contain("("));
-            Assert.That(sl.DotBracketNotation, Does.Contain(")"));
-        }
+        Assert.That(stemLoops, Is.Not.Empty, "Should find stem-loop in GGGAAAACCC");
+        var sl = stemLoops[0];
+        Assert.That(sl.DotBracketNotation, Is.Not.Empty, "Dot-bracket notation should be generated");
+        Assert.That(sl.DotBracketNotation, Does.Contain("("), "Should contain opening brackets");
+        Assert.That(sl.DotBracketNotation, Does.Contain(")"), "Should contain closing brackets");
     }
 
     #endregion
@@ -415,17 +412,22 @@ public class RnaSecondaryStructureTests
     /// <summary>
     /// Smoke test for RnaSecondaryStructure.FindInvertedRepeats.
     /// Full inverted repeat testing is in RepeatFinder_InvertedRepeat_Tests.cs (REP-INV-001).
-    /// This test verifies the RNA-specific implementation delegates correctly.
+    /// This test verifies the RNA-specific implementation finds hairpin stems correctly.
     /// </summary>
     [Test]
-    public void FindInvertedRepeats_RnaAlternative_SmokeTest()
+    public void FindInvertedRepeats_RnaHairpin_SmokeTest()
     {
-        // Simple RNA sequence with potential stem region
+        // Evidence: RNA hairpin stems form via antiparallel Watson-Crick base pairing
+        // GCGC at 5' end pairs with GCGC at 3' end in antiparallel fashion:
+        // 5'-G-C-G-C-loop-G-C-G-C-3'
+        //    | | | |      | | | |  (antiparallel pairing)
+        //    C-G-C-G      C-G-C-G  (complement read 3'->5')
+        // This forms a valid hairpin stem
         string rna = "GCGCAAAAAAGCGC";
         var repeats = FindInvertedRepeats(rna, minLength: 4, minSpacing: 3).ToList();
 
-        // Just verify it runs without error - detailed testing in canonical tests
-        Assert.Pass($"RnaSecondaryStructure.FindInvertedRepeats returned {repeats.Count} results");
+        // Should find the GCGC...GCGC hairpin stem
+        Assert.That(repeats, Is.Not.Empty, "Should find hairpin stem GCGC...GCGC");
     }
 
     #endregion
@@ -519,13 +521,17 @@ public class RnaSecondaryStructureTests
     [Test]
     public void LowerCaseInput_HandlesCorrectly()
     {
-        string rna = "gggaaaaccc";
-        var stemLoops = FindStemLoops(rna, minStemLength: 3).ToList();
+        // Evidence: RNA sequence input should be case-insensitive
+        string rnaLower = "gggaaaaccc";
+        string rnaUpper = "GGGAAAACCC";
 
-        // Should work with lowercase input
-        Assert.Pass("Lowercase input handled");
+        var stemLoopsLower = FindStemLoops(rnaLower, minStemLength: 3).ToList();
+        var stemLoopsUpper = FindStemLoops(rnaUpper, minStemLength: 3).ToList();
+
+        // Both should produce same results
+        Assert.That(stemLoopsLower.Count, Is.EqualTo(stemLoopsUpper.Count),
+            "Lowercase and uppercase input should produce same number of results");
     }
 
     #endregion
 }
-

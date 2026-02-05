@@ -200,24 +200,25 @@ public class ProbeDesigner_ProbeDesign_Tests
             Assert.That(param.MaxLength, Is.GreaterThanOrEqualTo(500), "FISH MaxLength should be ≥500");
         });
 
-        // Create a sequence long enough for FISH probes
-        string target = new string('G', 100) + new string('A', 100) +
-                        new string('C', 100) + new string('T', 100) +
-                        new string('G', 100) + new string('A', 100);
+        // Create a varied sequence long enough for FISH probes (avoid homopolymers)
+        string target = string.Concat(Enumerable.Range(0, 150).Select(i => "ATGC"[i % 4])) +
+                        string.Concat(Enumerable.Range(0, 150).Select(i => "CGAT"[i % 4])) +
+                        string.Concat(Enumerable.Range(0, 150).Select(i => "TACG"[i % 4])) +
+                        string.Concat(Enumerable.Range(0, 150).Select(i => "GCAT"[i % 4]));
 
         var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 3).ToList();
 
-        if (probes.Count > 0)
+        // With a varied sequence of 600bp, we should get FISH probes
+        Assert.That(probes, Is.Not.Empty,
+            "Should generate FISH probes from 600bp varied sequence");
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
+            foreach (var probe in probes)
             {
-                foreach (var probe in probes)
-                {
-                    Assert.That(probe.Sequence.Length, Is.InRange(param.MinLength, param.MaxLength),
-                        $"FISH probe length {probe.Sequence.Length} outside range [{param.MinLength}, {param.MaxLength}]");
-                }
-            });
-        }
+                Assert.That(probe.Sequence.Length, Is.InRange(param.MinLength, param.MaxLength),
+                    $"FISH probe length {probe.Sequence.Length} outside range [{param.MinLength}, {param.MaxLength}]");
+            }
+        });
     }
 
     #endregion
@@ -329,11 +330,12 @@ public class ProbeDesigner_ProbeDesign_Tests
         var probesUpper = ProbeDesigner.DesignProbes(upper, maxProbes: 1).ToList();
         var probesLower = ProbeDesigner.DesignProbes(lower, maxProbes: 1).ToList();
 
-        if (probesUpper.Count > 0 && probesLower.Count > 0)
-        {
-            Assert.That(probesUpper[0].Tm, Is.EqualTo(probesLower[0].Tm).Within(0.1),
-                "Case should not affect Tm calculation");
-        }
+        // Both MUST produce probes - sequence is long enough
+        Assert.That(probesUpper, Is.Not.Empty, "Upper case sequence must produce probes");
+        Assert.That(probesLower, Is.Not.Empty, "Lower case sequence must produce probes");
+
+        Assert.That(probesUpper[0].Tm, Is.EqualTo(probesLower[0].Tm).Within(0.1),
+            "Case should not affect Tm calculation");
     }
 
     [Test]
@@ -342,13 +344,14 @@ public class ProbeDesigner_ProbeDesign_Tests
         // S6: Probes are sorted by score descending
         var probes = ProbeDesigner.DesignProbes(MicroarrayTargetSequence, maxProbes: 10).ToList();
 
-        if (probes.Count >= 2)
+        // MicroarrayTargetSequence is long enough to produce multiple probes
+        Assert.That(probes.Count, Is.GreaterThanOrEqualTo(2),
+            "MicroarrayTargetSequence with maxProbes:10 must produce at least 2 probes");
+
+        for (int i = 0; i < probes.Count - 1; i++)
         {
-            for (int i = 0; i < probes.Count - 1; i++)
-            {
-                Assert.That(probes[i].Score, Is.GreaterThanOrEqualTo(probes[i + 1].Score),
-                    $"Probe at index {i} (score {probes[i].Score}) should have score ≥ probe at index {i + 1} (score {probes[i + 1].Score})");
-            }
+            Assert.That(probes[i].Score, Is.GreaterThanOrEqualTo(probes[i + 1].Score),
+                $"Probe at index {i} (score {probes[i].Score}) should have score ≥ probe at index {i + 1} (score {probes[i + 1].Score})");
         }
     }
 
@@ -419,13 +422,14 @@ public class ProbeDesigner_ProbeDesign_Tests
 
         var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 5).ToList();
 
-        if (probes.Count > 0)
+        // 48 bp target with qPCR params MUST produce probes
+        Assert.That(probes, Is.Not.Empty,
+            "48 bp target with qPCR parameters must produce probes");
+
+        foreach (var probe in probes)
         {
-            foreach (var probe in probes)
-            {
-                Assert.That(probe.Sequence.Length, Is.InRange(param.MinLength, param.MaxLength),
-                    $"qPCR probe length {probe.Sequence.Length} outside range [{param.MinLength}, {param.MaxLength}]");
-            }
+            Assert.That(probe.Sequence.Length, Is.InRange(param.MinLength, param.MaxLength),
+                $"qPCR probe length {probe.Sequence.Length} outside range [{param.MinLength}, {param.MaxLength}]");
         }
     }
 

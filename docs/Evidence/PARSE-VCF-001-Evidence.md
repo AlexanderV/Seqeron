@@ -239,6 +239,23 @@ Transversions (purine↔pyrimidine):
 
 ---
 
+## Test Coverage
+
+### Reference Data Tests (Added 2026-02-05)
+Tests validated against real-world VCF sources:
+
+**1000 Genomes Project:**
+- `Parse_1000GenomesFormat_CommonSnps_ParsedCorrectly` - validates common SNP format with real rsIDs
+- `Parse_1000GenomesFormat_MultiAllelicSite` - validates multi-allelic variant parsing
+- `Parse_1000GenomesFormat_InfoFields` - validates AF, DP, NS info field parsing
+
+**ClinVar Database:**
+- `Parse_ClinVarFormat_PathogenicVariants_ParsedCorrectly` - validates pathogenic variant format
+- `Parse_ClinVarFormat_InfoFieldExtraction` - validates CLNSIG, CLNDN fields
+- `Parse_ClinVarFormat_StructuralVariants` - validates symbolic allele parsing (<DEL>, <INS>)
+
+---
+
 ## References Summary
 
 | Source | Type | Key Contribution |
@@ -247,6 +264,8 @@ Transversions (purine↔pyrimidine):
 | Danecek et al. (2011) | Peer-reviewed | Authoritative format definition |
 | SAMtools HTS-specs | Specification | Official format specification |
 | EMBL-EBI Training | Educational | Usage context, tool integration |
+| 1000 Genomes Project | Reference Data | Real-world SNP validation |
+| ClinVar Database | Reference Data | Pathogenic variant validation |
 
 ---
 
@@ -255,3 +274,9 @@ Transversions (purine↔pyrimidine):
 - VCF is the de facto standard for variant data exchange
 - Implementation follows VCFv4.3 specification
 - Parser gracefully handles malformed data by skipping invalid lines
+
+---
+
+## Change History
+- **2026-02-05**: Added reference data tests from 1000 Genomes Project and ClinVar.
+- **2026-02-05**: Initial documentation.

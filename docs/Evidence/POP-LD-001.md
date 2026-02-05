@@ -136,11 +136,64 @@ When alleles are independent:
 
 ## Implementation Notes
 
-The current implementation:
-1. Estimates haplotype frequency from genotypes (phasing assumption)
-2. Uses genotype coding: 0 = homozygous major, 1 = heterozygous, 2 = homozygous minor
-3. Assumes biallelic variants
-4. FindHaplotypeBlocks uses adjacent-pair LD (simplified Gabriel method)
+### CalculateLD Method (Hill 1974 Composite LD Estimator)
+
+The implementation uses the **Hill (1974) composite linkage disequilibrium estimator**,
+which calculates r² directly from genotype correlation without requiring phase information:
+
+**Reference:** Hill WG (1974) "Estimation of linkage disequilibrium in randomly mating populations" Heredity 33:229-239
+
+**Formula:**
+```
+r² = Cov(X₁, X₂)² / (Var(X₁) × Var(X₂))
+```
+
+Where:
+- X₁, X₂ are genotype values (0, 1, 2 = count of minor alleles)
+- Cov = Σ(X₁ᵢ - μ₁)(X₂ᵢ - μ₂) / n
+- Var = Σ(Xᵢ - μ)² / n
+
+**Advantages of this approach:**
+1. Does not require haplotype phase information
+2. Mathematically equivalent to squared Pearson correlation
+3. For identical genotypes: r² = 1.0 (perfect LD)
+4. For independent genotypes: r² = 0.0 (no LD)
+5. Handles both positive and negative correlations (r² captures magnitude)
+
+**Genotype coding:**
+- 0 = homozygous reference (AA)
+- 1 = heterozygous (Aa)
+- 2 = homozygous alternate (aa)
+
+**D' calculation:**
+D' is estimated using the Lewontin normalization based on allele frequencies
+derived from genotype means.
+
+### FindHaplotypeBlocks Method
+Uses adjacent-pair LD (simplified Gabriel et al. 2002 method):
+- Consecutive variants with r² ≥ threshold form a block
+- Default threshold: 0.7
+
+---
+
+## Test Coverage
+
+### Reference Data Tests (Added 2026-02-05)
+Tests validated against published literature:
+
+**HapMap Consortium (2005):**
+- `CalculateLD_HapMapInterpretation_HighLDThreshold` - validates r² = 1.0 for identical genotypes
+- Tests reflect HapMap criterion: r² > 0.8 for tag SNP selection
+
+**Hill & Robertson (1968):**
+- `CalculateLD_HillRobertsonFormula_CorrectRange` - validates 0 ≤ r² ≤ 1
+- Tests confirm r² formula: D² / (pA × qA × pB × qB)
+
+**Lewontin (1964):**
+- `CalculateLD_LewontinDPrime_NormalizedCorrectly` - validates |D'| ≤ 1
+
+**Gabriel et al. (2002):**
+- `FindHaplotypeBlocks_GabrielCriteria_HighLDBlocksDetected` - validates block detection algorithm
 
 ---
 
@@ -162,4 +215,11 @@ The current implementation:
 ---
 
 ## Last Updated
-2026-02-01
+2026-02-05
+
+## Change History
+- **2026-02-05**: Added reference data tests from HapMap, Hill & Robertson, Gabriel et al.
+- **2026-02-05**: Fixed CalculateLD implementation. Replaced haplotype frequency estimation 
+  (which incorrectly gave r²≈0.44 for identical genotypes) with Hill (1974) composite LD estimator
+  using genotype correlation. Now correctly returns r²=1.0 for perfect LD.
+- **2026-02-01**: Initial documentation.

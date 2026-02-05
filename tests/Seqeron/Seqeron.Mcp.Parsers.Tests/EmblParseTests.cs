@@ -89,12 +89,12 @@ SQ   Sequence 100 BP; 25 A; 25 C; 25 G; 25 T; 0 other;
     {
         var result = ParsersTools.EmblParse(TestEmbl);
 
-        // Features may or may not be parsed depending on implementation
+        // Test EMBL has gene and CDS features - parser MUST extract them
         Assert.That(result.Records[0].Features, Is.Not.Null);
-        if (result.Records[0].Features.Count > 0)
-        {
-            Assert.That(result.Records[0].Features.Any(f => f.Key == "gene" || f.Key == "CDS"), Is.True);
-        }
+        Assert.That(result.Records[0].Features, Is.Not.Empty,
+            "Test EMBL contains gene and CDS features - parser MUST extract them");
+        Assert.That(result.Records[0].Features.Any(f => f.Key == "gene" || f.Key == "CDS"), Is.True,
+            "Features must include gene or CDS entries");
     }
 
     [Test]
@@ -162,10 +162,11 @@ SQ   Sequence 100 BP;
     {
         var result = ParsersTools.EmblFeatures(TestEmbl, featureType: "CDS");
 
-        if (result.Count > 0)
-        {
-            Assert.That(result.Features[0].Qualifiers, Is.Not.Empty);
-        }
+        // Test EMBL has CDS feature with /gene and /product qualifiers - MUST be parsed
+        Assert.That(result.Count, Is.GreaterThan(0),
+            "Test EMBL contains CDS feature - must be extracted");
+        Assert.That(result.Features[0].Qualifiers, Is.Not.Empty,
+            "CDS feature has /gene and /product qualifiers - must be parsed");
     }
 
     [Test]
@@ -173,15 +174,15 @@ SQ   Sequence 100 BP;
     {
         var result = ParsersTools.EmblFeatures(TestEmbl, featureType: "gene");
 
-        if (result.Count > 0)
-        {
-            var gene1 = result.Features.FirstOrDefault(f => f.Qualifiers.GetValueOrDefault("gene") == "gene1");
-            if (gene1 != null)
-            {
-                Assert.That(gene1.Start, Is.EqualTo(1));
-                Assert.That(gene1.End, Is.EqualTo(50));
-            }
-        }
+        // Test EMBL has gene features at 1..50 and 60..90 - MUST be parsed
+        Assert.That(result.Count, Is.GreaterThan(0),
+            "Test EMBL contains gene features - must be extracted");
+
+        var gene1 = result.Features.FirstOrDefault(f => f.Qualifiers.GetValueOrDefault("gene") == "gene1");
+        Assert.That(gene1, Is.Not.Null,
+            "gene1 feature must be found with /gene=\"gene1\" qualifier");
+        Assert.That(gene1!.Start, Is.EqualTo(1), "gene1 location should be 1..50");
+        Assert.That(gene1.End, Is.EqualTo(50), "gene1 location should be 1..50");
     }
 }
 

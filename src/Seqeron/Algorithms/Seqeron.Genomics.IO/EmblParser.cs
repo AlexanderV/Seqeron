@@ -168,8 +168,8 @@ public static partial class EmblParser
         // References
         var references = ParseReferences(lines);
 
-        // Features
-        var features = ParseFeatures(GetLines(lineGroups, FT));
+        // Features - parse directly from lines, not via GroupLinesByPrefix
+        var features = ParseFeaturesFromLines(lines);
 
         // Sequence
         var sequence = ParseSequence(lines);
@@ -379,6 +379,118 @@ public static partial class EmblParser
         }
 
         return references;
+    }
+
+    /// <summary>
+    /// Parses features directly from FT lines, preserving whitespace structure.
+    /// EMBL FT format:
+    /// FT   key             location
+    /// FT                   /qualifier="value"
+    /// </summary>
+    private static IReadOnlyList<Feature> ParseFeaturesFromLines(List<string> lines)
+    {
+        var features = new List<Feature>();
+
+        string? currentKey = null;
+        string currentLocation = "";
+        var currentQualifiers = new Dictionary<string, string>();
+        var qualifierBuilder = new StringBuilder();
+        string? currentQualifierName = null;
+
+        foreach (var line in lines)
+        {
+            if (!line.StartsWith("FT", StringComparison.Ordinal) || line.Length < 5)
+                continue;
+
+            // FT lines: positions 0-1 = "FT", 2-4 = spaces, 5+ = content
+            // Feature key starts at position 5, qualifiers are indented further
+            var content = line.Length > 5 ? line[5..] : "";
+
+            if (string.IsNullOrWhiteSpace(content))
+                continue;
+
+            // Check if this is a new feature (key starts at column 5, not indented)
+            // or a continuation (qualifiers/location continuation are indented)
+            bool isNewFeature = content.Length > 0 && !char.IsWhiteSpace(content[0]) && !content.TrimStart().StartsWith('/');
+            bool isQualifier = content.TrimStart().StartsWith('/');
+
+            if (isNewFeature)
+            {
+                // Save previous feature
+                if (currentKey != null)
+                {
+                    // Finish any pending qualifier
+                    FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
+                    features.Add(CreateFeature(currentKey, currentLocation, currentQualifiers));
+                }
+
+                // Parse new feature: key and location
+                var trimmed = content.Trim();
+                var spaceIdx = trimmed.IndexOf(' ');
+                if (spaceIdx > 0)
+                {
+                    currentKey = trimmed[..spaceIdx];
+                    currentLocation = trimmed[(spaceIdx + 1)..].Trim();
+                }
+                else
+                {
+                    currentKey = trimmed;
+                    currentLocation = "";
+                }
+                currentQualifiers = new Dictionary<string, string>();
+                qualifierBuilder.Clear();
+                currentQualifierName = null;
+            }
+            else if (isQualifier)
+            {
+                // Finish previous qualifier if any
+                FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
+
+                // Parse new qualifier
+                var qualContent = content.TrimStart();
+                var match = QualifierRegex().Match(qualContent);
+                if (match.Success)
+                {
+                    currentQualifierName = match.Groups[1].Value;
+                    var value = match.Groups[2].Success ? match.Groups[2].Value : "true";
+                    qualifierBuilder.Clear();
+                    qualifierBuilder.Append(value);
+                }
+            }
+            else
+            {
+                // Continuation line - could be location or qualifier value continuation
+                var trimmed = content.Trim();
+                if (currentQualifierName != null)
+                {
+                    // Qualifier value continuation
+                    qualifierBuilder.Append(trimmed);
+                }
+                else if (currentKey != null)
+                {
+                    // Location continuation
+                    currentLocation += trimmed;
+                }
+            }
+        }
+
+        // Save last feature
+        if (currentKey != null)
+        {
+            FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
+            features.Add(CreateFeature(currentKey, currentLocation, currentQualifiers));
+        }
+
+        return features;
+    }
+
+    private static void FinishQualifier(string? name, StringBuilder value, Dictionary<string, string> qualifiers)
+    {
+        if (name != null)
+        {
+            var val = value.ToString().Trim().Trim('"');
+            qualifiers[name] = val;
+        }
     }
 
     private static IReadOnlyList<Feature> ParseFeatures(IEnumerable<string> featureLines)

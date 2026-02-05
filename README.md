@@ -1,5 +1,20 @@
 # Seqeron Bioinformatics
 
+> ⚠️ **EARLY ALPHA — NOT FOR PRODUCTION USE**
+>
+> This library is in **early alpha stage** and is under active development. While we strive for correctness and have extensive test coverage, the APIs, algorithms, and outputs **have not been independently validated** for use in clinical, diagnostic, or production research settings.
+>
+> **Before using this library with real data or in real-world applications:**
+> - Independently verify all algorithm outputs against established tools
+> - Conduct thorough validation for your specific use case
+> - Do not use for clinical decision-making without proper validation
+>
+> **Disclaimer:** The authors and contributors make no warranties regarding the correctness, reliability, or fitness for any particular purpose. Use at your own risk. The authors shall not be liable for any damages, losses, or harm arising from the use or misuse of this software.
+>
+> **Contributions welcome:** We actively encourage independent audits, bug reports, and corrections. If you find an error in any algorithm implementation, please [open an issue](https://github.com/your-repo/issues) or submit a pull request. Community review is essential for improving reliability.
+>
+> See [LICENSE](LICENSE) for full terms.
+
 C#/.NET 8 toolkit for bioinformatics: sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)

@@ -638,6 +638,12 @@ public static class PopulationGeneticsAnalyzer
 
     /// <summary>
     /// Calculates linkage disequilibrium between two variants.
+    /// 
+    /// Uses composite LD estimation from Hill (1974) which computes r² directly from
+    /// genotype correlation, avoiding phase estimation issues with double heterozygotes.
+    /// 
+    /// Reference: Hill WG (1974) "Estimation of linkage disequilibrium in randomly 
+    /// mating populations" Heredity 33:229-239.
     /// </summary>
     public static LinkageDisequilibrium CalculateLD(
         string variant1Id,
@@ -652,37 +658,41 @@ public static class PopulationGeneticsAnalyzer
             return new LinkageDisequilibrium(variant1Id, variant2Id, 0, 0, distance);
         }
 
-        // Calculate allele frequencies
-        double p1 = genoList.Sum(g => g.Geno1) / (2.0 * genoList.Count);
-        double p2 = genoList.Sum(g => g.Geno2) / (2.0 * genoList.Count);
+        int n = genoList.Count;
+
+        // Calculate allele frequencies (genotype 0=AA, 1=AB, 2=BB)
+        // Allele frequency p = frequency of B allele
+        double p1 = genoList.Sum(g => g.Geno1) / (2.0 * n);
+        double p2 = genoList.Sum(g => g.Geno2) / (2.0 * n);
         double q1 = 1 - p1;
         double q2 = 1 - p2;
 
-        // Calculate haplotype frequencies (assuming random phase)
-        double p11 = 0;
-        foreach (var (geno1, geno2) in genoList)
-        {
-            // Estimate haplotype from genotypes
-            if (geno1 == 2 && geno2 == 2) p11 += 1;
-            else if (geno1 == 2 && geno2 == 1) p11 += 0.5;
-            else if (geno1 == 1 && geno2 == 2) p11 += 0.5;
-            else if (geno1 == 1 && geno2 == 1) p11 += 0.25;
-        }
-        p11 /= genoList.Count;
+        // Use Hill (1974) composite LD estimator: Δ = E[X₁X₂] - 2p₁p₂
+        // where X is genotype value (0, 1, 2)
+        // This avoids phase ambiguity in double heterozygotes
+        double sumProduct = genoList.Sum(g => (double)g.Geno1 * g.Geno2);
+        double delta = sumProduct / n - 2 * p1 * p2;
 
-        // Calculate D
-        double d = p11 - p1 * p2;
+        // r² from genotypes: correlation coefficient squared
+        // r² = Cov(X₁,X₂)² / (Var(X₁) * Var(X₂))
+        double mean1 = genoList.Average(g => (double)g.Geno1);
+        double mean2 = genoList.Average(g => (double)g.Geno2);
+        double cov = genoList.Sum(g => (g.Geno1 - mean1) * (g.Geno2 - mean2)) / n;
+        double var1 = genoList.Sum(g => Math.Pow(g.Geno1 - mean1, 2)) / n;
+        double var2 = genoList.Sum(g => Math.Pow(g.Geno2 - mean2, 2)) / n;
 
-        // Calculate D'
+        double rSquared = (var1 > 0 && var2 > 0) ? (cov * cov) / (var1 * var2) : 0;
+
+        // D' calculation using estimated D from composite LD
+        // D ≈ Δ/2 for biallelic markers (Hill 1974)
+        double d = delta / 2;
+
         double dMax = d >= 0
             ? Math.Min(p1 * q2, q1 * p2)
             : Math.Min(p1 * p2, q1 * q2);
 
-        double dPrime = dMax != 0 ? Math.Abs(d) / dMax : 0;
-
-        // Calculate r²
-        double denom = p1 * q1 * p2 * q2;
-        double rSquared = denom > 0 ? (d * d) / denom : 0;
+        double dPrime = dMax > 1e-10 ? Math.Abs(d) / dMax : 0;
+        dPrime = Math.Min(dPrime, 1.0);  // Ensure D' ≤ 1
 
         return new LinkageDisequilibrium(
             Variant1: variant1Id,

@@ -85,17 +85,22 @@ public class DisorderPredictorTests
     [Test]
     public void PredictDisorder_RegionHasCorrectBoundaries()
     {
-        string sequence = new string('E', 30); // All charged = disordered
+        // 30× Glutamate (E): propensity=0.30, charge=-1 → highly disorder-promoting
+        string sequence = new string('E', 30);
 
         var result = DisorderPredictor.PredictDisorder(sequence, minRegionLength: 5);
 
-        if (result.DisorderedRegions.Count > 0)
+        // Glutamate-rich sequence MUST be predicted as disordered
+        Assert.That(result.DisorderedRegions, Is.Not.Empty,
+            "30× Glutamate (high propensity=0.30, charged) must produce disordered regions");
+
+        var region = result.DisorderedRegions[0];
+        Assert.Multiple(() =>
         {
-            var region = result.DisorderedRegions[0];
             Assert.That(region.Start, Is.GreaterThanOrEqualTo(0));
             Assert.That(region.End, Is.LessThan(sequence.Length));
             Assert.That(region.End, Is.GreaterThanOrEqualTo(region.Start));
-        }
+        });
     }
 
     [Test]
@@ -119,42 +124,48 @@ public class DisorderPredictorTests
     [Test]
     public void PredictDisorder_ProlineRich_ClassifiedCorrectly()
     {
+        // 30× Proline: highest disorder propensity (0.41)
         string prolineRich = new string('P', 30);
 
         var result = DisorderPredictor.PredictDisorder(prolineRich, minRegionLength: 5);
 
-        if (result.DisorderedRegions.Count > 0)
-        {
-            Assert.That(result.DisorderedRegions.Any(r => r.RegionType.Contains("Proline")), Is.True);
-        }
+        // Proline-rich sequence MUST be predicted as disordered
+        Assert.That(result.DisorderedRegions, Is.Not.Empty,
+            "30× Proline (highest propensity=0.41) must produce disordered regions");
+        Assert.That(result.DisorderedRegions.Any(r => r.RegionType.Contains("Proline")), Is.True,
+            "Proline-rich region must be classified as Proline-rich IDR");
     }
 
     [Test]
     public void PredictDisorder_AcidicRegion_ClassifiedCorrectly()
     {
+        // E (propensity=0.30) and D (propensity=0.19) - both disorder-promoting acidic residues
         string acidic = "EEEEEEEEDDDDDDDDEEEEEEEEDDDDDDDD";
 
         var result = DisorderPredictor.PredictDisorder(acidic, minRegionLength: 5);
 
-        if (result.DisorderedRegions.Count > 0)
-        {
-            Assert.That(result.DisorderedRegions.Any(r =>
-                r.RegionType.Contains("Acidic") || r.RegionType.Contains("IDR")), Is.True);
-        }
+        // Acidic sequence MUST be predicted as disordered
+        Assert.That(result.DisorderedRegions, Is.Not.Empty,
+            "Acidic E/D rich sequence must produce disordered regions");
+        Assert.That(result.DisorderedRegions.Any(r =>
+            r.RegionType.Contains("Acidic") || r.RegionType.Contains("IDR")), Is.True,
+            "Acidic region must be classified appropriately");
     }
 
     [Test]
     public void PredictDisorder_BasicRegion_ClassifiedCorrectly()
     {
+        // K (propensity=0.27) and R (propensity=0.18) - both disorder-promoting basic residues
         string basic = "KKKKKKKKKRRRRRRRRRKKKKKKKKRRRRRRRR";
 
         var result = DisorderPredictor.PredictDisorder(basic, minRegionLength: 5);
 
-        if (result.DisorderedRegions.Count > 0)
-        {
-            Assert.That(result.DisorderedRegions.Any(r =>
-                r.RegionType.Contains("Basic") || r.RegionType.Contains("IDR")), Is.True);
-        }
+        // Basic sequence MUST be predicted as disordered
+        Assert.That(result.DisorderedRegions, Is.Not.Empty,
+            "Basic K/R rich sequence must produce disordered regions");
+        Assert.That(result.DisorderedRegions.Any(r =>
+            r.RegionType.Contains("Basic") || r.RegionType.Contains("IDR")), Is.True,
+            "Basic region must be classified appropriately");
     }
 
     #endregion

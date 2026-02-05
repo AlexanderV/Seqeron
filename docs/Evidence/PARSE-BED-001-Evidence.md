@@ -159,9 +159,27 @@ Per UCSC: "chromStart=0, chromEnd=0 to represent an insertion before the first n
 
 ---
 
-## 7. References
+## 7. Test Coverage
+
+### Reference Data Tests (Added 2026-02-05)
+Tests validated against UCSC Genome Browser specification:
+- `Parse_UcscBedSpecification_ZeroBasedCoordinates` - validates 0-based start coordinates
+- `Parse_UcscBed12Format_GeneStructure` - validates BED12 gene/exon structure
+- `Parse_UcscBedFormat_ZeroLengthFeature` - validates insertion point representation
+- `Parse_UcscBedFormat_ScoreRange` - validates score clamping 0-1000
+- `Parse_UcscBedFormat_StrandField` - validates strand notation (+/-/.)
+
+---
+
+## 8. References
 
 1. Kent WJ, et al. (2002). "The Human Genome Browser at UCSC". Genome Research. 12(6): 996–1006. doi:10.1101/gr.229102
 2. UCSC Genome Browser FAQ - Data File Formats. https://genome.ucsc.edu/FAQ/FAQformat.html
 3. Quinlan AR, Hall IM (2010). BEDTools: a flexible suite of utilities for comparing genomic features. Bioinformatics. 26(6): 841-842.
 4. GA4GH BED v1.0 Specification (2021). https://samtools.github.io/hts-specs/BEDv1.pdf
+
+---
+
+## Change History
+- **2026-02-05**: Added reference data tests with UCSC Genome Browser validation.
+- **2026-02-05**: Initial documentation.

@@ -656,15 +656,27 @@ public static class RnaSecondaryStructure
             for (int spacing = minSpacing; spacing <= Math.Min(maxSpacing, upper.Length - i - minLength * 2); spacing++)
             {
                 int j = i + minLength + spacing;
+                int maxPossibleLen = Math.Min(upper.Length - j, j - i - minSpacing);
 
-                // Check for complementary regions
+                // Check for ANTIPARALLEL complementary regions (biologically correct for RNA hairpin stems)
+                // Position i+k should pair with position j+len-1-k (antiparallel)
                 int matchLen = 0;
-                while (i + matchLen < j && j + matchLen < upper.Length)
+                for (int len = minLength; len <= maxPossibleLen; len++)
                 {
-                    char expected = GetComplement(upper[j + matchLen]);
-                    if (upper[i + matchLen] != expected)
-                        break;
-                    matchLen++;
+                    // Check if all positions in this length form valid base pairs
+                    bool valid = true;
+                    for (int k = 0; k < len && valid; k++)
+                    {
+                        // Antiparallel: i+k pairs with j+len-1-k
+                        char left = upper[i + k];
+                        char right = upper[j + len - 1 - k];
+                        if (left != GetComplement(right))
+                            valid = false;
+                    }
+                    if (valid)
+                        matchLen = len;
+                    else
+                        break; // If shorter length fails, longer will too
                 }
 
                 if (matchLen >= minLength)

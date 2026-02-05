@@ -61,12 +61,13 @@ namespace Seqeron.Genomics.Tests
         {
             var frequencies = KmerAnalyzer.GetKmerFrequencies(sequence, k);
 
-            if (frequencies.Count > 0)
-            {
-                double total = frequencies.Values.Sum();
-                Assert.That(total, Is.EqualTo(1.0).Within(Tolerance),
-                    $"Frequency sum must equal 1.0 for k={k}");
-            }
+            // Non-empty sequence with k <= length MUST produce k-mers
+            Assert.That(frequencies, Is.Not.Empty,
+                $"Sequence '{sequence}' with k={k} must produce k-mer frequencies");
+
+            double total = frequencies.Values.Sum();
+            Assert.That(total, Is.EqualTo(1.0).Within(Tolerance),
+                $"Frequency sum must equal 1.0 for k={k}");
         }
 
         #endregion

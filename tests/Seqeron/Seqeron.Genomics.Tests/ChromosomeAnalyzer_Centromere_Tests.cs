@@ -136,6 +136,7 @@ public class ChromosomeAnalyzer_Centromere_Tests
     public void AnalyzeCentromere_WhenCentromereFound_StartIsLessThanOrEqualToEnd()
     {
         // Arrange - M5: Start <= End invariant
+        // 160,000 bp repetitive region embedded in flanks - MUST be detected
         string repeatUnit = "GATCGATCGATCGATC";
         string repetitiveRegion = string.Concat(Enumerable.Repeat(repeatUnit, 10000));
         string flank = GenerateRandomSequence(seed: 99, length: 100000);
@@ -145,17 +146,18 @@ public class ChromosomeAnalyzer_Centromere_Tests
         var result = ChromosomeAnalyzer.AnalyzeCentromere(
             "chr1", sequence, windowSize: 10000, minAlphaSatelliteContent: 0.05);
 
-        // Assert
-        if (result.Start.HasValue && result.End.HasValue)
-        {
-            Assert.That(result.Start.Value, Is.LessThanOrEqualTo(result.End.Value));
-        }
+        // Assert - large repetitive region MUST be detected
+        Assert.That(result.Start.HasValue && result.End.HasValue, Is.True,
+            "160kb repetitive region with 5% threshold must be detected as centromere");
+        Assert.That(result.Start!.Value, Is.LessThanOrEqualTo(result.End!.Value),
+            "Start must be <= End");
     }
 
     [Test]
     public void AnalyzeCentromere_WhenCentromereFound_LengthEqualsEndMinusStart()
     {
         // Arrange - M6: Length = End - Start invariant
+        // 112,000 bp repetitive region embedded in flanks - MUST be detected
         string repeatUnit = "ATATATATATATAT";
         string repetitiveRegion = string.Concat(Enumerable.Repeat(repeatUnit, 8000));
         string flank = GenerateRandomSequence(seed: 88, length: 80000);
@@ -165,15 +167,11 @@ public class ChromosomeAnalyzer_Centromere_Tests
         var result = ChromosomeAnalyzer.AnalyzeCentromere(
             "chr1", sequence, windowSize: 10000, minAlphaSatelliteContent: 0.05);
 
-        // Assert
-        if (result.Start.HasValue && result.End.HasValue)
-        {
-            Assert.That(result.Length, Is.EqualTo(result.End.Value - result.Start.Value));
-        }
-        else
-        {
-            Assert.That(result.Length, Is.EqualTo(0));
-        }
+        // Assert - large repetitive region MUST be detected
+        Assert.That(result.Start.HasValue && result.End.HasValue, Is.True,
+            "112kb repetitive region with 5% threshold must be detected as centromere");
+        Assert.That(result.Length, Is.EqualTo(result.End!.Value - result.Start!.Value),
+            "Length must equal End - Start");
     }
 
     [Test]
@@ -199,7 +197,7 @@ public class ChromosomeAnalyzer_Centromere_Tests
     public void AnalyzeCentromere_CentromereInMiddle_ClassifiesAsMetacentric()
     {
         // Arrange - M7: Metacentric = centromere in middle (position 0.35-0.65)
-        // Create sequence where repetitive region is in the middle
+        // Create sequence where 96kb repetitive region is centered between equal 100kb flanks
         string flank = GenerateRandomSequence(seed: 1, length: 100000);
         string repeatUnit = "GCGCGCGCGCGCGCGC";
         string repetitiveRegion = string.Concat(Enumerable.Repeat(repeatUnit, 6000));
@@ -211,22 +209,24 @@ public class ChromosomeAnalyzer_Centromere_Tests
         var result = ChromosomeAnalyzer.AnalyzeCentromere(
             "chr1", sequence, windowSize: 10000, minAlphaSatelliteContent: 0.05);
 
-        // Assert
-        if (result.Start.HasValue && result.End.HasValue)
-        {
-            // Verify the detected position is roughly in the middle
-            int midpoint = (result.Start.Value + result.End.Value) / 2;
-            double positionRatio = midpoint / (double)sequence.Length;
+        // Assert - centered repetitive region MUST be detected and classified
+        Assert.That(result.Start.HasValue && result.End.HasValue, Is.True,
+            "96kb centered repetitive region must be detected as centromere");
 
-            // Metacentric should be around 0.35-0.65
-            Assert.That(result.CentromereType, Is.EqualTo("Metacentric"));
-        }
+        // Verify the detected position is roughly in the middle
+        int midpoint = (result.Start!.Value + result.End!.Value) / 2;
+        double positionRatio = midpoint / (double)sequence.Length;
+
+        // Metacentric should be around 0.35-0.65
+        Assert.That(result.CentromereType, Is.EqualTo("Metacentric"),
+            $"Centromere at position ratio {positionRatio:F2} should be Metacentric");
     }
 
     [Test]
     public void AnalyzeCentromere_CentromereNearStart_ClassifiesAsAcrocentric()
     {
         // Arrange - M7: Acrocentric = centromere near end (position < 0.15 or > 0.85)
+        // 80kb repetitive region at start, followed by 800kb random sequence
         string repeatUnit = "TATATATATATATATA";
         string repetitiveRegion = string.Concat(Enumerable.Repeat(repeatUnit, 5000));
         string longFlank = GenerateRandomSequence(seed: 2, length: 800000);
@@ -238,18 +238,18 @@ public class ChromosomeAnalyzer_Centromere_Tests
         var result = ChromosomeAnalyzer.AnalyzeCentromere(
             "chr13", sequence, windowSize: 10000, minAlphaSatelliteContent: 0.05);
 
-        // Assert
-        if (result.Start.HasValue && result.End.HasValue)
-        {
-            int midpoint = (result.Start.Value + result.End.Value) / 2;
-            double positionRatio = midpoint / (double)sequence.Length;
+        // Assert - repetitive region at start MUST be detected
+        Assert.That(result.Start.HasValue && result.End.HasValue, Is.True,
+            "80kb repetitive region at chromosome start must be detected");
 
-            // Should be acrocentric if detected at start
-            if (positionRatio < 0.15)
-            {
-                Assert.That(result.CentromereType, Is.EqualTo("Acrocentric"));
-            }
-        }
+        int midpoint = (result.Start!.Value + result.End!.Value) / 2;
+        double positionRatio = midpoint / (double)sequence.Length;
+
+        // Should be acrocentric since detected at start (< 0.15)
+        Assert.That(positionRatio, Is.LessThan(0.15),
+            $"Centromere at start should have position ratio < 0.15, got {positionRatio:F2}");
+        Assert.That(result.CentromereType, Is.EqualTo("Acrocentric"),
+            "Centromere near start should be classified as Acrocentric");
     }
 
     [Test]
