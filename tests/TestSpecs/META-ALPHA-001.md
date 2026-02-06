@@ -9,6 +9,7 @@
 | **Canonical Methods** | `MetagenomicsAnalyzer.CalculateAlphaDiversity` |
 | **Complexity** | O(n) where n = number of taxa |
 | **Invariants** | H ≥ 0; λ ∈ [0,1]; J ∈ [0,1]; S ≥ 0 |
+| **Status** | ☑ Complete |
 
 ## Methods Under Test
 

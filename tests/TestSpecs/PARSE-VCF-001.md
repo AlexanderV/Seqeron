@@ -9,6 +9,7 @@
 | **Title** | VCF Parsing |
 | **Canonical Class** | `VcfParser` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete |
 
 ---
 

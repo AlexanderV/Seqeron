@@ -3,7 +3,7 @@
 ## Test Unit Information
 - **ID:** POP-LD-001
 - **Area:** Population Genetics (PopGen)
-- **Status:** ☐ Not Started → ☑ Complete
+- **Status:** ☑ Complete
 - **Evidence:** [POP-LD-001.md](../docs/Evidence/POP-LD-001.md)
 
 ---

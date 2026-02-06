@@ -77,25 +77,25 @@
 | ☑ | META-CLASS-001 | Metagenomics | 2 | Wikipedia (Metagenomics), Kraken CCB JHU, Wood & Salzberg (2014) | [META-CLASS-001.md](TestSpecs/META-CLASS-001.md) | MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs |
 | ☑ | META-PROF-001 | Metagenomics | 1 | Wikipedia (Metagenomics, Relative Abundance), Shannon (1948), Simpson (1949), Segata et al. (2012) | [META-PROF-001.md](TestSpecs/META-PROF-001.md) | MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs |
 | ☑ | META-ALPHA-001 | Metagenomics | 1 | Wikipedia (Diversity Index, Alpha Diversity), Shannon (1948), Simpson (1949), Hill (1973), Chao (1984) | [META-ALPHA-001.md](TestSpecs/META-ALPHA-001.md) | MetagenomicsAnalyzer_AlphaDiversity_Tests.cs |
-| ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](tests/TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
-| ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](tests/TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
-| ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](tests/TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
-| ☑ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987) | [CODON-CAI-001.md](tests/TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
-| ☑ | CODON-RARE-001 | Codon | 1 | Wikipedia (Codon usage bias), Kazusa, Shu et al. (2006), Sharp & Li (1987) | [CODON-RARE-001.md](tests/TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs |
-| ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](tests/TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
-| ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | TRANS-CODON-001.md | GeneticCodeTests.cs |
-| ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](tests/TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
-| ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](tests/TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
-| ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](tests/TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
-| ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](tests/TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
-| ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](tests/TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
-| ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](tests/TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
-| ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](tests/TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
-| ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](tests/TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
-| ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](tests/TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
-| ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](tests/TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
-| ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](tests/TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
-| ☑ | MIRNA-SEED-001 | MiRNA | 3 | miRBase, TargetScan (Bartel Lab), Bartel (2009), Lewis (2005) | [MIRNA-SEED-001.md](tests/TestSpecs/MIRNA-SEED-001.md) | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
+| ☑ | META-BETA-001 | Metagenomics | 1 | Wikipedia (Beta diversity, Bray-Curtis dissimilarity, Jaccard index), Whittaker (1960), Bray & Curtis (1957), Jaccard (1901) | [META-BETA-001.md](TestSpecs/META-BETA-001.md) | MetagenomicsAnalyzer_BetaDiversity_Tests.cs |
+| ☑ | META-BIN-001 | Metagenomics | 1 | Wikipedia (Binning metagenomics), Teeling (2004), Parks et al. (2014), Maguire et al. (2020) | [META-BIN-001.md](TestSpecs/META-BIN-001.md) | MetagenomicsAnalyzer_GenomeBinning_Tests.cs |
+| ☑ | CODON-OPT-001 | Codon | 1 | Wikipedia (Codon usage bias, CAI), Sharp & Li (1987), Plotkin & Kudla (2011) | [CODON-OPT-001.md](TestSpecs/CODON-OPT-001.md) | CodonOptimizer_OptimizeSequence_Tests.cs |
+| ☑ | CODON-CAI-001 | Codon | 1 | Wikipedia (Codon Adaptation Index), Sharp & Li (1987) | [CODON-CAI-001.md](TestSpecs/CODON-CAI-001.md) | CodonOptimizer_CAI_Tests.cs |
+| ☑ | CODON-RARE-001 | Codon | 1 | Wikipedia (Codon usage bias), Kazusa, Shu et al. (2006), Sharp & Li (1987) | [CODON-RARE-001.md](TestSpecs/CODON-RARE-001.md) | CodonOptimizer_FindRareCodons_Tests.cs |
+| ☑ | CODON-USAGE-001 | Codon | 2 | Wikipedia (Codon usage bias), Kazusa, Sharp & Li (1987) | [CODON-USAGE-001.md](TestSpecs/CODON-USAGE-001.md) | CodonOptimizer_CodonUsage_Tests.cs |
+| ☑ | TRANS-CODON-001 | Translation | 3 | TRANS-CODON-001-Evidence.md | [TRANS-CODON-001.md](TestSpecs/TRANS-CODON-001.md) | GeneticCodeTests.cs |
+| ☑ | TRANS-PROT-001 | Translation | 1 | Wikipedia (Translation, Reading frame, ORF), NCBI Genetic Codes | [TRANS-PROT-001.md](TestSpecs/TRANS-PROT-001.md) | TranslatorTests.cs |
+| ☑ | PARSE-FASTA-001 | FileIO | 4 | Wikipedia (FASTA format), NCBI BLAST Help, Lipman & Pearson (1985) | [PARSE-FASTA-001.md](TestSpecs/PARSE-FASTA-001.md) | FastaParserTests.cs |
+| ☑ | PARSE-FASTQ-001 | FileIO | 4 | Wikipedia (FASTQ format), Cock et al. (2009), NCBI SRA File Format Guide | [PARSE-FASTQ-001.md](TestSpecs/PARSE-FASTQ-001.md) | FastqParserTests.cs |
+| ☑ | PARSE-BED-001 | FileIO | 6 | Wikipedia (BED format), UCSC Genome Browser FAQ, Quinlan & Hall (2010) | [PARSE-BED-001.md](TestSpecs/PARSE-BED-001.md) | BedParserTests.cs |
+| ☑ | PARSE-VCF-001 | FileIO | 4 | Wikipedia (Variant Call Format), Danecek et al. (2011), SAMtools HTS-specs VCFv4.3 | [PARSE-VCF-001.md](TestSpecs/PARSE-VCF-001.md) | VcfParserTests.cs |
+| ☑ | PARSE-GFF-001 | FileIO | 3 | Wikipedia (GFF), UCSC Genome Browser FAQ, Sequence Ontology GFF3 Spec v1.26 | [PARSE-GFF-001.md](TestSpecs/PARSE-GFF-001.md) | GffParserTests.cs |
+| ☑ | PARSE-GENBANK-001 | FileIO | 3 | NCBI Sample Record, Wikipedia (GenBank), INSDC Feature Table Definition | [PARSE-GENBANK-001.md](TestSpecs/PARSE-GENBANK-001.md) | GenBankParserTests.cs |
+| ☑ | PARSE-EMBL-001 | FileIO | 2 | EBI EMBL User Manual, INSDC Feature Table Definition v11.3 | [PARSE-EMBL-001.md](TestSpecs/PARSE-EMBL-001.md) | EmblParserTests.cs |
+| ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
+| ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
+| ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
+| ☑ | MIRNA-SEED-001 | MiRNA | 3 | miRBase, TargetScan (Bartel Lab), Bartel (2009), Lewis (2005) | [MIRNA-SEED-001.md](TestSpecs/MIRNA-SEED-001.md) | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
 | ☐ | MIRNA-TARGET-001 | MiRNA | 2 | - | - | - |
 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | 2 | - | - | - |
 | ☐ | SPLICE-DONOR-001 | Splicing | 2 | - | - | - |
