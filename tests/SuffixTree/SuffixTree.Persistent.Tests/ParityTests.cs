@@ -68,6 +68,25 @@ namespace SuffixTree.Persistent.Tests
                     // 5. Longest Common Substring with another string
                     string other = "some_other_shared_stuff_ana_missi";
                     Assert.That(persistent.LongestCommonSubstring(other), Is.EqualTo(reference.LongestCommonSubstring(other)), "LCS mismatch");
+
+                    // 6. FindExactMatchAnchors parity
+                    string anchorQuery = "some_other_shared_stuff_ana_missi";
+                    var refAnchors = reference.FindExactMatchAnchors(anchorQuery, 3);
+                    var perAnchors = persistent.FindExactMatchAnchors(anchorQuery, 3);
+                    Assert.That(perAnchors.Count, Is.EqualTo(refAnchors.Count),
+                        $"FindExactMatchAnchors count mismatch for '{text}'");
+                    for (int a = 0; a < refAnchors.Count; a++)
+                    {
+                        Assert.That(perAnchors[a].PositionInQuery, Is.EqualTo(refAnchors[a].PositionInQuery),
+                            $"Anchor[{a}] PositionInQuery mismatch");
+                        Assert.That(perAnchors[a].Length, Is.EqualTo(refAnchors[a].Length),
+                            $"Anchor[{a}] Length mismatch");
+                        // PositionInText may differ (different leaf chosen) but substring must match
+                        string refSub = text.Substring(refAnchors[a].PositionInText, refAnchors[a].Length);
+                        string perSub = persistent.Text.Substring(perAnchors[a].PositionInText, perAnchors[a].Length);
+                        Assert.That(perSub, Is.EqualTo(refSub),
+                            $"Anchor[{a}] substring mismatch");
+                    }
                 });
             }
         }
@@ -93,6 +112,18 @@ namespace SuffixTree.Persistent.Tests
                     Assert.That(persistent.CountOccurrences(pattern), Is.EqualTo(reference.CountOccurrences(pattern)));
                     
                     Assert.That(persistent.LongestRepeatedSubstring(), Is.EqualTo(reference.LongestRepeatedSubstring()));
+
+                    // Anchor parity on random strings
+                    string query = text.Substring(random.Next(len / 4), Math.Min(len / 2, len - random.Next(len / 4)));
+                    var refAnchors = reference.FindExactMatchAnchors(query, 4);
+                    var perAnchors = persistent.FindExactMatchAnchors(query, 4);
+                    Assert.That(perAnchors.Count, Is.EqualTo(refAnchors.Count),
+                        $"Anchor count mismatch for random string #{i}");
+                    for (int a = 0; a < refAnchors.Count; a++)
+                    {
+                        Assert.That(perAnchors[a].PositionInQuery, Is.EqualTo(refAnchors[a].PositionInQuery));
+                        Assert.That(perAnchors[a].Length, Is.EqualTo(refAnchors[a].Length));
+                    }
                 }
             }
         }

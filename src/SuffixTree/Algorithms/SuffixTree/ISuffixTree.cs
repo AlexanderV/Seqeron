@@ -188,6 +188,19 @@ namespace SuffixTree
         /// </summary>
         /// <param name="visitor">The visitor to receive node information.</param>
         void Traverse(ISuffixTreeVisitor visitor);
+
+        /// <summary>
+        /// Finds exact-match anchors between this tree's text and a query string
+        /// using suffix-link-based streaming traversal.
+        /// </summary>
+        /// <param name="query">The query string to find matches against.</param>
+        /// <param name="minLength">Minimum match length to report (must be &gt; 0).</param>
+        /// <returns>
+        /// List of (PositionInText, PositionInQuery, Length) tuples representing exact-match
+        /// anchors, ordered by their position in the query.
+        /// </returns>
+        IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
+            string query, int minLength);
     }
 
     /// <summary>
