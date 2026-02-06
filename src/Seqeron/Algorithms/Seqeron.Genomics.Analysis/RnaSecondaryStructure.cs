@@ -1,6 +1,8 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Seqeron.Genomics.Analysis;
@@ -132,6 +134,20 @@ public static class RnaSecondaryStructure
         { "CCUG", -2.0 },
     };
 
+    // Fast pair-type lookup: 0 = no pair, 1 = Watson-Crick, 2 = Wobble.
+    // Indexed by [base1 * 128 + base2]. 16 KB — fits L1 cache.
+    private static readonly byte[] PairLookup = BuildPairLookup();
+    private static readonly double[] PairEnergyByCode = new[] { 0.0, -2.0, -1.0 };
+
+    private static byte[] BuildPairLookup()
+    {
+        var t = new byte[128 * 128];
+        t['A' * 128 + 'U'] = 1; t['U' * 128 + 'A'] = 1;
+        t['G' * 128 + 'C'] = 1; t['C' * 128 + 'G'] = 1;
+        t['G' * 128 + 'U'] = 2; t['U' * 128 + 'G'] = 2;
+        return t;
+    }
+
     #endregion
 
     #region Base Pairing
@@ -141,7 +157,9 @@ public static class RnaSecondaryStructure
     /// </summary>
     public static bool CanPair(char base1, char base2)
     {
-        return GetBasePairType(base1, base2) != null;
+        int b1 = char.ToUpperInvariant(base1);
+        int b2 = char.ToUpperInvariant(base2);
+        return (b1 | b2) < 128 && PairLookup[b1 * 128 + b2] != 0;
     }
 
     /// <summary>
@@ -149,23 +167,15 @@ public static class RnaSecondaryStructure
     /// </summary>
     public static BasePairType? GetBasePairType(char base1, char base2)
     {
-        char b1 = char.ToUpperInvariant(base1);
-        char b2 = char.ToUpperInvariant(base2);
-
-        // Watson-Crick pairs
-        if ((b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
-            (b1 == 'G' && b2 == 'C') || (b1 == 'C' && b2 == 'G'))
+        int b1 = char.ToUpperInvariant(base1);
+        int b2 = char.ToUpperInvariant(base2);
+        if ((b1 | b2) >= 128) return null;
+        return PairLookup[b1 * 128 + b2] switch
         {
-            return BasePairType.WatsonCrick;
-        }
-
-        // Wobble pairs
-        if ((b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G'))
-        {
-            return BasePairType.Wobble;
-        }
-
-        return null;
+            1 => BasePairType.WatsonCrick,
+            2 => BasePairType.Wobble,
+            _ => null
+        };
     }
 
     /// <summary>
@@ -360,7 +370,8 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Calculates the minimum free energy (MFE) of an RNA sequence using dynamic programming.
-    /// Simplified Nussinov-like algorithm.
+    /// Optimized Nussinov-like algorithm: flat ArrayPool buffer, pre-indexed base positions,
+    /// sliding lower-bound pointers to skip non-pairing positions.
     /// </summary>
     public static double CalculateMinimumFreeEnergy(string rnaSequence, int minLoopSize = 3)
     {
@@ -370,25 +381,128 @@ public static class RnaSecondaryStructure
         string seq = rnaSequence.ToUpperInvariant();
         int n = seq.Length;
 
-        // DP table: dp[i,j] = MFE for subsequence from i to j
-        var dp = new double[n, n];
+        // Pre-index positions by base type (sorted by construction)
+        int[] posA = BuildPositionIndex(seq, 'A');
+        int[] posU = BuildPositionIndex(seq, 'U');
+        int[] posG = BuildPositionIndex(seq, 'G');
+        int[] posC = BuildPositionIndex(seq, 'C');
 
-        // Initialize
+        // Flat DP buffer from pool — cache-friendly, zero GC pressure
+        var pool = ArrayPool<double>.Shared;
+        double[] dp = pool.Rent(n * n);
+
+        try
+        {
+            Array.Clear(dp, 0, n * n);
+
+            for (int length = minLoopSize + 2; length <= n; length++)
+            {
+                // Sliding lower-bound pointers — amortized O(1) per step
+                int loA = 0, loU = 0, loG = 0, loC = 0;
+
+                for (int i = 0; i <= n - length; i++)
+                {
+                    int j = i + length - 1;
+                    int ij = i * n + j;
+
+                    // Option 1: j unpaired
+                    double best = dp[i * n + j - 1];
+
+                    // Advance pointers past positions < i
+                    while (loA < posA.Length && posA[loA] < i) loA++;
+                    while (loU < posU.Length && posU[loU] < i) loU++;
+                    while (loG < posG.Length && posG[loG] < i) loG++;
+                    while (loC < posC.Length && posC[loC] < i) loC++;
+
+                    int kMax = j - minLoopSize;
+
+                    // Option 2: j pairs with k — iterate only valid partner positions
+                    switch (seq[j])
+                    {
+                        case 'A': // A\u2013U Watson-Crick
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posU, loU, -2.0, best);
+                            break;
+                        case 'U': // U\u2013A Watson-Crick, U\u2013G Wobble
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posA, loA, -2.0, best);
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posG, loG, -1.0, best);
+                            break;
+                        case 'G': // G\u2013C Watson-Crick, G\u2013U Wobble
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posC, loC, -2.0, best);
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posU, loU, -1.0, best);
+                            break;
+                        case 'C': // C\u2013G Watson-Crick
+                            best = ScanPartnerPositions(dp, n, i, j, kMax, posG, loG, -2.0, best);
+                            break;
+                    }
+
+                    dp[ij] = best;
+                }
+            }
+
+            return Math.Round(dp[n - 1], 2);
+        }
+        finally
+        {
+            pool.Return(dp);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double ScanPartnerPositions(
+        double[] dp, int n, int i, int j, int kMax,
+        int[] positions, int lo, double pairEnergy, double best)
+    {
+        for (int pi = lo; pi < positions.Length; pi++)
+        {
+            int k = positions[pi];
+            if (k >= kMax) break;
+
+            double left = k > i ? dp[i * n + k - 1] : 0;
+            double enclosed = k + 1 < j ? dp[(k + 1) * n + j - 1] : 0;
+            double total = pairEnergy + left + enclosed;
+            if (total < best)
+                best = total;
+        }
+        return best;
+    }
+
+    private static int[] BuildPositionIndex(string seq, char target)
+    {
+        int count = 0;
+        for (int i = 0; i < seq.Length; i++)
+            if (seq[i] == target) count++;
+
+        var result = new int[count];
+        int idx = 0;
+        for (int i = 0; i < seq.Length; i++)
+            if (seq[i] == target) result[idx++] = i;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Original O(L\u00b3) MFE — retained as benchmark baseline.
+    /// </summary>
+    internal static double CalculateMinimumFreeEnergyClassic(string rnaSequence, int minLoopSize = 3)
+    {
+        if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
+            return 0;
+
+        string seq = rnaSequence.ToUpperInvariant();
+        int n = seq.Length;
+
+        var dp = new double[n, n];
         for (int i = 0; i < n; i++)
             for (int j = 0; j < n; j++)
                 dp[i, j] = 0;
 
-        // Fill DP table
         for (int length = minLoopSize + 2; length <= n; length++)
         {
             for (int i = 0; i <= n - length; i++)
             {
                 int j = i + length - 1;
-
-                // Option 1: j is unpaired
                 dp[i, j] = dp[i, j - 1];
 
-                // Option 2: j pairs with some k
                 for (int k = i; k < j - minLoopSize; k++)
                 {
                     if (CanPair(seq[k], seq[j]))
@@ -396,7 +510,6 @@ public static class RnaSecondaryStructure
                         double pairEnergy = GetPairEnergy(seq[k], seq[j]);
                         double left = k > i ? dp[i, k - 1] : 0;
                         double enclosed = k + 1 < j ? dp[k + 1, j - 1] : 0;
-
                         double total = pairEnergy + left + enclosed;
                         dp[i, j] = Math.Min(dp[i, j], total);
                     }
