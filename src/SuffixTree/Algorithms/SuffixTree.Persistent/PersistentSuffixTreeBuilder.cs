@@ -21,6 +21,7 @@ public class PersistentSuffixTreeBuilder
     private int _remainder;
     private int _position = -1;
     private long _lastCreatedInternalNodeOffset = PersistentConstants.NULL_OFFSET;
+    private readonly Dictionary<long, List<(uint Key, long ChildOffset)>> _children = new();
 
     public PersistentSuffixTreeBuilder(IStorageProvider storage)
     {
@@ -66,20 +67,23 @@ public class PersistentSuffixTreeBuilder
                 _activeEdgeIndex = _position;
 
             var activeNode = new PersistentSuffixTreeNode(_storage, _activeNodeOffset);
-            if (!activeNode.TryGetChild(GetSymbolAt(_activeEdgeIndex), out var nextChild) || nextChild.IsNull)
+            uint activeEdgeKey = GetSymbolAt(_activeEdgeIndex);
+
+            if (!BuilderTryGetChild(_activeNodeOffset, activeEdgeKey, out var nextChildOffset))
             {
                 var leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, GetNodeDepth(activeNode));
-                activeNode.SetChild(GetSymbolAt(_activeEdgeIndex), new PersistentSuffixTreeNode(_storage, leafOffset));
+                BuilderSetChild(_activeNodeOffset, activeEdgeKey, leafOffset);
                 AddSuffixLink(_activeNodeOffset);
             }
             else
             {
+                var nextChild = new PersistentSuffixTreeNode(_storage, nextChildOffset);
                 int edgeLen = LengthOf(nextChild);
                 if (_activeLength >= edgeLen)
                 {
                     _activeEdgeIndex += edgeLen;
                     _activeLength -= edgeLen;
-                    _activeNodeOffset = nextChild.Offset;
+                    _activeNodeOffset = nextChildOffset;
                     continue;
                 }
 
@@ -93,14 +97,14 @@ public class PersistentSuffixTreeBuilder
                 // Split edge
                 long splitOffset = CreateNode(nextChild.Start, nextChild.Start + (uint)_activeLength, nextChild.DepthFromRoot);
                 var split = new PersistentSuffixTreeNode(_storage, splitOffset);
-                activeNode.SetChild(GetSymbolAt(_activeEdgeIndex), split);
+                BuilderSetChild(_activeNodeOffset, activeEdgeKey, splitOffset);
 
                 long leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, split.DepthFromRoot + (uint)LengthOf(split));
-                split.SetChild(key, new PersistentSuffixTreeNode(_storage, leafOffset));
+                BuilderSetChild(splitOffset, key, leafOffset);
 
                 nextChild.Start += (uint)_activeLength;
                 nextChild.DepthFromRoot = split.DepthFromRoot + (uint)LengthOf(split);
-                split.SetChild(GetSymbolAt((int)nextChild.Start), nextChild);
+                BuilderSetChild(splitOffset, GetSymbolAt((int)nextChild.Start), nextChildOffset);
 
                 AddSuffixLink(splitOffset);
             }
@@ -157,8 +161,11 @@ public class PersistentSuffixTreeBuilder
 
     private void FinalizeTree()
     {
-        // Calculate leaf counts recursively
+        // Calculate leaf counts
         CalculateLeafCount(_rootOffset);
+
+        // Write sorted children arrays to storage
+        WriteChildrenArrays();
 
         // Store text in storage for true persistence
         long textOffset = _storage.Allocate(_text.Length * 2);
@@ -169,7 +176,7 @@ public class PersistentSuffixTreeBuilder
 
         // Write Header
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
-        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 1);
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 2);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, textOffset);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, _text.Length);
@@ -189,13 +196,10 @@ public class PersistentSuffixTreeBuilder
             long offset = workStack.Pop();
             resultStack.Push(offset);
 
-            var node = new PersistentSuffixTreeNode(_storage, offset);
-            long childEntryOffset = node.ChildrenHead;
-            while (childEntryOffset != PersistentConstants.NULL_OFFSET)
+            if (_children.TryGetValue(offset, out var childList))
             {
-                var entry = new PersistentChildEntry(_storage, childEntryOffset);
-                workStack.Push(entry.ChildNodeOffset);
-                childEntryOffset = entry.NextEntryOffset;
+                foreach (var (_, childOffset) in childList)
+                    workStack.Push(childOffset);
             }
         }
 
@@ -211,16 +215,76 @@ public class PersistentSuffixTreeBuilder
             else
             {
                 uint totalLeaves = 0;
-                long childEntryOffset = node.ChildrenHead;
-                while (childEntryOffset != PersistentConstants.NULL_OFFSET)
+                if (_children.TryGetValue(offset, out var childList))
                 {
-                    var entry = new PersistentChildEntry(_storage, childEntryOffset);
-                    var child = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
-                    totalLeaves += child.LeafCount;
-                    childEntryOffset = entry.NextEntryOffset;
+                    foreach (var (_, childOffset) in childList)
+                    {
+                        var child = new PersistentSuffixTreeNode(_storage, childOffset);
+                        totalLeaves += child.LeafCount;
+                    }
                 }
                 node.LeafCount = totalLeaves;
             }
+        }
+    }
+
+    private bool BuilderTryGetChild(long nodeOffset, uint key, out long childOffset)
+    {
+        if (_children.TryGetValue(nodeOffset, out var childList))
+        {
+            foreach (var entry in childList)
+            {
+                if (entry.Key == key)
+                {
+                    childOffset = entry.ChildOffset;
+                    return true;
+                }
+            }
+        }
+        childOffset = PersistentConstants.NULL_OFFSET;
+        return false;
+    }
+
+    private void BuilderSetChild(long nodeOffset, uint key, long childOffset)
+    {
+        if (!_children.TryGetValue(nodeOffset, out var childList))
+        {
+            childList = new List<(uint Key, long ChildOffset)>();
+            _children[nodeOffset] = childList;
+        }
+
+        for (int i = 0; i < childList.Count; i++)
+        {
+            if (childList[i].Key == key)
+            {
+                childList[i] = (key, childOffset);
+                return;
+            }
+        }
+
+        childList.Add((key, childOffset));
+    }
+
+    private void WriteChildrenArrays()
+    {
+        foreach (var (nodeOffset, childList) in _children)
+        {
+            // Sort by key using signed comparison (terminator=-1 first)
+            childList.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
+
+            int count = childList.Count;
+            long arrayOffset = _storage.Allocate(count * PersistentConstants.CHILD_ENTRY_SIZE);
+
+            for (int i = 0; i < count; i++)
+            {
+                long entryOffset = arrayOffset + (long)i * PersistentConstants.CHILD_ENTRY_SIZE;
+                _storage.WriteUInt32(entryOffset + PersistentConstants.CHILD_OFFSET_KEY, childList[i].Key);
+                _storage.WriteInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE, childList[i].ChildOffset);
+            }
+
+            var node = new PersistentSuffixTreeNode(_storage, nodeOffset);
+            node.ChildrenHead = arrayOffset;
+            node.ChildCount = count;
         }
     }
 }

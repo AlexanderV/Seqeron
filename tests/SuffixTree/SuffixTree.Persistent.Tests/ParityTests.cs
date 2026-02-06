@@ -111,7 +111,14 @@ namespace SuffixTree.Persistent.Tests
                     string pattern = text.Substring(random.Next(len / 2), 5);
                     Assert.That(persistent.CountOccurrences(pattern), Is.EqualTo(reference.CountOccurrences(pattern)));
 
-                    Assert.That(persistent.LongestRepeatedSubstring(), Is.EqualTo(reference.LongestRepeatedSubstring()));
+                    // LRS: compare lengths (tie-breaking may differ between sorted-array and hash-map traversal)
+                    var pLrs = persistent.LongestRepeatedSubstring();
+                    var rLrs = reference.LongestRepeatedSubstring();
+                    Assert.That(pLrs.Length, Is.EqualTo(rLrs.Length),
+                        $"LRS length mismatch for random string index {i}: persistent=\"{pLrs}\", reference=\"{rLrs}\"");
+                    if (pLrs.Length > 0)
+                        Assert.That(persistent.CountOccurrences(pLrs), Is.GreaterThanOrEqualTo(2),
+                            $"Persistent LRS \"{pLrs}\" should occur at least twice");
 
                     // Anchor parity on random strings
                     string query = text.Substring(random.Next(len / 4), Math.Min(len / 2, len - random.Next(len / 4)));

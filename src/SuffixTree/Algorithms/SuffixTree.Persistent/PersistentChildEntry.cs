@@ -2,7 +2,7 @@ namespace SuffixTree.Persistent;
 
 /// <summary>
 /// A handle to a child entry in the persistent storage.
-/// Used to build a linked list of children for a node.
+/// Represents an entry in the sorted contiguous children array of a node.
 /// </summary>
 public readonly struct PersistentChildEntry
 {
@@ -28,12 +28,6 @@ public readonly struct PersistentChildEntry
     {
         get => _storage.ReadInt64(_offset + PersistentConstants.CHILD_OFFSET_NODE);
         set => _storage.WriteInt64(_offset + PersistentConstants.CHILD_OFFSET_NODE, value);
-    }
-
-    public long NextEntryOffset
-    {
-        get => _storage.ReadInt64(_offset + PersistentConstants.CHILD_OFFSET_NEXT);
-        set => _storage.WriteInt64(_offset + PersistentConstants.CHILD_OFFSET_NEXT, value);
     }
 
     public static PersistentChildEntry Null(IStorageProvider storage)
