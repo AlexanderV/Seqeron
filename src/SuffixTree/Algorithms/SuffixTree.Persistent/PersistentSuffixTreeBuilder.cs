@@ -38,8 +38,6 @@ public class PersistentSuffixTreeBuilder
         _activeNodeOffset = _rootOffset;
     }
 
-    public long Build(string text) => Build(new StringTextSource(text));
-
     public long Build(ITextSource text)
     {
         _text = text;

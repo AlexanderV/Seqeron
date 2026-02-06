@@ -27,7 +27,7 @@ namespace SuffixTree.Persistent.Tests
         public void Parity_WithReferenceImplementation_AllMethods([ValueSource(nameof(TestStrings))] string text)
         {
             var reference = global::SuffixTree.SuffixTree.Build(text);
-            using (var persistentDisposable = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+            using (var persistentDisposable = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var persistent = (ISuffixTree)persistentDisposable!;
 
@@ -101,7 +101,7 @@ namespace SuffixTree.Persistent.Tests
                 string text = new string(Enumerable.Range(0, len).Select(_ => (char)random.Next('a', 'e')).ToArray());
 
                 var reference = global::SuffixTree.SuffixTree.Build(text);
-                using (var persistentDisposable = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+                using (var persistentDisposable = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
                 {
                     var persistent = (ISuffixTree)persistentDisposable!;
 

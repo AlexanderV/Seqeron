@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using SuffixTree;
 using SuffixTree.Persistent;
 
 namespace SuffixTree.Persistent.Tests
@@ -33,7 +34,7 @@ namespace SuffixTree.Persistent.Tests
         {
             // Setup a decent size tree
             string text = string.Concat(Enumerable.Repeat("abcde12345", 1000)); // 10,000 chars
-            using (var builder = PersistentSuffixTreeFactory.Create(text, _tempFile) as IDisposable)
+            using (var builder = PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile) as IDisposable)
             {
                 // Ensure it's fully built
             }
@@ -90,7 +91,7 @@ namespace SuffixTree.Persistent.Tests
                 {
                     Assert.That(tree.Contains("ATGT"), Is.True);
                     Assert.That(tree.CountOccurrences("GC"), Is.EqualTo(1000));
-                    
+
                     // Stress test LRS (which does traversal)
                     // Note: LRS might cache results, but it should still be thread-safe
                     // Actually LRS does a fresh traversal every time in current implementation unless cached?
@@ -100,7 +101,7 @@ namespace SuffixTree.Persistent.Tests
                     // Wait, current implementation of LRS uses `DeepestInternalNode` which is pre-calculated.
                     // So it's O(1) mostly accessing properties.
                     // Let's test a method that does traversal: FindAllOccurrences
-                    
+
                     var occurrences = tree.FindAllOccurrences("ATGT").ToList();
                     Assert.That(occurrences.Count, Is.EqualTo(1000));
                 }

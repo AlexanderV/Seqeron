@@ -9,7 +9,7 @@ namespace SuffixTree.Persistent.Tests
     {
         protected override ISuffixTree CreateTree(string text)
         {
-            return PersistentSuffixTreeFactory.Create(text);
+            return PersistentSuffixTreeFactory.Create(new StringTextSource(text));
         }
     }
 }
