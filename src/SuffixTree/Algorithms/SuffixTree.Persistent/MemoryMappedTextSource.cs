@@ -99,7 +99,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         for (int i = 0; i < _length; i++)
         {
-            yield return _accessor.ReadChar(i * sizeof(char));
+            yield return this[i];
         }
     }
 

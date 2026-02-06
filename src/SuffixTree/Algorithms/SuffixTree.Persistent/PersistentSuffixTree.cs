@@ -66,31 +66,34 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         return new PersistentSuffixTree(storage, root);
     }
 
-    public ITextSource Text => _textSource;
+    public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
 
-    public int NodeCount => _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT);
+    public int NodeCount { get { ThrowIfDisposed(); return _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT); } }
 
     public int LeafCount
     {
         get
         {
+            ThrowIfDisposed();
             uint rawCount = new PersistentSuffixTreeNode(_storage, _rootOffset).LeafCount;
             return rawCount > 0 ? (int)(rawCount - 1) : 0;
         }
     }
 
-    public int MaxDepth => _textSource.Length + 1;
+    public int MaxDepth { get { ThrowIfDisposed(); return _textSource.Length + 1; } }
 
-    public bool IsEmpty => _textSource.Length == 0;
+    public bool IsEmpty { get { ThrowIfDisposed(); return _textSource.Length == 0; } }
 
     public bool Contains(string value)
     {
+        ThrowIfDisposed();
         if (string.IsNullOrEmpty(value)) return true;
         return Contains(value.AsSpan());
     }
 
     public bool Contains(ReadOnlySpan<char> value)
     {
+        ThrowIfDisposed();
         if (value.IsEmpty) return true;
         var (node, matched) = MatchPatternCore(value);
         return matched;
@@ -98,12 +101,14 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
+        ThrowIfDisposed();
         if (pattern == null) throw new ArgumentNullException(nameof(pattern));
         return FindAllOccurrences(pattern.AsSpan());
     }
 
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
+        ThrowIfDisposed();
         var results = new List<int>();
         if (pattern.IsEmpty) return results;
 
@@ -116,12 +121,14 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public int CountOccurrences(string pattern)
     {
+        ThrowIfDisposed();
         if (pattern == null) throw new ArgumentNullException(nameof(pattern));
         return CountOccurrences(pattern.AsSpan());
     }
 
     public int CountOccurrences(ReadOnlySpan<char> pattern)
     {
+        ThrowIfDisposed();
         if (pattern.IsEmpty) return 0;
         var (node, matched) = MatchPatternCore(pattern);
         return matched ? (int)node.LeafCount : 0;
@@ -129,6 +136,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public string LongestRepeatedSubstring()
     {
+        ThrowIfDisposed();
         if (_cachedLrs != null) return _cachedLrs;
 
         var deepest = FindDeepestInternalNode(new PersistentSuffixTreeNode(_storage, _rootOffset));
@@ -147,6 +155,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public IReadOnlyList<string> GetAllSuffixes()
     {
+        ThrowIfDisposed();
         var results = new List<string>();
         foreach (var suffix in EnumerateSuffixes())
             results.Add(suffix);
@@ -155,7 +164,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public IEnumerable<string> EnumerateSuffixes()
     {
-        // Lazy enumeration of suffixes (simplified version)
+        ThrowIfDisposed();
         return EnumerateSuffixesCore(new PersistentSuffixTreeNode(_storage, _rootOffset));
     }
 
@@ -193,16 +202,18 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         return results;
     }
 
-    public string LongestCommonSubstring(string other) => LongestCommonSubstring(other.AsSpan());
+    public string LongestCommonSubstring(string other) { ThrowIfDisposed(); return LongestCommonSubstring(other.AsSpan()); }
 
     public string LongestCommonSubstring(ReadOnlySpan<char> other)
     {
+        ThrowIfDisposed();
         var (substring, _, _) = LongestCommonSubstringInfo(new string(other));
         return substring;
     }
 
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
     {
+        ThrowIfDisposed();
         var results = FindAllLcsInternal(other, firstOnly: true);
         if (results.PositionsInText.Count == 0)
             return (string.Empty, -1, -1);
@@ -211,11 +222,13 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)
     {
+        ThrowIfDisposed();
         return LongestCommonSubstringInfo(new string(other));
     }
 
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
     {
+        ThrowIfDisposed();
         var results = FindAllLcsInternal(other, firstOnly: false);
         return (results.Substring, results.PositionsInText, results.PositionsInOther);
     }
@@ -370,6 +383,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public string PrintTree()
     {
+        ThrowIfDisposed();
         var sb = new StringBuilder(Math.Max(256, _textSource.Length * 100));
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         sb.Append(ci, $"Content length: {_textSource.Length}").AppendLine();
@@ -443,6 +457,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
         string query, int minLength)
     {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(query);
         if (query.Length == 0 || _textSource.Length == 0 || minLength <= 0)
             return Array.Empty<(int, int, int)>();
@@ -621,6 +636,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     /// <inheritdoc/>
     public void Traverse(ISuffixTreeVisitor visitor)
     {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(visitor);
         TraverseCore(new PersistentSuffixTreeNode(_storage, _rootOffset), 0, visitor);
     }
