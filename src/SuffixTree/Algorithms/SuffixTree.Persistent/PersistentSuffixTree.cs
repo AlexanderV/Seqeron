@@ -367,7 +367,76 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         return (substring, positionsInText, positionsInOther);
     }
 
-    public string PrintTree() => "Persistent Tree Visualization Not Implemented";
+    public string PrintTree()
+    {
+        var sb = new StringBuilder(Math.Max(256, _textSource.Length * 100));
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        sb.Append(ci, $"Content length: {_textSource.Length}").AppendLine();
+        sb.AppendLine();
+        sb.Append(ci, $"0:ROOT").AppendLine();
+
+        var root = new PersistentSuffixTreeNode(_storage, _rootOffset);
+        var rootKeys = CollectSortedKeys(root);
+
+        // Frame: (parent node, sorted keys, current index, depth)
+        var stack = new Stack<(PersistentSuffixTreeNode Node, List<uint> Keys, int Index, int Depth)>();
+        if (rootKeys.Count > 0)
+            stack.Push((root, rootKeys, 0, 0));
+
+        while (stack.Count > 0)
+        {
+            var (node, keys, index, depth) = stack.Pop();
+            if (index >= keys.Count) continue;
+
+            // Push continuation for next sibling
+            stack.Push((node, keys, index + 1, depth));
+
+            if (node.TryGetChild(keys[index], out var child))
+            {
+                int childDepth = depth + 1;
+                string label = LabelOf(child);
+                string leafMark = child.IsLeaf ? " (Leaf)" : "";
+                string linkMark = "";
+                if (!child.IsLeaf && child.SuffixLink != PersistentConstants.NULL_OFFSET)
+                {
+                    var linkNode = new PersistentSuffixTreeNode(_storage, child.SuffixLink);
+                    if (linkNode.Offset != _rootOffset)
+                    {
+                        int firstChar = GetSymbolAt((int)linkNode.Start);
+                        linkMark = firstChar >= 0 ? $" -> [{(char)firstChar}]" : "";
+                    }
+                }
+
+                sb.Append(' ', childDepth * 2);
+                sb.Append(ci, $"{childDepth}: {label}{leafMark}{linkMark}").AppendLine();
+
+                if (!child.IsLeaf && child.ChildCount > 0)
+                {
+                    var grandKeys = CollectSortedKeys(child);
+                    stack.Push((child, grandKeys, 0, childDepth));
+                }
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private string LabelOf(PersistentSuffixTreeNode node)
+    {
+        int len = LengthOf(node);
+        var sb = new StringBuilder(len);
+        for (int i = 0; i < len; i++)
+        {
+            int s = GetSymbolAt((int)node.Start + i);
+            if (s == -1)
+            {
+                sb.Append('#');
+                break;
+            }
+            sb.Append((char)s);
+        }
+        return sb.ToString();
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
