@@ -75,6 +75,14 @@ public static class MiRnaAnalyzer
         int Gaps,
         double FreeEnergy);
 
+    /// <summary>
+    /// Result of comparing two miRNA seed regions.
+    /// </summary>
+    public readonly record struct SeedComparison(
+        int Matches,
+        int Mismatches,
+        bool IsSameFamily);
+
     #endregion
 
     #region Seed Matching
@@ -104,6 +112,38 @@ public static class MiRnaAnalyzer
             SeedSequence: seed,
             SeedStart: 1,
             SeedEnd: 7);
+    }
+
+    /// <summary>
+    /// Compares the seed regions of two miRNAs, returning the number of matches,
+    /// mismatches (Hamming distance), and whether they belong to the same seed family.
+    /// </summary>
+    public static SeedComparison CompareSeedRegions(MiRna mirna1, MiRna mirna2)
+    {
+        string seed1 = mirna1.SeedSequence;
+        string seed2 = mirna2.SeedSequence;
+
+        if (string.IsNullOrEmpty(seed1) || string.IsNullOrEmpty(seed2))
+            return new SeedComparison(Matches: 0, Mismatches: 0, IsSameFamily: false);
+
+        int length = Math.Min(seed1.Length, seed2.Length);
+        int matches = 0;
+        int mismatches = 0;
+
+        for (int i = 0; i < length; i++)
+        {
+            if (seed1[i] == seed2[i])
+                matches++;
+            else
+                mismatches++;
+        }
+
+        // Account for length differences (if seeds have different lengths)
+        mismatches += Math.Abs(seed1.Length - seed2.Length);
+
+        bool isSameFamily = seed1 == seed2;
+
+        return new SeedComparison(Matches: matches, Mismatches: mismatches, IsSameFamily: isSameFamily);
     }
 
     /// <summary>

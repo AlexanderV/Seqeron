@@ -8,56 +8,7 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class MiRnaAnalyzerTests
 {
-    #region Seed Sequence Tests
-
-    [Test]
-    public void GetSeedSequence_ValidMiRNA_ReturnsSeed()
-    {
-        string mirna = "UAGCAGCACGUAAAUAUUGGCG"; // let-7a
-        string seed = GetSeedSequence(mirna);
-
-        Assert.That(seed, Has.Length.EqualTo(7));
-        Assert.That(seed, Is.EqualTo("AGCAGCA"));
-    }
-
-    [Test]
-    public void GetSeedSequence_ShortSequence_ReturnsEmpty()
-    {
-        string seed = GetSeedSequence("UAGCA");
-        Assert.That(seed, Is.Empty);
-    }
-
-    [Test]
-    public void GetSeedSequence_EmptySequence_ReturnsEmpty()
-    {
-        Assert.That(GetSeedSequence(""), Is.Empty);
-        Assert.That(GetSeedSequence(null!), Is.Empty);
-    }
-
-    [Test]
-    public void CreateMiRna_ValidSequence_CreatesMiRna()
-    {
-        var mirna = CreateMiRna("let-7a", "UAGCAGCACGUAAAUAUUGGCG");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(mirna.Name, Is.EqualTo("let-7a"));
-            Assert.That(mirna.SeedSequence, Has.Length.EqualTo(7));
-            Assert.That(mirna.SeedStart, Is.EqualTo(1));
-            Assert.That(mirna.SeedEnd, Is.EqualTo(7));
-        });
-    }
-
-    [Test]
-    public void CreateMiRna_DNASequence_ConvertsToRNA()
-    {
-        var mirna = CreateMiRna("test", "TAGCAGCACGTAAATATTGGCG");
-
-        Assert.That(mirna.Sequence, Does.Contain("U"));
-        Assert.That(mirna.Sequence, Does.Not.Contain("T"));
-    }
-
-    #endregion
+    // Seed Sequence Tests migrated to MiRnaAnalyzer_SeedAnalysis_Tests.cs (MIRNA-SEED-001)
 
     #region Reverse Complement Tests
 
