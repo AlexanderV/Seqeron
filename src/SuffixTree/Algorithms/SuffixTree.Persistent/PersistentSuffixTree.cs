@@ -7,14 +7,14 @@ namespace SuffixTree.Persistent;
 /// <summary>
 /// A persistent implementation of ISuffixTree that operates on a storage provider.
 /// </summary>
-public class PersistentSuffixTree : ISuffixTree, IDisposable
+public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 {
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
     private readonly bool _ownsTextSource;
-    private bool _disposed;
-    private string? _cachedLrs;
+    private volatile bool _disposed;
+    private volatile string? _cachedLrs;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null)
     {
