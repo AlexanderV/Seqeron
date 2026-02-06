@@ -11,6 +11,7 @@ public class HeapStorageProvider : IStorageProvider
 {
     private byte[] _buffer;
     private long _position;
+    private bool _disposed;
 
     public HeapStorageProvider(int initialCapacity = 65536)
     {
@@ -68,6 +69,8 @@ public class HeapStorageProvider : IStorageProvider
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _buffer = null!;
     }
 }
