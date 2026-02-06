@@ -14,6 +14,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     private readonly ITextSource _textSource;
     private readonly bool _ownsTextSource;
     private bool _disposed;
+    private string? _cachedLrs;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null)
     {
@@ -127,18 +128,20 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public string LongestRepeatedSubstring()
     {
-        // For simplicity, reusing logic or implementing LRS
-        // This usually requires a DFS on the tree to find deepest internal node
+        if (_cachedLrs != null) return _cachedLrs;
+
         var deepest = FindDeepestInternalNode(new PersistentSuffixTreeNode(_storage, _rootOffset));
-        if (deepest.IsNull || deepest.Offset == _rootOffset) return string.Empty;
+        if (deepest.IsNull || deepest.Offset == _rootOffset)
+        {
+            _cachedLrs = string.Empty;
+            return _cachedLrs;
+        }
 
         int length = (int)deepest.DepthFromRoot + LengthOf(deepest);
-        // Find one occurrence to get the text
         var occurrences = new List<int>();
         CollectLeaves(deepest, (int)deepest.DepthFromRoot, occurrences);
-        if (occurrences.Count == 0) return string.Empty;
-
-        return _textSource.Substring(occurrences[0], length);
+        _cachedLrs = occurrences.Count == 0 ? string.Empty : _textSource.Substring(occurrences[0], length);
+        return _cachedLrs;
     }
 
     public IReadOnlyList<string> GetAllSuffixes()
