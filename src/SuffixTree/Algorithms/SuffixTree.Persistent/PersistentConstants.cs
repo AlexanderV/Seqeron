@@ -3,7 +3,7 @@ namespace SuffixTree.Persistent;
 public static class PersistentConstants
 {
     public const int NODE_SIZE = 40;
-    public const int CHILD_ENTRY_SIZE = 24;
+    public const int CHILD_ENTRY_SIZE = 12;
     public const int HEADER_SIZE = 64;
     public const uint BOUNDLESS = uint.MaxValue;
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
@@ -28,8 +28,7 @@ public static class PersistentConstants
     public const int OFFSET_CHILDREN_HEAD = 24;
     public const int OFFSET_CHILD_COUNT = 32;
 
-    // Child Entry Layout Offsets
+    // Child Entry Layout Offsets (sorted contiguous array: Key(4) + ChildNodeOffset(8) = 12 bytes)
     public const int CHILD_OFFSET_KEY = 0;
-    public const int CHILD_OFFSET_NODE = 8;
-    public const int CHILD_OFFSET_NEXT = 16;
+    public const int CHILD_OFFSET_NODE = 4;
 }

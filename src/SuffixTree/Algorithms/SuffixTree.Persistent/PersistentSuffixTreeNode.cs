@@ -64,59 +64,33 @@ public readonly struct PersistentSuffixTreeNode
 
     public bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
     {
-        long currentOffset = ChildrenHead;
-        while (currentOffset != PersistentConstants.NULL_OFFSET)
+        int count = ChildCount;
+        if (count == 0) { child = Null(_storage); return false; }
+
+        long arrayBase = ChildrenHead;
+        int lo = 0, hi = count - 1;
+        int signedKey = (int)key;
+
+        while (lo <= hi)
         {
-            var entry = new PersistentChildEntry(_storage, currentOffset);
-            if (entry.Key == key)
+            int mid = lo + ((hi - lo) >> 1);
+            long entryOffset = arrayBase + (long)mid * PersistentConstants.CHILD_ENTRY_SIZE;
+            int midKey = (int)_storage.ReadUInt32(entryOffset + PersistentConstants.CHILD_OFFSET_KEY);
+
+            if (midKey == signedKey)
             {
-                child = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
+                long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
+                child = new PersistentSuffixTreeNode(_storage, childOffset);
                 return true;
             }
-            currentOffset = entry.NextEntryOffset;
+            if (midKey < signedKey) lo = mid + 1;
+            else hi = mid - 1;
         }
         child = Null(_storage);
         return false;
     }
 
-    public void SetChild(uint key, PersistentSuffixTreeNode child)
-    {
-        long currentOffset = ChildrenHead;
-        long tailOffset = PersistentConstants.NULL_OFFSET;
-
-        while (currentOffset != PersistentConstants.NULL_OFFSET)
-        {
-            var entry = new PersistentChildEntry(_storage, currentOffset);
-            if (entry.Key == key)
-            {
-                entry.ChildNodeOffset = child.Offset;
-                return;
-            }
-            tailOffset = currentOffset;
-            currentOffset = entry.NextEntryOffset;
-        }
-
-        // Not found, create new entry
-        long newEntryOffset = _storage.Allocate(PersistentConstants.CHILD_ENTRY_SIZE);
-        var newEntry = new PersistentChildEntry(_storage, newEntryOffset);
-        newEntry.Key = key;
-        newEntry.ChildNodeOffset = child.Offset;
-        newEntry.NextEntryOffset = PersistentConstants.NULL_OFFSET;
-
-        if (tailOffset == PersistentConstants.NULL_OFFSET)
-        {
-            ChildrenHead = newEntryOffset;
-        }
-        else
-        {
-            var tailEntry = new PersistentChildEntry(_storage, tailOffset);
-            tailEntry.NextEntryOffset = newEntryOffset;
-        }
-
-        ChildCount++;
-    }
-
-    public bool HasChildren => ChildrenHead != PersistentConstants.NULL_OFFSET;
+    public bool HasChildren => ChildCount > 0;
 
     public static PersistentSuffixTreeNode Null(IStorageProvider storage)
         => new(storage, PersistentConstants.NULL_OFFSET);
