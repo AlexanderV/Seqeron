@@ -640,31 +640,9 @@ public static class SequenceAligner
         // Step 2: Build suffix tree once on the center sequence — O(L)
         var centerTree = SuffixTree.SuffixTree.Build(centerStr);
 
-        // Step 3: Align all other sequences to center using anchor-based approach
-        var aligned = new List<string>(seqList.Count);
-        int totalScore = 0;
-
-        // Pre-fill slots
-        for (int i = 0; i < seqList.Count; i++)
-            aligned.Add("");
-
-        aligned[centerIdx] = centerStr;
-
-        for (int i = 0; i < seqList.Count; i++)
-        {
-            if (i == centerIdx) continue;
-
-            var result = AnchorBasedAligner.AlignWithAnchors(
-                centerStr, centerTree, seqList[i].Sequence, effectiveScoring);
-
-            aligned[centerIdx] = result.AlignedSequence1; // May have gaps inserted
-            aligned[i] = result.AlignedSequence2;
-            totalScore += result.Score;
-        }
-
-        // Step 4: Reconcile multiple pairwise alignments into a single MSA.
-        // Since we aligned each seq to center independently, center may have different
-        // gap patterns. We merge by re-aligning to the longest center representation.
+        // Step 3: Reconcile pairwise alignments into a single MSA.
+        // ReconcileAlignments performs all pairwise alignments (parallelized for k≥3)
+        // and merges gap patterns from independent center-vs-other alignments.
         var (mergedAligned, mergedScore) = ReconcileAlignments(
             seqList, centerIdx, centerStr, centerTree, effectiveScoring);
 
@@ -765,23 +743,39 @@ public static class SequenceAligner
     {
         int k = sequences.Count;
 
-        // Perform all pairwise alignments to center
+        // Perform all pairwise alignments to center — parallelized for k≥3
         var pairwiseResults = new AlignmentResult[k];
         int totalScore = 0;
 
-        for (int i = 0; i < k; i++)
-        {
-            if (i == centerIdx)
-            {
-                pairwiseResults[i] = new AlignmentResult(
-                    centerStr, centerStr, 0, AlignmentType.Global, 0, 0,
-                    centerStr.Length - 1, centerStr.Length - 1);
-                continue;
-            }
+        // Center aligns to itself (identity)
+        pairwiseResults[centerIdx] = new AlignmentResult(
+            centerStr, centerStr, 0, AlignmentType.Global, 0, 0,
+            centerStr.Length - 1, centerStr.Length - 1);
 
-            pairwiseResults[i] = AnchorBasedAligner.AlignWithAnchors(
-                centerStr, centerTree, sequences[i].Sequence, scoring);
-            totalScore += pairwiseResults[i].Score;
+        if (k >= 4)
+        {
+            // Parallel: suffix tree is immutable, each slot is independent
+            Parallel.For(0, k, i =>
+            {
+                if (i == centerIdx) return;
+
+                var result = AnchorBasedAligner.AlignWithAnchors(
+                    centerStr, centerTree, sequences[i].Sequence, scoring);
+                pairwiseResults[i] = result;
+                Interlocked.Add(ref totalScore, result.Score);
+            });
+        }
+        else
+        {
+            // Sequential for small k (avoid thread pool overhead)
+            for (int i = 0; i < k; i++)
+            {
+                if (i == centerIdx) continue;
+
+                pairwiseResults[i] = AnchorBasedAligner.AlignWithAnchors(
+                    centerStr, centerTree, sequences[i].Sequence, scoring);
+                totalScore += pairwiseResults[i].Score;
+            }
         }
 
         // Merge: build a gap map from all center alignments.
