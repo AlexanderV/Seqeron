@@ -170,7 +170,6 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private IEnumerable<string> EnumerateSuffixesCore(PersistentSuffixTreeNode root)
     {
-        var results = new List<string>();
         var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
         stack.Push((root, 0));
 
@@ -185,7 +184,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
                 if (suffixStart >= 0 && suffixStart < _textSource.Length)
                 {
                     int suffixLen = _textSource.Length - suffixStart;
-                    results.Add(_textSource.Substring(suffixStart, suffixLen));
+                    yield return _textSource.Substring(suffixStart, suffixLen);
                 }
                 continue;
             }
@@ -198,8 +197,6 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
                 stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset), nodeDepth));
             }
         }
-
-        return results;
     }
 
     public string LongestCommonSubstring(string other) { ThrowIfDisposed(); return LongestCommonSubstring(other.AsSpan()); }

@@ -47,6 +47,12 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     public MemoryMappedTextSource(MemoryMappedViewAccessor accessor, long offset, int length)
     {
         _accessor = accessor ?? throw new ArgumentNullException(nameof(accessor));
+        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be non-negative.");
+        if (length < 0) throw new ArgumentOutOfRangeException(nameof(length), "Length must be non-negative.");
+        long requiredBytes = offset + (long)length * sizeof(char);
+        if (requiredBytes > accessor.Capacity)
+            throw new ArgumentOutOfRangeException(nameof(length),
+                $"offset ({offset}) + length ({length}) * 2 = {requiredBytes} exceeds accessor capacity ({accessor.Capacity}).");
         _length = length;
         _ownsAccessor = false;
 

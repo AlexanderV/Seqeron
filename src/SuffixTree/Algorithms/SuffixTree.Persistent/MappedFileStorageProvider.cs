@@ -113,7 +113,12 @@ public class MappedFileStorageProvider : IStorageProvider
     }
 
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
-        => _accessor.ReadArray(offset, buffer, start, count);
+    {
+        int read = _accessor.ReadArray(offset, buffer, start, count);
+        if (read != count)
+            throw new InvalidOperationException(
+                $"Partial read: requested {count} bytes at offset {offset}, got {read}. Storage may be corrupted.");
+    }
 
     public void WriteBytes(long offset, byte[] buffer, int start, int count)
     {
