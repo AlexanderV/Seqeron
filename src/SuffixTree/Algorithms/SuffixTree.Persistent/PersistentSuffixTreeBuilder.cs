@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace SuffixTree.Persistent;
 
@@ -167,16 +168,14 @@ public class PersistentSuffixTreeBuilder
         // Write sorted children arrays to storage
         WriteChildrenArrays();
 
-        // Store text in storage for true persistence
+        // Store text in storage for true persistence (batch write)
         long textOffset = _storage.Allocate(_text.Length * 2);
-        for (int i = 0; i < _text.Length; i++)
-        {
-            _storage.WriteChar(textOffset + (i * 2), _text[i]);
-        }
+        var textBytes = Encoding.Unicode.GetBytes(_text.ToString()!);
+        _storage.WriteBytes(textOffset, textBytes, 0, textBytes.Length);
 
         // Write Header
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
-        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 2);
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, PersistentConstants.CURRENT_VERSION);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, textOffset);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, _text.Length);

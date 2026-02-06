@@ -59,6 +59,16 @@ public interface IStorageProvider : IDisposable
     void WriteChar(long offset, char value);
 
     /// <summary>
+    /// Reads a contiguous block of bytes from storage into the buffer.
+    /// </summary>
+    void ReadBytes(long offset, byte[] buffer, int start, int count);
+
+    /// <summary>
+    /// Writes a contiguous block of bytes from the buffer into storage.
+    /// </summary>
+    void WriteBytes(long offset, byte[] buffer, int start, int count);
+
+    /// <summary>
     /// Allocates a block of memory of the specified size and returns its offset.
     /// </summary>
     long Allocate(int size);

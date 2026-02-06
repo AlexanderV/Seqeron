@@ -47,12 +47,9 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private string LoadStringInternal(long textOff, int textLen)
     {
-        var sb = new StringBuilder(textLen);
-        for (int i = 0; i < textLen; i++)
-        {
-            sb.Append(_storage.ReadChar(textOff + (i * 2)));
-        }
-        return sb.ToString();
+        var bytes = new byte[textLen * 2];
+        _storage.ReadBytes(textOff, bytes, 0, bytes.Length);
+        return Encoding.Unicode.GetString(bytes);
     }
 
     public static PersistentSuffixTree Load(IStorageProvider storage)
@@ -62,8 +59,8 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException("Invalid storage format: Magic number mismatch.");
 
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        if (version != 2)
-            throw new InvalidOperationException($"Unsupported storage format version: {version}. Expected: 2.");
+        if (version != PersistentConstants.CURRENT_VERSION)
+            throw new InvalidOperationException($"Unsupported storage format version: {version}. Expected: {PersistentConstants.CURRENT_VERSION}.");
 
         long root = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_ROOT);
         return new PersistentSuffixTree(storage, root);

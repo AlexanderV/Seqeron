@@ -13,10 +13,10 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
 {
     private readonly MemoryMappedFile? _mmf;
     private readonly MemoryMappedViewAccessor _accessor;
-    private readonly char* _ptr;
+    private char* _ptr;
     private readonly int _length;
     private readonly bool _ownsAccessor;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemoryMappedTextSource"/> class from a file.
@@ -115,9 +115,9 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         if (!_disposed)
         {
             _disposed = true; // Mark disposed first to stop readers
+            _ptr = null;      // Prevent use-after-free of released pointer
 
             // Release pointer before disposing accessor
-            // Note: SafeMemoryMappedViewHandle.ReleasePointer() is instance method
             _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
             if (_ownsAccessor)
             {
