@@ -18,4 +18,8 @@
     <Using Include="Seqeron.Genomics.Infrastructure" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Seqeron.Genomics.Tests" />
+  </ItemGroup>
+
 </Project>

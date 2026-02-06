@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using Seqeron.Genomics.Infrastructure;
@@ -577,11 +578,23 @@ public static class SequenceAligner
 
     #endregion
 
-    #region Multiple Sequence Alignment (Simple)
+    #region Multiple Sequence Alignment (Anchor-Based)
 
     /// <summary>
-    /// Performs progressive multiple sequence alignment.
-    /// Uses a simple star alignment approach with the first sequence as reference.
+    /// Performs progressive multiple sequence alignment using an anchor-based approach.
+    /// <para>
+    /// <b>Algorithm:</b>
+    /// <list type="number">
+    /// <item>Selects the best center sequence using suffix tree LCS distances (O(k²·L))</item>
+    /// <item>Builds a suffix tree on the center sequence (O(L))</item>
+    /// <item>For each other sequence, finds exact-match anchors via the suffix tree (O(L))</item>
+    /// <item>Applies Needleman-Wunsch only to gaps between anchors (O(Σδᵢ²))</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// For closely related sequences where anchors cover ~80% of length, this yields
+    /// approximately 25× speedup over the standard O(k·L²) approach.
+    /// </para>
     /// </summary>
     /// <param name="sequences">Collection of sequences to align.</param>
     /// <param name="scoring">Scoring matrix (default: SimpleDna).</param>
@@ -606,18 +619,88 @@ public static class SequenceAligner
 
         var effectiveScoring = scoring ?? SimpleDna;
 
-        // Use first sequence as reference
+        // For 2 sequences or very short sequences, fall back to standard NW
+        // (anchor overhead not worth it for short sequences)
+        const int anchorThreshold = 30;
+        bool useAnchors = seqList.Count >= 2
+            && seqList.All(s => s.Length >= anchorThreshold);
+
+        if (!useAnchors)
+        {
+            return MultipleAlignClassic(seqList, effectiveScoring);
+        }
+
+        // Step 1: Select the best center sequence using LCS-based distances.
+        // The center is the sequence that maximizes total similarity to all others.
+        int centerIdx = SelectCenterSequence(seqList);
+
+        var centerSeq = seqList[centerIdx];
+        string centerStr = centerSeq.Sequence;
+
+        // Step 2: Build suffix tree once on the center sequence — O(L)
+        var centerTree = SuffixTree.SuffixTree.Build(centerStr);
+
+        // Step 3: Align all other sequences to center using anchor-based approach
+        var aligned = new List<string>(seqList.Count);
+        int totalScore = 0;
+
+        // Pre-fill slots
+        for (int i = 0; i < seqList.Count; i++)
+            aligned.Add("");
+
+        aligned[centerIdx] = centerStr;
+
+        for (int i = 0; i < seqList.Count; i++)
+        {
+            if (i == centerIdx) continue;
+
+            var result = AnchorBasedAligner.AlignWithAnchors(
+                centerStr, centerTree, seqList[i].Sequence, effectiveScoring);
+
+            aligned[centerIdx] = result.AlignedSequence1; // May have gaps inserted
+            aligned[i] = result.AlignedSequence2;
+            totalScore += result.Score;
+        }
+
+        // Step 4: Reconcile multiple pairwise alignments into a single MSA.
+        // Since we aligned each seq to center independently, center may have different
+        // gap patterns. We merge by re-aligning to the longest center representation.
+        var (mergedAligned, mergedScore) = ReconcileAlignments(
+            seqList, centerIdx, centerStr, centerTree, effectiveScoring);
+
+        // Pad sequences to same length
+        int maxLen = mergedAligned.Max(s => s.Length);
+        for (int i = 0; i < mergedAligned.Count; i++)
+        {
+            if (mergedAligned[i].Length < maxLen)
+                mergedAligned[i] = mergedAligned[i].PadRight(maxLen, '-');
+        }
+
+        // Generate consensus
+        string consensus = BuildConsensus(mergedAligned, maxLen);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: mergedAligned.ToArray(),
+            Consensus: consensus,
+            TotalScore: mergedScore);
+    }
+
+    /// <summary>
+    /// Classic star alignment (fallback for short sequences or small sets).
+    /// </summary>
+    internal static MultipleAlignmentResult MultipleAlignClassic(
+        List<DnaSequence> seqList, ScoringMatrix scoring)
+    {
         var aligned = new List<string> { seqList[0].Sequence };
         int totalScore = 0;
 
         for (int i = 1; i < seqList.Count; i++)
         {
-            var result = GlobalAlign(seqList[0], seqList[i], effectiveScoring);
+            var result = GlobalAlign(seqList[0], seqList[i], scoring);
             aligned.Add(result.AlignedSequence2);
             totalScore += result.Score;
         }
 
-        // Pad sequences to same length
         int maxLen = aligned.Max(s => s.Length);
         for (int i = 0; i < aligned.Count; i++)
         {
@@ -625,9 +708,181 @@ public static class SequenceAligner
                 aligned[i] = aligned[i].PadRight(maxLen, '-');
         }
 
-        // Generate consensus
-        var consensus = new StringBuilder(maxLen);
-        for (int pos = 0; pos < maxLen; pos++)
+        string consensus = BuildConsensus(aligned, maxLen);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: aligned.ToArray(),
+            Consensus: consensus,
+            TotalScore: totalScore);
+    }
+
+    /// <summary>
+    /// Selects the center sequence for star alignment by finding the sequence
+    /// with the highest total LCS similarity to all others.
+    /// Uses suffix trees for O(L) per-pair comparison instead of O(L²) NW.
+    /// </summary>
+    private static int SelectCenterSequence(List<DnaSequence> sequences)
+    {
+        int k = sequences.Count;
+        if (k <= 2) return 0;
+
+        var totalSimilarity = new int[k];
+
+        // For each sequence, compute sum of LCS lengths to all others
+        for (int i = 0; i < k; i++)
+        {
+            var tree = sequences[i].SuffixTree;
+            for (int j = 0; j < k; j++)
+            {
+                if (i == j) continue;
+                string lcs = tree.LongestCommonSubstring(sequences[j].Sequence);
+                totalSimilarity[i] += lcs.Length;
+            }
+        }
+
+        // Return index of sequence with maximum total similarity
+        int bestIdx = 0;
+        for (int i = 1; i < k; i++)
+        {
+            if (totalSimilarity[i] > totalSimilarity[bestIdx])
+                bestIdx = i;
+        }
+
+        return bestIdx;
+    }
+
+    /// <summary>
+    /// Reconciles multiple pairwise alignments against the center into a single MSA.
+    /// Uses the simple approach of aligning each sequence to center independently
+    /// and then merging gap columns.
+    /// </summary>
+    private static (List<string> Aligned, int TotalScore) ReconcileAlignments(
+        List<DnaSequence> sequences,
+        int centerIdx,
+        string centerStr,
+        SuffixTree.SuffixTree centerTree,
+        ScoringMatrix scoring)
+    {
+        int k = sequences.Count;
+
+        // Perform all pairwise alignments to center
+        var pairwiseResults = new AlignmentResult[k];
+        int totalScore = 0;
+
+        for (int i = 0; i < k; i++)
+        {
+            if (i == centerIdx)
+            {
+                pairwiseResults[i] = new AlignmentResult(
+                    centerStr, centerStr, 0, AlignmentType.Global, 0, 0,
+                    centerStr.Length - 1, centerStr.Length - 1);
+                continue;
+            }
+
+            pairwiseResults[i] = AnchorBasedAligner.AlignWithAnchors(
+                centerStr, centerTree, sequences[i].Sequence, scoring);
+            totalScore += pairwiseResults[i].Score;
+        }
+
+        // Merge: build a gap map from all center alignments.
+        // For each position in the original center sequence, track how many gaps
+        // need to be inserted before it (maximum across all pairwise alignments).
+        var gapsBefore = new int[centerStr.Length + 1];
+
+        for (int i = 0; i < k; i++)
+        {
+            if (i == centerIdx) continue;
+
+            string alignedCenter = pairwiseResults[i].AlignedSequence1;
+            int origPos = 0;
+            int gapCount = 0;
+
+            for (int j = 0; j < alignedCenter.Length; j++)
+            {
+                if (alignedCenter[j] == '-')
+                {
+                    gapCount++;
+                }
+                else
+                {
+                    gapsBefore[origPos] = Math.Max(gapsBefore[origPos], gapCount);
+                    origPos++;
+                    gapCount = 0;
+                }
+            }
+            // Trailing gaps
+            gapsBefore[centerStr.Length] = Math.Max(gapsBefore[centerStr.Length], gapCount);
+        }
+
+        // Now re-project each pairwise alignment into the merged coordinate space
+        var merged = new List<string>(k);
+
+        for (int i = 0; i < k; i++)
+        {
+            string alignedCenter = pairwiseResults[i].AlignedSequence1;
+            string alignedOther = pairwiseResults[i].AlignedSequence2;
+
+            var sb = new StringBuilder();
+            int alignPos = 0;
+
+            for (int p = 0; p <= centerStr.Length; p++)
+            {
+                int neededGaps = gapsBefore[p];
+
+                // Count how many gaps this alignment has at this center position
+                int thisGaps = 0;
+                int tempAlignPos = alignPos;
+                while (tempAlignPos < alignedCenter.Length && alignedCenter[tempAlignPos] == '-')
+                {
+                    thisGaps++;
+                    tempAlignPos++;
+                }
+
+                // Emit this alignment's gaps (from the other sequence)
+                for (int g = 0; g < thisGaps; g++)
+                {
+                    if (alignPos < alignedOther.Length)
+                        sb.Append(alignedOther[alignPos]);
+                    else
+                        sb.Append('-');
+                    alignPos++;
+                }
+
+                // Emit additional gaps to match the maximum
+                for (int g = thisGaps; g < neededGaps; g++)
+                {
+                    sb.Append('-');
+                }
+
+                // Emit the character at center position p
+                if (p < centerStr.Length && alignPos < alignedOther.Length)
+                {
+                    sb.Append(alignedOther[alignPos]);
+                    alignPos++;
+                }
+            }
+
+            // Emit any remaining characters
+            while (alignPos < alignedOther.Length)
+            {
+                sb.Append(alignedOther[alignPos]);
+                alignPos++;
+            }
+
+            merged.Add(sb.ToString());
+        }
+
+        return (merged, totalScore);
+    }
+
+    /// <summary>
+    /// Builds a majority-vote consensus from aligned sequences.
+    /// </summary>
+    private static string BuildConsensus(List<string> aligned, int length)
+    {
+        var consensus = new StringBuilder(length);
+
+        for (int pos = 0; pos < length; pos++)
         {
             var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0, ['-'] = 0 };
 
@@ -644,10 +899,7 @@ public static class SequenceAligner
             consensus.Append(mostCommon == default ? '-' : mostCommon);
         }
 
-        return new MultipleAlignmentResult(
-            AlignedSequences: aligned.ToArray(),
-            Consensus: consensus.ToString(),
-            TotalScore: totalScore);
+        return consensus.ToString();
     }
 
     #endregion
