@@ -83,8 +83,11 @@ internal static class AnchorBasedAligner
         if (string.IsNullOrEmpty(reference) || string.IsNullOrEmpty(query))
             return AlignmentResult.Empty;
 
-        // Step 1: Find all Maximal Exact Matches (MEMs) using the suffix tree
-        var mems = FindMaximalExactMatches(refTree, reference, query, minAnchorLength);
+        // Step 1: Find all Maximal Exact Matches (MEMs) using O(n+m) suffix-link streaming
+        var memTuples = refTree.FindExactMatchAnchors(query, minAnchorLength);
+        var mems = new List<Anchor>(memTuples.Count);
+        foreach (var (refPos, queryPos, len) in memTuples)
+            mems.Add(new Anchor(refPos, queryPos, len));
 
         // Step 2: Chain anchors — find the longest consistent chain (monotonic in both coords)
         var chain = ChainAnchors(mems);
@@ -97,111 +100,6 @@ internal static class AnchorBasedAligner
 
         // Step 4: Align gaps between anchors using NW, stitch everything together
         return StitchAlignment(reference, query, chain, scoring);
-    }
-
-    /// <summary>
-    /// Finds all Maximal Exact Matches (MEMs) between the suffix tree's text and a query.
-    /// A MEM is an exact match that cannot be extended in either direction.
-    /// Uses the suffix tree for O(L) traversal inspired by the MUMmer algorithm.
-    /// </summary>
-    internal static List<Anchor> FindMaximalExactMatches(
-        SuffixTree.SuffixTree tree,
-        string reference,
-        string query,
-        int minLength)
-    {
-        var anchors = new List<Anchor>();
-        int n = query.Length;
-
-        // We use a sliding approach: for each position in query, extend match in the tree
-        // When we can't extend, record the MEM if long enough, then shift forward.
-        int qi = 0;
-        while (qi < n)
-        {
-            // Try to extend the current match
-            string remaining = query.Substring(qi);
-            var occurrences = tree.FindAllOccurrences(remaining.AsSpan());
-
-            if (occurrences.Count > 0)
-            {
-                // Full remaining string matches — find the longest match
-                // This is a degenerate case; record and move on
-                if (remaining.Length >= minLength)
-                {
-                    anchors.Add(new Anchor(occurrences[0], qi, remaining.Length));
-                }
-                break;
-            }
-
-            // Binary-search-like: find the longest prefix of query[qi..] that exists in the tree
-            int lo = minLength, hi = Math.Min(n - qi, reference.Length);
-            int bestLen = 0;
-            int bestRefPos = -1;
-
-            // Use exponential + binary search for the longest matching prefix
-            if (hi >= lo)
-            {
-                bestLen = FindLongestMatchingPrefix(tree, query, qi, n, minLength, out bestRefPos);
-            }
-
-            if (bestLen >= minLength && bestRefPos >= 0)
-            {
-                anchors.Add(new Anchor(bestRefPos, qi, bestLen));
-                qi += bestLen; // Jump past this anchor
-            }
-            else
-            {
-                qi++; // No anchor here, move forward
-            }
-        }
-
-        return anchors;
-    }
-
-    /// <summary>
-    /// Finds the longest prefix of query[start..] that exists in the suffix tree.
-    /// Uses binary search on length for O(log L × m) complexity.
-    /// </summary>
-    private static int FindLongestMatchingPrefix(
-        SuffixTree.SuffixTree tree,
-        string query,
-        int start,
-        int queryLength,
-        int minLength,
-        out int refPosition)
-    {
-        refPosition = -1;
-        int maxLen = queryLength - start;
-
-        // Start from the full length and shrink, since Contains is O(m)
-        // and we want the longest match. Use exponential backoff then binary search.
-        int lo = minLength;
-        int hi = maxLen;
-        int bestLen = 0;
-        int bestPos = -1;
-
-        while (lo <= hi)
-        {
-            int mid = lo + (hi - lo) / 2;
-            var substring = query.AsSpan(start, mid);
-
-            if (tree.Contains(substring))
-            {
-                bestLen = mid;
-                // Get the actual position
-                var occ = tree.FindAllOccurrences(substring);
-                if (occ.Count > 0)
-                    bestPos = occ[0];
-                lo = mid + 1;
-            }
-            else
-            {
-                hi = mid - 1;
-            }
-        }
-
-        refPosition = bestPos;
-        return bestLen;
     }
 
     /// <summary>

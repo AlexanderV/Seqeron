@@ -218,5 +218,198 @@ namespace SuffixTree
             int leafDepth = GetNodeDepth(current);
             results.Add(_text!.Length + 1 - leafDepth);
         }
+
+        /// <summary>
+        /// Finds exact-match anchors between this tree's text and a query string
+        /// using O(n + m) suffix-link-based streaming traversal.
+        /// <para>
+        /// This method walks the query against the suffix tree using suffix links,
+        /// identical to the longest-common-substring algorithm, but emits all
+        /// right-maximal matches whose length meets or exceeds <paramref name="minLength"/>.
+        /// </para>
+        /// <para>
+        /// A match is emitted when the running match length drops below the threshold
+        /// after being above it, capturing the peak (longest) match within each run.
+        /// This produces non-overlapping anchors suitable for anchor-based alignment.
+        /// </para>
+        /// </summary>
+        /// <param name="query">The query string to find matches against. Cannot be null.</param>
+        /// <param name="minLength">Minimum match length to report (must be &gt; 0).</param>
+        /// <returns>
+        /// List of (PositionInText, PositionInQuery, Length) tuples representing exact-match
+        /// anchors, ordered by their position in the query.
+        /// </returns>
+        /// <remarks>
+        /// <b>Time complexity:</b> O(|text| + |query|) — each character is processed at most
+        /// twice (once for extension, once for suffix-link rescan).
+        /// <para><b>Space complexity:</b> O(k) where k is the number of anchors found.</para>
+        /// </remarks>
+        public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
+            string query, int minLength)
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            if (query.Length == 0 || _text.Length == 0 || minLength <= 0)
+                return Array.Empty<(int, int, int)>();
+
+            var results = new List<(int PositionInText, int PositionInQuery, int Length)>();
+
+            var currentNode = _root;
+            SuffixTreeNode? currentEdge = null;
+            int edgeOffset = 0;
+            int currentMatchLen = 0;
+
+            // Peak tracking: captures the best match within a contiguous run above minLength.
+            int peakLen = 0;
+            int peakEndInQuery = -1;
+            SuffixTreeNode? peakNode = null;
+
+            for (int i = 0; i < query.Length; i++)
+            {
+                char c = query[i];
+
+                // Streaming traversal — identical to LCS algorithm
+                while (true)
+                {
+                    if (currentEdge != null)
+                    {
+                        if (GetSymbolAt(currentEdge.Start + edgeOffset) == c)
+                        {
+                            edgeOffset++;
+                            currentMatchLen++;
+                            if (edgeOffset >= LengthOf(currentEdge))
+                            {
+                                currentNode = currentEdge;
+                                currentEdge = null;
+                                edgeOffset = 0;
+                            }
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (currentNode.TryGetChild(c, out var nextChild) && nextChild != null)
+                        {
+                            currentEdge = nextChild;
+                            edgeOffset = 1;
+                            currentMatchLen++;
+                            if (edgeOffset >= LengthOf(currentEdge))
+                            {
+                                currentNode = currentEdge;
+                                currentEdge = null;
+                                edgeOffset = 0;
+                            }
+                            break;
+                        }
+                    }
+
+                    // Cannot extend — follow suffix link
+                    if (currentMatchLen == 0) break;
+
+                    if (currentNode != _root)
+                    {
+                        currentNode = currentNode.SuffixLink ?? _root;
+                    }
+                    currentMatchLen--;
+
+                    int nodeDepth = GetNodeDepth(currentNode);
+                    int remaining = currentMatchLen - nodeDepth;
+
+                    if (remaining > 0)
+                    {
+                        int pos = i - remaining;
+                        currentEdge = null;
+                        edgeOffset = 0;
+
+                        while (remaining > 0)
+                        {
+                            if (!currentNode.TryGetChild(query[pos], out var nextChild2) || nextChild2 == null)
+                                break;
+
+                            int edgeLen = LengthOf(nextChild2);
+                            if (edgeLen <= remaining)
+                            {
+                                pos += edgeLen;
+                                remaining -= edgeLen;
+                                currentNode = nextChild2;
+                            }
+                            else
+                            {
+                                currentEdge = nextChild2;
+                                edgeOffset = remaining;
+                                remaining = 0;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        currentEdge = null;
+                        edgeOffset = 0;
+                    }
+                }
+
+                // Update peak tracking — record the best match in the current run
+                if (currentMatchLen >= minLength)
+                {
+                    if (currentMatchLen > peakLen)
+                    {
+                        peakLen = currentMatchLen;
+                        peakEndInQuery = i;
+                        peakNode = currentEdge ?? currentNode;
+                    }
+                }
+                else if (peakLen >= minLength)
+                {
+                    // Match just dropped below threshold — emit the peak anchor
+                    EmitAnchorFromPeak(results, peakNode!, peakEndInQuery, peakLen);
+                    peakLen = 0;
+                    peakEndInQuery = -1;
+                    peakNode = null;
+                }
+            }
+
+            // Emit the final run if still above threshold
+            if (peakLen >= minLength && peakNode != null)
+            {
+                EmitAnchorFromPeak(results, peakNode, peakEndInQuery, peakLen);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Emits a single anchor from the peak of a match run.
+        /// </summary>
+        private void EmitAnchorFromPeak(
+            List<(int PositionInText, int PositionInQuery, int Length)> results,
+            SuffixTreeNode node,
+            int endInQuery,
+            int length)
+        {
+            int refPos = FindAnyLeafPosition(node);
+            if (refPos >= 0)
+            {
+                results.Add((refPos, endInQuery - length + 1, length));
+            }
+        }
+
+        /// <summary>
+        /// Walks to any leaf descendant of the given node and returns its position
+        /// in the source text. Prefers non-terminator children to avoid edge cases.
+        /// </summary>
+        private int FindAnyLeafPosition(SuffixTreeNode node)
+        {
+            var current = node;
+            var buffer = GetSearchBuffer();
+            while (!current.IsLeaf)
+            {
+                current.GetChildren(buffer);
+                if (buffer.Count == 0) return -1;
+                // Use last child to prefer non-terminator (terminator is added first in GetChildren)
+                current = buffer[buffer.Count - 1];
+            }
+            int leafDepth = GetNodeDepth(current);
+            int pos = _text!.Length + 1 - leafDepth;
+            return (pos >= 0 && pos < _text.Length) ? pos : -1;
+        }
     }
 }
