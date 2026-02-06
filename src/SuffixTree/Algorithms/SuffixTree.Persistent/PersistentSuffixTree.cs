@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 
@@ -47,9 +48,17 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private string LoadStringInternal(long textOff, int textLen)
     {
-        var bytes = new byte[textLen * 2];
-        _storage.ReadBytes(textOff, bytes, 0, bytes.Length);
-        return Encoding.Unicode.GetString(bytes);
+        int byteLen = textLen * 2;
+        byte[] bytes = ArrayPool<byte>.Shared.Rent(byteLen);
+        try
+        {
+            _storage.ReadBytes(textOff, bytes, 0, byteLen);
+            return Encoding.Unicode.GetString(bytes, 0, byteLen);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(bytes);
+        }
     }
 
     public static PersistentSuffixTree Load(IStorageProvider storage)

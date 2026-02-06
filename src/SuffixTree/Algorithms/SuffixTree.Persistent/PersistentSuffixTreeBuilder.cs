@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Text;
 
@@ -168,10 +170,27 @@ public class PersistentSuffixTreeBuilder
         // Write sorted children arrays to storage
         WriteChildrenArrays();
 
-        // Store text in storage for true persistence (batch write)
+        // Store text in storage for true persistence (chunked write, no full-string copy)
         long textOffset = _storage.Allocate(_text.Length * 2);
-        var textBytes = Encoding.Unicode.GetBytes(_text.ToString()!);
-        _storage.WriteBytes(textOffset, textBytes, 0, textBytes.Length);
+        const int ChunkChars = 4096;
+        byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
+        try
+        {
+            int written = 0;
+            while (written < _text.Length)
+            {
+                int remaining = _text.Length - written;
+                int chunkLen = remaining < ChunkChars ? remaining : ChunkChars;
+                int byteCount = Encoding.Unicode.GetBytes(
+                    _text.Slice(written, chunkLen).ToString(), chunkBuf);
+                _storage.WriteBytes(textOffset + written * 2, chunkBuf, 0, byteCount);
+                written += chunkLen;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(chunkBuf);
+        }
 
         // Write Header
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
@@ -272,13 +291,24 @@ public class PersistentSuffixTreeBuilder
             childList.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
 
             int count = childList.Count;
-            long arrayOffset = _storage.Allocate(count * PersistentConstants.CHILD_ENTRY_SIZE);
+            int totalBytes = count * PersistentConstants.CHILD_ENTRY_SIZE;
+            long arrayOffset = _storage.Allocate(totalBytes);
 
-            for (int i = 0; i < count; i++)
+            // Serialize all entries into a single buffer, then batch-write
+            byte[] buf = ArrayPool<byte>.Shared.Rent(totalBytes);
+            try
             {
-                long entryOffset = arrayOffset + (long)i * PersistentConstants.CHILD_ENTRY_SIZE;
-                _storage.WriteUInt32(entryOffset + PersistentConstants.CHILD_OFFSET_KEY, childList[i].Key);
-                _storage.WriteInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE, childList[i].ChildOffset);
+                for (int i = 0; i < count; i++)
+                {
+                    int off = i * PersistentConstants.CHILD_ENTRY_SIZE;
+                    BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), childList[i].Key);
+                    BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), childList[i].ChildOffset);
+                }
+                _storage.WriteBytes(arrayOffset, buf, 0, totalBytes);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buf);
             }
 
             var node = new PersistentSuffixTreeNode(_storage, nodeOffset);
