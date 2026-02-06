@@ -95,7 +95,7 @@
 | ☑ | RNA-STRUCT-001 | RnaStructure | 4 | Wikipedia (Nucleic acid structure prediction, Nussinov algorithm), Nussinov (1980), Zuker (1981), Turner (2004) | [RNA-STRUCT-001.md](tests/TestSpecs/RNA-STRUCT-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](tests/TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](tests/TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
-| ☐ | MIRNA-SEED-001 | MiRNA | 3 | - | - | - |
+| ☑ | MIRNA-SEED-001 | MiRNA | 3 | miRBase, TargetScan (Bartel Lab), Bartel (2009), Lewis (2005) | [MIRNA-SEED-001.md](tests/TestSpecs/MIRNA-SEED-001.md) | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
 | ☐ | MIRNA-TARGET-001 | MiRNA | 2 | - | - | - |
 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | 2 | - | - | - |
 | ☐ | SPLICE-DONOR-001 | Splicing | 2 | - | - | - |
