@@ -7,12 +7,21 @@ using System.Text;
 namespace SuffixTree.Persistent
 {
     /// <summary>
-    /// Provides layout-independent serialization and checksumming for suffix trees.
+    /// Provides serialization, deserialization, and checksumming for suffix trees.
+    /// <para>
+    /// <b>Format v2</b>: stores text + structural hash. Import rebuilds the tree via
+    /// <see cref="PersistentSuffixTreeBuilder"/> (Ukkonen's algorithm), guaranteeing
+    /// 100% functionality including suffix links for <c>FindExactMatchAnchors</c>.
+    /// </para>
+    /// <para>
+    /// For direct memory-mapped file persistence, use
+    /// <see cref="SaveToFile"/> / <see cref="LoadFromFile"/>.
+    /// </para>
     /// </summary>
     public static class SuffixTreeSerializer
     {
-        private const long LOGICAL_MAGIC = 0x53544C4F47494341L; // "STLOGICA"
-        private const int VERSION = 1;
+        private const long LOGICAL_MAGIC = 0x53544C4F47494332L; // "STLOGIC2"
+        private const int VERSION = 2;
 
         /// <summary>
         /// Calculates a logical SHA256 hash of the suffix tree.
@@ -39,12 +48,15 @@ namespace SuffixTree.Persistent
         }
 
         /// <summary>
-        /// Exports the suffix tree to a stream in a logical, layout-independent format.
+        /// Exports the suffix tree to a stream. Stores text and a structural hash
+        /// for validation on import.
         /// </summary>
         public static void Export(ISuffixTree tree, Stream stream)
         {
             ArgumentNullException.ThrowIfNull(tree);
             ArgumentNullException.ThrowIfNull(stream);
+
+            var hash = CalculateLogicalHash(tree);
 
             using (var writer = new BinaryWriter(stream, Encoding.Unicode, leaveOpen: true))
             {
@@ -52,14 +64,15 @@ namespace SuffixTree.Persistent
                 writer.Write(VERSION);
                 writer.Write(tree.Text.ToString() ?? string.Empty);
                 writer.Write(tree.NodeCount);
-
-                var visitor = new ExportVisitor(writer);
-                tree.Traverse(visitor);
+                writer.Write(hash.Length);
+                writer.Write(hash);
             }
         }
 
         /// <summary>
-        /// Imports a suffix tree from a logical format stream into the specified storage provider.
+        /// Imports a suffix tree from a stream into the specified storage provider.
+        /// Rebuilds the tree from the stored text using Ukkonen's algorithm,
+        /// guaranteeing full functionality including suffix links.
         /// </summary>
         public static ISuffixTree Import(Stream stream, IStorageProvider target)
         {
@@ -70,66 +83,63 @@ namespace SuffixTree.Persistent
             {
                 long magic = reader.ReadInt64();
                 if (magic != LOGICAL_MAGIC)
-                    throw new InvalidDataException("Invalid logical suffix tree format.");
+                    throw new InvalidDataException("Invalid suffix tree format (magic mismatch). " +
+                        "This may be a v1 file — only v2 format is supported.");
 
                 int version = reader.ReadInt32();
                 if (version != VERSION)
-                    throw new NotSupportedException($"Version {version} is not supported.");
+                    throw new NotSupportedException($"Format version {version} is not supported (expected {VERSION}).");
 
                 string text = reader.ReadString();
-                int nodeCountCap = reader.ReadInt32();
+                int expectedNodeCount = reader.ReadInt32();
+                int hashLen = reader.ReadInt32();
+                byte[] expectedHash = reader.ReadBytes(hashLen);
 
-                // Preliminary allocation for header
-                target.Allocate(PersistentConstants.HEADER_SIZE);
+                // Rebuild the tree from text — Ukkonen's creates suffix links natively
+                var builder = new PersistentSuffixTreeBuilder(target);
+                long rootOffset = builder.Build(text);
+                var tree = new PersistentSuffixTree(target, rootOffset, new StringTextSource(text));
 
-                var nodeCount = 0;
-                long rootOffset = ImportNodeRecursive(reader, target, ref nodeCount);
+                // Validate structural integrity
+                if (tree.NodeCount != expectedNodeCount)
+                    throw new InvalidDataException(
+                        $"Node count mismatch after rebuild: expected {expectedNodeCount}, got {tree.NodeCount}.");
 
-                // Write text
-                long textOffset = target.Allocate(text.Length * 2);
-                for (int i = 0; i < text.Length; i++)
-                    target.WriteChar(textOffset + (i * 2), text[i]);
+                var actualHash = CalculateLogicalHash(tree);
+                if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
+                    throw new InvalidDataException("Structural hash mismatch after rebuild.");
 
-                // Finalize header
-                target.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
-                target.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 1);
-                target.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, rootOffset);
-                target.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, textOffset);
-                target.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, text.Length);
-                target.WriteInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT, nodeCount);
-                target.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, target.Size);
-
-                return PersistentSuffixTree.Load(target);
+                return tree;
             }
         }
 
-        private static long ImportNodeRecursive(BinaryReader reader, IStorageProvider storage, ref int nodeCount)
+        /// <summary>
+        /// Saves a suffix tree to a memory-mapped file. Rebuilds from the tree's text
+        /// using Ukkonen's algorithm, producing a native persistent format with full
+        /// functionality including suffix links.
+        /// </summary>
+        /// <param name="tree">The source tree (any <see cref="ISuffixTree"/> implementation).</param>
+        /// <param name="filePath">File path for the memory-mapped file.</param>
+        /// <returns>A new <see cref="ISuffixTree"/> backed by the MMF (caller must dispose).</returns>
+        public static ISuffixTree SaveToFile(ISuffixTree tree, string filePath)
         {
-            uint start = reader.ReadUInt32();
-            uint end = reader.ReadUInt32();
-            uint leafCount = reader.ReadUInt32();
-            int childCount = reader.ReadInt32();
-            uint depth = reader.ReadUInt32();
+            ArgumentNullException.ThrowIfNull(tree);
+            if (string.IsNullOrEmpty(filePath))
+                throw new ArgumentException("File path must be provided.", nameof(filePath));
 
-            nodeCount++;
-            long nodeOffset = storage.Allocate(PersistentConstants.NODE_SIZE);
-            var node = new PersistentSuffixTreeNode(storage, nodeOffset);
-            node.Start = start;
-            node.End = end;
-            node.LeafCount = leafCount;
-            node.DepthFromRoot = depth;
-            node.SuffixLink = PersistentConstants.NULL_OFFSET;
-            node.ChildrenHead = PersistentConstants.NULL_OFFSET;
-            node.ChildCount = 0; // Will be incremented by SetChild
+            string text = tree.Text.ToString() ?? string.Empty;
+            return PersistentSuffixTreeFactory.Create(text, filePath);
+        }
 
-            for (int i = 0; i < childCount; i++)
-            {
-                uint key = reader.ReadUInt32();
-                long childOffset = ImportNodeRecursive(reader, storage, ref nodeCount);
-                node.SetChild(key, new PersistentSuffixTreeNode(storage, childOffset));
-            }
-
-            return nodeOffset;
+        /// <summary>
+        /// Loads a suffix tree from a memory-mapped file previously created by
+        /// <see cref="SaveToFile"/> or <see cref="PersistentSuffixTreeFactory.Create(string, string?)"/>.
+        /// </summary>
+        /// <param name="filePath">Path to the existing tree file.</param>
+        /// <returns>A read-only <see cref="ISuffixTree"/> backed by the MMF (caller must dispose).</returns>
+        public static ISuffixTree LoadFromFile(string filePath)
+        {
+            return PersistentSuffixTreeFactory.Load(filePath);
         }
 
         private class HashVisitor : ISuffixTreeVisitor
@@ -155,25 +165,6 @@ namespace SuffixTree.Persistent
 
             public void EnterBranch(int key) => HashInt(key);
             public void ExitBranch() => HashInt(-999); // Structure sentinel
-        }
-
-        private class ExportVisitor : ISuffixTreeVisitor
-        {
-            private readonly BinaryWriter _writer;
-
-            public ExportVisitor(BinaryWriter writer) => _writer = writer;
-
-            public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth)
-            {
-                _writer.Write(startIndex);
-                _writer.Write(endIndex);
-                _writer.Write(leafCount);
-                _writer.Write(childCount);
-                _writer.Write(depth);
-            }
-
-            public void EnterBranch(int key) => _writer.Write(key);
-            public void ExitBranch() { }
         }
     }
 }

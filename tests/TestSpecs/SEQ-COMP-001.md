@@ -179,7 +179,7 @@
 | `TryGetComplement_ReturnsCorrectComplement` | "ACGT"→"TGCA" | Covered but minimal |
 | `TryGetComplement_DestinationTooSmall_ReturnsFalse` | Destination too small | Covered |
 
-**Assessment:** Good coverage of span API basics but missing edge cases.
+**Assessment:** Comprehensive coverage in canonical file `SequenceExtensions_Complement_Tests.cs`.
 
 ### RnaSequenceTests.cs (Lines 70-105)
 | Test | Coverage | Status |
@@ -193,13 +193,13 @@
 ### Coverage Summary
 | Category | Status |
 |----------|--------|
-| GetComplementBase canonical | **MISSING** |
-| GetRnaComplementBase | **MISSING** |
-| TryGetComplement edge cases | **MISSING** |
-| Case insensitivity | **MISSING** |
-| Involution property | **MISSING** |
-| Unknown base handling | **MISSING** |
-| Empty sequence | **MISSING** |
+| GetComplementBase canonical | ✅ Covered |
+| GetRnaComplementBase | ✅ Covered |
+| TryGetComplement edge cases | ✅ Covered |
+| Case insensitivity | ✅ Covered |
+| Involution property | ✅ Covered |
+| Unknown base handling | ✅ Covered |
+| Empty sequence | ✅ Covered |
 
 ---
 
