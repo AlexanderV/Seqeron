@@ -124,7 +124,6 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
                 _accessor.Dispose();
                 _mmf?.Dispose();
             }
-            _disposed = true;
         }
     }
 }

@@ -12,6 +12,8 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
+    private readonly bool _ownsTextSource;
+    private bool _disposed;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null)
     {
@@ -21,6 +23,7 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
         if (textSource != null)
         {
             _textSource = textSource;
+            _ownsTextSource = false; // Caller retains ownership
         }
         else
         {
@@ -31,13 +34,13 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             // If it's a MappedFileStorageProvider, we can use MemoryMappedTextSource for zero-copy
             if (_storage is MappedFileStorageProvider mappedProvider)
             {
-                // We don't want MemoryMappedTextSource to dispose the accessor it doesn't own
                 _textSource = new MemoryMappedTextSource(mappedProvider.Accessor, textOff, textLen);
             }
             else
             {
                 _textSource = new StringTextSource(LoadStringInternal(textOff, textLen));
             }
+            _ownsTextSource = true; // We created it, we dispose it
         }
     }
 
@@ -652,6 +655,20 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
+        // Dispose textSource BEFORE storage: MemoryMappedTextSource must
+        // ReleasePointer() while the underlying accessor is still alive.
+        if (_ownsTextSource && _textSource is IDisposable disposableText)
+            disposableText.Dispose();
+
         _storage.Dispose();
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(PersistentSuffixTree));
     }
 }

@@ -16,8 +16,16 @@ public class MappedFileStorageProvider : IStorageProvider
     private readonly bool _readOnly;
     private long _capacity;
     private long _position;
+    private bool _disposed;
 
-    internal MemoryMappedViewAccessor Accessor => _accessor;
+    internal MemoryMappedViewAccessor Accessor
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _accessor;
+        }
+    }
 
     public MappedFileStorageProvider(string filePath, long initialCapacity = 65536, bool readOnly = false)
     {
@@ -52,6 +60,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public void EnsureCapacity(long capacity)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot expand capacity in read-only mode.");
         if (capacity > _capacity)
         {
@@ -105,6 +114,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public long Allocate(int size)
     {
+        ThrowIfDisposed();
         long offset = _position;
         _position += size;
         EnsureCapacity(_position);
@@ -113,8 +123,18 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _accessor?.Dispose();
         _mmf?.Dispose();
+        _accessor = null!;
+        _mmf = null!;
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(MappedFileStorageProvider));
     }
 
     /// <summary>

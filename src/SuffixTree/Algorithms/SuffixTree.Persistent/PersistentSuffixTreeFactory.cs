@@ -20,10 +20,17 @@ public static class PersistentSuffixTreeFactory
             ? new MappedFileStorageProvider(filePath)
             : new HeapStorageProvider();
 
-        var builder = new PersistentSuffixTreeBuilder(storage);
-        long rootOffset = builder.Build(text);
-
-        return new PersistentSuffixTree(storage, rootOffset, text);
+        try
+        {
+            var builder = new PersistentSuffixTreeBuilder(storage);
+            long rootOffset = builder.Build(text);
+            return new PersistentSuffixTree(storage, rootOffset, text);
+        }
+        catch
+        {
+            storage.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -37,6 +44,14 @@ public static class PersistentSuffixTreeFactory
             throw new ArgumentException("File path must be provided.", nameof(filePath));
 
         var storage = new MappedFileStorageProvider(filePath, readOnly: true);
-        return PersistentSuffixTree.Load(storage);
+        try
+        {
+            return PersistentSuffixTree.Load(storage);
+        }
+        catch
+        {
+            storage.Dispose();
+            throw;
+        }
     }
 }
