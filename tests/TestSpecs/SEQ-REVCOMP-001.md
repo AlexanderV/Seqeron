@@ -189,14 +189,14 @@
 ### Coverage Summary
 | Category | Status |
 |----------|--------|
-| TryGetReverseComplement canonical | **MISSING** (only smoke exists) |
-| Empty sequence | **MISSING** |
-| Single nucleotide | **MISSING** |
-| Destination too small | **MISSING** |
-| Case insensitivity | **MISSING** |
-| Involution property | **MISSING** |
-| Unknown base handling | **MISSING** |
-| Long sequences | **MISSING** |
+| TryGetReverseComplement canonical | ✅ Covered |
+| Empty sequence | ✅ Covered |
+| Single nucleotide | ✅ Covered |
+| Destination too small | ✅ Covered |
+| Case insensitivity | ✅ Covered |
+| Involution property | ✅ Covered |
+| Unknown base handling | ✅ Covered |
+| Long sequences | ✅ Covered |
 
 ---
 

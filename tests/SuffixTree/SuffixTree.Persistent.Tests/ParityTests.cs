@@ -53,7 +53,7 @@ namespace SuffixTree.Persistent.Tests
 
                             Assert.That(persistent.Contains(sub), Is.True, $"Contains failed for valid substring '{sub}'");
                             Assert.That(persistent.CountOccurrences(sub), Is.EqualTo(reference.CountOccurrences(sub)), $"CountOccurrences mismatch for '{sub}'");
-                            
+
                             var refOccs = reference.FindAllOccurrences(sub).ToList();
                             var perOccs = persistent.FindAllOccurrences(sub).ToList();
                             refOccs.Sort();
@@ -99,18 +99,18 @@ namespace SuffixTree.Persistent.Tests
             {
                 int len = random.Next(50, 500);
                 string text = new string(Enumerable.Range(0, len).Select(_ => (char)random.Next('a', 'e')).ToArray());
-                
+
                 var reference = global::SuffixTree.SuffixTree.Build(text);
                 using (var persistentDisposable = PersistentSuffixTreeFactory.Create(text) as IDisposable)
                 {
                     var persistent = (ISuffixTree)persistentDisposable!;
 
                     Assert.That(persistent.LeafCount, Is.EqualTo(reference.LeafCount), $"LeafCount mismatch for random string index {i}");
-                    
+
                     // Test some patterns
-                    string pattern = text.Substring(random.Next(len/2), 5);
+                    string pattern = text.Substring(random.Next(len / 2), 5);
                     Assert.That(persistent.CountOccurrences(pattern), Is.EqualTo(reference.CountOccurrences(pattern)));
-                    
+
                     Assert.That(persistent.LongestRepeatedSubstring(), Is.EqualTo(reference.LongestRepeatedSubstring()));
 
                     // Anchor parity on random strings

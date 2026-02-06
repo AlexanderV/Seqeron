@@ -212,12 +212,12 @@ namespace SuffixTree
         /// Called when entering a node.
         /// </summary>
         void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth);
-        
+
         /// <summary>
         /// Called before visiting a child branch.
         /// </summary>
         void EnterBranch(int key);
-        
+
         /// <summary>
         /// Called after visiting a child branch.
         /// </summary>
