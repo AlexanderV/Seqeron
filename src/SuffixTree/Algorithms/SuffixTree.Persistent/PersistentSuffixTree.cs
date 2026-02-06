@@ -270,6 +270,186 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     public string PrintTree() => "Persistent Tree Visualization Not Implemented";
 
     /// <inheritdoc/>
+    public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
+        string query, int minLength)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (query.Length == 0 || _textSource.Length == 0 || minLength <= 0)
+            return Array.Empty<(int, int, int)>();
+
+        var results = new List<(int PositionInText, int PositionInQuery, int Length)>();
+        var root = new PersistentSuffixTreeNode(_storage, _rootOffset);
+
+        var currentNode = root;
+        PersistentSuffixTreeNode currentEdge = PersistentSuffixTreeNode.Null(_storage);
+        int edgeOffset = 0;
+        int currentMatchLen = 0;
+
+        // Peak tracking
+        int peakLen = 0;
+        int peakEndInQuery = -1;
+        PersistentSuffixTreeNode peakNode = PersistentSuffixTreeNode.Null(_storage);
+
+        for (int i = 0; i < query.Length; i++)
+        {
+            uint c = (uint)query[i];
+
+            while (true)
+            {
+                if (!currentEdge.IsNull)
+                {
+                    if (GetSymbolAt((int)(currentEdge.Start + (uint)edgeOffset)) == (int)c)
+                    {
+                        edgeOffset++;
+                        currentMatchLen++;
+                        if (edgeOffset >= LengthOf(currentEdge))
+                        {
+                            currentNode = currentEdge;
+                            currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                            edgeOffset = 0;
+                        }
+                        break;
+                    }
+                }
+                else
+                {
+                    if (currentNode.TryGetChild(c, out var nextChild) && !nextChild.IsNull)
+                    {
+                        currentEdge = nextChild;
+                        edgeOffset = 1;
+                        currentMatchLen++;
+                        if (edgeOffset >= LengthOf(currentEdge))
+                        {
+                            currentNode = currentEdge;
+                            currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                            edgeOffset = 0;
+                        }
+                        break;
+                    }
+                }
+
+                // Cannot extend — follow suffix link
+                if (currentMatchLen == 0) break;
+
+                if (currentNode.Offset != _rootOffset)
+                {
+                    long suffixLink = currentNode.SuffixLink;
+                    currentNode = suffixLink != PersistentConstants.NULL_OFFSET
+                        ? new PersistentSuffixTreeNode(_storage, suffixLink)
+                        : root;
+                }
+                currentMatchLen--;
+
+                int nodeDepth = GetNodeDepth(currentNode);
+                int remaining = currentMatchLen - nodeDepth;
+
+                if (remaining > 0)
+                {
+                    int pos = i - remaining;
+                    currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                    edgeOffset = 0;
+
+                    while (remaining > 0)
+                    {
+                        if (!currentNode.TryGetChild((uint)query[pos], out var nextChild2) || nextChild2.IsNull)
+                            break;
+
+                        int edgeLen = LengthOf(nextChild2);
+                        if (edgeLen <= remaining)
+                        {
+                            pos += edgeLen;
+                            remaining -= edgeLen;
+                            currentNode = nextChild2;
+                        }
+                        else
+                        {
+                            currentEdge = nextChild2;
+                            edgeOffset = remaining;
+                            remaining = 0;
+                        }
+                    }
+                }
+                else
+                {
+                    currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                    edgeOffset = 0;
+                }
+            }
+
+            // Update peak tracking
+            if (currentMatchLen >= minLength)
+            {
+                if (currentMatchLen > peakLen)
+                {
+                    peakLen = currentMatchLen;
+                    peakEndInQuery = i;
+                    peakNode = currentEdge.IsNull ? currentNode : currentEdge;
+                }
+            }
+            else if (peakLen >= minLength)
+            {
+                EmitAnchorFromPeak(results, peakNode, peakEndInQuery, peakLen);
+                peakLen = 0;
+                peakEndInQuery = -1;
+                peakNode = PersistentSuffixTreeNode.Null(_storage);
+            }
+        }
+
+        // Emit final run
+        if (peakLen >= minLength && !peakNode.IsNull)
+        {
+            EmitAnchorFromPeak(results, peakNode, peakEndInQuery, peakLen);
+        }
+
+        return results;
+    }
+
+    private void EmitAnchorFromPeak(
+        List<(int PositionInText, int PositionInQuery, int Length)> results,
+        PersistentSuffixTreeNode node,
+        int endInQuery,
+        int length)
+    {
+        int refPos = FindAnyLeafPosition(node);
+        if (refPos >= 0)
+        {
+            results.Add((refPos, endInQuery - length + 1, length));
+        }
+    }
+
+    private int FindAnyLeafPosition(PersistentSuffixTreeNode node)
+    {
+        var current = node;
+        while (!current.IsLeaf)
+        {
+            // Walk to any child (first one available)
+            long childEntryOffset = current.ChildrenHead;
+            PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage);
+            while (childEntryOffset != PersistentConstants.NULL_OFFSET)
+            {
+                var entry = new PersistentChildEntry(_storage, childEntryOffset);
+                bestChild = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
+                // Prefer non-terminator children
+                if (entry.Key != PersistentConstants.TERMINATOR_KEY)
+                    break;
+                childEntryOffset = entry.NextEntryOffset;
+            }
+            if (bestChild.IsNull) return -1;
+            current = bestChild;
+        }
+
+        int leafDepth = GetNodeDepth(current);
+        int pos = (_textSource.Length + 1) - leafDepth;
+        return (pos >= 0 && pos < _textSource.Length) ? pos : -1;
+    }
+
+    private int GetNodeDepth(PersistentSuffixTreeNode node)
+    {
+        if (node.Offset == _rootOffset) return 0;
+        return (int)node.DepthFromRoot + LengthOf(node);
+    }
+
+    /// <inheritdoc/>
     public void Traverse(ISuffixTreeVisitor visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
