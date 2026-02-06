@@ -112,6 +112,15 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.Write(offset, value);
     }
 
+    public void ReadBytes(long offset, byte[] buffer, int start, int count)
+        => _accessor.ReadArray(offset, buffer, start, count);
+
+    public void WriteBytes(long offset, byte[] buffer, int start, int count)
+    {
+        if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        _accessor.WriteArray(offset, buffer, start, count);
+    }
+
     public long Allocate(int size)
     {
         ThrowIfDisposed();

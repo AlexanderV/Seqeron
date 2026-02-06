@@ -59,6 +59,12 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteChar(long offset, char value)
         => BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan((int)offset, 2), (short)value);
 
+    public void ReadBytes(long offset, byte[] buffer, int start, int count)
+        => Buffer.BlockCopy(_buffer, (int)offset, buffer, start, count);
+
+    public void WriteBytes(long offset, byte[] buffer, int start, int count)
+        => Buffer.BlockCopy(buffer, start, _buffer, (int)offset, count);
+
     public long Allocate(int size)
     {
         long offset = _position;
