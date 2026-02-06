@@ -29,16 +29,16 @@ namespace SuffixTree.Persistent.Tests
 
         protected override ISuffixTree CreateTree(string text)
         {
-            return PersistentSuffixTreeFactory.Create(text, _tempFile);
+            return PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile);
         }
 
         [Test]
         public void Persistence_TreeIsRetrievableAfterReload()
         {
             string text = "abracadabra";
-            
+
             // 1. Build and save
-            using (var originalTree = PersistentSuffixTreeFactory.Create(text, _tempFile) as IDisposable)
+            using (var originalTree = PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile) as IDisposable)
             {
                 // Usage during active mapping
             }
@@ -52,7 +52,7 @@ namespace SuffixTree.Persistent.Tests
                     Assert.That(loadedTree.Text.ToString(), Is.EqualTo(text));
                     Assert.That(loadedTree.Contains("abra"), Is.True);
                     Assert.That(loadedTree.CountOccurrences("a"), Is.EqualTo(5));
-                    
+
                     var results = loadedTree.FindAllOccurrences("ra").ToList();
                     results.Sort();
                     Assert.That(results, Is.EqualTo(new List<int> { 2, 9 }));
@@ -65,8 +65,8 @@ namespace SuffixTree.Persistent.Tests
         {
             // Create a larger string (approx 50KB) to test capacity growth and mapping
             string text = string.Concat(Enumerable.Repeat("abcde12345", 5000));
-            
-            using (var tree = PersistentSuffixTreeFactory.Create(text, _tempFile) as IDisposable)
+
+            using (var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile) as IDisposable)
             {
                 Assert.That(tree, Is.Not.Null);
             }
@@ -88,7 +88,7 @@ namespace SuffixTree.Persistent.Tests
             for (int i = 0; i < length / 10; i++) sb.Append("ATGC123456");
             string text = sb.ToString();
 
-            using (var tree = PersistentSuffixTreeFactory.Create(text, _tempFile) as IDisposable)
+            using (var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile) as IDisposable)
             {
                 var st = (ISuffixTree)tree!;
                 Assert.That(st.Contains("ATGC123456ATGC"), Is.True);
@@ -100,7 +100,7 @@ namespace SuffixTree.Persistent.Tests
         public void Concurrency_MultipleReaders_Works()
         {
             string text = "concurrent_read_test_data";
-            (PersistentSuffixTreeFactory.Create(text, _tempFile) as IDisposable)?.Dispose();
+            (PersistentSuffixTreeFactory.Create(new StringTextSource(text), _tempFile) as IDisposable)?.Dispose();
 
             // Open multiple instances simultaneously (READ ONLY SHARE)
             using (var tree1 = PersistentSuffixTreeFactory.Load(_tempFile) as IDisposable)

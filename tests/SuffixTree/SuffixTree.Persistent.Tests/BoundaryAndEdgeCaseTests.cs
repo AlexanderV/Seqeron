@@ -23,12 +23,12 @@ namespace SuffixTree.Persistent.Tests
         {
             // Start with a tiny capacity to force many resizes
             string text = "the quick brown fox jumps over the lazy dog";
-            
+
             using (var storage = new MappedFileStorageProvider(_tempFile, initialCapacity: 64))
             {
                 var builder = new PersistentSuffixTreeBuilder(storage);
-                builder.Build(text);
-                
+                builder.Build(new StringTextSource(text));
+
                 var tree = PersistentSuffixTree.Load(storage);
                 Assert.That(tree.Text.ToString(), Is.EqualTo(text));
                 Assert.That(tree.Contains("fox jumps"), Is.True);
@@ -41,13 +41,13 @@ namespace SuffixTree.Persistent.Tests
         public void StructuralInvariant_EdgeCountMatchesNodeCount()
         {
             string text = "abracadabra";
-            using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+            using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
                 int totalEdges = 0;
-                
+
                 tree.Traverse(new EdgeCounterVisitor((count) => totalEdges += count));
-                
+
                 // In any tree, Number of Edges = Number of Nodes - 1
                 Assert.That(totalEdges, Is.EqualTo(tree.NodeCount - 1), "Structural invariant |E| = |V| - 1 failed");
             }
@@ -60,13 +60,13 @@ namespace SuffixTree.Persistent.Tests
             string pattern = "abc";
             string text = "";
             for (int i = 0; i < 100; i++) text += pattern;
-            
-            using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+
+            using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
                 Assert.That(tree.Contains("abcabc"), Is.True);
                 Assert.That(tree.CountOccurrences("abc"), Is.EqualTo(100));
-                
+
                 // For a periodic string of length N and period P, LRS is N-P
                 string expectedLrs = text.Substring(0, text.Length - 3);
                 Assert.That(tree.LongestRepeatedSubstring(), Is.EqualTo(expectedLrs));
@@ -80,11 +80,11 @@ namespace SuffixTree.Persistent.Tests
             // Our implementation uses '$' (char 36).
             char terminator = '$';
             string text = $"abc{terminator}def";
-            
-            using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+
+            using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
-                
+
                 // The tree should treat the internal terminator as part of the text if it's there.
                 // However, Ukkonen ADDS another terminator. 
                 // We need to ensure searching for the string works even if it has '$'.
@@ -98,8 +98,8 @@ namespace SuffixTree.Persistent.Tests
         {
             char terminator = '$';
             string text = terminator.ToString();
-            
-            using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+
+            using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
                 Assert.That(tree.Text.ToString(), Is.EqualTo(text));
@@ -116,13 +116,13 @@ namespace SuffixTree.Persistent.Tests
             // Small alphabet (a, b) creates very deep and dense structures
             string text = new string(Enumerable.Range(0, 1000).Select(_ => (char)random.Next('a', 'c')).ToArray());
 
-            using (var st = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+            using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
                 // Just check that it doesn't crash and satisfies base invariants
                 Assert.That(tree.NodeCount, Is.GreaterThan(text.Length));
                 Assert.That(tree.LeafCount, Is.EqualTo(text.Length));
-                
+
                 string lrs = tree.LongestRepeatedSubstring();
                 Assert.That(tree.CountOccurrences(lrs), Is.GreaterThanOrEqualTo(2));
             }

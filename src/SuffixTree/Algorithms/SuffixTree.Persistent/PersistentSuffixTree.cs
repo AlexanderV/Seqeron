@@ -13,11 +13,6 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
 
-    public PersistentSuffixTree(IStorageProvider storage, long rootOffset, string text)
-        : this(storage, rootOffset, new StringTextSource(text))
-    {
-    }
-
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));

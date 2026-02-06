@@ -96,9 +96,10 @@ namespace SuffixTree.Persistent
                 byte[] expectedHash = reader.ReadBytes(hashLen);
 
                 // Rebuild the tree from text — Ukkonen's creates suffix links natively
+                var textSource = new StringTextSource(text);
                 var builder = new PersistentSuffixTreeBuilder(target);
-                long rootOffset = builder.Build(text);
-                var tree = new PersistentSuffixTree(target, rootOffset, new StringTextSource(text));
+                long rootOffset = builder.Build(textSource);
+                var tree = new PersistentSuffixTree(target, rootOffset, textSource);
 
                 // Validate structural integrity
                 if (tree.NodeCount != expectedNodeCount)
@@ -127,13 +128,12 @@ namespace SuffixTree.Persistent
             if (string.IsNullOrEmpty(filePath))
                 throw new ArgumentException("File path must be provided.", nameof(filePath));
 
-            string text = tree.Text.ToString() ?? string.Empty;
-            return PersistentSuffixTreeFactory.Create(text, filePath);
+            return PersistentSuffixTreeFactory.Create(tree.Text, filePath);
         }
 
         /// <summary>
         /// Loads a suffix tree from a memory-mapped file previously created by
-        /// <see cref="SaveToFile"/> or <see cref="PersistentSuffixTreeFactory.Create(string, string?)"/>.
+        /// <see cref="SaveToFile"/> or <see cref="PersistentSuffixTreeFactory.Create(ITextSource, string?)"/>.
         /// </summary>
         /// <param name="filePath">Path to the existing tree file.</param>
         /// <returns>A read-only <see cref="ISuffixTree"/> backed by the MMF (caller must dispose).</returns>

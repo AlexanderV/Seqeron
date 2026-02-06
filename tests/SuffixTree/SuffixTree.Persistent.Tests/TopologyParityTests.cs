@@ -17,10 +17,10 @@ namespace SuffixTree.Persistent.Tests
         public void Topology_MatchesReference(string text)
         {
             var reference = global::SuffixTree.SuffixTree.Build(text);
-            using (var persistent = PersistentSuffixTreeFactory.Create(text) as IDisposable)
+            using (var persistent = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var st = (ISuffixTree)persistent!;
-                
+
                 var refNodes = new List<NodeInfo>();
                 var perNodes = new List<NodeInfo>();
 
@@ -28,7 +28,7 @@ namespace SuffixTree.Persistent.Tests
                 st.Traverse(new TopologyCollector(perNodes));
 
                 Assert.That(perNodes.Count, Is.EqualTo(refNodes.Count), "Node count mismatch");
-                
+
                 for (int i = 0; i < refNodes.Count; i++)
                 {
                     Assert.That(perNodes[i], Is.EqualTo(refNodes[i]), $"Node structure mismatch at index {i}");
@@ -56,17 +56,17 @@ namespace SuffixTree.Persistent.Tests
             public bool Equals(NodeInfo? other)
             {
                 if (other == null) return false;
-                return Start == other.Start && 
-                       End == other.End && 
-                       LeafCount == other.LeafCount && 
+                return Start == other.Start &&
+                       End == other.End &&
+                       LeafCount == other.LeafCount &&
                        ChildCount == other.ChildCount &&
                        ChildrenKeys.SequenceEqual(other.ChildrenKeys);
             }
 
             public override bool Equals(object? obj) => Equals(obj as NodeInfo);
             public override int GetHashCode() => HashCode.Combine(Start, End, LeafCount, ChildCount);
-            
-            public override string ToString() => 
+
+            public override string ToString() =>
                 $"Node(S={Start}, E={End}, L={LeafCount}, C={ChildCount}, Keys=[{string.Join(",", ChildrenKeys)}])";
         }
 

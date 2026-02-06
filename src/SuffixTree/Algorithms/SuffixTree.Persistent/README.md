@@ -10,8 +10,9 @@ Based on Ukkonen's algorithm, this library provides an efficient way to index an
 - **Persistence**: Build once, save to disk, and reload instantly in subsequent sessions.
 - **Scalability**: Capable of handling gigabytes of text by offloading the node graph to disk.
 - **Thread-Safe Read Access**: Supports multiple concurrent readers for the same tree file.
+- **Suffix Links Preserved**: Ukkonen's algorithm writes suffix links natively, enabling `FindExactMatchAnchors` on persistent trees.
 - **Logical Identity**: Deterministic checksumming (SHA256) ensures distinct trees can be uniquely identified regardless of their memory layout.
-- **Canonical Serialization**: Layout-independent export and import format for portability between different storage backends.
+- **Portable Serialization (v2)**: Export stores text + SHA256 hash; import rebuilds via Ukkonen's, guaranteeing 100% functionality including suffix links.
 
 ## Usage Examples
 
@@ -70,49 +71,58 @@ Nodes are represented as fixed 40-byte blocks (after adding `ChildCount`) with 6
 ### Algorithmic Stability
 - **Iterative Algorithms**: Leaf counting and tree traversal are implemented using stacks rather than recursion. This prevents `StackOverflowException` when processing extremely deep or repetitive trees.
 
-## Canonical Operations
+## Serialization & Portability
 
-The [SuffixTreeSerializer](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/SuffixTreeSerializer.cs) utility provides logical identity and portability for your trees.
+The `SuffixTreeSerializer` utility provides logical identity, portable export/import, and convenient file-based persistence.
+
+**Format v2**: Export stores only the source text and a SHA256 structural hash. Import rebuilds the tree from text via `PersistentSuffixTreeBuilder` (Ukkonen's algorithm), guaranteeing 100% functionality including suffix links for `FindExactMatchAnchors`.
 
 ### 1. Calculating Logical Hash
 Get a unique fingerprint of the tree structure that is identical across different memory layouts.
 
 ```csharp
-// Calculate SHA256 logical hash
 byte[] hash = SuffixTreeSerializer.CalculateLogicalHash(tree);
 string hashString = BitConverter.ToString(hash).Replace("-", "");
 Console.WriteLine($"Tree Fingerprint: {hashString}");
 ```
 
-### 2. Exporting to a Portable File
-Save the tree to a layout-independent logical binary format.
+### 2. Stream-Based Export / Import
+Export any `ISuffixTree` to a portable stream; import into any `IStorageProvider`.
 
 ```csharp
-using (var outStream = File.Create("canonical_tree.bin"))
-{
+// Export (compact: text + hash only)
+using (var outStream = File.Create("tree.bin"))
     SuffixTreeSerializer.Export(tree, outStream);
+
+// Import — rebuilds via Ukkonen, suffix links created natively
+using (var inStream = File.OpenRead("tree.bin"))
+{
+    var storage = new HeapStorageProvider();
+    var imported = SuffixTreeSerializer.Import(inStream, storage);
+    imported.FindExactMatchAnchors("query", 3); // works — suffix links intact
 }
 ```
 
-### 3. Importing from a Portable File
-Reconstruct a persistent tree from a logical export into a specific storage provider.
+### 3. File-Based Save / Load (MMF)
+Convenience methods that create a native persistent tree file.
 
 ```csharp
-using (var inStream = File.OpenRead("canonical_tree.bin"))
-{
-    // Import into a new MMF-backed storage
-    var storage = new MappedFileStorageProvider("imported.tree", size: 1024 * 1024);
-    var importedTree = SuffixTreeSerializer.Import(inStream, storage);
+// Save any ISuffixTree to a memory-mapped file
+using var saved = SuffixTreeSerializer.SaveToFile(tree, "saved.tree") as IDisposable;
 
-    Console.WriteLine($"Imported text: {importedTree.Text}");
-}
+// Load from file — read-only, instant startup
+using var loaded = SuffixTreeSerializer.LoadFromFile("saved.tree") as IDisposable;
+var st = (ISuffixTree)loaded;
+st.FindExactMatchAnchors("query", 3); // full functionality
 ```
 
 ## Quality Assurance
 
-The library is verified by a robust test suite:
-- **Differential Parity**: Cross-validation against the reference in-memory implementation.
-- **Logical Parity**: Ensures checksums match across different storage backends.
+The library is verified by 69 tests:
+- **Differential Parity**: Cross-validation against the reference in-memory implementation for all `ISuffixTree` methods.
+- **Anchor Parity**: `FindExactMatchAnchors` results match between in-memory and persistent trees.
+- **Logical Parity**: SHA256 checksums match across Heap, MMF, and imported storage backends.
+- **Serialization Round-Trip**: Export → Import and SaveToFile → LoadFromFile preserve full functionality.
 - **Stress Testing**: Validates stability with large datasets (1MB+) and concurrent access.
 
 ## License
