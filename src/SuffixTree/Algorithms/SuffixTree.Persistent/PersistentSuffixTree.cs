@@ -202,72 +202,169 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
     {
-        // LCS implementation for ISuffixTree
-        int maxLength = 0;
-        int maxPosText = -1;
-        int maxPosOther = -1;
-
-        var node = new PersistentSuffixTreeNode(_storage, _rootOffset);
-
-        for (int i = 0; i < other.Length; i++)
-        {
-            var (matchNode, matchLen) = MatchLongestPrefix(other.AsSpan().Slice(i), node);
-            if (matchLen > maxLength)
-            {
-                maxLength = matchLen;
-                maxPosOther = i;
-
-                // Find position in text
-                var occurrences = new List<int>();
-                CollectLeaves(matchNode, (int)matchNode.DepthFromRoot, occurrences);
-                if (occurrences.Count > 0)
-                {
-                    maxPosText = occurrences[0];
-                }
-            }
-        }
-
-        if (maxLength == 0) return (string.Empty, -1, -1);
-        return (other.Substring(maxPosOther, maxLength), maxPosText, maxPosOther);
+        var results = FindAllLcsInternal(other, firstOnly: true);
+        if (results.PositionsInText.Count == 0)
+            return (string.Empty, -1, -1);
+        return (results.Substring, results.PositionsInText[0], results.PositionsInOther[0]);
     }
 
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)
     {
-        // LCS implementation for ISuffixTree
-        int maxLength = 0;
-        int maxPosText = -1;
-        int maxPosOther = -1;
-
-        var node = new PersistentSuffixTreeNode(_storage, _rootOffset);
-
-        for (int i = 0; i < other.Length; i++)
-        {
-            var (matchNode, matchLen) = MatchLongestPrefix(other.Slice(i), node);
-            if (matchLen > maxLength)
-            {
-                maxLength = matchLen;
-                maxPosOther = i;
-
-                // Find position in text
-                var occurrences = new List<int>();
-                CollectLeaves(matchNode, (int)matchNode.DepthFromRoot, occurrences);
-                if (occurrences.Count > 0)
-                {
-                    maxPosText = occurrences[0];
-                }
-            }
-        }
-
-        if (maxLength == 0) return (string.Empty, -1, -1);
-        return (new string(other.Slice(maxPosOther, maxLength)), maxPosText, maxPosOther);
+        return LongestCommonSubstringInfo(new string(other));
     }
 
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
     {
-        // Simplified for now
-        var info = LongestCommonSubstringInfo(other);
-        if (info.PositionInText == -1) return (string.Empty, Array.Empty<int>(), Array.Empty<int>());
-        return (info.Substring, new[] { info.PositionInText }, new[] { info.PositionInOther });
+        var results = FindAllLcsInternal(other, firstOnly: false);
+        return (results.Substring, results.PositionsInText, results.PositionsInOther);
+    }
+
+    /// <summary>
+    /// O(m) LCS using suffix-link-based streaming (same algorithm as FindExactMatchAnchors).
+    /// Walks through <paramref name="other"/> maintaining the longest match via suffix links,
+    /// instead of restarting from root for each position.
+    /// </summary>
+    private (string Substring, List<int> PositionsInText, List<int> PositionsInOther) FindAllLcsInternal(string other, bool firstOnly)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.Length == 0 || _textSource.Length == 0)
+            return (string.Empty, new List<int>(), new List<int>());
+
+        var root = new PersistentSuffixTreeNode(_storage, _rootOffset);
+        int maxLen = 0;
+        var bestMatches = new List<(PersistentSuffixTreeNode Node, int MatchEndInOther)>();
+
+        var currentNode = root;
+        PersistentSuffixTreeNode currentEdge = PersistentSuffixTreeNode.Null(_storage);
+        int edgeOffset = 0;
+        int currentMatchLen = 0;
+
+        for (int i = 0; i < other.Length; i++)
+        {
+            uint c = (uint)other[i];
+
+            while (true)
+            {
+                if (!currentEdge.IsNull)
+                {
+                    if (GetSymbolAt((int)(currentEdge.Start + (uint)edgeOffset)) == (int)c)
+                    {
+                        edgeOffset++;
+                        currentMatchLen++;
+                        if (edgeOffset >= LengthOf(currentEdge))
+                        {
+                            currentNode = currentEdge;
+                            currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                            edgeOffset = 0;
+                        }
+                        break;
+                    }
+                }
+                else
+                {
+                    if (currentNode.TryGetChild(c, out var nextChild) && !nextChild.IsNull)
+                    {
+                        currentEdge = nextChild;
+                        edgeOffset = 1;
+                        currentMatchLen++;
+                        if (edgeOffset >= LengthOf(currentEdge))
+                        {
+                            currentNode = currentEdge;
+                            currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                            edgeOffset = 0;
+                        }
+                        break;
+                    }
+                }
+
+                // Cannot extend — follow suffix link
+                if (currentMatchLen == 0) break;
+
+                if (currentNode.Offset != _rootOffset)
+                {
+                    long suffixLink = currentNode.SuffixLink;
+                    currentNode = suffixLink != PersistentConstants.NULL_OFFSET
+                        ? new PersistentSuffixTreeNode(_storage, suffixLink)
+                        : root;
+                }
+                currentMatchLen--;
+
+                // Rescan from currentNode to restore edge position
+                int nodeDepth = GetNodeDepth(currentNode);
+                int remaining = currentMatchLen - nodeDepth;
+
+                if (remaining > 0)
+                {
+                    int pos = i - remaining;
+                    currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                    edgeOffset = 0;
+
+                    while (remaining > 0)
+                    {
+                        if (!currentNode.TryGetChild((uint)other[pos], out var nc) || nc.IsNull)
+                            break;
+                        int edgeLen = LengthOf(nc);
+                        if (edgeLen <= remaining)
+                        {
+                            pos += edgeLen;
+                            remaining -= edgeLen;
+                            currentNode = nc;
+                        }
+                        else
+                        {
+                            currentEdge = nc;
+                            edgeOffset = remaining;
+                            remaining = 0;
+                        }
+                    }
+                }
+                else
+                {
+                    currentEdge = PersistentSuffixTreeNode.Null(_storage);
+                    edgeOffset = 0;
+                }
+            }
+
+            // Track best matches
+            if (currentMatchLen > maxLen)
+            {
+                maxLen = currentMatchLen;
+                bestMatches.Clear();
+                bestMatches.Add((currentEdge.IsNull ? currentNode : currentEdge, i));
+            }
+            else if (currentMatchLen == maxLen && maxLen > 0)
+            {
+                bestMatches.Add((currentEdge.IsNull ? currentNode : currentEdge, i));
+            }
+        }
+
+        if (maxLen == 0)
+            return (string.Empty, new List<int>(), new List<int>());
+
+        var positionsInText = new List<int>();
+        var positionsInOther = new List<int>();
+
+        foreach (var match in bestMatches)
+        {
+            positionsInOther.Add(match.MatchEndInOther - maxLen + 1);
+
+            if (firstOnly)
+            {
+                // Get one leaf position
+                var occurrences = new List<int>();
+                CollectLeaves(match.Node, (int)match.Node.DepthFromRoot, occurrences);
+                if (occurrences.Count > 0)
+                    positionsInText.Add(occurrences[0]);
+                break;
+            }
+            else
+            {
+                CollectLeaves(match.Node, (int)match.Node.DepthFromRoot, positionsInText);
+            }
+        }
+
+        string substring = other.Substring(bestMatches[0].MatchEndInOther - maxLen + 1, maxLen);
+        return (substring, positionsInText, positionsInOther);
     }
 
     public string PrintTree() => "Persistent Tree Visualization Not Implemented";
@@ -546,33 +643,6 @@ public class PersistentSuffixTree : ISuffixTree, IDisposable
             node = child;
         }
         return (node, true);
-    }
-
-    private (PersistentSuffixTreeNode node, int length) MatchLongestPrefix(ReadOnlySpan<char> pattern, PersistentSuffixTreeNode startNode)
-    {
-        var node = startNode;
-        int i = 0;
-        while (i < pattern.Length)
-        {
-            if (!node.TryGetChild((uint)pattern[i], out var child) || child.IsNull)
-                break;
-
-            int edgeLen = LengthOf(child);
-            int remaining = pattern.Length - i;
-            int compareLen = edgeLen < remaining ? edgeLen : remaining;
-
-            int j = 0;
-            for (; j < compareLen; j++)
-            {
-                if (GetSymbolAt((int)child.Start + j) != pattern[i + j])
-                    break;
-            }
-
-            i += j;
-            node = child;
-            if (j < compareLen) break;
-        }
-        return (node, i);
     }
 
     private int LengthOf(PersistentSuffixTreeNode node)
