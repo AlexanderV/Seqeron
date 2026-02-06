@@ -24,6 +24,11 @@ public static class PersistentSuffixTreeFactory
         {
             var builder = new PersistentSuffixTreeBuilder(storage);
             long rootOffset = builder.Build(text);
+
+            // Trim MMF file to actual data size (reclaim ~50% unused capacity)
+            if (storage is MappedFileStorageProvider mapped)
+                mapped.TrimToSize();
+
             return new PersistentSuffixTree(storage, rootOffset, text);
         }
         catch

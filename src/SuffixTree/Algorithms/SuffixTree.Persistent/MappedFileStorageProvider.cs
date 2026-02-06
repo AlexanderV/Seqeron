@@ -145,4 +145,29 @@ public class MappedFileStorageProvider : IStorageProvider
         _position = size;
         EnsureCapacity(_position);
     }
+
+    /// <summary>
+    /// Trims the backing file to the actual data size, reclaiming unused capacity.
+    /// Must be called when writing is complete (e.g., after build).
+    /// </summary>
+    public void TrimToSize()
+    {
+        ThrowIfDisposed();
+        if (_readOnly || _position >= _capacity) return;
+
+        // Close current mapping
+        _accessor.Dispose();
+        _mmf.Dispose();
+
+        // Truncate file to actual data size
+        _capacity = _position;
+        using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            fs.SetLength(_capacity);
+        }
+
+        // Re-map at trimmed size (read-write in case caller still writes headers)
+        _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
+        _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+    }
 }

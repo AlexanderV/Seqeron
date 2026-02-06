@@ -29,7 +29,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
             _accessor = _mmf.CreateViewAccessor(offset, length * sizeof(char), MemoryMappedFileAccess.Read);
             _length = length;
             _ownsAccessor = true;
-            
+
             byte* basePtr = null;
             _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
             _ptr = (char*)(basePtr + _accessor.PointerOffset);
@@ -49,7 +49,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         _accessor = accessor ?? throw new ArgumentNullException(nameof(accessor));
         _length = length;
         _ownsAccessor = false;
-        
+
         byte* basePtr = null;
         _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
         // Correct pointer calculation: basePtr is the start of the view, 
@@ -115,7 +115,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         if (!_disposed)
         {
             _disposed = true; // Mark disposed first to stop readers
-            
+
             // Release pointer before disposing accessor
             // Note: SafeMemoryMappedViewHandle.ReleasePointer() is instance method
             _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
