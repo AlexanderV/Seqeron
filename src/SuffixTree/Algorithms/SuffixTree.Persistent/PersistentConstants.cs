@@ -9,6 +9,11 @@ public static class PersistentConstants
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
     public const long NULL_OFFSET = -1L;
     public const long MAGIC_NUMBER = 0x5452454558494646L; // "SUFFIXTR"
+
+    /// <summary>
+    /// Binary storage format version (v3). Incremented on layout changes.
+    /// Independent of <see cref="SuffixTreeSerializer"/> logical format (v2).
+    /// </summary>
     public const int CURRENT_VERSION = 3;
 
     // Header Layout (48 bytes, packed, naturally aligned)
