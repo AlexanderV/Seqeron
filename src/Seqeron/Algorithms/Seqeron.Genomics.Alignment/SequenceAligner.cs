@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -143,8 +144,8 @@ public static class SequenceAligner
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(0.75);
 
-        var aligned1 = new System.Text.StringBuilder();
-        var aligned2 = new System.Text.StringBuilder();
+        var chars1 = new List<char>();
+        var chars2 = new List<char>();
         int ii = m, jj = n;
 
         while (ii > 0 || jj > 0)
@@ -157,8 +158,8 @@ public static class SequenceAligner
                 int matchScore = seq1[ii - 1] == seq2[jj - 1] ? score.Match : score.Mismatch;
                 if (matrix[ii, jj] == matrix[ii - 1, jj - 1] + matchScore)
                 {
-                    aligned1.Insert(0, seq1[ii - 1]);
-                    aligned2.Insert(0, seq2[jj - 1]);
+                    chars1.Add(seq1[ii - 1]);
+                    chars2.Add(seq2[jj - 1]);
                     ii--; jj--;
                     continue;
                 }
@@ -166,14 +167,14 @@ public static class SequenceAligner
 
             if (ii > 0 && matrix[ii, jj] == matrix[ii - 1, jj] + score.GapExtend)
             {
-                aligned1.Insert(0, seq1[ii - 1]);
-                aligned2.Insert(0, '-');
+                chars1.Add(seq1[ii - 1]);
+                chars2.Add('-');
                 ii--;
             }
             else if (jj > 0)
             {
-                aligned1.Insert(0, '-');
-                aligned2.Insert(0, seq2[jj - 1]);
+                chars1.Add('-');
+                chars2.Add(seq2[jj - 1]);
                 jj--;
             }
             else
@@ -182,11 +183,14 @@ public static class SequenceAligner
             }
         }
 
+        chars1.Reverse();
+        chars2.Reverse();
+
         progress?.Report(1.0);
 
         return new AlignmentResult(
-            AlignedSequence1: aligned1.ToString(),
-            AlignedSequence2: aligned2.ToString(),
+            AlignedSequence1: new string(chars1.ToArray()),
+            AlignedSequence2: new string(chars2.ToArray()),
             Score: matrix[m, n],
             AlignmentType: AlignmentType.Global,
             StartPosition1: 0,
@@ -216,32 +220,52 @@ public static class SequenceAligner
         int m = seq1.Length;
         int n = seq2.Length;
 
-        // Initialize scoring matrix
-        var score = new int[m + 1, n + 1];
+        // Use pooled flat array instead of 2D array to reduce GC pressure.
+        // For anchor-based MSA, this method is called 100+ times per alignment
+        // with small gap segments (typically <100bp), so pooling is effective.
+        int rows = m + 1;
+        int cols = n + 1;
+        int totalCells = rows * cols;
+        var pool = ArrayPool<int>.Shared;
+        int[] buf = pool.Rent(totalCells);
 
-        // Initialize first row and column
-        for (int i = 0; i <= m; i++)
-            score[i, 0] = i * scoring.GapExtend + (i > 0 ? scoring.GapOpen : 0);
-        for (int j = 0; j <= n; j++)
-            score[0, j] = j * scoring.GapExtend + (j > 0 ? scoring.GapOpen : 0);
-
-        // Fill the matrix
-        for (int i = 1; i <= m; i++)
+        try
         {
-            for (int j = 1; j <= n; j++)
+            // Initialize first row and column
+            for (int i = 0; i <= m; i++)
+                buf[i * cols] = i * scoring.GapExtend + (i > 0 ? scoring.GapOpen : 0);
+            for (int j = 0; j <= n; j++)
+                buf[j] = j * scoring.GapExtend + (j > 0 ? scoring.GapOpen : 0);
+
+            // Fill the matrix
+            for (int i = 1; i <= m; i++)
             {
-                int matchScore = seq1[i - 1] == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
+                int rowOff = i * cols;
+                int prevRowOff = (i - 1) * cols;
+                char c1 = seq1[i - 1];
 
-                int diag = score[i - 1, j - 1] + matchScore;
-                int up = score[i - 1, j] + scoring.GapExtend;
-                int left = score[i, j - 1] + scoring.GapExtend;
+                for (int j = 1; j <= n; j++)
+                {
+                    int matchScore = c1 == seq2[j - 1] ? scoring.Match : scoring.Mismatch;
 
-                score[i, j] = Math.Max(diag, Math.Max(up, left));
+                    int diag = buf[prevRowOff + (j - 1)] + matchScore;
+                    int up = buf[prevRowOff + j] + scoring.GapExtend;
+                    int left = buf[rowOff + (j - 1)] + scoring.GapExtend;
+
+                    buf[rowOff + j] = Math.Max(diag, Math.Max(up, left));
+                }
             }
-        }
 
-        // Traceback
-        return Traceback(seq1, seq2, score, m, n, scoring, AlignmentType.Global);
+            // Copy to 2D for Traceback (Traceback uses int[,])
+            var score = new int[rows, cols];
+            Buffer.BlockCopy(buf, 0, score, 0, totalCells * sizeof(int));
+
+            return Traceback(seq1, seq2, score, m, n, scoring, AlignmentType.Global);
+        }
+        finally
+        {
+            pool.Return(buf);
+        }
     }
 
     #endregion
@@ -322,8 +346,8 @@ public static class SequenceAligner
     private static AlignmentResult TracebackLocal(
         string seq1, string seq2, int[,] score, int endI, int endJ, ScoringMatrix scoring)
     {
-        var aligned1 = new StringBuilder();
-        var aligned2 = new StringBuilder();
+        var chars1 = new List<char>();
+        var chars2 = new List<char>();
 
         int i = endI, j = endJ;
         int startI = endI, startJ = endJ;
@@ -337,27 +361,30 @@ public static class SequenceAligner
 
             if (score[i, j] == score[i - 1, j - 1] + matchScore)
             {
-                aligned1.Insert(0, seq1[i - 1]);
-                aligned2.Insert(0, seq2[j - 1]);
+                chars1.Add(seq1[i - 1]);
+                chars2.Add(seq2[j - 1]);
                 i--; j--;
             }
             else if (score[i, j] == score[i - 1, j] + scoring.GapExtend)
             {
-                aligned1.Insert(0, seq1[i - 1]);
-                aligned2.Insert(0, '-');
+                chars1.Add(seq1[i - 1]);
+                chars2.Add('-');
                 i--;
             }
             else
             {
-                aligned1.Insert(0, '-');
-                aligned2.Insert(0, seq2[j - 1]);
+                chars1.Add('-');
+                chars2.Add(seq2[j - 1]);
                 j--;
             }
         }
 
+        chars1.Reverse();
+        chars2.Reverse();
+
         return new AlignmentResult(
-            AlignedSequence1: aligned1.ToString(),
-            AlignedSequence2: aligned2.ToString(),
+            AlignedSequence1: new string(chars1.ToArray()),
+            AlignedSequence2: new string(chars2.ToArray()),
             Score: score[endI, endJ],
             AlignmentType: AlignmentType.Local,
             StartPosition1: startI - 1,
@@ -438,16 +465,16 @@ public static class SequenceAligner
         string seq1, string seq2, int[,] score, int i, int j,
         ScoringMatrix scoring, AlignmentType alignType)
     {
-        var aligned1 = new StringBuilder();
-        var aligned2 = new StringBuilder();
+        var chars1 = new List<char>();
+        var chars2 = new List<char>();
 
-        // Add trailing gaps for semi-global
+        // Add trailing gaps for semi-global (appended first, will be at end after reverse)
         if (alignType == AlignmentType.SemiGlobal)
         {
-            for (int k = seq2.Length; k > j; k--)
+            for (int k = j + 1; k <= seq2.Length; k++)
             {
-                aligned1.Insert(0, '-');
-                aligned2.Insert(0, seq2[k - 1]);
+                chars1.Add('-');
+                chars2.Add(seq2[k - 1]);
             }
         }
 
@@ -459,8 +486,8 @@ public static class SequenceAligner
 
                 if (score[i, j] == score[i - 1, j - 1] + matchScore)
                 {
-                    aligned1.Insert(0, seq1[i - 1]);
-                    aligned2.Insert(0, seq2[j - 1]);
+                    chars1.Add(seq1[i - 1]);
+                    chars2.Add(seq2[j - 1]);
                     i--; j--;
                     continue;
                 }
@@ -468,22 +495,28 @@ public static class SequenceAligner
 
             if (i > 0 && (j == 0 || score[i, j] == score[i - 1, j] + scoring.GapExtend))
             {
-                aligned1.Insert(0, seq1[i - 1]);
-                aligned2.Insert(0, '-');
+                chars1.Add(seq1[i - 1]);
+                chars2.Add('-');
                 i--;
             }
             else
             {
-                aligned1.Insert(0, '-');
-                aligned2.Insert(0, seq2[j - 1]);
+                chars1.Add('-');
+                chars2.Add(seq2[j - 1]);
                 j--;
             }
         }
 
+        chars1.Reverse();
+        chars2.Reverse();
+
+        string aligned1Str = new string(chars1.ToArray());
+        string aligned2Str = new string(chars2.ToArray());
+
         return new AlignmentResult(
-            AlignedSequence1: aligned1.ToString(),
-            AlignedSequence2: aligned2.ToString(),
-            Score: score[seq1.Length, alignType == AlignmentType.SemiGlobal ? aligned2.ToString().Replace("-", "").Length : seq2.Length],
+            AlignedSequence1: aligned1Str,
+            AlignedSequence2: aligned2Str,
+            Score: score[seq1.Length, alignType == AlignmentType.SemiGlobal ? aligned2Str.Replace("-", "").Length : seq2.Length],
             AlignmentType: alignType,
             StartPosition1: 0,
             StartPosition2: 0,
@@ -619,18 +652,7 @@ public static class SequenceAligner
 
         var effectiveScoring = scoring ?? SimpleDna;
 
-        // For 2 sequences or very short sequences, fall back to standard NW
-        // (anchor overhead not worth it for short sequences)
-        const int anchorThreshold = 30;
-        bool useAnchors = seqList.Count >= 2
-            && seqList.All(s => s.Length >= anchorThreshold);
-
-        if (!useAnchors)
-        {
-            return MultipleAlignClassic(seqList, effectiveScoring);
-        }
-
-        // Step 1: Select the best center sequence using LCS-based distances.
+        // Step 1: Select the best center sequence using k-mer cosine similarity.
         // The center is the sequence that maximizes total similarity to all others.
         int centerIdx = SelectCenterSequence(seqList);
 
@@ -696,29 +718,59 @@ public static class SequenceAligner
 
     /// <summary>
     /// Selects the center sequence for star alignment by finding the sequence
-    /// with the highest total LCS similarity to all others.
-    /// Uses suffix trees for O(L) per-pair comparison instead of O(L²) NW.
+    /// with the highest total similarity to all others.
+    /// Uses 4-mer frequency cosine similarity: O(k²·L) with small constant,
+    /// instead of O(k²·L) suffix-tree LCS which builds k trees.
     /// </summary>
     private static int SelectCenterSequence(List<DnaSequence> sequences)
     {
         int k = sequences.Count;
         if (k <= 2) return 0;
 
-        var totalSimilarity = new int[k];
+        // Build 4-mer frequency vectors for each sequence.
+        // 4-mer over ACGT → 256 possible k-mers, stored as int[256].
+        const int KmerLen = 4;
+        const int VocabSize = 256; // 4^4
+        var profiles = new int[k][];
+        var norms = new double[k];
 
-        // For each sequence, compute sum of LCS lengths to all others
         for (int i = 0; i < k; i++)
         {
-            var tree = sequences[i].SuffixTree;
-            for (int j = 0; j < k; j++)
+            profiles[i] = new int[VocabSize];
+            string seq = sequences[i].Sequence;
+            for (int p = 0; p <= seq.Length - KmerLen; p++)
             {
-                if (i == j) continue;
-                string lcs = tree.LongestCommonSubstring(sequences[j].Sequence);
-                totalSimilarity[i] += lcs.Length;
+                int hash = KmerHash(seq, p, KmerLen);
+                if (hash >= 0)
+                    profiles[i][hash]++;
+            }
+
+            double norm = 0;
+            for (int v = 0; v < VocabSize; v++)
+                norm += (double)profiles[i][v] * profiles[i][v];
+            norms[i] = Math.Sqrt(norm);
+        }
+
+        // Compute pairwise cosine similarity; pick sequence with max total
+        var totalSimilarity = new double[k];
+
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = i + 1; j < k; j++)
+            {
+                double dot = 0;
+                for (int v = 0; v < VocabSize; v++)
+                    dot += (double)profiles[i][v] * profiles[j][v];
+
+                double sim = (norms[i] > 0 && norms[j] > 0)
+                    ? dot / (norms[i] * norms[j])
+                    : 0;
+
+                totalSimilarity[i] += sim;
+                totalSimilarity[j] += sim;
             }
         }
 
-        // Return index of sequence with maximum total similarity
         int bestIdx = 0;
         for (int i = 1; i < k; i++)
         {
@@ -727,6 +779,29 @@ public static class SequenceAligner
         }
 
         return bestIdx;
+    }
+
+    /// <summary>
+    /// Hashes a 4-mer at the given position into [0..255].
+    /// Returns -1 if any character is not A/C/G/T.
+    /// </summary>
+    private static int KmerHash(string seq, int pos, int len)
+    {
+        int hash = 0;
+        for (int i = 0; i < len; i++)
+        {
+            int code = seq[pos + i] switch
+            {
+                'A' or 'a' => 0,
+                'C' or 'c' => 1,
+                'G' or 'g' => 2,
+                'T' or 't' => 3,
+                _ => -1
+            };
+            if (code < 0) return -1;
+            hash = (hash << 2) | code;
+        }
+        return hash;
     }
 
     /// <summary>
