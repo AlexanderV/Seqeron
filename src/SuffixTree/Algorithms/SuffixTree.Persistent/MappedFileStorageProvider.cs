@@ -16,7 +16,7 @@ public class MappedFileStorageProvider : IStorageProvider
     private readonly bool _readOnly;
     private long _capacity;
     private long _position;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     internal MemoryMappedViewAccessor Accessor
     {
