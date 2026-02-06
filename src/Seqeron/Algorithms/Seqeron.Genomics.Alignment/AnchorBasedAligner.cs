@@ -274,7 +274,7 @@ internal static class AnchorBasedAligner
 
     /// <summary>
     /// Aligns a gap segment. For very short or equal gaps, uses trivial alignment.
-    /// For longer gaps, delegates to Needleman-Wunsch.
+    /// For moderate gaps, uses standard NW (anchors keep gaps small, typically &lt;100bp).
     /// For gaps exceeding MaxGapForNW, uses a simpler heuristic.
     /// </summary>
     private static (string Aligned1, string Aligned2, int Score) AlignGap(
@@ -306,16 +306,16 @@ internal static class AnchorBasedAligner
             return (refGap, queryGap, score);
         }
 
-        // Very short gaps — use NW (it's cheap)
-        // Also use NW for moderately-sized gaps
-        if (refGap.Length <= MaxGapForNW && queryGap.Length <= MaxGapForNW)
+        // Very large gap — fall back to simple diagonal alignment
+        if (refGap.Length > MaxGapForNW || queryGap.Length > MaxGapForNW)
         {
-            var result = SequenceAligner.GlobalAlign(refGap, queryGap, scoring);
-            return (result.AlignedSequence1, result.AlignedSequence2, result.Score);
+            return SimpleAlignLargeGap(refGap, queryGap, scoring);
         }
 
-        // Very large gap — fall back to simple diagonal alignment
-        return SimpleAlignLargeGap(refGap, queryGap, scoring);
+        // Standard NW for remaining gaps — anchors keep gaps small (typically <100bp),
+        // so full NW is cheap and always finds the optimal alignment.
+        var result = SequenceAligner.GlobalAlign(refGap, queryGap, scoring);
+        return (result.AlignedSequence1, result.AlignedSequence2, result.Score);
     }
 
     /// <summary>
