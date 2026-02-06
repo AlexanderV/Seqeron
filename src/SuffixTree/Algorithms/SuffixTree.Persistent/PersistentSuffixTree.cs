@@ -388,66 +388,66 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         sb.Append(ci, $"0:ROOT").AppendLine();
 
         var root = new PersistentSuffixTreeNode(_storage, _rootOffset);
-        var rootKeys = CollectSortedKeys(root);
+        int rootChildCount = root.ChildCount;
 
-        // Frame: (parent node, sorted keys, current index, depth)
-        var stack = new Stack<(PersistentSuffixTreeNode Node, List<uint> Keys, int Index, int Depth)>();
-        if (rootKeys.Count > 0)
-            stack.Push((root, rootKeys, 0, 0));
+        // Frame: (parent node, child count, current index, depth)
+        var stack = new Stack<(PersistentSuffixTreeNode Node, int ChildCount, int Index, int Depth)>();
+        if (rootChildCount > 0)
+            stack.Push((root, rootChildCount, 0, 0));
 
         while (stack.Count > 0)
         {
-            var (node, keys, index, depth) = stack.Pop();
-            if (index >= keys.Count) continue;
+            var (node, childCount, index, depth) = stack.Pop();
+            if (index >= childCount) continue;
 
             // Push continuation for next sibling
-            stack.Push((node, keys, index + 1, depth));
+            stack.Push((node, childCount, index + 1, depth));
 
-            if (node.TryGetChild(keys[index], out var child))
+            // Read child directly from sorted array (zero allocation)
+            long entryOffset = node.ChildrenHead + (long)index * PersistentConstants.CHILD_ENTRY_SIZE;
+            long childNodeOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
+            var child = new PersistentSuffixTreeNode(_storage, childNodeOffset);
+
+            int childDepth = depth + 1;
+            sb.Append(' ', childDepth * 2);
+            sb.Append(ci, $"{childDepth}: ");
+            AppendLabel(sb, child);
+
+            if (child.IsLeaf)
             {
-                int childDepth = depth + 1;
-                string label = LabelOf(child);
-                string leafMark = child.IsLeaf ? " (Leaf)" : "";
-                string linkMark = "";
-                if (!child.IsLeaf && child.SuffixLink != PersistentConstants.NULL_OFFSET)
+                sb.AppendLine(" (Leaf)");
+            }
+            else
+            {
+                if (child.SuffixLink != PersistentConstants.NULL_OFFSET)
                 {
                     var linkNode = new PersistentSuffixTreeNode(_storage, child.SuffixLink);
                     if (linkNode.Offset != _rootOffset)
                     {
                         int firstChar = GetSymbolAt((int)linkNode.Start);
-                        linkMark = firstChar >= 0 ? $" -> [{(char)firstChar}]" : "";
+                        if (firstChar >= 0)
+                            sb.Append(ci, $" -> [{(char)firstChar}]");
                     }
                 }
+                sb.AppendLine();
 
-                sb.Append(' ', childDepth * 2);
-                sb.Append(ci, $"{childDepth}: {label}{leafMark}{linkMark}").AppendLine();
-
-                if (!child.IsLeaf && child.ChildCount > 0)
-                {
-                    var grandKeys = CollectSortedKeys(child);
-                    stack.Push((child, grandKeys, 0, childDepth));
-                }
+                if (child.ChildCount > 0)
+                    stack.Push((child, child.ChildCount, 0, childDepth));
             }
         }
 
         return sb.ToString();
     }
 
-    private string LabelOf(PersistentSuffixTreeNode node)
+    private void AppendLabel(StringBuilder sb, PersistentSuffixTreeNode node)
     {
         int len = LengthOf(node);
-        var sb = new StringBuilder(len);
         for (int i = 0; i < len; i++)
         {
             int s = GetSymbolAt((int)node.Start + i);
-            if (s == -1)
-            {
-                sb.Append('#');
-                break;
-            }
+            if (s == -1) { sb.Append('#'); break; }
             sb.Append((char)s);
         }
-        return sb.ToString();
     }
 
     /// <inheritdoc/>
@@ -640,23 +640,21 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void TraverseCore(PersistentSuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
     {
-        // Frame: node being processed, sorted child keys, current index into keys, depth
-        var stack = new Stack<(PersistentSuffixTreeNode Node, List<uint> Keys, int Index, int Depth)>();
+        // Frame: node, child count, current child index, depth
+        var stack = new Stack<(PersistentSuffixTreeNode Node, int ChildCount, int Index, int Depth)>();
 
         // Visit root node
         visitor.VisitNode((int)node.Start, (int)node.End, (int)node.LeafCount, node.ChildCount, depth);
         if (!node.IsLeaf)
         {
-            var rootKeys = CollectSortedKeys(node);
-            int rootFullDepth = depth; // root has no edge
-            stack.Push((node, rootKeys, 0, rootFullDepth));
+            stack.Push((node, node.ChildCount, 0, depth));
         }
 
         while (stack.Count > 0)
         {
-            var (current, keys, index, parentDepth) = stack.Pop();
+            var (current, childCount, index, parentDepth) = stack.Pop();
 
-            if (index >= keys.Count)
+            if (index >= childCount)
             {
                 // All children processed — exit branch (unless this is the root frame)
                 if (stack.Count > 0)
@@ -665,40 +663,26 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             }
 
             // Push continuation for next sibling
-            stack.Push((current, keys, index + 1, parentDepth));
+            stack.Push((current, childCount, index + 1, parentDepth));
 
-            var key = keys[index];
-            if (current.TryGetChild(key, out var child))
+            // Read child directly from sorted array (zero allocation)
+            long entryOffset = current.ChildrenHead + (long)index * PersistentConstants.CHILD_ENTRY_SIZE;
+            uint key = _storage.ReadUInt32(entryOffset + PersistentConstants.CHILD_OFFSET_KEY);
+            long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
+            var child = new PersistentSuffixTreeNode(_storage, childOffset);
+
+            visitor.EnterBranch((int)key);
+            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, parentDepth + 1);
+
+            if (!child.IsLeaf)
             {
-                visitor.EnterBranch((int)key);
-                visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, parentDepth + 1);
-
-                if (!child.IsLeaf)
-                {
-                    var childKeys = CollectSortedKeys(child);
-                    int childFullDepth = parentDepth + LengthOf(child);
-                    stack.Push((child, childKeys, 0, childFullDepth));
-                }
-                else
-                {
-                    visitor.ExitBranch();
-                }
+                stack.Push((child, child.ChildCount, 0, parentDepth + LengthOf(child)));
+            }
+            else
+            {
+                visitor.ExitBranch();
             }
         }
-    }
-
-    private List<uint> CollectSortedKeys(PersistentSuffixTreeNode node)
-    {
-        int count = node.ChildCount;
-        var keys = new List<uint>(count);
-        long arrayBase = node.ChildrenHead;
-        for (int i = 0; i < count; i++)
-        {
-            var entry = new PersistentChildEntry(_storage, arrayBase + (long)i * PersistentConstants.CHILD_ENTRY_SIZE);
-            keys.Add(entry.Key);
-        }
-        // Already sorted by builder (signed comparison: terminator first)
-        return keys;
     }
 
     // Internal helpers
@@ -788,20 +772,18 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                     deepest = node;
                 }
 
-                // Collect non-leaf children, push in reverse order to preserve
-                // left-to-right DFS order (matching recursive version tie-breaking)
-                var children = new List<PersistentSuffixTreeNode>();
+                // Push non-leaf children in reverse order for left-to-right DFS
+                // (no intermediate List — read directly from sorted child array)
                 int childCount = node.ChildCount;
                 long arrayBase = node.ChildrenHead;
-                for (int ci = 0; ci < childCount; ci++)
+                for (int ci = childCount - 1; ci >= 0; ci--)
                 {
-                    var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE);
-                    var child = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
+                    long entryOffset = arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE;
+                    long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
+                    var child = new PersistentSuffixTreeNode(_storage, childOffset);
                     if (!child.IsLeaf)
-                        children.Add(child);
+                        stack.Push(child);
                 }
-                for (int i = children.Count - 1; i >= 0; i--)
-                    stack.Push(children[i]);
             }
         }
 
