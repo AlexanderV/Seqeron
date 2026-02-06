@@ -3,6 +3,7 @@
 **Test Unit ID:** PHYLO-TREE-001
 **Category:** Phylogenetics
 **Created:** 2026-02-01
+**Status:** ☑ Complete
 **Evidence:** [PHYLO-TREE-001-Evidence.md](../docs/Evidence/PHYLO-TREE-001-Evidence.md)
 
 ---

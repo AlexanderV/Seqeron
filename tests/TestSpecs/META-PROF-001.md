@@ -9,6 +9,7 @@
 | **Canonical Methods** | `MetagenomicsAnalyzer.GenerateTaxonomicProfile` |
 | **Complexity** | O(n) where n = number of classifications |
 | **Invariants** | 0 ≤ abundance ≤ 1; Σ(abundances) ≈ 1.0; ClassifiedReads ≤ TotalReads |
+| **Status** | ☑ Complete |
 
 ## Methods Under Test
 

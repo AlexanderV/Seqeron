@@ -9,6 +9,7 @@
 | **Algorithm** | PAM Site Detection |
 | **Canonical Method** | `CrisprDesigner.FindPamSites(DnaSequence, CrisprSystemType)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete |
 
 ## Methods Under Test
 

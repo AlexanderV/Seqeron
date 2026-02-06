@@ -4,6 +4,7 @@
 **Algorithm:** Beta Diversity (CalculateBetaDiversity)  
 **Class:** MetagenomicsAnalyzer  
 **Method:** `CalculateBetaDiversity(string, IReadOnlyDictionary<string, double>, string, IReadOnlyDictionary<string, double>)`  
+**Status:** ☑ Complete
 **Created:** 2026-02-04  
 
 ## Test Categories

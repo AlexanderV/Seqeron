@@ -9,6 +9,7 @@
 | **Algorithm** | Gene Prediction |
 | **Canonical Methods** | `GenomeAnnotator.PredictGenes`, `GenomeAnnotator.FindRibosomeBindingSites` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete |
 
 ## Evidence Sources
 

@@ -10,6 +10,7 @@
 | **Canonical Methods** | `GenomeAnnotator.ParseGff3(IEnumerable<string>)`, `GenomeAnnotator.ToGff3(IEnumerable<GeneAnnotation>, string)` |
 | **Complexity** | O(n) |
 | **Evidence Sources** | Sequence Ontology GFF3 Spec v1.26, Wikipedia (GFF), RFC 3986 |
+| **Status** | ☑ Complete |
 
 ---
 

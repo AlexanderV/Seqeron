@@ -3,7 +3,7 @@
 **Test Unit ID:** ALIGN-GLOBAL-001
 **Area:** Alignment
 **Algorithm:** Global Alignment (Needleman–Wunsch)
-**Status:** ☐ Not Started
+**Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-02-01
 
