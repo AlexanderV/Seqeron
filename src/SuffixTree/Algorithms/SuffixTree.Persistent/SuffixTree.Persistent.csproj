@@ -11,4 +11,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SuffixTree.Persistent.Tests" />
+  </ItemGroup>
+
 </Project>

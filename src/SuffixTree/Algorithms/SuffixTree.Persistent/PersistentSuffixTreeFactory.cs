@@ -1,9 +1,16 @@
 using System;
+using System.IO;
 
 namespace SuffixTree.Persistent;
 
 /// <summary>
 /// Provides convenience methods for creating and loading persistent suffix trees.
+/// <para>
+/// The binary storage format is selected automatically:
+/// construction always starts with the Compact (32-bit, 28-byte node) layout
+/// for maximum cache efficiency. If the tree outgrows the ~4 GB uint32 address
+/// space, construction is transparently restarted with the Large (64-bit) layout.
+/// </para>
 /// </summary>
 public static class PersistentSuffixTreeFactory
 {
@@ -11,9 +18,8 @@ public static class PersistentSuffixTreeFactory
     /// Creates a new persistent suffix tree from the specified text source.
     /// If a filePath is provided, it uses Memory-Mapped Files; otherwise, it uses heap memory.
     /// <para>
-    /// The binary format is selected automatically: texts up to ~50 M characters use
-    /// a compact 32-bit layout (28-byte nodes, ~30 %% smaller files, better cache locality);
-    /// larger texts switch to 64-bit offsets transparently.
+    /// Storage format is chosen automatically: trees start in Compact (32-bit) mode
+    /// and promote to Large (64-bit) only if the storage exceeds the uint32 address space.
     /// </para>
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
@@ -22,22 +28,51 @@ public static class PersistentSuffixTreeFactory
     public static ISuffixTree Create(ITextSource text, string? filePath = null)
     {
         ArgumentNullException.ThrowIfNull(text);
+        return CreateCore(text, filePath, NodeLayout.CompactMaxOffset);
+    }
 
-        IStorageProvider storage = !string.IsNullOrEmpty(filePath)
-            ? new MappedFileStorageProvider(filePath)
-            : new HeapStorageProvider();
-
+    /// <summary>
+    /// Core build logic with configurable compact offset limit (for testing).
+    /// Starts with Compact layout; on <see cref="CompactOverflowException"/>,
+    /// discards partial storage and rebuilds with Large layout.
+    /// </summary>
+    internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit)
+    {
+        var storage = CreateStorage(filePath);
         try
         {
-            var layout = NodeLayout.ForTextLength(text.Length);
-            var builder = new PersistentSuffixTreeBuilder(storage, layout);
+            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+            builder.CompactOffsetLimit = compactOffsetLimit;
             long rootOffset = builder.Build(text);
 
-            // Trim MMF file to actual data size (reclaim ~50% unused capacity)
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
 
-            return new PersistentSuffixTree(storage, rootOffset, text, layout);
+            return new PersistentSuffixTree(storage, rootOffset, text, NodeLayout.Compact);
+        }
+        catch (CompactOverflowException)
+        {
+            // Compact (uint32) address space exhausted — rebuild with Large (int64)
+            storage.Dispose();
+            CleanupFile(filePath);
+
+            storage = CreateStorage(filePath);
+            try
+            {
+                var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Large);
+                long rootOffset = builder.Build(text);
+
+                if (storage is MappedFileStorageProvider mapped)
+                    mapped.TrimToSize();
+
+                return new PersistentSuffixTree(storage, rootOffset, text, NodeLayout.Large);
+            }
+            catch
+            {
+                storage.Dispose();
+                CleanupFile(filePath);
+                throw;
+            }
         }
         catch
         {
@@ -48,6 +83,7 @@ public static class PersistentSuffixTreeFactory
 
     /// <summary>
     /// Loads an existing persistent suffix tree from a file using Memory-Mapped Files.
+    /// The format (Compact v4 or Large v3) is detected automatically from the file header.
     /// </summary>
     /// <param name="filePath">The path to the existing suffix tree file.</param>
     /// <returns>An implementation of ISuffixTree.</returns>
@@ -66,5 +102,16 @@ public static class PersistentSuffixTreeFactory
             storage.Dispose();
             throw;
         }
+    }
+
+    private static IStorageProvider CreateStorage(string? filePath)
+        => !string.IsNullOrEmpty(filePath)
+            ? new MappedFileStorageProvider(filePath)
+            : new HeapStorageProvider();
+
+    private static void CleanupFile(string? filePath)
+    {
+        if (!string.IsNullOrEmpty(filePath))
+            try { File.Delete(filePath); } catch { /* best-effort cleanup */ }
     }
 }

@@ -14,6 +14,7 @@ public class PersistentSuffixTreeBuilder
 {
     private readonly IStorageProvider _storage;
     private readonly NodeLayout _layout;
+    private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
     private long _rootOffset;
     private ITextSource _text = new StringTextSource(string.Empty);
     private int _nodeCount = 0;
@@ -28,11 +29,22 @@ public class PersistentSuffixTreeBuilder
     private readonly Dictionary<long, List<(uint Key, long ChildOffset)>> _children = new();
     private bool _built;
 
+    /// <summary>
+    /// Override the compact address-space limit. Used by <see cref="PersistentSuffixTreeFactory"/>
+    /// and tests to control the Compact → Large promotion threshold.
+    /// </summary>
+    internal long CompactOffsetLimit
+    {
+        get => _compactOffsetLimit;
+        set => _compactOffsetLimit = value;
+    }
+
     public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null)
     {
         _storage = storage;
         _layout = layout ?? NodeLayout.Compact;
-        _storage.Allocate(PersistentConstants.HEADER_SIZE); // Reserve space for header
+        // Header + root allocation — always tiny, never overflows
+        _storage.Allocate(PersistentConstants.HEADER_SIZE);
 
         _rootOffset = _storage.Allocate(_layout.NodeSize);
         _nodeCount = 1;
@@ -134,10 +146,23 @@ public class PersistentSuffixTreeBuilder
         }
     }
 
+    /// <summary>
+    /// Allocates storage and checks for compact address-space overflow.
+    /// Throws <see cref="CompactOverflowException"/> when the Compact layout
+    /// cannot address the new block.
+    /// </summary>
+    private long AllocateChecked(int size)
+    {
+        long offset = _storage.Allocate(size);
+        if (!_layout.OffsetIs64Bit && (offset + size) > _compactOffsetLimit)
+            throw new CompactOverflowException();
+        return offset;
+    }
+
     private long CreateNode(uint start, uint end, uint depthFromRoot)
     {
         _nodeCount++;
-        long offset = _storage.Allocate(_layout.NodeSize);
+        long offset = AllocateChecked(_layout.NodeSize);
         var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
         node.Start = start;
         node.End = end;
@@ -183,7 +208,7 @@ public class PersistentSuffixTreeBuilder
         if (textByteLen > int.MaxValue)
             throw new InvalidOperationException(
                 $"Text length {_text.Length} exceeds maximum serializable size ({int.MaxValue / 2} characters).");
-        long textOffset = _storage.Allocate((int)textByteLen);
+        long textOffset = AllocateChecked((int)textByteLen);
         const int ChunkChars = 4096;
         byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
         try
@@ -305,7 +330,7 @@ public class PersistentSuffixTreeBuilder
             int count = childList.Count;
             int entrySize = _layout.ChildEntrySize;
             int totalBytes = count * entrySize;
-            long arrayOffset = _storage.Allocate(totalBytes);
+            long arrayOffset = AllocateChecked(totalBytes);
 
             // Serialize all entries into a single buffer, then batch-write
             byte[] buf = ArrayPool<byte>.Shared.Rent(totalBytes);

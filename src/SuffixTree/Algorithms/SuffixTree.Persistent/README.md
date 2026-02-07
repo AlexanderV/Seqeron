@@ -8,10 +8,10 @@ Based on Ukkonen's algorithm, this library provides an efficient way to index an
 
 - **Disk-Backed Storage**: Uses Memory-Mapped Files specifically optimized for suffix tree structures.
 - **Persistence**: Build once, save to disk, and reload instantly in subsequent sessions.
-- **Adaptive Storage Format**: Automatically selects the optimal binary layout based on text size:
-  - **Compact (v4)**: 32-bit offsets, 28-byte nodes, 8-byte child entries. ~30% smaller files, better CPU cache locality. Used for texts up to ~50 M characters.
-  - **Large (v3)**: 64-bit offsets, 40-byte nodes, 12-byte child entries. No practical size limit. Used automatically for very large texts.
-  - Format is chosen at build time and detected automatically on load — no user configuration needed.
+- **Hybrid Storage Format**: Construction starts with the compact layout and automatically promotes to the large layout only if the storage actually exceeds the uint32 address space:
+  - **Compact (v4)**: 32-bit offsets, 28-byte nodes, 8-byte child entries. ~30% smaller files, better CPU cache locality. Used for all trees that fit within ~4 GB of storage.
+  - **Large (v3)**: 64-bit offsets, 40-byte nodes, 12-byte child entries. No practical size limit. Activated automatically when compact overflows.
+  - Format is detected automatically on load — no user configuration needed.
 - **Scalability**: Capable of handling gigabytes of text by offloading the node graph to disk.
 - **Thread-Safe Read Access**: Supports multiple concurrent readers for the same tree file.
 - **Suffix Links Preserved**: Ukkonen's algorithm writes suffix links natively, enabling `FindExactMatchAnchors` on persistent trees.
@@ -97,7 +97,7 @@ Child entry: Key (4 B) + ChildNodeOffset (**8 B**) = **12 bytes**.
 
 - The Compact format saves ~30% disk space and improves CPU cache hit rates because more nodes fit in L1/L2/L3 cache lines.
 - The `NodeLayout` class uses `[AggressiveInlining]` for offset read/write helpers; the `if (OffsetIs64Bit)` branch is perfectly predicted by the CPU (same direction every time), adding zero measurable overhead.
-- Format selection is deterministic: for a given text length, the same format is always chosen.
+- Format promotion is transparent: the builder starts with Compact and only retries with Large if an allocation would exceed the uint32 limit. The cost of the retry (at most 2× build time) is amortized over the lifetime of the tree.
 
 ### Algorithmic Stability
 - **Iterative Algorithms**: Leaf counting and tree traversal are implemented using stacks rather than recursion. This prevents `StackOverflowException` when processing extremely deep or repetitive trees.
