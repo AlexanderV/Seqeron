@@ -21,6 +21,7 @@ namespace SuffixTree.Persistent;
 public class PersistentSuffixTreeBuilder
 {
     private readonly IStorageProvider _storage;
+    private readonly NodeLayout _initialLayout;  // layout before any transition (always the compact variant)
     private NodeLayout _layout;                // switches Compact → Large on overflow
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
     private long _rootOffset;
@@ -32,7 +33,6 @@ public class PersistentSuffixTreeBuilder
     private long _jumpTableStart = -1;         // start of contiguous jump table
     private long _jumpTableEnd = -1;           // end of the jump table area
     private readonly List<long> _jumpEntries = new();                     // allocated jump slot offsets
-    private readonly Dictionary<long, NodeLayout> _nodeLayouts = new();   // offset → layout used
 
     // Algorithm state
     private long _activeNodeOffset;
@@ -74,6 +74,7 @@ public class PersistentSuffixTreeBuilder
     {
         _storage = storage;
         _layout = layout ?? NodeLayout.Compact;
+        _initialLayout = _layout;
 
         // Allocate header — use the larger v5 header size to leave room for hybrid fields.
         // For pure Compact/Large builds the extra 16 bytes are unused but harmless.
@@ -81,7 +82,6 @@ public class PersistentSuffixTreeBuilder
 
         _rootOffset = _storage.Allocate(_layout.NodeSize);
         _nodeCount = 1;
-        _nodeLayouts[_rootOffset] = _layout;
         var root = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
         root.Start = 0;
         root.End = 0;
@@ -214,7 +214,6 @@ public class PersistentSuffixTreeBuilder
     {
         _nodeCount++;
         long offset = AllocateChecked(_layout.NodeSize);
-        _nodeLayouts[offset] = _layout;
         var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
         node.Start = start;
         node.End = end;
@@ -229,7 +228,7 @@ public class PersistentSuffixTreeBuilder
     {
         if (_lastCreatedInternalNodeOffset != PersistentConstants.NULL_OFFSET)
         {
-            var sourceLayout = _nodeLayouts[_lastCreatedInternalNodeOffset];
+            var sourceLayout = LayoutOf(_lastCreatedInternalNodeOffset);
             bool sourceIsCompact = !sourceLayout.OffsetIs64Bit;
             bool targetInLargeZone = _transitionOffset >= 0 && nodeOffset >= _transitionOffset;
 
@@ -248,8 +247,15 @@ public class PersistentSuffixTreeBuilder
         _lastCreatedInternalNodeOffset = nodeOffset;
     }
 
-    /// <summary>Returns the layout a node was written with.</summary>
-    private NodeLayout LayoutOf(long nodeOffset) => _nodeLayouts[nodeOffset];
+    /// <summary>
+    /// Returns the layout a node was written with, determined by its offset relative
+    /// to the transition boundary. No dictionary lookup — O(1), zero allocations.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private NodeLayout LayoutOf(long nodeOffset)
+        => (_transitionOffset >= 0 && nodeOffset >= _transitionOffset)
+            ? NodeLayout.Large
+            : _initialLayout;
 
     private uint GetSymbolAt(int index)
     {
