@@ -24,43 +24,43 @@ public readonly struct PersistentSuffixTreeNode
     public uint Start
     {
         get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_START);
-        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_START, value);
+        internal set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_START, value);
     }
 
     public uint End
     {
         get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_END);
-        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_END, value);
+        internal set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_END, value);
     }
 
     public long SuffixLink
     {
         get => _layout.ReadOffset(_storage, _offset + _layout.OffsetSuffixLink);
-        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
+        internal set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
     }
 
     public uint DepthFromRoot
     {
         get => _storage.ReadUInt32(_offset + _layout.OffsetDepth);
-        set => _storage.WriteUInt32(_offset + _layout.OffsetDepth, value);
+        internal set => _storage.WriteUInt32(_offset + _layout.OffsetDepth, value);
     }
 
     public uint LeafCount
     {
         get => _storage.ReadUInt32(_offset + _layout.OffsetLeafCount);
-        set => _storage.WriteUInt32(_offset + _layout.OffsetLeafCount, value);
+        internal set => _storage.WriteUInt32(_offset + _layout.OffsetLeafCount, value);
     }
 
     public long ChildrenHead
     {
         get => _layout.ReadOffset(_storage, _offset + _layout.OffsetChildrenHead);
-        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetChildrenHead, value);
+        internal set => _layout.WriteOffset(_storage, _offset + _layout.OffsetChildrenHead, value);
     }
 
     public int ChildCount
     {
         get => _storage.ReadInt32(_offset + _layout.OffsetChildCount);
-        set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
+        internal set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
     }
 
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;
