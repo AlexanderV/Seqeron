@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\SuffixTree\SuffixTree.csproj" />
+    <ProjectReference Include="..\SuffixTree.Core\SuffixTree.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
