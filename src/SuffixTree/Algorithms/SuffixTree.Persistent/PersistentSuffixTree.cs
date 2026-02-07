@@ -120,7 +120,11 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         ThrowIfDisposed();
         var results = new List<int>();
-        if (pattern.IsEmpty) return results;
+        if (pattern.IsEmpty)
+        {
+            for (int i = 0; i < _textSource.Length; i++) results.Add(i);
+            return results;
+        }
 
         var (node, matched) = MatchPatternCore(pattern);
         if (!matched) return results;
@@ -139,7 +143,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public int CountOccurrences(ReadOnlySpan<char> pattern)
     {
         ThrowIfDisposed();
-        if (pattern.IsEmpty) return 0;
+        if (pattern.IsEmpty) return _textSource.Length;
         var (node, matched) = MatchPatternCore(pattern);
         return matched ? (int)node.LeafCount : 0;
     }
