@@ -79,18 +79,21 @@ public class TreeContractTests
         Assert.That(lcs, Is.EqualTo("cde"));
     }
 
-    // ─── P12: Traverse depth must be character-based ─────────────────
+    // ─── P12: Traverse depth follows ISuffixTree convention ────────
+    // Non-persistent convention: VisitNode receives depth BEFORE this node's edge
+    // (i.e. parent's cumulative character depth), NOT including current node.
 
     [Test]
-    public void Traverse_LeafDepthEqualsSuffixLength()
+    public void Traverse_DepthMatchesNonPersistentConvention()
     {
-        // "aab" → "aab$" has multi-char edges, so edge-count ≠ character depth.
-        // Suffix tree for "aab$":
-        //   Root → "$" (leaf, depth 1) 
-        //        → "a" (internal, depth 1) → "ab$" (leaf, depth 4)
-        //                                  → "b$" (leaf, depth 3)
-        //        → "b$" (leaf, depth 2)
-        // Leaf character-depths must be {1, 2, 3, 4} = suffix lengths.
+        // "aab" → "aab$"
+        // Root (depth=0):
+        //   "$" leaf → VisitNode depth=0 (parent cumDepth=0)
+        //   "a" internal → VisitNode depth=0, fullDepth=0+1=1
+        //     "ab$" leaf → VisitNode depth=1 (parent cumDepth=1)
+        //     "b$"  leaf → VisitNode depth=1
+        //   "b$" leaf → VisitNode depth=0
+        // Leaf depths: {0, 0, 1, 1}
         using var tree = BuildTree("aab");
         var visitor = new DepthRecordingVisitor();
         tree.Traverse(visitor);
@@ -101,8 +104,7 @@ public class TreeContractTests
             .OrderBy(d => d)
             .ToList();
 
-        // With the bug, depths are {1, 1, 2, 2} instead of {1, 2, 3, 4}
-        Assert.That(leafDepths, Is.EqualTo(new[] { 1, 2, 3, 4 }),
+        Assert.That(leafDepths, Is.EqualTo(new[] { 0, 0, 1, 1 }),
             $"Leaf depths: [{string.Join(", ", leafDepths)}]");
     }
 
