@@ -152,6 +152,10 @@ public sealed class NodeLayout
         }
         else
         {
+            if (value != PersistentConstants.NULL_OFFSET && (value < 0 || value > CompactMaxOffset))
+                throw new InvalidOperationException(
+                    $"WriteOffset: value {value} exceeds Compact format limit ({CompactMaxOffset}). " +
+                    "Use Large layout or hybrid continuation for offsets > 4 GB.");
             storage.WriteUInt32(position,
                 value == PersistentConstants.NULL_OFFSET ? COMPACT_NULL : (uint)value);
         }

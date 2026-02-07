@@ -122,4 +122,52 @@ public class NodeApiSafetyTests
         var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
         Assert.That(rootNode.HasChildren, Is.True);
     }
+
+    // ──────────── A15: WriteOffset must reject out-of-range values for Compact ──────────────
+
+    [Test]
+    public void WriteOffset_Compact_ValueExceedsMaxOffset_Throws()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(16); // enough space for a uint32 write
+
+        // Value > CompactMaxOffset (0xFFFFFFFE) and not NULL_OFFSET should throw
+        long tooLarge = NodeLayout.CompactMaxOffset + 1; // 0xFFFFFFFF = uint.MaxValue = reserved NULL sentinel
+        Assert.Throws<InvalidOperationException>(
+            () => NodeLayout.Compact.WriteOffset(storage, 0, tooLarge),
+            "A15: WriteOffset must reject value exceeding CompactMaxOffset");
+    }
+
+    [Test]
+    public void WriteOffset_Compact_HugeValue_Throws()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(16);
+
+        long hugeValue = (long)uint.MaxValue + 100; // clearly beyond uint32 range
+        Assert.Throws<InvalidOperationException>(
+            () => NodeLayout.Compact.WriteOffset(storage, 0, hugeValue),
+            "A15: WriteOffset must reject int64 values that truncate silently");
+    }
+
+    [Test]
+    public void WriteOffset_Compact_NullOffset_Succeeds()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(16);
+
+        // NULL_OFFSET must always work (maps to 0xFFFFFFFF sentinel)
+        Assert.DoesNotThrow(() => NodeLayout.Compact.WriteOffset(storage, 0, PersistentConstants.NULL_OFFSET));
+    }
+
+    [Test]
+    public void WriteOffset_Large_AnyValue_Succeeds()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(16);
+
+        // Large layout uses int64 — any value should work
+        Assert.DoesNotThrow(() => NodeLayout.Large.WriteOffset(storage, 0, long.MaxValue));
+        Assert.DoesNotThrow(() => NodeLayout.Large.WriteOffset(storage, 0, NodeLayout.CompactMaxOffset + 100));
+    }
 }
