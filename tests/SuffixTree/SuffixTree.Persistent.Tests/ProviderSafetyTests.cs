@@ -188,4 +188,49 @@ public class ProviderSafetyTests
             "S15: Failed Allocate must not corrupt _position");
         p.Dispose();
     }
+
+    // ─── S12: Reading beyond logical size must throw ───
+
+    [Test]
+    public void HeapProvider_ReadInt32_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(8); // _position = 8, buffer is 1024
+        p.WriteInt32(0, 42);
+
+        // Reading at offset 0 (within _position) should succeed
+        Assert.That(p.ReadInt32(0), Is.EqualTo(42));
+
+        // Reading at offset 8 is exactly at _position boundary — beyond valid range
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadInt32(8),
+            "S12: ReadInt32 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void HeapProvider_ReadInt64_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(16);
+        p.WriteInt64(0, 123L);
+
+        Assert.That(p.ReadInt64(0), Is.EqualTo(123L));
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadInt64(16),
+            "S12: ReadInt64 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void HeapProvider_ReadBytes_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(8);
+        p.WriteInt32(0, 99);
+
+        // Crossing the boundary: starts at 4, reads 8 bytes → extends to 12 > _position=8
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => p.ReadBytes(4, new byte[8], 0, 8),
+            "S12: ReadBytes crossing Size boundary must throw");
+        p.Dispose();
+    }
 }
