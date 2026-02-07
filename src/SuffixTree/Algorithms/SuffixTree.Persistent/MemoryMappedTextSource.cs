@@ -82,7 +82,8 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     public string Substring(int start, int length)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
-        if (start < 0 || start + length > _length) throw new IndexOutOfRangeException();
+        if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
+            throw new IndexOutOfRangeException();
         return new string(_ptr, start, length);
     }
 
@@ -90,7 +91,8 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     public ReadOnlySpan<char> Slice(int start, int length)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
-        if (start < 0 || start + length > _length) throw new IndexOutOfRangeException();
+        if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
+            throw new IndexOutOfRangeException();
         return new ReadOnlySpan<char>(_ptr + start, length);
     }
 
