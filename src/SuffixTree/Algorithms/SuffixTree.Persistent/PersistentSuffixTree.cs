@@ -22,6 +22,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     private readonly long _transitionOffset;
     private readonly long _jumpTableStart;
     private readonly long _jumpTableEnd;
+    private readonly HybridLayout _hybrid;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource = null, NodeLayout? layout = null,
@@ -33,6 +34,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         _transitionOffset = transitionOffset;
         _jumpTableStart = jumpTableStart;
         _jumpTableEnd = jumpTableEnd;
+        _hybrid = new HybridLayout(_storage, _layout, transitionOffset, jumpTableStart, jumpTableEnd);
 
         if (textSource != null)
         {
@@ -125,7 +127,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
 
     /// <summary>Whether this tree uses the hybrid v5 format with dual zones.</summary>
-    internal bool IsHybrid => _transitionOffset >= 0;
+    internal bool IsHybrid => _hybrid.IsHybrid;
 
     /// <summary>Transition offset (compact/large boundary), or -1 for single-format.</summary>
     internal long TransitionOffset => _transitionOffset;
@@ -138,62 +140,32 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     /// <summary>
     /// Returns the correct <see cref="NodeLayout"/> for a node at the given offset.
-    /// For pure Compact/Large trees, always returns <c>_layout</c>.
-    /// For hybrid v5 trees, returns Compact for offsets below the transition and Large above.
+    /// Delegates to <see cref="HybridLayout.LayoutForOffset"/>.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal NodeLayout LayoutForOffset(long offset)
-    {
-        if (_transitionOffset < 0)
-            return _layout; // pure single-format
-        return offset < _transitionOffset ? NodeLayout.Compact : NodeLayout.Large;
-    }
+    internal NodeLayout LayoutForOffset(long offset) => _hybrid.LayoutForOffset(offset);
 
     /// <summary>
     /// Resolves an offset that might be a jump-table entry.
-    /// If the offset falls within [transitionOffset, jumpTableEnd), reads the int64 target
-    /// from the jump entry and returns it. Otherwise returns the offset unchanged.
+    /// Delegates to <see cref="HybridLayout.ResolveJump"/>.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal long ResolveJump(long offset)
-    {
-        if (_jumpTableStart >= 0
-            && offset >= _jumpTableStart
-            && offset < _jumpTableEnd)
-        {
-            return _storage.ReadInt64(offset);
-        }
-        return offset;
-    }
+    internal long ResolveJump(long offset) => _hybrid.ResolveJump(offset);
 
     /// <summary>
     /// Creates a <see cref="PersistentSuffixTreeNode"/> with the correct layout for its zone.
+    /// Delegates to <see cref="HybridLayout.NodeAt"/>.
     /// </summary>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal PersistentSuffixTreeNode NodeAt(long offset)
-        => new PersistentSuffixTreeNode(_storage, offset, LayoutForOffset(offset));
+    internal PersistentSuffixTreeNode NodeAt(long offset) => _hybrid.NodeAt(offset);
 
     /// <summary>
     /// Reads child information from a parent node, handling hybrid jump entries.
-    /// Returns the real child-array offset, child-entry layout, and actual child count.
+    /// Delegates to <see cref="HybridLayout.ReadChildArrayInfo"/>.
     /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal (long ArrayBase, NodeLayout EntryLayout, int Count) ReadChildArrayInfo(PersistentSuffixTreeNode parent)
-    {
-        int rawCount = parent.ChildCount;
-        long head = parent.ChildrenHead;
-
-        bool isJumped = (rawCount & unchecked((int)0x80000000)) != 0;
-        int count = isJumped ? (rawCount & 0x7FFFFFFF) : rawCount;
-
-        if (isJumped)
-        {
-            // head is a jump entry → dereference to get the real array offset
-            long realArrayOffset = _storage.ReadInt64(head);
-            return (realArrayOffset, NodeLayout.Large, count);
-        }
-
-        return (head, LayoutForOffset(parent.Offset), count);
-    }
+        => _hybrid.ReadChildArrayInfo(parent);
 
     /// <summary>
     /// Resolves a suffix link offset, dereferencing through the jump table if needed.
