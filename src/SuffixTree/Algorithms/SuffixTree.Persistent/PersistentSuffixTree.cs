@@ -346,12 +346,6 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return SuffixTreeAlgorithms.FindExactMatchAnchors<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
     }
 
-    private int GetNodeDepth(PersistentSuffixTreeNode node)
-    {
-        if (node.Offset == _rootOffset) return 0;
-        return (int)node.DepthFromRoot + LengthOf(node);
-    }
-
     /// <inheritdoc/>
     public void Traverse(ISuffixTreeVisitor visitor)
     {
@@ -446,31 +440,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void CollectLeaves(PersistentSuffixTreeNode node, int depth, List<int> results)
     {
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
-        stack.Push((node, depth));
-
-        while (stack.Count > 0)
-        {
-            var (current, currentDepth) = stack.Pop();
-
-            if (current.IsLeaf)
-            {
-                int suffixLength = currentDepth + LengthOf(current);
-                int startPosition = (_textSource.Length + 1) - suffixLength;
-                if (startPosition < _textSource.Length)
-                    results.Add(startPosition);
-                continue;
-            }
-
-            int childDepth = currentDepth + LengthOf(current);
-            int childCount = current.ChildCount;
-            long arrayBase = current.ChildrenHead;
-            for (int ci = 0; ci < childCount; ci++)
-            {
-                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE);
-                stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset), childDepth));
-            }
-        }
+        var nav = new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource);
+        nav.CollectLeaves(node, depth, results);
     }
 
     private PersistentSuffixTreeNode FindDeepestInternalNode(PersistentSuffixTreeNode root)
