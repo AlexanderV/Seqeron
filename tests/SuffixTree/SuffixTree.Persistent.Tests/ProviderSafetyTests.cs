@@ -165,4 +165,27 @@ public class ProviderSafetyTests
         Assert.That(p.ReadInt32(0), Is.EqualTo(0xBEEF));
         p.Dispose();
     }
+
+    // ─── S15: Allocate must not corrupt _position if EnsureCapacity throws ───
+
+    [Test]
+    public void HeapProvider_Allocate_FailedExpansion_DoesNotCorruptPosition()
+    {
+        // HeapStorageProvider caps at int.MaxValue.
+        // Allocate a small block, then try to allocate a block that would push
+        // _position beyond int.MaxValue.  The allocation must fail AND Size must
+        // remain at the value it had before the failed call.
+        var p = new HeapStorageProvider(initialCapacity: 128);
+        p.Allocate(64);
+        long sizeBefore = p.Size;
+        Assert.That(sizeBefore, Is.EqualTo(64));
+
+        // Request that would push _position beyond 2 GB
+        Assert.Throws<InvalidOperationException>(() => p.Allocate(int.MaxValue));
+
+        // Critical: Size must be unchanged after failed allocation
+        Assert.That(p.Size, Is.EqualTo(sizeBefore),
+            "S15: Failed Allocate must not corrupt _position");
+        p.Dispose();
+    }
 }
