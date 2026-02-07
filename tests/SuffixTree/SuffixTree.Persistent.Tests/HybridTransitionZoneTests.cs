@@ -417,7 +417,7 @@ public class HybridTransitionZoneTests
             $"Should stay pure Compact when limit ({treeSize + 1}) > tree size ({treeSize})");
 
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        Assert.That(version, Is.EqualTo(4), "Version should be 4 (Compact)");
+        Assert.That(version, Is.EqualTo(5), "All trees use v5 header format");
     }
 
     /// <summary>

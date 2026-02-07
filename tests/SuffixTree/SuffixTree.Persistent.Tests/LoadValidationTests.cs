@@ -219,6 +219,58 @@ public class LoadValidationTests
         Assert.That(tree.Contains("ana"), Is.True);
     }
 
+    // ──────────── S19+S21: DEEPEST_NODE must be validated ──────────────
+
+    [Test]
+    public void Load_DeepestNodeBeyondStorage_ThrowsInvalidOperation()
+    {
+        // Build a real v5 (hybrid) tree, then tamper DEEPEST_NODE to point beyond storage
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.Build(new StringTextSource("banana"));
+
+        // Tamper: set deepest node to far beyond storage
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, storage.Size + 9999);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("deepest").IgnoreCase);
+    }
+
+    [Test]
+    public void Load_DeepestNodeNegative_ThrowsInvalidOperation()
+    {
+        // Build a real v5 tree, then tamper DEEPEST_NODE to a negative non-NULL value
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.Build(new StringTextSource("banana"));
+
+        // -42 is not NULL_OFFSET (-1) and not a valid offset
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, -42);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("deepest").IgnoreCase);
+    }
+
+    [Test]
+    public void Load_NonHybrid_ReadsDeepestNodeFromV5Header()
+    {
+        // Build a non-hybrid tree. Builder always writes v5 header now.
+        // DEEPEST_NODE at offset 72 must be read and used for O(1) LRS.
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.Build(new StringTextSource("banana"));
+
+        // Verify this is v5 (all trees are v5 now)
+        int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
+        Assert.That(version, Is.EqualTo(5), "All trees must use v5 header");
+
+        using var tree = PersistentSuffixTree.Load(storage);
+        Assert.That(tree.Contains("banana"), Is.True);
+        Assert.That(tree.LongestRepeatedSubstring(), Is.EqualTo("ana"));
+    }
+
     // ──────────── Helpers ──────────────
 
     private static void WriteValidHeader(HeapStorageProvider storage, int version)

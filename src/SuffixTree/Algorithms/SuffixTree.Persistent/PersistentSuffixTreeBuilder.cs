@@ -340,8 +340,10 @@ public class PersistentSuffixTreeBuilder
             ArrayPool<byte>.Shared.Return(chunkBuf);
         }
 
-        // Write Header
-        int version = IsHybrid ? 5 : _layout.Version;
+        // Write Header — use v5 for Compact-initial and hybrid trees (80-byte header
+        // with DEEPEST_NODE, transition fields). Large-initial trees (test-only) keep v3.
+        // Non-hybrid Compact trees use v5 to leverage DEEPEST_NODE for O(1) LRS.
+        int version = _initialLayout.OffsetIs64Bit ? _layout.Version : 5;
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, version);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
@@ -350,11 +352,15 @@ public class PersistentSuffixTreeBuilder
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT, _nodeCount);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, _storage.Size);
 
-        if (IsHybrid)
+        if (version == 5)
         {
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, _transitionOffset);
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, _jumpTableStart);
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, _jumpTableEnd);
+            // Write hybrid fields — set to -1 for non-hybrid trees
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION,
+                IsHybrid ? _transitionOffset : -1);
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START,
+                IsHybrid ? _jumpTableStart : -1);
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END,
+                IsHybrid ? _jumpTableEnd : -1);
         }
 
         // P17: Persist deepest internal node offset for O(1) LRS on Load
