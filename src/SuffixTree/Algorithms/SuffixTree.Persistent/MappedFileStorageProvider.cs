@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -16,7 +17,7 @@ public class MappedFileStorageProvider : IStorageProvider
     private readonly bool _readOnly;
     private long _capacity;
     private long _position;
-    private volatile bool _disposed;
+    private int _disposed;
 
     internal MemoryMappedViewAccessor Accessor
     {
@@ -100,7 +101,7 @@ public class MappedFileStorageProvider : IStorageProvider
                 catch
                 {
                     // Cannot recover — mark as disposed to prevent zombie state
-                    _disposed = true;
+                    Volatile.Write(ref _disposed, 1);
                 }
                 throw;
             }
@@ -190,8 +191,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
         _accessor?.Dispose();
         _mmf?.Dispose();
         _accessor = null!;
@@ -200,7 +200,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
+        if (Volatile.Read(ref _disposed) != 0)
             throw new ObjectDisposedException(nameof(MappedFileStorageProvider));
     }
 
@@ -258,7 +258,7 @@ public class MappedFileStorageProvider : IStorageProvider
             }
             catch
             {
-                _disposed = true;
+                Volatile.Write(ref _disposed, 1);
             }
             throw;
         }

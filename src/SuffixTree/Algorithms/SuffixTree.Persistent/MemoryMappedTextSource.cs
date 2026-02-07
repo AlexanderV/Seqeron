@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -16,7 +17,13 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     private char* _ptr;
     private readonly int _length;
     private readonly bool _ownsAccessor;
-    private volatile bool _disposed;
+    private int _disposed; // 0 = active, 1 = disposed (Interlocked for C14)
+
+    private void ThrowIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+            throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemoryMappedTextSource"/> class from a file.
@@ -79,7 +86,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         get
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+            ThrowIfDisposed();
             if (index < 0 || index >= _length) throw new IndexOutOfRangeException();
             return _ptr[index];
         }
@@ -88,7 +95,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     /// <inheritdoc/>
     public string Substring(int start, int length)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ThrowIfDisposed();
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
             throw new IndexOutOfRangeException();
         return new string(_ptr, start, length);
@@ -97,7 +104,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     /// <inheritdoc/>
     public ReadOnlySpan<char> Slice(int start, int length)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ThrowIfDisposed();
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
             throw new IndexOutOfRangeException();
         return new ReadOnlySpan<char>(_ptr + start, length);
@@ -106,7 +113,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     /// <inheritdoc/>
     public IEnumerator<char> GetEnumerator()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ThrowIfDisposed();
         return GetEnumeratorImpl();
     }
 
@@ -124,29 +131,26 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     /// <inheritdoc/>
     public override string ToString()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ThrowIfDisposed();
         return new string(_ptr, 0, _length);
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (!_disposed)
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+
+        // Release pointer BEFORE nulling _ptr: concurrent readers that passed
+        // the _disposed check may still dereference _ptr. ReleasePointer is
+        // safe to call while the pointer is still in use; nulling _ptr first
+        // would cause NRE in readers that passed the disposed guard.
+        _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+        _ptr = null;      // Prevent use-after-free of released pointer
+
+        if (_ownsAccessor)
         {
-            _disposed = true; // Mark disposed first to stop new readers
-
-            // Release pointer BEFORE nulling _ptr: concurrent readers that passed
-            // the _disposed check may still dereference _ptr. ReleasePointer is
-            // safe to call while the pointer is still in use; nulling _ptr first
-            // would cause NRE in readers that passed the disposed guard.
-            _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
-            _ptr = null;      // Prevent use-after-free of released pointer
-
-            if (_ownsAccessor)
-            {
-                _accessor.Dispose();
-                _mmf?.Dispose();
-            }
+            _accessor.Dispose();
+            _mmf?.Dispose();
         }
     }
 }

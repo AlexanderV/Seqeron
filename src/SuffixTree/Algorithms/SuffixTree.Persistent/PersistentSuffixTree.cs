@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -14,7 +15,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
     private readonly bool _ownsTextSource;
-    private volatile bool _disposed;
+    private int _disposed;
     private volatile string? _cachedLrs;
 
     // Pre-computed during build; NULL_OFFSET means not available (loaded trees)
@@ -657,8 +658,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
 
         // Dispose textSource BEFORE storage: MemoryMappedTextSource must
         // ReleasePointer() while the underlying accessor is still alive.
@@ -676,7 +676,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
+        if (Volatile.Read(ref _disposed) != 0)
             throw new ObjectDisposedException(nameof(PersistentSuffixTree));
     }
 }
