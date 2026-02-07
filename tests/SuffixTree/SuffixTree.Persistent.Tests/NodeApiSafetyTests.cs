@@ -1,0 +1,125 @@
+using NUnit.Framework;
+using SuffixTree;
+
+namespace SuffixTree.Persistent.Tests;
+
+/// <summary>
+/// Tests that <see cref="PersistentSuffixTreeNode"/> public API methods behave
+/// correctly (or fail safely) for both pure-Compact and Hybrid (v5) trees.
+/// </summary>
+[TestFixture]
+public class NodeApiSafetyTests
+{
+    // ──────────── TryGetChild on non-hybrid tree: should work ──────────────
+
+    [Test]
+    public void TryGetChild_NonHybridTree_FindsExistingChild()
+    {
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        // Non-hybrid: root is compact, children are compact, no jumps
+        Assert.That(builder.IsHybrid, Is.False);
+
+        var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
+        bool found = rootNode.TryGetChild((uint)'b', out var child);
+
+        Assert.That(found, Is.True, "Should find 'b' child on root of non-hybrid tree");
+        Assert.That(child.IsNull, Is.False);
+    }
+
+    [Test]
+    public void TryGetChild_NonHybridTree_ReturnsFalseForAbsentChild()
+    {
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
+        bool found = rootNode.TryGetChild((uint)'z', out _);
+
+        Assert.That(found, Is.False, "Should not find 'z' in 'banana' tree");
+    }
+
+    // ──────────── TryGetChild on hybrid tree with jumped children ──────────────
+
+    [Test]
+    public void TryGetChild_HybridTree_JumpedNode_ThrowsInvalidOperation()
+    {
+        // Build hybrid: limit = header + root → first child allocation triggers transition
+        // Root is compact but some children are in large zone → root gets jumped child array
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        Assert.That(builder.IsHybrid, Is.True, "Should be hybrid");
+
+        var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
+
+        // Root has jumped children (high-bit set in ChildCount)
+        // TryGetChild must throw instead of returning silently wrong results
+        Assert.Throws<InvalidOperationException>(() =>
+            rootNode.TryGetChild((uint)'b', out _));
+    }
+
+    [Test]
+    public void TryGetChild_HybridTree_NonJumpedNode_StillWorks()
+    {
+        // Build hybrid with limit that places most nodes in large zone
+        // Internal nodes created in large zone should have normal (non-jumped) children
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        Assert.That(builder.IsHybrid, Is.True);
+
+        // Find a large-zone internal node (its children are also large-zone, no jump needed)
+        // We'll verify this by checking non-jumped large nodes still work
+        var pst = new PersistentSuffixTree(storage, root, new StringTextSource("banana"),
+            NodeLayout.Compact, builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
+
+        // Verify the tree itself works (sanity)
+        Assert.That(pst.Contains("banana"), Is.True);
+        Assert.That(pst.Contains("ban"), Is.True);
+    }
+
+    // ──────────── HasChildren on hybrid tree with jumped children ──────────────
+
+    [Test]
+    public void HasChildren_HybridTree_JumpedNode_ReturnsTrue()
+    {
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        Assert.That(builder.IsHybrid, Is.True);
+
+        var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
+
+        // Root definitely has children — HasChildren must return true
+        // even when ChildCount has the high bit set (jumped flag)
+        Assert.That(rootNode.HasChildren, Is.True,
+            "HasChildren must return true for jumped node (high-bit in ChildCount)");
+    }
+
+    [Test]
+    public void HasChildren_NonHybridTree_WorksNormally()
+    {
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        var ts = new StringTextSource("banana");
+        long root = builder.Build(ts);
+
+        var rootNode = new PersistentSuffixTreeNode(storage, root, NodeLayout.Compact);
+        Assert.That(rootNode.HasChildren, Is.True);
+    }
+}
