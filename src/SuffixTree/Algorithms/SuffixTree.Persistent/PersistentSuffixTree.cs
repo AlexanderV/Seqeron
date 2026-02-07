@@ -48,12 +48,16 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private string LoadStringInternal(long textOff, int textLen)
     {
-        int byteLen = textLen * 2;
-        byte[] bytes = ArrayPool<byte>.Shared.Rent(byteLen);
+        long byteLen = (long)textLen * 2;
+        if (byteLen > int.MaxValue)
+            throw new InvalidOperationException(
+                $"Text length {textLen} exceeds maximum loadable size ({int.MaxValue / 2} characters).");
+        int byteLenInt = (int)byteLen;
+        byte[] bytes = ArrayPool<byte>.Shared.Rent(byteLenInt);
         try
         {
-            _storage.ReadBytes(textOff, bytes, 0, byteLen);
-            return Encoding.Unicode.GetString(bytes, 0, byteLen);
+            _storage.ReadBytes(textOff, bytes, 0, byteLenInt);
+            return Encoding.Unicode.GetString(bytes, 0, byteLenInt);
         }
         finally
         {
