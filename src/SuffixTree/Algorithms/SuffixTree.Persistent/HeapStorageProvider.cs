@@ -23,13 +23,19 @@ public class HeapStorageProvider : IStorageProvider
 
     public void EnsureCapacity(long capacity)
     {
+        if (capacity < 0)
+            throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be non-negative.");
+
         if (_buffer.Length < capacity)
         {
-            long newSize = _buffer.Length * 2L;
-            while (newSize < capacity) newSize *= 2L;
+            if (capacity > int.MaxValue)
+                throw new InvalidOperationException("HeapStorageProvider cannot exceed 2GB limit of byte array.");
+
+            long newSize = Math.Max(_buffer.Length * 2L, 64L);
+            while (newSize < capacity) newSize *= 2;
 
             if (newSize > int.MaxValue)
-                throw new InvalidOperationException("HeapStorageProvider cannot exceed 2GB limit of byte array.");
+                newSize = int.MaxValue;
 
             Array.Resize(ref _buffer, (int)newSize);
         }
