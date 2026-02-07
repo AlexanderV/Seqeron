@@ -58,11 +58,17 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         _ownsAccessor = false;
 
         byte* basePtr = null;
-        _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
-        // Correct pointer calculation: basePtr is the start of the view, 
-        // offset is already used in creating the accessor if called from Constructor 1,
-        // but for Constructor 2 (shared accessor) we need to add the relative offset.
-        _ptr = (char*)(basePtr + _accessor.PointerOffset + offset);
+        try
+        {
+            _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
+            _ptr = (char*)(basePtr + _accessor.PointerOffset + offset);
+        }
+        catch
+        {
+            if (basePtr != null)
+                _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -127,11 +133,15 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         if (!_disposed)
         {
-            _disposed = true; // Mark disposed first to stop readers
+            _disposed = true; // Mark disposed first to stop new readers
+
+            // Release pointer BEFORE nulling _ptr: concurrent readers that passed
+            // the _disposed check may still dereference _ptr. ReleasePointer is
+            // safe to call while the pointer is still in use; nulling _ptr first
+            // would cause NRE in readers that passed the disposed guard.
+            _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
             _ptr = null;      // Prevent use-after-free of released pointer
 
-            // Release pointer before disposing accessor
-            _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
             if (_ownsAccessor)
             {
                 _accessor.Dispose();
