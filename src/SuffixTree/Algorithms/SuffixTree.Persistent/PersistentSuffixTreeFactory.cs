@@ -93,8 +93,10 @@ public static class PersistentSuffixTreeFactory
     private static void CleanupFile(string? filePath)
     {
         if (!string.IsNullOrEmpty(filePath))
-#pragma warning disable CA1031 // Best-effort file cleanup — must not throw
-            try { File.Delete(filePath); } catch { }
-#pragma warning restore CA1031
+        {
+            try { File.Delete(filePath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 }
