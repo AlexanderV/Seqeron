@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using SuffixTree;
@@ -112,6 +113,74 @@ namespace SuffixTree.Persistent.Tests
             });
 
             Assert.That(exceptions, Is.Empty, "Exceptions occurred during parallel execution");
+        }
+
+        // ─── C14+C15: Concurrent Dispose must not throw ─────────
+
+        [Test]
+        public void ConcurrentDispose_HeapProvider_NoException()
+        {
+            for (int trial = 0; trial < 50; trial++)
+            {
+                var p = new HeapStorageProvider();
+                p.Allocate(64);
+                AssertConcurrentDispose(() => p.Dispose(), 4,
+                    $"HeapProvider trial {trial}");
+            }
+        }
+
+        [Test]
+        public void ConcurrentDispose_MappedProvider_NoException()
+        {
+            for (int trial = 0; trial < 20; trial++)
+            {
+                var tmp = Path.Combine(Path.GetTempPath(), $"ST_CD_{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    var p = new MappedFileStorageProvider(tmp);
+                    p.Allocate(64);
+                    AssertConcurrentDispose(() => p.Dispose(), 4,
+                        $"MappedProvider trial {trial}");
+                }
+                finally
+                {
+                    try { File.Delete(tmp); } catch { }
+                }
+            }
+        }
+
+        [Test]
+        public void ConcurrentDispose_MemoryMappedTextSource_NoDoubleRelease()
+        {
+            for (int trial = 0; trial < 20; trial++)
+            {
+                var tmp = Path.Combine(Path.GetTempPath(), $"ST_CD_{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    File.WriteAllBytes(tmp, new byte[4096]);
+                    var source = new MemoryMappedTextSource(tmp, 0, 100);
+                    AssertConcurrentDispose(() => source.Dispose(), 4,
+                        $"MemoryMappedTextSource trial {trial}");
+                }
+                finally
+                {
+                    try { File.Delete(tmp); } catch { }
+                }
+            }
+        }
+
+        private static void AssertConcurrentDispose(Action dispose, int threads, string context)
+        {
+            var barrier = new Barrier(threads);
+            Exception? caught = null;
+            Parallel.For(0, threads, _ =>
+            {
+                barrier.SignalAndWait();
+                try { dispose(); }
+                catch (Exception ex) { Interlocked.CompareExchange(ref caught, ex, null); }
+            });
+            Assert.That(caught, Is.Null,
+                $"C14/C15: Concurrent Dispose threw ({context}): {caught?.Message}");
         }
     }
 }

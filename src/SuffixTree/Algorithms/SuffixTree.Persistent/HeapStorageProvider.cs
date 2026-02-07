@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -11,7 +12,7 @@ public class HeapStorageProvider : IStorageProvider
 {
     private byte[] _buffer;
     private long _position;
-    private volatile bool _disposed;
+    private int _disposed;
 
     public HeapStorageProvider(int initialCapacity = 65536)
     {
@@ -23,7 +24,7 @@ public class HeapStorageProvider : IStorageProvider
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
+        if (Volatile.Read(ref _disposed) != 0)
             throw new ObjectDisposedException(nameof(HeapStorageProvider));
     }
 
@@ -136,8 +137,7 @@ public class HeapStorageProvider : IStorageProvider
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
         _buffer = null!;
     }
 }
