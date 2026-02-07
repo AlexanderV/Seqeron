@@ -1,26 +1,31 @@
 # SuffixTree.Persistent
 
-A high-performance, disk-backed persistent suffix tree implementation for .NET.
+A high-performance, disk-backed persistent suffix tree implementation for .NET 9.
 
-Based on Ukkonen's algorithm, this library provides an efficient way to index and search large volumes of text without loading the entire tree structure into heap memory. By leveraging Memory-Mapped Files (MMF), it allows for O(m) substring searches on trees that exceed available RAM.
+Built on Ukkonen's algorithm, the library indexes and searches large volumes of text
+without loading the tree into managed heap memory. Memory-mapped files (MMF) keep the
+node graph on disk while providing O(m) substring lookups.
+
+---
 
 ## Features
 
-- **Disk-Backed Storage**: Uses Memory-Mapped Files specifically optimized for suffix tree structures.
-- **Persistence**: Build once, save to disk, and reload instantly in subsequent sessions.
-- **Hybrid Storage Format**: Construction starts with the compact layout and automatically promotes to the large layout only if the storage actually exceeds the uint32 address space:
-  - **Compact (v4)**: 32-bit offsets, 28-byte nodes, 8-byte child entries. ~30% smaller files, better CPU cache locality. Used for all trees that fit within ~4 GB of storage.
-  - **Large (v3)**: 64-bit offsets, 40-byte nodes, 12-byte child entries. No practical size limit. Activated automatically when compact overflows.
-  - Format is detected automatically on load — no user configuration needed.
-- **Scalability**: Capable of handling gigabytes of text by offloading the node graph to disk.
-- **Thread-Safe Read Access**: Supports multiple concurrent readers for the same tree file.
-- **Suffix Links Preserved**: Ukkonen's algorithm writes suffix links natively, enabling `FindExactMatchAnchors` on persistent trees.
-- **Logical Identity**: Deterministic checksumming (SHA256) ensures distinct trees can be uniquely identified regardless of their memory layout or storage format.
-- **Portable Serialization (v2)**: Export stores text + SHA256 hash; import rebuilds via Ukkonen's, guaranteeing 100% functionality including suffix links.
+| Feature | Details |
+|---------|---------|
+| **Disk-backed storage** | Memory-mapped files optimized for suffix tree node access. |
+| **Persistence** | Build once → save to disk → reload instantly in subsequent sessions. |
+| **Hybrid storage format (v5)** | Starts in compact (32-bit) mode; promotes to large (64-bit) mid-build only if storage exceeds ~4 GB. A jump table bridges cross-zone suffix links and child arrays. Format detected automatically on load. |
+| **Scalable** | Handles gigabytes of text by offloading the node graph to disk. |
+| **Thread-safe reads** | Multiple concurrent readers on the same tree file. |
+| **Suffix links preserved** | Written natively by Ukkonen's algorithm, enabling `FindExactMatchAnchors`. |
+| **Deterministic identity** | SHA256 structural hash — identical for same content regardless of layout. |
+| **Portable serialization (v2)** | Export stores text + SHA256 hash; import rebuilds via Ukkonen's, guaranteeing full functionality. |
 
-## Usage Examples
+---
 
-### Creating a Persistent Tree
+## Quick Start
+
+### Build a Persistent Tree
 
 ```csharp
 using SuffixTree.Persistent;
@@ -28,136 +33,305 @@ using SuffixTree.Persistent;
 string text = "abracadabra";
 string filePath = "my_tree.suffix";
 
-// This builds the tree directly into a memory-mapped file
-using (var tree = PersistentSuffixTreeFactory.Create(text, filePath) as IDisposable)
-{
-    var st = (ISuffixTree)tree;
-    bool found = st.Contains("bra"); // O(m)
-    int count = st.CountOccurrences("a"); // 5
-}
+// Build directly into a memory-mapped file (hybrid v5 format)
+using var tree = (IDisposable)PersistentSuffixTreeFactory.Create(
+    new StringTextSource(text), filePath);
+
+var st = (ISuffixTree)tree;
+st.Contains("bra");            // O(m)
+st.CountOccurrences("a");      // 5
+st.LongestRepeatedSubstring(); // "abra"
 ```
 
-### Loading an Existing Tree
+### Load an Existing Tree
 
 ```csharp
-// Load in read-only mode for lightning-fast startup and memory efficiency
-using (var tree = PersistentSuffixTreeFactory.Load(filePath) as IDisposable)
-{
-    var st = (ISuffixTree)tree;
-    var positions = st.FindAllOccurrences("abra");
-}
+// Read-only mode — instant startup, minimal memory footprint
+using var tree = (IDisposable)PersistentSuffixTreeFactory.Load("my_tree.suffix");
+var st = (ISuffixTree)tree;
+
+var positions = st.FindAllOccurrences("abra"); // [0, 7]
+st.FindExactMatchAnchors("bandana", 3);        // suffix links preserved
 ```
 
-## Internal Architecture
+### Export / Import (Portable)
 
-The library follows Clean Architecture principles:
+```csharp
+// Export any ISuffixTree to a stream (text + SHA256 hash)
+using var ms = new MemoryStream();
+SuffixTreeSerializer.Export(tree, ms);
 
-- **[IStorageProvider](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/IStorageProvider.cs)**: An abstraction layer for memory access.
-  - `HeapStorageProvider`: Uses a byte array for in-memory binary operations.
-  - `MappedFileStorageProvider`: Uses `MemoryMappedFile` for disk-based persistence.
-- **[PersistentSuffixTreeNode](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeNode.cs)**: A binary handle (struct) to a fixed-size node in storage.
-- **[PersistentSuffixTreeBuilder](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTreeBuilder.cs)**: Implements Ukkonen's algorithm for stream-based construction.
-- **[PersistentSuffixTree](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTree.cs)**: The search engine implementing `ISuffixTree`.
+// Import — rebuilds via Ukkonen, full suffix link support
+ms.Position = 0;
+var imported = SuffixTreeSerializer.Import(ms, new HeapStorageProvider());
 
-### Binary Layout (Node)
+// File-based convenience
+using var saved  = (IDisposable)SuffixTreeSerializer.SaveToFile(tree, "portable.tree");
+using var loaded = (IDisposable)SuffixTreeSerializer.LoadFromFile("portable.tree");
+```
 
-Nodes are fixed-size blocks whose layout depends on the automatically selected storage format.
-The format is recorded in the file header (version field) and detected on load.
+---
 
-#### Compact Layout (v4, default) — 28-byte nodes
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                     ISuffixTree                          │
+│  (Contains, FindAll, Count, LRS, LCS, Anchors, ...)     │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+  SuffixTree             PersistentSuffixTree
+  (in-memory)            (disk-backed)
+        │                     │
+  SuffixTreeNode         PersistentSuffixTreeNode
+  (heap objects)         (struct handles → byte offsets)
+                              │
+                     ┌────────┴────────┐
+                     │                 │
+              HeapStorage       MappedFileStorage
+              (byte[])          (MemoryMappedFile)
+```
+
+### Key Components
+
+| Component | Responsibility |
+|-----------|---------------|
+| `IStorageProvider` | Abstraction for byte-level read/write. Two implementations: heap array and MMF. |
+| `PersistentSuffixTreeBuilder` | Ukkonen's algorithm writing nodes directly to storage. Handles compact→large transitions. |
+| `PersistentSuffixTreeFactory` | Static factory: `Create` (build), `Load` (read-only open). |
+| `PersistentSuffixTree` | Query engine implementing `ISuffixTree`. Delegates shared algorithms via `ISuffixTreeNavigator<TNode>`. |
+| `PersistentSuffixTreeNode` | Struct handle — reads/writes fixed-size fields at a byte offset in storage. |
+| `PersistentSuffixTreeNavigator` | Struct navigator for generic algorithm dispatch. All methods `[AggressiveInlining]`. |
+| `NodeLayout` | Immutable descriptor of field sizes/offsets. Two singletons: `Compact` (v4) and `Large` (v3). |
+| `HybridLayout` | Zone detection + jump table resolution for v5 hybrid trees. |
+| `MemoryMappedTextSource` | `ITextSource` backed by a raw pointer into MMF. Zero-copy character access. |
+| `SuffixTreeSerializer` | SHA256 hash, export/import (format v2), file save/load. |
+
+---
+
+## Binary Format
+
+### File Header
+
+All format versions share bytes 0–47. Hybrid v5 extends to byte 79.
+
+#### Base Header (48 bytes) — v3 / v4 / v5
 
 | Offset | Size | Field | Description |
-| :--- | :--- | :--- | :--- |
-| 0 | 4 | Start | Edge start position in text |
-| 4 | 4 | End | Edge end position |
-| 8 | **4** | SuffixLink | Offset to suffix link node (uint32) |
-| 12 | 4 | Depth | Node depth from root |
-| 16 | 4 | LeafCount | Number of leaves in subtree |
-| 20 | **4** | ChildrenHead | Offset to first child entry (uint32) |
-| 24 | 4 | ChildCount | Number of children |
+|--------|------|-------|-------------|
+| 0–7 | 8 | `MAGIC` | `0x5452454558494646` — ASCII `"SUFFIXTR"` |
+| 8–11 | 4 | `VERSION` | `3` = Large, `4` = Compact, `5` = Hybrid |
+| 12–15 | 4 | `TEXT_LEN` | Character count |
+| 16–23 | 8 | `ROOT` | int64 byte offset of root node |
+| 24–31 | 8 | `TEXT_OFF` | int64 byte offset of stored text |
+| 32–35 | 4 | `NODE_COUNT` | Total node count |
+| 36–39 | 4 | _(reserved)_ | — |
+| 40–47 | 8 | `SIZE` | Expected file size (validated on load) |
 
-Child entry: Key (4 B) + ChildNodeOffset (**4 B**) = **8 bytes**.
-
-#### Large Layout (v3) — 40-byte nodes
+#### v5 Extended Header (bytes 48–79)
 
 | Offset | Size | Field | Description |
-| :--- | :--- | :--- | :--- |
-| 0 | 4 | Start | Edge start position in text |
-| 4 | 4 | End | Edge end position |
-| 8 | **8** | SuffixLink | Offset to suffix link node (int64) |
-| 16 | 4 | Depth | Node depth from root |
-| 20 | 4 | LeafCount | Number of leaves in subtree |
-| 24 | **8** | ChildrenHead | Offset to first child entry (int64) |
-| 32 | 4 | ChildCount | Number of children |
-| 36 | 4 | (padding) | Alignment padding |
+|--------|------|-------|-------------|
+| 48–55 | 8 | `TRANSITION` | Byte offset where compact→large transition occurred (`-1` if pure compact) |
+| 56–63 | 8 | `JUMP_START` | Start of the jump table region |
+| 64–71 | 8 | `JUMP_END` | End of the jump table region |
+| 72–79 | 8 | `DEEPEST_NODE` | Byte offset of the deepest internal node (for O(1) LRS) |
 
-Child entry: Key (4 B) + ChildNodeOffset (**8 B**) = **12 bytes**.
+### Node Layouts
 
-#### Performance Notes
+#### Compact (v4) — 28-byte Nodes
 
-- The Compact format saves ~30% disk space and improves CPU cache hit rates because more nodes fit in L1/L2/L3 cache lines.
-- The `NodeLayout` class uses `[AggressiveInlining]` for offset read/write helpers; the `if (OffsetIs64Bit)` branch is perfectly predicted by the CPU (same direction every time), adding zero measurable overhead.
-- Format promotion is transparent: the builder starts with Compact and only retries with Large if an allocation would exceed the uint32 limit. The cost of the retry (at most 2× build time) is amortized over the lifetime of the tree.
+| Offset | Size | Field | Type |
+|--------|------|-------|------|
+| 0–3 | 4 | Start | uint32 |
+| 4–7 | 4 | End | uint32 |
+| 8–11 | 4 | SuffixLink | uint32 |
+| 12–15 | 4 | DepthFromRoot | uint32 |
+| 16–19 | 4 | LeafCount | uint32 |
+| 20–23 | 4 | ChildrenHead | uint32 |
+| 24–27 | 4 | ChildCount | int32 |
 
-### Algorithmic Stability
-- **Iterative Algorithms**: Leaf counting and tree traversal are implemented using stacks rather than recursion. This prevents `StackOverflowException` when processing extremely deep or repetitive trees.
+**Child entry:** Key (4 B) + Offset (4 B) = **8 bytes**.
+**NULL sentinel:** `0xFFFFFFFF`. Max valid offset: `0xFFFFFFFE` (~4.29 GB).
 
-## Serialization & Portability
+#### Large (v3) — 40-byte Nodes
 
-The `SuffixTreeSerializer` utility provides logical identity, portable export/import, and convenient file-based persistence.
+| Offset | Size | Field | Type |
+|--------|------|-------|------|
+| 0–3 | 4 | Start | uint32 |
+| 4–7 | 4 | End | uint32 |
+| 8–15 | 8 | SuffixLink | int64 |
+| 16–19 | 4 | DepthFromRoot | uint32 |
+| 20–23 | 4 | LeafCount | uint32 |
+| 24–31 | 8 | ChildrenHead | int64 |
+| 32–35 | 4 | ChildCount | int32 |
+| 36–39 | 4 | _(padding)_ | — |
 
-**Format v2**: Export stores only the source text and a SHA256 structural hash. Import rebuilds the tree from text via `PersistentSuffixTreeBuilder` (Ukkonen's algorithm), guaranteeing 100% functionality including suffix links for `FindExactMatchAnchors`.
+**Child entry:** Key (4 B) + Offset (8 B) = **12 bytes**.
+**NULL sentinel:** `-1L`.
 
-### 1. Calculating Logical Hash
-Get a unique fingerprint of the tree structure that is identical across different memory layouts.
+### Hybrid v5 Format
 
-```csharp
-byte[] hash = SuffixTreeSerializer.CalculateLogicalHash(tree);
-string hashString = BitConverter.ToString(hash).Replace("-", "");
-Console.WriteLine($"Tree Fingerprint: {hashString}");
-```
+Construction always starts in compact mode. When the next allocation would
+exceed `uint.MaxValue - 1`, the builder transitions to large mode:
 
-### 2. Stream-Based Export / Import
-Export any `ISuffixTree` to a portable stream; import into any `IStorageProvider`.
+1. **Transition offset** — recorded in the header at byte 48.
+2. **Jump table** — a contiguous block of `int64` entries materialized at finalization:
+   - *Suffix-link jumps:* Compact nodes whose suffix links point into the large zone.
+     The compact `uint32` field points to the jump entry; the entry stores the `int64` target.
+   - *Child-array jumps:* Compact parents with any large-zone children.
+     `ChildrenHead` points to the jump entry; child entries use 12-byte (large) format.
+     The high bit of `ChildCount` is set as a "jumped" flag.
+3. **Zone detection** — `HybridLayout.GetLayoutForOffset(offset)` returns Compact if
+   `offset < transitionOffset`, else Large.
+4. **Jump resolution** — `HybridLayout.ResolveSuffixLink(offset)` dereferences `int64`
+   targets for offsets falling within the jump table range.
 
-```csharp
-// Export (compact: text + hash only)
-using (var outStream = File.Create("tree.bin"))
-    SuffixTreeSerializer.Export(tree, outStream);
+### Serialization Format v2
 
-// Import — rebuilds via Ukkonen, suffix links created natively
-using (var inStream = File.OpenRead("tree.bin"))
-{
-    var storage = new HeapStorageProvider();
-    var imported = SuffixTreeSerializer.Import(inStream, storage);
-    imported.FindExactMatchAnchors("query", 3); // works — suffix links intact
-}
-```
+Used by `SuffixTreeSerializer.Export` / `Import`:
 
-### 3. File-Based Save / Load (MMF)
-Convenience methods that create a native persistent tree file.
+| Field | Type | Description |
+|-------|------|-------------|
+| Magic | int64 | `0x53544C4F47494332` — ASCII `"STLOGIC2"` |
+| Version | int32 | `2` |
+| Text length | 7-bit encoded int | Character count |
+| Text chars | char[] | Raw characters |
+| Node count | int32 | Expected after rebuild |
+| Hash length | int32 | Always `32` (SHA256) |
+| Hash | byte[32] | SHA256 of text + tree structure |
 
-```csharp
-// Save any ISuffixTree to a memory-mapped file
-using var saved = SuffixTreeSerializer.SaveToFile(tree, "saved.tree") as IDisposable;
+Import rebuilds the tree from scratch via Ukkonen's algorithm, guaranteeing
+correct suffix links. Both node count and structural hash are validated after rebuild.
 
-// Load from file — read-only, instant startup
-using var loaded = SuffixTreeSerializer.LoadFromFile("saved.tree") as IDisposable;
-var st = (ISuffixTree)loaded;
-st.FindExactMatchAnchors("query", 3); // full functionality
-```
+---
+
+## Performance
+
+### Format Savings
+
+The compact layout saves ~30% disk space vs. large and improves CPU cache hit rates
+(more nodes per cache line). The `NodeLayout` accessor methods use `[AggressiveInlining]`;
+the `if (OffsetIs64Bit)` branch is perfectly predicted by the CPU (same direction for
+every node in single-zone trees), adding zero measurable overhead.
+
+### Iterative Algorithms
+
+All tree traversals (leaf counting, child serialization, depth computation, `FindAll`,
+`PrintTree`) use explicit stacks instead of recursion — no `StackOverflowException`
+even for extremely deep or repetitive trees.
+
+### O(1) Longest Repeated Substring
+
+The deepest internal node is identified during the builder's post-order pass and
+its offset is stored in the v5 header (byte 72). `LongestRepeatedSubstring()` reads
+this single node — no traversal on query.
+
+### Chunked Text Storage
+
+Text is written to the storage in 4096-character chunks, avoiding large contiguous
+allocations during build. On load, `MemoryMappedTextSource` provides zero-copy character
+access via a raw pointer into the MMF.
+
+### Construction Memory
+
+After `FinalizeTree`, the builder clears all in-memory collections (suffix link map,
+child lists, deferred jump entries) to release GC pressure before the tree is returned.
+
+---
+
+## Load Validation
+
+`PersistentSuffixTree.Load` performs comprehensive validation before returning a tree:
+
+| Check | Description |
+|-------|-------------|
+| Storage ≥ header size | Detects truncated files |
+| Magic bytes | Must be `"SUFFIXTR"` |
+| Version ∈ {3, 4, 5} | Rejects unknown formats |
+| Root offset in bounds | Root must be within storage |
+| Root offset ≥ 0 | Rejects negative offsets |
+| Text offset in bounds | Text region must be within storage |
+| Text length ≥ 0 | Rejects negative lengths |
+| Text region fits | `textOff + textLen × 2 ≤ Size` |
+| v5: transition in bounds | Transition offset must be within storage |
+| v5: jump end ≥ jump start | Jump table must be non-negative length |
+| v5: deepest node in bounds | Offset must be within storage (if ≥ 0) |
+| v5: deepest node ≥ −1 | Rejects negative offsets other than sentinel |
+| Header SIZE = storage size | Detects mismatch / corruption |
+
+---
 
 ## Quality Assurance
 
-The library is verified by 157 tests:
-- **Differential Parity**: Cross-validation against the reference in-memory implementation for all `ISuffixTree` methods.
-- **Format Parity**: Compact and Large formats produce identical query results and logical hashes.
-- **Anchor Parity**: `FindExactMatchAnchors` results match between in-memory and persistent trees.
-- **Logical Parity**: SHA256 checksums match across Heap, MMF, imported, Compact, and Large storage backends.
-- **Serialization Round-Trip**: Export → Import and SaveToFile → LoadFromFile preserve full functionality.
-- **Auto-Detection**: `Load()` correctly identifies v3 (Large) and v4 (Compact) files from the header.
-- **Stress Testing**: Validates stability with large datasets (1MB+) and concurrent access.
+**339 tests** organized into 6 categories:
+
+### Core/ — 37 tests
+Base functionality across all three storage backends (Heap, MMF, Large-format)
+plus builder guard rails.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `SuffixTreeTestBase.cs` | 8 (×3) | Contains, FindAll, Count, LRS, LCS, empty, Unicode, suffixes |
+| `HeapSuffixTreeTests.cs` | 8 | Heap backend |
+| `LargeFormatSuffixTreeTests.cs` | 8 | Large (v3) backend |
+| `MmfSuffixTreeTests.cs` | 13 | MMF backend + persistence, 50 KB / 1 MB stress, concurrency, corruption |
+| `BuilderGuardTests.cs` | 8 | Double-build guard, deepest node tracking, O(1) LRS, memory release |
+
+### Format/ — 109 tests
+Storage format correctness, compact vs. large parity, hybrid transition zone sweep.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `StorageFormatTests.cs` | 20 | Compact/Large build+query, format detection, size savings, layout constants |
+| `HybridTransitionZoneTests.cs` | 89 | Exhaustive transition-point sweep (×8 texts), cross-zone suffix links, stress |
+
+### Parity/ — 17 tests
+Differential testing between persistent and in-memory reference implementations.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `ParityTests.cs` | 11 | Full API parity (10 strings + 10 random) |
+| `TopologyParityTests.cs` | 6 | Node-by-node topology comparison (6 texts) |
+
+### Safety/ — 78 tests
+Dispose, concurrency, providers, node API, null guards, text source, overflow.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `DisposeBehaviorTests.cs` | 12 | ODE for all 17 methods, idempotent dispose, read-only, PrintTree, exception safety |
+| `ConcurrencyTests.cs` | 5 | 1000 parallel MMF reads, 5000 heap reads, concurrent dispose trials |
+| `ProviderSafetyTests.cs` | 28 | ODE, negative allocate, data preservation, bounds checks (both providers) |
+| `NodeApiSafetyTests.cs` | 14 | TryGetChild, jumped handling, offset overflow, internal API visibility |
+| `NullGuardTests.cs` | 3 | Null guards for factory methods |
+| `MemoryMappedTextSourceTests.cs` | 9 | Char access, slicing, pointer cleanup, dispose safety, TOCTOU fix |
+| `OverflowAndValidationTests.cs` | 7 | Integer overflow, slice overflow, negative length, zero-cap, chunked text |
+
+### Serialization/ — 14 tests
+Export/import round-trips, hash consistency, truncation detection.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `LogicalPersistenceTests.cs` | 6 | Hash parity (Heap/MMF/Reference), byte-identical exports, round-trip |
+| `SerializerHashTests.cs` | 2 | Same-tree hash stability, little-endian regression |
+| `ImportTruncationTests.cs` | 2 | Truncated stream, zero-chars-after-header |
+| `SetSizeAndExportTests.cs` | 4 | Post-dispose guard, negative size, valid update, 10 K chunked export |
+
+### Validation/ — 49 tests
+Load validation, mathematical invariants, tree contracts, boundary cases.
+
+| File | Tests | Focus |
+|------|-------|-------|
+| `LoadValidationTests.cs` | 17 | Truncated storage, bad magic, unknown version, bounds, SIZE mismatch |
+| `MathematicalInvariantsTests.cs` | 10 | LeafCount = text.Length, NodeCount bounds, terminator isolation |
+| `TreeContractTests.cs` | 12 | Lex suffix order, null guard, LCS positions, depth, visitor balance |
+| `EmptyPatternContractTests.cs` | 4 | Empty → all positions, count = text.Length |
+| `BoundaryAndEdgeCaseTests.cs` | 6 | Frequent resizing, edge count invariant, pathological patterns |
+
+---
 
 ## License
 
-This project is part of the Prototype SuffixTree suite.
+Part of the Seqeron bioinformatics suite. See [LICENSE](../../../../LICENSE).
