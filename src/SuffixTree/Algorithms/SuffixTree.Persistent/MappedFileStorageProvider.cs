@@ -181,9 +181,10 @@ public class MappedFileStorageProvider : IStorageProvider
         if (size < 0)
             throw new ArgumentOutOfRangeException(nameof(size), "Allocation size must be non-negative.");
 
+        long newPosition = _position + size;
+        EnsureCapacity(newPosition);
         long offset = _position;
-        _position += size;
-        EnsureCapacity(_position);
+        _position = newPosition;
         return offset;
     }
 
