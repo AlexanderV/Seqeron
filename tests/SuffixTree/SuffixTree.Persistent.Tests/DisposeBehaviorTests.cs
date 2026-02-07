@@ -165,6 +165,51 @@ namespace SuffixTree.Persistent.Tests
             Assert.That(positionsInOther, Is.Empty);
         }
 
+        // ─── S10: Dispose exception safety ────────────────────────
+
+        [Test]
+        public void Dispose_TextSourceThrows_StorageStillDisposed()
+        {
+            // Build a tree with a tracking storage so we can verify storage.Dispose was called
+            var storage = new TrackingStorageProvider();
+            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+            long root = builder.Build(new StringTextSource("abc"));
+
+            // Use internal constructor to inject a ThrowingTextSource with ownsTextSource=true
+            var tree = new PersistentSuffixTree(storage, root,
+                textSource: new ThrowingTextSource("abc"), ownsTextSource: true,
+                layout: NodeLayout.Compact);
+
+            // Currently Dispose does NOT use try/finally, so if textSource throws,
+            // storage.Dispose() is skipped. After the fix, storage must still be disposed.
+            Exception? caughtException = null;
+            try { tree.Dispose(); }
+            catch (Exception ex) { caughtException = ex; }
+
+            // The throwing text source's exception should propagate (caller should know),
+            // but storage must be disposed regardless
+            Assert.That(caughtException, Is.Not.Null, "Exception from text source should propagate");
+            Assert.That(storage.IsDisposed, Is.True,
+                "Storage must be disposed even when textSource.Dispose() throws");
+        }
+
+        [Test]
+        public void Dispose_StorageThrows_CompletesWithoutCorruption()
+        {
+            // Even if storage.Dispose() throws, the _disposed flag should be set
+            var storage = new ThrowingStorageProvider();
+            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+            long root = builder.Build(new StringTextSource("x"));
+
+            var tree = new PersistentSuffixTree(storage, root, new StringTextSource("x"), NodeLayout.Compact);
+
+            // First Dispose throws from storage
+            Assert.Throws<InvalidOperationException>(() => tree.Dispose());
+
+            // Second Dispose must not throw (_disposed is already true)
+            Assert.DoesNotThrow(() => tree.Dispose());
+        }
+
         // ─── HeapStorageProvider: Dispose ────────────────────────────
 
         [Test]
@@ -182,6 +227,62 @@ namespace SuffixTree.Persistent.Tests
             public void VisitNode(int startIndex, int endIndex, int leafCount, int childCount, int depth) { }
             public void EnterBranch(int key) { }
             public void ExitBranch() { }
+        }
+
+        /// <summary>ITextSource that throws on Dispose for S10 testing.</summary>
+        private sealed class ThrowingTextSource : ITextSource, IDisposable
+        {
+            private readonly string _text;
+            public ThrowingTextSource(string text) => _text = text;
+            public int Length => _text.Length;
+            public char this[int index] => _text[index];
+            public string Substring(int start, int length) => _text.Substring(start, length);
+            public ReadOnlySpan<char> Slice(int start, int length) => _text.AsSpan(start, length);
+            public IEnumerator<char> GetEnumerator() => _text.GetEnumerator();
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+            public override string ToString() => _text;
+            public void Dispose() => throw new InvalidOperationException("ThrowingTextSource.Dispose boom");
+        }
+
+        /// <summary>Storage decorator that tracks Dispose calls for S10 testing.</summary>
+        private sealed class TrackingStorageProvider : IStorageProvider
+        {
+            private readonly HeapStorageProvider _inner = new();
+            public bool IsDisposed { get; private set; }
+            public long Size => _inner.Size;
+            public void EnsureCapacity(long capacity) => _inner.EnsureCapacity(capacity);
+            public long Allocate(int size) => _inner.Allocate(size);
+            public int ReadInt32(long offset) => _inner.ReadInt32(offset);
+            public void WriteInt32(long offset, int value) => _inner.WriteInt32(offset, value);
+            public uint ReadUInt32(long offset) => _inner.ReadUInt32(offset);
+            public void WriteUInt32(long offset, uint value) => _inner.WriteUInt32(offset, value);
+            public long ReadInt64(long offset) => _inner.ReadInt64(offset);
+            public void WriteInt64(long offset, long value) => _inner.WriteInt64(offset, value);
+            public char ReadChar(long offset) => _inner.ReadChar(offset);
+            public void WriteChar(long offset, char value) => _inner.WriteChar(offset, value);
+            public void ReadBytes(long offset, byte[] buffer, int bufferOffset, int count) => _inner.ReadBytes(offset, buffer, bufferOffset, count);
+            public void WriteBytes(long offset, byte[] data, int dataOffset, int count) => _inner.WriteBytes(offset, data, dataOffset, count);
+            public void Dispose() { IsDisposed = true; _inner.Dispose(); }
+        }
+
+        /// <summary>Storage decorator that throws on Dispose for S10 testing.</summary>
+        private sealed class ThrowingStorageProvider : IStorageProvider
+        {
+            private readonly HeapStorageProvider _inner = new();
+            public long Size => _inner.Size;
+            public void EnsureCapacity(long capacity) => _inner.EnsureCapacity(capacity);
+            public long Allocate(int size) => _inner.Allocate(size);
+            public int ReadInt32(long offset) => _inner.ReadInt32(offset);
+            public void WriteInt32(long offset, int value) => _inner.WriteInt32(offset, value);
+            public uint ReadUInt32(long offset) => _inner.ReadUInt32(offset);
+            public void WriteUInt32(long offset, uint value) => _inner.WriteUInt32(offset, value);
+            public long ReadInt64(long offset) => _inner.ReadInt64(offset);
+            public void WriteInt64(long offset, long value) => _inner.WriteInt64(offset, value);
+            public char ReadChar(long offset) => _inner.ReadChar(offset);
+            public void WriteChar(long offset, char value) => _inner.WriteChar(offset, value);
+            public void ReadBytes(long offset, byte[] buffer, int bufferOffset, int count) => _inner.ReadBytes(offset, buffer, bufferOffset, count);
+            public void WriteBytes(long offset, byte[] data, int dataOffset, int count) => _inner.WriteBytes(offset, data, dataOffset, count);
+            public void Dispose() => throw new InvalidOperationException("ThrowingStorageProvider.Dispose boom");
         }
     }
 }

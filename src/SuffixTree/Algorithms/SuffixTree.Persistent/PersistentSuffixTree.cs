@@ -27,6 +27,16 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource = null, NodeLayout? layout = null,
         long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
+        : this(storage, rootOffset, textSource, textSource == null, layout, transitionOffset, jumpTableStart, jumpTableEnd)
+    {
+    }
+
+    /// <summary>
+    /// Internal constructor allowing explicit control over text source ownership.
+    /// </summary>
+    internal PersistentSuffixTree(IStorageProvider storage, long rootOffset,
+        ITextSource? textSource, bool ownsTextSource, NodeLayout? layout,
+        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _layout = layout ?? NodeLayout.Compact;
@@ -39,7 +49,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         if (textSource != null)
         {
             _textSource = textSource;
-            _ownsTextSource = false; // Caller retains ownership
+            _ownsTextSource = ownsTextSource;
         }
         else
         {
@@ -630,10 +640,16 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
         // Dispose textSource BEFORE storage: MemoryMappedTextSource must
         // ReleasePointer() while the underlying accessor is still alive.
-        if (_ownsTextSource && _textSource is IDisposable disposableText)
-            disposableText.Dispose();
-
-        _storage.Dispose();
+        // Use try/finally to guarantee storage is disposed even if textSource throws.
+        try
+        {
+            if (_ownsTextSource && _textSource is IDisposable disposableText)
+                disposableText.Dispose();
+        }
+        finally
+        {
+            _storage.Dispose();
+        }
     }
 
     private void ThrowIfDisposed()
