@@ -13,10 +13,7 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
-    private readonly NodeLayout _layout;
-    private readonly long _transitionOffset;
-    private readonly long _jumpTableStart;
-    private readonly long _jumpTableEnd;
+    private readonly HybridLayout _hybrid;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PersistentSuffixTreeNavigator(IStorageProvider storage, long rootOffset, ITextSource textSource,
@@ -25,49 +22,25 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
         _storage = storage;
         _rootOffset = rootOffset;
         _textSource = textSource;
-        _layout = layout;
-        _transitionOffset = transitionOffset;
-        _jumpTableStart = jumpTableStart;
-        _jumpTableEnd = jumpTableEnd;
+        _hybrid = new HybridLayout(storage, layout, transitionOffset, jumpTableStart, jumpTableEnd);
     }
 
-    /// <summary>Returns the correct layout for a node at the given offset.</summary>
+    /// <summary>Returns the correct layout for a node at the given offset. Delegates to <see cref="HybridLayout"/>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private NodeLayout LayoutForOffset(long offset)
-    {
-        if (_transitionOffset < 0) return _layout;
-        return offset < _transitionOffset ? NodeLayout.Compact : NodeLayout.Large;
-    }
+    private NodeLayout LayoutForOffset(long offset) => _hybrid.LayoutForOffset(offset);
 
-    /// <summary>Resolves a jump-table entry if the offset falls in the jump zone.</summary>
+    /// <summary>Resolves a jump-table entry if the offset falls in the jump zone. Delegates to <see cref="HybridLayout"/>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long ResolveJump(long offset)
-    {
-        if (_jumpTableStart >= 0 && offset >= _jumpTableStart && offset < _jumpTableEnd)
-            return _storage.ReadInt64(offset);
-        return offset;
-    }
+    private long ResolveJump(long offset) => _hybrid.ResolveJump(offset);
 
-    /// <summary>Creates a node with the correct zone layout.</summary>
+    /// <summary>Creates a node with the correct zone layout. Delegates to <see cref="HybridLayout"/>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private PersistentSuffixTreeNode NodeAt(long offset)
-        => new PersistentSuffixTreeNode(_storage, offset, LayoutForOffset(offset));
+    private PersistentSuffixTreeNode NodeAt(long offset) => _hybrid.NodeAt(offset);
 
-    /// <summary>Reads child-array info, handling jumped/large-entry arrays.</summary>
+    /// <summary>Reads child-array info, handling jumped/large-entry arrays. Delegates to <see cref="HybridLayout"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private (long ArrayBase, NodeLayout EntryLayout, int Count) ReadChildArrayInfo(PersistentSuffixTreeNode parent)
-    {
-        int rawCount = parent.ChildCount;
-        long head = parent.ChildrenHead;
-        bool isJumped = (rawCount & unchecked((int)0x80000000)) != 0;
-        int count = isJumped ? (rawCount & 0x7FFFFFFF) : rawCount;
-
-        if (isJumped)
-        {
-            long realArrayOffset = _storage.ReadInt64(head);
-            return (realArrayOffset, NodeLayout.Large, count);
-        }
-        return (head, LayoutForOffset(parent.Offset), count);
-    }
+        => _hybrid.ReadChildArrayInfo(parent);
 
     public ITextSource Text
     {
@@ -84,7 +57,7 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     public PersistentSuffixTreeNode NullNode
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => PersistentSuffixTreeNode.Null(_storage, _layout);
+        get => PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -133,7 +106,7 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     public bool TryGetChild(PersistentSuffixTreeNode node, int key, out PersistentSuffixTreeNode child)
     {
         var (arrayBase, entryLayout, count) = ReadChildArrayInfo(node);
-        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _layout); return false; }
+        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout); return false; }
 
         int lo = 0, hi = count - 1;
         int signedKey = key;
@@ -153,7 +126,7 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
             if (midKey < signedKey) lo = mid + 1;
             else hi = mid - 1;
         }
-        child = PersistentSuffixTreeNode.Null(_storage, _layout);
+        child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
         return false;
     }
 
@@ -192,7 +165,7 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
         while (!current.IsLeaf)
         {
             var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(current);
-            PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage, _layout);
+            PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
             for (int ci = 0; ci < childCount; ci++)
             {
                 long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
