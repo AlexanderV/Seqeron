@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SuffixTree
 {
@@ -72,151 +71,8 @@ namespace SuffixTree
 
         private (string Substring, List<int> PositionsInText, List<int> PositionsInOther) FindAllLongestCommonSubstringsInternal(string other, bool firstOnly)
         {
-            ArgumentNullException.ThrowIfNull(other);
-            if (other.Length == 0 || _text.Length == 0)
-                return (string.Empty, new List<int>(), new List<int>());
-
-            int maxLen = 0;
-            var bestMatches = new List<(SuffixTreeNode Node, int MatchEndInOther)>();
-
-            var currentNode = _root;
-            SuffixTreeNode? currentEdge = null;
-            int edgeOffset = 0;
-            int currentMatchLen = 0;
-
-            // Local function to finalize edge traversal when offset reaches edge length
-            void TryFinalizeEdge()
-            {
-                if (currentEdge != null && edgeOffset >= LengthOf(currentEdge))
-                {
-                    currentNode = currentEdge;
-                    currentEdge = null;
-                    edgeOffset = 0;
-                }
-            }
-
-            for (int i = 0; i < other.Length; i++)
-            {
-                char c = other[i];
-
-                while (true)
-                {
-                    if (currentEdge != null)
-                    {
-                        if (GetSymbolAt(currentEdge.Start + edgeOffset) == c)
-                        {
-                            edgeOffset++;
-                            currentMatchLen++;
-                            TryFinalizeEdge();
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        if (currentNode.TryGetChild(c, out var nextChild) && nextChild != null)
-                        {
-                            currentEdge = nextChild;
-                            edgeOffset = 1;
-                            currentMatchLen++;
-                            TryFinalizeEdge();
-                            break;
-                        }
-                    }
-
-                    if (currentMatchLen == 0) break;
-
-                    if (currentNode != _root)
-                    {
-                        currentNode = currentNode.SuffixLink ?? _root;
-                    }
-                    currentMatchLen--;
-
-                    int nodeDepth = GetNodeDepth(currentNode);
-                    int remaining = currentMatchLen - nodeDepth;
-
-                    if (remaining > 0)
-                    {
-                        int pos = i - remaining; // Character at current relative position in 'other'
-                        currentEdge = null;
-                        edgeOffset = 0;
-
-                        while (remaining > 0)
-                        {
-                            if (!currentNode.TryGetChild(other[pos], out var nextChild) || nextChild == null)
-                                break;
-
-                            int edgeLen = LengthOf(nextChild);
-                            if (edgeLen <= remaining)
-                            {
-                                pos += edgeLen;
-                                remaining -= edgeLen;
-                                currentNode = nextChild;
-                            }
-                            else
-                            {
-                                currentEdge = nextChild;
-                                edgeOffset = remaining;
-                                remaining = 0;
-                            }
-                        }
-                        System.Diagnostics.Debug.Assert(remaining == 0, "Rescan logic did not fully consume the remaining characters.");
-                    }
-                    else
-                    {
-                        currentEdge = null;
-                        edgeOffset = 0;
-                    }
-                }
-
-                if (currentMatchLen > maxLen)
-                {
-                    maxLen = currentMatchLen;
-                    bestMatches.Clear();
-                    bestMatches.Add((currentEdge ?? currentNode, i));
-                }
-                else if (currentMatchLen == maxLen && maxLen > 0)
-                {
-                    bestMatches.Add((currentEdge ?? currentNode, i));
-                }
-            }
-
-            if (maxLen == 0)
-                return (string.Empty, new List<int>(), new List<int>());
-
-            var positionsInText = new List<int>();
-            var positionsInOther = new List<int>();
-
-            foreach (var match in bestMatches)
-            {
-                int matchEndInOther = match.MatchEndInOther;
-                positionsInOther.Add(matchEndInOther - maxLen + 1);
-
-                if (firstOnly)
-                {
-                    ReconstructPath(match.Node, positionsInText);
-                    break;
-                }
-                else
-                {
-                    CollectLeaves(match.Node, match.Node.DepthFromRoot, positionsInText);
-                }
-            }
-
-            string substring = other.Substring(bestMatches[0].MatchEndInOther - maxLen + 1, maxLen);
-            return (substring, positionsInText, positionsInOther);
-        }
-
-        private void ReconstructPath(SuffixTreeNode node, List<int> results)
-        {
-            var current = node;
-            var buffer = GetSearchBuffer();
-            while (!current.IsLeaf)
-            {
-                current.GetChildren(buffer);
-                current = buffer[0];
-            }
-            int leafDepth = GetNodeDepth(current);
-            results.Add(_text!.Length + 1 - leafDepth);
+            var nav = new SuffixTreeNavigator(this);
+            return SuffixTreeAlgorithms.FindAllLcs<SuffixTreeNode, SuffixTreeNavigator>(ref nav, other, firstOnly);
         }
 
         /// <summary>
@@ -247,154 +103,13 @@ namespace SuffixTree
         public IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> FindExactMatchAnchors(
             string query, int minLength)
         {
-            ArgumentNullException.ThrowIfNull(query);
-            if (query.Length == 0 || _text.Length == 0 || minLength <= 0)
-                return Array.Empty<(int, int, int)>();
-
-            var results = new List<(int PositionInText, int PositionInQuery, int Length)>();
-
-            var currentNode = _root;
-            SuffixTreeNode? currentEdge = null;
-            int edgeOffset = 0;
-            int currentMatchLen = 0;
-
-            // Peak tracking: captures the best match within a contiguous run above minLength.
-            int peakLen = 0;
-            int peakEndInQuery = -1;
-            SuffixTreeNode? peakNode = null;
-
-            for (int i = 0; i < query.Length; i++)
-            {
-                char c = query[i];
-
-                // Streaming traversal — identical to LCS algorithm
-                while (true)
-                {
-                    if (currentEdge != null)
-                    {
-                        if (GetSymbolAt(currentEdge.Start + edgeOffset) == c)
-                        {
-                            edgeOffset++;
-                            currentMatchLen++;
-                            if (edgeOffset >= LengthOf(currentEdge))
-                            {
-                                currentNode = currentEdge;
-                                currentEdge = null;
-                                edgeOffset = 0;
-                            }
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        if (currentNode.TryGetChild(c, out var nextChild) && nextChild != null)
-                        {
-                            currentEdge = nextChild;
-                            edgeOffset = 1;
-                            currentMatchLen++;
-                            if (edgeOffset >= LengthOf(currentEdge))
-                            {
-                                currentNode = currentEdge;
-                                currentEdge = null;
-                                edgeOffset = 0;
-                            }
-                            break;
-                        }
-                    }
-
-                    // Cannot extend — follow suffix link
-                    if (currentMatchLen == 0) break;
-
-                    if (currentNode != _root)
-                    {
-                        currentNode = currentNode.SuffixLink ?? _root;
-                    }
-                    currentMatchLen--;
-
-                    int nodeDepth = GetNodeDepth(currentNode);
-                    int remaining = currentMatchLen - nodeDepth;
-
-                    if (remaining > 0)
-                    {
-                        int pos = i - remaining;
-                        currentEdge = null;
-                        edgeOffset = 0;
-
-                        while (remaining > 0)
-                        {
-                            if (!currentNode.TryGetChild(query[pos], out var nextChild2) || nextChild2 == null)
-                                break;
-
-                            int edgeLen = LengthOf(nextChild2);
-                            if (edgeLen <= remaining)
-                            {
-                                pos += edgeLen;
-                                remaining -= edgeLen;
-                                currentNode = nextChild2;
-                            }
-                            else
-                            {
-                                currentEdge = nextChild2;
-                                edgeOffset = remaining;
-                                remaining = 0;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        currentEdge = null;
-                        edgeOffset = 0;
-                    }
-                }
-
-                // Update peak tracking — record the best match in the current run
-                if (currentMatchLen >= minLength)
-                {
-                    if (currentMatchLen > peakLen)
-                    {
-                        peakLen = currentMatchLen;
-                        peakEndInQuery = i;
-                        peakNode = currentEdge ?? currentNode;
-                    }
-                }
-                else if (peakLen >= minLength)
-                {
-                    // Match just dropped below threshold — emit the peak anchor
-                    EmitAnchorFromPeak(results, peakNode!, peakEndInQuery, peakLen);
-                    peakLen = 0;
-                    peakEndInQuery = -1;
-                    peakNode = null;
-                }
-            }
-
-            // Emit the final run if still above threshold
-            if (peakLen >= minLength && peakNode != null)
-            {
-                EmitAnchorFromPeak(results, peakNode, peakEndInQuery, peakLen);
-            }
-
-            return results;
+            var nav = new SuffixTreeNavigator(this);
+            return SuffixTreeAlgorithms.FindExactMatchAnchors<SuffixTreeNode, SuffixTreeNavigator>(ref nav, query, minLength);
         }
 
         /// <summary>
-        /// Emits a single anchor from the peak of a match run.
-        /// </summary>
-        private void EmitAnchorFromPeak(
-            List<(int PositionInText, int PositionInQuery, int Length)> results,
-            SuffixTreeNode node,
-            int endInQuery,
-            int length)
-        {
-            int refPos = FindAnyLeafPosition(node);
-            if (refPos >= 0)
-            {
-                results.Add((refPos, endInQuery - length + 1, length));
-            }
-        }
-
-        /// <summary>
-        /// Walks to any leaf descendant of the given node and returns its position
-        /// in the source text. Prefers non-terminator children to avoid edge cases.
+        /// Walks to any leaf descendant and returns its position in the source text.
+        /// Used by <see cref="SuffixTreeNavigator"/>.
         /// </summary>
         private int FindAnyLeafPosition(SuffixTreeNode node)
         {
@@ -404,7 +119,6 @@ namespace SuffixTree
             {
                 current.GetChildren(buffer);
                 if (buffer.Count == 0) return -1;
-                // Use last child to prefer non-terminator (terminator is added first in GetChildren)
                 current = buffer[buffer.Count - 1];
             }
             int leafDepth = GetNodeDepth(current);
