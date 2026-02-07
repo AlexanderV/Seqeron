@@ -10,6 +10,10 @@ public readonly struct PersistentSuffixTreeNode
     private readonly long _offset;
     private readonly NodeLayout _layout;
 
+    /// <summary>Initializes a node handle at the specified storage offset.</summary>
+    /// <param name="storage">The storage provider backing this node.</param>
+    /// <param name="offset">Byte offset of the node in storage.</param>
+    /// <param name="layout">Binary layout descriptor for this node's format.</param>
     public PersistentSuffixTreeNode(IStorageProvider storage, long offset, NodeLayout layout)
     {
         _storage = storage;
@@ -17,16 +21,20 @@ public readonly struct PersistentSuffixTreeNode
         _layout = layout;
     }
 
+    /// <summary>Gets the byte offset of this node in storage.</summary>
     public long Offset => _offset;
+    /// <summary>Gets whether this node represents a null/absent node.</summary>
     public bool IsNull => _offset == PersistentConstants.NULL_OFFSET;
     internal NodeLayout Layout => _layout;
 
+    /// <summary>Gets or sets the start index of this node's edge label in the text.</summary>
     public uint Start
     {
         get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_START);
         internal set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_START, value);
     }
 
+    /// <summary>Gets or sets the end index (exclusive) of this node's edge label.</summary>
     public uint End
     {
         get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_END);
@@ -39,12 +47,14 @@ public readonly struct PersistentSuffixTreeNode
         set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
     }
 
+    /// <summary>Gets the cumulative character depth from the root to the start of this node's edge.</summary>
     public uint DepthFromRoot
     {
         get => _storage.ReadUInt32(_offset + _layout.OffsetDepth);
         internal set => _storage.WriteUInt32(_offset + _layout.OffsetDepth, value);
     }
 
+    /// <summary>Gets the number of leaf nodes in this node's subtree.</summary>
     public uint LeafCount
     {
         get => _storage.ReadUInt32(_offset + _layout.OffsetLeafCount);
@@ -63,6 +73,7 @@ public readonly struct PersistentSuffixTreeNode
         set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
     }
 
+    /// <summary>Gets whether this node is a leaf (End equals <see cref="PersistentConstants.BOUNDLESS"/>).</summary>
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;
 
     internal bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
@@ -104,8 +115,10 @@ public readonly struct PersistentSuffixTreeNode
         return false;
     }
 
+    /// <summary>Gets whether this node has any children.</summary>
     public bool HasChildren => (ChildCount & 0x7FFFFFFF) > 0;
 
+    /// <summary>Creates a null node handle for the given storage and layout.</summary>
     public static PersistentSuffixTreeNode Null(IStorageProvider storage, NodeLayout layout)
         => new(storage, PersistentConstants.NULL_OFFSET, layout);
 }

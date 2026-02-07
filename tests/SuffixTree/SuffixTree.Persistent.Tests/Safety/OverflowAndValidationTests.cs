@@ -36,7 +36,7 @@ public class OverflowAndValidationTests
 
         using var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
         // start=1, length=int.MaxValue → start+length overflows to int.MinValue < _length → BUG: passes check
-        Assert.Throws<IndexOutOfRangeException>(() => source.Substring(1, int.MaxValue));
+        Assert.Throws<ArgumentOutOfRangeException>(() => source.Substring(1, int.MaxValue));
     }
 
     [Test]
@@ -46,7 +46,7 @@ public class OverflowAndValidationTests
         File.WriteAllBytes(_tempFile, System.Text.Encoding.Unicode.GetBytes(text));
 
         using var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
-        Assert.Throws<IndexOutOfRangeException>(() => source.Slice(1, int.MaxValue));
+        Assert.Throws<ArgumentOutOfRangeException>(() => source.Slice(1, int.MaxValue));
     }
 
     [Test]
@@ -56,7 +56,7 @@ public class OverflowAndValidationTests
         File.WriteAllBytes(_tempFile, System.Text.Encoding.Unicode.GetBytes(text));
 
         using var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
-        Assert.Throws<IndexOutOfRangeException>(() => source.Substring(0, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => source.Substring(0, -1));
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class OverflowAndValidationTests
         File.WriteAllBytes(_tempFile, System.Text.Encoding.Unicode.GetBytes(text));
 
         using var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
-        Assert.Throws<IndexOutOfRangeException>(() => source.Slice(0, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => source.Slice(0, -1));
     }
 
     // ─── P7: HeapStorageProvider(0) → EnsureCapacity infinite loop ──

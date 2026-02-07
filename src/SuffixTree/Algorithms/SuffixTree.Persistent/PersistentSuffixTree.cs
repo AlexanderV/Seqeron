@@ -1,8 +1,5 @@
-using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -24,6 +21,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     // Single source of truth for layout + hybrid zone info
     private readonly HybridLayout _hybrid;
 
+    /// <summary>Initializes a persistent suffix tree from pre-built storage data.</summary>
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource = null, NodeLayout? layout = null,
         long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1,
@@ -88,6 +86,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
 
+    /// <summary>Loads a persistent suffix tree from storage, validating the header and format.</summary>
     public static PersistentSuffixTree Load(IStorageProvider storage)
     {
         ArgumentNullException.ThrowIfNull(storage);
@@ -178,6 +177,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             deepestInternalNodeOffset: deepestNode);
     }
 
+    /// <inheritdoc />
     public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
 
     /// <summary>Whether this tree uses the hybrid v5 format with dual zones.</summary>
@@ -232,8 +232,10 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return ResolveJump(raw);
     }
 
+    /// <inheritdoc />
     public int NodeCount { get { ThrowIfDisposed(); return _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT); } }
 
+    /// <inheritdoc />
     public int LeafCount
     {
         get
@@ -244,10 +246,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public int MaxDepth { get { ThrowIfDisposed(); return _textSource.Length + 1; } }
 
+    /// <inheritdoc />
     public bool IsEmpty { get { ThrowIfDisposed(); return _textSource.Length == 0; } }
 
+    /// <inheritdoc />
     public bool Contains(string value)
     {
         ThrowIfDisposed();
@@ -256,6 +261,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return Contains(value.AsSpan());
     }
 
+    /// <inheritdoc />
     public bool Contains(ReadOnlySpan<char> value)
     {
         ThrowIfDisposed();
@@ -264,6 +270,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return matched;
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
         ThrowIfDisposed();
@@ -271,6 +278,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return FindAllOccurrences(pattern.AsSpan());
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
         ThrowIfDisposed();
@@ -288,6 +296,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return results;
     }
 
+    /// <inheritdoc />
     public int CountOccurrences(string pattern)
     {
         ThrowIfDisposed();
@@ -295,6 +304,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return CountOccurrences(pattern.AsSpan());
     }
 
+    /// <inheritdoc />
     public int CountOccurrences(ReadOnlySpan<char> pattern)
     {
         ThrowIfDisposed();
@@ -303,6 +313,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return matched ? (int)node.LeafCount : 0;
     }
 
+    /// <inheritdoc />
     public string LongestRepeatedSubstring()
     {
         ThrowIfDisposed();
@@ -323,6 +334,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return result;
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<string> GetAllSuffixes()
     {
         ThrowIfDisposed();
@@ -332,6 +344,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return results;
     }
 
+    /// <inheritdoc />
     public IEnumerable<string> EnumerateSuffixes()
     {
         ThrowIfDisposed();
@@ -370,6 +383,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public string LongestCommonSubstring(string other)
     {
         ThrowIfDisposed();
@@ -377,6 +391,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return substring;
     }
 
+    /// <inheritdoc />
     public string LongestCommonSubstring(ReadOnlySpan<char> other)
     {
         ThrowIfDisposed();
@@ -384,6 +399,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return substring;
     }
 
+    /// <inheritdoc />
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(string other)
     {
         ThrowIfDisposed();
@@ -393,12 +409,14 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return (results.Substring, results.PositionsInText[0], results.PositionsInOther[0]);
     }
 
+    /// <inheritdoc />
     public (string Substring, int PositionInText, int PositionInOther) LongestCommonSubstringInfo(ReadOnlySpan<char> other)
     {
         ThrowIfDisposed();
         return LongestCommonSubstringInfo(new string(other));
     }
 
+    /// <inheritdoc />
     public (string Substring, IReadOnlyList<int> PositionsInText, IReadOnlyList<int> PositionsInOther) FindAllLongestCommonSubstrings(string other)
     {
         ThrowIfDisposed();
@@ -415,6 +433,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return SuffixTreeAlgorithms.FindAllLcs<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, other, firstOnly);
     }
 
+    /// <inheritdoc />
     public string PrintTree()
     {
         ThrowIfDisposed();
@@ -684,9 +703,11 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return deepest;
     }
 
+    /// <summary>Disposes the tree, releasing storage and text source resources.</summary>
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+        GC.SuppressFinalize(this);
 
         // Dispose textSource BEFORE storage: MemoryMappedTextSource must
         // ReleasePointer() while the underlying accessor is still alive.
@@ -704,7 +725,6 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (Volatile.Read(ref _disposed) != 0)
-            throw new ObjectDisposedException(nameof(PersistentSuffixTree));
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 }
