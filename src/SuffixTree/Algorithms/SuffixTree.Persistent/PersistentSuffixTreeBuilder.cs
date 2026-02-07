@@ -356,6 +356,9 @@ public class PersistentSuffixTreeBuilder
             _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, _jumpTableStart);
             _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, _jumpTableEnd);
         }
+
+        // P17: Persist deepest internal node offset for O(1) LRS on Load
+        _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, _deepestInternalNodeOffset);
     }
 
     // ──────────────── Jump table ────────────────

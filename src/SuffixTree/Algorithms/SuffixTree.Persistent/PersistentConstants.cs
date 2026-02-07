@@ -16,10 +16,11 @@ public static class PersistentConstants
     public const int HEADER_SIZE = 48;
 
     /// <summary>
-    /// Extended header size for Hybrid v5 format (72 bytes).
-    /// Extra 24 bytes: TRANSITION (int64) + JUMP_START (int64) + JUMP_END (int64).
+    /// Extended header size for Hybrid v5 format (80 bytes).
+    /// Extra fields beyond base 48: TRANSITION (int64) + JUMP_START (int64)
+    /// + JUMP_END (int64) + DEEPEST_NODE (int64).
     /// </summary>
-    public const int HEADER_SIZE_V5 = 72;
+    public const int HEADER_SIZE_V5 = 80;
 
     public const uint BOUNDLESS = uint.MaxValue;
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
@@ -61,6 +62,9 @@ public static class PersistentConstants
     public const int HEADER_OFFSET_JUMP_START = 56;
     /// <summary>End of the contiguous jump table in a v5 header.</summary>
     public const int HEADER_OFFSET_JUMP_END = 64;
+
+    /// <summary>Offset of the pre-computed deepest internal node (for O(1) LRS). 8 bytes.</summary>
+    public const int HEADER_OFFSET_DEEPEST_NODE = 72;
 
     // Invariant node field offsets (same in both Compact and Large layouts)
     public const int OFFSET_START = 0;
