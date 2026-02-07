@@ -17,13 +17,17 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     private volatile bool _disposed;
     private volatile string? _cachedLrs;
 
+    // Pre-computed during build; NULL_OFFSET means not available (loaded trees)
+    private readonly long _deepestInternalNodeOffset;
+
     // Single source of truth for layout + hybrid zone info
     private readonly HybridLayout _hybrid;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource = null, NodeLayout? layout = null,
-        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
-        : this(storage, rootOffset, textSource, textSource == null, layout, transitionOffset, jumpTableStart, jumpTableEnd)
+        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1,
+        long deepestInternalNodeOffset = -1)
+        : this(storage, rootOffset, textSource, textSource == null, layout, transitionOffset, jumpTableStart, jumpTableEnd, deepestInternalNodeOffset)
     {
     }
 
@@ -32,10 +36,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     /// </summary>
     internal PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource, bool ownsTextSource, NodeLayout? layout,
-        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
+        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1,
+        long deepestInternalNodeOffset = -1)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _rootOffset = rootOffset;
+        _deepestInternalNodeOffset = deepestInternalNodeOffset;
         _hybrid = new HybridLayout(_storage, layout ?? NodeLayout.Compact, transitionOffset, jumpTableStart, jumpTableEnd);
 
         if (textSource != null)
@@ -606,6 +612,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private PersistentSuffixTreeNode FindDeepestInternalNode(PersistentSuffixTreeNode root)
     {
+        // Use pre-computed offset from builder if available (O(1) path)
+        if (_deepestInternalNodeOffset != PersistentConstants.NULL_OFFSET
+            && _deepestInternalNodeOffset != _rootOffset)
+        {
+            return NodeAt(_deepestInternalNodeOffset);
+        }
+
         if (root.IsLeaf) return PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
 
         var deepest = root;

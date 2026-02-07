@@ -54,7 +54,8 @@ public static class PersistentSuffixTreeFactory
             // but the root and header are always Compact.
             NodeLayout layout = NodeLayout.Compact;
             return new PersistentSuffixTree(storage, rootOffset, text, layout,
-                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
+                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,
+                builder.DeepestInternalNodeOffset);
         }
         catch
         {
