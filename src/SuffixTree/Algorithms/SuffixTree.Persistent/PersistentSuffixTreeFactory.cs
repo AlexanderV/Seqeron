@@ -16,6 +16,8 @@ public static class PersistentSuffixTreeFactory
     /// <returns>An implementation of ISuffixTree.</returns>
     public static ISuffixTree Create(ITextSource text, string? filePath = null)
     {
+        ArgumentNullException.ThrowIfNull(text);
+
         IStorageProvider storage = !string.IsNullOrEmpty(filePath)
             ? new MappedFileStorageProvider(filePath)
             : new HeapStorageProvider();
