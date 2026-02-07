@@ -156,6 +156,39 @@ public class LoadValidationTests
         Assert.That(ex!.Message, Does.Contain("jump"));
     }
 
+    // ──────────── C16: Header SIZE must match storage.Size ──────────────
+
+    [Test]
+    public void Load_HeaderSizeMismatch_ThrowsInvalidOperation()
+    {
+        // Build a real tree so header is valid
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.Build(new StringTextSource("banana"));
+
+        // Tamper: write a SIZE that differs from actual storage size
+        long actualSize = storage.Size;
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, actualSize + 1000);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("size").IgnoreCase);
+    }
+
+    [Test]
+    public void Load_HeaderSizeSmallerThanStorage_ThrowsInvalidOperation()
+    {
+        // Build a real tree, then set SIZE to a smaller value (simulates file corruption)
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.Build(new StringTextSource("abc"));
+
+        long actualSize = storage.Size;
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, actualSize - 10);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("size").IgnoreCase);
+    }
+
     // ──────────── Valid storage should still load ──────────────
 
     [Test]

@@ -102,6 +102,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         long storageSize = storage.Size;
         int headerSize = version == 5 ? PersistentConstants.HEADER_SIZE_V5 : PersistentConstants.HEADER_SIZE;
 
+        // C16: Validate recorded SIZE against actual storage to detect truncated files
+        long recordedSize = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_SIZE);
+        if (recordedSize > 0 && recordedSize != storageSize)
+            throw new InvalidOperationException(
+                $"Invalid storage format: header size {recordedSize} does not match actual storage size {storageSize}. File may be truncated or corrupted.");
+
         long root = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_ROOT);
         if (root < headerSize || root >= storageSize)
             throw new InvalidOperationException(
