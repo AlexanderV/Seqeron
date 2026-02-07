@@ -33,10 +33,10 @@ public readonly struct PersistentSuffixTreeNode
         internal set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_END, value);
     }
 
-    public long SuffixLink
+    internal long SuffixLink
     {
         get => _layout.ReadOffset(_storage, _offset + _layout.OffsetSuffixLink);
-        internal set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
+        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
     }
 
     public uint DepthFromRoot
@@ -51,16 +51,16 @@ public readonly struct PersistentSuffixTreeNode
         internal set => _storage.WriteUInt32(_offset + _layout.OffsetLeafCount, value);
     }
 
-    public long ChildrenHead
+    internal long ChildrenHead
     {
         get => _layout.ReadOffset(_storage, _offset + _layout.OffsetChildrenHead);
-        internal set => _layout.WriteOffset(_storage, _offset + _layout.OffsetChildrenHead, value);
+        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetChildrenHead, value);
     }
 
-    public int ChildCount
+    internal int ChildCount
     {
         get => _storage.ReadInt32(_offset + _layout.OffsetChildCount);
-        internal set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
+        set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
     }
 
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;

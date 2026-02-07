@@ -186,4 +186,46 @@ public class NodeApiSafetyTests
             "A14: PersistentSuffixTreeNode.TryGetChild should not be public — " +
             "it throws for hybrid nodes, use ISuffixTree/Navigator instead");
     }
+
+    // ──────────── A16: Raw encoded getters must NOT be public ──────────────
+
+    [Test]
+    public void SuffixLink_Getter_IsNotPublic()
+    {
+        // A16: SuffixLink returns raw value (may be jump-table offset in hybrid trees).
+        // External consumers must use ISuffixTree/Navigator to resolve links correctly.
+        var prop = typeof(PersistentSuffixTreeNode).GetProperty(
+            "SuffixLink",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+        Assert.That(prop, Is.Null,
+            "A16: PersistentSuffixTreeNode.SuffixLink should not be public — " +
+            "it returns raw encoded value, use ISuffixTree/Navigator instead");
+    }
+
+    [Test]
+    public void ChildrenHead_Getter_IsNotPublic()
+    {
+        // A16: ChildrenHead may point to jump-table entry in hybrid trees.
+        var prop = typeof(PersistentSuffixTreeNode).GetProperty(
+            "ChildrenHead",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+        Assert.That(prop, Is.Null,
+            "A16: PersistentSuffixTreeNode.ChildrenHead should not be public — " +
+            "it returns raw encoded value");
+    }
+
+    [Test]
+    public void ChildCount_Getter_IsNotPublic()
+    {
+        // A16: ChildCount may have high-bit 0x80000000 set (jumped flag) in hybrid trees.
+        var prop = typeof(PersistentSuffixTreeNode).GetProperty(
+            "ChildCount",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+        Assert.That(prop, Is.Null,
+            "A16: PersistentSuffixTreeNode.ChildCount should not be public — " +
+            "it returns raw encoded value with possible jumped flag");
+    }
 }
