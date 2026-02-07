@@ -88,7 +88,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
         var layout = NodeLayout.ForVersion(version);
 
+        long storageSize = storage.Size;
+        int headerSize = version == 5 ? PersistentConstants.HEADER_SIZE_V5 : PersistentConstants.HEADER_SIZE;
+
         long root = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_ROOT);
+        if (root < headerSize || root >= storageSize)
+            throw new InvalidOperationException(
+                $"Invalid storage format: root offset {root} is outside valid range [{headerSize}, {storageSize}).");
 
         long transitionOffset = -1;
         long jumpTableStart = -1;
@@ -98,6 +104,18 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             transitionOffset = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TRANSITION);
             jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
             jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
+
+            if (transitionOffset < headerSize || transitionOffset > storageSize)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
+
+            if (jumpTableEnd < jumpTableStart)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
+
+            if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
         }
 
         return new PersistentSuffixTree(storage, root, layout: layout,
