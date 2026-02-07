@@ -119,6 +119,7 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        CheckWriteBounds(offset, 4);
         _accessor.Write(offset, value);
     }
 
@@ -133,6 +134,7 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        CheckWriteBounds(offset, 4);
         _accessor.Write(offset, value);
     }
 
@@ -147,6 +149,7 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        CheckWriteBounds(offset, 8);
         _accessor.Write(offset, value);
     }
 
@@ -161,6 +164,7 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        CheckWriteBounds(offset, 2);
         _accessor.Write(offset, value);
     }
 
@@ -178,6 +182,7 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
+        CheckWriteBounds(offset, count);
         _accessor.WriteArray(offset, buffer, start, count);
     }
 
@@ -214,6 +219,13 @@ public class MappedFileStorageProvider : IStorageProvider
         if (offset < 0 || offset + size > _position)
             throw new ArgumentOutOfRangeException(nameof(offset),
                 $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
+    }
+
+    private void CheckWriteBounds(long offset, int size)
+    {
+        if (offset < 0 || offset + size > _position)
+            throw new ArgumentOutOfRangeException(nameof(offset),
+                $"Write at offset {offset} with size {size} exceeds logical size {_position}.");
     }
 
     /// <summary>

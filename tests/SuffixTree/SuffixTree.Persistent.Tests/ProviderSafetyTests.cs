@@ -319,4 +319,74 @@ public class ProviderSafetyTests
             "S17: ReadChar beyond Size must throw");
         p.Dispose();
     }
+
+    // ─── S18: Write beyond logical size must throw (both providers) ──
+
+    [Test]
+    public void HeapProvider_WriteInt32_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(8);
+        p.WriteInt32(0, 1); // within bounds — OK
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.WriteInt32(8, 1),
+            "S18: WriteInt32 at Size boundary must throw");
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.WriteInt32(6, 1),
+            "S18: WriteInt32 crossing Size boundary must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void HeapProvider_WriteInt64_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(16);
+        p.WriteInt64(0, 1L);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.WriteInt64(16, 1L),
+            "S18: WriteInt64 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void HeapProvider_WriteBytes_BeyondSize_Throws()
+    {
+        var p = new HeapStorageProvider(initialCapacity: 1024);
+        p.Allocate(8);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => p.WriteBytes(4, new byte[8], 0, 8),
+            "S18: WriteBytes crossing Size boundary must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_WriteInt32_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(8);
+        p.WriteInt32(0, 1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.WriteInt32(8, 1),
+            "S18: WriteInt32 at Size boundary must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_WriteInt64_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(16);
+        p.WriteInt64(0, 1L);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.WriteInt64(16, 1L),
+            "S18: WriteInt64 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_WriteBytes_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(8);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => p.WriteBytes(4, new byte[8], 0, 8),
+            "S18: WriteBytes crossing Size boundary must throw");
+        p.Dispose();
+    }
 }
