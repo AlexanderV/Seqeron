@@ -36,6 +36,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         }
         catch
         {
+            _accessor?.Dispose();
             _mmf.Dispose();
             throw;
         }
@@ -115,7 +116,11 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc/>
-    public override string ToString() => new string(_ptr, 0, _length);
+    public override string ToString()
+    {
+        if (_disposed) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        return new string(_ptr, 0, _length);
+    }
 
     /// <inheritdoc/>
     public void Dispose()
