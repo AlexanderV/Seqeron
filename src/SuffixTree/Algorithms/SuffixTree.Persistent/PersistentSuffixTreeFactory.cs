@@ -50,8 +50,9 @@ public static class PersistentSuffixTreeFactory
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
 
-            // Determine the effective layout: Hybrid if builder transitioned, else Compact
-            NodeLayout layout = builder.IsHybrid ? NodeLayout.Compact : NodeLayout.Compact;
+            // All trees start with Compact layout; hybrid v5 uses mixed zones
+            // but the root and header are always Compact.
+            NodeLayout layout = NodeLayout.Compact;
             return new PersistentSuffixTree(storage, rootOffset, text, layout,
                 builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
         }

@@ -6,11 +6,11 @@ public static class PersistentConstants
     // Kept for reference only. All runtime code uses NodeLayout.NodeSize / .ChildEntrySize.
 
     /// <summary>Node size for v3 (Large) format. Use <see cref="NodeLayout.NodeSize"/> instead.</summary>
-    [Obsolete("Use NodeLayout.NodeSize")]
+    [Obsolete("Use NodeLayout.NodeSize", error: true)]
     public const int NODE_SIZE = 40;
 
     /// <summary>Child entry size for v3 (Large) format. Use <see cref="NodeLayout.ChildEntrySize"/> instead.</summary>
-    [Obsolete("Use NodeLayout.ChildEntrySize")]
+    [Obsolete("Use NodeLayout.ChildEntrySize", error: true)]
     public const int CHILD_ENTRY_SIZE = 12;
 
     public const int HEADER_SIZE = 48;
@@ -31,7 +31,7 @@ public static class PersistentConstants
     /// Current default is v4 (Compact). Use <see cref="NodeLayout.Version"/> instead.
     /// Independent of <see cref="SuffixTreeSerializer"/> logical format (v2).
     /// </summary>
-    [Obsolete("Use NodeLayout.Version — format is auto-selected")]
+    [Obsolete("Use NodeLayout.Version — format is auto-selected", error: true)]
     public const int CURRENT_VERSION = 3;
 
     // Header Layout (48 bytes, packed, naturally aligned)
@@ -69,29 +69,29 @@ public static class PersistentConstants
     // ──── Legacy v3 (Large) node field offsets — superseded by NodeLayout ────
 
     /// <summary>SuffixLink offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetSuffixLink"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetSuffixLink")]
+    [Obsolete("Use NodeLayout.OffsetSuffixLink", error: true)]
     public const int OFFSET_SUFFIX_LINK = 8;
 
     /// <summary>Depth offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetDepth"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetDepth")]
+    [Obsolete("Use NodeLayout.OffsetDepth", error: true)]
     public const int OFFSET_DEPTH = 16;
 
     /// <summary>LeafCount offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetLeafCount"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetLeafCount")]
+    [Obsolete("Use NodeLayout.OffsetLeafCount", error: true)]
     public const int OFFSET_LEAF_COUNT = 20;
 
     /// <summary>ChildrenHead offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetChildrenHead"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetChildrenHead")]
+    [Obsolete("Use NodeLayout.OffsetChildrenHead", error: true)]
     public const int OFFSET_CHILDREN_HEAD = 24;
 
     /// <summary>ChildCount offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetChildCount"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetChildCount")]
+    [Obsolete("Use NodeLayout.OffsetChildCount", error: true)]
     public const int OFFSET_CHILD_COUNT = 32;
 
     // Child Entry Layout Offsets — use NodeLayout.ChildOffsetKey / ChildOffsetNode instead
-    [Obsolete("Use NodeLayout.ChildOffsetKey")]
+    [Obsolete("Use NodeLayout.ChildOffsetKey", error: true)]
     public const int CHILD_OFFSET_KEY = 0;
 
-    [Obsolete("Use NodeLayout.ChildOffsetNode")]
+    [Obsolete("Use NodeLayout.ChildOffsetNode", error: true)]
     public const int CHILD_OFFSET_NODE = 4;
 }
