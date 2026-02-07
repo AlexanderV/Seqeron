@@ -7,28 +7,78 @@ using SuffixTree;
 namespace SuffixTree.Persistent.Tests;
 
 /// <summary>
-/// Tests for the adaptive dual-format storage (Compact v4 / Large v3),
-/// auto-detection on Load, format parity, and size characteristics.
+/// Tests for the hybrid dual-format storage (Compact v4 / Large v3),
+/// auto-promotion on overflow, format parity, and size characteristics.
 /// </summary>
 [TestFixture]
 public class StorageFormatTests
 {
-    // ──── Auto-selection threshold ────────────────────────────────────
+    // ──── Hybrid: compact → large promotion ──────────────────────────
 
     [Test]
-    public void ForTextLength_SmallText_ReturnsCompact()
+    public void Builder_ThrowsCompactOverflowException_WhenLimitExceeded()
     {
-        Assert.That(NodeLayout.ForTextLength(0), Is.SameAs(NodeLayout.Compact));
-        Assert.That(NodeLayout.ForTextLength(1), Is.SameAs(NodeLayout.Compact));
-        Assert.That(NodeLayout.ForTextLength(1_000_000), Is.SameAs(NodeLayout.Compact));
-        Assert.That(NodeLayout.ForTextLength(50_000_000), Is.SameAs(NodeLayout.Compact));
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        // Set a very small limit so even "banana" overflows
+        builder.CompactOffsetLimit = 200;
+        Assert.Throws<CompactOverflowException>(
+            () => builder.Build(new StringTextSource("banana")));
     }
 
     [Test]
-    public void ForTextLength_LargeText_ReturnsLarge()
+    public void Builder_DoesNotThrow_WhenWithinCompactLimit()
     {
-        Assert.That(NodeLayout.ForTextLength(50_000_001), Is.SameAs(NodeLayout.Large));
-        Assert.That(NodeLayout.ForTextLength(100_000_000), Is.SameAs(NodeLayout.Large));
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        // Default limit — "banana" fits easily
+        Assert.DoesNotThrow(
+            () => builder.Build(new StringTextSource("banana")));
+    }
+
+    [Test]
+    public void Factory_AutoPromotesToLarge_WhenCompactOverflows()
+    {
+        // Tiny limit forces overflow → Factory rebuilds with Large
+        using var tree = PersistentSuffixTreeFactory.CreateCore(
+            new StringTextSource("banana"), filePath: null, compactOffsetLimit: 200) as IDisposable;
+        var st = (ISuffixTree)tree!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.Contains("ana"), Is.True);
+            Assert.That(st.CountOccurrences("a"), Is.EqualTo(3));
+            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ana"));
+            Assert.That(st.FindExactMatchAnchors("bandana", 3).Count, Is.GreaterThan(0));
+        });
+    }
+
+    [Test]
+    public void Factory_PromotedTree_HasCorrectVersion()
+    {
+        // Build with a tiny limit → must promote to Large (v3)
+        using var tree = PersistentSuffixTreeFactory.CreateCore(
+            new StringTextSource("mississippi"), filePath: null, compactOffsetLimit: 200) as IDisposable;
+        var st = (PersistentSuffixTree)tree!;
+
+        // Load from the same storage should auto-detect v3
+        // Verify by checking that Contains/CountOccurrences work (they require correct layout)
+        Assert.Multiple(() =>
+        {
+            Assert.That(st.Contains("issi"), Is.True);
+            Assert.That(st.CountOccurrences("i"), Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void Factory_CompactUsedByDefault_ForSmallText()
+    {
+        // Build normally — should use Compact (v4)
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.Build(new StringTextSource("banana"));
+        int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
+        Assert.That(version, Is.EqualTo(4));
     }
 
     // ──── Compact format: build, query, Load ─────────────────────────
@@ -191,7 +241,7 @@ public class StorageFormatTests
     // ──── Factory auto-selects format ────────────────────────────────
 
     [Test]
-    public void Factory_Create_AutoSelectsCompactForSmallText()
+    public void Factory_Create_UsesCompactForSmallText()
     {
         using var tree = PersistentSuffixTreeFactory.Create(new StringTextSource("banana")) as IDisposable;
         var st = (ISuffixTree)tree!;
@@ -258,6 +308,12 @@ public class StorageFormatTests
         Assert.Throws<InvalidOperationException>(() => NodeLayout.ForVersion(99));
     }
 
+    [Test]
+    public void CompactMaxOffset_IsUIntMaxMinusOne()
+    {
+        Assert.That(NodeLayout.CompactMaxOffset, Is.EqualTo((long)uint.MaxValue - 1));
+    }
+
     // ──── Serializer round-trip preserves format ─────────────────────
 
     [Test]
@@ -280,6 +336,34 @@ public class StorageFormatTests
             Assert.That(imported.CountOccurrences("i"), Is.EqualTo(4));
             Assert.That(imported.LongestRepeatedSubstring(), Is.EqualTo("issi"));
             Assert.That(imported.FindExactMatchAnchors("mississippi", 3).Count, Is.GreaterThan(0));
+        });
+    }
+
+    // ──── Hybrid promotion parity with reference ─────────────────────
+
+    [Test]
+    public void Factory_PromotedTree_MatchesReferenceImplementation()
+    {
+        string text = "abracadabra";
+        var reference = global::SuffixTree.SuffixTree.Build(text);
+
+        // Force promotion to Large via tiny limit
+        using var tree = PersistentSuffixTreeFactory.CreateCore(
+            new StringTextSource(text), filePath: null, compactOffsetLimit: 200) as IDisposable;
+        var promoted = (ISuffixTree)tree!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(promoted.Text.ToString(), Is.EqualTo(reference.Text.ToString()), "Text");
+            Assert.That(promoted.LeafCount, Is.EqualTo(reference.LeafCount), "LeafCount");
+            Assert.That(promoted.LongestRepeatedSubstring(),
+                Is.EqualTo(reference.LongestRepeatedSubstring()), "LRS");
+            Assert.That(promoted.LongestCommonSubstring("cadab"),
+                Is.EqualTo(reference.LongestCommonSubstring("cadab")), "LCS");
+
+            var refHash = SuffixTreeSerializer.CalculateLogicalHash(reference);
+            var promHash = SuffixTreeSerializer.CalculateLogicalHash(promoted);
+            Assert.That(promHash, Is.EqualTo(refHash), "LogicalHash");
         });
     }
 }

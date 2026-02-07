@@ -113,6 +113,12 @@ namespace SuffixTree.Persistent
         /// Imports a suffix tree from a stream into the specified storage provider.
         /// Rebuilds the tree from the stored text using Ukkonen's algorithm,
         /// guaranteeing full functionality including suffix links.
+        /// <para>
+        /// Construction starts with Compact (32-bit) layout. If the tree exceeds the
+        /// uint32 address space, it is automatically rebuilt with Large (64-bit) layout
+        /// on a fresh <see cref="HeapStorageProvider"/> (the caller's <paramref name="target"/>
+        /// is left in an indeterminate state in that case).
+        /// </para>
         /// </summary>
         public static ISuffixTree Import(Stream stream, IStorageProvider target)
         {
@@ -149,24 +155,39 @@ namespace SuffixTree.Persistent
                 int hashLen = reader.ReadInt32();
                 byte[] expectedHash = reader.ReadBytes(hashLen);
 
-                // Rebuild the tree from text — Ukkonen's creates suffix links natively
                 var textSource = new StringTextSource(text);
-                var layout = NodeLayout.ForTextLength(textSource.Length);
-                var builder = new PersistentSuffixTreeBuilder(target, layout);
-                long rootOffset = builder.Build(textSource);
-                var tree = new PersistentSuffixTree(target, rootOffset, textSource, layout);
 
-                // Validate structural integrity
-                if (tree.NodeCount != expectedNodeCount)
-                    throw new InvalidDataException(
-                        $"Node count mismatch after rebuild: expected {expectedNodeCount}, got {tree.NodeCount}.");
-
-                var actualHash = CalculateLogicalHash(tree);
-                if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
-                    throw new InvalidDataException("Structural hash mismatch after rebuild.");
-
-                return tree;
+                try
+                {
+                    return ImportBuild(target, textSource, expectedNodeCount, expectedHash, NodeLayout.Compact);
+                }
+                catch (CompactOverflowException)
+                {
+                    // Compact exhausted — rebuild with Large on fresh heap storage
+                    var largeStorage = new HeapStorageProvider();
+                    return ImportBuild(largeStorage, textSource, expectedNodeCount, expectedHash, NodeLayout.Large);
+                }
             }
+        }
+
+        private static ISuffixTree ImportBuild(
+            IStorageProvider storage, StringTextSource textSource,
+            int expectedNodeCount, byte[] expectedHash, NodeLayout layout)
+        {
+            var builder = new PersistentSuffixTreeBuilder(storage, layout);
+            long rootOffset = builder.Build(textSource);
+            var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout);
+
+            // Validate structural integrity
+            if (tree.NodeCount != expectedNodeCount)
+                throw new InvalidDataException(
+                    $"Node count mismatch after rebuild: expected {expectedNodeCount}, got {tree.NodeCount}.");
+
+            var actualHash = CalculateLogicalHash(tree);
+            if (!CryptographicOperations.FixedTimeEquals(actualHash, expectedHash))
+                throw new InvalidDataException("Structural hash mismatch after rebuild.");
+
+            return tree;
         }
 
         /// <summary>

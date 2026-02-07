@@ -157,25 +157,16 @@ public sealed class NodeLayout
         }
     }
 
-    // ──────────────── Auto-selection ────────────────
+    // ──────────────── Compact offset limit ────────────────
 
     /// <summary>
-    /// Maximum text length (in characters) for which the Compact format is guaranteed safe.
+    /// Maximum byte offset addressable by the Compact (uint32) format.
     /// <para>
-    /// Derivation: worst-case suffix tree size ≈ 74 × textLength bytes (2N nodes × 28B + 2N children × 8B + text × 2B).
-    /// At 50 M chars the file is ≈ 3.7 GB, well within the uint32 address space (4.29 GB).
+    /// <c>uint.MaxValue</c> is reserved as the NULL sentinel (<see cref="COMPACT_NULL"/>),
+    /// so the highest valid offset is <c>uint.MaxValue − 1 = 0xFFFF_FFFE</c> (≈ 4.29 GB).
     /// </para>
     /// </summary>
-    internal const int CompactTextThreshold = 50_000_000; // 50 M characters
-
-    /// <summary>
-    /// Automatically selects the optimal layout for a given text length.
-    /// Texts up to <see cref="CompactTextThreshold"/> use <see cref="Compact"/> (best performance);
-    /// larger texts use <see cref="Large"/> (no size limit).
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static NodeLayout ForTextLength(int textLength)
-        => textLength <= CompactTextThreshold ? Compact : Large;
+    internal const long CompactMaxOffset = (long)uint.MaxValue - 1; // 0xFFFF_FFFE
 
     // ──────────────── Version lookup ────────────────
 

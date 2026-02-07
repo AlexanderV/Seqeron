@@ -36,9 +36,10 @@ This implementation follows Ukkonen's online construction algorithm and is optim
 - Two implementations behind a single `ISuffixTree` interface:
   - **In-memory** (`SuffixTree.Build`) — heap-allocated, fastest for moderate data.
   - **Persistent** (`PersistentSuffixTreeFactory.Create`) — MMF-backed, scales to multi-GB text.
-- **Adaptive storage format**: persistent trees automatically select a compact 32-bit offset layout
-  for texts up to ~50 M characters (28-byte nodes, ~30% smaller files) and switch to 64-bit offsets
-  for larger texts. Format is detected on load — no user configuration needed.
+- **Hybrid storage format**: persistent trees start building with a compact 32-bit offset layout
+  (28-byte nodes, ~30% smaller files) and automatically promote to 64-bit offsets only if the
+  storage actually exceeds the uint32 address space during construction. Format is detected on
+  load — no user configuration needed.
 - Serialization via `SuffixTreeSerializer`: export (text + SHA256 hash), import (rebuild via Ukkonen).
 
 ## 4. API Sketch
@@ -67,8 +68,8 @@ foreach (var (posInText, posInQuery, length) in anchors)
 using SuffixTree.Persistent;
 
 // Build directly into a memory-mapped file
-// Format is selected automatically: compact (32-bit) for texts ≤ 50M chars,
-// large (64-bit) for bigger texts. Detected on load — no config needed.
+// Hybrid format: starts with compact (32-bit); automatically promotes to
+// large (64-bit) if the tree outgrows the uint32 address space.
 using var tree = (IDisposable)PersistentSuffixTreeFactory.Create(
     new StringTextSource("banana"), "tree.dat");
 var st = (ISuffixTree)tree;
