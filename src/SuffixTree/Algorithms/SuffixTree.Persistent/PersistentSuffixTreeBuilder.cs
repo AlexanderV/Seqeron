@@ -9,15 +9,30 @@ namespace SuffixTree.Persistent;
 /// <summary>
 /// Handles construction of a persistent suffix tree using Ukkonen's algorithm.
 /// Writes nodes and child entries directly to the storage provider.
+/// <para>
+/// <b>Hybrid continuation</b>: construction starts with the Compact (28-byte, uint32)
+/// layout. When the compact address space (~4 GB) is exhausted, the builder
+/// seamlessly switches to the Large (40-byte, int64) layout and continues
+/// in the same storage without restarting. A small jump table at the
+/// compact/large boundary allows compact-zone nodes to reference large-zone
+/// addresses through indirection entries.
+/// </para>
 /// </summary>
 public class PersistentSuffixTreeBuilder
 {
     private readonly IStorageProvider _storage;
-    private readonly NodeLayout _layout;
+    private NodeLayout _layout;                // switches Compact → Large on overflow
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
     private long _rootOffset;
     private ITextSource _text = new StringTextSource(string.Empty);
     private int _nodeCount = 0;
+
+    // Hybrid continuation state
+    private long _transitionOffset = -1;       // -1 = no transition (pure Compact or pure Large)
+    private long _jumpTableStart = -1;         // start of contiguous jump table
+    private long _jumpTableEnd = -1;           // end of the jump table area
+    private readonly List<long> _jumpEntries = new();                     // allocated jump slot offsets
+    private readonly Dictionary<long, NodeLayout> _nodeLayouts = new();   // offset → layout used
 
     // Algorithm state
     private long _activeNodeOffset;
@@ -29,6 +44,10 @@ public class PersistentSuffixTreeBuilder
     private readonly Dictionary<long, List<(uint Key, long ChildOffset)>> _children = new();
     private bool _built;
 
+    // Deferred cross-zone suffix links: compact-node → large-zone target
+    // Written at FinalizeTree when the jump table is materialized.
+    private readonly List<(long CompactNodeOffset, long LargeTargetOffset)> _deferredSuffixLinks = new();
+
     /// <summary>
     /// Override the compact address-space limit. Used by <see cref="PersistentSuffixTreeFactory"/>
     /// and tests to control the Compact → Large promotion threshold.
@@ -39,15 +58,30 @@ public class PersistentSuffixTreeBuilder
         set => _compactOffsetLimit = value;
     }
 
+    /// <summary>The offset where the compact→large transition occurred, or -1.</summary>
+    internal long TransitionOffset => _transitionOffset;
+
+    /// <summary>The first offset of the contiguous jump table, or -1 if no transition.</summary>
+    internal long JumpTableStart => _jumpTableStart;
+
+    /// <summary>The first offset after the jump table, or -1 if no transition.</summary>
+    internal long JumpTableEnd => _jumpTableEnd;
+
+    /// <summary>Whether a compact→large transition occurred during the build.</summary>
+    internal bool IsHybrid => _transitionOffset >= 0;
+
     public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null)
     {
         _storage = storage;
         _layout = layout ?? NodeLayout.Compact;
-        // Header + root allocation — always tiny, never overflows
-        _storage.Allocate(PersistentConstants.HEADER_SIZE);
+
+        // Allocate header — use the larger v5 header size to leave room for hybrid fields.
+        // For pure Compact/Large builds the extra 16 bytes are unused but harmless.
+        _storage.Allocate(PersistentConstants.HEADER_SIZE_V5);
 
         _rootOffset = _storage.Allocate(_layout.NodeSize);
         _nodeCount = 1;
+        _nodeLayouts[_rootOffset] = _layout;
         var root = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
         root.Start = 0;
         root.End = 0;
@@ -89,7 +123,8 @@ public class PersistentSuffixTreeBuilder
             if (_activeLength == 0)
                 _activeEdgeIndex = _position;
 
-            var activeNode = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, _layout);
+            var activeLayout = LayoutOf(_activeNodeOffset);
+            var activeNode = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, activeLayout);
             uint activeEdgeKey = GetSymbolAt(_activeEdgeIndex);
 
             if (!BuilderTryGetChild(_activeNodeOffset, activeEdgeKey, out var nextChildOffset))
@@ -100,7 +135,8 @@ public class PersistentSuffixTreeBuilder
             }
             else
             {
-                var nextChild = new PersistentSuffixTreeNode(_storage, nextChildOffset, _layout);
+                var nextChildLayout = LayoutOf(nextChildOffset);
+                var nextChild = new PersistentSuffixTreeNode(_storage, nextChildOffset, nextChildLayout);
                 int edgeLen = LengthOf(nextChild);
                 if (_activeLength >= edgeLen)
                 {
@@ -117,14 +153,16 @@ public class PersistentSuffixTreeBuilder
                     break;
                 }
 
-                // Split edge
+                // Split edge — new split node uses CURRENT layout (may be Large if transitioned)
                 long splitOffset = CreateNode(nextChild.Start, nextChild.Start + (uint)_activeLength, nextChild.DepthFromRoot);
-                var split = new PersistentSuffixTreeNode(_storage, splitOffset, _layout);
+                var splitLayout = LayoutOf(splitOffset);
+                var split = new PersistentSuffixTreeNode(_storage, splitOffset, splitLayout);
                 BuilderSetChild(_activeNodeOffset, activeEdgeKey, splitOffset);
 
                 long leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, split.DepthFromRoot + (uint)LengthOf(split));
                 BuilderSetChild(splitOffset, key, leafOffset);
 
+                // Update the original child's metadata using its original layout
                 nextChild.Start += (uint)_activeLength;
                 nextChild.DepthFromRoot = split.DepthFromRoot + (uint)LengthOf(split);
                 BuilderSetChild(splitOffset, GetSymbolAt((int)nextChild.Start), nextChildOffset);
@@ -140,29 +178,43 @@ public class PersistentSuffixTreeBuilder
             }
             else if (_activeNodeOffset != _rootOffset)
             {
-                var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, _layout);
-                _activeNodeOffset = node.SuffixLink != PersistentConstants.NULL_OFFSET ? node.SuffixLink : _rootOffset;
+                var nodeLayout = LayoutOf(_activeNodeOffset);
+                var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, nodeLayout);
+                long suffLink = node.SuffixLink;
+                _activeNodeOffset = suffLink != PersistentConstants.NULL_OFFSET ? suffLink : _rootOffset;
             }
         }
     }
 
     /// <summary>
-    /// Allocates storage and checks for compact address-space overflow.
-    /// Throws <see cref="CompactOverflowException"/> when the Compact layout
-    /// cannot address the new block.
+    /// Allocates storage with automatic compact→large transition.
+    /// When the Compact layout's address space is exhausted, switches to Large
+    /// and continues allocating in the same storage.
     /// </summary>
     private long AllocateChecked(int size)
     {
-        long offset = _storage.Allocate(size);
-        if (!_layout.OffsetIs64Bit && (offset + size) > _compactOffsetLimit)
-            throw new CompactOverflowException();
-        return offset;
+        if (!_layout.OffsetIs64Bit)
+        {
+            // Still in compact mode — check if this allocation would overflow
+            long currentSize = _storage.Size;
+            if ((currentSize + size) > _compactOffsetLimit)
+            {
+                // Transition to Large layout
+                _transitionOffset = currentSize;
+                _layout = NodeLayout.Large;
+                // The caller passed the Compact node size; now that _layout
+                // has switched to Large we must allocate the larger block.
+                size = _layout.NodeSize;
+            }
+        }
+        return _storage.Allocate(size);
     }
 
     private long CreateNode(uint start, uint end, uint depthFromRoot)
     {
         _nodeCount++;
         long offset = AllocateChecked(_layout.NodeSize);
+        _nodeLayouts[offset] = _layout;
         var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
         node.Start = start;
         node.End = end;
@@ -177,11 +229,27 @@ public class PersistentSuffixTreeBuilder
     {
         if (_lastCreatedInternalNodeOffset != PersistentConstants.NULL_OFFSET)
         {
-            var lastNode = new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, _layout);
-            lastNode.SuffixLink = nodeOffset;
+            var sourceLayout = _nodeLayouts[_lastCreatedInternalNodeOffset];
+            bool sourceIsCompact = !sourceLayout.OffsetIs64Bit;
+            bool targetInLargeZone = _transitionOffset >= 0 && nodeOffset >= _transitionOffset;
+
+            if (sourceIsCompact && targetInLargeZone)
+            {
+                // Cross-zone: compact node → large zone target.
+                // Defer until FinalizeTree when we can allocate jump entries.
+                _deferredSuffixLinks.Add((_lastCreatedInternalNodeOffset, nodeOffset));
+            }
+            else
+            {
+                var lastNode = new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, sourceLayout);
+                lastNode.SuffixLink = nodeOffset;
+            }
         }
         _lastCreatedInternalNodeOffset = nodeOffset;
     }
+
+    /// <summary>Returns the layout a node was written with.</summary>
+    private NodeLayout LayoutOf(long nodeOffset) => _nodeLayouts[nodeOffset];
 
     private uint GetSymbolAt(int index)
     {
@@ -195,12 +263,20 @@ public class PersistentSuffixTreeBuilder
     private uint GetNodeDepth(PersistentSuffixTreeNode node)
         => node.DepthFromRoot + (uint)LengthOf(node);
 
+    // ──────────────── Finalize ────────────────
+
     private void FinalizeTree()
     {
-        // Calculate leaf counts
+        // Calculate leaf counts (zone-aware)
         CalculateLeafCount(_rootOffset);
 
-        // Write sorted children arrays to storage
+        // Materialize a contiguous jump table for ALL cross-zone references:
+        // 1. Deferred suffix links (compact node → large zone target)
+        // 2. Child array jumps (compact parent with large-zone children)
+        if (IsHybrid)
+            MaterializeJumpTable();
+
+        // Write sorted children arrays to storage (zone-aware)
         WriteChildrenArrays();
 
         // Store text in storage for true persistence (chunked write, no full-string copy)
@@ -208,7 +284,7 @@ public class PersistentSuffixTreeBuilder
         if (textByteLen > int.MaxValue)
             throw new InvalidOperationException(
                 $"Text length {_text.Length} exceeds maximum serializable size ({int.MaxValue / 2} characters).");
-        long textOffset = AllocateChecked((int)textByteLen);
+        long textOffset = _storage.Allocate((int)textByteLen);
         const int ChunkChars = 4096;
         byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
         try
@@ -230,14 +306,97 @@ public class PersistentSuffixTreeBuilder
         }
 
         // Write Header
+        int version = IsHybrid ? 5 : _layout.Version;
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
-        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, _layout.Version);
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, version);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, textOffset);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, _text.Length);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT, _nodeCount);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, _storage.Size);
+
+        if (IsHybrid)
+        {
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, _transitionOffset);
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, _jumpTableStart);
+            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, _jumpTableEnd);
+        }
     }
+
+    // ──────────────── Jump table ────────────────
+
+    /// <summary>
+    /// Pre-calculates and allocates a contiguous jump table for ALL cross-zone references.
+    /// Must be called BEFORE WriteChildrenArrays so all jump slots are available.
+    /// </summary>
+    private void MaterializeJumpTable()
+    {
+        // Count suffix-link jump entries
+        int suffixLinkJumps = _deferredSuffixLinks.Count;
+
+        // Count child-array jump entries: compact parents with any child in large zone
+        int childArrayJumps = 0;
+        var compactParentsNeedingJump = new List<long>();
+        foreach (var (nodeOffset, childList) in _children)
+        {
+            var parentLayout = LayoutOf(nodeOffset);
+            if (!parentLayout.OffsetIs64Bit)
+            {
+                foreach (var (_, childOffset) in childList)
+                {
+                    if (childOffset >= _transitionOffset)
+                    {
+                        childArrayJumps++;
+                        compactParentsNeedingJump.Add(nodeOffset);
+                        break;
+                    }
+                }
+            }
+        }
+
+        int totalEntries = suffixLinkJumps + childArrayJumps;
+        if (totalEntries == 0)
+        {
+            _jumpTableStart = -1;
+            _jumpTableEnd = -1;
+            return;
+        }
+
+        // Allocate one contiguous block for all entries
+        int tableSize = totalEntries * 8;
+        _jumpTableStart = _storage.Allocate(tableSize);
+        _jumpTableEnd = _jumpTableStart + tableSize;
+
+        // Fill suffix-link entries first
+        int slotIndex = 0;
+        for (int i = 0; i < suffixLinkJumps; i++, slotIndex++)
+        {
+            var (compactNodeOffset, largeTargetOffset) = _deferredSuffixLinks[i];
+            long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+            _jumpEntries.Add(jumpEntryOffset);
+
+            _storage.WriteInt64(jumpEntryOffset, largeTargetOffset);
+
+            // Point the compact node's SuffixLink to the jump entry
+            var compactLayout = LayoutOf(compactNodeOffset);
+            var node = new PersistentSuffixTreeNode(_storage, compactNodeOffset, compactLayout);
+            node.SuffixLink = jumpEntryOffset;
+        }
+
+        // Pre-allocate slots for child-array jumps (filled later in WriteChildrenArrays)
+        _childArrayJumpSlots = new Dictionary<long, long>(childArrayJumps);
+        for (int i = 0; i < compactParentsNeedingJump.Count; i++, slotIndex++)
+        {
+            long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+            _jumpEntries.Add(jumpEntryOffset);
+            _childArrayJumpSlots[compactParentsNeedingJump[i]] = jumpEntryOffset;
+        }
+    }
+
+    // Map from compact parent offset → pre-allocated jump entry offset for child arrays
+    private Dictionary<long, long>? _childArrayJumpSlots;
+
+    // ──────────────── Leaf count ────────────────
 
     private void CalculateLeafCount(long rootOffset)
     {
@@ -261,7 +420,8 @@ public class PersistentSuffixTreeBuilder
         while (resultStack.Count > 0)
         {
             long offset = resultStack.Pop();
-            var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
+            var layout = LayoutOf(offset);
+            var node = new PersistentSuffixTreeNode(_storage, offset, layout);
 
             if (node.IsLeaf)
             {
@@ -274,7 +434,8 @@ public class PersistentSuffixTreeBuilder
                 {
                     foreach (var (_, childOffset) in childList)
                     {
-                        var child = new PersistentSuffixTreeNode(_storage, childOffset, _layout);
+                        var childLayout = LayoutOf(childOffset);
+                        var child = new PersistentSuffixTreeNode(_storage, childOffset, childLayout);
                         totalLeaves += child.LeafCount;
                     }
                 }
@@ -282,6 +443,8 @@ public class PersistentSuffixTreeBuilder
             }
         }
     }
+
+    // ──────────────── Builder child management (in-memory) ────────────────
 
     private bool BuilderTryGetChild(long nodeOffset, uint key, out long childOffset)
     {
@@ -320,6 +483,8 @@ public class PersistentSuffixTreeBuilder
         childList.Add((key, childOffset));
     }
 
+    // ──────────────── Write children arrays ────────────────
+
     private void WriteChildrenArrays()
     {
         foreach (var (nodeOffset, childList) in _children)
@@ -327,10 +492,25 @@ public class PersistentSuffixTreeBuilder
             // Sort by key using signed comparison (terminator=-1 first)
             childList.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
 
+            var parentLayout = LayoutOf(nodeOffset);
+            bool parentIsCompact = !parentLayout.OffsetIs64Bit;
+
+            // Check if this compact parent has a pre-allocated jump slot
+            bool hasJumpSlot = parentIsCompact && _childArrayJumpSlots != null
+                && _childArrayJumpSlots.ContainsKey(nodeOffset);
+
+            // If a compact parent has large-zone children, the child array must use
+            // Large entry format (12 bytes) to hold int64 offsets.
+            NodeLayout arrayLayout;
+            if (hasJumpSlot)
+                arrayLayout = NodeLayout.Large; // 12-byte entries for int64 child offsets
+            else
+                arrayLayout = parentLayout;
+
             int count = childList.Count;
-            int entrySize = _layout.ChildEntrySize;
+            int entrySize = arrayLayout.ChildEntrySize;
             int totalBytes = count * entrySize;
-            long arrayOffset = AllocateChecked(totalBytes);
+            long arrayOffset = _storage.Allocate(totalBytes);
 
             // Serialize all entries into a single buffer, then batch-write
             byte[] buf = ArrayPool<byte>.Shared.Rent(totalBytes);
@@ -340,7 +520,7 @@ public class PersistentSuffixTreeBuilder
                 {
                     int off = i * entrySize;
                     BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), childList[i].Key);
-                    if (_layout.OffsetIs64Bit)
+                    if (arrayLayout.OffsetIs64Bit)
                         BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), childList[i].ChildOffset);
                     else
                         BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off + 4, 4), (uint)childList[i].ChildOffset);
@@ -352,9 +532,22 @@ public class PersistentSuffixTreeBuilder
                 ArrayPool<byte>.Shared.Return(buf);
             }
 
-            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, _layout);
-            node.ChildrenHead = arrayOffset;
-            node.ChildCount = count;
+            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, parentLayout);
+
+            if (hasJumpSlot)
+            {
+                // Write the child array offset into the pre-allocated jump entry
+                long jumpOffset = _childArrayJumpSlots![nodeOffset];
+                _storage.WriteInt64(jumpOffset, arrayOffset);
+                node.ChildrenHead = jumpOffset;
+                // Store child count with the high bit set to signal "jump + large entries"
+                node.ChildCount = count | unchecked((int)0x80000000);
+            }
+            else
+            {
+                node.ChildrenHead = arrayOffset;
+                node.ChildCount = count;
+            }
         }
     }
 }

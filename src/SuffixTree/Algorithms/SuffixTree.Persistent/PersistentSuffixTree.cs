@@ -18,11 +18,21 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     private volatile bool _disposed;
     private volatile string? _cachedLrs;
 
-    public PersistentSuffixTree(IStorageProvider storage, long rootOffset, ITextSource? textSource = null, NodeLayout? layout = null)
+    // Hybrid v5 fields (-1 means pure single-format)
+    private readonly long _transitionOffset;
+    private readonly long _jumpTableStart;
+    private readonly long _jumpTableEnd;
+
+    public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
+        ITextSource? textSource = null, NodeLayout? layout = null,
+        long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _layout = layout ?? NodeLayout.Compact;
         _rootOffset = rootOffset;
+        _transitionOffset = transitionOffset;
+        _jumpTableStart = jumpTableStart;
+        _jumpTableEnd = jumpTableEnd;
 
         if (textSource != null)
         {
@@ -79,10 +89,104 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         var layout = NodeLayout.ForVersion(version);
 
         long root = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_ROOT);
-        return new PersistentSuffixTree(storage, root, layout: layout);
+
+        long transitionOffset = -1;
+        long jumpTableStart = -1;
+        long jumpTableEnd = -1;
+        if (version == 5)
+        {
+            transitionOffset = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TRANSITION);
+            jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
+            jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
+        }
+
+        return new PersistentSuffixTree(storage, root, layout: layout,
+            transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd);
     }
 
     public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
+
+    /// <summary>Whether this tree uses the hybrid v5 format with dual zones.</summary>
+    internal bool IsHybrid => _transitionOffset >= 0;
+
+    /// <summary>Transition offset (compact/large boundary), or -1 for single-format.</summary>
+    internal long TransitionOffset => _transitionOffset;
+
+    /// <summary>Start of contiguous jump table, or -1 for single-format.</summary>
+    internal long JumpTableStart => _jumpTableStart;
+
+    /// <summary>End of jump table, or -1 for single-format.</summary>
+    internal long JumpTableEnd => _jumpTableEnd;
+
+    /// <summary>
+    /// Returns the correct <see cref="NodeLayout"/> for a node at the given offset.
+    /// For pure Compact/Large trees, always returns <c>_layout</c>.
+    /// For hybrid v5 trees, returns Compact for offsets below the transition and Large above.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal NodeLayout LayoutForOffset(long offset)
+    {
+        if (_transitionOffset < 0)
+            return _layout; // pure single-format
+        return offset < _transitionOffset ? NodeLayout.Compact : NodeLayout.Large;
+    }
+
+    /// <summary>
+    /// Resolves an offset that might be a jump-table entry.
+    /// If the offset falls within [transitionOffset, jumpTableEnd), reads the int64 target
+    /// from the jump entry and returns it. Otherwise returns the offset unchanged.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal long ResolveJump(long offset)
+    {
+        if (_jumpTableStart >= 0
+            && offset >= _jumpTableStart
+            && offset < _jumpTableEnd)
+        {
+            return _storage.ReadInt64(offset);
+        }
+        return offset;
+    }
+
+    /// <summary>
+    /// Creates a <see cref="PersistentSuffixTreeNode"/> with the correct layout for its zone.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal PersistentSuffixTreeNode NodeAt(long offset)
+        => new PersistentSuffixTreeNode(_storage, offset, LayoutForOffset(offset));
+
+    /// <summary>
+    /// Reads child information from a parent node, handling hybrid jump entries.
+    /// Returns the real child-array offset, child-entry layout, and actual child count.
+    /// </summary>
+    internal (long ArrayBase, NodeLayout EntryLayout, int Count) ReadChildArrayInfo(PersistentSuffixTreeNode parent)
+    {
+        int rawCount = parent.ChildCount;
+        long head = parent.ChildrenHead;
+
+        bool isJumped = (rawCount & unchecked((int)0x80000000)) != 0;
+        int count = isJumped ? (rawCount & 0x7FFFFFFF) : rawCount;
+
+        if (isJumped)
+        {
+            // head is a jump entry → dereference to get the real array offset
+            long realArrayOffset = _storage.ReadInt64(head);
+            return (realArrayOffset, NodeLayout.Large, count);
+        }
+
+        return (head, LayoutForOffset(parent.Offset), count);
+    }
+
+    /// <summary>
+    /// Resolves a suffix link offset, dereferencing through the jump table if needed.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal long ResolveSuffixLink(PersistentSuffixTreeNode node)
+    {
+        long raw = node.SuffixLink;
+        if (raw == PersistentConstants.NULL_OFFSET) return raw;
+        return ResolveJump(raw);
+    }
 
     public int NodeCount { get { ThrowIfDisposed(); return _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT); } }
 
@@ -91,7 +195,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         get
         {
             ThrowIfDisposed();
-            uint rawCount = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout).LeafCount;
+            uint rawCount = NodeAt(_rootOffset).LeafCount;
             return rawCount > 0 ? (int)(rawCount - 1) : 0;
         }
     }
@@ -160,7 +264,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         ThrowIfDisposed();
         if (_cachedLrs != null) return _cachedLrs;
 
-        var deepest = FindDeepestInternalNode(new PersistentSuffixTreeNode(_storage, _rootOffset, _layout));
+        var deepest = FindDeepestInternalNode(NodeAt(_rootOffset));
         if (deepest.IsNull || deepest.Offset == _rootOffset)
         {
             _cachedLrs = string.Empty;
@@ -186,7 +290,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public IEnumerable<string> EnumerateSuffixes()
     {
         ThrowIfDisposed();
-        return EnumerateSuffixesCore(new PersistentSuffixTreeNode(_storage, _rootOffset, _layout));
+        return EnumerateSuffixesCore(NodeAt(_rootOffset));
     }
 
     private IEnumerable<string> EnumerateSuffixesCore(PersistentSuffixTreeNode root)
@@ -210,13 +314,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                 continue;
             }
 
-            long arrayBase = node.ChildrenHead;
-            int childCount = node.ChildCount;
+            var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(node);
             // Push children in reverse order so the stack pops them in ascending (lex) order
             for (int ci = childCount - 1; ci >= 0; ci--)
             {
-                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * _layout.ChildEntrySize, _layout);
-                stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset, _layout), nodeDepth));
+                long entryOff = arrayBase + (long)ci * entryLayout.ChildEntrySize;
+                long childNodeOffset = entryLayout.ReadOffset(_storage, entryOff + NodeLayout.ChildOffsetNode);
+                stack.Push((NodeAt(childNodeOffset), nodeDepth));
             }
         }
     }
@@ -262,7 +366,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     /// </summary>
     private (string Substring, List<int> PositionsInText, List<int> PositionsInOther) FindAllLcsInternal(string other, bool firstOnly)
     {
-        var nav = new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _layout);
+        var nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindAllLcs<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, other, firstOnly);
     }
 
@@ -275,26 +379,34 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         sb.AppendLine();
         sb.Append(ci, $"0:ROOT").AppendLine();
 
-        var root = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
-        int rootChildCount = root.ChildCount;
+        var root = NodeAt(_rootOffset);
+        int rootChildCount;
+        long rootArrayBase;
+        NodeLayout rootEntryLayout;
+        {
+            var (ab, el, cc) = ReadChildArrayInfo(root);
+            rootChildCount = cc;
+            rootArrayBase = ab;
+            rootEntryLayout = el;
+        }
 
-        // Frame: (parent node, child count, current index, depth)
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int ChildCount, int Index, int Depth)>();
+        // Frame: (parent arrayBase, entryLayout, child count, current index, depth)
+        var stack = new Stack<(long ArrayBase, NodeLayout EntryLayout, int ChildCount, int Index, int Depth)>();
         if (rootChildCount > 0)
-            stack.Push((root, rootChildCount, 0, 0));
+            stack.Push((rootArrayBase, rootEntryLayout, rootChildCount, 0, 0));
 
         while (stack.Count > 0)
         {
-            var (node, childCount, index, depth) = stack.Pop();
+            var (arrBase, entryLay, childCount, index, depth) = stack.Pop();
             if (index >= childCount) continue;
 
             // Push continuation for next sibling
-            stack.Push((node, childCount, index + 1, depth));
+            stack.Push((arrBase, entryLay, childCount, index + 1, depth));
 
-            // Read child directly from sorted array (zero allocation)
-            long entryOffset = node.ChildrenHead + (long)index * _layout.ChildEntrySize;
-            long childNodeOffset = _layout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-            var child = new PersistentSuffixTreeNode(_storage, childNodeOffset, _layout);
+            // Read child directly from sorted array
+            long entryOffset = arrBase + (long)index * entryLay.ChildEntrySize;
+            long childNodeOffset = entryLay.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+            var child = NodeAt(childNodeOffset);
 
             int childDepth = depth + 1;
             sb.Append(' ', childDepth * 2);
@@ -307,9 +419,10 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             }
             else
             {
-                if (child.SuffixLink != PersistentConstants.NULL_OFFSET)
+                long suffLink = ResolveSuffixLink(child);
+                if (suffLink != PersistentConstants.NULL_OFFSET)
                 {
-                    var linkNode = new PersistentSuffixTreeNode(_storage, child.SuffixLink, _layout);
+                    var linkNode = NodeAt(suffLink);
                     if (linkNode.Offset != _rootOffset)
                     {
                         int firstChar = GetSymbolAt((int)linkNode.Start);
@@ -319,8 +432,9 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                 }
                 sb.AppendLine();
 
-                if (child.ChildCount > 0)
-                    stack.Push((child, child.ChildCount, 0, childDepth));
+                var (cBase, cLayout, cCount) = ReadChildArrayInfo(child);
+                if (cCount > 0)
+                    stack.Push((cBase, cLayout, cCount, 0, childDepth));
             }
         }
 
@@ -343,7 +457,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         string query, int minLength)
     {
         ThrowIfDisposed();
-        var nav = new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _layout);
+        var nav = CreateNavigator();
         return SuffixTreeAlgorithms.FindExactMatchAnchors<PersistentSuffixTreeNode, PersistentSuffixTreeNavigator>(ref nav, query, minLength);
     }
 
@@ -352,24 +466,25 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(visitor);
-        TraverseCore(new PersistentSuffixTreeNode(_storage, _rootOffset, _layout), 0, visitor);
+        TraverseCore(NodeAt(_rootOffset), 0, visitor);
     }
 
     private void TraverseCore(PersistentSuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
     {
-        // Frame: node, child count, current child index, depth (character-based)
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int ChildCount, int Index, int Depth)>();
+        // Frame: arrayBase, entryLayout, child count, current child index, depth (character-based)
+        var stack = new Stack<(long ArrayBase, NodeLayout EntryLayout, int ChildCount, int Index, int Depth)>();
 
         // Visit root node
-        visitor.VisitNode((int)node.Start, (int)node.End, (int)node.LeafCount, node.ChildCount, depth);
+        var (rootAB, rootEL, rootCC) = ReadChildArrayInfo(node);
+        visitor.VisitNode((int)node.Start, (int)node.End, (int)node.LeafCount, rootCC, depth);
         if (!node.IsLeaf)
         {
-            stack.Push((node, node.ChildCount, 0, depth));
+            stack.Push((rootAB, rootEL, rootCC, 0, depth));
         }
 
         while (stack.Count > 0)
         {
-            var (current, childCount, index, parentDepth) = stack.Pop();
+            var (arrBase, entryLay, childCount, index, parentDepth) = stack.Pop();
 
             if (index >= childCount)
             {
@@ -380,22 +495,23 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             }
 
             // Push continuation for next sibling
-            stack.Push((current, childCount, index + 1, parentDepth));
+            stack.Push((arrBase, entryLay, childCount, index + 1, parentDepth));
 
-            // Read child directly from sorted array (zero allocation)
-            long entryOffset = current.ChildrenHead + (long)index * _layout.ChildEntrySize;
+            // Read child directly from sorted array
+            long entryOffset = arrBase + (long)index * entryLay.ChildEntrySize;
             uint key = _storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
-            long childOffset = _layout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-            var child = new PersistentSuffixTreeNode(_storage, childOffset, _layout);
+            long childOffset = entryLay.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+            var child = NodeAt(childOffset);
 
+            var (cAB, cEL, cCC) = ReadChildArrayInfo(child);
             visitor.EnterBranch((int)key);
-            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, parentDepth);
+            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, cCC, parentDepth);
 
             int childDepth = parentDepth + LengthOf(child);
 
             if (!child.IsLeaf)
             {
-                stack.Push((child, child.ChildCount, 0, childDepth));
+                stack.Push((cAB, cEL, cCC, 0, childDepth));
             }
             else
             {
@@ -407,11 +523,11 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     // Internal helpers
     private (PersistentSuffixTreeNode node, bool matched) MatchPatternCore(ReadOnlySpan<char> pattern)
     {
-        var node = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
+        var node = NodeAt(_rootOffset);
         int i = 0;
         while (i < pattern.Length)
         {
-            if (!node.TryGetChild((uint)pattern[i], out var child) || child.IsNull)
+            if (!TryGetChildOf(node, (uint)pattern[i], out var child) || child.IsNull)
                 return (node, false);
 
             int edgeLen = LengthOf(child);
@@ -430,6 +546,36 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         return (node, true);
     }
 
+    /// <summary>
+    /// Zone-aware TryGetChild: reads the child array with the correct entry layout.
+    /// </summary>
+    internal bool TryGetChildOf(PersistentSuffixTreeNode parent, uint key, out PersistentSuffixTreeNode child)
+    {
+        var (arrayBase, entryLayout, count) = ReadChildArrayInfo(parent);
+        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _layout); return false; }
+
+        int lo = 0, hi = count - 1;
+        int signedKey = (int)key;
+
+        while (lo <= hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            long entryOffset = arrayBase + (long)mid * entryLayout.ChildEntrySize;
+            int midKey = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
+
+            if (midKey == signedKey)
+            {
+                long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+                child = NodeAt(childOffset);
+                return true;
+            }
+            if (midKey < signedKey) lo = mid + 1;
+            else hi = mid - 1;
+        }
+        child = PersistentSuffixTreeNode.Null(_storage, _layout);
+        return false;
+    }
+
     private int LengthOf(PersistentSuffixTreeNode node)
         => (int)((node.End == PersistentConstants.BOUNDLESS ? (uint)(_textSource.Length + 1) : node.End) - node.Start);
 
@@ -441,9 +587,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void CollectLeaves(PersistentSuffixTreeNode node, int depth, List<int> results)
     {
-        var nav = new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _layout);
+        var nav = CreateNavigator();
         nav.CollectLeaves(node, depth, results);
     }
+
+    private PersistentSuffixTreeNavigator CreateNavigator()
+        => new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _layout,
+            _transitionOffset, _jumpTableStart, _jumpTableEnd);
 
     private PersistentSuffixTreeNode FindDeepestInternalNode(PersistentSuffixTreeNode root)
     {
@@ -468,15 +618,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                     deepest = node;
                 }
 
-                // Push non-leaf children in reverse order for left-to-right DFS
-                // (no intermediate List — read directly from sorted child array)
-                int childCount = node.ChildCount;
-                long arrayBase = node.ChildrenHead;
+                var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(node);
                 for (int ci = childCount - 1; ci >= 0; ci--)
                 {
-                    long entryOffset = arrayBase + (long)ci * _layout.ChildEntrySize;
-                    long childOffset = _layout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-                    var child = new PersistentSuffixTreeNode(_storage, childOffset, _layout);
+                    long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
+                    long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+                    var child = NodeAt(childOffset);
                     if (!child.IsLeaf)
                         stack.Push(child);
                 }

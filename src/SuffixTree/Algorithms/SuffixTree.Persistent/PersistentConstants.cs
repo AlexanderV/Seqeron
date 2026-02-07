@@ -14,6 +14,13 @@ public static class PersistentConstants
     public const int CHILD_ENTRY_SIZE = 12;
 
     public const int HEADER_SIZE = 48;
+
+    /// <summary>
+    /// Extended header size for Hybrid v5 format (72 bytes).
+    /// Extra 24 bytes: TRANSITION (int64) + JUMP_START (int64) + JUMP_END (int64).
+    /// </summary>
+    public const int HEADER_SIZE_V5 = 72;
+
     public const uint BOUNDLESS = uint.MaxValue;
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
     public const long NULL_OFFSET = -1L;
@@ -43,6 +50,17 @@ public static class PersistentConstants
     public const int HEADER_OFFSET_TEXT_OFF = 24;
     public const int HEADER_OFFSET_NODE_COUNT = 32;
     public const int HEADER_OFFSET_SIZE = 40;
+
+    // ──── Additional v5 (Hybrid) header fields ────
+    // 48-55 : TRANSITION  (int64) — first offset of large-zone nodes
+    // 56-63 : JUMP_START  (int64) — first offset of the contiguous jump table
+    // 64-71 : JUMP_END    (int64) — first offset after the jump table
+    /// <summary>Offset of the compact→large transition boundary in a v5 header.</summary>
+    public const int HEADER_OFFSET_TRANSITION = 48;
+    /// <summary>Start of the contiguous jump table in a v5 header.</summary>
+    public const int HEADER_OFFSET_JUMP_START = 56;
+    /// <summary>End of the contiguous jump table in a v5 header.</summary>
+    public const int HEADER_OFFSET_JUMP_END = 64;
 
     // Invariant node field offsets (same in both Compact and Large layouts)
     public const int OFFSET_START = 0;

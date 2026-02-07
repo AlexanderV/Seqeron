@@ -6,10 +6,11 @@ namespace SuffixTree.Persistent;
 /// <summary>
 /// Provides convenience methods for creating and loading persistent suffix trees.
 /// <para>
-/// The binary storage format is selected automatically:
-/// construction always starts with the Compact (32-bit, 28-byte node) layout
-/// for maximum cache efficiency. If the tree outgrows the ~4 GB uint32 address
-/// space, construction is transparently restarted with the Large (64-bit) layout.
+/// The binary storage format uses hybrid continuation: construction always starts
+/// with the Compact (32-bit, 28-byte node) layout for maximum cache efficiency.
+/// If the tree outgrows the ~4 GB uint32 address space, the builder transparently
+/// switches to the Large (64-bit) layout mid-build, using a jump table for
+/// cross-zone references. No rebuild is needed.
 /// </para>
 /// </summary>
 public static class PersistentSuffixTreeFactory
@@ -19,7 +20,8 @@ public static class PersistentSuffixTreeFactory
     /// If a filePath is provided, it uses Memory-Mapped Files; otherwise, it uses heap memory.
     /// <para>
     /// Storage format is chosen automatically: trees start in Compact (32-bit) mode
-    /// and promote to Large (64-bit) only if the storage exceeds the uint32 address space.
+    /// and seamlessly transition to Large (64-bit) if the storage exceeds the uint32
+    /// address space, with a jump table bridging cross-zone references (version 5 Hybrid).
     /// </para>
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
@@ -33,8 +35,8 @@ public static class PersistentSuffixTreeFactory
 
     /// <summary>
     /// Core build logic with configurable compact offset limit (for testing).
-    /// Starts with Compact layout; on <see cref="CompactOverflowException"/>,
-    /// discards partial storage and rebuilds with Large layout.
+    /// Starts with Compact layout; if the tree outgrows the limit, the builder
+    /// transitions to Large layout mid-build (hybrid continuation).
     /// </summary>
     internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit)
     {
@@ -48,42 +50,22 @@ public static class PersistentSuffixTreeFactory
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
 
-            return new PersistentSuffixTree(storage, rootOffset, text, NodeLayout.Compact);
-        }
-        catch (CompactOverflowException)
-        {
-            // Compact (uint32) address space exhausted — rebuild with Large (int64)
-            storage.Dispose();
-            CleanupFile(filePath);
-
-            storage = CreateStorage(filePath);
-            try
-            {
-                var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Large);
-                long rootOffset = builder.Build(text);
-
-                if (storage is MappedFileStorageProvider mapped)
-                    mapped.TrimToSize();
-
-                return new PersistentSuffixTree(storage, rootOffset, text, NodeLayout.Large);
-            }
-            catch
-            {
-                storage.Dispose();
-                CleanupFile(filePath);
-                throw;
-            }
+            // Determine the effective layout: Hybrid if builder transitioned, else Compact
+            NodeLayout layout = builder.IsHybrid ? NodeLayout.Compact : NodeLayout.Compact;
+            return new PersistentSuffixTree(storage, rootOffset, text, layout,
+                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
         }
         catch
         {
             storage.Dispose();
+            CleanupFile(filePath);
             throw;
         }
     }
 
     /// <summary>
     /// Loads an existing persistent suffix tree from a file using Memory-Mapped Files.
-    /// The format (Compact v4 or Large v3) is detected automatically from the file header.
+    /// The format (Compact v4, Large v3, or Hybrid v5) is detected automatically from the file header.
     /// </summary>
     /// <param name="filePath">The path to the existing suffix tree file.</param>
     /// <returns>An implementation of ISuffixTree.</returns>

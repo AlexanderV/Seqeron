@@ -115,9 +115,8 @@ namespace SuffixTree.Persistent
         /// guaranteeing full functionality including suffix links.
         /// <para>
         /// Construction starts with Compact (32-bit) layout. If the tree exceeds the
-        /// uint32 address space, it is automatically rebuilt with Large (64-bit) layout
-        /// on a fresh <see cref="HeapStorageProvider"/> (the caller's <paramref name="target"/>
-        /// is left in an indeterminate state in that case).
+        /// uint32 address space, the builder transparently transitions to Large (64-bit)
+        /// mid-build using a jump table (hybrid continuation, version 5).
         /// </para>
         /// </summary>
         public static ISuffixTree Import(Stream stream, IStorageProvider target)
@@ -156,27 +155,20 @@ namespace SuffixTree.Persistent
                 byte[] expectedHash = reader.ReadBytes(hashLen);
 
                 var textSource = new StringTextSource(text);
-
-                try
-                {
-                    return ImportBuild(target, textSource, expectedNodeCount, expectedHash, NodeLayout.Compact);
-                }
-                catch (CompactOverflowException)
-                {
-                    // Compact exhausted — rebuild with Large on fresh heap storage
-                    var largeStorage = new HeapStorageProvider();
-                    return ImportBuild(largeStorage, textSource, expectedNodeCount, expectedHash, NodeLayout.Large);
-                }
+                return ImportBuild(target, textSource, expectedNodeCount, expectedHash);
             }
         }
 
         private static ISuffixTree ImportBuild(
             IStorageProvider storage, StringTextSource textSource,
-            int expectedNodeCount, byte[] expectedHash, NodeLayout layout)
+            int expectedNodeCount, byte[] expectedHash)
         {
-            var builder = new PersistentSuffixTreeBuilder(storage, layout);
+            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
             long rootOffset = builder.Build(textSource);
-            var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout);
+
+            NodeLayout layout = NodeLayout.Compact;
+            var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout,
+                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
 
             // Validate structural integrity
             if (tree.NodeCount != expectedNodeCount)
