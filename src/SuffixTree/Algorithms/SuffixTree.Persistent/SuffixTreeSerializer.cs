@@ -171,7 +171,8 @@ namespace SuffixTree.Persistent
             // NodeLayout.ForVersion(5) also returns Compact, so this is correct.
             NodeLayout layout = NodeLayout.Compact;
             var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout,
-                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
+                builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,
+                builder.DeepestInternalNodeOffset);
 
             // Validate structural integrity
             if (tree.NodeCount != expectedNodeCount)

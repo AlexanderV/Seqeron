@@ -48,6 +48,9 @@ public class PersistentSuffixTreeBuilder
     // Written at FinalizeTree when the jump table is materialized.
     private readonly List<(long CompactNodeOffset, long LargeTargetOffset)> _deferredSuffixLinks = new();
 
+    // Pre-computed during CalculateLeafCount — the internal node with maximum depth.
+    private long _deepestInternalNodeOffset = PersistentConstants.NULL_OFFSET;
+
     /// <summary>
     /// Override the compact address-space limit. Used by <see cref="PersistentSuffixTreeFactory"/>
     /// and tests to control the Compact → Large promotion threshold.
@@ -69,6 +72,13 @@ public class PersistentSuffixTreeBuilder
 
     /// <summary>Whether a compact→large transition occurred during the build.</summary>
     internal bool IsHybrid => _transitionOffset >= 0;
+
+    /// <summary>
+    /// Offset of the deepest internal node (maximum DepthFromRoot + edge length).
+    /// Computed during <see cref="Build"/> at zero extra cost (piggybacks on leaf-count traversal).
+    /// Returns <see cref="PersistentConstants.NULL_OFFSET"/> if Build has not been called.
+    /// </summary>
+    internal long DeepestInternalNodeOffset => _deepestInternalNodeOffset;
 
     public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null)
     {
@@ -424,6 +434,10 @@ public class PersistentSuffixTreeBuilder
             }
         }
 
+        // Track deepest internal node during the bottom-up pass
+        long deepestOffset = rootOffset;
+        int maxDepth = 0;
+
         while (resultStack.Count > 0)
         {
             long offset = resultStack.Pop();
@@ -447,8 +461,18 @@ public class PersistentSuffixTreeBuilder
                     }
                 }
                 node.LeafCount = totalLeaves;
+
+                // Track deepest internal node (by DepthFromRoot + edge length)
+                int nodeDepth = (int)node.DepthFromRoot + LengthOf(node);
+                if (nodeDepth > maxDepth)
+                {
+                    maxDepth = nodeDepth;
+                    deepestOffset = offset;
+                }
             }
         }
+
+        _deepestInternalNodeOffset = deepestOffset;
     }
 
     // ──────────────── Builder child management (in-memory) ────────────────
