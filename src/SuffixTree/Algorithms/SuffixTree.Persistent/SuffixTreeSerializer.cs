@@ -73,7 +73,20 @@ namespace SuffixTree.Persistent
             {
                 writer.Write(LOGICAL_MAGIC);
                 writer.Write(VERSION);
-                writer.Write(tree.Text.ToString() ?? string.Empty);
+
+                // Write text using chunked approach to avoid full materialization for large MMF sources
+                var text = tree.Text;
+                writer.Write7BitEncodedInt(text.Length);
+                const int chunkSize = 4096;
+                var charBuf = new char[chunkSize];
+                for (int offset = 0; offset < text.Length; offset += chunkSize)
+                {
+                    int count = Math.Min(chunkSize, text.Length - offset);
+                    for (int i = 0; i < count; i++)
+                        charBuf[i] = text[offset + i];
+                    writer.Write(charBuf, 0, count);
+                }
+
                 writer.Write(tree.NodeCount);
                 writer.Write(hash.Length);
                 writer.Write(hash);
@@ -101,7 +114,11 @@ namespace SuffixTree.Persistent
                 if (version != VERSION)
                     throw new NotSupportedException($"Format version {version} is not supported (expected {VERSION}).");
 
-                string text = reader.ReadString();
+                // Read chunked text (matches Export's Write7BitEncodedInt + Write(char[]) format)
+                int textLen = reader.Read7BitEncodedInt();
+                string text = textLen == 0
+                    ? string.Empty
+                    : new string(reader.ReadChars(textLen));
                 int expectedNodeCount = reader.ReadInt32();
                 int hashLen = reader.ReadInt32();
                 byte[] expectedHash = reader.ReadBytes(hashLen);
