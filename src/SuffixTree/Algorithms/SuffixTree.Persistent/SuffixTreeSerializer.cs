@@ -166,6 +166,9 @@ namespace SuffixTree.Persistent
             var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
             long rootOffset = builder.Build(textSource);
 
+            // Base layout is always Compact — hybrid v5 trees use Compact as the
+            // base and resolve the Large zone dynamically via TransitionOffset.
+            // NodeLayout.ForVersion(5) also returns Compact, so this is correct.
             NodeLayout layout = NodeLayout.Compact;
             var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout,
                 builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
