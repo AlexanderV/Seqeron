@@ -204,6 +204,9 @@ public class MappedFileStorageProvider : IStorageProvider
     /// </summary>
     public void SetSize(long size)
     {
+        ThrowIfDisposed();
+        if (size < 0)
+            throw new ArgumentOutOfRangeException(nameof(size), "Size must be non-negative.");
         _position = size;
         EnsureCapacity(_position);
     }
