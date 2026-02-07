@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -38,16 +39,24 @@ namespace SuffixTree.Persistent
 
                 // Hash the text in chunks to avoid materializing the full string
                 const int chunkSize = 4096;
-                var charBuf = new char[chunkSize];
-                var byteBuf = new byte[chunkSize * 2]; // UTF-16 LE: 2 bytes per char
-                int textLen = tree.Text.Length;
-                for (int offset = 0; offset < textLen; offset += chunkSize)
+                char[] charBuf = ArrayPool<char>.Shared.Rent(chunkSize);
+                byte[] byteBuf = ArrayPool<byte>.Shared.Rent(chunkSize * 2);
+                try
                 {
-                    int count = Math.Min(chunkSize, textLen - offset);
-                    for (int i = 0; i < count; i++)
-                        charBuf[i] = tree.Text[offset + i];
-                    int byteCount = Encoding.Unicode.GetBytes(charBuf, 0, count, byteBuf, 0);
-                    sha256.TransformBlock(byteBuf, 0, byteCount, null, 0);
+                    int textLen = tree.Text.Length;
+                    for (int offset = 0; offset < textLen; offset += chunkSize)
+                    {
+                        int count = Math.Min(chunkSize, textLen - offset);
+                        for (int i = 0; i < count; i++)
+                            charBuf[i] = tree.Text[offset + i];
+                        int byteCount = Encoding.Unicode.GetBytes(charBuf, 0, count, byteBuf, 0);
+                        sha256.TransformBlock(byteBuf, 0, byteCount, null, 0);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<char>.Shared.Return(charBuf);
+                    ArrayPool<byte>.Shared.Return(byteBuf);
                 }
 
                 // Hash the tree structure deterministically
@@ -78,13 +87,20 @@ namespace SuffixTree.Persistent
                 var text = tree.Text;
                 writer.Write7BitEncodedInt(text.Length);
                 const int chunkSize = 4096;
-                var charBuf = new char[chunkSize];
-                for (int offset = 0; offset < text.Length; offset += chunkSize)
+                char[] charBuf = ArrayPool<char>.Shared.Rent(chunkSize);
+                try
                 {
-                    int count = Math.Min(chunkSize, text.Length - offset);
-                    for (int i = 0; i < count; i++)
-                        charBuf[i] = text[offset + i];
-                    writer.Write(charBuf, 0, count);
+                    for (int offset = 0; offset < text.Length; offset += chunkSize)
+                    {
+                        int count = Math.Min(chunkSize, text.Length - offset);
+                        for (int i = 0; i < count; i++)
+                            charBuf[i] = text[offset + i];
+                        writer.Write(charBuf, 0, count);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<char>.Shared.Return(charBuf);
                 }
 
                 writer.Write(tree.NodeCount);
