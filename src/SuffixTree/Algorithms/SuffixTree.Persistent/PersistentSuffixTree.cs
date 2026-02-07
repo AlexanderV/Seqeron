@@ -67,6 +67,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     public static PersistentSuffixTree Load(IStorageProvider storage)
     {
+        ArgumentNullException.ThrowIfNull(storage);
+
         long magic = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_MAGIC);
         if (magic != PersistentConstants.MAGIC_NUMBER)
             throw new InvalidOperationException("Invalid storage format: Magic number mismatch.");

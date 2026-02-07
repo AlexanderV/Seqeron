@@ -45,6 +45,7 @@ public class PersistentSuffixTreeBuilder
 
     public long Build(ITextSource text)
     {
+        ArgumentNullException.ThrowIfNull(text);
         if (_built)
             throw new InvalidOperationException("Build() has already been called. Create a new builder instance to build another tree.");
         _built = true;
