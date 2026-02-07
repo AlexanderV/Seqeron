@@ -232,16 +232,17 @@ public class PersistentSuffixTreeBuilder
             bool sourceIsCompact = !sourceLayout.OffsetIs64Bit;
             bool targetInLargeZone = _transitionOffset >= 0 && nodeOffset >= _transitionOffset;
 
+            // Always write the suffix link directly so the Ukkonen algorithm
+            // can follow it during the remaining build steps.
+            var lastNode = new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, sourceLayout);
+            lastNode.SuffixLink = nodeOffset;
+
             if (sourceIsCompact && targetInLargeZone)
             {
-                // Cross-zone: compact node → large zone target.
-                // Defer until FinalizeTree when we can allocate jump entries.
+                // Also record for finalization: the reader needs a jump-table
+                // entry so that a compact node's uint32 SuffixLink field can
+                // be redirected to an int64 slot when the offset exceeds 32 bits.
                 _deferredSuffixLinks.Add((_lastCreatedInternalNodeOffset, nodeOffset));
-            }
-            else
-            {
-                var lastNode = new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, sourceLayout);
-                lastNode.SuffixLink = nodeOffset;
             }
         }
         _lastCreatedInternalNodeOffset = nodeOffset;
