@@ -85,28 +85,9 @@ public sealed class MappedFileStorageProvider : IStorageProvider
                 _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
                 _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
             }
-#pragma warning disable CA1031 // Recovery and cleanup code — must catch all exceptions
-            catch
-            {
-                // Dispose any MMF handle that was successfully created before the error
-                // to avoid native handle leak (R3)
-                try { _mmf?.Dispose(); } catch { }
-
-                // Try to restore previous mapping at old capacity
-                _capacity = oldCapacity;
-                try
-                {
-                    _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
-                    _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
-                }
-                catch
-                {
-                    // Cannot recover — mark as disposed to prevent zombie state
-                    Volatile.Write(ref _disposed, 1);
-                }
-                throw;
-            }
-#pragma warning restore CA1031
+            catch (IOException) { RecoverMapping(oldCapacity); throw; }
+            catch (UnauthorizedAccessException) { RecoverMapping(oldCapacity); throw; }
+            catch (OutOfMemoryException) { RecoverMapping(oldCapacity); throw; }
         }
     }
 
@@ -282,25 +263,38 @@ public sealed class MappedFileStorageProvider : IStorageProvider
             _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
             _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
         }
-#pragma warning disable CA1031 // Recovery and cleanup code — must catch all exceptions
-        catch
-        {
-            // Dispose any MMF handle that was successfully created before the error
-            // to avoid native handle leak (R4)
-            try { _mmf?.Dispose(); } catch { }
+        catch (IOException) { RecoverMapping(oldCapacity); throw; }
+        catch (UnauthorizedAccessException) { RecoverMapping(oldCapacity); throw; }
+        catch (OutOfMemoryException) { RecoverMapping(oldCapacity); throw; }
+    }
 
-            _capacity = oldCapacity;
-            try
-            {
-                _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
-                _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
-            }
-            catch
-            {
-                Volatile.Write(ref _disposed, 1);
-            }
-            throw;
-        }
+    /// <summary>
+    /// Attempts to restore the previous memory-mapped file mapping after a failed resize.
+    /// Disposes any partially-created handles, then tries to re-map at the old capacity.
+    /// If even restoration fails, marks the provider as disposed to prevent zombie state.
+    /// </summary>
+    private void RecoverMapping(long oldCapacity)
+    {
+        // Dispose any MMF handle that was partially created before the error
+        // to avoid native handle leak. Dispose must not throw — suppress if it does.
+#pragma warning disable CA1031 // Safety Dispose: must not throw during recovery
+        try { _mmf?.Dispose(); } catch (Exception) { }
 #pragma warning restore CA1031
+
+        _capacity = oldCapacity;
+        try
+        {
+            _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+            _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+        }
+        catch (IOException)
+        {
+            // Cannot recover — mark as disposed to prevent zombie state
+            Volatile.Write(ref _disposed, 1);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Volatile.Write(ref _disposed, 1);
+        }
     }
 }
