@@ -130,6 +130,23 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                     $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
         }
 
+        // Validate TEXT_OFF and TEXT_LEN
+        long textOff = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
+        int textLen = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
+
+        if (textLen < 0)
+            throw new InvalidOperationException(
+                $"Invalid storage format: text length {textLen} is negative.");
+
+        if (textOff < headerSize || textOff >= storageSize)
+            throw new InvalidOperationException(
+                $"Invalid storage format: text offset {textOff} is outside valid range [{headerSize}, {storageSize}).");
+
+        long textEnd = textOff + (long)textLen * sizeof(char);
+        if (textEnd > storageSize)
+            throw new InvalidOperationException(
+                $"Invalid storage format: text region [{textOff}, {textEnd}) exceeds storage size {storageSize}.");
+
         return new PersistentSuffixTree(storage, root, layout: layout,
             transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd);
     }
