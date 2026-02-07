@@ -35,6 +35,13 @@ public class HeapStorageProvider : IStorageProvider
                 $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
     }
 
+    private void CheckWriteBounds(long offset, int size)
+    {
+        if (offset < 0 || offset + size > _position)
+            throw new ArgumentOutOfRangeException(nameof(offset),
+                $"Write at offset {offset} with size {size} exceeds logical size {_position}.");
+    }
+
     public void EnsureCapacity(long capacity)
     {
         ThrowIfDisposed();
@@ -67,6 +74,7 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteInt32(long offset, int value)
     {
         ThrowIfDisposed();
+        CheckWriteBounds(offset, 4);
         BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
     }
 
@@ -80,6 +88,7 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteUInt32(long offset, uint value)
     {
         ThrowIfDisposed();
+        CheckWriteBounds(offset, 4);
         BinaryPrimitives.WriteUInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
     }
 
@@ -93,6 +102,7 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteInt64(long offset, long value)
     {
         ThrowIfDisposed();
+        CheckWriteBounds(offset, 8);
         BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan((int)offset, 8), value);
     }
 
@@ -106,6 +116,7 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteChar(long offset, char value)
     {
         ThrowIfDisposed();
+        CheckWriteBounds(offset, 2);
         BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan((int)offset, 2), (short)value);
     }
 
@@ -119,6 +130,7 @@ public class HeapStorageProvider : IStorageProvider
     public void WriteBytes(long offset, byte[] buffer, int start, int count)
     {
         ThrowIfDisposed();
+        CheckWriteBounds(offset, count);
         Buffer.BlockCopy(buffer, start, _buffer, (int)offset, count);
     }
 
