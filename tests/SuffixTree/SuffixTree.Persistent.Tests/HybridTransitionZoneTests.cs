@@ -656,8 +656,31 @@ public class HybridTransitionZoneTests
         var ts = new StringTextSource(text);
         long root = builder.Build(ts);
         var pst = new PersistentSuffixTree(storage, root, ts, NodeLayout.Compact,
-            builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
+            builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,
+            builder.DeepestInternalNodeOffset);
         return new TreeHolder(pst, pst, storage);
+    }
+
+    // ──────────── C11: Cross-zone suffix links must be followed correctly ──────────
+
+    [TestCase("abcabcabc", 200)]
+    [TestCase("mississippi", 200)]
+    [TestCase("banana", 250)]
+    [TestCase("aababcabcd", 200)]
+    public void HybridTree_CrossZoneSuffixLinks_ProduceCorrectLCS(string text, int limit)
+    {
+        // LCS relies on suffix links.  If cross-zone suffix links are broken,
+        // LCS will produce wrong results compared to a pure compact tree.
+        using var compact = BuildCompact(text);
+        using var hybrid = BuildHybrid(text, limit);
+
+        Assert.That(((PersistentSuffixTree)hybrid.tree).IsHybrid, Is.True, "Tree must be hybrid for this test");
+
+        string compactLcs = compact.tree.LongestCommonSubstring(text);
+        string hybridLcs = hybrid.tree.LongestCommonSubstring(text);
+
+        Assert.That(hybridLcs, Is.EqualTo(compactLcs),
+            "C11: Hybrid cross-zone suffix links must produce same LCS as compact");
     }
 
     // ──────────── Visitor for structural comparison ──────────────

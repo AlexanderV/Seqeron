@@ -48,6 +48,11 @@ public class PersistentSuffixTreeBuilder
     // Written at FinalizeTree when the jump table is materialized.
     private readonly List<(long CompactNodeOffset, long LargeTargetOffset)> _deferredSuffixLinks = new();
 
+    // Cross-zone suffix link resolution for builder: compact-node offset →
+    // correct large-zone target (avoids uint32 truncation when reading back
+    // from storage during the Ukkonen walk).  Only populated when transition occurs.
+    private readonly Dictionary<long, long> _crossZoneSuffixLinks = new();
+
     // Pre-computed during CalculateLeafCount — the internal node with maximum depth.
     private long _deepestInternalNodeOffset = PersistentConstants.NULL_OFFSET;
 
@@ -188,9 +193,17 @@ public class PersistentSuffixTreeBuilder
             }
             else if (_activeNodeOffset != _rootOffset)
             {
-                var nodeLayout = LayoutOf(_activeNodeOffset);
-                var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, nodeLayout);
-                long suffLink = node.SuffixLink;
+                // Read suffix link — use in-memory dictionary for cross-zone
+                // links to avoid uint32 truncation on compact nodes (C11).
+                long suffLink;
+                if (_crossZoneSuffixLinks.TryGetValue(_activeNodeOffset, out long resolved))
+                    suffLink = resolved;
+                else
+                {
+                    var nodeLayout = LayoutOf(_activeNodeOffset);
+                    var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, nodeLayout);
+                    suffLink = node.SuffixLink;
+                }
                 _activeNodeOffset = suffLink != PersistentConstants.NULL_OFFSET ? suffLink : _rootOffset;
             }
         }
@@ -253,6 +266,11 @@ public class PersistentSuffixTreeBuilder
                 // entry so that a compact node's uint32 SuffixLink field can
                 // be redirected to an int64 slot when the offset exceeds 32 bits.
                 _deferredSuffixLinks.Add((_lastCreatedInternalNodeOffset, nodeOffset));
+
+                // Keep the correct target in memory so ExtendTree can follow
+                // cross-zone suffix links accurately even if the uint32 write
+                // truncated the value (C11 safety guard).
+                _crossZoneSuffixLinks[_lastCreatedInternalNodeOffset] = nodeOffset;
             }
         }
         _lastCreatedInternalNodeOffset = nodeOffset;
