@@ -21,8 +21,16 @@ public class HeapStorageProvider : IStorageProvider
 
     public long Size => _position;
 
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(HeapStorageProvider));
+    }
+
     public void EnsureCapacity(long capacity)
     {
+        ThrowIfDisposed();
+
         if (capacity < 0)
             throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be non-negative.");
 
@@ -42,37 +50,71 @@ public class HeapStorageProvider : IStorageProvider
     }
 
     public int ReadInt32(long offset)
-        => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
+    {
+        ThrowIfDisposed();
+        return BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
+    }
 
     public void WriteInt32(long offset, int value)
-        => BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
+    {
+        ThrowIfDisposed();
+        BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
+    }
 
     public uint ReadUInt32(long offset)
-        => BinaryPrimitives.ReadUInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
+    {
+        ThrowIfDisposed();
+        return BinaryPrimitives.ReadUInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
+    }
 
     public void WriteUInt32(long offset, uint value)
-        => BinaryPrimitives.WriteUInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
+    {
+        ThrowIfDisposed();
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.AsSpan((int)offset, 4), value);
+    }
 
     public long ReadInt64(long offset)
-        => BinaryPrimitives.ReadInt64LittleEndian(_buffer.AsSpan((int)offset, 8));
+    {
+        ThrowIfDisposed();
+        return BinaryPrimitives.ReadInt64LittleEndian(_buffer.AsSpan((int)offset, 8));
+    }
 
     public void WriteInt64(long offset, long value)
-        => BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan((int)offset, 8), value);
+    {
+        ThrowIfDisposed();
+        BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan((int)offset, 8), value);
+    }
 
     public char ReadChar(long offset)
-        => (char)BinaryPrimitives.ReadInt16LittleEndian(_buffer.AsSpan((int)offset, 2));
+    {
+        ThrowIfDisposed();
+        return (char)BinaryPrimitives.ReadInt16LittleEndian(_buffer.AsSpan((int)offset, 2));
+    }
 
     public void WriteChar(long offset, char value)
-        => BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan((int)offset, 2), (short)value);
+    {
+        ThrowIfDisposed();
+        BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan((int)offset, 2), (short)value);
+    }
 
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
-        => Buffer.BlockCopy(_buffer, (int)offset, buffer, start, count);
+    {
+        ThrowIfDisposed();
+        Buffer.BlockCopy(_buffer, (int)offset, buffer, start, count);
+    }
 
     public void WriteBytes(long offset, byte[] buffer, int start, int count)
-        => Buffer.BlockCopy(buffer, start, _buffer, (int)offset, count);
+    {
+        ThrowIfDisposed();
+        Buffer.BlockCopy(buffer, start, _buffer, (int)offset, count);
+    }
 
     public long Allocate(int size)
     {
+        ThrowIfDisposed();
+        if (size < 0)
+            throw new ArgumentOutOfRangeException(nameof(size), "Allocation size must be non-negative.");
+
         long offset = _position;
         _position += size;
         EnsureCapacity(_position);

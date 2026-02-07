@@ -64,56 +64,100 @@ public class MappedFileStorageProvider : IStorageProvider
         if (_readOnly) throw new InvalidOperationException("Cannot expand capacity in read-only mode.");
         if (capacity > _capacity)
         {
-            // Re-mapping required
-            _accessor.Dispose();
-            _mmf.Dispose();
+            var oldAccessor = _accessor;
+            var oldMmf = _mmf;
+            var oldCapacity = _capacity;
 
             _capacity = Math.Max(_capacity * 2, capacity);
 
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            try
             {
-                fs.SetLength(_capacity);
-            }
+                // Must close old mapping before resizing file on Windows
+                oldAccessor.Dispose();
+                oldMmf.Dispose();
 
-            _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
-            _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+                using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                {
+                    fs.SetLength(_capacity);
+                }
+
+                _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
+                _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+            }
+            catch
+            {
+                // Try to restore previous mapping at old capacity
+                _capacity = oldCapacity;
+                try
+                {
+                    _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+                    _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+                }
+                catch
+                {
+                    // Cannot recover — mark as disposed to prevent zombie state
+                    _disposed = true;
+                }
+                throw;
+            }
         }
     }
 
-    public int ReadInt32(long offset) => _accessor.ReadInt32(offset);
+    public int ReadInt32(long offset)
+    {
+        ThrowIfDisposed();
+        return _accessor.ReadInt32(offset);
+    }
 
     public void WriteInt32(long offset, int value)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.Write(offset, value);
     }
 
-    public uint ReadUInt32(long offset) => _accessor.ReadUInt32(offset);
+    public uint ReadUInt32(long offset)
+    {
+        ThrowIfDisposed();
+        return _accessor.ReadUInt32(offset);
+    }
 
     public void WriteUInt32(long offset, uint value)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.Write(offset, value);
     }
 
-    public long ReadInt64(long offset) => _accessor.ReadInt64(offset);
+    public long ReadInt64(long offset)
+    {
+        ThrowIfDisposed();
+        return _accessor.ReadInt64(offset);
+    }
 
     public void WriteInt64(long offset, long value)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.Write(offset, value);
     }
 
-    public char ReadChar(long offset) => _accessor.ReadChar(offset);
+    public char ReadChar(long offset)
+    {
+        ThrowIfDisposed();
+        return _accessor.ReadChar(offset);
+    }
 
     public void WriteChar(long offset, char value)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.Write(offset, value);
     }
 
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
     {
+        ThrowIfDisposed();
         int read = _accessor.ReadArray(offset, buffer, start, count);
         if (read != count)
             throw new InvalidOperationException(
@@ -122,6 +166,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     public void WriteBytes(long offset, byte[] buffer, int start, int count)
     {
+        ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         _accessor.WriteArray(offset, buffer, start, count);
     }
@@ -129,6 +174,9 @@ public class MappedFileStorageProvider : IStorageProvider
     public long Allocate(int size)
     {
         ThrowIfDisposed();
+        if (size < 0)
+            throw new ArgumentOutOfRangeException(nameof(size), "Allocation size must be non-negative.");
+
         long offset = _position;
         _position += size;
         EnsureCapacity(_position);
@@ -169,19 +217,38 @@ public class MappedFileStorageProvider : IStorageProvider
         ThrowIfDisposed();
         if (_readOnly || _position >= _capacity) return;
 
-        // Close current mapping
-        _accessor.Dispose();
-        _mmf.Dispose();
+        var oldAccessor = _accessor;
+        var oldMmf = _mmf;
+        var oldCapacity = _capacity;
 
-        // Truncate file to actual data size
         _capacity = _position;
-        using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-        {
-            fs.SetLength(_capacity);
-        }
 
-        // Re-map at trimmed size (read-write in case caller still writes headers)
-        _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
-        _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+        try
+        {
+            oldAccessor.Dispose();
+            oldMmf.Dispose();
+
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                fs.SetLength(_capacity);
+            }
+
+            _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
+            _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+        }
+        catch
+        {
+            _capacity = oldCapacity;
+            try
+            {
+                _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+                _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+            }
+            catch
+            {
+                _disposed = true;
+            }
+            throw;
+        }
     }
 }
