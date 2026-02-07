@@ -86,6 +86,10 @@ public class MappedFileStorageProvider : IStorageProvider
             }
             catch
             {
+                // Dispose any MMF handle that was successfully created before the error
+                // to avoid native handle leak (R3)
+                try { _mmf?.Dispose(); } catch { }
+
                 // Try to restore previous mapping at old capacity
                 _capacity = oldCapacity;
                 try
@@ -241,6 +245,10 @@ public class MappedFileStorageProvider : IStorageProvider
         }
         catch
         {
+            // Dispose any MMF handle that was successfully created before the error
+            // to avoid native handle leak (R4)
+            try { _mmf?.Dispose(); } catch { }
+
             _capacity = oldCapacity;
             try
             {

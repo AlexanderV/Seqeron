@@ -407,7 +407,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public string PrintTree()
     {
         ThrowIfDisposed();
-        var sb = new StringBuilder(Math.Max(256, _textSource.Length * 100));
+        var sb = new StringBuilder(Math.Max(256, Math.Min(_textSource.Length, 100_000) * 100));
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         sb.Append(ci, $"Content length: {_textSource.Length}").AppendLine();
         sb.AppendLine();
