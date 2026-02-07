@@ -96,7 +96,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public bool Contains(string value)
     {
         ThrowIfDisposed();
-        if (string.IsNullOrEmpty(value)) return true;
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length == 0) return true;
         return Contains(value.AsSpan());
     }
 
@@ -200,7 +201,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
             long arrayBase = node.ChildrenHead;
             int childCount = node.ChildCount;
-            for (int ci = 0; ci < childCount; ci++)
+            // Push children in reverse order so the stack pops them in ascending (lex) order
+            for (int ci = childCount - 1; ci >= 0; ci--)
             {
                 var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE);
                 stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset), nodeDepth));
@@ -208,7 +210,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
     }
 
-    public string LongestCommonSubstring(string other) { ThrowIfDisposed(); return LongestCommonSubstring(other.AsSpan()); }
+    public string LongestCommonSubstring(string other)
+    {
+        ThrowIfDisposed();
+        var (substring, _, _) = LongestCommonSubstringInfo(other);
+        return substring;
+    }
 
     public string LongestCommonSubstring(ReadOnlySpan<char> other)
     {
@@ -649,7 +656,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private void TraverseCore(PersistentSuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
     {
-        // Frame: node, child count, current child index, depth
+        // Frame: node, child count, current child index, depth (character-based)
         var stack = new Stack<(PersistentSuffixTreeNode Node, int ChildCount, int Index, int Depth)>();
 
         // Visit root node
@@ -680,12 +687,14 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
             var child = new PersistentSuffixTreeNode(_storage, childOffset);
 
+            int childDepth = parentDepth + LengthOf(child);
+
             visitor.EnterBranch((int)key);
-            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, parentDepth + 1);
+            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, childDepth);
 
             if (!child.IsLeaf)
             {
-                stack.Push((child, child.ChildCount, 0, parentDepth + LengthOf(child)));
+                stack.Push((child, child.ChildCount, 0, childDepth));
             }
             else
             {
