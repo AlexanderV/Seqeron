@@ -25,6 +25,7 @@ public class PersistentSuffixTreeBuilder
     private int _position = -1;
     private long _lastCreatedInternalNodeOffset = PersistentConstants.NULL_OFFSET;
     private readonly Dictionary<long, List<(uint Key, long ChildOffset)>> _children = new();
+    private bool _built;
 
     public PersistentSuffixTreeBuilder(IStorageProvider storage)
     {
@@ -44,6 +45,10 @@ public class PersistentSuffixTreeBuilder
 
     public long Build(ITextSource text)
     {
+        if (_built)
+            throw new InvalidOperationException("Build() has already been called. Create a new builder instance to build another tree.");
+        _built = true;
+
         _text = text;
         if (text.Length > 0)
         {
