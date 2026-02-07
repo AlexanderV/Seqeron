@@ -516,7 +516,7 @@ public class PersistentSuffixTreeBuilder
 
             int count = childList.Count;
             int entrySize = arrayLayout.ChildEntrySize;
-            int totalBytes = count * entrySize;
+            int totalBytes = checked(count * entrySize);
             long arrayOffset = _storage.Allocate(totalBytes);
 
             // Serialize all entries into a single buffer, then batch-write
@@ -525,7 +525,7 @@ public class PersistentSuffixTreeBuilder
             {
                 for (int i = 0; i < count; i++)
                 {
-                    int off = i * entrySize;
+                    int off = checked(i * entrySize);
                     BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), childList[i].Key);
                     if (arrayLayout.OffsetIs64Bit)
                         BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), childList[i].ChildOffset);
