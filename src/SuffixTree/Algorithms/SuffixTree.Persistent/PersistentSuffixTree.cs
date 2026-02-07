@@ -691,10 +691,10 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
             var child = new PersistentSuffixTreeNode(_storage, childOffset);
 
-            int childDepth = parentDepth + LengthOf(child);
-
             visitor.EnterBranch((int)key);
-            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, childDepth);
+            visitor.VisitNode((int)child.Start, (int)child.End, (int)child.LeafCount, child.ChildCount, parentDepth);
+
+            int childDepth = parentDepth + LengthOf(child);
 
             if (!child.IsLeaf)
             {
