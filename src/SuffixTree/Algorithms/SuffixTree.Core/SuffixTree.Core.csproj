@@ -1,13 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\SuffixTree.Core\SuffixTree.Core.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>SuffixTree</RootNamespace>
-    <AssemblyName>SuffixTree</AssemblyName>
+    <AssemblyName>SuffixTree.Core</AssemblyName>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -16,7 +12,7 @@
 
     <!-- XML Documentation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn> <!-- Allow missing XML comments on internal members -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
 </Project>
