@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -35,9 +36,19 @@ namespace SuffixTree.Persistent
             {
                 var hasher = new HashVisitor(sha256);
 
-                // Hash the text first to bind the tree to a specific string
-                byte[] textBytes = Encoding.Unicode.GetBytes(tree.Text.ToString() ?? string.Empty);
-                sha256.TransformBlock(textBytes, 0, textBytes.Length, null, 0);
+                // Hash the text in chunks to avoid materializing the full string
+                const int chunkSize = 4096;
+                var charBuf = new char[chunkSize];
+                var byteBuf = new byte[chunkSize * 2]; // UTF-16 LE: 2 bytes per char
+                int textLen = tree.Text.Length;
+                for (int offset = 0; offset < textLen; offset += chunkSize)
+                {
+                    int count = Math.Min(chunkSize, textLen - offset);
+                    for (int i = 0; i < count; i++)
+                        charBuf[i] = tree.Text[offset + i];
+                    int byteCount = Encoding.Unicode.GetBytes(charBuf, 0, count, byteBuf, 0);
+                    sha256.TransformBlock(byteBuf, 0, byteCount, null, 0);
+                }
 
                 // Hash the tree structure deterministically
                 tree.Traverse(hasher);
@@ -151,7 +162,7 @@ namespace SuffixTree.Persistent
 
             private void HashInt(int value)
             {
-                BitConverter.TryWriteBytes(_buffer, value);
+                BinaryPrimitives.WriteInt32LittleEndian(_buffer, value);
                 _sha.TransformBlock(_buffer, 0, 4, null, 0);
             }
 
