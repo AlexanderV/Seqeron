@@ -53,7 +53,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
         _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, mmfAccess);
         _accessor = _mmf.CreateViewAccessor(0, _capacity, mmfAccess);
-        _position = 0; // In a real "load" scenario, we'd need to store the current position/size in the file header.
+        _position = _readOnly ? _capacity : 0;
     }
 
     public long Size => _position;
