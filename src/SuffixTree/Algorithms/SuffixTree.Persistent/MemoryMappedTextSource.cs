@@ -1,8 +1,5 @@
 using System.Collections;
-using System.Collections.Generic;
 using System.IO.MemoryMappedFiles;
-using System.Runtime.InteropServices;
-using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -21,8 +18,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (Volatile.Read(ref _disposed) != 0)
-            throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 
     /// <summary>
@@ -88,8 +84,8 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         {
             char* p = _ptr;  // C17: snapshot before disposed check
             ThrowIfDisposed();
-            if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
-            if (index < 0 || index >= _length) throw new IndexOutOfRangeException();
+            ObjectDisposedException.ThrowIf(p == null, this);
+            if (index < 0 || index >= _length) throw new ArgumentOutOfRangeException(nameof(index));
             return p[index];
         }
     }
@@ -99,9 +95,9 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
-        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ObjectDisposedException.ThrowIf(p == null, this);
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(start));
         return new string(p, start, length);
     }
 
@@ -110,9 +106,9 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
-        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ObjectDisposedException.ThrowIf(p == null, this);
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(start));
         return new ReadOnlySpan<char>(p + start, length);
     }
 
@@ -139,7 +135,7 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
-        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        ObjectDisposedException.ThrowIf(p == null, this);
         return new string(p, 0, _length);
     }
 

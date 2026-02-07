@@ -1,5 +1,3 @@
-using System;
-
 namespace SuffixTree.Persistent;
 
 /// <summary>

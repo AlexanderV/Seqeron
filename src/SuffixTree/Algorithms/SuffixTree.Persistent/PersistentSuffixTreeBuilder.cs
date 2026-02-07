@@ -1,7 +1,5 @@
-using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.Text;
 
 namespace SuffixTree.Persistent;
@@ -24,9 +22,9 @@ public class PersistentSuffixTreeBuilder
     private readonly NodeLayout _initialLayout;  // layout before any transition (always the compact variant)
     private NodeLayout _layout;                // switches Compact → Large on overflow
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
-    private long _rootOffset;
+    private readonly long _rootOffset;
     private ITextSource _text = new StringTextSource(string.Empty);
-    private int _nodeCount = 0;
+    private int _nodeCount;
 
     // Hybrid continuation state
     private long _transitionOffset = -1;       // -1 = no transition (pure Compact or pure Large)
@@ -85,6 +83,7 @@ public class PersistentSuffixTreeBuilder
     /// </summary>
     internal long DeepestInternalNodeOffset => _deepestInternalNodeOffset;
 
+    /// <summary>Initializes a new builder with the specified storage provider and optional layout.</summary>
     public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null)
     {
         _storage = storage;
@@ -106,6 +105,7 @@ public class PersistentSuffixTreeBuilder
         _activeNodeOffset = _rootOffset;
     }
 
+    /// <summary>Builds the suffix tree from the given text source using Ukkonen's algorithm.</summary>
     public long Build(ITextSource text)
     {
         ArgumentNullException.ThrowIfNull(text);

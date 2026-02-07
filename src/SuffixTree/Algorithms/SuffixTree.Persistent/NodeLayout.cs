@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 
 namespace SuffixTree.Persistent;
@@ -78,28 +77,28 @@ public sealed class NodeLayout
     private const uint COMPACT_NULL = uint.MaxValue; // 0xFFFFFFFF
 
     /// <summary>Format version written to the file header.</summary>
-    public readonly int Version;
+    public int Version { get; }
 
     /// <summary>Size of a single node block in bytes.</summary>
-    public readonly int NodeSize;
+    public int NodeSize { get; }
 
     /// <summary>Size of a single child entry in bytes.</summary>
-    public readonly int ChildEntrySize;
+    public int ChildEntrySize { get; }
 
     /// <summary>True if offset fields (SuffixLink, ChildrenHead, ChildNodeOffset) are 64-bit.</summary>
-    public readonly bool OffsetIs64Bit;
+    public bool OffsetIs64Bit { get; }
 
     // Node field offsets (Start=0, End=4 are invariant across formats)
     /// <summary>Offset of the SuffixLink field within a node.</summary>
-    public readonly int OffsetSuffixLink;
+    public int OffsetSuffixLink { get; }
     /// <summary>Offset of the DepthFromRoot field within a node.</summary>
-    public readonly int OffsetDepth;
+    public int OffsetDepth { get; }
     /// <summary>Offset of the LeafCount field within a node.</summary>
-    public readonly int OffsetLeafCount;
+    public int OffsetLeafCount { get; }
     /// <summary>Offset of the ChildrenHead field within a node.</summary>
-    public readonly int OffsetChildrenHead;
+    public int OffsetChildrenHead { get; }
     /// <summary>Offset of the ChildCount field within a node.</summary>
-    public readonly int OffsetChildCount;
+    public int OffsetChildCount { get; }
 
     // Child entry field offsets (invariant)
     /// <summary>Offset of the Key field within a child entry (always 0).</summary>

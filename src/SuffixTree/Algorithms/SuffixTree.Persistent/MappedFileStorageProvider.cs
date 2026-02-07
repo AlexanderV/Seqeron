@@ -1,7 +1,4 @@
-using System;
-using System.IO;
 using System.IO.MemoryMappedFiles;
-using System.Threading;
 
 namespace SuffixTree.Persistent;
 
@@ -9,7 +6,7 @@ namespace SuffixTree.Persistent;
 /// A persistent implementation of IStorageProvider using Memory-Mapped Files.
 /// This allows the suffix tree to reside on disk and be mapped into the process's address space.
 /// </summary>
-public class MappedFileStorageProvider : IStorageProvider
+public sealed class MappedFileStorageProvider : IStorageProvider
 {
     private readonly string _filePath;
     private MemoryMappedFile _mmf;
@@ -28,6 +25,7 @@ public class MappedFileStorageProvider : IStorageProvider
         }
     }
 
+    /// <summary>Initializes a new <see cref="MappedFileStorageProvider"/> backed by a memory-mapped file.</summary>
     public MappedFileStorageProvider(string filePath, long initialCapacity = 65536, bool readOnly = false)
     {
         _filePath = filePath;
@@ -57,8 +55,10 @@ public class MappedFileStorageProvider : IStorageProvider
         _position = _readOnly ? _capacity : 0;
     }
 
+    /// <inheritdoc />
     public long Size => _position;
 
+    /// <inheritdoc />
     public void EnsureCapacity(long capacity)
     {
         ThrowIfDisposed();
@@ -85,6 +85,7 @@ public class MappedFileStorageProvider : IStorageProvider
                 _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
                 _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
             }
+#pragma warning disable CA1031 // Recovery and cleanup code — must catch all exceptions
             catch
             {
                 // Dispose any MMF handle that was successfully created before the error
@@ -105,9 +106,11 @@ public class MappedFileStorageProvider : IStorageProvider
                 }
                 throw;
             }
+#pragma warning restore CA1031
         }
     }
 
+    /// <inheritdoc />
     public int ReadInt32(long offset)
     {
         ThrowIfDisposed();
@@ -115,6 +118,7 @@ public class MappedFileStorageProvider : IStorageProvider
         return _accessor.ReadInt32(offset);
     }
 
+    /// <inheritdoc />
     public void WriteInt32(long offset, int value)
     {
         ThrowIfDisposed();
@@ -123,6 +127,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.Write(offset, value);
     }
 
+    /// <inheritdoc />
     public uint ReadUInt32(long offset)
     {
         ThrowIfDisposed();
@@ -130,6 +135,7 @@ public class MappedFileStorageProvider : IStorageProvider
         return _accessor.ReadUInt32(offset);
     }
 
+    /// <inheritdoc />
     public void WriteUInt32(long offset, uint value)
     {
         ThrowIfDisposed();
@@ -138,6 +144,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.Write(offset, value);
     }
 
+    /// <inheritdoc />
     public long ReadInt64(long offset)
     {
         ThrowIfDisposed();
@@ -145,6 +152,7 @@ public class MappedFileStorageProvider : IStorageProvider
         return _accessor.ReadInt64(offset);
     }
 
+    /// <inheritdoc />
     public void WriteInt64(long offset, long value)
     {
         ThrowIfDisposed();
@@ -153,6 +161,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.Write(offset, value);
     }
 
+    /// <inheritdoc />
     public char ReadChar(long offset)
     {
         ThrowIfDisposed();
@@ -160,6 +169,7 @@ public class MappedFileStorageProvider : IStorageProvider
         return _accessor.ReadChar(offset);
     }
 
+    /// <inheritdoc />
     public void WriteChar(long offset, char value)
     {
         ThrowIfDisposed();
@@ -168,6 +178,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.Write(offset, value);
     }
 
+    /// <inheritdoc />
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
     {
         ThrowIfDisposed();
@@ -178,6 +189,7 @@ public class MappedFileStorageProvider : IStorageProvider
                 $"Partial read: requested {count} bytes at offset {offset}, got {read}. Storage may be corrupted.");
     }
 
+    /// <inheritdoc />
     public void WriteBytes(long offset, byte[] buffer, int start, int count)
     {
         ThrowIfDisposed();
@@ -186,6 +198,7 @@ public class MappedFileStorageProvider : IStorageProvider
         _accessor.WriteArray(offset, buffer, start, count);
     }
 
+    /// <inheritdoc />
     public long Allocate(int size)
     {
         ThrowIfDisposed();
@@ -199,9 +212,11 @@ public class MappedFileStorageProvider : IStorageProvider
         return offset;
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+        GC.SuppressFinalize(this);
         _accessor?.Dispose();
         _mmf?.Dispose();
         _accessor = null!;
@@ -210,8 +225,7 @@ public class MappedFileStorageProvider : IStorageProvider
 
     private void ThrowIfDisposed()
     {
-        if (Volatile.Read(ref _disposed) != 0)
-            throw new ObjectDisposedException(nameof(MappedFileStorageProvider));
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 
     private void CheckReadBounds(long offset, int size)
@@ -268,6 +282,7 @@ public class MappedFileStorageProvider : IStorageProvider
             _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
             _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
         }
+#pragma warning disable CA1031 // Recovery and cleanup code — must catch all exceptions
         catch
         {
             // Dispose any MMF handle that was successfully created before the error
@@ -286,5 +301,6 @@ public class MappedFileStorageProvider : IStorageProvider
             }
             throw;
         }
+#pragma warning restore CA1031
     }
 }
