@@ -116,9 +116,19 @@ namespace SuffixTree.Persistent
 
                 // Read chunked text (matches Export's Write7BitEncodedInt + Write(char[]) format)
                 int textLen = reader.Read7BitEncodedInt();
-                string text = textLen == 0
-                    ? string.Empty
-                    : new string(reader.ReadChars(textLen));
+                string text;
+                if (textLen == 0)
+                {
+                    text = string.Empty;
+                }
+                else
+                {
+                    char[] chars = reader.ReadChars(textLen);
+                    if (chars.Length != textLen)
+                        throw new InvalidDataException(
+                            $"Truncated stream: expected {textLen} characters, got {chars.Length}.");
+                    text = new string(chars);
+                }
                 int expectedNodeCount = reader.ReadInt32();
                 int hashLen = reader.ReadInt32();
                 byte[] expectedHash = reader.ReadBytes(hashLen);
