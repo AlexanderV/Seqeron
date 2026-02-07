@@ -176,7 +176,11 @@ public class PersistentSuffixTreeBuilder
         WriteChildrenArrays();
 
         // Store text in storage for true persistence (chunked write, no full-string copy)
-        long textOffset = _storage.Allocate(_text.Length * 2);
+        long textByteLen = (long)_text.Length * 2;
+        if (textByteLen > int.MaxValue)
+            throw new InvalidOperationException(
+                $"Text length {_text.Length} exceeds maximum serializable size ({int.MaxValue / 2} characters).");
+        long textOffset = _storage.Allocate((int)textByteLen);
         const int ChunkChars = 4096;
         byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
         try
@@ -186,9 +190,9 @@ public class PersistentSuffixTreeBuilder
             {
                 int remaining = _text.Length - written;
                 int chunkLen = remaining < ChunkChars ? remaining : ChunkChars;
-                int byteCount = Encoding.Unicode.GetBytes(
-                    _text.Slice(written, chunkLen).ToString(), chunkBuf);
-                _storage.WriteBytes(textOffset + written * 2, chunkBuf, 0, byteCount);
+                var charSpan = _text.Slice(written, chunkLen);
+                int byteCount = Encoding.Unicode.GetBytes(charSpan, chunkBuf.AsSpan());
+                _storage.WriteBytes(textOffset + (long)written * 2, chunkBuf, 0, byteCount);
                 written += chunkLen;
             }
         }
