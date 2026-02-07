@@ -277,14 +277,15 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         if (deepest.IsNull || deepest.Offset == _rootOffset)
         {
             _cachedLrs = string.Empty;
-            return _cachedLrs;
+            return string.Empty;
         }
 
         int length = (int)deepest.DepthFromRoot + LengthOf(deepest);
         var occurrences = new List<int>();
         CollectLeaves(deepest, (int)deepest.DepthFromRoot, occurrences);
-        _cachedLrs = occurrences.Count == 0 ? string.Empty : _textSource.Substring(occurrences[0], length);
-        return _cachedLrs;
+        string result = occurrences.Count == 0 ? string.Empty : _textSource.Substring(occurrences[0], length);
+        _cachedLrs = result;
+        return result;
     }
 
     public IReadOnlyList<string> GetAllSuffixes()
