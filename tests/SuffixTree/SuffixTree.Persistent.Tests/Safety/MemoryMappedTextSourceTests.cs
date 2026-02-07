@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
@@ -84,21 +86,6 @@ public class MemoryMappedTextSourceTests
             Assert.That(tree.CountOccurrences("i"), Is.EqualTo(4));
             Assert.That(tree.LongestRepeatedSubstring(), Is.EqualTo("issi"));
         }
-    }
-
-    [Test]
-    public void Dispose_ShouldPreventAccess()
-    {
-        string text = "test";
-        byte[] bytes = System.Text.Encoding.Unicode.GetBytes(text);
-        File.WriteAllBytes(_tempFile, bytes);
-
-        var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
-        source.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => { var c = source[0]; });
-        Assert.Throws<ObjectDisposedException>(() => source.Slice(0, 1));
-        Assert.Throws<ObjectDisposedException>(() => source.GetEnumerator().MoveNext());
     }
 
     [Test]
@@ -199,5 +186,53 @@ public class MemoryMappedTextSourceTests
 
         Assert.Throws<ObjectDisposedException>(() => _ = source[0]);
         Assert.Throws<ObjectDisposedException>(() => _ = source.ToString());
+    }
+
+    // ─── C17: Concurrent Dispose must not cause NullReferenceException ──
+
+    [Test]
+    public void ConcurrentDispose_NeverThrowsNullReferenceException()
+    {
+        // The TOCTOU fix snapshots _ptr before the disposed check so that
+        // concurrent Dispose (which nulls _ptr) can never cause NRE.
+        // Expected: readers see either valid data or ObjectDisposedException.
+        const int Iterations = 200;
+        for (int i = 0; i < Iterations; i++)
+        {
+            string text = "ABCDEFGH";
+            File.WriteAllBytes(_tempFile, System.Text.Encoding.Unicode.GetBytes(text));
+
+            var source = new MemoryMappedTextSource(_tempFile, 0, text.Length);
+            var barrier = new Barrier(2);
+            Exception? readerException = null;
+
+            var reader = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                try
+                {
+                    for (int j = 0; j < 50; j++)
+                    {
+                        _ = source[0];
+                        _ = source.Substring(0, 2);
+                        _ = source.ToString();
+                    }
+                }
+                catch (ObjectDisposedException) { /* expected */ }
+                catch (Exception ex) { Volatile.Write(ref readerException, ex); }
+            });
+
+            var disposer = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                source.Dispose();
+            });
+
+            Task.WaitAll(reader, disposer);
+
+            var caught = Volatile.Read(ref readerException);
+            Assert.That(caught, Is.Null,
+                $"C17: Reader must see ODE or valid data, never {caught?.GetType().Name}: {caught?.Message}");
+        }
     }
 }

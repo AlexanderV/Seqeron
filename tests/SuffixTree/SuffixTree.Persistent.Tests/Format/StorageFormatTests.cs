@@ -7,102 +7,13 @@ using SuffixTree;
 namespace SuffixTree.Persistent.Tests;
 
 /// <summary>
-/// Tests for the hybrid dual-format storage (Compact v4 / Large v3 / Hybrid v5),
-/// hybrid continuation with jump table, format parity, and size characteristics.
+/// Tests for storage format characteristics: Compact v5 / Large v3,
+/// NodeLayout properties, format parity, and size characteristics.
+/// Hybrid-specific tests are in HybridTransitionZoneTests.
 /// </summary>
 [TestFixture]
 public class StorageFormatTests
 {
-    // ──── Hybrid continuation: compact → large mid-build ─────────────
-
-    [Test]
-    public void Builder_TransitionsToLargeZone_WhenLimitExceeded()
-    {
-        var storage = new HeapStorageProvider();
-        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        // Set a very small limit so even "banana" triggers transition
-        builder.CompactOffsetLimit = 200;
-        var text = new StringTextSource("banana");
-        long root = builder.Build(text);
-
-        // Builder should have transitioned (hybrid)
-        Assert.Multiple(() =>
-        {
-            Assert.That(builder.IsHybrid, Is.True, "Builder should be hybrid after transition");
-            Assert.That(builder.TransitionOffset, Is.GreaterThan(0), "TransitionOffset > 0");
-            Assert.That(builder.JumpTableEnd, Is.GreaterThanOrEqualTo(builder.TransitionOffset),
-                "JumpTableEnd >= TransitionOffset");
-        });
-    }
-
-    [Test]
-    public void Builder_DoesNotTransition_WhenWithinCompactLimit()
-    {
-        var storage = new HeapStorageProvider();
-        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        // Default limit — "banana" fits easily
-        var text = new StringTextSource("banana");
-        long root = builder.Build(text);
-        Assert.That(builder.IsHybrid, Is.False, "Should not transition for small text");
-    }
-
-    [Test]
-    public void Factory_HybridContinuation_ProducesCorrectTree()
-    {
-        // Tiny limit forces mid-build transition → Factory produces hybrid tree
-        using var tree = PersistentSuffixTreeFactory.CreateCore(
-            new StringTextSource("banana"), filePath: null, compactOffsetLimit: 200) as IDisposable;
-        var st = (ISuffixTree)tree!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(st.Contains("ana"), Is.True);
-            Assert.That(st.CountOccurrences("a"), Is.EqualTo(3));
-            Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo("ana"));
-            Assert.That(st.FindExactMatchAnchors("bandana", 3).Count, Is.GreaterThan(0));
-        });
-    }
-
-    [Test]
-    public void Factory_HybridTree_HasVersion5Header()
-    {
-        // Build with a tiny limit → must produce Hybrid v5
-        using var tree = PersistentSuffixTreeFactory.CreateCore(
-            new StringTextSource("mississippi"), filePath: null, compactOffsetLimit: 200) as IDisposable;
-        var pst = (PersistentSuffixTree)tree!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(pst.IsHybrid, Is.True, "Tree should be hybrid");
-            Assert.That(pst.TransitionOffset, Is.GreaterThan(0), "TransitionOffset > 0");
-            Assert.That(pst.JumpTableEnd, Is.GreaterThanOrEqualTo(pst.TransitionOffset));
-            Assert.That(pst.Contains("issi"), Is.True);
-            Assert.That(pst.CountOccurrences("i"), Is.EqualTo(4));
-        });
-    }
-
-    [Test]
-    public void Factory_CompactUsedByDefault_ForSmallText()
-    {
-        // Build normally — Compact initial layout writes v5 header (with DEEPEST_NODE)
-        var storage = new HeapStorageProvider();
-        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.Build(new StringTextSource("banana"));
-        int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        Assert.That(version, Is.EqualTo(5));
-    }
-
-    [Test]
-    public void Builder_HybridHeader_WritesVersion5()
-    {
-        var storage = new HeapStorageProvider();
-        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = 200;
-        builder.Build(new StringTextSource("banana"));
-        int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        Assert.That(version, Is.EqualTo(5), "Hybrid builds should write version 5");
-    }
-
     // ──── Compact format: build, query, Load ─────────────────────────
 
     [Test]
@@ -331,89 +242,5 @@ public class StorageFormatTests
     public void CompactMaxOffset_IsUIntMaxMinusOne()
     {
         Assert.That(NodeLayout.CompactMaxOffset, Is.EqualTo((long)uint.MaxValue - 1));
-    }
-
-    // ──── Serializer round-trip preserves format ─────────────────────
-
-    [Test]
-    public void Serializer_Import_AutoSelectsFormat()
-    {
-        // Export from a Compact tree
-        var original = PersistentSuffixTreeFactory.Create(new StringTextSource("mississippi"));
-
-        using var ms = new System.IO.MemoryStream();
-        SuffixTreeSerializer.Export(original, ms);
-        ms.Position = 0;
-
-        // Import into new storage — should auto-select Compact for small text
-        var importedStorage = new HeapStorageProvider();
-        var imported = SuffixTreeSerializer.Import(ms, importedStorage);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(imported.Contains("ssi"), Is.True);
-            Assert.That(imported.CountOccurrences("i"), Is.EqualTo(4));
-            Assert.That(imported.LongestRepeatedSubstring(), Is.EqualTo("issi"));
-            Assert.That(imported.FindExactMatchAnchors("mississippi", 3).Count, Is.GreaterThan(0));
-        });
-    }
-
-    // ──── Hybrid continuation parity with reference ────────────────────
-
-    [Test]
-    public void Factory_HybridTree_MatchesReferenceImplementation()
-    {
-        string text = "abracadabra";
-        var reference = global::SuffixTree.SuffixTree.Build(text);
-
-        // Force hybrid continuation via tiny limit
-        using var tree = PersistentSuffixTreeFactory.CreateCore(
-            new StringTextSource(text), filePath: null, compactOffsetLimit: 200) as IDisposable;
-        var hybrid = (ISuffixTree)tree!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(hybrid.Text.ToString(), Is.EqualTo(reference.Text.ToString()), "Text");
-            Assert.That(hybrid.LeafCount, Is.EqualTo(reference.LeafCount), "LeafCount");
-            Assert.That(hybrid.LongestRepeatedSubstring(),
-                Is.EqualTo(reference.LongestRepeatedSubstring()), "LRS");
-            Assert.That(hybrid.LongestCommonSubstring("cadab"),
-                Is.EqualTo(reference.LongestCommonSubstring("cadab")), "LCS");
-
-            var refHash = SuffixTreeSerializer.CalculateLogicalHash(reference);
-            var hybridHash = SuffixTreeSerializer.CalculateLogicalHash(hybrid);
-            Assert.That(hybridHash, Is.EqualTo(refHash), "LogicalHash");
-        });
-    }
-
-    [Test]
-    public void Factory_HybridTree_MatchesCompactTree()
-    {
-        // Build a pure Compact tree and a hybrid tree for the same text
-        // They should produce identical query results
-        string text = "mississippi";
-        var textSource1 = new StringTextSource(text);
-        var textSource2 = new StringTextSource(text);
-
-        using var compactTree = PersistentSuffixTreeFactory.Create(textSource1) as IDisposable;
-        using var hybridTree = PersistentSuffixTreeFactory.CreateCore(
-            textSource2, filePath: null, compactOffsetLimit: 200) as IDisposable;
-
-        var compact = (ISuffixTree)compactTree!;
-        var hybrid = (ISuffixTree)hybridTree!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(hybrid.NodeCount, Is.EqualTo(compact.NodeCount), "NodeCount");
-            Assert.That(hybrid.LeafCount, Is.EqualTo(compact.LeafCount), "LeafCount");
-            Assert.That(hybrid.LongestRepeatedSubstring(),
-                Is.EqualTo(compact.LongestRepeatedSubstring()), "LRS");
-            Assert.That(hybrid.CountOccurrences("issi"),
-                Is.EqualTo(compact.CountOccurrences("issi")), "CountOccurrences");
-
-            var compactHash = SuffixTreeSerializer.CalculateLogicalHash(compact);
-            var hybridHash = SuffixTreeSerializer.CalculateLogicalHash(hybrid);
-            Assert.That(hybridHash, Is.EqualTo(compactHash), "LogicalHash");
-        });
     }
 }

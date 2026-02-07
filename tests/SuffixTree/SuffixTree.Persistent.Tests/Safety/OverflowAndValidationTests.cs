@@ -7,8 +7,7 @@ namespace SuffixTree.Persistent.Tests;
 
 /// <summary>
 /// Tests for P1 (integer overflow in bounds), P7 (zero-capacity infinite loop),
-/// P11 (file-ctor parameter validation).
-/// Written RED-first: these tests expose existing bugs.
+/// Q9 (chunked text write >4096 chars).
 /// </summary>
 [TestFixture]
 public class OverflowAndValidationTests
@@ -90,5 +89,22 @@ public class OverflowAndValidationTests
         provider.WriteInt32(0, 42);
         Assert.That(provider.ReadInt32(0), Is.EqualTo(42));
         provider.Dispose();
+    }
+
+    // ─── Q9: Chunked text write (>4096 chars) must not corrupt data ──
+
+    [Test]
+    public void Builder_TextLargerThanChunk_RoundTripsCorrectly()
+    {
+        // Create text > 4096 chars to force multiple chunks
+        string longText = new string('A', 5000) + "NEEDLE" + new string('B', 5000);
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage);
+        builder.Build(new StringTextSource(longText));
+
+        var tree = PersistentSuffixTree.Load(storage);
+        Assert.That(tree.Text.ToString(), Is.EqualTo(longText));
+        Assert.That(tree.Contains("NEEDLE"), Is.True);
+        Assert.That(tree.Text.Length, Is.EqualTo(10006));
     }
 }

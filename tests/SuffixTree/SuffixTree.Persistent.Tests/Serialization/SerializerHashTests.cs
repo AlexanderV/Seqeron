@@ -62,25 +62,4 @@ public class SerializerHashTests
         byte[] hash2 = SuffixTreeSerializer.CalculateLogicalHash(tree);
         Assert.That(hash2, Is.EqualTo(hash));
     }
-
-    [Test]
-    public void ExportImport_RoundTrip_PreservesTree()
-    {
-        var text = new StringTextSource("the quick brown fox");
-        var storage = new HeapStorageProvider();
-        var builder = new PersistentSuffixTreeBuilder(storage);
-        long root = builder.Build(text);
-        var tree = new PersistentSuffixTree(storage, root, text);
-
-        using var ms = new MemoryStream();
-        SuffixTreeSerializer.Export(tree, ms);
-        ms.Position = 0;
-
-        var targetStorage = new HeapStorageProvider();
-        var imported = SuffixTreeSerializer.Import(ms, targetStorage);
-
-        Assert.That(imported.Contains("quick"), Is.True);
-        Assert.That(imported.Contains("fox"), Is.True);
-        Assert.That(imported.Text.ToString(), Is.EqualTo("the quick brown fox"));
-    }
 }

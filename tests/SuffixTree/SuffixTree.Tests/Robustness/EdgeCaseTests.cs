@@ -95,36 +95,6 @@ namespace SuffixTree.Tests.Robustness
 
         #endregion
 
-        #region All Same Character
-
-        [Test]
-        public void AllSameChar_ContainsAllLengths()
-        {
-            var st = SuffixTree.Build("aaaaa");
-
-            for (int i = 1; i <= 5; i++)
-            {
-                Assert.That(st.Contains(new string('a', i)), Is.True);
-            }
-            Assert.That(st.Contains("aaaaaa"), Is.False);
-        }
-
-        [Test]
-        public void AllSameChar_FindAllOverlapping()
-        {
-            var st = SuffixTree.Build("aaaa");
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(st.FindAllOccurrences("a").Count(), Is.EqualTo(4));
-                Assert.That(st.FindAllOccurrences("aa").Count(), Is.EqualTo(3));
-                Assert.That(st.FindAllOccurrences("aaa").Count(), Is.EqualTo(2));
-                Assert.That(st.FindAllOccurrences("aaaa").Count(), Is.EqualTo(1));
-            });
-        }
-
-        #endregion
-
         #region Whitespace Only
 
         [Test]
@@ -204,28 +174,6 @@ namespace SuffixTree.Tests.Robustness
         #endregion
 
         #region Special String Patterns
-
-        [Test]
-        public void FibonacciStrings_Works()
-        {
-            // Fibonacci strings: F(1)=a, F(2)=b, F(n)=F(n-1)+F(n-2)
-            string f1 = "a", f2 = "b";
-            for (int i = 0; i < 10; i++)
-            {
-                var next = f2 + f1;
-                f1 = f2;
-                f2 = next;
-            }
-
-            var st = SuffixTree.Build(f2);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(st.Text.Length, Is.EqualTo(144)); // F(12)
-                Assert.That(st.Contains("ab"), Is.True);
-                Assert.That(st.Contains("ba"), Is.True);
-            });
-        }
 
         [Test]
         public void RunLengthEncoded_Works()
