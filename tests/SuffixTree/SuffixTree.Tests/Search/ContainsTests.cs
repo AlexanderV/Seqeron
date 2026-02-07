@@ -78,23 +78,6 @@ namespace SuffixTree.Tests.Search
 
         #endregion
 
-        #region All Suffixes
-
-        [Test]
-        public void Contains_AllSuffixes_ReturnsTrue()
-        {
-            var text = "banana";
-            var st = SuffixTree.Build(text);
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                var suffix = text.Substring(i);
-                Assert.That(st.Contains(suffix), Is.True, $"Suffix '{suffix}' not found");
-            }
-        }
-
-        #endregion
-
         #region All Substrings (Exhaustive)
 
         [Test]

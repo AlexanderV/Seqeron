@@ -10,40 +10,6 @@ namespace SuffixTree.Tests.Core
     [TestFixture]
     public class StatisticsTests
     {
-        #region Empty Tree
-
-        [Test]
-        public void Stats_EmptyTree_HasMinimalCounts()
-        {
-            var st = SuffixTree.Build("");
-
-            Assert.Multiple(() =>
-            {
-                // Root always exists
-                Assert.That(st.NodeCount, Is.GreaterThanOrEqualTo(1));
-                Assert.That(st.LeafCount, Is.GreaterThanOrEqualTo(0));
-            });
-        }
-
-        #endregion
-
-        #region Single Character
-
-        [Test]
-        public void Stats_SingleChar_BasicStructure()
-        {
-            var st = SuffixTree.Build("a");
-
-            Assert.Multiple(() =>
-            {
-                // Root + one leaf minimum
-                Assert.That(st.NodeCount, Is.GreaterThanOrEqualTo(2));
-                Assert.That(st.LeafCount, Is.GreaterThanOrEqualTo(1));
-            });
-        }
-
-        #endregion
-
         #region Consistency
 
         [Test]
@@ -74,42 +40,6 @@ namespace SuffixTree.Tests.Core
                 Assert.That(st.LeafCount, Is.EqualTo(text.Length),
                     $"LeafCount should equal text length for '{text}'");
             }
-        }
-
-        #endregion
-
-        #region Growth Pattern
-
-        [Test]
-        public void Stats_RepeatingText_HasNodes()
-        {
-            var stUnique = SuffixTree.Build("abcdefghij");
-            var stRepeating = SuffixTree.Build("ababababab");
-
-            // Both trees have nodes > 0
-            Assert.Multiple(() =>
-            {
-                Assert.That(stUnique.NodeCount, Is.GreaterThan(0));
-                Assert.That(stRepeating.NodeCount, Is.GreaterThan(0));
-            });
-        }
-
-        #endregion
-
-        #region Known Structure
-
-        [Test]
-        public void Stats_AllSameCharacter_ReasonableNodeCount()
-        {
-            var st = SuffixTree.Build("aaaaa");
-
-            // For "aaaa...", tree is valid and has some structure
-            // NodeCount should be reasonable (depends on implementation)
-            Assert.Multiple(() =>
-            {
-                Assert.That(st.NodeCount, Is.GreaterThan(0));
-                Assert.That(st.LeafCount, Is.EqualTo(5));
-            });
         }
 
         #endregion

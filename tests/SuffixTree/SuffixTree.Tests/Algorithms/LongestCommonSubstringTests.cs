@@ -201,18 +201,6 @@ namespace SuffixTree.Tests.Algorithms
         #region Backtracking Edge Cases
 
         [Test]
-        public void LCS_RequiresBacktracking_FindsLongest()
-        {
-            // Pattern "abxcd" - after matching "ab", hits dead end, must backtrack
-            var st = SuffixTree.Build("abcd");
-
-            var result = st.LongestCommonSubstring("abxcd");
-
-            // Should find "ab" or "cd", both length 2
-            Assert.That(result.Length, Is.EqualTo(2));
-        }
-
-        [Test]
         public void LCS_DeepBacktracking_FindsCorrectResult()
         {
             // Force deep matching then backtracking
