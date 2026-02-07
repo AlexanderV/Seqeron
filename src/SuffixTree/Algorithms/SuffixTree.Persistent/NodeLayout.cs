@@ -157,6 +157,26 @@ public sealed class NodeLayout
         }
     }
 
+    // ──────────────── Auto-selection ────────────────
+
+    /// <summary>
+    /// Maximum text length (in characters) for which the Compact format is guaranteed safe.
+    /// <para>
+    /// Derivation: worst-case suffix tree size ≈ 74 × textLength bytes (2N nodes × 28B + 2N children × 8B + text × 2B).
+    /// At 50 M chars the file is ≈ 3.7 GB, well within the uint32 address space (4.29 GB).
+    /// </para>
+    /// </summary>
+    internal const int CompactTextThreshold = 50_000_000; // 50 M characters
+
+    /// <summary>
+    /// Automatically selects the optimal layout for a given text length.
+    /// Texts up to <see cref="CompactTextThreshold"/> use <see cref="Compact"/> (best performance);
+    /// larger texts use <see cref="Large"/> (no size limit).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static NodeLayout ForTextLength(int textLength)
+        => textLength <= CompactTextThreshold ? Compact : Large;
+
     // ──────────────── Version lookup ────────────────
 
     /// <summary>
@@ -173,7 +193,7 @@ public sealed class NodeLayout
     /// <summary>
     /// Returns the <see cref="NodeLayout"/> for a given <see cref="StorageFormat"/> enum.
     /// </summary>
-    public static NodeLayout ForFormat(StorageFormat format) => format switch
+    internal static NodeLayout ForFormat(StorageFormat format) => format switch
     {
         StorageFormat.Compact => Compact,
         StorageFormat.Large => Large,

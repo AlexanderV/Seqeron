@@ -10,12 +10,16 @@ public static class PersistentSuffixTreeFactory
     /// <summary>
     /// Creates a new persistent suffix tree from the specified text source.
     /// If a filePath is provided, it uses Memory-Mapped Files; otherwise, it uses heap memory.
+    /// <para>
+    /// The binary format is selected automatically: texts up to ~50 M characters use
+    /// a compact 32-bit layout (28-byte nodes, ~30 %% smaller files, better cache locality);
+    /// larger texts switch to 64-bit offsets transparently.
+    /// </para>
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
     /// <param name="filePath">Optional file path for MMF storage.</param>
-    /// <param name="format">Storage format: <see cref="StorageFormat.Compact"/> (default, 30% smaller) or <see cref="StorageFormat.Large"/>.</param>
     /// <returns>An implementation of ISuffixTree.</returns>
-    public static ISuffixTree Create(ITextSource text, string? filePath = null, StorageFormat format = StorageFormat.Compact)
+    public static ISuffixTree Create(ITextSource text, string? filePath = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -25,7 +29,7 @@ public static class PersistentSuffixTreeFactory
 
         try
         {
-            var layout = NodeLayout.ForFormat(format);
+            var layout = NodeLayout.ForTextLength(text.Length);
             var builder = new PersistentSuffixTreeBuilder(storage, layout);
             long rootOffset = builder.Build(text);
 

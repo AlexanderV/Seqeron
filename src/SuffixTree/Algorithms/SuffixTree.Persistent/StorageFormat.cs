@@ -2,8 +2,9 @@ namespace SuffixTree.Persistent;
 
 /// <summary>
 /// Selects the binary storage format for persistent suffix trees.
+/// Internal: format is chosen automatically based on text length.
 /// </summary>
-public enum StorageFormat
+internal enum StorageFormat
 {
     /// <summary>
     /// 32-bit offsets. Node = 28 bytes, child entry = 8 bytes.

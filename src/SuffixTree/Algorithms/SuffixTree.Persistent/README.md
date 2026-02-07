@@ -8,10 +8,14 @@ Based on Ukkonen's algorithm, this library provides an efficient way to index an
 
 - **Disk-Backed Storage**: Uses Memory-Mapped Files specifically optimized for suffix tree structures.
 - **Persistence**: Build once, save to disk, and reload instantly in subsequent sessions.
+- **Adaptive Storage Format**: Automatically selects the optimal binary layout based on text size:
+  - **Compact (v4)**: 32-bit offsets, 28-byte nodes, 8-byte child entries. ~30% smaller files, better CPU cache locality. Used for texts up to ~50 M characters.
+  - **Large (v3)**: 64-bit offsets, 40-byte nodes, 12-byte child entries. No practical size limit. Used automatically for very large texts.
+  - Format is chosen at build time and detected automatically on load — no user configuration needed.
 - **Scalability**: Capable of handling gigabytes of text by offloading the node graph to disk.
 - **Thread-Safe Read Access**: Supports multiple concurrent readers for the same tree file.
 - **Suffix Links Preserved**: Ukkonen's algorithm writes suffix links natively, enabling `FindExactMatchAnchors` on persistent trees.
-- **Logical Identity**: Deterministic checksumming (SHA256) ensures distinct trees can be uniquely identified regardless of their memory layout.
+- **Logical Identity**: Deterministic checksumming (SHA256) ensures distinct trees can be uniquely identified regardless of their memory layout or storage format.
 - **Portable Serialization (v2)**: Export stores text + SHA256 hash; import rebuilds via Ukkonen's, guaranteeing 100% functionality including suffix links.
 
 ## Usage Examples
@@ -56,17 +60,44 @@ The library follows Clean Architecture principles:
 - **[PersistentSuffixTree](file:///d:/Prototype/src/SuffixTree/Algorithms/SuffixTree.Persistent/PersistentSuffixTree.cs)**: The search engine implementing `ISuffixTree`.
 
 ### Binary Layout (Node)
-Nodes are represented as fixed 40-byte blocks (after adding `ChildCount`) with 64-bit offsets for unlimited file size support.
 
-| Offset | Field | Description |
-| :--- | :--- | :--- |
-| 0 | Start | Edge start position in text |
-| 4 | End | Edge end position |
-| 8 | SuffixLink | Offset to suffix link node |
-| 16 | Depth | Node depth from root |
-| 20 | LeafCount | Number of leaves in subtree |
-| 24 | ChildrenHead| Offset to first child entry |
-| 32 | ChildCount | Number of children (for traversal) |
+Nodes are fixed-size blocks whose layout depends on the automatically selected storage format.
+The format is recorded in the file header (version field) and detected on load.
+
+#### Compact Layout (v4, default) — 28-byte nodes
+
+| Offset | Size | Field | Description |
+| :--- | :--- | :--- | :--- |
+| 0 | 4 | Start | Edge start position in text |
+| 4 | 4 | End | Edge end position |
+| 8 | **4** | SuffixLink | Offset to suffix link node (uint32) |
+| 12 | 4 | Depth | Node depth from root |
+| 16 | 4 | LeafCount | Number of leaves in subtree |
+| 20 | **4** | ChildrenHead | Offset to first child entry (uint32) |
+| 24 | 4 | ChildCount | Number of children |
+
+Child entry: Key (4 B) + ChildNodeOffset (**4 B**) = **8 bytes**.
+
+#### Large Layout (v3) — 40-byte nodes
+
+| Offset | Size | Field | Description |
+| :--- | :--- | :--- | :--- |
+| 0 | 4 | Start | Edge start position in text |
+| 4 | 4 | End | Edge end position |
+| 8 | **8** | SuffixLink | Offset to suffix link node (int64) |
+| 16 | 4 | Depth | Node depth from root |
+| 20 | 4 | LeafCount | Number of leaves in subtree |
+| 24 | **8** | ChildrenHead | Offset to first child entry (int64) |
+| 32 | 4 | ChildCount | Number of children |
+| 36 | 4 | (padding) | Alignment padding |
+
+Child entry: Key (4 B) + ChildNodeOffset (**8 B**) = **12 bytes**.
+
+#### Performance Notes
+
+- The Compact format saves ~30% disk space and improves CPU cache hit rates because more nodes fit in L1/L2/L3 cache lines.
+- The `NodeLayout` class uses `[AggressiveInlining]` for offset read/write helpers; the `if (OffsetIs64Bit)` branch is perfectly predicted by the CPU (same direction every time), adding zero measurable overhead.
+- Format selection is deterministic: for a given text length, the same format is always chosen.
 
 ### Algorithmic Stability
 - **Iterative Algorithms**: Leaf counting and tree traversal are implemented using stacks rather than recursion. This prevents `StackOverflowException` when processing extremely deep or repetitive trees.
@@ -118,11 +149,13 @@ st.FindExactMatchAnchors("query", 3); // full functionality
 
 ## Quality Assurance
 
-The library is verified by 69 tests:
+The library is verified by 157 tests:
 - **Differential Parity**: Cross-validation against the reference in-memory implementation for all `ISuffixTree` methods.
+- **Format Parity**: Compact and Large formats produce identical query results and logical hashes.
 - **Anchor Parity**: `FindExactMatchAnchors` results match between in-memory and persistent trees.
-- **Logical Parity**: SHA256 checksums match across Heap, MMF, and imported storage backends.
+- **Logical Parity**: SHA256 checksums match across Heap, MMF, imported, Compact, and Large storage backends.
 - **Serialization Round-Trip**: Export → Import and SaveToFile → LoadFromFile preserve full functionality.
+- **Auto-Detection**: `Load()` correctly identifies v3 (Large) and v4 (Compact) files from the header.
 - **Stress Testing**: Validates stability with large datasets (1MB+) and concurrent access.
 
 ## License
