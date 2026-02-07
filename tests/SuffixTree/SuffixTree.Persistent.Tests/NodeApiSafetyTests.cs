@@ -170,4 +170,20 @@ public class NodeApiSafetyTests
         Assert.DoesNotThrow(() => NodeLayout.Large.WriteOffset(storage, 0, long.MaxValue));
         Assert.DoesNotThrow(() => NodeLayout.Large.WriteOffset(storage, 0, NodeLayout.CompactMaxOffset + 100));
     }
+
+    // ──────────── A14: TryGetChild must NOT be public API ──────────────
+
+    [Test]
+    public void TryGetChild_IsNotPublic()
+    {
+        // A14: TryGetChild throws InvalidOperationException for hybrid trees,
+        // making it a trap for external consumers. It must be internal.
+        var method = typeof(PersistentSuffixTreeNode).GetMethod(
+            "TryGetChild",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+        Assert.That(method, Is.Null,
+            "A14: PersistentSuffixTreeNode.TryGetChild should not be public — " +
+            "it throws for hybrid nodes, use ISuffixTree/Navigator instead");
+    }
 }

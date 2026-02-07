@@ -65,7 +65,7 @@ public readonly struct PersistentSuffixTreeNode
 
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;
 
-    public bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
+    internal bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
     {
         int rawCount = ChildCount;
 
