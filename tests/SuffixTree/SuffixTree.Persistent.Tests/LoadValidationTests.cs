@@ -75,6 +75,53 @@ public class LoadValidationTests
         Assert.That(ex!.Message, Does.Contain("root"));
     }
 
+    // ──────────── S11: TEXT_OFF / TEXT_LEN validation ──────────────
+
+    [Test]
+    public void Load_TextOffBeyondStorage_ThrowsInvalidOperation()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(PersistentConstants.HEADER_SIZE + 100);
+        WriteValidHeader(storage, version: 4);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
+        // TEXT_OFF points far beyond storage
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, 999_999);
+        storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, 5);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("text").IgnoreCase);
+    }
+
+    [Test]
+    public void Load_TextLenNegative_ThrowsInvalidOperation()
+    {
+        var storage = new HeapStorageProvider();
+        storage.Allocate(PersistentConstants.HEADER_SIZE + 100);
+        WriteValidHeader(storage, version: 4);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, PersistentConstants.HEADER_SIZE + 10);
+        storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, -42);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("text").IgnoreCase);
+    }
+
+    [Test]
+    public void Load_TextRegionExceedsStorage_ThrowsInvalidOperation()
+    {
+        var storage = new HeapStorageProvider();
+        int totalSize = PersistentConstants.HEADER_SIZE + 100;
+        storage.Allocate(totalSize);
+        WriteValidHeader(storage, version: 4);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
+        // TEXT_OFF is valid, but TEXT_OFF + TEXT_LEN * 2 exceeds storage
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, totalSize - 4);
+        storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, 100); // 100 chars = 200 bytes
+
+        var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
+        Assert.That(ex!.Message, Does.Contain("text").IgnoreCase);
+    }
+
     // ──────────── V5 hybrid header field validation ──────────────
 
     [Test]
