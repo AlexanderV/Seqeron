@@ -365,6 +365,14 @@ public class PersistentSuffixTreeBuilder
 
         // P17: Persist deepest internal node offset for O(1) LRS on Load
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, _deepestInternalNodeOffset);
+
+        // S20: Release in-memory build collections — the tree is fully serialized,
+        // keeping these alive wastes memory if the builder instance is held.
+        _children.Clear();
+        _deferredSuffixLinks.Clear();
+        _crossZoneSuffixLinks.Clear();
+        _jumpEntries.Clear();
+        _childArrayJumpSlots = null;
     }
 
     // ──────────────── Jump table ────────────────

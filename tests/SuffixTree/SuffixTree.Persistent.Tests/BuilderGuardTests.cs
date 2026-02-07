@@ -87,6 +87,41 @@ public class BuilderGuardTests
 
     // ─── P17: Loaded trees must preserve deepest internal node offset ───
 
+    // ─── S20: Builder must release in-memory collections after Build ───
+
+    [Test]
+    public void Build_ClearsInMemoryCollections_AfterFinalize()
+    {
+        var storage = new HeapStorageProvider();
+        var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+        builder.Build(new StringTextSource("banana"));
+
+        // After Build, the builder's in-memory child dictionary should be empty
+        // to release memory. Verify via reflection.
+        var childrenField = typeof(PersistentSuffixTreeBuilder)
+            .GetField("_children", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.That(childrenField, Is.Not.Null, "Precondition: _children field must exist");
+
+        var children = childrenField!.GetValue(builder) as System.Collections.IDictionary;
+        Assert.That(children, Is.Not.Null, "Precondition: _children must be a dictionary");
+        Assert.That(children!.Count, Is.EqualTo(0),
+            "S20: _children must be cleared after Build to release memory");
+
+        // Also check _deferredSuffixLinks
+        var deferredField = typeof(PersistentSuffixTreeBuilder)
+            .GetField("_deferredSuffixLinks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var deferred = deferredField?.GetValue(builder) as System.Collections.IList;
+        Assert.That(deferred?.Count ?? 0, Is.EqualTo(0),
+            "S20: _deferredSuffixLinks must be cleared after Build");
+
+        // Also check _jumpEntries
+        var jumpField = typeof(PersistentSuffixTreeBuilder)
+            .GetField("_jumpEntries", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var jumps = jumpField?.GetValue(builder) as System.Collections.IList;
+        Assert.That(jumps?.Count ?? 0, Is.EqualTo(0),
+            "S20: _jumpEntries must be cleared after Build");
+    }
+
     [Test]
     public void Load_RestoresDeepestInternalNodeOffset_ForO1LRS()
     {
