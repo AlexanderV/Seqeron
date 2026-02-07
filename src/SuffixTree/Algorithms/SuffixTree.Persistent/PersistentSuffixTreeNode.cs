@@ -67,7 +67,18 @@ public readonly struct PersistentSuffixTreeNode
 
     public bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
     {
-        int count = ChildCount;
+        int rawCount = ChildCount;
+
+        // Hybrid v5 trees store a jumped-flag in the high bit of ChildCount.
+        // A jumped child array requires hybrid context (transition offset,
+        // jump table bounds) that this struct does not carry.  Throw early
+        // instead of silently returning wrong results.
+        if ((rawCount & unchecked((int)0x80000000)) != 0)
+            throw new InvalidOperationException(
+                "Cannot resolve children of a hybrid-jumped node through " +
+                "PersistentSuffixTreeNode.TryGetChild. Use ISuffixTree methods instead.");
+
+        int count = rawCount;
         if (count == 0) { child = Null(_storage, _layout); return false; }
 
         long arrayBase = ChildrenHead;
@@ -93,7 +104,7 @@ public readonly struct PersistentSuffixTreeNode
         return false;
     }
 
-    public bool HasChildren => ChildCount > 0;
+    public bool HasChildren => (ChildCount & 0x7FFFFFFF) > 0;
 
     public static PersistentSuffixTreeNode Null(IStorageProvider storage, NodeLayout layout)
         => new(storage, PersistentConstants.NULL_OFFSET, layout);
