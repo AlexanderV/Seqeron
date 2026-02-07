@@ -189,6 +189,34 @@ public class ProviderSafetyTests
         p.Dispose();
     }
 
+    // ─── S16: MappedProvider Allocate must not corrupt _position if EnsureCapacity fails ───
+
+    [Test]
+    public void MappedProvider_Allocate_FailedExpansion_DoesNotCorruptPosition()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 128);
+        p.Allocate(64);
+        long sizeBefore = p.Size;
+        Assert.That(sizeBefore, Is.EqualTo(64));
+
+        // Make file read-only so EnsureCapacity's FileStream(ReadWrite) will fail
+        File.SetAttributes(_tempFile, FileAttributes.ReadOnly);
+        try
+        {
+            // Allocate 128 more bytes (total 192 > capacity 128) → forces EnsureCapacity → fails
+            Assert.Catch(() => p.Allocate(128));
+
+            // Critical: _position must not have been incremented before the failure
+            Assert.That(p.Size, Is.EqualTo(sizeBefore),
+                "S16: Failed Allocate must not corrupt _position");
+        }
+        finally
+        {
+            File.SetAttributes(_tempFile, FileAttributes.Normal);
+        }
+        p.Dispose();
+    }
+
     // ─── S12: Reading beyond logical size must throw ───
 
     [Test]
