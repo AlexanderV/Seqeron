@@ -86,28 +86,34 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         get
         {
+            char* p = _ptr;  // C17: snapshot before disposed check
             ThrowIfDisposed();
+            if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
             if (index < 0 || index >= _length) throw new IndexOutOfRangeException();
-            return _ptr[index];
+            return p[index];
         }
     }
 
     /// <inheritdoc/>
     public string Substring(int start, int length)
     {
+        char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
+        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
             throw new IndexOutOfRangeException();
-        return new string(_ptr, start, length);
+        return new string(p, start, length);
     }
 
     /// <inheritdoc/>
     public ReadOnlySpan<char> Slice(int start, int length)
     {
+        char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
+        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
             throw new IndexOutOfRangeException();
-        return new ReadOnlySpan<char>(_ptr + start, length);
+        return new ReadOnlySpan<char>(p + start, length);
     }
 
     /// <inheritdoc/>
@@ -131,8 +137,10 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     /// <inheritdoc/>
     public override string ToString()
     {
+        char* p = _ptr;  // C17: snapshot before disposed check
         ThrowIfDisposed();
-        return new string(_ptr, 0, _length);
+        if (p == null) throw new ObjectDisposedException(nameof(MemoryMappedTextSource));
+        return new string(p, 0, _length);
     }
 
     /// <inheritdoc/>
@@ -140,12 +148,12 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
 
-        // Release pointer BEFORE nulling _ptr: concurrent readers that passed
-        // the _disposed check may still dereference _ptr. ReleasePointer is
-        // safe to call while the pointer is still in use; nulling _ptr first
-        // would cause NRE in readers that passed the disposed guard.
+        // C17: Null _ptr FIRST so that concurrent readers snapshot null and
+        // throw ObjectDisposedException via the p == null guard. Readers that
+        // already captured a non-null local pointer are safe: the actual mapped
+        // view remains valid until _accessor.Dispose() below.
+        _ptr = null;
         _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
-        _ptr = null;      // Prevent use-after-free of released pointer
 
         if (_ownsAccessor)
         {
