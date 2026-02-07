@@ -13,8 +13,9 @@ public static class PersistentSuffixTreeFactory
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
     /// <param name="filePath">Optional file path for MMF storage.</param>
+    /// <param name="format">Storage format: <see cref="StorageFormat.Compact"/> (default, 30% smaller) or <see cref="StorageFormat.Large"/>.</param>
     /// <returns>An implementation of ISuffixTree.</returns>
-    public static ISuffixTree Create(ITextSource text, string? filePath = null)
+    public static ISuffixTree Create(ITextSource text, string? filePath = null, StorageFormat format = StorageFormat.Compact)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -24,14 +25,15 @@ public static class PersistentSuffixTreeFactory
 
         try
         {
-            var builder = new PersistentSuffixTreeBuilder(storage);
+            var layout = NodeLayout.ForFormat(format);
+            var builder = new PersistentSuffixTreeBuilder(storage, layout);
             long rootOffset = builder.Build(text);
 
             // Trim MMF file to actual data size (reclaim ~50% unused capacity)
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
 
-            return new PersistentSuffixTree(storage, rootOffset, text);
+            return new PersistentSuffixTree(storage, rootOffset, text, layout);
         }
         catch
         {

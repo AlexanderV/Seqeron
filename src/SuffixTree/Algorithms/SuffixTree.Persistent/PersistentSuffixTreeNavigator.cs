@@ -13,13 +13,15 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
+    private readonly NodeLayout _layout;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public PersistentSuffixTreeNavigator(IStorageProvider storage, long rootOffset, ITextSource textSource)
+    public PersistentSuffixTreeNavigator(IStorageProvider storage, long rootOffset, ITextSource textSource, NodeLayout layout)
     {
         _storage = storage;
         _rootOffset = rootOffset;
         _textSource = textSource;
+        _layout = layout;
     }
 
     public ITextSource Text
@@ -31,13 +33,13 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     public PersistentSuffixTreeNode Root
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => new PersistentSuffixTreeNode(_storage, _rootOffset);
+        get => new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
     }
 
     public PersistentSuffixTreeNode NullNode
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => PersistentSuffixTreeNode.Null(_storage);
+        get => PersistentSuffixTreeNode.Null(_storage, _layout);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -77,8 +79,8 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     {
         long suffixLink = node.SuffixLink;
         return suffixLink != PersistentConstants.NULL_OFFSET
-            ? new PersistentSuffixTreeNode(_storage, suffixLink)
-            : new PersistentSuffixTreeNode(_storage, _rootOffset);
+            ? new PersistentSuffixTreeNode(_storage, suffixLink, _layout)
+            : new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -108,8 +110,8 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
             long arrayBase = current.ChildrenHead;
             for (int ci = 0; ci < childCount; ci++)
             {
-                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE);
-                stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset), childDepth));
+                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * _layout.ChildEntrySize, _layout);
+                stack.Push((new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset, _layout), childDepth));
             }
         }
     }
@@ -121,11 +123,11 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
         {
             int childCount = current.ChildCount;
             long arrayBase = current.ChildrenHead;
-            PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage);
+            PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage, _layout);
             for (int ci = 0; ci < childCount; ci++)
             {
-                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * PersistentConstants.CHILD_ENTRY_SIZE);
-                bestChild = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset);
+                var entry = new PersistentChildEntry(_storage, arrayBase + (long)ci * _layout.ChildEntrySize, _layout);
+                bestChild = new PersistentSuffixTreeNode(_storage, entry.ChildNodeOffset, _layout);
                 if (entry.Key != PersistentConstants.TERMINATOR_KEY)
                     break;
             }
