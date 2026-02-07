@@ -152,8 +152,17 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException(
                 $"Invalid storage format: text region [{textOff}, {textEnd}) exceeds storage size {storageSize}.");
 
+        // P17: Read pre-computed deepest internal node offset (0 means not stored)
+        long deepestNode = PersistentConstants.NULL_OFFSET;
+        if (storageSize >= PersistentConstants.HEADER_OFFSET_DEEPEST_NODE + 8)
+        {
+            long raw = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE);
+            if (raw > 0) deepestNode = raw;
+        }
+
         return new PersistentSuffixTree(storage, root, layout: layout,
-            transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd);
+            transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd,
+            deepestInternalNodeOffset: deepestNode);
     }
 
     public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
