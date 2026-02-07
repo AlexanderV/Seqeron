@@ -118,6 +118,34 @@ public class TreeContractTests
         Assert.That(visitor.Nodes[0].Depth, Is.EqualTo(0), "Root depth must be 0");
     }
 
+    // ─── C9: Traverse EnterBranch/ExitBranch must be perfectly balanced ───
+
+    [TestCase("a")]
+    [TestCase("ab")]
+    [TestCase("abc")]
+    [TestCase("banana")]
+    [TestCase("abcabc")]
+    [TestCase("mississippi")]
+    public void Traverse_EnterExitBranch_AreBalanced(string text)
+    {
+        using var tree = BuildTree(text);
+        var visitor = new BranchBalanceVisitor();
+        tree.Traverse(visitor);
+
+        Assert.That(visitor.ExitCount, Is.EqualTo(visitor.EnterCount),
+            $"EnterBranch={visitor.EnterCount}, ExitBranch={visitor.ExitCount} — must be equal");
+    }
+
+    private class BranchBalanceVisitor : ISuffixTreeVisitor
+    {
+        public int EnterCount { get; private set; }
+        public int ExitCount { get; private set; }
+
+        public void VisitNode(int start, int end, int leafCount, int childCount, int depth) { }
+        public void EnterBranch(int key) => EnterCount++;
+        public void ExitBranch() => ExitCount++;
+    }
+
     private class DepthRecordingVisitor : ISuffixTreeVisitor
     {
         public List<(int Start, int End, int LeafCount, int ChildCount, int Depth)> Nodes { get; } = new();
