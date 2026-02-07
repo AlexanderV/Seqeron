@@ -27,6 +27,13 @@ public class HeapStorageProvider : IStorageProvider
             throw new ObjectDisposedException(nameof(HeapStorageProvider));
     }
 
+    private void CheckReadBounds(long offset, int size)
+    {
+        if (offset < 0 || offset + size > _position)
+            throw new ArgumentOutOfRangeException(nameof(offset),
+                $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
+    }
+
     public void EnsureCapacity(long capacity)
     {
         ThrowIfDisposed();
@@ -52,6 +59,7 @@ public class HeapStorageProvider : IStorageProvider
     public int ReadInt32(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 4);
         return BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
     }
 
@@ -64,6 +72,7 @@ public class HeapStorageProvider : IStorageProvider
     public uint ReadUInt32(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 4);
         return BinaryPrimitives.ReadUInt32LittleEndian(_buffer.AsSpan((int)offset, 4));
     }
 
@@ -76,6 +85,7 @@ public class HeapStorageProvider : IStorageProvider
     public long ReadInt64(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 8);
         return BinaryPrimitives.ReadInt64LittleEndian(_buffer.AsSpan((int)offset, 8));
     }
 
@@ -88,6 +98,7 @@ public class HeapStorageProvider : IStorageProvider
     public char ReadChar(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 2);
         return (char)BinaryPrimitives.ReadInt16LittleEndian(_buffer.AsSpan((int)offset, 2));
     }
 
@@ -100,6 +111,7 @@ public class HeapStorageProvider : IStorageProvider
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, count);
         Buffer.BlockCopy(_buffer, (int)offset, buffer, start, count);
     }
 
