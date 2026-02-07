@@ -2,21 +2,24 @@ namespace SuffixTree.Persistent;
 
 /// <summary>
 /// A handle to a node in the persistent storage.
-/// Represents a fixed-size block in the storage provider.
+/// Represents a fixed-size block whose layout is described by <see cref="NodeLayout"/>.
 /// </summary>
 public readonly struct PersistentSuffixTreeNode
 {
     private readonly IStorageProvider _storage;
     private readonly long _offset;
+    private readonly NodeLayout _layout;
 
-    public PersistentSuffixTreeNode(IStorageProvider storage, long offset)
+    public PersistentSuffixTreeNode(IStorageProvider storage, long offset, NodeLayout layout)
     {
         _storage = storage;
         _offset = offset;
+        _layout = layout;
     }
 
     public long Offset => _offset;
     public bool IsNull => _offset == PersistentConstants.NULL_OFFSET;
+    internal NodeLayout Layout => _layout;
 
     public uint Start
     {
@@ -32,32 +35,32 @@ public readonly struct PersistentSuffixTreeNode
 
     public long SuffixLink
     {
-        get => _storage.ReadInt64(_offset + PersistentConstants.OFFSET_SUFFIX_LINK);
-        set => _storage.WriteInt64(_offset + PersistentConstants.OFFSET_SUFFIX_LINK, value);
+        get => _layout.ReadOffset(_storage, _offset + _layout.OffsetSuffixLink);
+        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
     }
 
     public uint DepthFromRoot
     {
-        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_DEPTH);
-        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_DEPTH, value);
+        get => _storage.ReadUInt32(_offset + _layout.OffsetDepth);
+        set => _storage.WriteUInt32(_offset + _layout.OffsetDepth, value);
     }
 
     public uint LeafCount
     {
-        get => _storage.ReadUInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT);
-        set => _storage.WriteUInt32(_offset + PersistentConstants.OFFSET_LEAF_COUNT, value);
+        get => _storage.ReadUInt32(_offset + _layout.OffsetLeafCount);
+        set => _storage.WriteUInt32(_offset + _layout.OffsetLeafCount, value);
     }
 
     public long ChildrenHead
     {
-        get => _storage.ReadInt64(_offset + PersistentConstants.OFFSET_CHILDREN_HEAD);
-        set => _storage.WriteInt64(_offset + PersistentConstants.OFFSET_CHILDREN_HEAD, value);
+        get => _layout.ReadOffset(_storage, _offset + _layout.OffsetChildrenHead);
+        set => _layout.WriteOffset(_storage, _offset + _layout.OffsetChildrenHead, value);
     }
 
     public int ChildCount
     {
-        get => _storage.ReadInt32(_offset + PersistentConstants.OFFSET_CHILD_COUNT);
-        set => _storage.WriteInt32(_offset + PersistentConstants.OFFSET_CHILD_COUNT, value);
+        get => _storage.ReadInt32(_offset + _layout.OffsetChildCount);
+        set => _storage.WriteInt32(_offset + _layout.OffsetChildCount, value);
     }
 
     public bool IsLeaf => End == PersistentConstants.BOUNDLESS;
@@ -65,7 +68,7 @@ public readonly struct PersistentSuffixTreeNode
     public bool TryGetChild(uint key, out PersistentSuffixTreeNode child)
     {
         int count = ChildCount;
-        if (count == 0) { child = Null(_storage); return false; }
+        if (count == 0) { child = Null(_storage, _layout); return false; }
 
         long arrayBase = ChildrenHead;
         int lo = 0, hi = count - 1;
@@ -74,24 +77,24 @@ public readonly struct PersistentSuffixTreeNode
         while (lo <= hi)
         {
             int mid = lo + ((hi - lo) >> 1);
-            long entryOffset = arrayBase + (long)mid * PersistentConstants.CHILD_ENTRY_SIZE;
-            int midKey = (int)_storage.ReadUInt32(entryOffset + PersistentConstants.CHILD_OFFSET_KEY);
+            long entryOffset = arrayBase + (long)mid * _layout.ChildEntrySize;
+            int midKey = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
 
             if (midKey == signedKey)
             {
-                long childOffset = _storage.ReadInt64(entryOffset + PersistentConstants.CHILD_OFFSET_NODE);
-                child = new PersistentSuffixTreeNode(_storage, childOffset);
+                long childOffset = _layout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+                child = new PersistentSuffixTreeNode(_storage, childOffset, _layout);
                 return true;
             }
             if (midKey < signedKey) lo = mid + 1;
             else hi = mid - 1;
         }
-        child = Null(_storage);
+        child = Null(_storage, _layout);
         return false;
     }
 
     public bool HasChildren => ChildCount > 0;
 
-    public static PersistentSuffixTreeNode Null(IStorageProvider storage)
-        => new(storage, PersistentConstants.NULL_OFFSET);
+    public static PersistentSuffixTreeNode Null(IStorageProvider storage, NodeLayout layout)
+        => new(storage, PersistentConstants.NULL_OFFSET, layout);
 }
