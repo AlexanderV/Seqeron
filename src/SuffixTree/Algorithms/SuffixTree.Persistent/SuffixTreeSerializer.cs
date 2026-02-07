@@ -151,9 +151,10 @@ namespace SuffixTree.Persistent
 
                 // Rebuild the tree from text — Ukkonen's creates suffix links natively
                 var textSource = new StringTextSource(text);
-                var builder = new PersistentSuffixTreeBuilder(target);
+                var layout = NodeLayout.ForTextLength(textSource.Length);
+                var builder = new PersistentSuffixTreeBuilder(target, layout);
                 long rootOffset = builder.Build(textSource);
-                var tree = new PersistentSuffixTree(target, rootOffset, textSource);
+                var tree = new PersistentSuffixTree(target, rootOffset, textSource, layout);
 
                 // Validate structural integrity
                 if (tree.NodeCount != expectedNodeCount)

@@ -2,8 +2,17 @@ namespace SuffixTree.Persistent;
 
 public static class PersistentConstants
 {
+    // ──── Legacy v3 (Large) layout sizes — superseded by NodeLayout ────
+    // Kept for reference only. All runtime code uses NodeLayout.NodeSize / .ChildEntrySize.
+
+    /// <summary>Node size for v3 (Large) format. Use <see cref="NodeLayout.NodeSize"/> instead.</summary>
+    [Obsolete("Use NodeLayout.NodeSize")]
     public const int NODE_SIZE = 40;
+
+    /// <summary>Child entry size for v3 (Large) format. Use <see cref="NodeLayout.ChildEntrySize"/> instead.</summary>
+    [Obsolete("Use NodeLayout.ChildEntrySize")]
     public const int CHILD_ENTRY_SIZE = 12;
+
     public const int HEADER_SIZE = 48;
     public const uint BOUNDLESS = uint.MaxValue;
     public const uint TERMINATOR_KEY = uint.MaxValue;  // Same bit pattern as -1 when cast to int
@@ -11,9 +20,11 @@ public static class PersistentConstants
     public const long MAGIC_NUMBER = 0x5452454558494646L; // "SUFFIXTR"
 
     /// <summary>
-    /// Binary storage format version (v3). Incremented on layout changes.
+    /// Binary storage format version for the v3 (Large) layout.
+    /// Current default is v4 (Compact). Use <see cref="NodeLayout.Version"/> instead.
     /// Independent of <see cref="SuffixTreeSerializer"/> logical format (v2).
     /// </summary>
+    [Obsolete("Use NodeLayout.Version — format is auto-selected")]
     public const int CURRENT_VERSION = 3;
 
     // Header Layout (48 bytes, packed, naturally aligned)
@@ -33,16 +44,36 @@ public static class PersistentConstants
     public const int HEADER_OFFSET_NODE_COUNT = 32;
     public const int HEADER_OFFSET_SIZE = 40;
 
-    // Node Layout Offsets
+    // Invariant node field offsets (same in both Compact and Large layouts)
     public const int OFFSET_START = 0;
     public const int OFFSET_END = 4;
+
+    // ──── Legacy v3 (Large) node field offsets — superseded by NodeLayout ────
+
+    /// <summary>SuffixLink offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetSuffixLink"/> instead.</summary>
+    [Obsolete("Use NodeLayout.OffsetSuffixLink")]
     public const int OFFSET_SUFFIX_LINK = 8;
+
+    /// <summary>Depth offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetDepth"/> instead.</summary>
+    [Obsolete("Use NodeLayout.OffsetDepth")]
     public const int OFFSET_DEPTH = 16;
+
+    /// <summary>LeafCount offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetLeafCount"/> instead.</summary>
+    [Obsolete("Use NodeLayout.OffsetLeafCount")]
     public const int OFFSET_LEAF_COUNT = 20;
+
+    /// <summary>ChildrenHead offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetChildrenHead"/> instead.</summary>
+    [Obsolete("Use NodeLayout.OffsetChildrenHead")]
     public const int OFFSET_CHILDREN_HEAD = 24;
+
+    /// <summary>ChildCount offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetChildCount"/> instead.</summary>
+    [Obsolete("Use NodeLayout.OffsetChildCount")]
     public const int OFFSET_CHILD_COUNT = 32;
 
-    // Child Entry Layout Offsets (sorted contiguous array: Key(4) + ChildNodeOffset(8) = 12 bytes)
+    // Child Entry Layout Offsets — use NodeLayout.ChildOffsetKey / ChildOffsetNode instead
+    [Obsolete("Use NodeLayout.ChildOffsetKey")]
     public const int CHILD_OFFSET_KEY = 0;
+
+    [Obsolete("Use NodeLayout.ChildOffsetNode")]
     public const int CHILD_OFFSET_NODE = 4;
 }
