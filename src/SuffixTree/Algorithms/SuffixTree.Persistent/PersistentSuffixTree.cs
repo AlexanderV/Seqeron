@@ -122,17 +122,22 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
             jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
 
-            if (transitionOffset < headerSize || transitionOffset > storageSize)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
+            // Validate hybrid fields only when a transition actually occurred (>= 0).
+            // Non-hybrid v5 trees store -1 in all three fields.
+            if (transitionOffset >= 0)
+            {
+                if (transitionOffset < headerSize || transitionOffset > storageSize)
+                    throw new InvalidOperationException(
+                        $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
 
-            if (jumpTableEnd < jumpTableStart)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
+                if (jumpTableEnd < jumpTableStart)
+                    throw new InvalidOperationException(
+                        $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
 
-            if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
+                if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
+                    throw new InvalidOperationException(
+                        $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
+            }
         }
 
         // Validate TEXT_OFF and TEXT_LEN
@@ -152,12 +157,20 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException(
                 $"Invalid storage format: text region [{textOff}, {textEnd}) exceeds storage size {storageSize}.");
 
-        // P17: Read pre-computed deepest internal node offset (0 means not stored)
+        // P17+S19+S21: Read pre-computed deepest internal node offset.
+        // Only v5 headers define this field at offset 72. For v3/v4 headers
+        // offset 72 falls inside node data — must not be read.
         long deepestNode = PersistentConstants.NULL_OFFSET;
-        if (storageSize >= PersistentConstants.HEADER_OFFSET_DEEPEST_NODE + 8)
+        if (version == 5)
         {
             long raw = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE);
-            if (raw > 0) deepestNode = raw;
+            if (raw != 0 && raw != PersistentConstants.NULL_OFFSET)
+            {
+                if (raw < headerSize || raw >= storageSize)
+                    throw new InvalidOperationException(
+                        $"Invalid storage format: deepest internal node offset {raw} is outside valid range [{headerSize}, {storageSize}).");
+                deepestNode = raw;
+            }
         }
 
         return new PersistentSuffixTree(storage, root, layout: layout,
