@@ -261,4 +261,62 @@ public class ProviderSafetyTests
             "S12: ReadBytes crossing Size boundary must throw");
         p.Dispose();
     }
+
+    // ─── S17: MappedProvider reading beyond logical size must throw ───
+
+    [Test]
+    public void MappedProvider_ReadInt32_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(8);
+        p.WriteInt32(0, 42);
+        Assert.That(p.ReadInt32(0), Is.EqualTo(42));
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadInt32(8),
+            "S17: ReadInt32 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_ReadInt64_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(16);
+        p.WriteInt64(0, 123L);
+        Assert.That(p.ReadInt64(0), Is.EqualTo(123L));
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadInt64(16),
+            "S17: ReadInt64 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_ReadBytes_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(8);
+        p.WriteInt32(0, 99);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => p.ReadBytes(4, new byte[8], 0, 8),
+            "S17: ReadBytes crossing Size boundary must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_ReadUInt32_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(4);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadUInt32(4),
+            "S17: ReadUInt32 beyond Size must throw");
+        p.Dispose();
+    }
+
+    [Test]
+    public void MappedProvider_ReadChar_BeyondSize_Throws()
+    {
+        var p = new MappedFileStorageProvider(_tempFile, initialCapacity: 1024);
+        p.Allocate(2);
+        Assert.Throws<ArgumentOutOfRangeException>(() => p.ReadChar(2),
+            "S17: ReadChar beyond Size must throw");
+        p.Dispose();
+    }
 }

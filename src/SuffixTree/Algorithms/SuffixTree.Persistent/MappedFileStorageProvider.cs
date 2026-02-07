@@ -111,6 +111,7 @@ public class MappedFileStorageProvider : IStorageProvider
     public int ReadInt32(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 4);
         return _accessor.ReadInt32(offset);
     }
 
@@ -124,6 +125,7 @@ public class MappedFileStorageProvider : IStorageProvider
     public uint ReadUInt32(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 4);
         return _accessor.ReadUInt32(offset);
     }
 
@@ -137,6 +139,7 @@ public class MappedFileStorageProvider : IStorageProvider
     public long ReadInt64(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 8);
         return _accessor.ReadInt64(offset);
     }
 
@@ -150,6 +153,7 @@ public class MappedFileStorageProvider : IStorageProvider
     public char ReadChar(long offset)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, 2);
         return _accessor.ReadChar(offset);
     }
 
@@ -163,6 +167,7 @@ public class MappedFileStorageProvider : IStorageProvider
     public void ReadBytes(long offset, byte[] buffer, int start, int count)
     {
         ThrowIfDisposed();
+        CheckReadBounds(offset, count);
         int read = _accessor.ReadArray(offset, buffer, start, count);
         if (read != count)
             throw new InvalidOperationException(
@@ -202,6 +207,13 @@ public class MappedFileStorageProvider : IStorageProvider
     {
         if (Volatile.Read(ref _disposed) != 0)
             throw new ObjectDisposedException(nameof(MappedFileStorageProvider));
+    }
+
+    private void CheckReadBounds(long offset, int size)
+    {
+        if (offset < 0 || offset + size > _position)
+            throw new ArgumentOutOfRangeException(nameof(offset),
+                $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
     }
 
     /// <summary>
