@@ -17,12 +17,12 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PersistentSuffixTreeNavigator(IStorageProvider storage, long rootOffset, ITextSource textSource,
-        NodeLayout layout, long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
+        HybridLayout hybrid)
     {
         _storage = storage;
         _rootOffset = rootOffset;
         _textSource = textSource;
-        _hybrid = new HybridLayout(storage, layout, transitionOffset, jumpTableStart, jumpTableEnd);
+        _hybrid = hybrid;
     }
 
     /// <summary>Returns the correct layout for a node at the given offset. Delegates to <see cref="HybridLayout"/>.</summary>

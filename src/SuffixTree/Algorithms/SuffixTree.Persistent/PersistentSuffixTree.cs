@@ -11,17 +11,13 @@ namespace SuffixTree.Persistent;
 public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 {
     private readonly IStorageProvider _storage;
-    private readonly NodeLayout _layout;
     private readonly long _rootOffset;
     private readonly ITextSource _textSource;
     private readonly bool _ownsTextSource;
     private volatile bool _disposed;
     private volatile string? _cachedLrs;
 
-    // Hybrid v5 fields (-1 means pure single-format)
-    private readonly long _transitionOffset;
-    private readonly long _jumpTableStart;
-    private readonly long _jumpTableEnd;
+    // Single source of truth for layout + hybrid zone info
     private readonly HybridLayout _hybrid;
 
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
@@ -39,12 +35,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
-        _layout = layout ?? NodeLayout.Compact;
         _rootOffset = rootOffset;
-        _transitionOffset = transitionOffset;
-        _jumpTableStart = jumpTableStart;
-        _jumpTableEnd = jumpTableEnd;
-        _hybrid = new HybridLayout(_storage, _layout, transitionOffset, jumpTableStart, jumpTableEnd);
+        _hybrid = new HybridLayout(_storage, layout ?? NodeLayout.Compact, transitionOffset, jumpTableStart, jumpTableEnd);
 
         if (textSource != null)
         {
@@ -157,13 +149,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     internal bool IsHybrid => _hybrid.IsHybrid;
 
     /// <summary>Transition offset (compact/large boundary), or -1 for single-format.</summary>
-    internal long TransitionOffset => _transitionOffset;
+    internal long TransitionOffset => _hybrid.TransitionOffset;
 
     /// <summary>Start of contiguous jump table, or -1 for single-format.</summary>
-    internal long JumpTableStart => _jumpTableStart;
+    internal long JumpTableStart => _hybrid.JumpTableStart;
 
     /// <summary>End of jump table, or -1 for single-format.</summary>
-    internal long JumpTableEnd => _jumpTableEnd;
+    internal long JumpTableEnd => _hybrid.JumpTableEnd;
 
     /// <summary>
     /// Returns the correct <see cref="NodeLayout"/> for a node at the given offset.
@@ -569,7 +561,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     internal bool TryGetChildOf(PersistentSuffixTreeNode parent, uint key, out PersistentSuffixTreeNode child)
     {
         var (arrayBase, entryLayout, count) = ReadChildArrayInfo(parent);
-        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _layout); return false; }
+        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout); return false; }
 
         int lo = 0, hi = count - 1;
         int signedKey = (int)key;
@@ -589,7 +581,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             if (midKey < signedKey) lo = mid + 1;
             else hi = mid - 1;
         }
-        child = PersistentSuffixTreeNode.Null(_storage, _layout);
+        child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
         return false;
     }
 
@@ -609,12 +601,11 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     }
 
     private PersistentSuffixTreeNavigator CreateNavigator()
-        => new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _layout,
-            _transitionOffset, _jumpTableStart, _jumpTableEnd);
+        => new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _hybrid);
 
     private PersistentSuffixTreeNode FindDeepestInternalNode(PersistentSuffixTreeNode root)
     {
-        if (root.IsLeaf) return PersistentSuffixTreeNode.Null(_storage, _layout);
+        if (root.IsLeaf) return PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
 
         var deepest = root;
         int maxDepth = (int)root.DepthFromRoot + LengthOf(root);

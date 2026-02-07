@@ -36,6 +36,27 @@ internal readonly struct HybridLayout
         get => _layout;
     }
 
+    /// <summary>Transition offset (compact/large boundary), or -1 for single-format.</summary>
+    public long TransitionOffset
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _transitionOffset;
+    }
+
+    /// <summary>Start of contiguous jump table, or -1 for single-format.</summary>
+    public long JumpTableStart
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _jumpTableStart;
+    }
+
+    /// <summary>End of jump table, or -1 for single-format.</summary>
+    public long JumpTableEnd
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _jumpTableEnd;
+    }
+
     /// <summary>Whether this layout uses the hybrid v5 format with dual zones.</summary>
     public bool IsHybrid
     {
