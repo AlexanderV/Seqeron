@@ -172,13 +172,16 @@ public sealed class NodeLayout
 
     /// <summary>
     /// Returns the <see cref="NodeLayout"/> for a given format version read from the header.
+    /// For v5 (Hybrid), returns <see cref="Compact"/> as the base layout; the read path
+    /// resolves per-node layout using the transition offset.
     /// </summary>
     public static NodeLayout ForVersion(int version) => version switch
     {
         3 => Large,
         4 => Compact,
+        5 => Compact, // hybrid: base layout is Compact; large zone handled separately
         _ => throw new InvalidOperationException(
-            $"Unsupported storage format version: {version}. Expected 3 (Large) or 4 (Compact).")
+            $"Unsupported storage format version: {version}. Expected 3, 4, or 5.")
     };
 
     /// <summary>
