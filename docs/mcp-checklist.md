@@ -56,40 +56,40 @@
 
 ### 3.1 Server: Core (12 tools)
 
-- [ ] 3.1.1 Create project `SuffixTree.Mcp.Core`
-- [ ] 3.1.2 Add `Program.cs`
-- [ ] 3.1.3 Add `SuffixTree.Mcp.Core.csproj`
-- [ ] 3.1.4 Create `Tools/SuffixTreeTools.cs`
-- [ ] 3.1.5 Create `Tools/ApproximateMatchTools.cs`
-- [ ] 3.1.6 Implement all 12 tools
-- [ ] 3.1.7 Write 24 tests (12 tools × 2)
-- [ ] 3.1.8 Create 12 `.mcp.json` files
-- [ ] 3.1.9 Create 12 `.md` files
-- [ ] 3.1.10 Build and verify
-- [ ] 3.1.11 Create README.md
+- [x] 3.1.1 Create project `SuffixTree.Mcp.Core`
+- [x] 3.1.2 Add `Program.cs`
+- [x] 3.1.3 Add `SuffixTree.Mcp.Core.csproj`
+- [x] 3.1.4 Create `Tools/SuffixTreeTools.cs`
+- [x] 3.1.5 Create `Tools/ApproximateMatchTools.cs`
+- [x] 3.1.6 Implement all 12 tools
+- [x] 3.1.7 Write 24 tests (12 tools × 2)
+- [x] 3.1.8 Create 12 `.mcp.json` files
+- [x] 3.1.9 Create 12 `.md` files
+- [x] 3.1.10 Build and verify
+- [x] 3.1.11 Create README.md
 
 ### 3.2 Server: Sequence (35 tools)
 
-- [ ] 3.2.1 Create project `Seqeron.Mcp.Sequence`
-- [ ] 3.2.2 Add `Program.cs`
-- [ ] 3.2.3 Create `Tools/DnaTools.cs`
-- [ ] 3.2.4 Create `Tools/RnaTools.cs`
-- [ ] 3.2.5 Create `Tools/ProteinTools.cs`
-- [ ] 3.2.6 Create `Tools/StatisticsTools.cs`
-- [ ] 3.2.7 Create `Tools/ComplexityTools.cs`
-- [ ] 3.2.8 Create `Tools/KmerTools.cs`
-- [ ] 3.2.9 Create `Tools/TranslationTools.cs`
-- [ ] 3.2.10 Implement all 35 tools
-- [ ] 3.2.11 Write 70 tests (35 tools × 2)
-- [ ] 3.2.12 Create 35 `.mcp.json` files
-- [ ] 3.2.13 Create 35 `.md` files
-- [ ] 3.2.14 Build and verify
-- [ ] 3.2.15 Create README.md
+- [x] 3.2.1 Create project `Seqeron.Mcp.Sequence`
+- [x] 3.2.2 Add `Program.cs`
+- [x] 3.2.3 Create `Tools/DnaTools.cs`
+- [x] 3.2.4 Create `Tools/RnaTools.cs`
+- [x] 3.2.5 Create `Tools/ProteinTools.cs`
+- [x] 3.2.6 Create `Tools/StatisticsTools.cs`
+- [x] 3.2.7 Create `Tools/ComplexityTools.cs`
+- [x] 3.2.8 Create `Tools/KmerTools.cs`
+- [x] 3.2.9 Create `Tools/TranslationTools.cs`
+- [x] 3.2.10 Implement all 35 tools
+- [x] 3.2.11 Write 70 tests (35 tools × 2)
+- [x] 3.2.12 Create 35 `.mcp.json` files
+- [x] 3.2.13 Create 35 `.md` files
+- [x] 3.2.14 Build and verify
+- [x] 3.2.15 Create README.md
 
 ### 3.3 Server: Parsers (45 tools)
 
-- [ ] 3.3.1 Create project `Seqeron.Mcp.Parsers`
-- [ ] 3.3.2 Add `Program.cs`
+- [x] 3.3.1 Create project `Seqeron.Mcp.Parsers`
+- [x] 3.3.2 Add `Program.cs`
 - [ ] 3.3.3 Create `Tools/FastaTools.cs`
 - [ ] 3.3.4 Create `Tools/FastqTools.cs`
 - [ ] 3.3.5 Create `Tools/GenBankTools.cs`
@@ -267,145 +267,145 @@
 - [x] i) Create `suffix_tree_count.md`
 - [x] j) Add traceability row
 
-#### 4.1.3 `suffix_tree_find_all`
+#### 4.1.3 `suffix_tree_find_all` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: SuffixTree.cs#xml
-- [ ] a) Link MethodId: `SuffixTree.FindAllOccurrences`
-- [ ] b) Freeze toolName: `suffix_tree_find_all`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ text: string, pattern: string }`
-- [ ] d) Define outputSchema: `{ positions: integer[] }`
-- [ ] e) Define errors: 1001, 1002
-- [ ] f) Test: `SuffixTreeFindAll_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SuffixTreeFindAll_Binding_InvokesSuccessfully`
-- [ ] h) Create `suffix_tree_find_all.mcp.json`
-- [ ] i) Create `suffix_tree_find_all.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SuffixTree.FindAllOccurrences`
+- [x] b) Freeze toolName: `suffix_tree_find_all`, serverName: `Core`
+- [x] c) Define inputSchema: `{ text: string, pattern: string }`
+- [x] d) Define outputSchema: `{ positions: integer[] }`
+- [x] e) Define errors: 1001, 1002
+- [x] f) Test: `SuffixTreeFindAll_Schema_ValidatesCorrectly`
+- [x] g) Test: `SuffixTreeFindAll_Binding_InvokesSuccessfully`
+- [x] h) Create `suffix_tree_find_all.mcp.json`
+- [x] i) Create `suffix_tree_find_all.md`
+- [x] j) Add traceability row
 
-#### 4.1.4 `suffix_tree_lrs`
+#### 4.1.4 `suffix_tree_lrs` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: SuffixTree.cs#xml
-- [ ] a) Link MethodId: `SuffixTree.LongestRepeatedSubstring`
-- [ ] b) Freeze toolName: `suffix_tree_lrs`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ text: string }`
-- [ ] d) Define outputSchema: `{ substring: string, length: integer }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `SuffixTreeLrs_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SuffixTreeLrs_Binding_InvokesSuccessfully`
-- [ ] h) Create `suffix_tree_lrs.mcp.json`
-- [ ] i) Create `suffix_tree_lrs.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SuffixTree.LongestRepeatedSubstring`
+- [x] b) Freeze toolName: `suffix_tree_lrs`, serverName: `Core`
+- [x] c) Define inputSchema: `{ text: string }`
+- [x] d) Define outputSchema: `{ substring: string, length: integer }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `SuffixTreeLrs_Schema_ValidatesCorrectly`
+- [x] g) Test: `SuffixTreeLrs_Binding_InvokesSuccessfully`
+- [x] h) Create `suffix_tree_lrs.mcp.json`
+- [x] i) Create `suffix_tree_lrs.md`
+- [x] j) Add traceability row
 
-#### 4.1.5 `suffix_tree_lcs`
+#### 4.1.5 `suffix_tree_lcs` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: SuffixTree.cs#xml
-- [ ] a) Link MethodId: `SuffixTree.LongestCommonSubstring`
-- [ ] b) Freeze toolName: `suffix_tree_lcs`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ text1: string, text2: string }`
-- [ ] d) Define outputSchema: `{ substring: string, length: integer }`
-- [ ] e) Define errors: 1001, 1003 (empty text2)
-- [ ] f) Test: `SuffixTreeLcs_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SuffixTreeLcs_Binding_InvokesSuccessfully`
-- [ ] h) Create `suffix_tree_lcs.mcp.json`
-- [ ] i) Create `suffix_tree_lcs.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SuffixTree.LongestCommonSubstring`
+- [x] b) Freeze toolName: `suffix_tree_lcs`, serverName: `Core`
+- [x] c) Define inputSchema: `{ text1: string, text2: string }`
+- [x] d) Define outputSchema: `{ substring: string, length: integer }`
+- [x] e) Define errors: 1001, 1003 (empty text2)
+- [x] f) Test: `SuffixTreeLcs_Schema_ValidatesCorrectly`
+- [x] g) Test: `SuffixTreeLcs_Binding_InvokesSuccessfully`
+- [x] h) Create `suffix_tree_lcs.mcp.json`
+- [x] i) Create `suffix_tree_lcs.md`
+- [x] j) Add traceability row
 
-#### 4.1.6 `suffix_tree_stats`
+#### 4.1.6 `suffix_tree_stats` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: SuffixTree.cs#xml
-- [ ] a) Link MethodId: `SuffixTree.Properties`
-- [ ] b) Freeze toolName: `suffix_tree_stats`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ text: string }`
-- [ ] d) Define outputSchema: `{ nodeCount: integer, depth: integer, textLength: integer }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `SuffixTreeStats_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SuffixTreeStats_Binding_InvokesSuccessfully`
-- [ ] h) Create `suffix_tree_stats.mcp.json`
-- [ ] i) Create `suffix_tree_stats.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SuffixTree.Properties`
+- [x] b) Freeze toolName: `suffix_tree_stats`, serverName: `Core`
+- [x] c) Define inputSchema: `{ text: string }`
+- [x] d) Define outputSchema: `{ nodeCount: integer, depth: integer, textLength: integer }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `SuffixTreeStats_Schema_ValidatesCorrectly`
+- [x] g) Test: `SuffixTreeStats_Binding_InvokesSuccessfully`
+- [x] h) Create `suffix_tree_stats.mcp.json`
+- [x] i) Create `suffix_tree_stats.md`
+- [x] j) Add traceability row
 
-#### 4.1.7 `find_longest_repeat`
+#### 4.1.7 `find_longest_repeat` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: GenomicAnalyzer.cs:L20#xml
-- [ ] a) Link MethodId: `GenomicAnalyzer.FindLongestRepeat`
-- [ ] b) Freeze toolName: `find_longest_repeat`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ repeat: string, position: integer, length: integer }`
-- [ ] e) Define errors: 1001, 2001 (invalid sequence)
-- [ ] f) Test: `FindLongestRepeat_Schema_ValidatesCorrectly`
-- [ ] g) Test: `FindLongestRepeat_Binding_InvokesSuccessfully`
-- [ ] h) Create `find_longest_repeat.mcp.json`
-- [ ] i) Create `find_longest_repeat.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `GenomicAnalyzer.FindLongestRepeat`
+- [x] b) Freeze toolName: `find_longest_repeat`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ repeat: string, position: integer, length: integer }`
+- [x] e) Define errors: 1001, 2001 (invalid sequence)
+- [x] f) Test: `FindLongestRepeat_Schema_ValidatesCorrectly`
+- [x] g) Test: `FindLongestRepeat_Binding_InvokesSuccessfully`
+- [x] h) Create `find_longest_repeat.mcp.json`
+- [x] i) Create `find_longest_repeat.md`
+- [x] j) Add traceability row
 
-#### 4.1.8 `find_longest_common_region`
+#### 4.1.8 `find_longest_common_region` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: GenomicAnalyzer.cs:L178#xml
-- [ ] a) Link MethodId: `GenomicAnalyzer.FindLongestCommonRegion`
-- [ ] b) Freeze toolName: `find_longest_common_region`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
-- [ ] d) Define outputSchema: `{ region: string, position1: integer, position2: integer, length: integer }`
-- [ ] e) Define errors: 1001, 1003, 2001
-- [ ] f) Test: `FindLongestCommonRegion_Schema_ValidatesCorrectly`
-- [ ] g) Test: `FindLongestCommonRegion_Binding_InvokesSuccessfully`
-- [ ] h) Create `find_longest_common_region.mcp.json`
-- [ ] i) Create `find_longest_common_region.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `GenomicAnalyzer.FindLongestCommonRegion`
+- [x] b) Freeze toolName: `find_longest_common_region`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
+- [x] d) Define outputSchema: `{ region: string, position1: integer, position2: integer, length: integer }`
+- [x] e) Define errors: 1001, 1003, 2001
+- [x] f) Test: `FindLongestCommonRegion_Schema_ValidatesCorrectly`
+- [x] g) Test: `FindLongestCommonRegion_Binding_InvokesSuccessfully`
+- [x] h) Create `find_longest_common_region.mcp.json`
+- [x] i) Create `find_longest_common_region.md`
+- [x] j) Add traceability row
 
-#### 4.1.9 `calculate_similarity`
+#### 4.1.9 `calculate_similarity` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: GenomicAnalyzer.cs:L238#xml
-- [ ] a) Link MethodId: `GenomicAnalyzer.CalculateSimilarity`
-- [ ] b) Freeze toolName: `calculate_similarity`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence1: string, sequence2: string, kmerSize?: integer }`
-- [ ] d) Define outputSchema: `{ similarity: number }`
-- [ ] e) Define errors: 1001, 1003, 2001
-- [ ] f) Test: `CalculateSimilarity_Schema_ValidatesCorrectly`
-- [ ] g) Test: `CalculateSimilarity_Binding_InvokesSuccessfully`
-- [ ] h) Create `calculate_similarity.mcp.json`
-- [ ] i) Create `calculate_similarity.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `GenomicAnalyzer.CalculateSimilarity`
+- [x] b) Freeze toolName: `calculate_similarity`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence1: string, sequence2: string, kmerSize?: integer }`
+- [x] d) Define outputSchema: `{ similarity: number }`
+- [x] e) Define errors: 1001, 1003, 2001
+- [x] f) Test: `CalculateSimilarity_Schema_ValidatesCorrectly`
+- [x] g) Test: `CalculateSimilarity_Binding_InvokesSuccessfully`
+- [x] h) Create `calculate_similarity.mcp.json`
+- [x] i) Create `calculate_similarity.md`
+- [x] j) Add traceability row
 
-#### 4.1.10 `hamming_distance`
+#### 4.1.10 `hamming_distance` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md
-- [ ] a) Link MethodId: `ApproximateMatcher.HammingDistance`
-- [ ] b) Freeze toolName: `hamming_distance`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
-- [ ] d) Define outputSchema: `{ distance: integer }`
-- [ ] e) Define errors: 1001, 1003, 1004 (length mismatch)
-- [ ] f) Test: `HammingDistance_Schema_ValidatesCorrectly`
-- [ ] g) Test: `HammingDistance_Binding_InvokesSuccessfully`
-- [ ] h) Create `hamming_distance.mcp.json`
-- [ ] i) Create `hamming_distance.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ApproximateMatcher.HammingDistance`
+- [x] b) Freeze toolName: `hamming_distance`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
+- [x] d) Define outputSchema: `{ distance: integer }`
+- [x] e) Define errors: 1001, 1003, 1004 (length mismatch)
+- [x] f) Test: `HammingDistance_Schema_ValidatesCorrectly`
+- [x] g) Test: `HammingDistance_Binding_InvokesSuccessfully`
+- [x] h) Create `hamming_distance.mcp.json`
+- [x] i) Create `hamming_distance.md`
+- [x] j) Add traceability row
 
-#### 4.1.11 `edit_distance`
+#### 4.1.11 `edit_distance` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Pattern_Matching/Edit_Distance.md
-- [ ] a) Link MethodId: `ApproximateMatcher.EditDistance`
-- [ ] b) Freeze toolName: `edit_distance`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
-- [ ] d) Define outputSchema: `{ distance: integer }`
-- [ ] e) Define errors: 1001, 1003
-- [ ] f) Test: `EditDistance_Schema_ValidatesCorrectly`
-- [ ] g) Test: `EditDistance_Binding_InvokesSuccessfully`
-- [ ] h) Create `edit_distance.mcp.json`
-- [ ] i) Create `edit_distance.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ApproximateMatcher.EditDistance`
+- [x] b) Freeze toolName: `edit_distance`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence1: string, sequence2: string }`
+- [x] d) Define outputSchema: `{ distance: integer }`
+- [x] e) Define errors: 1001, 1003
+- [x] f) Test: `EditDistance_Schema_ValidatesCorrectly`
+- [x] g) Test: `EditDistance_Binding_InvokesSuccessfully`
+- [x] h) Create `edit_distance.mcp.json`
+- [x] i) Create `edit_distance.md`
+- [x] j) Add traceability row
 
-#### 4.1.12 `count_approximate_occurrences`
+#### 4.1.12 `count_approximate_occurrences` - **Status: Done**
 - **HasDocs**: ✓
 - **DocRef**: ApproximateMatcher.cs:L283#xml
-- [ ] a) Link MethodId: `ApproximateMatcher.CountApproximateOccurrences`
-- [ ] b) Freeze toolName: `count_approximate_occurrences`, serverName: `Core`
-- [ ] c) Define inputSchema: `{ sequence: string, pattern: string, maxMismatches: integer }`
-- [ ] d) Define outputSchema: `{ count: integer }`
-- [ ] e) Define errors: 1001, 1002, 1005 (invalid maxMismatches)
-- [ ] f) Test: `CountApproximateOccurrences_Schema_ValidatesCorrectly`
-- [ ] g) Test: `CountApproximateOccurrences_Binding_InvokesSuccessfully`
-- [ ] h) Create `count_approximate_occurrences.mcp.json`
-- [ ] i) Create `count_approximate_occurrences.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ApproximateMatcher.CountApproximateOccurrences`
+- [x] b) Freeze toolName: `count_approximate_occurrences`, serverName: `Core`
+- [x] c) Define inputSchema: `{ sequence: string, pattern: string, maxMismatches: integer }`
+- [x] d) Define outputSchema: `{ count: integer }`
+- [x] e) Define errors: 1001, 1002, 1005 (invalid maxMismatches)
+- [x] f) Test: `CountApproximateOccurrences_Schema_ValidatesCorrectly`
+- [x] g) Test: `CountApproximateOccurrences_Binding_InvokesSuccessfully`
+- [x] h) Create `count_approximate_occurrences.mcp.json`
+- [x] i) Create `count_approximate_occurrences.md`
+- [x] j) Add traceability row
 
 ---
 
@@ -414,492 +414,492 @@
 #### 4.2.1 `dna_validate`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Sequence_Validation.md
-- [ ] a) Link MethodId: `DnaSequence.TryCreate`
-- [ ] b) Freeze toolName: `dna_validate`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `DnaValidate_Schema_ValidatesCorrectly`
-- [ ] g) Test: `DnaValidate_Binding_InvokesSuccessfully`
-- [ ] h) Create `dna_validate.mcp.json`
-- [ ] i) Create `dna_validate.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `DnaSequence.TryCreate`
+- [x] b) Freeze toolName: `dna_validate`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `DnaValidate_Schema_ValidatesCorrectly`
+- [x] g) Test: `DnaValidate_Binding_InvokesSuccessfully`
+- [x] h) Create `dna_validate.mcp.json`
+- [x] i) Create `dna_validate.md`
+- [x] j) Add traceability row
 
 #### 4.2.2 `dna_reverse_complement`
 - **HasDocs**: ✓
 - **DocRef**: DnaSequence.cs:L149#xml
-- [ ] a) Link MethodId: `DnaSequence.GetReverseComplementString`
-- [ ] b) Freeze toolName: `dna_reverse_complement`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ reverseComplement: string }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `DnaReverseComplement_Schema_ValidatesCorrectly`
-- [ ] g) Test: `DnaReverseComplement_Binding_InvokesSuccessfully`
-- [ ] h) Create `dna_reverse_complement.mcp.json`
-- [ ] i) Create `dna_reverse_complement.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `DnaSequence.GetReverseComplementString`
+- [x] b) Freeze toolName: `dna_reverse_complement`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ reverseComplement: string }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `DnaReverseComplement_Schema_ValidatesCorrectly`
+- [x] g) Test: `DnaReverseComplement_Binding_InvokesSuccessfully`
+- [x] h) Create `dna_reverse_complement.mcp.json`
+- [x] i) Create `dna_reverse_complement.md`
+- [x] j) Add traceability row
 
 #### 4.2.3 `rna_validate`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Sequence_Validation.md
-- [ ] a) Link MethodId: `RnaSequence.TryCreate`
-- [ ] b) Freeze toolName: `rna_validate`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `RnaValidate_Schema_ValidatesCorrectly`
-- [ ] g) Test: `RnaValidate_Binding_InvokesSuccessfully`
-- [ ] h) Create `rna_validate.mcp.json`
-- [ ] i) Create `rna_validate.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `RnaSequence.TryCreate`
+- [x] b) Freeze toolName: `rna_validate`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `RnaValidate_Schema_ValidatesCorrectly`
+- [x] g) Test: `RnaValidate_Binding_InvokesSuccessfully`
+- [x] h) Create `rna_validate.mcp.json`
+- [x] i) Create `rna_validate.md`
+- [x] j) Add traceability row
 
 #### 4.2.4 `rna_from_dna`
 - **HasDocs**: ✓
 - **DocRef**: RnaSequence.cs:L147#xml
-- [ ] a) Link MethodId: `RnaSequence.FromDna`
-- [ ] b) Freeze toolName: `rna_from_dna`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ dnaSequence: string }`
-- [ ] d) Define outputSchema: `{ rnaSequence: string }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `RnaFromDna_Schema_ValidatesCorrectly`
-- [ ] g) Test: `RnaFromDna_Binding_InvokesSuccessfully`
-- [ ] h) Create `rna_from_dna.mcp.json`
-- [ ] i) Create `rna_from_dna.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `RnaSequence.FromDna`
+- [x] b) Freeze toolName: `rna_from_dna`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ dnaSequence: string }`
+- [x] d) Define outputSchema: `{ rnaSequence: string }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `RnaFromDna_Schema_ValidatesCorrectly`
+- [x] g) Test: `RnaFromDna_Binding_InvokesSuccessfully`
+- [x] h) Create `rna_from_dna.mcp.json`
+- [x] i) Create `rna_from_dna.md`
+- [x] j) Add traceability row
 
 #### 4.2.5 `protein_validate`
 - **HasDocs**: ✓
 - **DocRef**: ProteinSequence.cs:L357#xml
-- [ ] a) Link MethodId: `ProteinSequence.TryCreate`
-- [ ] b) Freeze toolName: `protein_validate`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `ProteinValidate_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ProteinValidate_Binding_InvokesSuccessfully`
-- [ ] h) Create `protein_validate.mcp.json`
-- [ ] i) Create `protein_validate.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ProteinSequence.TryCreate`
+- [x] b) Freeze toolName: `protein_validate`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ valid: boolean, length: integer, error?: string }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `ProteinValidate_Schema_ValidatesCorrectly`
+- [x] g) Test: `ProteinValidate_Binding_InvokesSuccessfully`
+- [x] h) Create `protein_validate.mcp.json`
+- [x] i) Create `protein_validate.md`
+- [x] j) Add traceability row
 
 #### 4.2.6 `nucleotide_composition`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L48#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateNucleotideComposition`
-- [ ] b) Freeze toolName: `nucleotide_composition`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ A: integer, T: integer, G: integer, C: integer, other: integer }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `NucleotideComposition_Schema_ValidatesCorrectly`
-- [ ] g) Test: `NucleotideComposition_Binding_InvokesSuccessfully`
-- [ ] h) Create `nucleotide_composition.mcp.json`
-- [ ] i) Create `nucleotide_composition.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateNucleotideComposition`
+- [x] b) Freeze toolName: `nucleotide_composition`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ A: integer, T: integer, G: integer, C: integer, other: integer }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `NucleotideComposition_Schema_ValidatesCorrectly`
+- [x] g) Test: `NucleotideComposition_Binding_InvokesSuccessfully`
+- [x] h) Create `nucleotide_composition.mcp.json`
+- [x] i) Create `nucleotide_composition.md`
+- [x] j) Add traceability row
 
 #### 4.2.7 `amino_acid_composition`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L98#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateAminoAcidComposition`
-- [ ] b) Freeze toolName: `amino_acid_composition`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ composition: object }`
-- [ ] e) Define errors: 1001, 2002 (invalid protein)
-- [ ] f) Test: `AminoAcidComposition_Schema_ValidatesCorrectly`
-- [ ] g) Test: `AminoAcidComposition_Binding_InvokesSuccessfully`
-- [ ] h) Create `amino_acid_composition.mcp.json`
-- [ ] i) Create `amino_acid_composition.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateAminoAcidComposition`
+- [x] b) Freeze toolName: `amino_acid_composition`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ composition: object }`
+- [x] e) Define errors: 1001, 2002 (invalid protein)
+- [x] f) Test: `AminoAcidComposition_Schema_ValidatesCorrectly`
+- [x] g) Test: `AminoAcidComposition_Binding_InvokesSuccessfully`
+- [x] h) Create `amino_acid_composition.mcp.json`
+- [x] i) Create `amino_acid_composition.md`
+- [x] j) Add traceability row
 
 #### 4.2.8 `molecular_weight_protein`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L159#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateMolecularWeight`
-- [ ] b) Freeze toolName: `molecular_weight_protein`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ molecularWeight: number, unit: string }`
-- [ ] e) Define errors: 1001, 2002
-- [ ] f) Test: `MolecularWeightProtein_Schema_ValidatesCorrectly`
-- [ ] g) Test: `MolecularWeightProtein_Binding_InvokesSuccessfully`
-- [ ] h) Create `molecular_weight_protein.mcp.json`
-- [ ] i) Create `molecular_weight_protein.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateMolecularWeight`
+- [x] b) Freeze toolName: `molecular_weight_protein`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ molecularWeight: number, unit: string }`
+- [x] e) Define errors: 1001, 2002
+- [x] f) Test: `MolecularWeightProtein_Schema_ValidatesCorrectly`
+- [x] g) Test: `MolecularWeightProtein_Binding_InvokesSuccessfully`
+- [x] h) Create `molecular_weight_protein.mcp.json`
+- [x] i) Create `molecular_weight_protein.md`
+- [x] j) Add traceability row
 
 #### 4.2.9 `molecular_weight_nucleotide`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L180#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateNucleotideMolecularWeight`
-- [ ] b) Freeze toolName: `molecular_weight_nucleotide`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, isDna?: boolean }`
-- [ ] d) Define outputSchema: `{ molecularWeight: number, unit: string }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `MolecularWeightNucleotide_Schema_ValidatesCorrectly`
-- [ ] g) Test: `MolecularWeightNucleotide_Binding_InvokesSuccessfully`
-- [ ] h) Create `molecular_weight_nucleotide.mcp.json`
-- [ ] i) Create `molecular_weight_nucleotide.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateNucleotideMolecularWeight`
+- [x] b) Freeze toolName: `molecular_weight_nucleotide`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, isDna?: boolean }`
+- [x] d) Define outputSchema: `{ molecularWeight: number, unit: string }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `MolecularWeightNucleotide_Schema_ValidatesCorrectly`
+- [x] g) Test: `MolecularWeightNucleotide_Binding_InvokesSuccessfully`
+- [x] h) Create `molecular_weight_nucleotide.mcp.json`
+- [x] i) Create `molecular_weight_nucleotide.md`
+- [x] j) Add traceability row
 
 #### 4.2.10 `isoelectric_point`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L228#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateIsoelectricPoint`
-- [ ] b) Freeze toolName: `isoelectric_point`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ pI: number }`
-- [ ] e) Define errors: 1001, 2002
-- [ ] f) Test: `IsoelectricPoint_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IsoelectricPoint_Binding_InvokesSuccessfully`
-- [ ] h) Create `isoelectric_point.mcp.json`
-- [ ] i) Create `isoelectric_point.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateIsoelectricPoint`
+- [x] b) Freeze toolName: `isoelectric_point`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ pI: number }`
+- [x] e) Define errors: 1001, 2002
+- [x] f) Test: `IsoelectricPoint_Schema_ValidatesCorrectly`
+- [x] g) Test: `IsoelectricPoint_Binding_InvokesSuccessfully`
+- [x] h) Create `isoelectric_point.mcp.json`
+- [x] i) Create `isoelectric_point.md`
+- [x] j) Add traceability row
 
 #### 4.2.11 `hydrophobicity`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L306#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateHydrophobicity`
-- [ ] b) Freeze toolName: `hydrophobicity`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ gravy: number }`
-- [ ] e) Define errors: 1001, 2002
-- [ ] f) Test: `Hydrophobicity_Schema_ValidatesCorrectly`
-- [ ] g) Test: `Hydrophobicity_Binding_InvokesSuccessfully`
-- [ ] h) Create `hydrophobicity.mcp.json`
-- [ ] i) Create `hydrophobicity.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateHydrophobicity`
+- [x] b) Freeze toolName: `hydrophobicity`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ gravy: number }`
+- [x] e) Define errors: 1001, 2002
+- [x] f) Test: `Hydrophobicity_Schema_ValidatesCorrectly`
+- [x] g) Test: `Hydrophobicity_Binding_InvokesSuccessfully`
+- [x] h) Create `hydrophobicity.mcp.json`
+- [x] i) Create `hydrophobicity.md`
+- [x] j) Add traceability row
 
 #### 4.2.12 `thermodynamics`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L381#xml
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateThermodynamics`
-- [ ] b) Freeze toolName: `thermodynamics`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ deltaH: number, deltaS: number, deltaG: number }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `Thermodynamics_Schema_ValidatesCorrectly`
-- [ ] g) Test: `Thermodynamics_Binding_InvokesSuccessfully`
-- [ ] h) Create `thermodynamics.mcp.json`
-- [ ] i) Create `thermodynamics.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateThermodynamics`
+- [x] b) Freeze toolName: `thermodynamics`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ deltaH: number, deltaS: number, deltaG: number }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `Thermodynamics_Schema_ValidatesCorrectly`
+- [x] g) Test: `Thermodynamics_Binding_InvokesSuccessfully`
+- [x] h) Create `thermodynamics.mcp.json`
+- [x] i) Create `thermodynamics.md`
+- [x] j) Add traceability row
 
 #### 4.2.13 `melting_temperature`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Molecular_Tools/Melting_Temperature.md
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateMeltingTemperature`
-- [ ] b) Freeze toolName: `melting_temperature`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, useWallaceRule?: boolean }`
-- [ ] d) Define outputSchema: `{ tm: number, unit: string }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `MeltingTemperature_Schema_ValidatesCorrectly`
-- [ ] g) Test: `MeltingTemperature_Binding_InvokesSuccessfully`
-- [ ] h) Create `melting_temperature.mcp.json`
-- [ ] i) Create `melting_temperature.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateMeltingTemperature`
+- [x] b) Freeze toolName: `melting_temperature`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, useWallaceRule?: boolean }`
+- [x] d) Define outputSchema: `{ tm: number, unit: string }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `MeltingTemperature_Schema_ValidatesCorrectly`
+- [x] g) Test: `MeltingTemperature_Binding_InvokesSuccessfully`
+- [x] h) Create `melting_temperature.mcp.json`
+- [x] i) Create `melting_temperature.md`
+- [x] j) Add traceability row
 
 #### 4.2.14 `shannon_entropy`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Shannon_Entropy.md
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateShannonEntropy`
-- [ ] b) Freeze toolName: `shannon_entropy`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ entropy: number }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `ShannonEntropy_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ShannonEntropy_Binding_InvokesSuccessfully`
-- [ ] h) Create `shannon_entropy.mcp.json`
-- [ ] i) Create `shannon_entropy.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateShannonEntropy`
+- [x] b) Freeze toolName: `shannon_entropy`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ entropy: number }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `ShannonEntropy_Schema_ValidatesCorrectly`
+- [x] g) Test: `ShannonEntropy_Binding_InvokesSuccessfully`
+- [x] h) Create `shannon_entropy.mcp.json`
+- [x] i) Create `shannon_entropy.md`
+- [x] j) Add traceability row
 
 #### 4.2.15 `linguistic_complexity`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
-- [ ] a) Link MethodId: `SequenceStatistics.CalculateLinguisticComplexity`
-- [ ] b) Freeze toolName: `linguistic_complexity`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, maxK?: integer }`
-- [ ] d) Define outputSchema: `{ complexity: number }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `LinguisticComplexity_Schema_ValidatesCorrectly`
-- [ ] g) Test: `LinguisticComplexity_Binding_InvokesSuccessfully`
-- [ ] h) Create `linguistic_complexity.mcp.json`
-- [ ] i) Create `linguistic_complexity.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.CalculateLinguisticComplexity`
+- [x] b) Freeze toolName: `linguistic_complexity`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, maxK?: integer }`
+- [x] d) Define outputSchema: `{ complexity: number }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `LinguisticComplexity_Schema_ValidatesCorrectly`
+- [x] g) Test: `LinguisticComplexity_Binding_InvokesSuccessfully`
+- [x] h) Create `linguistic_complexity.mcp.json`
+- [x] i) Create `linguistic_complexity.md`
+- [x] j) Add traceability row
 
 #### 4.2.16 `summarize_sequence`
 - **HasDocs**: ✓
 - **DocRef**: SequenceStatistics.cs:L775#xml
-- [ ] a) Link MethodId: `SequenceStatistics.SummarizeNucleotideSequence`
-- [ ] b) Freeze toolName: `summarize_sequence`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ length: integer, gcContent: number, composition: object }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `SummarizeSequence_Schema_ValidatesCorrectly`
-- [ ] g) Test: `SummarizeSequence_Binding_InvokesSuccessfully`
-- [ ] h) Create `summarize_sequence.mcp.json`
-- [ ] i) Create `summarize_sequence.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceStatistics.SummarizeNucleotideSequence`
+- [x] b) Freeze toolName: `summarize_sequence`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ length: integer, gcContent: number, composition: object }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `SummarizeSequence_Schema_ValidatesCorrectly`
+- [x] g) Test: `SummarizeSequence_Binding_InvokesSuccessfully`
+- [x] h) Create `summarize_sequence.mcp.json`
+- [x] i) Create `summarize_sequence.md`
+- [x] j) Add traceability row
 
 #### 4.2.17 `gc_content`
 - **HasDocs**: ✓
 - **DocRef**: SequenceExtensions.cs:L41#xml
-- [ ] a) Link MethodId: `SequenceExtensions.CalculateGcContentFast`
-- [ ] b) Freeze toolName: `gc_content`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ gcContent: number, gcCount: integer, totalCount: integer }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `GcContent_Schema_ValidatesCorrectly`
-- [ ] g) Test: `GcContent_Binding_InvokesSuccessfully`
-- [ ] h) Create `gc_content.mcp.json`
-- [ ] i) Create `gc_content.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceExtensions.CalculateGcContentFast`
+- [x] b) Freeze toolName: `gc_content`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ gcContent: number, gcCount: integer, totalCount: integer }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `GcContent_Schema_ValidatesCorrectly`
+- [x] g) Test: `GcContent_Binding_InvokesSuccessfully`
+- [x] h) Create `gc_content.mcp.json`
+- [x] i) Create `gc_content.md`
+- [x] j) Add traceability row
 
 #### 4.2.18 `complement_base`
 - **HasDocs**: ✓
 - **DocRef**: SequenceExtensions.cs:L83#xml
-- [ ] a) Link MethodId: `SequenceExtensions.GetComplementBase`
-- [ ] b) Freeze toolName: `complement_base`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ nucleotide: string }`
-- [ ] d) Define outputSchema: `{ complement: string }`
-- [ ] e) Define errors: 1006 (invalid nucleotide)
-- [ ] f) Test: `ComplementBase_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplementBase_Binding_InvokesSuccessfully`
-- [ ] h) Create `complement_base.mcp.json`
-- [ ] i) Create `complement_base.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceExtensions.GetComplementBase`
+- [x] b) Freeze toolName: `complement_base`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ nucleotide: string }`
+- [x] d) Define outputSchema: `{ complement: string }`
+- [x] e) Define errors: 1006 (invalid nucleotide)
+- [x] f) Test: `ComplementBase_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplementBase_Binding_InvokesSuccessfully`
+- [x] h) Create `complement_base.mcp.json`
+- [x] i) Create `complement_base.md`
+- [x] j) Add traceability row
 
 #### 4.2.19 `is_valid_dna`
 - **HasDocs**: ✓
 - **DocRef**: SequenceExtensions.cs:L210#xml
-- [ ] a) Link MethodId: `SequenceExtensions.IsValidDna`
-- [ ] b) Freeze toolName: `is_valid_dna`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ valid: boolean }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `IsValidDna_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IsValidDna_Binding_InvokesSuccessfully`
-- [ ] h) Create `is_valid_dna.mcp.json`
-- [ ] i) Create `is_valid_dna.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceExtensions.IsValidDna`
+- [x] b) Freeze toolName: `is_valid_dna`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ valid: boolean }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `IsValidDna_Schema_ValidatesCorrectly`
+- [x] g) Test: `IsValidDna_Binding_InvokesSuccessfully`
+- [x] h) Create `is_valid_dna.mcp.json`
+- [x] i) Create `is_valid_dna.md`
+- [x] j) Add traceability row
 
 #### 4.2.20 `is_valid_rna`
 - **HasDocs**: ✓
 - **DocRef**: SequenceExtensions.cs:L225#xml
-- [ ] a) Link MethodId: `SequenceExtensions.IsValidRna`
-- [ ] b) Freeze toolName: `is_valid_rna`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ valid: boolean }`
-- [ ] e) Define errors: 1001
-- [ ] f) Test: `IsValidRna_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IsValidRna_Binding_InvokesSuccessfully`
-- [ ] h) Create `is_valid_rna.mcp.json`
-- [ ] i) Create `is_valid_rna.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceExtensions.IsValidRna`
+- [x] b) Freeze toolName: `is_valid_rna`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ valid: boolean }`
+- [x] e) Define errors: 1001
+- [x] f) Test: `IsValidRna_Schema_ValidatesCorrectly`
+- [x] g) Test: `IsValidRna_Binding_InvokesSuccessfully`
+- [x] h) Create `is_valid_rna.mcp.json`
+- [x] i) Create `is_valid_rna.md`
+- [x] j) Add traceability row
 
 #### 4.2.21 `complexity_linguistic`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Linguistic_Complexity.md
-- [ ] a) Link MethodId: `SequenceComplexity.CalculateLinguisticComplexity`
-- [ ] b) Freeze toolName: `complexity_linguistic`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, maxWordLength?: integer }`
-- [ ] d) Define outputSchema: `{ complexity: number }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `ComplexityLinguistic_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityLinguistic_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_linguistic.mcp.json`
-- [ ] i) Create `complexity_linguistic.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.CalculateLinguisticComplexity`
+- [x] b) Freeze toolName: `complexity_linguistic`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, maxWordLength?: integer }`
+- [x] d) Define outputSchema: `{ complexity: number }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `ComplexityLinguistic_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityLinguistic_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_linguistic.mcp.json`
+- [x] i) Create `complexity_linguistic.md`
+- [x] j) Add traceability row
 
 #### 4.2.22 `complexity_shannon`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Sequence_Composition/Shannon_Entropy.md
-- [ ] a) Link MethodId: `SequenceComplexity.CalculateShannonEntropy`
-- [ ] b) Freeze toolName: `complexity_shannon`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ entropy: number }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `ComplexityShannon_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityShannon_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_shannon.mcp.json`
-- [ ] i) Create `complexity_shannon.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.CalculateShannonEntropy`
+- [x] b) Freeze toolName: `complexity_shannon`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ entropy: number }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `ComplexityShannon_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityShannon_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_shannon.mcp.json`
+- [x] i) Create `complexity_shannon.md`
+- [x] j) Add traceability row
 
 #### 4.2.23 `complexity_kmer_entropy`
 - **HasDocs**: ✓
 - **DocRef**: SequenceComplexity.cs:L128#xml
-- [ ] a) Link MethodId: `SequenceComplexity.CalculateKmerEntropy`
-- [ ] b) Freeze toolName: `complexity_kmer_entropy`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, k?: integer }`
-- [ ] d) Define outputSchema: `{ entropy: number }`
-- [ ] e) Define errors: 1001, 2001, 1007 (invalid k)
-- [ ] f) Test: `ComplexityKmerEntropy_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityKmerEntropy_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_kmer_entropy.mcp.json`
-- [ ] i) Create `complexity_kmer_entropy.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.CalculateKmerEntropy`
+- [x] b) Freeze toolName: `complexity_kmer_entropy`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, k?: integer }`
+- [x] d) Define outputSchema: `{ entropy: number }`
+- [x] e) Define errors: 1001, 2001, 1007 (invalid k)
+- [x] f) Test: `ComplexityKmerEntropy_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityKmerEntropy_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_kmer_entropy.mcp.json`
+- [x] i) Create `complexity_kmer_entropy.md`
+- [x] j) Add traceability row
 
 #### 4.2.24 `complexity_dust_score`
 - **HasDocs**: ✓
 - **DocRef**: SequenceComplexity.cs:L296#xml
-- [ ] a) Link MethodId: `SequenceComplexity.CalculateDustScore`
-- [ ] b) Freeze toolName: `complexity_dust_score`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, wordSize?: integer }`
-- [ ] d) Define outputSchema: `{ score: number }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `ComplexityDustScore_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityDustScore_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_dust_score.mcp.json`
-- [ ] i) Create `complexity_dust_score.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.CalculateDustScore`
+- [x] b) Freeze toolName: `complexity_dust_score`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, wordSize?: integer }`
+- [x] d) Define outputSchema: `{ score: number }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `ComplexityDustScore_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityDustScore_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_dust_score.mcp.json`
+- [x] i) Create `complexity_dust_score.md`
+- [x] j) Add traceability row
 
 #### 4.2.25 `complexity_mask_low`
 - **HasDocs**: ✓
 - **DocRef**: SequenceComplexity.cs:L346#xml
-- [ ] a) Link MethodId: `SequenceComplexity.MaskLowComplexity`
-- [ ] b) Freeze toolName: `complexity_mask_low`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, threshold?: number, maskChar?: string }`
-- [ ] d) Define outputSchema: `{ maskedSequence: string, maskedCount: integer }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `ComplexityMaskLow_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityMaskLow_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_mask_low.mcp.json`
-- [ ] i) Create `complexity_mask_low.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.MaskLowComplexity`
+- [x] b) Freeze toolName: `complexity_mask_low`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, threshold?: number, maskChar?: string }`
+- [x] d) Define outputSchema: `{ maskedSequence: string, maskedCount: integer }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `ComplexityMaskLow_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityMaskLow_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_mask_low.mcp.json`
+- [x] i) Create `complexity_mask_low.md`
+- [x] j) Add traceability row
 
 #### 4.2.26 `complexity_compression_ratio`
 - **HasDocs**: ✓
 - **DocRef**: SequenceComplexity.cs:L391#xml
-- [ ] a) Link MethodId: `SequenceComplexity.EstimateCompressionRatio`
-- [ ] b) Freeze toolName: `complexity_compression_ratio`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string }`
-- [ ] d) Define outputSchema: `{ ratio: number }`
-- [ ] e) Define errors: 1001, 2001
-- [ ] f) Test: `ComplexityCompressionRatio_Schema_ValidatesCorrectly`
-- [ ] g) Test: `ComplexityCompressionRatio_Binding_InvokesSuccessfully`
-- [ ] h) Create `complexity_compression_ratio.mcp.json`
-- [ ] i) Create `complexity_compression_ratio.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `SequenceComplexity.EstimateCompressionRatio`
+- [x] b) Freeze toolName: `complexity_compression_ratio`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string }`
+- [x] d) Define outputSchema: `{ ratio: number }`
+- [x] e) Define errors: 1001, 2001
+- [x] f) Test: `ComplexityCompressionRatio_Schema_ValidatesCorrectly`
+- [x] g) Test: `ComplexityCompressionRatio_Binding_InvokesSuccessfully`
+- [x] h) Create `complexity_compression_ratio.mcp.json`
+- [x] i) Create `complexity_compression_ratio.md`
+- [x] j) Add traceability row
 
 #### 4.2.27 `kmer_count`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Counting.md
-- [ ] a) Link MethodId: `KmerAnalyzer.CountKmers`
-- [ ] b) Freeze toolName: `kmer_count`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, k: integer }`
-- [ ] d) Define outputSchema: `{ kmers: object, total: integer }`
-- [ ] e) Define errors: 1001, 1007
-- [ ] f) Test: `KmerCount_Schema_ValidatesCorrectly`
-- [ ] g) Test: `KmerCount_Binding_InvokesSuccessfully`
-- [ ] h) Create `kmer_count.mcp.json`
-- [ ] i) Create `kmer_count.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `KmerAnalyzer.CountKmers`
+- [x] b) Freeze toolName: `kmer_count`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, k: integer }`
+- [x] d) Define outputSchema: `{ kmers: object, total: integer }`
+- [x] e) Define errors: 1001, 1007
+- [x] f) Test: `KmerCount_Schema_ValidatesCorrectly`
+- [x] g) Test: `KmerCount_Binding_InvokesSuccessfully`
+- [x] h) Create `kmer_count.mcp.json`
+- [x] i) Create `kmer_count.md`
+- [x] j) Add traceability row
 
 #### 4.2.28 `kmer_distance`
 - **HasDocs**: ✓
 - **DocRef**: KmerAnalyzer.cs:L165#xml
-- [ ] a) Link MethodId: `KmerAnalyzer.KmerDistance`
-- [ ] b) Freeze toolName: `kmer_distance`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence1: string, sequence2: string, k: integer }`
-- [ ] d) Define outputSchema: `{ distance: number }`
-- [ ] e) Define errors: 1001, 1003, 1007
-- [ ] f) Test: `KmerDistance_Schema_ValidatesCorrectly`
-- [ ] g) Test: `KmerDistance_Binding_InvokesSuccessfully`
-- [ ] h) Create `kmer_distance.mcp.json`
-- [ ] i) Create `kmer_distance.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `KmerAnalyzer.KmerDistance`
+- [x] b) Freeze toolName: `kmer_distance`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence1: string, sequence2: string, k: integer }`
+- [x] d) Define outputSchema: `{ distance: number }`
+- [x] e) Define errors: 1001, 1003, 1007
+- [x] f) Test: `KmerDistance_Schema_ValidatesCorrectly`
+- [x] g) Test: `KmerDistance_Binding_InvokesSuccessfully`
+- [x] h) Create `kmer_distance.mcp.json`
+- [x] i) Create `kmer_distance.md`
+- [x] j) Add traceability row
 
 #### 4.2.29 `kmer_entropy`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Frequency_Analysis.md
-- [ ] a) Link MethodId: `KmerAnalyzer.CalculateKmerEntropy`
-- [ ] b) Freeze toolName: `kmer_entropy`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, k: integer }`
-- [ ] d) Define outputSchema: `{ entropy: number }`
-- [ ] e) Define errors: 1001, 1007
-- [ ] f) Test: `KmerEntropy_Schema_ValidatesCorrectly`
-- [ ] g) Test: `KmerEntropy_Binding_InvokesSuccessfully`
-- [ ] h) Create `kmer_entropy.mcp.json`
-- [ ] i) Create `kmer_entropy.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `KmerAnalyzer.CalculateKmerEntropy`
+- [x] b) Freeze toolName: `kmer_entropy`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, k: integer }`
+- [x] d) Define outputSchema: `{ entropy: number }`
+- [x] e) Define errors: 1001, 1007
+- [x] f) Test: `KmerEntropy_Schema_ValidatesCorrectly`
+- [x] g) Test: `KmerEntropy_Binding_InvokesSuccessfully`
+- [x] h) Create `kmer_entropy.mcp.json`
+- [x] i) Create `kmer_entropy.md`
+- [x] j) Add traceability row
 
 #### 4.2.30 `kmer_analyze`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/K-mer_Analysis/K-mer_Search.md
-- [ ] a) Link MethodId: `KmerAnalyzer.AnalyzeKmers`
-- [ ] b) Freeze toolName: `kmer_analyze`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, k: integer }`
-- [ ] d) Define outputSchema: `{ uniqueKmers: integer, totalKmers: integer, entropy: number, mostFrequent: array }`
-- [ ] e) Define errors: 1001, 1007
-- [ ] f) Test: `KmerAnalyze_Schema_ValidatesCorrectly`
-- [ ] g) Test: `KmerAnalyze_Binding_InvokesSuccessfully`
-- [ ] h) Create `kmer_analyze.mcp.json`
-- [ ] i) Create `kmer_analyze.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `KmerAnalyzer.AnalyzeKmers`
+- [x] b) Freeze toolName: `kmer_analyze`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, k: integer }`
+- [x] d) Define outputSchema: `{ uniqueKmers: integer, totalKmers: integer, entropy: number, mostFrequent: array }`
+- [x] e) Define errors: 1001, 1007
+- [x] f) Test: `KmerAnalyze_Schema_ValidatesCorrectly`
+- [x] g) Test: `KmerAnalyze_Binding_InvokesSuccessfully`
+- [x] h) Create `kmer_analyze.mcp.json`
+- [x] i) Create `kmer_analyze.md`
+- [x] j) Add traceability row
 
 #### 4.2.31 `iupac_code`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
-- [ ] a) Link MethodId: `ISequence.GetIupacCode`
-- [ ] b) Freeze toolName: `iupac_code`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ bases: string[] }`
-- [ ] d) Define outputSchema: `{ code: string }`
-- [ ] e) Define errors: 1008 (invalid bases)
-- [ ] f) Test: `IupacCode_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IupacCode_Binding_InvokesSuccessfully`
-- [ ] h) Create `iupac_code.mcp.json`
-- [ ] i) Create `iupac_code.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ISequence.GetIupacCode`
+- [x] b) Freeze toolName: `iupac_code`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ bases: string[] }`
+- [x] d) Define outputSchema: `{ code: string }`
+- [x] e) Define errors: 1008 (invalid bases)
+- [x] f) Test: `IupacCode_Schema_ValidatesCorrectly`
+- [x] g) Test: `IupacCode_Binding_InvokesSuccessfully`
+- [x] h) Create `iupac_code.mcp.json`
+- [x] i) Create `iupac_code.md`
+- [x] j) Add traceability row
 
 #### 4.2.32 `iupac_match`
 - **HasDocs**: ✓
 - **DocRef**: docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md
-- [ ] a) Link MethodId: `ISequence.CodesMatch`
-- [ ] b) Freeze toolName: `iupac_match`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ code1: string, code2: string }`
-- [ ] d) Define outputSchema: `{ match: boolean }`
-- [ ] e) Define errors: 1008
-- [ ] f) Test: `IupacMatch_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IupacMatch_Binding_InvokesSuccessfully`
-- [ ] h) Create `iupac_match.mcp.json`
-- [ ] i) Create `iupac_match.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `ISequence.CodesMatch`
+- [x] b) Freeze toolName: `iupac_match`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ code1: string, code2: string }`
+- [x] d) Define outputSchema: `{ match: boolean }`
+- [x] e) Define errors: 1008
+- [x] f) Test: `IupacMatch_Schema_ValidatesCorrectly`
+- [x] g) Test: `IupacMatch_Binding_InvokesSuccessfully`
+- [x] h) Create `iupac_match.mcp.json`
+- [x] i) Create `iupac_match.md`
+- [x] j) Add traceability row
 
 #### 4.2.33 `iupac_matches`
 - **HasDocs**: ✓
 - **DocRef**: IupacHelper.cs:L14#xml
-- [ ] a) Link MethodId: `IupacHelper.MatchesIupac`
-- [ ] b) Freeze toolName: `iupac_matches`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ nucleotide: string, iupacCode: string }`
-- [ ] d) Define outputSchema: `{ matches: boolean }`
-- [ ] e) Define errors: 1006, 1008
-- [ ] f) Test: `IupacMatches_Schema_ValidatesCorrectly`
-- [ ] g) Test: `IupacMatches_Binding_InvokesSuccessfully`
-- [ ] h) Create `iupac_matches.mcp.json`
-- [ ] i) Create `iupac_matches.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `IupacHelper.MatchesIupac`
+- [x] b) Freeze toolName: `iupac_matches`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ nucleotide: string, iupacCode: string }`
+- [x] d) Define outputSchema: `{ matches: boolean }`
+- [x] e) Define errors: 1006, 1008
+- [x] f) Test: `IupacMatches_Schema_ValidatesCorrectly`
+- [x] g) Test: `IupacMatches_Binding_InvokesSuccessfully`
+- [x] h) Create `iupac_matches.mcp.json`
+- [x] i) Create `iupac_matches.md`
+- [x] j) Add traceability row
 
 #### 4.2.34 `translate_dna`
 - **HasDocs**: ✓
 - **DocRef**: Translator.cs:L20#xml
-- [ ] a) Link MethodId: `Translator.Translate(DnaSequence)`
-- [ ] b) Freeze toolName: `translate_dna`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, geneticCodeTable?: integer, readingFrame?: integer }`
-- [ ] d) Define outputSchema: `{ protein: string, length: integer }`
-- [ ] e) Define errors: 1001, 2001, 1009 (invalid frame)
-- [ ] f) Test: `TranslateDna_Schema_ValidatesCorrectly`
-- [ ] g) Test: `TranslateDna_Binding_InvokesSuccessfully`
-- [ ] h) Create `translate_dna.mcp.json`
-- [ ] i) Create `translate_dna.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `Translator.Translate(DnaSequence)`
+- [x] b) Freeze toolName: `translate_dna`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, geneticCodeTable?: integer, readingFrame?: integer }`
+- [x] d) Define outputSchema: `{ protein: string, length: integer }`
+- [x] e) Define errors: 1001, 2001, 1009 (invalid frame)
+- [x] f) Test: `TranslateDna_Schema_ValidatesCorrectly`
+- [x] g) Test: `TranslateDna_Binding_InvokesSuccessfully`
+- [x] h) Create `translate_dna.mcp.json`
+- [x] i) Create `translate_dna.md`
+- [x] j) Add traceability row
 
 #### 4.2.35 `translate_rna`
 - **HasDocs**: ✓
 - **DocRef**: Translator.cs:L37#xml
-- [ ] a) Link MethodId: `Translator.Translate(RnaSequence)`
-- [ ] b) Freeze toolName: `translate_rna`, serverName: `Sequence`
-- [ ] c) Define inputSchema: `{ sequence: string, geneticCodeTable?: integer, readingFrame?: integer }`
-- [ ] d) Define outputSchema: `{ protein: string, length: integer }`
-- [ ] e) Define errors: 1001, 2003 (invalid RNA), 1009
-- [ ] f) Test: `TranslateRna_Schema_ValidatesCorrectly`
-- [ ] g) Test: `TranslateRna_Binding_InvokesSuccessfully`
-- [ ] h) Create `translate_rna.mcp.json`
-- [ ] i) Create `translate_rna.md`
-- [ ] j) Add traceability row
+- [x] a) Link MethodId: `Translator.Translate(RnaSequence)`
+- [x] b) Freeze toolName: `translate_rna`, serverName: `Sequence`
+- [x] c) Define inputSchema: `{ sequence: string, geneticCodeTable?: integer, readingFrame?: integer }`
+- [x] d) Define outputSchema: `{ protein: string, length: integer }`
+- [x] e) Define errors: 1001, 2003 (invalid RNA), 1009
+- [x] f) Test: `TranslateRna_Schema_ValidatesCorrectly`
+- [x] g) Test: `TranslateRna_Binding_InvokesSuccessfully`
+- [x] h) Create `translate_rna.mcp.json`
+- [x] i) Create `translate_rna.md`
+- [x] j) Add traceability row
 
 ---
 
@@ -907,71 +907,71 @@
 
 #### 4.3.1 `fasta_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.2 `fasta_format`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.3 `fasta_write`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.4 `fastq_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.5 `fastq_detect_encoding`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.6 `fastq_encode_quality`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.7 `fastq_phred_to_error`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.8 `fastq_error_to_phred`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.9 `fastq_trim_quality`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.10 `fastq_trim_adapter`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.11 `fastq_statistics`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.12 `fastq_write`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.13 `fastq_format`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.14 `genbank_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.15 `genbank_parse_location`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.16 `genbank_extract_sequence`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.17 `embl_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.18 `embl_parse_location`
 - **HasDocs**: ✓
@@ -983,11 +983,11 @@
 
 #### 4.3.20 `gff_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.21 `gff_statistics`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.22 `gff_write`
 - **HasDocs**: ✓
@@ -999,7 +999,7 @@
 
 #### 4.3.24 `bed_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.25 `bed_block_length`
 - **HasDocs**: ✓
@@ -1019,47 +1019,47 @@
 
 #### 4.3.29 `vcf_parse`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.30 `vcf_classify`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.31 `vcf_is_snp`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.32 `vcf_is_indel`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.33 `vcf_variant_length`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.34 `vcf_is_hom_ref`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.35 `vcf_is_hom_alt`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.36 `vcf_is_het`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.37 `vcf_statistics`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.38 `vcf_write`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.39 `vcf_has_flag`
 - **HasDocs**: ✓
-- [ ] a-j) [Standard checklist items]
+- [x] a-j) [Standard checklist items]
 
 #### 4.3.40 `to_genbank`
 - **HasDocs**: ✓
@@ -1084,6 +1084,46 @@
 #### 4.3.45 `quality_phred_to_char`
 - **HasDocs**: ✓
 - [ ] a-j) [Standard checklist items]
+
+#### 4.3.46 `fastq_filter`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: filter FASTQ reads by quality)*
+
+#### 4.3.47 `bed_filter`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: filter BED records by chromosome/region/strand/length/score)*
+
+#### 4.3.48 `bed_merge`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: merge overlapping BED records)*
+
+#### 4.3.49 `bed_intersect`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: find intersecting BED regions)*
+
+#### 4.3.50 `vcf_filter`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: filter VCF variants by type/quality/chromosome)*
+
+#### 4.3.51 `gff_filter`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: filter GFF records by type/seqid/region)*
+
+#### 4.3.52 `genbank_features`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: extract features from GenBank by type)*
+
+#### 4.3.53 `genbank_statistics`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: calculate GenBank record statistics)*
+
+#### 4.3.54 `embl_features`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: extract features from EMBL by type)*
+
+#### 4.3.55 `embl_statistics`
+- **HasDocs**: ✓
+- [x] a-j) [Standard checklist items] *(extra tool: calculate EMBL record statistics)*
 
 ---
 
