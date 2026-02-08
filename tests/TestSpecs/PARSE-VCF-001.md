@@ -196,17 +196,17 @@ chr1	300	.	G	A	10	LowQual;LowCov	.
 
 ---
 
-## Missing Tests to Add
+## Missing Tests to Add (All Closed)
 
-After audit, the following tests need to be added:
+After audit, the following tests were added:
 
-| Test | Category | Justification |
-|------|----------|---------------|
-| ClassifyVariant_MNP_ReturnsMnp | M | Not explicitly tested |
-| ClassifyVariant_Symbolic_ReturnsSymbolic | M | Not explicitly tested |
-| ClassifyVariant_Complex_ReturnsComplex | M | Not explicitly tested |
-| Parse_PhasedGenotypes_HandledCorrectly | M | Phased notation |
-| IsHomAlt_MultiAllelic_DetectsCorrectly | M | 2/2 genotype handling |
+| Test | Category | Status |
+|------|----------|--------|
+| ClassifyVariant_MNP_ReturnsMnp | M | ✅ Covered |
+| ClassifyVariant_Symbolic_ReturnsSymbolic | M | ✅ Covered |
+| ClassifyVariant_Complex_ReturnsComplex | M | ✅ Covered |
+| Parse_PhasedGenotypes_HandledCorrectly | M | ✅ Covered |
+| IsHomAlt_MultiAllelic_DetectsCorrectly | M | ✅ Covered |
 
 ---
 
@@ -216,7 +216,7 @@ After audit, the following tests need to be added:
 - [x] Algorithm documentation created
 - [x] TestSpec with Must/Should/Could categories
 - [x] Existing tests audited
-- [ ] Missing tests added
-- [ ] All tests pass
-- [ ] Zero warnings
-- [ ] Checklist updated
+- [x] Missing tests added
+- [x] All tests pass
+- [x] Zero warnings
+- [x] Checklist updated

@@ -114,16 +114,16 @@ The existing test file `TranslatorTests.cs` already has **comprehensive coverage
 - ORF finding
 - Edge cases (empty, null, invalid)
 
-### Gaps Identified
-| Missing Test | Priority | Action |
+### Gaps Identified (All Closed)
+| Missing Test | Priority | Status |
 |--------------|----------|--------|
-| M09: Translate_NullRna_ThrowsArgumentNullException | Must | Add test |
-| TranslateSixFrames_NullInput_ThrowsException | Should | Add test |
+| M09: Translate_NullRna_ThrowsArgumentNullException | Must | ✅ Covered |
+| TranslateSixFrames_NullInput_ThrowsException | Should | ✅ Covered |
 
 ### Consolidation Actions
-1. **Add**: M09 - Null RNA input handling
-2. **Add**: S05 - TranslateSixFrames null handling
-3. **Enhance**: Add Test Unit ID header to existing test file
+1. ~~**Add**: M09 - Null RNA input handling~~ ✅ Done
+2. ~~**Add**: S05 - TranslateSixFrames null handling~~ ✅ Done
+3. ~~**Enhance**: Add Test Unit ID header to existing test file~~ ✅ Done
 4. **Keep**: All existing tests - well-structured and evidence-aligned
 
 ---

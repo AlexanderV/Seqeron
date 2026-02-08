@@ -103,23 +103,23 @@
 | GetByTableNumber_2_ReturnsVertebrateMitochondrial | M | Covered | M17 |
 | GetByTableNumber_Invalid_ThrowsException | M | Covered | M18 |
 
-### Coverage Gaps
+### Coverage Gaps (All Closed)
 
-| Gap | Required Test | Priority |
-|-----|---------------|----------|
-| All 3 stop codons in single assertion | M02 | Must |
-| Complete 64-codon coverage | M01 | Must |
-| Yeast mito all CUx codons | S | Should |
-| Vertebrate mito start codon count | S08 | Should |
+| Gap | Required Test | Status |
+|-----|---------------|--------|
+| ~~All 3 stop codons in single assertion~~ | M02 | ✅ Covered |
+| ~~Complete 64-codon coverage~~ | M01 | ✅ Covered |
+| ~~Yeast mito all CUx codons~~ | S | ✅ Covered |
+| ~~Vertebrate mito start codon count~~ | S08 | ✅ Covered |
 
 ---
 
 ## Consolidation Plan
 
 1. **Keep existing tests**: GeneticCodeTests.cs has good coverage
-2. **Enhance stop codon test**: Test all 3 stop codons comprehensively
-3. **Add complete codon coverage test**: Verify all 64 standard codons
-4. **Add alternative code completeness tests**: Verify all differences
+2. ~~**Enhance stop codon test**: Test all 3 stop codons comprehensively~~ ✅ Done
+3. ~~**Add complete codon coverage test**: Verify all 64 standard codons~~ ✅ Done
+4. ~~**Add alternative code completeness tests**: Verify all differences~~ ✅ Done
 5. **Remove duplicates**: None identified
 
 ---

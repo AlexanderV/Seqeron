@@ -191,17 +191,17 @@
 
 ## 6. Consolidation Plan
 
-### 6.1 Missing Tests to Add (Canonical)
-| # | Test | Justification |
-|---|------|---------------|
-| 1 | Coordinate_ZeroBased_FirstBaseIsZero | M1 - explicit coordinate system test |
-| 2 | Coordinate_EndIsNonInclusive_LengthCorrect | M2 - verify length = end - start |
-| 3 | Coordinate_ZeroLength_ValidForInsertions | M3 - zero-length feature test |
-| 4 | Parse_BED12_FirstBlockStartMustBeZero | M17 - block constraint |
-| 5 | Parse_BED12_FinalBlockMustReachEnd | M20 - block constraint |
-| 6 | Parse_BED12_BlockCountMatchesArrays | M19 - validate arrays |
-| 7 | GenomicInterval_Union_ReturnsUnion | Complete interval API |
-| 8 | ExpandIntervals_ZeroExpansion_Unchanged | Edge case |
+### 6.1 Missing Tests to Add (All Closed)
+| # | Test | Status |
+|---|------|--------|
+| 1 | Coordinate_ZeroBased_FirstBaseIsZero | ✅ Covered |
+| 2 | Coordinate_EndIsNonInclusive_LengthCorrect | ✅ Covered |
+| 3 | Coordinate_ZeroLength_ValidForInsertions | ✅ Covered |
+| 4 | Parse_BED12_FirstBlockStartMustBeZero | ✅ Covered |
+| 5 | Parse_BED12_FinalBlockMustReachEnd | ✅ Covered |
+| 6 | Parse_BED12_BlockCountMatchesArrays | ✅ Covered |
+| 7 | GenomicInterval_Union_ReturnsUnion | ✅ Covered |
+| 8 | ExpandIntervals_ZeroExpansion_Unchanged | ✅ Covered |
 
 ### 6.2 Tests to Refactor
 - None needed - existing structure is clean

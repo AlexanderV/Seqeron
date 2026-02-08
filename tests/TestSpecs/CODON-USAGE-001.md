@@ -97,11 +97,11 @@ Expected similarity: 0.0
 
 ### Consolidation Plan
 
-1. Create new file: `CodonOptimizer_CodonUsage_Tests.cs`
-2. Move existing 5 tests from `CodonOptimizerTests.cs`
-3. Add missing Must/Should tests
-4. Remove duplicates from original file
-5. Keep other test categories in `CodonOptimizerTests.cs`
+1. ~~Create new file: `CodonOptimizer_CodonUsage_Tests.cs`~~ ✅ Done
+2. ~~Move existing 5 tests from `CodonOptimizerTests.cs`~~ ✅ Done
+3. ~~Add missing Must/Should tests~~ ✅ Done
+4. ~~Remove duplicates from original file~~ ✅ Done
+5. ~~Keep other test categories in `CodonOptimizerTests.cs`~~ ✅ Done
 
 ## Open Questions
 

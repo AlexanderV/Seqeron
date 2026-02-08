@@ -169,11 +169,11 @@
 ## Consolidation Plan
 
 1. **Canonical file:** `GenBankParserTests.cs`
-2. **Additions needed:**
-   - Division code parsing test
-   - Date format parsing tests
-   - Partial location tests (<, >)
-   - More qualifier parsing tests
+2. ~~**Additions needed:**~~ ✅ All added
+   - ~~Division code parsing test~~ ✅ Covered
+   - ~~Date format parsing tests~~ ✅ Covered
+   - ~~Partial location tests (<, >)~~ ✅ Covered
+   - ~~More qualifier parsing tests~~ ✅ Covered
 3. **Wrapper tests:** SequenceIOTests.cs - keep as-is (smoke tests)
 4. **MCP tests:** GenBankParseTests.cs - keep separate
 
