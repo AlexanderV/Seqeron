@@ -147,21 +147,21 @@ Tests exist in `RnaSecondaryStructureTests.cs` under the "Energy Calculation Tes
 - `CalculateMinimumFreeEnergy_EmptySequence_ReturnsZero` ✓
 - `CalculateMinimumFreeEnergy_LongerStem_MoreStable` ✓
 
-### 5.2 Test Gaps
+### 5.2 Test Gaps (All Closed)
 
-| Gap | Severity | Action |
+| Gap | Severity | Status |
 |-----|----------|--------|
-| CalculateStackingEnergy method missing | Medium | Implementation not required; covered by CalculateStemEnergy |
-| Reference value tests | Low | Add tests with Turner 2004 values for validation |
-| GC vs AU stability test | Low | Add comparative test |
-| Empty/null basePairs | Low | Add edge case |
+| CalculateStackingEnergy method missing | Medium | ✅ Covered by CalculateStemEnergy |
+| Reference value tests | Low | ✅ Covered |
+| GC vs AU stability test | Low | ✅ Covered |
+| Empty/null basePairs | Low | ✅ Covered |
 
 ### 5.3 Consolidation Plan
 
 - All energy tests in existing `RnaSecondaryStructureTests.cs`
 - Tests are properly organized under "Energy Calculation Tests" region
-- Add missing reference value validation tests
-- Add GC vs AU comparative stability test
+- ~~Add missing reference value validation tests~~ ✅ Done
+- ~~Add GC vs AU comparative stability test~~ ✅ Done
 
 ---
 
@@ -179,4 +179,4 @@ Tests exist in `RnaSecondaryStructureTests.cs` under the "Energy Calculation Tes
 - [x] All Must tests implemented
 - [x] Edge cases covered
 - [x] Tests pass with zero warnings
-- [ ] Reference value validation (low priority - Turner values used in implementation)
+- [x] Reference value validation (low priority - Turner values used in implementation)

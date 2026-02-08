@@ -91,14 +91,14 @@ Existing tests in `Seqeron.Mcp.Parsers.Tests`:
 | ToFasta_LongSequence_WrapsLines | Covered | M9 ✓ |
 | RoundTrip_ParseAndWrite_PreservesData | Covered | M11 ✓ |
 
-### Missing Tests
-- M5: Parse_HeaderWithDescription_ParsesBoth (partial in M1)
-- M7: Parse_WhitespaceInSequence_IgnoresWhitespace
-- M10: ToFasta_NoDescription_OmitsDescription
-- M12: Parse_SpecialCharsInHeader_PreservesChars
-- M13: Parse_LeadingTrailingWhitespaceInSequence_Trimmed
-- S1-S7: Should tests
-- C1-C3: Could tests
+### Missing Tests (All Closed)
+- ~~M5: Parse_HeaderWithDescription_ParsesBoth~~ ✅ Covered
+- ~~M7: Parse_WhitespaceInSequence_IgnoresWhitespace~~ ✅ Covered
+- ~~M10: ToFasta_NoDescription_OmitsDescription~~ ✅ Covered
+- ~~M12: Parse_SpecialCharsInHeader_PreservesChars~~ ✅ Covered
+- ~~M13: Parse_LeadingTrailingWhitespaceInSequence_Trimmed~~ ✅ Covered
+- ~~S1-S7: Should tests~~ ✅ Covered
+- ~~C1-C3: Could tests~~ ✅ Covered
 
 ## Open Questions
 

@@ -144,15 +144,15 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 | `DetectPseudoknots_CrossingPairs_DetectsKnot` | PK-002 | ✓ Covered |
 | `FindInvertedRepeats_RnaHairpin_SmokeTest` | IR-001 | ✓ Covered |
 
-### 4.3 Missing Tests
+### 4.3 Missing Tests (All Closed)
 
 | Test ID | Description | Status |
 |---------|-------------|--------|
-| EC-001 | Empty string handling | Needs explicit test |
-| EC-002 | Null handling | Needs explicit test |
-| EC-003 | Lowercase input | Partially covered in integration |
-| PH-003 | MinStem parameter effect | Needs explicit test |
-| PH-004 | Loop size range | Needs explicit test |
+| EC-001 | Empty string handling | ✅ Covered |
+| EC-002 | Null handling | ✅ Covered |
+| EC-003 | Lowercase input | ✅ Covered |
+| PH-003 | MinStem parameter effect | ✅ Covered |
+| PH-004 | Loop size range | ✅ Covered |
 
 ### 4.4 Assessment
 
@@ -170,13 +170,13 @@ The existing tests in `RnaSecondaryStructureTests.cs` already cover RNA-STEMLOOP
 
 **Decision:** Add missing edge case tests to existing file rather than create new file, as the tests are cohesive and well-organized.
 
-### 5.2 Tests to Add
+### 5.2 Tests to Add (All Added)
 
-1. `FindStemLoops_EmptyString_ReturnsEmpty` - EC-001
-2. `FindStemLoops_NullString_ReturnsEmpty` - EC-002  
-3. `FindStemLoops_LowercaseInput_HandledCorrectly` - EC-003 (more explicit)
-4. `FindStemLoops_MinStemParameter_RespectsMinimum` - PH-003
-5. `FindStemLoops_LoopSizeRange_RespectsLimits` - PH-004
+1. ~~`FindStemLoops_EmptyString_ReturnsEmpty` - EC-001~~ ✅ Done
+2. ~~`FindStemLoops_NullString_ReturnsEmpty` - EC-002~~ ✅ Done
+3. ~~`FindStemLoops_LowercaseInput_HandledCorrectly` - EC-003~~ ✅ Done
+4. ~~`FindStemLoops_MinStemParameter_RespectsMinimum` - PH-003~~ ✅ Done
+5. ~~`FindStemLoops_LoopSizeRange_RespectsLimits` - PH-004~~ ✅ Done
 
 ---
 

@@ -188,20 +188,20 @@
 | ParseFile_NonexistentFile_ReturnsEmpty | M10.1 | ✓ Adequate |
 | ParseFile_ValidFile_ParsesRecords | M10.2 | ✓ Adequate |
 
-### Missing Tests
-| Test ID | Description | Priority |
-|---------|-------------|----------|
-| M2.3 | DetectEncoding defaults Phred33 for ambiguous range | Must |
-| M2.4 | DetectEncoding empty string returns Phred33 | Must |
-| M3.5 | Empty quality string returns empty array | Must |
-| M4.1-M4.6 | Phred↔ErrorProbability conversion tests | Must |
-| M5.1-M5.3 | EncodeQualityScores and round-trip | Must |
-| M6.2 | FilterByQuality keeps records at threshold | Must |
-| M7.3-M7.4 | TrimByQuality edge cases | Must |
-| M8.4-M8.7 | Statistics invariants and edge cases | Must |
-| M9.3 | InterleavePairedReads unequal lengths | Must |
-| M10.3-M10.4 | Write and round-trip tests | Must |
-| S1.1, S1.3 | Header parsing edge cases | Should |
+### Missing Tests (All Closed)
+| Test ID | Description | Status |
+|---------|-------------|--------|
+| M2.3 | DetectEncoding defaults Phred33 for ambiguous range | ✅ Covered |
+| M2.4 | DetectEncoding empty string returns Phred33 | ✅ Covered |
+| M3.5 | Empty quality string returns empty array | ✅ Covered |
+| M4.1-M4.6 | Phred↔ErrorProbability conversion tests | ✅ Covered |
+| M5.1-M5.3 | EncodeQualityScores and round-trip | ✅ Covered |
+| M6.2 | FilterByQuality keeps records at threshold | ✅ Covered |
+| M7.3-M7.4 | TrimByQuality edge cases | ✅ Covered |
+| M8.4-M8.7 | Statistics invariants and edge cases | ✅ Covered |
+| M9.3 | InterleavePairedReads unequal lengths | ✅ Covered |
+| M10.3-M10.4 | Write and round-trip tests | ✅ Covered |
+| S1.1, S1.3 | Header parsing edge cases | ✅ Covered |
 
 ### MCP Wrapper Tests (Seqeron.Mcp.Parsers.Tests)
 Smoke tests exist for MCP bindings - no duplication with canonical tests.

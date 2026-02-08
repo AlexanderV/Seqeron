@@ -6,6 +6,7 @@
 - **Canonical Method:** `CodonOptimizer.CalculateCAI(string, CodonUsageTable)`
 - **Area:** Codon Optimization
 - **Complexity:** O(n)
+- **Status:** ☑ Complete
 
 ## Method Under Test
 
@@ -132,12 +133,12 @@ CAI = (0.085 × 0.475)^(1/2) ≈ 0.20
 2. **Remove duplicates:** CodonOptimizerTests.cs CAI tests move to new file
 3. **CodonUsageAnalyzer tests:** Keep as smoke tests (different API)
 
-### Missing Coverage
+### Missing Coverage (All Closed)
 
-- M4: Exact CAI=1.0 for all-optimal codons not verified precisely
-- M10: Stop codon exclusion not explicitly tested
-- M11: Geometric mean sensitivity not tested
-- M12: No hand-calculated verification test
+- ~~M4: Exact CAI=1.0 for all-optimal codons not verified precisely~~ ✅ Covered
+- ~~M10: Stop codon exclusion not explicitly tested~~ ✅ Covered
+- ~~M11: Geometric mean sensitivity not tested~~ ✅ Covered
+- ~~M12: No hand-calculated verification test~~ ✅ Covered
 
 ## Open Questions
 

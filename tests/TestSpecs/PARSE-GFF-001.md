@@ -112,16 +112,16 @@
 | ParseFile_NonexistentFile_ReturnsEmpty | M24 | ✓ Covered | |
 | ParseFile_ValidFile_ParsesRecords | M25 | ✓ Covered | |
 
-### Missing Tests (to be added):
+### Missing Tests (All Closed):
 
-| Test ID | Description | Priority |
-|---------|-------------|----------|
-| M13 | Parse_DetectsGFF3Version | Must |
-| M14 | Parse_1BasedCoordinates_Validated | Must |
-| M15 | Parse_Phase_ParsedCorrectly | Must |
-| M16 | Parse_Strand_AllValidValues | Must |
-| C01 | Parse_MultipleParentValues | Could |
-| C02 | Parse_AttributeCaseInsensitive | Could |
+| Test ID | Description | Status |
+|---------|-------------|--------|
+| M13 | Parse_DetectsGFF3Version | ✅ Covered |
+| M14 | Parse_1BasedCoordinates_Validated | ✅ Covered |
+| M15 | Parse_Phase_ParsedCorrectly | ✅ Covered |
+| M16 | Parse_Strand_AllValidValues | ✅ Covered |
+| C01 | Parse_MultipleParentValues | ✅ Covered |
+| C02 | Parse_AttributeCaseInsensitive | ✅ Covered |
 
 ### MCP Wrapper Tests: GffParseTests.cs
 
@@ -144,8 +144,8 @@
 
 1. **Canonical test file:** `GffParserTests.cs` - ALL deep logic tests
 2. **Wrapper test file:** `GffParseTests.cs` - Smoke tests only (current state is appropriate)
-3. **Action:** Add missing Must tests M13-M16 to canonical file
-4. **Action:** Optionally add Could tests C01-C02
+3. ~~**Action:** Add missing Must tests M13-M16 to canonical file~~ ✅ Done
+4. ~~**Action:** Optionally add Could tests C01-C02~~ ✅ Done
 
 ---
 

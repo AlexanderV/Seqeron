@@ -131,10 +131,10 @@ public static partial class EmblParser
 | SHLD-21 | ParseFile_ValidFile_ParsesSuccessfully | Parse from file path | ✅ Covered |
 | SHLD-22 | ParseFile_InvalidPath_ReturnsEmpty | Handle missing file (returns empty) | ✅ Covered |
 | SHLD-23 | Parse_Reference_HasJournalLocation | Extract RL line journal location | ✅ Covered |
-| SHLD-24 | Parse_Reference_HasPubMed | Extract RX PUBMED cross-reference | ❌ Missing |
-| SHLD-25 | Parse_Reference_HasDOI | Extract RX DOI cross-reference | ❌ Missing |
+| SHLD-24 | Parse_Reference_HasPubMed | Extract RX PUBMED cross-reference | ✅ Covered |
+| SHLD-25 | Parse_Reference_HasDOI | Extract RX DOI cross-reference | ✅ Covered |
 | SHLD-26 | Parse_Feature_HasQualifiers | Extract FT qualifier key-value pairs | ✅ Covered |
-| SHLD-27 | Parse_Organelle_ExtractsCorrectly | Extract OG line content | ❌ Missing |
+| SHLD-27 | Parse_Organelle_ExtractsCorrectly | Extract OG line content | ✅ Covered |
 | SHLD-28 | ParseLocation_PartialStart_DetectsPartial | Parse <100..200 | ✅ Covered |
 | SHLD-29 | ParseLocation_PartialEnd_DetectsPartial | Parse 100..>200 | ✅ Covered |
 | SHLD-30 | ParseLocation_SingleBase_ParsesCorrectly | Parse single position "467" | ✅ Covered |
@@ -147,22 +147,22 @@ public static partial class EmblParser
 
 | Test ID | Test Name | Description | Status |
 |---------|-----------|-------------|--------|
-| COUD-01 | Parse_DataClass_CON | Handle CON (constructed) records | ❌ Missing |
-| COUD-02 | Parse_DataClass_TSA | Handle TSA records | ❌ Missing |
-| COUD-03 | Parse_AllTaxonomicDivisions | Test all division codes | ❌ Missing |
-| COUD-04 | Parse_DatabaseCrossReference_DR | Extract DR lines | ❌ Missing |
-| COUD-05 | Parse_Comments_CC | Extract CC lines | ❌ Missing |
-| COUD-06 | Parse_WhitespaceOnly_ReturnsEmpty | Whitespace-only content | ❌ Missing |
-| COUD-07 | ParseLocation_ComplementJoin | Parse complement(join(...)) | ❌ Missing |
-| COUD-08 | ParseLocation_Order | Parse order(100..200,300..400) | ❌ Missing |
-| COUD-09 | ParseLocation_RemoteReference | Parse J00194.1:100..200 | ❌ Missing |
-| COUD-10 | Parse_MultiLineContinuation | Handle multi-line DE, RT, etc. | ❌ Missing |
-| COUD-11 | Parse_EmptyKeywords | Handle "KW   ." empty keywords | ❌ Missing |
-| COUD-12 | Parse_AccessionRange | Handle AC ranges like X00001-X00005 | ❌ Missing |
-| COUD-13 | Parse_SecondaryAccessions | Extract secondary accession numbers | ❌ Missing |
-| COUD-14 | Parse_DateLines_DT | Extract creation and update dates | ❌ Missing |
-| COUD-15 | ExtractSequence_ComplementLocation | Extract reverse complement | ❌ Missing |
-| COUD-16 | ExtractSequence_JoinLocation | Extract joined regions | ❌ Missing |
+| COUD-01 | Parse_DataClass_CON | Handle CON (constructed) records | ✅ Covered |
+| COUD-02 | Parse_DataClass_TSA | Handle TSA records | ✅ Covered |
+| COUD-03 | Parse_AllTaxonomicDivisions | Test all division codes | ✅ Covered |
+| COUD-04 | Parse_DatabaseCrossReference_DR | Extract DR lines | ✅ Covered |
+| COUD-05 | Parse_Comments_CC | Extract CC lines | ✅ Covered |
+| COUD-06 | Parse_WhitespaceOnly_ReturnsEmpty | Whitespace-only content | ✅ Covered |
+| COUD-07 | ParseLocation_ComplementJoin | Parse complement(join(...)) | ✅ Covered |
+| COUD-08 | ParseLocation_Order | Parse order(100..200,300..400) | ✅ Covered |
+| COUD-09 | ParseLocation_RemoteReference | Parse J00194.1:100..200 | ✅ Covered |
+| COUD-10 | Parse_MultiLineContinuation | Handle multi-line DE, RT, etc. | ✅ Covered |
+| COUD-11 | Parse_EmptyKeywords | Handle "KW   ." empty keywords | ✅ Covered |
+| COUD-12 | Parse_AccessionRange | Handle AC ranges like X00001-X00005 | ✅ Covered |
+| COUD-13 | Parse_SecondaryAccessions | Extract secondary accession numbers | ✅ Covered |
+| COUD-14 | Parse_DateLines_DT | Extract creation and update dates | ✅ Covered |
+| COUD-15 | ExtractSequence_ComplementLocation | Extract reverse complement | ✅ Covered |
+| COUD-16 | ExtractSequence_JoinLocation | Extract joined regions | ✅ Covered |
 
 ## Test Audit Summary
 
@@ -197,11 +197,11 @@ public static partial class EmblParser
 2. **MinimalRecord** - Minimum valid record ✅ Exists
 3. **CircularRecord** - Circular topology plasmid ✅ Exists
 4. **MultipleRecords** - Three records in one string ✅ Exists
-5. **PartialLocationRecord** - Record with <, > partial indicators ❌ Missing
-6. **ComplexLocationRecord** - Record with complement, join, nested ❌ Missing
-7. **ReferenceRecord** - Record with PubMed/DOI cross-references ❌ Missing
-8. **OrganelleRecord** - Record with OG line (mitochondrion, plastid) ❌ Missing
-9. **EmptyKeywordsRecord** - Record with "KW   ." ❌ Missing
+5. **PartialLocationRecord** - Record with <, > partial indicators ✅ Added
+6. **ComplexLocationRecord** - Record with complement, join, nested ✅ Added
+7. **ReferenceRecord** - Record with PubMed/DOI cross-references ✅ Added
+8. **OrganelleRecord** - Record with OG line (mitochondrion, plastid) ✅ Added
+9. **EmptyKeywordsRecord** - Record with "KW   ." ✅ Added
 
 ## Implementation Notes
 
