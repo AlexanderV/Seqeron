@@ -101,7 +101,7 @@ Located in `Seqeron.Genomics.Tests/PrimerDesignerTests.cs`:
 1. **Create canonical test file:** `PrimerDesigner_PrimerStructure_Tests.cs`
 2. **Move structure-related tests:** From PrimerDesignerTests.cs
 3. **Leave smoke tests:** In PrimerDesignerTests.cs for EvaluatePrimer integration
-4. **Add missing tests:** Case insensitivity, boundary conditions, additional ΔG tests
+4. ~~**Add missing tests:** Case insensitivity, boundary conditions, additional ΔG tests~~ ✅ All added
 
 ## Assumptions
 

@@ -134,17 +134,17 @@
 | AreCompatible_UnknownEnzyme_ReturnsFalse | ✓ Covered | M22 |
 | FindCompatibleEnzymes_FindsPairs | ✓ Covered | M23 |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Test Case | Priority |
-|----|-----------|----------|
-| M2 | Fragment sum invariant | Must |
-| M6 | Last fragment RightEnzyme=null | Must |
-| M8 | Fragment start positions monotonic | Must |
-| M13 | LargestFragment ≥ SmallestFragment | Must |
-| M17 | TotalSites counts forward-strand only | Must |
-| S1 | Fragment sequence content | Should |
-| S4 | AreCompatible symmetry | Should |
+| ID | Test Case | Status |
+|----|-----------|--------|
+| M2 | Fragment sum invariant | ✅ Covered |
+| M6 | Last fragment RightEnzyme=null | ✅ Covered |
+| M8 | Fragment start positions monotonic | ✅ Covered |
+| M13 | LargestFragment ≥ SmallestFragment | ✅ Covered |
+| M17 | TotalSites counts forward-strand only | ✅ Covered |
+| S1 | Fragment sequence content | ✅ Covered |
+| S4 | AreCompatible symmetry | ✅ Covered |
 
 ### Weak Tests Needing Strengthening
 
@@ -160,7 +160,7 @@
 
 1. **Canonical File**: Rename existing `RestrictionAnalyzerTests.cs` to `RestrictionAnalyzer_Digest_Tests.cs`
 2. **Remove Smoke Test**: Remove FindSites smoke test (already covered in RESTR-FIND-001)
-3. **Add Missing Tests**: M2, M6, M8, M13, M17, S1, S4
+3. ~~**Add Missing Tests**: M2, M6, M8, M13, M17, S1, S4~~ ✅ Done
 4. **Strengthen Weak Tests**: Add comprehensive invariant assertions with Assert.Multiple
 5. **Group by Feature**: Organize into Digest, Summary, Map, Compatibility regions
 
