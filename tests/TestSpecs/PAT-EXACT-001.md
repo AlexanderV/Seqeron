@@ -192,8 +192,8 @@ These are wrappers that delegate to `SuffixTree.FindAllOccurrences`. Minimal smo
 | Pattern not found | ✅ Covered | Tests exist |
 | Full text match | ✅ Covered | Tests exist |
 | Banana test (Wikipedia) | ✅ Covered | Tests exist |
-| Mississippi test (Gusfield) | ⚠️ Partial | Needs "issi" pattern |
-| Rosalind SUBS test | ❌ Missing | Need to add |
+| Mississippi test (Gusfield) | ✅ Covered | "issi" pattern added |
+| Rosalind SUBS test | ✅ Covered | Added |
 | Exhaustive substring test | ✅ Covered | Tests exist |
 | Span overload consistency | ✅ Covered | Tests exist |
 | Contains/Count consistency | ✅ Covered | Tests exist |
@@ -202,8 +202,9 @@ These are wrappers that delegate to `SuffixTree.FindAllOccurrences`. Minimal smo
 - None significant; tests are well-organized
 
 ### Missing Tests
-1. Rosalind SUBS problem example (bioinformatics standard)
-2. Mississippi "issi" pattern (classic Gusfield example)
+~~All gaps closed:~~
+1. ~~Rosalind SUBS problem example~~ ✅ Added
+2. ~~Mississippi "issi" pattern~~ ✅ Added
 
 ---
 

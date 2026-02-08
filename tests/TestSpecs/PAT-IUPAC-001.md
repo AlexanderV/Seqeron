@@ -280,31 +280,29 @@ From `PerformanceExtensionsTests.cs`:
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| Standard bases (A,C,G,T) matching | ❌ Missing | No IupacHelper tests |
-| N matches all | ⚠️ Partial | FindDegenerateMotif test only |
-| R (purine) | ⚠️ Partial | FindDegenerateMotif test only |
-| Y (pyrimidine) | ⚠️ Partial | FindDegenerateMotif test only |
-| S (strong) | ❌ Missing | No tests |
-| W (weak) | ⚠️ Partial | FindDegenerateMotif test only |
-| K (keto) | ❌ Missing | No tests |
-| M (amino) | ❌ Missing | No tests |
-| B (not A) | ❌ Missing | No tests |
-| D (not C) | ❌ Missing | No tests |
-| H (not G) | ❌ Missing | No tests |
-| V (not T) | ❌ Missing | No tests |
-| Negative tests (code does NOT match) | ❌ Missing | Critical gap |
-| Empty pattern | ❌ Missing | Edge case |
-| Empty sequence | ❌ Missing | Edge case |
-| Pattern too long | ❌ Missing | Edge case |
-| Case insensitivity | ❌ Missing | Need explicit test |
+| Standard bases (A,C,G,T) matching | ✅ Covered | M1-M5 IupacHelper tests |
+| N matches all | ✅ Covered | M50-M54 + INV-8 |
+| R (purine) | ✅ Covered | M10-M13 + INV-3 |
+| Y (pyrimidine) | ✅ Covered | M14-M17 + INV-3 |
+| S (strong) | ✅ Covered | M18-M21 + INV-3 |
+| W (weak) | ✅ Covered | M22-M25 + INV-3 |
+| K (keto) | ✅ Covered | M26-M29 + INV-3 |
+| M (amino) | ✅ Covered | M30-M33 + INV-3 |
+| B (not A) | ✅ Covered | M34-M37 + INV-3 |
+| D (not C) | ✅ Covered | M38-M41 + INV-3 |
+| H (not G) | ✅ Covered | M42-M45 + INV-3 |
+| V (not T) | ✅ Covered | M46-M49 + INV-3 |
+| Negative tests (code does NOT match) | ✅ Covered | Integrated in all INV-3 tests |
+| Empty pattern | ✅ Covered | M56 |
+| Empty sequence | ✅ Covered | M57 |
+| Pattern too long | ✅ Covered | M58 |
+| Case insensitivity | ✅ Covered | M60 |
 | Cancellation | ✅ Covered | PerformanceExtensionsTests.cs |
 | Null input | ✅ Covered | MotifFinderTests.cs |
 
 ### Weak/Redundant Tests
 
-- Existing tests cover only positive cases (code matches)
-- No tests verify that codes do NOT match excluded bases
-- No direct tests for IupacHelper.MatchesIupac
+~~All gaps closed — 89 tests now cover all IUPAC codes with positive AND negative cases~~
 
 ### Duplicates Found
 

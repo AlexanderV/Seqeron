@@ -130,8 +130,9 @@
 | FindWithEdits_WithDeletion_Found | S04 | Weak | Enhance |
 
 ### Missing Tests
-- M03, M04, M05, M09, M12, M13 (canonical vectors, symmetry, error handling)
-- S01, S02, S03, S07 (additional canonical cases, triangle inequality)
+~~All gaps closed:~~
+- ~~M03, M04, M05, M09, M12, M13 (canonical vectors, symmetry, error handling)~~ ✅ Added
+- ~~S01, S02, S03, S07 (additional canonical cases, triangle inequality)~~ ✅ Added
 
 ---
 
