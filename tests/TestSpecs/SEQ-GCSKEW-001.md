@@ -135,10 +135,8 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 
 - **Canonical test file:** `GcSkewCalculatorTests.cs` (356 lines, 36 tests)
 - **Coverage:** Good basic coverage of all methods
-- **Issues:**
-  - Some tests lack formula verification comments
-  - Missing explicit invariant range test
-  - Tests could benefit from better organization
+- **Issues:** None — all gaps closed
+  - ~~Missing explicit invariant range test~~ ✅ Added
 
 ### 6.2 Consolidation Actions
 

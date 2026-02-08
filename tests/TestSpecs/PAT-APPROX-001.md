@@ -224,11 +224,11 @@ From `ApproximateMatcherTests.cs`:
 | All different | ✅ Covered | `HammingDistance_AllDifferent_ReturnsLength` |
 | Case insensitive | ✅ Covered | `HammingDistance_CaseInsensitive` |
 | Unequal lengths throws | ✅ Covered | `HammingDistance_DifferentLengths_ThrowsException` |
-| Empty strings | ❌ Missing | Need to add |
-| Null input | ❌ Missing | Need to add |
-| Rosalind HAMM example | ❌ Missing | Need to add |
-| Wikipedia examples | ❌ Missing | Need to add |
-| Symmetry invariant | ❌ Missing | Need to add |
+| Empty strings | ✅ Covered | Added |
+| Null input | ✅ Covered | Added |
+| Rosalind HAMM example | ✅ Covered | Added |
+| Wikipedia examples | ✅ Covered | Added |
+| Symmetry invariant | ✅ Covered | Added |
 | Zero mismatches = exact | ✅ Covered | `FindWithMismatches_ExactMatch_FoundWithZeroMismatches` |
 | One mismatch found | ✅ Covered | `FindWithMismatches_OneMismatch_Found` |
 | Too many mismatches | ✅ Covered | `FindWithMismatches_TooManyMismatches_NotFound` |
@@ -236,8 +236,8 @@ From `ApproximateMatcherTests.cs`:
 | Pattern too long | ✅ Covered | `FindWithMismatches_PatternLongerThanSequence_ReturnsEmpty` |
 | Negative mismatches | ✅ Covered | `FindWithMismatches_NegativeMismatches_ThrowsException` |
 | DnaSequence overload | ✅ Covered | `FindWithMismatches_DnaSequence_Works` |
-| MismatchPositions correct | ⚠️ Partial | Tests exist but need explicit verification |
-| Result invariants | ❌ Missing | Need invariant tests |
+| MismatchPositions correct | ✅ Covered | Explicit verification added |
+| Result invariants | ✅ Covered | Invariant tests added |
 | Span API | ✅ Covered | In PerformanceExtensionsTests.cs (smoke) |
 
 ### Weak/Redundant Tests

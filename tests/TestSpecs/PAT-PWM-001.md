@@ -226,7 +226,7 @@ ATGGCACT
 | Move & expand | MotifFinderTests.cs (#region PWM Tests) | MotifFinder_PWM_Tests.cs | Dedicated canonical test file |
 | Retain smoke tests | - | MotifFinderTests.cs | API verification (2-3 tests) |
 | Remove duplicates | - | - | None identified |
-| Add missing | - | New file | M14 (Rosalind), threshold tests, invariant tests |
+| ~~Add missing~~ | - | ✅ Done | M14 (Rosalind), threshold tests, invariant tests — all added |
 
 ### 5.3 Final Test Structure
 
@@ -290,9 +290,9 @@ None - all behaviors are documented in sources or marked as ASSUMPTIONS.
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| Covered | 8 | Basic happy path and null handling |
-| Missing | 8 | Rosalind test case, threshold tests, invariants, edge cases |
-| Weak | 2 | Score verification needs bounds check |
+| Covered | 16 | All tests implemented |
+| Missing | 0 | ~~Rosalind test case, threshold tests, invariants, edge cases~~ ✅ All added |
+| Weak | 0 | ~~Score verification~~ ✅ Strengthened |
 | Duplicate | 0 | None |
 | Incorrect | 0 | None |
 

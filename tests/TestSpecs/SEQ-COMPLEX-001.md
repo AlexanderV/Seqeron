@@ -101,31 +101,24 @@ This TestSpec covers the Linguistic Complexity (LC) calculation for DNA sequence
 | `CalculateLinguisticComplexity_NullSequence_ThrowsException` | M5 | ✓ Covered | Good |
 | `CalculateLinguisticComplexity_ZeroWordLength_ThrowsException` | M6 | ✓ Covered | Good |
 
-### Missing Coverage
+### Coverage (All Gaps Closed)
 
-| ID | Gap | Priority |
-|----|-----|----------|
-| GAP-1 | M8: Single nucleotide test | MUST |
-| GAP-2 | M2: Range invariant with multiple sequences (Assert.Multiple) | MUST |
-| GAP-3 | M7: String overload equality test | MUST |
-| GAP-4 | S1: Dinucleotide repeat vs random comparison | SHOULD |
-| GAP-5 | S4: maxWordLength parameter effect | SHOULD |
-
-### Weak Tests to Strengthen
-
-| Test | Issue | Fix |
-|------|-------|-----|
-| `CalculateLinguisticComplexity_RangeIsZeroToOne` | Single sequence | Add multiple sequences with Assert.Multiple |
-| `CalculateLinguisticComplexity_StringOverload_Works` | Only checks > 0 | Verify equality with DnaSequence version |
+| ID | Gap | Status |
+|----|-----|--------|
+| GAP-1 | M8: Single nucleotide test | ✅ Covered |
+| GAP-2 | M2: Range invariant with multiple sequences (Assert.Multiple) | ✅ Covered |
+| GAP-3 | M7: String overload equality test | ✅ Covered |
+| GAP-4 | S1: Dinucleotide repeat vs random comparison | ✅ Covered |
+| GAP-5 | S4: maxWordLength parameter effect | ✅ Covered |
 
 ## Consolidation Plan
 
 1. **Canonical file:** `SequenceComplexityTests.cs` (existing)
 2. **No wrapper/delegate separation needed** — all methods are in SequenceComplexity class
 3. **Actions:**
-   - Strengthen existing weak tests
-   - Add missing MUST tests
-   - Add relevant SHOULD tests
+   - ~~Strengthen existing weak tests~~ ✅ Done
+   - ~~Add missing MUST tests~~ ✅ Done
+   - ~~Add relevant SHOULD tests~~ ✅ Done
    - Organize tests into clear regions
 
 ## Open Questions / Decisions

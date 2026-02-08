@@ -134,11 +134,11 @@ Empty sequence → H = 0.0 (no information)
 ### Gap Analysis
 | ID | Coverage Status | Action |
 |----|-----------------|--------|
-| M05 | Missing | Add range invariant test |
-| M08 | Weak | Strengthen to verify exact equality |
-| M10 | Missing | Add k parameter validation test |
-| S01 | Missing | Add case insensitivity test |
-| S03 | Missing | Add three-base distribution test |
+| M05 | ✅ Covered | Range invariant test added |
+| M08 | ✅ Covered | Strengthened to verify exact equality |
+| M10 | ✅ Covered | k parameter validation test added |
+| S01 | ✅ Covered | Case insensitivity test added |
+| S03 | ✅ Covered | Three-base distribution test added |
 
 ### Consolidation Plan
 1. **Canonical file:** `SequenceComplexityTests.cs` - deep evidence-based tests
