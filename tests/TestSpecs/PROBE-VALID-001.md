@@ -85,18 +85,18 @@
 | ValidateProbe_MultipleHits_LowSpecificity | Covered | M4 partially |
 | ValidateProbe_HighSelfComplementarity_ReportsIssue | Covered | M8 partially |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Test Case | Priority |
-|----|-----------|----------|
-| M1 | Empty probe handling | Must |
-| M2 | Empty references handling | Must |
-| M5 | Specificity range invariant | Must |
-| M6 | Self-complementarity range invariant | Must |
-| M7 | OffTargetHits non-negativity | Must |
-| M9-M11 | CheckSpecificity with suffix tree | Must |
-| M12 | Case-insensitive handling | Must |
-| S1-S4 | Should tests | Should |
+| ID | Test Case | Status |
+|----|-----------|--------|
+| M1 | Empty probe handling | ✅ Covered |
+| M2 | Empty references handling | ✅ Covered |
+| M5 | Specificity range invariant | ✅ Covered |
+| M6 | Self-complementarity range invariant | ✅ Covered |
+| M7 | OffTargetHits non-negativity | ✅ Covered |
+| M9-M11 | CheckSpecificity with suffix tree | ✅ Covered |
+| M12 | Case-insensitive handling | ✅ Covered |
+| S1-S4 | Should tests | ✅ Covered |
 
 ### Weak Tests
 
@@ -111,7 +111,7 @@
 
 1. **Canonical File**: Create `ProbeDesigner_ProbeValidation_Tests.cs` (new file)
 2. **Smoke Tests**: Keep 1-2 validation tests in `ProbeDesignerTests.cs` as smoke tests
-3. **Add Missing Tests**: M1-M12, S1-S4
+3. ~~**Add Missing Tests**: M1-M12, S1-S4~~ ✅ Done
 4. **Strengthen Tests**: Use Assert.Multiple for invariant grouping
 5. **Remove**: Move validation tests from ProbeDesignerTests.cs to canonical file
 6. **Naming Convention**: `Method_Scenario_ExpectedResult`

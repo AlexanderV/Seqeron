@@ -268,15 +268,15 @@ Verify: Behavior is consistent (either treats U as T or excludes)
 | CalculateMeltingTemperature_EmptyPrimer_Returns0 | Empty input | Covered ✓ |
 | CalculateMeltingTemperatureWithSalt_AppliesSaltCorrection | Salt ≠ base | Weak (no exact value) |
 
-### Gaps Identified
+### Gaps Identified (All Closed)
 
-1. **Missing:** Null input test
-2. **Missing:** Boundary tests (13bp vs 14bp)
-3. **Missing:** Exact Marmur-Doty value verification
-4. **Missing:** Case insensitivity test
-5. **Missing:** Mixed Wallace test
-6. **Missing:** Salt correction exact values
-7. **Weak:** Long primer test only checks range, not formula
+1. ~~**Missing:** Null input test~~ ✅ Covered
+2. ~~**Missing:** Boundary tests (13bp vs 14bp)~~ ✅ Covered
+3. ~~**Missing:** Exact Marmur-Doty value verification~~ ✅ Covered
+4. ~~**Missing:** Case insensitivity test~~ ✅ Covered
+5. ~~**Missing:** Mixed Wallace test~~ ✅ Covered
+6. ~~**Missing:** Salt correction exact values~~ ✅ Covered
+7. ~~**Weak:** Long primer test only checks range~~ ✅ Strengthened
 
 ---
 

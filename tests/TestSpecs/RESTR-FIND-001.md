@@ -97,14 +97,14 @@
 | FindSites_MultipleEnzymes_FindsAllSites | Covered | M12 |
 | FindAllSites_FindsMultipleEnzymes | Covered | M11 |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Test Case | Priority |
-|----|-----------|----------|
-| M8 | Empty sequence handling | Must |
-| M9 | CutPosition calculation verification | Must |
-| M10 | RecognizedSequence verification | Must |
-| M13 | Custom enzyme support | Must |
+| ID | Test Case | Status |
+|----|-----------|--------|
+| M8 | Empty sequence handling | ✅ Covered |
+| M9 | CutPosition calculation verification | ✅ Covered |
+| M10 | RecognizedSequence verification | ✅ Covered |
+| M13 | Custom enzyme support | ✅ Covered |
 
 ### Weak Tests
 
@@ -120,7 +120,7 @@
 1. **Canonical File**: Create `RestrictionAnalyzer_FindSites_Tests.cs` with FindSites/FindAllSites/GetEnzyme tests
 2. **Keep in RestrictionAnalyzerTests.cs**: Digest, Map, Compatibility tests (for RESTR-DIGEST-001)
 3. **Move to Canonical**: All FindSites and GetEnzyme tests
-4. **Add Missing Tests**: M8, M9, M10, M13, S1-S5
+4. ~~**Add Missing Tests**: M8, M9, M10, M13, S1-S5~~ ✅ Done
 5. **Strengthen Tests**: Use Assert.Multiple for invariant grouping
 
 ---

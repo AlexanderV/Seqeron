@@ -68,7 +68,7 @@
 **Evidence**: Hsu 2013 - single mismatches tolerated, especially in PAM-distal region
 **Input**: Guide with 1 mismatch site in genome
 **Expected**: Off-target returned with Mismatches=1
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### M-006: FindOffTargets - Max Mismatches Respected
 **Evidence**: Algorithm specification
@@ -86,13 +86,13 @@
 **Evidence**: Wikipedia, Hsu 2013 - PAM is required for cleavage
 **Input**: Genome with similar sequence but no PAM
 **Expected**: No off-target returned
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### M-009: FindOffTargets - Searches Both Strands
 **Evidence**: CRISPR can target either strand
 **Input**: Guide with off-target on reverse strand only
 **Expected**: Off-target returned with IsForwardStrand=false
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### M-010: CalculateSpecificityScore - Returns Value 0-100
 **Evidence**: Score should be normalized percentage
@@ -120,25 +120,25 @@
 **Evidence**: Hsu 2013 - PAM-proximal (seed) mismatches less tolerated but reduce off-target activity more
 **Input**: Guide with off-target having seed region mismatch vs distal mismatch
 **Expected**: Seed mismatch has higher OffTargetScore (more penalty)
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### S-002: FindOffTargets - Multiple Mismatches Summed
 **Evidence**: Hsu 2013 - aggregate effect of multiple mismatches
 **Input**: Guide with off-target having 2-3 mismatches
 **Expected**: Mismatches count and positions all reported
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### S-003: FindOffTargets - Cas12a System Supported
 **Evidence**: Different CRISPR systems have different characteristics
 **Input**: Guide, genome, Cas12a system type
 **Expected**: Off-targets found using Cas12a PAM (TTTV) and guide length (23bp)
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 #### S-004: CalculateSpecificityScore - Seed Mismatches Penalized More
 **Evidence**: Implementation uses position-dependent scoring
 **Input**: Controlled off-targets with seed vs non-seed mismatches
 **Expected**: Seed mismatches contribute more to penalty
-**Existing Test**: MISSING ❌
+**Existing Test**: ✅ Covered
 
 ---
 

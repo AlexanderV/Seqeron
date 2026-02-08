@@ -95,21 +95,20 @@
 | FindPamSites_Cas12a_TTTV_FindsSites | M13 partial | Weak (only TTTA) | Enhance |
 | FindPamSites_SaCas9_NNGRRT_FindsSites | M15 partial | Weak | Enhance |
 
-### Gaps Identified
+### Gaps Identified (All Closed)
 
-- M7: Need GGG variant test
-- M13: Need TTTC, TTTG variant tests
-- M14: Missing test for TTTT exclusion in Cas12a
-- M15: Need comprehensive NNGRRT pattern tests (R = A, G)
-- S1-S5: Most SHOULD tests missing
-- No dedicated PAM test file (tests mixed with guide RNA design tests)
+- ~~M7: Need GGG variant test~~ ✅ Covered
+- ~~M13: Need TTTC, TTTG variant tests~~ ✅ Covered
+- ~~M14: Missing test for TTTT exclusion in Cas12a~~ ✅ Covered
+- ~~M15: Need comprehensive NNGRRT pattern tests (R = A, G)~~ ✅ Covered
+- ~~S1-S5: Most SHOULD tests missing~~ ✅ Covered
 
 ### Consolidation Plan
 
-1. **Create** `CrisprDesigner_PAM_Tests.cs` for dedicated PAM detection tests
-2. **Extract** PAM-related tests from `CrisprDesignerTests.cs` to new file
-3. **Enhance** weak tests with stronger assertions
-4. **Add** missing Must tests (M7 complete, M13-M15)
+1. ~~**Create** `CrisprDesigner_PAM_Tests.cs`~~ ✅ Done
+2. ~~**Extract** PAM-related tests from `CrisprDesignerTests.cs`~~ ✅ Done
+3. ~~**Enhance** weak tests with stronger assertions~~ ✅ Done
+4. ~~**Add** missing Must tests (M7, M13-M15)~~ ✅ Done
 5. **Keep** remaining tests in `CrisprDesignerTests.cs` (guide RNA, off-target)
 
 ## Open Questions

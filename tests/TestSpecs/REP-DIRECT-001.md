@@ -92,8 +92,8 @@ All MUST tests are justified by evidence or explicitly marked.
 
 1. **Canonical file:** `RepeatFinder_DirectRepeat_Tests.cs` (new dedicated file)
 2. **Remove from RepeatFinderTests.cs:** All direct repeat tests (move to dedicated file)
-3. **Add missing tests:** M5, M6, M7, M9, M10, M11, M12, M13, M14, S1, S3, S4, S5
-4. **Strengthen existing:** M1 (vague assertion), M8 (conditional)
+3. ~~**Add missing tests:** M5, M6, M7, M9, M10, M11, M12, M13, M14, S1, S3, S4, S5~~ ✅ All added
+4. ~~**Strengthen existing:** M1 (vague assertion), M8 (conditional)~~ ✅ Done
 
 ---
 

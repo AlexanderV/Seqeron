@@ -99,7 +99,7 @@ All MUST tests are justified by evidence or explicitly marked.
 1. **Canonical file:** `RepeatFinder_InvertedRepeat_Tests.cs` (new dedicated file)
 2. **Remove from RepeatFinderTests.cs:** Move inverted repeat tests to dedicated file
 3. **Remove from RnaSecondaryStructureTests.cs:** Duplicate tests (keep 1 smoke test)
-4. **Add missing:** M3, M7, M8, M9, M11, M12, S3, S4, S5
+4. ~~**Add missing:** M3, M7, M8, M9, M11, M12, S3, S4, S5~~ ✅ All added
 
 ---
 

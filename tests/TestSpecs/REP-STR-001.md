@@ -136,21 +136,21 @@ Assert.That(seq.Substring(r.Position, r.TotalLength), Is.EqualTo(r.FullSequence)
 | `FindMicrosatellites_InvalidMaxUnitLength_ThrowsException` | M11 | ✓ Good | Keep |
 | `FindMicrosatellites_InvalidMinRepeats_ThrowsException` | M11 | ✓ Good | Keep |
 
-### Missing Tests
-| Test | Priority |
-|------|----------|
-| Hexanucleotide detection | Should |
-| RepeatType enum validation | Must |
-| Position range invariant | Must |
-| Invariant assertions (Assert.Multiple) | Must |
-| Case insensitivity | Should |
-| Cancellation smoke test | existing in PerformanceExtensionsTests |
+### Missing Tests (All Closed)
+| Test | Status |
+|------|--------|
+| Hexanucleotide detection | ✅ Covered |
+| RepeatType enum validation | ✅ Covered |
+| Position range invariant | ✅ Covered |
+| Invariant assertions (Assert.Multiple) | ✅ Covered |
+| Case insensitivity | ✅ Covered |
+| Cancellation smoke test | ✅ Covered (PerformanceExtensionsTests) |
 
 ### Consolidation Plan
-1. Create dedicated `RepeatFinder_Microsatellite_Tests.cs` for canonical STR tests
+1. ~~Create dedicated `RepeatFinder_Microsatellite_Tests.cs`~~ ✅ Done
 2. Keep cancellation smoke test in PerformanceExtensionsTests
-3. Add missing Must tests
-4. Strengthen assertions with invariant checks
+3. ~~Add missing Must tests~~ ✅ Done
+4. ~~Strengthen assertions with invariant checks~~ ✅ Done
 
 ---
 

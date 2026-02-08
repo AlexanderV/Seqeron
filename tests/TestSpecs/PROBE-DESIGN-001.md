@@ -105,15 +105,15 @@
 | AnalyzeOligo_CalculatesAllProperties | Covered | Related utility |
 | Edge cases (AllGC, AllAT, Homopolymer, CaseInsensitive) | Partially | Need strengthening |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Test Case | Priority |
-|----|-----------|----------|
-| M2 | Null sequence handling | Must |
-| M8 | Probe sequence matches substring | Must |
-| M15 | maxProbes limits result count | Must |
-| - | Score range invariant assertion | Must |
-| - | Assert.Multiple for invariant grouping | Refactor |
+| ID | Test Case | Status |
+|----|-----------|--------|
+| M2 | Null sequence handling | ✅ Covered |
+| M8 | Probe sequence matches substring | ✅ Covered |
+| M15 | maxProbes limits result count | ✅ Covered |
+| - | Score range invariant assertion | ✅ Covered |
+| - | Assert.Multiple for invariant grouping | ✅ Covered |
 
 ### Weak Tests
 
@@ -128,7 +128,7 @@
 ## Consolidation Plan
 
 1. **Canonical File**: `ProbeDesignerTests.cs` → rename to `ProbeDesigner_ProbeDesign_Tests.cs`
-2. **Add Missing Tests**: M2, M8, M15, invariant assertions
+2. ~~**Add Missing Tests**: M2, M8, M15, invariant assertions~~ ✅ Done
 3. **Strengthen Weak Tests**: FISH/qPCR tests to verify actual probe lengths
 4. **Use Assert.Multiple**: Group invariant assertions for clarity
 5. **Remove**: None (no duplicates found)

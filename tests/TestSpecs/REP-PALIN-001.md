@@ -136,7 +136,7 @@ All MUST tests are justified by evidence or explicitly marked.
 1. **Canonical file:** `RepeatFinder_Palindrome_Tests.cs` (new dedicated file)
 2. **Remove from RepeatFinderTests.cs:** All palindrome tests (move to dedicated file)
 3. **GenomicAnalyzerTests.cs:** Keep only minimal smoke tests (1-2), update comments
-4. **Add missing tests:** M3, M5, M6, M9, M11, M12, M14, M15, M16, M17, S2, S3, S4, S5, S6
+4. ~~**Add missing tests:** M3, M5, M6, M9, M11, M12, M14, M15, M16, M17, S2, S3, S4, S5, S6~~ ✅ All added
 
 ---
 
