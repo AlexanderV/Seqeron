@@ -104,12 +104,12 @@
 | `ToGff3_GeneratesValidOutput` | Covered (M14, M17) | Move to canonical file |
 | `ToGff3_EscapesSpecialCharacters` | Covered (M16) | Move to canonical file |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-- M2 (all columns), M4 (null score), M5 (phase int), M6 (null phase)
-- M8 (directives), M9 (empty lines), M12 (malformed), M13 (auto ID)
-- M15 (coordinate conversion), M18 (strand values)
-- S3 (translation excluded), S4 (roundtrip)
+- ~~M2 (all columns), M4 (null score), M5 (phase int), M6 (null phase)~~ ✅ Covered
+- ~~M8 (directives), M9 (empty lines), M12 (malformed), M13 (auto ID)~~ ✅ Covered
+- ~~M15 (coordinate conversion), M18 (strand values)~~ ✅ Covered
+- ~~S3 (translation excluded), S4 (roundtrip)~~ ✅ Covered
 
 ---
 
@@ -118,8 +118,8 @@
 1. **Create** `GenomeAnnotator_GFF3_Tests.cs` as canonical test file
 2. **Move** 6 existing tests from `GenomeAnnotatorTests.cs` GFF3 regions
 3. **Remove** GFF3 tests from `GenomeAnnotatorTests.cs`
-4. **Add** missing Must tests (M2, M4-M6, M8-M9, M12-M13, M15, M18)
-5. **Add** relevant Should tests (S3, S4)
+4. ~~**Add** missing Must tests (M2, M4-M6, M8-M9, M12-M13, M15, M18)~~ ✅ Done
+5. ~~**Add** relevant Should tests (S3, S4)~~ ✅ Done
 
 ---
 

@@ -88,18 +88,18 @@
 | `CalculateAlphaDiversity_EmptyAbundances_ReturnsZero` | M1 | Missing full invariant check | Add Assert.Multiple |
 | `CalculateAlphaDiversity_CalculatesPielouEvenness` | M10 | Good | Keep |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Gap | Priority |
-|----|-----|----------|
-| M2 | Null input | Must add |
-| M5, M6 | Single species InverseSimpson, Pielou | Must add |
-| M11-M13 | Four equal species exact values | Must add |
-| M14 | Zero abundance filtering | Must add |
-| M15 | Normalization | Must add |
-| M16-M18 | Invariant bounds | Must add |
-| M19 | Chao1 bound | Must add |
-| S2-S4 | Richness scaling properties | Should add |
+| ID | Gap | Status |
+|----|-----|--------|
+| M2 | Null input | ✅ Covered |
+| M5, M6 | Single species InverseSimpson, Pielou | ✅ Covered |
+| M11-M13 | Four equal species exact values | ✅ Covered |
+| M14 | Zero abundance filtering | ✅ Covered |
+| M15 | Normalization | ✅ Covered |
+| M16-M18 | Invariant bounds | ✅ Covered |
+| M19 | Chao1 bound | ✅ Covered |
+| S2-S4 | Richness scaling properties | ✅ Covered |
 
 ### Duplicate/Weak Tests
 

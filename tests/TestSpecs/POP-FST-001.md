@@ -139,14 +139,14 @@ Assert.That(fst, Is.GreaterThanOrEqualTo(0));
 | `CalculateFStatistics_ReturnsAllComponents` | M8 | Weak | Strengthen assertions |
 | `CalculateFst_EmptyPopulations_ReturnsZero` | M5 | ✓ Adequate | Keep, move to canonical file |
 
-### 5.2 Missing Tests
+### 5.2 Missing Tests (All Closed)
 
-| Test | Priority | Reason |
-|------|----------|--------|
-| Value range invariant check | Must | M3 not explicitly tested |
-| F-statistics partition verification | Should | S4 not tested |
-| Fis/Fit range validation | Should | Component ranges not tested |
-| Single locus edge case | Could | C3 not tested |
+| Test | Status |
+|------|--------|
+| Value range invariant check | ✅ Covered |
+| F-statistics partition verification | ✅ Covered |
+| Fis/Fit range validation | ✅ Covered |
+| Single locus edge case | ✅ Covered |
 
 ### 5.3 Consolidation Plan
 

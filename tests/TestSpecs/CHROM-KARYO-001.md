@@ -122,7 +122,7 @@ ChromosomeAnalyzer_Karyotype_Tests
 
 ### Consolidation Actions
 1. Extract karyotype tests to dedicated `ChromosomeAnalyzer_Karyotype_Tests.cs`
-2. Add missing Should tests (S1-S6)
+2. ~~Add missing Should tests (S1-S6)~~ ✅ Added
 3. Add invariant verification with Assert.Multiple
 4. Keep telomere/centromere tests in their respective files per prior Test Units
 

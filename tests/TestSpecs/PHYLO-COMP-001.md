@@ -123,7 +123,7 @@
 
 ### Consolidation Plan
 - Rename file to `PhylogeneticAnalyzer_TreeComparison_Tests.cs`
-- Add missing MUST tests
+- ~~Add missing MUST tests~~ ✅ All added
 - Strengthen weak tests with explicit expected values
 - Keep existing good tests
 - Remove duplicate coverage

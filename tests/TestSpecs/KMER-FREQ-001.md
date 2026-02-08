@@ -126,12 +126,12 @@ None. All behavior is well-defined by mathematical definitions and sources.
 | `CalculateKmerEntropy_SingleRepeated_ZeroEntropy` | Exists | Covered |
 | `CalculateKmerEntropy_EmptySequence_ReturnsZero` | Exists | Covered |
 
-**Gaps Identified:**
-- Missing edge case tests for GetKmerSpectrum
-- Missing spectrum total invariant test
-- Missing entropy bounds invariant test
-- Missing spectrum edge case tests
-- Tests need consolidation into dedicated test file
+**Gaps Identified (All Closed):**
+- ~~Missing edge case tests for GetKmerSpectrum~~ ✅ Covered
+- ~~Missing spectrum total invariant test~~ ✅ Covered
+- ~~Missing entropy bounds invariant test~~ ✅ Covered
+- ~~Missing spectrum edge case tests~~ ✅ Covered
+- ~~Tests need consolidation into dedicated test file~~ ✅ Done
 
 **Consolidation Plan:**
 1. Create new canonical file: `KmerAnalyzer_Frequency_Tests.cs`

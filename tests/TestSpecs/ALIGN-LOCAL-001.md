@@ -113,13 +113,13 @@ Existing tests found in [Seqeron.Genomics.Tests/SequenceAlignerTests.cs](../test
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Zero floor invariant (INV-1) | Weak | `NoSimilarity` test has meaningless assertion |
-| Wikipedia example dataset | Missing | No evidence-based dataset verification |
-| AlignmentType is Local (INV-3) | Covered | `FindsBestSubsequence` tests this |
-| Position validity (INV-5) | Covered | `ReturnsPositions` tests bounds |
-| Empty input handling | Missing | Not tested |
-| Null argument handling | Covered | Present in null handling region |
-| Gaps removal invariant (INV-4) | Missing | Not tested |
+| Zero floor invariant (INV-1) | ✅ Covered | Strengthened with proper assertions |
+| Wikipedia example dataset | ✅ Covered | Dataset-based verification added |
+| AlignmentType is Local (INV-3) | ✅ Covered | `FindsBestSubsequence` tests this |
+| Position validity (INV-5) | ✅ Covered | `ReturnsPositions` tests bounds |
+| Empty input handling | ✅ Covered | Added |
+| Null argument handling | ✅ Covered | Present in null handling region |
+| Gaps removal invariant (INV-4) | ✅ Covered | Added |
 
 ### 5.3 Consolidation Plan
 

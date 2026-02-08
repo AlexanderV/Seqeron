@@ -72,7 +72,7 @@
 1. **Canonical file:** `PhylogeneticAnalyzer_DistanceMatrix_Tests.cs` (new file for PHYLO-DIST-001)
 2. **Existing file:** `PhylogeneticAnalyzerTests.cs` contains distance tests mixed with tree tests
 3. **Action:** Extract and refactor distance-related tests into dedicated test file
-4. **Strengthen:** Add missing Must tests (M08, M09, M12, M13)
+4. ~~**Strengthen:** Add missing Must tests (M08, M09, M12, M13)~~ ✅ All added
 5. **Remove:** Weak tests with vague assertions
 
 ---

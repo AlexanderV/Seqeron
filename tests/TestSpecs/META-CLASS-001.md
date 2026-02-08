@@ -96,9 +96,9 @@
 
 1. **Create** `MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs` for META-CLASS-001
 2. **Migrate** relevant tests from `MetagenomicsAnalyzerTests.cs`
-3. **Add** missing MUST tests (M5, M6, M12, M13, M14, M16)
-4. **Strengthen** existing tests with invariant assertions
-5. **Remove** tests from generic file once migrated
+3. ~~**Add** missing MUST tests (M5, M6, M12, M13, M14, M16)~~ ✅ Done
+4. ~~**Strengthen** existing tests with invariant assertions~~ ✅ Done
+5. ~~**Remove** tests from generic file once migrated~~ ✅ Done
 
 ### Test Structure
 

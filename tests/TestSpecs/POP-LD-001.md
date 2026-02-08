@@ -77,16 +77,16 @@
 | `CalculateLD_EmptyGenotypes_ReturnsZeroLD` | M1 | Covered | Move to canonical file |
 | `FindHaplotypeBlocks_SingleVariant_NoBlocks` | M9 | Covered | Move to canonical file |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| Must ID | Missing Test |
-|---------|--------------|
-| M2 | r² range validation |
-| M3 | D' range validation |
-| M8 | Monomorphic locus handling |
-| M10 | Empty variants list |
-| M13 | Block position ordering |
-| M14 | Block minimum variant count |
+| Must ID | Status |
+|---------|--------|
+| M2 | ✅ Covered |
+| M3 | ✅ Covered |
+| M8 | ✅ Covered |
+| M10 | ✅ Covered |
+| M13 | ✅ Covered |
+| M14 | ✅ Covered |
 
 ---
 

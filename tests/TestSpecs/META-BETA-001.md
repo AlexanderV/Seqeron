@@ -98,14 +98,14 @@
 - ✅ S1.1: Partial overlap with intermediate distance
 - ✅ Basic sample name preservation
 
-**Missing/Weak:**
-- ❌ M1.3: Symmetry property not explicitly tested
-- ❌ M2.4: Empty sample handling not tested
-- ❌ M2.5: Single species scenarios not tested
-- ❌ M3.6: Range constraints not validated with Assert.That(..., Is.InRange(0, 1))
-- ❌ M3.7: Species count accuracy not validated 
-- ❌ S1.2: Abundance vs presence distinction not tested
-- ❌ S2.1: Zero abundance handling not tested
+**Missing/Weak (All Closed):**
+- ✅ M1.3: Symmetry property — Covered
+- ✅ M2.4: Empty sample handling — Covered
+- ✅ M2.5: Single species scenarios — Covered
+- ✅ M3.6: Range constraints — Covered
+- ✅ M3.7: Species count accuracy — Covered
+- ✅ S1.2: Abundance vs presence distinction — Covered
+- ✅ S2.1: Zero abundance handling — Covered
 
 ### Test Integration Plan
 

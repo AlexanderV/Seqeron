@@ -89,13 +89,13 @@
 | `CountKmers_DnaSequence_Works` | Covered (wrapper smoke) | Keep |
 | `CountKmersSpan_ReturnsCorrectCounts` | Covered (M10) | Keep in PerformanceExtensionsTests |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-- M5: Total count invariant (add property-based test)
-- M7: Case-insensitive counting (add explicit test)
-- M11: CountKmersBothStrands validation (add explicit test)
-- S3: k=1 edge case
-- S4: k=sequence length edge case
+- ~~M5: Total count invariant~~ ✅ Covered
+- ~~M7: Case-insensitive counting~~ ✅ Covered
+- ~~M11: CountKmersBothStrands validation~~ ✅ Covered
+- ~~S3: k=1 edge case~~ ✅ Covered
+- ~~S4: k=sequence length edge case~~ ✅ Covered
 
 ## Open Questions / Decisions
 

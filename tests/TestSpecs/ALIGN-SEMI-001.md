@@ -116,7 +116,7 @@
 
 1. **Move existing tests**: Extract semi-global tests from SequenceAlignerTests.cs to new canonical file
 2. **Strengthen tests**: Add invariant validation (INV-1 through INV-5)
-3. **Add missing Must tests**: M3, M4, M5, M6, M8
+3. ~~**Add missing Must tests**: M3, M4, M5, M6, M8~~ ✅ All added
 4. **Add Should tests**: S1, S2, S3, S4
 5. **Remove weak tests**: Replace with invariant-focused versions
 
