@@ -143,7 +143,7 @@ Assert.Multiple(() => {
 ### 6.3 Consolidation Plan
 
 1. **Extract** aneuploidy tests from `ChromosomeAnalyzerTests.cs` to dedicated `ChromosomeAnalyzer_Aneuploidy_Tests.cs`
-2. **Add** missing MUST tests (M5, M6, M7, M8, M9, M10, M12, M14, M15, M16)
+2. ~~**Add** missing MUST tests (M5, M6, M7, M8, M9, M10, M12, M14, M15, M16)~~ ✅ All added
 3. **Add** SHOULD tests for invariants
 4. **Rename** existing tests to follow `Method_Scenario_ExpectedResult` pattern without `With` prefix
 5. **Keep** note in original file pointing to dedicated test file

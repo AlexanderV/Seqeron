@@ -117,15 +117,15 @@
 | CalculateMAF_HighAltFreq_ReturnsMinorAllele | Covered (MAF-M06) | Keep |
 | FilterByMAF_FiltersCorrectly | Weak (FLT-M01/M02 combined) | Enhance |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-- AF-M02 (Wikipedia example)
-- AF-M04 (All homozygous minor)
-- AF-M05 (All heterozygous)
-- AF-M01 (Sum to 1 invariant - property test)
-- AF-M08, AF-M09 (Range constraints)
-- MAF-M02 through MAF-M05, MAF-M07, MAF-M08
-- FLT-M03 through FLT-M07
+- ~~AF-M02 (Wikipedia example)~~ ✅ Covered
+- ~~AF-M04 (All homozygous minor)~~ ✅ Covered
+- ~~AF-M05 (All heterozygous)~~ ✅ Covered
+- ~~AF-M01 (Sum to 1 invariant)~~ ✅ Covered
+- ~~AF-M08, AF-M09 (Range constraints)~~ ✅ Covered
+- ~~MAF-M02 through MAF-M05, MAF-M07, MAF-M08~~ ✅ Covered
+- ~~FLT-M03 through FLT-M07~~ ✅ Covered
 
 ### Consolidation Plan
 

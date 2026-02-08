@@ -78,18 +78,18 @@
 | `GenerateTaxonomicProfile_CalculatesDiversity` | M9, M10 (partial) | Add formula verification |
 | `GenerateTaxonomicProfile_WithUnclassified_ExcludesFromAbundance` | M3, M4 | Keep, strengthen assertions |
 
-### Missing Tests
+### Missing Tests (All Closed)
 
-| ID | Gap | Priority |
-|----|-----|----------|
-| M1 | Empty input | Must add |
-| M6 | ClassifiedReads count verification | Must add |
-| M7 | Bound invariant | Must add |
-| M8 | Sum normalization | Must add |
-| M11 | Single species Shannon=0 | Must add |
-| M12 | Single species Simpson=1.0 | Must add |
-| M13 | Empty string filtering | Must add |
-| M14 | Equal counts → equal abundances | Must add |
+| ID | Gap | Status |
+|----|-----|--------|
+| M1 | Empty input | ✅ Covered |
+| M6 | ClassifiedReads count verification | ✅ Covered |
+| M7 | Bound invariant | ✅ Covered |
+| M8 | Sum normalization | ✅ Covered |
+| M11 | Single species Shannon=0 | ✅ Covered |
+| M12 | Single species Simpson=1.0 | ✅ Covered |
+| M13 | Empty string filtering | ✅ Covered |
+| M14 | Equal counts → equal abundances | ✅ Covered |
 
 ## Consolidation Plan
 

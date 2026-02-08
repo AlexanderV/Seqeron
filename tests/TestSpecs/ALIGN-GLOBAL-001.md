@@ -91,8 +91,8 @@ None evidence-backed beyond MUST at this time.
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Global alignment invariants | Weak | Existing tests use minimal assertions (score > 0, gap presence) without evidence grounding |
-| Wikipedia example dataset | Missing | No dataset-based verification |
+| Global alignment invariants | ✅ Covered | Evidence-based invariant tests added |
+| Wikipedia example dataset | ✅ Covered | Dataset-based verification added |
 | Empty input handling | Covered | Present but not evidence-based |
 | Null argument handling | Covered | Present but not evidence-based |
 

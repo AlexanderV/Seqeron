@@ -105,7 +105,7 @@
 ### Consolidation Plan
 
 1. **Extract PHYLO-NEWICK-001 tests** from `PhylogeneticAnalyzerTests.cs` into new canonical file
-2. **Add missing tests**: M04, M08, M10, M12, M13, S01-S05
+2. ~~**Add missing tests**: M04, M08, M10, M12, M13, S01-S05~~ ✅ All added
 3. **Rename tests** to follow `Method_Scenario_ExpectedResult` pattern
 4. **Add Assert.Multiple** for invariant groups
 5. **Remove PHYLO-COMP-001 tests** from the original file (leave for separate processing)

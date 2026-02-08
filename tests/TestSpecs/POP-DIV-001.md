@@ -144,7 +144,7 @@
 1. **Create new file:** `PopulationGeneticsAnalyzer_Diversity_Tests.cs`
 2. **Move and enhance:** All diversity-related tests from `PopulationGeneticsAnalyzerTests.cs`
 3. **Remove duplicates:** Merge redundant single-sequence tests
-4. **Add missing:** Empty input, edge cases, invariant tests
+4. ~~**Add missing:** Empty input, edge cases, invariant tests~~ ✅ All added
 5. **Organize:** Group by method with clear regions
 
 ---

@@ -120,7 +120,7 @@
 ### Canonical Test File
 **File:** `GenomeAnnotator_ORF_Tests.cs`
 - Refactor existing tests from GenomeAnnotatorTests.cs
-- Add missing Must tests
+- ~~Add missing Must tests~~ ✅ Done
 - Strong invariant assertions
 
 ### Wrapper Smoke Tests (Keep Minimal)

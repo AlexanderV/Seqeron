@@ -86,7 +86,7 @@ Tests for bacterial promoter motif detection, specifically identifying -35 box (
 1. **Create new canonical file**: `GenomeAnnotator_PromoterMotif_Tests.cs`
 2. **Move and strengthen**: Extract promoter tests from `GenomeAnnotatorTests.cs`
 3. **Remove from original**: Delete `#region FindPromoterMotifs Tests` from `GenomeAnnotatorTests.cs`
-4. **Add missing tests**: M01-M10, S01-S04
+4. ~~**Add missing tests**: M01-M10, S01-S04~~ ✅ All added
 
 ---
 

@@ -138,7 +138,7 @@
 
 1. **Create dedicated test file:** `PopulationGeneticsAnalyzer_HardyWeinberg_Tests.cs`
 2. **Remove Hardy-Weinberg tests from `PopulationGeneticsAnalyzerTests.cs`**
-3. **Add missing tests:** Published datasets, invariants, significance levels
+3. ~~**Add missing tests:** Published datasets, invariants, significance levels~~ ✅ All added
 4. **Strengthen existing tests:** Use Assert.Multiple for comprehensive checks
 
 ---

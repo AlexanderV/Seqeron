@@ -140,7 +140,7 @@ Empty: ""
 - **Canonical file:** ChromosomeAnalyzer_Telomere_Tests.cs (new)
 - **Action:** Extract telomere tests from ChromosomeAnalyzerTests.cs into dedicated file
 - **Duplicates:** None found
-- **Enhancements:** Add missing Must tests, improve assertions with Assert.Multiple
+- **Enhancements:** ~~Add missing Must tests~~ ✅ Done, improve assertions with Assert.Multiple
 
 ---
 

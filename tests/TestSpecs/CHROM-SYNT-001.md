@@ -129,7 +129,7 @@ Existing tests in `ChromosomeAnalyzerTests.cs`:
 
 1. **Create** new dedicated test file: `ChromosomeAnalyzer_Synteny_Tests.cs`
 2. **Move** existing synteny tests from `ChromosomeAnalyzerTests.cs` to new file
-3. **Add** missing MUST tests (M4, M5, M6, M7, M8, M11, M12, M13)
+3. ~~**Add** missing MUST tests (M4, M5, M6, M7, M8, M11, M12, M13)~~ ✅ All added
 4. **Add** SHOULD tests (S1-S5)
 5. **Remove** synteny region from general `ChromosomeAnalyzerTests.cs`
 6. **Rename** tests to follow `Method_Scenario_ExpectedResult` convention
@@ -162,15 +162,15 @@ Existing tests in `ChromosomeAnalyzerTests.cs`:
 | Forward collinearity | Covered | Existing test |
 | Reverse collinearity | Covered | Existing test |
 | minGenes threshold | Covered | Existing test |
-| Empty input (FindSynteny) | Missing | Add |
-| Boundary (exactly minGenes) | Missing | Add |
-| Multi-chromosome pairs | Missing | Add |
-| Inversion detection | Covered | Existing test |
-| Translocation detection | Covered | Existing test |
-| Empty input (DetectRearr) | Missing | Add |
-| Single block | Missing | Add |
-| No rearrangements | Missing | Add |
-| Invariant tests | Missing | Add |
+| Empty input (FindSynteny) | ✅ Covered | Added |
+| Boundary (exactly minGenes) | ✅ Covered | Added |
+| Multi-chromosome pairs | ✅ Covered | Added |
+| Inversion detection | ✅ Covered | Existing test |
+| Translocation detection | ✅ Covered | Existing test |
+| Empty input (DetectRearr) | ✅ Covered | Added |
+| Single block | ✅ Covered | Added |
+| No rearrangements | ✅ Covered | Added |
+| Invariant tests | ✅ Covered | Added |
 
 ### 6.2 Test Quality
 
@@ -179,7 +179,7 @@ Existing tests in `ChromosomeAnalyzerTests.cs`:
 | Naming convention | Needs update |
 | Assert.Multiple usage | Needs addition |
 | Edge case coverage | Incomplete |
-| Invariant verification | Missing |
+| Invariant verification | ✅ Covered |
 
 ---
 

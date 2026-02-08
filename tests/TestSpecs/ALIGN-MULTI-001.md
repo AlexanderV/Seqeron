@@ -6,6 +6,7 @@
 - **Canonical Method:** `SequenceAligner.MultipleAlign(IEnumerable<DnaSequence>, ScoringMatrix?)`
 - **Complexity:** O(n² × m)
 - **Algorithm:** Star alignment (simplified progressive alignment)
+- **Status:** ☑ Complete
 
 ---
 
@@ -82,7 +83,7 @@
 1. **Create** `SequenceAligner_MultipleAlign_Tests.cs` as canonical test file
 2. **Migrate** all Multiple Alignment tests from `SequenceAlignerTests.cs`
 3. **Remove** migrated tests from `SequenceAlignerTests.cs`
-4. **Add** missing MUST tests (M06, M07, M09, M10, M11)
+4. ~~**Add** missing MUST tests (M06, M07, M09, M10, M11)~~ ✅ All added
 5. **Strengthen** weak tests with proper assertions
 
 ---
