@@ -71,48 +71,7 @@ public class MiRnaAnalyzerTests
 
     // Target Site Finding Tests migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
     // Alignment Tests migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
-
-    #region Pre-miRNA Tests
-
-    [Test]
-    public void FindPreMiRnaHairpins_ValidHairpin_FindsPreMiRNA()
-    {
-        // Create a simple hairpin structure
-        string stem5 = "GCGCGCGCGCGCGCGCGCGC"; // 20 nt
-        string loop = "AAAAA";
-        string stem3 = "GCGCGCGCGCGCGCGCGCGC"; // Complement
-        string hairpin = stem5 + loop + stem3;
-
-        // Need proper complementarity
-        string seq = "GGGGGGGGGGGGGGGGGGGG" + "AAAAAAA" + "CCCCCCCCCCCCCCCCCCCC";
-
-        var premirnas = FindPreMiRnaHairpins(seq, minHairpinLength: 45).ToList();
-
-        Assert.That(premirnas, Has.Count.GreaterThanOrEqualTo(0));
-    }
-
-    [Test]
-    public void FindPreMiRnaHairpins_ShortSequence_ReturnsEmpty()
-    {
-        var premirnas = FindPreMiRnaHairpins("GGGGCCCCC", minHairpinLength: 55).ToList();
-        Assert.That(premirnas, Is.Empty);
-    }
-
-    [Test]
-    public void FindPreMiRnaHairpins_ReturnsStructureInfo()
-    {
-        string seq = new string('G', 25) + "AAAAAAA" + new string('C', 25);
-
-        var premirnas = FindPreMiRnaHairpins(seq, minHairpinLength: 50).ToList();
-
-        foreach (var pre in premirnas)
-        {
-            Assert.That(pre.Structure, Is.Not.Empty);
-            Assert.That(pre.MatureSequence, Is.Not.Empty);
-        }
-    }
-
-    #endregion
+    // Pre-miRNA Tests migrated to MiRnaAnalyzer_PreMiRna_Tests.cs (MIRNA-PRECURSOR-001)
 
     #region Context Analysis Tests
 
