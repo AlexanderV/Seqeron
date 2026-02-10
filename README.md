@@ -264,9 +264,94 @@ graph TD
 
 ```bash
 dotnet build
-
 dotnet test
 ```
+
+## Performance & NativeAOT
+
+### NativeAOT Optimization
+
+All library and executable projects are configured for aggressive NativeAOT compilation.
+
+**Libraries** (`SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`):
+
+```xml
+<IsAotCompatible>true</IsAotCompatible>   <!-- Warnings if AOT-incompatible code -->
+<IsTrimmable>true</IsTrimmable>           <!-- Dead code elimination -->
+```
+
+**Executables** (`SuffixTree.Console`, `SuffixTree.Mcp.Core`, `Seqeron.Mcp.Parsers`, `Seqeron.Mcp.Sequence`):
+
+```xml
+<PublishAot>true</PublishAot>               <!-- Full native compilation, no JIT/CLR -->
+<OptimizationPreference>Speed</OptimizationPreference> <!-- Aggressive inlining, loop unrolling -->
+<IlcInstructionSet>native</IlcInstructionSet>          <!-- AVX2/SSE4.2/BMI2/POPCNT for current CPU -->
+<IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies> <!-- Dedup generic instantiations -->
+<StripSymbols>true</StripSymbols>           <!-- Remove debug symbols from binary -->
+<InvariantGlobalization>true</InvariantGlobalization>   <!-- Drop ICU (~30 MB); bioinformatics doesn't need culture -->
+```
+
+**Publish** (requires [Desktop Development with C++](https://aka.ms/nativeaot-prerequisites) workload in Visual Studio):
+
+```bash
+dotnet publish -c Release -r win-x64
+```
+
+| Flag | Effect |
+|:-----|:-------|
+| `PublishAot` | Full AOT compilation to native code, no JIT/CLR at runtime |
+| `OptimizationPreference=Speed` | Aggressive inlining, loop unrolling (vs `Size`) |
+| `IlcInstructionSet=native` | Emits AVX2/SSE4.2/BMI2/POPCNT/LZCNT for the build machine CPU |
+| `IlcFoldIdenticalMethodBodies` | Deduplicates identical generic method instantiations |
+| `StripSymbols` | Strips debug symbols from the final binary |
+| `InvariantGlobalization` | Removes ICU globalization data (~30 MB savings) |
+| `IsAotCompatible` | Build-time warnings for AOT-incompatible patterns |
+| `IsTrimmable` | Enables IL trimming for unused code |
+
+### Benchmarks
+
+The benchmark project uses a **two-phase strategy** to avoid the common pitfall of BenchmarkDotNet re-compiling AOT for every benchmark method (which causes multi-hour "freezes"):
+
+#### Phase 1 — JIT Baseline (~3 min)
+
+```bash
+dotnet run --project apps/SuffixTree.Benchmarks -c Release -f net9.0 -- \
+  --filter "*Build_Short*" "*Build_DNA*" "*Contains*" "*LRS*" \
+  --iterationCount 3 --warmupCount 1
+```
+
+#### Phase 2 — Publish NativeAOT Once (~5 min)
+
+```bash
+dotnet publish apps/SuffixTree.Benchmarks -c Release -r win-x64 -f net9.0 \
+  /p:PublishAot=true /p:OptimizationPreference=Speed \
+  /p:IlcInstructionSet=native /p:IlcFoldIdenticalMethodBodies=true \
+  /p:StripSymbols=true /p:InvariantGlobalization=true
+```
+
+#### Phase 3 — Run AOT Binary with InProcess Toolchain (~3 min)
+
+```bash
+./apps/SuffixTree.Benchmarks/bin/Release/net9.0/win-x64/publish/SuffixTree.Benchmarks.exe \
+  --inprocess --filter "*Build_Short*" "*Build_DNA*" "*Contains*" "*LRS*"
+```
+
+The `--inprocess` flag uses `InProcessNoEmitToolchain` — the pre-compiled AOT binary benchmarks itself without spawning child processes or re-compilation.
+
+#### JIT Baseline Results (.NET 9.0, RyuJIT x86-64-v4)
+
+> 11th Gen Intel Core i7-1185G7, 4 cores / 8 threads, AVX-512
+
+| Method | Mean | Allocated |
+|:-------|-----:|----------:|
+| LRS_Short | 21.2 ns | 32 B |
+| LRS_DNA | 23.5 ns | 56 B |
+| Contains_Short | 43.8 ns | 0 B |
+| Contains_DNA | 107.4 ns | 0 B |
+| Build_Short | 18.3 µs | 19 KB |
+| Build_DNA (50K) | 50.7 ms | 8.5 MB |
+
+Full results: [bench_jit_baseline_report.md](bench_jit_baseline_report.md)
 
 ## License
 

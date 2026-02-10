@@ -427,29 +427,69 @@ public static class ReportGenerator
 
     private static string GenerateJson(Report report)
     {
-        var options = new JsonSerializerOptions
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
         {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
+            writer.WriteStartObject();
+            writer.WriteString("title", report.Title);
+            writer.WriteString("description", report.Description);
+            writer.WriteString("generatedAt", report.GeneratedAt.ToString("o", CultureInfo.InvariantCulture));
 
-        var jsonReport = new
-        {
-            report.Title,
-            report.Description,
-            GeneratedAt = report.GeneratedAt.ToString("o", CultureInfo.InvariantCulture),
-            report.Metadata,
-            Sections = report.Sections.Select(s => new
+            // Metadata
+            if (report.Metadata != null)
             {
-                s.Title,
-                s.Content,
-                Type = s.Type.ToString(),
-                s.Data
-            }).ToList()
-        };
+                writer.WriteStartObject("metadata");
+                foreach (var kvp in report.Metadata)
+                {
+                    WriteJsonValue(writer, kvp.Key, kvp.Value);
+                }
+                writer.WriteEndObject();
+            }
 
-        return JsonSerializer.Serialize(jsonReport, options);
+            // Sections
+            writer.WriteStartArray("sections");
+            foreach (var s in report.Sections)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("title", s.Title);
+                writer.WriteString("content", s.Content);
+                writer.WriteString("type", s.Type.ToString());
+
+                if (s.Data != null)
+                {
+                    writer.WriteStartObject("data");
+                    foreach (var kvp in s.Data)
+                    {
+                        WriteJsonValue(writer, kvp.Key, kvp.Value);
+                    }
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteJsonValue(Utf8JsonWriter writer, string propertyName, object? value)
+    {
+        if (value is null) { writer.WriteNull(propertyName); return; }
+        switch (value)
+        {
+            case string s: writer.WriteString(propertyName, s); break;
+            case int i: writer.WriteNumber(propertyName, i); break;
+            case long l: writer.WriteNumber(propertyName, l); break;
+            case double d: writer.WriteNumber(propertyName, d); break;
+            case float f: writer.WriteNumber(propertyName, f); break;
+            case decimal dec: writer.WriteNumber(propertyName, dec); break;
+            case bool b: writer.WriteBoolean(propertyName, b); break;
+            case DateTime dt: writer.WriteString(propertyName, dt.ToString("o", CultureInfo.InvariantCulture)); break;
+            default: writer.WriteString(propertyName, value.ToString()); break;
+        }
     }
 
     #endregion
