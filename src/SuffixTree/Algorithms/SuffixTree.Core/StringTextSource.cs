@@ -21,6 +21,11 @@ public sealed class StringTextSource : ITextSource
         _value = value ?? throw new ArgumentNullException(nameof(value));
     }
 
+    /// <summary>
+    /// Gets the underlying string value. Use for direct access without interface dispatch.
+    /// </summary>
+    public string Value => _value;
+
     /// <inheritdoc/>
     public int Length => _value.Length;
 

@@ -67,6 +67,15 @@ public class SuffixTreeBenchmarks
         _mediumPattern = "consectetur adipiscing";
         _longPattern = "tempor incididunt ut labore";
         _dnaPattern = _dnaText.Substring(25000, 20); // 20-char pattern from middle
+
+        // Hairpin benchmark data — must be in main Setup to avoid null fields
+        _shortPrimer = "ACGTACGTACGTACGTACGT";
+        _mediumSequence = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC";
+        var sb = new System.Text.StringBuilder();
+        sb.Append("ACGTACGTACGT");
+        sb.Append(new string('A', 176));
+        sb.Append("ACGTACGTACGT");
+        _longSequence = sb.ToString();
     }
 
     #region Build Benchmarks
@@ -194,23 +203,6 @@ public class SuffixTreeBenchmarks
     private string _shortPrimer = null!;
     private string _mediumSequence = null!;
     private string _longSequence = null!;
-
-    [GlobalSetup(Target = nameof(Hairpin_ShortPrimer))]
-    public void SetupHairpin()
-    {
-        // Typical primer length (20bp)
-        _shortPrimer = "ACGTACGTACGTACGTACGT";
-
-        // Medium sequence (50bp) - below threshold
-        _mediumSequence = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAC";
-
-        // Long sequence (200bp) - above suffix tree threshold
-        var sb = new System.Text.StringBuilder();
-        sb.Append("ACGTACGTACGT"); // stem region
-        sb.Append(new string('A', 176));
-        sb.Append("ACGTACGTACGT"); // complementary stem
-        _longSequence = sb.ToString();
-    }
 
     [Benchmark]
     [BenchmarkCategory("Hairpin")]

@@ -76,7 +76,10 @@ public partial class SuffixTree
     private int GetSymbolAt(int index)
     {
         if (index > _position) return TERMINATOR_KEY;
-        return (index < _text.Length) ? _text[index] : TERMINATOR_KEY;
+        var raw = _rawString;
+        if (raw != null)
+            return index < raw.Length ? raw[index] : TERMINATOR_KEY;
+        return index < _text.Length ? _text[index] : TERMINATOR_KEY;
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

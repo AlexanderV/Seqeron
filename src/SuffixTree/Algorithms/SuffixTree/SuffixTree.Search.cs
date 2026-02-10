@@ -119,16 +119,17 @@ public partial class SuffixTree
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        var results = new List<int>();
         if (pattern.Length == 0)
         {
-            for (int m = 0; m < _text.Length; m++) results.Add(m);
-            return results;
+            var all = new List<int>(_text.Length);
+            for (int m = 0; m < _text.Length; m++) all.Add(m);
+            return all;
         }
 
         var (node, matched) = MatchPatternCore(pattern.AsSpan());
-        if (!matched) return results;
+        if (!matched) return Array.Empty<int>();
 
+        var results = new List<int>(node.LeafCount);
         CollectLeaves(node, node.DepthFromRoot, results);
         return results;
     }
@@ -188,12 +189,12 @@ public partial class SuffixTree
     /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
-        var results = new List<int>();
-        if (pattern.IsEmpty) return results;
+        if (pattern.IsEmpty) return Array.Empty<int>();
 
         var (node, matched) = MatchPatternCore(pattern);
-        if (!matched) return results;
+        if (!matched) return Array.Empty<int>();
 
+        var results = new List<int>(node.LeafCount);
         CollectLeaves(node, node.DepthFromRoot, results);
         return results;
     }
