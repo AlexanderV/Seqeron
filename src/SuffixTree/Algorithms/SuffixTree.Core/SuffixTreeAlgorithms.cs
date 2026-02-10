@@ -124,7 +124,7 @@ public static class SuffixTreeAlgorithms
                 bestMatches.Clear();
                 bestMatches.Add((nav.IsNull(currentEdge) ? currentNode : currentEdge, i));
             }
-            else if (currentMatchLen == maxLen && maxLen > 0)
+            else if (currentMatchLen == maxLen && maxLen > 0 && !firstOnly)
             {
                 bestMatches.Add((nav.IsNull(currentEdge) ? currentNode : currentEdge, i));
             }
