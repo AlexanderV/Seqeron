@@ -282,16 +282,17 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
         ThrowIfDisposed();
-        var results = new List<int>();
         if (pattern.IsEmpty)
         {
-            for (int i = 0; i < _textSource.Length; i++) results.Add(i);
-            return results;
+            var all = new List<int>(_textSource.Length);
+            for (int i = 0; i < _textSource.Length; i++) all.Add(i);
+            return all;
         }
 
         var (node, matched) = MatchPatternCore(pattern);
-        if (!matched) return results;
+        if (!matched) return Array.Empty<int>();
 
+        var results = new List<int>((int)node.LeafCount);
         CollectLeaves(node, (int)node.DepthFromRoot, results);
         return results;
     }
@@ -327,9 +328,9 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
 
         int length = (int)deepest.DepthFromRoot + LengthOf(deepest);
-        var occurrences = new List<int>();
-        CollectLeaves(deepest, (int)deepest.DepthFromRoot, occurrences);
-        string result = occurrences.Count == 0 ? string.Empty : _textSource.Substring(occurrences[0], length);
+        var nav = CreateNavigator();
+        int leafPos = nav.FindAnyLeafPosition(deepest);
+        string result = leafPos < 0 ? string.Empty : _textSource.Substring(leafPos, length);
         _cachedLrs = result;
         return result;
     }
@@ -594,14 +595,29 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             if (!TryGetChildOf(node, (uint)pattern[i], out var child) || child.IsNull)
                 return (node, false);
 
+            int edgeStart = (int)child.Start;
             int edgeLen = LengthOf(child);
             int remaining = pattern.Length - i;
             int compareLen = edgeLen < remaining ? edgeLen : remaining;
 
-            for (int j = 0; j < compareLen; j++)
+            if (edgeStart + compareLen > _textSource.Length)
+                return (node, false);
+
+            var edgeSpan = _textSource.Slice(edgeStart, compareLen);
+
+            // Use SIMD for longer comparisons (>=8 chars), scalar for short
+            if (compareLen >= 8)
             {
-                if (GetSymbolAt((int)child.Start + j) != pattern[i + j])
+                if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
                     return (node, false);
+            }
+            else
+            {
+                for (int j = 0; j < compareLen; j++)
+                {
+                    if (edgeSpan[j] != pattern[i + j])
+                        return (node, false);
+                }
             }
 
             i += compareLen;

@@ -24,6 +24,7 @@ public class PersistentSuffixTreeBuilder
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
     private readonly long _rootOffset;
     private ITextSource _text = new StringTextSource(string.Empty);
+    private string? _rawString;
     private int _nodeCount;
 
     // Hybrid continuation state
@@ -114,11 +115,20 @@ public class PersistentSuffixTreeBuilder
         _built = true;
 
         _text = text;
+        _rawString = (text as StringTextSource)?.Value;
         if (text.Length > 0)
         {
-            for (int i = 0; i < text.Length; i++)
+            // Direct string indexing eliminates ITextSource virtual dispatch
+            var raw = _rawString;
+            if (raw != null)
             {
-                ExtendTree((uint)text[i]);
+                for (int i = 0; i < raw.Length; i++)
+                    ExtendTree((uint)raw[i]);
+            }
+            else
+            {
+                for (int i = 0; i < text.Length; i++)
+                    ExtendTree((uint)text[i]);
             }
             ExtendTree(PersistentConstants.TERMINATOR_KEY);
         }
@@ -286,9 +296,13 @@ public class PersistentSuffixTreeBuilder
             ? NodeLayout.Large
             : _initialLayout;
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private uint GetSymbolAt(int index)
     {
         if (index > _position) return PersistentConstants.TERMINATOR_KEY;
+        var raw = _rawString;
+        if (raw != null)
+            return index < raw.Length ? (uint)raw[index] : PersistentConstants.TERMINATOR_KEY;
         return (index < _text.Length) ? (uint)_text[index] : PersistentConstants.TERMINATOR_KEY;
     }
 
