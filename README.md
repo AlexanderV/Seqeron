@@ -351,8 +351,6 @@ The `--inprocess` flag uses `InProcessNoEmitToolchain` — the pre-compiled AOT 
 | Build_Short | 18.3 µs | 19 KB |
 | Build_DNA (50K) | 50.7 ms | 8.5 MB |
 
-Full results: [bench_jit_baseline_report.md](bench_jit_baseline_report.md)
-
 ## License
 
 See [LICENSE](LICENSE).
