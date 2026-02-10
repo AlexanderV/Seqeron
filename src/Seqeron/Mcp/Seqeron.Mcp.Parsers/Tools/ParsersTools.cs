@@ -5,7 +5,7 @@ using Seqeron.Genomics;
 namespace Seqeron.Mcp.Parsers.Tools;
 
 [McpServerToolType]
-public static class ParsersTools
+public class ParsersTools
 {
     // ========================
     // FASTA Tools

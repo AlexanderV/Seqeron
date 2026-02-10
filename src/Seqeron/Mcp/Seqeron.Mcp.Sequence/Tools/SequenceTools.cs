@@ -7,7 +7,7 @@ namespace Seqeron.Mcp.Sequence.Tools;
 /// MCP tools for DNA/RNA sequence operations.
 /// </summary>
 [McpServerToolType]
-public static class SequenceTools
+public class SequenceTools
 {
     /// <summary>
     /// Validate a DNA sequence.

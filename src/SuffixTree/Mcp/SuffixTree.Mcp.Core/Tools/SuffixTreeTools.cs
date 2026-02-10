@@ -7,7 +7,7 @@ namespace SuffixTree.Mcp.Core.Tools;
 /// MCP tools for core suffix tree operations.
 /// </summary>
 [McpServerToolType]
-public static class SuffixTreeTools
+public class SuffixTreeTools
 {
     /// <summary>
     /// Check if a pattern exists in text using suffix tree.
