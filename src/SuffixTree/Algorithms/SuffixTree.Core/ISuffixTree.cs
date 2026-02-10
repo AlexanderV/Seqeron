@@ -127,6 +127,13 @@ public interface ISuffixTree
     string LongestRepeatedSubstring();
 
     /// <summary>
+    /// Returns the longest repeated substring as a zero-allocation memory slice
+    /// of the original text. Avoids LOH allocations for large repeated substrings.
+    /// </summary>
+    /// <returns>A memory slice of the original text, or empty if none exists.</returns>
+    ReadOnlyMemory<char> LongestRepeatedSubstringMemory() => LongestRepeatedSubstring().AsMemory();
+
+    /// <summary>
     /// Returns all suffixes of the original string in sorted order.
     /// Useful for debugging and educational purposes.
     /// </summary>

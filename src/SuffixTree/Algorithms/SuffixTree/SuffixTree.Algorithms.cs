@@ -7,15 +7,37 @@ public partial class SuffixTree
 {
     /// <summary>
     /// Finds the longest substring that appears at least twice in the text.
-    /// If multiple substrings have the same maximum length, one of them is returned.
+    /// Result is cached — subsequent calls return the same instance with zero allocation.
     /// </summary>
     /// <returns>The longest repeated substring, or empty string if none exists.</returns>
     public string LongestRepeatedSubstring()
     {
+        var cached = _cachedLrs;
+        if (cached != null) return cached;
         if (_deepestInternalNode == null || _maxInternalDepth == 0)
+        {
+            _cachedLrs = string.Empty;
             return string.Empty;
+        }
+        cached = _text.Substring(_deepestInternalNode.Start - _deepestInternalNode.DepthFromRoot, _maxInternalDepth);
+        _cachedLrs = cached;
+        return cached;
+    }
 
-        return _text.Substring(_deepestInternalNode.Start - _deepestInternalNode.DepthFromRoot, _maxInternalDepth);
+    /// <summary>
+    /// Returns the longest repeated substring as a zero-allocation memory slice
+    /// of the original text. For StringTextSource, this points directly into the
+    /// source string — no copy, no LOH pressure regardless of substring length.
+    /// </summary>
+    /// <returns>A memory slice of the original text, or empty if none exists.</returns>
+    public ReadOnlyMemory<char> LongestRepeatedSubstringMemory()
+    {
+        if (_deepestInternalNode == null || _maxInternalDepth == 0)
+            return ReadOnlyMemory<char>.Empty;
+        int start = _deepestInternalNode.Start - _deepestInternalNode.DepthFromRoot;
+        if (_rawString != null)
+            return _rawString.AsMemory(start, _maxInternalDepth);
+        return LongestRepeatedSubstring().AsMemory();
     }
 
     /// <summary>

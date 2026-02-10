@@ -54,6 +54,8 @@ public partial class SuffixTree : ISuffixTree
     private readonly int _cachedMaxDepth;
     private readonly SuffixTreeNode? _deepestInternalNode;
     private readonly int _maxInternalDepth;
+    private readonly string? _rawString;
+    private string? _cachedLrs;
 
     // Construction state (transient)
     private int _remainder;
@@ -194,15 +196,26 @@ public partial class SuffixTree : ISuffixTree
     {
         ArgumentNullException.ThrowIfNull(value);
         _text = value;
+        _rawString = (value as StringTextSource)?.Value;
         _root = new SuffixTreeNode(0, 0, 0);
         _root.SuffixLink = _root;
         _activeNode = _root;
 
         if (value.Length > 0)
         {
-            // Run Ukkonen's algorithm
-            foreach (var c in value)
-                ExtendTree(c);
+            // Run Ukkonen's algorithm — direct string indexing eliminates
+            // ITextSource virtual dispatch + IEnumerable enumerator allocation
+            var raw = _rawString;
+            if (raw != null)
+            {
+                for (int i = 0; i < raw.Length; i++)
+                    ExtendTree(raw[i]);
+            }
+            else
+            {
+                foreach (var c in value)
+                    ExtendTree(c);
+            }
 
             ExtendTree(TERMINATOR_KEY);
         }
