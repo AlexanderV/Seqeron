@@ -96,7 +96,7 @@
 | ☑ | RNA-STEMLOOP-001 | RnaStructure | 3 | Wikipedia (Stem-loop, Tetraloop, Pseudoknot), Woese (1990), Heus & Pardi (1991) | [RNA-STEMLOOP-001.md](TestSpecs/RNA-STEMLOOP-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | RNA-ENERGY-001 | RnaStructure | 2 | Wikipedia (RNA folding, Nearest neighbor parameters), Turner (2004), NNDB | [RNA-ENERGY-001.md](TestSpecs/RNA-ENERGY-001.md) | RnaSecondaryStructureTests.cs |
 | ☑ | MIRNA-SEED-001 | MiRNA | 3 | miRBase, TargetScan (Bartel Lab), Bartel (2009), Lewis (2005) | [MIRNA-SEED-001.md](TestSpecs/MIRNA-SEED-001.md) | MiRnaAnalyzer_SeedAnalysis_Tests.cs |
-| ☐ | MIRNA-TARGET-001 | MiRNA | 2 | - | - | - |
+| ☑ | MIRNA-TARGET-001 | MiRNA | 2 | Bartel (2009) Cell 136:215-233, Lewis et al. (2005), Grimson et al. (2007), TargetScan 8.0 | [MIRNA-TARGET-001.md](TestSpecs/MIRNA-TARGET-001.md) | MiRnaAnalyzer_TargetPrediction_Tests.cs |
 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | 2 | - | - | - |
 | ☐ | SPLICE-DONOR-001 | Splicing | 2 | - | - | - |
 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | 2 | - | - | - |

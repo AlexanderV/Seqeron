@@ -69,144 +69,8 @@ public class MiRnaAnalyzerTests
 
     #endregion
 
-    #region Target Site Finding Tests
-
-    [Test]
-    public void FindTargetSites_PerfectSeedMatch_FindsSite()
-    {
-        var mirna = CreateMiRna("test-miR", "UAGCAGCACGUAAAUAUUGGCG");
-        // Reverse complement of seed AGCAGCA is UGCUGCU
-        string mrna = "AAAAAAUGCUGCUAAAAAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.3).ToList();
-
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void FindTargetSites_8mer_HighestScore()
-    {
-        var mirna = CreateMiRna("test-miR", "UAGCAGCACGUAAAUAUUGGCG");
-        // 8mer: seed match + A at end
-        string mrna = "AAAAAAUGCUGCUAAAAAAAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.1).ToList();
-
-        // Should find some match if the seed complementary is present
-        // The seed is AGCAGCA, reverse complement is UGCUGCU  
-        Assert.That(sites, Is.Not.Null);
-        if (sites.Any())
-        {
-            Assert.That(sites.Max(s => s.Score), Is.GreaterThan(0));
-        }
-    }
-
-    [Test]
-    public void FindTargetSites_NoMatch_ReturnsEmpty()
-    {
-        var mirna = CreateMiRna("test-miR", "UAGCAGCACGUAAAUAUUGGCG");
-        string mrna = "AAAAAAAAAAAAAAAAAAAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.5).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindTargetSites_MultipleSites_FindsAll()
-    {
-        var mirna = CreateMiRna("test-miR", "UAGCAGCACGUAAAUAUUGGCG");
-        string seedRC = GetReverseComplement("AGCAGCA");
-        string mrna = $"AAA{seedRC}AAA{seedRC}AAA{seedRC}AAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.3).ToList();
-
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(2));
-    }
-
-    [Test]
-    public void FindTargetSites_EmptySequences_ReturnsEmpty()
-    {
-        var mirna = CreateMiRna("test", "UAGCAGCA");
-
-        Assert.That(FindTargetSites("", mirna).ToList(), Is.Empty);
-        Assert.That(FindTargetSites("AAAA", new MiRna()).ToList(), Is.Empty);
-    }
-
-    [Test]
-    public void FindTargetSites_IncludesAlignment()
-    {
-        var mirna = CreateMiRna("test-miR", "UAGCAGCACGUAAAUAUUGGCG");
-        string seedRC = GetReverseComplement("AGCAGCA");
-        string mrna = $"AAA{seedRC}AAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.3).ToList();
-
-        if (sites.Any())
-        {
-            Assert.That(sites[0].Alignment, Is.Not.Empty);
-        }
-    }
-
-    #endregion
-
-    #region Alignment Tests
-
-    [Test]
-    public void AlignMiRnaToTarget_PerfectMatch_AllMatches()
-    {
-        string mirna = "AAAA";
-        string target = "UUUU";
-
-        var duplex = AlignMiRnaToTarget(mirna, target);
-
-        Assert.That(duplex.Matches, Is.EqualTo(4));
-        Assert.That(duplex.Mismatches, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void AlignMiRnaToTarget_AllMismatches_NoMatches()
-    {
-        string mirna = "AAAA";
-        string target = "AAAA";
-
-        var duplex = AlignMiRnaToTarget(mirna, target);
-
-        Assert.That(duplex.Mismatches, Is.EqualTo(4));
-    }
-
-    [Test]
-    public void AlignMiRnaToTarget_WobblePairs_Detected()
-    {
-        string mirna = "GGGG";
-        string target = "UUUU";
-
-        var duplex = AlignMiRnaToTarget(mirna, target);
-
-        Assert.That(duplex.GUWobbles, Is.EqualTo(4));
-    }
-
-    [Test]
-    public void AlignMiRnaToTarget_EmptySequences_ReturnsEmptyDuplex()
-    {
-        var duplex = AlignMiRnaToTarget("", "AAAA");
-
-        Assert.That(duplex.Matches, Is.EqualTo(0));
-        Assert.That(duplex.MiRnaSequence, Is.Empty);
-    }
-
-    [Test]
-    public void AlignMiRnaToTarget_CalculatesFreeEnergy()
-    {
-        string mirna = "UAGCAGCA";
-        string target = "UGCUGCUA";
-
-        var duplex = AlignMiRnaToTarget(mirna, target);
-
-        Assert.That(duplex.FreeEnergy, Is.Not.EqualTo(0));
-    }
-
-    #endregion
+    // Target Site Finding Tests migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
+    // Alignment Tests migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
 
     #region Pre-miRNA Tests
 
@@ -396,30 +260,6 @@ public class MiRnaAnalyzerTests
     #region Integration Tests
 
     [Test]
-    public void FullWorkflow_PredictTargets()
-    {
-        // Real miRNA: let-7a
-        var let7a = CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
-
-        // mRNA with potential target site (reverse complement of seed)
-        string seedRC = GetReverseComplement(let7a.SeedSequence);
-        string mrna = $"AUGGCUAAA{seedRC}AAAGCUUAA";
-
-        var targets = FindTargetSites(mrna, let7a, minScore: 0.3).ToList();
-
-        foreach (var target in targets)
-        {
-            var context = AnalyzeTargetContext(mrna, target.Start, target.End);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(target.Score, Is.GreaterThan(0));
-                Assert.That(context.AuContent, Is.GreaterThanOrEqualTo(0));
-            });
-        }
-    }
-
-    [Test]
     public void FullWorkflow_AnalyzeMiRNAFamily()
     {
         // let-7 family members have similar seeds
@@ -436,28 +276,8 @@ public class MiRnaAnalyzerTests
         Assert.That(mirnas.Select(m => m.SeedSequence).Distinct().Count(), Is.EqualTo(1));
     }
 
-    [Test]
-    public void TargetSite_HasAllFields()
-    {
-        var mirna = CreateMiRna("test", "UAGCAGCACGUAAAUAUUGGCG");
-        string seedRC = GetReverseComplement(mirna.SeedSequence);
-        string mrna = $"AAA{seedRC}AAA";
-
-        var sites = FindTargetSites(mrna, mirna, minScore: 0.1).ToList();
-
-        if (sites.Any())
-        {
-            var site = sites[0];
-            Assert.Multiple(() =>
-            {
-                Assert.That(site.Start, Is.GreaterThanOrEqualTo(0));
-                Assert.That(site.End, Is.GreaterThan(site.Start));
-                Assert.That(site.TargetSequence, Is.Not.Empty);
-                Assert.That(site.MiRnaName, Is.EqualTo("test"));
-                Assert.That(site.Score, Is.InRange(0, 1));
-            });
-        }
-    }
+    // FullWorkflow_PredictTargets migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
+    // TargetSite_HasAllFields migrated to MiRnaAnalyzer_TargetPrediction_Tests.cs (MIRNA-TARGET-001)
 
     #endregion
 }
