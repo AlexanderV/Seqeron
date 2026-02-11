@@ -14,58 +14,76 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 {
     #region Test Data
 
-    // A well-formed hairpin: 22 bp stem (G-C pairs) + 7 nt loop = 51 nt
-    // Extended with flanking pairs to reach ≥55 nt.
-    // 25 G's + 7 A's loop + 25 C's = 57 nt total, stem=25, loop=7
+    // ── Biologically plausible mixed-base hairpins ─────────────────────────
+    // All test hairpins use mixed nucleotide composition (AUGC), matching
+    // the diversity found in real pre-miRNAs. Mono-nucleotide sequences
+    // (all-G stems, all-C stems) are avoided as they are biologically
+    // implausible and can mask implementation bugs.
+
+    // 25 bp Watson-Crick stem + 7 nt loop = 57 nt
+    // maxStem = 57/2 - 5 = 23 → effective stem=23, effective loop=11
     private const string ValidHairpin57 =
-        "GGGGGGGGGGGGGGGGGGGGGGGGG" +   // 25 nt 5' stem (G)
-        "AAAAAAA" +                       // 7 nt loop
-        "CCCCCCCCCCCCCCCCCCCCCCCCC";      // 25 nt 3' stem (C pairs with G)
+        "GCAUAGCUAGCUAGCUAGCUAGCUA" +   // 25 nt 5' stem (mixed)
+        "GAAAUUU" +                       // 7 nt loop
+        "UAGCUAGCUAGCUAGCUAGCUAUGC";     // 25 nt 3' stem (reverse complement)
 
-    // 20 G's + 7 A's loop + 20 C's = 47 nt (too short for default min=55)
+    // 20 bp Watson-Crick stem + 7 nt loop = 47 nt (below default min=55)
     private const string ShortHairpin47 =
-        "GGGGGGGGGGGGGGGGGGGG" +          // 20 nt
-        "AAAAAAA" +                        // 7 nt
-        "CCCCCCCCCCCCCCCCCCCC";            // 20 nt
+        "GCAUAGCUAGCUAGCUAGCU" +          // 20 nt 5' stem
+        "GAAAUUU" +                        // 7 nt loop
+        "AGCUAGCUAGCUAGCUAUGC";           // 20 nt 3' stem (reverse complement)
 
-    // Hairpin with G:U wobble pairs in stem
-    // G pairs with U (wobble), and U pairs with G (wobble)
-    // 20 G's + 7 A's loop + 20 U's = 47 nt; needs extension
-    // 25 G's + 7 A's + 25 U's = 57 nt
+    // 25 bp stem with 4 G:U wobble pairs (at pairing positions 0, 5, 9, 17) + 7 nt loop = 57 nt
+    // Wobble pairs are common in real pre-miRNAs — Krol (2004)
     private const string WobbleHairpin57 =
-        "GGGGGGGGGGGGGGGGGGGGGGGGG" +     // 25 nt 5' stem (G)
-        "AAAAAAA" +                        // 7 nt loop
-        "UUUUUUUUUUUUUUUUUUUUUUUUU";      // 25 nt 3' stem (U wobble-pairs with G)
+        "GCAUAGCUAGCUAGCUAGCUAGCUA" +     // 25 nt 5' stem (same as ValidHairpin57)
+        "GAAAUUU" +                        // 7 nt loop
+        "UAGCUAGUUAGCUAGUUAGUUAUGU";      // 25 nt 3' stem (4× C→U = G:U wobble)
 
-    // Stem too short: only 10 bp (< 18 required)
-    // 10 G's + 7 A's + 10 C's = 27 nt
-    private const string ShortStemHairpin =
-        "GGGGGGGGGG" +
-        "AAAAAAA" +
-        "CCCCCCCCCC";
+    // 15 bp stem + 25 nt loop = 55 nt — tests stem rejection (not n<55 hardcode)
+    // AnalyzeHairpin rejects stems < 18 bp; this sequence is ≥55 nt total
+    // so the rejection must come from stem length, not the n<55 early-exit.
+    private const string ShortStemHairpin55 =
+        "GCAUAGCUAGCUAGC" +               // 15 nt 5' stem
+        "AUGCAUGCAUGCAUGCAUGCAUGCA" +      // 25 nt loop (mixed, non-self-complementary)
+        "GCUAGCUAGCUAUGC";                 // 15 nt 3' stem (reverse complement)
 
-    // No complementarity: all A's (A does not pair with A)
+    // No complementarity: alternating purines (A-G never pair with each other)
     private const string NoComplementarity =
-        "AAAAAAAAAAAAAAAAAAAAAAAAA" +      // 25 A's
-        "AAAAAAAAAAAAAAAAAAAAAAAAA" +      // 25 A's
-        "AAAAAAAAAAAAAAAAAAAA";            // 20 A's = 70 total
+        "AGAGAGAGAGAGAGAGAGAGAGAGA" +      // 25 nt
+        "GAGAGAGAGAGAGAGAGAGAGAGAG" +      // 25 nt
+        "AGAGAGAGAGAGAGAGAGAG";            // 20 nt = 70 total
 
-    // DNA input with T instead of U
+    // DNA input with T instead of U (same stem structure as ValidHairpin57)
     private const string DnaHairpin57 =
-        "GGGGGGGGGGGGGGGGGGGGGGGGG" +     // 25 nt (G)
-        "TTTTTTT" +                        // 7 nt loop (T instead of A)
-        "CCCCCCCCCCCCCCCCCCCCCCCCC";       // 25 nt (C)
+        "GCATAGCTAGCTAGCTAGCTAGCTA" +     // 25 nt 5' stem (DNA: T for U)
+        "GAAATTT" +                        // 7 nt loop
+        "TAGCTAGCTAGCTAGCTAGCTATGC";       // 25 nt 3' stem
 
-    // Large hairpin to test maxHairpinLength filtering
-    // 50 G's + 10 A's + 50 C's = 110 nt
-    private const string LargeHairpin110 =
-        "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG" + // 50
-        "AAAAAAAAAA" +                                          // 10
-        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";   // 50
+    // Large hairpin: 50 bp mixed stem + 10 nt loop = 110 nt
+    private static readonly string LargeHairpin110 = BuildPerfectHairpin(50, 10);
 
-    // Two hairpins separated by a spacer
+    // Two hairpins separated by non-complementary spacer
     private static readonly string TwoHairpinSequence =
-        ValidHairpin57 + new string('A', 20) + ValidHairpin57;
+        ValidHairpin57 + "AGAGAGAGAGAGAGAGAGAG" + ValidHairpin57;
+
+    // ── Real miRBase pre-miRNA sequences (known-limitation reference) ──────
+    // These sequences are from miRBase v22 and represent real pre-miRNAs.
+    // The simplified consecutive-pairing model CANNOT detect them because
+    // real pre-miRNAs have internal mismatches and bulges that break
+    // consecutive pairing from the ends.
+
+    /// <summary>hsa-mir-21 (MI0000077) — 71 nt, miRBase v22</summary>
+    private const string HsaMir21_MI0000077 =
+        "UGUCGGGUAGCUUAUCAGACUGAUGUUGA" +
+        "CUGUUGAAUCUCAUGGCAACACCAGUCGA" +
+        "UGGGCUGUCUGACA";
+
+    /// <summary>hsa-let-7a-1 (MI0000060) — 78 nt, miRBase v22</summary>
+    private const string HsaLet7a1_MI0000060 =
+        "UGGGAUGAGGUAGUAGGUUGUAUAGUUUU" +
+        "AGGGUCACACCCACCACUGGGAGAUAACU" +
+        "AUACAAUCUACUGUCUUUCCUA";
 
     #endregion
 
@@ -275,23 +293,26 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     public void FindPreMiRnaHairpins_FreeEnergy_LongerStemMoreNegative()
     {
         // Both hairpins ≥ 55 nt (AnalyzeHairpin hardcodes n < 55 rejection)
-        // Hairpin A: 25G + 7A + 25C = 57 nt → stem=25, loop=7
-        //   energy = -25*1.5 + 7*0.5 = -34.0
-        // Hairpin B: 20G + 15A + 20C = 55 nt → stem=20, loop=15
+        // Hairpin A: 57 nt, maxStem=23 → effective stem=23, loop=11
+        //   energy = -23*1.5 + 11*0.5 = -29.0
+        // Hairpin B: 55 nt, maxStem=22, actual stem=20 (pairing breaks at loop)
         //   energy = -20*1.5 + 15*0.5 = -22.5
-        string stem20Hairpin55 = new string('G', 20) + new string('A', 15) + new string('C', 20);
+        string stem20Hairpin55 =
+            "GCAUAGCUAGCUAGCUAGCU" +     // 20 nt 5' stem
+            "AUGCAUGCAUGCAUG" +           // 15 nt loop
+            "AGCUAGCUAGCUAGCUAUGC";       // 20 nt 3' stem (reverse complement)
 
         var resultsLong = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
         var resultsShort = FindPreMiRnaHairpins(stem20Hairpin55, minHairpinLength: 55).ToList();
 
-        Assert.That(resultsLong, Is.Not.Empty, "25 bp stem hairpin (57 nt) must be detected");
+        Assert.That(resultsLong, Is.Not.Empty, "23 bp effective stem hairpin (57 nt) must be detected");
         Assert.That(resultsShort, Is.Not.Empty, "20 bp stem hairpin (55 nt) must be detected");
 
         double energyLong = resultsLong[0].FreeEnergy;
         double energyShort = resultsShort[0].FreeEnergy;
 
         Assert.That(energyLong, Is.LessThan(energyShort),
-            "Longer stem (25 bp) must produce more negative energy than shorter stem (20 bp) — " +
+            "Longer effective stem (23 bp) must produce more negative energy than shorter stem (20 bp) — " +
             "reflects greater thermodynamic stability");
     }
 
@@ -302,13 +323,14 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_StemTooShort_ReturnsEmpty()
     {
-        // 10 bp stem (< 18 required) + 7 loop = 27 nt
-        // Even with lowered minHairpinLength, stem < 18 should reject
-        var results = FindPreMiRnaHairpins(ShortStemHairpin, minHairpinLength: 20).ToList();
+        // 15 bp stem + 25 nt loop = 55 nt total (passes n<55 hardcode)
+        // Rejection must come from stemLength (15) < 18, not from length filter
+        var results = FindPreMiRnaHairpins(ShortStemHairpin55, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
-            "Sequence with only 10 bp stem must be rejected — " +
-            "pre-miRNA requires ≥ 18 bp stem (Krol 2004)");
+            "Sequence with only 15 bp stem must be rejected — " +
+            "pre-miRNA requires ≥ 18 bp stem (Krol 2004). " +
+            "Note: sequence is 55 nt, so this tests stem rejection, not the n<55 early-exit");
     }
 
     #endregion
@@ -321,8 +343,12 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         // Note: Loop-too-small (< 3) is structurally unreachable because
         // maxStem = n/2 - 5 ensures minimum loop ≥ 10 nt for any valid input.
         // Instead test the reachable arm: loop > 25 → rejected.
-        // 18G + 30A + 18C = 66 nt. Stem=18 (G-C pairs from ends), loop=30 > 25
-        string largeLoop = new string('G', 18) + new string('A', 30) + new string('C', 18);
+        // 18 bp mixed stem + 30 nt loop = 66 nt. Stem=18, loop=30 > 25
+        // Loop uses all-A to prevent self-complementary pairing within the loop
+        string largeLoop =
+            "GCAUAGCUAGCUAGCUAG" +             // 18 nt 5' stem (mixed)
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + // 30 nt loop (A-A never pairs)
+            "CUAGCUAGCUAGCUAUGC";              // 18 nt 3' stem (reverse complement)
         var results = FindPreMiRnaHairpins(largeLoop, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
@@ -512,12 +538,71 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         var results = FindPreMiRnaHairpins(NoComplementarity, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
-            "All-A sequence has no self-complementarity → no stem → no hairpin");
+            "All-purine (AG) sequence has no self-complementarity → no stem → no hairpin");
+    }
+
+    #endregion
+
+    #region Known Limitation: Real miRBase pre-miRNAs — consecutive-pairing model
+
+    [Test]
+    public void FindPreMiRnaHairpins_RealMiRBase_HsaMir21_NotDetected_KnownLimitation()
+    {
+        // hsa-mir-21 (MI0000077, miRBase v22) — 71 nt
+        // Real pre-miRNA with internal mismatches and bulges.
+        // Consecutive-pairing model gets only ~16 pairs from ends (< 18 required).
+        // This is a KNOWN LIMITATION of the simplified algorithm.
+        var results = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
+
+        Assert.That(results, Is.Empty,
+            "KNOWN LIMITATION: hsa-mir-21 (MI0000077) is a real pre-miRNA from miRBase " +
+            "but is not detected because the simplified consecutive-pairing model " +
+            "cannot handle internal mismatches and bulges (Assumption #2)");
+    }
+
+    [Test]
+    public void FindPreMiRnaHairpins_RealMiRBase_HsaLet7a1_NotDetected_KnownLimitation()
+    {
+        // hsa-let-7a-1 (MI0000060, miRBase v22) — 78 nt
+        // Real pre-miRNA; consecutive pairing from ends yields only ~5 pairs.
+        var results = FindPreMiRnaHairpins(HsaLet7a1_MI0000060, minHairpinLength: 55).ToList();
+
+        Assert.That(results, Is.Empty,
+            "KNOWN LIMITATION: hsa-let-7a-1 (MI0000060) is a real pre-miRNA from miRBase " +
+            "but is not detected because the simplified consecutive-pairing model " +
+            "cannot handle internal mismatches and bulges (Assumption #2)");
     }
 
     #endregion
 
     #region Helpers
+
+    /// <summary>
+    /// Builds a perfect hairpin with mixed-base Watson-Crick stem.
+    /// Pattern: GCAU cycling for 5' stem, all-A loop, reverse complement for 3' stem.
+    /// </summary>
+    private static string BuildPerfectHairpin(int stemLength, int loopSize)
+    {
+        var bases = new[] { 'G', 'C', 'A', 'U' };
+        var stem5 = new char[stemLength];
+        for (int i = 0; i < stemLength; i++)
+            stem5[i] = bases[i % 4];
+
+        string loop = new string('A', loopSize);
+
+        var stem3 = new char[stemLength];
+        for (int i = 0; i < stemLength; i++)
+        {
+            stem3[i] = stem5[stemLength - 1 - i] switch
+            {
+                'A' => 'U', 'U' => 'A',
+                'G' => 'C', 'C' => 'G',
+                _ => stem5[stemLength - 1 - i]
+            };
+        }
+
+        return new string(stem5) + loop + new string(stem3);
+    }
 
     /// <summary>
     /// Computes expected free energy using the implementation's simplified model.

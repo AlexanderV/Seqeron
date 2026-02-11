@@ -80,8 +80,8 @@
 **Key Extracted Points:**
 
 1. **Canonical pre-miRNA lengths:** Database entries show pre-miRNA lengths ranging 55–120 nt.
-2. **hsa-mir-21 example:** pre-miRNA = 72 nt, mature 5p = 22 nt, stem ~24 bp, loop ~12 nt.
-3. **hsa-let-7a-1 example:** pre-miRNA = 80 nt, mature 5p = 22 nt.
+2. **hsa-mir-21 (MI0000077):** pre-miRNA = 71 nt, mature 5p = 22 nt, sequence: `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA`
+3. **hsa-let-7a-1 (MI0000060):** pre-miRNA = 78 nt, mature 5p = 22 nt, sequence: `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA`
 
 ---
 
@@ -105,26 +105,63 @@
 
 ## Test Datasets
 
-### Dataset: Synthetic Perfect Hairpin
+### Dataset 1: Mixed-base Watson-Crick hairpin (57 nt)
 
-**Source:** Constructed from biological principles (Bartel 2004, Krol 2004)
-
-| Parameter | Value |
-|-----------|-------|
-| 5' stem | GCGAUAGCUAGCUAGCUAGCUAG (23 nt) |
-| Loop | GAAAUUU (7 nt) |
-| 3' stem | CUAGCUAGCUAGCUAGCUAUCGC (23 nt, reverse complement) |
-| Total length | 53 nt (below default threshold, used with lowered min) |
-
-### Dataset: Biologically-informed pre-miRNA-like (≥55 nt)
-
-**Source:** Constructed to match hsa-mir-21-like structural parameters
+**Source:** Constructed with biologically plausible mixed AUGC composition
 
 | Parameter | Value |
 |-----------|-------|
-| Stem | ≥22 bp with Watson-Crick + G:U pairs |
-| Loop | 5–12 nt |
-| Total length | 55–80 nt |
+| 5' stem | `GCAUAGCUAGCUAGCUAGCUAGCUA` (25 nt) |
+| Loop | `GAAAUUU` (7 nt) |
+| 3' stem | `UAGCUAGCUAGCUAGCUAGCUAUGC` (25 nt, reverse complement) |
+| Total length | 57 nt |
+| Effective stem | 23 bp (capped by maxStem = n/2 - 5) |
+
+### Dataset 2: Wobble-pair hairpin (57 nt)
+
+**Source:** Constructed with 4 G:U wobble pairs per Krol (2004)
+
+| Parameter | Value |
+|-----------|-------|
+| 5' stem | `GCAUAGCUAGCUAGCUAGCUAGCUA` (25 nt, same as Dataset 1) |
+| Loop | `GAAAUUU` (7 nt) |
+| 3' stem | `UAGCUAGUUAGCUAGUUAGUUAUGU` (25 nt, 4× C→U for wobble) |
+| Total length | 57 nt |
+| Wobble positions | Pairing positions 0, 5, 9, 17 (G:U instead of G:C) |
+
+### Dataset 3: Real miRBase — hsa-mir-21 (MI0000077)
+
+**Source:** miRBase v22 (authoritative database)
+
+| Parameter | Value |
+|-----------|-------|
+| Sequence | `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA` |
+| Length | 71 nt |
+| Expected result | **NOT detected** — known limitation of consecutive-pairing model |
+| Reason | Internal mismatches and bulges yield only ~16 consecutive pairs from ends (< 18 threshold) |
+
+### Dataset 4: Real miRBase — hsa-let-7a-1 (MI0000060)
+
+**Source:** miRBase v22 (authoritative database)
+
+| Parameter | Value |
+|-----------|-------|
+| Sequence | `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA` |
+| Length | 78 nt |
+| Expected result | **NOT detected** — known limitation of consecutive-pairing model |
+| Reason | Only ~5 consecutive pairs from ends (< 18 threshold) |
+
+### Dataset 5: Short-stem hairpin (55 nt)
+
+**Source:** Constructed to test stem-length rejection independently of n<55 early-exit
+
+| Parameter | Value |
+|-----------|-------|
+| 5' stem | `GCAUAGCUAGCUAGC` (15 nt) |
+| Loop | `AUGCAUGCAUGCAUGCAUGCAUGCA` (25 nt) |
+| 3' stem | `GCUAGCUAGCUAUGC` (15 nt, reverse complement) |
+| Total length | 55 nt (passes n<55 check) |
+| Expected result | Rejected — stem 15 bp < 18 bp threshold |
 
 ---
 
@@ -152,7 +189,8 @@
 10. **SHOULD Test:** Multiple hairpins in longer sequence — Evidence: miRNA clusters (Bartel 2004)
 11. **SHOULD Test:** G:U wobble pairs accepted in stem — Evidence: Krol (2004)
 12. **SHOULD Test:** maxHairpinLength parameter respected — Evidence: miRBase range
-13. **COULD Test:** Performance with long sequences — Rationale: O(n²) complexity
+13. **MUST Test:** Real miRBase sequences NOT detected (known limitation) — Evidence: miRBase v22 (hsa-mir-21, hsa-let-7a-1)
+14. **COULD Test:** Performance with long sequences — Rationale: O(n²) complexity
 
 ---
 
@@ -170,4 +208,5 @@
 
 ## Change History
 
+- **2026-02-11**: Replaced synthetic test datasets with real miRBase sequences (MI0000077, MI0000060) and biologically plausible mixed-base hairpins. Added known-limitation documentation for consecutive-pairing model.
 - **2026-02-10**: Initial documentation.
