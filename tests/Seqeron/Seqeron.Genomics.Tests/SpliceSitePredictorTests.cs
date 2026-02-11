@@ -8,68 +8,8 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SpliceSitePredictorTests
 {
-    #region Donor Site Tests
-
-    [Test]
-    public void FindDonorSites_CanonicalGT_FindsSite()
-    {
-        // AAG|GUAAGU - classic donor site
-        string sequence = "CAGGTAAGT";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(sites.Any(s => s.Type == SpliceSiteType.Donor), Is.True);
-    }
-
-    [Test]
-    public void FindDonorSites_NoGT_ReturnsEmpty()
-    {
-        string sequence = "AAAAACCCCC";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindDonorSites_MultipleGT_FindsAll()
-    {
-        string sequence = "CAGGTAAGTTTTTCAGGTAAGT";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(2));
-    }
-
-    [Test]
-    public void FindDonorSites_ShortSequence_ReturnsEmpty()
-    {
-        var sites = FindDonorSites("GTAA", minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindDonorSites_NonCanonicalGC_WhenEnabled()
-    {
-        string sequence = "CAGGCAAGT";
-        var sitesWithNonCanonical = FindDonorSites(sequence, minScore: 0.1, includeNonCanonical: true).ToList();
-        var sitesCanonicalOnly = FindDonorSites(sequence, minScore: 0.3, includeNonCanonical: false).ToList();
-
-        Assert.That(sitesWithNonCanonical.Count, Is.GreaterThanOrEqualTo(sitesCanonicalOnly.Count));
-    }
-
-    [Test]
-    public void FindDonorSites_ReturnsMotifContext()
-    {
-        string sequence = "CAGGTAAGT";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        if (sites.Any())
-        {
-            Assert.That(sites[0].Motif, Is.Not.Empty);
-        }
-    }
-
-    #endregion
+    // NOTE: Donor site tests have been moved to SpliceSitePredictor_DonorSite_Tests.cs
+    // as part of SPLICE-DONOR-001 consolidation.
 
     #region Acceptor Site Tests
 
@@ -423,25 +363,6 @@ public class SpliceSitePredictorTests
     #endregion
 
     #region Input Handling Tests
-
-    [Test]
-    public void FindDonorSites_HandlesLowercase()
-    {
-        string sequence = "caggtaagt";
-        var sites = FindDonorSites(sequence, minScore: 0.3).ToList();
-
-        // Should handle lowercase input
-        Assert.That(sites, Is.Not.Null);
-    }
-
-    [Test]
-    public void FindDonorSites_HandlesDNA_T()
-    {
-        string dnSequence = "CAGGTAAGT"; // T instead of U
-        var sites = FindDonorSites(dnSequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Not.Null);
-    }
 
     [Test]
     public void PredictIntrons_EmptySequence_ReturnsEmpty()
