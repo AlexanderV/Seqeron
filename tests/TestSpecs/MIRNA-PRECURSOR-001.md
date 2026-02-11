@@ -5,7 +5,7 @@
 **Algorithm:** Pre-miRNA Hairpin Detection
 **Status:** ☐ In Progress
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-11
 
 ---
 
@@ -90,13 +90,15 @@
 | M8 | DotBracket_Structure_Correct | Structure has '(' for stem-5', '.' for loop, ')' for stem-3' | Matches stem/loop/stem pattern | Standard RNA notation |
 | M9 | DotBracket_Balanced | Count('(') == Count(')') in structure | Equal counts | Notation definition |
 | M10 | FreeEnergy_Negative | Free energy < 0 for valid hairpins | Negative value | Thermodynamic stability |
-| M11 | FreeEnergy_Ordering | Longer stem produces more negative energy | E(stem=25) < E(stem=20) | **ASSUMPTION** (simplified model) |
-| M12 | StemTooShort_Rejected | Sequence with < 18 bp complementary stem | No hairpin found | Krol (2004) |
-| M13 | LoopTooSmall_Rejected | Candidate with < 3 nt loop | Rejected | Bartel (2004) |
+| M11 | FreeEnergy_Ordering | Longer effective stem (23 bp) more negative than shorter (20 bp) | E(stem=23) < E(stem=20) | **ASSUMPTION** (simplified model) |
+| M12 | StemTooShort_Rejected | 55 nt sequence with only 15 bp stem (< 18 required); tests stem rejection, not n<55 | No hairpin found | Krol (2004) |
+| M13 | LoopTooLarge_Rejected | 66 nt candidate with 30 nt loop (> 25 max) | Rejected | Bartel (2004) |
 | M14 | TtoU_Conversion | DNA input (with T) handled correctly | T converted to U in output | RNA biology standard |
 | M15 | GU_WobblePairs_InStem | G-U pairs count as valid stem pairs | Hairpin accepted | Krol (2004) |
 | M16 | SequenceLength_InRange | All returned PreMiRnas have length within [min, max] | INV-1 verified | Scanning window definition |
 | M17 | Invariants_AllHold | All invariants verified on results | INV-1 through INV-10 | Multiple sources |
+| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 71 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22, Assumption #2 |
+| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 78 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22, Assumption #2 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -120,32 +122,29 @@
 
 ### 5.1 Discovery Summary
 
-- Existing tests in `MiRnaAnalyzerTests.cs` lines 78–112 (#region Pre-miRNA Tests)
-- 3 test methods found
+- Original weak tests in `MiRnaAnalyzerTests.cs` lines 78–112 (#region Pre-miRNA Tests): 3 methods
+- Consolidated into canonical file `MiRnaAnalyzer_PreMiRna_Tests.cs`: 23 tests
 
 ### 5.2 Coverage Classification
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1: NullInput | ❌ Missing | Not tested |
-| M2: EmptyInput | ❌ Missing | Not tested |
-| M3: ShortSequence | ⚠ Weak | `FindPreMiRnaHairpins_ShortSequence_ReturnsEmpty` exists but uses arbitrary input, no evidence citation |
-| M4: ValidHairpin | ⚠ Weak | `FindPreMiRnaHairpins_ValidHairpin_FindsPreMiRNA` has assertion `Has.Count.GreaterThanOrEqualTo(0)` — always passes |
-| M5-M17 | ❌ Missing | No position, structure, energy, or invariant tests |
-| S1-S4 | ❌ Missing | No edge case tests |
-| Structure test | ⚠ Weak | `FindPreMiRnaHairpins_ReturnsStructureInfo` checks `Is.Not.Empty` — no structural validation |
+| M1–M17 | ✅ Covered | All MUST tests implemented with evidence-based assertions |
+| M18–M19 | ✅ Covered | Real miRBase known-limitation tests (hsa-mir-21, hsa-let-7a-1) |
+| S1–S4 | ✅ Covered | All SHOULD tests implemented |
+| C1–C2 | ❌ Not implemented | Optional, low priority |
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `MiRnaAnalyzer_PreMiRna_Tests.cs` — new file for all MIRNA-PRECURSOR-001 tests
-- **Remove from existing file:** Pre-miRNA Tests region from `MiRnaAnalyzerTests.cs` (3 tests, all weak/duplicate)
-- **Keep in existing file:** All other tests (reverse complement, base pairing, context, family, utility) — belong to other test units
+- **Canonical file:** `MiRnaAnalyzer_PreMiRna_Tests.cs` — all MIRNA-PRECURSOR-001 tests
+- **Removed from existing file:** Pre-miRNA Tests region from `MiRnaAnalyzerTests.cs` (3 weak tests replaced)
+- **Kept in existing file:** All other tests (reverse complement, base pairing, context, family, utility)
 
 ### 5.4 Final State After Consolidation
 
 | File | Role | Test Count |
 |------|------|------------|
-| `MiRnaAnalyzer_PreMiRna_Tests.cs` | Canonical for MIRNA-PRECURSOR-001 | ~17 |
+| `MiRnaAnalyzer_PreMiRna_Tests.cs` | Canonical for MIRNA-PRECURSOR-001 | 23 |
 | `MiRnaAnalyzerTests.cs` | Residual tests for other units | Same minus 3 |
 
 ---
@@ -157,7 +156,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | 1 | Simplified energy model; test relative ordering not absolute values | M10, M11, INV-8, INV-9 |
-| 2 | Consecutive stem pairing; no bulge tolerance | M4, M12 |
+| 2 | Consecutive stem pairing; no bulge tolerance — real miRBase pre-miRNAs NOT detected | M4, M12, M18, M19 |
 | 3 | ValidateHairpin = AnalyzeHairpin (private); tested indirectly | Methods table |
 
 ---
