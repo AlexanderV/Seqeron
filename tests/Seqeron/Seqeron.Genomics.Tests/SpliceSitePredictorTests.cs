@@ -11,66 +11,8 @@ public class SpliceSitePredictorTests
     // NOTE: Donor site tests have been moved to SpliceSitePredictor_DonorSite_Tests.cs
     // as part of SPLICE-DONOR-001 consolidation.
 
-    #region Acceptor Site Tests
-
-    [Test]
-    public void FindAcceptorSites_CanonicalAG_FindsSite()
-    {
-        // Need at least 20 chars, AG at position >= 15
-        // PPT followed by CAG at correct position
-        string sequence = "UUUUUUUUUUUUUUUUCAGGG";
-        var sites = FindAcceptorSites(sequence, minScore: 0.2).ToList();
-
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(sites.Any(s => s.Type == SpliceSiteType.Acceptor), Is.True);
-    }
-
-    [Test]
-    public void FindAcceptorSites_NoAG_ReturnsEmpty()
-    {
-        string sequence = "UUUUUUUUUUUUUUUUUUUUU";
-        var sites = FindAcceptorSites(sequence, minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindAcceptorSites_StrongPPT_HighScore()
-    {
-        // Evidence: Polypyrimidine tract (PPT) is pyrimidine-rich region upstream of AG acceptor
-        // Strong PPT: continuous pyrimidines (U/C); Weak PPT: interrupted by purines (A/G)
-        string strongPpt = "AAAAUCUCUCUCUCUCUCAGAAAA"; // Strong PPT before AG
-        string weakPpt = "AAAAGAGAGAGAGAGAGAGAGAAAA"; // Weak - alternating purines
-
-        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.1).ToList();
-        var weakSites = FindAcceptorSites(weakPpt, minScore: 0.1).ToList();
-
-        // Strong PPT should produce sites; weak may not
-        Assert.That(strongSites, Is.Not.Empty, "Strong PPT should produce acceptor sites");
-        Assert.That(strongSites[0].Score, Is.GreaterThan(0), "Score should be positive");
-    }
-
-    [Test]
-    public void FindAcceptorSites_ShortSequence_ReturnsEmpty()
-    {
-        var sites = FindAcceptorSites("UCAG", minScore: 0.3).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindAcceptorSites_U12NonCanonical_WhenEnabled()
-    {
-        // Evidence: U12-type introns use AC-AG dinucleotides instead of canonical GT-AG
-        // U12 acceptor has AC dinucleotide
-        string sequence = "UUUUUUUUUUUUUUUUACGG"; // Contains AC
-        var sites = FindAcceptorSites(sequence, minScore: 0.1, includeNonCanonical: true).ToList();
-
-        // Should find potential U12 sites when non-canonical enabled
-        Assert.That(sites, Is.Not.Empty, "Should find sites with non-canonical enabled");
-    }
-
-    #endregion
+    // NOTE: Acceptor site tests have been moved to SpliceSitePredictor_AcceptorSite_Tests.cs
+    // as part of SPLICE-ACCEPTOR-001 consolidation.
 
     #region Branch Point Tests
 
