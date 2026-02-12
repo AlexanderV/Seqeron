@@ -103,7 +103,7 @@
 | ☑ | SPLICE-PREDICT-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-PREDICT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-PREDICT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) |
 | ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
 | ☑ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
-| ☐ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | - | - | - |
+| ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | - | - | - |
 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | - | - | - |
 | ☐ | EPIGEN-CPG-001 | Epigenetics | 3 | - | - | - |

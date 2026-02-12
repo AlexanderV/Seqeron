@@ -102,6 +102,15 @@
 |------|------|------------|
 | | | |
 
+### 5.5 Post-Implementation Coverage (Phase 7 re-audit)
+
+<!-- After Phase 7, re-audit every row from §5.2. ALL must be ✅. -->
+<!-- If any remain ❌ or ⚠, the Test Unit cannot be ☑ Complete. -->
+
+| Area / Test Case ID | Status | Resolution |
+|---------------------|--------|------------|
+| | | |
+
 ---
 
 ## 6. Assumption Register
