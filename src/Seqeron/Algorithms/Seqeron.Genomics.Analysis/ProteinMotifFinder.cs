@@ -63,61 +63,70 @@ public static class ProteinMotifFinder
 
     /// <summary>
     /// Common protein motifs in PROSITE format.
+    /// PROSITE patterns verified against https://prosite.expasy.org/ (Hulo et al. 2007).
+    /// Non-PROSITE patterns verified against published literature — see inline references.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, PrositePattern> CommonMotifs = new Dictionary<string, PrositePattern>
     {
-        // N-glycosylation site
+        // PROSITE PS00001: N-glycosylation site — https://prosite.expasy.org/PS00001
         ["PS00001"] = new("PS00001", "ASN_GLYCOSYLATION", "N-{P}-[ST]-{P}", @"N[^P][ST][^P]", "N-glycosylation site"),
 
-        // Protein kinase C phosphorylation site
+        // PROSITE PS00005: Protein kinase C phosphorylation site — https://prosite.expasy.org/PS00005
         ["PS00005"] = new("PS00005", "PKC_PHOSPHO_SITE", "[ST]-x-[RK]", @"[ST].[RK]", "Protein kinase C phosphorylation site"),
 
-        // Casein kinase II phosphorylation site
+        // PROSITE PS00006: Casein kinase II phosphorylation site — https://prosite.expasy.org/PS00006
         ["PS00006"] = new("PS00006", "CK2_PHOSPHO_SITE", "[ST]-x(2)-[DE]", @"[ST].{2}[DE]", "Casein kinase II phosphorylation site"),
 
-        // cAMP/cGMP-dependent protein kinase phosphorylation site
+        // PROSITE PS00004: cAMP/cGMP-dependent phosphorylation site — https://prosite.expasy.org/PS00004
         ["PS00004"] = new("PS00004", "CAMP_PHOSPHO_SITE", "[RK](2)-x-[ST]", @"[RK]{2}.[ST]", "cAMP-dependent phosphorylation site"),
 
-        // Tyrosine kinase phosphorylation site
-        ["PS00007"] = new("PS00007", "TYR_PHOSPHO_SITE", "[RK]-x(2,3)-[DE]-x(2,3)-Y", @"[RK].{2,3}[DE].{2,3}Y", "Tyrosine kinase phosphorylation site"),
+        // PROSITE PS00007: Tyrosine kinase phosphorylation site — https://prosite.expasy.org/PS00007
+        ["PS00007"] = new("PS00007", "TYR_PHOSPHO_SITE", "[RK]-x(2)-[DE]-x(3)-Y", @"[RK].{2}[DE].{3}Y", "Tyrosine kinase phosphorylation site"),
 
-        // N-myristoylation site
+        // PROSITE PS00008: N-myristoylation site — https://prosite.expasy.org/PS00008
         ["PS00008"] = new("PS00008", "MYRISTYL", "G-{EDRKHPFYW}-x(2)-[STAGCN]-{P}", @"G[^EDRKHPFYW].{2}[STAGCN][^P]", "N-myristoylation site"),
 
-        // Amidation site
+        // PROSITE PS00009: Amidation site — https://prosite.expasy.org/PS00009
         ["PS00009"] = new("PS00009", "AMIDATION", "x-G-[RK]-[RK]", @".G[RK][RK]", "Amidation site"),
 
-        // Cell attachment sequence (RGD)
+        // PROSITE PS00016: Cell attachment sequence (RGD) — https://prosite.expasy.org/PS00016
         ["PS00016"] = new("PS00016", "RGD", "R-G-D", @"RGD", "Cell attachment sequence"),
 
-        // ATP/GTP-binding site motif A (P-loop)
+        // PROSITE PS00017: ATP/GTP-binding site motif A (P-loop) — https://prosite.expasy.org/PS00017
         ["PS00017"] = new("PS00017", "ATP_GTP_A", "[AG]-x(4)-G-K-[ST]", @"[AG].{4}GK[ST]", "ATP/GTP-binding site motif A (P-loop)"),
 
-        // EF-hand calcium-binding domain
-        ["PS00018"] = new("PS00018", "EF_HAND_1", "D-x-[DNS]-{ILVFYW}-[DENSTG]-[DNQGHRK]-{GP}-[LIVMC]-[DENQSTAGC]-x(2)-[DE]",
-            @"D.[DNS][^ILVFYW][DENSTG][DNQGHRK][^GP][LIVMC][DENQSTAGC].{2}[DE]", "EF-hand calcium-binding domain"),
+        // PROSITE PS00018: EF-hand calcium-binding domain — https://prosite.expasy.org/PS00018
+        ["PS00018"] = new("PS00018", "EF_HAND_1", "D-{W}-[DNS]-{ILVFYW}-[DENSTG]-[DNQGHRK]-{GP}-[LIVMC]-[DENQSTAGC]-x(2)-[DE]-[LIVMFYW]",
+            @"D[^W][DNS][^ILVFYW][DENSTG][DNQGHRK][^GP][LIVMC][DENQSTAGC].{2}[DE][LIVMFYW]", "EF-hand calcium-binding domain"),
 
-        // Zinc finger C2H2 type signature
+        // PROSITE PS00028: Zinc finger C2H2 type — https://prosite.expasy.org/PS00028
         ["PS00028"] = new("PS00028", "ZINC_FINGER_C2H2_1", "C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H",
             @"C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H", "Zinc finger C2H2 type"),
 
-        // Leucine zipper pattern
+        // PROSITE PS00029: Leucine zipper pattern — https://prosite.expasy.org/PS00029
         ["PS00029"] = new("PS00029", "LEUCINE_ZIPPER", "L-x(6)-L-x(6)-L-x(6)-L", @"L.{6}L.{6}L.{6}L", "Leucine zipper pattern"),
 
-        // Nuclear localization signal (NLS)
+        // NLS — Monopartite nuclear localization signal
+        // Consensus: K-K/R-X-K/R (Chelsky et al. 1989; Dingwall & Laskey 1991)
         ["NLS1"] = new("NLS1", "NLS_MONOPARTITE", "[KR]-[KR]-x-[KR]", @"[KR][KR].[KR]", "Monopartite nuclear localization signal"),
 
-        // Nuclear export signal (NES)
+        // NES — Nuclear export signal (CRM1-dependent)
+        // Simplified from la Cour et al. (2004) Nucleic Acids Res 32:W142-5
+        // General NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 where Φ = hydrophobic
+        // L-enriched form used here reduces false positives
         ["NES1"] = new("NES1", "NES", "L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]", @"L.{2,3}[LIVFM].{2,3}L.[LI]", "Nuclear export signal"),
 
-        // SUMO interaction motif
+        // SIM — SUMO-interacting motif (type b)
+        // Consensus: Ψ-x-Ψ-Ψ where Ψ = V/I/L (Hecker et al. 2006, JBC 281:16117-27)
         ["SIM1"] = new("SIM1", "SUMO_INTERACTION", "[VIL]-x-[VIL]-[VIL]", @"[VIL].[VIL][VIL]", "SUMO interaction motif"),
 
-        // WW domain binding motif
+        // WW domain binding motif — PY motif
+        // Consensus: PPxY (Chen & Sudol 1995, PNAS 92:7819-23)
         ["WW1"] = new("WW1", "WW_BINDING", "P-P-x-Y", @"PP.Y", "WW domain binding motif (PY motif)"),
 
-        // SH3 domain binding motif
-        ["SH3_1"] = new("SH3_1", "SH3_BINDING_1", "P-x-x-P", @"P..P", "SH3 domain binding motif class I"),
+        // SH3 domain binding motif class I
+        // Consensus: +xxPxxP where + = R/K (Mayer 2001, J Cell Sci 114:1253-63)
+        ["SH3_1"] = new("SH3_1", "SH3_BINDING_1", "[RK]-x(2)-P-x(2)-P", @"[RK].{2}P.{2}P", "SH3 domain binding motif class I"),
     };
 
     #endregion
@@ -145,6 +154,8 @@ public static class ProteinMotifFinder
 
     /// <summary>
     /// Finds all occurrences of a specific pattern in a protein sequence.
+    /// Uses lookahead-based matching to discover overlapping occurrences,
+    /// consistent with PROSITE ScanProsite behavior (De Castro et al. 2006).
     /// </summary>
     public static IEnumerable<MotifMatch> FindMotifByPattern(
         string proteinSequence,
@@ -160,7 +171,8 @@ public static class ProteinMotifFinder
         Regex regex;
         try
         {
-            regex = new Regex(regexPattern, RegexOptions.IgnoreCase);
+            // Lookahead wrapper enables overlapping match discovery
+            regex = new Regex("(?=(" + regexPattern + "))", RegexOptions.IgnoreCase);
         }
         catch
         {
@@ -170,16 +182,17 @@ public static class ProteinMotifFinder
         var matches = regex.Matches(upper);
         foreach (Match match in matches)
         {
-            double score = CalculateMotifScore(match.Value, regexPattern);
+            var captured = match.Groups[1];
+            double score = CalculateMotifScore(captured.Value, regexPattern);
 
             yield return new MotifMatch(
                 Start: match.Index,
-                End: match.Index + match.Length - 1,
-                Sequence: match.Value,
+                End: match.Index + captured.Length - 1,
+                Sequence: captured.Value,
                 MotifName: motifName,
                 Pattern: patternId,
                 Score: score,
-                EValue: CalculateEValue(proteinSequence.Length, match.Length, score));
+                EValue: CalculateEValue(proteinSequence.Length, captured.Length, score));
         }
     }
 
@@ -771,31 +784,121 @@ public static class ProteinMotifFinder
 
     #region Scoring Functions
 
+    /// <summary>
+    /// Number of standard amino acids used as the alphabet size for scoring.
+    /// </summary>
+    private const int AminoAcidAlphabetSize = 20;
+
+    /// <summary>
+    /// Calculates motif score as total information content (IC) in bits.
+    /// IC per position = log2(alphabet_size / allowed_count).
+    /// Reference: Schneider TD, Stephens RM (1990). "Sequence logos: a new way to
+    /// display consensus sequences." Nucleic Acids Res 18:6097-6100.
+    /// </summary>
     private static double CalculateMotifScore(string matchSequence, string pattern)
     {
-        // Simple scoring: exact match to consensus positions gets higher score
-        int exactMatches = 0;
-        int totalPositions = 0;
+        var allowedCounts = ParseRegexAllowedCounts(pattern);
 
-        foreach (char c in matchSequence)
+        double totalIC = 0;
+        foreach (int allowed in allowedCounts)
         {
-            if (char.IsLetter(c))
-            {
-                totalPositions++;
-                // Favor hydrophobic and conserved amino acids
-                if ("LIVMFYW".Contains(c))
-                    exactMatches++;
-            }
+            if (allowed > 0 && allowed < AminoAcidAlphabetSize)
+                totalIC += Math.Log2((double)AminoAcidAlphabetSize / allowed);
         }
 
-        return totalPositions > 0 ? (double)exactMatches / totalPositions + 0.5 : 0.5;
+        // Minimum non-zero score for fully unconstrained patterns
+        return totalIC > 0 ? totalIC : 0.01;
     }
 
+    /// <summary>
+    /// Calculates E-value: expected number of random matches in a sequence.
+    /// E = (N - L + 1) × P_random, where P_random = 2^(-IC_total).
+    /// Reference: Altschul SF et al. (1990). "Basic Local Alignment Search Tool."
+    /// J Mol Biol 215:403-410.
+    /// </summary>
     private static double CalculateEValue(int sequenceLength, int motifLength, double score)
     {
-        // Simplified E-value calculation
-        double probability = Math.Pow(1.0 / 20, motifLength) * score;
-        return sequenceLength * probability;
+        int searchSpace = Math.Max(1, sequenceLength - motifLength + 1);
+        double probability = Math.Pow(2.0, -score);
+        return searchSpace * probability;
+    }
+
+    /// <summary>
+    /// Parses a regex pattern to determine the number of allowed amino acids per position.
+    /// Used by CalculateMotifScore for information-content-based scoring.
+    /// Handles: single letters (1), character classes [ABC] (N), negated classes [^ABC] (20-N),
+    /// any position '.' (20), and quantifiers {n} / {n,m} (minimum repeat count).
+    /// </summary>
+    private static List<int> ParseRegexAllowedCounts(string regexPattern)
+    {
+        var counts = new List<int>();
+        int i = 0;
+
+        while (i < regexPattern.Length)
+        {
+            int allowed;
+
+            if (regexPattern[i] == '[')
+            {
+                i++; // skip [
+                bool negated = i < regexPattern.Length && regexPattern[i] == '^';
+                if (negated) i++; // skip ^
+
+                int letterCount = 0;
+                while (i < regexPattern.Length && regexPattern[i] != ']')
+                {
+                    letterCount++;
+                    i++;
+                }
+                if (i < regexPattern.Length) i++; // skip ]
+
+                allowed = negated
+                    ? AminoAcidAlphabetSize - letterCount
+                    : letterCount;
+                allowed = Math.Clamp(allowed, 1, AminoAcidAlphabetSize);
+            }
+            else if (regexPattern[i] == '.')
+            {
+                i++;
+                allowed = AminoAcidAlphabetSize;
+            }
+            else if (char.IsLetter(regexPattern[i]))
+            {
+                i++;
+                allowed = 1;
+            }
+            else
+            {
+                // Skip non-pattern characters (e.g., parentheses from lookahead wrappers)
+                i++;
+                continue;
+            }
+
+            // Check for quantifier: {n} or {n,m}
+            int repeat = 1;
+            if (i < regexPattern.Length && regexPattern[i] == '{')
+            {
+                i++; // skip {
+                string num = "";
+                while (i < regexPattern.Length && regexPattern[i] != ',' && regexPattern[i] != '}')
+                {
+                    num += regexPattern[i];
+                    i++;
+                }
+                if (int.TryParse(num, out int n))
+                    repeat = n;
+
+                // Skip to closing }
+                while (i < regexPattern.Length && regexPattern[i] != '}')
+                    i++;
+                if (i < regexPattern.Length) i++; // skip }
+            }
+
+            for (int j = 0; j < repeat; j++)
+                counts.Add(allowed);
+        }
+
+        return counts;
     }
 
     #endregion
