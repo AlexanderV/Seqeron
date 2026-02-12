@@ -312,13 +312,20 @@ public static class DisorderPredictor
     }
 
     /// <summary>
-    /// Classifies the type of disordered region.
+    /// Classifies the type of disordered region by compositional bias.
+    /// Priority order: most specific single-AA bias first (Proline, highest TOP-IDP
+    /// propensity per Campen et al. 2008), then charge-based classes (Das &amp; Pappu 2013,
+    /// PNAS 110:13392–13397; van der Lee et al. 2014, Chem Rev 114:6589–6631, Figure 10),
+    /// then S/T-rich (van der Lee Table 1, P/T/S tandem repeats), then length-based
+    /// classification (Ward et al. 2004, J Mol Biol 337:635–645: &gt;30 residues).
+    /// Enrichment threshold: fraction &gt; 0.25, corresponding to ≥5× random single-AA
+    /// frequency (1/20 = 0.05) or ≥2.5× random pair frequency (~0.10). For charged
+    /// residue pairs this matches the f+/f− boundary in the Das–Pappu diagram-of-states.
     /// </summary>
     private static string ClassifyDisorderedRegion(List<ResiduePrediction> region)
     {
         var sequence = new string(region.Select(r => r.Residue).ToArray());
 
-        // Check for specific patterns
         int proCount = sequence.Count(c => c == 'P');
         int gluAspCount = sequence.Count(c => c == 'E' || c == 'D');
         int serThrCount = sequence.Count(c => c == 'S' || c == 'T');
@@ -329,14 +336,23 @@ public static class DisorderPredictor
         double serThrFraction = serThrCount / (double)sequence.Length;
         double basicFraction = lysArgCount / (double)sequence.Length;
 
-        if (proFraction > 0.25)
+        // Enrichment threshold: 0.25 = 5× random single-AA frequency (Proline)
+        // or 2.5× random pair frequency (charged/polar pairs).
+        // For f+/f−: Das & Pappu (2013) diagram-of-states boundary.
+        const double enrichmentThreshold = 0.25;
+
+        if (proFraction > enrichmentThreshold)
             return "Proline-rich";
-        if (acidFraction > 0.25)
+        if (acidFraction > enrichmentThreshold)
             return "Acidic";
-        if (basicFraction > 0.25)
+        if (basicFraction > enrichmentThreshold)
             return "Basic";
-        if (serThrFraction > 0.25)
+        if (serThrFraction > enrichmentThreshold)
             return "Ser/Thr-rich";
+
+        // Ward et al. (2004): >30 residues defines a "substantial" disordered segment.
+        // Van der Lee et al. (2014): "44% of human protein-coding genes contain
+        // substantial disordered segments of >30 amino acids in length."
         if (sequence.Length > 30)
             return "Long IDR";
 
@@ -344,15 +360,16 @@ public static class DisorderPredictor
     }
 
     /// <summary>
-    /// Calculates prediction confidence.
+    /// Calculates prediction confidence as the normalized distance from the
+    /// TOP-IDP decision boundary. Directly derived from the Campen et al. (2008)
+    /// disorder propensity scale: confidence = (meanScore − cutoff) / (1.0 − cutoff),
+    /// clamped to [0, 1].
     /// </summary>
     private static double CalculateConfidence(double meanScore, int length)
     {
-        // Distance from TOP-IDP cutoff, normalized to [0,1]
-        double scoreConfidence = (meanScore - TopIdpCutoff) / (1.0 - TopIdpCutoff);
-        double lengthConfidence = Math.Min(1.0, length / 20.0);
-
-        return Math.Max(0, Math.Min(1, (scoreConfidence + lengthConfidence) / 2));
+        // Normalized distance from the TOP-IDP cutoff (0.542).
+        // Score 0.542 → confidence 0.0; score 1.0 → confidence 1.0.
+        return Math.Max(0, Math.Min(1, (meanScore - TopIdpCutoff) / (1.0 - TopIdpCutoff)));
     }
 
     #endregion

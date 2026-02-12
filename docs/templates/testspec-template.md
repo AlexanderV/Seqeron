@@ -13,8 +13,10 @@
 
 ### 1.1 Authoritative Sources
 
-| # | Source | Authority Rank | URL | Accessed |
-|---|--------|---------------|-----|----------|
+<!-- Every source MUST have a verifiable link. DOI preferred, PubMed/PMC acceptable. -->
+
+| # | Source | Authority Rank | DOI or URL | Accessed |
+|---|--------|---------------|------------|----------|
 | | | | | |
 
 ### 1.2 Key Evidence Points
