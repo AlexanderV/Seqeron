@@ -104,7 +104,7 @@
 | ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
 | ☑ | DISORDER-REGION-001 | ProteinPred | 2 | [Evidence](docs/Evidence/DISORDER-REGION-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-REGION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderedRegion_Tests.cs) |
 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
-| ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | - | - | - |
+| ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | - | - | - |
 | ☐ | EPIGEN-CPG-001 | Epigenetics | 3 | - | - | - |
 | ☐ | EPIGEN-METHYL-001 | Epigenetics | 3 | - | - | - |
@@ -1749,24 +1749,30 @@
 
 ---
 
-#### PROTMOTIF-PROSITE-001: PROSITE Pattern Matching
+#### PROTMOTIF-PROSITE-001: PROSITE Pattern Matching ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `ProteinMotifFinder.MatchPrositePattern(...)` |
+| **Status** | ☑ Complete |
+| **Canonical** | `ProteinMotifFinder.FindMotifByProsite(...)` / `ConvertPrositeToRegex(...)` |
 | **Complexity** | O(n × m) |
+| **Evidence** | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) |
+| **TestSpec** | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) |
+| **Tests** | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
+| **Algorithm Doc** | [Algorithm](docs/algorithms/ProteinMotif/PROSITE_Pattern_Matching.md) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `MatchPrositePattern(sequence, pattern)` | ProteinMotifFinder | Canonical |
-| `ParsePrositePattern(pattern)` | ProteinMotifFinder | Parse |
+| `FindMotifByProsite(sequence, pattern, name)` | ProteinMotifFinder | Canonical |
+| `ConvertPrositeToRegex(pattern)` | ProteinMotifFinder | Parse |
 
 **Common Patterns:**
-- [ ] N-glycosylation (PS00001)
-- [ ] Phosphorylation sites
-- [ ] Zinc fingers
-- [ ] Signal peptides
+- [x] N-glycosylation (PS00001)
+- [x] Phosphorylation sites (PS00004, PS00005)
+- [x] Zinc fingers (PS00028)
+- [x] EF-hand (PS00018)
+- [x] Tachykinin / Pyrokinin with `[G>]` C-term brackets (PS00267, PS00539)
 
 ---
 
