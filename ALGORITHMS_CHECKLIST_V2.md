@@ -1,7 +1,7 @@
 # Algorithms Checklist v2.0
 
-**Date:** 2026-02-05
-**Version:** 2.4
+**Date:** 2026-02-12
+**Version:** 2.5
 **Library:** Seqeron.Genomics
 
 ---
@@ -10,11 +10,11 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Test Units** | 222 |
-| **Completed** | 70 |
+| **Total Test Units** | 234 |
+| **Completed** | 79 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 152 |
+| **Not Started** | 155 |
 
 ---
 
@@ -252,6 +252,10 @@
 | ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
+| ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
+| ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
+| ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
+| ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -3631,7 +3635,7 @@
 
 ---
 
-### 17. Oncology Genomics (32 units)
+### 17. Oncology Genomics (35 units)
 
 #### ONCO-SOMATIC-001: Somatic Mutation Calling
 
@@ -3640,6 +3644,7 @@
 | **Canonical** | `OncologyAnalyzer.CallSomaticMutations(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | Tumor VAF > threshold, absent in matched normal |
+| **Depends on** | — (standalone, entry point) |
 
 **Methods:**
 | Method | Class | Type |
@@ -3662,12 +3667,18 @@
 | **Canonical** | `OncologyAnalyzer.CalculateVAF(...)` |
 | **Complexity** | O(1) per variant |
 | **Invariant** | 0 ≤ VAF ≤ 1 |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `CalculateVAF(altReads, totalReads)` | OncologyAnalyzer | Canonical |
 | `AdjustVAFForPurity(vaf, purity, ploidy)` | OncologyAnalyzer | Correction |
+
+**Edge Cases:**
+- [ ] totalReads = 0 (division by zero)
+- [ ] Multiallelic sites (multiple ALT alleles)
+- [ ] VAF > 1.0 due to alignment artifacts
 
 ---
 
@@ -3677,6 +3688,8 @@
 |------|----------|
 | **Canonical** | `OncologyAnalyzer.IdentifyDriverMutations(...)` |
 | **Complexity** | O(n × k) where k=known drivers |
+| **Invariant** | driver_mutations ⊆ somatic_mutations |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3695,6 +3708,7 @@
 |------|----------|
 | **Canonical** | `OncologyAnalyzer.FilterArtifacts(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3710,6 +3724,7 @@
 |------|----------|
 | **Canonical** | `OncologyAnalyzer.AnnotateCancerVariants(...)` |
 | **Complexity** | O(n × k) |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3726,6 +3741,7 @@
 | **Canonical** | `OncologyAnalyzer.CalculateTMB(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | TMB = mutations / Mb (coding region) |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3735,6 +3751,11 @@
 
 **Thresholds:** Low (<6/Mb), Intermediate (6-20/Mb), High (>20/Mb)
 
+**Edge Cases:**
+- [ ] targetRegionSize = 0 (division by zero)
+- [ ] Panel < 1 Mb (unstable TMB estimation)
+- [ ] Synonymous-only variants (should be excluded)
+
 ---
 
 #### ONCO-MSI-001: Microsatellite Instability Detection
@@ -3743,6 +3764,8 @@
 |------|----------|
 | **Canonical** | `OncologyAnalyzer.DetectMSI(...)` |
 | **Complexity** | O(n × m) where m=microsatellite loci |
+| **Invariant** | 0 ≤ MSI_score ≤ 1 |
+| **Depends on** | — (standalone) |
 
 **Methods:**
 | Method | Class | Type |
@@ -3753,6 +3776,11 @@
 
 **Markers:** BAT25, BAT26, NR21, NR24, MONO27 (Bethesda panel)
 
+**Edge Cases:**
+- [ ] Tumor-only mode (no matched normal)
+- [ ] Insufficient coverage at microsatellite loci
+- [ ] < 5 evaluable markers (unreliable classification)
+
 ---
 
 #### ONCO-HRD-001: Homologous Recombination Deficiency
@@ -3762,6 +3790,7 @@
 | **Canonical** | `OncologyAnalyzer.CalculateHRDScore(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | HRD = LOH + TAI + LST |
+| **Depends on** | ONCO-LOH-001, ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3773,6 +3802,10 @@
 
 **Clinical:** PARP inhibitor response prediction (BRCA1/2, PALB2)
 
+**Edge Cases:**
+- [ ] Insufficient number of CNV segments for scoring
+- [ ] Near-diploid tumors (low signal)
+
 ---
 
 #### ONCO-LOH-001: Loss of Heterozygosity
@@ -3781,6 +3814,8 @@
 |------|----------|
 | **Canonical** | `OncologyAnalyzer.DetectLOH(...)` |
 | **Complexity** | O(n) |
+| **Invariant** | 0 ≤ LOH_fraction ≤ 1 per chromosome |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3796,6 +3831,8 @@
 |------|----------|
 | **Canonical** | `MutationalSignatures.ExtractSignatures(...)` |
 | **Complexity** | O(n × k) where k=signature count |
+| **Invariant** | sum(exposures) = total_mutations |
+| **Depends on** | ONCO-SIG-002 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3814,6 +3851,7 @@
 |------|----------|
 | **Canonical** | `MutationalSignatures.GetTrinucleotideContext(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3829,6 +3867,8 @@
 |------|----------|
 | **Canonical** | `MutationalSignatures.EstimateExposures(...)` |
 | **Complexity** | O(n × k²) |
+| **Invariant** | all(exposure ≥ 0) |
+| **Depends on** | ONCO-SIG-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3844,6 +3884,7 @@
 |------|----------|
 | **Canonical** | `MutationalSignatures.ClassifyMutationalProcess(...)` |
 | **Complexity** | O(k) |
+| **Depends on** | ONCO-SIG-003 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3860,6 +3901,8 @@
 |------|----------|
 | **Canonical** | `FusionDetector.DetectFusions(...)` |
 | **Complexity** | O(n log n) |
+| **Invariant** | gene5p ≠ gene3p |
+| **Depends on** | — (standalone) |
 
 **Methods:**
 | Method | Class | Type |
@@ -3870,6 +3913,11 @@
 
 **Clinical Fusions:** BCR-ABL, EML4-ALK, ROS1, NTRK, FGFR, RET
 
+**Edge Cases:**
+- [ ] Read-through transcripts (false positive fusions)
+- [ ] Low supporting read count
+- [ ] Reciprocal fusions (same partners, swapped orientation)
+
 ---
 
 #### ONCO-FUSION-002: Known Fusion Database Lookup
@@ -3878,6 +3926,7 @@
 |------|----------|
 | **Canonical** | `FusionDetector.MatchKnownFusions(...)` |
 | **Complexity** | O(n × k) |
+| **Depends on** | ONCO-FUSION-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3895,6 +3944,7 @@
 |------|----------|
 | **Canonical** | `FusionDetector.AnalyzeBreakpoint(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-FUSION-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3910,12 +3960,18 @@
 |------|----------|
 | **Canonical** | `CopyNumberAnalyzer.SegmentCopyNumber(...)` |
 | **Complexity** | O(n log n) |
+| **Invariant** | segments cover entire genome without gaps |
+| **Depends on** | — (standalone) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `SegmentCopyNumber(logRatios)` | CopyNumberAnalyzer | CBS algorithm |
 | `CallCopyNumberStates(segments, purity)` | CopyNumberAnalyzer | State calling |
+
+**Edge Cases:**
+- [ ] Noisy log-ratio data (low coverage)
+- [ ] Whole-genome doubling (WGD)
 
 ---
 
@@ -3925,6 +3981,7 @@
 |------|----------|
 | **Canonical** | `CopyNumberAnalyzer.DetectFocalAmplifications(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3942,6 +3999,7 @@
 |------|----------|
 | **Canonical** | `CopyNumberAnalyzer.DetectHomozygousDeletions(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3960,12 +4018,18 @@
 | **Canonical** | `TumorAnalyzer.EstimatePurity(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ purity ≤ 1 |
+| **Depends on** | ONCO-VAF-001, ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `EstimatePurity(variants, cnvSegments)` | TumorAnalyzer | Canonical |
 | `EstimatePurityFromVAF(variants)` | TumorAnalyzer | VAF-based |
+
+**Edge Cases:**
+- [ ] Purity < 0.1 (below detection limit)
+- [ ] No heterozygous SNPs in matched normal
+- [ ] High stromal contamination
 
 ---
 
@@ -3975,6 +4039,8 @@
 |------|----------|
 | **Canonical** | `TumorAnalyzer.EstimatePloidy(...)` |
 | **Complexity** | O(n) |
+| **Invariant** | ploidy > 0 |
+| **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -3990,12 +4056,13 @@
 |------|----------|
 | **Canonical** | `TumorAnalyzer.ClassifyClonality(...)` |
 | **Complexity** | O(n) |
+| **Invariant** | clonal_count + subclonal_count = total_variants |
+| **Depends on** | ONCO-CCF-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `ClassifyClonality(variants, purity, ploidy)` | TumorAnalyzer | Canonical |
-| `CalculateCCF(vaf, purity, localCN)` | TumorAnalyzer | Cancer cell fraction |
 | `IdentifyClonalMutations(ccfValues)` | TumorAnalyzer | CCF ≈ 1.0 |
 
 ---
@@ -4004,8 +4071,9 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `NeoantigePredictor.PredictNeoantigens(...)` |
+| **Canonical** | `NeoantigenPredictor.PredictNeoantigens(...)` |
 | **Complexity** | O(n × m) where m=HLA alleles |
+| **Depends on** | ONCO-SOMATIC-001, ONCO-HLA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4013,6 +4081,11 @@
 | `PredictNeoantigens(variants, hlaType)` | NeoantigenPredictor | Canonical |
 | `GenerateMutantPeptides(variant, lengths)` | NeoantigenPredictor | 8-11mer |
 | `ScoreNeoantigens(peptides, hlaAlleles)` | NeoantigenPredictor | Binding affinity |
+
+**Edge Cases:**
+- [ ] Unknown HLA type (incomplete typing)
+- [ ] Frameshift mutations (long peptide sequences)
+- [ ] Variants in non-coding regions (no peptide generated)
 
 ---
 
@@ -4022,6 +4095,8 @@
 |------|----------|
 | **Canonical** | `NeoantigenPredictor.PredictMHCBinding(...)` |
 | **Complexity** | O(n × m) |
+| **Invariant** | IC50 > 0 |
+| **Depends on** | ONCO-NEO-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4039,6 +4114,7 @@
 |------|----------|
 | **Canonical** | `ImmuneAnalyzer.EstimateInfiltration(...)` |
 | **Complexity** | O(n × k) |
+| **Depends on** | ONCO-EXPR-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4054,6 +4130,7 @@
 |------|----------|
 | **Canonical** | `LiquidBiopsyAnalyzer.AnalyzeCtDNA(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4061,6 +4138,11 @@
 | `AnalyzeCtDNA(plasmaVcf, tumorVcf)` | LiquidBiopsyAnalyzer | Canonical |
 | `CalculateTumorFraction(variants)` | LiquidBiopsyAnalyzer | ctDNA fraction |
 | `AnalyzeFragmentSizeDistribution(bamFile)` | LiquidBiopsyAnalyzer | Fragment analysis |
+
+**Edge Cases:**
+- [ ] ctDNA fraction < 0.1% (below detection limit)
+- [ ] High background of CHIP mutations
+- [ ] No matched primary tumor VCF
 
 ---
 
@@ -4070,6 +4152,7 @@
 |------|----------|
 | **Canonical** | `LiquidBiopsyAnalyzer.DetectMRD(...)` |
 | **Complexity** | O(n × k) where k=tracked mutations |
+| **Depends on** | ONCO-CTDNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4085,6 +4168,7 @@
 |------|----------|
 | **Canonical** | `LiquidBiopsyAnalyzer.FilterCHIP(...)` |
 | **Complexity** | O(n) |
+| **Depends on** | ONCO-CTDNA-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4102,6 +4186,7 @@
 |------|----------|
 | **Canonical** | `TumorEvolutionAnalyzer.ReconstructPhylogeny(...)` |
 | **Complexity** | O(n² × k) |
+| **Depends on** | ONCO-CCF-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4119,12 +4204,17 @@
 | **Canonical** | `TumorEvolutionAnalyzer.EstimateCCF(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ CCF ≤ 1 |
+| **Depends on** | ONCO-VAF-001, ONCO-PURITY-001, ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `EstimateCCF(vaf, purity, localCopyNumber)` | TumorEvolutionAnalyzer | Canonical |
 | `ClusterCCFValues(ccfValues)` | TumorEvolutionAnalyzer | Subclone inference |
+
+**Edge Cases:**
+- [ ] Purity not determined (unknown purity)
+- [ ] Multi-copy loci (ambiguous CCF)
 
 ---
 
@@ -4134,6 +4224,8 @@
 |------|----------|
 | **Canonical** | `TumorEvolutionAnalyzer.AnalyzeHeterogeneity(...)` |
 | **Complexity** | O(n log n) |
+| **Invariant** | ITH_score ≥ 0 |
+| **Depends on** | ONCO-CCF-001 |
 
 **Methods:**
 | Method | Class | Type |
@@ -4141,6 +4233,102 @@
 | `AnalyzeHeterogeneity(variants, ccfValues)` | TumorEvolutionAnalyzer | Canonical |
 | `CalculateITH(ccfDistribution)` | TumorEvolutionAnalyzer | ITH score |
 | `InferSubclones(ccfClusters)` | TumorEvolutionAnalyzer | Subclone count |
+
+---
+
+#### ONCO-HLA-001: HLA Typing from NGS Data
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `HlaTyper.TypeHLA(...)` |
+| **Complexity** | O(n × k) where k=HLA alleles in database |
+| **Invariant** | result contains HLA-A, HLA-B, HLA-C (2 alleles each) |
+| **Depends on** | — (standalone) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `TypeHLA(bamFile)` | HlaTyper | Canonical |
+| `ResolveAmbiguities(candidates)` | HlaTyper | Disambiguation |
+| `GetFourDigitType(hlaResult)` | HlaTyper | Resolution |
+
+**Databases:** IPD-IMGT/HLA
+
+**Edge Cases:**
+- [ ] Homozygous alleles (single allele detected)
+- [ ] Novel alleles not in database
+- [ ] Low coverage at HLA loci
+
+---
+
+#### ONCO-ACTION-001: Clinical Actionability Assessment
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `ClinicalInterpreter.AssessActionability(...)` |
+| **Complexity** | O(n × k) where k=knowledge base entries |
+| **Invariant** | evidence tier ∈ {Tier I, Tier II, Tier III, Tier IV} |
+| **Depends on** | ONCO-DRIVER-001, ONCO-ANNOT-001 |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `AssessActionability(variants)` | ClinicalInterpreter | Canonical |
+| `GetTherapyRecommendations(variant)` | ClinicalInterpreter | Therapy lookup |
+| `ClassifyEvidenceLevel(variant)` | ClinicalInterpreter | AMP/ASCO/CAP tiers |
+
+**Databases:** OncoKB, CIViC, ClinVar
+
+**Edge Cases:**
+- [ ] VUS (variants of uncertain significance)
+- [ ] Conflicting evidence across databases
+- [ ] Off-label therapy recommendations
+
+---
+
+#### ONCO-SV-001: Non-Fusion Structural Variant Detection
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `StructuralVariantDetector.DetectStructuralVariants(...)` |
+| **Complexity** | O(n log n) |
+| **Invariant** | SV type ∈ {DEL, DUP, INV, TRA, COMPLEX} |
+| **Depends on** | — (standalone) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `DetectStructuralVariants(bamFile)` | StructuralVariantDetector | Canonical |
+| `ClassifySVType(sv)` | StructuralVariantDetector | Type classification |
+| `FilterSomaticSVs(svs, normalBam)` | StructuralVariantDetector | Somatic filter |
+
+**Edge Cases:**
+- [ ] Complex rearrangements (chromothripsis)
+- [ ] Low-coverage samples (insufficient split reads)
+- [ ] Repetitive regions (ambiguous breakpoints)
+
+---
+
+#### ONCO-EXPR-001: Tumor Gene Expression Quantification
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `TumorExpressionAnalyzer.QuantifyExpression(...)` |
+| **Complexity** | O(n × g) where g=gene count |
+| **Invariant** | all TPM values ≥ 0, sum(TPM) ≈ 1e6 |
+| **Depends on** | — (standalone) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `QuantifyExpression(rnaBam, annotation)` | TumorExpressionAnalyzer | Canonical |
+| `NormalizeExpression(counts)` | TumorExpressionAnalyzer | TPM/FPKM normalization |
+| `IdentifyOutlierGenes(expression, reference)` | TumorExpressionAnalyzer | Z-score outliers |
+
+**Edge Cases:**
+- [ ] Low RNA quality (degraded, 3' bias)
+- [ ] No matched normal expression profile
+- [ ] Batch effects between samples
 
 ---
 
@@ -4452,6 +4640,90 @@
 | `FindTandemRepeats` (GenomicAnalyzer) | GENOMIC-TANDEM-001 |
 | `CalculateSimilarity` | GENOMIC-SIMILARITY-001 |
 | `FindOpenReadingFrames` | GENOMIC-ORF-001 |
+| `AdjustVAFForPurity` | ONCO-VAF-001 |
+| `AnalyzeBreakpoint` | ONCO-FUSION-003 |
+| `AnalyzeCtDNA` | ONCO-CTDNA-001 |
+| `AnalyzeFragmentSizeDistribution` | ONCO-CTDNA-001 |
+| `AnalyzeHeterogeneity` (TumorEvolutionAnalyzer) | ONCO-HETERO-001 |
+| `AnnotateCancerVariants` | ONCO-ANNOT-001 |
+| `AssessActionability` | ONCO-ACTION-001 |
+| `BootstrapConfidenceIntervals` (MutationalSignatures) | ONCO-SIG-003 |
+| `Build96ChannelSpectrum` | ONCO-SIG-002 |
+| `CalculateBindingAffinity` | ONCO-MHC-001 |
+| `CalculateHRDScore` | ONCO-HRD-001 |
+| `CalculateITH` | ONCO-HETERO-001 |
+| `CalculateLOHFraction` | ONCO-LOH-001 |
+| `CalculateLOHScore` | ONCO-HRD-001 |
+| `CalculateLSTScore` | ONCO-HRD-001 |
+| `CalculateMSIScore` | ONCO-MSI-001 |
+| `CalculateSomaticScore` | ONCO-SOMATIC-001 |
+| `CalculateTAIScore` | ONCO-HRD-001 |
+| `CalculateTMB` | ONCO-TMB-001 |
+| `CalculateTumorFraction` | ONCO-CTDNA-001 |
+| `CalculateVAF` | ONCO-VAF-001 |
+| `CallCopyNumberStates` | ONCO-CNA-001 |
+| `CallSomaticMutations` | ONCO-SOMATIC-001 |
+| `ClassifyClonality` | ONCO-CLONAL-001 |
+| `ClassifyEvidenceLevel` | ONCO-ACTION-001 |
+| `ClassifyMSIStatus` | ONCO-MSI-001 |
+| `ClassifyMutationalProcess` | ONCO-SIG-004 |
+| `ClassifySVType` | ONCO-SV-001 |
+| `ClassifyTMB` | ONCO-TMB-001 |
+| `ClusterCCFValues` | ONCO-CCF-001 |
+| `DecomposeSpectrum` | ONCO-SIG-001 |
+| `DeconvoluteImmuneCells` | ONCO-IMMUNE-001 |
+| `DetectFocalAmplifications` | ONCO-CNA-002 |
+| `DetectFusions` | ONCO-FUSION-001 |
+| `DetectHomozygousDeletions` | ONCO-CNA-003 |
+| `DetectLOH` | ONCO-LOH-001 |
+| `DetectMRD` | ONCO-MRD-001 |
+| `DetectMSI` | ONCO-MSI-001 |
+| `DetectOxoGArtifacts` | ONCO-ARTIFACT-001 |
+| `DetectStructuralVariants` | ONCO-SV-001 |
+| `DetectWholeGenomeDoubling` | ONCO-PLOIDY-001 |
+| `EstimateCCF` | ONCO-CCF-001 |
+| `EstimateExposures` | ONCO-SIG-003 |
+| `EstimateInfiltration` | ONCO-IMMUNE-001 |
+| `EstimatePloidy` | ONCO-PLOIDY-001 |
+| `EstimatePurity` | ONCO-PURITY-001 |
+| `EstimatePurityFromVAF` | ONCO-PURITY-001 |
+| `ExtractSignatures` | ONCO-SIG-001 |
+| `FilterArtifacts` | ONCO-ARTIFACT-001 |
+| `FilterCHIP` | ONCO-CHIP-001 |
+| `FilterGermlineVariants` | ONCO-SOMATIC-001 |
+| `FilterSomaticSVs` | ONCO-SV-001 |
+| `FindChimericReads` | ONCO-FUSION-001 |
+| `FitToCosmicSignatures` | ONCO-SIG-001 |
+| `GenerateMutantPeptides` | ONCO-NEO-001 |
+| `GetCOSMICAnnotation` | ONCO-ANNOT-001 |
+| `GetFourDigitType` | ONCO-HLA-001 |
+| `GetFusionAnnotation` | ONCO-FUSION-002 |
+| `GetTherapyRecommendations` | ONCO-ACTION-001 |
+| `GetTrinucleotideContext` | ONCO-SIG-002 |
+| `IdentifyAmplifiedOncogenes` | ONCO-CNA-002 |
+| `IdentifyBranchMutations` | ONCO-PHYLO-001 |
+| `IdentifyCHIPVariants` | ONCO-CHIP-001 |
+| `IdentifyClonalMutations` | ONCO-CLONAL-001 |
+| `IdentifyDeletedTumorSuppressors` | ONCO-CNA-003 |
+| `IdentifyDriverMutations` | ONCO-DRIVER-001 |
+| `IdentifyOutlierGenes` | ONCO-EXPR-001 |
+| `IdentifyTrunkMutations` | ONCO-PHYLO-001 |
+| `InferSubclones` | ONCO-HETERO-001 |
+| `MatchCancerHotspots` | ONCO-DRIVER-001 |
+| `MatchKnownFusions` | ONCO-FUSION-002 |
+| `NormalizeExpression` | ONCO-EXPR-001 |
+| `PredictFusionProtein` | ONCO-FUSION-003 |
+| `PredictMHCBinding` | ONCO-MHC-001 |
+| `PredictNeoantigens` | ONCO-NEO-001 |
+| `QuantifyExpression` | ONCO-EXPR-001 |
+| `ReconstructPhylogeny` | ONCO-PHYLO-001 |
+| `ResolveAmbiguities` (HlaTyper) | ONCO-HLA-001 |
+| `ScoreDriverPotential` | ONCO-DRIVER-001 |
+| `ScoreNeoantigens` | ONCO-NEO-001 |
+| `SegmentCopyNumber` (CopyNumberAnalyzer) | ONCO-CNA-001 |
+| `TrackVariantsOverTime` | ONCO-MRD-001 |
+| `TypeHLA` | ONCO-HLA-001 |
+| `ValidateFusion` | ONCO-FUSION-001 |
 
 ---
 
@@ -4563,19 +4835,23 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | VcfParser | PARSE-VCF-001 | ✓ |
 | SequenceStatistics | SEQ-STATS-001 to SEQ-SUMMARY-001 | ✓ |
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
-| OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ✓ |
-| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ✓ |
-| FusionDetector | ONCO-FUSION-001 to ONCO-FUSION-003 | ✓ |
-| CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ✓ |
-| TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ✓ |
-| NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ✓ |
-| ImmuneAnalyzer | ONCO-IMMUNE-001 | ✓ |
-| LiquidBiopsyAnalyzer | ONCO-CTDNA-001 to ONCO-CHIP-001 | ✓ |
-| TumorEvolutionAnalyzer | ONCO-PHYLO-001 to ONCO-HETERO-001 | ✓ |
+| OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
+| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☐ |
+| FusionDetector | ONCO-FUSION-001 to ONCO-FUSION-003 | ☐ |
+| CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
+| TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
+| NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
+| ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
+| LiquidBiopsyAnalyzer | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☐ |
+| TumorEvolutionAnalyzer | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ |
+| HlaTyper | ONCO-HLA-001 | ☐ |
+| ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
+| StructuralVariantDetector | ONCO-SV-001 | ☐ |
+| TumorExpressionAnalyzer | ONCO-EXPR-001 | ☐ |
 
-**Total Classes Covered: 53/53 (100%)**
+**Total Classes Covered: 44/57 (77%)**
 
 ---
 
-*Generated: 2026-02-05*
-*Checklist version: 2.4 (Oncology Genomics Added)*
+*Generated: 2026-02-12*
+*Checklist version: 2.5 (Oncology Genomics: consistency fixes, 4 new algorithms)*
