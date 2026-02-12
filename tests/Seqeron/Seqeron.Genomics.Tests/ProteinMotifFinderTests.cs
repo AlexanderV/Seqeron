@@ -8,61 +8,7 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class ProteinMotifFinderTests
 {
-    #region Signal Peptide Tests
-
-    [Test]
-    public void PredictSignalPeptide_ClassicSignal_PredictsSite()
-    {
-        // Signal peptide: M + positive (RK) + hydrophobic + small residues + cleavage
-        string protein = "MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
-        var signal = PredictSignalPeptide(protein);
-
-        Assert.That(signal, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25), "Cleavage after LASAG region");
-            Assert.That(signal.Value.Score, Is.EqualTo(0.96).Within(0.01), "Combined N/H/C region score");
-            Assert.That(signal.Value.Probability, Is.EqualTo(1.0).Within(0.01));
-        });
-    }
-
-    [Test]
-    public void PredictSignalPeptide_NoSignal_ReturnsNull()
-    {
-        // All charged, no hydrophobic region
-        string protein = "EEEEEEEEEEKKKKKKKKKKDDDDDRRRRR";
-        var signal = PredictSignalPeptide(protein);
-
-        Assert.That(signal, Is.Null);
-    }
-
-    [Test]
-    public void PredictSignalPeptide_ShortSequence_ReturnsNull()
-    {
-        string protein = "MKKLLLL";
-        var signal = PredictSignalPeptide(protein);
-
-        Assert.That(signal, Is.Null);
-    }
-
-    [Test]
-    public void PredictSignalPeptide_ReturnsRegions()
-    {
-        string protein = "MKRLLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
-        var signal = PredictSignalPeptide(protein);
-
-        Assert.That(signal, Is.Not.Null, "Signal peptide must be detected");
-        Assert.Multiple(() =>
-        {
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(26));
-            Assert.That(signal.Value.NRegion, Is.EqualTo("MKRLL"));
-            Assert.That(signal.Value.HRegion, Has.Length.EqualTo(16));
-            Assert.That(signal.Value.CRegion, Is.EqualTo("LASAG"));
-            Assert.That(signal.Value.Score, Is.EqualTo(0.96).Within(0.01));
-        });
-    }
-
-    #endregion
+    // Signal Peptide tests moved to ProteinMotifFinder_DomainPrediction_Tests.cs (PROTMOTIF-DOMAIN-001)
 
     #region Transmembrane Prediction Tests
 
@@ -223,63 +169,9 @@ public class ProteinMotifFinderTests
 
     #endregion
 
-    #region Domain Finding Tests
+    // Domain Finding tests moved to ProteinMotifFinder_DomainPrediction_Tests.cs (PROTMOTIF-DOMAIN-001)
 
-    [Test]
-    public void FindDomains_ZincFinger_Finds()
-    {
-        // C-x(2,4)-C-x(3)-L-x(8)-H-x(3,5)-H
-        string protein = "AAAACXXCXXXLXXXXXXXXHXXXHAAA";
-        var domains = FindDomains(protein).ToList();
-
-        Assert.That(domains, Has.Count.EqualTo(1), "Zinc Finger C2H2 domain expected");
-        Assert.That(domains[0].Name, Is.EqualTo("Zinc Finger C2H2"));
-        Assert.That(domains[0].Start, Is.EqualTo(4));
-        Assert.That(domains[0].End, Is.EqualTo(24));
-    }
-
-    [Test]
-    public void FindDomains_PLloop_FindsKinase()
-    {
-        // [AG]-x(4)-G-K-[ST]
-        string protein = "AAAAGXXXXGKSAAAA";
-        var domains = FindDomains(protein).ToList();
-
-        Assert.That(domains, Has.Count.EqualTo(1), "Kinase ATP-binding domain expected");
-        Assert.That(domains[0].Name, Is.EqualTo("Protein Kinase ATP-binding"));
-        Assert.That(domains[0].Start, Is.EqualTo(4));
-        Assert.That(domains[0].End, Is.EqualTo(11));
-    }
-
-    [Test]
-    public void FindDomains_EmptySequence_ReturnsEmpty()
-    {
-        var domains = FindDomains("").ToList();
-        Assert.That(domains, Is.Empty);
-    }
-
-    #endregion
-
-    #region Case Sensitivity Tests
-
-    [Test]
-    public void PredictSignalPeptide_HandlesLowercase()
-    {
-        // Evidence: Protein sequences should be case-insensitive
-        string proteinLower = "mkrllllllllllllllllllasagdddeeefff";
-        string proteinUpper = "MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
-
-        var signalLower = PredictSignalPeptide(proteinLower);
-        var signalUpper = PredictSignalPeptide(proteinUpper);
-
-        // Both should produce consistent results (both null or both not null)
-        bool lowerHasSignal = signalLower != null;
-        bool upperHasSignal = signalUpper != null;
-        Assert.That(lowerHasSignal, Is.EqualTo(upperHasSignal),
-            "Lowercase and uppercase should produce same signal peptide detection result");
-    }
-
-    #endregion
+    // Case sensitivity tests moved to ProteinMotifFinder_DomainPrediction_Tests.cs (PROTMOTIF-DOMAIN-001)
 
     #region Integration Tests
 
@@ -300,8 +192,9 @@ public class ProteinMotifFinderTests
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(63), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
-            Assert.That(signal, Is.Not.Null);
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25));
+            Assert.That(signal, Is.Not.Null, "Signal peptide must be detected — classic tripartite structure");
+            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25),
+                "Cleavage at position 25 after c-region LASAG");
             Assert.That(motifs.Any(m => m.MotifName == "RGD"), Is.True, "RGD cell attachment motif");
             Assert.That(motifs.Any(m => m.MotifName == "ASN_GLYCOSYLATION"), Is.True, "N-glycosylation site");
         });
@@ -325,7 +218,9 @@ public class ProteinMotifFinderTests
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(21), "Deterministic motif count for seed=42");
-            Assert.That(signal, Is.Not.Null, "Signal peptide detected in random sequence");
+            // Random protein correctly yields no signal peptide with strict criteria:
+            // {A,G,S} at -1/-3 per von Heijne (1983), h-region ≥ 7 per von Heijne (1985)
+            Assert.That(signal, Is.Null, "Random sequence lacks signal peptide structure");
             Assert.That(tm, Is.Empty, "No TM helices in random sequence");
             Assert.That(disorder, Has.Count.EqualTo(23), "Disordered regions in random sequence");
             Assert.That(domains, Is.Empty, "No domains in random sequence");

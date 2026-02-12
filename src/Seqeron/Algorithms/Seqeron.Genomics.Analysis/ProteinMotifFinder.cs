@@ -369,7 +369,10 @@ public static class ProteinMotifFinder
     #region Signal Peptide Prediction
 
     /// <summary>
-    /// Predicts signal peptide cleavage site.
+    /// Predicts signal peptide cleavage site using von Heijne's tripartite model.
+    /// Regions: n-region (positively charged), h-region (hydrophobic core), c-region (cleavage site).
+    /// Sources: von Heijne (1983) Eur J Biochem 133:17–21; von Heijne (1985) J Mol Biol 184:99–105;
+    ///          von Heijne (1986) Nucl Acids Res 14:4683–4690.
     /// </summary>
     public static SignalPeptide? PredictSignalPeptide(string proteinSequence, int maxLength = 70)
     {
@@ -379,38 +382,43 @@ public static class ProteinMotifFinder
         string upper = proteinSequence.ToUpperInvariant();
         int searchLength = Math.Min(maxLength, upper.Length);
 
-        // Signal peptide has three regions:
-        // N-region (1-5 aa, positively charged)
-        // H-region (7-15 aa, hydrophobic)
-        // C-region (3-7 aa, polar, ends with small amino acids A, G, S)
+        // Signal peptide tripartite structure — von Heijne (1986):
+        // N-region (1–5 aa, positively charged, K/R)
+        // H-region (7–15 aa, hydrophobic core)
+        // C-region (3–7 aa, polar, small amino acids at -1/-3)
 
         double bestScore = 0;
         int bestCleavage = -1;
         string bestN = "", bestH = "", bestC = "";
 
-        // Scan for cleavage sites
+        // Scan candidate cleavage sites at positions 15–35
         for (int cleavage = 15; cleavage <= Math.Min(35, searchLength); cleavage++)
         {
-            // Check -3, -1 rule (small amino acids at positions -3 and -1)
+            // (-1, -3) rule: small neutral amino acids at positions -1 and -3
+            // Source: von Heijne (1983) — {A, G, S} at -1/-3
             char m3 = upper[cleavage - 3];
             char m1 = upper[cleavage - 1];
 
             if (!IsSmallAminoAcid(m3) || !IsSmallAminoAcid(m1))
                 continue;
 
-            // Score the regions
+            // Score the three regions
             string nRegion = upper.Substring(0, Math.Min(5, cleavage / 3));
             string hRegion = upper.Substring(nRegion.Length, cleavage - nRegion.Length - 5);
             string cRegion = upper.Substring(cleavage - 5, 5);
 
-            if (hRegion.Length < 5)
+            // H-region minimum length: 7 residues — von Heijne (1985)
+            if (hRegion.Length < 7)
                 continue;
 
             double nScore = ScoreNRegion(nRegion);
             double hScore = ScoreHydrophobicRegion(hRegion);
             double cScore = ScoreCRegion(cRegion);
 
-            double totalScore = nScore * 0.2 + hScore * 0.5 + cScore * 0.3;
+            // Weighted mean with 1:2:1 ratio (n:h:c).
+            // H-region receives double weight: "both necessary and sufficient
+            // for membrane targeting" — von Heijne (1985) J Mol Biol 184:99–105.
+            double totalScore = (nScore + 2.0 * hScore + cScore) / 4.0;
 
             if (totalScore > bestScore)
             {
@@ -431,34 +439,47 @@ public static class ProteinMotifFinder
             HRegion: bestH,
             CRegion: bestC,
             Score: bestScore,
-            Probability: Math.Min(1.0, bestScore * 1.2));
+            Probability: bestScore);
     }
 
+    /// <summary>
+    /// Small neutral amino acids for the (-1, -3) cleavage site rule.
+    /// Source: von Heijne (1983) Eur J Biochem 133:17–21 — {A, G, S} at positions -1 and -3.
+    /// </summary>
     private static bool IsSmallAminoAcid(char aa)
     {
-        return "AGSTC".Contains(aa);
+        return "AGS".Contains(aa);
     }
 
+    /// <summary>
+    /// N-region score: positive charge density (K, R).
+    /// Source: von Heijne (1986) — mean n-region charge ≈ +2.0 (eukaryotic +1.7, prokaryotic +2.3).
+    /// Normalized so 2 positive residues = 1.0 (at the combined mean).
+    /// </summary>
     private static double ScoreNRegion(string region)
     {
-        // N-region should have positive charges (K, R)
         int positiveCharges = region.Count(c => c == 'K' || c == 'R');
-        return Math.Min(1.0, positiveCharges * 0.4);
+        return Math.Min(1.0, positiveCharges * 0.5);
     }
 
+    /// <summary>
+    /// H-region score: fraction of hydrophobic amino acids {A, I, L, M, F, V, W}.
+    /// Source: von Heijne (1985) J Mol Biol 184:99–105 — h-region defined by hydrophobic content.
+    /// </summary>
     private static double ScoreHydrophobicRegion(string region)
     {
-        // H-region should be hydrophobic
         int hydrophobic = region.Count(c => "AILMFVW".Contains(c));
-        double ratio = (double)hydrophobic / region.Length;
-        return ratio > 0.5 ? 1.0 : ratio * 2;
+        return (double)hydrophobic / region.Length;
     }
 
+    /// <summary>
+    /// C-region score: fraction of small/polar amino acids {A, G, S, T, N}.
+    /// Source: von Heijne (1984) J Mol Biol 173:243–251 — c-region enriched in small polar residues.
+    /// </summary>
     private static double ScoreCRegion(string region)
     {
-        // C-region: polar, small residues at -3, -1
         int smallPolar = region.Count(c => "AGSTN".Contains(c));
-        return Math.Min(1.0, smallPolar * 0.25);
+        return (double)smallPolar / region.Length;
     }
 
     #endregion
