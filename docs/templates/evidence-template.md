@@ -67,7 +67,10 @@
 
 ## References
 
-1. <Author (Year). Title. Journal/Source. URL if applicable.>
+<!-- Every reference MUST include a verifiable link (DOI or URL). -->
+<!-- A reference without a link is incomplete. -->
+
+1. <Author (Year). Title. Journal. DOI_or_URL>
 
 ---
 

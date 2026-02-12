@@ -40,13 +40,22 @@
 
 ## Deviations and Assumptions
 
-<!-- How implementation differs from theory, or where behavior is assumed. -->
-<!-- Number each item with bold name prefix. -->
+<!-- Per Implementation conformance policy: deviations are defects, not documentation items. -->
+<!-- Every item here MUST have a resolution status. -->
 
-1. **<Deviation name>:** <description>
+<!-- Status values: -->
+<!-- 🔧 FIXED — deviation was corrected in this Test Unit processing -->
+<!-- ⛔ BLOCKED — cannot resolve, Test Unit blocked -->
+<!-- ⚠ ASSUMPTION — no authoritative source exists; assumption documented and tested separately -->
+
+| # | Item | Type | Status | Resolution |
+|---|------|------|--------|------------|
+| 1 | **<Name>** | Deviation / Assumption | 🔧/⛔/⚠ | <what was done> |
 
 ---
 
 ## Sources
 
-- <full citation or URL>
+<!-- Every source MUST include a verifiable link (DOI or URL). -->
+
+- <Author (Year). Title. Journal. DOI_or_URL>
