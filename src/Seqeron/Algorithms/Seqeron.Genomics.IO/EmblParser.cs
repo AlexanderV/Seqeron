@@ -593,25 +593,9 @@ public static partial class EmblParser
         if (string.IsNullOrEmpty(locationStr))
             return new Location(0, 0, false, false, Array.Empty<(int, int)>(), locationStr);
 
-        bool isComplement = locationStr.Contains("complement(", StringComparison.OrdinalIgnoreCase);
-        bool isJoin = locationStr.Contains("join(", StringComparison.OrdinalIgnoreCase);
-
-        var parts = new List<(int Start, int End)>();
-
-        var rangeMatches = LocationRangeRegex().Matches(locationStr);
-        foreach (Match match in rangeMatches)
-        {
-            int start = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
-            int end = match.Groups[2].Success
-                ? int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)
-                : start;
-            parts.Add((start, end));
-        }
-
-        int overallStart = parts.Count > 0 ? parts.Min(p => p.Start) : 0;
-        int overallEnd = parts.Count > 0 ? parts.Max(p => p.End) : 0;
-
-        return new Location(overallStart, overallEnd, isComplement, isJoin, parts, locationStr);
+        var (start, end, isComplement, isJoin, parts) =
+            SequenceFormatHelper.ParseLocationParts(locationStr, useStartsWithForComplement: false);
+        return new Location(start, end, isComplement, isJoin, parts, locationStr);
     }
 
     private static string ParseSequence(List<string> lines)
@@ -732,9 +716,6 @@ public static partial class EmblParser
 
     [GeneratedRegex(@"/(\w+)(?:=([^/]+))?")]
     private static partial Regex QualifierRegex();
-
-    [GeneratedRegex(@"(\d+)(?:\.\.(\d+))?")]
-    private static partial Regex LocationRangeRegex();
 
     #endregion
 }

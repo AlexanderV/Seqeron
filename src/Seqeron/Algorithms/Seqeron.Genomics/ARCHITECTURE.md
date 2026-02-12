@@ -162,7 +162,6 @@ Aggregates all packages. Provides high-level coordinating APIs.
 
 | File | Description |
 |------|-------------|
-| `CancellableOperations.cs` | Cancellable wrappers for long operations |
 
 ## Usage
 

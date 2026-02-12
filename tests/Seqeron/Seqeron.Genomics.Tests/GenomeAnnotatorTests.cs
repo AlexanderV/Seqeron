@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
+using Seqeron.Genomics.Tests.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,30 +14,6 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class GenomeAnnotatorTests
 {
-    // Helper method for reverse complement that accepts N
-    private static string GetReverseComplement(string sequence)
-    {
-        var complement = new Dictionary<char, char>
-        {
-            ['A'] = 'T',
-            ['T'] = 'A',
-            ['C'] = 'G',
-            ['G'] = 'C',
-            ['a'] = 't',
-            ['t'] = 'a',
-            ['c'] = 'g',
-            ['g'] = 'c',
-            ['N'] = 'N',
-            ['n'] = 'n'
-        };
-        var sb = new StringBuilder(sequence.Length);
-        for (int i = sequence.Length - 1; i >= 0; i--)
-        {
-            char c = sequence[i];
-            sb.Append(complement.GetValueOrDefault(c, c));
-        }
-        return sb.ToString();
-    }
 
     // NOTE: FindRibosomeBindingSites and PredictGenes tests moved to
     // GenomeAnnotator_Gene_Tests.cs as part of ANNOT-GENE-001 consolidation.
@@ -98,7 +75,7 @@ public class GenomeAnnotatorTests
     {
         // ACGTACGTAC and its reverse complement GTACGTACGT
         string arm1 = "ACGTACGTAC";
-        string arm2 = GetReverseComplement(arm1);
+        string arm2 = TestSequenceHelpers.GetReverseComplement(arm1);
         string sequence = "CCC" + arm1 + "CCCCC" + arm2 + "CCC";
 
         var repeats = GenomeAnnotator.FindRepetitiveElements(sequence, minRepeatLength: 10).ToList();

@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
+using Seqeron.Genomics.Tests.Helpers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +10,7 @@ namespace Seqeron.Genomics.Tests;
 /// <summary>
 /// Canonical tests for ORF Detection (ANNOT-ORF-001).
 /// Tests GenomeAnnotator.FindOrfs and FindLongestOrfsPerFrame.
-/// 
+///
 /// Evidence: Wikipedia (Open reading frame), Rosalind ORF, NCBI ORF Finder,
 /// Deonier et al. (2005), Claverie (1997).
 /// </summary>
@@ -33,32 +34,8 @@ public class GenomeAnnotator_ORF_Tests
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Gets reverse complement of a DNA sequence.
-    /// </summary>
     private static string GetReverseComplement(string sequence)
-    {
-        var complement = new Dictionary<char, char>
-        {
-            ['A'] = 'T',
-            ['T'] = 'A',
-            ['C'] = 'G',
-            ['G'] = 'C',
-            ['a'] = 't',
-            ['t'] = 'a',
-            ['c'] = 'g',
-            ['g'] = 'c',
-            ['N'] = 'N',
-            ['n'] = 'n'
-        };
-        var sb = new StringBuilder(sequence.Length);
-        for (int i = sequence.Length - 1; i >= 0; i--)
-        {
-            char c = sequence[i];
-            sb.Append(complement.GetValueOrDefault(c, c));
-        }
-        return sb.ToString();
-    }
+        => TestSequenceHelpers.GetReverseComplement(sequence);
 
     private static readonly HashSet<string> ValidStartCodons = new(StringComparer.OrdinalIgnoreCase)
     {

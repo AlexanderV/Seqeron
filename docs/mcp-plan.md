@@ -199,7 +199,6 @@ Legend:
 | 4 | `align_multiple` | Multiple sequence alignment | ✓ | SequenceAligner.cs:L495#xml | SequenceAligner.MultipleAlign | 1.0.0 | stable |
 | 5 | `align_statistics` | Calculate alignment statistics | ✓ | SequenceAligner.cs:L406#xml | SequenceAligner.CalculateStatistics | 1.0.0 | stable |
 | 6 | `align_format` | Format alignment for display | ✓ | SequenceAligner.cs:L446#xml | SequenceAligner.FormatAlignment | 1.0.0 | stable |
-| 7 | `align_global_cancellable` | Cancellable global alignment | ✓ | CancellableOperations.cs:L355#xml | CancellableOperations.GlobalAlign | 1.0.0 | stable |
 | 8 | `motif_find_exact` | Find exact motif matches | ✓ | docs/algorithms/Pattern_Matching/Exact_Pattern_Search.md | MotifFinder.FindExactMotif | 1.0.0 | stable |
 | 9 | `motif_find_degenerate` | Find IUPAC degenerate motifs | ✓ | docs/algorithms/Pattern_Matching/IUPAC_Degenerate_Matching.md | MotifFinder.FindDegenerateMotif | 1.0.0 | stable |
 | 10 | `motif_create_pwm` | Create position weight matrix | ✓ | docs/algorithms/Pattern_Matching/Position_Weight_Matrix.md | MotifFinder.CreatePwm | 1.0.0 | stable |

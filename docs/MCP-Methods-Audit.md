@@ -14,7 +14,6 @@
 | 6 | BedParser.cs | WriteToFile | 549 |
 | 7 | BedParser.cs | WriteToStream | 558 |
 | 8 | BedParser.cs | ExtractSequence | 655 |
-| 9 | CancellableOperations.cs | GlobalAlign | 355 |
 | 10 | ChromosomeAnalyzer.cs | AnalyzeKaryotype | 136 |
 | 11 | ChromosomeAnalyzer.cs | AnalyzeTelomeres | 235 |
 | 12 | ChromosomeAnalyzer.cs | EstimateTelomereLengthFromTSRatio | 330 |
@@ -292,7 +291,6 @@
 |-------|-------------------|
 | ApproximateMatcher | 3 |
 | BedParser | 5 |
-| CancellableOperations | 1 |
 | ChromosomeAnalyzer | 7 |
 | CodonOptimizer | 6 |
 | CodonUsageAnalyzer | 6 |
