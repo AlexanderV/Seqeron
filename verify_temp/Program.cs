@@ -1,140 +1,145 @@
 ﻿using Seqeron.Genomics;
-using Seqeron.Genomics.Population;
-using Seqeron.Genomics.Phylogenetics;
-using Seqeron.Genomics.Core;
+using Seqeron.Genomics.Analysis;
+using static Seqeron.Genomics.Analysis.ProteinMotifFinder;
 
-Console.WriteLine("=== MISSION-CRITICAL ALGORITHM VERIFICATION ===");
-Console.WriteLine("Verifying against published/calculated reference values\n");
+Console.WriteLine("=== DIAGNOSTIC: Actual values for weak tests ===\n");
 
-int passed = 0;
-int failed = 0;
-
-void Check(string name, double actual, double expected, double tolerance, string source)
+// Test 1: PredictSignalPeptide_ClassicSignal
 {
-    bool ok = Math.Abs(actual - expected) <= tolerance;
-    if (ok)
+    string protein = "MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
+    var s = PredictSignalPeptide(protein);
+    Console.WriteLine($"SignalPeptide1: IsNull={s == null}");
+    if (s != null)
     {
-        Console.WriteLine($"✓ {name}: {actual:F6} ≈ {expected:F6} ({source})");
-        passed++;
-    }
-    else
-    {
-        Console.WriteLine($"✗ {name}: {actual:F6} ≠ {expected:F6} (diff={Math.Abs(actual - expected):F6}) ({source})");
-        failed++;
+        Console.WriteLine($"  CleavagePosition={s.Value.CleavagePosition}");
+        Console.WriteLine($"  NRegion=\"{s.Value.NRegion}\" len={s.Value.NRegion.Length}");
+        Console.WriteLine($"  HRegion=\"{s.Value.HRegion}\" len={s.Value.HRegion.Length}");
+        Console.WriteLine($"  CRegion=\"{s.Value.CRegion}\" len={s.Value.CRegion.Length}");
+        Console.WriteLine($"  Score={s.Value.Score}");
+        Console.WriteLine($"  Probability={s.Value.Probability}");
     }
 }
 
-// =============================================================================
-// 1. HARDY-WEINBERG EQUILIBRIUM - Ford's Scarlet Tiger Moth
-// Source: Wikipedia HWE article, Ford (1971)
-// Observed: AA=1469, Aa=138, aa=5, n=1612
-// p = (2×1469 + 138) / (2×1612) = 3076/3224 = 0.9541
-// Expected: AA = p² × n = 0.9103 × 1612 = 1467.4
-//           Aa = 2pq × n = 0.0877 × 1612 = 141.3
-//           aa = q² × n = 0.0021 × 1612 = 3.4
-// χ² = (1469-1467.4)²/1467.4 + (138-141.3)²/141.3 + (5-3.4)²/3.4 ≈ 0.83
-// =============================================================================
-Console.WriteLine("1. HARDY-WEINBERG EQUILIBRIUM (Ford's Moth Data):");
-var hweResult = PopulationGeneticsAnalyzer.TestHardyWeinberg("FORD_MOTH", 1469, 138, 5);
-Check("  Chi-square", hweResult.ChiSquare, 0.83, 0.15, "Wikipedia HWE");
-Check("  Expected AA", hweResult.ExpectedAA, 1467.4, 2.0, "p²×n calculation");
-Check("  Expected Aa", hweResult.ExpectedAa, 141.3, 2.0, "2pq×n calculation");
-Check("  Expected aa", hweResult.Expectedaa, 3.4, 1.0, "q²×n calculation");
-
-// =============================================================================
-// 2. WATTERSON'S THETA - Wikipedia example
-// S = 10 segregating sites, n = 10 samples, L = 1000 bp
-// a₁ = Σ(1/i) for i=1..9 = 1 + 0.5 + 0.333 + 0.25 + 0.2 + 0.167 + 0.143 + 0.125 + 0.111 = 2.8289
-// θ = S / (a₁ × L) = 10 / (2.8289 × 1000) = 0.00354
-// =============================================================================
-Console.WriteLine("\n2. WATTERSON'S THETA (Wikipedia Example):");
-double theta = PopulationGeneticsAnalyzer.CalculateWattersonTheta(10, 10, 1000);
-Check("  Watterson θ", theta, 0.00354, 0.0005, "S/(a₁×L)");
-
-// =============================================================================
-// 3. JUKES-CANTOR DISTANCE
-// p = 0.125 (1 diff in 8 sites)
-// d = -0.75 × ln(1 - 4p/3) = -0.75 × ln(1 - 0.1667) = -0.75 × ln(0.8333) = -0.75 × (-0.1823) = 0.1367
-// =============================================================================
-Console.WriteLine("\n3. JUKES-CANTOR DISTANCE (Formula Verification):");
-double jcDist = PhylogeneticAnalyzer.CalculatePairwiseDistance("ACGTACGT", "TCGTACGT",
-    PhylogeneticAnalyzer.DistanceMethod.JukesCantor);
-double expectedJC = -0.75 * Math.Log(1 - (4.0 * 0.125 / 3.0));
-Check("  JC distance", jcDist, expectedJC, 0.0001, "d = -0.75×ln(1-4p/3)");
-
-// =============================================================================
-// 4. NUCLEOTIDE DIVERSITY (π)
-// Two sequences: AAAA vs TTTT (4 sites, all different)
-// π = differences / (n_comparisons × L) = 4 / (1 × 4) = 1.0
-// =============================================================================
-Console.WriteLine("\n4. NUCLEOTIDE DIVERSITY (π):");
-var seqs = new List<IReadOnlyList<char>> {
-    "AAAA".ToList(),
-    "TTTT".ToList()
-};
-double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(seqs);
-Check("  π (all diff)", pi, 1.0, 0.0001, "4 diff / (1×4)");
-
-// =============================================================================
-// 5. DNA COMPLEMENT - Watson-Crick
-// A↔T, C↔G
-// =============================================================================
-Console.WriteLine("\n5. DNA COMPLEMENT (Watson-Crick):");
-var dna = new Seqeron.Genomics.Core.DnaSequence("ACGTACGT");
-string comp = dna.Complement().Sequence;
-string expected_comp = "TGCATGCA";
-bool compOk = comp == expected_comp;
-if (compOk) { Console.WriteLine($"✓ Complement: {comp} == {expected_comp}"); passed++; }
-else { Console.WriteLine($"✗ Complement: {comp} ≠ {expected_comp}"); failed++; }
-
-// =============================================================================
-// 6. REVERSE COMPLEMENT
-// ACGTACGT → complement: TGCATGCA → reverse: ACGTACGT
-// =============================================================================
-Console.WriteLine("\n6. REVERSE COMPLEMENT:");
-string revcomp = dna.ReverseComplement().Sequence;
-string expected_rc = "ACGTACGT"; // Palindrome!
-bool rcOk = revcomp == expected_rc;
-if (rcOk) { Console.WriteLine($"✓ RevComp: {revcomp} == {expected_rc} (palindrome)"); passed++; }
-else { Console.WriteLine($"✗ RevComp: {revcomp} ≠ {expected_rc}"); failed++; }
-
-// =============================================================================
-// 7. GC CONTENT
-// GCGCGCGC = 8 GC / 8 total = 100%
-// ATATATATAT = 0 GC / 10 total = 0%
-// =============================================================================
-Console.WriteLine("\n7. GC CONTENT:");
-var gcSeq = new DnaSequence("GCGCGCGC");
-var atSeq = new DnaSequence("ATATATATAT");
-double gcContent1 = (double)gcSeq.Sequence.Count(c => c == 'G' || c == 'C') / gcSeq.Sequence.Length;
-double gcContent2 = (double)atSeq.Sequence.Count(c => c == 'G' || c == 'C') / atSeq.Sequence.Length;
-Check("  GC% (GCGCGCGC)", gcContent1, 1.0, 0.0001, "8GC/8");
-Check("  GC% (ATATATAT)", gcContent2, 0.0, 0.0001, "0GC/10");
-
-// =============================================================================
-// 8. FST - Identical populations = 0
-// =============================================================================
-Console.WriteLine("\n8. FST (Fixation Index):");
-var pop1 = new List<(double, int)> { (0.5, 100), (0.3, 100) };
-var pop2 = new List<(double, int)> { (0.5, 100), (0.3, 100) };
-double fst_identical = PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2);
-Check("  Fst (identical)", fst_identical, 0.0, 0.001, "No differentiation");
-
-var pop1_diff = new List<(double, int)> { (1.0, 100) };
-var pop2_diff = new List<(double, int)> { (0.0, 100) };
-double fst_fixed = PopulationGeneticsAnalyzer.CalculateFst(pop1_diff, pop2_diff);
-Console.WriteLine($"  Fst (fixed diff): {fst_fixed:F4} (should be high, >0.5)");
-if (fst_fixed > 0.5) passed++; else failed++;
-
-// =============================================================================
-Console.WriteLine($"\n=== SUMMARY: {passed} passed, {failed} failed ===");
-if (failed > 0)
+// Test 2: PredictSignalPeptide_ReturnsRegions (different protein!)
 {
-    Console.WriteLine("\n⚠️  CRITICAL: Some algorithm results don't match reference values!");
-    Environment.Exit(1);
+    string protein = "MKRLLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
+    var s = PredictSignalPeptide(protein);
+    Console.WriteLine($"\nSignalPeptide2: IsNull={s == null}");
+    if (s != null)
+    {
+        Console.WriteLine($"  CleavagePosition={s.Value.CleavagePosition}");
+        Console.WriteLine($"  NRegion=\"{s.Value.NRegion}\" len={s.Value.NRegion.Length}");
+        Console.WriteLine($"  HRegion=\"{s.Value.HRegion}\" len={s.Value.HRegion.Length}");
+        Console.WriteLine($"  CRegion=\"{s.Value.CRegion}\" len={s.Value.CRegion.Length}");
+        Console.WriteLine($"  Score={s.Value.Score}");
+    }
 }
-else
+
+// Test 3: Transmembrane
 {
-    Console.WriteLine("\n✓ All algorithms produce correct results against reference data");
+    string protein = "AAAA" + new string('L', 22) + "EEEE";
+    var h = PredictTransmembraneHelices(protein, windowSize: 19, threshold: 1.0).ToList();
+    Console.WriteLine($"\nTM_hydrophobic: count={h.Count}");
+    foreach (var (start, end, score) in h)
+        Console.WriteLine($"  Start={start} End={end} Score={score:F4}");
 }
+
+// Test 4: TM multiple
+{
+    string loop = "EEEEEEEEEEE";
+    string tm = new string('L', 22);
+    string protein = tm + loop + tm + loop + tm;
+    var h = PredictTransmembraneHelices(protein, threshold: 1.0).ToList();
+    Console.WriteLine($"\nTM_multiple: count={h.Count}");
+    foreach (var (start, end, score) in h)
+        Console.WriteLine($"  Start={start} End={end} Score={score:F4}");
+}
+
+// Test 5: Disorder
+{
+    string protein = "LLLLVVVV" + "PEKSPEKSPPEKSPEKS" + "LLLLVVVV";
+    var r = PredictDisorderedRegions(protein, threshold: 0.4).ToList();
+    Console.WriteLine($"\nDisorder: count={r.Count}");
+    foreach (var (start, end, score) in r)
+        Console.WriteLine($"  Start={start} End={end} Score={score:F4}");
+}
+
+// Test 6: CoiledCoil
+{
+    string coiledCoil = "";
+    for (int i = 0; i < 6; i++) coiledCoil += "LAEALEK";
+    var c = PredictCoiledCoils(coiledCoil, threshold: 0.3).ToList();
+    Console.WriteLine($"\nCoiledCoil: count={c.Count} seqLen={coiledCoil.Length}");
+    foreach (var (start, end, score) in c)
+        Console.WriteLine($"  Start={start} End={end} Score={score:F4}");
+}
+
+// Test 7: LowComplexity poly-A
+{
+    string protein = "MKKK" + new string('A', 15) + "VVVV";
+    var r = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
+    Console.WriteLine($"\nLowComplex_polyA: count={r.Count}");
+    foreach (var (start, end, dominant, freq) in r)
+        Console.WriteLine($"  Start={start} End={end} DominantAa={dominant} Freq={freq:F4}");
+}
+
+// Test 8: LowComplexity multiple
+{
+    string protein = new string('G', 12) + "MKLVFP" + new string('S', 12);
+    var r = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
+    Console.WriteLine($"\nLowComplex_multi: count={r.Count}");
+    foreach (var (start, end, dominant, freq) in r)
+        Console.WriteLine($"  Start={start} End={end} DominantAa={dominant} Freq={freq:F4}");
+}
+
+// Test 9: FindDomains zinc finger
+{
+    string protein = "AAAACXXCXXXLXXXXXXXXHXXXHAAA";
+    var d = FindDomains(protein).ToList();
+    Console.WriteLine($"\nDomains_ZF: count={d.Count}");
+    foreach (var dm in d)
+        Console.WriteLine($"  Name={dm.Name} Start={dm.Start} End={dm.End}");
+}
+
+// Test 10: FindDomains kinase
+{
+    string protein = "AAAAGXXXXGKSAAAA";
+    var d = FindDomains(protein).ToList();
+    Console.WriteLine($"\nDomains_kinase: count={d.Count}");
+    foreach (var dm in d)
+        Console.WriteLine($"  Name={dm.Name} Start={dm.Start} End={dm.End}");
+}
+
+// Test 11: Integration - full workflow motifs
+{
+    string protein = "MKRLLLLLLLLLLLLLLLLLLASAG" + "NFTAAAA" + "SARK" + "RGDAAA" + new string('L', 22) + "EEEEE";
+    var motifs = FindCommonMotifs(protein).ToList();
+    Console.WriteLine($"\nFullWorkflow: motifCount={motifs.Count}");
+    foreach (var m in motifs)
+        Console.WriteLine($"  {m.MotifName} Start={m.Start} End={m.End} Seq={m.Sequence}");
+    var signal = PredictSignalPeptide(protein);
+    Console.WriteLine($"  signalIsNull={signal == null}");
+    if (signal != null) Console.WriteLine($"  cleavage={signal.Value.CleavagePosition}");
+}
+
+// Test 12: Large protein workflow
+{
+    var random = new Random(42);
+    var aas = "ACDEFGHIKLMNPQRSTVWY";
+    var protein = new string(Enumerable.Range(0, 500).Select(_ => aas[random.Next(aas.Length)]).ToArray());
+    var motifs = FindCommonMotifs(protein).ToList();
+    Console.WriteLine($"\nLargeProtein: motifCount={motifs.Count}");
+    var signal = PredictSignalPeptide(protein);
+    Console.WriteLine($"  signalIsNull={signal == null}");
+    var tm = PredictTransmembraneHelices(protein).ToList();
+    Console.WriteLine($"  tmCount={tm.Count}");
+    var disorder = PredictDisorderedRegions(protein).ToList();
+    Console.WriteLine($"  disorderCount={disorder.Count}");
+    var domains = FindDomains(protein).ToList();
+    Console.WriteLine($"  domainCount={domains.Count}");
+    foreach (var dm in domains)
+        Console.WriteLine($"    {dm.Name} Start={dm.Start} End={dm.End}");
+}
+
+Console.WriteLine("\n=== DONE ===");
 

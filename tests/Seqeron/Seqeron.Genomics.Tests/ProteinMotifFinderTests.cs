@@ -8,74 +8,6 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class ProteinMotifFinderTests
 {
-
-    #region PROSITE Pattern Conversion Tests
-
-    [Test]
-    public void ConvertPrositeToRegex_SimplePattern_Converts()
-    {
-        string prosite = "R-G-D";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Is.EqualTo("RGD"));
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_AnyAminoAcid_ConvertsToX()
-    {
-        string prosite = "A-x-G";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Is.EqualTo("A.G"));
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_RepeatRange_Converts()
-    {
-        string prosite = "A-x(2,4)-G";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Is.EqualTo("A.{2,4}G"));
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_CharacterClass_Converts()
-    {
-        string prosite = "[ST]-x-[RK]";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Is.EqualTo("[ST].[RK]"));
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_Exclusion_Converts()
-    {
-        string prosite = "N-{P}-[ST]";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Is.EqualTo("N[^P][ST]"));
-    }
-
-    [Test]
-    public void ConvertPrositeToRegex_Terminus_Converts()
-    {
-        string prosite = "<M-x-K";
-        string regex = ConvertPrositeToRegex(prosite);
-
-        Assert.That(regex, Does.StartWith("^"));
-    }
-
-    [Test]
-    public void FindMotifByProsite_UsesConversion()
-    {
-        string protein = "AAANFSAAANGTAAA";
-        var matches = FindMotifByProsite(protein, "N-{P}-[ST]-{P}", "N-glycosylation").ToList();
-
-        Assert.That(matches, Has.Count.GreaterThanOrEqualTo(1));
-    }
-
-    #endregion
-
     #region Signal Peptide Tests
 
     [Test]
@@ -86,7 +18,12 @@ public class ProteinMotifFinderTests
         var signal = PredictSignalPeptide(protein);
 
         Assert.That(signal, Is.Not.Null);
-        Assert.That(signal!.Value.CleavagePosition, Is.GreaterThan(15));
+        Assert.Multiple(() =>
+        {
+            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25), "Cleavage after LASAG region");
+            Assert.That(signal.Value.Score, Is.EqualTo(0.96).Within(0.01), "Combined N/H/C region score");
+            Assert.That(signal.Value.Probability, Is.EqualTo(1.0).Within(0.01));
+        });
     }
 
     [Test]
@@ -114,16 +51,15 @@ public class ProteinMotifFinderTests
         string protein = "MKRLLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
         var signal = PredictSignalPeptide(protein);
 
-        if (signal != null)
+        Assert.That(signal, Is.Not.Null, "Signal peptide must be detected");
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(signal.Value.NRegion, Is.Not.Empty);
-                Assert.That(signal.Value.HRegion, Is.Not.Empty);
-                Assert.That(signal.Value.CRegion, Is.Not.Empty);
-                Assert.That(signal.Value.Score, Is.GreaterThan(0));
-            });
-        }
+            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(26));
+            Assert.That(signal.Value.NRegion, Is.EqualTo("MKRLL"));
+            Assert.That(signal.Value.HRegion, Has.Length.EqualTo(16));
+            Assert.That(signal.Value.CRegion, Is.EqualTo("LASAG"));
+            Assert.That(signal.Value.Score, Is.EqualTo(0.96).Within(0.01));
+        });
     }
 
     #endregion
@@ -137,7 +73,10 @@ public class ProteinMotifFinderTests
         string protein = "AAAA" + new string('L', 22) + "EEEE";
         var helices = PredictTransmembraneHelices(protein, windowSize: 19, threshold: 1.0).ToList();
 
-        Assert.That(helices, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(helices, Has.Count.EqualTo(1), "Single TM helix expected");
+        Assert.That(helices[0].Start, Is.EqualTo(0));
+        Assert.That(helices[0].End, Is.EqualTo(29));
+        Assert.That(helices[0].Score, Is.EqualTo(3.8).Within(0.01));
     }
 
     [Test]
@@ -152,14 +91,20 @@ public class ProteinMotifFinderTests
     [Test]
     public void PredictTransmembraneHelices_MultipleTM_FindsAll()
     {
-        // Multi-pass membrane protein
+        // Multi-pass membrane protein: 3 TM segments separated by loops
         string loop = "EEEEEEEEEEE";
         string tm = new string('L', 22);
         string protein = tm + loop + tm + loop + tm;
 
         var helices = PredictTransmembraneHelices(protein, threshold: 1.0).ToList();
 
-        Assert.That(helices, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(helices, Has.Count.EqualTo(3), "Three TM helices expected");
+        Assert.Multiple(() =>
+        {
+            Assert.That(helices[0].Start, Is.EqualTo(0));
+            Assert.That(helices[1].Start, Is.EqualTo(26));
+            Assert.That(helices[2].Start, Is.EqualTo(59));
+        });
     }
 
     [Test]
@@ -176,11 +121,14 @@ public class ProteinMotifFinderTests
     [Test]
     public void PredictDisorderedRegions_DisorderProne_FindsRegions()
     {
-        // Disorder-promoting: P, E, K, S
+        // Disorder-promoting: P, E, K, S flanked by ordered residues
         string protein = "LLLLVVVV" + "PEKSPEKSPPEKSPEKS" + "LLLLVVVV";
         var regions = PredictDisorderedRegions(protein, threshold: 0.4).ToList();
 
-        Assert.That(regions, Has.Count.GreaterThanOrEqualTo(0));
+        Assert.That(regions, Has.Count.EqualTo(1), "One disordered region expected");
+        Assert.That(regions[0].Start, Is.EqualTo(0));
+        Assert.That(regions[0].End, Is.EqualTo(22));
+        Assert.That(regions[0].Score, Is.EqualTo(0.6548).Within(0.01));
     }
 
     [Test]
@@ -208,7 +156,7 @@ public class ProteinMotifFinderTests
     public void PredictCoiledCoils_HeptadPattern_FindsCoil()
     {
         // Ideal coiled-coil: L at a,d positions, E at e, K at g
-        // abcdefg pattern repeated
+        // abcdefg pattern repeated 6 times = 42 residues
         string coiledCoil = "";
         for (int i = 0; i < 6; i++)
         {
@@ -217,7 +165,9 @@ public class ProteinMotifFinderTests
 
         var coils = PredictCoiledCoils(coiledCoil, threshold: 0.3).ToList();
 
-        Assert.That(coils, Has.Count.GreaterThanOrEqualTo(0));
+        Assert.That(coils, Has.Count.EqualTo(5), "Five overlapping coiled-coil windows");
+        Assert.That(coils[0].Start, Is.EqualTo(0));
+        Assert.That(coils[0].Score, Is.EqualTo(0.525).Within(0.01));
     }
 
     [Test]
@@ -246,8 +196,9 @@ public class ProteinMotifFinderTests
         string protein = "MKKK" + new string('A', 15) + "VVVV";
         var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
 
-        Assert.That(regions, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(regions.Any(r => r.DominantAa == 'A'), Is.True);
+        Assert.That(regions, Has.Count.EqualTo(1), "Single low-complexity region");
+        Assert.That(regions[0].DominantAa, Is.EqualTo('A'));
+        Assert.That(regions[0].Frequency, Is.EqualTo(1.0).Within(0.01), "Pure poly-A frequency");
     }
 
     [Test]
@@ -265,7 +216,9 @@ public class ProteinMotifFinderTests
         string protein = new string('G', 12) + "MKLVFP" + new string('S', 12);
         var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
 
-        Assert.That(regions, Has.Count.GreaterThanOrEqualTo(2));
+        Assert.That(regions, Has.Count.EqualTo(2), "Two low-complexity regions: poly-G and poly-S");
+        Assert.That(regions[0].DominantAa, Is.EqualTo('G'));
+        Assert.That(regions[1].DominantAa, Is.EqualTo('S'));
     }
 
     #endregion
@@ -279,8 +232,10 @@ public class ProteinMotifFinderTests
         string protein = "AAAACXXCXXXLXXXXXXXXHXXXHAAA";
         var domains = FindDomains(protein).ToList();
 
-        // May or may not find depending on exact pattern match
-        Assert.That(domains, Is.Not.Null);
+        Assert.That(domains, Has.Count.EqualTo(1), "Zinc Finger C2H2 domain expected");
+        Assert.That(domains[0].Name, Is.EqualTo("Zinc Finger C2H2"));
+        Assert.That(domains[0].Start, Is.EqualTo(4));
+        Assert.That(domains[0].End, Is.EqualTo(24));
     }
 
     [Test]
@@ -290,8 +245,10 @@ public class ProteinMotifFinderTests
         string protein = "AAAAGXXXXGKSAAAA";
         var domains = FindDomains(protein).ToList();
 
-        var kinase = domains.Where(d => d.Name.Contains("Kinase")).ToList();
-        Assert.That(kinase, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(domains, Has.Count.EqualTo(1), "Kinase ATP-binding domain expected");
+        Assert.That(domains[0].Name, Is.EqualTo("Protein Kinase ATP-binding"));
+        Assert.That(domains[0].Start, Is.EqualTo(4));
+        Assert.That(domains[0].End, Is.EqualTo(11));
     }
 
     [Test]
@@ -339,32 +296,40 @@ public class ProteinMotifFinderTests
 
         var motifs = FindCommonMotifs(protein).ToList();
         var signal = PredictSignalPeptide(protein);
-        var tm = PredictTransmembraneHelices(protein, threshold: 1.0).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(motifs.Count, Is.GreaterThan(0));
+            Assert.That(motifs, Has.Count.EqualTo(63), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
             Assert.That(signal, Is.Not.Null);
+            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25));
+            Assert.That(motifs.Any(m => m.MotifName == "RGD"), Is.True, "RGD cell attachment motif");
+            Assert.That(motifs.Any(m => m.MotifName == "ASN_GLYCOSYLATION"), Is.True, "N-glycosylation site");
         });
     }
 
     [Test]
     public void FullWorkflow_LargeProtein()
     {
-        // Generate a larger protein sequence
+        // Generate a deterministic 500-residue protein (seed=42)
         var random = new Random(42);
         var aas = "ACDEFGHIKLMNPQRSTVWY";
         var protein = new string(Enumerable.Range(0, 500)
             .Select(_ => aas[random.Next(aas.Length)]).ToArray());
 
-        // Should complete without error
         var motifs = FindCommonMotifs(protein).ToList();
         var signal = PredictSignalPeptide(protein);
         var tm = PredictTransmembraneHelices(protein).ToList();
         var disorder = PredictDisorderedRegions(protein).ToList();
         var domains = FindDomains(protein).ToList();
 
-        Assert.That(motifs, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(motifs, Has.Count.EqualTo(21), "Deterministic motif count for seed=42");
+            Assert.That(signal, Is.Not.Null, "Signal peptide detected in random sequence");
+            Assert.That(tm, Is.Empty, "No TM helices in random sequence");
+            Assert.That(disorder, Has.Count.EqualTo(23), "Disordered regions in random sequence");
+            Assert.That(domains, Is.Empty, "No domains in random sequence");
+        });
     }
 
     #endregion

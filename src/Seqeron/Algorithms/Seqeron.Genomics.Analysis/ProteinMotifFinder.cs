@@ -255,11 +255,49 @@ public static class ProteinMotifFinder
             }
             else if (c == '[')
             {
-                // Character class
+                // Character class - may contain '>' (C-terminus) or '<' (N-terminus)
+                // Per PROSITE User Manual §IV.E: "In some rare cases (e.g. PS00267
+                // or PS00539), '>' can also occur inside square brackets for the
+                // C-terminal element. 'F-[GSTV]-P-R-L-[G>]' means that either
+                // 'F-[GSTV]-P-R-L-G' or 'F-[GSTV]-P-R-L>' are considered."
                 int end = prositePattern.IndexOf(']', i);
                 if (end > i)
                 {
-                    sb.Append(prositePattern.Substring(i, end - i + 1));
+                    string content = prositePattern.Substring(i + 1, end - i - 1);
+                    bool hasCterm = content.Contains('>');
+                    bool hasNterm = content.Contains('<');
+
+                    if (hasCterm || hasNterm)
+                    {
+                        string letters = content
+                            .Replace(">", "")
+                            .Replace("<", "");
+
+                        if (hasCterm && letters.Length > 0)
+                        {
+                            sb.Append("(?:");
+                            sb.Append(letters.Length == 1 ? letters : "[" + letters + "]");
+                            sb.Append("|$)");
+                        }
+                        else if (hasNterm && letters.Length > 0)
+                        {
+                            sb.Append("(?:^|");
+                            sb.Append(letters.Length == 1 ? letters : "[" + letters + "]");
+                            sb.Append(')');
+                        }
+                        else if (hasCterm)
+                        {
+                            sb.Append('$');
+                        }
+                        else
+                        {
+                            sb.Append('^');
+                        }
+                    }
+                    else
+                    {
+                        sb.Append(prositePattern.Substring(i, end - i + 1));
+                    }
                     i = end + 1;
                 }
                 else

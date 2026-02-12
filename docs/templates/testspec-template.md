@@ -102,7 +102,19 @@
 |------|------|------------|
 | | | |
 
-### 5.5 Post-Implementation Coverage (Phase 7 re-audit)
+### 5.5 Phase 7 Work Queue
+
+<!-- Before writing code, list every ❌ and ⚠ from §5.2. -->
+<!-- Implement each, mark ✅ Done or ⛔ Blocked. All must be resolved. -->
+
+| # | Test Case ID | §5.2 Status | Action Taken | Final Status |
+|---|-------------|-------------|--------------|--------------|
+| | | | | |
+
+**Total items:** <N>
+**✅ Done:** <N> | **⛔ Blocked:** <N> | **Remaining:** must be 0
+
+### 5.6 Post-Implementation Coverage
 
 <!-- After Phase 7, re-audit every row from §5.2. ALL must be ✅. -->
 <!-- If any remain ❌ or ⚠, the Test Unit cannot be ☑ Complete. -->

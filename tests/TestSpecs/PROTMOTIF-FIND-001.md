@@ -115,7 +115,7 @@
 | File | Role | Test Count |
 |------|------|------------|
 | `ProteinMotifFinder_MotifSearch_Tests.cs` | Canonical for PROTMOTIF-FIND-001 | 34 |
-| `ProteinMotifFinderTests.cs` | Other test units (signal peptide, transmembrane, disorder, coiled-coil, low complexity, domains, PROSITE conversion) | 30 |
+| `ProteinMotifFinderTests.cs` | Residual: SP-001(4), TM-001(4), DISORDER-pred(3), CC-001(3), LC-001(3), DOMAIN-001(3), case(1), integration(2) | 23 |
 
 ### 5.2 Coverage Classification
 
@@ -145,6 +145,39 @@
 | S5 | ✅ Covered | `CommonMotifs_NLS1_MatchesChelskysConsensus`, `CommonMotifs_NES1_MatchesLaCourConsensus`, `CommonMotifs_SIM1_MatchesHeckerConsensus`, `CommonMotifs_WW1_MatchesChenSudolConsensus`, `CommonMotifs_SH3_1_MatchesMayerClassIConsensus`, `CommonMotifs_AllNonProsite_HaveCorrectPatterns` |
 
 **Missing:** 0 &emsp; **Weak:** 0 &emsp; **Duplicate:** 0
+
+### 5.3 Residual Tests Coverage Classification
+
+The 23 residual tests in `ProteinMotifFinderTests.cs` belong to future test units.
+All 12 weak tests were strengthened (exact values, unconditional asserts, assertion messages).
+
+| Test | Unit | Status |
+|------|------|--------|
+| `PredictSignalPeptide_ClassicSignal_PredictsSite` | SP-001 | ✅ Strengthened — exact CleavagePosition=25, Score, Probability |
+| `PredictSignalPeptide_NoSignal_ReturnsNull` | SP-001 | ✅ OK |
+| `PredictSignalPeptide_ShortSequence_ReturnsNull` | SP-001 | ✅ OK |
+| `PredictSignalPeptide_ReturnsRegions` | SP-001 | ✅ Strengthened — unconditional assert, exact NRegion/HRegion/CRegion/Score |
+| `PredictTransmembraneHelices_HydrophobicStretch_FindsHelix` | TM-001 | ✅ Strengthened — exact count=1, Start=0, End=29, Score=3.8 |
+| `PredictTransmembraneHelices_NoHydrophobic_ReturnsEmpty` | TM-001 | ✅ OK |
+| `PredictTransmembraneHelices_MultipleTM_FindsAll` | TM-001 | ✅ Strengthened — exact count=3, start positions |
+| `PredictTransmembraneHelices_ShortSequence_ReturnsEmpty` | TM-001 | ✅ OK |
+| `PredictDisorderedRegions_DisorderProne_FindsRegions` | DISORDER | ✅ Strengthened — was `≥0` (always passes), now exact count=1, positions, score |
+| `PredictDisorderedRegions_Ordered_ReturnsEmpty` | DISORDER | ✅ OK |
+| `PredictDisorderedRegions_ShortSequence_ReturnsEmpty` | DISORDER | ✅ OK |
+| `PredictCoiledCoils_HeptadPattern_FindsCoil` | CC-001 | ✅ Strengthened — was `≥0` (always passes), now exact count=5, start, score |
+| `PredictCoiledCoils_NoPattern_ReturnsEmpty` | CC-001 | ✅ OK |
+| `PredictCoiledCoils_ShortSequence_ReturnsEmpty` | CC-001 | ✅ OK |
+| `FindLowComplexityRegions_PolyAlanine_Finds` | LC-001 | ✅ Strengthened — exact count=1, DominantAa='A', Frequency=1.0 |
+| `FindLowComplexityRegions_Diverse_ReturnsEmpty` | LC-001 | ✅ OK |
+| `FindLowComplexityRegions_MultipleRegions_FindsAll` | LC-001 | ✅ Strengthened — exact count=2, DominantAa='G'/'S' |
+| `FindDomains_ZincFinger_Finds` | DOMAIN-001 | ✅ Strengthened — was `Is.Not.Null` on `.ToList()`, now exact count=1, name, positions |
+| `FindDomains_PLloop_FindsKinase` | DOMAIN-001 | ✅ Strengthened — exact count=1, name, start=4, end=11 |
+| `FindDomains_EmptySequence_ReturnsEmpty` | DOMAIN-001 | ✅ OK |
+| `PredictSignalPeptide_HandlesLowercase` | SP-001 | ✅ OK |
+| `FullWorkflow_AnalyzeProtein` | Integration | ✅ Strengthened — exact motif count=63, specific motif checks |
+| `FullWorkflow_LargeProtein` | Integration | ✅ Strengthened — was `Is.Not.Null` on `.ToList()`, now exact counts for all methods |
+
+**Residual:** Missing: 0 &emsp; Weak: 0 (12 fixed) &emsp; Duplicate: 0
 
 ---
 
