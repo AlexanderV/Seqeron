@@ -259,12 +259,13 @@ public class DisorderPredictorTests
     }
 
     [Test]
-    public void IsDisorderPromoting_ChargedResidues_True()
+    public void IsDisorderPromoting_ChargedResidues()
     {
+        // Dunker et al. (2001): E, K, R are disorder-promoting; D is ambiguous
         Assert.That(DisorderPredictor.IsDisorderPromoting('E'), Is.True);
         Assert.That(DisorderPredictor.IsDisorderPromoting('K'), Is.True);
-        Assert.That(DisorderPredictor.IsDisorderPromoting('D'), Is.True);
         Assert.That(DisorderPredictor.IsDisorderPromoting('R'), Is.True);
+        Assert.That(DisorderPredictor.IsDisorderPromoting('D'), Is.False, "D is ambiguous per Dunker (2001)");
     }
 
     [Test]

@@ -6,7 +6,8 @@ namespace Seqeron.Genomics.Analysis;
 
 /// <summary>
 /// Predicts intrinsically disordered regions (IDRs) in proteins.
-/// Uses hydropathy, charge distribution, and complexity-based methods.
+/// Scoring: TOP-IDP scale averaged over a sliding window — Campen et al. (2008) PMC2676888.
+/// Classification: Dunker et al. (2001) PMID 11381529.
 /// </summary>
 public static class DisorderPredictor
 {
@@ -37,55 +38,59 @@ public static class DisorderPredictor
         ['V'] = 4.2
     };
 
-    // Disorder propensity scale (based on DisProt statistics)
+    // TOP-IDP disorder propensity scale
+    // Source: Campen et al. (2008) "TOP-IDP-Scale: A New Amino Acid Scale Measuring
+    //   Propensity for Intrinsic Disorder" Protein Pept Lett 15(9):956-963.
+    //   PMC2676888, PMID 18991772, Table 2.
+    // Ranking (order→disorder): W,F,Y,I,M,L,V,N,C,T,A,G,R,D,H,Q,K,S,E,P
     private static readonly Dictionary<char, double> DisorderPropensity = new()
     {
-        ['A'] = 0.06,
-        ['R'] = 0.18,
-        ['N'] = 0.01,
-        ['D'] = 0.19,
-        ['C'] = -0.20,
-        ['Q'] = 0.32,
-        ['E'] = 0.30,
-        ['G'] = 0.16,
-        ['H'] = -0.01,
-        ['I'] = -0.49,
-        ['L'] = -0.34,
-        ['K'] = 0.27,
-        ['M'] = -0.11,
-        ['F'] = -0.42,
-        ['P'] = 0.41,
-        ['S'] = 0.15,
-        ['T'] = 0.04,
-        ['W'] = -0.49,
-        ['Y'] = -0.31,
-        ['V'] = -0.38
+        ['A'] = 0.060,
+        ['R'] = 0.180,
+        ['N'] = 0.007,
+        ['D'] = 0.192,
+        ['C'] = 0.020,
+        ['Q'] = 0.318,
+        ['E'] = 0.736,
+        ['G'] = 0.166,
+        ['H'] = 0.303,
+        ['I'] = -0.486,
+        ['L'] = -0.326,
+        ['K'] = 0.586,
+        ['M'] = -0.397,
+        ['F'] = -0.697,
+        ['P'] = 0.987,
+        ['S'] = 0.341,
+        ['T'] = 0.059,
+        ['W'] = -0.884,
+        ['Y'] = -0.510,
+        ['V'] = -0.121
     };
 
-    // Charge at pH 7
-    private static readonly Dictionary<char, double> Charge = new()
-    {
-        ['A'] = 0,
-        ['R'] = 1,
-        ['N'] = 0,
-        ['D'] = -1,
-        ['C'] = 0,
-        ['Q'] = 0,
-        ['E'] = -1,
-        ['G'] = 0,
-        ['H'] = 0.1,
-        ['I'] = 0,
-        ['L'] = 0,
-        ['K'] = 1,
-        ['M'] = 0,
-        ['F'] = 0,
-        ['P'] = 0,
-        ['S'] = 0,
-        ['T'] = 0,
-        ['W'] = 0,
-        ['Y'] = 0,
-        ['V'] = 0
-    };
+    // Disorder-promoting amino acids — Dunker et al. (2001) J Mol Graph Model 19:26-59.
+    // PMID 11381529. Confirmed by Campen et al. (2008) TOP-IDP ranking.
+    private static readonly HashSet<char> DisorderPromotingSet =
+        new() { 'A', 'R', 'G', 'Q', 'S', 'P', 'E', 'K' };
+
+    // Order-promoting amino acids — Dunker et al. (2001).
+    private static readonly HashSet<char> OrderPromotingSet =
+        new() { 'W', 'C', 'F', 'I', 'Y', 'V', 'L', 'N' };
+
+    // Ambiguous amino acids — Dunker et al. (2001).
+    // Neither clearly disorder-promoting nor order-promoting.
+    private static readonly HashSet<char> AmbiguousSet =
+        new() { 'H', 'M', 'T', 'D' };
+
+    // TOP-IDP normalization constants — Campen et al. (2008) Table 2.
+    private const double TopIdpMin = -0.884;  // W (most order-promoting)
+    private const double TopIdpMax = 0.987;   // P (most disorder-promoting)
+    private const double TopIdpRange = TopIdpMax - TopIdpMin; // 1.871
+
+    /// <summary>
+    /// TOP-IDP prediction cutoff — Campen et al. (2008) PMC2676888.
+    /// Based on maximum-likelihood methods.
+    /// </summary>
+    private const double TopIdpCutoff = 0.542;
 
     #endregion
 
@@ -130,7 +135,7 @@ public static class DisorderPredictor
     public static DisorderPredictionResult PredictDisorder(
         string sequence,
         int windowSize = 21,
-        double disorderThreshold = 0.5,
+        double disorderThreshold = TopIdpCutoff,
         int minRegionLength = 5)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -188,88 +193,32 @@ public static class DisorderPredictor
     }
 
     /// <summary>
-    /// Calculates combined disorder score for a window.
+    /// Calculates disorder score for a window using the TOP-IDP prediction method.
+    /// Score = average of normalized TOP-IDP values over the window.
+    /// Source: Campen et al. (2008) PMC2676888, Section "TOP-IDP web-based prediction service".
     /// </summary>
     private static double CalculateDisorderScore(string window)
     {
         if (window.Length == 0)
             return 0;
 
-        // Component 1: Disorder propensity
-        double propensityScore = 0;
-        int validCount = 0;
+        double sum = 0;
+        int count = 0;
         foreach (char c in window)
         {
             if (DisorderPropensity.TryGetValue(c, out double prop))
             {
-                propensityScore += prop;
-                validCount++;
+                sum += (prop - TopIdpMin) / TopIdpRange;
+                count++;
             }
         }
-        propensityScore = validCount > 0 ? propensityScore / validCount : 0;
 
-        // Component 2: Low hydropathy (disordered regions are hydrophilic)
-        double hydropathyScore = 0;
-        validCount = 0;
-        foreach (char c in window)
-        {
-            if (Hydropathy.TryGetValue(c, out double hydro))
-            {
-                hydropathyScore += hydro;
-                validCount++;
-            }
-        }
-        double meanHydropathy = validCount > 0 ? hydropathyScore / validCount : 0;
-        // Convert to disorder score (negative hydropathy = more disorder)
-        double hydroDisorder = (-meanHydropathy + 4.5) / 9.0; // Normalize to 0-1
-
-        // Component 3: Net charge (high charge = more disorder)
-        double chargeScore = CalculateNetCharge(window);
-        double chargeDisorder = Math.Min(1.0, Math.Abs(chargeScore) / window.Length * 5);
-
-        // Component 4: Low complexity (repetitive = more disorder)
-        double complexity = CalculateSequenceComplexity(window);
-        double complexityDisorder = 1.0 - complexity;
-
-        // Component 5: Proline/Glycine content (disorder promoting)
-        int proGly = window.Count(c => c == 'P' || c == 'G');
-        double proGlyDisorder = proGly / (double)window.Length;
-
-        // Combine scores with weights
-        double combinedScore =
-            0.35 * NormalizeScore(propensityScore, -0.5, 0.5) +
-            0.25 * hydroDisorder +
-            0.15 * chargeDisorder +
-            0.15 * complexityDisorder +
-            0.10 * proGlyDisorder;
-
-        return Math.Max(0, Math.Min(1, combinedScore));
+        return count > 0 ? sum / count : 0;
     }
 
     /// <summary>
-    /// Normalizes score to 0-1 range.
-    /// </summary>
-    private static double NormalizeScore(double value, double min, double max)
-    {
-        return (value - min) / (max - min);
-    }
-
-    /// <summary>
-    /// Calculates net charge of sequence.
-    /// </summary>
-    private static double CalculateNetCharge(string sequence)
-    {
-        double charge = 0;
-        foreach (char c in sequence)
-        {
-            if (Charge.TryGetValue(c, out double q))
-                charge += q;
-        }
-        return charge;
-    }
-
-    /// <summary>
-    /// Calculates sequence complexity (0-1).
+    /// Calculates sequence complexity (Shannon entropy, normalized to 0-1).
+    /// Source: Shannon (1948).
     /// </summary>
     private static double CalculateSequenceComplexity(string sequence)
     {
@@ -399,8 +348,8 @@ public static class DisorderPredictor
     /// </summary>
     private static double CalculateConfidence(double meanScore, int length)
     {
-        // Higher score and longer regions = more confidence
-        double scoreConfidence = (meanScore - 0.5) * 2; // 0.5-1.0 -> 0-1
+        // Distance from TOP-IDP cutoff, normalized to [0,1]
+        double scoreConfidence = (meanScore - TopIdpCutoff) / (1.0 - TopIdpCutoff);
         double lengthConfidence = Math.Min(1.0, length / 20.0);
 
         return Math.Max(0, Math.Min(1, (scoreConfidence + lengthConfidence) / 2));
@@ -487,7 +436,7 @@ public static class DisorderPredictor
         double meanDisorder = disorder / count;
 
         // MoRFs: moderate disorder, some hydrophobic content
-        bool moderateDisorder = meanDisorder > -0.2 && meanDisorder < 0.3;
+        bool moderateDisorder = meanDisorder > -0.4 && meanDisorder < 0.5;
         bool hasHydrophobic = meanHydro > -1.0 && meanHydro < 1.0;
 
         if (moderateDisorder && hasHydrophobic)
@@ -561,24 +510,59 @@ public static class DisorderPredictor
     }
 
     /// <summary>
-    /// Checks if amino acid is disorder-promoting.
+    /// Checks if amino acid is disorder-promoting per Dunker et al. (2001).
+    /// Returns true for {A, R, G, Q, S, P, E, K}.
+    /// Returns false for order-promoting {W, C, F, I, Y, V, L, N}
+    /// and ambiguous {H, M, T, D} residues.
     /// </summary>
     public static bool IsDisorderPromoting(char aminoAcid)
     {
-        return GetDisorderPropensity(aminoAcid) > 0;
+        return DisorderPromotingSet.Contains(char.ToUpperInvariant(aminoAcid));
     }
 
     /// <summary>
-    /// Gets list of disorder-promoting amino acids.
+    /// Gets list of disorder-promoting amino acids — Dunker et al. (2001).
+    /// {A, E, G, K, P, Q, R, S}
     /// </summary>
     public static IReadOnlyList<char> DisorderPromotingAminoAcids =>
-        DisorderPropensity.Where(kv => kv.Value > 0).Select(kv => kv.Key).ToList();
+        DisorderPromotingSet.OrderBy(c => c).ToList();
 
     /// <summary>
-    /// Gets list of order-promoting amino acids.
+    /// Gets list of order-promoting amino acids — Dunker et al. (2001).
+    /// {C, F, I, L, N, V, W, Y}
     /// </summary>
     public static IReadOnlyList<char> OrderPromotingAminoAcids =>
-        DisorderPropensity.Where(kv => kv.Value < 0).Select(kv => kv.Key).ToList();
+        OrderPromotingSet.OrderBy(c => c).ToList();
+
+    /// <summary>
+    /// Gets list of ambiguous amino acids — Dunker et al. (2001).
+    /// {D, H, M, T} — neither clearly disorder-promoting nor order-promoting.
+    /// </summary>
+    public static IReadOnlyList<char> AmbiguousAminoAcids =>
+        AmbiguousSet.OrderBy(c => c).ToList();
+
+    /// <summary>
+    /// Calculates mean Kyte-Doolittle hydropathy for a sequence.
+    /// Source: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
+    /// </summary>
+    public static double CalculateHydropathy(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return 0;
+
+        sequence = sequence.ToUpperInvariant();
+        double sum = 0;
+        int count = 0;
+        foreach (char c in sequence)
+        {
+            if (Hydropathy.TryGetValue(c, out double value))
+            {
+                sum += value;
+                count++;
+            }
+        }
+        return count > 0 ? sum / count : 0;
+    }
 
     #endregion
 }

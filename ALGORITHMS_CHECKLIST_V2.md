@@ -101,7 +101,7 @@
 | ☑ | SPLICE-DONOR-001 | Splicing | 2 | [Evidence](docs/Evidence/SPLICE-DONOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-DONOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs) |
 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | 2 | [Evidence](docs/Evidence/SPLICE-ACCEPTOR-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-ACCEPTOR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) |
 | ☑ | SPLICE-PREDICT-001 | Splicing | 3 | [Evidence](docs/Evidence/SPLICE-PREDICT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SPLICE-PREDICT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs) |
-| ☐ | DISORDER-PRED-001 | ProteinPred | 3 | - | - | - |
+| ☑ | DISORDER-PRED-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs) |
 | ☐ | DISORDER-REGION-001 | ProteinPred | 2 | - | - | - |
 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | - | - | - |
 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | - | - | - |
