@@ -21,43 +21,7 @@ namespace Seqeron.Genomics.Alignment
         public static IEnumerable<ApproximateMatchResult> FindWithMismatches(
             string sequence, string pattern, int maxMismatches)
         {
-            if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
-                yield break;
-
-            if (maxMismatches < 0)
-                throw new ArgumentOutOfRangeException(nameof(maxMismatches), "Cannot be negative.");
-
-            var seq = sequence.ToUpperInvariant();
-            var pat = pattern.ToUpperInvariant();
-
-            if (pat.Length > seq.Length)
-                yield break;
-
-            for (int i = 0; i <= seq.Length - pat.Length; i++)
-            {
-                int mismatches = 0;
-                var positions = new List<int>();
-
-                for (int j = 0; j < pat.Length && mismatches <= maxMismatches; j++)
-                {
-                    if (seq[i + j] != pat[j])
-                    {
-                        mismatches++;
-                        positions.Add(j);
-                    }
-                }
-
-                if (mismatches <= maxMismatches)
-                {
-                    yield return new ApproximateMatchResult(
-                        i,
-                        seq.Substring(i, pat.Length),
-                        mismatches,
-                        positions.AsReadOnly(),
-                        MismatchType.Substitution
-                    );
-                }
-            }
+            return FindWithMismatches(sequence, pattern, maxMismatches, CancellationToken.None);
         }
 
         /// <summary>

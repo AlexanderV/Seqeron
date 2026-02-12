@@ -331,79 +331,8 @@ public static class ProbeDesigner
     /// </summary>
     private static Probe? EvaluateProbe(string sequence, int start, ProbeParameters param)
     {
-        var warnings = new List<string>();
-        double score = 1.0;
-
-        // Check GC content
         double gc = CalculateGcContent(sequence);
-        if (gc < param.MinGc || gc > param.MaxGc)
-        {
-            score -= 0.3;
-            warnings.Add($"GC content {gc:P0} outside range");
-        }
-
-        // Calculate Tm
-        double tm = CalculateTm(sequence);
-        if (tm < param.MinTm || tm > param.MaxTm)
-        {
-            score -= 0.3;
-            warnings.Add($"Tm {tm:F1}°C outside range");
-        }
-
-        // Check homopolymers
-        int maxHomopolymer = GetMaxHomopolymerLength(sequence);
-        if (maxHomopolymer > param.MaxHomopolymer)
-        {
-            score -= 0.2;
-            warnings.Add($"Homopolymer run of {maxHomopolymer}");
-        }
-
-        // Check self-complementarity
-        double selfComp = CalculateSelfComplementarity(sequence);
-        if (selfComp > param.MaxSelfComplementarity)
-        {
-            score -= 0.2;
-            warnings.Add($"High self-complementarity {selfComp:P0}");
-        }
-
-        // Check for secondary structure potential
-        if (param.AvoidSecondaryStructure)
-        {
-            bool hasStructure = HasSecondaryStructurePotential(sequence);
-            if (hasStructure)
-            {
-                score -= 0.15;
-                warnings.Add("Potential secondary structure");
-            }
-        }
-
-        // Check for repeats
-        if (HasSimpleRepeats(sequence))
-        {
-            score -= 0.1;
-            warnings.Add("Contains simple repeats");
-        }
-
-        // Penalize extreme positions
-        double positionPenalty = 0;
-        if (sequence.StartsWith("G") || sequence.StartsWith("C"))
-            positionPenalty += 0.02;
-        if (sequence.EndsWith("G") || sequence.EndsWith("C"))
-            positionPenalty += 0.02;
-        score -= positionPenalty;
-
-        if (score <= 0)
-            return null;
-
-        return new Probe(
-            sequence,
-            start,
-            start + sequence.Length - 1,
-            tm,
-            gc,
-            Math.Max(0, score),
-            ProbeType.Standard,
-            warnings);
+        return EvaluateProbeWithGc(sequence, start, param, gc);
     }
 
     /// <summary>

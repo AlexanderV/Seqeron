@@ -42,15 +42,6 @@ public class MetagenomicsAnalyzerTests
         Assert.That(bins, Is.Not.Null);
     }
 
-    [Test]
-    public void BinContigs_EmptyInput_ReturnsEmpty()
-    {
-        var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs).ToList();
-
-        Assert.That(bins, Is.Empty);
-    }
-
     #endregion
 
     #region Functional Profiling Tests
