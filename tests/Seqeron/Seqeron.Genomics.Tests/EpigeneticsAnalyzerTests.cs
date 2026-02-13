@@ -9,49 +9,7 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class EpigeneticsAnalyzerTests
 {
-    #region CpG Site Detection Tests
-
-    [Test]
-    public void FindCpGSites_SimpleCpG_ReturnsCorrectPositions()
-    {
-        string sequence = "ACGTCGACG";
-        //                 012345678
-        // CpG at positions: 1 (CG at pos 1-2), 4 (CG at pos 4-5), 7 (CG at pos 7-8)
-
-        var sites = EpigeneticsAnalyzer.FindCpGSites(sequence).ToList();
-
-        Assert.That(sites, Contains.Item(1)); // First CG at position 1
-        Assert.That(sites, Contains.Item(4)); // Second CG at position 4
-        Assert.That(sites, Contains.Item(7)); // Third CG at position 7
-    }
-
-    [Test]
-    public void FindCpGSites_NoCpG_ReturnsEmpty()
-    {
-        string sequence = "AATTAATT";
-
-        var sites = EpigeneticsAnalyzer.FindCpGSites(sequence).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindCpGSites_NullSequence_ReturnsEmpty()
-    {
-        var sites = EpigeneticsAnalyzer.FindCpGSites(null!).ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
-
-    [Test]
-    public void FindCpGSites_LowercaseSequence_Works()
-    {
-        string sequence = "acgtcg";
-
-        var sites = EpigeneticsAnalyzer.FindCpGSites(sequence).ToList();
-
-        Assert.That(sites, Has.Count.EqualTo(2));
-    }
+    #region Methylation Site Detection Tests
 
     [Test]
     public void FindMethylationSites_IdentifiesAllContexts()
@@ -68,77 +26,6 @@ public class EpigeneticsAnalyzerTests
         Assert.That(cpg.Position, Is.EqualTo(0));
         Assert.That(chg.Position, Is.EqualTo(3));
         Assert.That(chh.Position, Is.EqualTo(6));
-    }
-
-    #endregion
-
-    #region CpG Island Analysis Tests
-
-    [Test]
-    public void CalculateCpGObservedExpected_HighCpGDensity_ReturnsHighRatio()
-    {
-        // CpG-rich sequence
-        string sequence = "CGCGCGCGCGCGCGCGCGCG";
-
-        double ratio = EpigeneticsAnalyzer.CalculateCpGObservedExpected(sequence);
-
-        Assert.That(ratio, Is.GreaterThan(0.6));
-    }
-
-    [Test]
-    public void CalculateCpGObservedExpected_LowCpGDensity_ReturnsLowRatio()
-    {
-        // AT-rich sequence with rare CpG
-        string sequence = "AATTAATTAATTAATTAATT";
-
-        double ratio = EpigeneticsAnalyzer.CalculateCpGObservedExpected(sequence);
-
-        Assert.That(ratio, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateCpGObservedExpected_NullSequence_ReturnsZero()
-    {
-        double ratio = EpigeneticsAnalyzer.CalculateCpGObservedExpected(null!);
-
-        Assert.That(ratio, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void FindCpGIslands_CpGRichRegion_DetectsIsland()
-    {
-        // Create a CpG island: high GC, high CpG O/E ratio
-        string cpgIsland = string.Concat(Enumerable.Repeat("CGCG", 100)); // 400bp CpG-rich
-
-        var islands = EpigeneticsAnalyzer.FindCpGIslands(
-            cpgIsland,
-            minLength: 100,
-            minGc: 0.5,
-            minCpGRatio: 0.6).ToList();
-
-        Assert.That(islands, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(islands[0].GcContent, Is.EqualTo(1.0));
-    }
-
-    [Test]
-    public void FindCpGIslands_NoCpGRichRegion_ReturnsEmpty()
-    {
-        // AT-rich sequence
-        string atRich = string.Concat(Enumerable.Repeat("AATT", 100));
-
-        var islands = EpigeneticsAnalyzer.FindCpGIslands(atRich).ToList();
-
-        Assert.That(islands, Is.Empty);
-    }
-
-    [Test]
-    public void FindCpGIslands_ShortSequence_ReturnsEmpty()
-    {
-        string shortSeq = "CGCGCG";
-
-        var islands = EpigeneticsAnalyzer.FindCpGIslands(shortSeq, minLength: 200).ToList();
-
-        Assert.That(islands, Is.Empty);
     }
 
     #endregion
@@ -673,25 +560,6 @@ public class EpigeneticsAnalyzerTests
     #endregion
 
     #region Edge Cases Tests
-
-    [Test]
-    public void FindCpGSites_CpGAtEnd_Detected()
-    {
-        string sequence = "AACG";
-
-        var sites = EpigeneticsAnalyzer.FindCpGSites(sequence).ToList();
-
-        Assert.That(sites, Has.Count.EqualTo(1));
-        Assert.That(sites[0], Is.EqualTo(2));
-    }
-
-    [Test]
-    public void FindCpGSites_SingleNucleotide_ReturnsEmpty()
-    {
-        var sites = EpigeneticsAnalyzer.FindCpGSites("C").ToList();
-
-        Assert.That(sites, Is.Empty);
-    }
 
     [Test]
     public void FindMethylationSites_EmptySequence_ReturnsEmpty()

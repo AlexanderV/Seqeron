@@ -106,7 +106,7 @@
 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | 3 | [Evidence](docs/Evidence/PROTMOTIF-FIND-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-FIND-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_MotifSearch_Tests.cs) |
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
-| ☐ | EPIGEN-CPG-001 | Epigenetics | 3 | - | - | - |
+| ☑ | EPIGEN-CPG-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CPG-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CPG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs) |
 | ☐ | EPIGEN-METHYL-001 | Epigenetics | 3 | - | - | - |
 | ☐ | EPIGEN-DMR-001 | Epigenetics | 2 | - | - | - |
 | ☐ | VARIANT-CALL-001 | Variants | 3 | - | - | - |
@@ -1806,7 +1806,7 @@
 |-------|-------|-----|
 | `FindCpGSites(sequence)` | EpigeneticsAnalyzer | Canonical |
 | `FindCpGIslands(sequence, params)` | EpigeneticsAnalyzer | Islands |
-| `CalculateObservedExpectedCpG(sequence)` | EpigeneticsAnalyzer | O/E ratio |
+| `CalculateCpGObservedExpected(sequence)` | EpigeneticsAnalyzer | O/E ratio |
 
 ---
 
