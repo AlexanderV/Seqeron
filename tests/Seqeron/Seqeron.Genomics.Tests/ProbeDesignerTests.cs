@@ -323,4 +323,47 @@ public class ProbeDesignerTests
     }
 
     #endregion
+
+    #region Mutation-Killing Tests — DesignMolecularBeacon Scoring Boundaries
+
+    /// <summary>
+    /// Kills survived ||→&amp;&amp; mutations on ProbeDesigner lines 442-443:
+    /// <c>if (gc &lt; 0.40 || gc &gt; 0.60) score -= 0.2;</c>
+    /// <c>if (tm &lt; 55 || tm &gt; 65) score -= 0.2;</c>
+    /// AT-rich target: every 25bp window has GC ≈ 0% and Tm &lt; 55.
+    /// Both penalties should fire (score ≤ 0.6).
+    /// With &amp;&amp; mutation: gc &lt; 0.40 &amp;&amp; gc &gt; 0.60 is impossible → no penalty → score = 1.0.
+    /// </summary>
+    [Test]
+    public void DesignMolecularBeacon_AtRichTarget_ScorePenalizedForGcAndTm()
+    {
+        // Alternating AT, no homopolymers. Every window: gc ≈ 0%, Tm ≈ 36°C
+        // Expected: GC penalty (-0.2) + Tm penalty (-0.2) → score ≤ 0.6
+        string target = "ATATATATATATATATATATATATATATAT"; // 28bp, 0% GC
+
+        var beacon = ProbeDesigner.DesignMolecularBeacon(target, probeLength: 25, stemLength: 5);
+
+        Assert.That(beacon, Is.Not.Null, "Beacon should be designed even for AT-rich target");
+        Assert.That(beacon!.Value.Score, Is.LessThan(0.8),
+            "AT-rich loop should have GC and Tm penalties reducing score (kills ||→&& on L442-443)");
+    }
+
+    /// <summary>
+    /// GC-rich target: every window has GC &gt; 0.60 and Tm &gt; 65.
+    /// Kills the same ||→&amp;&amp; mutations from the opposite direction.
+    /// </summary>
+    [Test]
+    public void DesignMolecularBeacon_GcRichTarget_ScorePenalizedForGcAndTm()
+    {
+        // Alternating GC, no homopolymers. Every window: gc = 100%, Tm ≈ 77°C
+        string target = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGC"; // 30bp, 100% GC
+
+        var beacon = ProbeDesigner.DesignMolecularBeacon(target, probeLength: 25, stemLength: 5);
+
+        Assert.That(beacon, Is.Not.Null, "Beacon should be designed even for GC-rich target");
+        Assert.That(beacon!.Value.Score, Is.LessThan(0.8),
+            "GC-rich loop should have GC and Tm penalties reducing score (kills ||→&& on L442-443)");
+    }
+
+    #endregion
 }

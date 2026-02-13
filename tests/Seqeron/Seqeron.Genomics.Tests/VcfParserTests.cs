@@ -913,4 +913,104 @@ chr1	1	.	A	G	.	.	.";
     }
 
     #endregion
+
+    #region Mutation-Killing Tests — GetAlleleDepth/GetReadDepth Guard Clauses
+
+    /// <summary>
+    /// Kills survived ||→&amp;&amp; mutation on VcfParser.GetAlleleDepth line 568:
+    /// <c>if (record.Samples == null || sampleIndex &gt;= record.Samples.Count)</c>
+    /// With null Samples: || short-circuits to return null.
+    /// With &amp;&amp;: evaluates record.Samples.Count → NullReferenceException.
+    /// </summary>
+    [Test]
+    public void GetAlleleDepth_NullSamples_ReturnsNull()
+    {
+        // VCF without FORMAT/sample columns → Samples is null
+        const string vcfNoSamples = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	99	PASS	.";
+
+        var records = VcfParser.Parse(vcfNoSamples).ToList();
+        var result = VcfParser.GetAlleleDepth(records[0], 0);
+
+        Assert.That(result, Is.Null,
+            "Null Samples should return null without exception (kills ||→&& mutation)");
+    }
+
+    /// <summary>
+    /// Kills survived &gt;=→&gt; boundary mutation on sampleIndex check.
+    /// With sampleIndex == Samples.Count: &gt;= returns true (null).
+    /// With &gt; mutation: returns false → IndexOutOfRangeException.
+    /// </summary>
+    [Test]
+    public void GetAlleleDepth_SampleIndexEqualToCount_ReturnsNull()
+    {
+        // VCF with 1 sample → Samples.Count = 1 → index 1 is out of bounds
+        const string vcfOneSample = @"##fileformat=VCFv4.3
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description=""Allelic depths"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	AD	15,10";
+
+        var records = VcfParser.Parse(vcfOneSample).ToList();
+
+        // sampleIndex == Samples.Count (1 == 1)
+        var result = VcfParser.GetAlleleDepth(records[0], 1);
+
+        Assert.That(result, Is.Null,
+            "sampleIndex == Count should return null (kills >=→> boundary mutation)");
+    }
+
+    /// <summary>
+    /// Confirms that valid index returns data (reference test for boundary).
+    /// </summary>
+    [Test]
+    public void GetAlleleDepth_ValidIndex_ReturnsDepths()
+    {
+        const string vcfOneSample = @"##fileformat=VCFv4.3
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description=""Allelic depths"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
+chr1	100	.	A	G	99	PASS	.	AD	15,10";
+
+        var records = VcfParser.Parse(vcfOneSample).ToList();
+
+        // sampleIndex = 0 < Count(1) → should return valid data
+        var result = VcfParser.GetAlleleDepth(records[0], 0);
+
+        Assert.That(result, Is.Not.Null, "Valid index should return allele depths");
+        Assert.That(result![0], Is.EqualTo(15), "REF depth");
+        Assert.That(result[1], Is.EqualTo(10), "ALT depth");
+    }
+
+    /// <summary>
+    /// Same ||→&amp;&amp; mutation kill for GetReadDepth (parallel guard at line 585).
+    /// </summary>
+    [Test]
+    public void GetReadDepth_NullSamples_ReturnsNull()
+    {
+        const string vcfNoSamples = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	99	PASS	.";
+
+        var records = VcfParser.Parse(vcfNoSamples).ToList();
+        var result = VcfParser.GetReadDepth(records[0], 0);
+
+        Assert.That(result, Is.Null,
+            "Null Samples should return null without exception");
+    }
+
+    /// <summary>
+    /// Boundary test for GetReadDepth: sampleIndex == Samples.Count.
+    /// </summary>
+    [Test]
+    public void GetReadDepth_SampleIndexEqualToCount_ReturnsNull()
+    {
+        var records = VcfParser.Parse(SimpleVcf).ToList();
+        // SimpleVcf has 2 samples → index 2 == Count
+        var result = VcfParser.GetReadDepth(records[0], 2);
+
+        Assert.That(result, Is.Null,
+            "sampleIndex == Count should return null (kills >=→> mutation)");
+    }
+
+    #endregion
 }

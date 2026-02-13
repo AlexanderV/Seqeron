@@ -331,5 +331,157 @@ namespace Seqeron.Genomics.Tests
         }
 
         #endregion
+
+        #region Mutation-Killing Tests — EvaluatePrimer Tm Boundary Conditions
+
+        /// <summary>
+        /// Kills survived ||→&amp;&amp; mutation on EvaluatePrimer line 145:
+        /// <c>if (tm &lt; param.MinTm || tm &gt; param.MaxTm)</c>
+        /// Tests case where ONLY tm &lt; MinTm is true (Tm is NOT above MaxTm).
+        /// With ||: issue flagged. With &amp;&amp;: no issue (both must be true).
+        /// </summary>
+        [Test]
+        public void EvaluatePrimer_TmOnlyBelowMin_FlagsTmIssue()
+        {
+            // 20bp, 50% GC → Tm ≈ 51.8°C (Marmur-Doty formula)
+            // Default MinTm=55: tm(51.8) < 55 is TRUE, tm(51.8) > 65 is FALSE
+            string primer = "ATGCGATCGATCGATCGATC"; // 20bp, 10 GC
+            var param = new PrimerParameters(
+                MinLength: 18, MaxLength: 25, OptimalLength: 20,
+                MinGcContent: 0, MaxGcContent: 100,
+                MinTm: 55, MaxTm: 65,
+                OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
+                Avoid3PrimeGC: false, Check3PrimeStability: false);
+
+            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true, param);
+
+            Assert.That(candidate.Issues, Has.Some.Contains("Tm"),
+                "Tm below MinTm should flag issue even when Tm is not above MaxTm");
+        }
+
+        /// <summary>
+        /// Kills survived ||→&amp;&amp; mutation (reverse clause): tests case where
+        /// ONLY tm &gt; MaxTm is true (Tm is NOT below MinTm).
+        /// </summary>
+        [Test]
+        public void EvaluatePrimer_TmOnlyAboveMax_FlagsTmIssue()
+        {
+            // 20bp, 90% GC → Tm ≈ 68.2°C (Marmur-Doty)
+            // Custom MaxTm=65: tm(68.2) > 65 is TRUE, tm(68.2) < 55 is FALSE
+            string primer = "GCGCGCGCGCGCGCGCGCAT"; // 20bp, 18 GC
+            var param = new PrimerParameters(
+                MinLength: 18, MaxLength: 25, OptimalLength: 20,
+                MinGcContent: 0, MaxGcContent: 100,
+                MinTm: 55, MaxTm: 65,
+                OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
+                Avoid3PrimeGC: false, Check3PrimeStability: false);
+
+            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true, param);
+
+            Assert.That(candidate.Issues, Has.Some.Contains("Tm"),
+                "Tm above MaxTm should flag issue even when Tm is not below MinTm");
+        }
+
+        /// <summary>
+        /// Kills survived &lt;→&lt;= boundary mutation on MinTm comparison.
+        /// When Tm == MinTm, the original &lt; returns false (no issue).
+        /// With &lt;= mutation, it returns true (issue added).
+        /// </summary>
+        [Test]
+        public void EvaluatePrimer_TmExactlyAtMinTm_NoTmIssue()
+        {
+            string primer = "ATGCGATCGATCGATCGATC"; // 20bp
+            double exactTm = PrimerDesigner.CalculateMeltingTemperature(primer);
+
+            var param = new PrimerParameters(
+                MinLength: 18, MaxLength: 25, OptimalLength: 20,
+                MinGcContent: 0, MaxGcContent: 100,
+                MinTm: exactTm, MaxTm: 100,
+                OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
+                Avoid3PrimeGC: false, Check3PrimeStability: false);
+
+            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true, param);
+
+            Assert.That(candidate.Issues, Has.None.Contains("Tm"),
+                "Tm exactly at MinTm boundary should not flag issue");
+        }
+
+        /// <summary>
+        /// Kills survived &gt;→&gt;= boundary mutation on MaxTm comparison.
+        /// When Tm == MaxTm, the original &gt; returns false (no issue).
+        /// With &gt;= mutation, it returns true (issue added).
+        /// </summary>
+        [Test]
+        public void EvaluatePrimer_TmExactlyAtMaxTm_NoTmIssue()
+        {
+            string primer = "ATGCGATCGATCGATCGATC"; // 20bp
+            double exactTm = PrimerDesigner.CalculateMeltingTemperature(primer);
+
+            var param = new PrimerParameters(
+                MinLength: 18, MaxLength: 25, OptimalLength: 20,
+                MinGcContent: 0, MaxGcContent: 100,
+                MinTm: 0, MaxTm: exactTm,
+                OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
+                Avoid3PrimeGC: false, Check3PrimeStability: false);
+
+            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true, param);
+
+            Assert.That(candidate.Issues, Has.None.Contains("Tm"),
+                "Tm exactly at MaxTm boundary should not flag issue");
+        }
+
+        #endregion
+
+        #region Mutation-Killing Tests — HasHairpinPotential Guard Clause
+
+        /// <summary>
+        /// Kills survived ||→&amp;&amp; mutation on HasHairpinPotential line 299:
+        /// <c>if (string.IsNullOrEmpty(sequence) || sequence.Length &lt; minStemLength * 2 + minLoopLength)</c>
+        /// With null input: || short-circuits to return false. With &amp;&amp;: evaluates
+        /// null.Length → NullReferenceException.
+        /// </summary>
+        [Test]
+        public void HasHairpinPotential_NullSequence_ReturnsFalse()
+        {
+            bool result = PrimerDesigner.HasHairpinPotential(null!);
+            Assert.That(result, Is.False, "Null sequence should return false without exception");
+        }
+
+        [Test]
+        public void HasHairpinPotential_EmptySequence_ReturnsFalse()
+        {
+            bool result = PrimerDesigner.HasHairpinPotential("");
+            Assert.That(result, Is.False, "Empty sequence should return false without exception");
+        }
+
+        /// <summary>
+        /// Kills survived &lt;→&lt;= boundary mutation on length check.
+        /// With default params (stem=4, loop=3): threshold = 4*2+3 = 11.
+        /// A sequence of exactly 11 chars should proceed past the guard (original &lt;).
+        /// With &lt;= mutation, it would return false prematurely.
+        /// </summary>
+        [Test]
+        public void HasHairpinPotential_SequenceExactlyAtThreshold_DoesNotReturnEarly()
+        {
+            // 11 chars = 4*2+3, exactly at threshold
+            // With <: 11 < 11 = false → proceeds to hairpin check
+            // With <=: 11 <= 11 = true → returns false prematurely
+            // Use a self-complementary sequence that forms a hairpin: stem GCGC, loop AAA, stem GCGC
+            string sequence = "GCGCAAAGCGC"; // 11 chars: stem(4) + loop(3) + stem(4)
+
+            // The method should NOT return false from the guard clause
+            // Whether it detects a hairpin depends on complementarity check
+            // The important thing: with <= mutation, it returns false regardless of sequence content
+            bool result = PrimerDesigner.HasHairpinPotential(sequence, minStemLength: 4, minLoopLength: 3);
+
+            // GCGC complement is CGCG; reverse of GCGC is CGCG; complement of reverse is GCGC
+            // AreComplementary checks if fragment matches complement of reversed target
+            // The hairpin detection should at least run (not short-circuit)
+            // We verify by testing a known hairpin-forming sequence at exact threshold
+            Assert.That(result, Is.True,
+                "Self-complementary sequence at exact threshold length should detect hairpin");
+        }
+
+        #endregion
     }
 }

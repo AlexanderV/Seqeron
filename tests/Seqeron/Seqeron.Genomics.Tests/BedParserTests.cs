@@ -926,4 +926,77 @@ chr1	248946422	248956422	chr1_3prime_telomere	0	-";
     }
 
     #endregion
+
+    #region Mutation-Killing Tests — Subtract Non-Overlap Check
+
+    /// <summary>
+    /// Kills survived ||→&amp;&amp; mutation on BedParser.Subtract line 387:
+    /// <c>if (b.ChromEnd &lt;= start || b.ChromStart &gt;= end)</c>
+    /// After B1 splits A into fragments, B2 overlaps only one fragment.
+    /// The other fragment should be preserved via the || non-overlap check.
+    /// With &amp;&amp;: b.ChromEnd &lt;= start &amp;&amp; b.ChromStart &gt;= end is always false
+    /// (would require b to end before AND start after the fragment simultaneously),
+    /// so ALL fragments enter the else branch, causing incorrect subtraction.
+    /// </summary>
+    [Test]
+    public void Subtract_FragmentNotOverlappingWithSecondB_PreservedCorrectly()
+    {
+        // A = [100, 400]
+        // B1 = [150, 200] → splits A into [100, 150] + [200, 400]
+        // B2 = [350, 500] → overlaps fragment [200, 400] but NOT [100, 150]
+        // Fragment [100, 150]: b2.ChromStart(350) >= end(150) → true → || true → keep
+        // With &&: false → incorrectly enters subtraction → corrupts fragment
+        const string bedA = "chr1\t100\t400";
+        const string bedB = "chr1\t150\t200\nchr1\t350\t500";
+
+        var a = BedParser.Parse(bedA);
+        var b = BedParser.Parse(bedB);
+        var result = BedParser.Subtract(a, b).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(2), "Should have two remaining fragments");
+            Assert.That(result[0].ChromStart, Is.EqualTo(100), "Left fragment start preserved");
+            Assert.That(result[0].ChromEnd, Is.EqualTo(150),
+                "Left fragment end must be 150 (kills ||→&& — with && it would be corrupted to 350)");
+            Assert.That(result[1].ChromStart, Is.EqualTo(200), "Right fragment start");
+            Assert.That(result[1].ChromEnd, Is.EqualTo(350), "Right fragment trimmed at B2 start");
+        });
+    }
+
+    /// <summary>
+    /// Symmetric test: fragment to the RIGHT of B2 should be preserved.
+    /// After B1 splits A, B2 overlaps only the second fragment.
+    /// First fragment survives via b.ChromEnd &lt;= start (first clause of ||).
+    /// </summary>
+    [Test]
+    public void Subtract_LaterFragmentNotOverlappingWithEarlierB_PreservedCorrectly()
+    {
+        // A = [100, 500]
+        // B1 = [120, 180] → splits A into [100, 120] + [180, 500]
+        // B2 = [200, 300] → does NOT overlap [100, 120], overlaps [180, 500]
+        // Fragment [100, 120]: b2.ChromEnd(300) <= start(100)? No.
+        //   b2.ChromStart(200) >= end(120)? Yes → || true → keep fragment
+        // With &&: false → enters else → corrupts fragment from [100,120] to [100,200]
+        const string bedA = "chr1\t100\t500";
+        const string bedB = "chr1\t120\t180\nchr1\t200\t300";
+
+        var a = BedParser.Parse(bedA);
+        var b = BedParser.Parse(bedB);
+        var result = BedParser.Subtract(a, b).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(3), "Should have three remaining fragments");
+            Assert.That(result[0].ChromStart, Is.EqualTo(100), "First fragment start preserved");
+            Assert.That(result[0].ChromEnd, Is.EqualTo(120),
+                "First fragment end must be 120 (kills ||→&& — with && it would be corrupted to 200)");
+            Assert.That(result[1].ChromStart, Is.EqualTo(180), "Second fragment start");
+            Assert.That(result[1].ChromEnd, Is.EqualTo(200), "Second fragment trimmed at B2 start");
+            Assert.That(result[2].ChromStart, Is.EqualTo(300), "Third fragment start");
+            Assert.That(result[2].ChromEnd, Is.EqualTo(500), "Third fragment end");
+        });
+    }
+
+    #endregion
 }

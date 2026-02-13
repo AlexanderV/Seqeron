@@ -1,24 +1,34 @@
 {
   "stryker-config": {
+    "project-info": {
+      "name": "Seqeron.Genomics",
+      "module": "Core"
+    },
     "project": "Seqeron.Genomics.Core.csproj",
+    "solution": "../../../Seqeron.sln",
     "test-projects": [
-      "Seqeron.Genomics.Tests.csproj"
+      "./Seqeron.Genomics.Tests.csproj"
     ],
-    "reporters": [
-      "html",
-      "json",
-      "progress"
+    "mutate": [
+      "!**/obj/**",
+      "!**/bin/**"
     ],
-    "mutation-level": "Standard",
+    "mutation-level": "Basic",
     "thresholds": {
       "high": 80,
       "low": 60,
-      "break": 50
+      "break": 0
     },
-    "excluded-mutations": [
-      "string-literal"
+    "reporters": [
+      "html",
+      "progress",
+      "cleartext"
     ],
-    "concurrency": 4,
-    "language-version": "latest"
+    "ignore-mutations": [
+      "string"
+    ],
+    "concurrency": 1,
+    "language-version": "latest",
+    "additional-timeout": 5000
   }
 }

@@ -320,6 +320,30 @@ namespace Seqeron.Genomics.Tests
             Assert.That(counts, Is.Empty);
         }
 
+        /// <summary>
+        /// Mutation killer: k=0 should return empty (boundary for k &lt;= 0 guard).
+        /// </summary>
+        [Test]
+        public void CountKmersSpan_KZero_ReturnsEmptyDictionary()
+        {
+            ReadOnlySpan<char> span = "ACGT".AsSpan();
+            var counts = span.CountKmersSpan(0);
+            Assert.That(counts, Is.Empty);
+        }
+
+        /// <summary>
+        /// Mutation killer: k == sequence.Length should return exactly one k-mer 
+        /// (boundary for Length &lt; k guard — must NOT be empty).
+        /// </summary>
+        [Test]
+        public void CountKmersSpan_KEqualToLength_ReturnsSingleKmer()
+        {
+            ReadOnlySpan<char> span = "ACGT".AsSpan();
+            var counts = span.CountKmersSpan(4);
+            Assert.That(counts, Has.Count.EqualTo(1));
+            Assert.That(counts["ACGT"], Is.EqualTo(1));
+        }
+
         #endregion
 
         #region Both Strands (CountKmersBothStrands)
