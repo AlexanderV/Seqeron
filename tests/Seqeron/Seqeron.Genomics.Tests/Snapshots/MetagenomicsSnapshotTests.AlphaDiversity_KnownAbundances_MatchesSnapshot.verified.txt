@@ -1,0 +1,8 @@
+﻿{
+  Shannon: 1.4924,
+  Simpson: 0.2458,
+  InvSimpson: 4.0683,
+  Chao1: 5.0,
+  ObservedSpecies: 5.0,
+  Evenness: 0.9273
+}

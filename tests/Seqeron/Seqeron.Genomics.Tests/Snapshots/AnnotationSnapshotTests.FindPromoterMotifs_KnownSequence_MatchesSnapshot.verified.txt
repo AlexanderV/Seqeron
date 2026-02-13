@@ -1,0 +1,28 @@
+﻿{
+  MotifCount: 5,
+  TopMotifs: [
+    {
+      type: -35 box,
+      score: 1.0
+    },
+    {
+      position: 16,
+      type: -10 box,
+      score: 1.0
+    },
+    {
+      type: -35 box,
+      score: 0.8333333333333334
+    },
+    {
+      position: 1,
+      type: -35 box,
+      score: 0.8333333333333334
+    },
+    {
+      position: 16,
+      type: -10 box,
+      score: 0.8333333333333334
+    }
+  ]
+}

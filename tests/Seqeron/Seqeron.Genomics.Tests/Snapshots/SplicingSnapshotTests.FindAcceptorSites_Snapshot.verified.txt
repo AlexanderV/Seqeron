@@ -1,0 +1,14 @@
+﻿{
+  Acceptors: [
+    {
+      Position: 109,
+      Motif: UUUUUUUUUUUUUUCAG,
+      Score: 0.27258117886730154
+    },
+    {
+      Position: 119,
+      Motif: UUUUCAGGCGAUGAAAG,
+      Score: 0.3170180664494778
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+﻿{
+  Donors: [
+    {
+      Position: 21,
+      Motif: GCGGUAAGU,
+      Score: 0.7576827132557004,
+      Confidence: 0.5153654265114007
+    },
+    {
+      Position: 25,
+      Motif: UAAGUUUUU,
+      Score: 0.43517346252988787
+    }
+  ]
+}

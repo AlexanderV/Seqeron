@@ -1,0 +1,17 @@
+﻿{
+  OrfCount: 2,
+  TopOrfs: [
+    {
+      Start: 32,
+      End: 62,
+      Frame: 3,
+      Length: 30
+    },
+    {
+      Start: 58,
+      End: 118,
+      Frame: 2,
+      Length: 60
+    }
+  ]
+}

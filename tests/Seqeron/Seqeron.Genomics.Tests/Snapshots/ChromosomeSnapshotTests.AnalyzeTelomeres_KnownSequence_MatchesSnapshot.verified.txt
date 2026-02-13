@@ -1,0 +1,6 @@
+﻿{
+  Chromosome: chr1,
+  Has5PrimeTelomere: false,
+  Has3PrimeTelomere: false,
+  IsCriticallyShort: false
+}

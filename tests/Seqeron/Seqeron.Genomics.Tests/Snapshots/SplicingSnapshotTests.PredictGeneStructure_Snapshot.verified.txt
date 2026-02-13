@@ -1,0 +1,11 @@
+﻿{
+  ExonCount: 1,
+  SplicedSequenceLength: 131,
+  Exons: [
+    {
+      End: 130,
+      Length: 131,
+      Type: Single
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+﻿{
+  AlignedSequence1: ACGTACGT,
+  AlignedSequence2: ACG-ACGT,
+  Score: 6
+}

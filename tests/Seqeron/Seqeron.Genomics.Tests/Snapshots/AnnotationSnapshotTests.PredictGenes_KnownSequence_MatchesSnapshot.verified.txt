@@ -1,0 +1,17 @@
+﻿{
+  GeneCount: 2,
+  TopGenes: [
+    {
+      GeneId: gene_0001,
+      Start: 32,
+      End: 62,
+      Strand: "+"
+    },
+    {
+      GeneId: gene_0002,
+      Start: 58,
+      End: 118,
+      Strand: "+"
+    }
+  ]
+}

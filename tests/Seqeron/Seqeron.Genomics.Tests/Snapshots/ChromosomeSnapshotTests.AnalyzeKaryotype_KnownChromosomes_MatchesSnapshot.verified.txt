@@ -1,0 +1,12 @@
+﻿{
+  TotalChromosomes: 5,
+  AutosomeCount: 3,
+  SexChromosomes: [
+    chrX,
+    chrY
+  ],
+  PloidyLevel: 2,
+  TotalGenomeSize: 902713820,
+  MeanChromosomeLength: 180542764.0,
+  HasAneuploidy: true
+}

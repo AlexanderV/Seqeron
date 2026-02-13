@@ -1,0 +1,12 @@
+﻿{
+  IslandCount: 1,
+  Islands: [
+    {
+      Start: 5,
+      End: 265,
+      Length: 260,
+      GcContent: 0.8077,
+      CpGRatio: 2.4762
+    }
+  ]
+}

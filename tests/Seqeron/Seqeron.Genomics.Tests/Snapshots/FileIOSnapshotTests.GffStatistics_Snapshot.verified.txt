@@ -1,0 +1,5 @@
+﻿{
+  TotalFeatures: 3,
+  GeneCount: 1,
+  ExonCount: 1
+}

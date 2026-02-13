@@ -1,0 +1,10 @@
+﻿{
+  TotalFragments: 5,
+  LargestFragment: 9,
+  SmallestFragment: 4,
+  AverageFragmentSize: 7.8,
+  EnzymesUsed: [
+    EcoRI,
+    BamHI
+  ]
+}

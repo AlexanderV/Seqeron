@@ -1,0 +1,99 @@
+﻿{
+  Count: 19,
+  Palindromes: [
+    {
+      Sequence: ACGT,
+      Length: 4
+    },
+    {
+      Position: 1,
+      Sequence: CGTGAATTCACG,
+      Length: 12
+    },
+    {
+      Position: 2,
+      Sequence: GTGAATTCAC,
+      Length: 10
+    },
+    {
+      Position: 3,
+      Sequence: TGAATTCA,
+      Length: 8
+    },
+    {
+      Position: 4,
+      Sequence: GAATTC,
+      Length: 6
+    },
+    {
+      Position: 5,
+      Sequence: AATT,
+      Length: 4
+    },
+    {
+      Position: 8,
+      Sequence: TCACGTACGTGA,
+      Length: 12
+    },
+    {
+      Position: 9,
+      Sequence: CACGTACGTG,
+      Length: 10
+    },
+    {
+      Position: 10,
+      Sequence: ACGT,
+      Length: 4
+    },
+    {
+      Position: 10,
+      Sequence: ACGTACGT,
+      Length: 8
+    },
+    {
+      Position: 11,
+      Sequence: CGTACG,
+      Length: 6
+    },
+    {
+      Position: 12,
+      Sequence: GTAC,
+      Length: 4
+    },
+    {
+      Position: 14,
+      Sequence: ACGT,
+      Length: 4
+    },
+    {
+      Position: 15,
+      Sequence: CGTGATATCACG,
+      Length: 12
+    },
+    {
+      Position: 16,
+      Sequence: GTGATATCAC,
+      Length: 10
+    },
+    {
+      Position: 17,
+      Sequence: TGATATCA,
+      Length: 8
+    },
+    {
+      Position: 18,
+      Sequence: GATATC,
+      Length: 6
+    },
+    {
+      Position: 19,
+      Sequence: ATAT,
+      Length: 4
+    },
+    {
+      Position: 24,
+      Sequence: ACGT,
+      Length: 4
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+﻿{
+  Count: 20,
+  Repeats: [
+    {
+      SecondPosition: 16,
+      RepeatSequence: ACGT,
+      Length: 4,
+      Spacing: 12
+    },
+    {
+      SecondPosition: 20,
+      RepeatSequence: ACGT,
+      Length: 4,
+      Spacing: 16
+    },
+    {
+      SecondPosition: 16,
+      RepeatSequence: ACGTA,
+      Length: 5,
+      Spacing: 11
+    },
+    {
+      SecondPosition: 16,
+      RepeatSequence: ACGTAC,
+      Length: 6,
+      Spacing: 10
+    },
+    {
+      SecondPosition: 16,
+      RepeatSequence: ACGTACG,
+      Length: 7,
+      Spacing: 9
+    },
+    {
+      SecondPosition: 16,
+      RepeatSequence: ACGTACGT,
+      Length: 8,
+      Spacing: 8
+    },
+    {
+      FirstPosition: 1,
+      SecondPosition: 17,
+      RepeatSequence: CGTA,
+      Length: 4,
+      Spacing: 12
+    },
+    {
+      FirstPosition: 1,
+      SecondPosition: 17,
+      RepeatSequence: CGTAC,
+      Length: 5,
+      Spacing: 11
+    },
+    {
+      FirstPosition: 1,
+      SecondPosition: 17,
+      RepeatSequence: CGTACG,
+      Length: 6,
+      Spacing: 10
+    },
+    {
+      FirstPosition: 1,
+      SecondPosition: 17,
+      RepeatSequence: CGTACGT,
+      Length: 7,
+      Spacing: 9
+    },
+    {
+      FirstPosition: 2,
+      SecondPosition: 18,
+      RepeatSequence: GTAC,
+      Length: 4,
+      Spacing: 12
+    },
+    {
+      FirstPosition: 2,
+      SecondPosition: 18,
+      RepeatSequence: GTACG,
+      Length: 5,
+      Spacing: 11
+    },
+    {
+      FirstPosition: 2,
+      SecondPosition: 18,
+      RepeatSequence: GTACGT,
+      Length: 6,
+      Spacing: 10
+    },
+    {
+      FirstPosition: 3,
+      SecondPosition: 15,
+      RepeatSequence: TACG,
+      Length: 4,
+      Spacing: 8
+    },
+    {
+      FirstPosition: 3,
+      SecondPosition: 19,
+      RepeatSequence: TACG,
+      Length: 4,
+      Spacing: 12
+    },
+    {
+      FirstPosition: 3,
+      SecondPosition: 15,
+      RepeatSequence: TACGT,
+      Length: 5,
+      Spacing: 7
+    },
+    {
+      FirstPosition: 3,
+      SecondPosition: 19,
+      RepeatSequence: TACGT,
+      Length: 5,
+      Spacing: 11
+    },
+    {
+      FirstPosition: 4,
+      SecondPosition: 16,
+      RepeatSequence: ACGT,
+      Length: 4,
+      Spacing: 8
+    },
+    {
+      FirstPosition: 4,
+      SecondPosition: 20,
+      RepeatSequence: ACGT,
+      Length: 4,
+      Spacing: 12
+    },
+    {
+      FirstPosition: 7,
+      SecondPosition: 12,
+      RepeatSequence: TTTT,
+      Length: 4,
+      Spacing: 1
+    }
+  ]
+}

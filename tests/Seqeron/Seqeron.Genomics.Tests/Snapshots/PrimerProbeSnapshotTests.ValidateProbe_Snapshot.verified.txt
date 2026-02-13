@@ -1,0 +1,7 @@
+﻿{
+  IsValid: false,
+  SpecificityScore: 0.3333333333333333,
+  OffTargetHits: 3,
+  SelfComplementarity: 1.0,
+  HasSecondaryStructure: false
+}

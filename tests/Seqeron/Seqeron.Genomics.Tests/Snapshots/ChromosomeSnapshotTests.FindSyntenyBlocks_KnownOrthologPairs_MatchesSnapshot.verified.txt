@@ -1,0 +1,15 @@
+﻿{
+  BlockCount: 2,
+  Blocks: [
+    {
+      Species1Chromosome: chr1,
+      Species2Chromosome: chr2,
+      GeneCount: 4
+    },
+    {
+      Species1Chromosome: chr3,
+      Species2Chromosome: chr4,
+      GeneCount: 3
+    }
+  ]
+}

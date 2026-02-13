@@ -1,0 +1,28 @@
+﻿{
+  Sites: [
+    {
+      Position: 3,
+      Enzyme: EcoRI,
+      RecognizedSequence: GAATTC,
+      IsForwardStrand: true
+    },
+    {
+      Position: 21,
+      Enzyme: EcoRI,
+      RecognizedSequence: GAATTC,
+      IsForwardStrand: true
+    },
+    {
+      Position: 21,
+      Enzyme: EcoRI,
+      RecognizedSequence: GAATTC,
+      IsForwardStrand: false
+    },
+    {
+      Position: 3,
+      Enzyme: EcoRI,
+      RecognizedSequence: GAATTC,
+      IsForwardStrand: false
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+﻿{
+  Classifications: [
+    {
+      ReadId: read1
+    },
+    {
+      ReadId: read2
+    },
+    {
+      ReadId: read3
+    }
+  ]
+}

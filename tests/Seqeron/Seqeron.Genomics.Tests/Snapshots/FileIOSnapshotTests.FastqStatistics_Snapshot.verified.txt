@@ -1,0 +1,8 @@
+﻿{
+  TotalReads: 2,
+  TotalBases: 20,
+  MeanReadLength: 10.0,
+  MeanQuality: 24.0,
+  MinReadLength: 8,
+  MaxReadLength: 12
+}

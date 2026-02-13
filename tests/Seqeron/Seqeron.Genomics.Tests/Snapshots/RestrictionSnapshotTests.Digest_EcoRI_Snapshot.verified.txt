@@ -1,0 +1,22 @@
+﻿{
+  Fragments: [
+    {
+      FragmentNumber: 1,
+      Length: 4,
+      RightEnzyme: EcoRI
+    },
+    {
+      FragmentNumber: 2,
+      Length: 18,
+      StartPosition: 4,
+      LeftEnzyme: EcoRI,
+      RightEnzyme: EcoRI
+    },
+    {
+      FragmentNumber: 3,
+      Length: 17,
+      StartPosition: 22,
+      LeftEnzyme: EcoRI
+    }
+  ]
+}

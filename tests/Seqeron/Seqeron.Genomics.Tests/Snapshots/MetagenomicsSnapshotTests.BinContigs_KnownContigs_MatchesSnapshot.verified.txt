@@ -1,0 +1,16 @@
+﻿{
+  Bins: [
+    {
+      BinId: bin.1,
+      ContigCount: 10,
+      TotalLength: 20000.0,
+      GcContent: 1.0
+    },
+    {
+      BinId: bin.2,
+      ContigCount: 10,
+      TotalLength: 20000.0,
+      GcContent: 0.5
+    }
+  ]
+}

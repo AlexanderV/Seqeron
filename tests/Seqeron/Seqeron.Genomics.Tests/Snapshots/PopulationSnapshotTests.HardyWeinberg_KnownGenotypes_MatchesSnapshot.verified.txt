@@ -1,0 +1,12 @@
+﻿{
+  VariantId: SNP_rs123,
+  ObservedAA: 40,
+  ObservedAa: 45,
+  Observedaa: 15,
+  ExpectedAA: 39.06,
+  ExpectedAa: 46.88,
+  Expectedaa: 14.06,
+  ChiSquare: 0.16,
+  PValue: 0.6892,
+  InEquilibrium: true
+}

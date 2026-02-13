@@ -1,0 +1,7 @@
+﻿{
+  Name: hsa-miR-21-5p,
+  Sequence: UAGCUUAUCAGACUGAUGUUGA,
+  SeedSequence: AGCUUAU,
+  SeedStart: 1,
+  SeedEnd: 7
+}

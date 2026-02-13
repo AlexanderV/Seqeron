@@ -1,0 +1,7 @@
+﻿{
+  Energies: {
+    Longer_Hairpin: -8.0,
+    PolyA_NoStructure: 0.0,
+    Simple_Hairpin: -6.0
+  }
+}

@@ -1,0 +1,24 @@
+﻿{
+  Similarity: 0.5556,
+  Usage1: {
+    AAA: 1,
+    AAG: 1,
+    ACU: 1,
+    AUG: 1,
+    CGU: 1,
+    GCG: 2,
+    UGA: 1,
+    UUC: 1
+  },
+  Usage2: {
+    AAA: 1,
+    AAG: 1,
+    ACA: 1,
+    AUG: 1,
+    CGC: 1,
+    GCA: 1,
+    GCC: 1,
+    UGA: 1,
+    UUC: 1
+  }
+}

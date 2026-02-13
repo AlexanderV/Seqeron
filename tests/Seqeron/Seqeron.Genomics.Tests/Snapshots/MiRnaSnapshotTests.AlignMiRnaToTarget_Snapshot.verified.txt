@@ -1,0 +1,6 @@
+﻿{
+  MiRnaSequence: UAGCUUAUCAGACUGAUGUUGA,
+  TargetSequence: UCAACAUCAGUCUGAUAAGCUA,
+  AlignmentString: ||||||||||||||||||||||,
+  Matches: 22
+}

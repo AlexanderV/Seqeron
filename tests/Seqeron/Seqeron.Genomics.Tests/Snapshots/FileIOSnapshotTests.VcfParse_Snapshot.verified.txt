@@ -1,0 +1,20 @@
+﻿{
+  Records: [
+    {
+      Chrom: chr1,
+      Pos: 100,
+      Id: rs123,
+      Ref: A,
+      Alt: G,
+      Type: SNP
+    },
+    {
+      Chrom: chr1,
+      Pos: 200,
+      Id: .,
+      Ref: AC,
+      Alt: A,
+      Type: Deletion
+    }
+  ]
+}

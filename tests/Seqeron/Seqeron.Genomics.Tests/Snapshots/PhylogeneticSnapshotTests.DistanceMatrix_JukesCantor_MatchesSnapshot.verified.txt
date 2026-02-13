@@ -1,0 +1,10 @@
+﻿{
+  Distances: {
+    Chimp-Gorilla: 0.1674,
+    Chimp-Mouse: 0.5716,
+    Gorilla-Mouse: 0.3041,
+    Human-Chimp: 0.0517,
+    Human-Gorilla: 0.1073,
+    Human-Mouse: 0.4715
+  }
+}

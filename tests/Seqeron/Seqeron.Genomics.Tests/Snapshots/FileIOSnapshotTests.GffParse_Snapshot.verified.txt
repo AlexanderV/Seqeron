@@ -1,0 +1,28 @@
+﻿{
+  Records: [
+    {
+      Seqid: chr1,
+      Source: test,
+      Type: gene,
+      Start: 100,
+      End: 500,
+      Strand: "+"
+    },
+    {
+      Seqid: chr1,
+      Source: test,
+      Type: exon,
+      Start: 100,
+      End: 200,
+      Strand: "+"
+    },
+    {
+      Seqid: chr1,
+      Source: test,
+      Type: exon,
+      Start: 300,
+      End: 500,
+      Strand: "+"
+    }
+  ]
+}
