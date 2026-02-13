@@ -12,9 +12,18 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="NUnit" Version="3.14.0" />
-    <PackageReference Include="NUnit.Analyzers" Version="3.9.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.4.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <!-- Tier 1: Fluent assertions with better failure messages -->
+    <PackageReference Include="FluentAssertions" Version="8.0.1" />
+    <!-- Tier 2: Property-based testing for mathematical invariants -->
+    <PackageReference Include="FsCheck" Version="3.1.0" />
+    <PackageReference Include="FsCheck.NUnit" Version="3.1.0" />
+    <!-- Tier 2: Snapshot/approval testing for complex outputs -->
+    <PackageReference Include="Verify.NUnit" Version="28.7.1" />
+    <!-- Tier 3: Architecture guard tests -->
+    <PackageReference Include="TngTech.ArchUnitNET.NUnit" Version="0.13.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +40,7 @@
     <Using Include="Seqeron.Genomics.MolTools" />
     <Using Include="Seqeron.Genomics.Chromosome" />
     <Using Include="Seqeron.Genomics.Reports" />
+    <Using Include="FluentAssertions" />
   </ItemGroup>
 
   <ItemGroup>

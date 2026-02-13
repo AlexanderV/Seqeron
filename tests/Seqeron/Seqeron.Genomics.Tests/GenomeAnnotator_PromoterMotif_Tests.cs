@@ -113,7 +113,7 @@ public class GenomeAnnotator_PromoterMotif_Tests
 
         // Assert
         var partialHit = motifs.FirstOrDefault(m => m.type == "-35 box" && m.sequence == "TTGAC");
-        Assert.That(partialHit, Is.Not.EqualTo(default), "Should find partial -35 box TTGAC");
+        Assert.That(partialHit, Is.Not.EqualTo(default((int, string, string, double))), "Should find partial -35 box TTGAC");
         Assert.That(partialHit.score, Is.LessThan(1.0), "5 bp match should have score < 1.0");
         Assert.That(partialHit.score, Is.EqualTo(5.0 / 6.0).Within(0.001), "Score should be 5/6");
     }
@@ -133,7 +133,7 @@ public class GenomeAnnotator_PromoterMotif_Tests
 
         // Assert
         var partialHit = motifs.FirstOrDefault(m => m.type == "-10 box" && m.sequence == "TATAA");
-        Assert.That(partialHit, Is.Not.EqualTo(default), "Should find partial -10 box TATAA");
+        Assert.That(partialHit, Is.Not.EqualTo(default((int, string, string, double))), "Should find partial -10 box TATAA");
         Assert.That(partialHit.score, Is.LessThan(1.0), "5 bp match should have score < 1.0");
         Assert.That(partialHit.score, Is.EqualTo(5.0 / 6.0).Within(0.001), "Score should be 5/6");
     }
@@ -156,7 +156,7 @@ public class GenomeAnnotator_PromoterMotif_Tests
 
         // Assert
         var hit = motifs.FirstOrDefault(m => m.type == "-35 box" && m.sequence == variant);
-        Assert.That(hit, Is.Not.EqualTo(default), $"Should find -35 variant {variant}");
+        Assert.That(hit, Is.Not.EqualTo(default((int, string, string, double))), $"Should find -35 variant {variant}");
         Assert.That(hit.score, Is.EqualTo((double)expectedLength / 6.0).Within(0.001));
     }
 
@@ -178,7 +178,7 @@ public class GenomeAnnotator_PromoterMotif_Tests
 
         // Assert
         var hit = motifs.FirstOrDefault(m => m.type == "-10 box" && m.sequence == variant);
-        Assert.That(hit, Is.Not.EqualTo(default), $"Should find -10 variant {variant}");
+        Assert.That(hit, Is.Not.EqualTo(default((int, string, string, double))), $"Should find -10 variant {variant}");
         Assert.That(hit.score, Is.EqualTo((double)expectedLength / 6.0).Within(0.001));
     }
 

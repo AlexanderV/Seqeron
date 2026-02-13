@@ -273,3 +273,4 @@ build_errors.txt
 build_output*.txt
 build_cleaned.txt
 persistent_*.txt
+/docs/testing-modernization-plan.md

@@ -228,7 +228,7 @@ public static class EpigeneticsAnalyzer
         int? islandStart = null;
         int islandEnd = 0;
 
-        for (int i = 0; i <= sequence.Length - minLength; i += 10)
+        for (int i = 0; i <= sequence.Length - minLength; i++)
         {
             int windowSize = Math.Min(minLength, sequence.Length - i);
             string window = sequence.Substring(i, windowSize);
