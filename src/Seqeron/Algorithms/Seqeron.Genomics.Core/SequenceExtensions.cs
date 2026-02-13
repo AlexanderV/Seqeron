@@ -15,22 +15,46 @@ public static class SequenceExtensions
     #region Span-based GC Content
 
     /// <summary>
-    /// Calculates GC content using Span for better performance.
+    /// Calculates GC content as a percentage (0-100).
+    /// Formula: (G + C) / (A + T + G + C + U) × 100
+    /// Non-nucleotide characters are excluded from both numerator and denominator.
+    /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
+    /// <remarks>
+    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Valid nucleotides: A, T, G, C, U (case-insensitive).
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcContent(this ReadOnlySpan<char> sequence)
     {
         if (sequence.IsEmpty) return 0;
 
         int gcCount = 0;
+        int validCount = 0;
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = sequence[i];
-            if (c == 'G' || c == 'C' || c == 'g' || c == 'c')
-                gcCount++;
+            switch (c)
+            {
+                case 'G':
+                case 'g':
+                case 'C':
+                case 'c':
+                    gcCount++;
+                    validCount++;
+                    break;
+                case 'A':
+                case 'a':
+                case 'T':
+                case 't':
+                case 'U':
+                case 'u':
+                    validCount++;
+                    break;
+            }
         }
 
-        return (double)gcCount / sequence.Length * 100;
+        return validCount == 0 ? 0 : (double)gcCount / validCount * 100;
     }
 
     /// <summary>
@@ -44,22 +68,46 @@ public static class SequenceExtensions
     }
 
     /// <summary>
-    /// Calculates GC content as a fraction (0-1) using Span for better performance.
+    /// Calculates GC content as a fraction (0-1).
+    /// Formula: (G + C) / (A + T + G + C + U)
+    /// Non-nucleotide characters are excluded from both numerator and denominator.
+    /// Returns 0 for empty sequences or sequences with no valid nucleotides.
     /// </summary>
+    /// <remarks>
+    /// Matches Wikipedia GC-content formula and Biopython gc_fraction ("remove" mode).
+    /// Valid nucleotides: A, T, G, C, U (case-insensitive).
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double CalculateGcFraction(this ReadOnlySpan<char> sequence)
     {
         if (sequence.IsEmpty) return 0;
 
         int gcCount = 0;
+        int validCount = 0;
         for (int i = 0; i < sequence.Length; i++)
         {
             char c = sequence[i];
-            if (c == 'G' || c == 'C' || c == 'g' || c == 'c')
-                gcCount++;
+            switch (c)
+            {
+                case 'G':
+                case 'g':
+                case 'C':
+                case 'c':
+                    gcCount++;
+                    validCount++;
+                    break;
+                case 'A':
+                case 'a':
+                case 'T':
+                case 't':
+                case 'U':
+                case 'u':
+                    validCount++;
+                    break;
+            }
         }
 
-        return (double)gcCount / sequence.Length;
+        return validCount == 0 ? 0 : (double)gcCount / validCount;
     }
 
     /// <summary>

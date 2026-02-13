@@ -361,7 +361,8 @@ public class SequenceTools
 
         var gcContent = global::Seqeron.Genomics.Core.SequenceExtensions.CalculateGcContentFast(sequence);
         int gcCount = sequence.Count(c => c == 'G' || c == 'C' || c == 'g' || c == 'c');
-        return new GcContentResult(gcContent, gcCount, sequence.Length);
+        int validCount = sequence.Count(c => c is 'A' or 'a' or 'T' or 't' or 'G' or 'g' or 'C' or 'c' or 'U' or 'u');
+        return new GcContentResult(gcContent, gcCount, validCount);
     }
 
     /// <summary>

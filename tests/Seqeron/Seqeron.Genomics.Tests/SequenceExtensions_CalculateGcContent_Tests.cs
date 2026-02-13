@@ -38,89 +38,24 @@ public class SequenceExtensions_CalculateGcContent_Tests
         Assert.That(result, Is.EqualTo(0.0));
     }
 
-    [Test]
-    public void CalculateGcContentFast_EmptyString_ReturnsZero()
-    {
-        double result = "".CalculateGcContentFast();
-
-        Assert.That(result, Is.EqualTo(0.0));
-    }
-
-    [Test]
-    public void CalculateGcFractionFast_EmptyString_ReturnsZero()
-    {
-        double result = "".CalculateGcFractionFast();
-
-        Assert.That(result, Is.EqualTo(0.0));
-    }
-
     #endregion
 
-    #region MUST: All GC Returns 100% (Evidence: Formula derivation)
+    #region MUST: All GC Returns 100%, All AT Returns 0% (Evidence: Formula derivation)
 
     [Test]
-    public void CalculateGcContent_AllG_Returns100()
+    [TestCase("GGGG", 100.0, Description = "All G → 100%")]
+    [TestCase("CCCC", 100.0, Description = "All C → 100%")]
+    [TestCase("GCGCGC", 100.0, Description = "Mixed G+C → 100%")]
+    [TestCase("AAAA", 0.0, Description = "All A → 0%")]
+    [TestCase("TTTT", 0.0, Description = "All T → 0%")]
+    [TestCase("ATATAT", 0.0, Description = "Mixed A+T → 0%")]
+    public void CalculateGcContent_HomogeneousSequences_ReturnsExtrema(string sequence, double expected)
     {
-        // Formula: 4G / 4 total = 100%
-        ReadOnlySpan<char> allG = "GGGG";
+        ReadOnlySpan<char> span = sequence;
 
-        double result = allG.CalculateGcContent();
+        double result = span.CalculateGcContent();
 
-        Assert.That(result, Is.EqualTo(100.0));
-    }
-
-    [Test]
-    public void CalculateGcContent_AllC_Returns100()
-    {
-        ReadOnlySpan<char> allC = "CCCC";
-
-        double result = allC.CalculateGcContent();
-
-        Assert.That(result, Is.EqualTo(100.0));
-    }
-
-    [Test]
-    public void CalculateGcContent_MixedGC_Returns100()
-    {
-        ReadOnlySpan<char> mixedGc = "GCGCGC";
-
-        double result = mixedGc.CalculateGcContent();
-
-        Assert.That(result, Is.EqualTo(100.0));
-    }
-
-    #endregion
-
-    #region MUST: All AT Returns 0% (Evidence: Formula derivation)
-
-    [Test]
-    public void CalculateGcContent_AllA_ReturnsZero()
-    {
-        ReadOnlySpan<char> allA = "AAAA";
-
-        double result = allA.CalculateGcContent();
-
-        Assert.That(result, Is.EqualTo(0.0));
-    }
-
-    [Test]
-    public void CalculateGcContent_AllT_ReturnsZero()
-    {
-        ReadOnlySpan<char> allT = "TTTT";
-
-        double result = allT.CalculateGcContent();
-
-        Assert.That(result, Is.EqualTo(0.0));
-    }
-
-    [Test]
-    public void CalculateGcContent_MixedAT_ReturnsZero()
-    {
-        ReadOnlySpan<char> mixedAt = "ATATAT";
-
-        double result = mixedAt.CalculateGcContent();
-
-        Assert.That(result, Is.EqualTo(0.0));
+        Assert.That(result, Is.EqualTo(expected));
     }
 
     #endregion
@@ -153,41 +88,24 @@ public class SequenceExtensions_CalculateGcContent_Tests
     #region MUST: Mixed Case Handling (Evidence: Biopython "Copes with mixed case")
 
     [Test]
-    public void CalculateGcContent_LowercaseInput_MatchesUppercase()
+    public void CalculateGcContent_LowercaseInput_Returns50()
     {
-        ReadOnlySpan<char> upper = "ACGT";
+        // Evidence: Biopython "Copes with mixed case sequences"
         ReadOnlySpan<char> lower = "acgt";
 
-        double upperResult = upper.CalculateGcContent();
-        double lowerResult = lower.CalculateGcContent();
+        double result = lower.CalculateGcContent();
 
-        Assert.That(lowerResult, Is.EqualTo(upperResult));
+        Assert.That(result, Is.EqualTo(50.0));
     }
 
     [Test]
-    public void CalculateGcContent_MixedCaseInput_MatchesUppercase()
+    public void CalculateGcContent_MixedCaseInput_Returns100()
     {
-        ReadOnlySpan<char> upper = "GCGCGC";
         ReadOnlySpan<char> mixed = "GcGcGc";
 
-        double upperResult = upper.CalculateGcContent();
-        double mixedResult = mixed.CalculateGcContent();
+        double result = mixed.CalculateGcContent();
 
-        Assert.That(mixedResult, Is.EqualTo(upperResult));
-    }
-
-    [Test]
-    public void CalculateGcContentFast_MixedCase_MatchesUppercase()
-    {
-        double upper = "ACGT".CalculateGcContentFast();
-        double lower = "acgt".CalculateGcContentFast();
-        double mixed = "AcGt".CalculateGcContentFast();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(lower, Is.EqualTo(upper));
-            Assert.That(mixed, Is.EqualTo(upper));
-        });
+        Assert.That(result, Is.EqualTo(100.0));
     }
 
     #endregion
@@ -382,82 +300,167 @@ public class SequenceExtensions_CalculateGcContent_Tests
 
     #endregion
 
-    #region Invariant: Result Bounds (Evidence: Mathematical constraint)
-
-    [Test]
-    [TestCase("A")]
-    [TestCase("AAAA")]
-    [TestCase("G")]
-    [TestCase("GGGG")]
-    [TestCase("ACGT")]
-    [TestCase("ACGTACGTACGTACGT")]
-    public void CalculateGcContent_AnyValidInput_ResultInRange0To100(string sequence)
-    {
-        ReadOnlySpan<char> span = sequence;
-
-        double result = span.CalculateGcContent();
-
-        Assert.That(result, Is.InRange(0.0, 100.0));
-    }
-
-    [Test]
-    [TestCase("A")]
-    [TestCase("AAAA")]
-    [TestCase("G")]
-    [TestCase("GGGG")]
-    [TestCase("ACGT")]
-    [TestCase("ACGTACGTACGTACGT")]
-    public void CalculateGcFraction_AnyValidInput_ResultInRange0To1(string sequence)
-    {
-        ReadOnlySpan<char> span = sequence;
-
-        double result = span.CalculateGcFraction();
-
-        Assert.That(result, Is.InRange(0.0, 1.0));
-    }
-
-    #endregion
+    // INV-1/INV-2 (result bounds 0-100 / 0-1) verified by property tests in GcContentProperties.cs
 
     #region Biological Reference Values (Evidence: Wikipedia)
 
     [Test]
-    public void CalculateGcContent_SimulatedHumanLike_InExpectedRange()
+    [TestCase(20, 20, 30, 30, 40.0, Description = "Human-like ~41% GC — Wikipedia ref 20")]
+    [TestCase(36, 36, 14, 14, 72.0, Description = "Streptomyces coelicolor 72% GC — Wikipedia ref 29")]
+    [TestCase(10, 10, 40, 40, 20.0, Description = "Plasmodium falciparum ~20% GC — Wikipedia ref 23")]
+    public void CalculateGcContent_BiologicalReference_ReturnsExactPercentage(
+        int gCount, int cCount, int aCount, int tCount, double expected)
     {
-        // Human genome: 35-60% GC (mean ~41%) - Wikipedia ref 20
-        // Simulate ~40% GC content
-        string sequence = new string('G', 20) + new string('C', 20) +
-                          new string('A', 30) + new string('T', 30);
+        string sequence = new string('G', gCount) + new string('C', cCount) +
+                          new string('A', aCount) + new string('T', tCount);
         ReadOnlySpan<char> span = sequence;
 
         double result = span.CalculateGcContent();
 
-        Assert.That(result, Is.EqualTo(40.0));
+        Assert.That(result, Is.EqualTo(expected));
+    }
+
+    #endregion
+
+    #region Non-nucleotide Character Handling (Evidence: Wikipedia formula, Biopython "remove" mode)
+
+    /// <summary>
+    /// Wikipedia formula: GC% = (G+C) / (A+T+G+C) × 100
+    /// Non-nucleotide characters (N, R, Y, etc.) are excluded from both numerator and denominator.
+    /// Biopython gc_fraction default "remove" mode: "will only count GCS and will only include ACTGSWU
+    /// when calculating the sequence length."
+    /// 
+    /// Cross-verified with Biopython:
+    ///   gc_fraction("ACTGN", "remove") == 0.50  → 2/4 = 0.50 (N excluded)
+    /// Our result: (G+C)/(A+T+G+C) = 2/4 = 50%
+    /// </summary>
+    [Test]
+    public void CalculateGcContent_SequenceWithN_ExcludesNFromDenominator()
+    {
+        // "ACTGN": valid = A,C,T,G (4 nucleotides), GC = C,G (2) → 50%
+        // Biopython: gc_fraction("ACTGN", "remove") = 0.50
+        ReadOnlySpan<char> seq = "ACTGN";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(50.0));
     }
 
     [Test]
-    public void CalculateGcContent_SimulatedHighGC_InExpectedRange()
+    public void CalculateGcFraction_SequenceWithN_ExcludesNFromDenominator()
     {
-        // Streptomyces coelicolor: 72% GC - Wikipedia ref 29
-        string sequence = new string('G', 36) + new string('C', 36) +
-                          new string('A', 14) + new string('T', 14);
-        ReadOnlySpan<char> span = sequence;
+        // Biopython: gc_fraction("ACTGN", "remove") = 0.50
+        ReadOnlySpan<char> seq = "ACTGN";
 
-        double result = span.CalculateGcContent();
+        double result = seq.CalculateGcFraction();
 
-        Assert.That(result, Is.EqualTo(72.0));
+        Assert.That(result, Is.EqualTo(0.5));
     }
 
     [Test]
-    public void CalculateGcContent_SimulatedLowGC_InExpectedRange()
+    public void CalculateGcContent_SequenceWithMultipleN_ExcludesAllN()
     {
-        // Plasmodium falciparum: ~20% GC - Wikipedia ref 23
-        string sequence = new string('G', 10) + new string('C', 10) +
-                          new string('A', 40) + new string('T', 40);
-        ReadOnlySpan<char> span = sequence;
+        // "CCTGNN": valid = C,C,T,G (4), GC = C,C,G (3) → 75%
+        // Biopython: gc_fraction("CCTGNN", "remove") = 0.75
+        ReadOnlySpan<char> seq = "CCTGNN";
 
-        double result = span.CalculateGcContent();
+        double result = seq.CalculateGcContent();
 
-        Assert.That(result, Is.EqualTo(20.0));
+        Assert.That(result, Is.EqualTo(75.0));
+    }
+
+    [Test]
+    public void CalculateGcContent_OnlyNonNucleotides_ReturnsZero()
+    {
+        // No valid nucleotides → return 0 (same as empty sequence)
+        ReadOnlySpan<char> seq = "NNNNN";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void CalculateGcContent_AllGC_WithAmbiguousBases_ExcludesAmbiguous()
+    {
+        // "GCNN": valid = G,C (2), GC = G,C (2) → 100%
+        // Biopython: gc_fraction("GDVV", "remove") = 1.00 (only G is valid, and it's GC)
+        ReadOnlySpan<char> seq = "GCNN";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(100.0));
+    }
+
+    [Test]
+    public void CalculateGcContent_WithRNAUracil_TreatsUAsValid()
+    {
+        // RNA uses U instead of T; U is a valid nucleotide in denominator
+        // "GCAU": valid = G,C,A,U (4), GC = G,C (2) → 50%
+        // Biopython: gc_fraction("GCAU", "remove") = 0.50
+        ReadOnlySpan<char> seq = "GCAU";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(50.0));
+    }
+
+    [Test]
+    public void CalculateGcFraction_WithRNAUracil_TreatsUAsValid()
+    {
+        ReadOnlySpan<char> seq = "GCAU";
+
+        double result = seq.CalculateGcFraction();
+
+        Assert.That(result, Is.EqualTo(0.5));
+    }
+
+    [Test]
+    public void CalculateGcContent_RNASequence_Returns50()
+    {
+        // Biopython: gc_fraction("GGAUCUUCGGAUCU", "remove") = 0.50
+        // Valid: G,G,A,U,C,U,U,C,G,G,A,U,C,U (14), GC: G,G,C,C,G,G,C (7) → 50%
+        ReadOnlySpan<char> seq = "GGAUCUUCGGAUCU";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(50.0));
+    }
+
+    [Test]
+    public void CalculateGcContent_BiopythonGDVV_Returns100()
+    {
+        // Biopython: gc_fraction("GDVV", "remove") == 1.00
+        // Only G is a valid nucleotide (D, V are ambiguous IUPAC codes).
+        // valid = G (1), GC = G (1) → 100%
+        ReadOnlySpan<char> seq = "GDVV";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(100.0));
+    }
+
+    [Test]
+    public void CalculateGcContent_SingleU_ReturnsZero()
+    {
+        // U is a valid nucleotide but not GC → 0%
+        ReadOnlySpan<char> seq = "U";
+
+        double result = seq.CalculateGcContent();
+
+        Assert.That(result, Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void CalculateGcFraction_SequenceWithMultipleN_ExcludesAllN()
+    {
+        // "CCTGNN": valid = C,C,T,G (4), GC = C,C,G (3) → 0.75
+        // Biopython: gc_fraction("CCTGNN", "remove") = 0.75
+        ReadOnlySpan<char> seq = "CCTGNN";
+
+        double result = seq.CalculateGcFraction();
+
+        Assert.That(result, Is.EqualTo(0.75));
     }
 
     #endregion

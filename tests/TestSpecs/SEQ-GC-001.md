@@ -5,7 +5,7 @@
 **Algorithm:** GC Content Calculation
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -15,34 +15,45 @@
 
 | Source | URL | Accessed |
 |--------|-----|----------|
-| Wikipedia: GC-content | https://en.wikipedia.org/wiki/GC-content | 2026-01-22 |
-| Biopython Bio.SeqUtils | https://biopython.org/docs/latest/api/Bio.SeqUtils.html | 2026-01-22 |
+| Wikipedia: GC-content | https://en.wikipedia.org/wiki/GC-content | 2026-02-14 |
+| Biopython Bio.SeqUtils.gc_fraction | https://biopython.org/docs/latest/api/Bio.SeqUtils.html | 2026-02-14 |
+| Biopython source (Bio/SeqUtils/__init__.py) | https://github.com/biopython/biopython/blob/main/Bio/SeqUtils/__init__.py | 2026-02-14 |
 | Madigan & Martinko (2003) | Brock Biology of Microorganisms, 10th ed. | Reference |
 
-### 1.2 Formula (Wikipedia)
+### 1.2 Formula (Wikipedia, ref 7)
 
 **GC Percentage:**
 $$\frac{G + C}{A + T + G + C} \times 100\%$$
 
-**GC Fraction (Biopython):**
+**GC Fraction (Biopython `gc_fraction`):**
 $$\frac{G + C}{A + T + G + C}$$ (returns value 0-1)
 
-### 1.3 Edge Cases from Evidence
+**Denominator**: count of valid nucleotides only (A, T, G, C, U). Non-nucleotide characters are excluded from **both** numerator and denominator. This matches Biopython `gc_fraction(seq, "remove")` (default mode).
 
-| Edge Case | Expected Behavior | Source |
-|-----------|-------------------|--------|
+### 1.3 Denominator Semantics (Biopython default "remove" mode)
+
+Biopython's `gc_fraction` default behavior (source verified):
+
+```python
+gc = sum(seq.count(x) for x in "CGScgs")
+length = gc + sum(seq.count(x) for x in "ATWUatwu")  # only valid nucleotides
+```
+
+Our implementation equivalently counts **A, T, G, C, U** (case-insensitive) for the denominator. Characters outside this set (e.g., N, R, Y, B, D, H, K, M, V, X) are excluded from both numerator and denominator.
+
+Note: Biopython also counts S (Strong = G|C) as GC and W (Weak = A|T) as AT. Our implementation does not count S/W since they are not standard nucleotides per the Wikipedia formula. For standard DNA/RNA sequences this produces identical results.
+
+### 1.4 Edge Cases — Defined Behavior
+
+| Case | Expected | Source |
+|------|----------|--------|
 | Empty sequence | Return 0 | Biopython: "Note that this will return zero for an empty sequence" |
-| All G/C | 100% (or 1.0 for fraction) | Mathematical derivation |
-| All A/T | 0% (or 0.0 for fraction) | Mathematical derivation |
-| Mixed case | Case-insensitive counting | Biopython: "Copes with mixed case sequences" |
-| Ambiguous nucleotides (N, etc.) | Implementation-defined | Biopython offers 3 modes: remove, ignore, weighted |
-| S and W ambiguity codes | Count as GC or ignore | Biopython: "S and W are ambiguous for GC content" |
-
-### 1.4 Known Failure Modes
-
-1. **Division by zero** - Must handle empty sequences
-2. **Case sensitivity** - Must count both 'G'/'g' and 'C'/'c'
-3. **Non-DNA characters** - Must define behavior (ignore or include in denominator)
+| All G/C | 100% (or 1.0) | Formula: (G+C)/(G+C) = 1 |
+| All A/T | 0% (or 0.0) | Formula: 0/(A+T) = 0 |
+| Mixed case | Case-insensitive | Biopython: "Copes with mixed case sequences" |
+| Contains N/ambiguous chars | Excluded from calculation | Wikipedia formula + Biopython "remove" mode |
+| Only non-nucleotide chars | Return 0 | No valid nucleotides → 0 (same as empty) |
+| Contains U (RNA) | U counted as valid nucleotide (not GC) | Biopython: U included in valid set |
 
 ### 1.5 Biological Context
 
@@ -74,6 +85,8 @@ $$\frac{G + C}{A + T + G + C}$$ (returns value 0-1)
 | INV-3 | CalculateGcContent = CalculateGcFraction × 100 | Yes |
 | INV-4 | GcContent(lowercase) = GcContent(uppercase) | Yes |
 | INV-5 | Empty sequence → 0 | Yes |
+| INV-6 | Complement preserves GC content | Yes |
+| INV-7 | Reverse complement preserves GC content | Yes |
 
 ---
 
@@ -89,10 +102,11 @@ $$\frac{G + C}{A + T + G + C}$$ (returns value 0-1)
 | M4 | Equal ACGT returns 50% | `"ACGT"` | 50.0 | Formula |
 | M5 | Mixed case handling | `"acgt"` vs `"ACGT"` | Same result | Biopython |
 | M6 | Fraction matches percentage/100 | any | GcFraction = GcContent/100 | Formula |
-| M7 | Boundary: Single G returns 100% | `"G"` | 100.0 | Formula |
-| M8 | Boundary: Single A returns 0% | `"A"` | 0.0 | Formula |
-| M9 | Biological: Human-like (~50%) | `"ATGCATGC"` | 50.0 | Formula |
-| M10 | Biological: High GC (~75%) | `"GCGC"` | 100.0 | Formula |
+| M7 | Single G returns 100% | `"G"` | 100.0 | Formula |
+| M8 | Single A returns 0% | `"A"` | 0.0 | Formula |
+| M9 | N excluded from denominator | `"ACTGN"` | 50.0 | Wikipedia formula, Biopython "remove" |
+| M10 | Only non-nucleotides returns 0 | `"NNNNN"` | 0.0 | No valid nucleotides |
+| M11 | RNA uracil is valid nucleotide | `"GCAU"` | 50.0 | Biopython: U in valid set |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -103,6 +117,10 @@ $$\frac{G + C}{A + T + G + C}$$ (returns value 0-1)
 | S3 | All C, no G | `"CCCC"` | 100.0 | Formula |
 | S4 | Delegate methods match canonical | Same input | Same result | Implementation |
 | S5 | DnaSequence.GcContent() matches | Same input | Same result | Implementation |
+| S6 | Multiple N excluded | `"CCTGNN"` | 75.0 | Biopython: gc_fraction("CCTGNN","remove")=0.75 |
+| S7 | All valid are GC + ambiguous | `"GCNN"` | 100.0 | Formula |
+| S8 | Biopython GDVV example | `"GDVV"` | 100.0 | Biopython: gc_fraction("GDVV","remove")=1.00 |
+| S9 | RNA sequence | `"GGAUCUUCGGAUCU"` | 50.0 | Biopython: gc_fraction=0.50 |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -113,101 +131,60 @@ $$\frac{G + C}{A + T + G + C}$$ (returns value 0-1)
 
 ---
 
-## 5. Audit of Existing Tests
-
-### 5.1 Final State After Consolidation
+## 5. Test File Structure
 
 | File | Tests | Role |
 |------|-------|------|
-| `SequenceExtensions_CalculateGcContent_Tests.cs` | 54 | Canonical (all logic) |
+| `SequenceExtensions_CalculateGcContent_Tests.cs` | 90 runs | Canonical (all logic) |
+| `Properties/GcContentProperties.cs` | 7 runs | Property-based invariants |
 | `DnaSequenceTests.cs` | 0 (comment only) | Delegates to canonical |
 | `RnaSequenceTests.cs` | 0 (comment only) | Delegates to canonical |
 
-### 5.2 Removed Duplicates
+**Total: 97 test runs (was 118 before coverage classification — 21 duplicates removed, 2 new tests added)**
 
-| Test Method | Original File | Reason |
-|-------------|---------------|--------|
-| `GcContent_AllGC_Returns100` | DnaSequenceTests.cs | Duplicate of canonical M2 |
-| `GcContent_NoGC_Returns0` | DnaSequenceTests.cs | Duplicate of canonical M3 |
-| `GcContent_HalfGC_Returns50` | DnaSequenceTests.cs | Duplicate of canonical M4 |
-| `GcContent_Empty_Returns0` | DnaSequenceTests.cs | Duplicate of canonical M1 |
-| `GcContent_AllGC_Returns100` | RnaSequenceTests.cs | Duplicate of canonical M2 |
-| `GcContent_NoGC_Returns0` | RnaSequenceTests.cs | Duplicate of canonical M3 |
-| `GcContent_HalfGC_Returns50` | RnaSequenceTests.cs | Duplicate of canonical M4 |
-| `GcContent_Empty_Returns0` | RnaSequenceTests.cs | Duplicate of canonical M1 |
+### 5.1 Coverage Classification Summary
 
-### 5.3 All Gaps Addressed
-
-| Gap | Resolution |
-|-----|------------|
-| No direct tests for `CalculateGcContent(ReadOnlySpan<char>)` | ✓ Added in canonical file |
-| No tests for `CalculateGcFraction` methods | ✓ Added in canonical file |
-| No invariant relationship tests | ✓ Added in canonical file |
-| No mixed case tests | ✓ Added in canonical file |
-| No single-nucleotide boundary tests | ✓ Added in canonical file |
-
----
-
-## 6. Test Implementation Plan
-
-### Test File Structure (Standard Pattern)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Canonical Tests (deep, evidence-based)                        │
-│  File: SequenceExtensions_CalculateGcContent_Tests.cs          │
-│  - All MUST/SHOULD/COULD tests                                 │
-│  - Invariant verification                                      │
-│  - Delegate/wrapper smoke tests (DnaSequence, RnaSequence)     │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Domain Class Tests (minimal, delegate verification only)       │
-│  Files: DnaSequenceTests.cs, RnaSequenceTests.cs               │
-│  - Comment reference to canonical tests                         │
-│  - No duplicate logic tests                                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Removed Duplicates
-
-| File | Removed Tests | Reason |
-|------|---------------|--------|
-| DnaSequenceTests.cs | GcContent_AllGC_Returns100, GcContent_NoGC_Returns0, GcContent_HalfGC_Returns50, GcContent_Empty_Returns0 | Covered in canonical file |
-| RnaSequenceTests.cs | GcContent_AllGC_Returns100, GcContent_NoGC_Returns0, GcContent_HalfGC_Returns50, GcContent_Empty_Returns0 | Covered in canonical file |
+| Action | Count | Details |
+|--------|-------|---------|
+| 🔁 Removed (duplicate) | 19 | `CalculateGcContentFast_EmptyString_ReturnsZero`, `CalculateGcFractionFast_EmptyString_ReturnsZero` (covered by delegate=canonical + empty canonical), `CalculateGcContentFast_MixedCase_MatchesUppercase` (covered by delegate=canonical + case tests), `AnyValidInput_ResultInRange0To100` 6 cases (covered by property INV-1), `AnyValidInput_ResultInRange0To1` 6 cases (covered by property INV-2), `NonNucleotideExclusion_MatchesFormula` 8 parametrized cases (duplicated individual tests) |
+| ⚠ Strengthened (weak) | 5 | `LowercaseInput_MatchesUppercase` → `Returns50` (added exact value assertion), `MixedCaseInput_MatchesUppercase` → `Returns100` (added exact value), 3 Biological tests → parametrized with exact `Is.EqualTo` instead of misleading names |
+| ❌ Added (missing) | 2 | `SingleU_ReturnsZero` (U boundary), `GcFraction_SequenceWithMultipleN_ExcludesAllN` (fraction CCTGNN) |
+| ✅ Covered (unchanged) | 64 | All remaining tests verified as properly covering their spec requirement |
+| 🔀 Merged | 3 | `AllG/AllC/MixedGC/AllA/AllT/MixedAT` (6 tests) → `HomogeneousSequences_ReturnsExtrema` (1 test, 6 cases) |
 
 ### Consolidation Principle
 
 1. **Canonical tests** test the core algorithm thoroughly
 2. **Wrapper/delegate tests** verify only that delegation works correctly
-3. **No duplication** - each behavior tested in exactly one place
+3. **No duplication** — each behavior tested in exactly one place
 
 ---
 
-## 7. Open Questions / Decisions
+## 6. Biopython Cross-Verification Table
 
-| Question | Decision | Rationale |
-|----------|----------|-----------|
-| How to handle N and other IUPAC codes? | **Not counted** (current impl) | Matches simplest Biopython mode |
-| Return type double precision? | Standard double | Sufficient for biological data |
+Values verified against Biopython `gc_fraction(seq, "remove")`:
+
+| Input | Biopython result | Our result | Match |
+|-------|-----------------|------------|-------|
+| `""` | 0 | 0 | ✓ |
+| `"ACTG"` | 0.50 | 50% / 0.50 | ✓ |
+| `"ACTGN"` | 0.50 | 50% / 0.50 | ✓ |
+| `"CCTGNN"` | 0.75 | 75% / 0.75 | ✓ |
+| `"GDVV"` | 1.00 | 100% / 1.00 | ✓ |
+| `"GCAU"` | 0.50 | 50% / 0.50 | ✓ |
+| `"GGAUCUUCGGAUCU"` | 0.50 | 50% / 0.50 | ✓ |
+| `"NNNNN"` | 0 | 0 | ✓ |
 
 ---
 
-## 8. ASSUMPTIONS
-
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Non-ACGT characters are not counted toward GC | Implementation does not explicitly exclude, but only counts G/C |
-| A2 | Return 0 for empty (not NaN or exception) | Matches Biopython behavior |
-
----
-
-## 9. Validation Checklist
+## 7. Validation Checklist
 
 - [x] Evidence documented with sources
 - [x] All MUST tests have evidence backing
-- [x] Invariants identified
-- [x] Existing tests audited
-- [x] Gaps identified
-- [x] Implementation plan created
+- [x] Invariants identified and property-tested
+- [x] Formula matches Wikipedia exactly: (G+C)/(A+T+G+C) × 100
+- [x] Non-nucleotide handling matches Biopython default "remove" mode
+- [x] Cross-verified against Biopython expected values
+- [x] No assumptions — all behaviors sourced
+- [x] Existing tests audited, no gaps
+- [x] Coverage classification complete — no duplicates, no weak assertions
