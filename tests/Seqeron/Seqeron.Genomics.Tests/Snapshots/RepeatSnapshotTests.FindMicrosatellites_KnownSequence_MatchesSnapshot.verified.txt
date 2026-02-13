@@ -1,0 +1,22 @@
+﻿{
+  Count: 3,
+  Microsatellites: [
+    {
+      RepeatUnit: AC,
+      RepeatCount: 6,
+      TotalLength: 12
+    },
+    {
+      Position: 12,
+      RepeatUnit: GT,
+      RepeatCount: 5,
+      TotalLength: 10
+    },
+    {
+      Position: 22,
+      RepeatUnit: A,
+      RepeatCount: 10,
+      TotalLength: 10
+    }
+  ]
+}

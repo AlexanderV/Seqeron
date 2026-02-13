@@ -1,0 +1,12 @@
+﻿{
+  CodonCounts: {
+    AAA: 1,
+    AAG: 1,
+    ACU: 1,
+    AUG: 1,
+    CGU: 1,
+    GCG: 2,
+    UGA: 1,
+    UUC: 1
+  }
+}

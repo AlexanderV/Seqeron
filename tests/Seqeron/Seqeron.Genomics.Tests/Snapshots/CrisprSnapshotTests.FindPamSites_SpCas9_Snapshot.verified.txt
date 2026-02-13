@@ -1,0 +1,16 @@
+﻿{
+  Sites: [
+    {
+      Position: 20,
+      PamSequence: GGG,
+      TargetSequence: ACGTACGTACGTACGTACGT,
+      IsForwardStrand: true
+    },
+    {
+      Position: 42,
+      PamSequence: TGG,
+      TargetSequence: GTTTTTTTTTTTTTTTTTTT,
+      IsForwardStrand: true
+    }
+  ]
+}

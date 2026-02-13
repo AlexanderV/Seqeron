@@ -1,0 +1,4 @@
+﻿{
+  MajorFreq: 0.65,
+  MinorFreq: 0.35
+}

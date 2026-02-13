@@ -1,0 +1,27 @@
+﻿{
+  Results: [
+    {
+      Primer: ATGCATGCATGC,
+      Tm: 36.0,
+      TmWithSalt: 14.4,
+      GcContent: 50.0
+    },
+    {
+      Primer: GCGCGCGCGCGC,
+      Tm: 48.0,
+      TmWithSalt: 26.4,
+      GcContent: 100.0
+    },
+    {
+      Primer: ATATATATATATAT,
+      Tm: 16.87142857142858,
+      TmWithSalt: -4.7
+    },
+    {
+      Primer: ACGTACGTACGTACGT,
+      Tm: 43.375000000000014,
+      TmWithSalt: 21.8,
+      GcContent: 50.0
+    }
+  ]
+}

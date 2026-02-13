@@ -1,0 +1,8 @@
+﻿{
+  Sequence: ACGTACGTACGTACGTACGT,
+  GcContent: 50.0,
+  SeedGcContent: 50.0,
+  HasPolyT: false,
+  SelfComplementarityScore: 0.15,
+  Score: 100.0
+}

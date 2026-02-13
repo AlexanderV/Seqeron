@@ -1,0 +1,24 @@
+{
+  "stryker-config": {
+    "project": "Seqeron.Genomics.Core.csproj",
+    "test-projects": [
+      "Seqeron.Genomics.Tests.csproj"
+    ],
+    "reporters": [
+      "html",
+      "json",
+      "progress"
+    ],
+    "mutation-level": "Standard",
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 50
+    },
+    "excluded-mutations": [
+      "string-literal"
+    ],
+    "concurrency": 4,
+    "language-version": "latest"
+  }
+}

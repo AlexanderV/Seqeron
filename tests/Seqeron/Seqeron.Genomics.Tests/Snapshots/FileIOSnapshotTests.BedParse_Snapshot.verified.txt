@@ -1,0 +1,27 @@
+﻿{
+  Records: [
+    {
+      Chrom: chr1,
+      ChromStart: 100,
+      ChromEnd: 200,
+      Name: gene1,
+      Strand: "+",
+      Length: 100
+    },
+    {
+      Chrom: chr1,
+      ChromStart: 300,
+      ChromEnd: 500,
+      Name: gene2,
+      Strand: "-",
+      Length: 200
+    },
+    {
+      Chrom: chr2,
+      ChromEnd: 1000,
+      Name: gene3,
+      Strand: "+",
+      Length: 1000
+    }
+  ]
+}

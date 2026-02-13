@@ -1,0 +1,18 @@
+﻿{
+  Guides: [
+    {
+      Sequence: TACGTACGTACGTACGTACG,
+      Position: 79,
+      GcContent: 50.0,
+      Score: 100.0,
+      HasPolyT: false
+    },
+    {
+      Sequence: ACGTACGTACGTACGTACGT,
+      Position: 80,
+      GcContent: 50.0,
+      Score: 100.0,
+      HasPolyT: false
+    }
+  ]
+}

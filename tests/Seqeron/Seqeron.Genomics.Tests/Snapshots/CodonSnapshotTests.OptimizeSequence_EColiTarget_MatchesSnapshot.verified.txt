@@ -1,0 +1,10 @@
+﻿{
+  OriginalSequence: AUGAAAGCGUUCAAGCGUACUGCGUGA,
+  OptimizedSequence: AUGAAAGCGUUUAAACGUACCGCGUGA,
+  ProteinSequence: MKAFKRTA*,
+  OriginalCAI: 0.7679,
+  OptimizedCAI: 1.0,
+  GcOriginal: 0.4815,
+  GcOptimized: 0.4444,
+  ChangedCodons: 3
+}

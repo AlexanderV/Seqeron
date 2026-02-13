@@ -1,0 +1,7 @@
+﻿{
+  Sequence: GGGAAACCC,
+  DotBracket: (((...))),
+  BasePairCount: 3,
+  StemLoopCount: 1,
+  MFE: -1.2
+}

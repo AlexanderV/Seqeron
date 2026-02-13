@@ -1,0 +1,6 @@
+﻿{
+  TotalReads: 2,
+  ClassifiedReads: 2,
+  Shannon: 0.6931,
+  Simpson: 0.5
+}

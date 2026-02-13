@@ -1,0 +1,21 @@
+﻿{
+  Method: NeighborJoining,
+  Newick: (((Human:0.0000,Chimp:0.0659):0.1515,Gorilla:0.0000):0.1721,Mouse:0.1721);,
+  Leaves: [
+    {
+      Name: Chimp,
+      BranchLength: 0.0659
+    },
+    {
+      Name: Gorilla
+    },
+    {
+      Name: Human
+    },
+    {
+      Name: Mouse,
+      BranchLength: 0.1721
+    }
+  ],
+  TaxaCount: 4
+}

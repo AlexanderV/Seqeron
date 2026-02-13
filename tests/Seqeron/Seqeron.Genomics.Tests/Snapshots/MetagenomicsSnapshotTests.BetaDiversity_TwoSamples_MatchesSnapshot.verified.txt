@@ -1,0 +1,9 @@
+﻿{
+  Sample1: Soil,
+  Sample2: Water,
+  BrayCurtis: 0.55,
+  Jaccard: 0.4,
+  SharedSpecies: 3,
+  UniqueToSample1: 1,
+  UniqueToSample2: 1
+}

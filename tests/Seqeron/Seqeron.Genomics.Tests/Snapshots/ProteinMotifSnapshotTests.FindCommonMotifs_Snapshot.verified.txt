@@ -1,0 +1,82 @@
+﻿{
+  Motifs: [
+    {
+      Start: 42,
+      End: 45,
+      Sequence: NIST,
+      MotifName: ASN_GLYCOSYLATION
+    },
+    {
+      Start: 84,
+      End: 87,
+      Sequence: NSTR,
+      MotifName: ASN_GLYCOSYLATION
+    },
+    {
+      Start: 99,
+      End: 102,
+      Sequence: NSTR,
+      MotifName: ASN_GLYCOSYLATION
+    },
+    {
+      Start: 31,
+      End: 33,
+      Sequence: SGK,
+      MotifName: PKC_PHOSPHO_SITE
+    },
+    {
+      Start: 85,
+      End: 87,
+      Sequence: STR,
+      MotifName: PKC_PHOSPHO_SITE
+    },
+    {
+      Start: 100,
+      End: 102,
+      Sequence: STR,
+      MotifName: PKC_PHOSPHO_SITE
+    },
+    {
+      Start: 30,
+      End: 35,
+      Sequence: GSGKSC,
+      MotifName: MYRISTYL
+    },
+    {
+      Start: 41,
+      End: 46,
+      Sequence: GNISTY,
+      MotifName: MYRISTYL
+    },
+    {
+      Start: 4,
+      End: 14,
+      Sequence: LLTLVVVTLVL,
+      MotifName: NES
+    },
+    {
+      Start: 5,
+      End: 14,
+      Sequence: LTLVVVTLVL,
+      MotifName: NES
+    },
+    {
+      Start: 5,
+      End: 8,
+      Sequence: LTLV,
+      MotifName: SUMO_INTERACTION
+    },
+    {
+      Start: 7,
+      End: 10,
+      Sequence: LVVV,
+      MotifName: SUMO_INTERACTION
+    },
+    {
+      Start: 10,
+      End: 13,
+      Sequence: VTLV,
+      MotifName: SUMO_INTERACTION
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+﻿{
+  Matches: [
+    {
+      MatchedSequence: ACGT
+    },
+    {
+      Position: 4,
+      MatchedSequence: ACGT
+    },
+    {
+      Position: 8,
+      MatchedSequence: ACGT
+    },
+    {
+      Position: 12,
+      MatchedSequence: ACGT
+    },
+    {
+      Position: 16,
+      MatchedSequence: ACGT
+    }
+  ]
+}

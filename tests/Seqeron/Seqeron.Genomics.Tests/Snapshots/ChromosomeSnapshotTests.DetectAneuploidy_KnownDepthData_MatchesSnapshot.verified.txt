@@ -1,0 +1,64 @@
+﻿{
+  States: [
+    {
+      Chromosome: chr1,
+      CopyNumber: 2,
+      LogRatio: 0.023846741954367662,
+      Confidence: 0.9833333333333334
+    },
+    {
+      Chromosome: chr1,
+      CopyNumber: 2,
+      LogRatio: 0.04730571477835682,
+      Confidence: 0.9666666666666666
+    },
+    {
+      Chromosome: chr1,
+      CopyNumber: 2,
+      LogRatio: 0.070389327891398,
+      Confidence: 0.95
+    },
+    {
+      Chromosome: chr1,
+      CopyNumber: 2,
+      LogRatio: 0.023846741954367662,
+      Confidence: 0.9833333333333334
+    },
+    {
+      Chromosome: chr1,
+      CopyNumber: 2,
+      LogRatio: 0.04730571477835682,
+      Confidence: 0.9666666666666666
+    },
+    {
+      Chromosome: chr2,
+      CopyNumber: 3,
+      LogRatio: 0.6009040445901777,
+      Confidence: 0.9833333333333334
+    },
+    {
+      Chromosome: chr2,
+      CopyNumber: 3,
+      LogRatio: 0.6166713604484945,
+      Confidence: 0.9666666666666666
+    },
+    {
+      Chromosome: chr2,
+      CopyNumber: 3,
+      LogRatio: 0.632268215499513,
+      Confidence: 0.95
+    },
+    {
+      Chromosome: chr2,
+      CopyNumber: 3,
+      LogRatio: 0.6009040445901777,
+      Confidence: 0.9833333333333334
+    },
+    {
+      Chromosome: chr2,
+      CopyNumber: 3,
+      LogRatio: 0.6166713604484945,
+      Confidence: 0.9666666666666666
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+﻿{
+  OverallDisorderContent: 0.45,
+  MeanDisorderScore: 0.534661917459905,
+  Regions: [
+    {
+      Start: 11,
+      End: 28,
+      RegionType: Proline-rich,
+      Confidence: 0.48014140153878154,
+      MeanScore: 0.761904761904762
+    }
+  ]
+}

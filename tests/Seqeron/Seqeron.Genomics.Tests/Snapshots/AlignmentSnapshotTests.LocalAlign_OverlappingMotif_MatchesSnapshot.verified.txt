@@ -1,0 +1,6 @@
+﻿{
+  AlignedSequence1: CGTACGT,
+  AlignedSequence2: CGTACGT,
+  Score: 7,
+  StartPosition1: 5
+}

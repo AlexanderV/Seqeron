@@ -1,0 +1,4 @@
+﻿{
+  IsValid: false,
+  Message: Could not find valid primers for the target region.
+}

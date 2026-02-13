@@ -1,0 +1,27 @@
+﻿{
+  Probes: [
+    {
+      Sequence: ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTA,
+      Tm: 68.69535490216659,
+      GcContent: 0.49056603773584906,
+      Score: 0.7,
+      End: 52
+    },
+    {
+      Sequence: TACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT,
+      Tm: 68.69535490216659,
+      GcContent: 0.49056603773584906,
+      Score: 0.7,
+      Start: 3,
+      End: 55
+    },
+    {
+      Sequence: ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTA,
+      Tm: 68.69535490216659,
+      GcContent: 0.49056603773584906,
+      Score: 0.7,
+      Start: 4,
+      End: 56
+    }
+  ]
+}

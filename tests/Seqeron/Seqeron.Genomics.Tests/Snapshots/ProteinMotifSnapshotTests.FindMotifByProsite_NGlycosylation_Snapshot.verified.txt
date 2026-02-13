@@ -1,0 +1,22 @@
+﻿{
+  Motifs: [
+    {
+      Start: 42,
+      End: 45,
+      Sequence: NIST,
+      MotifName: Custom
+    },
+    {
+      Start: 84,
+      End: 87,
+      Sequence: NSTR,
+      MotifName: Custom
+    },
+    {
+      Start: 99,
+      End: 102,
+      Sequence: NSTR,
+      MotifName: Custom
+    }
+  ]
+}

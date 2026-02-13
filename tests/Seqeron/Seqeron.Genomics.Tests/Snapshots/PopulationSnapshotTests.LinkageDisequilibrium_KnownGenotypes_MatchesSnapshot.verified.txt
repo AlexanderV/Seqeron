@@ -1,0 +1,7 @@
+﻿{
+  Variant1: rs123,
+  Variant2: rs456,
+  DPrime: 1.0,
+  RSquared: 0.7311,
+  Distance: 5000.0
+}

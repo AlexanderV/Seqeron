@@ -1,0 +1,16 @@
+﻿{
+  Records: [
+    {
+      Id: SEQ1,
+      Description: Human sample,
+      Sequence: ACGTACGTACGT,
+      QualityString: IIIIIIIIIIII
+    },
+    {
+      Id: SEQ2,
+      Description: Mouse sample,
+      Sequence: TTTTAAAACCCC,
+      QualityString: !!!!!!!!!!!!
+    }
+  ]
+}

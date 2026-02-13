@@ -1,0 +1,16 @@
+﻿{
+  OrganismName: TestOrganism,
+  TotalCodons: 11,
+  TopCodons: {
+    AAA: 0.6667,
+    ACU: 1.0,
+    AUG: 1.0,
+    CCC: 1.0,
+    CGU: 1.0,
+    GCG: 1.0,
+    GGG: 1.0,
+    UAA: 1.0,
+    UUC: 0.5,
+    UUU: 0.5
+  }
+}
