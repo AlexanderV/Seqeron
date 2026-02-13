@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 
 namespace Seqeron.Genomics.Tests;
@@ -14,35 +15,7 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - Standard Watson-Crick Pairing
 
     [Test]
-    [Description("MUST-01: Standard Watson-Crick base pairing - A complements to T")]
-    public void GetComplementBase_Adenine_ReturnsThymine()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('A'), Is.EqualTo('T'));
-    }
-
-    [Test]
-    [Description("MUST-01: Standard Watson-Crick base pairing - T complements to A")]
-    public void GetComplementBase_Thymine_ReturnsAdenine()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('T'), Is.EqualTo('A'));
-    }
-
-    [Test]
-    [Description("MUST-01: Standard Watson-Crick base pairing - G complements to C")]
-    public void GetComplementBase_Guanine_ReturnsCytosine()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('G'), Is.EqualTo('C'));
-    }
-
-    [Test]
-    [Description("MUST-01: Standard Watson-Crick base pairing - C complements to G")]
-    public void GetComplementBase_Cytosine_ReturnsGuanine()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('C'), Is.EqualTo('G'));
-    }
-
-    [Test]
-    [Description("MUST-01: All standard DNA bases using Assert.Multiple")]
+    [Description("MUST-01: A↔T, G↔C — Wikipedia Complementarity; IUPAC table; Biopython")]
     public void GetComplementBase_AllStandardBases_CorrectComplements()
     {
         Assert.Multiple(() =>
@@ -59,35 +32,7 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - Case Insensitivity
 
     [Test]
-    [Description("MUST-02: Lowercase 'a' returns uppercase 'T'")]
-    public void GetComplementBase_LowercaseA_ReturnsUppercaseT()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('a'), Is.EqualTo('T'));
-    }
-
-    [Test]
-    [Description("MUST-02: Lowercase 't' returns uppercase 'A'")]
-    public void GetComplementBase_LowercaseT_ReturnsUppercaseA()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('t'), Is.EqualTo('A'));
-    }
-
-    [Test]
-    [Description("MUST-02: Lowercase 'g' returns uppercase 'C'")]
-    public void GetComplementBase_LowercaseG_ReturnsUppercaseC()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('g'), Is.EqualTo('C'));
-    }
-
-    [Test]
-    [Description("MUST-02: Lowercase 'c' returns uppercase 'G'")]
-    public void GetComplementBase_LowercaseC_ReturnsUppercaseG()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('c'), Is.EqualTo('G'));
-    }
-
-    [Test]
-    [Description("MUST-02: All lowercase bases return uppercase complements")]
+    [Description("MUST-02: Uppercase output for lowercase input — DnaSequence/RnaSequence normalize to uppercase")]
     public void GetComplementBase_AllLowercaseBases_ReturnsUppercase()
     {
         Assert.Multiple(() =>
@@ -104,17 +49,14 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - RNA Support (Uracil)
 
     [Test]
-    [Description("MUST-03: DNA complement supports RNA uracil - U complements to A")]
+    [Description("MUST-03: U/u complement to A — IUPAC table: U complement = A; Biopython: U treated as T")]
     public void GetComplementBase_Uracil_ReturnsAdenine()
     {
-        Assert.That(SequenceExtensions.GetComplementBase('U'), Is.EqualTo('A'));
-    }
-
-    [Test]
-    [Description("MUST-03: Lowercase uracil also works")]
-    public void GetComplementBase_LowercaseUracil_ReturnsAdenine()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('u'), Is.EqualTo('A'));
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceExtensions.GetComplementBase('U'), Is.EqualTo('A'), "U → A");
+            Assert.That(SequenceExtensions.GetComplementBase('u'), Is.EqualTo('A'), "u → A");
+        });
     }
 
     #endregion
@@ -122,17 +64,7 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - Involution Property
 
     [Test]
-    [Description("MUST-04: Complement of complement equals original for A")]
-    public void GetComplementBase_ComplementOfComplement_Adenine_ReturnsOriginal()
-    {
-        char original = 'A';
-        char complement = SequenceExtensions.GetComplementBase(original);
-        char doubleComplement = SequenceExtensions.GetComplementBase(complement);
-        Assert.That(doubleComplement, Is.EqualTo(original));
-    }
-
-    [Test]
-    [Description("MUST-04: Involution property holds for all standard bases")]
+    [Description("MUST-04: comp(comp(x)) = x for all standard bases — mathematical bijection property")]
     public void GetComplementBase_InvolutionProperty_AllBases()
     {
         char[] bases = { 'A', 'T', 'G', 'C' };
@@ -150,28 +82,7 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - Unknown Base Handling
 
     [Test]
-    [Description("MUST-05: Unknown base 'N' returns unchanged")]
-    public void GetComplementBase_UnknownN_ReturnsUnchanged()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('N'), Is.EqualTo('N'));
-    }
-
-    [Test]
-    [Description("MUST-05: Unknown base 'X' returns unchanged")]
-    public void GetComplementBase_UnknownX_ReturnsUnchanged()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('X'), Is.EqualTo('X'));
-    }
-
-    [Test]
-    [Description("MUST-05: Gap character '-' returns unchanged")]
-    public void GetComplementBase_GapCharacter_ReturnsUnchanged()
-    {
-        Assert.That(SequenceExtensions.GetComplementBase('-'), Is.EqualTo('-'));
-    }
-
-    [Test]
-    [Description("MUST-05: Various non-nucleotide characters return unchanged")]
+    [Description("MUST-05: Non-nucleotide characters pass through — Biopython: complement('XYZ') → unknowns unchanged")]
     public void GetComplementBase_NonNucleotideCharacters_ReturnUnchanged()
     {
         char[] unknowns = { 'N', 'X', '-', '.', '?', '*' };
@@ -188,7 +99,7 @@ public class SequenceExtensions_Complement_Tests
     #region TryGetComplement - Core Functionality
 
     [Test]
-    [Description("MUST-07: TryGetComplement produces correct complement for standard sequence")]
+    [Description("MUST-07: TryGetComplement produces correct complement — Biopython: complement('ACGT')→'TGCA'")]
     public void TryGetComplement_StandardSequence_ReturnsCorrectComplement()
     {
         ReadOnlySpan<char> source = "ACGT".AsSpan();
@@ -205,40 +116,11 @@ public class SequenceExtensions_Complement_Tests
     }
 
     [Test]
-    [Description("MUST-07: TryGetComplement handles longer sequences correctly")]
-    public void TryGetComplement_LongerSequence_ReturnsCorrectComplement()
-    {
-        ReadOnlySpan<char> source = "AATTCCGG".AsSpan();
-        char[] buffer = new char[8];
-
-        bool success = source.TryGetComplement(buffer);
-        string result = new string(buffer);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(success, Is.True);
-            Assert.That(result, Is.EqualTo("TTAAGGCC"));
-        });
-    }
-
-    [Test]
-    [Description("MUST-06: TryGetComplement returns false when destination too small")]
+    [Description("MUST-06: Returns false when destination.Length < source.Length")]
     public void TryGetComplement_DestinationTooSmall_ReturnsFalse()
     {
         ReadOnlySpan<char> source = "ACGT".AsSpan();
         Span<char> destination = stackalloc char[2];
-
-        bool success = source.TryGetComplement(destination);
-
-        Assert.That(success, Is.False);
-    }
-
-    [Test]
-    [Description("MUST-06: TryGetComplement returns false when destination is empty")]
-    public void TryGetComplement_EmptyDestination_NonEmptySource_ReturnsFalse()
-    {
-        ReadOnlySpan<char> source = "ACGT".AsSpan();
-        Span<char> destination = Span<char>.Empty;
 
         bool success = source.TryGetComplement(destination);
 
@@ -250,15 +132,20 @@ public class SequenceExtensions_Complement_Tests
     #region TryGetComplement - Empty Sequence
 
     [Test]
-    [Description("MUST-08: Empty source sequence returns true with no output")]
+    [Description("MUST-08: Empty source returns true, destination not modified")]
     public void TryGetComplement_EmptySource_ReturnsTrue()
     {
         ReadOnlySpan<char> source = ReadOnlySpan<char>.Empty;
-        Span<char> destination = stackalloc char[10];
+        char[] buffer = new char[4];
+        Array.Fill(buffer, 'X');
 
-        bool success = source.TryGetComplement(destination);
+        bool success = source.TryGetComplement(buffer);
 
-        Assert.That(success, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(success, Is.True);
+            Assert.That(buffer[0], Is.EqualTo('X'), "destination should not be modified");
+        });
     }
 
     [Test]
@@ -276,18 +163,6 @@ public class SequenceExtensions_Complement_Tests
     #endregion
 
     #region TryGetComplement - Buffer Size Edge Cases
-
-    [Test]
-    [Description("SHOULD-03: Destination exactly equal to source length succeeds")]
-    public void TryGetComplement_DestinationExactSize_Succeeds()
-    {
-        ReadOnlySpan<char> source = "ACGT".AsSpan();
-        Span<char> destination = stackalloc char[4];
-
-        bool success = source.TryGetComplement(destination);
-
-        Assert.That(success, Is.True);
-    }
 
     [Test]
     [Description("SHOULD-04: Destination larger than source writes only source.Length characters")]
@@ -346,12 +221,13 @@ public class SequenceExtensions_Complement_Tests
         });
     }
 
-    [Test]
-    [Description("SHOULD-05: All same base sequence complements correctly")]
-    public void TryGetComplement_AllAdenine_ReturnsAllThymine()
+    [TestCase("AAAA", "TTTT")]
+    [TestCase("GGGG", "CCCC")]
+    [Description("SHOULD-05: Homogeneous sequence complement")]
+    public void TryGetComplement_HomogeneousSequence_ComplementsCorrectly(string input, string expected)
     {
-        ReadOnlySpan<char> source = "AAAA".AsSpan();
-        char[] buffer = new char[4];
+        ReadOnlySpan<char> source = input.AsSpan();
+        char[] buffer = new char[input.Length];
 
         bool success = source.TryGetComplement(buffer);
         string result = new string(buffer);
@@ -359,24 +235,7 @@ public class SequenceExtensions_Complement_Tests
         Assert.Multiple(() =>
         {
             Assert.That(success, Is.True);
-            Assert.That(result, Is.EqualTo("TTTT"));
-        });
-    }
-
-    [Test]
-    [Description("SHOULD-05: All G sequence complements to all C")]
-    public void TryGetComplement_AllGuanine_ReturnsAllCytosine()
-    {
-        ReadOnlySpan<char> source = "GGGG".AsSpan();
-        char[] buffer = new char[4];
-
-        bool success = source.TryGetComplement(buffer);
-        string result = new string(buffer);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(success, Is.True);
-            Assert.That(result, Is.EqualTo("CCCC"));
+            Assert.That(result, Is.EqualTo(expected));
         });
     }
 
@@ -402,37 +261,10 @@ public class SequenceExtensions_Complement_Tests
     #region GetRnaComplementBase - Standard Watson-Crick Pairing (RNA)
 
     [Test]
-    [Description("MUST-09: RNA A complements to U")]
-    public void GetRnaComplementBase_Adenine_ReturnsUracil()
-    {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('A'), Is.EqualTo('U'));
-    }
-
-    [Test]
-    [Description("MUST-09: RNA U complements to A")]
-    public void GetRnaComplementBase_Uracil_ReturnsAdenine()
-    {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('U'), Is.EqualTo('A'));
-    }
-
-    [Test]
-    [Description("MUST-09: RNA G complements to C")]
-    public void GetRnaComplementBase_Guanine_ReturnsCytosine()
-    {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('G'), Is.EqualTo('C'));
-    }
-
-    [Test]
-    [Description("MUST-09: RNA C complements to G")]
-    public void GetRnaComplementBase_Cytosine_ReturnsGuanine()
-    {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('C'), Is.EqualTo('G'));
-    }
-
-    [Test]
-    [Description("MUST-09: All standard RNA bases")]
+    [Description("MUST-09: RNA A↔U, G↔C — Wikipedia Complementarity; Biopython complement_rna()")]
     public void GetRnaComplementBase_AllStandardBases_CorrectComplements()
     {
+        // Biopython: complement_rna("AUGC") → "UACG"
         Assert.Multiple(() =>
         {
             Assert.That(SequenceExtensions.GetRnaComplementBase('A'), Is.EqualTo('U'), "A → U");
@@ -464,30 +296,24 @@ public class SequenceExtensions_Complement_Tests
     #region GetRnaComplementBase - Unknown Base Handling
 
     [Test]
-    [Description("MUST-10: Unknown bases return 'N' in RNA context")]
-    public void GetRnaComplementBase_UnknownBase_ReturnsN()
+    [Description("MUST-10: Non-nucleotide characters pass through — Biopython: complement_rna('XYZ') → unknowns unchanged")]
+    public void GetRnaComplementBase_NonNucleotideCharacters_ReturnUnchanged()
     {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('X'), Is.EqualTo('N'));
-    }
-
-    [Test]
-    [Description("MUST-10: Gap character returns 'N' in RNA context")]
-    public void GetRnaComplementBase_GapCharacter_ReturnsN()
-    {
-        Assert.That(SequenceExtensions.GetRnaComplementBase('-'), Is.EqualTo('N'));
-    }
-
-    [Test]
-    [Description("MUST-10: Various unknown characters return 'N'")]
-    public void GetRnaComplementBase_VariousUnknowns_ReturnN()
-    {
-        char[] unknowns = { 'X', '-', '.', '?', 'T' }; // Note: T is not valid RNA
+        char[] unknowns = { 'X', '-', '.', '?', '*' };
 
         foreach (char c in unknowns)
         {
-            Assert.That(SequenceExtensions.GetRnaComplementBase(c), Is.EqualTo('N'),
-                $"Unknown RNA character '{c}' should return 'N'");
+            Assert.That(SequenceExtensions.GetRnaComplementBase(c), Is.EqualTo(c),
+                $"Unknown RNA character '{c}' should return unchanged");
         }
+    }
+
+    [Test]
+    [Description("MUST-09: T complements to A in RNA context (Biopython: complement_rna('T') → 'A')")]
+    public void GetRnaComplementBase_Thymine_ReturnsAdenine()
+    {
+        Assert.That(SequenceExtensions.GetRnaComplementBase('T'), Is.EqualTo('A'));
+        Assert.That(SequenceExtensions.GetRnaComplementBase('t'), Is.EqualTo('A'));
     }
 
     #endregion
@@ -506,6 +332,34 @@ public class SequenceExtensions_Complement_Tests
             char doubleComplement = SequenceExtensions.GetRnaComplementBase(complement);
             Assert.That(doubleComplement, Is.EqualTo(b), $"RNA Complement(Complement({b})) should equal {b}");
         }
+    }
+
+    #endregion
+
+    #region Biopython Cross-Verification
+
+    [Test]
+    [Description("Biopython: complement_rna('CGAUT') → 'GCUAA' — T→A in RNA context")]
+    public void GetRnaComplementBase_BiopythonCrossVerification_Cgaut()
+    {
+        // Biopython: complement_rna(Seq("CGAUT")) → Seq('GCUAA')
+        var input = "CGAUT";
+        var expected = "GCUAA";
+        var result = new string(input.Select(SequenceExtensions.GetRnaComplementBase).ToArray());
+        Assert.That(result, Is.EqualTo(expected));
+    }
+
+    [Test]
+    [Description("Cross-verify DNA complement: complement('CGAUT') → 'GCTAA' (Biopython: U treated as T)")]
+    public void GetComplementBase_BiopythonCrossVerification_CgautDna()
+    {
+        // Biopython: complement(Seq("CGAUT")) → Seq('GCTAA')  (U→A, output T for DNA)
+        // Our GetComplementBase: C→G, G→C, A→T, U→A, T→A
+        // Expected: GCTAA
+        var input = "CGAUT";
+        var expected = "GCTAA";
+        var result = new string(input.Select(SequenceExtensions.GetComplementBase).ToArray());
+        Assert.That(result, Is.EqualTo(expected));
     }
 
     #endregion

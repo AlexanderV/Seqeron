@@ -140,8 +140,15 @@ public static class SequenceExtensions
 
     /// <summary>
     /// Gets the complement of a single RNA nucleotide.
-    /// A ↔ U, C ↔ G (case-insensitive, returns uppercase).
+    /// A ↔ U, C ↔ G, T → A (case-insensitive, returns uppercase).
+    /// Unknown bases are returned unchanged.
     /// </summary>
+    /// <remarks>
+    /// Matches Biopython complement_rna() behavior:
+    /// - T is accepted and complements to A (T pairs with A regardless of context).
+    /// - Unknown/non-nucleotide characters pass through unchanged.
+    /// See: https://biopython.org/docs/latest/api/Bio.Seq.html
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static char GetRnaComplementBase(char nucleotide) => nucleotide switch
     {
@@ -149,7 +156,8 @@ public static class SequenceExtensions
         'U' or 'u' => 'A',
         'G' or 'g' => 'C',
         'C' or 'c' => 'G',
-        _ => 'N' // Unknown bases become N in RNA context
+        'T' or 't' => 'A', // T pairs with A (Biopython: complement_rna("T") → "A")
+        _ => nucleotide    // Unknown bases returned unchanged (Biopython behavior)
     };
 
     #endregion
