@@ -278,7 +278,7 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
             oldAccessor.Dispose();
             oldMmf.Dispose();
 
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
                 fs.SetLength(_capacity);
             }
