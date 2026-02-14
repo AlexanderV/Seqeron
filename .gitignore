@@ -275,3 +275,5 @@ build_cleaned.txt
 persistent_*.txt
 /docs/testing-modernization-plan.md
 /.tools
+/data/chr1.fa.gz
+/data/chr1.suffixtree.dat
