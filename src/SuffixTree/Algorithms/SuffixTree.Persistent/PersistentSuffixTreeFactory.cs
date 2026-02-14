@@ -37,7 +37,7 @@ public static class PersistentSuffixTreeFactory
     /// </summary>
     internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit)
     {
-        var storage = CreateStorage(filePath);
+        var storage = CreateStorage(filePath, text.Length);
         try
         {
             var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
@@ -85,10 +85,30 @@ public static class PersistentSuffixTreeFactory
         }
     }
 
-    private static IStorageProvider CreateStorage(string? filePath)
-        => !string.IsNullOrEmpty(filePath)
-            ? new MappedFileStorageProvider(filePath)
-            : new HeapStorageProvider();
+    /// <summary>
+    /// Estimates the storage capacity needed for a suffix tree over a text of
+    /// the given length. The estimate covers header, nodes, child arrays, and
+    /// serialized text. Overshooting is cheap (TrimToSize reclaims it);
+    /// undershooting causes expensive remap/resize operations.
+    /// </summary>
+    internal static long EstimateCapacity(int textLength)
+    {
+        // Compact layout: ≤2N+1 nodes × 28B + ≤2N+1 child entries × 8B
+        //                 + text × 2B + header 80B ≈ 74N + 118.
+        // Use 80 bytes/char to leave headroom and avoid any remap in practice.
+        const int BytesPerChar = 80;
+        const int MinCapacity = 65536;
+        long estimate = (long)textLength * BytesPerChar + 256;
+        return Math.Max(estimate, MinCapacity);
+    }
+
+    private static IStorageProvider CreateStorage(string? filePath, int textLength)
+    {
+        long capacity = EstimateCapacity(textLength);
+        return !string.IsNullOrEmpty(filePath)
+            ? new MappedFileStorageProvider(filePath, capacity)
+            : new HeapStorageProvider((int)Math.Min(capacity, int.MaxValue));
+    }
 
     private static void CleanupFile(string? filePath)
     {
