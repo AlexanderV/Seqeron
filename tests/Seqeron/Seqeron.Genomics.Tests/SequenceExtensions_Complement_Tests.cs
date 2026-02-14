@@ -82,15 +82,77 @@ public class SequenceExtensions_Complement_Tests
     #region GetComplementBase - Unknown Base Handling
 
     [Test]
-    [Description("MUST-05: Non-nucleotide characters pass through — Biopython: complement('XYZ') → unknowns unchanged")]
-    public void GetComplementBase_NonNucleotideCharacters_ReturnUnchanged()
+    [Description("MUST-05: Non-IUPAC characters pass through unchanged — Biopython: complement('XYZ') → unknowns unchanged")]
+    public void GetComplementBase_NonIupacCharacters_ReturnUnchanged()
     {
-        char[] unknowns = { 'N', 'X', '-', '.', '?', '*' };
+        // N is an IUPAC ambiguity code (complement N→N), tested separately
+        char[] unknowns = { 'X', '-', '.', '?', '*' };
 
         foreach (char c in unknowns)
         {
             Assert.That(SequenceExtensions.GetComplementBase(c), Is.EqualTo(c),
-                $"Unknown character '{c}' should return unchanged");
+                $"Non-IUPAC character '{c}' should return unchanged");
+        }
+    }
+
+    #endregion
+
+    #region GetComplementBase - IUPAC Ambiguity Codes
+
+    [Test]
+    [Description("MUST-11: IUPAC ambiguity codes complemented per NC-IUB 1984 table")]
+    public void GetComplementBase_IupacAmbiguityCodes_CorrectComplements()
+    {
+        // Evidence: Wikipedia Nucleic acid notation — IUPAC complement table
+        // Cross-verified with Biopython complement() examples
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceExtensions.GetComplementBase('R'), Is.EqualTo('Y'), "R (purine) → Y (pyrimidine)");
+            Assert.That(SequenceExtensions.GetComplementBase('Y'), Is.EqualTo('R'), "Y (pyrimidine) → R (purine)");
+            Assert.That(SequenceExtensions.GetComplementBase('S'), Is.EqualTo('S'), "S (strong) → S (strong)");
+            Assert.That(SequenceExtensions.GetComplementBase('W'), Is.EqualTo('W'), "W (weak) → W (weak)");
+            Assert.That(SequenceExtensions.GetComplementBase('K'), Is.EqualTo('M'), "K (keto) → M (amino)");
+            Assert.That(SequenceExtensions.GetComplementBase('M'), Is.EqualTo('K'), "M (amino) → K (keto)");
+            Assert.That(SequenceExtensions.GetComplementBase('B'), Is.EqualTo('V'), "B (not A) → V (not T)");
+            Assert.That(SequenceExtensions.GetComplementBase('D'), Is.EqualTo('H'), "D (not C) → H (not G)");
+            Assert.That(SequenceExtensions.GetComplementBase('H'), Is.EqualTo('D'), "H (not G) → D (not C)");
+            Assert.That(SequenceExtensions.GetComplementBase('V'), Is.EqualTo('B'), "V (not T) → B (not A)");
+            Assert.That(SequenceExtensions.GetComplementBase('N'), Is.EqualTo('N'), "N (any) → N (any)");
+        });
+    }
+
+    [Test]
+    [Description("MUST-11: Lowercase IUPAC codes → uppercase complements")]
+    public void GetComplementBase_LowercaseIupacCodes_ReturnsUppercase()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceExtensions.GetComplementBase('r'), Is.EqualTo('Y'), "r → Y");
+            Assert.That(SequenceExtensions.GetComplementBase('y'), Is.EqualTo('R'), "y → R");
+            Assert.That(SequenceExtensions.GetComplementBase('s'), Is.EqualTo('S'), "s → S");
+            Assert.That(SequenceExtensions.GetComplementBase('w'), Is.EqualTo('W'), "w → W");
+            Assert.That(SequenceExtensions.GetComplementBase('k'), Is.EqualTo('M'), "k → M");
+            Assert.That(SequenceExtensions.GetComplementBase('m'), Is.EqualTo('K'), "m → K");
+            Assert.That(SequenceExtensions.GetComplementBase('b'), Is.EqualTo('V'), "b → V");
+            Assert.That(SequenceExtensions.GetComplementBase('d'), Is.EqualTo('H'), "d → H");
+            Assert.That(SequenceExtensions.GetComplementBase('h'), Is.EqualTo('D'), "h → D");
+            Assert.That(SequenceExtensions.GetComplementBase('v'), Is.EqualTo('B'), "v → B");
+            Assert.That(SequenceExtensions.GetComplementBase('n'), Is.EqualTo('N'), "n → N");
+        });
+    }
+
+    [Test]
+    [Description("MUST-11: IUPAC involution — complement(complement(x)) = x for all ambiguity codes")]
+    public void GetComplementBase_IupacInvolution_HoldsForAllCodes()
+    {
+        char[] iupacCodes = { 'R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N' };
+
+        foreach (char code in iupacCodes)
+        {
+            char comp = SequenceExtensions.GetComplementBase(code);
+            char doubleComp = SequenceExtensions.GetComplementBase(comp);
+            Assert.That(doubleComp, Is.EqualTo(code),
+                $"IUPAC involution failed for {code}: comp({code})={comp}, comp({comp})={doubleComp}");
         }
     }
 

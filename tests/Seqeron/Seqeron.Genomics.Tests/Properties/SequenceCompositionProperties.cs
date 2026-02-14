@@ -48,18 +48,6 @@ public class SequenceCompositionProperties
             seq => seq.AsSpan().IsValidRna().Label("Pure ACGU must be valid RNA"));
     }
 
-    /// <summary>
-    /// Sequences containing non-nucleotide chars (digits, Z) are invalid DNA.
-    /// </summary>
-    [TestCase("ACGT1ACGT")]
-    [TestCase("ZZZZZ")]
-    [TestCase("ACG TACGT")]
-    [Category("Property")]
-    public void InvalidChars_NotValidDna(string seq)
-    {
-        Assert.That(seq.AsSpan().IsValidDna(), Is.False);
-    }
-
     // -- SEQ-COMPLEX-001 --
 
     /// <summary>

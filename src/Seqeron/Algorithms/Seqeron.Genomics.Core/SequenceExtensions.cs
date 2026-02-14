@@ -124,9 +124,16 @@ public static class SequenceExtensions
     #region DNA Complement Core
 
     /// <summary>
-    /// Gets the complement of a single DNA nucleotide.
-    /// A ↔ T, C ↔ G (case-insensitive, returns uppercase).
+    /// Gets the complement of a single DNA nucleotide (IUPAC-complete).
+    /// Standard: A ↔ T, C ↔ G, U → A.
+    /// Ambiguity codes per IUPAC NC-IUB 1984: R ↔ Y, S ↔ S, W ↔ W, K ↔ M, B ↔ V, D ↔ H, N ↔ N.
+    /// Case-insensitive input, always returns uppercase.
+    /// Non-IUPAC characters (gaps, etc.) pass through unchanged.
     /// </summary>
+    /// <remarks>
+    /// Source: Wikipedia Nucleic acid notation — IUPAC complement table.
+    /// Cross-verified with Biopython complement() examples.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static char GetComplementBase(char nucleotide) => nucleotide switch
     {
@@ -134,8 +141,19 @@ public static class SequenceExtensions
         'T' or 't' => 'A',
         'G' or 'g' => 'C',
         'C' or 'c' => 'G',
-        'U' or 'u' => 'A', // RNA support
-        _ => nucleotide
+        'U' or 'u' => 'A', // RNA: U pairs with A
+        'R' or 'r' => 'Y', // Purine (A|G) → Pyrimidine (C|T)
+        'Y' or 'y' => 'R', // Pyrimidine (C|T) → Purine (A|G)
+        'S' or 's' => 'S', // Strong (C|G) → Strong (C|G)
+        'W' or 'w' => 'W', // Weak (A|T) → Weak (A|T)
+        'K' or 'k' => 'M', // Keto (G|T) → Amino (A|C)
+        'M' or 'm' => 'K', // Amino (A|C) → Keto (G|T)
+        'B' or 'b' => 'V', // Not A (C|G|T) → Not T (A|C|G)
+        'D' or 'd' => 'H', // Not C (A|G|T) → Not G (A|C|T)
+        'H' or 'h' => 'D', // Not G (A|C|T) → Not C (A|G|T)
+        'V' or 'v' => 'B', // Not T (A|C|G) → Not A (C|G|T)
+        'N' or 'n' => 'N', // Any nucleotide → Any nucleotide
+        _ => nucleotide     // Non-IUPAC (gaps, etc.) pass through
     };
 
     /// <summary>

@@ -5,7 +5,7 @@
 **Algorithm:** Sequence Validation
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -15,14 +15,16 @@
 
 | Source | URL | Accessed |
 |--------|-----|----------|
-| Wikipedia: Nucleic acid notation | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-01-22 |
+| Wikipedia: Nucleic acid notation | https://en.wikipedia.org/wiki/Nucleic_acid_notation | 2026-02-14 |
 | IUPAC-IUB Commission on Biochemical Nomenclature (1970) | doi:10.1021/bi00822a023 | Reference |
-| Bioinformatics.org: IUPAC codes | https://www.bioinformatics.org/sms/iupac.html | 2026-01-22 |
-| Biopython Seq class | https://biopython.org/wiki/Seq | 2026-01-22 |
+| NC-IUB: Nomenclature for Incompletely Specified Bases (1984) | doi:10.1093/nar/13.9.3021 | Reference |
+| Bioinformatics.org: IUPAC codes | https://www.bioinformatics.org/sms/iupac.html | 2026-02-14 |
+| Biopython `Bio.Data.IUPACData` | https://github.com/biopython/biopython/blob/master/Bio/Data/IUPACData.py | 2026-02-14 |
+| Biopython `Bio.Seq` API | https://biopython.org/docs/latest/api/Bio.Seq.html | 2026-02-14 |
 
-### 1.2 IUPAC Standard Nucleotide Codes (Wikipedia, Bioinformatics.org)
+### 1.2 IUPAC Standard Nucleotide Codes
 
-**Standard DNA Bases:**
+**Unambiguous DNA Bases (IUPAC 1970; Biopython `unambiguous_dna_letters = "GATC"`):**
 | Symbol | Base |
 |--------|------|
 | A | Adenine |
@@ -30,7 +32,7 @@
 | G | Guanine |
 | T | Thymine |
 
-**Standard RNA Bases:**
+**Unambiguous RNA Bases (IUPAC 1970; Biopython `unambiguous_rna_letters = "GAUC"`):**
 | Symbol | Base |
 |--------|------|
 | A | Adenine |
@@ -38,37 +40,43 @@
 | G | Guanine |
 | U | Uracil |
 
-**Ambiguity Codes (IUPAC extended):**
+**Ambiguity Codes (NC-IUB 1984, for consensus/polymorphism notation):**
 R, Y, S, W, K, M, B, D, H, V, N (any), - (gap)
+
+> Wikipedia: "Degenerate base symbols [...] are an IUPAC representation for a position
+> on a DNA sequence that can have multiple possible alternatives. These should not be
+> confused with non-canonical bases because each particular sequence will have in fact
+> one of the regular bases." — These codes encode uncertainty in consensus sequences,
+> not actual nucleotide values.
 
 ### 1.3 Edge Cases from Evidence
 
 | Edge Case | Expected Behavior | Source |
 |-----------|-------------------|--------|
-| Empty sequence | **ASSUMPTION**: Return `true` (empty sequence has no invalid characters) | Implementation choice |
-| Standard bases only (A, C, G, T) | DNA: valid, RNA: valid only if ACGU | IUPAC 1970 |
-| Case insensitivity | Both 'a' and 'A' are valid | Common practice, Biopython |
-| U in DNA context | **Implementation**: Invalid for DNA | Implementation choice |
-| T in RNA context | **Implementation**: Invalid for RNA | IUPAC standard |
-| Ambiguity codes (N, R, Y, etc.) | **Implementation**: Invalid for strict validation | Implementation choice |
-| Whitespace | **Implementation**: Invalid | Implementation choice |
-| Numeric characters | Invalid | IUPAC 1970 |
+| Empty sequence | Return `true` (vacuous truth) | Biopython: "Zero-length sequences are always considered to be defined" |
+| Standard bases only (A, C, G, T) | DNA: valid | IUPAC 1970; Biopython `unambiguous_dna_letters` |
+| Standard bases only (A, C, G, U) | RNA: valid | IUPAC 1970; Biopython `unambiguous_rna_letters` |
+| Case insensitivity | Both 'a' and 'A' are valid | Wikipedia: "Lowercase versions of the IUPAC letters are used in genetic sequence files" |
+| U in DNA context | Invalid for DNA | IUPAC 1970: U is RNA nucleoside |
+| T in RNA context | Invalid for RNA | IUPAC 1970: T is DNA nucleoside |
+| Ambiguity codes (N, R, Y, etc.) | Invalid (not actual bases) | NC-IUB 1984: represent positional variants, not nucleotides |
+| Whitespace, numerics, special chars | Invalid | IUPAC 1970: not part of nucleotide notation |
 
-### 1.4 Implementation Design Decisions
+### 1.4 Validation Semantics
 
-The current implementation uses **strict validation**:
-- DNA: Only A, C, G, T (case-insensitive)
-- RNA: Only A, C, G, U (case-insensitive)
-- No ambiguity codes accepted
-- Empty sequences return `true` (vacuously valid - no invalid characters exist)
+The methods validate whether every character in the sequence is an **unambiguous nucleotide**
+of the specified type:
 
-This is a deliberate design choice for genomic analysis where strict validation is preferred over permissive validation.
+- `IsValidDna`: char ∈ {A, C, G, T} (case-insensitive) — matches Biopython `unambiguous_dna_letters`
+- `IsValidRna`: char ∈ {A, C, G, U} (case-insensitive) — matches Biopython `unambiguous_rna_letters`
+
+This is the standard validation for actual sequence data. IUPAC ambiguity codes (R, Y, N, etc.)
+represent uncertainty in consensus sequences and are correctly rejected by unambiguous validation.
 
 ### 1.5 Known Failure Modes
 
-1. **Case sensitivity bugs** - Must check both upper and lower case
-2. **Boundary confusion** - T valid for DNA but not RNA; U valid for RNA but not DNA
-3. **Empty sequence handling** - Must define behavior explicitly
+1. **Case sensitivity bugs** — Must normalize both upper and lower case
+2. **Boundary confusion** — T valid for DNA but not RNA; U valid for RNA but not DNA
 
 ---
 
@@ -76,8 +84,8 @@ This is a deliberate design choice for genomic analysis where strict validation 
 
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
-| `IsValidDna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical** | Returns true if all chars are A/C/G/T |
-| `IsValidRna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical** | Returns true if all chars are A/C/G/U |
+| `IsValidDna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical** | Returns true if all chars ∈ {A,C,G,T} |
+| `IsValidRna(ReadOnlySpan<char>)` | SequenceExtensions | **Canonical** | Returns true if all chars ∈ {A,C,G,U} |
 | `TryCreate(string, out DnaSequence)` | DnaSequence | Factory | Wraps validation + construction |
 | `DnaSequence(string)` constructor | DnaSequence | Constructor | Throws on invalid input |
 
@@ -92,7 +100,7 @@ This is a deliberate design choice for genomic analysis where strict validation 
 | INV-3 | IsValidDna(uppercase(x)) = IsValidDna(lowercase(x)) | Yes |
 | INV-4 | IsValidRna(uppercase(x)) = IsValidRna(lowercase(x)) | Yes |
 | INV-5 | TryCreate succeeds ⟺ IsValidDna returns true (for non-null input) | Yes |
-| INV-6 | Empty string is valid (vacuously true) | Yes |
+| INV-6 | Empty string is valid (vacuous truth — Biopython: "Zero-length sequences are always considered to be defined") | Yes |
 
 ---
 
@@ -102,37 +110,37 @@ This is a deliberate design choice for genomic analysis where strict validation 
 
 | ID | Test Case | Input | Expected | Evidence |
 |----|-----------|-------|----------|----------|
-| M1 | Empty sequence is valid DNA | `""` | true | ASSUMPTION: vacuous truth |
-| M2 | Empty sequence is valid RNA | `""` | true | ASSUMPTION: vacuous truth |
-| M3 | All standard DNA bases valid | `"ACGT"` | true | IUPAC 1970 |
-| M4 | All standard RNA bases valid | `"ACGU"` | true | IUPAC 1970 |
-| M5 | Lowercase DNA valid | `"acgt"` | true | Common practice |
-| M6 | Lowercase RNA valid | `"acgu"` | true | Common practice |
-| M7 | Mixed case DNA valid | `"AcGt"` | true | Common practice |
-| M8 | U in DNA is invalid | `"ACGU"` | false | IUPAC: U is RNA only |
-| M9 | T in RNA is invalid | `"ACGT"` | false | IUPAC: T is DNA only |
-| M10 | Invalid character X | `"ACGX"` | false | IUPAC: X not standard |
-| M11 | Numeric character invalid | `"ACG1"` | false | IUPAC 1970 |
-| M12 | Whitespace invalid | `"AC GT"` | false | IUPAC 1970 |
-| M13 | N (ambiguity) invalid for strict | `"ACGN"` | false | Implementation: strict mode |
-| M14 | Single valid base A | `"A"` | true | IUPAC 1970 |
-| M15 | Single invalid base X | `"X"` | false | IUPAC 1970 |
+| M1 | Empty sequence is valid DNA | `""` | true | Biopython: zero-length sequences are defined; vacuous truth |
+| M2 | Empty sequence is valid RNA | `""` | true | Biopython: zero-length sequences are defined; vacuous truth |
+| M3 | All standard DNA bases valid | `"ACGT"` | true | IUPAC 1970; Biopython `unambiguous_dna_letters` |
+| M4 | All standard RNA bases valid | `"ACGU"` | true | IUPAC 1970; Biopython `unambiguous_rna_letters` |
+| M5 | Lowercase DNA valid | `"acgt"` | true | Wikipedia: lowercase is standard in sequence files |
+| M6 | Lowercase RNA valid | `"acgu"` | true | Wikipedia: lowercase is standard in sequence files |
+| M7 | Mixed case DNA valid | `"AcGt"` | true | Wikipedia: both cases represent same nucleotides |
+| M8 | U in DNA is invalid | `"ACGU"` | false | IUPAC 1970: U is RNA nucleoside |
+| M9 | T in RNA is invalid | `"ACGT"` | false | IUPAC 1970: T is DNA nucleoside |
+| M10 | Invalid character X | `"ACGX"` | false | IUPAC: X is not a nucleotide symbol |
+| M11 | Numeric character invalid | `"ACG1"` | false | IUPAC 1970: not part of nucleotide notation |
+| M12 | Whitespace invalid | `"AC GT"` | false | IUPAC 1970: not part of nucleotide notation |
+| M13 | N (ambiguity) invalid | `"ACGN"` | false | NC-IUB 1984: N is ambiguity code, not a nucleotide |
+| M14 | Single valid base A | `"A"` | true | IUPAC 1970 — covered by EachValidBase(A,C,G,T) |
+| M15 | Single invalid base X | `"X"` | false | IUPAC: not a nucleotide |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
 | ID | Test Case | Input | Expected | Evidence |
 |----|-----------|-------|----------|----------|
-| S1 | Long valid DNA sequence | 1000+ chars | true | Performance validation |
+| S1 | Long valid DNA sequence | 1000+ chars | true | Boundary/performance |
 | S2 | Invalid char at start | `"XACGT"` | false | Boundary position |
 | S3 | Invalid char at end | `"ACGTX"` | false | Boundary position |
 | S4 | Invalid char in middle | `"ACXGT"` | false | Boundary position |
 | S5 | All same valid base | `"AAAA"` | true | Degenerate case |
-| S6 | Special chars (!@#) invalid | `"AC@T"` | false | Non-alpha invalid |
+| S6 | Special chars (!@#) invalid | `"AC@T"` | false | Not nucleotide notation |
 
 ### 4.3 COULD Tests (Additional coverage)
 
-| ID | Test Case | Input | Expected | Notes |
-|----|-----------|-------|----------|-------|
+| ID | Test Case | Input | Expected | Evidence |
+|----|-----------|-------|----------|----------|
 | C1 | Unicode characters invalid | `"ACG日"` | false | Non-ASCII |
 | C2 | Tab character invalid | `"AC\tGT"` | false | Whitespace variant |
 | C3 | Newline invalid | `"AC\nGT"` | false | Whitespace variant |
@@ -150,50 +158,77 @@ This is a deliberate design choice for genomic analysis where strict validation 
 | F3 | Constructor with valid creates instance | `"ACGT"` | DnaSequence | Normal construction |
 | F4 | Constructor with invalid throws | `"ACGX"` | ArgumentException | Validation failure |
 | F5 | Constructor normalizes to uppercase | `"acgt"` | Sequence = "ACGT" | Case normalization |
-| F6 | Empty string creates empty sequence | `""` | DnaSequence (empty) | Edge case |
+| F6 | Empty string creates empty sequence | `""` | DnaSequence (empty) | Vacuous validity |
 
 ---
 
-## 6. Audit & Consolidation
+## 6. Coverage Classification
 
-### 6.1 Existing Tests Found
+### 6.1 Summary
 
-| Location | Test Methods | Status | Action |
-|----------|--------------|--------|--------|
-| PerformanceExtensionsTests.cs | IsValidDna_ValidSequence_ReturnsTrue | Weak (single case) | Move to canonical |
-| PerformanceExtensionsTests.cs | IsValidDna_InvalidSequence_ReturnsFalse | Weak (single case) | Move to canonical |
-| PerformanceExtensionsTests.cs | IsValidRna_ValidSequence_ReturnsTrue | Weak (single case) | Move to canonical |
-| DnaSequenceTests.cs | TryCreate_ValidSequence_ReturnsTrue | Basic coverage | Keep as smoke |
-| DnaSequenceTests.cs | TryCreate_InvalidSequence_ReturnsFalse | Basic coverage | Keep as smoke |
-| DnaSequenceTests.cs | Constructor_InvalidNucleotide_ThrowsArgumentException | Basic coverage | Keep as smoke |
-| DnaSequenceTests.cs | Constructor_EmptySequence_CreatesEmpty | Covered | Keep as smoke |
+| Metric | Value |
+|--------|-------|
+| Total canonical test runs | 46 |
+| FsCheck property tests | 2 |
+| Total | 48 |
 
-### 6.2 Consolidation Plan
+### 6.2 Classification (canonical file)
 
-1. **Create canonical test file**: `SequenceExtensions_IsValidDna_Tests.cs`
-   - Contains all deep validation tests (M1-M15, S1-S6, C1-C3)
-   - Tests both `IsValidDna` and `IsValidRna` canonical methods
+| Test Method | Runs | Spec IDs | Status | Notes |
+|-------------|------|----------|--------|-------|
+| `IsValidDna_EmptySequence_ReturnsTrue` | 1 | M1 | ✅ Covered | |
+| `IsValidDna_AllStandardBases_ReturnsTrue` | 1 | M3 | ✅ Covered | |
+| `IsValidDna_LowercaseBases_ReturnsTrue` | 1 | M5 | ✅ Covered | |
+| `IsValidDna_MixedCase_ReturnsTrue` | 1 | M7 | ✅ Covered | |
+| `IsValidDna_ContainsUracil_ReturnsFalse` | 1 | M8 | ✅ Covered | |
+| `IsValidDna_InvalidCharacterX_ReturnsFalse` | 1 | M10 | ✅ Covered | |
+| `IsValidDna_NumericCharacter_ReturnsFalse` | 1 | M11 | ✅ Covered | |
+| `IsValidDna_Whitespace_ReturnsFalse` | 1 | M12 | ✅ Covered | |
+| `IsValidDna_AmbiguityCodeN_ReturnsFalse` | 1 | M13 | ✅ Covered | |
+| `IsValidDna_SingleInvalidBase_ReturnsFalse` | 1 | M15 | ✅ Covered | |
+| `IsValidDna_EachValidBase_ReturnsTrue` | 4 | M14, S-bases | ✅ Covered | A, C, G, T — subsumes M14 |
+| `IsValidDna_IupacAmbiguityCodes_ReturnsFalse` | 10 | M13-ext | ✅ Covered | R,Y,S,W,K,M,B,D,H,V |
+| `IsValidDna_LongValidSequence_ReturnsTrue` | 1 | S1 | ✅ Covered | |
+| `IsValidDna_InvalidAtStart_ReturnsFalse` | 1 | S2 | ✅ Covered | |
+| `IsValidDna_InvalidAtEnd_ReturnsFalse` | 1 | S3 | ✅ Covered | |
+| `IsValidDna_InvalidInMiddle_ReturnsFalse` | 1 | S4 | ✅ Covered | |
+| `IsValidDna_AllSameBase_ReturnsTrue` | 1 | S5 | ✅ Covered | |
+| `IsValidDna_SpecialCharacters_ReturnsFalse` | 1 | S6 | ✅ Covered | |
+| `IsValidDna_UnicodeCharacter_ReturnsFalse` | 1 | C1 | ✅ Covered | |
+| `IsValidDna_TabCharacter_ReturnsFalse` | 1 | C2 | ✅ Covered | |
+| `IsValidDna_NewlineCharacter_ReturnsFalse` | 1 | C3 | ✅ Covered | |
+| `IsValidDna_GapCharacter_ReturnsFalse` | 1 | — | ✅ Covered | |
+| `IsValidRna_EmptySequence_ReturnsTrue` | 1 | M2 | ✅ Covered | |
+| `IsValidRna_AllStandardBases_ReturnsTrue` | 1 | M4 | ✅ Covered | |
+| `IsValidRna_LowercaseBases_ReturnsTrue` | 1 | M6 | ✅ Covered | |
+| `IsValidRna_ContainsThymine_ReturnsFalse` | 1 | M9 | ✅ Covered | |
+| `IsValidRna_AmbiguityCodeN_ReturnsFalse` | 1 | M13-RNA | ✅ Covered | |
+| `IsValidRna_EachValidBase_ReturnsTrue` | 4 | S-bases-RNA | ✅ Covered | A, C, G, U |
+| `IsValidRna_LongValidSequence_ReturnsTrue` | 1 | S1-RNA | ✅ Covered | |
+| `IsValidDna_CaseInvariance_AllCasesReturnTrue` | 1 | INV-3 | ✅ Covered | Asserts true for upper/lower/mixed |
+| `IsValidRna_CaseInvariance_AllCasesReturnTrue` | 1 | INV-4 | ✅ Covered | Asserts true for upper/lower/mixed |
 
-2. **PerformanceExtensionsTests.cs**: Remove validation tests (moved to canonical)
+### 6.3 Classification (FsCheck property tests)
 
-3. **DnaSequenceTests.cs**: Keep factory/constructor tests as smoke tests (1-2 per method)
-   - These delegate to `IsValidDna` internally, so only need smoke verification
+| Test Method | Spec ID | Status | Notes |
+|-------------|---------|--------|-------|
+| `PureAcgt_IsValidDna` | INV-1 | ✅ Covered | Random ACGT strings → always valid DNA |
+| `PureAcgu_IsValidRna` | INV-2 | ✅ Covered | Random ACGU strings → always valid RNA |
+
+### 6.4 Changes Applied
+
+| Action | Test | Reason |
+|--------|------|--------|
+| ❌→✅ Added | `IsValidDna_UnicodeCharacter_ReturnsFalse` | C1 was missing |
+| ⚠→✅ Strengthened | `IsValidDna_CaseInvariance_AllCasesReturnTrue` | Was: equality check only; Now: asserts `Is.True` for each case |
+| ⚠→✅ Strengthened | `IsValidRna_CaseInvariance_AllCasesReturnTrue` | Was: equality check only; Now: asserts `Is.True` for each case |
+| 🔁 Removed | `IsValidDna_SingleValidBase_ReturnsTrue` (1 run) | Duplicate of `EachValidBase(TestCase "A")` |
+| 🔁 Removed | `PerformanceExtensionsTests.IsValidDna_ValidSequence_SmokeTest` (1 run) | Duplicate of M3 |
+| 🔁 Removed | `PerformanceExtensionsTests.IsValidRna_ValidSequence_SmokeTest` (1 run) | Duplicate of M4 |
+| 🔁 Removed | `SequenceCompositionProperties.InvalidChars_NotValidDna` (3 runs) | Duplicate of M11, M12 |
 
 ---
 
-## 7. ASSUMPTIONS Log
+## 7. Deviations and Assumptions
 
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Empty sequence returns `true` | Vacuous truth: no invalid characters exist. Common library behavior. |
-| A2 | Strict validation (no IUPAC ambiguity codes) | Design decision for genomic analysis accuracy |
-| A3 | Case-insensitive validation | Universal practice in bioinformatics |
-
----
-
-## 8. Open Questions / Decisions
-
-| # | Question | Resolution |
-|---|----------|------------|
-| 1 | Should empty return true or false? | Resolved: TRUE (vacuous truth, matches implementation) |
-| 2 | Should IUPAC ambiguity codes be accepted? | Resolved: NO (strict validation mode) |
+None. All behaviors are sourced from IUPAC standards and Biopython reference implementation.

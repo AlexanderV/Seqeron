@@ -6,7 +6,8 @@ namespace Seqeron.Genomics.Tests;
 /// <summary>
 /// Canonical tests for sequence validation methods.
 /// Test Unit: SEQ-VALID-001
-/// Evidence: IUPAC-IUB 1970 standard, Wikipedia Nucleic acid notation, Bioinformatics.org IUPAC codes
+/// Evidence: IUPAC-IUB 1970 standard, NC-IUB 1984, Wikipedia Nucleic acid notation,
+/// Biopython Bio.Data.IUPACData (unambiguous_dna_letters, unambiguous_rna_letters)
 /// </summary>
 [TestFixture]
 public class SequenceExtensions_SequenceValidation_Tests
@@ -14,16 +15,15 @@ public class SequenceExtensions_SequenceValidation_Tests
     #region IsValidDna - MUST Tests
 
     [Test]
-    [Description("M1: Empty sequence has no invalid characters (vacuous truth)")]
+    [Description("M1: Empty sequence is valid (Biopython: zero-length sequences are always defined; vacuous truth)")]
     public void IsValidDna_EmptySequence_ReturnsTrue()
     {
-        // ASSUMPTION: Empty sequence returns true (vacuously valid)
         ReadOnlySpan<char> sequence = ReadOnlySpan<char>.Empty;
         Assert.That(sequence.IsValidDna(), Is.True);
     }
 
     [Test]
-    [Description("M3: All standard DNA bases are valid (IUPAC 1970)")]
+    [Description("M3: All standard DNA bases are valid (IUPAC 1970; Biopython unambiguous_dna_letters=GATC)")]
     public void IsValidDna_AllStandardBases_ReturnsTrue()
     {
         ReadOnlySpan<char> sequence = "ACGT".AsSpan();
@@ -31,7 +31,7 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("M5: Lowercase DNA bases are valid (case-insensitive)")]
+    [Description("M5: Lowercase DNA bases are valid (Wikipedia: lowercase used in sequence files for soft masking)")]
     public void IsValidDna_LowercaseBases_ReturnsTrue()
     {
         ReadOnlySpan<char> sequence = "acgt".AsSpan();
@@ -79,20 +79,11 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("M13: Ambiguity code N is invalid in strict mode")]
+    [Description("M13: Ambiguity code N is invalid (NC-IUB 1984: N represents positional variant, not a nucleotide)")]
     public void IsValidDna_AmbiguityCodeN_ReturnsFalse()
     {
-        // Implementation choice: strict validation rejects IUPAC ambiguity codes
         ReadOnlySpan<char> sequence = "ACGN".AsSpan();
         Assert.That(sequence.IsValidDna(), Is.False);
-    }
-
-    [Test]
-    [Description("M14: Single valid base A is valid")]
-    public void IsValidDna_SingleValidBase_ReturnsTrue()
-    {
-        ReadOnlySpan<char> sequence = "A".AsSpan();
-        Assert.That(sequence.IsValidDna(), Is.True);
     }
 
     [Test]
@@ -108,16 +99,15 @@ public class SequenceExtensions_SequenceValidation_Tests
     #region IsValidRna - MUST Tests
 
     [Test]
-    [Description("M2: Empty sequence has no invalid characters (vacuous truth)")]
+    [Description("M2: Empty sequence is valid (Biopython: zero-length sequences are always defined; vacuous truth)")]
     public void IsValidRna_EmptySequence_ReturnsTrue()
     {
-        // ASSUMPTION: Empty sequence returns true (vacuously valid)
         ReadOnlySpan<char> sequence = ReadOnlySpan<char>.Empty;
         Assert.That(sequence.IsValidRna(), Is.True);
     }
 
     [Test]
-    [Description("M4: All standard RNA bases are valid (IUPAC 1970)")]
+    [Description("M4: All standard RNA bases are valid (IUPAC 1970; Biopython unambiguous_rna_letters=GAUC)")]
     public void IsValidRna_AllStandardBases_ReturnsTrue()
     {
         ReadOnlySpan<char> sequence = "ACGU".AsSpan();
@@ -125,7 +115,7 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("M6: Lowercase RNA bases are valid (case-insensitive)")]
+    [Description("M6: Lowercase RNA bases are valid (Wikipedia: lowercase used in sequence files for soft masking)")]
     public void IsValidRna_LowercaseBases_ReturnsTrue()
     {
         ReadOnlySpan<char> sequence = "acgu".AsSpan();
@@ -141,7 +131,7 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("RNA: Ambiguity code N is invalid in strict mode")]
+    [Description("RNA: Ambiguity code N is invalid (NC-IUB 1984: N represents positional variant, not a nucleotide)")]
     public void IsValidRna_AmbiguityCodeN_ReturnsFalse()
     {
         ReadOnlySpan<char> sequence = "ACGUN".AsSpan();
@@ -215,7 +205,7 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("IUPAC ambiguity codes are invalid in strict mode")]
+    [Description("IUPAC ambiguity codes are invalid (NC-IUB 1984: represent positional variants, not nucleotides)")]
     [TestCase("R")] // Purine
     [TestCase("Y")] // Pyrimidine
     [TestCase("S")] // Strong
@@ -253,7 +243,15 @@ public class SequenceExtensions_SequenceValidation_Tests
     }
 
     [Test]
-    [Description("Gap character (-) is invalid in strict mode")]
+    [Description("C1: Unicode characters are invalid (non-ASCII)")]
+    public void IsValidDna_UnicodeCharacter_ReturnsFalse()
+    {
+        ReadOnlySpan<char> sequence = "ACG\u65E5".AsSpan(); // ACG日
+        Assert.That(sequence.IsValidDna(), Is.False);
+    }
+
+    [Test]
+    [Description("Gap character (-) is invalid (not a nucleotide)")]
     public void IsValidDna_GapCharacter_ReturnsFalse()
     {
         ReadOnlySpan<char> sequence = "AC-GT".AsSpan();
@@ -290,28 +288,27 @@ public class SequenceExtensions_SequenceValidation_Tests
     #region Invariant Tests
 
     [Test]
-    [Description("INV-3: Case invariance - uppercase and lowercase produce same result")]
-    public void IsValidDna_CaseInvariance_UpperLowerSameResult()
+    [Description("INV-3: Case invariance — uppercase, lowercase, mixed all return true")]
+    public void IsValidDna_CaseInvariance_AllCasesReturnTrue()
     {
-        string upper = "ACGT";
-        string lower = "acgt";
-        string mixed = "AcGt";
-
         Assert.Multiple(() =>
         {
-            Assert.That(upper.AsSpan().IsValidDna(), Is.EqualTo(lower.AsSpan().IsValidDna()));
-            Assert.That(upper.AsSpan().IsValidDna(), Is.EqualTo(mixed.AsSpan().IsValidDna()));
+            Assert.That("ACGT".AsSpan().IsValidDna(), Is.True);
+            Assert.That("acgt".AsSpan().IsValidDna(), Is.True);
+            Assert.That("AcGt".AsSpan().IsValidDna(), Is.True);
         });
     }
 
     [Test]
-    [Description("INV-4: RNA case invariance")]
-    public void IsValidRna_CaseInvariance_UpperLowerSameResult()
+    [Description("INV-4: RNA case invariance — uppercase, lowercase, mixed all return true")]
+    public void IsValidRna_CaseInvariance_AllCasesReturnTrue()
     {
-        string upper = "ACGU";
-        string lower = "acgu";
-
-        Assert.That(upper.AsSpan().IsValidRna(), Is.EqualTo(lower.AsSpan().IsValidRna()));
+        Assert.Multiple(() =>
+        {
+            Assert.That("ACGU".AsSpan().IsValidRna(), Is.True);
+            Assert.That("acgu".AsSpan().IsValidRna(), Is.True);
+            Assert.That("AcGu".AsSpan().IsValidRna(), Is.True);
+        });
     }
 
     #endregion
