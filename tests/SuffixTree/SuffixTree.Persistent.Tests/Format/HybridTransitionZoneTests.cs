@@ -683,6 +683,111 @@ public class HybridTransitionZoneTests
             "C11: Hybrid cross-zone suffix links must produce same LCS as compact");
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  Regression: cross-zone suffix links via jump table (chr1 genome bug)
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Regression test for a bug discovered during chr1 (249 Mbp) genome build where
+    /// <c>AddSuffixLink()</c> wrote a large-zone offset (&gt;4 GB) into a compact node's
+    /// 32-bit SuffixLink field, causing <c>InvalidOperationException</c>.
+    /// <para>
+    /// Fix: write <c>NULL_OFFSET</c> as placeholder during construction, store the correct
+    /// target in <c>_crossZoneSuffixLinks</c> for algorithm navigation, and materialize
+    /// through the jump table during finalization. The loaded tree resolves these via
+    /// <c>HybridLayout.ResolveJump()</c>.
+    /// </para>
+    /// <para>
+    /// This test forces hybrid transition at a low offset so the cross-zone code path is
+    /// exercised with small data. It verifies that: (1) cross-zone suffix links are actually
+    /// created, (2) the jump table entries resolve to valid large-zone targets, and (3)
+    /// suffix-link-dependent queries produce results identical to a reference tree.
+    /// </para>
+    /// </summary>
+    [Test]
+    public void CrossZoneSuffixLinks_MaterializedViaJumpTable_AndQueriesMatchReference()
+    {
+        // Texts with repeated patterns that produce many internal nodes and suffix links.
+        var texts = new[] { "mississippi", "abcabcabcabc", "aababcabcdabcde", "abracadabra" };
+        int totalCrossZoneLinks = 0;
+
+        foreach (string text in texts)
+        {
+            var reference = global::SuffixTree.SuffixTree.Build(text);
+
+            // Sweep limits: from "only root in compact" to "root + 9 nodes".
+            // At different limits, different suffix links will cross the boundary.
+            int headerPlusRoot = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+            int step = NodeLayout.Compact.NodeSize;
+
+            for (long limit = headerPlusRoot; limit < headerPlusRoot + 10 * step; limit += step)
+            {
+                var storage = new HeapStorageProvider();
+                var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+                builder.CompactOffsetLimit = limit;
+                var ts = new StringTextSource(text);
+                long root = builder.Build(ts);
+
+                if (!builder.IsHybrid || builder.CrossZoneSuffixLinkCount == 0)
+                    continue;
+
+                totalCrossZoneLinks += builder.CrossZoneSuffixLinkCount;
+
+                // Jump table must exist when cross-zone suffix links are deferred
+                Assert.That(builder.JumpTableStart, Is.GreaterThanOrEqualTo(0),
+                    $"'{text}' limit={limit}: JumpTable must exist with {builder.CrossZoneSuffixLinkCount} cross-zone SL(s)");
+
+                // Verify jump table entries: scan compact-zone nodes for suffix links
+                // pointing into the jump table range [JumpTableStart, JumpTableEnd)
+                long transitionOffset = builder.TransitionOffset;
+                long jtStart = builder.JumpTableStart;
+                long jtEnd = builder.JumpTableEnd;
+                int verifiedViaStorage = 0;
+
+                for (long offset = PersistentConstants.HEADER_SIZE_V5;
+                     offset < transitionOffset;
+                     offset += NodeLayout.Compact.NodeSize)
+                {
+                    var node = new PersistentSuffixTreeNode(storage, offset, NodeLayout.Compact);
+                    long rawSL = node.SuffixLink;
+                    if (rawSL == PersistentConstants.NULL_OFFSET) continue;
+                    if (rawSL < jtStart || rawSL >= jtEnd) continue;
+
+                    verifiedViaStorage++;
+
+                    // Jump entry must resolve to a valid large-zone offset
+                    long target = storage.ReadInt64(rawSL);
+                    Assert.That(target, Is.GreaterThanOrEqualTo(transitionOffset),
+                        $"'{text}' limit={limit}: jump@{rawSL} should → large zone, got {target}");
+                }
+
+                Assert.That(verifiedViaStorage, Is.EqualTo(builder.CrossZoneSuffixLinkCount),
+                    $"'{text}' limit={limit}: storage scan should match builder count");
+
+                // Verify suffix-link-dependent queries
+                var tree = new PersistentSuffixTree(storage, root, ts, NodeLayout.Compact,
+                    builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,
+                    builder.DeepestInternalNodeOffset);
+
+                Assert.That(tree.LongestCommonSubstring(text),
+                    Is.EqualTo(reference.LongestCommonSubstring(text)),
+                    $"'{text}' limit={limit}: LCS(self)");
+                Assert.That(tree.LongestRepeatedSubstring(),
+                    Is.EqualTo(reference.LongestRepeatedSubstring()),
+                    $"'{text}' limit={limit}: LRS");
+                Assert.That(tree.NodeCount,
+                    Is.EqualTo(reference.NodeCount),
+                    $"'{text}' limit={limit}: NodeCount");
+                Assert.That(tree.Contains(text), Is.True,
+                    $"'{text}' limit={limit}: Contains(full text)");
+            }
+        }
+
+        TestContext.Out.WriteLine($"Total cross-zone suffix links verified: {totalCrossZoneLinks}");
+        Assert.That(totalCrossZoneLinks, Is.GreaterThan(0),
+            "At least one cross-zone suffix link must exist across all tested texts and limits");
+    }
+
     // ──────────── Visitor for structural comparison ──────────────
 
     private class CollectingVisitor : ISuffixTreeVisitor
