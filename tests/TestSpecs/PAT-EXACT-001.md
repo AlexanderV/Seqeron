@@ -5,7 +5,7 @@
 **Algorithm:** Exact Pattern Search (Suffix Tree)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -38,7 +38,7 @@ Given a text T of length n and a pattern P of length m:
 
 | Edge Case | Expected Behavior | Source |
 |-----------|-------------------|--------|
-| Empty pattern | Returns all positions (0..n-1) OR empty, implementation-defined | Wikipedia: substring definition |
+| Empty pattern | Returns all positions (0..n-1) | Formal language theory: ε is a substring of every string at every position |
 | Pattern not found | Returns empty collection | Standard |
 | Pattern = entire text | Returns [0] | Gusfield |
 | Overlapping occurrences | All positions returned | Rosalind example: "ATAT" in "GATATATGCATATACTT" → 2,4,10 |
@@ -101,7 +101,7 @@ From Rosalind bioinformatics platform:
 | ID | Test Case | Input | Expected | Evidence |
 |----|-----------|-------|----------|----------|
 | M1 | Null pattern throws | `null` | ArgumentNullException | Implementation contract |
-| M2 | Empty pattern returns all positions | `""` | [0..n-1] for n-length text | Regex convention |
+| M2 | Empty pattern returns all positions | `""` | [0..n-1] for n-length text | Formal language theory (ε ⊆ every string) |
 | M3 | Empty tree returns empty | tree(""), pattern("a") | [] | Standard |
 | M4 | Single occurrence at start | tree("hello world"), "hello" | [0] | Standard |
 | M5 | Single occurrence at end | tree("hello world"), "world" | [6] | Standard |
@@ -154,73 +154,86 @@ These are wrappers that delegate to `SuffixTree.FindAllOccurrences`. Minimal smo
 
 ---
 
-## 6. Test Consolidation Plan
+## 6. Coverage Classification
 
-### Canonical Test File
-- **Location:** `SuffixTree.Tests/Search/FindAllOccurrencesTests.cs`
-- **Contains:** All MUST and SHOULD tests for FindAllOccurrences
-- **Status:** Existing file with good coverage; needs Rosalind test case
+### FindAllOccurrencesTests.cs (19 methods / 21 test runs)
 
-### Related Canonical Files
-- **ContainsTests.cs:** Tests for Contains method (complete)
-- **CountOccurrencesTests.cs:** Tests for CountOccurrences method (complete)
+| # | Test Method | Spec | Classification |
+|---|-------------|------|----------------|
+| 1 | `FindAll_NullPattern_ThrowsArgumentNullException` | M1 | ✅ Covered |
+| 2 | `FindAll_EmptyPattern_ReturnsAllPositions` | M2 | ✅ Strengthened: exact positions [0,1,2] |
+| 3 | `FindAll_EmptyTree_ReturnsEmpty` | M3 | ✅ Covered |
+| 4 | `FindAll_SingleOccurrence_AtPosition` ×3 | M4,M5,M6 | ✅ Parametrized: start/end/middle |
+| 5 | `FindAll_MultipleOccurrences_ReturnsAllPositions` | M10 | ✅ Covered |
+| 6 | `FindAll_OverlappingOccurrences_FindsAll` | M11 | ✅ Covered |
+| 7 | `FindAll_Banana_FindsAllOccurrences` | M12 | ✅ Covered |
+| 8 | `FindAll_Mississippi_IssiPattern` | M13 | ✅ Covered |
+| 9 | `FindAll_RosalindSubs_FindsOverlappingDnaMotif` | M15 | ✅ Covered |
+| 10 | `FindAll_NonExistent_ReturnsEmpty` | M7 | ✅ Covered |
+| 11 | `FindAll_PatternLongerThanText_ReturnsEmpty` | M8 | ✅ Added |
+| 12 | `FindAll_FullString_ReturnsZero` | M9 | ✅ Covered |
+| 13 | `FindAll_SingleCharacter_FindsAllOccurrences` | M14 | ✅ Covered |
+| 14 | `FindAll_AllSubstrings_MatchLinearSearch` | S7/INV-2,5 | ✅ Covered |
+| 15 | `FindAll_WithSpaces_Works` | S2 | ✅ Covered |
+| 16 | `FindAll_WithNewlines_Works` | S3 | ✅ Covered |
+| 17 | `FindAll_SpanOverload_MatchesStringOverload` | S5 | ✅ Covered |
+| 18 | `FindAll_SpanFromSlice_Works` | S5 | ✅ Covered |
+| 19 | `FindAll_EmptySpan_ReturnsAllPositions` | M2/S5 | ✅ Strengthened: exact positions [0,1,2] |
 
-### Wrapper Smoke Tests
-- **Location:** `Seqeron.Genomics.Tests/MotifFinderTests.cs`
-- **Status:** Contains smoke tests; adequate for wrappers
+### ContainsTests.cs (12 methods / 12 test runs)
 
-### Consolidation Actions
-1. ✅ FindAllOccurrencesTests.cs - comprehensive, add Rosalind test
-2. ✅ ContainsTests.cs - comprehensive, no changes needed
-3. ✅ CountOccurrencesTests.cs - comprehensive, no changes needed
-4. ✅ MotifFinderTests.cs - smoke tests exist, no changes needed
+| # | Test Method | Spec | Classification |
+|---|-------------|------|----------------|
+| 1 | `Contains_NullPattern_ThrowsArgumentNullException` | M1 | ✅ Covered |
+| 2 | `Contains_EmptyPattern_ReturnsTrue` | M2 | ✅ Covered |
+| 3 | `Contains_EmptyTree_AnyPattern_ReturnsFalse` | M3/INV-7 | ✅ Covered |
+| 4 | `Contains_FullString_ReturnsTrue` | M9 | ✅ Covered |
+| 5 | `Contains_NonExistentPatterns_ReturnsFalse` | M7/M8 | ✅ Covered |
+| 6 | `Contains_AllSubstrings_ReturnsTrue` | S6,S7/INV-5 | ✅ Covered |
+| 7 | `Contains_OverlappingPatterns_Works` | M11 | ✅ Covered |
+| 8 | `Contains_RepeatingCharacter_Works` | — | ✅ Covered |
+| 9 | `Contains_SpanOverload_MatchesStringOverload` | S5 | ✅ Covered |
+| 10 | `Contains_SpanFromSlice_Works` | S5 | ✅ Covered |
+| 11 | `Contains_SpanFromCharArray_Works` | S5 | ✅ Covered |
+| 12 | `Contains_IsCaseSensitive` | S1 | ✅ Covered |
+
+### CountOccurrencesTests.cs (14 methods / 14 test runs)
+
+| # | Test Method | Spec | Classification |
+|---|-------------|------|----------------|
+| 1 | `Count_NullPattern_ThrowsArgumentNullException` | M1 | ✅ Covered |
+| 2 | `Count_EmptyPattern_ReturnsTextLength` | M2 | ✅ Covered |
+| 3 | `Count_EmptyTree_ReturnsZero` | M3 | ✅ Covered |
+| 4 | `Count_SingleOccurrence_ReturnsOne` | M4/M5 | ✅ Covered |
+| 5 | `Count_MultipleOccurrences_ReturnsCorrectCount` | M10 | ✅ Covered |
+| 6 | `Count_OverlappingPatterns_CountsOverlaps` | M11 | ✅ Covered |
+| 7 | `Count_Banana_CorrectCounts` | M12 | ✅ Covered |
+| 8 | `Count_NonExistent_ReturnsZero` | M7 | ✅ Covered |
+| 9 | `Count_PatternLongerThanText_ReturnsZero` | M8 | ✅ Added |
+| 10 | `Count_MatchesFindAllCount` | M17/INV-3 | ✅ Covered |
+| 11 | `Count_ManyOccurrences_Works` | S4 | ✅ Covered |
+| 12 | `Count_SpanOverload_MatchesStringOverload` | S5 | ✅ Covered |
+| 13 | `Count_SpanFromSlice_Works` | S5 | ✅ Covered |
+| 14 | `Count_EmptySpan_ReturnsTextLength` | M2/S5 | ✅ Covered |
+
+### Changes Applied
+
+| Action | Details |
+|--------|---------|
+| ⚠ Strengthened (2) | `FindAll_EmptyPattern`, `FindAll_EmptySpan`: exact positions [0,1,2] instead of count-only |
+| 🔁 Merged (3→1) | `FindAll_SingleOccurrence` + `FindAll_AtBeginning` + `FindAll_AtEnd` → parametrized `FindAll_SingleOccurrence_AtPosition` with M4(hello→0), M5(world→6), M6(lo wo→3) |
+| 🔁 Removed (1) | `FindAll_IsLazyEnumerated`: IReadOnlyList is not lazy; test asserted nothing meaningful |
+| 🔁 Removed (4) | EdgeCaseTests duplicates: `Contains_PatternLongerThanText`, `FindAll_PatternLongerThanText`, `Contains_PatternEqualsText`, `FindAll_PatternEqualsText` (covered by canonical files) |
+| ❌ Added (2) | `FindAll_PatternLongerThanText_ReturnsEmpty` (M8), `Count_PatternLongerThanText_ReturnsZero` (M8) |
+
+**Total: 45 canonical methods / 47 test runs** (was 50 methods / 50 test runs)
 
 ---
 
-## 7. Audit Results
+## 7. Design Decisions
 
-### Coverage Analysis
-
-| Category | Status | Notes |
-|----------|--------|-------|
-| Null input | ✅ Covered | Tests exist |
-| Empty pattern | ✅ Covered | Tests exist |
-| Empty tree | ✅ Covered | Tests exist |
-| Single occurrence | ✅ Covered | Start, end, middle |
-| Multiple non-overlapping | ✅ Covered | Tests exist |
-| Overlapping occurrences | ✅ Covered | "aaaa"/"aa" test |
-| Pattern not found | ✅ Covered | Tests exist |
-| Full text match | ✅ Covered | Tests exist |
-| Banana test (Wikipedia) | ✅ Covered | Tests exist |
-| Mississippi test (Gusfield) | ✅ Covered | "issi" pattern added |
-| Rosalind SUBS test | ✅ Covered | Added |
-| Exhaustive substring test | ✅ Covered | Tests exist |
-| Span overload consistency | ✅ Covered | Tests exist |
-| Contains/Count consistency | ✅ Covered | Tests exist |
-
-### Duplicates Found
-- None significant; tests are well-organized
-
-### Missing Tests
-~~All gaps closed:~~
-1. ~~Rosalind SUBS problem example~~ ✅ Added
-2. ~~Mississippi "issi" pattern~~ ✅ Added
-
----
-
-## 8. Open Questions / Decisions
-
-| Question | Decision | Rationale |
-|----------|----------|-----------|
-| Empty pattern behavior | Returns all positions | Consistent with regex "" behavior |
-| Case sensitivity | Case-sensitive | Canonical SuffixTree behavior; wrappers normalize |
-| Span empty pattern | Returns empty (differs from string) | Implementation note documented |
-
----
-
-## 9. Assumptions
-
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Tests use "banana" as canonical test string | Wikipedia suffix tree article uses it |
-| A2 | Overlapping matches are all reported | Rosalind and standard string search semantics |
+| Decision | Value | Source |
+|----------|-------|--------|
+| Empty pattern behavior | Returns all positions [0..n-1] | Formal language theory: the empty string ε is a substring of every string at every position |
+| Case sensitivity | Case-sensitive matching | Suffix tree operates on raw characters; wrappers normalize to uppercase |
+| Span overloads | Identical semantics to string overloads | Zero-allocation equivalent, not a different operation |

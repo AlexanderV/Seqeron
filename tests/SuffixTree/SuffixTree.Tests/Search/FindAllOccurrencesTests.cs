@@ -23,13 +23,12 @@ namespace SuffixTree.Tests.Search
         [Test]
         public void FindAll_EmptyPattern_ReturnsAllPositions()
         {
-            // Specification: Empty pattern conceptually matches at every position in the text.
-            // This is consistent with regex "" matching at every position.
+            // The empty string ε is a substring of every string at every position (formal language theory).
             var st = SuffixTree.Build("abc");
 
-            var result = st.FindAllOccurrences("");
+            var result = st.FindAllOccurrences("").OrderBy(x => x).ToList();
 
-            Assert.That(result.Count, Is.EqualTo(3));
+            Assert.That(result, Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
         [Test]
@@ -46,46 +45,16 @@ namespace SuffixTree.Tests.Search
 
         #region Single Occurrence
 
-        [Test]
-        public void FindAll_SingleOccurrence_ReturnsCorrectPosition()
+        [TestCase("hello", 0, TestName = "FindAll_SingleOccurrence_AtStart")]
+        [TestCase("world", 6, TestName = "FindAll_SingleOccurrence_AtEnd")]
+        [TestCase("lo wo", 3, TestName = "FindAll_SingleOccurrence_InMiddle")]
+        public void FindAll_SingleOccurrence_AtPosition(string pattern, int expectedPos)
         {
             var st = SuffixTree.Build("hello world");
 
-            var result = st.FindAllOccurrences("world").ToList();
+            var result = st.FindAllOccurrences(pattern).ToList();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Has.Count.EqualTo(1));
-                Assert.That(result[0], Is.EqualTo(6));
-            });
-        }
-
-        [Test]
-        public void FindAll_AtBeginning_ReturnsZero()
-        {
-            var st = SuffixTree.Build("hello world");
-
-            var result = st.FindAllOccurrences("hello").ToList();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Has.Count.EqualTo(1));
-                Assert.That(result[0], Is.EqualTo(0));
-            });
-        }
-
-        [Test]
-        public void FindAll_AtEnd_ReturnsCorrectPosition()
-        {
-            var st = SuffixTree.Build("hello world");
-
-            var result = st.FindAllOccurrences("orld").ToList();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Has.Count.EqualTo(1));
-                Assert.That(result[0], Is.EqualTo(7));
-            });
+            Assert.That(result, Is.EqualTo(new[] { expectedPos }));
         }
 
         #endregion
@@ -189,6 +158,14 @@ namespace SuffixTree.Tests.Search
             });
         }
 
+        [Test]
+        public void FindAll_PatternLongerThanText_ReturnsEmpty()
+        {
+            var st = SuffixTree.Build("abc");
+
+            Assert.That(st.FindAllOccurrences("abcdef").ToList(), Is.Empty);
+        }
+
         #endregion
 
         #region Full String
@@ -261,23 +238,6 @@ namespace SuffixTree.Tests.Search
 
         #endregion
 
-        #region Lazy Enumeration
-
-        [Test]
-        public void FindAll_IsLazyEnumerated()
-        {
-            var st = SuffixTree.Build("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-
-            var enumerable = st.FindAllOccurrences("a");
-
-            // Take only first 3 - should not traverse entire tree
-            var first3 = enumerable.Take(3).ToList();
-
-            Assert.That(first3, Has.Count.EqualTo(3));
-        }
-
-        #endregion
-
         #region Special Characters
 
         [Test]
@@ -309,8 +269,7 @@ namespace SuffixTree.Tests.Search
         {
             var st = SuffixTree.Build("hello world");
 
-            // Note: Empty pattern behavior may differ between string and Span overloads
-            var patterns = new[] { "hello", "world", "lo wo", "xyz" };
+            var patterns = new[] { "", "hello", "world", "lo wo", "xyz" };
 
             foreach (var pattern in patterns)
             {
@@ -338,15 +297,14 @@ namespace SuffixTree.Tests.Search
         }
 
         [Test]
-        public void FindAll_EmptySpan_ReturnsEmpty()
+        public void FindAll_EmptySpan_ReturnsAllPositions()
         {
-            // Note: Span overload returns empty for empty pattern (no special handling)
-            // This differs from string overload which returns all positions
+            // Span overload must match string overload: empty pattern returns all positions.
             var st = SuffixTree.Build("abc");
 
-            var result = st.FindAllOccurrences(ReadOnlySpan<char>.Empty);
+            var result = st.FindAllOccurrences(ReadOnlySpan<char>.Empty).OrderBy(x => x).ToList();
 
-            Assert.That(result.Count, Is.EqualTo(0));
+            Assert.That(result, Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
         #endregion
