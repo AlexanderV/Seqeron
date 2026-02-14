@@ -98,7 +98,7 @@
 - **Case preservation:** lowercase input → lowercase output (Biopython). Our API normalizes to uppercase (consistent with DnaSequence/RnaSequence contract).
 - **Unknown bases:** non-IUPAC characters pass through unchanged in both DNA and RNA context.
 - **T in RNA context:** T pairs with A (`complement_rna` treats T → A).
-- **IUPAC ambiguity codes:** Biopython applies IUPAC complement rules (Y→R, M→K, etc.). Our API does not currently support IUPAC codes (see COULD-02).
+- **IUPAC ambiguity codes:** Biopython applies IUPAC complement rules (Y→R, M→K, etc.). Our API now applies these per IUPAC NC-IUB 1984 (MUST-11).
 
 ### Behavior-to-Source Mapping
 
@@ -138,7 +138,7 @@
 
 #### MUST-05: Unknown Base Handling (DNA)
 **Evidence:** Biopython: `complement("XYZ")` — X, Z pass through unchanged
-**Test:** Non-IUPAC characters (N, X, -, ., ?, *) return unchanged
+**Test:** Non-IUPAC characters (X, -, ., ?, *) return unchanged. Note: N is an IUPAC code (Any nucleotide → N), not an unknown base.
 
 #### MUST-06: TryGetComplement — Destination Too Small
 **Evidence:** API contract (Try pattern)
@@ -182,9 +182,12 @@
 #### COULD-01: Very Long Sequences
 **Test:** Performance/correctness for sequences > 10,000 bases
 
-#### COULD-02: IUPAC Ambiguity Codes
-**Test:** W→W, S→S, M→K, K→M, R→Y, Y→R, B→V, D→H, H→D, V→B
-**Status:** Not implemented. Current implementation passes unknown characters through unchanged.
+### 3.4 MUST-11: IUPAC Ambiguity Code Complement (promoted from COULD-02)
+
+#### MUST-11: IUPAC Ambiguity Codes
+**Evidence:** IUPAC NC-IUB 1984 complement table; Biopython `complement()` behavior
+**Test:** R→Y, Y→R, S→S, W→W, K→M, M→K, B→V, D→H, H→D, V→B, N→N
+**Status:** ✅ Implemented. `GetComplementBase` now handles all 11 IUPAC ambiguity codes per the NC-IUB 1984 table. Verified against Biopython `complement("ACTG-NH")` → `"TGAC-ND"`.
 
 ---
 
@@ -194,6 +197,7 @@
 |-------|--------------------------|-----------------------------------|-------|
 | `"ACGT"` | `"TGCA"` | `"TGCA"` | ✅ |
 | `"CGAUT"` | `"GCTAA"` | `"GCTAA"` | ✅ |
+| `"ACTG-NH"` | `"TGAC-ND"` | `"TGAC-ND"` | ✅ |
 
 | Input | Biopython `complement_rna()` | Our `GetRnaComplementBase` per-char | Match |
 |-------|-------------------------------|---------------------------------------|-------|
@@ -217,7 +221,8 @@
 | Empty sequence | ✅ Sourced | MUST-08 |
 | GetRnaComplementBase (incl. T→A) | ✅ Sourced | MUST-09 |
 | RNA unknown bases (pass-through) | ✅ Sourced | MUST-10 |
-| Biopython cross-verification | ✅ 3 examples | Section 4 |
+| IUPAC ambiguity codes | ✅ Sourced | MUST-11 |
+| Biopython cross-verification | ✅ 4 examples | Section 4 |
 
 ### Coverage Classification (2026-02-15)
 
@@ -246,4 +251,4 @@
 | # | Behavior | Source Behavior | Our Behavior | Justification |
 |---|----------|-----------------|--------------|---------------|
 | D1 | Case handling | Biopython preserves case (`a`→`t`) | Always uppercase | DnaSequence/RnaSequence normalize to uppercase. Consistent internal API contract. |
-| D2 | IUPAC ambiguity codes | Biopython complements Y→R, M→K, etc. | Passed through unchanged | Not implemented (COULD-02). Standard ACGTU bases fully handled. |
+| ~~D2~~ | ~~IUPAC ambiguity codes~~ | ~~Biopython complements Y→R, M→K, etc.~~ | ~~Passed through unchanged~~ | **RESOLVED** — Implemented as MUST-11. `GetComplementBase` now handles all 11 IUPAC ambiguity codes per NC-IUB 1984. |
