@@ -4,14 +4,14 @@
 **Algorithm:** GC Skew Analysis
 **Area:** Sequence Composition
 **Status:** ☑ Complete
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-02-14
 **Owner:** QA Architect
 
 ---
 
 ## 1. Scope
 
-This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
+This Test Unit covers all GC/AT skew and related analysis methods in `GcSkewCalculator`:
 
 | Method | Type | Description |
 |--------|------|-------------|
@@ -19,7 +19,10 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 | `CalculateGcSkew(string)` | Overload | String input variant |
 | `CalculateWindowedGcSkew(...)` | Windowed | Sliding window analysis |
 | `CalculateCumulativeGcSkew(...)` | Cumulative | Cumulative GC skew for origin detection |
-| `FindOriginOfReplication(...)` | Derived | Predict replication origin/terminus |
+| `CalculateAtSkew(DnaSequence)` | Canonical | Calculate overall AT skew |
+| `CalculateAtSkew(string)` | Overload | String input variant |
+| `PredictReplicationOrigin(...)` | Derived | Predict replication origin/terminus |
+| `AnalyzeGcContent(...)` | Composite | Comprehensive GC analysis with windowed metrics |
 
 ---
 
@@ -27,20 +30,22 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 
 | Source | Type | Key Information |
 |--------|------|-----------------|
-| [Wikipedia - GC Skew](https://en.wikipedia.org/wiki/GC_skew) | Authoritative | Formula: GC skew = (G - C)/(G + C); Range: [-1, +1]; Sign switch at ori/ter |
-| Lobry, J.R. (1996) Mol. Biol. Evol. 13:660-665 | Primary | Original GC skew observations in bacterial genomes |
-| Grigoriev, A. (1998) Nucleic Acids Res. 26:2286-2290 | Primary | Cumulative GC skew method; minimum = origin, maximum = terminus |
+| [Wikipedia - GC Skew](https://en.wikipedia.org/wiki/GC_skew) | Authoritative | Formula: GC skew = (G − C)/(G + C); AT skew = (A − T)/(A + T); Range: [−1, +1]; Sign switch at ori/ter |
+| Lobry, J.R. (1996) Mol. Biol. Evol. 13:660-665 | Primary | Original GC skew observations in bacterial genomes; deviation from [C]=[G] as (C−G)/(C+G) |
+| Grigoriev, A. (1998) Nucleic Acids Res. 26:2286-2290 | Primary | Cumulative GC skew method; minimum = origin, maximum = terminus (with modern (G−C)/(G+C) definition) |
 | Chargaff's Rule (1950) | Foundational | G≈C and A≈T in double-stranded DNA (parity rule 1) |
+| [Biopython Bio.SeqUtils.GC_skew](https://biopython.org/docs/latest/api/Bio.SeqUtils.html) | Cross-verification | `GC_skew(seq, window)`: formula (G−C)/(G+C), returns 0.0 on ZeroDivisionError, case-insensitive |
 
 ### Key Evidence Points
 
 1. **Formula Definition** (Wikipedia, Lobry 1996):
-   - GC skew = (G - C) / (G + C)
-   - Where G and C are counts of guanine and cytosine bases
+   - Modern definition: GC skew = (G − C) / (G + C)
+   - AT skew = (A − T) / (A + T)
+   - Where G, C, A, T are counts of the respective bases in a defined window
 
 2. **Value Range** (Wikipedia):
-   - Range: -1 ≤ skew ≤ +1
-   - -1: C only, no G (G = 0)
+   - Range: −1 ≤ skew ≤ +1
+   - −1: C only, no G (G = 0)
    - +1: G only, no C (C = 0)
    - 0: Equal G and C, OR no G and C present
 
@@ -49,14 +54,28 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
    - Lagging strand: typically negative GC skew (C > G)
    - GC skew sign changes at replication origin and terminus
 
-4. **Cumulative GC Skew** (Grigoriev 1998):
+4. **Cumulative GC Skew** (Grigoriev 1998, Wikipedia CGC skew section):
    - Sum of window skews from arbitrary start
-   - Global minimum corresponds to origin of replication (oriC)
-   - Global maximum corresponds to terminus of replication (ter)
+   - With (G−C)/(G+C) definition: global minimum = origin of replication (oriC), global maximum = terminus (ter)
 
-5. **Edge Cases** (Derived from formula):
-   - Empty sequence: undefined mathematically; implementation returns 0
-   - No G or C bases: returns 0 (division by zero protection)
+5. **Zero-division Handling** (Biopython source):
+   - When G + C = 0 (e.g., all A/T or empty): returns 0.0
+   - Biopython: `except ZeroDivisionError: skew = 0.0`
+
+6. **Case Insensitivity** (Biopython source):
+   - Biopython counts both cases: `s.count("G") + s.count("g")`
+   - Standard bioinformatics practice for sequence analysis tools
+
+### Biopython Cross-Verification Table
+
+| Input | Biopython Call | Expected | Formula |
+|-------|---------------|----------|---------|
+| GGGGC | `calc_gc_skew("GGGGC")` | 0.6 | (4−1)/(4+1) |
+| GCCC | `calc_gc_skew("GCCC")` | −0.5 | (1−3)/(1+3) |
+| GGGGCCCC, w=4 | `GC_skew("GGGGCCCC", 4)` | [1.0, −1.0] | GGGG→1.0, CCCC→−1.0 |
+| ATGCATGC, w=4 | `GC_skew("ATGCATGC", 4)` | [0.0, 0.0] | Each window: (1−1)/(1+1) |
+| AAAAAAAA, w=4 | `GC_skew("AAAAAAAA", 4)` | [0.0, 0.0] | ZeroDivisionError → 0.0 |
+| "A"×50 | `GC_skew("A"*50)[0]` | 0 | Biopython test_GC_skew: assertEqual(0) |
 
 ---
 
@@ -64,12 +83,13 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 
 | ID | Invariant | Source |
 |----|-----------|--------|
-| INV-1 | -1 ≤ GC skew ≤ +1 | Wikipedia |
-| INV-2 | All-G sequence → skew = +1 | Formula |
-| INV-3 | All-C sequence → skew = -1 | Formula |
-| INV-4 | Equal G,C → skew = 0 | Formula |
-| INV-5 | No G,C (all A,T) → skew = 0 | Division protection |
-| INV-6 | Cumulative min position < terminus position in typical bacterial genome | Grigoriev 1998 |
+| INV-1 | −1 ≤ GC skew ≤ +1 | Wikipedia: bounded by definition of (G−C)/(G+C) |
+| INV-2 | All-G sequence → skew = +1 | Formula: (G−0)/(G+0) = 1 |
+| INV-3 | All-C sequence → skew = −1 | Formula: (0−C)/(0+C) = −1 |
+| INV-4 | Equal G,C → skew = 0 | Formula: (n−n)/(n+n) = 0 |
+| INV-5 | No G,C (all A,T) → skew = 0 | Biopython: ZeroDivisionError → 0.0 |
+| INV-6 | G↔C swap negates skew | Formula: swapping G,C in (G−C)/(G+C) yields (C−G)/(G+C) = −skew |
+| INV-7 | Cumulative min = origin, max = terminus | Grigoriev 1998 (with (G−C)/(G+C) definition) |
 
 ---
 
@@ -79,31 +99,35 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 
 | Test ID | Scenario | Expected | Source |
 |---------|----------|----------|--------|
-| M-01 | Formula: GGGGC (4G,1C) | (4-1)/(4+1) = 0.6 | Formula |
-| M-02 | Formula: CCCCC (0G,5C) | (0-5)/(0+5) = -1.0 | Formula |
-| M-03 | Formula: GGGGG (5G,0C) | (5-0)/(5+0) = +1.0 | Formula |
-| M-04 | Formula: GCGC (2G,2C) | (2-2)/(2+2) = 0.0 | Formula |
-| M-05 | No G/C: AAATTT | 0 (no G+C) | Division protection |
-| M-06 | Empty sequence | 0 | Implementation choice |
-| M-07 | Invariant: all results in [-1, +1] | Range check | Wikipedia |
-| M-08 | Windowed: correct positions at window centers | Positions correct | Grigoriev 1998 |
+| M-01 | Formula: GGGGC (4G,1C) | (4−1)/(4+1) = 0.6 | Formula |
+| M-02 | Formula: CCCCC (0G,5C) | (0−5)/(0+5) = −1.0 | Formula |
+| M-03 | Formula: GGGGG (5G,0C) | (5−0)/(5+0) = +1.0 | Formula |
+| M-04 | Formula: GCGC (2G,2C) | (2−2)/(2+2) = 0.0 | Formula |
+| M-05 | No G/C: AAATTT | 0 (G+C=0 → zero-division → 0) | Biopython: ZeroDivisionError → 0.0 |
+| M-06 | Empty sequence | 0 (G=0,C=0 → zero-division → 0) | Biopython: ZeroDivisionError → 0.0 |
+| M-07 | Invariant: all results in [−1, +1] | Range check | Wikipedia |
+| M-08 | Windowed: positions at window centers | Position = WindowStart + WindowSize/2 | Grigoriev 1998 |
 | M-09 | Cumulative: accumulates window skews | Values sum correctly | Grigoriev 1998 |
-| M-10 | Cumulative: GGGG→CCCC pattern shows expected accumulation | 1→0 pattern | Grigoriev 1998 |
-| M-11 | Origin detection: minimum at expected position | Min = origin | Grigoriev 1998 |
-| M-12 | Terminus detection: maximum at expected position | Max = terminus | Grigoriev 1998 |
-| M-13 | Null sequence → ArgumentNullException | Exception | Defensive |
-| M-14 | Window size ≤ 0 → ArgumentOutOfRangeException | Exception | Defensive |
-| M-15 | Step size ≤ 0 → ArgumentOutOfRangeException | Exception | Defensive |
-| M-16 | Case insensitivity: lowercase handled | Same result | Implementation |
-| M-17 | Sequence shorter than window → empty result | No windows | Logic |
+| M-10 | Cumulative: GGGG→CCCC pattern | +1, 0, +1, 0 oscillation | Grigoriev 1998 |
+| M-11 | Origin detection: minimum at expected position | Min cumulative = origin | Grigoriev 1998 |
+| M-12 | Terminus detection: maximum at expected position | Max cumulative = terminus | Grigoriev 1998 |
+| M-13 | Null sequence → ArgumentNullException | Exception | Guard clause |
+| M-14 | Window size ≤ 0 → ArgumentOutOfRangeException | Exception | Guard clause |
+| M-15 | Step size ≤ 0 → ArgumentOutOfRangeException | Exception | Guard clause |
+| M-16 | Case insensitivity: lowercase handled | Same result as uppercase | Biopython: counts both cases |
+| M-17 | Sequence shorter than window → empty result | No windows fit | Logic |
+| M-18 | Biopython cross-verification: GGGGCCCC w=4 | [1.0, −1.0] | Biopython GC_skew |
+| M-19 | Biopython cross-verification: ATGCATGC w=4 | [0.0, 0.0] | Biopython GC_skew |
+| M-20 | Biopython cross-verification: AAAAAAAA w=4 | [0.0, 0.0] | Biopython: ZeroDivisionError |
+| M-21 | Biopython cross-verification: GCCC single | −0.5 | Biopython calc_gc_skew |
 
 ### 4.2 SHOULD Tests
 
-| Test ID | Scenario | Expected |
-|---------|----------|----------|
-| S-01 | AT skew formula verification | (A-T)/(A+T) correct |
-| S-02 | Windowed overlapping windows produce more points | More points |
-| S-03 | GC analysis result contains all metrics | All fields populated |
+| Test ID | Scenario | Expected | Source |
+|---------|----------|----------|--------|
+| S-01 | AT skew formula: AAAAT → (4−1)/(4+1) = 0.6 | 0.6 | Wikipedia: AT skew formula |
+| S-02 | Windowed overlapping windows produce more points | More points | Grigoriev 1998: sliding window |
+| S-03 | GC analysis result contains all metrics | All fields populated | Composite method |
 
 ### 4.3 COULD Tests
 
@@ -118,59 +142,67 @@ This Test Unit covers all GC skew calculation methods in `GcSkewCalculator`:
 
 | Category | Case | Expected Behavior | Source |
 |----------|------|-------------------|--------|
-| Empty | Empty string | Return 0 | ASSUMPTION |
-| Empty | Windowed on empty | Return empty collection | ASSUMPTION |
-| Null | Null DnaSequence | Throw ArgumentNullException | Defensive |
-| Boundary | All G | +1.0 | Formula |
-| Boundary | All C | -1.0 | Formula |
-| Boundary | No G or C | 0.0 | Division protection |
-| Window | Window > sequence length | Return empty | Logic |
-| Window | Window = sequence length | Return single point | Logic |
+| Empty | Empty string | Return 0 (G=0,C=0, G+C=0 → zero-division → 0) | Biopython: ZeroDivisionError → 0.0 |
+| Empty | Windowed on empty | Return empty collection (no windows fit) | Biopython: `GC_skew("")` → `[]` |
+| Null | Null DnaSequence | Throw ArgumentNullException | Guard clause |
+| Boundary | All G | +1.0 | Formula: (G−0)/(G+0) |
+| Boundary | All C | −1.0 | Formula: (0−C)/(0+C) |
+| Boundary | No G or C | 0.0 | Biopython: ZeroDivisionError → 0.0 |
+| Window | Window > sequence length | Return empty | Logic: no windows fit |
+| Window | Window = sequence length | Return single point | Logic: exactly one window |
 
 ---
 
-## 6. Test Consolidation Plan
+## 6. Coverage Classification
 
-### 6.1 Current State
+Applied systematic coverage classification (2026-02-14):
 
-- **Canonical test file:** `GcSkewCalculatorTests.cs` (356 lines, 36 tests)
-- **Coverage:** Good basic coverage of all methods
-- **Issues:** None — all gaps closed
-  - ~~Missing explicit invariant range test~~ ✅ Added
-
-### 6.2 Consolidation Actions
-
-| Action | Details |
-|--------|---------|
-| Enhance | Add invariant-focused assertions using Assert.Multiple |
-| Add | Property-based range invariant test |
-| Add | Formula verification tests with explicit calculations |
-| Organize | Group tests by method and concern |
-| Clean | Ensure naming follows `Method_Scenario_ExpectedResult` |
+| Action | Tests | Details |
+|--------|-------|---------|
+| ✅ Covered | 30 | No changes needed |
+| ⚠ Strengthened | 6 | `LowercaseInput` (exact 0.6), `OverlappingWindows` (exact 3 windows + values), `FindsMinimum` (exact pos=145), `FindsMaximum` (exact pos=145), `ReturnsValidPositions→ExactPositionsAndSkew` (deterministic), `ReturnsOverallMetrics` (exact 66.667%) |
+| 🔁 Removed/Merged | 8 | `RangeIsMinusOneToOne` (FsCheck covers), `AllSequences_RespectRangeInvariant` (FsCheck covers), `ReturnsMultiplePoints` (in CorrectSkewValues), `BiopythonCrossVerification_GGGGCCCC` (= CorrectSkewValues), `IncludesWindowSkew` (in AccumulatesCorrectly), Properties: `HomopolymerC/G/EqualGandC` (in main) |
+| ❌ Added | 4 | `CumulativeGcSkew_ZeroWindowSize`, `AtSkew_NullSequence`, `AtSkew_EmptySequence`, `PredictReplicationOrigin_TooShortSequence` |
 
 ---
 
-## 7. ASSUMPTIONS
+## 7. Test Summary
 
-| ID | Assumption | Rationale |
-|----|------------|-----------|
-| A-01 | Empty sequence returns 0 | Consistent with division-by-zero protection |
-| A-02 | Case-insensitive processing | Standard bioinformatics practice |
-
----
-
-## 8. Open Questions
-
-None - all behaviors are well-defined by sources or implementation.
+| File | Tests | Coverage |
+|------|-------|----------|
+| `GcSkewCalculatorTests.cs` | 41 methods | Formula, windowed, cumulative, origin/terminus, AT skew, edge cases, cross-verification |
+| `GcSkewProperties.cs` | 3 FsCheck properties | Range invariant (×100), AT range (×100), complement negation (×100) |
+| **Total** | **44 test methods** (+ 300 FsCheck runs) | All MUST, SHOULD, COULD scenarios covered |
 
 ---
 
-## 9. Validation Checklist
+## 8. Deviations
+
+None — implementation matches all evidence sources.
+
+---
+
+## 9. Assumptions
+
+None — all behaviors sourced to external references.
+
+---
+
+## 10. Open Questions
+
+None — all behaviors are well-defined by sources.
+
+---
+
+## 11. Validation Checklist
 
 - [x] TestSpec created
-- [x] Evidence sources documented
+- [x] Evidence sources documented (Wikipedia, Lobry 1996, Grigoriev 1998, Biopython)
 - [x] Must/Should/Could tests defined
-- [x] Edge cases enumerated
+- [x] Edge cases enumerated and sourced
 - [x] Invariants documented
-- [x] ASSUMPTIONS marked
-- [x] Consolidation plan defined
+- [x] No deviations
+- [x] No assumptions — all behaviors sourced
+- [x] Biopython cross-verification table added
+- [x] Coverage classification applied
+- [x] All 44 tests pass
