@@ -36,11 +36,24 @@ public class PersistentSuffixTreeBenchmarks
     // Pre-built files for Load benchmarks
     private string _loadFile = null!;
 
+    // Fixed paths for Build benchmarks — reused across invocations so that
+    // Windows Defender scans them once during GlobalSetup, not on every iteration.
+    private string _buildMediumFile = null!;
+    private string _buildDnaFile = null!;
+    private string _buildLongFile = null!;
+
     private readonly List<string> _tempFiles = [];
 
     private string AllocTempFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"ST_bench_{Guid.NewGuid():N}.dat");
+        _tempFiles.Add(path);
+        return path;
+    }
+
+    private string AllocFixedFile(string name)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ST_bench_{name}.dat");
         _tempFiles.Add(path);
         return path;
     }
@@ -79,6 +92,18 @@ public class PersistentSuffixTreeBenchmarks
         using (PersistentSuffixTreeFactory.Create(new StringTextSource(_dnaText), _loadFile) as IDisposable ?? throw new InvalidOperationException())
         {
         }
+
+        // Fixed paths for Build benchmarks — create once so Windows Defender
+        // scans them during setup, not during measured iterations.
+        _buildMediumFile = AllocFixedFile("build_medium");
+        _buildDnaFile = AllocFixedFile("build_dna");
+        _buildLongFile = AllocFixedFile("build_long");
+
+        // Warm the paths: create and dispose a small tree to trigger any AV scan now.
+        foreach (var path in new[] { _buildMediumFile, _buildDnaFile, _buildLongFile })
+        {
+            using var warmup = PersistentSuffixTreeFactory.Create(new StringTextSource("warmup"), path) as IDisposable;
+        }
     }
 
     [GlobalCleanup]
@@ -102,7 +127,7 @@ public class PersistentSuffixTreeBenchmarks
     [BenchmarkCategory("PersistentBuild")]
     public ISuffixTree Build_Mmf_Medium()
     {
-        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_mediumText), AllocTempFile());
+        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_mediumText), _buildMediumFile);
         (tree as IDisposable)?.Dispose();
         return tree;
     }
@@ -120,7 +145,7 @@ public class PersistentSuffixTreeBenchmarks
     [BenchmarkCategory("PersistentBuild")]
     public ISuffixTree Build_Mmf_DNA()
     {
-        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_dnaText), AllocTempFile());
+        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_dnaText), _buildDnaFile);
         (tree as IDisposable)?.Dispose();
         return tree;
     }
@@ -138,7 +163,7 @@ public class PersistentSuffixTreeBenchmarks
     [BenchmarkCategory("PersistentBuild")]
     public ISuffixTree Build_Mmf_Long()
     {
-        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_longText), AllocTempFile());
+        var tree = PersistentSuffixTreeFactory.Create(new StringTextSource(_longText), _buildLongFile);
         (tree as IDisposable)?.Dispose();
         return tree;
     }
