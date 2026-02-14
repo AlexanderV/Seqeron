@@ -76,6 +76,7 @@ public static class PersistentSuffixTreeFactory
         var storage = new MappedFileStorageProvider(filePath, readOnly: true);
         try
         {
+            storage.Prefetch();
             return PersistentSuffixTree.Load(storage);
         }
         catch

@@ -1,5 +1,6 @@
 using System.IO.MemoryMappedFiles;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace SuffixTree.Persistent;
 
@@ -8,7 +9,7 @@ namespace SuffixTree.Persistent;
 /// This allows the suffix tree to reside on disk and be mapped into the process's address space.
 /// Uses unsafe direct pointer access for minimal-overhead reads and writes.
 /// </summary>
-public sealed unsafe class MappedFileStorageProvider : IStorageProvider
+public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
 {
     private readonly string _filePath;
     private MemoryMappedFile _mmf;
@@ -343,4 +344,79 @@ public sealed unsafe class MappedFileStorageProvider : IStorageProvider
             Volatile.Write(ref _disposed, 1);
         }
     }
+
+    // ──────────────── Prefetch ────────────────
+
+    /// <summary>
+    /// Hints the OS to prefetch the mapped region into physical memory.
+    /// Useful after loading a tree to avoid page faults on first access.
+    /// This is advisory and fail-safe — errors are silently ignored.
+    /// </summary>
+    public void Prefetch()
+    {
+        ThrowIfDisposed();
+        if (_ptr == null || _position <= 0) return;
+        PrefetchRegion(_ptr, _position);
+    }
+
+#pragma warning disable CA1031 // Prefetch is advisory — must not throw
+    private static void PrefetchRegion(byte* address, long length)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+                PrefetchWindows(address, length);
+            else if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+                PrefetchPosix(address, length);
+        }
+        catch (Exception)
+        {
+            // Prefetch is advisory — ignore all errors
+        }
+    }
+#pragma warning restore CA1031
+
+    // ── Windows: PrefetchVirtualMemory ──
+
+    private static void PrefetchWindows(byte* address, long length)
+    {
+        var entry = new WIN32_MEMORY_RANGE_ENTRY
+        {
+            VirtualAddress = address,
+            NumberOfBytes = (nuint)length
+        };
+        PrefetchVirtualMemory(GetCurrentProcess(), 1, &entry, 0);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WIN32_MEMORY_RANGE_ENTRY
+    {
+        public void* VirtualAddress;
+        public nuint NumberOfBytes;
+    }
+
+    [LibraryImport("kernel32")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static partial nint GetCurrentProcess();
+
+    [LibraryImport("kernel32", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PrefetchVirtualMemory(
+        nint hProcess,
+        nuint numberOfEntries,
+        WIN32_MEMORY_RANGE_ENTRY* virtualAddresses,
+        uint flags);
+
+    // ── Linux/macOS: posix_madvise ──
+
+    private static void PrefetchPosix(byte* address, long length)
+    {
+        const int POSIX_MADV_WILLNEED = 3;
+        _ = PosixMadvise(address, (nuint)length, POSIX_MADV_WILLNEED);
+    }
+
+    [LibraryImport("libc", EntryPoint = "posix_madvise")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static partial int PosixMadvise(void* addr, nuint length, int advice);
 }
