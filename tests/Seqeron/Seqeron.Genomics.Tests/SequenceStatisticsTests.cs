@@ -373,17 +373,19 @@ public class SequenceStatisticsTests
     public void CalculateShannonEntropy_UniformDistribution_ReturnsHighEntropy()
     {
         // Equal distribution of all 4 bases should give max entropy = 2 bits
+        // Hand calc: 4 unique letters, each p=0.25, log₂(0.25)=−2 → H = 2.0 exact
         double entropy = SequenceStatistics.CalculateShannonEntropy("ATGC");
 
-        Assert.That(entropy, Is.EqualTo(2.0).Within(0.001));
+        Assert.That(entropy, Is.EqualTo(2.0));
     }
 
     [Test]
     public void CalculateShannonEntropy_HomopolymerRun_ReturnsZero()
     {
+        // Single symbol: p=1, log₂(1)=0 → H = 0.0 exact
         double entropy = SequenceStatistics.CalculateShannonEntropy("AAAA");
 
-        Assert.That(entropy, Is.EqualTo(0).Within(0.001));
+        Assert.That(entropy, Is.EqualTo(0.0));
     }
 
     [Test]
