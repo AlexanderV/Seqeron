@@ -1,16 +1,19 @@
 using System.IO.MemoryMappedFiles;
+using System.Runtime.CompilerServices;
 
 namespace SuffixTree.Persistent;
 
 /// <summary>
 /// A persistent implementation of IStorageProvider using Memory-Mapped Files.
 /// This allows the suffix tree to reside on disk and be mapped into the process's address space.
+/// Uses unsafe direct pointer access for minimal-overhead reads and writes.
 /// </summary>
-public sealed class MappedFileStorageProvider : IStorageProvider
+public sealed unsafe class MappedFileStorageProvider : IStorageProvider
 {
     private readonly string _filePath;
     private MemoryMappedFile _mmf;
     private MemoryMappedViewAccessor _accessor;
+    private byte* _ptr;
     private readonly bool _readOnly;
     private long _capacity;
     private long _position;
@@ -52,6 +55,7 @@ public sealed class MappedFileStorageProvider : IStorageProvider
 
         _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, mmfAccess);
         _accessor = _mmf.CreateViewAccessor(0, _capacity, mmfAccess);
+        AcquirePointer();
         _position = _readOnly ? _capacity : 0;
     }
 
@@ -73,7 +77,8 @@ public sealed class MappedFileStorageProvider : IStorageProvider
 
             try
             {
-                // Must close old mapping before resizing file on Windows
+                // Release pointer and close old mapping before resizing file on Windows
+                ReleasePointer();
                 oldAccessor.Dispose();
                 oldMmf.Dispose();
 
@@ -84,6 +89,7 @@ public sealed class MappedFileStorageProvider : IStorageProvider
 
                 _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
                 _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+                AcquirePointer();
             }
             catch (IOException) { RecoverMapping(oldCapacity); throw; }
             catch (UnauthorizedAccessException) { RecoverMapping(oldCapacity); throw; }
@@ -92,71 +98,79 @@ public sealed class MappedFileStorageProvider : IStorageProvider
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int ReadInt32(long offset)
     {
         ThrowIfDisposed();
         CheckReadBounds(offset, 4);
-        return _accessor.ReadInt32(offset);
+        return *(int*)(_ptr + offset);
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteInt32(long offset, int value)
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         CheckWriteBounds(offset, 4);
-        _accessor.Write(offset, value);
+        *(int*)(_ptr + offset) = value;
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ReadUInt32(long offset)
     {
         ThrowIfDisposed();
         CheckReadBounds(offset, 4);
-        return _accessor.ReadUInt32(offset);
+        return *(uint*)(_ptr + offset);
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteUInt32(long offset, uint value)
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         CheckWriteBounds(offset, 4);
-        _accessor.Write(offset, value);
+        *(uint*)(_ptr + offset) = value;
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public long ReadInt64(long offset)
     {
         ThrowIfDisposed();
         CheckReadBounds(offset, 8);
-        return _accessor.ReadInt64(offset);
+        return *(long*)(_ptr + offset);
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteInt64(long offset, long value)
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         CheckWriteBounds(offset, 8);
-        _accessor.Write(offset, value);
+        *(long*)(_ptr + offset) = value;
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public char ReadChar(long offset)
     {
         ThrowIfDisposed();
         CheckReadBounds(offset, 2);
-        return _accessor.ReadChar(offset);
+        return *(char*)(_ptr + offset);
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteChar(long offset, char value)
     {
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         CheckWriteBounds(offset, 2);
-        _accessor.Write(offset, value);
+        *(char*)(_ptr + offset) = value;
     }
 
     /// <inheritdoc />
@@ -164,10 +178,10 @@ public sealed class MappedFileStorageProvider : IStorageProvider
     {
         ThrowIfDisposed();
         CheckReadBounds(offset, count);
-        int read = _accessor.ReadArray(offset, buffer, start, count);
-        if (read != count)
-            throw new InvalidOperationException(
-                $"Partial read: requested {count} bytes at offset {offset}, got {read}. Storage may be corrupted.");
+        fixed (byte* dst = &buffer[start])
+        {
+            Buffer.MemoryCopy(_ptr + offset, dst, count, count);
+        }
     }
 
     /// <inheritdoc />
@@ -176,7 +190,10 @@ public sealed class MappedFileStorageProvider : IStorageProvider
         ThrowIfDisposed();
         if (_readOnly) throw new InvalidOperationException("Cannot write in read-only mode.");
         CheckWriteBounds(offset, count);
-        _accessor.WriteArray(offset, buffer, start, count);
+        fixed (byte* src = &buffer[start])
+        {
+            Buffer.MemoryCopy(src, _ptr + offset, count, count);
+        }
     }
 
     /// <inheritdoc />
@@ -198,17 +215,20 @@ public sealed class MappedFileStorageProvider : IStorageProvider
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
         GC.SuppressFinalize(this);
+        ReleasePointer();
         _accessor?.Dispose();
         _mmf?.Dispose();
         _accessor = null!;
         _mmf = null!;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CheckReadBounds(long offset, int size)
     {
         if (offset < 0 || offset + size > _position)
@@ -216,6 +236,7 @@ public sealed class MappedFileStorageProvider : IStorageProvider
                 $"Read at offset {offset} with size {size} exceeds logical size {_position}.");
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CheckWriteBounds(long offset, int size)
     {
         if (offset < 0 || offset + size > _position)
@@ -252,6 +273,7 @@ public sealed class MappedFileStorageProvider : IStorageProvider
 
         try
         {
+            ReleasePointer();
             oldAccessor.Dispose();
             oldMmf.Dispose();
 
@@ -262,10 +284,33 @@ public sealed class MappedFileStorageProvider : IStorageProvider
 
             _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, _capacity, MemoryMappedFileAccess.ReadWrite);
             _accessor = _mmf.CreateViewAccessor(0, _capacity, MemoryMappedFileAccess.ReadWrite);
+            AcquirePointer();
         }
         catch (IOException) { RecoverMapping(oldCapacity); throw; }
         catch (UnauthorizedAccessException) { RecoverMapping(oldCapacity); throw; }
         catch (OutOfMemoryException) { RecoverMapping(oldCapacity); throw; }
+    }
+
+    /// <summary>
+    /// Acquires a raw byte pointer to the memory-mapped view for direct access.
+    /// </summary>
+    private void AcquirePointer()
+    {
+        byte* basePtr = null;
+        _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref basePtr);
+        _ptr = basePtr + _accessor.PointerOffset;
+    }
+
+    /// <summary>
+    /// Releases the previously acquired pointer. Safe to call when no pointer is held.
+    /// </summary>
+    private void ReleasePointer()
+    {
+        if (_ptr != null)
+        {
+            _ptr = null;
+            _accessor?.SafeMemoryMappedViewHandle.ReleasePointer();
+        }
     }
 
     /// <summary>
@@ -286,6 +331,7 @@ public sealed class MappedFileStorageProvider : IStorageProvider
         {
             _mmf = MemoryMappedFile.CreateFromFile(_filePath, FileMode.Open, null, oldCapacity, MemoryMappedFileAccess.ReadWrite);
             _accessor = _mmf.CreateViewAccessor(0, oldCapacity, MemoryMappedFileAccess.ReadWrite);
+            AcquirePointer();
         }
         catch (IOException)
         {
