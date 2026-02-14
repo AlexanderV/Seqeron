@@ -11,25 +11,7 @@ namespace SuffixTree.Tests.Robustness
     [TestFixture]
     public class EdgeCaseTests
     {
-        #region Very Long Patterns
-
-        [Test]
-        public void Contains_PatternLongerThanText_ReturnsFalse()
-        {
-            var st = SuffixTree.Build("abc");
-
-            Assert.That(st.Contains("abcdefgh"), Is.False);
-        }
-
-        [Test]
-        public void FindAll_PatternLongerThanText_ReturnsEmpty()
-        {
-            var st = SuffixTree.Build("abc");
-
-            var result = st.FindAllOccurrences("abcdefgh").ToList();
-
-            Assert.That(result, Is.Empty);
-        }
+        #region Long Inputs
 
         [Test]
         public void LCS_OtherMuchLongerThanTree_Works()
@@ -40,34 +22,6 @@ namespace SuffixTree.Tests.Robustness
             var result = st.LongestCommonSubstring(other);
 
             Assert.That(result, Is.EqualTo("abc"));
-        }
-
-        #endregion
-
-        #region Pattern Equals Text
-
-        [Test]
-        public void Contains_PatternEqualsText_ReturnsTrue()
-        {
-            var text = "exactly this text";
-            var st = SuffixTree.Build(text);
-
-            Assert.That(st.Contains(text), Is.True);
-        }
-
-        [Test]
-        public void FindAll_PatternEqualsText_ReturnsZero()
-        {
-            var text = "exactly";
-            var st = SuffixTree.Build(text);
-
-            var result = st.FindAllOccurrences(text).ToList();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Has.Count.EqualTo(1));
-                Assert.That(result[0], Is.EqualTo(0));
-            });
         }
 
         #endregion

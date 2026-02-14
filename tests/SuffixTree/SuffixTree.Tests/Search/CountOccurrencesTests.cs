@@ -117,6 +117,14 @@ namespace SuffixTree.Tests.Search
             });
         }
 
+        [Test]
+        public void Count_PatternLongerThanText_ReturnsZero()
+        {
+            var st = SuffixTree.Build("abc");
+
+            Assert.That(st.CountOccurrences("abcdef"), Is.EqualTo(0));
+        }
+
         #endregion
 
         #region Consistency with FindAll
@@ -165,8 +173,7 @@ namespace SuffixTree.Tests.Search
         {
             var st = SuffixTree.Build("abracadabra");
 
-            // Note: Empty pattern behavior may differ between string and Span overloads
-            var patterns = new[] { "a", "abra", "bra", "xyz" };
+            var patterns = new[] { "", "a", "abra", "bra", "xyz" };
 
             foreach (var pattern in patterns)
             {
@@ -187,13 +194,12 @@ namespace SuffixTree.Tests.Search
         }
 
         [Test]
-        public void Count_EmptySpan_ReturnsZero()
+        public void Count_EmptySpan_ReturnsTextLength()
         {
-            // Note: Span overload returns 0 for empty pattern (no special handling)
-            // This differs from string overload which returns text length
+            // Span overload must match string overload: empty pattern occurs at every position.
             var st = SuffixTree.Build("abc");
 
-            Assert.That(st.CountOccurrences(ReadOnlySpan<char>.Empty), Is.EqualTo(0));
+            Assert.That(st.CountOccurrences(ReadOnlySpan<char>.Empty), Is.EqualTo(3));
         }
 
         #endregion
