@@ -40,5 +40,10 @@ if (useInProcess)
 }
 else
 {
-    BenchmarkRunner.Run<SuffixTreeBenchmarks>(args: filteredArgs);
+    // Run all benchmark classes that match the filter.
+    // Persistent benchmarks (net9.0 only):
+    //   dotnet run -c Release -f net9.0 -- --filter "*Persistent*"
+    BenchmarkSwitcher
+        .FromAssembly(typeof(SuffixTreeBenchmarks).Assembly)
+        .Run(filteredArgs);
 }
