@@ -128,100 +128,25 @@ public class GcSkewCalculatorTests
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - GC skew range is [-1, +1]
-    /// Invariant test: All results must be within valid range.
-    /// </summary>
-    [Test]
-    public void CalculateGcSkew_RangeIsMinusOneToOne()
-    {
-        // Arrange
-        var sequence = new DnaSequence("ATGCATGCATGC");
-
-        // Act
-        double skew = GcSkewCalculator.CalculateGcSkew(sequence);
-
-        // Assert: Invariant check
-        Assert.Multiple(() =>
-        {
-            Assert.That(skew, Is.GreaterThanOrEqualTo(-1.0), "GC skew must be >= -1");
-            Assert.That(skew, Is.LessThanOrEqualTo(1.0), "GC skew must be <= +1");
-        });
-    }
-
-    /// <summary>
-    /// Evidence: Wikipedia - GC skew range is [-1, +1]
-    /// Property-based invariant test with multiple sequences.
-    /// </summary>
-    [Test]
-    public void CalculateGcSkew_AllSequences_RespectRangeInvariant()
-    {
-        // Arrange: Various sequence compositions
-        var testSequences = new[]
-        {
-            "GGGGG",      // All G → +1
-            "CCCCC",      // All C → -1
-            "GCGCGC",     // Equal → 0
-            "AAATTT",     // No G/C → 0
-            "ATGCATGC",   // Mixed
-            "GGGC",       // Positive skew
-            "GCCC",       // Negative skew
-            "ATATATATA",  // No G/C
-            "GCATGCAT",   // Balanced
-        };
-
-        foreach (string seq in testSequences)
-        {
-            // Act
-            double skew = GcSkewCalculator.CalculateGcSkew(seq);
-
-            // Assert
-            Assert.Multiple(() =>
-            {
-                Assert.That(skew, Is.GreaterThanOrEqualTo(-1.0),
-                    $"Sequence '{seq}': GC skew {skew} must be >= -1");
-                Assert.That(skew, Is.LessThanOrEqualTo(1.0),
-                    $"Sequence '{seq}': GC skew {skew} must be <= +1");
-            });
-        }
-    }
-
-    /// <summary>
-    /// Test case insensitivity - lowercase should work identically.
+    /// Case insensitivity: lowercase produces same result.
+    /// Source: Biopython counts both cases: s.count("G") + s.count("g").
+    /// GGGGC / ggggc: G=4, C=1 → (4−1)/(4+1) = 0.6
     /// </summary>
     [Test]
     public void CalculateGcSkew_LowercaseInput_HandledCorrectly()
     {
-        // Arrange
-        const string uppercase = "GGGGC";
-        const string lowercase = "ggggc";
+        const double expected = 0.6;
 
-        // Act
-        double skewUpper = GcSkewCalculator.CalculateGcSkew(uppercase);
-        double skewLower = GcSkewCalculator.CalculateGcSkew(lowercase);
-
-        // Assert
-        Assert.That(skewLower, Is.EqualTo(skewUpper).Within(0.0001));
+        Assert.Multiple(() =>
+        {
+            Assert.That(GcSkewCalculator.CalculateGcSkew("GGGGC"), Is.EqualTo(expected).Within(0.0001));
+            Assert.That(GcSkewCalculator.CalculateGcSkew("ggggc"), Is.EqualTo(expected).Within(0.0001));
+        });
     }
 
     #endregion
 
     #region Windowed GC Skew Tests (Evidence: Grigoriev 1998)
-
-    /// <summary>
-    /// Evidence: Grigoriev 1998 - sliding window analysis for GC skew.
-    /// </summary>
-    [Test]
-    public void CalculateWindowedGcSkew_ReturnsMultiplePoints()
-    {
-        // Arrange: Two windows with opposite skew
-        var sequence = new DnaSequence("GGGGCCCC" + "CCCCGGGG");
-
-        // Act
-        var points = GcSkewCalculator.CalculateWindowedGcSkew(sequence, windowSize: 8, stepSize: 8).ToList();
-
-        // Assert
-        Assert.That(points.Count, Is.EqualTo(2));
-    }
 
     /// <summary>
     /// Evidence: Grigoriev 1998 - positions reported at window centers.
@@ -266,19 +191,26 @@ public class GcSkewCalculatorTests
     }
 
     /// <summary>
-    /// Test overlapping windows produce more data points.
+    /// Overlapping windows produce more data points with correct values.
+    /// GGGGCCCC, window=4, step=2 → 3 windows:
+    ///   [0..3] GGGG → (4−0)/(4+0) = +1.0
+    ///   [2..5] GGCC → (2−2)/(2+2) = 0.0
+    ///   [4..7] CCCC → (0−4)/(0+4) = −1.0
     /// </summary>
     [Test]
     public void CalculateWindowedGcSkew_OverlappingWindows()
     {
-        // Arrange
         var sequence = new DnaSequence("GGGGCCCC");
 
-        // Act
         var points = GcSkewCalculator.CalculateWindowedGcSkew(sequence, windowSize: 4, stepSize: 2).ToList();
 
-        // Assert: More points due to overlap
-        Assert.That(points.Count, Is.GreaterThan(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(points, Has.Count.EqualTo(3));
+            Assert.That(points[0].GcSkew, Is.EqualTo(1.0).Within(0.0001), "GGGG → +1.0");
+            Assert.That(points[1].GcSkew, Is.EqualTo(0.0).Within(0.0001), "GGCC → 0.0");
+            Assert.That(points[2].GcSkew, Is.EqualTo(-1.0).Within(0.0001), "CCCC → −1.0");
+        });
     }
 
     /// <summary>
@@ -312,26 +244,33 @@ public class GcSkewCalculatorTests
     #region Cumulative GC Skew Tests (Evidence: Grigoriev 1998)
 
     /// <summary>
-    /// Evidence: Grigoriev 1998 - cumulative GC skew is sum of window skews.
-    /// Test: GGGG(+1) + CCCC(-1) + GGGG(+1) + CCCC(-1) = oscillating pattern
+    /// Evidence: Grigoriev 1998 — cumulative GC skew is sum of window skews.
+    /// GGGGCCCCGGGGCCCC, window=4 → 4 windows:
+    ///   GGGG → skew=+1, cumulative=+1
+    ///   CCCC → skew=−1, cumulative=0
+    ///   GGGG → skew=+1, cumulative=+1
+    ///   CCCC → skew=−1, cumulative=0
     /// </summary>
     [Test]
     public void CalculateCumulativeGcSkew_AccumulatesCorrectly()
     {
-        // Arrange: Alternating high G and high C windows
         var sequence = new DnaSequence("GGGGCCCCGGGGCCCC");
 
-        // Act
         var points = GcSkewCalculator.CalculateCumulativeGcSkew(sequence, windowSize: 4).ToList();
 
-        // Assert: Verify cumulative accumulation
         Assert.Multiple(() =>
         {
-            Assert.That(points.Count, Is.EqualTo(4));
-            Assert.That(points[0].CumulativeGcSkew, Is.EqualTo(1.0).Within(0.0001), "+1");
-            Assert.That(points[1].CumulativeGcSkew, Is.EqualTo(0.0).Within(0.0001), "+1 + (-1) = 0");
-            Assert.That(points[2].CumulativeGcSkew, Is.EqualTo(1.0).Within(0.0001), "+1 + (-1) + 1 = 1");
-            Assert.That(points[3].CumulativeGcSkew, Is.EqualTo(0.0).Within(0.0001), "+1 + (-1) + 1 + (-1) = 0");
+            Assert.That(points, Has.Count.EqualTo(4));
+            // Per-window GcSkew
+            Assert.That(points[0].GcSkew, Is.EqualTo(1.0).Within(0.0001), "GGGG → +1");
+            Assert.That(points[1].GcSkew, Is.EqualTo(-1.0).Within(0.0001), "CCCC → −1");
+            Assert.That(points[2].GcSkew, Is.EqualTo(1.0).Within(0.0001), "GGGG → +1");
+            Assert.That(points[3].GcSkew, Is.EqualTo(-1.0).Within(0.0001), "CCCC → −1");
+            // Cumulative
+            Assert.That(points[0].CumulativeGcSkew, Is.EqualTo(1.0).Within(0.0001), "cum: +1");
+            Assert.That(points[1].CumulativeGcSkew, Is.EqualTo(0.0).Within(0.0001), "cum: +1−1=0");
+            Assert.That(points[2].CumulativeGcSkew, Is.EqualTo(1.0).Within(0.0001), "cum: 0+1=+1");
+            Assert.That(points[3].CumulativeGcSkew, Is.EqualTo(0.0).Within(0.0001), "cum: +1−1=0");
         });
     }
 
@@ -353,26 +292,6 @@ public class GcSkewCalculatorTests
             Assert.That(points[0].Position, Is.EqualTo(2), "Window 0-3, center at 2");
             Assert.That(points[1].Position, Is.EqualTo(6), "Window 4-7, center at 6");
             Assert.That(points[2].Position, Is.EqualTo(10), "Window 8-11, center at 10");
-        });
-    }
-
-    /// <summary>
-    /// Test that cumulative points also include the per-window skew value.
-    /// </summary>
-    [Test]
-    public void CalculateCumulativeGcSkew_IncludesWindowSkew()
-    {
-        // Arrange
-        var sequence = new DnaSequence("GGGGCCCC");
-
-        // Act
-        var points = GcSkewCalculator.CalculateCumulativeGcSkew(sequence, windowSize: 4).ToList();
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(points[0].GcSkew, Is.EqualTo(1.0).Within(0.0001), "GGGG");
-            Assert.That(points[1].GcSkew, Is.EqualTo(-1.0).Within(0.0001), "CCCC");
         });
     }
 
@@ -466,59 +385,73 @@ public class GcSkewCalculatorTests
     #region Replication Origin Prediction Tests (Evidence: Grigoriev 1998)
 
     /// <summary>
-    /// Evidence: Grigoriev 1998 - minimum of cumulative GC skew = origin of replication.
+    /// Evidence: Grigoriev 1998 — minimum of cumulative GC skew = origin.
+    /// G×50 + C×100 + G×50, window=10:
+    ///   5 G-windows (+1 each) → cumulative peaks at +5
+    ///   10 C-windows (−1 each) → cumulative drops to −5 at window [140..149], center=145
+    ///   5 G-windows (+1 each) → cumulative returns to 0
+    /// Global minimum −5 at position 145 → PredictedOrigin = 145.
     /// </summary>
     [Test]
     public void PredictReplicationOrigin_FindsMinimum()
     {
-        // Arrange: Simulate bacterial genome pattern
-        // GC skew decreases to origin (in C-rich region), then increases
         var sequence = new DnaSequence(
             new string('G', 50) + new string('C', 100) + new string('G', 50));
 
-        // Act
         var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 10);
 
-        // Assert: Origin should be in the C-rich region (around position 100)
-        Assert.That(prediction.PredictedOrigin, Is.InRange(40, 160));
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.PredictedOrigin, Is.EqualTo(145), "Min cumulative at center of last C-window");
+            Assert.That(prediction.OriginSkew, Is.EqualTo(-5.0).Within(0.0001), "Cumulative minimum = −5");
+            Assert.That(prediction.IsSignificant, Is.True, "Amplitude 10 >> threshold 0.2");
+        });
     }
 
     /// <summary>
-    /// Evidence: Grigoriev 1998 - maximum of cumulative GC skew = terminus.
+    /// Evidence: Grigoriev 1998 — maximum of cumulative GC skew = terminus.
+    /// C×50 + G×100 + C×50, window=10:
+    ///   5 C-windows (−1 each) → cumulative drops to −5
+    ///   10 G-windows (+1 each) → cumulative rises to +5 at window [140..149], center=145
+    ///   5 C-windows (−1 each) → cumulative returns to 0
+    /// Global maximum +5 at position 145 → PredictedTerminus = 145.
     /// </summary>
     [Test]
     public void PredictReplicationOrigin_FindsMaximum()
     {
-        // Arrange: Terminus should be at maximum cumulative skew
         var sequence = new DnaSequence(
             new string('C', 50) + new string('G', 100) + new string('C', 50));
 
-        // Act
         var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 10);
 
-        // Assert: Terminus in the G-rich region
-        Assert.That(prediction.PredictedTerminus, Is.InRange(40, 160));
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.PredictedTerminus, Is.EqualTo(145), "Max cumulative at center of last G-window");
+            Assert.That(prediction.TerminusSkew, Is.EqualTo(5.0).Within(0.0001), "Cumulative maximum = +5");
+            Assert.That(prediction.IsSignificant, Is.True, "Amplitude 10 >> threshold 0.2");
+        });
     }
 
     /// <summary>
-    /// Predictions must be valid positions within sequence bounds.
+    /// Exact positions and skew values for a deterministic small genome.
+    /// GGGGGGCCCCCCGGGGGGCCCCCC (24 nt), window=4, step=4:
+    ///   GGGG(+1), GGCC(0), CCCC(−1), GGGG(+1), GGCC(0), CCCC(−1)
+    ///   Cumulative: +1, +1, 0, +1, +1, 0
+    ///   Min=0 at pos 10 (first occurrence), Max=+1 at pos 2 (first occurrence)
     /// </summary>
     [Test]
-    public void PredictReplicationOrigin_ReturnsValidPositions()
+    public void PredictReplicationOrigin_ExactPositionsAndSkew()
     {
-        // Arrange
         var sequence = new DnaSequence("GGGGGGCCCCCCGGGGGGCCCCCC");
 
-        // Act
         var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 4);
 
-        // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(prediction.PredictedOrigin, Is.GreaterThanOrEqualTo(0));
-            Assert.That(prediction.PredictedOrigin, Is.LessThan(sequence.Length));
-            Assert.That(prediction.PredictedTerminus, Is.GreaterThanOrEqualTo(0));
-            Assert.That(prediction.PredictedTerminus, Is.LessThan(sequence.Length));
+            Assert.That(prediction.PredictedOrigin, Is.EqualTo(10), "Min cumulative at CCCC window center");
+            Assert.That(prediction.PredictedTerminus, Is.EqualTo(2), "Max cumulative at first GGGG window center");
+            Assert.That(prediction.OriginSkew, Is.EqualTo(0.0).Within(0.0001));
+            Assert.That(prediction.TerminusSkew, Is.EqualTo(1.0).Within(0.0001));
         });
     }
 
@@ -527,39 +460,23 @@ public class GcSkewCalculatorTests
     #region GC Content Analysis Tests
 
     /// <summary>
-    /// Comprehensive analysis returns windowed data points.
-    /// </summary>
-    [Test]
-    public void AnalyzeGcContent_ReturnsMultipleWindowedPoints()
-    {
-        // Arrange
-        var sequence = new DnaSequence("GCGCATATGCGC");
-
-        // Act
-        var result = GcSkewCalculator.AnalyzeGcContent(sequence, windowSize: 4, stepSize: 4);
-
-        // Assert
-        Assert.That(result.WindowedGcContent.Count, Is.EqualTo(3));
-    }
-
-    /// <summary>
     /// GC content correctly calculated per window.
-    /// Window 1: GCGC = 100% GC, Window 2: ATAT = 0% GC
+    /// GCGCATATGCGC, window=4, step=4 → 3 windows:
+    ///   GCGC → 4/4 = 100%, ATAT → 0/4 = 0%, GCGC → 4/4 = 100%
     /// </summary>
     [Test]
     public void AnalyzeGcContent_CalculatesGcPercent()
     {
-        // Arrange
-        var sequence = new DnaSequence("GCGCATAT");
+        var sequence = new DnaSequence("GCGCATATGCGC");
 
-        // Act
         var result = GcSkewCalculator.AnalyzeGcContent(sequence, windowSize: 4, stepSize: 4);
 
-        // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result.WindowedGcContent[0].GcContent, Is.EqualTo(100).Within(0.01));
-            Assert.That(result.WindowedGcContent[1].GcContent, Is.EqualTo(0).Within(0.01));
+            Assert.That(result.WindowedGcContent, Has.Count.EqualTo(3));
+            Assert.That(result.WindowedGcContent[0].GcContent, Is.EqualTo(100).Within(0.01), "GCGC → 100%");
+            Assert.That(result.WindowedGcContent[1].GcContent, Is.EqualTo(0).Within(0.01), "ATAT → 0%");
+            Assert.That(result.WindowedGcContent[2].GcContent, Is.EqualTo(100).Within(0.01), "GCGC → 100%");
         });
     }
 
@@ -580,23 +497,78 @@ public class GcSkewCalculatorTests
     }
 
     /// <summary>
-    /// Analysis returns all expected overall metrics.
+    /// Overall metrics with exact values.
+    /// GGGGCCCCATAT (12 nt): GC=8 → 8/12×100 = 66.667%
+    /// GC skew: G=4, C=4 → (4−4)/(4+4) = 0.0
+    /// AT skew: A=2, T=2 → (2−2)/(2+2) = 0.0
     /// </summary>
     [Test]
     public void AnalyzeGcContent_ReturnsOverallMetrics()
     {
-        // Arrange
         var sequence = new DnaSequence("GGGGCCCCATAT");
 
-        // Act
         var result = GcSkewCalculator.AnalyzeGcContent(sequence, windowSize: 4, stepSize: 4);
 
-        // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result.OverallGcContent, Is.GreaterThan(0));
+            Assert.That(result.OverallGcContent, Is.EqualTo(100.0 * 8 / 12).Within(0.01), "8/12 GC");
+            Assert.That(result.OverallGcSkew, Is.EqualTo(0.0).Within(0.0001), "G=C → skew=0");
+            Assert.That(result.OverallAtSkew, Is.EqualTo(0.0).Within(0.0001), "A=T → skew=0");
             Assert.That(result.SequenceLength, Is.EqualTo(12));
+            Assert.That(result.WindowedGcSkew, Has.Count.EqualTo(3));
+            Assert.That(result.WindowedGcContent, Has.Count.EqualTo(3));
         });
+    }
+
+    #endregion
+
+    #region Biopython Cross-Verification (Bio.SeqUtils.GC_skew)
+
+    /// <summary>
+    /// Cross-verification: Biopython GC_skew("ATGCATGC", window=4) → [0.0, 0.0]
+    /// Each window ATGC has G=1, C=1, (1-1)/(1+1) = 0.
+    /// </summary>
+    [Test]
+    public void CalculateWindowedGcSkew_BiopythonCrossVerification_ATGCATGC()
+    {
+        var points = GcSkewCalculator.CalculateWindowedGcSkew("ATGCATGC", windowSize: 4, stepSize: 4).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(points, Has.Count.EqualTo(2));
+            Assert.That(points[0].GcSkew, Is.EqualTo(0.0).Within(0.0001), "Biopython: ATGC → 0.0");
+            Assert.That(points[1].GcSkew, Is.EqualTo(0.0).Within(0.0001), "Biopython: ATGC → 0.0");
+        });
+    }
+
+    /// <summary>
+    /// Cross-verification: Biopython GC_skew("AAAAAAAA", window=4) → [0.0, 0.0]
+    /// Source: Biopython returns 0.0 on ZeroDivisionError (G+C=0).
+    /// Equivalent to Biopython: test_GC_skew("A"*50) → first element 0.
+    /// </summary>
+    [Test]
+    public void CalculateWindowedGcSkew_BiopythonCrossVerification_AllA()
+    {
+        var points = GcSkewCalculator.CalculateWindowedGcSkew("AAAAAAAA", windowSize: 4, stepSize: 4).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(points, Has.Count.EqualTo(2));
+            Assert.That(points[0].GcSkew, Is.EqualTo(0.0).Within(0.0001), "Biopython: AAAA → 0.0 (ZeroDivisionError)");
+            Assert.That(points[1].GcSkew, Is.EqualTo(0.0).Within(0.0001), "Biopython: AAAA → 0.0 (ZeroDivisionError)");
+        });
+    }
+
+    /// <summary>
+    /// Cross-verification: Biopython calc_gc_skew (GenomeDiagram test helper).
+    /// Formula: (g-c)/(g+c), returns 0 when g+c==0.
+    /// GCCC: G=1, C=3 → (1-3)/(1+3) = -0.5
+    /// </summary>
+    [Test]
+    public void CalculateGcSkew_BiopythonCrossVerification_GCCC()
+    {
+        double skew = GcSkewCalculator.CalculateGcSkew("GCCC");
+        Assert.That(skew, Is.EqualTo(-0.5).Within(0.0001), "Biopython: (1-3)/(1+3) = -0.5");
     }
 
     #endregion
@@ -604,7 +576,8 @@ public class GcSkewCalculatorTests
     #region Edge Cases and Exception Handling
 
     /// <summary>
-    /// Empty string input returns 0.
+    /// Empty string: G=0, C=0, G+C=0 → zero-division protection → 0.
+    /// Source: Biopython returns 0.0 on ZeroDivisionError.
     /// </summary>
     [Test]
     public void CalculateGcSkew_EmptySequence_ReturnsZero()
@@ -692,6 +665,58 @@ public class GcSkewCalculatorTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             GcSkewCalculator.AnalyzeGcContent((DnaSequence)null!, 10));
+    }
+
+    /// <summary>
+    /// Window size ≤ 0 for cumulative analysis throws ArgumentOutOfRangeException.
+    /// </summary>
+    [Test]
+    public void CalculateCumulativeGcSkew_ZeroWindowSize_ThrowsException()
+    {
+        var sequence = new DnaSequence("ATGCATGC");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GcSkewCalculator.CalculateCumulativeGcSkew(sequence, windowSize: 0).ToList());
+    }
+
+    /// <summary>
+    /// Null DnaSequence for AT skew throws ArgumentNullException.
+    /// </summary>
+    [Test]
+    public void CalculateAtSkew_NullSequence_ThrowsException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            GcSkewCalculator.CalculateAtSkew((DnaSequence)null!));
+    }
+
+    /// <summary>
+    /// Empty string: A=0, T=0, A+T=0 → zero-division protection → 0.
+    /// Mirrors GC skew empty-sequence behavior.
+    /// </summary>
+    [Test]
+    public void CalculateAtSkew_EmptySequence_ReturnsZero()
+    {
+        double skew = GcSkewCalculator.CalculateAtSkew("");
+        Assert.That(skew, Is.EqualTo(0.0));
+    }
+
+    /// <summary>
+    /// Sequence shorter than window size produces no cumulative points,
+    /// so PredictReplicationOrigin returns default (zeros, not significant).
+    /// </summary>
+    [Test]
+    public void PredictReplicationOrigin_TooShortSequence_ReturnsDefault()
+    {
+        var sequence = new DnaSequence("ATGC");
+
+        var result = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PredictedOrigin, Is.EqualTo(0));
+            Assert.That(result.PredictedTerminus, Is.EqualTo(0));
+            Assert.That(result.IsSignificant, Is.False);
+        });
     }
 
     #endregion

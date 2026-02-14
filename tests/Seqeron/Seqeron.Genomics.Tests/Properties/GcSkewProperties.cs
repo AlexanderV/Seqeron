@@ -75,36 +75,4 @@ public class GcSkewProperties
         });
     }
 
-    /// <summary>
-    /// Homopolymer C has GC skew == -1 (all C, no G).
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void HomopolymerC_HasSkewMinus1()
-    {
-        double skew = GcSkewCalculator.CalculateGcSkew("CCCCCCCCCC");
-        Assert.That(skew, Is.EqualTo(-1.0).Within(0.0001));
-    }
-
-    /// <summary>
-    /// Homopolymer G has GC skew == +1 (all G, no C).
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void HomopolymerG_HasSkewPlus1()
-    {
-        double skew = GcSkewCalculator.CalculateGcSkew("GGGGGGGGGG");
-        Assert.That(skew, Is.EqualTo(1.0).Within(0.0001));
-    }
-
-    /// <summary>
-    /// Equal G and C yields GC skew == 0.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void EqualGandC_HasZeroSkew()
-    {
-        double skew = GcSkewCalculator.CalculateGcSkew("GCGCGCGCGC");
-        Assert.That(skew, Is.EqualTo(0.0).Within(0.0001));
-    }
 }
