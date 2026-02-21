@@ -24,6 +24,12 @@ public static class PersistentConstants
     /// </summary>
     public const int HEADER_SIZE_V5 = 80;
 
+    /// <summary>
+    /// Extended header size for Slim v6 format (88 bytes).
+    /// Extends v5 by 8 bytes: LRS_DEPTH (int32) + reserved (int32).
+    /// </summary>
+    public const int HEADER_SIZE_V6 = 88;
+
     /// <summary>Sentinel value for leaf node End fields, indicating the edge extends to end of text.</summary>
     public const uint BOUNDLESS = uint.MaxValue;
     /// <summary>Sentinel key for the unique terminator character (same bit pattern as -1 when cast to int).</summary>
@@ -48,7 +54,7 @@ public static class PersistentConstants
     // 16-23 : ROOT       (int64)
     // 24-31 : TEXT_OFF   (int64)
     // 32-35 : NODE_COUNT (int32)
-    // 36-39 : reserved
+    // 36-39 : FLAGS      (int32, bit field — v6+; zero in older formats = UTF-16)
     // 40-47 : SIZE       (int64)
     /// <summary>Byte offset of the magic number field in the header.</summary>
     public const int HEADER_OFFSET_MAGIC = 0;
@@ -62,6 +68,14 @@ public static class PersistentConstants
     public const int HEADER_OFFSET_TEXT_OFF = 24;
     /// <summary>Byte offset of the node count field in the header.</summary>
     public const int HEADER_OFFSET_NODE_COUNT = 32;
+    /// <summary>Byte offset of the flags bit field in the header (v6+). Zero-initialized in older formats.</summary>
+    public const int HEADER_OFFSET_FLAGS = 36;
+
+    /// <summary>
+    /// Flag bit: text is stored as ASCII (1 byte per char) instead of UTF-16 (2 bytes per char).
+    /// Reduces text storage by 50 % for pure-ASCII inputs (e.g. DNA sequences).
+    /// </summary>
+    public const int FLAG_TEXT_ASCII = 1;
     /// <summary>Byte offset of the total storage size field in the header.</summary>
     public const int HEADER_OFFSET_SIZE = 40;
 
@@ -79,6 +93,15 @@ public static class PersistentConstants
     /// <summary>Offset of the pre-computed deepest internal node (for O(1) LRS). 8 bytes.</summary>
     public const int HEADER_OFFSET_DEEPEST_NODE = 72;
 
+    // ──── Additional v6 (Slim) header fields ────
+    // 80-83 : LRS_DEPTH  (int32) — total depth of LRS (= DepthFromRoot + EdgeLen of deepest internal node)
+    // 84-87 : BASE_NODE_SIZE (int32) — NodeSize of the base layout (24=Compact, 32=Large)
+    /// <summary>Offset of the pre-computed LRS total depth (v6 Slim). 4 bytes.</summary>
+    public const int HEADER_OFFSET_LRS_DEPTH = 80;
+
+    /// <summary>Offset of the base layout NodeSize. Used by Load() to detect Compact vs Large. 4 bytes.</summary>
+    public const int HEADER_OFFSET_BASE_NODE_SIZE = 84;
+
     // Invariant node field offsets (same in both Compact and Large layouts)
     /// <summary>Byte offset of the Start field within a node (invariant across formats).</summary>
     public const int OFFSET_START = 0;
@@ -91,8 +114,8 @@ public static class PersistentConstants
     [Obsolete("Use NodeLayout.OffsetSuffixLink", error: true)]
     public const int OFFSET_SUFFIX_LINK = 8;
 
-    /// <summary>Depth offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetDepth"/> instead.</summary>
-    [Obsolete("Use NodeLayout.OffsetDepth", error: true)]
+    /// <summary>Depth offset for v3 (Large) format. Removed in v6.</summary>
+    [Obsolete("DepthFromRoot removed in v6 — computed on-the-fly", error: true)]
     public const int OFFSET_DEPTH = 16;
 
     /// <summary>LeafCount offset for v3 (Large) format. Use <see cref="NodeLayout.OffsetLeafCount"/> instead.</summary>

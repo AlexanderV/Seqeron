@@ -226,7 +226,11 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        // Plain read: Dispose() uses Interlocked.CompareExchange which
+        // already publishes the write. No Volatile fence needed on the
+        // read side — the builder is single-threaded.
+        if (_disposed != 0)
+            ObjectDisposedException.ThrowIf(true, this);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -244,6 +248,35 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
             throw new ArgumentOutOfRangeException(nameof(offset),
                 $"Write at offset {offset} with size {size} exceeds logical size {_position}.");
     }
+
+    // ──────────────── Unchecked fast-path for builder hot loop ────────────────
+    // These skip ThrowIfDisposed + CheckBounds. The builder guarantees all
+    // offsets come from Allocate() and disposal never races with build.
+
+    /// <summary>Raw pointer — use at your own risk.</summary>
+    internal byte* RawPointer
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _ptr;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal uint ReadUInt32Unchecked(long offset) => *(uint*)(_ptr + offset);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void WriteUInt32Unchecked(long offset, uint value) => *(uint*)(_ptr + offset) = value;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int ReadInt32Unchecked(long offset) => *(int*)(_ptr + offset);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void WriteInt32Unchecked(long offset, int value) => *(int*)(_ptr + offset) = value;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal long ReadInt64Unchecked(long offset) => *(long*)(_ptr + offset);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void WriteInt64Unchecked(long offset, long value) => *(long*)(_ptr + offset) = value;
 
     /// <summary>
     /// Sets the current position (used when loading an existing tree).

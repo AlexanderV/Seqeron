@@ -24,7 +24,8 @@ public sealed class HeapStorageProvider : IStorageProvider
 
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (_disposed != 0)
+            ObjectDisposedException.ThrowIf(true, this);
     }
 
     private void CheckReadBounds(long offset, int size)

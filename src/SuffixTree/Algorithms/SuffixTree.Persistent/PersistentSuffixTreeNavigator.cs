@@ -83,13 +83,13 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetNodeDepth(PersistentSuffixTreeNode node)
-    {
-        if (node.Offset == _rootOffset) return 0;
-        return (int)node.DepthFromRoot + LengthOf(node);
-    }
+        => throw new InvalidOperationException(
+            "GetNodeDepth is not available — track depth on-the-fly.");
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int GetDepthFromRoot(PersistentSuffixTreeNode node) => (int)node.DepthFromRoot;
+    public int GetDepthFromRoot(PersistentSuffixTreeNode node)
+        => throw new InvalidOperationException(
+            "GetDepthFromRoot is not available — track depth on-the-fly.");
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PersistentSuffixTreeNode GetSuffixLink(PersistentSuffixTreeNode node)
@@ -158,11 +158,13 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
         }
     }
 
-    public int FindAnyLeafPosition(PersistentSuffixTreeNode node)
+    public int FindAnyLeafPosition(PersistentSuffixTreeNode node, int depthFromRoot)
     {
         var current = node;
+        int depth = depthFromRoot;
         while (!current.IsLeaf)
         {
+            depth += LengthOf(current);
             var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(current);
             PersistentSuffixTreeNode bestChild = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
             for (int ci = 0; ci < childCount; ci++)
@@ -178,8 +180,8 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
             current = bestChild;
         }
 
-        int leafDepth = GetNodeDepth(current);
-        int pos = (_textSource.Length + 1) - leafDepth;
+        depth += LengthOf(current);
+        int pos = (_textSource.Length + 1) - depth;
         return (pos >= 0 && pos < _textSource.Length) ? pos : -1;
     }
 }

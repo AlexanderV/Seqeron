@@ -47,13 +47,6 @@ public readonly struct PersistentSuffixTreeNode
         set => _layout.WriteOffset(_storage, _offset + _layout.OffsetSuffixLink, value);
     }
 
-    /// <summary>Gets the cumulative character depth from the root to the start of this node's edge.</summary>
-    public uint DepthFromRoot
-    {
-        get => _storage.ReadUInt32(_offset + _layout.OffsetDepth);
-        internal set => _storage.WriteUInt32(_offset + _layout.OffsetDepth, value);
-    }
-
     /// <summary>Gets the number of leaf nodes in this node's subtree.</summary>
     public uint LeafCount
     {

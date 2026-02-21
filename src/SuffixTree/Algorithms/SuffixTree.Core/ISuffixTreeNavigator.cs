@@ -65,7 +65,9 @@ public interface ISuffixTreeNavigator<TNode>
 
     /// <summary>
     /// Finds any single leaf position in the subtree rooted at <paramref name="node"/>.
+    /// <paramref name="depthFromRoot"/> is the cumulative character depth from root
+    /// to the START of this node's edge (needed for v6 Slim layouts that don't store it).
     /// Returns -1 if not found.
     /// </summary>
-    int FindAnyLeafPosition(TNode node);
+    int FindAnyLeafPosition(TNode node, int depthFromRoot);
 }

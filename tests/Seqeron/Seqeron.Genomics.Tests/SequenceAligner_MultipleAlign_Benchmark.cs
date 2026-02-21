@@ -180,14 +180,14 @@ public class SequenceAligner_MultipleAlign_Benchmark
         double speedup = classicMs / Math.Max(anchorMs, 0.001);
 
         // Output results
-        TestContext.WriteLine($"╔══════════════════════════════════════════════════════════");
-        TestContext.WriteLine($"║ {label}");
-        TestContext.WriteLine($"╠══════════════════════════════════════════════════════════");
-        TestContext.WriteLine($"║ Sequences: {sequences.Count} × ~{sequences[0].Length} bp");
-        TestContext.WriteLine($"║ Classic NW:     {classicMs,10:F2} ms  (median of {measuredRuns})");
-        TestContext.WriteLine($"║ Anchor-based:   {anchorMs,10:F2} ms  (median of {measuredRuns})");
-        TestContext.WriteLine($"║ Speedup:        {speedup,10:F2}×");
-        TestContext.WriteLine($"╚══════════════════════════════════════════════════════════");
+        TestContext.Out.WriteLine($"╔══════════════════════════════════════════════════════════");
+        TestContext.Out.WriteLine($"║ {label}");
+        TestContext.Out.WriteLine($"╠══════════════════════════════════════════════════════════");
+        TestContext.Out.WriteLine($"║ Sequences: {sequences.Count} × ~{sequences[0].Length} bp");
+        TestContext.Out.WriteLine($"║ Classic NW:     {classicMs,10:F2} ms  (median of {measuredRuns})");
+        TestContext.Out.WriteLine($"║ Anchor-based:   {anchorMs,10:F2} ms  (median of {measuredRuns})");
+        TestContext.Out.WriteLine($"║ Speedup:        {speedup,10:F2}×");
+        TestContext.Out.WriteLine($"╚══════════════════════════════════════════════════════════");
 
         return (classicMs, anchorMs, speedup);
     }
@@ -292,7 +292,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
     /// </summary>
     [Test]
     [Order(4)]
-    [Timeout(60_000)] // 60 second timeout
+    [CancelAfter(60_000)] // 60 second timeout
     public void Benchmark_XL_Related_20x2000_90pct()
     {
         var seqs = GenerateRelatedSequences(count: 20, length: 2000, similarity: 0.90, seed: 789);
@@ -374,7 +374,7 @@ public class SequenceAligner_MultipleAlign_Benchmark
     /// </summary>
     [Test]
     [Order(100)]
-    [Timeout(120_000)] // 2 minute timeout
+    [CancelAfter(120_000)] // 2 minute timeout
     public void Benchmark_SummaryReport()
     {
         var scenarios = new[]
@@ -388,10 +388,10 @@ public class SequenceAligner_MultipleAlign_Benchmark
             ("10×500, rnd", GenerateRandomSequences(10,   500, 70)),
         };
 
-        TestContext.WriteLine();
-        TestContext.WriteLine("┌──────────────────┬────────────┬────────────┬──────────┐");
-        TestContext.WriteLine("│ Scenario         │ Classic ms │ Anchor  ms │ Speedup  │");
-        TestContext.WriteLine("├──────────────────┼────────────┼────────────┼──────────┤");
+        TestContext.Out.WriteLine();
+        TestContext.Out.WriteLine("┌──────────────────┬────────────┬────────────┬──────────┐");
+        TestContext.Out.WriteLine("│ Scenario         │ Classic ms │ Anchor  ms │ Speedup  │");
+        TestContext.Out.WriteLine("├──────────────────┼────────────┼────────────┼──────────┤");
 
         foreach (var (label, seqs) in scenarios)
         {
@@ -421,15 +421,15 @@ public class SequenceAligner_MultipleAlign_Benchmark
                 ? new string('█', Math.Min((int)(speedup * 2), 20))
                 : "▒";
 
-            TestContext.WriteLine(
+            TestContext.Out.WriteLine(
                 $"│ {label,-16} │ {classicMs,10:F2} │ {anchorMs,10:F2} │ {speedup,6:F2}× {bar}│");
         }
 
-        TestContext.WriteLine("└──────────────────┴────────────┴────────────┴──────────┘");
-        TestContext.WriteLine();
-        TestContext.WriteLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        TestContext.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
-        TestContext.WriteLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
+        TestContext.Out.WriteLine("└──────────────────┴────────────┴────────────┴──────────┘");
+        TestContext.Out.WriteLine();
+        TestContext.Out.WriteLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        TestContext.Out.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+        TestContext.Out.WriteLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
 
         Assert.Pass("Benchmark summary completed — see output above.");
     }

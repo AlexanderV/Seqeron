@@ -12,6 +12,10 @@ using SuffixTree.Persistent;
 // queries with timing for each step.
 // ────────────────────────────────────────────────────────────
 
+// ── Profiling mode ────────────────────────────────────────
+if (args.Length > 0 && args[0] == "--profile")
+    return ProfileBuild.Run(args);
+
 var dataDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data"));
 var fastaGz = Path.Combine(dataDir, "chr1.fa.gz");
 var treePath = Path.Combine(dataDir, "chr1.suffixtree.dat");

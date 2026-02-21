@@ -53,7 +53,7 @@ public class NodeApiSafetyTests
         // Root is compact but some children are in large zone → root gets jumped child array
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         var ts = new StringTextSource("banana");
         long root = builder.Build(ts);
 
@@ -74,7 +74,7 @@ public class NodeApiSafetyTests
         // Internal nodes created in large zone should have normal (non-jumped) children
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         var ts = new StringTextSource("banana");
         long root = builder.Build(ts);
 
@@ -97,7 +97,7 @@ public class NodeApiSafetyTests
     {
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         var ts = new StringTextSource("banana");
         long root = builder.Build(ts);
 

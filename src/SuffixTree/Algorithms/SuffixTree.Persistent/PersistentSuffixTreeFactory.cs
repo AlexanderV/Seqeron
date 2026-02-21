@@ -38,27 +38,53 @@ public static class PersistentSuffixTreeFactory
     internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit)
     {
         var storage = CreateStorage(filePath, text.Length);
+        IStorageProvider? childStorage = null;
+        IStorageProvider? depthStorage = null;
+        string? tempChildPath = null;
+        string? tempDepthPath = null;
         try
         {
-            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
+            // For MMF builds, place child-edge and depth data in separate temp MMFs
+            // so that the managed heap stays near-zero even for genome-scale inputs.
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                tempChildPath = filePath + ".children.tmp";
+                long childCapacity = (long)text.Length * 40; // ~2 entries/char × 16 bytes + headroom
+                childStorage = new MappedFileStorageProvider(tempChildPath, Math.Max(childCapacity, 65536));
+
+                tempDepthPath = filePath + ".depth.tmp";
+                long depthCapacity = (long)text.Length * 10; // ~2.5 nodes/char × 4 bytes
+                depthStorage = new MappedFileStorageProvider(tempDepthPath, Math.Max(depthCapacity, 65536));
+            }
+
+            // v6 Compact: 24-byte nodes (no stored DepthFromRoot)
+            var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact, childStorage, depthStorage);
             builder.CompactOffsetLimit = compactOffsetLimit;
             long rootOffset = builder.Build(text);
 
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
 
-            // All trees start with Compact layout; hybrid v5 uses mixed zones
-            // but the root and header are always Compact.
             NodeLayout layout = NodeLayout.Compact;
             return new PersistentSuffixTree(storage, rootOffset, text, layout,
                 builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,
-                builder.DeepestInternalNodeOffset);
+                builder.DeepestInternalNodeOffset, builder.LrsDepth);
         }
         catch
         {
             storage.Dispose();
             CleanupFile(filePath);
             throw;
+        }
+        finally
+        {
+            // Dispose and delete temp storage regardless of success/failure.
+            // The builder already disposed owned stores, but for externally
+            // provided storage (this case) we own the lifecycle.
+            (childStorage as IDisposable)?.Dispose();
+            CleanupFile(tempChildPath);
+            (depthStorage as IDisposable)?.Dispose();
+            CleanupFile(tempDepthPath);
         }
     }
 
@@ -94,10 +120,10 @@ public static class PersistentSuffixTreeFactory
     /// </summary>
     internal static long EstimateCapacity(int textLength)
     {
-        // Compact layout: ≤2N+1 nodes × 28B + ≤2N+1 child entries × 8B
-        //                 + text × 2B + header 80B ≈ 74N + 118.
-        // Use 80 bytes/char to leave headroom and avoid any remap in practice.
-        const int BytesPerChar = 80;
+        // SlimCompact layout: ≤2N+1 nodes × 24B + ≤2N+1 child entries × 8B
+        //                     + text × 2B + header 88B ≈ 66N + 120.
+        // Use 72 bytes/char to leave headroom and avoid any remap in practice.
+        const int BytesPerChar = 72;
         const int MinCapacity = 65536;
         long estimate = (long)textLength * BytesPerChar + 256;
         return Math.Max(estimate, MinCapacity);

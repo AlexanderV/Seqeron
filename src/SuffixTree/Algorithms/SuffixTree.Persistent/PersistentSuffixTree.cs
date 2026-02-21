@@ -18,6 +18,10 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     // Pre-computed during build; NULL_OFFSET means not available (loaded trees)
     private readonly long _deepestInternalNodeOffset;
 
+    // Pre-computed LRS total depth (v6 Slim): DepthFromRoot + EdgeLen of deepest internal node.
+    // -1 means not available (v3/v4/v5 trees compute from node.DepthFromRoot).
+    private readonly int _lrsDepth;
+
     // Single source of truth for layout + hybrid zone info
     private readonly HybridLayout _hybrid;
 
@@ -25,8 +29,8 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     public PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource = null, NodeLayout? layout = null,
         long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1,
-        long deepestInternalNodeOffset = -1)
-        : this(storage, rootOffset, textSource, textSource == null, layout, transitionOffset, jumpTableStart, jumpTableEnd, deepestInternalNodeOffset)
+        long deepestInternalNodeOffset = -1, int lrsDepth = -1)
+        : this(storage, rootOffset, textSource, textSource == null, layout, transitionOffset, jumpTableStart, jumpTableEnd, deepestInternalNodeOffset, lrsDepth)
     {
     }
 
@@ -36,11 +40,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     internal PersistentSuffixTree(IStorageProvider storage, long rootOffset,
         ITextSource? textSource, bool ownsTextSource, NodeLayout? layout,
         long transitionOffset = -1, long jumpTableStart = -1, long jumpTableEnd = -1,
-        long deepestInternalNodeOffset = -1)
+        long deepestInternalNodeOffset = -1, int lrsDepth = -1)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _rootOffset = rootOffset;
         _deepestInternalNodeOffset = deepestInternalNodeOffset;
+        _lrsDepth = lrsDepth;
         _hybrid = new HybridLayout(_storage, layout ?? NodeLayout.Compact, transitionOffset, jumpTableStart, jumpTableEnd);
 
         if (textSource != null)
@@ -50,34 +55,40 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         }
         else
         {
-            // Try to load text from storage
+            // Load text from storage — check flags for encoding
             long textOff = _storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
             int textLen = _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
+            int flags = _storage.ReadInt32(PersistentConstants.HEADER_OFFSET_FLAGS);
+            bool isAscii = (flags & PersistentConstants.FLAG_TEXT_ASCII) != 0;
 
-            // If it's a MappedFileStorageProvider, we can use MemoryMappedTextSource for zero-copy
             if (_storage is MappedFileStorageProvider mappedProvider)
             {
-                _textSource = new MemoryMappedTextSource(mappedProvider.Accessor, textOff, textLen);
+                _textSource = isAscii
+                    ? new AsciiMemoryMappedTextSource(mappedProvider.Accessor, textOff, textLen)
+                    : new MemoryMappedTextSource(mappedProvider.Accessor, textOff, textLen);
             }
             else
             {
-                _textSource = new StringTextSource(LoadStringInternal(textOff, textLen));
+                _textSource = new StringTextSource(LoadStringInternal(textOff, textLen, isAscii));
             }
-            _ownsTextSource = true; // We created it, we dispose it
+            _ownsTextSource = true;
         }
     }
 
-    private string LoadStringInternal(long textOff, int textLen)
+    private string LoadStringInternal(long textOff, int textLen, bool isAscii)
     {
-        long byteLen = (long)textLen * 2;
+        int bytesPerChar = isAscii ? 1 : 2;
+        long byteLen = (long)textLen * bytesPerChar;
         if (byteLen > int.MaxValue)
             throw new InvalidOperationException(
-                $"Text length {textLen} exceeds maximum loadable size ({int.MaxValue / 2} characters).");
+                $"Text length {textLen} exceeds maximum loadable size.");
         int byteLenInt = (int)byteLen;
         byte[] bytes = ArrayPool<byte>.Shared.Rent(byteLenInt);
         try
         {
             _storage.ReadBytes(textOff, bytes, 0, byteLenInt);
+            if (isAscii)
+                return Encoding.ASCII.GetString(bytes, 0, byteLenInt);
             return Encoding.Unicode.GetString(bytes, 0, byteLenInt);
         }
         finally
@@ -96,10 +107,16 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException("Invalid storage format: Magic number mismatch.");
 
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        var layout = NodeLayout.ForVersion(version);
+        var layout = NodeLayout.ForVersion(version); // throws for non-v6
+
+        // Detect base layout from stored NodeSize (v6 stores this at offset 84).
+        // 0 or Compact.NodeSize → Compact; Large.NodeSize → Large.
+        int baseNodeSize = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_BASE_NODE_SIZE);
+        if (baseNodeSize == NodeLayout.Large.NodeSize)
+            layout = NodeLayout.Large;
 
         long storageSize = storage.Size;
-        int headerSize = version == 5 ? PersistentConstants.HEADER_SIZE_V5 : PersistentConstants.HEADER_SIZE;
+        int headerSize = PersistentConstants.HEADER_SIZE_V6;
 
         // C16: Validate recorded SIZE against actual storage to detect truncated files
         long recordedSize = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_SIZE);
@@ -112,36 +129,33 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException(
                 $"Invalid storage format: root offset {root} is outside valid range [{headerSize}, {storageSize}).");
 
-        long transitionOffset = -1;
-        long jumpTableStart = -1;
-        long jumpTableEnd = -1;
-        if (version == 5)
+        long transitionOffset = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TRANSITION);
+        long jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
+        long jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
+
+        // Validate hybrid fields only when a transition actually occurred (>= 0).
+        // Non-hybrid trees store -1 in all three fields.
+        if (transitionOffset >= 0)
         {
-            transitionOffset = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TRANSITION);
-            jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
-            jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
+            if (transitionOffset < headerSize || transitionOffset > storageSize)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
 
-            // Validate hybrid fields only when a transition actually occurred (>= 0).
-            // Non-hybrid v5 trees store -1 in all three fields.
-            if (transitionOffset >= 0)
-            {
-                if (transitionOffset < headerSize || transitionOffset > storageSize)
-                    throw new InvalidOperationException(
-                        $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
+            if (jumpTableEnd < jumpTableStart)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
 
-                if (jumpTableEnd < jumpTableStart)
-                    throw new InvalidOperationException(
-                        $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
-
-                if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
-                    throw new InvalidOperationException(
-                        $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
-            }
+            if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
+                throw new InvalidOperationException(
+                    $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
         }
 
         // Validate TEXT_OFF and TEXT_LEN
         long textOff = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
         int textLen = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
+        int flags = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_FLAGS);
+        bool isAscii = (flags & PersistentConstants.FLAG_TEXT_ASCII) != 0;
+        int bytesPerChar = isAscii ? 1 : 2;
 
         if (textLen < 0)
             throw new InvalidOperationException(
@@ -151,16 +165,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             throw new InvalidOperationException(
                 $"Invalid storage format: text offset {textOff} is outside valid range [{headerSize}, {storageSize}).");
 
-        long textEnd = textOff + (long)textLen * sizeof(char);
+        long textEnd = textOff + (long)textLen * bytesPerChar;
         if (textEnd > storageSize)
             throw new InvalidOperationException(
                 $"Invalid storage format: text region [{textOff}, {textEnd}) exceeds storage size {storageSize}.");
 
-        // P17+S19+S21: Read pre-computed deepest internal node offset.
-        // Only v5 headers define this field at offset 72. For v3/v4 headers
-        // offset 72 falls inside node data — must not be read.
+        // Read pre-computed deepest internal node offset.
         long deepestNode = PersistentConstants.NULL_OFFSET;
-        if (version == 5)
         {
             long raw = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE);
             if (raw != 0 && raw != PersistentConstants.NULL_OFFSET)
@@ -172,9 +183,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             }
         }
 
+        // Read pre-computed LRS depth from header
+        int lrsDepth = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_LRS_DEPTH);
+
         return new PersistentSuffixTree(storage, root, layout: layout,
             transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd,
-            deepestInternalNodeOffset: deepestNode);
+            deepestInternalNodeOffset: deepestNode, lrsDepth: lrsDepth);
     }
 
     /// <inheritdoc />
@@ -266,7 +280,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         ThrowIfDisposed();
         if (value.IsEmpty) return true;
-        var (node, matched) = MatchPatternCore(value);
+        var (node, matched, _) = MatchPatternCore(value);
         return matched;
     }
 
@@ -289,11 +303,11 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             return all;
         }
 
-        var (node, matched) = MatchPatternCore(pattern);
+        var (node, matched, depthFromRoot) = MatchPatternCore(pattern);
         if (!matched) return Array.Empty<int>();
 
         var results = new List<int>((int)node.LeafCount);
-        CollectLeaves(node, (int)node.DepthFromRoot, results);
+        CollectLeaves(node, depthFromRoot, results);
         return results;
     }
 
@@ -310,7 +324,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         ThrowIfDisposed();
         if (pattern.IsEmpty) return _textSource.Length;
-        var (node, matched) = MatchPatternCore(pattern);
+        var (node, matched, _) = MatchPatternCore(pattern);
         return matched ? (int)node.LeafCount : 0;
     }
 
@@ -320,16 +334,17 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         ThrowIfDisposed();
         if (_cachedLrs != null) return _cachedLrs;
 
-        var deepest = FindDeepestInternalNode(NodeAt(_rootOffset));
+        var (deepest, lrsDepth) = FindDeepestInternalNodeWithDepth(NodeAt(_rootOffset));
         if (deepest.IsNull || deepest.Offset == _rootOffset)
         {
             _cachedLrs = string.Empty;
             return string.Empty;
         }
 
-        int length = (int)deepest.DepthFromRoot + LengthOf(deepest);
+        int length = lrsDepth;
+        int depthFromRoot = length - LengthOf(deepest);
         var nav = CreateNavigator();
-        int leafPos = nav.FindAnyLeafPosition(deepest);
+        int leafPos = nav.FindAnyLeafPosition(deepest, depthFromRoot);
         string result = leafPos < 0 ? string.Empty : _textSource.Substring(leafPos, length);
         _cachedLrs = result;
         return result;
@@ -586,14 +601,15 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     }
 
     // Internal helpers
-    private (PersistentSuffixTreeNode node, bool matched) MatchPatternCore(ReadOnlySpan<char> pattern)
+    private (PersistentSuffixTreeNode node, bool matched, int depthFromRoot) MatchPatternCore(ReadOnlySpan<char> pattern)
     {
         var node = NodeAt(_rootOffset);
+        int depthFromRoot = 0; // depth to START of node's edge
         int i = 0;
         while (i < pattern.Length)
         {
             if (!TryGetChildOf(node, (uint)pattern[i], out var child) || child.IsNull)
-                return (node, false);
+                return (node, false, depthFromRoot);
 
             int edgeStart = (int)child.Start;
             int edgeLen = LengthOf(child);
@@ -601,7 +617,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             int compareLen = edgeLen < remaining ? edgeLen : remaining;
 
             if (edgeStart + compareLen > _textSource.Length)
-                return (node, false);
+                return (node, false, depthFromRoot);
 
             var edgeSpan = _textSource.Slice(edgeStart, compareLen);
 
@@ -609,21 +625,23 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             if (compareLen >= 8)
             {
                 if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
-                    return (node, false);
+                    return (node, false, depthFromRoot);
             }
             else
             {
                 for (int j = 0; j < compareLen; j++)
                 {
                     if (edgeSpan[j] != pattern[i + j])
-                        return (node, false);
+                        return (node, false, depthFromRoot);
                 }
             }
 
             i += compareLen;
+            int childDFR = depthFromRoot + LengthOf(node);
             node = child;
+            depthFromRoot = childDFR;
         }
-        return (node, true);
+        return (node, true, depthFromRoot);
     }
 
     /// <summary>
@@ -674,30 +692,33 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     private PersistentSuffixTreeNavigator CreateNavigator()
         => new PersistentSuffixTreeNavigator(_storage, _rootOffset, _textSource, _hybrid);
 
-    private PersistentSuffixTreeNode FindDeepestInternalNode(PersistentSuffixTreeNode root)
+    private (PersistentSuffixTreeNode Node, int Depth) FindDeepestInternalNodeWithDepth(PersistentSuffixTreeNode root)
     {
-        // Use pre-computed offset from builder if available (O(1) path)
+        // Use pre-computed offset + depth from builder/header if available (O(1) path)
         if (_deepestInternalNodeOffset != PersistentConstants.NULL_OFFSET
-            && _deepestInternalNodeOffset != _rootOffset)
+            && _deepestInternalNodeOffset != _rootOffset
+            && _lrsDepth > 0)
         {
-            return NodeAt(_deepestInternalNodeOffset);
+            return (NodeAt(_deepestInternalNodeOffset), _lrsDepth);
         }
 
-        if (root.IsLeaf) return PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
+        if (root.IsLeaf) return (PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout), 0);
 
+        // Fallback: DFS with on-the-fly depth accumulation (works for all formats including v6 Slim)
         var deepest = root;
-        int maxDepth = (int)root.DepthFromRoot + LengthOf(root);
+        int maxDepth = 0;
 
-        var stack = new Stack<PersistentSuffixTreeNode>();
-        stack.Push(root);
+        // (node, depthFromRoot)
+        var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
+        stack.Push((root, 0));
 
         while (stack.Count > 0)
         {
-            var node = stack.Pop();
+            var (node, depthFromRoot) = stack.Pop();
 
             if (!node.IsLeaf)
             {
-                int nodeDepth = (int)node.DepthFromRoot + LengthOf(node);
+                int nodeDepth = depthFromRoot + LengthOf(node);
                 if (nodeDepth > maxDepth)
                 {
                     maxDepth = nodeDepth;
@@ -711,12 +732,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                     long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
                     var child = NodeAt(childOffset);
                     if (!child.IsLeaf)
-                        stack.Push(child);
+                        stack.Push((child, nodeDepth));
                 }
             }
         }
 
-        return deepest;
+        return (deepest, maxDepth);
     }
 
     /// <summary>Disposes the tree, releasing storage and text source resources.</summary>

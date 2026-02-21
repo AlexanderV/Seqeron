@@ -69,7 +69,7 @@ public partial class SuffixTree
         public void CollectLeaves(SuffixTreeNode node, int depth, List<int> results)
             => _tree.CollectLeaves(node, depth, results);
 
-        public int FindAnyLeafPosition(SuffixTreeNode node)
-            => _tree.FindAnyLeafPosition(node);
+        public int FindAnyLeafPosition(SuffixTreeNode node, int depthFromRoot)
+            => _tree.FindAnyLeafPosition(node, depthFromRoot);
     }
 }

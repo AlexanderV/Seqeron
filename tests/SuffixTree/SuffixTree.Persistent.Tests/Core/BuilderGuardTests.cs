@@ -96,16 +96,15 @@ public class BuilderGuardTests
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
         builder.Build(new StringTextSource("banana"));
 
-        // After Build, the builder's in-memory child dictionary should be empty
+        // After Build, the builder's in-memory collections should be empty
         // to release memory. Verify via reflection.
-        var childrenField = typeof(PersistentSuffixTreeBuilder)
-            .GetField("_children", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        Assert.That(childrenField, Is.Not.Null, "Precondition: _children field must exist");
 
-        var children = childrenField!.GetValue(builder) as System.Collections.IDictionary;
-        Assert.That(children, Is.Not.Null, "Precondition: _children must be a dictionary");
-        Assert.That(children!.Count, Is.EqualTo(0),
-            "S20: _children must be cleared after Build to release memory");
+        // _crossZoneSuffixLinks must be cleared
+        var crossZoneField = typeof(PersistentSuffixTreeBuilder)
+            .GetField("_crossZoneSuffixLinks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var crossZone = crossZoneField?.GetValue(builder) as System.Collections.IDictionary;
+        Assert.That(crossZone?.Count ?? 0, Is.EqualTo(0),
+            "S20: _crossZoneSuffixLinks must be cleared after Build to release memory");
 
         // Also check _deferredSuffixLinks
         var deferredField = typeof(PersistentSuffixTreeBuilder)

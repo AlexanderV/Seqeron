@@ -131,20 +131,23 @@ public partial class SuffixTree
 
     /// <summary>
     /// Walks to any leaf descendant and returns its position in the source text.
-    /// Used by <see cref="SuffixTreeNavigator"/>.
+    /// <paramref name="depthFromRoot"/> is the cumulative depth from root to the
+    /// start of <paramref name="node"/>'s edge.
     /// </summary>
-    private int FindAnyLeafPosition(SuffixTreeNode node)
+    private int FindAnyLeafPosition(SuffixTreeNode node, int depthFromRoot)
     {
         var current = node;
+        int depth = depthFromRoot;
         var buffer = GetSearchBuffer();
         while (!current.IsLeaf)
         {
+            depth += LengthOf(current);
             current.GetChildren(buffer);
             if (buffer.Count == 0) return -1;
             current = buffer[buffer.Count - 1];
         }
-        int leafDepth = GetNodeDepth(current);
-        int pos = _text!.Length + 1 - leafDepth;
+        depth += LengthOf(current);
+        int pos = _text!.Length + 1 - depth;
         return (pos >= 0 && pos < _text.Length) ? pos : -1;
     }
 }

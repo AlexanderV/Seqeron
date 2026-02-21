@@ -15,10 +15,20 @@ namespace SuffixTree.Persistent;
 /// compact/large boundary allows compact-zone nodes to reference large-zone
 /// addresses through indirection entries.
 /// </para>
+/// <para>
+/// <b>Off-heap children</b>: parent→child edges are stored in a separate
+/// <see cref="IStorageProvider"/> (<c>_childStore</c>) as linked lists instead
+/// of a managed <c>Dictionary</c>. This keeps the managed heap near-zero
+/// during genome-scale builds where the dictionary would exceed 20 GB.
+/// </para>
 /// </summary>
+#pragma warning disable CA1001 // _childStore disposed in FinalizeTree (owned) or by caller (external)
 public class PersistentSuffixTreeBuilder
+#pragma warning restore CA1001
 {
     private readonly IStorageProvider _storage;
+    private readonly MappedFileStorageProvider? _mmfStorage;   // non-null when storage is MMF — enables unchecked fast-path
+    private readonly MappedFileStorageProvider? _mmfChildStore; // non-null when child storage is MMF
     private readonly NodeLayout _initialLayout;  // layout before any transition (always the compact variant)
     private NodeLayout _layout;                // switches Compact → Large on overflow
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
@@ -40,8 +50,21 @@ public class PersistentSuffixTreeBuilder
     private int _remainder;
     private int _position = -1;
     private long _lastCreatedInternalNodeOffset = PersistentConstants.NULL_OFFSET;
-    private readonly Dictionary<long, List<(uint Key, long ChildOffset)>> _children = new();
     private bool _built;
+
+    // Off-heap child storage: linked lists in a separate IStorageProvider.
+    // Each entry: [Key:uint4, NextIndex:int4, ChildOffset:long8] = 16 bytes.
+    // Node.ChildrenHead stores the entry INDEX (not byte offset) during build.
+    private readonly IStorageProvider _childStore;
+    private readonly bool _ownsChildStore;
+    private const int CHILD_ENTRY_SIZE = 16;
+    private const int CE_OFF_KEY = 0;
+    private const int CE_OFF_NEXT = 4;
+    private const int CE_OFF_CHILD = 8;
+
+    // Tracks the end of the last allocated node (used by MaterializeJumpTable
+    // to iterate compact-zone nodes without needing _children.Keys).
+    private long _maxNodeEndOffset;
 
     // Deferred cross-zone suffix links: compact-node → large-zone target
     // Written at FinalizeTree when the jump table is materialized.
@@ -52,8 +75,17 @@ public class PersistentSuffixTreeBuilder
     // from storage during the Ukkonen walk).  Only populated when transition occurs.
     private readonly Dictionary<long, long> _crossZoneSuffixLinks = new();
 
-    // Pre-computed during CalculateLeafCount — the internal node with maximum depth.
+    // Pre-computed during finalization DFS — the internal node with maximum depth.
     private long _deepestInternalNodeOffset = PersistentConstants.NULL_OFFSET;
+
+    // Off-heap depth storage for v6 Slim layouts (no DepthFromRoot in node).
+    // Indexed by sequential node number: depthOffset = NodeIndex(nodeOffset) * 4.
+    private readonly IStorageProvider? _depthStore;
+    private readonly MappedFileStorageProvider? _mmfDepthStore; // unchecked fast-path
+    private readonly bool _ownsDepthStore;
+
+    // Pre-computed LRS total depth (v6 Slim): DepthFromRoot + EdgeLen of deepest internal node.
+    private int _lrsDepth;
 
     /// <summary>
     /// Override the compact address-space limit. Used by <see cref="PersistentSuffixTreeFactory"/>
@@ -87,24 +119,77 @@ public class PersistentSuffixTreeBuilder
     /// </summary>
     internal long DeepestInternalNodeOffset => _deepestInternalNodeOffset;
 
+    /// <summary>
+    /// Pre-computed LRS total depth for v6 Slim layouts. 0 if not slim.
+    /// </summary>
+    internal int LrsDepth => _lrsDepth;
+
+    /// <summary>
+    /// Header size used by this builder's layout.
+    /// </summary>
+    private int HeaderSize => PersistentConstants.HEADER_SIZE_V6;
+
     /// <summary>Initializes a new builder with the specified storage provider and optional layout.</summary>
-    public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null)
+    /// <param name="storage">Main tree storage (the MMF or heap that holds the final tree).</param>
+    /// <param name="layout">Initial node layout (default: Compact).</param>
+    /// <param name="childStorage">
+    /// Optional separate storage for build-time child linked lists.
+    /// For genome-scale MMF builds, pass a <see cref="MappedFileStorageProvider"/> backed
+    /// by a temp file so that the ~8 GB of child-edge data stays off the managed heap.
+    /// When <c>null</c>, an internal <see cref="HeapStorageProvider"/> is created (fine for small trees and tests).
+    /// </param>
+    /// <param name="depthStorage">
+    /// Optional separate storage for build-time DepthFromRoot values.
+    /// When <c>null</c>, an internal <see cref="HeapStorageProvider"/> is created.
+    /// </param>
+    public PersistentSuffixTreeBuilder(IStorageProvider storage, NodeLayout? layout = null,
+                                        IStorageProvider? childStorage = null,
+                                        IStorageProvider? depthStorage = null)
     {
         _storage = storage;
+        _mmfStorage = storage as MappedFileStorageProvider;
         _layout = layout ?? NodeLayout.Compact;
         _initialLayout = _layout;
 
-        // Allocate header — use the larger v5 header size to leave room for hybrid fields.
-        // For pure Compact/Large builds the extra 16 bytes are unused but harmless.
-        _storage.Allocate(PersistentConstants.HEADER_SIZE_V5);
+        if (childStorage != null)
+        {
+            _childStore = childStorage;
+            _ownsChildStore = false;
+        }
+        else
+        {
+            _childStore = new HeapStorageProvider();
+            _ownsChildStore = true;
+        }
+        _mmfChildStore = _childStore as MappedFileStorageProvider;
+
+        // Off-heap depth storage (DepthFromRoot not stored in node)
+        if (depthStorage != null)
+        {
+            _depthStore = depthStorage;
+            _ownsDepthStore = false;
+        }
+        else
+        {
+            _depthStore = new HeapStorageProvider();
+            _ownsDepthStore = true;
+        }
+        _mmfDepthStore = _depthStore as MappedFileStorageProvider;
+
+        // Allocate header (88 bytes).
+        _storage.Allocate(HeaderSize);
 
         _rootOffset = _storage.Allocate(_layout.NodeSize);
+        _maxNodeEndOffset = _rootOffset + _layout.NodeSize;
         _nodeCount = 1;
         var root = new PersistentSuffixTreeNode(_storage, _rootOffset, _layout);
         root.Start = 0;
         root.End = 0;
         root.SuffixLink = PersistentConstants.NULL_OFFSET;
         root.ChildrenHead = PersistentConstants.NULL_OFFSET;
+
+        // Root depth = 0 (default from zero-init for both node field and depth store)
+        _depthStore.Allocate(4); // index 0 for root, value = 0
 
         _activeNodeOffset = _rootOffset;
     }
@@ -151,21 +236,46 @@ public class PersistentSuffixTreeBuilder
             if (_activeLength == 0)
                 _activeEdgeIndex = _position;
 
-            var activeLayout = LayoutOf(_activeNodeOffset);
-            var activeNode = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, activeLayout);
             uint activeEdgeKey = GetSymbolAt(_activeEdgeIndex);
+
+            // Fast-path: read active node depth via unchecked compact MMF
+            uint activeNodeDepth;
+            if (IsCompactMmf(_activeNodeOffset))
+            {
+                uint aStart = ReadStartUnchecked(_activeNodeOffset);
+                uint aEnd = ReadEndUnchecked(_activeNodeOffset);
+                int aEdgeLen = (int)((aEnd == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : aEnd) - aStart);
+                activeNodeDepth = GetBuildDepth(_activeNodeOffset) + (uint)aEdgeLen;
+            }
+            else
+            {
+                var activeNode = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, LayoutOf(_activeNodeOffset));
+                activeNodeDepth = GetNodeDepth(activeNode);
+            }
 
             if (!BuilderTryGetChild(_activeNodeOffset, activeEdgeKey, out var nextChildOffset))
             {
-                var leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, GetNodeDepth(activeNode));
+                var leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, activeNodeDepth);
                 BuilderSetChild(_activeNodeOffset, activeEdgeKey, leafOffset);
                 AddSuffixLink(_activeNodeOffset);
             }
             else
             {
-                var nextChildLayout = LayoutOf(nextChildOffset);
-                var nextChild = new PersistentSuffixTreeNode(_storage, nextChildOffset, nextChildLayout);
-                int edgeLen = LengthOf(nextChild);
+                // Read nextChild Start/End via unchecked path if possible
+                uint ncStart, ncEnd;
+                if (IsCompactMmf(nextChildOffset))
+                {
+                    ncStart = ReadStartUnchecked(nextChildOffset);
+                    ncEnd = ReadEndUnchecked(nextChildOffset);
+                }
+                else
+                {
+                    var nextChild = new PersistentSuffixTreeNode(_storage, nextChildOffset, LayoutOf(nextChildOffset));
+                    ncStart = nextChild.Start;
+                    ncEnd = nextChild.End;
+                }
+
+                int edgeLen = (int)((ncEnd == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : ncEnd) - ncStart);
                 if (_activeLength >= edgeLen)
                 {
                     _activeEdgeIndex += edgeLen;
@@ -174,26 +284,47 @@ public class PersistentSuffixTreeBuilder
                     continue;
                 }
 
-                if (GetSymbolAt((int)(nextChild.Start + (uint)_activeLength)) == key)
+                if (GetSymbolAt((int)(ncStart + (uint)_activeLength)) == key)
                 {
                     _activeLength++;
                     AddSuffixLink(_activeNodeOffset);
                     break;
                 }
 
-                // Split edge — new split node uses CURRENT layout (may be Large if transitioned)
-                long splitOffset = CreateNode(nextChild.Start, nextChild.Start + (uint)_activeLength, nextChild.DepthFromRoot);
-                var splitLayout = LayoutOf(splitOffset);
-                var split = new PersistentSuffixTreeNode(_storage, splitOffset, splitLayout);
+                // Split edge
+                uint nextChildDFR = GetBuildDepth(nextChildOffset);
+                long splitOffset = CreateNode(ncStart, ncStart + (uint)_activeLength, nextChildDFR);
+
+                // Read split node's edge length for depth calc
+                uint splitStart, splitEnd;
+                if (IsCompactMmf(splitOffset))
+                {
+                    splitStart = ReadStartUnchecked(splitOffset);
+                    splitEnd = ReadEndUnchecked(splitOffset);
+                }
+                else
+                {
+                    var split = new PersistentSuffixTreeNode(_storage, splitOffset, LayoutOf(splitOffset));
+                    splitStart = split.Start;
+                    splitEnd = split.End;
+                }
+
                 BuilderSetChild(_activeNodeOffset, activeEdgeKey, splitOffset);
 
-                long leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, split.DepthFromRoot + (uint)LengthOf(split));
+                int splitEdgeLen = (int)((splitEnd == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : splitEnd) - splitStart);
+                uint splitEndDepth = GetBuildDepth(splitOffset) + (uint)splitEdgeLen;
+                long leafOffset = CreateNode((uint)_position, PersistentConstants.BOUNDLESS, splitEndDepth);
                 BuilderSetChild(splitOffset, key, leafOffset);
 
-                // Update the original child's metadata using its original layout
-                nextChild.Start += (uint)_activeLength;
-                nextChild.DepthFromRoot = split.DepthFromRoot + (uint)LengthOf(split);
-                BuilderSetChild(splitOffset, GetSymbolAt((int)nextChild.Start), nextChildOffset);
+                // Update the original child's Start
+                uint newStart = ncStart + (uint)_activeLength;
+                if (IsCompactMmf(nextChildOffset))
+                    WriteStartUnchecked(nextChildOffset, newStart);
+                else
+                    new PersistentSuffixTreeNode(_storage, nextChildOffset, LayoutOf(nextChildOffset)).Start = newStart;
+
+                SetBuildDepth(nextChildOffset, splitEndDepth);
+                BuilderSetChild(splitOffset, GetSymbolAt((int)newStart), nextChildOffset);
 
                 AddSuffixLink(splitOffset);
             }
@@ -206,15 +337,14 @@ public class PersistentSuffixTreeBuilder
             }
             else if (_activeNodeOffset != _rootOffset)
             {
-                // Read suffix link — use in-memory dictionary for cross-zone
-                // links to avoid uint32 truncation on compact nodes (C11).
                 long suffLink;
                 if (_crossZoneSuffixLinks.TryGetValue(_activeNodeOffset, out long resolved))
                     suffLink = resolved;
+                else if (IsCompactMmf(_activeNodeOffset))
+                    suffLink = ReadSuffixLinkUnchecked(_activeNodeOffset);
                 else
                 {
-                    var nodeLayout = LayoutOf(_activeNodeOffset);
-                    var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, nodeLayout);
+                    var node = new PersistentSuffixTreeNode(_storage, _activeNodeOffset, LayoutOf(_activeNodeOffset));
                     suffLink = node.SuffixLink;
                 }
                 _activeNodeOffset = suffLink != PersistentConstants.NULL_OFFSET ? suffLink : _rootOffset;
@@ -239,7 +369,7 @@ public class PersistentSuffixTreeBuilder
                 _transitionOffset = currentSize;
                 _layout = NodeLayout.Large;
                 // The caller passed the Compact node size; now that _layout
-                // has switched to Large we must allocate the larger block.
+                // has switched to Large/SlimLarge we must allocate the larger block.
                 size = _layout.NodeSize;
             }
         }
@@ -250,13 +380,34 @@ public class PersistentSuffixTreeBuilder
     {
         _nodeCount++;
         long offset = AllocateChecked(_layout.NodeSize);
-        var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
-        node.Start = start;
-        node.End = end;
-        node.DepthFromRoot = depthFromRoot;
-        node.SuffixLink = PersistentConstants.NULL_OFFSET;
-        node.ChildrenHead = PersistentConstants.NULL_OFFSET;
-        node.LeafCount = 0;
+        _maxNodeEndOffset = offset + _layout.NodeSize;
+
+        // Fast-path: Compact layout on MMF — bulk-write all 24 bytes in one shot
+        // instead of 6 individual IStorageProvider calls (each with ThrowIfDisposed+CheckBounds).
+        if (_mmfStorage != null && !_layout.OffsetIs64Bit)
+        {
+            unsafe
+            {
+                byte* p = _mmfStorage.RawPointer + offset;
+                *(uint*)(p + 0) = start;                   // Start
+                *(uint*)(p + 4) = end;                     // End
+                *(uint*)(p + 8) = uint.MaxValue;           // SuffixLink = NULL (compact sentinel)
+                *(uint*)(p + 12) = 0;                      // LeafCount = 0
+                *(uint*)(p + 16) = uint.MaxValue;          // ChildrenHead = NULL (compact sentinel)
+                *(int*)(p + 20) = 0;                       // ChildCount = 0
+            }
+        }
+        else
+        {
+            var node = new PersistentSuffixTreeNode(_storage, offset, _layout);
+            node.Start = start;
+            node.End = end;
+            node.SuffixLink = PersistentConstants.NULL_OFFSET;
+            node.ChildrenHead = PersistentConstants.NULL_OFFSET;
+            node.LeafCount = 0;
+        }
+
+        SetBuildDepth(offset, depthFromRoot);
         return offset;
     }
 
@@ -264,28 +415,26 @@ public class PersistentSuffixTreeBuilder
     {
         if (_lastCreatedInternalNodeOffset != PersistentConstants.NULL_OFFSET)
         {
-            var sourceLayout = LayoutOf(_lastCreatedInternalNodeOffset);
-            bool sourceIsCompact = !sourceLayout.OffsetIs64Bit;
+            bool sourceIsCompact = _transitionOffset < 0 || _lastCreatedInternalNodeOffset < _transitionOffset;
             bool targetInLargeZone = _transitionOffset >= 0 && nodeOffset >= _transitionOffset;
-
-            var lastNode = new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, sourceLayout);
 
             if (sourceIsCompact && targetInLargeZone)
             {
                 // Cross-zone link: 64-bit offset can't fit in a compact 32-bit field.
-                // Write NULL as a placeholder — MaterializeJumpTable will patch it
-                // with a jump-table entry during finalization.
-                lastNode.SuffixLink = PersistentConstants.NULL_OFFSET;
+                if (IsCompactMmf(_lastCreatedInternalNodeOffset))
+                    WriteSuffixLinkUnchecked(_lastCreatedInternalNodeOffset, PersistentConstants.NULL_OFFSET);
+                else
+                    new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, LayoutOf(_lastCreatedInternalNodeOffset)).SuffixLink = PersistentConstants.NULL_OFFSET;
 
                 _deferredSuffixLinks.Add((_lastCreatedInternalNodeOffset, nodeOffset));
-
-                // Keep the correct target in memory so ExtendTree can follow
-                // cross-zone suffix links accurately during construction.
                 _crossZoneSuffixLinks[_lastCreatedInternalNodeOffset] = nodeOffset;
             }
             else
             {
-                lastNode.SuffixLink = nodeOffset;
+                if (IsCompactMmf(_lastCreatedInternalNodeOffset))
+                    WriteSuffixLinkUnchecked(_lastCreatedInternalNodeOffset, nodeOffset);
+                else
+                    new PersistentSuffixTreeNode(_storage, _lastCreatedInternalNodeOffset, LayoutOf(_lastCreatedInternalNodeOffset)).SuffixLink = nodeOffset;
             }
         }
         _lastCreatedInternalNodeOffset = nodeOffset;
@@ -301,6 +450,35 @@ public class PersistentSuffixTreeBuilder
             ? NodeLayout.Large
             : _initialLayout;
 
+    /// <summary>Whether the node is in compact zone backed by MMF — enables unchecked direct pointer access.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private bool IsCompactMmf(long nodeOffset)
+        => _mmfStorage != null && (_transitionOffset < 0 || nodeOffset < _transitionOffset);
+
+    // ──── Unchecked compact-node field readers (bypass interface dispatch + bounds checks) ────
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private uint ReadStartUnchecked(long nodeOffset) => _mmfStorage!.ReadUInt32Unchecked(nodeOffset + 0);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private uint ReadEndUnchecked(long nodeOffset) => _mmfStorage!.ReadUInt32Unchecked(nodeOffset + 4);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private long ReadSuffixLinkUnchecked(long nodeOffset)
+    {
+        uint raw = _mmfStorage!.ReadUInt32Unchecked(nodeOffset + 8);
+        return raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private void WriteSuffixLinkUnchecked(long nodeOffset, long value)
+        => _mmfStorage!.WriteUInt32Unchecked(nodeOffset + 8,
+            value == PersistentConstants.NULL_OFFSET ? uint.MaxValue : (uint)value);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private void WriteStartUnchecked(long nodeOffset, uint value)
+        => _mmfStorage!.WriteUInt32Unchecked(nodeOffset + 0, value);
+
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private uint GetSymbolAt(int index)
     {
@@ -315,29 +493,92 @@ public class PersistentSuffixTreeBuilder
         => (int)((node.End == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : node.End) - node.Start);
 
     private uint GetNodeDepth(PersistentSuffixTreeNode node)
-        => node.DepthFromRoot + (uint)LengthOf(node);
+        => GetBuildDepth(node.Offset) + (uint)LengthOf(node);
+
+    /// <summary>
+    /// Checks whether every character in the input text is pure ASCII (0-127).
+    /// When true, the builder stores text as 1 byte/char, halving disk usage.
+    /// Uses SIMD-accelerated <c>System.Text.Ascii.IsValid</c> when available.
+    /// </summary>
+    private bool IsTextAscii()
+    {
+        if (_rawString != null)
+            return System.Text.Ascii.IsValid(_rawString);
+        for (int i = 0; i < _text.Length; i++)
+            if (_text[i] > 127) return false;
+        return true;
+    }
+
+    // ──────────────── Off-heap depth helpers ────────────────
+
+    /// <summary>Maps a node storage offset to a sequential 0-based index.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private int NodeIndex(long nodeOffset)
+    {
+        int hdr = HeaderSize;
+        if (_transitionOffset >= 0 && nodeOffset >= _transitionOffset)
+        {
+            int compactCount = (int)((_transitionOffset - hdr) / _initialLayout.NodeSize);
+            return compactCount + (int)((nodeOffset - _transitionOffset) / NodeLayout.Large.NodeSize);
+        }
+        return (int)((nodeOffset - hdr) / _initialLayout.NodeSize);
+    }
+
+    /// <summary>Reads DepthFromRoot for a node from off-heap depth store.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private uint GetBuildDepth(long nodeOffset)
+    {
+        long off = (long)NodeIndex(nodeOffset) * 4;
+        if (_mmfDepthStore != null)
+            return _mmfDepthStore.ReadUInt32Unchecked(off);
+        return _depthStore!.ReadUInt32(off);
+    }
+
+    /// <summary>Writes DepthFromRoot for a node to off-heap depth store.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private void SetBuildDepth(long nodeOffset, uint value)
+    {
+        int idx = NodeIndex(nodeOffset);
+        long off = (long)idx * 4;
+        while (_depthStore!.Size < off + 4)
+            _depthStore.Allocate(4);
+        if (_mmfDepthStore != null)
+            _mmfDepthStore.WriteUInt32Unchecked(off, value);
+        else
+            _depthStore.WriteUInt32(off, value);
+    }
 
     // ──────────────── Finalize ────────────────
 
     private void FinalizeTree()
     {
-        // Calculate leaf counts (zone-aware)
-        CalculateLeafCount(_rootOffset);
-
-        // Materialize a contiguous jump table for ALL cross-zone references:
-        // 1. Deferred suffix links (compact node → large zone target)
-        // 2. Child array jumps (compact parent with large-zone children)
+        // Materialize a contiguous jump table for ALL cross-zone references
+        // BEFORE the combined DFS so child-array jump slots are available.
         if (IsHybrid)
             MaterializeJumpTable();
 
-        // Write sorted children arrays to storage (zone-aware)
-        WriteChildrenArrays();
+        // Release depth storage before the DFS — depth is tracked inline
+        // in the DFS stack, so we no longer need the off-heap depth data.
+        // This frees the temp MMF file early for genome-scale builds.
+        if (_ownsDepthStore)
+            _depthStore?.Dispose();
 
-        // Store text in storage for true persistence (chunked write, no full-string copy)
-        long textByteLen = (long)_text.Length * 2;
+        // Single post-order DFS: compute leaf counts, find deepest internal node,
+        // and write sorted children arrays — all in one traversal.
+        CalculateLeafCountAndWriteChildrenArrays(_rootOffset);
+
+        // Release temp child storage — no longer needed after child arrays are written
+        if (_ownsChildStore)
+            _childStore.Dispose();
+
+        // Store text in storage for true persistence (chunked write, no full-string copy).
+        // Use ASCII (1 byte/char) when all characters fit in 0-127, else UTF-16 (2 bytes/char).
+        bool textIsAscii = IsTextAscii();
+        int bytesPerChar = textIsAscii ? 1 : 2;
+        long textByteLen = (long)_text.Length * bytesPerChar;
         if (textByteLen > int.MaxValue)
             throw new InvalidOperationException(
-                $"Text length {_text.Length} exceeds maximum serializable size ({int.MaxValue / 2} characters).");
+                $"Text length {_text.Length} exceeds maximum serializable size.");
         long textOffset = _storage.Allocate((int)textByteLen);
         const int ChunkChars = 4096;
         byte[] chunkBuf = ArrayPool<byte>.Shared.Rent(ChunkChars * 2);
@@ -349,8 +590,19 @@ public class PersistentSuffixTreeBuilder
                 int remaining = _text.Length - written;
                 int chunkLen = remaining < ChunkChars ? remaining : ChunkChars;
                 var charSpan = _text.Slice(written, chunkLen);
-                int byteCount = Encoding.Unicode.GetBytes(charSpan, chunkBuf.AsSpan());
-                _storage.WriteBytes(textOffset + (long)written * 2, chunkBuf, 0, byteCount);
+                int byteCount;
+                if (textIsAscii)
+                {
+                    // Write 1 byte per char (ASCII fast path)
+                    for (int i = 0; i < chunkLen; i++)
+                        chunkBuf[i] = (byte)charSpan[i];
+                    byteCount = chunkLen;
+                }
+                else
+                {
+                    byteCount = Encoding.Unicode.GetBytes(charSpan, chunkBuf.AsSpan());
+                }
+                _storage.WriteBytes(textOffset + (long)written * bytesPerChar, chunkBuf, 0, byteCount);
                 written += chunkLen;
             }
         }
@@ -359,35 +611,38 @@ public class PersistentSuffixTreeBuilder
             ArrayPool<byte>.Shared.Return(chunkBuf);
         }
 
-        // Write Header — use v5 for Compact-initial and hybrid trees (80-byte header
-        // with DEEPEST_NODE, transition fields). Large-initial trees (test-only) keep v3.
-        // Non-hybrid Compact trees use v5 to leverage DEEPEST_NODE for O(1) LRS.
-        int version = _initialLayout.OffsetIs64Bit ? _layout.Version : 5;
+        // Write v6 Header (88 bytes)
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
-        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, version);
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 6);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, textOffset);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, _text.Length);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_NODE_COUNT, _nodeCount);
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_FLAGS,
+            textIsAscii ? PersistentConstants.FLAG_TEXT_ASCII : 0);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, _storage.Size);
 
-        if (version == 5)
-        {
-            // Write hybrid fields — set to -1 for non-hybrid trees
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION,
-                IsHybrid ? _transitionOffset : -1);
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START,
-                IsHybrid ? _jumpTableStart : -1);
-            _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END,
-                IsHybrid ? _jumpTableEnd : -1);
-        }
+        // Hybrid fields — set to -1 for non-hybrid trees
+        _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION,
+            IsHybrid ? _transitionOffset : -1);
+        _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START,
+            IsHybrid ? _jumpTableStart : -1);
+        _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END,
+            IsHybrid ? _jumpTableEnd : -1);
 
-        // P17: Persist deepest internal node offset for O(1) LRS on Load
+        // Deepest internal node offset for O(1) LRS on Load
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, _deepestInternalNodeOffset);
+
+        // LRS total depth
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_LRS_DEPTH, _lrsDepth);
+
+        // Base layout node size (for Load() to distinguish Compact vs Large base)
+        _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_BASE_NODE_SIZE, _initialLayout.NodeSize);
+
+        // Note: _depthStore was already disposed before the DFS (depth tracked inline).
 
         // S20: Release in-memory build collections — the tree is fully serialized,
         // keeping these alive wastes memory if the builder instance is held.
-        _children.Clear();
         CrossZoneSuffixLinkCount = _deferredSuffixLinks.Count;
         _deferredSuffixLinks.Clear();
         _crossZoneSuffixLinks.Clear();
@@ -399,7 +654,7 @@ public class PersistentSuffixTreeBuilder
 
     /// <summary>
     /// Pre-calculates and allocates a contiguous jump table for ALL cross-zone references.
-    /// Must be called BEFORE WriteChildrenArrays so all jump slots are available.
+    /// Must be called BEFORE the combined leaf-count/child-array DFS so all jump slots are available.
     /// </summary>
     private void MaterializeJumpTable()
     {
@@ -409,20 +664,14 @@ public class PersistentSuffixTreeBuilder
         // Count child-array jump entries: compact parents with any child in large zone
         int childArrayJumps = 0;
         var compactParentsNeedingJump = new List<long>();
-        foreach (var (nodeOffset, childList) in _children)
+
+        long compactEnd = Math.Min(_transitionOffset, _maxNodeEndOffset);
+        for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
         {
-            var parentLayout = LayoutOf(nodeOffset);
-            if (!parentLayout.OffsetIs64Bit)
+            if (ChildListHasLargeZoneTarget(offset))
             {
-                foreach (var (_, childOffset) in childList)
-                {
-                    if (childOffset >= _transitionOffset)
-                    {
-                        childArrayJumps++;
-                        compactParentsNeedingJump.Add(nodeOffset);
-                        break;
-                    }
-                }
+                childArrayJumps++;
+                compactParentsNeedingJump.Add(offset);
             }
         }
 
@@ -455,7 +704,7 @@ public class PersistentSuffixTreeBuilder
             node.SuffixLink = jumpEntryOffset;
         }
 
-        // Pre-allocate slots for child-array jumps (filled later in WriteChildrenArrays)
+        // Pre-allocate slots for child-array jumps (filled later in the combined DFS)
         _childArrayJumpSlots = new Dictionary<long, long>(childArrayJumps);
         for (int i = 0; i < compactParentsNeedingJump.Count; i++, slotIndex++)
         {
@@ -465,175 +714,418 @@ public class PersistentSuffixTreeBuilder
         }
     }
 
+    /// <summary>Checks whether any child of the node at <paramref name="nodeOffset"/> is in the large zone.</summary>
+    private bool ChildListHasLargeZoneTarget(long nodeOffset)
+    {
+        var node = new PersistentSuffixTreeNode(_storage, nodeOffset, LayoutOf(nodeOffset));
+        long headIndex = node.ChildrenHead;
+        if (headIndex == PersistentConstants.NULL_OFFSET) return false;
+
+        int idx = (int)headIndex;
+        while (idx >= 0)
+        {
+            long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+            long childOffset = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+            if (childOffset >= _transitionOffset)
+                return true;
+            idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+        }
+        return false;
+    }
+
     // Map from compact parent offset → pre-allocated jump entry offset for child arrays
     private Dictionary<long, long>? _childArrayJumpSlots;
 
-    // ──────────────── Leaf count ────────────────
+    // ──────────────── Combined leaf-count + child-array pass ────────────────
 
-    private void CalculateLeafCount(long rootOffset)
+    /// <summary>
+    /// Single post-order DFS that (a) computes LeafCount for every node,
+    /// (b) finds the deepest internal node, and (c) collects, sorts, and
+    /// writes the final child arrays — eliminating the previous two-pass
+    /// approach (CalculateLeafCount + WriteChildrenArrays).
+    /// <para>
+    /// Depth is tracked inline in the DFS stack (no _depthStore reads during
+    /// finalization), which avoids O(N) random reads from a temp MMF.
+    /// Peak stack size is O(branching_factor × tree_depth), typically a few MB
+    /// for genome-scale data (DNA alphabet 5, depth ~50K → ~250K entries).
+    /// </para>
+    /// </summary>
+    private void CalculateLeafCountAndWriteChildrenArrays(long rootOffset)
     {
-        var workStack = new Stack<long>();
-        var resultStack = new Stack<long>();
+        // Stack entry: (nodeOffset, childrenPushed, depthFromRoot).
+        // depthFromRoot = parent's depthFromRoot + parent's edge length.
+        var stack = new Stack<(long Offset, bool ChildrenPushed, int DepthFromRoot)>();
+        stack.Push((rootOffset, false, 0));
 
-        workStack.Push(rootOffset);
-
-        while (workStack.Count > 0)
-        {
-            long offset = workStack.Pop();
-            resultStack.Push(offset);
-
-            if (_children.TryGetValue(offset, out var childList))
-            {
-                foreach (var (_, childOffset) in childList)
-                    workStack.Push(childOffset);
-            }
-        }
-
-        // Track deepest internal node during the bottom-up pass
         long deepestOffset = rootOffset;
         int maxDepth = 0;
 
-        while (resultStack.Count > 0)
-        {
-            long offset = resultStack.Pop();
-            var layout = LayoutOf(offset);
-            var node = new PersistentSuffixTreeNode(_storage, offset, layout);
+        // Reusable buffer for collecting children (cleared each use)
+        var childBuf = new List<(uint Key, long ChildOffset)>();
 
-            if (node.IsLeaf)
+        // Cache MMF references to avoid repeated null-checks in inner loop
+        var mmfMain = _mmfStorage;
+        var mmfChild = _mmfChildStore;
+
+        while (stack.Count > 0)
+        {
+            var (offset, childrenPushed, depthFromRoot) = stack.Pop();
+            var layout = LayoutOf(offset);
+            bool isCompact = mmfMain != null && !layout.OffsetIs64Bit;
+
+            // Read End to check IsLeaf
+            uint nodeEnd = isCompact
+                ? mmfMain!.ReadUInt32Unchecked(offset + 4)
+                : new PersistentSuffixTreeNode(_storage, offset, layout).End;
+
+            if (nodeEnd == PersistentConstants.BOUNDLESS) // IsLeaf
             {
-                node.LeafCount = 1;
+                // Write LeafCount = 1
+                if (isCompact)
+                    mmfMain!.WriteUInt32Unchecked(offset + 12, 1); // LeafCount offset=12 in Compact
+                else
+                    new PersistentSuffixTreeNode(_storage, offset, layout).LeafCount = 1;
+                continue;
             }
-            else
+
+            if (childrenPushed)
             {
+                // ── Post-order: all children already processed ──
+
+                // 1. Collect children from _childStore and sum leaf counts in one pass
+                childBuf.Clear();
                 uint totalLeaves = 0;
-                if (_children.TryGetValue(offset, out var childList))
+
+                long headIndex;
+                if (isCompact)
                 {
-                    foreach (var (_, childOffset) in childList)
+                    uint raw = mmfMain!.ReadUInt32Unchecked(offset + 16);
+                    headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+                }
+                else
+                {
+                    headIndex = new PersistentSuffixTreeNode(_storage, offset, layout).ChildrenHead;
+                }
+
+                if (headIndex != PersistentConstants.NULL_OFFSET)
+                {
+                    int idx = (int)headIndex;
+                    if (mmfChild != null)
                     {
-                        var childLayout = LayoutOf(childOffset);
-                        var child = new PersistentSuffixTreeNode(_storage, childOffset, childLayout);
-                        totalLeaves += child.LeafCount;
+                        while (idx >= 0)
+                        {
+                            long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                            uint key = mmfChild.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
+                            long childOffset = mmfChild.ReadInt64Unchecked(entryOff + CE_OFF_CHILD);
+
+                            // Read child's LeafCount
+                            var childLayout = LayoutOf(childOffset);
+                            bool childCompact = mmfMain != null && !childLayout.OffsetIs64Bit;
+                            uint childLeaves = childCompact
+                                ? mmfMain!.ReadUInt32Unchecked(childOffset + 12)
+                                : new PersistentSuffixTreeNode(_storage, childOffset, childLayout).LeafCount;
+                            totalLeaves += childLeaves;
+
+                            childBuf.Add((key, childOffset));
+                            idx = mmfChild.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
+                        }
+                    }
+                    else
+                    {
+                        while (idx >= 0)
+                        {
+                            long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                            uint key = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
+                            long childOffset = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+
+                            var childLayout = LayoutOf(childOffset);
+                            var child = new PersistentSuffixTreeNode(_storage, childOffset, childLayout);
+                            totalLeaves += child.LeafCount;
+
+                            childBuf.Add((key, childOffset));
+                            idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+                        }
                     }
                 }
-                node.LeafCount = totalLeaves;
 
-                // Track deepest internal node (by DepthFromRoot + edge length)
-                int nodeDepth = (int)node.DepthFromRoot + LengthOf(node);
+                // Write LeafCount
+                if (isCompact)
+                    mmfMain!.WriteUInt32Unchecked(offset + 12, totalLeaves);
+                else
+                    new PersistentSuffixTreeNode(_storage, offset, layout).LeafCount = totalLeaves;
+
+                // 2. Track deepest internal node (by DepthFromRoot + edge length)
+                uint nodeStart = isCompact
+                    ? mmfMain!.ReadUInt32Unchecked(offset + 0)
+                    : new PersistentSuffixTreeNode(_storage, offset, layout).Start;
+                int edgeLenHere = (int)((nodeEnd == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : nodeEnd) - nodeStart);
+                int nodeDepth = depthFromRoot + edgeLenHere;
                 if (nodeDepth > maxDepth)
                 {
                     maxDepth = nodeDepth;
                     deepestOffset = offset;
                 }
+
+                // 3. Sort by key using signed comparison (terminator=-1 first)
+                childBuf.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
+
+                // 4. Write sorted child array to main storage (skip if node has no children, e.g. empty-text root)
+                int count = childBuf.Count;
+                if (count > 0)
+                {
+                    bool parentIsCompact = !layout.OffsetIs64Bit;
+                    bool hasJumpSlot = parentIsCompact && _childArrayJumpSlots != null
+                        && _childArrayJumpSlots.ContainsKey(offset);
+
+                    NodeLayout arrayLayout = hasJumpSlot ? NodeLayout.Large : layout;
+
+                    int entrySize = arrayLayout.ChildEntrySize;
+                    int totalBytes = checked(count * entrySize);
+                    long arrayOffset = _storage.Allocate(totalBytes);
+
+                    byte[] buf = ArrayPool<byte>.Shared.Rent(totalBytes);
+                    try
+                    {
+                        for (int i = 0; i < count; i++)
+                        {
+                            int off = checked(i * entrySize);
+                            BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), childBuf[i].Key);
+                            if (arrayLayout.OffsetIs64Bit)
+                                BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), childBuf[i].ChildOffset);
+                            else
+                                BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off + 4, 4), (uint)childBuf[i].ChildOffset);
+                        }
+                        _storage.WriteBytes(arrayOffset, buf, 0, totalBytes);
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buf);
+                    }
+
+                    if (hasJumpSlot)
+                    {
+                        long jumpOffset = _childArrayJumpSlots![offset];
+                        _storage.WriteInt64(jumpOffset, arrayOffset);
+                        if (isCompact)
+                        {
+                            mmfMain!.WriteUInt32Unchecked(offset + 16, (uint)jumpOffset); // ChildrenHead
+                            mmfMain!.WriteInt32Unchecked(offset + 20, count | unchecked((int)0x80000000)); // ChildCount
+                        }
+                        else
+                        {
+                            var node2 = new PersistentSuffixTreeNode(_storage, offset, layout);
+                            node2.ChildrenHead = jumpOffset;
+                            node2.ChildCount = count | unchecked((int)0x80000000);
+                        }
+                    }
+                    else
+                    {
+                        if (isCompact)
+                        {
+                            mmfMain!.WriteUInt32Unchecked(offset + 16, (uint)arrayOffset); // ChildrenHead
+                            mmfMain!.WriteInt32Unchecked(offset + 20, count);               // ChildCount
+                        }
+                        else
+                        {
+                            var node2 = new PersistentSuffixTreeNode(_storage, offset, layout);
+                            node2.ChildrenHead = arrayOffset;
+                            node2.ChildCount = count;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // First visit: re-push self as processed, then push all children
+                uint nodeStart = isCompact
+                    ? mmfMain!.ReadUInt32Unchecked(offset + 0)
+                    : new PersistentSuffixTreeNode(_storage, offset, layout).Start;
+                int edgeLen = (int)((nodeEnd == PersistentConstants.BOUNDLESS ? (uint)(_position + 1) : nodeEnd) - nodeStart);
+                int childDepth = depthFromRoot + edgeLen;
+                stack.Push((offset, true, depthFromRoot));
+
+                long headIndex;
+                if (isCompact)
+                {
+                    uint raw = mmfMain!.ReadUInt32Unchecked(offset + 16);
+                    headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+                }
+                else
+                {
+                    headIndex = new PersistentSuffixTreeNode(_storage, offset, layout).ChildrenHead;
+                }
+
+                if (headIndex != PersistentConstants.NULL_OFFSET)
+                {
+                    int idx = (int)headIndex;
+                    if (mmfChild != null)
+                    {
+                        while (idx >= 0)
+                        {
+                            long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                            long childOffset = mmfChild.ReadInt64Unchecked(entryOff + CE_OFF_CHILD);
+                            stack.Push((childOffset, false, childDepth));
+                            idx = mmfChild.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
+                        }
+                    }
+                    else
+                    {
+                        while (idx >= 0)
+                        {
+                            long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                            long childOffset = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+                            stack.Push((childOffset, false, childDepth));
+                            idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+                        }
+                    }
+                }
             }
         }
 
         _deepestInternalNodeOffset = deepestOffset;
+        _lrsDepth = maxDepth;
     }
 
-    // ──────────────── Builder child management (in-memory) ────────────────
+    // ──────────────── Builder child management (off-heap linked lists) ────────────────
 
     private bool BuilderTryGetChild(long nodeOffset, uint key, out long childOffset)
     {
-        if (_children.TryGetValue(nodeOffset, out var childList))
+        // Read ChildrenHead — fast-path for compact MMF
+        long headIndex;
+        if (_mmfStorage != null && (_transitionOffset < 0 || nodeOffset < _transitionOffset))
         {
-            foreach (var entry in childList)
+            // Compact: ChildrenHead is uint32 at nodeOffset + 16
+            uint raw = _mmfStorage.ReadUInt32Unchecked(nodeOffset + 16);
+            headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+        }
+        else
+        {
+            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, LayoutOf(nodeOffset));
+            headIndex = node.ChildrenHead;
+        }
+
+        if (headIndex == PersistentConstants.NULL_OFFSET)
+        {
+            childOffset = PersistentConstants.NULL_OFFSET;
+            return false;
+        }
+
+        // Walk linked list in child store — fast-path for MMF child store
+        if (_mmfChildStore != null)
+        {
+            int idx = (int)headIndex;
+            while (idx >= 0)
             {
-                if (entry.Key == key)
+                long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                uint entryKey = _mmfChildStore.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
+                if (entryKey == key)
                 {
-                    childOffset = entry.ChildOffset;
+                    childOffset = _mmfChildStore.ReadInt64Unchecked(entryOff + CE_OFF_CHILD);
                     return true;
                 }
+                idx = _mmfChildStore.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
             }
         }
+        else
+        {
+            int idx = (int)headIndex;
+            while (idx >= 0)
+            {
+                long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                uint entryKey = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
+                if (entryKey == key)
+                {
+                    childOffset = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+                    return true;
+                }
+                idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+            }
+        }
+
         childOffset = PersistentConstants.NULL_OFFSET;
         return false;
     }
 
     private void BuilderSetChild(long nodeOffset, uint key, long childOffset)
     {
-        if (!_children.TryGetValue(nodeOffset, out var childList))
+        // Read ChildrenHead — fast-path for compact MMF
+        bool isCompactMmf = _mmfStorage != null && (_transitionOffset < 0 || nodeOffset < _transitionOffset);
+        long headIndex;
+        if (isCompactMmf)
         {
-            childList = new List<(uint Key, long ChildOffset)>();
-            _children[nodeOffset] = childList;
+            uint raw = _mmfStorage!.ReadUInt32Unchecked(nodeOffset + 16);
+            headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+        }
+        else
+        {
+            var nodeLayout = LayoutOf(nodeOffset);
+            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, nodeLayout);
+            headIndex = node.ChildrenHead;
         }
 
-        for (int i = 0; i < childList.Count; i++)
+        // Check if key already exists (edge split replaces child pointer)
+        if (headIndex != PersistentConstants.NULL_OFFSET)
         {
-            if (childList[i].Key == key)
+            if (_mmfChildStore != null)
             {
-                childList[i] = (key, childOffset);
-                return;
-            }
-        }
-
-        childList.Add((key, childOffset));
-    }
-
-    // ──────────────── Write children arrays ────────────────
-
-    private void WriteChildrenArrays()
-    {
-        foreach (var (nodeOffset, childList) in _children)
-        {
-            // Sort by key using signed comparison (terminator=-1 first)
-            childList.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
-
-            var parentLayout = LayoutOf(nodeOffset);
-            bool parentIsCompact = !parentLayout.OffsetIs64Bit;
-
-            // Check if this compact parent has a pre-allocated jump slot
-            bool hasJumpSlot = parentIsCompact && _childArrayJumpSlots != null
-                && _childArrayJumpSlots.ContainsKey(nodeOffset);
-
-            // If a compact parent has large-zone children, the child array must use
-            // Large entry format (12 bytes) to hold int64 offsets.
-            NodeLayout arrayLayout;
-            if (hasJumpSlot)
-                arrayLayout = NodeLayout.Large; // 12-byte entries for int64 child offsets
-            else
-                arrayLayout = parentLayout;
-
-            int count = childList.Count;
-            int entrySize = arrayLayout.ChildEntrySize;
-            int totalBytes = checked(count * entrySize);
-            long arrayOffset = _storage.Allocate(totalBytes);
-
-            // Serialize all entries into a single buffer, then batch-write
-            byte[] buf = ArrayPool<byte>.Shared.Rent(totalBytes);
-            try
-            {
-                for (int i = 0; i < count; i++)
+                int idx = (int)headIndex;
+                while (idx >= 0)
                 {
-                    int off = checked(i * entrySize);
-                    BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), childList[i].Key);
-                    if (arrayLayout.OffsetIs64Bit)
-                        BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), childList[i].ChildOffset);
-                    else
-                        BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off + 4, 4), (uint)childList[i].ChildOffset);
+                    long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                    uint entryKey = _mmfChildStore.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
+                    if (entryKey == key)
+                    {
+                        _mmfChildStore.WriteInt64Unchecked(entryOff + CE_OFF_CHILD, childOffset);
+                        return;
+                    }
+                    idx = _mmfChildStore.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
                 }
-                _storage.WriteBytes(arrayOffset, buf, 0, totalBytes);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buf);
-            }
-
-            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, parentLayout);
-
-            if (hasJumpSlot)
-            {
-                // Write the child array offset into the pre-allocated jump entry
-                long jumpOffset = _childArrayJumpSlots![nodeOffset];
-                _storage.WriteInt64(jumpOffset, arrayOffset);
-                node.ChildrenHead = jumpOffset;
-                // Store child count with the high bit set to signal "jump + large entries"
-                node.ChildCount = count | unchecked((int)0x80000000);
             }
             else
             {
-                node.ChildrenHead = arrayOffset;
-                node.ChildCount = count;
+                int idx = (int)headIndex;
+                while (idx >= 0)
+                {
+                    long entryOff = (long)idx * CHILD_ENTRY_SIZE;
+                    uint entryKey = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
+                    if (entryKey == key)
+                    {
+                        _childStore.WriteInt64(entryOff + CE_OFF_CHILD, childOffset);
+                        return;
+                    }
+                    idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+                }
             }
         }
+
+        // New child — allocate entry and prepend to linked list
+        long newOff = _childStore.Allocate(CHILD_ENTRY_SIZE);
+        int newIndex = (int)(newOff / CHILD_ENTRY_SIZE);
+
+        if (_mmfChildStore != null)
+        {
+            _mmfChildStore.WriteUInt32Unchecked(newOff + CE_OFF_KEY, key);
+            _mmfChildStore.WriteInt32Unchecked(newOff + CE_OFF_NEXT, headIndex == PersistentConstants.NULL_OFFSET ? -1 : (int)headIndex);
+            _mmfChildStore.WriteInt64Unchecked(newOff + CE_OFF_CHILD, childOffset);
+        }
+        else
+        {
+            _childStore.WriteUInt32(newOff + CE_OFF_KEY, key);
+            _childStore.WriteInt32(newOff + CE_OFF_NEXT, headIndex == PersistentConstants.NULL_OFFSET ? -1 : (int)headIndex);
+            _childStore.WriteInt64(newOff + CE_OFF_CHILD, childOffset);
+        }
+
+        // Update node's head pointer to the new entry index
+        if (isCompactMmf)
+        {
+            _mmfStorage!.WriteUInt32Unchecked(nodeOffset + 16, (uint)newIndex);
+        }
+        else
+        {
+            var nodeLayout = LayoutOf(nodeOffset);
+            var node = new PersistentSuffixTreeNode(_storage, nodeOffset, nodeLayout);
+            node.ChildrenHead = newIndex;
+        }
     }
+
 }
