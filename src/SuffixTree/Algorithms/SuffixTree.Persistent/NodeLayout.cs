@@ -4,8 +4,11 @@ namespace SuffixTree.Persistent;
 
 /// <summary>
 /// Describes the binary layout of nodes and child entries in persistent storage.
-/// Two singleton instances: <see cref="Compact"/> (32-bit offsets, v4) and
-/// <see cref="Large"/> (64-bit offsets, v3).
+/// Two singleton instances for the v6 format:
+/// <list type="bullet">
+///   <item><see cref="Compact"/> — 24-byte nodes, 32-bit offsets, 8-byte child entries.</item>
+///   <item><see cref="Large"/> — 32-byte nodes, 64-bit offsets, 12-byte child entries.</item>
+/// </list>
 /// <para>
 /// Thread-safe. Instances are immutable and shared across all trees of the same format.
 /// </para>
@@ -15,61 +18,57 @@ public sealed class NodeLayout
     // ──────────────── Singleton instances ────────────────
 
     /// <summary>
-    /// Compact format (v4): 32-bit offsets, 28-byte nodes, 8-byte child entries.
-    /// <para>Max file ~4 GB → ~58 M characters.</para>
+    /// Compact format (v6): 32-bit offsets, 24-byte nodes, 8-byte child entries.
+    /// <para>Max file ~4 GB → ~72 M characters.</para>
     /// </summary>
     /// <remarks>
-    /// <b>Node layout (28 bytes):</b>
+    /// <b>Node layout (24 bytes):</b>
     /// <code>
     ///  0- 3 : Start           (uint32)
     ///  4- 7 : End             (uint32)
-    ///  8-11 : SuffixLink      (uint32)   ← was int64
-    /// 12-15 : DepthFromRoot   (uint32)
-    /// 16-19 : LeafCount       (uint32)
-    /// 20-23 : ChildrenHead    (uint32)   ← was int64
-    /// 24-27 : ChildCount      (int32)
+    ///  8-11 : SuffixLink      (uint32)
+    /// 12-15 : LeafCount       (uint32)
+    /// 16-19 : ChildrenHead    (uint32)
+    /// 20-23 : ChildCount      (int32)
     /// </code>
     /// <b>Child entry (8 bytes):</b> Key(4) + ChildNodeOffset(4)
     /// </remarks>
     public static readonly NodeLayout Compact = new(
-        version: 4,
-        nodeSize: 28,
+        version: 6,
+        nodeSize: 24,
         childEntrySize: 8,
         offsetIs64Bit: false,
         offsetSuffixLink: 8,
-        offsetDepth: 12,
-        offsetLeafCount: 16,
-        offsetChildrenHead: 20,
-        offsetChildCount: 24);
+        offsetLeafCount: 12,
+        offsetChildrenHead: 16,
+        offsetChildCount: 20);
 
     /// <summary>
-    /// Large format (v3): 64-bit offsets, 40-byte nodes, 12-byte child entries.
+    /// Large format (v6): 64-bit offsets, 32-byte nodes, 12-byte child entries.
+    /// Used as the large-zone layout in hybrid trees when the compact address space is exhausted.
     /// <para>No practical size limit.</para>
     /// </summary>
     /// <remarks>
-    /// <b>Node layout (40 bytes):</b>
+    /// <b>Node layout (32 bytes):</b>
     /// <code>
     ///  0- 3 : Start           (uint32)
     ///  4- 7 : End             (uint32)
     ///  8-15 : SuffixLink      (int64)
-    /// 16-19 : DepthFromRoot   (uint32)
-    /// 20-23 : LeafCount       (uint32)
-    /// 24-31 : ChildrenHead    (int64)
-    /// 32-35 : ChildCount      (int32)
-    /// 36-39 : (padding)
+    /// 16-19 : LeafCount       (uint32)
+    /// 20-27 : ChildrenHead    (int64)
+    /// 28-31 : ChildCount      (int32)
     /// </code>
     /// <b>Child entry (12 bytes):</b> Key(4) + ChildNodeOffset(8)
     /// </remarks>
     public static readonly NodeLayout Large = new(
-        version: 3,
-        nodeSize: 40,
+        version: 6,
+        nodeSize: 32,
         childEntrySize: 12,
         offsetIs64Bit: true,
         offsetSuffixLink: 8,
-        offsetDepth: 16,
-        offsetLeafCount: 20,
-        offsetChildrenHead: 24,
-        offsetChildCount: 32);
+        offsetLeafCount: 16,
+        offsetChildrenHead: 20,
+        offsetChildCount: 28);
 
     // ──────────────── Fields ────────────────
 
@@ -91,8 +90,6 @@ public sealed class NodeLayout
     // Node field offsets (Start=0, End=4 are invariant across formats)
     /// <summary>Offset of the SuffixLink field within a node.</summary>
     public int OffsetSuffixLink { get; }
-    /// <summary>Offset of the DepthFromRoot field within a node.</summary>
-    public int OffsetDepth { get; }
     /// <summary>Offset of the LeafCount field within a node.</summary>
     public int OffsetLeafCount { get; }
     /// <summary>Offset of the ChildrenHead field within a node.</summary>
@@ -109,7 +106,7 @@ public sealed class NodeLayout
     // ──────────────── Constructor ────────────────
 
     private NodeLayout(int version, int nodeSize, int childEntrySize, bool offsetIs64Bit,
-        int offsetSuffixLink, int offsetDepth, int offsetLeafCount,
+        int offsetSuffixLink, int offsetLeafCount,
         int offsetChildrenHead, int offsetChildCount)
     {
         Version = version;
@@ -117,7 +114,6 @@ public sealed class NodeLayout
         ChildEntrySize = childEntrySize;
         OffsetIs64Bit = offsetIs64Bit;
         OffsetSuffixLink = offsetSuffixLink;
-        OffsetDepth = offsetDepth;
         OffsetLeafCount = offsetLeafCount;
         OffsetChildrenHead = offsetChildrenHead;
         OffsetChildCount = offsetChildCount;
@@ -175,25 +171,12 @@ public sealed class NodeLayout
 
     /// <summary>
     /// Returns the <see cref="NodeLayout"/> for a given format version read from the header.
-    /// For v5 (Hybrid), returns <see cref="Compact"/> as the base layout; the read path
-    /// resolves per-node layout using the transition offset.
+    /// Only v6 is supported.
     /// </summary>
     public static NodeLayout ForVersion(int version) => version switch
     {
-        3 => Large,
-        4 => Compact,
-        5 => Compact, // hybrid: base layout is Compact; large zone handled separately
+        6 => Compact, // hybrid v6: base layout is Compact; large zone uses Large
         _ => throw new InvalidOperationException(
-            $"Unsupported storage format version: {version}. Expected 3, 4, or 5.")
-    };
-
-    /// <summary>
-    /// Returns the <see cref="NodeLayout"/> for a given <see cref="StorageFormat"/> enum.
-    /// </summary>
-    internal static NodeLayout ForFormat(StorageFormat format) => format switch
-    {
-        StorageFormat.Compact => Compact,
-        StorageFormat.Large => Large,
-        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown storage format.")
+            $"Unsupported storage format version: {version}. Expected 6.")
     };
 }

@@ -11,6 +11,13 @@ namespace SuffixTree;
 /// The <c>struct</c> constraint on the navigator ensures
 /// the JIT specializes each call site — zero overhead vs hand-inlined code.
 /// </para>
+/// <para>
+/// <b>v6 Slim compatibility:</b> these algorithms track node depth on-the-fly
+/// using <c>currentNodeDepth</c> state instead of reading DepthFromRoot from
+/// storage. After following a suffix link, depth decreases by exactly 1
+/// (suffix link invariant). During rescan, depth accumulates edge lengths.
+/// This eliminates the need for stored DepthFromRoot while preserving O(n+m).
+/// </para>
 /// </summary>
 public static class SuffixTreeAlgorithms
 {
@@ -27,12 +34,18 @@ public static class SuffixTreeAlgorithms
             return (string.Empty, new List<int>(), new List<int>());
 
         int maxLen = 0;
-        var bestMatches = new List<(TNode Node, int MatchEndInOther)>();
+        // (Node, MatchEndInOther, DepthFromRoot of Node)
+        var bestMatches = new List<(TNode Node, int MatchEndInOther, int DepthFromRoot)>();
 
         TNode currentNode = nav.Root;
         TNode currentEdge = nav.NullNode;
         int edgeOffset = 0;
         int currentMatchLen = 0;
+
+        // Depth to END of currentNode's edge (= GetNodeDepth(currentNode)).
+        // For root this is 0. Updated on suffix link follow (-1), edge
+        // completion (+edgeLen), and rescan (+edgeLen per full edge).
+        int currentNodeDepth = 0;
 
         for (int i = 0; i < other.Length; i++)
         {
@@ -48,6 +61,7 @@ public static class SuffixTreeAlgorithms
                         currentMatchLen++;
                         if (edgeOffset >= nav.LengthOf(currentEdge))
                         {
+                            currentNodeDepth += nav.LengthOf(currentEdge);
                             currentNode = currentEdge;
                             currentEdge = nav.NullNode;
                             edgeOffset = 0;
@@ -64,6 +78,7 @@ public static class SuffixTreeAlgorithms
                         currentMatchLen++;
                         if (edgeOffset >= nav.LengthOf(currentEdge))
                         {
+                            currentNodeDepth += nav.LengthOf(currentEdge);
                             currentNode = currentEdge;
                             currentEdge = nav.NullNode;
                             edgeOffset = 0;
@@ -78,11 +93,12 @@ public static class SuffixTreeAlgorithms
                 if (!nav.IsRoot(currentNode))
                 {
                     currentNode = nav.GetSuffixLink(currentNode);
+                    currentNodeDepth--;
                 }
                 currentMatchLen--;
 
                 // Rescan from currentNode to restore edge position
-                int nodeDepth = nav.GetNodeDepth(currentNode);
+                int nodeDepth = currentNodeDepth;
                 int remaining = currentMatchLen - nodeDepth;
 
                 if (remaining > 0)
@@ -100,6 +116,7 @@ public static class SuffixTreeAlgorithms
                         {
                             pos += edgeLen;
                             remaining -= edgeLen;
+                            currentNodeDepth += edgeLen;
                             currentNode = nc;
                         }
                         else
@@ -122,11 +139,22 @@ public static class SuffixTreeAlgorithms
             {
                 maxLen = currentMatchLen;
                 bestMatches.Clear();
-                bestMatches.Add((nav.IsNull(currentEdge) ? currentNode : currentEdge, i));
+                TNode matchNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
+                // DepthFromRoot of matchNode:
+                // - currentNode: currentNodeDepth - LengthOf(currentNode)
+                // - currentEdge: currentNodeDepth (= depth to END of parent = depth to START of child)
+                int matchDFR = nav.IsNull(currentEdge)
+                    ? currentNodeDepth - nav.LengthOf(currentNode)
+                    : currentNodeDepth;
+                bestMatches.Add((matchNode, i, matchDFR));
             }
             else if (currentMatchLen == maxLen && maxLen > 0 && !firstOnly)
             {
-                bestMatches.Add((nav.IsNull(currentEdge) ? currentNode : currentEdge, i));
+                TNode matchNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
+                int matchDFR = nav.IsNull(currentEdge)
+                    ? currentNodeDepth - nav.LengthOf(currentNode)
+                    : currentNodeDepth;
+                bestMatches.Add((matchNode, i, matchDFR));
             }
         }
 
@@ -142,14 +170,14 @@ public static class SuffixTreeAlgorithms
 
             if (firstOnly)
             {
-                int leafPos = nav.FindAnyLeafPosition(match.Node);
+                int leafPos = nav.FindAnyLeafPosition(match.Node, match.DepthFromRoot);
                 if (leafPos >= 0)
                     positionsInText.Add(leafPos);
                 break;
             }
             else
             {
-                nav.CollectLeaves(match.Node, nav.GetDepthFromRoot(match.Node), positionsInText);
+                nav.CollectLeaves(match.Node, match.DepthFromRoot, positionsInText);
             }
         }
 
@@ -175,11 +203,13 @@ public static class SuffixTreeAlgorithms
         TNode currentEdge = nav.NullNode;
         int edgeOffset = 0;
         int currentMatchLen = 0;
+        int currentNodeDepth = 0;
 
         // Peak tracking
         int peakLen = 0;
         int peakEndInQuery = -1;
         TNode peakNode = nav.NullNode;
+        int peakDepthFromRoot = 0;
 
         for (int i = 0; i < query.Length; i++)
         {
@@ -195,6 +225,7 @@ public static class SuffixTreeAlgorithms
                         currentMatchLen++;
                         if (edgeOffset >= nav.LengthOf(currentEdge))
                         {
+                            currentNodeDepth += nav.LengthOf(currentEdge);
                             currentNode = currentEdge;
                             currentEdge = nav.NullNode;
                             edgeOffset = 0;
@@ -211,6 +242,7 @@ public static class SuffixTreeAlgorithms
                         currentMatchLen++;
                         if (edgeOffset >= nav.LengthOf(currentEdge))
                         {
+                            currentNodeDepth += nav.LengthOf(currentEdge);
                             currentNode = currentEdge;
                             currentEdge = nav.NullNode;
                             edgeOffset = 0;
@@ -225,10 +257,11 @@ public static class SuffixTreeAlgorithms
                 if (!nav.IsRoot(currentNode))
                 {
                     currentNode = nav.GetSuffixLink(currentNode);
+                    currentNodeDepth--;
                 }
                 currentMatchLen--;
 
-                int nodeDepth = nav.GetNodeDepth(currentNode);
+                int nodeDepth = currentNodeDepth;
                 int remaining = currentMatchLen - nodeDepth;
 
                 if (remaining > 0)
@@ -246,6 +279,7 @@ public static class SuffixTreeAlgorithms
                         {
                             pos += edgeLen;
                             remaining -= edgeLen;
+                            currentNodeDepth += edgeLen;
                             currentNode = nc;
                         }
                         else
@@ -271,11 +305,14 @@ public static class SuffixTreeAlgorithms
                     peakLen = currentMatchLen;
                     peakEndInQuery = i;
                     peakNode = nav.IsNull(currentEdge) ? currentNode : currentEdge;
+                    peakDepthFromRoot = nav.IsNull(currentEdge)
+                        ? currentNodeDepth - nav.LengthOf(currentNode)
+                        : currentNodeDepth;
                 }
             }
             else if (peakLen >= minLength)
             {
-                EmitAnchor(ref nav, results, peakNode, peakEndInQuery, peakLen);
+                EmitAnchor(ref nav, results, peakNode, peakEndInQuery, peakLen, peakDepthFromRoot);
                 peakLen = 0;
                 peakEndInQuery = -1;
                 peakNode = nav.NullNode;
@@ -285,7 +322,7 @@ public static class SuffixTreeAlgorithms
         // Emit final run
         if (peakLen >= minLength && !nav.IsNull(peakNode))
         {
-            EmitAnchor(ref nav, results, peakNode, peakEndInQuery, peakLen);
+            EmitAnchor(ref nav, results, peakNode, peakEndInQuery, peakLen, peakDepthFromRoot);
         }
 
         return results;
@@ -294,10 +331,10 @@ public static class SuffixTreeAlgorithms
     private static void EmitAnchor<TNode, TNav>(
         ref TNav nav,
         List<(int PositionInText, int PositionInQuery, int Length)> results,
-        TNode node, int endInQuery, int length)
+        TNode node, int endInQuery, int length, int depthFromRoot)
         where TNav : struct, ISuffixTreeNavigator<TNode>
     {
-        int refPos = nav.FindAnyLeafPosition(node);
+        int refPos = nav.FindAnyLeafPosition(node, depthFromRoot);
         if (refPos >= 0)
         {
             results.Add((refPos, endInQuery - length + 1, length));

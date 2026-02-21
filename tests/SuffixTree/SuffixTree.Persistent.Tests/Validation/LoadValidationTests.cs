@@ -54,8 +54,8 @@ public class LoadValidationTests
     public void Load_RootOffsetBeyondStorage_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE);
-        WriteValidHeader(storage, version: 4);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6);
+        WriteValidHeader(storage, version: 6);
         // Root points far beyond actual storage
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, 999_999);
 
@@ -67,8 +67,8 @@ public class LoadValidationTests
     public void Load_NegativeRootOffset_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE);
-        WriteValidHeader(storage, version: 4);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6);
+        WriteValidHeader(storage, version: 6);
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, -42);
 
         var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
@@ -81,9 +81,9 @@ public class LoadValidationTests
     public void Load_TextOffBeyondStorage_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE + 100);
-        WriteValidHeader(storage, version: 4);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6 + 100);
+        WriteValidHeader(storage, version: 6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V6);
         // TEXT_OFF points far beyond storage
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, 999_999);
         storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, 5);
@@ -96,10 +96,10 @@ public class LoadValidationTests
     public void Load_TextLenNegative_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE + 100);
-        WriteValidHeader(storage, version: 4);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, PersistentConstants.HEADER_SIZE + 10);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6 + 100);
+        WriteValidHeader(storage, version: 6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, PersistentConstants.HEADER_SIZE_V6 + 10);
         storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, -42);
 
         var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
@@ -110,10 +110,10 @@ public class LoadValidationTests
     public void Load_TextRegionExceedsStorage_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        int totalSize = PersistentConstants.HEADER_SIZE + 100;
+        int totalSize = PersistentConstants.HEADER_SIZE_V6 + 100;
         storage.Allocate(totalSize);
-        WriteValidHeader(storage, version: 4);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE);
+        WriteValidHeader(storage, version: 6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V6);
         // TEXT_OFF is valid, but TEXT_OFF + TEXT_LEN * 2 exceeds storage
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF, totalSize - 4);
         storage.WriteInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN, 100); // 100 chars = 200 bytes
@@ -125,32 +125,32 @@ public class LoadValidationTests
     // ──────────── V5 hybrid header field validation ──────────────
 
     [Test]
-    public void Load_V5_TransitionBeyondStorage_ThrowsInvalidOperation()
+    public void Load_V6_TransitionBeyondStorage_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE_V5 + 100); // some space
-        WriteValidHeader(storage, version: 5);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V5);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6 + 100); // some space
+        WriteValidHeader(storage, version: 6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V6);
         // Transition points beyond storage
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, 999_999);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, PersistentConstants.HEADER_SIZE_V5 + 28);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, PersistentConstants.HEADER_SIZE_V5 + 36);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, PersistentConstants.HEADER_SIZE_V6 + 24);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, PersistentConstants.HEADER_SIZE_V6 + 32);
 
         var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
         Assert.That(ex!.Message, Does.Contain("transition").IgnoreCase);
     }
 
     [Test]
-    public void Load_V5_JumpEndBeforeJumpStart_ThrowsInvalidOperation()
+    public void Load_V6_JumpEndBeforeJumpStart_ThrowsInvalidOperation()
     {
         var storage = new HeapStorageProvider();
-        storage.Allocate(PersistentConstants.HEADER_SIZE_V5 + 200);
-        WriteValidHeader(storage, version: 5);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V5);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, PersistentConstants.HEADER_SIZE_V5 + 50);
+        storage.Allocate(PersistentConstants.HEADER_SIZE_V6 + 200);
+        WriteValidHeader(storage, version: 6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, PersistentConstants.HEADER_SIZE_V6);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, PersistentConstants.HEADER_SIZE_V6 + 50);
         // Jump end < jump start — invalid
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, PersistentConstants.HEADER_SIZE_V5 + 100);
-        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, PersistentConstants.HEADER_SIZE_V5 + 50);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, PersistentConstants.HEADER_SIZE_V6 + 100);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, PersistentConstants.HEADER_SIZE_V6 + 50);
 
         var ex = Assert.Throws<InvalidOperationException>(() => PersistentSuffixTree.Load(storage));
         Assert.That(ex!.Message, Does.Contain("jump"));
@@ -209,7 +209,7 @@ public class LoadValidationTests
     {
         var buildStorage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(buildStorage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         long root = builder.Build(new StringTextSource("banana"));
 
         Assert.That(builder.IsHybrid, Is.True);
@@ -219,15 +219,15 @@ public class LoadValidationTests
         Assert.That(tree.Contains("ana"), Is.True);
     }
 
-    // ──────────── S19+S21: DEEPEST_NODE must be validated ──────────────
+    // ──────────── S19+S21: DEEPEST_NODE must be validated ────────────
 
     [Test]
     public void Load_DeepestNodeBeyondStorage_ThrowsInvalidOperation()
     {
-        // Build a real v5 (hybrid) tree, then tamper DEEPEST_NODE to point beyond storage
+        // Build a real hybrid tree, then tamper DEEPEST_NODE to point beyond storage
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         builder.Build(new StringTextSource("banana"));
 
         // Tamper: set deepest node to far beyond storage
@@ -240,10 +240,10 @@ public class LoadValidationTests
     [Test]
     public void Load_DeepestNodeNegative_ThrowsInvalidOperation()
     {
-        // Build a real v5 tree, then tamper DEEPEST_NODE to a negative non-NULL value
+        // Build a real v6 tree, then tamper DEEPEST_NODE to a negative non-NULL value
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         builder.Build(new StringTextSource("banana"));
 
         // -42 is not NULL_OFFSET (-1) and not a valid offset
@@ -254,17 +254,17 @@ public class LoadValidationTests
     }
 
     [Test]
-    public void Load_NonHybrid_ReadsDeepestNodeFromV5Header()
+    public void Load_NonHybrid_ReadsDeepestNodeFromV6Header()
     {
-        // Build a non-hybrid tree. Builder always writes v5 header now.
+        // Build a non-hybrid tree. Builder always writes v6 header now.
         // DEEPEST_NODE at offset 72 must be read and used for O(1) LRS.
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
         builder.Build(new StringTextSource("banana"));
 
-        // Verify this is v5 (all trees are v5 now)
+        // Verify this is v6 (all trees are v6 now)
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        Assert.That(version, Is.EqualTo(5), "All trees must use v5 header");
+        Assert.That(version, Is.EqualTo(6), "All trees must use v6 header");
 
         using var tree = PersistentSuffixTree.Load(storage);
         Assert.That(tree.Contains("banana"), Is.True);
@@ -277,5 +277,12 @@ public class LoadValidationTests
     {
         storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
         storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, version);
+        // v6 headers always have hybrid fields — write -1 to indicate non-hybrid
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_TRANSITION, -1);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_START, -1);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_JUMP_END, -1);
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, -1);
+        // SIZE must match actual storage size — write actual position
+        storage.WriteInt64(PersistentConstants.HEADER_OFFSET_SIZE, storage.Size);
     }
 }

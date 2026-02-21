@@ -374,7 +374,7 @@ public class SequenceAligner_MultipleAlign_Tests
     /// Source: ASSUMPTION - performance sanity check
     /// </summary>
     [Test]
-    [Timeout(5000)] // 5 second timeout
+    [CancelAfter(5000)] // 5 second timeout
     public void MultipleAlign_ManySequences_CompletesInReasonableTime()
     {
         // 20 sequences of 50bp each - should complete quickly

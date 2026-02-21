@@ -464,7 +464,7 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     /// Source: Practical requirement for metagenomics data.
     /// </summary>
     [Test]
-    [Timeout(30000)] // 30 second timeout
+    [CancelAfter(30000)] // 30 second timeout
     public void BinContigs_LargeDataset_CompletesWithinTimeout()
     {
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();

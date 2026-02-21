@@ -17,7 +17,7 @@ namespace SuffixTree.Persistent.Tests;
 ///   <item>Structural invariants: NodeCount, LeafCount, LogicalHash equality.</item>
 ///   <item>Jump table consistency: JumpTableStart ≥ TransitionOffset, contiguous.</item>
 ///   <item>All suffixes enumerable and sorted.</item>
-///   <item>Load() round-trip (auto-detect v5).</item>
+///   <item>Load() round-trip (auto-detect v6).</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -57,12 +57,12 @@ public class HybridTransitionZoneTests
         var reference = global::SuffixTree.SuffixTree.Build(text);
         var compactTree = BuildCompact(text);
 
-        // The builder starts at offset 72 (header) + 28 (root) = 100.
-        // Each subsequent Compact node adds 28 bytes.
+        // The builder starts at offset 88 (header) + 24 (root) = 112.
+        // Each subsequent Compact node adds 24 bytes.
         // Sweep limits from just after the header to beyond where all nodes fit.
         long maxLimit = compactTree.storage.Size;
-        int headerPlusRoot = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
-        int step = NodeLayout.Compact.NodeSize; // 28 bytes — one node boundary
+        int headerPlusRoot = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
+        int step = NodeLayout.Compact.NodeSize; // 24 bytes — one node boundary
 
         int hybridCount = 0;
         long? firstHybridLimit = null;
@@ -116,7 +116,7 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         // limit = header + root node → next allocation triggers transition
-        long limit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+        long limit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
         var hybrid = BuildHybrid(text, limit);
         var compact = BuildCompact(text);
         var reference = global::SuffixTree.SuffixTree.Build(text);
@@ -135,7 +135,7 @@ public class HybridTransitionZoneTests
     public void Transition_RootPlusOneNode_ProducesCorrectTree(
         [ValueSource(nameof(TransitionTexts))] string text)
     {
-        long limit = PersistentConstants.HEADER_SIZE_V5 + 2 * NodeLayout.Compact.NodeSize;
+        long limit = PersistentConstants.HEADER_SIZE_V6 + 2 * NodeLayout.Compact.NodeSize;
         var hybrid = BuildHybrid(text, limit);
         var compact = BuildCompact(text);
         var reference = global::SuffixTree.SuffixTree.Build(text);
@@ -155,7 +155,7 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var compact = BuildCompact(text);
-        long midpoint = PersistentConstants.HEADER_SIZE_V5
+        long midpoint = PersistentConstants.HEADER_SIZE_V6
             + (long)(compact.tree.NodeCount / 2) * NodeLayout.Compact.NodeSize;
         compact.Dispose();
 
@@ -179,7 +179,7 @@ public class HybridTransitionZoneTests
     {
         var compact = BuildCompact(text);
         // Last node boundary: total nodes - 1 → everything except the last node fits in compact
-        long limit = PersistentConstants.HEADER_SIZE_V5
+        long limit = PersistentConstants.HEADER_SIZE_V6
             + (long)(compact.tree.NodeCount - 1) * NodeLayout.Compact.NodeSize;
         compact.Dispose();
 
@@ -194,15 +194,15 @@ public class HybridTransitionZoneTests
         compact2.Dispose();
     }
 
-    // ──────────── v5 header round-trip via Load() ──────────────
+    // ──────────── v6 header round-trip via Load() ────────────
 
     [Test]
-    public void HybridTree_LoadAutoDetectsV5_AndQueriesWork(
+    public void HybridTree_LoadAutoDetectsV6_AndQueriesWork(
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V5 + 2 * NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + 2 * NodeLayout.Compact.NodeSize;
         builder.Build(new StringTextSource(text));
 
         if (!builder.IsHybrid)
@@ -211,7 +211,7 @@ public class HybridTransitionZoneTests
             return;
         }
 
-        // Load from storage — must auto-detect v5
+        // Load from storage — must auto-detect v6
         var loaded = PersistentSuffixTree.Load(storage);
 
         Assert.Multiple(() =>
@@ -237,7 +237,7 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var reference = global::SuffixTree.SuffixTree.Build(text);
-        var hybrid = BuildHybrid(text, PersistentConstants.HEADER_SIZE_V5 + 3 * NodeLayout.Compact.NodeSize);
+        var hybrid = BuildHybrid(text, PersistentConstants.HEADER_SIZE_V6 + 3 * NodeLayout.Compact.NodeSize);
         if (!hybrid.pst.IsHybrid)
         {
             hybrid.Dispose();
@@ -417,7 +417,7 @@ public class HybridTransitionZoneTests
             $"Should stay pure Compact when limit ({treeSize + 1}) > tree size ({treeSize})");
 
         int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        Assert.That(version, Is.EqualTo(5), "All trees use v5 header format");
+        Assert.That(version, Is.EqualTo(6), "All trees use v6 header format");
     }
 
     /// <summary>
@@ -497,7 +497,7 @@ public class HybridTransitionZoneTests
         // Try several transition points
         long maxLimit = compact.storage.Size;
         long[] limits = [
-            PersistentConstants.HEADER_SIZE_V5 + 3 * NodeLayout.Compact.NodeSize,   // very early
+            PersistentConstants.HEADER_SIZE_V6 + 3 * NodeLayout.Compact.NodeSize,   // very early
             maxLimit / 4,                                                              // 25%
             maxLimit / 2,                                                              // 50%
             maxLimit * 3 / 4,                                                          // 75%
@@ -538,9 +538,9 @@ public class HybridTransitionZoneTests
     [Test]
     public void OffByOne_LimitJustPastRoot_TriggersAtSecondNode()
     {
-        // Root at 72, size 28 → ends at 100.  Next node starts at 100.
-        // If limit = 101, node at 100 with size 28 → 100+28=128 > 101 → transition.
-        long limit = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize + 1;
+        // Root at 88, size 24 → ends at 112. Next node starts at 112.
+        // If limit = 113, node at 112 with size 24 → 112+24=136 > 113 → transition.
+        long limit = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize + 1;
         string text = "banana";
 
         var hybrid = BuildHybrid(text, limit);
@@ -549,7 +549,7 @@ public class HybridTransitionZoneTests
 
         Assert.That(hybrid.pst.IsHybrid, Is.True, "Should trigger at second node");
         Assert.That(hybrid.pst.TransitionOffset,
-            Is.EqualTo(PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize),
+            Is.EqualTo(PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize),
             "Transition should be right after root");
 
         AssertFullParity(hybrid.tree, compact.tree, reference, text, "off-by-one");
@@ -717,7 +717,7 @@ public class HybridTransitionZoneTests
 
             // Sweep limits: from "only root in compact" to "root + 9 nodes".
             // At different limits, different suffix links will cross the boundary.
-            int headerPlusRoot = PersistentConstants.HEADER_SIZE_V5 + NodeLayout.Compact.NodeSize;
+            int headerPlusRoot = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
             int step = NodeLayout.Compact.NodeSize;
 
             for (long limit = headerPlusRoot; limit < headerPlusRoot + 10 * step; limit += step)
@@ -744,7 +744,7 @@ public class HybridTransitionZoneTests
                 long jtEnd = builder.JumpTableEnd;
                 int verifiedViaStorage = 0;
 
-                for (long offset = PersistentConstants.HEADER_SIZE_V5;
+                for (long offset = PersistentConstants.HEADER_SIZE_V6;
                      offset < transitionOffset;
                      offset += NodeLayout.Compact.NodeSize)
                 {

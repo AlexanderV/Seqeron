@@ -11,7 +11,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 public class ProteinMotifProperties
 {
     // A protein with known N-glycosylation motif N-{P}-[ST]-{P}
-    private const string TestProtein = "MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG" +
+    private static readonly string TestProtein = "MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG" +
                                        "NISTYQCQSYVMSHLCSYQCNQRCFQSLENQCQTFHCRGFQF" +
                                        "NSTRTMPLHCRGFQFNSTRTMPLHCRG";
 

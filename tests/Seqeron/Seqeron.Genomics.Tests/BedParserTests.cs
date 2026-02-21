@@ -894,7 +894,7 @@ chr7	55086714	55086814	CTCF_peak3	900	+";
             Assert.That(peaks[0].Score, Is.EqualTo(500));
 
             // Score ordering reflects signal intensity
-            Assert.That(peaks[2].Score, Is.GreaterThan(peaks[0].Score),
+            Assert.That(peaks[2].Score, Is.GreaterThan(peaks[0].Score!),
                 "Higher score indicates stronger signal");
         });
     }

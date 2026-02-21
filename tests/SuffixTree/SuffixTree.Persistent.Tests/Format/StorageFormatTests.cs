@@ -42,7 +42,7 @@ public class StorageFormatTests
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
         builder.Build(new StringTextSource("abracadabra"));
 
-        // Load without specifying layout — must auto-detect v4
+        // Load without specifying layout — must auto-detect v6
         var tree = PersistentSuffixTree.Load(storage);
         Assert.Multiple(() =>
         {
@@ -80,7 +80,7 @@ public class StorageFormatTests
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Large);
         builder.Build(new StringTextSource("abracadabra"));
 
-        // Load without specifying layout — must auto-detect v3 for Large-initial
+        // Load without specifying layout — must auto-detect v6
         var tree = PersistentSuffixTree.Load(storage);
         Assert.Multiple(() =>
         {
@@ -188,19 +188,19 @@ public class StorageFormatTests
     // ──── Version header round-trip ──────────────────────────────────
 
     [Test]
-    public void HeaderVersion_CompactWritesV5_LargeWritesV3()
+    public void HeaderVersion_AlwaysWritesV6()
     {
-        // Compact initial layout → v5 (80-byte header with DEEPEST_NODE)
+        // Compact initial layout → v6 (88-byte header)
         var compactStorage = new HeapStorageProvider();
         new PersistentSuffixTreeBuilder(compactStorage, NodeLayout.Compact)
             .Build(new StringTextSource("abc"));
-        Assert.That(compactStorage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION), Is.EqualTo(5));
+        Assert.That(compactStorage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION), Is.EqualTo(6));
 
-        // Large initial layout → v3 (48-byte header, test-only path)
+        // Large initial layout → v6 (88-byte header)
         var largeStorage = new HeapStorageProvider();
         new PersistentSuffixTreeBuilder(largeStorage, NodeLayout.Large)
             .Build(new StringTextSource("abc"));
-        Assert.That(largeStorage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION), Is.EqualTo(3));
+        Assert.That(largeStorage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION), Is.EqualTo(6));
     }
 
     // ──── NodeLayout properties ──────────────────────────────────────
@@ -210,10 +210,10 @@ public class StorageFormatTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(NodeLayout.Compact.NodeSize, Is.EqualTo(28));
+            Assert.That(NodeLayout.Compact.NodeSize, Is.EqualTo(24));
             Assert.That(NodeLayout.Compact.ChildEntrySize, Is.EqualTo(8));
             Assert.That(NodeLayout.Compact.OffsetIs64Bit, Is.False);
-            Assert.That(NodeLayout.Compact.Version, Is.EqualTo(4));
+            Assert.That(NodeLayout.Compact.Version, Is.EqualTo(6));
         });
     }
 
@@ -222,19 +222,20 @@ public class StorageFormatTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(NodeLayout.Large.NodeSize, Is.EqualTo(40));
+            Assert.That(NodeLayout.Large.NodeSize, Is.EqualTo(32));
             Assert.That(NodeLayout.Large.ChildEntrySize, Is.EqualTo(12));
             Assert.That(NodeLayout.Large.OffsetIs64Bit, Is.True);
-            Assert.That(NodeLayout.Large.Version, Is.EqualTo(3));
+            Assert.That(NodeLayout.Large.Version, Is.EqualTo(6));
         });
     }
 
     [Test]
     public void ForVersion_ReturnsCorrectLayout()
     {
-        Assert.That(NodeLayout.ForVersion(3), Is.SameAs(NodeLayout.Large));
-        Assert.That(NodeLayout.ForVersion(4), Is.SameAs(NodeLayout.Compact));
-        Assert.That(NodeLayout.ForVersion(5), Is.SameAs(NodeLayout.Compact));
+        Assert.That(NodeLayout.ForVersion(6), Is.SameAs(NodeLayout.Compact));
+        Assert.Throws<InvalidOperationException>(() => NodeLayout.ForVersion(3));
+        Assert.Throws<InvalidOperationException>(() => NodeLayout.ForVersion(4));
+        Assert.Throws<InvalidOperationException>(() => NodeLayout.ForVersion(5));
         Assert.Throws<InvalidOperationException>(() => NodeLayout.ForVersion(99));
     }
 

@@ -535,8 +535,8 @@ public class ProbeDesigner_ProbeDesign_Tests
             Assert.That(probesWith.Count, Is.GreaterThan(0), "Should produce probes with index");
         });
 
-        TestContext.WriteLine($"Without suffix tree: {sw1.ElapsedMilliseconds}ms");
-        TestContext.WriteLine($"With suffix tree: {sw2.ElapsedMilliseconds}ms");
+        TestContext.Out.WriteLine($"Without suffix tree: {sw1.ElapsedMilliseconds}ms");
+        TestContext.Out.WriteLine($"With suffix tree: {sw2.ElapsedMilliseconds}ms");
     }
 
     #endregion
