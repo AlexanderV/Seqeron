@@ -392,6 +392,18 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
         PrefetchRegion(_ptr, _position);
     }
 
+    /// <summary>
+    /// Hints the OS to prefetch the entire pre-allocated capacity before a build.
+    /// Uses <c>PrefetchVirtualMemory</c> (Windows) / <c>posix_madvise</c> (Linux/macOS)
+    /// to asynchronously start paging-in / zero-filling the mapped region.
+    /// Advisory and fail-safe — returns immediately, errors are silently ignored.
+    /// </summary>
+    internal void PrefetchForBuild()
+    {
+        if (_ptr == null || _capacity <= 0) return;
+        PrefetchRegion(_ptr, _capacity);
+    }
+
 #pragma warning disable CA1031 // Prefetch is advisory — must not throw
     private static void PrefetchRegion(byte* address, long length)
     {
