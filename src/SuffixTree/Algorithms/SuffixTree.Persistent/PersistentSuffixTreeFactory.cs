@@ -60,6 +60,11 @@ public static class PersistentSuffixTreeFactory
             // v6 Compact: 24-byte nodes (no stored DepthFromRoot)
             var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact, childStorage, depthStorage);
             builder.CompactOffsetLimit = compactOffsetLimit;
+
+            // Async OS prefetch hint on main storage — returns immediately,
+            // gives the OS a head start on zero-filling pages before the build loop.
+            (storage as MappedFileStorageProvider)?.PrefetchForBuild();
+
             long rootOffset = builder.Build(text);
 
             if (storage is MappedFileStorageProvider mapped)
