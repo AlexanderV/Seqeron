@@ -23,11 +23,13 @@ public static class PersistentSuffixTreeFactory
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
     /// <param name="filePath">Optional file path for MMF storage.</param>
+    /// <param name="progress">Optional progress reporter: (Stage, Percent 0–100).</param>
     /// <returns>An implementation of ISuffixTree.</returns>
-    public static ISuffixTree Create(ITextSource text, string? filePath = null)
+    public static ISuffixTree Create(ITextSource text, string? filePath = null,
+        IProgress<(string Stage, double Percent)>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return CreateCore(text, filePath, NodeLayout.CompactMaxOffset);
+        return CreateCore(text, filePath, NodeLayout.CompactMaxOffset, progress);
     }
 
     /// <summary>
@@ -35,7 +37,8 @@ public static class PersistentSuffixTreeFactory
     /// Starts with Compact layout; if the tree outgrows the limit, the builder
     /// transitions to Large layout mid-build (hybrid continuation).
     /// </summary>
-    internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit)
+    internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit,
+        IProgress<(string Stage, double Percent)>? progress = null)
     {
         var storage = CreateStorage(filePath, text.Length);
         IStorageProvider? childStorage = null;
@@ -65,7 +68,7 @@ public static class PersistentSuffixTreeFactory
             // gives the OS a head start on zero-filling pages before the build loop.
             (storage as MappedFileStorageProvider)?.PrefetchForBuild();
 
-            long rootOffset = builder.Build(text);
+            long rootOffset = builder.Build(text, progress);
 
             if (storage is MappedFileStorageProvider mapped)
                 mapped.TrimToSize();
