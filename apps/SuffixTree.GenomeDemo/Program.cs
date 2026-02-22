@@ -20,6 +20,25 @@ var dataDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", ".."
 var fastaGz = Path.Combine(dataDir, "chr1.fa.gz");
 var treePath = Path.Combine(dataDir, "chr1.suffixtree.dat");
 
+// ── Verify mode: load existing tree and run queries ──────
+if (args.Length > 0 && args[0] == "--verify")
+{
+    Console.WriteLine($"Loading tree from {treePath}...");
+    var vTree = PersistentSuffixTreeFactory.Load(treePath);
+    Console.WriteLine($"Loaded! Nodes={vTree.NodeCount:N0}, Leaves={vTree.LeafCount:N0}, MaxDepth={vTree.MaxDepth:N0}");
+    Console.WriteLine();
+    Console.WriteLine($"Contains GATTACA:         {vTree.Contains("GATTACA")}");
+    Console.WriteLine($"Contains TTAGGGTTAGGG:    {vTree.Contains("TTAGGGTTAGGGTTAGGG")}");
+    Console.WriteLine();
+    Console.WriteLine($"Count ATG:    {vTree.CountOccurrences("ATG"),12:N0}");
+    Console.WriteLine($"Count GAATTC: {vTree.CountOccurrences("GAATTC"),12:N0}");
+    Console.WriteLine($"Count TATAAA: {vTree.CountOccurrences("TATAAA"),12:N0}");
+    Console.WriteLine($"Count TTAGGG: {vTree.CountOccurrences("TTAGGG"),12:N0}");
+    Console.WriteLine($"Count CAGCAG: {vTree.CountOccurrences("CAGCAG"),12:N0}");
+    (vTree as IDisposable)?.Dispose();
+    return 0;
+}
+
 if (!File.Exists(fastaGz))
 {
     Console.Error.WriteLine($"FASTA not found: {fastaGz}");
@@ -61,7 +80,7 @@ Console.WriteLine($"    Estimated tree:  ~{sequence.Length * 80L / 1_073_741_824
 Console.WriteLine();
 
 // ── Step 2: Build Suffix Tree ────────────────────────────────
-Console.Write($"[2/3] Building suffix tree → {Path.GetFileName(treePath)}...");
+Console.WriteLine($"[2/3] Building suffix tree → {Path.GetFileName(treePath)}");
 Console.Out.Flush();
 
 // Delete old tree if exists
@@ -74,13 +93,31 @@ var textSource = new StringTextSource(sequence);
 GC.Collect(2, GCCollectionMode.Aggressive, true, true);
 var memBefore = GC.GetTotalMemory(false);
 
-var tree = PersistentSuffixTreeFactory.Create(textSource, treePath);
+// Progress reporter that overwrites the current console line
+var lastStage = "";
+var progressReporter = new Progress<(string Stage, double Percent)>(p =>
+{
+    if (p.Stage != lastStage)
+    {
+        if (lastStage.Length > 0)
+            Console.WriteLine(); // finish previous stage line
+        lastStage = p.Stage;
+    }
+    var elapsed = sw.Elapsed;
+    var bar = new string('█', (int)(p.Percent / 2.5));
+    var empty = new string('░', 40 - bar.Length);
+    Console.Write($"\r    [{bar}{empty}] {p.Percent,5:F1}%  {p.Stage,-35} {elapsed:hh\\:mm\\:ss}");
+    Console.Out.Flush();
+});
+
+var tree = PersistentSuffixTreeFactory.Create(textSource, treePath, progressReporter);
 var buildDuration = sw.Elapsed;
+Console.WriteLine(); // finish last progress line
 
 var memAfter = GC.GetTotalMemory(false);
 var treeFileSize = new FileInfo(treePath).Length;
 
-Console.WriteLine($" done in {buildDuration}");
+Console.WriteLine($"    ✓ Build complete in {buildDuration}");
 Console.WriteLine($"    Tree file size:  {treeFileSize / 1_073_741_824.0:F2} GB ({treeFileSize:N0} bytes)");
 Console.WriteLine($"    Node count:      {tree.NodeCount:N0}");
 Console.WriteLine($"    Leaf count:      {tree.LeafCount:N0}");

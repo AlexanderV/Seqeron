@@ -202,7 +202,7 @@ public static class SuffixTreeSerializer
 
     /// <summary>
     /// Loads a suffix tree from a memory-mapped file previously created by
-    /// <see cref="SaveToFile"/> or <see cref="PersistentSuffixTreeFactory.Create(ITextSource, string?)"/>.
+    /// <see cref="SaveToFile"/> or <see cref="PersistentSuffixTreeFactory.Create(ITextSource, string?, IProgress{ValueTuple{string, double}}?)"/>.
     /// </summary>
     /// <param name="filePath">Path to the existing tree file.</param>
     /// <returns>A read-only <see cref="ISuffixTree"/> backed by the MMF (caller must dispose).</returns>
