@@ -679,9 +679,63 @@ public class PersistentSuffixTreeBuilder
             : Math.Min(_transitionOffset, _maxNodeEndOffset);
         var mmfMain = _mmfStorage;
 
-        // Pass 1: count compact internal nodes that need child-array jump slots.
-        // ALL compact internal nodes need them because child arrays are allocated
-        // in the large zone (>4 GB) where offsets exceed uint32.
+        // ── Single-pass path when reserve is pre-allocated (genome-scale builds) ──
+        // We know the reserve capacity and can write slots directly while scanning.
+        if (_jumpTableReserveStart >= 0)
+        {
+            long reserveCapacity = _jumpTableReserveEnd - _jumpTableReserveStart;
+            _jumpTableStart = _jumpTableReserveStart;
+
+            // Fill suffix-link entries first
+            int slotIndex = 0;
+            for (int i = 0; i < suffixLinkJumps; i++, slotIndex++)
+            {
+                var (compactNodeOffset, largeTargetOffset) = _deferredSuffixLinks[i];
+                long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+                _storage.WriteInt64(jumpEntryOffset, largeTargetOffset);
+
+                var compactLayout = LayoutOf(compactNodeOffset);
+                var node = new PersistentSuffixTreeNode(_storage, compactNodeOffset, compactLayout);
+                node.SuffixLink = jumpEntryOffset;
+            }
+
+            // Single pass: write child-array jump slots while scanning compact nodes
+            for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
+            {
+                uint nodeEnd = mmfMain != null
+                    ? mmfMain.ReadUInt32Unchecked(offset + 4)
+                    : _storage.ReadUInt32(offset + 4);
+                if (nodeEnd != PersistentConstants.BOUNDLESS)
+                {
+                    long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+                    if (jumpEntryOffset + 8 > _jumpTableReserveEnd)
+                        throw new InvalidOperationException(
+                            $"Jump table requires more than {reserveCapacity:N0} reserved bytes. " +
+                            "The input exceeds the jump table reserve capacity.");
+                    if (mmfMain != null)
+                        mmfMain.WriteUInt32Unchecked(offset + 12, (uint)jumpEntryOffset);
+                    else
+                        _storage.WriteUInt32(offset + 12, (uint)jumpEntryOffset);
+                    slotIndex++;
+                }
+            }
+
+            int totalEntries = slotIndex;
+            if (totalEntries == 0)
+            {
+                _jumpTableStart = -1;
+                _jumpTableEnd = -1;
+            }
+            else
+            {
+                _jumpTableEnd = _jumpTableStart + totalEntries * 8;
+            }
+            return;
+        }
+
+        // ── Fallback: two-pass for non-reserved (tiny compact limits in tests) ──
+
+        // Pass 1: count compact internal nodes
         int childArrayJumps = 0;
         for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
         {
@@ -692,54 +746,32 @@ public class PersistentSuffixTreeBuilder
                 childArrayJumps++;
         }
 
-        int totalEntries = suffixLinkJumps + childArrayJumps;
-        if (totalEntries == 0)
+        int totalEntriesFallback = suffixLinkJumps + childArrayJumps;
+        if (totalEntriesFallback == 0)
         {
             _jumpTableStart = -1;
             _jumpTableEnd = -1;
             return;
         }
 
-        // Use pre-reserved space within the compact zone if available,
-        // otherwise allocate normally (works for tests with tiny compact limits).
-        int tableSize = totalEntries * 8;
-        if (_jumpTableReserveStart >= 0)
-        {
-            long reserveCapacity = _jumpTableReserveEnd - _jumpTableReserveStart;
-            if (tableSize > reserveCapacity)
-                throw new InvalidOperationException(
-                    $"Jump table requires {tableSize:N0} bytes ({totalEntries:N0} entries) " +
-                    $"but only {reserveCapacity:N0} bytes were reserved. " +
-                    "The input exceeds the jump table reserve capacity.");
-            _jumpTableStart = _jumpTableReserveStart;
-            _jumpTableEnd = _jumpTableReserveStart + tableSize;
-        }
-        else
-        {
-            _jumpTableStart = _storage.Allocate(tableSize);
-            _jumpTableEnd = _jumpTableStart + tableSize;
-        }
+        int tableSize = totalEntriesFallback * 8;
+        _jumpTableStart = _storage.Allocate(tableSize);
+        _jumpTableEnd = _jumpTableStart + tableSize;
 
-        // Fill suffix-link entries first
-        int slotIndex = 0;
-        for (int i = 0; i < suffixLinkJumps; i++, slotIndex++)
+        // Fill suffix-link entries
+        int slotIdx = 0;
+        for (int i = 0; i < suffixLinkJumps; i++, slotIdx++)
         {
             var (compactNodeOffset, largeTargetOffset) = _deferredSuffixLinks[i];
-            long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+            long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
             _storage.WriteInt64(jumpEntryOffset, largeTargetOffset);
 
-            // Point the compact node's SuffixLink to the jump entry
             var compactLayout = LayoutOf(compactNodeOffset);
             var node = new PersistentSuffixTreeNode(_storage, compactNodeOffset, compactLayout);
             node.SuffixLink = jumpEntryOffset;
         }
 
-        // Pass 2: write child-array jump entry offsets directly into each
-        // compact internal node's LeafCount field (uint32 at offset+12).
-        // The jump table lives in the compact zone so offsets always fit in uint32.
-        // This replaces the old 1.4 GB flat long[] array — ZERO extra RAM.
-        // The DFS will read the jump offset from LeafCount before overwriting
-        // it with the real leaf count.
+        // Pass 2: write child-array jump slots
         for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
         {
             uint nodeEnd = mmfMain != null
@@ -747,13 +779,12 @@ public class PersistentSuffixTreeBuilder
                 : _storage.ReadUInt32(offset + 4);
             if (nodeEnd != PersistentConstants.BOUNDLESS)
             {
-                long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
-                // Store jump offset in LeafCount field (temporary, overwritten by DFS later)
+                long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
                 if (mmfMain != null)
                     mmfMain.WriteUInt32Unchecked(offset + 12, (uint)jumpEntryOffset);
                 else
                     _storage.WriteUInt32(offset + 12, (uint)jumpEntryOffset);
-                slotIndex++;
+                slotIdx++;
             }
         }
     }
