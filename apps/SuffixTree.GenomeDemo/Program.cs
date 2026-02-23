@@ -20,21 +20,122 @@ var dataDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", ".."
 var fastaGz = Path.Combine(dataDir, "chr1.fa.gz");
 var treePath = Path.Combine(dataDir, "chr1.suffixtree.dat");
 
-// ── Verify mode: load existing tree and run queries ──────
+// ── Verify mode: load existing tree and run full query benchmark ──
 if (args.Length > 0 && args[0] == "--verify")
 {
     Console.WriteLine($"Loading tree from {treePath}...");
+    var vSw = Stopwatch.StartNew();
     var vTree = PersistentSuffixTreeFactory.Load(treePath);
-    Console.WriteLine($"Loaded! Nodes={vTree.NodeCount:N0}, Leaves={vTree.LeafCount:N0}, MaxDepth={vTree.MaxDepth:N0}");
+    Console.WriteLine($"Loaded in {vSw.Elapsed.TotalMilliseconds:F0}ms  Nodes={vTree.NodeCount:N0}, Leaves={vTree.LeafCount:N0}, MaxDepth={vTree.MaxDepth:N0}");
     Console.WriteLine();
-    Console.WriteLine($"Contains GATTACA:         {vTree.Contains("GATTACA")}");
-    Console.WriteLine($"Contains TTAGGGTTAGGG:    {vTree.Contains("TTAGGGTTAGGGTTAGGG")}");
+
+    void VTimeQuery(string label, Action action)
+    {
+        Console.Write($"  {label,-42}");
+        Console.Out.Flush();
+        vSw.Restart();
+        action();
+        Console.WriteLine($"  {vSw.Elapsed.TotalMilliseconds,10:F3} ms");
+    }
+
+    Console.WriteLine("  Pattern Search (Contains):");
+    VTimeQuery("\"GATTACA\" (movie motif)", () =>
+    {
+        bool found = vTree.Contains("GATTACA");
+        Console.Write(found ? "FOUND" : "not found");
+    });
+    VTimeQuery("\"TTAGGGTTAGGGTTAGGG\" (telomere x3)", () =>
+    {
+        bool found = vTree.Contains("TTAGGGTTAGGGTTAGGG");
+        Console.Write(found ? "FOUND" : "not found");
+    });
+
+    const string vTp53Exon = "TACCCGCGTCCGCGCCATGGCCATCTACAAGCAGTCACAG";
+    VTimeQuery("TP53 exon 4 (40 bp)", () =>
+    {
+        bool found = vTree.Contains(vTp53Exon);
+        Console.Write(found ? "FOUND" : "not found");
+    });
     Console.WriteLine();
-    Console.WriteLine($"Count ATG:    {vTree.CountOccurrences("ATG"),12:N0}");
-    Console.WriteLine($"Count GAATTC: {vTree.CountOccurrences("GAATTC"),12:N0}");
-    Console.WriteLine($"Count TATAAA: {vTree.CountOccurrences("TATAAA"),12:N0}");
-    Console.WriteLine($"Count TTAGGG: {vTree.CountOccurrences("TTAGGG"),12:N0}");
-    Console.WriteLine($"Count CAGCAG: {vTree.CountOccurrences("CAGCAG"),12:N0}");
+
+    Console.WriteLine("  Count Occurrences:");
+    VTimeQuery("\"ATG\" (start codon)", () =>
+    {
+        int c = vTree.CountOccurrences("ATG");
+        Console.Write($"{c,10:N0}");
+    });
+    VTimeQuery("\"TATAAA\" (TATA box)", () =>
+    {
+        int c = vTree.CountOccurrences("TATAAA");
+        Console.Write($"{c,10:N0}");
+    });
+    VTimeQuery("\"GAATTC\" (EcoRI restriction site)", () =>
+    {
+        int c = vTree.CountOccurrences("GAATTC");
+        Console.Write($"{c,10:N0}");
+    });
+    VTimeQuery("\"TTAGGG\" (telomeric repeat)", () =>
+    {
+        int c = vTree.CountOccurrences("TTAGGG");
+        Console.Write($"{c,10:N0}");
+    });
+    VTimeQuery("\"CAGCAG\" (Huntington CAG repeat)", () =>
+    {
+        int c = vTree.CountOccurrences("CAGCAG");
+        Console.Write($"{c,10:N0}");
+    });
+    VTimeQuery("\"AAAAAAAAAAAA\" (poly-A 12-mer)", () =>
+    {
+        int c = vTree.CountOccurrences("AAAAAAAAAAAA");
+        Console.Write($"{c,10:N0}");
+    });
+    Console.WriteLine();
+
+    Console.WriteLine("  Find All Occurrences:");
+    VTimeQuery("\"GAATTC\" (EcoRI, all positions)", () =>
+    {
+        var positions = vTree.FindAllOccurrences("GAATTC");
+        Console.Write($"{positions.Count,10:N0}");
+    });
+    VTimeQuery("\"GGATCC\" (BamHI restriction site)", () =>
+    {
+        var positions = vTree.FindAllOccurrences("GGATCC");
+        Console.Write($"{positions.Count,10:N0}");
+    });
+    Console.WriteLine();
+
+    Console.WriteLine("  Find All Occurrences (warm repeat):");
+    VTimeQuery("\"GAATTC\" (EcoRI, warm)", () =>
+    {
+        var positions = vTree.FindAllOccurrences("GAATTC");
+        Console.Write($"{positions.Count,10:N0}");
+    });
+    VTimeQuery("\"GGATCC\" (BamHI, warm)", () =>
+    {
+        var positions = vTree.FindAllOccurrences("GGATCC");
+        Console.Write($"{positions.Count,10:N0}");
+    });
+    Console.WriteLine();
+
+    Console.WriteLine("  Longest Repeated Substring:");
+    VTimeQuery("LRS computation", () =>
+    {
+        string lrs = vTree.LongestRepeatedSubstring();
+        Console.Write($"len={lrs.Length,7:N0}");
+    });
+    Console.WriteLine();
+
+    Console.WriteLine("  Longest Common Substring:");
+    const string vBrca1Probe =
+        "ATGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCA" +
+        "TCTGTCTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGCATGCTGAAAC";
+    VTimeQuery("BRCA1 probe (150 bp, from chr17)", () =>
+    {
+        var lcs = vTree.LongestCommonSubstring(vBrca1Probe);
+        Console.Write($"len={lcs.Length,4}");
+    });
+    Console.WriteLine();
+
     (vTree as IDisposable)?.Dispose();
     return 0;
 }
