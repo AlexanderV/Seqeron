@@ -207,5 +207,65 @@ namespace SuffixTree.Tests.Algorithms
 
         #endregion
 
+        #region LongestRepeatedSubstringMemory
+
+        [Test]
+        public void LRSMemory_ReturnsEqualContentAsLRS()
+        {
+            var testCases = new[] { "banana", "mississippi", "abcabc", "ababab", "" };
+
+            foreach (var text in testCases)
+            {
+                var st = SuffixTree.Build(text);
+                var lrs = st.LongestRepeatedSubstring();
+                var lrsMemory = st.LongestRepeatedSubstringMemory();
+
+                Assert.That(lrsMemory.ToString(), Is.EqualTo(lrs),
+                    $"LRSMemory must match LRS for \"{text}\"");
+            }
+        }
+
+        [Test]
+        public void LRSMemory_EmptyTree_ReturnsEmptyMemory()
+        {
+            var st = SuffixTree.Build("");
+            var result = st.LongestRepeatedSubstringMemory();
+            Assert.That(result.Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LRSMemory_NoRepeats_ReturnsEmptyMemory()
+        {
+            var st = SuffixTree.Build("abcdef");
+            var result = st.LongestRepeatedSubstringMemory();
+            Assert.That(result.Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LRSMemory_PointsIntoOriginalString()
+        {
+            // LongestRepeatedSubstringMemory on StringTextSource returns
+            // a zero-copy slice into the original string
+            var st = SuffixTree.Build("banana");
+            var memory = st.LongestRepeatedSubstringMemory();
+            Assert.That(memory.ToString(), Is.EqualTo("ana"));
+            Assert.That(memory.Length, Is.EqualTo(3));
+        }
+
+        #endregion
+
+        #region Caching
+
+        [Test]
+        public void LRS_IsCached_ReturnsSameInstanceOnSecondCall()
+        {
+            var st = SuffixTree.Build("banana");
+            var first = st.LongestRepeatedSubstring();
+            var second = st.LongestRepeatedSubstring();
+            Assert.That(second, Is.SameAs(first), "LRS should be cached - same reference");
+        }
+
+        #endregion
+
     }
 }

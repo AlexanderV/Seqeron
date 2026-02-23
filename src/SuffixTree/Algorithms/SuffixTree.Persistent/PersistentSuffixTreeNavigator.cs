@@ -82,16 +82,6 @@ internal unsafe struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<Pers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int GetNodeDepth(PersistentSuffixTreeNode node)
-        => throw new InvalidOperationException(
-            "GetNodeDepth is not available — track depth on-the-fly.");
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int GetDepthFromRoot(PersistentSuffixTreeNode node)
-        => throw new InvalidOperationException(
-            "GetDepthFromRoot is not available — track depth on-the-fly.");
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PersistentSuffixTreeNode GetSuffixLink(PersistentSuffixTreeNode node)
     {
         long raw = node.SuffixLink;

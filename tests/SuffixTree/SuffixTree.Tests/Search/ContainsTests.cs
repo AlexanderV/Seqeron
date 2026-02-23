@@ -185,5 +185,53 @@ namespace SuffixTree.Tests.Search
         }
 
         #endregion
+
+        #region Mid-Edge Mismatch Coverage
+
+        [Test]
+        public void Contains_ScalarMismatch_ShortEdgeDivergence()
+        {
+            // Tree for "abc" has edges from root: a→bc, b→c, c
+            // Searching "abd" matches edge "a→bc" for 1 char, then diverges mid-edge
+            // at the 2nd character ('b' vs 'd'). This hits the scalar path (< 8 chars).
+            var st = SuffixTree.Build("abc");
+            Assert.That(st.Contains("abd"), Is.False,
+                "Pattern diverging mid-edge (scalar path) must return false");
+        }
+
+        [Test]
+        public void Contains_SimdMismatch_LongEdgeDivergence()
+        {
+            // Build a tree with a long unique suffix creating an edge ≥ 8 chars.
+            // "ABCDEFGHIJ" starts a unique edge from 'A' of length 10.
+            // Appending "#XY" ensures the edge stays long (no split by shared prefix).
+            var st = SuffixTree.Build("ABCDEFGHIJ#XY");
+
+            // Search a pattern that matches 8+ chars then diverges mid-edge
+            Assert.That(st.Contains("ABCDEFGHZZ"), Is.False,
+                "Pattern diverging mid-edge on SIMD path (>=8 chars) must return false");
+        }
+
+        [Test]
+        public void FindAllOccurrences_ScalarMismatch_ReturnsEmpty()
+        {
+            // "abcde" has root→'a' edge "abcde$" (length 6, single leaf).
+            // Searching "abcfg" matches 3 chars then diverges at 'd' vs 'f' mid-edge.
+            // Edge length 5 < 8, so this exercises the scalar comparison mismatch in MatchPatternCore.
+            var st = SuffixTree.Build("abcde");
+            Assert.That(st.FindAllOccurrences("abcfg"), Is.Empty,
+                "Pattern diverging mid-edge in MatchPatternCore scalar path must return empty");
+        }
+
+        [Test]
+        public void FindAllOccurrences_SimdMismatch_ReturnsEmpty()
+        {
+            // Same approach but with a long edge for the SIMD path
+            var st = SuffixTree.Build("ABCDEFGHIJKLMNOP#XY");
+            Assert.That(st.FindAllOccurrences("ABCDEFGHIJZZZZZZ"), Is.Empty,
+                "Pattern diverging mid-edge on SIMD path in MatchPatternCore must return empty");
+        }
+
+        #endregion
     }
 }

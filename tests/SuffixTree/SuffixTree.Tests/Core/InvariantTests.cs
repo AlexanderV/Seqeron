@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 
@@ -6,16 +7,69 @@ namespace SuffixTree.Tests.Core
 {
     /// <summary>
     /// Tests for fundamental suffix tree invariants from theory.
-    /// References: Ukkonen (1995), Gusfield (1997).
+    /// Every test here is a mathematical property that MUST hold for any correct
+    /// suffix tree. If a test fails, the implementation is wrong — not the test.
+    /// References: Ukkonen (1995), Gusfield (1997), Weiner (1973).
     /// </summary>
     [TestFixture]
     public class InvariantTests
     {
+        #region Leaf Count Invariant
+
+        /// <summary>
+        /// Theorem (Gusfield §5.2): A suffix tree for a string of length n
+        /// (with unique terminator) has exactly n leaves.
+        /// </summary>
+        [Test]
+        [TestCase("a")]
+        [TestCase("ab")]
+        [TestCase("banana")]
+        [TestCase("mississippi")]
+        [TestCase("abracadabra")]
+        [TestCase("aaaaaaa")]
+        [TestCase("abababab")]
+        public void LeafCount_EqualsTextLength(string text)
+        {
+            var tree = SuffixTree.Build(text);
+            Assert.That(tree.LeafCount, Is.EqualTo(text.Length),
+                $"Suffix tree for \"{text}\" must have exactly {text.Length} leaves");
+        }
+
+        #endregion
+
+        #region Node Count Bounds
+
+        /// <summary>
+        /// Theorem (Gusfield §5.2): A suffix tree for a string of length n has
+        /// at most 2n nodes (including root). NodeCount >= LeafCount + 1 (root).
+        /// </summary>
+        [Test]
+        [TestCase("a")]
+        [TestCase("ab")]
+        [TestCase("banana")]
+        [TestCase("mississippi")]
+        [TestCase("abracadabra")]
+        [TestCase("aaaaaaa")]
+        public void NodeCount_WithinTheoreticalBounds(string text)
+        {
+            var tree = SuffixTree.Build(text);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree.NodeCount, Is.GreaterThanOrEqualTo(tree.LeafCount + 1),
+                    "NodeCount must include at least all leaves + root");
+                Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * text.Length + 1),
+                    "NodeCount cannot exceed 2n+1 (Gusfield bound)");
+            });
+        }
+
+        #endregion
+
         #region Suffix Containment Invariant
 
         /// <summary>
-        /// Invariant: Every suffix of the text can be found in the tree.
-        /// This is the fundamental property of suffix trees.
+        /// Fundamental invariant: Every suffix of the text is a path from
+        /// root to a leaf. Therefore Contains(suffix) must return true.
         /// </summary>
         [Test]
         [TestCase("banana")]
@@ -40,7 +94,8 @@ namespace SuffixTree.Tests.Core
         #region Count/Positions Consistency
 
         /// <summary>
-        /// Invariant: CountOccurrences must equal the number of positions from FindAllOccurrences.
+        /// Invariant: CountOccurrences (= leaf count under matched node) must equal
+        /// |FindAllOccurrences| (= number of leaves collected via DFS).
         /// </summary>
         [Test]
         [TestCase("banana", "a")]
@@ -61,7 +116,8 @@ namespace SuffixTree.Tests.Core
         }
 
         /// <summary>
-        /// Invariant: Each position from FindAllOccurrences must be a valid occurrence.
+        /// Invariant: Each position from FindAllOccurrences must be a valid occurrence —
+        /// the substring at that position must match the pattern exactly.
         /// </summary>
         [Test]
         [TestCase("banana", "ana")]
@@ -84,10 +140,59 @@ namespace SuffixTree.Tests.Core
 
         #endregion
 
+        #region Statistics Immutability
+
+        /// <summary>
+        /// NodeCount and LeafCount are computed once at construction.
+        /// They must not change regardless of subsequent query operations.
+        /// </summary>
+        [Test]
+        public void Stats_DoNotChangeAfterQueries()
+        {
+            var st = SuffixTree.Build("banana");
+
+            var nodesBefore = st.NodeCount;
+            var leafBefore = st.LeafCount;
+
+            // Perform various operations that touch different code paths
+            _ = st.Contains("ana");
+            _ = st.FindAllOccurrences("a").ToList();
+            _ = st.LongestRepeatedSubstring();
+            _ = st.LongestCommonSubstring("other");
+            _ = st.GetAllSuffixes();
+            _ = st.CountOccurrences("an");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(st.NodeCount, Is.EqualTo(nodesBefore));
+                Assert.That(st.LeafCount, Is.EqualTo(leafBefore));
+            });
+        }
+
+        #endregion
+
+        #region MaxDepth Invariant
+
+        /// <summary>
+        /// MaxDepth equals the length of the longest suffix, which is text.Length.
+        /// </summary>
+        [Test]
+        [TestCase("a")]
+        [TestCase("banana")]
+        [TestCase("mississippi")]
+        [TestCase("aaaaaaa")]
+        public void MaxDepth_EqualsTextLength(string text)
+        {
+            var tree = SuffixTree.Build(text);
+            Assert.That(tree.MaxDepth, Is.EqualTo(text.Length));
+        }
+
+        #endregion
+
         #region Random Invariant Verification
 
         /// <summary>
-        /// Verify all invariants on random input.
+        /// Verify all invariants on random input — property-based testing.
         /// </summary>
         [Test]
         [Repeat(10)]
@@ -102,13 +207,16 @@ namespace SuffixTree.Tests.Core
             // Invariant 1: Correct leaf count
             Assert.That(tree.LeafCount, Is.EqualTo(text.Length));
 
-            // Invariant 2: All suffixes exist
+            // Invariant 2: Node count bounds
+            Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * text.Length + 1));
+
+            // Invariant 3: All suffixes exist
             for (int i = 0; i < text.Length; i++)
             {
                 Assert.That(tree.Contains(text.Substring(i)), Is.True);
             }
 
-            // Invariant 3: Suffixes are correctly enumerated
+            // Invariant 4: Suffixes are correctly enumerated (lexicographic order)
             var suffixes = tree.GetAllSuffixes();
             var expected = Enumerable.Range(0, text.Length)
                 .Select(i => text.Substring(i))
@@ -116,7 +224,7 @@ namespace SuffixTree.Tests.Core
                 .ToList();
             Assert.That(suffixes, Is.EqualTo(expected));
 
-            // Invariant 4: Count matches positions
+            // Invariant 5: Count matches positions for random pattern
             string pattern = text.Substring(random.Next(text.Length / 2),
                 Math.Min(3, text.Length / 2));
             Assert.That(tree.CountOccurrences(pattern),

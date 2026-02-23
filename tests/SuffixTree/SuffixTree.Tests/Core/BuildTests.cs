@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 
 namespace SuffixTree.Tests.Core
@@ -92,7 +94,14 @@ namespace SuffixTree.Tests.Core
         {
             var st = SuffixTree.Build("abababab");
 
-            Assert.That(st.LeafCount, Is.EqualTo(8));
+            Assert.Multiple(() =>
+            {
+                Assert.That(st.LeafCount, Is.EqualTo(8));
+                Assert.That(st.MaxDepth, Is.EqualTo(8));
+                // Alternating "ab" pattern: "ab" occurs 4 times
+                Assert.That(st.CountOccurrences("ab"), Is.EqualTo(4));
+                Assert.That(st.LongestRepeatedSubstring(), Has.Length.EqualTo(6)); // "ababab"
+            });
         }
 
         [Test]
@@ -100,7 +109,15 @@ namespace SuffixTree.Tests.Core
         {
             var st = SuffixTree.Build("abcdefghij");
 
-            Assert.That(st.LeafCount, Is.EqualTo(10));
+            Assert.Multiple(() =>
+            {
+                Assert.That(st.LeafCount, Is.EqualTo(10));
+                Assert.That(st.MaxDepth, Is.EqualTo(10));
+                // All unique → no repeated substring
+                Assert.That(st.LongestRepeatedSubstring(), Is.EqualTo(string.Empty));
+                // Each char occurs exactly once
+                Assert.That(st.CountOccurrences("a"), Is.EqualTo(1));
+            });
         }
 
         #endregion
@@ -108,21 +125,21 @@ namespace SuffixTree.Tests.Core
         #region Text Property
 
         [Test]
-        public void Text_ReturnsOriginalString()
+        public void Text_PreservesOriginalContentExactly()
         {
-            var original = "test string with spaces";
-            var st = SuffixTree.Build(original);
+            var inputs = new[] {
+                "test string with spaces",
+                "  leading and trailing  ",
+                "line1\nline2\rline3",
+                "\t\ttabs"
+            };
 
-            Assert.That(st.Text.ToString(), Is.EqualTo(original));
-        }
-
-        [Test]
-        public void Text_PreservesWhitespace()
-        {
-            var text = "  leading and trailing  ";
-            var st = SuffixTree.Build(text);
-
-            Assert.That(st.Text.ToString(), Is.EqualTo(text));
+            foreach (var input in inputs)
+            {
+                var st = SuffixTree.Build(input);
+                Assert.That(st.Text.ToString(), Is.EqualTo(input),
+                    $"Text property must preserve exact content for: [{input}]");
+            }
         }
 
         #endregion
@@ -195,17 +212,14 @@ namespace SuffixTree.Tests.Core
         #region IsEmpty Property
 
         [Test]
-        public void IsEmpty_EmptyString_ReturnsTrue()
+        public void IsEmpty_CorrelatesWithTextLength()
         {
-            var st = SuffixTree.Build("");
-            Assert.That(st.IsEmpty, Is.True);
-        }
-
-        [Test]
-        public void IsEmpty_NonEmptyString_ReturnsFalse()
-        {
-            var st = SuffixTree.Build("a");
-            Assert.That(st.IsEmpty, Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(SuffixTree.Build("").IsEmpty, Is.True);
+                Assert.That(SuffixTree.Build("a").IsEmpty, Is.False);
+                Assert.That(SuffixTree.Empty.IsEmpty, Is.True);
+            });
         }
 
         [Test]
@@ -265,6 +279,108 @@ namespace SuffixTree.Tests.Core
             var empty2 = SuffixTree.Empty;
 
             Assert.That(empty1, Is.SameAs(empty2));
+        }
+
+        #endregion
+
+        #region TryBuild(ITextSource) Overload
+
+        [Test]
+        public void TryBuild_NullTextSource_ReturnsFalse()
+        {
+            bool result = SuffixTree.TryBuild((ITextSource?)null, out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.False);
+                Assert.That(tree, Is.Null);
+            });
+        }
+
+        [Test]
+        public void TryBuild_ValidTextSource_ReturnsTrue()
+        {
+            var source = new ArrayTextSource("banana");
+            bool result = SuffixTree.TryBuild(source, out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.True);
+                Assert.That(tree, Is.Not.Null);
+                Assert.That(tree!.Contains("nan"), Is.True);
+            });
+        }
+
+        #endregion
+
+        #region Custom ITextSource (non-StringTextSource) Build Path
+
+        [Test]
+        public void Build_CustomTextSource_ConstructsCorrectTree()
+        {
+            // Using a non-StringTextSource exercises the fallback code paths:
+            // - Constructor foreach loop instead of raw string indexing
+            // - GetSymbolAt fallback (_text[index] instead of _rawString[index])
+            var source = new ArrayTextSource("banana");
+            SuffixTree.TryBuild(source, out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree!.Text.Length, Is.EqualTo(6));
+                Assert.That(tree.LeafCount, Is.EqualTo(6), "Leaf count = text length");
+                Assert.That(tree.Contains("banana"), Is.True);
+                Assert.That(tree.Contains("ana"), Is.True);
+                Assert.That(tree.Contains("xyz"), Is.False);
+            });
+        }
+
+        [Test]
+        public void Build_CustomTextSource_LRSMemoryFallback()
+        {
+            // LongestRepeatedSubstringMemory() has a fallback path when _rawString is null.
+            // A custom ITextSource (not StringTextSource) triggers this path.
+            var source = new ArrayTextSource("banana");
+            SuffixTree.TryBuild(source, out var tree);
+
+            var lrsMemory = tree!.LongestRepeatedSubstringMemory();
+            Assert.That(lrsMemory.ToString(), Is.EqualTo("ana"),
+                "LRS memory fallback should return same result as LRS string path");
+        }
+
+        [Test]
+        public void Build_CustomTextSource_SearchAndCount()
+        {
+            var source = new ArrayTextSource("abcabc");
+            SuffixTree.TryBuild(source, out var tree);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree!.CountOccurrences("abc"), Is.EqualTo(2));
+                Assert.That(tree.FindAllOccurrences("abc"), Is.EquivalentTo(new[] { 0, 3 }));
+            });
+        }
+
+        /// <summary>
+        /// A simple ITextSource backed by a char array (not StringTextSource).
+        /// Forces the suffix tree to use fallback ITextSource code paths.
+        /// </summary>
+        private sealed class ArrayTextSource : ITextSource
+        {
+            private readonly char[] _data;
+
+            public ArrayTextSource(string text) => _data = text.ToCharArray();
+
+            public int Length => _data.Length;
+            public char this[int index] => _data[index];
+            public string Substring(int start, int length) => new string(_data, start, length);
+            public ReadOnlySpan<char> Slice(int start, int length) => _data.AsSpan(start, length);
+
+            public IEnumerator<char> GetEnumerator()
+            {
+                foreach (var c in _data) yield return c;
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
         #endregion

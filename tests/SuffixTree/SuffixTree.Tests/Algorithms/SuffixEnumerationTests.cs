@@ -172,10 +172,30 @@ namespace SuffixTree.Tests.Algorithms
             // Build a tree with many suffixes
             var st = SuffixTree.Build(new string('a', 1000));
 
-            // Take only first 5 - should not enumerate all
+            // Take only first 5 — should not enumerate all 1000
             var first5 = st.EnumerateSuffixes().Take(5).ToList();
 
             Assert.That(first5, Has.Count.EqualTo(5));
+            // Each suffix should be a valid non-empty string of 'a's
+            foreach (var suffix in first5)
+            {
+                Assert.That(suffix.Length, Is.GreaterThan(0));
+                Assert.That(suffix.All(c => c == 'a'), Is.True);
+            }
+        }
+
+        [Test]
+        public void EnumerateSuffixes_ReturnsInLexicographicOrder()
+        {
+            var st = SuffixTree.Build("banana");
+            var suffixes = st.EnumerateSuffixes().ToList();
+
+            for (int i = 1; i < suffixes.Count; i++)
+            {
+                Assert.That(string.Compare(suffixes[i - 1], suffixes[i], StringComparison.Ordinal),
+                    Is.LessThanOrEqualTo(0),
+                    $"Suffixes not in lex order: '{suffixes[i - 1]}' vs '{suffixes[i]}'");
+            }
         }
 
         #endregion
