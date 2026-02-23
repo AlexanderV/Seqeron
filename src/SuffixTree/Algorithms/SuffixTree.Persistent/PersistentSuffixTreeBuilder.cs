@@ -73,6 +73,12 @@ public class PersistentSuffixTreeBuilder
     private const int CE_OFF_NEXT = 4;
     private const int CE_OFF_CHILD = 8;
 
+    // Temp file entry layout for sequential finalize (per node, 12 bytes).
+    private const int TEMP_ENTRY = 12;
+    private const int TEMP_OFF_PARENT = 0;     // int32: parent node index (-1 = root)
+    private const int TEMP_OFF_LEAFCOUNT = 4;  // uint32: leaf count
+    private const int TEMP_OFF_REMAINING = 8;  // int32: remaining children for bottom-up
+
     // Tracks the end of the last allocated node (used by MaterializeJumpTable
     // to iterate compact-zone nodes without needing _children.Keys).
     private long _maxNodeEndOffset;
@@ -610,16 +616,9 @@ public class PersistentSuffixTreeBuilder
             MaterializeJumpTable();
         }
 
-        _progress?.Report(("DFS: Topology extraction", 92.0));
-
-        // Hint the OS to start paging-in the child store before the DFS reads it.
-        // The DFS will sequentially scan the entire child store (~5.6 GB for chr1).
-        _mmfChildStore?.PrefetchForBuild();
-
-        CombinedFinalizeDFS(_rootOffset);
-
-        if (_ownsDepthStore) _depthStore?.Dispose();
-        if (_ownsChildStore) _childStore.Dispose();
+        // Sequential multi-pass finalize: replaces DFS to eliminate random I/O.
+        // Disposes child store and depth store internally when no longer needed.
+        SequentialFinalize(_rootOffset);
 
         _progress?.Report(("DFS: Serializing text", 98.0));
 
@@ -789,445 +788,444 @@ public class PersistentSuffixTreeBuilder
         }
     }
 
-    // ──────────────── Combined finalize DFS ────────────────
+    // ──────────────── Sequential multi-pass finalize ────────────────
 
     /// <summary>
-    /// Single post-order DFS that does ALL finalization work in one pass:
-    ///   • Computes LeafCount for every node
-    ///   • Writes sorted child arrays (batch-allocated — ~30 allocs, not 175M)
-    ///   • Tracks the deepest internal node (depth accumulated on stack — no depth store)
-    ///   • Reads jump offsets from LeafCount field, then overwrites with the real count
+    /// Replaces the old DFS-based finalization with sequential disk passes to
+    /// eliminate random I/O that caused 13+ minute DFS phases on genome-scale builds.
     ///
-    /// Children are cached in a native flat buffer during the first visit so that
-    /// the child store is read only ONCE per internal node (not 2-3 times).
-    /// LeafCounts are written directly into main storage — no intermediate 1.4 GB array.
+    /// <b>Pass 1</b> — Sequential scan of main storage (19 GB):
+    ///   For each node in allocation order: read child linked list from child store,
+    ///   sort children, write sorted child array (batch-allocated), update
+    ///   ChildrenHead/ChildCount in node header. Build parent-graph in temp file.
     ///
-    /// Memory: DFS stack ~5-20 MB + child cache ~3 MB, zero large arrays.
-    /// I/O: single pass over the tree — minimum possible page touches.
+    /// <b>Pass 2</b> — Bottom-up leaf count propagation (temp files only, ~7 GB):
+    ///   BFS from leaves → parents using temp file + sequential queue file.
+    ///   Zero main storage I/O.
+    ///
+    /// <b>Pass 3</b> — Sequential write-back (19 GB):
+    ///   Write LeafCount from temp file. Track deepest internal node via depth store.
+    ///
+    /// Disk: ~7 GB temp files (auto-deleted). RAM: near-zero (just OS page cache).
     /// </summary>
-    private unsafe void CombinedFinalizeDFS(long rootOffset)
+    private unsafe void SequentialFinalize(long rootOffset)
     {
         var mmfMain = _mmfStorage;
-        var mmfChild = _mmfChildStore;
+        byte* childBase = _mmfChildStore != null ? _mmfChildStore.RawPointer : null;
+        int nodeCount = _nodeCount;
+        int hdr = HeaderSize;
 
-        // ── Native child cache ──
-        // During first visit we read (key, childOffset) from child store and cache them
-        // in a flat native buffer. Post-order visit reads from cache — zero child store reads.
-        // Buffer holds entries for nodes currently on the DFS path: O(Height × Branching).
-        // For DNA genome: ~50K depth × 5 branching × 12 bytes = ~3 MB.
-        const int CHILD_CACHE_ENTRY = 12; // uint key (4) + long childOffset (8)
-        int childCacheCapacity = 512 * 1024; // initial entries
-        byte* childCache = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc(
-            (nuint)childCacheCapacity * CHILD_CACHE_ENTRY);
-        int childCacheUsed = 0; // high-water mark of entries currently in use
-
-        // ── Native DFS stack ──
-        // Entry layout (20 bytes): long Offset (8) + int ChildCacheStart (4) + int ChildCount (4) + int DepthAtEdgeStart (4)
-        //   ChildCacheStart = -1 means first visit (children not yet pushed)
-        //   ChildCacheStart >= 0 means post-order visit, children cached at [start..start+count)
-        // Using native memory avoids managed heap GC pressure from Stack<T> resizes.
-        const int STACK_ENTRY_SIZE = 20;
-        int stackCapacity = 256 * 1024; // ~5 MB initial, grows if needed
-        byte* stackMem = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)stackCapacity * STACK_ENTRY_SIZE);
-        int stackTop = 0;
-        // Push root
-        {
-            byte* e = stackMem;
-            *(long*)e = rootOffset;
-            *(int*)(e + 8) = -1;
-            *(int*)(e + 12) = 0;
-            *(int*)(e + 16) = 0;
-            stackTop = 1;
-        }
-
-        // ── Batch allocation state for child arrays ──
-        // Pre-allocate a large zone for child arrays to minimize _storage.Allocate calls
-        // (each Allocate can trigger EnsureCapacity → MMF remap → TLB flush).
-        // Estimate: ~nodeCount children × avg 10 bytes/child entry. Use int.MaxValue cap.
-        long estimatedChildArrayBytes = (long)_nodeCount * 10;
-        int batchSize = (int)Math.Min(estimatedChildArrayBytes, int.MaxValue - 65536);
-        batchSize = Math.Max(batchSize, 4096);
-        long batchStart = _storage.Allocate(batchSize);
-        long batchEnd = batchStart + batchSize;
-        long batchPos = batchStart;
-
-        long deepestOffset = rootOffset;
-        int maxLrsDepth = 0;
-        int nodesProcessed = 0;
-        int totalNodes = _nodeCount;
-        int reportInterval = Math.Max(totalNodes / 200, 1);
-        int reportCountdown = reportInterval;
+        string tempNodePath = Path.Combine(Path.GetTempPath(), $"sfx_{Guid.NewGuid():N}_node.tmp");
+        string tempQueuePath = Path.Combine(Path.GetTempPath(), $"sfx_{Guid.NewGuid():N}_queue.tmp");
 
         try
         {
-            while (stackTop > 0)
-            {
-                stackTop--;
-                byte* popEntry = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
-                long offset = *(long*)popEntry;
-                int cacheStart = *(int*)(popEntry + 8);
-                int cacheCount = *(int*)(popEntry + 12);
-                int depthAtEdge = *(int*)(popEntry + 16);
-                var layout = LayoutOf(offset);
-                bool useMmf = mmfMain != null && !layout.OffsetIs64Bit;
+            // ── Create temp file for node graph metadata ──
+            long tempNodeCap = (long)nodeCount * TEMP_ENTRY;
+            using var tempNodeMmf = new MappedFileStorageProvider(tempNodePath, Math.Max(tempNodeCap, 65536));
+            tempNodeMmf.SetSize(tempNodeCap);
+            byte* tp = tempNodeMmf.RawPointer;
 
-                // ── Read Start / End ──
+            // Initialize parent = -1 (leafCount=0 and remaining=0 are zero-filled by OS)
+            for (long i = 0; i < nodeCount; i++)
+                *(int*)(tp + i * TEMP_ENTRY + TEMP_OFF_PARENT) = -1;
+
+            // ═══════════ PASS 1: Sequential scan → child arrays + parent graph ═══════════
+            _progress?.Report(("Pass 1: child arrays", 92.0));
+
+            // Batch allocation for child arrays
+            long estimatedChildArrayBytes = (long)nodeCount * 10;
+            int batchSize = (int)Math.Min(estimatedChildArrayBytes, int.MaxValue - 65536);
+            batchSize = Math.Max(batchSize, 4096);
+            long batchStart = _storage.Allocate(batchSize);
+            long batchEnd = batchStart + batchSize;
+            long batchPos = batchStart;
+
+            // Reusable child buffer (max 256 children per node)
+            const int CHILD_BUF_MAX = 256;
+            uint* cKeys = stackalloc uint[CHILD_BUF_MAX];
+            long* cOffs = stackalloc long[CHILD_BUF_MAX];
+
+            long compactEnd = IsHybrid
+                ? (_compactNodesEnd >= 0 ? _compactNodesEnd : _transitionOffset)
+                : _maxNodeEndOffset;
+            int compactNodeSize = _initialLayout.NodeSize;
+            int totalNodes = nodeCount;
+            int reportInterval = Math.Max(totalNodes / 200, 1);
+            int reportCountdown = reportInterval;
+
+            int idx = 0;
+
+            // Compact zone — sequential scan
+            for (long off = hdr; off < compactEnd; off += compactNodeSize, idx++)
+            {
                 uint nodeStart, nodeEnd;
-                if (useMmf)
+                if (mmfMain != null)
                 {
-                    nodeStart = mmfMain!.ReadUInt32Unchecked(offset);
-                    nodeEnd = mmfMain!.ReadUInt32Unchecked(offset + 4);
+                    nodeStart = mmfMain.ReadUInt32Unchecked(off);
+                    nodeEnd = mmfMain.ReadUInt32Unchecked(off + 4);
                 }
                 else
                 {
-                    var n = new PersistentSuffixTreeNode(_storage, offset, layout);
-                    nodeStart = n.Start;
-                    nodeEnd = n.End;
+                    nodeStart = _storage.ReadUInt32(off);
+                    nodeEnd = _storage.ReadUInt32(off + 4);
                 }
 
-                // ── Leaf ──
                 if (nodeEnd == PersistentConstants.BOUNDLESS)
                 {
-                    // Write LeafCount = 1 directly to main storage
-                    if (useMmf)
-                        mmfMain!.WriteUInt32Unchecked(offset + (uint)layout.OffsetLeafCount, 1);
-                    else
-                        new PersistentSuffixTreeNode(_storage, offset, layout).LeafCount = 1;
-
-                    nodesProcessed++;
-                    if (--reportCountdown <= 0)
-                    {
-                        reportCountdown = reportInterval;
-                        _progress?.Report(("DFS: Topology extraction", 92.0 + (double)nodesProcessed / totalNodes * 5.0));
-                    }
-                    continue;
-                }
-
-                int edgeLen = (int)(nodeEnd - nodeStart);
-                int stringDepth = depthAtEdge + edgeLen;
-
-                if (cacheStart == -1)
-                {
-                    // ══════ First visit: read children from child store, cache them, push for DFS ══════
-
-                    long headIndex;
-                    if (useMmf)
-                    {
-                        uint raw = mmfMain!.ReadUInt32Unchecked(offset + 16);
-                        headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
-                    }
-                    else
-                    {
-                        headIndex = new PersistentSuffixTreeNode(_storage, offset, layout).ChildrenHead;
-                    }
-
-                    // Count and cache children — THE ONLY child store read for this node
-                    int myStart = childCacheUsed;
-                    int myCount = 0;
-
-                    if (headIndex != PersistentConstants.NULL_OFFSET)
-                    {
-                        long ci = headIndex;
-                        if (mmfChild != null)
-                        {
-                            while (ci >= 0)
-                            {
-                                long entryOff = ci * CHILD_ENTRY_SIZE;
-                                uint key = mmfChild.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
-                                long childOff = mmfChild.ReadInt64Unchecked(entryOff + CE_OFF_CHILD);
-
-                                // Grow cache if needed
-                                if (childCacheUsed >= childCacheCapacity)
-                                {
-                                    int newCap = childCacheCapacity * 2;
-                                    byte* newBuf = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc(
-                                        (nuint)newCap * CHILD_CACHE_ENTRY);
-                                    System.Buffer.MemoryCopy(childCache, newBuf,
-                                        (long)newCap * CHILD_CACHE_ENTRY,
-                                        (long)childCacheCapacity * CHILD_CACHE_ENTRY);
-                                    System.Runtime.InteropServices.NativeMemory.Free(childCache);
-                                    childCache = newBuf;
-                                    childCacheCapacity = newCap;
-                                }
-
-                                byte* cEntry = childCache + (long)childCacheUsed * CHILD_CACHE_ENTRY;
-                                *(uint*)cEntry = key;
-                                *(long*)(cEntry + 4) = childOff;
-                                childCacheUsed++;
-                                myCount++;
-
-                                ci = mmfChild.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
-                            }
-                        }
-                        else
-                        {
-                            while (ci >= 0)
-                            {
-                                long entryOff = ci * CHILD_ENTRY_SIZE;
-                                uint key = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
-                                long childOff = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
-
-                                // Grow cache if needed
-                                if (childCacheUsed >= childCacheCapacity)
-                                {
-                                    int newCap = childCacheCapacity * 2;
-                                    byte* newBuf = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc(
-                                        (nuint)newCap * CHILD_CACHE_ENTRY);
-                                    System.Buffer.MemoryCopy(childCache, newBuf,
-                                        (long)newCap * CHILD_CACHE_ENTRY,
-                                        (long)childCacheCapacity * CHILD_CACHE_ENTRY);
-                                    System.Runtime.InteropServices.NativeMemory.Free(childCache);
-                                    childCache = newBuf;
-                                    childCacheCapacity = newCap;
-                                }
-
-                                byte* cEntry = childCache + (long)childCacheUsed * CHILD_CACHE_ENTRY;
-                                *(uint*)cEntry = key;
-                                *(long*)(cEntry + 4) = childOff;
-                                childCacheUsed++;
-                                myCount++;
-
-                                ci = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
-                            }
-                        }
-                    }
-
-                    // Push post-order marker + children onto native stack
-                    int pushCount = 1 + myCount;
-                    if (stackTop + pushCount > stackCapacity)
-                    {
-                        int newCap = Math.Max(stackCapacity * 2, stackTop + pushCount);
-                        byte* newStack = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)newCap * STACK_ENTRY_SIZE);
-                        System.Buffer.MemoryCopy(stackMem, newStack, (long)newCap * STACK_ENTRY_SIZE, (long)stackTop * STACK_ENTRY_SIZE);
-                        System.Runtime.InteropServices.NativeMemory.Free(stackMem);
-                        stackMem = newStack;
-                        stackCapacity = newCap;
-                    }
-
-                    // Post-order marker
-                    byte* postEntry = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
-                    *(long*)postEntry = offset;
-                    *(int*)(postEntry + 8) = myStart;
-                    *(int*)(postEntry + 12) = myCount;
-                    *(int*)(postEntry + 16) = depthAtEdge;
-                    stackTop++;
-
-                    // Push children for DFS traversal (read from cache, not child store)
-                    for (int c = myStart; c < myStart + myCount; c++)
-                    {
-                        byte* cEntry = childCache + (long)c * CHILD_CACHE_ENTRY;
-                        long childOff = *(long*)(cEntry + 4);
-                        byte* pushE = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
-                        *(long*)pushE = childOff;
-                        *(int*)(pushE + 8) = -1;
-                        *(int*)(pushE + 12) = 0;
-                        *(int*)(pushE + 16) = stringDepth;
-                        stackTop++;
-                    }
+                    // Leaf: leafCount = 1, remaining = 0 (already zero)
+                    *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT) = 1;
                 }
                 else
                 {
-                    // ══════ Post-order visit: all children are finalized ══════
+                    // Internal node: process children
+                    Pass1Internal(off, idx, _initialLayout, /* useMmfUnchecked */ mmfMain != null,
+                        mmfMain, childBase, tp, cKeys, cOffs, CHILD_BUF_MAX,
+                        ref batchPos, ref batchStart, ref batchEnd, batchSize);
+                }
 
-                    nodesProcessed++;
-                    if (--reportCountdown <= 0)
+                if (--reportCountdown <= 0)
+                {
+                    reportCountdown = reportInterval;
+                    _progress?.Report(("Pass 1: child arrays", 92.0 + (double)idx / totalNodes * 2.0));
+                }
+            }
+
+            // Large zone — sequential scan (hybrid only)
+            if (IsHybrid)
+            {
+                int largeNodeSize = NodeLayout.Large.NodeSize;
+                for (long off = _transitionOffset; off < _maxNodeEndOffset; off += largeNodeSize, idx++)
+                {
+                    uint nodeEnd = _storage.ReadUInt32(off + 4);
+
+                    if (nodeEnd == PersistentConstants.BOUNDLESS)
                     {
-                        reportCountdown = reportInterval;
-                        _progress?.Report(("DFS: Topology extraction", 92.0 + (double)nodesProcessed / totalNodes * 5.0));
-                    }
-
-                    // 1. Track deepest internal node
-                    if (stringDepth > maxLrsDepth)
-                    {
-                        maxLrsDepth = stringDepth;
-                        deepestOffset = offset;
-                    }
-
-                    // 2. Read jump slot offset from LeafCount (put there by MaterializeJumpTable).
-                    bool isCompact = !layout.OffsetIs64Bit;
-                    long jumpSlotOffset = -1;
-                    bool hasJumpSlot = false;
-                    if (isCompact && IsHybrid)
-                    {
-                        uint jumpOff = useMmf
-                            ? mmfMain!.ReadUInt32Unchecked(offset + 12)
-                            : _storage.ReadUInt32(offset + 12);
-                        if (jumpOff > 0)
-                        {
-                            jumpSlotOffset = (long)jumpOff;
-                            hasJumpSlot = true;
-                        }
-                    }
-
-                    // 3. Sum leaf counts from main storage
-                    uint totalLeaves = 0;
-                    for (int c = cacheStart; c < cacheStart + cacheCount; c++)
-                    {
-                        long childOff = *(long*)(childCache + (long)c * CHILD_CACHE_ENTRY + 4);
-                        var cl = LayoutOf(childOff);
-                        bool cUseMmf = mmfMain != null && !cl.OffsetIs64Bit;
-                        totalLeaves += cUseMmf
-                            ? mmfMain!.ReadUInt32Unchecked(childOff + (uint)cl.OffsetLeafCount)
-                            : new PersistentSuffixTreeNode(_storage, childOff, cl).LeafCount;
-                    }
-
-                    // 4. Sort children by key — insertion sort in native cache
-                    //    Keys are compared as signed int (terminator 0xFFFFFFFF = -1 sorts first).
-                    //    Alphabet is tiny (≤5 for DNA + terminator) so insertion sort is optimal.
-                    for (int i = cacheStart + 1; i < cacheStart + cacheCount; i++)
-                    {
-                        byte* iEntry = childCache + (long)i * CHILD_CACHE_ENTRY;
-                        int iKey = (int)*(uint*)iEntry;
-                        long iOff = *(long*)(iEntry + 4);
-                        int j = i - 1;
-                        while (j >= cacheStart)
-                        {
-                            byte* jEntry = childCache + (long)j * CHILD_CACHE_ENTRY;
-                            if ((int)*(uint*)jEntry <= iKey) break;
-                            // Shift j → j+1
-                            byte* jNext = jEntry + CHILD_CACHE_ENTRY;
-                            *(uint*)jNext = *(uint*)jEntry;
-                            *(long*)(jNext + 4) = *(long*)(jEntry + 4);
-                            j--;
-                        }
-                        byte* dest = childCache + (long)(j + 1) * CHILD_CACHE_ENTRY;
-                        *(uint*)dest = (uint)iKey;
-                        *(long*)(dest + 4) = iOff;
-                    }
-                    int count = cacheCount;
-
-                    // Release cache entries (all children processed, allow reuse for sibling subtrees)
-                    childCacheUsed = cacheStart;
-
-                    // 5. Write sorted child array (batch-allocated, direct unsafe writes)
-                    long arrayOffset = PersistentConstants.NULL_OFFSET;
-                    if (count > 0)
-                    {
-                        NodeLayout arrayLayout = hasJumpSlot ? NodeLayout.Large : layout;
-                        int entrySize = arrayLayout.ChildEntrySize;
-                        int totalBytes = checked(count * entrySize);
-
-                        // Bump-allocate from current batch
-                        if (batchPos + totalBytes > batchEnd)
-                        {
-                            int allocSz = Math.Max(batchSize, totalBytes);
-                            batchStart = _storage.Allocate(allocSz);
-                            batchEnd = batchStart + allocSz;
-                            batchPos = batchStart;
-                        }
-                        arrayOffset = batchPos;
-                        batchPos += totalBytes;
-
-                        // Direct unsafe write to MMF when possible (zero buffer copies)
-                        if (mmfMain != null && arrayOffset + totalBytes <= mmfMain.Size)
-                        {
-                            byte* dst = mmfMain.RawPointer + arrayOffset;
-                            if (arrayLayout.OffsetIs64Bit)
-                            {
-                                for (int c = cacheStart; c < cacheStart + count; c++)
-                                {
-                                    byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
-                                    *(uint*)dst = *(uint*)src;           // Key
-                                    *(long*)(dst + 4) = *(long*)(src + 4); // ChildOffset (64-bit)
-                                    dst += 12;
-                                }
-                            }
-                            else
-                            {
-                                for (int c = cacheStart; c < cacheStart + count; c++)
-                                {
-                                    byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
-                                    *(uint*)dst = *(uint*)src;                   // Key
-                                    *(uint*)(dst + 4) = (uint)*(long*)(src + 4); // ChildOffset (32-bit)
-                                    dst += 8;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Fallback: non-MMF or offset beyond mapped region
-                            for (int c = cacheStart; c < cacheStart + count; c++)
-                            {
-                                byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
-                                uint key = *(uint*)src;
-                                long childOff = *(long*)(src + 4);
-                                long entOff = arrayOffset + (long)(c - cacheStart) * entrySize;
-                                _storage.WriteUInt32(entOff, key);
-                                if (arrayLayout.OffsetIs64Bit)
-                                    _storage.WriteInt64(entOff + 4, childOff);
-                                else
-                                    _storage.WriteUInt32(entOff + 4, (uint)childOff);
-                            }
-                        }
-                    }
-
-                    // 6. Update node header
-                    int cCountRaw = count | (hasJumpSlot ? unchecked((int)0x80000000) : 0);
-
-                    if (hasJumpSlot)
-                    {
-                        _storage.WriteInt64(jumpSlotOffset, arrayOffset);
-                        if (useMmf)
-                        {
-                            mmfMain!.WriteUInt32Unchecked(offset + (uint)layout.OffsetLeafCount, totalLeaves);
-                            if (!layout.OffsetIs64Bit)
-                            {
-                                mmfMain!.WriteUInt32Unchecked(offset + (uint)layout.OffsetChildrenHead, (uint)jumpSlotOffset);
-                                mmfMain!.WriteInt32Unchecked(offset + layout.OffsetChildCount, cCountRaw);
-                            }
-                            else
-                            {
-                                mmfMain!.WriteInt64Unchecked(offset + layout.OffsetChildrenHead, jumpSlotOffset);
-                                mmfMain!.WriteInt32Unchecked(offset + layout.OffsetChildCount, cCountRaw);
-                            }
-                        }
-                        else
-                        {
-                            var node = new PersistentSuffixTreeNode(_storage, offset, layout);
-                            node.LeafCount = totalLeaves;
-                            node.ChildrenHead = jumpSlotOffset;
-                            node.ChildCount = cCountRaw;
-                        }
+                        *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT) = 1;
                     }
                     else
                     {
-                        if (useMmf)
-                        {
-                            mmfMain!.WriteUInt32Unchecked(offset + (uint)layout.OffsetLeafCount, totalLeaves);
-                            if (!layout.OffsetIs64Bit)
-                            {
-                                mmfMain!.WriteUInt32Unchecked(offset + (uint)layout.OffsetChildrenHead, (uint)arrayOffset);
-                                mmfMain!.WriteInt32Unchecked(offset + layout.OffsetChildCount, cCountRaw);
-                            }
-                            else
-                            {
-                                mmfMain!.WriteInt64Unchecked(offset + layout.OffsetChildrenHead, arrayOffset);
-                                mmfMain!.WriteInt32Unchecked(offset + layout.OffsetChildCount, cCountRaw);
-                            }
-                        }
-                        else
-                        {
-                            var node = new PersistentSuffixTreeNode(_storage, offset, layout);
-                            node.LeafCount = totalLeaves;
-                            node.ChildrenHead = arrayOffset;
-                            node.ChildCount = cCountRaw;
-                        }
+                        Pass1Internal(off, idx, NodeLayout.Large, /* useMmfUnchecked */ false,
+                            mmfMain, childBase, tp, cKeys, cOffs, CHILD_BUF_MAX,
+                            ref batchPos, ref batchStart, ref batchEnd, batchSize);
+                    }
+
+                    if (--reportCountdown <= 0)
+                    {
+                        reportCountdown = reportInterval;
+                        _progress?.Report(("Pass 1: child arrays", 92.0 + (double)idx / totalNodes * 2.0));
                     }
                 }
             }
+
+            // Dispose child store — free its page cache for subsequent passes
+            childBase = null;
+            if (_ownsChildStore) _childStore.Dispose();
+
+            // ═══════════ PASS 2: Bottom-up leaf count propagation ═══════════
+            _progress?.Report(("Pass 2: leaf counts", 94.0));
+
+            long queueCap = (long)nodeCount * 4;
+            using var tempQueueMmf = new MappedFileStorageProvider(tempQueuePath, Math.Max(queueCap, 65536));
+            tempQueueMmf.SetSize(queueCap);
+            byte* qp = tempQueueMmf.RawPointer;
+
+            // Enqueue all leaves (remaining == 0 AND leafCount == 1)
+            long qWrite = 0;
+            for (int i = 0; i < nodeCount; i++)
+            {
+                byte* e = tp + (long)i * TEMP_ENTRY;
+                if (*(int*)(e + TEMP_OFF_REMAINING) == 0 && *(uint*)(e + TEMP_OFF_LEAFCOUNT) > 0)
+                {
+                    *(int*)(qp + qWrite) = i;
+                    qWrite += 4;
+                }
+            }
+
+            // BFS: propagate leaf counts bottom-up
+            long qRead = 0;
+            while (qRead < qWrite)
+            {
+                int ni = *(int*)(qp + qRead);
+                qRead += 4;
+
+                byte* e = tp + (long)ni * TEMP_ENTRY;
+                int parentIdx = *(int*)(e + TEMP_OFF_PARENT);
+                if (parentIdx < 0) continue; // root — no parent
+
+                uint myLeaves = *(uint*)(e + TEMP_OFF_LEAFCOUNT);
+                byte* pe = tp + (long)parentIdx * TEMP_ENTRY;
+                *(uint*)(pe + TEMP_OFF_LEAFCOUNT) += myLeaves;
+                int rem = *(int*)(pe + TEMP_OFF_REMAINING) - 1;
+                *(int*)(pe + TEMP_OFF_REMAINING) = rem;
+
+                if (rem == 0)
+                {
+                    *(int*)(qp + qWrite) = parentIdx;
+                    qWrite += 4;
+                }
+            }
+
+            // ═══════════ PASS 3: Write LeafCount + find deepest internal node ═══════════
+            _progress?.Report(("Pass 3: write-back", 96.0));
+
+            long deepestOffset = rootOffset;
+            int maxLrsDepth = 0;
+            idx = 0;
+            reportCountdown = reportInterval;
+
+            // Compact zone
+            for (long off = hdr; off < compactEnd; off += compactNodeSize, idx++)
+            {
+                uint lc = *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT);
+                if (mmfMain != null)
+                    mmfMain.WriteUInt32Unchecked(off + (uint)_initialLayout.OffsetLeafCount, lc);
+                else
+                    _storage.WriteUInt32(off + _initialLayout.OffsetLeafCount, lc);
+
+                // Track deepest internal node (read Start/End sequentially)
+                uint nodeEnd = mmfMain != null
+                    ? mmfMain.ReadUInt32Unchecked(off + 4)
+                    : _storage.ReadUInt32(off + 4);
+                if (nodeEnd != PersistentConstants.BOUNDLESS)
+                {
+                    uint nodeStart = mmfMain != null
+                        ? mmfMain.ReadUInt32Unchecked(off)
+                        : _storage.ReadUInt32(off);
+                    int edgeLen = (int)(nodeEnd - nodeStart);
+                    uint dfr = GetBuildDepth(off);
+                    int sd = (int)dfr + edgeLen;
+                    if (sd > maxLrsDepth) { maxLrsDepth = sd; deepestOffset = off; }
+                }
+
+                if (--reportCountdown <= 0)
+                {
+                    reportCountdown = reportInterval;
+                    _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / totalNodes * 1.5));
+                }
+            }
+
+            // Large zone
+            if (IsHybrid)
+            {
+                int largeNodeSize = NodeLayout.Large.NodeSize;
+                for (long off = _transitionOffset; off < _maxNodeEndOffset; off += largeNodeSize, idx++)
+                {
+                    uint lc = *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT);
+                    _storage.WriteUInt32(off + NodeLayout.Large.OffsetLeafCount, lc);
+
+                    uint nodeEnd = _storage.ReadUInt32(off + 4);
+                    if (nodeEnd != PersistentConstants.BOUNDLESS)
+                    {
+                        uint nodeStart = _storage.ReadUInt32(off);
+                        int edgeLen = (int)(nodeEnd - nodeStart);
+                        uint dfr = GetBuildDepth(off);
+                        int sd = (int)dfr + edgeLen;
+                        if (sd > maxLrsDepth) { maxLrsDepth = sd; deepestOffset = off; }
+                    }
+
+                    if (--reportCountdown <= 0)
+                    {
+                        reportCountdown = reportInterval;
+                        _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / totalNodes * 1.5));
+                    }
+                }
+            }
+
+            _deepestInternalNodeOffset = deepestOffset;
+            _lrsDepth = maxLrsDepth;
+
+            // Dispose depth store after Pass 3 (needed for deepest node tracking)
+            if (_ownsDepthStore) _depthStore?.Dispose();
         }
         finally
         {
-            System.Runtime.InteropServices.NativeMemory.Free(childCache);
-            System.Runtime.InteropServices.NativeMemory.Free(stackMem);
+            try { File.Delete(tempNodePath); } catch (IOException) { }
+            try { File.Delete(tempQueuePath); } catch (IOException) { }
         }
-
-        _deepestInternalNodeOffset = deepestOffset;
-        _lrsDepth = maxLrsDepth;
     }
 
-    // SerializeAndWriteChildArray removed — child arrays are written directly to MMF
-    // from the native child cache via unsafe pointer writes (zero buffer copies).
+    /// <summary>
+    /// Pass 1 helper: process a single internal node. Reads child linked list,
+    /// sorts children, writes child array, updates node header, builds parent graph in temp.
+    /// </summary>
+    private unsafe void Pass1Internal(
+        long off, int nodeIdx, NodeLayout layout, bool useMmfUnchecked,
+        MappedFileStorageProvider? mmfMain, byte* childBase, byte* tp,
+        uint* cKeys, long* cOffs, int cBufMax,
+        ref long batchPos, ref long batchStart, ref long batchEnd, int batchSize)
+    {
+        bool isCompact = !layout.OffsetIs64Bit;
+
+        // Read jump slot from LeafCount field (placed by MaterializeJumpTable)
+        long jumpSlotOffset = -1;
+        bool hasJumpSlot = false;
+        if (isCompact && IsHybrid)
+        {
+            uint jumpOff = (useMmfUnchecked && mmfMain != null)
+                ? mmfMain.ReadUInt32Unchecked(off + 12)
+                : _storage.ReadUInt32(off + 12);
+            if (jumpOff > 0)
+            {
+                jumpSlotOffset = (long)jumpOff;
+                hasJumpSlot = true;
+            }
+        }
+
+        // Read ChildrenHead (linked list head in child store)
+        long headIndex;
+        if (useMmfUnchecked && mmfMain != null)
+        {
+            uint raw = mmfMain.ReadUInt32Unchecked(off + 16);
+            headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
+        }
+        else
+        {
+            headIndex = new PersistentSuffixTreeNode(_storage, off, layout).ChildrenHead;
+        }
+
+        // Walk child linked list → collect (key, childOffset)
+        int childCount = 0;
+        if (headIndex != PersistentConstants.NULL_OFFSET)
+        {
+            long ci = headIndex;
+            if (childBase != null)
+            {
+                while (ci >= 0 && childCount < cBufMax)
+                {
+                    byte* ce = childBase + ci * CHILD_ENTRY_SIZE;
+                    cKeys[childCount] = *(uint*)(ce + CE_OFF_KEY);
+                    cOffs[childCount] = *(long*)(ce + CE_OFF_CHILD);
+                    childCount++;
+                    ci = *(int*)(ce + CE_OFF_NEXT);
+                }
+            }
+            else
+            {
+                while (ci >= 0 && childCount < cBufMax)
+                {
+                    long entryOff = ci * CHILD_ENTRY_SIZE;
+                    cKeys[childCount] = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
+                    cOffs[childCount] = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+                    childCount++;
+                    ci = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+                }
+            }
+        }
+
+        // Set parent index for each child in temp file
+        for (int c = 0; c < childCount; c++)
+        {
+            int childIdx = NodeIndex(cOffs[c]);
+            *(int*)(tp + (long)childIdx * TEMP_ENTRY + TEMP_OFF_PARENT) = nodeIdx;
+        }
+        // Set remaining count for this node (leaf count stays 0, computed in Pass 2)
+        *(int*)(tp + (long)nodeIdx * TEMP_ENTRY + TEMP_OFF_REMAINING) = childCount;
+
+        // Sort children by key (signed comparison: terminator -1 sorts first)
+        for (int i = 1; i < childCount; i++)
+        {
+            uint ik = cKeys[i];
+            long io = cOffs[i];
+            int j = i - 1;
+            while (j >= 0 && (int)cKeys[j] > (int)ik)
+            {
+                cKeys[j + 1] = cKeys[j];
+                cOffs[j + 1] = cOffs[j];
+                j--;
+            }
+            cKeys[j + 1] = ik;
+            cOffs[j + 1] = io;
+        }
+
+        // Write sorted child array (batch-allocated)
+        NodeLayout arrayLayout = hasJumpSlot ? NodeLayout.Large : layout;
+        int entrySize = arrayLayout.ChildEntrySize;
+        int totalBytes = checked(childCount * entrySize);
+
+        if (batchPos + totalBytes > batchEnd)
+        {
+            int allocSz = Math.Max(batchSize, totalBytes);
+            batchStart = _storage.Allocate(allocSz);
+            batchEnd = batchStart + allocSz;
+            batchPos = batchStart;
+        }
+        long arrayOffset = batchPos;
+        batchPos += totalBytes;
+
+        // Direct unsafe write to MMF when possible
+        var mmf = _mmfStorage;
+        if (mmf != null && arrayOffset + totalBytes <= mmf.Size)
+        {
+            byte* dst = mmf.RawPointer + arrayOffset;
+            if (arrayLayout.OffsetIs64Bit)
+            {
+                for (int c = 0; c < childCount; c++)
+                {
+                    *(uint*)dst = cKeys[c];
+                    *(long*)(dst + 4) = cOffs[c];
+                    dst += 12;
+                }
+            }
+            else
+            {
+                for (int c = 0; c < childCount; c++)
+                {
+                    *(uint*)dst = cKeys[c];
+                    *(uint*)(dst + 4) = (uint)cOffs[c];
+                    dst += 8;
+                }
+            }
+        }
+        else
+        {
+            for (int c = 0; c < childCount; c++)
+            {
+                long eOff = arrayOffset + (long)c * entrySize;
+                _storage.WriteUInt32(eOff, cKeys[c]);
+                if (arrayLayout.OffsetIs64Bit)
+                    _storage.WriteInt64(eOff + 4, cOffs[c]);
+                else
+                    _storage.WriteUInt32(eOff + 4, (uint)cOffs[c]);
+            }
+        }
+
+        // Update node header (ChildrenHead + ChildCount)
+        int cCountRaw = childCount | (hasJumpSlot ? unchecked((int)0x80000000) : 0);
+
+        if (hasJumpSlot)
+        {
+            _storage.WriteInt64(jumpSlotOffset, arrayOffset);
+            if (useMmfUnchecked && mmfMain != null)
+            {
+                mmfMain.WriteUInt32Unchecked(off + (uint)layout.OffsetChildrenHead, (uint)jumpSlotOffset);
+                mmfMain.WriteInt32Unchecked(off + layout.OffsetChildCount, cCountRaw);
+            }
+            else
+            {
+                var node = new PersistentSuffixTreeNode(_storage, off, layout);
+                node.ChildrenHead = jumpSlotOffset;
+                node.ChildCount = cCountRaw;
+            }
+        }
+        else
+        {
+            if (useMmfUnchecked && mmfMain != null)
+            {
+                if (!layout.OffsetIs64Bit)
+                    mmfMain.WriteUInt32Unchecked(off + (uint)layout.OffsetChildrenHead, (uint)arrayOffset);
+                else
+                    mmfMain.WriteInt64Unchecked(off + layout.OffsetChildrenHead, arrayOffset);
+                mmfMain.WriteInt32Unchecked(off + layout.OffsetChildCount, cCountRaw);
+            }
+            else
+            {
+                var node = new PersistentSuffixTreeNode(_storage, off, layout);
+                node.ChildrenHead = arrayOffset;
+                node.ChildCount = cCountRaw;
+            }
+        }
+    }
 
     // ──────────────── Builder child management (off-heap linked lists) ────────────────
 
