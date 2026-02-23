@@ -612,8 +612,12 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             if (!TryGetChildOf(node, (uint)pattern[i], out var child) || child.IsNull)
                 return (node, false, depthFromRoot);
 
-            int edgeStart = (int)child.Start;
-            int edgeLen = LengthOf(child);
+            // Read Start/End via fast path (avoids 2 interface dispatches per iteration)
+            uint childStart = _hybrid.ReadUInt32Fast(child.Offset);
+            uint childEnd = _hybrid.ReadUInt32Fast(child.Offset + 4);
+            int edgeStart = (int)childStart;
+            int edgeLen = (int)((childEnd == PersistentConstants.BOUNDLESS
+                ? (uint)(_textSource.Length + 1) : childEnd) - childStart);
             int remaining = pattern.Length - i;
             int compareLen = edgeLen < remaining ? edgeLen : remaining;
 
@@ -647,29 +651,14 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     /// <summary>
     /// Zone-aware TryGetChild: reads the child array with the correct entry layout.
+    /// Uses direct MMF pointer access when available for zero-overhead binary search.
     /// </summary>
     internal bool TryGetChildOf(PersistentSuffixTreeNode parent, uint key, out PersistentSuffixTreeNode child)
     {
-        var (arrayBase, entryLayout, count) = ReadChildArrayInfo(parent);
-        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout); return false; }
-
-        int lo = 0, hi = count - 1;
-        int signedKey = (int)key;
-
-        while (lo <= hi)
+        if (_hybrid.TryGetChildFast(parent.Offset, key, out long childOffset))
         {
-            int mid = lo + ((hi - lo) >> 1);
-            long entryOffset = arrayBase + (long)mid * entryLayout.ChildEntrySize;
-            int midKey = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
-
-            if (midKey == signedKey)
-            {
-                long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-                child = NodeAt(childOffset);
-                return true;
-            }
-            if (midKey < signedKey) lo = mid + 1;
-            else hi = mid - 1;
+            child = NodeAt(childOffset);
+            return true;
         }
         child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
         return false;

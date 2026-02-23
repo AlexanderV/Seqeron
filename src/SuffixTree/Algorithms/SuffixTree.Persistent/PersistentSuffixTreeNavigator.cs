@@ -7,7 +7,7 @@ namespace SuffixTree.Persistent;
 /// Implements <see cref="ISuffixTreeNavigator{TNode}"/> to enable
 /// shared algorithm dispatch with zero overhead (JIT specialization).
 /// </summary>
-internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentSuffixTreeNode>
+internal unsafe struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentSuffixTreeNode>
 {
     private readonly IStorageProvider _storage;
     private readonly long _rootOffset;
@@ -104,26 +104,10 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetChild(PersistentSuffixTreeNode node, int key, out PersistentSuffixTreeNode child)
     {
-        var (arrayBase, entryLayout, count) = ReadChildArrayInfo(node);
-        if (count == 0) { child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout); return false; }
-
-        int lo = 0, hi = count - 1;
-        int signedKey = key;
-
-        while (lo <= hi)
+        if (_hybrid.TryGetChildFast(node.Offset, (uint)key, out long childOffset))
         {
-            int mid = lo + ((hi - lo) >> 1);
-            long entryOffset = arrayBase + (long)mid * entryLayout.ChildEntrySize;
-            int midKey = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
-
-            if (midKey == signedKey)
-            {
-                long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-                child = NodeAt(childOffset);
-                return true;
-            }
-            if (midKey < signedKey) lo = mid + 1;
-            else hi = mid - 1;
+            child = NodeAt(childOffset);
+            return true;
         }
         child = PersistentSuffixTreeNode.Null(_storage, _hybrid.Layout);
         return false;
@@ -131,19 +115,87 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
 
     public void CollectLeaves(PersistentSuffixTreeNode node, int depth, List<int> results)
     {
-        // For very small subtrees, use sequential stack to avoid TPL overhead
-        if (node.LeafCount < 1000)
+        byte* ptr = _hybrid.Ptr;
+        if (ptr != null)
         {
-            CollectLeavesSequential(node, depth, results);
+            // Fast path: all reads via direct pointer — no interface dispatch or bounds checks
+            CollectLeavesUnsafe(ptr, node.Offset, depth, results);
             return;
         }
 
-        var localResults = new System.Collections.Concurrent.ConcurrentBag<int>();
+        // Safe fallback for non-MMF storage
+        CollectLeavesSequential(node, depth, results);
+    }
 
-        CollectLeavesParallel(node, depth, localResults);
+    /// <summary>
+    /// High-performance leaf collection using direct MMF pointer reads.
+    /// Pure DFS — eliminates IStorageProvider interface dispatch, bounds checks,
+    /// and node struct creation. No extra allocations beyond the explicit stack.
+    /// </summary>
+    private void CollectLeavesUnsafe(byte* ptr, long nodeOffset, int depth, List<int> results)
+    {
+        int textLen = _textSource.Length;
+        int textLenPlus1 = textLen + 1;
+        long transOff = _hybrid.TransitionOffset;
 
-        results.AddRange(localResults);
-        results.Sort();
+        var stack = new Stack<(long Offset, int Depth)>(256);
+        stack.Push((nodeOffset, depth));
+
+        while (stack.Count > 0)
+        {
+            var (off, d) = stack.Pop();
+
+            uint nodeStart = *(uint*)(ptr + off);
+            uint nodeEnd = *(uint*)(ptr + off + 4);
+
+            if (nodeEnd == PersistentConstants.BOUNDLESS)
+            {
+                int edgeLen = textLenPlus1 - (int)nodeStart;
+                int pos = textLenPlus1 - (d + edgeLen);
+                if (pos < textLen)
+                    results.Add(pos);
+                continue;
+            }
+
+            int childDepth = d + (int)(nodeEnd - nodeStart);
+
+            bool isLarge = transOff >= 0 && off >= transOff;
+            int rawCount = *(int*)(ptr + off + (isLarge ? 28 : 20));
+            bool isJumped = (rawCount & unchecked((int)0x80000000)) != 0;
+            int count = isJumped ? (rawCount & 0x7FFFFFFF) : rawCount;
+
+            long head;
+            if (isLarge)
+                head = *(long*)(ptr + off + 20);
+            else
+            {
+                uint rawHead = *(uint*)(ptr + off + 16);
+                head = rawHead == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)rawHead;
+            }
+
+            long arrayBase;
+            int entrySize;
+            bool entryIs64;
+            if (isJumped)
+            {
+                arrayBase = *(long*)(ptr + head);
+                entrySize = 12;
+                entryIs64 = true;
+            }
+            else
+            {
+                arrayBase = head;
+                entrySize = isLarge ? 12 : 8;
+                entryIs64 = isLarge;
+            }
+
+            for (int ci = count - 1; ci >= 0; ci--)
+            {
+                byte* entry = ptr + arrayBase + (long)ci * entrySize;
+                long childOff = entryIs64 ? *(long*)(entry + 4) : (long)*(uint*)(entry + 4);
+                stack.Push((childOff, childDepth));
+            }
+        }
     }
 
     private void CollectLeavesSequential(PersistentSuffixTreeNode node, int depth, List<int> results)
@@ -176,40 +228,6 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
         }
     }
 
-    private void CollectLeavesParallel(PersistentSuffixTreeNode current, int currentDepth, System.Collections.Concurrent.ConcurrentBag<int> results)
-    {
-        if (current.IsLeaf)
-        {
-            int suffixLength = currentDepth + LengthOf(current);
-            int startPosition = (_textSource.Length + 1) - suffixLength;
-            if (startPosition < _textSource.Length)
-                results.Add(startPosition);
-            return;
-        }
-
-        int childDepth = currentDepth + LengthOf(current);
-        var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(current);
-
-        var nav = this;
-        System.Threading.Tasks.Parallel.For(0, childCount, ci =>
-        {
-            long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
-            long childOffset = entryLayout.ReadOffset(nav._storage, entryOffset + NodeLayout.ChildOffsetNode);
-            var child = nav.NodeAt(childOffset);
-
-            if (child.LeafCount < 1000)
-            {
-                var localList = new List<int>();
-                nav.CollectLeavesSequential(child, childDepth, localList);
-                foreach (var r in localList) results.Add(r);
-            }
-            else
-            {
-                nav.CollectLeavesParallel(child, childDepth, results);
-            }
-        });
-    }
-
     public int FindAnyLeafPosition(PersistentSuffixTreeNode node, int depthFromRoot)
     {
         var current = node;
@@ -222,8 +240,10 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
             for (int ci = 0; ci < childCount; ci++)
             {
                 long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
-                int key = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
-                long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
+                int key = (int)_hybrid.ReadUInt32Fast(entryOffset + NodeLayout.ChildOffsetKey);
+                long childOffset = entryLayout.OffsetIs64Bit
+                    ? _hybrid.ReadInt64Fast(entryOffset + NodeLayout.ChildOffsetNode)
+                    : (long)_hybrid.ReadUInt32Fast(entryOffset + NodeLayout.ChildOffsetNode);
                 bestChild = NodeAt(childOffset);
                 if ((uint)key != PersistentConstants.TERMINATOR_KEY)
                     break;
