@@ -42,16 +42,9 @@ internal sealed class SuffixTreeNode
     private SuffixTreeNode? _terminatorChild;
 
     /// <summary>
-    /// Returns true if this node has any children.
-    /// </summary>
-    public bool HasChildren => _inlineCount > 0 || (_overflow != null && _overflow.Count > 0) || _terminatorChild != null;
-
-    /// <summary>
     /// Gets the number of children.
     /// </summary>
     public int ChildCount => (_overflow != null ? _overflow.Count : _inlineCount) + (_terminatorChild != null ? 1 : 0);
-
-    public SuffixTreeNode() { }
 
     public SuffixTreeNode(int start, int end, int depthFromRoot)
     {
@@ -180,50 +173,6 @@ internal sealed class SuffixTreeNode
             if (_inlineCount > 1) buffer.Add(_child1!);
             if (_inlineCount > 2) buffer.Add(_child2!);
             if (_inlineCount > 3) buffer.Add(_child3!);
-        }
-    }
-
-    /// <summary>
-    /// Enumerates all children using yield. Keep for compatibility/linq but use GetChildren(List) for performance.
-    /// </summary>
-    public IEnumerable<SuffixTreeNode> GetChildren()
-    {
-        if (_terminatorChild != null)
-            yield return _terminatorChild;
-
-        if (_overflow != null)
-        {
-            foreach (var child in _overflow.Values)
-                yield return child;
-        }
-        else
-        {
-            if (_inlineCount > 0) yield return _child0!;
-            if (_inlineCount > 1) yield return _child1!;
-            if (_inlineCount > 2) yield return _child2!;
-            if (_inlineCount > 3) yield return _child3!;
-        }
-    }
-
-    /// <summary>
-    /// Enumerates all (key, child) pairs. Key is int (-1 for terminator).
-    /// </summary>
-    public IEnumerable<(int Key, SuffixTreeNode Child)> GetChildrenWithKeys()
-    {
-        if (_terminatorChild != null)
-            yield return (-1, _terminatorChild);
-
-        if (_overflow != null)
-        {
-            foreach (var kvp in _overflow)
-                yield return (kvp.Key, kvp.Value);
-        }
-        else
-        {
-            if (_inlineCount > 0) yield return (_key0, _child0!);
-            if (_inlineCount > 1) yield return (_key1, _child1!);
-            if (_inlineCount > 2) yield return (_key2, _child2!);
-            if (_inlineCount > 3) yield return (_key3, _child3!);
         }
     }
 

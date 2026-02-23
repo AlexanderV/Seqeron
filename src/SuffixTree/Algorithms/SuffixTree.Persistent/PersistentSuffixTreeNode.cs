@@ -25,7 +25,6 @@ public readonly struct PersistentSuffixTreeNode
     public long Offset => _offset;
     /// <summary>Gets whether this node represents a null/absent node.</summary>
     public bool IsNull => _offset == PersistentConstants.NULL_OFFSET;
-    internal NodeLayout Layout => _layout;
 
     /// <summary>Gets or sets the start index of this node's edge label in the text.</summary>
     public uint Start

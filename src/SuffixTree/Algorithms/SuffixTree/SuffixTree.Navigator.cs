@@ -49,12 +49,6 @@ public partial class SuffixTree
         public int LengthOf(SuffixTreeNode node) => _tree.LengthOf(node);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetNodeDepth(SuffixTreeNode node) => _tree.GetNodeDepth(node);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetDepthFromRoot(SuffixTreeNode node) => node.DepthFromRoot;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public SuffixTreeNode GetSuffixLink(SuffixTreeNode node)
             => node.SuffixLink ?? _tree._root;
 

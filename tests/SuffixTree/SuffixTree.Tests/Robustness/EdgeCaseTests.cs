@@ -122,7 +122,17 @@ namespace SuffixTree.Tests.Robustness
             var palindrome = half + new string(half.Reverse().ToArray());
             var st = SuffixTree.Build(palindrome);
 
-            Assert.That(st.Contains(palindrome), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(st.Contains(palindrome), Is.True);
+                Assert.That(st.LeafCount, Is.EqualTo(palindrome.Length));
+                // Palindrome "abcdefggfedcba" — reversed half shares chars with forward half
+                // Each char in "abcdefg" appears exactly twice
+                Assert.That(st.CountOccurrences("a"), Is.EqualTo(2));
+                Assert.That(st.CountOccurrences("g"), Is.EqualTo(2));
+                // LRS must be at least 1 char since chars repeat
+                Assert.That(st.LongestRepeatedSubstring().Length, Is.GreaterThan(0));
+            });
         }
 
         #endregion

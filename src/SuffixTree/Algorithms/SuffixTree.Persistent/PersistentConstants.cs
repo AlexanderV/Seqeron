@@ -18,13 +18,6 @@ public static class PersistentConstants
     public const int HEADER_SIZE = 48;
 
     /// <summary>
-    /// Extended header size for Hybrid v5 format (80 bytes).
-    /// Extra fields beyond base 48: TRANSITION (int64) + JUMP_START (int64)
-    /// + JUMP_END (int64) + DEEPEST_NODE (int64).
-    /// </summary>
-    public const int HEADER_SIZE_V5 = 80;
-
-    /// <summary>
     /// Extended header size for Slim v6 format (88 bytes).
     /// Extends v5 by 8 bytes: LRS_DEPTH (int32) + reserved (int32).
     /// </summary>

@@ -207,13 +207,6 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     internal long JumpTableEnd => _hybrid.JumpTableEnd;
 
     /// <summary>
-    /// Returns the correct <see cref="NodeLayout"/> for a node at the given offset.
-    /// Delegates to <see cref="HybridLayout.LayoutForOffset"/>.
-    /// </summary>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    internal NodeLayout LayoutForOffset(long offset) => _hybrid.LayoutForOffset(offset);
-
-    /// <summary>
     /// Resolves an offset that might be a jump-table entry.
     /// Delegates to <see cref="HybridLayout.ResolveJump"/>.
     /// </summary>

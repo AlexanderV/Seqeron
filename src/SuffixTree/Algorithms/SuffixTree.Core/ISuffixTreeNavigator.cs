@@ -38,17 +38,6 @@ public interface ISuffixTreeNavigator<TNode>
     int LengthOf(TNode node);
 
     /// <summary>
-    /// Gets the total depth from root to the END of this node's edge
-    /// (DepthFromRoot + LengthOf).
-    /// </summary>
-    int GetNodeDepth(TNode node);
-
-    /// <summary>
-    /// Gets the depth from root to the START of this node's edge (DepthFromRoot).
-    /// </summary>
-    int GetDepthFromRoot(TNode node);
-
-    /// <summary>
     /// Gets the suffix link target. Returns Root if no suffix link exists.
     /// </summary>
     TNode GetSuffixLink(TNode node);

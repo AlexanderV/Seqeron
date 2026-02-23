@@ -178,11 +178,6 @@ internal readonly unsafe struct HybridLayout
     internal long ReadInt64Fast(long offset)
         => _ptr != null ? *(long*)(_ptr + offset) : _storage.ReadInt64(offset);
 
-    /// <summary>Read int32 directly from MMF or via storage.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int ReadInt32Fast(long offset)
-        => _ptr != null ? *(int*)(_ptr + offset) : _storage.ReadInt32(offset);
-
     /// <summary>
     /// Binary search a sorted child array and return the child node offset if found.
     /// Uses direct pointer access when available.

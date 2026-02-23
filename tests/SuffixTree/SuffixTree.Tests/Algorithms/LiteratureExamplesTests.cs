@@ -90,14 +90,32 @@ namespace SuffixTree.Tests.Algorithms
             });
         }
 
+        /// <summary>
+        /// Fibonacci strings F_n are worst case for suffix tree node count.
+        /// Verify that the tree handles deep repetitive structure correctly.
+        /// </summary>
         [Test]
         [TestCase(5, "abaab")]
         [TestCase(6, "abaababa")]
         [TestCase(7, "abaababaabaab")]
-        public void FibonacciString_CorrectGeneration(int n, string expected)
+        public void FibonacciString_StructuralInvariants(int n, string expected)
         {
             string fib = GenerateFibonacciString(n);
-            Assert.That(fib, Is.EqualTo(expected));
+            Assert.That(fib, Is.EqualTo(expected), "Fibonacci string generation sanity check");
+
+            var tree = SuffixTree.Build(fib);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tree.LeafCount, Is.EqualTo(fib.Length));
+                // Node count for Fibonacci strings approaches 2n
+                Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * fib.Length + 1));
+                // All suffixes must exist
+                for (int i = 0; i < fib.Length; i++)
+                    Assert.That(tree.Contains(fib.Substring(i)), Is.True);
+                // Must have repeated substrings (Fibonacci strings are highly repetitive)
+                Assert.That(tree.LongestRepeatedSubstring().Length, Is.GreaterThan(0));
+            });
         }
 
         private static string GenerateFibonacciString(int n)
