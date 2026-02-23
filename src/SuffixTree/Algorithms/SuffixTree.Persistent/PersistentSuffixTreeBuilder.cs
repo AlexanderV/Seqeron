@@ -787,12 +787,24 @@ public class PersistentSuffixTreeBuilder
             (nuint)childCacheCapacity * CHILD_CACHE_ENTRY);
         int childCacheUsed = 0; // high-water mark of entries currently in use
 
-        // ── DFS stack ──
-        // Entry: (Offset, ChildCacheStart, ChildCount, DepthAtEdgeStart)
+        // ── Native DFS stack ──
+        // Entry layout (20 bytes): long Offset (8) + int ChildCacheStart (4) + int ChildCount (4) + int DepthAtEdgeStart (4)
         //   ChildCacheStart = -1 means first visit (children not yet pushed)
         //   ChildCacheStart >= 0 means post-order visit, children cached at [start..start+count)
-        var stack = new System.Collections.Generic.Stack<(long Offset, int ChildCacheStart, int ChildCount, int DepthAtEdgeStart)>(4096);
-        stack.Push((rootOffset, -1, 0, 0));
+        // Using native memory avoids managed heap GC pressure from Stack<T> resizes.
+        const int STACK_ENTRY_SIZE = 20;
+        int stackCapacity = 256 * 1024; // ~5 MB initial, grows if needed
+        byte* stackMem = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)stackCapacity * STACK_ENTRY_SIZE);
+        int stackTop = 0;
+        // Push root
+        {
+            byte* e = stackMem;
+            *(long*)e = rootOffset;
+            *(int*)(e + 8) = -1;
+            *(int*)(e + 12) = 0;
+            *(int*)(e + 16) = 0;
+            stackTop = 1;
+        }
 
         // ── Batch allocation state for child arrays ──
         const int MAX_BATCH = 256 * 1024 * 1024;
@@ -813,9 +825,14 @@ public class PersistentSuffixTreeBuilder
 
         try
         {
-            while (stack.Count > 0)
+            while (stackTop > 0)
             {
-                var (offset, cacheStart, cacheCount, depthAtEdge) = stack.Pop();
+                stackTop--;
+                byte* popEntry = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
+                long offset = *(long*)popEntry;
+                int cacheStart = *(int*)(popEntry + 8);
+                int cacheCount = *(int*)(popEntry + 12);
+                int depthAtEdge = *(int*)(popEntry + 16);
                 var layout = LayoutOf(offset);
                 bool useMmf = mmfMain != null && !layout.OffsetIs64Bit;
 
@@ -937,15 +954,37 @@ public class PersistentSuffixTreeBuilder
                         }
                     }
 
-                    // Push post-order marker with cached children info
-                    stack.Push((offset, myStart, myCount, depthAtEdge));
+                    // Push post-order marker + children onto native stack
+                    int pushCount = 1 + myCount;
+                    if (stackTop + pushCount > stackCapacity)
+                    {
+                        int newCap = Math.Max(stackCapacity * 2, stackTop + pushCount);
+                        byte* newStack = (byte*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)newCap * STACK_ENTRY_SIZE);
+                        System.Buffer.MemoryCopy(stackMem, newStack, (long)newCap * STACK_ENTRY_SIZE, (long)stackTop * STACK_ENTRY_SIZE);
+                        System.Runtime.InteropServices.NativeMemory.Free(stackMem);
+                        stackMem = newStack;
+                        stackCapacity = newCap;
+                    }
+
+                    // Post-order marker
+                    byte* postEntry = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
+                    *(long*)postEntry = offset;
+                    *(int*)(postEntry + 8) = myStart;
+                    *(int*)(postEntry + 12) = myCount;
+                    *(int*)(postEntry + 16) = depthAtEdge;
+                    stackTop++;
 
                     // Push children for DFS traversal (read from cache, not child store)
                     for (int c = myStart; c < myStart + myCount; c++)
                     {
                         byte* cEntry = childCache + (long)c * CHILD_CACHE_ENTRY;
                         long childOff = *(long*)(cEntry + 4);
-                        stack.Push((childOff, -1, 0, stringDepth));
+                        byte* pushE = stackMem + (long)stackTop * STACK_ENTRY_SIZE;
+                        *(long*)pushE = childOff;
+                        *(int*)(pushE + 8) = -1;
+                        *(int*)(pushE + 12) = 0;
+                        *(int*)(pushE + 16) = stringDepth;
+                        stackTop++;
                     }
                 }
                 else
@@ -1096,6 +1135,7 @@ public class PersistentSuffixTreeBuilder
         {
             System.Buffers.ArrayPool<byte>.Shared.Return(writeBuf);
             System.Runtime.InteropServices.NativeMemory.Free(childCache);
+            System.Runtime.InteropServices.NativeMemory.Free(stackMem);
         }
 
         _deepestInternalNodeOffset = deepestOffset;
