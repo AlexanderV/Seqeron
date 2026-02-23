@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Buffers.Binary;
 using System.Text;
 
 namespace SuffixTree.Persistent;
@@ -817,15 +816,12 @@ public class PersistentSuffixTreeBuilder
         long batchEnd = batchStart + batchSize;
         long batchPos = batchStart;
 
-        // ── Reusable buffers ──
-        var childBuf = new System.Collections.Generic.List<(uint Key, long ChildOffset)>(8);
-        byte[] writeBuf = System.Buffers.ArrayPool<byte>.Shared.Rent(256);
-
         long deepestOffset = rootOffset;
         int maxLrsDepth = 0;
         int nodesProcessed = 0;
         int totalNodes = _nodeCount;
         int reportInterval = Math.Max(totalNodes / 200, 1);
+        int reportCountdown = reportInterval;
 
         try
         {
@@ -864,8 +860,11 @@ public class PersistentSuffixTreeBuilder
                         new PersistentSuffixTreeNode(_storage, offset, layout).LeafCount = 1;
 
                     nodesProcessed++;
-                    if (nodesProcessed % reportInterval == 0)
+                    if (--reportCountdown <= 0)
+                    {
+                        reportCountdown = reportInterval;
                         _progress?.Report(("DFS: Topology extraction", 92.0 + (double)nodesProcessed / totalNodes * 5.0));
+                    }
                     continue;
                 }
 
@@ -996,8 +995,11 @@ public class PersistentSuffixTreeBuilder
                     // ══════ Post-order visit: all children are finalized ══════
 
                     nodesProcessed++;
-                    if (nodesProcessed % reportInterval == 0)
+                    if (--reportCountdown <= 0)
+                    {
+                        reportCountdown = reportInterval;
                         _progress?.Report(("DFS: Topology extraction", 92.0 + (double)nodesProcessed / totalNodes * 5.0));
+                    }
 
                     // 1. Track deepest internal node
                     if (stringDepth > maxLrsDepth)
@@ -1022,18 +1024,11 @@ public class PersistentSuffixTreeBuilder
                         }
                     }
 
-                    // 3. Collect children from cache + sum leaf counts from main storage
-                    childBuf.Clear();
+                    // 3. Sum leaf counts from main storage
                     uint totalLeaves = 0;
-
                     for (int c = cacheStart; c < cacheStart + cacheCount; c++)
                     {
-                        byte* cEntry = childCache + (long)c * CHILD_CACHE_ENTRY;
-                        uint key = *(uint*)cEntry;
-                        long childOff = *(long*)(cEntry + 4);
-                        childBuf.Add((key, childOff));
-
-                        // Read leaf count from child node's storage (already written by child's post-order)
+                        long childOff = *(long*)(childCache + (long)c * CHILD_CACHE_ENTRY + 4);
                         var cl = LayoutOf(childOff);
                         bool cUseMmf = mmfMain != null && !cl.OffsetIs64Bit;
                         totalLeaves += cUseMmf
@@ -1041,14 +1036,35 @@ public class PersistentSuffixTreeBuilder
                             : new PersistentSuffixTreeNode(_storage, childOff, cl).LeafCount;
                     }
 
+                    // 4. Sort children by key — insertion sort in native cache
+                    //    Keys are compared as signed int (terminator 0xFFFFFFFF = -1 sorts first).
+                    //    Alphabet is tiny (≤5 for DNA + terminator) so insertion sort is optimal.
+                    for (int i = cacheStart + 1; i < cacheStart + cacheCount; i++)
+                    {
+                        byte* iEntry = childCache + (long)i * CHILD_CACHE_ENTRY;
+                        int iKey = (int)*(uint*)iEntry;
+                        long iOff = *(long*)(iEntry + 4);
+                        int j = i - 1;
+                        while (j >= cacheStart)
+                        {
+                            byte* jEntry = childCache + (long)j * CHILD_CACHE_ENTRY;
+                            if ((int)*(uint*)jEntry <= iKey) break;
+                            // Shift j → j+1
+                            byte* jNext = jEntry + CHILD_CACHE_ENTRY;
+                            *(uint*)jNext = *(uint*)jEntry;
+                            *(long*)(jNext + 4) = *(long*)(jEntry + 4);
+                            j--;
+                        }
+                        byte* dest = childCache + (long)(j + 1) * CHILD_CACHE_ENTRY;
+                        *(uint*)dest = (uint)iKey;
+                        *(long*)(dest + 4) = iOff;
+                    }
+                    int count = cacheCount;
+
                     // Release cache entries (all children processed, allow reuse for sibling subtrees)
                     childCacheUsed = cacheStart;
 
-                    // 4. Sort children by key
-                    childBuf.Sort((a, b) => ((int)a.Key).CompareTo((int)b.Key));
-                    int count = childBuf.Count;
-
-                    // 5. Write sorted child array (batch-allocated)
+                    // 5. Write sorted child array (batch-allocated, direct unsafe writes)
                     long arrayOffset = PersistentConstants.NULL_OFFSET;
                     if (count > 0)
                     {
@@ -1067,16 +1083,46 @@ public class PersistentSuffixTreeBuilder
                         arrayOffset = batchPos;
                         batchPos += totalBytes;
 
-                        // Serialize
-                        if (totalBytes > writeBuf.Length)
+                        // Direct unsafe write to MMF when possible (zero buffer copies)
+                        if (mmfMain != null && arrayOffset + totalBytes <= mmfMain.Size)
                         {
-                            byte[] newBuf = System.Buffers.ArrayPool<byte>.Shared.Rent(totalBytes);
-                            SerializeAndWriteChildArray(childBuf, arrayLayout, newBuf, totalBytes, arrayOffset);
-                            System.Buffers.ArrayPool<byte>.Shared.Return(newBuf);
+                            byte* dst = mmfMain.RawPointer + arrayOffset;
+                            if (arrayLayout.OffsetIs64Bit)
+                            {
+                                for (int c = cacheStart; c < cacheStart + count; c++)
+                                {
+                                    byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
+                                    *(uint*)dst = *(uint*)src;           // Key
+                                    *(long*)(dst + 4) = *(long*)(src + 4); // ChildOffset (64-bit)
+                                    dst += 12;
+                                }
+                            }
+                            else
+                            {
+                                for (int c = cacheStart; c < cacheStart + count; c++)
+                                {
+                                    byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
+                                    *(uint*)dst = *(uint*)src;                   // Key
+                                    *(uint*)(dst + 4) = (uint)*(long*)(src + 4); // ChildOffset (32-bit)
+                                    dst += 8;
+                                }
+                            }
                         }
                         else
                         {
-                            SerializeAndWriteChildArray(childBuf, arrayLayout, writeBuf, totalBytes, arrayOffset);
+                            // Fallback: non-MMF or offset beyond mapped region
+                            for (int c = cacheStart; c < cacheStart + count; c++)
+                            {
+                                byte* src = childCache + (long)c * CHILD_CACHE_ENTRY;
+                                uint key = *(uint*)src;
+                                long childOff = *(long*)(src + 4);
+                                long entOff = arrayOffset + (long)(c - cacheStart) * entrySize;
+                                _storage.WriteUInt32(entOff, key);
+                                if (arrayLayout.OffsetIs64Bit)
+                                    _storage.WriteInt64(entOff + 4, childOff);
+                                else
+                                    _storage.WriteUInt32(entOff + 4, (uint)childOff);
+                            }
                         }
                     }
 
@@ -1137,7 +1183,6 @@ public class PersistentSuffixTreeBuilder
         }
         finally
         {
-            System.Buffers.ArrayPool<byte>.Shared.Return(writeBuf);
             System.Runtime.InteropServices.NativeMemory.Free(childCache);
             System.Runtime.InteropServices.NativeMemory.Free(stackMem);
         }
@@ -1146,23 +1191,8 @@ public class PersistentSuffixTreeBuilder
         _lrsDepth = maxLrsDepth;
     }
 
-    /// <summary>Serializes child entries into a buffer and writes to storage.</summary>
-    private void SerializeAndWriteChildArray(
-        List<(uint Key, long ChildOffset)> children,
-        NodeLayout arrayLayout, byte[] buf, int totalBytes, long arrayOffset)
-    {
-        int entrySize = arrayLayout.ChildEntrySize;
-        for (int i = 0; i < children.Count; i++)
-        {
-            int off = checked(i * entrySize);
-            BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off, 4), children[i].Key);
-            if (arrayLayout.OffsetIs64Bit)
-                BinaryPrimitives.WriteInt64LittleEndian(buf.AsSpan(off + 4, 8), children[i].ChildOffset);
-            else
-                BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(off + 4, 4), (uint)children[i].ChildOffset);
-        }
-        _storage.WriteBytes(arrayOffset, buf, 0, totalBytes);
-    }
+    // SerializeAndWriteChildArray removed — child arrays are written directly to MMF
+    // from the native child cache via unsafe pointer writes (zero buffer copies).
 
     // ──────────────── Builder child management (off-heap linked lists) ────────────────
 
