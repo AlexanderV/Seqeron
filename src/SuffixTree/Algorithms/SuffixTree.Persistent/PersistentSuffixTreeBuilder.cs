@@ -807,8 +807,12 @@ public class PersistentSuffixTreeBuilder
         }
 
         // ── Batch allocation state for child arrays ──
-        const int MAX_BATCH = 256 * 1024 * 1024;
-        int batchSize = Math.Min(MAX_BATCH, Math.Max(4096, _nodeCount * 48));
+        // Pre-allocate a large zone for child arrays to minimize _storage.Allocate calls
+        // (each Allocate can trigger EnsureCapacity → MMF remap → TLB flush).
+        // Estimate: ~nodeCount children × avg 10 bytes/child entry. Use int.MaxValue cap.
+        long estimatedChildArrayBytes = (long)_nodeCount * 10;
+        int batchSize = (int)Math.Min(estimatedChildArrayBytes, int.MaxValue - 65536);
+        batchSize = Math.Max(batchSize, 4096);
         long batchStart = _storage.Allocate(batchSize);
         long batchEnd = batchStart + batchSize;
         long batchPos = batchStart;
