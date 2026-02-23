@@ -612,6 +612,10 @@ public class PersistentSuffixTreeBuilder
 
         _progress?.Report(("DFS: Topology extraction", 92.0));
 
+        // Hint the OS to start paging-in the child store before the DFS reads it.
+        // The DFS will sequentially scan the entire child store (~5.6 GB for chr1).
+        _mmfChildStore?.PrefetchForBuild();
+
         CombinedFinalizeDFS(_rootOffset);
 
         if (_ownsDepthStore) _depthStore?.Dispose();
