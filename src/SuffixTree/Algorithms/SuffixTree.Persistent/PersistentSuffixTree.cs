@@ -369,12 +369,13 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
 
     private IEnumerable<string> EnumerateSuffixesCore(PersistentSuffixTreeNode root)
     {
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
-        stack.Push((root, 0));
+        var stack = new Stack<(long NodeOffset, int Depth)>();
+        stack.Push((root.Offset, 0));
 
         while (stack.Count > 0)
         {
-            var (node, depth) = stack.Pop();
+            var (nodeOffset, depth) = stack.Pop();
+            var node = NodeAt(nodeOffset);
             int nodeDepth = depth + (node.Offset == _rootOffset ? 0 : LengthOf(node));
 
             if (node.IsLeaf)
@@ -394,7 +395,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             {
                 long entryOff = arrayBase + (long)ci * entryLayout.ChildEntrySize;
                 long childNodeOffset = entryLayout.ReadOffset(_storage, entryOff + NodeLayout.ChildOffsetNode);
-                stack.Push((NodeAt(childNodeOffset), nodeDepth));
+                stack.Push((childNodeOffset, nodeDepth));
             }
         }
     }
@@ -708,13 +709,14 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
         var deepest = root;
         int maxDepth = 0;
 
-        // (node, depthFromRoot)
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
-        stack.Push((root, 0));
+        // (nodeOffset, depthFromRoot)
+        var stack = new Stack<(long NodeOffset, int Depth)>();
+        stack.Push((root.Offset, 0));
 
         while (stack.Count > 0)
         {
-            var (node, depthFromRoot) = stack.Pop();
+            var (nodeOffset, depthFromRoot) = stack.Pop();
+            var node = NodeAt(nodeOffset);
 
             if (!node.IsLeaf)
             {
@@ -730,9 +732,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                 {
                     long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
                     long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-                    var child = NodeAt(childOffset);
-                    if (!child.IsLeaf)
-                        stack.Push((child, nodeDepth));
+                    stack.Push((childOffset, nodeDepth));
                 }
             }
         }

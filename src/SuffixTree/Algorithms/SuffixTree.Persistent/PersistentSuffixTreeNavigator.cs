@@ -131,12 +131,30 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
 
     public void CollectLeaves(PersistentSuffixTreeNode node, int depth, List<int> results)
     {
-        var stack = new Stack<(PersistentSuffixTreeNode Node, int Depth)>();
-        stack.Push((node, depth));
+        // For very small subtrees, use sequential stack to avoid TPL overhead
+        if (node.LeafCount < 1000)
+        {
+            CollectLeavesSequential(node, depth, results);
+            return;
+        }
+
+        var localResults = new System.Collections.Concurrent.ConcurrentBag<int>();
+
+        CollectLeavesParallel(node, depth, localResults);
+
+        results.AddRange(localResults);
+        results.Sort();
+    }
+
+    private void CollectLeavesSequential(PersistentSuffixTreeNode node, int depth, List<int> results)
+    {
+        var stack = new Stack<(long NodeOffset, int Depth)>();
+        stack.Push((node.Offset, depth));
 
         while (stack.Count > 0)
         {
-            var (current, currentDepth) = stack.Pop();
+            var (currentOffset, currentDepth) = stack.Pop();
+            var current = NodeAt(currentOffset);
 
             if (current.IsLeaf)
             {
@@ -149,13 +167,47 @@ internal struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<PersistentS
 
             int childDepth = currentDepth + LengthOf(current);
             var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(current);
-            for (int ci = 0; ci < childCount; ci++)
+            for (int ci = childCount - 1; ci >= 0; ci--)
             {
                 long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
                 long childOffset = entryLayout.ReadOffset(_storage, entryOffset + NodeLayout.ChildOffsetNode);
-                stack.Push((NodeAt(childOffset), childDepth));
+                stack.Push((childOffset, childDepth));
             }
         }
+    }
+
+    private void CollectLeavesParallel(PersistentSuffixTreeNode current, int currentDepth, System.Collections.Concurrent.ConcurrentBag<int> results)
+    {
+        if (current.IsLeaf)
+        {
+            int suffixLength = currentDepth + LengthOf(current);
+            int startPosition = (_textSource.Length + 1) - suffixLength;
+            if (startPosition < _textSource.Length)
+                results.Add(startPosition);
+            return;
+        }
+
+        int childDepth = currentDepth + LengthOf(current);
+        var (arrayBase, entryLayout, childCount) = ReadChildArrayInfo(current);
+
+        var nav = this;
+        System.Threading.Tasks.Parallel.For(0, childCount, ci =>
+        {
+            long entryOffset = arrayBase + (long)ci * entryLayout.ChildEntrySize;
+            long childOffset = entryLayout.ReadOffset(nav._storage, entryOffset + NodeLayout.ChildOffsetNode);
+            var child = nav.NodeAt(childOffset);
+
+            if (child.LeafCount < 1000)
+            {
+                var localList = new List<int>();
+                nav.CollectLeavesSequential(child, childDepth, localList);
+                foreach (var r in localList) results.Add(r);
+            }
+            else
+            {
+                nav.CollectLeavesParallel(child, childDepth, results);
+            }
+        });
     }
 
     public int FindAnyLeafPosition(PersistentSuffixTreeNode node, int depthFromRoot)
