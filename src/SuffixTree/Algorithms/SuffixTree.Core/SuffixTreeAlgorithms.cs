@@ -163,10 +163,17 @@ public static class SuffixTreeAlgorithms
 
         var positionsInText = new List<int>();
         var positionsInOther = new List<int>();
+        string substring = other.Substring(bestMatches[0].MatchEndInOther - maxLen + 1, maxLen);
 
         foreach (var match in bestMatches)
         {
-            positionsInOther.Add(match.MatchEndInOther - maxLen + 1);
+            int positionInOther = match.MatchEndInOther - maxLen + 1;
+            // When multiple distinct substrings share the same maximal length,
+            // report positions only for the canonical returned substring.
+            if (!other.AsSpan(positionInOther, maxLen).SequenceEqual(substring.AsSpan()))
+                continue;
+
+            positionsInOther.Add(positionInOther);
 
             if (firstOnly)
             {
@@ -181,7 +188,12 @@ public static class SuffixTreeAlgorithms
             }
         }
 
-        string substring = other.Substring(bestMatches[0].MatchEndInOther - maxLen + 1, maxLen);
+        if (!firstOnly)
+        {
+            DeduplicateInPlace(positionsInText);
+            DeduplicateInPlace(positionsInOther);
+        }
+
         return (substring, positionsInText, positionsInOther);
     }
 
@@ -339,5 +351,22 @@ public static class SuffixTreeAlgorithms
         {
             results.Add((refPos, endInQuery - length + 1, length));
         }
+    }
+
+    private static void DeduplicateInPlace(List<int> values)
+    {
+        var seen = new HashSet<int>();
+        int write = 0;
+        for (int read = 0; read < values.Count; read++)
+        {
+            int value = values[read];
+            if (!seen.Add(value))
+                continue;
+
+            values[write++] = value;
+        }
+
+        if (write < values.Count)
+            values.RemoveRange(write, values.Count - write);
     }
 }
