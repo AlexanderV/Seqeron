@@ -4,7 +4,7 @@ A high-performance, disk-backed persistent suffix tree implementation for .NET 9
 
 Built on Ukkonen's algorithm, the library indexes and searches large volumes of text
 without loading the tree into managed heap memory. Memory-mapped files (MMF) keep the
-node graph on disk while providing O(m) substring lookups.
+node graph on disk while providing O(m log d) substring lookups (`d` = branching factor).
 
 ---
 
@@ -14,7 +14,7 @@ node graph on disk while providing O(m) substring lookups.
 |---------|---------|
 | **Disk-backed storage** | Memory-mapped files optimized for suffix tree node access. |
 | **Persistence** | Build once → save to disk → reload instantly in subsequent sessions. |
-| **Hybrid storage format (v5)** | Starts in compact (32-bit) mode; promotes to large (64-bit) mid-build only if storage exceeds ~4 GB. A jump table bridges cross-zone suffix links and child arrays. Format detected automatically on load. |
+| **Hybrid storage format (v6)** | Starts in compact (32-bit) mode; promotes to large (64-bit) mid-build only if storage exceeds ~4 GB. A jump table bridges cross-zone suffix links and child arrays. Format detected automatically on load. |
 | **Scalable** | Handles gigabytes of text by offloading the node graph to disk. |
 | **Thread-safe reads** | Multiple concurrent readers on the same tree file. |
 | **Suffix links preserved** | Written natively by Ukkonen's algorithm, enabling `FindExactMatchAnchors`. |
@@ -33,12 +33,12 @@ using SuffixTree.Persistent;
 string text = "abracadabra";
 string filePath = "my_tree.suffix";
 
-// Build directly into a memory-mapped file (hybrid v5 format)
+// Build directly into a memory-mapped file (hybrid v6 format)
 using var tree = (IDisposable)PersistentSuffixTreeFactory.Create(
     new StringTextSource(text), filePath);
 
 var st = (ISuffixTree)tree;
-st.Contains("bra");            // O(m)
+st.Contains("bra");            // O(m log d)
 st.CountOccurrences("a");      // 5
 st.LongestRepeatedSubstring(); // "abra"
 ```
@@ -104,8 +104,8 @@ using var loaded = (IDisposable)SuffixTreeSerializer.LoadFromFile("portable.tree
 | `PersistentSuffixTree` | Query engine implementing `ISuffixTree`. Delegates shared algorithms via `ISuffixTreeNavigator<TNode>`. |
 | `PersistentSuffixTreeNode` | Struct handle — reads/writes fixed-size fields at a byte offset in storage. |
 | `PersistentSuffixTreeNavigator` | Struct navigator for generic algorithm dispatch. All methods `[AggressiveInlining]`. |
-| `NodeLayout` | Immutable descriptor of field sizes/offsets. Two singletons: `Compact` (v4) and `Large` (v3). |
-| `HybridLayout` | Zone detection + jump table resolution for v5 hybrid trees. |
+| `NodeLayout` | Immutable descriptor of field sizes/offsets. Two singletons: `Compact` (v6, 24-byte node) and `Large` (v6, 32-byte node). |
+| `HybridLayout` | Zone detection + jump table resolution for hybrid v6 trees. |
 | `MemoryMappedTextSource` | `ITextSource` backed by a raw pointer into MMF. Zero-copy character access. |
 | `SuffixTreeSerializer` | SHA256 hash, export/import (format v2), file save/load. |
 
@@ -115,64 +115,58 @@ using var loaded = (IDisposable)SuffixTreeSerializer.LoadFromFile("portable.tree
 
 ### File Header
 
-All format versions share bytes 0–47. Hybrid v5 extends to byte 79.
+Current runtime format is **v6**. Header size is **88 bytes**.
 
-#### Base Header (48 bytes) — v3 / v4 / v5
+#### v6 Header (bytes 0–87)
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
 | 0–7 | 8 | `MAGIC` | `0x5452454558494646` — ASCII `"SUFFIXTR"` |
-| 8–11 | 4 | `VERSION` | `3` = Large, `4` = Compact, `5` = Hybrid |
+| 8–11 | 4 | `VERSION` | `6` |
 | 12–15 | 4 | `TEXT_LEN` | Character count |
 | 16–23 | 8 | `ROOT` | int64 byte offset of root node |
 | 24–31 | 8 | `TEXT_OFF` | int64 byte offset of stored text |
 | 32–35 | 4 | `NODE_COUNT` | Total node count |
-| 36–39 | 4 | _(reserved)_ | — |
+| 36–39 | 4 | `FLAGS` | Bit field (`FLAG_TEXT_ASCII` for 1-byte text storage) |
 | 40–47 | 8 | `SIZE` | Expected file size (validated on load) |
-
-#### v5 Extended Header (bytes 48–79)
-
-| Offset | Size | Field | Description |
-|--------|------|-------|-------------|
 | 48–55 | 8 | `TRANSITION` | Byte offset where compact→large transition occurred (`-1` if pure compact) |
 | 56–63 | 8 | `JUMP_START` | Start of the jump table region |
 | 64–71 | 8 | `JUMP_END` | End of the jump table region |
-| 72–79 | 8 | `DEEPEST_NODE` | Byte offset of the deepest internal node (for O(1) LRS) |
+| 72–79 | 8 | `DEEPEST_NODE` | Byte offset of deepest internal node (`-1` if unavailable) |
+| 80–83 | 4 | `LRS_DEPTH` | Precomputed LRS depth (`DepthFromRoot + edgeLength`) |
+| 84–87 | 4 | `BASE_NODE_SIZE` | Base node size (`24`=Compact, `32`=Large) |
 
 ### Node Layouts
 
-#### Compact (v4) — 28-byte Nodes
+#### Compact (v6) — 24-byte Nodes
 
 | Offset | Size | Field | Type |
 |--------|------|-------|------|
 | 0–3 | 4 | Start | uint32 |
 | 4–7 | 4 | End | uint32 |
 | 8–11 | 4 | SuffixLink | uint32 |
-| 12–15 | 4 | DepthFromRoot | uint32 |
-| 16–19 | 4 | LeafCount | uint32 |
-| 20–23 | 4 | ChildrenHead | uint32 |
-| 24–27 | 4 | ChildCount | int32 |
+| 12–15 | 4 | LeafCount | uint32 |
+| 16–19 | 4 | ChildrenHead | uint32 |
+| 20–23 | 4 | ChildCount | int32 |
 
 **Child entry:** Key (4 B) + Offset (4 B) = **8 bytes**.
 **NULL sentinel:** `0xFFFFFFFF`. Max valid offset: `0xFFFFFFFE` (~4.29 GB).
 
-#### Large (v3) — 40-byte Nodes
+#### Large (v6) — 32-byte Nodes
 
 | Offset | Size | Field | Type |
 |--------|------|-------|------|
 | 0–3 | 4 | Start | uint32 |
 | 4–7 | 4 | End | uint32 |
 | 8–15 | 8 | SuffixLink | int64 |
-| 16–19 | 4 | DepthFromRoot | uint32 |
-| 20–23 | 4 | LeafCount | uint32 |
-| 24–31 | 8 | ChildrenHead | int64 |
-| 32–35 | 4 | ChildCount | int32 |
-| 36–39 | 4 | _(padding)_ | — |
+| 16–19 | 4 | LeafCount | uint32 |
+| 20–27 | 8 | ChildrenHead | int64 |
+| 28–31 | 4 | ChildCount | int32 |
 
 **Child entry:** Key (4 B) + Offset (8 B) = **12 bytes**.
 **NULL sentinel:** `-1L`.
 
-### Hybrid v5 Format
+### Hybrid v6 Format
 
 Construction always starts in compact mode. When the next allocation would
 exceed `uint.MaxValue - 1`, the builder transitions to large mode:
@@ -184,9 +178,9 @@ exceed `uint.MaxValue - 1`, the builder transitions to large mode:
    - *Child-array jumps:* Compact parents with any large-zone children.
      `ChildrenHead` points to the jump entry; child entries use 12-byte (large) format.
      The high bit of `ChildCount` is set as a "jumped" flag.
-3. **Zone detection** — `HybridLayout.GetLayoutForOffset(offset)` returns Compact if
+3. **Zone detection** — `HybridLayout.LayoutForOffset(offset)` returns Compact if
    `offset < transitionOffset`, else Large.
-4. **Jump resolution** — `HybridLayout.ResolveSuffixLink(offset)` dereferences `int64`
+4. **Jump resolution** — `HybridLayout.ResolveJump(offset)` dereferences `int64`
    targets for offsets falling within the jump table range.
 
 ### Serialization Format v2
@@ -212,7 +206,7 @@ correct suffix links. Both node count and structural hash are validated after re
 
 ### Format Savings
 
-The compact layout saves ~30% disk space vs. large and improves CPU cache hit rates
+The compact layout saves ~25% disk space vs. large and improves CPU cache hit rates
 (more nodes per cache line). The `NodeLayout` accessor methods use `[AggressiveInlining]`;
 the `if (OffsetIs64Bit)` branch is perfectly predicted by the CPU (same direction for
 every node in single-zone trees), adding zero measurable overhead.
@@ -223,11 +217,11 @@ All tree traversals (leaf counting, child serialization, depth computation, `Fin
 `PrintTree`) use explicit stacks instead of recursion — no `StackOverflowException`
 even for extremely deep or repetitive trees.
 
-### O(1) Longest Repeated Substring
+### Fast-Path Longest Repeated Substring
 
 The deepest internal node is identified during the builder's post-order pass and
-its offset is stored in the v5 header (byte 72). `LongestRepeatedSubstring()` reads
-this single node — no traversal on query.
+its offset/depth are stored in the v6 header (bytes 72 and 80). `LongestRepeatedSubstring()`
+uses this metadata on the fast path; if metadata is unavailable, it falls back to a one-time DFS.
 
 ### Chunked Text Storage
 
@@ -250,85 +244,28 @@ child lists, deferred jump entries) to release GC pressure before the tree is re
 |-------|-------------|
 | Storage ≥ header size | Detects truncated files |
 | Magic bytes | Must be `"SUFFIXTR"` |
-| Version ∈ {3, 4, 5} | Rejects unknown formats |
-| Root offset in bounds | Root must be within storage |
-| Root offset ≥ 0 | Rejects negative offsets |
+| Version = 6 | Rejects unknown formats |
+| Root offset in bounds | Root must be within `[HEADER_SIZE_V6, Size)` |
 | Text offset in bounds | Text region must be within storage |
 | Text length ≥ 0 | Rejects negative lengths |
-| Text region fits | `textOff + textLen × 2 ≤ Size` |
-| v5: transition in bounds | Transition offset must be within storage |
-| v5: jump end ≥ jump start | Jump table must be non-negative length |
-| v5: deepest node in bounds | Offset must be within storage (if ≥ 0) |
-| v5: deepest node ≥ −1 | Rejects negative offsets other than sentinel |
+| Text region fits | `textOff + textLen × bytesPerChar ≤ Size` (`bytesPerChar` from flags) |
+| v6: transition in bounds | Transition offset must be within storage (when present) |
+| v6: jump end ≥ jump start | Jump table must be non-negative length |
+| v6: deepest node in bounds | Offset must be within storage (if not sentinel) |
 | Header SIZE = storage size | Detects mismatch / corruption |
 
 ---
 
 ## Quality Assurance
 
-**339 tests** organized into 6 categories:
+As of 2026-02-24 (`dotnet test tests/SuffixTree/SuffixTree.Persistent.Tests/SuffixTree.Persistent.Tests.csproj -c Release`):
 
-### Core/ — 37 tests
-Base functionality across all three storage backends (Heap, MMF, Large-format)
-plus builder guard rails.
+- **471 tests passed**, 0 failed, 0 skipped.
 
-| File | Tests | Focus |
-|------|-------|-------|
-| `SuffixTreeTestBase.cs` | 8 (×3) | Contains, FindAll, Count, LRS, LCS, empty, Unicode, suffixes |
-| `HeapSuffixTreeTests.cs` | 8 | Heap backend |
-| `LargeFormatSuffixTreeTests.cs` | 8 | Large (v3) backend |
-| `MmfSuffixTreeTests.cs` | 13 | MMF backend + persistence, 50 KB / 1 MB stress, concurrency, corruption |
-| `BuilderGuardTests.cs` | 8 | Double-build guard, deepest node tracking, O(1) LRS, memory release |
-
-### Format/ — 109 tests
-Storage format correctness, compact vs. large parity, hybrid transition zone sweep.
-
-| File | Tests | Focus |
-|------|-------|-------|
-| `StorageFormatTests.cs` | 20 | Compact/Large build+query, format detection, size savings, layout constants |
-| `HybridTransitionZoneTests.cs` | 89 | Exhaustive transition-point sweep (×8 texts), cross-zone suffix links, stress |
-
-### Parity/ — 17 tests
-Differential testing between persistent and in-memory reference implementations.
-
-| File | Tests | Focus |
-|------|-------|-------|
-| `ParityTests.cs` | 11 | Full API parity (10 strings + 10 random) |
-| `TopologyParityTests.cs` | 6 | Node-by-node topology comparison (6 texts) |
-
-### Safety/ — 78 tests
-Dispose, concurrency, providers, node API, null guards, text source, overflow.
-
-| File | Tests | Focus |
-|------|-------|-------|
-| `DisposeBehaviorTests.cs` | 12 | ODE for all 17 methods, idempotent dispose, read-only, PrintTree, exception safety |
-| `ConcurrencyTests.cs` | 5 | 1000 parallel MMF reads, 5000 heap reads, concurrent dispose trials |
-| `ProviderSafetyTests.cs` | 28 | ODE, negative allocate, data preservation, bounds checks (both providers) |
-| `NodeApiSafetyTests.cs` | 14 | TryGetChild, jumped handling, offset overflow, internal API visibility |
-| `NullGuardTests.cs` | 3 | Null guards for factory methods |
-| `MemoryMappedTextSourceTests.cs` | 9 | Char access, slicing, pointer cleanup, dispose safety, TOCTOU fix |
-| `OverflowAndValidationTests.cs` | 7 | Integer overflow, slice overflow, negative length, zero-cap, chunked text |
-
-### Serialization/ — 14 tests
-Export/import round-trips, hash consistency, truncation detection.
-
-| File | Tests | Focus |
-|------|-------|-------|
-| `LogicalPersistenceTests.cs` | 6 | Hash parity (Heap/MMF/Reference), byte-identical exports, round-trip |
-| `SerializerHashTests.cs` | 2 | Same-tree hash stability, little-endian regression |
-| `ImportTruncationTests.cs` | 2 | Truncated stream, zero-chars-after-header |
-| `SetSizeAndExportTests.cs` | 4 | Post-dispose guard, negative size, valid update, 10 K chunked export |
-
-### Validation/ — 49 tests
-Load validation, mathematical invariants, tree contracts, boundary cases.
-
-| File | Tests | Focus |
-|------|-------|-------|
-| `LoadValidationTests.cs` | 17 | Truncated storage, bad magic, unknown version, bounds, SIZE mismatch |
-| `MathematicalInvariantsTests.cs` | 10 | LeafCount = text.Length, NodeCount bounds, terminator isolation |
-| `TreeContractTests.cs` | 12 | Lex suffix order, null guard, LCS positions, depth, visitor balance |
-| `EmptyPatternContractTests.cs` | 4 | Empty → all positions, count = text.Length |
-| `BoundaryAndEdgeCaseTests.cs` | 6 | Frequent resizing, edge count invariant, pathological patterns |
+Test suites cover core API behavior, format/hybrid transitions, parity with in-memory tree,
+safety/dispose/concurrency, serialization invariants, and load/contract validation.
+See the maintained matrix:
+[`tests/SuffixTree/SUFFIX_TREE_TEST_MATRIX.md`](../../../../tests/SuffixTree/SUFFIX_TREE_TEST_MATRIX.md).
 
 ---
 
