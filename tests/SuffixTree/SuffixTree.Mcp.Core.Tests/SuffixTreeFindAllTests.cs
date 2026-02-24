@@ -1,31 +1,45 @@
+using System.Linq;
 using NUnit.Framework;
 using SuffixTree.Mcp.Core.Tools;
 
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class SuffixTreeFindAllTests
 {
     [Test]
-    public void SuffixTreeFindAll_Schema_ValidatesCorrectly()
+    public void SuffixTreeFindAll_InvalidArguments_ThrowArgumentException()
     {
-        Assert.DoesNotThrow(() => SuffixTreeTools.SuffixTreeFindAll("banana", "ana"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeFindAll("", "pattern"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeFindAll(null!, "pattern"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeFindAll("text", null!));
     }
 
     [Test]
-    public void SuffixTreeFindAll_Binding_InvokesSuccessfully()
+    public void SuffixTreeFindAll_ReturnsExactPositions()
     {
-        var result = SuffixTreeTools.SuffixTreeFindAll("banana", "ana");
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Positions, Is.Not.Null);
-        Assert.That(result.Positions, Has.Length.EqualTo(2));
-        Assert.That(result.Positions, Does.Contain(1));
-        Assert.That(result.Positions, Does.Contain(3));
+        Assert.That(SuffixTreeTools.SuffixTreeFindAll("banana", "ana").Positions.OrderBy(x => x).ToArray(),
+            Is.EqualTo(new[] { 1, 3 }));
+        Assert.That(SuffixTreeTools.SuffixTreeFindAll("aaaaa", "aa").Positions.OrderBy(x => x).ToArray(),
+            Is.EqualTo(new[] { 0, 1, 2, 3 }));
+        Assert.That(SuffixTreeTools.SuffixTreeFindAll("abc", "").Positions.OrderBy(x => x).ToArray(),
+            Is.EqualTo(new[] { 0, 1, 2 }));
+        Assert.That(SuffixTreeTools.SuffixTreeFindAll("abc", "xyz").Positions, Is.Empty);
+    }
 
-        var notFound = SuffixTreeTools.SuffixTreeFindAll("banana", "xyz");
-        Assert.That(notFound.Positions, Is.Empty);
+    [Test]
+    public void SuffixTreeFindAll_MatchesCountTool()
+    {
+        const string text = "abracadabra";
+        string[] patterns = { "", "a", "abra", "cad", "ra", "xyz" };
+
+        foreach (string pattern in patterns)
+        {
+            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
+            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
+            Assert.That(positions.Length, Is.EqualTo(count), $"pattern={pattern}");
+        }
     }
 }
+

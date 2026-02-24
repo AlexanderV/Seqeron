@@ -4,47 +4,41 @@ using SuffixTree.Mcp.Core.Tools;
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class SuffixTreeCountTests
 {
-    /// <summary>
-    /// Schema test: validates input parameters are handled correctly.
-    /// </summary>
     [Test]
-    public void SuffixTreeCount_Schema_ValidatesCorrectly()
+    public void SuffixTreeCount_InvalidArguments_ThrowArgumentException()
     {
-        // Valid inputs should not throw
-        Assert.DoesNotThrow(() => SuffixTreeTools.SuffixTreeCount("banana", "ana"));
-
-        // Empty text should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount("", "pattern"));
-
-        // Null text should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount(null!, "pattern"));
-
-        // Null pattern should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount("text", null!));
     }
 
-    /// <summary>
-    /// Binding test: validates the tool invokes successfully and returns correct structure.
-    /// </summary>
-    [Test]
-    public void SuffixTreeCount_Binding_InvokesSuccessfully()
+    [TestCase("banana", "ana", 2)]
+    [TestCase("banana", "b", 1)]
+    [TestCase("banana", "xyz", 0)]
+    [TestCase("aaaaa", "aa", 4)]
+    [TestCase("abc", "", 3)]
+    [TestCase("AbCd", "abcd", 0)]
+    public void SuffixTreeCount_ReturnsExpectedCount(string text, string pattern, int expectedCount)
     {
-        // Invoke the tool - "ana" appears twice in "banana" (positions 1 and 3)
-        var result = SuffixTreeTools.SuffixTreeCount("banana", "ana");
+        var result = SuffixTreeTools.SuffixTreeCount(text, pattern);
+        Assert.That(result.Count, Is.EqualTo(expectedCount));
+    }
 
-        // Verify result is not null and has expected structure
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Count, Is.EqualTo(2));
+    [Test]
+    public void SuffixTreeCount_MatchesFindAllLength()
+    {
+        const string text = "mississippi";
+        string[] patterns = { "", "i", "issi", "ss", "sip", "xyz" };
 
-        // Verify zero count case
-        var notFound = SuffixTreeTools.SuffixTreeCount("banana", "xyz");
-        Assert.That(notFound, Is.Not.Null);
-        Assert.That(notFound.Count, Is.EqualTo(0));
-
-        // Verify single occurrence
-        var single = SuffixTreeTools.SuffixTreeCount("banana", "b");
-        Assert.That(single.Count, Is.EqualTo(1));
+        foreach (string pattern in patterns)
+        {
+            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
+            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
+            Assert.That(count, Is.EqualTo(positions.Length), $"pattern={pattern}");
+        }
     }
 }
+

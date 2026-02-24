@@ -4,28 +4,26 @@ using SuffixTree.Mcp.Core.Tools;
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class HammingDistanceTests
 {
     [Test]
-    public void HammingDistance_Schema_ValidatesCorrectly()
+    public void HammingDistance_InvalidArguments_ThrowArgumentException()
     {
-        Assert.DoesNotThrow(() => SuffixTreeTools.HammingDistance("ATGC", "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("", "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance(null!, "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("ATGC", "AT")); // Length mismatch
+        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("ATGC", "AT"));
     }
 
-    [Test]
-    public void HammingDistance_Binding_InvokesSuccessfully()
+    [TestCase("ATGC", "ATGC", 0)]
+    [TestCase("ATGC", "ATGG", 1)]
+    [TestCase("AAAA", "TTTT", 4)]
+    [TestCase("atgc", "ATGG", 1)] // case-insensitive path in ApproximateMatcher
+    public void HammingDistance_ReturnsExpectedDistance(string sequence1, string sequence2, int expected)
     {
-        var identical = SuffixTreeTools.HammingDistance("ATGC", "ATGC");
-        Assert.That(identical.Distance, Is.EqualTo(0));
-
-        var oneDiff = SuffixTreeTools.HammingDistance("ATGC", "ATGG");
-        Assert.That(oneDiff.Distance, Is.EqualTo(1));
-
-        var allDiff = SuffixTreeTools.HammingDistance("AAAA", "TTTT");
-        Assert.That(allDiff.Distance, Is.EqualTo(4));
+        var result = SuffixTreeTools.HammingDistance(sequence1, sequence2);
+        Assert.That(result.Distance, Is.EqualTo(expected));
     }
 }
+

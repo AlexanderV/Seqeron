@@ -4,47 +4,44 @@ using SuffixTree.Mcp.Core.Tools;
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class SuffixTreeContainsTests
 {
-    /// <summary>
-    /// Schema test: validates input parameters are handled correctly.
-    /// </summary>
     [Test]
-    public void SuffixTreeContains_Schema_ValidatesCorrectly()
+    public void SuffixTreeContains_InvalidArguments_ThrowArgumentException()
     {
-        // Valid inputs should not throw
-        Assert.DoesNotThrow(() => SuffixTreeTools.SuffixTreeContains("banana", "ana"));
-
-        // Empty text should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains("", "pattern"));
-
-        // Null text should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains(null!, "pattern"));
-
-        // Null pattern should throw
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains("text", null!));
     }
 
-    /// <summary>
-    /// Binding test: validates the tool invokes successfully and returns correct structure.
-    /// </summary>
-    [Test]
-    public void SuffixTreeContains_Binding_InvokesSuccessfully()
+    [TestCase("banana", "ana", true)]
+    [TestCase("banana", "xyz", false)]
+    [TestCase("banana", "", true)]
+    [TestCase("aaaaa", "aa", true)]
+    [TestCase("AbCd", "abcd", false)]
+    [TestCase("AbCd", "AbC", true)]
+    public void SuffixTreeContains_ReturnsExpectedResult(string text, string pattern, bool expected)
     {
-        // Invoke the tool
-        var result = SuffixTreeTools.SuffixTreeContains("banana", "ana");
+        var result = SuffixTreeTools.SuffixTreeContains(text, pattern);
+        Assert.That(result.Found, Is.EqualTo(expected));
+    }
 
-        // Verify result is not null and has expected structure
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.Found, Is.True);
+    [Test]
+    public void SuffixTreeContains_IsConsistentWithCountAndFindAllTools()
+    {
+        const string text = "banana";
+        string[] patterns = { "", "a", "ana", "n", "xyz", "banana", "bananax" };
 
-        // Verify negative case
-        var notFound = SuffixTreeTools.SuffixTreeContains("banana", "xyz");
-        Assert.That(notFound, Is.Not.Null);
-        Assert.That(notFound.Found, Is.False);
+        foreach (string pattern in patterns)
+        {
+            bool found = SuffixTreeTools.SuffixTreeContains(text, pattern).Found;
+            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
+            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
 
-        // Verify empty pattern (should return true - empty string is substring of any string)
-        var emptyPattern = SuffixTreeTools.SuffixTreeContains("banana", "");
-        Assert.That(emptyPattern.Found, Is.True);
+            Assert.That(found, Is.EqualTo(count > 0));
+            Assert.That(found, Is.EqualTo(positions.Length > 0));
+        }
     }
 }
+
