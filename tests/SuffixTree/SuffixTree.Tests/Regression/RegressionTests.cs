@@ -10,6 +10,7 @@ namespace SuffixTree.Tests.Regression
     /// These tests should NOT be deleted when refactoring - they prevent regressions.
     /// </summary>
     [TestFixture]
+    [Category("Regression")]
     public class RegressionTests
     {
         #region LCS Backtracking (Bug: incorrect LCS when mismatch in mid-edge)
@@ -165,3 +166,4 @@ namespace SuffixTree.Tests.Regression
         #endregion
     }
 }
+

@@ -2,7 +2,7 @@ using System;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 /// <summary>
 /// Tests for R5 (Factory.Create null text), R6 (Builder.Build null text),
@@ -10,6 +10,7 @@ namespace SuffixTree.Persistent.Tests;
 /// All three currently throw NullReferenceException; should throw ArgumentNullException.
 /// </summary>
 [TestFixture]
+[Category("Safety")]
 public class NullGuardTests
 {
     // ─── R5: Factory.Create(null) ───────────────────────────────────
@@ -40,3 +41,4 @@ public class NullGuardTests
             PersistentSuffixTree.Load(null!));
     }
 }
+

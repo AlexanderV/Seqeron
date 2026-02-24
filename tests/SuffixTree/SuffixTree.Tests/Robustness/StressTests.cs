@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Robustness
     /// Stress tests for performance and memory under load.
     /// </summary>
     [TestFixture]
+    [Category("Robustness")]
     public class StressTests
     {
         #region Large Text Construction
@@ -138,3 +139,4 @@ namespace SuffixTree.Tests.Robustness
         #endregion
     }
 }
+

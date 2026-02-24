@@ -16,8 +16,11 @@ namespace SuffixTree.Tests.Algorithms
     /// where matchLen >= minLength. Anchors are non-overlapping in the query.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class ExactMatchAnchorTests
     {
+        private static readonly int[] RandomSeeds = Enumerable.Range(0, 5).ToArray();
+
         #region Null and Edge Cases
 
         [Test]
@@ -191,10 +194,10 @@ namespace SuffixTree.Tests.Algorithms
         }
 
         [Test]
-        [Repeat(5)]
-        public void FindAnchors_RandomInput_AllAnchorsValid()
+        [TestCaseSource(nameof(RandomSeeds))]
+        public void FindAnchors_RandomInput_AllAnchorsValid(int seed)
         {
-            var random = new Random();
+            var random = new Random(seed);
             int textLen = random.Next(50, 200);
             int queryLen = random.Next(50, 200);
             string text = GenerateRandomString(random, textLen, "abcd");
@@ -269,3 +272,4 @@ namespace SuffixTree.Tests.Algorithms
         #endregion
     }
 }
+

@@ -5,7 +5,7 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Validation;
 
 /// <summary>
 /// Tests for P3 (suffix lex order), P4 (Contains(null) contract),
@@ -13,6 +13,7 @@ namespace SuffixTree.Persistent.Tests;
 /// Written RED-first: P3, P4, P12 tests expose existing bugs.
 /// </summary>
 [TestFixture]
+[Category("Validation")]
 public class TreeContractTests
 {
     private string _tempFile = string.Empty;

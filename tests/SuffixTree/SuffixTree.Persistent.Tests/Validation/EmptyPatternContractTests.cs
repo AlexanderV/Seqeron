@@ -4,7 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Validation;
 
 /// <summary>
 /// Tests for Q1 (FindAllOccurrences("") contract) and Q2 (CountOccurrences("") contract).
@@ -12,6 +12,7 @@ namespace SuffixTree.Persistent.Tests;
 /// Written RED-first.
 /// </summary>
 [TestFixture]
+[Category("Validation")]
 public class EmptyPatternContractTests
 {
     private string _tempFile = string.Empty;

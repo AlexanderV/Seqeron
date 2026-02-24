@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Algorithms
     /// References: Ukkonen (1995), Gusfield (1997), cp-algorithms.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class LiteratureExamplesTests
     {
         #region Ukkonen's Paper Examples
@@ -141,3 +142,4 @@ namespace SuffixTree.Tests.Algorithms
         // - LongestRepeatedSubstringTests.LRS_AllUnique_ReturnsEmpty
     }
 }
+

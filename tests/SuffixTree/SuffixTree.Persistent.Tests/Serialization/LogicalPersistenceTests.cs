@@ -5,9 +5,10 @@ using NUnit.Framework;
 using SuffixTree;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Serialization
 {
     [TestFixture]
+    [Category("Serialization")]
     public class LogicalPersistenceTests
     {
         private string _tempExportFile = "test_export.bin";
@@ -197,3 +198,4 @@ namespace SuffixTree.Persistent.Tests
         }
     }
 }
+

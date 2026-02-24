@@ -8,6 +8,7 @@ namespace SuffixTree.Tests.Core
     /// Tests for StringTextSource — the ITextSource implementation that wraps a string.
     /// </summary>
     [TestFixture]
+    [Category("Core")]
     public class StringTextSourceTests
     {
         #region Constructor Guards
@@ -170,3 +171,4 @@ namespace SuffixTree.Tests.Core
         #endregion
     }
 }
+

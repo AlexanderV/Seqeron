@@ -10,6 +10,7 @@ namespace SuffixTree.Tests.Algorithms
     /// Tests both single result and all results variants.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class LongestCommonSubstringTests
     {
         #region Input Validation
@@ -476,3 +477,4 @@ namespace SuffixTree.Tests.Algorithms
         #endregion
     }
 }
+

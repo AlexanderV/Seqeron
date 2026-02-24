@@ -3,12 +3,13 @@ using System.IO;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Serialization;
 
 /// <summary>
 /// Tests for Q8 (SetSize validation) and Q10 (Export text serialization).
 /// </summary>
 [TestFixture]
+[Category("Serialization")]
 public class SetSizeAndExportTests
 {
     private string _tempFile = string.Empty;
@@ -70,3 +71,4 @@ public class SetSizeAndExportTests
         Assert.That(imported.Contains("FIND_ME"), Is.True);
     }
 }
+

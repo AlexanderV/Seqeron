@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Search
     /// Tests for Contains method (string and Span overloads).
     /// </summary>
     [TestFixture]
+    [Category("Search")]
     public class ContainsTests
     {
         #region Input Validation
@@ -235,3 +236,4 @@ namespace SuffixTree.Tests.Search
         #endregion
     }
 }
+

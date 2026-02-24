@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Parity
 {
     [TestFixture]
+    [Category("Parity")]
     public class TopologyParityTests
     {
         [TestCase("banana")]

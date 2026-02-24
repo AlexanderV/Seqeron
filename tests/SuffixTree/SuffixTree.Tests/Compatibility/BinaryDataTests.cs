@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Compatibility
     /// Tests for binary data support (null characters and other control characters).
     /// </summary>
     [TestFixture]
+    [Category("Compatibility")]
     public class BinaryDataTests
     {
         #region Null Character Construction
@@ -266,3 +267,4 @@ namespace SuffixTree.Tests.Compatibility
         #endregion
     }
 }
+

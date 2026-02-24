@@ -1,10 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Format;
 
 /// <summary>
 /// Thorough coverage of the Compact→Large transition zone in the hybrid builder.
@@ -22,8 +23,11 @@ namespace SuffixTree.Persistent.Tests;
 /// </para>
 /// </summary>
 [TestFixture]
+[Category("Format")]
 public class HybridTransitionZoneTests
 {
+    private static readonly ConcurrentDictionary<string, long> HybridLimitCache = new(StringComparer.Ordinal);
+
     // ────────── representative texts with different characteristics ──────────
 
     /// <summary>
@@ -163,8 +167,9 @@ public class HybridTransitionZoneTests
         var compact2 = BuildCompact(text);
         var reference = global::SuffixTree.SuffixTree.Build(text);
 
-        if (hybrid.pst.IsHybrid)
-            AssertFullParity(hybrid.tree, compact2.tree, reference, text, "midpoint transition");
+        Assert.That(hybrid.pst.IsHybrid, Is.True,
+            $"Expected midpoint transition to be hybrid for '{text}' (limit={midpoint})");
+        AssertFullParity(hybrid.tree, compact2.tree, reference, text, "midpoint transition");
 
         hybrid.Dispose();
         compact2.Dispose();
@@ -187,8 +192,9 @@ public class HybridTransitionZoneTests
         var compact2 = BuildCompact(text);
         var reference = global::SuffixTree.SuffixTree.Build(text);
 
-        if (hybrid.pst.IsHybrid)
-            AssertFullParity(hybrid.tree, compact2.tree, reference, text, "last-node transition");
+        Assert.That(hybrid.pst.IsHybrid, Is.True,
+            $"Expected last-node transition to be hybrid for '{text}' (limit={limit})");
+        AssertFullParity(hybrid.tree, compact2.tree, reference, text, "last-node transition");
 
         hybrid.Dispose();
         compact2.Dispose();
@@ -202,14 +208,10 @@ public class HybridTransitionZoneTests
     {
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
-        builder.CompactOffsetLimit = PersistentConstants.HEADER_SIZE_V6 + 2 * NodeLayout.Compact.NodeSize;
+        builder.CompactOffsetLimit = FindHybridLimit(text);
         builder.Build(new StringTextSource(text));
 
-        if (!builder.IsHybrid)
-        {
-            Assert.Pass("Text too short to trigger transition at this limit");
-            return;
-        }
+        Assert.That(builder.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // Load from storage — must auto-detect v6
         var loaded = PersistentSuffixTree.Load(storage);
@@ -237,13 +239,8 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var reference = global::SuffixTree.SuffixTree.Build(text);
-        var hybrid = BuildHybrid(text, PersistentConstants.HEADER_SIZE_V6 + 3 * NodeLayout.Compact.NodeSize);
-        if (!hybrid.pst.IsHybrid)
-        {
-            hybrid.Dispose();
-            Assert.Pass("Text too short to trigger hybrid");
-            return;
-        }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         var refSuffixes = reference.GetAllSuffixes().OrderBy(s => s, StringComparer.Ordinal).ToList();
         var hybridSuffixes = hybrid.tree.GetAllSuffixes().OrderBy(s => s, StringComparer.Ordinal).ToList();
@@ -259,8 +256,8 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var compact = BuildCompact(text);
-        var hybrid = BuildHybrid(text, 200);
-        if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); compact.Dispose(); Assert.Pass(); return; }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // Check every 2-char substring
         for (int i = 0; i <= text.Length - 2; i++)
@@ -282,8 +279,8 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var compact = BuildCompact(text);
-        var hybrid = BuildHybrid(text, 200);
-        if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); compact.Dispose(); Assert.Pass(); return; }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         var compactVisits = new List<(int Start, int End, int Leaves, int Children, int Depth)>();
         compact.tree.Traverse(new CollectingVisitor(compactVisits));
@@ -308,8 +305,8 @@ public class HybridTransitionZoneTests
     public void HybridTree_ExportImport_RoundTrip(
         [ValueSource(nameof(TransitionTexts))] string text)
     {
-        var hybrid = BuildHybrid(text, 200);
-        if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); Assert.Pass(); return; }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // Export
         using var ms = new System.IO.MemoryStream();
@@ -343,8 +340,8 @@ public class HybridTransitionZoneTests
         [ValueSource(nameof(TransitionTexts))] string text)
     {
         var reference = global::SuffixTree.SuffixTree.Build(text);
-        var hybrid = BuildHybrid(text, 200);
-        if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); Assert.Pass(); return; }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // LCS with itself should be the full text
         Assert.That(hybrid.tree.LongestCommonSubstring(text),
@@ -371,11 +368,11 @@ public class HybridTransitionZoneTests
     public void HybridTree_FindExactMatchAnchors_MatchesCompact(
         [ValueSource(nameof(TransitionTexts))] string text)
     {
-        if (text.Length < 6) { Assert.Pass("Text too short for meaningful anchors test"); return; }
+        Assert.That(text.Length, Is.GreaterThanOrEqualTo(6), "TransitionTexts must be long enough for anchor coverage");
 
         var compact = BuildCompact(text);
-        var hybrid = BuildHybrid(text, 200);
-        if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); compact.Dispose(); Assert.Pass(); return; }
+        var hybrid = BuildHybrid(text, FindHybridLimit(text));
+        Assert.That(hybrid.pst.IsHybrid, Is.True, $"Expected hybrid build for '{text}'");
 
         // Use a query that overlaps with the text
         string query = text.Substring(1) + text.Substring(0, 3);
@@ -434,31 +431,33 @@ public class HybridTransitionZoneTests
         int nodeCount = probe.tree.NodeCount;
         probe.Dispose();
 
-        if (nodeCount <= 2) { Assert.Pass("Too few nodes to test boundary"); return; }
+        Assert.That(nodeCount, Is.GreaterThan(2), $"Expected non-trivial tree for '{text}'");
+        Assert.That(IsHybridAt(text, treeSize), Is.False,
+            $"limit == tree size should stay compact for '{text}'");
 
-        // Set limit to be just under the last node allocation
-        // This should force the last node(s) into large zone
-        long limit = treeSize - NodeLayout.Compact.NodeSize;
+        // Find the highest compactOffsetLimit that still produces a hybrid tree.
+        long limit = FindHighestHybridLimit(text, treeSize);
         var storage = new HeapStorageProvider();
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
         builder.CompactOffsetLimit = limit;
         long root = builder.Build(new StringTextSource(text));
+        Assert.That(builder.IsHybrid, Is.True,
+            $"Expected hybrid at limit {limit} (treeSize={treeSize}) for '{text}'");
+        Assert.That(IsHybridAt(text, limit + 1), Is.False,
+            $"limit+1 should already be compact for '{text}'");
 
-        if (builder.IsHybrid)
+        using var tree = new PersistentSuffixTree(storage, root, new StringTextSource(text),
+            NodeLayout.Compact, builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
+        var reference = global::SuffixTree.SuffixTree.Build(text);
+
+        Assert.Multiple(() =>
         {
-            var tree = new PersistentSuffixTree(storage, root, new StringTextSource(text),
-                NodeLayout.Compact, builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd);
-            var reference = global::SuffixTree.SuffixTree.Build(text);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(tree.Contains(text), Is.True, "Contains full text");
-                Assert.That(tree.NodeCount, Is.EqualTo(reference.NodeCount), "NodeCount");
-                Assert.That(tree.LeafCount, Is.EqualTo(reference.LeafCount), "LeafCount");
-                Assert.That(tree.LongestRepeatedSubstring(),
-                    Is.EqualTo(reference.LongestRepeatedSubstring()), "LRS");
-            });
-        }
+            Assert.That(tree.Contains(text), Is.True, "Contains full text");
+            Assert.That(tree.NodeCount, Is.EqualTo(reference.NodeCount), "NodeCount");
+            Assert.That(tree.LeafCount, Is.EqualTo(reference.LeafCount), "LeafCount");
+            Assert.That(tree.LongestRepeatedSubstring(),
+                Is.EqualTo(reference.LongestRepeatedSubstring()), "LRS");
+        });
     }
 
     /// <summary>
@@ -504,10 +503,12 @@ public class HybridTransitionZoneTests
             maxLimit - NodeLayout.Compact.NodeSize,                                    // very late
         ];
 
+        int hybridCases = 0;
         foreach (long limit in limits)
         {
             var hybrid = BuildHybrid(text, limit);
             if (!hybrid.pst.IsHybrid) { hybrid.Dispose(); continue; }
+            hybridCases++;
 
             Assert.Multiple(() =>
             {
@@ -528,6 +529,7 @@ public class HybridTransitionZoneTests
             hybrid.Dispose();
         }
 
+        Assert.That(hybridCases, Is.GreaterThan(0), "At least one tested limit must produce a hybrid tree");
         compact.Dispose();
     }
 
@@ -646,6 +648,60 @@ public class HybridTransitionZoneTests
         long root = builder.Build(ts);
         var pst = new PersistentSuffixTree(storage, root, ts, NodeLayout.Compact);
         return new TreeHolder(pst, pst, storage);
+    }
+
+    private static long FindHybridLimit(string text)
+    {
+        if (HybridLimitCache.TryGetValue(text, out long cachedLimit))
+            return cachedLimit;
+
+        var compact = BuildCompact(text);
+        long maxLimit = compact.storage.Size;
+        compact.Dispose();
+
+        int headerPlusRoot = PersistentConstants.HEADER_SIZE_V6 + NodeLayout.Compact.NodeSize;
+        int step = NodeLayout.Compact.NodeSize;
+
+        for (long limit = headerPlusRoot; limit < maxLimit; limit += step)
+        {
+            var hybrid = BuildHybrid(text, limit);
+            bool isHybrid = hybrid.pst.IsHybrid;
+            hybrid.Dispose();
+            if (isHybrid)
+            {
+                HybridLimitCache[text] = limit;
+                return limit;
+            }
+        }
+
+        Assert.Fail($"No hybrid limit found for '{text}'. Transition coverage cannot be executed.");
+        return -1;
+    }
+
+    private static long FindHighestHybridLimit(string text, long maxLimit)
+    {
+        long low = FindHybridLimit(text); // known hybrid
+        long high = maxLimit + 1;         // known non-hybrid for small tests
+        Assert.That(IsHybridAt(text, high), Is.False, $"Expected non-hybrid at limit={high}");
+
+        while (low + 1 < high)
+        {
+            long mid = low + (high - low) / 2;
+            if (IsHybridAt(text, mid))
+                low = mid;
+            else
+                high = mid;
+        }
+
+        return low;
+    }
+
+    private static bool IsHybridAt(string text, long compactOffsetLimit)
+    {
+        var holder = BuildHybrid(text, compactOffsetLimit);
+        bool isHybrid = holder.pst.IsHybrid;
+        holder.Dispose();
+        return isHybrid;
     }
 
     private static TreeHolder BuildHybrid(string text, long compactOffsetLimit)
@@ -804,3 +860,4 @@ public class HybridTransitionZoneTests
         public void ExitBranch() { }
     }
 }
+

@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Serialization;
 
 /// <summary>
 /// Tests for P10 (hash endianness portability) and P13 (hash consistency).
@@ -13,6 +13,7 @@ namespace SuffixTree.Persistent.Tests;
 /// P13: sanity test for streaming hash consistency.
 /// </summary>
 [TestFixture]
+[Category("Serialization")]
 public class SerializerHashTests
 {
     [Test]
@@ -63,3 +64,4 @@ public class SerializerHashTests
         Assert.That(hash2, Is.EqualTo(hash));
     }
 }
+

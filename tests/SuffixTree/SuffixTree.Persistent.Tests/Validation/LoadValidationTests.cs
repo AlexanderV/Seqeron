@@ -1,13 +1,14 @@
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Validation;
 
 /// <summary>
 /// Tests that <see cref="PersistentSuffixTree.Load"/> validates header fields
 /// and rejects corrupted or truncated storage with clear exceptions.
 /// </summary>
 [TestFixture]
+[Category("Validation")]
 public class LoadValidationTests
 {
     // ──────────── Truncated storage ──────────────

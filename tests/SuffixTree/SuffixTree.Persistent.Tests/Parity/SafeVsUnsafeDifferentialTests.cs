@@ -5,17 +5,14 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Parity
 {
     /// <summary>
     /// Differential tests: safe path (HeapStorageProvider, _ptr == null)
     /// vs unsafe path (MappedFileStorageProvider, _ptr != null).
-    /// 
-    /// Both paths must produce identical results for all query operations.
-    /// This validates that CollectLeavesUnsafe, TryGetChildFast, ReadUInt32Fast,
-    /// ReadInt64Fast produce the same results as their safe counterparts.
     /// </summary>
     [TestFixture]
+    [Category("Parity")]
     public class SafeVsUnsafeDifferentialTests
     {
         private string? _tempDir;
@@ -33,7 +30,7 @@ namespace SuffixTree.Persistent.Tests
             if (_tempDir != null && Directory.Exists(_tempDir))
             {
                 try { Directory.Delete(_tempDir, true); }
-                catch { /* best effort cleanup */ }
+                catch { }
             }
         }
 
@@ -72,7 +69,6 @@ namespace SuffixTree.Persistent.Tests
             using ((IDisposable)heap)
             using ((IDisposable)mmf)
             {
-                // Test every substring
                 for (int i = 0; i < text.Length; i++)
                 {
                     for (int len = 1; len <= Math.Min(10, text.Length - i); len++)
@@ -83,7 +79,6 @@ namespace SuffixTree.Persistent.Tests
                     }
                 }
 
-                // Test non-existing patterns
                 Assert.That(mmf.Contains("ZZZZZ"), Is.EqualTo(heap.Contains("ZZZZZ")));
                 Assert.That(mmf.Contains(""), Is.EqualTo(heap.Contains("")));
             }
@@ -138,6 +133,9 @@ namespace SuffixTree.Persistent.Tests
             {
                 var heapLrs = heap.LongestRepeatedSubstring();
                 var mmfLrs = mmf.LongestRepeatedSubstring();
+
+                AssertLrsIsValid(heap, text, heapLrs, "heap/fixed");
+                AssertLrsIsValid(mmf, text, mmfLrs, "mmf/fixed");
                 Assert.That(mmfLrs.Length, Is.EqualTo(heapLrs.Length),
                     $"LRS length mismatch: heap=\"{heapLrs}\", mmf=\"{mmfLrs}\"");
             }
@@ -155,6 +153,9 @@ namespace SuffixTree.Persistent.Tests
                 {
                     var heapLcs = heap.LongestCommonSubstring(other);
                     var mmfLcs = mmf.LongestCommonSubstring(other);
+
+                    AssertLcsIsValid(text, other, heapLcs, "heap/fixed");
+                    AssertLcsIsValid(text, other, mmfLcs, "mmf/fixed");
                     Assert.That(mmfLcs.Length, Is.EqualTo(heapLcs.Length),
                         $"LCS length mismatch for other=\"{other}\": heap=\"{heapLcs}\", mmf=\"{mmfLcs}\"");
                 }
@@ -172,15 +173,12 @@ namespace SuffixTree.Persistent.Tests
                 var heapAnchors = heap.FindExactMatchAnchors(query, 2);
                 var mmfAnchors = mmf.FindExactMatchAnchors(query, 2);
 
-                Assert.That(mmfAnchors.Count, Is.EqualTo(heapAnchors.Count),
-                    "Anchor count mismatch");
-                for (int i = 0; i < heapAnchors.Count; i++)
-                {
-                    Assert.That(mmfAnchors[i].PositionInQuery, Is.EqualTo(heapAnchors[i].PositionInQuery),
-                        $"Anchor[{i}] PositionInQuery mismatch");
-                    Assert.That(mmfAnchors[i].Length, Is.EqualTo(heapAnchors[i].Length),
-                        $"Anchor[{i}] Length mismatch");
-                }
+                AssertAnchorsAreValid(text, query, heapAnchors, 2, "heap/fixed");
+                AssertAnchorsAreValid(text, query, mmfAnchors, 2, "mmf/fixed");
+
+                var heapSignatures = AnchorSignatures(text, heapAnchors);
+                var mmfSignatures = AnchorSignatures(text, mmfAnchors);
+                Assert.That(mmfSignatures, Is.EqualTo(heapSignatures), "Anchor signature mismatch");
             }
         }
 
@@ -219,13 +217,11 @@ namespace SuffixTree.Persistent.Tests
                 using ((IDisposable)heap)
                 using ((IDisposable)mmf)
                 {
-                    // Statistics
                     Assert.That(mmf.LeafCount, Is.EqualTo(heap.LeafCount),
                         $"Seed={seed}: LeafCount mismatch");
                     Assert.That(mmf.NodeCount, Is.EqualTo(heap.NodeCount),
                         $"Seed={seed}: NodeCount mismatch");
 
-                    // Random queries
                     for (int q = 0; q < 20; q++)
                     {
                         int start = rng.Next(text.Length);
@@ -244,30 +240,28 @@ namespace SuffixTree.Persistent.Tests
                             $"Seed={seed}: FindAll mismatch for \"{pattern}\"");
                     }
 
-                    // LRS
-                    Assert.That(mmf.LongestRepeatedSubstring().Length,
-                        Is.EqualTo(heap.LongestRepeatedSubstring().Length),
+                    string heapLrs = heap.LongestRepeatedSubstring();
+                    string mmfLrs = mmf.LongestRepeatedSubstring();
+                    AssertLrsIsValid(heap, text, heapLrs, $"heap/random seed={seed}");
+                    AssertLrsIsValid(mmf, text, mmfLrs, $"mmf/random seed={seed}");
+                    Assert.That(mmfLrs.Length, Is.EqualTo(heapLrs.Length),
                         $"Seed={seed}: LRS length mismatch");
 
-                    // LCS with random other
                     string other = GenerateRandom(rng, rng.Next(10, 100), alphabet);
-                    Assert.That(mmf.LongestCommonSubstring(other).Length,
-                        Is.EqualTo(heap.LongestCommonSubstring(other).Length),
+                    string heapLcs = heap.LongestCommonSubstring(other);
+                    string mmfLcs = mmf.LongestCommonSubstring(other);
+                    AssertLcsIsValid(text, other, heapLcs, $"heap/random seed={seed}");
+                    AssertLcsIsValid(text, other, mmfLcs, $"mmf/random seed={seed}");
+                    Assert.That(mmfLcs.Length, Is.EqualTo(heapLcs.Length),
                         $"Seed={seed}: LCS length mismatch");
 
-                    // Anchors
                     string anchorQuery = text.Substring(0, Math.Min(text.Length, 50));
                     var hAnchors = heap.FindExactMatchAnchors(anchorQuery, 3);
                     var mAnchors = mmf.FindExactMatchAnchors(anchorQuery, 3);
-                    Assert.That(mAnchors.Count, Is.EqualTo(hAnchors.Count),
-                        $"Seed={seed}: Anchor count mismatch");
-                    for (int i = 0; i < hAnchors.Count; i++)
-                    {
-                        Assert.That(mAnchors[i].PositionInQuery, Is.EqualTo(hAnchors[i].PositionInQuery),
-                            $"Seed={seed}: Anchor[{i}] PosInQuery mismatch");
-                        Assert.That(mAnchors[i].Length, Is.EqualTo(hAnchors[i].Length),
-                            $"Seed={seed}: Anchor[{i}] Length mismatch");
-                    }
+                    AssertAnchorsAreValid(text, anchorQuery, hAnchors, 3, $"heap/random seed={seed}");
+                    AssertAnchorsAreValid(text, anchorQuery, mAnchors, 3, $"mmf/random seed={seed}");
+                    Assert.That(AnchorSignatures(text, mAnchors), Is.EqualTo(AnchorSignatures(text, hAnchors)),
+                        $"Seed={seed}: Anchor signature mismatch");
                 }
             }
         }
@@ -316,7 +310,7 @@ namespace SuffixTree.Persistent.Tests
 
         #endregion
 
-        #region Pathological inputs (stress the unsafe code)
+        #region Pathological inputs
 
         [Test]
         public void SingleCharRepeat_HeapVsMmf()
@@ -326,7 +320,6 @@ namespace SuffixTree.Persistent.Tests
             using ((IDisposable)heap)
             using ((IDisposable)mmf)
             {
-                // This creates maximum branching at root with many children
                 string pattern = "aaa";
                 var heapPos = heap.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
                 var mmfPos = mmf.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
@@ -344,24 +337,24 @@ namespace SuffixTree.Persistent.Tests
             using ((IDisposable)heap)
             using ((IDisposable)mmf)
             {
-                // Verify multiple patterns
                 string[] patterns = { "ACGT", "GATTACA", "AAA", "CCCC", text.Substring(100, 20) };
-                foreach (var p in patterns)
+                foreach (var pattern in patterns)
                 {
-                    var heapPos = heap.FindAllOccurrences(p).OrderBy(x => x).ToList();
-                    var mmfPos = mmf.FindAllOccurrences(p).OrderBy(x => x).ToList();
-                    Assert.That(mmfPos, Is.EqualTo(heapPos), $"Pattern \"{p}\"");
+                    var heapPos = heap.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
+                    var mmfPos = mmf.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
+                    Assert.That(mmfPos, Is.EqualTo(heapPos), $"Pattern \"{pattern}\"");
                 }
 
-                Assert.That(mmf.LongestRepeatedSubstring().Length,
-                    Is.EqualTo(heap.LongestRepeatedSubstring().Length));
+                string heapLrs = heap.LongestRepeatedSubstring();
+                string mmfLrs = mmf.LongestRepeatedSubstring();
+                Assert.That(mmfLrs.Length, Is.EqualTo(heapLrs.Length));
+                Assert.That(mmf.CountOccurrences(mmfLrs), Is.GreaterThanOrEqualTo(2));
             }
         }
 
         [Test]
         public void AlternatingPattern_HeapVsMmf()
         {
-            // Alternating pattern creates many internal nodes with 2 children each
             string text = string.Concat(Enumerable.Repeat("ab", 500));
             var (heap, mmf) = BuildBoth(text);
             using ((IDisposable)heap)
@@ -377,6 +370,138 @@ namespace SuffixTree.Persistent.Tests
         }
 
         #endregion
+
+        private static void AssertLcsIsValid(string text, string other, string lcs, string context)
+        {
+            if (lcs.Length > 0)
+            {
+                Assert.That(text.Contains(lcs, StringComparison.Ordinal), Is.True,
+                    $"{context}: LCS \"{lcs}\" not found in text");
+                Assert.That(other.Contains(lcs, StringComparison.Ordinal), Is.True,
+                    $"{context}: LCS \"{lcs}\" not found in other");
+            }
+
+            int expectedLength = LongestCommonSubstringLength(text, other);
+            Assert.That(lcs.Length, Is.EqualTo(expectedLength),
+                $"{context}: LCS length {lcs.Length} differs from expected {expectedLength}");
+        }
+
+        private static void AssertLrsIsValid(ISuffixTree tree, string text, string lrs, string context)
+        {
+            if (lrs.Length == 0)
+            {
+                if (text.Length <= 400)
+                {
+                    Assert.That(ExpectedLrsLength(text), Is.EqualTo(0),
+                        $"{context}: expected non-empty LRS");
+                }
+                return;
+            }
+
+            Assert.That(text.Contains(lrs, StringComparison.Ordinal), Is.True,
+                $"{context}: LRS \"{lrs}\" is not a substring of text");
+            Assert.That(tree.CountOccurrences(lrs), Is.GreaterThanOrEqualTo(2),
+                $"{context}: LRS \"{lrs}\" does not repeat");
+
+            if (text.Length <= 400)
+            {
+                int expectedLength = ExpectedLrsLength(text);
+                Assert.That(lrs.Length, Is.EqualTo(expectedLength),
+                    $"{context}: LRS length {lrs.Length} differs from expected {expectedLength}");
+            }
+        }
+
+        private static void AssertAnchorsAreValid(
+            string text,
+            string query,
+            IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> anchors,
+            int minLength,
+            string context)
+        {
+            foreach (var anchor in anchors)
+            {
+                Assert.That(anchor.PositionInText, Is.GreaterThanOrEqualTo(0),
+                    $"{context}: anchor PositionInText < 0");
+                Assert.That(anchor.PositionInQuery, Is.GreaterThanOrEqualTo(0),
+                    $"{context}: anchor PositionInQuery < 0");
+                Assert.That(anchor.Length, Is.GreaterThanOrEqualTo(minLength),
+                    $"{context}: anchor length < minLength");
+                Assert.That(anchor.PositionInText + anchor.Length, Is.LessThanOrEqualTo(text.Length),
+                    $"{context}: anchor exceeds text");
+                Assert.That(anchor.PositionInQuery + anchor.Length, Is.LessThanOrEqualTo(query.Length),
+                    $"{context}: anchor exceeds query");
+
+                string fromText = text.Substring(anchor.PositionInText, anchor.Length);
+                string fromQuery = query.Substring(anchor.PositionInQuery, anchor.Length);
+                Assert.That(fromText, Is.EqualTo(fromQuery),
+                    $"{context}: anchor mismatch at query={anchor.PositionInQuery}, len={anchor.Length}");
+            }
+        }
+
+        private static List<(int PositionInQuery, int Length, string Substring)> AnchorSignatures(
+            string text,
+            IReadOnlyList<(int PositionInText, int PositionInQuery, int Length)> anchors)
+        {
+            var signatures = new List<(int PositionInQuery, int Length, string Substring)>(anchors.Count);
+            foreach (var anchor in anchors)
+            {
+                signatures.Add((
+                    anchor.PositionInQuery,
+                    anchor.Length,
+                    text.Substring(anchor.PositionInText, anchor.Length)));
+            }
+
+            return signatures;
+        }
+
+        private static int LongestCommonSubstringLength(string a, string b)
+        {
+            if (a.Length == 0 || b.Length == 0)
+                return 0;
+
+            var dp = new int[b.Length + 1];
+            int best = 0;
+
+            for (int i = 1; i <= a.Length; i++)
+            {
+                for (int j = b.Length; j >= 1; j--)
+                {
+                    if (a[i - 1] == b[j - 1])
+                    {
+                        dp[j] = dp[j - 1] + 1;
+                        if (dp[j] > best)
+                            best = dp[j];
+                    }
+                    else
+                    {
+                        dp[j] = 0;
+                    }
+                }
+            }
+
+            return best;
+        }
+
+        private static int ExpectedLrsLength(string text)
+        {
+            int best = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                for (int j = i + 1; j < text.Length; j++)
+                {
+                    int len = 0;
+                    while (i + len < text.Length && j + len < text.Length && text[i + len] == text[j + len])
+                    {
+                        len++;
+                    }
+
+                    if (len > best)
+                        best = len;
+                }
+            }
+
+            return best;
+        }
 
         private static string GenerateRandom(Random rng, int length, string alphabet)
         {
