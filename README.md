@@ -11,13 +11,13 @@
 >
 > **Disclaimer:** The authors and contributors make no warranties regarding the correctness, reliability, or fitness for any particular purpose. Use at your own risk. The authors shall not be liable for any damages, losses, or harm arising from the use or misuse of this software.
 >
-> **Contributions welcome:** We actively encourage independent audits, bug reports, and corrections. If you find an error in any algorithm implementation, please [open an issue](https://github.com/your-repo/issues) or submit a pull request. Community review is essential for improving reliability.
+> **Contributions welcome:** We actively encourage independent audits, bug reports, and corrections. If you find an error in any algorithm implementation, please open an issue in this repository or submit a pull request. Community review is essential for improving reliability.
 >
 > See [LICENSE](LICENSE) for full terms.
 
-C#/.NET 8 toolkit for bioinformatics: sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
+C#/.NET toolkit for bioinformatics (primarily .NET 8, with selected .NET 9 components): sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-8%2F9-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Quickstart (Library)
@@ -155,31 +155,40 @@ tm_diff_c = 4.1
 ```
 Seqeron.sln
 src/
-├── SuffixTree/                         # Suffix tree implementation
+├── SuffixTree/
+│   ├── Algorithms/                     # Suffix tree implementation
+│   └── Mcp/                            # MCP server: core suffix-tree tools
 ├── Seqeron/
-│   ├── Seqeron.Genomics/               # Meta-package (aggregates all modules)
-│   ├── Seqeron.Genomics.Infrastructure/# Base types (StatisticsHelper, AlignmentTypes)
-│   ├── Seqeron.Genomics.Core/          # Sequence models (DNA, RNA, Protein)
-│   ├── Seqeron.Genomics.IO/            # Format parsers (FASTA, GenBank, VCF, etc.)
-│   ├── Seqeron.Genomics.Alignment/     # Sequence alignment algorithms
-│   ├── Seqeron.Genomics.Analysis/      # K-mer, motif, repeat analysis
-│   ├── Seqeron.Genomics.Annotation/    # Genome annotation, variant calling
-│   ├── Seqeron.Genomics.Phylogenetics/ # Phylogenetic analysis
-│   ├── Seqeron.Genomics.Population/    # Population genetics
-│   ├── Seqeron.Genomics.Metagenomics/  # Metagenomic analysis
-│   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, CRISPR, etc.)
-│   ├── Seqeron.Genomics.Chromosome/    # Chromosome-level analysis
-│   ├── Seqeron.Genomics.Reports/       # Report generation
-│   ├── Seqeron.Mcp.Sequence/           # MCP server: sequence analysis tools
-│   └── Seqeron.Mcp.Parsers/            # MCP server: parser and format tools
+│   ├── Algorithms/
+│   │   ├── Seqeron.Genomics/               # Meta-package (aggregates all modules)
+│   │   ├── Seqeron.Genomics.Infrastructure/# Base types (StatisticsHelper, AlignmentTypes)
+│   │   ├── Seqeron.Genomics.Core/          # Sequence models (DNA, RNA, Protein)
+│   │   ├── Seqeron.Genomics.IO/            # Format parsers (FASTA, GenBank, VCF, etc.)
+│   │   ├── Seqeron.Genomics.Alignment/     # Sequence alignment algorithms
+│   │   ├── Seqeron.Genomics.Analysis/      # K-mer, motif, repeat analysis
+│   │   ├── Seqeron.Genomics.Annotation/    # Genome annotation, variant calling
+│   │   ├── Seqeron.Genomics.Phylogenetics/ # Phylogenetic analysis
+│   │   ├── Seqeron.Genomics.Population/    # Population genetics
+│   │   ├── Seqeron.Genomics.Metagenomics/  # Metagenomic analysis
+│   │   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, CRISPR, etc.)
+│   │   ├── Seqeron.Genomics.Chromosome/    # Chromosome-level analysis
+│   │   └── Seqeron.Genomics.Reports/       # Report generation
+│   └── Mcp/
+│       ├── Seqeron.Mcp.Sequence/           # MCP server: sequence analysis tools
+│       └── Seqeron.Mcp.Parsers/            # MCP server: parser and format tools
 tests/
-├── SuffixTree.Tests/                   # Suffix tree tests
-├── Seqeron.Genomics.Tests/             # Genomics tests
-├── Seqeron.Mcp.Sequence.Tests/         # MCP sequence tool tests
-└── Seqeron.Mcp.Parsers.Tests/          # MCP parser tool tests
+├── SuffixTree/
+│   ├── SuffixTree.Tests/               # Suffix tree tests
+│   ├── SuffixTree.Persistent.Tests/    # Persistent suffix-tree tests
+│   └── SuffixTree.Mcp.Core.Tests/      # MCP core tool tests
+└── Seqeron/
+    ├── Seqeron.Genomics.Tests/         # Genomics tests
+    ├── Seqeron.Mcp.Sequence.Tests/     # MCP sequence tool tests
+    └── Seqeron.Mcp.Parsers.Tests/      # MCP parser tool tests
 apps/
 ├── SuffixTree.Benchmarks/              # Benchmarks
-└── SuffixTree.Console/                 # Stress and verification harness
+├── SuffixTree.Console/                 # Stress and verification harness
+└── SuffixTree.GenomeDemo/              # Chr1 MMF demo and profiling
 docs/                                   # Documentation
 ```
 
@@ -258,7 +267,7 @@ graph TD
 - MCP guide: [docs/mcp/README.md](docs/mcp/README.md).
 - MCP tool docs: [Core](docs/mcp/tools/core), [Sequence](docs/mcp/tools/sequence), [Parsers](docs/mcp/tools/parsers).
 - MCP traceability: [docs/mcp/traceability.md](docs/mcp/traceability.md).
-- Algorithm test specifications: [TestSpecs](TestSpecs).
+- Algorithm test specifications: [tests/TestSpecs](tests/TestSpecs).
 
 ## Build and Test
 
@@ -271,7 +280,7 @@ dotnet test
 
 ### NativeAOT Optimization
 
-All library and executable projects are configured for aggressive NativeAOT compilation.
+Performance-critical libraries and executables are configured for aggressive NativeAOT compilation.
 
 **Libraries** (`SuffixTree.Core`, `SuffixTree`, `SuffixTree.Persistent`):
 
