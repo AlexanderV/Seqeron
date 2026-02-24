@@ -28,18 +28,18 @@ with a `struct` constraint, enabling JIT specialization for each backend.
 
 | Operation | Time | Notes |
 |-----------|------|-------|
-| Build | O(n) | Ukkonen's online algorithm |
-| Contains | O(m) | Walk edges; SIMD for ≥ 8-char edges |
-| FindAllOccurrences | O(m + k) | k = number of matches |
-| CountOccurrences | O(m) | Precomputed leaf counts |
-| LongestRepeatedSubstring | O(1) | Precomputed during construction |
-| LongestCommonSubstring | O(n + m) | Suffix-link streaming |
-| FindAllLongestCommonSubstrings | O(m + k) | All occurrences of LCS |
-| FindExactMatchAnchors | O(n + m) | Suffix-link streaming with peak tracking |
+| Build | O(n) amortized | Ukkonen's online algorithm |
+| Contains | O(m) in-memory; O(m log d) persistent | Child lookup is hash/inline vs binary search |
+| FindAllOccurrences | O(m + k) in-memory; O(m log d + k) persistent | k = number of returned positions |
+| CountOccurrences | O(m) in-memory; O(m log d) persistent | Leaf count is precomputed; no subtree DFS |
+| LongestRepeatedSubstring | First call: O(\|LRS\|) in-memory; persistent O(h + \|LRS\|) typical, O(n + \|LRS\|) fallback; then O(1) cached | Persistent can fall back to deepest-node DFS if header metadata is unavailable |
+| LongestCommonSubstring | O(m + h) in-memory; O(m log d + h) persistent | Streaming match + one leaf-position recovery |
+| FindAllLongestCommonSubstrings | O(m + Σ subtree(best matches)); worst case O(n·m) | Collects leaves for each maximal match candidate |
+| FindExactMatchAnchors | O(m + a·h); worst case O(n·m) | a = anchors emitted, each needs leaf-position recovery |
 | EnumerateSuffixes | O(n²) total | Lazy DFS, O(n) per suffix |
 | GetAllSuffixes | O(n²) | Materialized sorted list |
 
-Where: n = text length, m = pattern/query length, k = result count.
+Where: n = text length, m = pattern/query length, k = result count, d = max branching factor on visited nodes, h = max depth walked to recover a leaf position, a = anchor count.
 
 ---
 
@@ -63,16 +63,16 @@ Post-construction passes (both backends):
 - **Bottom-up leaf counting** — iterative post-order traversal assigns
   `LeafCount` to every node. `CountOccurrences` reads this in O(1).
 - **Deepest internal node** — identified during the same pass. Its depth
-  equals the LRS length (O(1) query). Persistent format stores the offset
-  in the v5 header at byte 72.
-- **Suffix link validation** — in DEBUG builds, every internal non-root node
-  is checked for a valid suffix link.
+  equals the LRS length (O(1) query). Persistent format stores deepest-node
+  offset and precomputed LRS depth in the v6 header (bytes 72 and 80).
+- **Suffix link validation** — in DEBUG builds, the in-memory backend checks
+  that internal non-root nodes have valid suffix links.
 
 The persistent builder additionally handles **compact→large transitions**
 mid-build: when the next allocation would exceed `0xFFFFFFFE`, it switches
-from 28-byte (compact) to 40-byte (large) nodes. A jump table bridges
+from 24-byte (compact) to 32-byte (large) nodes. A jump table bridges
 cross-zone suffix links and child arrays (see
-[Persistent README](../../src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md)).
+[Persistent README](../../../src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md)).
 
 ---
 
@@ -96,16 +96,17 @@ collects all leaf positions. Each leaf's position =
 Match pattern, then return `node.LeafCount` — precomputed during
 construction by the bottom-up pass.
 
-### 4.4 LongestRepeatedSubstring — O(1)
+### 4.4 LongestRepeatedSubstring — first call non-constant, then O(1) cached
 
 The deepest internal node (by `DepthFromRoot + edgeLength`) is found
 during construction. Its total depth is the LRS length.
 - In-memory: cached in private fields.
-- Persistent: offset stored in v5 header byte 72; read on first access, then cached.
+- Persistent: deepest-node offset + LRS depth are stored in the v6 header (72/80), then cached;
+  if metadata is unavailable, a fallback DFS is used once.
 
-### 4.5 LongestCommonSubstring — O(n + m)
+### 4.5 LongestCommonSubstring — O(m + h) in-memory; O(m log d + h) persistent
 
-Uses `SuffixTreeAlgorithms.FindLongestCommonSubstring<TNode>`:
+Uses `SuffixTreeAlgorithms.FindAllLcs<TNode, TNav>`:
 
 Walk the query string character-by-character against the tree. On mismatch,
 follow suffix links and rescan to maintain the longest match. Track the
@@ -115,9 +116,9 @@ Variants:
 - `LongestCommonSubstring(other)` → string only
 - `LongestCommonSubstringInfo(other)` → `(string, posInText, posInOther)`;
   returns `("", -1, -1)` if none
-- `FindAllLongestCommonSubstrings(other)` → all occurrences of the LCS
+- `FindAllLongestCommonSubstrings(other)` → canonical LCS string + all positions in both strings
 
-### 4.6 FindExactMatchAnchors — O(n + m)
+### 4.6 FindExactMatchAnchors — O(m + a·h), worst case O(n·m)
 
 Uses `SuffixTreeAlgorithms.FindExactMatchAnchors<TNode>`:
 
@@ -131,12 +132,12 @@ chaining (MUMmer/LAGAN-style MEMs).
 DFS traversal in sorted child-key order (ascending). Concatenates edge
 labels to produce suffixes.
 - `EnumerateSuffixes()` — lazy `IEnumerable<string>`, avoids O(n²) peak memory.
-- `GetAllSuffixes()` — materialized `List<string>`.
+- `GetAllSuffixes()` — materialized `IReadOnlyList<string>`.
 
 ### 4.8 Traverse (Visitor Pattern)
 
-`Traverse(ITreeVisitor)` — deterministic recursive DFS in sorted key order.
-Calls `OnEnterNode`, `OnBeforeBranch`, `OnAfterBranch` for each node/edge.
+`Traverse(ISuffixTreeVisitor)` — deterministic DFS in sorted key order.
+Calls `VisitNode`, `EnterBranch`, `ExitBranch` for each node/edge.
 Used by `SuffixTreeSerializer` for structural hashing.
 
 ---
@@ -153,35 +154,34 @@ int MaxDepth
 bool IsEmpty
 
 bool Contains(string / ReadOnlySpan<char>)
-IEnumerable<int> FindAllOccurrences(string / ReadOnlySpan<char>)
+IReadOnlyList<int> FindAllOccurrences(string / ReadOnlySpan<char>)
 int CountOccurrences(string / ReadOnlySpan<char>)
 string LongestRepeatedSubstring()
+ReadOnlyMemory<char> LongestRepeatedSubstringMemory()
 IEnumerable<string> EnumerateSuffixes()
-List<string> GetAllSuffixes()
+IReadOnlyList<string> GetAllSuffixes()
 string LongestCommonSubstring(string / ReadOnlySpan<char>)
 (string, int, int) LongestCommonSubstringInfo(string)
-IEnumerable<(int, int, int)> FindAllLongestCommonSubstrings(string)
+(string, IReadOnlyList<int>, IReadOnlyList<int>) FindAllLongestCommonSubstrings(string)
 string PrintTree()
-void Traverse(ITreeVisitor)
-IEnumerable<(int, int, int)> FindExactMatchAnchors(string, int)
+void Traverse(ISuffixTreeVisitor)
+IReadOnlyList<(int, int, int)> FindExactMatchAnchors(string, int)
 ```
 
 ### ISuffixTreeNavigator\<TNode\>
 
 ```
-ITextSource TextSource
+ITextSource Text
 TNode Root
 TNode NullNode
 bool IsNull(TNode)
 bool IsRoot(TNode)
-int GetEdgeChar(TNode, int)
-int GetEdgeLength(TNode)
-int GetDepth(TNode)
-int GetDepthBeforeEdge(TNode)
+int GetEdgeSymbol(TNode, int)
+int LengthOf(TNode)
 TNode GetSuffixLink(TNode)
-TNode GetChild(TNode, int)
-IEnumerable<int> GetLeafPositions(TNode)
-int GetAnyLeafPosition(TNode)
+bool TryGetChild(TNode, int, out TNode)
+void CollectLeaves(TNode, int, List<int>)
+int FindAnyLeafPosition(TNode, int)
 ```
 
 ### ITextSource
@@ -190,11 +190,11 @@ int GetAnyLeafPosition(TNode)
 int Length
 char this[int]
 string Substring(int, int)
-ReadOnlySpan<char> AsSpan(int, int)
+ReadOnlySpan<char> Slice(int, int)
 ```
 
-Implementations: `StringTextSource` (wraps `string`), `MemoryMappedTextSource`
-(zero-copy pointer into MMF).
+Implementations: `StringTextSource` (wraps `string`),
+`MemoryMappedTextSource` and `AsciiMemoryMappedTextSource` (MMF-backed).
 
 ---
 
@@ -213,7 +213,7 @@ var empty = SuffixTree.Empty;                       // singleton empty tree
 
 // Search
 bool found        = tree.Contains("ana");
-var positions     = tree.FindAllOccurrences("ana"); // IEnumerable<int>
+var positions     = tree.FindAllOccurrences("ana"); // IReadOnlyList<int>
 int count         = tree.CountOccurrences("ana");
 
 // Algorithms
@@ -224,7 +224,7 @@ var allLcs        = tree.FindAllLongestCommonSubstrings("bandana");
 var anchors       = tree.FindExactMatchAnchors("bandana", minLength: 3);
 
 // Enumeration
-var suffixes      = tree.GetAllSuffixes();          // List<string>
+var suffixes      = tree.GetAllSuffixes();          // IReadOnlyList<string>
 var lazySuffixes  = tree.EnumerateSuffixes();        // IEnumerable<string>
 
 // Diagnostics
@@ -237,7 +237,7 @@ tree.Traverse(visitor);
 ```csharp
 using SuffixTree.Persistent;
 
-// Build into MMF file (hybrid v5)
+// Build into MMF file (hybrid v6)
 using var tree = (IDisposable)PersistentSuffixTreeFactory.Create(
     new StringTextSource("banana"), "tree.dat");
 var st = (ISuffixTree)tree;
@@ -246,7 +246,7 @@ var st = (ISuffixTree)tree;
 using var tree = (IDisposable)PersistentSuffixTreeFactory.Create(
     new StringTextSource("banana"));
 
-// Load existing file (read-only, auto-detects v3/v4/v5)
+// Load existing file (read-only, v6 with compact/large base auto-detection)
 using var loaded = (IDisposable)PersistentSuffixTreeFactory.Load("tree.dat");
 
 // All ISuffixTree methods work identically
@@ -298,6 +298,7 @@ src/SuffixTree/Algorithms/
     ├── IStorageProvider.cs
     ├── HeapStorageProvider.cs
     ├── MappedFileStorageProvider.cs
+    ├── AsciiMemoryMappedTextSource.cs
     ├── MemoryMappedTextSource.cs
     ├── NodeLayout.cs
     ├── HybridLayout.cs
@@ -336,106 +337,27 @@ The `SuffixTree.Mcp.Core` project exposes 12 tools via Model Context Protocol:
 | `count_approximate_occurrences` | Approximate pattern matching |
 
 Each tool validates input and returns a structured result record.
-See [MCP docs](../../docs/mcp/README.md) for connection and usage guides.
+See [MCP docs](../../mcp/README.md) for connection and usage guides.
 
 ---
 
 ## 9. Tests
 
-**599 tests total** across three test projects:
+As of 2026-02-24 (`dotnet test` on the three SuffixTree test projects):
 
-### In-Memory Tests — 236 tests
+- `SuffixTree.Tests`: 353 passed
+- `SuffixTree.Persistent.Tests`: 471 passed
+- `SuffixTree.Mcp.Core.Tests`: 59 passed
+- **Total: 883 passed**
 
-```
-SuffixTree.Tests/
-├── Core/                  (52 tests)
-│   ├── BuildTests.cs          — 21 factory methods, input validation, TryBuild
-│   ├── DiagnosticsTests.cs    — 5 PrintTree + ToString
-│   ├── InvariantTests.cs      — 23 structural invariants (suffix existence, count parity)
-│   └── StatisticsTests.cs     — 3 node/leaf count correctness
-├── Search/                (44 tests)
-│   ├── ContainsTests.cs       — 12 substring presence, span parity, case sensitivity
-│   ├── CountOccurrencesTests.cs — 13 count correctness, overlapping, span parity
-│   └── FindAllOccurrencesTests.cs — 19 position correctness, lazy evaluation, span parity
-├── Algorithms/            (74 tests)
-│   ├── BruteForceVerificationTests.cs — 15 LCS/LRS vs O(n²m)/O(n³) brute force
-│   ├── LiteratureExamplesTests.cs     — 6 Ukkonen 1995, Fibonacci strings
-│   ├── LongestCommonSubstringTests.cs — 28 LCS, FindAll, Info, span parity
-│   ├── LongestRepeatedSubstringTests.cs — 13 LRS correctness + occurrence proof
-│   └── SuffixEnumerationTests.cs      — 12 sorted enumeration, lazy, uniqueness
-├── Regression/            (7 tests)
-│   └── RegressionTests.cs     — Edge-offset reset, suffix-link traversal, stale offset, null char
-├── Robustness/            (23 tests)
-│   ├── EdgeCaseTests.cs       — 13 long patterns, single char, whitespace, palindromes
-│   ├── StressTests.cs         — 5 100K-char builds, 10K queries, LCS stress
-│   └── ThreadSafetyTests.cs   — 5 parallel reads, builds, buffer safety
-└── Compatibility/         (36 tests)
-    ├── BinaryDataTests.cs     — 20 null bytes, control chars, all 256 values
-    └── UnicodeTests.cs        — 16 Cyrillic, Chinese, Greek, emoji, surrogates, ZWJ
-```
-
-### Persistent Tests — 339 tests
-
-```
-SuffixTree.Persistent.Tests/
-├── Core/                  (37 tests)
-│   ├── SuffixTreeTestBase.cs      — 8 base tests (inherited by 3 backends)
-│   ├── HeapSuffixTreeTests.cs     — 8 heap backend
-│   ├── LargeFormatSuffixTreeTests.cs — 8 large (v3) backend
-│   ├── MmfSuffixTreeTests.cs      — 13 MMF backend + persistence, stress, concurrency
-│   └── BuilderGuardTests.cs       — 8 double-build, deepest node, memory release
-├── Format/                (109 tests)
-│   ├── StorageFormatTests.cs          — 20 compact/large parity, auto-detection, constants
-│   └── HybridTransitionZoneTests.cs   — 89 exhaustive sweep ×8 texts, cross-zone links
-├── Parity/                (17 tests)
-│   ├── ParityTests.cs            — 11 full API parity (10 strings + 10 random)
-│   └── TopologyParityTests.cs    — 6 node-by-node topology comparison
-├── Safety/                (78 tests)
-│   ├── DisposeBehaviorTests.cs       — 12 ODE, idempotent, read-only, exception safety
-│   ├── ConcurrencyTests.cs          — 5 parallel reads/dispose (1000–5000 threads)
-│   ├── ProviderSafetyTests.cs       — 28 ODE, bounds checks, data preservation
-│   ├── NodeApiSafetyTests.cs        — 14 TryGetChild, jumped nodes, API visibility
-│   ├── NullGuardTests.cs            — 3 null guards
-│   ├── MemoryMappedTextSourceTests.cs — 9 char access, dispose safety, TOCTOU fix
-│   └── OverflowAndValidationTests.cs — 7 overflow, slice, chunked text
-├── Serialization/         (14 tests)
-│   ├── LogicalPersistenceTests.cs — 6 hash parity, round-trip, file save/load
-│   ├── SerializerHashTests.cs    — 2 hash stability, byte-order regression
-│   ├── ImportTruncationTests.cs  — 2 truncation detection
-│   └── SetSizeAndExportTests.cs  — 4 dispose guard, negative size, chunked export
-└── Validation/            (49 tests)
-    ├── LoadValidationTests.cs        — 17 header validation (magic, version, bounds, SIZE)
-    ├── MathematicalInvariantsTests.cs — 10 LeafCount = text.Length, NodeCount bounds
-    ├── TreeContractTests.cs          — 12 lex order, depth semantics, visitor balance
-    ├── EmptyPatternContractTests.cs  — 4 empty pattern contracts
-    └── BoundaryAndEdgeCaseTests.cs   — 6 resizing, edge invariant, pathological patterns
-```
-
-### MCP Tests — 24 tests
-
-```
-SuffixTree.Mcp.Core.Tests/
-├── SuffixTreeContainsTests.cs          — 2
-├── SuffixTreeCountTests.cs             — 2
-├── SuffixTreeFindAllTests.cs           — 2
-├── SuffixTreeLcsTests.cs               — 2
-├── SuffixTreeLrsTests.cs               — 2
-├── SuffixTreeStatsTests.cs             — 2
-├── FindLongestRepeatTests.cs           — 2
-├── FindLongestCommonRegionTests.cs     — 2
-├── CalculateSimilarityTests.cs         — 2
-├── HammingDistanceTests.cs             — 2
-├── EditDistanceTests.cs                — 2
-└── CountApproximateOccurrencesTests.cs — 2
-```
-
-Each MCP tool has one input-validation test and one functional test.
+For detailed, maintained coverage matrix by suite/scenario, see
+[`tests/SuffixTree/SUFFIX_TREE_TEST_MATRIX.md`](../../../tests/SuffixTree/SUFFIX_TREE_TEST_MATRIX.md).
 
 ---
 
 ## 10. Benchmarks
 
-The `SuffixTree.Benchmarks` project (BenchmarkDotNet) measures 22 scenarios:
+The `SuffixTree.Benchmarks` project (BenchmarkDotNet) includes scenarios for:
 
 | Category | Benchmarks |
 |----------|------------|
@@ -471,6 +393,6 @@ three phases testing small strings (all substrings), large strings
 
 ## 12. Related Documentation
 
-- Persistent format details: [SuffixTree.Persistent/README.md](../../src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md)
+- Persistent format details: [SuffixTree.Persistent/README.md](../../../src/SuffixTree/Algorithms/SuffixTree.Persistent/README.md)
 - Exact pattern search: [Exact_Pattern_Search.md](Exact_Pattern_Search.md)
-- MCP tool docs: [docs/mcp/](../../docs/mcp/README.md)
+- MCP tool docs: [docs/mcp/](../../mcp/README.md)
