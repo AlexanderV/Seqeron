@@ -12,6 +12,7 @@ namespace SuffixTree.Tests.Core
     /// References: Ukkonen (1995), Gusfield (1997), Weiner (1973).
     /// </summary>
     [TestFixture]
+    [Category("Core")]
     public class InvariantTests
     {
         #region Leaf Count Invariant
@@ -189,55 +190,6 @@ namespace SuffixTree.Tests.Core
 
         #endregion
 
-        #region Random Invariant Verification
-
-        /// <summary>
-        /// Verify all invariants on random input — property-based testing.
-        /// </summary>
-        [Test]
-        [Repeat(10)]
-        public void RandomInput_AllInvariantsHold()
-        {
-            var random = new Random();
-            int length = random.Next(10, 100);
-            string text = GenerateRandomString(random, length, "abcd");
-
-            var tree = SuffixTree.Build(text);
-
-            // Invariant 1: Correct leaf count
-            Assert.That(tree.LeafCount, Is.EqualTo(text.Length));
-
-            // Invariant 2: Node count bounds
-            Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * text.Length + 1));
-
-            // Invariant 3: All suffixes exist
-            for (int i = 0; i < text.Length; i++)
-            {
-                Assert.That(tree.Contains(text.Substring(i)), Is.True);
-            }
-
-            // Invariant 4: Suffixes are correctly enumerated (lexicographic order)
-            var suffixes = tree.GetAllSuffixes();
-            var expected = Enumerable.Range(0, text.Length)
-                .Select(i => text.Substring(i))
-                .OrderBy(s => s, StringComparer.Ordinal)
-                .ToList();
-            Assert.That(suffixes, Is.EqualTo(expected));
-
-            // Invariant 5: Count matches positions for random pattern
-            string pattern = text.Substring(random.Next(text.Length / 2),
-                Math.Min(3, text.Length / 2));
-            Assert.That(tree.CountOccurrences(pattern),
-                Is.EqualTo(tree.FindAllOccurrences(pattern).Count));
-        }
-
-        private static string GenerateRandomString(Random random, int length, string alphabet)
-        {
-            return new string(Enumerable.Range(0, length)
-                .Select(_ => alphabet[random.Next(alphabet.Length)])
-                .ToArray());
-        }
-
-        #endregion
     }
 }
+

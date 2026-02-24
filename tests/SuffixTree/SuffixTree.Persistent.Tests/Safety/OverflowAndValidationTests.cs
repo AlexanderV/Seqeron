@@ -3,13 +3,14 @@ using System.IO;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 /// <summary>
 /// Tests for P1 (integer overflow in bounds), P7 (zero-capacity infinite loop),
 /// Q9 (chunked text write >4096 chars).
 /// </summary>
 [TestFixture]
+[Category("Safety")]
 public class OverflowAndValidationTests
 {
     private string _tempFile = string.Empty;
@@ -108,3 +109,4 @@ public class OverflowAndValidationTests
         Assert.That(tree.Text.Length, Is.EqualTo(10006));
     }
 }
+

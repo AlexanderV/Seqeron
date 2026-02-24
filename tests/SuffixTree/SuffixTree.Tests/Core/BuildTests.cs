@@ -10,6 +10,7 @@ namespace SuffixTree.Tests.Core
     /// Tests for SuffixTree construction and basic properties.
     /// </summary>
     [TestFixture]
+    [Category("Core")]
     public class BuildTests
     {
         #region Null and Empty Input
@@ -386,3 +387,4 @@ namespace SuffixTree.Tests.Core
         #endregion
     }
 }
+

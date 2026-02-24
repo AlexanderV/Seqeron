@@ -4,7 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Core
 {
     public abstract class SuffixTreeTestBase
     {
@@ -129,3 +129,4 @@ namespace SuffixTree.Persistent.Tests
         }
     }
 }
+

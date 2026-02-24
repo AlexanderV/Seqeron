@@ -7,6 +7,7 @@ namespace SuffixTree.Tests.Search
     /// Tests for CountOccurrences method (string and Span overloads).
     /// </summary>
     [TestFixture]
+    [Category("Search")]
     public class CountOccurrencesTests
     {
         #region Input Validation
@@ -205,3 +206,4 @@ namespace SuffixTree.Tests.Search
         #endregion
     }
 }
+

@@ -6,6 +6,7 @@ using SuffixTree.Persistent;
 namespace SuffixTree.Persistent.Tests.Algorithms
 {
     [TestFixture]
+    [Category("Algorithms")]
     public class SuffixTreeFuzzTests
     {
         private string _tempDir;

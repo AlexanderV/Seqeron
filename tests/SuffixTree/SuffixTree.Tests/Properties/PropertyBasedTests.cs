@@ -11,6 +11,7 @@ namespace SuffixTree.Tests.Properties
     /// for ANY input string, using randomized inputs with fixed seeds for reproducibility.
     /// </summary>
     [TestFixture]
+    [Category("Properties")]
     public class PropertyBasedTests
     {
         private const int Iterations = 50;
@@ -508,3 +509,4 @@ namespace SuffixTree.Tests.Properties
         #endregion
     }
 }
+

@@ -1,11 +1,13 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Validation
 {
     [TestFixture]
+    [Category("Validation")]
     public class MathematicalInvariantsTests
     {
         [TestCase("banana")]
@@ -14,16 +16,12 @@ namespace SuffixTree.Persistent.Tests
         [TestCase("abcde")]
         [TestCase("z")]
         [TestCase("")]
-        public void LeafCount_IsExactly_TextLengthPlusOne(string text)
+        public void LeafCount_IsExactly_TextLength(string text)
         {
             using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
-                // Raw leaf count in persistent tree is exposed via ISuffixTree.LeafCount
-                // Note: The ISuffixTree.LeafCount property was adjusted to return (raw - 1)
-                // to match reference implementation. Here we check the underlying logic.
-
-                int expectedLeaves = text.Length; // Adjusted LeafCount
+                int expectedLeaves = text.Length;
                 Assert.That(tree.LeafCount, Is.EqualTo(expectedLeaves), $"LeafCount for '{text}' should be {expectedLeaves}");
             }
         }
@@ -42,20 +40,15 @@ namespace SuffixTree.Persistent.Tests
         }
 
         [Test]
-        public void Terminator_IsShielded()
+        public void SyntheticTerminatorCharacter_IsNotImplicitlyAppended()
         {
-            // The internal terminator is '#' in reference and '$' in persistent? 
-            // Wait, PersistentConstants uses '$' or similar?
-            // Let's check PersistentConstants.TERMINATOR_KEY.
-
             string text = "abc";
             using (var st = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable)
             {
                 var tree = (ISuffixTree)st!;
-                const string terminator = "$"; // Standard terminator used in our implementation
-
-                Assert.That(tree.Contains(terminator), Is.False, "Internal terminator should not be searchable");
-                Assert.That(tree.CountOccurrences(terminator), Is.EqualTo(0));
+                string extended = text + "$";
+                Assert.That(tree.Contains(extended), Is.False, "Tree must not expose synthetic terminator as user-visible symbol");
+                Assert.That(tree.CountOccurrences(extended), Is.EqualTo(0));
             }
         }
 

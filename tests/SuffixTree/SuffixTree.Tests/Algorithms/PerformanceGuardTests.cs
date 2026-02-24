@@ -6,6 +6,8 @@ using NUnit.Framework;
 namespace SuffixTree.Tests.Algorithms
 {
     [TestFixture]
+    [Category("Algorithms")]
+    [Category("Performance")]
     public class PerformanceGuardTests
     {
         // 6.0 is a safe upper bound against OS/GC noise.
@@ -133,3 +135,4 @@ namespace SuffixTree.Tests.Algorithms
         }
     }
 }
+

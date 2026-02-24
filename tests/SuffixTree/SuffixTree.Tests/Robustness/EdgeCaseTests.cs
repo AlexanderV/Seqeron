@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Robustness
     /// Edge case tests for boundary conditions and unusual inputs.
     /// </summary>
     [TestFixture]
+    [Category("Robustness")]
     public class EdgeCaseTests
     {
         #region Long Inputs
@@ -156,3 +157,4 @@ namespace SuffixTree.Tests.Robustness
         #endregion
     }
 }
+

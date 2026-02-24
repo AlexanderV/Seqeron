@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Algorithms
     /// Tests for LongestRepeatedSubstring (LRS) functionality.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class LongestRepeatedSubstringTests
     {
         #region Input Validation
@@ -269,3 +270,4 @@ namespace SuffixTree.Tests.Algorithms
 
     }
 }
+

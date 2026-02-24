@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Algorithms
     /// Tests for GetAllSuffixes and EnumerateSuffixes.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class SuffixEnumerationTests
     {
         #region Empty and Single
@@ -217,3 +218,4 @@ namespace SuffixTree.Tests.Algorithms
         #endregion
     }
 }
+

@@ -5,9 +5,10 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 [TestFixture]
+[Category("Safety")]
 public class MemoryMappedTextSourceTests
 {
     private string _tempFile = string.Empty;
@@ -190,3 +191,4 @@ public class MemoryMappedTextSourceTests
 
 
 }
+

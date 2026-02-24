@@ -5,9 +5,10 @@ using System.Text;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Core
 {
     [TestFixture]
+    [Category("Core")]
     public class MmfSuffixTreeTests : SuffixTreeTestBase
     {
         private string _tempFile = string.Empty;
@@ -125,3 +126,4 @@ namespace SuffixTree.Persistent.Tests
         }
     }
 }
+

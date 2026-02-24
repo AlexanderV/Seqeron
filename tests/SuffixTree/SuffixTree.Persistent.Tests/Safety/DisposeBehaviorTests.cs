@@ -3,13 +3,14 @@ using System.IO;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Safety
 {
     /// <summary>
     /// Tests for post-Dispose behavior, read-only mode, TrimToSize,
     /// PrintTree, and FindAllLongestCommonSubstrings.
     /// </summary>
     [TestFixture]
+    [Category("Safety")]
     public class DisposeBehaviorTests
     {
         // ─── Post-Dispose: PersistentSuffixTree ───────────────────────
@@ -286,3 +287,4 @@ namespace SuffixTree.Persistent.Tests
         }
     }
 }
+

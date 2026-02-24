@@ -1,13 +1,14 @@
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Core;
 
 /// <summary>
 /// Runs the full <see cref="SuffixTreeTestBase"/> suite against the Large (v3, 64-bit offset)
 /// storage format to verify functional parity with the default Compact (v4) format.
 /// </summary>
 [TestFixture]
+[Category("Core")]
 public class LargeFormatSuffixTreeTests : SuffixTreeTestBase
 {
     protected override ISuffixTree CreateTree(string text)
@@ -19,3 +20,4 @@ public class LargeFormatSuffixTreeTests : SuffixTreeTestBase
         return new PersistentSuffixTree(storage, root, textSource, NodeLayout.Large);
     }
 }
+

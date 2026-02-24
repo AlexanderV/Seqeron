@@ -10,6 +10,7 @@ namespace SuffixTree.Tests.Core
     /// Validates structural output correctness, not just non-emptiness.
     /// </summary>
     [TestFixture]
+    [Category("Core")]
     public class DiagnosticsTests
     {
         #region ToString
@@ -199,3 +200,4 @@ namespace SuffixTree.Tests.Core
         #endregion
     }
 }
+

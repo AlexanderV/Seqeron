@@ -4,7 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Format;
 
 /// <summary>
 /// Tests for storage format characteristics: Compact v5 / Large v3,
@@ -12,6 +12,7 @@ namespace SuffixTree.Persistent.Tests;
 /// Hybrid-specific tests are in HybridTransitionZoneTests.
 /// </summary>
 [TestFixture]
+[Category("Format")]
 public class StorageFormatTests
 {
     // ──── Compact format: build, query, Load ─────────────────────────
@@ -245,3 +246,4 @@ public class StorageFormatTests
         Assert.That(NodeLayout.CompactMaxOffset, Is.EqualTo((long)uint.MaxValue - 1));
     }
 }
+

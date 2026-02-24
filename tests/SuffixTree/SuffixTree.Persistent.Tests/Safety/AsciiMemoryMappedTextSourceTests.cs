@@ -7,7 +7,7 @@ using System.Text;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 /// <summary>
 /// Tests for <see cref="AsciiMemoryMappedTextSource"/> — an unsafe memory-mapped
@@ -15,6 +15,7 @@ namespace SuffixTree.Persistent.Tests;
 /// validation, indexing, Substring, Slice, enumeration, and dispose semantics.
 /// </summary>
 [TestFixture]
+[Category("Safety")]
 public class AsciiMemoryMappedTextSourceTests
 {
     private string _tempFile = string.Empty;
@@ -276,3 +277,4 @@ public class AsciiMemoryMappedTextSourceTests
 
     #endregion
 }
+

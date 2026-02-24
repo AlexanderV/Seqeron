@@ -2,13 +2,14 @@ using System;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Core;
 
 /// <summary>
 /// Test for P8: Builder.Build() called twice must throw (not corrupt data).
 /// Written RED-first.
 /// </summary>
 [TestFixture]
+[Category("Core")]
 public class BuilderGuardTests
 {
     [Test]
@@ -148,3 +149,4 @@ public class BuilderGuardTests
             "P17: Header must persist deepestInternalNodeOffset for O(1) LRS on load");
     }
 }
+

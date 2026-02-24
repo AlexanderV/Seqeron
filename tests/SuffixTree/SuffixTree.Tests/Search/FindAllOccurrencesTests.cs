@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Search
     /// Tests for FindAllOccurrences method.
     /// </summary>
     [TestFixture]
+    [Category("Search")]
     public class FindAllOccurrencesTests
     {
         #region Input Validation
@@ -310,3 +311,4 @@ namespace SuffixTree.Tests.Search
         #endregion
     }
 }
+

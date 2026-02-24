@@ -5,9 +5,10 @@ using NUnit.Framework;
 using SuffixTree;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Validation
 {
     [TestFixture]
+    [Category("Validation")]
     public class BoundaryAndEdgeCaseTests
     {
         private string _tempFile = "boundary_test.tree";

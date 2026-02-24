@@ -1,121 +1,96 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
 using CsCheck;
+using NUnit.Framework;
 
 namespace SuffixTree.Tests.Algorithms
 {
+    /// <summary>
+    /// Focused CsCheck properties that add brute-force oracle coverage.
+    /// Broad invariants are covered in Core/InvariantTests and Properties/PropertyBasedTests.
+    /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class SuffixTreePropertyTests
     {
-        // A simple DNA string generator for CsCheck: length 1 to 500, characters A, C, G, T
-        private static Gen<string> DnaStringGen() => 
-            Gen.Select(Gen.Int[0, 3], i => "ACGT"[i]).Array[1, 500].Select(chars => new string(chars));
+        private static Gen<string> DnaStringGen() =>
+            Gen.Select(Gen.Int[0, 3], i => "ACGT"[i]).Array[1, 300].Select(chars => new string(chars));
 
-        // 1. Leaf count: LeafCount = |T|
-        [Test]
-        public void LeafCount_Equals_TextLength()
+        private static Gen<string> AnyPatternGen() =>
+            Gen.Select(Gen.Int[0, 3], i => "ACGT"[i]).Array[1, 120].Select(chars => new string(chars));
+
+        private static Gen<(string Text, string Pattern)> ExistingPatternGen() =>
+            from text in DnaStringGen()
+            from start in Gen.Int[0, text.Length - 1]
+            from len in Gen.Int[1, text.Length - start]
+            select (text, text.Substring(start, len));
+
+        private static List<int> BruteForcePositions(string text, string pattern)
         {
-            DnaStringGen().Sample(text => {
-                var tree = SuffixTree.Build(text);
-                Assert.That(tree.LeafCount, Is.EqualTo(text.Length));
-            });
+            var result = new List<int>();
+            if (pattern.Length == 0)
+            {
+                result.AddRange(Enumerable.Range(0, text.Length));
+                return result;
+            }
+
+            for (int i = 0; i <= text.Length - pattern.Length; i++)
+            {
+                if (text.AsSpan(i, pattern.Length).SequenceEqual(pattern.AsSpan()))
+                    result.Add(i);
+            }
+
+            return result;
         }
 
-        // 2. Node bound: NodeCount <= 2|T| + 1
-        [Test]
-        public void NodeBound_WithinTheoreticalLimit()
-        {
-            DnaStringGen().Sample(text => {
-                var tree = SuffixTree.Build(text);
-                Assert.That(tree.NodeCount, Is.LessThanOrEqualTo(2 * text.Length + 1));
-            });
-        }
-
-        // 3. Suffix completeness: For all i: Contains(T[i..]) = true
-        [Test]
-        public void SuffixCompleteness_AllSuffixesFound()
-        {
-            DnaStringGen().Sample(text => {
-                var tree = SuffixTree.Build(text);
-                
-                for (int i = 0; i < text.Length; i++)
-                {
-                    Assert.That(tree.Contains(text.Substring(i)), Is.True);
-                }
-            });
-        }
-
-        // 4. Count = positions: Count(p) = |FindAll(p)|
         [Test]
         public void CountOccurrences_Equals_PositionsCount()
         {
-            Gen.Select(DnaStringGen(), DnaStringGen()).Sample(t => {
-                var (text, pattern) = t;
+            ExistingPatternGen().Sample(sample =>
+            {
+                var (text, pattern) = sample;
                 var tree = SuffixTree.Build(text);
+
                 int count = tree.CountOccurrences(pattern);
-                var positions = tree.FindAllOccurrences(pattern);
-                
-                Assert.That(positions.Count, Is.EqualTo(count));
+                var positions = tree.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
+                var expected = BruteForcePositions(text, pattern);
+
+                Assert.That(positions, Is.EqualTo(expected));
+                Assert.That(count, Is.EqualTo(expected.Count));
             });
         }
 
-        // 5. Empty pattern: FindAll("") = [0..|T|-1]
         [Test]
-        public void EmptyPattern_FindsAllPositions()
+        public void FindAllOccurrences_Matches_BruteForce()
         {
-            DnaStringGen().Sample(text => {
+            Gen.Select(DnaStringGen(), AnyPatternGen()).Sample(sample =>
+            {
+                var (text, pattern) = sample;
                 var tree = SuffixTree.Build(text);
-                
-                var positions = tree.FindAllOccurrences("");
-                Assert.That(positions.Count, Is.EqualTo(text.Length));
-                Assert.That(positions.SequenceEqual(Enumerable.Range(0, text.Length)), Is.True);
+
+                var expected = BruteForcePositions(text, pattern);
+                var actual = tree.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
+                Assert.That(actual, Is.EqualTo(expected));
             });
         }
 
-        // 6. LCS symmetry: |LCS(A,B)| == |LCS(B,A)|
         [Test]
-        public void LCS_Is_Symmetric()
+        public void SpanOverloads_MatchStringOverloads_OnRandomDna()
         {
-            Gen.Select(DnaStringGen(), DnaStringGen()).Sample(t => {
-                var (a, b) = t;
-                var treeA = SuffixTree.Build(a);
-                var lcsAB = treeA.LongestCommonSubstring(b);
-                
-                var treeB = SuffixTree.Build(b);
-                var lcsBA = treeB.LongestCommonSubstring(a);
-                
-                Assert.That(lcsAB.Length, Is.EqualTo(lcsBA.Length));
-            });
-        }
-
-        // 7. LRS existence: |LRS| == max substring with Count >= 2
-        [Test]
-        public void LRS_IfExists_OccursAtLeastTwice()
-        {
-            DnaStringGen().Sample(text => {
+            Gen.Select(DnaStringGen(), AnyPatternGen()).Sample(sample =>
+            {
+                var (text, pattern) = sample;
                 var tree = SuffixTree.Build(text);
-                
-                var lrs = tree.LongestRepeatedSubstring();
-                if (lrs.Length > 0)
-                {
-                    Assert.That(tree.CountOccurrences(lrs), Is.GreaterThanOrEqualTo(2));
-                }
-            });
-        }
 
-        // 8. Idempotent Contains: Contains(p) = (Count(p) > 0)
-        [Test]
-        public void Contains_Equals_CountGreaterThanZero()
-        {
-            Gen.Select(DnaStringGen(), DnaStringGen()).Sample(t => {
-                var (text, pattern) = t;
-                var tree = SuffixTree.Build(text);
-                bool contains = tree.Contains(pattern);
-                int count = tree.CountOccurrences(pattern);
-                
-                Assert.That(contains, Is.EqualTo(count > 0));
+                Assert.That(tree.Contains(pattern.AsSpan()), Is.EqualTo(tree.Contains(pattern)));
+                Assert.That(tree.CountOccurrences(pattern.AsSpan()), Is.EqualTo(tree.CountOccurrences(pattern)));
+
+                var strPos = tree.FindAllOccurrences(pattern).OrderBy(x => x).ToList();
+                var spanPos = tree.FindAllOccurrences(pattern.AsSpan()).OrderBy(x => x).ToList();
+                Assert.That(spanPos, Is.EqualTo(strPos));
             });
         }
     }
 }
+

@@ -9,6 +9,7 @@ namespace SuffixTree.Tests.Compatibility
     /// Tests for Unicode support across all operations.
     /// </summary>
     [TestFixture]
+    [Category("Compatibility")]
     public class UnicodeTests
     {
         #region Construction
@@ -244,3 +245,4 @@ namespace SuffixTree.Tests.Compatibility
         #endregion
     }
 }
+

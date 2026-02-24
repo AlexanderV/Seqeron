@@ -4,9 +4,10 @@ using System.Linq;
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Parity
 {
     [TestFixture]
+    [Category("Parity")]
     public class ParityTests
     {
         private static readonly string[] TestStrings = new[]
@@ -121,7 +122,9 @@ namespace SuffixTree.Persistent.Tests
                             $"Persistent LRS \"{pLrs}\" should occur at least twice");
 
                     // Anchor parity on random strings
-                    string query = text.Substring(random.Next(len / 4), Math.Min(len / 2, len - random.Next(len / 4)));
+                    int queryStart = random.Next(len / 4);
+                    int queryLength = Math.Min(len / 2, len - queryStart);
+                    string query = text.Substring(queryStart, queryLength);
                     var refAnchors = reference.FindExactMatchAnchors(query, 4);
                     var perAnchors = persistent.FindExactMatchAnchors(query, 4);
                     Assert.That(perAnchors.Count, Is.EqualTo(refAnchors.Count),

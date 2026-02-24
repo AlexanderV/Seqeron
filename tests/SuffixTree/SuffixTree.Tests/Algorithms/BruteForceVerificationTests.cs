@@ -10,8 +10,11 @@ namespace SuffixTree.Tests.Algorithms
     /// These tests verify correctness by comparing against naive O(n²) algorithms.
     /// </summary>
     [TestFixture]
+    [Category("Algorithms")]
     public class BruteForceVerificationTests
     {
+        private static readonly int[] RandomSeeds = Enumerable.Range(0, 5).ToArray();
+
         #region LCS Brute Force Verification
 
         /// <summary>
@@ -45,10 +48,10 @@ namespace SuffixTree.Tests.Algorithms
         }
 
         [Test]
-        [Repeat(5)]
-        public void LCS_RandomInput_MatchesBruteForce()
+        [TestCaseSource(nameof(RandomSeeds))]
+        public void LCS_RandomInput_MatchesBruteForce(int seed)
         {
-            var random = new Random();
+            var random = new Random(seed);
             string text = GenerateRandomString(random, random.Next(20, 50), "abc");
             string other = GenerateRandomString(random, random.Next(20, 50), "abc");
 
@@ -57,7 +60,7 @@ namespace SuffixTree.Tests.Algorithms
             string expected = BruteForceLCS(text, other);
 
             Assert.That(lcs.Length, Is.EqualTo(expected.Length),
-                $"Text='{text}', Other='{other}', Got='{lcs}', Expected='{expected}'");
+                $"Seed={seed}, Text='{text}', Other='{other}', Got='{lcs}', Expected='{expected}'");
         }
 
         private static string BruteForceLCS(string s1, string s2)
@@ -104,10 +107,10 @@ namespace SuffixTree.Tests.Algorithms
         }
 
         [Test]
-        [Repeat(5)]
-        public void LRS_RandomInput_MatchesBruteForce()
+        [TestCaseSource(nameof(RandomSeeds))]
+        public void LRS_RandomInput_MatchesBruteForce(int seed)
         {
-            var random = new Random();
+            var random = new Random(seed + 10000);
             string text = GenerateRandomString(random, random.Next(20, 80), "abcd");
 
             var tree = SuffixTree.Build(text);
@@ -115,7 +118,7 @@ namespace SuffixTree.Tests.Algorithms
             string expected = BruteForceLRS(text);
 
             Assert.That(lrs.Length, Is.EqualTo(expected.Length),
-                $"Text='{text}', Got='{lrs}', Expected='{expected}'");
+                $"Seed={seed}, Text='{text}', Got='{lrs}', Expected='{expected}'");
         }
 
         private static string BruteForceLRS(string text)
@@ -157,3 +160,4 @@ namespace SuffixTree.Tests.Algorithms
         #endregion
     }
 }
+

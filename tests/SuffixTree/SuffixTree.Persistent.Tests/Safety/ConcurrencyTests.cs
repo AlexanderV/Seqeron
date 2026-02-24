@@ -8,9 +8,10 @@ using NUnit.Framework;
 using SuffixTree;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests
+namespace SuffixTree.Persistent.Tests.Safety
 {
     [TestFixture]
+    [Category("Safety")]
     public class ConcurrencyTests
     {
         private string _tempFile = string.Empty;
@@ -184,3 +185,4 @@ namespace SuffixTree.Persistent.Tests
         }
     }
 }
+

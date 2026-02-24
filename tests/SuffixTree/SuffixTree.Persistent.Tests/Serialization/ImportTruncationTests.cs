@@ -3,13 +3,14 @@ using System.IO;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Serialization;
 
 /// <summary>
 /// Tests for R2: Import must detect truncated streams with a clear message
 /// instead of building a wrong tree and failing later on hash mismatch.
 /// </summary>
 [TestFixture]
+[Category("Serialization")]
 public class ImportTruncationTests
 {
     [Test]
@@ -59,3 +60,4 @@ public class ImportTruncationTests
         Assert.That(ex!.Message, Does.Contain("Truncated"));
     }
 }
+

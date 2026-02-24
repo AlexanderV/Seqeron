@@ -1,13 +1,14 @@
 using NUnit.Framework;
 using SuffixTree;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 /// <summary>
 /// Tests that <see cref="PersistentSuffixTreeNode"/> public API methods behave
 /// correctly (or fail safely) for both pure-Compact and Hybrid (v5) trees.
 /// </summary>
 [TestFixture]
+[Category("Safety")]
 public class NodeApiSafetyTests
 {
     // ──────────── TryGetChild on non-hybrid tree: should work ──────────────
@@ -229,3 +230,4 @@ public class NodeApiSafetyTests
             "it returns raw encoded value with possible jumped flag");
     }
 }
+

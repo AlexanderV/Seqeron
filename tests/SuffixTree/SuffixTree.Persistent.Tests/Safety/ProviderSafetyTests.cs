@@ -3,7 +3,7 @@ using System.IO;
 using NUnit.Framework;
 using SuffixTree.Persistent;
 
-namespace SuffixTree.Persistent.Tests;
+namespace SuffixTree.Persistent.Tests.Safety;
 
 /// <summary>
 /// Tests for P5 (ObjectDisposedException instead of NRE after Dispose),
@@ -12,6 +12,7 @@ namespace SuffixTree.Persistent.Tests;
 /// Written RED-first: these tests expose existing bugs.
 /// </summary>
 [TestFixture]
+[Category("Safety")]
 public class ProviderSafetyTests
 {
     private string _tempFile = string.Empty;
@@ -390,3 +391,4 @@ public class ProviderSafetyTests
         p.Dispose();
     }
 }
+

@@ -12,6 +12,7 @@ namespace SuffixTree.Tests.Robustness
     /// Tests for thread safety and concurrent access.
     /// </summary>
     [TestFixture]
+    [Category("Robustness")]
     public class ThreadSafetyTests
     {
         #region Concurrent Reads
@@ -164,3 +165,4 @@ namespace SuffixTree.Tests.Robustness
         #endregion
     }
 }
+
