@@ -194,7 +194,7 @@ namespace SuffixTree.Tests.Performance
         public void Build_RepetitiveInput_StillLinear()
         {
             // Pathological: single-char repeat maximizes Ukkonen's active state transitions
-            const int n = 10_000;
+            const int n = 50_000;
             string small = new string('a', n);
             string large = new string('a', n * 2);
 
