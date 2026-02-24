@@ -193,7 +193,7 @@ public class SuffixTreeTools
     /// Calculate similarity between two DNA sequences using k-mer Jaccard index.
     /// </summary>
     [McpServerTool(Name = "calculate_similarity")]
-    [Description("Calculate similarity between two DNA sequences using k-mer Jaccard index (0-1 scale).")]
+    [Description("Calculate similarity between two DNA sequences using k-mer Jaccard index (0-100 percentage scale).")]
     public static CalculateSimilarityResult CalculateSimilarity(
         [Description("The first DNA sequence")] string sequence1,
         [Description("The second DNA sequence")] string sequence2,

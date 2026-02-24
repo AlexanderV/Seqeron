@@ -4,24 +4,40 @@ using SuffixTree.Mcp.Core.Tools;
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class SuffixTreeStatsTests
 {
     [Test]
-    public void SuffixTreeStats_Schema_ValidatesCorrectly()
+    public void SuffixTreeStats_InvalidArguments_ThrowArgumentException()
     {
-        Assert.DoesNotThrow(() => SuffixTreeTools.SuffixTreeStats("banana"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeStats(""));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeStats(null!));
     }
 
-    [Test]
-    public void SuffixTreeStats_Binding_InvokesSuccessfully()
+    [TestCase("banana")]
+    [TestCase("abcdef")]
+    [TestCase("aaaaa")]
+    [TestCase("mississippi")]
+    public void SuffixTreeStats_MatchesFundamentalInvariants(string text)
     {
-        var result = SuffixTreeTools.SuffixTreeStats("banana");
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.TextLength, Is.EqualTo(6));
-        Assert.That(result.NodeCount, Is.GreaterThan(0));
-        Assert.That(result.LeafCount, Is.GreaterThan(0));
-        Assert.That(result.MaxDepth, Is.GreaterThan(0));
+        var stats = SuffixTreeTools.SuffixTreeStats(text);
+
+        Assert.That(stats.TextLength, Is.EqualTo(text.Length));
+        Assert.That(stats.LeafCount, Is.EqualTo(text.Length));
+        Assert.That(stats.MaxDepth, Is.EqualTo(text.Length));
+        Assert.That(stats.NodeCount, Is.GreaterThanOrEqualTo(text.Length + 1));
+        Assert.That(stats.NodeCount, Is.LessThanOrEqualTo(2 * text.Length + 1));
+    }
+
+    [Test]
+    public void SuffixTreeStats_IsConsistentWithOtherTools()
+    {
+        const string text = "banana";
+        var stats = SuffixTreeTools.SuffixTreeStats(text);
+        var lrs = SuffixTreeTools.SuffixTreeLrs(text);
+
+        Assert.That(stats.MaxDepth, Is.GreaterThanOrEqualTo(lrs.Length));
+        Assert.That(SuffixTreeTools.SuffixTreeCount(text, "").Count, Is.EqualTo(stats.LeafCount));
     }
 }
+

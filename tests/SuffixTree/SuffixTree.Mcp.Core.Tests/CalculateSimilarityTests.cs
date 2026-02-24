@@ -1,31 +1,54 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Analysis;
+using Seqeron.Genomics.Core;
 using SuffixTree.Mcp.Core.Tools;
 
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class CalculateSimilarityTests
 {
     [Test]
-    public void CalculateSimilarity_Schema_ValidatesCorrectly()
+    public void CalculateSimilarity_InvalidArguments_ThrowArgumentException()
     {
-        Assert.DoesNotThrow(() => SuffixTreeTools.CalculateSimilarity("ATGCATGC", "ATGCATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("", "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity(null!, "ATGC"));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("ATGC", ""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("ATGN", "ATGC")); // invalid DNA symbol
+    }
+
+    [TestCase("ATAT", "ATAT", 2, 100.0)]
+    [TestCase("ATAT", "CGCG", 2, 0.0)]
+    [TestCase("ATGC", "ATGA", 2, 50.0)]
+    public void CalculateSimilarity_ReturnsExpectedPercentage(
+        string sequence1,
+        string sequence2,
+        int kmerSize,
+        double expected)
+    {
+        var result = SuffixTreeTools.CalculateSimilarity(sequence1, sequence2, kmerSize);
+        Assert.That(result.Similarity, Is.EqualTo(expected).Within(1e-9));
     }
 
     [Test]
-    public void CalculateSimilarity_Binding_InvokesSuccessfully()
+    public void CalculateSimilarity_MatchesGenomicAnalyzer()
     {
-        // Identical sequences should have high similarity
-        var identical = SuffixTreeTools.CalculateSimilarity("ATGCATGCATGC", "ATGCATGCATGC");
-        Assert.That(identical, Is.Not.Null);
-        Assert.That(identical.Similarity, Is.GreaterThan(0.9));
+        var cases = new (string S1, string S2, int K)[]
+        {
+            ("ATGCATGC", "ATGCATGC", 5),
+            ("ATGCATGC", "AAAATTTT", 3),
+            ("ACGTACGT", "ACGTTCGT", 4),
+            ("ATATAT", "TATATA", 2)
+        };
 
-        // Different sequences should have similarity between 0 and 1
-        var different = SuffixTreeTools.CalculateSimilarity("ATGCATGC", "AAAATTTT");
-        Assert.That(different.Similarity, Is.GreaterThanOrEqualTo(0.0));
-        Assert.That(different.Similarity, Is.LessThanOrEqualTo(1.0));
+        foreach (var (s1, s2, k) in cases)
+        {
+            double expected = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(s1), new DnaSequence(s2), k);
+            double actual = SuffixTreeTools.CalculateSimilarity(s1, s2, k).Similarity;
+            Assert.That(actual, Is.EqualTo(expected).Within(1e-9),
+                $"s1={s1}, s2={s2}, k={k}");
+        }
     }
 }
+

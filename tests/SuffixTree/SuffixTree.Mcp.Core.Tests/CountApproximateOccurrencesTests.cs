@@ -1,34 +1,55 @@
 using NUnit.Framework;
+using Seqeron.Genomics.Alignment;
 using SuffixTree.Mcp.Core.Tools;
 
 namespace SuffixTree.Mcp.Core.Tests;
 
 [TestFixture]
+[Category("McpCore")]
 public class CountApproximateOccurrencesTests
 {
     [Test]
-    public void CountApproximateOccurrences_Schema_ValidatesCorrectly()
+    public void CountApproximateOccurrences_InvalidArguments_ThrowArgumentException()
     {
-        Assert.DoesNotThrow(() => SuffixTreeTools.CountApproximateOccurrences("ATGCATGC", "ATGC", 1));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("", "ATGC", 1));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences(null!, "ATGC", 1));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("ATGC", "", 1));
         Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("ATGC", "AT", -1));
     }
 
-    [Test]
-    public void CountApproximateOccurrences_Binding_InvokesSuccessfully()
+    [TestCase("ATGATGATG", "ATG", 0, 3)]
+    [TestCase("ATGCTG", "ATG", 1, 2)]
+    [TestCase("AAAA", "GGG", 0, 0)]
+    [TestCase("AACAA", "AAA", 1, 3)]
+    public void CountApproximateOccurrences_ReturnsExpectedCount(
+        string sequence,
+        string pattern,
+        int maxMismatches,
+        int expectedCount)
     {
-        // Exact matches
-        var exact = SuffixTreeTools.CountApproximateOccurrences("ATGATGATG", "ATG", 0);
-        Assert.That(exact.Count, Is.EqualTo(3));
+        var result = SuffixTreeTools.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+        Assert.That(result.Count, Is.EqualTo(expectedCount));
+    }
 
-        // With 1 mismatch allowed
-        var approx = SuffixTreeTools.CountApproximateOccurrences("ATGCTG", "ATG", 1);
-        Assert.That(approx.Count, Is.GreaterThanOrEqualTo(1));
+    [Test]
+    public void CountApproximateOccurrences_MatchesCoreAlgorithm()
+    {
+        var testCases = new (string Sequence, string Pattern, int MaxMismatches)[]
+        {
+            ("ATGATGATG", "ATG", 0),
+            ("ATGCTG", "ATG", 1),
+            ("AACAA", "AAA", 1),
+            ("ACGTACGT", "CGT", 0),
+            ("ACGTACGT", "CGA", 1)
+        };
 
-        // No matches
-        var none = SuffixTreeTools.CountApproximateOccurrences("AAAA", "GGG", 0);
-        Assert.That(none.Count, Is.EqualTo(0));
+        foreach (var (sequence, pattern, maxMismatches) in testCases)
+        {
+            int expected = ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+            int actual = SuffixTreeTools.CountApproximateOccurrences(sequence, pattern, maxMismatches).Count;
+            Assert.That(actual, Is.EqualTo(expected),
+                $"sequence={sequence}, pattern={pattern}, k={maxMismatches}");
+        }
     }
 }
+
