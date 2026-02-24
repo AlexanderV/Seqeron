@@ -23,9 +23,25 @@ var treePath = Path.Combine(dataDir, "chr1.suffixtree.dat");
 // ── Verify mode: load existing tree and run full query benchmark ──
 if (args.Length > 0 && args[0] == "--verify")
 {
+    if (!File.Exists(treePath))
+    {
+        Console.Error.WriteLine($"Tree file not found: {treePath}");
+        Console.Error.WriteLine("Build it first by running demo without --verify.");
+        return 1;
+    }
+
     Console.WriteLine($"Loading tree from {treePath}...");
     var vSw = Stopwatch.StartNew();
-    var vTree = PersistentSuffixTreeFactory.Load(treePath);
+    ISuffixTree vTree;
+    try
+    {
+        vTree = PersistentSuffixTreeFactory.Load(treePath);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Failed to load tree: {ex.Message}");
+        return 1;
+    }
     Console.WriteLine($"Loaded in {vSw.Elapsed.TotalMilliseconds:F0}ms  Nodes={vTree.NodeCount:N0}, Leaves={vTree.LeafCount:N0}, MaxDepth={vTree.MaxDepth:N0}");
     Console.WriteLine();
 
@@ -353,12 +369,21 @@ TimeQuery("BRCA1 probe (150 bp, from chr17)", "", () =>
 });
 
 // A probe FROM chr1 — should match fully
-var chr1Probe = sequence.Substring(100_000_000, 200);
-TimeQuery("chr1 self-probe (200 bp @ 100M)", "", () =>
+if (TrySelectSelfProbe(sequence, out var chr1Probe, out var probeStart))
 {
-    var lcs = tree.LongestCommonSubstring(chr1Probe);
-    Console.Write($"len={lcs.Length,4}");
-});
+    string label = probeStart == 100_000_000
+        ? "chr1 self-probe (200 bp @ 100M)"
+        : $"chr1 self-probe ({chr1Probe.Length} bp @ {probeStart:N0})";
+    TimeQuery(label, "", () =>
+    {
+        var lcs = tree.LongestCommonSubstring(chr1Probe);
+        Console.Write($"len={lcs.Length,4}");
+    });
+}
+else
+{
+    Console.WriteLine("  chr1 self-probe skipped: sequence is empty.");
+}
 
 Console.WriteLine();
 Console.WriteLine("═══════════════════════════════════════════════════════════════");
@@ -369,3 +394,22 @@ Console.WriteLine("════════════════════�
 (tree as IDisposable)?.Dispose();
 
 return 0;
+
+static bool TrySelectSelfProbe(string sequence, out string probe, out int start)
+{
+    const int preferredStart = 100_000_000;
+    const int desiredLength = 200;
+
+    probe = string.Empty;
+    start = 0;
+    if (sequence.Length == 0)
+        return false;
+
+    int length = Math.Min(desiredLength, sequence.Length);
+    start = sequence.Length >= preferredStart + length
+        ? preferredStart
+        : Math.Max(0, (sequence.Length - length) / 2);
+
+    probe = sequence.Substring(start, length);
+    return true;
+}
