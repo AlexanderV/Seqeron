@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -261,22 +262,46 @@ public sealed unsafe partial class MappedFileStorageProvider : IStorageProvider
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal uint ReadUInt32Unchecked(long offset) => *(uint*)(_ptr + offset);
+    internal uint ReadUInt32Unchecked(long offset)
+    {
+        Debug.Assert(offset >= 0 && offset + 4 <= _capacity, "Unchecked read out of bounds.");
+        return *(uint*)(_ptr + offset);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void WriteUInt32Unchecked(long offset, uint value) => *(uint*)(_ptr + offset) = value;
+    internal void WriteUInt32Unchecked(long offset, uint value)
+    {
+        Debug.Assert(offset >= 0 && offset + 4 <= _capacity, "Unchecked write out of bounds.");
+        *(uint*)(_ptr + offset) = value;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int ReadInt32Unchecked(long offset) => *(int*)(_ptr + offset);
+    internal int ReadInt32Unchecked(long offset)
+    {
+        Debug.Assert(offset >= 0 && offset + 4 <= _capacity, "Unchecked read out of bounds.");
+        return *(int*)(_ptr + offset);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void WriteInt32Unchecked(long offset, int value) => *(int*)(_ptr + offset) = value;
+    internal void WriteInt32Unchecked(long offset, int value)
+    {
+        Debug.Assert(offset >= 0 && offset + 4 <= _capacity, "Unchecked write out of bounds.");
+        *(int*)(_ptr + offset) = value;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal long ReadInt64Unchecked(long offset) => *(long*)(_ptr + offset);
+    internal long ReadInt64Unchecked(long offset)
+    {
+        Debug.Assert(offset >= 0 && offset + 8 <= _capacity, "Unchecked read out of bounds.");
+        return *(long*)(_ptr + offset);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void WriteInt64Unchecked(long offset, long value) => *(long*)(_ptr + offset) = value;
+    internal void WriteInt64Unchecked(long offset, long value)
+    {
+        Debug.Assert(offset >= 0 && offset + 8 <= _capacity, "Unchecked write out of bounds.");
+        *(long*)(_ptr + offset) = value;
+    }
 
     /// <summary>
     /// Sets the current position (used when loading an existing tree).

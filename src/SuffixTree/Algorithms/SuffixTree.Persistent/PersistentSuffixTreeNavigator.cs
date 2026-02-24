@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace SuffixTree.Persistent;
@@ -137,11 +139,13 @@ internal unsafe struct PersistentSuffixTreeNavigator : ISuffixTreeNavigator<Pers
 
             uint nodeStart = *(uint*)(ptr + off);
             uint nodeEnd = *(uint*)(ptr + off + 4);
+            Debug.Assert(nodeEnd == PersistentConstants.BOUNDLESS || nodeStart <= nodeEnd, "Node Start must be <= End");
 
             if (nodeEnd == PersistentConstants.BOUNDLESS)
             {
                 int edgeLen = textLenPlus1 - (int)nodeStart;
                 int pos = textLenPlus1 - (d + edgeLen);
+                Debug.Assert(pos >= 0, "Leaf position must be non-negative");
                 if (pos < textLen)
                     results.Add(pos);
                 continue;

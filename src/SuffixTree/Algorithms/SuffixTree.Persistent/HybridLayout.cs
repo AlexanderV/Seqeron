@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace SuffixTree.Persistent;
@@ -201,6 +203,14 @@ internal readonly unsafe struct HybridLayout
                 int mid = lo + ((hi - lo) >> 1);
                 byte* entry = p + arrayBase + (long)mid * entrySize;
                 int midKey = (int)*(uint*)entry;
+                
+                #if DEBUG
+                if (mid > 0)
+                {
+                    int prevKey = (int)*(uint*)(p + arrayBase + (long)(mid - 1) * entrySize);
+                    Debug.Assert(prevKey <= midKey, $"Child array keys not sorted: prev={prevKey}, mid={midKey}");
+                }
+                #endif
 
                 if (midKey == signedKey)
                 {
@@ -218,6 +228,14 @@ internal readonly unsafe struct HybridLayout
                 int mid = lo + ((hi - lo) >> 1);
                 long entryOffset = arrayBase + (long)mid * entrySize;
                 int midKey = (int)_storage.ReadUInt32(entryOffset + NodeLayout.ChildOffsetKey);
+                
+                #if DEBUG
+                if (mid > 0)
+                {
+                    int prevKey = (int)_storage.ReadUInt32(arrayBase + (long)(mid - 1) * entrySize + NodeLayout.ChildOffsetKey);
+                    Debug.Assert(prevKey <= midKey, $"Child array keys not sorted (safe path): prev={prevKey}, mid={midKey}");
+                }
+                #endif
 
                 if (midKey == signedKey)
                 {
