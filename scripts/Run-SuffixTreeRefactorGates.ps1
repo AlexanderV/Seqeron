@@ -8,6 +8,9 @@ function Run-Test {
     param([string]$Command)
     Write-Host ">> $Command"
     Invoke-Expression $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $Command"
+    }
 }
 
 Run-Test "dotnet test tests/SuffixTree/SuffixTree.Tests/SuffixTree.Tests.csproj -c Release --nologo"

@@ -102,93 +102,40 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     {
         ArgumentNullException.ThrowIfNull(storage);
 
-        long magic = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_MAGIC);
+        long magic;
+        try
+        {
+            magic = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_MAGIC);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new InvalidOperationException("Invalid storage format: header is truncated.", ex);
+        }
+
         if (magic != PersistentConstants.MAGIC_NUMBER)
             throw new InvalidOperationException("Invalid storage format: Magic number mismatch.");
 
-        int version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
-        var layout = NodeLayout.ForVersion(version); // throws for non-v6
-
-        // Detect base layout from stored NodeSize (v6 stores this at offset 84).
-        // 0 or Compact.NodeSize → Compact; Large.NodeSize → Large.
-        int baseNodeSize = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_BASE_NODE_SIZE);
-        if (baseNodeSize == NodeLayout.Large.NodeSize)
-            layout = NodeLayout.Large;
-
-        long storageSize = storage.Size;
-        int headerSize = PersistentConstants.HEADER_SIZE_V6;
-
-        // C16: Validate recorded SIZE against actual storage to detect truncated files
-        long recordedSize = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_SIZE);
-        if (recordedSize > 0 && recordedSize != storageSize)
-            throw new InvalidOperationException(
-                $"Invalid storage format: header size {recordedSize} does not match actual storage size {storageSize}. File may be truncated or corrupted.");
-
-        long root = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_ROOT);
-        if (root < headerSize || root >= storageSize)
-            throw new InvalidOperationException(
-                $"Invalid storage format: root offset {root} is outside valid range [{headerSize}, {storageSize}).");
-
-        long transitionOffset = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TRANSITION);
-        long jumpTableStart = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_START);
-        long jumpTableEnd = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_JUMP_END);
-
-        // Validate hybrid fields only when a transition actually occurred (>= 0).
-        // Non-hybrid trees store -1 in all three fields.
-        if (transitionOffset >= 0)
+        int version;
+        try
         {
-            if (transitionOffset < headerSize || transitionOffset > storageSize)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: transition offset {transitionOffset} is outside valid range [{headerSize}, {storageSize}].");
-
-            if (jumpTableEnd < jumpTableStart)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: jump table end ({jumpTableEnd}) < start ({jumpTableStart}).");
-
-            if (jumpTableStart < headerSize || jumpTableEnd > storageSize)
-                throw new InvalidOperationException(
-                    $"Invalid storage format: jump table [{jumpTableStart}, {jumpTableEnd}) is outside valid storage range.");
+            version = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_VERSION);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new InvalidOperationException("Invalid storage format: header is truncated.", ex);
         }
 
-        // Validate TEXT_OFF and TEXT_LEN
-        long textOff = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_TEXT_OFF);
-        int textLen = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_TEXT_LEN);
-        int flags = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_FLAGS);
-        bool isAscii = (flags & PersistentConstants.FLAG_TEXT_ASCII) != 0;
-        int bytesPerChar = isAscii ? 1 : 2;
+        _ = NodeLayout.ForVersion(version);
 
-        if (textLen < 0)
-            throw new InvalidOperationException(
-                $"Invalid storage format: text length {textLen} is negative.");
+        var header = PersistentStorageHeaderReader.Read(storage);
+        var metadata = PersistentStorageHeaderValidator.Validate(header, storage.Size);
 
-        if (textOff < headerSize || textOff >= storageSize)
-            throw new InvalidOperationException(
-                $"Invalid storage format: text offset {textOff} is outside valid range [{headerSize}, {storageSize}).");
-
-        long textEnd = textOff + (long)textLen * bytesPerChar;
-        if (textEnd > storageSize)
-            throw new InvalidOperationException(
-                $"Invalid storage format: text region [{textOff}, {textEnd}) exceeds storage size {storageSize}.");
-
-        // Read pre-computed deepest internal node offset.
-        long deepestNode = PersistentConstants.NULL_OFFSET;
-        {
-            long raw = storage.ReadInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE);
-            if (raw != 0 && raw != PersistentConstants.NULL_OFFSET)
-            {
-                if (raw < headerSize || raw >= storageSize)
-                    throw new InvalidOperationException(
-                        $"Invalid storage format: deepest internal node offset {raw} is outside valid range [{headerSize}, {storageSize}).");
-                deepestNode = raw;
-            }
-        }
-
-        // Read pre-computed LRS depth from header
-        int lrsDepth = storage.ReadInt32(PersistentConstants.HEADER_OFFSET_LRS_DEPTH);
-
-        return new PersistentSuffixTree(storage, root, layout: layout,
-            transitionOffset: transitionOffset, jumpTableStart: jumpTableStart, jumpTableEnd: jumpTableEnd,
-            deepestInternalNodeOffset: deepestNode, lrsDepth: lrsDepth);
+        return new PersistentSuffixTree(storage, metadata.RootOffset, layout: metadata.Layout,
+            transitionOffset: metadata.TransitionOffset,
+            jumpTableStart: metadata.JumpTableStart,
+            jumpTableEnd: metadata.JumpTableEnd,
+            deepestInternalNodeOffset: metadata.DeepestNodeOffset,
+            lrsDepth: metadata.LrsDepth);
     }
 
     /// <inheritdoc />
