@@ -201,7 +201,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     }
 
     /// <inheritdoc />
-    public int MaxDepth { get { ThrowIfDisposed(); return _textSource.Length + 1; } }
+    public int MaxDepth { get { ThrowIfDisposed(); return _textSource.Length; } }
 
     /// <inheritdoc />
     public bool IsEmpty { get { ThrowIfDisposed(); return _textSource.Length == 0; } }
