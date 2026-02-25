@@ -185,30 +185,49 @@ public partial class SuffixTree
     public void Traverse(ISuffixTreeVisitor visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
-        TraverseCore(_root, 0, visitor);
-    }
+        visitor.VisitNode(_root.Start, _root.End, _root.LeafCount, _root.ChildCount, 0);
+        if (_root.IsLeaf)
+            return;
 
-    private void TraverseCore(SuffixTreeNode node, int depth, ISuffixTreeVisitor visitor)
-    {
-        visitor.VisitNode(node.Start, node.End, node.LeafCount, node.ChildCount, depth);
+        var rootKeys = new List<int>(_root.ChildCount);
+        _root.GetKeys(rootKeys);
+        rootKeys.Sort();
 
-        if (!node.IsLeaf)
+        var stack = new Stack<(SuffixTreeNode Node, int Depth, List<int> Keys, int Index, bool IsRoot)>();
+        stack.Push((_root, 0, rootKeys, 0, true));
+
+        while (stack.Count > 0)
         {
-            var keys = new List<int>(node.ChildCount);
-            node.GetKeys(keys);
-            keys.Sort(); // Deterministic order
+            var (node, depth, keys, index, isRoot) = stack.Pop();
 
-            int nodeFullDepth = depth + (node == _root ? 0 : LengthOf(node));
-
-            foreach (var key in keys)
+            if (index >= keys.Count)
             {
-                if (node.TryGetChild(key, out var child))
-                {
-                    visitor.EnterBranch(key);
-                    TraverseCore(child!, nodeFullDepth, visitor);
+                if (!isRoot)
                     visitor.ExitBranch();
-                }
+                continue;
             }
+
+            int key = keys[index];
+            stack.Push((node, depth, keys, index + 1, isRoot));
+
+            if (!node.TryGetChild(key, out var child) || child is null)
+                continue;
+
+            visitor.EnterBranch(key);
+
+            int childDepth = depth + (node == _root ? 0 : LengthOf(node));
+            visitor.VisitNode(child.Start, child.End, child.LeafCount, child.ChildCount, childDepth);
+
+            if (child.IsLeaf)
+            {
+                visitor.ExitBranch();
+                continue;
+            }
+
+            var childKeys = new List<int>(child.ChildCount);
+            child.GetKeys(childKeys);
+            childKeys.Sort();
+            stack.Push((child, childDepth, childKeys, 0, false));
         }
     }
 }
