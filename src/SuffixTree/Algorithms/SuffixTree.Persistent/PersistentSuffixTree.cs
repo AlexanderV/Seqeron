@@ -565,9 +565,9 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
                 return (node, false, depthFromRoot);
 
             var patternSlice = pattern.Slice(i, compareLen);
-            if (_textSource is AsciiMemoryMappedTextSource asciiSource)
+            if (_textSource is ITextPatternMatcher patternMatcher)
             {
-                if (!asciiSource.SequenceEqualAt(edgeStart, patternSlice))
+                if (!patternMatcher.SequenceEqualAt(edgeStart, patternSlice))
                     return (node, false, depthFromRoot);
             }
             else

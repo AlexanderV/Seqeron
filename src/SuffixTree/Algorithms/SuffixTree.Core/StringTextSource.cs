@@ -7,7 +7,7 @@ namespace SuffixTree;
 /// <summary>
 /// A string-based implementation of <see cref="ITextSource"/>.
 /// </summary>
-public sealed class StringTextSource : ITextSource
+public sealed class StringTextSource : ITextSource, ITextPatternMatcher
 {
     private readonly string _value;
 
@@ -37,6 +37,15 @@ public sealed class StringTextSource : ITextSource
 
     /// <inheritdoc/>
     public ReadOnlySpan<char> Slice(int start, int length) => _value.AsSpan(start, length);
+
+    /// <inheritdoc/>
+    public bool SequenceEqualAt(int start, ReadOnlySpan<char> pattern)
+    {
+        if ((uint)start > (uint)_value.Length || (uint)pattern.Length > (uint)(_value.Length - start))
+            return false;
+
+        return _value.AsSpan(start, pattern.Length).SequenceEqual(pattern);
+    }
 
     /// <inheritdoc/>
     public IEnumerator<char> GetEnumerator() => _value.GetEnumerator();

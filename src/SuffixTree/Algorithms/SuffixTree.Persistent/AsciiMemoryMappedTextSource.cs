@@ -10,7 +10,7 @@ namespace SuffixTree.Persistent;
 /// and widens them to <see langword="char"/>, halving the on-disk footprint for
 /// pure-ASCII inputs such as DNA sequences.
 /// </summary>
-public sealed unsafe class AsciiMemoryMappedTextSource : ITextSource, IDisposable
+public sealed unsafe class AsciiMemoryMappedTextSource : ITextSource, ITextPatternMatcher, IDisposable
 {
     private readonly MemoryMappedViewAccessor _accessor;
     private byte* _ptr;
@@ -108,7 +108,7 @@ public sealed unsafe class AsciiMemoryMappedTextSource : ITextSource, IDisposabl
     /// without widening the full slice into a temporary <see cref="char"/> array.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool SequenceEqualAt(int start, ReadOnlySpan<char> pattern)
+    public bool SequenceEqualAt(int start, ReadOnlySpan<char> pattern)
     {
         byte* p = _ptr;
         ThrowIfDisposed();
