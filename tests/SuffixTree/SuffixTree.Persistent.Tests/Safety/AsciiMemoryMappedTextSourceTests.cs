@@ -195,6 +195,39 @@ public class AsciiMemoryMappedTextSourceTests
 
     #endregion
 
+    #region SequenceEqualAt
+
+    [Test]
+    public void SequenceEqualAt_MatchingPattern_ReturnsTrue()
+    {
+        using var source = CreateSource("GATTACA");
+        Assert.That(source.SequenceEqualAt(2, "TTAC".AsSpan()), Is.True);
+    }
+
+    [Test]
+    public void SequenceEqualAt_NonMatchingPattern_ReturnsFalse()
+    {
+        using var source = CreateSource("GATTACA");
+        Assert.That(source.SequenceEqualAt(2, "TTGC".AsSpan()), Is.False);
+    }
+
+    [Test]
+    public void SequenceEqualAt_OutOfRange_ReturnsFalse()
+    {
+        using var source = CreateSource("GATTACA");
+        Assert.That(source.SequenceEqualAt(6, "CA".AsSpan()), Is.False);
+    }
+
+    [Test]
+    public void SequenceEqualAt_Disposed_ThrowsObjectDisposedException()
+    {
+        var source = CreateSource("GATTACA");
+        source.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => source.SequenceEqualAt(0, "GA".AsSpan()));
+    }
+
+    #endregion
+
     #region Enumeration
 
     [Test]

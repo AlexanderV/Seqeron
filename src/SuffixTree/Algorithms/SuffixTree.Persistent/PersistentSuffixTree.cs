@@ -617,20 +617,29 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
             if (edgeStart + compareLen > _textSource.Length)
                 return (node, false, depthFromRoot);
 
-            var edgeSpan = _textSource.Slice(edgeStart, compareLen);
-
-            // Use SIMD for longer comparisons (>=8 chars), scalar for short
-            if (compareLen >= 8)
+            var patternSlice = pattern.Slice(i, compareLen);
+            if (_textSource is AsciiMemoryMappedTextSource asciiSource)
             {
-                if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
+                if (!asciiSource.SequenceEqualAt(edgeStart, patternSlice))
                     return (node, false, depthFromRoot);
             }
             else
             {
-                for (int j = 0; j < compareLen; j++)
+                var edgeSpan = _textSource.Slice(edgeStart, compareLen);
+
+                // Use SIMD for longer comparisons (>=8 chars), scalar for short
+                if (compareLen >= 8)
                 {
-                    if (edgeSpan[j] != pattern[i + j])
+                    if (!edgeSpan.SequenceEqual(patternSlice))
                         return (node, false, depthFromRoot);
+                }
+                else
+                {
+                    for (int j = 0; j < compareLen; j++)
+                    {
+                        if (edgeSpan[j] != patternSlice[j])
+                            return (node, false, depthFromRoot);
+                    }
                 }
             }
 
