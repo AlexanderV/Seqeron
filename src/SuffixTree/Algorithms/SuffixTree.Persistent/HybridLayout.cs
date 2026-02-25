@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 namespace SuffixTree.Persistent;
 
 /// <summary>
-/// Encapsulates hybrid v5 layout resolution logic: zone detection, jump-table
+/// Encapsulates hybrid v6 layout resolution logic: zone detection, jump-table
 /// dereferencing, and child-array info reading.
 /// <para>
 /// Shared by <see cref="PersistentSuffixTree"/> and
@@ -59,7 +59,7 @@ internal readonly unsafe struct HybridLayout
         get => _jumpTableEnd;
     }
 
-    /// <summary>Whether this layout uses the hybrid v5 format with dual zones.</summary>
+    /// <summary>Whether this layout uses the hybrid v6 format with dual zones.</summary>
     public bool IsHybrid
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -76,7 +76,7 @@ internal readonly unsafe struct HybridLayout
     /// <summary>
     /// Returns the correct <see cref="NodeLayout"/> for a node at the given offset.
     /// For pure Compact/Large trees, always returns the base layout.
-    /// For hybrid v5 trees, returns Compact for offsets below the transition and Large above.
+    /// For hybrid v6 trees, returns Compact for offsets below the transition and Large above.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public NodeLayout LayoutForOffset(long offset)

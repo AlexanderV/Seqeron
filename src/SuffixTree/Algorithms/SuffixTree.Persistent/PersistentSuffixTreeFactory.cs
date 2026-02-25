@@ -3,11 +3,11 @@ namespace SuffixTree.Persistent;
 /// <summary>
 /// Provides convenience methods for creating and loading persistent suffix trees.
 /// <para>
-/// The binary storage format uses hybrid continuation: construction always starts
-/// with the Compact (32-bit, 28-byte node) layout for maximum cache efficiency.
-/// If the tree outgrows the ~4 GB uint32 address space, the builder transparently
-/// switches to the Large (64-bit) layout mid-build, using a jump table for
-/// cross-zone references. No rebuild is needed.
+/// The runtime binary format is v6 with hybrid continuation: construction always starts
+/// with the Compact layout (32-bit offsets, 24-byte nodes). If the tree outgrows the
+/// ~4 GB uint32 address space, the builder transparently switches to the Large layout
+/// (64-bit offsets, 32-byte nodes) mid-build, using a jump table for cross-zone references.
+/// No rebuild is needed.
 /// </para>
 /// </summary>
 public static class PersistentSuffixTreeFactory
@@ -18,7 +18,7 @@ public static class PersistentSuffixTreeFactory
     /// <para>
     /// Storage format is chosen automatically: trees start in Compact (32-bit) mode
     /// and seamlessly transition to Large (64-bit) if the storage exceeds the uint32
-    /// address space, with a jump table bridging cross-zone references (version 5 Hybrid).
+    /// address space, with a jump table bridging cross-zone references (v6 hybrid layout).
     /// </para>
     /// </summary>
     /// <param name="text">The text source to build the tree from.</param>
@@ -98,7 +98,7 @@ public static class PersistentSuffixTreeFactory
 
     /// <summary>
     /// Loads an existing persistent suffix tree from a file using Memory-Mapped Files.
-    /// The format (Compact v4, Large v3, or Hybrid v5) is detected automatically from the file header.
+    /// The v6 layout is detected and validated from the file header.
     /// </summary>
     /// <param name="filePath">The path to the existing suffix tree file.</param>
     /// <returns>An implementation of ISuffixTree.</returns>

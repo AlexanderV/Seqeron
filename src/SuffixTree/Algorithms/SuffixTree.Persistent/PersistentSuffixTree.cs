@@ -194,7 +194,7 @@ public sealed class PersistentSuffixTree : ISuffixTree, IDisposable
     /// <inheritdoc />
     public ITextSource Text { get { ThrowIfDisposed(); return _textSource; } }
 
-    /// <summary>Whether this tree uses the hybrid v5 format with dual zones.</summary>
+    /// <summary>Whether this tree uses the hybrid v6 format with dual zones.</summary>
     internal bool IsHybrid => _hybrid.IsHybrid;
 
     /// <summary>Transition offset (compact/large boundary), or -1 for single-format.</summary>
