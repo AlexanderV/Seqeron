@@ -57,7 +57,7 @@ public class CrossImplementationContractTests
 
     [Test]
     [TestCaseSource(nameof(SampleTexts))]
-    public void MaxDepth_BaselinePersistentContract_IncludesTerminator(string text)
+    public void MaxDepth_Parity_WithInMemoryImplementation(string text)
     {
         var reference = global::SuffixTree.SuffixTree.Build(text);
         using var persistentDisposable = PersistentSuffixTreeFactory.Create(new StringTextSource(text)) as IDisposable;
@@ -65,8 +65,8 @@ public class CrossImplementationContractTests
 
         Assert.That(
             persistent.MaxDepth,
-            Is.EqualTo(reference.MaxDepth + 1),
-            "Baseline contract before max-depth alignment phase: persistent depth includes terminator edge.");
+            Is.EqualTo(reference.MaxDepth),
+            "Persistent MaxDepth must match in-memory ISuffixTree contract.");
     }
 
     private sealed class EventCollector : ISuffixTreeVisitor
