@@ -1,11 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>SuffixTree.Tests</RootNamespace>
     <AssemblyName>SuffixTree.Tests</AssemblyName>
     <ImplicitUsings>disable</ImplicitUsings>
-    <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
