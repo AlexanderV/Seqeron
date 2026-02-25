@@ -729,9 +729,9 @@ public class PersistentSuffixTreeBuilder
                             $"Jump table requires more than {reserveCapacity:N0} reserved bytes. " +
                             "The input exceeds the jump table reserve capacity.");
                     if (mmfMain != null)
-                        mmfMain.WriteUInt32Unchecked(offset + 12, (uint)jumpEntryOffset);
+                        mmfMain.WriteUInt32Unchecked(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
                     else
-                        _storage.WriteUInt32(offset + 12, (uint)jumpEntryOffset);
+                        _storage.WriteUInt32(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
                     slotIndex++;
                 }
             }
@@ -797,9 +797,9 @@ public class PersistentSuffixTreeBuilder
             {
                 long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
                 if (mmfMain != null)
-                    mmfMain.WriteUInt32Unchecked(offset + 12, (uint)jumpEntryOffset);
+                    mmfMain.WriteUInt32Unchecked(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
                 else
-                    _storage.WriteUInt32(offset + 12, (uint)jumpEntryOffset);
+                    _storage.WriteUInt32(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
                 slotIdx++;
             }
         }
@@ -1085,8 +1085,8 @@ public class PersistentSuffixTreeBuilder
         if (isCompact && IsHybrid)
         {
             uint jumpOff = (useMmfUnchecked && mmfMain != null)
-                ? mmfMain.ReadUInt32Unchecked(off + 12)
-                : _storage.ReadUInt32(off + 12);
+                ? mmfMain.ReadUInt32Unchecked(off + NodeLayout.Compact.OffsetLeafCount)
+                : _storage.ReadUInt32(off + NodeLayout.Compact.OffsetLeafCount);
             if (jumpOff > 0)
             {
                 jumpSlotOffset = (long)jumpOff;
@@ -1098,7 +1098,7 @@ public class PersistentSuffixTreeBuilder
         long headIndex;
         if (useMmfUnchecked && mmfMain != null)
         {
-            uint raw = mmfMain.ReadUInt32Unchecked(off + 16);
+            uint raw = mmfMain.ReadUInt32Unchecked(off + NodeLayout.Compact.OffsetChildrenHead);
             headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
         }
         else
@@ -1257,13 +1257,13 @@ public class PersistentSuffixTreeBuilder
         long headIndex;
         if (_mmfStorage != null && (_transitionOffset < 0 || nodeOffset < _transitionOffset))
         {
-            // Compact: ChildrenHead is uint32 at nodeOffset + 16
-            uint raw = _mmfStorage.ReadUInt32Unchecked(nodeOffset + 16);
+            // Compact: ChildrenHead is uint32 at nodeOffset + NodeLayout.Compact.OffsetChildrenHead
+            uint raw = _mmfStorage.ReadUInt32Unchecked(nodeOffset + NodeLayout.Compact.OffsetChildrenHead);
             headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
         }
-        else if (_mmfStorage != null) // Large: ChildrenHead is int64 at nodeOffset + 20
+        else if (_mmfStorage != null) // Large: ChildrenHead is int64 at nodeOffset + NodeLayout.Large.OffsetChildrenHead
         {
-            headIndex = _mmfStorage.ReadInt64Unchecked(nodeOffset + 20);
+            headIndex = _mmfStorage.ReadInt64Unchecked(nodeOffset + NodeLayout.Large.OffsetChildrenHead);
         }
         else
         {
@@ -1321,12 +1321,12 @@ public class PersistentSuffixTreeBuilder
         long headIndex;
         if (isCompactMmf)
         {
-            uint raw = _mmfStorage!.ReadUInt32Unchecked(nodeOffset + 16);
+            uint raw = _mmfStorage!.ReadUInt32Unchecked(nodeOffset + NodeLayout.Compact.OffsetChildrenHead);
             headIndex = raw == uint.MaxValue ? PersistentConstants.NULL_OFFSET : (long)raw;
         }
-        else if (isLargeMmf) // Large: ChildrenHead is int64 at nodeOffset + 20
+        else if (isLargeMmf) // Large: ChildrenHead is int64 at nodeOffset + NodeLayout.Large.OffsetChildrenHead
         {
-            headIndex = _mmfStorage!.ReadInt64Unchecked(nodeOffset + 20);
+            headIndex = _mmfStorage!.ReadInt64Unchecked(nodeOffset + NodeLayout.Large.OffsetChildrenHead);
         }
         else
         {
@@ -1390,11 +1390,11 @@ public class PersistentSuffixTreeBuilder
         // Update node's head pointer to the new entry index
         if (isCompactMmf)
         {
-            _mmfStorage!.WriteUInt32Unchecked(nodeOffset + 16, (uint)newIndex);
+            _mmfStorage!.WriteUInt32Unchecked(nodeOffset + NodeLayout.Compact.OffsetChildrenHead, (uint)newIndex);
         }
-        else if (isLargeMmf) // Large: ChildrenHead is int64 at nodeOffset + 20
+        else if (isLargeMmf) // Large: ChildrenHead is int64 at nodeOffset + NodeLayout.Large.OffsetChildrenHead
         {
-            _mmfStorage!.WriteInt64Unchecked(nodeOffset + 20, (long)newIndex);
+            _mmfStorage!.WriteInt64Unchecked(nodeOffset + NodeLayout.Large.OffsetChildrenHead, (long)newIndex);
         }
         else
         {
