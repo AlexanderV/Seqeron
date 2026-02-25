@@ -18,7 +18,13 @@ public partial class PersistentSuffixTreeBuilder
         SequentialFinalize(_rootOffset);
 
         _progress?.Report(("DFS: Serializing text", 98.0));
+        var (textOffset, textIsAscii) = SerializeTextPayload();
+        WriteHeader(textOffset, textIsAscii);
+        ClearDeferredJumpMetadata();
+    }
 
+    private (long TextOffset, bool TextIsAscii) SerializeTextPayload()
+    {
         bool textIsAscii = IsTextAscii();
         int bytesPerChar = textIsAscii ? 1 : 2;
         long textByteLen = (long)_text.Length * bytesPerChar;
@@ -45,6 +51,11 @@ public partial class PersistentSuffixTreeBuilder
             ArrayPool<byte>.Shared.Return(chunkBuf);
         }
 
+        return (textOffset, textIsAscii);
+    }
+
+    private void WriteHeader(long textOffset, bool textIsAscii)
+    {
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_MAGIC, PersistentConstants.MAGIC_NUMBER);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_VERSION, 6);
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_ROOT, _rootOffset);
@@ -59,107 +70,112 @@ public partial class PersistentSuffixTreeBuilder
         _storage.WriteInt64(PersistentConstants.HEADER_OFFSET_DEEPEST_NODE, _deepestInternalNodeOffset);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_LRS_DEPTH, _lrsDepth);
         _storage.WriteInt32(PersistentConstants.HEADER_OFFSET_BASE_NODE_SIZE, _initialLayout.NodeSize);
+    }
 
+    private void ClearDeferredJumpMetadata()
+    {
         CrossZoneSuffixLinkCount = _deferredSuffixLinks.Count;
         _deferredSuffixLinks.Clear();
         _crossZoneSuffixLinks.Clear();
     }
+
     private void MaterializeJumpTable()
     {
-        // Count suffix-link jump entries
         int suffixLinkJumps = _deferredSuffixLinks.Count;
-
-        // Iterate only over actual compact nodes (exclude jump reserve block)
         long compactEnd = _compactNodesEnd >= 0
             ? _compactNodesEnd
             : Math.Min(_transitionOffset, _maxNodeEndOffset);
         var mmfMain = _mmfStorage;
 
-        // ── Single-pass path when reserve is pre-allocated (genome-scale builds) ──
-        // We know the reserve capacity and can write slots directly while scanning.
-        if (_jumpTableReserveStart >= 0)
-        {
-            long reserveCapacity = _jumpTableReserveEnd - _jumpTableReserveStart;
-            _jumpTableStart = _jumpTableReserveStart;
-
-            // Fill suffix-link entries first
-            int slotIndex = 0;
-            for (int i = 0; i < suffixLinkJumps; i++, slotIndex++)
-            {
-                var (compactNodeOffset, largeTargetOffset) = _deferredSuffixLinks[i];
-                long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
-                _storage.WriteInt64(jumpEntryOffset, largeTargetOffset);
-
-                var compactLayout = LayoutOf(compactNodeOffset);
-                var node = new PersistentSuffixTreeNode(_storage, compactNodeOffset, compactLayout);
-                node.SuffixLink = jumpEntryOffset;
-            }
-
-            // Single pass: write child-array jump slots while scanning compact nodes
-            for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
-            {
-                uint nodeEnd = mmfMain != null
-                    ? mmfMain.ReadUInt32Unchecked(offset + 4)
-                    : _storage.ReadUInt32(offset + 4);
-                if (nodeEnd != PersistentConstants.BOUNDLESS)
-                {
-                    long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
-                    if (jumpEntryOffset + 8 > _jumpTableReserveEnd)
-                        throw new InvalidOperationException(
-                            $"Jump table requires more than {reserveCapacity:N0} reserved bytes. " +
-                            "The input exceeds the jump table reserve capacity.");
-                    if (mmfMain != null)
-                        mmfMain.WriteUInt32Unchecked(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
-                    else
-                        _storage.WriteUInt32(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
-                    slotIndex++;
-                }
-            }
-
-            int totalEntries = slotIndex;
-            if (totalEntries == 0)
-            {
-                _jumpTableStart = -1;
-                _jumpTableEnd = -1;
-            }
-            else
-            {
-                _jumpTableEnd = _jumpTableStart + totalEntries * 8;
-            }
+        if (TryMaterializeReservedJumpTable(suffixLinkJumps, compactEnd, mmfMain))
             return;
-        }
 
-        // ── Fallback: two-pass for non-reserved (tiny compact limits in tests) ──
+        MaterializeFallbackJumpTable(suffixLinkJumps, compactEnd, mmfMain);
+    }
 
-        // Pass 1: count compact internal nodes
-        int childArrayJumps = 0;
+    // Single-pass path when reserve is pre-allocated (genome-scale builds).
+    private bool TryMaterializeReservedJumpTable(
+        int suffixLinkJumps,
+        long compactEnd,
+        MappedFileStorageProvider? mmfMain)
+    {
+        if (_jumpTableReserveStart < 0)
+            return false;
+
+        long reserveCapacity = _jumpTableReserveEnd - _jumpTableReserveStart;
+        _jumpTableStart = _jumpTableReserveStart;
+        int slotIndex = WriteSuffixLinkJumpEntries(suffixLinkJumps, _jumpTableStart);
+
         for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
         {
-            uint nodeEnd = mmfMain != null
-                ? mmfMain.ReadUInt32Unchecked(offset + 4)
-                : _storage.ReadUInt32(offset + 4);
-            if (nodeEnd != PersistentConstants.BOUNDLESS)
-                childArrayJumps++;
+            if (ReadNodeEnd(offset, mmfMain) == PersistentConstants.BOUNDLESS)
+                continue;
+
+            long jumpEntryOffset = _jumpTableStart + (long)slotIndex * 8;
+            if (jumpEntryOffset + 8 > _jumpTableReserveEnd)
+            {
+                throw new InvalidOperationException(
+                    $"Jump table requires more than {reserveCapacity:N0} reserved bytes. " +
+                    "The input exceeds the jump table reserve capacity.");
+            }
+
+            WriteChildArrayJumpSlot(offset, jumpEntryOffset, mmfMain);
+            slotIndex++;
         }
 
-        int totalEntriesFallback = suffixLinkJumps + childArrayJumps;
-        if (totalEntriesFallback == 0)
+        SetJumpTableRange(slotIndex);
+        return true;
+    }
+
+    // Fallback two-pass path for non-reserved mode (tiny compact limits in tests).
+    private void MaterializeFallbackJumpTable(
+        int suffixLinkJumps,
+        long compactEnd,
+        MappedFileStorageProvider? mmfMain)
+    {
+        int childArrayJumps = CountCompactInternalNodes(compactEnd, mmfMain);
+        int totalEntries = suffixLinkJumps + childArrayJumps;
+        if (totalEntries == 0)
         {
-            _jumpTableStart = -1;
-            _jumpTableEnd = -1;
+            ResetJumpTableRange();
             return;
         }
 
-        int tableSize = totalEntriesFallback * 8;
+        int tableSize = totalEntries * 8;
         _jumpTableStart = _storage.Allocate(tableSize);
         _jumpTableEnd = _jumpTableStart + tableSize;
+        int slotIdx = WriteSuffixLinkJumpEntries(suffixLinkJumps, _jumpTableStart);
 
-        // Fill suffix-link entries
+        for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
+        {
+            if (ReadNodeEnd(offset, mmfMain) == PersistentConstants.BOUNDLESS)
+                continue;
+
+            long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
+            WriteChildArrayJumpSlot(offset, jumpEntryOffset, mmfMain);
+            slotIdx++;
+        }
+    }
+
+    private int CountCompactInternalNodes(long compactEnd, MappedFileStorageProvider? mmfMain)
+    {
+        int internalCount = 0;
+        for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
+        {
+            if (ReadNodeEnd(offset, mmfMain) != PersistentConstants.BOUNDLESS)
+                internalCount++;
+        }
+
+        return internalCount;
+    }
+
+    private int WriteSuffixLinkJumpEntries(int suffixLinkJumps, long jumpTableStart)
+    {
         int slotIdx = 0;
         for (int i = 0; i < suffixLinkJumps; i++, slotIdx++)
         {
             var (compactNodeOffset, largeTargetOffset) = _deferredSuffixLinks[i];
-            long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
+            long jumpEntryOffset = jumpTableStart + (long)slotIdx * 8;
             _storage.WriteInt64(jumpEntryOffset, largeTargetOffset);
 
             var compactLayout = LayoutOf(compactNodeOffset);
@@ -167,22 +183,36 @@ public partial class PersistentSuffixTreeBuilder
             node.SuffixLink = jumpEntryOffset;
         }
 
-        // Pass 2: write child-array jump slots
-        for (long offset = HeaderSize; offset < compactEnd; offset += _initialLayout.NodeSize)
-        {
-            uint nodeEnd = mmfMain != null
-                ? mmfMain.ReadUInt32Unchecked(offset + 4)
-                : _storage.ReadUInt32(offset + 4);
-            if (nodeEnd != PersistentConstants.BOUNDLESS)
-            {
-                long jumpEntryOffset = _jumpTableStart + (long)slotIdx * 8;
-                if (mmfMain != null)
-                    mmfMain.WriteUInt32Unchecked(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
-                else
-                    _storage.WriteUInt32(offset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
-                slotIdx++;
-            }
-        }
+        return slotIdx;
     }
 
+    private uint ReadNodeEnd(long offset, MappedFileStorageProvider? mmfMain)
+        => mmfMain != null
+            ? mmfMain.ReadUInt32Unchecked(offset + 4)
+            : _storage.ReadUInt32(offset + 4);
+
+    private void WriteChildArrayJumpSlot(long nodeOffset, long jumpEntryOffset, MappedFileStorageProvider? mmfMain)
+    {
+        if (mmfMain != null)
+            mmfMain.WriteUInt32Unchecked(nodeOffset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
+        else
+            _storage.WriteUInt32(nodeOffset + NodeLayout.Compact.OffsetLeafCount, (uint)jumpEntryOffset);
+    }
+
+    private void SetJumpTableRange(int totalEntries)
+    {
+        if (totalEntries == 0)
+        {
+            ResetJumpTableRange();
+            return;
+        }
+
+        _jumpTableEnd = _jumpTableStart + totalEntries * 8L;
+    }
+
+    private void ResetJumpTableRange()
+    {
+        _jumpTableStart = -1;
+        _jumpTableEnd = -1;
+    }
 }
