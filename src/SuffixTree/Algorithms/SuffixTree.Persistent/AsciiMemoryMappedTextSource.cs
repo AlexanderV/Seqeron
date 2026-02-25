@@ -103,6 +103,30 @@ public sealed unsafe class AsciiMemoryMappedTextSource : ITextSource, IDisposabl
         return result;
     }
 
+    /// <summary>
+    /// Compares a pattern with the ASCII source at the specified start offset
+    /// without widening the full slice into a temporary <see cref="char"/> array.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool SequenceEqualAt(int start, ReadOnlySpan<char> pattern)
+    {
+        byte* p = _ptr;
+        ThrowIfDisposed();
+        ObjectDisposedException.ThrowIf(p == null, this);
+
+        int length = pattern.Length;
+        if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
+            return false;
+
+        for (int i = 0; i < length; i++)
+        {
+            if ((char)p[start + i] != pattern[i])
+                return false;
+        }
+
+        return true;
+    }
+
     /// <inheritdoc/>
     public IEnumerator<char> GetEnumerator()
     {
