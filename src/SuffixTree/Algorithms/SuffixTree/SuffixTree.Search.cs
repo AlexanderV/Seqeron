@@ -29,45 +29,7 @@ public partial class SuffixTree
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool ContainsCore(ReadOnlySpan<char> pattern)
-    {
-        var node = _root;
-        int i = 0;
-
-        while (i < pattern.Length)
-        {
-            if (!node.TryGetChild(pattern[i], out var child))
-                return false;
-
-            int edgeStart = child!.Start;
-            int edgeLength = LengthOf(child);
-            int remaining = pattern.Length - i;
-            int compareLen = edgeLength < remaining ? edgeLength : remaining;
-
-            if (edgeStart + compareLen > _text.Length)
-                return false;
-
-            var edgeSpan = _text.Slice(edgeStart, compareLen);
-
-            // Use SIMD for longer comparisons (>=8 chars), scalar for short
-            if (compareLen >= 8)
-            {
-                if (!edgeSpan.SequenceEqual(pattern.Slice(i, compareLen)))
-                    return false;
-            }
-            else
-            {
-                for (int j = 0; j < compareLen; j++)
-                {
-                    if (edgeSpan[j] != pattern[i + j])
-                        return false;
-                }
-            }
-
-            i += compareLen;
-            node = child;
-        }
-        return true;
-    }
+        => MatchPatternCore(pattern).matched;
 
     /// <summary>
     /// Core pattern matching with hybrid SIMD optimization.
