@@ -7,7 +7,7 @@ namespace SuffixTree.Persistent;
 /// A memory-mapped implementation of <see cref="ITextSource"/>.
 /// Provides efficient character access for very large files.
 /// </summary>
-public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
+public sealed unsafe class MemoryMappedTextSource : ITextSource, ITextPatternMatcher, IDisposable
 {
     private readonly MemoryMappedFile? _mmf;
     private readonly MemoryMappedViewAccessor _accessor;
@@ -110,6 +110,20 @@ public sealed unsafe class MemoryMappedTextSource : ITextSource, IDisposable
         if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
             throw new ArgumentOutOfRangeException(nameof(start));
         return new ReadOnlySpan<char>(p + start, length);
+    }
+
+    /// <inheritdoc/>
+    public bool SequenceEqualAt(int start, ReadOnlySpan<char> pattern)
+    {
+        char* p = _ptr;
+        ThrowIfDisposed();
+        ObjectDisposedException.ThrowIf(p == null, this);
+
+        int length = pattern.Length;
+        if ((uint)start > (uint)_length || (uint)length > (uint)(_length - start))
+            return false;
+
+        return new ReadOnlySpan<char>(p + start, length).SequenceEqual(pattern);
     }
 
     /// <inheritdoc/>
