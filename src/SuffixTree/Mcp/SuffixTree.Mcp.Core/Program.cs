@@ -8,6 +8,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
+    .WithTools<SuffixTreeCoreTools>()
     .WithTools<SuffixTreeTools>();
 
 await builder.Build().RunAsync();
