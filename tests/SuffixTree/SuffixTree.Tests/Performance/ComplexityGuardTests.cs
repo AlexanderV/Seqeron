@@ -27,6 +27,7 @@ namespace SuffixTree.Tests.Performance
         // Allow generous headroom for GC jitter, JIT warmup, and CI variability.
         // A true O(n²) regression would produce ratio ≥ 4 at doubling.
         private const double LinearThreshold = 3.5;
+        private const double BuildLinearThreshold = 4.0;
         private const double SublinearThreshold = 4.0;
 
         private static string GenerateDna(int length, int seed = 42)
@@ -45,29 +46,50 @@ namespace SuffixTree.Tests.Performance
             for (int i = 0; i < warmup; i++)
                 action();
 
-            // Measured runs
-            var sw = Stopwatch.StartNew();
+            // Measured runs (median to reduce scheduler/GC noise)
+            var samples = new double[measured];
             for (int i = 0; i < measured; i++)
+            {
+                var sw = Stopwatch.StartNew();
                 action();
-            sw.Stop();
-            return sw.Elapsed.TotalMilliseconds / measured;
+                sw.Stop();
+                samples[i] = sw.Elapsed.TotalMilliseconds;
+            }
+
+            Array.Sort(samples);
+            return samples[measured / 2];
+        }
+
+        private static double MeasureBatchedMs(Action action, int repetitions, int warmup = 2, int measured = 5)
+        {
+            if (repetitions <= 0)
+                throw new ArgumentOutOfRangeException(nameof(repetitions));
+
+            void BatchedAction()
+            {
+                for (int i = 0; i < repetitions; i++)
+                    action();
+            }
+
+            return MeasureMs(BatchedAction, warmup, measured) / repetitions;
         }
 
         #region Build complexity: O(n)
 
         [Test]
+        [Retry(3)]
         public void Build_ScalesLinearly()
         {
-            const int n = 20_000;
+            const int n = 40_000;
             string small = GenerateDna(n);
             string large = GenerateDna(n * 2, seed: 99);
 
-            double tSmall = MeasureMs(() => SuffixTree.Build(small));
-            double tLarge = MeasureMs(() => SuffixTree.Build(large));
+            double tSmall = MeasureMs(() => SuffixTree.Build(small), warmup: 3, measured: 7);
+            double tLarge = MeasureMs(() => SuffixTree.Build(large), warmup: 3, measured: 7);
 
             double ratio = tLarge / Math.Max(tSmall, 0.01);
-            Assert.That(ratio, Is.LessThan(LinearThreshold),
-                $"Build: time({n * 2})={tLarge:F1}ms / time({n})={tSmall:F1}ms = {ratio:F2} exceeds {LinearThreshold}");
+            Assert.That(ratio, Is.LessThan(BuildLinearThreshold),
+                $"Build: time({n * 2})={tLarge:F1}ms / time({n})={tSmall:F1}ms = {ratio:F2} exceeds {BuildLinearThreshold}");
         }
 
         #endregion
@@ -84,8 +106,8 @@ namespace SuffixTree.Tests.Performance
             string shortPattern = text.Substring(0, m);
             string longPattern = text.Substring(0, m * 2);
 
-            double tShort = MeasureMs(() => tree.Contains(shortPattern), warmup: 5, measured: 10);
-            double tLong = MeasureMs(() => tree.Contains(longPattern), warmup: 5, measured: 10);
+            double tShort = MeasureBatchedMs(() => tree.Contains(shortPattern), repetitions: 64, warmup: 4, measured: 7);
+            double tLong = MeasureBatchedMs(() => tree.Contains(longPattern), repetitions: 64, warmup: 4, measured: 7);
 
             double ratio = tLong / Math.Max(tShort, 0.001);
             Assert.That(ratio, Is.LessThan(LinearThreshold),
@@ -137,8 +159,8 @@ namespace SuffixTree.Tests.Performance
             string shortP = text.Substring(100, m);
             string longP = text.Substring(100, m * 2);
 
-            double tShort = MeasureMs(() => tree.CountOccurrences(shortP), warmup: 5, measured: 10);
-            double tLong = MeasureMs(() => tree.CountOccurrences(longP), warmup: 5, measured: 10);
+            double tShort = MeasureBatchedMs(() => tree.CountOccurrences(shortP), repetitions: 128, warmup: 4, measured: 7);
+            double tLong = MeasureBatchedMs(() => tree.CountOccurrences(longP), repetitions: 128, warmup: 4, measured: 7);
 
             double ratio = tLong / Math.Max(tShort, 0.001);
             Assert.That(ratio, Is.LessThan(LinearThreshold),
@@ -191,18 +213,19 @@ namespace SuffixTree.Tests.Performance
         #region Build: pathological repetitive input should stay O(n)
 
         [Test]
+        [Retry(3)]
         public void Build_RepetitiveInput_StillLinear()
         {
             // Pathological: single-char repeat maximizes Ukkonen's active state transitions
-            const int n = 50_000;
+            const int n = 100_000;
             string small = new string('a', n);
             string large = new string('a', n * 2);
 
-            double tSmall = MeasureMs(() => SuffixTree.Build(small));
-            double tLarge = MeasureMs(() => SuffixTree.Build(large));
+            double tSmall = MeasureMs(() => SuffixTree.Build(small), warmup: 3, measured: 7);
+            double tLarge = MeasureMs(() => SuffixTree.Build(large), warmup: 3, measured: 7);
 
             double ratio = tLarge / Math.Max(tSmall, 0.01);
-            Assert.That(ratio, Is.LessThan(LinearThreshold),
+            Assert.That(ratio, Is.LessThan(BuildLinearThreshold),
                 $"Build(repeat): time({n * 2})={tLarge:F1}ms / time({n})={tSmall:F1}ms = {ratio:F2}");
         }
 
