@@ -51,7 +51,6 @@ public partial class SuffixTree
 
     /// <summary>
     /// Finds the longest common substring between this tree's text and another character span.
-    /// Zero-allocation overload for performance-critical scenarios.
     /// </summary>
     /// <param name="other">The character span to compare against.</param>
     /// <returns>The longest common substring, or empty string if none exists.</returns>

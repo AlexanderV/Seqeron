@@ -113,7 +113,7 @@ public static class SuffixTreeSerializer
     /// <para>
     /// Construction starts with Compact (32-bit) layout. If the tree exceeds the
     /// uint32 address space, the builder transparently transitions to Large (64-bit)
-    /// mid-build using a jump table (hybrid continuation, version 5).
+    /// mid-build using the v6 hybrid layout jump table.
     /// </para>
     /// </summary>
     public static ISuffixTree Import(Stream stream, IStorageProvider target)
@@ -163,9 +163,8 @@ public static class SuffixTreeSerializer
         var builder = new PersistentSuffixTreeBuilder(storage, NodeLayout.Compact);
         long rootOffset = builder.Build(textSource);
 
-        // Base layout is always Compact — hybrid v5 trees use Compact as the
-        // base and resolve the Large zone dynamically via TransitionOffset.
-        // NodeLayout.ForVersion(5) also returns Compact, so this is correct.
+        // Base layout is always Compact for v6 hybrid trees; the large zone is
+        // resolved dynamically via TransitionOffset.
         NodeLayout layout = NodeLayout.Compact;
         var tree = new PersistentSuffixTree(storage, rootOffset, textSource, layout,
             builder.TransitionOffset, builder.JumpTableStart, builder.JumpTableEnd,

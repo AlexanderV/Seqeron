@@ -127,8 +127,9 @@ public interface ISuffixTree
     string LongestRepeatedSubstring();
 
     /// <summary>
-    /// Returns the longest repeated substring as a zero-allocation memory slice
-    /// of the original text. Avoids LOH allocations for large repeated substrings.
+    /// Returns the longest repeated substring as memory.
+    /// Implementations may override for true zero-copy access to the original text.
+    /// The default interface implementation wraps <see cref="LongestRepeatedSubstring"/>.
     /// </summary>
     /// <returns>A memory slice of the original text, or empty if none exists.</returns>
     ReadOnlyMemory<char> LongestRepeatedSubstringMemory() => LongestRepeatedSubstring().AsMemory();
@@ -156,7 +157,6 @@ public interface ISuffixTree
 
     /// <summary>
     /// Finds the longest common substring between this tree's text and another character span.
-    /// Zero-allocation overload for performance-critical scenarios.
     /// </summary>
     /// <param name="other">The character span to compare against.</param>
     /// <returns>The longest common substring, or empty string if none exists.</returns>

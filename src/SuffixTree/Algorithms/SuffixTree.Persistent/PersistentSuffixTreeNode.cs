@@ -72,7 +72,7 @@ public readonly struct PersistentSuffixTreeNode
     {
         int rawCount = ChildCount;
 
-        // Hybrid v5 trees store a jumped-flag in the high bit of ChildCount.
+        // Hybrid v6 trees store a jumped-flag in the high bit of ChildCount.
         // A jumped child array requires hybrid context (transition offset,
         // jump table bounds) that this struct does not carry.  Throw early
         // instead of silently returning wrong results.

@@ -7,9 +7,9 @@ namespace SuffixTree.Persistent;
 /// Handles construction of a persistent suffix tree using Ukkonen's algorithm.
 /// Writes nodes and child entries directly to the storage provider.
 /// <para>
-/// <b>Hybrid continuation</b>: construction starts with the Compact (28-byte, uint32)
-/// layout. When the compact address space (~4 GB) is exhausted, the builder
-/// seamlessly switches to the Large (40-byte, int64) layout and continues
+/// <b>Hybrid continuation</b>: construction starts with the Compact v6 layout
+/// (24-byte nodes, uint32 offsets). When the compact address space (~4 GB) is exhausted,
+/// the builder seamlessly switches to the Large v6 layout (32-byte nodes, int64 offsets) and continues
 /// in the same storage without restarting. A small jump table at the
 /// compact/large boundary allows compact-zone nodes to reference large-zone
 /// addresses through indirection entries.
