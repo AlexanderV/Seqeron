@@ -1,34 +1,34 @@
 # MCP Tool Implementation Prompt
 
-## Репозиторий
+## Репозиторій
 `d:\Prototype\SuffixTree`
 
-## Чеклист
-`docs/mcp-checklist.md` — секция 4 (Per-Tool Checklist). Это единственный источник правды о том, что реализовано и что нет.
+## Чекліст
+`docs/mcp-checklist.md` — секція 4 (Per-Tool Checklist). Це єдине джерело правди про те, що реалізовано, а що ні.
 
-## Эталонные файлы
+## Еталонні файли
 - Tool + records: `src/Seqeron/Mcp/Seqeron.Mcp.Parsers/Tools/ParsersTools.cs`
-- Тесты: `src/Seqeron/Mcp/Seqeron.Mcp.Parsers.Tests/`
-- Документация: `docs/mcp/tools/parsers/*.md`, `*.mcp.json`
+- Тести: `src/Seqeron/Mcp/Seqeron.Mcp.Parsers.Tests/`
+- Документація: `docs/mcp/tools/parsers/*.md`, `*.mcp.json`
 
-## Цикл на каждый tool
+## Цикл для кожного tool
 
-1. Найди следующий невыполненный tool в `docs/mcp-checklist.md`
-2. Изучи существующую реализацию в `Seqeron.Genomics` (DocRef из чеклиста)
-3. Реализуй tool + result record по образцу эталонных файлов
-4. Создай тесты (Schema + Binding)
-5. Создай документацию (.md + .mcp.json)
-6. `dotnet build && dotnet test` — все тесты должны пройти
-7. Отметь `[x]` пункты a-j в `docs/mcp-checklist.md`
-8. Коммит: `feat(MCP/Parsers): add <tool_name> tool`
-9. Повтори с шага 1
+1. Знайди наступний невиконаний tool у `docs/mcp-checklist.md`
+2. Вивчи наявну реалізацію в `Seqeron.Genomics` (DocRef із чекліста)
+3. Реалізуй tool + result record за зразком еталонних файлів
+4. Створи тести (Schema + Binding)
+5. Створи документацію (.md + .mcp.json)
+6. `dotnet build && dotnet test` — усі тести мають пройти
+7. Познач `[x]` пункти a-j у `docs/mcp-checklist.md`
+8. Коміт: `feat(MCP/Parsers): add <tool_name> tool`
+9. Повтори з кроку 1
 
-## Критически важно
+## Критично важливо
 
-- Mission-critical библиотека. Ошибки и неточности недопустимы.
-- Каждый tool должен корректно вызывать метод из `Seqeron.Genomics`, а не реализовывать логику заново.
-- Тесты должны проверять реальное поведение, а не заглушки.
+- Mission-critical бібліотека. Помилки й неточності неприпустимі.
+- Кожен tool має коректно викликати метод із `Seqeron.Genomics`, а не реалізовувати логіку заново.
+- Тести мають перевіряти реальну поведінку, а не заглушки.
 
-## Задача
+## Завдання
 
-Начни со следующего невыполненного tool из чеклиста.
+Почни з наступного невиконаного tool із чекліста.

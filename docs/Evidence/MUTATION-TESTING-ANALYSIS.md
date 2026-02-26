@@ -231,19 +231,19 @@ These require either targeted mutation (specific methods only) or increased time
 ## Recommendations
 
 ### ✅ Completed
-1. **~~Исправить 6 вероятных багов~~** → All 6 were false positives. Added 17 mutation-killing boundary tests.
+1. **~~Виправити 6 ймовірних багів~~** → All 6 were false positives. Added 17 mutation-killing boundary tests.
 
-### Immediate Actions (убить максимум мутантов с минимумом тестов)
-2. **CodonOptimizer.cs** — добавить boundary-тесты для GC-range и base-pair matching (15 мутантов на L557-558)
-3. **Парсеры (BedParser, VcfParser, GenBankParser, EmblParser)** — добавить null-argument и boundary тесты
+### Immediate Actions (знищити максимум мутантів з мінімумом тестів)
+2. **CodonOptimizer.cs** — додати boundary-тести для GC-range і base-pair matching (15 мутантів на L557-558)
+3. **Парсери (BedParser, VcfParser, GenBankParser, EmblParser)** — додати null-argument і boundary тести
 
 ### Medium-term
-4. Для всех файлов с score < 60% — систематично добавить boundary-value tests на каждое условие
-5. Добавить truth-table тесты для compound boolean conditions (каждый clause отдельно)
-6. Для формул в PopulationGeneticsAnalyzer и EpigeneticsAnalyzer — тесты с аналитически рассчитанными значениями
+4. Для всіх файлів зі score < 60% — систематично додати boundary-value tests для кожної умови
+5. Додати truth-table тести для compound boolean conditions (кожен clause окремо)
+6. Для формул у PopulationGeneticsAnalyzer і EpigeneticsAnalyzer — тести з аналітично розрахованими значеннями
 
 ### Target
-- **SHORT-TERM:** довести все CRITICAL/HIGH файлы до >= 70%
+- **SHORT-TERM:** довести всі CRITICAL/HIGH файли до >= 70%
 - **LONG-TERM:** overall mutation score >= 80%
 
 ---
