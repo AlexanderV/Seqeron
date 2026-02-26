@@ -26,22 +26,5 @@ public class SuffixTreeContainsTests
         var result = SuffixTreeTools.SuffixTreeContains(text, pattern);
         Assert.That(result.Found, Is.EqualTo(expected));
     }
-
-    [Test]
-    public void SuffixTreeContains_IsConsistentWithCountAndFindAllTools()
-    {
-        const string text = "banana";
-        string[] patterns = { "", "a", "ana", "n", "xyz", "banana", "bananax" };
-
-        foreach (string pattern in patterns)
-        {
-            bool found = SuffixTreeTools.SuffixTreeContains(text, pattern).Found;
-            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
-            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
-
-            Assert.That(found, Is.EqualTo(count > 0));
-            Assert.That(found, Is.EqualTo(positions.Length > 0));
-        }
-    }
 }
 

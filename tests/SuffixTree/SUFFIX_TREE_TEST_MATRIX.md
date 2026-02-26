@@ -29,7 +29,7 @@ Status labels:
 | `LongestCommonSubstring(ReadOnlySpan<char>)` | `Algorithms/LongestCommonSubstringOracleTests` | `Validation/SpanOverloadContractTests`, `Validation/LcsAndEnumerationContractTests` | Strong | Span/string consistency asserted. |
 | `LongestCommonSubstringInfo(string)` | `Algorithms/LongestCommonSubstringTests`, `Algorithms/LongestCommonSubstringOracleTests` | `Validation/LcsAndEnumerationContractTests` | Strong | Position validity and consistency with `FindAllLCS`. |
 | `FindAllLongestCommonSubstrings(string)` | `Algorithms/LongestCommonSubstringTests`, `Algorithms/LongestCommonSubstringOracleTests` | `Validation/LcsAndEnumerationContractTests`, `Safety/DisposeBehaviorTests` | Strong | Returned positions validated against reported substring. |
-| `PrintTree()` | `Core/DiagnosticsTests` | `Safety/DisposeBehaviorTests` | Medium | Output contract is tested, but no deep structural snapshot oracle. |
+| `PrintTree()` | `Core/DiagnosticsTests` | `Validation/DiagnosticsContractTests` | Strong | Verifies depth/indent format, deterministic ordering, node/leaf line cardinality, empty-tree contract. |
 | `Traverse(ISuffixTreeVisitor)` | `Core/DiagnosticsTests` | `Validation/TreeContractTests`, `Parity/TopologyParityTests`, `Format/HybridTransitionZoneTests` | Strong | Depth semantics + branch balancing + topology parity. |
 | `FindExactMatchAnchors(...)` | `Algorithms/ExactMatchAnchorTests` | `Parity/*`, `Format/*`, `Serialization/*` | Strong | Validated for semantics and cross-implementation parity. |
 
@@ -43,4 +43,4 @@ Status labels:
 | Storage lifecycle/safety | `Safety/*` | Strong | Dispose behavior, concurrency, read-only provider, overflow/guard checks. |
 
 ## Residual Risk
-- `PrintTree()` remains formatter-oriented; tests verify required markers and high-level invariants, but not full canonical formatting snapshots.
+- `PrintTree()` still intentionally avoids full golden-snapshot locking to keep formatter evolution low-friction; structure and invariants are now asserted directly.

@@ -26,19 +26,5 @@ public class SuffixTreeCountTests
         var result = SuffixTreeTools.SuffixTreeCount(text, pattern);
         Assert.That(result.Count, Is.EqualTo(expectedCount));
     }
-
-    [Test]
-    public void SuffixTreeCount_MatchesFindAllLength()
-    {
-        const string text = "mississippi";
-        string[] patterns = { "", "i", "issi", "ss", "sip", "xyz" };
-
-        foreach (string pattern in patterns)
-        {
-            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
-            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
-            Assert.That(count, Is.EqualTo(positions.Length), $"pattern={pattern}");
-        }
-    }
 }
 

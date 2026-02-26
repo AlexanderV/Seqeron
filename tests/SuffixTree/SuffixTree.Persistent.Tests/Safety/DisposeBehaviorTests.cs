@@ -7,7 +7,7 @@ namespace SuffixTree.Persistent.Tests.Safety
 {
     /// <summary>
     /// Tests for post-Dispose behavior, read-only mode, TrimToSize,
-    /// PrintTree, and FindAllLongestCommonSubstrings.
+    /// and FindAllLongestCommonSubstrings.
     /// </summary>
     [TestFixture]
     [Category("Safety")]
@@ -102,34 +102,6 @@ namespace SuffixTree.Persistent.Tests.Safety
             {
                 try { File.Delete(tempFile); } catch { }
             }
-        }
-
-        // ─── PrintTree ──────────────────────────────────────────────
-
-        [Test]
-        public void PrintTree_ContainsRootAndLeaves()
-        {
-            using var tree = (PersistentSuffixTree)PersistentSuffixTreeFactory.Create(
-                new StringTextSource("ab"));
-            string output = tree.PrintTree();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(output, Does.Contain("ROOT"));
-                Assert.That(output, Does.Contain("(Leaf)"));
-                Assert.That(output, Does.Contain("Content length: 2"));
-            });
-        }
-
-        [Test]
-        public void PrintTree_EmptyText_ShowsRootOnly()
-        {
-            using var tree = (PersistentSuffixTree)PersistentSuffixTreeFactory.Create(
-                new StringTextSource(""));
-            string output = tree.PrintTree();
-
-            Assert.That(output, Does.Contain("ROOT"));
-            Assert.That(output, Does.Contain("Content length: 0"));
         }
 
         // ─── FindAllLongestCommonSubstrings ─────────────────────────
