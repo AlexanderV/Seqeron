@@ -143,76 +143,126 @@ public partial class PersistentSuffixTreeBuilder
             childBase = null;
             if (_ownsChildStore) _childStore.Dispose();
 
-            // ═══════════ PASS 2: Bottom-up leaf count propagation ═══════════
-            _progress?.Report(("Pass 2: leaf counts", 94.0));
+            RunPass2LeafCountPropagation(tp, nodeCount, tempQueuePath);
+            RunPass3WriteBackAndTrackLrs(tp, nodeCount, hdr, rootOffset, compactEnd, compactNodeSize, reportInterval, mmfMain);
 
-            long queueCap = (long)nodeCount * 4;
-            using var tempQueueMmf = new MappedFileStorageProvider(tempQueuePath, Math.Max(queueCap, 65536));
-            tempQueueMmf.SetSize(queueCap);
-            byte* qp = tempQueueMmf.RawPointer;
+            // Dispose depth store after Pass 3 (needed for deepest node tracking)
+            if (_ownsDepthStore) _depthStore?.Dispose();
+        }
+        finally
+        {
+            TryDeleteTempFile(tempNodePath);
+            TryDeleteTempFile(tempQueuePath);
+        }
+    }
 
-            // Enqueue all leaves (remaining == 0 AND leafCount == 1)
-            long qWrite = 0;
-            for (int i = 0; i < nodeCount; i++)
+    private unsafe void RunPass2LeafCountPropagation(byte* tp, int nodeCount, string tempQueuePath)
+    {
+        _progress?.Report(("Pass 2: leaf counts", 94.0));
+
+        long queueCap = (long)nodeCount * 4;
+        using var tempQueueMmf = new MappedFileStorageProvider(tempQueuePath, Math.Max(queueCap, 65536));
+        tempQueueMmf.SetSize(queueCap);
+        byte* qp = tempQueueMmf.RawPointer;
+
+        // Enqueue all leaves (remaining == 0 AND leafCount == 1)
+        long qWrite = 0;
+        for (int i = 0; i < nodeCount; i++)
+        {
+            byte* e = tp + (long)i * TEMP_ENTRY;
+            if (*(int*)(e + TEMP_OFF_REMAINING) == 0 && *(uint*)(e + TEMP_OFF_LEAFCOUNT) > 0)
             {
-                byte* e = tp + (long)i * TEMP_ENTRY;
-                if (*(int*)(e + TEMP_OFF_REMAINING) == 0 && *(uint*)(e + TEMP_OFF_LEAFCOUNT) > 0)
-                {
-                    *(int*)(qp + qWrite) = i;
-                    qWrite += 4;
-                }
+                *(int*)(qp + qWrite) = i;
+                qWrite += 4;
+            }
+        }
+
+        // BFS: propagate leaf counts bottom-up
+        long qRead = 0;
+        while (qRead < qWrite)
+        {
+            int ni = *(int*)(qp + qRead);
+            qRead += 4;
+
+            byte* e = tp + (long)ni * TEMP_ENTRY;
+            int parentIdx = *(int*)(e + TEMP_OFF_PARENT);
+            if (parentIdx < 0) continue; // root — no parent
+
+            uint myLeaves = *(uint*)(e + TEMP_OFF_LEAFCOUNT);
+            byte* pe = tp + (long)parentIdx * TEMP_ENTRY;
+            *(uint*)(pe + TEMP_OFF_LEAFCOUNT) += myLeaves;
+            int rem = *(int*)(pe + TEMP_OFF_REMAINING) - 1;
+            *(int*)(pe + TEMP_OFF_REMAINING) = rem;
+
+            if (rem == 0)
+            {
+                *(int*)(qp + qWrite) = parentIdx;
+                qWrite += 4;
+            }
+        }
+    }
+
+    private unsafe void RunPass3WriteBackAndTrackLrs(
+        byte* tp,
+        int nodeCount,
+        int headerSize,
+        long rootOffset,
+        long compactEnd,
+        int compactNodeSize,
+        int reportInterval,
+        MappedFileStorageProvider? mmfMain)
+    {
+        _progress?.Report(("Pass 3: write-back", 96.0));
+
+        long deepestOffset = rootOffset;
+        int maxLrsDepth = 0;
+        int idx = 0;
+        int reportCountdown = reportInterval;
+
+        // Compact zone
+        for (long off = headerSize; off < compactEnd; off += compactNodeSize, idx++)
+        {
+            uint lc = *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT);
+            if (mmfMain != null)
+                mmfMain.WriteUInt32Unchecked(off + (uint)_initialLayout.OffsetLeafCount, lc);
+            else
+                _storage.WriteUInt32(off + _initialLayout.OffsetLeafCount, lc);
+
+            // Track deepest internal node (read Start/End sequentially)
+            uint nodeEnd = mmfMain != null
+                ? mmfMain.ReadUInt32Unchecked(off + 4)
+                : _storage.ReadUInt32(off + 4);
+            if (nodeEnd != PersistentConstants.BOUNDLESS)
+            {
+                uint nodeStart = mmfMain != null
+                    ? mmfMain.ReadUInt32Unchecked(off)
+                    : _storage.ReadUInt32(off);
+                int edgeLen = (int)(nodeEnd - nodeStart);
+                uint dfr = GetBuildDepth(off);
+                int sd = (int)dfr + edgeLen;
+                if (sd > maxLrsDepth) { maxLrsDepth = sd; deepestOffset = off; }
             }
 
-            // BFS: propagate leaf counts bottom-up
-            long qRead = 0;
-            while (qRead < qWrite)
+            if (--reportCountdown <= 0)
             {
-                int ni = *(int*)(qp + qRead);
-                qRead += 4;
-
-                byte* e = tp + (long)ni * TEMP_ENTRY;
-                int parentIdx = *(int*)(e + TEMP_OFF_PARENT);
-                if (parentIdx < 0) continue; // root — no parent
-
-                uint myLeaves = *(uint*)(e + TEMP_OFF_LEAFCOUNT);
-                byte* pe = tp + (long)parentIdx * TEMP_ENTRY;
-                *(uint*)(pe + TEMP_OFF_LEAFCOUNT) += myLeaves;
-                int rem = *(int*)(pe + TEMP_OFF_REMAINING) - 1;
-                *(int*)(pe + TEMP_OFF_REMAINING) = rem;
-
-                if (rem == 0)
-                {
-                    *(int*)(qp + qWrite) = parentIdx;
-                    qWrite += 4;
-                }
+                reportCountdown = reportInterval;
+                _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / nodeCount * 1.5));
             }
+        }
 
-            // ═══════════ PASS 3: Write LeafCount + find deepest internal node ═══════════
-            _progress?.Report(("Pass 3: write-back", 96.0));
-
-            long deepestOffset = rootOffset;
-            int maxLrsDepth = 0;
-            idx = 0;
-            reportCountdown = reportInterval;
-
-            // Compact zone
-            for (long off = hdr; off < compactEnd; off += compactNodeSize, idx++)
+        // Large zone
+        if (IsHybrid)
+        {
+            int largeNodeSize = NodeLayout.Large.NodeSize;
+            for (long off = _transitionOffset; off < _maxNodeEndOffset; off += largeNodeSize, idx++)
             {
                 uint lc = *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT);
-                if (mmfMain != null)
-                    mmfMain.WriteUInt32Unchecked(off + (uint)_initialLayout.OffsetLeafCount, lc);
-                else
-                    _storage.WriteUInt32(off + _initialLayout.OffsetLeafCount, lc);
+                _storage.WriteUInt32(off + NodeLayout.Large.OffsetLeafCount, lc);
 
-                // Track deepest internal node (read Start/End sequentially)
-                uint nodeEnd = mmfMain != null
-                    ? mmfMain.ReadUInt32Unchecked(off + 4)
-                    : _storage.ReadUInt32(off + 4);
+                uint nodeEnd = _storage.ReadUInt32(off + 4);
                 if (nodeEnd != PersistentConstants.BOUNDLESS)
                 {
-                    uint nodeStart = mmfMain != null
-                        ? mmfMain.ReadUInt32Unchecked(off)
-                        : _storage.ReadUInt32(off);
+                    uint nodeStart = _storage.ReadUInt32(off);
                     int edgeLen = (int)(nodeEnd - nodeStart);
                     uint dfr = GetBuildDepth(off);
                     int sd = (int)dfr + edgeLen;
@@ -222,48 +272,18 @@ public partial class PersistentSuffixTreeBuilder
                 if (--reportCountdown <= 0)
                 {
                     reportCountdown = reportInterval;
-                    _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / totalNodes * 1.5));
+                    _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / nodeCount * 1.5));
                 }
             }
-
-            // Large zone
-            if (IsHybrid)
-            {
-                int largeNodeSize = NodeLayout.Large.NodeSize;
-                for (long off = _transitionOffset; off < _maxNodeEndOffset; off += largeNodeSize, idx++)
-                {
-                    uint lc = *(uint*)(tp + (long)idx * TEMP_ENTRY + TEMP_OFF_LEAFCOUNT);
-                    _storage.WriteUInt32(off + NodeLayout.Large.OffsetLeafCount, lc);
-
-                    uint nodeEnd = _storage.ReadUInt32(off + 4);
-                    if (nodeEnd != PersistentConstants.BOUNDLESS)
-                    {
-                        uint nodeStart = _storage.ReadUInt32(off);
-                        int edgeLen = (int)(nodeEnd - nodeStart);
-                        uint dfr = GetBuildDepth(off);
-                        int sd = (int)dfr + edgeLen;
-                        if (sd > maxLrsDepth) { maxLrsDepth = sd; deepestOffset = off; }
-                    }
-
-                    if (--reportCountdown <= 0)
-                    {
-                        reportCountdown = reportInterval;
-                        _progress?.Report(("Pass 3: write-back", 96.0 + (double)idx / totalNodes * 1.5));
-                    }
-                }
-            }
-
-            _deepestInternalNodeOffset = deepestOffset;
-            _lrsDepth = maxLrsDepth;
-
-            // Dispose depth store after Pass 3 (needed for deepest node tracking)
-            if (_ownsDepthStore) _depthStore?.Dispose();
         }
-        finally
-        {
-            try { File.Delete(tempNodePath); } catch (IOException) { }
-            try { File.Delete(tempQueuePath); } catch (IOException) { }
-        }
+
+        _deepestInternalNodeOffset = deepestOffset;
+        _lrsDepth = maxLrsDepth;
+    }
+
+    private static void TryDeleteTempFile(string path)
+    {
+        try { File.Delete(path); } catch (IOException) { }
     }
 
 }
