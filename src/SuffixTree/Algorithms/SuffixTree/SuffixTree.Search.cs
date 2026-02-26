@@ -22,7 +22,7 @@ public partial class SuffixTree
     /// <inheritdoc />
     public bool Contains(string value)
     {
-        ArgumentNullException.ThrowIfNull(value);
+        SuffixTreeSearchContracts.EnsureNotNull(value, nameof(value));
         if (value.Length == 0) return true;
         return ContainsCore(value.AsSpan());
     }
@@ -80,13 +80,9 @@ public partial class SuffixTree
     /// <inheritdoc />
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
-        ArgumentNullException.ThrowIfNull(pattern);
+        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         if (pattern.Length == 0)
-        {
-            var all = new List<int>(_text.Length);
-            for (int m = 0; m < _text.Length; m++) all.Add(m);
-            return all;
-        }
+            return SuffixTreeSearchContracts.BuildAllStartPositions(_text.Length);
 
         var (node, matched) = MatchPatternCore(pattern.AsSpan());
         if (!matched) return Array.Empty<int>();
@@ -99,7 +95,7 @@ public partial class SuffixTree
     /// <inheritdoc />
     public int CountOccurrences(string pattern)
     {
-        ArgumentNullException.ThrowIfNull(pattern);
+        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         if (pattern.Length == 0) return _text.Length;
 
         var (node, matched) = MatchPatternCore(pattern.AsSpan());
@@ -152,11 +148,7 @@ public partial class SuffixTree
     public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern)
     {
         if (pattern.IsEmpty)
-        {
-            var all = new List<int>(_text.Length);
-            for (int m = 0; m < _text.Length; m++) all.Add(m);
-            return all;
-        }
+            return SuffixTreeSearchContracts.BuildAllStartPositions(_text.Length);
 
         var (node, matched) = MatchPatternCore(pattern);
         if (!matched) return Array.Empty<int>();

@@ -6,7 +6,7 @@ public sealed partial class PersistentSuffixTree
     public bool Contains(string value)
     {
         ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(value);
+        SuffixTreeSearchContracts.EnsureNotNull(value, nameof(value));
         if (value.Length == 0) return true;
         return Contains(value.AsSpan());
     }
@@ -24,7 +24,7 @@ public sealed partial class PersistentSuffixTree
     public IReadOnlyList<int> FindAllOccurrences(string pattern)
     {
         ThrowIfDisposed();
-        if (pattern == null) throw new ArgumentNullException(nameof(pattern));
+        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         return FindAllOccurrences(pattern.AsSpan());
     }
 
@@ -33,11 +33,7 @@ public sealed partial class PersistentSuffixTree
     {
         ThrowIfDisposed();
         if (pattern.IsEmpty)
-        {
-            var all = new List<int>(_textSource.Length);
-            for (int i = 0; i < _textSource.Length; i++) all.Add(i);
-            return all;
-        }
+            return SuffixTreeSearchContracts.BuildAllStartPositions(_textSource.Length);
 
         var (node, matched, depthFromRoot) = MatchPatternCore(pattern);
         if (!matched) return Array.Empty<int>();
@@ -51,7 +47,7 @@ public sealed partial class PersistentSuffixTree
     public int CountOccurrences(string pattern)
     {
         ThrowIfDisposed();
-        if (pattern == null) throw new ArgumentNullException(nameof(pattern));
+        SuffixTreeSearchContracts.EnsureNotNull(pattern, nameof(pattern));
         return CountOccurrences(pattern.AsSpan());
     }
 
