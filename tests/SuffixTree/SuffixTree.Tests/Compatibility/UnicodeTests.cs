@@ -17,13 +17,13 @@ namespace SuffixTree.Tests.Compatibility
         [Test]
         public void Build_WithCyrillicText_Works()
         {
-            var st = SuffixTree.Build("привет мир");
+            var st = SuffixTree.Build("привіт світ");
 
             Assert.Multiple(() =>
             {
-                Assert.That(st.Text, Is.EqualTo("привет мир"));
-                Assert.That(st.Contains("привет"), Is.True);
-                Assert.That(st.Contains("мир"), Is.True);
+                Assert.That(st.Text, Is.EqualTo("привіт світ"));
+                Assert.That(st.Contains("привіт"), Is.True);
+                Assert.That(st.Contains("світ"), Is.True);
             });
         }
 
@@ -56,14 +56,14 @@ namespace SuffixTree.Tests.Compatibility
         [Test]
         public void Build_WithMixedScripts_Works()
         {
-            var text = "Hello世界Привет";
+            var text = "Hello世界Привіт";
             var st = SuffixTree.Build(text);
 
             Assert.Multiple(() =>
             {
                 Assert.That(st.Contains("Hello"), Is.True);
                 Assert.That(st.Contains("世界"), Is.True);
-                Assert.That(st.Contains("Привет"), Is.True);
+                Assert.That(st.Contains("Привіт"), Is.True);
                 Assert.That(st.Contains("o世界П"), Is.True, "Cross-script substring");
             });
         }

@@ -1,5 +1,5 @@
-# Скрипт проверки целостности рефакторинга
-# Запускать до и после рефакторинга для сравнения
+# Скрипт перевірки цілісності рефакторингу
+# Запускати до і після рефакторингу для порівняння
 
 param(
     [string]$SourcePath = "src/Seqeron",
@@ -22,7 +22,7 @@ function Get-ProjectMetrics {
         TotalTestFiles = 0
     }
     
-    # Исходные файлы
+    # Вихідні файли
     $sourceFiles = Get-ChildItem -Path $Path -Recurse -Filter "*.cs" |
         Where-Object { $_.FullName -notmatch "\\obj\\" -and $_.FullName -notmatch "\\bin\\" }
     
@@ -57,28 +57,28 @@ Write-Host "Refactoring Integrity Check" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Получаем метрики
+# Отримуємо метрики
 Write-Host "Collecting source file metrics..." -ForegroundColor Yellow
 $sourceMetrics = Get-ProjectMetrics -Path $SourcePath
 
 Write-Host "Collecting test file metrics..." -ForegroundColor Yellow
 $testMetrics = Get-TestMetrics -Path $TestsPath
 
-# Объединяем
+# Об'єднуємо
 $allMetrics = @{
     Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Source = $sourceMetrics
     Tests = $testMetrics
 }
 
-# Выводим результаты
+# Виводимо результати
 Write-Host ""
 Write-Host "SOURCE FILES:" -ForegroundColor Green
 Write-Host "  Total files: $($sourceMetrics.TotalSourceFiles)"
 Write-Host "  Total lines: $($sourceMetrics.TotalSourceLines)"
 Write-Host ""
 
-# Группируем по папкам
+# Групуємо за папками
 $byFolder = $sourceMetrics.SourceFiles | Group-Object { Split-Path (Split-Path $_.Path) -Leaf }
 foreach ($folder in $byFolder | Sort-Object Name) {
     $folderLines = ($folder.Group | Measure-Object -Property Lines -Sum).Sum
@@ -89,14 +89,14 @@ Write-Host ""
 Write-Host "TEST FILES:" -ForegroundColor Green
 Write-Host "  Total test files: $($testMetrics.TotalTestFiles)"
 
-# Сохраняем baseline если нужно
+# Зберігаємо baseline за потреби
 if ($SaveBaseline) {
     $allMetrics | ConvertTo-Json -Depth 10 | Set-Content -Path $BaselineFile
     Write-Host ""
     Write-Host "Baseline saved to: $BaselineFile" -ForegroundColor Yellow
 }
 
-# Сравниваем с baseline если существует
+# Порівнюємо з baseline, якщо існує
 if (Test-Path $BaselineFile) {
     Write-Host ""
     Write-Host "COMPARISON WITH BASELINE:" -ForegroundColor Cyan
@@ -115,7 +115,7 @@ if (Test-Path $BaselineFile) {
     Write-Host "  Source lines: $($sourceMetrics.TotalSourceLines) (baseline: $($baseline.Source.TotalSourceLines), diff: $linesDiff)" -ForegroundColor $linesColor
     Write-Host "  Test files:   $($testMetrics.TotalTestFiles) (baseline: $($baseline.Tests.TotalTestFiles), diff: $testsDiff)" -ForegroundColor $testsColor
     
-    # Проверяем, что ничего не потерялось
+    # Перевіряємо, що нічого не втрачено
     if ($filesDiff -ne 0) {
         Write-Host ""
         Write-Host "WARNING: Source file count changed!" -ForegroundColor Red

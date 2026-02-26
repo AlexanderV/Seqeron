@@ -1,5 +1,5 @@
-# Скрипт миграции using-директив в тестах
-# Запускать после переноса всех файлов в новые пакеты
+# Скрипт міграції using-директив у тестах
+# Запускати після перенесення всіх файлів у нові пакети
 
 param(
     [string]$TestsPath = "tests",
@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Маппинг старых using на новые
+# Мапінг старих using на нові
 $usingMappings = @"
 using Seqeron.Genomics.Core;
 using Seqeron.Genomics.IO;
@@ -31,10 +31,10 @@ function Update-UsingDirectives {
     
     $content = Get-Content $FilePath -Raw
     
-    # Проверяем, есть ли using Seqeron.Genomics;
+    # Перевіряємо, чи є using Seqeron.Genomics;
     if ($content -match "using Seqeron\.Genomics;") {
         
-        # Заменяем using Seqeron.Genomics; на новые using
+        # Замінюємо using Seqeron.Genomics; на нові using
         $newContent = $content -replace "using Seqeron\.Genomics;", $usingMappings
         
         if ($DryRun) {
@@ -50,7 +50,7 @@ function Update-UsingDirectives {
     return $false
 }
 
-# Найти все .cs файлы в тестах
+# Знайти всі .cs файли у тестах
 $testFiles = Get-ChildItem -Path $TestsPath -Recurse -Filter "*.cs" |
     Where-Object { $_.FullName -notmatch "\\obj\\" -and $_.FullName -notmatch "\\bin\\" }
 
