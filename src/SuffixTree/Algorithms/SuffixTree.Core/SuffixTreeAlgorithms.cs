@@ -30,7 +30,8 @@ public static class SuffixTreeAlgorithms
         where TNav : struct, ISuffixTreeNavigator<TNode>
     {
         ArgumentNullException.ThrowIfNull(other);
-        if (other.Length == 0 || nav.Text.Length == 0)
+        ReadOnlySpan<char> otherSpan = other.AsSpan();
+        if (otherSpan.Length == 0 || nav.Text.Length == 0)
             return (string.Empty, new List<int>(), new List<int>());
 
         int maxLen = 0;
@@ -47,91 +48,18 @@ public static class SuffixTreeAlgorithms
         // completion (+edgeLen), and rescan (+edgeLen per full edge).
         int currentNodeDepth = 0;
 
-        for (int i = 0; i < other.Length; i++)
+        for (int i = 0; i < otherSpan.Length; i++)
         {
-            int c = other[i];
+            int c = otherSpan[i];
 
             while (true)
             {
-                if (!nav.IsNull(currentEdge))
-                {
-                    if (nav.GetEdgeSymbol(currentEdge, edgeOffset) == c)
-                    {
-                        edgeOffset++;
-                        currentMatchLen++;
-                        if (edgeOffset >= nav.LengthOf(currentEdge))
-                        {
-                            currentNodeDepth += nav.LengthOf(currentEdge);
-                            currentNode = currentEdge;
-                            currentEdge = nav.NullNode;
-                            edgeOffset = 0;
-                        }
-                        break;
-                    }
-                }
-                else
-                {
-                    if (nav.TryGetChild(currentNode, c, out var nextChild) && !nav.IsNull(nextChild))
-                    {
-                        currentEdge = nextChild;
-                        edgeOffset = 1;
-                        currentMatchLen++;
-                        if (edgeOffset >= nav.LengthOf(currentEdge))
-                        {
-                            currentNodeDepth += nav.LengthOf(currentEdge);
-                            currentNode = currentEdge;
-                            currentEdge = nav.NullNode;
-                            edgeOffset = 0;
-                        }
-                        break;
-                    }
-                }
+                if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
+                    break;
 
                 // Cannot extend — follow suffix link
                 if (currentMatchLen == 0) break;
-
-                if (!nav.IsRoot(currentNode))
-                {
-                    currentNode = nav.GetSuffixLink(currentNode);
-                    currentNodeDepth--;
-                }
-                currentMatchLen--;
-
-                // Rescan from currentNode to restore edge position
-                int nodeDepth = currentNodeDepth;
-                int remaining = currentMatchLen - nodeDepth;
-
-                if (remaining > 0)
-                {
-                    int pos = i - remaining;
-                    currentEdge = nav.NullNode;
-                    edgeOffset = 0;
-
-                    while (remaining > 0)
-                    {
-                        if (!nav.TryGetChild(currentNode, other[pos], out var nc) || nav.IsNull(nc))
-                            break;
-                        int edgeLen = nav.LengthOf(nc);
-                        if (edgeLen <= remaining)
-                        {
-                            pos += edgeLen;
-                            remaining -= edgeLen;
-                            currentNodeDepth += edgeLen;
-                            currentNode = nc;
-                        }
-                        else
-                        {
-                            currentEdge = nc;
-                            edgeOffset = remaining;
-                            remaining = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    currentEdge = nav.NullNode;
-                    edgeOffset = 0;
-                }
+                FollowSuffixLinkAndRescan(ref nav, otherSpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
             }
 
             // Track best matches
@@ -170,7 +98,7 @@ public static class SuffixTreeAlgorithms
             int positionInOther = match.MatchEndInOther - maxLen + 1;
             // When multiple distinct substrings share the same maximal length,
             // report positions only for the canonical returned substring.
-            if (!other.AsSpan(positionInOther, maxLen).SequenceEqual(substring.AsSpan()))
+            if (!otherSpan.Slice(positionInOther, maxLen).SequenceEqual(substring.AsSpan()))
                 continue;
 
             positionsInOther.Add(positionInOther);
@@ -206,7 +134,8 @@ public static class SuffixTreeAlgorithms
         where TNav : struct, ISuffixTreeNavigator<TNode>
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.Length == 0 || nav.Text.Length == 0 || minLength <= 0)
+        ReadOnlySpan<char> querySpan = query.AsSpan();
+        if (querySpan.Length == 0 || nav.Text.Length == 0 || minLength <= 0)
             return Array.Empty<(int, int, int)>();
 
         var results = new List<(int PositionInText, int PositionInQuery, int Length)>();
@@ -223,90 +152,18 @@ public static class SuffixTreeAlgorithms
         TNode peakNode = nav.NullNode;
         int peakDepthFromRoot = 0;
 
-        for (int i = 0; i < query.Length; i++)
+        for (int i = 0; i < querySpan.Length; i++)
         {
-            int c = query[i];
+            int c = querySpan[i];
 
             while (true)
             {
-                if (!nav.IsNull(currentEdge))
-                {
-                    if (nav.GetEdgeSymbol(currentEdge, edgeOffset) == c)
-                    {
-                        edgeOffset++;
-                        currentMatchLen++;
-                        if (edgeOffset >= nav.LengthOf(currentEdge))
-                        {
-                            currentNodeDepth += nav.LengthOf(currentEdge);
-                            currentNode = currentEdge;
-                            currentEdge = nav.NullNode;
-                            edgeOffset = 0;
-                        }
-                        break;
-                    }
-                }
-                else
-                {
-                    if (nav.TryGetChild(currentNode, c, out var nextChild) && !nav.IsNull(nextChild))
-                    {
-                        currentEdge = nextChild;
-                        edgeOffset = 1;
-                        currentMatchLen++;
-                        if (edgeOffset >= nav.LengthOf(currentEdge))
-                        {
-                            currentNodeDepth += nav.LengthOf(currentEdge);
-                            currentNode = currentEdge;
-                            currentEdge = nav.NullNode;
-                            edgeOffset = 0;
-                        }
-                        break;
-                    }
-                }
+                if (TryConsumeSymbol(ref nav, c, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth))
+                    break;
 
                 // Cannot extend — follow suffix link
                 if (currentMatchLen == 0) break;
-
-                if (!nav.IsRoot(currentNode))
-                {
-                    currentNode = nav.GetSuffixLink(currentNode);
-                    currentNodeDepth--;
-                }
-                currentMatchLen--;
-
-                int nodeDepth = currentNodeDepth;
-                int remaining = currentMatchLen - nodeDepth;
-
-                if (remaining > 0)
-                {
-                    int pos = i - remaining;
-                    currentEdge = nav.NullNode;
-                    edgeOffset = 0;
-
-                    while (remaining > 0)
-                    {
-                        if (!nav.TryGetChild(currentNode, query[pos], out var nc) || nav.IsNull(nc))
-                            break;
-                        int edgeLen = nav.LengthOf(nc);
-                        if (edgeLen <= remaining)
-                        {
-                            pos += edgeLen;
-                            remaining -= edgeLen;
-                            currentNodeDepth += edgeLen;
-                            currentNode = nc;
-                        }
-                        else
-                        {
-                            currentEdge = nc;
-                            edgeOffset = remaining;
-                            remaining = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    currentEdge = nav.NullNode;
-                    edgeOffset = 0;
-                }
+                FollowSuffixLinkAndRescan(ref nav, querySpan, i, ref currentNode, ref currentEdge, ref edgeOffset, ref currentMatchLen, ref currentNodeDepth);
             }
 
             // Update peak tracking
@@ -338,6 +195,104 @@ public static class SuffixTreeAlgorithms
         }
 
         return results;
+    }
+
+    private static bool TryConsumeSymbol<TNode, TNav>(
+        ref TNav nav,
+        int symbol,
+        ref TNode currentNode,
+        ref TNode currentEdge,
+        ref int edgeOffset,
+        ref int currentMatchLen,
+        ref int currentNodeDepth)
+        where TNav : struct, ISuffixTreeNavigator<TNode>
+    {
+        if (!nav.IsNull(currentEdge))
+        {
+            if (nav.GetEdgeSymbol(currentEdge, edgeOffset) != symbol)
+                return false;
+
+            edgeOffset++;
+            currentMatchLen++;
+            if (edgeOffset >= nav.LengthOf(currentEdge))
+            {
+                currentNodeDepth += nav.LengthOf(currentEdge);
+                currentNode = currentEdge;
+                currentEdge = nav.NullNode;
+                edgeOffset = 0;
+            }
+            return true;
+        }
+
+        if (!nav.TryGetChild(currentNode, symbol, out var nextChild) || nav.IsNull(nextChild))
+            return false;
+
+        currentEdge = nextChild;
+        edgeOffset = 1;
+        currentMatchLen++;
+        if (edgeOffset >= nav.LengthOf(currentEdge))
+        {
+            currentNodeDepth += nav.LengthOf(currentEdge);
+            currentNode = currentEdge;
+            currentEdge = nav.NullNode;
+            edgeOffset = 0;
+        }
+
+        return true;
+    }
+
+    private static void FollowSuffixLinkAndRescan<TNode, TNav>(
+        ref TNav nav,
+        ReadOnlySpan<char> source,
+        int sourceIndex,
+        ref TNode currentNode,
+        ref TNode currentEdge,
+        ref int edgeOffset,
+        ref int currentMatchLen,
+        ref int currentNodeDepth)
+        where TNav : struct, ISuffixTreeNavigator<TNode>
+    {
+        if (!nav.IsRoot(currentNode))
+        {
+            currentNode = nav.GetSuffixLink(currentNode);
+            currentNodeDepth--;
+        }
+        currentMatchLen--;
+
+        int nodeDepth = currentNodeDepth;
+        int remaining = currentMatchLen - nodeDepth;
+
+        if (remaining > 0)
+        {
+            int pos = sourceIndex - remaining;
+            currentEdge = nav.NullNode;
+            edgeOffset = 0;
+
+            while (remaining > 0)
+            {
+                if (!nav.TryGetChild(currentNode, source[pos], out var nc) || nav.IsNull(nc))
+                    break;
+                int edgeLen = nav.LengthOf(nc);
+                if (edgeLen <= remaining)
+                {
+                    pos += edgeLen;
+                    remaining -= edgeLen;
+                    currentNodeDepth += edgeLen;
+                    currentNode = nc;
+                }
+                else
+                {
+                    currentEdge = nc;
+                    edgeOffset = remaining;
+                    remaining = 0;
+                }
+            }
+        }
+        else
+        {
+            currentEdge = nav.NullNode;
+            edgeOffset = 0;
+        }
     }
 
     private static void EmitAnchor<TNode, TNav>(
