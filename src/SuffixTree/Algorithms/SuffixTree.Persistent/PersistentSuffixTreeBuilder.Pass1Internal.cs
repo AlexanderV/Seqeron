@@ -63,11 +63,11 @@ public partial class PersistentSuffixTreeBuilder
             {
                 while (ci >= 0 && childCount < cBufMax)
                 {
-                    long entryOff = ci * CHILD_ENTRY_SIZE;
-                    cKeys[childCount] = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
-                    cOffs[childCount] = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
+                    _childStoreAdapter.ReadEntry((int)ci, out uint entryKey, out int nextIndex, out long entryChildOffset);
+                    cKeys[childCount] = entryKey;
+                    cOffs[childCount] = entryChildOffset;
                     childCount++;
-                    ci = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
+                    ci = nextIndex;
                 }
             }
         }

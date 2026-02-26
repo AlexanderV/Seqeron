@@ -25,6 +25,8 @@ public partial class PersistentSuffixTreeBuilder
     private readonly IStorageProvider _storage;
     private readonly MappedFileStorageProvider? _mmfStorage;   // non-null when storage is MMF — enables unchecked fast-path
     private readonly MappedFileStorageProvider? _mmfChildStore; // non-null when child storage is MMF
+    private readonly ChildStoreAdapter _childStoreAdapter;
+    private readonly DepthStoreAdapter _depthStoreAdapter;
     private readonly NodeLayout _initialLayout;  // layout before any transition (always the compact variant)
     private NodeLayout _layout;                // switches Compact → Large on overflow
     private long _compactOffsetLimit = NodeLayout.CompactMaxOffset;
@@ -242,6 +244,7 @@ public partial class PersistentSuffixTreeBuilder
             _ownsChildStore = true;
         }
         _mmfChildStore = _childStore as MappedFileStorageProvider;
+        _childStoreAdapter = new ChildStoreAdapter(_childStore, _mmfChildStore);
 
         // Off-heap depth storage (DepthFromRoot not stored in node)
         if (depthStorage != null)
@@ -255,6 +258,7 @@ public partial class PersistentSuffixTreeBuilder
             _ownsDepthStore = true;
         }
         _mmfDepthStore = _depthStore as MappedFileStorageProvider;
+        _depthStoreAdapter = new DepthStoreAdapter(_depthStore, _mmfDepthStore);
 
         // Allocate header (88 bytes).
         _storage.Allocate(HeaderSize);
