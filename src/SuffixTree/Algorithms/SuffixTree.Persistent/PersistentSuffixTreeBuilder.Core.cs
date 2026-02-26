@@ -345,9 +345,7 @@ public partial class PersistentSuffixTreeBuilder
     private uint GetBuildDepth(long nodeOffset)
     {
         long off = (long)NodeIndex(nodeOffset) * 4;
-        if (_mmfDepthStore != null)
-            return _mmfDepthStore.ReadUInt32Unchecked(off);
-        return _depthStore!.ReadUInt32(off);
+        return _depthStoreAdapter.ReadUInt32(off);
     }
 
     /// <summary>Writes DepthFromRoot for a node to off-heap depth store.</summary>
@@ -356,11 +354,7 @@ public partial class PersistentSuffixTreeBuilder
     {
         int idx = NodeIndex(nodeOffset);
         long off = (long)idx * 4;
-        while (_depthStore!.Size < off + 4)
-            _depthStore.Allocate(4);
-        if (_mmfDepthStore != null)
-            _mmfDepthStore.WriteUInt32Unchecked(off, value);
-        else
-            _depthStore.WriteUInt32(off, value);
+        _depthStoreAdapter.EnsureSizeAtLeast(off + 4);
+        _depthStoreAdapter.WriteUInt32(off, value);
     }
 }

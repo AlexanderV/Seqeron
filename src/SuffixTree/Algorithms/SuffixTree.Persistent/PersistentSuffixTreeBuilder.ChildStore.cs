@@ -31,35 +31,16 @@ public partial class PersistentSuffixTreeBuilder
         }
 
         // Walk linked list in child store — fast-path for MMF child store
-        if (_mmfChildStore != null)
+        int idx = (int)headIndex;
+        while (idx >= 0)
         {
-            int idx = (int)headIndex;
-            while (idx >= 0)
+            _childStoreAdapter.ReadEntry(idx, out uint entryKey, out int nextIndex, out long entryChildOffset);
+            if (entryKey == key)
             {
-                long entryOff = (long)idx * CHILD_ENTRY_SIZE;
-                uint entryKey = _mmfChildStore.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
-                if (entryKey == key)
-                {
-                    childOffset = _mmfChildStore.ReadInt64Unchecked(entryOff + CE_OFF_CHILD);
-                    return true;
-                }
-                idx = _mmfChildStore.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
+                childOffset = entryChildOffset;
+                return true;
             }
-        }
-        else
-        {
-            int idx = (int)headIndex;
-            while (idx >= 0)
-            {
-                long entryOff = (long)idx * CHILD_ENTRY_SIZE;
-                uint entryKey = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
-                if (entryKey == key)
-                {
-                    childOffset = _childStore.ReadInt64(entryOff + CE_OFF_CHILD);
-                    return true;
-                }
-                idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
-            }
+            idx = nextIndex;
         }
 
         childOffset = PersistentConstants.NULL_OFFSET;
@@ -91,54 +72,24 @@ public partial class PersistentSuffixTreeBuilder
         // Check if key already exists (edge split replaces child pointer)
         if (headIndex != PersistentConstants.NULL_OFFSET)
         {
-            if (_mmfChildStore != null)
+            int idx = (int)headIndex;
+            while (idx >= 0)
             {
-                int idx = (int)headIndex;
-                while (idx >= 0)
+                _childStoreAdapter.ReadEntry(idx, out uint entryKey, out int nextIndex, out _);
+                if (entryKey == key)
                 {
-                    long entryOff = (long)idx * CHILD_ENTRY_SIZE;
-                    uint entryKey = _mmfChildStore.ReadUInt32Unchecked(entryOff + CE_OFF_KEY);
-                    if (entryKey == key)
-                    {
-                        _mmfChildStore.WriteInt64Unchecked(entryOff + CE_OFF_CHILD, childOffset);
-                        return;
-                    }
-                    idx = _mmfChildStore.ReadInt32Unchecked(entryOff + CE_OFF_NEXT);
+                    _childStoreAdapter.WriteChildOffset(idx, childOffset);
+                    return;
                 }
-            }
-            else
-            {
-                int idx = (int)headIndex;
-                while (idx >= 0)
-                {
-                    long entryOff = (long)idx * CHILD_ENTRY_SIZE;
-                    uint entryKey = _childStore.ReadUInt32(entryOff + CE_OFF_KEY);
-                    if (entryKey == key)
-                    {
-                        _childStore.WriteInt64(entryOff + CE_OFF_CHILD, childOffset);
-                        return;
-                    }
-                    idx = _childStore.ReadInt32(entryOff + CE_OFF_NEXT);
-                }
+                idx = nextIndex;
             }
         }
 
         // New child — allocate entry and prepend to linked list
-        long newOff = _childStore.Allocate(CHILD_ENTRY_SIZE);
-        int newIndex = (int)(newOff / CHILD_ENTRY_SIZE);
-
-        if (_mmfChildStore != null)
-        {
-            _mmfChildStore.WriteUInt32Unchecked(newOff + CE_OFF_KEY, key);
-            _mmfChildStore.WriteInt32Unchecked(newOff + CE_OFF_NEXT, headIndex == PersistentConstants.NULL_OFFSET ? -1 : (int)headIndex);
-            _mmfChildStore.WriteInt64Unchecked(newOff + CE_OFF_CHILD, childOffset);
-        }
-        else
-        {
-            _childStore.WriteUInt32(newOff + CE_OFF_KEY, key);
-            _childStore.WriteInt32(newOff + CE_OFF_NEXT, headIndex == PersistentConstants.NULL_OFFSET ? -1 : (int)headIndex);
-            _childStore.WriteInt64(newOff + CE_OFF_CHILD, childOffset);
-        }
+        int newIndex = _childStoreAdapter.AddEntry(
+            headIndex == PersistentConstants.NULL_OFFSET ? -1 : (int)headIndex,
+            key,
+            childOffset);
 
         // Update node's head pointer to the new entry index
         if (isCompactMmf)
