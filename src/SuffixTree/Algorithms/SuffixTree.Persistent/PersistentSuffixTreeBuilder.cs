@@ -32,19 +32,15 @@ public partial class PersistentSuffixTreeBuilder
     private ITextSource _text = new StringTextSource(string.Empty);
     private string? _rawString;
     private int _nodeCount;
+    private readonly HybridTransitionState _hybridTransitionState = new();
+    private readonly UkkonenRuntimeState _ukkonenRuntimeState = new();
 
     // Hybrid continuation state
-    private long _transitionOffset = -1;       // -1 = no transition (pure Compact or pure Large)
-    private long _jumpTableStart = -1;         // start of contiguous jump table
-    private long _jumpTableEnd = -1;           // end of the jump table area
     // Jump offsets for child arrays are stored directly in each compact internal
     // node's LeafCount field during MaterializeJumpTable (zero extra RAM).
 
     // Jump table reserve: block pre-allocated within the compact zone at transition time.
     // This ensures jump entry offsets fit in uint32 fields of compact-zone nodes.
-    private long _compactNodesEnd = -1;          // offset after last compact node (before jump reserve)
-    private long _jumpTableReserveStart = -1;    // start of pre-reserved jump table block
-    private long _jumpTableReserveEnd = -1;      // end of pre-reserved jump table block
     private const int JUMP_TABLE_MIN_RESERVE = 16 * 1024 * 1024; // 16 MB floor for small trees
     private const int JUMP_TABLE_RESERVE_FRACTION = 4;            // reserve 1/4 (25%) of compact zone
     // NOTE: 25% is needed because ALL compact internal nodes require jump slots —
@@ -52,12 +48,6 @@ public partial class PersistentSuffixTreeBuilder
     // and their offsets cannot fit in the compact uint32 ChildrenHead field.
 
     // Algorithm state
-    private long _activeNodeOffset;
-    private int _activeEdgeIndex;
-    private int _activeLength;
-    private int _remainder;
-    private int _position = -1;
-    private long _lastCreatedInternalNodeOffset = PersistentConstants.NULL_OFFSET;
     private bool _built;
 
     // Off-heap child storage: linked lists in a separate IStorageProvider.
@@ -125,6 +115,79 @@ public partial class PersistentSuffixTreeBuilder
 
     /// <summary>Whether a compact→large transition occurred during the build.</summary>
     internal bool IsHybrid => _transitionOffset >= 0;
+
+    // Accessors preserving the existing field names while storing state in dedicated containers.
+    private long _transitionOffset
+    {
+        get => _hybridTransitionState.TransitionOffset;
+        set => _hybridTransitionState.TransitionOffset = value;
+    }
+
+    private long _jumpTableStart
+    {
+        get => _hybridTransitionState.JumpTableStart;
+        set => _hybridTransitionState.JumpTableStart = value;
+    }
+
+    private long _jumpTableEnd
+    {
+        get => _hybridTransitionState.JumpTableEnd;
+        set => _hybridTransitionState.JumpTableEnd = value;
+    }
+
+    private long _compactNodesEnd
+    {
+        get => _hybridTransitionState.CompactNodesEnd;
+        set => _hybridTransitionState.CompactNodesEnd = value;
+    }
+
+    private long _jumpTableReserveStart
+    {
+        get => _hybridTransitionState.JumpTableReserveStart;
+        set => _hybridTransitionState.JumpTableReserveStart = value;
+    }
+
+    private long _jumpTableReserveEnd
+    {
+        get => _hybridTransitionState.JumpTableReserveEnd;
+        set => _hybridTransitionState.JumpTableReserveEnd = value;
+    }
+
+    private long _activeNodeOffset
+    {
+        get => _ukkonenRuntimeState.ActiveNodeOffset;
+        set => _ukkonenRuntimeState.ActiveNodeOffset = value;
+    }
+
+    private int _activeEdgeIndex
+    {
+        get => _ukkonenRuntimeState.ActiveEdgeIndex;
+        set => _ukkonenRuntimeState.ActiveEdgeIndex = value;
+    }
+
+    private int _activeLength
+    {
+        get => _ukkonenRuntimeState.ActiveLength;
+        set => _ukkonenRuntimeState.ActiveLength = value;
+    }
+
+    private int _remainder
+    {
+        get => _ukkonenRuntimeState.Remainder;
+        set => _ukkonenRuntimeState.Remainder = value;
+    }
+
+    private int _position
+    {
+        get => _ukkonenRuntimeState.Position;
+        set => _ukkonenRuntimeState.Position = value;
+    }
+
+    private long _lastCreatedInternalNodeOffset
+    {
+        get => _ukkonenRuntimeState.LastCreatedInternalNodeOffset;
+        set => _ukkonenRuntimeState.LastCreatedInternalNodeOffset = value;
+    }
 
     /// <summary>Number of cross-zone suffix links deferred to the jump table during build.</summary>
     internal int CrossZoneSuffixLinkCount { get; private set; }
