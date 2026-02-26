@@ -46,59 +46,113 @@ namespace SuffixTree.Tests.Core
         #region PrintTree
 
         [Test]
-        public void PrintTree_EmptyTree_ShowsRootOnly()
+        public void PrintTree_EmptyTree_HasOnlyRootNodeLine()
         {
             var st = SuffixTree.Build("");
             var result = st.PrintTree();
-            // Should contain at least the root indicator
-            Assert.That(result, Is.Not.Null.And.Not.Empty);
-            // Empty tree has very minimal output
-            Assert.That(result.Split('\n').Length, Is.LessThanOrEqualTo(5));
+            var parsed = ParsePrintTree(result);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(parsed.ContentLength, Is.EqualTo(0));
+                Assert.That(parsed.NodeLines.Count, Is.EqualTo(1));
+                Assert.That(parsed.NodeLines[0].Depth, Is.EqualTo(0));
+                Assert.That(parsed.NodeLines[0].Label, Is.EqualTo("ROOT"));
+            });
         }
 
-        [Test]
-        public void PrintTree_ShowsAllLeafPositions()
+        [TestCase("ab")]
+        [TestCase("banana")]
+        [TestCase("mississippi")]
+        public void PrintTree_NodeLinesMatchNodeCount_AndDepthIndentContract(string text)
         {
-            // "ab" has 2 suffixes: "ab" (pos 0) and "b" (pos 1)
-            var st = SuffixTree.Build("ab");
+            var st = SuffixTree.Build(text);
             var result = st.PrintTree();
+            var parsed = ParsePrintTree(result);
 
-            // PrintTree must show leaf information for each suffix
-            Assert.That(result, Is.Not.Null.And.Not.Empty);
-            Assert.That(result.Length, Is.GreaterThan(10),
-                "PrintTree for 'ab' should contain structural output");
+            Assert.Multiple(() =>
+            {
+                Assert.That(parsed.ContentLength, Is.EqualTo(text.Length));
+                Assert.That(parsed.NodeLines.Count, Is.EqualTo(st.NodeCount),
+                    "Each tree node must be printed exactly once");
+                Assert.That(parsed.NodeLines[0].Label, Is.EqualTo("ROOT"));
+                Assert.That(parsed.NodeLines[0].Depth, Is.EqualTo(0));
+                Assert.That(parsed.NodeLines.All(line => line.IndentSpaces == line.Depth * 2), Is.True,
+                    "Indentation must be exactly 2 spaces per depth level");
+            });
         }
 
-        [Test]
-        public void PrintTree_MultipleChildren_ShowsTree()
+        [TestCase("ab")]
+        [TestCase("banana")]
+        [TestCase("mississippi")]
+        public void PrintTree_NonEmptyTree_LeafLineCountMatchesLeafCountPlusTerminator(string text)
         {
-            // "abc" forces 3 distinct first chars at root → 3 children
-            var st = SuffixTree.Build("abc");
+            var st = SuffixTree.Build(text);
             var result = st.PrintTree();
-            var lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            // Root + at least 3 leaf paths
-            Assert.That(lines.Length, Is.GreaterThanOrEqualTo(3));
+            var parsed = ParsePrintTree(result);
+            int leafLines = parsed.NodeLines.Count(line => line.IsLeaf);
+
+            Assert.That(leafLines, Is.EqualTo(st.LeafCount + 1),
+                "Printed leaves include explicit terminator leaf in addition to API LeafCount");
         }
 
         [Test]
-        public void PrintTree_InternalNodes_RecursesIntoChildren()
+        public void PrintTree_FirstLevelChildren_AreSortedByLeadingSymbol()
         {
-            // "banana" has internal (non-leaf) nodes that themselves have children.
-            // This exercises the recursion branch: if (!child.IsLeaf && child.ChildCount > 0)
             var st = SuffixTree.Build("banana");
-            var result = st.PrintTree();
-            var lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var parsed = ParsePrintTree(st.PrintTree());
+            var depth1Leading = parsed.NodeLines
+                .Where(line => line.Depth == 1)
+                .Select(line => line.Label[0])
+                .ToArray();
 
-            // "banana" (7 chars with terminator) must produce a tree deeper than 1 level
-            // Internal nodes like 'a' → {'n', '#'} and 'n' → {'a', '#'} create multi-level output
-            Assert.That(lines.Length, Is.GreaterThanOrEqualTo(st.NodeCount),
-                "PrintTree output should have at least as many lines as nodes");
-
-            // Verify depth markers > 1 exist (internal node children produce depth >= 2)
-            bool hasDepth2 = lines.Any(l => l.TrimStart().StartsWith("2:") || l.TrimStart().StartsWith("3:"));
-            Assert.That(hasDepth2, Is.True,
-                "PrintTree for 'banana' must recurse into internal nodes, showing depth >= 2");
+            var sorted = depth1Leading.OrderBy(ch => ch).ToArray();
+            Assert.That(depth1Leading, Is.EqualTo(sorted),
+                "Root children must be printed in deterministic sorted order");
         }
+
+        private static ParsedPrintTree ParsePrintTree(string output)
+        {
+            var lines = output
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static line => line.TrimEnd('\r'))
+                .ToArray();
+            Assert.That(lines.Length, Is.GreaterThanOrEqualTo(2), "PrintTree output must contain header and root");
+            Assert.That(lines[0], Does.StartWith("Content length: "));
+
+            int contentLength = int.Parse(lines[0]["Content length: ".Length..], System.Globalization.CultureInfo.InvariantCulture);
+            var nodeLines = new List<PrintedNodeLine>();
+
+            foreach (string line in lines.Skip(1))
+            {
+                int colon = line.IndexOf(':');
+                if (colon <= 0)
+                    continue;
+
+                string depthPart = line[..colon].Trim();
+                if (!int.TryParse(depthPart, out int depth))
+                    continue;
+
+                int indentSpaces = line.TakeWhile(ch => ch == ' ').Count();
+                string content = line[(colon + 1)..].TrimStart();
+
+                bool isLeaf = content.EndsWith(" (Leaf)", StringComparison.Ordinal);
+                if (isLeaf)
+                    content = content[..^" (Leaf)".Length];
+
+                int linkMarker = content.IndexOf(" -> [", StringComparison.Ordinal);
+                if (linkMarker >= 0)
+                    content = content[..linkMarker];
+
+                nodeLines.Add(new PrintedNodeLine(depth, indentSpaces, content, isLeaf));
+            }
+
+            return new ParsedPrintTree(contentLength, nodeLines);
+        }
+
+        private sealed record PrintedNodeLine(int Depth, int IndentSpaces, string Label, bool IsLeaf);
+
+        private sealed record ParsedPrintTree(int ContentLength, IReadOnlyList<PrintedNodeLine> NodeLines);
 
         #endregion
 

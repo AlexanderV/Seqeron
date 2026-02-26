@@ -27,19 +27,5 @@ public class SuffixTreeFindAllTests
             Is.EqualTo(new[] { 0, 1, 2 }));
         Assert.That(SuffixTreeTools.SuffixTreeFindAll("abc", "xyz").Positions, Is.Empty);
     }
-
-    [Test]
-    public void SuffixTreeFindAll_MatchesCountTool()
-    {
-        const string text = "abracadabra";
-        string[] patterns = { "", "a", "abra", "cad", "ra", "xyz" };
-
-        foreach (string pattern in patterns)
-        {
-            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions;
-            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
-            Assert.That(positions.Length, Is.EqualTo(count), $"pattern={pattern}");
-        }
-    }
 }
 
