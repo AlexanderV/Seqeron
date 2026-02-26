@@ -28,6 +28,20 @@ public static class PersistentSuffixTreeFactory
     public static ISuffixTree Create(ITextSource text, string? filePath = null,
         IProgress<(string Stage, double Percent)>? progress = null)
     {
+        return CreatePersistent(text, filePath, progress);
+    }
+
+    /// <summary>
+    /// Creates a new persistent suffix tree and returns the concrete disposable type,
+    /// so callers can use <c>using var tree = ...</c> without casting.
+    /// </summary>
+    /// <param name="text">The text source to build the tree from.</param>
+    /// <param name="filePath">Optional file path for MMF storage.</param>
+    /// <param name="progress">Optional progress reporter: (Stage, Percent 0–100).</param>
+    /// <returns>A concrete <see cref="PersistentSuffixTree"/> instance.</returns>
+    public static PersistentSuffixTree CreatePersistent(ITextSource text, string? filePath = null,
+        IProgress<(string Stage, double Percent)>? progress = null)
+    {
         ArgumentNullException.ThrowIfNull(text);
         return CreateCore(text, filePath, NodeLayout.CompactMaxOffset, progress);
     }
@@ -37,7 +51,7 @@ public static class PersistentSuffixTreeFactory
     /// Starts with Compact layout; if the tree outgrows the limit, the builder
     /// transitions to Large layout mid-build (hybrid continuation).
     /// </summary>
-    internal static ISuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit,
+    internal static PersistentSuffixTree CreateCore(ITextSource text, string? filePath, long compactOffsetLimit,
         IProgress<(string Stage, double Percent)>? progress = null)
     {
         var storage = CreateStorage(filePath, text.Length);
@@ -103,6 +117,17 @@ public static class PersistentSuffixTreeFactory
     /// <param name="filePath">The path to the existing suffix tree file.</param>
     /// <returns>An implementation of ISuffixTree.</returns>
     public static ISuffixTree Load(string filePath)
+    {
+        return LoadPersistent(filePath);
+    }
+
+    /// <summary>
+    /// Loads an existing persistent suffix tree and returns the concrete disposable type,
+    /// so callers can use <c>using var tree = ...</c> without casting.
+    /// </summary>
+    /// <param name="filePath">The path to the existing suffix tree file.</param>
+    /// <returns>A concrete <see cref="PersistentSuffixTree"/> instance.</returns>
+    public static PersistentSuffixTree LoadPersistent(string filePath)
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentException("File path must be provided.", nameof(filePath));
