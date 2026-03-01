@@ -121,9 +121,9 @@ TandemRepeatSummary GetTandemRepeatSummary(
 
 ### Current Implementation
 
-- Uses brute-force O(n²) approach (simple, correct, suitable for moderate sequences)
+- Uses brute-force O(n² × m) approach with direct string comparison
 - Reports non-overlapping results by skipping to end of detected repeats
-- Does not use suffix tree optimization (ASSUMPTION: direct string comparison chosen for clarity)
+- Wikipedia (Tandem repeat) notes that suffix trees/arrays can detect tandem repeats efficiently; the current implementation uses direct comparison for correctness and simplicity at moderate sequence lengths
 
 ### Edge Cases
 
@@ -149,13 +149,17 @@ TandemRepeatSummary GetTandemRepeatSummary(
 ## Sources
 
 1. **Wikipedia - Tandem repeat**: https://en.wikipedia.org/wiki/Tandem_repeat
-   - Definition, terminology, detection methods, biological significance
+   - Definition, terminology, detection via suffix trees/arrays, biological significance
+   - 8% of human genome; >50 diseases including Huntington's
 
 2. **Wikipedia - Microsatellite (Short tandem repeat)**: https://en.wikipedia.org/wiki/Microsatellite
-   - Classification (1-6 bp), mutation mechanisms (slippage), applications (forensics, disease)
-   - Richard et al. (2008) - Comparative genomics of DNA repeats
+   - Classification: 1–6 bp (up to 10 bp by some authors; Richard et al. 2008)
+   - Mutation via replication slippage (~1 per 1,000 generations)
+   - Forensic STRs are exclusively tetra-/pentanucleotide repeats
+   - Human genome: 50,000–100,000 dinucleotide loci; lesser tri-/tetra-/penta-
+   - Trinucleotide repeat disorders: Huntington's (CAG), Fragile X, Friedreich's ataxia (GAA)
 
-3. **Richard GF, Kerrest A, Dujon B (2008)**: "Comparative genomics and molecular dynamics of DNA repeats in eukaryotes" - Microbiology and Molecular Biology Reviews 72(4):686-727
+3. **Richard GF, Kerrest A, Dujon B (2008)**: "Comparative genomics and molecular dynamics of DNA repeats in eukaryotes" — Microbiology and Molecular Biology Reviews 72(4):686–727
    - Authoritative review on STR structure, function, and variation
 
 4. **Benson G (1999)**: Tandem Repeats Finder (TRF) algorithm - conceptual reference for detection approaches
