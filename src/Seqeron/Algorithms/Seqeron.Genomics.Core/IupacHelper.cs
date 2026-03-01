@@ -2,6 +2,8 @@ namespace Seqeron.Genomics.Core
 {
     /// <summary>
     /// Helper methods for IUPAC nucleotide code matching.
+    /// Implements the IUPAC-IUB 1970/NC-IUB 1984 nucleotide ambiguity code standard.
+    /// Only the 15 standard codes (A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V) are accepted.
     /// </summary>
     public static class IupacHelper
     {
@@ -28,7 +30,9 @@ namespace Seqeron.Genomics.Core
             'D' => nucleotide is 'A' or 'G' or 'T',   // not C
             'H' => nucleotide is 'A' or 'C' or 'T',   // not G
             'V' => nucleotide is 'A' or 'C' or 'G',   // not T
-            _ => nucleotide == iupacCode
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(iupacCode), iupacCode,
+                "Not a valid IUPAC nucleotide code. Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.")
         };
     }
 }
