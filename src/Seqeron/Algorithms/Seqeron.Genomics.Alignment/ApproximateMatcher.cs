@@ -192,9 +192,6 @@ namespace Seqeron.Genomics.Alignment
             if (s1 == null || s2 == null)
                 throw new ArgumentNullException(s1 == null ? nameof(s1) : nameof(s2));
 
-            s1 = s1.ToUpperInvariant();
-            s2 = s2.ToUpperInvariant();
-
             int m = s1.Length;
             int n = s2.Length;
 
