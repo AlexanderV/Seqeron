@@ -61,17 +61,6 @@ public class MotifFinderTests
     #region Degenerate Motif Finding Tests (Smoke - comprehensive tests in IupacMotifMatchingTests)
 
     // NOTE: Comprehensive IUPAC degenerate motif tests are in IupacMotifMatchingTests.cs (PAT-IUPAC-001)
-    // These tests are retained as smoke tests for MotifFinder API verification.
-
-    [Test]
-    [Description("Smoke: R (purine) pattern works via MotifFinder API")]
-    public void FindDegenerateMotif_PurineR_MatchesAG()
-    {
-        var sequence = new DnaSequence("ATGCATGC");
-        var matches = MotifFinder.FindDegenerateMotif(sequence, "RTG").ToList();
-
-        Assert.That(matches.Count, Is.EqualTo(2)); // ATG matches at 0 and 4
-    }
 
     [Test]
     [Description("Smoke: Y (pyrimidine) pattern works via MotifFinder API")]
@@ -92,27 +81,6 @@ public class MotifFinderTests
 
         Assert.That(matches.Count, Is.EqualTo(1));
         Assert.That(matches[0].MatchedSequence, Is.EqualTo("ATG"));
-    }
-
-    [Test]
-    [Description("Smoke: W (weak) pattern works via MotifFinder API")]
-    public void FindDegenerateMotif_WeakW_MatchesAT()
-    {
-        var sequence = new DnaSequence("ATATAT");
-        var matches = MotifFinder.FindDegenerateMotif(sequence, "WWW").ToList();
-
-        Assert.That(matches.Count, Is.EqualTo(4)); // All AT combinations
-    }
-
-    [Test]
-    [Description("Smoke: MatchedSequence property works correctly")]
-    public void FindDegenerateMotif_ReturnsMatchedSequence()
-    {
-        var sequence = new DnaSequence("CAGCTG");
-        var matches = MotifFinder.FindDegenerateMotif(sequence, "CANNTG").ToList();
-
-        Assert.That(matches.Count, Is.EqualTo(1));
-        Assert.That(matches[0].MatchedSequence, Is.EqualTo("CAGCTG"));
     }
 
     #endregion
@@ -343,13 +311,6 @@ public class MotifFinderTests
     }
 
     // NOTE: Canonical null test for FindDegenerateMotif is in IupacMotifMatchingTests.cs (PAT-IUPAC-001)
-    [Test]
-    [Description("Smoke: Null sequence throws ArgumentNullException")]
-    public void FindDegenerateMotif_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.FindDegenerateMotif(null!, "ATG").ToList());
-    }
 
     // NOTE: PWM null tests moved to MotifFinder_PWM_Tests.cs (PAT-PWM-001)
 
