@@ -54,10 +54,66 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-            var caRepeat = results.First(r => r.RepeatUnit == "CA" || r.RepeatUnit == "AC");
-            Assert.That(caRepeat.RepeatCount, Is.GreaterThanOrEqualTo(3));
-            Assert.That(caRepeat.RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("AC"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[0].Position, Is.EqualTo(2));
+            Assert.That(results[0].TotalLength, Is.EqualTo(10));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("CA"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[1].Position, Is.EqualTo(3));
+            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia - exact quote: "TATATATATA is a dinucleotide microsatellite".
+    /// Verifies detection using Wikipedia's canonical dinucleotide example.
+    /// Source: https://en.wikipedia.org/wiki/Microsatellite (Structures, locations, and functions)
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_WikipediaTataExample_DetectsDinucleotide()
+    {
+        // Exact Wikipedia example: "TATATATATA is a dinucleotide microsatellite"
+        // TA×5 = 10 bp
+        var sequence = new DnaSequence("TATATATATA");
+
+        var results = RepeatFinder.FindMicrosatellites(sequence, 2, 2, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("TA"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
+            Assert.That(results[0].TotalLength, Is.EqualTo(10));
+            Assert.That(results[0].Position, Is.EqualTo(0));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia - exact quote: "GTCGTCGTCGTCGTC is a trinucleotide microsatellite".
+    /// Verifies detection using Wikipedia's canonical trinucleotide example.
+    /// Source: https://en.wikipedia.org/wiki/Microsatellite (Structures, locations, and functions)
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_WikipediaGtcExample_DetectsTrinucleotide()
+    {
+        // Exact Wikipedia example: "GTCGTCGTCGTCGTC is a trinucleotide microsatellite"
+        // GTC×5 = 15 bp
+        var sequence = new DnaSequence("GTCGTCGTCGTCGTC");
+
+        var results = RepeatFinder.FindMicrosatellites(sequence, 3, 3, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("GTC"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
+            Assert.That(results[0].TotalLength, Is.EqualTo(15));
+            Assert.That(results[0].Position, Is.EqualTo(0));
         });
     }
 
@@ -75,11 +131,16 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-            var cagRepeat = results.First(r => r.RepeatUnit == "CAG");
-            Assert.That(cagRepeat.RepeatCount, Is.EqualTo(5));
-            Assert.That(cagRepeat.RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
-            Assert.That(cagRepeat.Position, Is.EqualTo(3));
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("GCA"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[0].Position, Is.EqualTo(2));
+            Assert.That(results[0].TotalLength, Is.EqualTo(15));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("CAG"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[1].Position, Is.EqualTo(3));
+            Assert.That(results[1].TotalLength, Is.EqualTo(15));
+            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
         });
     }
 
@@ -97,13 +158,40 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-            // GATA family includes rotations: GATA, ATAG, TAGA, AGAT
-            var gataRepeat = results.First(r =>
-                r.RepeatUnit == "GATA" || r.RepeatUnit == "ATAG" ||
-                r.RepeatUnit == "TAGA" || r.RepeatUnit == "AGAT");
-            Assert.That(gataRepeat.RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
-            Assert.That(gataRepeat.RepeatCount, Is.GreaterThanOrEqualTo(3));
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("AGAT"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(4));
+            Assert.That(results[0].Position, Is.EqualTo(1));
+            Assert.That(results[0].TotalLength, Is.EqualTo(16));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("GATA"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(4));
+            Assert.That(results[1].Position, Is.EqualTo(2));
+            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia History - the first microsatellite was characterized in 1984
+    /// by Weller, Jeffreys et al. as a polymorphic GGAT repeat in the human myoglobin gene.
+    /// Source: https://en.wikipedia.org/wiki/Microsatellite (History)
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_GgatMyoglobinRepeat_FirstEverCharacterizedMicrosatellite()
+    {
+        // GGAT is the historically first microsatellite ever described (Weller et al. 1984)
+        var sequence = new DnaSequence("AAGGATGGATGGATGGATAA");
+
+        var results = RepeatFinder.FindMicrosatellites(sequence, 4, 4, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("GGAT"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(4));
+            Assert.That(results[0].Position, Is.EqualTo(2));
+            Assert.That(results[0].TotalLength, Is.EqualTo(16));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Tetranucleotide));
         });
     }
 
@@ -145,9 +233,15 @@ public class RepeatFinder_Microsatellite_Tests
 
         var results = RepeatFinder.FindMicrosatellites(sequence, unitLength, unitLength, 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1), $"Should find at least one repeat of {unit}");
-        Assert.That(results.Any(r => r.RepeatType == expectedType),
-            Is.True, $"Should have a {expectedType} repeat");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1), $"Should find exactly one repeat of {unit}");
+            Assert.That(results[0].RepeatUnit, Is.EqualTo(unit), $"Unit should be {unit}");
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5), $"Count should be 5");
+            Assert.That(results[0].Position, Is.EqualTo(0), $"Position should be 0");
+            Assert.That(results[0].RepeatType, Is.EqualTo(expectedType), $"Type should be {expectedType}");
+            Assert.That(results[0].TotalLength, Is.EqualTo(unitLength * 5), $"TotalLength should be {unitLength * 5}");
+        });
     }
 
     #endregion
@@ -347,10 +441,16 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(results, Has.Count.GreaterThanOrEqualTo(2),
-                "Should find at least mononucleotide A and other repeats");
-            Assert.That(results.Any(r => r.RepeatUnit == "A" && r.RepeatCount >= 5),
-                Is.True, "Should find poly-A tract");
+            Assert.That(results, Has.Count.EqualTo(3));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("A"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(6));
+            Assert.That(results[0].Position, Is.EqualTo(0));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("AC"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(4));
+            Assert.That(results[1].Position, Is.EqualTo(15));
+            Assert.That(results[2].RepeatUnit, Is.EqualTo("CGT"));
+            Assert.That(results[2].RepeatCount, Is.EqualTo(3));
+            Assert.That(results[2].Position, Is.EqualTo(6));
         });
     }
 
@@ -367,6 +467,83 @@ public class RepeatFinder_Microsatellite_Tests
             Assert.That(results, Has.Count.EqualTo(1));
             Assert.That(results[0].RepeatUnit, Is.EqualTo("CAG"));
             Assert.That(results[0].RepeatCount, Is.EqualTo(4));
+        });
+    }
+
+    /// <summary>
+    /// M12: Redundant unit filtering — "ATAT" (4bp) should be reduced to "AT" (2bp) repeated more times.
+    /// Implementation skips units that are repetitions of smaller patterns (e.g., ATAT = AT×2).
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_RedundantUnitFiltering_ReportsSmallestUnit()
+    {
+        // ATATATAT = AT×4; searching unit range 2-4 should NOT report ATAT×2
+        var sequence = new DnaSequence("ATATATAT");
+
+        var results = RepeatFinder.FindMicrosatellites(sequence, 2, 4, 2).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1), "Should find exactly one repeat (AT, not ATAT)");
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("AT"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(4));
+            Assert.That(results[0].Position, Is.EqualTo(0));
+            Assert.That(results[0].TotalLength, Is.EqualTo(8));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Dinucleotide));
+        });
+    }
+
+    /// <summary>
+    /// S05: Non-standard characters (N) — DnaSequence rejects N (only ACGT valid),
+    /// but string overload processes raw characters without DNA alphabet validation.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_NonStandardCharacterN_DnaSequenceRejectsStringOverloadAccepts()
+    {
+        // DnaSequence constructor rejects N
+        Assert.Throws<ArgumentException>(() => new DnaSequence("AAANNNAAACGT"));
+
+        // String overload processes N as a regular character — finds repeats of A and N
+        var results = RepeatFinder.FindMicrosatellites("AAANNNAAACGT", 1, 6, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(3));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("A"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(3));
+            Assert.That(results[0].Position, Is.EqualTo(0));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("N"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(3));
+            Assert.That(results[1].Position, Is.EqualTo(3));
+            Assert.That(results[2].RepeatUnit, Is.EqualTo("A"));
+            Assert.That(results[2].RepeatCount, Is.EqualTo(3));
+            Assert.That(results[2].Position, Is.EqualTo(6));
+        });
+    }
+
+    /// <summary>
+    /// S06: Adjacent different repeat types are detected independently.
+    /// A poly-A tract followed immediately by CAG repeats should yield both.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_AdjacentDifferentRepeatTypes_DetectsBoth()
+    {
+        // A×5 immediately followed by CAG×3
+        var sequence = new DnaSequence("AAAAACAGCAGCAG");
+
+        var results = RepeatFinder.FindMicrosatellites(sequence, 1, 6, 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results[0].RepeatUnit, Is.EqualTo("A"));
+            Assert.That(results[0].RepeatCount, Is.EqualTo(5));
+            Assert.That(results[0].Position, Is.EqualTo(0));
+            Assert.That(results[0].RepeatType, Is.EqualTo(RepeatType.Mononucleotide));
+            Assert.That(results[1].RepeatUnit, Is.EqualTo("CAG"));
+            Assert.That(results[1].RepeatCount, Is.EqualTo(3));
+            Assert.That(results[1].Position, Is.EqualTo(5));
+            Assert.That(results[1].RepeatType, Is.EqualTo(RepeatType.Trinucleotide));
         });
     }
 
@@ -447,6 +624,39 @@ public class RepeatFinder_Microsatellite_Tests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             RepeatFinder.FindMicrosatellites(sequence, 1, 6, 1).ToList());
+    }
+
+    /// <summary>
+    /// String overload: minUnitLength < 1 should throw ArgumentOutOfRangeException.
+    /// Ensures API parity with DnaSequence overload.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_StringOverload_MinUnitLengthZero_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindMicrosatellites("ACGT", 0, 6, 3).ToList());
+    }
+
+    /// <summary>
+    /// String overload: maxUnitLength < minUnitLength should throw ArgumentOutOfRangeException.
+    /// Ensures API parity with DnaSequence overload.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_StringOverload_MaxLessThanMin_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindMicrosatellites("ACGT", 5, 4, 3).ToList());
+    }
+
+    /// <summary>
+    /// String overload: minRepeats < 2 should throw ArgumentOutOfRangeException.
+    /// Ensures API parity with DnaSequence overload.
+    /// </summary>
+    [Test]
+    public void FindMicrosatellites_StringOverload_MinRepeatsOne_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindMicrosatellites("ACGT", 1, 6, 1).ToList());
     }
 
     #endregion

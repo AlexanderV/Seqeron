@@ -68,6 +68,10 @@ public static class RepeatFinder
         int maxUnitLength = 6,
         int minRepeats = 3)
     {
+        if (minUnitLength < 1) throw new ArgumentOutOfRangeException(nameof(minUnitLength));
+        if (maxUnitLength < minUnitLength) throw new ArgumentOutOfRangeException(nameof(maxUnitLength));
+        if (minRepeats < 2) throw new ArgumentOutOfRangeException(nameof(minRepeats));
+
         if (string.IsNullOrEmpty(sequence))
             yield break;
 
@@ -86,6 +90,10 @@ public static class RepeatFinder
         CancellationToken cancellationToken,
         IProgress<double>? progress = null)
     {
+        if (minUnitLength < 1) throw new ArgumentOutOfRangeException(nameof(minUnitLength));
+        if (maxUnitLength < minUnitLength) throw new ArgumentOutOfRangeException(nameof(maxUnitLength));
+        if (minRepeats < 2) throw new ArgumentOutOfRangeException(nameof(minRepeats));
+
         return FindMicrosatellitesCancellable(
             sequence, minUnitLength, maxUnitLength, minRepeats, cancellationToken, progress);
     }
