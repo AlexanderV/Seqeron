@@ -209,10 +209,14 @@ public static IEnumerable<MotifMatch> FindDegenerateMotif(DnaSequence sequence, 
 ### Deviations from IUPAC Standard
 
 - None identified. Implementation follows IUPAC-IUB 1970/1984 specifications exactly.
+- Invalid (non-IUPAC) characters in patterns are rejected with `ArgumentException`.
+- `IupacHelper.MatchesIupac` throws `ArgumentOutOfRangeException` for unrecognized codes.
 
-### Assumptions
+### Contracts
 
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Sequence contains only uppercase A, C, G, T | DnaSequence class guarantees this |
-| A2 | Unknown pattern codes fall back to exact match | Safe default behavior |
+| Aspect | Guarantee | Mechanism |
+|--------|-----------|-----------|
+| Sequence normalization | Always uppercase A, C, G, T | `DnaSequence` validates at construction |
+| Pattern normalization | Uppercased before matching | `FindDegenerateMotif` calls `ToUpperInvariant()` |
+| Invalid pattern codes | Rejected with exception | Validated against 15 IUPAC codes |
+| Empty pattern | Returns empty collection | Standard empty-input contract |
