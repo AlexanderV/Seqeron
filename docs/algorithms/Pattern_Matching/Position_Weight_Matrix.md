@@ -2,7 +2,7 @@
 
 **Algorithm Group:** Pattern Matching
 **Test Unit:** PAT-PWM-001
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-03-01
 
 ---
 
@@ -41,13 +41,16 @@ $$PPM_{k,j} = \frac{PFM_{k,j}}{N}$$
 
 **Step 3: Position Weight Matrix (PWM) with Log-Odds**
 
-Convert to log-odds using background model:
+Apply pseudocounts to PFM, normalize, then convert to log-odds:
 
-$$PWM_{k,j} = \log_2\left(\frac{PPM_{k,j} + p}{b_k}\right)$$
+$$PPM_{k,j} = \frac{PFM_{k,j} + p}{N + |\Sigma| \cdot p}$$
+
+$$PWM_{k,j} = \log_2\left(\frac{PPM_{k,j}}{b_k}\right)$$
 
 Where:
-- p = pseudocount (typically 0.25)
-- b_k = background frequency (typically 0.25 for uniform)
+- p = pseudocount (configurable, default 0.25)
+- |Σ| = alphabet size (4 for DNA)
+- b_k = background frequency (0.25 for uniform DNA)
 
 ### 2.3 Pseudocounts (Nishida et al., 2008)
 
@@ -127,7 +130,7 @@ The `MotifFinder.ScanWithPwm()` method:
 - Slides PWM along sequence
 - Computes sum of position scores
 - Returns matches where score ≥ threshold
-- Skips positions with non-ACGT characters (ASSUMPTION)
+- Input is `DnaSequence` which guarantees only A,C,G,T
 
 ### 4.4 Edge Cases
 
@@ -136,8 +139,8 @@ The `MotifFinder.ScanWithPwm()` method:
 | Empty input | ArgumentException |
 | Unequal lengths | ArgumentException |
 | Single sequence | Valid PWM with high confidence |
-| Non-ACGT in training | Counted as 0 at that position |
-| Non-ACGT in scanning | Position skipped, match invalidated |
+| Non-ACGT in training | ArgumentException (strict validation) |
+| Sequence shorter than PWM | No matches (empty result) |
 
 ---
 
@@ -162,10 +165,10 @@ The `MotifFinder.ScanWithPwm()` method:
 
 ---
 
-## 7. ASSUMPTIONS
+## 7. Contracts
 
-| ID | Assumption | Rationale |
-|----|------------|-----------|
-| A1 | Background frequency 0.25 for all bases | Standard for DNA without GC bias |
-| A2 | Default pseudocount 0.25 | Implementation default |
-| A3 | Non-ACGT characters invalidate match | Implementation-specific |
+| ID | Contract | Source |
+|----|----------|--------|
+| C1 | Background frequency = 0.25 per base | Wikipedia: "0.25 for nucleotides" |
+| C2 | Pseudocount configurable (default 0.25) | API parameter |
+| C3 | Non-ACGT in training → ArgumentException | Strict validation |

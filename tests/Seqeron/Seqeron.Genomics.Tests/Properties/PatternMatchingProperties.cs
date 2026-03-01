@@ -68,7 +68,7 @@ public class PatternMatchingProperties
     {
         var dna = new DnaSequence("ACGTACGT");
         var matches = MotifFinder.FindDegenerateMotif(dna, "NNNN").ToList();
-        Assert.That(matches.Count, Is.GreaterThan(0), "'NNNN' should match everywhere");
+        Assert.That(matches.Count, Is.EqualTo(5), "'NNNN' on 8-char sequence has exactly 5 positions");
     }
 
     /// <summary>

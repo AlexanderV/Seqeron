@@ -5,7 +5,7 @@
 **Algorithm:** Position Weight Matrix (PWM)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-03-01
 
 ---
 
@@ -15,9 +15,9 @@
 
 | Source | URL | Accessed |
 |--------|-----|----------|
-| Wikipedia: Position weight matrix | https://en.wikipedia.org/wiki/Position_weight_matrix | 2026-01-22 |
+| Wikipedia: Position weight matrix | https://en.wikipedia.org/wiki/Position_weight_matrix | 2026-01-22 (verified 2026-03-01) |
 | Kel et al. (2003) MATCH: A tool for searching TF binding sites | https://pmc.ncbi.nlm.nih.gov/articles/PMC169193/ | 2026-01-22 |
-| Rosalind: Consensus and Profile | https://rosalind.info/problems/cons/ | 2026-01-22 |
+| Rosalind: Consensus and Profile | https://rosalind.info/problems/cons/ | 2026-01-22 (verified 2026-03-01) |
 | Nishida et al. (2008) Pseudocounts for transcription factor binding sites | Nucleic Acids Research 37(3):939-944 | Reference |
 | Stormo (2000) DNA binding sites: representation and discovery | Bioinformatics Review | Reference |
 
@@ -70,15 +70,18 @@ Where:
 
 #### Wikipedia PPM Example
 
-**Input Sequences (7 sequences of length 9):**
+**Input Sequences (10 sequences of length 9):**
 ```
 GAGGTAAAC
 TCCGTAAGT
 CAGGTTGGA
 ACAGTCAGT
-TAGGTTCAT
-TTAGGTACT
-GATGGTAAC
+TAGGTCATT
+TAGGTACTG
+ATGGTAACT
+CAGGTATAC
+TGTGTGAGT
+AAGGTAAGT
 ```
 
 **Expected PPM (Wikipedia):**
@@ -125,9 +128,9 @@ ATGGCACT
 | Threshold at boundary | Include/exclude based on >= | Implementation |
 | High threshold | Few or no matches | Definition |
 | Sequence shorter than PWM | No matches | Definition |
-| Non-ACGT characters | Skip position (score invalid) | Implementation |
-| Perfect match | MaxScore | Definition |
-| Worst match | MinScore | Definition |
+| Non-ACGT characters in training | ArgumentException | IUPAC-IUB: only A,C,G,T are valid bases |
+| Lowercase input | Case-insensitive matching | Guaranteed: CreatePwm calls ToUpperInvariant() |
+| Invalid IUPAC code in training | ArgumentException | Only standard bases accepted |
 | Null input | ArgumentNullException | Implementation contract |
 
 ---
@@ -152,37 +155,56 @@ ATGGCACT
 
 ### 3.1 Must Tests (Evidence-Based)
 
-| ID | Test Case | Expected | Source |
-|----|-----------|----------|--------|
-| M1 | Single sequence creates valid PWM | Length = sequence length, Consensus = sequence | Mathematical definition |
-| M2 | Multiple identical sequences create same PWM | Consensus = common sequence | Definition |
-| M3 | Consensus derives from highest scoring base at each position | Follows max rule | Wikipedia/Rosalind |
-| M4 | Empty sequences throws ArgumentException | Exception | Contract |
-| M5 | Unequal length sequences throws ArgumentException | Exception | Wikipedia requirement |
-| M6 | PWM MaxScore > MinScore for non-uniform matrix | MaxScore > MinScore | Definition |
-| M7 | Log-odds scores: perfect match gets max score at position | Verified numerically | Wikipedia formula |
-| M8 | ScanWithPwm finds exact trained sequence | Match found | Definition |
-| M9 | Threshold filters results correctly | Only scores >= threshold | Definition |
-| M10 | Null sequence in CreatePwm throws | ArgumentNullException | Contract |
-| M11 | Null sequence in ScanWithPwm throws | ArgumentNullException | Contract |
-| M12 | Null PWM in ScanWithPwm throws | ArgumentNullException | Contract |
-| M13 | PWM length matches input sequence length | pwm.Length = sequences[0].Length | Definition |
-| M14 | Rosalind CONS consensus test case | Consensus matches expected | Rosalind |
-| M15 | Non-ACGT characters in scanned sequence skip position | Match marked invalid | Implementation |
-| M16 | Sequence shorter than PWM returns no matches | Empty result | Definition |
+| ID | Test Case | Expected | Source | Test Method |
+|----|-----------|----------|--------|-------------|
+| M1 | Single sequence creates valid PWM | Length = sequence length, Consensus = sequence | Mathematical definition | `CreatePwm_SingleSequence_CreatesValidMatrix` |
+| M2 | Multiple identical sequences create same PWM | Consensus = common sequence | Definition | `CreatePwm_MultipleIdenticalSequences_CreatesSameConsensus` |
+| M3 | Consensus derives from highest scoring base at each position | Follows max rule | Wikipedia/Rosalind | `CreatePwm_MixedSequences_ConsensusFollowsMaxRule` |
+| M4 | Empty sequences throws ArgumentException | Exception | Contract | `CreatePwm_EmptySequences_ThrowsArgumentException` |
+| M5 | Unequal length sequences throws ArgumentException | Exception | Wikipedia requirement | `CreatePwm_UnequalLengths_ThrowsArgumentException` |
+| M6 | PWM MaxScore > MinScore for non-uniform matrix | MaxScore > MinScore (strict) | Definition | `Pwm_MaxScore_GreaterThanMinScore_ForNonUniform` |
+| M7 | Log-odds scores: perfect match gets max score at position | Verified numerically | Wikipedia formula | `Pwm_LogOdds_PerfectMatchGetsMaxPositionalScore` |
+| M8 | ScanWithPwm finds exact trained sequence | Match found | Definition | `ScanWithPwm_FindsTrainedSequence` |
+| M9 | Threshold filters results correctly | Only scores >= threshold, actual removal verified | Definition | `ScanWithPwm_ThresholdFiltersResults` |
+| M10 | Null sequence in CreatePwm throws | ArgumentNullException | Contract | `CreatePwm_NullSequences_ThrowsArgumentNullException` |
+| M11 | Null sequence in ScanWithPwm throws | ArgumentNullException | Contract | `ScanWithPwm_NullSequence_ThrowsArgumentNullException` |
+| M12 | Null PWM in ScanWithPwm throws | ArgumentNullException | Contract | `ScanWithPwm_NullPwm_ThrowsArgumentNullException` |
+| M13 | PWM length matches input sequence length | pwm.Length = sequences[0].Length | Definition | `Pwm_Length_MatchesInputSequenceLength` |
+| M14 | Rosalind CONS consensus test case | Consensus = "ATGCAACT" | Rosalind | `CreatePwm_RosalindCONS_TestCase` |
+| M15 | Non-ACGT characters in training sequences throw | ArgumentException | IUPAC-IUB 1970: only A,C,G,T | `CreatePwm_NonAcgtCharacters_ThrowsArgumentException` |
+| M16 | Sequence shorter than PWM returns no matches | Empty result | Definition | `ScanWithPwm_SequenceShorterThanPwm_ReturnsEmpty` |
+| M17 | Log-odds formula numerical verification | Exact matrix values match hand-calculation | Wikipedia formula | `Pwm_LogOddsFormula_NumericalVerification` |
+| M18 | Wikipedia 10-sequence example produces correct consensus and scores | Consensus="TAGGTAAGT", key log-odds verified | Wikipedia | `CreatePwm_WikipediaExample_ConsensusAndScoresMatchSource` |
+| M19 | Scanning score equals sum of positional log-odds | Score = Σ PWM[base,pos] | Wikipedia | `ScanWithPwm_ScoreEqualsSumOfLogOdds` |
+| M20 | Pseudocount = 0 produces -∞ for unseen bases | -∞ for unseen, 2.0 for observed | Wikipedia edge case | `CreatePwm_ZeroPseudocount_ProducesNegativeInfinity` |
+| M21 | Threshold boundary: score == threshold is included | >= semantics, not > | Definition | `ScanWithPwm_ThresholdBoundary_ExactScoreIncluded` |
 
 ### 3.2 Should Tests (Recommended)
 
-| ID | Test Case | Expected | Source |
-|----|-----------|----------|--------|
-| S1 | Pseudocount prevents zero probabilities | All scores finite | Wikipedia |
-| S2 | Case-insensitive input handling | Uppercase normalization | Implementation |
-| S3 | Multiple matches returned in order | Sorted by position | Implementation |
-| S4 | MatchedSequence property populated correctly | Substring at match position | Implementation |
-| S5 | Score property reflects log-odds sum | Numeric value | Wikipedia |
-| S6 | High threshold (near MaxScore) returns few matches | Filtered correctly | Definition |
+| ID | Test Case | Expected | Source | Test Method |
+|----|-----------|----------|--------|-------------|
+| S1 | Pseudocount prevents zero probabilities | All scores finite | Wikipedia/Nishida | `Pwm_Pseudocount_PreventsInfiniteScores` |
+| S2 | Case-insensitive input handling | Uppercase normalization | Guaranteed | `CreatePwm_LowercaseInput_NormalizesToUppercase` |
+| S3 | Multiple matches returned in position order | Sorted by position | Definition | `ScanWithPwm_ReturnsCorrectPositions` |
+| S4 | MatchedSequence property populated correctly | Substring at match position | Definition | `ScanWithPwm_ReturnsMatchedSequence` |
+| S5 | Score within valid range [MinScore, MaxScore] | All match scores in bounds | Wikipedia | `ScanWithPwm_ScoreWithinValidRange` |
+| S6 | High threshold (MaxScore) returns only perfect matches | Strict count reduction verified | Definition | `ScanWithPwm_HighThreshold_ReturnsFewerMatches` |
 
-### 3.3 Could Tests (Optional)
+### 3.3 Edge Case Tests
+
+| ID | Test Case | Expected | Test Method |
+|----|-----------|----------|-------------|
+| E1 | Uniform sequences: exact log-odds values | N=3, freq(A)=log2(3.25), others=-2.0 | `CreatePwm_UniformSequence_ExactLogOddsValues` |
+| E2 | Maximum entropy: equal frequency → all log-odds = 0 | MaxScore = MinScore = 0 | `CreatePwm_MaximumEntropy_AllLogOddsZero` |
+| E3 | Multiple overlapping matches all returned | AA in AAAAAA → 5 matches | `ScanWithPwm_MultipleMatchesSameScore_AllReturned` |
+
+### 3.4 Invariant Tests
+
+| ID | Test Case | Test Method |
+|----|-----------|-------------|
+| I1 | All PWM invariants hold (Length, Consensus, MaxScore≥MinScore, Matrix dims, finite scores, valid bases) | `Pwm_AllInvariants_HoldForValidInput` |
+
+### 3.5 Could Tests (Optional)
 
 | ID | Test Case | Expected | Notes |
 |----|-----------|----------|-------|
@@ -203,106 +225,96 @@ ATGGCACT
 
 ---
 
-## 5. Test Consolidation Plan
+## 5. Contracts
 
-### 5.1 Current State
-
-**Existing tests in MotifFinderTests.cs (PWM region):**
-- `CreatePwm_SingleSequence_CreatesMatrix` - basic happy path
-- `CreatePwm_MultipleSequences_CreatesAverageMatrix` - multiple input
-- `CreatePwm_EmptySequences_ThrowsException` - edge case
-- `CreatePwm_UnequalLengths_ThrowsException` - edge case
-- `ScanWithPwm_FindsExactMatch` - basic scanning
-- `ScanWithPwm_ReturnsScores` - score verification
-- `Pwm_MaxMinScore_Calculated` - property verification
-- `CreatePwm_NullSequences_ThrowsException` - null handling
-- `ScanWithPwm_NullSequence_ThrowsException` - null handling
-- `ScanWithPwm_NullPwm_ThrowsException` - null handling
-
-### 5.2 Consolidation Actions
-
-| Action | From | To | Rationale |
-|--------|------|-----|-----------|
-| Move & expand | MotifFinderTests.cs (#region PWM Tests) | MotifFinder_PWM_Tests.cs | Dedicated canonical test file |
-| Retain smoke tests | - | MotifFinderTests.cs | API verification (2-3 tests) |
-| Remove duplicates | - | - | None identified |
-| ~~Add missing~~ | - | ✅ Done | M14 (Rosalind), threshold tests, invariant tests — all added |
-
-### 5.3 Final Test Structure
-
-```
-MotifFinder_PWM_Tests.cs (Canonical - PAT-PWM-001)
-├── CreatePwm Construction Tests
-│   ├── CreatePwm_SingleSequence_CreatesValidMatrix
-│   ├── CreatePwm_MultipleIdenticalSequences_CreatesSameConsensus
-│   ├── CreatePwm_MixedSequences_CreatesExpectedConsensus
-│   ├── CreatePwm_RosalindCONS_TestCase
-│   ├── CreatePwm_EmptySequences_ThrowsArgumentException
-│   ├── CreatePwm_UnequalLengths_ThrowsArgumentException
-│   ├── CreatePwm_NullSequences_ThrowsArgumentNullException
-│   └── CreatePwm_CaseInsensitive_NormalizesToUppercase
-├── PWM Properties Tests
-│   ├── Pwm_Length_MatchesInputSequenceLength
-│   ├── Pwm_Consensus_HasCorrectLength
-│   ├── Pwm_MaxScore_GreaterThanOrEqualToMinScore
-│   ├── Pwm_Matrix_HasCorrectDimensions
-│   └── Pwm_LogOdds_PerfectMatchGetsMaxPositionalScore
-├── ScanWithPwm Tests
-│   ├── ScanWithPwm_FindsTrainedSequence
-│   ├── ScanWithPwm_ReturnsCorrectPositions
-│   ├── ScanWithPwm_ReturnsMatchedSequence
-│   ├── ScanWithPwm_ScoreWithinValidRange
-│   ├── ScanWithPwm_ThresholdFiltersResults
-│   ├── ScanWithPwm_HighThreshold_ReturnsFewerMatches
-│   ├── ScanWithPwm_SequenceShorterThanPwm_ReturnsEmpty
-│   ├── ScanWithPwm_NonAcgtCharacter_SkipsPosition
-│   ├── ScanWithPwm_NullSequence_ThrowsArgumentNullException
-│   └── ScanWithPwm_NullPwm_ThrowsArgumentNullException
-└── Invariant Tests
-    └── Pwm_AllInvariants_HoldForValidInput
-
-MotifFinderTests.cs (Smoke only - retained)
-└── #region PWM Tests (Smoke)
-    ├── CreatePwm_Smoke_ReturnsValidMatrix
-    └── ScanWithPwm_Smoke_FindsMatch
-```
+| ID | Contract | Guarantee Source |
+|----|----------|------------------|
+| C1 | Background frequency = 0.25 for each base | Wikipedia: "0.25 for nucleotides" (uniform) |
+| C2 | Pseudocount is a configurable parameter (default 0.25) | API: `CreatePwm(sequences, pseudocount: 0.25)` |
+| C3 | Non-ACGT characters in training sequences → ArgumentException | Strict validation (IUPAC-IUB: only A,C,G,T defined) |
+| C4 | Case-insensitive input | Guaranteed: `ToUpperInvariant()` in CreatePwm |
+| C5 | PWM formula: log2((count + p) / (N + 4p) / 0.25) | Wikipedia log-odds formula with Bayesian pseudocounts |
+| C6 | Score = sum of positional log-odds | Wikipedia: "adding (rather than multiplying) the relevant values" |
 
 ---
 
-## 6. ASSUMPTIONS
+## 6. Source Verification Audit (2026-03-01)
 
-| ID | Assumption | Rationale |
-|----|------------|-----------|
-| A1 | Default background frequency is 0.25 for each base | Standard for DNA (Wikipedia) |
-| A2 | Default pseudocount is 0.25 | Implementation default, reasonable (Nishida) |
-| A3 | Non-ACGT characters invalidate the position during scanning | Implementation-specific, not in sources |
-| A4 | Case-insensitive input normalization | Standard bioinformatics practice |
+### 6.1 Sources Fetched
+
+1. **Wikipedia: Position weight matrix** — Full article fetched. Confirms: PFM → PPM → PWM construction process, log-odds formula `log2(PPM / b_k)`, background b_k=0.25 for DNA, pseudocounts recommendation, additive scoring.
+2. **Rosalind: Consensus and Profile (CONS)** — Problem page fetched. Confirms: profile matrix = 4×n count matrix, consensus = most common symbol at each position. Sample dataset (7 sequences of length 8) and expected output verified.
+
+### 6.2 Cross-Reference Results
+
+| Element | Wikipedia | Rosalind | Implementation | Tests |
+|---------|-----------|----------|----------------|-------|
+| PFM counting | ✅ indicator function | ✅ count matrix | ✅ count loop | ✅ Rosalind test verifies consensus |
+| PPM normalization | ✅ divide by N | N/A (counts only) | ✅ `(count+p)/(N+4p)` | ✅ M17 numerical test |
+| Log-odds formula | ✅ `log2(PPM/b_k)` | N/A | ✅ `Math.Log2(freq/0.25)` | ✅ M17, M18 exact values |
+| Background = 0.25 | ✅ "0.25 for nucleotides" | N/A | ✅ hardcoded 0.25 | ✅ M17 verifies |
+| Pseudocounts | ✅ "Laplace estimators" | N/A | ✅ configurable, default 0.25 | ✅ S1 finiteness |
+| Additive scoring | ✅ "adding...the relevant values" | N/A | ✅ `score += pwm.Matrix[baseIndex, j]` | ✅ M19 sum verification |
+| Consensus = max at each position | ✅ implied by PPM | ✅ "most common symbol" | ✅ GenerateConsensus | ✅ M14 Rosalind, M18 Wikipedia |
+| Wikipedia PPM example | ✅ 10 sequences, 9 positions | N/A | N/A (reference only) | ✅ M18: 10 sequences, consensus + key scores |
+| Rosalind CONS example | N/A | ✅ 7 seqs, consensus "ATGCAACT" | N/A | ✅ M14 exact match |
+
+### 6.3 Discrepancies Found and Fixed
+
+| Discrepancy | Source | Fix |
+|-------------|--------|-----|
+| Spec listed "7 sequences of length 9" for Wikipedia example | Wikipedia uses 10 sequences | Fixed spec to list correct 10 sequences |
+| Spec sequences 5–7 were incorrectly transcribed | Verified against Wikipedia PFM | Fixed to match Wikipedia article |
+| CreatePwm silently ignored non-ACGT characters (A3) | No source justifies silent skip | Changed to throw ArgumentException |
+| Test M15 tested non-ACGT via DnaSequence (which rejects non-ACGT) | Dead test | Replaced with CreatePwm input validation test |
+| Algorithm doc formula showed `(PPM + p) / b_k` | Pseudocount applies to PFM, not PPM | Fixed formula in Position_Weight_Matrix.md |
 
 ---
 
-## 7. Open Questions
+## 7. Coverage Classification Audit
 
-None - all behaviors are documented in sources or marked as ASSUMPTIONS.
+### 7.1 Summary
+
+| Category | Count | Actions Taken |
+|----------|-------|---------------|
+| ❌ Missing | 2 | Added M20 (pseudocount=0 → -∞) and M21 (threshold boundary >= semantics) |
+| ⚠ Weak | 6 | Strengthened with exact values and concrete assertions |
+| 🔁 Duplicate | 2 | Removed `Pwm_Consensus_HasCorrectLength` (⊂ I1) and `Pwm_Matrix_HasCorrectDimensions` (⊂ I1) |
+| ✅ Covered | 21 | No changes needed |
+
+### 7.2 Missing Tests — Implemented
+
+| ID | Test | What Was Missing |
+|----|------|-----------------|
+| M20 | `CreatePwm_ZeroPseudocount_ProducesNegativeInfinity` | Edge case documented in spec but untested: pseudocount=0 → -∞ for unseen bases |
+| M21 | `ScanWithPwm_ThresholdBoundary_ExactScoreIncluded` | Threshold >= boundary never explicitly verified; score == threshold must be included |
+
+### 7.3 Weak Tests — Strengthened
+
+| Test | Problem | Fix |
+|------|---------|-----|
+| `Pwm_MaxScore_GreaterThanMinScore_ForNonUniform` | Used `>=` instead of `>` for non-uniform matrices | Changed to strict `Is.GreaterThan` |
+| `ScanWithPwm_ThresholdFiltersResults` | Never verified filtering actually removed matches | Added assertion: `filteredMatches.Count < allMatches.Count` with predictable data |
+| `ScanWithPwm_HighThreshold_ReturnsFewerMatches` | `LessThanOrEqualTo` allowed equal count | Changed to strict `GreaterThan`, exact count assertions, exact positions |
+| `ScanWithPwm_ReturnsCorrectPositions` | `EquivalentTo` (set equality) ignored position order | Changed to `Is.EqualTo` — verifies sorted position order |
+| `CreatePwm_UniformSequence_ExactLogOddsValues` | Only checked `MaxScore - MinScore > 0` | Full exact values: log2(3.25) for observed, -2.0 for unseen, at every position |
+| `CreatePwm_MaximumEntropy_AllLogOddsZero` | Only checked Length/Consensus.Length/MaxScore>=MinScore | All 16 matrix cells asserted = 0.0; MaxScore = MinScore = 0.0 |
+
+### 7.4 Duplicate Tests — Removed
+
+| Test | Reason |
+|------|--------|
+| `Pwm_Consensus_HasCorrectLength` | Subset of `Pwm_AllInvariants_HoldForValidInput` (Invariant 2) |
+| `Pwm_Matrix_HasCorrectDimensions` | Subset of `Pwm_AllInvariants_HoldForValidInput` (Invariant 4) |
+
+### 7.5 Final Test Count
+
+| File | Category | Count |
+|------|----------|-------|
+| `MotifFinder_PWM_Tests.cs` | Canonical (PAT-PWM-001) | 31 |
+| `MotifFinderTests.cs` | Smoke | 2 |
+| `PatternMatchingProperties.cs` | Property | 3 |
+| `PatternMatchingSnapshotTests.cs` | Snapshot | 1 |
+| **Total** | | **37** |
 
 ---
-
-## 8. Audit Results
-
-| Category | Count | Notes |
-|----------|-------|-------|
-| Covered | 16 | All tests implemented |
-| Missing | 0 | ~~Rosalind test case, threshold tests, invariants, edge cases~~ ✅ All added |
-| Weak | 0 | ~~Score verification~~ ✅ Strengthened |
-| Duplicate | 0 | None |
-| Incorrect | 0 | None |
-
----
-
-## 9. Validation Criteria
-
-- [ ] All Must tests pass
-- [ ] All Should tests pass
-- [ ] Zero warnings
-- [ ] Tests are deterministic
-- [ ] Single canonical test file for PWM
-- [ ] Smoke tests retained in MotifFinderTests.cs

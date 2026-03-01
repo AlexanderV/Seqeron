@@ -63,6 +63,25 @@ public static class MotifFinder
     };
 
     /// <summary>
+    /// Validates that all characters in a motif pattern are valid IUPAC codes.
+    /// </summary>
+    /// <param name="motifUpper">The uppercased motif pattern to validate.</param>
+    /// <exception cref="ArgumentException">Thrown when the pattern contains non-IUPAC characters.</exception>
+    private static void ValidateIupacPattern(string motifUpper)
+    {
+        for (int i = 0; i < motifUpper.Length; i++)
+        {
+            if (!IupacCodes.ContainsKey(motifUpper[i]))
+            {
+                throw new ArgumentException(
+                    $"Invalid IUPAC code '{motifUpper[i]}' at position {i} in motif pattern. " +
+                    "Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
+                    "motif");
+            }
+        }
+    }
+
+    /// <summary>
     /// Finds all occurrences of a degenerate motif using IUPAC codes.
     /// </summary>
     /// <param name="sequence">DNA sequence to search.</param>
@@ -75,6 +94,7 @@ public static class MotifFinder
 
         string seq = sequence.Sequence;
         string motifUpper = motif.ToUpperInvariant();
+        ValidateIupacPattern(motifUpper);
 
         for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
         {
@@ -84,14 +104,7 @@ public static class MotifFinder
                 char motifChar = motifUpper[j];
                 char seqChar = seq[i + j];
 
-                if (IupacCodes.TryGetValue(motifChar, out string? allowed))
-                {
-                    matches = allowed.Contains(seqChar);
-                }
-                else
-                {
-                    matches = motifChar == seqChar;
-                }
+                matches = IupacCodes[motifChar].Contains(seqChar);
             }
 
             if (matches)
@@ -142,6 +155,7 @@ public static class MotifFinder
 
         var seq = sequence.ToUpperInvariant();
         var motifUpper = motif.ToUpperInvariant();
+        ValidateIupacPattern(motifUpper);
         const int checkInterval = 1000;
 
         for (int i = 0; i <= seq.Length - motifUpper.Length; i++)
@@ -169,7 +183,9 @@ public static class MotifFinder
                     'H' => seqChar != 'G',
                     'V' => seqChar != 'T',
                     'N' => true,
-                    _ => motifChar == seqChar
+                    _ => throw new ArgumentException(
+                        $"Invalid IUPAC code '{motifChar}' in motif pattern. Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
+                        nameof(motif))
                 };
             }
 
@@ -206,6 +222,20 @@ public static class MotifFinder
         if (!seqList.All(s => s.Length == length))
             throw new ArgumentException("All sequences must have the same length.", nameof(sequences));
 
+        // Validate all sequences contain only A, C, G, T
+        for (int s = 0; s < seqList.Count; s++)
+        {
+            var seq = seqList[s];
+            for (int i = 0; i < seq.Length; i++)
+            {
+                if (seq[i] is not ('A' or 'C' or 'G' or 'T'))
+                    throw new ArgumentException(
+                        $"Invalid character '{seq[i]}' at position {i} in sequence {s}. " +
+                        "Only A, C, G, T are valid nucleotide characters.",
+                        nameof(sequences));
+            }
+        }
+
         var matrix = new double[4, length]; // A, C, G, T
         int count = seqList.Count;
 
@@ -220,11 +250,11 @@ public static class MotifFinder
                     'C' => 1,
                     'G' => 2,
                     'T' => 3,
-                    _ => -1
+                    _ => throw new InvalidOperationException(
+                        $"Unexpected character '{seq[i]}' passed validation.")
                 };
 
-                if (baseIndex >= 0)
-                    matrix[baseIndex, i]++;
+                matrix[baseIndex, i]++;
             }
         }
 

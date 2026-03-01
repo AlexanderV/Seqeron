@@ -151,7 +151,7 @@ public class MotifFinder_PWM_Tests
     }
 
     [Test]
-    [Description("Input is normalized to uppercase (ASSUMPTION: case insensitive)")]
+    [Description("Input is normalized to uppercase (CreatePwm calls ToUpperInvariant)")]
     public void CreatePwm_LowercaseInput_NormalizesToUppercase()
     {
         // Arrange
@@ -186,59 +186,25 @@ public class MotifFinder_PWM_Tests
     }
 
     [Test]
-    [Description("Consensus string length equals PWM length (invariant)")]
-    public void Pwm_Consensus_HasCorrectLength()
+    [Description("MaxScore > MinScore for non-uniform matrix (M6); MaxScore >= MinScore always")]
+    public void Pwm_MaxScore_GreaterThanMinScore_ForNonUniform()
     {
-        // Arrange
-        var sequences = new[] { "ATGCATGC" };
-
-        // Act
-        var pwm = MotifFinder.CreatePwm(sequences);
-
-        // Assert
-        Assert.That(pwm.Consensus.Length, Is.EqualTo(pwm.Length));
-    }
-
-    [Test]
-    [Description("MaxScore >= MinScore for all PWMs (invariant)")]
-    public void Pwm_MaxScore_GreaterThanOrEqualToMinScore()
-    {
-        // Arrange - test with various inputs
-        var testCases = new[]
+        // Arrange - non-uniform inputs where MaxScore must be strictly greater
+        var nonUniformCases = new[]
         {
-            new[] { "ATGC" },                           // Single
-            new[] { "AAAA" },                           // Uniform
+            new[] { "ATGC" },                           // Single — each position has one dominant base
+            new[] { "AAAA" },                           // All-A — A dominates, others are pseudocount-only
             new[] { "ATGC", "GCTA" },                   // Mixed
-            new[] { "ATAT", "TATA", "ATAT", "TATA" }    // Alternating
+            new[] { "ATAT", "TATA", "ATAT", "TATA" }    // Alternating — 2 bases dominate each position
         };
 
-        // Act & Assert
-        foreach (var sequences in testCases)
+        // Act & Assert — strict inequality for non-uniform distribution
+        foreach (var sequences in nonUniformCases)
         {
             var pwm = MotifFinder.CreatePwm(sequences);
-            Assert.That(pwm.MaxScore, Is.GreaterThanOrEqualTo(pwm.MinScore),
-                $"MaxScore should be >= MinScore for {string.Join(",", sequences)}");
+            Assert.That(pwm.MaxScore, Is.GreaterThan(pwm.MinScore),
+                $"MaxScore should be > MinScore for non-uniform: {string.Join(",", sequences)}");
         }
-    }
-
-    [Test]
-    [Description("Matrix has correct dimensions: 4 rows (A,C,G,T) x Length columns")]
-    public void Pwm_Matrix_HasCorrectDimensions()
-    {
-        // Arrange
-        var sequences = new[] { "ATGCATGC" };
-
-        // Act
-        var pwm = MotifFinder.CreatePwm(sequences);
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(pwm.Matrix.GetLength(0), Is.EqualTo(4),
-                "Matrix should have 4 rows for A, C, G, T");
-            Assert.That(pwm.Matrix.GetLength(1), Is.EqualTo(8),
-                "Matrix should have Length columns");
-        });
     }
 
     [Test]
@@ -283,6 +249,122 @@ public class MotifFinder_PWM_Tests
         }
     }
 
+    [Test]
+    [Description("PWM log-odds formula: log2((count + pseudocount) / (N + 4*pseudocount) / background) — Wikipedia")]
+    public void Pwm_LogOddsFormula_NumericalVerification()
+    {
+        // Arrange — single sequence "AG", pseudocount=0.25, background=0.25
+        // Hand-calculated using Wikipedia formula:
+        //   N=1, denom = 1 + 4*0.25 = 2.0
+        //   freq(A,0) = (1+0.25)/2 = 0.625  → log2(0.625/0.25) = log2(2.5) ≈ 1.32193
+        //   freq(C,0) = (0+0.25)/2 = 0.125  → log2(0.125/0.25) = log2(0.5)  = -1.0
+        //   freq(G,0) = 0.125                → -1.0
+        //   freq(T,0) = 0.125                → -1.0
+        //   freq(A,1) = 0.125                → -1.0
+        //   freq(G,1) = 0.625                → log2(2.5) ≈ 1.32193
+        var pwm = MotifFinder.CreatePwm(new[] { "AG" }, pseudocount: 0.25);
+
+        double expectedHigh = Math.Log2(2.5);   // ≈ 1.32193
+        double expectedLow = Math.Log2(0.5);    // = -1.0
+
+        Assert.Multiple(() =>
+        {
+            // Position 0: A observed
+            Assert.That(pwm.Matrix[0, 0], Is.EqualTo(expectedHigh).Within(1e-10), "A at pos 0");
+            Assert.That(pwm.Matrix[1, 0], Is.EqualTo(expectedLow).Within(1e-10), "C at pos 0");
+            Assert.That(pwm.Matrix[2, 0], Is.EqualTo(expectedLow).Within(1e-10), "G at pos 0");
+            Assert.That(pwm.Matrix[3, 0], Is.EqualTo(expectedLow).Within(1e-10), "T at pos 0");
+
+            // Position 1: G observed
+            Assert.That(pwm.Matrix[0, 1], Is.EqualTo(expectedLow).Within(1e-10), "A at pos 1");
+            Assert.That(pwm.Matrix[1, 1], Is.EqualTo(expectedLow).Within(1e-10), "C at pos 1");
+            Assert.That(pwm.Matrix[2, 1], Is.EqualTo(expectedHigh).Within(1e-10), "G at pos 1");
+            Assert.That(pwm.Matrix[3, 1], Is.EqualTo(expectedLow).Within(1e-10), "T at pos 1");
+
+            // MaxScore = 2 * log2(2.5), MinScore = 2 * log2(0.5)
+            Assert.That(pwm.MaxScore, Is.EqualTo(2 * expectedHigh).Within(1e-10), "MaxScore");
+            Assert.That(pwm.MinScore, Is.EqualTo(2 * expectedLow).Within(1e-10), "MinScore");
+
+            Assert.That(pwm.Consensus, Is.EqualTo("AG"), "Consensus");
+        });
+    }
+
+    [Test]
+    [Description("Wikipedia PPM example: 10 sequences produce correct consensus (Wikipedia)")]
+    public void CreatePwm_WikipediaExample_ConsensusAndScoresMatchSource()
+    {
+        // Wikipedia Position Weight Matrix article — 10 sequences of length 9
+        // Source: https://en.wikipedia.org/wiki/Position_weight_matrix
+        var sequences = new[]
+        {
+            "GAGGTAAAC",
+            "TCCGTAAGT",
+            "CAGGTTGGA",
+            "ACAGTCAGT",
+            "TAGGTCATT",
+            "TAGGTACTG",
+            "ATGGTAACT",
+            "CAGGTATAC",
+            "TGTGTGAGT",
+            "AAGGTAAGT"
+        };
+
+        // Wikipedia PPM (without pseudocounts):
+        //   A: 0.3 0.6 0.1 0.0 0.0 0.6 0.7 0.2 0.1
+        //   C: 0.2 0.2 0.1 0.0 0.0 0.2 0.1 0.1 0.2
+        //   G: 0.1 0.1 0.7 1.0 0.0 0.1 0.1 0.5 0.1
+        //   T: 0.4 0.1 0.1 0.0 1.0 0.1 0.1 0.2 0.6
+        //
+        // Position 4 is all G, position 5 is all T → highest scores there
+
+        var pwm = MotifFinder.CreatePwm(sequences, pseudocount: 0.25);
+
+        // Verify consensus: most frequent base at each position
+        // Pos 1:T(4)>A(3)>C(2)>G(1) → T; Pos 2:A(6); Pos 3:G(7); Pos 4:G(10);
+        // Pos 5:T(10); Pos 6:A(6); Pos 7:A(7); Pos 8:G(5); Pos 9:T(6)
+        Assert.That(pwm.Consensus, Is.EqualTo("TAGGTAAGT"),
+            "Consensus should match most frequent base at each position");
+
+        // Verify specific log-odds values for position 4 (all G, index 3)
+        // N=10, pseudocount=0.25, denom = 10 + 4*0.25 = 11
+        // G: (10+0.25)/11 = 10.25/11 → log2(10.25/11 / 0.25) = log2(10.25/2.75) ≈ 1.89849
+        // A,C,T: (0+0.25)/11 = 0.25/11 → log2(0.25/11 / 0.25) = log2(1/11) ≈ -3.45943
+        double expectedG4 = Math.Log2(10.25 / 11.0 / 0.25);
+        double expectedOther4 = Math.Log2(0.25 / 11.0 / 0.25);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pwm.Matrix[2, 3], Is.EqualTo(expectedG4).Within(1e-10),
+                "G at position 4 (all-G column)");
+            Assert.That(pwm.Matrix[0, 3], Is.EqualTo(expectedOther4).Within(1e-10),
+                "A at position 4 (unseen)");
+            Assert.That(pwm.Matrix[1, 3], Is.EqualTo(expectedOther4).Within(1e-10),
+                "C at position 4 (unseen)");
+            Assert.That(pwm.Matrix[3, 3], Is.EqualTo(expectedOther4).Within(1e-10),
+                "T at position 4 (unseen)");
+
+            Assert.That(pwm.Length, Is.EqualTo(9));
+        });
+    }
+
+    [Test]
+    [Description("Scanning score equals sum of positional log-odds (Wikipedia scoring rule)")]
+    public void ScanWithPwm_ScoreEqualsSumOfLogOdds()
+    {
+        // Arrange — build PWM from single sequence, scan with that sequence
+        // Score should equal MaxScore (sum of best log-odds at each position)
+        var pwm = MotifFinder.CreatePwm(new[] { "AG" }, pseudocount: 0.25);
+        var sequence = new DnaSequence("AG");
+
+        // Act
+        var matches = MotifFinder.ScanWithPwm(sequence, pwm, threshold: double.MinValue).ToList();
+
+        // Assert
+        Assert.That(matches.Count, Is.EqualTo(1));
+        Assert.That(matches[0].Score, Is.EqualTo(pwm.MaxScore).Within(1e-10),
+            "Perfect match score should equal MaxScore (Wikipedia: sum of log-odds)");
+    }
+
     #endregion
 
     #region ScanWithPwm Tests
@@ -315,10 +397,14 @@ public class MotifFinder_PWM_Tests
         // Act
         var matches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: 0).ToList();
 
-        // Assert - find the best scoring matches (which should be at ATGC positions)
+        // Assert — ATGC appears at positions 0 and 4, returned in position order (S3)
         var atgcMatches = matches.Where(m => m.MatchedSequence == "ATGC").ToList();
-        Assert.That(atgcMatches.Count, Is.GreaterThanOrEqualTo(2),
-            "Should find ATGC at positions 0 and 4");
+        Assert.Multiple(() =>
+        {
+            Assert.That(atgcMatches.Count, Is.EqualTo(2), "Should find ATGC at exactly positions 0 and 4");
+            Assert.That(atgcMatches.Select(m => m.Position), Is.EqualTo(new[] { 0, 4 }),
+                "Matches must be returned in position order");
+        });
     }
 
     [Test]
@@ -360,42 +446,57 @@ public class MotifFinder_PWM_Tests
     }
 
     [Test]
-    [Description("Threshold filters results correctly - only scores >= threshold returned")]
+    [Description("Threshold filters results correctly - only scores >= threshold returned (M9)")]
     public void ScanWithPwm_ThresholdFiltersResults()
     {
-        // Arrange
+        // Arrange — PWM trained on "AAAA", scanned against mixed sequence
         var pwm = MotifFinder.CreatePwm(new[] { "AAAA" });
         var targetSequence = new DnaSequence("AAAATTTTCCCCGGGG");
 
-        // Get all matches first
+        // Get all matches to establish baseline
         var allMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: double.MinValue).ToList();
+        Assert.That(allMatches.Count, Is.GreaterThan(0), "Precondition: must have matches at MinValue threshold");
 
-        // Set threshold to median score
-        double threshold = allMatches.Count > 0 ? allMatches.Average(m => m.Score) : 0;
+        // Use a threshold that definitely excludes some but not all: the max score minus epsilon
+        // Position 0 (AAAA) is perfect match with MaxScore; others score lower
+        double threshold = pwm.MaxScore - 0.001;
 
         // Act
         var filteredMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold).ToList();
 
-        // Assert
-        Assert.That(filteredMatches.All(m => m.Score >= threshold),
-            "All matches should have score >= threshold");
+        // Assert — verify actual filtering occurred AND all returned scores are >= threshold
+        Assert.Multiple(() =>
+        {
+            Assert.That(filteredMatches.Count, Is.LessThan(allMatches.Count),
+                "Filtering must actually remove some matches");
+            Assert.That(filteredMatches.Count, Is.GreaterThan(0),
+                "At least the perfect match should survive");
+            Assert.That(filteredMatches.All(m => m.Score >= threshold), Is.True,
+                "All returned matches must have score >= threshold");
+        });
     }
 
     [Test]
-    [Description("High threshold (near MaxScore) returns fewer matches")]
+    [Description("High threshold (MaxScore) returns only perfect matches (S6)")]
     public void ScanWithPwm_HighThreshold_ReturnsFewerMatches()
     {
-        // Arrange
+        // Arrange — ATGC appears at positions 0 and 12; non-ATGC windows in between
         var pwm = MotifFinder.CreatePwm(new[] { "ATGC" });
         var targetSequence = new DnaSequence("ATGCTTTTGCTAATGC");
 
         // Act
-        var lowThresholdMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: 0).ToList();
-        var highThresholdMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: pwm.MaxScore * 0.9).ToList();
+        var lowThresholdMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: double.MinValue).ToList();
+        var highThresholdMatches = MotifFinder.ScanWithPwm(targetSequence, pwm, threshold: pwm.MaxScore).ToList();
 
-        // Assert
-        Assert.That(highThresholdMatches.Count, Is.LessThanOrEqualTo(lowThresholdMatches.Count),
-            "Higher threshold should return same or fewer matches");
+        // Assert — strict fewer: high threshold filters out non-perfect matches
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowThresholdMatches.Count, Is.GreaterThan(highThresholdMatches.Count),
+                "Low threshold must return more matches than MaxScore threshold");
+            Assert.That(highThresholdMatches.Count, Is.EqualTo(2),
+                "Only positions 0 and 12 are exact ATGC matches");
+            Assert.That(highThresholdMatches.Select(m => m.Position), Is.EqualTo(new[] { 0, 12 }));
+        });
     }
 
     [Test]
@@ -414,22 +515,15 @@ public class MotifFinder_PWM_Tests
     }
 
     [Test]
-    [Description("Non-ACGT characters skip position during scanning (ASSUMPTION)")]
-    public void ScanWithPwm_NonAcgtCharacter_SkipsPosition()
+    [Description("Non-ACGT characters in training sequences throw ArgumentException (IUPAC-IUB: only A,C,G,T)")]
+    public void CreatePwm_NonAcgtCharacters_ThrowsArgumentException()
     {
-        // Arrange
-        var pwm = MotifFinder.CreatePwm(new[] { "ATGC" });
-        // Note: DnaSequence may not accept N, so we test with implementation behavior
-        // This test verifies the implementation handles unexpected characters
+        // Arrange — N is an IUPAC ambiguity code, not a valid base for PWM training
+        var sequences = new[] { "ATNG" };
 
-        // Use a sequence where scanning logic would encounter the issue
-        var targetSequence = new DnaSequence("ATGCATGC");  // Valid sequence
-
-        // Act - should not throw
-        var matches = MotifFinder.ScanWithPwm(targetSequence, pwm).ToList();
-
-        // Assert
-        Assert.That(matches, Is.Not.Null);
+        // Act & Assert
+        var ex = Assert.Throws<ArgumentException>(() => MotifFinder.CreatePwm(sequences));
+        Assert.That(ex!.Message, Does.Contain("Invalid character"));
     }
 
     [Test]
@@ -512,30 +606,48 @@ public class MotifFinder_PWM_Tests
     #region Additional Edge Cases
 
     [Test]
-    [Description("PWM from sequences with uniform base at all positions")]
-    public void CreatePwm_UniformSequence_HasHighMaxScore()
+    [Description("PWM from uniform sequences: exact log-odds values (N=3, pseudocount=0.25)")]
+    public void CreatePwm_UniformSequence_ExactLogOddsValues()
     {
-        // Arrange - all A's
+        // Arrange — 3 identical "AAAA" sequences
+        // N=3, p=0.25, denom=3+4*0.25=4.0
+        // freq(A) = (3+0.25)/4 = 0.8125 → log2(0.8125/0.25) = log2(3.25) ≈ 1.70044
+        // freq(C,G,T) = (0+0.25)/4 = 0.0625 → log2(0.0625/0.25) = log2(0.25) = -2.0
         var sequences = new[] { "AAAA", "AAAA", "AAAA" };
 
         // Act
         var pwm = MotifFinder.CreatePwm(sequences);
 
-        // Assert
+        double expectedHigh = Math.Log2(3.25);  // ≈ 1.70044
+        double expectedLow = -2.0;               // log2(0.25)
+
+        // Assert — exact values at every position
         Assert.Multiple(() =>
         {
             Assert.That(pwm.Consensus, Is.EqualTo("AAAA"));
-            // MaxScore should be much higher than MinScore for uniform input
-            Assert.That(pwm.MaxScore - pwm.MinScore, Is.GreaterThan(0),
-                "Difference between max and min should be significant");
+            for (int pos = 0; pos < 4; pos++)
+            {
+                Assert.That(pwm.Matrix[0, pos], Is.EqualTo(expectedHigh).Within(1e-10),
+                    $"A at pos {pos}");
+                Assert.That(pwm.Matrix[1, pos], Is.EqualTo(expectedLow).Within(1e-10),
+                    $"C at pos {pos}");
+                Assert.That(pwm.Matrix[2, pos], Is.EqualTo(expectedLow).Within(1e-10),
+                    $"G at pos {pos}");
+                Assert.That(pwm.Matrix[3, pos], Is.EqualTo(expectedLow).Within(1e-10),
+                    $"T at pos {pos}");
+            }
+            Assert.That(pwm.MaxScore, Is.EqualTo(4 * expectedHigh).Within(1e-10), "MaxScore");
+            Assert.That(pwm.MinScore, Is.EqualTo(4 * expectedLow).Within(1e-10), "MinScore");
         });
     }
 
     [Test]
-    [Description("PWM handles sequences with different bases at each position")]
-    public void CreatePwm_DifferentBasesAtEachPosition_ProducesValidPwm()
+    [Description("Maximum entropy: equal frequency at all positions → all log-odds = 0")]
+    public void CreatePwm_MaximumEntropy_AllLogOddsZero()
     {
-        // Arrange - maximum diversity
+        // Arrange — each column has exactly one A, C, G, T (maximum diversity)
+        // N=4, p=0.25, denom = 4 + 4*0.25 = 5.0
+        // Each base: freq = (1+0.25)/5 = 0.25 → log2(0.25/0.25) = 0.0
         var sequences = new[]
         {
             "ACGT",
@@ -547,12 +659,20 @@ public class MotifFinder_PWM_Tests
         // Act
         var pwm = MotifFinder.CreatePwm(sequences);
 
-        // Assert - should still produce valid PWM
+        // Assert — all log-odds must be exactly 0, MaxScore = MinScore = 0
         Assert.Multiple(() =>
         {
             Assert.That(pwm.Length, Is.EqualTo(4));
-            Assert.That(pwm.Consensus.Length, Is.EqualTo(4));
-            Assert.That(pwm.MaxScore, Is.GreaterThanOrEqualTo(pwm.MinScore));
+            for (int pos = 0; pos < 4; pos++)
+            {
+                for (int baseIdx = 0; baseIdx < 4; baseIdx++)
+                {
+                    Assert.That(pwm.Matrix[baseIdx, pos], Is.EqualTo(0.0).Within(1e-10),
+                        $"Base {baseIdx} at pos {pos} should be 0 (maximum entropy)");
+                }
+            }
+            Assert.That(pwm.MaxScore, Is.EqualTo(0.0).Within(1e-10), "MaxScore = 0 at max entropy");
+            Assert.That(pwm.MinScore, Is.EqualTo(0.0).Within(1e-10), "MinScore = 0 at max entropy");
         });
     }
 
@@ -569,6 +689,54 @@ public class MotifFinder_PWM_Tests
 
         // Assert - should find all overlapping matches
         Assert.That(matches.Count, Is.EqualTo(5), "Should find AA at all 5 possible positions");
+    }
+
+    [Test]
+    [Description("Pseudocount = 0 produces -∞ for unseen bases (Wikipedia: risk of zero probabilities)")]
+    public void CreatePwm_ZeroPseudocount_ProducesNegativeInfinity()
+    {
+        // Arrange — single sequence "A", pseudocount=0
+        // freq(A,0) = (1+0)/(1+0) = 1.0 → log2(1.0/0.25) = log2(4) = 2.0
+        // freq(C,0) = 0/(1) = 0.0 → log2(0/0.25) = log2(0) = -∞
+        var pwm = MotifFinder.CreatePwm(new[] { "A" }, pseudocount: 0);
+
+        // Assert — verify exact behavior documented in Wikipedia edge case
+        Assert.Multiple(() =>
+        {
+            Assert.That(pwm.Matrix[0, 0], Is.EqualTo(2.0).Within(1e-10),
+                "Observed base: log2(1/0.25) = 2.0");
+            Assert.That(double.IsNegativeInfinity(pwm.Matrix[1, 0]),
+                "C unseen with pseudocount=0 → -∞");
+            Assert.That(double.IsNegativeInfinity(pwm.Matrix[2, 0]),
+                "G unseen with pseudocount=0 → -∞");
+            Assert.That(double.IsNegativeInfinity(pwm.Matrix[3, 0]),
+                "T unseen with pseudocount=0 → -∞");
+        });
+    }
+
+    [Test]
+    [Description("Threshold boundary: score exactly equal to threshold is included (>= semantics)")]
+    public void ScanWithPwm_ThresholdBoundary_ExactScoreIncluded()
+    {
+        // Arrange — build PWM from "AG", scan "AG" (only one window, score = MaxScore)
+        var pwm = MotifFinder.CreatePwm(new[] { "AG" }, pseudocount: 0.25);
+        var sequence = new DnaSequence("AG");
+
+        // Use MaxScore as threshold — the perfect match score equals MaxScore exactly
+        double threshold = pwm.MaxScore;
+
+        // Act
+        var matches = MotifFinder.ScanWithPwm(sequence, pwm, threshold).ToList();
+
+        // Assert — score == threshold must be included (>= not >)
+        Assert.Multiple(() =>
+        {
+            Assert.That(matches.Count, Is.EqualTo(1),
+                "Exact score == threshold must be included (>= semantics)");
+            Assert.That(matches[0].Score, Is.EqualTo(threshold).Within(1e-10),
+                "Match score should equal threshold exactly");
+            Assert.That(matches[0].Position, Is.EqualTo(0));
+        });
     }
 
     #endregion
