@@ -540,7 +540,7 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindTandemRepeats(seq, minUnit, maxUnit, minReps)` | GenomicAnalyzer | Canonical |
+| `FindTandemRepeats(seq, minUnitLength, minRepetitions)` | GenomicAnalyzer | Canonical |
 | `GetTandemRepeatSummary(seq, minRepeats)` | RepeatFinder | Summary |
 
 ---
