@@ -9,7 +9,7 @@
 | **Area** | Pattern Matching |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-01-22 |
+| **Last Updated** | 2026-03-01 |
 
 ---
 
@@ -37,10 +37,10 @@
 |----------|----------|-------------------|--------|
 | "kitten" | "sitting" | 3 | Wikipedia, Rosetta Code |
 | "rosettacode" | "raisethysword" | 8 | Rosetta Code |
-| "saturday" | "sunday" | 3 | Rosetta Code |
+| "saturday" | "sunday" | 3 | Wikipedia (matrix example), Rosetta Code |
 | "" | "abc" | 3 | Wikipedia (definition) |
 | "abc" | "" | 3 | Wikipedia (definition) |
-| "flaw" | "lawn" | 2 | Wikipedia |
+| "flaw" | "lawn" | 2 | Wikipedia (bounds section) |
 | "stop" | "tops" | 2 | Rosetta Code |
 | "sleep" | "fleeting" | 5 | Rosetta Code |
 
@@ -68,7 +68,7 @@
 | M07 | EditDistance_SingleInsertion_ReturnsOne | Insertion operation | Definition |
 | M08 | EditDistance_SingleDeletion_ReturnsOne | Deletion operation | Definition |
 | M09 | EditDistance_NullInput_ThrowsArgumentNullException | Error handling | Implementation contract |
-| M10 | EditDistance_CaseInsensitive_IgnoresCase | Implementation behavior | Implementation |
+| M10 | EditDistance_CaseSensitive_DistinguishesCase | Standard definition: characters are distinct symbols | Wikipedia (definition: `head(a) = head(b)`) |
 | M11 | FindWithEdits_ExactMatch_Found | maxEdits=0 behavior | Definition |
 | M12 | FindWithEdits_NegativeMaxEdits_ThrowsException | Error handling | Implementation contract |
 | M13 | EditDistance_FlawLawn_ReturnsTwo | Levenshtein < Hamming example | Wikipedia |
@@ -84,80 +84,54 @@
 | S05 | FindWithEdits_WithInsertion_Found | Insertion matching | Definition |
 | S06 | FindWithEdits_EmptyInputs_ReturnsEmpty | Edge case | Implementation |
 | S07 | EditDistance_TriangleInequality_Holds | Metric property | Wikipedia |
+| S08 | EditDistance_Bounds_WithinExpectedRange | Distance bounds property | Wikipedia |
+| S09 | FindWithEdits_WithDeletion_Found | Deletion matching | Definition |
+| S10 | EditDistance_SleepFleeting_ReturnsFive | Canonical example | Rosetta Code |
 
 ### COULD Tests (Comprehensive)
 
 | ID | Test Name | Rationale | Source |
 |----|-----------|-----------|--------|
 | C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | Wrapper verification | Implementation |
-| C02 | EditDistance_LongerStrings_CorrectDistance | Performance case | ASSUMPTION |
 
 ---
 
-## Consolidation Plan
+## Coverage Classification
 
-### Current State
-- Existing tests in: `ApproximateMatcherTests.cs` (Edit Distance region, lines 19-96)
-- 7 existing tests for EditDistance
-- 3 existing tests for FindWithEdits
-
-### Target State
-- Create dedicated file: `ApproximateMatcher_EditDistance_Tests.cs`
-- Deep, evidence-based tests for canonical algorithms
-- Remove tests from `ApproximateMatcherTests.cs` (Edit Distance region)
-
-### Migration
-| Source | Target | Action |
-|--------|--------|--------|
-| ApproximateMatcherTests.cs (Edit Distance region) | ApproximateMatcher_EditDistance_Tests.cs | Move + enhance |
-| ApproximateMatcherTests.cs (Find With Edits region) | ApproximateMatcher_EditDistance_Tests.cs | Move + enhance |
-
----
-
-## Audit of Existing Tests
-
-| Existing Test | Coverage | Assessment | Action |
-|---------------|----------|------------|--------|
-| EditDistance_IdenticalStrings_ReturnsZero | M01 | Covered | Keep (enhance) |
-| EditDistance_OneSubstitution_ReturnsOne | M06 | Covered | Keep |
-| EditDistance_OneInsertion_ReturnsOne | M07 | Covered | Keep |
-| EditDistance_OneDeletion_ReturnsOne | M08 | Covered | Keep |
-| EditDistance_EmptyAndNonEmpty_ReturnsLength | M02 | Covered | Keep |
-| EditDistance_ComplexCase_CalculatesCorrectly | Partial | Weak (not canonical) | Replace with canonical vectors |
-| EditDistance_CaseInsensitive | M10 | Covered | Keep |
-| FindWithEdits_ExactMatch_Found | M11 | Covered | Keep |
-| FindWithEdits_WithInsertion_Found | S05 | Weak | Enhance |
-| FindWithEdits_WithDeletion_Found | S04 | Weak | Enhance |
-
-### Missing Tests
-~~All gaps closed:~~
-- ~~M03, M04, M05, M09, M12, M13 (canonical vectors, symmetry, error handling)~~ ✅ Added
-- ~~S01, S02, S03, S07 (additional canonical cases, triangle inequality)~~ ✅ Added
-
----
-
-## Open Questions / Decisions
-
-| Question | Decision | Rationale |
-|----------|----------|-----------|
-| Should we test all Rosetta Code vectors? | Yes, for M03, M04, S01, S02 | Canonical cross-language validation |
-| Keep complex GATTACA test? | No | Replace with Wikipedia-sourced "flaw"→"lawn" example |
-
----
-
-## ASSUMPTIONS
-
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A01 | Case-insensitive comparison is correct behavior | Implementation choice, documented |
+| ID | Test Name | Status |
+|----|-----------|--------|
+| M01 | EditDistance_IdenticalStrings_ReturnsZero | ✅ Covered |
+| M02 | EditDistance_EmptyAndNonEmpty_ReturnsLength | ✅ Covered |
+| M03 | EditDistance_KittenSitting_ReturnsThree | ✅ Covered |
+| M04 | EditDistance_RosettacodeRaisethysword_ReturnsEight | ✅ Covered |
+| M05 | EditDistance_Symmetry_CommutativeProperty | ✅ Covered |
+| M06 | EditDistance_SingleSubstitution_ReturnsOne | ✅ Covered |
+| M07 | EditDistance_SingleInsertion_ReturnsOne | ✅ Covered |
+| M08 | EditDistance_SingleDeletion_ReturnsOne | ✅ Covered |
+| M09 | EditDistance_NullInput_ThrowsArgumentNullException | ✅ Covered |
+| M10 | EditDistance_CaseSensitive_DistinguishesCase | ✅ Covered |
+| M11 | FindWithEdits_ExactMatch_Found | ✅ Covered |
+| M12 | FindWithEdits_NegativeMaxEdits_ThrowsException | ✅ Covered |
+| M13 | EditDistance_FlawLawn_ReturnsTwo | ✅ Covered |
+| S01 | EditDistance_SaturdaySunday_ReturnsThree | ✅ Covered |
+| S02 | EditDistance_StopTops_ReturnsTwo | ✅ Covered |
+| S03 | EditDistance_BothEmpty_ReturnsZero | ✅ Covered |
+| S04 | FindWithEdits_WithSubstitution_Found | ✅ Covered |
+| S05 | FindWithEdits_WithInsertion_Found | ✅ Covered |
+| S06 | FindWithEdits_EmptyInputs_ReturnsEmpty | ✅ Covered |
+| S07 | EditDistance_TriangleInequality_Holds | ✅ Covered |
+| S08 | EditDistance_Bounds_WithinExpectedRange | ✅ Covered |
+| S09 | FindWithEdits_WithDeletion_Found | ✅ Covered |
+| S10 | EditDistance_SleepFleeting_ReturnsFive | ✅ Covered |
+| C01 | FindWithEdits_DnaSequenceOverload_DelegatesToStringVersion | ✅ Covered |
 
 ---
 
 ## Validation Criteria
 
-- [ ] All MUST tests pass
-- [ ] All SHOULD tests pass
-- [ ] Zero warnings in test file
-- [ ] Tests are deterministic
-- [ ] Tests follow NUnit conventions
-- [ ] Naming follows `Method_Scenario_ExpectedResult` pattern
+- [x] All MUST tests pass (13/13)
+- [x] All SHOULD tests pass (10/10)
+- [x] Zero warnings in test file
+- [x] Tests are deterministic
+- [x] Tests follow NUnit conventions
+- [x] Naming follows `Method_Scenario_ExpectedResult` pattern

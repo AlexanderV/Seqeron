@@ -93,7 +93,7 @@ The implementation uses the space-optimized two-row variant.
 
 The implementation in this library:
 - Uses the two-row space-optimized Wagner-Fischer algorithm
-- Normalizes input to uppercase (case-insensitive comparison)
+- Compares characters as-is (case-sensitive, per standard Levenshtein definition)
 - Returns `n` if `s1` is empty (length of `s2`)
 - Returns `m` if `s2` is empty (length of `s1`)
 - Throws `ArgumentNullException` if either input is null
