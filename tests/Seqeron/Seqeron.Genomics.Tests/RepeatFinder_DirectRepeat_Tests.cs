@@ -59,13 +59,13 @@ public class RepeatFinder_DirectRepeat_Tests
         var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 0).ToList();
 
         // Assert
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        var repeat = results.First(r => r.RepeatSequence == "ACGTA");
+        Assert.That(results, Has.Count.EqualTo(1));
         Assert.Multiple(() =>
         {
-            Assert.That(repeat.FirstPosition, Is.EqualTo(0));
-            Assert.That(repeat.SecondPosition, Is.EqualTo(5));
-            Assert.That(repeat.Spacing, Is.EqualTo(0));
+            Assert.That(results[0].RepeatSequence, Is.EqualTo("ACGTA"));
+            Assert.That(results[0].FirstPosition, Is.EqualTo(0));
+            Assert.That(results[0].SecondPosition, Is.EqualTo(5));
+            Assert.That(results[0].Spacing, Is.EqualTo(0));
         });
     }
 
@@ -213,10 +213,12 @@ public class RepeatFinder_DirectRepeat_Tests
         // Act: minLength=5 should exclude 4bp repeats
         var results = RepeatFinder.FindDirectRepeats(sequence, 5, 10, 0).ToList();
 
-        // Assert
+        // Assert: Results exist and all meet the minimum length
+        Assert.That(results, Is.Not.Empty, "Repeats of length >= 5 should be found");
         foreach (var result in results)
         {
-            Assert.That(result.Length, Is.GreaterThanOrEqualTo(5));
+            Assert.That(result.Length, Is.GreaterThanOrEqualTo(5),
+                $"Repeat '{result.RepeatSequence}' has length {result.Length} < minLength 5");
         }
     }
 
@@ -233,10 +235,12 @@ public class RepeatFinder_DirectRepeat_Tests
         // Act: maxLength=8 should exclude 10bp repeats
         var results = RepeatFinder.FindDirectRepeats(sequence, 5, 8, 1).ToList();
 
-        // Assert
+        // Assert: Results exist (5-8bp sub-repeats) and all meet the max length
+        Assert.That(results, Is.Not.Empty, "Sub-repeats of length 5-8 should be found");
         foreach (var result in results)
         {
-            Assert.That(result.Length, Is.LessThanOrEqualTo(8));
+            Assert.That(result.Length, Is.LessThanOrEqualTo(8),
+                $"Repeat '{result.RepeatSequence}' has length {result.Length} > maxLength 8");
         }
     }
 
@@ -277,7 +281,8 @@ public class RepeatFinder_DirectRepeat_Tests
     #region SHOULD Tests
 
     /// <summary>
-    /// S1: Sequence with multiple repeat occurrences finds pairs.
+    /// S1: Three occurrences of a pattern produce all pairwise combinations.
+    /// Evidence: Wikipedia - "nucleotide sequences present in multiple copies."
     /// </summary>
     [Test]
     public void FindDirectRepeats_MultipleOccurrences_FindsAllPairs()
@@ -286,12 +291,17 @@ public class RepeatFinder_DirectRepeat_Tests
         var sequence = new DnaSequence("ACGTATTACGTATTACGTA");
 
         // Act
-        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 5, 1).ToList();
+        var acgtaPairs = RepeatFinder.FindDirectRepeats(sequence, 5, 5, 1)
+            .Where(r => r.RepeatSequence == "ACGTA")
+            .ToList();
 
-        // Assert: Should find pairs with the expected repeat
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(results.Any(r => r.RepeatSequence == "ACGTA"), Is.True,
-            "Should find ACGTA as a direct repeat");
+        // Assert: All three pairwise combinations reported
+        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 0 && r.SecondPosition == 7), Is.True,
+            "Should find pair (0, 7)");
+        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 0 && r.SecondPosition == 14), Is.True,
+            "Should find pair (0, 14)");
+        Assert.That(acgtaPairs.Any(r => r.FirstPosition == 7 && r.SecondPosition == 14), Is.True,
+            "Should find pair (7, 14)");
     }
 
     /// <summary>
@@ -319,12 +329,17 @@ public class RepeatFinder_DirectRepeat_Tests
     [Test]
     public void FindDirectRepeats_LowercaseInput_HandledCorrectly()
     {
-        // Arrange: lowercase sequence
+        // Arrange: lowercase sequence — same as "ACGTAACGTA" after normalization
         var results = RepeatFinder.FindDirectRepeats("acgtaacgta", 5, 10, 0).ToList();
 
-        // Assert: Should find repeat (normalized to uppercase)
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(results[0].RepeatSequence, Is.EqualTo("ACGTA"));
+        // Assert: Exact same result as uppercase input
+        Assert.That(results, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].RepeatSequence, Is.EqualTo("ACGTA"));
+            Assert.That(results[0].FirstPosition, Is.EqualTo(0));
+            Assert.That(results[0].SecondPosition, Is.EqualTo(5));
+        });
     }
 
     /// <summary>
@@ -372,18 +387,66 @@ public class RepeatFinder_DirectRepeat_Tests
 
     /// <summary>
     /// C1: Overlapping pattern positions handled correctly.
+    /// Homopolymer regions produce multiple overlapping start positions.
     /// </summary>
     [Test]
     public void FindDirectRepeats_OverlappingPatterns_AllReported()
     {
-        // Arrange: "AAAA" can be found at positions 0,1,2,3,4 in "AAAAAAAA"
+        // Arrange: "AAAAAA" at both ends with "TTTT" spacer
+        // len=4: "AAAA" at {0,1,2} × {10,11,12} = 9 pairs
+        // len=5: "AAAAA" at {0,1} × {10,11} = 4 pairs
+        // len=6: "AAAAAA" at {0} × {10} = 1 pair
         var sequence = new DnaSequence("AAAAAATTTTAAAAAA");
 
         // Act
         var results = RepeatFinder.FindDirectRepeats(sequence, 4, 6, 1).ToList();
 
-        // Assert: Multiple overlapping matches should be found
-        Assert.That(results, Has.Count.GreaterThan(0));
+        // Assert: Exact count = 9 + 4 + 1 = 14 pairs
+        Assert.That(results, Has.Count.EqualTo(14));
+
+        // Verify representative pairs across all three lengths
+        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 4), Is.True,
+            "Should find 4bp pair (0, 10)");
+        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 5), Is.True,
+            "Should find 5bp pair (0, 10)");
+        Assert.That(results.Any(r => r.FirstPosition == 0 && r.SecondPosition == 10 && r.Length == 6), Is.True,
+            "Should find 6bp pair (0, 10)");
+        Assert.That(results.Any(r => r.FirstPosition == 2 && r.SecondPosition == 12 && r.Length == 4), Is.True,
+            "Should find 4bp pair (2, 12)");
+    }
+
+    /// <summary>
+    /// C2: Performance baseline — O(n²) algorithm completes in bounded time.
+    /// Evidence: DoD requirement for O(n²) complexity.
+    /// </summary>
+    [Test]
+    public void FindDirectRepeats_LargeSequence_CompletesInReasonableTime()
+    {
+        // Arrange: 1000bp pseudo-random sequence (deterministic seed)
+        var random = new Random(42);
+        var bases = new[] { 'A', 'C', 'G', 'T' };
+        var sb = new System.Text.StringBuilder(1000);
+        for (int i = 0; i < 1000; i++)
+            sb.Append(bases[random.Next(4)]);
+        var sequence = new DnaSequence(sb.ToString());
+
+        // Act: Should complete well within time bound for O(n²)
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var results = RepeatFinder.FindDirectRepeats(sequence, 5, 20, 1).ToList();
+        sw.Stop();
+
+        // Assert: Bounded time and valid output
+        Assert.That(sw.ElapsedMilliseconds, Is.LessThan(5000),
+            $"O(n²) on 1000bp should complete within 5s, took {sw.ElapsedMilliseconds}ms");
+        Assert.That(results, Is.Not.Null);
+
+        // Verify invariants hold on all results
+        foreach (var result in results)
+        {
+            Assert.That(result.Length, Is.GreaterThanOrEqualTo(5));
+            Assert.That(result.Length, Is.LessThanOrEqualTo(20));
+            Assert.That(result.FirstPosition, Is.LessThan(result.SecondPosition));
+        }
     }
 
     #endregion
