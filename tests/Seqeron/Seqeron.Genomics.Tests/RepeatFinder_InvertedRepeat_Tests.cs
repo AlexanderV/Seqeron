@@ -31,22 +31,25 @@ public class RepeatFinder_InvertedRepeat_Tests
     {
         // GCGC reverse complement = GCGC (G↔C, C↔G, G↔C, C↔G reversed = GCGC)
         var sequence = new DnaSequence("AAGCGCAAAAGCGCAA");
-        //                              01234567890123456
-        //                              Left: positions 2-5 (GCGC)
-        //                              Loop: positions 6-9 (AAAA)
-        //                              Right: positions 10-13 (GCGC)
+        //                              0123456789012345
+        //                              Left: 2-5 (GCGC), Loop: 6-9 (AAAA), Right: 10-13 (GCGC)
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        var hairpin = results.First(r => r.ArmLength == 4);
+        var hairpin = results[0];
         Assert.Multiple(() =>
         {
+            Assert.That(hairpin.LeftArmStart, Is.EqualTo(2));
+            Assert.That(hairpin.RightArmStart, Is.EqualTo(10));
+            Assert.That(hairpin.ArmLength, Is.EqualTo(4));
+            Assert.That(hairpin.LoopLength, Is.EqualTo(4));
             Assert.That(hairpin.LeftArm, Is.EqualTo("GCGC"));
             Assert.That(hairpin.RightArm, Is.EqualTo("GCGC"));
-            Assert.That(hairpin.LoopLength, Is.GreaterThanOrEqualTo(3));
-            Assert.That(hairpin.CanFormHairpin, Is.True, "Loop ≥ 3 should allow hairpin formation");
+            Assert.That(hairpin.Loop, Is.EqualTo("AAAA"));
+            Assert.That(hairpin.CanFormHairpin, Is.True);
+            Assert.That(hairpin.TotalLength, Is.EqualTo(12));
         });
     }
 
@@ -59,14 +62,24 @@ public class RepeatFinder_InvertedRepeat_Tests
     public void FindInvertedRepeats_PalindromeSequence_SelfComplementary()
     {
         // GAATTC: G↔C, A↔T, A↔T, T↔A, T↔A, C↔G → complement = CTTAAG
-        // Reversed: GAATTC - it's self-complementary!
+        // Reversed: GAATTC — it's self-complementary (EcoRI recognition site).
         var sequence = new DnaSequence("GAATTCAAAAGAATTC");
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
-        var result = results.First(r => r.ArmLength >= 4);
-        Assert.That(result.LeftArm.Length, Is.GreaterThanOrEqualTo(4));
+        Assert.That(results, Has.Count.EqualTo(6));
+
+        // The full-length palindromic match: GAATTC...GAATTC (arm=6, loop=4)
+        var palindrome = results.First(r => r.ArmLength == 6);
+        Assert.Multiple(() =>
+        {
+            Assert.That(palindrome.LeftArmStart, Is.EqualTo(0));
+            Assert.That(palindrome.RightArmStart, Is.EqualTo(10));
+            Assert.That(palindrome.LeftArm, Is.EqualTo("GAATTC"));
+            Assert.That(palindrome.RightArm, Is.EqualTo("GAATTC"), "Self-complementary: revcomp(GAATTC) = GAATTC");
+            Assert.That(palindrome.LoopLength, Is.EqualTo(4));
+            Assert.That(palindrome.Loop, Is.EqualTo("AAAA"));
+        });
     }
 
     /// <summary>
@@ -79,19 +92,24 @@ public class RepeatFinder_InvertedRepeat_Tests
     {
         // ACGT reverse complement = ACGT (A↔T,C↔G,G↔C,T↔A → TGCA → reversed = ACGT)
         var sequence = new DnaSequence("ACGTTTTTACGT");
-        //                              0123456789012
-        //                              Left: 0-3 (ACGT), Loop: 4-8 (TTTTT), Right: 8-11 (ACGT)
+        //                              012345678901
+        //                              Left: 0-3 (ACGT), Loop: 4-7 (TTTT), Right: 8-11 (ACGT)
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        foreach (var result in results)
+        var result = results[0];
+        Assert.Multiple(() =>
         {
-            string expectedRightArm = DnaSequence.GetReverseComplementString(result.LeftArm);
-            Assert.That(result.RightArm, Is.EqualTo(expectedRightArm),
-                $"Right arm must equal reverse complement of left arm");
-        }
+            Assert.That(result.LeftArm, Is.EqualTo("ACGT"));
+            Assert.That(result.RightArm, Is.EqualTo("ACGT"));
+            Assert.That(DnaSequence.GetReverseComplementString(result.LeftArm),
+                Is.EqualTo(result.RightArm), "Right arm must equal reverse complement of left arm");
+            Assert.That(result.LeftArmStart, Is.EqualTo(0));
+            Assert.That(result.RightArmStart, Is.EqualTo(8));
+            Assert.That(result.LoopLength, Is.EqualTo(4));
+        });
     }
 
     /// <summary>
@@ -229,8 +247,9 @@ public class RepeatFinder_InvertedRepeat_Tests
 
     /// <summary>
     /// M11: CanFormHairpin is true when LoopLength ≥ 3.
-    /// Loops fewer than 3 bases are sterically impossible for hairpin formation.
-    /// Source: Wikipedia - stem-loop.
+    /// Wikipedia - Stem-loop: "loops that are fewer than three bases long are
+    /// sterically impossible and thus do not form."
+    /// Source: Wikipedia - Stem-loop (Formation and stability).
     /// </summary>
     [Test]
     public void FindInvertedRepeats_CanFormHairpin_LoopLengthValidation()
@@ -240,27 +259,22 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var resultsLong = RepeatFinder.FindInvertedRepeats(sequenceLong, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        // GCGC...GCGC is a valid inverted repeat with 4bp arms and 4bp loop
-        Assert.That(resultsLong, Is.Not.Empty, "Should find inverted repeat GCGC...loop...GCGC");
-        Assert.Multiple(() =>
-        {
-            foreach (var result in resultsLong)
-            {
-                Assert.That(result.CanFormHairpin, Is.EqualTo(result.LoopLength >= 3),
-                    $"CanFormHairpin should be true when LoopLength ({result.LoopLength}) ≥ 3");
-            }
-        });
+        Assert.That(resultsLong, Has.Count.EqualTo(1));
+        Assert.That(resultsLong[0].CanFormHairpin, Is.True,
+            "LoopLength 4 ≥ 3 → CanFormHairpin must be true");
+        Assert.That(resultsLong[0].LoopLength, Is.EqualTo(4));
 
         // Test with loop = 2 (should NOT form hairpin biologically)
         var sequenceShort = new DnaSequence("GCGCAAGCGC"); // loop = 2
         var resultsShort = RepeatFinder.FindInvertedRepeats(sequenceShort, minArmLength: 4, maxLoopLength: 10, minLoopLength: 0).ToList();
 
-        // With minLoopLength=0, we might find this, verify CanFormHairpin is correct
-        foreach (var result in resultsShort.Where(r => r.LoopLength < 3))
+        Assert.That(resultsShort, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
         {
-            Assert.That(result.CanFormHairpin, Is.False,
-                "CanFormHairpin should be false when LoopLength < 3");
-        }
+            Assert.That(resultsShort[0].LoopLength, Is.EqualTo(2));
+            Assert.That(resultsShort[0].CanFormHairpin, Is.False,
+                "LoopLength 2 < 3 → CanFormHairpin must be false");
+        });
     }
 
     /// <summary>
@@ -276,13 +290,15 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        var result = results.First(r => r.ArmLength == 4);
+        var result = results[0];
         Assert.Multiple(() =>
         {
-            Assert.That(result.LeftArmStart, Is.EqualTo(0), "Left arm should start at position 0");
-            Assert.That(result.RightArmStart, Is.EqualTo(8), "Right arm should start at position 8");
+            Assert.That(result.LeftArmStart, Is.EqualTo(0));
+            Assert.That(result.RightArmStart, Is.EqualTo(8));
+            Assert.That(result.ArmLength, Is.EqualTo(4));
+            Assert.That(result.LoopLength, Is.EqualTo(4));
 
             // Verify by extracting from original sequence
             string leftFromSeq = sequence.Sequence.Substring(result.LeftArmStart, result.ArmLength);
@@ -318,16 +334,27 @@ public class RepeatFinder_InvertedRepeat_Tests
     [Test]
     public void FindInvertedRepeats_MultipleRepeats_FindsAll()
     {
-        // Two separate inverted repeats
-        // First: GCGC...AAAA...GCGC
-        // Second: ATAT...TTT...ATAT (AT revcomp = AT)
+        // Sequence contains two distinct inverted repeat structures:
+        // IR1: GCGC...AAAA...GCGC at positions 0,8 (arm=4, loop=4)
+        // IR2: TATA...TTT...TATA at positions 15,22 and 16,23 (arm=4, loop=3)
         var sequence = new DnaSequence("GCGCAAAAGCGCTTTTATATTTTATAT");
-        //                              0         1         2
-        //                              012345678901234567890123456
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results.Count, Is.GreaterThanOrEqualTo(1), "Should find at least one inverted repeat");
+        Assert.That(results, Has.Count.EqualTo(4));
+
+        // Verify first IR: GCGC...GCGC
+        var ir1 = results.First(r => r.LeftArmStart == 0 && r.ArmLength == 4 && r.LeftArm == "GCGC");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ir1.RightArmStart, Is.EqualTo(8));
+            Assert.That(ir1.LoopLength, Is.EqualTo(4));
+            Assert.That(ir1.RightArm, Is.EqualTo("GCGC"));
+        });
+
+        // Verify TATA (self-complementary: revcomp(TATA) = TATA) IRs are found
+        Assert.That(results.Any(r => r.LeftArm == "TATA"), Is.True,
+            "Should detect TATA...TATA inverted repeats");
     }
 
     /// <summary>
@@ -377,31 +404,34 @@ public class RepeatFinder_InvertedRepeat_Tests
 
     /// <summary>
     /// S4: Test minLoopLength=0 allows adjacent palindromic arms detection.
-    /// Source: ASSUMPTION - palindromic sequences are edge case.
+    /// Wikipedia - Inverted repeat: "The intervening sequence...can be any length including zero.
+    /// When the intervening length is zero, the composite sequence is a palindromic sequence."
+    /// Source: Wikipedia - Inverted repeat, Wikipedia - Palindromic sequence.
     /// </summary>
     [Test]
     public void FindInvertedRepeats_AdjacentArms_MinLoopZeroAllowsDetection()
     {
-        // Create a proper inverted repeat with zero-length loop
-        // ARM + loop(0) + revcomp(ARM) = GGGC + GCCC
+        // GGGC + GCCC (adjacent palindromic arms, loop=0)
         // GGGC revcomp = GCCC
-        var sequence = new DnaSequence("GGGCGCCC"); // Adjacent palindromic arms, loop=0
+        var sequence = new DnaSequence("GGGCGCCC");
 
         var resultsNoMinLoop = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 0).ToList();
         var resultsWithMinLoop = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 1).ToList();
 
-        // With minLoopLength=0, adjacent palindromic regions can be found
-        // With minLoopLength=1, they cannot (loop is 0, which is < 1)
         Assert.Multiple(() =>
         {
-            Assert.That(resultsNoMinLoop.Count, Is.GreaterThanOrEqualTo(resultsWithMinLoop.Count),
-                "minLoopLength=0 should find at least as many repeats as minLoopLength=1");
-            // Verify the algorithm respects the minLoopLength parameter
-            foreach (var result in resultsWithMinLoop)
-            {
-                Assert.That(result.LoopLength, Is.GreaterThanOrEqualTo(1),
-                    "All results with minLoopLength=1 must have loop >= 1");
-            }
+            // minLoopLength=0: finds the loop=0 palindromic structure
+            Assert.That(resultsNoMinLoop, Has.Count.EqualTo(1));
+            Assert.That(resultsNoMinLoop[0].LeftArmStart, Is.EqualTo(0));
+            Assert.That(resultsNoMinLoop[0].RightArmStart, Is.EqualTo(4));
+            Assert.That(resultsNoMinLoop[0].LoopLength, Is.EqualTo(0));
+            Assert.That(resultsNoMinLoop[0].LeftArm, Is.EqualTo("GGGC"));
+            Assert.That(resultsNoMinLoop[0].RightArm, Is.EqualTo("GCCC"));
+            Assert.That(resultsNoMinLoop[0].CanFormHairpin, Is.False,
+                "Loop=0 cannot form hairpin (< 3 bases)");
+
+            // minLoopLength=1: filters out loop=0
+            Assert.That(resultsWithMinLoop, Is.Empty);
         });
     }
 
@@ -418,13 +448,18 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        var hairpin = results.First();
+        var hairpin = results[0];
         Assert.Multiple(() =>
         {
+            Assert.That(hairpin.LeftArmStart, Is.EqualTo(0));
+            Assert.That(hairpin.RightArmStart, Is.EqualTo(8));
+            Assert.That(hairpin.ArmLength, Is.EqualTo(4));
+            Assert.That(hairpin.LoopLength, Is.EqualTo(4));
             Assert.That(hairpin.LeftArm, Is.EqualTo("GGGC"));
             Assert.That(hairpin.RightArm, Is.EqualTo("GCCC"));
+            Assert.That(hairpin.Loop, Is.EqualTo("AAAA"));
             Assert.That(DnaSequence.GetReverseComplementString("GGGC"), Is.EqualTo("GCCC"));
         });
     }
@@ -447,8 +482,16 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        Assert.That(results, Has.Count.GreaterThanOrEqualTo(1),
-            "Should detect inverted repeat formed by two restriction sites");
+        // The full 6bp EcoRI palindrome match must be present
+        var ecori = results.First(r => r.ArmLength == 6);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ecori.LeftArm, Is.EqualTo("GAATTC"));
+            Assert.That(ecori.RightArm, Is.EqualTo("GAATTC"), "EcoRI is self-complementary");
+            Assert.That(ecori.LeftArmStart, Is.EqualTo(0));
+            Assert.That(ecori.RightArmStart, Is.EqualTo(10));
+            Assert.That(ecori.LoopLength, Is.EqualTo(4));
+        });
     }
 
     /// <summary>
@@ -466,12 +509,43 @@ public class RepeatFinder_InvertedRepeat_Tests
 
         var results = RepeatFinder.FindInvertedRepeats(seq, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
 
-        // MUST detect the inverted repeat with 4-nucleotide loop
-        Assert.That(results, Is.Not.Empty,
-            "Self-complementary arms GCGC with 4nt loop MUST form detectable inverted repeat");
+        Assert.That(results, Has.Count.EqualTo(1));
 
-        var result = results.First(r => r.ArmLength == 4);
-        Assert.That(result.Loop, Is.EqualTo("TTTT"), "Loop should be the intervening sequence");
+        var result = results[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Loop, Is.EqualTo("TTTT"));
+            Assert.That(result.LeftArm, Is.EqualTo("GCGC"));
+            Assert.That(result.RightArm, Is.EqualTo("GCGC"));
+        });
+    }
+
+    /// <summary>
+    /// C3: Overlapping inverted repeats are all reported (unlike EMBOSS einverted).
+    /// Three occurrences of GCGC with 3-base loops produce three overlapping IRs.
+    /// Source: EMBOSS einverted (behavioral difference — our algorithm uses exact matching,
+    /// not DP scoring, so all matches are reported).
+    /// </summary>
+    [Test]
+    public void FindInvertedRepeats_OverlappingRepeats_AllReported()
+    {
+        // GCGC at positions 0, 7, 14 with 3-base loops between each pair
+        var sequence = new DnaSequence("GCGCAAAGCGCAAAGCGC");
+
+        var results = RepeatFinder.FindInvertedRepeats(sequence, minArmLength: 4, maxLoopLength: 10, minLoopLength: 3).ToList();
+
+        Assert.That(results, Has.Count.EqualTo(3));
+
+        // All three GCGC-GCGC pairs found (including overlapping at position 7)
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Any(r => r.LeftArmStart == 0 && r.RightArmStart == 7), Is.True,
+                "IR1: GCGC(0)...GCGC(7)");
+            Assert.That(results.Any(r => r.LeftArmStart == 0 && r.RightArmStart == 14), Is.True,
+                "IR2: GCGC(0)...GCGC(14)");
+            Assert.That(results.Any(r => r.LeftArmStart == 7 && r.RightArmStart == 14), Is.True,
+                "IR3: GCGC(7)...GCGC(14)");
+        });
     }
 
     #endregion

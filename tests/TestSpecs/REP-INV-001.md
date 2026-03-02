@@ -54,7 +54,7 @@ All MUST tests are justified by evidence or explicitly marked.
 | M8 | MaxLoopLength_RespectsThreshold | Filter by maximum loop length | Algorithm specification; EMBOSS einverted |
 | M9 | LoopLength_CalculatedCorrectly | loopLength = rightArmStart - leftArmEnd | Invariant |
 | M10 | TotalLength_InvariantHolds | TotalLength = 2×ArmLength + LoopLength | Invariant |
-| M11 | CanFormHairpin_LoopLengthValidation | CanFormHairpin true when loopLength ≥ 3 | Wikipedia - stem-loop (min 3 bases) |
+| M11 | CanFormHairpin_LoopLengthValidation | CanFormHairpin true when loopLength ≥ 3 | Wikipedia - Stem-loop: "loops fewer than three bases long are sterically impossible" |
 | M12 | LeftRightArmPositions_Correct | Verify position accuracy (0-based indexing) | Implementation contract |
 | M13 | SequenceTooShort_ReturnsEmpty | Sequence shorter than minimum structure | Boundary condition |
 
@@ -65,7 +65,7 @@ All MUST tests are justified by evidence or explicitly marked.
 | S1 | MultipleInvertedRepeats_FindsAll | Sequence with multiple hairpin structures | Real genome scenario |
 | S2 | StringOverload_MatchesDnaSequenceOverload | API consistency | Implementation contract |
 | S3 | CaseInsensitivity_HandledCorrectly | Lowercase input processed | Implementation robustness |
-| S4 | NestedInvertedRepeats_Behavior | Document behavior for nested structures | ASSUMPTION |
+| S4 | AdjacentArms_MinLoopZeroAllowsDetection | Palindromic (loop=0) arms allowed when minLoopLength=0 | Wikipedia - Inverted repeat ("intervening sequence...can be any length including zero") |
 | S5 | BiologicalHairpin_KnownStructure | Test with known biological stem-loop | Wikipedia - tRNA |
 
 ### COULD Tests (Nice to have)
@@ -73,33 +73,8 @@ All MUST tests are justified by evidence or explicitly marked.
 | ID | Test Name | Rationale | Evidence |
 |----|-----------|-----------|----------|
 | C1 | RestrictionSitePalindromes_Detected | EcoRI, BamHI recognition sites | Wikipedia - restriction enzymes |
-| C2 | OverlappingRepeats_NonOverlappingPolicy | Only non-overlapping reported | EMBOSS einverted behavior |
-
----
-
-## Test Audit
-
-### Existing Tests (Pre-Consolidation)
-
-| File | Test Name | Classification | Action |
-|------|-----------|----------------|--------|
-| RepeatFinderTests.cs | FindInvertedRepeats_SimpleHairpin_FindsRepeat | Covered (M1) | Keep, enhance |
-| RepeatFinderTests.cs | FindInvertedRepeats_PerfectPalindrome_FindsRepeat | Covered (M2) | Keep, enhance |
-| RepeatFinderTests.cs | FindInvertedRepeats_NoInvertedRepeats_ReturnsEmpty | Covered (M4) | Keep |
-| RepeatFinderTests.cs | FindInvertedRepeats_MinArmLength_RespectsThreshold | Covered (M6) | Keep |
-| RepeatFinderTests.cs | FindInvertedRepeats_StringOverload_Works | Covered (S2) | Keep |
-| RepeatFinderTests.cs | FindInvertedRepeats_EmptySequence_ReturnsEmpty | Covered (M5) | Keep |
-| RepeatFinderTests.cs | FindInvertedRepeats_TotalLength_CalculatedCorrectly | Weak (M10) | Strengthen |
-| RnaSecondaryStructureTests.cs | FindInvertedRepeats_ComplementaryRegions_FindsRepeats | Weak smoke | Remove (duplicate) |
-| RnaSecondaryStructureTests.cs | FindInvertedRepeats_NoRepeats_ReturnsEmpty | Duplicate (M4) | Remove |
-| RnaSecondaryStructureTests.cs | FindInvertedRepeats_TooShort_ReturnsEmpty | Covered (M13) | Keep as smoke |
-
-### Consolidation Plan
-
-1. **Canonical file:** `RepeatFinder_InvertedRepeat_Tests.cs` (new dedicated file)
-2. **Remove from RepeatFinderTests.cs:** Move inverted repeat tests to dedicated file
-3. **Remove from RnaSecondaryStructureTests.cs:** Duplicate tests (keep 1 smoke test)
-4. ~~**Add missing:** M3, M7, M8, M9, M11, M12, S3, S4, S5~~ ✅ All added
+| C2 | LoopSequence_CorrectlyExtracted | Loop sequence matches intervening nucleotides | Implementation verification |
+| C3 | OverlappingRepeats_AllReported | All matches reported including overlapping | EMBOSS einverted (behavioral difference) |
 
 ---
 
@@ -107,18 +82,9 @@ All MUST tests are justified by evidence or explicitly marked.
 
 | Question | Decision | Justification |
 |----------|----------|---------------|
-| Should loop=0 be valid? | No, require minLoopLength ≥ 0 | Implementation enforces this; palindromes are separate concept |
-| Report overlapping structures? | No (EMBOSS behavior) | EMBOSS einverted reports non-overlapping only |
+| Should loop=0 be valid? | Allowed when minLoopLength=0; filtered by default (minLoopLength=3) | Wikipedia: "intervening sequence...can be any length including zero." Palindromes are inverted repeats with loop=0 |
+| Report overlapping structures? | Yes (all matches) | Our algorithm uses exact matching with HashSet dedup, not DP scoring like EMBOSS einverted. All valid (leftStart, rightStart, armLength) tuples are reported, including those sharing arm positions |
 | Case sensitivity? | Case-insensitive | Implementation uses ToUpperInvariant() |
-
----
-
-## Assumptions
-
-| ID | Assumption | Impact |
-|----|------------|--------|
-| A1 | CanFormHairpin threshold of 3 bases is based on general stem-loop biology | Test M11 uses this threshold |
-| A2 | RnaSecondaryStructure.FindInvertedRepeats uses RNA complement (U↔A) while RepeatFinder uses DNA | Tests should use appropriate sequences |
 
 ---
 
