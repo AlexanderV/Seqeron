@@ -1,12 +1,12 @@
 using NUnit.Framework;
 using Seqeron.Genomics;
-using System.Linq;
 
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Tests for RepeatFinder: TandemRepeatSummary + InvertedRepeat validation.
+/// Tests for RepeatFinder: TandemRepeatSummary.
 /// Microsatellite detection tests consolidated into RepeatFinder_Microsatellite_Tests.cs (REP-STR-001).
+/// Inverted repeat tests consolidated into RepeatFinder_InvertedRepeat_Tests.cs (REP-INV-001).
 /// </summary>
 [TestFixture]
 public class RepeatFinderTests
@@ -51,17 +51,6 @@ public class RepeatFinderTests
 
         Assert.That(summary.LongestRepeat, Is.Not.Null);
         Assert.That(summary.LongestRepeat!.Value.TotalLength, Is.EqualTo(18));
-    }
-
-    #endregion
-
-    #region Edge Cases and Validation
-
-    [Test]
-    public void FindInvertedRepeats_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            RepeatFinder.FindInvertedRepeats((DnaSequence)null!, 4, 10, 3).ToList());
     }
 
     #endregion
