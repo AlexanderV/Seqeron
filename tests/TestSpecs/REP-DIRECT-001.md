@@ -9,7 +9,7 @@
 | **Title** | Direct Repeat Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-01-22 |
+| **Last Updated** | 2026-03-02 |
 
 ---
 
@@ -60,7 +60,7 @@ All MUST tests are justified by evidence or explicitly marked.
 
 | ID | Test Name | Rationale | Evidence |
 |----|-----------|-----------|----------|
-| S1 | MultipleDirectRepeats_FindsAll | Sequence with multiple repeat occurrences | Real genome scenario |
+| S1 | MultipleDirectRepeats_FindsAllPairs | Three occurrences produce all three pairwise combinations | Wikipedia - "nucleotide sequences present in multiple copies" |
 | S2 | StringOverload_MatchesDnaSequenceOverload | API consistency | Implementation contract |
 | S3 | CaseInsensitivity_HandledCorrectly | Lowercase input processed | Implementation robustness |
 | S4 | LongSpacing_Detected | Repeats with large intervening region | Wikipedia - interspersed repeats |
@@ -71,44 +71,16 @@ All MUST tests are justified by evidence or explicitly marked.
 | ID | Test Name | Rationale | Evidence |
 |----|-----------|-----------|----------|
 | C1 | OverlappingPatterns_HandledCorrectly | Multiple patterns at same position | Edge case |
-| C2 | LargeSequence_Performance | Performance baseline for O(n²) algorithm | DoD requirement for O(n²) |
+| C2 | LargeSequence_Performance | O(n²) completes in bounded time for 1000bp | DoD requirement |
 
 ---
 
 ## Test Audit
 
-### Existing Tests (Pre-Consolidation)
-
-| File | Test Name | Classification | Action |
-|------|-----------|----------------|--------|
-| RepeatFinderTests.cs | FindDirectRepeats_SimpleRepeat_FindsRepeat | Weak (M1) | Replace with stronger test |
-| RepeatFinderTests.cs | FindDirectRepeats_AdjacentRepeats_FindsRepeat | Covered (M2) | Keep, move |
-| RepeatFinderTests.cs | FindDirectRepeats_NoRepeats_ReturnsEmpty | Covered (M3) | Keep, move |
-| RepeatFinderTests.cs | FindDirectRepeats_SpacingCalculation_Correct | Weak (M8) | Strengthen, move |
-| RepeatFinderTests.cs | FindDirectRepeats_StringOverload_Works | Covered (S2) | Keep as smoke |
-| RepeatFinderTests.cs | FindDirectRepeats_EmptySequence_ReturnsEmpty | Covered (M4) | Keep, move |
-
-### Consolidation Plan
-
-1. **Canonical file:** `RepeatFinder_DirectRepeat_Tests.cs` (new dedicated file)
-2. **Remove from RepeatFinderTests.cs:** All direct repeat tests (move to dedicated file)
-3. ~~**Add missing tests:** M5, M6, M7, M9, M10, M11, M12, M13, M14, S1, S3, S4, S5~~ ✅ All added
-4. ~~**Strengthen existing:** M1 (vague assertion), M8 (conditional)~~ ✅ Done
+**Canonical file:** `RepeatFinder_DirectRepeat_Tests.cs` — 21 tests (14 MUST, 5 SHOULD, 2 COULD).
 
 ---
 
-## Open Questions / Decisions
+## Deviations and Assumptions
 
-| Question | Decision | Justification |
-|----------|----------|---------------|
-| Report all pairwise matches? | Only first occurrence pair | Implementation behavior |
-| Case sensitivity? | Case-insensitive | Implementation uses ToUpperInvariant() |
-| minSpacing = 0 allowed? | Yes, for adjacent/tandem repeats | Wikipedia - tandem repeats |
-
----
-
-## Assumptions
-
-| ID | Assumption | Impact |
-|----|------------|--------|
-| A1 | minLength ≥ 2 prevents trivial single-nucleotide matches | Test M6 validates this |
+None. All behaviors and test data verified against external sources (Wikipedia: Direct repeat, Repeated sequence (DNA); Ussery et al. 2009; Richard 2021 PMC8145212), accessed 2026-03-02.
