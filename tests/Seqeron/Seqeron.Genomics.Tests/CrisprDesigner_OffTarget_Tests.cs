@@ -15,7 +15,7 @@ namespace Seqeron.Genomics.Tests;
 /// 
 /// Key Evidence:
 /// - Off-target sites have sequence similarity to guide with 1-5 mismatches
-/// - Seed region (PAM-proximal 10-12bp) is critical for specificity
+/// - Seed region (PAM-proximal 8-10bp per Addgene) is critical for specificity
 /// - PAM is required at off-target sites for cleavage
 /// </summary>
 [TestFixture]
@@ -276,7 +276,7 @@ public class CrisprDesigner_OffTarget_Tests
     [Test]
     public void FindOffTargets_SeedMismatch_HigherOffTargetScore()
     {
-        // For SpCas9, seed is last 12bp (positions 8-19 of 20bp guide)
+        // For SpCas9, seed is last 10bp (positions 10-19 of 20bp guide)
         string guide = "ACGTACGTACGTACGTACGT";
 
         // Off-target with mismatch at position 0 (PAM-distal)

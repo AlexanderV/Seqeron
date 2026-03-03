@@ -19,27 +19,36 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class CrisprDesigner_GuideRNA_Tests
 {
+    // Standard SpCas9 scaffold (76 nt)
+    private const string SpCas9Scaffold =
+        "GTTTTAGAGCTAGAAATAGCAAGTTAAAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGC";
+
     #region MUST Tests - Guide RNA Evaluation
 
     /// <summary>
-    /// M-001: Optimal guide (50% GC, no polyT) should score high.
-    /// Evidence: Addgene - guides with optimal GC (40-70%) perform better.
+    /// M-001: Optimal guide (50% GC, no polyT, no penalties) → perfect score.
+    /// Evidence: Addgene — guides with optimal GC (40-70%) perform better.
+    /// Input: "ACGTACGTACGTACGTACGT" — 50% GC, no polyT, selfComp=0.15 (below 0.3 threshold).
+    /// Score: 100 (base) − 0 = 100.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_OptimalGuide_HighScore()
     {
-        // Good guide: ~50% GC, no polyT, low self-complementarity
-        string guide = "ACGTACGTACGTACGTACGT"; // 50% GC
+        string guide = "ACGTACGTACGTACGTACGT"; // 50% GC, no polyT
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.GreaterThan(70));
+        Assert.That(candidate.Score, Is.EqualTo(100));
         Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(50));
         Assert.That(candidate.HasPolyT, Is.False);
+        Assert.That(candidate.SelfComplementarityScore, Is.EqualTo(0.15));
+        Assert.That(candidate.Issues, Is.Empty);
     }
 
     /// <summary>
-    /// M-002: Low GC content (0%) should be penalized.
-    /// Evidence: Wikipedia - GC >50% optimal for efficiency.
+    /// M-002: 0% GC → strong penalty: (40-0)×2 = 80, plus seed GC 0% → −5.
+    /// Evidence: Wikipedia — "GC content of sgRNA should optimally be over 50%."
+    /// Score: 100 − 80 − 5 = 15.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_LowGcContent_LowerScore()
@@ -47,14 +56,18 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "AAAAAAAAAAAAAAAAAAAA"; // 0% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.LessThan(50));
+        Assert.That(candidate.Score, Is.EqualTo(15));
         Assert.That(candidate.GcContent, Is.EqualTo(0));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
+        Assert.That(candidate.HasPolyT, Is.False);
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues, Has.Some.Contains("Low GC"));
+        Assert.That(candidate.Issues, Has.Some.Contains("Suboptimal seed region GC"));
     }
 
     /// <summary>
-    /// M-003: High GC content (100%) should be penalized.
-    /// Evidence: High GC causes secondary structures.
+    /// M-003: 100% GC → penalty: (100-70)×2 = 60, plus seed GC 100% → −5.
+    /// Score: 100 − 60 − 5 = 35.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_HighGcContent_LowerScore()
@@ -62,23 +75,32 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "GCGCGCGCGCGCGCGCGCGC"; // 100% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.LessThan(50));
+        Assert.That(candidate.Score, Is.EqualTo(35));
         Assert.That(candidate.GcContent, Is.EqualTo(100));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(100));
+        Assert.That(candidate.HasPolyT, Is.False);
+        Assert.That(candidate.Issues, Has.Count.EqualTo(2));
         Assert.That(candidate.Issues, Has.Some.Contains("High GC"));
+        Assert.That(candidate.Issues, Has.Some.Contains("Suboptimal seed region GC"));
     }
 
     /// <summary>
-    /// M-004: PolyT (TTTT) should be detected and penalized.
-    /// Evidence: Addgene - Pol III terminates at TTTT sequences.
+    /// M-004: PolyT (TTTT) detected → −20 penalty.
+    /// Evidence: Addgene — "RNA polymerase III terminates at poly-T sequences."
+    /// Input: "ACGTACGTTTTTACGTACGT" — 40% GC (no GC penalty), polyT present.
+    /// Score: 100 − 20 = 80.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_HasPolyT_Penalized()
     {
-        string guide = "ACGTACGTTTTTACGTACGT"; // Contains TTTT
+        string guide = "ACGTACGTTTTTACGTACGT"; // 40% GC, contains 5 consecutive T's
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
+        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.GcContent, Is.EqualTo(40));
         Assert.That(candidate.HasPolyT, Is.True);
-        Assert.That(candidate.Issues, Has.Some.Contains("TTTT"));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("TTTT"));
     }
 
     /// <summary>
@@ -93,17 +115,18 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// M-006: FullGuideRna should include the scaffold sequence.
-    /// Evidence: Addgene - sgRNA = spacer + scaffold.
+    /// M-006: FullGuideRna = spacer + scaffold (76 nt).
+    /// Evidence: Addgene — "sgRNA composed of a scaffold sequence necessary for Cas-binding and a spacer."
+    /// Total length: 20 + 76 = 96.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_FullGuideRna_IncludesScaffold()
     {
-        string guide = "ACGTACGTACGTACGTACGT";
+        string guide = "ACGTACGTACGTACGTACGT"; // 20bp
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.FullGuideRna, Does.StartWith(guide));
-        Assert.That(candidate.FullGuideRna.Length, Is.GreaterThan(guide.Length));
+        Assert.That(candidate.FullGuideRna, Is.EqualTo(guide + SpCas9Scaffold));
+        Assert.That(candidate.FullGuideRna.Length, Is.EqualTo(96));
     }
 
     #endregion
@@ -147,79 +170,151 @@ public class CrisprDesigner_GuideRNA_Tests
     #region SHOULD Tests - Guide RNA Evaluation
 
     /// <summary>
-    /// S-001: Guide without polyT should not be penalized.
+    /// S-001: Restriction site penalty (−5).
+    /// Evidence: Common restriction sites interfere with cloning.
+    /// Input: "ACGTGAATTCACGTACGTAC" — 45% GC, contains EcoRI site (GAATTC).
+    /// Score: 100 − 5 = 95.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_NoPolyT_NotPenalized()
+    public void EvaluateGuideRna_RestrictionSite_Penalized()
     {
-        string guide = "ACGTACGTACGTACGTACGT";
+        string guide = "ACGTGAATTCACGTACGTAC"; // Contains GAATTC (EcoRI)
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.HasPolyT, Is.False);
+        Assert.That(candidate.Score, Is.EqualTo(95));
+        Assert.That(candidate.GcContent, Is.EqualTo(45));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("restriction site"));
     }
 
     /// <summary>
-    /// S-002: Seed GC content should be calculated.
-    /// Evidence: Addgene - seed region (8-10bp at 3') initiates annealing.
+    /// S-002: Seed GC content is calculated from last 10bp.
+    /// Evidence: Addgene — seed region (8-10bp at 3') initiates annealing; implementation uses 10bp upper bound.
+    /// Input: "AAAAAAAAAAAAACGTACGT" — overall GC 20%, seed (last 10) GC 40%.
+    /// Score: 100 − (40−20)×2 = 60 (Low GC penalty only; seed in [30,80]).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_CalculatesSeedGc()
     {
-        string guide = "AAAAAAAAAAAAACGTACGT"; // Last 12 bases have mixed content
+        string guide = "AAAAAAAAAAAAACGTACGT"; // Overall GC=20%, seed last 10 = "AACGTACGT" → 40% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.SeedGcContent, Is.GreaterThan(0));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(40));
+        Assert.That(candidate.GcContent, Is.EqualTo(20));
+        Assert.That(candidate.Score, Is.EqualTo(60));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("Low GC"));
     }
 
     /// <summary>
-    /// S-006: Boundary GC at exactly 40% should not be penalized.
-    /// Evidence: 40% is the lower boundary of optimal range.
+    /// S-006: Boundary GC at exactly 40% → no GC penalty.
+    /// Evidence: 40% is MinGcContent default — lower boundary inclusive.
+    /// Input: "AAAAAAAAAAAAGCGCGCGC" — 8 G/C of 20 = 40%, seed GC = 80%.
+    /// Score: 100 (no penalties — seed GC 80% is ≤ 80 threshold).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_BoundaryGc40Percent_NotPenalized()
     {
-        // 8 G/C out of 20 = 40% GC
         string guide = "AAAAAAAAAAAAGCGCGCGC"; // 8 G/C = 40% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(40));
-        Assert.That(candidate.Score, Is.GreaterThanOrEqualTo(70),
-            "Guide at 40% GC boundary should not be penalized for GC content");
-        Assert.That(candidate.Issues.Any(i => i.Contains("Low GC")), Is.False,
-            "No 'Low GC' issue expected at 40% boundary");
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(80));
+        Assert.That(candidate.Score, Is.EqualTo(100));
+        Assert.That(candidate.Issues, Is.Empty);
     }
 
     /// <summary>
-    /// S-007: Boundary GC at exactly 70% should not be penalized.
-    /// Evidence: 70% is the upper boundary of optimal range.
+    /// S-007: Boundary GC at exactly 70% → no GC penalty.
+    /// Evidence: 70% is MaxGcContent default — upper boundary inclusive.
+    /// Input: "GCGCGCGCGCGCGCAAAAAA" — 14 G/C of 20 = 70%, seed GC = 40%.
+    /// Score: 100 (no penalties).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_BoundaryGc70Percent_NotPenalized()
     {
-        // 14 G/C out of 20 = 70% GC
         string guide = "GCGCGCGCGCGCGCAAAAAA"; // 14 G/C = 70% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
         Assert.That(candidate.GcContent, Is.EqualTo(70));
-        Assert.That(candidate.Score, Is.GreaterThanOrEqualTo(70),
-            "Guide at 70% GC boundary should not be penalized for GC content");
-        Assert.That(candidate.Issues.Any(i => i.Contains("High GC")), Is.False,
-            "No 'High GC' issue expected at 70% boundary");
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(40));
+        Assert.That(candidate.Score, Is.EqualTo(100));
+        Assert.That(candidate.Issues, Is.Empty);
     }
 
     /// <summary>
-    /// S-009: Only 3 consecutive T's should NOT trigger polyT detection.
+    /// S-008: Exactly 4 consecutive T's triggers polyT detection.
+    /// Evidence: Addgene — TTTT is the minimum for Pol III termination.
+    /// Input: "ACGTACGTACGATTTTACGT" — note 'A' at position 11 prevents merge with preceding T.
+    /// Score: 100 − 20 = 80.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_ExactlyFourTs_TriggersPolyT()
+    {
+        string guide = "ACGTACGTACGATTTTACGT"; // Exactly 4 consecutive T's (positions 12-15)
+        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        Assert.That(candidate.HasPolyT, Is.True);
+        Assert.That(candidate.GcContent, Is.EqualTo(40));
+        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("TTTT"));
+    }
+
+    /// <summary>
+    /// S-009: 3 consecutive T's should NOT trigger polyT detection.
     /// Evidence: TTTT (4+) is the minimum for Pol III termination.
+    /// Input: "ACGTACGTACGTACGTTTAC" — 3 consecutive T's at positions 15-17.
+    /// Score: 100 (no penalties — 45% GC in range, no polyT, seed 40%).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_ThreeConsecutiveTs_NoPolyT()
     {
-        string guide = "ACGTACGTACGTACGTTTAN".Replace("N", "A"); // 3 T's only
-        guide = "ACGTACGTACGTACGTTTAC"; // Exactly 3 consecutive T's
+        string guide = "ACGTACGTACGTACGTTTAC"; // 3 consecutive T's (positions 15-17)
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.HasPolyT, Is.False,
-            "3 consecutive T's should not trigger polyT detection");
+        Assert.That(candidate.HasPolyT, Is.False);
+        Assert.That(candidate.GcContent, Is.EqualTo(45));
+        Assert.That(candidate.Score, Is.EqualTo(100));
+        Assert.That(candidate.Issues, Is.Empty);
+    }
+
+    /// <summary>
+    /// S-010: Suboptimal seed GC (low) → −5 penalty.
+    /// Evidence: Seed region (last 10bp) GC outside 30-80% → penalty.
+    /// Input: "GCGCGCGCGCAAAAAAAAAA" — overall GC 50% (no GC penalty), seed GC 0% (all A's) → −5.
+    /// Score: 100 − 5 = 95.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_SeedGcLow_Penalized()
+    {
+        string guide = "GCGCGCGCGCAAAAAAAAAA"; // Overall 50% GC, seed last 10 = all A → 0% GC
+        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
+        Assert.That(candidate.Score, Is.EqualTo(95));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("Suboptimal seed region GC"));
+    }
+
+    /// <summary>
+    /// S-011: Suboptimal seed GC (high) → −5 penalty.
+    /// Evidence: Seed region (last 10bp) GC outside 30-80% → penalty.
+    /// Input: "AAAAAAAAAAGGGGGGGGGG" — overall GC 50%, seed GC 100% (all G) → −5.
+    /// Score: 100 − 5 = 95.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_SeedGcHigh_Penalized()
+    {
+        string guide = "AAAAAAAAAAGGGGGGGGGG"; // Overall 50% GC, seed last 10 = all G → 100% GC
+        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(100));
+        Assert.That(candidate.Score, Is.EqualTo(95));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("Suboptimal seed region GC"));
     }
 
     #endregion
@@ -227,18 +322,20 @@ public class CrisprDesigner_GuideRNA_Tests
     #region SHOULD Tests - Guide RNA Design
 
     /// <summary>
-    /// S-003: Design should find guides when PAM is present.
-    /// Evidence: Addgene - target must be adjacent to PAM.
+    /// S-003: Design finds guides when PAM is present in target region.
+    /// Evidence: Addgene — "target is present immediately adjacent to a PAM."
+    /// Returns 1 guide at position 24 (forward strand) with Score 100.
     /// </summary>
     [Test]
     public void DesignGuideRnas_WithPamInRegion_ReturnsGuides()
     {
-        // Create a sequence with PAM (AGG or GGG or similar) in the target region
         var sequence = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGG");
         var guides = CrisprDesigner.DesignGuideRnas(sequence, 20, 45, CrisprSystemType.SpCas9).ToList();
 
-        // Should find at least one guide (the AGG PAM at the end)
-        Assert.That(guides, Has.Count.GreaterThanOrEqualTo(0));
+        Assert.That(guides, Has.Count.EqualTo(1));
+        Assert.That(guides[0].Position, Is.EqualTo(24));
+        Assert.That(guides[0].Score, Is.EqualTo(100));
+        Assert.That(guides[0].IsForwardStrand, Is.True);
     }
 
     #endregion
@@ -246,7 +343,7 @@ public class CrisprDesigner_GuideRNA_Tests
     #region SHOULD Tests - Parameters
 
     /// <summary>
-    /// S-004: Default parameters should have documented values.
+    /// S-004: Default parameters have documented values.
     /// </summary>
     [Test]
     public void GuideRnaParameters_Default_HasValidValues()
@@ -261,7 +358,7 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// S-005: Custom parameter values should be respected.
+    /// S-005: Custom parameter values are preserved.
     /// </summary>
     [Test]
     public void GuideRnaParameters_CustomValues_Respected()
@@ -276,6 +373,8 @@ public class CrisprDesigner_GuideRNA_Tests
         Assert.That(custom.MinGcContent, Is.EqualTo(30));
         Assert.That(custom.MaxGcContent, Is.EqualTo(80));
         Assert.That(custom.MinScore, Is.EqualTo(40));
+        Assert.That(custom.AvoidPolyT, Is.False);
+        Assert.That(custom.CheckSelfComplementarity, Is.False);
     }
 
     #endregion
@@ -283,29 +382,35 @@ public class CrisprDesigner_GuideRNA_Tests
     #region COULD Tests - Edge Cases
 
     /// <summary>
-    /// C-001: Self-complementary guide should have lower score.
-    /// Evidence: Self-complementary regions reduce efficacy.
+    /// C-001: Self-complementarity > 0.3 triggers penalty.
+    /// Evidence: Self-complementary regions form secondary structures reducing efficacy.
+    /// Uses 8bp period-2 palindrome "GCGCGCGC" (selfComp=0.3125, > 0.3 threshold).
+    /// Score: 100 − 60(GC) − 9.375(selfComp×30) − 5(seedGC) = 25.625.
+    /// Control: "ACGTACGT" (8bp, selfComp=0.1875, below threshold) → Score 100.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_SelfComplementary_LowerScore()
+    public void EvaluateGuideRna_SelfComplementary_PenaltyTriggered()
     {
-        // Non-palindromic control
-        string nonPalin = "ACGTACGTACGTACGTACGT"; // 50% GC, not palindromic
-        var nonPalinCandidate = CrisprDesigner.EvaluateGuideRna(nonPalin, CrisprSystemType.SpCas9);
+        // High self-comp: 8bp period-2 palindrome exceeds 0.3 threshold
+        string highSelfComp = "GCGCGCGC";
+        var result = CrisprDesigner.EvaluateGuideRna(highSelfComp, CrisprSystemType.SpCas9);
 
-        // Palindromic guide that can form hairpin
-        string palindrome = "ACGTACGTGCATGCATGCAT"; // Has complementary regions
-        var palinCandidate = CrisprDesigner.EvaluateGuideRna(palindrome, CrisprSystemType.SpCas9);
+        Assert.That(result.SelfComplementarityScore, Is.EqualTo(0.3125));
+        Assert.That(result.Score, Is.EqualTo(25.625));
+        Assert.That(result.Issues, Has.Some.Contains("self-complementarity"));
 
-        // Both should be valid, but self-complementarity check may impact score
-        Assert.That(palinCandidate.Score, Is.GreaterThan(0),
-            "Self-complementary guide should still have positive score");
-        // Note: Score comparison depends on implementation of self-complementarity check
+        // Control: same length, below threshold → no self-comp penalty
+        string lowSelfComp = "ACGTACGT";
+        var control = CrisprDesigner.EvaluateGuideRna(lowSelfComp, CrisprSystemType.SpCas9);
+
+        Assert.That(control.SelfComplementarityScore, Is.EqualTo(0.1875));
+        Assert.That(control.Score, Is.EqualTo(100));
+        Assert.That(control.Issues.Any(i => i.Contains("self-complementarity")), Is.False);
     }
 
     /// <summary>
-    /// C-002: All-T guide should have very low score with multiple issues.
-    /// Evidence: Extreme edge case - 0% GC + polyT.
+    /// C-002: All-T guide — maximal penalties: low GC + polyT + seed GC → clamped to 0.
+    /// Score: 100 − 80(GC) − 20(polyT) − 5(seedGC) = −5 → clamped to 0.
     /// </summary>
     [Test]
     public void EvaluateGuideRna_AllT_VeryLowScoreWithMultipleIssues()
@@ -313,12 +418,14 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "TTTTTTTTTTTTTTTTTTTT"; // 0% GC, polyT throughout
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.Score, Is.LessThan(40),
-            "All-T guide should have very low score");
+        Assert.That(candidate.Score, Is.EqualTo(0));
         Assert.That(candidate.GcContent, Is.EqualTo(0));
+        Assert.That(candidate.SeedGcContent, Is.EqualTo(0));
         Assert.That(candidate.HasPolyT, Is.True);
-        Assert.That(candidate.Issues.Count, Is.GreaterThanOrEqualTo(2),
-            "Should have issues for both low GC and polyT");
+        Assert.That(candidate.Issues, Has.Count.EqualTo(3));
+        Assert.That(candidate.Issues, Has.Some.Contains("Low GC"));
+        Assert.That(candidate.Issues, Has.Some.Contains("TTTT"));
+        Assert.That(candidate.Issues, Has.Some.Contains("Suboptimal seed region GC"));
     }
 
     /// <summary>
@@ -332,43 +439,42 @@ public class CrisprDesigner_GuideRNA_Tests
     }
 
     /// <summary>
-    /// C-004: No PAM in region should return empty collection.
+    /// C-004: No PAM in region returns empty collection.
     /// Evidence: Guides can only be designed adjacent to PAM.
     /// </summary>
     [Test]
     public void DesignGuideRnas_NoPamInRegion_ReturnsEmpty()
     {
-        // Sequence without any NGG PAM
         var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
         var guides = CrisprDesigner.DesignGuideRnas(sequence, 10, 40, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(guides, Is.Empty,
-            "Should return empty when no PAM sites in target region");
+        Assert.That(guides, Is.Empty);
     }
 
     /// <summary>
-    /// C-005: Multiple PAMs should return multiple guide candidates.
+    /// C-005: Multiple PAMs produce multiple guides.
+    /// Input: 3 × (20bp + NGG) structure → 3 forward-strand guide candidates.
+    /// All guides are "ACGTACGTACGTACGTACGT" scoring 100.
     /// </summary>
     [Test]
     public void DesignGuideRnas_MultiplePams_ReturnsMultipleGuides()
     {
-        // Sequence with multiple NGG PAMs
-        // Structure: 20bp + AGG + 20bp + CGG + 20bp + TGG
         var sequence = new DnaSequence(
-            "ACGTACGTACGTACGTACGTAGG" +  // PAM 1
-            "ACGTACGTACGTACGTACGTCGG" +  // PAM 2
-            "ACGTACGTACGTACGTACGTTGG");  // PAM 3
+            "ACGTACGTACGTACGTACGTAGG" +  // PAM 1 (AGG)
+            "ACGTACGTACGTACGTACGTCGG" +  // PAM 2 (CGG)
+            "ACGTACGTACGTACGTACGTTGG");  // PAM 3 (TGG)
 
-        // regionEnd must be < sequence.Length per implementation
         var guides = CrisprDesigner.DesignGuideRnas(sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(guides.Count, Is.GreaterThanOrEqualTo(2),
-            "Should find multiple guides when multiple PAM sites present");
+        Assert.That(guides, Has.Count.EqualTo(3));
+        Assert.That(guides.All(g => g.Sequence == "ACGTACGTACGTACGTACGT"), Is.True);
+        Assert.That(guides.All(g => g.Score == 100), Is.True);
     }
 
     /// <summary>
-    /// C-006: SaCas9 system type should produce valid evaluation.
-    /// Evidence: Different CRISPR systems exist with different properties.
+    /// C-006: SaCas9 system type evaluates correctly.
+    /// Evidence: SaCas9 (Staphylococcus aureus) — NNGRRT PAM, 21bp guide, PAM after target.
+    /// Same 20bp input scores identically (no system-specific penalty in EvaluateGuideRna).
     /// </summary>
     [Test]
     public void EvaluateGuideRna_SaCas9SystemType_ValidEvaluation()
@@ -376,71 +482,86 @@ public class CrisprDesigner_GuideRNA_Tests
         string guide = "ACGTACGTACGTACGTACGT";
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SaCas9);
 
-        Assert.That(candidate, Is.Not.Null);
         Assert.That(candidate.Sequence, Is.EqualTo(guide));
-        Assert.That(candidate.Score, Is.GreaterThan(0));
+        Assert.That(candidate.Score, Is.EqualTo(100));
+        Assert.That(candidate.GcContent, Is.EqualTo(50));
+        Assert.That(candidate.System.Name, Is.EqualTo("SaCas9"));
+        Assert.That(candidate.System.GuideLength, Is.EqualTo(21));
+        Assert.That(candidate.Issues, Is.Empty);
     }
 
     /// <summary>
-    /// C-008: Region spanning entire sequence should work.
+    /// C-007: GC just below 40% boundary triggers Low GC issue.
+    /// Input: "AAAAAAAAAAAAGCGCGCAT" — 6 G/C of 20 = 30% GC.
+    /// Score: 100 − (40−30)×2 = 80.
+    /// </summary>
+    [Test]
+    public void EvaluateGuideRna_BelowBoundaryGc_HasLowGcIssue()
+    {
+        string guide = "AAAAAAAAAAAAGCGCGCAT"; // 6 G/C = 30% GC
+        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+
+        Assert.That(candidate.GcContent, Is.EqualTo(30));
+        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("Low GC"));
+    }
+
+    /// <summary>
+    /// C-008: Region spanning entire sequence works without error.
+    /// Returns exactly 1 guide at position 4.
     /// </summary>
     [Test]
     public void DesignGuideRnas_EntireSequenceAsRegion_Works()
     {
-        // Sequence with PAM at the end
         var sequence = new DnaSequence("ACGTACGTACGTACGTACGTACGTAGG");
 
-        // regionEnd must be < sequence.Length per implementation (exclusive end)
         var guides = CrisprDesigner.DesignGuideRnas(
             sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9).ToList();
 
-        // Should not throw and return valid results
-        Assert.That(guides, Is.Not.Null);
+        Assert.That(guides, Has.Count.EqualTo(1));
+        Assert.That(guides[0].Position, Is.EqualTo(4));
+        Assert.That(guides[0].Score, Is.EqualTo(100));
     }
 
     /// <summary>
-    /// Exactly 4 consecutive T's should trigger polyT detection.
-    /// Evidence: TTTT is the minimum for Pol III termination signal.
+    /// C-009: GC above 70% boundary triggers High GC issue.
+    /// Input: "GCGCGCGCGCGCGCGCAAAA" — 16 G/C of 20 = 80% GC.
+    /// Score: 100 − (80−70)×2 = 80.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_ExactlyFourTs_TriggersPolyT()
+    public void EvaluateGuideRna_AboveBoundaryGc_HasHighGcIssue()
     {
-        // Exactly 4 T's, not 5
-        string guide = "ACGTACGTACGTTTTTACGT";
+        string guide = "GCGCGCGCGCGCGCGCAAAA"; // 16 G/C = 80% GC
         var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
 
-        Assert.That(candidate.HasPolyT, Is.True,
-            "Exactly 4 consecutive T's should trigger polyT detection");
+        Assert.That(candidate.GcContent, Is.EqualTo(80));
+        Assert.That(candidate.Score, Is.EqualTo(80));
+        Assert.That(candidate.Issues, Has.Count.EqualTo(1));
+        Assert.That(candidate.Issues[0], Does.Contain("High GC"));
     }
 
     /// <summary>
-    /// Guide at 39% GC (just below boundary) should have Low GC issue.
+    /// C-010: DesignGuideRnas filters guides below MinScore.
+    /// A guide scoring 100 is excluded when MinScore = 101.
     /// </summary>
     [Test]
-    public void EvaluateGuideRna_BelowBoundaryGc39Percent_HasLowGcIssue()
+    public void DesignGuideRnas_MinScoreFiltering_ExcludesLowScoreGuides()
     {
-        // 7 G/C out of 20 = 35% GC (below 40% boundary)
-        string guide = "AAAAAAAAAAAAGCGCGCAT"; // 7 G/C = 35% GC
-        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
+        var sequence = new DnaSequence("ACGTACGTACGTACGTACGTACGTAGG");
 
-        Assert.That(candidate.GcContent, Is.LessThan(40));
-        Assert.That(candidate.Issues.Any(i => i.Contains("Low GC") || i.Contains("GC")), Is.True,
-            "Should have GC-related issue when below 40%");
-    }
+        // With default MinScore (50), the guide (score 100) is included
+        var defaultGuides = CrisprDesigner.DesignGuideRnas(
+            sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9).ToList();
+        Assert.That(defaultGuides, Has.Count.EqualTo(1));
 
-    /// <summary>
-    /// Guide at 75% GC (just above boundary) should have High GC issue.
-    /// </summary>
-    [Test]
-    public void EvaluateGuideRna_AboveBoundaryGc75Percent_HasHighGcIssue()
-    {
-        // 15 G/C out of 20 = 75% GC (above 70% boundary)
-        string guide = "GCGCGCGCGCGCGCGCAAAA"; // 15 G/C = 75% GC
-        var candidate = CrisprDesigner.EvaluateGuideRna(guide, CrisprSystemType.SpCas9);
-
-        Assert.That(candidate.GcContent, Is.GreaterThan(70));
-        Assert.That(candidate.Issues.Any(i => i.Contains("High GC") || i.Contains("GC")), Is.True,
-            "Should have GC-related issue when above 70%");
+        // With MinScore > 100, no guide qualifies
+        var strictParams = new GuideRnaParameters(
+            MinGcContent: 40, MaxGcContent: 70, MinScore: 101,
+            AvoidPolyT: true, CheckSelfComplementarity: true);
+        var strictGuides = CrisprDesigner.DesignGuideRnas(
+            sequence, 0, sequence.Length - 1, CrisprSystemType.SpCas9, strictParams).ToList();
+        Assert.That(strictGuides, Is.Empty);
     }
 
     #endregion

@@ -218,10 +218,11 @@ public static class CrisprDesigner
         // Calculate self-complementarity score
         double selfCompScore = CalculateSelfComplementarity(seq);
 
-        // Check seed region (last 12 bp for Cas9)
+        // Check seed region (last 10 bp for Cas9)
+        // Evidence: Addgene - seed sequence is 8-10 bases at 3' end; using upper bound (10bp)
         string seedRegion = system.PamAfterTarget
-            ? seq.Substring(Math.Max(0, seq.Length - 12))
-            : seq.Substring(0, Math.Min(12, seq.Length));
+            ? seq.Substring(Math.Max(0, seq.Length - 10))
+            : seq.Substring(0, Math.Min(10, seq.Length));
         double seedGc = CalculateGcContent(seedRegion);
 
         // Calculate overall score
@@ -255,9 +256,9 @@ public static class CrisprDesigner
         }
 
         // Seed region GC penalty
-        if (seedGc < 30 || seedGc > 70)
+        if (seedGc < 30 || seedGc > 80)
         {
-            score -= 10;
+            score -= 5;
             issues.Add($"Suboptimal seed region GC ({seedGc:F1}%)");
         }
 
@@ -414,8 +415,8 @@ public static class CrisprDesigner
     private static double CalculateOffTargetScore(string guide, string target, CrisprSystem system)
     {
         double score = 0;
-        int seedStart = system.PamAfterTarget ? guide.Length - 12 : 0;
-        int seedEnd = system.PamAfterTarget ? guide.Length : 12;
+        int seedStart = system.PamAfterTarget ? guide.Length - 10 : 0;
+        int seedEnd = system.PamAfterTarget ? guide.Length : 10;
 
         for (int i = 0; i < Math.Min(guide.Length, target.Length); i++)
         {

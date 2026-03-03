@@ -43,7 +43,7 @@ The seed sequence (last 8-12 nucleotides at 3' end) initiates target annealing. 
 
 **Source**: Addgene CRISPR Guide - "the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence) will begin to anneal to the target DNA"
 
-**Implementation**: Calculates GC% of last 12 nucleotides separately.
+**Implementation**: Calculates GC% of last 10 nucleotides separately (Addgene evidence: 8–10bp; using upper bound).
 
 #### 4. Self-Complementarity
 Internal secondary structures reduce guide efficacy by sequestering the spacer sequence.
@@ -99,7 +99,7 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 | Sequence | string | 20bp guide sequence |
 | Position | int | Position in source sequence |
 | GcContent | double | Overall GC percentage |
-| SeedGcContent | double | GC% of seed region (last 12bp) |
+| SeedGcContent | double | GC% of seed region (last 10bp) |
 | HasPolyT | bool | Contains TTTT |
 | Score | double | Composite quality score (0-100) |
 | Issues | IReadOnlyList<string> | Quality concerns |
@@ -111,20 +111,20 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 
 ### Deductions:
 1. **GC Content Outside Range**:
-   - Below MinGcContent: -20 points
-   - Above MaxGcContent: -20 points
+   - Below MinGcContent: -(MinGcContent − actual) × 2 points (proportional)
+   - Above MaxGcContent: -(actual − MaxGcContent) × 2 points (proportional)
 
 2. **Poly-T Detection**:
-   - Contains TTTT: -15 points
+   - Contains TTTT: -20 points
 
 3. **Self-Complementarity**:
-   - High complementarity detected: -10 points
+   - score × 30 deducted when self-complementarity > 0.3 threshold (up to ~30 points)
 
 4. **Seed Region GC**:
    - Seed GC outside 30-80%: -5 points
 
 5. **Restriction Sites**:
-   - Each detected site: -5 points (max -15)
+   - Common restriction site detected: -5 points
 
 ## Edge Cases
 
@@ -133,7 +133,7 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 2. **Null sequence for DesignGuideRnas**: Throws ArgumentNullException
 3. **Region start < 0**: Throws ArgumentOutOfRangeException
 4. **Region end > sequence length**: Throws ArgumentOutOfRangeException
-5. **Guide length ≠ 20**: May produce unexpected results (ASSUMPTION - verify standard length handling)
+5. **Guide length ≠ 20**: Accepted and scored naturally; 20bp is standard per sources (Wikipedia: 17–24bp range). Non-standard lengths are not rejected but receive scores reflecting their composition.
 
 ### Biological Edge Cases
 1. **All-A guide (0% GC)**: Valid but low score, issues reported
@@ -167,16 +167,20 @@ Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies
 ## Implementation Notes
 
 ### Current Implementation Accuracy
-The implementation aligns well with documented guidelines:
+The implementation aligns with documented guidelines from external sources:
 - ✅ 40-70% GC range matches commonly used thresholds
-- ✅ Poly-T detection (TTTT) correctly identifies termination signals
-- ✅ Seed region (12bp) slightly larger than minimum (8-10bp), more conservative
+- ✅ Poly-T detection (TTTT) correctly identifies Pol III termination signals
+- ✅ Seed region (10bp) matches the upper bound of the Addgene evidence range (8–10bp)
 - ✅ 20bp standard guide length
+- ✅ Scoring uses proportional GC penalty for granular quality differentiation
+- ✅ Scaffold sequence matches widely-used SpCas9 tracrRNA-derived scaffold
 
-### Known Gaps
-- Position-weighted scoring (Doench rules) not implemented
-- Machine learning-based prediction not available
-- No consideration of chromatin accessibility
+### Not Implemented
+| Feature | Reason | Source |
+|---------|--------|--------|
+| Position-weighted scoring (Doench rules) | Referenced in our Academic References (Doench et al. 2014) but not implemented — current scoring uses composition-only metrics | Doench et al. (2014) via Addgene |
+| Machine learning-based prediction | Out of scope — requires training data and model infrastructure beyond sequence-level analysis | N/A (general approach) |
+| Chromatin accessibility consideration | Out of scope — in-vivo factor, not determinable from sequence alone | N/A (epigenetic context) |
 
 ## Related Test Units
 - **CRISPR-PAM-001**: PAM Site Detection (prerequisite)
@@ -186,3 +190,4 @@ The implementation aligns well with documented guidelines:
 | Date | Version | Changes |
 |------|---------|---------|
 | 2025-01-08 | 1.0 | Initial documentation for CRISPR-GUIDE-001 |
+| 2026-03-03 | 2.1 | Fixed stale seed region reference (12bp → 10bp); restored Not Implemented section with honest classification |
