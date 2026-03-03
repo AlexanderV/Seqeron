@@ -3,9 +3,10 @@
 ## Test Unit: Melting Temperature Calculation
 
 **Area:** MolTools
-**Status:** Draft
+**Status:** Active
 **Created:** 2026-01-22
-**Evidence Sources:** Wikipedia (Nucleic acid thermodynamics, DNA melting), SantaLucia (1998), Marmur & Doty (1962)
+**Last Verified:** 2026-03-04
+**Evidence Sources:** Marmur & Doty (1962), Thein & Wallace (1986), Sigma-Aldrich/Merck Technical Docs, Owczarzy et al. (2004)
 
 ---
 
@@ -44,12 +45,18 @@ Melting temperature (Tm) is the temperature at which 50% of the DNA duplex is di
 
 **Formula:** Tm = 2×(A+T) + 4×(G+C)
 
-**Applicability:** Primers < 14 bp
+**Applicability:** Primers with < 14 valid DNA bases
 
 **Rationale:**
 - A-T pairs form 2 hydrogen bonds (weaker)
 - G-C pairs form 3 hydrogen bonds (stronger)
 - Simple approximation for very short oligos
+
+**External Verification:**
+Sigma-Aldrich/Merck uses a modified variant: Tm = 2(A+T) + 4(G+C) − 7 for ≤14 bases.
+The −7 correction accounts for "in solution" conditions vs membrane hybridization (Marmur & Doty 1962).
+Our implementation uses the original Wallace rule without the −7 correction;
+this is a deliberate design choice consistent with published textbook formulations.
 
 **Test Values (Evidence-based):**
 | Sequence | Length | A+T | G+C | Expected Tm |
@@ -63,48 +70,79 @@ Melting temperature (Tm) is the temperature at which 50% of the DNA duplex is di
 
 ### 2.2 Marmur-Doty Formula (Longer Primers)
 
-**Source:** Marmur & Doty (1962), "Determination of the base composition of deoxyribonucleic acid from its thermal denaturation temperature"
+**Source:** Marmur & Doty (1962), "Determination of the base composition of deoxyribonucleic acid from its thermal denaturation temperature", J Mol Biol 5:109-118
 
 **Formula:** Tm = 64.9 + 41 × (GC - 16.4) / N
 
 Where:
 - GC = number of G and C bases
-- N = total sequence length
+- N = total valid base count (ACGT only)
 
-**Applicability:** Primers ≥ 14 bp
+**Applicability:** Primers ≥ 14 valid DNA bases
+
+**External Verification:**
+Sigma-Aldrich/Merck uses nearest-neighbor (SantaLucia 1998) for ≥15 bases as their primary method.
+The Marmur-Doty variant used here is a simplified empirical formula suitable for
+basic primer analysis. This is consistent with widely-published bioinformatics references.
 
 **Test Values (Calculated):**
 | Sequence (20bp) | GC count | GC% | Expected Tm |
 |-----------------|----------|-----|-------------|
-| All A/T | 0 | 0% | 64.9 + 41×(-16.4)/20 = 31.3°C |
-| 50% GC (10 each) | 10 | 50% | 64.9 + 41×(-6.4)/20 = 51.8°C |
-| All G/C | 20 | 100% | 64.9 + 41×(3.6)/20 = 72.3°C |
+| All A/T | 0 | 0% | 64.9 + 41×(-16.4)/20 = 31.28°C |
+| 50% GC (10 each) | 10 | 50% | 64.9 + 41×(-6.4)/20 = 51.78°C |
+| All G/C | 20 | 100% | 64.9 + 41×(3.6)/20 = 72.28°C |
 
 ### 2.3 Salt Correction
 
 **Source:** Owczarzy et al. (2004), general PCR literature
 
-**Formula:** Salt correction = 16.6 × log10([Na+]/1000)
+**Formula:** Salt correction = 16.6 × log10([Na⁺]/1000)
 
-Where [Na+] is in mM (typical PCR: 50 mM)
+Where [Na⁺] is in mM (typical PCR: 50 mM)
 
-**Example:** At 50 mM Na+: 16.6 × log10(0.05) = 16.6 × (-1.301) ≈ -21.6°C
+**Example:** At 50 mM Na⁺: 16.6 × log10(0.05) = 16.6 × (-1.301) ≈ -21.6°C
+
+**Defined Behavior:** Salt correction returns 0 for empty/null input (no duplex to correct).
 
 ---
 
-## 3. Test Cases
+## 3. Defined Behaviors
 
-### 3.1 Must Tests (Evidence-Based)
+### 3.1 Input Alphabet
+
+Only standard DNA bases (A, C, G, T) are recognized. All other characters — including
+IUPAC ambiguity codes (N, R, Y, etc.) and RNA bases (U) — are ignored.
+Both threshold determination and formula computation use the count of valid ACGT bases only.
+
+| Input | Valid Bases | Behavior |
+|-------|------------|----------|
+| `"ACNGT"` | A,C,G,T (4 valid) | N ignored; Wallace: 2×2 + 4×2 = 12 |
+| `"ACGTNNNNACGT"` | 8 valid | N's ignored; Wallace: 2×4 + 4×4 = 24 |
+| `"NNNNN"` | 0 valid | Returns 0 |
+| `"ACGUACGU"` | A,C,G,A,C,G (6 valid, U ignored) | Wallace: 2×2 + 4×4 = 20 |
+
+### 3.2 Case Insensitivity
+
+Input is converted to uppercase before processing. `"acgt"` and `"ACGT"` produce identical results.
+
+### 3.3 Empty/Null Handling
+
+Both `CalculateMeltingTemperature` and `CalculateMeltingTemperatureWithSalt`
+return 0.0 for empty or null input. Salt correction is not applied to empty/null primers.
+
+---
+
+## 4. Test Cases
+
+### 4.1 Must Tests (Evidence-Based)
 
 #### M1: Empty Input Handling
-**Rationale:** Defensive programming - empty primers should return 0
 ```
 Input: ""
 Expected: 0.0
 ```
 
 #### M2: Null Input Handling
-**Rationale:** Defensive programming - null primers should return 0
 ```
 Input: null
 Expected: 0.0
@@ -132,46 +170,44 @@ Expected: 2×4 + 4×4 = 24.0
 ```
 
 #### M6: Wallace Rule - Boundary (13 bp, still uses Wallace)
-**Evidence:** Implementation uses < 14 as threshold
+**Evidence:** Implementation uses < 14 valid bases as threshold
 ```
 Input: "ACGTACGTACGTA" (13 bp, 7 A/T, 6 G/C)
 Expected: 2×7 + 4×6 = 38.0
 ```
 
 #### M7: Marmur-Doty - Boundary (14 bp, switches to MD)
-**Evidence:** Implementation threshold at 14
+**Evidence:** Implementation threshold at 14 valid bases
 ```
 Input: "ACGTACGTACGTAC" (14 bp, 7 A/T, 7 G/C)
-Expected: 64.9 + 41×(7-16.4)/14 = 37.4
+Expected: 64.9 + 41×(7-16.4)/14 ≈ 37.36
 ```
 
 #### M8: Marmur-Doty - Typical Primer (20 bp, 50% GC)
 **Evidence:** Marmur & Doty (1962)
 ```
 Input: "ACGTACGTACGTACGTACGT" (20 bp, 10 G/C)
-Expected: 64.9 + 41×(10-16.4)/20 = 51.78
+Expected: 64.9 + 41×(10-16.4)/20 ≈ 51.78
 ```
 
 #### M9: Marmur-Doty - Low GC (20 bp)
-**Evidence:** Marmur & Doty (1962), clamped to 0 minimum
+**Evidence:** Marmur & Doty (1962)
 ```
-Input: "ATATATATATATATATATATAT" (20 bp A/T only)
-Calculated: 64.9 + 41×(0-16.4)/20 = 31.3 (if > 0)
-Expected: Max(0, 31.3) = 31.3
+Input: "ATATATATATATATATATAT" (20 bp, 0 G/C)
+Expected: 64.9 + 41×(0-16.4)/20 ≈ 31.28
 ```
 
 #### M10: Marmur-Doty - High GC (20 bp)
 **Evidence:** Marmur & Doty (1962)
 ```
 Input: "GCGCGCGCGCGCGCGCGCGC" (20 bp, 20 G/C)
-Expected: 64.9 + 41×(20-16.4)/20 = 72.28
+Expected: 64.9 + 41×(20-16.4)/20 ≈ 72.28
 ```
 
 #### M11: Case Insensitivity
-**Rationale:** DNA sequence may be lowercase
 ```
 Input: "atatatat"
-Expected: Same as "ATATATAT" = 16.0
+Expected: Same as "ATATATAT" = 16.0 (exact value asserted)
 ```
 
 #### M12: Salt Correction - Standard 50mM
@@ -179,148 +215,160 @@ Expected: Same as "ATATATAT" = 16.0
 ```
 Input: primer="ACGTACGTACGTACGTACGT", Na=50mM
 Base Tm: 51.78
-Salt correction: 16.6 × log10(50/1000) = -21.6
-Expected: ~30.2 (rounded to 1 decimal)
+Salt correction: 16.6 × log10(50/1000) ≈ -21.6
+Expected: ≈30.2
 ```
 
 #### M13: Salt Correction - Low Salt (10mM)
-**Evidence:** Salt affects Tm
+**Evidence:** Owczarzy et al. (2004). Lower salt destabilizes duplex.
 ```
-Salt correction: 16.6 × log10(10/1000) = -33.2
-Expected: Base Tm - 33.2
+Input: primer="ACGTACGTACGTACGTACGT", Na=10mM
+Base Tm: ≈51.78
+Salt correction: 16.6 × log10(10/1000) = 16.6 × (-2) = -33.2
+Expected: ≈18.58
 ```
 
 #### M14: Salt Correction - High Salt (200mM)
-**Evidence:** Higher salt stabilizes duplex
+**Evidence:** Owczarzy et al. (2004). Higher salt stabilizes duplex.
 ```
-Salt correction: 16.6 × log10(200/1000) = -11.6
-Expected: Base Tm - 11.6 (higher than 50mM)
-```
-
-### 3.2 Should Tests
-
-#### S1: Non-ACGT Characters Ignored
-**ASSUMPTION:** Implementation may count only valid bases
-```
-Input: "ACNGTACNGT" (with N)
-Verify: Returns reasonable value (only counts A/C/G/T)
+Input: primer="ACGTACGTACGTACGTACGT", Na=200mM
+Base Tm: ≈51.78
+Salt correction: 16.6 × log10(200/1000) ≈ -11.6
+Expected: ≈40.18
 ```
 
-#### S2: Single Nucleotide
+#### M15: Non-ACGT Characters Ignored
+**Evidence:** Defined behavior (Section 3.1)
 ```
-Input: "A"
-Expected: 2.0 (Wallace: 2×1 + 4×0)
-```
-
-#### S3: Very Long Sequence (Performance)
-**ASSUMPTION:** O(n) complexity maintained
-```
-Input: 1000bp sequence
-Verify: Completes in reasonable time, returns valid Tm
+Input: "ACNGT" (4 valid bases: A,C,G,T)
+Expected: Wallace 2×2 + 4×2 = 12.0
 ```
 
-### 3.3 Could Tests
-
-#### C1: RNA Sequences (U instead of T)
-**ASSUMPTION:** May or may not be supported
+#### M16: RNA Base (U) Not Recognized
+**Evidence:** Defined behavior — DNA-only tool (Section 3.1)
 ```
-Input: "ACGUACGU"
-Verify: Behavior is consistent (either treats U as T or excludes)
+Input: "ACGUACGU" (6 valid bases: A,C,G,A,C,G)
+Expected: Wallace 2×2 + 4×4 = 20.0
+```
+
+#### M17: All Non-Standard Returns 0
+**Evidence:** Defined behavior (Section 3.1)
+```
+Input: "NNNNN" (0 valid bases)
+Expected: 0.0
+```
+
+#### M18: Salt Correction - Empty/Null Returns 0
+**Evidence:** Defined behavior (Section 3.3)
+```
+Input: primer="", Na=50mM
+Expected: 0.0
+```
+
+#### M19: Marmur-Doty - All Same Base (16 bp)
+**Evidence:** Edge case — all-same-base above threshold
+```
+Input: "AAAAAAAAAAAAAAAA" (16 bp, 16 A/T, 0 G/C)
+Expected: 64.9 + 41×(0-16.4)/16 = 22.875
 ```
 
 ---
 
-## 4. Invariants
+## 5. Invariants
 
 | ID | Invariant | Validation |
 |----|-----------|------------|
 | INV-1 | Result ≥ 0 for any valid input | Assert.That(tm, Is.GreaterThanOrEqualTo(0)) |
 | INV-2 | Higher GC content → Higher Tm | Compare equal-length sequences |
-| INV-3 | Longer sequence (same GC%) → Tm approaches asymptote | Compare 20bp vs 100bp at 50% GC |
-| INV-4 | Salt correction is additive | Tm_salt = Tm_base + correction |
+| INV-3 | Salt correction is additive to base Tm | Tm_salt = Tm_base + correction |
+| INV-4 | Case insensitivity | toupper(input) == input produces same Tm |
 
 ---
 
-## 5. Edge Cases
+## 6. Edge Cases
 
 | Case | Input | Expected Behavior |
 |------|-------|-------------------|
 | Empty string | "" | Returns 0.0 |
 | Null | null | Returns 0.0 |
 | Single base | "A" | Wallace: 2.0 |
-| Boundary 13bp | 13-char string | Uses Wallace |
-| Boundary 14bp | 14-char string | Uses Marmur-Doty |
-| All same base | "AAAAAAAAAAAAAAAA" | Valid calculation |
-| Very long | 1000+ bp | O(n) performance |
+| Boundary 13bp | 13-char ACGT string | Uses Wallace |
+| Boundary 14bp | 14-char ACGT string | Uses Marmur-Doty |
+| All same base | "AAAAAAAAAAAAAAAA" (16bp) | Marmur-Doty: 22.875°C (M19) |
 | Lowercase | "acgt" | Case-insensitive |
+| Non-ACGT (N) | "ACNGT" | Only ACGT counted |
+| Only non-ACGT | "NNNNN" | Returns 0.0 |
+| RNA (U) | "ACGUACGU" | U ignored; only ACGT counted |
 
 ---
 
-## 6. Audit of Existing Tests
+## 7. External Source Verification Summary
 
-### Current Coverage (PrimerDesignerTests.cs)
+| Item | Our Implementation | Sigma-Aldrich/Merck | Status |
+|------|-------------------|---------------------|--------|
+| Short oligo formula | Tm = 2(A+T) + 4(G+C) | Tm = 2(A+T) + 4(G+C) − 7 | **Variant** — −7 correction omitted by design |
+| Short oligo threshold | < 14 valid bases | ≤ 14 bases | Aligned (both use 14 as boundary) |
+| Long primer formula | Marmur-Doty: 64.9 + 41(GC−16.4)/N | Nearest-neighbor (SantaLucia 1998) | **Simplified** — Marmur-Doty is a simpler, well-published alternative |
+| Salt correction | 16.6 × log₁₀(Na_mM/1000) | Integrated into NN formula | Consistent with Owczarzy (2004) |
+| Non-ACGT handling | Ignored (only ACGT counted) | Not documented (clean input expected) | Defined behavior |
+| RNA (U) | Not supported (ignored) | Not applicable (DNA tool) | Defined behavior |
 
-| Test | Coverage | Assessment |
-|------|----------|------------|
-| CalculateMeltingTemperature_ShortPrimer_UsesWallaceRule | Wallace 8bp A/T | Covered ✓ |
-| CalculateMeltingTemperature_ShortAllGC_HighTm | Wallace 8bp G/C | Covered ✓ |
-| CalculateMeltingTemperature_LongPrimer_UsesNearestNeighbor | MD 20bp range check | Weak (no exact value) |
-| CalculateMeltingTemperature_EmptyPrimer_Returns0 | Empty input | Covered ✓ |
-| CalculateMeltingTemperatureWithSalt_AppliesSaltCorrection | Salt ≠ base | Weak (no exact value) |
+### Known Variant: −7 Correction Factor
 
-### Gaps Identified (All Closed)
-
-1. ~~**Missing:** Null input test~~ ✅ Covered
-2. ~~**Missing:** Boundary tests (13bp vs 14bp)~~ ✅ Covered
-3. ~~**Missing:** Exact Marmur-Doty value verification~~ ✅ Covered
-4. ~~**Missing:** Case insensitivity test~~ ✅ Covered
-5. ~~**Missing:** Mixed Wallace test~~ ✅ Covered
-6. ~~**Missing:** Salt correction exact values~~ ✅ Covered
-7. ~~**Weak:** Long primer test only checks range~~ ✅ Strengthened
+Sigma-Aldrich's "Basic" method includes a −7°C correction factor for
+oligonucleotides used in solution (as opposed to membrane hybridization).
+Our implementation uses the original Wallace rule without this correction.
+This is a **deliberate design choice** — the Wallace rule as published by
+Thein & Wallace (1986) does not include the correction.
+If in-solution calibration is needed, use `CalculateMeltingTemperatureWithSalt`.
 
 ---
 
-## 7. Consolidation Plan
+## 8. Coverage Classification
 
-### Action: Create Dedicated Test File
+All spec test cases verified against `PrimerDesigner_MeltingTemperature_Tests.cs` (34 tests).
 
-**File:** `PrimerDesigner_MeltingTemperature_Tests.cs`
+| ID | Test Case | Status | Test Method |
+|----|-----------|--------|-------------|
+| M1 | Empty Input | ✅ Covered | `_EmptyPrimer_Returns0` |
+| M2 | Null Input | ✅ Covered | `_NullPrimer_Returns0` |
+| M3 | Wallace All A/T | ✅ Covered | `_Wallace_AllAT_Returns16` |
+| M4 | Wallace All G/C | ✅ Covered | `_Wallace_AllGC_Returns32` |
+| M5 | Wallace Mixed | ✅ Covered | `_Wallace_Mixed_Returns24` |
+| M6 | Wallace Boundary 13bp | ✅ Covered | `_Wallace_Boundary13bp_Returns38` |
+| M7 | Marmur-Doty Boundary 14bp | ✅ Covered | `_MarmurDoty_Boundary14bp_UsesFormula` |
+| M8 | Marmur-Doty 20bp 50%GC | ✅ Covered | `_MarmurDoty_20bp_50GC_ReturnsExpected` |
+| M9 | Marmur-Doty 20bp Low GC | ✅ Covered | `_MarmurDoty_20bp_0GC_ReturnsExpected` |
+| M10 | Marmur-Doty 20bp High GC | ✅ Covered | `_MarmurDoty_20bp_100GC_ReturnsExpected` |
+| M11 | Case Insensitivity | ✅ Covered | `_LowercaseInput_MatchesUppercase` (exact 16.0) |
+| M12 | Salt 50mM | ✅ Covered | `_50mM_AppliesCorrection` |
+| M13 | Salt 10mM | ✅ Covered | `_10mM_AppliesCorrection` (exact value) |
+| M14 | Salt 200mM | ✅ Covered | `_200mM_AppliesCorrection` (exact value) |
+| M15 | Non-ACGT Ignored | ✅ Covered | `_NonAcgtIgnored_OnlyValidBasesCounted` |
+| M16 | RNA U Ignored | ✅ Covered | `_RnaUracil_NotCountedAsDnaBase` |
+| M17 | All Non-Standard → 0 | ✅ Covered | `_AllNonAcgt_Returns0` |
+| M18 | Salt Empty/Null → 0 | ✅ Covered | `_EmptyPrimer_Returns0` + `_NullPrimer_Returns0` |
+| M19 | All Same Base 16bp | ✅ Covered | `_MarmurDoty_AllSameBase16bp_ReturnsExpected` |
+| INV-1 | Non-negative | ✅ Covered | `_AlwaysNonNegative` |
+| INV-2 | Higher GC → Higher Tm | ✅ Covered | `_HigherGC_ProducesHigherTm` |
+| INV-3 | Salt additive | ✅ Covered | `_50mM_AppliesCorrection` |
+| INV-4 | Case insensitive | ✅ Covered | `_LowercaseInput…` + `_MixedCaseInput…` |
 
-**Approach:**
-1. Move 5 existing Tm tests from PrimerDesignerTests.cs to new dedicated file
-2. Add missing Must tests (exact formula verification)
-3. Add boundary tests (13bp/14bp threshold)
-4. Add salt correction verification with exact values
-5. Remove redundant/weak tests that don't verify exact values
-
-### Tests to Move
-- CalculateMeltingTemperature_ShortPrimer_UsesWallaceRule
-- CalculateMeltingTemperature_ShortAllGC_HighTm
-- CalculateMeltingTemperature_LongPrimer_UsesNearestNeighbor (refactor)
-- CalculateMeltingTemperature_EmptyPrimer_Returns0
-- CalculateMeltingTemperatureWithSalt_AppliesSaltCorrection (refactor)
-
-### Tests to Add (Must)
-- Null input handling
-- Mixed Wallace (ACGTACGT = 24)
-- Boundary 13bp (Wallace)
-- Boundary 14bp (Marmur-Doty)
-- Exact Marmur-Doty values
-- Case insensitivity
-- Exact salt correction values
-
----
-
-## 8. Open Questions
-
-None - algorithm behavior is well-defined in literature.
+**Additional tests** (not spec-required, but valuable):
+- `_Wallace_SingleA_Returns2`, `_Wallace_SingleG_Returns4` — single-base edge cases
+- `_Wallace_ACGT_Returns12` — 4bp mixed
+- `_MarmurDoty_25bp_ReturnsValidRange` — 25bp primer
+- `_MixedCaseInput_MatchesUppercase` — mixed case (exact 24.0)
+- `_ManyNonAcgt_UsesOnlyValidBases` — many N characters
+- 5× `ThermoConstants_*` — direct constant/helper verification
 
 ---
 
 ## 9. Sign-off
 
-- [ ] TestSpec reviewed
-- [ ] Evidence documented
-- [ ] Tests implemented
-- [ ] All tests pass
-- [ ] Checklist updated
+- [x] TestSpec reviewed
+- [x] Evidence documented
+- [x] External sources verified (Sigma-Aldrich/Merck, Wikipedia, Marmur & Doty 1962)
+- [x] All assumptions eliminated (see Section 3: Defined Behaviors)
+- [x] Tests implemented (34 tests in PrimerDesigner_MeltingTemperature_Tests.cs)
+- [x] All tests pass

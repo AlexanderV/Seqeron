@@ -333,6 +333,8 @@ public class CrisprDesigner_OffTarget_Tests
 
     #endregion
 
+    #region Seed vs Distal Specificity Tests (S-004)
+
     /// <summary>
     /// S-004: CalculateSpecificityScore penalizes seed mismatches more than distal.
     /// Evidence: Hsu et al. (2013) — seed (PAM-proximal) mismatches contribute higher penalty.
@@ -361,7 +363,7 @@ public class CrisprDesigner_OffTarget_Tests
         });
     }
 
-#endregion
+    #endregion
 
     #region Multiple Mismatches Tests (S-002)
 
