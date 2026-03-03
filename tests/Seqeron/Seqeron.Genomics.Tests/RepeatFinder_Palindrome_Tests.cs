@@ -135,7 +135,13 @@ public class RepeatFinder_Palindrome_Tests
         var results = RepeatFinder.FindPalindromes(sequence, minLength: 4, maxLength: 4).ToList();
 
         // Assert
-        Assert.That(results.Any(r => r.Sequence == "ATAT"), Is.True, "ATAT should be detected");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(1));
+            Assert.That(results[0].Sequence, Is.EqualTo("ATAT"));
+            Assert.That(results[0].Position, Is.EqualTo(2));
+            Assert.That(results[0].Length, Is.EqualTo(4));
+        });
     }
 
     #endregion
@@ -310,6 +316,42 @@ public class RepeatFinder_Palindrome_Tests
             RepeatFinder.FindPalindromes(sequence, minLength: 8, maxLength: 4).ToList());
     }
 
+    /// <summary>
+    /// M10b: String overload - odd minLength throws ArgumentOutOfRangeException.
+    /// Source: API consistency with DnaSequence overload
+    /// </summary>
+    [Test]
+    [Description("MUST-10b: String overload - odd minLength throws ArgumentOutOfRangeException")]
+    public void FindPalindromes_StringOverload_OddMinLength_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindPalindromes("GAATTC", minLength: 5, maxLength: 12).ToList());
+    }
+
+    /// <summary>
+    /// M11b: String overload - minLength less than 4 throws ArgumentOutOfRangeException.
+    /// Source: API consistency with DnaSequence overload
+    /// </summary>
+    [Test]
+    [Description("MUST-11b: String overload - minLength < 4 throws ArgumentOutOfRangeException")]
+    public void FindPalindromes_StringOverload_MinLengthLessThan4_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindPalindromes("GAATTC", minLength: 2, maxLength: 12).ToList());
+    }
+
+    /// <summary>
+    /// M12b: String overload - maxLength less than minLength throws ArgumentOutOfRangeException.
+    /// Source: API consistency with DnaSequence overload
+    /// </summary>
+    [Test]
+    [Description("MUST-12b: String overload - maxLength < minLength throws ArgumentOutOfRangeException")]
+    public void FindPalindromes_StringOverload_MaxLengthLessThanMinLength_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            RepeatFinder.FindPalindromes("GAATTC", minLength: 8, maxLength: 4).ToList());
+    }
+
     #endregion
 
     #region MUST Tests - Multiple Palindromes
@@ -370,15 +412,23 @@ public class RepeatFinder_Palindrome_Tests
     [Description("MUST-17: Only palindromes <= maxLength are returned")]
     public void FindPalindromes_MaxLength_RespectsThreshold()
     {
-        // Arrange - sequence with 4bp, 6bp, 8bp palindromes possible
-        var sequence = new DnaSequence("AAAGCGGCCGCAAA"); // NotI site is 8bp
+        // Arrange - AAAGCGGCCGCAAA contains NotI (8bp GCGGCCGC)
+        // Sub-palindromes within [4,6]: GGCC at pos 5 (4bp), CGGCCG at pos 4 (6bp)
+        var sequence = new DnaSequence("AAAGCGGCCGCAAA");
 
         // Act - only look for 4-6bp
         var results = RepeatFinder.FindPalindromes(sequence, minLength: 4, maxLength: 6).ToList();
 
         // Assert
-        Assert.That(results.All(r => r.Length <= 6), Is.True, "All results should be <= 6bp");
-        Assert.That(results.Any(r => r.Length == 8), Is.False, "8bp palindrome should not be included");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results.All(r => r.Length <= 6), Is.True, "All results should be <= 6bp");
+            Assert.That(results.Any(r => r.Sequence == "GGCC" && r.Position == 5 && r.Length == 4), Is.True,
+                "GGCC 4bp sub-palindrome should be found");
+            Assert.That(results.Any(r => r.Sequence == "CGGCCG" && r.Position == 4 && r.Length == 6), Is.True,
+                "CGGCCG 6bp sub-palindrome should be found");
+        });
     }
 
     #endregion
@@ -468,12 +518,18 @@ public class RepeatFinder_Palindrome_Tests
             .Select(r => (r.Position, r.Length))
             .ToHashSet();
 
-        // Assert
-        foreach (var exp in expected)
+        // Assert — exact match: all expected found, no extras
+        Assert.Multiple(() =>
         {
-            Assert.That(results.Contains(exp), Is.True,
-                $"Expected palindrome at position {exp.Position}, length {exp.Length}");
-        }
+            Assert.That(results, Has.Count.EqualTo(expected.Count),
+                $"Expected exactly {expected.Count} palindromes, got {results.Count}");
+
+            foreach (var exp in expected)
+            {
+                Assert.That(results.Contains(exp), Is.True,
+                    $"Expected palindrome at position {exp.Position}, length {exp.Length}");
+            }
+        });
     }
 
     #endregion
@@ -514,7 +570,7 @@ public class RepeatFinder_Palindrome_Tests
     [Description("SHOULD-05: Overlapping palindromes at different lengths detected")]
     public void FindPalindromes_OverlappingAtDifferentLengths_BothDetected()
     {
-        // Arrange - ATGCAT contains both 4bp (TGCA) and 6bp (ATGCAT) palindromes
+        // Arrange - ATGCAT contains TGCA at pos 1 (4bp) and ATGCAT at pos 0 (6bp)
         var sequence = new DnaSequence("ATGCAT");
 
         // Act
@@ -523,8 +579,11 @@ public class RepeatFinder_Palindrome_Tests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(results.Any(r => r.Length == 4), Is.True, "Should find 4bp palindrome");
-            Assert.That(results.Any(r => r.Length == 6), Is.True, "Should find 6bp palindrome");
+            Assert.That(results, Has.Count.EqualTo(2));
+            Assert.That(results.Any(r => r.Sequence == "TGCA" && r.Position == 1 && r.Length == 4), Is.True,
+                "Should find 4bp palindrome TGCA at position 1");
+            Assert.That(results.Any(r => r.Sequence == "ATGCAT" && r.Position == 0 && r.Length == 6), Is.True,
+                "Should find 6bp palindrome ATGCAT at position 0");
         });
     }
 
@@ -557,48 +616,26 @@ public class RepeatFinder_Palindrome_Tests
 
     /// <summary>
     /// C1: 12bp palindrome at maximum default length is detected.
-    /// Source: Algorithm range
+    /// CGAATTAATTCG == ReverseComplement(CGAATTAATTCG) ✓
+    /// Source: Algorithm range — Rosalind REVP specifies lengths 4–12
     /// </summary>
     [Test]
     [Description("COULD-01: 12bp palindrome detected")]
     public void FindPalindromes_TwelveBasePalindrome_Detected()
     {
-        // Arrange - construct a 12bp palindrome: GAATTCGAATTC is NOT a palindrome
-        // Need: seq == revcomp(seq)
-        // ACGTACGTACGT -> revcomp = ACGTACGTACGT? No, revcomp(ACGT) = ACGT
-        // Let's use: GAATTCAATTCG - check if palindrome
-        // revcomp(GAATTCAATTCG) = CGAATTGAATTC - not equal
-        // Try: GAATTAATTAATTC - 14bp, too long
-        // CGAATTAATTCG - revcomp = CGAATTAATTCG ✓
+        // Arrange — CGAATTAATTCG is a 12bp palindrome embedded in padding
         var sequence = new DnaSequence("AAACGAATTAATTCGAAA");
 
         // Act
         var results = RepeatFinder.FindPalindromes(sequence, minLength: 12, maxLength: 12).ToList();
 
         // Assert
-        Assert.That(results.Any(r => r.Length == 12 && r.Sequence == "CGAATTAATTCG"), Is.True);
-    }
-
-    /// <summary>
-    /// C2: GenomicAnalyzer.FindPalindromes smoke test.
-    /// Source: Implementation comparison
-    /// </summary>
-    [Test]
-    [Description("COULD-02: GenomicAnalyzer.FindPalindromes smoke test")]
-    public void GenomicAnalyzer_FindPalindromes_SmokeTest()
-    {
-        // Arrange
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-
-        // Act
-        var results = GenomicAnalyzer.FindPalindromes(sequence, minLength: 6, maxLength: 6).ToList();
-
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(results, Has.Count.EqualTo(1));
-            Assert.That(results[0].Sequence, Is.EqualTo("GAATTC"));
+            Assert.That(results[0].Sequence, Is.EqualTo("CGAATTAATTCG"));
             Assert.That(results[0].Position, Is.EqualTo(3));
+            Assert.That(results[0].Length, Is.EqualTo(12));
         });
     }
 

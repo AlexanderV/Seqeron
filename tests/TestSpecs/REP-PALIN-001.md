@@ -9,7 +9,7 @@
 | **Title** | Palindrome Detection |
 | **Status** | ☑ Complete |
 | **Created** | 2026-01-22 |
-| **Last Updated** | 2026-01-22 |
+| **Last Updated** | 2026-03-03 |
 
 ---
 
@@ -85,9 +85,12 @@ All MUST tests are justified by evidence or explicitly marked.
 | M7 | NoPalindromes_ReturnsEmpty | Sequence without palindromic regions | Standard edge case |
 | M8 | EmptySequence_ReturnsEmpty | Boundary - empty input | Standard boundary |
 | M9 | NullSequence_ThrowsArgumentNullException | Parameter validation | Implementation contract |
-| M10 | OddMinLength_ThrowsException | minLength must be even | Implementation constraint |
-| M11 | MinLengthLessThan4_ThrowsException | minLength must be ≥ 4 | Implementation constraint |
+| M10 | OddMinLength_ThrowsException | minLength must be even | Mathematical proof: no odd-length DNA palindrome exists |
+| M10b | StringOverload_OddMinLength_ThrowsException | String overload: minLength must be even | API consistency with DnaSequence overload |
+| M11 | MinLengthLessThan4_ThrowsException | minLength must be ≥ 4 | Rosalind REVP: "length between 4 and 12" |
+| M11b | StringOverload_MinLengthLessThan4_ThrowsException | String overload: minLength must be ≥ 4 | API consistency with DnaSequence overload |
 | M12 | MaxLengthLessThanMinLength_ThrowsException | Invalid parameter combination | Implementation contract |
+| M12b | StringOverload_MaxLengthLessThanMinLength_ThrowsException | String overload: maxLength ≥ minLength | API consistency with DnaSequence overload |
 | M13 | MultiplePalindromes_FindsAll | Multiple palindromes in sequence | Rosalind REVP |
 | M14 | Position_IsZeroBased | Positions are 0-indexed | Implementation contract |
 | M15 | Length_MatchesSequenceLength | Length property equals Sequence.Length | Invariant |
@@ -109,34 +112,20 @@ All MUST tests are justified by evidence or explicitly marked.
 
 | ID | Test Name | Rationale | Evidence |
 |----|-----------|-----------|----------|
-| C1 | LongPalindrome_12bp_Detected | Maximum default length | Algorithm range |
-| C2 | GenomicAnalyzer_SmokeTest | Alternate implementation consistency | Implementation comparison |
+| C1 | LongPalindrome_12bp_Detected | Maximum default length | Rosalind REVP: lengths 4–12 |
 
 ---
 
 ## Test Audit
 
-### Existing Tests (Pre-Consolidation)
+### Consolidated Test Files
 
-| File | Test Name | Classification | Action |
-|------|-----------|----------------|--------|
-| RepeatFinderTests.cs | FindPalindromes_EcoRISite_FindsPalindrome | Covered (M1) | Move, enhance |
-| RepeatFinderTests.cs | FindPalindromes_HindIIISite_FindsPalindrome | Covered (M2) | Move, enhance |
-| RepeatFinderTests.cs | FindPalindromes_ShortPalindrome_FindsFourBasePalindrome | Covered (M4) | Move, enhance |
-| RepeatFinderTests.cs | FindPalindromes_MultiplePalindromes_FindsAll | Weak (M13) | Strengthen, move |
-| RepeatFinderTests.cs | FindPalindromes_NoPalindromes_ReturnsEmpty | Covered (M7) | Move |
-| RepeatFinderTests.cs | FindPalindromes_StringOverload_Works | Covered (S1) | Move |
-| RepeatFinderTests.cs | FindPalindromes_EmptySequence_ReturnsEmpty | Covered (M8) | Move |
-| RepeatFinderTests.cs | FindPalindromes_OddMinLength_ThrowsException | Covered (M10) | Move |
-| GenomicAnalyzerTests.cs | FindPalindromes_EcoRI_FindsIt | Duplicate (M1) | Keep as smoke test, reduce |
-| GenomicAnalyzerTests.cs | FindPalindromes_MultipleSites_FindsAll | Duplicate (M13) | Keep as smoke test, reduce |
-
-### Consolidation Plan
-
-1. **Canonical file:** `RepeatFinder_Palindrome_Tests.cs` (new dedicated file)
-2. **Remove from RepeatFinderTests.cs:** All palindrome tests (move to dedicated file)
-3. **GenomicAnalyzerTests.cs:** Keep only minimal smoke tests (1-2), update comments
-4. ~~**Add missing tests:** M3, M5, M6, M9, M11, M12, M14, M15, M16, M17, S2, S3, S4, S5, S6~~ ✅ All added
+| File | Scope |
+|------|-------|
+| `RepeatFinder_Palindrome_Tests.cs` | All MUST, SHOULD, COULD tests for `RepeatFinder.FindPalindromes` (24 tests) |
+| `GenomicAnalyzerTests.cs` | Minimal smoke tests (2) for `GenomicAnalyzer.FindPalindromes` |
+| `RepeatFinderProperties.cs` | Property-based invariant tests (bounds, reverse complement, even length) |
+| `RepeatSnapshotTests.cs` | Snapshot/approval test for palindrome output |
 
 ---
 
@@ -178,23 +167,16 @@ Note: Rosalind uses 1-based positions; our implementation uses 0-based.
 
 ---
 
-## Open Questions / Decisions
+## Resolved Decisions
 
-| Question | Decision | Justification |
-|----------|----------|---------------|
-| Why minLength ≥ 4? | 2bp palindromes too common | GAATTC, ATAT, etc. are biological min |
-| Case sensitivity? | Case-insensitive | Implementation uses ToUpperInvariant() |
-| Report at all lengths or only max? | All lengths | Implementation iterates all lengths |
-| Overlapping palindromes? | Yes, all reported | Same position can have 4bp and 6bp |
-
----
-
-## Assumptions
-
-| ID | Assumption | Impact |
-|----|------------|--------|
-| A1 | minLength = 4 is biologically reasonable minimum for restriction sites | Test M4, M5 use 4bp palindromes |
-| A2 | All palindrome lengths (stepping by 2) in range are reported | Tests expect multiple lengths at same position |
+| Question | Decision | Source |
+|----------|----------|--------|
+| Why minLength ≥ 4? | 4 is the minimum biologically relevant palindrome length | Rosalind REVP: "length between 4 and 12"; Wikipedia: Type II enzymes recognize 4–8 bp; real enzymes TaqI (TCGA), AluI (AGCT), HaeIII (GGCC) are 4bp |
+| Why even length only? | DNA palindromes are mathematically impossible at odd lengths | For odd-length seq of length 2k+1, the center base at position k must equal its own complement (A↔T, G↔C). No base is its own complement. |
+| Case sensitivity? | Case-insensitive | Both overloads normalize to uppercase via `ToUpperInvariant()` |
+| Report at all lengths or only max? | All palindromes at all even lengths in [minLength, maxLength] | Rosalind REVP: "the position and length of **every** reverse palindrome" |
+| Overlapping palindromes? | Yes, all reported | Rosalind REVP sample output: position 4 has 6bp, position 5 has 4bp (overlapping) |
+| Parameter validation for string overload? | Same validation as DnaSequence overload | Both overloads enforce: minLength ≥ 4, minLength even, maxLength ≥ minLength |
 
 ---
 
@@ -206,3 +188,5 @@ Note: Rosalind uses 1-based positions; our implementation uses 0-based.
 - [x] Edge cases covered (empty, boundary, invalid)
 - [x] Invariants verified with Assert.Multiple
 - [x] Clean Code principles applied
+- [x] No remaining assumptions — all decisions grounded in external sources
+- [x] Both overloads (DnaSequence, string) have consistent parameter validation
