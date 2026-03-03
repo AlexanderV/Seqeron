@@ -341,6 +341,12 @@ public static class CrisprDesigner
             throw new ArgumentOutOfRangeException(nameof(maxMismatches));
 
         var system = GetSystem(systemType);
+
+        if (guideSequence.Length != system.GuideLength)
+            throw new ArgumentException(
+                $"Guide length ({guideSequence.Length}) does not match expected length ({system.GuideLength}) for {system.Name}.",
+                nameof(guideSequence));
+
         var guide = guideSequence.ToUpperInvariant();
 
         // Find all PAM sites
@@ -415,8 +421,9 @@ public static class CrisprDesigner
     private static double CalculateOffTargetScore(string guide, string target, CrisprSystem system)
     {
         double score = 0;
-        int seedStart = system.PamAfterTarget ? guide.Length - 10 : 0;
-        int seedEnd = system.PamAfterTarget ? guide.Length : 10;
+        // Seed region: PAM-proximal 12bp (Hsu et al. 2013: 8-12bp; using 12bp as conservative upper bound)
+        int seedStart = system.PamAfterTarget ? guide.Length - 12 : 0;
+        int seedEnd = system.PamAfterTarget ? guide.Length : 12;
 
         for (int i = 0; i < Math.Min(guide.Length, target.Length); i++)
         {

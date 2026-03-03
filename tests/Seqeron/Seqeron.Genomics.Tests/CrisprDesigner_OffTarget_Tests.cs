@@ -62,6 +62,22 @@ public class CrisprDesigner_OffTarget_Tests
             CrisprDesigner.FindOffTargets("ACGTACGTACGTACGTACGT", genome, maxMismatches, CrisprSystemType.SpCas9).ToList());
     }
 
+    /// <summary>
+    /// M-003b: Guide length must match system's expected length.
+    /// Evidence: SpCas9 uses 20bp guide (Hsu 2013); Cas12a uses 23bp.
+    /// Mismatched guide length is an error, not silently ignored.
+    /// </summary>
+    [TestCase("ACGTACGTACGT", CrisprSystemType.SpCas9, Description = "12bp guide for SpCas9 (expects 20bp)")]
+    [TestCase("ACGTACGTACGTACGTACGTACGT", CrisprSystemType.SpCas9, Description = "24bp guide for SpCas9 (expects 20bp)")]
+    [TestCase("ACGTACGTACGTACGTACGT", CrisprSystemType.Cas12a, Description = "20bp guide for Cas12a (expects 23bp)")]
+    public void FindOffTargets_GuideLengthMismatch_ThrowsArgumentException(string guide, CrisprSystemType system)
+    {
+        var genome = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTAGG");
+
+        Assert.Throws<ArgumentException>(() =>
+            CrisprDesigner.FindOffTargets(guide, genome, 3, system).ToList());
+    }
+
     #endregion
 
     #region Core Off-Target Detection Tests (M-004 to M-009)
@@ -75,14 +91,13 @@ public class CrisprDesigner_OffTarget_Tests
     {
         // Guide sequence with exact match in genome (including PAM)
         string guide = "ACGTACGTACGTACGTACGT"; // 20bp guide
-        // Genome: exact target + NGG PAM
+        // Genome: exact target + NGG PAM — only one PAM site, exact match
         var genome = new DnaSequence("ACGTACGTACGTACGTACGTAGG");
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        // All returned off-targets must have mismatches > 0
-        Assert.That(offTargets.All(ot => ot.Mismatches > 0), Is.True,
-            "Exact matches should not be returned as off-targets");
+        Assert.That(offTargets, Is.Empty,
+            "Exact match is on-target, not off-target — collection must be empty");
     }
 
     /// <summary>
@@ -98,9 +113,16 @@ public class CrisprDesigner_OffTarget_Tests
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(offTargets, Has.Count.GreaterThanOrEqualTo(1));
-        var offTarget = offTargets.First();
-        Assert.That(offTarget.Mismatches, Is.EqualTo(1));
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one off-target site");
+        var ot = offTargets[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(ot.Mismatches, Is.EqualTo(1));
+            Assert.That(ot.MismatchPositions, Is.EqualTo(new[] { 0 }), "Mismatch at position 0");
+            Assert.That(ot.IsForwardStrand, Is.True);
+            Assert.That(ot.OffTargetScore, Is.EqualTo(2.0),
+                "Position 0 is distal (outside seed region 8-19), penalty = 2");
+        });
     }
 
     /// <summary>
@@ -135,17 +157,16 @@ public class CrisprDesigner_OffTarget_Tests
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(offTargets, Has.Count.GreaterThanOrEqualTo(1));
-
-        foreach (var ot in offTargets)
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one off-target site");
+        var ot = offTargets[0];
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(ot.MismatchPositions, Is.Not.Null);
-                Assert.That(ot.MismatchPositions.Count, Is.EqualTo(ot.Mismatches),
-                    $"MismatchPositions.Count should equal Mismatches for off-target at position {ot.Position}");
-            });
-        }
+            Assert.That(ot.Mismatches, Is.EqualTo(2));
+            Assert.That(ot.MismatchPositions, Is.EqualTo(new[] { 0, 1 }),
+                "Mismatches at positions 0 (A→T) and 1 (C→T)");
+            Assert.That(ot.OffTargetScore, Is.EqualTo(4.0),
+                "Both positions are distal (outside seed 8-19), 2 × 2 = 4");
+        });
     }
 
     /// <summary>
@@ -161,10 +182,9 @@ public class CrisprDesigner_OffTarget_Tests
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(offTargets, Has.Count.GreaterThanOrEqualTo(1));
-        var offTarget = offTargets.First(ot => ot.Mismatches == 1);
-        Assert.That(offTarget.MismatchPositions, Does.Contain(0),
-            "Mismatch at position 0 should be recorded");
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one off-target site");
+        Assert.That(offTargets[0].MismatchPositions, Is.EqualTo(new[] { 0 }),
+            "Single mismatch at position 0 (A→T)");
     }
 
     /// <summary>
@@ -191,20 +211,27 @@ public class CrisprDesigner_OffTarget_Tests
     [Test]
     public void FindOffTargets_ReverseStrand_ReturnsOffTarget()
     {
-        // For reverse strand off-target:
-        // Guide: AAAAAAAAAAAAAAAAAAAA (20 A's)
-        // Off-target on reverse strand would be: guide's revcomp = TTTTTTTTTTTTTTTTTTTT
-        // With 1 mismatch: ATTTTTTTTTTTTTTTTTTT + CCG (PAM for reverse is CCN on forward)
-        // So genome: CCG + ATTTTTTTTTTTTTTTTTTT = CCGATTTTTTTTTTTTTTTTTTT (23bp)
-
+        // Reverse-strand off-target construction:
+        // Guide: 20× A. RevComp target on forward strand = CCN(PAM) + near-match.
+        // Genome: CCG + ATTTTTTTTTTTTTTTTTTT = 23bp.
+        // RevComp: AAAAAAAAAAAAAAAAAAAAT + CGG → target = AAAAAAAAAAAAAAAAAAAAT,
+        //   mismatch at position 19 (A vs T), which is in seed region (8-19).
         string testGuide = "AAAAAAAAAAAAAAAAAAAA"; // 20 A's
         var genome = new DnaSequence("CCGATTTTTTTTTTTTTTTTTTT");
 
         var offTargets = CrisprDesigner.FindOffTargets(testGuide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        // Should find at least one off-target on reverse strand
-        Assert.That(offTargets.Any(ot => !ot.IsForwardStrand), Is.True,
-            "Should find off-target on reverse strand");
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one reverse-strand off-target");
+        var ot = offTargets[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(ot.IsForwardStrand, Is.False, "Off-target is on reverse strand");
+            Assert.That(ot.Mismatches, Is.EqualTo(1));
+            Assert.That(ot.MismatchPositions, Is.EqualTo(new[] { 19 }),
+                "Mismatch at position 19 (last position)");
+            Assert.That(ot.OffTargetScore, Is.EqualTo(5.0),
+                "Position 19 is in seed region (8-19), penalty = 5");
+        });
     }
 
     #endregion
@@ -250,18 +277,19 @@ public class CrisprDesigner_OffTarget_Tests
     /// <summary>
     /// M-012: Off-targets reduce specificity score.
     /// Evidence: More off-targets = lower specificity.
+    /// Genome has 1 off-target with distal mismatch (score=2), so SpecificityScore = 100 − 2 = 98.
     /// </summary>
     [Test]
     public void CalculateSpecificityScore_WithOffTargets_ScoreReducedFromMaximum()
     {
         string guide = "ACGTACGTACGTACGTACGT";
-        // Genome with off-target site (single mismatch)
+        // Genome with off-target site (single mismatch at position 0, distal)
         var genome = new DnaSequence("TCGTACGTACGTACGTACGTAGG");
 
         double score = CrisprDesigner.CalculateSpecificityScore(guide, genome, CrisprSystemType.SpCas9);
 
-        Assert.That(score, Is.LessThan(100),
-            "Score should be less than 100 when off-targets exist");
+        Assert.That(score, Is.EqualTo(98.0),
+            "1 off-target with distal mismatch (penalty=2): 100 − 2 = 98");
     }
 
     #endregion
@@ -272,39 +300,75 @@ public class CrisprDesigner_OffTarget_Tests
     /// S-001: Seed region mismatches receive higher penalty score.
     /// Evidence: Hsu et al. (2013) - PAM-proximal mismatches less tolerated.
     /// Implementation: Seed mismatches score 5 points vs 2 for distal.
+    /// Seed region = last 12bp (positions 8-19) for SpCas9 (PamAfterTarget=true).
     /// </summary>
     [Test]
     public void FindOffTargets_SeedMismatch_HigherOffTargetScore()
     {
-        // For SpCas9, seed is last 10bp (positions 10-19 of 20bp guide)
         string guide = "ACGTACGTACGTACGTACGT";
 
-        // Off-target with mismatch at position 0 (PAM-distal)
+        // Off-target with mismatch at position 0 (PAM-distal, outside seed 8-19)
         var genomeDistal = new DnaSequence("TCGTACGTACGTACGTACGTAGG");
 
-        // Off-target with mismatch at position 19 (PAM-proximal/seed - last position)
+        // Off-target with mismatch at position 19 (PAM-proximal/seed, last position)
         var genomeSeed = new DnaSequence("ACGTACGTACGTACGTACGAAGG");
 
         var offTargetsDistal = CrisprDesigner.FindOffTargets(guide, genomeDistal, 3, CrisprSystemType.SpCas9).ToList();
         var offTargetsSeed = CrisprDesigner.FindOffTargets(guide, genomeSeed, 3, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(offTargetsDistal, Has.Count.GreaterThanOrEqualTo(1), "Should find distal off-target");
-        Assert.That(offTargetsSeed, Has.Count.GreaterThanOrEqualTo(1), "Should find seed off-target");
+        Assert.That(offTargetsDistal, Has.Count.EqualTo(1), "Exactly one distal off-target");
+        Assert.That(offTargetsSeed, Has.Count.EqualTo(1), "Exactly one seed off-target");
 
-        var distalScore = offTargetsDistal.First().OffTargetScore;
-        var seedScore = offTargetsSeed.First().OffTargetScore;
+        var distalScore = offTargetsDistal[0].OffTargetScore;
+        var seedScore = offTargetsSeed[0].OffTargetScore;
 
-        Assert.That(seedScore, Is.GreaterThan(distalScore),
-            $"Seed mismatch score ({seedScore}) should be greater than distal mismatch score ({distalScore})");
+        Assert.Multiple(() =>
+        {
+            Assert.That(distalScore, Is.EqualTo(2.0), "Distal mismatch penalty = 2");
+            Assert.That(seedScore, Is.EqualTo(5.0), "Seed mismatch penalty = 5");
+            Assert.That(seedScore, Is.GreaterThan(distalScore),
+                "Seed mismatch score should exceed distal mismatch score");
+        });
     }
 
     #endregion
+
+    /// <summary>
+    /// S-004: CalculateSpecificityScore penalizes seed mismatches more than distal.
+    /// Evidence: Hsu et al. (2013) — seed (PAM-proximal) mismatches contribute higher penalty.
+    /// Distal mismatch (pos 0, penalty=2) → score 98. Seed mismatch (pos 19, penalty=5) → score 95.
+    /// </summary>
+    [Test]
+    public void CalculateSpecificityScore_SeedMismatch_LowerThanDistal()
+    {
+        string guide = "ACGTACGTACGTACGTACGT";
+
+        // Genome with 1 distal mismatch (position 0): penalty=2 → score=98
+        var genomeDistal = new DnaSequence("TCGTACGTACGTACGTACGTAGG");
+
+        // Genome with 1 seed mismatch (position 19): penalty=5 → score=95
+        var genomeSeed = new DnaSequence("ACGTACGTACGTACGTACGAAGG");
+
+        double scoreDistal = CrisprDesigner.CalculateSpecificityScore(guide, genomeDistal, CrisprSystemType.SpCas9);
+        double scoreSeed = CrisprDesigner.CalculateSpecificityScore(guide, genomeSeed, CrisprSystemType.SpCas9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scoreDistal, Is.EqualTo(98.0), "Distal mismatch penalty=2: 100 − 2 = 98");
+            Assert.That(scoreSeed, Is.EqualTo(95.0), "Seed mismatch penalty=5: 100 − 5 = 95");
+            Assert.That(scoreSeed, Is.LessThan(scoreDistal),
+                "Seed mismatch should reduce SpecificityScore more than distal mismatch");
+        });
+    }
+
+#endregion
 
     #region Multiple Mismatches Tests (S-002)
 
     /// <summary>
     /// S-002: Multiple mismatches are correctly counted and reported.
     /// Evidence: Hsu et al. (2013) - aggregate effect of multiple mismatches.
+    /// 3 distal mismatches at positions 0, 1, 2 → score = 3 × 2 = 6.
     /// </summary>
     [Test]
     public void FindOffTargets_MultipleMismatches_AllReported()
@@ -315,16 +379,15 @@ public class CrisprDesigner_OffTarget_Tests
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.SpCas9).ToList();
 
-        Assert.That(offTargets, Has.Count.GreaterThanOrEqualTo(1));
-        var offTarget = offTargets.First(ot => ot.Mismatches == 3);
-
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one off-target site");
+        var ot = offTargets[0];
         Assert.Multiple(() =>
         {
-            Assert.That(offTarget.Mismatches, Is.EqualTo(3));
-            Assert.That(offTarget.MismatchPositions.Count, Is.EqualTo(3));
-            Assert.That(offTarget.MismatchPositions, Does.Contain(0));
-            Assert.That(offTarget.MismatchPositions, Does.Contain(1));
-            Assert.That(offTarget.MismatchPositions, Does.Contain(2));
+            Assert.That(ot.Mismatches, Is.EqualTo(3));
+            Assert.That(ot.MismatchPositions, Is.EqualTo(new[] { 0, 1, 2 }),
+                "Mismatches at positions 0 (A→T), 1 (C→T), 2 (G→T)");
+            Assert.That(ot.OffTargetScore, Is.EqualTo(6.0),
+                "All 3 mismatches are distal (outside seed 8-19): 3 × 2 = 6");
         });
     }
 
@@ -335,6 +398,8 @@ public class CrisprDesigner_OffTarget_Tests
     /// <summary>
     /// S-003: Cas12a system uses correct PAM and guide length.
     /// Evidence: Cas12a uses TTTV PAM before target, 23bp guide.
+    /// Seed region for Cas12a (PamAfterTarget=false): first 12bp (positions 0-11).
+    /// Mismatch at position 0 is in seed → score = 5.
     /// </summary>
     [Test]
     public void FindOffTargets_Cas12a_UsesCorrectParameters()
@@ -342,14 +407,20 @@ public class CrisprDesigner_OffTarget_Tests
         // Cas12a: PAM (TTTA/C/G) is BEFORE the target, guide is 23bp
         string guide = "ACGTACGTACGTACGTACGTACG"; // 23bp guide
 
-        // Genome: TTTA (PAM) + 23bp with 1 mismatch
+        // Genome: TTTA (PAM) + 23bp with 1 mismatch at position 0 (T instead of A)
         var genome = new DnaSequence("TTTATCGTACGTACGTACGTACGTACG");
 
         var offTargets = CrisprDesigner.FindOffTargets(guide, genome, 3, CrisprSystemType.Cas12a).ToList();
 
-        Assert.That(offTargets, Has.Count.GreaterThanOrEqualTo(1),
-            "Should find off-target with Cas12a system");
-        Assert.That(offTargets.First().Mismatches, Is.EqualTo(1));
+        Assert.That(offTargets, Has.Count.EqualTo(1), "Exactly one off-target with Cas12a");
+        var ot = offTargets[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(ot.Mismatches, Is.EqualTo(1));
+            Assert.That(ot.MismatchPositions, Is.EqualTo(new[] { 0 }));
+            Assert.That(ot.OffTargetScore, Is.EqualTo(5.0),
+                "Cas12a seed is positions 0-11; position 0 is seed → penalty = 5");
+        });
     }
 
     #endregion
@@ -358,7 +429,7 @@ public class CrisprDesigner_OffTarget_Tests
 
     /// <summary>
     /// Edge case: Empty genome returns empty results (no crash).
-    /// ASSUMPTION A-001: Empty genome handled gracefully.
+    /// Natural behavior: no PAM sites found → no off-targets.
     /// </summary>
     [Test]
     public void FindOffTargets_EmptyGenome_ReturnsEmpty()
