@@ -502,6 +502,11 @@ public static class RepeatFinder
         int minLength = 4,
         int maxLength = 12)
     {
+        if (minLength < 4 || minLength % 2 != 0)
+            throw new ArgumentOutOfRangeException(nameof(minLength), "Must be even and >= 4");
+        if (maxLength < minLength)
+            throw new ArgumentOutOfRangeException(nameof(maxLength));
+
         if (string.IsNullOrEmpty(sequence))
             yield break;
 
