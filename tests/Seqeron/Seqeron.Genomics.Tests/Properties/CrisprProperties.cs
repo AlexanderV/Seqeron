@@ -10,10 +10,15 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("MolTools")]
 public class CrisprProperties
 {
-    // A synthetic sequence with known NGG PAMs
+    // A synthetic sequence with known NGG PAMs (forward: GGG@20, TGG@42; plus reverse strand hits)
     private const string TestSequence = "ACGTACGTACGTACGTACGTGGG" +
                                         "TTTTTTTTTTTTTTTTTTTTTGG" +
                                         "ACGTACGTACGTACGTACGTACGT";
+
+    // Sequence that produces known guides for GUIDE-001 property tests
+    // Contains AGG PAM at position 43 on forward strand
+    private const string GuideTestSequence =
+        "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTAGGACGTACGTACGTACGTACGT";
 
     // -- CRISPR-PAM-001 --
 
@@ -68,32 +73,34 @@ public class CrisprProperties
     // -- CRISPR-GUIDE-001 --
 
     /// <summary>
-    /// Guide RNA GC content is in [0, 1].
+    /// Guide RNA GC content is in [0, 100] (percentage).
     /// </summary>
     [Test]
     [Category("Property")]
     public void GuideRna_GcContent_InRange()
     {
-        var longSeq = new DnaSequence(string.Concat(Enumerable.Repeat("ACGTACGTACGTACGTACGTACGT", 5)));
-        var guides = CrisprDesigner.DesignGuideRnas(longSeq, 0, longSeq.Length - 1).ToList();
+        var dna = new DnaSequence(GuideTestSequence);
+        var guides = CrisprDesigner.DesignGuideRnas(dna, 0, dna.Length - 1).ToList();
 
+        Assert.That(guides, Is.Not.Empty, "Test sequence must produce guides");
         foreach (var g in guides)
-            Assert.That(g.GcContent, Is.InRange(0.0, 1.0),
+            Assert.That(g.GcContent, Is.InRange(0.0, 100.0),
                 $"GC content {g.GcContent} out of range for guide at {g.Position}");
     }
 
     /// <summary>
-    /// Guide RNA score is in [0, 1].
+    /// Guide RNA score is in [0, 100].
     /// </summary>
     [Test]
     [Category("Property")]
     public void GuideRna_Score_InRange()
     {
-        var longSeq = new DnaSequence(string.Concat(Enumerable.Repeat("ACGTACGTACGTACGTACGTACGT", 5)));
-        var guides = CrisprDesigner.DesignGuideRnas(longSeq, 0, longSeq.Length - 1).ToList();
+        var dna = new DnaSequence(GuideTestSequence);
+        var guides = CrisprDesigner.DesignGuideRnas(dna, 0, dna.Length - 1).ToList();
 
+        Assert.That(guides, Is.Not.Empty, "Test sequence must produce guides");
         foreach (var g in guides)
-            Assert.That(g.Score, Is.InRange(0.0, 1.0),
+            Assert.That(g.Score, Is.InRange(0.0, 100.0),
                 $"Score {g.Score} out of range for guide at {g.Position}");
     }
 
