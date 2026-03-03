@@ -40,11 +40,12 @@ Algorithm:
 
 The off-target score reflects the likelihood of cleavage at the off-target site. Mismatches in different regions have different effects:
 
-**Seed Region** (PAM-proximal, typically last 10-12bp for Cas9):
+**Seed Region** (PAM-proximal, last 12bp for Cas9):
 - Mismatches in the seed region reduce off-target activity but are still concerning
 - Implementation weights seed mismatches higher (5 points per mismatch)
+- Evidence: Hsu et al. (2013) — PAM-proximal 8-12bp defines specificity; 12bp used as conservative upper bound
 
-**PAM-Distal Region** (first 8-10bp):
+**PAM-Distal Region** (first 8bp for 20bp guide):
 - Mismatches here are more tolerated by the Cas9 protein
 - Implementation weights these lower (2 points per mismatch)
 
