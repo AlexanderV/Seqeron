@@ -196,6 +196,20 @@ public class PrimerDesigner_MeltingTemperature_Tests
         Assert.That(tm, Is.EqualTo(expected).Within(Tolerance));
     }
 
+    /// <summary>
+    /// Edge case: All-same-base sequence ≥14bp uses Marmur-Doty.
+    /// Tm = 64.9 + 41×(0-16.4)/16 = 64.9 − 42.025 = 22.875°C
+    /// Evidence: Edge case — verifies Marmur-Doty with 0% GC at length above threshold.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_MarmurDoty_AllSameBase16bp_ReturnsExpected()
+    {
+        // AAAAAAAAAAAAAAAA = 16 A's, 16 A/T, 0 G/C
+        double tm = PrimerDesigner.CalculateMeltingTemperature("AAAAAAAAAAAAAAAA");
+        double expected = 64.9 + 41.0 * (0 - 16.4) / 16; // = 22.875
+        Assert.That(tm, Is.EqualTo(expected).Within(Tolerance));
+    }
+
     #endregion
 
     #region Case Insensitivity
@@ -203,25 +217,35 @@ public class PrimerDesigner_MeltingTemperature_Tests
     /// <summary>
     /// Lowercase input should produce same result as uppercase.
     /// Evidence: DNA sequence case should not affect calculation.
+    /// "atatatat" = 8 A/T, 0 G/C → Wallace: 2×8 + 4×0 = 16.0
     /// </summary>
     [Test]
     public void CalculateMeltingTemperature_LowercaseInput_MatchesUppercase()
     {
         double tmLower = PrimerDesigner.CalculateMeltingTemperature("atatatat");
         double tmUpper = PrimerDesigner.CalculateMeltingTemperature("ATATATAT");
-        Assert.That(tmLower, Is.EqualTo(tmUpper));
+        Assert.Multiple(() =>
+        {
+            Assert.That(tmLower, Is.EqualTo(tmUpper));
+            Assert.That(tmLower, Is.EqualTo(16.0));
+        });
     }
 
     /// <summary>
     /// Mixed case input should produce same result.
     /// Evidence: DNA sequence case should not affect calculation.
+    /// "AcGtAcGt" = ACGTACGT → 4 A/T, 4 G/C → Wallace: 2×4 + 4×4 = 24.0
     /// </summary>
     [Test]
     public void CalculateMeltingTemperature_MixedCaseInput_MatchesUppercase()
     {
         double tmMixed = PrimerDesigner.CalculateMeltingTemperature("AcGtAcGt");
         double tmUpper = PrimerDesigner.CalculateMeltingTemperature("ACGTACGT");
-        Assert.That(tmMixed, Is.EqualTo(tmUpper));
+        Assert.Multiple(() =>
+        {
+            Assert.That(tmMixed, Is.EqualTo(tmUpper));
+            Assert.That(tmMixed, Is.EqualTo(24.0));
+        });
     }
 
     #endregion
@@ -248,46 +272,35 @@ public class PrimerDesigner_MeltingTemperature_Tests
 
     /// <summary>
     /// Salt correction at low 10mM Na+.
-    /// Correction = 16.6 × log10(10/1000) ≈ -33.2°C
-    /// Evidence: Lower salt destabilizes duplex further.
+    /// Correction = 16.6 × log10(10/1000) = 16.6 × (-2) = -33.2°C
+    /// Evidence: Owczarzy et al. (2004). Lower salt destabilizes duplex.
     /// </summary>
     [Test]
-    public void CalculateMeltingTemperatureWithSalt_10mM_LowerThanStandard()
+    public void CalculateMeltingTemperatureWithSalt_10mM_AppliesCorrection()
     {
         string primer = "ACGTACGTACGTACGTACGT";
-        double tm50 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-        double tm10 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 10);
+        double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
+        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 10);
 
-        Assert.That(tm10, Is.LessThan(tm50));
+        double expectedCorrection = 16.6 * Math.Log10(10.0 / 1000.0); // = 16.6 × -2 = -33.2
+        double expectedTm = baseTm + expectedCorrection;
+
+        Assert.That(saltTm, Is.EqualTo(expectedTm).Within(Tolerance));
     }
 
     /// <summary>
     /// Salt correction at high 200mM Na+.
     /// Correction = 16.6 × log10(200/1000) ≈ -11.6°C
-    /// Evidence: Higher salt stabilizes duplex.
+    /// Evidence: Owczarzy et al. (2004). Higher salt stabilizes duplex.
     /// </summary>
     [Test]
-    public void CalculateMeltingTemperatureWithSalt_200mM_HigherThanStandard()
-    {
-        string primer = "ACGTACGTACGTACGTACGT";
-        double tm50 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 50);
-        double tm200 = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 200);
-
-        Assert.That(tm200, Is.GreaterThan(tm50));
-    }
-
-    /// <summary>
-    /// Salt correction calculation is mathematically correct.
-    /// Evidence: Formula verification.
-    /// </summary>
-    [Test]
-    public void CalculateMeltingTemperatureWithSalt_CalculationVerification()
+    public void CalculateMeltingTemperatureWithSalt_200mM_AppliesCorrection()
     {
         string primer = "ACGTACGTACGTACGTACGT";
         double baseTm = PrimerDesigner.CalculateMeltingTemperature(primer);
-        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 100);
+        double saltTm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(primer, 200);
 
-        double expectedCorrection = 16.6 * Math.Log10(100.0 / 1000.0); // = 16.6 × -1 = -16.6
+        double expectedCorrection = 16.6 * Math.Log10(200.0 / 1000.0); // ≈ -11.6
         double expectedTm = baseTm + expectedCorrection;
 
         Assert.That(saltTm, Is.EqualTo(expectedTm).Within(Tolerance));
@@ -295,21 +308,83 @@ public class PrimerDesigner_MeltingTemperature_Tests
 
     /// <summary>
     /// Empty primer with salt correction returns 0.
-    /// Evidence: Base case handling preserved through salt function.
+    /// Evidence: Empty input has no duplex to melt; salt correction is inapplicable.
     /// </summary>
     [Test]
     public void CalculateMeltingTemperatureWithSalt_EmptyPrimer_Returns0()
     {
         double tm = PrimerDesigner.CalculateMeltingTemperatureWithSalt("", 50);
-        // Note: Salt correction of 0 base may produce negative - check implementation
-        // If implementation adds salt to 0, result might be negative
-        // For now, verify behavior is deterministic
-        Assert.That(tm, Is.Not.NaN);
+        Assert.That(tm, Is.EqualTo(0.0));
+    }
+
+    /// <summary>
+    /// Null primer with salt correction returns 0.
+    /// Evidence: Null input has no duplex to melt; salt correction is inapplicable.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperatureWithSalt_NullPrimer_Returns0()
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperatureWithSalt(null!, 50);
+        Assert.That(tm, Is.EqualTo(0.0));
     }
 
     #endregion
 
-    #region Invariants
+    #region Non-ACGT Handling (Defined Behavior)
+
+    /// <summary>
+    /// Non-ACGT characters (e.g., N ambiguity code) are ignored.
+    /// Only standard DNA bases (A, C, G, T) contribute to Tm calculation.
+    /// Evidence: Defined behavior — primers should contain only ACGT.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_NonAcgtIgnored_OnlyValidBasesCounted()
+    {
+        // "ACNGT" has 2 AT (A,T) + 2 GC (C,G) + 1 ignored (N) = 4 valid bases
+        // Valid length 4 < 14 → Wallace: 2×2 + 4×2 = 12
+        double tm = PrimerDesigner.CalculateMeltingTemperature("ACNGT");
+        Assert.That(tm, Is.EqualTo(12.0));
+    }
+
+    /// <summary>
+    /// Sequence with many N characters — only ACGT bases affect Tm.
+    /// Valid bases determine both the formula selection and the calculation.
+    /// Evidence: Defined behavior — non-standard bases ignored consistently.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_ManyNonAcgt_UsesOnlyValidBases()
+    {
+        // "ACGTNNNNACGT" = 4 AT (A,T,A,T) + 4 GC (C,G,C,G) + 4 ignored (N)
+        // Valid length 8 < 14 → Wallace: 2×4 + 4×4 = 24
+        double tm = PrimerDesigner.CalculateMeltingTemperature("ACGTNNNNACGT");
+        Assert.That(tm, Is.EqualTo(24.0));
+    }
+
+    /// <summary>
+    /// Sequence with only non-ACGT characters returns 0.
+    /// Evidence: No valid bases means no duplex, Tm = 0.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_AllNonAcgt_Returns0()
+    {
+        double tm = PrimerDesigner.CalculateMeltingTemperature("NNNNN");
+        Assert.That(tm, Is.EqualTo(0.0));
+    }
+
+    /// <summary>
+    /// RNA uracil (U) is not a standard DNA base and is ignored.
+    /// This is a DNA-only Tm calculator; RNA input is not supported.
+    /// Evidence: Defined behavior — DNA tool, only ACGT recognized.
+    /// </summary>
+    [Test]
+    public void CalculateMeltingTemperature_RnaUracil_NotCountedAsDnaBase()
+    {
+        // "ACGUACGU" has 2 AT (A,A) + 2 GC (C,G,C,G) — wait:
+        // A(AT) C(GC) G(GC) U(ignored) A(AT) C(GC) G(GC) U(ignored)
+        // = 2 AT + 4 GC = 6 valid bases < 14 → Wallace: 2×2 + 4×4 = 20
+        double tm = PrimerDesigner.CalculateMeltingTemperature("ACGUACGU");
+        Assert.That(tm, Is.EqualTo(20.0));
+    }
 
     /// <summary>
     /// Higher GC content produces higher Tm for same length.

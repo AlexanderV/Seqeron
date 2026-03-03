@@ -188,8 +188,11 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Calculates the melting temperature using the nearest-neighbor method.
-    /// Simplified version using basic formula for primers.
+    /// Calculates the melting temperature for DNA primers.
+    /// Uses Wallace rule for short primers (&lt; 14 valid bases)
+    /// and Marmur-Doty formula for longer primers (≥ 14 valid bases).
+    /// Only standard DNA bases (A, C, G, T) are recognized;
+    /// all other characters are ignored.
     /// </summary>
     public static double CalculateMeltingTemperature(string primer)
     {
@@ -198,17 +201,21 @@ public static class PrimerDesigner
 
         var seq = primer.ToUpperInvariant();
 
-        // For short primers (< 14 bp), use Wallace rule
-        if (seq.Length < ThermoConstants.WallaceMaxLength)
+        int at = seq.Count(c => c == 'A' || c == 'T');
+        int gc = seq.Count(c => c == 'G' || c == 'C');
+        int validLength = at + gc;
+
+        if (validLength == 0)
+            return 0;
+
+        // For short primers (< 14 valid bases), use Wallace rule
+        if (validLength < ThermoConstants.WallaceMaxLength)
         {
-            int at = seq.Count(c => c == 'A' || c == 'T');
-            int gc = seq.Count(c => c == 'G' || c == 'C');
             return ThermoConstants.CalculateWallaceTm(at, gc);
         }
 
-        // For longer primers, use basic nearest-neighbor approximation
-        int gcCount = seq.Count(c => c == 'G' || c == 'C');
-        return Math.Max(0, ThermoConstants.CalculateMarmurDotyTm(gcCount, seq.Length));
+        // For longer primers, use Marmur-Doty formula
+        return Math.Max(0, ThermoConstants.CalculateMarmurDotyTm(gc, validLength));
     }
 
     /// <summary>
@@ -219,6 +226,9 @@ public static class PrimerDesigner
     /// <returns>Corrected melting temperature in °C.</returns>
     public static double CalculateMeltingTemperatureWithSalt(string primer, double naConcentration = 50)
     {
+        if (string.IsNullOrEmpty(primer))
+            return 0;
+
         double baseTm = CalculateMeltingTemperature(primer);
         double saltCorrection = ThermoConstants.CalculateSaltCorrection(naConcentration);
         return Math.Round(baseTm + saltCorrection, 1);
