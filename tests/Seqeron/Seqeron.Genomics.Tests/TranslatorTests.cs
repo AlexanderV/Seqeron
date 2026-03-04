@@ -210,46 +210,7 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region ORF Finding
-
-        [Test]
-        public void FindOrfs_SimpleOrf_FindsIt()
-        {
-            // ATG followed by 100+ amino acids and stop codon
-            // ATG + 99 * "GCT" (Ala) + TAA = 100 AA ORF
-            string dna = "ATG" + new string('G', 99 * 3).Replace("GGG", "GCT") + "TAA";
-            // Actually let's make it simpler with just 100 Alanines
-            var sb = new System.Text.StringBuilder("ATG");
-            for (int i = 0; i < 100; i++)
-                sb.Append("GCT");
-            sb.Append("TAA");
-
-            var sequence = new DnaSequence(sb.ToString());
-            var orfs = Translator.FindOrfs(sequence, minLength: 100).ToList();
-
-            Assert.That(orfs, Has.Count.GreaterThanOrEqualTo(1));
-            Assert.That(orfs[0].AminoAcidLength, Is.EqualTo(101)); // M + 100 A
-        }
-
-        [Test]
-        public void FindOrfs_NoStartCodon_ReturnsEmpty()
-        {
-            // No ATG in sequence
-            var dna = new DnaSequence("GCTGCTGCT");
-            var orfs = Translator.FindOrfs(dna, minLength: 1).ToList();
-
-            Assert.That(orfs, Is.Empty);
-        }
-
-        [Test]
-        public void FindOrfs_ShortOrf_FilteredByMinLength()
-        {
-            // ATG GCT TAA = 2 amino acids (M A), filtered by minLength=100
-            var dna = new DnaSequence("ATGGCTTAA");
-            var orfs = Translator.FindOrfs(dna, minLength: 100).ToList();
-
-            Assert.That(orfs, Is.Empty);
-        }
+        #region ORF Finding (Smoke Tests — canonical tests in GenomeAnnotator_ORF_Tests.cs)
 
         [Test]
         public void FindOrfs_RespectMinLength_FindsSmallOrfs()
@@ -270,16 +231,6 @@ namespace Seqeron.Genomics.Tests
             var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
 
             Assert.That(orfs, Is.Empty);
-        }
-
-        [Test]
-        public void FindOrfs_ResultHasCorrectFrame()
-        {
-            // ATG GCT TAA in frame 0
-            var dna = new DnaSequence("ATGGCTTAA");
-            var orfs = Translator.FindOrfs(dna, minLength: 2).ToList();
-
-            Assert.That(orfs[0].Frame, Is.EqualTo(1)); // Frame 1 = first reading frame
         }
 
         [Test]

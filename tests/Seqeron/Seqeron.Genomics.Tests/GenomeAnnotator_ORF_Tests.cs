@@ -173,29 +173,26 @@ public class GenomeAnnotator_ORF_Tests
     #region M07-M09: Six-Frame Search
 
     /// <summary>
-    /// M07: ORFs found in all 6 reading frames.
+    /// M07: ORFs found across multiple reading frames from a single sequence.
     /// Evidence: Wikipedia six-frame translation, Rosalind.
     /// </summary>
     [Test]
     public void FindOrfs_SixFrameSearch_FindsOrfsInMultipleFrames()
     {
-        // Create sequence with ORFs in different frames
-        // Frame 1 ORF: ATG at position 0
-        string frame1Orf = CreateOrf("ATG", 30, "TAA");
-        // Add padding so frame 2 has an ORF
-        string frame2Orf = "G" + CreateOrf("ATG", 30, "TAA");
-        // Frame 3
-        string frame3Orf = "GG" + CreateOrf("ATG", 30, "TAA");
+        // Single sequence with ORFs in frame 1 and frame 2:
+        // Frame 1: ATG at position 0 → (0 % 3) + 1 = frame 1, 51 nt ORF
+        // Frame 2: ATG at position 52 → (52 % 3) + 1 = frame 2, 51 nt ORF
+        string sequence = CreateOrf("ATG", 15, "TAA") + "G" + CreateOrf("ATG", 15, "TAA");
 
-        var orfs1 = GenomeAnnotator.FindOrfs(frame1Orf, minLength: 10).ToList();
-        var orfs2 = GenomeAnnotator.FindOrfs(frame2Orf, minLength: 10).ToList();
-        var orfs3 = GenomeAnnotator.FindOrfs(frame3Orf, minLength: 10).ToList();
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 5, searchBothStrands: false).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(orfs1.Any(o => o.Frame == 1), Is.True, "Should find ORF in frame 1");
-            Assert.That(orfs2.Any(o => o.Frame == 2), Is.True, "Should find ORF in frame 2");
-            Assert.That(orfs3.Any(o => o.Frame == 3), Is.True, "Should find ORF in frame 3");
+            Assert.That(orfs, Has.Count.EqualTo(2), "Should find exactly 2 ORFs");
+            Assert.That(orfs.Select(o => o.Frame).Distinct().Count(), Is.EqualTo(2),
+                "ORFs should span 2 different frames");
+            Assert.That(orfs.Any(o => o.Frame == 1), Is.True, "Should find ORF in frame 1");
+            Assert.That(orfs.Any(o => o.Frame == 2), Is.True, "Should find ORF in frame 2");
         });
     }
 
@@ -212,8 +209,14 @@ public class GenomeAnnotator_ORF_Tests
 
         var orfs = GenomeAnnotator.FindOrfs(reverseOrfSequence, minLength: 10, searchBothStrands: true).ToList();
 
-        Assert.That(orfs.Any(o => o.IsReverseComplement), Is.True,
-            "Should find ORF on reverse complement strand");
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs, Has.Count.EqualTo(1), "Should find exactly 1 ORF on reverse strand");
+            Assert.That(orfs[0].IsReverseComplement, Is.True,
+                "ORF should be from reverse complement strand");
+            Assert.That(orfs[0].ProteinSequence, Does.StartWith("M"), "Protein should start with M");
+            Assert.That(orfs[0].ProteinSequence, Does.EndWith("*"), "Protein should end with stop");
+        });
     }
 
     /// <summary>
@@ -234,16 +237,26 @@ public class GenomeAnnotator_ORF_Tests
     /// M09: Each frame is reported separately with correct frame number.
     /// Evidence: Wikipedia - three frames per strand.
     /// </summary>
-    [Test]
-    public void FindOrfs_FrameNumber_CorrectlyAssigned()
+    [TestCase(0, 1, Description = "ATG at position 0 → frame 1")]
+    [TestCase(1, 2, Description = "ATG at position 1 → frame 2")]
+    [TestCase(2, 3, Description = "ATG at position 2 → frame 3")]
+    public void FindOrfs_FrameNumber_CorrectlyAssigned(int offset, int expectedFrame)
     {
+        string padding = new string('G', offset);
         string orf = CreateOrf("ATG", 30, "TAA");
+        string sequence = padding + orf;
 
-        var orfs = GenomeAnnotator.FindOrfs(orf, minLength: 10).ToList();
-        var forwardOrfs = orfs.Where(o => !o.IsReverseComplement).ToList();
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 10, searchBothStrands: false).ToList();
 
-        Assert.That(forwardOrfs.All(o => o.Frame >= 1 && o.Frame <= 3), Is.True,
-            "Forward strand frames should be 1, 2, or 3");
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs, Has.Count.EqualTo(1),
+                $"Should find exactly 1 ORF with offset {offset}");
+            Assert.That(orfs[0].Frame, Is.EqualTo(expectedFrame),
+                $"ORF at offset {offset} should be in frame {expectedFrame}");
+            Assert.That(orfs[0].Start, Is.EqualTo(offset),
+                $"ORF should start at position {offset}");
+        });
     }
 
     #endregion
@@ -256,14 +269,19 @@ public class GenomeAnnotator_ORF_Tests
     [Test]
     public void FindOrfs_MultipleOrfs_AllReturned()
     {
-        // Two separate ORFs
-        string orf1 = CreateOrf("ATG", 20, "TAA");
-        string orf2 = CreateOrf("ATG", 20, "TAG");
-        string sequence = orf1 + "GGG" + orf2; // spacer to ensure separation
+        // Two separate ORFs in frame 1 (GGG spacer preserves frame alignment)
+        string orf1 = CreateOrf("ATG", 20, "TAA"); // 66 nt, positions 0-65
+        string orf2 = CreateOrf("ATG", 20, "TAG"); // 66 nt, positions 69-134
+        string sequence = orf1 + "GGG" + orf2;
 
         var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 10, searchBothStrands: false).ToList();
 
-        Assert.That(orfs.Count, Is.GreaterThanOrEqualTo(2), "Should find at least 2 ORFs");
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs, Has.Count.EqualTo(2), "Should find exactly 2 ORFs");
+            Assert.That(orfs[0].Start, Is.EqualTo(0), "First ORF starts at position 0");
+            Assert.That(orfs[1].Start, Is.EqualTo(69), "Second ORF starts at position 69");
+        });
     }
 
     /// <summary>
@@ -272,17 +290,23 @@ public class GenomeAnnotator_ORF_Tests
     [Test]
     public void FindOrfs_NestedOrfs_BothReportedIfQualifying()
     {
-        // Outer: ATG + coding + ATG (inner start) + more coding + TAA
+        // Outer: ATG at 0 + 30 A's + ATG at 33 + 30 A's + TAA = 69 nt
         // Inner ORF shares the same stop codon
         string sequence = "ATG" + "AAA".PadRight(30, 'A').Substring(0, 30) +
                           "ATG" + "AAA".PadRight(30, 'A').Substring(0, 30) + "TAA";
 
         var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 5, searchBothStrands: false).ToList();
-        var frame1Orfs = orfs.Where(o => o.Frame == 1 && !o.IsReverseComplement).ToList();
+        var frame1Orfs = orfs.Where(o => o.Frame == 1 && !o.IsReverseComplement)
+                             .OrderBy(o => o.Start).ToList();
 
-        // Should find both the outer and inner ORF (both have same stop)
-        Assert.That(frame1Orfs.Count, Is.GreaterThanOrEqualTo(2),
-            "Should find both outer and nested ORF");
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame1Orfs, Has.Count.EqualTo(2), "Should find both outer and nested ORF");
+            Assert.That(frame1Orfs[0].Start, Is.EqualTo(0), "Outer ORF starts at position 0");
+            Assert.That(frame1Orfs[1].Start, Is.EqualTo(33), "Inner ORF starts at position 33");
+            Assert.That(frame1Orfs[0].End, Is.EqualTo(frame1Orfs[1].End),
+                "Both ORFs share the same stop codon");
+        });
     }
 
     #endregion
@@ -463,11 +487,20 @@ public class GenomeAnnotator_ORF_Tests
     [Test]
     public void FindOrfs_LowercaseInput_HandledCorrectly()
     {
-        string lowercaseOrf = CreateOrf("ATG", 30, "TAA").ToLowerInvariant();
+        string uppercaseOrf = CreateOrf("ATG", 30, "TAA");
+        string lowercaseOrf = uppercaseOrf.ToLowerInvariant();
 
-        var orfs = GenomeAnnotator.FindOrfs(lowercaseOrf, minLength: 10).ToList();
+        var uppercaseOrfs = GenomeAnnotator.FindOrfs(uppercaseOrf, minLength: 10).ToList();
+        var lowercaseOrfs = GenomeAnnotator.FindOrfs(lowercaseOrf, minLength: 10).ToList();
 
-        Assert.That(orfs, Has.Count.GreaterThan(0), "Should detect ORF in lowercase sequence");
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowercaseOrfs, Has.Count.EqualTo(1), "Should detect exactly 1 ORF in lowercase");
+            Assert.That(lowercaseOrfs.Count, Is.EqualTo(uppercaseOrfs.Count),
+                "Same ORF count as uppercase");
+            Assert.That(lowercaseOrfs[0].ProteinSequence, Is.EqualTo(uppercaseOrfs[0].ProteinSequence),
+                "Same protein as uppercase");
+        });
     }
 
     /// <summary>
@@ -476,16 +509,23 @@ public class GenomeAnnotator_ORF_Tests
     [Test]
     public void FindOrfs_MixedCaseInput_HandledCorrectly()
     {
-        string mixedCase = "AtGaAaAaAtAa"; // ATG + 2 codons + TAA
+        // ATG + AAA + AAA + TAA = 4 codons → protein MKK*
+        string mixedCase = "AtGaAaAaAtAa";
 
-        var orfs = GenomeAnnotator.FindOrfs(mixedCase, minLength: 1).ToList();
+        var orfs = GenomeAnnotator.FindOrfs(mixedCase, minLength: 1, searchBothStrands: false).ToList();
 
-        Assert.That(orfs, Has.Count.GreaterThan(0), "Should detect ORF in mixed case sequence");
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs, Has.Count.EqualTo(1), "Should find exactly 1 ORF in mixed case");
+            Assert.That(orfs[0].Frame, Is.EqualTo(1), "ORF should be in frame 1");
+            Assert.That(orfs[0].ProteinSequence.TrimEnd('*'), Is.EqualTo("MKK"),
+                "Protein should be MKK (Met + 2×Lys)");
+        });
     }
 
     #endregion
 
-    #region S03: Stop Codon Variants
+    #region Stop Codon Variants (supplements M14)
 
     /// <summary>
     /// All three stop codons (TAA, TAG, TGA) are recognized.
@@ -501,10 +541,102 @@ public class GenomeAnnotator_ORF_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(orfs, Has.Count.GreaterThan(0), $"Should detect ORF with {stopCodon} stop");
+            Assert.That(orfs, Has.Count.EqualTo(1), $"Should detect exactly 1 ORF with {stopCodon} stop");
             Assert.That(orfs[0].Sequence.EndsWith(stopCodon, StringComparison.OrdinalIgnoreCase),
                 $"ORF should end with {stopCodon}");
         });
+    }
+
+    #endregion
+
+    #region S03: Very Long Sequence (10kb+)
+
+    /// <summary>
+    /// S03: Very long sequence (10kb+) is handled correctly.
+    /// Evidence: NCBI ORF Finder processes large sequences; performance baseline.
+    /// </summary>
+    [Test]
+    public void FindOrfs_VeryLongSequence_CompletesCorrectly()
+    {
+        // 10,200 bp ORF: ATG + 3,398 coding codons (AAA) + TAA
+        // Plus 2,000 nt non-ORF filler (GCGC repeats, no start codons)
+        var sb = new StringBuilder();
+        sb.Append(CreateOrf("ATG", 3398, "TAA")); // 3 + 3398*3 + 3 = 10,200 nt
+        for (int i = 0; i < 500; i++)
+            sb.Append("GCGC");
+
+        string sequence = sb.ToString(); // 12,200 bp total
+
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 100, searchBothStrands: true).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(orfs, Has.Count.EqualTo(1), "Should find exactly 1 ORF in 10kb+ sequence");
+            Assert.That(orfs[0].Sequence.Length, Is.EqualTo(10200),
+                "ORF should be 10,200 nt (ATG + 3398 codons + TAA)");
+            Assert.That(orfs[0].ProteinSequence, Does.StartWith("M"),
+                "Protein should start with M");
+        });
+    }
+
+    #endregion
+
+    #region S04: Sequences with N Characters
+
+    /// <summary>
+    /// S04a: Codon containing N does not match start codon.
+    /// Evidence: NCBI C++ Toolkit orf.cpp — N is treated as unknown;
+    /// codons containing N do not match ATG/GTG/TTG.
+    /// </summary>
+    [Test]
+    public void FindOrfs_NInStartCodon_NotRecognizedAsStart()
+    {
+        // NTG should not match ATG (N is unknown nucleotide)
+        string sequence = "NTG" + new string('A', 30 * 3) + "TAA";
+
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 1, searchBothStrands: false, requireStartCodon: true).ToList();
+
+        Assert.That(orfs, Is.Empty, "Codon with N should not match start codon");
+    }
+
+    /// <summary>
+    /// S04b: Codon containing N does not match stop codon.
+    /// Evidence: NCBI C++ Toolkit orf.cpp — N prevents codon matching.
+    /// An N-containing codon (e.g., NAA) is neither start nor stop.
+    /// </summary>
+    [Test]
+    public void FindOrfs_NInStopCodon_NotRecognizedAsStop()
+    {
+        // ATG + coding + NAA (not a stop) + more coding + TAA (real stop)
+        string sequence = "ATG" + new string('A', 10 * 3) + "NAA" + new string('A', 10 * 3) + "TAA";
+
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 1, searchBothStrands: false).ToList();
+        var frame1Orfs = orfs.Where(o => o.Frame == 1 && !o.IsReverseComplement).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame1Orfs, Has.Count.EqualTo(1),
+                "Should find exactly 1 ORF continuing through N-containing codon");
+            Assert.That(frame1Orfs[0].Sequence, Does.EndWith("TAA"),
+                "ORF should end at real stop codon TAA, not NAA");
+        });
+    }
+
+    /// <summary>
+    /// S04c: N in middle of ORF coding region does not break the ORF.
+    /// Evidence: NCBI C++ Toolkit — individual N chars are not treated as stops.
+    /// </summary>
+    [Test]
+    public void FindOrfs_NInCodingRegion_OrfContinues()
+    {
+        // ATG + AAA(x5) + NCC(not a stop) + AAA(x5) + TAA
+        string sequence = "ATG" + "AAAAAAAAAAAAAAA" + "NCC" + "AAAAAAAAAAAAAAA" + "TAA";
+
+        var orfs = GenomeAnnotator.FindOrfs(sequence, minLength: 1, searchBothStrands: false).ToList();
+        var frame1Orfs = orfs.Where(o => o.Frame == 1 && !o.IsReverseComplement).ToList();
+
+        Assert.That(frame1Orfs, Has.Count.EqualTo(1),
+            "Should find exactly 1 ORF — N in coding region should not break it");
     }
 
     #endregion

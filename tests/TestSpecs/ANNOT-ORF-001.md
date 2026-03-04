@@ -3,8 +3,8 @@
 **Test Unit ID:** ANNOT-ORF-001
 **Area:** Annotation
 **Algorithm:** ORF Detection
-**Status:** Draft
-**Last Updated:** 2026-01-23
+**Status:** Complete
+**Last Updated:** 2026-01-24
 
 ---
 
@@ -81,68 +81,74 @@
 
 ## Audit of Existing Tests
 
-### GenomeAnnotatorTests.cs (Current Location)
-| Test | Status | Assessment |
-|------|--------|------------|
-| FindOrfs_SimpleOrf_FindsIt | Covered | Weak assertions |
-| FindOrfs_NoStartCodon_ReturnsEmpty | Covered | OK |
-| FindOrfs_NoStopCodon_ReturnsEmpty | Covered | OK |
-| FindOrfs_MultipleFrames_FindsAll | Covered | Weak - only checks frame 1 |
-| FindOrfs_ReverseStrand_FinitsOrfs | Covered | Typo in name |
-| FindOrfs_BelowMinLength_Excluded | Covered | OK |
-| FindOrfs_EmptySequence_ReturnsEmpty | Covered | OK |
-| FindOrfs_AlternativeStartCodons_Detected | Covered | OK |
-| FindLongestOrfsPerFrame_ReturnsFramesDictionary | Covered | OK |
-| FindLongestOrfsPerFrame_BothStrands_IncludesNegativeFrames | Covered | OK |
+### GenomeAnnotator_ORF_Tests.cs (Canonical — All Tests)
+| Test | Spec ID | Status |
+|------|---------|--------|
+| FindOrfs_SimpleAtgTaaOrf_DetectsOrf | M01 | ✅ Strong |
+| FindOrfs_EmptySequence_ReturnsEmpty | M02 | ✅ Strong |
+| FindOrfs_NoStartCodon_RequireStart_ReturnsEmpty | M03 | ✅ Strong |
+| FindOrfs_NoStopCodon_RequireStart_ReturnsEmpty | M04 | ✅ Strong |
+| FindOrfs_AlternativeStartCodons_Detected (GTG, TTG) | M05 | ✅ Strong |
+| FindOrfs_BelowMinLength_Excluded | M06 | ✅ Strong |
+| FindOrfs_ExactlyMinLength_Included | M06b | ✅ Strong |
+| FindOrfs_SixFrameSearch_FindsOrfsInMultipleFrames | M07 | ✅ Strong (single-sequence, exact frame assertions) |
+| FindOrfs_ReverseStrand_FindsOrfs | M08 | ✅ Strong (exact count, protein) |
+| FindOrfs_ForwardOnly_DoesNotSearchReverse | M08b | ✅ Strong |
+| FindOrfs_FrameNumber_CorrectlyAssigned (0→1, 1→2, 2→3) | M09 | ✅ Strong (TestCase, exact frame + start) |
+| FindOrfs_MultipleOrfs_AllReturned | M10 | ✅ Strong (exact count=2, positions) |
+| FindOrfs_NestedOrfs_BothReportedIfQualifying | M11/S05 | ✅ Strong (exact count=2, positions, shared stop) |
+| FindOrfs_RosalindDataset_FindsExpectedProteins | M12 | ✅ Strong |
+| FindOrfs_Invariant_StartsWithStartCodon | M13 | ✅ Strong |
+| FindOrfs_Invariant_EndsWithStopCodon | M14 | ✅ Strong |
+| FindOrfs_Invariant_LengthDivisibleBy3 | M15 | ✅ Strong |
+| FindLongestOrfsPerFrame_BothStrands_Returns6Keys | M16 | ✅ Strong |
+| FindLongestOrfsPerFrame_ForwardOnly_Returns3Keys | M16b | ✅ Strong |
+| FindLongestOrfsPerFrame_ReturnsLongestPerFrame | M17 | ✅ Strong |
+| FindOrfs_LowercaseInput_HandledCorrectly | S01 | ✅ Strong (compared with uppercase) |
+| FindOrfs_MixedCaseInput_HandledCorrectly | S02 | ✅ Strong (exact protein MKK) |
+| FindOrfs_AllStopCodons_Recognized (TAA, TAG, TGA) | M14+ | ✅ Strong (supplements M14) |
+| FindOrfs_VeryLongSequence_CompletesCorrectly | S03 | ✅ Strong (10kb+ sequence, exact ORF size) |
+| FindOrfs_NInStartCodon_NotRecognizedAsStart | S04a | ✅ Strong |
+| FindOrfs_NInStopCodon_NotRecognizedAsStop | S04b | ✅ Strong (exact count=1) |
+| FindOrfs_NInCodingRegion_OrfContinues | S04c | ✅ Strong (exact count=1) |
+| FindOrfs_VeryShortSequence_ReturnsEmpty | Edge | ✅ Strong |
+| FindOrfs_OnlyStartCodon_ReturnsEmpty | Edge | ✅ Strong |
+| FindOrfs_NullSequence_ReturnsEmpty | Edge | ✅ Strong |
 
-### TranslatorTests.cs (Wrapper)
-| Test | Status | Assessment |
-|------|--------|------------|
-| FindOrfs_SimpleOrf_FindsIt | Duplicate | Remove or keep as smoke |
-| FindOrfs_NoStartCodon_ReturnsEmpty | Duplicate | Remove or keep as smoke |
-| FindOrfs_ShortOrf_FilteredByMinLength | Duplicate | Remove or keep as smoke |
-| FindOrfs_RespectMinLength_FindsSmallOrfs | Duplicate | Keep as smoke |
-| FindOrfs_ForwardOnly_DoesNotSearchReverseStrand | Covered | Keep as smoke |
-| FindOrfs_ResultHasCorrectFrame | Covered | Keep as smoke |
-| FindOrfs_NullDna_ThrowsException | Covered | Keep as smoke |
+### TranslatorTests.cs (Wrapper — 3 Smoke Tests)
+| Test | Status |
+|------|--------|
+| FindOrfs_RespectMinLength_FindsSmallOrfs | ✅ Smoke (delegation) |
+| FindOrfs_ForwardOnly_DoesNotSearchReverseStrand | ✅ Smoke (parameter forwarding) |
+| FindOrfs_NullDna_ThrowsException | ✅ Smoke (error handling) |
 
-### GenomicAnalyzerTests.cs (Alternate)
-| Test | Status | Assessment |
-|------|--------|------------|
-| FindOpenReadingFrames_SimpleOrf_FindsIt | Duplicate | Keep as smoke |
-| FindOpenReadingFrames_MultipleFrames_FindsAll | Duplicate | Keep as smoke |
-| FindOpenReadingFrames_NoOrf_ReturnsEmpty | Duplicate | Keep as smoke |
+### GenomicAnalyzerTests.cs (Alternate — 3 Smoke Tests)
+| Test | Status |
+|------|--------|
+| FindOpenReadingFrames_SimpleOrf_FindsIt | ✅ Smoke |
+| FindOpenReadingFrames_MultipleFrames_FindsAll | ✅ Smoke |
+| FindOpenReadingFrames_NoOrf_ReturnsEmpty | ✅ Smoke |
 
 ---
 
 ## Consolidation Plan
 
-### Canonical Test File
-**File:** `GenomeAnnotator_ORF_Tests.cs`
-- Refactor existing tests from GenomeAnnotatorTests.cs
-- ~~Add missing Must tests~~ ✅ Done
-- Strong invariant assertions
-
-### Wrapper Smoke Tests (Keep Minimal)
-- **TranslatorTests.cs**: Keep 2-3 delegation smoke tests
-- **GenomicAnalyzerTests.cs**: Keep existing 3 tests as smoke
-
-### Tests to Remove/Refactor
-- Rename typo: `FindOrfs_ReverseStrand_FinitsOrfs` → `FindOrfs_ReverseStrand_FindsOrfs`
-- Strengthen weak assertions in canonical tests
+### Completed ✅
+- **Canonical Test File:** `GenomeAnnotator_ORF_Tests.cs` — 30 tests (including TestCase variants), all with strong exact assertions
+- **Wrapper Smoke Tests:** TranslatorTests.cs trimmed to 3 smoke tests (removed 4 duplicates)
+- **Alternate Smoke Tests:** GenomicAnalyzerTests.cs — 3 smoke tests kept as-is
+- **Old tests:** ORF tests removed from GenomeAnnotatorTests.cs (consolidated into canonical file)
+- **Typo fixed:** `FinitsOrfs` → `FindsOrfs`
+- **All weak assertions strengthened:** `GreaterThan(0)` / `GreaterThanOrEqualTo` replaced with exact values
+- **Missing test implemented:** S03 (10kb+ sequence)
 
 ---
 
-## Open Questions
+## Deviations and Assumptions
 
-| # | Question | Decision |
-|---|----------|----------|
-| 1 | Behavior when ORF extends to end without stop codon? | Document current impl behavior |
+None. All behaviors are verified against external sources.
 
----
-
-## ASSUMPTIONS
-
-| # | Assumption | Rationale |
-|---|------------|-----------|
-| A01 | N characters are skipped/ignored | No explicit source; implementation-specific |
+| Item | Status | Evidence |
+|------|--------|----------|
+| N character handling | Resolved | NCBI C++ Toolkit `orf.cpp`: codons containing N do not match start/stop patterns. Our implementation matches this behavior — `.ToUpperInvariant()` + set lookup naturally excludes N-containing codons. |
+| ORF without stop codon | Resolved | Rosalind, NCBI ORF Finder, orfipy: standard ORF detection requires a stop codon. Our implementation returns empty when no stop codon is found (with `requireStartCodon=true`). |
