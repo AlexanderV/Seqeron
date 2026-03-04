@@ -166,7 +166,8 @@ public class ProbeDesigner_ProbeDesign_Tests
         int maxProbes = 3;
         var probes = ProbeDesigner.DesignProbes(MicroarrayTargetSequence, maxProbes: maxProbes).ToList();
 
-        Assert.That(probes.Count, Is.LessThanOrEqualTo(maxProbes));
+        Assert.That(probes.Count, Is.EqualTo(maxProbes),
+            $"81-bp ACGT-repeat sequence should yield exactly {maxProbes} probes");
     }
 
     [Test]
@@ -228,30 +229,48 @@ public class ProbeDesigner_ProbeDesign_Tests
     [Test]
     public void DesignProbes_AllGC_ReturnsProbesWithHighGcContent()
     {
-        // M13: High GC content (100%) results in GcContent ≈ 1.0
+        // M13: High GC content (100%) results in GcContent = 1.0 exactly
+        // Use unrestricted GC/Tm params to bypass early rejection filter
+        var param = ProbeDesigner.Defaults.Microarray with
+        {
+            MinGc = 0.0,
+            MaxGc = 1.0,
+            MinTm = 0,
+            MaxTm = 200
+        };
         string target = new string('G', 100);
 
-        var probes = ProbeDesigner.DesignProbes(target).ToList();
+        var probes = ProbeDesigner.DesignProbes(target, param).ToList();
 
+        Assert.That(probes, Is.Not.Empty, "All-G sequence with unrestricted GC params must produce probes");
         foreach (var probe in probes)
         {
-            Assert.That(probe.GcContent, Is.EqualTo(1.0).Within(0.01),
-                "All-GC sequence should have GC content of 1.0");
+            Assert.That(probe.GcContent, Is.EqualTo(1.0),
+                "All-GC probe must have GC content of exactly 1.0");
         }
     }
 
     [Test]
     public void DesignProbes_AllAT_ReturnsProbesWithLowGcContent()
     {
-        // M14: Low GC content (all A/T) results in low GcContent
+        // M14: Low GC content (all A/T) results in GcContent = 0.0 exactly
+        // Use unrestricted GC/Tm params to bypass early rejection filter
+        var param = ProbeDesigner.Defaults.Microarray with
+        {
+            MinGc = 0.0,
+            MaxGc = 1.0,
+            MinTm = 0,
+            MaxTm = 200
+        };
         string target = new string('A', 50) + new string('T', 50);
 
-        var probes = ProbeDesigner.DesignProbes(target).ToList();
+        var probes = ProbeDesigner.DesignProbes(target, param).ToList();
 
+        Assert.That(probes, Is.Not.Empty, "All-AT sequence with unrestricted GC params must produce probes");
         foreach (var probe in probes)
         {
-            Assert.That(probe.GcContent, Is.LessThanOrEqualTo(0.1),
-                "All-AT sequence should have GC content near 0");
+            Assert.That(probe.GcContent, Is.EqualTo(0.0),
+                "All-AT probe must have GC content of exactly 0.0");
         }
     }
 
@@ -263,14 +282,21 @@ public class ProbeDesigner_ProbeDesign_Tests
     public void DesignTilingProbes_CoversExpectedPositions()
     {
         // M9: Tiling probes cover expected positions
+        // 208-char sequence, probeLength=50, overlap=10 → step=40
+        // Expected probes at positions: 0, 40, 80, 120 (160 > 208-50=158)
+        // Coverage: positions 0-169 = 170
         string target = new string('A', 100) + "GCGCGCGC" + new string('T', 100);
 
         var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 50, overlap: 10);
 
         Assert.Multiple(() =>
         {
-            Assert.That(tiling.Probes.Count, Is.GreaterThan(0), "Should produce tiling probes");
-            Assert.That(tiling.Coverage, Is.GreaterThan(0), "Should cover some positions");
+            Assert.That(tiling.Probes.Count, Is.EqualTo(4), "Expected 4 tiling probes");
+            Assert.That(tiling.Coverage, Is.EqualTo(170), "Expected coverage of 170 positions");
+
+            var starts = tiling.Probes.Select(p => p.Start).ToList();
+            Assert.That(starts, Is.EqualTo(new[] { 0, 40, 80, 120 }),
+                "Tiling probes should start at exact positions");
         });
     }
 
@@ -290,14 +316,25 @@ public class ProbeDesigner_ProbeDesign_Tests
     public void DesignTilingProbes_CalculatesTmStatisticsCorrectly()
     {
         // S5: Tiling probes calculate mean Tm correctly
+        // 150-char sequence, probeLength=40, overlap=10 → step=30
+        // Probes at positions 0, 30, 60, 90 (120 > 110)
         string target = new string('G', 50) + new string('C', 50) + new string('A', 50);
 
         var tiling = ProbeDesigner.DesignTilingProbes(target, probeLength: 40, overlap: 10);
 
+        Assert.That(tiling.Probes.Count, Is.EqualTo(4), "Expected 4 tiling probes");
+
+        double expectedMean = tiling.Probes.Average(p => p.Tm);
+        double expectedRange = tiling.Probes.Max(p => p.Tm) - tiling.Probes.Min(p => p.Tm);
+
         Assert.Multiple(() =>
         {
-            Assert.That(tiling.MeanTm, Is.GreaterThan(0), "Mean Tm should be positive");
-            Assert.That(tiling.TmRange, Is.GreaterThanOrEqualTo(0), "Tm range should be non-negative");
+            Assert.That(tiling.MeanTm, Is.EqualTo(expectedMean).Within(0.001),
+                "MeanTm must equal average of individual probe Tm values");
+            Assert.That(tiling.TmRange, Is.EqualTo(expectedRange).Within(0.001),
+                "TmRange must equal max(Tm) - min(Tm)");
+            Assert.That(tiling.TmRange, Is.GreaterThan(0),
+                "Mixed GC sequence should produce probes with different Tm values");
         });
     }
 
@@ -309,15 +346,19 @@ public class ProbeDesigner_ProbeDesign_Tests
     public void DesignProbes_HomopolymerSequence_GeneratesWarnings()
     {
         // S1: Homopolymer runs generate warnings
+        // Sequence has a 30-G run at positions 56-85; probes spanning it must report homopolymer warning
         string target = new string('A', 20) + "GCGCGCGC" + new string('A', 20) +
                        "TATATATA" + new string('G', 30);
 
-        var probes = ProbeDesigner.DesignProbes(target, maxProbes: 10).ToList();
+        var probes = ProbeDesigner.DesignProbes(target, maxProbes: 20).ToList();
 
-        // Probes covering homopolymer regions may have warnings
-        var probesWithWarnings = probes.Where(p => p.Warnings.Count > 0).ToList();
-        Assert.That(probesWithWarnings.Count, Is.GreaterThanOrEqualTo(0),
-            "Probes with warnings should exist (or none if all probes avoid homopolymers)");
+        Assert.That(probes, Is.Not.Empty, "Should produce probes from 86-bp sequence");
+
+        var probesWithHomopolymerWarning = probes
+            .Where(p => p.Warnings.Any(w => w.Contains("Homopolymer")))
+            .ToList();
+        Assert.That(probesWithHomopolymerWarning, Is.Not.Empty,
+            "Probes spanning 30-nt G run must have homopolymer warning");
     }
 
     [Test]
@@ -379,16 +420,24 @@ public class ProbeDesigner_ProbeDesign_Tests
     public void DesignMolecularBeacon_CreatesBeaconWithStem()
     {
         // S4: MolecularBeacon has stem sequences
+        // stemLength=5 → stem5="GGCCC", stem3=RC("GGCCC")="GGGCC"
+        // Total length = stem5(5) + loop(20) + stem3(5) = 30
         string target = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
 
         var beacon = ProbeDesigner.DesignMolecularBeacon(target, probeLength: 20, stemLength: 5);
 
+        Assert.That(beacon, Is.Not.Null, "Should create a molecular beacon");
+
+        var b = beacon!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(beacon, Is.Not.Null, "Should create a molecular beacon");
-            Assert.That(beacon!.Value.Type, Is.EqualTo(ProbeDesigner.ProbeType.MolecularBeacon));
-            Assert.That(beacon.Value.Sequence.Length, Is.GreaterThan(20),
-                "Beacon should be longer than loop due to stems");
+            Assert.That(b.Type, Is.EqualTo(ProbeDesigner.ProbeType.MolecularBeacon));
+            Assert.That(b.Sequence.Length, Is.EqualTo(30),
+                "Beacon = stem5(5) + loop(20) + stem3(5) = 30");
+            Assert.That(b.Sequence.Substring(0, 5), Is.EqualTo("GGCCC"),
+                "5' stem should be GGCCC");
+            Assert.That(b.Sequence.Substring(b.Sequence.Length - 5, 5), Is.EqualTo("GGGCC"),
+                "3' stem should be reverse complement of 5' stem");
         });
     }
 
@@ -433,46 +482,38 @@ public class ProbeDesigner_ProbeDesign_Tests
         }
     }
 
-    #endregion
+    [Test]
+    public void ValidateProbe_SelfComplementarity_DetectsCorrectly()
+    {
+        // C2: Self-complementarity detection
+        // Palindromic DNA (seq == reverse complement) → self-complementarity = 1.0
+        string palindrome = "AACCGGTT"; // RC("AACCGGTT") = "AACCGGTT"
+        var resultPalindrome = ProbeDesigner.ValidateProbe(palindrome, Array.Empty<string>());
+        Assert.That(resultPalindrome.SelfComplementarity, Is.EqualTo(1.0),
+            "Palindromic sequence must have self-complementarity of 1.0");
 
-    #region Invariant Group Assertions
+        // Non-complementary sequence (all-A vs all-T reverse complement) → 0.0
+        string nonComp = "AAAAAAAAAA"; // RC = "TTTTTTTTTT", zero positional matches
+        var resultNonComp = ProbeDesigner.ValidateProbe(nonComp, Array.Empty<string>());
+        Assert.That(resultNonComp.SelfComplementarity, Is.EqualTo(0.0),
+            "All-A sequence must have zero self-complementarity (RC = all-T)");
+    }
 
     [Test]
-    public void DesignProbes_AllInvariants_HoldForValidInput()
+    public void ValidateProbe_SecondaryStructure_IdentifiesHairpins()
     {
-        // Combined invariant test for comprehensive coverage
-        string target = LongSequence.ToUpperInvariant();
-        var probes = ProbeDesigner.DesignProbes(target, maxProbes: 5).ToList();
+        // C3: Secondary structure detection identifies hairpins
+        // "ACGT" + 3-nt loop + "ACGT" forms a hairpin (RC("ACGT")="ACGT", 100% stem match)
+        string hairpin = "ACGTAAAACGT";
+        var resultHairpin = ProbeDesigner.ValidateProbe(hairpin, Array.Empty<string>());
+        Assert.That(resultHairpin.HasSecondaryStructure, Is.True,
+            "Inverted repeat ACGT-loop-ACGT should be detected as secondary structure");
 
-        Assert.That(probes, Is.Not.Empty, "Should produce probes");
-
-        foreach (var probe in probes)
-        {
-            Assert.Multiple(() =>
-            {
-                // Score range
-                Assert.That(probe.Score, Is.InRange(0.0, 1.0), $"Score out of range: {probe.Score}");
-
-                // GC content range
-                Assert.That(probe.GcContent, Is.InRange(0.0, 1.0), $"GC out of range: {probe.GcContent}");
-
-                // Tm positivity
-                Assert.That(probe.Tm, Is.GreaterThan(0), $"Tm not positive: {probe.Tm}");
-
-                // Coordinate validity
-                Assert.That(probe.Start, Is.GreaterThanOrEqualTo(0), $"Start negative: {probe.Start}");
-                Assert.That(probe.End, Is.LessThan(target.Length), $"End exceeds length: {probe.End}");
-                Assert.That(probe.End, Is.GreaterThan(probe.Start), $"End ≤ Start: {probe.End} ≤ {probe.Start}");
-
-                // Sequence match
-                int length = probe.End - probe.Start + 1;
-                string expected = target.Substring(probe.Start, length);
-                Assert.That(probe.Sequence, Is.EqualTo(expected), "Sequence mismatch");
-
-                // Warnings is not null
-                Assert.That(probe.Warnings, Is.Not.Null, "Warnings should not be null");
-            });
-        }
+        // Sequence without inverted repeats → no secondary structure
+        string noHairpin = "AAAAAACCCCCC";
+        var resultNoHairpin = ProbeDesigner.ValidateProbe(noHairpin, Array.Empty<string>());
+        Assert.That(resultNoHairpin.HasSecondaryStructure, Is.False,
+            "Sequence without inverted repeats should have no secondary structure");
     }
 
     #endregion
@@ -537,6 +578,38 @@ public class ProbeDesigner_ProbeDesign_Tests
 
         TestContext.Out.WriteLine($"Without suffix tree: {sw1.ElapsedMilliseconds}ms");
         TestContext.Out.WriteLine($"With suffix tree: {sw2.ElapsedMilliseconds}ms");
+    }
+
+    #endregion
+
+    #region Mutation-Killing Tests — MolecularBeacon Scoring
+
+    [Test]
+    public void DesignMolecularBeacon_AtRichTarget_ScorePenalizedForGcAndTm()
+    {
+        // AT-rich loop: GC ≈ 0%, Tm < 55 → both penalties fire (score ≤ 0.6)
+        // Kills ||→&& mutation on beacon scoring conditions
+        string target = "ATATATATATATATATATATATATATATAT"; // 28 bp, 0% GC
+
+        var beacon = ProbeDesigner.DesignMolecularBeacon(target, probeLength: 25, stemLength: 5);
+
+        Assert.That(beacon, Is.Not.Null, "Beacon should be designed even for AT-rich target");
+        Assert.That(beacon!.Value.Score, Is.LessThan(0.8),
+            "AT-rich loop should have GC and Tm penalties reducing score");
+    }
+
+    [Test]
+    public void DesignMolecularBeacon_GcRichTarget_ScorePenalizedForGcAndTm()
+    {
+        // GC-rich loop: GC = 100%, Tm > 65 → both penalties fire (score ≤ 0.6)
+        // Kills ||→&& mutation from opposite direction
+        string target = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGC"; // 30 bp, 100% GC
+
+        var beacon = ProbeDesigner.DesignMolecularBeacon(target, probeLength: 25, stemLength: 5);
+
+        Assert.That(beacon, Is.Not.Null, "Beacon should be designed even for GC-rich target");
+        Assert.That(beacon!.Value.Score, Is.LessThan(0.8),
+            "GC-rich loop should have GC and Tm penalties reducing score");
     }
 
     #endregion

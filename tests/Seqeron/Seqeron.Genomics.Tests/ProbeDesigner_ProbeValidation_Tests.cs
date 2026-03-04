@@ -49,29 +49,39 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_EmptyProbe_ReturnsValidationResult()
     {
         // M1: Empty probe boundary condition
+        // An empty probe has no sequence to hybridize — specificity must be 0.0
+        // Source: Invariant #5 — offTargetHits == 0 → specificityScore == 0.0
         var validation = ProbeDesigner.ValidateProbe("", SingleMatchReference);
 
         Assert.Multiple(() =>
         {
-            Assert.That(validation.SpecificityScore, Is.InRange(0.0, 1.0),
-                "Specificity score should be in valid range");
-            Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0),
-                "OffTargetHits should be non-negative");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(0.0),
+                "Empty probe cannot hybridize — specificity must be 0.0");
+            Assert.That(validation.OffTargetHits, Is.EqualTo(0),
+                "Empty probe should report 0 off-target hits");
+            Assert.That(validation.SelfComplementarity, Is.EqualTo(0.0),
+                "Empty probe should have 0.0 self-complementarity");
+            Assert.That(validation.IsValid, Is.False,
+                "Empty probe should be invalid");
+            Assert.That(validation.Issues, Has.Count.GreaterThan(0),
+                "Empty probe should report issues");
         });
     }
 
     [Test]
     public void ValidateProbe_EmptyReferences_ReturnsValidationWithNoOffTargetHits()
     {
-        // M2: Empty references should find no off-target hits
+        // M2: Empty references — no sequences to search means 0 off-target hits
+        // Per Invariant #5: offTargetHits == 0 → specificityScore == 0.0
+        // (probe hasn't been shown to hybridize to any target)
         var validation = ProbeDesigner.ValidateProbe(StandardProbe, Enumerable.Empty<string>());
 
         Assert.Multiple(() =>
         {
             Assert.That(validation.OffTargetHits, Is.EqualTo(0),
                 "No references means no off-target hits");
-            Assert.That(validation.SpecificityScore, Is.InRange(0.0, 1.0),
-                "Specificity score should be in valid range");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(0.0),
+                "Zero hits means zero specificity per Invariant #5");
         });
     }
 
@@ -108,72 +118,23 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_MultipleHits_ReducesSpecificityByHitCount()
     {
         // M4: Multiple hits reduce specificity to 1.0/hitCount
-        string probe = "AAAAAAAAAA"; // Will match multiple times in poly-A reference
+        // Probe "AAAAAAAAAA" (10×A) in "AAA...A" (34×A): exact match at every position 0..24 = 25 hits
+        // Specificity = 1.0/25 = 0.04
+        string probe = "AAAAAAAAAA";
         var validation = ProbeDesigner.ValidateProbe(probe, MultipleMatchReference);
 
         Assert.Multiple(() =>
         {
-            Assert.That(validation.OffTargetHits, Is.GreaterThan(1),
-                "Should find multiple hits in poly-A sequence");
-            Assert.That(validation.SpecificityScore, Is.LessThan(1.0),
-                "Multiple hits should reduce specificity below 1.0");
-            Assert.That(validation.SpecificityScore, Is.EqualTo(1.0 / validation.OffTargetHits).Within(0.001),
-                "Specificity should equal 1.0 / hitCount");
+            Assert.That(validation.OffTargetHits, Is.EqualTo(25),
+                "10-mer in 34-mer poly-A: 34-10+1 = 25 exact match positions");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(1.0 / 25).Within(0.0001),
+                "Specificity = 1.0/25 = 0.04 (Invariant #6)");
         });
     }
 
-    [Test]
-    public void ValidateProbe_AnyInput_SpecificityScoreInValidRange()
-    {
-        // M5: Specificity score always in [0.0, 1.0]
-        var testCases = new[]
-        {
-            (StandardProbe, SingleMatchReference),
-            (PalindromicProbe, SingleMatchReference),
-            ("AAAAAAAAAA", MultipleMatchReference),
-            (StandardProbe, Enumerable.Empty<string>().ToArray())
-        };
-
-        foreach (var (probe, refs) in testCases)
-        {
-            var validation = ProbeDesigner.ValidateProbe(probe, refs);
-            Assert.That(validation.SpecificityScore, Is.InRange(0.0, 1.0),
-                $"Specificity should be in [0,1] for probe '{probe.Substring(0, Math.Min(10, probe.Length))}...'");
-        }
-    }
-
-    [Test]
-    public void ValidateProbe_AnyInput_SelfComplementarityInValidRange()
-    {
-        // M6: Self-complementarity always in [0.0, 1.0]
-        var probes = new[] { StandardProbe, PalindromicProbe, "AAAAAAAAAAAAAAAA", "ATATATAT" };
-
-        foreach (var probe in probes)
-        {
-            var validation = ProbeDesigner.ValidateProbe(probe, SingleMatchReference);
-            Assert.That(validation.SelfComplementarity, Is.InRange(0.0, 1.0),
-                $"Self-complementarity should be in [0,1] for probe '{probe}'");
-        }
-    }
-
-    [Test]
-    public void ValidateProbe_AnyInput_OffTargetHitsNonNegative()
-    {
-        // M7: OffTargetHits is always non-negative
-        var testCases = new[]
-        {
-            (StandardProbe, SingleMatchReference),
-            (StandardProbe, Enumerable.Empty<string>().ToArray()),
-            ("", SingleMatchReference)
-        };
-
-        foreach (var (probe, refs) in testCases)
-        {
-            var validation = ProbeDesigner.ValidateProbe(probe, refs);
-            Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0),
-                "OffTargetHits should never be negative");
-        }
-    }
+    // M5, M6, M7 range/non-negative invariants: deleted as duplicates.
+    // Range is verified by AllInvariants test (Invariant Group) and implicitly
+    // by every exact-value test (M1-M4, M8-M12, S1-S4).
 
     #endregion
 
@@ -182,20 +143,17 @@ public class ProbeDesigner_ProbeValidation_Tests
     [Test]
     public void ValidateProbe_HighSelfComplementarity_ReportsInIssues()
     {
-        // M8: High self-complementarity (>30%) should be reported
-        // GC repeat is highly self-complementary
+        // M8: High self-complementarity (>30%) should be reported in issues
+        // PalindromicProbe "GCGCGCGCGCGCGCGCGCGC" is its own reverse complement → selfComp = 1.0
+        // 1.0 > default threshold 0.3 → issue must be generated
         var validation = ProbeDesigner.ValidateProbe(PalindromicProbe, Enumerable.Empty<string>());
 
         Assert.Multiple(() =>
         {
-            Assert.That(validation.SelfComplementarity, Is.GreaterThan(0.3),
-                "Palindromic GC probe should have high self-complementarity");
-            // Issues should mention self-complementarity
-            bool hasComplementarityIssue = validation.Issues.Any(i =>
-                i.Contains("self-complementarity", StringComparison.OrdinalIgnoreCase) ||
-                i.Contains("complementarity", StringComparison.OrdinalIgnoreCase));
-            Assert.That(hasComplementarityIssue || validation.SelfComplementarity > 0.3, Is.True,
-                "High self-complementarity should be detected");
+            Assert.That(validation.SelfComplementarity, Is.EqualTo(1.0),
+                "GC-repeat palindrome: every position matches its reverse complement");
+            Assert.That(validation.Issues, Has.Some.Contain("Self-complementarity"),
+                "Issues must report self-complementarity when above threshold");
         });
     }
 
@@ -277,22 +235,7 @@ public class ProbeDesigner_ProbeValidation_Tests
             "Non-matching probe should have specificity 0.0");
     }
 
-    [Test]
-    public void CheckSpecificity_ResultInValidRange()
-    {
-        // M9: CheckSpecificity always returns value in [0.0, 1.0]
-        string genome = "ACGTACGTACGTACGTACGTACGTACGTACGTACGT";
-        var genomeIndex = global::SuffixTree.SuffixTree.Build(genome);
-
-        var probes = new[] { "ACGT", "ACGTACGT", "NNNN", "GCGCGC" };
-
-        foreach (var probe in probes)
-        {
-            double specificity = ProbeDesigner.CheckSpecificity(probe, genomeIndex);
-            Assert.That(specificity, Is.InRange(0.0, 1.0),
-                $"Specificity should be in [0,1] for probe '{probe}'");
-        }
-    }
+    // M9 range test: deleted as duplicate of M10 (unique→1.0), M11 (multi→1/N), NoMatch (→0.0).
 
     #endregion
 
@@ -302,15 +245,20 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_PotentialHairpin_DetectsSecondaryStructure()
     {
         // S1: Secondary structure potential detected for hairpin sequences
-        // Sequence with stem-loop potential: GCGC...loop...GCGC
-        string hairpinProbe = "GCGCGCAAAATTTTGCGCGC";
+        // Stem-loop: GCGC (stem, 4nt) + TTT (loop, 3nt) + GCGC (stem, 4nt) + filler
+        // HasSecondaryStructurePotential checks inverted repeats with stemLen≥4, gap=3
+        // revComp("GCGC") = "GCGC" → 4/4 = 100% match ≥ 80% threshold → detected
+        string hairpinProbe = "GCGCTTTGCGCAAAAAAAAA"; // 20 chars
 
         var validation = ProbeDesigner.ValidateProbe(hairpinProbe, Enumerable.Empty<string>());
 
-        // The probe may or may not trigger secondary structure detection
-        // depending on implementation thresholds
-        Assert.That(validation.SelfComplementarity, Is.GreaterThanOrEqualTo(0),
-            "Self-complementarity should be calculated");
+        Assert.Multiple(() =>
+        {
+            Assert.That(validation.HasSecondaryStructure, Is.True,
+                "Hairpin stem GCGC-TTT-GCGC must be detected as secondary structure");
+            Assert.That(validation.Issues, Has.Some.Contain("secondary structure"),
+                "Issues must report secondary structure potential");
+        });
     }
 
     #endregion
@@ -321,20 +269,19 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_ProblematicProbe_PopulatesIssuesList()
     {
         // S2: Issues list populated for problematic probes
-        // Multiple off-target hits should create an issue
+        // 10-mer poly-A in 25-mer poly-A: 25-10+1 = 16 exact match positions → offTargetHits = 16
+        // Implementation adds "{N} potential off-target sites" when offTargetHits > 1
         string probe = "AAAAAAAAAA";
-        var references = new[] { "AAAAAAAAAAAAAAAAAAAAAAAAAA" };
+        var references = new[] { "AAAAAAAAAAAAAAAAAAAAAAAAA" }; // 25 A's
 
         var validation = ProbeDesigner.ValidateProbe(probe, references);
 
         Assert.Multiple(() =>
         {
-            Assert.That(validation.Issues, Is.Not.Null, "Issues list should not be null");
-            if (validation.OffTargetHits > 1)
-            {
-                Assert.That(validation.Issues.Count, Is.GreaterThan(0),
-                    "Multiple off-target hits should generate issues");
-            }
+            Assert.That(validation.OffTargetHits, Is.EqualTo(16),
+                "10-mer in 25-mer poly-A: 25-10+1 = 16 positions");
+            Assert.That(validation.Issues, Has.Some.Contain("16 potential off-target sites"),
+                "Issues must report exact off-target count");
         });
     }
 
@@ -342,18 +289,27 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_MultipleProblems_IsValidFalse()
     {
         // S3: IsValid false when multiple issues exist
-        // Probe with high self-complementarity AND multiple off-target hits
-        string probe = "GCGCGCGCGC"; // Self-complementary
-        var references = new[] { "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC" }; // Multiple matches
+        // "GCGCGCGCGC" (10-mer) → selfComp = 1.0 (palindrome)
+        // In 32-char GC-repeat, only even positions match (odd positions are shifted by 1 → 10 mismatches)
+        // Even positions 0,2,4,...,22 = 12 hits
+        // isValid formula: issues.Count==0 || (offTargetHits<=1 && selfComp<=0.4)
+        //   → false || (12<=1 && 1.0<=0.4) → false
+        string probe = "GCGCGCGCGC";
+        var references = new[] { "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC" }; // 32 chars
 
         var validation = ProbeDesigner.ValidateProbe(probe, references);
 
-        // If there are multiple issues, IsValid should reflect that
-        if (validation.Issues.Count > 1 || (validation.OffTargetHits > 1 && validation.SelfComplementarity > 0.4))
+        Assert.Multiple(() =>
         {
+            Assert.That(validation.OffTargetHits, Is.EqualTo(12),
+                "10-mer GC-repeat in 32-char GC-repeat: matches at 12 even positions");
+            Assert.That(validation.SelfComplementarity, Is.EqualTo(1.0),
+                "GC-repeat is its own reverse complement");
+            Assert.That(validation.Issues.Count, Is.EqualTo(2),
+                "Should report off-target + self-complementarity issues");
             Assert.That(validation.IsValid, Is.False,
-                "Probe with multiple problems should be invalid");
-        }
+                "offTargetHits>1 AND selfComp>0.4 → IsValid must be false");
+        });
     }
 
     #endregion
@@ -364,16 +320,24 @@ public class ProbeDesigner_ProbeValidation_Tests
     public void ValidateProbe_ApproximateMatching_FindsNearMatches()
     {
         // S4: Approximate matching with maxMismatches works correctly
-        string probe = "ACGTACGTACGTACGT";
-        string nearMatch = "ACGTACGTNNNNACGT"; // Has some differences
-        var references = new[] { nearMatch };
+        // Reference has ACGAACGAACGAACGT at position 5 — differs from probe at positions 3,7,11 (3 mismatches)
+        // With maxMismatches=0: no match (3 mismatches > 0)
+        // With maxMismatches=3: 1 match → specificity = 1.0
+        string probe = "ACGTACGTACGTACGT"; // 16-mer
+        var references = new[] { "TTTTTACGAACGAACGAACGTTTTT" }; // near-match at pos 5
 
-        // Default maxMismatches = 3
-        var validation = ProbeDesigner.ValidateProbe(probe, references, maxMismatches: 3);
+        var strict = ProbeDesigner.ValidateProbe(probe, references, maxMismatches: 0);
+        var approx = ProbeDesigner.ValidateProbe(probe, references, maxMismatches: 3);
 
-        // Should find approximate matches within tolerance
-        Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0),
-            "Should search for approximate matches");
+        Assert.Multiple(() =>
+        {
+            Assert.That(strict.OffTargetHits, Is.EqualTo(0),
+                "Exact matching (0 mismatches) should find no hits for 3-mismatch variant");
+            Assert.That(approx.OffTargetHits, Is.EqualTo(1),
+                "Approximate matching (3 mismatches) should find the near-match");
+            Assert.That(approx.SpecificityScore, Is.EqualTo(1.0),
+                "Single hit → specificity = 1.0");
+        });
     }
 
     #endregion
@@ -404,17 +368,85 @@ public class ProbeDesigner_ProbeValidation_Tests
             Assert.That(validation.Issues, Is.Not.Null,
                 "Issues list should not be null");
 
-            // Specificity formula consistency
-            if (validation.OffTargetHits == 1)
+            // Specificity formula consistency (all three invariants)
+            if (validation.OffTargetHits == 0)
+            {
+                Assert.That(validation.SpecificityScore, Is.EqualTo(0.0),
+                    "Zero hits should give specificity 0.0 (Invariant #5)");
+            }
+            else if (validation.OffTargetHits == 1)
             {
                 Assert.That(validation.SpecificityScore, Is.EqualTo(1.0),
-                    "Single hit should give specificity 1.0");
+                    "Single hit should give specificity 1.0 (Invariant #4)");
             }
             else if (validation.OffTargetHits > 1)
             {
                 Assert.That(validation.SpecificityScore, Is.EqualTo(1.0 / validation.OffTargetHits).Within(0.001),
-                    "Specificity should equal 1.0 / hitCount");
+                    "Specificity should equal 1.0 / hitCount (Invariant #6)");
             }
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_ZeroHits_ReturnsZeroSpecificity()
+    {
+        // Explicit Invariant #5: offTargetHits == 0 → specificityScore == 0.0
+        // A probe that matches nothing in the references has not demonstrated
+        // hybridization capability → specificity is zero.
+        // Consistent with CheckSpecificity which also returns 0.0 for hitCount == 0.
+        string nonExistentProbe = "TTTTTTTTTTTTTTTTTTTT"; // 20× T — unlikely in reference
+        string[] references = { "ACGACGACGACGACGACGACGACGACG" };
+
+        var validation = ProbeDesigner.ValidateProbe(nonExistentProbe, references, maxMismatches: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(validation.OffTargetHits, Is.EqualTo(0),
+                "Probe should not match any site in references");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(0.0),
+                "Invariant #5: zero hits must yield zero specificity");
+        });
+    }
+
+    #endregion
+
+    #region Could - Efficiency and Completeness
+
+    [Test]
+    public void ValidateProbe_LongReference_FindsProbeCorrectly()
+    {
+        // C1: Long reference sequences handled correctly
+        // UniqueProbe embedded at position 10_000 in 20_010-char poly-T reference
+        string longRef = new string('T', 10_000) + UniqueProbe + new string('T', 10_000);
+
+        var validation = ProbeDesigner.ValidateProbe(UniqueProbe, new[] { longRef }, maxMismatches: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(validation.OffTargetHits, Is.EqualTo(1),
+                "Should find exactly 1 hit in long reference");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(1.0),
+                "Single hit → specificity = 1.0");
+        });
+    }
+
+    [Test]
+    public void ValidateProbe_MultipleReferences_AccumulatesHits()
+    {
+        // C2: Multiple references all searched — hits accumulate across references
+        // UniqueProbe appears once in each of 3 separate references → 3 total hits
+        var ref1 = "TTTTT" + UniqueProbe + "TTTTT";
+        var ref2 = "CCCCC" + UniqueProbe + "CCCCC";
+        var ref3 = "GGGGG" + UniqueProbe + "GGGGG";
+
+        var validation = ProbeDesigner.ValidateProbe(UniqueProbe, new[] { ref1, ref2, ref3 }, maxMismatches: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(validation.OffTargetHits, Is.EqualTo(3),
+                "Hits should accumulate across all 3 references");
+            Assert.That(validation.SpecificityScore, Is.EqualTo(1.0 / 3).Within(0.0001),
+                "Specificity = 1.0/3 (Invariant #6)");
         });
     }
 

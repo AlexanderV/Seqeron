@@ -32,7 +32,7 @@ public static class ProbeDesigner
     public static class Defaults
     {
         public static ProbeParameters Microarray => new(
-            MinLength: 50, MaxLength: 70,
+            MinLength: 50, MaxLength: 60,
             MinTm: 75, MaxTm: 85,
             MinGc: 0.40, MaxGc: 0.60,
             MaxHomopolymer: 5,
@@ -479,19 +479,42 @@ public static class ProbeDesigner
     /// <summary>
     /// Validates probe against a genome/transcriptome.
     /// </summary>
+    /// <param name="probeSequence">Probe sequence to validate.</param>
+    /// <param name="referenceSequences">Reference sequences to search for off-target hits.</param>
+    /// <param name="maxMismatches">Maximum allowed mismatches for approximate matching.
+    /// Default: 3, based on CRISPR/Cas9 off-target tolerance of 3-5 bp mismatches
+    /// per 20nt guide (Hsu et al. 2013, Fu et al. 2013).</param>
+    /// <param name="selfComplementarityThreshold">Threshold above which self-complementarity
+    /// generates a warning. Default: 0.3 (Microarray default). For random DNA the expected
+    /// self-complementarity is ~0.25; values above this threshold indicate elevated
+    /// palindromic character that may cause probe secondary structure.</param>
     public static ProbeValidation ValidateProbe(
         string probeSequence,
         IEnumerable<string> referenceSequences,
-        int maxMismatches = 3)
+        int maxMismatches = 3,
+        double selfComplementarityThreshold = 0.3)
     {
         ArgumentNullException.ThrowIfNull(probeSequence);
         ArgumentNullException.ThrowIfNull(referenceSequences);
 
         probeSequence = probeSequence.ToUpperInvariant();
         var issues = new List<string>();
+
+        // Empty probe is a degenerate input — cannot hybridize specifically
+        if (probeSequence.Length == 0)
+        {
+            return new ProbeValidation(
+                IsValid: false,
+                SpecificityScore: 0.0,
+                OffTargetHits: 0,
+                SelfComplementarity: 0.0,
+                HasSecondaryStructure: false,
+                Issues: new List<string> { "Empty probe sequence" });
+        }
+
         int offTargetHits = 0;
 
-        // Check off-target hits
+        // Check off-target hits via approximate matching
         foreach (var reference in referenceSequences)
         {
             var hits = FindApproximateMatches(reference.ToUpperInvariant(), probeSequence, maxMismatches);
@@ -505,7 +528,7 @@ public static class ProbeDesigner
 
         // Check self-complementarity
         double selfComp = CalculateSelfComplementarity(probeSequence);
-        if (selfComp > 0.3)
+        if (selfComp > selfComplementarityThreshold)
         {
             issues.Add($"Self-complementarity: {selfComp:P0}");
         }
@@ -517,8 +540,17 @@ public static class ProbeDesigner
             issues.Add("Potential secondary structure formation");
         }
 
-        // Calculate specificity score
-        double specificity = offTargetHits <= 1 ? 1.0 : 1.0 / offTargetHits;
+        // Calculate specificity score:
+        // 0 hits → 0.0 (probe doesn't hybridize to target — useless)
+        // 1 hit  → 1.0 (unique match — ideal specificity)
+        // N hits → 1.0/N (specificity decreases with cross-hybridization)
+        double specificity;
+        if (offTargetHits == 0)
+            specificity = 0.0;
+        else if (offTargetHits == 1)
+            specificity = 1.0;
+        else
+            specificity = 1.0 / offTargetHits;
 
         bool isValid = issues.Count == 0 || (offTargetHits <= 1 && selfComp <= 0.4);
 
