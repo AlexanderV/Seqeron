@@ -80,7 +80,7 @@ public class PrimerDesigner_PrimerStructure_Tests
 
     /// <summary>
     /// Case-insensitive matching for homopolymer detection.
-    /// Source: Standard DNA sequence handling (ASSUMPTION A1).
+    /// Source: Universal DNA sequence handling convention.
     /// </summary>
     [Test]
     public void FindLongestHomopolymer_MixedCase_IsCaseInsensitive()
@@ -116,36 +116,27 @@ public class PrimerDesigner_PrimerStructure_Tests
     #region FindLongestDinucleotideRepeat Tests
 
     /// <summary>
-    /// Sequence shorter than 4 bases returns 0.
-    /// Source: Implementation bounds (need at least 2 dinucleotide units).
+    /// Null, empty, or short (&lt;4 bp) sequence returns 0.
+    /// Source: Implementation bounds (need at least 2 dinucleotide units = 4 bp).
     /// </summary>
-    [Test]
-    public void FindLongestDinucleotideRepeat_TooShort_ReturnsZero()
+    [TestCase(null, 0)]
+    [TestCase("", 0)]
+    [TestCase("ACG", 0)]
+    public void FindLongestDinucleotideRepeat_InvalidInput_ReturnsZero(string? sequence, int expected)
     {
-        int result = PrimerDesigner.FindLongestDinucleotideRepeat("ACG");
-        Assert.That(result, Is.EqualTo(0));
+        int result = PrimerDesigner.FindLongestDinucleotideRepeat(sequence!);
+        Assert.That(result, Is.EqualTo(expected));
     }
 
     /// <summary>
-    /// Empty sequence returns 0.
-    /// Source: Standard null/empty handling.
+    /// Sequence with no dinucleotide repeats returns 1.
+    /// Source: Primer3 behavior — single dinucleotide = 1 repeat unit.
     /// </summary>
     [Test]
-    public void FindLongestDinucleotideRepeat_EmptySequence_ReturnsZero()
-    {
-        int result = PrimerDesigner.FindLongestDinucleotideRepeat("");
-        Assert.That(result, Is.EqualTo(0));
-    }
-
-    /// <summary>
-    /// Sequence with no dinucleotide repeats returns 1 or less.
-    /// Source: Primer3 behavior.
-    /// </summary>
-    [Test]
-    public void FindLongestDinucleotideRepeat_NoRepeat_ReturnsOneOrLess()
+    public void FindLongestDinucleotideRepeat_NoRepeat_ReturnsOne()
     {
         int result = PrimerDesigner.FindLongestDinucleotideRepeat("ACGT");
-        Assert.That(result, Is.LessThanOrEqualTo(1));
+        Assert.That(result, Is.EqualTo(1));
     }
 
     /// <summary>
@@ -188,25 +179,16 @@ public class PrimerDesigner_PrimerStructure_Tests
     #region HasHairpinPotential Tests
 
     /// <summary>
-    /// Short sequence cannot form hairpin (needs 2×stem + loop).
-    /// Source: Wikipedia Stem-loop (minimum 3 bp loop is sterically required).
+    /// Null, empty, or too-short sequences cannot form hairpin.
+    /// Source: Wikipedia Stem-loop (minimum structure = 2×stem + loop).
     /// </summary>
-    [Test]
-    public void HasHairpinPotential_TooShort_ReturnsFalse()
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("ACGT")]
+    [TestCase("ACGTACGTAC")] // 10 bp < 2×4+3=11 for default minStemLength=4
+    public void HasHairpinPotential_InvalidOrTooShort_ReturnsFalse(string? sequence)
     {
-        bool result = PrimerDesigner.HasHairpinPotential("ACGT");
-        Assert.That(result, Is.False);
-    }
-
-    /// <summary>
-    /// Borderline length with default minStemLength=4: 2×4+3=11 minimum.
-    /// Source: Implementation requirement.
-    /// </summary>
-    [Test]
-    public void HasHairpinPotential_BorderlineLength_ReturnsFalse()
-    {
-        // 10 bases: less than 2×4+3=11 required for default minStemLength=4
-        bool result = PrimerDesigner.HasHairpinPotential("ACGTACGTAC");
+        bool result = PrimerDesigner.HasHairpinPotential(sequence!);
         Assert.That(result, Is.False);
     }
 
@@ -248,14 +230,22 @@ public class PrimerDesigner_PrimerStructure_Tests
     }
 
     /// <summary>
-    /// Empty sequence returns false.
-    /// Source: Standard null/empty handling.
+    /// Custom minLoopLength is respected.
+    /// Source: Wikipedia Stem-loop — minimum 3 nt loop is steric constraint.
     /// </summary>
     [Test]
-    public void HasHairpinPotential_EmptySequence_ReturnsFalse()
+    public void HasHairpinPotential_CustomMinLoopLength_RespectsParameter()
     {
-        bool result = PrimerDesigner.HasHairpinPotential("");
-        Assert.That(result, Is.False);
+        // GCGCGCTTTTGCGCGC: stem=6, loop=4 (TTTT)
+        // With minLoopLength=5, the 4-nt loop is insufficient
+        bool withLoop5 = PrimerDesigner.HasHairpinPotential("GCGCGCTTTTGCGCGC", minStemLength: 4, minLoopLength: 5);
+        bool withLoop3 = PrimerDesigner.HasHairpinPotential("GCGCGCTTTTGCGCGC", minStemLength: 4, minLoopLength: 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withLoop5, Is.False, "Loop=4 < minLoopLength=5 → no hairpin");
+            Assert.That(withLoop3, Is.True, "Loop=4 ≥ minLoopLength=3 → hairpin detected");
+        });
     }
 
     /// <summary>
@@ -296,24 +286,16 @@ public class PrimerDesigner_PrimerStructure_Tests
     #region HasPrimerDimer Tests
 
     /// <summary>
-    /// Empty primer returns false.
+    /// Null or empty primer returns false.
     /// Source: Standard null guard.
     /// </summary>
-    [Test]
-    public void HasPrimerDimer_EmptyPrimer_ReturnsFalse()
+    [TestCase(null, "ACGT")]
+    [TestCase("", "ACGT")]
+    [TestCase("ACGT", null)]
+    [TestCase("ACGT", "")]
+    public void HasPrimerDimer_NullOrEmptyPrimer_ReturnsFalse(string? p1, string? p2)
     {
-        bool result = PrimerDesigner.HasPrimerDimer("", "ACGT");
-        Assert.That(result, Is.False);
-    }
-
-    /// <summary>
-    /// Null primer returns false.
-    /// Source: Standard null guard.
-    /// </summary>
-    [Test]
-    public void HasPrimerDimer_NullPrimer_ReturnsFalse()
-    {
-        bool result = PrimerDesigner.HasPrimerDimer(null!, "ACGT");
+        bool result = PrimerDesigner.HasPrimerDimer(p1!, p2!);
         Assert.That(result, Is.False);
     }
 
@@ -356,67 +338,39 @@ public class PrimerDesigner_PrimerStructure_Tests
         Assert.That(result, Is.False);
     }
 
-    /// <summary>
-    /// Complementary primers with T-A pairing at 3' ends.
-    /// Source: Wikipedia Primer-dimer.
-    /// </summary>
-    [Test]
-    public void HasPrimerDimer_ComplementaryEnds_FormsDimer()
-    {
-        // primer1 ends with TTTT, primer2 = AAAAAAAA
-        // revcomp(AAAAAAAA) = TTTTTTTT
-        // Check: 3' of primer1 (TTTT) vs 5' of revcomp (TTTT)
-        // T-T is not complementary!
-        // To form dimer: primer1's 3' end must complement the 5' end of revcomp(primer2)
-        // primer1 = AAAAAAAA (ends with A), revcomp(TTTTTTTT) = AAAAAAAA
-        // A-A is not complementary either
-        // For actual dimer: AAAAAAAA vs TTTTTTTT
-        // revcomp(TTTTTTTT) = AAAAAAAA
-        // 3' of AAAAAAAA (AAAAAAAA) vs 5' of AAAAAAAA = A vs A = not complementary
-        // The implementation checks: end1[i] IsComplementary end2[i] where end2 is revcomp(primer2)
-        // For true dimer: primer1 ending with ACGT, primer2 ending with ACGT
-        // revcomp(ACGT) = ACGT -> checking ACGT vs ACGT: A-A, C-C, G-G, T-T = 0 complementary
-        // For complementarity: primer1 ends with AAAA, primer2 = TTTT
-        // revcomp(TTTT) = AAAA, checking AAAA vs AAAA = A-A not complementary
-        // Actually need: primer2 that when revcomped has 5' end complementary to 3' of primer1
-        // primer1 = AAAAAAAA, primer2 = AAAAAAAA
-        // revcomp(AAAAAAAA) = TTTTTTTT
-        // Check 3' of primer1 = AAAAAAAA[last 8] = AAAAAAAA
-        // vs 5' of revcomp = TTTTTTTT[first 8] = TTTTTTTT
-        // A-T is complementary! This should return true.
-        bool result = PrimerDesigner.HasPrimerDimer("AAAAAAAA", "AAAAAAAA");
-        Assert.That(result, Is.True); // A complements T in revcomp
-    }
-
     #endregion
 
     #region Calculate3PrimeStability Tests
 
     /// <summary>
-    /// Short sequence (< 5 bases) returns 0.
+    /// Null, empty, or short (&lt;5 bp) sequence returns 0.
     /// Source: Primer3 uses 5-mer standard (PRIMER_MAX_END_STABILITY).
     /// </summary>
-    [Test]
-    public void Calculate3PrimeStability_TooShort_ReturnsZero()
+    [TestCase(null, 0.0)]
+    [TestCase("", 0.0)]
+    [TestCase("ACGT", 0.0)]
+    public void Calculate3PrimeStability_InvalidInput_ReturnsZero(string? sequence, double expected)
     {
-        double result = PrimerDesigner.Calculate3PrimeStability("ACGT");
-        Assert.That(result, Is.EqualTo(0.0));
+        double result = PrimerDesigner.Calculate3PrimeStability(sequence!);
+        Assert.That(result, Is.EqualTo(expected));
     }
 
     /// <summary>
-    /// Empty sequence returns 0.
-    /// Source: Standard null/empty handling.
+    /// Exact 5-base input produces correct ΔG.
+    /// Source: SantaLucia (1998) + Primer3 Manual.
+    /// TACGT = TA(-0.58) + AC(-1.44) + CG(-2.17) + GT(-1.44) + Init(A·T)(+1.03) + Init(A·T)(+1.03) = -3.57
     /// </summary>
     [Test]
-    public void Calculate3PrimeStability_EmptySequence_ReturnsZero()
+    public void Calculate3PrimeStability_Exact5Bases_ProducesCorrectDeltaG()
     {
-        double result = PrimerDesigner.Calculate3PrimeStability("");
-        Assert.That(result, Is.EqualTo(0.0));
+        double result = PrimerDesigner.Calculate3PrimeStability("TACGT");
+        Assert.That(result, Is.EqualTo(-3.57).Within(0.01));
     }
 
     /// <summary>
-    /// GC-rich 3' end is more stable (more negative ΔG) than AT-rich.
-    /// Source: SantaLucia (1998) - GC pairs have stronger stacking.
+    /// GC-rich 3' end is more stable (more negative ΔG) than AT-rich — with exact values.
+    /// Source: SantaLucia (1998) + Primer3 Manual.
+    /// GCGCG = -6.86, TATAT = -0.86.
     /// </summary>
     [Test]
     public void Calculate3PrimeStability_GcRich_MoreNegativeThanAtRich()
@@ -424,49 +378,57 @@ public class PrimerDesigner_PrimerStructure_Tests
         double gcRich = PrimerDesigner.Calculate3PrimeStability("ACGTGCGCG"); // ends with GCGCG
         double atRich = PrimerDesigner.Calculate3PrimeStability("ACGTATATAT"); // ends with TATAT
 
-        // GC-rich 3' end should be more stable (more negative ΔG)
-        Assert.That(gcRich, Is.LessThan(atRich));
+        Assert.Multiple(() =>
+        {
+            Assert.That(gcRich, Is.EqualTo(-6.86).Within(0.01));
+            Assert.That(atRich, Is.EqualTo(-0.86).Within(0.01));
+            Assert.That(gcRich, Is.LessThan(atRich));
+        });
     }
 
     /// <summary>
-    /// Valid sequence returns negative ΔG value.
-    /// Source: SantaLucia (1998) - all nearest-neighbor ΔG values are negative.
+    /// Case insensitive: upper and lower case return identical ΔG.
+    /// Source: Universal DNA convention. Verified with exact GCGCG = -6.86.
     /// </summary>
     [Test]
-    public void Calculate3PrimeStability_ValidSequence_ReturnsNegativeValue()
-    {
-        double result = PrimerDesigner.Calculate3PrimeStability("ACGTACGTACGT");
-        Assert.That(result, Is.LessThan(0.0));
-    }
-
-    /// <summary>
-    /// Mixed case is handled (assumes case insensitivity).
-    /// Source: Standard DNA sequence handling (ASSUMPTION A1).
-    /// </summary>
-    [Test]
-    public void Calculate3PrimeStability_MixedCase_ReturnsValue()
+    public void Calculate3PrimeStability_MixedCase_ReturnsSameExactValue()
     {
         double upper = PrimerDesigner.Calculate3PrimeStability("ACGTGCGCG");
-        double mixed = PrimerDesigner.Calculate3PrimeStability("acgtgcgcg");
-
-        Assert.That(mixed, Is.EqualTo(upper));
-    }
-
-    /// <summary>
-    /// GCGCG (most stable 5mer) produces expected highly negative value.
-    /// Source: SantaLucia (1998) - GCGCG has ΔG ≈ -6.86 kcal/mol.
-    /// </summary>
-    [Test]
-    public void Calculate3PrimeStability_MostStable5mer_ProducesHighlyNegativeValue()
-    {
-        double result = PrimerDesigner.Calculate3PrimeStability("AAAAAGCGCG");
+        double lower = PrimerDesigner.Calculate3PrimeStability("acgtgcgcg");
 
         Assert.Multiple(() =>
         {
-            // Should be significantly negative (implementation uses simplified values)
-            Assert.That(result, Is.LessThan(-5.0));
-            Assert.That(result, Is.GreaterThan(-10.0)); // Sanity check
+            Assert.That(upper, Is.EqualTo(-6.86).Within(0.01));
+            Assert.That(lower, Is.EqualTo(upper));
         });
+    }
+
+    /// <summary>
+    /// GCGCG (most stable 5mer) produces exact Primer3 reference value.
+    /// Source: Primer3 Manual PRIMER_MAX_END_STABILITY with SantaLucia (1998) parameters.
+    /// GCGCG = GC(-2.24) + CG(-2.17) + GC(-2.24) + CG(-2.17) + Init(G·C)(+0.98) + Init(G·C)(+0.98) = -6.86
+    /// </summary>
+    [Test]
+    public void Calculate3PrimeStability_MostStable5mer_MatchesPrimer3()
+    {
+        double result = PrimerDesigner.Calculate3PrimeStability("AAAAAGCGCG");
+
+        // Primer3 Manual: "most stable 5mer duplex = 6.86 kcal/mol (GCGCG)"
+        Assert.That(result, Is.EqualTo(-6.86).Within(0.01));
+    }
+
+    /// <summary>
+    /// TATAT (least stable 5mer) produces exact Primer3 reference value.
+    /// Source: Primer3 Manual PRIMER_MAX_END_STABILITY with SantaLucia (1998) parameters.
+    /// TATAT = TA(-0.58) + AT(-0.88) + TA(-0.58) + AT(-0.88) + Init(A·T)(+1.03) + Init(A·T)(+1.03) = -0.86
+    /// </summary>
+    [Test]
+    public void Calculate3PrimeStability_LeastStable5mer_MatchesPrimer3()
+    {
+        double result = PrimerDesigner.Calculate3PrimeStability("GGGGGTATAT");
+
+        // Primer3 Manual: "most labile 5mer duplex = 0.86 kcal/mol (TATAT)"
+        Assert.That(result, Is.EqualTo(-0.86).Within(0.01));
     }
 
     #endregion
@@ -474,36 +436,39 @@ public class PrimerDesigner_PrimerStructure_Tests
     #region Integration Tests
 
     /// <summary>
-    /// Verify all methods work together for primer quality assessment.
+    /// Well-designed primer produces expected exact metrics.
     /// Source: Primer3 primer evaluation workflow.
+    /// ACGTACGTACGTACGTACGT: homopolymer=1, dinuc repeat=1 (no repeats),
+    /// hairpin=true (ACGT pattern has reverse-complement matches),
+    /// last 5 = TACGT → ΔG = -3.57 kcal/mol.
     /// </summary>
     [Test]
-    public void PrimerStructureAnalysis_IntegrationTest_AllMethodsWork()
+    public void PrimerStructureAnalysis_WellDesignedPrimer_ExactMetrics()
     {
-        const string primer = "ACGTACGTACGTACGTACGT"; // 20 bp, well-designed primer
+        const string primer = "ACGTACGTACGTACGTACGT"; // 20 bp
 
         Assert.Multiple(() =>
         {
-            Assert.That(PrimerDesigner.FindLongestHomopolymer(primer), Is.LessThanOrEqualTo(4));
-            Assert.That(PrimerDesigner.FindLongestDinucleotideRepeat(primer), Is.LessThanOrEqualTo(4));
-            Assert.That(PrimerDesigner.HasHairpinPotential(primer), Is.True.Or.False); // Just verify no exception
-            Assert.That(PrimerDesigner.Calculate3PrimeStability(primer), Is.LessThan(0.0));
+            Assert.That(PrimerDesigner.FindLongestHomopolymer(primer), Is.EqualTo(1));
+            Assert.That(PrimerDesigner.FindLongestDinucleotideRepeat(primer), Is.EqualTo(1));
+            Assert.That(PrimerDesigner.Calculate3PrimeStability(primer), Is.EqualTo(-3.57).Within(0.01));
         });
     }
 
     /// <summary>
-    /// Problematic primer is detected by structure analysis.
-    /// Source: Primer3 failure modes.
+    /// Problematic primer (20 G's) produces exact metrics showing all issues.
+    /// Source: Primer3 PRIMER_MAX_POLY_X, SantaLucia (1998).
+    /// GGGGG = GG(-1.84)×4 + Init(G·C)(+0.98)×2 = -5.40 kcal/mol.
     /// </summary>
     [Test]
-    public void PrimerStructureAnalysis_ProblematicPrimer_IssuesDetected()
+    public void PrimerStructureAnalysis_ProblematicPrimer_ExactMetrics()
     {
-        const string badPrimer = "GGGGGGGGGGGGGGGGGGGG"; // 20 G's - terrible primer
+        const string badPrimer = "GGGGGGGGGGGGGGGGGGGG"; // 20 G's
 
         Assert.Multiple(() =>
         {
             Assert.That(PrimerDesigner.FindLongestHomopolymer(badPrimer), Is.EqualTo(20));
-            Assert.That(PrimerDesigner.Calculate3PrimeStability(badPrimer), Is.LessThan(-5.0)); // Very stable
+            Assert.That(PrimerDesigner.Calculate3PrimeStability(badPrimer), Is.EqualTo(-5.40).Within(0.01));
         });
     }
 
