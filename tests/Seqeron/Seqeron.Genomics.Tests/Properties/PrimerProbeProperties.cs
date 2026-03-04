@@ -72,28 +72,33 @@ public class PrimerProbeProperties
     }
 
     /// <summary>
-    /// Primer dimer detection: identical forward/reverse has dimer potential.
+    /// Primer dimer detection: identical forward/reverse with self-complementary 3' ends.
+    /// Source: Wikipedia Primer-dimer — A₂₀ vs A₂₀, revcomp = T₂₀, A-T complementary.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void HasPrimerDimer_ComplementaryPair_ReturnsTrue()
+    public void HasPrimerDimer_SelfComplementaryPair_ReturnsTrue()
     {
-        string p1 = "ACGTACGTACGTACGT";
-        string p2 = "ACGTACGTACGTACGT"; // has 3' complementarity with itself
-        bool result = PrimerDesigner.HasPrimerDimer(p1, p2, minComplementarity: 4);
-        // Just verify it returns without error; actual result depends on complementarity
-        Assert.That(result, Is.TypeOf<bool>());
+        // AAAAAAAA vs AAAAAAAA: revcomp(AAAAAAAA) = TTTTTTTT
+        // 3' end (A) vs 5' revcomp (T) = A-T complementary
+        bool result = PrimerDesigner.HasPrimerDimer("AAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAA", minComplementarity: 4);
+        Assert.That(result, Is.True, "Poly-A self-dimer: A-T complementarity with revcomp");
     }
 
     /// <summary>
-    /// 3' stability score is finite.
+    /// 3' stability score is finite and negative for valid sequences.
+    /// Source: SantaLucia (1998) — all NN ΔG values are negative.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void Calculate3PrimeStability_IsFinite()
+    public void Calculate3PrimeStability_ValidSequence_IsNegativeAndFinite()
     {
         double stability = PrimerDesigner.Calculate3PrimeStability("ACGTACGTACGTACGT");
-        Assert.That(double.IsFinite(stability), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsFinite(stability), Is.True);
+            Assert.That(stability, Is.LessThan(0.0));
+        });
     }
 
     // -- PRIMER-DESIGN-001 --

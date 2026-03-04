@@ -419,8 +419,10 @@ public static class PrimerDesigner
     }
 
     /// <summary>
-    /// Calculates the stability of the 3' end (last 5 bases).
+    /// Calculates the stability of the 3' end (last 5 bases) as a duplex ΔG°37.
+    /// Uses SantaLucia (1998) unified nearest-neighbor parameters with initiation.
     /// More negative = more stable = potentially problematic.
+    /// Matches Primer3 PRIMER_MAX_END_STABILITY calculation.
     /// </summary>
     public static double Calculate3PrimeStability(string sequence)
     {
@@ -430,8 +432,8 @@ public static class PrimerDesigner
         var seq = sequence.ToUpperInvariant();
         string last5 = seq.Substring(seq.Length - 5);
 
-        // Simplified ΔG calculation using nearest-neighbor values
-        // Values are ΔG in kcal/mol for each dinucleotide
+        // Nearest-neighbor ΔG°37 values in kcal/mol
+        // Source: SantaLucia (1998) PNAS 95:1460-65, Table 1, unified parameters (1 M NaCl)
         var deltaG = new Dictionary<string, double>
         {
             ["AA"] = -1.0,
@@ -460,7 +462,16 @@ public static class PrimerDesigner
                 totalDeltaG += dg;
         }
 
+        // Initiation parameters per SantaLucia (1998) Table 1:
+        // Init w/terminal G·C: +0.98 kcal/mol
+        // Init w/terminal A·T: +1.03 kcal/mol
+        // Primer3 PRIMER_MAX_END_STABILITY includes these (GCGCG = -6.86, TATAT = -0.86).
+        totalDeltaG += IsGC(last5[0]) ? 0.98 : 1.03;
+        totalDeltaG += IsGC(last5[^1]) ? 0.98 : 1.03;
+
         return totalDeltaG;
+
+        static bool IsGC(char c) => c is 'G' or 'C';
     }
 
     /// <summary>

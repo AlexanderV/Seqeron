@@ -105,10 +105,13 @@ Focuses on 3' end complementarity:
 
 ### 3' Stability Calculation
 
-Uses simplified nearest-neighbor ΔG values:
+Uses SantaLucia (1998) nearest-neighbor ΔG°37 values with initiation parameters:
 - Extracts last 5 bases
-- Sums ΔG for each dinucleotide pair
-- Values based on SantaLucia (1998) unified model
+- Sums ΔG for each dinucleotide pair (4 pairs from 5 bases)
+- Adds initiation parameters: +0.98 kcal/mol per terminal G·C, +1.03 kcal/mol per terminal A·T
+- Matches Primer3 PRIMER_MAX_END_STABILITY calculation exactly
+
+*Source: SantaLucia (1998) PNAS 95:1460-65, Primer3 Manual*
 
 ## Nearest-Neighbor ΔG Values Used
 
