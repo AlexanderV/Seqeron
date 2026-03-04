@@ -122,138 +122,6 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region Evaluate Primer
-
-        [Test]
-        public void EvaluatePrimer_GoodPrimer_IsValid()
-        {
-            // A well-designed 20bp primer with ~50% GC
-            string primer = "ACGTACGTACGTACGTACGT";
-            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-
-            Assert.That(candidate.Sequence, Is.EqualTo(primer));
-            Assert.That(candidate.Length, Is.EqualTo(20));
-            Assert.That(candidate.GcContent, Is.EqualTo(50.0));
-            Assert.That(candidate.IsForward, Is.True);
-        }
-
-        [Test]
-        public void EvaluatePrimer_TooShort_NotValid()
-        {
-            var candidate = PrimerDesigner.EvaluatePrimer("ACGT", 0, true);
-
-            Assert.That(candidate.IsValid, Is.False);
-            Assert.That(candidate.Issues, Does.Contain("Length 4 outside range [18-25]"));
-        }
-
-        [Test]
-        public void EvaluatePrimer_TooLongHomopolymer_NotValid()
-        {
-            string primer = "ACGTAAAAAAACGTACGTAC"; // 20bp with 6x A run
-            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-
-            Assert.That(candidate.Issues.Any(i => i.Contains("Homopolymer")), Is.True);
-        }
-
-        [Test]
-        public void EvaluatePrimer_CalculatesScore()
-        {
-            string primer = "ACGTACGTACGTACGTACGT";
-            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-
-            Assert.That(candidate.Score, Is.GreaterThan(0));
-        }
-
-        #endregion
-
-        #region Design Primers
-
-        [Test]
-        public void DesignPrimers_ValidTarget_ReturnsResult()
-        {
-            // Create a template with valid primer regions
-            var sb = new System.Text.StringBuilder();
-            // Forward primer region (before target)
-            sb.Append("ACGTACGTACGTACGTACGTACGT"); // 24 bp
-            sb.Append("GCTAGCTAGCTAGCTAGCTAGCTA"); // 24 bp
-            sb.Append("ATCGATCGATCGATCGATCGATCG"); // 24 bp
-            sb.Append("CGATCGATCGATCGATCGATCGAT"); // 24 bp - target start (96)
-            // Target region
-            sb.Append("NNNNNNNNNNNNNNNNNNNNNNNN"); // 24 bp target (use valid bases)
-            sb.Append("GGGGGGGGGGGGGGGGGGGGGGGG"); // Replace N with G
-            // Reverse primer region (after target)
-            sb.Append("TAGCTAGCTAGCTAGCTAGCTAGC"); // 24 bp
-            sb.Append("CGATCGATCGATCGATCGATCGAT"); // 24 bp
-            sb.Append("ACGTACGTACGTACGTACGTACGT"); // 24 bp
-
-            var template = new DnaSequence(
-                "ACGTACGTACGTACGTACGTACGT" +
-                "GCTAGCTAGCTAGCTAGCTAGCTA" +
-                "ATCGATCGATCGATCGATCGATCG" +
-                "CGATCGATCGATCGATCGATCGAT" +
-                "TTTTTTTTTTTTTTTTTTTTTTTT" +
-                "TAGCTAGCTAGCTAGCTAGCTAGC" +
-                "CGATCGATCGATCGATCGATCGAT" +
-                "ACGTACGTACGTACGTACGTACGT"
-            );
-
-            var result = PrimerDesigner.DesignPrimers(template, 80, 120);
-
-            Assert.That(result, Is.Not.Null);
-            // May or may not find valid primers depending on sequence
-        }
-
-        [Test]
-        public void DesignPrimers_InvalidTarget_ThrowsException()
-        {
-            var template = new DnaSequence("ACGTACGTACGTACGTACGT");
-
-            Assert.Throws<ArgumentException>(() =>
-                PrimerDesigner.DesignPrimers(template, 15, 10));
-        }
-
-        [Test]
-        public void DesignPrimers_TargetOutOfRange_ThrowsException()
-        {
-            var template = new DnaSequence("ACGTACGTACGTACGTACGT");
-
-            Assert.Throws<ArgumentException>(() =>
-                PrimerDesigner.DesignPrimers(template, 0, 100));
-        }
-
-        #endregion
-
-        #region Generate Primer Candidates
-
-        [Test]
-        public void GeneratePrimerCandidates_ReturnsMultipleCandidates()
-        {
-            var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
-            var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, true).ToList();
-
-            Assert.That(candidates, Has.Count.GreaterThan(0));
-        }
-
-        [Test]
-        public void GeneratePrimerCandidates_Forward_HasCorrectOrientation()
-        {
-            var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
-            var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, true).ToList();
-
-            Assert.That(candidates.All(c => c.IsForward), Is.True);
-        }
-
-        [Test]
-        public void GeneratePrimerCandidates_Reverse_HasCorrectOrientation()
-        {
-            var template = new DnaSequence("ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT");
-            var candidates = PrimerDesigner.GeneratePrimerCandidates(template, 0, 40, false).ToList();
-
-            Assert.That(candidates.All(c => !c.IsForward), Is.True);
-        }
-
-        #endregion
-
         #region Default Parameters
 
         [Test]
@@ -266,68 +134,9 @@ namespace Seqeron.Genomics.Tests
             Assert.That(param.OptimalLength, Is.EqualTo(20));
             Assert.That(param.MinGcContent, Is.EqualTo(40));
             Assert.That(param.MaxGcContent, Is.EqualTo(60));
-            Assert.That(param.MinTm, Is.EqualTo(55));
-            Assert.That(param.MaxTm, Is.EqualTo(65));
+            Assert.That(param.MinTm, Is.EqualTo(57));
+            Assert.That(param.MaxTm, Is.EqualTo(63));
             Assert.That(param.MaxHomopolymer, Is.EqualTo(4));
-        }
-
-        #endregion
-
-        #region Custom Parameters
-
-        [Test]
-        public void EvaluatePrimer_CustomParameters_AppliesCorrectly()
-        {
-            var customParams = new PrimerParameters(
-                MinLength: 15,
-                MaxLength: 30,
-                OptimalLength: 22,
-                MinGcContent: 30,
-                MaxGcContent: 70,
-                MinTm: 50,
-                MaxTm: 70,
-                OptimalTm: 58,
-                MaxHomopolymer: 5,
-                MaxDinucleotideRepeats: 5,
-                Avoid3PrimeGC: true,
-                Check3PrimeStability: false
-            );
-
-            // 16bp primer would be invalid with default (18) but valid with custom (15)
-            string primer = "ACGTACGTACGTACGT";
-            var defaultResult = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-            var customResult = PrimerDesigner.EvaluatePrimer(primer, 0, true, customParams);
-
-            Assert.That(defaultResult.Issues.Any(i => i.Contains("Length")), Is.True);
-            Assert.That(customResult.Issues.Any(i => i.Contains("Length")), Is.False);
-        }
-
-        #endregion
-
-        #region Real-World Scenarios
-
-        [Test]
-        public void EvaluatePrimer_TypicalGoodPrimer_PassesAllChecks()
-        {
-            // A typical good primer for PCR
-            string primer = "ATGCGATCGATCGATCGATC"; // 20bp, 50% GC
-            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-
-            Assert.That(candidate.GcContent, Is.InRange(40, 60));
-            Assert.That(candidate.Length, Is.InRange(18, 25));
-            Assert.That(candidate.HomopolymerLength, Is.LessThanOrEqualTo(4));
-        }
-
-        [Test]
-        public void EvaluatePrimer_ProblematicPrimer_DetectsIssues()
-        {
-            // A primer with multiple issues
-            string primer = "GGGGGGGGGGGGGGGGGGGG"; // 20bp, 100% GC, long homopolymer
-            var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true);
-
-            Assert.That(candidate.IsValid, Is.False);
-            Assert.That(candidate.GcContent, Is.EqualTo(100.0));
-            Assert.That(candidate.HomopolymerLength, Is.EqualTo(20));
         }
 
         #endregion
@@ -344,12 +153,12 @@ namespace Seqeron.Genomics.Tests
         public void EvaluatePrimer_TmOnlyBelowMin_FlagsTmIssue()
         {
             // 20bp, 50% GC → Tm ≈ 51.8°C (Marmur-Doty formula)
-            // Default MinTm=55: tm(51.8) < 55 is TRUE, tm(51.8) > 65 is FALSE
+            // Primer3 MinTm=57: tm(51.8) < 57 is TRUE, tm(51.8) > 63 is FALSE
             string primer = "ATGCGATCGATCGATCGATC"; // 20bp, 10 GC
             var param = new PrimerParameters(
                 MinLength: 18, MaxLength: 25, OptimalLength: 20,
                 MinGcContent: 0, MaxGcContent: 100,
-                MinTm: 55, MaxTm: 65,
+                MinTm: 57, MaxTm: 63,
                 OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
                 Avoid3PrimeGC: false, Check3PrimeStability: false);
 
@@ -367,12 +176,12 @@ namespace Seqeron.Genomics.Tests
         public void EvaluatePrimer_TmOnlyAboveMax_FlagsTmIssue()
         {
             // 20bp, 90% GC → Tm ≈ 68.2°C (Marmur-Doty)
-            // Custom MaxTm=65: tm(68.2) > 65 is TRUE, tm(68.2) < 55 is FALSE
+            // Primer3 MaxTm=63: tm(68.2) > 63 is TRUE, tm(68.2) < 57 is FALSE
             string primer = "GCGCGCGCGCGCGCGCGCAT"; // 20bp, 18 GC
             var param = new PrimerParameters(
                 MinLength: 18, MaxLength: 25, OptimalLength: 20,
                 MinGcContent: 0, MaxGcContent: 100,
-                MinTm: 55, MaxTm: 65,
+                MinTm: 57, MaxTm: 63,
                 OptimalTm: 60, MaxHomopolymer: 100, MaxDinucleotideRepeats: 100,
                 Avoid3PrimeGC: false, Check3PrimeStability: false);
 

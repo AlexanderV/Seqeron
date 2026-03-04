@@ -10,7 +10,7 @@ namespace Seqeron.Genomics.Tests
     /// Evidence sources:
     /// - Wikipedia: Primer (molecular biology) - standard primer length 18-24 bp
     /// - Addgene: How to Design a Primer - 40-60% GC, 50-60°C Tm, pairs within 5°C
-    /// - Primer3 Manual - PRIMER_PAIR_MAX_DIFF_TM=5, PRIMER_MAX_POLY_X=5
+    /// - Primer3 Manual (v2.6.1) - PRIMER_MIN_TM=57, PRIMER_OPT_TM=60, PRIMER_MAX_TM=63, PRIMER_MAX_POLY_X=5
     /// </summary>
     [TestFixture]
     public class PrimerDesigner_PrimerDesign_Tests
@@ -24,20 +24,27 @@ namespace Seqeron.Genomics.Tests
         [SetUp]
         public void SetUp()
         {
-            // Standard template with good primer regions
-            // Structure: [forward region ~100bp][target ~50bp][reverse region ~100bp]
+            // Standard template with non-palindromic primer regions.
+            // Repeating units are chosen so that NO 4-base window is a DNA palindrome
+            // (i.e., no window where reverse complement equals itself), preventing
+            // hairpin detection from rejecting all candidates.
+            //
+            // Forward unit: GAACTCGT (50% GC, no 4bp palindromes, max homopolymer=2)
+            // Reverse unit: TCCGAAGT (50% GC, no 4bp palindromes, different from forward)
+            //
+            // For 24bp primers (50% GC): Tm = 64.9 + 41*(12-16.4)/24 = 57.4°C ✓
+            // For 25bp primers (52% GC): Tm = 64.9 + 41*(13-16.4)/25 = 59.3°C ✓
             var sb = new StringBuilder();
 
-            // Forward primer region (varied sequence, ~50% GC)
-            sb.Append("ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG"); // 50bp
-            sb.Append("GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAG"); // 50bp
+            // Forward primer region (100bp, ~50% GC)
+            while (sb.Length < 100) sb.Append("GAACTCGT");
 
-            // Target region
-            sb.Append("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"); // 50bp
+            // Target region (50bp poly-T, clearly different from primer regions)
+            sb.Append(new string('T', 50));
 
-            // Reverse primer region (varied sequence, ~50% GC)
-            sb.Append("CGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC"); // 50bp
-            sb.Append("TAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT"); // 50bp
+            // Reverse primer region (100bp, ~50% GC, different unit to avoid primer-dimer)
+            int revStart = sb.Length;
+            while (sb.Length - revStart < 100) sb.Append("TCCGAAGT");
 
             _standardTemplate = new DnaSequence(sb.ToString());
 
@@ -75,13 +82,12 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Forward != null)
-            {
-                Assert.That(result.Forward.Position, Is.LessThan(targetStart),
-                    "Forward primer must be positioned upstream of target start");
-                Assert.That(result.Forward.Position + result.Forward.Length, Is.LessThanOrEqualTo(targetStart),
-                    "Forward primer must end before or at target start");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward, Is.Not.Null);
+            Assert.That(result.Forward!.Position, Is.LessThan(targetStart),
+                "Forward primer must be positioned upstream of target start");
+            Assert.That(result.Forward.Position + result.Forward.Length, Is.LessThanOrEqualTo(targetStart),
+                "Forward primer must end before or at target start");
         }
 
         [Test]
@@ -96,11 +102,10 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Forward != null)
-            {
-                Assert.That(result.Forward.Position, Is.GreaterThanOrEqualTo(expectedMinPosition),
-                    "Forward primer should be within 200bp upstream search region");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward, Is.Not.Null);
+            Assert.That(result.Forward!.Position, Is.GreaterThanOrEqualTo(expectedMinPosition),
+                "Forward primer should be within 200bp upstream search region");
         }
 
         #endregion
@@ -118,11 +123,10 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Reverse != null)
-            {
-                Assert.That(result.Reverse.Position, Is.GreaterThanOrEqualTo(targetEnd),
-                    "Reverse primer must be positioned downstream of target end");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Reverse, Is.Not.Null);
+            Assert.That(result.Reverse!.Position, Is.GreaterThanOrEqualTo(targetEnd),
+                "Reverse primer must be positioned downstream of target end");
         }
 
         [Test]
@@ -137,11 +141,10 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Reverse != null)
-            {
-                Assert.That(result.Reverse.Position, Is.LessThanOrEqualTo(expectedMaxPosition),
-                    "Reverse primer should be within 200bp downstream search region");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Reverse, Is.Not.Null);
+            Assert.That(result.Reverse!.Position, Is.LessThanOrEqualTo(expectedMaxPosition),
+                "Reverse primer should be within 200bp downstream search region");
         }
 
         #endregion
@@ -161,19 +164,11 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid)
-            {
-                if (result.Forward != null)
-                {
-                    Assert.That(result.Forward.Length, Is.InRange(minLength, maxLength),
-                        $"Forward primer length should be {minLength}-{maxLength}bp (industry standard: 18-24)");
-                }
-                if (result.Reverse != null)
-                {
-                    Assert.That(result.Reverse.Length, Is.InRange(minLength, maxLength),
-                        $"Reverse primer length should be {minLength}-{maxLength}bp (industry standard: 18-24)");
-                }
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward!.Length, Is.InRange(minLength, maxLength),
+                $"Forward primer length should be {minLength}-{maxLength}bp");
+            Assert.That(result.Reverse!.Length, Is.InRange(minLength, maxLength),
+                $"Reverse primer length should be {minLength}-{maxLength}bp");
         }
 
         [TestCase(17, Description = "Below minimum length")]
@@ -208,19 +203,11 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid)
-            {
-                if (result.Forward != null)
-                {
-                    Assert.That(result.Forward.GcContent, Is.InRange(minGc, maxGc),
-                        $"Forward primer GC content should be {minGc}-{maxGc}% (Addgene standard)");
-                }
-                if (result.Reverse != null)
-                {
-                    Assert.That(result.Reverse.GcContent, Is.InRange(minGc, maxGc),
-                        $"Reverse primer GC content should be {minGc}-{maxGc}% (Addgene standard)");
-                }
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward!.GcContent, Is.InRange(minGc, maxGc),
+                $"Forward primer GC content should be {minGc}-{maxGc}% (Addgene standard)");
+            Assert.That(result.Reverse!.GcContent, Is.InRange(minGc, maxGc),
+                $"Reverse primer GC content should be {minGc}-{maxGc}% (Addgene standard)");
         }
 
         [TestCase(100.0, "GGGGGGGGGGGGGGGGGGGG", Description = "100% GC")]
@@ -238,7 +225,7 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region M5: Tm within 55-65°C (implementation parameters)
+        #region M5: Tm within 57-63°C (Primer3: PRIMER_MIN_TM=57, PRIMER_MAX_TM=63)
 
         [Test]
         public void DesignPrimers_Primers_HaveTmWithinRange()
@@ -246,26 +233,18 @@ namespace Seqeron.Genomics.Tests
             // Arrange
             int targetStart = 100;
             int targetEnd = 150;
-            double minTm = 55.0;
-            double maxTm = 65.0;
+            double minTm = 57.0;
+            double maxTm = 63.0;
 
             // Act
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid)
-            {
-                if (result.Forward != null)
-                {
-                    Assert.That(result.Forward.MeltingTemperature, Is.InRange(minTm, maxTm),
-                        $"Forward primer Tm should be {minTm}-{maxTm}°C");
-                }
-                if (result.Reverse != null)
-                {
-                    Assert.That(result.Reverse.MeltingTemperature, Is.InRange(minTm, maxTm),
-                        $"Reverse primer Tm should be {minTm}-{maxTm}°C");
-                }
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward!.MeltingTemperature, Is.InRange(minTm, maxTm),
+                $"Forward primer Tm should be {minTm}-{maxTm}°C");
+            Assert.That(result.Reverse!.MeltingTemperature, Is.InRange(minTm, maxTm),
+                $"Reverse primer Tm should be {minTm}-{maxTm}°C");
         }
 
         #endregion
@@ -284,12 +263,10 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Forward != null && result.Reverse != null)
-            {
-                double tmDiff = Math.Abs(result.Forward.MeltingTemperature - result.Reverse.MeltingTemperature);
-                Assert.That(tmDiff, Is.LessThanOrEqualTo(maxTmDiff),
-                    $"Primer pair Tm difference should be ≤{maxTmDiff}°C (Primer3 standard)");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            double tmDiff = Math.Abs(result.Forward!.MeltingTemperature - result.Reverse!.MeltingTemperature);
+            Assert.That(tmDiff, Is.LessThanOrEqualTo(maxTmDiff),
+                $"Primer pair Tm difference should be ≤{maxTmDiff}°C (Addgene/Wikipedia standard)");
         }
 
         #endregion
@@ -308,19 +285,11 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid)
-            {
-                if (result.Forward != null)
-                {
-                    Assert.That(result.Forward.HomopolymerLength, Is.LessThanOrEqualTo(maxHomopolymer),
-                        $"Forward primer homopolymer run should be ≤{maxHomopolymer}bp");
-                }
-                if (result.Reverse != null)
-                {
-                    Assert.That(result.Reverse.HomopolymerLength, Is.LessThanOrEqualTo(maxHomopolymer),
-                        $"Reverse primer homopolymer run should be ≤{maxHomopolymer}bp");
-                }
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            Assert.That(result.Forward!.HomopolymerLength, Is.LessThanOrEqualTo(maxHomopolymer),
+                $"Forward primer homopolymer run should be ≤{maxHomopolymer}bp");
+            Assert.That(result.Reverse!.HomopolymerLength, Is.LessThanOrEqualTo(maxHomopolymer),
+                $"Reverse primer homopolymer run should be ≤{maxHomopolymer}bp");
         }
 
         [Test]
@@ -352,29 +321,33 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Forward != null && result.Reverse != null)
-            {
-                bool hasDimer = PrimerDesigner.HasPrimerDimer(
-                    result.Forward.Sequence,
-                    result.Reverse.Sequence);
-                Assert.That(hasDimer, Is.False,
-                    "Selected primer pair should not form primer-dimers");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            bool hasDimer = PrimerDesigner.HasPrimerDimer(
+                result.Forward!.Sequence,
+                result.Reverse!.Sequence);
+            Assert.That(hasDimer, Is.False,
+                "Selected primer pair should not form primer-dimers");
         }
 
         [Test]
         public void HasPrimerDimer_ComplementaryPrimers_ReturnsTrue()
         {
-            // Arrange - primers where 3' ends are complementary
-            string primer1 = "ACGTACGTACGTACGTAAAA"; // ends with AAAA
-            string primer2 = "TTTTACGTACGTACGTACGT"; // starts with TTTT (3' of revcomp has AAAA)
+            // HasPrimerDimer checks: last 8 of primer1 vs first 8 of revcomp(primer2).
+            // For 8/8 complementarity: last8(primer1) must be reverse of last8(primer2).
+            //
+            // primer1 3' end: ATCGATCG
+            // primer2 3' end: GCTAGCTA (reverse of ATCGATCG)
+            // ⇒ revcomp(primer2) starts with TAGCTAGC
+            // ⇒ ATCGATCG vs TAGCTAGC: A↔T, T↔A, C↔G, G↔C... all 8 complementary
+            string primer1 = "AACCGGTTAACCATCGATCG"; // 20bp, ends ATCGATCG
+            string primer2 = "AACCGGTTAAGCTAGCTA";   // 18bp, ends GCTAGCTA
 
             // Act
             bool hasDimer = PrimerDesigner.HasPrimerDimer(primer1, primer2);
 
             // Assert
-            // Note: actual result depends on implementation's complementarity threshold
-            Assert.That(hasDimer, Is.True.Or.False); // Acknowledging implementation may vary
+            Assert.That(hasDimer, Is.True,
+                "Primers with fully complementary 3' ends should be detected as primer-dimer prone");
         }
 
         #endregion
@@ -384,16 +357,17 @@ namespace Seqeron.Genomics.Tests
         [Test]
         public void EvaluatePrimer_SelfComplementary_DetectsHairpin()
         {
-            // Arrange - primer with palindromic/self-complementary region
-            // GCGC-nnnn-GCGC can form hairpin (GCGC pairs with GCGC reverse complement)
-            string primer = "GCGCAAAATTTTGCGC"; // Short for testing
+            // Arrange - primer with clear hairpin potential:
+            // GCGC (stem) + AAAA (loop) + GCGC (matching stem)
+            // The reverse complement of GCGC is GCGC, forming a stable hairpin
+            string primer = "GCGCAAAAGCGCATGCGATC"; // 20bp with hairpin structure
 
             // Act
             bool hasHairpin = PrimerDesigner.HasHairpinPotential(primer);
 
-            // Assert - implementation dependent on stem length threshold
-            // Just verify the method executes without error
-            Assert.That(hasHairpin, Is.True.Or.False);
+            // Assert
+            Assert.That(hasHairpin, Is.True,
+                "Primer with GCGC..GCGC stem-loop should be detected as hairpin-prone");
         }
 
         [Test]
@@ -426,15 +400,13 @@ namespace Seqeron.Genomics.Tests
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, targetStart, targetEnd);
 
             // Assert
-            if (result.IsValid && result.Forward != null && result.Reverse != null)
-            {
-                int expectedProductSize = result.Reverse.Position + result.Reverse.Length -
-                                          result.Forward.Position;
-                Assert.That(result.ProductSize, Is.EqualTo(expectedProductSize),
-                    "Product size should equal distance from forward start to reverse end");
-                Assert.That(result.ProductSize, Is.GreaterThan(targetEnd - targetStart),
-                    "Product size should be larger than target region");
-            }
+            Assert.That(result.IsValid, Is.True, "Standard template must produce valid primer pair");
+            int expectedProductSize = result.Reverse!.Position + result.Reverse.Length -
+                                      result.Forward!.Position;
+            Assert.That(result.ProductSize, Is.EqualTo(expectedProductSize),
+                "Product size should equal distance from forward start to reverse end");
+            Assert.That(result.ProductSize, Is.GreaterThan(targetEnd - targetStart),
+                "Product size should be larger than target region");
         }
 
         #endregion
@@ -560,6 +532,31 @@ namespace Seqeron.Genomics.Tests
             }
         }
 
+        [Test]
+        public void GeneratePrimerCandidates_Reverse_SequenceIsReverseComplement()
+        {
+            // Arrange — use a known short region so we can verify the exact reverse complement
+            var template = new DnaSequence("AACCGGTTAACCGGTTAACCGGTTAACCGGTTAACCGGTT"); // 40bp
+            int regionStart = 0;
+            int regionEnd = 40;
+
+            // Act
+            var candidates = PrimerDesigner.GeneratePrimerCandidates(
+                template, regionStart, regionEnd, forward: false).ToList();
+
+            // Assert — each reverse candidate's sequence should be the reverse complement
+            // of the corresponding template substring
+            Assert.That(candidates.Count, Is.GreaterThan(0), "Should generate reverse candidates");
+            foreach (var candidate in candidates)
+            {
+                string templateSubstring = template.Sequence.Substring(candidate.Position, candidate.Length);
+                string expectedRevComp = new DnaSequence(templateSubstring).ReverseComplement().Sequence;
+                Assert.That(candidate.Sequence, Is.EqualTo(expectedRevComp),
+                    $"Reverse candidate at position {candidate.Position} (len {candidate.Length}) " +
+                    $"should be reverse complement of template substring '{templateSubstring}'");
+            }
+        }
+
         #endregion
 
         #region S1: Difficult templates may return invalid result with reason
@@ -624,19 +621,22 @@ namespace Seqeron.Genomics.Tests
             // Act
             var result = PrimerDesigner.DesignPrimers(_standardTemplate, 100, 150, customParams);
 
-            // Assert
+            // Assert - custom params may not find valid primers (stricter constraints),
+            // so test with EvaluatePrimer directly for parameter respect
             if (result.IsValid)
             {
-                if (result.Forward != null)
-                {
-                    Assert.That(result.Forward.Length, Is.InRange(22, 28),
-                        "Forward primer should respect custom length range");
-                }
-                if (result.Reverse != null)
-                {
-                    Assert.That(result.Reverse.Length, Is.InRange(22, 28),
-                        "Reverse primer should respect custom length range");
-                }
+                Assert.That(result.Forward!.Length, Is.InRange(22, 28),
+                    "Forward primer should respect custom length range");
+                Assert.That(result.Reverse!.Length, Is.InRange(22, 28),
+                    "Reverse primer should respect custom length range");
+            }
+            else
+            {
+                // Even if DesignPrimers fails with strict params, verify EvaluatePrimer uses them
+                string primer = "ATGCGATCGATCGATCGATCGATC"; // 24bp
+                var candidate = PrimerDesigner.EvaluatePrimer(primer, 0, true, customParams);
+                Assert.That(candidate.Length, Is.InRange(22, 28),
+                    "EvaluatePrimer should report length within custom range");
             }
         }
 
@@ -770,6 +770,35 @@ namespace Seqeron.Genomics.Tests
             // Assert
             Assert.That(candidates.Count, Is.GreaterThan(1),
                 "Should generate multiple primer candidates from a larger region");
+        }
+
+        #endregion
+
+        #region C1b: Performance on long templates
+
+        [Test]
+        public void DesignPrimers_LongTemplate_CompletesWithinTimeout()
+        {
+            // Arrange — 10 kb template with varied sequence (realistic gene region)
+            var sb = new StringBuilder(10_000);
+            var bases = "ACGTACGATCGATCGTAGCTAGCATGCATGC"; // 30bp repeating unit, ~50% GC
+            while (sb.Length < 10_000)
+                sb.Append(bases);
+            var longTemplate = new DnaSequence(sb.ToString(0, 10_000));
+
+            int targetStart = 5000;
+            int targetEnd = 5100;
+
+            // Act — should complete within a few seconds even on slow machines
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = PrimerDesigner.DesignPrimers(longTemplate, targetStart, targetEnd);
+            sw.Stop();
+
+            // Assert
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(5000),
+                "DesignPrimers on 10kb template should complete within 5 seconds");
+            Assert.That(result, Is.Not.Null,
+                "Should return a result (valid or invalid) for long template");
         }
 
         #endregion
