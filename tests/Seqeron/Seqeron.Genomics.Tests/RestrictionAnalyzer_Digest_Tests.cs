@@ -37,18 +37,22 @@ public class RestrictionAnalyzer_Digest_Tests
     [Test]
     public void Digest_SingleCut_ReturnsTwoFragmentsWithCorrectSum()
     {
-        // Arrange: EcoRI site at position 3 (GAATTC), cuts after G (position 4)
-        var sequence = new DnaSequence("AAAGAATTCAAA");
+        // Arrange: EcoRI (G↓AATTC) at position 3, cuts at position 4
+        var sequence = new DnaSequence("AAAGAATTCAAA"); // 12 bp
 
         // Act
         var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
 
-        // Assert: Invariants #1 and #2
+        // Assert: Invariants #1 and #2 with exact values
         Assert.Multiple(() =>
         {
-            Assert.That(fragments, Has.Count.EqualTo(2), "Single cut should produce 2 fragments");
-            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(sequence.Length),
+            Assert.That(fragments, Has.Count.EqualTo(2), "Single cut → 2 fragments");
+            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(12),
                 "Fragment sum must equal original sequence length (Addgene)");
+            Assert.That(fragments[0].StartPosition, Is.EqualTo(0));
+            Assert.That(fragments[0].Length, Is.EqualTo(4), "First fragment: AAAG");
+            Assert.That(fragments[1].StartPosition, Is.EqualTo(4));
+            Assert.That(fragments[1].Length, Is.EqualTo(8), "Second fragment: AATTCAAA");
         });
     }
 
@@ -84,120 +88,124 @@ public class RestrictionAnalyzer_Digest_Tests
     [Test]
     public void Digest_MultipleCuts_ReturnsCorrectFragmentCount()
     {
-        // Arrange: Two EcoRI sites (positions 0 and 9)
-        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA");
+        // Arrange: Two EcoRI sites at positions 0 and 9, cuts at 1 and 10
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA"); // 18 bp
 
         // Act
         var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
 
-        // Assert: Invariants #1 and #2
+        // Assert: Invariants #1 and #2 with exact values
         Assert.Multiple(() =>
         {
-            Assert.That(fragments, Has.Count.EqualTo(3), "Two cuts should produce 3 fragments");
-            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(sequence.Length),
-                "Fragment sum must equal original sequence length");
+            Assert.That(fragments, Has.Count.EqualTo(3), "Two cuts → 3 fragments");
+            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(18));
+            Assert.That(fragments[0].Length, Is.EqualTo(1), "Fragment 1: G");
+            Assert.That(fragments[1].Length, Is.EqualTo(9), "Fragment 2: AATTCAAAG");
+            Assert.That(fragments[2].Length, Is.EqualTo(8), "Fragment 3: AATTCAAA");
         });
     }
 
     /// <summary>
-    /// Evidence: Implementation - Comprehensive fragment property verification.
-    /// Invariants #3, #4, #5: Fragment ordering, numbering, boundary enzymes.
+    /// Evidence: Comprehensive fragment property verification with exact values.
+    /// Invariants #3 (sequential numbering), #4 (monotonic positions),
+    /// #5 (boundary enzymes), #6 (positive length).
     /// </summary>
     [Test]
     public void Digest_FragmentsHaveCorrectProperties()
     {
-        // Arrange
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-        // EcoRI cuts at position 4 (after G in GAATTC at position 3)
+        // Arrange: 3 EcoRI sites at positions 0, 9, 18 → cuts at 1, 10, 19 → 4 fragments
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAAGAATTCAAA"); // 27 bp
 
         // Act
         var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
 
-        // Assert: Multiple invariants
+        // Assert: All fragment properties with exact values
         Assert.Multiple(() =>
         {
-            // Invariant #3: Sequential numbering
-            Assert.That(fragments[0].FragmentNumber, Is.EqualTo(1), "First fragment numbered 1");
-            Assert.That(fragments[1].FragmentNumber, Is.EqualTo(2), "Second fragment numbered 2");
+            Assert.That(fragments, Has.Count.EqualTo(4), "3 cuts → 4 fragments");
 
-            // Invariant #4: Start positions in ascending order
-            Assert.That(fragments[0].StartPosition, Is.EqualTo(0), "First fragment starts at 0");
-            Assert.That(fragments[1].StartPosition, Is.GreaterThan(fragments[0].StartPosition),
-                "Positions increase monotonically");
+            // Fragment 1: [0, 1) = "G"
+            Assert.That(fragments[0].FragmentNumber, Is.EqualTo(1));
+            Assert.That(fragments[0].StartPosition, Is.EqualTo(0));
+            Assert.That(fragments[0].Length, Is.EqualTo(1));
+            Assert.That(fragments[0].LeftEnzyme, Is.Null, "First fragment: LeftEnzyme null (Invariant #5)");
+            Assert.That(fragments[0].RightEnzyme, Is.EqualTo("EcoRI"));
 
-            // Invariant #5: Boundary enzymes
-            Assert.That(fragments[0].LeftEnzyme, Is.Null, "First fragment LeftEnzyme is null");
-            Assert.That(fragments[^1].RightEnzyme, Is.Null, "Last fragment RightEnzyme is null");
+            // Fragment 2: [1, 10) = "AATTCAAAG"
+            Assert.That(fragments[1].FragmentNumber, Is.EqualTo(2));
+            Assert.That(fragments[1].StartPosition, Is.EqualTo(1));
+            Assert.That(fragments[1].Length, Is.EqualTo(9));
+            Assert.That(fragments[1].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(fragments[1].RightEnzyme, Is.EqualTo("EcoRI"));
 
-            // Invariant #6: Positive length
+            // Fragment 3: [10, 19) = "AATTCAAAG"
+            Assert.That(fragments[2].FragmentNumber, Is.EqualTo(3));
+            Assert.That(fragments[2].StartPosition, Is.EqualTo(10));
+            Assert.That(fragments[2].Length, Is.EqualTo(9));
+            Assert.That(fragments[2].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(fragments[2].RightEnzyme, Is.EqualTo("EcoRI"));
+
+            // Fragment 4: [19, 27) = "AATTCAAA"
+            Assert.That(fragments[3].FragmentNumber, Is.EqualTo(4));
+            Assert.That(fragments[3].StartPosition, Is.EqualTo(19));
+            Assert.That(fragments[3].Length, Is.EqualTo(8));
+            Assert.That(fragments[3].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(fragments[3].RightEnzyme, Is.Null, "Last fragment: RightEnzyme null (Invariant #5)");
+
+            // Invariant #4: Monotonic start positions (absorbed from dedicated test)
+            for (int i = 1; i < fragments.Count; i++)
+                Assert.That(fragments[i].StartPosition, Is.GreaterThan(fragments[i - 1].StartPosition),
+                    $"Fragment {i + 1} start > Fragment {i} start");
+
+            // Invariant #6: All positive length
             Assert.That(fragments.All(f => f.Length > 0), "All fragments have positive length");
         });
     }
 
     /// <summary>
-    /// Evidence: Implementation - Fragment positions must increase monotonically.
-    /// Invariant #4: Fragment start positions sorted ascending.
-    /// </summary>
-    [Test]
-    public void Digest_FragmentStartPositions_IncreaseMonotonically()
-    {
-        // Arrange: Multiple cuts for more data points
-        var sequence = new DnaSequence("GAATTCAAAGAATTCAAAGAATTCAAA");
-
-        // Act
-        var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
-
-        // Assert: Invariant #4
-        for (int i = 1; i < fragments.Count; i++)
-        {
-            Assert.That(fragments[i].StartPosition, Is.GreaterThan(fragments[i - 1].StartPosition),
-                $"Fragment {i + 1} start position should be greater than fragment {i}");
-        }
-    }
-
-    /// <summary>
-    /// Evidence: Implementation - Verify fragment sequence content is correct substring.
+    /// Evidence: Verify fragment sequence content matches exact known substrings.
     /// </summary>
     [Test]
     public void Digest_FragmentSequenceContent_MatchesExpectedSubstring()
     {
-        // Arrange: Known sequence with single cut
-        var sequence = new DnaSequence("AAAGAATTCAAA");
-        // EcoRI at position 3, cuts after position 4 (G|AATTC)
+        // Arrange: EcoRI (G↓AATTC) at position 3, cuts at position 4
+        var sequence = new DnaSequence("AAAGAATTCAAA"); // 12 bp
 
         // Act
         var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
 
-        // Assert: Verify content matches
+        // Assert: Exact known sequences
         Assert.Multiple(() =>
         {
-            foreach (var fragment in fragments)
-            {
-                string expectedContent = sequence.Sequence.Substring(fragment.StartPosition, fragment.Length);
-                Assert.That(fragment.Sequence, Is.EqualTo(expectedContent),
-                    $"Fragment {fragment.FragmentNumber} content should match substring at position {fragment.StartPosition}");
-            }
+            Assert.That(fragments[0].Sequence, Is.EqualTo("AAAG"), "Fragment 1: positions [0, 4)");
+            Assert.That(fragments[1].Sequence, Is.EqualTo("AATTCAAA"), "Fragment 2: positions [4, 12)");
         });
     }
 
     /// <summary>
-    /// Evidence: Implementation - Multiple enzymes produce combined cut sites.
+    /// Evidence: Multiple enzymes produce combined cut sites with correct enzyme attribution.
     /// </summary>
     [Test]
     public void Digest_MultipleEnzymes_CutsWithBoth()
     {
-        // Arrange: EcoRI at position 3, BamHI at position 12
-        var sequence = new DnaSequence("AAAGAATTCAAAGGATCCAAA");
+        // Arrange: EcoRI at position 3 (cuts at 4), BamHI at position 12 (cuts at 13)
+        var sequence = new DnaSequence("AAAGAATTCAAAGGATCCAAA"); // 21 bp
 
         // Act
         var fragments = RestrictionAnalyzer.Digest(sequence, "EcoRI", "BamHI").ToList();
 
-        // Assert
+        // Assert: Exact fragment properties with enzyme attribution
         Assert.Multiple(() =>
         {
-            Assert.That(fragments, Has.Count.EqualTo(3), "Two cuts should produce 3 fragments");
-            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(sequence.Length),
-                "Fragment sum must equal original sequence length");
+            Assert.That(fragments, Has.Count.EqualTo(3), "Two cuts → 3 fragments");
+            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(21));
+            Assert.That(fragments[0].Length, Is.EqualTo(4), "Fragment 1: AAAG");
+            Assert.That(fragments[0].RightEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(fragments[1].Length, Is.EqualTo(9), "Fragment 2: AATTCAAAG");
+            Assert.That(fragments[1].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(fragments[1].RightEnzyme, Is.EqualTo("BamHI"));
+            Assert.That(fragments[2].Length, Is.EqualTo(8), "Fragment 3: GATCCAAA");
+            Assert.That(fragments[2].LeftEnzyme, Is.EqualTo("BamHI"));
         });
     }
 
@@ -247,61 +255,67 @@ public class RestrictionAnalyzer_Digest_Tests
         });
     }
 
+    /// <summary>
+    /// Evidence: Edge case — adjacent cut positions produce a 1-bp fragment.
+    /// TaqI (T↓CGA) at position 3 cuts at 4; MboI (↓GATC) at position 5 cuts at 5.
+    /// All invariants must hold: positive length, sum = original.
+    /// </summary>
+    [Test]
+    public void Digest_AdjacentCutSites_ProducesSmallFragment()
+    {
+        // Arrange: TaqI cuts at 4, MboI cuts at 5 → adjacent cuts, 1-bp middle fragment
+        var sequence = new DnaSequence("AAATCGATCAAA"); // 12 bp
+
+        // Act
+        var fragments = RestrictionAnalyzer.Digest(sequence, "TaqI", "MboI").ToList();
+
+        // Assert: Adjacent cuts handled correctly with exact values
+        Assert.Multiple(() =>
+        {
+            Assert.That(fragments, Has.Count.EqualTo(3), "Two adjacent cuts → 3 fragments");
+            Assert.That(fragments.Sum(f => f.Length), Is.EqualTo(12));
+            Assert.That(fragments[0].Sequence, Is.EqualTo("AAAT"), "Fragment 1: [0, 4)");
+            Assert.That(fragments[1].Sequence, Is.EqualTo("C"), "Fragment 2: [4, 5) — 1 bp");
+            Assert.That(fragments[2].Sequence, Is.EqualTo("GATCAAA"), "Fragment 3: [5, 12)");
+            Assert.That(fragments.All(f => f.Length > 0), "All fragments have positive length");
+        });
+    }
+
     #endregion
 
     #region GetDigestSummary Tests
 
     /// <summary>
-    /// Evidence: Implementation contract - Summary returns correct statistics.
-    /// Invariants #8, #9, #10: Sorting, bounds, enzyme list.
+    /// Evidence: Summary invariants verified with exact values.
+    /// Invariants #8 (sorted descending), #9 (bounds), #10 (enzyme list).
+    /// EcoRI sites at positions 0 and 9 → fragments of length 1, 9, 8.
     /// </summary>
     [Test]
     public void GetDigestSummary_ReturnsCorrectSummaryWithInvariants()
     {
-        // Arrange
-        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA");
+        // Arrange: 2 EcoRI sites → fragments [1, 9, 8], sorted desc: [9, 8, 1]
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA"); // 18 bp
 
         // Act
         var summary = RestrictionAnalyzer.GetDigestSummary(sequence, "EcoRI");
 
-        // Assert: All invariants
+        // Assert: All invariants with exact values
         Assert.Multiple(() =>
         {
-            Assert.That(summary.TotalFragments, Is.EqualTo(3), "Should report 3 fragments");
-            Assert.That(summary.FragmentSizes, Has.Count.EqualTo(3), "Should have 3 sizes");
+            Assert.That(summary.TotalFragments, Is.EqualTo(3));
 
-            // Invariant #9: Size bounds
-            Assert.That(summary.LargestFragment, Is.GreaterThanOrEqualTo(summary.SmallestFragment),
-                "Largest >= Smallest");
-            Assert.That(summary.AverageFragmentSize, Is.GreaterThanOrEqualTo(summary.SmallestFragment),
-                "Average >= Smallest");
-            Assert.That(summary.AverageFragmentSize, Is.LessThanOrEqualTo(summary.LargestFragment),
-                "Average <= Largest");
+            // Invariant #8: Fragment sizes sorted descending — exact values
+            Assert.That(summary.FragmentSizes, Is.EqualTo(new[] { 9, 8, 1 }),
+                "Fragment sizes sorted descending");
 
-            // Invariant #10: Enzymes list
-            Assert.That(summary.EnzymesUsed, Contains.Item("EcoRI"), "Should list EcoRI");
+            // Invariant #9: Exact bounds
+            Assert.That(summary.LargestFragment, Is.EqualTo(9));
+            Assert.That(summary.SmallestFragment, Is.EqualTo(1));
+            Assert.That(summary.AverageFragmentSize, Is.EqualTo(6.0));
+
+            // Invariant #10: Exact enzyme list
+            Assert.That(summary.EnzymesUsed, Is.EqualTo(new[] { "EcoRI" }));
         });
-    }
-
-    /// <summary>
-    /// Evidence: Implementation - Fragment sizes sorted descending.
-    /// Invariant #8: FragmentSizes[i] >= FragmentSizes[i+1].
-    /// </summary>
-    [Test]
-    public void GetDigestSummary_FragmentsSortedDescending()
-    {
-        // Arrange: Asymmetric cuts to ensure different sizes
-        var sequence = new DnaSequence("GAATTCAAAAAGAATTCAAA");
-
-        // Act
-        var summary = RestrictionAnalyzer.GetDigestSummary(sequence, "EcoRI");
-
-        // Assert: Invariant #8
-        for (int i = 0; i < summary.FragmentSizes.Count - 1; i++)
-        {
-            Assert.That(summary.FragmentSizes[i], Is.GreaterThanOrEqualTo(summary.FragmentSizes[i + 1]),
-                $"Size at index {i} should be >= size at index {i + 1}");
-        }
     }
 
     #endregion
@@ -309,52 +323,51 @@ public class RestrictionAnalyzer_Digest_Tests
     #region Restriction Map Tests
 
     /// <summary>
-    /// Evidence: Implementation - CreateMap returns comprehensive map data.
-    /// Invariants #11, #12, #13: Non-cutters, unique cutters, site count.
+    /// Evidence: CreateMap returns complete map data with exact values.
+    /// Invariants #12, #13: Unique cutters, site count (forward-strand only).
+    /// Two EcoRI sites → not a unique cutter.
     /// </summary>
     [Test]
     public void CreateMap_ReturnsCorrectMapWithAllFields()
     {
-        // Arrange
-        var sequence = new DnaSequence("GAATTCAAAGAATTC");
+        // Arrange: Two EcoRI sites at positions 0 and 9 (palindromic → both strands per site)
+        var sequence = new DnaSequence("GAATTCAAAGAATTC"); // 15 bp
 
         // Act
         var map = RestrictionAnalyzer.CreateMap(sequence, "EcoRI");
 
-        // Assert: Multiple invariants
+        // Assert: Exact values for all fields
         Assert.Multiple(() =>
         {
-            Assert.That(map.SequenceLength, Is.EqualTo(sequence.Length), "Sequence length preserved");
-            Assert.That(map.SitesByEnzyme.ContainsKey("EcoRI"), "EcoRI sites present");
-            // Invariant #13: TotalSites counts forward-strand only
-            Assert.That(map.TotalSites, Is.GreaterThan(0), "Should have sites");
+            Assert.That(map.SequenceLength, Is.EqualTo(15));
+            Assert.That(map.TotalSites, Is.EqualTo(2), "Forward-strand sites only (Invariant #13)");
+            Assert.That(map.SitesByEnzyme["EcoRI"], Is.EqualTo(new[] { 0, 0, 9, 9 }),
+                "Both strands: 2 forward + 2 reverse at positions 0 and 9");
+            Assert.That(map.UniqueCutters, Is.Empty, "EcoRI cuts twice — not a unique cutter");
+            Assert.That(map.NonCutters, Is.Empty);
         });
     }
 
     /// <summary>
-    /// Evidence: Implementation - Unique cutters are enzymes with exactly one site.
-    /// Invariant #12: UniqueCutters list contains enzymes with one site in SitesByEnzyme.
-    /// Note: SitesByEnzyme contains all positions (both strands may have same position for palindromic sites).
+    /// Evidence: Implementation - Unique cutters are enzymes with exactly one forward-strand site.
+    /// Invariant #12: UniqueCutters list contains enzymes with one forward-strand site.
+    /// For palindromic enzymes, both strands match at the same position — only forward counts.
     /// </summary>
     [Test]
     public void CreateMap_IdentifiesUniqueCutters()
     {
         // Arrange: Sequence where each enzyme cuts only once (forward strand)
-        // SitesByEnzyme includes both strand positions, so a palindromic site appears twice
         var sequence = new DnaSequence("AAAAAAAAAGAATTCAAAAAAAAAAAAAAAGGATCCAAAAAAAAAA");
 
         // Act
         var map = RestrictionAnalyzer.CreateMap(sequence, "EcoRI", "BamHI");
 
-        // Assert: Invariant #12
+        // Assert: Invariant #12 — unique cutters correctly identified for palindromic sites
         Assert.Multiple(() =>
         {
             Assert.That(map.TotalSites, Is.EqualTo(2), "Two forward-strand sites");
-            Assert.That(map.SitesByEnzyme.ContainsKey("EcoRI"), "EcoRI present");
-            Assert.That(map.SitesByEnzyme.ContainsKey("BamHI"), "BamHI present");
-            // Verify sites are found - SitesByEnzyme may contain positions from both strands
-            Assert.That(map.SitesByEnzyme["EcoRI"], Is.Not.Empty, "EcoRI has sites");
-            Assert.That(map.SitesByEnzyme["BamHI"], Is.Not.Empty, "BamHI has sites");
+            Assert.That(map.UniqueCutters, Contains.Item("EcoRI"), "EcoRI is a unique cutter");
+            Assert.That(map.UniqueCutters, Contains.Item("BamHI"), "BamHI is a unique cutter");
         });
     }
 
@@ -408,51 +421,160 @@ public class RestrictionAnalyzer_Digest_Tests
             RestrictionAnalyzer.CreateMap(null!, "EcoRI"));
     }
 
+    /// <summary>
+    /// Evidence: API contract — When no enzymes specified, CreateMap searches all known enzymes.
+    /// Sequence contains EcoRI (pos 9), BamHI (pos 30), and GATC-cutters (Sau3AI, MboI, DpnI at pos 31).
+    /// </summary>
+    [Test]
+    public void CreateMap_NoEnzymesSpecified_SearchesAll()
+    {
+        // Arrange: Known EcoRI and BamHI sites (BamHI's GGATCC contains GATC for other cutters)
+        var sequence = new DnaSequence("AAAAAAAAAGAATTCAAAAAAAAAAAAAAAGGATCCAAAAAAAAAA"); // 45 bp
+
+        // Act: No enzymes specified — should search all
+        var map = RestrictionAnalyzer.CreateMap(sequence);
+
+        // Assert: Finds multiple enzyme families
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.SitesByEnzyme.ContainsKey("EcoRI"), Is.True, "Should find EcoRI site");
+            Assert.That(map.SitesByEnzyme.ContainsKey("BamHI"), Is.True, "Should find BamHI site");
+            Assert.That(map.SitesByEnzyme.ContainsKey("Sau3AI"), Is.True,
+                "Should find Sau3AI (GATC within GGATCC)");
+            Assert.That(map.TotalSites, Is.EqualTo(5),
+                "5 forward-strand sites: EcoRI, BamHI, Sau3AI, MboI, DpnI");
+            Assert.That(map.NonCutters, Is.Empty, "No enzyme names specified → no non-cutters");
+        });
+    }
+
     #endregion
 
     #region Compatibility Tests
 
     /// <summary>
-    /// Evidence: Wikipedia - Blunt enzymes produce ligatable ends with other blunt enzymes.
+    /// Evidence: Wikipedia (Sticky and blunt ends) — "blunt ends are always compatible with each other."
     /// Invariant #14: All blunt-end enzymes are compatible.
     /// </summary>
     [Test]
     public void AreCompatible_BluntEnzymes_AreCompatible()
     {
-        // EcoRV and SmaI are both blunt cutters
+        // EcoRV and SmaI are both blunt cutters (Wikipedia examples table: * = blunt ends)
         bool compatible = RestrictionAnalyzer.AreCompatible("EcoRV", "SmaI");
 
         Assert.That(compatible, Is.True, "Blunt enzymes should be compatible (Wikipedia)");
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - BamHI and BglII both produce GATC overhangs.
-    /// Invariant #15: Identical overhangs are compatible.
+    /// Evidence: Wikipedia (Restriction enzyme) — BamHI and BglII both produce 5' GATC overhangs.
+    /// BamHI: 5'---G↓GATCC---3' / 3'---CCTAG↓G---5' → 5' overhang GATC
+    /// BglII: 5'---A↓GATCT---3' / 3'---TCTAG↓A---5' → 5' overhang GATC
+    /// Invariant #15: Same overhang type + same sequence = compatible.
     /// </summary>
     [Test]
-    public void AreCompatible_SameOverhang_AreCompatible()
+    public void AreCompatible_SameOverhang_AreCompatible_BamHI_BglII()
     {
-        // BamHI (GGATCC, GATC overhang) and BglII (AGATCT, GATC overhang)
         bool compatible = RestrictionAnalyzer.AreCompatible("BamHI", "BglII");
 
-        Assert.That(compatible, Is.True, "Same overhang enzymes should be compatible (Wikipedia)");
+        Assert.That(compatible, Is.True, "BamHI/BglII both produce 5' GATC overhang (Wikipedia)");
     }
 
     /// <summary>
-    /// Evidence: Wikipedia - Different overhangs cannot ligate.
-    /// Invariant #15 (inverse): Different overhangs are not compatible.
+    /// Evidence: Wikipedia — SalI and XhoI both produce 5' TCGA overhangs.
+    /// SalI:  5'---G↓TCGAC---3' / 3'---CAGCT↓G---5' → 5' overhang TCGA
+    /// XhoI:  5'---C↓TCGAG---3' / 3'---GAGCT↓C---5' → 5' overhang TCGA
+    /// </summary>
+    [Test]
+    public void AreCompatible_SameOverhang_AreCompatible_SalI_XhoI()
+    {
+        bool compatible = RestrictionAnalyzer.AreCompatible("SalI", "XhoI");
+
+        Assert.That(compatible, Is.True, "SalI/XhoI both produce 5' TCGA overhang (Wikipedia)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia — MboI, Sau3AI, BamHI, BglII all produce 5' GATC overhangs.
+    /// MboI/Sau3AI: 5'---↓GATC---3' / 3'---CTAG↓---5' → 5' overhang GATC
+    /// </summary>
+    [Test]
+    [TestCase("MboI", "BamHI")]
+    [TestCase("Sau3AI", "BglII")]
+    [TestCase("MboI", "Sau3AI")]
+    public void AreCompatible_GATC_OverhangFamily_AllCompatible(string enzyme1, string enzyme2)
+    {
+        bool compatible = RestrictionAnalyzer.AreCompatible(enzyme1, enzyme2);
+
+        Assert.That(compatible, Is.True,
+            $"{enzyme1}/{enzyme2} both produce 5' GATC overhang (Wikipedia)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia — NheI, XbaI, SpeI, AvrII all produce 5' CTAG overhangs.
+    /// NheI:  5'---G↓CTAGC---3' → 5' overhang CTAG
+    /// XbaI:  5'---T↓CTAGA---3' → 5' overhang CTAG
+    /// SpeI:  5'---A↓CTAGT---3' → 5' overhang CTAG
+    /// AvrII: 5'---C↓CTAGG---3' → 5' overhang CTAG
+    /// </summary>
+    [Test]
+    [TestCase("NheI", "XbaI")]
+    [TestCase("NheI", "SpeI")]
+    [TestCase("XbaI", "AvrII")]
+    public void AreCompatible_CTAG_OverhangFamily_AllCompatible(string enzyme1, string enzyme2)
+    {
+        bool compatible = RestrictionAnalyzer.AreCompatible(enzyme1, enzyme2);
+
+        Assert.That(compatible, Is.True,
+            $"{enzyme1}/{enzyme2} both produce 5' CTAG overhang (Wikipedia)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia (Sticky and blunt ends) — "overhangs have to be complementary
+    /// in order for the ligase to work." A 5' overhang CANNOT ligate with a 3' overhang,
+    /// even when the overhang sequence string is the same palindrome, because both
+    /// single-stranded extensions would be on the same strand and cannot base-pair.
+    ///
+    /// HindIII: 5'---A↓AGCTT---3' / 3'---TTCGA↓A---5' → 5' overhang AGCT
+    /// SacI:    5'---GAGCT↓C---3' / 3'---C↓TCGAG---5' → 3' overhang AGCT
+    /// </summary>
+    [Test]
+    public void AreCompatible_CrossTypeOverhang_NotCompatible_HindIII_SacI()
+    {
+        // HindIII produces 5' overhang AGCT; SacI produces 3' overhang AGCT
+        // Same overhang string but different types → NOT compatible
+        bool compatible = RestrictionAnalyzer.AreCompatible("HindIII", "SacI");
+
+        Assert.That(compatible, Is.False,
+            "HindIII (5' AGCT) and SacI (3' AGCT) are NOT compatible — different overhang types (Wikipedia)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia — SphI produces 3' overhang CATG, NcoI produces 5' overhang CATG.
+    /// SphI:  5'---GCATG↓C---3' / 3'---C↓GTACG---5' → 3' overhang CATG
+    /// NcoI:  5'---C↓CATGG---3' / 3'---GGTAC↓C---5' → 5' overhang CATG
+    /// Same sequence CATG but different types → NOT compatible.
+    /// </summary>
+    [Test]
+    public void AreCompatible_CrossTypeOverhang_NotCompatible_SphI_NcoI()
+    {
+        bool compatible = RestrictionAnalyzer.AreCompatible("SphI", "NcoI");
+
+        Assert.That(compatible, Is.False,
+            "SphI (3' CATG) and NcoI (5' CATG) are NOT compatible — different overhang types (Wikipedia)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia — Different overhang sequences cannot ligate.
+    /// EcoRI (5' AATT overhang) and PstI (3' TGCA overhang): different type AND different sequence.
     /// </summary>
     [Test]
     public void AreCompatible_DifferentOverhangs_NotCompatible()
     {
-        // EcoRI (AATT overhang) and PstI (TGCA overhang)
         bool compatible = RestrictionAnalyzer.AreCompatible("EcoRI", "PstI");
 
         Assert.That(compatible, Is.False, "Different overhang enzymes should not be compatible");
     }
 
     /// <summary>
-    /// Evidence: API contract - Unknown enzyme returns false (no exception).
+    /// Evidence: API contract — Unknown enzyme returns false (no exception).
     /// </summary>
     [Test]
     public void AreCompatible_UnknownEnzyme_ReturnsFalse()
@@ -463,13 +585,15 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
-    /// Evidence: Mathematical property - Compatibility is symmetric.
+    /// Evidence: Mathematical property — Compatibility is symmetric.
     /// Invariant #16: AreCompatible(A, B) == AreCompatible(B, A).
     /// </summary>
     [Test]
     [TestCase("BamHI", "BglII")]
     [TestCase("EcoRV", "SmaI")]
     [TestCase("EcoRI", "PstI")]
+    [TestCase("HindIII", "SacI")]
+    [TestCase("SphI", "NcoI")]
     public void AreCompatible_IsSymmetric(string enzyme1, string enzyme2)
     {
         bool forward = RestrictionAnalyzer.AreCompatible(enzyme1, enzyme2);
@@ -480,7 +604,55 @@ public class RestrictionAnalyzer_Digest_Tests
     }
 
     /// <summary>
-    /// Evidence: Implementation - FindCompatibleEnzymes returns known pairs.
+    /// Evidence: Wikipedia (Restriction enzyme) — Verified enzyme cut positions from Examples table.
+    /// EcoRI:  G↓AATTC (forward=1, reverse=5), 5' overhang AATT
+    /// BamHI:  G↓GATCC (forward=1, reverse=5), 5' overhang GATC
+    /// PstI:   CTGCA↓G (forward=5, reverse=1), 3' overhang TGCA
+    /// SmaI:   CCC↓GGG (forward=3, reverse=3), Blunt
+    /// NotI:   GC↓GGCCGC (forward=2, reverse=6), 5' overhang GGCC
+    /// </summary>
+    [Test]
+    [TestCase("EcoRI", "GAATTC", 1, 5, false, Description = "Wikipedia: G↓AATTC, 5' overhang")]
+    [TestCase("BamHI", "GGATCC", 1, 5, false, Description = "Wikipedia: G↓GATCC, 5' overhang")]
+    [TestCase("HindIII", "AAGCTT", 1, 5, false, Description = "Wikipedia: A↓AGCTT, 5' overhang")]
+    [TestCase("PstI", "CTGCAG", 5, 1, false, Description = "Wikipedia: CTGCA↓G, 3' overhang")]
+    [TestCase("SmaI", "CCCGGG", 3, 3, true, Description = "Wikipedia: CCC↓GGG, Blunt")]
+    [TestCase("EcoRV", "GATATC", 3, 3, true, Description = "Wikipedia: GAT↓ATC, Blunt")]
+    [TestCase("AluI", "AGCT", 2, 2, true, Description = "Wikipedia: AG↓CT, Blunt")]
+    [TestCase("HaeIII", "GGCC", 2, 2, true, Description = "Wikipedia: GG↓CC, Blunt")]
+    [TestCase("NotI", "GCGGCCGC", 2, 6, false, Description = "Wikipedia: GC↓GGCCGC, 5' overhang")]
+    [TestCase("TaqI", "TCGA", 1, 3, false, Description = "Wikipedia: T↓CGA, 5' overhang")]
+    [TestCase("Sau3AI", "GATC", 0, 4, false, Description = "Wikipedia: ↓GATC, 5' overhang")]
+    [TestCase("KpnI", "GGTACC", 5, 1, false, Description = "Wikipedia: GGTAC↓C, 3' overhang")]
+    [TestCase("SacI", "GAGCTC", 5, 1, false, Description = "Wikipedia: GAGCT↓C, 3' overhang")]
+    [TestCase("SphI", "GCATGC", 5, 1, false, Description = "Wikipedia: GCATG↓C, 3' overhang")]
+    [TestCase("XbaI", "TCTAGA", 1, 5, false, Description = "Wikipedia: T↓CTAGA, 5' overhang")]
+    [TestCase("SalI", "GTCGAC", 1, 5, false, Description = "Wikipedia: G↓TCGAC, 5' overhang")]
+    [TestCase("BglII", "AGATCT", 1, 5, false, Description = "Wikipedia: A↓GATCT, 5' overhang")]
+    [TestCase("SpeI", "ACTAGT", 1, 5, false, Description = "Wikipedia: A↓CTAGT, 5' overhang")]
+    [TestCase("ScaI", "AGTACT", 3, 3, true, Description = "Wikipedia: AGT↓ACT, Blunt")]
+    [TestCase("StuI", "AGGCCT", 3, 3, true, Description = "Wikipedia: AGG↓CCT, Blunt")]
+    public void EnzymeDatabase_MatchesWikipediaData(
+        string name, string recognition, int cutForward, int cutReverse, bool isBlunt)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enzyme, Is.Not.Null, $"Enzyme {name} should exist in database");
+            Assert.That(enzyme!.RecognitionSequence, Is.EqualTo(recognition),
+                $"{name} recognition sequence (Wikipedia)");
+            Assert.That(enzyme.CutPositionForward, Is.EqualTo(cutForward),
+                $"{name} forward cut position (Wikipedia)");
+            Assert.That(enzyme.CutPositionReverse, Is.EqualTo(cutReverse),
+                $"{name} reverse cut position (Wikipedia)");
+            Assert.That(enzyme.IsBluntEnd, Is.EqualTo(isBlunt),
+                $"{name} blunt end status (Wikipedia)");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: FindCompatibleEnzymes returns known pairs.
     /// </summary>
     [Test]
     public void FindCompatibleEnzymes_FindsKnownPairs()
@@ -498,11 +670,18 @@ public class RestrictionAnalyzer_Digest_Tests
                 (p.Enzyme1 == "BamHI" && p.Enzyme2 == "BglII") ||
                 (p.Enzyme1 == "BglII" && p.Enzyme2 == "BamHI"));
             Assert.That(hasBamHIBglII, Is.True, "BamHI/BglII should be listed as compatible");
+
+            // HindIII (5' AGCT) and SacI (3' AGCT) must NOT appear as compatible
+            bool hasHindIIISacI = compatiblePairs.Any(p =>
+                (p.Enzyme1 == "HindIII" && p.Enzyme2 == "SacI") ||
+                (p.Enzyme1 == "SacI" && p.Enzyme2 == "HindIII"));
+            Assert.That(hasHindIIISacI, Is.False,
+                "HindIII/SacI must NOT be listed — different overhang types (Wikipedia)");
         });
     }
 
     /// <summary>
-    /// Evidence: Implementation - All returned pairs should be actually compatible.
+    /// Evidence: All returned pairs should be actually compatible.
     /// </summary>
     [Test]
     public void FindCompatibleEnzymes_AllReturnedPairsAreActuallyCompatible()

@@ -11,7 +11,7 @@
 | **Canonical Methods** | `FindSites`, `FindAllSites`, `GetEnzyme` |
 | **Complexity** | O(n × k × m) |
 | **Status** | ☑ Complete |
-| **Last Updated** | 2026-01-23 |
+| **Last Updated** | 2026-03-04 |
 
 ---
 
@@ -22,6 +22,11 @@
 | Wikipedia: Restriction enzyme | Academic | Type II enzymes, palindromic recognition, cut positions, overhang types |
 | Wikipedia: Restriction site | Academic | Recognition sequences 4-8 bp, sticky vs blunt ends |
 | Wikipedia: EcoRI | Academic | GAATTC recognition, 5' overhang AATT, cut position G↓AATTC |
+| Wikipedia: BamHI | Academic | GGATCC recognition, 5' overhang GATC |
+| Wikipedia: HindIII | Academic | AAGCTT recognition, 5' overhang AGCT |
+| Wikipedia: PstI | Academic | CTGCAG recognition, 3' cohesive termini |
+| Wikipedia: EcoRV | Academic | GATATC recognition, blunt ends |
+| Wikipedia: List of restriction enzyme cutting sites | Academic | Cut positions for 21 enzymes cross-verified |
 | Roberts RJ (1976) | Research | Restriction endonuclease classification |
 | REBASE | Database | Comprehensive enzyme database, recognition sequences |
 
@@ -76,64 +81,77 @@
 
 | ID | Test Case | Rationale | Source |
 |----|-----------|-----------|--------|
-| C1 | IUPAC ambiguous recognition sequences work | Degenerate sequences | Implementation |
+| C1 | IUPAC ambiguous recognition sequences work | Degenerate sequences (HincII: GTYRAC) | REBASE, Implementation |
 | C2 | Both strands searched for palindromic sites | Biological correctness | Wikipedia |
 
 ---
 
-## Audit Results
+## Coverage Classification
 
-### Existing Test Coverage (RestrictionAnalyzerTests.cs)
+### Covered (✅)
 
-| Test | Status | Notes |
-|------|--------|-------|
-| GetEnzyme_EcoRI_ReturnsCorrectEnzyme | Covered | M1 partially |
-| GetEnzyme_CaseInsensitive_Works | Covered | M5 |
-| GetEnzyme_UnknownEnzyme_ReturnsNull | Covered | M6 |
-| FindSites_EcoRI_FindsSite | Covered | M1 partially |
-| FindSites_MultipleSites_FindsAll | Covered | M3 |
-| FindSites_NoSites_ReturnsEmpty | Covered | M4 |
-| FindSites_UnknownEnzyme_ThrowsException | Covered | M7 |
-| FindSites_MultipleEnzymes_FindsAllSites | Covered | M12 |
-| FindAllSites_FindsMultipleEnzymes | Covered | M11 |
+| ID | Test Case | Covering Tests |
+|----|-----------|----------------|
+| M1 | EcoRI finds GAATTC at correct position | `GetEnzyme_EcoRI_*`, `FindSites_EcoRI_FindsSiteAtCorrectPosition`, `EnzymeDatabase_CutPositions_MatchWikipedia` |
+| M2 | BamHI finds GGATCC at correct position | `GetEnzyme_BamHI_*`, `FindSites_BamHI_FindsSiteAtCorrectPosition`, `EnzymeDatabase_CutPositions_MatchWikipedia` |
+| M3 | Multiple sites found | `FindSites_MultipleSites_FindsAllAtCorrectPositions` |
+| M4 | No sites returns empty | `FindSites_NoSites_ReturnsEmptyCollection` |
+| M5 | Case insensitive lookup | `GetEnzyme_CaseInsensitive_ReturnsCorrectEnzyme` (×4 casings) |
+| M6 | Unknown returns null | `GetEnzyme_UnknownOrInvalidName_ReturnsNull` (×4 inputs) |
+| M7 | Unknown enzyme throws | `FindSites_UnknownEnzyme_ThrowsArgumentException` |
+| M8 | Empty sequence returns empty | `FindSites_EmptyStringSequence_ReturnsEmptyCollection` |
+| M9 | CutPosition calculation | `FindSites_EcoRI_CutPositionCalculatedCorrectly` (exact: 4 = 3+1) |
+| M10 | RecognizedSequence matches | `FindSites_EcoRI_RecognizedSequenceMatchesEnzyme` |
+| M11 | FindAllSites multi-enzyme | `FindAllSites_FindsSitesFromMultipleEnzymes` |
+| M12 | FindSites multiple names | `FindSites_MultipleEnzymes_FindsSitesForAllEnzymes` |
+| M13 | Custom enzyme support | `FindSites_CustomEnzyme_FindsSiteCorrectly`, `FindSites_CustomEnzymeWithAsymmetricCut_CutPositionCorrect` |
+| M14 | 5' overhang (EcoRI) | `GetEnzyme_EcoRI_*`, `FindSites_EcoRI_OverhangSequenceIsAATT` |
+| M15 | 3' overhang (PstI) | `RestrictionEnzyme_PstI_HasThreePrimeOverhang`, `FindSites_PstI_ProducesThreePrimeOverhangOfFourBases` |
+| M16 | Blunt (EcoRV) | `RestrictionEnzyme_EcoRV_IsBluntCutter`, `FindSites_EcoRV_ProducesBluntEndCuts` |
+| S1 | 4/6/8-cutters detected | `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` (×3 lengths) |
+| S2 | 30+ enzymes in database | `Enzymes_ContainsAtLeast30CommonEnzymes` |
+| S3 | GetEnzymesByCutLength | `GetEnzymesByCutLength_ReturnsEnzymesOfCorrectLength` |
+| S4 | GetBluntCutters | `GetBluntCutters_ReturnsOnlyBluntEndEnzymes` |
+| S5 | GetStickyCutters | `GetStickyCutters_ReturnsOnlyStickyEndEnzymes` |
+| C1 | IUPAC degenerate recognition | `FindSites_HincII_MatchesAllDegenerateCombinations` (×4), `*_RejectsNonMatchingDegenerateBases` (×4), `*_DegenerateEnzymeProducesCorrectCutPosition` |
+| C2 | Palindromic both strands | `FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition` |
 
-### Missing Tests (All Closed)
+### External Source Verification Tests
 
-| ID | Test Case | Status |
-|----|-----------|--------|
-| M8 | Empty sequence handling | ✅ Covered |
-| M9 | CutPosition calculation verification | ✅ Covered |
-| M10 | RecognizedSequence verification | ✅ Covered |
-| M13 | Custom enzyme support | ✅ Covered |
+| Test | Verified Against | Source |
+|------|-----------------|--------|
+| FindSites_EcoRI_OverhangSequenceIsAATT | Overhang = AATT (4 bp, 5') | Wikipedia: EcoRI |
+| FindSites_BamHI_OverhangSequenceIsGATC | Overhang = GATC (4 bp, 5') | Wikipedia: BamHI |
+| FindSites_HindIII_OverhangSequenceIsAGCT | Overhang = AGCT (4 bp, 5') | Wikipedia: HindIII |
+| FindSites_PstI_ProducesThreePrimeOverhangOfFourBases | 3' cohesive termini, 4 bp | Wikipedia: PstI |
+| FindSites_EcoRV_ProducesBluntEndCuts | Blunt ends (fwd == rev cut) | Wikipedia: EcoRV |
+| FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition | Both strands recognized | Wikipedia: Restriction enzyme |
+| EnzymeDatabase_CutPositions_MatchWikipedia (×21) | Recognition sequences and cut positions | Wikipedia: Restriction enzyme (Examples table) |
 
-### Weak Tests
+### Actions Taken
 
-| Test | Issue | Fix |
-|------|-------|-----|
-| FindSites_EcoRI_FindsSite | Only checks Any() | Verify exact position |
-| GetEnzyme_EcoRI_ReturnsCorrectEnzyme | No cut position verification | Add invariant assertions |
-
----
-
-## Consolidation Plan
-
-1. **Canonical File**: Create `RestrictionAnalyzer_FindSites_Tests.cs` with FindSites/FindAllSites/GetEnzyme tests
-2. **Keep in RestrictionAnalyzerTests.cs**: Digest, Map, Compatibility tests (for RESTR-DIGEST-001)
-3. **Move to Canonical**: All FindSites and GetEnzyme tests
-4. ~~**Add Missing Tests**: M8, M9, M10, M13, S1-S5~~ ✅ Done
-5. **Strengthen Tests**: Use Assert.Multiple for invariant grouping
+| Action | Tests | Reason |
+|--------|-------|--------|
+| ❌ Implemented | `FindSites_HincII_MatchesAllDegenerateCombinations`, `*_RejectsNonMatchingDegenerateBases`, `*_DegenerateEnzymeProducesCorrectCutPosition` | C1 was missing — IUPAC degenerate recognition untested |
+| ⚠ Strengthened | `GetEnzyme_BamHI_ReturnsEnzymeWithCorrectProperties` | Added Name, CutPositionForward/Reverse, IsBluntEnd (was only checking RecognitionSequence + Length + OverhangType) |
+| ⚠ Strengthened | `FindSites_CustomEnzyme_FindsSiteCorrectly` | Hardcoded exact position (2) and cut position (4) instead of computing via IndexOf |
+| 🔁 Removed | `RestrictionEnzyme_EcoRI_HasFivePrimeOverhang` | Fully covered by `GetEnzyme_EcoRI_ReturnsEnzymeWithCorrectProperties` (OverhangType + IsBluntEnd already asserted) |
+| 🔁 Removed | `RestrictionEnzyme_NotI_IsEightCutter` | Fully covered by `EnzymeDatabase_CutPositions_MatchWikipedia("NotI", "GCGGCCGC", 2, 6)` |
 
 ---
 
 ## Open Questions
 
-None - behavior is well-documented in Wikipedia and REBASE.
+None — all behavior verified against external sources.
 
 ---
 
-## Assumptions
+## Deviations and Assumptions
 
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Forward strand position is primary | Convention in molecular biology |
-| A2 | Reverse complement sites reported with forward strand coordinates | User convenience |
+None.
+
+Previous items A1 ("Forward strand position is primary") and A2 ("Reverse complement sites reported
+with forward strand coordinates") were reclassified as **standard conventions** — not assumptions.
+Both are the universal convention in molecular biology (REBASE, GenBank, NCBI) and are directly
+verified by tests `FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition` and
+`EnzymeDatabase_CutPositions_MatchWikipedia`.

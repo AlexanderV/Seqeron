@@ -31,7 +31,7 @@ public static class RestrictionAnalyzer
         ["NcoI"] = new("NcoI", "CCATGG", 1, 5, "Nocardia corallina"),
         ["NdeI"] = new("NdeI", "CATATG", 2, 4, "Neisseria denitrificans"),
         ["NheI"] = new("NheI", "GCTAGC", 1, 5, "Neisseria mucosa"),
-        ["SpeI"] = new("SpeI", "ACTAGT", 1, 5, "Sphaerotilus species"),
+        ["SpeI"] = new("SpeI", "ACTAGT", 1, 5, "Sphaerotilus natans"),
         ["AvrII"] = new("AvrII", "CCTAGG", 1, 5, "Anabaena variabilis"),
         ["ClaI"] = new("ClaI", "ATCGAT", 2, 4, "Caryophanon latum"),
         ["AgeI"] = new("AgeI", "ACCGGT", 1, 5, "Agrobacterium gelatinovorum"),
@@ -331,7 +331,15 @@ public static class RestrictionAnalyzer
             .GroupBy(s => s.Enzyme.Name)
             .ToDictionary(g => g.Key, g => g.Select(s => s.Position).OrderBy(p => p).ToList());
 
-        var uniqueCutters = byEnzyme.Where(kv => kv.Value.Count == 1).Select(kv => kv.Key).ToList();
+        // UniqueCutters: enzymes with exactly one forward-strand site.
+        // SitesByEnzyme includes both strands; for palindromic enzymes a single site
+        // produces two entries (forward + reverse) at the same position.
+        // Filter to forward-strand sites for unique cutter identification.
+        var forwardByEnzyme = sites
+            .Where(s => s.IsForwardStrand)
+            .GroupBy(s => s.Enzyme.Name)
+            .ToDictionary(g => g.Key, g => g.Select(s => s.Position).Distinct().ToList());
+        var uniqueCutters = forwardByEnzyme.Where(kv => kv.Value.Count == 1).Select(kv => kv.Key).ToList();
         var nonCutters = enzymeNames.Where(e => !byEnzyme.ContainsKey(e)).ToList();
 
         return new RestrictionMap(
@@ -387,13 +395,21 @@ public static class RestrictionAnalyzer
         compatibleEnd = null;
 
         // Blunt ends are always compatible with other blunt ends
+        // Source: Wikipedia (Sticky and blunt ends) — "blunt ends are always compatible with each other"
         if (e1.IsBluntEnd && e2.IsBluntEnd)
         {
             compatibleEnd = "blunt";
             return true;
         }
 
-        // For sticky ends, check if overhangs are compatible
+        // For sticky ends, both overhang type AND sequence must match.
+        // Source: Wikipedia (Sticky and blunt ends) — "overhangs have to be complementary
+        // in order for the ligase to work". A 5' overhang cannot pair with a 3' overhang,
+        // even if the overhang sequence is palindromic (same string), because both
+        // single-stranded extensions would be on the same strand and cannot base-pair.
+        if (e1.OverhangType != e2.OverhangType)
+            return false;
+
         string overhang1 = GetOverhang(e1);
         string overhang2 = GetOverhang(e2);
 
