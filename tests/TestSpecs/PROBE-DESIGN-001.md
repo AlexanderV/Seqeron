@@ -21,8 +21,9 @@
 |--------|------|-----------------|
 | Wikipedia: Nucleic acid thermodynamics | Academic | Tm calculation, nearest-neighbor method, GC content effects |
 | Wikipedia: Hybridization probe | Academic | Probe design principles, applications (15-10000 nt) |
-| Wikipedia: FISH | Academic | Probe size 10-25 nt for specificity, 200+ bp for FISH |
-| Wikipedia: DNA microarray | Academic | Microarray probe design, 25-60 mer oligos |
+| Wikipedia: FISH | Academic | BAC probes ~100 kb; oligo FISH probes 10-25 nt; smFISH 20-50 oligos per target |
+| Wikipedia: DNA microarray | Academic | Microarray probe design: Affymetrix 25-mer, Agilent 60-mer |
+| Wikipedia: Molecular beacon | Academic | Loop 18-30 bp, stem 5-7 nt each side, typical total 25 nt |
 | SantaLucia (1998) | Research | Unified nearest-neighbor thermodynamics for Tm |
 | Breslauer et al. (1986) | Research | Predicting DNA duplex stability |
 
@@ -54,8 +55,8 @@
 | M8 | Probe sequence matches substring at coordinates | Invariant #5 | Implementation |
 | M9 | Tiling probes cover expected positions | Coverage guarantee | Algorithm spec |
 | M10 | Tiling probes all have Type = Tiling | Type consistency | Implementation |
-| M11 | Microarray defaults: length 50-70 bp | Application param | Wikipedia (DNA microarray) |
-| M12 | FISH defaults: length 200-500 bp | Application param | Wikipedia (FISH) |
+| M11 | Microarray defaults: length 50-60 bp | Application param | Wikipedia (DNA microarray) |
+| M12 | FISH defaults: length 200-500 bp | Application param | Standard molecular biology practice |
 | M13 | High GC content (100%) results in GcContent ≈ 1.0 | Edge case | Mathematical |
 | M14 | Low GC content (all A/T) results in low GcContent | Edge case | Mathematical |
 | M15 | maxProbes parameter limits returned count | API contract | Implementation |
@@ -81,58 +82,42 @@
 
 ---
 
-## Audit Results
+## Coverage Classification
 
-### Existing Test Coverage (ProbeDesignerTests.cs)
+Canonical file: `ProbeDesigner_ProbeDesign_Tests.cs` (29 tests).
+Supplementary file: `ProbeDesignerTests.cs` (6 tests — smoke/utility, no PROBE-DESIGN-001 scope).
 
-| Test | Status | Notes |
-|------|--------|-------|
-| DesignProbes_ValidSequence_ReturnsProbes | Covered | Basic functionality |
-| DesignProbes_ShortSequence_ReturnsEmpty | Covered | M3 |
-| DesignProbes_EmptySequence_ReturnsEmpty | Covered | M1 |
-| DesignProbes_ProbesHaveValidCoordinates | Covered | M7 partially |
-| DesignProbes_ProbesHaveCalculatedProperties | Covered | M4, M5, M6 partially |
-| DesignProbes_MicroarrayDefaults_ReturnsValidProbes | Covered | M11 |
-| DesignProbes_FISHDefaults_AllowsLongerProbes | Weak | Only checks param, not result |
-| DesignProbes_qPCRDefaults_ShorterProbes | Weak | Only checks param |
-| DesignTilingProbes_CoversSequence | Covered | M9 partially |
-| DesignTilingProbes_CalculatesTmStatistics | Covered | S5 |
-| DesignTilingProbes_ProbesAreTilingType | Covered | M10 |
-| DesignAntisenseProbes_ReturnsAntisenseType | Covered | S3 |
-| DesignMolecularBeacon_CreatesBeaconWithStem | Covered | S4 |
-| DesignMolecularBeacon_ShortSequence_ReturnsNull | Covered | Boundary |
-| ValidateProbe_* tests | Covered | PROBE-VALID-001 scope |
-| AnalyzeOligo_CalculatesAllProperties | Covered | Related utility |
-| Edge cases (AllGC, AllAT, Homopolymer, CaseInsensitive) | Partially | Need strengthening |
-
-### Missing Tests (All Closed)
-
-| ID | Test Case | Status |
-|----|-----------|--------|
-| M2 | Null sequence handling | ✅ Covered |
-| M8 | Probe sequence matches substring | ✅ Covered |
-| M15 | maxProbes limits result count | ✅ Covered |
-| - | Score range invariant assertion | ✅ Covered |
-| - | Assert.Multiple for invariant grouping | ✅ Covered |
-
-### Weak Tests
-
-| Test | Issue | Fix |
-|------|-------|-----|
-| DesignProbes_FISHDefaults_AllowsLongerProbes | Only checks params | Verify actual probe lengths |
-| DesignProbes_qPCRDefaults_ShorterProbes | Only checks params | Verify actual probe lengths |
-| Edge case tests | Incomplete assertions | Add invariant assertions |
-
----
-
-## Consolidation Plan
-
-1. **Canonical File**: `ProbeDesignerTests.cs` → rename to `ProbeDesigner_ProbeDesign_Tests.cs`
-2. ~~**Add Missing Tests**: M2, M8, M15, invariant assertions~~ ✅ Done
-3. **Strengthen Weak Tests**: FISH/qPCR tests to verify actual probe lengths
-4. **Use Assert.Multiple**: Group invariant assertions for clarity
-5. **Remove**: None (no duplicates found)
-6. **Naming Convention**: `Method_Scenario_ExpectedResult`
+| ID | Test | Status |
+|----|------|--------|
+| M1 | DesignProbes_EmptySequence_ReturnsEmpty | ✅ Covered |
+| M2 | DesignProbes_NullSequence_ReturnsEmpty | ✅ Covered |
+| M3 | DesignProbes_ShortSequence_ReturnsEmpty | ✅ Covered |
+| M4 | DesignProbes_ValidSequence_ProbesHaveScoreInValidRange | ✅ Covered |
+| M5 | DesignProbes_ValidSequence_ProbesHaveGcContentInValidRange | ✅ Covered |
+| M6 | DesignProbes_ValidSequence_ProbesHavePositiveTm | ✅ Covered |
+| M7 | DesignProbes_ValidSequence_ProbesHaveValidCoordinates | ✅ Covered |
+| M8 | DesignProbes_ValidSequence_ProbeSequenceMatchesSubstring | ✅ Covered |
+| M9 | DesignTilingProbes_CoversExpectedPositions | ✅ Covered |
+| M10 | DesignTilingProbes_AllProbesHaveTilingType | ✅ Covered |
+| M11 | DesignProbes_MicroarrayDefaults_ProducesCorrectLengthProbes | ✅ Covered |
+| M12 | DesignProbes_FISHDefaults_ProducesCorrectLengthProbes | ✅ Covered |
+| M13 | DesignProbes_AllGC_ReturnsProbesWithHighGcContent | ✅ Covered |
+| M14 | DesignProbes_AllAT_ReturnsProbesWithLowGcContent | ✅ Covered |
+| M15 | DesignProbes_MaxProbesParameter_LimitsResultCount | ✅ Covered |
+| S1 | DesignProbes_HomopolymerSequence_GeneratesWarnings | ✅ Covered |
+| S2 | DesignProbes_CaseInsensitiveInput_ProducesConsistentResults | ✅ Covered |
+| S3 | DesignAntisenseProbes_ReturnsAntisenseType | ✅ Covered |
+| S4 | DesignMolecularBeacon_CreatesBeaconWithStem | ✅ Covered |
+| S5 | DesignTilingProbes_CalculatesTmStatisticsCorrectly | ✅ Covered |
+| S6 | DesignProbes_ProbesAreSortedByScoreDescending | ✅ Covered |
+| C1 | DesignProbes_qPCRDefaults_ProducesCorrectLengthProbes | ✅ Covered |
+| C2 | ValidateProbe_SelfComplementarity_DetectsCorrectly | ✅ Covered |
+| C3 | ValidateProbe_SecondaryStructure_IdentifiesHairpins | ✅ Covered |
+| — | DesignMolecularBeacon_ShortSequence_ReturnsNull | ✅ Boundary |
+| — | DesignMolecularBeacon_AtRichTarget_ScorePenalizedForGcAndTm | ✅ Mutation |
+| — | DesignMolecularBeacon_GcRichTarget_ScorePenalizedForGcAndTm | ✅ Mutation |
+| — | DesignProbes_WithSuffixTree_FiltersNonUniqueProbes | ✅ Specificity |
+| — | DesignProbes_WithSuffixTree_PerformanceImprovement | ✅ Integration |
 
 ---
 
@@ -140,11 +125,3 @@
 
 None - behavior is well-documented in implementation and sources.
 
----
-
-## Assumptions
-
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Wallace rule applies for probes ≤14 bp | Implementation uses ThermoConstants.WallaceMaxLength |
-| A2 | Score penalties are implementation-specific | No standardized scoring system exists |

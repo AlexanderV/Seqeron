@@ -11,7 +11,7 @@
 | **Canonical Methods** | `ValidateProbe`, `CheckSpecificity` |
 | **Complexity** | O(n × g) |
 | **Status** | ☑ Complete |
-| **Last Updated** | 2026-01-23 |
+| **Last Updated** | 2026-03-04 |
 
 ---
 
@@ -19,11 +19,11 @@
 
 | Source | Type | Key Information |
 |--------|------|-----------------|
-| Wikipedia: Hybridization probe | Academic | Probe hybridization, stringency, cross-hybridization |
-| Wikipedia: DNA microarray | Academic | Probe specificity, cross-hybridization issues |
-| Wikipedia: Off-target genome editing | Academic | Mismatch tolerance (1-5 bp), off-target detection methods |
-| Wikipedia: BLAST | Academic | Approximate matching algorithms, sequence alignment |
-| Amann & Ludwig (2000) | Research | rRNA probe specificity, limitations |
+| Wikipedia: Hybridization probe | Academic | Probe hybridization, stringency-dependent cross-hybridization |
+| Wikipedia: DNA microarray | Academic | Probe specificity, cross-hybridization in high-density arrays |
+| Wikipedia: Off-target genome editing | Academic | CRISPR/Cas9 tolerates 3-5 bp mismatches per 20nt guide |
+| Wikipedia: Nucleic acid thermodynamics | Academic | Mismatch destabilization, complementarity metrics |
+| Wikipedia: Off-target activity | Academic | Off-target detection methods, mismatch tolerance mechanisms |
 
 ---
 
@@ -75,58 +75,43 @@
 
 ---
 
-## Audit Results
+## Coverage Classification
 
-### Existing Test Coverage (ProbeDesignerTests.cs)
-
-| Test | Status | Notes |
-|------|--------|-------|
-| ValidateProbe_UniqueProbe_HighSpecificity | Covered | M3 partially |
-| ValidateProbe_MultipleHits_LowSpecificity | Covered | M4 partially |
-| ValidateProbe_HighSelfComplementarity_ReportsIssue | Covered | M8 partially |
-
-### Missing Tests (All Closed)
-
-| ID | Test Case | Status |
-|----|-----------|--------|
-| M1 | Empty probe handling | ✅ Covered |
-| M2 | Empty references handling | ✅ Covered |
-| M5 | Specificity range invariant | ✅ Covered |
-| M6 | Self-complementarity range invariant | ✅ Covered |
-| M7 | OffTargetHits non-negativity | ✅ Covered |
-| M9-M11 | CheckSpecificity with suffix tree | ✅ Covered |
-| M12 | Case-insensitive handling | ✅ Covered |
-| S1-S4 | Should tests | ✅ Covered |
-
-### Weak Tests
-
-| Test | Issue | Fix |
-|------|-------|-----|
-| ValidateProbe_UniqueProbe_HighSpecificity | Doesn't verify all invariants | Add Assert.Multiple with all fields |
-| ValidateProbe_MultipleHits_LowSpecificity | Incomplete | Verify exact formula |
+| ID | Test Method | Classification | Notes |
+|----|------------|----------------|-------|
+| M1 | `ValidateProbe_EmptyProbe_ReturnsValidationResult` | ✅ Covered | Exact: specificity=0.0, offTargetHits=0, IsValid=false |
+| M2 | `ValidateProbe_EmptyReferences_ReturnsValidationWithNoOffTargetHits` | ✅ Covered | Exact: specificity=0.0, offTargetHits=0 (Inv. #5) |
+| — | `ValidateProbe_NullReferences_ThrowsArgumentNullException` | ✅ Covered | ArgumentNullException |
+| M3 | `ValidateProbe_UniqueProbe_HasSpecificityScoreOne` | ✅ Covered | Exact: offTargetHits=1, specificity=1.0 |
+| M4 | `ValidateProbe_MultipleHits_ReducesSpecificityByHitCount` | ✅ Covered | Exact: offTargetHits=25, specificity=0.04 |
+| M5 | ~~`ValidateProbe_AnyInput_SpecificityScoreInValidRange`~~ | 🔁 Deleted | Subsumed by AllInvariants + every exact-value test |
+| M6 | ~~`ValidateProbe_AnyInput_SelfComplementarityInValidRange`~~ | 🔁 Deleted | Subsumed by AllInvariants + M8 |
+| M7 | ~~`ValidateProbe_AnyInput_OffTargetHitsNonNegative`~~ | 🔁 Deleted | Subsumed by AllInvariants + all specific tests |
+| M8 | `ValidateProbe_HighSelfComplementarity_ReportsInIssues` | ✅ Covered | Exact: selfComp=1.0, issues contain "Self-complementarity" |
+| M9 | ~~`CheckSpecificity_ResultInValidRange`~~ | 🔁 Deleted | Subsumed by M10 + M11 + NoMatch exact tests |
+| M9 | `CheckSpecificity_NoMatch_ReturnsZero` | ✅ Covered | Exact: specificity=0.0 |
+| M10 | `CheckSpecificity_UniqueSequence_ReturnsOne` | ✅ Covered | Exact: specificity=1.0 |
+| M11 | `CheckSpecificity_MultipleOccurrences_ReturnsOneOverCount` | ✅ Covered | Exact: 1.0/count |
+| M12 | `ValidateProbe_MixedCaseProbe_HandledCaseInsensitively` | ✅ Covered | Upper/lower/mixed → same results |
+| S1 | `ValidateProbe_PotentialHairpin_DetectsSecondaryStructure` | ✅ Covered | Exact: HasSecondaryStructure=true, issues contain text |
+| S2 | `ValidateProbe_ProblematicProbe_PopulatesIssuesList` | ✅ Covered | Exact: offTargetHits=16, issues contain "16 potential off-target sites" |
+| S3 | `ValidateProbe_MultipleProblems_IsValidFalse` | ✅ Covered | Exact: hits=12, selfComp=1.0, issues=2, IsValid=false |
+| S4 | `ValidateProbe_ApproximateMatching_FindsNearMatches` | ✅ Covered | Exact: 0 hits (strict) vs 1 hit (approx) |
+| C1 | `ValidateProbe_LongReference_FindsProbeCorrectly` | ✅ Covered | 20k-char ref, exact: hits=1, specificity=1.0 |
+| C2 | `ValidateProbe_MultipleReferences_AccumulatesHits` | ✅ Covered | 3 refs, exact: hits=3, specificity=1/3 |
+| — | `ValidateProbe_AllInvariants_HoldForTypicalProbe` | ✅ Covered | All 6 invariants verified for typical input |
+| — | `ValidateProbe_ZeroHits_ReturnsZeroSpecificity` | ✅ Covered | Explicit Invariant #5 |
+| — | `DesignProbes_WithGenomeIndex_UsesCheckSpecificity` | ✅ Covered | Integration: suffix tree + DesignProbes |
 
 ---
 
-## Consolidation Plan
+## Evidence-Backed Parameters
 
-1. **Canonical File**: Create `ProbeDesigner_ProbeValidation_Tests.cs` (new file)
-2. **Smoke Tests**: Keep 1-2 validation tests in `ProbeDesignerTests.cs` as smoke tests
-3. ~~**Add Missing Tests**: M1-M12, S1-S4~~ ✅ Done
-4. **Strengthen Tests**: Use Assert.Multiple for invariant grouping
-5. **Remove**: Move validation tests from ProbeDesignerTests.cs to canonical file
-6. **Naming Convention**: `Method_Scenario_ExpectedResult`
+All configurable parameters have external evidence justification. No assumptions remain.
 
----
+| Parameter | Default | Evidence | Source |
+|-----------|---------|----------|--------|
+| `maxMismatches` | 3 | Lower bound of CRISPR/Cas9 off-target tolerance: 3-5 bp mismatches per 20nt guide (Hsu et al. 2013, Fu et al. 2013). Configurable per caller. | Wikipedia: Off-target genome editing |
+| `selfComplementarityThreshold` | 0.3 | For random DNA (uniform base distribution), expected self-complementarity ≈ 0.25. Threshold of 0.3 (20% above baseline) detects statistically elevated palindromic character. Per-application defaults: qPCR=0.25, Microarray=0.3, NorthernBlot=0.35, FISH/SouthernBlot=0.4. | Wikipedia: Nucleic acid thermodynamics; `ProbeParameters.Defaults` |
 
-## Open Questions
 
-None - behavior is well-documented in implementation.
-
----
-
-## Assumptions
-
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | maxMismatches=3 is appropriate default | Aligns with CRISPR off-target tolerance (1-5 mismatches tolerated) |
-| A2 | Self-complementarity threshold of 0.3 for warnings | Common practice for probe design |
