@@ -57,10 +57,14 @@ public class RestrictionAnalyzer_FindSites_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(enzyme, Is.Not.Null);
-            Assert.That(enzyme!.RecognitionSequence, Is.EqualTo("GGATCC"));
-            Assert.That(enzyme.RecognitionLength, Is.EqualTo(6));
-            Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.FivePrime));
+            Assert.That(enzyme, Is.Not.Null, "BamHI should be in enzyme database");
+            Assert.That(enzyme!.Name, Is.EqualTo("BamHI"), "Name should match");
+            Assert.That(enzyme.RecognitionSequence, Is.EqualTo("GGATCC"), "Recognition sequence from Wikipedia");
+            Assert.That(enzyme.CutPositionForward, Is.EqualTo(1), "Cuts after G (position 1)");
+            Assert.That(enzyme.CutPositionReverse, Is.EqualTo(5), "Reverse cut at position 5");
+            Assert.That(enzyme.RecognitionLength, Is.EqualTo(6), "6-cutter enzyme");
+            Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.FivePrime), "Produces 5' overhang (GATC)");
+            Assert.That(enzyme.IsBluntEnd, Is.False, "BamHI is not a blunt cutter");
         });
     }
 
@@ -434,9 +438,9 @@ public class RestrictionAnalyzer_FindSites_Tests
     [Test]
     public void FindSites_CustomEnzyme_FindsSiteCorrectly()
     {
+        // ATAT at position 2 in AAATATAAA
         var customEnzyme = new RestrictionEnzyme("CustomI", "ATAT", 2, 2, "Custom enzyme");
         var sequence = new DnaSequence("AAATATAAA");
-        var expectedPosition = sequence.Sequence.IndexOf(customEnzyme.RecognitionSequence, StringComparison.Ordinal);
 
         var sites = RestrictionAnalyzer.FindSites(sequence, customEnzyme)
             .Where(s => s.IsForwardStrand)
@@ -445,10 +449,10 @@ public class RestrictionAnalyzer_FindSites_Tests
         Assert.Multiple(() =>
         {
             Assert.That(sites, Has.Count.EqualTo(1), "Should find custom enzyme site");
-            Assert.That(expectedPosition, Is.GreaterThanOrEqualTo(0), "Setup should contain the recognition site");
-            Assert.That(sites[0].Position, Is.EqualTo(expectedPosition), "Site should be at expected position");
+            Assert.That(sites[0].Position, Is.EqualTo(2), "ATAT starts at position 2");
             Assert.That(sites[0].Enzyme.Name, Is.EqualTo("CustomI"), "Enzyme name should match");
             Assert.That(sites[0].RecognizedSequence, Is.EqualTo("ATAT"));
+            Assert.That(sites[0].CutPosition, Is.EqualTo(4), "Cut at 2 + 2 = 4");
         });
     }
 
@@ -587,25 +591,6 @@ public class RestrictionAnalyzer_FindSites_Tests
     #region Enzyme Overhang Type Tests
 
     /// <summary>
-    /// Evidence: Wikipedia EcoRI - Produces 5' overhang (sticky end with AATT).
-    /// </summary>
-    [Test]
-    public void RestrictionEnzyme_EcoRI_HasFivePrimeOverhang()
-    {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("EcoRI")!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(enzyme.IsBluntEnd, Is.False, "EcoRI is not blunt");
-            Assert.That(enzyme.OverhangType, Is.EqualTo(OverhangType.FivePrime),
-                "EcoRI produces 5' overhang");
-            // 5' overhang means CutPositionForward < CutPositionReverse
-            Assert.That(enzyme.CutPositionForward, Is.LessThan(enzyme.CutPositionReverse),
-                "5' overhang: forward cut before reverse cut");
-        });
-    }
-
-    /// <summary>
     /// Evidence: Wikipedia - PstI produces 3' overhang.
     /// </summary>
     [Test]
@@ -642,19 +627,289 @@ public class RestrictionAnalyzer_FindSites_Tests
         });
     }
 
+    #endregion
+
+    #region IUPAC Degenerate Recognition Tests
+
     /// <summary>
-    /// Evidence: Wikipedia - NotI is an 8-cutter (rare cutter).
+    /// Evidence: HincII recognizes GTYRAC (Y = C/T, R = A/G) — a degenerate sequence.
+    /// All 4 valid IUPAC combinations must be recognized.
+    /// Source: REBASE, Wikipedia: Restriction enzyme
     /// </summary>
     [Test]
-    public void RestrictionEnzyme_NotI_IsEightCutter()
+    [TestCase("GTCAAC", Description = "Y=C, R=A")]
+    [TestCase("GTTAAC", Description = "Y=T, R=A")]
+    [TestCase("GTCGAC", Description = "Y=C, R=G")]
+    [TestCase("GTTGAC", Description = "Y=T, R=G")]
+    public void FindSites_HincII_MatchesAllDegenerateCombinations(string recognition)
     {
-        var enzyme = RestrictionAnalyzer.GetEnzyme("NotI")!;
+        var sequence = new DnaSequence($"AA{recognition}AA");
+
+        var sites = RestrictionAnalyzer.FindSites(sequence, "HincII")
+            .Where(s => s.IsForwardStrand)
+            .ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(enzyme, Is.Not.Null, "NotI should be in database");
-            Assert.That(enzyme.RecognitionSequence, Is.EqualTo("GCGGCCGC"), "NotI recognition sequence");
-            Assert.That(enzyme.RecognitionLength, Is.EqualTo(8), "NotI is 8-cutter");
+            Assert.That(sites, Has.Count.EqualTo(1),
+                $"HincII (GTYRAC) should match {recognition}");
+            Assert.That(sites[0].Position, Is.EqualTo(2),
+                "Site at position 2");
+            Assert.That(sites[0].RecognizedSequence, Is.EqualTo(recognition),
+                "RecognizedSequence should be the actual bases, not the IUPAC pattern");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: HincII GTYRAC — Y requires C or T only.
+    /// A base that does not satisfy the IUPAC code must NOT match.
+    /// </summary>
+    [Test]
+    [TestCase("GTAAAC", Description = "A does not satisfy Y (C/T)")]
+    [TestCase("GTGAAC", Description = "G does not satisfy Y (C/T)")]
+    [TestCase("GTCTAC", Description = "T does not satisfy R (A/G)")]
+    [TestCase("GTCCAC", Description = "C does not satisfy R (A/G)")]
+    public void FindSites_HincII_RejectsNonMatchingDegenerateBases(string nonMatch)
+    {
+        var sequence = new DnaSequence($"AA{nonMatch}AA");
+
+        var sites = RestrictionAnalyzer.FindSites(sequence, "HincII")
+            .Where(s => s.IsForwardStrand)
+            .ToList();
+
+        Assert.That(sites, Is.Empty,
+            $"HincII (GTYRAC) should NOT match {nonMatch}");
+    }
+
+    /// <summary>
+    /// Evidence: HincII is a blunt cutter (3, 3) even with degenerate recognition.
+    /// Verifies that IUPAC matching does not affect cut position calculation.
+    /// </summary>
+    [Test]
+    public void FindSites_HincII_DegenerateEnzymeProducesCorrectCutPosition()
+    {
+        // GTCAAC at position 3
+        var sequence = new DnaSequence("AAAGTCAACAAA");
+
+        var site = RestrictionAnalyzer.FindSites(sequence, "HincII")
+            .First(s => s.IsForwardStrand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(site.CutPosition, Is.EqualTo(6), "Cut at 3 + 3 = 6");
+            Assert.That(site.Enzyme.IsBluntEnd, Is.True, "HincII is blunt cutter");
+            Assert.That(site.Enzyme.OverhangType, Is.EqualTo(OverhangType.Blunt));
+        });
+    }
+
+    #endregion
+
+    #region External Source Verification Tests
+
+    /// <summary>
+    /// Evidence: Wikipedia EcoRI — "5' end overhangs of AATT", "G↓AATTC / CTTAA↓G".
+    /// Verifies exact overhang bases match Wikipedia data.
+    /// Source: https://en.wikipedia.org/wiki/EcoRI
+    /// </summary>
+    [Test]
+    public void FindSites_EcoRI_OverhangSequenceIsAATT()
+    {
+        var sequence = new DnaSequence("AAAGAATTCAAA");
+
+        var forwardSite = RestrictionAnalyzer.FindSites(sequence, "EcoRI")
+            .First(s => s.IsForwardStrand);
+        var reverseSite = RestrictionAnalyzer.FindSites(sequence, "EcoRI")
+            .First(s => !s.IsForwardStrand);
+
+        int fwdCut = forwardSite.CutPosition;
+        int revCut = reverseSite.CutPosition;
+        string overhang = sequence.Sequence.Substring(fwdCut, revCut - fwdCut);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fwdCut, Is.LessThan(revCut),
+                "5' overhang: forward cut before reverse cut");
+            Assert.That(overhang, Is.EqualTo("AATT"),
+                "EcoRI overhang should be AATT (Wikipedia: EcoRI)");
+            Assert.That(overhang.Length, Is.EqualTo(4),
+                "EcoRI produces 4-base overhang");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia BamHI — "cleaves just after the 5'-guanine on each strand"
+    /// producing 4 bp 5' sticky ends with GATC overhang.
+    /// Source: https://en.wikipedia.org/wiki/BamHI
+    /// </summary>
+    [Test]
+    public void FindSites_BamHI_OverhangSequenceIsGATC()
+    {
+        var sequence = new DnaSequence("AAAAGGATCCAAAA");
+
+        var forwardSite = RestrictionAnalyzer.FindSites(sequence, "BamHI")
+            .First(s => s.IsForwardStrand);
+        var reverseSite = RestrictionAnalyzer.FindSites(sequence, "BamHI")
+            .First(s => !s.IsForwardStrand);
+
+        int fwdCut = forwardSite.CutPosition;
+        int revCut = reverseSite.CutPosition;
+        string overhang = sequence.Sequence.Substring(fwdCut, revCut - fwdCut);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fwdCut, Is.LessThan(revCut),
+                "5' overhang: forward cut before reverse cut");
+            Assert.That(overhang, Is.EqualTo("GATC"),
+                "BamHI overhang should be GATC (Wikipedia: BamHI)");
+            Assert.That(overhang.Length, Is.EqualTo(4),
+                "BamHI produces 4-base overhang");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia HindIII — "cleavage of this sequence between the AA's
+    /// results in 5' overhangs". Cut pattern: A↓AGCTT / TTCGA↓A.
+    /// Source: https://en.wikipedia.org/wiki/HindIII
+    /// </summary>
+    [Test]
+    public void FindSites_HindIII_OverhangSequenceIsAGCT()
+    {
+        // AAGCTT at position 3
+        var sequence = new DnaSequence("AAAAAGCTTAAA");
+
+        var forwardSite = RestrictionAnalyzer.FindSites(sequence, "HindIII")
+            .First(s => s.IsForwardStrand);
+        var reverseSite = RestrictionAnalyzer.FindSites(sequence, "HindIII")
+            .First(s => !s.IsForwardStrand);
+
+        int fwdCut = forwardSite.CutPosition;
+        int revCut = reverseSite.CutPosition;
+        string overhang = sequence.Sequence.Substring(fwdCut, revCut - fwdCut);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fwdCut, Is.LessThan(revCut),
+                "5' overhang: forward cut before reverse cut");
+            Assert.That(overhang, Is.EqualTo("AGCT"),
+                "HindIII overhang should be AGCT (Wikipedia: HindIII)");
+            Assert.That(overhang.Length, Is.EqualTo(4),
+                "HindIII produces 4-base overhang");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia PstI — "generates fragments with 3'-cohesive termini",
+    /// cut pattern: CTGCA↓G / G↓ACGTC, producing 4 bp 3' overhang.
+    /// Source: https://en.wikipedia.org/wiki/PstI
+    /// </summary>
+    [Test]
+    public void FindSites_PstI_ProducesThreePrimeOverhangOfFourBases()
+    {
+        // CTGCAG at position 2
+        var sequence = new DnaSequence("AACTGCAGAA");
+
+        var forwardSite = RestrictionAnalyzer.FindSites(sequence, "PstI")
+            .First(s => s.IsForwardStrand);
+        var reverseSite = RestrictionAnalyzer.FindSites(sequence, "PstI")
+            .First(s => !s.IsForwardStrand);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwardSite.CutPosition, Is.GreaterThan(reverseSite.CutPosition),
+                "3' overhang: forward cut after reverse cut (Wikipedia: PstI)");
+            Assert.That(forwardSite.CutPosition - reverseSite.CutPosition, Is.EqualTo(4),
+                "PstI produces 4-base 3' overhang (Wikipedia: PstI)");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia EcoRV — "creates blunt ends", "GAT|ATC".
+    /// Forward and reverse cuts at identical position.
+    /// Source: https://en.wikipedia.org/wiki/EcoRV
+    /// </summary>
+    [Test]
+    public void FindSites_EcoRV_ProducesBluntEndCuts()
+    {
+        // GATATC at position 3
+        var sequence = new DnaSequence("AAAGATATCAAA");
+
+        var forwardSite = RestrictionAnalyzer.FindSites(sequence, "EcoRV")
+            .First(s => s.IsForwardStrand);
+        var reverseSite = RestrictionAnalyzer.FindSites(sequence, "EcoRV")
+            .First(s => !s.IsForwardStrand);
+
+        Assert.That(forwardSite.CutPosition, Is.EqualTo(reverseSite.CutPosition),
+            "Blunt end: forward and reverse cut at same position (Wikipedia: EcoRV)");
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia Restriction enzyme — "Many of them are palindromic, meaning
+    /// the base sequence reads the same backwards and forwards."
+    /// Palindromic sites are recognized on both strands at the same position.
+    /// Source: https://en.wikipedia.org/wiki/Restriction_enzyme#Recognition_site
+    /// </summary>
+    [Test]
+    public void FindSites_PalindromicSite_FoundOnBothStrandsAtSamePosition()
+    {
+        // EcoRI recognizes palindromic GAATTC (reverse complement is also GAATTC)
+        var sequence = new DnaSequence("AAAGAATTCAAA");
+
+        var sites = RestrictionAnalyzer.FindSites(sequence, "EcoRI").ToList();
+        var forwardSites = sites.Where(s => s.IsForwardStrand).ToList();
+        var reverseSites = sites.Where(s => !s.IsForwardStrand).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forwardSites, Has.Count.EqualTo(1),
+                "Should find palindromic site on forward strand");
+            Assert.That(reverseSites, Has.Count.EqualTo(1),
+                "Should find palindromic site on reverse strand");
+            Assert.That(forwardSites[0].Position, Is.EqualTo(reverseSites[0].Position),
+                "Palindromic site at same forward-strand position on both strands");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: Wikipedia Restriction enzyme examples table — comprehensive verification
+    /// of cut positions for all enzymes listed in the Wikipedia table.
+    /// Source: https://en.wikipedia.org/wiki/Restriction_enzyme#Examples
+    /// </summary>
+    [Test]
+    [TestCase("EcoRI", "GAATTC", 1, 5, Description = "Wikipedia: G↓AATTC / CTTAA↓G")]
+    [TestCase("BamHI", "GGATCC", 1, 5, Description = "Wikipedia: G↓GATCC / CCTAG↓G")]
+    [TestCase("HindIII", "AAGCTT", 1, 5, Description = "Wikipedia: A↓AGCTT / TTCGA↓A")]
+    [TestCase("TaqI", "TCGA", 1, 3, Description = "Wikipedia: T↓CGA / AGC↓T")]
+    [TestCase("NotI", "GCGGCCGC", 2, 6, Description = "Wikipedia: GC↓GGCCGC / CGCCGG↓CG")]
+    [TestCase("Sau3AI", "GATC", 0, 4, Description = "Wikipedia: ↓GATC / CTAG↓")]
+    [TestCase("AluI", "AGCT", 2, 2, Description = "Wikipedia: AG↓CT / TC↓GA (blunt)")]
+    [TestCase("HaeIII", "GGCC", 2, 2, Description = "Wikipedia: GG↓CC / CC↓GG (blunt)")]
+    [TestCase("EcoRV", "GATATC", 3, 3, Description = "Wikipedia: GAT↓ATC / CTA↓TAG (blunt)")]
+    [TestCase("SmaI", "CCCGGG", 3, 3, Description = "Wikipedia: CCC↓GGG / GGG↓CCC (blunt)")]
+    [TestCase("PstI", "CTGCAG", 5, 1, Description = "Wikipedia: CTGCA↓G / G↓ACGTC")]
+    [TestCase("KpnI", "GGTACC", 5, 1, Description = "Wikipedia: GGTAC↓C / C↓CATGG")]
+    [TestCase("SacI", "GAGCTC", 5, 1, Description = "Wikipedia: GAGCT↓C / C↓TCGAG")]
+    [TestCase("SalI", "GTCGAC", 1, 5, Description = "Wikipedia: G↓TCGAC / CAGCT↓G")]
+    [TestCase("ScaI", "AGTACT", 3, 3, Description = "Wikipedia: AGT↓ACT / TCA↓TGA (blunt)")]
+    [TestCase("SpeI", "ACTAGT", 1, 5, Description = "Wikipedia: A↓CTAGT / TGATC↓A")]
+    [TestCase("SphI", "GCATGC", 5, 1, Description = "Wikipedia: GCATG↓C / C↓GTACG")]
+    [TestCase("StuI", "AGGCCT", 3, 3, Description = "Wikipedia: AGG↓CCT / TCC↓GGA (blunt)")]
+    [TestCase("XbaI", "TCTAGA", 1, 5, Description = "Wikipedia: T↓CTAGA / AGATC↓T")]
+    [TestCase("BglII", "AGATCT", 1, 5, Description = "Wikipedia: A↓GATCT / TCTAG↓A")]
+    [TestCase("ApaI", "GGGCCC", 5, 1, Description = "Wikipedia: GGGCC↓C / C↓CCGGG")]
+    public void EnzymeDatabase_CutPositions_MatchWikipedia(
+        string name, string expectedRecognition, int expectedCutFwd, int expectedCutRev)
+    {
+        var enzyme = RestrictionAnalyzer.GetEnzyme(name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(enzyme, Is.Not.Null, $"{name} should be in database");
+            Assert.That(enzyme!.RecognitionSequence, Is.EqualTo(expectedRecognition),
+                $"{name} recognition sequence (Wikipedia)");
+            Assert.That(enzyme.CutPositionForward, Is.EqualTo(expectedCutFwd),
+                $"{name} forward cut position (Wikipedia)");
+            Assert.That(enzyme.CutPositionReverse, Is.EqualTo(expectedCutRev),
+                $"{name} reverse cut position (Wikipedia)");
         });
     }
 
