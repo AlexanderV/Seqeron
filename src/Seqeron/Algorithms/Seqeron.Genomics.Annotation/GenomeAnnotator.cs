@@ -305,7 +305,7 @@ public static class GenomeAnnotator
             var attributes = new Dictionary<string, string>
             {
                 ["frame"] = orf.Frame.ToString(),
-                ["protein_length"] = orf.ProteinSequence.Length.ToString(),
+                ["protein_length"] = orf.ProteinSequence.TrimEnd('*').Length.ToString(),
                 ["translation"] = orf.ProteinSequence
             };
 
