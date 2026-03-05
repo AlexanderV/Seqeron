@@ -19,7 +19,7 @@
 | Wikipedia: Shine-Dalgarno sequence | Encyclopedia | SD consensus AGGAGG, distance 4-15bp upstream of start |
 | Wikipedia: Ribosome-binding site | Encyclopedia | RBS role in translation initiation |
 | Shine & Dalgarno (1975) | Primary | Original SD sequence identification |
-| Chen et al. (1994) | Primary | Optimal SD-to-start spacing: 5-9 bp |
+| Chen et al. (1994) | Primary | Optimal aligned spacing: 5 nt (E. coli); functional range 4-15 bp |
 | Laursen et al. (2005) | Review | Bacterial translation initiation mechanisms |
 
 ## Method Specifications
@@ -33,7 +33,7 @@
 - All genes have strand '+' or '-'
 - All genes have Start < End
 - Gene IDs follow pattern "{prefix}_{number:D4}"
-- Protein length in attributes matches (End-Start)/3 - 1
+- Protein length in attributes matches (End-Start)/3 - 1 (excludes stop codon)
 
 ### 2. FindRibosomeBindingSites(dna, upstreamWindow, minDistance, maxDistance)
 
@@ -42,7 +42,7 @@
 **Invariants:**
 - Position is within upstream window of a valid ORF
 - Sequence matches one of: AGGAGG, GGAGG, AGGAG, GAGG, AGGA
-- Distance to start codon is within [minDistance, maxDistance]
+- Distance to start codon (aligned spacing) is within [minDistance, maxDistance]
 - Score is normalized (motif.Length / 6.0)
 
 ## Test Cases
@@ -57,10 +57,10 @@
 | M4 | PredictGenes filters by minOrfLength | Parameter contract | Implementation |
 | M5 | PredictGenes finds genes on both strands | Both strands can encode genes | Wikipedia |
 | M6 | FindRibosomeBindingSites detects AGGAGG consensus | SD consensus sequence | Shine & Dalgarno 1975 |
-| M7 | FindRibosomeBindingSites validates distance constraints | Optimal spacing 4-15bp | Chen et al. 1994 |
+| M7 | FindRibosomeBindingSites validates distance constraints | Functional range 4-15 bp; optimal 5 nt | Chen et al. 1994, Wikipedia |
 | M8 | Empty sequence returns empty result | Edge case | Implementation |
 | M9 | Sequence without ORFs returns empty | No start/stop = no gene | Definition |
-| M10 | PredictGenes protein length in attributes is accurate | Data integrity | Implementation |
+| M10 | PredictGenes protein length = (End-Start)/3 - 1 | Data integrity — excludes stop codon | Implementation, Biology |
 
 ### Should Tests (Recommended)
 
@@ -88,33 +88,125 @@
 | Too short | "ATG" | Empty (no stop) | Definition |
 | No start codon | "TAATAG" | Empty | Definition |
 | Minimal ORF | ATG + 99aa + stop | Filtered if minOrfLength=100 | Parameter |
-| Exactly minimum | ATG + 100aa + stop | Included | Boundary |
+| SD at exact minDistance (4 bp) | padding+AGGAGG+4bp+ORF | Detected | Boundary, Wikipedia |
+| SD at exact maxDistance (15 bp) | padding+AGGAGG+15bp+ORF | Detected | Boundary, Wikipedia |
+| SD beyond maxDistance (16 bp) | padding+AGGAGG+16bp+ORF | Not detected | Boundary, Wikipedia |
+| SD at optimal (5 nt) | padding+AGGAGG+5bp+ORF | Detected | Chen et al. 1994 |
 
 ## Test Pool Consolidation
 
-### Current State
-- Existing tests in `GenomeAnnotatorTests.cs` (lines 69-97): 4 basic tests
-- Tests are minimal smoke tests, not evidence-based
-
-### Target State
-- Create `GenomeAnnotator_Gene_Tests.cs` for ANNOT-GENE-001 canonical tests
-- Move/refactor gene prediction tests from GenomeAnnotatorTests.cs
-- Keep only GFF3/promoter/other tests in GenomeAnnotatorTests.cs
-
-### Files to Modify
-| File | Action |
+| File | Status |
 |------|--------|
-| `GenomeAnnotator_Gene_Tests.cs` | CREATE: canonical evidence-based tests |
-| `GenomeAnnotatorTests.cs` | MODIFY: remove PredictGenes/RBS tests (move to new file) |
+| `GenomeAnnotator_Gene_Tests.cs` | Canonical: 32 tests (26 methods, 6 parametric cases) |
+| `GenomeAnnotatorTests.cs` | Retained: GFF3/promoter/other tests |
 
-## Assumptions
+## Coverage Classification
 
-| ID | Assumption | Justification |
-|----|------------|---------------|
-| A1 | Prokaryotic model is appropriate | Implementation targets bacteria |
-| A2 | SD motif set is sufficient | Common variants covered |
-| A3 | Default distance 4-15bp is reasonable | Matches literature |
+**Total: 32 tests in canonical file (was 24 — 1 duplicate removed, 5 missing implemented, 4 parametric cases added)**
 
-## Open Questions
+### Summary
 
-None - implementation matches documented biological behavior.
+| Category | Count |
+|----------|-------|
+| ❌ Missing → Implemented | 5 (S2, S3-TTG, C1, C3, Edge-NoStop) |
+| ⚠ Weak → Strengthened | 8 (M2, M5, M6, M10, S1, S3→parametric, S4, FrameAttribute) |
+| 🔁 Duplicate → Removed | 1 (M7 RespectsDistanceConstraints) |
+| ✅ Covered | All remaining |
+
+### ❌ Missing (Implemented)
+
+| ID | Test | Action |
+|----|------|--------|
+| S2 | Overlapping genes both reported | Implemented `PredictGenes_OverlappingGenes_BothReported` — two ORFs in different frames with verified overlap |
+| S3 | TTG start codon not tested | Added `[TestCase("TTG")]` to parametric `AlternativeStartCodons_Recognized` |
+| C1 | Very long ORF (>1000 aa) | Implemented `PredictGenes_VeryLongOrf_Handled` — 1500 aa ORF, verifies >3000 nt span |
+| C3 | Multiple RBS upstream of same ORF | Implemented `FindRibosomeBindingSites_MultipleUpstreamOfSameOrf` — AGGAGG at spacing 13 + GAGG at spacing 5 |
+| Edge | ATG without stop codon | Implemented `PredictGenes_StartCodonOnly_NoStop_ReturnsEmpty` |
+
+### ⚠ Weak (Strengthened)
+
+| ID | Test | Before | After |
+|----|------|--------|-------|
+| M2 | AssignsSequentialGeneIds | `genes[0]` only, `Does.Match` | All genes verified with exact `$"test_{i+1:D4}"` |
+| M5 | FindsGenesOnBothStrands | Only forward strand asserted | Both `+` and `-` strands asserted via revcomp construction |
+| M6 | DetectsConsensusAggagg | `Contains("AGGAGG") \|\| Contains("GGAGG")` | `s.sequence == "AGGAGG"` exact match |
+| M10 | ProteinLengthAttribute | `LessThanOrEqualTo(nucleotideLength/3)` | Implementation bug fixed: `TrimEnd('*')`; test asserts exact `(End-Start)/3 - 1` |
+| S1 | MultipleGenes_AllDetected | `GreaterThanOrEqualTo(2)` | Exact coordinate assertions: `[0,303)`, `[323,626)` |
+| S3 | AlternativeStartCodons | Only GTG tested | Parametric: `[TestCase("GTG")][TestCase("TTG")]` |
+| S4 | ShorterMotifs_Detected | `s.sequence.Contains(sdMotif)` | `s.sequence == sdMotif` exact match |
+| — | FrameAttributeIsValid | `TryGetValue` (no assert on key existence) | `ContainsKey` assertion + exact range check |
+
+### 🔁 Duplicate (Removed)
+
+| Test | Reason |
+|------|--------|
+| `FindRibosomeBindingSites_RespectsDistanceConstraints` | Fully subsumed by `AtMinDistance_Detected` (4bp), `AtMaxDistance_Detected` (15bp), `BeyondMaxDistance_NotDetected` (16bp), `OptimalSpacing_5nt_ChenEtAl1994` (5nt) |
+
+### Canonical File (`GenomeAnnotator_Gene_Tests.cs`) — 32 tests
+
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 1 | `PredictGenes_AllGenesHaveCdsType` | M1 | ✅ |
+| 2 | `PredictGenes_AssignsSequentialGeneIds` | M2 | ✅ |
+| 3 | `PredictGenes_IncludesStrandInformation` | M3 | ✅ |
+| 4 | `PredictGenes_FiltersOrfsByMinLength` | M4 | ✅ |
+| 5 | `PredictGenes_FindsGenesOnBothStrands` | M5 | ✅ |
+| 6 | `PredictGenes_EmptySequence_ReturnsEmpty` | M8 | ✅ |
+| 7 | `PredictGenes_NoValidOrfs_ReturnsEmpty` | M9 | ✅ |
+| 8 | `PredictGenes_ProteinLengthAttributeIsAccurate` | M10 | ✅ |
+| 9 | `PredictGenes_MultipleGenes_AllDetected` | S1 | ✅ |
+| 10 | `PredictGenes_AlternativeStartCodons_Recognized` (2 cases) | S3 | ✅ |
+| 11 | `FindRibosomeBindingSites_DetectsConsensusAggagg` | M6 | ✅ |
+| 12 | `FindRibosomeBindingSites_TooClose_NotDetected` | M7/Edge | ✅ |
+| 13 | `FindRibosomeBindingSites_OptimalSpacing_5nt_ChenEtAl1994` | M7/Boundary | ✅ |
+| 14 | `FindRibosomeBindingSites_AtMinDistance_Detected` | M7/Boundary | ✅ |
+| 15 | `FindRibosomeBindingSites_AtMaxDistance_Detected` | M7/Boundary | ✅ |
+| 16 | `FindRibosomeBindingSites_BeyondMaxDistance_NotDetected` | M7/Boundary | ✅ |
+| 17 | `FindRibosomeBindingSites_ShorterMotifs_Detected` (4 cases) | S4 | ✅ |
+| 18 | `FindRibosomeBindingSites_ScoreReflectsMotifLength` | S5 | ✅ |
+| 19 | `FindRibosomeBindingSites_NoOrfs_ReturnsEmpty` | Edge | ✅ |
+| 20 | `PredictGenes_MixedCase_HandledCorrectly` | C2 | ✅ |
+| 21 | `PredictGenes_NullSequence_HandledGracefully` | Edge | ✅ |
+| 22 | `PredictGenes_DefaultPrefix_IsGene` | Edge | ✅ |
+| 23 | `PredictGenes_CoordinatesAreValid` | Invariant | ✅ |
+| 24 | `PredictGenes_FrameAttributeIsValid` | Invariant | ✅ |
+| 25 | `PredictGenes_OverlappingGenes_BothReported` | S2 | ✅ |
+| 26 | `PredictGenes_VeryLongOrf_Handled` | C1 | ✅ |
+| 27 | `PredictGenes_StartCodonOnly_NoStop_ReturnsEmpty` | Edge | ✅ |
+| 28 | `FindRibosomeBindingSites_MultipleUpstreamOfSameOrf` | C3 | ✅ |
+
+### Classification Summary
+
+- ✅ Covered: 32 tests (28 methods, 6 parametric cases)
+- ❌ Missing: 0
+- ⚠ Weak: 0
+- 🔁 Duplicate: 0
+
+## Deviations and Assumptions
+
+None. All design parameters are grounded in external sources:
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| SD consensus | AGGAGG | Shine & Dalgarno (1975) |
+| SD motifs | AGGAGG, GGAGG, AGGAG, GAGG, AGGA | Substrings of consensus; Wikipedia: Shine-Dalgarno sequence |
+| Functional range | 4-15 bp | Wikipedia: Shine-Dalgarno sequence |
+| Optimal aligned spacing | 5 nt | Chen et al. (1994) |
+| Start codons | ATG, GTG, TTG | Wikipedia: Gene prediction (prokaryotic) |
+| Stop codons | TAA, TAG, TGA | Standard genetic code |
+| Score normalization | motif.Length / 6.0 | Implementation (consensus length = 6) |
+| Prokaryotic model | No introns, ORF-based | Wikipedia: Gene prediction |
+
+## Validation Checklist
+
+- [x] All MUST tests have evidence source
+- [x] Invariants specified and tested
+- [x] Edge cases documented and tested (empty, null, no-stop, no-start, too-close, beyond-max)
+- [x] Boundary conditions tested (minDistance=4, maxDistance=15, beyond=16, optimal=5)
+- [x] Both strands tested
+- [x] All alternative start codons tested (GTG, TTG)
+- [x] Sequential ID numbering verified across multiple genes
+- [x] No assumptions — all design decisions backed by external sources
+- [x] No duplicates — each test serves a distinct purpose
+- [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate
+- [x] Tests passing (32/32)

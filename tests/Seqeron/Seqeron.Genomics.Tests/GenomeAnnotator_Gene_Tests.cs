@@ -16,7 +16,7 @@ namespace Seqeron.Genomics.Tests;
 /// Evidence:
 ///   - Wikipedia: Gene prediction, Shine-Dalgarno sequence, Ribosome-binding site
 ///   - Shine &amp; Dalgarno (1975): SD consensus AGGAGG
-///   - Chen et al. (1994): Optimal SD-to-start spacing 5-9 bp
+///   - Chen et al. (1994): Optimal aligned spacing 5 nt
 ///   - Laursen et al. (2005): Bacterial translation initiation
 /// </summary>
 [TestFixture]
@@ -38,7 +38,9 @@ public class GenomeAnnotator_Gene_Tests
     }
 
     /// <summary>
-    /// Creates a sequence with Shine-Dalgarno at specific distance from start codon.
+    /// Creates a sequence with Shine-Dalgarno at specific aligned spacing from start codon.
+    /// The aligned spacing is measured from SD 3'-end to the first nucleotide of AUG,
+    /// per Chen et al. (1994) definition.
     /// </summary>
     private static string CreateSequenceWithSd(string sdMotif, int distanceToStart, int orfLength = 100)
     {
@@ -70,19 +72,22 @@ public class GenomeAnnotator_Gene_Tests
     }
 
     /// <summary>
-    /// M2: Gene IDs follow pattern "{prefix}_{number:D4}"
+    /// M2: Gene IDs follow pattern "{prefix}_{number:D4}" with sequential numbering
     /// Source: Implementation contract
     /// </summary>
     [Test]
     public void PredictGenes_AssignsSequentialGeneIds()
     {
-        string sequence = CreateMinimalOrf(100) + "GGGG" + CreateMinimalOrf(100);
+        string sequence = CreateMinimalOrf(100) + new string('C', 20) + CreateMinimalOrf(100);
 
         var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50, prefix: "test").ToList();
 
-        Assert.That(genes.Count, Is.GreaterThan(0));
-        Assert.That(genes[0].GeneId, Does.StartWith("test_"));
-        Assert.That(genes[0].GeneId, Does.Match(@"test_\d{4}"));
+        Assert.That(genes.Count, Is.GreaterThanOrEqualTo(2));
+        for (int i = 0; i < genes.Count; i++)
+        {
+            Assert.That(genes[i].GeneId, Is.EqualTo($"test_{(i + 1):D4}"),
+                $"Gene at index {i} should have sequential ID test_{(i + 1):D4}");
+        }
     }
 
     /// <summary>
@@ -131,15 +136,20 @@ public class GenomeAnnotator_Gene_Tests
     [Test]
     public void PredictGenes_FindsGenesOnBothStrands()
     {
-        // Create sequence with gene on forward strand
-        // The reverse complement should also contain searchable ORFs
+        // Forward strand ORF: ATG + poly-A + TAA
         string forwardOrf = CreateMinimalOrf(100);
+        string spacer = new string('C', 50);
+        // Reverse strand ORF: place revcomp of an ORF so the reverse strand reads ATG...TAA
+        string reverseTarget = "ATG" + new string('G', 297) + "TAA";
+        string reverseOrfOnFwd = DnaSequence.GetReverseComplementString(reverseTarget);
+        string sequence = forwardOrf + spacer + reverseOrfOnFwd;
 
-        var genes = GenomeAnnotator.PredictGenes(forwardOrf, minOrfLength: 50).ToList();
+        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
 
-        // At minimum, forward strand gene should be found
         Assert.That(genes.Any(g => g.Strand == '+'), Is.True,
-            "Should find at least one gene on forward strand");
+            "Should find gene on forward strand");
+        Assert.That(genes.Any(g => g.Strand == '-'), Is.True,
+            "Should find gene on reverse strand");
     }
 
     /// <summary>
@@ -170,8 +180,9 @@ public class GenomeAnnotator_Gene_Tests
     }
 
     /// <summary>
-    /// M10: Protein length in attributes matches calculated length
-    /// Source: Data integrity requirement
+    /// M10: Protein length in attributes matches (End-Start)/3 - 1
+    /// Source: Biological definition — protein length excludes stop codon.
+    ///         ORF span (End-Start) includes stop codon triplet, so amino acids = codons - 1.
     /// </summary>
     [Test]
     public void PredictGenes_ProteinLengthAttributeIsAccurate()
@@ -183,16 +194,12 @@ public class GenomeAnnotator_Gene_Tests
         Assert.That(genes, Is.Not.Empty);
         foreach (var gene in genes)
         {
-            if (gene.Attributes.TryGetValue("protein_length", out var lengthStr))
-            {
-                int proteinLength = int.Parse(lengthStr);
-                int nucleotideLength = gene.End - gene.Start;
-                int expectedProteinLength = nucleotideLength / 3;
-
-                // Account for stop codon (protein length = codons - 1 for stop)
-                Assert.That(proteinLength, Is.LessThanOrEqualTo(expectedProteinLength),
-                    "Protein length should not exceed nucleotide length / 3");
-            }
+            Assert.That(gene.Attributes.ContainsKey("protein_length"), Is.True,
+                $"Gene {gene.GeneId} should have protein_length attribute");
+            int proteinLength = int.Parse(gene.Attributes["protein_length"]);
+            int expected = (gene.End - gene.Start) / 3 - 1;
+            Assert.That(proteinLength, Is.EqualTo(expected),
+                $"Gene {gene.GeneId}: protein_length should be (End-Start)/3 - 1 = {expected} (excludes stop codon)");
         }
     }
 
@@ -201,40 +208,45 @@ public class GenomeAnnotator_Gene_Tests
     #region PredictGenes - Should Tests
 
     /// <summary>
-    /// S1: Multiple genes in sequence are all detected
+    /// S1: Multiple genes in sequence are all detected with correct coordinates
     /// Source: Multi-gene operons are common in prokaryotes
     /// </summary>
     [Test]
     public void PredictGenes_MultipleGenes_AllDetected()
     {
         // Two distinct ORFs separated by intergenic region
-        string orf1 = CreateMinimalOrf(100);
-        string spacer = "CCCCCCCCCCCCCCCCCCCC";
-        string orf2 = CreateMinimalOrf(100);
+        string orf1 = CreateMinimalOrf(100); // 303 bp: ATG + 297 A's + TAA
+        string spacer = new string('C', 20);
+        string orf2 = CreateMinimalOrf(100); // 303 bp
         string sequence = orf1 + spacer + orf2;
 
         var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
+        var forwardGenes = genes.Where(g => g.Strand == '+').OrderBy(g => g.Start).ToList();
 
-        // Should find at least 2 genes on forward strand
-        int forwardGenes = genes.Count(g => g.Strand == '+');
-        Assert.That(forwardGenes, Is.GreaterThanOrEqualTo(2),
-            "Should detect multiple genes in sequence");
+        Assert.That(forwardGenes.Count, Is.GreaterThanOrEqualTo(2),
+            "Should detect at least 2 forward-strand genes");
+        Assert.That(forwardGenes[0].Start, Is.EqualTo(0), "First gene starts at 0");
+        Assert.That(forwardGenes[0].End, Is.EqualTo(303), "First gene ends at 303");
+        Assert.That(forwardGenes[1].Start, Is.EqualTo(323), "Second gene starts at 323");
+        Assert.That(forwardGenes[1].End, Is.EqualTo(626), "Second gene ends at 626");
     }
 
     /// <summary>
     /// S3: Alternative start codons (GTG, TTG) should be recognized
-    /// Source: Prokaryotic translation uses multiple start codons
+    /// Source: Wikipedia: Gene prediction — prokaryotic start codons
     /// </summary>
     [Test]
-    public void PredictGenes_AlternativeStartCodons_Recognized()
+    [TestCase("GTG")]
+    [TestCase("TTG")]
+    public void PredictGenes_AlternativeStartCodons_Recognized(string startCodon)
     {
-        // GTG is a valid start codon in prokaryotes
-        string gtgOrf = "GTG" + new string('A', 297) + "TAA";
+        string orf = startCodon + new string('A', 297) + "TAA";
 
-        var genes = GenomeAnnotator.PredictGenes(gtgOrf, minOrfLength: 50).ToList();
+        var genes = GenomeAnnotator.PredictGenes(orf, minOrfLength: 50).ToList();
+        var forwardGenes = genes.Where(g => g.Strand == '+').ToList();
 
-        Assert.That(genes.Count, Is.GreaterThan(0),
-            "GTG start codon should be recognized");
+        Assert.That(forwardGenes, Is.Not.Empty,
+            $"{startCodon} start codon should be recognized");
     }
 
     #endregion
@@ -243,56 +255,116 @@ public class GenomeAnnotator_Gene_Tests
 
     /// <summary>
     /// M6: Detects canonical AGGAGG Shine-Dalgarno sequence
-    /// Source: Shine & Dalgarno (1975) - AGGAGG is the consensus
+    /// Source: Shine &amp; Dalgarno (1975) - AGGAGG is the consensus
     /// </summary>
     [Test]
     public void FindRibosomeBindingSites_DetectsConsensusAggagg()
     {
-        // Place AGGAGG 8bp upstream of ATG (optimal distance)
+        // Place AGGAGG 8bp upstream of ATG (within functional range 4-15 bp)
         string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 8, orfLength: 100);
 
         var sites = GenomeAnnotator.FindRibosomeBindingSites(
             sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
 
-        Assert.That(sites.Any(s => s.sequence.Contains("AGGAGG") || s.sequence.Contains("GGAGG")), Is.True,
-            "Should detect AGGAGG Shine-Dalgarno consensus");
+        Assert.That(sites.Any(s => s.sequence == "AGGAGG"), Is.True,
+            "Should detect exact AGGAGG Shine-Dalgarno consensus");
     }
 
     /// <summary>
-    /// M7: Validates distance constraints (4-15 bp from SD to start)
-    /// Source: Chen et al. (1994) - optimal spacing 5-9 bp
-    /// </summary>
-    [Test]
-    public void FindRibosomeBindingSites_RespectsDistanceConstraints()
-    {
-        // SD at exactly minDistance
-        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 5, orfLength: 100);
-
-        var sites = GenomeAnnotator.FindRibosomeBindingSites(
-            sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
-
-        Assert.That(sites.Count, Is.GreaterThan(0),
-            "Should find RBS at valid distance");
-    }
-
-    /// <summary>
-    /// RBS too close to start codon should not be detected when using minDistance filter
-    /// Evidence: Shine-Dalgarno must be 4-15 bp upstream of start codon for proper ribosome binding
+    /// RBS too close to start codon should not be detected.
+    /// Source: Wikipedia: Shine-Dalgarno sequence — functional range 4-15 bp;
+    ///         below 4 bp, ribosome cannot bind properly.
     /// </summary>
     [Test]
     public void FindRibosomeBindingSites_TooClose_NotDetected()
     {
-        // SD at only 2bp from start (below minDistance=4)
+        // SD at only 2bp aligned spacing from start (below minDistance=4)
         string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 2, orfLength: 100);
 
         var sites = GenomeAnnotator.FindRibosomeBindingSites(
             sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
 
-        // With minDistance=4, an SD at distance 2 should be filtered out
-        // The algorithm already filters by minDistance internally, so there should be no AGGAGG results at that position
-        Assert.That(sites.Where(s => s.sequence == "AGGAGG"), Is.Empty.Or.All.Matches<(int position, string sequence, double score)>(
-            s => true), // If any AGGAGG is found, it must have been at valid distance (algorithm filters internally)
-            "SD sequences closer than minDistance should be filtered out by the algorithm");
+        // AGGAGG at aligned spacing 2 should NOT be returned (below minDistance=4).
+        // Note: shorter sub-motifs (e.g., AGGA) at the same genomic position
+        // have larger aligned spacing due to shorter length, so they may still be valid.
+        var fullConsensusAtInvalidDist = sites.Where(s =>
+            s.sequence == "AGGAGG" &&
+            s.position == 10); // padding(10) is where SD starts in CreateSequenceWithSd
+        Assert.That(fullConsensusAtInvalidDist.Count(), Is.EqualTo(0),
+            "Full AGGAGG at aligned spacing 2 (below minDistance=4) should be filtered out");
+    }
+
+    /// <summary>
+    /// Optimal aligned spacing is 5 nt per Chen et al. (1994).
+    /// Source: Chen H et al. (1994) Nucleic Acids Research 22(23):4953-4957.
+    ///         "Measurements of protein expression demonstrated an optimal aligned
+    ///         spacing of 5 nt for both series."
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_OptimalSpacing_5nt_ChenEtAl1994()
+    {
+        // Chen et al. (1994) found 5 nt is the optimal aligned spacing
+        // for SD-to-AUG in E. coli
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 5, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
+
+        var aggaggSites = sites.Where(s => s.sequence == "AGGAGG").ToList();
+        Assert.That(aggaggSites, Is.Not.Empty,
+            "AGGAGG at optimal aligned spacing of 5 nt (Chen et al. 1994) must be detected");
+    }
+
+    /// <summary>
+    /// Boundary: SD at exactly minDistance (4 bp) should be detected.
+    /// Source: Wikipedia: Shine-Dalgarno sequence — 4 bp is the lower boundary
+    ///         of the functional range.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_AtMinDistance_Detected()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 4, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites.Any(s => s.sequence == "AGGAGG"), Is.True,
+            "AGGAGG at exactly minDistance (4 bp) must be detected");
+    }
+
+    /// <summary>
+    /// Boundary: SD at exactly maxDistance (15 bp) should be detected.
+    /// Source: Wikipedia: Shine-Dalgarno sequence — 15 bp is the upper boundary
+    ///         of the functional range.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_AtMaxDistance_Detected()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 15, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 30, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites.Any(s => s.sequence == "AGGAGG"), Is.True,
+            "AGGAGG at exactly maxDistance (15 bp) must be detected");
+    }
+
+    /// <summary>
+    /// Boundary: SD beyond maxDistance (16 bp) should NOT be detected.
+    /// Source: Wikipedia: Shine-Dalgarno sequence — beyond 15 bp is outside functional range.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_BeyondMaxDistance_NotDetected()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 16, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 30, minDistance: 4, maxDistance: 15).ToList();
+
+        // AGGAGG at aligned spacing 16 should NOT be detected (above maxDistance=15)
+        var aggaggSites = sites.Where(s => s.sequence == "AGGAGG").ToList();
+        Assert.That(aggaggSites, Is.Empty,
+            "AGGAGG at aligned spacing 16 (above maxDistance=15) should be filtered out");
     }
 
     #endregion
@@ -315,8 +387,8 @@ public class GenomeAnnotator_Gene_Tests
         var sites = GenomeAnnotator.FindRibosomeBindingSites(
             sequence, upstreamWindow: 25, minDistance: 4, maxDistance: 15).ToList();
 
-        Assert.That(sites.Any(s => s.sequence.Contains(sdMotif)), Is.True,
-            $"Should detect shorter SD variant: {sdMotif}");
+        Assert.That(sites.Any(s => s.sequence == sdMotif), Is.True,
+            $"Should detect exact shorter SD variant: {sdMotif}");
     }
 
     /// <summary>
@@ -434,16 +506,88 @@ public class GenomeAnnotator_Gene_Tests
 
         var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
 
-        Assert.That(genes.Count, Is.GreaterThan(0));
+        Assert.That(genes, Is.Not.Empty);
         foreach (var gene in genes)
         {
-            if (gene.Attributes.TryGetValue("frame", out var frameStr))
-            {
-                int frame = int.Parse(frameStr);
-                Assert.That(frame, Is.InRange(1, 3),
-                    $"Frame should be 1, 2, or 3; got {frame}");
-            }
+            Assert.That(gene.Attributes.ContainsKey("frame"), Is.True,
+                $"Gene {gene.GeneId} should have frame attribute");
+            int frame = int.Parse(gene.Attributes["frame"]);
+            Assert.That(frame, Is.InRange(1, 3),
+                $"Frame should be 1, 2, or 3; got {frame}");
         }
+    }
+
+    /// <summary>
+    /// S2: Overlapping genes in different reading frames are both reported
+    /// Source: Prokaryotic genomes can have overlapping genes in different frames
+    /// </summary>
+    [Test]
+    public void PredictGenes_OverlappingGenes_BothReported()
+    {
+        // Frame 0: ATG at pos 0, GGG fill, TAA stop at pos 300–302 (100 aa)
+        // Frame 1: ATG at pos 4, GGG fill, TAA stop at pos 304–306 (100 aa)
+        // Overlap: positions [4, 303) — 299 bp overlap
+        string sequence = "ATG" + "G" + "ATG" + new string('G', 293) + "TAA" + "G" + "TAA";
+
+        var genes = GenomeAnnotator.PredictGenes(sequence, minOrfLength: 50).ToList();
+        var forwardGenes = genes.Where(g => g.Strand == '+').OrderBy(g => g.Start).ToList();
+
+        Assert.That(forwardGenes.Count, Is.GreaterThanOrEqualTo(2),
+            "Overlapping genes in different frames should both be reported");
+        Assert.That(forwardGenes[1].Start, Is.LessThan(forwardGenes[0].End),
+            "Genes should overlap (gene2.Start < gene1.End)");
+    }
+
+    /// <summary>
+    /// C1: Very long ORF (>1000 amino acids) is handled correctly
+    /// Source: Stress test — large genes exist in prokaryotic genomes
+    /// </summary>
+    [Test]
+    public void PredictGenes_VeryLongOrf_Handled()
+    {
+        string longOrf = CreateMinimalOrf(1500); // 1500 aa = 4503 bp
+
+        var genes = GenomeAnnotator.PredictGenes(longOrf, minOrfLength: 100).ToList();
+        var forwardGenes = genes.Where(g => g.Strand == '+').ToList();
+
+        Assert.That(forwardGenes, Is.Not.Empty,
+            "Very long ORF (>1000 aa) should be handled");
+        Assert.That(forwardGenes[0].End - forwardGenes[0].Start, Is.GreaterThan(3000),
+            "ORF should span >3000 nucleotides");
+    }
+
+    /// <summary>
+    /// Edge: ATG without stop codon produces no valid gene (too short / no stop)
+    /// </summary>
+    [Test]
+    public void PredictGenes_StartCodonOnly_NoStop_ReturnsEmpty()
+    {
+        var genes = GenomeAnnotator.PredictGenes("ATG", minOrfLength: 50).ToList();
+
+        Assert.That(genes, Is.Empty,
+            "ATG alone (no stop codon) should produce no genes");
+    }
+
+    /// <summary>
+    /// C3: Multiple RBS motifs upstream of the same ORF are all detected
+    /// Source: Multiple SD-like sequences can exist in upstream region
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_MultipleUpstreamOfSameOrf()
+    {
+        // AGGAGG at position 10, aligned spacing = 29 - 10 - 6 = 13
+        // GAGG at position 20, aligned spacing = 29 - 20 - 4 = 5
+        // ATG starts at position 29
+        string sequence = new string('C', 10) + "AGGAGG" + new string('C', 4)
+            + "GAGG" + new string('C', 5) + CreateMinimalOrf(100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 30, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites.Any(s => s.sequence == "AGGAGG" && s.position == 10), Is.True,
+            "Should detect AGGAGG at position 10 (aligned spacing 13)");
+        Assert.That(sites.Any(s => s.sequence == "GAGG" && s.position == 20), Is.True,
+            "Should detect standalone GAGG at position 20 (aligned spacing 5)");
     }
 
     #endregion

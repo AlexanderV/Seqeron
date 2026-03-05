@@ -22,14 +22,13 @@ The Shine-Dalgarno (SD) sequence is a ribosome-binding site in bacterial and arc
 **Key characteristics** (Wikipedia, Shine & Dalgarno 1975):
 - Consensus sequence: **AGGAGG** (or AGGAGGU in E. coli)
 - Shorter variants: GGAGG, AGGAG, GAGG, AGGA
-- Located 4-15 nucleotides upstream of start codon
-- Optimal spacing: 5-13 bp from SD to start codon (Chen et al. 1994)
+- Located 4-15 nucleotides upstream of start codon (Wikipedia)
+- Optimal aligned spacing: **5 nt** from SD 3'-end to AUG (Chen et al. 1994)
 - Functions by base-pairing with 3' end of 16S rRNA
 
 **RBS distance constraints** (Chen et al. 1994, Laursen et al. 2005):
-- Minimum distance: 4 bp
-- Maximum distance: ~15 bp
-- Optimal distance: 5-9 bp (species-dependent)
+- Functional range: 4-15 bp (Wikipedia: Shine-Dalgarno sequence)
+- Optimal aligned spacing: 5 nt (Chen et al. 1994, E. coli)
 
 ## Algorithm Description
 
