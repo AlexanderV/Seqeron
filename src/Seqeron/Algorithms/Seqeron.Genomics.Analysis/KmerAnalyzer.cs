@@ -64,6 +64,7 @@ public static class KmerAnalyzer
         if (k > sequence.Length)
             return new Dictionary<string, int>();
 
+        sequence = sequence.ToUpperInvariant();
         var seq = sequence.AsSpan();
         var counts = new Dictionary<string, int>();
         int total = sequence.Length - k + 1;
