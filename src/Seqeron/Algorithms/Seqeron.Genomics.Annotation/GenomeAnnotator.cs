@@ -416,38 +416,60 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Finds promoter motifs (e.g., -10 and -35 boxes in bacteria).
+    /// Finds promoter motifs (-10 and -35 boxes in bacterial promoters).
+    /// Scoring uses E. coli position-specific nucleotide occurrence probabilities.
+    /// Source: Wikipedia "Promoter (genetics)" / Harley &amp; Reynolds (1987) NAR 15(5):2343-2361.
     /// </summary>
     public static IEnumerable<(int position, string type, string sequence, double score)> FindPromoterMotifs(
         string dnaSequence)
     {
-        // Bacterial promoter consensus sequences
-        // -35 box: TTGACA
-        // -10 box (Pribnow box): TATAAT
-        string[] minus35Motifs = { "TTGACA", "TTGAC", "TGACA", "TTGA" };
-        string[] minus10Motifs = { "TATAAT", "TATAA", "TAAAT", "TATA" };
+        // Probability-weighted scoring from E. coli nucleotide occurrence data.
+        // Source: Wikipedia "Promoter (genetics)" — Probability of occurrence of each nucleotide
+        // Reference: Harley & Reynolds (1987) NAR 15(5):2343-2361
+        //
+        // -35 box consensus TTGACA: T(69%) T(79%) G(61%) A(56%) C(54%) A(54%) → total 3.73
+        // -10 box consensus TATAAT: T(77%) A(76%) T(60%) A(61%) A(56%) T(82%) → total 4.12
+        //
+        // Score = sum(matched position probabilities) / sum(all 6 consensus probabilities)
+        // Variants: full consensus, prefix-5bp, suffix-5bp, prefix-4bp.
+
+        // -35 box variants with probability-weighted scores
+        (string motif, double score)[] minus35Motifs =
+        {
+            ("TTGACA", 1.000),  // Pos 1–6: 3.73 / 3.73
+            ("TTGAC",  0.855),  // Pos 1–5: (0.69+0.79+0.61+0.56+0.54) / 3.73
+            ("TGACA",  0.815),  // Pos 2–6: (0.79+0.61+0.56+0.54+0.54) / 3.73
+            ("TTGA",   0.710),  // Pos 1–4: (0.69+0.79+0.61+0.56) / 3.73
+        };
+
+        // -10 box (Pribnow box) variants with probability-weighted scores
+        (string motif, double score)[] minus10Motifs =
+        {
+            ("TATAAT", 1.000),  // Pos 1–6: 4.12 / 4.12
+            ("TATAA",  0.801),  // Pos 1–5: (0.77+0.76+0.60+0.61+0.56) / 4.12
+            ("ATAAT",  0.813),  // Pos 2–6: (0.76+0.60+0.61+0.56+0.82) / 4.12
+            ("TATA",   0.665),  // Pos 1–4: (0.77+0.76+0.60+0.61) / 4.12
+        };
 
         string seq = dnaSequence.ToUpperInvariant();
 
-        foreach (string motif in minus35Motifs)
+        foreach (var (motif, score) in minus35Motifs)
         {
             for (int i = 0; i <= seq.Length - motif.Length; i++)
             {
                 if (seq.Substring(i, motif.Length) == motif)
                 {
-                    double score = (double)motif.Length / 6.0;
                     yield return (i, "-35 box", motif, score);
                 }
             }
         }
 
-        foreach (string motif in minus10Motifs)
+        foreach (var (motif, score) in minus10Motifs)
         {
             for (int i = 0; i <= seq.Length - motif.Length; i++)
             {
                 if (seq.Substring(i, motif.Length) == motif)
                 {
-                    double score = (double)motif.Length / 6.0;
                     yield return (i, "-10 box", motif, score);
                 }
             }
