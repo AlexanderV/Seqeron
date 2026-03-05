@@ -51,7 +51,7 @@ Complexity: O(n) where n = number of lines
 - Skips empty lines and comment lines (starting with `#`)
 - Skips directive lines (starting with `##`)
 - Skips malformed lines (< 9 tab-separated fields)
-- Parses score as double; "." → null
+- Parses score as double with `CultureInfo.InvariantCulture` (GFF3 uses "." for decimal); "." → null
 - Parses phase as int; "." → null
 - Percent-decodes attribute values using `Uri.UnescapeDataString`
 - Auto-generates FeatureId if ID attribute missing
