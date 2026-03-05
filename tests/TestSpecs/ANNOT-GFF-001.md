@@ -70,36 +70,35 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 
 | ID | Test | Rationale | Source |
 |----|------|-----------|--------|
-| M1 | ParseGff3 parses valid line correctly | Core functionality | GFF3 Spec |
-| M2 | ParseGff3 extracts all 9 columns | Column structure | GFF3 Spec |
-| M3 | ParseGff3 parses numeric score | Score handling | GFF3 Spec |
+| M2 | ParseGff3 extracts all 9 columns with exact values | Column structure | GFF3 Spec |
+| M3 | ParseGff3 parses numeric score (InvariantCulture) | Score handling | GFF3 Spec |
 | M4 | ParseGff3 handles "." as null score | Undefined value | GFF3 Spec |
-| M5 | ParseGff3 parses phase as integer | CDS phase | GFF3 Spec |
+| M5 | ParseGff3 parses phase as integer (0, 1, 2) | CDS phase | GFF3 Spec |
 | M6 | ParseGff3 handles "." as null phase | Undefined phase | GFF3 Spec |
-| M7 | ParseGff3 skips comment lines (`#`) | Comment handling | GFF3 Spec |
+| M7 | ParseGff3 skips comment lines (`#`), verifies surviving feature | Comment handling | GFF3 Spec |
 | M8 | ParseGff3 skips directive lines (`##`) | Directive handling | GFF3 Spec |
-| M9 | ParseGff3 skips empty lines | Empty line handling | GFF3 Spec |
+| M9 | ParseGff3 skips empty/whitespace lines, verifies surviving features | Empty line handling | GFF3 Spec |
 | M10 | ParseGff3 parses semicolon-separated attributes | Attribute format | GFF3 Spec |
-| M11 | ParseGff3 decodes percent-encoded attribute values | Percent-encoding | RFC 3986 / GFF3 Spec |
+| M11 | ParseGff3 decodes percent-encoded values (%20, %3B, %3D, %09, %0A) | Percent-encoding | RFC 3986 / GFF3 Spec |
 | M12 | ParseGff3 skips malformed lines (< 9 fields) | Error handling | GFF3 Spec |
 | M13 | ParseGff3 auto-generates ID if missing | ID attribute | GFF3 Spec: "ID optional for features without children" |
 | M14 | ToGff3 emits version header | Version directive | GFF3 Spec |
 | M15 | ToGff3 converts 0-based to 1-based coordinates | Coordinate system | GFF3 Spec |
-| M16 | ToGff3 encodes only GFF3-required special characters | Encoding rules | GFF3 Spec: "no other characters may be encoded" |
-| M17 | ToGff3 produces valid tab-delimited output | Column format | GFF3 Spec |
+| M16 | ToGff3 encodes only GFF3-required special characters (spaces NOT encoded) | Encoding rules | GFF3 Spec: "no other characters may be encoded" |
+| M17 | ToGff3 produces valid 9-column output (all columns verified) | Column format | GFF3 Spec |
 | M18 | ParseGff3 handles strand values (+, -, ., ?) | Strand field | GFF3 Spec |
-| M19 | ToGff3 encodes all required column 9 characters | ;, =, &, , | GFF3 Spec |
+| M19 | ToGff3 encodes all required column 9 characters (;, =, &, ,) | Encoding rules | GFF3 Spec |
 | M20 | ToGff3 outputs phase "." for non-CDS features | Phase rules | GFF3 Spec NOTE 4 |
 | M21 | ToGff3 outputs phase "0" for CDS features | Phase rules | GFF3 Spec NOTE 4 |
+| M22 | ToGff3 encodes control characters (tab, newline, CR, %) | Encoding rules | GFF3 Spec |
 
 ### Should Tests
 
 | ID | Test | Rationale |
 |----|------|-----------|
-| S1 | ParseGff3 handles multiple attributes per line | Common use case |
-| S2 | ParseGff3 handles large file simulation | Performance |
+| S1 | ParseGff3 handles multiple attributes (exact count and values) | Common use case |
 | S3 | ToGff3 excludes translation attribute | Size concern |
-| S4 | Roundtrip preserves core data | Data integrity |
+| S4 | Roundtrip preserves core data and attributes | Data integrity |
 
 ### Could Tests
 
@@ -116,6 +115,7 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 2. **Escaping symmetry**: Decoded on parse (`Uri.UnescapeDataString`), encoded on export (`EncodeGff3Value`)
 3. **Column count**: All output lines have exactly 9 tab-separated fields
 4. **Phase**: CDS → `0`; non-CDS → `.`
+5. **Culture-invariant parsing**: Score parsed with `CultureInfo.InvariantCulture` (GFF3 decimal = ".")
 
 ---
 
@@ -123,6 +123,8 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 
 | Aspect | Literature | Implementation | Justification |
 |--------|------------|----------------|---------------|
+| Source column | Free text or "." | Always "." | Simplified I/O; source not stored in `GeneAnnotation` |
+| Score column | Floating point or "." | Always "." | Simplified I/O; score not stored in `GeneAnnotation` |
 | Phase granularity | 0, 1, or 2 for CDS | Always 0 for CDS | `GeneAnnotation` record has no Phase field; phase defaults to 0 |
 | Hierarchical relationships | Parent-child feature grouping | Not supported | Simplified GFF3 I/O; full hierarchy available in `GffParser` (PARSE-GFF-001) |
 | Multi-value attributes | Comma-separated values for Parent, Alias, Note, etc. | Single value only | Simplified implementation |
@@ -134,10 +136,9 @@ Per GFF3 Spec v1.26, Section "Description of the Format":
 ## Test File Structure
 
 ```
-GenomeAnnotator_GFF3_Tests.cs
+GenomeAnnotator_GFF3_Tests.cs (38 tests)
 ├── ParseGff3 - Basic Parsing
-│   ├── M1: Valid line
-│   ├── M2: All 9 columns
+│   ├── M2: All 9 columns (exact values)
 │   └── M18: Strand values (+, -, ., ?)
 ├── ParseGff3 - Score Handling
 │   ├── M3: Numeric score
@@ -146,30 +147,35 @@ GenomeAnnotator_GFF3_Tests.cs
 │   ├── M5: Phase values (0, 1, 2)
 │   └── M6: Null phase
 ├── ParseGff3 - Comment and Directive Handling
-│   ├── M7: Comments
+│   ├── M7: Comments (with identity verification)
 │   ├── M8: Directives
-│   └── M9: Empty lines
+│   └── M9: Empty lines (with identity verification)
 ├── ParseGff3 - Attribute Parsing
 │   ├── M10: Semicolon-separated attributes
-│   ├── M11: Percent-encoded values
-│   └── S1: Multiple attributes
+│   ├── M11: Percent-encoded values (5 cases: %20, %3B, %3D, %09, %0A)
+│   └── S1: Multiple attributes (exact count=5, all values checked)
 ├── ParseGff3 - Error Handling
 │   ├── M12: Malformed lines
-│   └── M13: Auto-generated ID
+│   ├── M13: Auto-generated ID
+│   ├── Empty input
+│   └── Only comments
 ├── ToGff3 - Basic Export
 │   ├── M14: Version header
 │   ├── M15: 1-based coordinates
-│   └── M17: Tab-delimited 9-column output
+│   └── M17: All 9 columns verified with exact values
 ├── ToGff3 - Encoding
 │   ├── M16: GFF3-compliant encoding (spaces NOT encoded)
-│   ├── M19: All required characters encoded
-│   ├── M20: Phase "." for non-CDS
-│   ├── M21: Phase "0" for CDS
+│   ├── M19: All column 9 reserved characters encoded
+│   ├── M22: Control characters encoded (tab, newline, CR, %)
 │   └── S3: Translation excluded
+├── ToGff3 - Phase
+│   ├── M20: Phase "." for non-CDS
+│   └── M21: Phase "0" for CDS
 ├── ToGff3 - Edge Cases
-│   └── C2: Empty annotations
+│   ├── C2: Empty annotations
+│   └── Default seqId
 ├── Roundtrip Tests
-│   └── S4: Core data preserved
+│   └── S4: Core data + attributes preserved
 └── Multiple Features
     └── Order preserved
 ```

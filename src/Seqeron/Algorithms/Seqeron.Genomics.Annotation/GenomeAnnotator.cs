@@ -340,7 +340,7 @@ public static class GenomeAnnotator
 
             int start = int.Parse(parts[3]);
             int end = int.Parse(parts[4]);
-            double? score = parts[5] == "." ? null : double.Parse(parts[5]);
+            double? score = parts[5] == "." ? null : double.Parse(parts[5], System.Globalization.CultureInfo.InvariantCulture);
             char strand = parts[6][0];
             int? phase = parts[7] == "." ? null : int.Parse(parts[7]);
 
@@ -437,11 +437,11 @@ public static class GenomeAnnotator
                 case '\t': sb.Append("%09"); break;
                 case '\n': sb.Append("%0A"); break;
                 case '\r': sb.Append("%0D"); break;
-                case '%':  sb.Append("%25"); break;
-                case ';':  sb.Append("%3B"); break;
-                case '=':  sb.Append("%3D"); break;
-                case '&':  sb.Append("%26"); break;
-                case ',':  sb.Append("%2C"); break;
+                case '%': sb.Append("%25"); break;
+                case ';': sb.Append("%3B"); break;
+                case '=': sb.Append("%3D"); break;
+                case '&': sb.Append("%26"); break;
+                case ',': sb.Append("%2C"); break;
                 default:
                     if (c < 0x20 || c == 0x7F)
                         sb.Append($"%{(int)c:X2}");

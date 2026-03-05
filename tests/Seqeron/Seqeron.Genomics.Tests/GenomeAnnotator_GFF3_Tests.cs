@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Seqeron.Genomics.Tests;
@@ -17,31 +18,6 @@ namespace Seqeron.Genomics.Tests;
 public class GenomeAnnotator_GFF3_Tests
 {
     #region ParseGff3 - Basic Parsing
-
-    /// <summary>
-    /// M1: ParseGff3 parses valid GFF3 line correctly.
-    /// Source: GFF3 Specification - 9 tab-delimited columns
-    /// </summary>
-    [Test]
-    public void ParseGff3_ValidLine_ParsesCorrectly()
-    {
-        var lines = new List<string>
-        {
-            "##gff-version 3",
-            "seq1\t.\tgene\t100\t500\t.\t+\t.\tID=gene1;Name=testGene"
-        };
-
-        var features = GenomeAnnotator.ParseGff3(lines).ToList();
-
-        Assert.That(features, Has.Count.EqualTo(1));
-        Assert.Multiple(() =>
-        {
-            Assert.That(features[0].Type, Is.EqualTo("gene"));
-            Assert.That(features[0].Start, Is.EqualTo(100));
-            Assert.That(features[0].End, Is.EqualTo(500));
-            Assert.That(features[0].Strand, Is.EqualTo('+'));
-        });
-    }
 
     /// <summary>
     /// M2: ParseGff3 extracts all 9 columns correctly.
@@ -191,6 +167,7 @@ public class GenomeAnnotator_GFF3_Tests
         var features = GenomeAnnotator.ParseGff3(lines).ToList();
 
         Assert.That(features, Has.Count.EqualTo(1));
+        Assert.That(features[0].FeatureId, Is.EqualTo("gene1"));
     }
 
     /// <summary>
@@ -233,6 +210,11 @@ public class GenomeAnnotator_GFF3_Tests
         var features = GenomeAnnotator.ParseGff3(lines).ToList();
 
         Assert.That(features, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(features[0].FeatureId, Is.EqualTo("gene1"));
+            Assert.That(features[1].FeatureId, Is.EqualTo("gene2"));
+        });
     }
 
     #endregion
@@ -268,6 +250,8 @@ public class GenomeAnnotator_GFF3_Tests
     [TestCase("product=test%20protein", "product", "test protein")]
     [TestCase("Name=gene%3B1", "Name", "gene;1")]
     [TestCase("Note=equals%3Dtest", "Note", "equals=test")]
+    [TestCase("Name=a%09b", "Name", "a\tb")]
+    [TestCase("Note=line1%0Aline2", "Note", "line1\nline2")]
     public void ParseGff3_DecodesUrlEncodedValues(string attrString, string key, string expectedValue)
     {
         var lines = new List<string>
@@ -293,7 +277,15 @@ public class GenomeAnnotator_GFF3_Tests
 
         var features = GenomeAnnotator.ParseGff3(lines).ToList();
 
-        Assert.That(features[0].Attributes, Has.Count.GreaterThanOrEqualTo(4));
+        Assert.That(features[0].Attributes, Has.Count.EqualTo(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(features[0].Attributes["ID"], Is.EqualTo("cds1"));
+            Assert.That(features[0].Attributes["Name"], Is.EqualTo("CDS1"));
+            Assert.That(features[0].Attributes["Parent"], Is.EqualTo("mRNA1"));
+            Assert.That(features[0].Attributes["product"], Is.EqualTo("hypothetical"));
+            Assert.That(features[0].Attributes["Note"], Is.EqualTo("test"));
+        });
     }
 
     #endregion
@@ -446,7 +438,6 @@ public class GenomeAnnotator_GFF3_Tests
         var lines = GenomeAnnotator.ToGff3(annotations, "chr1").ToList();
 
         Assert.That(lines, Has.Count.EqualTo(2));  // Header + 1 feature
-        Assert.That(lines[0], Does.Contain("##gff-version 3"));
 
         var dataLine = lines[1];
         var fields = dataLine.Split('\t');
@@ -454,8 +445,15 @@ public class GenomeAnnotator_GFF3_Tests
         Assert.Multiple(() =>
         {
             Assert.That(fields[0], Is.EqualTo("chr1"), "Column 1: seqid");
+            Assert.That(fields[1], Is.EqualTo("."), "Column 2: source");
             Assert.That(fields[2], Is.EqualTo("CDS"), "Column 3: type");
-            Assert.That(fields[8], Does.Contain("ID=gene1"), "Column 9: attributes");
+            Assert.That(fields[3], Is.EqualTo("100"), "Column 4: start (0-based 99 + 1)");
+            Assert.That(fields[4], Is.EqualTo("500"), "Column 5: end");
+            Assert.That(fields[5], Is.EqualTo("."), "Column 6: score");
+            Assert.That(fields[6], Is.EqualTo("+"), "Column 7: strand");
+            Assert.That(fields[7], Is.EqualTo("0"), "Column 8: phase (CDS)");
+            Assert.That(fields[8], Does.Contain("ID=gene1"), "Column 9: attributes contain ID");
+            Assert.That(fields[8], Does.Contain("product=hypothetical protein"), "Column 9: attributes contain product");
         });
     }
 
@@ -690,7 +688,36 @@ public class GenomeAnnotator_GFF3_Tests
             Assert.That(f.End, Is.EqualTo(500));
             Assert.That(f.Strand, Is.EqualTo('+'));
             Assert.That(f.Type, Is.EqualTo("CDS"));
+            Assert.That(f.Attributes["product"], Is.EqualTo("test protein"), "Product preserved");
+            Assert.That(f.Attributes["Note"], Is.EqualTo("important"), "Extra attributes preserved");
         });
+    }
+
+    /// <summary>
+    /// M22: ToGff3 encodes control characters (tab, newline, CR, percent) per GFF3 Spec.
+    /// Source: GFF3 Spec v1.26 — "Literal use of tab, newline, carriage return, the percent (%) sign,
+    /// and control characters must be encoded using RFC 3986 Percent-Encoding."
+    /// </summary>
+    [Test]
+    public void ToGff3_EncodesControlCharacters()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "g1",
+                Start: 0,
+                End: 100,
+                Strand: '+',
+                Type: "gene",
+                Product: "a\tb\nc\r%d",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations).ToList();
+        var dataLine = lines[1];
+
+        Assert.That(dataLine, Does.Contain("product=a%09b%0Ac%0D%25d"),
+            "Tab, newline, CR, percent must be encoded per GFF3 Spec");
     }
 
     #endregion
