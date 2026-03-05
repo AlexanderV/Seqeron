@@ -224,15 +224,18 @@ public static class SequenceExtensions
     /// </summary>
     public static Dictionary<string, int> CountKmersSpan(this ReadOnlySpan<char> sequence, int k)
     {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
         var counts = new Dictionary<string, int>();
 
-        if (sequence.Length < k || k <= 0)
+        if (sequence.Length < k)
             return counts;
 
         for (int i = 0; i <= sequence.Length - k; i++)
         {
             var kmer = sequence.Slice(i, k);
-            var kmerStr = new string(kmer);
+            var kmerStr = new string(kmer).ToUpperInvariant();
 
             if (!counts.TryAdd(kmerStr, 1))
                 counts[kmerStr]++;

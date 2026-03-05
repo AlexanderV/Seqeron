@@ -2,6 +2,7 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Seqeron.Genomics.Tests
 {
@@ -216,7 +217,8 @@ namespace Seqeron.Genomics.Tests
 
         /// <summary>
         /// M7: Case-insensitive counting - lowercase normalized to uppercase.
-        /// Evidence: Implementation-specific - sequences may have mixed case.
+        /// Evidence: Wikipedia/algorithm norm — k-mers are case-insensitive.
+        /// Input: "acgt", k=2 → 3 two-mers: AC, CG, GT (all uppercase, each count=1).
         /// </summary>
         [Test]
         public void CountKmers_LowercaseSequence_NormalizedToUppercase()
@@ -225,10 +227,11 @@ namespace Seqeron.Genomics.Tests
 
             Assert.Multiple(() =>
             {
-                Assert.That(counts.ContainsKey("AC"), Is.True);
-                Assert.That(counts.ContainsKey("CG"), Is.True);
-                Assert.That(counts.ContainsKey("GT"), Is.True);
-                // Lowercase keys should not exist
+                Assert.That(counts, Has.Count.EqualTo(3));
+                Assert.That(counts.Values.Sum(), Is.EqualTo(3));
+                Assert.That(counts["AC"], Is.EqualTo(1));
+                Assert.That(counts["CG"], Is.EqualTo(1));
+                Assert.That(counts["GT"], Is.EqualTo(1));
                 Assert.That(counts.ContainsKey("ac"), Is.False);
             });
         }
@@ -236,14 +239,22 @@ namespace Seqeron.Genomics.Tests
         /// <summary>
         /// S1: Mixed case input counted as same k-mer.
         /// Evidence: DNA sequences should be case-insensitive.
+        /// Input: "AcGtACgt", k=4 → 5 four-mers: ACGT(×2), CGTA, GTAC, TACG.
         /// </summary>
         [Test]
         public void CountKmers_MixedCase_TreatedAsSameKmer()
         {
             var counts = KmerAnalyzer.CountKmers("AcGtACgt", 4);
 
-            // Both "AcGt" and "ACgt" should normalize to "ACGT"
-            Assert.That(counts["ACGT"], Is.EqualTo(2));
+            Assert.Multiple(() =>
+            {
+                Assert.That(counts, Has.Count.EqualTo(4));
+                Assert.That(counts.Values.Sum(), Is.EqualTo(5));
+                Assert.That(counts["ACGT"], Is.EqualTo(2));
+                Assert.That(counts["CGTA"], Is.EqualTo(1));
+                Assert.That(counts["GTAC"], Is.EqualTo(1));
+                Assert.That(counts["TACG"], Is.EqualTo(1));
+            });
         }
 
         #endregion
@@ -253,6 +264,7 @@ namespace Seqeron.Genomics.Tests
         /// <summary>
         /// S2: Non-DNA characters (like N) are counted as-is.
         /// Evidence: Genomic data often contains N for unknown bases.
+        /// Input: "ACNGT", k=2 → 4 two-mers: AC, CN, NG, GT (each count=1).
         /// </summary>
         [Test]
         public void CountKmers_WithAmbiguousBase_CountedAsIs()
@@ -261,10 +273,12 @@ namespace Seqeron.Genomics.Tests
 
             Assert.Multiple(() =>
             {
-                Assert.That(counts.ContainsKey("AC"), Is.True);
-                Assert.That(counts.ContainsKey("CN"), Is.True);
-                Assert.That(counts.ContainsKey("NG"), Is.True);
-                Assert.That(counts.ContainsKey("GT"), Is.True);
+                Assert.That(counts, Has.Count.EqualTo(4));
+                Assert.That(counts.Values.Sum(), Is.EqualTo(4));
+                Assert.That(counts["AC"], Is.EqualTo(1));
+                Assert.That(counts["CN"], Is.EqualTo(1));
+                Assert.That(counts["NG"], Is.EqualTo(1));
+                Assert.That(counts["GT"], Is.EqualTo(1));
             });
         }
 
@@ -321,14 +335,19 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// Mutation killer: k=0 should return empty (boundary for k &lt;= 0 guard).
+        /// CountKmersSpan must throw for k ≤ 0, matching CountKmers behavior.
+        /// Evidence: k must be positive for valid k-mer definition (Wikipedia).
         /// </summary>
         [Test]
-        public void CountKmersSpan_KZero_ReturnsEmptyDictionary()
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void CountKmersSpan_InvalidK_ThrowsArgumentOutOfRangeException(int k)
         {
-            ReadOnlySpan<char> span = "ACGT".AsSpan();
-            var counts = span.CountKmersSpan(0);
-            Assert.That(counts, Is.Empty);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            {
+                ReadOnlySpan<char> span = "ACGT".AsSpan();
+                span.CountKmersSpan(k);
+            });
         }
 
         /// <summary>
@@ -424,38 +443,225 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region Real-World Scenarios
+        #region Wikipedia Evidence Tests
 
         /// <summary>
-        /// Biological example: Finding TATA box occurrences.
-        /// Evidence: Wikipedia - TATA box is a common promoter motif.
+        /// Wikipedia exact example: "The sequence ATGG has two 3-mers: ATG and TGG."
+        /// Source: https://en.wikipedia.org/wiki/K-mer (lead diagram caption)
         /// </summary>
         [Test]
-        public void CountKmers_PromoterAnalysis_FindsTataBox()
+        public void CountKmers_WikipediaExample_ATGG_TwoThreeMers()
         {
-            const string promoter = "GCGCGCTATAAAAGGGGCTATAAAAATTT";
-            var counts = KmerAnalyzer.CountKmers(promoter, 4);
-
-            Assert.That(counts["TATA"], Is.EqualTo(2));
-        }
-
-        /// <summary>
-        /// Rosalind-style: Verify k-mer composition for known sequence.
-        /// Evidence: Rosalind KMER problem - lexicographic k-mer counting.
-        /// </summary>
-        [Test]
-        public void CountKmers_RosalindStyle_CorrectComposition()
-        {
-            // Simple verification using known 2-mer counts
-            var counts = KmerAnalyzer.CountKmers("AACGTT", 2);
+            var counts = KmerAnalyzer.CountKmers("ATGG", 3);
 
             Assert.Multiple(() =>
             {
-                Assert.That(counts["AA"], Is.EqualTo(1));
-                Assert.That(counts["AC"], Is.EqualTo(1));
-                Assert.That(counts["CG"], Is.EqualTo(1));
-                Assert.That(counts["GT"], Is.EqualTo(1));
-                Assert.That(counts["TT"], Is.EqualTo(1));
+                Assert.That(counts, Has.Count.EqualTo(2));
+                Assert.That(counts["ATG"], Is.EqualTo(1));
+                Assert.That(counts["TGG"], Is.EqualTo(1));
+            });
+        }
+
+        /// <summary>
+        /// Wikipedia k-mer table: sequence "GTAGAGCTGT" (length 10).
+        /// k=2 yields 9 total k-mers (L−k+1 = 10−2+1 = 9), 7 unique.
+        /// Listed in table: GT, TA, AG, GA, AG, GC, CT, TG, GT.
+        /// Source: https://en.wikipedia.org/wiki/K-mer#Introduction
+        /// </summary>
+        [Test]
+        public void CountKmers_WikipediaTable_GTAGAGCTGT_TwoMers()
+        {
+            var counts = KmerAnalyzer.CountKmers("GTAGAGCTGT", 2);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(counts.Values.Sum(), Is.EqualTo(9), "Total = L − k + 1 = 9");
+                Assert.That(counts, Has.Count.EqualTo(7), "7 unique 2-mers");
+                Assert.That(counts["GT"], Is.EqualTo(2));
+                Assert.That(counts["TA"], Is.EqualTo(1));
+                Assert.That(counts["AG"], Is.EqualTo(2));
+                Assert.That(counts["GA"], Is.EqualTo(1));
+                Assert.That(counts["GC"], Is.EqualTo(1));
+                Assert.That(counts["CT"], Is.EqualTo(1));
+                Assert.That(counts["TG"], Is.EqualTo(1));
+            });
+        }
+
+        /// <summary>
+        /// Wikipedia k-mer table: GTAGAGCTGT with various k values.
+        /// Validates L − k + 1 k-mers for each k from 1 to 10.
+        /// Source: https://en.wikipedia.org/wiki/K-mer#Introduction
+        /// </summary>
+        [Test]
+        [TestCase(1, 10)]  // 10 - 1 + 1 = 10
+        [TestCase(2, 9)]   // GT,TA,AG,GA,AG,GC,CT,TG,GT
+        [TestCase(3, 8)]   // GTA,TAG,AGA,GAG,AGC,GCT,CTG,TGT
+        [TestCase(4, 7)]   // GTAG,TAGA,AGAG,GAGC,AGCT,GCTG,CTGT
+        [TestCase(5, 6)]
+        [TestCase(6, 5)]
+        [TestCase(7, 4)]
+        [TestCase(8, 3)]
+        [TestCase(9, 2)]
+        [TestCase(10, 1)]  // GTAGAGCTGT
+        public void CountKmers_WikipediaTable_GTAGAGCTGT_TotalKmersPerK(int k, int expectedTotal)
+        {
+            var counts = KmerAnalyzer.CountKmers("GTAGAGCTGT", k);
+            Assert.That(counts.Values.Sum(), Is.EqualTo(expectedTotal));
+        }
+
+        /// <summary>
+        /// Wikipedia k-mer table: GTAGAGCTGT k=4 yields 7 unique four-mers, each with count 1.
+        /// Table: GTAG, TAGA, AGAG, GAGC, AGCT, GCTG, CTGT.
+        /// Source: https://en.wikipedia.org/wiki/K-mer#Introduction
+        /// </summary>
+        [Test]
+        public void CountKmers_WikipediaTable_GTAGAGCTGT_FourMers()
+        {
+            var counts = KmerAnalyzer.CountKmers("GTAGAGCTGT", 4);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(counts.Values.Sum(), Is.EqualTo(7), "Total = L − k + 1 = 7");
+                Assert.That(counts, Has.Count.EqualTo(7), "All 7 four-mers are unique");
+                Assert.That(counts["GTAG"], Is.EqualTo(1));
+                Assert.That(counts["TAGA"], Is.EqualTo(1));
+                Assert.That(counts["AGAG"], Is.EqualTo(1));
+                Assert.That(counts["GAGC"], Is.EqualTo(1));
+                Assert.That(counts["AGCT"], Is.EqualTo(1));
+                Assert.That(counts["GCTG"], Is.EqualTo(1));
+                Assert.That(counts["CTGT"], Is.EqualTo(1));
+            });
+        }
+
+        #endregion
+
+        #region Rosalind KMER Evidence Tests
+
+        /// <summary>
+        /// Rosalind KMER problem: 4-mer composition of sample dataset.
+        /// Validates specific k-mer counts from the known sample output (256 values).
+        /// Source: https://rosalind.info/problems/kmer/ (Sample Dataset / Sample Output)
+        /// </summary>
+        [Test]
+        public void CountKmers_RosalindKmerSample_SpecificCounts()
+        {
+            const string rosalindSequence =
+                "CTTCGAAAGTTTGGGCCGAGTCTTACAGTCGGTCTTGAAGCAAAGTAACGAACTCCACGG" +
+                "CCCTGACTACCGAACCAGTTGTGAGTACTCAACTGGGTGAGAGTGCAGTCCCTATTGAGT" +
+                "TTCCGAGACTCACCGGGATTTTCGATCCAGCCTCAGTCCAGTCTTGTGGCCAACTCACCA" +
+                "AATGACGTTGGAATATCCCTGTCTAGCTCACGCAGTACTTAGTAAGAGGTCGCTGCAGCG" +
+                "GGGCAAGGAGATCGGAAAATGTGCTCTATATGCGACTAAAGCTCCTAACTTACACGTAGA" +
+                "CTTGCCCGTGTTAAAAACTCGGCTCACATGCTGTCTGCGGCTGGCTGTATACAGTATCTA" +
+                "CCTAATACCCTTCAGTTCGCCGCACAAAAGCTGGGAGTTACCGCGGAAATCACAG";
+
+            var counts = KmerAnalyzer.CountKmers(rosalindSequence, 4);
+
+            Assert.Multiple(() =>
+            {
+                // Total invariant: L − k + 1 = 415 − 4 + 1 = 412
+                Assert.That(counts.Values.Sum(), Is.EqualTo(412),
+                    "Rosalind: total 4-mers = 412");
+
+                // Specific counts from Rosalind sample output (lexicographic positions verified)
+                Assert.That(counts["AAAA"], Is.EqualTo(4), "Rosalind position 0");
+                Assert.That(counts["AACT"], Is.EqualTo(5), "Rosalind position 7");
+                Assert.That(counts["AGCT"], Is.EqualTo(3), "Rosalind position 39");
+                Assert.That(counts["GCTG"], Is.EqualTo(5), "Rosalind position 158");
+                Assert.That(counts["TATA"], Is.EqualTo(2), "Rosalind position 204");
+                Assert.That(counts["TTTT"], Is.EqualTo(1), "Rosalind position 255");
+
+                // Zero-count k-mer should not appear in dictionary
+                Assert.That(counts.ContainsKey("CCCC"), Is.False,
+                    "Rosalind position 85 = 0, should not be in dictionary");
+            });
+        }
+
+        /// <summary>
+        /// Rosalind KMER: exact unique 4-mer count = 209 (from 256 possible, 47 absent).
+        /// Source: https://rosalind.info/problems/kmer/ (Sample Output: 47 zeros in 256 values)
+        /// </summary>
+        [Test]
+        public void CountKmers_RosalindKmerSample_ExactUniqueCount()
+        {
+            const string rosalindSequence =
+                "CTTCGAAAGTTTGGGCCGAGTCTTACAGTCGGTCTTGAAGCAAAGTAACGAACTCCACGG" +
+                "CCCTGACTACCGAACCAGTTGTGAGTACTCAACTGGGTGAGAGTGCAGTCCCTATTGAGT" +
+                "TTCCGAGACTCACCGGGATTTTCGATCCAGCCTCAGTCCAGTCTTGTGGCCAACTCACCA" +
+                "AATGACGTTGGAATATCCCTGTCTAGCTCACGCAGTACTTAGTAAGAGGTCGCTGCAGCG" +
+                "GGGCAAGGAGATCGGAAAATGTGCTCTATATGCGACTAAAGCTCCTAACTTACACGTAGA" +
+                "CTTGCCCGTGTTAAAAACTCGGCTCACATGCTGTCTGCGGCTGGCTGTATACAGTATCTA" +
+                "CCTAATACCCTTCAGTTCGCCGCACAAAAGCTGGGAGTTACCGCGGAAATCACAG";
+
+            var counts = KmerAnalyzer.CountKmers(rosalindSequence, 4);
+
+            // Rosalind sample output has 256 values, 47 are zero → 209 unique k-mers
+            Assert.That(counts.Count, Is.EqualTo(209),
+                "Rosalind sample: 209 unique 4-mers (256 possible minus 47 absent)");
+        }
+
+        #endregion
+
+        #region Case Normalization Regression Tests
+
+        /// <summary>
+        /// Regression: CountKmersSpan must normalize to uppercase (same as CountKmers).
+        /// Deviation found: CountKmersSpan previously did NOT call ToUpperInvariant().
+        /// Evidence: Wikipedia/algorithm doc — k-mers are case-insensitive.
+        /// </summary>
+        [Test]
+        public void CountKmersSpan_LowercaseInput_NormalizesToUppercase()
+        {
+            ReadOnlySpan<char> span = "acgtacgt".AsSpan();
+            var counts = span.CountKmersSpan(4);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(counts.ContainsKey("ACGT"), Is.True, "Lowercase should normalize to ACGT");
+                Assert.That(counts["ACGT"], Is.EqualTo(2));
+                Assert.That(counts.ContainsKey("acgt"), Is.False, "Lowercase key must not exist");
+            });
+        }
+
+        /// <summary>
+        /// Regression: CountKmersSpan mixed case must match CountKmers result.
+        /// This test would have caught the original deviation.
+        /// </summary>
+        [Test]
+        public void CountKmersSpan_MixedCase_MatchesCountKmers()
+        {
+            const string sequence = "AcGtAcGt";
+            var stringCounts = KmerAnalyzer.CountKmers(sequence, 3);
+            var spanCounts = sequence.AsSpan().CountKmersSpan(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(spanCounts.Count, Is.EqualTo(stringCounts.Count),
+                    "Span and string must produce same number of unique k-mers");
+                foreach (var kvp in stringCounts)
+                {
+                    Assert.That(spanCounts.ContainsKey(kvp.Key), Is.True,
+                        $"Span result missing key: {kvp.Key}");
+                    Assert.That(spanCounts[kvp.Key], Is.EqualTo(kvp.Value),
+                        $"Count mismatch for {kvp.Key}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Regression: CancellationToken overload must normalize to uppercase.
+        /// Deviation found: previously used sequence.AsSpan() without ToUpperInvariant().
+        /// </summary>
+        [Test]
+        public void CountKmers_CancellationOverload_NormalizesCase()
+        {
+            var cts = new CancellationTokenSource();
+            var counts = KmerAnalyzer.CountKmers("acgtacgt", 4, cts.Token);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(counts.ContainsKey("ACGT"), Is.True, "Lowercase should normalize to ACGT");
+                Assert.That(counts["ACGT"], Is.EqualTo(2));
+                Assert.That(counts.ContainsKey("acgt"), Is.False, "Lowercase key must not exist");
             });
         }
 
