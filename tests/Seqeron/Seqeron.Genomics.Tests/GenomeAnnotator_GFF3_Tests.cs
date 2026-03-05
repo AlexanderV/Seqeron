@@ -72,12 +72,14 @@ public class GenomeAnnotator_GFF3_Tests
     }
 
     /// <summary>
-    /// M18: ParseGff3 handles all strand values (+, -, .).
+    /// M18: ParseGff3 handles all strand values (+, -, ., ?).
     /// Source: GFF3 Specification - Column 7 strand values
+    /// "? can be used for features whose strandedness is relevant, but unknown."
     /// </summary>
     [TestCase('+', '+')]
     [TestCase('-', '-')]
     [TestCase('.', '.')]
+    [TestCase('?', '?')]
     public void ParseGff3_StrandValues_ParsedCorrectly(char inputStrand, char expectedStrand)
     {
         var lines = new List<string>
@@ -462,8 +464,9 @@ public class GenomeAnnotator_GFF3_Tests
     #region ToGff3 - Encoding
 
     /// <summary>
-    /// M16: ToGff3 URL-encodes special characters in attribute values.
-    /// Source: RFC 3986 - Percent-encoding for special characters
+    /// M16: ToGff3 encodes only GFF3-required special characters in attribute values.
+    /// Source: GFF3 Spec v1.26 — semicolons, equals, ampersands, commas MUST be encoded;
+    /// "no other characters may be encoded"; "unescaped spaces are allowed within fields."
     /// </summary>
     [Test]
     public void ToGff3_EscapesSpecialCharacters()
@@ -483,8 +486,15 @@ public class GenomeAnnotator_GFF3_Tests
         var lines = GenomeAnnotator.ToGff3(annotations).ToList();
         var dataLine = lines[1];
 
-        Assert.That(dataLine, Does.Contain("gene%201"), "Space should be encoded as %20");
-        Assert.That(dataLine, Does.Contain("test%3Bproduct"), "Semicolon should be encoded as %3B");
+        Assert.Multiple(() =>
+        {
+            Assert.That(dataLine, Does.Contain("ID=gene 1"),
+                "Spaces must not be encoded per GFF3 spec: 'unescaped spaces are allowed within fields'");
+            Assert.That(dataLine, Does.Not.Contain("gene%201"),
+                "Spaces must not be percent-encoded per GFF3 spec");
+            Assert.That(dataLine, Does.Contain("test%3Bproduct"),
+                "Semicolons must be encoded as %3B per GFF3 spec");
+        });
     }
 
     /// <summary>
@@ -518,6 +528,89 @@ public class GenomeAnnotator_GFF3_Tests
             Assert.That(dataLine, Does.Not.Contain("translation="));
             Assert.That(dataLine, Does.Contain("Note=important"));
         });
+    }
+
+    /// <summary>
+    /// M19: ToGff3 encodes all GFF3-required column 9 characters correctly.
+    /// Source: GFF3 Spec v1.26 — in column 9, semicolon (%3B), equals (%3D),
+    /// ampersand (%26), comma (%2C) must be encoded.
+    /// </summary>
+    [Test]
+    public void ToGff3_EncodesAllRequiredGff3Characters()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "g1",
+                Start: 0,
+                End: 100,
+                Strand: '+',
+                Type: "gene",
+                Product: "a;b=c&d,e",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations).ToList();
+        var dataLine = lines[1];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dataLine, Does.Contain("a%3Bb%3Dc%26d%2Ce"),
+                "Semicolon, equals, ampersand, comma must all be encoded");
+        });
+    }
+
+    /// <summary>
+    /// M20: ToGff3 outputs phase "." for non-CDS features.
+    /// Source: GFF3 Spec v1.26 — Column 8 phase: 0/1/2 for CDS, "." for others.
+    /// NOTE 4: "The phase is REQUIRED for all CDS features."
+    /// </summary>
+    [Test]
+    public void ToGff3_NonCdsFeature_PhaseIsDot()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "gene1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "gene",  // non-CDS
+                Product: "test",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "chr1").ToList();
+        var fields = lines[1].Split('\t');
+
+        Assert.That(fields[7], Is.EqualTo("."),
+            "Phase must be '.' for non-CDS features per GFF3 Spec v1.26");
+    }
+
+    /// <summary>
+    /// M21: ToGff3 outputs phase "0" for CDS features.
+    /// Source: GFF3 Spec v1.26 — Column 8 phase: 0/1/2 for CDS.
+    /// </summary>
+    [Test]
+    public void ToGff3_CdsFeature_PhaseIsZero()
+    {
+        var annotations = new List<GenomeAnnotator.GeneAnnotation>
+        {
+            new(
+                GeneId: "cds1",
+                Start: 99,
+                End: 500,
+                Strand: '+',
+                Type: "CDS",
+                Product: "test protein",
+                Attributes: new Dictionary<string, string>())
+        };
+
+        var lines = GenomeAnnotator.ToGff3(annotations, "chr1").ToList();
+        var fields = lines[1].Split('\t');
+
+        Assert.That(fields[7], Is.EqualTo("0"),
+            "Phase must be '0' for CDS features per GFF3 Spec v1.26");
     }
 
     #endregion

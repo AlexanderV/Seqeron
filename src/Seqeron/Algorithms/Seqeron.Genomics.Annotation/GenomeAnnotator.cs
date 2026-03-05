@@ -380,6 +380,10 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Exports annotations in GFF3 format.
+    /// Phase: "0" for CDS features, "." for all others.
+    /// Source: GFF3 Spec v1.26 — NOTE 4: "The phase is REQUIRED for all CDS features."
+    /// Encoding: GFF3-specific (only tab, newline, CR, %, control chars, ;, =, &amp;, , in column 9).
+    /// Source: GFF3 Spec v1.26 — "no other characters may be encoded."
     /// </summary>
     public static IEnumerable<string> ToGff3(
         IEnumerable<GeneAnnotation> annotations,
@@ -390,8 +394,9 @@ public static class GenomeAnnotator
         foreach (var ann in annotations)
         {
             string attributes = FormatGff3Attributes(ann.Attributes, ann.GeneId, ann.Product);
+            string phase = string.Equals(ann.Type, "CDS", StringComparison.OrdinalIgnoreCase) ? "0" : ".";
 
-            yield return $"{seqId}\t.\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t.\t{ann.Strand}\t0\t{attributes}";
+            yield return $"{seqId}\t.\t{ann.Type}\t{ann.Start + 1}\t{ann.End}\t.\t{ann.Strand}\t{phase}\t{attributes}";
         }
     }
 
@@ -401,17 +406,50 @@ public static class GenomeAnnotator
         string product)
     {
         var sb = new StringBuilder();
-        sb.Append($"ID={Uri.EscapeDataString(id)}");
-        sb.Append($";product={Uri.EscapeDataString(product)}");
+        sb.Append($"ID={EncodeGff3Value(id)}");
+        sb.Append($";product={EncodeGff3Value(product)}");
 
         foreach (var kvp in attributes)
         {
             if (kvp.Key != "translation") // Skip large translation
             {
-                sb.Append($";{kvp.Key}={Uri.EscapeDataString(kvp.Value)}");
+                sb.Append($";{kvp.Key}={EncodeGff3Value(kvp.Value)}");
             }
         }
 
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Encodes a value for GFF3 column 9 (attributes) per the GFF3 Specification v1.26.
+    /// Only encodes characters required by the spec; "no other characters may be encoded."
+    /// Source: GFF3 Spec — tab (%09), newline (%0A), CR (%0D), percent (%25), control chars,
+    /// plus column 9 reserved: semicolon (%3B), equals (%3D), ampersand (%26), comma (%2C).
+    /// Spaces are explicitly allowed unencoded: "unescaped spaces are allowed within fields."
+    /// </summary>
+    private static string EncodeGff3Value(string value)
+    {
+        var sb = new StringBuilder(value.Length);
+        foreach (char c in value)
+        {
+            switch (c)
+            {
+                case '\t': sb.Append("%09"); break;
+                case '\n': sb.Append("%0A"); break;
+                case '\r': sb.Append("%0D"); break;
+                case '%':  sb.Append("%25"); break;
+                case ';':  sb.Append("%3B"); break;
+                case '=':  sb.Append("%3D"); break;
+                case '&':  sb.Append("%26"); break;
+                case ',':  sb.Append("%2C"); break;
+                default:
+                    if (c < 0x20 || c == 0x7F)
+                        sb.Append($"%{(int)c:X2}");
+                    else
+                        sb.Append(c);
+                    break;
+            }
+        }
         return sb.ToString();
     }
 

@@ -29,9 +29,10 @@ GFF3 (Generic Feature Format Version 3) I/O operations provide parsing and expor
 ### Key Specification Rules
 
 1. **Coordinates**: 1-based, inclusive (both start and end)
-2. **Escaping**: RFC 3986 percent-encoding required for:
-   - Tab (%09), newline (%0A), carriage return (%0D), percent (%25)
-   - In attributes: semicolon (%3B), equals (%3D), ampersand (%26), comma (%2C)
+2. **Escaping**: Percent-encoding per GFF3 Spec (based on RFC 3986):
+   - Tab (%09), newline (%0A), carriage return (%0D), percent (%25), control characters
+   - In column 9 attributes: semicolon (%3B), equals (%3D), ampersand (%26), comma (%2C)
+   - "No other characters may be encoded" — spaces and other printable chars remain literal
 3. **Comments**: Lines starting with `#` are comments
 4. **Directives**: Lines starting with `##` are meta-directives
 5. **Version**: `##gff-version 3` should be first line
@@ -52,7 +53,7 @@ Complexity: O(n) where n = number of lines
 - Skips malformed lines (< 9 tab-separated fields)
 - Parses score as double; "." → null
 - Parses phase as int; "." → null
-- URL-decodes attribute values using `Uri.UnescapeDataString`
+- Percent-decodes attribute values using `Uri.UnescapeDataString`
 - Auto-generates FeatureId if ID attribute missing
 
 ### GenomeAnnotator.ToGff3
@@ -65,9 +66,9 @@ Complexity: O(n) where n = number of annotations
 **Behavior**:
 - Emits `##gff-version 3` header
 - Converts 0-based Start to 1-based (adds 1)
-- URL-encodes special characters using `Uri.EscapeDataString`
+- Encodes only GFF3-required characters using `EncodeGff3Value` (tab, newline, CR, %, control chars, semicolon, equals, ampersand, comma); spaces and all other printable characters are NOT encoded per GFF3 Spec: "no other characters may be encoded"
 - Excludes `translation` attribute (too large)
-- Fixed phase output as 0 (simplified)
+- Phase: `0` for CDS features; `.` for all other feature types (GFF3 Spec NOTE 4)
 
 ## Invariants
 
@@ -84,18 +85,22 @@ Complexity: O(n) where n = number of annotations
 | Malformed lines (< 9 fields) | Skipped | Specification |
 | Score = "." | null | Specification |
 | Phase = "." | null | Specification |
-| URL-encoded characters | Decoded on parse | RFC 3986 |
-| Special chars in attributes | Encoded on export | RFC 3986 |
+| Percent-encoded characters | Decoded on parse | GFF3 Spec / RFC 3986 |
+| GFF3-reserved chars in attributes | Encoded on export (only required chars) | GFF3 Spec: "no other characters may be encoded" |
+| Spaces in attribute values | NOT encoded, pass through literally | GFF3 Spec: "unescaped spaces are allowed" |
 | Missing ID attribute | Auto-generated | Implementation |
 
 ## Deviations from Full GFF3
 
-This simplified implementation does NOT support:
-- Hierarchical parent-child relationships
-- Discontinuous features
-- FASTA section (`##FASTA`)
-- Multiple values per attribute
-- Full validation against Sequence Ontology
+| Aspect | Literature | Implementation | Justification |
+|--------|------------|----------------|---------------|
+| Phase granularity | 0, 1, or 2 for CDS | Always 0 for CDS | `GeneAnnotation` record has no Phase field |
+| Hierarchical relationships | Parent-child feature grouping | Not supported | Simplified I/O; full hierarchy in `GffParser` (PARSE-GFF-001) |
+| Multi-value attributes | Comma-separated values | Single value only | Simplified implementation |
+| FASTA section | `##FASTA` directive | Not handled | Out of scope for annotation export |
+| Discontinuous features | Multiple lines per feature | Not supported | Simplified I/O |
+| Seqid encoding | Restricted character set must be escaped | seqId written raw | Application-controlled parameter |
+| SO term validation | Type constrained to Sequence Ontology terms | No validation | Out of scope |
 
 For full GFF3/GTF support, see `GffParser` class (PARSE-GFF-001).
 
