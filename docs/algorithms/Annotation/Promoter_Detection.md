@@ -47,12 +47,33 @@ In bacteria, the promoter contains two short sequence elements upstream of the t
 
 ### Detection Strategy
 
-The implementation uses a pattern-matching approach with consensus variants:
+The implementation uses a pattern-matching approach with consensus substrings:
 
-1. **-35 box variants**: TTGACA (full), TTGAC, TGACA, TTGA (partial)
-2. **-10 box variants**: TATAAT (full), TATAA, TAAAT, TATA (partial)
+1. **-35 box variants**: TTGACA (full), TTGAC (prefix 5bp), TGACA (suffix 5bp), TTGA (prefix 4bp)
+2. **-10 box variants**: TATAAT (full), TATAA (prefix 5bp), ATAAT (suffix 5bp), TATA (prefix 4bp)
 
-**Scoring**: `score = motif_length / 6.0` (normalized to canonical length)
+**Scoring**: Probability-weighted, based on E. coli position-specific nucleotide occurrence frequencies.
+
+Source: Wikipedia "Promoter (genetics)" / Harley & Reynolds (1987) NAR 15(5):2343-2361.
+
+- **-35 box**: T(69%) T(79%) G(61%) A(56%) C(54%) A(54%) — total weight 3.73
+- **-10 box**: T(77%) A(76%) T(60%) A(61%) A(56%) T(82%) — total weight 4.12
+
+`score = sum(matched position probabilities) / sum(all 6 consensus probabilities)`
+
+| -35 variant | Positions | Score |
+|-------------|-----------|-------|
+| TTGACA | 1–6 | 1.000 |
+| TTGAC | 1–5 | 0.855 |
+| TGACA | 2–6 | 0.815 |
+| TTGA | 1–4 | 0.710 |
+
+| -10 variant | Positions | Score |
+|-------------|-----------|-------|
+| TATAAT | 1–6 | 1.000 |
+| TATAA | 1–5 | 0.801 |
+| ATAAT | 2–6 | 0.813 |
+| TATA | 1–4 | 0.665 |
 
 ### Complexity
 - **Time**: O(n × m) where n = sequence length, m = number of motif variants
@@ -63,8 +84,9 @@ The implementation uses a pattern-matching approach with consensus variants:
 ### Current Implementation (`GenomeAnnotator.FindPromoterMotifs`)
 
 ```csharp
-// Searches for both full consensus and partial matches
+// Searches for both full consensus and partial (prefix/suffix) matches
 // Returns hits for -35 box and -10 box independently
+// Scoring: probability-weighted from E. coli nucleotide occurrence data
 // Does NOT verify spacing between -35 and -10 elements
 ```
 
@@ -74,13 +96,10 @@ The implementation uses a pattern-matching approach with consensus variants:
 3. Partial motifs (4-5 bp) may produce false positives
 4. Case-insensitive matching (sequence is uppercased)
 
-### Deviations from Literature
-
-| Aspect | Literature | Implementation |
-|--------|------------|----------------|
-| Spacing validation | Optimal 17 bp between -35 and -10 | **Not enforced** |
-| Mismatch tolerance | 2-3 mismatches typical | Only exact substring matches to variants |
-| Scoring | Based on similarity to consensus | Based on motif length only |
+| Aspect | Literature | Implementation | Justification |
+|--------|------------|----------------|---------------|
+| Spacing validation | Optimal 17 bp between -35 and -10 | Not enforced | Independent motif search; spacing is a higher-level promoter prediction feature |
+| Mismatch tolerance | 2–3 mismatches typical in real promoters | Only exact substring matches to consensus substrings | Exact matching of known conserved substrings avoids ambiguity; mismatch-tolerant detection would require a full PWM/HMM approach |
 
 ## Test Considerations
 
@@ -94,7 +113,8 @@ The implementation uses a pattern-matching approach with consensus variants:
 
 ### Expected Behavior
 - Full consensus matches (6 bp) → score = 1.0
-- Partial matches (4-5 bp) → score < 1.0 (proportional to length)
+- Partial matches → score < 1.0, weighted by position-specific nucleotide probabilities
+- Suffix-5bp variants can score higher than prefix-5bp (more conserved positions may be at the end)
 - Multiple independent hits can be returned for both -35 and -10 boxes
 
 ## References
