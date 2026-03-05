@@ -128,4 +128,4 @@ Source: Wikipedia "Promoter (genetics)" / Harley & Reynolds (1987) NAR 15(5):234
 ---
 
 **Test Unit ID**: ANNOT-PROM-001
-**Last Updated**: 2026-01-23
+**Last Updated**: 2026-03-05

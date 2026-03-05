@@ -70,16 +70,15 @@ Variants are consecutive consensus substrings (prefix-5bp, suffix-5bp, prefix-4b
 
 | ID | Test Name | Description | Evidence |
 |----|-----------|-------------|----------|
-| M01 | FindPromoterMotifs_FullMinus35Consensus_ReturnsCorrectHit | TTGACA → position, type="-35 box", score=1.0 | Wikipedia: consensus is TTGACA |
-| M02 | FindPromoterMotifs_FullMinus10Consensus_ReturnsCorrectHit | TATAAT → position, type="-10 box", score=1.0 | Wikipedia: Pribnow box is TATAAT |
-| M03 | FindPromoterMotifs_PartialMinus35_ReturnsLowerScore | TTGAC (positions 1–5) → score ≈ 0.855 | Probability-weighted: (69+79+61+56+54)/373 |
-| M04 | FindPromoterMotifs_PartialMinus10_ReturnsLowerScore | TATAA (positions 1–5) → score ≈ 0.801 | Probability-weighted: (77+76+60+61+56)/412 |
-| M05 | FindPromoterMotifs_NoMotifs_ReturnsEmpty | Sequence without motifs (e.g., CCCCCC) → empty | Logic invariant |
-| M06 | FindPromoterMotifs_EmptySequence_ReturnsEmpty | Empty string → empty collection | Edge case |
-| M07 | FindPromoterMotifs_MixedCase_HandlesCorrectly | Lowercase input should find motifs | Uses ToUpperInvariant |
-| M08 | FindPromoterMotifs_MultipleMotifsOfSameType_ReturnsAll | Multiple -35 boxes → all positions reported | Algorithm behavior |
-| M09 | FindPromoterMotifs_BothMotifTypes_ReturnsBothTypes | Sequence with both -35 and -10 → hits for both | Core functionality |
-| M10 | FindPromoterMotifs_CorrectPositionReporting | Position is 0-based index of motif start | Algorithm invariant |
+| M01 | FullMinus35Consensus_ReturnsCorrectHit | TTGACA → exact 4 hits (full + 3 sub-variants), position, type="-35 box", score=1.0 | Wikipedia: consensus is TTGACA |
+| M02 | FullMinus10Consensus_ReturnsCorrectHit | TATAAT → exact 4 hits (full + 3 sub-variants), position, type="-10 box", score=1.0 | Wikipedia: Pribnow box is TATAAT |
+| M03 | PartialMinus35_ReturnsLowerScore | TTGAC (positions 1–5) → score = 0.855 | Probability-weighted: (69+79+61+56+54)/373 |
+| M04 | PartialMinus10_ReturnsLowerScore | TATAA (positions 1–5) → score = 0.801 | Probability-weighted: (77+76+60+61+56)/412 |
+| M05 | NoMotifs_ReturnsEmpty | Sequence without motifs (all C's) → empty | Logic invariant |
+| M06 | EmptySequence_ReturnsEmpty | Empty string → empty collection | Edge case |
+| M07 | MixedCase_HandlesCorrectly | Lowercase input → exact same position, type, score as uppercase | Uses ToUpperInvariant |
+| M08 | MultipleMotifsOfSameType_ReturnsAll | Two TTGACA → exact count=2, exact positions | Algorithm behavior |
+| M09 | BothMotifTypes_ReturnsBothTypes | TTGACA + TATAAT → exact 4 -35 hits + 4 -10 hits, both full scores=1.0 | Core functionality |
 
 ---
 
@@ -87,10 +86,10 @@ Variants are consecutive consensus substrings (prefix-5bp, suffix-5bp, prefix-4b
 
 | ID | Test Name | Description | Rationale |
 |----|-----------|-------------|-----------|
-| S01 | FindPromoterMotifs_AdjacentMotifs_ReportsAllPositions | Overlapping partial motifs reported | Completeness |
-| S02 | FindPromoterMotifs_Score_ReflectsPositionProbabilityWeights | Verify probability-weighted score formula | Literature-based verification |
-| S03 | FindPromoterMotifs_AllMinus35Variants_Detected | TTGACA, TTGAC, TGACA, TTGA all detected with correct scores | Full variant coverage |
-| S04 | FindPromoterMotifs_AllMinus10Variants_Detected | TATAAT, TATAA, ATAAT, TATA all detected with correct scores | Full variant coverage |
+| S01 | OverlappingMotifs_ReportsAllVariants | TATAAT → exact 4 hits with exact positions (0,0,1,0) | Variant decomposition |
+| S02 | Score_ReflectsPositionProbabilityWeights | All 4 variants from TTGACA: exact scores, monotonic ordering 4bp<5bp<6bp | Literature-based verification |
+| S03 | AllMinus35Variants_Detected | TTGACA, TTGAC, TGACA, TTGA — exact scores (1.000, 0.855, 0.815, 0.710) | Full variant coverage |
+| S04 | AllMinus10Variants_Detected | TATAAT, TATAA, ATAAT, TATA — exact scores (1.000, 0.801, 0.813, 0.665) | Full variant coverage |
 
 ---
 
@@ -98,8 +97,7 @@ Variants are consecutive consensus substrings (prefix-5bp, suffix-5bp, prefix-4b
 
 | ID | Test Name | Description | Rationale |
 |----|-----------|-------------|-----------|
-| C01 | FindPromoterMotifs_RealPromoterSequence_FindsExpectedMotifs | Test with known E. coli promoter | Biological validation |
-| C02 | FindPromoterMotifs_LongSequence_PerformsEfficiently | Performance with genome-scale input | Performance baseline |
+| C01 | RealisticPromoterSequence_FindsMotifs | Consensus -35/-10 with spacing → exact positions and scores | Biological plausibility |
 
 ---
 
@@ -115,23 +113,25 @@ Variants are consecutive consensus substrings (prefix-5bp, suffix-5bp, prefix-4b
 ## Test File Structure
 
 ```
-GenomeAnnotator_PromoterMotif_Tests.cs
+GenomeAnnotator_PromoterMotif_Tests.cs (20 tests)
 ├── Consensus Motif Detection
-│   ├── M01: Full -35 box
-│   ├── M02: Full -10 box
-│   └── M09: Both types
+│   ├── M01: Full -35 box (exact 4 hits, position, score)
+│   ├── M02: Full -10 box (exact 4 hits, position, score)
+│   └── M09: Both types (exact hit counts, full scores)
 ├── Partial Motif Detection
-│   ├── M03: Partial -35 box
-│   ├── M04: Partial -10 box
-│   └── S03/S04: All variants
+│   ├── M03: Partial -35 box (exact score 0.855)
+│   ├── M04: Partial -10 box (exact score 0.801)
+│   ├── S03: All -35 variants (4 TestCases with exact scores)
+│   └── S04: All -10 variants (4 TestCases with exact scores)
 ├── Edge Cases
-│   ├── M05: No motifs
-│   ├── M06: Empty sequence
-│   └── M07: Mixed case
-├── Position and Score Validation
-│   ├── M08: Multiple same-type motifs
-│   ├── M10: Position correctness
-│   └── S02: Score formula
-└── Adjacent/Overlapping
-    └── S01: Adjacent motifs
+│   ├── M05: No motifs → empty
+│   ├── M06: Empty sequence → empty
+│   └── M07: Mixed case (exact position, type, score)
+├── Score Validation
+│   ├── M08: Multiple same-type motifs (exact count + positions)
+│   └── S02: Score formula (all variants, monotonic ordering)
+├── Overlapping
+│   └── S01: Overlapping variants (exact count=4, exact positions)
+└── Real-World Sequence
+    └── C01: Consensus sequences with spacing (exact positions + scores)
 ```
