@@ -283,7 +283,7 @@ public static class KmerAnalyzer
                 entropy -= freq * Math.Log2(freq);
         }
 
-        return Math.Round(entropy, 4);
+        return entropy;
     }
 
     /// <summary>
