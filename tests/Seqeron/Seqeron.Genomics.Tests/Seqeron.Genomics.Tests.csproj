@@ -40,6 +40,7 @@
     <Using Include="Seqeron.Genomics.MolTools" />
     <Using Include="Seqeron.Genomics.Chromosome" />
     <Using Include="Seqeron.Genomics.Reports" />
+    <Using Include="Seqeron.Genomics.Oncology" />
     <Using Include="FluentAssertions" />
   </ItemGroup>
 
@@ -57,6 +58,7 @@
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.MolTools\Seqeron.Genomics.MolTools.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Chromosome\Seqeron.Genomics.Chromosome.csproj" />
     <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Reports\Seqeron.Genomics.Reports.csproj" />
+    <ProjectReference Include="..\..\..\src\Seqeron\Algorithms\Seqeron.Genomics.Oncology\Seqeron.Genomics.Oncology.csproj" />
   </ItemGroup>
 
 </Project>

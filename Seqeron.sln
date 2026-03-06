@@ -65,6 +65,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Algorithms", "Algorithms", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuffixTree.Core", "src\SuffixTree\Algorithms\SuffixTree.Core\SuffixTree.Core.csproj", "{303A60B9-0482-401D-9216-33230A1F5E23}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Algorithms", "Algorithms", "{CABEE6A7-1AC0-E781-A608-BB0742260772}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seqeron.Genomics.Oncology", "src\Seqeron\Algorithms\Seqeron.Genomics.Oncology\Seqeron.Genomics.Oncology.csproj", "{6C68DD78-E29F-4019-80FD-7F3B26C1C118}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -399,6 +403,18 @@ Global
 		{303A60B9-0482-401D-9216-33230A1F5E23}.Release|x64.Build.0 = Release|Any CPU
 		{303A60B9-0482-401D-9216-33230A1F5E23}.Release|x86.ActiveCfg = Release|Any CPU
 		{303A60B9-0482-401D-9216-33230A1F5E23}.Release|x86.Build.0 = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|x64.Build.0 = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Debug|x86.Build.0 = Debug|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|x64.ActiveCfg = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|x64.Build.0 = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|x86.ActiveCfg = Release|Any CPU
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -420,6 +436,8 @@ Global
 		{432C9FE6-191E-41AD-8ED4-430A4EE34B8E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{3D6665B7-8051-A8F1-E9B8-0001FF66731B} = {432C9FE6-191E-41AD-8ED4-430A4EE34B8E}
 		{303A60B9-0482-401D-9216-33230A1F5E23} = {3D6665B7-8051-A8F1-E9B8-0001FF66731B}
+		{CABEE6A7-1AC0-E781-A608-BB0742260772} = {64D6CA14-029A-7BC3-5F47-A91DDCEB63D8}
+		{6C68DD78-E29F-4019-80FD-7F3B26C1C118} = {CABEE6A7-1AC0-E781-A608-BB0742260772}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FB506607-7015-46D2-A983-5905B63EA6D9}
