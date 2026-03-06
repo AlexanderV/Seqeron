@@ -1,8 +1,9 @@
 # Evidence: ALIGN-SEMI-001
 
 **Test Unit ID:** ALIGN-SEMI-001
-**Algorithm:** Semi-Global Alignment
+**Algorithm:** Semi-Global Alignment (Fitting / Query-in-Reference)
 **Date Collected:** 2026-02-01
+**Last Audited:** 2026-03-07
 
 ---
 
@@ -10,8 +11,10 @@
 
 | Source | URL | Accessed |
 |--------|-----|----------|
-| Wikipedia: Sequence alignment | https://en.wikipedia.org/wiki/Sequence_alignment#Global_and_local_alignments | 2026-02-01 |
+| Wikipedia: Sequence alignment | https://en.wikipedia.org/wiki/Sequence_alignment | 2026-02-01 |
 | Wikipedia: Needleman–Wunsch algorithm | https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm | 2026-02-01 |
+| Rosalind: Finding a Motif with Modifications (SIMS) | https://rosalind.info/problems/sims/ | 2026-02-01 |
+| Rosalind: Semiglobal Alignment (SMGB) | https://rosalind.info/problems/smgb/ | 2026-02-01 |
 | Brudno et al. (2003): Glocal alignment | doi:10.1093/bioinformatics/btg1005 | 2026-02-01 |
 
 ---
@@ -20,35 +23,36 @@
 
 ### 2.1 Definition
 
-Semi-global alignment (also known as "glocal" or "ends-free" alignment) is a **hybrid method** that searches for the best possible partial alignment of two sequences. It combines features of both global and local alignment, allowing alignment to:
-- Start anywhere in one or both sequences (free start gaps)
-- End anywhere in one or both sequences (free end gaps)
+Semi-global alignment (also known as "glocal" or "ends-free" alignment) is a **hybrid method** that searches for the best possible partial alignment of two sequences. It combines features of both global and local alignment, allowing alignment to start and/or end at any position in one or both sequences.
 
-**Source:** Wikipedia (Sequence alignment, "Global and local alignments" section):
+**Source:** Wikipedia (Sequence alignment):
 > "Hybrid methods, known as semi-global or 'glocal' (short for global-local) methods, search for the best possible partial alignment of the two sequences (in other words, a combination of one or both starts and one or both ends is stated to be aligned)."
+
+The implementation uses the **fitting alignment** variant as defined by Rosalind:
+
+**Source:** Rosalind (SIMS):
+> A fitting alignment is "an alignment of a substring of s against all of t."
 
 ### 2.2 Primary Use Cases
 
-1. **Overlap alignment**: When the downstream part of one sequence overlaps with the upstream part of another sequence. Neither global nor local alignment is entirely appropriate:
-   - Global alignment would force extension beyond the region of overlap
-   - Local alignment might not fully cover the region of overlap
+1. **Overlap alignment**: When the downstream part of one sequence overlaps with the upstream part of another sequence.
 
-2. **Short read alignment**: When one sequence is short (e.g., a gene) and the other is long (e.g., a chromosome). The short sequence should be globally aligned, but only a local/partial alignment is desired for the long sequence.
+2. **Short read alignment (fitting)**: When one sequence is short (e.g., a gene) and the other is long (e.g., a chromosome). The short sequence should be globally aligned, but only a local/partial alignment is desired for the long sequence.
 
 **Source:** Wikipedia (Sequence alignment):
-> "This can be especially useful when the downstream part of one sequence overlaps with the upstream part of the other sequence... Another case where semi-global alignment is useful is when one sequence is short (for example a gene sequence) and the other is very long (for example a chromosome sequence)."
+> "Another case where semi-global alignment is useful is when one sequence is short (for example a gene sequence) and the other is very long (for example a chromosome sequence). In that case, the short sequence should be globally (fully) aligned but only a local (partial) alignment is desired for the long sequence."
 
 ### 2.3 Algorithm Variants
 
-Multiple semi-global alignment configurations exist depending on which ends are free:
+| Variant | Free End Gaps | Typical Use Case | Rosalind Problem |
+|---------|---------------|------------------|------------------|
+| Query-in-reference (fitting) | Start and end of reference | Short read mapping, primer alignment | SIMS |
+| Overlap | End of seq1, start of seq2 | Sequence assembly | OAP |
+| Full semi-global | All four ends free | General substring finding | SMGB |
 
-| Variant | Description | Use Case |
-|---------|-------------|----------|
-| Query-in-reference | Free gaps at start/end of reference (seq2) | Short read mapping, primer alignment |
-| Overlap | Free gaps at end of seq1, start of seq2 | Sequence assembly |
-| Full semi-global | Free gaps at all ends | General substring finding |
+**Source:** Rosalind (SIMS, SMGB); Wikipedia (Sequence alignment).
 
-**Source:** ASSUMPTION based on algorithmic theory. The specific variant depends on which ends are initialized to zero.
+**Design Decision:** The implementation uses the query-in-reference (fitting) variant. This is a deliberate design choice selecting one well-defined member of the semi-global family, corresponding to the Rosalind SIMS problem.
 
 ---
 
@@ -56,29 +60,35 @@ Multiple semi-global alignment configurations exist depending on which ends are 
 
 ### 3.1 Matrix Initialization
 
-Semi-global alignment modifies the Needleman–Wunsch initialization:
+| Alignment Type | First Row $F_{0,j}$ | First Column $F_{i,0}$ |
+|----------------|---------------------|------------------------|
+| Global (NW) | $d \cdot j$ | $d \cdot i$ |
+| Local (SW) | $0$ | $0$ |
+| Fitting (query-in-ref) | $0$ (free start gaps in reference) | $d \cdot i$ (query fully aligned) |
 
-| Alignment Type | First Row | First Column |
-|----------------|-----------|--------------|
-| Global (NW) | Gap penalties accumulate | Gap penalties accumulate |
-| Local (SW) | All zeros | All zeros |
-| Semi-global (query-in-ref) | All zeros (free end gaps in ref) | Gap penalties (query must align fully) |
+**Source:** Needleman–Wunsch algorithm (Wikipedia): "First row and first column are subject to gap penalty." For fitting: first row is zero per free end-gap convention (Rosalind SIMS definition).
 
-**Source:** Derived from Needleman–Wunsch algorithm description (Wikipedia): "First row and first column are subject to gap penalty."
+### 3.2 Recurrence
 
-### 3.2 Traceback
+$$F_{i,j} = \max\left(F_{i-1,j-1} + s(a_i, b_j),\; F_{i-1,j} + d,\; F_{i,j-1} + d\right)$$
 
-For semi-global alignment (query-in-reference variant):
-- Traceback starts from the **maximum score in the last row** (not just the bottom-right cell)
-- Traceback proceeds to the top-left cell (ensuring full query coverage)
-- Trailing gaps in the reference after alignment end are appended without penalty
+No zero floor (unlike Smith–Waterman). Score can be negative. This follows from the Needleman–Wunsch recurrence with linear gap cost.
 
-**Source:** ASSUMPTION based on implementation analysis and algorithmic theory.
+**Source:** Wikipedia (Needleman–Wunsch algorithm), "Advanced presentation of algorithm" section.
 
-### 3.3 Complexity
+### 3.3 Traceback
 
-- Time: O(n × m) where n and m are sequence lengths
-- Space: O(n × m) for the scoring matrix
+For the fitting alignment variant:
+- Traceback starts from $\max_j F_{m,j}$ — the **maximum score in the last row** (not the bottom-right cell)
+- Traceback proceeds backward to $F_{0,*}$ (top row), ensuring full query coverage
+- Remaining reference bases after the traceback endpoint are appended as gaps without penalty
+
+**Source:** Rosalind (SIMS) — fitting alignment definition implies the optimal score is the maximum over all possible endpoints in the reference. Since the query must be fully consumed (rows 0 to m), the traceback spans the full last row.
+
+### 3.4 Complexity
+
+- **Time**: $O(m \cdot n)$ where $m$ = query length, $n$ = reference length
+- **Space**: $O(m \cdot n)$ for the scoring matrix
 
 **Source:** Wikipedia (Needleman–Wunsch algorithm): "The time complexity of the algorithm for two sequences of length n and m is O(mn)."
 
@@ -87,13 +97,14 @@ For semi-global alignment (query-in-reference variant):
 ## 4. Documented Corner Cases
 
 | Case | Evidence Source | Expected Behavior |
-|------|-----------------|-------------------|
-| Query embedded in reference | Sequence alignment theory | Full query aligned, reference has leading/trailing gaps |
-| Query overlaps reference end | Sequence alignment (overlap alignment) | Correct overlap detected without penalty for trailing gaps |
-| Identical sequences | ASSUMPTION | Full alignment with maximum score |
-| Query longer than reference | ASSUMPTION | Query may have internal gaps or poor alignment |
-| Empty sequence | ASSUMPTION | Return empty result or throw |
-| Null sequence | ASSUMPTION | Throw ArgumentNullException |
+|------|----------------|-------------------|
+| Query embedded in reference | Fitting alignment definition (Rosalind SIMS) | Full query aligned, reference has free leading/trailing gaps |
+| Identical sequences | NW global = fitting when lengths equal | Full alignment, score = m × match |
+| Query at start/end of reference | Fitting alignment variant | Correct alignment with free trailing/leading reference gaps |
+| All mismatches | NW recurrence (no zero floor) | Exact negative score (e.g., m × mismatch) |
+| Mixed matches and mismatches | NW recurrence | Score = Σ(match scores) + Σ(mismatch scores) |
+| Gap in optimal alignment | NW recurrence (up/left moves) | Score includes gap penalty; gap visible in aligned output |
+| Null sequence | .NET API convention | Throws `ArgumentNullException` |
 
 ---
 
@@ -101,27 +112,18 @@ For semi-global alignment (query-in-reference variant):
 
 | ID | Invariant | Evidence |
 |----|-----------|----------|
-| INV-1 | AlignmentType is SemiGlobal | Implementation contract |
-| INV-2 | Query sequence (seq1) is fully represented (no clipping at ends) | Semi-global alignment definition |
-| INV-3 | Aligned sequences have equal length | Alignment theory |
-| INV-4 | Removing gaps from aligned seq1 yields original seq1 | Query must be fully aligned |
-| INV-5 | Removing gaps from aligned seq2 yields substring of original seq2 | Reference may have free end gaps |
+| INV-1 | AlignmentType = SemiGlobal | Implementation contract |
+| INV-2 | Aligned sequences have equal length | Alignment theory (all alignment types) |
+| INV-3 | Query fully represented | Fitting alignment: `RemoveGaps(aligned1) == query` (Rosalind SIMS) |
+| INV-4 | Reference is substring | Fitting alignment: `RemoveGaps(aligned2)` is substring of reference |
+| INV-5 | Score = $\max_j F_{m,j}$ | Fitting alignment traceback from max of last row |
 
 ---
 
-## 6. Fallback Notes
-
-Authoritative online sources for semi-global alignment are limited compared to global and local alignment. The following aspects are marked as ASSUMPTION:
-- Specific initialization behavior for the query-in-reference variant
-- Traceback from maximum in last row
-- Trailing gap handling
-
-These assumptions are validated against the current implementation in Seqeron.Genomics.
-
----
-
-## 7. References
+## 6. References
 
 1. Wikipedia. "Sequence alignment." https://en.wikipedia.org/wiki/Sequence_alignment
 2. Wikipedia. "Needleman–Wunsch algorithm." https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
-3. Brudno M, Malde S, Poliakov A, Do CB, Couronne O, Dubchak I, Batzoglou S (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics. 19 Suppl 1:i54-62. doi:10.1093/bioinformatics/btg1005
+3. Rosalind. "Finding a Motif with Modifications (SIMS)." https://rosalind.info/problems/sims/
+4. Rosalind. "Semiglobal Alignment (SMGB)." https://rosalind.info/problems/smgb/
+5. Brudno M, Malde S, Poliakov A, Do CB, Couronne O, Dubchak I, Batzoglou S (2003). "Glocal alignment: finding rearrangements during alignment." Bioinformatics 19 Suppl 1:i54-62. doi:10.1093/bioinformatics/btg1005

@@ -277,3 +277,4 @@ persistent_*.txt
 /.tools
 /data/chr1.fa.gz
 /data/chr1.suffixtree.dat
+/*.ps1
