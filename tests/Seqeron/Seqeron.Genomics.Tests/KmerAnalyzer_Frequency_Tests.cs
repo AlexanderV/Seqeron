@@ -7,9 +7,9 @@ namespace Seqeron.Genomics.Tests
 {
     /// <summary>
     /// Tests for KMER-FREQ-001: K-mer Frequency Analysis.
-    /// 
+    ///
     /// Canonical methods: GetKmerSpectrum, GetKmerFrequencies, CalculateKmerEntropy
-    /// 
+    ///
     /// Evidence:
     /// - Wikipedia: K-mer spectrum, frequency distribution as genomic signature
     /// - Wikipedia: Shannon entropy formula H = -Σ p log₂(p)
@@ -143,7 +143,7 @@ namespace Seqeron.Genomics.Tests
         /// <summary>
         /// M4: Spectrum correctly maps multiplicity to count.
         /// Evidence: Wikipedia K-mer - "k-mer spectrum shows multiplicity vs count"
-        /// 
+        ///
         /// For "ACGTACGT" with k=4:
         /// - 4-mers: ACGT(pos 0), CGTA(pos 1), GTAC(pos 2), TACG(pos 3), ACGT(pos 4)
         /// - ACGT appears 2 times, CGTA/GTAC/TACG each appear 1 time
@@ -183,7 +183,7 @@ namespace Seqeron.Genomics.Tests
         /// <summary>
         /// S2: Spectrum with multiple multiplicities verified against hand calculation.
         /// Evidence: Wikipedia K-mer - spectrum maps multiplicity → count.
-        /// 
+        ///
         /// "AACGAACG" k=2: 2-mers are AA,AC,CG,GA,AA,AC,CG (7 total, L−k+1 = 8−2+1 = 7 ✓)
         /// Counts: AA=2, AC=2, CG=2, GA=1
         /// Spectrum: {1: 1, 2: 3} — one k-mer appears once, three k-mers appear twice
@@ -378,7 +378,7 @@ namespace Seqeron.Genomics.Tests
         /// <summary>
         /// S3: Exact entropy for non-uniform distribution (cross-verifies S1 frequencies).
         /// Evidence: Shannon (1948): H(X) = −Σ p(x) log₂ p(x)
-        /// 
+        ///
         /// "AAACGT" k=2: frequencies AA=2/5, AC=1/5, CG=1/5, GT=1/5 (see S1)
         /// H = −(0.4×log₂(0.4) + 3×0.2×log₂(0.2))
         ///   = −(0.4(1−log₂5) + 0.6(−log₂5))

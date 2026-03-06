@@ -469,6 +469,11 @@ public static class SequenceAligner
         string seq1, string seq2, int[,] score, int i, int j,
         ScoringMatrix scoring, AlignmentType alignType)
     {
+        // Preserve the traceback origin for correct score retrieval.
+        // For semi-global (fitting): score[m, maxJ] is the optimal fitting score.
+        // For global (NW): score[m, n] is the bottom-right cell.
+        int endI = i, endJ = j;
+
         var chars1 = new List<char>();
         var chars2 = new List<char>();
 
@@ -520,7 +525,7 @@ public static class SequenceAligner
         return new AlignmentResult(
             AlignedSequence1: aligned1Str,
             AlignedSequence2: aligned2Str,
-            Score: score[seq1.Length, alignType == AlignmentType.SemiGlobal ? aligned2Str.Replace("-", "").Length : seq2.Length],
+            Score: score[endI, endJ],
             AlignmentType: alignType,
             StartPosition1: 0,
             StartPosition2: 0,
