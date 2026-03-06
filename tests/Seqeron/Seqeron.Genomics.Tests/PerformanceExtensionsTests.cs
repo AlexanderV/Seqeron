@@ -223,8 +223,19 @@ public class PerformanceExtensionsTests
 
         var result = SequenceAligner.GlobalAlign(seq1, seq2, null, cts.Token);
 
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.AlignedSequence1, Is.EqualTo(seq1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Score, Is.EqualTo(8),
+                "8 identical positions × (+1) = 8");
+            Assert.That(result.AlignedSequence1, Is.EqualTo("ACGTACGT"));
+            Assert.That(result.AlignedSequence2, Is.EqualTo("ACGTACGT"));
+            Assert.That(result.AlignedSequence1, Does.Not.Contain("-"),
+                "Identical sequences must not have gaps");
+            Assert.That(result.AlignedSequence2, Does.Not.Contain("-"),
+                "Identical sequences must not have gaps");
+            Assert.That(result.AlignmentType, Is.EqualTo(AlignmentType.Global));
+        });
     }
 
     [Test]

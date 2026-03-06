@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Seqeron.Genomics.Tests.Properties;
 
 /// <summary>
@@ -12,14 +14,19 @@ namespace Seqeron.Genomics.Tests.Properties;
 public class AlignmentProperties
 {
     /// <summary>
-    /// Global alignment: both aligned sequences must have equal length.
+    /// Global alignment score is symmetric: GlobalAlign(a,b).Score == GlobalAlign(b,a).Score.
+    /// This follows from the NW recurrence — S(a,b) is symmetric and gap penalties
+    /// are the same for both sequences.
+    /// Source: Needleman–Wunsch algorithm symmetry (Wikipedia)
     /// </summary>
     [Test]
     [Category("Property")]
-    public void GlobalAlign_AlignedSequences_HaveEqualLength()
+    public void GlobalAlign_ScoreSymmetry_ReversedInputs()
     {
-        var result = SequenceAligner.GlobalAlign("ACGTACGT", "ACGACGT");
-        Assert.That(result.AlignedSequence1.Length, Is.EqualTo(result.AlignedSequence2.Length));
+        var resultAB = SequenceAligner.GlobalAlign("ACGTACGT", "ACGACGT");
+        var resultBA = SequenceAligner.GlobalAlign("ACGACGT", "ACGTACGT");
+        Assert.That(resultAB.Score, Is.EqualTo(resultBA.Score),
+            "NW score must be symmetric: score(A,B) == score(B,A)");
     }
 
     /// <summary>
@@ -47,15 +54,24 @@ public class AlignmentProperties
     }
 
     /// <summary>
-    /// Identity alignment (same sequence) should have score ≥ 0 and perfect match.
+    /// CancellationToken overload produces the same result as the standard overload.
+    /// Verifies the separate code path (non-pooled 2D array) is functionally equivalent.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void GlobalAlign_IdenticalSequences_MaxScore()
+    public void GlobalAlign_CancellationOverload_SameResultAsStandard()
     {
-        var result = SequenceAligner.GlobalAlign("ACGTACGT", "ACGTACGT");
-        Assert.That(result.Score, Is.GreaterThan(0));
-        Assert.That(result.AlignedSequence1, Is.EqualTo(result.AlignedSequence2));
+        using var cts = new CancellationTokenSource();
+        var standard = SequenceAligner.GlobalAlign("ACGTACGT", "ACGACGT");
+        var withToken = SequenceAligner.GlobalAlign("ACGTACGT", "ACGACGT", null, cts.Token);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withToken.Score, Is.EqualTo(standard.Score),
+                "CancellationToken overload must produce same score");
+            Assert.That(withToken.AlignedSequence1, Is.EqualTo(standard.AlignedSequence1));
+            Assert.That(withToken.AlignedSequence2, Is.EqualTo(standard.AlignedSequence2));
+        });
     }
 
     /// <summary>
@@ -120,14 +136,29 @@ public class AlignmentProperties
     }
 
     /// <summary>
-    /// Alignment statistics: identity is in [0, 1].
+    /// Alignment statistics: percentage fields satisfy structural invariants.
+    ///   - 0 ≤ Identity ≤ 100
+    ///   - 0 ≤ Similarity ≤ 100
+    ///   - 0 ≤ GapPercent ≤ 100
+    ///   - Identity ≤ Similarity  (matches ≤ matches + mismatches)
+    ///   - Similarity + GapPercent ≈ 100  (non-gap + gap = total)
     /// </summary>
     [Test]
     [Category("Property")]
-    public void Statistics_Identity_InRange()
+    public void Statistics_PercentageFields_SatisfyInvariants()
     {
         var result = SequenceAligner.GlobalAlign("ACGTACGT", "ACGACGTT");
         var stats = SequenceAligner.CalculateStatistics(result);
-        Assert.That(stats.Identity, Is.InRange(0.0, 100.0));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.Identity, Is.InRange(0.0, 100.0), "Identity in [0,100]");
+            Assert.That(stats.Similarity, Is.InRange(0.0, 100.0), "Similarity in [0,100]");
+            Assert.That(stats.GapPercent, Is.InRange(0.0, 100.0), "GapPercent in [0,100]");
+            Assert.That(stats.Identity, Is.LessThanOrEqualTo(stats.Similarity),
+                "Identity ≤ Similarity (matches ≤ matches + mismatches)");
+            Assert.That(stats.Similarity + stats.GapPercent, Is.EqualTo(100.0).Within(0.001),
+                "Similarity + GapPercent = 100 (all positions accounted for)");
+        });
     }
 }
