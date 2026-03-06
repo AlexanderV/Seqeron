@@ -245,7 +245,7 @@
 | ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-IMMUNE-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☐ | ONCO-CTDNA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-MRD-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CHIP-001 | Oncology | 2 | - | - | - |
