@@ -111,36 +111,48 @@ None. All behavior is well-defined by mathematical definitions and sources.
 
 ---
 
-## Audit Log
+## Coverage Classification
 
-### Initial Audit (2026-01-23)
+**Test Location:** `KmerAnalyzer_Frequency_Tests.cs` (30 tests)
 
-**Existing Tests Location:** `KmerAnalyzerTests.cs`
+| Spec | Test | Classification | Notes |
+|------|------|----------------|-------|
+| M1 | `GetKmerFrequencies_StandardSequence_SumsToOne` | ✅ Covered | Exact sum = 1.0 |
+| M1 | `GetKmerFrequencies_Homopolymer_SumsToOne` | ✅ Covered | Homopolymer variant |
+| M1 | `GetKmerFrequencies_VariousK_SumsToOne` (×4) | ✅ Covered | k = 1..4 |
+| M2 | `GetKmerFrequencies_EmptySequence_ReturnsEmptyDictionary` | ✅ Covered | Edge: L = 0 |
+| M2 | `GetKmerFrequencies_KGreaterThanLength_ReturnsEmptyDictionary` | ✅ Covered | Edge: k > L |
+| M3 | `GetKmerFrequencies_SingleKmerType_HasFrequencyOne` | ✅ Covered | count = 1, freq = 1.0 |
+| S1 | `GetKmerFrequencies_MixedSequence_CorrectFrequencies` | ✅ Covered | Exact values: AA=0.4, AC/CG/GT=0.2 |
+| M4 | `GetKmerSpectrum_StandardSequence_ReturnsCorrectSpectrum` | ✅ Covered | Exact: {1:3, 2:1} |
+| M4 | `GetKmerSpectrum_Homopolymer_SingleEntryWithHighCount` | ✅ Covered | Exact: {4:1} |
+| S2 | `GetKmerSpectrum_MultipleMultiplicities_AllCaptured` | ✅ Covered | **Strengthened**: exact values {1:1, 2:3} |
+| M5 | `GetKmerSpectrum_TotalInvariant` (×4) | ✅ Covered | Σ(mult×count) = L−k+1 |
+| — | `GetKmerSpectrum_EmptySequence_ReturnsEmptyDictionary` | ✅ Covered | Edge: L = 0 |
+| — | `GetKmerSpectrum_KGreaterThanLength_ReturnsEmptyDictionary` | ✅ Covered | Edge: k > L |
+| M6 | `CalculateKmerEntropy_Homopolymer_ReturnsZero` | ✅ Covered | H = 0.0 |
+| M6 | `CalculateKmerEntropy_SingleKmer_ReturnsZero` | ✅ Covered | H = 0.0, k = L |
+| M7 | `CalculateKmerEntropy_UniformDistribution_ReturnsMaxEntropy` | ✅ Covered | H = log₂(4) = 2.0 bits |
+| M7 | `CalculateKmerEntropy_AllDistinctKmers_ReturnsLogOfCount` | ✅ Covered | H = log₂(3) |
+| M8 | `CalculateKmerEntropy_EmptySequence_ReturnsZero` | ✅ Covered | Edge: L = 0 |
+| M8 | `CalculateKmerEntropy_KGreaterThanLength_ReturnsZero` | ✅ Covered | Edge: k > L |
+| M9 | `CalculateKmerEntropy_BoundsInvariant` (×4) | ✅ Covered | 0 ≤ H ≤ log₂(n) |
+| S3 | `CalculateKmerEntropy_NonUniformDistribution_ExactValue` | ✅ Covered | **Strengthened**: H = log₂(5)−0.4 ≈ 1.9219 |
+| S4 | `KmerFrequencyMethods_MixedCase_SameAsUppercase` | ✅ Covered | **Strengthened**: key-value pair comparison |
+| C2 | `KmerFrequencyMethods_VariousKValues_InvariantsHold` | ✅ Covered | **Strengthened**: 3 invariants per k |
 
-| Test | Status | Classification |
-|------|--------|----------------|
-| `GetKmerSpectrum_ReturnsFrequencyDistribution` | Exists | Covered (basic) |
-| `GetKmerFrequencies_SumsToOne` | Exists | Covered (invariant) |
-| `GetKmerFrequencies_CalculatesCorrectly` | Exists | Covered |
-| `CalculateKmerEntropy_UniformDistribution_HighEntropy` | Exists | Covered |
-| `CalculateKmerEntropy_SingleRepeated_ZeroEntropy` | Exists | Covered |
-| `CalculateKmerEntropy_EmptySequence_ReturnsZero` | Exists | Covered |
+### Audit Log
 
-**Gaps Identified (All Closed):**
-- ~~Missing edge case tests for GetKmerSpectrum~~ ✅ Covered
-- ~~Missing spectrum total invariant test~~ ✅ Covered
-- ~~Missing entropy bounds invariant test~~ ✅ Covered
-- ~~Missing spectrum edge case tests~~ ✅ Covered
-- ~~Tests need consolidation into dedicated test file~~ ✅ Done
+#### Strengthening Audit (2026-03-06)
 
-**Consolidation Plan:**
-1. Create new canonical file: `KmerAnalyzer_Frequency_Tests.cs`
-2. Move relevant tests from `KmerAnalyzerTests.cs` (remove from there)
-3. Add missing Must tests
-4. Keep only KMER-FIND-001 related tests in `KmerAnalyzerTests.cs` for future processing
+4 weak tests strengthened with exact source-backed assertions:
+- **S2**: `ContainsKey` → exact `spectrum[1]=1, spectrum[2]=3`
+- **S3**: range check `0 < H < max` → exact `H = log₂(5) − 0.4` (cross-verifies S1 frequencies)
+- **S4**: count-only comparison → full key-value pair matching across all three methods
+- **C2**: permissive `> 0` checks → three source-backed invariants (M1 + M5 + M9) per k value
 
 ---
 
-## ASSUMPTIONS
+## Deviations and Assumptions
 
-None. All test rationales are traceable to sources.
+None. Implementation matches external source definitions exactly.

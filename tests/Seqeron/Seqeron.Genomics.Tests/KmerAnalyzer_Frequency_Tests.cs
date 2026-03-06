@@ -181,21 +181,24 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// S2: Spectrum with multiple multiplicities.
+        /// S2: Spectrum with multiple multiplicities verified against hand calculation.
+        /// Evidence: Wikipedia K-mer - spectrum maps multiplicity → count.
+        /// 
+        /// "AACGAACG" k=2: 2-mers are AA,AC,CG,GA,AA,AC,CG (7 total, L−k+1 = 8−2+1 = 7 ✓)
+        /// Counts: AA=2, AC=2, CG=2, GA=1
+        /// Spectrum: {1: 1, 2: 3} — one k-mer appears once, three k-mers appear twice
         /// </summary>
         [Test]
         public void GetKmerSpectrum_MultipleMultiplicities_AllCaptured()
         {
-            // Create sequence with known k-mer frequencies
-            // "AABCABC" doesn't work for DNA, use "AACGAACG" with k=2
-            // AA(2), AC(2), CG(2), GA(1), AA(counted above)
-            // Actually: AA, AC, CG, GA, AA, AC, CG = AA:2, AC:2, CG:2, GA:1
             var spectrum = KmerAnalyzer.GetKmerSpectrum("AACGAACG", 2);
 
             Assert.Multiple(() =>
             {
-                Assert.That(spectrum.ContainsKey(1), Is.True, "Should have k-mers appearing once");
-                Assert.That(spectrum.ContainsKey(2), Is.True, "Should have k-mers appearing twice");
+                Assert.That(spectrum[1], Is.EqualTo(1),
+                    "1 k-mer (GA) should appear exactly once");
+                Assert.That(spectrum[2], Is.EqualTo(3),
+                    "3 k-mers (AA, AC, CG) should each appear exactly twice");
             });
         }
 
@@ -373,25 +376,29 @@ namespace Seqeron.Genomics.Tests
         #region Should Tests - Additional Coverage
 
         /// <summary>
-        /// S3: Intermediate entropy for non-uniform distribution.
+        /// S3: Exact entropy for non-uniform distribution (cross-verifies S1 frequencies).
+        /// Evidence: Shannon (1948): H(X) = −Σ p(x) log₂ p(x)
+        /// 
+        /// "AAACGT" k=2: frequencies AA=2/5, AC=1/5, CG=1/5, GT=1/5 (see S1)
+        /// H = −(0.4×log₂(0.4) + 3×0.2×log₂(0.2))
+        ///   = −(0.4(1−log₂5) + 0.6(−log₂5))
+        ///   = −(0.4 − log₂5)
+        ///   = log₂(5) − 0.4
+        ///   ≈ 1.9219 bits
         /// </summary>
         [Test]
-        public void CalculateKmerEntropy_NonUniformDistribution_IntermediateEntropy()
+        public void CalculateKmerEntropy_NonUniformDistribution_ExactValue()
         {
-            // Sequence with some repeated k-mers should have 0 < entropy < max
-            double entropy = KmerAnalyzer.CalculateKmerEntropy("ACGTACGT", 2);
-            var frequencies = KmerAnalyzer.GetKmerFrequencies("ACGTACGT", 2);
-            double maxEntropy = Math.Log2(frequencies.Count);
+            double entropy = KmerAnalyzer.CalculateKmerEntropy("AAACGT", 2);
+            double expected = Math.Log2(5) - 0.4; // ≈ 1.921928
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(entropy, Is.GreaterThan(0.0));
-                Assert.That(entropy, Is.LessThan(maxEntropy));
-            });
+            Assert.That(entropy, Is.EqualTo(expected).Within(Tolerance),
+                "Entropy must match hand-calculated H = log₂(5) − 0.4");
         }
 
         /// <summary>
-        /// S4: Case insensitivity - mixed case produces same result as uppercase.
+        /// S4: Case insensitivity - mixed case produces identical keys, values, and entropy.
+        /// Evidence: K-mer counting is case-insensitive per implementation contract.
         /// </summary>
         [Test]
         public void KmerFrequencyMethods_MixedCase_SameAsUppercase()
@@ -411,9 +418,27 @@ namespace Seqeron.Genomics.Tests
 
             Assert.Multiple(() =>
             {
-                Assert.That(freqLower.Count, Is.EqualTo(freqUpper.Count));
-                Assert.That(specLower.Count, Is.EqualTo(specUpper.Count));
-                Assert.That(entropyLower, Is.EqualTo(entropyUpper).Within(Tolerance));
+                // Verify all keys and values match, not just counts
+                foreach (var kvp in freqUpper)
+                {
+                    Assert.That(freqLower.ContainsKey(kvp.Key), Is.True,
+                        $"Key '{kvp.Key}' must exist in lowercase result");
+                    Assert.That(freqLower[kvp.Key], Is.EqualTo(kvp.Value).Within(Tolerance),
+                        $"Frequency for '{kvp.Key}' must match");
+                }
+                Assert.That(freqLower.Count, Is.EqualTo(freqUpper.Count),
+                    "Same number of distinct k-mers");
+
+                foreach (var kvp in specUpper)
+                {
+                    Assert.That(specLower.ContainsKey(kvp.Key), Is.True,
+                        $"Spectrum multiplicity {kvp.Key} must exist in lowercase result");
+                    Assert.That(specLower[kvp.Key], Is.EqualTo(kvp.Value),
+                        $"Spectrum count for multiplicity {kvp.Key} must match");
+                }
+
+                Assert.That(entropyLower, Is.EqualTo(entropyUpper).Within(Tolerance),
+                    "Entropy must be identical regardless of case");
             });
         }
 
@@ -422,10 +447,11 @@ namespace Seqeron.Genomics.Tests
         #region Could Tests - Extended Coverage
 
         /// <summary>
-        /// C2: Methods work correctly across various k values.
+        /// C2: All three methods satisfy their invariants across various k values.
+        /// Evidence: Frequency sum = 1.0, spectrum total = L−k+1, 0 ≤ H ≤ log₂(n).
         /// </summary>
         [Test]
-        public void KmerFrequencyMethods_VariousKValues_AllMethodsWork()
+        public void KmerFrequencyMethods_VariousKValues_InvariantsHold()
         {
             const string sequence = "ACGTACGTACGTACGT";
 
@@ -437,9 +463,22 @@ namespace Seqeron.Genomics.Tests
                     var spectrum = KmerAnalyzer.GetKmerSpectrum(sequence, k);
                     double entropy = KmerAnalyzer.CalculateKmerEntropy(sequence, k);
 
-                    Assert.That(frequencies.Count, Is.GreaterThan(0), $"k={k}: should have frequencies");
-                    Assert.That(spectrum.Count, Is.GreaterThan(0), $"k={k}: should have spectrum");
-                    Assert.That(entropy, Is.GreaterThanOrEqualTo(0), $"k={k}: entropy should be non-negative");
+                    // Frequency sum invariant (M1)
+                    double freqSum = frequencies.Values.Sum();
+                    Assert.That(freqSum, Is.EqualTo(1.0).Within(Tolerance),
+                        $"k={k}: frequencies must sum to 1.0");
+
+                    // Spectrum total invariant (M5): Σ(mult × count) = L − k + 1
+                    int spectrumTotal = spectrum.Sum(kvp => kvp.Key * kvp.Value);
+                    Assert.That(spectrumTotal, Is.EqualTo(sequence.Length - k + 1),
+                        $"k={k}: spectrum total must equal L−k+1");
+
+                    // Entropy bounds invariant (M9): 0 ≤ H ≤ log₂(n)
+                    double maxEntropy = Math.Log2(frequencies.Count);
+                    Assert.That(entropy, Is.GreaterThanOrEqualTo(0.0),
+                        $"k={k}: entropy must be non-negative");
+                    Assert.That(entropy, Is.LessThanOrEqualTo(maxEntropy + Tolerance),
+                        $"k={k}: entropy must not exceed log₂({frequencies.Count})");
                 }
             });
         }
