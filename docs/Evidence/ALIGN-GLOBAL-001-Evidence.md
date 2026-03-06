@@ -2,7 +2,7 @@
 
 **Test Unit ID:** ALIGN-GLOBAL-001
 **Algorithm:** Global Alignment (Needleman–Wunsch)
-**Date Collected:** 2026-02-01
+**Date Collected:** 2026-03-06
 
 ---
 
@@ -10,6 +10,7 @@
 
 ### Wikipedia: Needleman–Wunsch Algorithm
 **URL:** https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
+**Accessed:** 2026-03-06
 
 **Key Extracted Points:**
 
@@ -18,31 +19,46 @@
    - One of the first applications of dynamic programming to biological sequences.
    - Aligns the entire sequences end-to-end.
 
-2. **Scoring System:**
+2. **Scoring System (from "Choosing a scoring system"):**
    - Match: +1 (or other positive value depending on substitution matrix)
    - Mismatch: −1 (or negative value from substitution matrix)
    - Indel (gap): −1 (or specified gap penalty)
-   - Recurrence: $F_{i,j} = \max(F_{i-1,j-1} + S(A_i,B_j), F_{i-1,j} + d, F_{i,j-1} + d)$
-   - Initialization: $F_{0,j} = d \cdot j$, $F_{i,0} = d \cdot i$ (linear gap cost)
+   - Quote: "The score of the whole alignment candidate is the sum of the scores of all the pairings."
 
-3. **Traceback Rules:**
+3. **Linear Gap Penalty Model (from "Advanced presentation of algorithm"):**
+   - Uses a similarity function $S(a,b)$ and a single linear gap penalty $d$.
+   - Basis:
+     - $F_{0,j} = d \cdot j$
+     - $F_{i,0} = d \cdot i$
+   - Recurrence:
+     - $F_{i,j} = \max(F_{i-1,j-1} + S(A_i,B_j),\ F_{i,j-1} + d,\ F_{i-1,j} + d)$
+   - The entry $F_{n,m}$ gives the maximum score among all possible alignments.
+
+4. **Traceback Rules (from "Tracing arrows back to origin"):**
    - Diagonal path (top-left cell) → match or mismatch.
-   - Horizontal path (left cell) → insert gap in first sequence.
-   - Vertical path (top cell) → insert gap in second sequence.
-   - Multiple traceback paths from the same position → multiple optimal alignments exist.
+   - Horizontal path (left cell) → gap in the "side" sequence.
+   - Vertical path (top cell) → gap in the "top" sequence.
+   - "If there are multiple arrows to choose from, they represent a branching of the alignments."
 
-4. **Complexity:**
+5. **Complexity:**
    - Time: $O(nm)$ for sequences of length $n$ and $m$.
    - Space: $O(nm)$ for the full matrix.
-   - Hirschberg's algorithm variant: $O(nm)$ time, $\Theta(\min(n,m))$ space.
 
-5. **Example:**
+6. **Example:**
    - Sequences: GCATGCG and GATTACA
-   - Simple scoring: match = +1, mismatch/indel = −1
-   - Optimal score shown in Wikipedia figures.
+   - Scoring: match = +1, mismatch/indel = −1
+   - One possible optimal alignment: `GCATG-CG` / `G-ATTACA`
+   - Score breakdown: `+−++−−+−` → $4 \times (+1) + 4 \times (-1) = 0$
+   - Border initialization shown: first row is 0, −1, −2, −3, −4, −5, −6, −7.
+
+7. **Gap Penalty Extensions (from "Gap penalty"):**
+   - Affine gap penalties (gap-open + gap-extend) are mentioned as an *extension* to the basic model.
+   - Quote: "The simple and common way to do this is via a large gap-start score for a new indel and a smaller gap-extension score for every letter which extends the indel."
+   - The standard NW pseudocode uses **only the linear penalty** $d$.
 
 ### Wikipedia: Sequence Alignment (Global vs. Local)
 **URL:** https://en.wikipedia.org/wiki/Sequence_alignment
+**Accessed:** 2026-02-01
 
 **Key Extracted Points:**
 
@@ -52,53 +68,9 @@
    - Can start and/or end in gaps.
    - Needleman–Wunsch is the canonical global alignment method.
 
-2. **Local Alignment:**
-   - Identifies regions of similarity within long sequences.
-   - Smith–Waterman is the canonical local alignment method.
-   - More useful for dissimilar sequences.
-
-3. **Semi-Global / Glocal Alignment:**
-   - Hybrid method combining one or both starts and one or both ends.
-   - Useful when downstream part of one sequence overlaps upstream part of the other.
-   - Useful when one sequence is short and the other is very long.
-
-4. **Gap Penalties:**
-   - Two-parameter gap cost: gap-open penalty (e.g., −5) and gap-extend penalty (e.g., −1).
-   - Biologically motivated: large gaps are more likely as single deletions than multiple small ones.
-
-5. **Multiple Optimal Alignments:**
+2. **Multiple Optimal Alignments:**
    - Multiple traceback paths can exist for the same optimal score.
    - Common in sequences with repeated motifs or low complexity regions.
-
----
-
-## Documented Corner Cases and Failure Modes
-
-### From Wikipedia: Needleman–Wunsch Algorithm
-
-1. **Multiple Optimal Alignments:**
-   - When multiple paths from the bottom-right cell to the top-left cell share the same maximum score, each represents an equally valid optimal alignment.
-   - The specific alignment returned depends on traceback implementation choices (e.g., priority of diagonal vs. horizontal vs. vertical moves).
-
-2. **Scoring System Dependence:**
-   - Alignment quality and the resulting alignment depend critically on the scoring system chosen.
-   - Different scoring systems (e.g., BLOSUM, PAM, substitution matrices) yield different alignments for the same sequences.
-
-3. **Gap Penalty Impact:**
-   - Large gap penalties favor fewer, longer gaps; small penalties favor many short gaps.
-   - The choice of gap-open and gap-extend penalties affects the alignment topology.
-
-### From Wikipedia: Sequence Alignment (General)
-
-1. **Edge Case: Empty Sequences**
-   - No explicit behavior specified in the Needleman–Wunsch sources for empty inputs.
-   - Typical implementations either throw an error or return an empty/trivial result.
-
-2. **Edge Case: Identical Sequences**
-   - Should align perfectly with score = sum of match scores for all positions.
-
-3. **Edge Case: Completely Different Sequences**
-   - All mismatches and gaps; score is negative if mismatch/gap penalties are negative.
 
 ---
 
@@ -110,65 +82,44 @@
 | Sequence 2 | GATTACA |
 | Match Score | +1 |
 | Mismatch Score | −1 |
-| Gap Score | −1 |
-| Aligned Seq1 (one possible alignment) | GCATGCG or similar (with or without gaps depending on traceback) |
-| Aligned Seq2 (one possible alignment) | GATTACA or similar |
-| Invariant 1 | Aligned sequences must have equal length |
-| Invariant 2 | Removing gaps from aligned sequences yields original sequences |
-| Invariant 3 | Alignment score = sum of per-position match/mismatch/gap scores |
+| Gap Penalty (d) | −1 |
+| Optimal Score | 0 |
+| One Optimal Alignment (seq1) | `GCATG-CG` |
+| One Optimal Alignment (seq2) | `G-ATTACA` |
+| Score Breakdown | 4 matches (+4) + 2 mismatches (−2) + 2 gaps (−2) = 0 |
+
+### Wikipedia DP Matrix (Border Initialization)
+
+Standard NW border for the example (d = −1):
+
+| | - | G | A | T | T | A | C | A |
+|---|---|---|---|---|---|---|---|---|
+| **-** | 0 | −1 | −2 | −3 | −4 | −5 | −6 | −7 |
+| **G** | −1 | | | | | | | |
+| **C** | −2 | | | | | | | |
+| **A** | −3 | | | | | | | |
+| **T** | −4 | | | | | | | |
+| **G** | −5 | | | | | | | |
+| **C** | −6 | | | | | | | |
+| **G** | −7 | | | | | | | |
+
+Border values: $F(i,0) = -i$, $F(0,j) = -j$ — directly from Wikipedia.
 
 ---
 
-## Assumptions and Limitations
+## Deviations and Assumptions
 
-1. **ASSUMPTION: Empty-Input Behavior**
-   - Needleman–Wunsch sources do not specify behavior for empty sequences.
-   - Implementation behavior (e.g., return empty result) is assumed acceptable and is not evidence-grounded.
+**None.**
 
-2. **ASSUMPTION: Affine Gap Model**
-   - The implementation uses `GapOpen` and `GapExtend` parameters, suggesting a simplified affine gap model.
-   - The full Gotoh algorithm (three-matrix affine) is not explicitly referenced in the cited sources; implementation-specific details are not validated against a source.
-
-3. **ASSUMPTION: Single Traceback Path**
-   - When multiple optimal alignments exist, the implementation returns a single one.
-   - The sources acknowledge multiple optimal alignments exist but do not specify which one should be returned.
-
----
-
-## Recommendations for Test Coverage
-
-1. **MUST Test:** Reconstruct and verify the Wikipedia GCATGCG/GATTACA example.
-2. **MUST Test:** Verify invariants for any valid global alignment (aligned sequence length, gap removal, score recalculation).
-3. **MUST Test:** Verify string and DnaSequence overloads produce consistent results.
-4. **SHOULD Test:** Verify null arguments throw ArgumentNullException (API contract).
-5. **COULD Test:** Verify alternative optimal alignment paths when they exist (requires specific dataset design).
-
----
-
-## Test Coverage
-
-### Reference Data Tests (Added 2026-02-05)
-Tests validated against Wikipedia and Rosalind examples:
-
-**Wikipedia Needleman-Wunsch:**
-- `GlobalAlign_WikipediaExample_CorrectScore` - GCATGCG vs GATTACA with match=1, mismatch=-1, gap=-1 → score 0
-- `GlobalAlign_WikipediaExample_ValidAlignment` - validates alignment properties
-- `GlobalAlign_IdenticalSequences_PerfectAlignment` - perfect match case
-
-**Rosalind Bioinformatics:**
-- `GlobalAlign_RosalindStyleScoring_CorrectBehavior` - validates BLOSUM62-style scoring
+- The implementation follows the standard Needleman–Wunsch linear gap penalty model exactly as given in the Wikipedia pseudocode.
+- `ScoringMatrix.GapExtend` acts as the linear gap penalty $d$. `ScoringMatrix.GapOpen` is not used by `GlobalAlign`.
+- When multiple optimal alignments exist, one is returned deterministically. This is explicitly allowed by the source.
+- Empty-input and null-argument handling are API-level contract behaviors, not part of the NW algorithm specification.
 
 ---
 
 ## References
 
 1. Needleman, Saul B. & Wunsch, Christian D. (1970). "A general method applicable to the search for similarities in the amino acid sequence of two proteins". Journal of Molecular Biology. 48(3): 443–53.
-2. Wikipedia contributors. "Needleman–Wunsch algorithm". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-02-01.
+2. Wikipedia contributors. "Needleman–Wunsch algorithm". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-03-06.
 3. Wikipedia contributors. "Sequence alignment". In: Wikipedia, The Free Encyclopedia. Accessed: 2026-02-01.
-4. Rosalind Bioinformatics. "GLOB - Global Alignment with Scoring Matrix". http://rosalind.info/problems/glob/
-
----
-
-## Change History
-- **2026-02-05**: Added reference data tests from Wikipedia and Rosalind.
-- **2026-02-01**: Initial documentation.

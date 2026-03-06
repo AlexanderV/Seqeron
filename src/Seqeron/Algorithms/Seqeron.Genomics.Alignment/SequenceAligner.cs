@@ -113,11 +113,13 @@ public static class SequenceAligner
         // Initialize scoring matrix
         var matrix = new int[m + 1, n + 1];
 
-        // Initialize first row and column
+        // Initialize first row and column with linear gap penalty d = GapExtend.
+        // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
+        // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
         for (int i = 0; i <= m; i++)
-            matrix[i, 0] = i * score.GapExtend + (i > 0 ? score.GapOpen : 0);
+            matrix[i, 0] = i * score.GapExtend;
         for (int j = 0; j <= n; j++)
-            matrix[0, j] = j * score.GapExtend + (j > 0 ? score.GapOpen : 0);
+            matrix[0, j] = j * score.GapExtend;
 
         // Fill the matrix with cancellation checks
         for (int i = 1; i <= m; i++)
@@ -165,7 +167,7 @@ public static class SequenceAligner
                 }
             }
 
-            if (ii > 0 && matrix[ii, jj] == matrix[ii - 1, jj] + score.GapExtend)
+            if (ii > 0 && (jj == 0 || matrix[ii, jj] == matrix[ii - 1, jj] + score.GapExtend))
             {
                 chars1.Add(seq1[ii - 1]);
                 chars2.Add('-');
@@ -231,11 +233,13 @@ public static class SequenceAligner
 
         try
         {
-            // Initialize first row and column
+            // Initialize first row and column with linear gap penalty d = GapExtend.
+            // Standard Needleman-Wunsch: F(i,0) = d*i, F(0,j) = d*j
+            // Source: https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm
             for (int i = 0; i <= m; i++)
-                buf[i * cols] = i * scoring.GapExtend + (i > 0 ? scoring.GapOpen : 0);
+                buf[i * cols] = i * scoring.GapExtend;
             for (int j = 0; j <= n; j++)
-                buf[j] = j * scoring.GapExtend + (j > 0 ? scoring.GapOpen : 0);
+                buf[j] = j * scoring.GapExtend;
 
             // Fill the matrix
             for (int i = 1; i <= m; i++)
