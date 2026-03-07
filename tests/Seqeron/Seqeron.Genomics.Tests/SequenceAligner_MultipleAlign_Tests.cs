@@ -10,15 +10,17 @@ namespace Seqeron.Genomics.Tests;
 /// Canonical tests for SequenceAligner.MultipleAlign() - Multiple Sequence Alignment.
 /// Test Unit: ALIGN-MULTI-001
 /// 
-/// Algorithm: Star alignment (simplified progressive alignment)
-/// - Uses first sequence as reference
-/// - Aligns all other sequences to reference via global alignment
-/// - Pads sequences to equal length
-/// - Generates majority-voted consensus
+/// Algorithm: Star alignment (progressive alignment variant)
+/// - Selects center sequence via k-mer cosine similarity (max total similarity)
+/// - Aligns all other sequences to center via anchor-based global alignment
+/// - Reconciles pairwise alignments into a single MSA via gap merging
+/// - Generates majority-voted consensus (gaps participate in vote)
+/// - Computes true sum-of-pairs (SP) score across all C(k,2) pairs
 /// 
 /// Sources:
-/// - Wikipedia: Multiple sequence alignment
-/// - Wikipedia: Clustal
+/// - Wikipedia: Multiple sequence alignment (https://en.wikipedia.org/wiki/Multiple_sequence_alignment)
+/// - Wikipedia: Clustal (https://en.wikipedia.org/wiki/Clustal)
+/// - Wikipedia: Consensus sequence (https://en.wikipedia.org/wiki/Consensus_sequence)
 /// </summary>
 [TestFixture]
 [Category("Alignment")]
@@ -72,7 +74,7 @@ public class SequenceAligner_MultipleAlign_Tests
             Assert.That(result.AlignedSequences.Length, Is.EqualTo(1));
             Assert.That(result.AlignedSequences[0], Is.EqualTo("ATGCATGC"));
             Assert.That(result.Consensus, Is.EqualTo("ATGCATGC"));
-            Assert.That(result.TotalScore, Is.EqualTo(0), "Single sequence has no pairwise score");
+            Assert.That(result.TotalScore, Is.EqualTo(0), "Single sequence has no pairs for SP scoring");
         });
     }
 
@@ -101,8 +103,8 @@ public class SequenceAligner_MultipleAlign_Tests
             Assert.That(result.AlignedSequences[0], Is.EqualTo(result.AlignedSequences[1]),
                 "Identical sequences should produce identical aligned sequences");
             Assert.That(result.Consensus, Is.EqualTo("ATGC"));
-            Assert.That(result.TotalScore, Is.GreaterThan(0),
-                "Identical sequences should have positive alignment score");
+            Assert.That(result.TotalScore, Is.EqualTo(4),
+                "SP: 1 pair × 4 matches × Match(1) = 4");
         });
     }
 
@@ -128,6 +130,8 @@ public class SequenceAligner_MultipleAlign_Tests
             Assert.That(result.AlignedSequences.All(s => s == "ATGCATGC"), Is.True,
                 "All identical sequences should remain identical after alignment");
             Assert.That(result.Consensus, Is.EqualTo("ATGCATGC"));
+            Assert.That(result.TotalScore, Is.EqualTo(24),
+                "SP: C(3,2)=3 pairs × 8 matches × Match(1) = 24");
         });
     }
 
@@ -186,8 +190,8 @@ public class SequenceAligner_MultipleAlign_Tests
     }
 
     /// <summary>
-    /// M08: Different length sequences are padded with gaps.
-    /// Source: Wikipedia MSA - gap insertion for length normalization
+    /// M08: Different length sequences are padded with gaps; removing gaps recovers originals.
+    /// Source: Wikipedia MSA - gap insertion for length normalization + reversibility
     /// </summary>
     [Test]
     public void MultipleAlign_DifferentLengths_PadsWithGaps()
@@ -205,18 +209,22 @@ public class SequenceAligner_MultipleAlign_Tests
             Assert.That(result.AlignedSequences[0].Length,
                 Is.EqualTo(result.AlignedSequences[1].Length),
                 "Both sequences must have equal length after alignment");
-
-            // At least one sequence should contain gaps if lengths differ
-            bool hasGaps = result.AlignedSequences.Any(s => s.Contains('-'));
-            // Note: gaps may or may not appear depending on alignment
             Assert.That(result.AlignedSequences[0].Length, Is.GreaterThanOrEqualTo(8),
-                "Result length should be at least max input length");
+                "Aligned length ≥ max input length (Wikipedia MSA: L ≥ max{nᵢ})");
+            // Shorter sequence must contain gaps after alignment
+            Assert.That(result.AlignedSequences.Any(s => s.Contains('-')), Is.True,
+                "Different-length input must produce gaps in alignment");
+            // Reversibility (Wikipedia MSA)
+            Assert.That(result.AlignedSequences[0].Replace("-", ""), Is.EqualTo("ATGCATGC"),
+                "Removing gaps recovers first original sequence");
+            Assert.That(result.AlignedSequences[1].Replace("-", ""), Is.EqualTo("ATGC"),
+                "Removing gaps recovers second original sequence");
         });
     }
 
     /// <summary>
     /// M09: Consensus contains only valid DNA characters and gaps.
-    /// Source: Implementation invariant
+    /// Source: Wikipedia MSA - consensus validity
     /// </summary>
     [Test]
     public void MultipleAlign_ConsensusContainsOnlyValidCharacters()
@@ -237,41 +245,45 @@ public class SequenceAligner_MultipleAlign_Tests
     }
 
     /// <summary>
-    /// M10: TotalScore is sum of pairwise alignment scores.
-    /// Source: Wikipedia MSA - sum-of-pairs scoring
+    /// M10: TotalScore is the true sum-of-pairs (SP) score across all C(k,2) sequence pairs.
+    /// Source: Wikipedia MSA - "sum of all of the pairs of characters at each position in the alignment
+    /// (the so-called sum of pair score)."
+    /// Column-based scoring: match/mismatch from scoring matrix, gap-nucleotide = GapExtend,
+    /// gap-gap = 0 (standard bioinformatics convention, not explicitly stated in Wikipedia).
     /// </summary>
     [Test]
     public void MultipleAlign_TotalScore_IsSumOfPairwiseScores()
     {
+        // 3 same-length sequences with a mismatch at position 0.
+        // Same length → deterministic alignment with no gaps.
         var sequences = new[]
         {
             new DnaSequence("ATGC"),
             new DnaSequence("ATGC"),
-            new DnaSequence("ATGC")
+            new DnaSequence("CTGC")  // differs at position 0
         };
 
         var result = SequenceAligner.MultipleAlign(sequences);
 
-        // For identical sequences, each pairwise alignment should have positive score
-        // With 3 sequences, there are 2 pairwise alignments (to reference)
+        // Hand-computed SP score per Wikipedia MSA (SimpleDna: Match=1, Mismatch=-1):
+        // Aligned: "ATGC", "ATGC", "CTGC" (same length, no gaps needed)
+        // C(3,2) = 3 pairs:
+        //   (0,1): col0 A=A +1, col1 T=T +1, col2 G=G +1, col3 C=C +1 → 4
+        //   (0,2): col0 A≠C -1, col1 T=T +1, col2 G=G +1, col3 C=C +1 → 2
+        //   (1,2): col0 A≠C -1, col1 T=T +1, col2 G=G +1, col3 C=C +1 → 2
+        // SP = 4 + 2 + 2 = 8
         Assert.Multiple(() =>
         {
-            Assert.That(result.TotalScore, Is.GreaterThan(0),
-                "Identical sequences should produce positive total score");
-
-            // Calculate expected: align seq[1] and seq[2] to seq[0]
-            var score1 = SequenceAligner.GlobalAlign(sequences[0], sequences[1]).Score;
-            var score2 = SequenceAligner.GlobalAlign(sequences[0], sequences[2]).Score;
-            int expectedTotal = score1 + score2;
-
-            Assert.That(result.TotalScore, Is.EqualTo(expectedTotal),
-                "TotalScore should equal sum of pairwise scores to reference");
+            Assert.That(result.AlignedSequences.All(s => !s.Contains('-')), Is.True,
+                "Same-length input: no gaps needed");
+            Assert.That(result.TotalScore, Is.EqualTo(8),
+                "SP score: hand-computed per Wikipedia MSA definition");
         });
     }
 
     /// <summary>
     /// M11: Removing gaps from aligned sequence recovers original.
-    /// Source: Wikipedia MSA - reversibility invariant
+    /// Source: Wikipedia MSA - reversibility invariant: "To return from S'_i to S_i, remove all gaps."
     /// </summary>
     [Test]
     public void MultipleAlign_RemovingGaps_RecoversOriginal()
@@ -294,35 +306,63 @@ public class SequenceAligner_MultipleAlign_Tests
         }
     }
 
+    /// <summary>
+    /// M12: No column in the alignment consists entirely of gaps.
+    /// Source: Wikipedia MSA - "no values in the sequences of S of the same column consists of only gaps."
+    /// </summary>
+    [Test]
+    public void MultipleAlign_NoColumnIsAllGaps()
+    {
+        var sequences = new[]
+        {
+            new DnaSequence("ATGCATGC"),
+            new DnaSequence("ATGC"),
+            new DnaSequence("ATGCAA"),
+            new DnaSequence("ATGCATGCGG")
+        };
+
+        var result = SequenceAligner.MultipleAlign(sequences);
+
+        int length = result.AlignedSequences[0].Length;
+        for (int col = 0; col < length; col++)
+        {
+            bool allGaps = result.AlignedSequences.All(s => col >= s.Length || s[col] == '-');
+            Assert.That(allGaps, Is.False,
+                $"Column {col} consists entirely of gaps, violating MSA invariant (Wikipedia MSA)");
+        }
+    }
+
     #endregion
 
     #region SHOULD Tests - Consensus and Scoring
 
     /// <summary>
     /// S01: Consensus reflects majority at each position.
-    /// Source: Implementation - majority voting
+    /// Source: Wikipedia Consensus sequence - "the calculated sequence of most frequent residues,
+    /// either nucleotide or amino acid, found at each position in a sequence alignment."
     /// </summary>
     [Test]
     public void MultipleAlign_ConsensusReflectsMajority()
     {
-        // Create sequences where position 0 has clear majority
+        // Position 1 has a clear majority split: A=1, C=2 → C wins
         var sequences = new[]
         {
-            new DnaSequence("ATGC"),  // A at position 0
-            new DnaSequence("ATGC"),  // A at position 0
-            new DnaSequence("CTGC")   // C at position 0 (minority)
+            new DnaSequence("AATG"),  // col1: A (minority)
+            new DnaSequence("ACTG"),  // col1: C (majority)
+            new DnaSequence("ACTG")   // col1: C (majority)
         };
 
         var result = SequenceAligner.MultipleAlign(sequences);
 
-        // At position 0: A appears 2 times, C appears 1 time → consensus should be A
-        Assert.That(result.Consensus[0], Is.EqualTo('A'),
-            "Consensus should reflect majority vote (A=2, C=1)");
+        // Hand-computed consensus:
+        // col0: A=3 → A; col1: A=1,C=2 → C; col2: T=3 → T; col3: G=3 → G
+        Assert.That(result.Consensus, Is.EqualTo("ACTG"),
+            "Consensus: col0 A(3), col1 C(2)>A(1), col2 T(3), col3 G(3)");
     }
 
     /// <summary>
     /// S02: Custom scoring matrix is honored.
-    /// Source: API contract
+    /// Source: Wikipedia Clustal - "gap opening penalty and gap extension penalty parameters can be adjusted."
     /// </summary>
     [Test]
     public void MultipleAlign_WithCustomScoring_UsesProvidedMatrix()
@@ -336,14 +376,20 @@ public class SequenceAligner_MultipleAlign_Tests
         var defaultResult = SequenceAligner.MultipleAlign(sequences);
         var customResult = SequenceAligner.MultipleAlign(sequences, SequenceAligner.BlastDna);
 
-        // BlastDna has Match=2 vs SimpleDna Match=1, so score should differ
-        Assert.That(customResult.TotalScore, Is.Not.EqualTo(defaultResult.TotalScore),
-            "Different scoring matrices should produce different scores");
+        Assert.Multiple(() =>
+        {
+            // SimpleDna (Match=1): 1 pair × 4 matches × 1 = 4
+            Assert.That(defaultResult.TotalScore, Is.EqualTo(4),
+                "SimpleDna SP: 1 pair × 4 matches × Match(1) = 4");
+            // BlastDna (Match=2): 1 pair × 4 matches × 2 = 8
+            Assert.That(customResult.TotalScore, Is.EqualTo(8),
+                "BlastDna SP: 1 pair × 4 matches × Match(2) = 8");
+        });
     }
 
     /// <summary>
     /// S03: Partially overlapping sequences align correctly.
-    /// Source: ASSUMPTION - realistic biological scenario
+    /// Source: Wikipedia MSA - MSA applies to any set of biological sequences regardless of overlap pattern.
     /// </summary>
     [Test]
     public void MultipleAlign_PartiallyOverlapping_AlignsCorrectly()
@@ -359,10 +405,58 @@ public class SequenceAligner_MultipleAlign_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.AlignedSequences.Length, Is.EqualTo(3));
-            Assert.That(result.AlignedSequences.All(s => s.Length == result.AlignedSequences[0].Length), Is.True);
-            Assert.That(result.Consensus.Length, Is.EqualTo(result.AlignedSequences[0].Length));
+            Assert.That(result.AlignedSequences.Length, Is.EqualTo(3), "Count preservation");
+            int len = result.AlignedSequences[0].Length;
+            Assert.That(result.AlignedSequences.All(s => s.Length == len), Is.True,
+                "Equal length invariant");
+            Assert.That(result.Consensus.Length, Is.EqualTo(len),
+                "Consensus length = aligned length");
+            Assert.That(len, Is.GreaterThanOrEqualTo(8),
+                "L ≥ max{nᵢ} = 8 (Wikipedia MSA)");
+            // Reversibility (Wikipedia MSA: removing gaps recovers original)
+            Assert.That(result.AlignedSequences[0].Replace("-", ""), Is.EqualTo("ATGCATGC"));
+            Assert.That(result.AlignedSequences[1].Replace("-", ""), Is.EqualTo("GCATGCAT"));
+            Assert.That(result.AlignedSequences[2].Replace("-", ""), Is.EqualTo("TGCATGCA"));
         });
+    }
+
+    /// <summary>
+    /// S04: When gap and nucleotide are tied in majority voting, nucleotide is preferred.
+    /// Source: Implementation design choice. Wikipedia Consensus sequence defines consensus
+    /// as "most frequent residues" but does not specify tie-breaking or gap handling.
+    /// </summary>
+    [Test]
+    public void MultipleAlign_ConsensusTieBreaking_PrefersNucleotideOverGap()
+    {
+        // 4 sequences: seqs 0,1 are "ATGC" (4 chars), seqs 2,3 are "AGC" (3 chars).
+        // After alignment, seqs 2,3 get a gap at position 1: "A-GC".
+        // Position 1: T=2, '-'=2 → tie → nucleotide 'T' preferred.
+        var sequences = new[]
+        {
+            new DnaSequence("ATGC"),
+            new DnaSequence("ATGC"),
+            new DnaSequence("AGC"),
+            new DnaSequence("AGC")
+        };
+
+        var result = SequenceAligner.MultipleAlign(sequences);
+
+        // Verify at least one tie column exists and is resolved to nucleotide
+        int length = result.AlignedSequences[0].Length;
+        bool foundTie = false;
+        for (int col = 0; col < length; col++)
+        {
+            int gapCount = result.AlignedSequences.Count(s => s[col] == '-');
+            int nucCount = result.AlignedSequences.Length - gapCount;
+            if (gapCount > 0 && gapCount == nucCount)
+            {
+                Assert.That(result.Consensus[col], Is.Not.EqualTo('-'),
+                    $"Column {col}: gap-nucleotide tie ({gapCount}:{nucCount}) must resolve to nucleotide");
+                foundTie = true;
+            }
+        }
+        Assert.That(foundTie, Is.True,
+            "Test input must produce at least one gap-nucleotide tie column");
     }
 
     #endregion
@@ -371,35 +465,42 @@ public class SequenceAligner_MultipleAlign_Tests
 
     /// <summary>
     /// C01: Large sequence set completes in reasonable time.
-    /// Source: ASSUMPTION - performance sanity check
+    /// Source: Wikipedia Clustal - ClustalW complexity is O(N²); star alignment is O(k² × m).
+    /// 20 diverse sequences of 50bp should complete well within 5 seconds.
     /// </summary>
     [Test]
     [CancelAfter(5000)] // 5 second timeout
     public void MultipleAlign_ManySequences_CompletesInReasonableTime()
     {
-        // 20 sequences of 50bp each - should complete quickly
+        // 20 diverse sequences of 50bp each - fixed seed for reproducibility
+        var random = new Random(42);
         var sequences = Enumerable.Range(0, 20)
-            .Select(_ => new DnaSequence(GenerateRandomDnaSequence(50)))
+            .Select(_ => new DnaSequence(GenerateRandomDnaSequence(50, random)))
             .ToArray();
+
+        // Verify test setup: sequences should be diverse (not all identical)
+        Assert.That(sequences.Select(s => s.Sequence).Distinct().Count(), Is.GreaterThan(1),
+            "Test setup: sequences should be diverse");
 
         var result = SequenceAligner.MultipleAlign(sequences);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.AlignedSequences.Length, Is.EqualTo(20));
-            Assert.That(result.AlignedSequences.All(s => s.Length > 0), Is.True);
+            Assert.That(result.AlignedSequences.Length, Is.EqualTo(20), "Count preservation");
+            Assert.That(result.AlignedSequences.All(s => s.Length == result.AlignedSequences[0].Length), Is.True,
+                "Equal length invariant");
+            Assert.That(result.Consensus.Length, Is.EqualTo(result.AlignedSequences[0].Length),
+                "Consensus length = aligned length");
         });
     }
 
     /// <summary>
     /// C02: Empty sequences in collection handled gracefully.
-    /// Source: ASSUMPTION - defensive handling
+    /// Source: Wikipedia MSA - edge case; sequences of length 0 represent degenerate input.
     /// </summary>
     [Test]
     public void MultipleAlign_WithEmptySequence_HandlesGracefully()
     {
-        // Note: This depends on whether DnaSequence allows empty strings
-        // If not, this test documents the behavior
         var sequences = new[]
         {
             new DnaSequence("ATGC"),
@@ -409,18 +510,26 @@ public class SequenceAligner_MultipleAlign_Tests
 
         var result = SequenceAligner.MultipleAlign(sequences);
 
-        // Should produce 3 aligned sequences
-        Assert.That(result.AlignedSequences.Length, Is.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.AlignedSequences.Length, Is.EqualTo(3), "Count preservation");
+            Assert.That(result.AlignedSequences.All(s => s.Length == result.AlignedSequences[0].Length), Is.True,
+                "Equal length invariant");
+            // Non-empty sequences recover via gap removal (Wikipedia MSA: reversibility)
+            Assert.That(result.AlignedSequences[0].Replace("-", ""), Is.EqualTo("ATGC"));
+            Assert.That(result.AlignedSequences[2].Replace("-", ""), Is.EqualTo("ATGC"));
+            // Empty sequence produces all gaps or empty
+            Assert.That(result.AlignedSequences[1].Replace("-", ""), Is.EqualTo(""));
+        });
     }
 
     #endregion
 
     #region Helper Methods
 
-    private static string GenerateRandomDnaSequence(int length)
+    private static string GenerateRandomDnaSequence(int length, Random random)
     {
         const string nucleotides = "ACGT";
-        var random = new Random(42); // Fixed seed for reproducibility
         return new string(Enumerable.Range(0, length)
             .Select(_ => nucleotides[random.Next(4)])
             .ToArray());

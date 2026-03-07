@@ -4740,7 +4740,7 @@
 | REP-STR-001 | O(n²) | ⚠️ | Actually O(n × U × R), depends on parameters |
 | REP-INV-001 | O(n²) | ⚠️ | O(n² × L) with maxLoopLength |
 | CHROM-SYNT-001 | O(n log n) | ⚠️ | Has nested loops, needs verification |
-| ALIGN-MULTI-001 | O(n² × m²) | ⚠️ | Progressive is typically O(n² × m) |
+| ALIGN-MULTI-001 | O(k² × m) | ✓ | Anchor-based star alignment; k=sequences, m=avg length |
 | META-BIN-001 | O(n) | ⚠️ | K-means is O(n × k × i), verify iterations |
 | CRISPR-OFF-001 | O(n × m) | ⚠️ | May be exponential with high mismatches |
 | RNA-STRUCT-001 | O(n³) | ✓ | Standard Nussinov/Zuker |

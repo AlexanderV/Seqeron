@@ -688,10 +688,14 @@ public static class SequenceAligner
         // Generate consensus
         string consensus = BuildConsensus(mergedAligned, maxLen);
 
+        // Compute true sum-of-pairs score on the final aligned sequences.
+        // Per Wikipedia MSA: SP = sum over all C(k,2) pairs of column-based scores.
+        int spScore = ComputeSumOfPairsScore(mergedAligned, effectiveScoring);
+
         return new MultipleAlignmentResult(
             AlignedSequences: mergedAligned.ToArray(),
             Consensus: consensus,
-            TotalScore: mergedScore);
+            TotalScore: spScore);
     }
 
     /// <summary>
@@ -722,7 +726,7 @@ public static class SequenceAligner
         return new MultipleAlignmentResult(
             AlignedSequences: aligned.ToArray(),
             Consensus: consensus,
-            TotalScore: totalScore);
+            TotalScore: ComputeSumOfPairsScore(aligned, scoring));
     }
 
     /// <summary>
@@ -955,6 +959,8 @@ public static class SequenceAligner
 
     /// <summary>
     /// Builds a majority-vote consensus from aligned sequences.
+    /// Per Wikipedia MSA: consensus derived from aligned columns using majority voting.
+    /// Gap characters participate in the vote; on tie, nucleotides are preferred.
     /// </summary>
     private static string BuildConsensus(List<string> aligned, int length)
     {
@@ -970,14 +976,54 @@ public static class SequenceAligner
                     counts[seq[pos]]++;
             }
 
-            char mostCommon = counts.Where(kv => kv.Key != '-')
-                                   .OrderByDescending(kv => kv.Value)
-                                   .FirstOrDefault().Key;
+            // Include all characters (including gaps) in majority vote.
+            // On tie between gap and nucleotide, prefer nucleotide.
+            char mostCommon = counts.OrderByDescending(kv => kv.Value)
+                                   .ThenBy(kv => kv.Key == '-' ? 1 : 0)
+                                   .First().Key;
 
-            consensus.Append(mostCommon == default ? '-' : mostCommon);
+            consensus.Append(mostCommon);
         }
 
         return consensus.ToString();
+    }
+
+    /// <summary>
+    /// Computes the column-based sum-of-pairs (SP) score for a multiple sequence alignment.
+    /// Per Wikipedia MSA: "sum of all of the pairs of characters at each position in the alignment."
+    /// Scores all C(k,2) sequence pairs using column-based scoring:
+    /// match/mismatch from scoring matrix, gap-nucleotide penalty per position, gap-gap = 0.
+    /// </summary>
+    private static int ComputeSumOfPairsScore(List<string> aligned, ScoringMatrix scoring)
+    {
+        if (aligned.Count < 2) return 0;
+
+        int length = aligned[0].Length;
+        int totalScore = 0;
+
+        for (int pos = 0; pos < length; pos++)
+        {
+            for (int i = 0; i < aligned.Count; i++)
+            {
+                char ci = pos < aligned[i].Length ? aligned[i][pos] : '-';
+
+                for (int j = i + 1; j < aligned.Count; j++)
+                {
+                    char cj = pos < aligned[j].Length ? aligned[j][pos] : '-';
+
+                    if (ci == '-' && cj == '-')
+                        continue; // Gap-gap: neutral (standard SP convention)
+                    else if (ci == '-' || cj == '-')
+                        totalScore += scoring.GapExtend; // Gap-nucleotide penalty
+                    else if (ci == cj)
+                        totalScore += scoring.Match;
+                    else
+                        totalScore += scoring.Mismatch;
+                }
+            }
+        }
+
+        return totalScore;
     }
 
     #endregion
