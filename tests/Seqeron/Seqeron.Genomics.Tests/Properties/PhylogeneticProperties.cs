@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for phylogenetic analysis.
 /// Verifies distance matrix and Newick I/O invariants.
 ///
-/// Test Units: PHYLO-DIST-001, PHYLO-NEWICK-001, PHYLO-COMP-001 (Property Extensions)
+/// Test Units: PHYLO-NEWICK-001, PHYLO-TREE-001, PHYLO-COMP-001 (Property Extensions)
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -21,64 +21,6 @@ public class PhylogeneticProperties
             .Where(a => a.Length >= len)
             .Select(a => new string(a, 0, len))
             .ToArbitrary();
-
-    /// <summary>
-    /// Distance matrix is symmetric: d[i,j] == d[j,i].
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DistanceMatrix_IsSymmetric()
-    {
-        var seqs = new[] { "ACGTACGTACGTACGTACGT", "ACGTACGTAAGTACGTACGT", "ACGTACGTACGTACATACGT" };
-        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
-
-        for (int i = 0; i < seqs.Length; i++)
-            for (int j = 0; j < seqs.Length; j++)
-                Assert.That(matrix[i, j], Is.EqualTo(matrix[j, i]).Within(0.0001),
-                    $"d[{i},{j}] != d[{j},{i}]");
-    }
-
-    /// <summary>
-    /// Diagonal of distance matrix is zero: d[i,i] == 0.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DistanceMatrix_DiagonalIsZero()
-    {
-        var seqs = new[] { "ACGTACGTACGTACGTACGT", "ACGTACGTAAGTACGTACGT", "ACGTACGTACGTACATACGT" };
-        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
-
-        for (int i = 0; i < seqs.Length; i++)
-            Assert.That(matrix[i, i], Is.EqualTo(0.0).Within(0.0001), $"d[{i},{i}] must be 0");
-    }
-
-    /// <summary>
-    /// All off-diagonal distances are non-negative.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DistanceMatrix_AllNonNegative()
-    {
-        var seqs = new[] { "ACGTACGTACGTACGTACGT", "TCGTACGTAAGTACGTACGT", "ACGTACGTACGTACATACGT" };
-        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
-
-        for (int i = 0; i < seqs.Length; i++)
-            for (int j = 0; j < seqs.Length; j++)
-                Assert.That(matrix[i, j], Is.GreaterThanOrEqualTo(0.0),
-                    $"d[{i},{j}] must be ≥ 0");
-    }
-
-    /// <summary>
-    /// Identical sequences have distance 0.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void IdenticalSequences_HaveZeroDistance()
-    {
-        string seq = "ACGTACGTACGTACGTACGT";
-        double d = PhylogeneticAnalyzer.CalculatePairwiseDistance(seq, seq);
-        Assert.That(d, Is.EqualTo(0.0).Within(0.0001));
-    }
 
     /// <summary>
     /// Newick round-trip: ToNewick → ParseNewick preserves leaf names.

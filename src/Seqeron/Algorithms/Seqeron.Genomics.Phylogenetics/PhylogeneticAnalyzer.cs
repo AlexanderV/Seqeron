@@ -134,6 +134,8 @@ public static class PhylogeneticAnalyzer
     public static double CalculatePairwiseDistance(
         string seq1, string seq2, DistanceMethod method = DistanceMethod.JukesCantor)
     {
+        if (seq1 == null) throw new ArgumentNullException(nameof(seq1));
+        if (seq2 == null) throw new ArgumentNullException(nameof(seq2));
         if (seq1.Length != seq2.Length)
             throw new ArgumentException("Sequences must have the same length.");
 
@@ -147,8 +149,9 @@ public static class PhylogeneticAnalyzer
             char c1 = char.ToUpperInvariant(seq1[i]);
             char c2 = char.ToUpperInvariant(seq2[i]);
 
-            // Skip gaps
+            // Skip gaps and ambiguous bases (only compare A, C, G, T)
             if (c1 == '-' || c2 == '-') continue;
+            if (!IsStandardBase(c1) || !IsStandardBase(c2)) continue;
             comparableSites++;
 
             if (c1 != c2)
@@ -176,6 +179,9 @@ public static class PhylogeneticAnalyzer
             _ => p
         };
     }
+
+    private static bool IsStandardBase(char c) =>
+        c == 'A' || c == 'C' || c == 'G' || c == 'T';
 
     private static bool IsTransition(char c1, char c2)
     {

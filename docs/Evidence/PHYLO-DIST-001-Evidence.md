@@ -81,13 +81,16 @@
 
 | Corner Case | Expected Behavior | Source |
 |-------------|-------------------|--------|
-| Identical sequences | Distance = 0 | Definition |
+| Identical sequences | Distance = 0 | Mathematical definition: d(x,x) = 0 |
 | Single different base | Small positive distance | Formula calculation |
-| All gaps in alignment | Distance = 0 (no comparable sites) | Implementation choice |
-| Unequal length sequences | Throw ArgumentException | Pre-condition |
-| Empty sequences | Distance = 0 or throw | Implementation choice |
-| Case-insensitive | Upper/lowercase treated same | Standard practice |
-| High divergence (p ≥ 0.75) | JC69 returns +∞ | JC69 formula saturation |
+| All gaps in alignment | Distance = 0 (no comparable sites, 0 differences) | Mathematical limit: 0/n → 0 as n→0 with 0 diffs |
+| Unequal length sequences | Throw ArgumentException | Pre-condition (aligned sequences required) |
+| Empty sequences | Distance = 0 (no comparable sites, 0 differences) | Same as all-gaps: no evidence of divergence |
+| Case-insensitive | Upper/lowercase treated same | Standard bioinformatics practice |
+| High divergence (p ≥ 3/4) | JC69 returns +∞ | JC69 formula: 1-4p/3 ≤ 0, ln undefined |
+| High transversion (V ≥ 0.5) | K2P returns +∞ | K2P formula: 1-2V ≤ 0, ln undefined |
+| Ambiguous IUPAC bases (N, R, Y, etc.) | Skipped like gaps (not comparable) | Pairwise deletion: only A, C, G, T are compared |
+| Null sequences | Throw ArgumentNullException | API contract |
 
 ---
 
@@ -131,9 +134,23 @@ Expected:
 
 ### 5.3 Transition vs Transversion Test
 ```
-Seq1: AAAA
-Seq2: AGGG (1 transition A→G at pos 1, 2 transversions A→G at pos 2,3)
-Note: A→G is a transition (purine to purine)
+Pure transition (Wikipedia: A↔G purine↔purine):
+  Seq1: ACGT
+  Seq2: GCGT (1 transition A→G at pos 0)
+  S = 1/4, V = 0
+  K2P = -0.5 × ln(0.5) ≈ 0.34657
+
+Pure transversion (Wikipedia: purine↔pyrimidine):
+  Seq1: ACGT
+  Seq2: CCGT (1 transversion A→C at pos 0)
+  S = 0, V = 1/4
+  K2P = -0.5 × ln(0.75 × √0.5) ≈ 0.31726
+
+Mixed:
+  Seq1: ACGTACGT
+  Seq2: GCGTTCGT (1 transition A→G at pos 0, 1 transversion A→T at pos 4)
+  S = 1/8, V = 1/8
+  K2P = -0.5 × ln((1 - 2×1/8 - 1/8) × √(1 - 2×1/8)) ≈ 0.30679
 ```
 
 ### 5.4 With Gaps Test
