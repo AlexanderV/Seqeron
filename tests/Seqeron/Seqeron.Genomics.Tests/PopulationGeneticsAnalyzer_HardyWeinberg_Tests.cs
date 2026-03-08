@@ -38,23 +38,23 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
 
         Assert.Multiple(() =>
         {
-            // Verify chi-square is approximately 0.83 as per Wikipedia
-            Assert.That(result.ChiSquare, Is.EqualTo(0.83).Within(0.1),
-                "Chi-square should be approximately 0.83 for Ford's data");
+            // Verify chi-square: exact = 0.8309 (Wikipedia rounds to 0.83)
+            Assert.That(result.ChiSquare, Is.EqualTo(0.8309).Within(0.01),
+                "Chi-square should be approximately 0.8309 for Ford's data");
 
             // Verify equilibrium decision
             Assert.That(result.InEquilibrium, Is.True,
                 "Ford's moth data should be in Hardy-Weinberg equilibrium");
 
             // Verify expected counts (Wikipedia: E_AA≈1467.4, E_Aa≈141.2, E_aa≈3.4)
-            Assert.That(result.ExpectedAA, Is.EqualTo(1467.4).Within(1.0),
-                "Expected AA count should be approximately 1467.4");
-            Assert.That(result.ExpectedAa, Is.EqualTo(141.2).Within(1.0),
-                "Expected Aa count should be approximately 141.2");
-            Assert.That(result.Expectedaa, Is.EqualTo(3.4).Within(0.5),
-                "Expected aa count should be approximately 3.4");
+            Assert.That(result.ExpectedAA, Is.EqualTo(1467.40).Within(0.1),
+                "Expected AA count should be approximately 1467.40");
+            Assert.That(result.ExpectedAa, Is.EqualTo(141.21).Within(0.1),
+                "Expected Aa count should be approximately 141.21");
+            Assert.That(result.Expectedaa, Is.EqualTo(3.40).Within(0.1),
+                "Expected aa count should be approximately 3.40");
 
-            // P-value should be > 0.05
+            // P-value should be > 0.05 (well above threshold)
             Assert.That(result.PValue, Is.GreaterThan(0.05),
                 "P-value should exceed 0.05 significance level");
         });
@@ -108,10 +108,10 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
 
         Assert.Multiple(() =>
         {
+            Assert.That(result.ChiSquare, Is.EqualTo(36.0).Within(0.01),
+                "Chi-square should be exactly 36: (10-25)²/25 + (80-50)²/50 + (10-25)²/25 = 9+18+9");
             Assert.That(result.ChiSquare, Is.GreaterThan(ChiSquareCriticalValue_Alpha05_Df1),
                 "Chi-square should exceed critical value for excess heterozygotes");
-            Assert.That(result.ChiSquare, Is.EqualTo(36).Within(1.0),
-                "Chi-square should be approximately 36");
             Assert.That(result.InEquilibrium, Is.False,
                 "Excess heterozygotes should deviate from HWE");
             Assert.That(result.PValue, Is.LessThan(0.05),
@@ -122,6 +122,9 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     /// <summary>
     /// HW-M04: All heterozygotes - extreme deviation.
     /// This is biologically implausible under random mating.
+    /// p = (0 + 100) / 200 = 0.5, q = 0.5
+    /// E(AA) = 25, E(Aa) = 50, E(aa) = 25
+    /// χ² = (0-25)²/25 + (100-50)²/50 + (0-25)²/25 = 25 + 50 + 25 = 100
     /// </summary>
     [Test]
     public void TestHardyWeinberg_AllHeterozygotes_SignificantDeviation()
@@ -134,15 +137,26 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ChiSquare, Is.GreaterThan(ChiSquareCriticalValue_Alpha05_Df1),
-                "All heterozygotes should show significant deviation");
+            Assert.That(result.ChiSquare, Is.EqualTo(100.0).Within(0.01),
+                "Chi-square should be exactly 100 for all-heterozygote case");
             Assert.That(result.InEquilibrium, Is.False,
                 "All heterozygotes cannot be in HWE");
+            Assert.That(result.PValue, Is.LessThan(0.05),
+                "P-value should be far below 0.05");
+            Assert.That(result.ExpectedAA, Is.EqualTo(25.0).Within(Tolerance),
+                "E(AA) = 0.5² × 100 = 25");
+            Assert.That(result.ExpectedAa, Is.EqualTo(50.0).Within(Tolerance),
+                "E(Aa) = 2×0.5×0.5 × 100 = 50");
+            Assert.That(result.Expectedaa, Is.EqualTo(25.0).Within(Tolerance),
+                "E(aa) = 0.5² × 100 = 25");
         });
     }
 
     /// <summary>
     /// HW-M05: Deficit of heterozygotes - inbreeding pattern.
+    /// p = (2×45 + 10) / 200 = 0.5, q = 0.5
+    /// E(AA) = 25, E(Aa) = 50, E(aa) = 25
+    /// χ² = (45-25)²/25 + (10-50)²/50 + (45-25)²/25 = 16 + 32 + 16 = 64
     /// </summary>
     [Test]
     public void TestHardyWeinberg_DeficitHeterozygotes_InbreedingPattern()
@@ -157,10 +171,18 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ChiSquare, Is.GreaterThan(ChiSquareCriticalValue_Alpha05_Df1),
-                "Deficit of heterozygotes should show significant deviation");
+            Assert.That(result.ChiSquare, Is.EqualTo(64.0).Within(0.01),
+                "Chi-square should be exactly 64 for deficit heterozygotes");
             Assert.That(result.InEquilibrium, Is.False,
                 "Inbreeding pattern should deviate from HWE");
+            Assert.That(result.PValue, Is.LessThan(0.05),
+                "P-value should be far below 0.05");
+            Assert.That(result.ExpectedAA, Is.EqualTo(25.0).Within(Tolerance),
+                "E(AA) = 0.5² × 100 = 25");
+            Assert.That(result.ExpectedAa, Is.EqualTo(50.0).Within(Tolerance),
+                "E(Aa) = 2×0.5×0.5 × 100 = 50");
+            Assert.That(result.Expectedaa, Is.EqualTo(25.0).Within(Tolerance),
+                "E(aa) = 0.5² × 100 = 25");
         });
     }
 
@@ -287,6 +309,8 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     [Test]
     public void TestHardyWeinberg_SingleSample_ReturnsValidResult()
     {
+        // AA=1, Aa=0, aa=0 → p=1.0, q=0.0
+        // E(AA)=1, E(Aa)=0, E(aa)=0; Observed=Expected → χ²=0, PValue=1
         var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
             variantId: "SINGLE",
             observedAA: 1,
@@ -297,8 +321,14 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
         {
             Assert.That(result.ObservedAA, Is.EqualTo(1));
             Assert.That(result.ExpectedAA, Is.EqualTo(1).Within(Tolerance));
-            Assert.That(result.ChiSquare, Is.GreaterThanOrEqualTo(0),
-                "Chi-square should be non-negative");
+            Assert.That(result.ExpectedAa, Is.EqualTo(0).Within(Tolerance));
+            Assert.That(result.Expectedaa, Is.EqualTo(0).Within(Tolerance));
+            Assert.That(result.ChiSquare, Is.EqualTo(0).Within(Tolerance),
+                "Chi-square should be 0 when observed equals expected");
+            Assert.That(result.PValue, Is.EqualTo(1).Within(Tolerance),
+                "P-value should be 1 when χ²=0");
+            Assert.That(result.InEquilibrium, Is.True,
+                "Single monomorphic sample should be in equilibrium");
         });
     }
 
@@ -333,9 +363,9 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     [TestCase(0, 100, 0)]
     [TestCase(45, 10, 45)]
     [TestCase(1, 1, 1)]
-    public void TestHardyWeinberg_ChiSquareNonNegative(int aa, int aA, int AA)
+    public void TestHardyWeinberg_ChiSquareNonNegative(int observedAA, int observedAa, int observedaa)
     {
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("INV_TEST", aa, aA, AA);
+        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("INV_TEST", observedAA, observedAa, observedaa);
 
         Assert.That(result.ChiSquare, Is.GreaterThanOrEqualTo(0),
             "Chi-square must always be non-negative");
@@ -349,9 +379,9 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     [TestCase(100, 0, 0)]
     [TestCase(0, 100, 0)]
     [TestCase(45, 10, 45)]
-    public void TestHardyWeinberg_PValueInValidRange(int aa, int aA, int AA)
+    public void TestHardyWeinberg_PValueInValidRange(int observedAA, int observedAa, int observedaa)
     {
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("PVAL_TEST", aa, aA, AA);
+        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("PVAL_TEST", observedAA, observedAa, observedaa);
 
         Assert.That(result.PValue, Is.InRange(0, 1),
             "P-value must be in [0, 1]");
@@ -360,16 +390,18 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     /// <summary>
     /// HW-M14: InEquilibrium is consistent with PValue and significance level.
     /// </summary>
-    [TestCase(25, 50, 25, 0.05, true)]   // Perfect HWE
-    [TestCase(10, 80, 10, 0.05, false)]  // Excess heterozygotes
-    [TestCase(10, 80, 10, 0.001, false)] // Even stricter, still fails
+    [TestCase(25, 50, 25, 0.05)]   // Perfect HWE: p=1.0, InEquilibrium=true
+    [TestCase(10, 80, 10, 0.05)]   // Excess heterozygotes: p≈0, InEquilibrium=false
+    [TestCase(10, 80, 10, 0.001)]  // Even stricter α, still fails
+    [TestCase(46, 49, 5, 0.05)]    // Borderline: p≈0.075, InEquilibrium=true
+    [TestCase(46, 49, 5, 0.10)]    // Borderline: p≈0.075, InEquilibrium=false
     public void TestHardyWeinberg_EquilibriumConsistentWithPValue(
-        int aa, int aA, int AA, double significance, bool expectedEquilibrium)
+        int observedAA, int observedAa, int observedaa, double significance)
     {
         var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "CONSIST_TEST", aa, aA, AA, significance);
+            "CONSIST_TEST", observedAA, observedAa, observedaa, significance);
 
-        // InEquilibrium should be true iff PValue >= significance
+        // Invariant: InEquilibrium should be true iff PValue >= significance
         bool expectedFromPValue = result.PValue >= significance;
         Assert.That(result.InEquilibrium, Is.EqualTo(expectedFromPValue),
             $"InEquilibrium should equal (PValue >= significance). PValue={result.PValue}, sig={significance}");
@@ -381,10 +413,10 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     [TestCase(36, 48, 16)]
     [TestCase(100, 100, 100)]
     [TestCase(1, 2, 3)]
-    public void TestHardyWeinberg_ExpectedCountsSumToN(int aa, int aA, int AA)
+    public void TestHardyWeinberg_ExpectedCountsSumToN(int observedAA, int observedAa, int observedaa)
     {
-        int n = aa + aA + AA;
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("SUM_TEST", aa, aA, AA);
+        int n = observedAA + observedAa + observedaa;
+        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("SUM_TEST", observedAA, observedAa, observedaa);
 
         double expectedSum = result.ExpectedAA + result.ExpectedAa + result.Expectedaa;
         Assert.That(expectedSum, Is.EqualTo(n).Within(Tolerance),
@@ -397,46 +429,67 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
 
     /// <summary>
     /// HW-M16: Custom significance level is respected.
+    /// Uses borderline data (46,49,5) where χ²≈3.17, p-value≈0.075.
+    /// At α=0.01: p-value (0.075) ≥ 0.01 → InEquilibrium = true
+    /// At α=0.10: p-value (0.075) < 0.10 → InEquilibrium = false
     /// </summary>
     [Test]
     public void TestHardyWeinberg_CustomSignificanceLevel()
     {
-        // Use data that might pass at α=0.05 but fail at α=0.10
-        // or vice versa near the boundary
-        var result01 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "SIG_TEST", 30, 45, 25, significanceLevel: 0.01);
-        var result10 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "SIG_TEST", 30, 45, 25, significanceLevel: 0.10);
+        var resultAt01 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            "SIG_TEST", 46, 49, 5, significanceLevel: 0.01);
+        var resultAt10 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            "SIG_TEST", 46, 49, 5, significanceLevel: 0.10);
 
-        // At lower significance (0.01), more likely to be in equilibrium
-        // At higher significance (0.10), more likely to reject
-        // This verifies the parameter is actually used
         Assert.Multiple(() =>
         {
-            Assert.That(result01.PValue, Is.EqualTo(result10.PValue).Within(Tolerance),
+            // P-value should be identical for same data regardless of significance level
+            Assert.That(resultAt01.PValue, Is.EqualTo(resultAt10.PValue).Within(Tolerance),
                 "P-value should be same regardless of significance level");
-            // If p-value is between 0.01 and 0.10, decisions should differ
-            if (result01.PValue >= 0.01 && result01.PValue < 0.10)
-            {
-                Assert.That(result01.InEquilibrium, Is.True);
-                Assert.That(result10.InEquilibrium, Is.False);
-            }
+
+            // P-value should be between 0.01 and 0.10 (verified from χ²≈3.17)
+            Assert.That(resultAt01.PValue, Is.GreaterThan(0.01).And.LessThan(0.10),
+                "P-value must fall between the two significance levels for this test to be meaningful");
+
+            // At α=0.01: fail to reject H₀
+            Assert.That(resultAt01.InEquilibrium, Is.True,
+                "At α=0.01, borderline case should be in equilibrium");
+
+            // At α=0.10: reject H₀
+            Assert.That(resultAt10.InEquilibrium, Is.False,
+                "At α=0.10, borderline case should NOT be in equilibrium");
         });
     }
 
     /// <summary>
     /// HW-M17: Default significance level is 0.05.
+    /// Uses borderline data (46,49,5) where p-value≈0.075, which is >0.05.
+    /// Both default and explicit α=0.05 should yield InEquilibrium=true.
     /// </summary>
     [Test]
     public void TestHardyWeinberg_DefaultSignificanceIs005()
     {
+        // p-value ≈ 0.075 for this data → InEquilibrium=true at α=0.05
         var resultDefault = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "DEFAULT_SIG", 25, 50, 25);
+            "DEFAULT_SIG", 46, 49, 5);
         var resultExplicit = PopulationGeneticsAnalyzer.TestHardyWeinberg(
-            "EXPLICIT_SIG", 25, 50, 25, significanceLevel: 0.05);
+            "EXPLICIT_SIG", 46, 49, 5, significanceLevel: 0.05);
 
-        Assert.That(resultDefault.InEquilibrium, Is.EqualTo(resultExplicit.InEquilibrium),
-            "Default significance should be 0.05");
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultDefault.InEquilibrium, Is.EqualTo(resultExplicit.InEquilibrium),
+                "Default significance should be 0.05");
+            Assert.That(resultDefault.ChiSquare, Is.EqualTo(resultExplicit.ChiSquare).Within(Tolerance),
+                "Chi-square should be identical");
+            Assert.That(resultDefault.PValue, Is.EqualTo(resultExplicit.PValue).Within(Tolerance),
+                "P-value should be identical");
+
+            // Verify this is a non-trivial case: p-value is between 0.05 and 0.10
+            Assert.That(resultDefault.PValue, Is.GreaterThan(0.05).And.LessThan(0.10),
+                "Test data should produce a p-value between 0.05 and 0.10 to be meaningful");
+            Assert.That(resultDefault.InEquilibrium, Is.True,
+                "With default α=0.05 and p-value>0.05, should be in equilibrium");
+        });
     }
 
     #endregion
@@ -466,24 +519,159 @@ public class PopulationGeneticsAnalyzer_HardyWeinberg_Tests
     }
 
     /// <summary>
-    /// HW-S02: Various allele frequencies.
+    /// HW-S02: Various allele frequencies — data chosen such that observed = expected.
+    /// All are perfect HWE: genotype counts exactly equal p², 2pq, q² × n.
     /// </summary>
-    [TestCase(81, 18, 1, 0.9)]   // p = 0.9
-    [TestCase(49, 42, 9, 0.7)]   // p = 0.7
-    [TestCase(9, 42, 49, 0.3)]   // p = 0.3
-    [TestCase(1, 18, 81, 0.1)]   // p = 0.1
+    [TestCase(81, 18, 1, 0.9)]   // p = 0.9: E=(81,18,1) = Observed
+    [TestCase(49, 42, 9, 0.7)]   // p = 0.7: E=(49,42,9) = Observed
+    [TestCase(9, 42, 49, 0.3)]   // p = 0.3: E=(9,42,49) = Observed
+    [TestCase(1, 18, 81, 0.1)]   // p = 0.1: E=(1,18,81) = Observed
     public void TestHardyWeinberg_VariousAlleleFrequencies_CorrectExpected(
-        int aa, int aA, int AA, double expectedP)
+        int observedAA, int observedAa, int observedaa, double expectedP)
     {
-        int n = aa + aA + AA;
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("FREQ_TEST", aa, aA, AA);
+        int n = observedAA + observedAa + observedaa;
+        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("FREQ_TEST", observedAA, observedAa, observedaa);
 
         double q = 1 - expectedP;
         Assert.Multiple(() =>
         {
-            Assert.That(result.ExpectedAA, Is.EqualTo(expectedP * expectedP * n).Within(1.0));
-            Assert.That(result.ExpectedAa, Is.EqualTo(2 * expectedP * q * n).Within(1.0));
-            Assert.That(result.Expectedaa, Is.EqualTo(q * q * n).Within(1.0));
+            Assert.That(result.ExpectedAA, Is.EqualTo(expectedP * expectedP * n).Within(Tolerance),
+                $"E(AA) should equal {expectedP}² × {n}");
+            Assert.That(result.ExpectedAa, Is.EqualTo(2 * expectedP * q * n).Within(Tolerance),
+                $"E(Aa) should equal 2×{expectedP}×{q}×{n}");
+            Assert.That(result.Expectedaa, Is.EqualTo(q * q * n).Within(Tolerance),
+                $"E(aa) should equal {q}² × {n}");
+
+            // These are perfect HWE cases (observed = expected), so χ² should be 0
+            Assert.That(result.ChiSquare, Is.EqualTo(0).Within(Tolerance),
+                "Chi-square should be 0 when observed counts exactly match HWE expectations");
+            Assert.That(result.InEquilibrium, Is.True,
+                "Perfect HWE data should report equilibrium");
+        });
+    }
+
+    /// <summary>
+    /// HW-S03: Borderline significance - decision boundary testing.
+    /// Data: AA=46, Aa=49, aa=5, n=100, p=0.705
+    /// χ² ≈ 3.17, p-value ≈ 0.075
+    /// At α=0.05: p-value (0.075) ≥ 0.05 → InEquilibrium = true
+    /// At α=0.10: p-value (0.075) &lt; 0.10 → InEquilibrium = false
+    /// Source: Computed from HWE formulas per Wikipedia.
+    /// </summary>
+    [Test]
+    public void TestHardyWeinberg_BorderlineSignificance_DecisionDependsOnAlpha()
+    {
+        // χ² ≈ 3.17, p-value ≈ 0.075 — between α=0.05 and α=0.10
+        var resultAt05 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            variantId: "BORDERLINE",
+            observedAA: 46,
+            observedAa: 49,
+            observedaa: 5,
+            significanceLevel: 0.05);
+
+        var resultAt10 = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            variantId: "BORDERLINE",
+            observedAA: 46,
+            observedAa: 49,
+            observedaa: 5,
+            significanceLevel: 0.10);
+
+        Assert.Multiple(() =>
+        {
+            // Chi-square should be between critical values for α=0.10 (2.706) and α=0.05 (3.841)
+            Assert.That(resultAt05.ChiSquare, Is.GreaterThan(2.706).And.LessThan(3.841),
+                "Chi-square should be between α=0.10 and α=0.05 critical values");
+
+            // Same p-value regardless of significance level
+            Assert.That(resultAt05.PValue, Is.EqualTo(resultAt10.PValue).Within(Tolerance),
+                "P-value should be identical for same data");
+
+            // P-value should be between 0.05 and 0.10
+            Assert.That(resultAt05.PValue, Is.GreaterThan(0.05).And.LessThan(0.10),
+                "P-value should fall between the two significance levels");
+
+            // At α=0.05: fail to reject H₀ (in equilibrium)
+            Assert.That(resultAt05.InEquilibrium, Is.True,
+                "At α=0.05, borderline case should be in equilibrium");
+
+            // At α=0.10: reject H₀ (not in equilibrium)
+            Assert.That(resultAt10.InEquilibrium, Is.False,
+                "At α=0.10, borderline case should NOT be in equilibrium");
+        });
+    }
+
+    #endregion
+
+    #region COULD Tests
+
+    /// <summary>
+    /// HW-C01: Symmetric genotypes produce the same χ² and p-value.
+    /// Swapping AA↔aa relabels alleles (A↔a) but does not change the HWE test.
+    /// This follows from the symmetry of p²+2pq+q² under p↔q.
+    /// </summary>
+    [TestCase(70, 25, 5)]
+    [TestCase(10, 80, 10)]
+    [TestCase(40, 45, 15)]
+    public void TestHardyWeinberg_SymmetricGenotypes_SameChiSquareAndPValue(
+        int observedAA, int observedAa, int observedaa)
+    {
+        var original = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            "SYM_ORIG", observedAA, observedAa, observedaa);
+        var swapped = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            "SYM_SWAP", observedaa, observedAa, observedAA);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(swapped.ChiSquare, Is.EqualTo(original.ChiSquare).Within(Tolerance),
+                "Chi-square should be identical when AA and aa are swapped");
+            Assert.That(swapped.PValue, Is.EqualTo(original.PValue).Within(Tolerance),
+                "P-value should be identical when AA and aa are swapped");
+            Assert.That(swapped.InEquilibrium, Is.EqualTo(original.InEquilibrium),
+                "Equilibrium decision should be identical when AA and aa are swapped");
+
+            // Expected counts should be swapped: E(AA)↔E(aa), E(Aa) unchanged
+            Assert.That(swapped.ExpectedAA, Is.EqualTo(original.Expectedaa).Within(Tolerance),
+                "Swapped E(AA) should equal original E(aa)");
+            Assert.That(swapped.Expectedaa, Is.EqualTo(original.ExpectedAA).Within(Tolerance),
+                "Swapped E(aa) should equal original E(AA)");
+            Assert.That(swapped.ExpectedAa, Is.EqualTo(original.ExpectedAa).Within(Tolerance),
+                "E(Aa) should be unchanged under allele relabeling");
+        });
+    }
+
+    /// <summary>
+    /// HW-C02: Extreme frequency (p=0.99) with large n.
+    /// Rare variants should be handled correctly without numerical issues.
+    /// n=10000, p=0.99: E(AA)=9801, E(Aa)=198, E(aa)=1.
+    /// Observed = Expected → χ²=0.
+    /// </summary>
+    [Test]
+    public void TestHardyWeinberg_ExtremeFrequency_RareVariantStable()
+    {
+        // p = (2*9801 + 198) / 20000 = 19800/20000 = 0.99
+        // E(AA) = 0.99² × 10000 = 9801
+        // E(Aa) = 2×0.99×0.01 × 10000 = 198
+        // E(aa) = 0.01² × 10000 = 1
+        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg(
+            variantId: "RARE_VARIANT",
+            observedAA: 9801,
+            observedAa: 198,
+            observedaa: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ExpectedAA, Is.EqualTo(9801.0).Within(Tolerance),
+                "E(AA) = 0.99² × 10000 = 9801");
+            Assert.That(result.ExpectedAa, Is.EqualTo(198.0).Within(Tolerance),
+                "E(Aa) = 2×0.99×0.01 × 10000 = 198");
+            Assert.That(result.Expectedaa, Is.EqualTo(1.0).Within(Tolerance),
+                "E(aa) = 0.01² × 10000 = 1");
+            Assert.That(result.ChiSquare, Is.EqualTo(0).Within(Tolerance),
+                "Chi-square should be 0 for perfect HWE");
+            Assert.That(result.InEquilibrium, Is.True,
+                "Perfect HWE should report equilibrium");
+            Assert.That(double.IsFinite(result.PValue), Is.True,
+                "P-value should be finite even with extreme allele frequency");
         });
     }
 

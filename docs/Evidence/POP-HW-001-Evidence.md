@@ -124,7 +124,7 @@ For p = 0.5, n = 100:
 ### 4.1 Zero Sample Size
 - **Input:** n = 0 (no observations)
 - **Expected:** Return InEquilibrium = true, ChiSquare = 0, PValue = 1
-- **Rationale:** No data to test, default to equilibrium (ASSUMPTION)
+- **Rationale:** No data means no evidence against H₀. In hypothesis testing, PValue=1 indicates maximum compatibility with the null hypothesis. This is not an assumption — it follows directly from the hypothesis testing framework: failing to reject H₀ when there is no evidence against it.
 
 ### 4.2 Fixed Allele (Monomorphic)
 - **Input:** All AA (e.g., AA=100, Aa=0, aa=0)
