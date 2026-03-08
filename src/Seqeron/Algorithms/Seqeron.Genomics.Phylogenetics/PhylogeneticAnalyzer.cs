@@ -697,27 +697,29 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Calculates Robinson-Foulds distance between two trees.
+    /// Calculates Robinson-Foulds distance between two rooted trees.
+    /// Uses clade (cluster) comparison: each internal node defines a clade
+    /// (the set of taxa in its subtree). RF = |clades(T1) △ clades(T2)|.
     /// </summary>
     public static int RobinsonFouldsDistance(PhyloNode tree1, PhyloNode tree2)
     {
-        var splits1 = GetSplits(tree1);
-        var splits2 = GetSplits(tree2);
+        var clades1 = GetClades(tree1);
+        var clades2 = GetClades(tree2);
 
-        int symmetricDiff = splits1.Except(splits2).Count() + splits2.Except(splits1).Count();
+        int symmetricDiff = clades1.Except(clades2).Count() + clades2.Except(clades1).Count();
         return symmetricDiff;
     }
 
-    private static HashSet<string> GetSplits(PhyloNode root)
+    private static HashSet<string> GetClades(PhyloNode root)
     {
-        var splits = new HashSet<string>();
-        var allTaxa = GetLeaves(root).Select(l => l.Name).OrderBy(n => n).ToList();
+        var clades = new HashSet<string>();
+        int totalLeaves = GetLeaves(root).Count();
 
-        CollectSplits(root, splits, allTaxa);
-        return splits;
+        CollectClades(root, clades, totalLeaves);
+        return clades;
     }
 
-    private static List<string> CollectSplits(PhyloNode node, HashSet<string> splits, List<string> allTaxa)
+    private static List<string> CollectClades(PhyloNode node, HashSet<string> clades, int totalLeaves)
     {
         if (node == null) return new List<string>();
 
@@ -726,16 +728,15 @@ public static class PhylogeneticAnalyzer
             return new List<string> { node.Name };
         }
 
-        var leftTaxa = node.Left != null ? CollectSplits(node.Left, splits, allTaxa) : new List<string>();
-        var rightTaxa = node.Right != null ? CollectSplits(node.Right, splits, allTaxa) : new List<string>();
+        var leftTaxa = node.Left != null ? CollectClades(node.Left, clades, totalLeaves) : new List<string>();
+        var rightTaxa = node.Right != null ? CollectClades(node.Right, clades, totalLeaves) : new List<string>();
         var subtreeTaxa = leftTaxa.Concat(rightTaxa).OrderBy(n => n).ToList();
 
-        // Create split representation (smaller side)
-        if (subtreeTaxa.Count > 0 && subtreeTaxa.Count < allTaxa.Count)
+        // Non-trivial clade: more than one taxon (not a leaf) and fewer than all (not root).
+        // Each clade is represented as the sorted, joined taxon names of the subtree.
+        if (subtreeTaxa.Count > 1 && subtreeTaxa.Count < totalLeaves)
         {
-            var complement = allTaxa.Except(subtreeTaxa).OrderBy(n => n).ToList();
-            var smaller = subtreeTaxa.Count <= complement.Count ? subtreeTaxa : complement;
-            splits.Add(string.Join("|", smaller));
+            clades.Add(string.Join("|", subtreeTaxa));
         }
 
         return subtreeTaxa;
@@ -743,21 +744,37 @@ public static class PhylogeneticAnalyzer
 
     /// <summary>
     /// Finds the most recent common ancestor of two taxa.
+    /// Returns null when the root is null or either taxon does not exist in the tree.
     /// </summary>
     public static PhyloNode? FindMRCA(PhyloNode root, string taxon1, string taxon2)
     {
         if (root == null) return null;
 
-        if (root.IsLeaf)
+        var result = FindMRCAInternal(root, taxon1, taxon2);
+
+        // When taxon1 == taxon2, a leaf result is correct (self-MRCA).
+        // When taxon1 != taxon2, both taxa found ⇒ MRCA is always an internal node.
+        // A leaf result with different taxa means only one was found → other missing.
+        if (result != null && result.IsLeaf && taxon1 != taxon2)
+            return null;
+
+        return result;
+    }
+
+    private static PhyloNode? FindMRCAInternal(PhyloNode node, string taxon1, string taxon2)
+    {
+        if (node == null) return null;
+
+        if (node.IsLeaf)
         {
-            return root.Name == taxon1 || root.Name == taxon2 ? root : null;
+            return node.Name == taxon1 || node.Name == taxon2 ? node : null;
         }
 
-        var leftResult = FindMRCA(root.Left!, taxon1, taxon2);
-        var rightResult = FindMRCA(root.Right!, taxon1, taxon2);
+        var leftResult = FindMRCAInternal(node.Left!, taxon1, taxon2);
+        var rightResult = FindMRCAInternal(node.Right!, taxon1, taxon2);
 
         if (leftResult != null && rightResult != null)
-            return root;
+            return node;
 
         return leftResult ?? rightResult;
     }
@@ -809,12 +826,12 @@ public static class PhylogeneticAnalyzer
 
         // Build reference tree
         var refTree = BuildTree(sequences, distanceMethod, treeMethod);
-        var refSplits = GetSplits(refTree.Root);
+        var refClades = GetClades(refTree.Root);
 
-        // Count support for each split
+        // Count support for each clade
         var supportCounts = new Dictionary<string, int>();
-        foreach (var split in refSplits)
-            supportCounts[split] = 0;
+        foreach (var clade in refClades)
+            supportCounts[clade] = 0;
 
         var random = new Random(42);
 
@@ -836,13 +853,13 @@ public static class PhylogeneticAnalyzer
 
             // Build tree from resampled data
             var bootTree = BuildTree(resampledSeqs, distanceMethod, treeMethod);
-            var bootSplits = GetSplits(bootTree.Root);
+            var bootClades = GetClades(bootTree.Root);
 
-            // Count matching splits
-            foreach (var split in refSplits)
+            // Count matching clades
+            foreach (var clade in refClades)
             {
-                if (bootSplits.Contains(split))
-                    supportCounts[split]++;
+                if (bootClades.Contains(clade))
+                    supportCounts[clade]++;
             }
         }
 

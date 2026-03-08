@@ -31,7 +31,8 @@
 **Key Properties (Robinson & Foulds 1981):**
 - RF distance is a proper metric (satisfies identity, symmetry, triangle inequality)
 - Computed via splits (bipartitions) induced by removing edges
-- For n taxa, maximum RF distance = 2(n-3) for unrooted binary trees
+- For rooted binary trees with n taxa, maximum RF distance = 2(n-2)
+- For unrooted binary trees with n taxa, maximum RF distance = 2(n-3)
 - Identical trees → RF distance = 0
 - Linear time algorithm exists (Day 1985)
 
@@ -159,14 +160,19 @@ Patristic distance is the sum of branch lengths along the path connecting two ta
 
 ---
 
-## 7. Open Questions
+## 7. Resolved Design Decisions
 
-1. **Multifurcating trees:** Implementation assumes binary trees; behavior with polytomies?
-2. **Unrooted trees:** RF implementation assumes rooted; unrooted support?
-3. **Normalized RF:** Should normalized version (0-1 range) be provided?
+All items resolved based on external sources (Wikipedia RF metric, Robinson & Foulds 1981, Wikipedia LCA).
+
+| # | Question | Resolution | Source |
+|---|----------|------------|--------|
+| 1 | Multifurcating trees | Implementation scope: binary trees only. `PhyloNode` has `Left`/`Right` children by design. Binary trees are the standard case in phylogenetics. | Wikipedia: "Both rooted and unrooted trees can be either bifurcating or multifurcating." Scope limited to bifurcating. |
+| 2 | Unrooted trees | Implementation scope: rooted trees only. UPGMA and NJ produce rooted trees. RF distance is computed using the clade (rooted) approach, equivalent to the dummy-leaf approach described in Wikipedia. | Wikipedia RF: "Rooted trees can be examined by attaching a dummy leaf to the root node." |
+| 3 | Normalized RF | Raw count returned, consistent with Robinson & Foulds (1981) original definition. | Wikipedia RF: "some software implementations divide the RF metric by 2 and others scale the RF distance to have a maximum value of 1." Original paper uses raw count. |
+| 4 | Max RF formula | For rooted binary trees with n taxa: max RF = 2(n−2). This differs from the unrooted formula 2(n−3). | Derived from clade count: each rooted binary tree has n−2 non-trivial clades. Confirmed via dummy-leaf equivalence: unrooted tree with n+1 leaves gives max 2((n+1)−3) = 2(n−2). |
 
 ---
 
 ## 8. Summary
 
-Evidence gathered from Wikipedia and original literature provides clear definitions and expected behaviors for all three tree comparison methods. Test cases are derived from documented properties and mathematical invariants of these metrics.
+Evidence gathered from Wikipedia and original literature provides clear definitions and expected behaviors for all three tree comparison methods. Test cases are derived from documented properties and mathematical invariants of these metrics. All design decisions resolved with external source references; no assumptions remain.

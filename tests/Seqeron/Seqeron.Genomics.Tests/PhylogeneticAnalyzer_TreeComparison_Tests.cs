@@ -122,6 +122,29 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
         return root;
     }
 
+    /// <summary>
+    /// Creates a three-taxa tree with different topology: ((A,C),B)
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode CreateThreeTaxaTree_ACB()
+    {
+        var a = new PhylogeneticAnalyzer.PhyloNode("A") { BranchLength = 0.5 };
+        a.Taxa = new List<string> { "A" };
+
+        var c = new PhylogeneticAnalyzer.PhyloNode("C") { BranchLength = 0.5 };
+        c.Taxa = new List<string> { "C" };
+
+        var b = new PhylogeneticAnalyzer.PhyloNode("B") { BranchLength = 1.5 };
+        b.Taxa = new List<string> { "B" };
+
+        var ac = new PhylogeneticAnalyzer.PhyloNode { Left = a, Right = c, BranchLength = 1.0 };
+        ac.Taxa = new List<string> { "A", "C" };
+
+        var root = new PhylogeneticAnalyzer.PhyloNode { Left = ac, Right = b };
+        root.Taxa = new List<string> { "A", "B", "C" };
+
+        return root;
+    }
+
     #endregion
 
     #region Robinson-Foulds Distance Tests
@@ -158,50 +181,96 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
     }
 
     [Test]
-    [Description("RF-M03: RF distance is non-negative (Robinson & Foulds 1981: metric property)")]
+    [Description("RF-M03: RF distance is non-negative — verified via exact values " +
+                 "(Robinson & Foulds 1981: metric property)")]
     public void RobinsonFouldsDistance_IsNonNegative()
     {
-        // Arrange
-        var tree1 = CreateFourTaxaTree_ABCD();
-        var tree2 = CreateFourTaxaTree_ACBD();
+        // Verify non-negativity through exact values on diverse tree pairs
+        Assert.Multiple(() =>
+        {
+            // Two-taxa identical: only one rooted topology → RF = 0
+            Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateTwoTaxaTree(), CreateTwoTaxaTree()), Is.EqualTo(0),
+                "Two-taxa identical trees: RF = 0");
 
-        // Act
-        int rfDistance = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree1, tree2);
+            // Three-taxa identical: RF = 0
+            Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateThreeTaxaTree(), CreateThreeTaxaTree()), Is.EqualTo(0),
+                "Three-taxa identical trees: RF = 0");
 
-        // Assert
-        Assert.That(rfDistance, Is.GreaterThanOrEqualTo(0), "RF distance must be non-negative");
+            // Three-taxa different: RF = 2 (max for n=3)
+            Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateThreeTaxaTree(), CreateThreeTaxaTree_ACB()), Is.EqualTo(2),
+                "Three-taxa different topology: RF = 2");
+        });
     }
 
     [Test]
-    [Description("RF-M04: Different topologies have positive RF distance (Wikipedia: symmetric difference)")]
+    [Description("RF-M04: Different topologies have positive RF distance — exact value " +
+                 "(Wikipedia: symmetric difference)")]
     public void RobinsonFouldsDistance_DifferentTopologies_ReturnsPositive()
     {
-        // Arrange - ((A,B),(C,D)) vs ((A,C),(B,D)) have different internal splits
-        var tree1 = CreateFourTaxaTree_ABCD();
-        var tree2 = CreateFourTaxaTree_ACBD();
+        // Arrange — three-taxa trees with different groupings:
+        // Tree1: ((A,B),C) — clade {A,B} → canonical split "C"
+        // Tree2: ((A,C),B) — clade {A,C} → canonical split "B"
+        // Symmetric diff = |{"C"} - {"B"}| + |{"B"} - {"C"}| = 2
+        var tree1 = CreateThreeTaxaTree();
+        var tree2 = CreateThreeTaxaTree_ACB();
 
         // Act
         int rfDistance = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree1, tree2);
 
-        // Assert
-        Assert.That(rfDistance, Is.GreaterThan(0),
-            "Trees with different topologies must have positive RF distance");
+        // Assert — exact value rather than just > 0
+        Assert.That(rfDistance, Is.EqualTo(2),
+            "((A,B),C) vs ((A,C),B): one non-trivial clade differs in each → RF = 2");
     }
 
     [Test]
-    [Description("RF-M05: RF distance is always even (Wikipedia: symmetric difference of two sets)")]
-    public void RobinsonFouldsDistance_IsEven()
+    [Description("RF-M06: Four-taxa trees with maximally different topologies have RF = 4 " +
+                 "(rooted RF: max = 2(n-2) = 4 for n=4; Wikipedia RF metric + dummy-leaf approach)")]
+    public void RobinsonFouldsDistance_FourTaxaMaxDifference_ReturnsExact4()
     {
         // Arrange
+        // Tree1: ((A,B),(C,D)) — clades: {A,B}, {C,D}
+        // Tree2: ((A,C),(B,D)) — clades: {A,C}, {B,D}
+        // No shared non-trivial clades → RF = 4 = 2(n-2) = max
         var tree1 = CreateFourTaxaTree_ABCD();
         var tree2 = CreateFourTaxaTree_ACBD();
 
         // Act
         int rfDistance = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree1, tree2);
 
-        // Assert
-        Assert.That(rfDistance % 2, Is.EqualTo(0),
-            "RF distance must be even (symmetric difference adds/removes pairs)");
+        // Assert — exact value from clade symmetric difference
+        Assert.That(rfDistance, Is.EqualTo(4),
+            "((A,B),(C,D)) vs ((A,C),(B,D)): no shared clades → RF = 4");
+    }
+
+    [Test]
+    [Description("RF-M05: RF distance is always even — verified with exact values on multiple tree sizes " +
+                 "(Wikipedia: symmetric difference of two sets)")]
+    public void RobinsonFouldsDistance_IsEven()
+    {
+        // Verify evenness through exact values on diverse tree pairs
+        Assert.Multiple(() =>
+        {
+            // Four-taxa: RF = 4 (even ✓)
+            int rf4 = PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateFourTaxaTree_ABCD(), CreateFourTaxaTree_ACBD());
+            Assert.That(rf4, Is.EqualTo(4), "Four-taxa different: RF = 4");
+            Assert.That(rf4 % 2, Is.EqualTo(0), "RF = 4 is even");
+
+            // Three-taxa: RF = 2 (even ✓)
+            int rf3 = PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateThreeTaxaTree(), CreateThreeTaxaTree_ACB());
+            Assert.That(rf3, Is.EqualTo(2), "Three-taxa different: RF = 2");
+            Assert.That(rf3 % 2, Is.EqualTo(0), "RF = 2 is even");
+
+            // Identical: RF = 0 (even ✓)
+            int rf0 = PhylogeneticAnalyzer.RobinsonFouldsDistance(
+                CreateFourTaxaTree_ABCD(), CreateFourTaxaTree_ABCD());
+            Assert.That(rf0, Is.EqualTo(0), "Identical trees: RF = 0");
+            Assert.That(rf0 % 2, Is.EqualTo(0), "RF = 0 is even");
+        });
     }
 
     [Test]
@@ -220,7 +289,45 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
     }
 
     [Test]
-    [Description("RF-S02: Tree built from sequences compared to itself returns 0")]
+    [Description("RF-S02: Three-taxa trees with different topologies have RF = 2 " +
+                 "(rooted RF: max = 2(n-2) = 2 for n=3; each tree has 1 non-trivial clade, none shared)")]
+    public void RobinsonFouldsDistance_ThreeTaxaDifferentTopology_ReturnsExact2()
+    {
+        // Arrange
+        // Tree1: ((A,B),C) — clade: {A,B}
+        // Tree2: ((A,C),B) — clade: {A,C}
+        // Symmetric diff = {A,B} + {A,C} = 2
+        var tree1 = CreateThreeTaxaTree();
+        var tree2 = CreateThreeTaxaTree_ACB();
+
+        // Act
+        int rfDistance = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree1, tree2);
+
+        // Assert
+        Assert.That(rfDistance, Is.EqualTo(2),
+            "((A,B),C) vs ((A,C),B): one clade differs in each → RF = 2");
+    }
+
+    [Test]
+    [Description("RF-S03: RF distance is bounded by 2(n-2) for rooted binary trees " +
+                 "(Wikipedia: max partitions per tree = n-2 non-trivial clades)")]
+    public void RobinsonFouldsDistance_BoundedByMaximum()
+    {
+        // For n taxa in a rooted binary tree, max RF = 2(n-2)
+        var tree1 = CreateFourTaxaTree_ABCD();
+        var tree2 = CreateFourTaxaTree_ACBD();
+
+        int n = 4;
+        int maxRF = 2 * (n - 2); // = 4
+
+        int rfDistance = PhylogeneticAnalyzer.RobinsonFouldsDistance(tree1, tree2);
+
+        Assert.That(rfDistance, Is.LessThanOrEqualTo(maxRF),
+            $"RF distance must be ≤ 2(n-2) = {maxRF} for rooted binary trees with {n} taxa");
+    }
+
+    [Test]
+    [Description("RF integration: Tree built from sequences compared to itself returns 0")]
     public void RobinsonFouldsDistance_SequenceBuiltTree_SelfComparison_ReturnsZero()
     {
         // Arrange
@@ -333,7 +440,7 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
     }
 
     [Test]
-    [Description("MRCA-S01: MRCA is symmetric - MRCA(x,y) = MRCA(y,x)")]
+    [Description("MRCA invariant: MRCA is symmetric — MRCA(x,y) = MRCA(y,x)")]
     public void FindMRCA_IsSymmetric()
     {
         // Arrange
@@ -374,6 +481,50 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
             Assert.That(mrca, Is.Not.Null);
             Assert.That(mrca!.Taxa, Does.Contain("Human"));
             Assert.That(mrca.Taxa, Does.Contain("Chimp"));
+        });
+    }
+
+    [Test]
+    [Description("MRCA-S01: MRCA of taxa from different subtrees is root (Property verification)")]
+    public void FindMRCA_CrossCladeTaxa_ReturnsRoot()
+    {
+        // Arrange — In ((A,B),(C,D)), any pair spanning both clades has root as MRCA
+        var tree = CreateFourTaxaTree_ABCD();
+
+        // Act & Assert — all cross-clade pairs must return root (4 taxa)
+        Assert.Multiple(() =>
+        {
+            var mrcaAC = PhylogeneticAnalyzer.FindMRCA(tree, "A", "C");
+            var mrcaAD = PhylogeneticAnalyzer.FindMRCA(tree, "A", "D");
+            var mrcaBD = PhylogeneticAnalyzer.FindMRCA(tree, "B", "D");
+            var mrcaBC = PhylogeneticAnalyzer.FindMRCA(tree, "B", "C");
+
+            Assert.That(mrcaAC, Is.Not.Null);
+            Assert.That(mrcaAC!.Taxa.Count, Is.EqualTo(4), "MRCA(A,C) is root");
+            Assert.That(mrcaAD!.Taxa.Count, Is.EqualTo(4), "MRCA(A,D) is root");
+            Assert.That(mrcaBD!.Taxa.Count, Is.EqualTo(4), "MRCA(B,D) is root");
+            Assert.That(mrcaBC!.Taxa.Count, Is.EqualTo(4), "MRCA(B,C) is root");
+        });
+    }
+
+    [Test]
+    [Description("MRCA edge case: Non-existent taxon returns null " +
+                 "(Evidence doc: 'Taxon not in tree: Returns null')")]
+    public void FindMRCA_NonExistentTaxon_ReturnsNull()
+    {
+        // Arrange
+        var tree = CreateFourTaxaTree_ABCD();
+
+        // Act & Assert
+        Assert.Multiple(() =>
+        {
+            // One existing + one non-existent
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "NonExistent"), Is.Null,
+                "MRCA with one non-existent taxon must return null");
+
+            // Both non-existent
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "X", "Y"), Is.Null,
+                "MRCA with both non-existent taxa must return null");
         });
     }
 
@@ -442,38 +593,90 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
     }
 
     [Test]
-    [Description("PD-M05: Patristic distance is non-negative (Metric property)")]
+    [Description("PD-M05: Patristic distance is non-negative — verified via exact values on three-taxa tree " +
+                 "(Metric property)")]
     public void PatristicDistance_IsNonNegative()
     {
-        // Arrange
-        var tree = CreateFourTaxaTree_ABCD();
+        // Arrange — three-taxa tree: ((A(0.5),B(0.5))(1.0),C(1.5))
+        // Uses different tree from PD-S01 (which uses four-taxa tree)
+        var tree = CreateThreeTaxaTree();
 
-        // Act & Assert
+        // Act & Assert — exact values prove non-negativity
         Assert.Multiple(() =>
         {
-            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B"), Is.GreaterThanOrEqualTo(0));
-            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C"), Is.GreaterThanOrEqualTo(0));
-            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "B", "D"), Is.GreaterThanOrEqualTo(0));
+            // A→B: 0.5 + 0.5 = 1.0 (siblings under AB)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B"),
+                Is.EqualTo(1.0).Within(1e-10), "PD(A,B) = 0.5 + 0.5 = 1.0");
+
+            // A→C: 0.5 + 1.0 + 1.5 = 3.0 (path through root)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C"),
+                Is.EqualTo(3.0).Within(1e-10), "PD(A,C) = 0.5 + 1.0 + 1.5 = 3.0");
+
+            // B→C: 0.5 + 1.0 + 1.5 = 3.0 (path through root)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "B", "C"),
+                Is.EqualTo(3.0).Within(1e-10), "PD(B,C) = 0.5 + 1.0 + 1.5 = 3.0");
         });
     }
 
     [Test]
-    [Description("PD-S01: Distance path goes through MRCA")]
-    public void PatristicDistance_CalculatesPathThroughMRCA()
+    [Description("PD-S01: All documented patristic distances for four-taxa tree " +
+                 "(TestSpec tree: A-B=1.0, A-C=5.0, C-D=2.0)")]
+    public void PatristicDistance_FourTaxaTree_AllDocumentedValues()
     {
-        // Arrange - Using tree with known branch lengths
+        // Arrange — four-taxa tree with known branch lengths:
+        //     root (BL=0)
+        //    /          \
+        //   AB (BL=1.5)  CD (BL=2.0)
+        //  / \          / \
+        // A   B        C   D
+        // (0.5)(0.5)  (1.0)(1.0)
         var tree = CreateFourTaxaTree_ABCD();
-        // A,B siblings (BL=0.5 each), parent to root (BL=1.5)
-        // C,D siblings (BL=1.0 each), parent to root (BL=2.0)
 
-        // Act - Distance A to C goes through root
+        // Act & Assert — exact values from test spec
+        Assert.Multiple(() =>
+        {
+            // A→B: 0.5 + 0.5 = 1.0 (siblings under AB)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B"),
+                Is.EqualTo(1.0).Within(1e-10), "PD(A,B) = 0.5 + 0.5 = 1.0");
+
+            // A→C: 0.5 + 1.5 + 2.0 + 1.0 = 5.0 (path through root)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C"),
+                Is.EqualTo(5.0).Within(1e-10), "PD(A,C) = 0.5 + 1.5 + 2.0 + 1.0 = 5.0");
+
+            // C→D: 1.0 + 1.0 = 2.0 (siblings under CD)
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "C", "D"),
+                Is.EqualTo(2.0).Within(1e-10), "PD(C,D) = 1.0 + 1.0 = 2.0");
+        });
+    }
+
+    [Test]
+    [Description("PD-S02: Patristic distance satisfies triangle inequality " +
+                 "(Wikipedia LCA: d(v,w) is a metric on tree; metric axiom)")]
+    public void PatristicDistance_SatisfiesTriangleInequality()
+    {
+        // Arrange
+        var tree = CreateFourTaxaTree_ABCD();
+
+        // Act
+        double distAB = PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B");
+        double distBC = PhylogeneticAnalyzer.PatristicDistance(tree, "B", "C");
         double distAC = PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C");
+        double distAD = PhylogeneticAnalyzer.PatristicDistance(tree, "A", "D");
+        double distBD = PhylogeneticAnalyzer.PatristicDistance(tree, "B", "D");
+        double distCD = PhylogeneticAnalyzer.PatristicDistance(tree, "C", "D");
 
-        // Expected: A(0.5) -> AB parent(1.5) -> root -> CD parent(2.0) -> C(1.0)
-        // = 0.5 + 1.5 + 2.0 + 1.0 = 5.0
-
-        // Assert
-        Assert.That(distAC, Is.EqualTo(5.0).Within(0.0001));
+        // Assert — triangle inequality: PD(x,z) ≤ PD(x,y) + PD(y,z)
+        Assert.Multiple(() =>
+        {
+            Assert.That(distAC, Is.LessThanOrEqualTo(distAB + distBC + 1e-10),
+                "PD(A,C) ≤ PD(A,B) + PD(B,C)");
+            Assert.That(distAD, Is.LessThanOrEqualTo(distAB + distBD + 1e-10),
+                "PD(A,D) ≤ PD(A,B) + PD(B,D)");
+            Assert.That(distBD, Is.LessThanOrEqualTo(distBC + distCD + 1e-10),
+                "PD(B,D) ≤ PD(B,C) + PD(C,D)");
+            Assert.That(distAC, Is.LessThanOrEqualTo(distAD + distCD + 1e-10),
+                "PD(A,C) ≤ PD(A,D) + PD(C,D)");
+        });
     }
 
     [Test]
