@@ -1,9 +1,9 @@
 ﻿{
   Pi: 0.11,
   Theta: 0.096,
-  TajimasD: 0.0851,
+  TajimasD: 0.851,
   SegregratingSites: 2,
   SampleSize: 5,
-  HetObs: 0.2,
+  HetObs: 0.11,
   HetExp: 0.088
 }

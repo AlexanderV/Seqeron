@@ -2,7 +2,7 @@
 
 **Algorithm Group:** Population Genetics
 **Test Unit:** POP-DIV-001
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-03-08
 
 ---
 
@@ -10,9 +10,9 @@
 
 Diversity statistics are fundamental measures in population genetics used to quantify genetic variation within populations. The three primary metrics covered in this module are:
 
-1. **Nucleotide Diversity (π)** - average pairwise differences between sequences
-2. **Watterson's Theta (θ_W)** - diversity estimate based on segregating sites
-3. **Tajima's D** - test statistic comparing the two diversity estimators
+1. **Nucleotide Diversity (π)** — average pairwise differences per site between sequences
+2. **Watterson's Theta (θ_W)** — diversity estimate based on segregating sites
+3. **Tajima's D** — test statistic comparing the two diversity estimators
 
 These metrics are essential for understanding evolutionary processes, detecting natural selection, and analyzing population history.
 
@@ -22,7 +22,7 @@ These metrics are essential for understanding evolutionary processes, detecting 
 
 ### Nucleotide Diversity (π)
 
-**Definition (Nei & Li, 1979):**
+**Definition (Nei & Li, 1979; Wikipedia):**
 Nucleotide diversity is the average number of nucleotide differences per site between two randomly chosen sequences from a population.
 
 **Formula:**
@@ -41,10 +41,10 @@ Where:
 
 ### Watterson's Theta (θ_W)
 
-**Definition (Watterson, 1975):**
-An estimator of the population mutation rate (4Nμ) based on the number of segregating sites.
+**Definition (Watterson, 1975; Wikipedia):**
+An estimator of the population mutation rate based on the number of segregating sites.
 
-**Formula:**
+**Formula (per-site):**
 $$\theta_W = \frac{S}{a_n \cdot L}$$
 
 Where:
@@ -52,21 +52,23 @@ Where:
 - $L$ = sequence length
 - $a_n = \sum_{i=1}^{n-1} \frac{1}{i}$ = $(n-1)$-th harmonic number
 
-**Properties:**
-- Unbiased under neutral model assumptions
-- Simpler to compute than nucleotide diversity
-- Sensitive to rare variants
+**Unnormalized form (used in Tajima's D):**
+$$\hat{\theta}_W = \frac{S}{a_n}$$
 
 ### Tajima's D
 
-**Definition (Tajima, 1989):**
-A test statistic that compares nucleotide diversity (π) with Watterson's theta (θ_W) to detect departures from neutral evolution.
+**Definition (Tajima, 1989; Wikipedia):**
+A test statistic that compares two estimators of θ to detect departures from neutral evolution.
 
-**Formula:**
-$$D = \frac{\pi - \theta_W}{\sqrt{Var(\pi - \theta_W)}}$$
+**Formula (Wikipedia — "Mathematical details"):**
+$$D = \frac{\hat{k} - \frac{S}{a_1}}{\sqrt{e_1 S + e_2 S(S-1)}}$$
 
-The variance calculation involves:
+Where:
+- $\hat{k}$ = average number of pairwise differences (unnormalized, NOT per-site)
+- $S/a_1$ = Watterson estimate (unnormalized)
 - $a_1 = \sum_{i=1}^{n-1} \frac{1}{i}$, $a_2 = \sum_{i=1}^{n-1} \frac{1}{i^2}$
+
+**Variance components (Tajima 1989):**
 - $b_1 = \frac{n+1}{3(n-1)}$
 - $b_2 = \frac{2(n^2 + n + 3)}{9n(n-1)}$
 - $c_1 = b_1 - \frac{1}{a_1}$
@@ -75,7 +77,9 @@ The variance calculation involves:
 - $e_2 = \frac{c_2}{a_1^2 + a_2}$
 - $Var = e_1 S + e_2 S(S-1)$
 
-**Interpretation:**
+**Important:** The numerator uses **unnormalized** values (k̂ and S/a₁), not per-site π and θ_W. The relationship is: k̂ = π × L and S/a₁ = θ_W × L.
+
+**Interpretation (Wikipedia):**
 
 | D Value | Interpretation |
 |---------|----------------|
@@ -85,19 +89,17 @@ The variance calculation involves:
 
 **Significance threshold:** Values beyond ±2 are generally considered significant.
 
-### Segregating Sites
-
-A segregating site is a position in a sequence alignment where at least one sequence differs from others. The count of segregating sites (S) is used in both θ_W and Tajima's D calculations.
-
 ### Heterozygosity
 
-**Expected Heterozygosity:**
-$$H_e = 1 - \sum_{i=1}^{k} f_i^2$$
+**Expected Heterozygosity (Wikipedia — Zygosity):**
+$$H_e = 1 - \sum_{i=1}^{m} f_i^2$$
 
-Where $f_i$ is the frequency of the $i$-th allele. For sequence data, this is calculated per position and averaged.
+Where $f_i$ is the frequency of the $i$-th allele. For sequence data, computed per position and averaged over all positions (gene diversity).
 
-**Observed Heterozygosity:**
-For sequence data, this is adapted as the fraction of polymorphic sites.
+**Unbiased Gene Diversity (Nei, 1978):**
+$$\hat{H} = \frac{n}{n-1} \left(1 - \sum_i p_i^2\right)$$
+
+For haploid sequence data, Nei's unbiased estimator is mathematically equivalent to nucleotide diversity π. This is used as `HeterozygosityObserved` in the `DiversityStatistics` record.
 
 ---
 
@@ -111,22 +113,22 @@ For sequence data, this is adapted as the fraction of polymorphic sites.
 
 | Method | Description | Complexity |
 |--------|-------------|------------|
-| `CalculateNucleotideDiversity(seqs)` | Computes π (nucleotide diversity) | O(n² × m) |
-| `CalculateWattersonTheta(S, n, L)` | Computes θ_W from segregating sites | O(n) |
-| `CalculateTajimasD(π, θ, S, n)` | Computes Tajima's D test statistic | O(n) |
+| `CalculateNucleotideDiversity(seqs)` | Computes π (nucleotide diversity per site) | O(n² × m) |
+| `CalculateWattersonTheta(S, n, L)` | Computes θ_W (per site) from segregating sites | O(n) |
+| `CalculateTajimasD(k̂, S, n)` | Computes Tajima's D from unnormalized k̂ | O(n) |
 | `CalculateDiversityStatistics(seqs)` | Computes all diversity metrics | O(n² × m) |
 
 ### Return Type
 
 ```csharp
 public readonly record struct DiversityStatistics(
-    double NucleotideDiversity,    // π
-    double WattersonTheta,         // θ_W
+    double NucleotideDiversity,    // π (per-site)
+    double WattersonTheta,         // θ_W (per-site)
     double TajimasD,               // D
     int SegregratingSites,         // S
     int SampleSize,                // n
-    double HeterozygosityObserved, // H_o
-    double HeterozygosityExpected  // H_e
+    double HeterozygosityObserved, // Nei (1978) unbiased gene diversity per site
+    double HeterozygosityExpected  // basic gene diversity per site (1-Σp²)
 );
 ```
 
@@ -148,22 +150,22 @@ Using the Wikipedia Tajima's D example with 5 sequences of length 20 and 4 segre
 
 ```
 Seq Y: 00000 00000 00000 00000  (reference)
-Seq A: 00100 00000 00100 00010  (3 differences)
-Seq B: 00000 00000 00100 00010  (2 differences)
-Seq C: 00000 01000 00000 00010  (2 differences)
-Seq D: 00000 01000 00100 00010  (3 differences)
+Seq A: 00100 00000 00100 00010  (3 differences from Y)
+Seq B: 00000 00000 00100 00010  (2 differences from Y)
+Seq C: 00000 01000 00000 00010  (2 differences from Y)
+Seq D: 00000 01000 00100 00010  (3 differences from Y)
 ```
 
 **Calculations:**
 - S = 4 (positions 3, 7, 13, 19)
-- n = 5
-- L = 20
-- $a_1$ = 1 + 0.5 + 0.333 + 0.25 = 2.083
-- Average pairwise differences = 2.0
-- π = 2.0 / 20 = 0.1
-- θ_W = 4 / (2.083 × 20) = 0.096
-- d = π - θ_W = 0.004
-- D (normalized) ≈ 0.08
+- n = 5, L = 20
+- a₁ = 1 + 0.5 + 0.333 + 0.25 = 2.083
+- Total pairwise differences = 20, comparisons = 10
+- k̂ = 20/10 = 2.0
+- π = k̂ / L = 2.0 / 20 = 0.1
+- θ_W = S / (a₁ × L) = 4 / (2.083 × 20) = 0.096
+- d = k̂ − S/a₁ = 2.0 − 1.92 = 0.08
+- D ≈ 0.08 / √0.0856 ≈ **0.273**
 
 ---
 
@@ -175,6 +177,6 @@ Seq D: 00000 01000 00100 00010  (3 differences)
 
 3. Tajima, F. (1989). "Statistical method for testing the neutral mutation hypothesis by DNA polymorphism". *Genetics*. 123(3): 585-95.
 
-4. Hartl, D.L.; Clark, A.G. (2007). *Principles of Population Genetics* (4th ed.). Sinauer Associates.
+4. Nei, M. (1978). "Estimation of average heterozygosity and genetic distance from a small number of individuals". *Genetics*. 89(3): 583-590.
 
-5. Wikipedia contributors. "Nucleotide diversity", "Watterson estimator", "Tajima's D". *Wikipedia, The Free Encyclopedia*.
+5. Wikipedia contributors. "Nucleotide diversity", "Watterson estimator", "Tajima's D", "Zygosity". *Wikipedia, The Free Encyclopedia*.

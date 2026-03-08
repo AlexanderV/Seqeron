@@ -1030,7 +1030,9 @@
 |-------|-------|-----|
 | `CalculateNucleotideDiversity(seqs)` | PopulationGeneticsAnalyzer | π |
 | `CalculateWattersonTheta(segSites, n)` | PopulationGeneticsAnalyzer | θ |
-| `CalculateTajimasD(pi, theta, S)` | PopulationGeneticsAnalyzer | D |
+| `CalculateTajimasD(kHat, S, n)` | PopulationGeneticsAnalyzer | D |
+| `CalculateObservedHeterozygosity(seqs)` | PopulationGeneticsAnalyzer | H_obs |
+| `CalculateExpectedHeterozygosity(seqs)` | PopulationGeneticsAnalyzer | H_exp |
 | `CalculateDiversityStatistics(seqs)` | PopulationGeneticsAnalyzer | All |
 
 ---

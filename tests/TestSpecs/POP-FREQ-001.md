@@ -4,7 +4,7 @@
 **Title:** Allele Frequencies
 **Algorithm Group:** Population Genetics
 **Status:** Complete
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-03-08
 
 ---
 
@@ -37,6 +37,12 @@
 | AF-M07 | Zero samples → (0, 0) | Edge case handling | (0, 0) |
 | AF-M08 | Frequencies are non-negative | Range constraint | major ≥ 0, minor ≥ 0 |
 | AF-M09 | Frequencies do not exceed 1.0 | Range constraint | major ≤ 1, minor ≤ 1 |
+| AF-M10 | Wikipedia diploid example (6-3-1) | Wikipedia Allele Frequency § Diploids → Example | p=0.75, q=0.25 |
+| AF-M11 | NDSU blood type example (1787-3039-1303) | NDSU McClean (1998) via Wayback | p≈0.5394, q≈0.4606 |
+| AF-M12 | NDSU molecular example (30-50-20) | NDSU McClean (1998) via Wayback | p=0.55, q=0.45 |
+| AF-M13 | Negative hom_maj count → throws | Input validation | ArgumentOutOfRangeException |
+| AF-M14 | Negative heterozygous count → throws | Input validation | ArgumentOutOfRangeException |
+| AF-M15 | Negative hom_min count → throws | Input validation | ArgumentOutOfRangeException |
 
 #### CalculateMAF
 
@@ -71,12 +77,14 @@
 | AF-S02 | Single sample homozygous | Minimum valid input |
 | MAF-S01 | Various genotype patterns | Algorithm verification |
 | FLT-S01 | Boundary MAF values (at exact threshold) | Precision handling |
+| FLT-S02 | Filter preserves input order | Ordering guarantee |
 
 ### COULD Tests (Optional)
 
 | ID | Test Case | Rationale |
 |----|-----------|-----------|
 | AF-C01 | Property test: sum invariant | Randomized testing |
+| AF-C02 | Property test: range invariant [0,1] | Randomized testing |
 | MAF-C01 | Property test: MAF range invariant | Randomized testing |
 
 ---
@@ -104,38 +112,33 @@
 
 ---
 
-## Audit of Existing Tests
+## Deviations and Assumptions
 
-### PopulationGeneticsAnalyzerTests.cs (Lines 12-86)
+None. All formulas, behaviors, and edge cases are sourced from external references:
 
-| Existing Test | Classification | Action |
-|---------------|----------------|--------|
-| CalculateAlleleFrequencies_EqualGenotypes_Returns50Percent | Covered (AF-M06) | Keep, enhance |
-| CalculateAlleleFrequencies_AllHomozygousMajor_Returns100Percent | Covered (AF-M03) | Keep |
-| CalculateAlleleFrequencies_ZeroSamples_ReturnsZero | Covered (AF-M07) | Keep |
-| CalculateMAF_FromGenotypes_CalculatesCorrectly | Covered (MAF-M01) | Keep |
-| CalculateMAF_HighAltFreq_ReturnsMinorAllele | Covered (MAF-M06) | Keep |
-| FilterByMAF_FiltersCorrectly | Weak (FLT-M01/M02 combined) | Enhance |
+- Wikipedia: Allele frequency (accessed 2026-02-01, verified 2026-03-08)
+- Wikipedia: Minor allele frequency (accessed 2026-02-01, verified 2026-03-08)
+- Wikipedia: Genotype frequency (accessed 2026-02-01, verified 2026-03-08)
+- Gillespie (2004) Population Genetics: A Concise Guide, ISBN 978-0-8018-8008-7
+- NDSU Population Genetics (McClean, 1998) via Wayback Machine (archived 2024-05-12)
 
-### Missing Tests (All Closed)
+Negative genotype counts are rejected with `ArgumentOutOfRangeException` — genotype counts are non-negative by definition.
 
-- ~~AF-M02 (Wikipedia example)~~ ✅ Covered
-- ~~AF-M04 (All homozygous minor)~~ ✅ Covered
-- ~~AF-M05 (All heterozygous)~~ ✅ Covered
-- ~~AF-M01 (Sum to 1 invariant)~~ ✅ Covered
-- ~~AF-M08, AF-M09 (Range constraints)~~ ✅ Covered
-- ~~MAF-M02 through MAF-M05, MAF-M07, MAF-M08~~ ✅ Covered
-- ~~FLT-M03 through FLT-M07~~ ✅ Covered
+**Canonical file:** `PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs` — 49 test cases (30 MUST, 11 SHOULD, 8 invariant/parameterized).
+**Property file:** `Properties/PopulationGeneticsProperties.cs` — AF-C01 (sum, 1e-10), AF-C02 (range [0,1]), MAF-C01 (MAF range [0, 0.5]).
 
-### Consolidation Plan
+### Coverage Classification (2026-03-08)
 
-1. Create dedicated test file: `PopulationGeneticsAnalyzer_AlleleFrequency_Tests.cs`
-2. Move and enhance existing allele frequency tests
-3. Add all missing MUST tests
-4. Remove allele frequency tests from original file (to avoid duplication)
-
----
-
-## Open Questions / Decisions
-
-None - algorithm behavior is well-defined.
+| ID | Status | Notes |
+|----|--------|-------|
+| AF-M01–M15 | ✅ Covered | All MUST tests present with exact assertions (Within(1e-10) or exact fractions) |
+| AF-S01 | ✅ Covered | Large population — exact frequency + sum + NaN checks |
+| AF-S02 | ✅ Covered | Single sample — 3 parameterized cases with exact values |
+| MAF-M01–M08 | ✅ Covered | Exact fractions or Within(1e-10) |
+| MAF-S01 | ✅ Covered | 3 patterns with Within(1e-10) |
+| FLT-M01–M07 | ✅ Covered | All filter edge cases |
+| FLT-S01 | ✅ Covered | High AF MAF calculation |
+| FLT-S02 | ✅ Covered | Order preservation |
+| AF-C01 | ✅ Covered | Property: sum invariant — Within(1e-10) (PopulationGeneticsProperties) |
+| AF-C02 | ✅ Covered | Property: range invariant [0,1] (PopulationGeneticsProperties) |
+| MAF-C01 | ✅ Covered | Property: MAF range invariant (PopulationGeneticsProperties) |
