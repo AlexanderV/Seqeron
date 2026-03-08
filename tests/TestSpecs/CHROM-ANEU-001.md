@@ -44,6 +44,7 @@
 | M14 | IdentifyWholeChromosomeAneuploidy_Nullisomy_IdentifiesNullisomy | Classification correctness | Wikipedia |
 | M15 | IdentifyWholeChromosomeAneuploidy_Tetrasomy_IdentifiesTetrasomy | Classification correctness | Wikipedia |
 | M16 | IdentifyWholeChromosomeAneuploidy_MixedCN_RequiresMinFraction | Mosaicism threshold | Implementation |
+| M17 | IdentifyWholeChromosomeAneuploidy_Pentasomy_IdentifiesPentasomy | Classification correctness | Wikipedia |
 
 ### 2.2 SHOULD Tests (Recommended)
 
@@ -52,7 +53,7 @@
 | S1 | DetectAneuploidy_Confidence_InRangeZeroToOne | Output invariant |
 | S2 | DetectAneuploidy_LogRatio_MatchesFormula | Mathematical correctness |
 | S3 | DetectAneuploidy_OutputOrdered_ByPosition | Ordering invariant |
-| S4 | IdentifyWholeChromosomeAneuploidy_HighCopyNumber_FormatsCorrectly | CN > 4 formatting |
+| S4 | IdentifyWholeChromosomeAneuploidy_HighCopyNumber_FormatsCorrectly | CN > 5 formatting |
 
 ### 2.3 COULD Tests (Nice to Have)
 
@@ -123,30 +124,59 @@ Assert.Multiple(() => {
 
 ---
 
-## 6. Audit of Existing Tests
+## 6. Coverage Classification
 
 ### 6.1 Location
-- **File:** `ChromosomeAnalyzerTests.cs`
-- **Region:** `#region Aneuploidy Detection Tests`
+- **File:** `ChromosomeAnalyzer_Aneuploidy_Tests.cs`
+- **Note in:** `ChromosomeAnalyzerTests.cs` (redirect to dedicated file)
 
-### 6.2 Current Tests
+### 6.2 DetectAneuploidy — 16 test methods
 
-| Test | Status | Notes |
-|------|--------|-------|
-| DetectAneuploidy_WithNormalDepth_ReturnsCopyNumber2 | ✓ Present | Rename for consistency |
-| DetectAneuploidy_WithTrisomy_ReturnsCopyNumber3 | ✓ Present | Rename for consistency |
-| DetectAneuploidy_WithMonosomy_ReturnsCopyNumber1 | ✓ Present | Rename for consistency |
-| DetectAneuploidy_EmptyInput_ReturnsEmpty | ✓ Present | Keep |
-| IdentifyWholeChromosomeAneuploidy_WithTrisomy_IdentifiesTrisomy | ✓ Present | Rename for consistency |
-| IdentifyWholeChromosomeAneuploidy_WithNormalChromosome_ReturnsEmpty | ✓ Present | Rename for consistency |
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 1 | `DetectAneuploidy_NormalDepth_ReturnsCopyNumber2` | M1 | ✅ |
+| 2 | `DetectAneuploidy_Trisomy_ReturnsCopyNumber3` | M2 | ✅ |
+| 3 | `DetectAneuploidy_Monosomy_ReturnsCopyNumber1` | M3 | ✅ |
+| 4 | `DetectAneuploidy_EmptyInput_ReturnsEmpty` | M4 | ✅ |
+| 5 | `DetectAneuploidy_ZeroMedianDepth_ReturnsEmpty` | M5 | ✅ |
+| 6 | `DetectAneuploidy_NegativeMedianDepth_ReturnsEmpty` | M5+ | ✅ |
+| 7 | `DetectAneuploidy_Nullisomy_ReturnsCopyNumber0` | M6 | ✅ |
+| 8 | `DetectAneuploidy_Tetrasomy_ReturnsCopyNumber4` | M7 | ✅ |
+| 9 | `DetectAneuploidy_VeryHighDepth_CopyNumberClampedTo10` | M10 | ✅ |
+| 10 | `DetectAneuploidy_VeryLowDepth_CopyNumberMinimumIsZero` | M10+ | ✅ |
+| 11 | `DetectAneuploidy_MultipleChromosomes_GroupsCorrectly` | M8 | ✅ |
+| 12 | `DetectAneuploidy_BinAggregation_AveragesDepth` | M9 | ✅ |
+| 13 | `DetectAneuploidy_SingleDataPoint_WorksCorrectly` | Edge | ✅ |
+| 14 | `DetectAneuploidy_LargeBinSize_ReducesOutput` | C1 | ✅ |
+| 15 | `DetectAneuploidy_Confidence_ExactForBoundaryRatios` | S1 | ✅ |
+| 16 | `DetectAneuploidy_OutputPositions_StartLessThanEnd` | Inv | ✅ |
+| 17 | `DetectAneuploidy_LogRatio_MatchesFormula` | S2 | ✅ |
+| 18 | `DetectAneuploidy_OutputOrdered_ByPosition` | S3 | ✅ |
 
-### 6.3 Consolidation Plan
+### 6.3 IdentifyWholeChromosomeAneuploidy — 11 test methods
 
-1. **Extract** aneuploidy tests from `ChromosomeAnalyzerTests.cs` to dedicated `ChromosomeAnalyzer_Aneuploidy_Tests.cs`
-2. ~~**Add** missing MUST tests (M5, M6, M7, M8, M9, M10, M12, M14, M15, M16)~~ ✅ All added
-3. **Add** SHOULD tests for invariants
-4. **Rename** existing tests to follow `Method_Scenario_ExpectedResult` pattern without `With` prefix
-5. **Keep** note in original file pointing to dedicated test file
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 19 | `IdentifyWholeChromosomeAneuploidy_Trisomy_IdentifiesTrisomy` | M11 | ✅ |
+| 20 | `IdentifyWholeChromosomeAneuploidy_Monosomy_IdentifiesMonosomy` | M12 | ✅ |
+| 21 | `IdentifyWholeChromosomeAneuploidy_Nullisomy_IdentifiesNullisomy` | M14 | ✅ |
+| 22 | `IdentifyWholeChromosomeAneuploidy_Tetrasomy_IdentifiesTetrasomy` | M15 | ✅ |
+| 23 | `IdentifyWholeChromosomeAneuploidy_Normal_ReturnsEmpty` | M13 | ✅ |
+| 24 | `IdentifyWholeChromosomeAneuploidy_Pentasomy_IdentifiesPentasomy` | M17 | ✅ |
+| 25 | `IdentifyWholeChromosomeAneuploidy_HighCopyNumber_FormatsCorrectly` | S4 | ✅ |
+| 26 | `IdentifyWholeChromosomeAneuploidy_MixedCN_BelowThreshold_ReturnsEmpty` | M16a | ✅ |
+| 27 | `IdentifyWholeChromosomeAneuploidy_MixedCN_AtThreshold_IdentifiesAneuploidy` | M16b | ✅ |
+| 28 | `IdentifyWholeChromosomeAneuploidy_CustomMinFraction_Works` | C2 | ✅ |
+| 29 | `IdentifyWholeChromosomeAneuploidy_MultipleChromosomes_IndependentClassification` | Edge | ✅ |
+| 30 | `IdentifyWholeChromosomeAneuploidy_EmptyInput_ReturnsEmpty` | Edge | ✅ |
+| 31 | `IdentifyWholeChromosomeAneuploidy_SingleBin_ClassifiedCorrectly` | Edge | ✅ |
+
+### 6.4 Classification Summary
+
+- ✅ Covered: 31 tests (1 duplicate removed, 1 new test added — net 31)
+- ❌ Missing: 0
+- ⚠ Weak: 0 (M1–M3, M6–M7: LogRatio + Confidence assertions added; S1: exact values; VeryLowDepth: exact CN)
+- 🔁 Duplicate: 0 (`CopyNumber_AlwaysInValidRange` removed — subsumed by M10 + VeryLowDepth)
 
 ---
 
@@ -156,10 +186,32 @@ Assert.Multiple(() => {
 |----------|-----------|
 | Extract to dedicated file | Consistent with other CHROM-* test units |
 | 80% default minFraction | Implementation default; test with explicit values |
-| No sex chromosome special case testing | Implementation does not differentiate; document as limitation |
+| No sex chromosome special case testing | Implementation does not differentiate; documented as limitation |
+| Pentasomy explicitly mapped | Wikipedia defines Pentasomy as 5 copies; CN>5 uses fallback format |
 
 ---
 
-## 8. Open Questions
+## 8. Documented Limitations
 
-None remaining after evidence analysis.
+| Limitation | Source | Impact |
+|------------|--------|--------|
+| Sex chromosomes treated same as autosomes | Wikipedia (males: 1 copy X/Y is normal) | Male monosomic X/Y flagged as aneuploidy |
+| Partial aneuploidy | Wikipedia (translocations) | Detected at bin level, not classified as partial monosomy/trisomy |
+
+---
+
+## 9. Validation Checklist
+
+- [x] All MUST tests (M1–M17) implemented with evidence source
+- [x] All SHOULD tests (S1–S4) implemented
+- [x] COULD tests (C1, C2) implemented
+- [x] Edge cases documented and tested (empty, zero/negative median, single point, large bin)
+- [x] Invariants verified (Start < End, output ordered, confidence = 1.0 at boundaries)
+- [x] CN detection formula derived from theory: CN = round(depth/median × 2)
+- [x] LogRatio values verified against mathematical log₂ identities
+- [x] Confidence formula verified: 1 − min(1, |CN/2 − ratio|)
+- [x] Classification names match Wikipedia (Nullisomy, Monosomy, Trisomy, Tetrasomy, Pentasomy)
+- [x] Threshold boundary (≥ 0.8) tested at exact boundary and below
+- [x] No assumptions — all behaviors sourced from Wikipedia or mathematical definitions
+- [x] No duplicates — each test serves a distinct purpose
+- [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate

@@ -67,6 +67,7 @@ copyNumber = round(2^logRatio × 2)
 | 1.0 | 0.0 | 2 |
 | 1.5 | +0.58 | 3 |
 | 2.0 | +1.0 | 4 |
+| 2.5 | +1.32 | 5 |
 
 ### 4.3 Confidence Calculation
 
