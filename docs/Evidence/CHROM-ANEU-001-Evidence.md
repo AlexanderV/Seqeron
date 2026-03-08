@@ -62,7 +62,8 @@ Classification requires dominant copy number across chromosome (default ≥80% o
 - CN=2 → Normal (no aneuploidy)
 - CN=3 → Trisomy
 - CN=4 → Tetrasomy
-- CN>4 → "Copy number = N"
+- CN=5 → Pentasomy
+- CN>5 → "Copy number = N"
 
 ---
 
@@ -126,6 +127,18 @@ From implementation analysis:
 | Requires minFraction of consistent CN | Implementation |
 | Type names match standard terminology | Wikipedia |
 
+### 5.3 Confidence at Exact Boundaries
+
+| Depth Ratio | CN | Expected | Observed | Confidence |
+|-------------|-----|----------|----------|------------|
+| 0.0 | 0 | 0.0 | 0.0 | 1.0 |
+| 0.5 | 1 | 0.5 | 0.5 | 1.0 |
+| 1.0 | 2 | 1.0 | 1.0 | 1.0 |
+| 1.5 | 3 | 1.5 | 1.5 | 1.0 |
+| 2.0 | 4 | 2.0 | 2.0 | 1.0 |
+
+All exact CN boundary ratios yield confidence = 1.0 (verified in S1 test).
+
 ---
 
 ## 6. Fallback Strategy
@@ -134,15 +147,15 @@ Not applicable - sufficient authoritative sources found.
 
 ---
 
-## 7. Open Questions
+## 7. Documented Limitations
 
-1. **Sex chromosome handling**: Current implementation treats X/Y same as autosomes. 
+1. **Sex chromosome handling**: Implementation treats X/Y same as autosomes.
    - For males, monosomic X is normal, not aneuploidy.
-   - **Decision**: Document as limitation; do not change behavior for this test unit.
+   - Decision: Document as limitation; does not affect autosome-focused detection.
 
 2. **Partial aneuploidy**: Wikipedia mentions partial monosomy/trisomy from translocations.
-   - Current implementation detects regional CN changes.
-   - Whole chromosome classification requires segment-level CN data.
+   - Implementation detects regional CN changes at bin level.
+   - Whole chromosome classification requires consistent CN across ≥80% of bins.
 
 ---
 

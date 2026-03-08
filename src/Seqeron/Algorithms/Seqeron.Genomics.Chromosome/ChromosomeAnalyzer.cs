@@ -846,6 +846,7 @@ public static class ChromosomeAnalyzer
                         1 => "Monosomy",
                         3 => "Trisomy",
                         4 => "Tetrasomy",
+                        5 => "Pentasomy",
                         _ => $"Copy number = {dominant.CopyNumber}"
                     };
 

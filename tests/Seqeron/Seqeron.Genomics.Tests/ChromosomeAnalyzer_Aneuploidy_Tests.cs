@@ -33,9 +33,16 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
         // Assert
-        Assert.That(results, Is.Not.Empty);
-        Assert.That(results.All(r => r.CopyNumber == 2), Is.True,
-            "All bins should have copy number 2 for normal depth");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Is.Not.Empty);
+            Assert.That(results.All(r => r.CopyNumber == 2), Is.True,
+                "All bins should have copy number 2 for normal depth");
+            Assert.That(results[0].LogRatio, Is.EqualTo(0.0).Within(1e-10),
+                "log2(1.0) = 0.0");
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
+                "Exact ratio match yields confidence 1.0");
+        });
     }
 
     [Test]
@@ -51,9 +58,16 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
         // Assert
-        Assert.That(results, Is.Not.Empty);
-        Assert.That(results.All(r => r.CopyNumber == 3), Is.True,
-            "1.5× depth should yield copy number 3 (trisomy)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Is.Not.Empty);
+            Assert.That(results.All(r => r.CopyNumber == 3), Is.True,
+                "1.5× depth should yield copy number 3 (trisomy)");
+            Assert.That(results[0].LogRatio, Is.EqualTo(Math.Log2(1.5)).Within(1e-10),
+                "log2(1.5) ≈ 0.585");
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
+                "Exact ratio match yields confidence 1.0");
+        });
     }
 
     [Test]
@@ -69,9 +83,16 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
         // Assert
-        Assert.That(results, Is.Not.Empty);
-        Assert.That(results.All(r => r.CopyNumber == 1), Is.True,
-            "0.5× depth should yield copy number 1 (monosomy)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Is.Not.Empty);
+            Assert.That(results.All(r => r.CopyNumber == 1), Is.True,
+                "0.5× depth should yield copy number 1 (monosomy)");
+            Assert.That(results[0].LogRatio, Is.EqualTo(-1.0).Within(1e-10),
+                "log2(0.5) = -1.0");
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
+                "Exact ratio match yields confidence 1.0");
+        });
     }
 
     [Test]
@@ -87,9 +108,16 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
         // Assert
-        Assert.That(results, Is.Not.Empty);
-        Assert.That(results.All(r => r.CopyNumber == 0), Is.True,
-            "Zero depth should yield copy number 0 (nullisomy)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Is.Not.Empty);
+            Assert.That(results.All(r => r.CopyNumber == 0), Is.True,
+                "Zero depth should yield copy number 0 (nullisomy)");
+            Assert.That(results[0].LogRatio, Is.EqualTo(double.NegativeInfinity),
+                "log2(0) = -∞");
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
+                "Nullisomy boundary yields confidence 1.0");
+        });
     }
 
     [Test]
@@ -105,9 +133,16 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
         // Assert
-        Assert.That(results, Is.Not.Empty);
-        Assert.That(results.All(r => r.CopyNumber == 4), Is.True,
-            "2× depth should yield copy number 4 (tetrasomy)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(results, Is.Not.Empty);
+            Assert.That(results.All(r => r.CopyNumber == 4), Is.True,
+                "2× depth should yield copy number 4 (tetrasomy)");
+            Assert.That(results[0].LogRatio, Is.EqualTo(1.0).Within(1e-10),
+                "log2(2.0) = 1.0");
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(1e-10),
+                "Exact ratio match yields confidence 1.0");
+        });
     }
 
     #endregion
@@ -184,8 +219,8 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
             depthData, medianDepth: MedianDepth).ToList();
 
         // Assert
-        Assert.That(results.Single().CopyNumber, Is.GreaterThanOrEqualTo(0),
-            "Copy number should never be negative");
+        Assert.That(results.Single().CopyNumber, Is.EqualTo(0),
+            "Depth ratio 0.01 \u2192 round(0.02) = 0");
     }
 
     #endregion
@@ -259,15 +294,39 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
         Assert.That(results.Single().CopyNumber, Is.EqualTo(2));
     }
 
+    [Test]
+    [Description("Larger bin size aggregates more data points, producing fewer output bins")]
+    public void DetectAneuploidy_LargeBinSize_ReducesOutput()
+    {
+        // Arrange: 10 data points at standard 1 Mb spacing
+        var depthData = Enumerable.Range(0, 10)
+            .Select(i => ("chr1", i * DefaultBinSize, MedianDepth));
+
+        // Act: Compare output counts with different bin sizes
+        var smallBinResults = ChromosomeAnalyzer.DetectAneuploidy(
+            depthData, MedianDepth, binSize: DefaultBinSize).ToList();
+        var largeBinResults = ChromosomeAnalyzer.DetectAneuploidy(
+            depthData, MedianDepth, binSize: 5 * DefaultBinSize).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(smallBinResults, Has.Count.EqualTo(10),
+                "1 Mb bins → 10 output bins");
+            Assert.That(largeBinResults, Has.Count.EqualTo(2),
+                "5 Mb bins → 2 output bins");
+        });
+    }
+
     #endregion
 
     #region DetectAneuploidy - Output Invariants
 
     [Test]
-    [Description("Confidence is always in range [0, 1]")]
-    public void DetectAneuploidy_Confidence_AlwaysInValidRange()
+    [Description("Confidence equals 1.0 for exact copy-number boundary ratios")]
+    public void DetectAneuploidy_Confidence_ExactForBoundaryRatios()
     {
-        // Arrange: Various depth ratios
+        // Arrange: All depth values are exact CN boundaries
         var depthData = new[]
         {
             ("chr1", 0, 0.0),           // Nullisomy
@@ -281,9 +340,15 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
         var results = ChromosomeAnalyzer.DetectAneuploidy(
             depthData, medianDepth: MedianDepth).ToList();
 
-        // Assert
-        Assert.That(results.All(r => r.Confidence >= 0.0 && r.Confidence <= 1.0), Is.True,
-            "All confidence values should be in range [0, 1]");
+        // Assert: exact boundary ratios yield confidence = 1.0
+        Assert.Multiple(() =>
+        {
+            foreach (var r in results)
+            {
+                Assert.That(r.Confidence, Is.EqualTo(1.0).Within(1e-10),
+                    $"Exact CN boundary (CN={r.CopyNumber}) should give confidence \u2248 1.0");
+            }
+        });
     }
 
     [Test]
@@ -304,23 +369,55 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
     }
 
     [Test]
-    [Description("Copy number is always in range [0, 10]")]
-    public void DetectAneuploidy_CopyNumber_AlwaysInValidRange()
+    [Description("LogRatio matches formula log2(depth/medianDepth)")]
+    public void DetectAneuploidy_LogRatio_MatchesFormula()
     {
-        // Arrange: Extreme depth values
+        // Arrange: Known depth ratios with exact log2 values
         var depthData = new[]
         {
-            ("chr1", 0, 0.0),           // Should clamp to 0
-            ("chr1", 1000000, 500.0)    // Should clamp to 10
+            ("chr1", 0 * DefaultBinSize, MedianDepth * 0.5),  // log2(0.5) = -1.0
+            ("chr1", 1 * DefaultBinSize, MedianDepth * 1.0),  // log2(1.0) =  0.0
+            ("chr1", 2 * DefaultBinSize, MedianDepth * 2.0),  // log2(2.0) = +1.0
         };
 
         // Act
         var results = ChromosomeAnalyzer.DetectAneuploidy(
-            depthData, medianDepth: MedianDepth).ToList();
+            depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
 
-        // Assert
-        Assert.That(results.All(r => r.CopyNumber >= 0 && r.CopyNumber <= 10), Is.True,
-            "All copy numbers should be in range [0, 10]");
+        // Assert: Verify logRatio = log2(depth / medianDepth)
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].LogRatio, Is.EqualTo(-1.0).Within(1e-10),
+                "log2(0.5) should be -1.0");
+            Assert.That(results[1].LogRatio, Is.EqualTo(0.0).Within(1e-10),
+                "log2(1.0) should be 0.0");
+            Assert.That(results[2].LogRatio, Is.EqualTo(1.0).Within(1e-10),
+                "log2(2.0) should be +1.0");
+        });
+    }
+
+    [Test]
+    [Description("Output bins are ordered by position within each chromosome")]
+    public void DetectAneuploidy_OutputOrdered_ByPosition()
+    {
+        // Arrange: Data in reverse order
+        var depthData = new[]
+        {
+            ("chr1", 4 * DefaultBinSize, MedianDepth),
+            ("chr1", 1 * DefaultBinSize, MedianDepth),
+            ("chr1", 3 * DefaultBinSize, MedianDepth),
+            ("chr1", 0 * DefaultBinSize, MedianDepth),
+            ("chr1", 2 * DefaultBinSize, MedianDepth),
+        };
+
+        // Act
+        var results = ChromosomeAnalyzer.DetectAneuploidy(
+            depthData, medianDepth: MedianDepth, binSize: DefaultBinSize).ToList();
+
+        // Assert: Bins should be ordered by Start position
+        var starts = results.Select(r => r.Start).ToList();
+        Assert.That(starts, Is.Ordered,
+            "Output bins should be ordered by position");
     }
 
     #endregion
@@ -436,7 +533,29 @@ public class ChromosomeAnalyzer_Aneuploidy_Tests
     }
 
     [Test]
-    [Description("High copy number (>4) formats correctly")]
+    [Description("Pentasomy classification for CN=5 chromosome (Wikipedia: Tetrasomy and pentasomy)")]
+    public void IdentifyWholeChromosomeAneuploidy_Pentasomy_IdentifiesPentasomy()
+    {
+        // Arrange
+        var states = Enumerable.Range(0, 100)
+            .Select(i => new ChromosomeAnalyzer.CopyNumberState(
+                "chr1", i * DefaultBinSize, (i + 1) * DefaultBinSize - 1,
+                CopyNumber: 5, LogRatio: 1.32, Confidence: 0.9));
+
+        // Act
+        var results = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Count, Is.EqualTo(1));
+            Assert.That(results[0].CopyNumber, Is.EqualTo(5));
+            Assert.That(results[0].Type, Is.EqualTo("Pentasomy"));
+        });
+    }
+
+    [Test]
+    [Description("High copy number (>5) formats as 'Copy number = N'")]
     public void IdentifyWholeChromosomeAneuploidy_HighCopyNumber_FormatsCorrectly()
     {
         // Arrange
