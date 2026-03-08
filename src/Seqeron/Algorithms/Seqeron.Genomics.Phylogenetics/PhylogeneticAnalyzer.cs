@@ -105,6 +105,36 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
+    /// Builds a phylogenetic tree from a pre-computed distance matrix.
+    /// Allows direct testing against known reference matrices (e.g., Wikipedia examples).
+    /// </summary>
+    /// <param name="taxa">Taxon names in the same order as the distance matrix.</param>
+    /// <param name="distanceMatrix">Pre-computed symmetric distance matrix.</param>
+    /// <param name="treeMethod">Method for tree construction.</param>
+    /// <returns>The constructed phylogenetic tree.</returns>
+    public static PhylogeneticTree BuildTreeFromMatrix(
+        IReadOnlyList<string> taxa,
+        double[,] distanceMatrix,
+        TreeMethod treeMethod = TreeMethod.UPGMA)
+    {
+        if (taxa == null || taxa.Count < 2)
+            throw new ArgumentException("At least 2 taxa required.", nameof(taxa));
+        if (distanceMatrix == null)
+            throw new ArgumentException("Distance matrix is required.", nameof(distanceMatrix));
+        if (distanceMatrix.GetLength(0) != taxa.Count || distanceMatrix.GetLength(1) != taxa.Count)
+            throw new ArgumentException("Distance matrix dimensions must match the number of taxa.");
+
+        PhyloNode root = treeMethod switch
+        {
+            TreeMethod.UPGMA => BuildUPGMA(taxa.ToList(), distanceMatrix),
+            TreeMethod.NeighborJoining => BuildNeighborJoining(taxa.ToList(), distanceMatrix),
+            _ => BuildUPGMA(taxa.ToList(), distanceMatrix)
+        };
+
+        return new PhylogeneticTree(root, taxa, distanceMatrix, treeMethod.ToString());
+    }
+
+    /// <summary>
     /// Calculates a distance matrix for aligned sequences.
     /// </summary>
     public static double[,] CalculateDistanceMatrix(
@@ -210,20 +240,24 @@ public static class PhylogeneticAnalyzer
 
     /// <summary>
     /// Builds a tree using UPGMA (Unweighted Pair Group Method with Arithmetic Mean).
+    /// Branch lengths are computed as incremental heights per the UPGMA definition:
+    /// height(new_cluster) = d(i,j)/2; branch_length(child) = height(new) - height(child).
+    /// Source: Wikipedia UPGMA, Sokal &amp; Michener (1958).
     /// </summary>
     private static PhyloNode BuildUPGMA(List<string> taxa, double[,] distMatrix)
     {
         int n = taxa.Count;
 
-        // Use a dictionary to track nodes and their sizes by original index
         var nodes = new Dictionary<int, PhyloNode>();
         var clusterSizes = new Dictionary<int, int>();
+        var clusterHeights = new Dictionary<int, double>();
 
-        // Initialize with leaf nodes
+        // Initialize with leaf nodes (height 0)
         for (int i = 0; i < n; i++)
         {
             nodes[i] = new PhyloNode(taxa[i]);
             clusterSizes[i] = 1;
+            clusterHeights[i] = 0.0;
         }
 
         // Working distance matrix as dictionary for sparse access
@@ -240,7 +274,6 @@ public static class PhylogeneticAnalyzer
 
         var active = new HashSet<int>(Enumerable.Range(0, n));
 
-        // Merge clusters until only one remains
         while (active.Count > 1)
         {
             // Find minimum distance pair
@@ -252,34 +285,38 @@ public static class PhylogeneticAnalyzer
             {
                 for (int jj = ii + 1; jj < activeList.Count; jj++)
                 {
-                    int i = activeList[ii];
-                    int j = activeList[jj];
-                    var key = i < j ? (i, j) : (j, i);
+                    int a = activeList[ii];
+                    int b = activeList[jj];
+                    var key = a < b ? (a, b) : (b, a);
                     if (dist.TryGetValue(key, out double d) && d < minDist)
                     {
                         minDist = d;
-                        minI = i;
-                        minJ = j;
+                        minI = a;
+                        minJ = b;
                     }
                     else if (!dist.ContainsKey(key) && 0 < minDist)
                     {
-                        // Zero distance (identical sequences)
                         minDist = 0;
-                        minI = i;
-                        minJ = j;
+                        minI = a;
+                        minJ = b;
                     }
                 }
             }
 
             if (minI == -1 || minJ == -1)
             {
-                // Fallback: just pick first two
                 minI = activeList[0];
                 minJ = activeList[1];
                 minDist = 0;
             }
 
-            // Create new node
+            // New cluster height = d(i,j) / 2 (ultrametric property)
+            double newHeight = minDist / 2;
+
+            // Incremental branch lengths: height(new) - height(child)
+            nodes[minI].BranchLength = Math.Max(0, newHeight - clusterHeights[minI]);
+            nodes[minJ].BranchLength = Math.Max(0, newHeight - clusterHeights[minJ]);
+
             var newNode = new PhyloNode
             {
                 Name = $"({nodes[minI].Name},{nodes[minJ].Name})",
@@ -288,12 +325,7 @@ public static class PhylogeneticAnalyzer
                 Taxa = nodes[minI].Taxa.Concat(nodes[minJ].Taxa).ToList()
             };
 
-            // Set branch lengths (distance to midpoint)
-            double height = minDist / 2;
-            nodes[minI].BranchLength = Math.Max(0, height);
-            nodes[minJ].BranchLength = Math.Max(0, height);
-
-            // Update distances using UPGMA formula
+            // Update distances using UPGMA formula (proportional averaging)
             int newSize = clusterSizes[minI] + clusterSizes[minJ];
             foreach (int k in active)
             {
@@ -314,6 +346,7 @@ public static class PhylogeneticAnalyzer
             // Replace minI with new cluster, remove minJ
             nodes[minI] = newNode;
             clusterSizes[minI] = newSize;
+            clusterHeights[minI] = newHeight;
             active.Remove(minJ);
         }
 
@@ -388,8 +421,9 @@ public static class PhylogeneticAnalyzer
                 Taxa = nodes[minI].Taxa.Concat(nodes[minJ].Taxa).ToList()
             };
 
-            nodes[minI].BranchLength = Math.Max(0, branchI);
-            nodes[minJ].BranchLength = Math.Max(0, branchJ);
+            // NJ may produce negative branch lengths (Wikipedia: INV-N02)
+            nodes[minI].BranchLength = branchI;
+            nodes[minJ].BranchLength = branchJ;
 
             // Update distances
             foreach (int k in active)

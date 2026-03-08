@@ -186,24 +186,38 @@ e   8   9   7   3   0
 
 ## 6. Testing Methodology
 
-Based on the evidence, tests should verify:
+Tests verify correctness against the Wikipedia reference examples:
 
-1. **Correctness tests** - Use known examples from Wikipedia
-2. **Invariant tests** - Verify tree structure properties
-3. **Edge case tests** - Validate error handling
-4. **Property tests** - All taxa present, binary structure
-5. **Method selection tests** - UPGMA vs NJ produce valid trees
+1. **UPGMA Wikipedia example (S01, S01b, S01c)** — Exact distance matrix from Wikipedia; verifies clustering order, leaf and internal branch lengths (δ(a,u)=8.5, δ(u,v)=2.5, δ(v,root)=5.5, δ(c,w)=14, δ(w,root)=2.5, δ(e,v)=11), and ultrametric property (all tips at 16.5 from root). Tolerance: 1e-10 (exact integer arithmetic).
+2. **NJ Wikipedia example (S02, S02b, S02c)** — Exact distance matrix from Wikipedia; verifies patristic distances match input (additive matrix guarantee, INV-N01), topology (a,b joined first, Q₁(a,b)=-50), and branch lengths (δ(a,u)=2, δ(b,u)=3). Tolerance: 1e-10.
+3. **INV-U01 ultrametric on general input (S03)** — All UPGMA tips equidistant from root
+4. **Invariant tests (M10-M13)** — Non-negative UPGMA branches, binary structure, taxa preservation
+5. **Edge cases (M08-M09)** — Validation errors, degenerate inputs
+6. **Performance (C01)** — 50 sequences × 100bp, UPGMA completes in < 30s
+7. **Gap handling (C02)** — Gap-only columns skipped; identical non-gap sites produce distance=0
+8. **`BuildTreeFromMatrix` public API** — Enables direct testing against known reference matrices
+
+**S06 removed** — was duplicate of S02 (same data, same assertion). INV-N01 now covered by S02.
+
+**Total: 32 test runs (M01–M13, S01–S05, C01–C05).**
 
 ---
 
 ## 7. Implementation Notes
 
 The implementation in `PhylogeneticAnalyzer.cs`:
-- `BuildTree()` is the canonical method
-- Supports both UPGMA and NeighborJoining methods
+- `BuildTree()` is the canonical method (from sequences)
+- `BuildTreeFromMatrix()` accepts pre-computed distance matrices (for reference example testing)
+- UPGMA: Tracks cluster heights; branch lengths are incremental (height_new − height_child)
+- NJ: Preserves negative branch lengths per algorithm specification (no clamping)
+- NJ final join: Midpoint rooting (d/2 each) — preserves all patristic distances
 - Returns `PhylogeneticTree` with Root, Taxa, DistanceMatrix, Method
-- Uses distance matrix internally
-- Branch lengths are computed according to standard formulas
+
+---
+
+## 8. Deviations and Assumptions
+
+None. The implementation strictly follows the algorithms as described in the authoritative sources.
 
 ---
 
