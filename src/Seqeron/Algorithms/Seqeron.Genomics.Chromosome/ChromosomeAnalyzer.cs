@@ -150,7 +150,6 @@ public static class ChromosomeAnalyzer
         long totalSize = chromList.Sum(c => c.Length);
         double meanLength = totalSize / (double)chromList.Count;
 
-        // Detect aneuploidy (simplified - looks for missing or extra chromosomes)
         var abnormalities = new List<string>();
         bool hasAneuploidy = false;
 
@@ -165,10 +164,7 @@ public static class ChromosomeAnalyzer
             if (count != expectedPloidyLevel)
             {
                 hasAneuploidy = true;
-                if (count < expectedPloidyLevel)
-                    abnormalities.Add($"Monosomy {group.Key}");
-                else if (count > expectedPloidyLevel)
-                    abnormalities.Add($"Trisomy {group.Key}");
+                abnormalities.Add($"{GetAneuploidyTerm(count)} {group.Key}");
             }
         }
 
@@ -182,6 +178,21 @@ public static class ChromosomeAnalyzer
             hasAneuploidy,
             abnormalities);
     }
+
+    /// <summary>
+    /// Returns standard cytogenetic aneuploidy term for a given copy count.
+    /// Per ISCN / standard nomenclature (Wikipedia: Aneuploidy).
+    /// </summary>
+    private static string GetAneuploidyTerm(int copyCount) => copyCount switch
+    {
+        0 => "Nullisomy",
+        1 => "Monosomy",
+        2 => "Disomy",
+        3 => "Trisomy",
+        4 => "Tetrasomy",
+        5 => "Pentasomy",
+        _ => $"Polysomy ({copyCount} copies)"
+    };
 
     /// <summary>
     /// Gets base chromosome name (strips copy suffixes).
@@ -211,7 +222,10 @@ public static class ChromosomeAnalyzer
         if (depths.Count == 0)
             return (2, 0);
 
-        double medianDepth = depths.OrderBy(d => d).ElementAt(depths.Count / 2);
+        var sorted = depths.OrderBy(d => d).ToList();
+        double medianDepth = sorted.Count % 2 == 1
+            ? sorted[sorted.Count / 2]
+            : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2.0;
         double ratio = medianDepth / expectedDiploidDepth;
 
         // Determine ploidy

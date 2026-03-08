@@ -2,7 +2,7 @@
 
 **Test Unit ID:** CHROM-KARYO-001  
 **Area:** Chromosome Analysis  
-**Date:** 2026-02-01  
+**Date:** 2026-03-08  
 **Status:** Complete  
 
 ---
@@ -15,23 +15,36 @@
    - URL: https://en.wikipedia.org/wiki/Karyotype
    - Key concepts:
      - A karyotype is the general appearance of the complete set of chromosomes in a cell
-     - Includes chromosome number, sizes, shapes, and banding patterns
      - Normal human diploid karyotype: 46 chromosomes (22 autosomal pairs + 2 sex chromosomes)
      - Karyotype notation: 46,XX (female) or 46,XY (male)
-     - Aneuploidy: abnormal chromosome number (e.g., trisomy, monosomy)
+     - Autosomes numbered 1-22, from largest to smallest
      - Human chromosome groups A-G based on size and centromere position
-   - Verified: 2026-02-01
+   - Verified: 2026-03-08
 
 2. **Wikipedia - Ploidy**
    - URL: https://en.wikipedia.org/wiki/Ploidy
    - Key concepts:
      - Ploidy is the number of complete sets of chromosomes in a cell
-     - Diploid (2n): two complete sets (normal for humans)
-     - Tetraploid (4n): four complete sets
-     - Haploid (n): single set (gametes)
+     - Monoploid (1 set), Diploid (2 sets), Triploid (3 sets), Tetraploid (4 sets), etc.
+     - Humans: 2n = 46, n = 23
      - Polyploidy common in plants, rare in animals
-     - Aneuploidy vs Euploidy: abnormal vs normal chromosome counts
-   - Verified: 2026-02-01
+     - Euploidy (normal set count) vs Aneuploidy (abnormal individual chromosome count)
+   - Verified: 2026-03-08
+
+3. **Wikipedia - Aneuploidy**
+   - URL: https://en.wikipedia.org/wiki/Aneuploidy
+   - Key concepts:
+     - Aneuploidy = abnormal number of individual chromosomes (NOT whole-set changes)
+     - Terminology is based on **absolute copy count**:
+       - Nullisomy: 0 copies
+       - Monosomy: 1 copy (e.g., Turner syndrome 45,X)
+       - Disomy: 2 copies (normal for diploid)
+       - Trisomy: 3 copies (e.g., Down syndrome: Trisomy 21)
+       - Tetrasomy: 4 copies
+       - Pentasomy: 5 copies
+     - Sex chromosome tetrasomy and pentasomy (XXXX, XXXXY, etc.) documented in humans
+     - Most autosomal trisomies are lethal; survivable: Trisomy 21, 18, 13
+   - Verified: 2026-03-08
 
 ---
 
@@ -43,10 +56,10 @@
 
 **Algorithm Steps (from sources):**
 1. Separate sex chromosomes from autosomes
-2. Group autosomes by base chromosome name
-3. Count copies of each chromosome
+2. Group autosomes by base chromosome name (strip copy suffixes)
+3. Count copies of each chromosome group
 4. Compare counts against expected ploidy level
-5. Detect aneuploidy (monosomy: count < expected, trisomy: count > expected)
+5. Label aneuploidy using **standard cytogenetic nomenclature** based on absolute copy count
 
 **Invariants:**
 - TotalChromosomes = AutosomeCount + SexChromosomeCount
@@ -59,11 +72,12 @@
 **Purpose:** Detect ploidy level from normalized read depth data.
 
 **Algorithm Steps:**
-1. Calculate median depth from normalized depth values
-2. Compute ratio: medianDepth / expectedDiploidDepth
-3. Estimate ploidy: round(ratio × 2)
-4. Clamp to valid range [1, 8]
-5. Calculate confidence based on deviation from integer ploidy
+1. If empty input → return (2, 0) — default diploid, zero confidence
+2. Calculate **true median** from sorted depth values (average of two middle elements for even counts)
+3. Compute ratio: medianDepth / expectedDiploidDepth
+4. Estimate ploidy: round(ratio × 2)
+5. Clamp to valid range [1, 8]
+6. Calculate confidence: 1.0 − |ratio × 2 − ploidy| × 2
 
 **Invariants:**
 - PloidyLevel ∈ [1, 8]
@@ -82,34 +96,27 @@
 | Normal diploid human | 22 autosome pairs + XX/XY | 46 chromosomes, no aneuploidy | Wikipedia Karyotype |
 | Trisomy 21 (Down syndrome) | 3 copies of chr21 | HasAneuploidy=true, "Trisomy" | Wikipedia Aneuploidy |
 | Turner syndrome (45,X) | Single X, missing Y | HasAneuploidy=true, "Monosomy" | Wikipedia Aneuploidy |
+| Disomy in tetraploid | 2 copies in tetraploid | HasAneuploidy=true, "Disomy" | Wikipedia Aneuploidy |
+| Tetrasomy | 4 copies of a chr in diploid | HasAneuploidy=true, "Tetrasomy" | Wikipedia Aneuploidy |
+| Pentasomy | 5 copies of a chr in diploid | HasAneuploidy=true, "Pentasomy" | Wikipedia Aneuploidy |
 | Diploid depth | ratio ≈ 1.0 | ploidy=2 | Wikipedia Ploidy |
 | Tetraploid depth | ratio ≈ 2.0 | ploidy=4 | Wikipedia Ploidy |
+| Haploid depth | ratio ≈ 0.5 | ploidy=1 | Wikipedia Ploidy |
 
 ---
 
-## Edge Cases
+## Design Decisions
 
-| Edge Case | Expected Behavior | Source |
-|-----------|-------------------|--------|
-| Empty chromosome list | Return empty karyotype, no aneuploidy | ASSUMPTION: graceful degradation |
-| Single chromosome | Detect monosomy for diploid expectation | Logic from aneuploidy definition |
-| High ploidy (>8) | Clamp to 8 | Implementation constraint |
-| Zero/negative depth | Handle gracefully | ASSUMPTION: defensive programming |
-
----
-
-## Testing Methodology
-
-Based on sources:
-1. **Unit tests** with well-known karyotypes (normal diploid, trisomy, monosomy)
-2. **Boundary tests** for ploidy detection (diploid/tetraploid boundaries)
-3. **Edge case tests** for empty inputs and extreme values
-4. **Invariant tests** ensuring mathematical relationships hold
+| ID | Decision | Rationale |
+|----|----------|-----------|
+| DD1 | Empty chromosome input → empty karyotype, no aneuploidy | Graceful degradation for edge case |
+| DD2 | Empty depth input → (ploidy=2, confidence=0) | Diploid is most common default; zero confidence signals no data |
+| DD3 | Ploidy clamped to [1, 8] | Practical limit; higher ploidy exists in nature (plants, polytene chromosomes up to 1024-ploid per Wikipedia) but is outside typical analysis scope |
+| DD4 | Nullisomy (0 copies) is unreachable via `GroupBy` | Architecture detects only chromosomes present in input; absent chromosomes cannot form a group. Term is mapped for completeness |
+| DD5 | Disomy (2 copies) is only aneuploidy in non-diploid contexts | In diploid organisms 2 copies is normal (never triggers); in polyploid contexts, 2 copies is correctly labeled Disomy per ISCN |
 
 ---
 
-## Notes
+## Deviations and Assumptions
 
-- The implementation uses simplified chromosome naming conventions (e.g., "chr1_1", "chr1_2" for diploid copies)
-- Sex chromosome handling separates them from autosomes for counting
-- Ploidy detection is based on read depth ratio, common in NGS analysis
+None.
