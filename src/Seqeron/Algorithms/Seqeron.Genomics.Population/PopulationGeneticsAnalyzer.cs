@@ -575,7 +575,10 @@ public static class PopulationGeneticsAnalyzer
     #region Population Structure (F-statistics)
 
     /// <summary>
-    /// Calculates Weir and Cockerham's Fst between populations.
+    /// Calculates Wright's variance-based Fst between populations.
+    /// Formula: Fst = σ²_S / p̄(1-p̄) where σ²_S is the weighted variance of allele frequencies
+    /// among subpopulations and p̄(1-p̄) is the expected heterozygosity.
+    /// Source: Wright (1965) Evolution 19:395-420; Wikipedia: Fixation index §Definition.
     /// </summary>
     public static double CalculateFst(
         IEnumerable<(double AlleleFreq, int SampleSize)> population1,
