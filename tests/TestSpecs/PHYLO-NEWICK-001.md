@@ -25,13 +25,15 @@
 
 | ID | Invariant | Source |
 |----|-----------|--------|
-| N1 | Newick string MUST end with semicolon | Wikipedia Grammar |
-| N2 | Leaf count in parsed tree MUST match leaf names in string | Semantic |
-| N3 | Round-trip (ToNewick → ParseNewick) MUST preserve topology | Semantic |
-| N4 | Round-trip MUST preserve leaf names | Semantic |
-| N5 | Branch lengths MUST be non-negative when parsed | PHYLIP implicit |
-| N6 | ParseNewick on empty/null MUST throw ArgumentException | Implementation |
-| N7 | ToNewick on null SHOULD return empty string | Implementation |
+| N1 | Newick string MUST end with semicolon | Wikipedia Grammar: `Tree → Subtree ";"` |
+| N2 | Leaf count in parsed tree MUST match leaf names in string | Wikipedia Grammar: leaves are `Name` productions |
+| N3 | Round-trip (ToNewick → ParseNewick) MUST preserve topology | Wikipedia Grammar: unambiguous binary structure |
+| N4 | Round-trip MUST preserve leaf names | Wikipedia Grammar: `Leaf → Name` |
+| N5 | Branch lengths are real numbers after `:` | Wikipedia Grammar: `Length → empty \| ":" number` |
+| N6 | ParseNewick on empty/null MUST throw ArgumentException | Wikipedia Grammar: at minimum `Subtree ";"` required |
+| N7 | ToNewick on null SHOULD return empty string | Defensive programming |
+| N8 | Internal node names MUST appear after `)` in output | Wikipedia Grammar: `Internal → "(" BranchSet ")" Name` |
+| N9 | Number formatting MUST use `.` as decimal separator | Olsen: `branch_length ==> signed_number \| unsigned_number` (no locale) |
 
 ---
 
@@ -41,74 +43,92 @@
 
 | Test ID | Test Name | Invariant | Source |
 |---------|-----------|-----------|--------|
-| M01 | ToNewick_SimpleTree_EndsWithSemicolon | N1 | Wikipedia Grammar |
-| M02 | ToNewick_WithBranchLengths_IncludesColons | - | Wikipedia Examples |
-| M03 | ToNewick_WithoutBranchLengths_NoColons | - | Wikipedia Examples |
-| M04 | ToNewick_ContainsAllLeafNames | N2 | Semantic |
-| M05 | ParseNewick_SimpleBinaryTree_ParsesCorrectly | - | Wikipedia Example `(A,B);` |
-| M06 | ParseNewick_WithBranchLengths_ExtractsValues | N5 | Wikipedia Example `(A:0.1,B:0.2);` |
-| M07 | ParseNewick_NestedBinaryTree_ParsesRecursively | - | Wikipedia Example `((A,B),(C,D));` |
+| M01 | ToNewick_SimpleTree_EndsWithSemicolon | N1 | Wikipedia Grammar: `Tree → Subtree ";"` |
+| M02 | ToNewick_WithBranchLengths_IncludesColons | N5 | Wikipedia Examples: `(A:0.1,B:0.2);` |
+| M03 | ToNewick_WithoutBranchLengths_NoColons | N5 | Wikipedia Grammar: `Length → empty` |
+| M04 | ToNewick_ContainsAllLeafNames | N2 | Wikipedia Grammar: `Leaf → Name` |
+| M05 | ParseNewick_SimpleBinaryTree_ParsesCorrectly | - | Wikipedia Example: `(A,B);` |
+| M06 | ParseNewick_WithBranchLengths_ExtractsValues | N5 | Wikipedia Example: `(A:0.1,B:0.2);` |
+| M07 | ParseNewick_NestedBinaryTree_ParsesRecursively | - | Wikipedia Example: `((A,B),(C,D));` |
 | M08 | ParseNewick_LeafCountMatchesInput | N2 | PHYLIP Examples |
-| M09 | RoundTrip_PreservesLeafNames | N4 | Semantic invariant |
-| M10 | RoundTrip_PreservesTopology | N3 | Semantic invariant |
-| M11 | ParseNewick_EmptyString_ThrowsArgumentException | N6 | Edge case |
-| M12 | ParseNewick_NullString_ThrowsArgumentException | N6 | Edge case |
-| M13 | ToNewick_NullNode_ReturnsEmpty | N7 | Edge case |
+| M09 | RoundTrip_PreservesLeafNames | N4 | Wikipedia Grammar: round-trip invariant |
+| M10 | RoundTrip_PreservesTopology | N3 | Wikipedia Grammar: round-trip invariant |
+| M11 | ParseNewick_EmptyString_ThrowsArgumentException | N6 | Wikipedia Grammar: minimum structure required |
+| M12 | ParseNewick_NullString_ThrowsArgumentException | N6 | Wikipedia Grammar: minimum structure required |
+| M13 | ToNewick_NullNode_ReturnsEmpty | N7 | Defensive edge case |
+| M14 | ParseNewick_RootBranchLength_ExtractsValue | N5 | Olsen Grammar: `tree ==> descendant_list [root_label] [:branch_length] ;` |
+| M15 | ParseNewick_RootNameAndBranchLength_ParsesCorrectly | N5, N8 | Olsen Grammar (same as M14) |
+| M16 | RoundTrip_FullFormat_PreservesInternalNames | N8 | Wikipedia Grammar: `Internal → "(" BranchSet ")" Name` |
+| M17 | ToNewick_WithValidInternalNames_EmitsNames | N8 | Wikipedia Grammar: `Internal → "(" BranchSet ")" Name` |
+| M18 | ToNewick_WithMetacharacterNames_OmitsInvalidNames | N9 | Olsen: unquoted labels prohibit metacharacters |
 
 ### SHOULD Tests (Recommended)
 
 | Test ID | Test Name | Rationale | Source |
 |---------|-----------|-----------|--------|
-| S01 | ParseNewick_InternalNodeNames_ExtractsName | Full format support | Wikipedia Example `(A,B)E;` |
-| S02 | ParseNewick_FullFormat_ParsesAllFields | Complete parsing | Wikipedia Example full format |
-| S03 | RoundTrip_PreservesBranchLengths_WithTolerance | Precision | Semantic |
-| S04 | ToNewick_LargeTree_ProducesValidFormat | Scalability | ASSUMPTION |
-| S05 | ParseNewick_WhitespaceAtEnd_HandlesGracefully | Robustness | Wikipedia Notes |
+| S01 | ParseNewick_InternalNodeNames_ExtractsName | Full format support | Wikipedia Example: `(A,B)E;` all names |
+| S02 | ParseNewick_FullFormat_ParsesAllFields | Complete parsing | Wikipedia Example: full format |
+| S03 | RoundTrip_PreservesBranchLengths_WithTolerance | Precision | Wikipedia Grammar: `Length → ":" number` |
+| S04 | ToNewick_LargeTree_ProducesValidFormat | Grammar validity at scale | Wikipedia Grammar: balanced `()`, trailing `;`, leaf `Name` |
+| S05 | ParseNewick_WhitespaceAtEnd_HandlesGracefully | Robustness | Wikipedia Notes: "Whitespace may appear anywhere except within unquoted string or Length" |
+| S06 | ParseNewick_MissingSemicolon_ParsesCorrectly | Lenient parsing | Wikipedia Grammar: `Tree → Subtree ";"` requires `;`; parser is lenient |
 
 ### COULD Tests (Optional)
 
 | Test ID | Test Name | Rationale | Source |
 |---------|-----------|-----------|--------|
-| C01 | ParseNewick_SingleTaxon_ParsesCorrectly | Rare format | PHYLIP Example `A;` |
-| C02 | ParseNewick_MultifurcatingTree_ParsesChildren | Beyond binary | Wikipedia Grammar |
+| C01 | ParseNewick_SingleTaxon_ParsesCorrectly | Rare format | PHYLIP Example: `A;` |
 
 ---
 
 ## Edge Cases (from Evidence)
 
-| Case | Input | Expected | Covered By |
-|------|-------|----------|------------|
-| Empty string | `""` | Throw ArgumentException | M11 |
-| Null string | `null` | Throw ArgumentException | M12 |
-| Null node | `ToNewick(null)` | Return empty string | M13 |
-| Whitespace only | `"   "` | Throw ArgumentException | S05 |
-| Missing semicolon | `"(A,B)"` | Parse should handle | ASSUMPTION (impl adds) |
-| Single leaf | `"A;"` | Single node tree | C01 |
+| Case | Input | Expected | Source | Covered By |
+|------|-------|----------|--------|------------|
+| Empty string | `""` | Throw ArgumentException | Wikipedia Grammar: min structure required | M11 |
+| Null string | `null` | Throw ArgumentException | Wikipedia Grammar: min structure required | M12 |
+| Null node | `ToNewick(null)` | Return empty string | Defensive | M13 |
+| Whitespace only | `"   "` | Throw ArgumentException | Wikipedia Notes: whitespace is not a tree | S05 |
+| Missing semicolon | `"(A,B)"` | Parse leniently (strip `;` if present) | Wikipedia Grammar requires `;`; lenient parser | S06 |
+| Single leaf | `"A;"` | Single node tree | PHYLIP Examples | C01 |
+| Root branch length | `"(A,B):0.0;"` | Parse root branch length | Olsen Grammar: `tree ==> ... [:branch_length] ;` | M14 |
+| Root name + length | `"(A,B)Root:0.5;"` | Parse root name and length | Olsen Grammar | M15 |
+| Invalid internal name | `ToNewick` of UPGMA tree | Omit metacharacter names | Olsen: unquoted label restrictions | M18 |
 
 ---
 
-## Audit of Existing Tests
+## Coverage Classification
 
-### Current State (PhylogeneticAnalyzerTests.cs)
+| Test ID | Test Name | Status | Notes |
+|---------|-----------|--------|-------|
+| M01 | ToNewick_SimpleTree_EndsWithSemicolon | ✅ Covered | N1: semicolon termination |
+| M02 | ToNewick_WithBranchLengths_IncludesColons | ✅ Covered | N5: `Name:number` format verified via regex |
+| M03 | ToNewick_WithoutBranchLengths_NoColons | ✅ Covered | N5: absence of colons when disabled |
+| M04 | ToNewick_ContainsAllLeafNames | ✅ Covered | N2: all 4 leaf names present |
+| M05 | ParseNewick_SimpleBinaryTree_ParsesCorrectly | ✅ Covered | Structure + leaf names (A, B) |
+| M06 | ParseNewick_WithBranchLengths_ExtractsValues | ✅ Covered | N5: exact values 0.1, 0.2 |
+| M07 | ParseNewick_NestedBinaryTree_ParsesRecursively | ✅ Covered | Full structure: leaf names + positions |
+| M08 | ParseNewick_LeafCountMatchesInput | ✅ Covered | N2: 2/3/4/5 taxa test cases |
+| M09 | RoundTrip_PreservesLeafNames | ✅ Covered | N4: sorted name lists match |
+| M10 | RoundTrip_PreservesTopology | ✅ Covered | N3: sibling relationships (A,B) and (C,D) |
+| M11 | ParseNewick_EmptyString_ThrowsArgumentException | ✅ Covered | N6: ArgumentException with message |
+| M12 | ParseNewick_NullString_ThrowsArgumentException | ✅ Covered | N6: ArgumentException |
+| M13 | ToNewick_NullNode_ReturnsEmptyString | ✅ Covered | N7: returns empty |
+| M14 | ParseNewick_RootBranchLength_ExtractsValue | ✅ Covered | N5: root BL=0.0, children BL=0.1/0.2 |
+| M15 | ParseNewick_RootNameAndBranchLength_ParsesCorrectly | ✅ Covered | N5+N8: name="Root", BL=0.5 |
+| M16 | RoundTrip_FullFormat_PreservesInternalNames | ✅ Covered | N8: Root, AB, CD names survive |
+| M17 | ToNewick_WithValidInternalNames_EmitsNames | ✅ Covered | N8: ``)AB:`, ``)CD:`, ``Root;`` patterns |
+| M18 | ToNewick_WithMetacharacterNames_OmitsInvalidNames | ✅ Covered | N9: metacharacter names suppressed |
+| S01 | ParseNewick_InternalNodeNames_ExtractsName | ✅ Covered | Exact name "Root" |
+| S02 | ParseNewick_FullFormat_ParsesAllFields | ✅ Covered | All names + all 6 branch lengths |
+| S03 | RoundTrip_PreservesBranchLengths | ✅ Covered | 6 individual BLs within ±0.0001 |
+| S04 | ToNewick_LargeTree_ProducesValidFormat | ✅ Covered | Balanced parens, 8 taxa, semicolon |
+| S05a | ParseNewick_WhitespaceOnly_ThrowsArgumentException | ✅ Covered | ArgumentException |
+| S05b | ParseNewick_TrailingWhitespace_ParsesCorrectly | ✅ Covered | Parses with trailing spaces |
+| S06 | ParseNewick_MissingSemicolon_ParsesCorrectly | ✅ Covered | Leaf names A, B verified |
+| C01 | ParseNewick_SingleTaxon_ParsesSingleNode | ✅ Covered | Name="A", IsLeaf=true |
 
-| Test | Status | Action |
-|------|--------|--------|
-| `ToNewick_SimpleTree_ProducesValidFormat` | Keep | Rename to match pattern |
-| `ToNewick_WithBranchLengths_IncludesColons` | Keep | Good coverage |
-| `ToNewick_WithoutBranchLengths_NoColons` | Keep | Good coverage |
-| `ParseNewick_SimpleTree_ParsesCorrectly` | Keep | Good basic test |
-| `ParseNewick_WithBranchLengths_ExtractsValues` | Keep | Good coverage |
-| `ParseNewick_NestedTree_ParsesRecursively` | Keep | Good coverage |
-| `ParseNewick_RoundTrip_PreservesStructure` | Keep | Rename for clarity |
-| `ParseNewick_EmptyString_Throws` | Keep | Edge case coverage |
-
-### Consolidation Plan
-
-1. **Extract PHYLO-NEWICK-001 tests** from `PhylogeneticAnalyzerTests.cs` into new canonical file
-2. ~~**Add missing tests**: M04, M08, M10, M12, M13, S01-S05~~ ✅ All added
-3. **Rename tests** to follow `Method_Scenario_ExpectedResult` pattern
-4. **Add Assert.Multiple** for invariant groups
-5. **Remove PHYLO-COMP-001 tests** from the original file (leave for separate processing)
+**Summary:** 26/26 tests ✅ Covered. No missing, no duplicates.
 
 ---
 
@@ -124,7 +144,9 @@ PhylogeneticAnalyzer_NewickIO_Tests
 │   ├── ToNewick_WithoutBranchLengths_NoColons
 │   ├── ToNewick_ContainsAllLeafNames
 │   ├── ToNewick_NullNode_ReturnsEmptyString
-│   └── ToNewick_LargeTree_ProducesValidFormat
+│   ├── ToNewick_LargeTree_ProducesValidFormat
+│   ├── ToNewick_WithValidInternalNames_EmitsNames
+│   └── ToNewick_WithMetacharacterNames_OmitsInvalidNames
 ├── ParseNewick Tests
 │   ├── ParseNewick_SimpleBinaryTree_ParsesCorrectly
 │   ├── ParseNewick_WithBranchLengths_ExtractsValues
@@ -132,26 +154,35 @@ PhylogeneticAnalyzer_NewickIO_Tests
 │   ├── ParseNewick_LeafCountMatchesInput
 │   ├── ParseNewick_InternalNodeNames_ExtractsName
 │   ├── ParseNewick_FullFormat_ParsesAllFields
-│   └── ParseNewick_SingleTaxon_ParsesSingleNode
+│   ├── ParseNewick_SingleTaxon_ParsesSingleNode
+│   ├── ParseNewick_RootBranchLength_ExtractsValue
+│   └── ParseNewick_RootNameAndBranchLength_ParsesCorrectly
 ├── Round-Trip Tests
 │   ├── RoundTrip_PreservesLeafNames
 │   ├── RoundTrip_PreservesTopology
-│   └── RoundTrip_PreservesBranchLengths
+│   ├── RoundTrip_PreservesBranchLengths
+│   └── RoundTrip_FullFormat_PreservesInternalNames
 └── Edge Cases
     ├── ParseNewick_EmptyString_ThrowsArgumentException
     ├── ParseNewick_NullString_ThrowsArgumentException
-    └── ParseNewick_WhitespaceOnly_ThrowsArgumentException
+    ├── ParseNewick_WhitespaceOnly_ThrowsArgumentException
+    ├── ParseNewick_TrailingWhitespace_ParsesCorrectly
+    └── ParseNewick_MissingSemicolon_ParsesCorrectly
 ```
 
 ---
 
-## Open Questions / Decisions
+## Documented Limitations (per Scope)
 
-| Question | Decision | Rationale |
-|----------|----------|-----------|
-| Support multifurcating trees? | No (implementation is binary) | Implementation constraint |
-| Support quoted names? | No (not implemented) | Document as limitation |
-| Support comments in `[]`? | No | Not implemented |
+These are intentional scope boundaries, documented with their spec basis.
+
+| Limitation | Spec Reference | Rationale |
+|------------|---------------|-----------|
+| Binary trees only | Wikipedia Grammar: `BranchSet → Branch \| Branch "," BranchSet` supports N children; implementation restricted to 2 | UPGMA/NJ produce bifurcating trees; multifurcation not needed for current algorithms |
+| No quoted names | Olsen: `quoted_label ==> ' string '`; not implemented | Out of scope; all current taxa use simple alphanumeric names |
+| No `[]` comments | Wikipedia Notes: "Comments are enclosed in square brackets"; not implemented | Out of scope; no use case for comment parsing |
+| No underscore→blank | PHYLIP: "underscore stands for a blank"; not implemented | Out of scope; no taxa use underscores |
+| F4 branch length precision | Wikipedia Grammar: `Length → ":" number`; spec imposes no precision limit; F4 chosen for readability | Adequate for UPGMA/NJ round-trip (±0.00005); matches typical bioinformatics output |
 
 ---
 
@@ -159,3 +190,6 @@ PhylogeneticAnalyzer_NewickIO_Tests
 
 - Evidence: [PHYLO-NEWICK-001-Evidence.md](../docs/Evidence/PHYLO-NEWICK-001-Evidence.md)
 - Algorithm Doc: [docs/algorithms/Phylogenetics/Newick_Format.md](../docs/algorithms/Phylogenetics/Newick_Format.md)
+- Wikipedia: [Newick format](https://en.wikipedia.org/wiki/Newick_format) — Grammar, examples, notes
+- PHYLIP: [The Newick tree format](https://phylipweb.github.io/phylip/newicktree.html) — Felsenstein, original specification
+- Olsen: [Interpretation of Newick's 8:45 Tree Format](https://phylipweb.github.io/phylip/newick_doc.html) — Formal grammar (1990)

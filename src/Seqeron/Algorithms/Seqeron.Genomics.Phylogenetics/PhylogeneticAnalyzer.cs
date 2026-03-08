@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -490,17 +491,49 @@ public static class PhylogeneticAnalyzer
             {
                 ToNewickRecursive(node.Left, sb, includeBranchLengths, isRoot: false);
                 if (includeBranchLengths)
-                    sb.Append($":{node.Left.BranchLength:F4}");
+                {
+                    sb.Append(':');
+                    sb.Append(node.Left.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
+                }
             }
             sb.Append(',');
             if (node.Right != null)
             {
                 ToNewickRecursive(node.Right, sb, includeBranchLengths, isRoot: false);
                 if (includeBranchLengths)
-                    sb.Append($":{node.Right.BranchLength:F4}");
+                {
+                    sb.Append(':');
+                    sb.Append(node.Right.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
+                }
             }
             sb.Append(')');
+
+            // Newick grammar: Internal → "(" BranchSet ")" Name
+            // Emit internal node name if it is a valid unquoted Newick label.
+            // Names containing Newick metacharacters (e.g. auto-generated UPGMA/NJ names)
+            // are omitted per Olsen spec: unquoted labels may not contain
+            // blanks, parentheses, square brackets, single quotes, colons, semicolons, or commas.
+            if (IsValidUnquotedNewickLabel(node.Name))
+                sb.Append(node.Name);
         }
+    }
+
+    /// <summary>
+    /// Checks whether a label is a valid unquoted Newick label per the Olsen specification.
+    /// Unquoted labels may not contain blanks, parentheses, square brackets,
+    /// single quotes, colons, semicolons, or commas.
+    /// Source: Olsen (1990), Wikipedia Newick format § Notes.
+    /// </summary>
+    private static bool IsValidUnquotedNewickLabel(string label)
+    {
+        if (string.IsNullOrEmpty(label)) return false;
+        foreach (char c in label)
+        {
+            if (c == ' ' || c == '(' || c == ')' || c == '[' || c == ']' ||
+                c == '\'' || c == ':' || c == ';' || c == ',')
+                return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -516,7 +549,17 @@ public static class PhylogeneticAnalyzer
             newick = newick[..^1];
 
         int pos = 0;
-        return ParseNewickRecursive(newick, ref pos);
+        var root = ParseNewickRecursive(newick, ref pos);
+
+        // Grammar alternative: Tree → Branch ";" (Olsen: tree ==> descendant_list [root_label] [:branch_length] ;)
+        // Handle optional root branch length after the main subtree.
+        if (pos < newick.Length && newick[pos] == ':')
+        {
+            pos++;
+            root.BranchLength = ParseNumber(newick, ref pos);
+        }
+
+        return root;
     }
 
     private static PhyloNode ParseNewickRecursive(string newick, ref int pos)
@@ -593,12 +636,15 @@ public static class PhylogeneticAnalyzer
         var sb = new StringBuilder();
         while (pos < newick.Length &&
                (char.IsDigit(newick[pos]) || newick[pos] == '.' ||
-                newick[pos] == '-' || newick[pos] == 'e' || newick[pos] == 'E'))
+                newick[pos] == '-' || newick[pos] == '+' ||
+                newick[pos] == 'e' || newick[pos] == 'E'))
         {
             sb.Append(newick[pos]);
             pos++;
         }
-        return double.TryParse(sb.ToString(), out double val) ? val : 0;
+        // Use InvariantCulture: Newick format always uses '.' as decimal separator
+        // regardless of the system locale (Wikipedia grammar: Length → ":" number).
+        return double.TryParse(sb.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double val) ? val : 0;
     }
 
     /// <summary>

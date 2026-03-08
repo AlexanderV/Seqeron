@@ -113,12 +113,24 @@ public class PhyloNode
 
 ## Limitations
 
-The current implementation has these limitations relative to the full Newick specification:
+The current implementation has these intentional scope boundaries relative to the full Newick specification:
 
-1. **Binary trees only**: Does not parse multifurcating trees (3+ children)
-2. **No quoted names**: Names with spaces or special characters not supported
-3. **No comments**: `[comment]` syntax not parsed
-4. **No underscore conversion**: Underscores not converted to spaces
+| Limitation | Spec Reference | Rationale |
+|------------|---------------|-----------|
+| Binary trees only | Wikipedia: `BranchSet → Branch \| Branch "," BranchSet` supports N children | UPGMA/NJ produce bifurcating trees; multifurcation not needed |
+| No quoted names | Olsen: `quoted_label ==> ' string '` | Out of scope; all current taxa use simple alphanumeric names |
+| No `[]` comments | Wikipedia Notes: "Comments are enclosed in square brackets" | Out of scope; no use case |
+| No underscore→blank | PHYLIP: "underscore stands for a blank" | Out of scope; no taxa use underscores |
+
+### Spec Compliance
+
+| Feature | Status | Source |
+|---------|--------|--------|
+| Internal node names in output | ✅ | Wikipedia Grammar: `Internal → "(" BranchSet ")" Name` |
+| Invalid label suppression (metacharacters) | ✅ | Olsen: unquoted label restrictions |
+| InvariantCulture for `.` decimal separator | ✅ | Olsen grammar: locale-independent numbers |
+| Root branch length parsing | ✅ | Olsen: `tree ==> ... [:branch_length] ;` |
+| Scientific notation in numbers | ✅ | Handles `e`, `E`, `+`, `-` |
 
 ## Test Coverage
 
