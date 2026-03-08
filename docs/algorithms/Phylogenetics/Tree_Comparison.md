@@ -35,9 +35,12 @@ A **split** (or bipartition) is created by removing an internal edge from a tree
 
 **Properties:**
 - RF distance is a true metric (identity, symmetry, triangle inequality)
-- For binary trees with n taxa: maximum RF = 2(n-3)
+- For binary trees with n taxa: maximum RF = 2(n-2) for rooted, 2(n-3) for unrooted
 - Identical trees: RF = 0
 - Computable in O(n) time (Day 1985)
+- Implementation uses rooted RF via clade (cluster) comparison:
+  each non-trivial clade (> 1 taxon, < all taxa) is collected per tree,
+  and the symmetric difference of clade sets is returned
 
 ### Implementation
 
@@ -46,15 +49,15 @@ public static int RobinsonFouldsDistance(PhyloNode tree1, PhyloNode tree2)
 ```
 
 **Algorithm:**
-1. Collect all splits from tree1 into set S1
-2. Collect all splits from tree2 into set S2
-3. Represent splits canonically (smaller partition side, lexicographically sorted)
-4. Return |S1 - S2| + |S2 - S1|
+1. Collect all non-trivial clades from tree1 into set C1
+2. Collect all non-trivial clades from tree2 into set C2
+3. Each clade is the sorted set of taxa in a subtree (excluding leaves and root)
+4. Return |C1 - C2| + |C2 - C1|
 
 ### Complexity
 
 - **Time:** O(n) where n is number of taxa
-- **Space:** O(n) for storing splits
+- **Space:** O(n) for storing clades
 
 ---
 
@@ -78,11 +81,12 @@ public static PhyloNode? FindMRCA(PhyloNode root, string taxon1, string taxon2)
 ```
 
 **Algorithm (recursive):**
-1. If node is null, return null
-2. If node is leaf and matches either taxon, return node
-3. Recursively find MRCA in left and right subtrees
-4. If both subtrees return non-null, current node is MRCA
-5. Otherwise, return whichever subtree result is non-null
+1. If root is null, return null
+2. Recursively search left and right subtrees via internal helper
+3. If both subtrees return non-null, current node is MRCA
+4. Otherwise, return whichever subtree result is non-null
+5. Post-check: if result is a leaf and taxon1 ≠ taxon2, return null
+   (only one taxon found — the other does not exist in the tree)
 
 ### Complexity
 
@@ -135,7 +139,7 @@ public static double PatristicDistance(PhyloNode root, string taxon1, string tax
 | Symmetry | RF(T1, T2) = RF(T2, T1) |
 | Non-negativity | RF(T1, T2) ≥ 0 |
 | Even | RF is always even |
-| Bounded | RF ≤ 2(n-3) for binary trees |
+| Bounded | RF ≤ 2(n-2) for rooted binary trees, 2(n-3) for unrooted |
 
 ### MRCA
 | Property | Invariant |
