@@ -29,19 +29,27 @@ public class ChromosomeAnalyzer_Synteny_Tests
     [Test]
     public void FindSyntenyBlocks_CollinearForward_ReturnsBlockWithPlusStrand()
     {
-        // Arrange: genes in same order in both genomes (forward collinearity)
+        // Arrange: 4 genes in same order in both genomes (forward collinearity)
         var orthologPairs = CreateForwardCollinearPairs();
 
         // Act
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
             orthologPairs, minGenes: 3, maxGap: 10).ToList();
 
-        // Assert
+        // Assert: single block with exact properties
+        // Hand-calculated: 4 collinear forward genes → 1 block, strand '+'
+        // Coordinates span first.Start1=1000 to last.End1=8000
         Assert.Multiple(() =>
         {
-            Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(1), "Should find at least one block");
-            Assert.That(blocks[0].Strand, Is.EqualTo('+'), "Forward collinearity should have '+' strand");
-            Assert.That(blocks[0].GeneCount, Is.GreaterThanOrEqualTo(3), "Block should contain at least minGenes");
+            Assert.That(blocks, Has.Count.EqualTo(1), "4 collinear genes should form exactly 1 block");
+            Assert.That(blocks[0].Strand, Is.EqualTo('+'), "Forward collinearity → '+' strand");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(4), "All 4 genes should be in the block");
+            Assert.That(blocks[0].Species1Chromosome, Is.EqualTo("chr1"));
+            Assert.That(blocks[0].Species2Chromosome, Is.EqualTo("chrA"));
+            Assert.That(blocks[0].Species1Start, Is.EqualTo(1000), "Block starts at first gene");
+            Assert.That(blocks[0].Species1End, Is.EqualTo(8000), "Block ends at last gene");
+            Assert.That(blocks[0].Species2Start, Is.EqualTo(1000), "Target starts at first gene");
+            Assert.That(blocks[0].Species2End, Is.EqualTo(8000), "Target ends at last gene");
         });
     }
 
@@ -59,9 +67,19 @@ public class ChromosomeAnalyzer_Synteny_Tests
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
             orthologPairs, minGenes: 3, maxGap: 10).ToList();
 
-        // Assert
-        Assert.That(blocks.Any(b => b.Strand == '-'), Is.True,
-            "Reverse collinearity should produce block with '-' strand");
+        // Assert: single block with exact properties
+        // Hand-calculated: 4 genes with decreasing species2 positions → strand '-'
+        // Species2: Min(8000,2000)=2000, Max(9000,3000)=9000
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocks, Has.Count.EqualTo(1), "4 reverse-collinear genes → exactly 1 block");
+            Assert.That(blocks[0].Strand, Is.EqualTo('-'), "Reverse collinearity → '-' strand");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(4), "All 4 genes should be in the block");
+            Assert.That(blocks[0].Species1Start, Is.EqualTo(1000));
+            Assert.That(blocks[0].Species1End, Is.EqualTo(8000));
+            Assert.That(blocks[0].Species2Start, Is.EqualTo(2000), "Min of first/last species2 start");
+            Assert.That(blocks[0].Species2End, Is.EqualTo(9000), "Max of first/last species2 end");
+        });
     }
 
     /// <summary>
@@ -122,9 +140,15 @@ public class ChromosomeAnalyzer_Synteny_Tests
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
             orthologPairs, minGenes: 3, maxGap: 10).ToList();
 
-        // Assert
-        Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(1),
-            "Exactly minGenes should form a valid block");
+        // Assert: hand-calculated: exactly minGenes forward-collinear genes → 1 block
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocks, Has.Count.EqualTo(1), "Exactly minGenes should form 1 block");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(3), "GeneCount should equal minGenes");
+            Assert.That(blocks[0].Strand, Is.EqualTo('+'), "Forward collinearity");
+            Assert.That(blocks[0].Species1Start, Is.EqualTo(1000));
+            Assert.That(blocks[0].Species1End, Is.EqualTo(6000));
+        });
     }
 
     /// <summary>
@@ -151,56 +175,58 @@ public class ChromosomeAnalyzer_Synteny_Tests
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
             orthologPairs, minGenes: 3, maxGap: 10).ToList();
 
-        // Assert
+        // Assert: hand-calculated: 2 chromosome pairs → 2 separate blocks, 3 genes each
         Assert.Multiple(() =>
         {
-            Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(2),
-                "Should produce at least 2 blocks for 2 chromosome pairs");
-            Assert.That(blocks.Select(b => b.Species1Chromosome).Distinct().Count(),
-                Is.GreaterThanOrEqualTo(2), "Blocks should span multiple source chromosomes");
+            Assert.That(blocks, Has.Count.EqualTo(2), "2 chromosome pairs → 2 blocks");
+            var block1 = blocks.First(b => b.Species1Chromosome == "chr1");
+            var block2 = blocks.First(b => b.Species1Chromosome == "chr2");
+            Assert.That(block1.Species2Chromosome, Is.EqualTo("chrA"));
+            Assert.That(block1.GeneCount, Is.EqualTo(3));
+            Assert.That(block1.Species1Start, Is.EqualTo(1000));
+            Assert.That(block1.Species1End, Is.EqualTo(6000));
+            Assert.That(block2.Species2Chromosome, Is.EqualTo("chrB"));
+            Assert.That(block2.GeneCount, Is.EqualTo(3));
+            Assert.That(block2.Species1Start, Is.EqualTo(1000));
+            Assert.That(block2.Species1End, Is.EqualTo(6000));
         });
     }
 
     /// <summary>
-    /// M7: GeneCount accurately reflects input genes in block.
-    /// Source: Definition
+    /// M16: maxGap parameter splits blocks when gap exceeds threshold.
+    /// Source: MCScanX (Wang et al. 2012) - gap tolerance in synteny detection
     /// </summary>
     [Test]
-    public void FindSyntenyBlocks_GeneCountMatchesInput()
+    public void FindSyntenyBlocks_GapExceedsMaxGap_SplitsIntoSeparateBlocks()
     {
-        // Arrange: 4 genes
-        var orthologPairs = CreateForwardCollinearPairs();
+        // Arrange: 6 collinear genes, 3 close + 3MB gap + 3 close
+        var orthologPairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "gene1", "chrA", 1000, 2000, "geneA"),
+            ("chr1", 3000, 4000, "gene2", "chrA", 3000, 4000, "geneB"),
+            ("chr1", 5000, 6000, "gene3", "chrA", 5000, 6000, "geneC"),
+            // Gap: 3000000 - 6000 = 2994000 bp > maxGap=2 (2MB)
+            ("chr1", 3000000, 4000000, "gene4", "chrA", 3000000, 4000000, "geneD"),
+            ("chr1", 5000000, 6000000, "gene5", "chrA", 5000000, 6000000, "geneE"),
+            ("chr1", 7000000, 8000000, "gene6", "chrA", 7000000, 8000000, "geneF"),
+        };
 
-        // Act
+        // Act: maxGap=2 means 2MB threshold; gap between genes 3-4 is ~3MB -> split
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
-            orthologPairs, minGenes: 3, maxGap: 10).ToList();
+            orthologPairs, minGenes: 3, maxGap: 2).ToList();
 
-        // Assert
-        Assert.That(blocks.Sum(b => b.GeneCount), Is.GreaterThanOrEqualTo(4),
-            "Total gene count should reflect input genes");
-    }
-
-    /// <summary>
-    /// M8: Block coordinates span from first to last gene.
-    /// Source: Definition
-    /// </summary>
-    [Test]
-    public void FindSyntenyBlocks_CoordinatesSpanAllGenes()
-    {
-        // Arrange
-        var orthologPairs = CreateForwardCollinearPairs();
-
-        // Act
-        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
-            orthologPairs, minGenes: 3, maxGap: 10).ToList();
-
-        // Assert
+        // Assert: hand-calculated: 2 blocks of 3 genes each
+        // Block 1: genes 1-3, chr1:1000-6000 -> chrA:1000-6000
+        // Block 2: genes 4-6, chr1:3000000-8000000 -> chrA:3000000-8000000
         Assert.Multiple(() =>
         {
-            Assert.That(blocks[0].Species1Start, Is.EqualTo(1000),
-                "Block should start at first gene");
-            Assert.That(blocks[0].Species1End, Is.EqualTo(8000),
-                "Block should end at last gene");
+            Assert.That(blocks, Has.Count.EqualTo(2), "Gap > maxGap should split into 2 blocks");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(3));
+            Assert.That(blocks[0].Species1Start, Is.EqualTo(1000));
+            Assert.That(blocks[0].Species1End, Is.EqualTo(6000));
+            Assert.That(blocks[1].GeneCount, Is.EqualTo(3));
+            Assert.That(blocks[1].Species1Start, Is.EqualTo(3000000));
+            Assert.That(blocks[1].Species1End, Is.EqualTo(8000000));
         });
     }
 
@@ -225,9 +251,20 @@ public class ChromosomeAnalyzer_Synteny_Tests
         // Act
         var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
 
-        // Assert
-        Assert.That(rearrangements.Any(r => r.Type == "Inversion"), Is.True,
-            "Strand change on same chromosome should detect inversion");
+        // Assert: hand-calculated from code logic
+        // Same chr2 + different strand → Inversion
+        // Position1 = current.Species1End = 50000
+        // Position2 = next.Species1Start = 60000
+        // Size = 60000 - 50000 = 10000
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearrangements, Has.Count.EqualTo(1), "Exactly 1 inversion");
+            Assert.That(rearrangements[0].Type, Is.EqualTo("Inversion"));
+            Assert.That(rearrangements[0].Chromosome1, Is.EqualTo("chr1"));
+            Assert.That(rearrangements[0].Position1, Is.EqualTo(50000));
+            Assert.That(rearrangements[0].Position2, Is.EqualTo(60000));
+            Assert.That(rearrangements[0].Size, Is.EqualTo(10000));
+        });
     }
 
     /// <summary>
@@ -247,9 +284,21 @@ public class ChromosomeAnalyzer_Synteny_Tests
         // Act
         var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
 
-        // Assert
-        Assert.That(rearrangements.Any(r => r.Type == "Translocation"), Is.True,
-            "Chromosome change should detect translocation");
+        // Assert: hand-calculated from code logic
+        // Different chr2 → Translocation
+        // Position1 = current.Species1End = 50000
+        // Chromosome2 = next.Species2Chromosome = "chrB"
+        // Position2 = next.Species2Start = 1000
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearrangements, Has.Count.EqualTo(1), "Exactly 1 translocation");
+            Assert.That(rearrangements[0].Type, Is.EqualTo("Translocation"));
+            Assert.That(rearrangements[0].Chromosome1, Is.EqualTo("chr1"));
+            Assert.That(rearrangements[0].Position1, Is.EqualTo(50000));
+            Assert.That(rearrangements[0].Chromosome2, Is.EqualTo("chrB"));
+            Assert.That(rearrangements[0].Position2, Is.EqualTo(1000));
+            Assert.That(rearrangements[0].Size, Is.Null, "Translocation has no size");
+        });
     }
 
     /// <summary>
@@ -337,11 +386,11 @@ public class ChromosomeAnalyzer_Synteny_Tests
     }
 
     /// <summary>
-    /// S2: SequenceIdentity invariant - must be in [0, 1].
-    /// Source: Definition
+    /// S2: SequenceIdentity is NaN when not computable from coordinate-only input.
+    /// Source: MCScanX (Wang et al. 2012) - identity requires BLAST alignment data
     /// </summary>
     [Test]
-    public void FindSyntenyBlocks_SequenceIdentityInRange()
+    public void FindSyntenyBlocks_SequenceIdentityIsNaN()
     {
         // Arrange
         var orthologPairs = CreateForwardCollinearPairs();
@@ -350,9 +399,9 @@ public class ChromosomeAnalyzer_Synteny_Tests
         var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
             orthologPairs, minGenes: 3, maxGap: 10).ToList();
 
-        // Assert
-        Assert.That(blocks.All(b => b.SequenceIdentity >= 0 && b.SequenceIdentity <= 1), Is.True,
-            "SequenceIdentity must be in range [0, 1]");
+        // Assert: Identity not computable from coordinate data alone (no sequences provided)
+        Assert.That(blocks.All(b => double.IsNaN(b.SequenceIdentity)), Is.True,
+            "SequenceIdentity should be NaN when not computable from coordinate-only input");
     }
 
     /// <summary>
@@ -398,7 +447,7 @@ public class ChromosomeAnalyzer_Synteny_Tests
         var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
 
         // Assert
-        var validTypes = new[] { "Inversion", "Translocation" };
+        var validTypes = new[] { "Inversion", "Translocation", "Deletion", "Duplication" };
         Assert.That(rearrangements.All(r => validTypes.Contains(r.Type)), Is.True,
             "All rearrangement types must be recognized values");
     }
@@ -423,6 +472,77 @@ public class ChromosomeAnalyzer_Synteny_Tests
         // Assert
         Assert.That(rearrangements.All(r => r.Position1 > 0), Is.True,
             "Position1 must be set for all rearrangements");
+    }
+
+    /// <summary>
+    /// M14: Core functionality - detect deletions.
+    /// Source: Wikipedia (Chromosomal rearrangement) - deletion = segment is removed
+    /// </summary>
+    [Test]
+    public void DetectRearrangements_Deletion_DetectsDeletion()
+    {
+        // Arrange: adjacent blocks on same chromosome pair, same strand,
+        // with asymmetric gap (large gap in species 1, small gap in species 2)
+        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
+        {
+            new("chr1", 1000, 50000, "chrA", 1000, 50000, '+', 10, 0.95),
+            new("chr1", 150000, 200000, "chrA", 55000, 100000, '+', 8, 0.93)
+        };
+        // Hand-calculated:
+        // gap1 = 150000 - 50000 = 100000
+        // gap2 = 55000 - 50000 = 5000 (strand='+')
+        // gap1 > gap2*2: 100000 > 10000 → true → Deletion
+        // Size = gap1 - gap2 = 100000 - 5000 = 95000
+
+        // Act
+        var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearrangements, Has.Count.EqualTo(1), "Exactly 1 deletion");
+            Assert.That(rearrangements[0].Type, Is.EqualTo("Deletion"));
+            Assert.That(rearrangements[0].Chromosome1, Is.EqualTo("chr1"));
+            Assert.That(rearrangements[0].Position1, Is.EqualTo(50000));
+            Assert.That(rearrangements[0].Position2, Is.EqualTo(150000));
+            Assert.That(rearrangements[0].Size, Is.EqualTo(95000),
+                "Deletion size = gap1 - gap2 = 100000 - 5000");
+        });
+    }
+
+    /// <summary>
+    /// M15: Core functionality - detect duplications.
+    /// Source: Wikipedia (Chromosomal rearrangement) - duplication = segment is copied
+    /// </summary>
+    [Test]
+    public void DetectRearrangements_Duplication_DetectsDuplication()
+    {
+        // Arrange: overlapping species 1 coordinates mapping to different species 2 locations
+        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
+        {
+            new("chr1", 1000, 50000, "chrA", 1000, 50000, '+', 10, 0.95),
+            new("chr1", 20000, 70000, "chrA", 200000, 250000, '+', 8, 0.93)
+        };
+        // Hand-calculated:
+        // Overlap in species 1: max(1000,20000)=20000 to min(50000,70000)=50000
+        // Different species 2 locations → Duplication
+        // Size = 50000 - 20000 = 30000
+
+        // Act
+        var rearrangements = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearrangements, Has.Count.EqualTo(1), "Exactly 1 duplication");
+            Assert.That(rearrangements[0].Type, Is.EqualTo("Duplication"));
+            Assert.That(rearrangements[0].Chromosome1, Is.EqualTo("chr1"));
+            Assert.That(rearrangements[0].Position1, Is.EqualTo(20000), "Overlap start");
+            Assert.That(rearrangements[0].Chromosome2, Is.EqualTo("chrA"));
+            Assert.That(rearrangements[0].Position2, Is.EqualTo(200000), "Target block start");
+            Assert.That(rearrangements[0].Size, Is.EqualTo(30000),
+                "Duplication size = overlap extent = 50000 - 20000");
+        });
     }
 
     #endregion

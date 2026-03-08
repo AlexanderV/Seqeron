@@ -703,7 +703,7 @@ public static class ChromosomeAnalyzer
                             Math.Max(first.End2, last.End2),
                             isForward ? '+' : '-',
                             geneCount,
-                            0.9); // Placeholder identity
+                            double.NaN); // Not computable from coordinate-only input
                     }
 
                     blockStart = i;
@@ -757,6 +757,65 @@ public static class ChromosomeAnalyzer
                         next.Species2Start,
                         null,
                         $"Translocation from {current.Species2Chromosome} to {next.Species2Chromosome}");
+                }
+
+                // Check for deletion (same species2 chromosome, same strand, asymmetric gap)
+                // Per Wikipedia (Chromosomal rearrangement): deletion = segment is removed
+                if (current.Species2Chromosome == next.Species2Chromosome &&
+                    current.Strand == next.Strand)
+                {
+                    int gap1 = next.Species1Start - current.Species1End;
+                    int gap2 = current.Strand == '+'
+                        ? next.Species2Start - current.Species2End
+                        : current.Species2Start - next.Species2End;
+
+                    if (gap1 > 0 && gap2 >= 0 && gap1 > gap2 * 2)
+                    {
+                        yield return new ChromosomalRearrangement(
+                            "Deletion",
+                            current.Species1Chromosome,
+                            current.Species1End,
+                            null,
+                            next.Species1Start,
+                            gap1 - Math.Max(0, gap2),
+                            $"Deletion in species 2: {current.Species1Chromosome}:{current.Species1End}-{next.Species1Start}");
+                    }
+                }
+            }
+        }
+
+        // Detect duplications: overlapping species 1 regions mapping to different species 2 locations
+        // Per Wikipedia (Chromosomal rearrangement): duplication = segment is copied
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            for (int j = i + 1; j < blocks.Count; j++)
+            {
+                if (blocks[i].Species1Chromosome == blocks[j].Species1Chromosome)
+                {
+                    bool overlaps = blocks[i].Species1Start < blocks[j].Species1End &&
+                                   blocks[j].Species1Start < blocks[i].Species1End;
+
+                    if (overlaps)
+                    {
+                        bool sameTarget = blocks[i].Species2Chromosome == blocks[j].Species2Chromosome &&
+                            blocks[i].Species2Start == blocks[j].Species2Start &&
+                            blocks[i].Species2End == blocks[j].Species2End;
+
+                        if (!sameTarget)
+                        {
+                            int overlapStart = Math.Max(blocks[i].Species1Start, blocks[j].Species1Start);
+                            int overlapEnd = Math.Min(blocks[i].Species1End, blocks[j].Species1End);
+
+                            yield return new ChromosomalRearrangement(
+                                "Duplication",
+                                blocks[i].Species1Chromosome,
+                                overlapStart,
+                                blocks[j].Species2Chromosome,
+                                blocks[j].Species2Start,
+                                overlapEnd - overlapStart,
+                                $"Duplication: {blocks[i].Species1Chromosome}:{overlapStart}-{overlapEnd} maps to multiple locations");
+                        }
+                    }
                 }
             }
         }
