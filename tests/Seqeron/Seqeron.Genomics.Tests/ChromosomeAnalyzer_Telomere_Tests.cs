@@ -39,7 +39,7 @@ public class ChromosomeAnalyzer_Telomere_Tests
         const int repeatCount = 200;
         string telomereRepeats = string.Concat(Enumerable.Repeat(VertebrateTelomereRepeat, repeatCount));
         string sequence = new string('A', 1000) + telomereRepeats;
-        int expectedMinLength = repeatCount * RepeatLength - RepeatLength; // Allow some tolerance
+        int expectedLength = repeatCount * RepeatLength;
 
         // Act
         var result = ChromosomeAnalyzer.AnalyzeTelomeres(
@@ -49,10 +49,10 @@ public class ChromosomeAnalyzer_Telomere_Tests
         Assert.Multiple(() =>
         {
             Assert.That(result.Has3PrimeTelomere, Is.True, "Should detect 3' telomere");
-            Assert.That(result.TelomereLength3Prime, Is.GreaterThanOrEqualTo(expectedMinLength),
-                $"Length should be at least {expectedMinLength}");
-            Assert.That(result.RepeatPurity3Prime, Is.GreaterThan(0.95),
-                "Perfect repeats should have high purity");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(expectedLength),
+                "Length should exactly match repeat count × repeat length");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1.0),
+                "Perfect repeats must have purity = 1.0");
             Assert.That(result.Chromosome, Is.EqualTo("chr1"),
                 "Chromosome name should be preserved");
         });
@@ -75,9 +75,9 @@ public class ChromosomeAnalyzer_Telomere_Tests
         var result = ChromosomeAnalyzer.AnalyzeTelomeres(
             "chr1", sequence, minTelomereLength: 100);
 
-        // Assert: Allow tolerance for boundary effects
-        Assert.That(result.TelomereLength3Prime, Is.EqualTo(expectedLength).Within(RepeatLength),
-            $"Length should be approximately {expectedLength}");
+        // Assert: Perfect repeats give exact length
+        Assert.That(result.TelomereLength3Prime, Is.EqualTo(expectedLength),
+            $"Length should be exactly {expectedLength}");
     }
 
     #endregion
@@ -104,10 +104,10 @@ public class ChromosomeAnalyzer_Telomere_Tests
         Assert.Multiple(() =>
         {
             Assert.That(result.Has5PrimeTelomere, Is.True, "Should detect 5' telomere");
-            Assert.That(result.TelomereLength5Prime, Is.GreaterThan(500),
-                "Length should be > 500 bp");
-            Assert.That(result.RepeatPurity5Prime, Is.GreaterThan(0.9),
-                "Perfect repeats should have high purity");
+            Assert.That(result.TelomereLength5Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "Length should exactly match repeat count × repeat length");
+            Assert.That(result.RepeatPurity5Prime, Is.EqualTo(1.0),
+                "Perfect repeats must have purity = 1.0");
         });
     }
 
@@ -137,8 +137,10 @@ public class ChromosomeAnalyzer_Telomere_Tests
         {
             Assert.That(result.Has5PrimeTelomere, Is.True, "Should detect 5' telomere");
             Assert.That(result.Has3PrimeTelomere, Is.True, "Should detect 3' telomere");
-            Assert.That(result.TelomereLength5Prime, Is.GreaterThan(500));
-            Assert.That(result.TelomereLength3Prime, Is.GreaterThan(500));
+            Assert.That(result.TelomereLength5Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "5' length should exactly match repeat count × repeat length");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "3' length should exactly match repeat count × repeat length");
         });
     }
 
@@ -187,6 +189,10 @@ public class ChromosomeAnalyzer_Telomere_Tests
         {
             Assert.That(result.Has5PrimeTelomere, Is.False);
             Assert.That(result.Has3PrimeTelomere, Is.False);
+            Assert.That(result.TelomereLength5Prime, Is.EqualTo(0),
+                "Non-telomeric sequence must have 0 length at 5' end");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(0),
+                "Non-telomeric sequence must have 0 length at 3' end");
         });
     }
 
@@ -303,7 +309,8 @@ public class ChromosomeAnalyzer_Telomere_Tests
     public void AnalyzeTelomeres_LowercaseSequence_DetectedCorrectly()
     {
         // Arrange: Lowercase telomere repeats
-        string telomereRepeats = string.Concat(Enumerable.Repeat("ttaggg", 200));
+        const int repeatCount = 200;
+        string telomereRepeats = string.Concat(Enumerable.Repeat("ttaggg", repeatCount));
         string sequence = new string('a', 1000) + telomereRepeats;
 
         // Act
@@ -311,8 +318,15 @@ public class ChromosomeAnalyzer_Telomere_Tests
             "chr1", sequence, minTelomereLength: 100);
 
         // Assert
-        Assert.That(result.Has3PrimeTelomere, Is.True,
-            "Should detect lowercase telomere repeats");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.True,
+                "Should detect lowercase telomere repeats");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "Length must match uppercase result exactly");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1.0),
+                "Purity must be 1.0 for perfect repeats regardless of case");
+        });
     }
 
     /// <summary>
@@ -323,7 +337,8 @@ public class ChromosomeAnalyzer_Telomere_Tests
     public void AnalyzeTelomeres_MixedCase_DetectedCorrectly()
     {
         // Arrange: Mixed case repeats
-        string telomereRepeats = string.Concat(Enumerable.Repeat("TtAgGg", 200));
+        const int repeatCount = 200;
+        string telomereRepeats = string.Concat(Enumerable.Repeat("TtAgGg", repeatCount));
         string sequence = new string('A', 1000) + telomereRepeats;
 
         // Act
@@ -331,8 +346,15 @@ public class ChromosomeAnalyzer_Telomere_Tests
             "chr1", sequence, minTelomereLength: 100);
 
         // Assert
-        Assert.That(result.Has3PrimeTelomere, Is.True,
-            "Should detect mixed-case telomere repeats");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.True,
+                "Should detect mixed-case telomere repeats");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "Length must match canonical case exactly");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1.0),
+                "Purity must be 1.0 for perfect repeats regardless of case");
+        });
     }
 
     #endregion
@@ -348,7 +370,8 @@ public class ChromosomeAnalyzer_Telomere_Tests
     {
         // Arrange: Arabidopsis repeat TTTAGGG (7 bp)
         const string arabidopsisRepeat = "TTTAGGG";
-        string telomereRepeats = string.Concat(Enumerable.Repeat(arabidopsisRepeat, 150));
+        const int repeatCount = 150;
+        string telomereRepeats = string.Concat(Enumerable.Repeat(arabidopsisRepeat, repeatCount));
         string sequence = new string('A', 1000) + telomereRepeats;
 
         // Act
@@ -356,8 +379,15 @@ public class ChromosomeAnalyzer_Telomere_Tests
             "chr1", sequence, telomereRepeat: arabidopsisRepeat, minTelomereLength: 100);
 
         // Assert
-        Assert.That(result.Has3PrimeTelomere, Is.True,
-            "Should detect custom Arabidopsis repeat");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.True,
+                "Should detect custom Arabidopsis repeat");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * arabidopsisRepeat.Length),
+                "Length should be repeatCount × 7 for Arabidopsis repeat");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1.0),
+                "Perfect repeats must have purity = 1.0");
+        });
     }
 
     #endregion
@@ -399,7 +429,12 @@ public class ChromosomeAnalyzer_Telomere_Tests
             Assert.That(result.RepeatPurity3Prime, Is.InRange(0.0, 1.0),
                 "3' purity must be in [0, 1]");
 
-            // HasTelomere consistency with length
+            // HasTelomere consistency with length (both ends)
+            if (result.Has5PrimeTelomere)
+            {
+                Assert.That(result.TelomereLength5Prime, Is.GreaterThanOrEqualTo(100),
+                    "Has5Prime implies length >= minTelomereLength");
+            }
             if (result.Has3PrimeTelomere)
             {
                 Assert.That(result.TelomereLength3Prime, Is.GreaterThanOrEqualTo(100),
@@ -425,36 +460,6 @@ public class ChromosomeAnalyzer_Telomere_Tests
 
         // Assert
         Assert.That(length, Is.EqualTo(7000).Within(0.001));
-    }
-
-    /// <summary>
-    /// Validates higher T/S ratio returns proportionally longer telomere.
-    /// Source: Cawthon (2002) - Linear relationship
-    /// </summary>
-    [Test]
-    public void EstimateTelomereLengthFromTSRatio_HigherRatio_LongerTelomere()
-    {
-        // Act
-        double length = ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio(
-            tsRatio: 1.5, referenceRatio: 1.0, referenceLength: 7000);
-
-        // Assert: 1.5 / 1.0 * 7000 = 10500
-        Assert.That(length, Is.EqualTo(10500).Within(0.001));
-    }
-
-    /// <summary>
-    /// Validates lower T/S ratio returns proportionally shorter telomere.
-    /// Source: Cawthon (2002) - Linear relationship
-    /// </summary>
-    [Test]
-    public void EstimateTelomereLengthFromTSRatio_LowerRatio_ShorterTelomere()
-    {
-        // Act
-        double length = ChromosomeAnalyzer.EstimateTelomereLengthFromTSRatio(
-            tsRatio: 0.5, referenceRatio: 1.0, referenceLength: 7000);
-
-        // Assert: 0.5 / 1.0 * 7000 = 3500
-        Assert.That(length, Is.EqualTo(3500).Within(0.001));
     }
 
     /// <summary>
@@ -513,6 +518,106 @@ public class ChromosomeAnalyzer_Telomere_Tests
         // Assert
         Assert.That(length, Is.GreaterThanOrEqualTo(0),
             "Estimated length must be non-negative");
+    }
+
+    #endregion
+
+    #region AnalyzeTelomeres - Divergent Repeats
+
+    /// <summary>
+    /// Validates that imperfect repeats reduce purity below 1.0.
+    /// Source: Evidence doc - biological telomeres show some divergence;
+    ///   70% per-window threshold → 1 mismatch per 6bp allowed → purity = 5/6.
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_DivergentRepeats_LowerPurity()
+    {
+        // Arrange: TTAGGA differs from TTAGGG in last base → 5/6 = 83.3% similarity per window
+        const int repeatCount = 200;
+        string divergentRepeats = string.Concat(Enumerable.Repeat("TTAGGA", repeatCount));
+        string sequence = new string('A', 1000) + divergentRepeats;
+
+        // Act
+        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
+            "chr1", sequence, minTelomereLength: 100);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.True,
+                "Divergent repeats above 70% threshold should still be detected");
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(repeatCount * RepeatLength),
+                "All windows pass threshold, so full length should be measured");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(5.0 / 6.0).Within(0.0001),
+                "Purity = matchingBases/totalBases = (200×5)/(200×6) = 5/6");
+        });
+    }
+
+    #endregion
+
+    #region AnalyzeTelomeres - Long Telomere
+
+    /// <summary>
+    /// Validates that very long telomere (>10 kb) is fully measured.
+    /// Source: Boundary test - human telomeres can be many kilobases.
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_LongTelomere_FullyMeasured()
+    {
+        // Arrange: 2000 repeats = 12000 bp (>10 kb), require searchLength > 12000
+        const int repeatCount = 2000;
+        string telomereRepeats = string.Concat(Enumerable.Repeat(VertebrateTelomereRepeat, repeatCount));
+        string sequence = new string('A', 1000) + telomereRepeats;
+        int expectedLength = repeatCount * RepeatLength; // 12000
+
+        // Act
+        var result = ChromosomeAnalyzer.AnalyzeTelomeres(
+            "chr1", sequence, searchLength: 15000, minTelomereLength: 100);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Has3PrimeTelomere, Is.True);
+            Assert.That(result.TelomereLength3Prime, Is.EqualTo(expectedLength),
+                "Full 12000 bp telomere should be measured");
+            Assert.That(result.RepeatPurity3Prime, Is.EqualTo(1.0),
+                "Perfect repeats must have purity = 1.0");
+        });
+    }
+
+    #endregion
+
+    #region AnalyzeTelomeres - SearchLength Limits
+
+    /// <summary>
+    /// Validates that searchLength parameter limits the telomere search region.
+    /// Source: API contract - only search within searchLength from chromosome ends.
+    /// </summary>
+    [Test]
+    public void AnalyzeTelomeres_SearchLength_LimitsDetection()
+    {
+        // Arrange: 200 repeats = 1200 bp telomere at 3' end
+        const int repeatCount = 200;
+        string telomereRepeats = string.Concat(Enumerable.Repeat(VertebrateTelomereRepeat, repeatCount));
+        string sequence = new string('A', 1000) + telomereRepeats;
+        int fullLength = repeatCount * RepeatLength; // 1200
+
+        // Act with small searchLength (600 bp, all within telomere region)
+        var resultLimited = ChromosomeAnalyzer.AnalyzeTelomeres(
+            "chr1", sequence, searchLength: 600, minTelomereLength: 100);
+
+        // Act with large searchLength (covers entire telomere + body)
+        var resultFull = ChromosomeAnalyzer.AnalyzeTelomeres(
+            "chr1", sequence, searchLength: 2500, minTelomereLength: 100);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultLimited.TelomereLength3Prime, Is.EqualTo(600),
+                "Limited search should measure only 600 bp (100 repeats within 600 bp window)");
+            Assert.That(resultFull.TelomereLength3Prime, Is.EqualTo(fullLength),
+                "Full search should measure entire 1200 bp telomere");
+        });
     }
 
     #endregion

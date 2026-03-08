@@ -36,11 +36,11 @@
 ## Key Biological Facts
 
 ### Telomere Structure
-- **Vertebrate telomere repeat:** TTAGGG (5' to 3' toward chromosome end)
+- **Vertebrate telomere repeat:** TTAGGG (5' to 3' toward chromosome end) — Wikipedia; Meyne et al. (1989)
 - **Reverse complement (5' end):** CCCTAA
 - **Repeat unit length:** 6 base pairs
-- **Human telomere length range:** ~5,000–15,000 bp at birth, shortens with age
-- **Critical telomere length:** ~3,000 bp (triggers senescence)
+- **Human telomere length:** Many kilobases; shortens with age at ~50–100 bp per cell division — Wikipedia
+- **Critically short telomeres** trigger DNA damage response and cellular senescence — Wikipedia. Implementation default threshold: 3,000 bp (configurable parameter)
 
 ### Telomere Orientation
 - **3' end (chromosome terminus):** Contains TTAGGG repeats extending toward the end
@@ -53,7 +53,7 @@
 | Human, mouse, Xenopus | TTAGGG |
 | Arabidopsis thaliana | TTTAGGG |
 | Tetrahymena | TTGGGG |
-| S. cerevisiae | TGTGGGTGTGGTG (irregular) |
+| S. cerevisiae | TGTGGGTGTGGTG (from RNA template) |
 | Bombyx mori | TTAGG |
 
 ---
@@ -67,8 +67,8 @@
 - **Linear relationship:** length = referenceLength × (tsRatio / referenceRatio)
 
 ### Reference Values
-- Typical human telomere length at reference: ~7,000 bp
-- T/S ratio of 1.0 typically corresponds to reference length
+- Reference telomere length for T/S ratio calculations: configurable (default 7,000 bp)
+- T/S ratio of 1.0 corresponds to reference sample length — Cawthon (2002)
 
 ---
 
@@ -79,17 +79,17 @@
 - Null handling → implementation-specific
 
 ### Minimum Telomere Length Thresholds
-- Clinical significance typically requires ≥500 bp of repeats
-- Research tools may use lower thresholds for sensitivity
+- Configurable detection threshold (default 500 bp)
+- Lower thresholds increase sensitivity; higher thresholds reduce false positives
 
 ### Repeat Purity
 - Biological telomeres show some divergence from perfect repeats
-- 70% similarity threshold is reasonable (allows ~2 mismatches per 6bp)
+- Implementation uses 70% per-window similarity threshold: for 6 bp repeat, 5/6 bases must match (1 mismatch allowed); for 7 bp repeat (e.g. Arabidopsis TTTAGGG), 5/7 bases must match (2 mismatches allowed)
 - Higher purity = younger/healthier telomere
 
 ### Critical Length Assessment
-- Default critical threshold: ~3,000 bp
-- Critically short telomeres trigger DNA damage response
+- Critically short telomeres trigger DNA damage response and cellular senescence — Wikipedia
+- Implementation default critical threshold: 3,000 bp (configurable parameter, not a fixed biological constant)
 
 ---
 
@@ -106,13 +106,15 @@ The implementation should:
 
 | Test Case | Sequence Pattern | Expected Result |
 |-----------|-----------------|-----------------|
-| 3' telomere | [1000 A's] + [200× TTAGGG] | Has3PrimeTelomere=true, length≥1200 |
-| 5' telomere | [200× CCCTAA] + [1000 A's] | Has5PrimeTelomere=true, length≥1200 |
-| Both ends | [CCCTAA×200] + [1000 A's] + [TTAGGG×200] | Both detected |
-| No telomere | [1000 A's] | Neither detected |
+| 3' telomere | [1000 A's] + [200× TTAGGG] | Has3PrimeTelomere=true, length=1200, purity=1.0 |
+| 5' telomere | [200× CCCTAA] + [1000 A's] | Has5PrimeTelomere=true, length=1200, purity=1.0 |
+| Both ends | [CCCTAA×200] + [2000 A's] + [TTAGGG×200] | Both detected, length=900 each |
+| No telomere | [1000 A's] | Neither detected, lengths=0 |
 | Empty | "" | Neither detected, critically short |
-| Short telomere | [TTAGGG×50] | Detected if min threshold ≤ 300 |
-| Divergent repeats | [TTAGGX×200] (X varies) | Detected with lower purity |
+| Short telomere | [1000 A's] + [TTAGGG×50] | Detected if min threshold ≤ 300 |
+| Divergent repeats | [1000 A's] + [TTAGGA×200] | Has3Prime=true, length=1200, purity=5/6≈0.833 |
+| Long telomere | [1000 A's] + [TTAGGG×2000] | Has3Prime=true, length=12000, purity=1.0 |
+| SearchLength limited | [1000 A's] + [TTAGGG×200], searchLen=600 | length=600 (truncated by search window) |
 
 ---
 
@@ -140,12 +142,10 @@ The implementation should:
 
 ---
 
-## Open Questions
+## Deviations and Assumptions
 
-None - algorithm behavior is well-documented in literature.
-
----
-
-## ASSUMPTIONS
-
-None - all test rationale is backed by the cited sources.
+None — all test rationale and implementation decisions are verified against cited sources:
+- Telomere repeat sequences: Wikipedia telomere table; Meyne et al. (1989)
+- T/S ratio proportionality: Cawthon (2002) — r² = 0.677 correlation with Southern blot TRF
+- 5'/3' orientation: Wikipedia chromosome structure
+- Configurable parameters (criticalLength, minTelomereLength, searchLength, referenceLength) are implementation defaults, not biological constants
