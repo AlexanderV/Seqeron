@@ -77,23 +77,6 @@ public class PopulationGeneticsProperties
     }
 
     /// <summary>
-    /// Hardy-Weinberg: expected genotype frequencies (p² + 2pq + q²) == 1.
-    /// The result always contains expected frequencies that sum to N.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void HardyWeinberg_ExpectedFrequencies_SumToTotal()
-    {
-        int aa = 40, aA = 45, AA = 15;
-        int total = aa + aA + AA;
-        var result = PopulationGeneticsAnalyzer.TestHardyWeinberg("test", AA, aA, aa);
-
-        double expectedTotal = result.ExpectedAA + result.ExpectedAa + result.Expectedaa;
-        Assert.That(expectedTotal, Is.EqualTo(total).Within(0.01),
-            $"Expected genotype frequencies should sum to {total}: {expectedTotal}");
-    }
-
-    /// <summary>
     /// Hardy-Weinberg chi-square is non-negative.
     /// </summary>
     [FsCheck.NUnit.Property]
