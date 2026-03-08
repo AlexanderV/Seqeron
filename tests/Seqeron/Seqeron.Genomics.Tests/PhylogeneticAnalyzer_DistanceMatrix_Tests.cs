@@ -87,12 +87,13 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
     [Description("M04: All distance values must be non-negative")]
     public void CalculateDistanceMatrix_AllValuesNonNegative()
     {
+        // Sequences with small divergence → finite JC distances
         var seqs = new List<string>
         {
-            "AAAA",
-            "CCCC",
-            "GGGG",
-            "TTTT"
+            "ACGTACGT",
+            "TCGTACGT",
+            "ACGTACGA",
+            "ACGTCCGT"
         };
 
         var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
@@ -105,8 +106,13 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
                 {
                     Assert.That(matrix[i, j], Is.GreaterThanOrEqualTo(0),
                         $"Negative distance at [{i},{j}]");
+                    Assert.That(double.IsNaN(matrix[i, j]), Is.False,
+                        $"NaN distance at [{i},{j}]");
                 }
             }
+            // Verify off-diagonal values are finite and positive
+            Assert.That(matrix[0, 1], Is.GreaterThan(0).And.LessThan(double.PositiveInfinity),
+                "Off-diagonal must be finite positive for non-saturated sequences");
         });
     }
 
@@ -174,19 +180,25 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
         double expected = -0.75 * System.Math.Log(1 - (4.0 * p / 3.0));
 
         Assert.That(dist, Is.EqualTo(expected).Within(1e-6));
+
+        // Cross-check with independently calculated reference value (Evidence §2.3)
+        // p = 1/8 → d = -3/4 × ln(5/6) ≈ 0.13674
+        Assert.That(dist, Is.EqualTo(0.13674).Within(1e-4),
+            "JC69 reference: p=1/8 → d ≈ 0.13674");
     }
 
     [Test]
-    [Description("M09: Kimura 2-Parameter distinguishes transitions from transversions")]
+    [Description("M09: Kimura 2-Parameter distinguishes transitions from transversions (K80, Kimura 1980)")]
     public void CalculatePairwiseDistance_Kimura2P_DistinguishesTransitionTypes()
     {
         // A→G is a transition (purine to purine)
+        // Wikipedia: transitions are A↔G (purine↔purine) or C↔T (pyrimidine↔pyrimidine)
         const string seqTransition = "ACGT";
-        const string targetTransition = "GCGT";
+        const string targetTransition = "GCGT"; // 1 transition at pos 0: S=1/4, V=0
 
         // A→C is a transversion (purine to pyrimidine)
         const string seqTransversion = "ACGT";
-        const string targetTransversion = "CCGT";
+        const string targetTransversion = "CCGT"; // 1 transversion at pos 0: S=0, V=1/4
 
         double distTransition = PhylogeneticAnalyzer.CalculatePairwiseDistance(
             seqTransition, targetTransition, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
@@ -194,13 +206,28 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
         double distTransversion = PhylogeneticAnalyzer.CalculatePairwiseDistance(
             seqTransversion, targetTransversion, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
 
-        // Both should be positive and finite
+        // K2P formula (Wikipedia): K = -1/2 * ln((1-2p-q) * sqrt(1-2q))
+        // Pure transition (S=0.25, V=0): d = -0.5 * ln((1-0.5-0) * sqrt(1-0)) = -0.5 * ln(0.5)
+        double expectedTransition = -0.5 * System.Math.Log(0.5);
+        // Pure transversion (S=0, V=0.25): d = -0.5 * ln((1-0-0.25) * sqrt(1-0.5))
+        double expectedTransversion = -0.5 * System.Math.Log(0.75 * System.Math.Sqrt(0.5));
+
         Assert.Multiple(() =>
         {
-            Assert.That(distTransition, Is.GreaterThan(0), "Transition distance should be > 0");
-            Assert.That(distTransversion, Is.GreaterThan(0), "Transversion distance should be > 0");
-            Assert.That(double.IsFinite(distTransition), Is.True, "Transition distance should be finite");
-            Assert.That(double.IsFinite(distTransversion), Is.True, "Transversion distance should be finite");
+            Assert.That(distTransition, Is.EqualTo(expectedTransition).Within(1e-10),
+                "K2P transition distance must match formula: -0.5 * ln((1-2S-V) * sqrt(1-2V))");
+            Assert.That(distTransversion, Is.EqualTo(expectedTransversion).Within(1e-10),
+                "K2P transversion distance must match formula");
+            Assert.That(distTransition, Is.Not.EqualTo(distTransversion).Within(1e-10),
+                "K2P must produce different distances for transitions vs transversions");
+
+            // Cross-check with independently calculated reference values (Evidence §5.3)
+            // Pure transition (S=1/4, V=0): -1/2 × ln(1/2) ≈ 0.34657
+            Assert.That(distTransition, Is.EqualTo(0.34657).Within(1e-4),
+                "K2P reference: pure transition (S=0.25, V=0) → d ≈ 0.34657");
+            // Pure transversion (S=0, V=1/4): -1/2 × ln(3/4 × √(1/2)) ≈ 0.31713
+            Assert.That(distTransversion, Is.EqualTo(0.31713).Within(1e-4),
+                "K2P reference: pure transversion (S=0, V=0.25) → d ≈ 0.31713");
         });
     }
 
@@ -262,6 +289,58 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
 
         Assert.That(double.IsPositiveInfinity(dist), Is.True,
             "JC69 should return +Infinity when p >= 0.75");
+    }
+
+    [Test]
+    [Description("M14: Ambiguous bases (N, R, Y, etc.) are skipped like gaps")]
+    public void CalculatePairwiseDistance_AmbiguousBases_SkippedLikeGaps()
+    {
+        // seq1: ACGTACGT — 8 standard bases
+        // seq2: NCGTACGT — position 0 has 'N', should be skipped
+        // Comparable sites: positions 1-7 (7 sites), all matching => 0 differences
+        const string seq1 = "ACGTACGT";
+        const string seq2 = "NCGTACGT";
+
+        Assert.Multiple(() =>
+        {
+            double hamming = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Hamming);
+            Assert.That(hamming, Is.EqualTo(0),
+                "N position should be skipped, not counted as mismatch");
+
+            double pDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.PDistance);
+            Assert.That(pDist, Is.EqualTo(0),
+                "p-distance should be 0 when only N differs");
+        });
+
+        // Also verify with IUPAC codes: R (purine), Y (pyrimidine)
+        const string seq3 = "RCGTACGT";
+        const string seq4 = "ACGTACYT";
+
+        Assert.Multiple(() =>
+        {
+            double d1 = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                seq1, seq3, PhylogeneticAnalyzer.DistanceMethod.Hamming);
+            Assert.That(d1, Is.EqualTo(0), "R position should be skipped");
+
+            double d2 = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                seq1, seq4, PhylogeneticAnalyzer.DistanceMethod.Hamming);
+            Assert.That(d2, Is.EqualTo(0), "Y position should be skipped");
+        });
+    }
+
+    [Test]
+    [Description("M15: Null sequences throw ArgumentNullException")]
+    public void CalculatePairwiseDistance_NullSequence_ThrowsArgumentNullException()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentNullException>(() =>
+                PhylogeneticAnalyzer.CalculatePairwiseDistance(null!, "ACGT"));
+            Assert.Throws<System.ArgumentNullException>(() =>
+                PhylogeneticAnalyzer.CalculatePairwiseDistance("ACGT", null!));
+        });
     }
 
     #endregion
@@ -357,7 +436,7 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
 
     #endregion
 
-    #region Additional Edge Cases
+    #region S06-S07 and Additional Verification
 
     [Test]
     [Description("Gaps in both sequences at same position are skipped")]
@@ -391,6 +470,43 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
     }
 
     [Test]
+    [Description("S06: K2P formula with mixed transitions and transversions (Kimura 1980)")]
+    public void CalculatePairwiseDistance_Kimura2P_MixedChanges_MatchesFormula()
+    {
+        // ACGTACGT vs GCGTTCGT:
+        // pos 0: A→G (transition, purine→purine), pos 4: A→T (transversion, purine→pyrimidine)
+        // 8 comparable sites, S = 1/8, V = 1/8
+        const string seq1 = "ACGTACGT";
+        const string seq2 = "GCGTTCGT";
+
+        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
+
+        // K2P formula (Wikipedia, Kimura 1980): K = -1/2 * ln((1-2S-V) * sqrt(1-2V))
+        double s = 1.0 / 8;
+        double v = 1.0 / 8;
+        double expected = -0.5 * System.Math.Log((1 - 2 * s - v) * System.Math.Sqrt(1 - 2 * v));
+
+        Assert.That(dist, Is.EqualTo(expected).Within(1e-10));
+    }
+
+    [Test]
+    [Description("S07: K2P saturation: high transversion proportion (V≥0.5) returns infinity")]
+    public void CalculatePairwiseDistance_Kimura2P_HighDivergence_ReturnsInfinity()
+    {
+        // AAAA vs CCCC: A→C is transversion (purine→pyrimidine), V=1.0
+        // K2P: 1-2V = 1-2 = -1 ≤ 0 → formula undefined → +∞
+        const string seq1 = "AAAA";
+        const string seq2 = "CCCC";
+
+        double dist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
+
+        Assert.That(double.IsPositiveInfinity(dist), Is.True,
+            "K2P should return +Infinity when formula arguments ≤ 0 (saturation)");
+    }
+
+    [Test]
     [Description("Distance is symmetric: d(A,B) = d(B,A) for pairwise calculation")]
     public void CalculatePairwiseDistance_Symmetric()
     {
@@ -401,6 +517,122 @@ public class PhylogeneticAnalyzer_DistanceMatrix_Tests
         double distBA = PhylogeneticAnalyzer.CalculatePairwiseDistance(seq2, seq1);
 
         Assert.That(distAB, Is.EqualTo(distBA).Within(1e-10));
+    }
+
+    #endregion
+
+    #region C01-C03: Extended Scenarios
+
+    [Test]
+    [Description("C01: Distance matrix computation scales for 100 sequences")]
+    public void CalculateDistanceMatrix_100Sequences_CompletesSuccessfully()
+    {
+        // Generate 100 random 200bp DNA sequences with ~10% divergence
+        var random = new System.Random(42);
+        const string bases = "ACGT";
+        var reference = new string(Enumerable.Range(0, 200)
+            .Select(_ => bases[random.Next(4)]).ToArray());
+
+        var seqs = new List<string> { reference };
+        for (int i = 1; i < 100; i++)
+        {
+            var chars = reference.ToCharArray();
+            for (int j = 0; j < chars.Length; j++)
+            {
+                if (random.NextDouble() < 0.10)
+                    chars[j] = bases[random.Next(4)];
+            }
+            seqs.Add(new string(chars));
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var matrix = PhylogeneticAnalyzer.CalculateDistanceMatrix(seqs);
+        sw.Stop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix.GetLength(0), Is.EqualTo(100));
+            Assert.That(matrix.GetLength(1), Is.EqualTo(100));
+            // Should complete in reasonable time (< 5 seconds even on slow hardware)
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(5000),
+                "100-sequence distance matrix should compute in < 5s");
+        });
+    }
+
+    [Test]
+    [Description("C02: JC >= p-distance and K2P >= p-distance for all test pairs")]
+    public void CalculatePairwiseDistance_AllMethods_ConsistentOrdering()
+    {
+        // Multiple pairs with varying divergence, all below JC saturation
+        var pairs = new[]
+        {
+            ("ACGTACGT", "TCGTACGT"),   // 1 diff, transversion (p=1/8)
+            ("ACGTACGT", "GCGTACGT"),   // 1 diff, transition (p=1/8)
+            ("ACGTACGT", "TCGTACGA"),   // 2 diffs (p=2/8)
+            ("ACGTACGT", "TCGAACGA"),   // 3 diffs (p=3/8)
+        };
+
+        foreach (var (s1, s2) in pairs)
+        {
+            double pDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                s1, s2, PhylogeneticAnalyzer.DistanceMethod.PDistance);
+            double jcDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                s1, s2, PhylogeneticAnalyzer.DistanceMethod.JukesCantor);
+            double k2pDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+                s1, s2, PhylogeneticAnalyzer.DistanceMethod.Kimura2Parameter);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(jcDist, Is.GreaterThanOrEqualTo(pDist),
+                    $"JC >= p-distance failed for: {s1} vs {s2}");
+                Assert.That(k2pDist, Is.GreaterThanOrEqualTo(pDist),
+                    $"K2P >= p-distance failed for: {s1} vs {s2}");
+            });
+        }
+    }
+
+    [Test]
+    [Description("C03: Complex gap patterns are handled correctly")]
+    public void CalculatePairwiseDistance_MixedGaps_CorrectHandling()
+    {
+        // Multiple gaps in various positions
+        // seq1: A - G T - C G T  (gaps at pos 1, 4)
+        // seq2: A C G - A C - T  (gaps at pos 3, 6)
+        // Comparable positions: 0(A=A), 2(G=G), 5(C=C), 7(T=T)
+        // Positions 1,3,4,6 have at least one gap → skipped
+        // 4 comparable sites, 0 differences
+        const string seq1 = "A-GT-CGT";
+        const string seq2 = "ACG-AC-T";
+
+        double hamming = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.Hamming);
+        double pDist = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq1, seq2, PhylogeneticAnalyzer.DistanceMethod.PDistance);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hamming, Is.EqualTo(0), "No differences at comparable sites");
+            Assert.That(pDist, Is.EqualTo(0), "p-distance should be 0");
+        });
+
+        // With differences at comparable sites
+        // seq3: A - G T - C G T  (gaps at pos 1, 4)
+        // seq4: T C G - A C - T  (gaps at pos 3, 6; differs at pos 0: A→T)
+        // Comparable positions: 0(A≠T), 2(G=G), 5(C=C), 7(T=T)
+        // 4 comparable sites, 1 difference → p = 0.25
+        const string seq3 = "A-GT-CGT";
+        const string seq4 = "TCG-AC-T";
+
+        double hamming2 = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq3, seq4, PhylogeneticAnalyzer.DistanceMethod.Hamming);
+        double pDist2 = PhylogeneticAnalyzer.CalculatePairwiseDistance(
+            seq3, seq4, PhylogeneticAnalyzer.DistanceMethod.PDistance);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hamming2, Is.EqualTo(1), "1 difference at comparable sites");
+            Assert.That(pDist2, Is.EqualTo(0.25).Within(1e-10), "p = 1/4 = 0.25");
+        });
     }
 
     #endregion

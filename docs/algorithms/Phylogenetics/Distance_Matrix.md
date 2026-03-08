@@ -82,12 +82,13 @@ A valid phylogenetic distance matrix must satisfy:
 | **Zero Diagonal** | d(i,i) = 0 |
 | **Non-Negativity** | d(i,j) ≥ 0 |
 
-## Gap Handling
+## Gap and Ambiguity Handling
 
-Standard practice for aligned sequences with gaps ('-'):
+Standard practice for aligned sequences:
 
-- **Pairwise deletion:** Exclude positions with gaps in either sequence from comparison
-- Only positions where both sequences have a nucleotide (A, C, G, T) are compared
+- **Gaps ('-'):** Excluded from comparison (pairwise deletion)
+- **Ambiguous IUPAC bases (N, R, Y, W, S, M, K, B, D, H, V):** Excluded from comparison
+- Only positions where both sequences have a standard nucleotide (A, C, G, T) are compared
 - This maximizes usable data for each pairwise comparison
 
 ## Implementation (Seqeron.Genomics)
