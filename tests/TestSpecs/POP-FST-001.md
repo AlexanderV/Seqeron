@@ -32,7 +32,7 @@
 | ID | Test Case | Expected Result | Evidence |
 |----|-----------|-----------------|----------|
 | M1 | Identical populations | Fst = 0 | Wikipedia: "zero implies complete panmixia" |
-| M2 | Fixed differences (p1=1.0, p2=0.0) | Fst > 0.5 (high) | Wikipedia: "value of one implies... complete differentiation" |
+| M2 | Fixed differences (p1=1.0, p2=0.0) | Fst = 1.0 | Wikipedia: "value of one implies... complete differentiation"; math proof: pBar=0.5, var=0.25, het=0.25 |
 | M3 | Value range invariant | 0 ≤ Fst ≤ 1 | Wikipedia: "values range from 0 to 1" |
 | M4 | Different populations | Fst > 0 | Mathematical definition |
 | M5 | Empty populations | Fst = 0 (graceful) | Implementation contract |
@@ -45,9 +45,9 @@
 | ID | Test Case | Expected Result | Rationale |
 |----|-----------|-----------------|-----------|
 | S1 | Moderate differentiation scenario | 0.05 < Fst < 0.25 | Realistic use case |
-| S2 | Weighted by sample size | Larger samples have more weight | Weir-Cockerham |
+| S2 | Weighted by sample size | Larger samples have more weight | Wright (1965) - variance weighted by subpopulation sizes |
 | S3 | Multiple loci aggregation | Combines across loci | Algorithm design |
-| S4 | F-statistics partition relation | (1-Fit) ≈ (1-Fis)(1-Fst) | Wright's formula |
+| S4 | F-statistics partition relation | (1-Fit) = (1-Fis)(1-Fst) exactly | Wright's algebraic identity: (Hi/Hs)(Hs/Ht) = Hi/Ht |
 | S5 | Three populations matrix | 3x3 symmetric matrix | Multi-population use |
 
 ### 2.3 Could Tests
@@ -73,7 +73,7 @@ var pop2 = [(0.5, 100), (0.3, 100)];
 ```csharp
 var pop1 = [(1.0, 100)];
 var pop2 = [(0.0, 100)];
-// Expected: Fst > 0.5 (high differentiation)
+// Expected: Fst = 1.0 (Wright's variance Fst: pBar=0.5, var=0.25, het=0.25)
 ```
 
 ### 3.3 Moderate Differentiation (M4)
@@ -126,35 +126,24 @@ Assert.That(fst, Is.GreaterThanOrEqualTo(0));
 
 ---
 
-## 5. Audit of Existing Tests
+## 5. Implementation
 
-### 5.1 Current Tests in PopulationGeneticsAnalyzerTests.cs
+### 5.1 Algorithm
 
-| Test | Coverage | Status | Action |
-|------|----------|--------|--------|
-| `CalculateFst_IdenticalPopulations_ReturnsZero` | M1 | ✓ Adequate | Keep, move to canonical file |
-| `CalculateFst_DifferentPopulations_ReturnsPositive` | M4 | ✓ Adequate | Keep, move to canonical file |
-| `CalculateFst_FixedDifferences_ReturnsHighFst` | M2 | ✓ Adequate | Keep, move to canonical file |
-| `CalculatePairwiseFst_ThreePopulations_ReturnsMatrix` | S5, M6, M7 | ✓ Adequate | Keep, move to canonical file |
-| `CalculateFStatistics_ReturnsAllComponents` | M8 | Weak | Strengthen assertions |
-| `CalculateFst_EmptyPopulations_ReturnsZero` | M5 | ✓ Adequate | Keep, move to canonical file |
+`CalculateFst` implements Wright's variance-based Fst (Wright 1965):
 
-### 5.2 Missing Tests (All Closed)
+$$F_{ST} = \frac{\sigma_S^2}{\bar{p}(1-\bar{p})}$$
 
-| Test | Status |
-|------|--------|
-| Value range invariant check | ✅ Covered |
-| F-statistics partition verification | ✅ Covered |
-| Fis/Fit range validation | ✅ Covered |
-| Single locus edge case | ✅ Covered |
+Where $\sigma_S^2 = \sum c_i (p_i - \bar{p})^2$ with $c_i = n_i / N$ (population-size weights).
 
-### 5.3 Consolidation Plan
+Multi-locus Fst uses the ratio-of-sums estimator: $F_{ST} = \sum_l \sigma_{S,l}^2 / \sum_l \bar{p}_l(1-\bar{p}_l)$.
 
-1. **Create:** `PopulationGeneticsAnalyzer_FStatistics_Tests.cs` as canonical test file
-2. **Move:** All Fst-related tests from `PopulationGeneticsAnalyzerTests.cs`
-3. **Add:** Missing Must tests (M3)
-4. **Strengthen:** F-statistics component tests
-5. **Remove:** Duplicate coverage after consolidation
+`CalculateFStatistics` uses heterozygosity-based definitions (Wikipedia F-statistics §Definitions):
+- $F_{IS} = 1 - H_I/H_S$
+- $F_{IT} = 1 - H_I/H_T$
+- $F_{ST} = 1 - H_S/H_T$
+
+The partition $(1-F_{IT}) = (1-F_{IS})(1-F_{ST})$ is an algebraic identity for this computation.
 
 ---
 
@@ -162,22 +151,37 @@ Assert.That(fst, Is.GreaterThanOrEqualTo(0));
 
 ```
 PopulationGeneticsAnalyzer_FStatistics_Tests.cs
-├── CalculateFst_Tests (region)
+├── CalculateFst Tests
 │   ├── CalculateFst_IdenticalPopulations_ReturnsZero
-│   ├── CalculateFst_DifferentPopulations_ReturnsPositive
-│   ├── CalculateFst_FixedDifferences_ReturnsHighFst
+│   ├── CalculateFst_FixedDifferences_ReturnsOne
 │   ├── CalculateFst_ValueRange_BetweenZeroAndOne
 │   ├── CalculateFst_EmptyPopulations_ReturnsZero
-│   └── CalculateFst_SingleLocus_ValidResult
-├── CalculatePairwiseFst_Tests (region)
+│   ├── CalculateFst_SingleLocus_ExactValue
+│   ├── CalculateFst_MultiLocus_ExactValue
+│   └── CalculateFst_UnequalSampleSizes_WeightedCalculation
+├── CalculatePairwiseFst Tests
 │   ├── CalculatePairwiseFst_ThreePopulations_CorrectDimensions
 │   ├── CalculatePairwiseFst_DiagonalIsZero
-│   └── CalculatePairwiseFst_SymmetricMatrix
-└── CalculateFStatistics_Tests (region)
-    ├── CalculateFStatistics_ReturnsAllComponents
-    ├── CalculateFStatistics_PopulationNamesPreserved
-    ├── CalculateFStatistics_EmptyData_ReturnsZeroValues
-    └── CalculateFStatistics_ComponentsInValidRange
+│   ├── CalculatePairwiseFst_SymmetricMatrix
+│   ├── CalculatePairwiseFst_AllValuesInRange
+│   └── CalculatePairwiseFst_ExactCellValues
+├── CalculateFStatistics Tests
+│   ├── CalculateFStatistics_ReturnsAllComponents
+│   ├── CalculateFStatistics_PopulationNamesPreserved
+│   ├── CalculateFStatistics_EmptyData_ReturnsZeroValues
+│   ├── CalculateFStatistics_ComponentsInValidRange
+│   ├── CalculateFStatistics_PartitionRelationship_ExactIdentity
+│   └── CalculateFStatistics_HandCalculated_ExactValues
+├── Reference Data Validation Tests
+│   ├── CalculateFst_MultiLocusModerate_ExactValue
+│   ├── CalculateFst_WrightInterpretationScale_ExactValues
+│   ├── CalculateFst_FixedAlleles_MultiLoci_ReturnsOne
+│   └── CalculateFst_IslandModelConsistency_ExactValuesAndMonotonic
+└── Missing Coverage Tests
+    ├── CalculateFst_MonomorphicSites_ReturnsZero
+    ├── CalculateFst_BothFixedSameAllele_ReturnsZero
+    ├── CalculatePairwiseFst_ExactCellValues
+    └── CalculateFStatistics_ExcessHeterozygosity_NegativeFis
 ```
 
 ---
@@ -186,13 +190,14 @@ PopulationGeneticsAnalyzer_FStatistics_Tests.cs
 
 | Decision | Rationale |
 |----------|-----------|
-| Create separate canonical test file | Follows project convention (POP-FREQ-001, POP-DIV-001, POP-HW-001) |
-| Move existing tests, don't duplicate | Test pool policy |
-| Remove tests from PopulationGeneticsAnalyzerTests.cs | Eliminate duplicates after migration |
-| Use Assert.Multiple for invariants | Group related assertions |
-
+| Wright's variance Fst (not Weir-Cockerham θ) | Direct implementation of the theoretical definition; no ANOVA components needed for known allele frequencies |
+| Partition formula tested as exact identity | $(H_I/H_S)(H_S/H_T) = H_I/H_T$ — algebraic, not approximate |
+| Hand-calculated verification tests | Ensures implementation matches formula, not just "green tests" |
+| Assert Fst = 1.0 for fixed differences | Mathematical certainty: pBar=0.5, var=0.25, het=0.25, ratio=1.0 || Exact binary fractions for FP-sensitive tests | Avoids IEEE 754 representation errors in hand-calculated expected values |
+| Excess heterozygosity test (Fis < 0) | Verifies negative Fis case documented in Wikipedia |
+| Removed duplicate DifferentPopulations test | Subsumed by MultiLocus_ExactValue with same data and exact assertion |
 ---
 
-## 8. Open Questions
+## 8. Deviations and Assumptions
 
-None - specification complete.
+None.

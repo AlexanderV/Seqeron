@@ -48,18 +48,21 @@ $$F_{ST} = \frac{\bar{p}(1-\bar{p}) - \overline{p(1-p)}}{\bar{p}(1-\bar{p})}$$
 
 This measures the fraction of total diversity not due to average diversity within subpopulations.
 
-### 2.3 Weir and Cockerham Estimator (1984)
+### 2.3 Implementation Formula
 
-**Source:** Weir & Cockerham (1984) Evolution 38:1358-1370
+The implementation uses Wright's variance-based definition directly:
 
-The Weir-Cockerham estimator is the most widely used due to its unbiased properties with finite sample sizes. The implementation in this library uses a simplified variance-based approach.
+$$F_{ST} = \frac{\sigma_S^2}{\bar{p}(1-\bar{p})}$$
 
-**For two populations (simplified):**
-$$F_{ST} = \frac{\text{Between-population variance}}{\text{Total heterozygosity}}$$
+For two populations with sizes $n_1, n_2$ and frequencies $p_1, p_2$:
+- $\bar{p} = (n_1 p_1 + n_2 p_2) / (n_1 + n_2)$
+- $\sigma_S^2 = (n_1(p_1-\bar{p})^2 + n_2(p_2-\bar{p})^2) / (n_1+n_2)$
 
-Where:
-- Between-pop variance = weighted variance of allele frequencies
-- Total heterozygosity = $\bar{p}(1-\bar{p})$
+Multi-locus aggregation uses ratio-of-sums: $F_{ST} = \sum_l \sigma_{S,l}^2 / \sum_l \bar{p}_l(1-\bar{p}_l)$
+
+**Note:** This is distinct from the Weir & Cockerham (1984) θ estimator, which uses
+ANOVA variance components with finite-sample bias correction. Our implementation
+computes the population parameter directly from known allele frequencies.
 
 ### 2.4 F-Statistics Relationship
 
@@ -141,19 +144,19 @@ Where:
 | Case | Expected Behavior | Source |
 |------|-------------------|--------|
 | Identical populations | Fst = 0 | Wikipedia (panmixia) |
-| Fixed differences (p1=1, p2=0) | Fst approaches 1 | Wikipedia |
-| Empty populations | Fst = 0 (undefined, return 0) | ASSUMPTION |
+| Fixed differences (p1=1, p2=0) | Fst = 1.0 exactly | Wikipedia; math proof: pBar=0.5, var=0.25, het=0.25 |
+| Empty populations | Fst = 0 (undefined, return 0) | Design decision (0/0 case) |
 | Single variant | Valid Fst calculation | Mathematical |
-| Unequal sample sizes | Weighted by sample size | Weir & Cockerham |
+| Unequal sample sizes | Weighted by population size | Wright (1965) — $c_i = n_i/N$ |
 | All monomorphic sites | Fst = 0 (no variation) | Mathematical |
 
 ### 5.2 Numerical Considerations
 
 | Issue | Handling | Source |
 |-------|----------|--------|
-| Division by zero (pBar = 0 or 1) | Return 0 | Implementation |
-| High polymorphism | Arbitrarily low upper bound | Wikipedia |
-| Small sample sizes | Weir-Cockerham correction | Weir & Cockerham |
+| Division by zero (pBar = 0 or 1) | Return 0 | Design decision (denominator = 0) |
+| High polymorphism | Arbitrarily low upper bound possible | Wikipedia |
+| Small sample sizes | No Weir-Cockerham correction (uses Wright's formula directly) | Implementation |
 
 ---
 
@@ -163,7 +166,7 @@ Where:
 
 | Category | Description | Priority |
 |----------|-------------|----------|
-| Boundary conditions | Fst = 0 (identical), Fst → 1 (fixed) | Must |
+| Boundary conditions | Fst = 0 (identical), Fst = 1.0 (fixed) | Must |
 | Value range invariant | 0 ≤ Fst ≤ 1 | Must |
 | Matrix properties | Diagonal = 0, Symmetry | Must |
 | Heterozygosity relationship | Fis, Fit, Fst partition | Should |
@@ -183,7 +186,7 @@ Where:
 **Test Case 3: Fixed Differences (Maximum Differentiation)**
 - Pop1 = [(1.0, 100)]
 - Pop2 = [(0.0, 100)]
-- Expected: Fst = 1.0 (or very high, ~0.5+ depending on estimator)
+- Expected: Fst = 1.0 (pBar=0.5, variance=0.25, het=0.25, ratio=1.0)
 
 **Test Case 4: F-Statistics Components**
 - Heterozygosity data with observed and expected values
@@ -193,79 +196,97 @@ Where:
 
 ## 7. Implementation Notes
 
-### 7.1 Current Implementation Analysis
+### 7.1 CalculateFst
 
-The implementation uses a simplified Weir-Cockerham-style estimator:
+Implements Wright's variance-based Fst (Wright 1965):
 
 ```
 For each locus:
   pBar = (n1*p1 + n2*p2) / (n1 + n2)   // Weighted mean
-  variance = weighted variance of p1, p2 around pBar
+  variance = (n1*(p1-pBar)² + n2*(p2-pBar)²) / (n1+n2)
   het = pBar * (1 - pBar)
 
 Fst = sum(variance) / sum(het)
 ```
 
-This is consistent with Wright's variance definition.
+This directly computes $F_{ST} = \sigma_S^2 / \bar{p}(1-\bar{p})$ from Wright (1965).
 
-### 7.2 CalculateFStatistics Implementation
+### 7.2 CalculateFStatistics
 
-Uses heterozygosity-based approach:
+Uses heterozygosity-based definitions (Wikipedia F-statistics §Definitions):
 - Hi = observed heterozygosity (individual level)
 - Hs = expected heterozygosity within subpopulations
 - Ht = expected heterozygosity in total population
 
 Returns: Fis = 1 - Hi/Hs, Fit = 1 - Hi/Ht, Fst = 1 - Hs/Ht
 
----
-
-## 8. Fallback Strategy
-
-N/A - Comprehensive sources found.
+The partition identity $(1-F_{IT}) = (1-F_{IS})(1-F_{ST})$ holds exactly:
+$(H_I/H_S)(H_S/H_T) = H_I/H_T$ — algebraic, not approximate.
 
 ---
 
-## 9. Open Questions
-
-None - algorithm well-defined in literature.
-
----
-
-## 10. Test Coverage
-
-### Reference Data Tests (Added 2026-02-05)
-Tests validated against published population genetics literature:
-
-**Rosenberg et al. (2002) Science:**
-- `CalculateFst_RosenbergHumanPopulations_RealisticValues` - validates continental Fst ≈ 0.05-0.15
-- Tests reflect finding that "most variation is within populations"
-
-**Wright (1978) Interpretation Scale:**
-- `CalculateFst_WrightInterpretationScale_CorrectClassification` - validates:
-  - Fst < 0.05: little differentiation
-  - Fst 0.05-0.15: moderate differentiation
-  - Fst 0.15-0.25: great differentiation
-  - Fst > 0.25: very great differentiation
-
-**Wright (1951) Partition Formula:**
-- `FStatistics_WrightPartitionFormula_Satisfied` - validates (1-Fit) = (1-Fis)(1-Fst)
-- `CalculateFStatistics_FixedDifference_MaximalFst` - validates Fst = 1.0 for fixed differences
-
----
-
-## 11. Evidence Summary
+## 8. Evidence Summary
 
 | Aspect | Status | Notes |
 |--------|--------|-------|
-| Definition | ✓ Complete | Wright (1965), Wikipedia |
-| Formula | ✓ Complete | Weir & Cockerham (1984), Wikipedia |
-| Invariants | ✓ Complete | 0 ≤ Fst ≤ 1, matrix properties |
-| Edge cases | ✓ Complete | From Wikipedia, implementation |
-| Test data | ✓ Complete | Reference values from Rosenberg, Wright |
-| Methodology | ✓ Complete | Standard population genetics testing |
+| Definition | ✓ Complete | Wright (1965) variance-based Fst, Wikipedia Fixation_index §Definition |
+| Formula | ✓ Complete | $F_{ST} = \sigma_S^2 / \bar{p}(1-\bar{p})$ — Wright (1965), Wikipedia |
+| F-statistics | ✓ Complete | Heterozygosity-based Fis, Fit, Fst; Wikipedia F-statistics §Definitions |
+| Partition | ✓ Complete | $(1-F_{IT}) = (1-F_{IS})(1-F_{ST})$ — exact algebraic identity |
+| Invariants | ✓ Complete | 0 ≤ Fst ≤ 1, matrix properties, fixed differences = 1.0 |
+| Reference data | ✓ Complete | Cavalli-Sforza (1994), Elhaik (2012), Hartl & Clark |
+| Edge cases | ✓ Complete | Wikipedia, mathematical analysis |
 
 ---
 
-## Change History
-- **2026-02-05**: Added reference data tests from Rosenberg et al. (2002) and Wright (1978).
-- **2026-02-01**: Initial documentation.
+## 9. Deviations and Assumptions
+
+None.
+
+---
+
+## 10. Coverage Classification
+
+### 10.1 Summary
+
+| Category | Count | Action |
+|----------|-------|--------|
+| ✅ Covered | 16 | No changes |
+| ⚠ Weak → Strengthened | 5 | Replaced range/permissive assertions with exact hand-calculated values |
+| 🔁 Duplicate → Removed | 1 | `DifferentPopulations_ReturnsPositive` (subsumed by `MultiLocus_ExactValue`) |
+| ❌ Missing → Implemented | 4 | Monomorphic, both-fixed-same, pairwise exact values, excess heterozygosity |
+| **Total tests** | **25** | (was 22 → −1 duplicate + 4 new = 25) |
+
+### 10.2 Strengthened Tests
+
+| Test | Before | After |
+|------|--------|-------|
+| `UnequalSampleSizes_WeightedCalculation` | `> 0` and `≤ 1` | Exact: 0.006274… + comparison with equal-size Fst (4/21) |
+| `ReturnsAllComponents` | `Fst ≥ 0`, `IsFinite` | Exact: Fis = 1/19, Fit = 1/13, Fst = 1/39 |
+| `HumanPopulationLikeDifferentiation` | Range 0.01–0.25 | Replaced with `MultiLocusModerate_ExactValue`: Fst = 1/19 (binary-exact inputs) |
+| `WrightInterpretationScale` | `< 0.05` / `> 0.15` | Exact: 1/2499 (little) and 61/198 (very great) |
+| `IslandModelConsistency` | Monotonicity only | Exact: 1/2499, 9/391, 49/351 + monotonicity |
+
+### 10.3 Removed Duplicates
+
+| Test | Reason |
+|------|--------|
+| `CalculateFst_DifferentPopulations_ReturnsPositive` | Same data as `MultiLocus_ExactValue` (pop1=0.9/0.8, pop2=0.1/0.2) with weaker assertion (`> 0` vs exact `0.50`) |
+
+### 10.4 New Tests
+
+| Test | Category | Evidence |
+|------|----------|----------|
+| `CalculateFst_MonomorphicSites_ReturnsZero` | Edge case | §5.1: "All monomorphic sites → Fst = 0" |
+| `CalculateFst_BothFixedSameAllele_ReturnsZero` | Edge case | §5.2: "Division by zero (pBar = 0 or 1) → Return 0" |
+| `CalculatePairwiseFst_ExactCellValues` | Correctness | Matrix values 1/99, 4/21, 3/25 from formula |
+| `CalculateFStatistics_ExcessHeterozygosity_NegativeFis` | Theory | §3.1: "Fis can be negative with excess heterozygosity"; Fis = −2/3, Fit = −2/5, Fst = 4/25 |
+
+### 10.5 Verification Against Theory
+
+All expected values are derived from Wright's formulas independently:
+
+- **CalculateFst**: $F_{ST} = \sigma_S^2 / \bar{p}(1-\bar{p})$ — each test hand-calculates $\bar{p}$, $\sigma_S^2$, and heterozygosity from inputs
+- **CalculateFStatistics**: $F_{IS} = 1 - H_I/H_S$, $F_{IT} = 1 - H_I/H_T$, $F_{ST} = 1 - H_S/H_T$ — each test hand-calculates $H_I$, $H_S$, $H_T$ from raw counts
+- **Partition identity**: $(1-F_{IT}) = (1-F_{IS})(1-F_{ST})$ — algebraic, holds exactly for heterozygosity ratios
+- No test expected value was obtained by running the implementation first
