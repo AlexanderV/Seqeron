@@ -1074,8 +1074,8 @@
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.CalculateLD(...)` |
 | **Complexity** | O(n) per pair |
-| **Algorithm** | Hill (1974) composite LD estimator |
-| **Formula** | r² = Cov(X₁,X₂)² / (Var(X₁) × Var(X₂)) |
+| **Algorithm** | Squared Pearson correlation (r²), Lewontin D' |
+| **Formula** | r² = Cov(X₁,X₂)² / (Var(X₁) × Var(X₂)); D = Cov/2; D' = \|D\|/D_max |
 
 **Methods:**
 | Method | Class | Type |
@@ -1083,7 +1083,7 @@
 | `CalculateLD(var1, var2, genotypes)` | PopulationGeneticsAnalyzer | D', r² |
 | `FindHaplotypeBlocks(variants)` | PopulationGeneticsAnalyzer | Blocks |
 
-**Reference:** Hill WG (1974) "Estimation of linkage disequilibrium in randomly mating populations" Heredity 33:229-239
+**References:** Wikipedia (Linkage disequilibrium, LD for diploid frequencies), Hill & Robertson (1968), Lewontin (1964), Gabriel et al. (2002)
 
 ---
 

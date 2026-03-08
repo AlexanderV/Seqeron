@@ -687,11 +687,12 @@ public static class PopulationGeneticsAnalyzer
     /// <summary>
     /// Calculates linkage disequilibrium between two variants.
     /// 
-    /// Uses composite LD estimation from Hill (1974) which computes r² directly from
-    /// genotype correlation, avoiding phase estimation issues with double heterozygotes.
+    /// r² is computed as the squared Pearson correlation of genotype values (0, 1, 2).
+    /// From Wikipedia (LD for diploid frequencies): the diploid correlation R_AB
+    /// equals the haplotype-level r_AB (Hill &amp; Robertson 1968, Wright 1933).
     /// 
-    /// Reference: Hill WG (1974) "Estimation of linkage disequilibrium in randomly 
-    /// mating populations" Heredity 33:229-239.
+    /// D' uses D estimated from the diploid genotype covariance: D = Cov(X₁,X₂)/2,
+    /// then normalized per Lewontin (1964): D' = D / D_max, clamped to [0, 1].
     /// </summary>
     public static LinkageDisequilibrium CalculateLD(
         string variant1Id,
@@ -715,14 +716,9 @@ public static class PopulationGeneticsAnalyzer
         double q1 = 1 - p1;
         double q2 = 1 - p2;
 
-        // Use Hill (1974) composite LD estimator: Δ = E[X₁X₂] - 2p₁p₂
-        // where X is genotype value (0, 1, 2)
-        // This avoids phase ambiguity in double heterozygotes
-        double sumProduct = genoList.Sum(g => (double)g.Geno1 * g.Geno2);
-        double delta = sumProduct / n - 2 * p1 * p2;
-
-        // r² from genotypes: correlation coefficient squared
-        // r² = Cov(X₁,X₂)² / (Var(X₁) * Var(X₂))
+        // r² from genotypes: squared Pearson correlation of genotype values (0, 1, 2).
+        // From Wikipedia (LD for diploid frequencies): the diploid correlation R_AB
+        // equals the haplotype correlation r_AB, so r² = Cor(X₁,X₂)².
         double mean1 = genoList.Average(g => (double)g.Geno1);
         double mean2 = genoList.Average(g => (double)g.Geno2);
         double cov = genoList.Sum(g => (g.Geno1 - mean1) * (g.Geno2 - mean2)) / n;
@@ -731,9 +727,10 @@ public static class PopulationGeneticsAnalyzer
 
         double rSquared = (var1 > 0 && var2 > 0) ? (cov * cov) / (var1 * var2) : 0;
 
-        // D' calculation using estimated D from composite LD
-        // D ≈ Δ/2 for biallelic markers (Hill 1974)
-        double d = delta / 2;
+        // D estimated from diploid genotype covariance.
+        // From Wikipedia (LD for diploid frequencies): Cov_diploid(X₁,X₂) = 2D
+        // with 0/1/2 encoding, therefore D = Cov(X₁,X₂) / 2.
+        double d = cov / 2;
 
         double dMax = d >= 0
             ? Math.Min(p1 * q2, q1 * p2)
@@ -751,7 +748,8 @@ public static class PopulationGeneticsAnalyzer
     }
 
     /// <summary>
-    /// Identifies haplotype blocks using the four-gamete test.
+    /// Identifies haplotype blocks using adjacent-pair r² threshold.
+    /// Simplified Gabriel et al. (2002) method: consecutive variants with r² ≥ threshold form a block.
     /// </summary>
     public static IEnumerable<HaplotypeBlock> FindHaplotypeBlocks(
         IEnumerable<(string VariantId, int Position, IReadOnlyList<int> Genotypes)> variants,
