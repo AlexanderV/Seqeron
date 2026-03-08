@@ -63,8 +63,10 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         Assert.Multiple(() =>
         {
             Assert.That(result.HasAneuploidy, Is.True);
-            Assert.That(result.Abnormalities, Has.Some.Contains("Trisomy"));
             Assert.That(result.TotalChromosomes, Is.EqualTo(3));
+            Assert.That(result.AutosomeCount, Is.EqualTo(3));
+            Assert.That(result.Abnormalities.Count, Is.EqualTo(1));
+            Assert.That(result.Abnormalities[0], Is.EqualTo("Trisomy chr21"));
         });
     }
 
@@ -85,7 +87,10 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         Assert.Multiple(() =>
         {
             Assert.That(result.HasAneuploidy, Is.True);
-            Assert.That(result.Abnormalities, Has.Some.Contains("Monosomy"));
+            Assert.That(result.TotalChromosomes, Is.EqualTo(1));
+            Assert.That(result.AutosomeCount, Is.EqualTo(1));
+            Assert.That(result.Abnormalities.Count, Is.EqualTo(1));
+            Assert.That(result.Abnormalities[0], Is.EqualTo("Monosomy chr1"));
         });
     }
 
@@ -193,7 +198,14 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         var result = ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes, expectedPloidyLevel: 4);
 
         // Assert
-        Assert.That(result.HasAneuploidy, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasAneuploidy, Is.False);
+            Assert.That(result.PloidyLevel, Is.EqualTo(4));
+            Assert.That(result.TotalChromosomes, Is.EqualTo(4));
+            Assert.That(result.AutosomeCount, Is.EqualTo(4));
+            Assert.That(result.Abnormalities, Is.Empty);
+        });
     }
 
     [Test]
@@ -219,6 +231,105 @@ public class ChromosomeAnalyzer_Karyotype_Tests
             Assert.That(result.Abnormalities.Count, Is.EqualTo(2));
             Assert.That(result.Abnormalities, Has.Some.Contains("Trisomy"));
             Assert.That(result.Abnormalities, Has.Some.Contains("Monosomy"));
+        });
+    }
+
+    [Test]
+    [Description("Tetrasomy (4 copies) uses correct ISCN nomenclature per Wikipedia Aneuploidy")]
+    public void AnalyzeKaryotype_WithTetrasomy_UsesCorrectTerm()
+    {
+        // Arrange - 4 copies of chr18 in a diploid organism = Tetrasomy
+        // Source: Wikipedia Aneuploidy Terminology table ("4/5: Tetrasomy/Pentasomy")
+        var chromosomes = new List<(string Name, long Length, bool IsSexChromosome)>
+        {
+            ("chr18_1", 80373285, false),
+            ("chr18_2", 80373285, false),
+            ("chr18_3", 80373285, false),
+            ("chr18_4", 80373285, false)
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasAneuploidy, Is.True);
+            Assert.That(result.Abnormalities, Has.Some.Contains("Tetrasomy"));
+            Assert.That(result.Abnormalities, Has.None.Contains("Trisomy"),
+                "4 copies must be Tetrasomy, not Trisomy");
+        });
+    }
+
+    [Test]
+    [Description("Pentasomy (5 copies) uses correct ISCN nomenclature per Wikipedia Aneuploidy")]
+    public void AnalyzeKaryotype_WithPentasomy_UsesCorrectTerm()
+    {
+        // Arrange - 5 copies of chrX = Pentasomy (e.g., XXXXX documented in humans)
+        // Source: Wikipedia Aneuploidy ("sex chromosome tetrasomy and pentasomy have been reported")
+        var chromosomes = new List<(string Name, long Length, bool IsSexChromosome)>
+        {
+            ("chr21_1", 46709983, false),
+            ("chr21_2", 46709983, false),
+            ("chr21_3", 46709983, false),
+            ("chr21_4", 46709983, false),
+            ("chr21_5", 46709983, false)
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasAneuploidy, Is.True);
+            Assert.That(result.Abnormalities, Has.Some.Contains("Pentasomy"));
+            Assert.That(result.Abnormalities, Has.None.Contains("Trisomy"),
+                "5 copies must be Pentasomy, not Trisomy");
+        });
+    }
+
+    [Test]
+    [Description("In tetraploid context, 3 copies is Trisomy (absolute count), not Monosomy")]
+    public void AnalyzeKaryotype_TetraploidWithMissing_UsesAbsoluteTerminology()
+    {
+        // Arrange - In a tetraploid organism (expected=4), having 3 copies of chr1
+        // Source: Wikipedia Aneuploidy terminology is based on absolute copy count
+        // 3 copies = Trisomy regardless of expected ploidy
+        var chromosomes = new List<(string Name, long Length, bool IsSexChromosome)>
+        {
+            ("chr1_1", 100000, false),
+            ("chr1_2", 100000, false),
+            ("chr1_3", 100000, false) // 3 copies in tetraploid = Trisomy
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes, expectedPloidyLevel: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasAneuploidy, Is.True);
+            Assert.That(result.Abnormalities, Has.Some.Contains("Trisomy"),
+                "3 copies must be called Trisomy even when expected ploidy is 4");
+            Assert.That(result.Abnormalities, Has.None.Contains("Monosomy"),
+                "Term should reflect absolute count (3=Trisomy), not relative deficit");
+        });
+    }
+
+    [Test]
+    [Description("Disomy (2 copies) uses correct ISCN nomenclature in non-diploid context")]
+    public void AnalyzeKaryotype_WithDisomyInTetraploid_UsesCorrectTerm()
+    {
+        // Arrange - 2 copies of chr1 in a tetraploid organism = Disomy
+        // Per Wikipedia Aneuploidy: 2 copies = Disomy (normal for diploid, aneuploidy for tetraploid)
+        var chromosomes = new List<(string Name, long Length, bool IsSexChromosome)>
+        {
+            ("chr1_1", 100000, false),
+            ("chr1_2", 100000, false)
+        };
+
+        var result = ChromosomeAnalyzer.AnalyzeKaryotype(chromosomes, expectedPloidyLevel: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HasAneuploidy, Is.True);
+            Assert.That(result.Abnormalities.Count, Is.EqualTo(1));
+            Assert.That(result.Abnormalities[0], Is.EqualTo("Disomy chr1"));
         });
     }
 
@@ -289,10 +400,12 @@ public class ChromosomeAnalyzer_Karyotype_Tests
     #region DetectPloidy Tests
 
     [Test]
-    [Description("Diploid depth (ratio ≈ 1.0) returns ploidy 2")]
+    [Description("Diploid depth (ratio = 1.0) returns ploidy 2 with perfect confidence")]
     public void DetectPloidy_WithDiploidDepth_ReturnsPloidy2()
     {
         // Arrange - Uniform depth at expected diploid level
+        // ratio = 1.0, ratio×2 = 2.0, ploidy = round(2.0) = 2
+        // frac = |2.0 − 2| = 0, confidence = 1.0 − 0 = 1.0
         var depths = Enumerable.Repeat(1.0, 100);
 
         // Act
@@ -302,15 +415,17 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ploidy, Is.EqualTo(2));
-            Assert.That(confidence, Is.GreaterThan(0.9));
+            Assert.That(confidence, Is.EqualTo(1.0));
         });
     }
 
     [Test]
-    [Description("Tetraploid depth (ratio ≈ 2.0) returns ploidy 4")]
+    [Description("Tetraploid depth (ratio = 2.0) returns ploidy 4 with perfect confidence")]
     public void DetectPloidy_WithTetraploidDepth_ReturnsPloidy4()
     {
         // Arrange - Depth at 2x expected diploid level
+        // ratio = 2.0, ratio×2 = 4.0, ploidy = round(4.0) = 4
+        // frac = |4.0 − 4| = 0, confidence = 1.0 − 0 = 1.0
         var depths = Enumerable.Repeat(2.0, 100);
 
         // Act
@@ -320,15 +435,17 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ploidy, Is.EqualTo(4));
-            Assert.That(confidence, Is.GreaterThan(0.9));
+            Assert.That(confidence, Is.EqualTo(1.0));
         });
     }
 
     [Test]
-    [Description("Haploid depth (ratio ≈ 0.5) returns ploidy 1")]
+    [Description("Haploid depth (ratio = 0.5) returns ploidy 1 with perfect confidence")]
     public void DetectPloidy_WithHaploidDepth_ReturnsPloidy1()
     {
         // Arrange - Depth at 0.5x expected diploid level
+        // ratio = 0.5, ratio×2 = 1.0, ploidy = round(1.0) = 1
+        // frac = |1.0 − 1| = 0, confidence = 1.0 − 0 = 1.0
         var depths = Enumerable.Repeat(0.5, 100);
 
         // Act
@@ -338,22 +455,28 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ploidy, Is.EqualTo(1));
-            Assert.That(confidence, Is.GreaterThan(0.9));
+            Assert.That(confidence, Is.EqualTo(1.0));
         });
     }
 
     [Test]
-    [Description("Triploid depth (ratio ≈ 1.5) returns ploidy 3")]
+    [Description("Triploid depth (ratio = 1.5) returns ploidy 3 with perfect confidence")]
     public void DetectPloidy_WithTriploidDepth_ReturnsPloidy3()
     {
         // Arrange - Depth at 1.5x expected diploid level
+        // ratio = 1.5, ratio×2 = 3.0, ploidy = round(3.0) = 3
+        // frac = |3.0 − 3| = 0, confidence = 1.0 − 0 = 1.0
         var depths = Enumerable.Repeat(1.5, 100);
 
         // Act
         var (ploidy, confidence) = ChromosomeAnalyzer.DetectPloidy(depths);
 
         // Assert
-        Assert.That(ploidy, Is.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ploidy, Is.EqualTo(3));
+            Assert.That(confidence, Is.EqualTo(1.0));
+        });
     }
 
     [Test]
@@ -380,10 +503,16 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         var depths = Enumerable.Repeat(10.0, 100); // 10x depth = would be 20-ploid
 
         // Act
-        var (ploidy, _) = ChromosomeAnalyzer.DetectPloidy(depths);
+        // ratio = 10.0, ratio×2 = 20.0, raw ploidy = 20 → clamped to 8
+        // frac = |20.0 − 8| = 12.0, confidence = max(0, 1.0 − 24.0) = 0
+        var (ploidy, confidence) = ChromosomeAnalyzer.DetectPloidy(depths);
 
         // Assert
-        Assert.That(ploidy, Is.LessThanOrEqualTo(8), "Ploidy should be clamped to 8");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ploidy, Is.EqualTo(8), "Ploidy should be clamped to 8");
+            Assert.That(confidence, Is.EqualTo(0), "Extreme depth gives zero confidence");
+        });
     }
 
     [Test]
@@ -394,29 +523,44 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         var depths = Enumerable.Repeat(0.1, 100);
 
         // Act
-        var (ploidy, _) = ChromosomeAnalyzer.DetectPloidy(depths);
+        // ratio = 0.1, ratio×2 = 0.2, raw ploidy = 0 → clamped to 1
+        // frac = |0.2 − 1| = 0.8, confidence = max(0, 1.0 − 1.6) = 0
+        var (ploidy, confidence) = ChromosomeAnalyzer.DetectPloidy(depths);
 
         // Assert
-        Assert.That(ploidy, Is.GreaterThanOrEqualTo(1), "Ploidy should be at least 1");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ploidy, Is.EqualTo(1), "Ploidy should be clamped to 1");
+            Assert.That(confidence, Is.EqualTo(0), "Extreme depth gives zero confidence");
+        });
     }
 
     [Test]
-    [Description("Noisy data reduces confidence")]
-    public void DetectPloidy_WithNoisyData_ReducedConfidence()
+    [Description("Ratio between ploidy levels produces lower confidence than clean ratio")]
+    public void DetectPloidy_WithBetweenPloidyRatio_ReducedConfidence()
     {
-        // Arrange - Mix of different depths (noisy)
-        var depths = new[] { 0.8, 1.0, 1.2, 0.9, 1.1, 1.0, 0.85, 1.15 };
+        // Arrange - Depth at 1.2× (between diploid 1.0× and triploid 1.5×)
+        // ratio = 1.2, ratio×2 = 2.4, ploidy = round(2.4) = 2
+        // frac = |2.4 − 2| = 0.4, confidence = 1.0 − 0.4×2 = 0.2
+        var betweenDepths = Enumerable.Repeat(1.2, 100);
 
-        // Arrange - Uniform data
-        var uniformDepths = Enumerable.Repeat(1.0, 100);
+        // Clean diploid for comparison (confidence = 1.0)
+        var cleanDepths = Enumerable.Repeat(1.0, 100);
 
         // Act
-        var (_, noisyConfidence) = ChromosomeAnalyzer.DetectPloidy(depths);
-        var (_, uniformConfidence) = ChromosomeAnalyzer.DetectPloidy(uniformDepths);
+        var (betweenPloidy, betweenConfidence) = ChromosomeAnalyzer.DetectPloidy(betweenDepths);
+        var (cleanPloidy, cleanConfidence) = ChromosomeAnalyzer.DetectPloidy(cleanDepths);
 
-        // Assert - Both should be high confidence for diploid
-        Assert.That(noisyConfidence, Is.GreaterThan(0.5));
-        Assert.That(uniformConfidence, Is.GreaterThan(noisyConfidence).Or.EqualTo(noisyConfidence));
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(betweenPloidy, Is.EqualTo(2), "Still classified as diploid");
+            Assert.That(betweenConfidence, Is.EqualTo(0.2).Within(1e-10),
+                "Between-ploidy ratio gives low confidence");
+            Assert.That(cleanConfidence, Is.EqualTo(1.0), "Clean ratio gives perfect confidence");
+            Assert.That(betweenConfidence, Is.LessThan(cleanConfidence),
+                "Between-ploidy confidence < clean confidence");
+        });
     }
 
     [Test]
@@ -468,11 +612,11 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         // Act
         var (ploidy, confidence) = ChromosomeAnalyzer.DetectPloidy(depths);
 
-        // Assert
+        // Assert — single value median = 1.0, ratio = 1.0 → ploidy 2, confidence 1.0
         Assert.Multiple(() =>
         {
             Assert.That(ploidy, Is.EqualTo(2));
-            Assert.That(confidence, Is.GreaterThanOrEqualTo(0));
+            Assert.That(confidence, Is.EqualTo(1.0));
         });
     }
 
@@ -487,11 +631,11 @@ public class ChromosomeAnalyzer_Karyotype_Tests
         // Act
         var (ploidy, confidence) = ChromosomeAnalyzer.DetectPloidy(depths, expectedDiploidDepth);
 
-        // Assert
+        // Assert — ratio = 60/30 = 2.0, ratio×2 = 4.0, ploidy = 4, confidence = 1.0
         Assert.Multiple(() =>
         {
-            Assert.That(ploidy, Is.EqualTo(4)); // 60/30 = 2.0 ratio → tetraploid
-            Assert.That(confidence, Is.GreaterThan(0.9));
+            Assert.That(ploidy, Is.EqualTo(4));
+            Assert.That(confidence, Is.EqualTo(1.0));
         });
     }
 

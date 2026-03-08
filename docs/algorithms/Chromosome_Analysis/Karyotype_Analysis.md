@@ -2,7 +2,7 @@
 
 **Algorithm Category:** Chromosome Analysis  
 **Test Unit:** CHROM-KARYO-001  
-**Date:** 2026-02-01  
+**Date:** 2026-03-08  
 
 ---
 
@@ -70,8 +70,8 @@ Examples:
 2. Group autosomes by base chromosome name
    - Strip copy suffixes (e.g., "chr1_1" → "chr1")
 3. For each autosome group:
-   - If count < expectedPloidy: Record "Monosomy {chr}"
-   - If count > expectedPloidy: Record "Trisomy {chr}"
+   - If count ≠ expectedPloidy: Label using standard cytogenetic nomenclature
+     (Nullisomy/Monosomy/Disomy/Trisomy/Tetrasomy/Pentasomy based on absolute count)
 4. Calculate statistics:
    - TotalGenomeSize = Σ(lengths)
    - MeanLength = TotalGenomeSize / TotalChromosomes
@@ -95,7 +95,8 @@ Examples:
 **Algorithm:**
 ```
 1. If empty input: Return (2, 0)  // Default diploid, zero confidence
-2. Calculate median depth from sorted values
+2. Calculate true median depth from sorted values
+   (average of two middle elements for even-length arrays)
 3. Compute ratio = medianDepth / expectedDiploidDepth
 4. Estimate ploidy = round(ratio × 2)
 5. Clamp ploidy to [1, 8]
@@ -140,7 +141,7 @@ Confidence reflects how close the observed ratio is to a clean integer ploidy:
 
 ## Deviations from Theory
 
-None identified. Implementation follows standard biological definitions.
+None. Implementation follows standard biological definitions and ISCN nomenclature.
 
 ---
 
