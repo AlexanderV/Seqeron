@@ -2,7 +2,7 @@
 
 **Test Unit ID:** CHROM-SYNT-001  
 **Area:** Chromosome Analysis  
-**Date:** 2026-02-01  
+**Date:** 2026-03-08  
 **Status:** Complete
 
 ---
@@ -119,6 +119,8 @@ Based on literature:
 | All same chromosome, same strand | Return empty (no rearrangements) | Definition |
 | Strand change (same chromosome) | Inversion detected | Wikipedia |
 | Chromosome change | Translocation detected | Wikipedia |
+| Gap asymmetry (same chr pair, same strand) | Deletion detected | Wikipedia |
+| Overlapping source coords, different targets | Duplication detected | Wikipedia |
 
 ---
 
@@ -133,7 +135,7 @@ Gene2: (chr1, 3000-4000) → (chrA, 3000-4000)
 Gene3: (chr1, 5000-6000) → (chrA, 5000-6000)
 Gene4: (chr1, 7000-8000) → (chrA, 7000-8000)
 
-Expected: 1 block, strand '+', GeneCount ≥ 3
+Expected: 1 block, strand '+', GeneCount=4, Species1: 1000-8000, Species2: 1000-8000
 ```
 
 ### 5.2 Inverted Block
@@ -145,7 +147,7 @@ Gene2: (chr1, 3000-4000) → (chrA, 6000-7000)
 Gene3: (chr1, 5000-6000) → (chrA, 4000-5000)
 Gene4: (chr1, 7000-8000) → (chrA, 2000-3000)
 
-Expected: 1 block, strand '-'
+Expected: 1 block, strand '-', GeneCount=4, Species2: 2000-9000
 ```
 
 ### 5.3 Translocation Detection
@@ -155,7 +157,7 @@ Synteny blocks:
 Block1: chr1:1000-50000 → chrA:1000-50000, strand '+'
 Block2: chr1:60000-100000 → chrB:1000-40000, strand '+'
 
-Expected: Translocation detected (chrA → chrB)
+Expected: Translocation detected (chrA → chrB), Position1=50000, Chromosome2="chrB", Position2=1000
 ```
 
 ### 5.4 Inversion Detection
@@ -165,8 +167,18 @@ Synteny blocks:
 Block1: chr1:1000-50000 → chrA:1000-50000, strand '+'
 Block2: chr1:60000-100000 → chrA:60000-100000, strand '-'
 
-Expected: Inversion detected (strand change on same chromosome)
+Expected: Inversion detected, Position1=50000, Position2=60000, Size=10000
 ```
+
+---
+
+## 7. Coverage Classification Changes (2026-03-08)
+
+| Action | Count | Details |
+|--------|-------|---------|
+| ⚠ Weak → Strengthened | 8 | M1, M2, M5, M6, M9, M10, M14, M15: replaced range/permissive assertions with exact hand-calculated values |
+| 🔁 Duplicate → Removed | 2 | M7 (GeneCountMatchesInput), M8 (CoordinatesSpanAllGenes): subsumed by strengthened M1 |
+| ❌ Missing → Implemented | 1 | M16 (GapExceedsMaxGap_SplitsIntoSeparateBlocks): maxGap parameter was untested |
 
 ---
 
@@ -177,23 +189,14 @@ Expected: Inversion detected (strand change on same chromosome)
 - **I1:** All returned blocks have GeneCount ≥ minGenes
 - **I2:** Block coordinates are valid (Start ≤ End) for both species
 - **I3:** Strand is either '+' or '-'
-- **I4:** SequenceIdentity is in range [0, 1]
+- **I4:** SequenceIdentity is NaN (not computable from coordinate-only input per MCScanX)
 - **I5:** All genes in a block belong to the same chromosome pair
 
 ### 6.2 DetectRearrangements Invariants
 
-- **I1:** Rearrangement Type is a recognized value ("Inversion", "Translocation")
+- **I1:** Rearrangement Type is a recognized value ("Inversion", "Translocation", "Deletion", "Duplication")
 - **I2:** Position1 is always set (non-null)
 - **I3:** For translocations, Chromosome2 differs from source block's target chromosome
-
----
-
-## 7. Known Limitations
-
-1. **Gap parameter scale:** Implementation uses `maxGap * 1000000` suggesting megabase units
-2. **Placeholder identity:** Current implementation returns fixed 0.9 identity (not calculated)
-3. **Deletion/Duplication not detected:** Only inversions and translocations are identified
-4. **Single chromosome pair per block:** Breaks at chromosome boundaries
 
 ---
 
