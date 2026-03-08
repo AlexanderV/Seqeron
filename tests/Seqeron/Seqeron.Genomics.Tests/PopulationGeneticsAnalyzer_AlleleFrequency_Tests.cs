@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Seqeron.Genomics;
 using System.Collections.Generic;
@@ -61,10 +62,10 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(major, Is.EqualTo(0.70).Within(0.001),
-                "Major allele frequency should be 0.70");
-            Assert.That(minor, Is.EqualTo(0.30).Within(0.001),
-                "Minor allele frequency should be 0.30");
+            Assert.That(major, Is.EqualTo(140.0 / 200.0).Within(1e-10),
+                "Major allele frequency should be 0.70 (140/200)");
+            Assert.That(minor, Is.EqualTo(60.0 / 200.0).Within(1e-10),
+                "Minor allele frequency should be 0.30 (60/200)");
         });
     }
 
@@ -192,6 +193,9 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
     [Test]
     public void CalculateAlleleFrequencies_LargePopulation_NoOverflow()
     {
+        // 175,000 individuals → 350,000 alleles
+        // Major alleles = 2×100,000 + 50,000 = 250,000
+        // Minor alleles = 2×25,000 + 50,000 = 100,000
         var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
             homozygousMajor: 100_000,
             heterozygous: 50_000,
@@ -199,10 +203,154 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
 
         Assert.Multiple(() =>
         {
+            Assert.That(major, Is.EqualTo(250_000.0 / 350_000.0).Within(1e-10),
+                "Major frequency should be 250000/350000");
+            Assert.That(minor, Is.EqualTo(100_000.0 / 350_000.0).Within(1e-10),
+                "Minor frequency should be 100000/350000");
             Assert.That(major + minor, Is.EqualTo(1.0).Within(1e-10));
             Assert.That(double.IsNaN(major), Is.False);
             Assert.That(double.IsNaN(minor), Is.False);
         });
+    }
+
+    /// <summary>
+    /// AF-S02: Single sample homozygous produces valid exact frequencies.
+    /// Source: Minimum valid input
+    /// </summary>
+    [Test]
+    [TestCase(1, 0, 0, 1.0, 0.0, TestName = "Single hom major → (1.0, 0.0)")]
+    [TestCase(0, 1, 0, 0.5, 0.5, TestName = "Single het → (0.5, 0.5)")]
+    [TestCase(0, 0, 1, 0.0, 1.0, TestName = "Single hom minor → (0.0, 1.0)")]
+    public void CalculateAlleleFrequencies_SingleSample_ReturnsExactFrequencies(
+        int homMaj, int het, int homMin, double expectedMajor, double expectedMinor)
+    {
+        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
+            homMaj, het, homMin);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(major, Is.EqualTo(expectedMajor).Within(1e-10),
+                "Major frequency for single sample");
+            Assert.That(minor, Is.EqualTo(expectedMinor).Within(1e-10),
+                "Minor frequency for single sample");
+        });
+    }
+
+    /// <summary>
+    /// AF-M10: Wikipedia Allele Frequency article diploid example.
+    /// Source: Wikipedia "Allele frequency" § Diploids → Example:
+    ///   "10 individuals: 6 AA, 3 AB, 1 BB → p = 15/20 = 0.75, q = 5/20 = 0.25"
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_WikipediaDiploidExample_ReturnsCorrectFrequencies()
+    {
+        // Wikipedia: "freq(AA)=6, freq(AB)=3, freq(BB)=1"
+        // "there are 6×2+3=15 observed copies of the A allele and 1×2+3=5 of the B allele,
+        //  out of 20 total chromosome copies."
+        // p = 15/20 = 0.75, q = 5/20 = 0.25
+        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
+            homozygousMajor: 6,
+            heterozygous: 3,
+            homozygousMinor: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(major, Is.EqualTo(0.75).Within(1e-10),
+                "Major allele frequency should be 0.75 (Wikipedia diploid example)");
+            Assert.That(minor, Is.EqualTo(0.25).Within(1e-10),
+                "Minor allele frequency should be 0.25 (Wikipedia diploid example)");
+        });
+    }
+
+    /// <summary>
+    /// AF-M11: NDSU blood type example (MN locus).
+    /// Source: NDSU "Population and Evolutionary Genetics" (McClean, 1998):
+    ///   "1787 MM, 3039 MN, 1303 NN → f(M) = [(2×1787)+3039]/12258 = 0.5395"
+    /// URL: https://web.archive.org/web/20240512174813/https://www.ndsu.edu/pubweb/~mcclean/plsc431/popgen/popgen2.htm
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_NdsuBloodTypeExample_ReturnsCorrectFrequencies()
+    {
+        // NDSU: 6129 individuals scored for MN blood type
+        // MM=1787, MN=3039, NN=1303
+        // f(M) = [(2×1787)+3039] / [2×6129] = 6613/12258 ≈ 0.5394
+        // f(N) = [(2×1303)+3039] / 12258 = 5645/12258 ≈ 0.4606
+        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
+            homozygousMajor: 1787,
+            heterozygous: 3039,
+            homozygousMinor: 1303);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(major, Is.EqualTo(6613.0 / 12258.0).Within(1e-10),
+                "f(M) should match NDSU blood type example");
+            Assert.That(minor, Is.EqualTo(5645.0 / 12258.0).Within(1e-10),
+                "f(N) should match NDSU blood type example");
+            Assert.That(major, Is.EqualTo(0.5394).Within(0.001),
+                "f(M) ≈ 0.5395 (NDSU rounded)");
+            Assert.That(minor, Is.EqualTo(0.4606).Within(0.001),
+                "f(N) ≈ 0.4605 (NDSU rounded)");
+        });
+    }
+
+    /// <summary>
+    /// AF-M12: NDSU molecular marker example.
+    /// Source: NDSU "Population and Evolutionary Genetics" (McClean, 1998):
+    ///   "30 hom 6.5kb, 50 het, 20 hom 3.0kb → p = 110/200 = 0.55, q = 90/200 = 0.45"
+    /// URL: https://web.archive.org/web/20240512174813/https://www.ndsu.edu/pubweb/~mcclean/plsc431/popgen/popgen2.htm
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_NdsuMolecularExample_ReturnsCorrectFrequencies()
+    {
+        // NDSU: molecular marker data, 100 individuals
+        // 30 hom(6.5kb), 50 het, 20 hom(3.0kb)
+        // p = [(2×30)+50]/200 = 110/200 = 0.55
+        // q = [(2×20)+50]/200 = 90/200 = 0.45
+        var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
+            homozygousMajor: 30,
+            heterozygous: 50,
+            homozygousMinor: 20);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(major, Is.EqualTo(0.55).Within(1e-10),
+                "p should be 0.55 (NDSU molecular example)");
+            Assert.That(minor, Is.EqualTo(0.45).Within(1e-10),
+                "q should be 0.45 (NDSU molecular example)");
+        });
+    }
+
+    /// <summary>
+    /// AF-M13: Negative homozygous major count throws ArgumentOutOfRangeException.
+    /// Source: Input validation — genotype counts are non-negative by definition.
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_NegativeHomozygousMajor_ThrowsArgumentOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(-1, 0, 0));
+    }
+
+    /// <summary>
+    /// AF-M14: Negative heterozygous count throws ArgumentOutOfRangeException.
+    /// Source: Input validation — genotype counts are non-negative by definition.
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_NegativeHeterozygous_ThrowsArgumentOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(0, -1, 0));
+    }
+
+    /// <summary>
+    /// AF-M15: Negative homozygous minor count throws ArgumentOutOfRangeException.
+    /// Source: Input validation — genotype counts are non-negative by definition.
+    /// </summary>
+    [Test]
+    public void CalculateAlleleFrequencies_NegativeHomozygousMinor_ThrowsArgumentOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(0, 0, -1));
     }
 
     #endregion
@@ -218,12 +366,13 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
     {
         // 10 samples: 5 hom ref (0), 4 het (1), 1 hom alt (2)
         // Alt alleles = 0×5 + 1×4 + 2×1 = 6
-        // Total = 20, alt freq = 0.3, MAF = 0.3
+        // Total = 20, alt freq = 6/20 = 0.3, MAF = 0.3
         var genotypes = new[] { 0, 0, 0, 0, 0, 1, 1, 1, 1, 2 };
 
         double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
 
-        Assert.That(maf, Is.EqualTo(0.3).Within(0.001));
+        Assert.That(maf, Is.EqualTo(6.0 / 20.0).Within(1e-10),
+            "MAF should equal alt_freq = 6/20 when alt_freq < 0.5");
     }
 
     /// <summary>
@@ -235,12 +384,13 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
     {
         // 10 samples: 1 hom ref (0), 4 het (1), 5 hom alt (2)
         // Alt alleles = 0×1 + 1×4 + 2×5 = 14
-        // Total = 20, alt freq = 0.7, MAF = 0.3
+        // Total = 20, alt freq = 14/20 = 0.7, MAF = 1 - 0.7 = 0.3
         var genotypes = new[] { 0, 1, 1, 1, 1, 2, 2, 2, 2, 2 };
 
         double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
 
-        Assert.That(maf, Is.EqualTo(0.3).Within(0.001));
+        Assert.That(maf, Is.EqualTo(1.0 - 14.0 / 20.0).Within(1e-10),
+            "MAF should equal 1 - alt_freq when alt_freq > 0.5");
     }
 
     /// <summary>
@@ -316,11 +466,12 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
     {
         // 4 samples: 2 het gives alt_freq = 0.5
         var genotypes = new[] { 0, 1, 1, 2 };
-        // Alt alleles = 0 + 1 + 1 + 2 = 4, total = 8, freq = 0.5
+        // Alt alleles = 0 + 1 + 1 + 2 = 4, total = 8, freq = 4/8 = 0.5
 
         double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
 
-        Assert.That(maf, Is.EqualTo(0.5).Within(0.001));
+        Assert.That(maf, Is.EqualTo(0.5).Within(1e-10),
+            "MAF at balanced polymorphism should be exactly 0.5");
     }
 
     /// <summary>
@@ -335,7 +486,7 @@ public class PopulationGeneticsAnalyzer_AlleleFrequency_Tests
     {
         double maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
 
-        Assert.That(maf, Is.EqualTo(expectedMaf).Within(0.001));
+        Assert.That(maf, Is.EqualTo(expectedMaf).Within(1e-10));
     }
 
     #endregion

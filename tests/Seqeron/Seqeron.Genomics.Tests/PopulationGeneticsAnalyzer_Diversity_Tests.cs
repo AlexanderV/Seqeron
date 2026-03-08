@@ -111,6 +111,38 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     }
 
     [Test]
+    [Description("ND-M04: Wikipedia Tajima's D example dataset → k̂ = 2.0, π = 0.1")]
+    public void CalculateNucleotideDiversity_WikipediaExample_CalculatesCorrectly()
+    {
+        // Arrange - Wikipedia Tajima's D example: 5 sequences, length 20
+        // Source: https://en.wikipedia.org/wiki/Tajima%27s_D#Example
+        // Person Y: 00000000000000000000
+        // Person A: 00100000000010000010
+        // Person B: 00000000000010000010
+        // Person C: 00000010000000000010
+        // Person D: 00000010000010000010
+        // Using '0'/'1' characters to represent alleles
+        var sequences = new List<IReadOnlyList<char>>
+        {
+            "00000000000000000000".ToList(), // Y
+            "00100000000010000010".ToList(), // A
+            "00000000000010000010".ToList(), // B
+            "00000010000000000010".ToList(), // C
+            "00000010000010000010".ToList(), // D
+        };
+
+        // Act
+        double pi = PopulationGeneticsAnalyzer.CalculateNucleotideDiversity(sequences);
+
+        // Assert
+        // Pairwise differences (from Wikipedia):
+        //   Y-A:3, Y-B:2, Y-C:2, Y-D:3, A-B:1, A-C:3, A-D:2, B-C:2, B-D:1, C-D:1
+        //   Total = 20, Comparisons = C(5,2) = 10, k̂ = 20/10 = 2.0
+        //   π = k̂ / L = 2.0 / 20 = 0.1
+        Assert.That(pi, Is.EqualTo(0.1).Within(0.0001));
+    }
+
+    [Test]
     [Description("ND-S01: Partial polymorphism with 3+ sequences")]
     public void CalculateNucleotideDiversity_PartialPolymorphism_CalculatesCorrectly()
     {
@@ -252,12 +284,17 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
         double theta5 = PopulationGeneticsAnalyzer.CalculateWattersonTheta(s, 5, l);
         double theta10 = PopulationGeneticsAnalyzer.CalculateWattersonTheta(s, 10, l);
 
-        // Assert - θ decreases as n increases (a₁ increases)
+        // Assert — exact values from formula θ = S/(a₁×L):
+        // a₁(3)  = 1 + 1/2 = 3/2          → θ = 10/(1.5×100)   = 0.06667
+        // a₁(5)  = 1 + 1/2 + 1/3 + 1/4 = 25/12 → θ = 10/(2.08333×100) = 0.048
+        // a₁(10) = Σ(1/i, i=1..9) ≈ 2.82897      → θ = 10/(2.82897×100) ≈ 0.03535
         Assert.Multiple(() =>
         {
-            Assert.That(theta3, Is.GreaterThan(theta5));
-            Assert.That(theta5, Is.GreaterThan(theta10));
-            Assert.That(theta3, Is.EqualTo(10.0 / (1.5 * 100)).Within(0.001)); // a₁(3) = 1.5
+            Assert.That(theta3, Is.EqualTo(10.0 / (1.5 * 100)).Within(0.0001), "a₁(3) = 1.5");
+            Assert.That(theta5, Is.EqualTo(10.0 / (25.0 / 12.0 * 100)).Within(0.0001), "a₁(5) = 25/12");
+            Assert.That(theta10, Is.EqualTo(0.03535).Within(0.0005), "a₁(10) ≈ 2.82897");
+            Assert.That(theta3, Is.GreaterThan(theta5), "θ decreases as n increases");
+            Assert.That(theta5, Is.GreaterThan(theta10), "θ decreases as n increases");
         });
     }
 
@@ -266,54 +303,59 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     #region CalculateTajimasD Tests
 
     [Test]
-    [Description("TD-M01: When π ≈ θ (neutral evolution), D ≈ 0")]
+    [Description("TD-M01: When k\u0302 \u2248 S/a\u2081 (neutral evolution), D \u2248 0")]
     public void CalculateTajimasD_NeutralEvolution_NearZero()
     {
-        // Arrange - equal diversity estimates suggest neutral evolution
-        double nucleotideDiversity = 0.01;
-        double wattersonTheta = 0.01;
+        // Arrange - when average pairwise differences match Watterson estimate
+        // For n=50, a\u2081 \u2248 4.499, S=100 \u2192 S/a\u2081 \u2248 22.23
+        // Set k\u0302 = S/a\u2081 to simulate neutral evolution
+        double a1 = 0;
+        for (int i = 1; i < 50; i++) a1 += 1.0 / i;
+        double kHat = 100.0 / a1; // k\u0302 = S/a\u2081 (neutral expectation)
         int segregatingSites = 100;
         int sampleSize = 50;
 
         // Act
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity, wattersonTheta, segregatingSites, sampleSize);
+            kHat, segregatingSites, sampleSize);
 
-        // Assert - D should be very close to 0
-        Assert.That(d, Is.EqualTo(0).Within(0.5));
+        // Assert - D should be exactly 0 when k\u0302 = S/a\u2081
+        Assert.That(d, Is.EqualTo(0).Within(0.001));
     }
 
     [Test]
-    [Description("TD-M02: When π << θ (positive selection/expansion), D < 0")]
+    [Description("TD-M02: When k\u0302 << S/a\u2081 (positive selection/expansion), D < 0")]
     public void CalculateTajimasD_PositiveSelection_Negative()
     {
-        // Arrange - excess of rare variants (π << θ)
-        double nucleotideDiversity = 0.001;
-        double wattersonTheta = 0.01;
+        // Arrange - excess of rare variants (k\u0302 << S/a\u2081)
+        // For n=50, a\u2081 \u2248 4.499, S=100 \u2192 S/a\u2081 \u2248 22.23
+        // Set k\u0302 much lower than S/a\u2081
+        double kHat = 5.0; // much less than S/a\u2081 \u2248 22.23
         int segregatingSites = 100;
         int sampleSize = 50;
 
         // Act
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity, wattersonTheta, segregatingSites, sampleSize);
+            kHat, segregatingSites, sampleSize);
 
         // Assert
         Assert.That(d, Is.LessThan(0));
     }
 
     [Test]
-    [Description("TD-M03: When π >> θ (balancing selection), D > 0")]
+    [Description("TD-M03: When k\u0302 >> S/a\u2081 (balancing selection), D > 0")]
     public void CalculateTajimasD_BalancingSelection_Positive()
     {
-        // Arrange - deficit of rare variants (π >> θ)
-        double nucleotideDiversity = 0.02;
-        double wattersonTheta = 0.005;
+        // Arrange - deficit of rare variants (k\u0302 >> S/a\u2081)
+        // For n=50, a\u2081 \u2248 4.499, S=50 \u2192 S/a\u2081 \u2248 11.11
+        // Set k\u0302 much higher than S/a\u2081
+        double kHat = 40.0; // much more than S/a\u2081 \u2248 11.11
         int segregatingSites = 50;
         int sampleSize = 50;
 
         // Act
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity, wattersonTheta, segregatingSites, sampleSize);
+            kHat, segregatingSites, sampleSize);
 
         // Assert
         Assert.That(d, Is.GreaterThan(0));
@@ -324,14 +366,13 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     public void CalculateTajimasD_NoSegregatingSites_ReturnsZero()
     {
         // Arrange
-        double nucleotideDiversity = 0;
-        double wattersonTheta = 0;
+        double kHat = 0;
         int segregatingSites = 0;
         int sampleSize = 50;
 
         // Act
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity, wattersonTheta, segregatingSites, sampleSize);
+            kHat, segregatingSites, sampleSize);
 
         // Assert
         Assert.That(d, Is.EqualTo(0));
@@ -342,8 +383,8 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     public void CalculateTajimasD_SampleSizeLessThanThree_ReturnsZero()
     {
         // Arrange & Act
-        double d1 = PopulationGeneticsAnalyzer.CalculateTajimasD(0.01, 0.01, 10, 1);
-        double d2 = PopulationGeneticsAnalyzer.CalculateTajimasD(0.01, 0.01, 10, 2);
+        double d1 = PopulationGeneticsAnalyzer.CalculateTajimasD(5.0, 10, 1);
+        double d2 = PopulationGeneticsAnalyzer.CalculateTajimasD(5.0, 10, 2);
 
         // Assert
         Assert.Multiple(() =>
@@ -358,18 +399,75 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     public void CalculateTajimasD_MinimumValidSampleSize_CalculatesValue()
     {
         // Arrange
-        double nucleotideDiversity = 0.01;
-        double wattersonTheta = 0.015;
+        double kHat = 5.0; // average pairwise differences
         int segregatingSites = 10;
         int sampleSize = 3;
 
         // Act
         double d = PopulationGeneticsAnalyzer.CalculateTajimasD(
-            nucleotideDiversity, wattersonTheta, segregatingSites, sampleSize);
+            kHat, segregatingSites, sampleSize);
 
         // Assert - should produce a valid (possibly non-zero) result
         Assert.That(double.IsNaN(d), Is.False);
         Assert.That(double.IsInfinity(d), Is.False);
+    }
+
+    [Test]
+    [Description("TD-C01: Wikipedia Tajima's D full example — exact numerical verification")]
+    public void CalculateTajimasD_WikipediaExample_ExactValue()
+    {
+        // Source: https://en.wikipedia.org/wiki/Tajima%27s_D#Example
+        // n=5, S=4, k̂=2.0
+        //
+        // a₁ = 1 + 1/2 + 1/3 + 1/4 = 25/12 ≈ 2.08333
+        // a₂ = 1 + 1/4 + 1/9 + 1/16 = 205/144 ≈ 1.42361
+        // S/a₁ = 4/2.08333 ≈ 1.92
+        // d = k̂ − S/a₁ = 2.0 − 1.92 = 0.08
+        //
+        // b₁ = 6/12 = 0.5
+        // b₂ = 66/180 ≈ 0.36667
+        // c₁ = 0.5 − 1/2.08333 = 0.02
+        // c₂ = 0.36667 − 7/10.41667 + 1.42361/4.34028 ≈ 0.02267
+        // e₁ = 0.02/2.08333 ≈ 0.009600
+        // e₂ = 0.02267/5.76389 ≈ 0.003933
+        //
+        // Var = e₁·S + e₂·S·(S−1) = 0.0384 + 0.04720 ≈ 0.08560
+        // D = 0.08 / √0.08560 ≈ 0.2734
+        double kHat = 2.0;
+        int segregatingSites = 4;
+        int sampleSize = 5;
+
+        double d = PopulationGeneticsAnalyzer.CalculateTajimasD(kHat, segregatingSites, sampleSize);
+
+        Assert.That(d, Is.EqualTo(0.273).Within(0.005),
+            "Wikipedia example: D should be approximately 0.273");
+    }
+
+    [Test]
+    [Description("TD-C02: Full end-to-end: Wikipedia sequences → CalculateDiversityStatistics → correct D")]
+    public void CalculateDiversityStatistics_WikipediaExample_CorrectTajimasD()
+    {
+        // Source: https://en.wikipedia.org/wiki/Tajima%27s_D#Example
+        // Same dataset as TD-C01 and ND-M04
+        var sequences = new List<IReadOnlyList<char>>
+        {
+            "00000000000000000000".ToList(), // Y
+            "00100000000010000010".ToList(), // A
+            "00000000000010000010".ToList(), // B
+            "00000010000000000010".ToList(), // C
+            "00000010000010000010".ToList(), // D
+        };
+
+        var stats = PopulationGeneticsAnalyzer.CalculateDiversityStatistics(sequences);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.SampleSize, Is.EqualTo(5));
+            Assert.That(stats.SegregratingSites, Is.EqualTo(4), "S = 4 (positions 3,7,13,19)");
+            Assert.That(stats.NucleotideDiversity, Is.EqualTo(0.1).Within(0.001), "π = 2.0/20 = 0.1");
+            Assert.That(stats.WattersonTheta, Is.EqualTo(0.096).Within(0.001), "θ_W = 4/(2.083×20) ≈ 0.096");
+            Assert.That(stats.TajimasD, Is.EqualTo(0.273).Within(0.005), "D ≈ 0.273 per Wikipedia hand-calculation");
+        });
     }
 
     #endregion
@@ -377,10 +475,13 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
     #region CalculateDiversityStatistics Tests
 
     [Test]
-    [Description("DS-M01: Returns all metrics with correct sample size")]
+    [Description("DS-M01: Returns all metrics with exact values")]
     public void CalculateDiversityStatistics_ReturnsAllMetrics()
     {
-        // Arrange
+        // Arrange - 3 sequences, length 8
+        // Seq1: ACGTACGT
+        // Seq2: ACGTATGT (pos 5: C→T)
+        // Seq3: ACGTACGA (pos 7: T→A)
         var sequences = new List<IReadOnlyList<char>>
         {
             "ACGTACGT".ToList(),
@@ -391,15 +492,22 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
         // Act
         var stats = PopulationGeneticsAnalyzer.CalculateDiversityStatistics(sequences);
 
-        // Assert
+        // Assert — all values hand-computed from theory:
+        // S = 2 (positions 5, 7)
+        // Pairwise diffs: (1,2)=1, (1,3)=1, (2,3)=2, total=4, C(3,2)=3
+        // k̂ = 4/3, π = 4/(3×8) = 1/6
+        // a₁(3) = 1 + 1/2 = 3/2, θ_W = 2/(1.5×8) = 1/6
+        // k̂ = S/a₁ = 4/3 = 4/3 → D = 0
+        // H_exp = (4/9 + 4/9)/8 = 1/9, H_obs = 3/2 × 1/9 = 1/6
         Assert.Multiple(() =>
         {
             Assert.That(stats.SampleSize, Is.EqualTo(3));
-            Assert.That(stats.SegregratingSites, Is.GreaterThan(0));
-            Assert.That(stats.NucleotideDiversity, Is.GreaterThanOrEqualTo(0));
-            Assert.That(stats.WattersonTheta, Is.GreaterThanOrEqualTo(0));
-            Assert.That(stats.HeterozygosityObserved, Is.GreaterThanOrEqualTo(0));
-            Assert.That(stats.HeterozygosityExpected, Is.GreaterThanOrEqualTo(0));
+            Assert.That(stats.SegregratingSites, Is.EqualTo(2), "S = 2 (positions 5, 7)");
+            Assert.That(stats.NucleotideDiversity, Is.EqualTo(1.0 / 6.0).Within(0.0001), "π = 4/(3×8) = 1/6");
+            Assert.That(stats.WattersonTheta, Is.EqualTo(1.0 / 6.0).Within(0.0001), "θ_W = 2/(1.5×8) = 1/6");
+            Assert.That(stats.TajimasD, Is.EqualTo(0).Within(0.001), "k̂ = S/a₁ → D = 0");
+            Assert.That(stats.HeterozygosityObserved, Is.EqualTo(1.0 / 6.0).Within(0.0001), "H_obs = n/(n-1) × H_exp = 1/6");
+            Assert.That(stats.HeterozygosityExpected, Is.EqualTo(1.0 / 9.0).Within(0.0001), "H_exp = (8/9)/8 = 1/9");
         });
     }
 
@@ -533,39 +641,6 @@ public class PopulationGeneticsAnalyzer_Diversity_Tests
             Assert.That(stats.SegregratingSites, Is.EqualTo(0));
             Assert.That(stats.NucleotideDiversity, Is.EqualTo(0));
             Assert.That(stats.WattersonTheta, Is.EqualTo(0));
-        });
-    }
-
-    #endregion
-
-    #region Integration Tests
-
-    [Test]
-    [Description("Comprehensive statistics for diverse population")]
-    public void CalculateDiversityStatistics_DiversePopulation_AllMetricsReasonable()
-    {
-        // Arrange - moderately diverse population
-        var sequences = new List<IReadOnlyList<char>>
-        {
-            "ACGTACGTACGT".ToList(),
-            "ACGTACGTATGT".ToList(),
-            "ACGTACGTACGA".ToList(),
-            "ACGTACGTACGT".ToList(),
-            "TCGTACGTACGT".ToList()
-        };
-
-        // Act
-        var stats = PopulationGeneticsAnalyzer.CalculateDiversityStatistics(sequences);
-
-        // Assert - sanity checks
-        Assert.Multiple(() =>
-        {
-            Assert.That(stats.SampleSize, Is.EqualTo(5));
-            Assert.That(stats.SegregratingSites, Is.GreaterThan(0));
-            Assert.That(stats.NucleotideDiversity, Is.GreaterThan(0));
-            Assert.That(stats.WattersonTheta, Is.GreaterThan(0));
-            Assert.That(double.IsNaN(stats.TajimasD), Is.False);
-            Assert.That(double.IsInfinity(stats.TajimasD), Is.False);
         });
     }
 

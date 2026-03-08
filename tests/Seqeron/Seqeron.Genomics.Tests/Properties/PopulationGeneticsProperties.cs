@@ -29,8 +29,8 @@ public class PopulationGeneticsProperties
         {
             var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
                 counts.Item1, counts.Item2, counts.Item3);
-            return (Math.Abs(major + minor - 1.0) < 0.0001)
-                .Label($"MajorFreq={major:F4} + MinorFreq={minor:F4} = {major + minor:F4}");
+            return (Math.Abs(major + minor - 1.0) < 1e-10)
+                .Label($"MajorFreq={major:F10} + MinorFreq={minor:F10} = {major + minor:F10}");
         });
     }
 
@@ -56,21 +56,23 @@ public class PopulationGeneticsProperties
     }
 
     /// <summary>
-    /// Each allele frequency must be in [0, 1].
+    /// MAF-C01: MAF is always in [0, 0.5] for any valid genotype set.
+    /// Source: MAF invariant — MAF = min(f, 1-f)
     /// </summary>
     [FsCheck.NUnit.Property]
-    public Property AlleleFrequencies_InRange()
+    public Property MAF_IsAlwaysInRange()
     {
-        var genGen = Gen.Choose(0, 100).Three()
-            .Where(t => t.Item1 + t.Item2 + t.Item3 > 0)
+        // Generate arrays of length 1..50, each element in {0,1,2}
+        var genoGen = Gen.Choose(0, 2)
+            .ArrayOf()
+            .Where(a => a.Length > 0)
             .ToArbitrary();
 
-        return Prop.ForAll(genGen, counts =>
+        return Prop.ForAll(genoGen, genotypes =>
         {
-            var (major, minor) = PopulationGeneticsAnalyzer.CalculateAlleleFrequencies(
-                counts.Item1, counts.Item2, counts.Item3);
-            return (major >= 0.0 && major <= 1.0 && minor >= 0.0 && minor <= 1.0)
-                .Label($"Major={major:F4}, Minor={minor:F4} — both must be in [0,1]");
+            var maf = PopulationGeneticsAnalyzer.CalculateMAF(genotypes);
+            return (maf >= 0.0 && maf <= 0.5)
+                .Label($"MAF={maf:F6} must be in [0, 0.5]");
         });
     }
 

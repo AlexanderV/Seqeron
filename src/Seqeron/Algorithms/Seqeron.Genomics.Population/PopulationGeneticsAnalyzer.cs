@@ -106,11 +106,21 @@ public static class PopulationGeneticsAnalyzer
     /// <summary>
     /// Calculates allele frequencies from genotype counts.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when any genotype count is negative.
+    /// </exception>
     public static (double MajorFreq, double MinorFreq) CalculateAlleleFrequencies(
         int homozygousMajor,
         int heterozygous,
         int homozygousMinor)
     {
+        if (homozygousMajor < 0)
+            throw new ArgumentOutOfRangeException(nameof(homozygousMajor), homozygousMajor, "Genotype count cannot be negative.");
+        if (heterozygous < 0)
+            throw new ArgumentOutOfRangeException(nameof(heterozygous), heterozygous, "Genotype count cannot be negative.");
+        if (homozygousMinor < 0)
+            throw new ArgumentOutOfRangeException(nameof(homozygousMinor), homozygousMinor, "Genotype count cannot be negative.");
+
         int totalAlleles = 2 * (homozygousMajor + heterozygous + homozygousMinor);
 
         if (totalAlleles == 0)
@@ -217,10 +227,18 @@ public static class PopulationGeneticsAnalyzer
 
     /// <summary>
     /// Calculates Tajima's D statistic.
+    /// Formula (Tajima 1989, Wikipedia):
+    ///   D = (k̂ − S/a₁) / √(e₁·S + e₂·S·(S−1))
+    /// where k̂ = average number of pairwise differences (NOT per-site).
     /// </summary>
+    /// <param name="averagePairwiseDifferences">
+    /// k̂ — average number of nucleotide differences per pair of sequences.
+    /// Equals π (per-site nucleotide diversity) × L (sequence length).
+    /// </param>
+    /// <param name="segregatingSites">S — number of polymorphic positions.</param>
+    /// <param name="sampleSize">n — number of sequences in the sample (requires n ≥ 3).</param>
     public static double CalculateTajimasD(
-        double nucleotideDiversity,
-        double wattersonTheta,
+        double averagePairwiseDifferences,
         int segregatingSites,
         int sampleSize)
     {
@@ -237,7 +255,10 @@ public static class PopulationGeneticsAnalyzer
             a2 += 1.0 / (i * i);
         }
 
-        // Calculate constants
+        // Watterson estimate of expected pairwise differences: S / a₁
+        double wattersonEstimate = (double)segregatingSites / a1;
+
+        // Calculate constants (Tajima 1989)
         double b1 = (n + 1.0) / (3 * (n - 1));
         double b2 = 2.0 * (n * n + n + 3) / (9 * n * (n - 1));
         double c1 = b1 - 1.0 / a1;
@@ -245,14 +266,14 @@ public static class PopulationGeneticsAnalyzer
         double e1 = c1 / a1;
         double e2 = c2 / (a1 * a1 + a2);
 
-        // Calculate variance
+        // Calculate variance of d = k̂ − S/a₁
         double variance = e1 * segregatingSites + e2 * segregatingSites * (segregatingSites - 1);
 
         if (variance <= 0)
             return 0;
 
-        // Tajima's D
-        double d = nucleotideDiversity - wattersonTheta;
+        // Tajima's D = d / √V̂(d)
+        double d = averagePairwiseDifferences - wattersonEstimate;
         return d / Math.Sqrt(variance);
     }
 
@@ -283,7 +304,10 @@ public static class PopulationGeneticsAnalyzer
 
         double pi = CalculateNucleotideDiversity(seqList);
         double theta = CalculateWattersonTheta(segregatingSites, n, length);
-        double tajD = CalculateTajimasD(pi, theta, segregatingSites, n);
+
+        // k̂ = average pairwise differences (unnormalized) = π × L
+        double kHat = pi * length;
+        double tajD = CalculateTajimasD(kHat, segregatingSites, n);
 
         // Calculate heterozygosity
         double hetObs = CalculateObservedHeterozygosity(seqList);
@@ -299,24 +323,45 @@ public static class PopulationGeneticsAnalyzer
             HeterozygosityExpected: hetExp);
     }
 
+    /// <summary>
+    /// Nei's (1978) unbiased gene diversity per site, serving as the haploid analogue
+    /// of observed heterozygosity. Formula: (n/(n-1)) × (1 − Σp_i²) averaged over sites.
+    /// Source: Nei M. (1978) "Estimation of average heterozygosity and genetic distance
+    /// from a small number of individuals", Genetics 89(3):583–590.
+    /// </summary>
     private static double CalculateObservedHeterozygosity(List<IReadOnlyList<char>> sequences)
     {
         if (sequences.Count < 2)
             return 0;
 
+        int n = sequences.Count;
         int length = sequences[0].Count;
-        int hetSites = 0;
+        double totalHet = 0;
 
         for (int pos = 0; pos < length; pos++)
         {
-            var alleles = sequences.Select(s => s[pos]).Distinct().ToList();
-            if (alleles.Count > 1)
-                hetSites++;
+            var alleleCounts = sequences
+                .GroupBy(s => s[pos])
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            double sumPiSquared = alleleCounts.Values
+                .Select(c => (double)c / n)
+                .Select(p => p * p)
+                .Sum();
+
+            // Nei's unbiased estimator: n/(n-1) × (1 - Σp²)
+            totalHet += (double)n / (n - 1) * (1 - sumPiSquared);
         }
 
-        return (double)hetSites / length;
+        return totalHet / length;
     }
 
+    /// <summary>
+    /// Basic gene diversity per site (expected heterozygosity).
+    /// Formula: (1 − Σp_i²) averaged over sites.
+    /// Source: Wikipedia — Zygosity, "Heterozygosity in population genetics".
+    /// H_e = 1 − Σ f_i² where f_i = allele frequency.
+    /// </summary>
     private static double CalculateExpectedHeterozygosity(List<IReadOnlyList<char>> sequences)
     {
         if (sequences.Count < 2)

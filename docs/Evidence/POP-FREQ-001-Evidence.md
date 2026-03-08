@@ -17,7 +17,7 @@
 | 2 | Wikipedia: Minor allele frequency | Encyclopedia | https://en.wikipedia.org/wiki/Minor_allele_frequency | 2026-02-01 |
 | 3 | Wikipedia: Genotype frequency | Encyclopedia | https://en.wikipedia.org/wiki/Genotype_frequency | 2026-02-01 |
 | 4 | Gillespie (2004) - Population Genetics: A Concise Guide | Textbook | ISBN 978-0-8018-8008-7 | 2026-02-01 |
-| 5 | NDSU Population Genetics | Educational | https://www.ndsu.edu/pubweb/~mcclean/plsc431/popgen/popgen2.htm | 2026-02-01 |
+| 5 | NDSU Population Genetics (McClean, 1998) | Educational | https://web.archive.org/web/20240512174813/https://www.ndsu.edu/pubweb/~mcclean/plsc431/popgen/popgen2.htm | 2026-02-01 (archived 2024-05-12) |
 
 ---
 
@@ -120,7 +120,7 @@ For a locus with two alleles A and B:
 | E-1 | Zero samples | Return (0, 0) or handle gracefully |
 | E-2 | Single sample | Valid frequency calculation |
 | E-3 | Very large population | No overflow |
-| E-4 | Negative counts | ASSUMPTION: Not validated (caller responsibility) |
+| E-4 | Negative counts | Rejected with `ArgumentOutOfRangeException` — genotype counts are non-negative by definition |
 
 ### 4.2 MAF Boundary Conditions
 
@@ -152,12 +152,14 @@ For a locus with two alleles A and B:
 
 **CalculateAlleleFrequencies:**
 ```
+Validate: all counts ≥ 0 (throws ArgumentOutOfRangeException if negative)
 Total alleles = 2 × (hom_maj + het + hom_min)
 Major alleles = 2 × hom_maj + het
 Minor alleles = 2 × hom_min + het
 Frequencies = alleles / total
 ```
 ✓ Matches Wikipedia formula
+✓ Input validation eliminates undefined behavior for negative counts
 
 **CalculateMAF:**
 ```
