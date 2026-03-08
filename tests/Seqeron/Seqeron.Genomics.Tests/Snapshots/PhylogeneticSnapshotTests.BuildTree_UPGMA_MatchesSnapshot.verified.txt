@@ -1,6 +1,6 @@
 ﻿{
   Method: UPGMA,
-  Newick: (((Human:0.0259,Chimp:0.0259):0.0687,Gorilla:0.0687):0.2245,Mouse:0.2245);,
+  Newick: (((Human:0.0259,Chimp:0.0259):0.0428,Gorilla:0.0687):0.1559,Mouse:0.2245);,
   Leaves: [
     {
       Name: Chimp,
@@ -19,6 +19,6 @@
       BranchLength: 0.2245
     }
   ],
-  TotalTreeLength: 0.6381,
+  TotalTreeLength: 0.5436,
   TaxaCount: 4
 }

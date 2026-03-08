@@ -173,6 +173,14 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
             Assert.That(tree.Taxa, Has.Count.EqualTo(4));
             Assert.That(tree.DistanceMatrix.GetLength(0), Is.EqualTo(4));
             Assert.That(tree.DistanceMatrix.GetLength(1), Is.EqualTo(4));
+
+            // A and B are identical → must be merged first as siblings
+            var abMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "A", "B");
+            Assert.That(abMRCA, Is.Not.Null, "A,B should share an MRCA");
+            Assert.That(abMRCA!.Left!.IsLeaf && abMRCA.Right!.IsLeaf, Is.True,
+                "Identical A,B should be siblings (merged first by UPGMA)");
+            Assert.That(tree.DistanceMatrix[0, 1], Is.EqualTo(0).Within(1e-10),
+                "Identical sequences A,B should have distance 0");
         });
     }
 
@@ -324,70 +332,260 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
 
     #region S01-S05: Validation Against Wikipedia Examples
 
-    [Test]
-    [Description("S01: UPGMA joins closest pair first (Wikipedia invariant)")]
-    public void BuildTree_UPGMA_JoinsClosestPairFirst()
+    /// <summary>
+    /// Wikipedia UPGMA working example distance matrix (5S rRNA, 5 bacteria).
+    /// Source: https://en.wikipedia.org/wiki/UPGMA#Working_example
+    /// Taxa: a=B.subtilis, b=B.stearothermophilus, c=L.viridescens, d=A.modicum, e=M.luteus
+    /// </summary>
+    private static double[,] WikipediaUPGMAMatrix => new double[,]
     {
-        // Two pairs: (A,B) very close, (C,D) very close
+        { 0, 17, 21, 31, 23 },
+        { 17, 0, 30, 34, 21 },
+        { 21, 30, 0, 28, 39 },
+        { 31, 34, 28, 0, 43 },
+        { 23, 21, 39, 43, 0 }
+    };
+
+    private static readonly string[] WikipediaUPGMATaxa = { "a", "b", "c", "d", "e" };
+
+    /// <summary>
+    /// Wikipedia Neighbor-Joining working example distance matrix (5 taxa).
+    /// Source: https://en.wikipedia.org/wiki/Neighbor_joining#Example
+    /// This is an additive distance matrix.
+    /// </summary>
+    private static double[,] WikipediaNJMatrix => new double[,]
+    {
+        { 0, 5, 9, 9, 8 },
+        { 5, 0, 10, 10, 9 },
+        { 9, 10, 0, 8, 7 },
+        { 9, 10, 8, 0, 3 },
+        { 8, 9, 7, 3, 0 }
+    };
+
+    private static readonly string[] WikipediaNJTaxa = { "a", "b", "c", "d", "e" };
+
+    [Test]
+    [Description("S01: Wikipedia UPGMA example — clustering order matches expected merges")]
+    public void BuildTree_UPGMA_WikipediaExample_CorrectClusteringOrder()
+    {
+        // Source: https://en.wikipedia.org/wiki/UPGMA#Working_example
+        // Expected clustering order:
+        //   1. (a,b) at d=17
+        //   2. ((a,b),e) at d=22
+        //   3. (c,d) at d=28
+        //   4. Final join at d=33
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaUPGMATaxa, WikipediaUPGMAMatrix,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        // Verify: a and b should be siblings (merged first)
+        var abMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "a", "b");
+        Assert.That(abMRCA, Is.Not.Null, "a,b should share an MRCA");
+        Assert.That(abMRCA!.Left!.IsLeaf && abMRCA.Right!.IsLeaf, Is.True,
+            "a and b should be direct children of their MRCA (merged first)");
+
+        // Verify: c and d should be siblings
+        var cdMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "c", "d");
+        Assert.That(cdMRCA, Is.Not.Null, "c,d should share an MRCA");
+        Assert.That(cdMRCA!.Left!.IsLeaf && cdMRCA.Right!.IsLeaf, Is.True,
+            "c and d should be direct children of their MRCA");
+    }
+
+    [Test]
+    [Description("S01b: Wikipedia UPGMA example — branch lengths match expected values")]
+    public void BuildTree_UPGMA_WikipediaExample_CorrectBranchLengths()
+    {
+        // Source: https://en.wikipedia.org/wiki/UPGMA#Working_example
+        // Expected branch lengths:
+        //   δ(a,u) = δ(b,u) = 8.5
+        //   δ(u,v) = 2.5, δ(e,v) = 11
+        //   δ(c,w) = δ(d,w) = 14
+        //   δ(v,r) = 5.5, δ(w,r) = 2.5
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaUPGMATaxa, WikipediaUPGMAMatrix,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        // Find specific nodes
+        var leafA = FindLeafByName(tree.Root, "a");
+        var leafB = FindLeafByName(tree.Root, "b");
+        var leafC = FindLeafByName(tree.Root, "c");
+        var leafD = FindLeafByName(tree.Root, "d");
+        var leafE = FindLeafByName(tree.Root, "e");
+
+        // Also find internal nodes for full branch-length verification
+        var abMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "a", "b");
+        var cdMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "c", "d");
+        var abeMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "a", "e");
+
+        Assert.Multiple(() =>
+        {
+            // Leaf branch lengths (exact integer arithmetic → 1e-10 tolerance)
+            // δ(a,u) = δ(b,u) = 8.5
+            Assert.That(leafA!.BranchLength, Is.EqualTo(8.5).Within(1e-10),
+                "δ(a,u) should be 8.5");
+            Assert.That(leafB!.BranchLength, Is.EqualTo(8.5).Within(1e-10),
+                "δ(b,u) should be 8.5");
+
+            // δ(c,w) = δ(d,w) = 14
+            Assert.That(leafC!.BranchLength, Is.EqualTo(14.0).Within(1e-10),
+                "δ(c,w) should be 14");
+            Assert.That(leafD!.BranchLength, Is.EqualTo(14.0).Within(1e-10),
+                "δ(d,w) should be 14");
+
+            // δ(e,v) = 11
+            Assert.That(leafE!.BranchLength, Is.EqualTo(11.0).Within(1e-10),
+                "δ(e,v) should be 11");
+
+            // Internal branch lengths
+            // δ(u,v) = height(v) - height(u) = 11 - 8.5 = 2.5
+            Assert.That(abMRCA!.BranchLength, Is.EqualTo(2.5).Within(1e-10),
+                "δ(u_ab, v) should be 2.5");
+
+            // δ(w,root) = height(root) - height(w) = 16.5 - 14 = 2.5
+            Assert.That(cdMRCA!.BranchLength, Is.EqualTo(2.5).Within(1e-10),
+                "δ(w_cd, root) should be 2.5");
+
+            // δ(v,root) = height(root) - height(v) = 16.5 - 11 = 5.5
+            Assert.That(abeMRCA!.BranchLength, Is.EqualTo(5.5).Within(1e-10),
+                "δ(v, root) should be 5.5");
+        });
+    }
+
+    [Test]
+    [Description("S01c: Wikipedia UPGMA example — ultrametric property (all tips equidistant from root)")]
+    public void BuildTree_UPGMA_WikipediaExample_Ultrametric()
+    {
+        // Source: https://en.wikipedia.org/wiki/UPGMA#The_UPGMA_dendrogram
+        // "It is ultrametric because all tips (a to e) are equidistant from r:
+        //  δ(a,r) = δ(b,r) = δ(e,r) = δ(c,r) = δ(d,r) = 16.5"
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaUPGMATaxa, WikipediaUPGMAMatrix,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        // Calculate root-to-tip distance for each taxon
+        var tipDistances = new Dictionary<string, double>();
+        CalculateRootToTipDistances(tree.Root, 0.0, tipDistances);
+
+        Assert.Multiple(() =>
+        {
+            foreach (var taxon in WikipediaUPGMATaxa)
+            {
+                Assert.That(tipDistances[taxon], Is.EqualTo(16.5).Within(1e-10),
+                    $"Root-to-tip distance for '{taxon}' should be 16.5");
+            }
+        });
+    }
+
+    [Test]
+    [Description("S02: Wikipedia NJ example — patristic distances match input (additive matrix, INV-N01 topology guarantee)")]
+    public void BuildTree_NJ_WikipediaExample_PatristicDistancesMatchInput()
+    {
+        // Source: https://en.wikipedia.org/wiki/Neighbor_joining#Conclusion:_additive_distances
+        // "if we move from any taxon to any other along the branches of the tree,
+        //  and sum the lengths of the branches traversed, the result is equal to
+        //  the distance between those taxa in the input distance matrix."
+        //
+        // Also covers INV-N01: NJ is guaranteed to find the correct topology
+        // for additive distance matrices (Wikipedia NJ, Advantages and disadvantages).
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        int n = WikipediaNJTaxa.Length;
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + 1; j < n; j++)
+                {
+                    double patristic = PhylogeneticAnalyzer.PatristicDistance(
+                        tree.Root, WikipediaNJTaxa[i], WikipediaNJTaxa[j]);
+                    double expected = WikipediaNJMatrix[i, j];
+                    Assert.That(patristic, Is.EqualTo(expected).Within(1e-10),
+                        $"Patristic d({WikipediaNJTaxa[i]},{WikipediaNJTaxa[j]}) = {patristic:F6}, expected {expected}");
+                }
+            }
+        });
+    }
+
+    [Test]
+    [Description("S02b: Wikipedia NJ example — first join is (a,b) per Q-matrix minimum")]
+    public void BuildTree_NJ_WikipediaExample_CorrectTopology()
+    {
+        // Source: https://en.wikipedia.org/wiki/Neighbor_joining#First_joining
+        // Q1(a,b) = -50 is the unique smallest value → a,b joined first.
+        //
+        // Note: In step 2, Q2(u,c) = Q2(d,e) = -28 (tied minimum).
+        // Wikipedia: "We may choose either to join u and c, or to join d and e."
+        // Both topologies are valid NJ results. We only assert the deterministic
+        // first-step topology: a and b must be siblings.
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        // a and b should be siblings (unique Q-minimum in step 1)
+        var abMRCA = PhylogeneticAnalyzer.FindMRCA(tree.Root, "a", "b");
+        Assert.That(abMRCA, Is.Not.Null, "a,b should share an MRCA");
+        Assert.That(abMRCA!.Left!.IsLeaf && abMRCA.Right!.IsLeaf, Is.True,
+            "a and b should be direct children of their join node");
+
+        // Verify all 5 taxa are present as leaves
+        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root)
+            .Select(l => l.Name).ToHashSet();
+        Assert.That(leaves, Is.EquivalentTo(new[] { "a", "b", "c", "d", "e" }));
+    }
+
+    [Test]
+    [Description("S02c: Wikipedia NJ example — branch lengths δ(a,u)=2, δ(b,u)=3 per first step")]
+    public void BuildTree_NJ_WikipediaExample_FirstJoinBranchLengths()
+    {
+        // Source: https://en.wikipedia.org/wiki/Neighbor_joining#First_branch_length_estimation
+        // δ(a,u) = 2, δ(b,u) = 3
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        var leafA = FindLeafByName(tree.Root, "a");
+        var leafB = FindLeafByName(tree.Root, "b");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(leafA!.BranchLength, Is.EqualTo(2.0).Within(1e-10),
+                "δ(a,u) should be 2");
+            Assert.That(leafB!.BranchLength, Is.EqualTo(3.0).Within(1e-10),
+                "δ(b,u) should be 3");
+        });
+    }
+
+    [Test]
+    [Description("S03: UPGMA ultrametric property holds for general input")]
+    public void BuildTree_UPGMA_GeneralInput_Ultrametric()
+    {
         var sequences = new Dictionary<string, string>
         {
-            ["A"] = "AAAAAAAA",
-            ["B"] = "AAAAAAAC",  // 1 difference from A
-            ["C"] = "CCCCCCCC",
-            ["D"] = "CCCCCCCA"   // 1 difference from C
+            ["A"] = "ACGTACGT",
+            ["B"] = "ACGTACGA",
+            ["C"] = "TCGTACGT",
+            ["D"] = "GCGTACGA"
         };
 
         var tree = PhylogeneticAnalyzer.BuildTree(
             sequences,
             treeMethod: PhylogeneticAnalyzer.TreeMethod.UPGMA);
 
-        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).ToList();
+        var tipDistances = new Dictionary<string, double>();
+        CalculateRootToTipDistances(tree.Root, 0.0, tipDistances);
 
-        Assert.That(leaves, Has.Count.EqualTo(4));
-        // The tree should group (A,B) and (C,D) based on similarity
-    }
-
-    [Test]
-    [Description("S02: Neighbor-Joining produces valid tree for divergent sequences")]
-    public void BuildTree_NeighborJoining_HandlesVariableRates()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGTACGT",
-            ["B"] = "ACGTACGA",  // 1 change
-            ["C"] = "TTTTTTTT"   // Very different
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(
-            sequences,
-            treeMethod: PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
-
-        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).ToList();
-
+        // All tips must be equidistant from root (ultrametric)
+        double firstDist = tipDistances.Values.First();
         Assert.Multiple(() =>
         {
-            Assert.That(leaves, Has.Count.EqualTo(3));
-            Assert.That(tree.Root, Is.Not.Null);
+            foreach (var kvp in tipDistances)
+            {
+                Assert.That(kvp.Value, Is.EqualTo(firstDist).Within(1e-6),
+                    $"Root-to-tip for '{kvp.Key}' = {kvp.Value:F6}, expected {firstDist:F6} (ultrametric)");
+            }
         });
-    }
-
-    [Test]
-    [Description("S03: Tree depth is appropriate for number of taxa")]
-    public void BuildTree_TreeDepth_AppropriateForTaxaCount()
-    {
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGT",
-            ["B"] = "TCGT",
-            ["C"] = "GCGT",
-            ["D"] = "CCGT"
-        };
-
-        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
-        int depth = PhylogeneticAnalyzer.GetTreeDepth(tree.Root);
-
-        // For 4 taxa in a binary tree, depth should be 2-3
-        Assert.That(depth, Is.InRange(1, 3), "Depth should be reasonable for binary tree");
     }
 
     [Test]
@@ -432,20 +630,80 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
         var tree = PhylogeneticAnalyzer.BuildTree(sequences);
         var leafNames = PhylogeneticAnalyzer.GetLeaves(tree.Root).Select(l => l.Name).ToHashSet();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(leafNames, Does.Contain("Homo_sapiens"));
-            Assert.That(leafNames, Does.Contain("Pan_troglodytes"));
-            Assert.That(leafNames, Does.Contain("Mus_musculus"));
-        });
+        Assert.That(leafNames, Is.EquivalentTo(new[] { "Homo_sapiens", "Pan_troglodytes", "Mus_musculus" }),
+            "Leaf names must exactly match input taxon names — no extras, no missing");
     }
+
+    // S06 removed: was duplicate of S02 (same data, same patristic-distance-matches-input assertion).
+    // INV-N01 topology guarantee is now covered by S02.
 
     #endregion
 
-    #region C01-C03: Extended Coverage
+    #region C01-C05: Extended Coverage
 
     [Test]
-    [Description("C01: Different distance methods all produce valid trees")]
+    [Description("C01: Large input (50+ sequences) completes in reasonable time — O(n³) complexity")]
+    public void BuildTree_LargeInput_CompletesInReasonableTime()
+    {
+        // Generate 50 random sequences of length 100
+        var random = new Random(42);
+        var sequences = new Dictionary<string, string>();
+        for (int i = 0; i < 50; i++)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int j = 0; j < 100; j++)
+                sb.Append("ACGT"[random.Next(4)]);
+            sequences[$"Taxon_{i:D3}"] = sb.ToString();
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
+        sw.Stop();
+
+        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Root, Is.Not.Null);
+            Assert.That(tree.Taxa, Has.Count.EqualTo(50));
+            Assert.That(leaves, Has.Count.EqualTo(50));
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(30_000),
+                "50-taxon UPGMA tree should build in < 30 s (O(n³) with n=50)");
+        });
+    }
+
+    [Test]
+    [Description("C02: Gap-only columns are handled correctly — gaps skipped, not treated as mismatches")]
+    public void BuildTree_GapOnlyColumns_HandledCorrectly()
+    {
+        // Positions 4-5 are gap-only columns for all sequences
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "ACGT--ACGT",
+            ["B"] = "ACGT--ACGT",  // Identical to A at all non-gap sites
+            ["C"] = "TCGT--ACGT"   // Differs at position 0 only
+        };
+
+        var tree = PhylogeneticAnalyzer.BuildTree(sequences);
+        var leaves = PhylogeneticAnalyzer.GetLeaves(tree.Root).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tree.Root, Is.Not.Null);
+            Assert.That(leaves, Has.Count.EqualTo(3));
+
+            // A and B identical at 8 comparable sites → distance 0
+            Assert.That(tree.DistanceMatrix[0, 1], Is.EqualTo(0).Within(1e-10),
+                "Identical sequences at non-gap positions should have distance 0");
+
+            // A and C differ at 1 of 8 comparable sites → positive distance
+            Assert.That(tree.DistanceMatrix[0, 2], Is.GreaterThan(0),
+                "Sequences differing at non-gap sites should have positive distance");
+        });
+    }
+
+    [Test]
+    [Description("C03: Different distance methods all produce valid trees")]
     [TestCase(PhylogeneticAnalyzer.DistanceMethod.Hamming)]
     [TestCase(PhylogeneticAnalyzer.DistanceMethod.PDistance)]
     [TestCase(PhylogeneticAnalyzer.DistanceMethod.JukesCantor)]
@@ -470,7 +728,7 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
     }
 
     [Test]
-    [Description("C02: Tree total length is sum of all branch lengths")]
+    [Description("C04: Tree total length is sum of all branch lengths")]
     public void BuildTree_TreeLength_IsSumOfBranchLengths()
     {
         var sequences = new Dictionary<string, string>
@@ -487,7 +745,7 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
     }
 
     [Test]
-    [Description("C03: Both tree methods produce trees with same leaf set")]
+    [Description("C05: Both tree methods produce trees with same leaf set")]
     public void BuildTree_BothMethods_ProduceSameLeafSet()
     {
         var sequences = new Dictionary<string, string>
@@ -536,6 +794,42 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
         nodes.Add(node);
         CollectNodes(node.Left, nodes);
         CollectNodes(node.Right, nodes);
+    }
+
+    /// <summary>
+    /// Recursively calculates the distance from the root to each leaf (tip).
+    /// Used to verify the ultrametric property of UPGMA trees.
+    /// </summary>
+    private static void CalculateRootToTipDistances(
+        PhylogeneticAnalyzer.PhyloNode? node,
+        double accumulatedDistance,
+        Dictionary<string, double> tipDistances)
+    {
+        if (node == null) return;
+
+        if (node.IsLeaf)
+        {
+            tipDistances[node.Name] = accumulatedDistance;
+            return;
+        }
+
+        if (node.Left != null)
+            CalculateRootToTipDistances(node.Left,
+                accumulatedDistance + node.Left.BranchLength, tipDistances);
+        if (node.Right != null)
+            CalculateRootToTipDistances(node.Right,
+                accumulatedDistance + node.Right.BranchLength, tipDistances);
+    }
+
+    /// <summary>
+    /// Finds a leaf node by name in the tree.
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode? FindLeafByName(
+        PhylogeneticAnalyzer.PhyloNode? node, string name)
+    {
+        if (node == null) return null;
+        if (node.IsLeaf) return node.Name == name ? node : null;
+        return FindLeafByName(node.Left, name) ?? FindLeafByName(node.Right, name);
     }
 
     #endregion
