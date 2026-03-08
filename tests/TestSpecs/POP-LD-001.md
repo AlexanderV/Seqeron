@@ -62,41 +62,32 @@
 ## Existing Tests Audit
 
 ### Current Location
-- File: `Seqeron.Genomics.Tests/PopulationGeneticsAnalyzerTests.cs`
-- Region: `#region Linkage Disequilibrium Tests`
+- File: `Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs`
 
-### Existing Tests
+### Test Coverage
 
-| Test Name | Coverage | Status | Action |
-|-----------|----------|--------|--------|
-| `CalculateLD_PerfectLD_ReturnsHighValues` | M6 | Weak | Strengthen assertions |
-| `CalculateLD_NoLD_ReturnsLowValues` | M7 | Weak | Strengthen assertions |
-| `CalculateLD_RecordsDistance` | M4, M5 | Covered | Move to canonical file |
-| `FindHaplotypeBlocks_HighLD_CreatesBlock` | M11 | Weak | Strengthen assertions |
-| `FindHaplotypeBlocks_LowLD_NoBlock` | M12 | Covered | Move to canonical file |
-| `CalculateLD_EmptyGenotypes_ReturnsZeroLD` | M1 | Covered | Move to canonical file |
-| `FindHaplotypeBlocks_SingleVariant_NoBlocks` | M9 | Covered | Move to canonical file |
-
-### Missing Tests (All Closed)
-
-| Must ID | Status |
-|---------|--------|
-| M2 | ✅ Covered |
-| M3 | ✅ Covered |
-| M8 | ✅ Covered |
-| M10 | ✅ Covered |
-| M13 | ✅ Covered |
-| M14 | ✅ Covered |
-
----
-
-## Consolidation Plan
-
-1. **Create:** `PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs`
-2. **Move:** All LD tests from `PopulationGeneticsAnalyzerTests.cs`
-3. **Refactor:** Strengthen weak tests with proper assertions
-4. **Add:** Missing MUST tests
-5. **Remove:** Duplicate comment placeholders in original file
+| Test Name | Covers | Status |
+|-----------|--------|--------|
+| `CalculateLD_EmptyGenotypes_ReturnsZeroLD` | M1 | ✅ Covered |
+| `CalculateLD_PreservesVariantIdsAndDistance` | M4, M5 | ✅ Covered |
+| `CalculateLD_PerfectLD_ReturnsExactValues` | M6 | ✅ Covered (r²=1.0, D'=1.0) |
+| `CalculateLD_NoLD_ReturnsZeroValues` | M7 | ✅ Covered (r²=0.0, D'=0.0) |
+| `CalculateLD_RSquared_AlwaysInValidRange` | M2 | ✅ Covered |
+| `CalculateLD_DPrime_AlwaysInValidRange` | M3 | ✅ Covered |
+| `CalculateLD_MonomorphicFirstLocus_ReturnsZeroRSquared` | M8 | ✅ Covered |
+| `CalculateLD_MonomorphicSecondLocus_ReturnsZeroRSquared` | M8 | ✅ Covered |
+| `CalculateLD_SingleGenotypePair_ReturnsValidResult` | S1 | ✅ Covered |
+| `CalculateLD_AllHomozygousMajor_ReturnsZeroRSquared` | S2 | ✅ Covered |
+| `CalculateLD_AllHomozygousMinor_ReturnsZeroRSquared` | S3 | ✅ Covered |
+| `FindHaplotypeBlocks_SingleVariant_ReturnsNoBlocks` | M9 | ✅ Covered |
+| `FindHaplotypeBlocks_EmptyVariants_ReturnsNoBlocks` | M10 | ✅ Covered |
+| `FindHaplotypeBlocks_HighLD_CreatesBlock` | M11 | ✅ Covered |
+| `FindHaplotypeBlocks_LowLD_ReturnsNoBlocks` | M12 | ✅ Covered |
+| `FindHaplotypeBlocks_BlockPositions_StartLessThanOrEqualToEnd` | M13 | ✅ Covered |
+| `FindHaplotypeBlocks_EachBlock_ContainsAtLeastTwoVariants` | M14 | ✅ Covered |
+| `FindHaplotypeBlocks_ThresholdParameter_AffectsBlockFormation` | S4 | ✅ Covered |
+| `FindHaplotypeBlocks_UnorderedInput_OrdersByPosition` | S5 | ✅ Covered |
+| `FindHaplotypeBlocks_MultipleBlocks_DetectsAll` | S6 | ✅ Covered |
 
 ---
 
@@ -108,16 +99,19 @@ var genotypes = new List<(int, int)>
 {
     (0, 0), (0, 0), (1, 1), (1, 1), (2, 2), (2, 2)
 };
-// Expected: High r² (≥ 0.5), high D'
+// Identical genotype vectors → r² = 1.0, D' = 1.0
+// Math: mean=1, Cov=Var=2/3 → r²=1.0; D=1/3, D_max=0.25, clamped → D'=1.0
 ```
 
-### No LD Dataset
+### No LD Dataset (3×3 balanced design)
 ```csharp
 var genotypes = new List<(int, int)>
 {
-    (0, 2), (2, 0), (1, 1), (0, 1), (2, 1), (1, 0)
+    (0, 0), (0, 1), (0, 2),
+    (1, 0), (1, 1), (1, 2),
+    (2, 0), (2, 1), (2, 2)
 };
-// Expected: Low r² (< 0.3)
+// Every X₂ value appears equally within each X₁ level → Cov = 0 → r² = 0, D' = 0
 ```
 
 ### Monomorphic Locus 1
@@ -126,25 +120,22 @@ var genotypes = new List<(int, int)>
 {
     (0, 0), (0, 1), (0, 2), (0, 0)
 };
-// First locus monomorphic (all 0), second varies
-// Expected: r² = 0 (protected from division by zero)
+// First locus monomorphic (all 0), Var(X₁) = 0
+// Expected: r² = 0, D' = 0 (protected from division by zero)
 ```
 
 ---
 
-## Open Questions
+## Deviations and Assumptions
 
-None.
+**None.** All tests and implementation are grounded in the authoritative sources listed in the Evidence document.
 
----
-
-## Decisions
-
-1. **Weak assertion threshold:** Use 0.4 as minimum for "high" r² in perfect LD test (due to phase estimation uncertainty)
-2. **Block threshold:** Use 0.3 as lower threshold in block detection tests to ensure blocks are found
-3. **Test file naming:** `PopulationGeneticsAnalyzer_LinkageDisequilibrium_Tests.cs`
+- r² is computed as the squared Pearson correlation of genotype values (0, 1, 2). From Wikipedia (LD for diploid frequencies): the diploid correlation R_AB equals the haplotype-level r_AB.
+- D is estimated from the diploid genotype covariance: D = Cov(X₁,X₂)/2, per Wikipedia (LD for diploid frequencies).
+- D' is normalized per Lewontin (1964): D' = |D| / D_max, clamped to [0, 1].
+- Haplotype block detection uses adjacent-pair r² threshold (simplified Gabriel et al. 2002). Default threshold: 0.7.
 
 ---
 
 ## Last Updated
-2026-02-01
+2026-03-08

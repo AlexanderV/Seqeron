@@ -136,68 +136,49 @@ When alleles are independent:
 
 ## Implementation Notes
 
-### CalculateLD Method (Hill 1974 Composite LD Estimator)
+### CalculateLD Method
 
-The implementation uses the **Hill (1974) composite linkage disequilibrium estimator**,
-which calculates r² directly from genotype correlation without requiring phase information:
+**r² — Squared Pearson correlation of genotype values.**
 
-**Reference:** Hill WG (1974) "Estimation of linkage disequilibrium in randomly mating populations" Heredity 33:229-239
+From Wikipedia (LD for diploid frequencies): the diploid correlation R_AB
+equals the haplotype-level r_AB (Wright 1933, Hill & Robertson 1968).
 
-**Formula:**
 ```
 r² = Cov(X₁, X₂)² / (Var(X₁) × Var(X₂))
 ```
 
 Where:
-- X₁, X₂ are genotype values (0, 1, 2 = count of minor alleles)
+- X₁, X₂ are genotype values (0, 1, 2 = count of alternate alleles)
 - Cov = Σ(X₁ᵢ - μ₁)(X₂ᵢ - μ₂) / n
 - Var = Σ(Xᵢ - μ)² / n
 
-**Advantages of this approach:**
+Properties:
 1. Does not require haplotype phase information
 2. Mathematically equivalent to squared Pearson correlation
-3. For identical genotypes: r² = 1.0 (perfect LD)
-4. For independent genotypes: r² = 0.0 (no LD)
-5. Handles both positive and negative correlations (r² captures magnitude)
+3. For identical genotype vectors: r² = 1.0 (perfect LD)
+4. For balanced (independent) genotype vectors: r² = 0.0 (no LD)
 
-**Genotype coding:**
-- 0 = homozygous reference (AA)
-- 1 = heterozygous (Aa)
-- 2 = homozygous alternate (aa)
+**D' — Lewontin's normalized D.**
 
-**D' calculation:**
-D' is estimated using the Lewontin normalization based on allele frequencies
-derived from genotype means.
+D is estimated from the diploid genotype covariance. From Wikipedia (LD for diploid frequencies):
+Cov_diploid(X₁, X₂) = 2D in the 0/1/2 encoding, therefore D = Cov(X₁, X₂) / 2.
+
+D' is then computed per Lewontin (1964):
+```
+D' = |D| / D_max,  clamped to [0, 1]
+
+D_max = min(p_A × (1-p_B), (1-p_A) × p_B)  when D ≥ 0
+D_max = min(p_A × p_B, (1-p_A) × (1-p_B))  when D < 0
+```
 
 ### FindHaplotypeBlocks Method
-Uses adjacent-pair LD (simplified Gabriel et al. 2002 method):
+Uses adjacent-pair r² threshold (simplified Gabriel et al. 2002 method):
 - Consecutive variants with r² ≥ threshold form a block
 - Default threshold: 0.7
 
 ---
 
-## Test Coverage
-
-### Reference Data Tests (Added 2026-02-05)
-Tests validated against published literature:
-
-**HapMap Consortium (2005):**
-- `CalculateLD_HapMapInterpretation_HighLDThreshold` - validates r² = 1.0 for identical genotypes
-- Tests reflect HapMap criterion: r² > 0.8 for tag SNP selection
-
-**Hill & Robertson (1968):**
-- `CalculateLD_HillRobertsonFormula_CorrectRange` - validates 0 ≤ r² ≤ 1
-- Tests confirm r² formula: D² / (pA × qA × pB × qB)
-
-**Lewontin (1964):**
-- `CalculateLD_LewontinDPrime_NormalizedCorrectly` - validates |D'| ≤ 1
-
-**Gabriel et al. (2002):**
-- `FindHaplotypeBlocks_GabrielCriteria_HighLDBlocksDetected` - validates block detection algorithm
-
----
-
-## Corner Cases Requiring Tests
+## Corner Cases
 
 | Case | Source | Expected Behavior |
 |------|--------|-------------------|
@@ -205,7 +186,7 @@ Tests validated against published literature:
 | Single genotype pair | Statistical requirement | Valid but unreliable |
 | All identical genotypes | No variation | r² = 0 (no polymorphism) |
 | Perfect correlation | Mathematical limit | r² = 1, D' = 1 |
-| Perfect anti-correlation | Mathematical limit | r² = 1, D' = -1 or 1 |
+| Perfect anti-correlation | Mathematical limit | r² = 1, D' = 1 |
 | Monomorphic locus 1 | Division by zero | r² = 0 (protected) |
 | Monomorphic locus 2 | Division by zero | r² = 0 (protected) |
 | Single variant for blocks | Block definition | No blocks |
@@ -214,12 +195,12 @@ Tests validated against published literature:
 
 ---
 
-## Last Updated
-2026-02-05
+## Deviations and Assumptions
 
-## Change History
-- **2026-02-05**: Added reference data tests from HapMap, Hill & Robertson, Gabriel et al.
-- **2026-02-05**: Fixed CalculateLD implementation. Replaced haplotype frequency estimation 
-  (which incorrectly gave r²≈0.44 for identical genotypes) with Hill (1974) composite LD estimator
-  using genotype correlation. Now correctly returns r²=1.0 for perfect LD.
-- **2026-02-01**: Initial documentation.
+**None.** All formulas and test data are derived from Wikipedia (Linkage disequilibrium),
+Lewontin (1964), Hill & Robertson (1968), and Gabriel et al. (2002).
+
+---
+
+## Last Updated
+2026-03-08
