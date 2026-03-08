@@ -47,10 +47,8 @@
 | ID | Test Name | Description | Source |
 |----|-----------|-------------|--------|
 | M10 | Ratio1_ReturnsReference | T/S=1.0 → returns reference length | Cawthon (2002) |
-| M11 | HigherRatio_LongerTelomere | T/S > 1 → proportionally longer | Cawthon (2002) |
-| M12 | LowerRatio_ShorterTelomere | T/S < 1 → proportionally shorter | Cawthon (2002) |
 | M13 | ZeroRatio_ReturnsZero | T/S = 0 → length = 0 | Edge case |
-| M14 | LinearProportionality | length = refLen × (ratio / refRatio) | Cawthon (2002) |
+| M14 | LinearProportionality | length = refLen × (ratio / refRatio); covers higher ratio → longer, lower ratio → shorter | Cawthon (2002) |
 
 ---
 
@@ -117,39 +115,21 @@ Empty: ""
 
 ## Audit Results
 
-### Existing Tests (ChromosomeAnalyzerTests.cs)
-| Test | Status | Action |
-|------|--------|--------|
-| AnalyzeTelomeres_With3PrimeTelomere_DetectsTelomere | Covered | Keep, enhance assertions |
-| AnalyzeTelomeres_With5PrimeTelomere_DetectsTelomere | Covered | Keep |
-| AnalyzeTelomeres_CriticallyShort_DetectsCriticalLength | Covered | Keep |
-| AnalyzeTelomeres_NoTelomere_ReturnsNoTelomere | Covered | Keep |
-| AnalyzeTelomeres_EmptySequence_ReturnsNoTelomere | Covered | Keep |
-| EstimateTelomereLengthFromTSRatio_CalculatesCorrectly | Covered | Expand with more cases |
-
-### Missing Tests
-| Test | Priority | Added |
-|------|----------|-------|
-| Both ends detected | Must | Yes |
-| Case insensitivity | Should | Yes |
-| Length matches repeat count | Must | Yes |
-| T/S ratio edge cases | Must | Yes |
-| Invariants validation | Must | Yes |
-
-### Consolidation Plan
-- **Canonical file:** ChromosomeAnalyzer_Telomere_Tests.cs (new)
-- **Action:** Extract telomere tests from ChromosomeAnalyzerTests.cs into dedicated file
-- **Duplicates:** None found
-- **Enhancements:** ~~Add missing Must tests~~ ✅ Done, improve assertions with Assert.Multiple
+### Canonical Test File
+- **File:** ChromosomeAnalyzer_Telomere_Tests.cs
+- **Total tests:** 30 (including parameterized variants)
+- **Coverage:** All MUST, SHOULD, and COULD tests implemented
+- **Duplicates:** M11 and M12 removed (exact duplicates of M14 test cases)
+- **Strengthened:** S2 (Lowercase/MixedCase now assert exact length + purity), S1 (CustomRepeat now asserts exact length + purity), M5 (NoRepeats now asserts lengths = 0), Invariants (now check both 5' and 3' consistency)
+- **Added:** S3 (DivergentRepeats_LowerPurity), S4 (LongTelomere_FullyMeasured), S5 (SearchLength_Limits)
 
 ---
 
-## Open Questions / Decisions
+## Deviations and Assumptions
 
-None - all behavior is well-documented.
-
----
-
-## ASSUMPTIONS
-
-None - all test rationale backed by cited sources.
+None — implementation and tests verified against external sources:
+- **Telomere repeat (TTAGGG):** Wikipedia telomere sequences table; Meyne et al. (1989)
+- **5'/3' orientation:** Wikipedia chromosome structure; CCCTAA at 5' end confirmed via `GetReverseComplementString`
+- **T/S ratio formula:** Cawthon (2002) — proportionality relationship `length = refLen × (tsRatio / refRatio)`
+- **Species repeats:** Wikipedia (Arabidopsis TTTAGGG, Tetrahymena TTGGGG, Bombyx mori TTAGG)
+- **Configurable parameters** (criticalLength, minTelomereLength, referenceLength) are implementation defaults, not biological constants
