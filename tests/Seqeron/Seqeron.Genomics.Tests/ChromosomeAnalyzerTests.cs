@@ -157,12 +157,8 @@ public class ChromosomeAnalyzerTests
         Assert.That(ChromosomeAnalyzer.HumanTelomereRepeat, Is.EqualTo("TTAGGG"));
     }
 
-    [Test]
-    public void AlphaSatelliteConsensus_IsNotEmpty()
-    {
-        Assert.That(ChromosomeAnalyzer.AlphaSatelliteConsensus, Is.Not.Empty);
-        Assert.That(ChromosomeAnalyzer.AlphaSatelliteConsensus.Length, Is.GreaterThan(50));
-    }
+    // AlphaSatelliteConsensus tests consolidated into ChromosomeAnalyzer_Centromere_Tests.cs
+    // as part of CHROM-CENT-001 test unit
 
     #endregion
 

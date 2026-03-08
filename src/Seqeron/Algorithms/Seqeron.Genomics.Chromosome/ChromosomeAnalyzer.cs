@@ -473,7 +473,9 @@ public static class ChromosomeAnalyzer
     }
 
     /// <summary>
-    /// Determines centromere type based on position.
+    /// Determines centromere type based on arm ratio per Levan et al. (1964).
+    /// Source: Levan A, Fredga K, Sandberg AA. "Nomenclature for centromeric position
+    /// on chromosomes". Hereditas. 1964;52(2):201-220.
     /// </summary>
     private static string DetermineCentromereType(int chromosomeLength, int? centStart, int? centEnd)
     {
@@ -481,14 +483,19 @@ public static class ChromosomeAnalyzer
             return "Unknown";
 
         int centMid = (centStart.Value + centEnd.Value) / 2;
-        double position = centMid / (double)chromosomeLength;
+        int pArm = Math.Min(centMid, chromosomeLength - centMid);
+        int qArm = Math.Max(centMid, chromosomeLength - centMid);
 
-        return position switch
+        if (pArm == 0)
+            return "Telocentric";
+
+        double armRatio = (double)qArm / pArm;
+
+        return armRatio switch
         {
-            < 0.15 => "Acrocentric",
-            < 0.35 => "Submetacentric",
-            < 0.65 => "Metacentric",
-            < 0.85 => "Submetacentric",
+            <= 1.7 => "Metacentric",
+            <= 3.0 => "Submetacentric",
+            < 7.0 => "Subtelocentric",
             _ => "Acrocentric"
         };
     }
