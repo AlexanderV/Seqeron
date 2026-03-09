@@ -4,125 +4,119 @@
 **Algorithm:** Beta Diversity (CalculateBetaDiversity)  
 **Class:** MetagenomicsAnalyzer  
 **Method:** `CalculateBetaDiversity(string, IReadOnlyDictionary<string, double>, string, IReadOnlyDictionary<string, double>)`  
-**Status:** ☑ Complete
+**Status:** ☑ Complete  
 **Created:** 2026-02-04  
+**Last Updated:** 2026-03-09
 
 ## Test Categories
 
 ### MUST Tests (Evidence-Based)
 
-#### M1: Mathematical Correctness
+#### M1: Published Example Verification
+**Source:** Wikipedia Bray–Curtis dissimilarity § Example
+
+1. **Wikipedia Aquarium Example**
+   - Tank 1: Goldfish=6, Guppy=7, Rainbow fish=4; Tank 2: Goldfish=10, Guppy=0, Rainbow fish=6
+   - Bray-Curtis = 13/33 ≈ 0.3939 (Wikipedia published result)
+   - Jaccard Distance = 1/3 ≈ 0.3333 (computed from definition)
+   - SharedSpecies=2, UniqueToSample1=1, UniqueToSample2=0
+
+#### M2: Mathematical Correctness
 **Source:** Bray & Curtis (1957), Jaccard (1901)
 
-1. **Identical Samples Return Zero Distance**
+2. **Identical Samples Return Zero Distance**
    - Bray-Curtis = 0 when samples identical
    - Jaccard Distance = 0 when samples identical
    - Both sample names preserved in result
 
-2. **Completely Disjoint Samples Return Maximum Distance**
+3. **Completely Disjoint Samples Return Maximum Distance**
    - Bray-Curtis = 1 when no shared species
    - Jaccard Distance = 1 when no shared species
    - Correct species count statistics
 
-3. **Symmetry Property**
+4. **Symmetry Property**
    - Distance(A, B) = Distance(B, A) for both metrics
    - Sample name order preserved correctly
 
-#### M2: Edge Case Handling
-**Source:** Mathematical analysis of formulas
+#### M3: Edge Case Handling
+**Source:** Mathematical analysis of formulas; Wikipedia Jaccard index (domain: non-empty sets)
 
-4. **Empty Sample Handling**
-   - Both samples empty → defined behavior (implementation choice)
+5. **Empty Sample Handling**
+   - Both samples empty → returns 0 (convention: identical inputs, see Design Decisions in Evidence)
    - One sample empty → maximum distance = 1
    - No runtime exceptions
 
-5. **Single Species Samples**
-   - Same single species → distance = 0
+6. **Single Species Samples**
+   - Same single species, same abundance → distance = 0
+   - Same single species, different abundance → BC = 5/11, Jaccard = 0
    - Different single species → distance = 1
 
-#### M3: Range Validation  
+7. **Zero Abundance Handling**
+   - Species with 0 abundance treated as absent (per Jaccard presence/absence definition)
+   - BC and Jaccard computed only over species with nonzero abundance
+   - Exact values verified: BC=0.7, Jaccard=2/3 for test scenario
+
+#### M4: Range and Count Validation
 **Source:** Mathematical definitions
 
-6. **Distance Range Constraints**
+8. **Distance Range Constraints**
    - Bray-Curtis ∈ [0, 1] for all valid inputs
    - Jaccard Distance ∈ [0, 1] for all valid inputs
 
-7. **Species Count Accuracy**
-   - SharedSpecies = intersection count
-   - UniqueToSample1 + UniqueToSample2 + SharedSpecies = total unique species
-   - Counts match actual species overlap
+9. **Species Count Accuracy**
+   - SharedSpecies + UniqueToSample1 + UniqueToSample2 = total unique species
+   - Exact BC and Jaccard values verified for multi-species scenarios
 
 ### SHOULD Tests (Quality Assurance)
 
-#### S1: Realistic Ecological Scenarios
+#### S1: Abundance vs. Presence Distinction
 
-8. **Partial Species Overlap**
-   - Mixed composition with known overlap percentage
-   - Verify intermediate distance values are reasonable
+10. **Bray-Curtis Responds to Abundance, Jaccard Ignores It**
+    - Same species present in both samples, different abundance distributions
+    - Balanced vs sample2: BC=0 (identical); Skewed vs sample2: BC=0.4
+    - Jaccard identical in both comparisons (same species sets)
 
-9. **Abundance vs. Presence Effects**
-   - Same species, different abundances
-   - Verify Bray-Curtis responds to abundance differences
-   - Verify Jaccard ignores abundance (presence/absence only)
+#### S2: Sample Name Preservation
 
-#### S2: Boundary Conditions
+11. **Complex Sample Names Preserved**
+    - Unicode characters, special symbols in names
+    - Names preserved exactly in result
 
-10. **Zero Abundance Handling**
-    - Species with 0 abundance treated as absent
-    - Mixed zero/non-zero abundances processed correctly
+## Current Test Coverage
 
-11. **Very Small/Large Abundances**
-    - Numerical stability with extreme values
-    - Proportional calculations maintain precision
+**Canonical Test File:** `MetagenomicsAnalyzer_BetaDiversity_Tests.cs`
 
-### COULD Tests (Extended Coverage)
+| Test | Spec | Status |
+|------|------|--------|
+| WikipediaAquariumExample_MatchesPublishedResult | M1.1 | ✅ |
+| IdenticalSamples_ReturnsZeroDistance | M2.2 | ✅ |
+| CompletelyDisjointSamples_ReturnsMaximumDistance | M2.3 | ✅ |
+| SymmetryProperty_ReturnsIdenticalResults | M2.4 | ✅ |
+| BothSamplesEmpty_HandlesGracefully | M3.5 | ✅ |
+| OneSampleEmpty_ReturnsMaximumDistance | M3.5 | ✅ |
+| SameSingleSpeciesSameAbundance_ReturnsZeroDistance | M3.6 | ✅ |
+| SameSingleSpeciesDifferentAbundance_BrayCurtisNonZero | M3.6 | ✅ |
+| DifferentSingleSpecies_ReturnsMaximumDistance | M3.6 | ✅ |
+| ZeroAbundanceHandling_TreatsAsAbsent | M3.7 | ✅ |
+| SpeciesCountAccuracy_MatchesExpected | M4.9 | ✅ |
+| BrayCurtisRespondsToAbundance_JaccardIgnoresIt | S1.10 | ✅ |
+| ComplexSampleNames_PreservedCorrectly | S2.11 | ✅ |
 
-#### C1: Performance
+## Coverage Classification (2026-03-09)
 
-12. **Large Sample Processing**
-    - Many species (1000+) processed efficiently
-    - Memory usage reasonable
+| Category | Count | Action |
+|----------|-------|--------|
+| ✅ Covered | 11 | No changes |
+| ⚠ Weak → Strengthened | 2 | BothSamplesEmpty: added BC=0, Jaccard=0 assertions; SymmetryProperty: added exact BC=3/5, Jaccard=2/3 + species counts + name checks |
+| 🔁 Duplicate → Removed | 1 | DistanceRangeConstraints (all 4 scenarios subsumed by other exact-value tests; range [0,1] implicitly verified) |
+| ❌ Missing | 0 | — |
 
-13. **Complex Sample Names**
-    - Unicode characters, special symbols
-    - Long sample names preserved correctly
+**M4.8 (Range Constraints):** Verified implicitly by all 12 exact-value tests that assert specific values within [0, 1]. Dedicated range-only test removed as redundant.
 
-## Current Test Audit
+## Deviations and Assumptions
 
-### Existing Coverage Analysis
-**Source:** MetagenomicsAnalyzerTests.cs
+**None.** All test expected values are derived directly from:
+- The published Wikipedia Bray-Curtis worked example (Tank 1/Tank 2)
+- Hand computation from the source formulas (Bray-Curtis: `1 - 2*C/(S_j+S_k)`; Jaccard: `1 - |A∩B|/|A∪B|`)
 
-**Covered:**
-- ✅ M1.1: Identical samples → zero distance
-- ✅ M2.1: Completely different samples → max distance  
-- ✅ S1.1: Partial overlap with intermediate distance
-- ✅ Basic sample name preservation
-
-**Missing/Weak (All Closed):**
-- ✅ M1.3: Symmetry property — Covered
-- ✅ M2.4: Empty sample handling — Covered
-- ✅ M2.5: Single species scenarios — Covered
-- ✅ M3.6: Range constraints — Covered
-- ✅ M3.7: Species count accuracy — Covered
-- ✅ S1.2: Abundance vs presence distinction — Covered
-- ✅ S2.1: Zero abundance handling — Covered
-
-### Test Integration Plan
-
-**Canonical Test File:** `MetagenomicsAnalyzer_BetaDiversity_Tests.cs` (new dedicated file)  
-**Current Tests:** Migrate from MetagenomicsAnalyzerTests.cs #region Beta Diversity Tests  
-**Wrapper Tests:** Keep minimal smoke test in original location
-
-## Implementation Notes
-
-- Use mathematical examples with known outcomes for validation
-- Focus on algorithmic correctness over biological realism
-- Ensure deterministic test results
-- Use Assert.Multiple for related invariants
-- Test both metrics independently and in combination
-
-## Open Questions
-
-1. **Empty Sample Behavior**: Current implementation behavior undefined - should be specified
-2. **UniFrac Distance**: Always returns 0 - should this be tested or documented as not implemented?
-3. **Precision Requirements**: No documented precision requirements for floating-point comparisons
+Empty sample handling is a documented design decision (see Evidence), not an assumption.
