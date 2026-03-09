@@ -203,6 +203,9 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
     /// <summary>
     /// S1: Highly uneven distribution produces low Shannon, high Simpson.
     /// Evidence: Diversity theory — dominance reduces diversity.
+    /// H = -(0.99·ln(0.99) + 0.01·ln(0.01)) ≈ 0.056
+    /// λ = 0.99² + 0.01² ≈ 0.9802
+    /// J = H/ln(2) ≈ 0.081
     /// </summary>
     [Test]
     public void CalculateAlphaDiversity_HighlyUneven_LowDiversityHighDominance()
@@ -213,20 +216,21 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
             { "RareSpecies", 0.01 }
         };
 
-        // Expected: H = −(0.99×ln(0.99) + 0.01×ln(0.01)) ≈ 0.056
-        // Expected: λ = 0.99² + 0.01² ≈ 0.9802
         double expectedShannon = -(0.99 * Math.Log(0.99) + 0.01 * Math.Log(0.01));
         double expectedSimpson = 0.99 * 0.99 + 0.01 * 0.01;
+        double expectedInvSimpson = 1.0 / expectedSimpson;
+        double expectedPielou = expectedShannon / Math.Log(2);
 
         var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
 
         Assert.Multiple(() =>
         {
-            Assert.That(diversity.ShannonIndex, Is.EqualTo(expectedShannon).Within(1e-6), "Shannon low for uneven");
-            Assert.That(diversity.SimpsonIndex, Is.EqualTo(expectedSimpson).Within(1e-6), "Simpson high for uneven");
-            Assert.That(diversity.ShannonIndex, Is.LessThan(0.1), "Shannon < 0.1 for extreme dominance");
-            Assert.That(diversity.SimpsonIndex, Is.GreaterThan(0.9), "Simpson > 0.9 for extreme dominance");
-            Assert.That(diversity.PielouEvenness, Is.LessThan(0.2), "Pielou < 0.2 for extreme unevenness");
+            Assert.That(diversity.ObservedSpecies, Is.EqualTo(2), "ObservedSpecies");
+            Assert.That(diversity.ShannonIndex, Is.EqualTo(expectedShannon).Within(1e-10), "Shannon");
+            Assert.That(diversity.SimpsonIndex, Is.EqualTo(expectedSimpson).Within(1e-10), "Simpson");
+            Assert.That(diversity.InverseSimpson, Is.EqualTo(expectedInvSimpson).Within(1e-10), "InverseSimpson");
+            Assert.That(diversity.PielouEvenness, Is.EqualTo(expectedPielou).Within(1e-10), "Pielou");
+            Assert.That(diversity.Chao1Estimate, Is.EqualTo(2.0).Within(1e-10), "Chao1 = S_obs for proportional data");
         });
     }
 
@@ -366,6 +370,8 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
 
     /// <summary>
     /// C2: Numerical stability with very small abundances.
+    /// H = -(0.999999·ln(0.999999) + 0.000001·ln(0.000001))
+    /// λ = 0.999999² + 0.000001²
     /// </summary>
     [Test]
     public void CalculateAlphaDiversity_VerySmallAbundances_NumericallyStable()
@@ -376,17 +382,123 @@ public class MetagenomicsAnalyzer_AlphaDiversity_Tests
             { "VeryRare", 0.000001 }
         };
 
+        double expectedShannon = -(0.999999 * Math.Log(0.999999) + 0.000001 * Math.Log(0.000001));
+        double expectedSimpson = 0.999999 * 0.999999 + 0.000001 * 0.000001;
+        double expectedInvSimpson = 1.0 / expectedSimpson;
+        double expectedPielou = expectedShannon / Math.Log(2);
+
         var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
 
         Assert.Multiple(() =>
         {
-            Assert.That(diversity.ObservedSpecies, Is.EqualTo(2), "Both species counted");
-            Assert.That(diversity.ShannonIndex, Is.GreaterThan(0), "Shannon > 0");
-            Assert.That(diversity.ShannonIndex, Is.LessThan(0.001), "Shannon very low for extreme dominance");
+            Assert.That(diversity.ObservedSpecies, Is.EqualTo(2), "ObservedSpecies");
+            Assert.That(diversity.ShannonIndex, Is.EqualTo(expectedShannon).Within(1e-10), "Shannon");
+            Assert.That(diversity.SimpsonIndex, Is.EqualTo(expectedSimpson).Within(1e-10), "Simpson");
+            Assert.That(diversity.InverseSimpson, Is.EqualTo(expectedInvSimpson).Within(1e-10), "InverseSimpson");
+            Assert.That(diversity.PielouEvenness, Is.EqualTo(expectedPielou).Within(1e-10), "Pielou");
             Assert.That(double.IsFinite(diversity.ShannonIndex), Is.True, "Shannon is finite");
             Assert.That(double.IsFinite(diversity.SimpsonIndex), Is.True, "Simpson is finite");
-            Assert.That(double.IsNaN(diversity.ShannonIndex), Is.False, "Shannon is not NaN");
         });
+    }
+
+    /// <summary>
+    /// M19: Chao1 with count data containing singletons and doubletons.
+    /// Evidence: Chao (1984) — S_Chao1 = S_obs + f1²/(2·f2).
+    /// Data: {50, 30, 1, 1, 2} → S_obs=5, f1=2, f2=1 → Chao1 = 5 + 4/2 = 7.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_CountDataWithSingletons_Chao1ExceedsObserved()
+    {
+        var abundances = new Dictionary<string, double>
+        {
+            { "Dominant1", 50 },
+            { "Dominant2", 30 },
+            { "Singleton1", 1 },
+            { "Singleton2", 1 },
+            { "Doubleton1", 2 }
+        };
+
+        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diversity.ObservedSpecies, Is.EqualTo(5), "ObservedSpecies");
+            Assert.That(diversity.Chao1Estimate, Is.EqualTo(7.0).Within(1e-10),
+                "Chao1 = 5 + 2²/(2·1) = 7");
+            Assert.That(diversity.Chao1Estimate, Is.GreaterThan(diversity.ObservedSpecies),
+                "Chao1 > ObservedSpecies when singletons present");
+        });
+    }
+
+    /// <summary>
+    /// M19: Chao1 bias-corrected form when f2 = 0.
+    /// Evidence: Chao (1984) — S_Chao1 = S_obs + f1·(f1−1)/2 when f2=0.
+    /// Data: {100, 1, 1, 1} → S_obs=4, f1=3, f2=0 → Chao1 = 4 + 3·2/2 = 7.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_CountDataNoDoubletons_Chao1BiasCorrected()
+    {
+        var abundances = new Dictionary<string, double>
+        {
+            { "Dominant", 100 },
+            { "Singleton1", 1 },
+            { "Singleton2", 1 },
+            { "Singleton3", 1 }
+        };
+
+        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diversity.ObservedSpecies, Is.EqualTo(4), "ObservedSpecies");
+            Assert.That(diversity.Chao1Estimate, Is.EqualTo(7.0).Within(1e-10),
+                "Chao1 = 4 + 3·2/2 = 7 (bias-corrected)");
+        });
+    }
+
+    /// <summary>
+    /// M19: Chao1 equals ObservedSpecies when no singletons (f1=0).
+    /// Evidence: Chao (1984) — when f1=0, correction term is 0.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_CountDataNoSingletons_Chao1EqualsObserved()
+    {
+        var abundances = new Dictionary<string, double>
+        {
+            { "Species1", 50 },
+            { "Species2", 30 },
+            { "Species3", 20 }
+        };
+
+        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diversity.ObservedSpecies, Is.EqualTo(3), "ObservedSpecies");
+            Assert.That(diversity.Chao1Estimate, Is.EqualTo(3.0).Within(1e-10),
+                "Chao1 = S_obs when f1 = 0");
+        });
+    }
+
+    /// <summary>
+    /// M19: Chao1 for proportional data returns ObservedSpecies.
+    /// Evidence: Chao (1984) formula requires integer counts;
+    /// fractional abundances have no meaningful singletons/doubletons.
+    /// </summary>
+    [Test]
+    public void CalculateAlphaDiversity_ProportionalData_Chao1EqualsObserved()
+    {
+        var abundances = new Dictionary<string, double>
+        {
+            { "Species1", 0.5 },
+            { "Species2", 0.3 },
+            { "Species3", 0.2 }
+        };
+
+        var diversity = MetagenomicsAnalyzer.CalculateAlphaDiversity(abundances);
+
+        Assert.That(diversity.Chao1Estimate, Is.EqualTo(3.0).Within(1e-10),
+            "Chao1 = S_obs for proportional data");
     }
 
     #endregion
