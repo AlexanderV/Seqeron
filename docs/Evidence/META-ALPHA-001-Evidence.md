@@ -111,7 +111,12 @@ Where:
 - f₁ = number of singletons (species observed exactly once)
 - f₂ = number of doubletons (species observed exactly twice)
 
-**Note:** Implementation currently uses simplified version (Chao1 = ObservedSpecies) as singleton/doubleton counts are not available from abundance data.
+When f₂ = 0, the bias-corrected form is used:
+
+$$\hat{S}_{Chao1} = S_{obs} + \frac{f_1(f_1 - 1)}{2}$$
+
+When f₁ = 0 (no singletons), Chao1 = S_obs.
+For proportional data (non-integer values), singletons/doubletons are undefined, so Chao1 = S_obs.
 
 ## Edge Cases Documented
 
@@ -150,24 +155,18 @@ Where:
 
 ## Implementation Notes
 
-### Current Implementation (MetagenomicsAnalyzer.cs)
+### Implementation (MetagenomicsAnalyzer.cs)
 
-The implementation:
-1. Filters out zero/negative abundances
-2. Normalizes abundances to sum = 1
-3. Calculates Shannon using natural log
-4. Calculates Simpson as Σpᵢ²
-5. Calculates Inverse Simpson as 1/λ
-6. Calculates Pielou's J = H / ln(S) for S > 1, else 0
-7. Uses simplified Chao1 = ObservedSpecies (no singleton/doubleton data)
+The implementation matches all source formulas:
+1. Filters out zero/negative abundances (ln(0) undefined — mathematical requirement)
+2. Normalizes abundances to proportions summing to 1 (standard ecological practice)
+3. Shannon H' = −Σ pᵢ ln(pᵢ) using natural logarithm — per Shannon (1948)
+4. Simpson λ = Σ pᵢ² — per Simpson (1949)
+5. Inverse Simpson = 1/λ = ²D (effective number of species) — per Hill (1973)
+6. Pielou J = H / ln(S) for S > 1; J = 0 for S ≤ 1 — per Pielou (1966); ln(1) = 0 makes J mathematically undefined when S = 1, J = 0 is the standard ecological convention
+7. Chao1 = S_obs + f₁²/(2·f₂) for integer count data with f₂ > 0; bias-corrected form S_obs + f₁·(f₁−1)/2 when f₂ = 0; S_obs for proportional (non-integer) data — per Chao (1984)
+8. Null/empty input → all metrics = 0 (standard defensive boundary handling)
 
-### Deviation from Theory
+## Deviations and Assumptions
 
-**Chao1 Simplification**: The implementation returns `Chao1 = ObservedSpecies` because the input is abundance proportions, not raw counts with singleton/doubleton information. This is explicitly noted in code comments.
-
-## Assumptions
-
-1. **ASSUMPTION**: Input abundances are relative proportions (sum to 1.0 or will be normalized)
-2. **ASSUMPTION**: Zero abundances indicate absent species and should be filtered
-3. **ASSUMPTION**: When S ≤ 1, Pielou evenness = 0 (not undefined)
-4. **ASSUMPTION**: Null input treated as empty input (returns all zeros)
+None. All formulas match external sources exactly.

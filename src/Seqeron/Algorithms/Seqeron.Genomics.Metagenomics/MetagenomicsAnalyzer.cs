@@ -308,8 +308,8 @@ public static class MetagenomicsAnalyzer
         double simpson = CalculateSimpsonIndex(values);
         double inverseSimpson = simpson > 0 ? 1 / simpson : 0;
 
-        // Chao1 estimator (simplified - needs singleton/doubleton counts for proper calculation)
-        double chao1 = observedSpecies; // Simplified
+        // Chao1 estimator — Chao (1984)
+        double chao1 = CalculateChao1(values, observedSpecies);
 
         // Pielou's evenness
         double evenness = observedSpecies > 1 ? shannon / Math.Log(observedSpecies) : 0;
@@ -349,6 +349,33 @@ public static class MetagenomicsAnalyzer
             d += pi * pi;
         }
         return d;
+    }
+
+    /// <summary>
+    /// Chao1 richness estimator — Chao (1984).
+    /// S_Chao1 = S_obs + f1²/(2·f2) when f2 > 0;
+    /// S_Chao1 = S_obs + f1·(f1−1)/2 when f2 = 0 (bias-corrected).
+    /// f1 = singletons (species with count = 1), f2 = doubletons (count = 2).
+    /// Requires integer count data; for proportional data, returns S_obs.
+    /// </summary>
+    private static double CalculateChao1(List<double> values, int observedSpecies)
+    {
+        const double intTolerance = 1e-9;
+        bool isCountData = values.All(v => Math.Abs(v - Math.Round(v)) < intTolerance);
+        if (!isCountData)
+            return observedSpecies;
+
+        int f1 = values.Count(v => Math.Abs(v - 1.0) < intTolerance);
+        int f2 = values.Count(v => Math.Abs(v - 2.0) < intTolerance);
+
+        if (f1 == 0)
+            return observedSpecies;
+
+        if (f2 > 0)
+            return observedSpecies + (double)(f1 * f1) / (2 * f2);
+
+        // Bias-corrected form when f2 = 0
+        return observedSpecies + (double)(f1 * (f1 - 1)) / 2;
     }
 
     #endregion

@@ -52,7 +52,10 @@
 | M16 | Shannon ≥ 0 always | Shannon theory | −Σ pᵢ ln(pᵢ) ≥ 0 for pᵢ ∈ (0,1] |
 | M17 | Simpson ∈ [0, 1] | Simpson formula | pᵢ ∈ [0,1] → Σpᵢ² ∈ [0,1] |
 | M18 | Pielou ∈ [0, 1] for S > 1 | Evenness bounds | H ≤ ln(S) → J ≤ 1 |
-| M19 | Chao1 ≥ ObservedSpecies | Chao theory | Estimates ≥ observed |
+| M19 | Chao1 ≥ ObservedSpecies | Chao (1984) | S_Chao1 = S_obs + f₁²/(2·f₂) ≥ S_obs |
+| M20 | Chao1 with count data: singletons + doubletons | Chao (1984) | f₁=2, f₂=1, S_obs=5 → 7 |
+| M21 | Chao1 bias-corrected when f₂=0 | Chao (1984) | S_obs + f₁·(f₁−1)/2 |
+| M22 | Chao1 = S_obs for proportional data | Chao (1984) | No integer counts → no singletons |
 
 ### SHOULD Tests
 
@@ -70,76 +73,69 @@
 | C1 | Large input (10000 taxa) processed efficiently | Scalability |
 | C2 | Numerical stability with very small abundances | Floating-point edge case |
 
-## Existing Test Audit
+## Coverage Classification
 
-### Current Test Pool
+### Test File
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| MetagenomicsAnalyzerTests.cs | 5 CalculateAlphaDiversity tests | Partial (M1, M3, M4, M8-M10) |
+| MetagenomicsAnalyzer_AlphaDiversity_Tests.cs | 29 tests (20 [Test] + 4 [TestCase] × S4 + 6 × invariants) | ✅ Complete (M1-M22, S1-S4, C1-C2) |
 
-### Existing Test Analysis
+### Test → Spec Mapping
 
-| Existing Test | Covers | Assessment | Action |
-|---------------|--------|------------|--------|
-| `CalculateAlphaDiversity_SingleSpecies_LowDiversity` | M3, M4, M7 | Weak assertions | Strengthen with exact values |
-| `CalculateAlphaDiversity_EvenDistribution_HighDiversity` | M8, M9 (partial) | Uses GreaterThan | Replace with exact formula values |
-| `CalculateAlphaDiversity_UnevenDistribution_CalculatesCorrectly` | S1 | Weak bounds | Strengthen with exact calculation |
-| `CalculateAlphaDiversity_EmptyAbundances_ReturnsZero` | M1 | Missing full invariant check | Add Assert.Multiple |
-| `CalculateAlphaDiversity_CalculatesPielouEvenness` | M10 | Good | Keep |
-
-### Missing Tests (All Closed)
-
-| ID | Gap | Status |
-|----|-----|--------|
-| M2 | Null input | ✅ Covered |
-| M5, M6 | Single species InverseSimpson, Pielou | ✅ Covered |
-| M11-M13 | Four equal species exact values | ✅ Covered |
-| M14 | Zero abundance filtering | ✅ Covered |
-| M15 | Normalization | ✅ Covered |
-| M16-M18 | Invariant bounds | ✅ Covered |
-| M19 | Chao1 bound | ✅ Covered |
-| S2-S4 | Richness scaling properties | ✅ Covered |
-
-### Duplicate/Weak Tests
-
-| Test | Issue | Resolution |
-|------|-------|------------|
-| EvenDistribution test | Uses vague GreaterThan | Replace with exact ln(4) |
-| UnevenDistribution test | Bounds too wide | Tighten with calculated values |
-
-## Consolidation Plan
-
-### Target Structure
-
-Create `MetagenomicsAnalyzer_AlphaDiversity_Tests.cs`:
-- Extract and strengthen existing tests from MetagenomicsAnalyzerTests.cs
-- Remove Alpha Diversity tests from MetagenomicsAnalyzerTests.cs
-- Add all missing MUST tests
-- Group by index type using regions
-- Use `Assert.Multiple` for multi-invariant checks
+| Test | Covers | Assessment |
+|------|--------|------------|
+| `EmptyAbundances_ReturnsAllZeros` | M1 | ✅ Covered — Assert.Multiple for all 6 metrics |
+| `NullAbundances_ReturnsAllZeros` | M2 | ✅ Covered — Assert.Multiple for all 6 metrics |
+| `SingleSpecies_ReturnsCorrectMetrics` | M3-M7 | ✅ Covered — exact values with tolerance |
+| `TwoEqualSpecies_ReturnsCorrectMetrics` | M8-M10 | ✅ Covered — exact ln(2), 0.5, 2.0, 1.0 |
+| `FourEqualSpecies_ReturnsCorrectMetrics` | M11-M13 | ✅ Covered — exact ln(4), 0.25, 4.0, 1.0 |
+| `EvenDistribution_InverseSimpsonEqualsSpeciesCount` | S4 | ✅ Covered — parametric (2, 5, 10, 100) |
+| `HighlyUneven_LowDiversityHighDominance` | S1 | ✅ Covered — exact computed Shannon, Simpson, InverseSimpson, Pielou, Chao1 |
+| `UnevenThreeSpecies_CalculatesCorrectly` | S1 extra | ✅ Covered — exact 3-species computation |
+| `ZeroAbundances_FilteredOut` | M14 | ✅ Covered — exact values after filtering |
+| `AllZeroAbundances_ReturnsZeros` | M14 | ✅ Covered — all-zero edge case |
+| `UnnormalizedAbundances_Normalized` | M15 | ✅ Covered — exact values after normalization |
+| `LargeTaxonCount_HandledCorrectly` | C1 | ✅ Covered — 10000 taxa, exact Shannon=ln(S), Simpson=1/S |
+| `VerySmallAbundances_NumericallyStable` | C2 | ✅ Covered — exact computed Shannon, Simpson, InverseSimpson, Pielou |
+| `CountDataWithSingletons_Chao1ExceedsObserved` | M20 | ✅ Covered — Chao1 = 7 for {50,30,1,1,2} |
+| `CountDataNoDoubletons_Chao1BiasCorrected` | M21 | ✅ Covered — Chao1 = 7 (bias-corrected) |
+| `CountDataNoSingletons_Chao1EqualsObserved` | M22 | ✅ Covered — Chao1 = S_obs when f₁=0 |
+| `ProportionalData_Chao1EqualsObserved` | M22 | ✅ Covered — Chao1 = S_obs for fractional data |
+| `VariousDistributions_SatisfyTheoreticalBounds` | M16-M19 | ✅ Covered — 6 distributions × bounds |
+| `ShannonIncreasesWithRichness` | S2 | ✅ Covered — monotonic for S=1..16 |
+| `SimpsonDecreasesWithRichness` | S3 | ✅ Covered — monotonic for S=1..16 |
 
 ### Test Organization
 
 ```
 MetagenomicsAnalyzer_AlphaDiversity_Tests.cs
 ├── Empty and Null Input
-│   ├── EmptyAbundances_ReturnsAllZeros
-│   └── NullAbundances_ReturnsAllZeros
+│   ├── EmptyAbundances_ReturnsAllZeros (M1)
+│   └── NullAbundances_ReturnsAllZeros (M2)
 ├── Single Species
-│   └── SingleSpecies_ReturnsCorrectMetrics
+│   └── SingleSpecies_ReturnsCorrectMetrics (M3-M7)
 ├── Even Distributions
-│   ├── TwoEqualSpecies_ReturnsCorrectMetrics
-│   └── FourEqualSpecies_ReturnsCorrectMetrics
+│   ├── TwoEqualSpecies_ReturnsCorrectMetrics (M8-M10)
+│   ├── FourEqualSpecies_ReturnsCorrectMetrics (M11-M13)
+│   └── EvenDistribution_InverseSimpsonEqualsSpeciesCount (S4)
 ├── Uneven Distributions
-│   ├── HighlyUneven_LowDiversityHighDominance
-│   └── UnevenDistribution_CorrectPielouEvenness
+│   ├── HighlyUneven_LowDiversityHighDominance (S1)
+│   └── UnevenThreeSpecies_CalculatesCorrectly
 ├── Edge Cases
-│   ├── ZeroAbundances_FilteredOut
-│   ├── UnnormalizedAbundances_Normalized
-│   └── LargeTaxonCount_HandledCorrectly
+│   ├── ZeroAbundances_FilteredOut (M14)
+│   ├── AllZeroAbundances_ReturnsZeros (M14)
+│   ├── UnnormalizedAbundances_Normalized (M15)
+│   ├── LargeTaxonCount_HandledCorrectly (C1)
+│   ├── VerySmallAbundances_NumericallyStable (C2)
+│   ├── CountDataWithSingletons_Chao1ExceedsObserved (M20)
+│   ├── CountDataNoDoubletons_Chao1BiasCorrected (M21)
+│   ├── CountDataNoSingletons_Chao1EqualsObserved (M22)
+│   └── ProportionalData_Chao1EqualsObserved (M22)
 └── Invariants
-    └── AllResults_SatisfyTheoreticalBounds
+    ├── VariousDistributions_SatisfyTheoreticalBounds (M16-M19)
+    ├── ShannonIncreasesWithRichness (S2)
+    └── SimpsonDecreasesWithRichness (S3)
 ```
 
 ## Open Questions
@@ -148,6 +144,6 @@ None — all behavior is defined by authoritative sources.
 
 ## Decisions
 
-1. Pielou evenness = 0 when S ≤ 1 (implementation convention)
-2. Chao1 = ObservedSpecies (simplified, documented as ASSUMPTION)
-3. Use natural logarithm (ln) for Shannon index
+1. Pielou evenness = 0 when S ≤ 1 — per Pielou (1966): ln(1) = 0 makes J = H/ln(S) undefined; J = 0 is the standard ecological convention
+2. Natural logarithm (ln / nats) for Shannon index — per Shannon (1948), the most common base in ecology per Wikipedia Diversity Index
+3. Chao1 uses the full formula from Chao (1984) for integer count data; returns S_obs for proportional data where singletons/doubletons are undefined
