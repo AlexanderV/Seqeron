@@ -16,7 +16,8 @@
 public static IEnumerable<GenomeBin> BinContigs(
     IEnumerable<(string ContigId, string Sequence, double Coverage)> contigs,
     int numBins = 10,
-    double minBinSize = 500000)
+    double minBinSize = 500000,
+    double expectedGenomeSize = 4_000_000)
 ```
 
 ### Output Record
@@ -41,30 +42,30 @@ public readonly record struct GenomeBin(
 |----|-----------|-----------|--------|
 | M1 | EmptyInput_ReturnsEmpty | Empty contigs must yield empty result | Standard edge case |
 | M2 | SingleContig_BelowMinSize_ReturnsEmpty | Contigs below minBinSize excluded | Implementation behavior |
-| M3 | ValidContigs_ReturnsNonNullBins | Basic functionality | Wikipedia |
+| M3 | ValidContigs_ReturnsNonEmptyBins | Non-trivial input must produce bins | Wikipedia |
 | M4 | BinIds_AreUnique | Each bin must have unique ID | Invariant |
-| M5 | Completeness_InValidRange | Must be [0, 100] | CheckM standard |
-| M6 | Contamination_InValidRange | Must be [0, 100] | CheckM standard |
-| M7 | GcContent_InValidRange | Must be [0, 1] | Mathematical invariant |
+| M5 | Completeness_InValidRange | Must be [0, 100]; verified exact formula: min(totalLength/expectedGenomeSize×100, 100) | CheckM standard |
+| M6 | Contamination_InValidRange | Must be [0, 100]; verified: uniform GC→0, max-variance GC→100 | CheckM standard |
+| M7 | GcContent_InValidRange | Must be [0, 1]; verified exact values for pure high-GC (1.0) and low-GC (0.0) bins | Mathematical invariant |
 | M8 | TotalLength_EqualsContigLengthSum | Length accounting correct | Mathematical invariant |
 | M9 | MinBinSize_FiltersSmallBins | Bins below threshold excluded | Implementation spec |
-| M10 | HighGcVsLowGc_SeparatesIntoDifferentBins | GC-based separation works | TETRA paper |
-| M11 | ContigIds_PreservedInBins | All binned contigs traceable | Data integrity |
-| M12 | Coverage_PreservedInBins | Coverage values averaged correctly | Implementation spec |
+| M10 | HighGcVsLowGc_SeparatesIntoDifferentBins | K-means separates extreme GC populations | Wikipedia, TETRA paper |
+| M11 | ContigIds_PreservedInBins | All binned contigs traceable; bins disjoint | Data integrity |
+| M12 | Coverage_PreservedInBins | Coverage = arithmetic mean of contig coverages; verified exact value | Implementation spec |
 
 ### Should Tests (Recommended)
 
 | ID | Test Name | Rationale | Source |
 |----|-----------|-----------|--------|
 | S1 | MultipleBins_FromDiverseInput | Diverse contigs create multiple bins | Wikipedia |
-| S2 | NumBins_AffectsBinCount | Parameter respected | Implementation |
+| S2 | NumBins_AffectsBinCount | k-means with k clusters produces at most k bins; verified both limits | Implementation |
 | S3 | LargeDataset_CompletesWithinTimeout | Performance acceptable | Practical requirement |
 
 ### Could Tests (Optional)
 
 | ID | Test Name | Rationale |
 |----|-----------|-----------|
-| C1 | AllSameGc_ClustersTogether | Edge case validation |
+| C1 | AllSameGc_ClustersTogether | Uniform features converge to few bins |
 | C2 | VeryShortSequences_HandledGracefully | Robustness |
 
 ## Invariants
@@ -96,7 +97,18 @@ public readonly record struct GenomeBin(
 
 | Location | Status | Action |
 |----------|--------|--------|
-| MetagenomicsAnalyzerTests.cs | Smoke tests only | Keep as reference, expand in dedicated file |
+| MetagenomicsAnalyzer_GenomeBinning_Tests.cs | All Must/Should/Could tests implemented | Complete |
+| MetagenomicsAnalyzerTests.cs | Smoke test removed (duplicate of M3) | Cleaned |
+| MetagenomicsSnapshotTests.cs | Snapshot test for deterministic output | Independent |
+
+## Coverage Classification Summary
+
+| Classification | Count | Details |
+|---------------|-------|----------|
+| ✅ Covered | 11 | M1, M2, M4, M8, M9, M10, S1, S3, C1, C2, extra:ZeroCoverage |
+| ⚠ Strengthened | 7 | M3 (Not.Empty), M5 (exact formula), M6 (exact formula), M7 (exact GC), M11 (disjoint), M12 (exact average), S2 (both limits) |
+| 🔁 Removed | 1 | BinContigs_BasicFunctionality_ReturnsResults (subsumed by M3) |
+| ❌ Missing | 0 | None |
 
 ## Audit Notes
 
@@ -107,13 +119,13 @@ public readonly record struct GenomeBin(
 
 ## Consolidation Plan
 
-1. Create new dedicated test file: `MetagenomicsAnalyzer_GenomeBinning_Tests.cs`
-2. Keep existing smoke tests in `MetagenomicsAnalyzerTests.cs` as integration reference
-3. Implement all Must tests with evidence-based rationale
-4. Remove duplicates (none found)
+All tests implemented and verified in `MetagenomicsAnalyzer_GenomeBinning_Tests.cs`.
+Duplicate smoke test in `MetagenomicsAnalyzerTests.cs` has been removed.
+Snapshot test in `MetagenomicsSnapshotTests.cs` remains independent.
 
 ---
 
-**Specification Version:** 1.0
+**Specification Version:** 2.0
 **Created:** 2026-02-04
-**Status:** Ready for Implementation
+**Updated:** 2026-03-09
+**Status:** Complete — all tests implemented, strengthened, and verified
