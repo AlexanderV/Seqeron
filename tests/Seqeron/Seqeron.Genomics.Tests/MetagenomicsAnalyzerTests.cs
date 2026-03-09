@@ -15,35 +15,15 @@ namespace Seqeron.Genomics.Tests;
 /// - META-BETA-001: MetagenomicsAnalyzer_BetaDiversity_Tests.cs
 /// 
 /// This file contains tests for:
-/// - META-BIN-001: Genome Binning (BinContigs) - smoke tests
 /// - Functional profiling methods
 /// - Resistance gene detection
 /// - Differential abundance analysis
+///
+/// META-BIN-001 tests moved to MetagenomicsAnalyzer_GenomeBinning_Tests.cs
 /// </summary>
 [TestFixture]
 public class MetagenomicsAnalyzerTests
 {
-    #region Genome Binning Smoke Tests
-
-    [Test]
-    public void BinContigs_BasicFunctionality_ReturnsResults()
-    {
-        // Minimal smoke test - detailed tests in future META-BIN-001 test file
-        var contigs = new List<(string ContigId, string Sequence, double Coverage)>
-        {
-            ("contig1", new string('G', 500) + new string('C', 500), 10.0),
-            ("contig2", new string('G', 500) + new string('C', 500), 10.0),
-            ("contig3", new string('A', 500) + new string('T', 500), 10.0)
-        };
-
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 500).ToList();
-
-        // Basic smoke test - should not throw
-        Assert.That(bins, Is.Not.Null);
-    }
-
-    #endregion
-
     #region Functional Profiling Tests
 
     [Test]

@@ -18,8 +18,9 @@ namespace Seqeron.Genomics.Tests;
 /// - Maguire et al. (2020): MAG binning limitations
 /// 
 /// Key Concepts:
-/// - Compositional binning based on GC content and tetranucleotide frequencies
-/// - Quality metrics: Completeness and Contamination
+/// - Compositional binning based on GC content, tetranucleotide frequencies, and coverage
+/// - K-means clustering on composite distance (GC + coverage + TNF Pearson)
+/// - Quality metrics: Completeness (length / expected genome size) and Contamination (GC std dev)
 /// - Minimum bin size filtering
 /// </summary>
 [TestFixture]
@@ -114,11 +115,12 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     #region Must Tests - Basic Functionality
 
     /// <summary>
-    /// M3: Valid contigs return non-null bins.
+    /// M3: Valid contigs return non-empty bins.
     /// Source: Wikipedia - Binning produces MAGs from contigs.
+    /// 50 contigs × 20kb = 1MB total, well above minBinSize=100kb.
     /// </summary>
     [Test]
-    public void BinContigs_ValidContigs_ReturnsNonNullBins()
+    public void BinContigs_ValidContigs_ReturnsNonEmptyBins()
     {
         // Create contigs large enough to pass minimum size filter
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
@@ -129,7 +131,8 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 5, minBinSize: 100000).ToList();
 
-        Assert.That(bins, Is.Not.Null);
+        Assert.That(bins, Is.Not.Empty,
+            "50 contigs × 20kb = 1MB total with 100kb minBinSize must produce at least one bin");
     }
 
     /// <summary>
@@ -163,75 +166,84 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     #region Must Tests - Quality Metric Ranges
 
     /// <summary>
-    /// M5: Completeness must be in valid range [0, 100].
+    /// M5: Completeness must be in valid range [0, 100] and equal min(totalLength / expectedGenomeSize × 100, 100).
     /// Source: CheckM standard - Completeness is percentage.
+    /// Formula: completeness = min(bin.TotalLength / expectedGenomeSize × 100, 100)
+    /// Default expectedGenomeSize = 4,000,000 bp.
     /// </summary>
     [Test]
     public void BinContigs_Completeness_InValidRange()
     {
+        // 10 contigs × 200kb = 2MB total; expectedGenomeSize = 4MB (default)
+        // numBins=1 forces all contigs into a single bin for deterministic verification
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 10; i++)
         {
-            contigs.Add(($"contig_{i}", CreateMidGcSequence(20000), 15.0));
+            contigs.Add(($"contig_{i}", CreateMidGcSequence(200000), 15.0));
         }
 
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 5, minBinSize: 100000).ToList();
+        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 1, minBinSize: 100000).ToList();
 
+        Assert.That(bins, Has.Count.EqualTo(1));
         Assert.Multiple(() =>
         {
-            foreach (var bin in bins)
-            {
-                Assert.That(bin.Completeness, Is.GreaterThanOrEqualTo(0),
-                    $"Bin {bin.BinId} completeness must be >= 0");
-                Assert.That(bin.Completeness, Is.LessThanOrEqualTo(100),
-                    $"Bin {bin.BinId} completeness must be <= 100");
-            }
+            Assert.That(bins[0].Completeness, Is.GreaterThanOrEqualTo(0));
+            Assert.That(bins[0].Completeness, Is.LessThanOrEqualTo(100));
+            // 2,000,000 / 4,000,000 × 100 = 50.0
+            Assert.That(bins[0].Completeness, Is.EqualTo(50.0),
+                "Completeness = min(totalLength / expectedGenomeSize × 100, 100) = 2M/4M × 100 = 50.0");
         });
     }
 
     /// <summary>
     /// M6: Contamination must be in valid range [0, 100].
     /// Source: CheckM standard - Contamination is percentage.
-    /// Note: Implementation caps at 50, but standard allows 0-100.
+    /// Formula: contamination = min(stddev(GC values) / 0.5 × 100, 100)
+    /// Theoretical max stddev for values in [0,1] is 0.5 (half at 0, half at 1).
     /// </summary>
     [Test]
     public void BinContigs_Contamination_InValidRange()
     {
-        var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
-        for (int i = 0; i < 100; i++)
-        {
-            contigs.Add(($"contig_{i}", CreateMidGcSequence(20000), 15.0));
-        }
+        // Scenario 1: Uniform GC → stddev = 0 → contamination = 0
+        var uniformContigs = new List<(string ContigId, string Sequence, double Coverage)>();
+        for (int i = 0; i < 10; i++)
+            uniformContigs.Add(($"contig_{i}", CreateMidGcSequence(200000), 15.0));
 
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 5, minBinSize: 100000).ToList();
+        var uniformBins = MetagenomicsAnalyzer.BinContigs(uniformContigs, numBins: 1, minBinSize: 100000).ToList();
 
-        Assert.Multiple(() =>
-        {
-            foreach (var bin in bins)
-            {
-                Assert.That(bin.Contamination, Is.GreaterThanOrEqualTo(0),
-                    $"Bin {bin.BinId} contamination must be >= 0");
-                Assert.That(bin.Contamination, Is.LessThanOrEqualTo(100),
-                    $"Bin {bin.BinId} contamination must be <= 100");
-            }
-        });
+        Assert.That(uniformBins, Has.Count.EqualTo(1));
+        Assert.That(uniformBins[0].Contamination, Is.EqualTo(0.0),
+            "All contigs same GC → zero within-bin GC stddev → contamination = 0");
+
+        // Scenario 2: Maximum GC variance → stddev = 0.5 → contamination = 100
+        // Equal mix of GC=1.0 (GCGCGC...) and GC=0.0 (ATATAT...)
+        var mixedContigs = new List<(string ContigId, string Sequence, double Coverage)>();
+        for (int i = 0; i < 10; i++)
+            mixedContigs.Add(($"high_{i}", CreateHighGcSequence(200000), 15.0));
+        for (int i = 0; i < 10; i++)
+            mixedContigs.Add(($"low_{i}", CreateLowGcSequence(200000), 15.0));
+
+        var mixedBins = MetagenomicsAnalyzer.BinContigs(mixedContigs, numBins: 1, minBinSize: 100000).ToList();
+
+        Assert.That(mixedBins, Has.Count.EqualTo(1));
+        Assert.That(mixedBins[0].Contamination, Is.EqualTo(100.0),
+            "Equal mix of GC=1.0 and GC=0.0 → stddev=0.5 (theoretical max) → contamination=100");
     }
 
     /// <summary>
-    /// M7: GC content must be in valid range [0, 1].
-    /// Source: Mathematical definition - GC is a fraction.
+    /// M7: GC content must be in valid range [0, 1] and match known values for pure bins.
+    /// Source: Mathematical definition - GC = (G+C)/(A+T+G+C).
+    /// Pure high-GC bin (all GCGCGC...) → GC = 1.0; pure low-GC bin (all ATATAT...) → GC = 0.0.
     /// </summary>
     [Test]
     public void BinContigs_GcContent_InValidRange()
     {
+        // Use extreme GC populations that k-means will separate into pure bins
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
-        for (int i = 0; i < 100; i++)
-        {
-            string seq = i % 3 == 0 ? CreateHighGcSequence(15000) :
-                         i % 3 == 1 ? CreateLowGcSequence(15000) :
-                                      CreateMidGcSequence(15000);
-            contigs.Add(($"contig_{i}", seq, 10.0));
-        }
+        for (int i = 0; i < 20; i++)
+            contigs.Add(($"highgc_{i}", CreateHighGcSequence(25000), 10.0));
+        for (int i = 0; i < 20; i++)
+            contigs.Add(($"lowgc_{i}", CreateLowGcSequence(25000), 10.0));
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 50000).ToList();
 
@@ -239,10 +251,22 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
         {
             foreach (var bin in bins)
             {
+                // Range invariant: GC ∈ [0, 1]
                 Assert.That(bin.GcContent, Is.GreaterThanOrEqualTo(0),
-                    $"Bin {bin.BinId} GC content must be >= 0");
+                    $"Bin {bin.BinId} GC must be >= 0");
                 Assert.That(bin.GcContent, Is.LessThanOrEqualTo(1),
-                    $"Bin {bin.BinId} GC content must be <= 1");
+                    $"Bin {bin.BinId} GC must be <= 1");
+
+                // Exact value check for pure bins
+                bool allHigh = bin.ContigIds.All(id => id.StartsWith("highgc_"));
+                bool allLow = bin.ContigIds.All(id => id.StartsWith("lowgc_"));
+
+                if (allHigh)
+                    Assert.That(bin.GcContent, Is.EqualTo(1.0),
+                        $"Bin {bin.BinId}: pure high-GC bin (all GCGCGC...) must have GC = 1.0");
+                else if (allLow)
+                    Assert.That(bin.GcContent, Is.EqualTo(0.0),
+                        $"Bin {bin.BinId}: pure low-GC bin (all ATATAT...) must have GC = 0.0");
             }
         });
     }
@@ -252,8 +276,8 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     #region Must Tests - Data Integrity
 
     /// <summary>
-    /// M8: Total length must equal sum of contig lengths.
-    /// Source: Mathematical invariant.
+    /// M8: Each bin's TotalLength must equal the sum of its contig lengths.
+    /// Source: Mathematical invariant — bin.TotalLength = Σ len(contig) for contig ∈ bin.
     /// </summary>
     [Test]
     public void BinContigs_TotalLength_EqualsContigLengthSum()
@@ -267,14 +291,23 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 3, minBinSize: 100000).ToList();
 
-        // Calculate expected total length from all contigs
-        double totalContigLength = contigs.Sum(c => c.Sequence.Length);
-        double totalBinLength = bins.Sum(b => b.TotalLength);
+        var contigLengths = contigs.ToDictionary(c => c.ContigId, c => (double)c.Sequence.Length);
 
-        // If contigs are binned, total binned length should match
-        // (some may be filtered by minBinSize)
-        Assert.That(totalBinLength, Is.LessThanOrEqualTo(totalContigLength),
-            "Binned length cannot exceed input length");
+        Assert.Multiple(() =>
+        {
+            foreach (var bin in bins)
+            {
+                double expectedLength = bin.ContigIds.Sum(id => contigLengths[id]);
+                Assert.That(bin.TotalLength, Is.EqualTo(expectedLength),
+                    $"Bin {bin.BinId}: TotalLength must equal sum of its contig lengths");
+            }
+
+            // Total binned length cannot exceed input
+            double totalBinLength = bins.Sum(b => b.TotalLength);
+            double totalContigLength = contigs.Sum(c => c.Sequence.Length);
+            Assert.That(totalBinLength, Is.LessThanOrEqualTo(totalContigLength),
+                "Total binned length cannot exceed input length");
+        });
     }
 
     /// <summary>
@@ -305,7 +338,7 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     }
 
     /// <summary>
-    /// M11: Contig IDs are preserved in bins.
+    /// M11: Contig IDs are preserved in bins; bins are disjoint.
     /// Source: Data integrity requirement.
     /// </summary>
     [Test]
@@ -320,17 +353,24 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 3, minBinSize: 100000).ToList();
 
-        var allBinnedContigIds = bins.SelectMany(b => b.ContigIds).ToHashSet();
+        var allBinnedContigIds = bins.SelectMany(b => b.ContigIds).ToList();
         var inputContigIds = contigs.Select(c => c.ContigId).ToHashSet();
 
-        // All binned contigs should be from input
-        Assert.That(allBinnedContigIds.All(id => inputContigIds.Contains(id)), Is.True,
-            "All binned contig IDs must come from input");
+        Assert.Multiple(() =>
+        {
+            // All binned contigs must come from input
+            Assert.That(allBinnedContigIds.All(id => inputContigIds.Contains(id)), Is.True,
+                "All binned contig IDs must come from input");
+
+            // Bins must be disjoint: no contig appears in more than one bin
+            Assert.That(allBinnedContigIds.Count, Is.EqualTo(allBinnedContigIds.Distinct().Count()),
+                "Each contig must appear in at most one bin (bins are disjoint)");
+        });
     }
 
     /// <summary>
-    /// M12: Coverage values are correctly averaged in bins.
-    /// Source: Implementation specification.
+    /// M12: Bin coverage equals the arithmetic mean of its constituent contig coverages.
+    /// Source: Mathematical definition — bin coverage = Σcoverage / n for contigs in bin.
     /// </summary>
     [Test]
     public void BinContigs_Coverage_PreservedInBins()
@@ -342,16 +382,15 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
             ("c3", CreateHighGcSequence(200000), 25.0)
         };
 
-        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 3, minBinSize: 100000).ToList();
+        // numBins=1 forces all contigs into a single bin
+        var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 1, minBinSize: 100000).ToList();
 
-        Assert.Multiple(() =>
-        {
-            foreach (var bin in bins)
-            {
-                Assert.That(bin.Coverage, Is.GreaterThan(0),
-                    $"Bin {bin.BinId} coverage should be positive");
-            }
-        });
+        Assert.That(bins, Has.Count.EqualTo(1),
+            "numBins=1 with 600kb total (> 100kb minBinSize) must produce exactly one bin");
+
+        // Coverage = average(20.0, 30.0, 25.0) = 75.0 / 3 = 25.0
+        Assert.That(bins[0].Coverage, Is.EqualTo(25.0).Within(1e-10),
+            "Bin coverage must equal the arithmetic mean of its contig coverages");
     }
 
     #endregion
@@ -359,53 +398,40 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     #region Must Tests - GC-Based Separation
 
     /// <summary>
-    /// M10: High GC and low GC contigs are processed by GC-based binning.
+    /// M10: High GC and low GC contigs must separate into different bins.
     /// Source: Wikipedia - GC content is primary compositional feature.
     /// Source: TETRA paper - Compositional signals distinguish genomes.
-    /// 
-    /// Note: The simplified k-means implementation uses GC content for bin assignment.
-    /// Perfect separation is not guaranteed due to the simplified algorithm,
-    /// but the binning mechanism processes diverse GC content correctly.
+    /// K-means on GC + coverage + TNF Pearson distance must separate extreme GC populations.
     /// </summary>
     [Test]
-    public void BinContigs_HighGcVsLowGc_ProcessesDiverseGcContent()
+    public void BinContigs_HighGcVsLowGc_SeparatesIntoDifferentBins()
     {
-        // Create clearly separated GC content populations
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
 
         // High GC contigs (100% GC)
         for (int i = 0; i < 30; i++)
-        {
             contigs.Add(($"highgc_{i}", CreateHighGcSequence(25000), 10.0));
-        }
 
         // Low GC contigs (0% GC)
         for (int i = 0; i < 30; i++)
-        {
             contigs.Add(($"lowgc_{i}", CreateLowGcSequence(25000), 10.0));
-        }
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 100000).ToList();
 
-        // Core invariant: bins should be produced from diverse input
-        Assert.That(bins.Count, Is.GreaterThan(0), "Should produce bins from diverse GC input");
+        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(2),
+            "Extreme GC difference (0% vs 100%) must produce at least 2 bins");
 
-        // Verify each bin has valid GC content in expected range
+        // No bin may mix high-GC and low-GC contigs
         Assert.Multiple(() =>
         {
             foreach (var bin in bins)
             {
-                Assert.That(bin.GcContent, Is.InRange(0.0, 1.0),
-                    $"Bin {bin.BinId} GC content must be in valid range");
-                Assert.That(bin.ContigIds.Count, Is.GreaterThan(0),
-                    $"Bin {bin.BinId} must contain contigs");
+                bool hasHigh = bin.ContigIds.Any(id => id.StartsWith("highgc_"));
+                bool hasLow = bin.ContigIds.Any(id => id.StartsWith("lowgc_"));
+                Assert.That(hasHigh && hasLow, Is.False,
+                    $"Bin {bin.BinId} mixes high-GC and low-GC contigs — must separate extreme GC");
             }
         });
-
-        // Document bins for traceability
-        // Note: Implementation limitation - simplified k-means may not perfectly separate
-        // contigs by GC content. Real tools like MetaBAT2/MaxBin2 use multi-dimensional
-        // features for better separation.
     }
 
     #endregion
@@ -433,14 +459,14 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 10, minBinSize: 50000).ToList();
 
-        // With diverse input, should get at least 2 bins
-        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(1),
-            "Diverse input should produce at least one bin above size threshold");
+        // With diverse input (3 distinct GC groups), should get multiple bins
+        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(2),
+            "Diverse input with 3 GC groups should produce at least 2 bins");
     }
 
     /// <summary>
-    /// S2: NumBins parameter affects result.
-    /// Source: Implementation parameter.
+    /// S2: NumBins parameter limits maximum bin count.
+    /// Source: K-means with k clusters produces at most k non-empty groups.
     /// </summary>
     [Test]
     public void BinContigs_NumBins_AffectsMaximumBinCount()
@@ -454,9 +480,18 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
         var binsSmall = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 3, minBinSize: 50000).ToList();
         var binsLarge = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 20, minBinSize: 50000).ToList();
 
-        // With small numBins, should have at most that many bins
-        Assert.That(binsSmall.Count, Is.LessThanOrEqualTo(3),
-            "Should not exceed numBins parameter");
+        Assert.Multiple(() =>
+        {
+            // 100 contigs × 20kb = 2MB total > 50kb → must produce bins
+            Assert.That(binsSmall, Is.Not.Empty, "Must produce bins from 2MB of contigs");
+            Assert.That(binsLarge, Is.Not.Empty, "Must produce bins from 2MB of contigs");
+
+            // K-means with k clusters produces at most k non-empty groups
+            Assert.That(binsSmall.Count, Is.LessThanOrEqualTo(3),
+                "Bin count must not exceed numBins=3");
+            Assert.That(binsLarge.Count, Is.LessThanOrEqualTo(20),
+                "Bin count must not exceed numBins=20");
+        });
     }
 
     /// <summary>
@@ -485,23 +520,25 @@ public class MetagenomicsAnalyzer_GenomeBinning_Tests
     #region Edge Cases
 
     /// <summary>
-    /// All contigs with same GC should cluster together.
+    /// C1: All contigs with same GC, coverage, and TNF should cluster together.
+    /// Source: K-means with zero inter-point distance converges to minimal clusters.
     /// </summary>
     [Test]
     public void BinContigs_AllSameGc_ClustersTogether()
     {
         var contigs = new List<(string ContigId, string Sequence, double Coverage)>();
         for (int i = 0; i < 50; i++)
-        {
             contigs.Add(($"contig_{i}", CreateMidGcSequence(15000), 10.0));
-        }
 
         var bins = MetagenomicsAnalyzer.BinContigs(contigs, numBins: 5, minBinSize: 50000).ToList();
 
-        // With same GC, should produce minimal number of bins (ideally 1)
-        // Due to implementation details, may vary
-        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(0),
-            "Should handle uniform GC input");
+        // 50 × 15kb = 750kb, minBinSize=50kb → must produce at least 1 bin
+        Assert.That(bins.Count, Is.GreaterThanOrEqualTo(1),
+            "Uniform contigs totaling 750kb with 50kb threshold must produce at least one bin");
+
+        // Uniform features should concentrate contigs in few bins, not scatter
+        Assert.That(bins.Count, Is.LessThanOrEqualTo(3),
+            "Uniform GC/coverage/TNF input should not be split into many bins");
     }
 
     /// <summary>
