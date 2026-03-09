@@ -48,18 +48,25 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
     [Description("M3: Valid reference produces k-mers in database")]
     public void BuildKmerDatabase_ValidReference_ProducesKmers()
     {
-        // Sequence of length 40, k=15 → should produce 40-15+1=26 k-mers (some may be duplicates)
+        // k=5, "ACGTACTGAC" (10bp) → 6 k-mers, all unique after canonicalization:
+        //   i=0: ACGTA (canon: ACGTA, A<T)
+        //   i=1: CGTAC (canon: CGTAC, C<G)
+        //   i=2: GTACT (canon: AGTAC, A<G)
+        //   i=3: TACTG (canon: CAGTA, C<T)
+        //   i=4: ACTGA (canon: ACTGA, A<T)
+        //   i=5: CTGAC (canon: CTGAC, C<G)
         var references = new List<(string TaxonId, string Sequence)>
         {
-            ("Bacteria|Escherichia", "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATC")
+            ("Bacteria|Escherichia", "ACGTACTGAC")
         };
 
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 15);
+        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 5);
 
         Assert.Multiple(() =>
         {
-            Assert.That(database.Count, Is.GreaterThan(0), "Database should contain k-mers");
-            Assert.That(database.Values.First(), Is.EqualTo("Bacteria|Escherichia"), "K-mer should map to taxon");
+            Assert.That(database.Count, Is.EqualTo(6), "10-5+1 = 6 unique canonical k-mers");
+            Assert.That(database.Values.All(v => v == "Bacteria|Escherichia"), Is.True,
+                "All k-mers should map to the reference taxon");
         });
     }
 
@@ -126,9 +133,11 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
     [Description("M6: Database k-mer count follows formula for valid sequences")]
     public void BuildKmerDatabase_KmerCount_FollowsFormula()
     {
-        const int k = 10;
-        const string sequence = "ATGCATGCATGCATGCATGC"; // 20 bp, all ACGT
-        int expectedMaxKmers = sequence.Length - k + 1; // 11 k-mers
+        // Non-repeating sequence where all canonical k-mers are unique:
+        // k=5, "ACGTACTGAC" (10bp) → 6 raw k-mers, all distinct after canonicalization
+        const int k = 5;
+        const string sequence = "ACGTACTGAC";
+        int expectedKmers = sequence.Length - k + 1; // 6
 
         var references = new List<(string TaxonId, string Sequence)>
         {
@@ -137,9 +146,15 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
 
         var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: k);
 
-        // Due to canonicalization and duplicates, count may be less than or equal to expected
-        Assert.That(database.Count, Is.LessThanOrEqualTo(expectedMaxKmers));
-        Assert.That(database.Count, Is.GreaterThan(0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(database.Count, Is.EqualTo(expectedKmers),
+                "For non-repeating sequences with unique canonical k-mers: count = len-k+1 = 6");
+            foreach (var kmer in database.Keys)
+            {
+                Assert.That(kmer.Length, Is.EqualTo(k), $"K-mer '{kmer}' should have length k={k}");
+            }
+        });
     }
 
     [Test]
@@ -216,7 +231,7 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
     {
         var database = new Dictionary<string, string>
         {
-            { "GGGGGGGGGGGGGG", "Bacteria|Other" }
+            { "CCCCCCCCCCCCCC", "Bacteria|Other" } // canonical form of GGGG... (C < G)
         };
         var reads = new List<(string Id, string Sequence)>
         {
@@ -248,13 +263,16 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
 
         var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
 
+        // 21bp, k=14 → 8 k-mers; only i=0 (ATGCGATCGATCGA, palindromic) matches the DB entry
         Assert.Multiple(() =>
         {
             Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"));
             Assert.That(results[0].Phylum, Is.EqualTo("Proteobacteria"));
             Assert.That(results[0].Genus, Is.EqualTo("Escherichia"));
             Assert.That(results[0].Species, Is.EqualTo("coli"));
-            Assert.That(results[0].MatchedKmers, Is.GreaterThan(0));
+            Assert.That(results[0].MatchedKmers, Is.EqualTo(1), "Only the first k-mer matches the DB entry");
+            Assert.That(results[0].TotalKmers, Is.EqualTo(8), "21-14+1 = 8 non-ambiguous k-mers");
+            Assert.That(results[0].Confidence, Is.EqualTo(0.125).Within(0.001), "Confidence = 1/8 = 0.125");
         });
     }
 
@@ -309,7 +327,7 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
     }
 
     [Test]
-    [Description("M13: TotalKmers = max(0, len - k + 1)")]
+    [Description("M13: TotalKmers = non-ambiguous k-mers count; equals max(0, len - k + 1) for all-ACGT sequences")]
     public void ClassifyReads_TotalKmers_MatchesFormula()
     {
         const int k = 10;
@@ -340,7 +358,7 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
         var database = new Dictionary<string, string>
         {
             { "ATGCATGCATGCAT", "Bacteria|Test" },
-            { "TGCATGCATGCATG", "Bacteria|Test" }
+            { "CATGCATGCATGCA", "Bacteria|Test" } // canonical of TGCATGCATGCATG
         };
         var reads = new List<(string Id, string Sequence)>
         {
@@ -374,9 +392,9 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
         Assert.Multiple(() =>
         {
             Assert.That(results.Count, Is.EqualTo(3));
-            Assert.That(results[0].Kingdom, Is.Not.Empty.Or.EqualTo("Unclassified"));
-            Assert.That(results[1].Kingdom, Is.Not.Empty.Or.EqualTo("Unclassified"));
-            Assert.That(results[2].Kingdom, Is.EqualTo("Unclassified"));
+            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "Read1 matches Genus1 DB entry");
+            Assert.That(results[1].Kingdom, Is.EqualTo("Bacteria"), "Read2 matches Genus2 DB entry");
+            Assert.That(results[2].Kingdom, Is.EqualTo("Unclassified"), "Read3 has no DB matches");
         });
     }
 
@@ -446,7 +464,13 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
 
         var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
 
-        Assert.That(results[0].MatchedKmers, Is.GreaterThan(0), "Should match despite case difference");
+        // Uppercased read = "ATGCATGCATGCATGCATGC" (20bp, k=14, 7 k-mers)
+        // i=0,4: ATGCATGCATGCAT (palindromic) → match; rest don't match
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "Should classify correctly despite case");
+            Assert.That(results[0].MatchedKmers, Is.EqualTo(2), "Should match same k-mers as uppercase input");
+        });
     }
 
     [Test]
@@ -457,7 +481,7 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
         var database = new Dictionary<string, string>
         {
             { "ATGCATGCATGCAT", "Bacteria|Taxon1" },
-            { "TGCATGCATGCATG", "Bacteria|Taxon2" },
+            { "CATGCATGCATGCA", "Bacteria|Taxon2" }, // canonical of TGCATGCATGCATG
             { "GCATGCATGCATGC", "Bacteria|Taxon2" }
         };
         var reads = new List<(string Id, string Sequence)>
@@ -469,6 +493,98 @@ public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
 
         // Should classify to Taxon2 (2 hits) rather than Taxon1 (1 hit)
         Assert.That(results[0].Phylum, Is.EqualTo("Taxon2"), "Should resolve to taxon with most hits");
+    }
+
+    [Test]
+    [Description("S3: ClassifyReads uses canonical k-mers for database lookup (non-palindromic k-mer)")]
+    public void ClassifyReads_CanonicalKmerLookup_MatchesReverseComplement()
+    {
+        // DB has canonical form AAAAAAAAAA (A < T, so forward is canonical).
+        // Read contains TTTTTTTTTT which canonicalizes to AAAAAAAAAA → should match.
+        const int k = 10;
+        var database = new Dictionary<string, string>
+        {
+            { "AAAAAAAAAA", "Bacteria|CanonTest" }
+        };
+        var reads = new List<(string Id, string Sequence)>
+        {
+            ("read1", "TTTTTTTTTTT") // 11 bp → 2 k-mers, both TTTTTTTTTT → canon AAAAAAAAAA
+        };
+
+        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "RC k-mer should match canonical DB entry");
+            Assert.That(results[0].MatchedKmers, Is.EqualTo(2), "Both k-mers should match via canonicalization");
+            Assert.That(results[0].TotalKmers, Is.EqualTo(2));
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(0.001));
+        });
+    }
+
+    [Test]
+    [Description("S4: Ambiguous nucleotides excluded from TotalKmers (per Kraken: Q = non-ambiguous k-mers only)")]
+    public void ClassifyReads_AmbiguousNucleotides_ExcludedFromTotalKmers()
+    {
+        // Read: ATGCATGCA N ATGCATGCAT (20 bp, N at position 9)
+        // k=10 → 11 raw k-mers, but 10 of them span the N → only 1 valid k-mer
+        // Valid k-mer at i=10: ATGCATGCAT (palindromic)
+        const int k = 10;
+        var database = new Dictionary<string, string>
+        {
+            { "ATGCATGCAT", "Bacteria|AmbigTest" }
+        };
+        var reads = new List<(string Id, string Sequence)>
+        {
+            ("read1", "ATGCATGCANATGCATGCAT") // N at position 9
+        };
+
+        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].TotalKmers, Is.EqualTo(1),
+                "Only 1 of 11 k-mers is non-ambiguous (per Kraken: Q excludes k-mers with non-ACGT)");
+            Assert.That(results[0].MatchedKmers, Is.EqualTo(1));
+            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(0.001));
+        });
+    }
+
+    [Test]
+    [Description("S5: Confidence C/Q where C = k-mers supporting winning taxon only (per Kraken scoring)")]
+    public void ClassifyReads_MultiTaxon_ConfidenceUsesWinningTaxonCount()
+    {
+        // Read: ATGCATGCATGCATGCA (17 bp, k=14 → 4 k-mers)
+        // Canonical k-mers:
+        //   i=0: ATGCATGCATGCAT (palindromic) → Taxon1
+        //   i=1: TGCATGCATGCATG → canon CATGCATGCATGCA → Taxon1
+        //   i=2: GCATGCATGCATGC (palindromic) → Taxon2
+        //   i=3: CATGCATGCATGCA → Taxon1
+        // Taxon1: 3 hits, Taxon2: 1 hit → winner = Taxon1
+        // Per Kraken: C = 3 (winning taxon), Q = 4 → Confidence = 0.75
+        const int k = 14;
+        var database = new Dictionary<string, string>
+        {
+            { "ATGCATGCATGCAT", "Bacteria|Taxon1" },
+            { "CATGCATGCATGCA", "Bacteria|Taxon1" },
+            { "GCATGCATGCATGC", "Bacteria|Taxon2" }
+        };
+        var reads = new List<(string Id, string Sequence)>
+        {
+            ("read1", "ATGCATGCATGCATGCA") // 17 bp → 4 k-mers
+        };
+
+        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[0].Phylum, Is.EqualTo("Taxon1"), "Should classify to taxon with most hits");
+            Assert.That(results[0].MatchedKmers, Is.EqualTo(3),
+                "C = k-mers supporting winning taxon only (not all 4 matched k-mers)");
+            Assert.That(results[0].TotalKmers, Is.EqualTo(4), "Q = all non-ambiguous k-mers");
+            Assert.That(results[0].Confidence, Is.EqualTo(0.75).Within(0.001),
+                "Confidence = C/Q = 3/4 = 0.75 per Kraken formula");
+        });
     }
 
     #endregion

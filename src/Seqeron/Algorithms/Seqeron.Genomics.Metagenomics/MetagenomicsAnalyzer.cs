@@ -123,16 +123,21 @@ public static class MetagenomicsAnalyzer
 
             var taxonCounts = new Dictionary<string, int>();
             int totalKmers = 0;
-            int matchedKmers = 0;
 
             for (int i = 0; i <= sequence.Length - k; i++)
             {
                 string kmer = sequence.Substring(i, k).ToUpperInvariant();
+
+                // Per Kraken: skip k-mers containing ambiguous nucleotides
+                if (!kmer.All(c => "ACGT".Contains(c)))
+                    continue;
+
+                // Per Kraken: use canonical k-mer for database lookup
+                string canonical = GetCanonicalKmer(kmer);
                 totalKmers++;
 
-                if (kmerDatabase.TryGetValue(kmer, out string? taxon))
+                if (kmerDatabase.TryGetValue(canonical, out string? taxon))
                 {
-                    matchedKmers++;
                     if (!taxonCounts.ContainsKey(taxon))
                         taxonCounts[taxon] = 0;
                     taxonCounts[taxon]++;
@@ -146,8 +151,10 @@ public static class MetagenomicsAnalyzer
                 continue;
             }
 
-            // Find best matching taxon using LCA
+            // Per Kraken: classify to taxon with most k-mer hits
             var bestTaxon = taxonCounts.OrderByDescending(kv => kv.Value).First();
+            // Per Kraken: C = k-mers supporting classification, Q = non-ambiguous k-mers
+            int matchedKmers = bestTaxon.Value;
             double confidence = totalKmers > 0 ? (double)matchedKmers / totalKmers : 0;
 
             var taxonomy = ParseTaxonomyString(bestTaxon.Key);
