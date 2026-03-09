@@ -8,7 +8,7 @@
 | **Area** | Metagenomics |
 | **Canonical Methods** | `MetagenomicsAnalyzer.ClassifyReads`, `MetagenomicsAnalyzer.BuildKmerDatabase` |
 | **Complexity** | O(n × m) where n=reads, m=read length |
-| **Invariant** | |output| = |input reads|; 0 ≤ Confidence ≤ 1 |
+| **Invariant** | |output| = |input reads|; 0 ≤ Confidence ≤ 1; Confidence = C/Q per Kraken |
 
 ## Methods Under Test
 
@@ -20,8 +20,9 @@
 ## Evidence Sources
 
 1. **Wikipedia — Metagenomics:** K-mer based binning, taxonomic classification principles
-2. **Kraken Documentation (CCB JHU):** Canonical k-mer classification algorithm, k=31 default
-3. **Wood & Salzberg (2014):** Kraken paper describing exact k-mer matching for classification
+2. **Kraken 1 Manual (CCB JHU):** Canonical k-mer classification algorithm, k=31 default, ambiguous k-mer filtering
+3. **Kraken 2 Manual (GitHub Wiki):** Confidence formula C/Q where C=clade k-mers, Q=non-ambiguous k-mers
+4. **Wood & Salzberg (2014):** Kraken paper describing exact k-mer matching for classification
 
 ## Test Categories
 
@@ -47,9 +48,9 @@
 | M9 | No database matches returns Unclassified | Kraken: no hits → unclassified |
 | M10 | Matching k-mers classify to correct taxon | Core classification logic (Kraken) |
 | M11 | Output count equals input read count | Output invariant |
-| M12 | Confidence = MatchedKmers / TotalKmers | Kraken confidence formula |
-| M13 | TotalKmers = max(0, len - k + 1) | K-mer counting formula |
-| M14 | MatchedKmers ≤ TotalKmers | Bound invariant |
+| M12 | Confidence = C/Q (C=winning taxon k-mers, Q=non-ambiguous k-mers) | Kraken 1&2 confidence formula |
+| M13 | TotalKmers = non-ambiguous k-mers (= len-k+1 for all-ACGT) | Kraken: Q excludes ambiguous k-mers |
+| M14 | MatchedKmers ≤ TotalKmers; MatchedKmers = winning taxon count | Bound invariant + Kraken C/Q |
 | M15 | Multiple reads all classified | Batch processing |
 | M16 | Taxonomy string parsed correctly | Implementation: pipe/semicolon delimited |
 
@@ -59,9 +60,9 @@
 |----|------|-----------|
 | S1 | Mixed case input handled (uppercased internally) | Robustness for real data |
 | S2 | Multiple taxon matches resolves to highest count | LCA-like behavior |
-| S3 | Null sequence treated as empty | Defensive programming |
-| S4 | Large batch of reads processed correctly | Scalability |
-| S5 | k=1 edge case works correctly | Minimum valid k |
+| S3 | Canonical k-mer lookup in ClassifyReads (RC read matches canonical DB) | Kraken: canonicalize before lookup |
+| S4 | Ambiguous nucleotides excluded from TotalKmers | Kraken: Q = non-ambiguous k-mers only |
+| S5 | Multi-taxon confidence uses winning taxon count (C/Q) | Kraken 1&2: C = clade k-mers |
 
 ### COULD Tests
 
@@ -70,61 +71,86 @@
 | C1 | Performance with large database acceptable | Practical use case |
 | C2 | Memory-efficient for large read sets | Streaming enumerable |
 
-## Consolidation Plan
+## Coverage Classification
 
-### Current Test Pool
+All tests consolidated into `MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs` (27 tests).
 
-| File | Tests | Status |
-|------|-------|--------|
-| MetagenomicsAnalyzerTests.cs | 9 tests for ClassifyReads/BuildKmerDatabase | Existing, needs consolidation |
+### BuildKmerDatabase
 
-### Existing Test Audit
+| ID | Test | Status | Notes |
+|----|------|--------|-------|
+| M1 | EmptyInput_ReturnsEmptyDatabase | ✅ Covered | Exact assertion |
+| M2 | SequenceShorterThanK_ReturnsEmpty | ✅ Covered | Uses k=31 |
+| M3 | ValidReference_ProducesKmers | ✅ Covered | Exact count=6, all values verified (k=5, "ACGTACTGAC") |
+| M4 | UsesCanonicalKmers | ✅ Covered | Forward A→canonical A, forward T→canonical A |
+| M4b | CanonicalKmer_UsesReverseComplementWhenSmaller | ✅ Covered | Complementary to M4 |
+| M5 | NonAcgtCharacters_Excluded | ✅ Covered | Regex validates all keys ACGT-only |
+| M6 | KmerCount_FollowsFormula | ✅ Covered | Exact count=6=len-k+1 for non-repeating sequence |
+| S1 | MixedCase_NormalizedToUppercase | ✅ Covered | Lowercase input, uppercase keys verified |
 
-| Existing Test | Coverage | Action |
-|---------------|----------|--------|
-| BuildKmerDatabase_CreatesDatabase | M3 (partial) | Strengthen assertions |
-| BuildKmerDatabase_EmptyInput_ReturnsEmpty | M1 | Keep |
-| BuildKmerDatabase_ShortSequence_IgnoresIt | M2 | Keep |
-| BuildKmerDatabase_UsesCanonicalKmers | M4 | Strengthen |
-| ClassifyReads_WithMatchingDatabase_ClassifiesCorrectly | M10 (partial) | Strengthen invariant checks |
-| ClassifyReads_NoMatch_ReturnsUnclassified | M9 | Keep |
-| ClassifyReads_EmptySequence_HandlesGracefully | M7 | Keep |
-| ClassifyReads_ShortSequence_ReturnsUnclassified | M8 | Keep |
-| ClassifyReads_MultipleReads_ClassifiesAll | M11, M15 (partial) | Strengthen |
+### ClassifyReads
 
-### Consolidation Actions
+| ID | Test | Status | Notes |
+|----|------|--------|-------|
+| M7 | EmptySequence_ReturnsUnclassified | ✅ Covered | All fields: Kingdom, Confidence, TotalKmers |
+| M8 | SequenceShorterThanK_ReturnsUnclassified | ✅ Covered | Kingdom + TotalKmers=0 |
+| M9 | NoMatch_ReturnsUnclassified | ✅ Covered | MatchedKmers=0, TotalKmers>0 |
+| M10 | MatchingKmers_ClassifiesCorrectly | ✅ Covered | Exact: MatchedKmers=1, TotalKmers=8, Confidence=0.125 |
+| M11 | OutputCountEqualsInputCount | ✅ Covered | 5 reads (matched, empty, short) |
+| M12 | ConfidenceCalculation_IsCorrect | ✅ Covered | Exact: 1/2=0.5 (1 match out of 2 k-mers) |
+| M13 | TotalKmers_MatchesFormula | ✅ Covered | 4 cases with exact values |
+| M14 | MatchedKmers_BoundedByTotal | ✅ Covered | MatchedKmers ≤ TotalKmers |
+| M15 | MultipleReads_AllClassified | ✅ Covered | Exact: Bacteria, Bacteria, Unclassified |
+| M16 | TaxonomyParsing_PipeDelimited | ✅ Covered | All 7 ranks verified |
+| M16b | TaxonomyParsing_SemicolonDelimited | ✅ Covered | 4 ranks verified |
+| S1 | MixedCaseInput_Handled | ✅ Covered | Exact: Kingdom=Bacteria, MatchedKmers=2 |
+| S2 | MultipleTaxonMatches_ResolvesToHighestCount | ✅ Covered | Phylum=Taxon2 (2 hits vs 1) |
+| S3 | CanonicalKmerLookup_MatchesReverseComplement | ✅ Covered | RC lookup verified, MatchedKmers=2, Confidence=1.0 |
+| S4 | AmbiguousNucleotides_ExcludedFromTotalKmers | ✅ Covered | N at pos 9: TotalKmers=1, Confidence=1.0 |
+| S5 | MultiTaxon_ConfidenceUsesWinningTaxonCount | ✅ Covered | C=3, Q=4, Confidence=0.75 (Kraken formula) |
 
-1. **Create** `MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs` for META-CLASS-001
-2. **Migrate** relevant tests from `MetagenomicsAnalyzerTests.cs`
-3. ~~**Add** missing MUST tests (M5, M6, M12, M13, M14, M16)~~ ✅ Done
-4. ~~**Strengthen** existing tests with invariant assertions~~ ✅ Done
-5. ~~**Remove** tests from generic file once migrated~~ ✅ Done
+### Invariants
+
+| Test | Status | Notes |
+|------|--------|-------|
+| AllOutputs_HaveValidConfidence | ✅ Covered | Range [0,1] for 4 diverse reads |
+| UnclassifiedReads_HaveZeroMatchedKmers | ✅ Covered | Invariant: no hits → MatchedKmers=0 |
+| ReadIdPreserved | ✅ Covered | 2 reads with distinct IDs |
 
 ### Test Structure
 
 ```
-MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs
-├── BuildKmerDatabase_Tests (region)
-│   ├── EmptyInput_ReturnsEmpty
-│   ├── ShortSequence_IgnoresIt
-│   ├── ValidReference_ProducesKmers
-│   ├── UsesCanonicalKmers
-│   ├── ExcludesNonAcgtKmers
-│   └── KmerCountMatchesFormula
-├── ClassifyReads_Tests (region)
-│   ├── EmptySequence_ReturnsUnclassified
-│   ├── ShortSequence_ReturnsUnclassified
-│   ├── NoMatch_ReturnsUnclassified
-│   ├── MatchingKmers_ClassifiesCorrectly
-│   ├── OutputCountEqualsInputCount
-│   ├── ConfidenceCalculatedCorrectly
-│   ├── TotalKmersMatchesFormula
-│   ├── MatchedKmersBoundedByTotal
-│   ├── MultipleReads_AllClassified
-│   ├── TaxonomyParsedCorrectly
-│   └── MixedCaseHandled
-└── Invariants_Tests (region)
-    └── PropertyBased_AllInvariantsHold
+MetagenomicsAnalyzer_TaxonomicClassification_Tests.cs (27 tests)
+├── BuildKmerDatabase Tests (8 tests)
+│   ├── M1:  EmptyInput_ReturnsEmptyDatabase
+│   ├── M2:  SequenceShorterThanK_ReturnsEmpty
+│   ├── M3:  ValidReference_ProducesKmers (exact count=6)
+│   ├── M4:  UsesCanonicalKmers (A→A)
+│   ├── M4b: CanonicalKmer_UsesReverseComplementWhenSmaller (T→A)
+│   ├── M5:  NonAcgtCharacters_Excluded
+│   ├── M6:  KmerCount_FollowsFormula (exact count=len-k+1)
+│   └── S1:  MixedCase_NormalizedToUppercase
+├── ClassifyReads Tests (16 tests)
+│   ├── M7:  EmptySequence_ReturnsUnclassified
+│   ├── M8:  SequenceShorterThanK_ReturnsUnclassified
+│   ├── M9:  NoMatch_ReturnsUnclassified
+│   ├── M10: MatchingKmers_ClassifiesCorrectly (exact: 1/8=0.125)
+│   ├── M11: OutputCountEqualsInputCount
+│   ├── M12: ConfidenceCalculation_IsCorrect (exact: 1/2=0.5)
+│   ├── M13: TotalKmers_MatchesFormula (4 cases)
+│   ├── M14: MatchedKmers_BoundedByTotal
+│   ├── M15: MultipleReads_AllClassified (exact: Bacteria, Bacteria, Unclassified)
+│   ├── M16: TaxonomyParsing_PipeDelimited (7 ranks)
+│   ├── M16b:TaxonomyParsing_SemicolonDelimited
+│   ├── S1:  MixedCaseInput_Handled (exact: Kingdom=Bacteria, Matched=2)
+│   ├── S2:  MultipleTaxonMatches_ResolvesToHighestCount
+│   ├── S3:  CanonicalKmerLookup_MatchesReverseComplement
+│   ├── S4:  AmbiguousNucleotides_ExcludedFromTotalKmers
+│   └── S5:  MultiTaxon_ConfidenceUsesWinningTaxonCount (C/Q=3/4)
+└── Invariants Tests (3 tests)
+    ├── AllOutputs_HaveValidConfidence [0,1]
+    ├── UnclassifiedReads_HaveZeroMatchedKmers
+    └── ReadIdPreserved
 ```
 
 ## Open Questions / Decisions
