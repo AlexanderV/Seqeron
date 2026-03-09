@@ -15,9 +15,9 @@
 >
 > See [LICENSE](LICENSE) for full terms.
 
-C#/.NET toolkit for bioinformatics (primarily .NET 8, with selected .NET 9 components): sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
+C#/.NET toolkit for bioinformatics (.NET 9): sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
 
-[![.NET](https://img.shields.io/badge/.NET-8%2F9-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-9-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Quickstart (Library)

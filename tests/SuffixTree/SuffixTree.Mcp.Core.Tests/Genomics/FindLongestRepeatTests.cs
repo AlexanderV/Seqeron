@@ -13,20 +13,20 @@ public class FindLongestRepeatTests
     [Test]
     public void FindLongestRepeat_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestRepeat(""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestRepeat(null!));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestRepeat("ATGN")); // invalid DNA symbol
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat(""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat(null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestRepeat("ATGN")); // invalid DNA symbol
     }
 
     [Test]
     public void FindLongestRepeat_ReturnsExpectedForRepresentativeInputs()
     {
-        var repeated = SuffixTreeTools.FindLongestRepeat("ATGATGATG");
+        var repeated = SuffixTreeGenomicsTools.FindLongestRepeat("ATGATGATG");
         Assert.That(repeated.Repeat, Is.EqualTo("ATGATG"));
         Assert.That(repeated.Length, Is.EqualTo(6));
         Assert.That(repeated.Positions, Is.EqualTo(new[] { 0, 3 }));
 
-        var none = SuffixTreeTools.FindLongestRepeat("ACGT");
+        var none = SuffixTreeGenomicsTools.FindLongestRepeat("ACGT");
         Assert.That(none.Repeat, Is.Empty);
         Assert.That(none.Length, Is.EqualTo(0));
         Assert.That(none.Positions, Is.Empty);
@@ -40,7 +40,7 @@ public class FindLongestRepeatTests
         foreach (string sequence in sequences)
         {
             var expected = GenomicAnalyzer.FindLongestRepeat(new DnaSequence(sequence));
-            var actual = SuffixTreeTools.FindLongestRepeat(sequence);
+            var actual = SuffixTreeGenomicsTools.FindLongestRepeat(sequence);
 
             Assert.That(actual.Repeat, Is.EqualTo(expected.Sequence), $"sequence={sequence}: repeat");
             Assert.That(actual.Length, Is.EqualTo(expected.Length), $"sequence={sequence}: length");

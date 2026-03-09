@@ -11,7 +11,7 @@ public class ParsersTools
     // FASTA Tools
     // ========================
 
-    [McpServerTool(Name = "fasta_parse")]
+    [McpServerTool(Name = "fasta_parse", Title = "FASTA — Parse", ReadOnly = true)]
     [Description("Parse FASTA format string into sequence entries. Returns list of sequences with their IDs and descriptions.")]
     public static FastaParseResult FastaParse(
         [Description("FASTA format content to parse")] string content)
@@ -30,7 +30,7 @@ public class ParsersTools
         return new FastaParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "fasta_format")]
+    [McpServerTool(Name = "fasta_format", Title = "FASTA — Format", ReadOnly = true)]
     [Description("Format sequence(s) to FASTA string. Accepts ID, optional description, and sequence.")]
     public static FastaFormatResult FastaFormat(
         [Description("Sequence identifier")] string id,
@@ -52,7 +52,7 @@ public class ParsersTools
         return new FastaFormatResult(fasta.TrimEnd());
     }
 
-    [McpServerTool(Name = "fasta_write")]
+    [McpServerTool(Name = "fasta_write", Title = "FASTA — Write to File")]
     [Description("Write sequence(s) to a FASTA file. Creates or overwrites the file at specified path.")]
     public static FastaWriteResult FastaWrite(
         [Description("File path to write FASTA output")] string filePath,
@@ -81,7 +81,7 @@ public class ParsersTools
     // FASTQ Tools
     // ========================
 
-    [McpServerTool(Name = "fastq_parse")]
+    [McpServerTool(Name = "fastq_parse", Title = "FASTQ — Parse", ReadOnly = true)]
     [Description("Parse FASTQ format string into sequence entries with quality scores. Supports Phred+33 and Phred+64 encodings.")]
     public static FastqParseResult FastqParse(
         [Description("FASTQ format content to parse")] string content,
@@ -111,7 +111,7 @@ public class ParsersTools
         return new FastqParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "fastq_statistics")]
+    [McpServerTool(Name = "fastq_statistics", Title = "FASTQ — Statistics", ReadOnly = true)]
     [Description("Calculate quality statistics for FASTQ data. Returns read counts, quality metrics, and GC content.")]
     public static FastqStatisticsResult FastqStatistics(
         [Description("FASTQ format content to analyze")] string content,
@@ -143,7 +143,7 @@ public class ParsersTools
             stats.GcContent);
     }
 
-    [McpServerTool(Name = "fastq_filter")]
+    [McpServerTool(Name = "fastq_filter", Title = "FASTQ — Filter by Quality", ReadOnly = true)]
     [Description("Filter FASTQ reads by minimum average quality score. Returns reads meeting the quality threshold.")]
     public static FastqFilterResult FastqFilter(
         [Description("FASTQ format content to filter")] string content,
@@ -182,7 +182,7 @@ public class ParsersTools
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
 
-    [McpServerTool(Name = "fastq_detect_encoding")]
+    [McpServerTool(Name = "fastq_detect_encoding", Title = "FASTQ — Detect Encoding", ReadOnly = true)]
     [Description("Detect quality score encoding from FASTQ quality string. Returns 'Phred33' (Sanger/Illumina 1.8+) or 'Phred64' (Illumina 1.3-1.7).")]
     public static FastqDetectEncodingResult FastqDetectEncoding(
         [Description("Quality string from FASTQ record")] string qualityString)
@@ -196,7 +196,7 @@ public class ParsersTools
             encoding == FastqParser.QualityEncoding.Phred33 ? 33 : 64);
     }
 
-    [McpServerTool(Name = "fastq_encode_quality")]
+    [McpServerTool(Name = "fastq_encode_quality", Title = "FASTQ — Encode Quality", ReadOnly = true)]
     [Description("Encode Phred quality scores to a quality string.")]
     public static FastqEncodeQualityResult FastqEncodeQuality(
         [Description("List of Phred quality scores (0-41)")] List<int> scores,
@@ -216,7 +216,7 @@ public class ParsersTools
         return new FastqEncodeQualityResult(qualityString, scores.Count);
     }
 
-    [McpServerTool(Name = "fastq_phred_to_error")]
+    [McpServerTool(Name = "fastq_phred_to_error", Title = "FASTQ — Phred to Error Rate", ReadOnly = true)]
     [Description("Convert Phred quality score to error probability. Formula: P = 10^(-Q/10).")]
     public static FastqPhredToErrorResult FastqPhredToError(
         [Description("Phred quality score")] int phredScore)
@@ -228,7 +228,7 @@ public class ParsersTools
         return new FastqPhredToErrorResult(phredScore, errorProbability);
     }
 
-    [McpServerTool(Name = "fastq_error_to_phred")]
+    [McpServerTool(Name = "fastq_error_to_phred", Title = "FASTQ — Error to Phred Score", ReadOnly = true)]
     [Description("Convert error probability to Phred quality score. Formula: Q = -10 * log10(P).")]
     public static FastqErrorToPhredResult FastqErrorToPhred(
         [Description("Error probability (0-1)")] double errorProbability)
@@ -240,7 +240,7 @@ public class ParsersTools
         return new FastqErrorToPhredResult(errorProbability, phredScore);
     }
 
-    [McpServerTool(Name = "fastq_trim_quality")]
+    [McpServerTool(Name = "fastq_trim_quality", Title = "FASTQ — Trim by Quality", ReadOnly = true)]
     [Description("Trim low-quality bases from both ends of FASTQ reads. Removes bases below the quality threshold.")]
     public static FastqTrimQualityResult FastqTrimQuality(
         [Description("FASTQ format content to trim")] string content,
@@ -283,7 +283,7 @@ public class ParsersTools
             originalBases > 0 ? (double)(originalBases - trimmedBases) / originalBases * 100 : 0);
     }
 
-    [McpServerTool(Name = "fastq_trim_adapter")]
+    [McpServerTool(Name = "fastq_trim_adapter", Title = "FASTQ — Trim Adapter", ReadOnly = true)]
     [Description("Trim adapter sequences from FASTQ reads. Searches for adapter at the 3' end and within the sequence.")]
     public static FastqTrimAdapterResult FastqTrimAdapter(
         [Description("FASTQ format content to trim")] string content,
@@ -330,7 +330,7 @@ public class ParsersTools
             trimmedBases);
     }
 
-    [McpServerTool(Name = "fastq_format")]
+    [McpServerTool(Name = "fastq_format", Title = "FASTQ — Format", ReadOnly = true)]
     [Description("Format a single FASTQ record to string format.")]
     public static FastqFormatResult FastqFormat(
         [Description("Sequence identifier")] string id,
@@ -358,7 +358,7 @@ public class ParsersTools
         return new FastqFormatResult(fastq.TrimEnd());
     }
 
-    [McpServerTool(Name = "fastq_write")]
+    [McpServerTool(Name = "fastq_write", Title = "FASTQ — Write to File")]
     [Description("Write FASTQ records to a file. Creates or overwrites the file at specified path.")]
     public static FastqWriteResult FastqWrite(
         [Description("File path to write FASTQ output")] string filePath,
@@ -389,7 +389,7 @@ public class ParsersTools
     // BED Tools
     // ========================
 
-    [McpServerTool(Name = "bed_parse")]
+    [McpServerTool(Name = "bed_parse", Title = "BED — Parse", ReadOnly = true)]
     [Description("Parse BED format content into genomic region records. Supports BED3, BED6, and BED12 formats.")]
     public static BedParseResult BedParse(
         [Description("BED format content to parse")] string content,
@@ -427,7 +427,7 @@ public class ParsersTools
         return new BedParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "bed_filter")]
+    [McpServerTool(Name = "bed_filter", Title = "BED — Filter", ReadOnly = true)]
     [Description("Filter BED records by chromosome, region, strand, length, or score. All filters are optional and can be combined.")]
     public static BedFilterResult BedFilter(
         [Description("BED format content to filter")] string content,
@@ -502,7 +502,7 @@ public class ParsersTools
             records.Count > 0 ? (double)results.Count / records.Count * 100 : 0);
     }
 
-    [McpServerTool(Name = "bed_merge")]
+    [McpServerTool(Name = "bed_merge", Title = "BED — Merge Overlapping", ReadOnly = true)]
     [Description("Merge overlapping BED records into single intervals. Adjacent or overlapping features on the same chromosome are combined.")]
     public static BedMergeResult BedMerge(
         [Description("BED format content to merge")] string content)
@@ -532,7 +532,7 @@ public class ParsersTools
         return new BedMergeResult(results, results.Count, records.Count);
     }
 
-    [McpServerTool(Name = "bed_intersect")]
+    [McpServerTool(Name = "bed_intersect", Title = "BED — Intersect", ReadOnly = true)]
     [Description("Find intersecting regions between two BED datasets. Returns overlapping portions of features.")]
     public static BedIntersectResult BedIntersect(
         [Description("First BED format content (features to intersect)")] string contentA,
@@ -570,7 +570,7 @@ public class ParsersTools
     // VCF Tools
     // ========================
 
-    [McpServerTool(Name = "vcf_parse")]
+    [McpServerTool(Name = "vcf_parse", Title = "VCF — Parse", ReadOnly = true)]
     [Description("Parse VCF (Variant Call Format) content into variant records. Returns chromosome, position, reference/alternate alleles, quality, and filter status.")]
     public static VcfParseResult VcfParse(
         [Description("VCF format content to parse")] string content)
@@ -594,7 +594,7 @@ public class ParsersTools
         return new VcfParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "vcf_statistics")]
+    [McpServerTool(Name = "vcf_statistics", Title = "VCF — Statistics", ReadOnly = true)]
     [Description("Calculate statistics for VCF variants. Returns counts by variant type, chromosome distribution, and quality metrics.")]
     public static VcfStatisticsResult VcfStatistics(
         [Description("VCF format content to analyze")] string content)
@@ -615,7 +615,7 @@ public class ParsersTools
             stats.MeanQuality);
     }
 
-    [McpServerTool(Name = "vcf_filter")]
+    [McpServerTool(Name = "vcf_filter", Title = "VCF — Filter", ReadOnly = true)]
     [Description("Filter VCF variants by type, quality, chromosome, or PASS status.")]
     public static VcfFilterResult VcfFilter(
         [Description("VCF format content to filter")] string content,
@@ -704,7 +704,7 @@ public class ParsersTools
         return new VcfClassifyResult(variantType.ToString(), refAllele.Length, altAllele.Length, length);
     }
 
-    [McpServerTool(Name = "vcf_is_snp")]
+    [McpServerTool(Name = "vcf_is_snp", Title = "VCF — Is SNP", ReadOnly = true)]
     [Description("Check if a variant is a SNP (Single Nucleotide Polymorphism).")]
     public static VcfIsSNPResult VcfIsSNP(
         [Description("Reference allele")] string refAllele,
@@ -723,7 +723,7 @@ public class ParsersTools
         return new VcfIsSNPResult(isSNP, refAllele, altAllele);
     }
 
-    [McpServerTool(Name = "vcf_is_indel")]
+    [McpServerTool(Name = "vcf_is_indel", Title = "VCF — Is Indel", ReadOnly = true)]
     [Description("Check if a variant is an indel (insertion or deletion).")]
     public static VcfIsIndelResult VcfIsIndel(
         [Description("Reference allele")] string refAllele,
@@ -746,7 +746,7 @@ public class ParsersTools
         return new VcfIsIndelResult(isIndel, isInsertion, isDeletion, refAllele, altAllele);
     }
 
-    [McpServerTool(Name = "vcf_variant_length")]
+    [McpServerTool(Name = "vcf_variant_length", Title = "VCF — Variant Length", ReadOnly = true)]
     [Description("Get the length difference of a variant (absolute difference between ref and alt lengths).")]
     public static VcfVariantLengthResult VcfVariantLength(
         [Description("Reference allele")] string refAllele,
@@ -808,7 +808,7 @@ public class ParsersTools
         return new VcfGenotypeCheckResult(isHet, genotype, "Heterozygous");
     }
 
-    [McpServerTool(Name = "vcf_has_flag")]
+    [McpServerTool(Name = "vcf_has_flag", Title = "VCF — Has Info Flag", ReadOnly = true)]
     [Description("Check if a VCF INFO field flag is present.")]
     public static VcfHasFlagResult VcfHasFlag(
         [Description("VCF format content")] string content,
@@ -829,7 +829,7 @@ public class ParsersTools
             records.Count > 0 ? (double)recordsWithFlag.Count / records.Count * 100 : 0);
     }
 
-    [McpServerTool(Name = "vcf_write")]
+    [McpServerTool(Name = "vcf_write", Title = "VCF — Write to File")]
     [Description("Write VCF records to a file. Creates or overwrites the file at specified path.")]
     public static VcfWriteResult VcfWrite(
         [Description("File path to write VCF output")] string filePath,
@@ -851,7 +851,7 @@ public class ParsersTools
     // GFF/GTF Tools
     // ========================
 
-    [McpServerTool(Name = "gff_parse")]
+    [McpServerTool(Name = "gff_parse", Title = "GFF — Parse", ReadOnly = true)]
     [Description("Parse GFF3/GTF format content into feature records. Supports GFF3, GTF, and GFF2 formats for gene annotations.")]
     public static GffParseResult GffParse(
         [Description("GFF/GTF format content to parse")] string content,
@@ -887,7 +887,7 @@ public class ParsersTools
         return new GffParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "gff_statistics")]
+    [McpServerTool(Name = "gff_statistics", Title = "GFF — Statistics", ReadOnly = true)]
     [Description("Calculate statistics for GFF/GTF annotations. Returns feature type counts, sequence IDs, and gene/exon counts.")]
     public static GffStatisticsResult GffStatistics(
         [Description("GFF/GTF format content to analyze")] string content,
@@ -917,7 +917,7 @@ public class ParsersTools
             stats.ExonCount);
     }
 
-    [McpServerTool(Name = "gff_filter")]
+    [McpServerTool(Name = "gff_filter", Title = "GFF — Filter", ReadOnly = true)]
     [Description("Filter GFF/GTF records by feature type, sequence ID, or genomic region.")]
     public static GffFilterResult GffFilter(
         [Description("GFF/GTF format content to filter")] string content,
@@ -986,7 +986,7 @@ public class ParsersTools
     // GenBank Tools
     // ========================
 
-    [McpServerTool(Name = "genbank_parse")]
+    [McpServerTool(Name = "genbank_parse", Title = "GenBank — Parse", ReadOnly = true)]
     [Description("Parse GenBank flat file format into structured records. Returns locus info, definition, accession, features, and sequence.")]
     public static GenBankParseResult GenBankParse(
         [Description("GenBank format content to parse")] string content)
@@ -1024,7 +1024,7 @@ public class ParsersTools
         return new GenBankParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "genbank_features")]
+    [McpServerTool(Name = "genbank_features", Title = "GenBank — Extract Features", ReadOnly = true)]
     [Description("Extract features from GenBank records by feature type (gene, CDS, mRNA, etc.).")]
     public static GenBankFeaturesResult GenBankFeatures(
         [Description("GenBank format content to parse")] string content,
@@ -1064,7 +1064,7 @@ public class ParsersTools
         return new GenBankFeaturesResult(allFeatures, allFeatures.Count, featureTypeCounts);
     }
 
-    [McpServerTool(Name = "genbank_statistics")]
+    [McpServerTool(Name = "genbank_statistics", Title = "GenBank — Statistics", ReadOnly = true)]
     [Description("Calculate statistics for GenBank records. Returns counts of records, features, and sequence lengths.")]
     public static GenBankStatisticsResult GenBankStatistics(
         [Description("GenBank format content to analyze")] string content)
@@ -1107,7 +1107,7 @@ public class ParsersTools
             cdsCount);
     }
 
-    [McpServerTool(Name = "genbank_parse_location")]
+    [McpServerTool(Name = "genbank_parse_location", Title = "GenBank — Parse Location", ReadOnly = true)]
     [Description("Parse a GenBank feature location string into its components. Handles simple ranges, complement, join, and complex locations.")]
     public static GenBankLocationResult GenBankParseLocation(
         [Description("Feature location string (e.g., '100..200', 'complement(100..200)', 'join(100..200,300..400)')")] string locationString)
@@ -1129,7 +1129,7 @@ public class ParsersTools
             location.RawLocation);
     }
 
-    [McpServerTool(Name = "genbank_extract_sequence")]
+    [McpServerTool(Name = "genbank_extract_sequence", Title = "GenBank — Extract Sequence", ReadOnly = true)]
     [Description("Extract a subsequence from a GenBank record based on a feature location string. Handles complement and join locations.")]
     public static GenBankExtractSequenceResult GenBankExtractSequence(
         [Description("GenBank format content")] string content,
@@ -1160,7 +1160,7 @@ public class ParsersTools
     // EMBL Tools
     // ========================
 
-    [McpServerTool(Name = "embl_parse")]
+    [McpServerTool(Name = "embl_parse", Title = "EMBL — Parse", ReadOnly = true)]
     [Description("Parse EMBL flat file format into structured records. Returns accession, description, features, and sequence.")]
     public static EmblParseResult EmblParse(
         [Description("EMBL format content to parse")] string content)
@@ -1197,7 +1197,7 @@ public class ParsersTools
         return new EmblParseResult(results, results.Count);
     }
 
-    [McpServerTool(Name = "embl_features")]
+    [McpServerTool(Name = "embl_features", Title = "EMBL — Extract Features", ReadOnly = true)]
     [Description("Extract features from EMBL records by feature type (gene, CDS, mRNA, etc.).")]
     public static EmblFeaturesResult EmblFeatures(
         [Description("EMBL format content to parse")] string content,
@@ -1236,7 +1236,7 @@ public class ParsersTools
         return new EmblFeaturesResult(allFeatures, allFeatures.Count, featureTypeCounts);
     }
 
-    [McpServerTool(Name = "embl_statistics")]
+    [McpServerTool(Name = "embl_statistics", Title = "EMBL — Statistics", ReadOnly = true)]
     [Description("Calculate statistics for EMBL records. Returns counts of records, features, and sequence lengths.")]
     public static EmblStatisticsResult EmblStatistics(
         [Description("EMBL format content to analyze")] string content)
@@ -1279,215 +1279,3 @@ public class ParsersTools
             cdsCount);
     }
 }
-
-// ========================
-// Result Records
-// ========================
-
-public record FastaEntryResult(string Id, string? Description, string Sequence, int Length);
-public record FastaParseResult(List<FastaEntryResult> Entries, int Count);
-public record FastaFormatResult(string Fasta);
-public record FastaWriteResult(string FilePath, int EntriesWritten, int TotalBases);
-public record FastqRecordResult(string Id, string? Description, string Sequence, string QualityString, List<int> QualityScores, int Length);
-public record FastqParseResult(List<FastqRecordResult> Entries, int Count);
-public record FastqStatisticsResult(
-    int TotalReads,
-    long TotalBases,
-    double MeanReadLength,
-    double MeanQuality,
-    int MinReadLength,
-    int MaxReadLength,
-    double Q20Percentage,
-    double Q30Percentage,
-    double GcContent);
-public record FastqFilterResult(
-    List<FastqRecordResult> Entries,
-    int PassedCount,
-    int TotalCount,
-    double PassedPercentage);
-public record FastqDetectEncodingResult(string Encoding, int Offset);
-public record FastqEncodeQualityResult(string QualityString, int Length);
-public record FastqPhredToErrorResult(int PhredScore, double ErrorProbability);
-public record FastqErrorToPhredResult(double ErrorProbability, int PhredScore);
-public record FastqTrimQualityResult(
-    List<FastqRecordResult> Entries,
-    int Count,
-    long OriginalBases,
-    long TrimmedBases,
-    double TrimmedPercentage);
-public record FastqTrimAdapterResult(
-    List<FastqRecordResult> Entries,
-    int Count,
-    int ReadsWithAdapter,
-    long OriginalBases,
-    long TrimmedBases);
-public record FastqFormatResult(string Fastq);
-public record FastqWriteResult(string FilePath, int RecordsWritten, long TotalBases);
-public record BedRecordResult(
-    string Chrom,
-    int ChromStart,
-    int ChromEnd,
-    int Length,
-    string? Name = null,
-    int? Score = null,
-    string? Strand = null,
-    int? ThickStart = null,
-    int? ThickEnd = null,
-    string? ItemRgb = null,
-    int? BlockCount = null,
-    List<int>? BlockSizes = null,
-    List<int>? BlockStarts = null);
-public record BedParseResult(List<BedRecordResult> Records, int Count);
-public record BedFilterResult(
-    List<BedRecordResult> Records,
-    int PassedCount,
-    int TotalCount,
-    double PassedPercentage);
-public record BedMergeResult(List<BedRecordResult> Records, int MergedCount, int OriginalCount);
-public record BedIntersectResult(List<BedRecordResult> Records, int IntersectionCount, int CountA, int CountB);
-public record VcfRecordResult(
-    string Chrom,
-    int Pos,
-    string Id,
-    string Ref,
-    List<string> Alt,
-    double? Qual,
-    List<string> Filter,
-    Dictionary<string, string> Info,
-    string VariantType);
-public record VcfParseResult(List<VcfRecordResult> Records, int Count);
-public record VcfStatisticsResult(
-    int TotalVariants,
-    int SnpCount,
-    int IndelCount,
-    int ComplexCount,
-    int PassingCount,
-    Dictionary<string, int> ChromosomeCounts,
-    double? MeanQuality);
-public record VcfFilterResult(
-    List<VcfRecordResult> Records,
-    int PassedCount,
-    int TotalCount,
-    double PassedPercentage);
-public record VcfClassifyResult(string VariantType, int RefLength, int AltLength, int LengthDifference);
-public record VcfIsSNPResult(bool IsSNP, string RefAllele, string AltAllele);
-public record VcfIsIndelResult(bool IsIndel, bool IsInsertion, bool IsDeletion, string RefAllele, string AltAllele);
-public record VcfVariantLengthResult(int Length, int RefLength, int AltLength);
-public record VcfGenotypeCheckResult(bool Result, string Genotype, string CheckType);
-public record VcfHasFlagResult(string Flag, int RecordsWithFlag, int TotalRecords, double Percentage);
-public record VcfWriteResult(string FilePath, int RecordsWritten);
-public record GffRecordResult(
-    string Seqid,
-    string Source,
-    string Type,
-    int Start,
-    int End,
-    int Length,
-    double? Score,
-    string Strand,
-    int? Phase,
-    Dictionary<string, string> Attributes,
-    string? GeneName);
-public record GffParseResult(List<GffRecordResult> Records, int Count);
-public record GffStatisticsResult(
-    int TotalFeatures,
-    Dictionary<string, int> FeatureTypeCounts,
-    List<string> SequenceIds,
-    List<string> Sources,
-    int GeneCount,
-    int ExonCount);
-public record GffFilterResult(
-    List<GffRecordResult> Records,
-    int PassedCount,
-    int TotalCount,
-    double PassedPercentage);
-public record GenBankFeatureResult(
-    string Key,
-    int Start,
-    int End,
-    bool IsComplement,
-    bool IsJoin,
-    string RawLocation,
-    Dictionary<string, string> Qualifiers);
-public record GenBankRecordResult(
-    string Locus,
-    int SequenceLength,
-    string MoleculeType,
-    string Topology,
-    string Division,
-    string? Date,
-    string Definition,
-    string Accession,
-    string Version,
-    List<string> Keywords,
-    string Organism,
-    string Taxonomy,
-    List<GenBankFeatureResult> Features,
-    int ActualSequenceLength,
-    string Sequence);
-public record GenBankParseResult(List<GenBankRecordResult> Records, int Count);
-public record GenBankFeaturesResult(
-    List<GenBankFeatureResult> Features,
-    int Count,
-    Dictionary<string, int> FeatureTypeCounts);
-public record GenBankStatisticsResult(
-    int RecordCount,
-    int TotalFeatures,
-    int TotalSequenceLength,
-    Dictionary<string, int> FeatureTypeCounts,
-    List<string> MoleculeTypes,
-    List<string> Divisions,
-    int GeneCount,
-    int CdsCount);
-public record LocationPartResult(int Start, int End, int Length);
-public record GenBankLocationResult(
-    int Start,
-    int End,
-    int Length,
-    bool IsComplement,
-    bool IsJoin,
-    List<LocationPartResult> Parts,
-    string RawLocation);
-public record GenBankExtractSequenceResult(
-    string Sequence,
-    int Length,
-    bool IsComplement,
-    bool IsJoin,
-    string Location);
-public record EmblFeatureResult(
-    string Key,
-    int Start,
-    int End,
-    bool IsComplement,
-    bool IsJoin,
-    string RawLocation,
-    Dictionary<string, string> Qualifiers);
-public record EmblRecordResult(
-    string Accession,
-    string SequenceVersion,
-    string DataClass,
-    string MoleculeType,
-    string Topology,
-    string TaxonomicDivision,
-    int SequenceLength,
-    string Description,
-    List<string> Keywords,
-    string Organism,
-    List<string> OrganismClassification,
-    List<EmblFeatureResult> Features,
-    int ActualSequenceLength,
-    string Sequence);
-public record EmblParseResult(List<EmblRecordResult> Records, int Count);
-public record EmblFeaturesResult(
-    List<EmblFeatureResult> Features,
-    int Count,
-    Dictionary<string, int> FeatureTypeCounts);
-public record EmblStatisticsResult(
-    int RecordCount,
-    int TotalFeatures,
-    int TotalSequenceLength,
-    Dictionary<string, int> FeatureTypeCounts,
-    List<string> MoleculeTypes,
-    List<string> Divisions,
-    int GeneCount,
-    int CdsCount);

@@ -10,22 +10,22 @@ public class SuffixTreeLrsTests
     [Test]
     public void SuffixTreeLrs_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLrs(""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLrs(null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLrs(""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLrs(null!));
     }
 
     [Test]
     public void SuffixTreeLrs_ReturnsExpectedForRepresentativeInputs()
     {
-        var banana = SuffixTreeTools.SuffixTreeLrs("banana");
+        var banana = SuffixTreeCoreTools.SuffixTreeLrs("banana");
         Assert.That(banana.Substring, Is.EqualTo("ana"));
         Assert.That(banana.Length, Is.EqualTo(3));
 
-        var repeated = SuffixTreeTools.SuffixTreeLrs("aaaaa");
+        var repeated = SuffixTreeCoreTools.SuffixTreeLrs("aaaaa");
         Assert.That(repeated.Substring, Is.EqualTo("aaaa"));
         Assert.That(repeated.Length, Is.EqualTo(4));
 
-        var none = SuffixTreeTools.SuffixTreeLrs("abcdef");
+        var none = SuffixTreeCoreTools.SuffixTreeLrs("abcdef");
         Assert.That(none.Substring, Is.Empty);
         Assert.That(none.Length, Is.EqualTo(0));
     }
@@ -34,7 +34,7 @@ public class SuffixTreeLrsTests
     public void SuffixTreeLrs_ResultSatisfiesCoreContract()
     {
         const string text = "mississippi";
-        var result = SuffixTreeTools.SuffixTreeLrs(text);
+        var result = SuffixTreeCoreTools.SuffixTreeLrs(text);
 
         Assert.That(result.Length, Is.EqualTo(result.Substring.Length));
         if (result.Length > 0)

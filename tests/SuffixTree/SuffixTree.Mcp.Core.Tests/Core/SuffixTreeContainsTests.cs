@@ -10,9 +10,9 @@ public class SuffixTreeContainsTests
     [Test]
     public void SuffixTreeContains_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains("", "pattern"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains(null!, "pattern"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeContains("text", null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeContains("", "pattern"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeContains(null!, "pattern"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeContains("text", null!));
     }
 
     [TestCase("banana", "ana", true)]
@@ -23,7 +23,7 @@ public class SuffixTreeContainsTests
     [TestCase("AbCd", "AbC", true)]
     public void SuffixTreeContains_ReturnsExpectedResult(string text, string pattern, bool expected)
     {
-        var result = SuffixTreeTools.SuffixTreeContains(text, pattern);
+        var result = SuffixTreeCoreTools.SuffixTreeContains(text, pattern);
         Assert.That(result.Found, Is.EqualTo(expected));
     }
 }

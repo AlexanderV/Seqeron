@@ -9,68 +9,39 @@ namespace SuffixTree.Mcp.Core.Tests;
 public class SuffixTreeCoreWrapperParityTests
 {
     [Test]
-    public void CompatibilityWrappers_MatchCoreToolImplementations()
+    public void CoreTools_ProduceConsistentResults()
     {
-        var containsWrapper = SuffixTreeTools.SuffixTreeContains("banana", "ana");
-        var containsCore = SuffixTreeCoreTools.SuffixTreeContains("banana", "ana");
-        Assert.That(containsWrapper.Found, Is.EqualTo(containsCore.Found));
+        var contains = SuffixTreeCoreTools.SuffixTreeContains("banana", "ana");
+        Assert.That(contains.Found, Is.True);
 
-        var countWrapper = SuffixTreeTools.SuffixTreeCount("banana", "ana");
-        var countCore = SuffixTreeCoreTools.SuffixTreeCount("banana", "ana");
-        Assert.That(countWrapper.Count, Is.EqualTo(countCore.Count));
+        var count = SuffixTreeCoreTools.SuffixTreeCount("banana", "ana");
+        Assert.That(count.Count, Is.EqualTo(2));
 
-        var findAllWrapper = SuffixTreeTools.SuffixTreeFindAll("banana", "ana");
-        var findAllCore = SuffixTreeCoreTools.SuffixTreeFindAll("banana", "ana");
-        Assert.That(findAllWrapper.Positions.OrderBy(x => x).ToArray(),
-            Is.EqualTo(findAllCore.Positions.OrderBy(x => x).ToArray()));
+        var findAll = SuffixTreeCoreTools.SuffixTreeFindAll("banana", "ana");
+        Assert.That(findAll.Positions.OrderBy(x => x).ToArray(), Is.EqualTo(new[] { 1, 3 }));
 
-        var lrsWrapper = SuffixTreeTools.SuffixTreeLrs("banana");
-        var lrsCore = SuffixTreeCoreTools.SuffixTreeLrs("banana");
-        Assert.That((lrsWrapper.Substring, lrsWrapper.Length), Is.EqualTo((lrsCore.Substring, lrsCore.Length)));
+        var lrs = SuffixTreeCoreTools.SuffixTreeLrs("banana");
+        Assert.That(lrs.Substring, Is.EqualTo("ana"));
+        Assert.That(lrs.Length, Is.EqualTo(3));
 
-        var lcsWrapper = SuffixTreeTools.SuffixTreeLcs("banana", "panama");
-        var lcsCore = SuffixTreeCoreTools.SuffixTreeLcs("banana", "panama");
-        Assert.That((lcsWrapper.Substring, lcsWrapper.Length), Is.EqualTo((lcsCore.Substring, lcsCore.Length)));
+        var lcs = SuffixTreeCoreTools.SuffixTreeLcs("banana", "panama");
+        Assert.That(lcs.Substring, Is.EqualTo("ana"));
+        Assert.That(lcs.Length, Is.EqualTo(3));
 
-        var statsWrapper = SuffixTreeTools.SuffixTreeStats("banana");
-        var statsCore = SuffixTreeCoreTools.SuffixTreeStats("banana");
-        Assert.That((statsWrapper.NodeCount, statsWrapper.LeafCount, statsWrapper.MaxDepth, statsWrapper.TextLength),
-            Is.EqualTo((statsCore.NodeCount, statsCore.LeafCount, statsCore.MaxDepth, statsCore.TextLength)));
+        var stats = SuffixTreeCoreTools.SuffixTreeStats("banana");
+        Assert.That(stats.TextLength, Is.EqualTo(6));
+        Assert.That(stats.LeafCount, Is.GreaterThan(0));
     }
 
     [Test]
-    public void CompatibilityWrappers_AndCoreTools_ThrowEquivalentArgumentErrors()
+    public void CoreTools_ThrowArgumentErrors()
     {
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeContains("", "a"),
-            () => SuffixTreeCoreTools.SuffixTreeContains("", "a"));
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeContains("abc", null!),
-            () => SuffixTreeCoreTools.SuffixTreeContains("abc", null!));
-
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeCount("", "a"),
-            () => SuffixTreeCoreTools.SuffixTreeCount("", "a"));
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeFindAll("", "a"),
-            () => SuffixTreeCoreTools.SuffixTreeFindAll("", "a"));
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeLrs(""),
-            () => SuffixTreeCoreTools.SuffixTreeLrs(""));
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeLcs("", "abc"),
-            () => SuffixTreeCoreTools.SuffixTreeLcs("", "abc"));
-        AssertBothThrowArgumentException(
-            () => SuffixTreeTools.SuffixTreeStats(""),
-            () => SuffixTreeCoreTools.SuffixTreeStats(""));
-    }
-
-    private static void AssertBothThrowArgumentException(TestDelegate wrapperCall, TestDelegate coreCall)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.Throws<ArgumentException>(wrapperCall);
-            Assert.Throws<ArgumentException>(coreCall);
-        });
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeContains("", "a"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeContains("abc", null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeCount("", "a"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeFindAll("", "a"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLrs(""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLcs("", "abc"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeStats(""));
     }
 }

@@ -10,9 +10,9 @@ public class SuffixTreeCountTests
     [Test]
     public void SuffixTreeCount_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount("", "pattern"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount(null!, "pattern"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeCount("text", null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeCount("", "pattern"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeCount(null!, "pattern"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeCount("text", null!));
     }
 
     [TestCase("banana", "ana", 2)]
@@ -23,7 +23,7 @@ public class SuffixTreeCountTests
     [TestCase("AbCd", "abcd", 0)]
     public void SuffixTreeCount_ReturnsExpectedCount(string text, string pattern, int expectedCount)
     {
-        var result = SuffixTreeTools.SuffixTreeCount(text, pattern);
+        var result = SuffixTreeCoreTools.SuffixTreeCount(text, pattern);
         Assert.That(result.Count, Is.EqualTo(expectedCount));
     }
 }

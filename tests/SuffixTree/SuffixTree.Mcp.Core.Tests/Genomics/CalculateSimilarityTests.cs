@@ -12,10 +12,10 @@ public class CalculateSimilarityTests
     [Test]
     public void CalculateSimilarity_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("", "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity(null!, "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CalculateSimilarity("ATGN", "ATGC")); // invalid DNA symbol
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("", "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity(null!, "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ATGC", ""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CalculateSimilarity("ATGN", "ATGC")); // invalid DNA symbol
     }
 
     [TestCase("ATAT", "ATAT", 2, 100.0)]
@@ -27,7 +27,7 @@ public class CalculateSimilarityTests
         int kmerSize,
         double expected)
     {
-        var result = SuffixTreeTools.CalculateSimilarity(sequence1, sequence2, kmerSize);
+        var result = SuffixTreeGenomicsTools.CalculateSimilarity(sequence1, sequence2, kmerSize);
         Assert.That(result.Similarity, Is.EqualTo(expected).Within(1e-9));
     }
 
@@ -45,7 +45,7 @@ public class CalculateSimilarityTests
         foreach (var (s1, s2, k) in cases)
         {
             double expected = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(s1), new DnaSequence(s2), k);
-            double actual = SuffixTreeTools.CalculateSimilarity(s1, s2, k).Similarity;
+            double actual = SuffixTreeGenomicsTools.CalculateSimilarity(s1, s2, k).Similarity;
             Assert.That(actual, Is.EqualTo(expected).Within(1e-9),
                 $"s1={s1}, s2={s2}, k={k}");
         }

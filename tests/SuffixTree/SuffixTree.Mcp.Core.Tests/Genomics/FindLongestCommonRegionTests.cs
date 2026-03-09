@@ -12,22 +12,22 @@ public class FindLongestCommonRegionTests
     [Test]
     public void FindLongestCommonRegion_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestCommonRegion("", "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestCommonRegion(null!, "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestCommonRegion("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.FindLongestCommonRegion("ATGC", "ATGN")); // invalid DNA symbol
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("", "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion(null!, "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", ""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.FindLongestCommonRegion("ATGC", "ATGN")); // invalid DNA symbol
     }
 
     [Test]
     public void FindLongestCommonRegion_ReturnsExpectedForRepresentativeInputs()
     {
-        var result = SuffixTreeTools.FindLongestCommonRegion("AAAACCC", "GGAAAAT");
+        var result = SuffixTreeGenomicsTools.FindLongestCommonRegion("AAAACCC", "GGAAAAT");
         Assert.That(result.Region, Is.EqualTo("AAAA"));
         Assert.That(result.Length, Is.EqualTo(4));
         Assert.That(result.Position1, Is.EqualTo(0));
         Assert.That(result.Position2, Is.EqualTo(2));
 
-        var noCommon = SuffixTreeTools.FindLongestCommonRegion("AAAA", "TTTT");
+        var noCommon = SuffixTreeGenomicsTools.FindLongestCommonRegion("AAAA", "TTTT");
         Assert.That(noCommon.Region, Is.Empty);
         Assert.That(noCommon.Length, Is.EqualTo(0));
         Assert.That(noCommon.Position1, Is.EqualTo(-1));
@@ -48,7 +48,7 @@ public class FindLongestCommonRegionTests
         foreach (var (s1, s2) in cases)
         {
             var expected = GenomicAnalyzer.FindLongestCommonRegion(new DnaSequence(s1), new DnaSequence(s2));
-            var actual = SuffixTreeTools.FindLongestCommonRegion(s1, s2);
+            var actual = SuffixTreeGenomicsTools.FindLongestCommonRegion(s1, s2);
 
             Assert.That(actual.Region, Is.EqualTo(expected.Sequence), $"s1={s1}, s2={s2}: region");
             Assert.That(actual.Length, Is.EqualTo(expected.Length), $"s1={s1}, s2={s2}: length");
