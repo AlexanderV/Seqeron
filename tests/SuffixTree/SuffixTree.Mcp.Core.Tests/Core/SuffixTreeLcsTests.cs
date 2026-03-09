@@ -10,24 +10,24 @@ public class SuffixTreeLcsTests
     [Test]
     public void SuffixTreeLcs_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLcs("", "text"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLcs(null!, "text"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLcs("text", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeLcs("text", null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLcs("", "text"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLcs(null!, "text"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLcs("text", ""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeLcs("text", null!));
     }
 
     [Test]
     public void SuffixTreeLcs_ReturnsExpectedForRepresentativeInputs()
     {
-        var banana = SuffixTreeTools.SuffixTreeLcs("banana", "panama");
+        var banana = SuffixTreeCoreTools.SuffixTreeLcs("banana", "panama");
         Assert.That(banana.Substring, Is.EqualTo("ana"));
         Assert.That(banana.Length, Is.EqualTo(3));
 
-        var cde = SuffixTreeTools.SuffixTreeLcs("abcdef", "xyzcdeww");
+        var cde = SuffixTreeCoreTools.SuffixTreeLcs("abcdef", "xyzcdeww");
         Assert.That(cde.Substring, Is.EqualTo("cde"));
         Assert.That(cde.Length, Is.EqualTo(3));
 
-        var none = SuffixTreeTools.SuffixTreeLcs("abc", "xyz");
+        var none = SuffixTreeCoreTools.SuffixTreeLcs("abc", "xyz");
         Assert.That(none.Substring, Is.Empty);
         Assert.That(none.Length, Is.EqualTo(0));
     }
@@ -38,7 +38,7 @@ public class SuffixTreeLcsTests
         const string text1 = "abcabxabcd";
         const string text2 = "zzabcabczz";
 
-        var result = SuffixTreeTools.SuffixTreeLcs(text1, text2);
+        var result = SuffixTreeCoreTools.SuffixTreeLcs(text1, text2);
         Assert.That(result.Length, Is.EqualTo(result.Substring.Length));
 
         if (result.Length > 0)

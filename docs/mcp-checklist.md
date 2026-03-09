@@ -59,7 +59,7 @@
 - [x] 3.1.1 Create project `SuffixTree.Mcp.Core`
 - [x] 3.1.2 Add `Program.cs`
 - [x] 3.1.3 Add `SuffixTree.Mcp.Core.csproj`
-- [x] 3.1.4 Create `Tools/SuffixTreeTools.cs`
+- [x] 3.1.4 Create `Tools/SuffixTreeCoreTools.cs` and `Tools/SuffixTreeGenomicsTools.cs`
 - [x] 3.1.5 Create `Tools/ApproximateMatchTools.cs`
 - [x] 3.1.6 Implement all 12 tools
 - [x] 3.1.7 Write 24 tests (12 tools × 2)

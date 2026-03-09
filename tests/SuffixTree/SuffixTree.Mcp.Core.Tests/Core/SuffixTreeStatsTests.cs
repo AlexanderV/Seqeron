@@ -10,8 +10,8 @@ public class SuffixTreeStatsTests
     [Test]
     public void SuffixTreeStats_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeStats(""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.SuffixTreeStats(null!));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeStats(""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeCoreTools.SuffixTreeStats(null!));
     }
 
     [TestCase("banana")]
@@ -20,7 +20,7 @@ public class SuffixTreeStatsTests
     [TestCase("mississippi")]
     public void SuffixTreeStats_MatchesFundamentalInvariants(string text)
     {
-        var stats = SuffixTreeTools.SuffixTreeStats(text);
+        var stats = SuffixTreeCoreTools.SuffixTreeStats(text);
 
         Assert.That(stats.TextLength, Is.EqualTo(text.Length));
         Assert.That(stats.LeafCount, Is.EqualTo(text.Length));
@@ -33,11 +33,11 @@ public class SuffixTreeStatsTests
     public void SuffixTreeStats_IsConsistentWithOtherTools()
     {
         const string text = "banana";
-        var stats = SuffixTreeTools.SuffixTreeStats(text);
-        var lrs = SuffixTreeTools.SuffixTreeLrs(text);
+        var stats = SuffixTreeCoreTools.SuffixTreeStats(text);
+        var lrs = SuffixTreeCoreTools.SuffixTreeLrs(text);
 
         Assert.That(stats.MaxDepth, Is.GreaterThanOrEqualTo(lrs.Length));
-        Assert.That(SuffixTreeTools.SuffixTreeCount(text, "").Count, Is.EqualTo(stats.LeafCount));
+        Assert.That(SuffixTreeCoreTools.SuffixTreeCount(text, "").Count, Is.EqualTo(stats.LeafCount));
     }
 }
 

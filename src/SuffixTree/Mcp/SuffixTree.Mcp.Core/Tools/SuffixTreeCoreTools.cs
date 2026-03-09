@@ -12,7 +12,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Check if a pattern exists in text using suffix tree.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_contains")]
+    [McpServerTool(Name = "suffix_tree_contains", Title = "Suffix Tree — Contains", ReadOnly = true)]
     [Description("Check if a pattern exists in text using suffix tree. Returns true if pattern is found, false otherwise.")]
     public static SuffixTreeContainsResult SuffixTreeContains(
         [Description("The text to search in")] string text,
@@ -31,7 +31,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Count occurrences of a pattern in text using suffix tree.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_count")]
+    [McpServerTool(Name = "suffix_tree_count", Title = "Suffix Tree — Count Occurrences", ReadOnly = true)]
     [Description("Count the number of occurrences of a pattern in text using suffix tree.")]
     public static SuffixTreeCountResult SuffixTreeCount(
         [Description("The text to search in")] string text,
@@ -50,7 +50,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Find all positions where a pattern occurs in text.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_find_all")]
+    [McpServerTool(Name = "suffix_tree_find_all", Title = "Suffix Tree — Find All Positions", ReadOnly = true)]
     [Description("Find all positions where a pattern occurs in text using suffix tree.")]
     public static SuffixTreeFindAllResult SuffixTreeFindAll(
         [Description("The text to search in")] string text,
@@ -69,7 +69,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Find the longest repeated substring in text.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_lrs")]
+    [McpServerTool(Name = "suffix_tree_lrs", Title = "Suffix Tree — Longest Repeated Substring", ReadOnly = true)]
     [Description("Find the longest repeated substring in text using suffix tree.")]
     public static SuffixTreeLrsResult SuffixTreeLrs(
         [Description("The text to analyze")] string text)
@@ -85,7 +85,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Find the longest common substring between two texts.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_lcs")]
+    [McpServerTool(Name = "suffix_tree_lcs", Title = "Suffix Tree — Longest Common Substring", ReadOnly = true)]
     [Description("Find the longest common substring between two texts using suffix tree.")]
     public static SuffixTreeLcsResult SuffixTreeLcs(
         [Description("The first text")] string text1,
@@ -104,7 +104,7 @@ public class SuffixTreeCoreTools
     /// <summary>
     /// Get statistics about a suffix tree built from text.
     /// </summary>
-    [McpServerTool(Name = "suffix_tree_stats")]
+    [McpServerTool(Name = "suffix_tree_stats", Title = "Suffix Tree — Statistics", ReadOnly = true)]
     [Description("Get statistics about a suffix tree: node count, leaf count, max depth, and text length.")]
     public static SuffixTreeStatsResult SuffixTreeStats(
         [Description("The text to analyze")] string text)

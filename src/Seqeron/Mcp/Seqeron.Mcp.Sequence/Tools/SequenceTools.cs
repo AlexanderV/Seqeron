@@ -12,7 +12,7 @@ public class SequenceTools
     /// <summary>
     /// Validate a DNA sequence.
     /// </summary>
-    [McpServerTool(Name = "dna_validate")]
+    [McpServerTool(Name = "dna_validate", Title = "DNA — Validate Sequence", ReadOnly = true)]
     [Description("Validate a DNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, T).")]
     public static DnaValidateResult DnaValidate(
         [Description("The DNA sequence to validate")] string sequence)
@@ -45,7 +45,7 @@ public class SequenceTools
     /// <summary>
     /// Get the reverse complement of a DNA sequence.
     /// </summary>
-    [McpServerTool(Name = "dna_reverse_complement")]
+    [McpServerTool(Name = "dna_reverse_complement", Title = "DNA — Reverse Complement", ReadOnly = true)]
     [Description("Get the reverse complement of a DNA sequence. A↔T, C↔G, then reversed.")]
     public static DnaReverseComplementResult DnaReverseComplement(
         [Description("The DNA sequence")] string sequence)
@@ -64,7 +64,7 @@ public class SequenceTools
     /// <summary>
     /// Validate an RNA sequence.
     /// </summary>
-    [McpServerTool(Name = "rna_validate")]
+    [McpServerTool(Name = "rna_validate", Title = "RNA — Validate Sequence", ReadOnly = true)]
     [Description("Validate an RNA sequence. Returns whether the sequence contains only valid nucleotides (A, C, G, U).")]
     public static RnaValidateResult RnaValidate(
         [Description("The RNA sequence to validate")] string sequence)
@@ -97,7 +97,7 @@ public class SequenceTools
     /// <summary>
     /// Transcribe DNA to RNA (T→U).
     /// </summary>
-    [McpServerTool(Name = "rna_from_dna")]
+    [McpServerTool(Name = "rna_from_dna", Title = "RNA — Transcribe from DNA", ReadOnly = true)]
     [Description("Transcribe DNA to RNA by replacing T (thymine) with U (uracil).")]
     public static RnaFromDnaResult RnaFromDna(
         [Description("The DNA sequence to transcribe")] string sequence)
@@ -115,7 +115,7 @@ public class SequenceTools
     /// <summary>
     /// Validate a protein (amino acid) sequence.
     /// </summary>
-    [McpServerTool(Name = "protein_validate")]
+    [McpServerTool(Name = "protein_validate", Title = "Protein — Validate Sequence", ReadOnly = true)]
     [Description("Validate a protein sequence. Returns whether the sequence contains only valid amino acids.")]
     public static ProteinValidateResult ProteinValidate(
         [Description("The protein sequence to validate")] string sequence)
@@ -148,7 +148,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate nucleotide composition of a DNA/RNA sequence.
     /// </summary>
-    [McpServerTool(Name = "nucleotide_composition")]
+    [McpServerTool(Name = "nucleotide_composition", Title = "Sequence — Nucleotide Composition", ReadOnly = true)]
     [Description("Calculate nucleotide composition (A, T, G, C, U counts) and GC content of a DNA/RNA sequence.")]
     public static NucleotideCompositionResult NucleotideComposition(
         [Description("The DNA or RNA sequence to analyze")] string sequence)
@@ -171,7 +171,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate amino acid composition of a protein sequence.
     /// </summary>
-    [McpServerTool(Name = "amino_acid_composition")]
+    [McpServerTool(Name = "amino_acid_composition", Title = "Protein — Amino Acid Composition", ReadOnly = true)]
     [Description("Calculate amino acid composition, molecular weight, and other properties of a protein sequence.")]
     public static AminoAcidCompositionResult AminoAcidComposition(
         [Description("The protein sequence to analyze")] string sequence)
@@ -196,7 +196,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate molecular weight of a protein sequence.
     /// </summary>
-    [McpServerTool(Name = "molecular_weight_protein")]
+    [McpServerTool(Name = "molecular_weight_protein", Title = "Protein — Molecular Weight", ReadOnly = true)]
     [Description("Calculate the molecular weight of a protein sequence in Daltons (Da).")]
     public static MolecularWeightProteinResult MolecularWeightProtein(
         [Description("The protein sequence")] string sequence)
@@ -214,7 +214,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate molecular weight of a DNA or RNA sequence.
     /// </summary>
-    [McpServerTool(Name = "molecular_weight_nucleotide")]
+    [McpServerTool(Name = "molecular_weight_nucleotide", Title = "Sequence — Nucleotide Molecular Weight", ReadOnly = true)]
     [Description("Calculate the molecular weight of a DNA or RNA sequence in Daltons (Da).")]
     public static MolecularWeightNucleotideResult MolecularWeightNucleotide(
         [Description("The DNA or RNA sequence")] string sequence,
@@ -230,7 +230,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate isoelectric point (pI) of a protein sequence.
     /// </summary>
-    [McpServerTool(Name = "isoelectric_point")]
+    [McpServerTool(Name = "isoelectric_point", Title = "Protein — Isoelectric Point", ReadOnly = true)]
     [Description("Calculate the isoelectric point (pI) of a protein sequence. pI is the pH at which the protein has no net charge.")]
     public static IsoelectricPointResult IsoelectricPoint(
         [Description("The protein sequence")] string sequence)
@@ -248,7 +248,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate hydrophobicity (GRAVY index) of a protein sequence.
     /// </summary>
-    [McpServerTool(Name = "hydrophobicity")]
+    [McpServerTool(Name = "hydrophobicity", Title = "Protein — Hydrophobicity (GRAVY)", ReadOnly = true)]
     [Description("Calculate the grand average of hydropathy (GRAVY) index of a protein sequence. Positive values indicate hydrophobic, negative indicate hydrophilic.")]
     public static HydrophobicityResult Hydrophobicity(
         [Description("The protein sequence")] string sequence)
@@ -266,7 +266,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate thermodynamic properties of a DNA duplex.
     /// </summary>
-    [McpServerTool(Name = "thermodynamics")]
+    [McpServerTool(Name = "thermodynamics", Title = "DNA — Thermodynamic Properties", ReadOnly = true)]
     [Description("Calculate thermodynamic properties (ΔH, ΔS, ΔG, Tm) of a DNA duplex using the nearest-neighbor method.")]
     public static ThermodynamicsResult Thermodynamics(
         [Description("The DNA sequence")] string sequence,
@@ -283,7 +283,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate simple melting temperature of a DNA sequence.
     /// </summary>
-    [McpServerTool(Name = "melting_temperature")]
+    [McpServerTool(Name = "melting_temperature", Title = "DNA — Melting Temperature", ReadOnly = true)]
     [Description("Calculate the melting temperature (Tm) of a DNA sequence using Wallace rule or GC formula.")]
     public static MeltingTemperatureResult MeltingTemperature(
         [Description("The DNA sequence")] string sequence,
@@ -299,7 +299,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate Shannon entropy of a sequence.
     /// </summary>
-    [McpServerTool(Name = "shannon_entropy")]
+    [McpServerTool(Name = "shannon_entropy", Title = "Sequence — Shannon Entropy", ReadOnly = true)]
     [Description("Calculate Shannon entropy of a sequence. Higher values indicate more complexity/randomness.")]
     public static ShannonEntropyResult ShannonEntropy(
         [Description("The sequence to analyze")] string sequence)
@@ -314,7 +314,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate linguistic complexity of a sequence.
     /// </summary>
-    [McpServerTool(Name = "linguistic_complexity")]
+    [McpServerTool(Name = "linguistic_complexity", Title = "Sequence — Linguistic Complexity", ReadOnly = true)]
     [Description("Calculate linguistic complexity of a sequence based on k-mer diversity. Values range from 0 to 1.")]
     public static LinguisticComplexityResult LinguisticComplexity(
         [Description("The sequence to analyze")] string sequence,
@@ -330,7 +330,7 @@ public class SequenceTools
     /// <summary>
     /// Generate comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
-    [McpServerTool(Name = "summarize_sequence")]
+    [McpServerTool(Name = "summarize_sequence", Title = "Sequence — Comprehensive Summary", ReadOnly = true)]
     [Description("Generate comprehensive summary statistics for a DNA/RNA sequence including composition, GC content, entropy, complexity, and Tm.")]
     public static SummarizeSequenceResult SummarizeSequence(
         [Description("The DNA or RNA sequence to analyze")] string sequence)
@@ -351,7 +351,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate GC content of a DNA/RNA sequence.
     /// </summary>
-    [McpServerTool(Name = "gc_content")]
+    [McpServerTool(Name = "gc_content", Title = "Sequence — GC Content", ReadOnly = true)]
     [Description("Calculate the GC content (percentage of G and C nucleotides) of a DNA/RNA sequence.")]
     public static GcContentResult GcContent(
         [Description("The DNA or RNA sequence")] string sequence)
@@ -368,7 +368,7 @@ public class SequenceTools
     /// <summary>
     /// Get the complement of a single nucleotide base.
     /// </summary>
-    [McpServerTool(Name = "complement_base")]
+    [McpServerTool(Name = "complement_base", Title = "Sequence — Complement Base", ReadOnly = true)]
     [Description("Get the Watson-Crick complement of a single nucleotide base (A↔T, C↔G for DNA; A↔U for RNA).")]
     public static ComplementBaseResult ComplementBase(
         [Description("The nucleotide base (A, T, G, C, or U)")] string nucleotide)
@@ -384,7 +384,7 @@ public class SequenceTools
     /// <summary>
     /// Quick validation if a sequence contains only valid DNA characters.
     /// </summary>
-    [McpServerTool(Name = "is_valid_dna")]
+    [McpServerTool(Name = "is_valid_dna", Title = "DNA — Quick Validate", ReadOnly = true)]
     [Description("Quick check if a sequence contains only valid DNA characters (A, T, G, C). Faster than dna_validate but returns less information.")]
     public static IsValidDnaResult IsValidDna(
         [Description("The sequence to validate")] string sequence)
@@ -399,7 +399,7 @@ public class SequenceTools
     /// <summary>
     /// Quick validation if a sequence contains only valid RNA characters.
     /// </summary>
-    [McpServerTool(Name = "is_valid_rna")]
+    [McpServerTool(Name = "is_valid_rna", Title = "RNA — Quick Validate", ReadOnly = true)]
     [Description("Quick check if a sequence contains only valid RNA characters (A, U, G, C). Faster than rna_validate but returns less information.")]
     public static IsValidRnaResult IsValidRna(
         [Description("The sequence to validate")] string sequence)
@@ -414,7 +414,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate k-mer entropy of a sequence.
     /// </summary>
-    [McpServerTool(Name = "kmer_entropy")]
+    [McpServerTool(Name = "kmer_entropy", Title = "K-mer — Entropy", ReadOnly = true)]
     [Description("Calculate Shannon entropy based on k-mer frequencies. Higher values indicate more complexity.")]
     public static KmerEntropyResult KmerEntropy(
         [Description("The sequence to analyze")] string sequence,
@@ -433,7 +433,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate linguistic complexity using SequenceComplexity class.
     /// </summary>
-    [McpServerTool(Name = "complexity_linguistic")]
+    [McpServerTool(Name = "complexity_linguistic", Title = "Complexity — Linguistic", ReadOnly = true)]
     [Description("Calculate DNA linguistic complexity as ratio of observed to possible subwords. LC = 1.0 for maximum complexity.")]
     public static ComplexityLinguisticResult ComplexityLinguistic(
         [Description("The DNA sequence to analyze")] string sequence,
@@ -452,7 +452,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate Shannon entropy using SequenceComplexity class.
     /// </summary>
-    [McpServerTool(Name = "complexity_shannon")]
+    [McpServerTool(Name = "complexity_shannon", Title = "Complexity — Shannon Entropy", ReadOnly = true)]
     [Description("Calculate DNA Shannon entropy (bits per base). Maximum entropy for DNA is 2 bits.")]
     public static ComplexityShannonResult ComplexityShannon(
         [Description("The DNA sequence to analyze")] string sequence)
@@ -467,7 +467,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate k-mer entropy using SequenceComplexity class.
     /// </summary>
-    [McpServerTool(Name = "complexity_kmer_entropy")]
+    [McpServerTool(Name = "complexity_kmer_entropy", Title = "Complexity — K-mer Entropy", ReadOnly = true)]
     [Description("Calculate k-mer based Shannon entropy for DNA complexity analysis.")]
     public static ComplexityKmerEntropyResult ComplexityKmerEntropy(
         [Description("The DNA sequence to analyze")] string sequence,
@@ -489,7 +489,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate DUST score for low-complexity filtering.
     /// </summary>
-    [McpServerTool(Name = "complexity_dust_score")]
+    [McpServerTool(Name = "complexity_dust_score", Title = "Complexity — DUST Score", ReadOnly = true)]
     [Description("Calculate DUST score for low-complexity filtering (as used in BLAST). Higher scores indicate lower complexity.")]
     public static ComplexityDustScoreResult ComplexityDustScore(
         [Description("The DNA sequence to analyze")] string sequence,
@@ -508,7 +508,7 @@ public class SequenceTools
     /// <summary>
     /// Mask low-complexity regions using DUST algorithm.
     /// </summary>
-    [McpServerTool(Name = "complexity_mask_low")]
+    [McpServerTool(Name = "complexity_mask_low", Title = "Complexity — Mask Low-Complexity Regions", ReadOnly = true)]
     [Description("Mask low-complexity regions in a DNA sequence using the DUST algorithm. Replaces low-complexity bases with mask character.")]
     public static ComplexityMaskLowResult ComplexityMaskLow(
         [Description("The DNA sequence to mask")] string sequence,
@@ -532,7 +532,7 @@ public class SequenceTools
     /// <summary>
     /// Estimate sequence complexity using compression ratio.
     /// </summary>
-    [McpServerTool(Name = "complexity_compression_ratio")]
+    [McpServerTool(Name = "complexity_compression_ratio", Title = "Complexity — Compression Ratio", ReadOnly = true)]
     [Description("Estimate sequence complexity using compression ratio. Lower ratios indicate more repetitive/less complex sequences.")]
     public static ComplexityCompressionRatioResult ComplexityCompressionRatio(
         [Description("The sequence to analyze")] string sequence)
@@ -547,7 +547,7 @@ public class SequenceTools
     /// <summary>
     /// Count k-mer frequencies in a sequence.
     /// </summary>
-    [McpServerTool(Name = "kmer_count")]
+    [McpServerTool(Name = "kmer_count", Title = "K-mer — Count Frequencies", ReadOnly = true)]
     [Description("Count k-mer (substring of length k) frequencies in a sequence. Returns a dictionary of k-mers and their counts.")]
     public static KmerCountResult KmerCount(
         [Description("The sequence to analyze")] string sequence,
@@ -566,7 +566,7 @@ public class SequenceTools
     /// <summary>
     /// Calculate k-mer distance between two sequences.
     /// </summary>
-    [McpServerTool(Name = "kmer_distance")]
+    [McpServerTool(Name = "kmer_distance", Title = "K-mer — Distance Between Sequences", ReadOnly = true)]
     [Description("Calculate k-mer based distance between two sequences using Euclidean distance of k-mer frequencies. Lower values indicate more similar sequences.")]
     public static KmerDistanceResult KmerDistance(
         [Description("First sequence")] string sequence1,
@@ -589,7 +589,7 @@ public class SequenceTools
     /// <summary>
     /// Analyze k-mer composition of a sequence.
     /// </summary>
-    [McpServerTool(Name = "kmer_analyze")]
+    [McpServerTool(Name = "kmer_analyze", Title = "K-mer — Comprehensive Analysis", ReadOnly = true)]
     [Description("Comprehensive k-mer analysis including statistics about frequency distribution, entropy, and unique k-mers.")]
     public static KmerAnalyzeResult KmerAnalyze(
         [Description("The sequence to analyze")] string sequence,
@@ -615,7 +615,7 @@ public class SequenceTools
     /// <summary>
     /// Get IUPAC ambiguity code for a set of bases.
     /// </summary>
-    [McpServerTool(Name = "iupac_code")]
+    [McpServerTool(Name = "iupac_code", Title = "IUPAC — Get Ambiguity Code", ReadOnly = true)]
     [Description("Get the IUPAC ambiguity code that represents a set of nucleotide bases.")]
     public static IupacCodeResult IupacCode(
         [Description("Nucleotide bases to encode (e.g., 'AG' for purine R)")] string bases)
@@ -630,7 +630,7 @@ public class SequenceTools
     /// <summary>
     /// Check if two IUPAC codes can match the same base.
     /// </summary>
-    [McpServerTool(Name = "iupac_match")]
+    [McpServerTool(Name = "iupac_match", Title = "IUPAC — Codes Match", ReadOnly = true)]
     [Description("Check if two IUPAC codes can represent the same nucleotide base.")]
     public static IupacMatchResult IupacMatch(
         [Description("First IUPAC code")] string code1,
@@ -649,7 +649,7 @@ public class SequenceTools
     /// <summary>
     /// Check if a nucleotide matches an IUPAC ambiguity code.
     /// </summary>
-    [McpServerTool(Name = "iupac_matches")]
+    [McpServerTool(Name = "iupac_matches", Title = "IUPAC — Nucleotide Matches Code", ReadOnly = true)]
     [Description("Check if a specific nucleotide matches an IUPAC ambiguity code.")]
     public static IupacMatchesResult IupacMatches(
         [Description("The nucleotide to check (A, C, G, T)")] string nucleotide,
@@ -670,7 +670,7 @@ public class SequenceTools
     /// <summary>
     /// Translate DNA sequence to protein.
     /// </summary>
-    [McpServerTool(Name = "translate_dna")]
+    [McpServerTool(Name = "translate_dna", Title = "DNA — Translate to Protein", ReadOnly = true)]
     [Description("Translate a DNA sequence to protein using the standard genetic code.")]
     public static TranslateDnaResult TranslateDna(
         [Description("The DNA sequence to translate")] string sequence,
@@ -693,7 +693,7 @@ public class SequenceTools
     /// <summary>
     /// Translate RNA sequence to protein.
     /// </summary>
-    [McpServerTool(Name = "translate_rna")]
+    [McpServerTool(Name = "translate_rna", Title = "RNA — Translate to Protein", ReadOnly = true)]
     [Description("Translate an RNA sequence to protein using the standard genetic code.")]
     public static TranslateRnaResult TranslateRna(
         [Description("The RNA sequence to translate")] string sequence,
@@ -713,198 +713,3 @@ public class SequenceTools
         return new TranslateRnaResult(protein.Sequence, frame, sequence.Length);
     }
 }
-
-/// <summary>
-/// Result of dna_validate operation.
-/// </summary>
-public record DnaValidateResult(bool Valid, int Length, string? Error);
-
-/// <summary>
-/// Result of dna_reverse_complement operation.
-/// </summary>
-public record DnaReverseComplementResult(string ReverseComplement);
-
-/// <summary>
-/// Result of rna_validate operation.
-/// </summary>
-public record RnaValidateResult(bool Valid, int Length, string? Error);
-
-/// <summary>
-/// Result of rna_from_dna operation.
-/// </summary>
-public record RnaFromDnaResult(string Rna);
-
-/// <summary>
-/// Result of protein_validate operation.
-/// </summary>
-public record ProteinValidateResult(bool Valid, int Length, string? Error);
-
-/// <summary>
-/// Result of nucleotide_composition operation.
-/// </summary>
-public record NucleotideCompositionResult(int Length, int A, int T, int G, int C, int U, int Other, double GcContent);
-
-/// <summary>
-/// Result of amino_acid_composition operation.
-/// </summary>
-public record AminoAcidCompositionResult(
-    int Length,
-    Dictionary<string, int> Counts,
-    double MolecularWeight,
-    double IsoelectricPoint,
-    double Hydrophobicity,
-    double ChargedResidueRatio,
-    double AromaticResidueRatio);
-
-/// <summary>
-/// Result of molecular_weight_protein operation.
-/// </summary>
-public record MolecularWeightProteinResult(double MolecularWeight, string Unit);
-
-/// <summary>
-/// Result of molecular_weight_nucleotide operation.
-/// </summary>
-public record MolecularWeightNucleotideResult(double MolecularWeight, string Unit, string SequenceType);
-
-/// <summary>
-/// Result of isoelectric_point operation.
-/// </summary>
-public record IsoelectricPointResult(double PI);
-
-/// <summary>
-/// Result of hydrophobicity operation.
-/// </summary>
-public record HydrophobicityResult(double Gravy);
-
-/// <summary>
-/// Result of thermodynamics operation.
-/// </summary>
-public record ThermodynamicsResult(double DeltaH, double DeltaS, double DeltaG, double MeltingTemperature);
-
-/// <summary>
-/// Result of melting_temperature operation.
-/// </summary>
-public record MeltingTemperatureResult(double Tm, string Unit);
-
-/// <summary>
-/// Result of shannon_entropy operation.
-/// </summary>
-public record ShannonEntropyResult(double Entropy);
-
-/// <summary>
-/// Result of linguistic_complexity operation.
-/// </summary>
-public record LinguisticComplexityResult(double Complexity);
-
-/// <summary>
-/// Result of summarize_sequence operation.
-/// </summary>
-public record SummarizeSequenceResult(
-    int Length,
-    double GcContent,
-    double Entropy,
-    double Complexity,
-    double MeltingTemperature,
-    Dictionary<string, int> Composition);
-
-/// <summary>
-/// Result of gc_content operation.
-/// </summary>
-public record GcContentResult(double GcContent, int GcCount, int TotalCount);
-
-/// <summary>
-/// Result of complement_base operation.
-/// </summary>
-public record ComplementBaseResult(string Complement, string Original);
-
-/// <summary>
-/// Result of is_valid_dna operation.
-/// </summary>
-public record IsValidDnaResult(bool IsValid, int Length);
-
-/// <summary>
-/// Result of is_valid_rna operation.
-/// </summary>
-public record IsValidRnaResult(bool IsValid, int Length);
-
-/// <summary>
-/// Result of kmer_entropy operation.
-/// </summary>
-public record KmerEntropyResult(double Entropy, int K);
-
-/// <summary>
-/// Result of complexity_linguistic operation.
-/// </summary>
-public record ComplexityLinguisticResult(double Complexity, int MaxWordLength);
-
-/// <summary>
-/// Result of complexity_shannon operation.
-/// </summary>
-public record ComplexityShannonResult(double Entropy);
-
-/// <summary>
-/// Result of complexity_kmer_entropy operation.
-/// </summary>
-public record ComplexityKmerEntropyResult(double Entropy, int K);
-
-/// <summary>
-/// Result of complexity_dust_score operation.
-/// </summary>
-public record ComplexityDustScoreResult(double DustScore, int WordSize);
-
-/// <summary>
-/// Result of complexity_mask_low operation.
-/// </summary>
-public record ComplexityMaskLowResult(string MaskedSequence, int OriginalLength, char MaskChar);
-
-/// <summary>
-/// Result of complexity_compression_ratio operation.
-/// </summary>
-public record ComplexityCompressionRatioResult(double CompressionRatio);
-
-/// <summary>
-/// Result of kmer_count operation.
-/// </summary>
-public record KmerCountResult(Dictionary<string, int> Counts, int K, int UniqueKmers, int TotalKmers);
-
-/// <summary>
-/// Result of kmer_distance operation.
-/// </summary>
-public record KmerDistanceResult(double Distance, int K);
-
-/// <summary>
-/// Result of kmer_analyze operation.
-/// </summary>
-public record KmerAnalyzeResult(
-    int TotalKmers,
-    int UniqueKmers,
-    int MaxCount,
-    int MinCount,
-    double AverageCount,
-    double Entropy,
-    int K);
-
-/// <summary>
-/// Result of iupac_code operation.
-/// </summary>
-public record IupacCodeResult(string Code, string InputBases);
-
-/// <summary>
-/// Result of iupac_match operation.
-/// </summary>
-public record IupacMatchResult(bool Matches, string Code1, string Code2);
-
-/// <summary>
-/// Result of iupac_matches operation.
-/// </summary>
-public record IupacMatchesResult(bool Matches, string Nucleotide, string IupacCode);
-
-/// <summary>
-/// Result of translate_dna operation.
-/// </summary>
-public record TranslateDnaResult(string Protein, int Frame, int DnaLength);
-
-/// <summary>
-/// Result of translate_rna operation.
-/// </summary>
-public record TranslateRnaResult(string Protein, int Frame, int RnaLength);

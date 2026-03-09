@@ -10,10 +10,10 @@ public class HammingDistanceTests
     [Test]
     public void HammingDistance_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("", "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance(null!, "ATGC"));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("ATGC", ""));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.HammingDistance("ATGC", "AT"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.HammingDistance("", "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.HammingDistance(null!, "ATGC"));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.HammingDistance("ATGC", ""));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.HammingDistance("ATGC", "AT"));
     }
 
     [TestCase("ATGC", "ATGC", 0)]
@@ -22,7 +22,7 @@ public class HammingDistanceTests
     [TestCase("atgc", "ATGG", 1)] // case-insensitive path in ApproximateMatcher
     public void HammingDistance_ReturnsExpectedDistance(string sequence1, string sequence2, int expected)
     {
-        var result = SuffixTreeTools.HammingDistance(sequence1, sequence2);
+        var result = SuffixTreeGenomicsTools.HammingDistance(sequence1, sequence2);
         Assert.That(result.Distance, Is.EqualTo(expected));
     }
 }

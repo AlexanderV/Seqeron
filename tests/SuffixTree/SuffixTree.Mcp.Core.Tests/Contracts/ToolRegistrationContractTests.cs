@@ -29,30 +29,9 @@ public class ToolRegistrationContractTests
     }
 
     [Test]
-    public void SuffixTreeCompatibilityWrappers_AreNotDirectlyRegistered()
+    public void SuffixTreeGenomicsTools_RegisteredToolNames_AreStable()
     {
-        var suffixWrapperMethods = new[]
-        {
-            nameof(SuffixTreeTools.SuffixTreeContains),
-            nameof(SuffixTreeTools.SuffixTreeCount),
-            nameof(SuffixTreeTools.SuffixTreeFindAll),
-            nameof(SuffixTreeTools.SuffixTreeLrs),
-            nameof(SuffixTreeTools.SuffixTreeLcs),
-            nameof(SuffixTreeTools.SuffixTreeStats)
-        };
-
-        foreach (string methodName in suffixWrapperMethods)
-        {
-            var method = typeof(SuffixTreeTools).GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-            Assert.That(method, Is.Not.Null, $"Method not found: {methodName}");
-            Assert.That(GetRegisteredToolName(method!), Is.Null, $"Compatibility wrapper must not be MCP-registered: {methodName}");
-        }
-    }
-
-    [Test]
-    public void GenomicsTools_RegisteredToolNames_AreStable()
-    {
-        var registered = GetRegisteredToolNames(typeof(SuffixTreeTools));
+        var registered = GetRegisteredToolNames(typeof(SuffixTreeGenomicsTools));
         var expected = new[]
         {
             "find_longest_repeat",
@@ -65,6 +44,34 @@ public class ToolRegistrationContractTests
 
         Assert.That(registered.Values, Is.EquivalentTo(expected));
         Assert.That(registered.Count, Is.EqualTo(expected.Length));
+    }
+
+    [Test]
+    public void AllRegisteredTools_HaveTitleAndReadOnlyAnnotations()
+    {
+        var allToolTypes = new[] { typeof(SuffixTreeCoreTools), typeof(SuffixTreeGenomicsTools) };
+
+        foreach (var toolType in allToolTypes)
+        {
+            var methods = toolType.GetMethods(BindingFlags.Public | BindingFlags.Static);
+            foreach (var method in methods)
+            {
+                var attr = method.GetCustomAttributes(inherit: false)
+                    .FirstOrDefault(a => string.Equals(a.GetType().Name, "McpServerToolAttribute", StringComparison.Ordinal));
+
+                if (attr == null) continue;
+
+                var titleProp = attr.GetType().GetProperty("Title", BindingFlags.Public | BindingFlags.Instance);
+                var title = titleProp?.GetValue(attr) as string;
+                Assert.That(title, Is.Not.Null.And.Not.Empty,
+                    $"Tool {method.Name} on {toolType.Name} must have a non-empty Title");
+
+                var readOnlyProp = attr.GetType().GetProperty("ReadOnly", BindingFlags.Public | BindingFlags.Instance);
+                var readOnly = readOnlyProp?.GetValue(attr);
+                Assert.That(readOnly, Is.Not.Null,
+                    $"Tool {method.Name} on {toolType.Name} must have ReadOnly set");
+            }
+        }
     }
 
     private static Dictionary<string, string> GetRegisteredToolNames(Type toolsType)

@@ -23,9 +23,9 @@ public class SuffixTreeCoreConsistencyTests
     {
         foreach (string pattern in BuildPatterns(text))
         {
-            bool found = SuffixTreeTools.SuffixTreeContains(text, pattern).Found;
-            int count = SuffixTreeTools.SuffixTreeCount(text, pattern).Count;
-            int[] positions = SuffixTreeTools.SuffixTreeFindAll(text, pattern).Positions.OrderBy(x => x).ToArray();
+            bool found = SuffixTreeCoreTools.SuffixTreeContains(text, pattern).Found;
+            int count = SuffixTreeCoreTools.SuffixTreeCount(text, pattern).Count;
+            int[] positions = SuffixTreeCoreTools.SuffixTreeFindAll(text, pattern).Positions.OrderBy(x => x).ToArray();
             int[] expectedPositions = BruteForcePositions(text, pattern);
 
             Assert.Multiple(() =>

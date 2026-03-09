@@ -11,10 +11,10 @@ public class CountApproximateOccurrencesTests
     [Test]
     public void CountApproximateOccurrences_InvalidArguments_ThrowArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("", "ATGC", 1));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences(null!, "ATGC", 1));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("ATGC", "", 1));
-        Assert.Throws<ArgumentException>(() => SuffixTreeTools.CountApproximateOccurrences("ATGC", "AT", -1));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CountApproximateOccurrences("", "ATGC", 1));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CountApproximateOccurrences(null!, "ATGC", 1));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CountApproximateOccurrences("ATGC", "", 1));
+        Assert.Throws<ArgumentException>(() => SuffixTreeGenomicsTools.CountApproximateOccurrences("ATGC", "AT", -1));
     }
 
     [TestCase("ATGATGATG", "ATG", 0, 3)]
@@ -27,7 +27,7 @@ public class CountApproximateOccurrencesTests
         int maxMismatches,
         int expectedCount)
     {
-        var result = SuffixTreeTools.CountApproximateOccurrences(sequence, pattern, maxMismatches);
+        var result = SuffixTreeGenomicsTools.CountApproximateOccurrences(sequence, pattern, maxMismatches);
         Assert.That(result.Count, Is.EqualTo(expectedCount));
     }
 
@@ -46,7 +46,7 @@ public class CountApproximateOccurrencesTests
         foreach (var (sequence, pattern, maxMismatches) in testCases)
         {
             int expected = ApproximateMatcher.CountApproximateOccurrences(sequence, pattern, maxMismatches);
-            int actual = SuffixTreeTools.CountApproximateOccurrences(sequence, pattern, maxMismatches).Count;
+            int actual = SuffixTreeGenomicsTools.CountApproximateOccurrences(sequence, pattern, maxMismatches).Count;
             Assert.That(actual, Is.EqualTo(expected),
                 $"sequence={sequence}, pattern={pattern}, k={maxMismatches}");
         }

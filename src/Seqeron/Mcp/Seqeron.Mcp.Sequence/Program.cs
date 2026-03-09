@@ -6,7 +6,14 @@ using Seqeron.Mcp.Sequence.Tools;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services
-    .AddMcpServer()
+    .AddMcpServer(options =>
+    {
+        options.ServerInfo = new()
+        {
+            Name = "Seqeron.Mcp.Sequence",
+            Version = "1.0.0"
+        };
+    })
     .WithStdioServerTransport()
     .WithTools<SequenceTools>();
 
