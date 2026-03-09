@@ -282,7 +282,7 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
 
     /// <summary>
     /// M7: ClassifiedReads is less than or equal to TotalReads.
-    /// Evidence: Logical bound invariant.
+    /// Evidence: Logical bound invariant. Verified with exact values to prevent trivial pass.
     /// </summary>
     [Test]
     public void GenerateTaxonomicProfile_ClassifiedReads_LessThanOrEqualToTotalReads()
@@ -296,7 +296,12 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
 
-        Assert.That(profile.ClassifiedReads, Is.LessThanOrEqualTo(profile.TotalReads));
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.TotalReads, Is.EqualTo(3));
+            Assert.That(profile.ClassifiedReads, Is.EqualTo(2));
+            Assert.That(profile.ClassifiedReads, Is.LessThanOrEqualTo(profile.TotalReads));
+        });
     }
 
     #endregion
@@ -341,7 +346,8 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
 
     /// <summary>
     /// M9: Shannon diversity is non-negative.
-    /// Evidence: Shannon formula — -Σp·ln(p) where ln(p) ≤ 0 for p ≤ 1.
+    /// Evidence: Shannon formula — H = -Σp·ln(p). For 3 uniform species: H = ln(3) ≈ 1.0986.
+    /// Exact value inherently proves ≥ 0.
     /// </summary>
     [Test]
     public void GenerateTaxonomicProfile_ShannonDiversity_IsNonNegative()
@@ -355,12 +361,16 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
 
-        Assert.That(profile.ShannonDiversity, Is.GreaterThanOrEqualTo(0));
+        // 3 uniform species → H = -3×(1/3×ln(1/3)) = ln(3)
+        double expectedShannon = Math.Log(3);
+        Assert.That(profile.ShannonDiversity, Is.EqualTo(expectedShannon).Within(0.001));
     }
 
     /// <summary>
     /// M10: Simpson diversity is in range [0, 1].
-    /// Evidence: Simpson formula — Σp² where each p ∈ [0,1].
+    /// Evidence: Simpson formula — λ = Σpᵢ². Non-uniform distribution to avoid overlap with S2.
+    /// For species counts [2,1,1] → p = [0.5, 0.25, 0.25], λ = 0.25 + 0.0625 + 0.0625 = 0.375.
+    /// Exact value inherently proves ∈ [0, 1].
     /// </summary>
     [Test]
     public void GenerateTaxonomicProfile_SimpsonDiversity_InZeroOneRange()
@@ -368,14 +378,16 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
         var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
         {
             CreateClassification("r1", "Bacteria", "P1", "G1", "sp1"),
-            CreateClassification("r2", "Archaea", "P2", "G2", "sp2"),
-            CreateClassification("r3", "Eukarya", "P3", "G3", "sp3"),
-            CreateClassification("r4", "Bacteria", "P1", "G1", "sp4"),
+            CreateClassification("r2", "Bacteria", "P1", "G1", "sp1"),  // Same species as r1
+            CreateClassification("r3", "Archaea", "P2", "G2", "sp2"),
+            CreateClassification("r4", "Eukarya", "P3", "G3", "sp3"),
         };
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
 
-        Assert.That(profile.SimpsonDiversity, Is.InRange(0, 1));
+        // Species counts: sp1=2, sp2=1, sp3=1 → p = [0.5, 0.25, 0.25]
+        // Simpson λ = 0.5² + 0.25² + 0.25² = 0.25 + 0.0625 + 0.0625 = 0.375
+        Assert.That(profile.SimpsonDiversity, Is.EqualTo(0.375).Within(0.001));
     }
 
     /// <summary>
@@ -425,11 +437,12 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
     }
 
     /// <summary>
-    /// S4: High skew produces low Shannon, high Simpson.
-    /// Evidence: Diversity theory — dominance reduces Shannon, increases Simpson.
+    /// S4: High skew produces exact Shannon and Simpson per formulas.
+    /// Evidence: Shannon H = -Σ(p·ln(p)), Simpson λ = Σp².
+    /// For p = [0.9, 0.1]: H = -(0.9·ln(0.9) + 0.1·ln(0.1)) ≈ 0.325, λ = 0.9² + 0.1² = 0.82.
     /// </summary>
     [Test]
-    public void GenerateTaxonomicProfile_HighSkew_LowShannonHighSimpson()
+    public void GenerateTaxonomicProfile_HighSkew_ExactShannonAndSimpson()
     {
         // Dominant species (9 reads) vs rare species (1 read)
         var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>();
@@ -441,12 +454,70 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
 
-        // Uniform 2-species would have Shannon = ln(2) ≈ 0.693
-        // Skewed should be much lower
+        // Shannon: H = -(0.9·ln(0.9) + 0.1·ln(0.1))
+        double expectedShannon = -(0.9 * Math.Log(0.9) + 0.1 * Math.Log(0.1));
+        // Simpson: λ = 0.9² + 0.1² = 0.82
+        double expectedSimpson = 0.9 * 0.9 + 0.1 * 0.1;
+
         Assert.Multiple(() =>
         {
-            Assert.That(profile.ShannonDiversity, Is.LessThan(0.5));
-            Assert.That(profile.SimpsonDiversity, Is.GreaterThan(0.8));
+            Assert.That(profile.ShannonDiversity, Is.EqualTo(expectedShannon).Within(0.001));
+            Assert.That(profile.SimpsonDiversity, Is.EqualTo(expectedSimpson).Within(0.001));
+        });
+    }
+
+    /// <summary>
+    /// S3: All ranks have consistent total abundances when all reads are fully populated.
+    /// Evidence: Cross-rank consistency — each rank's abundances should sum to 1.0
+    /// when all classified reads have non-empty values at every rank.
+    /// </summary>
+    [Test]
+    public void GenerateTaxonomicProfile_AllRanksPopulated_ConsistentTotals()
+    {
+        var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
+        {
+            CreateClassification("r1", "Bacteria", "Proteobacteria", "Escherichia", "coli"),
+            CreateClassification("r2", "Bacteria", "Firmicutes", "Bacillus", "subtilis"),
+            CreateClassification("r3", "Archaea", "Euryarchaeota", "Methanobacterium", "smithii"),
+        };
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.KingdomAbundance.Values.Sum(), Is.EqualTo(1.0).Within(0.001));
+            Assert.That(profile.PhylumAbundance.Values.Sum(), Is.EqualTo(1.0).Within(0.001));
+            Assert.That(profile.GenusAbundance.Values.Sum(), Is.EqualTo(1.0).Within(0.001));
+            Assert.That(profile.SpeciesAbundance.Values.Sum(), Is.EqualTo(1.0).Within(0.001));
+        });
+    }
+
+    /// <summary>
+    /// Edge case: Classification with empty Kingdom is excluded from abundance,
+    /// matching classifiedReads predicate.
+    /// Evidence: MetaPhlAn — only fully classified reads contribute to profile.
+    /// </summary>
+    [Test]
+    public void GenerateTaxonomicProfile_EmptyKingdom_ExcludedFromProfile()
+    {
+        var classifications = new List<MetagenomicsAnalyzer.TaxonomicClassification>
+        {
+            CreateClassification("r1", "Bacteria", "P1", "G1", "sp1"),
+            new MetagenomicsAnalyzer.TaxonomicClassification(
+                ReadId: "r2", Kingdom: "", Phylum: "P2", Class: "", Order: "",
+                Family: "", Genus: "G2", Species: "sp2",
+                Confidence: 0.5, MatchedKmers: 50, TotalKmers: 110),
+        };
+
+        var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.TotalReads, Is.EqualTo(2));
+            Assert.That(profile.ClassifiedReads, Is.EqualTo(1));
+            // Only "Bacteria" classified: sp1 should have abundance 1.0
+            Assert.That(profile.SpeciesAbundance["sp1"], Is.EqualTo(1.0));
+            Assert.That(profile.SpeciesAbundance.ContainsKey("sp2"), Is.False);
         });
     }
 

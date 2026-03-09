@@ -155,11 +155,26 @@ Per diversity metrics literature:
 
 ---
 
-## ASSUMPTIONS
+## Verified Design Decisions
 
-1. **Shannon uses natural log**: Implementation uses `Math.Log()` (natural log), consistent with ecological convention
-2. **Simpson is concentration index**: Implementation returns Σpᵢ² (concentration), not 1-D (diversity)
-3. **Empty abundances yield Shannon=0**: No species → no entropy (ASSUMPTION based on limit behavior)
+1. **Shannon uses natural log (nats)**: Shannon (1948) defines H = -Σpᵢ log(pᵢ) with log base as a choice of unit. Natural log gives values in "nats" — the standard unit in ecology. Wikipedia (Diversity index): "Shannon entropy … The natural logarithm is standard practice in ecology." Implementation: `Math.Log()` = ln.
+2. **Simpson is concentration index (λ = Σpᵢ²)**: Simpson (1949) original definition. Wikipedia (Diversity index): "Simpson's index … λ = Σpᵢ²." Distinct from Gini-Simpson (1−λ) and inverse Simpson (1/λ). Implementation returns λ directly.
+3. **Empty input yields Shannon = 0, Simpson = 0**: Empty sum convention: Σ over zero terms = 0. Shannon H = −Σ(empty) = 0; Simpson λ = Σ(empty) = 0. This is a mathematical fact, not an assumption.
+
+---
+
+## Coverage Classification Changes (2026-03-09)
+
+Applied systematic coverage classification to all tests:
+
+| Action | Test | Before | After |
+|--------|------|--------|-------|
+| ⚠→✅ Strengthened | M9 (ShannonDiversity_IsNonNegative) | `≥ 0` (any positive passes) | Exact `ln(3)` for 3 uniform species |
+| ⚠→✅ Strengthened | M10 (SimpsonDiversity_InZeroOneRange) | `InRange(0,1)` (any value passes) | Exact `0.375` for [2,1,1] non-uniform distribution |
+| ⚠→✅ Strengthened | M7 (ClassifiedReads_LessThanOrEqualToTotalReads) | Only `≤` inequality (0,0 passes) | Exact TotalReads=3, ClassifiedReads=2, plus inequality |
+| ❌→✅ Added | S3 (AllRanksPopulated_ConsistentTotals) | Not implemented | All 4 ranks sum to 1.0 for fully-populated reads |
+
+**Result**: 18 tests — ✅ 18 covered, ⚠ 0 weak, ❌ 0 missing, 🔁 0 duplicate
 
 ---
 

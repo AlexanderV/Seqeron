@@ -53,7 +53,7 @@
 | S1 | Uniform distribution produces expected Shannon value | Formula verification |
 | S2 | Uniform distribution produces expected Simpson value | Formula verification |
 | S3 | All ranks have consistent total counts | Cross-rank consistency |
-| S4 | High skew produces low Shannon, high Simpson | Diversity theory |
+| S4 | High skew produces exact Shannon and Simpson per formulas | Formula verification |
 
 ### COULD Tests
 
@@ -62,46 +62,58 @@
 | C1 | Large input processed efficiently | Scalability |
 | C2 | Abundance values are exact (no floating point accumulation errors) | Numerical stability |
 
-## Existing Test Audit
+## Coverage Classification (2026-03-09)
 
-### Current Test Pool
+### MUST Tests
 
-| File | Tests | Coverage |
-|------|-------|----------|
-| MetagenomicsAnalyzerTests.cs | 3 GenerateTaxonomicProfile tests | M2, M3, M9-M10 (partial) |
+| ID | Test Method | Classification | Notes |
+|----|------------|----------------|-------|
+| M1 | `EmptyInput_ReturnsEmptyProfile` | ✅ Covered | Exact values: 0 reads, empty maps, Shannon=0, Simpson=0 |
+| M2 | `SingleClassification_AbundanceIsOne` | ✅ Covered | Exact: abundance=1.0 at all ranks |
+| M3 | `UnclassifiedReads_ExcludedFromClassifiedCount` | ✅ Covered | Exact: TotalReads=3, ClassifiedReads=1 |
+| M4 | `UnclassifiedReads_ExcludedFromAbundanceDenominator` | ✅ Covered | Exact: abundance=1.0 (not 0.5) |
+| M5 | `TotalReads_EqualsInputCount` | ✅ Covered | Exact: TotalReads=4 |
+| M6 | (Combined with M3) | ✅ Covered | ClassifiedReads verified in M3 test |
+| M7 | `ClassifiedReads_LessThanOrEqualToTotalReads` | ✅ Covered | Exact: TotalReads=3, ClassifiedReads=2, plus inequality |
+| M8 | `MultipleClassifications_AbundancesSumToOne` | ✅ Covered | Sum ≈ 1.0 at kingdom and species levels |
+| M9 | `ShannonDiversity_IsNonNegative` | ✅ Covered | Exact: Shannon = ln(3) for 3 uniform species |
+| M10 | `SimpsonDiversity_InZeroOneRange` | ✅ Covered | Exact: Simpson = 0.375 for [2,1,1] distribution |
+| M11 | `SingleSpecies_ShannonIsZero` | ✅ Covered | Exact: Shannon = 0 |
+| M12 | `SingleSpecies_SimpsonIsOne` | ✅ Covered | Exact: Simpson = 1.0 |
+| M13 | `EmptyRankValues_FilteredFromAbundance` | ✅ Covered | Empty phylum/genus/species excluded |
+| M14 | `EqualCounts_ProduceEqualAbundances` | ✅ Covered | Exact: each = 1/3 |
 
-### Existing Test Analysis
+### SHOULD Tests
 
-| Existing Test | Covers | Action |
-|---------------|--------|--------|
-| `GenerateTaxonomicProfile_CalculatesAbundances` | M2 (partial), M5 (partial) | Strengthen with invariants |
-| `GenerateTaxonomicProfile_CalculatesDiversity` | M9, M10 (partial) | Add formula verification |
-| `GenerateTaxonomicProfile_WithUnclassified_ExcludesFromAbundance` | M3, M4 | Keep, strengthen assertions |
+| ID | Test Method | Classification | Notes |
+|----|------------|----------------|-------|
+| S1 | `UniformDistribution_ExpectedShannonValue` | ✅ Covered | Exact: Shannon = ln(4) |
+| S2 | `UniformDistribution_ExpectedSimpsonValue` | ✅ Covered | Exact: Simpson = 0.25 |
+| S3 | `AllRanksPopulated_ConsistentTotals` | ✅ Covered | Sum = 1.0 at all 4 ranks |
+| S4 | `HighSkew_ExactShannonAndSimpson` | ✅ Covered | Exact: p=[0.9,0.1] formula verification |
 
-### Missing Tests (All Closed)
+### Edge Case Tests (bonus)
 
-| ID | Gap | Status |
-|----|-----|--------|
-| M1 | Empty input | ✅ Covered |
-| M6 | ClassifiedReads count verification | ✅ Covered |
-| M7 | Bound invariant | ✅ Covered |
-| M8 | Sum normalization | ✅ Covered |
-| M11 | Single species Shannon=0 | ✅ Covered |
-| M12 | Single species Simpson=1.0 | ✅ Covered |
-| M13 | Empty string filtering | ✅ Covered |
-| M14 | Equal counts → equal abundances | ✅ Covered |
+| Test Method | Coverage | Notes |
+|------------|----------|-------|
+| `AllUnclassified_ReturnsEmptyAbundances` | ✅ Covered | Extension of M3/M4 |
+| `EmptyKingdom_ExcludedFromProfile` | ✅ Covered | Empty kingdom filtered same as unclassified |
 
-## Consolidation Plan
+### Summary
 
-### Target Structure
+- **Total**: 18 tests (14 MUST + 4 SHOULD + 0 COULD + 2 edge cases)
+- ✅ Covered: 18 | ⚠ Weak: 0 | ❌ Missing: 0 | 🔁 Duplicate: 0
 
-Create `MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs`:
-- Migrate and consolidate existing GenerateTaxonomicProfile tests
-- Add all missing MUST tests
-- Use `Assert.Multiple` for related invariants
-- Group tests by aspect (abundances, diversity, edge cases)
+### Changes Applied (2026-03-09)
 
-### Test File Structure
+| Action | Test | Detail |
+|--------|------|--------|
+| ⚠→✅ Strengthened | M9 | `≥ 0` → exact `ln(3)` for 3 uniform species |
+| ⚠→✅ Strengthened | M10 | `InRange(0,1)` → exact `0.375` for non-uniform [2,1,1] distribution |
+| ⚠→✅ Strengthened | M7 | Added exact TotalReads=3, ClassifiedReads=2 alongside inequality |
+| ❌→✅ Added | S3 | Cross-rank consistency: all 4 ranks sum to 1.0 |
+
+## Test File Structure
 
 ```
 MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
@@ -113,15 +125,21 @@ MetagenomicsAnalyzer_TaxonomicProfile_Tests.cs
 │   └── EmptyRankValues_FilteredFromAbundance [M13]
 ├── #region Unclassified Handling
 │   ├── UnclassifiedReads_ExcludedFromClassifiedCount [M3, M6]
-│   └── UnclassifiedReads_ExcludedFromAbundanceDenominator [M4]
+│   ├── UnclassifiedReads_ExcludedFromAbundanceDenominator [M4]
+│   └── AllUnclassified_ReturnsEmptyAbundances [edge]
 ├── #region Read Count Invariants
 │   ├── TotalReads_EqualsInputCount [M5]
 │   └── ClassifiedReads_LessThanOrEqualToTotalReads [M7]
 └── #region Diversity Metrics
     ├── SingleSpecies_ShannonIsZero [M11]
     ├── SingleSpecies_SimpsonIsOne [M12]
-    ├── ShannonDiversity_NonNegative [M9]
-    └── SimpsonDiversity_InZeroOneRange [M10]
+    ├── ShannonDiversity_IsNonNegative [M9]
+    ├── SimpsonDiversity_InZeroOneRange [M10]
+    ├── UniformDistribution_ExpectedShannonValue [S1]
+    ├── UniformDistribution_ExpectedSimpsonValue [S2]
+    ├── HighSkew_ExactShannonAndSimpson [S4]
+    ├── AllRanksPopulated_ConsistentTotals [S3]
+    └── EmptyKingdom_ExcludedFromProfile [edge]
 ```
 
 ## Open Questions
@@ -130,8 +148,8 @@ None. Algorithm behavior is well-defined by sources.
 
 ## Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Shannon uses natural log | Consistent with ecological convention and implementation |
-| Simpson is concentration (Σp²) not diversity (1-Σp²) | Implementation uses concentration form |
-| Empty input → all zero metrics | Safe default, no division by zero |
+| Decision | Rationale | Source |
+|----------|-----------|--------|
+| Shannon uses natural log (nats) | Shannon (1948) defines H with log base as unit choice; ln gives nats — standard in ecology | Wikipedia (Diversity index), Shannon (1948) |
+| Simpson is concentration λ = Σpᵢ², not Gini-Simpson (1−λ) or inverse (1/λ) | Original Simpson (1949) definition | Wikipedia (Diversity index), Simpson (1949) |
+| Empty input → Shannon = 0, Simpson = 0 | Empty sum convention: Σ over zero terms = 0; mathematical fact | Standard mathematics |

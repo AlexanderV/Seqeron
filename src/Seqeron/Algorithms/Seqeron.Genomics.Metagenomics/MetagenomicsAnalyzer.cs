@@ -239,14 +239,15 @@ public static class MetagenomicsAnalyzer
     {
         var classList = classifications.ToList();
         int totalReads = classList.Count;
-        int classifiedReads = classList.Count(c => c.Kingdom != "Unclassified" && !string.IsNullOrEmpty(c.Kingdom));
+        var classified = classList.Where(c => c.Kingdom != "Unclassified" && !string.IsNullOrEmpty(c.Kingdom)).ToList();
+        int classifiedReads = classified.Count;
 
         var kingdomCounts = new Dictionary<string, int>();
         var phylumCounts = new Dictionary<string, int>();
         var genusCounts = new Dictionary<string, int>();
         var speciesCounts = new Dictionary<string, int>();
 
-        foreach (var c in classList.Where(c => c.Kingdom != "Unclassified"))
+        foreach (var c in classified)
         {
             IncrementCount(kingdomCounts, c.Kingdom);
             IncrementCount(phylumCounts, c.Phylum);
@@ -451,58 +452,66 @@ public static class MetagenomicsAnalyzer
     #region Genome Binning
 
     /// <summary>
-    /// Bins contigs based on composition and coverage.
+    /// Bins contigs using k-means clustering on compositional and coverage features.
+    /// Features: GC content, tetranucleotide frequency (per TETRA/Teeling 2004), coverage.
+    /// Quality: completeness from bin length / expected genome size,
+    ///          contamination from within-bin GC standard deviation normalized by theoretical max.
     /// </summary>
+    /// <param name="contigs">Input contigs with sequences and coverage.</param>
+    /// <param name="numBins">Maximum number of bins (k for k-means).</param>
+    /// <param name="minBinSize">Minimum total length for a bin to be reported.</param>
+    /// <param name="expectedGenomeSize">Expected genome size in bp for completeness estimation.</param>
     public static IEnumerable<GenomeBin> BinContigs(
         IEnumerable<(string ContigId, string Sequence, double Coverage)> contigs,
         int numBins = 10,
-        double minBinSize = 500000)
+        double minBinSize = 500000,
+        double expectedGenomeSize = 4_000_000)
     {
         var contigList = contigs.ToList();
 
         if (contigList.Count == 0)
             yield break;
 
-        // Calculate features for each contig
-        var features = contigList.Select(c => new
+        // Calculate features for each contig: GC, coverage, TNF
+        var features = contigList.Select(c => new ContigFeatures(
+            GcContent: CalculateGcContent(c.Sequence),
+            Coverage: c.Coverage,
+            Tnf: CalculateTetraNucleotideFrequency(c.Sequence)
+        )).ToList();
+
+        // Normalize coverage to [0, 1] for distance computation
+        double maxCov = features.Max(f => f.Coverage);
+        if (maxCov <= 0) maxCov = 1;
+        var normalized = features.Select(f => f with { Coverage = f.Coverage / maxCov }).ToList();
+
+        // K-means clustering on [GC, normalized coverage, TNF Pearson distance]
+        int k = Math.Min(numBins, contigList.Count);
+        var assignments = KMeansCluster(normalized, k);
+
+        // Group contigs by cluster
+        var clusters = new Dictionary<int, List<int>>();
+        for (int i = 0; i < assignments.Length; i++)
         {
-            c.ContigId,
-            c.Sequence,
-            c.Coverage,
-            GcContent = CalculateGcContent(c.Sequence),
-            TetraNucFreq = CalculateTetraNucleotideFrequency(c.Sequence)
-        }).ToList();
-
-        // Simple k-means clustering based on GC and coverage
-        var bins = new Dictionary<int, List<(string Id, string Seq, double Coverage)>>();
-
-        for (int i = 0; i < numBins; i++)
-            bins[i] = new List<(string, string, double)>();
-
-        foreach (var f in features)
-        {
-            // Assign to bin based on GC content and coverage
-            int binIndex = (int)(f.GcContent * numBins) % numBins;
-            bins[binIndex].Add((f.ContigId, f.Sequence, f.Coverage));
+            if (!clusters.ContainsKey(assignments[i]))
+                clusters[assignments[i]] = new List<int>();
+            clusters[assignments[i]].Add(i);
         }
 
         int binId = 1;
-        foreach (var bin in bins.Values.Where(b => b.Count > 0))
+        foreach (var cluster in clusters.Values)
         {
-            double totalLength = bin.Sum(c => c.Seq.Length);
+            double totalLength = cluster.Sum(i => contigList[i].Sequence.Length);
             if (totalLength < minBinSize)
                 continue;
 
-            double avgGc = bin.Average(c => CalculateGcContent(c.Seq));
-            double avgCoverage = bin.Average(c => c.Coverage);
-
-            // Estimate completeness using single-copy marker genes (simplified)
-            double completeness = Math.Min(totalLength / 2000000 * 100, 100);
-            double contamination = CalculateContamination(bin.Select(b => b.Seq));
+            double avgGc = cluster.Average(i => features[i].GcContent);
+            double avgCoverage = cluster.Average(i => contigList[i].Coverage);
+            double completeness = Math.Min(totalLength / expectedGenomeSize * 100, 100);
+            double contamination = CalculateContamination(cluster.Select(i => features[i].GcContent));
 
             yield return new GenomeBin(
                 BinId: $"bin.{binId++}",
-                ContigIds: bin.Select(b => b.Id).ToList(),
+                ContigIds: cluster.Select(i => contigList[i].ContigId).ToList(),
                 TotalLength: totalLength,
                 GcContent: avgGc,
                 Coverage: avgCoverage,
@@ -510,6 +519,120 @@ public static class MetagenomicsAnalyzer
                 Contamination: contamination,
                 PredictedTaxonomy: "");
         }
+    }
+
+    private readonly record struct ContigFeatures(
+        double GcContent,
+        double Coverage,
+        Dictionary<string, double> Tnf);
+
+    private static int[] KMeansCluster(List<ContigFeatures> features, int k, int maxIterations = 50)
+    {
+        int n = features.Count;
+        if (n == 0 || k <= 0)
+            return Array.Empty<int>();
+
+        k = Math.Min(k, n);
+        var assignments = new int[n];
+
+        // Initialize centroids by spreading across GC-sorted data (deterministic, diverse)
+        var sortedIndices = Enumerable.Range(0, n).OrderBy(i => features[i].GcContent).ToList();
+        var centroids = new ContigFeatures[k];
+        for (int c = 0; c < k; c++)
+        {
+            int idx = sortedIndices[c * n / k];
+            centroids[c] = features[idx];
+        }
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            bool changed = false;
+
+            // Assignment step: assign each point to nearest centroid
+            for (int i = 0; i < n; i++)
+            {
+                double minDist = double.MaxValue;
+                int best = 0;
+                for (int c = 0; c < k; c++)
+                {
+                    double dist = CompositeDistance(features[i], centroids[c]);
+                    if (dist < minDist)
+                    {
+                        minDist = dist;
+                        best = c;
+                    }
+                }
+                if (assignments[i] != best)
+                {
+                    assignments[i] = best;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+                break;
+
+            // Update step: recompute centroids
+            for (int c = 0; c < k; c++)
+            {
+                var members = Enumerable.Range(0, n).Where(i => assignments[i] == c).ToList();
+                if (members.Count == 0)
+                    continue;
+
+                double avgGc = members.Average(i => features[i].GcContent);
+                double avgCov = members.Average(i => features[i].Coverage);
+
+                // Average TNF vector across cluster members
+                var avgTnf = new Dictionary<string, double>();
+                var allKeys = members.SelectMany(i => features[i].Tnf.Keys).Distinct().ToList();
+                foreach (var key in allKeys)
+                    avgTnf[key] = members.Average(i => features[i].Tnf.GetValueOrDefault(key, 0));
+
+                centroids[c] = new ContigFeatures(avgGc, avgCov, avgTnf);
+            }
+        }
+
+        return assignments;
+    }
+
+    /// <summary>
+    /// Composite distance: GC difference + coverage difference + TNF Pearson distance.
+    /// Per literature, binning uses GC content, coverage, and tetranucleotide frequencies
+    /// (Wikipedia: Binning metagenomics; Teeling 2004 TETRA).
+    /// </summary>
+    private static double CompositeDistance(ContigFeatures a, ContigFeatures b)
+    {
+        double gcDist = Math.Abs(a.GcContent - b.GcContent);
+        double covDist = Math.Abs(a.Coverage - b.Coverage);
+        double tnfDist = TnfPearsonDistance(a.Tnf, b.Tnf);
+        return gcDist + covDist + tnfDist;
+    }
+
+    /// <summary>
+    /// TNF distance based on Pearson correlation, per TETRA methodology (Teeling 2004).
+    /// Returns (1 - r) / 2, normalized to [0, 1].
+    /// </summary>
+    private static double TnfPearsonDistance(Dictionary<string, double> a, Dictionary<string, double> b)
+    {
+        var allKeys = a.Keys.Union(b.Keys).ToList();
+        if (allKeys.Count == 0) return 1.0;
+
+        double[] va = allKeys.Select(k => a.GetValueOrDefault(k, 0)).ToArray();
+        double[] vb = allKeys.Select(k => b.GetValueOrDefault(k, 0)).ToArray();
+
+        double meanA = va.Average(), meanB = vb.Average();
+        double sumAB = 0, sumA2 = 0, sumB2 = 0;
+        for (int i = 0; i < va.Length; i++)
+        {
+            double da = va[i] - meanA, db = vb[i] - meanB;
+            sumAB += da * db;
+            sumA2 += da * da;
+            sumB2 += db * db;
+        }
+
+        double denom = Math.Sqrt(sumA2) * Math.Sqrt(sumB2);
+        double r = denom > 0 ? sumAB / denom : 0;
+        return (1.0 - r) / 2.0;
     }
 
     private static double CalculateGcContent(string sequence) =>
@@ -535,18 +658,23 @@ public static class MetagenomicsAnalyzer
         return freq.ToDictionary(kv => kv.Key, kv => total > 0 ? (double)kv.Value / total : 0);
     }
 
-    private static double CalculateContamination(IEnumerable<string> sequences)
+    /// <summary>
+    /// Estimates contamination from within-bin GC standard deviation, normalized by
+    /// the theoretical maximum (0.5) for values in [0, 1].
+    /// Low GC variance indicates a single taxonomic source (Parks et al. 2014).
+    /// </summary>
+    private static double CalculateContamination(IEnumerable<double> gcValues)
     {
-        // Simplified contamination estimation based on GC variance
-        var gcValues = sequences.Select(CalculateGcContent).ToList();
-        if (gcValues.Count < 2)
+        var gcList = gcValues.ToList();
+        if (gcList.Count < 2)
             return 0;
 
-        double mean = gcValues.Average();
-        double variance = gcValues.Sum(gc => (gc - mean) * (gc - mean)) / gcValues.Count;
+        double mean = gcList.Average();
+        double variance = gcList.Sum(gc => (gc - mean) * (gc - mean)) / gcList.Count;
+        double stdDev = Math.Sqrt(variance);
 
-        // High variance suggests contamination
-        return Math.Min(variance * 1000, 50);
+        // Normalize by theoretical max std dev (0.5) for values in [0, 1]
+        return Math.Min(stdDev / 0.5 * 100, 100);
     }
 
     #endregion
