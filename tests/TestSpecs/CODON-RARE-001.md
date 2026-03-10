@@ -32,10 +32,10 @@ Key findings:
 | ID | Test Name | Description | Evidence |
 |----|-----------|-------------|----------|
 | M01 | Empty sequence returns empty | `FindRareCodons("", table)` → empty enumerable | Implementation contract |
-| M02 | Single rare codon detection | Sequence with one AGA (0.07) detected below threshold 0.10 | Shu et al., Kazusa |
+| M02 | Single rare codon detection | Sequence with one AGA (0.04) detected below threshold 0.10 | Shu et al., Kazusa MG1655 |
 | M03 | Multiple rare codons detection | Sequence with AGA, AGG, CGA all detected | Kazusa frequencies |
 | M04 | Position is nucleotide index | AGA at codon index 1 reports position 3 | Implementation spec |
-| M05 | Threshold boundary - below | Codon at freq 0.09 detected with threshold 0.10 | Math invariant |
+| M05 | Threshold boundary - below | Codon at freq 0.07 detected with threshold 0.10 | Math invariant |
 | M06 | Threshold boundary - at | Codon at freq 0.10 NOT detected with threshold 0.10 | Math invariant (< not ≤) |
 | M07 | No rare codons found | Sequence with only common codons returns empty | Logic correctness |
 | M08 | Amino acid translation correct | Reported AA matches genetic code | Sharp & Li |
@@ -65,15 +65,15 @@ Key findings:
 
 ## Test Data
 
-### E. coli K12 Rare Codons (freq < 0.10)
-- AGA: 0.07 (Arginine)
-- AGG: 0.04 (Arginine)  
-- CGA: 0.07 (Arginine)
+### E. coli K12 Rare Codons (freq < 0.10) — Kazusa MG1655 (species=316407)
+- AGA: 0.04 (Arginine)
+- AGG: 0.02 (Arginine)  
+- CGA: 0.06 (Arginine)
 - CUA: 0.04 (Leucine)
-- UAG: 0.09 (Stop)
+- UAG: 0.07 (Stop)
 
 ### E. coli K12 Common Codons (freq > 0.40)
-- CUG: 0.47 (Leucine)
+- CUG: 0.50 (Leucine)
 - AUG: 1.00 (Methionine)
 - UGG: 1.00 (Tryptophan)
 
@@ -85,8 +85,8 @@ Key findings:
 | MultiRare | AUGAGAAGGCGA | M + R(rare) + R(rare) + R(rare) |
 | NoRare | AUGCUGUGG | M + L(common) + W(common) |
 | AllRare | AGAAGGCGA | All rare arginine codons |
-| MixedLeu | CUGCUA | L(common 0.47) + L(rare 0.04) |
-| Borderline | CUGAUA | L(common) + I(0.11 near threshold) |
+| MixedLeu | CUGCUA | L(common 0.50) + L(rare 0.04) |
+| Borderline | CUGAUA | L(common) + I(0.07 near threshold) |
 
 ---
 

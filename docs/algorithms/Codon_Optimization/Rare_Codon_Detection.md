@@ -17,12 +17,12 @@ Rare codon detection identifies codons in a coding sequence that occur at unusua
 
 | Codon | Amino Acid | Frequency | tRNA Gene |
 |-------|------------|-----------|-----------|
-| AGA   | Arginine   | 0.07      | argU      |
-| AGG   | Arginine   | 0.04      | argW      |
-| CGA   | Arginine   | 0.07      | argW      |
+| AGA   | Arginine   | 0.04      | argU      |
+| AGG   | Arginine   | 0.02      | argW      |
+| CGA   | Arginine   | 0.06      | argW      |
 | CUA   | Leucine    | 0.04      | leuV      |
 
-Source: Kazusa Codon Usage Database; Shu et al. (2006)
+Source: Kazusa Codon Usage Database, species=316407 (MG1655)
 
 ## Algorithm
 
@@ -80,7 +80,7 @@ public static IEnumerable<(int Position, string Codon, string AminoAcid, double 
 ```csharp
 string sequence = "AUGAGAAGGCGA"; // M-R-R-R
 var rareList = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10);
-// Returns: (3, "AGA", "R", 0.07), (6, "AGG", "R", 0.04), (9, "CGA", "R", 0.07)
+// Returns: (3, "AGA", "R", 0.04), (6, "AGG", "R", 0.02), (9, "CGA", "R", 0.06)
 ```
 
 ### Optimization Workflow

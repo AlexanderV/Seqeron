@@ -440,11 +440,10 @@ public static class CodonOptimizer
             if (aminoAcid == "*") continue;
 
             double w = CalculateRelativeAdaptiveness(codon, aminoAcid, table);
-            if (w > 0)
-            {
-                logSum += Math.Log(w);
-                count++;
-            }
+            if (double.IsNaN(w)) continue; // No frequency data for this AA in table
+
+            logSum += Math.Log(w);
+            count++;
         }
 
         return count > 0 ? Math.Exp(logSum / count) : 0;
@@ -453,16 +452,18 @@ public static class CodonOptimizer
     private static double CalculateRelativeAdaptiveness(string codon, string aminoAcid, CodonUsageTable table)
     {
         if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
-            return 1;
+            return double.NaN; // Not a standard amino acid — no adaptiveness data
 
         double codonFreq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
         double maxFreq = synonymousCodons.Max(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
 
         if (maxFreq <= 0)
-            return 1;
+            return double.NaN; // No frequency data for this amino acid in the table
 
-        // Clamp to avoid ln(0) for codons absent from incomplete custom tables.
-        // Sharp & Li (1987) prescribed avoiding zero w values.
+        // Clamp to 1e-6 to avoid ln(0) when codon is absent from an incomplete custom table
+        // but other synonymous codons are present (maxFreq > 0, codonFreq = 0).
+        // Sharp & Li (1987) did not encounter this case (complete reference sets),
+        // but real-world partial tables may have gaps.
         return Math.Max(codonFreq / maxFreq, 1e-6);
     }
 
