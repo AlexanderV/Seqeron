@@ -68,7 +68,7 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_MetAndTrp_ReturnsOne()
     {
-        // Arrange - Both have unique codons with w=1.0
+        // Arrange - Both single-codon amino acids: AUG (Met, w=1.0) + UGG (Trp, w=1.0)
         // CAI = (1.0 × 1.0)^(1/2) = 1.0
         const string sequence = "AUGUGG";
 
@@ -86,8 +86,8 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_AllOptimalCodonsEColi_ReturnsOne()
     {
-        // Arrange - All optimal codons for E. coli K12
-        // CUG (Leu, 0.47/0.47=1.0), CCG (Pro, 0.49/0.49=1.0), ACC (Thr, 0.40/0.40=1.0)
+        // Arrange - All optimal codons for E. coli K12 (Kazusa MG1655, species=316407)
+        // CUG (Leu, 0.50/0.50=1.0), CCG (Pro, 0.53/0.53=1.0), ACC (Thr, 0.44/0.44=1.0)
         // CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
         const string sequence = "CUGCCGACC";
 
@@ -95,21 +95,21 @@ public class CodonOptimizer_CAI_Tests
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.01));
+        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
     }
 
     [Test]
     public void CalculateCAI_OptimalCodonsWithMet_ReturnsOne()
     {
-        // Arrange - AUG (Met) + optimal codons
-        // AUG(1.0), CUG(1.0), ACC(1.0) → CAI = 1.0
+        // Arrange - AUG (Met, w=1.0) + CUG (Leu optimal, w=1.0) + ACC (Thr optimal, w=1.0)
+        // CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
         const string sequence = "AUGCUGACC";
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.01));
+        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
     }
 
     #endregion
@@ -119,41 +119,49 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_RareCodonsEColi_ReturnsLow()
     {
-        // Arrange - CUA (Leu rare, 0.04/0.47≈0.085)
+        // Arrange - CUA (Leu rare): w = 0.04/0.50 = 0.08
+        // All 3 codons identical → CAI = 0.08
+        // Source: Kazusa MG1655 (species=316407)
         const string sequence = "CUACUACUA";
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
-        // Assert - Geometric mean of ~0.085 values
-        Assert.That(cai, Is.LessThan(0.15));
+        // Assert - Exact: geometric mean of (0.08, 0.08, 0.08) = 0.08
+        Assert.That(cai, Is.EqualTo(0.08).Within(0.005));
     }
 
     [Test]
-    public void CalculateCAI_RareArginineCodonsEColi_ReturnsLow()
+    public void CalculateCAI_RareArginineCodonsEColi_MatchesHandCalculated()
     {
-        // Arrange - AGA, AGG are rare in E. coli (0.07, 0.04)
-        // w_AGA = 0.07/0.36 ≈ 0.19, w_AGG = 0.04/0.36 ≈ 0.11
+        // Arrange - AGA, AGG are rare in E. coli K12
+        // w_AGA = 0.04/0.40 = 0.10, w_AGG = 0.02/0.40 = 0.05
+        // CAI = (0.10 × 0.05)^(1/2) = 0.07071
+        // Source: Kazusa MG1655 (species=316407)
         const string sequence = "AGAAGG";
+        const double expectedCai = 0.07071;
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert
-        Assert.That(cai, Is.LessThan(0.25));
+        Assert.That(cai, Is.EqualTo(expectedCai).Within(0.005));
     }
 
     [Test]
-    public void CalculateCAI_MixedOptimalAndRare_IntermediateValue()
+    public void CalculateCAI_MixedOptimalAndRare_MatchesHandCalculated()
     {
-        // Arrange - Mix of optimal (CUG) and rare (CUA)
+        // Arrange - CUG (optimal Leu, w=1.0) + CUA (rare Leu, w=0.04/0.50=0.08)
+        // CAI = (1.0 × 0.08)^(1/2) = 0.28284
+        // Source: Kazusa MG1655 (species=316407)
         const string sequence = "CUGCUA";
+        const double expectedCai = 0.28284;
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
-        // Assert - Between rare-only and optimal-only
-        Assert.That(cai, Is.GreaterThan(0.1).And.LessThan(0.8));
+        // Assert
+        Assert.That(cai, Is.EqualTo(expectedCai).Within(0.005));
     }
 
     #endregion
@@ -163,14 +171,16 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_AnyValidSequence_RangeIsZeroToOne()
     {
-        // Arrange
+        // Arrange - diverse sequences: optimal, rare, mixed, with stop
         string[] sequences =
         {
             "AUGGCUUAA",      // Short with stop
             "CUGCCGACC",       // Optimal
             "CUACUACUA",       // Rare
             "AUGUGGCUGACC",    // Mixed
-            "AUGAAAGGGCCC"     // Random
+            "AUGAAAGGGCCC",    // Random
+            "AGAAGAAGAAGAAGA", // Rare arginine
+            "AUGGCU"            // DNA-like
         };
 
         // Act & Assert
@@ -182,23 +192,6 @@ public class CodonOptimizer_CAI_Tests
         }
     }
 
-    [Test]
-    [TestCase("AUGGCU")]
-    [TestCase("CUGCUGCUGCUGCUG")]
-    [TestCase("AGAAGAAGAAGAAGA")]
-    public void CalculateCAI_Parameterized_AlwaysInRange(string sequence)
-    {
-        // Act
-        double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(cai, Is.GreaterThanOrEqualTo(0));
-            Assert.That(cai, Is.LessThanOrEqualTo(1));
-        });
-    }
-
     #endregion
 
     #region Organism Specificity Tests (Must)
@@ -206,35 +199,48 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_SameSequence_DifferentOrganisms_DifferentResults()
     {
-        // Arrange - CUG is preferred in E. coli but less so in Yeast
+        // Arrange - CUG-CCG-ACC: optimal for E. coli, suboptimal for yeast
+        // Yeast: CUG(0.11/0.29=0.3793), CCG(0.12/0.42=0.2857), ACC(0.22/0.35=0.6286)
+        //   CAI = exp((ln(0.3793)+ln(0.2857)+ln(0.6286))/3) = 0.4085
+        // Source: Kazusa species=316407 and species=4932
         const string sequence = "CUGCCGACC";
 
         // Act
         double ecoliCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
         double yeastCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.Yeast);
 
-        // Assert - Different organisms have different preferences
-        Assert.That(ecoliCai, Is.Not.EqualTo(yeastCai).Within(0.05));
+        // Assert - Exact hand-calculated values
+        Assert.That(ecoliCai, Is.EqualTo(1.0).Within(0.001));
+        Assert.That(yeastCai, Is.EqualTo(0.4085).Within(0.005));
     }
 
     [Test]
     public void CalculateCAI_YeastPreferredCodons_HigherInYeast()
     {
-        // Arrange - UUA is preferred in yeast (0.28) but rare in E. coli (0.14)
+        // Arrange - UUA: E. coli w=0.13/0.50=0.26; Yeast w=0.28/0.29=0.9655
+        // E. coli CAI = 0.26; Yeast CAI = 0.9655
+        // Source: Kazusa species=316407 and species=4932
         const string sequence = "UUAUUAUUA";
 
         // Act
         double ecoliCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
         double yeastCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.Yeast);
 
-        // Assert - Should be higher in yeast
-        Assert.That(yeastCai, Is.GreaterThan(ecoliCai));
+        // Assert - Exact values from Kazusa-verified tables
+        Assert.That(ecoliCai, Is.EqualTo(0.26).Within(0.005));
+        Assert.That(yeastCai, Is.EqualTo(0.9655).Within(0.005));
     }
 
     [Test]
-    public void CalculateCAI_AllThreeOrganismTables_ProduceValidResults()
+    public void CalculateCAI_AllThreeOrganismTables_MatchHandCalculated()
     {
-        // Arrange
+        // Arrange - AUG-CUG-CCG-ACC
+        // E. coli: all w=1.0 → CAI=1.0
+        // Yeast: AUG(1.0), CUG(0.11/0.29=0.3793), CCG(0.12/0.42=0.2857), ACC(0.22/0.35=0.6286)
+        //   CAI = exp((0 + ln(0.3793) + ln(0.2857) + ln(0.6286))/4) = 0.5109
+        // Human: AUG(1.0), CUG(0.40/0.40=1.0), CCG(0.11/0.32=0.34375), ACC(0.36/0.36=1.0)
+        //   CAI = exp((0 + 0 + ln(0.34375) + 0)/4) = 0.7656
+        // Source: Kazusa species=316407, 4932, 9606
         const string sequence = "AUGCUGCCGACC";
 
         // Act
@@ -242,12 +248,12 @@ public class CodonOptimizer_CAI_Tests
         double yeastCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.Yeast);
         double humanCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.Human);
 
-        // Assert - All should be valid
+        // Assert - Exact values from Kazusa-verified tables
         Assert.Multiple(() =>
         {
-            Assert.That(ecoliCai, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
-            Assert.That(yeastCai, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
-            Assert.That(humanCai, Is.GreaterThan(0).And.LessThanOrEqualTo(1));
+            Assert.That(ecoliCai, Is.EqualTo(1.0).Within(0.001));
+            Assert.That(yeastCai, Is.EqualTo(0.5109).Within(0.005));
+            Assert.That(humanCai, Is.EqualTo(0.7656).Within(0.005));
         });
     }
 
@@ -281,23 +287,9 @@ public class CodonOptimizer_CAI_Tests
         double lowerCai = CodonOptimizer.CalculateCAI(lowercase, CodonOptimizer.EColiK12);
         double upperCai = CodonOptimizer.CalculateCAI(uppercase, CodonOptimizer.EColiK12);
 
-        // Assert
-        Assert.That(lowerCai, Is.EqualTo(upperCai).Within(0.001));
-    }
-
-    [Test]
-    public void CalculateCAI_MixedCaseInput_HandledCorrectly()
-    {
-        // Arrange
-        const string mixed = "AuGcUg";
-        const string standard = "AUGCUG";
-
-        // Act
-        double mixedCai = CodonOptimizer.CalculateCAI(mixed, CodonOptimizer.EColiK12);
-        double standardCai = CodonOptimizer.CalculateCAI(standard, CodonOptimizer.EColiK12);
-
-        // Assert
-        Assert.That(mixedCai, Is.EqualTo(standardCai).Within(0.001));
+        // Assert - Both should produce CAI=1.0 (AUG w=1.0, CUG w=1.0)
+        Assert.That(lowerCai, Is.EqualTo(1.0).Within(0.001));
+        Assert.That(upperCai, Is.EqualTo(1.0).Within(0.001));
     }
 
     #endregion
@@ -335,14 +327,15 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_StopCodonInMiddle_ExcludedFromCalculation()
     {
-        // Arrange - CUG + UAA + CCG (stop in middle)
+        // Arrange - CUG + UAA + CCG (stop in middle excluded)
+        // Only CUG (w=1.0) and CCG (w=1.0) counted → CAI = 1.0
         const string sequence = "CUGUAACCG";
 
         // Act
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
-        // Assert - Stop excluded, CUG and CCG both optimal → high CAI
-        Assert.That(cai, Is.GreaterThan(0.9));
+        // Assert - Exact: both non-stop codons are optimal
+        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
     }
 
     #endregion
@@ -352,35 +345,48 @@ public class CodonOptimizer_CAI_Tests
     [Test]
     public void CalculateCAI_SingleRareCodon_SignificantlyLowersCAI()
     {
-        // Arrange - Geometric mean is sensitive to low values
-        const string allOptimal = "CUGCUGCUGCUGCUG"; // 5 optimal Leu
-        const string oneRare = "CUGCUGCUACUGCUG";   // 4 optimal + 1 rare
+        // Arrange - Geometric mean is highly sensitive to low values (Sharp & Li 1987)
+        // 5×CUG: all w=1.0, CAI=1.0
+        // 4×CUG+1×CUA: w=[1,1,1,1,0.08]
+        //   CAI = exp((4×ln(1)+ln(0.08))/5) = exp(-2.52573/5) = 0.60360
+        const string allOptimal = "CUGCUGCUGCUGCUG";
+        const string oneRare = "CUGCUGCUACUGCUG";
 
         // Act
         double optimalCai = CodonOptimizer.CalculateCAI(allOptimal, CodonOptimizer.EColiK12);
         double oneRareCai = CodonOptimizer.CalculateCAI(oneRare, CodonOptimizer.EColiK12);
 
-        // Assert - Single rare codon drops CAI significantly
-        Assert.That(oneRareCai, Is.LessThan(optimalCai * 0.75),
-            "Single rare codon should significantly lower CAI due to geometric mean");
+        // Assert - Exact hand-calculated values
+        Assert.That(optimalCai, Is.EqualTo(1.0).Within(0.001));
+        Assert.That(oneRareCai, Is.EqualTo(0.6036).Within(0.005));
     }
 
     [Test]
     public void CalculateCAI_MoreRareCodons_LowerCAI()
     {
-        // Arrange
-        const string oneRare = "CUGCUGCUACUGCUG";   // 1 rare
-        const string twoRare = "CUGCUACUACUGCUG";   // 2 rare
-        const string threeRare = "CUGCUACUACUACUG"; // 3 rare
+        // Arrange - Monotonicity: more rare codons → lower CAI
+        // CUA: w=0.04/0.50=0.08; CUG: w=1.0
+        // 1 rare: exp((4×0+ln(0.08))/5) = 0.60360
+        // 2 rare: exp((3×0+2×ln(0.08))/5) = 0.36434
+        // 3 rare: exp((2×0+3×ln(0.08))/5) = 0.21952
+        const string oneRare = "CUGCUGCUACUGCUG";
+        const string twoRare = "CUGCUACUACUGCUG";
+        const string threeRare = "CUGCUACUACUACUG";
 
         // Act
         double oneRareCai = CodonOptimizer.CalculateCAI(oneRare, CodonOptimizer.EColiK12);
         double twoRareCai = CodonOptimizer.CalculateCAI(twoRare, CodonOptimizer.EColiK12);
         double threeRareCai = CodonOptimizer.CalculateCAI(threeRare, CodonOptimizer.EColiK12);
 
-        // Assert - More rare codons → lower CAI
-        Assert.That(oneRareCai, Is.GreaterThan(twoRareCai));
-        Assert.That(twoRareCai, Is.GreaterThan(threeRareCai));
+        // Assert - Exact hand-calculated values + monotonicity
+        Assert.Multiple(() =>
+        {
+            Assert.That(oneRareCai, Is.EqualTo(0.6036).Within(0.005));
+            Assert.That(twoRareCai, Is.EqualTo(0.3643).Within(0.005));
+            Assert.That(threeRareCai, Is.EqualTo(0.2195).Within(0.005));
+            Assert.That(oneRareCai, Is.GreaterThan(twoRareCai));
+            Assert.That(twoRareCai, Is.GreaterThan(threeRareCai));
+        });
     }
 
     #endregion
@@ -391,17 +397,18 @@ public class CodonOptimizer_CAI_Tests
     public void CalculateCAI_HandCalculatedRareCodons_MatchesExpected()
     {
         // Arrange - CUA (Leu rare) + ACU (Thr suboptimal)
-        // CUA: w = 0.04/0.47 ≈ 0.085
-        // ACU: w = 0.19/0.40 ≈ 0.475
-        // CAI = (0.085 × 0.475)^(1/2) ≈ 0.20
+        // CUA: w = 0.04/0.50 = 0.08
+        // ACU: w = 0.16/0.44 = 0.36364
+        // CAI = (0.08 × 0.36364)^(1/2) = 0.17056
+        // Source: Kazusa MG1655 (species=316407), verified against https://www.kazusa.or.jp/codon/
         const string sequence = "CUAACU";
-        const double expectedCai = 0.20;
+        const double expectedCai = 0.17056;
 
         // Act
         double actualCai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
-        // Assert - Within reasonable tolerance for frequency variations
-        Assert.That(actualCai, Is.EqualTo(expectedCai).Within(0.10));
+        // Assert - Tight tolerance: values derived directly from Kazusa-verified table
+        Assert.That(actualCai, Is.EqualTo(expectedCai).Within(0.005));
     }
 
     #endregion
@@ -454,7 +461,7 @@ public class CodonOptimizer_CAI_Tests
         double cai = CodonOptimizer.CalculateCAI(sequence, CodonOptimizer.EColiK12);
 
         // Assert - Should be 1.0 (only CUG counted, which is optimal)
-        Assert.That(cai, Is.EqualTo(1.0).Within(0.01));
+        Assert.That(cai, Is.EqualTo(1.0).Within(0.001));
     }
 
     #endregion

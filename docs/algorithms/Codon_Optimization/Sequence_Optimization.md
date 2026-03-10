@@ -79,9 +79,9 @@ OptimizeSequence(codingSequence, targetOrganism, strategy):
 
 | Amino Acid | Preferred | Frequency | Rare | Frequency |
 |------------|-----------|-----------|------|-----------|
-| Leucine | CUG | 0.47 | CUA | 0.04 |
-| Arginine | CGU | 0.36 | AGG | 0.04 |
-| Proline | CCG | 0.49 | CCC | 0.13 |
+| Leucine | CUG | 0.50 | CUA | 0.04 |
+| Arginine | CGC | 0.40 | AGG | 0.02 |
+| Proline | CCG | 0.53 | CCC | 0.12 |
 
 ### S. cerevisiae (Yeast)
 

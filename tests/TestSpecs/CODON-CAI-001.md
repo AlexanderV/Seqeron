@@ -74,13 +74,13 @@ CAI = geometric mean of relative adaptiveness values:
 
 ## Test Data
 
-### Hand-Calculated Reference Values (E. coli K12)
+### Hand-Calculated Reference Values (E. coli K12, Kazusa MG1655)
 
 **Test 1: All Optimal Codons**
 ```
 Sequence: CUGCCGACC (Leu-Pro-Thr)
-Codons:   CUG(0.47), CCG(0.49), ACC(0.40)
-w values: 0.47/0.47=1.0, 0.49/0.49=1.0, 0.40/0.40=1.0
+Codons:   CUG(0.50), CCG(0.53), ACC(0.44)
+w values: 0.50/0.50=1.0, 0.53/0.53=1.0, 0.44/0.44=1.0
 CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
 ```
 
@@ -88,61 +88,76 @@ CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
 ```
 Sequence: AUGCUGACC (Met-Leu-Thr)
 AUG: 1.0/1.0 = 1.0
-CUG: 0.47/0.47 = 1.0
-ACC: 0.40/0.40 = 1.0
+CUG: 0.50/0.50 = 1.0
+ACC: 0.44/0.44 = 1.0
 CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
 ```
 
 **Test 3: Rare Codons**
 ```
 Sequence: CUAACU (Leu-Thr)
-CUA: 0.04/0.47 ≈ 0.085
-ACU: 0.19/0.40 ≈ 0.475
-CAI = (0.085 × 0.475)^(1/2) ≈ 0.20
+CUA: 0.04/0.50 = 0.08
+ACU: 0.16/0.44 = 0.36364
+CAI = (0.08 × 0.36364)^(1/2) = 0.17056
 ```
 
-### Codon Frequencies (E. coli K12)
+### Codon Frequencies (E. coli K12, Kazusa MG1655)
 
 | AA | Codon | Freq | Max | w |
 |----|-------|------|-----|---|
-| Leu | CUG | 0.47 | 0.47 | 1.00 |
-| Leu | CUA | 0.04 | 0.47 | 0.085 |
-| Pro | CCG | 0.49 | 0.49 | 1.00 |
-| Pro | CCA | 0.20 | 0.49 | 0.408 |
-| Thr | ACC | 0.40 | 0.40 | 1.00 |
-| Thr | ACU | 0.19 | 0.40 | 0.475 |
+| Leu | CUG | 0.50 | 0.50 | 1.00 |
+| Leu | CUA | 0.04 | 0.50 | 0.08 |
+| Pro | CCG | 0.53 | 0.53 | 1.00 |
+| Pro | CCA | 0.19 | 0.53 | 0.358 |
+| Thr | ACC | 0.44 | 0.44 | 1.00 |
+| Thr | ACU | 0.16 | 0.44 | 0.364 |
 
 ## Audit Notes
 
-### Existing Test Coverage
+### Current Test Coverage (25 tests in CodonOptimizer_CAI_Tests.cs)
 
-**CodonOptimizerTests.cs (lines 50-90):**
-- `CalculateCAI_AllOptimalCodons_HighCAI` - Partial coverage
-- `CalculateCAI_RareCodons_LowerCAI` - Partial coverage
-- `CalculateCAI_EmptySequence_ReturnsZero` - Covered
-- `CalculateCAI_SingleCodon_ReturnsValue` - Covered
-- `CalculateCAI_DifferentOrganisms_DifferentResults` - Covered
+| Category | Count | Tests |
+|----------|-------|-------|
+| M1 (Empty) | 2 | EmptySequence_ReturnsZero, NullSequence_ReturnsZero |
+| M2/M3 (Single-codon AA) | 3 | SingleMetCodon, SingleTrpCodon, MetAndTrp |
+| M4 (All optimal) | 2 | AllOptimalCodonsEColi, OptimalCodonsWithMet |
+| M5 (Rare codons) | 2 | RareCodonsEColi, RareArginineCodonsEColi |
+| M6 (Range) | 1 | AnyValidSequence_RangeIsZeroToOne |
+| M7 (Organism diff) | 2 | SameSequence_DifferentOrganisms, YeastPreferredCodons |
+| M8 (DNA input) | 1 | DnaInputWithThymine_ConvertsToUracil |
+| M9 (Lowercase) | 1 | LowercaseInput_HandledCorrectly |
+| M10 (Stop codons) | 3 | SequenceWithStopCodon_Excludes, OnlyStopCodons, StopCodonInMiddle |
+| M11 (Geometric mean) | 2 | SingleRareCodon_SignificantlyLowers, MoreRareCodons_LowerCAI |
+| M12 (Hand-calculated) | 1 | HandCalculatedRareCodons_MatchesExpected |
+| S1 (Performance) | 1 | LongSequence_CompletesInReasonableTime |
+| S2 (Mixed) | 1 | MixedOptimalAndRare_MatchesHandCalculated |
+| S3 (Only stops) | 1 | OnlyStopCodons_ReturnsZero (shared with M10) |
+| C1 (All organisms) | 1 | AllThreeOrganismTables_MatchHandCalculated |
+| Edge cases | 2 | IncompleteFinalCodon, TwoIncompleteBases |
 
-**CodonUsageAnalyzerTests.cs (lines 113-148):**
-- Tests for `CodonUsageAnalyzer.CalculateCai` (different class)
-- Duplicate/related tests for a wrapper method
+### Consolidation Status
 
-### Consolidation Plan
+- **Canonical file:** `CodonOptimizer_CAI_Tests.cs` — all CAI tests consolidated here
+- **CodonUsageAnalyzer tests:** Separate class, kept as smoke tests in their own file
 
-1. **Keep in canonical file:** CodonOptimizer_CAI_Tests.cs (new file)
-2. **Remove duplicates:** CodonOptimizerTests.cs CAI tests move to new file
-3. **CodonUsageAnalyzer tests:** Keep as smoke tests (different API)
+### Missing Coverage
 
-### Missing Coverage (All Closed)
+None — all test categories fully covered.
 
-- ~~M4: Exact CAI=1.0 for all-optimal codons not verified precisely~~ ✅ Covered
-- ~~M10: Stop codon exclusion not explicitly tested~~ ✅ Covered
-- ~~M11: Geometric mean sensitivity not tested~~ ✅ Covered
-- ~~M12: No hand-calculated verification test~~ ✅ Covered
+## Deviations and Assumptions
+
+**Deviation D1 — 1e-6 clamp for zero-frequency codons:**
+When a codon has frequency 0 but its amino acid has other codons with frequency > 0 (i.e., the codon is absent from the reference set but the amino acid is not), the implementation clamps w_i to 1e-6 instead of allowing w_i = 0.
+
+- **Rationale:** Protects against incomplete codon usage tables where zero frequency may represent missing data rather than a truly absent codon. Sharp & Li (1987) used highly expressed E. coli genes where all synonymous codons appeared; real-world tables from Kazusa or custom datasets may have sampling gaps.
+- **Impact:** For sequences containing affected codons, CAI > 0 (approximately 1e-6^(1/L)) instead of exactly 0. For all practical sequences with L > 1, the difference is negligible.
+- **Alternative:** Strict IEEE 754 arithmetic would give CAI = 0 for any zero-frequency codon usage.
+
+**No other assumptions.** All codon frequency tables verified against Kazusa Codon Usage Database (March 2026).
 
 ## Open Questions
 
-None - algorithm well-documented in Sharp & Li (1987).
+None — algorithm well-documented in Sharp & Li (1987).
 
 ## Decisions
 

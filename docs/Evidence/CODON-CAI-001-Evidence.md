@@ -48,9 +48,10 @@ Where L = number of codons (excluding stop codons per implementation)
 
 ### Key Properties (from Sharp & Li 1987 / Wikipedia)
 
-1. **Range:** 0 < CAI ≤ 1
+1. **Range:** 0 ≤ CAI ≤ 1
    - CAI = 1 when all codons are the most frequent for their amino acids
-   - CAI < 1 when non-optimal codons are used
+   - CAI = 0 when any codon has zero frequency in the reference set, or when input is empty
+   - 0 < CAI < 1 for typical genes
 
 2. **Geometric Mean:** CAI uses geometric mean, which is sensitive to low values
    - A single rare codon significantly lowers overall CAI
@@ -58,8 +59,8 @@ Where L = number of codons (excluding stop codons per implementation)
 3. **Single-Codon Amino Acids:** Methionine (AUG) and Tryptophan (UGG) have w=1.0 always
    - Only one codon exists, so it's always the "most frequent"
 
-4. **Stop Codons:** Typically excluded from CAI calculation
-   - Source: Implementation standard practice
+4. **Stop Codons:** Excluded from CAI calculation
+   - Source: Sharp & Li (1987) — stop codons do not encode amino acids
 
 ### Documented Edge Cases
 
@@ -85,38 +86,41 @@ Where L = number of codons (excluding stop codons per implementation)
 
 ### Implementation Notes (from source code analysis)
 
-The implementation:
+The implementation follows Sharp & Li (1987) with one deviation:
 1. Converts T→U and handles case-insensitively
 2. Splits sequence into codons
 3. For each non-stop codon:
    - Finds the amino acid
-   - Calculates relative adaptiveness: codon_freq / max_synonym_freq
-   - Accumulates log(w) sum
+   - Calculates relative adaptiveness: w = codon_freq / max_synonym_freq
+   - If amino acid unknown or maxFreq = 0: returns NaN (skipped by caller)
+   - If codon_freq = 0 but maxFreq > 0: clamps w to 1e-6 (incomplete table protection)
+   - Accumulates ln(w) sum
 4. Returns exp(sum / count)
+5. **Deviation:** 1e-6 clamp for zero-frequency codons when amino acid has other codons in table (see CODON-CAI-001.md Deviations section for rationale)
 
 ## Test Datasets
 
-### Reference Codon Tables (from implementation)
+### Reference Codon Tables (Kazusa MG1655, species=316407)
 
 **E. coli K12 Leucine Codons:**
 | Codon | Frequency | Relative Adaptiveness |
 |-------|-----------|----------------------|
-| CUG | 0.47 | 1.00 (optimal) |
-| UUA | 0.14 | 0.30 |
-| UUG | 0.13 | 0.28 |
-| CUU | 0.12 | 0.26 |
-| CUC | 0.10 | 0.21 |
-| CUA | 0.04 | 0.09 (rare) |
+| CUG | 0.50 | 1.00 (optimal) |
+| UUA | 0.13 | 0.26 |
+| UUG | 0.13 | 0.26 |
+| CUU | 0.10 | 0.20 |
+| CUC | 0.10 | 0.20 |
+| CUA | 0.04 | 0.08 (rare) |
 
 **E. coli K12 Arginine Codons:**
 | Codon | Frequency | Relative Adaptiveness |
 |-------|-----------|----------------------|
-| CGU | 0.36 | 1.00 (tied optimal) |
-| CGC | 0.36 | 1.00 (tied optimal) |
-| CGG | 0.11 | 0.31 |
-| CGA | 0.07 | 0.19 |
-| AGA | 0.07 | 0.19 (rare) |
-| AGG | 0.04 | 0.11 (rare) |
+| CGC | 0.40 | 1.00 (optimal) |
+| CGU | 0.38 | 0.95 |
+| CGG | 0.10 | 0.25 |
+| CGA | 0.06 | 0.15 |
+| AGA | 0.04 | 0.10 (rare) |
+| AGG | 0.02 | 0.05 (rare) |
 
 ### Hand-Calculated Test Cases
 
@@ -125,24 +129,23 @@ The implementation:
 - CAI = 1.0^(1/1) = 1.0
 
 **Test Case 2: CUG-CCG-ACC (E. coli)**
-- CUG: w = 0.47/0.47 = 1.0 (Leu optimal)
-- CCG: w = 0.49/0.49 = 1.0 (Pro optimal)
-- ACC: w = 0.40/0.40 = 1.0 (Thr optimal)
+- CUG: w = 0.50/0.50 = 1.0 (Leu optimal)
+- CCG: w = 0.53/0.53 = 1.0 (Pro optimal)
+- ACC: w = 0.44/0.44 = 1.0 (Thr optimal)
 - CAI = (1.0 × 1.0 × 1.0)^(1/3) = 1.0
 
 **Test Case 3: CUA-CCA-ACA (E. coli rare)**
-- CUA: w = 0.04/0.47 ≈ 0.085 (Leu rare)
-- CCA: w = 0.20/0.49 ≈ 0.408 (Pro suboptimal)
-- ACA: w = 0.17/0.40 ≈ 0.425 (Thr suboptimal)
-- CAI = (0.085 × 0.408 × 0.425)^(1/3) ≈ 0.24
+- CUA: w = 0.04/0.50 = 0.08 (Leu rare)
+- CCA: w = 0.19/0.53 = 0.3585 (Pro suboptimal)
+- ACA: w = 0.13/0.44 = 0.2955 (Thr suboptimal)
+- CAI = (0.08 × 0.3585 × 0.2955)^(1/3) = 0.1980
 
 ## Assumptions
 
-1. **ASSUMPTION:** Empty sequence returns CAI = 0 (not undefined)
-   - Rationale: Practical convention to avoid special handling
-
-2. **ASSUMPTION:** Minimum w value clamped to small positive value (0.01) to avoid log(0)
-   - Rationale: Implementation detail to handle codons not in reference table
+One documented deviation from strict Sharp & Li (1987):
+- **1e-6 clamp:** When codon_freq = 0 but max_synonym_freq > 0, w is clamped to 1e-6 instead of 0. This protects against incomplete codon usage tables. See CODON-CAI-001.md Deviations section.
+- Empty sequence returns 0 by convention (no codons to evaluate)
+- All codon frequency tables verified against Kazusa database (March 2026)
 
 ## References
 

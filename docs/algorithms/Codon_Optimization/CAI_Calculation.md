@@ -90,7 +90,7 @@ public static double CalculateCAI(string codingSequence, CodonUsageTable table)
 
 1. **E. coli K12** (`CodonOptimizer.EColiK12`)
    - Highly biased toward specific codons
-   - Example: CUG dominant for Leucine (0.47)
+   - Example: CUG dominant for Leucine (0.50)
 
 2. **S. cerevisiae** (`CodonOptimizer.Yeast`)
    - Different bias pattern
@@ -98,7 +98,7 @@ public static double CalculateCAI(string codingSequence, CodonUsageTable table)
 
 3. **H. sapiens** (`CodonOptimizer.Human`)
    - Less extreme bias than bacteria
-   - Example: CUG still preferred for Leucine (0.41)
+   - Example: CUG still preferred for Leucine (0.40)
 
 ### Example Calculations
 
@@ -112,8 +112,8 @@ CAI = (1.0 × 1.0 × 1.0 × 1.0)^(1/4) = 1.0
 **Suboptimal sequence for E. coli:**
 ```
 Sequence: AUGCUACCAACU (Met-Leu-Pro-Thr)
-Codons: AUG(1.0), CUA(0.085), CCA(0.408), ACU(0.475)
-CAI = (1.0 × 0.085 × 0.408 × 0.475)^(1/4) ≈ 0.37
+Codons: AUG(1.0), CUA(0.08), CCA(0.358), ACU(0.364)
+CAI = (1.0 × 0.08 × 0.358 × 0.364)^(1/4) ≈ 0.31
 ```
 
 ## Applications

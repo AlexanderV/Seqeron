@@ -58,24 +58,25 @@ Minimum Information about a Metagenome-Assembled Genome:
 
 ### Current Implementation
 
-The `MetagenomicsAnalyzer.BinContigs` method provides a simplified binning implementation:
+The `MetagenomicsAnalyzer.BinContigs` method implements compositional binning:
 
-1. Calculates GC content and tetranucleotide frequencies for each contig
-2. Assigns contigs to bins based on GC content (simplified k-means)
-3. Filters bins below minimum size threshold
-4. Estimates completeness from total length (approximation)
-5. Estimates contamination from GC variance within bin
+1. Calculates features per contig: GC content, tetranucleotide frequencies (TNF), coverage
+2. Normalizes coverage to [0, 1] for distance computation
+3. K-means clustering on composite distance: |ΔGC| + |Δcoverage| + TNF Pearson distance
+4. Centroid initialization by GC-sorted spread (deterministic, diverse)
+5. Iterative assignment/update until convergence (max 50 iterations)
+6. Filters bins below minimum size threshold
+7. Completeness: `min(totalLength / expectedGenomeSize × 100, 100)` — parameterized (default 4Mbp)
+8. Contamination: `min(gcStdDev / 0.5 × 100, 100)` — GC std dev normalized by theoretical maximum
 
-### Simplifications
+### Design Decisions
 
-1. **Completeness**: Estimated by ratio of bin length to 2Mbp (average bacterial genome)
-   - Real tools use marker gene detection
-
-2. **Contamination**: Estimated from GC variance
-   - Real tools detect duplicated single-copy marker genes
-
-3. **Clustering**: Uses only GC content
-   - Real tools use multi-dimensional feature space
+- **Completeness proxy**: Without a marker gene database (CheckM), completeness is estimated by
+  bin length relative to a configurable expected genome size. Callers can supply the appropriate
+  value for their target organism.
+- **Contamination proxy**: Within-bin GC standard deviation, normalized by the theoretical maximum
+  (0.5 for values in [0, 1]), serves as a documented proxy for mixing of genomes from different
+  taxonomic sources (Parks et al. 2014).
 
 ## References
 

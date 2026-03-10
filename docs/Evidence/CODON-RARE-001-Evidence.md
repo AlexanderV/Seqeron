@@ -38,8 +38,8 @@
    - Title: "Inhibition of Translation by Consecutive Rare Leucine Codons in E. coli"
    - Key findings:
      - CUA (Leu) is a rare codon in E. coli with frequency 0.04
-     - AGA, AGG (Arg) are rare codons in E. coli (0.07, 0.04)
-     - CGA (Arg) is rare in E. coli (0.07)
+     - AGA, AGG (Arg) are rare codons in E. coli (0.04, 0.02) - Kazusa MG1655
+     - CGA (Arg) is rare in E. coli (0.06)
      - Five consecutive rare CUA codons cause ~3-fold inhibition of translation
      - Rare codons at 5' end have stronger effect than internal positions
 
@@ -58,13 +58,13 @@
 A codon is considered "rare" when its usage frequency falls below a specified threshold relative to the codon usage table of the target organism.
 
 ### Standard E. coli K12 Rare Codons (frequency < 0.10)
-Based on the implementation's EColiK12 table:
-- **AGA** (Arg): 0.07
-- **AGG** (Arg): 0.04
-- **CGA** (Arg): 0.07
+Based on Kazusa MG1655 (species=316407):
+- **AGA** (Arg): 0.04
+- **AGG** (Arg): 0.02
+- **CGA** (Arg): 0.06
 - **CUA** (Leu): 0.04
-- **AUA** (Ile): 0.11 (borderline)
-- **UAG** (Stop): 0.09
+- **AUA** (Ile): 0.07 (borderline)
+- **UAG** (Stop): 0.07
 
 ### Default Threshold
 The implementation uses a default threshold of 0.15, which identifies codons occurring at less than 15% relative frequency within their synonymous codon family.

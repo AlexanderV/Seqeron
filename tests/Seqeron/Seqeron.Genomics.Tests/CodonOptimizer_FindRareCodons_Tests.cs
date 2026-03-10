@@ -29,13 +29,14 @@ public class CodonOptimizer_FindRareCodons_Tests
     }
 
     /// <summary>
-    /// M02: Single rare codon (AGA, freq=0.07) is detected at threshold 0.10.
+    /// M02: Single rare codon (AGA, freq=0.04) is detected at threshold 0.10.
     /// AGA is a known rare arginine codon in E. coli (Shu et al. 2006).
+    /// Source: Kazusa species=316407 (MG1655)
     /// </summary>
     [Test]
     public void FindRareCodons_SingleRareCodon_Detected()
     {
-        // AUGAGA = Met + Arg(AGA rare, freq 0.07)
+        // AUGAGA = Met + Arg(AGA rare, freq 0.04)
         string sequence = "AUGAGA";
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
@@ -50,13 +51,13 @@ public class CodonOptimizer_FindRareCodons_Tests
 
     /// <summary>
     /// M03: Multiple rare codons (AGA, AGG, CGA) all detected.
-    /// All are rare arginine codons in E. coli (Kazusa database).
+    /// All are rare arginine codons in E. coli (Kazusa species=316407).
     /// </summary>
     [Test]
     public void FindRareCodons_MultipleRareCodons_AllDetected()
     {
         // AUGAGAAGGCGA = Met + Arg(AGA) + Arg(AGG) + Arg(CGA)
-        // AGA=0.07, AGG=0.04, CGA=0.07 - all < 0.10
+        // AGA=0.04, AGG=0.02, CGA=0.06 - all < 0.10
         string sequence = "AUGAGAAGGCGA";
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
@@ -89,18 +90,19 @@ public class CodonOptimizer_FindRareCodons_Tests
 
     /// <summary>
     /// M05: Codon with frequency just below threshold is detected.
-    /// UAG (stop) has freq 0.09, should be detected at threshold 0.10.
+    /// UAG (stop) has freq 0.07, should be detected at threshold 0.10.
+    /// Source: Kazusa species=316407 (MG1655)
     /// </summary>
     [Test]
     public void FindRareCodons_ThresholdBoundary_BelowDetected()
     {
-        // UAG has frequency 0.09 in E. coli K12
+        // UAG has frequency 0.07 in E. coli K12 (Kazusa MG1655)
         string sequence = "AUGUAG"; // Met + Stop(UAG)
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
 
         Assert.That(result.Any(r => r.Codon == "UAG"), Is.True,
-            "UAG (freq 0.09) should be detected at threshold 0.10");
+            "UAG (freq 0.07) should be detected at threshold 0.10");
     }
 
     /// <summary>
@@ -126,7 +128,7 @@ public class CodonOptimizer_FindRareCodons_Tests
     [Test]
     public void FindRareCodons_OnlyCommonCodons_ReturnsEmpty()
     {
-        // AUGCUGUGG = Met(1.0) + Leu(0.47) + Trp(1.0) - all high frequency
+        // AUGCUGUGG = Met(1.0) + Leu(0.50) + Trp(1.0) - all high frequency
         string sequence = "AUGCUGUGG";
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.15).ToList();
@@ -162,14 +164,14 @@ public class CodonOptimizer_FindRareCodons_Tests
     [Test]
     public void FindRareCodons_FrequencyValue_MatchesTable()
     {
-        string sequence = "AUGAGA"; // AGA freq = 0.07 in E. coli K12
+        string sequence = "AUGAGA"; // AGA freq = 0.04 in E. coli K12 (Kazusa MG1655)
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
 
         Assert.Multiple(() =>
         {
             Assert.That(result, Has.Count.EqualTo(1));
-            Assert.That(result[0].Frequency, Is.EqualTo(0.07).Within(0.001),
+            Assert.That(result[0].Frequency, Is.EqualTo(0.04).Within(0.001),
                 "Frequency should match E. coli K12 table value for AGA");
         });
     }
@@ -202,13 +204,13 @@ public class CodonOptimizer_FindRareCodons_Tests
     [Test]
     public void FindRareCodons_DefaultThreshold_Is015()
     {
-        // AUA has frequency 0.11 - should be detected with default 0.15 but not 0.10
+        // AUA has frequency 0.07 in E. coli K12 (Kazusa MG1655) - should be detected with default 0.15
         string sequence = "AUGAUA"; // Met + Ile(AUA)
 
         var resultDefault = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12).ToList();
 
         Assert.That(resultDefault.Any(r => r.Codon == "AUA"), Is.True,
-            "AUA (freq 0.11) should be detected with default threshold 0.15");
+            "AUA (freq 0.07) should be detected with default threshold 0.15");
     }
 
     /// <summary>
@@ -247,7 +249,7 @@ public class CodonOptimizer_FindRareCodons_Tests
     [Test]
     public void FindRareCodons_AllRareCodons_AllDetected()
     {
-        // All rare arginine codons: AGA(0.07), AGG(0.04), CGA(0.07)
+        // All rare arginine codons: AGA(0.04), AGG(0.02), CGA(0.06) - Kazusa MG1655
         string sequence = "AGAAGGCGA";
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
@@ -263,12 +265,12 @@ public class CodonOptimizer_FindRareCodons_Tests
 
     /// <summary>
     /// S05: Mixed common/rare leucine codons - only rare detected.
-    /// CUG (0.47) common, CUA (0.04) rare - per Shu et al. 2006.
+    /// CUG (0.50) common, CUA (0.04) rare - Kazusa MG1655, per Shu et al. 2006.
     /// </summary>
     [Test]
     public void FindRareCodons_MixedCommonRare_OnlyRareDetected()
     {
-        // CUG=0.47 (common), CUA=0.04 (rare)
+        // CUG=0.50 (common), CUA=0.04 (rare) - Kazusa MG1655
         string sequence = "CUGCUA";
 
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
@@ -296,7 +298,7 @@ public class CodonOptimizer_FindRareCodons_Tests
         var result = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.0).ToList();
 
         // Threshold 0 means freq < 0, which is impossible for valid frequencies
-        // AGA has freq 0.07 which is not < 0
+        // AGA has freq 0.04 which is not < 0
         Assert.That(result.Count(r => r.Codon == "AGA" && r.Frequency > 0), Is.EqualTo(0),
             "No codons with frequency > 0 should be detected at threshold 0");
     }
@@ -322,8 +324,8 @@ public class CodonOptimizer_FindRareCodons_Tests
     [Test]
     public void FindRareCodons_DifferentOrganism_DifferentRare()
     {
-        // AGA in E. coli: 0.07 (rare)
-        // AGA in Yeast: 0.48 (common!)
+        // AGA in E. coli: 0.04 (rare) - Kazusa MG1655
+        // AGA in Yeast: 0.48 (common!) - Kazusa species=4932
         string sequence = "AUGAGA";
 
         var ecoliResult = CodonOptimizer.FindRareCodons(sequence, CodonOptimizer.EColiK12, 0.10).ToList();
@@ -332,7 +334,7 @@ public class CodonOptimizer_FindRareCodons_Tests
         Assert.Multiple(() =>
         {
             Assert.That(ecoliResult.Any(r => r.Codon == "AGA"), Is.True,
-                "AGA should be rare in E. coli");
+                "AGA should be rare in E. coli (freq 0.04)");
             Assert.That(yeastResult.Any(r => r.Codon == "AGA"), Is.False,
                 "AGA should NOT be rare in Yeast (freq 0.48)");
         });
