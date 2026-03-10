@@ -79,22 +79,22 @@
 
 ## Test Datasets
 
-### Organism-Specific Codon Tables (from Kazusa/implementation)
+### Organism-Specific Codon Tables
 
-1. **E. coli K12** preferred codons:
-   - Leu: CUG (0.47)
-   - Arg: CGU/CGC (0.36 each), AGA/AGG rare (0.07/0.04)
-   - Pro: CCG (0.49)
+1. **E. coli K12** preferred codons (Kazusa species=316407, W3110 K-12 substrain, 4332 CDS):
+   - Leu: CUG (0.50)
+   - Arg: CGC/CGU (0.40/0.38), AGA/AGG rare (0.04/0.02)
+   - Pro: CCG (0.53)
    
-2. **S. cerevisiae (Yeast)** preferred codons:
+2. **S. cerevisiae (Yeast)** preferred codons (Kazusa species=4932, 14411 CDS):
    - Leu: UUA/UUG (0.28/0.29)
    - Arg: AGA (0.48)
    - Pro: CCA (0.42)
 
-3. **H. sapiens (Human)** preferred codons:
-   - Leu: CUG (0.41)
-   - Arg: AGA/AGG (0.20 each)
-   - Pro: CCC (0.33)
+3. **H. sapiens (Human)** preferred codons (Kazusa species=9606, 93487 CDS):
+   - Leu: CUG (0.40)
+   - Arg: AGA/AGG (0.21 each)
+   - Pro: CCC (0.32)
 
 ### Edge Cases (from theory)
 
@@ -124,6 +124,9 @@
 - Automatically converts T → U
 - Trims to complete codons
 - GC content balancing in BalancedOptimization strategy (40-60% target)
+- BalancedOptimization rebuilds Changes list after GC balancing to reflect all modifications
+- Zero-frequency codons clamped to 1e-6 in CAI calculation (per Sharp & Li prescription)
+- MinimizeSecondary strategy delegates to BalancedOptimization in codon selection; dedicated `ReduceSecondaryStructure` method handles secondary structure reduction separately
 
 ## Date
-2026-02-04
+2026-03-10

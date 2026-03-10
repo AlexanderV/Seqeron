@@ -16,7 +16,8 @@ public static OptimizationResult OptimizeSequence(
     CodonUsageTable targetOrganism,
     OptimizationStrategy strategy = OptimizationStrategy.BalancedOptimization,
     double gcTargetMin = 0.40,
-    double gcTargetMax = 0.60)
+    double gcTargetMax = 0.60,
+    double rareCodonThreshold = 0.15)
 ```
 
 ## Test Categories
@@ -79,55 +80,70 @@ public static OptimizationResult OptimizeSequence(
 # Short test sequence (M-A-Stop)
 AUGGCUUAA → Protein: MA*
 
-# E. coli rare codons for Arginine
-AGA, AGG → Frequency ~0.07, 0.04
+# E. coli rare codons for Arginine (Kazusa species=316407, W3110 K-12 substrain)
+AGA, AGG → Frequency ~0.04, 0.02
 
 # E. coli preferred codons for Leucine
-CUG → Frequency 0.47
+CUG → Frequency 0.50
 
-# Yeast preferred codons for Leucine
+# Yeast preferred codons for Leucine (Kazusa species=4932)
 UUA, UUG → Frequency 0.28, 0.29
 ```
 
-### Known CAI Values (ASSUMPTION)
+### Known CAI Values (hand-verified against Sharp & Li formula)
 
-- AUG alone: CAI = 1.0 (only codon for Met)
-- All optimal E. coli codons: CAI > 0.8
-- All rare E. coli codons: CAI < 0.3
+- AUG alone: CAI = 1.0 (only codon for Met, wi = 1.0)
+- CUGCCGACC (L-P-T, all optimal E. coli): CAI = 1.0
+- CUAAGACGA (L-R-R, rare E. coli): CAI ≈ 0.106
 
 ## Audit Notes
 
 ### Existing Test Coverage Analysis
 
-File: `CodonOptimizerTests.cs` (481 lines)
+File: `CodonOptimizer_OptimizeSequence_Tests.cs`
 
 | Region | Tests | Coverage | Assessment |
 |--------|-------|----------|------------|
-| Standard Genetic Code | 4 | Good | Covers basic optimization |
-| CAI Calculation | 5 | Good | Covers CAI scenarios |
-| Optimization Strategy | 5 | Partial | Missing some strategy-specific tests |
-| GC Content | 2 | Weak | Limited GC testing |
-| Codon Usage Analysis | 3+ | Good | Covers usage functions |
-| Edge Cases | 7+ | Good | Good edge case coverage |
-| Integration | 2 | Adequate | Full workflow covered |
+| Protein Preservation | 4+ | Good | All 5 strategies tested (incl. MinimizeSecondary) |
+| CAI Behavior | 5 | Good | Covers increase/maintain, exact formula verification |
+| Special Codons | 5 | Good | Met, Trp, Stop codons |
+| Organism Specificity | 2 | Good | E. coli vs Yeast vs Human, exact optimized sequences per Kazusa |
+| Input Handling | 2 | Good | Lowercase, exact result field values (hand-computed CAI, GC) |
+| Strategy Specifics | 5 | Good | All strategies covered, AvoidRareCodons asserts replacement |
+| Invariants | 6 | Good | Protein, CAI range, Sharp & Li formula, MaximizeCAI→1.0 |
 
-### Consolidation Plan
+### Coverage Classification Result (2026-03-10)
 
-1. **Keep existing tests**: Well-structured with good coverage
-2. ~~**Add invariant tests**: Assert.Multiple for protein preservation~~ ✅ Done
-3. ~~**Add strategy-specific MUST tests**: Ensure all strategies are tested~~ ✅ Done
-4. ~~**Strengthen CAI mathematical tests**: Verify formula correctness~~ ✅ Done
-5. **Remove duplicates**: None identified
+| Classification | Count | Details |
+|---------------|-------|---------|
+| ❌ Missing → Added | 1 | M1: MinimizeSecondary added to AllStrategies test |
+| ⚠ Weak → Strengthened | 5 | M8: exact codon assertions per Kazusa; M10: exact hand-computed values; S2: GC enters target range; C1: CAI validity |
+| 🔁 Duplicate → Removed | 19 | All OptimizeSequence duplicates in CodonOptimizerTests.cs |
+| ✅ Covered | 24 | All remaining tests |
 
-## Open Questions
+### Code Bug Fixed
 
-None - existing implementation and tests are well-structured.
+- **BalancedOptimization Changes list**: `Changes` and `ChangedCodons` were not updated after GC content balancing phase. Fixed by rebuilding changes from original vs final codons.
 
-## Decisions
+### Data Source Traceability
 
-1. Tests for CODON-CAI-001, CODON-RARE-001, CODON-USAGE-001 exist in same file
-   - These will be separated in their respective Test Units
-   - CODON-OPT-001 focuses only on OptimizeSequence method
+| Organism | Kazusa Species ID | Kazusa Name | Dataset Size |
+|----------|------------------|-------------|--------------|
+| E. coli K12 | 316407 | E. coli W3110 (K-12 substrain) | 4332 CDS |
+| S. cerevisiae | 4932 | Saccharomyces cerevisiae | 14411 CDS |
+| H. sapiens | 9606 | Homo sapiens | 93487 CDS |
+
+---
+
+## Deviations and Assumptions
+
+- **BalancedOptimization Changes rebuild (fixed 2026-03-10)**: Previously, `Changes` list only reflected the initial optimization pass, missing GC content balancing modifications. Fixed to rebuild changes by comparing original vs final codons.
+- **Codon usage tables**: All three tables (E. coli, Yeast, Human) verified against Kazusa Codon Usage Database raw data (per-thousand frequencies → relative fractions per amino acid).
+- **CAI formula**: Matches Sharp & Li (1987) definition: w_i = f_i / max(f_j), CAI = exp((1/L)·Σ ln(w_i)). Zero-frequency codons clamped to 1e-6 per original prescription.
+- **Standard genetic code**: All 64 codons verified correct.
+- **Optimization strategies**: All thresholds exposed as configurable parameters (`rareCodonThreshold`, `gcTargetMin`, `gcTargetMax`); no hardcoded assumptions.
+- **MinimizeSecondary**: Falls through to BalancedOptimization in `SelectOptimalCodon`; separate `ReduceSecondaryStructure` method exists for dedicated secondary structure reduction.
 
 ## Date
-2026-02-04
+2026-03-10
+

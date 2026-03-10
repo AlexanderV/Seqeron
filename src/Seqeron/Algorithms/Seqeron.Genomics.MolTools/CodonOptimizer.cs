@@ -110,39 +110,63 @@ public static class CodonOptimizer
     #region Predefined Codon Usage Tables
 
     /// <summary>
-    /// E. coli K12 codon usage frequencies.
+    /// E. coli K12 codon usage frequencies (relative fraction per amino acid).
+    /// Source: Kazusa Codon Usage Database, species=316407 (E. coli K-12 substr. W3110, 4332 CDS).
+    /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
     /// </summary>
     public static readonly CodonUsageTable EColiK12 = new(
         "Escherichia coli K12",
         new Dictionary<string, double>
         {
-            // High frequency codons for E. coli
-            { "UUU", 0.58 }, { "UUC", 0.42 },
-            { "UUA", 0.14 }, { "UUG", 0.13 }, { "CUU", 0.12 }, { "CUC", 0.10 }, { "CUA", 0.04 }, { "CUG", 0.47 },
-            { "AUU", 0.49 }, { "AUC", 0.39 }, { "AUA", 0.11 },
+            // Phenylalanine (F)
+            { "UUU", 0.57 }, { "UUC", 0.43 },
+            // Leucine (L)
+            { "UUA", 0.13 }, { "UUG", 0.13 }, { "CUU", 0.10 }, { "CUC", 0.10 }, { "CUA", 0.04 }, { "CUG", 0.50 },
+            // Isoleucine (I)
+            { "AUU", 0.51 }, { "AUC", 0.42 }, { "AUA", 0.07 },
+            // Methionine (M)
             { "AUG", 1.00 },
-            { "GUU", 0.28 }, { "GUC", 0.20 }, { "GUA", 0.17 }, { "GUG", 0.35 },
-            { "UCU", 0.17 }, { "UCC", 0.15 }, { "UCA", 0.14 }, { "UCG", 0.14 }, { "AGU", 0.16 }, { "AGC", 0.25 },
-            { "CCU", 0.18 }, { "CCC", 0.13 }, { "CCA", 0.20 }, { "CCG", 0.49 },
-            { "ACU", 0.19 }, { "ACC", 0.40 }, { "ACA", 0.17 }, { "ACG", 0.25 },
-            { "GCU", 0.18 }, { "GCC", 0.26 }, { "GCA", 0.23 }, { "GCG", 0.33 },
-            { "UAU", 0.59 }, { "UAC", 0.41 },
-            { "UAA", 0.61 }, { "UAG", 0.09 }, { "UGA", 0.30 },
+            // Valine (V)
+            { "GUU", 0.26 }, { "GUC", 0.22 }, { "GUA", 0.15 }, { "GUG", 0.37 },
+            // Serine (S)
+            { "UCU", 0.15 }, { "UCC", 0.15 }, { "UCA", 0.12 }, { "UCG", 0.15 }, { "AGU", 0.15 }, { "AGC", 0.28 },
+            // Proline (P)
+            { "CCU", 0.16 }, { "CCC", 0.12 }, { "CCA", 0.19 }, { "CCG", 0.53 },
+            // Threonine (T)
+            { "ACU", 0.16 }, { "ACC", 0.44 }, { "ACA", 0.13 }, { "ACG", 0.27 },
+            // Alanine (A)
+            { "GCU", 0.16 }, { "GCC", 0.27 }, { "GCA", 0.21 }, { "GCG", 0.36 },
+            // Tyrosine (Y)
+            { "UAU", 0.57 }, { "UAC", 0.43 },
+            // Stop (*)
+            { "UAA", 0.64 }, { "UAG", 0.07 }, { "UGA", 0.29 },
+            // Histidine (H)
             { "CAU", 0.57 }, { "CAC", 0.43 },
-            { "CAA", 0.34 }, { "CAG", 0.66 },
-            { "AAU", 0.49 }, { "AAC", 0.51 },
-            { "AAA", 0.74 }, { "AAG", 0.26 },
+            // Glutamine (Q)
+            { "CAA", 0.35 }, { "CAG", 0.65 },
+            // Asparagine (N)
+            { "AAU", 0.45 }, { "AAC", 0.55 },
+            // Lysine (K)
+            { "AAA", 0.76 }, { "AAG", 0.24 },
+            // Aspartic acid (D)
             { "GAU", 0.63 }, { "GAC", 0.37 },
-            { "GAA", 0.68 }, { "GAG", 0.32 },
-            { "UGU", 0.46 }, { "UGC", 0.54 },
+            // Glutamic acid (E)
+            { "GAA", 0.69 }, { "GAG", 0.31 },
+            // Cysteine (C)
+            { "UGU", 0.44 }, { "UGC", 0.56 },
+            // Tryptophan (W)
             { "UGG", 1.00 },
-            { "CGU", 0.36 }, { "CGC", 0.36 }, { "CGA", 0.07 }, { "CGG", 0.11 }, { "AGA", 0.07 }, { "AGG", 0.04 },
-            { "GGU", 0.35 }, { "GGC", 0.37 }, { "GGA", 0.13 }, { "GGG", 0.15 }
+            // Arginine (R)
+            { "CGU", 0.38 }, { "CGC", 0.40 }, { "CGA", 0.06 }, { "CGG", 0.10 }, { "AGA", 0.04 }, { "AGG", 0.02 },
+            // Glycine (G)
+            { "GGU", 0.34 }, { "GGC", 0.41 }, { "GGA", 0.11 }, { "GGG", 0.15 }
         },
         StandardGeneticCode);
 
     /// <summary>
-    /// Saccharomyces cerevisiae (yeast) codon usage frequencies.
+    /// Saccharomyces cerevisiae (yeast) codon usage frequencies (relative fraction per amino acid).
+    /// Source: Kazusa Codon Usage Database, species=4932.
+    /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
     /// </summary>
     public static readonly CodonUsageTable Yeast = new(
         "Saccharomyces cerevisiae",
@@ -158,7 +182,7 @@ public static class CodonOptimizer
             { "ACU", 0.35 }, { "ACC", 0.22 }, { "ACA", 0.30 }, { "ACG", 0.14 },
             { "GCU", 0.38 }, { "GCC", 0.22 }, { "GCA", 0.29 }, { "GCG", 0.11 },
             { "UAU", 0.56 }, { "UAC", 0.44 },
-            { "UAA", 0.48 }, { "UAG", 0.24 }, { "UGA", 0.29 },
+            { "UAA", 0.47 }, { "UAG", 0.23 }, { "UGA", 0.30 },
             { "CAU", 0.64 }, { "CAC", 0.36 },
             { "CAA", 0.69 }, { "CAG", 0.31 },
             { "AAU", 0.59 }, { "AAC", 0.41 },
@@ -173,32 +197,34 @@ public static class CodonOptimizer
         StandardGeneticCode);
 
     /// <summary>
-    /// Human codon usage frequencies.
+    /// Human codon usage frequencies (relative fraction per amino acid).
+    /// Source: Kazusa Codon Usage Database, species=9606.
+    /// URL: https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
     /// </summary>
     public static readonly CodonUsageTable Human = new(
         "Homo sapiens",
         new Dictionary<string, double>
         {
-            { "UUU", 0.45 }, { "UUC", 0.55 },
-            { "UUA", 0.07 }, { "UUG", 0.13 }, { "CUU", 0.13 }, { "CUC", 0.20 }, { "CUA", 0.07 }, { "CUG", 0.41 },
-            { "AUU", 0.36 }, { "AUC", 0.48 }, { "AUA", 0.16 },
+            { "UUU", 0.46 }, { "UUC", 0.54 },
+            { "UUA", 0.08 }, { "UUG", 0.13 }, { "CUU", 0.13 }, { "CUC", 0.20 }, { "CUA", 0.07 }, { "CUG", 0.40 },
+            { "AUU", 0.36 }, { "AUC", 0.47 }, { "AUA", 0.17 },
             { "AUG", 1.00 },
-            { "GUU", 0.18 }, { "GUC", 0.24 }, { "GUA", 0.11 }, { "GUG", 0.47 },
-            { "UCU", 0.18 }, { "UCC", 0.22 }, { "UCA", 0.15 }, { "UCG", 0.06 }, { "AGU", 0.15 }, { "AGC", 0.24 },
-            { "CCU", 0.28 }, { "CCC", 0.33 }, { "CCA", 0.27 }, { "CCG", 0.11 },
-            { "ACU", 0.24 }, { "ACC", 0.36 }, { "ACA", 0.28 }, { "ACG", 0.12 },
-            { "GCU", 0.26 }, { "GCC", 0.40 }, { "GCA", 0.23 }, { "GCG", 0.11 },
-            { "UAU", 0.43 }, { "UAC", 0.57 },
-            { "UAA", 0.28 }, { "UAG", 0.20 }, { "UGA", 0.52 },
-            { "CAU", 0.41 }, { "CAC", 0.59 },
-            { "CAA", 0.25 }, { "CAG", 0.75 },
-            { "AAU", 0.46 }, { "AAC", 0.54 },
-            { "AAA", 0.42 }, { "AAG", 0.58 },
+            { "GUU", 0.18 }, { "GUC", 0.24 }, { "GUA", 0.12 }, { "GUG", 0.46 },
+            { "UCU", 0.19 }, { "UCC", 0.22 }, { "UCA", 0.15 }, { "UCG", 0.05 }, { "AGU", 0.15 }, { "AGC", 0.24 },
+            { "CCU", 0.29 }, { "CCC", 0.32 }, { "CCA", 0.28 }, { "CCG", 0.11 },
+            { "ACU", 0.25 }, { "ACC", 0.36 }, { "ACA", 0.28 }, { "ACG", 0.11 },
+            { "GCU", 0.27 }, { "GCC", 0.40 }, { "GCA", 0.23 }, { "GCG", 0.11 },
+            { "UAU", 0.44 }, { "UAC", 0.56 },
+            { "UAA", 0.30 }, { "UAG", 0.24 }, { "UGA", 0.47 },
+            { "CAU", 0.42 }, { "CAC", 0.58 },
+            { "CAA", 0.27 }, { "CAG", 0.73 },
+            { "AAU", 0.47 }, { "AAC", 0.53 },
+            { "AAA", 0.43 }, { "AAG", 0.57 },
             { "GAU", 0.46 }, { "GAC", 0.54 },
             { "GAA", 0.42 }, { "GAG", 0.58 },
-            { "UGU", 0.45 }, { "UGC", 0.55 },
+            { "UGU", 0.46 }, { "UGC", 0.54 },
             { "UGG", 1.00 },
-            { "CGU", 0.08 }, { "CGC", 0.19 }, { "CGA", 0.11 }, { "CGG", 0.21 }, { "AGA", 0.20 }, { "AGG", 0.20 },
+            { "CGU", 0.08 }, { "CGC", 0.18 }, { "CGA", 0.11 }, { "CGG", 0.20 }, { "AGA", 0.21 }, { "AGG", 0.21 },
             { "GGU", 0.16 }, { "GGC", 0.34 }, { "GGA", 0.25 }, { "GGG", 0.25 }
         },
         StandardGeneticCode);
@@ -215,7 +241,8 @@ public static class CodonOptimizer
         CodonUsageTable targetOrganism,
         OptimizationStrategy strategy = OptimizationStrategy.BalancedOptimization,
         double gcTargetMin = 0.40,
-        double gcTargetMax = 0.60)
+        double gcTargetMax = 0.60,
+        double rareCodonThreshold = 0.15)
     {
         if (string.IsNullOrEmpty(codingSequence))
         {
@@ -250,7 +277,7 @@ public static class CodonOptimizer
                 continue;
             }
 
-            string optimizedCodon = SelectOptimalCodon(aminoAcid, codon, targetOrganism, strategy);
+            string optimizedCodon = SelectOptimalCodon(aminoAcid, codon, targetOrganism, strategy, rareCodonThreshold);
 
             if (optimizedCodon != codon)
             {
@@ -266,6 +293,15 @@ public static class CodonOptimizer
         if (strategy == OptimizationStrategy.BalancedOptimization)
         {
             optimizedSequence = BalanceGcContent(optimizedSequence, originalCodons, targetOrganism, gcTargetMin, gcTargetMax);
+
+            // Rebuild changes to reflect GC balancing modifications
+            changes.Clear();
+            var finalCodons = SplitIntoCodons(optimizedSequence);
+            for (int i = 0; i < originalCodons.Count && i < finalCodons.Count; i++)
+            {
+                if (originalCodons[i] != finalCodons[i])
+                    changes.Add((i * 3, originalCodons[i], finalCodons[i]));
+            }
         }
 
         double optimizedCAI = CalculateCAI(optimizedSequence, targetOrganism);
@@ -282,7 +318,7 @@ public static class CodonOptimizer
             Changes: changes);
     }
 
-    private static string SelectOptimalCodon(string aminoAcid, string currentCodon, CodonUsageTable table, OptimizationStrategy strategy)
+    private static string SelectOptimalCodon(string aminoAcid, string currentCodon, CodonUsageTable table, OptimizationStrategy strategy, double rareCodonThreshold)
     {
         if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
             return currentCodon;
@@ -299,10 +335,10 @@ public static class CodonOptimizer
 
             case OptimizationStrategy.AvoidRareCodeons:
                 double currentFreq = table.CodonFrequencies.GetValueOrDefault(currentCodon, 0);
-                if (currentFreq < 0.15)
+                if (currentFreq < rareCodonThreshold)
                 {
                     return synonymousCodons
-                        .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= 0.2)
+                        .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= rareCodonThreshold)
                         .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))
                         .FirstOrDefault() ?? currentCodon;
                 }
@@ -314,9 +350,8 @@ public static class CodonOptimizer
 
             case OptimizationStrategy.BalancedOptimization:
             default:
-                // Use codons with frequency >= 0.2, prefer highest
                 var goodCodons = synonymousCodons
-                    .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= 0.15)
+                    .Where(c => table.CodonFrequencies.GetValueOrDefault(c, 0) >= rareCodonThreshold)
                     .OrderByDescending(c => table.CodonFrequencies.GetValueOrDefault(c, 0))
                     .ToList();
                 return goodCodons.Count > 0 ? goodCodons[0] : currentCodon;
@@ -420,10 +455,15 @@ public static class CodonOptimizer
         if (!AminoAcidToCodons.TryGetValue(aminoAcid, out var synonymousCodons))
             return 1;
 
-        double codonFreq = table.CodonFrequencies.GetValueOrDefault(codon, 0.01);
-        double maxFreq = synonymousCodons.Max(c => table.CodonFrequencies.GetValueOrDefault(c, 0.01));
+        double codonFreq = table.CodonFrequencies.GetValueOrDefault(codon, 0);
+        double maxFreq = synonymousCodons.Max(c => table.CodonFrequencies.GetValueOrDefault(c, 0));
 
-        return maxFreq > 0 ? codonFreq / maxFreq : 1;
+        if (maxFreq <= 0)
+            return 1;
+
+        // Clamp to avoid ln(0) for codons absent from incomplete custom tables.
+        // Sharp & Li (1987) prescribed avoiding zero w values.
+        return Math.Max(codonFreq / maxFreq, 1e-6);
     }
 
     #endregion
