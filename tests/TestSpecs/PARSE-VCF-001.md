@@ -191,13 +191,45 @@ All behaviors are evidence-backed:
 
 ---
 
+## Coverage Classification Audit
+
+**Total tests: 74** (47 Must + 7 Should + 2 Could + 18 extra)
+
+### Actions Taken
+
+| Action | Tests | Details |
+|--------|-------|---------|
+| ⚠ Strengthened | M03, M04, M05, M06, M07, M08, M18, M22, M40, M42, S04 | Exact values instead of permissive Contains/GreaterThan; count assertions added; all records verified |
+| ❌ Added | C01, C02 | Parse_LargeFile_PerformsEfficiently, CalculateAlleleFrequency_ReturnsFrequency |
+| 🔁 Removed | GetAlleleDepth_ValidIndex_ReturnsDepths | Duplicate of S05 (same AD=15,10 → [15,10] assertions) |
+
+### Strengthening Details
+
+| Test | Before | After |
+|------|--------|-------|
+| M03 | Only first record, 4 fields | All 3 records, all core fields (Chrom, Pos, Id, Ref, Alt[], Qual, Filter[]) |
+| M04 | Only count=3 | Count + metadata content exclusion check |
+| M05 | `Contains.Item("A")`, `Contains.Item("C")` | `Is.EqualTo(new[] { "A", "C" })` |
+| M06 | `GreaterThanOrEqualTo(1)` | `Is.EqualTo(1)` for InfoFields, `Is.EqualTo(2)` for FormatFields |
+| M07 | `Contains.Item("Sample1")` | `Is.EqualTo(new[] { "Sample1", "Sample2" })` |
+| M08 | `Does.Contain("Depth")` | `Is.EqualTo("Total Depth")` |
+| M18 | No count check | Added `Has.Count.EqualTo(2)` |
+| M22 | No count check | Added `Has.Count.EqualTo(2)` |
+| M40 | `Contains.Item` per filter | `Is.EqualTo(new[] { "LowQual", "LowCov" })` |
+| M42 | First record only (Chrom, Pos, Ref) | All records with Chrom, Pos, Ref, Alt[], Filter[] |
+| S04 | `Does.Contain` (3 strings) | Exact line-by-line verification (5 lines) |
+
+---
+
 ## Definition of Done
 
 - [x] Evidence documented with sources
 - [x] Algorithm documentation created
 - [x] TestSpec with Must/Should/Could categories
 - [x] Existing tests audited
-- [x] Missing tests added
-- [x] All tests pass
-- [x] Zero warnings
-- [x] Checklist updated
+- [x] Missing tests added (C01, C02)
+- [x] Weak tests strengthened (11 tests)
+- [x] Duplicate tests removed (1 test)
+- [x] Theory compliance verified
+- [x] All 74 tests pass
+- [x] Zero deviations from spec

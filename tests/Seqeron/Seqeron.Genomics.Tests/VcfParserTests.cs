@@ -45,10 +45,35 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
         var records = VcfParser.Parse(SimpleVcf).ToList();
 
         Assert.That(records, Has.Count.EqualTo(3));
-        Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
-        Assert.That(records[0].Pos, Is.EqualTo(100));
-        Assert.That(records[0].Ref, Is.EqualTo("A"));
-        Assert.That(records[0].Alt[0], Is.EqualTo("G"));
+        Assert.Multiple(() =>
+        {
+            // Record 0: chr1 100 rs123 A G 99 PASS DP=50
+            Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[0].Pos, Is.EqualTo(100));
+            Assert.That(records[0].Id, Is.EqualTo("rs123"));
+            Assert.That(records[0].Ref, Is.EqualTo("A"));
+            Assert.That(records[0].Alt, Is.EqualTo(new[] { "G" }));
+            Assert.That(records[0].Qual, Is.EqualTo(99.0));
+            Assert.That(records[0].Filter, Is.EqualTo(new[] { "PASS" }));
+
+            // Record 1: chr1 200 . C T 50 . DP=30
+            Assert.That(records[1].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[1].Pos, Is.EqualTo(200));
+            Assert.That(records[1].Id, Is.EqualTo("."));
+            Assert.That(records[1].Ref, Is.EqualTo("C"));
+            Assert.That(records[1].Alt, Is.EqualTo(new[] { "T" }));
+            Assert.That(records[1].Qual, Is.EqualTo(50.0));
+            Assert.That(records[1].Filter, Is.Empty);
+
+            // Record 2: chr2 300 rs456 G A,C 80 PASS DP=40
+            Assert.That(records[2].Chrom, Is.EqualTo("chr2"));
+            Assert.That(records[2].Pos, Is.EqualTo(300));
+            Assert.That(records[2].Id, Is.EqualTo("rs456"));
+            Assert.That(records[2].Ref, Is.EqualTo("G"));
+            Assert.That(records[2].Alt, Is.EqualTo(new[] { "A", "C" }));
+            Assert.That(records[2].Qual, Is.EqualTo(80.0));
+            Assert.That(records[2].Filter, Is.EqualTo(new[] { "PASS" }));
+        });
     }
 
     [Test]
@@ -70,8 +95,9 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
     {
         var records = VcfParser.Parse(SimpleVcf).ToList();
 
-        // Should only return variant records, not ## lines
+        // SimpleVcf has 4 ## metadata lines + 1 #CHROM header → none become records
         Assert.That(records, Has.Count.EqualTo(3));
+        Assert.That(records.All(r => !r.Chrom.Contains("#")), Is.True, "No metadata content in records");
     }
 
     [Test]
@@ -80,9 +106,7 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
         var records = VcfParser.Parse(SimpleVcf).ToList();
         var multiAlt = records.First(r => r.Alt.Length > 1);
 
-        Assert.That(multiAlt.Alt, Has.Length.EqualTo(2));
-        Assert.That(multiAlt.Alt, Contains.Item("A"));
-        Assert.That(multiAlt.Alt, Contains.Item("C"));
+        Assert.That(multiAlt.Alt, Is.EqualTo(new[] { "A", "C" }));
     }
 
     #endregion
@@ -95,8 +119,8 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
         var (header, records) = VcfParser.ParseWithHeader(SimpleVcf);
 
         Assert.That(header.FileFormat, Is.EqualTo("VCFv4.3"));
-        Assert.That(header.InfoFields.Count, Is.GreaterThanOrEqualTo(1));
-        Assert.That(header.FormatFields.Count, Is.GreaterThanOrEqualTo(2));
+        Assert.That(header.InfoFields.Count, Is.EqualTo(1));
+        Assert.That(header.FormatFields.Count, Is.EqualTo(2));
         Assert.That(records.Count(), Is.EqualTo(3));
     }
 
@@ -105,8 +129,7 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
     {
         var (header, _) = VcfParser.ParseWithHeader(SimpleVcf);
 
-        Assert.That(header.SampleNames, Contains.Item("Sample1"));
-        Assert.That(header.SampleNames, Contains.Item("Sample2"));
+        Assert.That(header.SampleNames, Is.EqualTo(new[] { "Sample1", "Sample2" }));
     }
 
     [Test]
@@ -116,7 +139,7 @@ chr1	300	.	G	A	10	LowQual;LowCov	.";
         var dpInfo = header.InfoFields.FirstOrDefault(i => i.Id == "DP");
 
         Assert.That(dpInfo.Type, Is.EqualTo("Integer"));
-        Assert.That(dpInfo.Description, Does.Contain("Depth"));
+        Assert.That(dpInfo.Description, Is.EqualTo("Total Depth"));
     }
 
     #endregion
@@ -290,6 +313,7 @@ chr1	400	.	A	A]chr2:500]	99	PASS	.";
         var records = VcfParser.Parse(SimpleVcf).ToList();
         var highQual = VcfParser.FilterByQuality(records, minQuality: 60).ToList();
 
+        Assert.That(highQual, Has.Count.EqualTo(2));
         Assert.That(highQual.All(r => r.Qual >= 60), Is.True);
     }
 
@@ -329,6 +353,7 @@ chr1	400	.	A	A]chr2:500]	99	PASS	.";
         var records = VcfParser.Parse(SimpleVcf).ToList();
         var filtered = VcfParser.FilterByInfo(records, "DP", v => int.Parse(v) >= 40).ToList();
 
+        Assert.That(filtered, Has.Count.EqualTo(2));
         Assert.That(filtered.All(r => int.Parse(r.Info["DP"]) >= 40), Is.True);
     }
 
@@ -623,11 +648,14 @@ chr1	100	.	A	G	99	PASS	DB";
         using var writer = new StringWriter();
 
         VcfParser.WriteToStream(writer, records);
-        var output = writer.ToString();
+        var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.TrimEnd('\r')).ToArray();
 
-        Assert.That(output, Does.Contain("##fileformat="));
-        Assert.That(output, Does.Contain("#CHROM"));
-        Assert.That(output, Does.Contain("chr1"));
+        Assert.That(lines[0], Is.EqualTo("##fileformat=VCFv4.3"));
+        Assert.That(lines[1], Is.EqualTo("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"));
+        Assert.That(lines[2], Is.EqualTo("chr1\t100\t.\tA\tAT\t99.00\tPASS\t."));
+        Assert.That(lines[3], Is.EqualTo("chr1\t200\t.\tATG\tA\t99.00\tPASS\t."));
+        Assert.That(lines[4], Is.EqualTo("chr1\t300\t.\tA\tG\t99.00\tPASS\t."));
     }
 
     [Test]
@@ -642,9 +670,14 @@ chr1	100	.	A	G	99	PASS	DB";
         var parsed = VcfParser.Parse(output).ToList();
 
         Assert.That(parsed.Count, Is.EqualTo(original.Count));
-        Assert.That(parsed[0].Chrom, Is.EqualTo(original[0].Chrom));
-        Assert.That(parsed[0].Pos, Is.EqualTo(original[0].Pos));
-        Assert.That(parsed[0].Ref, Is.EqualTo(original[0].Ref));
+        for (int i = 0; i < original.Count; i++)
+        {
+            Assert.That(parsed[i].Chrom, Is.EqualTo(original[i].Chrom), $"Record {i} Chrom");
+            Assert.That(parsed[i].Pos, Is.EqualTo(original[i].Pos), $"Record {i} Pos");
+            Assert.That(parsed[i].Ref, Is.EqualTo(original[i].Ref), $"Record {i} Ref");
+            Assert.That(parsed[i].Alt, Is.EqualTo(original[i].Alt), $"Record {i} Alt");
+            Assert.That(parsed[i].Filter, Is.EqualTo(original[i].Filter), $"Record {i} Filter");
+        }
     }
 
     #endregion
@@ -686,8 +719,7 @@ chr1	100	.	A	G	99	.	.";
         var records = VcfParser.Parse(VcfWithFilters).ToList();
         var multiFilter = records.First(r => r.Filter.Length > 1);
 
-        Assert.That(multiFilter.Filter, Contains.Item("LowQual"));
-        Assert.That(multiFilter.Filter, Contains.Item("LowCov"));
+        Assert.That(multiFilter.Filter, Is.EqualTo(new[] { "LowQual", "LowCov" }));
     }
 
     [Test]
@@ -990,27 +1022,6 @@ chr1	100	.	A	G	99	PASS	.	AD	15,10";
     }
 
     /// <summary>
-    /// Confirms that valid index returns data (reference test for boundary).
-    /// </summary>
-    [Test]
-    public void GetAlleleDepth_ValidIndex_ReturnsDepths()
-    {
-        const string vcfOneSample = @"##fileformat=VCFv4.3
-##FORMAT=<ID=AD,Number=R,Type=Integer,Description=""Allelic depths"">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1
-chr1	100	.	A	G	99	PASS	.	AD	15,10";
-
-        var records = VcfParser.Parse(vcfOneSample).ToList();
-
-        // sampleIndex = 0 < Count(1) → should return valid data
-        var result = VcfParser.GetAlleleDepth(records[0], 0);
-
-        Assert.That(result, Is.Not.Null, "Valid index should return allele depths");
-        Assert.That(result![0], Is.EqualTo(15), "REF depth");
-        Assert.That(result[1], Is.EqualTo(10), "ALT depth");
-    }
-
-    /// <summary>
     /// Same ||→&amp;&amp; mutation kill for GetReadDepth (parallel guard at line 585).
     /// </summary>
     [Test]
@@ -1132,6 +1143,40 @@ chr1	300	.	G	A	80	LowQual	.";
 
         Assert.That(stats.PassingCount, Is.EqualTo(1),
             "Only PASS counts as passing; '.' = unfiltered, 'LowQual' = failed");
+    }
+
+    #endregion
+
+    #region Could Tests
+
+    [Test]
+    public void Parse_LargeFile_PerformsEfficiently()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("##fileformat=VCFv4.3");
+        sb.AppendLine("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO");
+        for (int i = 1; i <= 10_000; i++)
+            sb.AppendLine($"chr1\t{i}\t.\tA\tG\t99\tPASS\t.");
+
+        var records = VcfParser.Parse(sb.ToString()).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(10_000));
+    }
+
+    [Test]
+    public void CalculateAlleleFrequency_ReturnsFrequency()
+    {
+        // 3 diploid samples: 0/1 + 1/1 + 0/0 → 3 alt alleles out of 6 total → 0.5
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S1	S2	S3
+chr1	100	.	A	G	99	PASS	.	GT	0/1	1/1	0/0";
+
+        var records = VcfParser.Parse(vcf).ToList();
+        var af = VcfParser.CalculateAlleleFrequency(records);
+
+        // (0+1 + 1+1 + 0+0) = 3 alt / 6 total = 0.5
+        Assert.That(af, Is.EqualTo(0.5).Within(0.001));
     }
 
     #endregion
