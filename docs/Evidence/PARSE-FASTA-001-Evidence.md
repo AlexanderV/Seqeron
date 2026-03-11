@@ -124,7 +124,10 @@
 
 Current implementation (`FastaParser.cs`):
 - Uses `>` as header marker
-- Splits header on space/tab to extract ID and description
-- Ignores empty/whitespace-only lines in sequence
-- Line width configurable (default 80)
+- Splits header on space/tab to extract ID and description (per Wikipedia/NCBI)
+- Strips all whitespace from sequence lines (per Wikipedia: "spaces, tabulators... would be ignored")
+- Blank lines are skipped (defensive handling per NCBI: "Blank lines are not allowed")
+- Case mapping to uppercase handled by DnaSequence (per Wikipedia/NCBI: "lower-case letters are accepted and are mapped into upper-case")
+- Line width configurable (default 80, per Wikipedia/NCBI/LOC convention)
 - Returns `FastaEntry` with Id, Description, and DnaSequence
+- Header without sequence is not yielded (per NCBI: "The line after the FASTA definition line begins the nucleotide sequence")

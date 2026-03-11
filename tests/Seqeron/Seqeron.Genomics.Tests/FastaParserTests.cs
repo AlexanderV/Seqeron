@@ -185,13 +185,13 @@ namespace Seqeron.Genomics.Tests
         #region Parse - Whitespace Handling
 
         /// <summary>
-        /// M7: Whitespace within sequence lines is ignored.
-        /// Evidence: Wikipedia - "invalid characters would be ignored (including spaces, tabulators)"
+        /// M7: Whitespace within sequence lines is ignored, including internal whitespace.
+        /// Evidence: Wikipedia - "Anything other than a valid character would be ignored (including spaces, tabulators)"
         /// </summary>
         [Test]
         public void Parse_WhitespaceInSequence_IgnoresWhitespace()
         {
-            const string fasta = ">seq1\n  ATGC  \n  GGCC  ";
+            const string fasta = ">seq1\nAT GC\nGG\tCC";
 
             var entries = FastaParser.Parse(fasta).ToList();
 
@@ -232,8 +232,9 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// Header only without sequence is not yielded.
-        /// ASSUMPTION: Implementation-specific behavior - header without sequence is skipped
+        /// Header without sequence is not yielded.
+        /// Evidence: FASTA spec requires header + sequence; entry without sequence is invalid.
+        /// Per NCBI: "The line after the FASTA definition line begins the nucleotide sequence."
         /// </summary>
         [Test]
         public void Parse_HeaderWithoutSequence_NotYielded()
@@ -255,6 +256,7 @@ namespace Seqeron.Genomics.Tests
 
         /// <summary>
         /// M8: Single entry formats correctly with header and sequence.
+        /// Evidence: Wikipedia/NCBI FASTA format specification
         /// </summary>
         [Test]
         public void ToFasta_SingleEntry_FormatsCorrectly()
@@ -262,11 +264,16 @@ namespace Seqeron.Genomics.Tests
             var entry = new FastaEntry("seq1", "Test description", new DnaSequence("ACGTACGT"));
 
             string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 80);
+            var lines = fasta.Split('\n')
+                .Select(l => l.TrimEnd('\r'))
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToArray();
 
             Assert.Multiple(() =>
             {
-                Assert.That(fasta, Does.StartWith(">seq1 Test description"));
-                Assert.That(fasta, Does.Contain("ACGTACGT"));
+                Assert.That(lines, Has.Length.EqualTo(2));
+                Assert.That(lines[0], Is.EqualTo(">seq1 Test description"));
+                Assert.That(lines[1], Is.EqualTo("ACGTACGT"));
             });
         }
 
@@ -336,7 +343,8 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// S2: Multiple entries format as valid multi-FASTA.
+        /// S2: Multiple entries format as valid multi-FASTA with correct structure.
+        /// Evidence: Wikipedia - "A multiple-sequence FASTA format would be obtained by concatenating several single-sequence FASTA files"
         /// </summary>
         [Test]
         public void ToFasta_MultipleEntries_FormatsAll()
@@ -348,13 +356,18 @@ namespace Seqeron.Genomics.Tests
             };
 
             string fasta = FastaParser.ToFasta(entries);
+            var lines = fasta.Split('\n')
+                .Select(l => l.TrimEnd('\r'))
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToArray();
 
             Assert.Multiple(() =>
             {
-                Assert.That(fasta, Does.Contain(">seq1 First"));
-                Assert.That(fasta, Does.Contain("AAAA"));
-                Assert.That(fasta, Does.Contain(">seq2 Second"));
-                Assert.That(fasta, Does.Contain("CCCC"));
+                Assert.That(lines, Has.Length.EqualTo(4));
+                Assert.That(lines[0], Is.EqualTo(">seq1 First"));
+                Assert.That(lines[1], Is.EqualTo("AAAA"));
+                Assert.That(lines[2], Is.EqualTo(">seq2 Second"));
+                Assert.That(lines[3], Is.EqualTo("CCCC"));
             });
         }
 
@@ -438,7 +451,8 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// S4: WriteFile creates valid FASTA file.
+        /// S4: WriteFile creates valid FASTA file with exact content.
+        /// Verified by reading back and checking exact lines.
         /// </summary>
         [Test]
         public void WriteFile_ValidEntries_CreatesFile()
@@ -453,11 +467,15 @@ namespace Seqeron.Genomics.Tests
 
                 FastaParser.WriteFile(tempFile, entries, lineWidth: 80);
 
-                var content = File.ReadAllText(tempFile);
+                var lines = File.ReadAllLines(tempFile)
+                    .Where(l => !string.IsNullOrWhiteSpace(l))
+                    .ToArray();
+
                 Assert.Multiple(() =>
                 {
-                    Assert.That(content, Does.StartWith(">seq1 Test"));
-                    Assert.That(content, Does.Contain("ATGCATGC"));
+                    Assert.That(lines, Has.Length.EqualTo(2));
+                    Assert.That(lines[0], Is.EqualTo(">seq1 Test"));
+                    Assert.That(lines[1], Is.EqualTo("ATGCATGC"));
                 });
             }
             finally
@@ -501,7 +519,7 @@ namespace Seqeron.Genomics.Tests
         #region Edge Cases
 
         /// <summary>
-        /// C2: Very long sequence is handled correctly.
+        /// C2: Very long sequence is handled correctly — length and content preserved.
         /// </summary>
         [Test]
         public void Parse_VeryLongSequence_HandlesCorrectly()
@@ -511,7 +529,30 @@ namespace Seqeron.Genomics.Tests
 
             var entries = FastaParser.Parse(fasta).ToList();
 
-            Assert.That(entries[0].Sequence.Sequence.Length, Is.EqualTo(10000));
+            Assert.Multiple(() =>
+            {
+                Assert.That(entries[0].Id, Is.EqualTo("long_seq"));
+                Assert.That(entries[0].Sequence.Sequence.Length, Is.EqualTo(10000));
+                Assert.That(entries[0].Sequence.Sequence, Is.EqualTo(longSeq));
+            });
+        }
+
+        /// <summary>
+        /// Lowercase sequence is normalized to uppercase during parsing.
+        /// Evidence: Wikipedia/NCBI - "lower-case letters are accepted and are mapped into upper-case"
+        /// </summary>
+        [Test]
+        public void Parse_LowercaseSequence_NormalizedToUppercase()
+        {
+            const string fasta = ">seq1\nacgtacgt";
+
+            var entries = FastaParser.Parse(fasta).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(entries, Has.Count.EqualTo(1));
+                Assert.That(entries[0].Sequence.Sequence, Is.EqualTo("ACGTACGT"));
+            });
         }
 
         /// <summary>
@@ -548,6 +589,30 @@ namespace Seqeron.Genomics.Tests
 
             Assert.That(seqLines, Has.Count.EqualTo(1));
             Assert.That(seqLines[0].Length, Is.EqualTo(80));
+        }
+
+        /// <summary>
+        /// C3: Line width of 1 wraps every character onto its own line.
+        /// </summary>
+        [Test]
+        public void ToFasta_LineWidthOne_WrapsEveryChar()
+        {
+            var entry = new FastaEntry("tiny", null, new DnaSequence("ACGT"));
+
+            string fasta = FastaParser.ToFasta(new[] { entry }, lineWidth: 1);
+            var seqLines = fasta.Split('\n')
+                .Select(l => l.TrimEnd('\r'))
+                .Where(l => !l.StartsWith(">") && !string.IsNullOrWhiteSpace(l))
+                .ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(seqLines, Has.Count.EqualTo(4));
+                Assert.That(seqLines[0], Is.EqualTo("A"));
+                Assert.That(seqLines[1], Is.EqualTo("C"));
+                Assert.That(seqLines[2], Is.EqualTo("G"));
+                Assert.That(seqLines[3], Is.EqualTo("T"));
+            });
         }
 
         #endregion

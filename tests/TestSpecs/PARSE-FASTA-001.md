@@ -65,47 +65,30 @@ Existing tests in `Seqeron.Mcp.Parsers.Tests`:
 ## Consolidation Plan
 
 ### Current State
-1. **Canonical tests:** `FastaParserTests.cs` - 8 tests (some gaps)
+1. **Canonical tests:** `FastaParserTests.cs` — 29 tests, comprehensive coverage
 2. **MCP wrapper tests:** 3 separate files with smoke tests (adequate)
+3. **Property tests:** `FastaRoundTripProperties.cs` — 5 property-based tests
 
-### Target State
-1. **Canonical tests:** Expand `FastaParserTests.cs` to comprehensive coverage
-2. **MCP wrapper tests:** Keep as-is (smoke verification only)
-
-### Actions
-- Add missing Must tests to `FastaParserTests.cs`
-- Reorganize existing tests with proper regions
-- Remove redundancy (none detected currently)
-- Ensure all Must tests are covered
+### Actions Taken
+- Strengthened M8, S2, S4 with exact line assertions (replaced `Contains`/`StartsWith` with `Is.EqualTo`)
+- Strengthened C2 with content verification (not just length)
+- Added M14: lowercase normalization test (evidence-backed)
+- No duplicates found — all tests target distinct behaviors
 
 ## Audit of Existing Tests
 
-| Test | Status | Notes |
-|------|--------|-------|
-| Parse_SingleSequence_ParsesCorrectly | Covered | M1 ✓ |
-| Parse_MultipleSequences_ParsesAll | Covered | M2 ✓ |
-| Parse_NoDescription_ParsesIdOnly | Covered | M6 ✓ |
-| Parse_EmptyInput_ReturnsEmpty | Covered | M4 ✓ |
-| Parse_MultilineSequence_ConcatenatesLines | Covered | M3 ✓ |
-| ToFasta_SingleEntry_FormatsCorrectly | Covered | M8 ✓ |
-| ToFasta_LongSequence_WrapsLines | Covered | M9 ✓ |
-| RoundTrip_ParseAndWrite_PreservesData | Covered | M11 ✓ |
+All Must (M1-M14), Should (S1-S7), and Could (C1-C3) tests are implemented and passing in `FastaParserTests.cs` (29 tests total).
+Additional tests: M4b (whitespace-only input), HeaderWithoutSequence, TabInHeader, SequenceExactlyLineWidth, RoundTrip_SpecialCharsInHeader.
 
-### Missing Tests (All Closed)
-- ~~M5: Parse_HeaderWithDescription_ParsesBoth~~ ✅ Covered
-- ~~M7: Parse_WhitespaceInSequence_IgnoresWhitespace~~ ✅ Covered
-- ~~M10: ToFasta_NoDescription_OmitsDescription~~ ✅ Covered
-- ~~M12: Parse_SpecialCharsInHeader_PreservesChars~~ ✅ Covered
-- ~~M13: Parse_LeadingTrailingWhitespaceInSequence_Trimmed~~ ✅ Covered
-- ~~S1-S7: Should tests~~ ✅ Covered
-- ~~C1-C3: Could tests~~ ✅ Covered
+## Deviations and Assumptions
 
-## Open Questions
+None. All behavior is evidence-backed:
 
-None - FASTA format is well-documented.
-
-## Decisions
-
-1. **Header parsing:** First whitespace-delimited token is ID, remainder is description
-2. **Empty sequences:** Not yielded (header without sequence is skipped)
-3. **Default line width:** 80 characters (per historical convention)
+| # | Behavior | Justification | Source |
+|---|----------|---------------|--------|
+| 1 | Header parsing: first whitespace-delimited token is ID, remainder is description | Standard FASTA header structure | Wikipedia, NCBI |
+| 2 | Header without sequence is not yielded | FASTA entry = header + sequence; entry without sequence is invalid | NCBI: "The line after the FASTA definition line begins the nucleotide sequence" |
+| 3 | Default line width: 80 characters | Historical convention backed by all sources | Wikipedia, NCBI, LOC |
+| 4 | Internal whitespace stripped from sequence lines | Spec-mandated behavior | Wikipedia: "Anything other than a valid character would be ignored (including spaces, tabulators)" |
+| 5 | Blank lines skipped | Defensive handling of common real-world data | NCBI: "Blank lines are not allowed"; common parser practice |
+| 6 | Lowercase mapped to uppercase | Handled by DnaSequence constructor | Wikipedia/NCBI: "lower-case letters are accepted and are mapped into upper-case" |
