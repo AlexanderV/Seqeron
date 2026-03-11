@@ -158,71 +158,63 @@
 
 ---
 
-## 5. Test Audit (Existing Coverage)
+## 5. Test Audit (Current Coverage)
 
-### 5.1 BedParserTests.cs (Canonical - 42 tests)
+### 5.1 BedParserTests.cs (Canonical — 74 tests)
 | Category | Tests | Coverage | Status |
 |----------|-------|----------|--------|
-| Basic Parsing | 7 | BED3/6/12, empty, null, headers, comments | ✓ Covered |
-| Record Properties | 4 | Length, HasBlocks, Score clamping | ✓ Covered |
-| Filtering | 6 | Chrom, region, strand, length, score | ✓ Covered |
-| Interval Operations | 6 | ToIntervals, Overlaps, Intersect, Merge, Subtract, Expand | ✓ Covered |
-| Block Operations | 3 | ExpandBlocks, TotalBlockLength, GetIntrons | ✓ Covered |
-| Statistics | 3 | Basic stats, chrom counts, empty | ✓ Covered |
-| Writing | 2 | WriteToStream, Roundtrip | ✓ Covered |
-| Edge Cases | 3 | Space-separated, invalid coords, few columns | ✓ Covered |
-| File I/O | 2 | Nonexistent, valid file | ✓ Covered |
-| Utility | 3 | Sort, Coverage, ExtractSequence | ✓ Covered |
+| Basic Parsing | 8 | BED3/6/12, empty, null, whitespace-only, headers, comments | ✓ |
+| Record Properties | 4 | Length, HasBlocks(true/false), Score clamping | ✓ |
+| Filtering | 7 | Chrom, case-insensitive, region, strand, invalid strand, length, score | ✓ |
+| Interval Operations | 10 | ToIntervals, Overlaps, Intersect (overlap + no-overlap), Merge (overlap + adjacent + diff chrom), Subtract, Expand | ✓ |
+| Block Operations | 2 | TotalBlockLength, GetIntrons (with exact coordinates) | ✓ |
+| Statistics | 3 | Basic stats, chrom counts, empty | ✓ |
+| Writing | 2 | WriteToStream (exact line output), Roundtrip (all fields) | ✓ |
+| Edge Cases | 6 | Space-delimited (with values), invalid coords, few columns, chromStart>End, mixed columns, negative score | ✓ |
+| File I/O | 2 | Nonexistent, valid file | ✓ |
+| Utility | 4 | Sort, Coverage (exact depths), ExtractSequence, ExtractSequence minus strand (non-palindrome RC) | ✓ |
+| Coordinate System | 4 | Zero-based, non-inclusive end, zero-length, browser conversion | ✓ |
+| BED12 Validation | 10 | First blockStart, blockCount match, final block, exon coords, UCSC examples, overlapping blocks | ✓ |
+| GenomicInterval | 3 | Length, Union, non-overlap intersect | ✓ |
+| Expand Intervals | 2 | Zero expansion, upstream clamp | ✓ |
+| UCSC Reference Data | 3 | Gene structure, ChIP-seq style, hg38 coords | ✓ |
+| Mutation-Killing | 2 | Subtract || → && mutations | ✓ |
 
-### 5.2 MCP Parsers Tests (Delegate - Smoke)
+### 5.2 MCP Parsers Tests (Delegate — Smoke)
 | File | Tests | Status |
 |------|-------|--------|
-| BedParseTests.cs | 5 | ✓ Adequate smoke coverage |
-| BedFilterTests.cs | 8 | ✓ Adequate smoke coverage |
-| BedMergeTests.cs | 4 | ✓ Adequate smoke coverage |
-| BedIntersectTests.cs | 5 | ✓ Adequate smoke coverage |
+| BedParseTests.cs | 5 | ✓ |
+| BedFilterTests.cs | 8 | ✓ |
+| BedMergeTests.cs | 4 | ✓ |
+| BedIntersectTests.cs | 5 | ✓ |
 
 ### 5.3 SequenceIO Tests (Legacy Wrapper)
 | Tests | Status |
 |-------|--------|
-| 5 | ✓ Adequate for wrapper |
+| 5 | ✓ |
 
 ---
 
-## 6. Consolidation Plan
+## 6. Deviations and Assumptions
 
-### 6.1 Missing Tests to Add (All Closed)
-| # | Test | Status |
-|---|------|--------|
-| 1 | Coordinate_ZeroBased_FirstBaseIsZero | ✅ Covered |
-| 2 | Coordinate_EndIsNonInclusive_LengthCorrect | ✅ Covered |
-| 3 | Coordinate_ZeroLength_ValidForInsertions | ✅ Covered |
-| 4 | Parse_BED12_FirstBlockStartMustBeZero | ✅ Covered |
-| 5 | Parse_BED12_FinalBlockMustReachEnd | ✅ Covered |
-| 6 | Parse_BED12_BlockCountMatchesArrays | ✅ Covered |
-| 7 | GenomicInterval_Union_ReturnsUnion | ✅ Covered |
-| 8 | ExpandIntervals_ZeroExpansion_Unchanged | ✅ Covered |
+**None.** Implementation strictly follows UCSC Genome Browser BED specification and Wikipedia description.
 
-### 6.2 Tests to Refactor
-- None needed - existing structure is clean
-
-### 6.3 Duplicates to Remove
-- None identified - canonical vs MCP tests have clear separation
+All validation rules from the specification are enforced:
+- **Coordinate validation**: chromStart ≤ chromEnd (UCSC FAQ)
+- **Column consistency**: all data lines must have the same number of fields (UCSC FAQ + Wikipedia)
+- **Score range**: clamped to [0, 1000] (UCSC FAQ)
+- **Strand values**: only "+", "-", "." accepted (UCSC FAQ)
+- **BED12 block constraints** (UCSC FAQ):
+  - First blockStart must be 0
+  - Final blockStart + final blockSize must equal chromEnd − chromStart
+  - Blocks may not overlap
+  - blockCount must match blockSizes/blockStarts array lengths
+- **Header lines**: "track", "browser", "#" lines skipped (UCSC FAQ + Wikipedia)
+- **Delimiters**: tab-separated preferred; space-separated accepted as fallback (UCSC FAQ + Wikipedia)
 
 ---
 
-## 7. Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | Score values >1000 are clamped to 1000 | Per UCSC spec, implementation already does this |
-| D2 | Invalid coordinate lines are skipped | Robustness over strict parsing |
-| D3 | Both tab and space delimiters accepted | Per UCSC allowing both |
-| D4 | Chromosome comparison is case-insensitive | Common practice in genomics |
-
----
-
-## 8. Canonical Test File
+## 7. Canonical Test File
 
 **Location:** `tests/Seqeron/Seqeron.Genomics.Tests/BedParserTests.cs`
 
