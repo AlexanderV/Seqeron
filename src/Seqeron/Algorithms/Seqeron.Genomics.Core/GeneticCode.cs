@@ -143,7 +143,9 @@ namespace Seqeron.Genomics.Core
         private static GeneticCode CreateStandard()
         {
             var table = CreateStandardCodonTable();
-            var startCodons = new HashSet<string> { "AUG" };
+            // NCBI Table 1 Starts: ---M------**--*----M---------------M----------------------------
+            // Positions 3 (UUG), 19 (CUG), 35 (AUG)
+            var startCodons = new HashSet<string> { "AUG", "UUG", "CUG" };
             var stopCodons = new HashSet<string> { "UAA", "UAG", "UGA" };
 
             return new GeneticCode("Standard", 1, table, startCodons, stopCodons);
@@ -160,7 +162,9 @@ namespace Seqeron.Genomics.Core
             table["AGA"] = '*'; // Arginine → Stop
             table["AGG"] = '*'; // Arginine → Stop
 
-            var startCodons = new HashSet<string> { "AUG", "AUA", "AUU", "AUC" };
+            // NCBI Table 2 Starts: ----------**--------------------MMMM----------**---M------------
+            // Positions 32 (AUU), 33 (AUC), 34 (AUA), 35 (AUG), 51 (GUG)
+            var startCodons = new HashSet<string> { "AUG", "AUA", "AUU", "AUC", "GUG" };
             var stopCodons = new HashSet<string> { "UAA", "UAG", "AGA", "AGG" };
 
             return new GeneticCode("Vertebrate Mitochondrial", 2, table, startCodons, stopCodons);
@@ -179,7 +183,9 @@ namespace Seqeron.Genomics.Core
             table["AUA"] = 'M'; // Isoleucine → Methionine
             table["UGA"] = 'W'; // Stop → Tryptophan
 
-            var startCodons = new HashSet<string> { "AUG", "AUA" };
+            // NCBI Table 3 Starts: ----------**----------------------MM---------------M------------
+            // Positions 34 (AUA), 35 (AUG), 51 (GUG)
+            var startCodons = new HashSet<string> { "AUG", "AUA", "GUG" };
             var stopCodons = new HashSet<string> { "UAA", "UAG" };
 
             return new GeneticCode("Yeast Mitochondrial", 3, table, startCodons, stopCodons);
@@ -190,8 +196,9 @@ namespace Seqeron.Genomics.Core
             // Same as standard genetic code, just different start codons
             var table = CreateStandardCodonTable();
 
-            // Bacteria can use alternative start codons
-            var startCodons = new HashSet<string> { "AUG", "GUG", "UUG" };
+            // NCBI Table 11 Starts: ---M------**--*----M------------MMMM---------------M------------
+            // Positions 3 (UUG), 19 (CUG), 32 (AUU), 33 (AUC), 34 (AUA), 35 (AUG), 51 (GUG)
+            var startCodons = new HashSet<string> { "AUG", "GUG", "UUG", "CUG", "AUU", "AUC", "AUA" };
             var stopCodons = new HashSet<string> { "UAA", "UAG", "UGA" };
 
             return new GeneticCode("Bacterial, Archaeal and Plant Plastid", 11, table, startCodons, stopCodons);
