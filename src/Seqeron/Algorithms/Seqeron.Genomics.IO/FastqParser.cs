@@ -189,11 +189,12 @@ public static class FastqParser
     public static string EncodeQualityScores(IEnumerable<int> scores, QualityEncoding encoding = QualityEncoding.Phred33)
     {
         int offset = encoding == QualityEncoding.Phred64 ? 64 : 33;
+        int maxScore = encoding == QualityEncoding.Phred64 ? 62 : 93;
         var sb = new StringBuilder();
 
         foreach (var score in scores)
         {
-            var clampedScore = Math.Clamp(score, 0, 41);
+            var clampedScore = Math.Clamp(score, 0, maxScore);
             sb.Append((char)(clampedScore + offset));
         }
 
@@ -214,7 +215,7 @@ public static class FastqParser
     public static int ErrorProbabilityToPhred(double errorProbability)
     {
         if (errorProbability <= 0)
-            return 40; // Max quality
+            return 93; // Max representable in Sanger/Phred+33 (ASCII 126 - 33)
         return (int)Math.Round(-10 * Math.Log10(errorProbability));
     }
 
