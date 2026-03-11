@@ -380,8 +380,8 @@ public static class VcfParser
 
         var alt = record.Alt[altIndex];
 
-        // Symbolic alleles
-        if (alt.StartsWith('<') || alt.StartsWith('[') || alt.StartsWith(']'))
+        // Symbolic alleles: <DEL>, <INS>, breakend notation ([p[ ]p] t[p[ t]p]), spanning deletion (*)
+        if (alt == "*" || alt.StartsWith('<') || alt.Contains('[') || alt.Contains(']'))
             return VariantType.Symbolic;
 
         var refLen = record.Ref.Length;
@@ -467,9 +467,9 @@ public static class VcfParser
     /// </summary>
     public static IEnumerable<VcfRecord> FilterPassing(IEnumerable<VcfRecord> records)
     {
+        // Per VCF spec: PASS = passed all filters; "." = no filtering applied (different states)
         return records.Where(r =>
-            r.Filter.Length == 0 ||
-            (r.Filter.Length == 1 && r.Filter[0].Equals("PASS", StringComparison.OrdinalIgnoreCase)));
+            r.Filter.Length == 1 && r.Filter[0].Equals("PASS", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -557,6 +557,8 @@ public static class VcfParser
         if (gt == null) return false;
 
         var alleles = gt.Replace('|', '/').Split('/');
+        // Per VCF spec: "." = missing allele; missing alleles cannot determine zygosity
+        if (alleles.Any(a => a == ".")) return false;
         return alleles.Length == 2 && alleles[0] != alleles[1];
     }
 
@@ -641,8 +643,7 @@ public static class VcfParser
             .ToDictionary(g => g.Key, g => g.Count());
 
         int passingCount = recordsList.Count(r =>
-            r.Filter.Length == 0 ||
-            (r.Filter.Length == 1 && r.Filter[0].Equals("PASS", StringComparison.OrdinalIgnoreCase)));
+            r.Filter.Length == 1 && r.Filter[0].Equals("PASS", StringComparison.OrdinalIgnoreCase));
 
         var qualities = recordsList.Where(r => r.Qual.HasValue).Select(r => r.Qual!.Value).ToList();
         double? meanQuality = qualities.Count > 0 ? qualities.Average() : null;
@@ -680,13 +681,17 @@ public static class VcfParser
             "AG", "GA", "CT", "TC"
         };
 
-        foreach (var record in records.Where(r => IsSNP(r)))
+        foreach (var record in records)
         {
-            var pair = $"{record.Ref}{record.Alt[0]}";
-            if (transitionPairs.Contains(pair))
-                transitions++;
-            else
-                transversions++;
+            for (int i = 0; i < record.Alt.Length; i++)
+            {
+                if (ClassifyVariant(record, i) != VariantType.SNP) continue;
+                var pair = $"{record.Ref}{record.Alt[i]}";
+                if (transitionPairs.Contains(pair))
+                    transitions++;
+                else
+                    transversions++;
+            }
         }
 
         return transversions > 0 ? (double)transitions / transversions : null;

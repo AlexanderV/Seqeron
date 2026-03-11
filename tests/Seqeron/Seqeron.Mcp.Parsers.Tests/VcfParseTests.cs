@@ -68,7 +68,7 @@ chr2	300	.	C	T	20	.	.";
         Assert.That(result.TotalVariants, Is.EqualTo(3));
         Assert.That(result.SnpCount, Is.EqualTo(2));
         Assert.That(result.IndelCount, Is.EqualTo(1));
-        Assert.That(result.PassingCount, Is.EqualTo(3)); // "." filter is also considered passing
+        Assert.That(result.PassingCount, Is.EqualTo(2)); // Per VCF spec: "." = unfiltered ≠ PASS
         Assert.That(result.ChromosomeCounts["chr1"], Is.EqualTo(2));
         Assert.That(result.ChromosomeCounts["chr2"], Is.EqualTo(1));
     }

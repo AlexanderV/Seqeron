@@ -238,15 +238,26 @@ chr1	100	.	ATG	CT	99	PASS	.";
     [Test]
     public void ClassifyVariant_BreakendSymbolic_ReturnsSymbolic()
     {
-        // Breakend notation using [ or ] brackets
+        // Per VCF 4.3 spec (Danecek 2011 Fig 1): 4 breakend forms:
+        //   ]p]t  [p[t  t[p[  t]p]
+        // Cases starting with brackets AND cases starting with bases
         const string vcf = @"##fileformat=VCFv4.3
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-chr1	100	.	A	]chr2:500]A	99	PASS	.";
+chr1	100	.	A	]chr2:500]A	99	PASS	.
+chr1	200	.	A	A[chr2:500[	99	PASS	.
+chr1	300	.	A	[chr2:500[A	99	PASS	.
+chr1	400	.	A	A]chr2:500]	99	PASS	.";
 
         var records = VcfParser.Parse(vcf).ToList();
 
-        Assert.That(records, Has.Count.EqualTo(1));
-        Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic));
+        Assert.That(records, Has.Count.EqualTo(4));
+        Assert.Multiple(() =>
+        {
+            Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic), "]p]t form");
+            Assert.That(VcfParser.ClassifyVariant(records[1]), Is.EqualTo(VcfParser.VariantType.Symbolic), "t[p[ form");
+            Assert.That(VcfParser.ClassifyVariant(records[2]), Is.EqualTo(VcfParser.VariantType.Symbolic), "[p[t form");
+            Assert.That(VcfParser.ClassifyVariant(records[3]), Is.EqualTo(VcfParser.VariantType.Symbolic), "t]p] form");
+        });
     }
 
     #endregion
@@ -514,6 +525,8 @@ chr1	100	.	A	G,T	99	PASS	.	GT	2/2";
     [Test]
     public void CalculateTiTvRatio_ReturnsRatio()
     {
+        // Per Danecek 2011: transitions = purine↔purine (A↔G) or pyrimidine↔pyrimidine (C↔T)
+        // Transversions = purine↔pyrimidine (A↔C, A↔T, G↔C, G↔T)
         const string vcf = @"##fileformat=VCFv4.3
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
 chr1	100	.	A	G	99	PASS	.
@@ -525,6 +538,22 @@ chr1	400	.	G	C	99	PASS	.";
         var titv = VcfParser.CalculateTiTvRatio(records);
 
         // 2 transitions (A>G, C>T) / 2 transversions (A>T, G>C) = 1.0
+        Assert.That(titv, Is.EqualTo(1.0).Within(0.01));
+    }
+
+    [Test]
+    public void CalculateTiTvRatio_MultiAllelic_CountsAllSnpAlts()
+    {
+        // Per VCF spec: ALT is "comma separated list of alternate non-reference alleles" (Danecek 2011)
+        // Ti/Tv should iterate all ALT alleles, not just the first
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G,T	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+        var titv = VcfParser.CalculateTiTvRatio(records);
+
+        // A→G = transition, A→T = transversion → ratio = 1/1 = 1.0
         Assert.That(titv, Is.EqualTo(1.0).Within(0.01));
     }
 
@@ -1010,6 +1039,99 @@ chr1	100	.	A	G	99	PASS	.";
 
         Assert.That(result, Is.Null,
             "sampleIndex == Count should return null (kills >=→> mutation)");
+    }
+
+    #endregion
+
+    #region VCF Spec Compliance Tests
+
+    /// <summary>
+    /// Per VCF 4.3 spec: "." in genotype = missing allele.
+    /// Missing alleles should not determine zygosity.
+    /// Source: Wikipedia VCF — Genotype Notation: ". indicates missing data"
+    /// Source: Danecek 2011 — "Missing values are represented with a dot."
+    /// </summary>
+    [Test]
+    public void IsHet_MissingAllele_ReturnsFalse()
+    {
+        const string vcf = @"##fileformat=VCFv4.3
+##FORMAT=<ID=GT,Number=1,Type=String,Description=""Genotype"">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Sample1	Sample2	Sample3
+chr1	100	.	A	G	99	PASS	.	GT	0/.	./.	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(VcfParser.IsHet(records[0], 0), Is.False,
+                "0/. has missing allele — cannot determine zygosity");
+            Assert.That(VcfParser.IsHet(records[0], 1), Is.False,
+                "./. both alleles missing — cannot determine zygosity");
+            Assert.That(VcfParser.IsHet(records[0], 2), Is.False,
+                ". haploid missing — cannot determine zygosity");
+        });
+    }
+
+    /// <summary>
+    /// Per VCF 4.3 spec: FILTER "." means "no filtering has been applied"
+    /// (not the same as PASS, which means "passed all filters").
+    /// Source: GATK docs — "If the FILTER value is '.', then no filtering
+    /// has been applied to the records."
+    /// Source: Wikipedia — FILTER: "PASS if passed all filters"
+    /// </summary>
+    [Test]
+    public void FilterPassing_ExcludesUnfilteredDotRecords()
+    {
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	99	PASS	.
+chr1	200	.	C	T	50	.	.
+chr1	300	.	G	A	80	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+        var passing = VcfParser.FilterPassing(records).ToList();
+
+        Assert.That(passing, Has.Count.EqualTo(2), "Only PASS records, not '.' (unfiltered)");
+        Assert.That(passing.All(r => r.Filter.Length == 1 && r.Filter[0] == "PASS"), Is.True);
+    }
+
+    /// <summary>
+    /// Per VCF 4.3 spec: "*" represents "allele missing due to upstream deletion"
+    /// (spanning/overlapping deletion placeholder). Should be classified as Symbolic.
+    /// Source: VCF 4.3 specification, Section 5.4
+    /// </summary>
+    [Test]
+    public void ClassifyVariant_SpanningDeletionStar_ReturnsSymbolic()
+    {
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	*	99	PASS	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(VcfParser.ClassifyVariant(records[0]), Is.EqualTo(VcfParser.VariantType.Symbolic),
+            "* (spanning deletion) should be Symbolic per VCF 4.3 spec");
+    }
+
+    /// <summary>
+    /// Per VCF spec: PassingCount in statistics should only count PASS records,
+    /// not "." (unfiltered) records.
+    /// </summary>
+    [Test]
+    public void CalculateStatistics_PassingCount_ExcludesUnfiltered()
+    {
+        const string vcf = @"##fileformat=VCFv4.3
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	99	PASS	.
+chr1	200	.	C	T	50	.	.
+chr1	300	.	G	A	80	LowQual	.";
+
+        var records = VcfParser.Parse(vcf).ToList();
+        var stats = VcfParser.CalculateStatistics(records);
+
+        Assert.That(stats.PassingCount, Is.EqualTo(1),
+            "Only PASS counts as passing; '.' = unfiltered, 'LowQual' = failed");
     }
 
     #endregion

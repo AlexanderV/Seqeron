@@ -100,6 +100,11 @@
 | M40 | Parse_MultipleFilters_AllParsed | VCF Spec | Semicolon-separated |
 | M41 | Parse_MalformedLine_Skips | VCF Spec | Error resilience |
 | M42 | WriteAndRead_Roundtrip_PreservesData | Implementation | Data integrity |
+| M43 | IsHet_MissingAllele_ReturnsFalse | Wikipedia, Danecek 2011 | "." = missing allele, cannot determine zygosity |
+| M44 | FilterPassing_ExcludesUnfilteredDotRecords | VCF Spec, GATK | "." = unfiltered ≠ PASS |
+| M45 | ClassifyVariant_SpanningDeletionStar_ReturnsSymbolic | VCF 4.3 Spec §5.4 | "*" = spanning deletion placeholder |
+| M46 | CalculateStatistics_PassingCount_ExcludesUnfiltered | VCF Spec | PassingCount only counts PASS, not "." |
+| M47 | CalculateTiTvRatio_MultiAllelic_CountsAllSnpAlts | Danecek 2011 | All ALT alleles at multi-allelic sites |
 
 ### Should Tests (Extended Validation)
 
@@ -158,55 +163,31 @@ chr1	300	.	G	A	10	LowQual;LowCov	.
 
 ## Invariants
 
-1. **Position is 1-based positive integer**
-2. **Quality is null or non-negative**
-3. **FILTER empty or contains PASS indicates passing**
-4. **Variant length = |len(ALT) - len(REF)|**
-5. **Ti/Tv ratio is null when no transversions exist**
+1. **Position is 1-based positive integer** (VCF Spec §1.4.1)
+2. **Quality is null or non-negative** (Phred-scaled: −10 log₁₀ p)
+3. **FILTER "PASS" = passed all filters; "." = no filtering applied** (VCF Spec, GATK)
+4. **Variant length = |len(ALT) − len(REF)|** (standard representation)
+5. **Ti/Tv ratio is null when no transversions exist** (division by zero)
+6. **"." in genotype = missing allele; missing alleles cannot determine zygosity** (Wikipedia, Danecek 2011)
+7. **"*" in ALT = spanning deletion; classified as Symbolic** (VCF 4.3 Spec §5.4)
 
 ---
 
-## Audit Notes
+## Deviations and Assumptions
 
-### Existing Test Analysis (VcfParserTests.cs)
+**None.** Implementation strictly follows VCF 4.3 specification (SAMtools hts-specs), Wikipedia, Danecek et al. (2011), and GATK documentation.
 
-**Current Coverage:** 46 tests covering:
-- Basic parsing (4 tests)
-- Header parsing (3 tests)
-- Variant classification (7 tests)
-- Filtering (7 tests)
-- Genotype analysis (6 tests)
-- Statistics (5 tests)
-- INFO helpers (5 tests)
-- Writing (2 tests)
-- Edge cases (5 tests)
-- File I/O (3 tests)
+All behaviors are evidence-backed:
 
-**Assessment:** Comprehensive coverage already exists. Tests are well-organized and follow NUnit conventions.
-
-### MCP Wrapper Tests (VcfParseTests.cs, VcfUtilityTests.cs)
-
-**Assessment:** These test the MCP layer wrappers. They provide smoke tests that delegate to VcfParser. Per the test pool policy, these remain in place with minimal verification tests.
-
-### Consolidation Decision
-
-- **Canonical tests:** VcfParserTests.cs (46 tests) - comprehensive, no changes needed
-- **Wrapper tests:** Mcp.Parsers.Tests - smoke tests only, appropriate
-- **Action:** Review existing tests for completeness against TestSpec; add any missing Must tests
-
----
-
-## Missing Tests to Add (All Closed)
-
-After audit, the following tests were added:
-
-| Test | Category | Status |
-|------|----------|--------|
-| ClassifyVariant_MNP_ReturnsMnp | M | ✅ Covered |
-| ClassifyVariant_Symbolic_ReturnsSymbolic | M | ✅ Covered |
-| ClassifyVariant_Complex_ReturnsComplex | M | ✅ Covered |
-| Parse_PhasedGenotypes_HandledCorrectly | M | ✅ Covered |
-| IsHomAlt_MultiAllelic_DetectsCorrectly | M | ✅ Covered |
+| # | Behavior | Justification | Source |
+|---|----------|---------------|--------|
+| 1 | FILTER "." = unfiltered, distinct from PASS | VCF spec: "." means no filtering applied; PASS means passed all filters | GATK: "If the FILTER value is '.', then no filtering has been applied" |
+| 2 | Missing genotype alleles ("." in GT) → zygosity unknown | VCF spec: "." = missing allele data | Wikipedia: ". indicates missing data"; Danecek 2011: "Missing values are represented with a dot" |
+| 3 | Ti/Tv ratio iterates all ALT alleles at multi-allelic sites | Each ALT allele is an independent observation | Danecek 2011: ALT = "comma separated list of alternate non-reference alleles" |
+| 4 | "*" in ALT classified as Symbolic | VCF 4.3 spec: "*" = allele missing due to upstream deletion | VCF 4.3 §5.4 spanning deletion notation |
+| 5 | Breakend notation detected by presence of `[` or `]` in ALT | VCF spec defines 4 breakend forms: `]p]t`, `[p[t`, `t[p[`, `t]p]` | Danecek 2011 Fig 1; VCF 4.3 §5.4 |
+| 6 | Malformed lines (non-integer POS, <8 columns) silently skipped | Graceful error handling per parser convention | VCF spec: 8 mandatory columns; POS is 1-based integer |
+| 7 | INFO flags stored as key="true" in dictionary | VCF spec: Number=0 flags appear without value | Wikipedia: "DB" (dbSNP membership) is a flag |
 
 ---
 
