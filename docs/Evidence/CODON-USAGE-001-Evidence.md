@@ -63,14 +63,14 @@ $$\text{Count}(c) = |\{i : \text{sequence}[i:i+3] = c\}|$$
 
 ### Codon Usage Comparison
 
-The implementation uses a frequency-based similarity metric based on absolute differences:
+The implementation uses Total Variation Distance (TVD) similarity between codon frequency distributions:
 
 1. **Input**: Two coding sequences
 2. **Process**:
    - Calculate codon usage for both sequences
    - Normalize counts to frequencies (count / total codons)
-   - Calculate Manhattan distance between frequency vectors
-   - Convert to similarity: 1 - (distance / 2)
+   - Calculate TVD = (1/2) × L¹ distance between frequency vectors
+   - Similarity = 1 - TVD
 3. **Output**: Similarity value in [0, 1]
 
 **Mathematical definition**:
@@ -78,15 +78,23 @@ $$\text{Similarity} = 1 - \frac{\sum_{c \in \text{AllCodons}} |f_1(c) - f_2(c)|}
 
 Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
 
-### Edge Cases (from sources)
+**Proven properties** (from TVD theory):
+- **Identity**: sim(s,s) = 1.0 (zero distance for identical distributions)
+- **Symmetry**: sim(a,b) = sim(b,a) (|x-y| = |y-x|)
+- **Range**: [0,1] (TVD of probability distributions ∈ [0,1])
+- **Disjoint → 0**: For non-overlapping codon sets, Σ|f₁-f₂| = 1+1 = 2, so sim = 0
+- **Partial overlap**: Analytically derivable for any input; e.g. 2/3 shared codons → sim = 2/3
+
+### Edge Cases (derived from TVD formula and standard practice)
 
 | Case | Expected Behavior | Source |
 |------|-------------------|--------|
-| Empty sequence | Empty dictionary / 0 similarity | Standard practice |
+| Empty sequence | Empty dictionary / 0 similarity | Convention: no data → 0 |
 | Incomplete final codon | Ignore trailing nucleotides | Kazusa, EMBOSS |
-| Identical sequences | Similarity = 1.0 | Mathematical definition |
-| No overlapping codons | Similarity = 0.0 | Mathematical definition |
-| T/U conversion | Convert DNA T to RNA U internally | Implementation note |
+| Identical sequences | Similarity = 1.0 | TVD = 0 for identical distributions |
+| Disjoint codons | Similarity = 0.0 | TVD = 1 for orthogonal distributions |
+| Partial overlap | Exact value derivable | TVD formula computation |
+| T/U conversion | Convert DNA T to RNA U internally | Biological equivalence |
 
 ## Test Data
 
@@ -101,18 +109,47 @@ Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
    - Input: "AUGGCUGCU" (M-A-A)
    - Expected: {"AUG": 1, "GCU": 2}
 
-2. **Identical sequence comparison**:
+2. **All 64 codons**:
+   - Input: concatenation of all 64 standard RNA codons
+   - Expected: 64 distinct keys, each with count 1
+
+3. **Identical sequence comparison**:
    - Input: seq1 = seq2 = "AUGGCUGCACUG"
    - Expected: Similarity = 1.0
 
-3. **Completely different codons**:
-   - Input: seq1 = "CUGCUGCUGCUG" (all CUG)
-   - Input: seq2 = "CUACUACUACUA" (all CUA)
-   - Expected: Similarity < 1.0 (no shared codons)
+4. **Partial overlap sim=0.5** (exact TVD derivation):
+   - seq1 = "CUGCUGCUGCUA" → f(CUG)=3/4, f(CUA)=1/4
+   - seq2 = "CUACUACUACUG" → f(CUA)=3/4, f(CUG)=1/4
+   - Σ|f₁-f₂| = 1/2 + 1/2 = 1 → Similarity = 0.5
 
-4. **Empty sequences**:
-   - Input: "", ""
-   - Expected: Similarity = 0 (no data)
+5. **Symmetry + exact sim=0.75** (TVD derivation):
+   - seq1 = "AUGAUGCCCUUU" → f(AUG)=1/2, f(CCC)=1/4, f(UUU)=1/4
+   - seq2 = "AUGUUUUUUCCC" → f(AUG)=1/4, f(UUU)=1/2, f(CCC)=1/4
+   - Σ = 1/4+0+1/4 = 1/2 → sim(a,b) = sim(b,a) = 0.75
+
+6. **High-difference sim=0.25** (TVD derivation):
+   - seq1 = "AUGAUGAUGAUG" → f(AUG)=1
+   - seq2 = "AUGCCCCCCCCC" → f(AUG)=1/4, f(CCC)=3/4
+   - Σ = 3/4+3/4 = 3/2 → Similarity = 0.25
+
+7. **Low-difference sim=0.75** (TVD derivation):
+   - seq1 = "AUGAUGAUGCCC" → f(AUG)=3/4, f(CCC)=1/4
+   - seq2 = "AUGAUGCCCCCC" → f(AUG)=1/2, f(CCC)=1/2
+   - Σ = 1/4+1/4 = 1/2 → Similarity = 0.75
+
+8. **Disjoint codons** (TVD derivation):
+   - seq1 = "UUUUUUUUU" (all UUU)
+   - seq2 = "GGGGGGGGG" (all GGG)
+   - Σ|f₁-f₂| = 1 + 1 = 2 → Similarity = 0.0
+
+9. **2/3 shared codons** (TVD derivation):
+   - seq1 = "AUGGCUAUG" → f(AUG)=2/3, f(GCU)=1/3
+   - seq2 = "AUGUUUAUG" → f(AUG)=2/3, f(UUU)=1/3
+   - Σ|f₁-f₂| = 0 + 1/3 + 1/3 = 2/3 → Similarity = 2/3
+
+10. **Empty sequences**:
+    - Input: "", ""
+    - Expected: Similarity = 0 (no data)
 
 ## Corner Cases
 
@@ -125,6 +162,18 @@ Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
 | Mixed case | Case-insensitive | Standard practice |
 | DNA (T) vs RNA (U) | Treat equivalently | Biological equivalence |
 
+## Kazusa Verification
+
+All predefined codon usage tables verified against Kazusa Codon Usage Database (March 2026):
+
+| Organism | Species ID | CDS Count | Codons | Status |
+|----------|-----------|-----------|--------|--------|
+| E. coli K12 (W3110) | 316407 | 4,332 | 1,372,057 | ✅ All 64 relative fractions match |
+| S. cerevisiae | 4932 | 14,411 | 6,534,504 | ✅ All 64 relative fractions match |
+| H. sapiens | 9606 | 93,487 | 40,662,582 | ✅ All 64 relative fractions match |
+
+Verification method: per-thousand frequencies from Kazusa converted to relative fractions per amino acid and compared with implementation values (2 decimal places).
+
 ## Implementation Notes
 
 ### Current Implementation Observations
@@ -135,16 +184,17 @@ Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
    - Returns counts, not frequencies
 
 2. `CompareCodonUsage`:
-   - Uses frequency-normalized comparison
+   - Uses TVD-based similarity: 1 - Σ|f₁-f₂|/2
    - Returns 0 for empty sequences (not NaN or exception)
-   - Calculates Manhattan distance-based similarity
+   - All expected values for test cases analytically derivable
 
-### Potential Testing Focus
+### Proven Test Properties
 
 1. **Invariant**: Sum of all codon counts = total codons in sequence
-2. **Range**: Similarity always in [0, 1]
-3. **Symmetry**: CompareCodonUsage(a, b) = CompareCodonUsage(b, a)
-4. **Identity**: CompareCodonUsage(a, a) = 1.0 (for non-empty)
+2. **Range**: Similarity always in [0, 1] (TVD ∈ [0,1] for probability distributions)
+3. **Symmetry**: CompareCodonUsage(a, b) = CompareCodonUsage(b, a) (|x-y| = |y-x|)
+4. **Identity**: CompareCodonUsage(a, a) = 1.0 (zero distance for identical distributions)
+5. **Disjoint → 0**: Proven via Σ|f₁-f₂| = 2 for orthogonal distributions
 
 ## Related Test Units
 
@@ -153,4 +203,4 @@ Where $f_i(c)$ is the frequency of codon $c$ in sequence $i$.
 - **CODON-RARE-001**: Identifies rare codons based on usage tables
 
 ## Last Updated
-2026-02-04
+2026-03-11
