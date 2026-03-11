@@ -119,7 +119,7 @@
 1. **Missing Values:**
    - Quality score "." → null/missing
    - ID "." → no identifier
-   - Filter "." → no filters applied (equivalent to PASS in some contexts)
+   - Filter "." → no filtering has been applied to the record (per GATK: "If the FILTER value is '.', then no filtering has been applied"). This is **not** equivalent to PASS. PASS means the record was evaluated and passed all filters.
    - INFO "." → no info fields
 
 2. **Multi-allelic Variants:**
@@ -134,10 +134,12 @@
    - Phased vs unphased: `0|1` vs `0/1`
    - Missing allele: `./0`, `0/.`, `./.`
    - Multi-allelic reference: `1/2` (both alleles are alternates)
+   - Missing allele "." in genotype → zygosity is indeterminate (neither het nor hom). Per Danecek 2011: "." represents missing data.
 
 5. **Symbolic Alleles:**
    - Structural variants: `<DEL>`, `<INS>`, `<DUP>`, `<INV>`, `<CNV>`
-   - Breakend notation: `]chr:pos]` or `[chr:pos[`
+   - Breakend notation (VCF 4.3 §5.4, all 4 forms): `]p]t`, `[p[t`, `t[p[`, `t]p]`
+   - Spanning deletion placeholder: `*` (VCF 4.3 §5.5) — classified as Symbolic
 
 6. **Malformed Records:**
    - Invalid position (non-integer) → skip record
@@ -233,9 +235,11 @@ Transversions (purine↔pyrimidine):
 
 1. **Position Invariant:** POS is always 1-based positive integer
 2. **Quality Invariant:** QUAL is non-negative when present, or null when "."
-3. **Filter Invariant:** PASS indicates no failed filters
+3. **Filter Invariant:** FILTER "PASS" = record evaluated and passed all filters. FILTER "." = no filtering applied (record unevaluated). These are distinct states per VCF 4.3 spec and GATK documentation.
 4. **Variant Length Invariant:** |len(ALT) - len(REF)| gives indel length
-5. **Ti/Tv Ratio Invariant:** Typically 2.0-2.1 for whole genome, ~3.0 for exome in humans
+5. **Ti/Tv Ratio Invariant:** Typically 2.0-2.1 for whole genome, ~3.0 for exome in humans. Ti/Tv ratio must account for all ALT alleles at multi-allelic sites, not just the first.
+6. **Missing Genotype Invariant:** Allele value "." in GT field = missing data (Danecek 2011). Zygosity (het/hom) is indeterminate when any allele is missing.
+7. **Spanning Deletion Invariant:** ALT value "*" = upstream deletion spanning this position (VCF 4.3 §5.5). Classified as Symbolic, not SNP/indel.
 
 ---
 
@@ -278,5 +282,6 @@ Tests validated against real-world VCF sources:
 ---
 
 ## Change History
+- **2026-03-11**: Spec-compliance audit — corrected 5 deviations: FILTER "." ≠ PASS distinction, missing allele zygosity, multi-allelic Ti/Tv, "*" spanning deletion, all 4 breakend forms. Updated Edge Cases, Invariants, and References sections.
 - **2026-02-05**: Added reference data tests from 1000 Genomes Project and ClinVar.
 - **2026-02-05**: Initial documentation.
