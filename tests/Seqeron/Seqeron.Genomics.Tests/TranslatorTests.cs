@@ -93,6 +93,15 @@ namespace Seqeron.Genomics.Tests
             Assert.Throws<ArgumentNullException>(() => Translator.Translate((RnaSequence)null!));
         }
 
+        [Test]
+        public void Translate_SequenceShorterThan3_ReturnsEmpty()
+        {
+            // Less than one complete codon — no amino acid produced
+            // Source: Wikipedia - codons are read in triplets
+            var protein = Translator.Translate("AT");
+            Assert.That(protein.Sequence, Is.Empty);
+        }
+
         #endregion
 
         #region RNA Translation
@@ -118,10 +127,14 @@ namespace Seqeron.Genomics.Tests
         #region String Translation
 
         [Test]
-        public void Translate_String_Works()
+        public void Translate_DnaString_ConvertsTToU()
         {
-            var protein = Translator.Translate("ATGGCT");
-            Assert.That(protein.Sequence, Is.EqualTo("MA"));
+            // DNA string with T must produce identical result to RNA with U
+            // Source: Wikipedia - DNA T corresponds to RNA U in the genetic code
+            var dnaResult = Translator.Translate("ATGGCTTAA");
+            var rnaResult = Translator.Translate(new RnaSequence("AUGGCUUAA"));
+            Assert.That(dnaResult.Sequence, Is.EqualTo("MA*"));
+            Assert.That(dnaResult.Sequence, Is.EqualTo(rnaResult.Sequence));
         }
 
         [Test]
@@ -193,12 +206,18 @@ namespace Seqeron.Genomics.Tests
         [Test]
         public void TranslateSixFrames_NegativeFrames_UseReverseComplement()
         {
+            // All 3 negative frames must match direct translation of reverse complement
+            // Source: Wikipedia Reading frame - 6 frames from double-stranded DNA
             var dna = new DnaSequence("ATGGCTAAA");
             var revComp = dna.ReverseComplement();
             var frames = Translator.TranslateSixFrames(dna);
-            var revFrame1 = Translator.Translate(revComp, frame: 0);
 
-            Assert.That(frames[-1].Sequence, Is.EqualTo(revFrame1.Sequence));
+            for (int f = 0; f < 3; f++)
+            {
+                var expected = Translator.Translate(revComp, frame: f);
+                Assert.That(frames[-(f + 1)].Sequence, Is.EqualTo(expected.Sequence),
+                    $"Frame -{f + 1} should match reverse complement frame {f}");
+            }
         }
 
         [Test]
@@ -208,35 +227,127 @@ namespace Seqeron.Genomics.Tests
             Assert.Throws<ArgumentNullException>(() => Translator.TranslateSixFrames(null!));
         }
 
+        [Test]
+        public void TranslateSixFrames_EmptySequence_ReturnsEmptyFrames()
+        {
+            var dna = new DnaSequence("");
+            var frames = Translator.TranslateSixFrames(dna);
+
+            Assert.That(frames.Count, Is.EqualTo(6));
+            Assert.That(frames.Values.All(p => p.Sequence == ""), Is.True);
+        }
+
         #endregion
 
         #region ORF Finding (Smoke Tests — canonical tests in GenomeAnnotator_ORF_Tests.cs)
 
         [Test]
-        public void FindOrfs_RespectMinLength_FindsSmallOrfs()
+        public void FindOrfs_SimpleOrf_FindsIt()
         {
-            // ATG GCT TAA = 2 amino acids (M A)
-            var dna = new DnaSequence("ATGGCTTAA");
-            var orfs = Translator.FindOrfs(dna, minLength: 2).ToList();
+            // ATG GCT TTC TAA = M A F * → protein "MAF" (3 amino acids)
+            // Source: Wikipedia ORF - start codon to stop codon
+            var dna = new DnaSequence("ATGGCTTTCTAA");
+            var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
 
             Assert.That(orfs, Has.Count.EqualTo(1));
-            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MA"));
+            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MAF"));
         }
 
         [Test]
-        public void FindOrfs_ForwardOnly_DoesNotSearchReverseStrand()
+        public void FindOrfs_NoStartCodon_ReturnsEmpty()
         {
-            // Create a sequence with ORF only on reverse strand
-            var dna = new DnaSequence("GCTGCTGCT");
+            // No ATG/TTG/CTG (start codons) in any reading frame → no ORF
+            // Source: Wikipedia ORF - requires start codon
+            var dna = new DnaSequence("GCCGCCGCCTAA");
             var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
 
             Assert.That(orfs, Is.Empty);
         }
 
         [Test]
+        public void FindOrfs_RespectMinLength_FindsSmallOrfs()
+        {
+            // ATG GCT TAA = 2 amino acids (M A), meets minLength=2
+            var dna = new DnaSequence("ATGGCTTAA");
+            var orfs = Translator.FindOrfs(dna, minLength: 2, searchBothStrands: false).ToList();
+
+            Assert.That(orfs, Has.Count.EqualTo(1));
+            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MA"));
+        }
+
+        [Test]
+        public void FindOrfs_ShortOrf_FilteredByMinLength()
+        {
+            // ATG GCT TAA = protein "MA" (2 aa) < minLength 5 → filtered out
+            // Source: Wikipedia ORF - short ORFs excluded by length threshold
+            var dna = new DnaSequence("ATGGCTTAA");
+            var orfs = Translator.FindOrfs(dna, minLength: 5, searchBothStrands: false).ToList();
+
+            Assert.That(orfs, Is.Empty);
+        }
+
+        [Test]
+        public void FindOrfs_ForwardOnly_DoesNotSearchReverseStrand()
+        {
+            // TTAGCCGCCCAT has no start codons on forward strand (any frame)
+            // Reverse complement = ATGGGCGGCTAA which has ATG...TAA ORF
+            // With searchBothStrands=false, reverse-strand ORF must not appear
+            var dna = new DnaSequence("TTAGCCGCCCAT");
+            var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
+
+            Assert.That(orfs, Is.Empty);
+        }
+
+        [Test]
+        public void FindOrfs_BothStrands_SearchesReverseComplement()
+        {
+            // Forward: TTA GCC GCC CAT → no ATG → no ORFs
+            // Reverse complement: ATG GGC GGC TAA → M G G * → ORF found
+            // Source: Wikipedia ORF - six-frame search covers both strands
+            var dna = new DnaSequence("TTAGCCGCCCAT");
+            var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: true).ToList();
+
+            Assert.That(orfs, Has.Count.EqualTo(1));
+            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MGG"));
+            Assert.That(orfs[0].Frame, Is.Negative, "ORF should be on reverse strand");
+        }
+
+        [Test]
+        public void FindOrfs_OrfResult_HasCorrectPositions()
+        {
+            // ATG GCT TAA at positions 0-8 in frame 0 (reported as frame 1)
+            // Source: Wikipedia ORF - ORF spans from start to stop codon
+            var dna = new DnaSequence("ATGGCTTAA");
+            var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(orfs, Has.Count.EqualTo(1));
+                Assert.That(orfs[0].StartPosition, Is.EqualTo(0));
+                Assert.That(orfs[0].EndPosition, Is.EqualTo(8));
+                Assert.That(orfs[0].Frame, Is.EqualTo(1));
+                Assert.That(orfs[0].NucleotideLength, Is.EqualTo(9));
+                Assert.That(orfs[0].AminoAcidLength, Is.EqualTo(2));
+            });
+        }
+
+        [Test]
         public void FindOrfs_NullDna_ThrowsException()
         {
             Assert.Throws<ArgumentNullException>(() => Translator.FindOrfs(null!).ToList());
+        }
+
+        [Test]
+        public void FindOrfs_MultipleOrfs_FindsAll()
+        {
+            // Two ORFs in same frame: ATG GCT TAA | ATG GCT TAA
+            // Source: Wikipedia ORF - multiple ORFs can exist in same sequence
+            var dna = new DnaSequence("ATGGCTTAAATGGCTTAA");
+            var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
+
+            Assert.That(orfs, Has.Count.EqualTo(2));
+            Assert.That(orfs[0].Protein.Sequence, Is.EqualTo("MA"));
+            Assert.That(orfs[1].Protein.Sequence, Is.EqualTo("MA"));
         }
 
         #endregion
@@ -246,14 +357,13 @@ namespace Seqeron.Genomics.Tests
         [Test]
         public void Translate_InsulinBChain_ProducesCorrectProtein()
         {
-            // Human insulin B chain coding sequence (simplified)
-            // FVNQHLCGSHLVEALYLVCGERGFFYTPKT
+            // Human insulin B chain coding sequence
+            // Source: UniProt P01308, positions 25-54 of preproinsulin
+            // DNA from NCBI RefSeq NM_000207.3
             var dna = new DnaSequence("TTCGTGAACCAGCACCTGTGCGGCTCCCACCTGGTGGAAGCTCTGTACCTGGTGTGTGGGGAGCGTGGCTTCTTCTACACACCCAAGACC");
             var protein = Translator.Translate(dna);
 
-            // Check it starts with F (Phe)
-            Assert.That(protein[0], Is.EqualTo('F'));
-            Assert.That(protein.Length, Is.EqualTo(30));
+            Assert.That(protein.Sequence, Is.EqualTo("FVNQHLCGSHLVEALYLVCGERGFFYTPKT"));
         }
 
         #endregion

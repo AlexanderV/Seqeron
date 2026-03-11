@@ -58,12 +58,25 @@
 
 **Key Information:**
 - Multiple translation tables exist for different organisms
-- Standard code (Table 1): Universal genetic code
-- Vertebrate Mitochondrial (Table 2): Different stop/start codons
-- Yeast Mitochondrial (Table 3): CUx codons encode Threonine
-- Bacterial/Archaeal/Plant Plastid (Table 11): Alternative start codons
+- Standard code (Table 1): Universal genetic code; start codons AUG, UUG, CUG; stop codons UAA, UAG, UGA
+- Vertebrate Mitochondrial (Table 2): AUA→M, UGA→W, AGA→*, AGG→*; start codons AUG, AUA, AUU, AUC, GUG; stop codons UAA, UAG, AGA, AGG
+- Yeast Mitochondrial (Table 3): CUU/CUC/CUA/CUG→T, AUA→M, UGA→W; start codons AUG, AUA, GUG; stop codons UAA, UAG
+- Bacterial/Archaeal/Plant Plastid (Table 11): Same amino acid translation as standard; start codons AUG, GUG, UUG, CUG, AUU, AUC, AUA; stop codons UAA, UAG, UGA
 
 **Relevance:** Documents alternative genetic codes that should be supported in translation.
+
+---
+
+### 5. UniProt P01308 — Human Insulin
+**URL:** https://www.uniprot.org/uniprot/P01308
+
+**Key Information:**
+- Human preproinsulin is 110 amino acids: `MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN`
+- B chain (positions 25–54): `FVNQHLCGSHLVEALYLVCGERGFFYTPKT` (30 amino acids)
+- Gene: INS, Chromosome 11
+- Organism: Homo sapiens
+
+**Relevance:** Provides verified biological protein sequence for translation correctness test.
 
 ---
 
@@ -116,9 +129,9 @@ Six-Frame Translation:
 
 ### Known Biological Sequences
 ```
-Human Insulin B Chain (partial):
-- DNA: TTCGTGAACCAGCACCTGTGC...
-- Protein starts with: F (Phenylalanine)
+Human Insulin B Chain (UniProt P01308, positions 25–54):
+- DNA: TTCGTGAACCAGCACCTGTGCGGCTCCCACCTGGTGGAAGCTCTGTACCTGGTGTGTGGGGAGCGTGGCTTCTTCTACACACCCAAGACC
+- Protein: FVNQHLCGSHLVEALYLVCGERGFFYTPKT
 - Length: 30 amino acids
 ```
 
@@ -138,11 +151,28 @@ Based on code review:
 
 ---
 
+## Verification Methodology
+
+All four implemented genetic code tables were verified codon-by-codon against the NCBI Genetic Codes page (https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi, last update Sep. 23, 2024). Verification method:
+
+1. Each NCBI table encodes 64 codons in the AAs line using the positional encoding:
+   - Base1: T×16, C×16, A×16, G×16
+   - Base2: (TTTTCCCCAAAAGGGG)×4
+   - Base3: (TCAG)×16
+2. All 64 codon→amino acid mappings in `CreateStandardCodonTable()` match NCBI Table 1.
+3. Differences applied in Tables 2, 3, 11 match the NCBI "Differences from the Standard Code" sections.
+4. Start and stop codon sets for each table match the NCBI Starts/AAs lines.
+
+Insulin B chain test data verified against UniProt P01308 (Homo sapiens preproinsulin, Swiss-Prot reviewed entry).
+
+---
+
 ## References
 
 1. Wikipedia contributors. "Translation (biology)." Wikipedia, The Free Encyclopedia.
 2. Wikipedia contributors. "Reading frame." Wikipedia, The Free Encyclopedia.
 3. Wikipedia contributors. "Open reading frame." Wikipedia, The Free Encyclopedia.
-4. Elzanowski, A. & Ostell, J. "The Genetic Codes." NCBI Taxonomy Group.
-5. Lodish H, et al. (2007). Molecular Cell Biology, 6th ed.
-6. Pierce BC (2012). Genetics: A Conceptual Approach.
+4. Elzanowski, A. & Ostell, J. "The Genetic Codes." NCBI Taxonomy Group. Last updated Sep. 23, 2024.
+5. UniProt Consortium. "P01308 · INS_HUMAN." UniProt Knowledgebase (Swiss-Prot).
+6. Lodish H, et al. (2007). Molecular Cell Biology, 6th ed.
+7. Pierce BC (2012). Genetics: A Conceptual Approach.
