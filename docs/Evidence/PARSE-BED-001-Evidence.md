@@ -143,31 +143,25 @@ Per UCSC: "chromStart=0, chromEnd=0 to represent an insertion before the first n
 
 ---
 
-## 6. Implementation-Specific Notes
+## 6. Implementation Notes
 
-### Current Implementation (BedParser.cs)
-- Supports BED3-BED12 with auto-detection
-- Score clamping to 0-1000 range
-- Header line skipping (track, browser, #)
-- Both tab and space delimiters
-- GenomicInterval record for interval operations
-- MergeOverlapping, Intersect, Subtract operations
-- ExpandIntervals with strand-aware upstream/downstream
-- BED12 block operations (ExpandBlocks, GetIntrons, GetTotalBlockLength)
-- Statistics calculation
-- Coverage depth calculation
+### Validation Rules Enforced (per UCSC FAQ)
+| Rule | Source Quote | Implementation |
+|------|-------------|----------------|
+| chromStart ≤ chromEnd | "chromStart and chromEnd can be identical, creating a feature of length 0" | `ParseLine` returns null if chromStart > chromEnd |
+| Score range [0, 1000] | "A score between 0 and 1000" | `Math.Clamp(s, 0, 1000)` |
+| Strand values | "Either '.' (=no strand) or '+' or '-'" | Only +/-/. accepted |
+| Column consistency | "The number of fields per line must be consistent" | Auto mode enforces first-line column count |
+| First blockStart = 0 | "the first blockStart value must be 0" | Rejects lines where blockStarts[0] ≠ 0 |
+| Final block reaches end | "final blockStart position plus the final blockSize value must equal chromEnd" | Rejects lines where last block doesn't reach feature end |
+| No block overlap | "Blocks may not overlap" | Rejects lines where blockStarts[i] < blockStarts[i-1] + blockSizes[i-1] |
+| blockCount matches arrays | "number of items in this list should correspond to blockCount" | Rejects lines where array lengths ≠ blockCount |
 
 ---
 
-## 7. Test Coverage
+## 7. Deviations and Assumptions
 
-### Reference Data Tests (Added 2026-02-05)
-Tests validated against UCSC Genome Browser specification:
-- `Parse_UcscBedSpecification_ZeroBasedCoordinates` - validates 0-based start coordinates
-- `Parse_UcscBed12Format_GeneStructure` - validates BED12 gene/exon structure
-- `Parse_UcscBedFormat_ZeroLengthFeature` - validates insertion point representation
-- `Parse_UcscBedFormat_ScoreRange` - validates score clamping 0-1000
-- `Parse_UcscBedFormat_StrandField` - validates strand notation (+/-/.)
+**None.** All parsing rules are directly derived from UCSC FAQ and Wikipedia.
 
 ---
 
@@ -177,9 +171,4 @@ Tests validated against UCSC Genome Browser specification:
 2. UCSC Genome Browser FAQ - Data File Formats. https://genome.ucsc.edu/FAQ/FAQformat.html
 3. Quinlan AR, Hall IM (2010). BEDTools: a flexible suite of utilities for comparing genomic features. Bioinformatics. 26(6): 841-842.
 4. GA4GH BED v1.0 Specification (2021). https://samtools.github.io/hts-specs/BEDv1.pdf
-
----
-
-## Change History
-- **2026-02-05**: Added reference data tests with UCSC Genome Browser validation.
-- **2026-02-05**: Initial documentation.
+5. Wikipedia - BED (file format). https://en.wikipedia.org/wiki/BED_(file_format)

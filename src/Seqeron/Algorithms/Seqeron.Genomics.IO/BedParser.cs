@@ -117,6 +117,7 @@ public static class BedParser
     public static IEnumerable<BedRecord> Parse(TextReader reader, BedFormat format = BedFormat.Auto)
     {
         string? line;
+        int? expectedFieldCount = null;
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -130,10 +131,29 @@ public static class BedParser
             if (line.StartsWith('#'))
                 continue;
 
+            // Per UCSC/Wikipedia: "number of fields per line must be consistent"
+            if (format == BedFormat.Auto)
+            {
+                int fieldCount = CountFields(line);
+                if (fieldCount < 3)
+                    continue;
+                expectedFieldCount ??= fieldCount;
+                if (fieldCount != expectedFieldCount)
+                    continue;
+            }
+
             var record = ParseLine(line, format);
             if (record.HasValue)
                 yield return record.Value;
         }
+    }
+
+    private static int CountFields(string line)
+    {
+        var fields = line.Split('\t');
+        if (fields.Length >= 3)
+            return fields.Length;
+        return line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
     }
 
     private static BedRecord? ParseLine(string line, BedFormat format)
@@ -153,6 +173,10 @@ public static class BedParser
         if (!int.TryParse(fields[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int chromStart))
             return null;
         if (!int.TryParse(fields[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int chromEnd))
+            return null;
+
+        // Per UCSC spec: chromStart <= chromEnd (zero-length OK for insertions)
+        if (chromStart > chromEnd)
             return null;
 
         // Parse optional fields
@@ -188,9 +212,36 @@ public static class BedParser
         {
             if (int.TryParse(fields[9], out int bc))
             {
+                var sizes = ParseIntList(fields[10]);
+                var starts = ParseIntList(fields[11]);
+
+                // Per UCSC spec: blockCount must match array lengths
+                if (sizes.Length != bc || starts.Length != bc)
+                    return null;
+
+                if (bc > 0)
+                {
+                    // Per UCSC spec: first blockStart must be 0
+                    if (starts[0] != 0)
+                        return null;
+
+                    int featureLength = chromEnd - chromStart;
+
+                    // Per UCSC spec: final blockStart + final blockSize must equal chromEnd - chromStart
+                    if (starts[bc - 1] + sizes[bc - 1] != featureLength)
+                        return null;
+
+                    // Per UCSC spec: blocks may not overlap
+                    for (int i = 1; i < bc; i++)
+                    {
+                        if (starts[i] < starts[i - 1] + sizes[i - 1])
+                            return null;
+                    }
+                }
+
                 blockCount = bc;
-                blockSizes = ParseIntList(fields[10]);
-                blockStarts = ParseIntList(fields[11]);
+                blockSizes = sizes;
+                blockStarts = starts;
             }
         }
 

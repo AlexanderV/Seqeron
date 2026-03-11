@@ -49,10 +49,26 @@ chr1	300	400	feature2";
     {
         var records = BedParser.Parse(SimpleBed6).ToList();
 
-        Assert.That(records, Has.Count.EqualTo(3));
-        Assert.That(records[0].Name, Is.EqualTo("feature1"));
-        Assert.That(records[0].Score, Is.EqualTo(500));
-        Assert.That(records[0].Strand, Is.EqualTo('+'));
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(3));
+
+            Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[0].ChromStart, Is.EqualTo(100));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(200));
+            Assert.That(records[0].Name, Is.EqualTo("feature1"));
+            Assert.That(records[0].Score, Is.EqualTo(500));
+            Assert.That(records[0].Strand, Is.EqualTo('+'), "'+' is valid strand per UCSC FAQ");
+
+            Assert.That(records[1].Name, Is.EqualTo("feature2"));
+            Assert.That(records[1].Score, Is.EqualTo(800));
+            Assert.That(records[1].Strand, Is.EqualTo('-'), "'-' is valid strand per UCSC FAQ");
+
+            Assert.That(records[2].Chrom, Is.EqualTo("chr2"));
+            Assert.That(records[2].Name, Is.EqualTo("feature3"));
+            Assert.That(records[2].Score, Is.EqualTo(300));
+            Assert.That(records[2].Strand, Is.EqualTo('.'), "'.' means no strand per UCSC FAQ");
+        });
     }
 
     [Test]
@@ -60,10 +76,19 @@ chr1	300	400	feature2";
     {
         var records = BedParser.Parse(SimpleBed12).ToList();
 
-        Assert.That(records, Has.Count.EqualTo(1));
-        Assert.That(records[0].BlockCount, Is.EqualTo(3));
-        Assert.That(records[0].BlockSizes, Has.Length.EqualTo(3));
-        Assert.That(records[0].BlockStarts, Has.Length.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[0].ChromStart, Is.EqualTo(1000));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(5000));
+            Assert.That(records[0].Name, Is.EqualTo("gene1"));
+            Assert.That(records[0].Score, Is.EqualTo(900));
+            Assert.That(records[0].Strand, Is.EqualTo('+'));
+            Assert.That(records[0].BlockCount, Is.EqualTo(3));
+            Assert.That(records[0].BlockSizes, Is.EqualTo(new[] { 100, 200, 300 }));
+            Assert.That(records[0].BlockStarts, Is.EqualTo(new[] { 0, 1000, 3700 }));
+        });
     }
 
     [Test]
@@ -77,6 +102,16 @@ chr1	300	400	feature2";
     public void Parse_NullContent_ReturnsEmpty()
     {
         var records = BedParser.Parse((string)null!).ToList();
+        Assert.That(records, Is.Empty);
+    }
+
+    /// <summary>
+    /// Evidence: Whitespace-only input should produce no records.
+    /// </summary>
+    [Test]
+    public void Parse_WhitespaceOnly_ReturnsEmpty()
+    {
+        var records = BedParser.Parse("   \t  \n  \n  ").ToList();
         Assert.That(records, Is.Empty);
     }
 
@@ -175,6 +210,18 @@ chr1	100	200";
         Assert.That(plusStrand[0].Name, Is.EqualTo("feature1"));
     }
 
+    /// <summary>
+    /// Evidence: Invalid strand character should match no records.
+    /// </summary>
+    [Test]
+    public void FilterByStrand_InvalidStrand_NoMatch()
+    {
+        var records = BedParser.Parse(SimpleBed6).ToList();
+        var result = BedParser.FilterByStrand(records, 'x').ToList();
+
+        Assert.That(result, Is.Empty);
+    }
+
     [Test]
     public void FilterByLength_FiltersCorrectly()
     {
@@ -260,6 +307,48 @@ chr1	400	500";
         Assert.That(merged[0].ChromEnd, Is.EqualTo(250)); // Merged
     }
 
+    /// <summary>
+    /// Evidence: BEDTools merge — adjacent (touching) intervals are merged.
+    /// Per implementation: next.ChromStart &lt;= current.ChromEnd merges touching boundaries.
+    /// </summary>
+    [Test]
+    public void MergeOverlapping_AdjacentIntervals_Merged()
+    {
+        // [100,200) and [200,300) are adjacent — should merge to [100,300)
+        const string bed = @"chr1	100	200
+chr1	200	300";
+
+        var records = BedParser.Parse(bed).ToList();
+        var merged = BedParser.MergeOverlapping(records).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Has.Count.EqualTo(1), "Adjacent intervals should merge");
+            Assert.That(merged[0].ChromStart, Is.EqualTo(100));
+            Assert.That(merged[0].ChromEnd, Is.EqualTo(300));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: BEDTools merge — only same-chromosome intervals are merged.
+    /// </summary>
+    [Test]
+    public void MergeOverlapping_DifferentChromosomes_NotMerged()
+    {
+        const string bed = @"chr1	100	200
+chr2	100	200";
+
+        var records = BedParser.Parse(bed).ToList();
+        var merged = BedParser.MergeOverlapping(records).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(merged, Has.Count.EqualTo(2), "Different chromosomes should not merge");
+            Assert.That(merged[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(merged[1].Chrom, Is.EqualTo("chr2"));
+        });
+    }
+
     [Test]
     public void Intersect_ReturnsIntersections()
     {
@@ -274,6 +363,23 @@ chr1	400	500";
         Assert.That(intersections, Has.Count.EqualTo(1));
         Assert.That(intersections[0].ChromStart, Is.EqualTo(200));
         Assert.That(intersections[0].ChromEnd, Is.EqualTo(300));
+    }
+
+    /// <summary>
+    /// Evidence: BEDTools intersect — no overlap returns empty.
+    /// </summary>
+    [Test]
+    public void Intersect_NoOverlap_ReturnsEmpty()
+    {
+        const string bedA = @"chr1	100	200";
+        const string bedB = @"chr1	300	400";
+
+        var a = BedParser.Parse(bedA).ToList();
+        var b = BedParser.Parse(bedB).ToList();
+
+        var intersections = BedParser.Intersect(a, b).ToList();
+
+        Assert.That(intersections, Is.Empty);
     }
 
     [Test]
@@ -322,15 +428,6 @@ chr1	400	500";
     #region Block Operations Tests
 
     [Test]
-    public void ExpandBlocks_ExpandsBED12()
-    {
-        var records = BedParser.Parse(SimpleBed12).ToList();
-        var expanded = BedParser.ExpandBlocks(records[0]).ToList();
-
-        Assert.That(expanded, Has.Count.EqualTo(3));
-    }
-
-    [Test]
     public void GetTotalBlockLength_CalculatesCorrectly()
     {
         var records = BedParser.Parse(SimpleBed12).ToList();
@@ -342,10 +439,20 @@ chr1	400	500";
     [Test]
     public void GetIntrons_ReturnsIntronRegions()
     {
+        // SimpleBed12: blocks at 0,1000,3700 sizes 100,200,300 from chromStart 1000
+        // Intron 1: end of block 0 (1100) to start of block 1 (2000)
+        // Intron 2: end of block 1 (2200) to start of block 2 (4700)
         var records = BedParser.Parse(SimpleBed12).ToList();
         var introns = BedParser.GetIntrons(records[0]).ToList();
 
-        Assert.That(introns, Has.Count.EqualTo(2)); // 3 blocks = 2 introns
+        Assert.Multiple(() =>
+        {
+            Assert.That(introns, Has.Count.EqualTo(2));
+            Assert.That(introns[0].ChromStart, Is.EqualTo(1100), "Intron 1 start");
+            Assert.That(introns[0].ChromEnd, Is.EqualTo(2000), "Intron 1 end");
+            Assert.That(introns[1].ChromStart, Is.EqualTo(2200), "Intron 2 start");
+            Assert.That(introns[1].ChromEnd, Is.EqualTo(4700), "Intron 2 end");
+        });
     }
 
     #endregion
@@ -394,10 +501,15 @@ chr1	400	500";
         using var writer = new StringWriter();
 
         BedParser.WriteToStream(writer, records, BedParser.BedFormat.BED6);
-        var output = writer.ToString();
+        var lines = writer.ToString().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.That(output, Does.Contain("chr1"));
-        Assert.That(output, Does.Contain("feature1"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(lines, Has.Length.EqualTo(3));
+            Assert.That(lines[0], Is.EqualTo("chr1\t100\t200\tfeature1\t500\t+"));
+            Assert.That(lines[1], Is.EqualTo("chr1\t300\t400\tfeature2\t800\t-"));
+            Assert.That(lines[2], Is.EqualTo("chr2\t500\t600\tfeature3\t300\t."));
+        });
     }
 
     [Test]
@@ -411,9 +523,19 @@ chr1	400	500";
 
         var parsed = BedParser.Parse(output).ToList();
 
-        Assert.That(parsed.Count, Is.EqualTo(original.Count));
-        Assert.That(parsed[0].Chrom, Is.EqualTo(original[0].Chrom));
-        Assert.That(parsed[0].ChromStart, Is.EqualTo(original[0].ChromStart));
+        Assert.Multiple(() =>
+        {
+            Assert.That(parsed.Count, Is.EqualTo(original.Count));
+            for (int i = 0; i < original.Count; i++)
+            {
+                Assert.That(parsed[i].Chrom, Is.EqualTo(original[i].Chrom), $"Record {i} Chrom");
+                Assert.That(parsed[i].ChromStart, Is.EqualTo(original[i].ChromStart), $"Record {i} ChromStart");
+                Assert.That(parsed[i].ChromEnd, Is.EqualTo(original[i].ChromEnd), $"Record {i} ChromEnd");
+                Assert.That(parsed[i].Name, Is.EqualTo(original[i].Name), $"Record {i} Name");
+                Assert.That(parsed[i].Score, Is.EqualTo(original[i].Score), $"Record {i} Score");
+                Assert.That(parsed[i].Strand, Is.EqualTo(original[i].Strand), $"Record {i} Strand");
+            }
+        });
     }
 
     #endregion
@@ -446,7 +568,14 @@ chr1	150	250";
         var records = BedParser.Parse(bed).ToList();
         var coverage = BedParser.CalculateCoverage(records, "chr1", 100, 250).ToList();
 
-        Assert.That(coverage.Count, Is.GreaterThan(0));
+        // [100,150): depth 1, [150,200): depth 2, [200,250): depth 1
+        Assert.Multiple(() =>
+        {
+            Assert.That(coverage, Has.Count.EqualTo(3));
+            Assert.That(coverage[0], Is.EqualTo((100, 1)), "Single-coverage region");
+            Assert.That(coverage[1], Is.EqualTo((150, 2)), "Overlap region depth 2");
+            Assert.That(coverage[2], Is.EqualTo((200, 1)), "Single-coverage region after overlap");
+        });
     }
 
     [Test]
@@ -463,12 +592,14 @@ chr1	150	250";
     [Test]
     public void ExtractSequence_MinusStrand_ReturnsReverseComplement()
     {
+        // Use non-palindromic sequence: RC(AACG) = CGTT
+        // Reverse: GCAA → Complement: CGTT
         var record = new BedParser.BedRecord("chr1", 0, 4, null, null, '-');
-        var reference = "ACGT";
+        var reference = "AACG";
 
         var sequence = BedParser.ExtractSequence(record, reference);
 
-        Assert.That(sequence, Is.EqualTo("ACGT")); // RC of ACGT is ACGT
+        Assert.That(sequence, Is.EqualTo("CGTT"));
     }
 
     #endregion
@@ -481,7 +612,13 @@ chr1	150	250";
         const string bed = "chr1 100 200";
         var records = BedParser.Parse(bed).ToList();
 
-        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[0].ChromStart, Is.EqualTo(100));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(200));
+        });
     }
 
     [Test]
@@ -502,6 +639,56 @@ chr1	100	200";
 
         var records = BedParser.Parse(bed).ToList();
         Assert.That(records, Has.Count.EqualTo(1));
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - chromStart and chromEnd define valid intervals.
+    /// chromStart > chromEnd is not valid BED data.
+    /// </summary>
+    [Test]
+    public void Parse_ChromStartGreaterThanChromEnd_SkipsLine()
+    {
+        const string bed = "chr1\t200\t100\tinvalid\nchr1\t100\t200\tvalid";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1), "Invalid line should be skipped");
+            Assert.That(records[0].Name, Is.EqualTo("valid"));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ + Wikipedia - "number of fields per line must be consistent
+    /// throughout any single set of data in an annotation track".
+    /// Wikipedia: "Each row of a file must have the same number of columns."
+    /// </summary>
+    [Test]
+    public void Parse_MixedColumnCounts_OnlyConsistentColumnsAccepted()
+    {
+        // First data line is BED6 (6 columns), so BED3 lines are skipped
+        const string bed = "chr1\t100\t200\tname1\t500\t+\nchr2\t300\t400\nchr3\t500\t600\tname3\t700\t-";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(2), "Only BED6 lines should be accepted");
+            Assert.That(records[0].Chrom, Is.EqualTo("chr1"));
+            Assert.That(records[1].Chrom, Is.EqualTo("chr3"));
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "A score between 0 and 1000".
+    /// Negative scores should be clamped to 0.
+    /// </summary>
+    [Test]
+    public void Parse_Score_NegativeValue_ClampedToZero()
+    {
+        const string bed = "chr1\t100\t200\tname\t-50\t+";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.That(records[0].Score, Is.EqualTo(0), "Negative score clamped to 0 per UCSC spec");
     }
 
     #endregion
@@ -699,6 +886,115 @@ chr1	100	200";
         });
     }
 
+    /// <summary>
+    /// Evidence: UCSC FAQ - "the first blockStart value must be 0"
+    /// Invalid BED12 lines where first blockStart != 0 must be rejected.
+    /// </summary>
+    [Test]
+    public void Parse_BED12_InvalidFirstBlockStart_SkipsLine()
+    {
+        // First blockStart is 100 instead of 0 — invalid per UCSC spec
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,300\t100,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.That(records, Is.Empty, "Line with first blockStart != 0 should be rejected");
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "number of items in this list should correspond to blockCount"
+    /// Invalid BED12 lines where blockCount mismatches array lengths must be rejected.
+    /// </summary>
+    [Test]
+    public void Parse_BED12_BlockCountMismatch_SkipsLine()
+    {
+        // blockCount=3 but only 2 items in blockSizes/blockStarts
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200\t0,1000";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.That(records, Is.Empty, "Line with mismatched blockCount should be rejected");
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "final blockStart position plus the final blockSize value must equal chromEnd"
+    /// (relative to chromStart). Lines where final block doesn't reach chromEnd must be rejected.
+    /// </summary>
+    [Test]
+    public void Parse_BED12_FinalBlockDoesNotReachEnd_SkipsLine()
+    {
+        // Final block: starts at 3700, size 200 → 3900 != 4000 (chromEnd - chromStart)
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t100,200,200\t0,1000,3700";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.That(records, Is.Empty, "Line where final block doesn't reach chromEnd should be rejected");
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ - "Blocks may not overlap"
+    /// Lines with overlapping blocks must be rejected.
+    /// </summary>
+    [Test]
+    public void Parse_BED12_OverlappingBlocks_SkipsLine()
+    {
+        // Block 1: start=0, size=500 → ends at 500
+        // Block 2: start=400, size=100 → starts at 400 < 500 — overlap!
+        // Block 3: start=3700, size=300 → ends at 4000 = featureLength
+        const string bed = "chr1\t1000\t5000\tgene1\t900\t+\t1100\t4900\t0\t3\t500,100,300\t0,400,3700";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.That(records, Is.Empty, "Line with overlapping blocks should be rejected");
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ example data - validates that valid UCSC BED12 lines are accepted.
+    /// Data: "chr22 1000 5000 cloneA 960 + 1000 5000 0 2 567,488, 0,3512"
+    /// </summary>
+    [Test]
+    public void Parse_UcscExampleBed12_CloneA_ValidAndAccepted()
+    {
+        // Exact data from UCSC FAQ BED12 example
+        const string bed = "chr22\t1000\t5000\tcloneA\t960\t+\t1000\t5000\t0\t2\t567,488\t0,3512";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].Chrom, Is.EqualTo("chr22"));
+            Assert.That(records[0].ChromStart, Is.EqualTo(1000));
+            Assert.That(records[0].ChromEnd, Is.EqualTo(5000));
+            Assert.That(records[0].Name, Is.EqualTo("cloneA"));
+            Assert.That(records[0].Score, Is.EqualTo(960));
+            Assert.That(records[0].Strand, Is.EqualTo('+'));
+            Assert.That(records[0].BlockCount, Is.EqualTo(2));
+            Assert.That(records[0].BlockSizes, Is.EqualTo(new[] { 567, 488 }));
+            Assert.That(records[0].BlockStarts, Is.EqualTo(new[] { 0, 3512 }));
+            // Verify block constraints: 3512 + 488 = 4000 = 5000 - 1000
+            Assert.That(records[0].BlockStarts![1] + records[0].BlockSizes![1],
+                Is.EqualTo(records[0].Length), "Final block must reach feature end");
+        });
+    }
+
+    /// <summary>
+    /// Evidence: UCSC FAQ example data - second example line.
+    /// Data: "chr22 2000 6000 cloneB 900 - 2000 6000 0 2 433,399, 0,3601"
+    /// </summary>
+    [Test]
+    public void Parse_UcscExampleBed12_CloneB_ValidAndAccepted()
+    {
+        const string bed = "chr22\t2000\t6000\tcloneB\t900\t-\t2000\t6000\t0\t2\t433,399\t0,3601";
+        var records = BedParser.Parse(bed).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records, Has.Count.EqualTo(1));
+            Assert.That(records[0].Name, Is.EqualTo("cloneB"));
+            Assert.That(records[0].Strand, Is.EqualTo('-'));
+            Assert.That(records[0].BlockCount, Is.EqualTo(2));
+            // Verify: 3601 + 399 = 4000 = 6000 - 2000
+            Assert.That(records[0].BlockStarts![1] + records[0].BlockSizes![1],
+                Is.EqualTo(records[0].Length));
+        });
+    }
+
     #endregion
 
     #region GenomicInterval Tests
@@ -772,34 +1068,6 @@ chr1	100	200";
     #region Reference Data Validation Tests - UCSC Genome Browser
 
     /// <summary>
-    /// Validates BED format parsing against UCSC Genome Browser specification.
-    /// Source: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
-    /// 
-    /// UCSC BED format specification:
-    /// - Coordinates are 0-based, half-open [start, end)
-    /// - Fields are tab-separated
-    /// - Score is clamped to [0, 1000]
-    /// - BED12 blockStarts are relative to chromStart
-    /// </summary>
-    [Test]
-    public void Parse_UcscBedSpecification_ZeroBasedCoordinates()
-    {
-        // UCSC BED format uses 0-based coordinates
-        // The first 100 bases of chr1 would be: chr1 0 100
-        // Source: UCSC Genome Browser FAQ
-        const string ucscBed = "chr1\t0\t100\tFirst100Bases";
-
-        var records = BedParser.Parse(ucscBed).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(records[0].ChromStart, Is.EqualTo(0), "UCSC BED uses 0-based start");
-            Assert.That(records[0].ChromEnd, Is.EqualTo(100), "UCSC BED end is exclusive");
-            Assert.That(records[0].Length, Is.EqualTo(100), "Length = end - start = 100 - 0 = 100");
-        });
-    }
-
-    /// <summary>
     /// UCSC BED12 gene structure format validation.
     /// Source: UCSC Genome Browser Table Browser output format
     /// 
@@ -837,30 +1105,6 @@ chr1	100	200";
             // Exon 1: 1000 + 0 = 1000 to 1000 + 100 = 1100
             // Exon 2: 1000 + 1500 = 2500 to 2500 + 200 = 2700
             // Exon 3: 1000 + 3700 = 4700 to 4700 + 300 = 5000
-        });
-    }
-
-    /// <summary>
-    /// Validates score range according to UCSC specification.
-    /// Source: UCSC BED FAQ - "A score between 0 and 1000"
-    /// </summary>
-    [Test]
-    public void Parse_UcscScoreRange_ClampedTo1000()
-    {
-        // UCSC specifies score must be in [0, 1000]
-        const string bedWithHighScore = "chr1\t100\t200\tname\t1500\t+";
-        const string bedWithValidScore = "chr1\t100\t200\tname\t750\t+";
-        const string bedWithZeroScore = "chr1\t100\t200\tname\t0\t+";
-
-        var highScoreRecord = BedParser.Parse(bedWithHighScore).First();
-        var validScoreRecord = BedParser.Parse(bedWithValidScore).First();
-        var zeroScoreRecord = BedParser.Parse(bedWithZeroScore).First();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(highScoreRecord.Score, Is.EqualTo(1000), "Score >1000 should be clamped to 1000");
-            Assert.That(validScoreRecord.Score, Is.EqualTo(750), "Valid score preserved");
-            Assert.That(zeroScoreRecord.Score, Is.EqualTo(0), "Zero score preserved");
         });
     }
 
