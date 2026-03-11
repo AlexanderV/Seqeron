@@ -60,9 +60,13 @@ namespace Seqeron.Genomics.IO
                     header = line.Substring(1).Trim();
                     sequenceBuilder.Clear();
                 }
-                else if (!string.IsNullOrWhiteSpace(line))
+                else
                 {
-                    sequenceBuilder.Append(line.Trim());
+                    foreach (char c in line)
+                    {
+                        if (!char.IsWhiteSpace(c))
+                            sequenceBuilder.Append(c);
+                    }
                 }
             }
 
@@ -118,9 +122,13 @@ namespace Seqeron.Genomics.IO
                     header = line.Substring(1).Trim();
                     sequenceBuilder.Clear();
                 }
-                else if (!string.IsNullOrWhiteSpace(line))
+                else
                 {
-                    sequenceBuilder.Append(line.Trim());
+                    foreach (char c in line)
+                    {
+                        if (!char.IsWhiteSpace(c))
+                            sequenceBuilder.Append(c);
+                    }
                 }
             }
 
