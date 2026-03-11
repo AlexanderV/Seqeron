@@ -199,6 +199,37 @@ Transversions (purine↔pyrimidine):
    - Deletion detection (ref > alt)
    - Symbolic allele detection
 
+---
+
+## Coverage Classification Audit
+
+**Date:** 2026-03-11 | **Total: 74 tests** (47M + 7S + 2C + 18 extra)
+
+### Actions
+
+| Action | Count | Details |
+|--------|-------|---------|
+| ⚠ Strengthened | 11 | M03, M04, M05, M06, M07, M08, M18, M22, M40, M42, S04 — exact assertions instead of permissive Contains/GreaterThan |
+| ❌ Added | 2 | C01 (Parse_LargeFile_PerformsEfficiently), C02 (CalculateAlleleFrequency_ReturnsFrequency) |
+| 🔁 Removed | 1 | GetAlleleDepth_ValidIndex_ReturnsDepths (duplicate of S05) |
+
+### Theory Compliance Verification
+
+| # | Aspect | Status |
+|---|--------|--------|
+| 1 | FILTER "." ≠ PASS (VCF Spec, GATK) | ✅ Code and tests correct |
+| 2 | Missing allele "." → zygosity unknown (Danecek 2011) | ✅ IsHet returns false |
+| 3 | Ti/Tv iterates all ALT alleles (Danecek 2011) | ✅ Multi-allelic loop correct |
+| 4 | "*" = Symbolic (VCF 4.3 §5.4) | ✅ Classified correctly |
+| 5 | Breakend 4 forms (VCF 4.3 §5.4) | ✅ Detected via [ ] chars |
+| 6 | Variant classification (Wikipedia) | ✅ SNP/MNP/Ins/Del/Complex/Symbolic |
+| 7 | Malformed line skip (VCF Spec) | ✅ <8 cols or bad POS → null |
+| 8 | Quality "." → null (VCF Spec) | ✅ Parsed correctly |
+| 9 | INFO flags as key="true" (VCF Spec) | ✅ No-value entries stored |
+| 10 | Allele frequency formula (standard AF) | ✅ alt_count/total_alleles |
+
+**Result:** No deviations. No tests tailored to implementation quirks.
+
 3. **Filter Tests:**
    - Filter by chromosome
    - Filter by region (position range)
