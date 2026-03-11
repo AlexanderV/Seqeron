@@ -61,10 +61,13 @@
 - **Phred score formula:** Q = -10 × log₁₀(p)
 - **Error probability:** p = 10^(-Q/10)
 - **Common values:**
+  - Q0 → 100% error rate (p = 1.0)
   - Q10 → 10% error rate (1 in 10)
   - Q20 → 1% error rate (1 in 100)
-  - Q30 → 0.1% error rate (1 in 1000)
+  - Q30 → 0.1% error rate (1 in 1,000)
   - Q40 → 0.01% error rate (1 in 10,000)
+  - Q50 → 0.001% error rate (1 in 100,000)
+  - Q60 → 0.0001% error rate (1 in 1,000,000)
 
 ### Auto-Detection Heuristic
 - Characters below '@' (ASCII 64) indicate Phred+33
@@ -102,8 +105,10 @@ GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT
 ### Quality Score Boundary Values
 - `!` (ASCII 33) = Q0 in Phred+33
 - `I` (ASCII 73) = Q40 in Phred+33
+- `~` (ASCII 126) = Q93 in Phred+33 (max representable)
 - `@` (ASCII 64) = Q0 in Phred+64
 - `h` (ASCII 104) = Q40 in Phred+64
+- `~` (ASCII 126) = Q62 in Phred+64 (max representable)
 
 ---
 
@@ -111,12 +116,16 @@ GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT
 
 ### Current Implementation (FastqParser.cs)
 - Supports Phred+33 and Phred+64 encodings
-- Auto-detection based on character range analysis
+- Phred+33: Q range 0-93 (ASCII 33-126), per Sanger/PacBio standard
+- Phred+64: Q range 0-62 (ASCII 64-126), per Illumina 1.3-1.7 standard
+- Auto-detection based on character range analysis (per-record)
 - Multi-line sequence/quality support via loop
 - Paired-end support: interleaving and splitting
-- Statistics: total reads, bases, GC content, Q20/Q30 percentages
+- Statistics: total reads, bases, GC content, Q20/Q30 percentages, position quality (1-based, population stddev)
 - Filtering: by quality threshold, by length range
-- Trimming: quality-based end trimming, adapter removal
+- Trimming: quality-based end trimming, adapter removal (3' prefix + internal match)
+- ErrorProbabilityToPhred: caps at Q93 for p≤0 (max Sanger representable)
+- Header parsing: first space separates Id and Description; special characters and unicode preserved
 
 ### Invariants
 1. Sequence length == Quality string length (per record)

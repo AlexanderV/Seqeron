@@ -49,8 +49,8 @@ $$p = 10^{-Q/10}$$
 
 | Format | Offset | ASCII Range | Typical Q Range | Usage |
 |--------|--------|-------------|-----------------|-------|
-| **Phred+33** (Sanger) | 33 | '!' (33) to '~' (126) | 0-41 | Illumina 1.8+, PacBio, Nanopore |
-| **Phred+64** (Illumina) | 64 | '@' (64) to 'h' (104) | 0-40 | Illumina 1.3-1.7 (legacy) |
+| **Phred+33** (Sanger) | 33 | '!' (33) to '~' (126) | 0-93 | Illumina 1.8+, PacBio, Nanopore |
+| **Phred+64** (Illumina) | 64 | '@' (64) to '~' (126) | 0-62 | Illumina 1.3-1.7 (legacy) |
 
 ### Encoding Detection Heuristic
 ```
@@ -164,10 +164,10 @@ Where: n = number of records, m = average sequence length, a = adapter length
 ## Invariants
 
 1. `|Sequence| == |QualityString|` for each valid record
-2. `QualityScores[i] ∈ [0, 93]` for Phred+33
-3. `QualityScores[i] ∈ [0, 62]` for Phred+64
+2. `QualityScores[i] ∈ [0, 93]` for Phred+33 (ASCII 33-126)
+3. `QualityScores[i] ∈ [0, 62]` for Phred+64 (ASCII 64-126)
 4. `DetectEncoding(s) ∈ {Phred33, Phred64}` (deterministic)
-5. `DecodeQualityScores(EncodeQualityScores(Q, E), E) == Q` (round-trip)
+5. `DecodeQualityScores(EncodeQualityScores(Q, E), E) == Q` for Q in valid range
 
 ---
 

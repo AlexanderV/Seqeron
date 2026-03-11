@@ -152,25 +152,25 @@ ACGTACGT
     [Test]
     public void DecodeQualityScores_Phred33_ReturnsCorrectScores()
     {
-        // '!' = ASCII 33, Phred33 score = 0
-        // 'I' = ASCII 73, Phred33 score = 40
-        // Evidence: Wikipedia FASTQ encoding table
-        var scores = FastqParser.DecodeQualityScores("!I", FastqParser.QualityEncoding.Phred33);
+        // '!' = ASCII 33 → Q0, 'I' = ASCII 73 → Q40, '~' = ASCII 126 → Q93
+        // Evidence: Wikipedia FASTQ encoding table, Sanger format ASCII 33-126
+        var scores = FastqParser.DecodeQualityScores("!I~", FastqParser.QualityEncoding.Phred33);
 
         Assert.That(scores[0], Is.EqualTo(0));
         Assert.That(scores[1], Is.EqualTo(40));
+        Assert.That(scores[2], Is.EqualTo(93));
     }
 
     [Test]
     public void DecodeQualityScores_Phred64_ReturnsCorrectScores()
     {
-        // '@' = ASCII 64, Phred64 score = 0
-        // 'h' = ASCII 104, Phred64 score = 40
-        // Evidence: Wikipedia FASTQ encoding table
-        var scores = FastqParser.DecodeQualityScores("@h", FastqParser.QualityEncoding.Phred64);
+        // '@' = ASCII 64 → Q0, 'h' = ASCII 104 → Q40, '~' = ASCII 126 → Q62
+        // Evidence: Wikipedia FASTQ encoding table, Phred+64 ASCII 64-126
+        var scores = FastqParser.DecodeQualityScores("@h~", FastqParser.QualityEncoding.Phred64);
 
         Assert.That(scores[0], Is.EqualTo(0));
         Assert.That(scores[1], Is.EqualTo(40));
+        Assert.That(scores[2], Is.EqualTo(62));
     }
 
     [Test]
@@ -190,6 +190,15 @@ ACGTACGT
     #endregion
 
     #region Phred Mathematics Tests
+
+    [Test]
+    public void PhredToErrorProbability_Q0_Returns1()
+    {
+        // Q0 → p = 1.0 (100% error, lowest quality)
+        // Evidence: Wikipedia Phred quality score Symbols table: '!' Q0 → P = 1.000
+        var probability = FastqParser.PhredToErrorProbability(0);
+        Assert.That(probability, Is.EqualTo(1.0).Within(0.0001));
+    }
 
     [Test]
     public void PhredToErrorProbability_Q10_Returns0Point1()
@@ -248,9 +257,10 @@ ACGTACGT
     [Test]
     public void ErrorProbabilityToPhred_ZeroOrNegative_ReturnsMaxQuality()
     {
-        // Zero probability → max quality (Q40 typical max)
+        // Zero probability → max representable quality (Q93 per Sanger/Phred+33 range)
+        // Evidence: Wikipedia FASTQ - Sanger encodes Q 0-93 (ASCII 33-126)
         var phred = FastqParser.ErrorProbabilityToPhred(0);
-        Assert.That(phred, Is.EqualTo(40));
+        Assert.That(phred, Is.EqualTo(93));
     }
 
     #endregion
@@ -260,23 +270,27 @@ ACGTACGT
     [Test]
     public void EncodeQualityScores_Phred33_EncodesCorrectly()
     {
-        // Q0 → '!', Q40 → 'I'
-        var encoded = FastqParser.EncodeQualityScores(new[] { 0, 40 }, FastqParser.QualityEncoding.Phred33);
-        Assert.That(encoded, Is.EqualTo("!I"));
+        // Q0 → '!' (ASCII 33), Q40 → 'I' (ASCII 73), Q93 → '~' (ASCII 126)
+        // Evidence: Wikipedia FASTQ - Sanger encodes Q 0-93 using ASCII 33-126
+        var encoded = FastqParser.EncodeQualityScores(new[] { 0, 40, 93 }, FastqParser.QualityEncoding.Phred33);
+        Assert.That(encoded, Is.EqualTo("!I~"));
     }
 
     [Test]
     public void EncodeQualityScores_Phred64_EncodesCorrectly()
     {
-        // Q0 → '@', Q40 → 'h'
-        var encoded = FastqParser.EncodeQualityScores(new[] { 0, 40 }, FastqParser.QualityEncoding.Phred64);
-        Assert.That(encoded, Is.EqualTo("@h"));
+        // Q0 → '@' (ASCII 64), Q40 → 'h' (ASCII 104), Q62 → '~' (ASCII 126)
+        // Evidence: Wikipedia FASTQ - Phred+64 encodes Q 0-62 using ASCII 64-126
+        var encoded = FastqParser.EncodeQualityScores(new[] { 0, 40, 62 }, FastqParser.QualityEncoding.Phred64);
+        Assert.That(encoded, Is.EqualTo("@h~"));
     }
 
     [Test]
     public void EncodeDecodeRoundTrip_Phred33_PreservesScores()
     {
-        var originalScores = new[] { 0, 10, 20, 30, 40 };
+        // Round-trip must work across full Sanger range Q 0-93
+        // Evidence: Wikipedia FASTQ - Sanger encodes Q 0-93 (ASCII 33-126)
+        var originalScores = new[] { 0, 10, 20, 30, 40, 50, 60, 93 };
         var encoded = FastqParser.EncodeQualityScores(originalScores, FastqParser.QualityEncoding.Phred33);
         var decoded = FastqParser.DecodeQualityScores(encoded, FastqParser.QualityEncoding.Phred33);
 
@@ -286,7 +300,9 @@ ACGTACGT
     [Test]
     public void EncodeDecodeRoundTrip_Phred64_PreservesScores()
     {
-        var originalScores = new[] { 0, 10, 20, 30, 40 };
+        // Round-trip must work across full Phred+64 range Q 0-62
+        // Evidence: Wikipedia FASTQ - Phred+64 encodes Q 0-62 (ASCII 64-126)
+        var originalScores = new[] { 0, 10, 20, 30, 40, 50, 62 };
         var encoded = FastqParser.EncodeQualityScores(originalScores, FastqParser.QualityEncoding.Phred64);
         var decoded = FastqParser.DecodeQualityScores(encoded, FastqParser.QualityEncoding.Phred64);
 
@@ -300,11 +316,13 @@ ACGTACGT
     [Test]
     public void FilterByQuality_FiltersLowQuality()
     {
+        // read1: Q0 (Phred33 '!'), read2: Q40 (Phred33 'I'), read3: Q62 (Phred64 '~')
         var records = FastqParser.Parse(FastqWithVariousQuality).ToList();
         var filtered = FastqParser.FilterByQuality(records, 30).ToList();
 
-        // Only high quality reads should pass
-        Assert.That(filtered.Count, Is.LessThan(records.Count));
+        Assert.That(filtered, Has.Count.EqualTo(2));
+        Assert.That(filtered[0].Id, Is.EqualTo("read2"));
+        Assert.That(filtered[1].Id, Is.EqualTo("read3"));
     }
 
     [Test]
@@ -356,21 +374,23 @@ IIIIIIIIIIIIIIII";
     [Test]
     public void TrimByQuality_TrimsLowQualityEnds()
     {
+        // Quality: Q0,Q0,Q40×8,Q0,Q0 → trim positions 0-1 and 10-11
         const string fastq = @"@read1
 ACGTACGTACGT
 +
 !!IIIIIIII!!";
 
         var records = FastqParser.Parse(fastq).ToList();
-        var trimmed = records.Select(r => FastqParser.TrimByQuality(r, minQuality: 30)).ToList();
+        var trimmed = FastqParser.TrimByQuality(records[0], minQuality: 30);
 
-        Assert.That(trimmed, Has.Count.EqualTo(1));
-        Assert.That(trimmed[0].Sequence.Length, Is.LessThan(12));
+        Assert.That(trimmed.Sequence, Is.EqualTo("GTACGTAC"));
+        Assert.That(trimmed.QualityString, Is.EqualTo("IIIIIIII"));
     }
 
     [Test]
     public void TrimAdapter_RemovesAdapter()
     {
+        // Adapter "AGATCGGAAGAG" starts at position 15 → keep first 15 bases
         const string adapter = "AGATCGGAAGAG";
         const string fastq = @"@read1
 ACGTACGTACGTAAAAGATCGGAAGAG
@@ -378,10 +398,9 @@ ACGTACGTACGTAAAAGATCGGAAGAG
 IIIIIIIIIIIIIIIIIIIIIIIIIII";
 
         var records = FastqParser.Parse(fastq).ToList();
-        var trimmed = records.Select(r => FastqParser.TrimAdapter(r, adapter)).ToList();
+        var trimmed = FastqParser.TrimAdapter(records[0], adapter);
 
-        Assert.That(trimmed, Has.Count.EqualTo(1));
-        Assert.That(trimmed[0].Sequence, Does.Not.Contain(adapter));
+        Assert.That(trimmed.Sequence, Is.EqualTo("ACGTACGTACGTAAA"));
     }
 
     [Test]
@@ -438,11 +457,21 @@ IIIIIIIIIIIIIIII";
     [Test]
     public void CalculatePositionQuality_ReturnsQualityPerPosition()
     {
+        // SimpleFastq: Q40 ('I') + Q39 ('H') at each of 16 positions
         var records = FastqParser.Parse(SimpleFastq).ToList();
         var positionQuality = FastqParser.CalculatePositionQuality(records);
 
         Assert.That(positionQuality.Count, Is.EqualTo(16));
-        Assert.That(positionQuality.All(q => q.MeanQuality > 0), Is.True);
+
+        // S3.2: Position numbering is 1-based
+        Assert.That(positionQuality[0].Position, Is.EqualTo(1));
+        Assert.That(positionQuality[15].Position, Is.EqualTo(16));
+
+        // S3.1: Mean of [Q40, Q39] = 39.5
+        Assert.That(positionQuality[0].MeanQuality, Is.EqualTo(39.5).Within(0.01));
+
+        // S3.3: StdDev of [40, 39] = sqrt(((40-39.5)²+(39-39.5)²)/2) = 0.5
+        Assert.That(positionQuality[0].StdDev, Is.EqualTo(0.5).Within(0.01));
     }
 
     #endregion
@@ -500,6 +529,10 @@ HHHHHHHH";
 
         Assert.That(reads1, Has.Count.EqualTo(2));
         Assert.That(reads2, Has.Count.EqualTo(2));
+        Assert.That(reads1[0].Sequence, Is.EqualTo("ACGTACGT"));
+        Assert.That(reads1[1].Sequence, Is.EqualTo("AAAAAAAA"));
+        Assert.That(reads2[0].Sequence, Is.EqualTo("TGCATGCA"));
+        Assert.That(reads2[1].Sequence, Is.EqualTo("TTTTTTTT"));
     }
 
     #endregion
@@ -509,6 +542,7 @@ HHHHHHHH";
     [Test]
     public void Parse_MultiplePlusLines_ParsesCorrectly()
     {
+        // '+' in sequence data is allowed per Wikipedia FASTQ spec
         const string fastq = @"@read1
 ACGT+ACGT
 +
@@ -517,7 +551,8 @@ IIIIIIIII";
         var records = FastqParser.Parse(fastq).ToList();
 
         Assert.That(records, Has.Count.EqualTo(1));
-        // Sequence may contain + character
+        Assert.That(records[0].Sequence, Is.EqualTo("ACGT+ACGT"));
+        Assert.That(records[0].QualityString, Is.EqualTo("IIIIIIIII"));
     }
 
     [Test]
@@ -566,6 +601,9 @@ HHHH";
             var records = FastqParser.ParseFile(tempFile).ToList();
 
             Assert.That(records, Has.Count.EqualTo(2));
+            Assert.That(records[0].Id, Is.EqualTo("SEQ_ID_1"));
+            Assert.That(records[0].Sequence, Is.EqualTo("GATCGATCGATCGATC"));
+            Assert.That(records[1].Id, Is.EqualTo("SEQ_ID_2"));
         }
         finally
         {
@@ -582,10 +620,15 @@ HHHH";
             var records = FastqParser.Parse(SimpleFastq).ToList();
             FastqParser.WriteToFile(tempFile, records);
 
-            Assert.That(File.Exists(tempFile), Is.True);
-            var content = File.ReadAllText(tempFile);
-            Assert.That(content, Does.Contain("@SEQ_ID_1"));
-            Assert.That(content, Does.Contain("GATCGATCGATCGATC"));
+            var lines = File.ReadAllLines(tempFile);
+            Assert.That(lines[0], Is.EqualTo("@SEQ_ID_1 description"));
+            Assert.That(lines[1], Is.EqualTo("GATCGATCGATCGATC"));
+            Assert.That(lines[2], Is.EqualTo("+"));
+            Assert.That(lines[3], Is.EqualTo("IIIIIIIIIIIIIIII"));
+            Assert.That(lines[4], Is.EqualTo("@SEQ_ID_2"));
+            Assert.That(lines[5], Is.EqualTo("ACGTACGTACGTACGT"));
+            Assert.That(lines[6], Is.EqualTo("+"));
+            Assert.That(lines[7], Is.EqualTo("HHHHHHHHHHHHHHHH"));
         }
         finally
         {
@@ -623,10 +666,11 @@ HHHH";
         var record = new FastqParser.FastqRecord("test_id", "description", "ACGT", "IIII", new[] { 40, 40, 40, 40 });
         var fastqString = FastqParser.ToFastqString(record);
 
-        Assert.That(fastqString, Does.StartWith("@test_id description"));
-        Assert.That(fastqString, Does.Contain("ACGT"));
-        Assert.That(fastqString, Does.Contain("+"));
-        Assert.That(fastqString, Does.Contain("IIII"));
+        var lines = fastqString.TrimEnd().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        Assert.That(lines[0], Is.EqualTo("@test_id description"));
+        Assert.That(lines[1], Is.EqualTo("ACGT"));
+        Assert.That(lines[2], Is.EqualTo("+"));
+        Assert.That(lines[3], Is.EqualTo("IIII"));
     }
 
     #endregion
@@ -643,15 +687,7 @@ HHHH";
         Assert.That(filtered, Has.Count.EqualTo(1));
     }
 
-    [Test]
-    public void FilterByQuality_RemovesRecordsBelowThreshold()
-    {
-        // Q0 records should not pass threshold of 30
-        var records = FastqParser.Parse(LowQualityFastq).ToList();
-        var filtered = FastqParser.FilterByQuality(records, 30).ToList();
 
-        Assert.That(filtered, Is.Empty);
-    }
 
     #endregion
 
@@ -697,28 +733,31 @@ HHHH";
     [Test]
     public void CalculateStatistics_Q20Percentage_InValidRange()
     {
+        // SimpleFastq: Q40 ('I') + Q39 ('H') — all bases ≥ Q20 → 100%
         var records = FastqParser.Parse(SimpleFastq).ToList();
         var stats = FastqParser.CalculateStatistics(records);
 
-        Assert.That(stats.Q20Percentage, Is.InRange(0, 100));
+        Assert.That(stats.Q20Percentage, Is.EqualTo(100.0));
     }
 
     [Test]
     public void CalculateStatistics_Q30Percentage_InValidRange()
     {
+        // SimpleFastq: Q40 ('I') + Q39 ('H') — all bases ≥ Q30 → 100%
         var records = FastqParser.Parse(SimpleFastq).ToList();
         var stats = FastqParser.CalculateStatistics(records);
 
-        Assert.That(stats.Q30Percentage, Is.InRange(0, 100));
+        Assert.That(stats.Q30Percentage, Is.EqualTo(100.0));
     }
 
     [Test]
     public void CalculateStatistics_GcContent_InValidRange()
     {
+        // SimpleFastq: "GATCGATCGATCGATC" (8 GC/16) + "ACGTACGTACGTACGT" (8 GC/16) = 50%
         var records = FastqParser.Parse(SimpleFastq).ToList();
         var stats = FastqParser.CalculateStatistics(records);
 
-        Assert.That(stats.GcContent, Is.InRange(0, 1));
+        Assert.That(stats.GcContent, Is.EqualTo(0.5));
     }
 
     [Test]
@@ -729,6 +768,75 @@ HHHH";
 
         // All Q40 should mean 100% Q30
         Assert.That(stats.Q30Percentage, Is.EqualTo(100));
+    }
+
+    #endregion
+
+    #region Missing Tests (S1.3, S2.1, S2.2, C1.2, C1.3)
+
+    [Test]
+    public void Parse_DescriptionWithSpecialCharacters_ParsedCorrectly()
+    {
+        // S1.3: Description can contain special characters
+        const string fastq = "@read1 sample=A;lane=3;barcode=ACGT\nACGT\n+\nIIII";
+
+        var records = FastqParser.Parse(fastq).ToList();
+
+        Assert.That(records[0].Id, Is.EqualTo("read1"));
+        Assert.That(records[0].Description, Is.EqualTo("sample=A;lane=3;barcode=ACGT"));
+    }
+
+    [Test]
+    public void Parse_MultiLineSequence_AssembledCorrectly()
+    {
+        // S2.1: Multi-line sequence lines assembled into single sequence
+        // Evidence: Wikipedia — Legacy Sanger files may split sequences across lines
+        const string fastq = "@read1\nACGT\nTGCA\n+\nIIIIIIII";
+
+        var records = FastqParser.Parse(fastq).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(records[0].Sequence, Is.EqualTo("ACGTTGCA"));
+    }
+
+    [Test]
+    public void Parse_MultiLineQuality_AssembledCorrectly()
+    {
+        // S2.2: Multi-line quality assembled to match sequence length
+        const string fastq = "@read1\nACGTACGT\n+\nIIII\nHHHH";
+
+        var records = FastqParser.Parse(fastq).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(records[0].QualityString, Is.EqualTo("IIIIHHHH"));
+    }
+
+    [Test]
+    public void Parse_VeryLongSequence_HandledCorrectly()
+    {
+        // C1.2: Very long sequences (10kb+) handled
+        var sequence = new string('A', 10000) + new string('C', 10000);
+        var quality = new string('I', 20000);
+        var fastq = $"@long_read\n{sequence}\n+\n{quality}";
+
+        var records = FastqParser.Parse(fastq).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(records[0].Sequence, Has.Length.EqualTo(20000));
+        Assert.That(records[0].Sequence, Is.EqualTo(sequence));
+    }
+
+    [Test]
+    public void Parse_UnicodeInHeader_HandledGracefully()
+    {
+        // C1.3: Unicode characters in header handled gracefully
+        const string fastq = "@read_g\u00E8ne_\u03B1 description_\u03B2\nACGT\n+\nIIII";
+
+        var records = FastqParser.Parse(fastq).ToList();
+
+        Assert.That(records, Has.Count.EqualTo(1));
+        Assert.That(records[0].Id, Is.EqualTo("read_g\u00E8ne_\u03B1"));
+        Assert.That(records[0].Description, Is.EqualTo("description_\u03B2"));
     }
 
     #endregion
