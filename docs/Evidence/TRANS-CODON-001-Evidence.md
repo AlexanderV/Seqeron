@@ -24,7 +24,8 @@
 AAs  = FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
 Starts = ---M------**--*----M---------------M----------------------------
 Stop codons: UAA, UAG, UGA
-Start codons: AUG (primary), alternative: GUG, UUG (rare in eukaryotes)
+Start codons: AUG (primary), UUG, CUG (alternative)
+NCBI: "The standard code currently allows initiation from UUG and CUG in addition to AUG."
 ```
 
 #### Table 2: Vertebrate Mitochondrial Code
@@ -35,7 +36,8 @@ Differences from Standard:
 - AGA, AGG → Stop (not Arg)
 - AUA → Met (not Ile)
 - UGA → Trp (not Stop)
-Start codons: AUG, AUA, AUU, AUC
+Start codons: AUG, AUA, AUU, AUC, GUG
+NCBI: "Coturnix, Gallus: also GUG (Desjardins and Morais, 1991)"
 ```
 
 #### Table 3: Yeast Mitochondrial Code
@@ -46,15 +48,18 @@ Differences from Standard:
 - CUU, CUC, CUA, CUG → Thr (not Leu)
 - AUA → Met (not Ile)
 - UGA → Trp (not Stop)
-Start codons: AUG, AUA
+Start codons: AUG, AUA, GUG
+NCBI: "GUG (GTG) is used as a start codon for a few proteins in some Saccharomyces species (Sulo et al. 2017)"
 ```
 
 #### Table 11: Bacterial, Archaeal and Plant Plastid Code
 ```
 AAs  = FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
 Starts = ---M------**--*----M------------MMMM---------------M------------
-Same codon table as Standard, but alternative start codons are common:
-Start codons: AUG, GUG, UUG
+Same codon table as Standard, but many alternative start codons:
+Start codons: AUG, GUG, UUG, CUG, AUU, AUC, AUA
+NCBI: GUG/UUG documented in Archaea/Bacteria; CUG for RepA in E. coli;
+      AUU for InfC/PcnB genes; AUC/AUA also in NCBI Starts line.
 ```
 
 ---
@@ -169,11 +174,21 @@ Start codons: AUG, GUG, UUG
 
 ---
 
+## Deviations and Assumptions
+
+**None.** Implementation matches NCBI translation tables exactly.
+
+All codon→amino acid mappings and start/stop codon sets are derived directly
+from the NCBI `AAs` and `Starts` strings for Tables 1, 2, 3, and 11
+(last updated Sep. 23, 2024 at NCBI).
+
+---
+
 ## References
 
 1. Wikipedia contributors. "Genetic code." Wikipedia, The Free Encyclopedia.
 2. Wikipedia contributors. "Start codon." Wikipedia, The Free Encyclopedia.
 3. Wikipedia contributors. "Stop codon." Wikipedia, The Free Encyclopedia.
-4. Elzanowski A, Ostell J. "The Genetic Codes." NCBI Taxonomy.
+4. Elzanowski A, Ostell J. "The Genetic Codes." NCBI Taxonomy. https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi (Last update: Sep. 23, 2024)
 5. Nirenberg M, Matthaei JH (1961). The dependence of cell-free protein synthesis in E. coli upon naturally occurring or synthetic polyribonucleotides.
 6. Crick FH (1968). The origin of the genetic code. J Mol Biol.

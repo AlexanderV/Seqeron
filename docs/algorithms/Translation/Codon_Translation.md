@@ -31,12 +31,12 @@ The genetic code is the set of rules by which information encoded in genetic mat
 
 ### Alternative Genetic Codes (Source: NCBI Translation Tables)
 
-| Table | Name | Key Differences |
-|-------|------|-----------------|
-| 1 | Standard | Universal default |
-| 2 | Vertebrate Mitochondrial | AGA/AGG=Stop, AUA=Met, UGA=Trp |
-| 3 | Yeast Mitochondrial | CUU/CUC/CUA/CUG=Thr, AUA=Met, UGA=Trp |
-| 11 | Bacterial/Plastid | Same as standard, different start codons |
+| Table | Name | Key AA Differences | Start Codons (NCBI Starts line) |
+|-------|------|--------------------|---------------------------------|
+| 1 | Standard | Universal default | AUG, UUG, CUG |
+| 2 | Vertebrate Mitochondrial | AGA/AGG=Stop, AUA=Met, UGA=Trp | AUG, AUA, AUU, AUC, GUG |
+| 3 | Yeast Mitochondrial | CUU/CUC/CUA/CUG=Thr, AUA=Met, UGA=Trp | AUG, AUA, GUG |
+| 11 | Bacterial/Plastid | Same as standard | AUG, GUG, UUG, CUG, AUU, AUC, AUA |
 
 ---
 

@@ -54,14 +54,21 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// Standard code has AUG as the only designated start codon.
-        /// Source: NCBI Table 1, Wikipedia (Start codon)
+        /// Standard code has 3 start codons per NCBI Table 1 Starts line:
+        /// AUG (primary), UUG and CUG (alternative).
+        /// NCBI: "The standard code currently allows initiation from UUG and CUG in addition to AUG."
+        /// Source: NCBI Table 1 Starts = ---M------**--*----M---------------M----------------------------
         /// </summary>
         [Test]
-        public void Standard_HasOneStartCodon()
+        public void Standard_HasThreeStartCodons()
         {
-            Assert.That(GeneticCode.Standard.StartCodons.Count, Is.EqualTo(1));
-            Assert.That(GeneticCode.Standard.StartCodons, Does.Contain("AUG"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(GeneticCode.Standard.StartCodons.Count, Is.EqualTo(3));
+                Assert.That(GeneticCode.Standard.StartCodons, Does.Contain("AUG"), "Primary start codon");
+                Assert.That(GeneticCode.Standard.StartCodons, Does.Contain("UUG"), "Alternative start (pos 3)");
+                Assert.That(GeneticCode.Standard.StartCodons, Does.Contain("CUG"), "Alternative start (pos 19)");
+            });
         }
 
         #endregion
@@ -261,6 +268,18 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
+        /// Codons with invalid nucleotides (not A/C/G/T/U) throw ArgumentException.
+        /// Source: NCBI — only 4 nucleotides form valid codons
+        /// </summary>
+        [Test]
+        public void Translate_InvalidNucleotide_ThrowsException()
+        {
+            Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("XYZ"));
+            Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("ANN"));
+            Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("12G"));
+        }
+
+        /// <summary>
         /// Mixed case codons work correctly.
         /// Source: Implementation specification (case-insensitive)
         /// </summary>
@@ -301,7 +320,7 @@ namespace Seqeron.Genomics.Tests
 
         /// <summary>
         /// Non-start codons return false.
-        /// Source: NCBI Table 1 (only AUG is start in standard code)
+        /// Source: NCBI Table 1 Starts line — only AUG, UUG, CUG are starts
         /// </summary>
         [Test]
         public void IsStartCodon_NonStartCodon_ReturnsFalse()
@@ -310,7 +329,7 @@ namespace Seqeron.Genomics.Tests
             {
                 Assert.That(GeneticCode.Standard.IsStartCodon("UUU"), Is.False);
                 Assert.That(GeneticCode.Standard.IsStartCodon("GUG"), Is.False, "GUG is not start in standard code");
-                Assert.That(GeneticCode.Standard.IsStartCodon("UUG"), Is.False, "UUG is not start in standard code");
+                Assert.That(GeneticCode.Standard.IsStartCodon("GUA"), Is.False);
             });
         }
 
@@ -327,16 +346,6 @@ namespace Seqeron.Genomics.Tests
                 Assert.That(GeneticCode.Standard.IsStartCodon(""), Is.False);
                 Assert.That(GeneticCode.Standard.IsStartCodon(null!), Is.False);
             });
-        }
-
-        /// <summary>
-        /// UAA (ochre) is a stop codon.
-        /// Source: Wikipedia (Stop codon), NCBI Table 1
-        /// </summary>
-        [Test]
-        public void IsStopCodon_UAA_ReturnsTrue()
-        {
-            Assert.That(GeneticCode.Standard.IsStopCodon("UAA"), Is.True);
         }
 
         /// <summary>
@@ -425,6 +434,12 @@ namespace Seqeron.Genomics.Tests
         {
             var codons = GeneticCode.Standard.GetCodonsForAminoAcid('S').ToList();
             Assert.That(codons, Has.Count.EqualTo(6));
+            Assert.That(codons, Does.Contain("UCU"));
+            Assert.That(codons, Does.Contain("UCC"));
+            Assert.That(codons, Does.Contain("UCA"));
+            Assert.That(codons, Does.Contain("UCG"));
+            Assert.That(codons, Does.Contain("AGU"));
+            Assert.That(codons, Does.Contain("AGC"));
         }
 
         /// <summary>
@@ -436,6 +451,10 @@ namespace Seqeron.Genomics.Tests
         {
             var codons = GeneticCode.Standard.GetCodonsForAminoAcid('R').ToList();
             Assert.That(codons, Has.Count.EqualTo(6));
+            Assert.That(codons, Does.Contain("CGU"));
+            Assert.That(codons, Does.Contain("CGC"));
+            Assert.That(codons, Does.Contain("CGA"));
+            Assert.That(codons, Does.Contain("CGG"));
             Assert.That(codons, Does.Contain("AGA"));
             Assert.That(codons, Does.Contain("AGG"));
         }
@@ -461,6 +480,9 @@ namespace Seqeron.Genomics.Tests
         {
             var codons = GeneticCode.Standard.GetCodonsForAminoAcid('I').ToList();
             Assert.That(codons, Has.Count.EqualTo(3));
+            Assert.That(codons, Does.Contain("AUU"));
+            Assert.That(codons, Does.Contain("AUC"));
+            Assert.That(codons, Does.Contain("AUA"));
         }
 
         /// <summary>
@@ -538,19 +560,22 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// Vertebrate mitochondrial code has four start codons: AUG, AUA, AUU, AUC.
-        /// Source: NCBI Table 2
+        /// Vertebrate mitochondrial code has 5 start codons per NCBI Table 2 Starts line:
+        /// AUU, AUC, AUA, AUG, GUG.
+        /// NCBI: "Coturnix, Gallus: also GUG"
+        /// Source: NCBI Table 2 Starts = ----------**--------------------MMMM----------**---M------------
         /// </summary>
         [Test]
-        public void VertebrateMitochondrial_HasFourStartCodons()
+        public void VertebrateMitochondrial_HasFiveStartCodons()
         {
             Assert.Multiple(() =>
             {
-                Assert.That(GeneticCode.VertebrateMitochondrial.StartCodons.Count, Is.EqualTo(4));
+                Assert.That(GeneticCode.VertebrateMitochondrial.StartCodons.Count, Is.EqualTo(5));
                 Assert.That(GeneticCode.VertebrateMitochondrial.IsStartCodon("AUG"), Is.True);
                 Assert.That(GeneticCode.VertebrateMitochondrial.IsStartCodon("AUA"), Is.True);
                 Assert.That(GeneticCode.VertebrateMitochondrial.IsStartCodon("AUU"), Is.True);
                 Assert.That(GeneticCode.VertebrateMitochondrial.IsStartCodon("AUC"), Is.True);
+                Assert.That(GeneticCode.VertebrateMitochondrial.IsStartCodon("GUG"), Is.True, "GUG documented in Coturnix, Gallus");
             });
         }
 
@@ -576,17 +601,6 @@ namespace Seqeron.Genomics.Tests
         #region Alternative Genetic Codes - Yeast Mitochondrial (Table 3)
 
         /// <summary>
-        /// In yeast mitochondrial code, CUU encodes Threonine (not Leucine).
-        /// Source: NCBI Table 3
-        /// </summary>
-        [Test]
-        public void YeastMitochondrial_CUU_IsThreonine()
-        {
-            char aa = GeneticCode.YeastMitochondrial.Translate("CUU");
-            Assert.That(aa, Is.EqualTo('T'));
-        }
-
-        /// <summary>
         /// All four CUx codons encode Threonine in yeast mitochondrial code.
         /// Source: NCBI Table 3
         /// </summary>
@@ -600,6 +614,17 @@ namespace Seqeron.Genomics.Tests
                 Assert.That(GeneticCode.YeastMitochondrial.Translate("CUA"), Is.EqualTo('T'));
                 Assert.That(GeneticCode.YeastMitochondrial.Translate("CUG"), Is.EqualTo('T'));
             });
+        }
+
+        /// <summary>
+        /// In yeast mitochondrial code, AUA encodes Methionine (not Isoleucine).
+        /// Source: NCBI Table 3
+        /// </summary>
+        [Test]
+        public void YeastMitochondrial_AUA_IsMethionine()
+        {
+            char aa = GeneticCode.YeastMitochondrial.Translate("AUA");
+            Assert.That(aa, Is.EqualTo('M'));
         }
 
         /// <summary>
@@ -629,22 +654,48 @@ namespace Seqeron.Genomics.Tests
             });
         }
 
+        /// <summary>
+        /// Yeast mitochondrial code has 3 start codons per NCBI Table 3 Starts line:
+        /// AUA, AUG, GUG.
+        /// NCBI: "GUG (GTG) is used as a start codon for a few proteins in some Saccharomyces species"
+        /// Source: NCBI Table 3 Starts = ----------**----------------------MM---------------M------------
+        /// </summary>
+        [Test]
+        public void YeastMitochondrial_HasThreeStartCodons()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(GeneticCode.YeastMitochondrial.StartCodons.Count, Is.EqualTo(3));
+                Assert.That(GeneticCode.YeastMitochondrial.IsStartCodon("AUG"), Is.True);
+                Assert.That(GeneticCode.YeastMitochondrial.IsStartCodon("AUA"), Is.True);
+                Assert.That(GeneticCode.YeastMitochondrial.IsStartCodon("GUG"), Is.True, "Documented in Saccharomyces species");
+            });
+        }
+
         #endregion
 
         #region Alternative Genetic Codes - Bacterial/Plastid (Table 11)
 
         /// <summary>
-        /// Bacterial/Plastid code uses alternative start codons: AUG, GUG, UUG.
-        /// Source: NCBI Table 11
+        /// Bacterial/Plastid code has 7 start codons per NCBI Table 11 Starts line:
+        /// UUG, CUG, AUU, AUC, AUA, AUG, GUG.
+        /// NCBI: GUG/UUG common; CUG for RepA in E. coli; AUU for InfC/PcnB;
+        /// AUC, AUA also documented.
+        /// Source: NCBI Table 11 Starts = ---M------**--*----M------------MMMM---------------M------------
         /// </summary>
         [Test]
-        public void BacterialPlastid_HasAlternativeStartCodons()
+        public void BacterialPlastid_HasSevenStartCodons()
         {
             Assert.Multiple(() =>
             {
-                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("AUG"), Is.True);
-                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("GUG"), Is.True);
-                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("UUG"), Is.True);
+                Assert.That(GeneticCode.BacterialPlastid.StartCodons.Count, Is.EqualTo(7));
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("AUG"), Is.True, "Primary");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("GUG"), Is.True, "Documented in Archaea/Bacteria");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("UUG"), Is.True, "Documented in Archaea/Bacteria");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("CUG"), Is.True, "RepA in E. coli");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("AUU"), Is.True, "InfC/PcnB genes");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("AUC"), Is.True, "NCBI Table 11 Starts pos 33");
+                Assert.That(GeneticCode.BacterialPlastid.IsStartCodon("AUA"), Is.True, "NCBI Table 11 Starts pos 34");
             });
         }
 
@@ -655,13 +706,12 @@ namespace Seqeron.Genomics.Tests
         [Test]
         public void BacterialPlastid_CodonTable_SameAsStandard()
         {
-            // Verify a few key translations match standard
-            Assert.Multiple(() =>
+            // Verify all 64 codon translations match standard code
+            foreach (var kvp in GeneticCode.Standard.CodonTable)
             {
-                Assert.That(GeneticCode.BacterialPlastid.Translate("AUG"), Is.EqualTo('M'));
-                Assert.That(GeneticCode.BacterialPlastid.Translate("UGA"), Is.EqualTo('*'));
-                Assert.That(GeneticCode.BacterialPlastid.Translate("AGA"), Is.EqualTo('R'));
-            });
+                Assert.That(GeneticCode.BacterialPlastid.Translate(kvp.Key), Is.EqualTo(kvp.Value),
+                    $"Codon {kvp.Key}: Bacterial/Plastid should match Standard");
+            }
         }
 
         #endregion
