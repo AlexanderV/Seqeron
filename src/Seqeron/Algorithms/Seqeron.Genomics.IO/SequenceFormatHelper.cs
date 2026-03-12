@@ -20,13 +20,20 @@ internal static partial class SequenceFormatHelper
     /// If false, detects complement via Contains (EMBL convention).
     /// </param>
     /// <returns>Parsed location components.</returns>
-    internal static (int Start, int End, bool IsComplement, bool IsJoin, IReadOnlyList<(int Start, int End)> Parts)
+    internal static (int Start, int End, bool IsComplement, bool IsJoin, bool IsOrder,
+        bool Is5PrimePartial, bool Is3PrimePartial, IReadOnlyList<(int Start, int End)> Parts)
         ParseLocationParts(string locationStr, bool useStartsWithForComplement)
     {
         bool isComplement = useStartsWithForComplement
             ? locationStr.StartsWith("complement(", StringComparison.OrdinalIgnoreCase)
             : locationStr.Contains("complement(", StringComparison.OrdinalIgnoreCase);
         bool isJoin = locationStr.Contains("join(", StringComparison.OrdinalIgnoreCase);
+        bool isOrder = locationStr.Contains("order(", StringComparison.OrdinalIgnoreCase);
+
+        // INSDC 3.4.2.1: '<' indicates partial on 5' end, '>' indicates partial on 3' end.
+        // These characters appear exclusively as partial indicators in INSDC location syntax.
+        bool is5PrimePartial = locationStr.Contains('<');
+        bool is3PrimePartial = locationStr.Contains('>');
 
         var parts = new List<(int Start, int End)>();
 
@@ -43,7 +50,8 @@ internal static partial class SequenceFormatHelper
         int overallStart = parts.Count > 0 ? parts.Min(p => p.Start) : 0;
         int overallEnd = parts.Count > 0 ? parts.Max(p => p.End) : 0;
 
-        return (overallStart, overallEnd, isComplement, isJoin, parts);
+        return (overallStart, overallEnd, isComplement, isJoin, isOrder,
+            is5PrimePartial, is3PrimePartial, parts);
     }
 
     [GeneratedRegex(@"(\d+)(?:\.\.(\d+))?")]

@@ -61,8 +61,10 @@
 | M3.3 | Complement location | INSDC: complement() |
 | M3.4 | Join location with parts | INSDC: join() |
 | M3.5 | Complement with join | INSDC: complement(join()) |
-| M3.6 | Partial 5' end (<n..m) | INSDC location syntax |
-| M3.7 | Partial 3' end (n..>m) | INSDC location syntax |
+| M3.6 | Partial 5' end (<n..m) — `Is5PrimePartial` | INSDC 3.4.2.1 |
+| M3.7 | Partial 3' end (n..>m) — `Is3PrimePartial` | INSDC 3.4.2.1 |
+| M3.8 | Both ends partial (<n..>m) | INSDC 3.4.2.1 |
+| M3.9 | Order operator — `IsOrder` | INSDC 3.4.2.2: order() |
 
 #### M4: Sequence Extraction
 **Source:** NCBI ORIGIN Section Definition
@@ -73,7 +75,8 @@
 | M4.2 | Normalize to uppercase | Standard practice |
 | M4.3 | Remove position numbers | NCBI format includes numbers |
 | M4.4 | Remove whitespace | NCBI format includes spaces |
-| M4.5 | Verify sequence characters (A,C,G,T only) | Standard bases |
+| M4.5 | Verify sequence characters (IUPAC nucleotide codes) | INSDC 7.4.1: A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N |
+| M4.6 | Parse sequence with IUPAC ambiguity codes | INSDC 7.4.1 |
 
 #### M5: Edge Cases (Evidence-Based)
 **Source:** NCBI Documentation, Implementation Analysis
@@ -132,19 +135,26 @@
 
 ## Existing Test Audit
 
-### GenBankParserTests.cs (42 tests)
-**Status:** Canonical test file, well-structured
+### GenBankParserTests.cs (52 tests)
+**Status:** Canonical test file, well-structured. All assertions use exact values.
 
 | Category | Tests | Coverage | Assessment |
 |----------|-------|----------|------------|
 | Basic Parsing | 4 | Good | Complete |
-| LOCUS Line | 2 | Partial | Needs division/date tests |
-| Metadata | 6 | Good | Complete |
-| Features | 5 | Partial | Needs qualifier tests |
+| LOCUS Line | 2 | Good | Complete — all 6 fields (M1.1–M1.6) |
+| Metadata | 7 | Good | Complete — includes empty keywords "." (M2.5) |
+| Features | 3 | Good | Complete — count, locations, qualifiers |
 | Sequence | 2 | Good | Complete |
-| Location | 6 | Good | Complete |
-| Utility | 5 | Good | Complete |
+| Location | 5 | Good | Complete — range, complement, join, complement+join, single |
+| Utility | 5 | Good | Complete — counts verified |
 | Multi-record | 2 | Good | Complete |
+| Division | 3 | Good | Complete |
+| Date | 2 | Good | Complete — exact date values |
+| Partial Location + Order | 5 | Good | Complete — Is5PrimePartial, Is3PrimePartial, IsOrder |
+| Qualifiers | 2 | Good | Complete — keys and values |
+| Reference | 3 | Good | Complete — exact fields |
+| Sequence Validation | 4 | Good | Complete — IUPAC codes |
+| Edge Cases | 3 | Good | Complete |
 
 ### SequenceIOTests.cs (GenBank region)
 **Status:** Higher-level SequenceIO wrapper tests
@@ -168,14 +178,9 @@
 
 ## Consolidation Plan
 
-1. **Canonical file:** `GenBankParserTests.cs`
-2. ~~**Additions needed:**~~ ✅ All added
-   - ~~Division code parsing test~~ ✅ Covered
-   - ~~Date format parsing tests~~ ✅ Covered
-   - ~~Partial location tests (<, >)~~ ✅ Covered
-   - ~~More qualifier parsing tests~~ ✅ Covered
-3. **Wrapper tests:** SequenceIOTests.cs - keep as-is (smoke tests)
-4. **MCP tests:** GenBankParseTests.cs - keep separate
+1. **Canonical file:** `GenBankParserTests.cs` — 52 tests, all categories covered
+2. **Wrapper tests:** SequenceIOTests.cs — keep as-is (smoke tests)
+3. **MCP tests:** GenBankParseTests.cs — keep separate
 
 ---
 
@@ -192,9 +197,26 @@ Examples:
 
 ---
 
+## Deviations and Assumptions
+
+None. All behavior is evidence-backed:
+
+| # | Behavior | Justification | Source |
+|---|----------|---------------|--------|
+| 1 | Location struct tracks `Is5PrimePartial` / `Is3PrimePartial` | `<` and `>` operators per INSDC spec | INSDC 3.4.2.1 |
+| 2 | Location struct tracks `IsOrder` for `order()` operator | Distinct from `join()` per INSDC | INSDC 3.4.2.2 |
+| 3 | Sequence validation accepts full IUPAC nucleotide base codes (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N) | Standard allows ambiguity codes | INSDC 7.4.1 |
+| 4 | LOCUS molecule types include ss-RNA, ds-RNA, cRNA | Full set of molecule type abbreviations | NCBI GenBank format |
+| 5 | Division code detection uses known NCBI division code set (20 codes + UNK) | Replaces heuristic `Length==3 && IsUpper` | NCBI GenBank divisions |
+| 6 | `FeatureLocationHelper` uses `DnaSequence.GetReverseComplementString()` for complement | Supports IUPAC ambiguity codes; `DnaSequence` constructor rejects non-ACGT | INSDC 7.4.1, `SequenceExtensions.GetComplementBase` |
+| 7 | Uppercase normalization of sequence data | Standard practice — GenBank ORIGIN section uses lowercase | NCBI Sample Record |
+| 8 | `//` as record delimiter | Standard GenBank flat file record separator | NCBI: "Each record ends with //" |
+
+---
+
 ## Open Questions
 
-None - format is well-documented by NCBI.
+None — format is well-documented by NCBI and INSDC.
 
 ---
 
@@ -203,6 +225,10 @@ None - format is well-documented by NCBI.
 | Decision | Rationale |
 |----------|-----------|
 | Keep existing test structure | Already well-organized |
-| Add missing division/date tests | Evidence shows these are documented |
+| Add empty keywords "." test (M2.5) | NCBI documents "." means no keywords |
 | Add partial location tests | INSDC documents < and > syntax |
 | Don't test all 18 divisions | Parsing is uniform, one test sufficient |
+| Remove duplicate complement/join tests from Features | Already covered in Location region |
+| Remove duplicate minimal record test | Merged into Parse_MinimalRecord_ParsesSuccessfully |
+| Use exact values in all assertions | Prevents false positives from permissive Contains/ranges |
+| Remove if-guard fallbacks from feature tests | Tests must fail if parsing fails, not silently pass |
