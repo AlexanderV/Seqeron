@@ -53,7 +53,15 @@ chr2	.	gene	5000	6000	.	+	.	ID=gene4";
     {
         var records = GffParser.Parse(SimpleGtf, GffParser.GffFormat.GTF).ToList();
 
-        Assert.That(records, Has.Count.GreaterThanOrEqualTo(4));
+        Assert.That(records, Has.Count.EqualTo(4));
+        Assert.That(records[0].Type, Is.EqualTo("gene"));
+        Assert.That(records[0].Seqid, Is.EqualTo("chr1"));
+        Assert.That(records[0].Start, Is.EqualTo(1000));
+        Assert.That(records[0].End, Is.EqualTo(5000));
+        Assert.That(records[0].Attributes["gene_id"], Is.EqualTo("ENSG00001"));
+        Assert.That(records[1].Type, Is.EqualTo("transcript"));
+        Assert.That(records[2].Type, Is.EqualTo("exon"));
+        Assert.That(records[3].Type, Is.EqualTo("exon"));
     }
 
     [Test]
@@ -191,6 +199,16 @@ chr1	.	gene	3000	4000	.	+	.	ID=gene2";
     }
 
     [Test]
+    public void FilterByRegion_NoOverlap_ReturnsEmpty()
+    {
+        // Region [10000, 20000] does not overlap any feature in MultiChromGff
+        var records = GffParser.Parse(MultiChromGff).ToList();
+        var inRegion = GffParser.FilterByRegion(records, "chr1", 10000, 20000).ToList();
+
+        Assert.That(inRegion, Is.Empty);
+    }
+
+    [Test]
     public void GetGenes_ReturnsOnlyGenes()
     {
         var records = GffParser.Parse(SimpleGff3).ToList();
@@ -227,14 +245,15 @@ chr1	.	gene	3000	4000	.	+	.	ID=gene2";
     [Test]
     public void BuildGeneModels_CreatesHierarchy()
     {
+        // SimpleGff3: 1 gene → 1 mRNA → 2 exons + 2 CDS
         var records = GffParser.Parse(SimpleGff3).ToList();
         var models = GffParser.BuildGeneModels(records).ToList();
 
         Assert.That(models, Has.Count.EqualTo(1));
         Assert.That(models[0].Gene.Type, Is.EqualTo("gene"));
-        Assert.That(models[0].Transcripts.Count, Is.GreaterThanOrEqualTo(1));
-        Assert.That(models[0].Exons.Count, Is.GreaterThanOrEqualTo(2));
-        Assert.That(models[0].CDS.Count, Is.GreaterThanOrEqualTo(2));
+        Assert.That(models[0].Transcripts.Count, Is.EqualTo(1), "1 mRNA transcript");
+        Assert.That(models[0].Exons.Count, Is.EqualTo(2), "2 exons under transcript1");
+        Assert.That(models[0].CDS.Count, Is.EqualTo(2), "2 CDS under transcript1");
     }
 
     [Test]
@@ -244,6 +263,33 @@ chr1	.	gene	3000	4000	.	+	.	ID=gene2";
         var models = GffParser.BuildGeneModels(records).ToList();
 
         Assert.That(models, Has.Count.EqualTo(4));
+    }
+
+    [Test]
+    public void BuildGeneModels_MultiParentExons_AssignedToAllTranscripts()
+    {
+        // GFF3 Spec v1.26 canonical gene example: exon shared by multiple mRNAs
+        // "Lines 7-11 identify the five exons. The Parent attributes indicate which mRNAs
+        //  the exons belong to. Notice that several of the exons share the same parents,
+        //  using the comma symbol to indicate multiple parentage."
+        const string gff = @"##gff-version 3
+ctg123	.	gene	1000	9000	.	+	.	ID=gene00001;Name=EDEN
+ctg123	.	mRNA	1050	9000	.	+	.	ID=mRNA00001;Parent=gene00001;Name=EDEN.1
+ctg123	.	mRNA	1050	9000	.	+	.	ID=mRNA00002;Parent=gene00001;Name=EDEN.2
+ctg123	.	exon	1050	1500	.	+	.	ID=exon00002;Parent=mRNA00001,mRNA00002
+ctg123	.	exon	5000	5500	.	+	.	ID=exon00004;Parent=mRNA00001,mRNA00002
+ctg123	.	CDS	1201	1500	.	+	0	ID=cds00001;Parent=mRNA00001
+ctg123	.	CDS	5000	5500	.	+	0	ID=cds00002;Parent=mRNA00002";
+
+        var records = GffParser.Parse(gff).ToList();
+        var models = GffParser.BuildGeneModels(records).ToList();
+
+        Assert.That(models, Has.Count.EqualTo(1));
+        var model = models[0];
+        Assert.That(model.Transcripts, Has.Count.EqualTo(2));
+        // Each shared exon should appear once per parent transcript
+        Assert.That(model.Exons, Has.Count.EqualTo(4), "2 exons × 2 parent transcripts");
+        Assert.That(model.CDS, Has.Count.EqualTo(2));
     }
 
     #endregion
@@ -293,11 +339,62 @@ chr1	.	gene	3000	4000	.	+	.	ID=gene2";
         using var writer = new StringWriter();
 
         GffParser.WriteToStream(writer, records, GffParser.GffFormat.GFF3);
+        var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        // Header + 6 feature lines
+        Assert.That(lines, Has.Length.EqualTo(7));
+        Assert.That(lines[0].TrimEnd('\r'), Is.EqualTo("##gff-version 3"));
+
+        // Each feature line must have exactly 9 tab-separated columns
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var columns = lines[i].TrimEnd('\r').Split('\t');
+            Assert.That(columns, Has.Length.EqualTo(9),
+                $"Line {i} must have 9 tab-separated columns");
+        }
+
+        // First feature line: gene record
+        var geneCols = lines[1].TrimEnd('\r').Split('\t');
+        Assert.That(geneCols[0], Is.EqualTo("chr1"));
+        Assert.That(geneCols[2], Is.EqualTo("gene"));
+        Assert.That(geneCols[3], Is.EqualTo("1000"));
+        Assert.That(geneCols[4], Is.EqualTo("5000"));
+    }
+
+    [Test]
+    public void WriteToStream_GTFFormat_TrailingSemicolon()
+    {
+        // GTF/UCSC spec: "Attributes must end in a semicolon, and be separated
+        // from any following attribute by exactly one space."
+        var records = GffParser.Parse(SimpleGtf, GffParser.GffFormat.GTF).ToList();
+        using var writer = new StringWriter();
+
+        GffParser.WriteToStream(writer, records, GffParser.GffFormat.GTF);
+        var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimEnd('\r');
+            Assert.That(trimmed, Does.EndWith(";"),
+                $"GTF line must end with semicolon: {trimmed}");
+        }
+    }
+
+    [Test]
+    public void WriteToStream_ScorePrecision_PreservesScientificNotation()
+    {
+        // GFF3 Spec v1.26: "It is strongly recommended that E-values be used for sequence
+        // similarity features, and that P-values be used for ab initio gene prediction features."
+        var record = new GffParser.GffRecord(
+            "chr1", ".", "cDNA_match", 1050, 1500, 5.8e-42, '+', null,
+            new Dictionary<string, string> { ["ID"] = "match00001" });
+
+        using var writer = new StringWriter();
+        GffParser.WriteToStream(writer, new[] { record }, GffParser.GffFormat.GFF3);
         var output = writer.ToString();
 
-        Assert.That(output, Does.Contain("##gff-version 3"));
-        Assert.That(output, Does.Contain("chr1"));
-        Assert.That(output, Does.Contain("gene"));
+        // Score must not be truncated to "0.00"
+        Assert.That(output, Does.Contain("5.8E-42").Or.Contain("5.8e-42"));
     }
 
     [Test]
@@ -337,13 +434,15 @@ chr1	.	gene	3000	4000	.	+	.	ID=gene2";
     [Test]
     public void ExtractSequence_MinusStrand_ReturnsReverseComplement()
     {
+        // Use non-palindromic sequence to truly verify reverse complement
+        // "ATCG" → reverse "GCTA" → complement "CGAT"
         var record = new GffParser.GffRecord(
             "chr1", ".", "exon", 1, 4, null, '-', null, new Dictionary<string, string>());
 
-        var reference = "ACGT";
+        var reference = "ATCG";
         var sequence = GffParser.ExtractSequence(record, reference);
 
-        Assert.That(sequence, Is.EqualTo("ACGT")); // Reverse complement of ACGT
+        Assert.That(sequence, Is.EqualTo("CGAT"));
     }
 
     [Test]
@@ -370,22 +469,54 @@ chr1	.	exon	400	500	.	+	.	ID=e3";
     [Test]
     public void Parse_DetectsGFF3Version()
     {
-        // GFF3 Spec: ##gff-version directive indicates format version
+        // GFF3 Spec v1.26: "##gff-version 3.#.#" - version begins with 3
+        // GFF3 detected → case-sensitive attributes (Ordinal comparer)
         const string gff3 = @"##gff-version 3
-chr1	.	gene	1000	2000	.	+	.	ID=gene1";
+chr1	.	gene	1000	2000	.	+	.	ID=gene1;Name=TestGene";
 
-        const string gff2 = @"##gff-version 2
-chr1	.	gene	1000	2000	.	+	.	gene1";
+        const string gff3Full = @"##gff-version 3.1.26
+chr1	.	gene	1000	2000	.	+	.	ID=gene1;Name=TestGene";
 
-        // Both should parse; format detection happens on version directive
+        // GFF2 detected → case-insensitive attributes
+        const string gff2 = "##gff-version 2\nchr1\t.\tgene\t1000\t2000\t.\t+\t.\tgene_id \"g1\";";
+
         var records3 = GffParser.Parse(gff3, GffParser.GffFormat.Auto).ToList();
+        var records3Full = GffParser.Parse(gff3Full, GffParser.GffFormat.Auto).ToList();
         var records2 = GffParser.Parse(gff2, GffParser.GffFormat.Auto).ToList();
 
         Assert.Multiple(() =>
         {
             Assert.That(records3, Has.Count.EqualTo(1));
+            Assert.That(records3Full, Has.Count.EqualTo(1));
             Assert.That(records2, Has.Count.EqualTo(1));
+
+            // GFF3: case-sensitive → "id" must NOT be found
+            Assert.That(records3[0].Attributes.ContainsKey("ID"), Is.True);
+            Assert.That(records3[0].Attributes.ContainsKey("id"), Is.False,
+                "GFF3 detected → case-sensitive attributes");
+
+            Assert.That(records3Full[0].Attributes.ContainsKey("ID"), Is.True);
+            Assert.That(records3Full[0].Attributes.ContainsKey("id"), Is.False,
+                "GFF3 v3.1.26 detected → case-sensitive attributes");
         });
+    }
+
+    [Test]
+    public void Parse_VersionDetection_DoesNotMisdetectGFF2AsGFF3()
+    {
+        // Regression: "##gff-version 2.3" must not be detected as GFF3
+        // GFF2 detection → case-insensitive attribute comparer (OrdinalIgnoreCase)
+        // GFF3 detection → case-sensitive attribute comparer (Ordinal)
+        const string gff = "##gff-version 2.3\nchr1\t.\tgene\t1000\t2000\t.\t+\t.\tID=gene1;Name=Test";
+
+        var records = GffParser.Parse(gff, GffParser.GffFormat.Auto).ToList();
+        Assert.That(records, Has.Count.EqualTo(1));
+
+        // GFF2 detected → attribute dictionary uses case-insensitive comparer
+        // So "id" lookup should succeed (unlike GFF3 where it would fail)
+        Assert.That(records[0].Attributes.ContainsKey("ID"), Is.True);
+        Assert.That(records[0].Attributes.ContainsKey("id"), Is.True,
+            "GFF2 detected → case-insensitive attributes, 'id' must match 'ID'");
     }
 
     [Test]
@@ -478,20 +609,32 @@ chr1	.	exon	1000	1500	.	+	.	ID=exon1;Parent=mRNA1,mRNA2";
     }
 
     [Test]
-    public void Parse_AttributeCaseInsensitive()
+    public void Parse_AttributeCaseSensitive()
     {
-        // GFF3 Spec: Attribute names are case sensitive (ID != id)
-        // However, our implementation uses case-insensitive dictionary for convenience
+        // GFF3 Spec v1.26: "attribute names are case sensitive. 'Parent' is not the same as 'parent'."
         var records = GffParser.Parse(SimpleGff3).ToList();
         var gene = records.First(r => r.Type == "gene");
 
-        // Both cases should work with case-insensitive lookup
         Assert.Multiple(() =>
         {
             Assert.That(gene.Attributes.ContainsKey("ID"), Is.True);
-            Assert.That(gene.Attributes.ContainsKey("id"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("id"), Is.False, "GFF3 attribute names are case-sensitive per spec");
             Assert.That(gene.Attributes.ContainsKey("Name"), Is.True);
-            Assert.That(gene.Attributes.ContainsKey("name"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("name"), Is.False, "GFF3 attribute names are case-sensitive per spec");
+        });
+    }
+
+    [Test]
+    public void Parse_GTFAttributes_CaseInsensitive()
+    {
+        // GTF/GFF2 does not mandate case-sensitive attribute names
+        var records = GffParser.Parse(SimpleGtf, GffParser.GffFormat.GTF).ToList();
+        var gene = records.First(r => r.Type == "gene");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(gene.Attributes.ContainsKey("gene_id"), Is.True);
+            Assert.That(gene.Attributes.ContainsKey("GENE_ID"), Is.True, "GTF attribute names are case-insensitive");
         });
     }
 
@@ -513,12 +656,25 @@ chr1	.	gene	1000	2000	.	+	.	ID=gene1";
     [Test]
     public void Parse_SpecialCharacters_Unescaped()
     {
+        // GFF3 Spec v1.26: RFC 3986 percent-encoding for reserved characters
         const string gff = @"##gff-version 3
 chr1	.	gene	1000	2000	.	+	.	ID=gene1;Name=Test%3BGene";
 
         var records = GffParser.Parse(gff).ToList();
-        // URL-encoded ; should be unescaped
-        Assert.That(records[0].Attributes["Name"], Does.Contain("Gene"));
+        // %3B must be decoded to literal semicolon
+        Assert.That(records[0].Attributes["Name"], Is.EqualTo("Test;Gene"));
+    }
+
+    [Test]
+    public void Parse_DoubleEncodedPercent_DecodedCorrectly()
+    {
+        // GFF3 Spec v1.26: %25 decodes to literal %, must not cause double-decoding
+        // %253B should decode to literal "%3B", not to ";"
+        const string gff = @"##gff-version 3
+chr1	.	gene	1000	2000	.	+	.	ID=gene1;Name=Test%253BGene";
+
+        var records = GffParser.Parse(gff).ToList();
+        Assert.That(records[0].Attributes["Name"], Is.EqualTo("Test%3BGene"));
     }
 
     [Test]

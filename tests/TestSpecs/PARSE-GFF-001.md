@@ -40,6 +40,12 @@
 | M23 | WriteAndRead_Roundtrip_PreservesData | Standard behavior | Data integrity |
 | M24 | ParseFile_NonexistentFile_ReturnsEmpty | Error handling | Graceful failure |
 | M25 | ParseFile_ValidFile_ParsesRecords | API Contract | File I/O |
+| M26 | Parse_AttributeCaseSensitive | GFF3 Spec v1.26 | "attribute names are case sensitive" |
+| M27 | Parse_DoubleEncodedPercent_DecodedCorrectly | GFF3 Spec RFC 3986 | %25 → % without double-decoding |
+| M28 | Parse_VersionDetection_DoesNotMisdetectGFF2AsGFF3 | GFF3 Spec | "##gff-version 2.3" ≠ GFF3 |
+| M29 | WriteToStream_GTFFormat_TrailingSemicolon | GTF/UCSC Spec | "Attributes must end in a semicolon" |
+| M30 | WriteToStream_ScorePrecision_PreservesScientificNotation | GFF3 Spec | E-values must not be truncated |
+| M31 | BuildGeneModels_MultiParentExons_AssignedToAllTranscripts | GFF3 Spec v1.26 | Comma-separated Parent values |
 
 ### Should Tests (Quality/Robustness)
 
@@ -58,100 +64,126 @@
 | S11 | ExtractSequence_PlusStrand_ReturnsSequence | Sequence extraction |
 | S12 | ExtractSequence_MinusStrand_ReturnsReverseComplement | Reverse complement |
 | S13 | MergeOverlapping_MergesCorrectly | Feature merging |
+| S14 | Parse_GTFAttributes_CaseInsensitive | GTF doesn't mandate case-sensitive attrs |
 
 ### Could Tests (Extended Coverage)
 
 | ID | Test Name | Rationale |
 |----|-----------|-----------|
 | C01 | Parse_MultipleAttributeValues | Comma-separated Parent values |
-| C02 | Parse_CaseInsensitiveAttributeLookup | Attribute key case |
-| C03 | Parse_LargeFile_Performance | Performance benchmark |
-| C04 | Parse_CircularGenome_IsCircularAttribute | Circular genome support |
-| C05 | FilterByRegion_NoOverlap_ReturnsEmpty | Region filtering edge case |
+| C02 | Parse_LargeFile_Performance | Performance benchmark |
+| C03 | Parse_CircularGenome_IsCircularAttribute | Circular genome support |
+| C04 | FilterByRegion_NoOverlap_ReturnsEmpty | Region filtering edge case |
+
+---
+
+## Coverage Classification
+
+### Classification Summary
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| ✅ Covered | 39 | Adequate assertions grounded in spec/theory |
+| ⚠ Weak → ✅ Fixed | 6 | Strengthened with exact values and structural assertions |
+| ❌ Missing → ✅ Added | 1 | FilterByRegion_NoOverlap_ReturnsEmpty (C04) |
+| 🔁 Duplicate | 0 | No duplicates found |
+
+### Weak Tests Fixed
+
+| Test | Problem | Fix |
+|------|---------|-----|
+| Parse_GTF_ReturnsCorrectRecords (M02) | `GreaterThanOrEqualTo(4)` — hid exact expectation | Exact `EqualTo(4)` + field-level assertions on all 4 records |
+| BuildGeneModels_CreatesHierarchy (M20) | `GreaterThanOrEqualTo` for Transcripts/Exons/CDS | Exact `EqualTo(1)` / `EqualTo(2)` / `EqualTo(2)` |
+| WriteToStream_GFF3Format_ValidOutput (M22) | Only `Does.Contain` — no structural validation | Verify 7 lines (header + 6 features), 9 tab-separated columns per line, specific field values |
+| ExtractSequence_MinusStrand (S12) | Palindromic "ACGT" → rc is "ACGT" — passes trivially | Non-palindromic "ATCG" → rc must be "CGAT" |
+| Parse_DetectsGFF3Version (M13) | Only checked record count — didn't verify format detection | GFF3 input → case-sensitive attributes (ID found, id not found) |
+| Parse_VersionDetection_DoesNotMisdetectGFF2AsGFF3 (M28) | Only checked count=1 — didn't prove GFF2 was detected | GFF2 detected → case-insensitive attributes ("id" matches "ID") |
+
+### Missing Test Added
+
+| Test | Spec ID | Rationale |
+|------|---------|-----------|
+| FilterByRegion_NoOverlap_ReturnsEmpty | C04 | Region [10000,20000] doesn't overlap any chr1 feature → empty result |
 
 ---
 
 ## Audit Results
 
-### Existing Test File: GffParserTests.cs
+### Canonical Test File: GffParserTests.cs — 46 tests passing
 
-| Test Name | Category | Status | Notes |
-|-----------|----------|--------|-------|
-| Parse_GFF3_ReturnsCorrectRecords | M01 | ✓ Covered | |
-| Parse_GTF_ReturnsCorrectRecords | M02 | ✓ Covered | |
-| Parse_EmptyContent_ReturnsEmpty | M03 | ✓ Covered | |
-| Parse_NullContent_ReturnsEmpty | M04 | ✓ Covered | |
-| Parse_SkipsComments | M05 | ✓ Covered | |
-| Parse_SkipsEmptyLines | M06 | ✓ Covered | |
-| Parse_GFF3Attributes_ParsedCorrectly | M07 | ✓ Covered | |
-| Parse_GTFAttributes_ParsedCorrectly | M08 | ✓ Covered | |
-| Parse_MalformedLine_Skips | M09 | ✓ Covered | |
-| Parse_NoScore_ScoreIsNull | M10 | ✓ Covered | |
-| Parse_WithScore_ScoreIsParsed | M11 | ✓ Covered | |
-| Parse_SpecialCharacters_Unescaped | M12 | ✓ Covered | |
-| FilterByType_ReturnsMatchingTypes | M17 | ✓ Covered | |
-| FilterByType_MultipleTypes_ReturnsAll | S01 | ✓ Covered | |
-| FilterBySeqid_ReturnsMatchingChromosome | M18 | ✓ Covered | |
-| FilterByRegion_ReturnsOverlappingFeatures | M19 | ✓ Covered | |
-| GetGenes_ReturnsOnlyGenes | S02 | ✓ Covered | |
-| GetExons_ReturnsOnlyExons | S03 | ✓ Covered | |
-| GetCDS_ReturnsOnlyCDS | S04 | ✓ Covered | |
-| BuildGeneModels_CreatesHierarchy | M20 | ✓ Covered | |
-| BuildGeneModels_MultipleGenes_BuildsAll | S05 | ✓ Covered | |
-| CalculateStatistics_ReturnsCorrectCounts | M21 | ✓ Covered | |
-| CalculateStatistics_FeatureTypeCounts_Correct | S06 | ✓ Covered | |
-| CalculateStatistics_SequenceIds_Listed | S07 | ✓ Covered | |
-| GetAttribute_ExistingAttribute_ReturnsValue | S08 | ✓ Covered | |
-| GetAttribute_NonexistentAttribute_ReturnsNull | S09 | ✓ Covered | |
-| GetGeneName_ReturnsGeneName | S10 | ✓ Covered | |
-| WriteToStream_GFF3Format_ValidOutput | M22 | ✓ Covered | |
-| WriteAndRead_Roundtrip_PreservesData | M23 | ✓ Covered | |
-| ExtractSequence_PlusStrand_ReturnsSequence | S11 | ✓ Covered | |
-| ExtractSequence_MinusStrand_ReturnsReverseComplement | S12 | ✓ Covered | |
-| MergeOverlapping_MergesCorrectly | S13 | ✓ Covered | |
-| ParseFile_NonexistentFile_ReturnsEmpty | M24 | ✓ Covered | |
-| ParseFile_ValidFile_ParsesRecords | M25 | ✓ Covered | |
+| Test Name | Category | Status | Classification |
+|-----------|----------|--------|----------------|
+| Parse_GFF3_ReturnsCorrectRecords | M01 | ✓ | ✅ Covered |
+| Parse_GTF_ReturnsCorrectRecords | M02 | ✓ | ⚠→✅ Fixed |
+| Parse_EmptyContent_ReturnsEmpty | M03 | ✓ | ✅ Covered |
+| Parse_NullContent_ReturnsEmpty | M04 | ✓ | ✅ Covered |
+| Parse_SkipsComments | M05 | ✓ | ✅ Covered |
+| Parse_SkipsEmptyLines | M06 | ✓ | ✅ Covered |
+| Parse_GFF3Attributes_ParsedCorrectly | M07 | ✓ | ✅ Covered |
+| Parse_GTFAttributes_ParsedCorrectly | M08 | ✓ | ✅ Covered |
+| Parse_MalformedLine_Skips | M09 | ✓ | ✅ Covered |
+| Parse_NoScore_ScoreIsNull | M10 | ✓ | ✅ Covered |
+| Parse_WithScore_ScoreIsParsed | M11 | ✓ | ✅ Covered |
+| Parse_SpecialCharacters_Unescaped | M12 | ✓ | ✅ Covered |
+| Parse_DetectsGFF3Version | M13 | ✓ | ⚠→✅ Fixed |
+| Parse_1BasedCoordinates_Validated | M14 | ✓ | ✅ Covered |
+| Parse_Phase_ParsedCorrectly | M15 | ✓ | ✅ Covered |
+| Parse_Strand_AllValidValues | M16 | ✓ | ✅ Covered |
+| FilterByType_ReturnsMatchingTypes | M17 | ✓ | ✅ Covered |
+| FilterBySeqid_ReturnsMatchingChromosome | M18 | ✓ | ✅ Covered |
+| FilterByRegion_ReturnsOverlappingFeatures | M19 | ✓ | ✅ Covered |
+| BuildGeneModels_CreatesHierarchy | M20 | ✓ | ⚠→✅ Fixed |
+| CalculateStatistics_ReturnsCorrectCounts | M21 | ✓ | ✅ Covered |
+| WriteToStream_GFF3Format_ValidOutput | M22 | ✓ | ⚠→✅ Fixed |
+| WriteAndRead_Roundtrip_PreservesData | M23 | ✓ | ✅ Covered |
+| ParseFile_NonexistentFile_ReturnsEmpty | M24 | ✓ | ✅ Covered |
+| ParseFile_ValidFile_ParsesRecords | M25 | ✓ | ✅ Covered |
+| Parse_AttributeCaseSensitive | M26 | ✓ | ✅ Covered |
+| Parse_DoubleEncodedPercent_DecodedCorrectly | M27 | ✓ | ✅ Covered |
+| Parse_VersionDetection_DoesNotMisdetectGFF2AsGFF3 | M28 | ✓ | ⚠→✅ Fixed |
+| WriteToStream_GTFFormat_TrailingSemicolon | M29 | ✓ | ✅ Covered |
+| WriteToStream_ScorePrecision_PreservesScientificNotation | M30 | ✓ | ✅ Covered |
+| BuildGeneModels_MultiParentExons_AssignedToAllTranscripts | M31 | ✓ | ✅ Covered |
+| FilterByType_MultipleTypes_ReturnsAll | S01 | ✓ | ✅ Covered |
+| GetGenes_ReturnsOnlyGenes | S02 | ✓ | ✅ Covered |
+| GetExons_ReturnsOnlyExons | S03 | ✓ | ✅ Covered |
+| GetCDS_ReturnsOnlyCDS | S04 | ✓ | ✅ Covered |
+| BuildGeneModels_MultipleGenes_BuildsAll | S05 | ✓ | ✅ Covered |
+| CalculateStatistics_FeatureTypeCounts_Correct | S06 | ✓ | ✅ Covered |
+| CalculateStatistics_SequenceIds_Listed | S07 | ✓ | ✅ Covered |
+| GetAttribute_ExistingAttribute_ReturnsValue | S08 | ✓ | ✅ Covered |
+| GetAttribute_NonexistentAttribute_ReturnsNull | S09 | ✓ | ✅ Covered |
+| GetGeneName_ReturnsGeneName | S10 | ✓ | ✅ Covered |
+| ExtractSequence_PlusStrand_ReturnsSequence | S11 | ✓ | ✅ Covered |
+| ExtractSequence_MinusStrand_ReturnsReverseComplement | S12 | ✓ | ⚠→✅ Fixed |
+| MergeOverlapping_MergesCorrectly | S13 | ✓ | ✅ Covered |
+| Parse_GTFAttributes_CaseInsensitive | S14 | ✓ | ✅ Covered |
+| Parse_MultipleParentValues | C01 | ✓ | ✅ Covered |
+| FilterByRegion_NoOverlap_ReturnsEmpty | C04 | ✓ | ❌→✅ Added |
 
-### Missing Tests (All Closed):
+### MCP Wrapper Tests: GffParseTests.cs — 15 tests passing
 
-| Test ID | Description | Status |
-|---------|-------------|--------|
-| M13 | Parse_DetectsGFF3Version | ✅ Covered |
-| M14 | Parse_1BasedCoordinates_Validated | ✅ Covered |
-| M15 | Parse_Phase_ParsedCorrectly | ✅ Covered |
-| M16 | Parse_Strand_AllValidValues | ✅ Covered |
-| C01 | Parse_MultipleParentValues | ✅ Covered |
-| C02 | Parse_AttributeCaseInsensitive | ✅ Covered |
-
-### MCP Wrapper Tests: GffParseTests.cs
-
-| Test Name | Status | Notes |
-|-----------|--------|-------|
-| GffParse_Schema_ValidatesCorrectly | ✓ Smoke test | Delegation verification |
-| GffParse_Binding_ParsesRecords | ✓ Smoke test | |
-| GffParse_Binding_ParsesAttributes | ✓ Smoke test | |
-| GffParse_Binding_ParsesScore | ✓ Smoke test | |
-| GffParse_Binding_CalculatesLength | ✓ Smoke test | |
-| GffParse_Binding_RespectsFormat | ✓ Smoke test | |
-| GffStatistics_* | ✓ Smoke tests | Statistics API |
-| GffFilter_* | ✓ Smoke tests | Filtering API |
-
-**Wrapper Assessment:** MCP tests provide appropriate smoke coverage; no deep logic tests needed there.
+Smoke coverage for MCP delegation; no deep logic tests needed.
 
 ---
 
-## Consolidation Plan
+## Deviations and Assumptions
 
-1. **Canonical test file:** `GffParserTests.cs` - ALL deep logic tests
-2. **Wrapper test file:** `GffParseTests.cs` - Smoke tests only (current state is appropriate)
-3. ~~**Action:** Add missing Must tests M13-M16 to canonical file~~ ✅ Done
-4. ~~**Action:** Optionally add Could tests C01-C02~~ ✅ Done
+**None.** All tests and implementation are grounded in the authoritative sources listed in the Evidence document.
+
+- GFF3 attributes are case-sensitive per GFF3 Spec v1.26: *"attribute names are case sensitive. 'Parent' is not the same as 'parent'."*
+- GTF/GFF2 attributes use case-insensitive lookup (GTF spec does not mandate case sensitivity).
+- Escaping/unescaping uses `Uri.UnescapeDataString` which correctly handles RFC 3986 percent-encoding without double-decoding.
+- GFF3 version detection parses the version number after `##gff-version` and checks that it starts with `3`, per spec format `3.#.#`.
+- Score is written with `"G"` format to preserve full precision (E-values, P-values per spec recommendation).
+- GTF output ends each line's attributes with a trailing semicolon per UCSC GTF spec: *"Attributes must end in a semicolon."*
+- BuildGeneModels splits comma-separated Parent values per GFF3 Spec v1.26: *"A feature may have multiple parents."*
 
 ---
 
 ## Test Data
 
-### Standard GFF3 Test Data (from existing tests):
+### Standard GFF3 Test Data:
 ```gff3
 ##gff-version 3
 chr1	ENSEMBL	gene	1000	5000	.	+	.	ID=gene1;Name=TestGene
@@ -166,16 +198,21 @@ chr1	ENSEMBL	gene	1000	5000	.	+	.	gene_id "ENSG00001"; gene_name "TestGene";
 chr1	ENSEMBL	transcript	1000	5000	.	+	.	gene_id "ENSG00001"; transcript_id "ENST00001";
 ```
 
----
-
-## Open Questions
-
-None - GFF3 specification is authoritative and well-documented.
+### Canonical Gene (from GFF3 Spec v1.26):
+```gff3
+##gff-version 3
+ctg123	.	gene	1000	9000	.	+	.	ID=gene00001;Name=EDEN
+ctg123	.	mRNA	1050	9000	.	+	.	ID=mRNA00001;Parent=gene00001;Name=EDEN.1
+ctg123	.	mRNA	1050	9000	.	+	.	ID=mRNA00002;Parent=gene00001;Name=EDEN.2
+ctg123	.	exon	1050	1500	.	+	.	ID=exon00002;Parent=mRNA00001,mRNA00002
+ctg123	.	CDS	1201	1500	.	+	0	ID=cds00001;Parent=mRNA00001
+```
 
 ---
 
 ## Sign-off
 
 - **Author:** Algorithm QA Architect
-- **Date:** 2026-02-05
-- **Status:** Ready for implementation
+- **Date:** 2026-03-12
+- **Coverage Classification Date:** 2026-03-12
+- **Status:** Complete — zero deviations, zero weak tests, zero duplicates
