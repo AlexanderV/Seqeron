@@ -10,7 +10,7 @@ public class EmblParserTests
 {
     #region Sample EMBL Data
 
-    private const string SimpleEmblRecord = @"ID   TEST001; SV 1; linear; DNA; STD; HUM; 100 BP.
+    private const string SimpleEmblRecord = @"ID   TEST001; SV 1; linear; genomic DNA; STD; HUM; 100 BP.
 XX
 AC   TEST001;
 XX
@@ -41,13 +41,13 @@ SQ   Sequence 100 BP; 25 A; 25 C; 25 G; 25 T; 0 other;
      gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc gcgcgcgcgc       100
 //";
 
-    private const string MinimalRecord = @"ID   MINIMAL; SV 1; linear; DNA; STD; UNK; 20 BP.
+    private const string MinimalRecord = @"ID   MINIMAL; SV 1; linear; genomic DNA; STD; UNC; 20 BP.
 XX
 SQ   Sequence 20 BP;
      acgtacgtac gtacgtacgt                                          20
 //";
 
-    private const string CircularRecord = @"ID   PLASMID; SV 1; circular; DNA; STD; BCT; 50 BP.
+    private const string CircularRecord = @"ID   PLASMID; SV 1; circular; genomic DNA; STD; PRO; 50 BP.
 XX
 AC   PLASMID001;
 XX
@@ -121,7 +121,7 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.MoleculeType, Is.EqualTo("DNA"));
+        Assert.That(record.MoleculeType, Is.EqualTo("genomic DNA"));
     }
 
     [Test]
@@ -173,7 +173,7 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.Description, Does.Contain("Test sequence"));
+        Assert.That(record.Description, Is.EqualTo("Test sequence for unit testing."));
     }
 
     [Test]
@@ -181,9 +181,8 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.Keywords.Count, Is.GreaterThan(0));
-        Assert.That(record.Keywords, Does.Contain("test"));
-        Assert.That(record.Keywords, Does.Contain("genomics"));
+        Assert.That(record.Keywords.Count, Is.EqualTo(3));
+        Assert.That(record.Keywords, Is.EqualTo(new[] { "test", "genomics", "parser" }));
     }
 
     [Test]
@@ -199,9 +198,8 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.OrganismClassification.Count, Is.GreaterThan(0));
-        Assert.That(record.OrganismClassification, Does.Contain("Eukaryota"));
-        Assert.That(record.OrganismClassification, Does.Contain("Metazoa"));
+        Assert.That(record.OrganismClassification.Count, Is.EqualTo(5));
+        Assert.That(record.OrganismClassification, Is.EqualTo(new[] { "Eukaryota", "Metazoa", "Chordata", "Vertebrata", "Mammalia" }));
     }
 
     #endregion
@@ -213,34 +211,34 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.References.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(record.References.Count, Is.EqualTo(1));
     }
 
     [Test]
     public void Parse_Reference_HasAuthors()
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
-        var firstRef = record.References.FirstOrDefault();
+        var firstRef = record.References[0];
 
-        Assert.That(firstRef.Authors, Does.Contain("Smith"));
+        Assert.That(firstRef.Authors, Is.EqualTo("Smith J., Jones A."));
     }
 
     [Test]
     public void Parse_Reference_HasTitle()
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
-        var firstRef = record.References.FirstOrDefault();
+        var firstRef = record.References[0];
 
-        Assert.That(firstRef.Title, Does.Contain("Test title"));
+        Assert.That(firstRef.Title, Is.EqualTo("Test title for reference"));
     }
 
     [Test]
     public void Parse_Reference_HasJournalLocation()
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
-        var firstRef = record.References.FirstOrDefault();
+        var firstRef = record.References[0];
 
-        Assert.That(firstRef.Journal, Does.Contain("Test Journal"));
+        Assert.That(firstRef.Journal, Is.EqualTo("Test Journal 1:1-10(2024)."));
     }
 
     #endregion
@@ -252,7 +250,9 @@ SQ   Sequence 50 BP;
     {
         var record = EmblParser.Parse(SimpleEmblRecord).First();
 
-        Assert.That(record.Features.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(record.Features.Count, Is.EqualTo(2));
+        Assert.That(record.Features[0].Key, Is.EqualTo("gene"));
+        Assert.That(record.Features[1].Key, Is.EqualTo("CDS"));
     }
 
     [Test]
@@ -261,7 +261,9 @@ SQ   Sequence 50 BP;
         var record = EmblParser.Parse(SimpleEmblRecord).First();
         var genes = record.Features.Where(f => f.Key == "gene").ToList();
 
-        Assert.That(genes.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(genes.Count, Is.EqualTo(1));
+        Assert.That(genes[0].Location.Start, Is.EqualTo(1));
+        Assert.That(genes[0].Location.End, Is.EqualTo(50));
     }
 
     [Test]
@@ -335,6 +337,9 @@ SQ   Sequence 50 BP;
         var location = EmblParser.ParseLocation("complement(100..200)");
 
         Assert.That(location.IsComplement, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(200));
+        Assert.That(location.IsJoin, Is.False);
     }
 
     [Test]
@@ -343,7 +348,12 @@ SQ   Sequence 50 BP;
         var location = EmblParser.ParseLocation("join(1..50,60..100)");
 
         Assert.That(location.IsJoin, Is.True);
+        Assert.That(location.IsComplement, Is.False);
         Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+        Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(100));
     }
 
     [Test]
@@ -362,7 +372,9 @@ SQ   Sequence 50 BP;
 
         Assert.That(location.Start, Is.EqualTo(1));
         Assert.That(location.End, Is.EqualTo(200));
-        Assert.That(location.RawLocation, Does.Contain("<"));
+        Assert.That(location.Is5PrimePartial, Is.True);
+        Assert.That(location.Is3PrimePartial, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("<1..200"));
     }
 
     [Test]
@@ -372,7 +384,9 @@ SQ   Sequence 50 BP;
 
         Assert.That(location.Start, Is.EqualTo(100));
         Assert.That(location.End, Is.EqualTo(500));
-        Assert.That(location.RawLocation, Does.Contain(">"));
+        Assert.That(location.Is3PrimePartial, Is.True);
+        Assert.That(location.Is5PrimePartial, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("100..>500"));
     }
 
     [Test]
@@ -383,6 +397,10 @@ SQ   Sequence 50 BP;
         Assert.That(location.IsComplement, Is.True);
         Assert.That(location.IsJoin, Is.True);
         Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((1, 50)));
+        Assert.That(location.Parts[1], Is.EqualTo((60, 100)));
+        Assert.That(location.Start, Is.EqualTo(1));
+        Assert.That(location.End, Is.EqualTo(100));
     }
 
     #endregion
@@ -419,7 +437,10 @@ SQ   Sequence 50 BP;
         var record = EmblParser.Parse(SimpleEmblRecord).First();
         var cdsFeatures = EmblParser.GetCDS(record).ToList();
 
-        Assert.That(cdsFeatures.All(f => f.Key == "CDS"), Is.True);
+        Assert.That(cdsFeatures.Count, Is.EqualTo(1));
+        Assert.That(cdsFeatures[0].Key, Is.EqualTo("CDS"));
+        Assert.That(cdsFeatures[0].Location.Start, Is.EqualTo(10));
+        Assert.That(cdsFeatures[0].Location.End, Is.EqualTo(40));
     }
 
     [Test]
@@ -428,7 +449,9 @@ SQ   Sequence 50 BP;
         var record = EmblParser.Parse(SimpleEmblRecord).First();
         var genes = EmblParser.GetGenes(record).ToList();
 
-        Assert.That(genes.All(f => f.Key == "gene"), Is.True);
+        Assert.That(genes.Count, Is.EqualTo(1));
+        Assert.That(genes[0].Key, Is.EqualTo("gene"));
+        Assert.That(genes[0].Qualifiers["gene"], Is.EqualTo("testGene"));
     }
 
     [Test]
@@ -456,15 +479,15 @@ SQ   Sequence 50 BP;
 
     #region Multiple Records Tests
 
-    private const string MultipleRecords = @"ID   REC1; SV 1; linear; DNA; STD; UNK; 10 BP.
+    private const string MultipleRecords = @"ID   REC1; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
 SQ   Sequence 10 BP;
      aaaaaaaaaa                                                     10
 //
-ID   REC2; SV 1; linear; DNA; STD; UNK; 10 BP.
+ID   REC2; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
 SQ   Sequence 10 BP;
      cccccccccc                                                     10
 //
-ID   REC3; SV 1; linear; DNA; STD; UNK; 10 BP.
+ID   REC3; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
 SQ   Sequence 10 BP;
      gggggggggg                                                     10
 //";
@@ -534,14 +557,462 @@ SQ   Sequence 10 BP;
     [Test]
     public void Parse_RecordWithoutTerminator_HandlesGracefully()
     {
-        // Record without // terminator - should still parse if content is valid
-        var incomplete = @"ID   TEST; SV 1; linear; DNA; STD; UNK; 10 BP.
+        // Record without // terminator - parser splits by \n// so unterminated content
+        // remains as a single chunk and is parsed if it starts with ID.
+        var incomplete = @"ID   TEST; SV 1; linear; genomic DNA; STD; UNC; 10 BP.
 SQ   Sequence 10 BP;
      aaaaaaaaaa                                                     10";
 
         var records = EmblParser.Parse(incomplete).ToList();
-        // Behavior depends on implementation - may return 0 or 1 records
-        Assert.That(records.Count, Is.LessThanOrEqualTo(1));
+
+        Assert.That(records.Count, Is.EqualTo(1));
+        Assert.That(records[0].Accession, Is.EqualTo("TEST"));
+        Assert.That(records[0].Sequence, Is.EqualTo("AAAAAAAAAA"));
+    }
+
+    #endregion
+
+    #region Location Parsing — Order
+
+    [Test]
+    public void ParseLocation_Order_ParsesCorrectly()
+    {
+        var location = EmblParser.ParseLocation("order(100..200,300..400)");
+
+        Assert.That(location.IsOrder, Is.True);
+        Assert.That(location.IsJoin, Is.False);
+        Assert.That(location.IsComplement, Is.False);
+        Assert.That(location.Parts.Count, Is.EqualTo(2));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 200)));
+        Assert.That(location.Parts[1], Is.EqualTo((300, 400)));
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(400));
+    }
+
+    #endregion
+
+    #region Reference — DOI and PubMed
+
+    [Test]
+    public void Parse_Reference_HasDOI()
+    {
+        var embl = @"ID   DOI001; SV 1; linear; mRNA; STD; PLN; 10 BP.
+XX
+RN   [1]
+RX   DOI; 10.1007/BF00039495.
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].CrossReference, Does.Contain("10.1007/BF00039495"));
+    }
+
+    [Test]
+    public void Parse_Reference_HasPubMed()
+    {
+        var embl = @"ID   PM001; SV 1; linear; mRNA; STD; PLN; 10 BP.
+XX
+RN   [1]
+RX   PUBMED; 1907511.
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].CrossReference, Does.Contain("1907511"));
+    }
+
+    #endregion
+
+    #region AdditionalFields — OG, DR, CC, DT
+
+    [Test]
+    public void Parse_Organelle_ExtractsCorrectly()
+    {
+        // OG line: organelle information — stored in AdditionalFields["OG"].
+        var embl = @"ID   ORG001; SV 1; linear; genomic DNA; STD; PLN; 10 BP.
+XX
+OG   Mitochondrion
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("OG"), Is.True);
+        Assert.That(record.AdditionalFields["OG"], Is.EqualTo("Mitochondrion"));
+    }
+
+    [Test]
+    public void Parse_DatabaseCrossReference_DR()
+    {
+        // DR line: database cross-reference — stored in AdditionalFields["DR"].
+        var embl = @"ID   DR001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DR   UniProtKB/Swiss-Prot; P26204; AMYG_TRIRP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("DR"), Is.True);
+        Assert.That(record.AdditionalFields["DR"], Does.Contain("UniProtKB/Swiss-Prot"));
+        Assert.That(record.AdditionalFields["DR"], Does.Contain("P26204"));
+    }
+
+    [Test]
+    public void Parse_Comments_CC()
+    {
+        // CC line: free-text comments — stored in AdditionalFields["CC"].
+        var embl = @"ID   CC001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+CC   This is a comment about the sequence.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("CC"), Is.True);
+        Assert.That(record.AdditionalFields["CC"], Is.EqualTo("This is a comment about the sequence."));
+    }
+
+    [Test]
+    public void Parse_DateLines_DT()
+    {
+        // DT line: date information — stored in AdditionalFields["DT"].
+        var embl = @"ID   DT001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DT   01-JAN-2024 (Created)
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.AdditionalFields.ContainsKey("DT"), Is.True);
+        Assert.That(record.AdditionalFields["DT"], Does.Contain("01-JAN-2024"));
+    }
+
+    #endregion
+
+    #region Multi-line Continuation and Edge Cases
+
+    [Test]
+    public void Parse_MultiLineContinuation_DE()
+    {
+        // DE lines can span multiple lines; content should be joined.
+        var embl = @"ID   ML001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+DE   This is a long description that spans
+DE   multiple lines in the EMBL file.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Description, Is.EqualTo("This is a long description that spans multiple lines in the EMBL file."));
+    }
+
+    [Test]
+    public void Parse_EmptyKeywords_ReturnsEmpty()
+    {
+        // "KW   ." indicates no keywords.
+        var embl = @"ID   EK001; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+KW   .
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Keywords, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_SecondaryAccessions_PrimaryExtracted()
+    {
+        // AC line may contain primary and secondary accessions separated by semicolons.
+        // Parser extracts primary accession; secondaries are not stored individually.
+        var embl = @"ID   PRIM01; SV 1; linear; genomic DNA; STD; HUM; 10 BP.
+XX
+AC   PRIM01; SEC001; SEC002;
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.Accession, Is.EqualTo("PRIM01"));
+    }
+
+    #endregion
+
+    #region ExtractSequence — Complement and Join
+
+    [Test]
+    public void ExtractSequence_ComplementLocation_ReturnsReverseComplement()
+    {
+        // SimpleEmblRecord sequence starts with "ACGTACGTAC..." (100 chars).
+        // complement(1..10) → extract "ACGTACGTAC", then reverse complement → "GTACGTACGT".
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("complement(1..10)");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq, Is.EqualTo("GTACGTACGT"));
+    }
+
+    [Test]
+    public void ExtractSequence_JoinLocation_ReturnsConcatenatedRegions()
+    {
+        // SimpleEmblRecord: positions 1..5 = "ACGTA", positions 51..55 = "GCGCG".
+        // join(1..5,51..55) → "ACGTAGCGCG".
+        var record = EmblParser.Parse(SimpleEmblRecord).First();
+        var location = EmblParser.ParseLocation("join(1..5,51..55)");
+        var subseq = EmblParser.ExtractSequence(record, location);
+
+        Assert.That(subseq, Is.EqualTo("ACGTAGCGCG"));
+    }
+
+    #endregion
+
+    #region Spec Compliance Tests — INSDC Feature Table v11.3 & EBI EMBL User Manual Release 143
+
+    [TestCase("genomic DNA")]
+    [TestCase("genomic RNA")]
+    [TestCase("mRNA")]
+    [TestCase("tRNA")]
+    [TestCase("rRNA")]
+    [TestCase("other RNA")]
+    [TestCase("other DNA")]
+    [TestCase("transcribed RNA")]
+    [TestCase("viral cRNA")]
+    [TestCase("unassigned DNA")]
+    [TestCase("unassigned RNA")]
+    public void Parse_IdLine_AllInsdcMolTypes(string molType)
+    {
+        var embl = $@"ID   MOL001; SV 1; linear; {molType}; STD; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.MoleculeType, Is.EqualTo(molType));
+    }
+
+    [Test]
+    public void Parse_IdLine_BareDnaNotRecognisedAsMolType()
+    {
+        // Bare "DNA" is not in the INSDC mol_type vocabulary; field should be empty.
+        var embl = @"ID   BARE; SV 1; linear; DNA; STD; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.MoleculeType, Is.Empty);
+    }
+
+    [TestCase("CON")]
+    [TestCase("PAT")]
+    [TestCase("EST")]
+    [TestCase("GSS")]
+    [TestCase("HTC")]
+    [TestCase("HTG")]
+    [TestCase("WGS")]
+    [TestCase("TSA")]
+    [TestCase("STS")]
+    [TestCase("STD")]
+    public void Parse_IdLine_AllDataClasses(string dataClass)
+    {
+        var embl = $@"ID   DC001; SV 1; linear; genomic DNA; {dataClass}; HUM; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.DataClass, Is.EqualTo(dataClass));
+    }
+
+    [TestCase("PHG")]
+    [TestCase("ENV")]
+    [TestCase("FUN")]
+    [TestCase("HUM")]
+    [TestCase("INV")]
+    [TestCase("MAM")]
+    [TestCase("VRT")]
+    [TestCase("MUS")]
+    [TestCase("PLN")]
+    [TestCase("PRO")]
+    [TestCase("ROD")]
+    [TestCase("SYN")]
+    [TestCase("TGN")]
+    [TestCase("UNC")]
+    [TestCase("VRL")]
+    public void Parse_IdLine_AllTaxonomicDivisions(string division)
+    {
+        var embl = $@"ID   DIV001; SV 1; linear; genomic DNA; STD; {division}; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.TaxonomicDivision, Is.EqualTo(division));
+    }
+
+    [Test]
+    public void Parse_IdLine_InvalidDivisionNotRecognised()
+    {
+        // "UNK" is not a valid EMBL division code.
+        var embl = @"ID   INV001; SV 1; linear; genomic DNA; STD; UNK; 10 BP.
+XX
+SQ   Sequence 10 BP;
+     aaaaaaaaaa                                                     10
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.TaxonomicDivision, Is.Empty);
+    }
+
+    [Test]
+    public void Parse_Qualifier_SlashInValue_NotTruncated()
+    {
+        // Regression test: /db_xref values with "/" must not be truncated.
+        // INSDC Feature Table v11.3: qualifier values are delimited by quotes, not by "/".
+        var embl = @"ID   QUAL001; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /organism=""Trifolium repens""
+FT                   /db_xref=""UniProtKB/Swiss-Prot:P26204""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["db_xref"], Is.EqualTo("UniProtKB/Swiss-Prot:P26204"));
+    }
+
+    [Test]
+    public void Parse_Qualifier_MultipleSlashesInValue()
+    {
+        // Ensure multiple slashes in a quoted value are preserved.
+        var embl = @"ID   QUAL002; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""path/to/some/resource""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("path/to/some/resource"));
+    }
+
+    [Test]
+    public void Parse_Reference_CapturesPositions()
+    {
+        // RP line: "Reference Positions" — per EBI User Manual Section 3.4.10.
+        var embl = @"ID   REF001; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+RN   [1]
+RP   1-1859
+RA   Oxtoby E., Dunn M.A.;
+RT   ""Nucleotide sequence"";
+RL   Plant Mol. Biol. 17(2):209-219(1991).
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].Positions, Is.EqualTo("1-1859"));
+    }
+
+    [Test]
+    public void Parse_Reference_CapturesGroup()
+    {
+        // RG line: "Reference Group" — per EBI User Manual Section 3.4.10.
+        var embl = @"ID   REF002; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+RN   [1]
+RP   1-20
+RG   The Genome Consortium
+RA   Smith J.;
+RT   ""Title"";
+RL   Journal 1:1-10(2024).
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+
+        Assert.That(record.References[0].Group, Is.EqualTo("The Genome Consortium"));
+    }
+
+    [Test]
+    public void Parse_EbiReferenceRecord_FullBlock()
+    {
+        // Complete reference block from EBI User Manual example (X56734).
+        var embl = @"ID   X56734; SV 1; linear; mRNA; STD; PLN; 30 BP.
+XX
+AC   X56734; S46826;
+XX
+RN   [5]
+RP   1-30
+RX   DOI; 10.1007/BF00039495.
+RX   PUBMED; 1907511.
+RA   Oxtoby E., Dunn M.A., Pancoro A., Hughes M.A.;
+RT   ""Nucleotide and derived amino acid sequence"";
+RL   Plant Mol. Biol. 17(2):209-219(1991).
+XX
+SQ   Sequence 30 BP;
+     acgtacgtac gtacgtacgt acgtacgtac                               30
+//";
+        var record = EmblParser.Parse(embl).First();
+        var r = record.References[0];
+
+        Assert.That(r.Number, Is.EqualTo(5));
+        Assert.That(r.Positions, Is.EqualTo("1-30"));
+        Assert.That(r.Authors, Does.Contain("Oxtoby"));
+        Assert.That(r.Title, Does.Contain("Nucleotide"));
+        Assert.That(r.Journal, Does.Contain("Plant Mol. Biol."));
+        Assert.That(r.CrossReference, Does.Contain("1907511"));
+    }
+
+    [Test]
+    public void ParseLocation_SiteBetween_ParsesRange()
+    {
+        // INSDC Feature Table: 123^124 means a site between bases 123 and 124.
+        // The parser captures Start=123, End=124 (the flanking positions).
+        var location = EmblParser.ParseLocation("123^124");
+
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+        Assert.That(location.RawLocation, Is.EqualTo("123^124"));
     }
 
     #endregion

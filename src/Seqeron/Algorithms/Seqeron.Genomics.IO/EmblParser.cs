@@ -42,7 +42,9 @@ public static partial class EmblParser
         string Title,
         string Journal,
         string CrossReference,
-        string Comment);
+        string Comment,
+        string Positions,
+        string Group);
 
     /// <summary>Sequence feature with location and qualifiers</summary>
     public readonly record struct Feature(
@@ -56,6 +58,9 @@ public static partial class EmblParser
         int End,
         bool IsComplement,
         bool IsJoin,
+        bool IsOrder,
+        bool Is5PrimePartial,
+        bool Is3PrimePartial,
         IReadOnlyList<(int Start, int End)> Parts,
         string RawLocation);
 
@@ -88,6 +93,31 @@ public static partial class EmblParser
     private const string SQ = "SQ";   // Sequence header
     private const string XX = "XX";   // Spacer line
     private const string END = "//";  // Entry terminator
+
+    #endregion
+
+    #region Controlled Vocabularies
+
+    // INSDC Feature Table v11.3 /mol_type qualifier controlled vocabulary.
+    private static readonly HashSet<string> ValidMolTypes = new(StringComparer.Ordinal)
+    {
+        "genomic DNA", "genomic RNA", "mRNA", "tRNA", "rRNA",
+        "other RNA", "other DNA", "transcribed RNA", "viral cRNA",
+        "unassigned DNA", "unassigned RNA"
+    };
+
+    // EBI EMBL User Manual Release 143, Section 3.1.
+    private static readonly HashSet<string> ValidDataClasses = new(StringComparer.Ordinal)
+    {
+        "CON", "PAT", "EST", "GSS", "HTC", "HTG", "WGS", "TSA", "STS", "STD"
+    };
+
+    // EBI EMBL User Manual Release 143, Section 3.2.
+    private static readonly HashSet<string> ValidDivisions = new(StringComparer.Ordinal)
+    {
+        "PHG", "ENV", "FUN", "HUM", "INV", "MAM", "VRT",
+        "MUS", "PLN", "PRO", "ROD", "SYN", "TGN", "UNC", "VRL"
+    };
 
     #endregion
 
@@ -177,11 +207,16 @@ public static partial class EmblParser
         // Sequence
         var sequence = ParseSequence(lines);
 
-        // Additional fields
+        // Additional fields — store both non-standard prefixes and standard prefixes
+        // that are not consumed by dedicated parsers above (DT, DR, CC, OG).
+        var consumedPrefixes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ID, AC, SV, DE, KW, OS, OC, RN, RC, RP, RX, RG, RA, RT, RL, FH, FT, SQ, XX
+        };
         var additionalFields = new Dictionary<string, string>();
         foreach (var (prefix, content) in lineGroups)
         {
-            if (!IsStandardPrefix(prefix))
+            if (!consumedPrefixes.Contains(prefix))
             {
                 additionalFields[prefix] = content;
             }
@@ -283,15 +318,15 @@ public static partial class EmblParser
             {
                 topology = trimmed;
             }
-            else if (trimmed is "DNA" or "RNA" or "mRNA" or "genomic DNA" or "genomic RNA")
+            else if (ValidMolTypes.Contains(trimmed))
             {
                 moleculeType = trimmed;
             }
-            else if (trimmed is "STD" or "CON" or "PAT" or "EST" or "GSS" or "HTC" or "HTG" or "TSA" or "WGS")
+            else if (ValidDataClasses.Contains(trimmed))
             {
                 dataClass = trimmed;
             }
-            else if (trimmed.Length == 3 && char.IsUpper(trimmed[0]))
+            else if (ValidDivisions.Contains(trimmed))
             {
                 division = trimmed;
             }
@@ -340,6 +375,7 @@ public static partial class EmblParser
 
         int currentRefNum = 0;
         string citation = "", authors = "", title = "", journal = "", xref = "", comment = "";
+        string positions = "", group = "";
 
         foreach (var line in lines)
         {
@@ -354,12 +390,14 @@ public static partial class EmblParser
                     // Save previous reference
                     if (currentRefNum > 0)
                     {
-                        references.Add(new Reference(currentRefNum, citation, authors, title, journal, xref, comment));
+                        references.Add(new Reference(currentRefNum, citation, authors, title, journal, xref, comment,
+                            positions, group));
                     }
                     // Parse new reference number
                     var numMatch = ReferenceNumberRegex().Match(content);
                     currentRefNum = numMatch.Success ? int.Parse(numMatch.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
                     citation = authors = title = journal = xref = comment = "";
+                    positions = group = "";
                     break;
                 case RC:
                     comment = string.IsNullOrEmpty(comment) ? content : comment + " " + content;
@@ -376,6 +414,12 @@ public static partial class EmblParser
                 case RX:
                     xref = string.IsNullOrEmpty(xref) ? content : xref + "; " + content;
                     break;
+                case RP:
+                    positions = string.IsNullOrEmpty(positions) ? content : positions + " " + content;
+                    break;
+                case RG:
+                    group = string.IsNullOrEmpty(group) ? content : group + " " + content;
+                    break;
             }
         }
 
@@ -383,7 +427,8 @@ public static partial class EmblParser
         if (currentRefNum > 0)
         {
             references.Add(new Reference(currentRefNum, citation, authors.TrimEnd(';', ' '),
-                title.Trim('"', ';', ' '), journal.TrimEnd(';', ' '), xref, comment));
+                title.Trim('"', ';', ' '), journal.TrimEnd(';', ' '), xref, comment,
+                positions, group.TrimEnd(';', ' ')));
         }
 
         return references;
@@ -454,15 +499,24 @@ public static partial class EmblParser
                 // Finish previous qualifier if any
                 FinishQualifier(currentQualifierName, qualifierBuilder, currentQualifiers);
 
-                // Parse new qualifier
+                // Parse new qualifier: /name=value or /name (boolean)
+                // Manual parsing instead of regex to correctly handle values containing '/'.
                 var qualContent = content.TrimStart();
-                var match = QualifierRegex().Match(qualContent);
-                if (match.Success)
+                if (qualContent.StartsWith('/'))
                 {
-                    currentQualifierName = match.Groups[1].Value;
-                    var value = match.Groups[2].Success ? match.Groups[2].Value : "true";
-                    qualifierBuilder.Clear();
-                    qualifierBuilder.Append(value);
+                    var eqIdx = qualContent.IndexOf('=', 1);
+                    if (eqIdx > 1)
+                    {
+                        currentQualifierName = qualContent[1..eqIdx];
+                        qualifierBuilder.Clear();
+                        qualifierBuilder.Append(qualContent[(eqIdx + 1)..]);
+                    }
+                    else
+                    {
+                        currentQualifierName = qualContent[1..].Trim();
+                        qualifierBuilder.Clear();
+                        qualifierBuilder.Append("true");
+                    }
                 }
             }
             else
@@ -591,11 +645,13 @@ public static partial class EmblParser
     public static Location ParseLocation(string locationStr)
     {
         if (string.IsNullOrEmpty(locationStr))
-            return new Location(0, 0, false, false, Array.Empty<(int, int)>(), locationStr);
+            return new Location(0, 0, false, false, false, false, false,
+                Array.Empty<(int, int)>(), locationStr);
 
-        var (start, end, isComplement, isJoin, parts) =
+        var (start, end, isComplement, isJoin, isOrder, is5PrimePartial, is3PrimePartial, parts) =
             SequenceFormatHelper.ParseLocationParts(locationStr, useStartsWithForComplement: false);
-        return new Location(start, end, isComplement, isJoin, parts, locationStr);
+        return new Location(start, end, isComplement, isJoin, isOrder,
+            is5PrimePartial, is3PrimePartial, parts, locationStr);
     }
 
     private static string ParseSequence(List<string> lines)
@@ -645,7 +701,9 @@ public static partial class EmblParser
             new GenBankParser.Feature(
                 f.Key,
                 new GenBankParser.Location(f.Location.Start, f.Location.End, f.Location.IsComplement,
-                    f.Location.IsJoin, f.Location.Parts, f.Location.RawLocation),
+                    f.Location.IsJoin, f.Location.IsOrder,
+                    f.Location.Is5PrimePartial, f.Location.Is3PrimePartial,
+                    f.Location.Parts, f.Location.RawLocation),
                 f.Qualifiers
             )).ToList();
 
