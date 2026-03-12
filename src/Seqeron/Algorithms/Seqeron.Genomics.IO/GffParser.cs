@@ -97,7 +97,8 @@ public static class GffParser
             {
                 if (line.StartsWith("##gff-version", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (line.Contains('3'))
+                    var versionPart = line.AsSpan("##gff-version".Length).Trim();
+                    if (versionPart.Length > 0 && versionPart[0] == '3')
                         detectedFormat = GffFormat.GFF3;
                     else
                         detectedFormat = GffFormat.GFF2;
@@ -152,7 +153,10 @@ public static class GffParser
 
     private static Dictionary<string, string> ParseAttributes(string attrString, GffFormat format)
     {
-        var attributes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var comparer = format == GffFormat.GFF3
+            ? StringComparer.Ordinal
+            : StringComparer.OrdinalIgnoreCase;
+        var attributes = new Dictionary<string, string>(comparer);
 
         if (string.IsNullOrWhiteSpace(attrString))
             return attributes;
@@ -194,15 +198,7 @@ public static class GffParser
 
     private static string UnescapeGff(string value)
     {
-        return Uri.UnescapeDataString(value
-            .Replace("%09", "\t")
-            .Replace("%0A", "\n")
-            .Replace("%0D", "\r")
-            .Replace("%25", "%")
-            .Replace("%3B", ";")
-            .Replace("%3D", "=")
-            .Replace("%26", "&")
-            .Replace("%2C", ","));
+        return Uri.UnescapeDataString(value);
     }
 
     #endregion
@@ -286,11 +282,15 @@ public static class GffParser
                 recordsById[id] = record;
             }
 
-            if (record.Attributes.TryGetValue("Parent", out var parent))
+            if (record.Attributes.TryGetValue("Parent", out var parentValue))
             {
-                if (!childrenByParent.ContainsKey(parent))
-                    childrenByParent[parent] = new List<GffRecord>();
-                childrenByParent[parent].Add(record);
+                foreach (var parent in parentValue.Split(','))
+                {
+                    var trimmed = parent.Trim();
+                    if (!childrenByParent.ContainsKey(trimmed))
+                        childrenByParent[trimmed] = new List<GffRecord>();
+                    childrenByParent[trimmed].Add(record);
+                }
             }
         }
 
@@ -444,7 +444,7 @@ public static class GffParser
         sb.Append(EscapeGff(record.Type)).Append('\t');
         sb.Append(record.Start.ToString(CultureInfo.InvariantCulture)).Append('\t');
         sb.Append(record.End.ToString(CultureInfo.InvariantCulture)).Append('\t');
-        sb.Append(record.Score?.ToString("F2", CultureInfo.InvariantCulture) ?? ".").Append('\t');
+        sb.Append(record.Score?.ToString("G", CultureInfo.InvariantCulture) ?? ".").Append('\t');
         sb.Append(record.Strand).Append('\t');
         sb.Append(record.Phase?.ToString(CultureInfo.InvariantCulture) ?? ".").Append('\t');
 
@@ -460,6 +460,8 @@ public static class GffParser
                     attrs.Add($"{EscapeGff(key)}={EscapeGff(value)}");
             }
             sb.Append(string.Join(format == GffFormat.GTF ? "; " : ";", attrs));
+            if (format == GffFormat.GTF)
+                sb.Append(';');
         }
 
         return sb.ToString();
