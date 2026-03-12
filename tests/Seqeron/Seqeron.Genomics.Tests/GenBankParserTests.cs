@@ -88,8 +88,12 @@ ORIGIN
         var records = GenBankParser.Parse(MinimalRecord).ToList();
 
         Assert.That(records.Count, Is.EqualTo(1));
-        Assert.That(records[0].Locus, Is.EqualTo("MINIMAL"));
-        Assert.That(records[0].SequenceLength, Is.EqualTo(20));
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].Locus, Is.EqualTo("MINIMAL"));
+            Assert.That(records[0].SequenceLength, Is.EqualTo(20));
+            Assert.That(records[0].Sequence, Is.EqualTo("ACGTACGTACGTACGTACGT"));
+        });
     }
 
     #endregion
@@ -101,10 +105,16 @@ ORIGIN
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        Assert.That(record.Locus, Is.EqualTo("TEST001"));
-        Assert.That(record.SequenceLength, Is.EqualTo(100));
-        Assert.That(record.MoleculeType, Is.EqualTo("DNA"));
-        Assert.That(record.Topology, Is.EqualTo("linear"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Locus, Is.EqualTo("TEST001"));
+            Assert.That(record.SequenceLength, Is.EqualTo(100));
+            Assert.That(record.MoleculeType, Is.EqualTo("DNA"));
+            Assert.That(record.Topology, Is.EqualTo("linear"));
+            Assert.That(record.Division, Is.EqualTo("UNK"));
+            Assert.That(record.Date, Is.Not.Null);
+            Assert.That(record.Date!.Value, Is.EqualTo(new System.DateTime(2024, 1, 1)));
+        });
     }
 
     [Test]
@@ -124,7 +134,7 @@ ORIGIN
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        Assert.That(record.Definition, Does.Contain("Test sequence"));
+        Assert.That(record.Definition, Is.EqualTo("Test sequence for unit testing."));
     }
 
     [Test]
@@ -148,9 +158,22 @@ ORIGIN
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        Assert.That(record.Keywords.Count, Is.GreaterThan(0));
-        Assert.That(record.Keywords, Does.Contain("test"));
-        Assert.That(record.Keywords, Does.Contain("genomics"));
+        Assert.That(record.Keywords.Count, Is.EqualTo(3));
+        Assert.That(record.Keywords, Is.EqualTo(new[] { "test", "genomics", "parser" }));
+    }
+
+    [Test]
+    public void Parse_Keywords_EmptyPeriod_ReturnsEmpty()
+    {
+        // Evidence: NCBI — "." means no keywords assigned
+        var content = @"LOCUS       NOKW001                   10 bp    DNA     linear   UNK
+KEYWORDS    .
+ORIGIN      
+        1 acgtacgtac
+//";
+        var record = GenBankParser.Parse(content).First();
+
+        Assert.That(record.Keywords, Is.Empty);
     }
 
     [Test]
@@ -166,8 +189,7 @@ ORIGIN
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        Assert.That(record.Taxonomy, Does.Contain("Eukaryota"));
-        Assert.That(record.Taxonomy, Does.Contain("Metazoa"));
+        Assert.That(record.Taxonomy, Is.EqualTo("Eukaryota; Metazoa; Chordata; Vertebrata"));
     }
 
     #endregion
@@ -179,77 +201,36 @@ ORIGIN
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        // Features parsing may return 0-N features depending on parser implementation
-        Assert.That(record.Features, Is.Not.Null);
+        Assert.That(record.Features.Count, Is.EqualTo(2));
+        Assert.That(record.Features[0].Key, Is.EqualTo("gene"));
+        Assert.That(record.Features[1].Key, Is.EqualTo("CDS"));
     }
 
     [Test]
     public void Parse_GeneFeature_HasCorrectLocation()
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
-        var gene = record.Features.FirstOrDefault(f => f.Key == "gene");
+        var gene = record.Features.First(f => f.Key == "gene");
 
-        // If gene was parsed, verify location
-        if (gene.Key == "gene")
+        Assert.Multiple(() =>
         {
             Assert.That(gene.Location.Start, Is.EqualTo(1));
             Assert.That(gene.Location.End, Is.EqualTo(50));
-        }
-        else
-        {
-            // Test location parsing directly
-            var loc = GenBankParser.ParseLocation("1..50");
-            Assert.That(loc.Start, Is.EqualTo(1));
-            Assert.That(loc.End, Is.EqualTo(50));
-        }
+        });
     }
 
     [Test]
     public void Parse_CDSFeature_HasQualifiers()
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
-        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+        var cds = record.Features.First(f => f.Key == "CDS");
 
-        // If CDS was parsed, verify qualifiers
-        if (cds.Key == "CDS")
+        Assert.Multiple(() =>
         {
             Assert.That(cds.Qualifiers.ContainsKey("gene"), Is.True);
-        }
-        else
-        {
-            // Test that features list is available
-            Assert.That(record.Features, Is.Not.Null);
-        }
-    }
-
-    [Test]
-    public void Parse_ComplementLocation_DetectsStrand()
-    {
-        // Test location parsing directly
-        var location = GenBankParser.ParseLocation("complement(1..100)");
-        Assert.That(location.IsComplement, Is.True);
-    }
-
-    [Test]
-    public void Parse_JoinLocation_DetectsJoin()
-    {
-        var record = GenBankParser.Parse(ComplexFeaturesRecord).First();
-
-        // Look for any feature with join location
-        var featureWithJoin = record.Features.FirstOrDefault(f => f.Location.IsJoin);
-
-        // If parser found it, verify it's a join
-        if (featureWithJoin.Key != null)
-        {
-            Assert.That(featureWithJoin.Location.IsJoin, Is.True);
-        }
-        else
-        {
-            // Alternatively, test the location parser directly
-            var location = GenBankParser.ParseLocation("join(1..50,60..100)");
-            Assert.That(location.IsJoin, Is.True);
-            Assert.That(location.Parts.Count, Is.EqualTo(2));
-        }
+            Assert.That(cds.Qualifiers.ContainsKey("translation"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("product"), Is.True);
+        });
     }
 
     #endregion
@@ -263,7 +244,7 @@ ORIGIN
 
         Assert.That(record.Sequence.Length, Is.EqualTo(100));
         Assert.That(record.Sequence, Does.StartWith("ACGTACGT"));
-        Assert.That(record.Sequence.All(c => "ACGT".Contains(c)), Is.True);
+        Assert.That(record.Sequence.All(char.IsUpper), Is.True);
     }
 
     [Test]
@@ -296,9 +277,13 @@ ORIGIN
     {
         var location = GenBankParser.ParseLocation("complement(100..200)");
 
-        Assert.That(location.Start, Is.EqualTo(100));
-        Assert.That(location.End, Is.EqualTo(200));
-        Assert.That(location.IsComplement, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.Start, Is.EqualTo(100));
+            Assert.That(location.End, Is.EqualTo(200));
+            Assert.That(location.IsComplement, Is.True);
+            Assert.That(location.IsJoin, Is.False);
+        });
     }
 
     [Test]
@@ -317,8 +302,14 @@ ORIGIN
     {
         var location = GenBankParser.ParseLocation("complement(join(1..50,60..100))");
 
-        Assert.That(location.IsComplement, Is.True);
-        Assert.That(location.IsJoin, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsComplement, Is.True);
+            Assert.That(location.IsJoin, Is.True);
+            Assert.That(location.Parts.Count, Is.EqualTo(2));
+            Assert.That(location.Start, Is.EqualTo(1));
+            Assert.That(location.End, Is.EqualTo(100));
+        });
     }
 
     [Test]
@@ -340,8 +331,8 @@ ORIGIN
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
         var cdsFeatures = GenBankParser.GetCDS(record).ToList();
 
-        // CDS features may or may not be parsed depending on implementation
-        Assert.That(cdsFeatures.All(f => f.Key == "CDS"), Is.True);
+        Assert.That(cdsFeatures.Count, Is.EqualTo(1));
+        Assert.That(cdsFeatures[0].Key, Is.EqualTo("CDS"));
     }
 
     [Test]
@@ -350,28 +341,17 @@ ORIGIN
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
         var genes = GenBankParser.GetGenes(record).ToList();
 
-        // Gene features may or may not be parsed depending on implementation
-        Assert.That(genes.All(f => f.Key == "gene"), Is.True);
+        Assert.That(genes.Count, Is.EqualTo(1));
+        Assert.That(genes[0].Key, Is.EqualTo("gene"));
     }
 
     [Test]
     public void GetQualifier_ExistingQualifier_ReturnsValue()
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
-        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+        var cds = record.Features.First(f => f.Key == "CDS");
 
-        if (cds.Key == "CDS")
-        {
-            var product = GenBankParser.GetQualifier(cds, "product");
-            Assert.That(product, Is.Not.Null);
-        }
-        else
-        {
-            // Test GetQualifier with a mock feature
-            var mockQualifiers = new Dictionary<string, string> { ["test"] = "value" };
-            var mockFeature = new GenBankParser.Feature("test", default, mockQualifiers);
-            Assert.That(GenBankParser.GetQualifier(mockFeature, "test"), Is.EqualTo("value"));
-        }
+        Assert.That(GenBankParser.GetQualifier(cds, "product"), Is.EqualTo("test protein"));
     }
 
     [Test]
@@ -390,8 +370,8 @@ ORIGIN
     public void ExtractSequence_SimpleLocation_ExtractsCorrectly()
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
-        var location = new GenBankParser.Location(1, 10, false, false,
-            System.Array.Empty<(int, int)>(), "1..10");
+        var location = new GenBankParser.Location(1, 10, false, false, false,
+            false, false, System.Array.Empty<(int, int)>(), "1..10");
 
         var sequence = GenBankParser.ExtractSequence(record, location);
 
@@ -535,8 +515,13 @@ ORIGIN
     {
         var record = GenBankParser.Parse(RecordWithShortDate).First();
 
-        // Short year format (DD-MMM-YY) should also be handled
         Assert.That(record.Date, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Date!.Value.Day, Is.EqualTo(21));
+            Assert.That(record.Date!.Value.Month, Is.EqualTo(6));
+            Assert.That(record.Date!.Value.Year, Is.EqualTo(1999));
+        });
     }
 
     #endregion
@@ -546,33 +531,35 @@ ORIGIN
     [Test]
     public void ParseLocation_Partial5Prime_DetectsPartial()
     {
-        // Evidence: INSDC "<n..m" indicates partial at 5' end
+        // Evidence: INSDC 3.4.2.1 — "<n..m" indicates partial at 5' end
         var location = GenBankParser.ParseLocation("<1..206");
 
         Assert.Multiple(() =>
         {
             Assert.That(location.Start, Is.EqualTo(1));
             Assert.That(location.End, Is.EqualTo(206));
-            // Note: Current implementation may not track partial status
-            // This test verifies the range is still parsed correctly
+            Assert.That(location.Is5PrimePartial, Is.True, "Should detect 5' partial");
+            Assert.That(location.Is3PrimePartial, Is.False, "3' should not be partial");
         });
     }
 
     [Test]
-    public void ParseLocation_Partial3Prime_ParsesRange()
+    public void ParseLocation_Partial3Prime_DetectsPartial()
     {
-        // Evidence: INSDC "n..>m" indicates partial at 3' end
+        // Evidence: INSDC 3.4.2.1 — "n..>m" indicates partial at 3' end
         var location = GenBankParser.ParseLocation("4821..>5028");
 
         Assert.Multiple(() =>
         {
             Assert.That(location.Start, Is.EqualTo(4821));
             Assert.That(location.End, Is.EqualTo(5028));
+            Assert.That(location.Is5PrimePartial, Is.False, "5' should not be partial");
+            Assert.That(location.Is3PrimePartial, Is.True, "Should detect 3' partial");
         });
     }
 
     [Test]
-    public void ParseLocation_BothEndsPartial_ParsesRange()
+    public void ParseLocation_BothEndsPartial_DetectsBoth()
     {
         // Evidence: INSDC allows both ends to be partial
         var location = GenBankParser.ParseLocation("<100..>200");
@@ -581,6 +568,36 @@ ORIGIN
         {
             Assert.That(location.Start, Is.EqualTo(100));
             Assert.That(location.End, Is.EqualTo(200));
+            Assert.That(location.Is5PrimePartial, Is.True, "Should detect 5' partial");
+            Assert.That(location.Is3PrimePartial, Is.True, "Should detect 3' partial");
+        });
+    }
+
+    [Test]
+    public void ParseLocation_NoPartial_BothFalse()
+    {
+        var location = GenBankParser.ParseLocation("100..200");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.Is5PrimePartial, Is.False);
+            Assert.That(location.Is3PrimePartial, Is.False);
+        });
+    }
+
+    [Test]
+    public void ParseLocation_Order_DetectsOperator()
+    {
+        // Evidence: INSDC 3.4.2.2 — order() indicates elements in specified order without implying join
+        var location = GenBankParser.ParseLocation("order(1..50,60..100,120..150)");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(location.IsOrder, Is.True, "Should detect order() operator");
+            Assert.That(location.IsJoin, Is.False, "order() is not join()");
+            Assert.That(location.Parts.Count, Is.EqualTo(3));
+            Assert.That(location.Start, Is.EqualTo(1));
+            Assert.That(location.End, Is.EqualTo(150));
         });
     }
 
@@ -608,37 +625,31 @@ ORIGIN
     public void Parse_CDSWithQualifiers_ExtractsAllQualifiers()
     {
         var record = GenBankParser.Parse(RecordWithQualifiers).First();
-        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+        var cds = record.Features.First(f => f.Key == "CDS");
 
-        if (cds.Key == "CDS")
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(cds.Qualifiers.ContainsKey("gene"), Is.True);
-                Assert.That(cds.Qualifiers.ContainsKey("product"), Is.True);
-                Assert.That(cds.Qualifiers.ContainsKey("note"), Is.True);
-                Assert.That(cds.Qualifiers.ContainsKey("codon_start"), Is.True);
-                Assert.That(cds.Qualifiers.ContainsKey("translation"), Is.True);
-                Assert.That(cds.Qualifiers.ContainsKey("db_xref"), Is.True);
-            });
-        }
+            Assert.That(cds.Qualifiers.ContainsKey("gene"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("product"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("note"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("codon_start"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("translation"), Is.True);
+            Assert.That(cds.Qualifiers.ContainsKey("db_xref"), Is.True);
+        });
     }
 
     [Test]
     public void Parse_CDSQualifierValues_ExtractsCorrectValues()
     {
         var record = GenBankParser.Parse(RecordWithQualifiers).First();
-        var cds = record.Features.FirstOrDefault(f => f.Key == "CDS");
+        var cds = record.Features.First(f => f.Key == "CDS");
 
-        if (cds.Key == "CDS")
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(GenBankParser.GetQualifier(cds, "gene"), Is.EqualTo("testGene"));
-                Assert.That(GenBankParser.GetQualifier(cds, "product"), Is.EqualTo("test protein"));
-                Assert.That(GenBankParser.GetQualifier(cds, "codon_start"), Is.EqualTo("1"));
-            });
-        }
+            Assert.That(GenBankParser.GetQualifier(cds, "gene"), Is.EqualTo("testGene"));
+            Assert.That(GenBankParser.GetQualifier(cds, "product"), Is.EqualTo("test protein"));
+            Assert.That(GenBankParser.GetQualifier(cds, "codon_start"), Is.EqualTo("1"));
+        });
     }
 
     #endregion
@@ -669,24 +680,21 @@ ORIGIN
     {
         var record = GenBankParser.Parse(RecordWithReferences).First();
 
-        // Evidence: NCBI Sample Record shows multiple REFERENCE sections per record
-        Assert.That(record.References.Count, Is.GreaterThanOrEqualTo(0));
+        Assert.That(record.References.Count, Is.EqualTo(2));
     }
 
     [Test]
     public void Parse_Reference_ExtractsFields()
     {
-        // Evidence: NCBI Sample Record shows REFERENCE sections with AUTHORS, TITLE, JOURNAL, PUBMED subfields
         var record = GenBankParser.Parse(RecordWithReferences).First();
-
-        Assert.That(record.References.Count, Is.GreaterThanOrEqualTo(1), "Should parse at least one reference");
-
         var firstRef = record.References[0];
+
         Assert.Multiple(() =>
         {
-            Assert.That(firstRef.Number, Is.EqualTo(1), "First reference should have Number=1");
-            Assert.That(firstRef.Authors, Does.Contain("Smith"), "First reference authors should contain 'Smith'");
-            Assert.That(firstRef.Title, Does.Contain("test"), "First reference title should contain 'test'");
+            Assert.That(firstRef.Number, Is.EqualTo(1));
+            Assert.That(firstRef.Authors, Is.EqualTo("Smith,J. and Jones,K."));
+            Assert.That(firstRef.Title, Is.EqualTo("A test publication"));
+            Assert.That(firstRef.Journal, Is.EqualTo("Test Journal 10 (1), 1-10 (2024)"));
         });
     }
 
@@ -704,14 +712,17 @@ ORIGIN
 
     #region Sequence Validation Tests
 
+    // INSDC 7.4.1 defines the full set of valid IUPAC nucleotide base codes.
+    private const string IupacNucleotideCodes = "ACGTMRWSYKVHDBN";
+
     [Test]
-    public void Parse_Sequence_ContainsOnlyValidBases()
+    public void Parse_Sequence_ContainsOnlyValidIupacBases()
     {
         var record = GenBankParser.Parse(SimpleGenBankRecord).First();
 
-        // Evidence: GenBank sequences should contain only valid nucleotides
-        Assert.That(record.Sequence.All(c => "ACGT".Contains(c)), Is.True,
-            "Sequence should contain only A, C, G, T bases");
+        // Evidence: INSDC 7.4.1 — valid bases are A,C,G,T plus IUPAC ambiguity codes M,R,W,S,Y,K,V,H,D,B,N
+        Assert.That(record.Sequence.All(c => IupacNucleotideCodes.Contains(c)), Is.True,
+            "Sequence should contain only valid IUPAC nucleotide base codes");
     }
 
     [Test]
@@ -738,14 +749,32 @@ ORIGIN
         });
     }
 
+    // Evidence: INSDC 7.4.1 — real GenBank sequences may contain IUPAC ambiguity codes
+    private const string RecordWithAmbiguity = @"LOCUS       AMBIG001                  20 bp    DNA     linear   SYN 01-JAN-2024
+DEFINITION  Test sequence with IUPAC ambiguity codes.
+ACCESSION   AMBIG001
+ORIGIN      
+        1 acgtnrywsm kvhdbacgtn
+//";
+
+    [Test]
+    public void Parse_SequenceWithAmbiguityCodes_PreservesIupacBases()
+    {
+        // Evidence: INSDC 7.4.1 — valid IUPAC nucleotide base codes include ambiguity characters
+        var record = GenBankParser.Parse(RecordWithAmbiguity).First();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Sequence.Length, Is.EqualTo(20));
+            Assert.That(record.Sequence, Is.EqualTo("ACGTNRYWSMKVHDBACGTN"));
+            Assert.That(record.Sequence.All(c => IupacNucleotideCodes.Contains(c)), Is.True,
+                "All characters should be valid IUPAC codes");
+        });
+    }
+
     #endregion
 
     #region Empty/Minimal Record Edge Cases
-
-    private const string MinimalValidRecord = @"LOCUS       MINI                      10 bp    DNA     linear   UNK
-ORIGIN      
-        1 acgtacgtac
-//";
 
     private const string RecordWithoutFeatures = @"LOCUS       NOFEAT001                 20 bp    DNA     linear   UNK 01-JAN-2024
 DEFINITION  Record without features section.
@@ -753,15 +782,6 @@ ACCESSION   NOFEAT001
 ORIGIN      
         1 acgtacgtac gtacgtacgt
 //";
-
-    [Test]
-    public void Parse_MinimalRecord_Succeeds()
-    {
-        var records = GenBankParser.Parse(MinimalValidRecord).ToList();
-
-        Assert.That(records.Count, Is.EqualTo(1));
-        Assert.That(records[0].Sequence, Is.EqualTo("ACGTACGTAC"));
-    }
 
     [Test]
     public void Parse_RecordWithoutFeatures_ReturnsEmptyFeaturesList()

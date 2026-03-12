@@ -88,6 +88,7 @@ Feature locations use INSDC syntax:
 | complement() | complement(100..200) | Minus strand |
 | join() | join(1..50,60..100) | Discontinuous regions |
 | complement(join()) | complement(join(a..b,c..d)) | Minus strand discontinuous |
+| order() | order(1..50,60..100) | Elements in order, not joined |
 
 ---
 
@@ -138,6 +139,9 @@ public readonly record struct Location(
     int End,
     bool IsComplement,
     bool IsJoin,
+    bool IsOrder,
+    bool Is5PrimePartial,
+    bool Is3PrimePartial,
     IReadOnlyList<(int Start, int End)> Parts,
     string RawLocation);
 ```
@@ -190,8 +194,7 @@ public readonly record struct Location(
 ### Known Limitations
 
 1. Does not validate sequence against declared length
-2. Does not support order() location specifier
-3. Does not preserve original sequence case
+2. Does not preserve original sequence case
 
 ---
 

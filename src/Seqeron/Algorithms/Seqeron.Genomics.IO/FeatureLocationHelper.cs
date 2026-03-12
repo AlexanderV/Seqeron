@@ -51,7 +51,10 @@ namespace Seqeron.Genomics.IO
             }
 
             var seq = sb.ToString();
-            return isComplement ? new DnaSequence(seq).ReverseComplement().Sequence : seq;
+            // Use static string-based reverse complement to support all IUPAC ambiguity codes.
+            // DnaSequence constructor rejects non-ACGT characters, but real GenBank sequences
+            // can contain IUPAC codes (N, R, Y, etc.) per INSDC 7.4.1.
+            return isComplement ? DnaSequence.GetReverseComplementString(seq) : seq;
         }
 
         /// <summary>

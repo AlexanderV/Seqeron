@@ -51,12 +51,15 @@ public static partial class GenBankParser
         Location Location,
         IReadOnlyDictionary<string, string> Qualifiers);
 
-    /// <summary>Feature location (supports joins, complements, etc.)</summary>
+    /// <summary>Feature location (supports joins, complements, orders, and partial indicators)</summary>
     public readonly record struct Location(
         int Start,
         int End,
         bool IsComplement,
         bool IsJoin,
+        bool IsOrder,
+        bool Is5PrimePartial,
+        bool Is3PrimePartial,
         IReadOnlyList<(int Start, int End)> Parts,
         string RawLocation);
 
@@ -255,6 +258,16 @@ public static partial class GenBankParser
         }
     }
 
+    // NCBI GenBank division codes
+    // Source: https://www.ncbi.nlm.nih.gov/genbank/ and INSDC standards
+    // "UNK" is not an official INSDC code but appears in real-world GenBank files for unclassified entries.
+    private static readonly HashSet<string> KnownDivisionCodes = new(StringComparer.Ordinal)
+    {
+        "PRI", "ROD", "MAM", "VRT", "INV", "PLN", "BCT", "VRL", "PHG",
+        "SYN", "UNA", "EST", "PAT", "STS", "GSS", "HTG", "HTC", "ENV",
+        "CON", "TSA", "UNK"
+    };
+
     private static (string Locus, int Length, string MoleculeType, string Topology, string Division, DateTime? Date)
         ParseLocusLine(string line)
     {
@@ -276,10 +289,11 @@ public static partial class GenBankParser
             length = len;
         }
 
-        // Find molecule type (DNA, RNA, etc.)
+        // Find molecule type, topology, division, date
         foreach (var part in parts.Skip(3))
         {
-            if (part is "DNA" or "RNA" or "mRNA" or "rRNA" or "tRNA" or "ss-DNA" or "ds-DNA")
+            if (part is "DNA" or "RNA" or "mRNA" or "rRNA" or "tRNA"
+                    or "ss-DNA" or "ds-DNA" or "ss-RNA" or "ds-RNA" or "cRNA")
             {
                 moleculeType = part;
             }
@@ -287,7 +301,7 @@ public static partial class GenBankParser
             {
                 topology = part;
             }
-            else if (part.Length == 3 && char.IsUpper(part[0]))
+            else if (KnownDivisionCodes.Contains(part))
             {
                 division = part;
             }
@@ -510,11 +524,13 @@ public static partial class GenBankParser
     public static Location ParseLocation(string locationStr)
     {
         if (string.IsNullOrEmpty(locationStr))
-            return new Location(0, 0, false, false, Array.Empty<(int, int)>(), locationStr);
+            return new Location(0, 0, false, false, false, false, false,
+                Array.Empty<(int, int)>(), locationStr);
 
-        var (start, end, isComplement, isJoin, parts) =
+        var (start, end, isComplement, isJoin, isOrder, is5PrimePartial, is3PrimePartial, parts) =
             SequenceFormatHelper.ParseLocationParts(locationStr, useStartsWithForComplement: true);
-        return new Location(start, end, isComplement, isJoin, parts, locationStr);
+        return new Location(start, end, isComplement, isJoin, isOrder,
+            is5PrimePartial, is3PrimePartial, parts, locationStr);
     }
 
     private static string ParseSequence(string text)
