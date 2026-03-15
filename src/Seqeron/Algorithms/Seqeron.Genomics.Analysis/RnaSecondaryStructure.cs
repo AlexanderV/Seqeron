@@ -232,6 +232,12 @@ public static class RnaSecondaryStructure
     private const double AllC_PenaltyConstant_Gt3 = 1.6;
     private const double AllC_Penalty_3nt = 1.5;
 
+    // Special GGUC/CUGG 3-stack context (kcal/mol at 37°C)
+    // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/gu-parameters.html (note b)
+    // GU followed by UG is generally unfavorable (+1.29), but when preceded by GC and
+    // followed by CG (5'GGUC/3'CUGG), the total for 3 stacks = -4.12 replaces individual sum.
+    private const double SpecialGGUC_CUGG_3Stack = -4.12;
+
     // Internal loop initiation energies (kcal/mol at 37°C)
     // Source: NNDB — rna.urmc.rochester.edu/NNDB/turner04/loop.txt (INTERNAL column)
     // For n>6 (experimentally determined up to 6): init(6) + 1.08·ln(n/6)
@@ -576,6 +582,20 @@ public static class RnaSecondaryStructure
         // Sum stacking energies (Turner 2004 nearest-neighbor)
         for (int i = 0; i < basePairs.Count - 1; i++)
         {
+            // Special GGUC/CUGG 3-stack context (NNDB note b):
+            // When 4 consecutive pairs are G-C, G-U, U-G, C-G, replace
+            // 3 individual stacking terms with -4.12 total.
+            if (i + 3 < basePairs.Count &&
+                basePairs[i].Base1 == 'G' && basePairs[i].Base2 == 'C' &&
+                basePairs[i + 1].Base1 == 'G' && basePairs[i + 1].Base2 == 'U' &&
+                basePairs[i + 2].Base1 == 'U' && basePairs[i + 2].Base2 == 'G' &&
+                basePairs[i + 3].Base1 == 'C' && basePairs[i + 3].Base2 == 'G')
+            {
+                energy += SpecialGGUC_CUGG_3Stack;
+                i += 2; // Skip next 2 iterations (3 stacks consumed)
+                continue;
+            }
+
             var pair1 = basePairs[i];
             var pair2 = basePairs[i + 1];
 
@@ -1059,7 +1079,19 @@ public static class RnaSecondaryStructure
                         if (loopLen >= minLoopSize)
                         {
                             string loopSeq = seq.Substring(i + 1, loopLen);
-                            double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j]);
+
+                            // Detect special GU closure: closing G-U preceded by two Gs on 5' side
+                            // Source: NNDB hairpin-mismatch-parameters.html
+                            bool specialGU = seq[i] == 'G' && seq[j] == 'U' &&
+                                             i >= 2 && seq[i - 1] == 'G' && seq[i - 2] == 'G';
+
+                            double hEnergy = CalculateHairpinLoopEnergy(loopSeq, seq[i], seq[j], specialGU);
+
+                            // NNDB: terminal AU/GU penalty at inner helix end facing hairpin loop.
+                            // Source: rna.urmc.rochester.edu/NNDB/turner04/hairpin-example-1.html
+                            if (IsAUorGU(seq[i], seq[j]))
+                                hEnergy += TerminalAU_GU_Penalty;
+
                             if (hEnergy < vBest) vBest = hEnergy;
                         }
 
@@ -1075,6 +1107,25 @@ public static class RnaSecondaryStructure
                                     double sEnergy = stackE + vInner;
                                     if (sEnergy < vBest) vBest = sEnergy;
                                 }
+                            }
+                        }
+
+                        // --- Option 2b: Special GGUC/CUGG 3-stack (NNDB note b) ---
+                        // 5'GGUC/3'CUGG: total of 3 stacks = -4.12 replaces individual sum.
+                        if (j - i >= 7 &&
+                            seq[i] == 'G' && seq[j] == 'C' &&
+                            seq[i + 1] == 'G' && seq[j - 1] == 'U' &&
+                            PairType(seq[i + 1], seq[j - 1]) != 0 &&
+                            seq[i + 2] == 'U' && seq[j - 2] == 'G' &&
+                            PairType(seq[i + 2], seq[j - 2]) != 0 &&
+                            seq[i + 3] == 'C' && seq[j - 3] == 'G' &&
+                            PairType(seq[i + 3], seq[j - 3]) != 0)
+                        {
+                            double vInner3 = vBuf[(i + 3) * n + (j - 3)];
+                            if (vInner3 < INF)
+                            {
+                                double sEnergy = SpecialGGUC_CUGG_3Stack + vInner3;
+                                if (sEnergy < vBest) vBest = sEnergy;
                             }
                         }
 
