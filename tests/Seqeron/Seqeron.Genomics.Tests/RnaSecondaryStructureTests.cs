@@ -821,6 +821,187 @@ public class RnaSecondaryStructureTests
         });
     }
 
+    /// <summary>
+    /// Validates NNDB GU parameters note (b): special GGUC/CUGG 3-stack context.
+    /// When 4 consecutive pairs are G-C, G-U, U-G, C-G, the total for 3 stacking
+    /// interactions is -4.12 kcal/mol instead of the individual sum (-1.77).
+    /// Source: rna.urmc.rochester.edu/NNDB/turner04/gu-parameters.html (note b)
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_GGUC_CUGG_3Stack_MatchesNNDB()
+    {
+        // 4 pairs: G-C, G-U, U-G, C-G → 5'GGUC/3'CUGG context
+        // No terminal AU/GU penalty (outer=GC, inner=CG)
+        var pairs = new List<BasePair>
+        {
+            new(0, 10, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 9, 'G', 'U', BasePairType.Wobble),
+            new(2, 8, 'U', 'G', BasePairType.Wobble),
+            new(3, 7, 'C', 'G', BasePairType.WatsonCrick)
+        };
+
+        double energy = CalculateStemEnergy("dummy", pairs);
+
+        Assert.That(energy, Is.EqualTo(-4.12).Within(0.01),
+            "GGUC/CUGG 3-stack total should be -4.12 (NNDB note b)");
+    }
+
+    /// <summary>
+    /// Validates GGUC/CUGG 3-stack context embedded in a longer stem.
+    /// Source: rna.urmc.rochester.edu/NNDB/turner04/gu-parameters.html (note b)
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_GGUC_CUGG_InLongerStem_MatchesNNDB()
+    {
+        // 6 pairs: G-C, G-C, G-U, U-G, C-G, C-G
+        // Stack 0-1: GG/CC = -3.26
+        // Stacks 1-2-3-4: GGUC/CUGG 3-stack = -4.12
+        // Stack 4-5: CC/GG = -3.26
+        // No terminal penalties (outer=GC, inner=CG)
+        var pairs = new List<BasePair>
+        {
+            new(0, 14, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 13, 'G', 'C', BasePairType.WatsonCrick),
+            new(2, 12, 'G', 'U', BasePairType.Wobble),
+            new(3, 11, 'U', 'G', BasePairType.Wobble),
+            new(4, 10, 'C', 'G', BasePairType.WatsonCrick),
+            new(5, 9, 'C', 'G', BasePairType.WatsonCrick)
+        };
+
+        double expected = -3.26 + (-4.12) + (-3.26); // = -10.64
+        double energy = CalculateStemEnergy("dummy", pairs);
+
+        Assert.That(energy, Is.EqualTo(expected).Within(0.01),
+            "GGUC/CUGG in longer stem: GG/CC + 3stack + CC/GG");
+    }
+
+    /// <summary>
+    /// Validates inner terminal AU/GU penalty in MFE calculation.
+    /// NNDB: hairpin example shows +0.45 for AU helix end facing the loop.
+    /// Source: rna.urmc.rochester.edu/NNDB/turner04/hairpin-example-1.html
+    /// GGGAUAAAUCCC: 4 pairs (GC,GC,GC,AU) + 4nt loop "UAAA"
+    /// Stacking: GG/CC(-3.26) + GG/CC(-3.26) + GA/CU(-2.35) = -8.87
+    /// Hairpin: init(4)=5.6 + tm(AUAU=-0.6) = 5.0
+    /// AU end penalty: +0.45 (inner AU pair)
+    /// Total: -8.87 + 5.0 + 0.45 = -3.42
+    /// </summary>
+    [Test]
+    public void CalculateMinimumFreeEnergy_InnerAUPenalty_MatchesNNDB()
+    {
+        double mfe = CalculateMinimumFreeEnergy("GGGAUAAAUCCC");
+
+        Assert.That(mfe, Is.EqualTo(-3.42).Within(0.01),
+            "MFE must include inner AU/GU end penalty per NNDB hairpin example");
+    }
+
+    /// <summary>
+    /// Validates NNDB hairpin example 1 pattern: AU closing pair at inner end adds +0.45 penalty.
+    /// Uses 3 GC outer pairs + inner AU pair to isolate the effect.
+    /// GGCAUAAAUGCC: 4 pairs (GC,GC,CG,AU) + 4nt loop "UAAA"
+    /// Stacking: GG/CC(-3.26) + GC/CG(-3.42) + CA/GU(-2.11) = -8.79
+    /// Hairpin: init(4)=5.6 + tm(AUAU=-0.6) = 5.0, AU end penalty: +0.45
+    /// Total: -8.79 + 5.0 + 0.45 = -3.34
+    /// </summary>
+    [Test]
+    public void CalculateMinimumFreeEnergy_InnerAUPenalty_NNDBExample_MatchesReference()
+    {
+        double mfe = CalculateMinimumFreeEnergy("GGCAUAAAUGCC");
+
+        Assert.That(mfe, Is.EqualTo(-3.34).Within(0.01),
+            "MFE must include inner AU end penalty per NNDB hairpin-example-1 convention");
+    }
+
+    /// <summary>
+    /// Validates that G-U wobble pairs contribute stabilizing (negative) energy,
+    /// but less stable than the strongest Watson-Crick stacks.
+    /// GU/CG stacking = -2.51, terminal GU penalty = +0.45 → net -2.06.
+    /// Source: NNDB Turner 2004 (gu-parameters.html, "Per GU end")
+    /// Test Unit: RNA-ENERGY-001, Test ID: SE-005
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_WobblePair_ContributesNegativeEnergy()
+    {
+        // G-U wobble (outer) + C-G WC (inner): stacking GU/CG = -2.51
+        // Terminal GU penalty on outer end = +0.45, inner CG = no penalty
+        var wobblePairs = new List<BasePair>
+        {
+            new(0, 5, 'G', 'U', BasePairType.Wobble),
+            new(1, 4, 'C', 'G', BasePairType.WatsonCrick)
+        };
+
+        double energy = CalculateStemEnergy("dummy", wobblePairs);
+
+        Assert.That(energy, Is.LessThan(0), "Wobble pair should contribute negative (stabilizing) energy");
+        Assert.That(energy, Is.EqualTo(-2.06).Within(0.01),
+            "GU/CG(-2.51) + terminal GU(+0.45) = -2.06");
+
+        // Compare with strongest WC stack (GC/CG = -3.42, no penalty)
+        var wcPairs = new List<BasePair>
+        {
+            new(0, 5, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 4, 'C', 'G', BasePairType.WatsonCrick)
+        };
+        double wcEnergy = CalculateStemEnergy("dummy", wcPairs);
+
+        Assert.That(energy, Is.GreaterThan(wcEnergy),
+            "Wobble pair energy should be less stable (less negative) than strongest WC stack");
+    }
+
+    /// <summary>
+    /// Validates that multiple identical stacks sum linearly.
+    /// 4 GC pairs → 3 identical GG/CC stacks → 3 × (-3.26) = -9.78.
+    /// Source: Turner 2004 nearest-neighbor model (additive stacking)
+    /// Test Unit: RNA-ENERGY-001, Test ID: EC-001
+    /// </summary>
+    [Test]
+    public void CalculateStemEnergy_IdenticalStacks_SumLinearly()
+    {
+        // 4 identical G-C pairs → 3 GG/CC stacks
+        var pairs4 = new List<BasePair>
+        {
+            new(0, 10, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 9, 'G', 'C', BasePairType.WatsonCrick),
+            new(2, 8, 'G', 'C', BasePairType.WatsonCrick),
+            new(3, 7, 'G', 'C', BasePairType.WatsonCrick)
+        };
+
+        double energy = CalculateStemEnergy("dummy", pairs4);
+
+        // No terminal AU/GU penalty (all GC), 3 × GG/CC(-3.26) = -9.78
+        Assert.That(energy, Is.EqualTo(3 * -3.26).Within(0.01),
+            "3 identical GG/CC stacks should sum linearly: 3 × (-3.26) = -9.78");
+    }
+
+    /// <summary>
+    /// Validates that all energy calculations use 37°C (310.15 K) standard conditions.
+    /// Source: Turner 2004 — all ΔG° parameters are measured at 37°C.
+    /// The Jacobson-Stockmayer extrapolation uses RT = 1.987 × 310.15 / 1000.
+    /// Test Unit: RNA-ENERGY-001, Test ID: EC-003
+    /// </summary>
+    [Test]
+    public void EnergyCalculation_UsesStandardTemperature_37C()
+    {
+        // Verify through Jacobson-Stockmayer: for loop size 40,
+        // ΔG°(40) = ΔG°(9) + 1.75·R·T·ln(40/9) where T = 310.15 K
+        const double R = 1.987;  // cal/(mol·K)
+        const double T = 310.15; // K (37°C)
+        double expectedInit = 6.4 + 1.75 * R * T / 1000.0 * Math.Log(40.0 / 9.0);
+        double expectedTotal = Math.Round(expectedInit + (-0.8), 2); // + tm(AAAU=-0.8)
+
+        string loop = new('A', 40);
+        double energy = CalculateHairpinLoopEnergy(loop, 'A', 'U');
+
+        Assert.That(energy, Is.EqualTo(expectedTotal).Within(0.01),
+            "Extrapolation must use T=310.15K (37°C), confirming standard conditions");
+
+        // Verify CalculateStructureProbability defaults to 310.15K
+        double prob = CalculateStructureProbability(-5.0, -6.0);
+        double RT = R * T / 1000.0;
+        double expectedProb = Math.Exp(5.0 / RT) / Math.Exp(6.0 / RT);
+        Assert.That(prob, Is.EqualTo(expectedProb).Within(0.001),
+            "CalculateStructureProbability should default to 310.15K (37°C)");
+    }
+
     #endregion
 
     #region Terminal Mismatch, Internal Loop, Bulge Loop, Multibranch, Coaxial Tests

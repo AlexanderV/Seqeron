@@ -133,50 +133,103 @@ Testing RNA free energy calculation algorithms including stacking energy, hairpi
 
 ---
 
-## 5. Audit Notes
+## 5. Coverage Classification
 
-### 5.1 Existing Test Coverage
+### 5.1 Location
+- **File:** `RnaSecondaryStructureTests.cs`
+- **Regions:** "Energy Calculation Tests", "Turner 2004 NNDB Parameter Validation"
 
-Tests exist in `RnaSecondaryStructureTests.cs` under the "Energy Calculation Tests" region:
-- `CalculateStemEnergy_BasePairs_ReturnsNegative` ✓
-- `CalculateStemEnergy_SinglePair_ReturnsZero` ✓
-- `CalculateHairpinLoopEnergy_Tetraloop_HasBonus` ✓
-- `CalculateHairpinLoopEnergy_AllC_HasPenalty` ✓
-- `CalculateMinimumFreeEnergy_SimpleHairpin_ReturnsNegative` ✓
-- `CalculateMinimumFreeEnergy_NoStructure_ReturnsZero` ✓
-- `CalculateMinimumFreeEnergy_EmptySequence_ReturnsZero` ✓
-- `CalculateMinimumFreeEnergy_LongerStem_MoreStable` ✓
+### 5.2 Stem Energy — 12 test methods
 
-### 5.2 Test Gaps (All Closed)
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 1 | `CalculateStemEnergy_BasePairs_ReturnsNegative` | SE-001 | ✅ |
+| 2 | `CalculateStemEnergy_SinglePair_ReturnsZero` | SE-002 | ✅ |
+| 3 | `CalculateStemEnergy_GCRichVsAURich_GCMoreStable` | SE-003 | ✅ |
+| 4 | `CalculateStemEnergy_EmptyBasePairs_ReturnsZero` | SE-004 | ✅ |
+| 5 | `CalculateStemEnergy_WobblePair_ContributesNegativeEnergy` | SE-005 | ✅ |
+| 6 | `CalculateStemEnergy_WatsonCrickStacking_MatchesNNDB` (×8) | ST-001,ST-002,ST-003 | ✅ |
+| 7 | `CalculateStemEnergy_GUWobbleStacking_IncludesDestabilizing` | CT-002 | ✅ |
+| 8 | `CalculateStemEnergy_TerminalAUPenalty_MatchesNNDB` | I-001 | ✅ |
+| 9 | `CalculateStemEnergy_GGUC_CUGG_3Stack_MatchesNNDB` | CT-002 | ✅ |
+| 10 | `CalculateStemEnergy_GGUC_CUGG_InLongerStem_MatchesNNDB` | EC-002 | ✅ |
+| 11 | `CalculateStemEnergy_IdenticalStacks_SumLinearly` | EC-001 | ✅ |
 
-| Gap | Severity | Status |
-|-----|----------|--------|
-| CalculateStackingEnergy method missing | Medium | ✅ Covered by CalculateStemEnergy |
-| Reference value tests | Low | ✅ Covered |
-| GC vs AU stability test | Low | ✅ Covered |
-| Empty/null basePairs | Low | ✅ Covered |
+### 5.3 Hairpin Loop Energy — 13 test methods
 
-### 5.3 Consolidation Plan
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 12 | `CalculateHairpinLoopEnergy_Tetraloop_HasBonus` | HL-001 | ✅ |
+| 13 | `CalculateHairpinLoopEnergy_AllC_HasPenalty` | HL-002 | ✅ |
+| 14 | `CalculateHairpinLoopEnergy_MinimumLoop_ReturnsPositive` | HL-003 | ✅ |
+| 15 | `CalculateHairpinLoopEnergy_DifferentSizes_AllPositive` | HL-005 | ✅ |
+| 16 | `CalculateHairpinLoopEnergy_UNCGTetraloop_HasBonus` | HL-004 | ✅ |
+| 17 | `CalculateHairpinLoopEnergy_Initiation_MatchesNNDB` (×5) | HL-003,HL-005,I-002 | ✅ |
+| 18 | `CalculateHairpinLoopEnergy_SpecialTetraloop_MatchesNNDB` (×4) | HL-004,I-005 | ✅ |
+| 19 | `CalculateHairpinLoopEnergy_NonSpecialTetraloop_UsesStandardModel` | HL-004 | ✅ |
+| 20 | `CalculateHairpinLoopEnergy_AllCPenalty_MatchesNNDB` | HL-002 | ✅ |
+| 21 | `CalculateHairpinLoopEnergy_MismatchBonuses_MatchesNNDB` | I-005 | ✅ |
+| 22 | `CalculateHairpinLoopEnergy_LargeLoop_UsesCorrectExtrapolation` | CT-001 | ✅ |
+| 23 | `CalculateHairpinLoopEnergy_TerminalMismatch_IsAdditiveWithBonuses` | HL-004 | ✅ |
+| 24 | `CalculateHairpinLoopEnergy_SpecialGUClosure_AppliesBonus` | CT-002 | ✅ |
 
-- All energy tests in existing `RnaSecondaryStructureTests.cs`
-- Tests are properly organized under "Energy Calculation Tests" region
-- ~~Add missing reference value validation tests~~ ✅ Done
-- ~~Add GC vs AU comparative stability test~~ ✅ Done
+### 5.4 Minimum Free Energy — 10 test methods
+
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 25 | `CalculateMinimumFreeEnergy_SimpleHairpin_ReturnsNegative` | MFE-001 | ✅ |
+| 26 | `CalculateMinimumFreeEnergy_NoStructure_ReturnsZero` | MFE-002 | ✅ |
+| 27 | `CalculateMinimumFreeEnergy_EmptySequence_ReturnsZero` | MFE-003 | ✅ |
+| 28 | `CalculateMinimumFreeEnergy_LongerStem_MoreStable` | MFE-004,I-004 | ✅ |
+| 29 | `CalculateMinimumFreeEnergy_GCRichHairpin_MoreStable` | MFE-005 | ✅ |
+| 30 | `CalculateMinimumFreeEnergy_SimpleHairpin_MatchesTurnerManualCalc` | MFE-001 | ✅ |
+| 31 | `CalculateMinimumFreeEnergy_FourPairGC_MatchesTurner` | MFE-001 | ✅ |
+| 32 | `CalculateMinimumFreeEnergy_AUStem_IncludesTerminalPenalty` | MFE-005 | ✅ |
+| 33 | `CalculateMinimumFreeEnergy_InnerAUPenalty_MatchesNNDB` | I-003 | ✅ |
+| 34 | `CalculateMinimumFreeEnergy_InnerAUPenalty_NNDBExample_MatchesReference` | I-003 | ✅ |
+
+### 5.5 Standard Conditions — 1 test method
+
+| # | Test Method | Spec ID | Status |
+|---|-------------|---------|--------|
+| 35 | `EnergyCalculation_UsesStandardTemperature_37C` | EC-003 | ✅ |
+
+### 5.6 Classification Summary
+
+- ✅ Covered: 35 test methods (all spec IDs)
+- ❌ Missing: 0
+- ⚠ Weak: 0 (EC-001 strengthened with exact linear scaling test; SE-005 added with exact NNDB value)
+- 🔁 Duplicate: 0
 
 ---
 
-## 6. Test File Location
+## 6. Verification Status
+
+All parameters hand-verified against NNDB Turner 2004. No assumptions remain.
+See Evidence document for full verification matrix.
+
+---
+
+## 7. Test File Location
 
 **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructureTests.cs`  
 **Region:** Energy Calculation Tests
 
 ---
 
-## 7. Definition of Done
+## 8. Definition of Done
 
 - [x] Evidence document created
 - [x] Test specification created
 - [x] All Must tests implemented
+- [x] All Should tests implemented
+- [x] All Could tests implemented
 - [x] Edge cases covered
+- [x] Invariants covered
+- [x] Coverage classification complete: 0 missing, 0 weak, 0 duplicate
 - [x] Tests pass with zero warnings
-- [x] Reference value validation (low priority - Turner values used in implementation)
+- [x] All parameters verified against NNDB Turner 2004
+- [x] No assumptions remain — all values sourced from NNDB
+- [x] Inner AU/GU terminal penalty in MFE validated
+- [x] GGUC/CUGG 3-stack context implemented and tested
+- [x] Special GU closure detected in MFE from sequence context
