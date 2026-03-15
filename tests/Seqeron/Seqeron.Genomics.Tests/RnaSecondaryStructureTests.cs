@@ -102,6 +102,7 @@ public class RnaSecondaryStructureTests
     public void FindStemLoops_SimpleHairpin_FindsStructure()
     {
         // Evidence: GGGAAAACCC forms a perfect hairpin with 3bp stem and 4nt loop
+        // Dot-bracket: (((....))) — standard notation (Wikipedia: Nucleic acid structure)
         string rna = "GGGAAAACCC";
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
 
@@ -109,10 +110,20 @@ public class RnaSecondaryStructureTests
         var sl = stemLoops[0];
         Assert.Multiple(() =>
         {
+            Assert.That(sl.Start, Is.EqualTo(0), "Stem-loop starts at position 0");
+            Assert.That(sl.End, Is.EqualTo(9), "Stem-loop ends at position 9");
             Assert.That(sl.Stem.Length, Is.EqualTo(3), "3bp stem: GGG pairs with CCC");
+            Assert.That(sl.Stem.Start5Prime, Is.EqualTo(0));
+            Assert.That(sl.Stem.End5Prime, Is.EqualTo(2));
+            Assert.That(sl.Stem.Start3Prime, Is.EqualTo(7));
+            Assert.That(sl.Stem.End3Prime, Is.EqualTo(9));
             Assert.That(sl.Loop.Type, Is.EqualTo(LoopType.Hairpin));
+            Assert.That(sl.Loop.Start, Is.EqualTo(3));
+            Assert.That(sl.Loop.End, Is.EqualTo(6));
             Assert.That(sl.Loop.Size, Is.EqualTo(4), "4nt loop: AAAA");
             Assert.That(sl.Loop.Sequence, Is.EqualTo("AAAA"));
+            Assert.That(sl.DotBracketNotation, Is.EqualTo("(((....)))"),
+                "Dot-bracket: 3 opening, 4 dots, 3 closing (DB-001/DB-002/DB-003)");
         });
     }
 
@@ -138,64 +149,81 @@ public class RnaSecondaryStructureTests
     public void FindStemLoops_WithWobblePairs_IncludesWobble()
     {
         // Evidence: G-U wobble pair is a valid non-Watson-Crick base pair in RNA
-        // GGUAAAGCC: stem GG-U pairs with G-CC where U(pos2)-G(pos6) is wobble
+        // GGUAAAGCC: G(0)-C(8) WC, G(1)-C(7) WC, U(2)-G(6) Wobble → 3bp stem, loop AAA
         string rna = "GGUAAAGCC";
         var stemLoops = FindStemLoops(rna, minStemLength: 2, minLoopSize: 3, allowWobble: true).ToList();
 
-        Assert.That(stemLoops, Is.Not.Empty, "Should find stem-loops with wobble pairs allowed");
-        Assert.That(stemLoops.Any(sl =>
-            sl.Stem.BasePairs.Any(bp => bp.Type == BasePairType.Wobble)), Is.True,
-            "At least one stem-loop should contain a G-U wobble base pair");
+        Assert.That(stemLoops, Has.Count.EqualTo(2),
+            "Two stem-loops: 3bp with wobble (loop AAA) and 2bp WC-only (loop UAAAG)");
+
+        var wobbleSl = stemLoops.First(sl => sl.Stem.BasePairs.Any(bp => bp.Type == BasePairType.Wobble));
+        Assert.Multiple(() =>
+        {
+            Assert.That(wobbleSl.Stem.Length, Is.EqualTo(3), "3bp stem including wobble pair");
+            Assert.That(wobbleSl.Loop.Sequence, Is.EqualTo("AAA"), "Loop is AAA (3nt)");
+            Assert.That(wobbleSl.Loop.Size, Is.EqualTo(3));
+            Assert.That(wobbleSl.Stem.BasePairs.Any(bp =>
+                bp.Base1 == 'U' && bp.Base2 == 'G' && bp.Type == BasePairType.Wobble), Is.True,
+                "Stem must contain U-G wobble pair at innermost position");
+        });
     }
 
     [Test]
     public void FindStemLoops_WithoutWobble_ExcludesWobble()
     {
+        // GCGAAAACGU: G(2)-C(7) WC, C(1)-G(8) WC form 2bp stem; G(0)-U(9) wobble is excluded
         string rna = "GCGAAAACGU";
         var stemLoops = FindStemLoops(rna, minStemLength: 2, allowWobble: false).ToList();
 
-        var hasWobble = stemLoops.Any(sl =>
-            sl.Stem.BasePairs.Any(bp => bp.Type == BasePairType.Wobble));
-
-        Assert.That(hasWobble, Is.False);
+        Assert.That(stemLoops, Has.Count.EqualTo(1), "Should find 1 stem-loop (WC pairs only)");
+        var sl = stemLoops[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(sl.Stem.Length, Is.EqualTo(2), "2bp WC-only stem (G-U wobble excluded)");
+            Assert.That(sl.Loop.Sequence, Is.EqualTo("AAAA"), "4nt loop");
+            Assert.That(sl.Stem.BasePairs.All(bp => bp.Type == BasePairType.WatsonCrick), Is.True,
+                "All base pairs must be Watson-Crick when wobble disabled");
+        });
     }
 
     [Test]
     public void FindStemLoops_MultipleStemLoops_FindsAll()
     {
-        // Two palindromic regions: GCGC-AAAAA-GCGC and CGC-UUUUU-GCG
+        // Two palindromic regions: GCGC(0-3)-AAAAA-GCGC(9-12) and GCGC(11-14)-UUUUU-GCGC(20-23)
         string rna = "GCGCAAAAAGCGCGCUUUUUGCGC";
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 3, maxLoopSize: 6).ToList();
 
         Assert.That(stemLoops, Has.Count.GreaterThanOrEqualTo(2),
             "Should find at least 2 stem-loops from two palindromic regions");
+        Assert.That(stemLoops.Any(sl => sl.Loop.Sequence == "AAAAA"), Is.True,
+            "Must find stem-loop with AAAAA loop from first palindromic region");
+        Assert.That(stemLoops.Any(sl => sl.Loop.Sequence == "UUUUU"), Is.True,
+            "Must find stem-loop with UUUUU loop from second palindromic region");
     }
 
     [Test]
     public void FindStemLoops_Tetraloop_FindsSpecialLoop()
     {
         // Evidence: GNRA tetraloops are stable RNA hairpin structures (Heus & Pardi, 1991)
-        // Sequence: GGGG-CGAA-CCCC forms hairpin with CGAA tetraloop (GNRA pattern where N=G, R=A)
-        string rna = "GGGGCGAACCCC"; // Perfect hairpin: 4bp stem + 4nt loop
+        // Wikipedia Tetraloop: GNRA = G + any N + purine R (A/G) + A
+        // GGGCGAAAGCCC: 4bp stem (GGGC/GCCC) + GAAA tetraloop (GNRA: G=G, N=A, R=A, A=A)
+        // Closing pair: C(3)-G(8)
+        string rna = "GGGCGAAAGCCC"; // 4bp stem + 4nt GAAA loop
         var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
 
-        Assert.That(stemLoops, Is.Not.Empty, "Should find hairpin with tetraloop");
-        Assert.That(stemLoops.Any(sl => sl.Loop.Size == 4), Is.True, "Should have 4-nucleotide tetraloop");
-    }
-
-    [Test]
-    public void FindStemLoops_DotBracket_IsGenerated()
-    {
-        // Evidence: Dot-bracket notation is standard for RNA secondary structure
-        string rna = "GGGAAAACCC";
-        var stemLoops = FindStemLoops(rna, minStemLength: 3, minLoopSize: 4).ToList();
-
-        Assert.That(stemLoops, Is.Not.Empty, "Should find stem-loop in GGGAAAACCC");
+        Assert.That(stemLoops, Has.Count.EqualTo(1), "Exactly 1 hairpin in GGGCGAAAGCCC");
         var sl = stemLoops[0];
-        Assert.That(sl.DotBracketNotation, Is.Not.Empty, "Dot-bracket notation should be generated");
-        Assert.That(sl.DotBracketNotation, Does.Contain("("), "Should contain opening brackets");
-        Assert.That(sl.DotBracketNotation, Does.Contain(")"), "Should contain closing brackets");
+        Assert.Multiple(() =>
+        {
+            Assert.That(sl.Stem.Length, Is.EqualTo(4), "4bp stem: GGGC pairs with GCCC");
+            Assert.That(sl.Loop.Sequence, Is.EqualTo("GAAA"),
+                "Loop should be GAAA — a canonical GNRA tetraloop (Wikipedia Tetraloop)");
+            Assert.That(sl.Loop.Size, Is.EqualTo(4));
+            Assert.That(sl.DotBracketNotation, Is.EqualTo("((((....))))"));
+        });
     }
+
+    // DB-001/DB-002/DB-003 (DotBracket assertions) merged into FindStemLoops_SimpleHairpin_FindsStructure
 
     /// <summary>
     /// Evidence: Empty input should return empty result without exception.
@@ -263,21 +291,29 @@ public class RnaSecondaryStructureTests
     }
 
     /// <summary>
-    /// Evidence: Minimum biological loop size is 3 nucleotides due to steric constraints.
-    /// Source: Wikipedia - "sterically impossible and thus do not form"
-    /// Test Unit: RNA-STEMLOOP-001
+    /// Evidence: The biological minimum loop size of 3 nt must be enforced even if
+    /// the caller explicitly passes a smaller value. Loops &lt; 3 nt are sterically
+    /// impossible and must never appear in results.
+    /// Source: NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops
+    ///         with fewer than 3 nucleotides."
+    /// Source: Wikipedia Stem-loop: "sterically impossible and thus do not form"
+    /// Test Unit: RNA-STEMLOOP-001, Test IDs: EC-004
     /// </summary>
     [Test]
-    public void FindStemLoops_MinimumLoopSize_BiologicalConstraint()
+    public void FindStemLoops_MinLoopSizeBelowThree_ClampedToThree()
     {
-        // Sequence that could theoretically form 2nt loop: GC-AA-GC
-        // But biologically this is sterically impossible
-        string rna = "GCAAGC";
-        var stemLoops = FindStemLoops(rna, minStemLength: 2, minLoopSize: 3).ToList();
+        // AAGCAAGCAA can form 2bp stem GC(2,3)/GC(6,7) with 2nt loop AA(4,5)
+        // if minLoopSize < 3 were honored — but loops < 3 are sterically impossible.
+        string twoNtLoop = "AAGCAAGCAA";
+        var stemLoops = FindStemLoops(twoNtLoop, minStemLength: 2, minLoopSize: 1).ToList();
+        Assert.That(stemLoops, Is.Empty,
+            "Even with minLoopSize=1, loops < 3 nt must not be found (NNDB Turner 2004)");
 
-        // Should not find hairpin with 2nt loop
-        Assert.That(stemLoops.Any(sl => sl.Loop.Size < 3), Is.False,
-            "Should not find loops smaller than 3nt (biological constraint)");
+        // Positive control: same stem pattern with 3nt loop IS found
+        string threeNtLoop = "AAGCAAAGCAA";
+        var found = FindStemLoops(threeNtLoop, minStemLength: 2, minLoopSize: 3).ToList();
+        Assert.That(found, Is.Not.Empty, "3nt loop (biological minimum) should be found");
+        Assert.That(found[0].Loop.Size, Is.EqualTo(3));
     }
 
     #endregion
@@ -1417,16 +1453,25 @@ public class RnaSecondaryStructureTests
     [Test]
     public void LowerCaseInput_HandlesCorrectly()
     {
-        // Evidence: RNA sequence input should be case-insensitive
+        // Evidence: RNA sequence input should be case-insensitive (EC-003)
         string rnaLower = "gggaaaaccc";
         string rnaUpper = "GGGAAAACCC";
 
-        var stemLoopsLower = FindStemLoops(rnaLower, minStemLength: 3).ToList();
-        var stemLoopsUpper = FindStemLoops(rnaUpper, minStemLength: 3).ToList();
+        var stemLoopsLower = FindStemLoops(rnaLower, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
+        var stemLoopsUpper = FindStemLoops(rnaUpper, minStemLength: 3, minLoopSize: 4, maxLoopSize: 4).ToList();
 
-        // Both should produce same results
-        Assert.That(stemLoopsLower.Count, Is.EqualTo(stemLoopsUpper.Count),
-            "Lowercase and uppercase input should produce same number of results");
+        Assert.That(stemLoopsLower, Has.Count.EqualTo(stemLoopsUpper.Count));
+        Assert.Multiple(() =>
+        {
+            Assert.That(stemLoopsLower[0].Stem.Length, Is.EqualTo(stemLoopsUpper[0].Stem.Length),
+                "Stem length must match regardless of case");
+            Assert.That(stemLoopsLower[0].Loop.Sequence, Is.EqualTo(stemLoopsUpper[0].Loop.Sequence),
+                "Loop sequence must match regardless of case");
+            Assert.That(stemLoopsLower[0].DotBracketNotation, Is.EqualTo(stemLoopsUpper[0].DotBracketNotation),
+                "Dot-bracket must match regardless of case");
+            Assert.That(stemLoopsLower[0].TotalFreeEnergy, Is.EqualTo(stemLoopsUpper[0].TotalFreeEnergy),
+                "Energy must match regardless of case");
+        });
     }
 
     #endregion

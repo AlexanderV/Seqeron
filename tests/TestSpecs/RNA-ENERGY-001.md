@@ -118,7 +118,7 @@ Testing RNA free energy calculation algorithms including stacking energy, hairpi
 | RS-001 | GGGAAAACCC | Hairpin 3bp+4loop | Simple test case |
 | RS-002 | GCGCAAAAGCGC | Hairpin 4bp+4loop | GC-rich stem |
 | RS-003 | AAAAAAAAA | None | No structure possible |
-| RS-004 | GGGGCGAACCCC | Hairpin 4bp+GNRA | GNRA tetraloop |
+| RS-004 | GGGCGAAAGCCC | Hairpin 4bp+GNRA | GNRA tetraloop (GAAA loop) |
 | RS-005 | GCGCCCCCGCGC | Hairpin 4bp+C-loop | All-C loop penalty |
 
 ### 4.2 Reference Energy Values (Turner 2004)

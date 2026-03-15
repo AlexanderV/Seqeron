@@ -461,6 +461,12 @@ public static class RnaSecondaryStructure
         int maxLoopSize = 10,
         bool allowWobble = true)
     {
+        // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops
+        // with fewer than 3 nucleotides."
+        // Wikipedia Stem-loop: "loops fewer than three bases long are sterically
+        // impossible and thus do not form."
+        if (minLoopSize < 3) minLoopSize = 3;
+
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minStemLength * 2 + minLoopSize)
             yield break;
 
@@ -669,7 +675,9 @@ public static class RnaSecondaryStructure
         }
         else
         {
-            energy = 5.5; // Fallback for sizes < 3 (shouldn't occur biologically)
+            // Loops < 3 nt are sterically impossible (NNDB Turner 2004, Wikipedia Stem-loop).
+            // Return prohibitive energy to prevent selection in any optimization.
+            energy = 100.0;
         }
 
         // For loops ≥4nt: terminal mismatch stacking + sequence-dependent bonuses + penalties
@@ -992,6 +1000,10 @@ public static class RnaSecondaryStructure
     /// </summary>
     public static double CalculateMinimumFreeEnergy(string rnaSequence, int minLoopSize = 3)
     {
+        // NNDB Turner 2004: "The nearest neighbor rules prohibit hairpin loops
+        // with fewer than 3 nucleotides."
+        if (minLoopSize < 3) minLoopSize = 3;
+
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
             return 0;
 
@@ -1330,6 +1342,9 @@ public static class RnaSecondaryStructure
     /// </summary>
     internal static double CalculateMinimumFreeEnergyClassic(string rnaSequence, int minLoopSize = 3)
     {
+        // NNDB Turner 2004: hairpin loops < 3 nt are prohibited.
+        if (minLoopSize < 3) minLoopSize = 3;
+
         if (string.IsNullOrEmpty(rnaSequence) || rnaSequence.Length < minLoopSize + 2)
             return 0;
 
