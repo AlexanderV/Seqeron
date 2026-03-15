@@ -33,10 +33,10 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_8merSite_DetectedAndScoredHighest()
     {
-        // 8mer: seed RC (CUACCUC) + trailing A → CUACCUCA
+        // 8mer: full seedRC (CUACCUC) + trailing A → CUACCUCA
         // Evidence: Bartel (2009) — 8mer = positions 2-8 match + A opposite position 1
-        // No trailing padding: ensures offset-6mer at pos+1 is blocked by CheckSeedMatch guard (pos+8 > Length)
-        string mrna = "GGGGG" + Let7aSeedRC + "A";
+        // Layout on mRNA (5'→3'): [seedRC] [A] where seedRC = RC of miRNA pos 2-8
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
@@ -58,7 +58,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     {
         // 7mer-m8: full seed RC (CUACCUC) but no trailing A → trailing G
         // Evidence: Bartel (2009) — 7mer-m8 = positions 2-8 match, no A at pos 1
-        string mrna = "GGGGG" + Let7aSeedRC + "G";
+        string mrna = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
@@ -77,11 +77,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_7merA1Site_Detected()
     {
-        // 7mer-A1: 6mer seed RC prefix (CUACCU) preceded by A,
-        //          7th char differs from seedRC[6] to prevent 7mer-m8 match
+        // 7mer-A1: 6mer core (seedRC[1:7] = UACCUC, RC of pos 2-7) + trailing A
+        // No upstream seedRC[0]='C' → prevents upgrade to 8mer
         // Evidence: Bartel (2009) — 7mer-A1 = positions 2-7 + A opposite position 1
-        string sixmerPrefix = Let7aSeedRC[..6]; // CUACCU
-        string mrna = "GGGA" + sixmerPrefix + "G" + "GGGGG";
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "A" + "GGGGG";
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
@@ -100,12 +100,12 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_6merSite_Detected()
     {
-        // 6mer: 6-char seed RC prefix (CUACCU), no preceding A, 7th char differs
+        // 6mer: 6mer core = seedRC[1:7] = UACCUC (RC of pos 2-7), no trailing A, no upstream seedRC[0]
         // Evidence: Bartel (2009) — 6mer = positions 2-7 match only
-        string sixmerPrefix = Let7aSeedRC[..6]; // CUACCU
-        string mrna = "GGGG" + sixmerPrefix + "G" + "GGGGG";
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of miRNA positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
 
         Assert.Multiple(() =>
         {
@@ -122,19 +122,19 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_ScoreMonotonicity_8mer_GT_7merM8_GT_7merA1_GT_6mer()
     {
-        // Evidence: Grimson (2007) — established efficacy hierarchy
-        string sixmer = Let7aSeedRC[..6]; // CUACCU
+        // Evidence: Grimson (2007) — efficacy hierarchy: 8mer > 7mer-m8 > 7mer-A1 > 6mer
+        // Grimson weights: 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
 
-        // Minimal trailing context: avoids offset-6mer overlaps and keeps alignment penalties comparable
-        string mrna8mer = "GGGGG" + Let7aSeedRC + "A";
-        string mrna7merM8 = "GGGGG" + Let7aSeedRC + "G";
-        string mrna7merA1 = "GGGA" + sixmer + "GG";
-        string mrna6mer = "GGGG" + sixmer + "GG";
+        string mrna8mer = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
+        string mrna7merM8 = "GGGGG" + Let7aSeedRC + "G" + "GGGGG";
+        string mrna7merA1 = "GGGGG" + sixmerCore + "A" + "GGGGG";
+        string mrna6mer = "GGGGG" + sixmerCore + "G" + "GGGGG";
 
-        double score8mer = FindTargetSites(mrna8mer, Let7a, 0.1).First().Score;
-        double score7merM8 = FindTargetSites(mrna7merM8, Let7a, 0.1).First().Score;
-        double score7merA1 = FindTargetSites(mrna7merA1, Let7a, 0.1).First().Score;
-        double score6mer = FindTargetSites(mrna6mer, Let7a, 0.1).First().Score;
+        double score8mer = FindTargetSites(mrna8mer, Let7a, 0.01).First().Score;
+        double score7merM8 = FindTargetSites(mrna7merM8, Let7a, 0.01).First().Score;
+        double score7merA1 = FindTargetSites(mrna7merA1, Let7a, 0.01).First().Score;
+        double score6mer = FindTargetSites(mrna6mer, Let7a, 0.01).First().Score;
 
         Assert.Multiple(() =>
         {
@@ -180,13 +180,19 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_MultipleSites_AllFound()
     {
-        // Evidence: each seed match site functions independently
-        string site = Let7aSeedRC + "G"; // 7mer-m8 site
+        // Evidence: each seed match site functions independently — Bartel (2009)
+        // Three 7mer-m8 sites (full seedRC + non-A) separated by GGG spacers
+        string site = Let7aSeedRC + "G"; // 7mer-m8 site (full seedRC + non-A)
         string mrna = "GGG" + site + "GGG" + site + "GGG" + site + "GGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
 
-        Assert.That(sites, Has.Count.GreaterThanOrEqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(3));
+            Assert.That(sites.All(s => s.Type == TargetSiteType.Seed7merM8), Is.True,
+                "All three sites should be classified as 7mer-m8");
+        });
     }
 
     #endregion
@@ -195,6 +201,9 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
 
     [TestCase("GGGGG" + "CUACCUC" + "A" + "GGGGG")] // 8mer for let-7a
     [TestCase("GGGGG" + "CUACCUC" + "G" + "GGGGG")] // 7mer-m8 for let-7a
+    [TestCase("GGGGG" + "UACCUC" + "A" + "GGGGG")]  // 7mer-A1 for let-7a
+    [TestCase("GGGGG" + "UACCUC" + "G" + "GGGGG")]  // 6mer for let-7a
+    [TestCase("GGGGG" + "CUACCU" + "G" + "GGGGG")]  // offset 6mer for let-7a
     public void FindTargetSites_AllSites_ScoreInRange(string mrna)
     {
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.0).ToList();
@@ -213,11 +222,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_HighMinScore_FiltersLowScoringSites()
     {
-        // 6mer has a lower score, should be filtered with high threshold
-        string sixmer = Let7aSeedRC[..6];
-        string mrna = "GGGG" + sixmer + "G" + "GGGGG";
+        // 6mer (Grimson base score ~0.15) should be filtered with high threshold
+        string sixmerCore = Let7aSeedRC[1..]; // UACCUC (RC of positions 2-7)
+        string mrna = "GGGGG" + sixmerCore + "G" + "GGGGG";
 
-        var withLowThreshold = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var withLowThreshold = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
         var withHighThreshold = FindTargetSites(mrna, Let7a, minScore: 0.99).ToList();
 
         Assert.Multiple(() =>
@@ -327,7 +336,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_FoundSite_HasNonEmptyAlignment()
     {
-        string mrna = "GGGGG" + Let7aSeedRC + "A";
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
@@ -346,7 +355,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     public void FindTargetSites_DnaInput_ConvertedToRnaAndMatched()
     {
         // Same site but with T instead of U
-        string mrnaRna = "GGGGG" + Let7aSeedRC + "A";
+        string mrnaRna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
         string mrnaDna = mrnaRna.Replace('U', 'T');
 
         var sitesRna = FindTargetSites(mrnaRna, Let7a, minScore: 0.1).ToList();
@@ -367,11 +376,12 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_Offset6merSite_Detected()
     {
-        // Offset 6mer: match to positions 3-8 of miRNA = seedRC[1..6]
-        string offset6 = Let7aSeedRC[1..]; // UACCUC
-        string mrna = "GGGG" + offset6 + "G" + "GGGGG";
+        // Offset 6mer: match to positions 3-8 of miRNA = seedRC[0..6] = CUACCU
+        // Must NOT have seedRC[6] match at position +6 (would make it part of full seedRC)
+        string offset6 = Let7aSeedRC[..6]; // CUACCU (RC of miRNA positions 3-8)
+        string mrna = "GGGGG" + offset6 + "G" + "GGGGG";
 
-        var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
+        var sites = FindTargetSites(mrna, Let7a, minScore: 0.01).ToList();
 
         Assert.Multiple(() =>
         {
@@ -388,7 +398,7 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     [Test]
     public void FindTargetSites_FoundSite_AllFieldsPopulated()
     {
-        string mrna = "GGGGG" + Let7aSeedRC + "A";
+        string mrna = "GGGGG" + Let7aSeedRC + "A" + "GGGGG";
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
@@ -414,24 +424,23 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
     public void FindTargetSites_Let7a_RealTargetSequence_FindsSite()
     {
         // Integration: Real let-7a against a constructed 3'UTR-like sequence
-        // with an 8mer target site
+        // mRNA contains CUACCUCA at positions 14-21 = 8mer site for let-7a
         string mrna = "AUGGCUAAAGCUUUCUACCUCAGCUUAACCC";
-        //                             ^CUACCUCA^ = 8mer site
 
         var sites = FindTargetSites(mrna, Let7a, minScore: 0.1).ToList();
 
-        Assert.That(sites, Is.Not.Empty);
-        Assert.That(sites.Any(s => s.Type == TargetSiteType.Seed8mer ||
-                                    s.Type == TargetSiteType.Seed7merM8 ||
-                                    s.Type == TargetSiteType.Seed7merA1 ||
-                                    s.Type == TargetSiteType.Seed6mer), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites, Has.Count.EqualTo(1));
+            Assert.That(sites[0].Type, Is.EqualTo(TargetSiteType.Seed8mer));
+        });
     }
 
     [Test]
     public void FindTargetSites_MiR21_8merTarget_FindsSite()
     {
         // hsa-miR-21 seed RC = AUAAGCU; 8mer = AUAAGCUA
-        string mrna = "GGGGG" + MiR21SeedRC + "A";
+        string mrna = "GGGGG" + MiR21SeedRC + "A" + "GGGGG";
 
         var sites = FindTargetSites(mrna, MiR21, minScore: 0.1).ToList();
 

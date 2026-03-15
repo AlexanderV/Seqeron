@@ -1628,9 +1628,10 @@
 | `ScoreTargetSite(site)` | MiRnaAnalyzer | Scoring |
 
 **Site Types:**
-- [ ] 8mer, 7mer-m8, 7mer-A1, 6mer
+- [x] 8mer, 7mer-m8, 7mer-A1, 6mer
+- [x] Offset 6mer (positions 3-8)
 - [ ] Supplementary pairing
-- [ ] Centered sites
+- [x] ~~Centered sites~~ (removed per TargetScan 8.0 / McGeary 2019)
 
 ---
 
