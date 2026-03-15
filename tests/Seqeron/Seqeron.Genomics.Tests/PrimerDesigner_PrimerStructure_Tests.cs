@@ -236,10 +236,10 @@ public class PrimerDesigner_PrimerStructure_Tests
     [Test]
     public void HasHairpinPotential_CustomMinLoopLength_RespectsParameter()
     {
-        // GCGCGCTTTTGCGCGC: stem=6, loop=4 (TTTT)
-        // With minLoopLength=5, the 4-nt loop is insufficient
-        bool withLoop5 = PrimerDesigner.HasHairpinPotential("GCGCGCTTTTGCGCGC", minStemLength: 4, minLoopLength: 5);
-        bool withLoop3 = PrimerDesigner.HasHairpinPotential("GCGCGCTTTTGCGCGC", minStemLength: 4, minLoopLength: 3);
+        // GCGCTTTTGCGC: stem=4 (GCGC), loop=4 (TTTT)
+        // With minLoopLength=5, the 4-nt loop is insufficient (and 12 < 4*2+5=13)
+        bool withLoop5 = PrimerDesigner.HasHairpinPotential("GCGCTTTTGCGC", minStemLength: 4, minLoopLength: 5);
+        bool withLoop3 = PrimerDesigner.HasHairpinPotential("GCGCTTTTGCGC", minStemLength: 4, minLoopLength: 3);
 
         Assert.Multiple(() =>
         {
