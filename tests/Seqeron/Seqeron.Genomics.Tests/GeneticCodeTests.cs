@@ -268,15 +268,31 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
-        /// Codons with invalid nucleotides (not A/C/G/T/U) throw ArgumentException.
-        /// Source: NCBI — only 4 nucleotides form valid codons
+        /// Codons with invalid nucleotides (not IUPAC codes) throw ArgumentException.
+        /// IUPAC ambiguity codes (N, R, Y, etc.) return 'X' instead.
+        /// Source: NCBI — only 4 nucleotides form valid codons; IUPAC handles ambiguity
         /// </summary>
         [Test]
         public void Translate_InvalidNucleotide_ThrowsException()
         {
             Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("XYZ"));
-            Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("ANN"));
             Assert.Throws<ArgumentException>(() => GeneticCode.Standard.Translate("12G"));
+        }
+
+        /// <summary>
+        /// Codons with IUPAC ambiguity codes (N, R, Y, etc.) return 'X' (unknown amino acid).
+        /// Source: BioPython, EMBOSS — standard handling of ambiguous codons.
+        /// </summary>
+        [Test]
+        public void Translate_AmbiguousCodon_ReturnsX()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(GeneticCode.Standard.Translate("ANN"), Is.EqualTo('X'));
+                Assert.That(GeneticCode.Standard.Translate("NNN"), Is.EqualTo('X'));
+                Assert.That(GeneticCode.Standard.Translate("NAA"), Is.EqualTo('X'));
+                Assert.That(GeneticCode.Standard.Translate("NCC"), Is.EqualTo('X'));
+            });
         }
 
         /// <summary>

@@ -13,6 +13,11 @@ namespace Seqeron.Genomics.Core
         private readonly IReadOnlySet<string> _startCodons;
         private readonly IReadOnlySet<string> _stopCodons;
 
+        // IUPAC nucleotide codes: standard bases + ambiguity codes
+        // N=any, R=A/G, Y=C/T, S=G/C, W=A/T, K=G/T, M=A/C, B=C/G/T, D=A/G/T, H=A/C/T, V=A/C/G
+        private static readonly HashSet<char> IupacNucleotides = new(
+            "ACGURYMKSWBDHVN".ToCharArray());
+
         /// <summary>
         /// Gets the name of this genetic code.
         /// </summary>
@@ -65,7 +70,22 @@ namespace Seqeron.Genomics.Core
             if (_codonTable.TryGetValue(normalized, out char aa))
                 return aa;
 
+            // Codons with valid IUPAC ambiguity codes (N, R, Y, etc.) are
+            // untranslatable but not invalid — return 'X' (unknown amino acid)
+            if (IsIupacCodon(normalized))
+                return 'X';
+
             throw new ArgumentException($"Unknown codon: {codon}", nameof(codon));
+        }
+
+        private static bool IsIupacCodon(string codon)
+        {
+            foreach (char c in codon)
+            {
+                if (!IupacNucleotides.Contains(c))
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>
