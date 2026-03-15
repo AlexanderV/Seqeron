@@ -29,8 +29,9 @@ Hierarchical effectiveness (highest to lowest):
 4. **6mer**: match to positions 2-7 (seed only)
 
 ### miRNA Family Concept
-- miRNAs sharing the same seed sequence (positions 2-7 or 2-8) belong to the same family (Griffiths-Jones et al., 2006; TargetScan)
-- Family members are expected to target overlapping sets of mRNAs
+- Bartel (2009): "members of the same miRNA family (i.e., miRNAs with the same sequence at nucleotides 2–8)"
+- Family = identical sequence at positions 2-8 (7 nt); any mismatch = different family
+- Family members share the same predicted targets (TargetScan FAQ Q11)
 
 ## Reference miRNA Sequences (from miRBase)
 
@@ -45,7 +46,7 @@ Hierarchical effectiveness (highest to lowest):
 
 ## Edge Cases (documented in sources)
 
-1. **miRNA shorter than 8 nt**: Cannot extract seed — return empty (ASSUMPTION: graceful handling)
+1. **miRNA shorter than 8 nt**: Cannot extract seed — return empty (Bartel 2009: miRNAs are ~23 nt; <8 nt is invalid input)
 2. **Null/empty input**: Return empty string (defensive programming)
 3. **DNA vs RNA input**: T should be handled equivalently to U in CreateMiRna (converts T→U)
 4. **Case insensitivity**: Seed extraction normalizes to uppercase

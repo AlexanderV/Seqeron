@@ -1,76 +1,17 @@
 namespace Seqeron.Genomics.Tests.Properties;
 
 /// <summary>
-/// Property-based tests for miRNA analysis: seed extraction, target prediction, pre-miRNA hairpins.
+/// Property-based tests for miRNA analysis: target prediction, pre-miRNA hairpins.
 ///
-/// Test Units: MIRNA-SEED-001, MIRNA-TARGET-001, MIRNA-PRECURSOR-001
+/// Test Units: MIRNA-TARGET-001, MIRNA-PRECURSOR-001
+/// MIRNA-SEED-001 property tests removed — consolidated into canonical MiRnaAnalyzer_SeedAnalysis_Tests.cs
+/// (3 duplicates of M-003/M-007/M-009; 1 weak: IsSubstringOfMiRna can't distinguish extraction position)
 /// </summary>
 [TestFixture]
 [Category("Property")]
 [Category("Annotation")]
 public class MiRnaProperties
 {
-    // -- MIRNA-SEED-001 --
-
-    /// <summary>
-    /// Seed sequence length is 7 (positions 2-8 of mature miRNA).
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void GetSeedSequence_HasLength7()
-    {
-        string miRna = "UAGCUUAUCAGACUGAUGUUGA";
-        string seed = MiRnaAnalyzer.GetSeedSequence(miRna);
-
-        Assert.That(seed.Length, Is.EqualTo(7),
-            $"Seed '{seed}' should have length 7");
-    }
-
-    /// <summary>
-    /// Seed is a substring of the original miRNA.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void GetSeedSequence_IsSubstringOfMiRna()
-    {
-        string miRna = "UAGCUUAUCAGACUGAUGUUGA";
-        string seed = MiRnaAnalyzer.GetSeedSequence(miRna);
-
-        Assert.That(miRna, Does.Contain(seed),
-            $"Seed '{seed}' should be substring of '{miRna}'");
-    }
-
-    /// <summary>
-    /// CreateMiRna preserves name and sequence.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void CreateMiRna_PreservesNameAndSequence()
-    {
-        string name = "hsa-miR-21-5p";
-        string seq = "UAGCUUAUCAGACUGAUGUUGA";
-        var mirna = MiRnaAnalyzer.CreateMiRna(name, seq);
-
-        Assert.That(mirna.Name, Is.EqualTo(name));
-        Assert.That(mirna.Sequence, Is.EqualTo(seq));
-        Assert.That(mirna.SeedSequence, Is.Not.Null.And.Not.Empty);
-    }
-
-    /// <summary>
-    /// Same family miRNAs share seed region.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void CompareSeedRegions_IdenticalSeeds_AllMatches()
-    {
-        var mirna1 = MiRnaAnalyzer.CreateMiRna("miR-A", "UAGCUUAUCAGACUGAUGUUGA");
-        var mirna2 = MiRnaAnalyzer.CreateMiRna("miR-B", "UAGCUUAUCAGACUGAUGUUGA");
-        var comparison = MiRnaAnalyzer.CompareSeedRegions(mirna1, mirna2);
-
-        Assert.That(comparison.Mismatches, Is.EqualTo(0));
-        Assert.That(comparison.IsSameFamily, Is.True);
-    }
-
     // -- MIRNA-TARGET-001 --
 
     /// <summary>

@@ -265,7 +265,7 @@ public class MiRnaAnalyzer_SeedAnalysis_Tests
     [Test]
     public void CompareSeedRegions_EmptySeed_ReturnsGracefulResult()
     {
-        // Evidence: Defensive programming (ASSUMPTION)
+        // Evidence: Bartel (2009): miRNAs are ~23 nt; <8 nt is invalid input — defensive guard
         var validMirna = CreateMiRna("let-7a", Let7a_Sequence);
         var shortMirna = CreateMiRna("short", "UAGCA"); // Too short → empty seed
 
