@@ -148,6 +148,8 @@ public static class MiRnaAnalyzer
 
     /// <summary>
     /// Finds all potential target sites for a miRNA in an mRNA sequence.
+    /// Scans for the 6mer core (RC of miRNA positions 2-7), then extends to classify
+    /// site types per Bartel (2009) and TargetScan conventions.
     /// </summary>
     public static IEnumerable<TargetSite> FindTargetSites(
         string mRnaSequence,
@@ -160,79 +162,105 @@ public static class MiRnaAnalyzer
         string mrna = mRnaSequence.ToUpperInvariant().Replace('T', 'U');
         string mirna = miRna.Sequence;
 
-        // Get reverse complement of miRNA seed for target matching
         string seedRC = GetReverseComplement(miRna.SeedSequence);
+        if (seedRC.Length < 7)
+            yield break;
 
-        // Scan mRNA for seed matches
+        // seedRC layout (7 chars): [RC of pos8] [RC of pos7] ... [RC of pos2]
+        // 6mer core = seedRC[1..7] = RC of miRNA positions 2-7 (6 chars)
+        // offset 6mer pattern = seedRC[0..6] = RC of miRNA positions 3-8 (6 chars)
+        string sixmerCore = seedRC.Substring(1, 6);
+        string offset6Pat = seedRC.Substring(0, 6);
+
+        // Track positions covered by 6mer-core-based sites to suppress overlapping offset 6mer
+        var coveredPositions = new HashSet<int>();
+
+        // Pass 1: Find 6mer core matches → classify as 8mer/7mer-m8/7mer-A1/6mer
         for (int i = 0; i <= mrna.Length - 6; i++)
         {
-            // Check for different seed match types
-            var site = CheckSeedMatch(mrna, i, mirna, miRna.Name, seedRC);
-            if (site != null && site.Value.Score >= minScore)
+            if (mrna.Substring(i, 6) != sixmerCore)
+                continue;
+
+            // Check for position 8 match upstream: mrna[i-1] == seedRC[0]
+            bool hasPos8 = i > 0 && mrna[i - 1] == seedRC[0];
+            // Check for A opposite miRNA position 1 downstream: mrna[i+6] == 'A'
+            bool hasA1 = i + 6 < mrna.Length && mrna[i + 6] == 'A';
+
+            TargetSiteType type;
+            int siteStart;
+            int siteLength;
+            int seedMatchLen;
+
+            if (hasPos8 && hasA1)
             {
-                yield return site.Value;
+                // 8mer: match to positions 2-8 + A opposite position 1
+                type = TargetSiteType.Seed8mer;
+                siteStart = i - 1;
+                siteLength = 8;
+                seedMatchLen = 8;
+            }
+            else if (hasPos8)
+            {
+                // 7mer-m8: match to positions 2-8
+                type = TargetSiteType.Seed7merM8;
+                siteStart = i - 1;
+                siteLength = 7;
+                seedMatchLen = 7;
+            }
+            else if (hasA1)
+            {
+                // 7mer-A1: match to positions 2-7 + A opposite position 1
+                type = TargetSiteType.Seed7merA1;
+                siteStart = i;
+                siteLength = 7;
+                seedMatchLen = 7;
+            }
+            else
+            {
+                // 6mer: match to positions 2-7 only
+                type = TargetSiteType.Seed6mer;
+                siteStart = i;
+                siteLength = 6;
+                seedMatchLen = 6;
+            }
+
+            var site = CreateTargetSite(mrna, siteStart, siteLength, mirna, miRna.Name, type, seedMatchLen);
+            if (site.Score >= minScore)
+            {
+                for (int j = siteStart; j < siteStart + siteLength; j++)
+                    coveredPositions.Add(j);
+                yield return site;
             }
         }
-    }
 
-    private static TargetSite? CheckSeedMatch(string mrna, int pos, string mirna, string mirnaName, string seedRC)
-    {
-        if (pos + 8 > mrna.Length)
-            return null;
-
-        string target8 = mrna.Substring(pos, Math.Min(8, mrna.Length - pos));
-
-        // Check for 8mer (A at position opposite to miRNA pos 1, then perfect seed)
-        if (target8.Length >= 8)
+        // Pass 2: Find offset 6mer matches (positions 3-8) not overlapping higher-priority sites
+        for (int i = 0; i <= mrna.Length - 6; i++)
         {
-            string seedMatch = target8.Substring(0, 7);
-            if (seedMatch == seedRC && target8[7] == 'A')
+            if (mrna.Substring(i, 6) != offset6Pat)
+                continue;
+
+            // Skip if this position overlaps with a site already found
+            bool overlaps = false;
+            for (int j = i; j < i + 6; j++)
             {
-                return CreateTargetSite(mrna, pos, 8, mirna, mirnaName, TargetSiteType.Seed8mer, 8);
+                if (coveredPositions.Contains(j))
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) continue;
+
+            // Also skip if full seedRC matches here (would have been found in pass 1 at i+1)
+            if (i + 7 <= mrna.Length && mrna[i + 6] == seedRC[6])
+                continue;
+
+            var site = CreateTargetSite(mrna, i, 6, mirna, miRna.Name, TargetSiteType.Offset6mer, 6);
+            if (site.Score >= minScore)
+            {
+                yield return site;
             }
         }
-
-        // Check for 7mer-m8 (positions 2-8 of miRNA, i.e., seed + position 8)
-        if (target8.Length >= 7)
-        {
-            string m8Match = target8.Substring(0, 7);
-            if (m8Match == seedRC)
-            {
-                return CreateTargetSite(mrna, pos, 7, mirna, mirnaName, TargetSiteType.Seed7merM8, 7);
-            }
-        }
-
-        // Check for 7mer-A1 (positions 2-7 + A opposite position 1)
-        if (target8.Length >= 7)
-        {
-            string a1Match = target8.Substring(0, 6);
-            if (a1Match == seedRC.Substring(0, 6) && pos > 0 && mrna[pos - 1] == 'A')
-            {
-                return CreateTargetSite(mrna, pos - 1, 7, mirna, mirnaName, TargetSiteType.Seed7merA1, 7);
-            }
-        }
-
-        // Check for 6mer (positions 2-7)
-        if (target8.Length >= 6)
-        {
-            string match6 = target8.Substring(0, 6);
-            if (match6 == seedRC.Substring(0, 6))
-            {
-                return CreateTargetSite(mrna, pos, 6, mirna, mirnaName, TargetSiteType.Seed6mer, 6);
-            }
-        }
-
-        // Check for offset 6mer (positions 3-8)
-        if (target8.Length >= 6 && seedRC.Length >= 7)
-        {
-            string offset6 = target8.Substring(0, 6);
-            if (offset6 == seedRC.Substring(1, 6))
-            {
-                return CreateTargetSite(mrna, pos, 6, mirna, mirnaName, TargetSiteType.Offset6mer, 6);
-            }
-        }
-
-        return null;
     }
 
     private static TargetSite CreateTargetSite(string mrna, int pos, int length, string mirna, string mirnaName, TargetSiteType type, int seedMatchLength)
@@ -405,26 +433,29 @@ public static class MiRnaAnalyzer
 
     private static double CalculateTargetScore(TargetSiteType type, MiRnaDuplex duplex)
     {
+        // Base scores proportional to Grimson et al. (2007) site-type efficacy weights:
+        // 8mer=0.310, 7mer-m8=0.161, 7mer-A1=0.099; normalized to [0,1] with 8mer=1.0
+        // 6mer and offset 6mer estimated from Agarwal et al. (2015).
         double baseScore = type switch
         {
             TargetSiteType.Seed8mer => 1.0,
-            TargetSiteType.Seed7merM8 => 0.9,
-            TargetSiteType.Seed7merA1 => 0.85,
-            TargetSiteType.Seed6mer => 0.7,
-            TargetSiteType.Offset6mer => 0.6,
-            TargetSiteType.Supplementary => 0.5,
-            TargetSiteType.Centered => 0.4,
-            _ => 0.3
+            TargetSiteType.Seed7merM8 => 0.52,
+            TargetSiteType.Seed7merA1 => 0.32,
+            TargetSiteType.Seed6mer => 0.15,
+            TargetSiteType.Offset6mer => 0.10,
+            TargetSiteType.Supplementary => 0.05,
+            TargetSiteType.Centered => 0.03,
+            _ => 0.01
         };
 
-        // Bonus for 3' supplementary pairing
+        // Bonus for 3' supplementary pairing (extra matches beyond seed)
         if (duplex.Matches > 10)
         {
-            baseScore += 0.1;
+            baseScore += 0.05;
         }
 
-        // Penalty for mismatches in seed
-        baseScore -= duplex.Mismatches * 0.05;
+        // Penalty for mismatches in alignment
+        baseScore -= duplex.Mismatches * 0.01;
 
         return Math.Max(0, Math.Min(1, baseScore));
     }
