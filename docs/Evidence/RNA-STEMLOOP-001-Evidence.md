@@ -151,19 +151,23 @@ Pseudoknots occur when base pairs "cross" each other:
 **Expected:**
 - Stem: 3 bp (GGG:CCC)
 - Loop: 4 nt (AAAA)
-- Structure: `(((...)))` 
+- Structure: `(((....)))` (3 opening brackets, 4 dots for 4nt loop, 3 closing brackets)
 
 **Source:** Basic Watson-Crick complementarity
 
 ### 6.2 GNRA Tetraloop
 
-**Sequence:** `GGGGCGAACCCC` 
+**Sequence:** `GGGCGAAAGCCC`
 **Expected:**
-- Stem: 4 bp
-- Loop: CGAA (follows GN-RA pattern where first loop base is closing pair)
-- Tetraloop bonus applicable
+- Stem: 4 bp (GGG-C paired with G-CCC; closing pair C-G)
+- Loop: GAAA (4 nt) — canonical GNRA tetraloop (G=G, N=A, R=A, A=A)
+- GA first mismatch bonus (−0.9 kcal/mol) applies via standard Turner 2004 model
+- No NNDB special loop entry exists for GNRA with C-G closing; stability
+  comes from GA mismatch bonus and structural tertiary interactions
 
-**Source:** Wikipedia Tetraloop, Heus & Pardi (1991)
+**Source:** Wikipedia Tetraloop ("GNRA = G + any N + purine R + A"),
+Heus & Pardi (1991), NNDB Turner 2004 hairpin-special-parameters.html
+(confirms all special tetraloops are UNCG-family with C-G closing)
 
 ### 6.3 No Structure Possible
 

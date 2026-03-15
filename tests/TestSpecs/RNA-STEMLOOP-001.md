@@ -70,8 +70,8 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 
 | Test ID | Description | Input | Expected |
 |---------|-------------|-------|----------|
-| TL-001 | Finds 4nt loop | `GGGGCGAACCCC` | Loop.Size = 4 |
-| TL-002 | GNRA pattern recognized | GAAA loop | Structure found |
+| TL-001 | GNRA tetraloop found | `GGGCGAAAGCCC` | Loop.Size = 4, Loop.Sequence = GAAA |
+| TL-002 | GNRA pattern verified | GAAA loop | Matches G-N-R-A pattern (Wikipedia Tetraloop) |
 
 ### 2.2 Should Tests (Recommended)
 
@@ -130,35 +130,30 @@ Testing stem-loop (hairpin) detection algorithms for RNA sequences. This include
 
 ### 4.2 Existing Coverage for FindStemLoops
 
-| Test | Method | Coverage | Status |
-|------|--------|----------|--------|
-| `FindStemLoops_SimpleHairpin_FindsStructure` | SL-001, SL-002, SL-003 | ✓ Covered |
-| `FindStemLoops_NoComplement_ReturnsEmpty` | SL-004 | ✓ Covered |
-| `FindStemLoops_TooShort_ReturnsEmpty` | SL-005 | ✓ Covered |
-| `FindStemLoops_WithWobblePairs_IncludesWobble` | PH-001 | ✓ Covered |
-| `FindStemLoops_WithoutWobble_ExcludesWobble` | PH-002 | ✓ Covered |
-| `FindStemLoops_MultipleStemLoops_FindsAll` | MS-001 | ✓ Covered |
-| `FindStemLoops_Tetraloop_FindsSpecialLoop` | TL-001, TL-002 | ✓ Covered |
-| `FindStemLoops_DotBracket_IsGenerated` | DB-001, DB-002, DB-003 | ✓ Covered |
-| `DetectPseudoknots_NoCrossing_ReturnsEmpty` | PK-001 | ✓ Covered |
-| `DetectPseudoknots_CrossingPairs_DetectsKnot` | PK-002 | ✓ Covered |
-| `FindInvertedRepeats_RnaHairpin_SmokeTest` | IR-001 | ✓ Covered |
+| Test | Spec IDs | Quality | Notes |
+|------|----------|---------|-------|
+| `FindStemLoops_SimpleHairpin_FindsStructure` | SL-001, SL-002, SL-003, DB-001, DB-002, DB-003 | Exact | Position, stem, loop, dot-bracket assertions |
+| `FindStemLoops_NoComplement_ReturnsEmpty` | SL-004 | Exact | |
+| `FindStemLoops_TooShort_ReturnsEmpty` | SL-005 | Exact | |
+| `FindStemLoops_WithWobblePairs_IncludesWobble` | PH-001 | Exact | Count=2, verifies wobble pair U-G |
+| `FindStemLoops_WithoutWobble_ExcludesWobble` | PH-002 | Exact | Count=1, stem=2bp, loop=AAAA, all WC |
+| `FindStemLoops_MultipleStemLoops_FindsAll` | MS-001 | Strong | Verifies AAAAA + UUUUU loops present |
+| `FindStemLoops_Tetraloop_FindsSpecialLoop` | TL-001, TL-002 | Exact | Count=1, stem=4bp, loop=GAAA, dot-bracket |
+| `FindStemLoops_EmptyString_ReturnsEmpty` | EC-001 | Exact | |
+| `FindStemLoops_NullString_ReturnsEmpty` | EC-002 | Exact | |
+| `FindStemLoops_MinLoopSizeBelowThree_ClampedToThree` | EC-004 | Exact | Uses AAGCAAGCAA (proper clamp test) + positive control |
+| `FindStemLoops_MinStemParameter_RespectsMinimum` | PH-003 | Exact | Positive + negative cases |
+| `FindStemLoops_LoopSizeRange_RespectsLimits` | PH-004 | Exact | Positive + negative cases |
+| `LowerCaseInput_HandlesCorrectly` | EC-003 | Exact | Compares stem, loop, dot-bracket, energy |
+| `DetectPseudoknots_NoCrossing_ReturnsEmpty` | PK-001 | Exact | |
+| `DetectPseudoknots_CrossingPairs_DetectsKnot` | PK-002 | Exact | |
+| `FindInvertedRepeats_RnaHairpin_SmokeTest` | IR-001 | Smoke | |
 
-### 4.3 Missing Tests (All Closed)
+### 4.3 Assessment
 
-| Test ID | Description | Status |
-|---------|-------------|--------|
-| EC-001 | Empty string handling | ✅ Covered |
-| EC-002 | Null handling | ✅ Covered |
-| EC-003 | Lowercase input | ✅ Covered |
-| PH-003 | MinStem parameter effect | ✅ Covered |
-| PH-004 | Loop size range | ✅ Covered |
-
-### 4.4 Assessment
-
-- **Existing Coverage:** Strong for core functionality
-- **Gaps:** Parameter validation edge cases
-- **Quality:** Tests are well-structured with evidence comments
+- **Coverage:** Complete — all Must, Should, and edge case tests implemented
+- **Quality:** All assertions use exact values derived from RNA biology theory (not fitted to implementation)
+- **Consolidation:** DB-001/DB-002/DB-003 merged into SimpleHairpin; MinimumLoopSize_BiologicalConstraint and MinLoopSizeBelowThree merged into one test with proper clamp verification
 
 ---
 
@@ -170,23 +165,57 @@ The existing tests in `RnaSecondaryStructureTests.cs` already cover RNA-STEMLOOP
 
 **Decision:** Add missing edge case tests to existing file rather than create new file, as the tests are cohesive and well-organized.
 
-### 5.2 Tests to Add (All Added)
+### 5.2 Edge Case Tests
 
-1. ~~`FindStemLoops_EmptyString_ReturnsEmpty` - EC-001~~ ✅ Done
-2. ~~`FindStemLoops_NullString_ReturnsEmpty` - EC-002~~ ✅ Done
-3. ~~`FindStemLoops_LowercaseInput_HandledCorrectly` - EC-003~~ ✅ Done
-4. ~~`FindStemLoops_MinStemParameter_RespectsMinimum` - PH-003~~ ✅ Done
-5. ~~`FindStemLoops_LoopSizeRange_RespectsLimits` - PH-004~~ ✅ Done
+All edge case tests are implemented in the existing file:
+- `FindStemLoops_EmptyString_ReturnsEmpty` (EC-001)
+- `FindStemLoops_NullString_ReturnsEmpty` (EC-002)
+- `LowerCaseInput_HandlesCorrectly` (EC-003) — compares stem, loop, dot-bracket, energy
+- `FindStemLoops_MinLoopSizeBelowThree_ClampedToThree` (EC-004) — uses AAGCAAGCAA with positive control
+- `FindStemLoops_MinStemParameter_RespectsMinimum` (PH-003)
+- `FindStemLoops_LoopSizeRange_RespectsLimits` (PH-004)
+
+### 5.3 Consolidation Actions Taken
+
+| Action | Details |
+|--------|---------|
+| 🔁 Merged | `FindStemLoops_DotBracket_IsGenerated` → assertions moved to `SimpleHairpin` (exact dot-bracket `(((....))).`) |
+| 🔁 Merged | `FindStemLoops_MinimumLoopSize_BiologicalConstraint` + `MinLoopSizeBelowThree_ClampedToThree` → single test with proper sequence `AAGCAAGCAA` |
+| ⚠ Strengthened | `SimpleHairpin`: added position, stem coordinates, dot-bracket exact value |
+| ⚠ Strengthened | `WithWobblePairs`: count=2, specific wobble U-G pair verification |
+| ⚠ Strengthened | `WithoutWobble`: count=1, stem=2bp, loop=AAAA, all-WC assertion |
+| ⚠ Strengthened | `MultipleStemLoops`: verifies both AAAAA and UUUUU loops present |
+| ⚠ Strengthened | `Tetraloop`: count=1, stem=4bp, dot-bracket `((((....))))` |
+| ⚠ Strengthened | `LowerCaseInput`: compares stem length, loop sequence, dot-bracket, energy |
 
 ---
 
-## 6. Open Questions
+## 6. Deviations and Assumptions
 
-None - the algorithm is well-defined by standard RNA biology.
+None.
+
+All implementation details are verified against external authoritative sources:
+
+| Aspect | Source | Verification |
+|--------|--------|--------------|
+| Minimum loop size ≥ 3 nt | Wikipedia Stem-loop: "sterically impossible" | Default `minLoopSize=3` |
+| Optimal loop 4–8 nt | Wikipedia Stem-loop: "4-8 bases long" | Default `maxLoopSize=10` (conservative upper bound) |
+| GNRA tetraloop = G-N-R-A | Wikipedia Tetraloop | Test uses GAAA loop, verified pattern |
+| GNRA stability via GA mismatch bonus | NNDB Turner 2004 hairpin-special-parameters | No GNRA in special loop table; GA bonus (−0.9) applies |
+| UNCG most stable tetraloop | Wikipedia Tetraloop, Antao 1991 | NNDB CUUCGG = 3.7 kcal/mol |
+| Special loop table (16 tetra + 2 tri + 4 hexa) | NNDB Turner 2004 | All 22 entries verified against source |
+| Watson-Crick pairs: A-U, G-C | IUPAC, Wikipedia Base pair | Implemented in `CanPair` |
+| Wobble pair: G-U | RNA Biology | Controlled by `allowWobble` parameter |
+| Pseudoknot: crossing pairs i < k < j < l | Wikipedia Pseudoknot, Rivas & Eddy 1999 | `DetectPseudoknots` uses exact definition |
+| Dot-bracket notation | Wikipedia Nucleic acid secondary structure | Standard `(`, `)`, `.` representation |
+
+## 7. Open Questions
+
+None — the algorithm is well-defined by standard RNA biology.
 
 ---
 
-## 7. Decisions
+## 8. Decisions
 
 | Decision | Rationale |
 |----------|-----------|
@@ -197,7 +226,7 @@ None - the algorithm is well-defined by standard RNA biology.
 
 ---
 
-## 8. Sign-off
+## 9. Sign-off
 
 - [x] Test specification created
 - [x] Existing tests audited
