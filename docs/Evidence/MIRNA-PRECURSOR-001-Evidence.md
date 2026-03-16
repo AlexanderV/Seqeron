@@ -80,8 +80,8 @@
 **Key Extracted Points:**
 
 1. **Canonical pre-miRNA lengths:** Database entries show pre-miRNA lengths ranging 55–120 nt.
-2. **hsa-mir-21 (MI0000077):** pre-miRNA = 71 nt, mature 5p = 22 nt, sequence: `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA`
-3. **hsa-let-7a-1 (MI0000060):** pre-miRNA = 78 nt, mature 5p = 22 nt, sequence: `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA`
+2. **hsa-mir-21 (MI0000077):** pre-miRNA = 72 nt, mature 5p = 22 nt, sequence: `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA`
+3. **hsa-let-7a-1 (MI0000060):** pre-miRNA = 80 nt, mature 5p = 22 nt, sequence: `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA`
 
 ---
 
@@ -136,9 +136,9 @@
 | Parameter | Value |
 |-----------|-------|
 | Sequence | `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA` |
-| Length | 71 nt |
+| Length | 72 nt |
 | Expected result | **NOT detected** — known limitation of consecutive-pairing model |
-| Reason | Internal mismatches and bulges yield only ~16 consecutive pairs from ends (< 18 threshold) |
+| Reason | Internal mismatches and bulges yield only 8 consecutive pairs from ends (< 18 threshold) |
 
 ### Dataset 4: Real miRBase — hsa-let-7a-1 (MI0000060)
 
@@ -147,9 +147,9 @@
 | Parameter | Value |
 |-----------|-------|
 | Sequence | `UGGGAUGAGGUAGUAGGUUGUAUAGUUUUAGGGUCACACCCACCACUGGGAGAUAACUAUACAAUCUACUGUCUUUCCUA` |
-| Length | 78 nt |
+| Length | 80 nt |
 | Expected result | **NOT detected** — known limitation of consecutive-pairing model |
-| Reason | Only ~5 consecutive pairs from ends (< 18 threshold) |
+| Reason | Only 5 consecutive pairs from ends (< 18 threshold) |
 
 ### Dataset 5: Short-stem hairpin (55 nt)
 
@@ -165,13 +165,9 @@
 
 ---
 
-## Assumptions
+## Design Limitations
 
-1. **ASSUMPTION: Energy model simplified** — The implementation uses a simplified energy model (-stemLength * 1.5 + loopSize * 0.5) rather than the Turner nearest-neighbor parameters. Tests should verify relative ordering (longer stem → more negative energy, larger loop → less negative energy) rather than absolute kcal/mol values.
-
-2. **ASSUMPTION: Consecutive stem requirement** — The implementation requires consecutive base pairs from the ends inward (breaks at first non-pairing position). Real pre-miRNAs have bulges/mismatches. Tests should verify behavior against the implementation's definition, not against a full thermodynamic folding model.
-
-3. **ASSUMPTION: ValidateHairpin is AnalyzeHairpin** — The checklist lists `ValidateHairpin(structure)` as a method, but the implementation has a private `AnalyzeHairpin(sequence, matureLength)`. The validation logic is tested indirectly via `FindPreMiRnaHairpins`.
+1. **Consecutive stem pairing model** — The implementation requires consecutive base pairs scanning from the 5’/3’ ends inward, breaking at the first non-pairing position. Real pre-miRNAs have asymmetric internal loops (bulges) that offset the pairing alignment. A full RNA folding algorithm (Zuker/Nussinov) would be required to detect them. Tests M18/M19 document this limitation using real miRBase sequences.
 
 ---
 
@@ -203,10 +199,4 @@
 5. Wikipedia: MicroRNA. https://en.wikipedia.org/wiki/MicroRNA (Accessed 2026-02-10)
 6. miRBase. https://mirbase.org/ (Accessed 2026-02-10)
 7. Griffiths-Jones S et al. (2006). miRBase: microRNA sequences, targets and gene nomenclature. Nucleic Acids Res 34:D140-144.
-
----
-
-## Change History
-
-- **2026-02-11**: Replaced synthetic test datasets with real miRBase sequences (MI0000077, MI0000060) and biologically plausible mixed-base hairpins. Added known-limitation documentation for consecutive-pairing model.
-- **2026-02-10**: Initial documentation.
+8. Turner DH, Mathews DH (2010). NNDB: the nearest neighbor parameter database for predicting stability of nucleic acid secondary structure. Nucleic Acids Res 38:D280-282.
