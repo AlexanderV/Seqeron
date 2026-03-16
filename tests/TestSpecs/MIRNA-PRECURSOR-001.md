@@ -3,9 +3,9 @@
 **Test Unit ID:** MIRNA-PRECURSOR-001
 **Area:** MiRNA
 **Algorithm:** Pre-miRNA Hairpin Detection
-**Status:** ☐ In Progress
+**Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-03-16
 
 ---
 
@@ -68,7 +68,7 @@
 | INV-5 | Structure.Length == Sequence.Length | Yes | Dot-bracket notation definition |
 | INV-6 | Structure contains only '(', ')', and '.' characters | Yes | Standard notation |
 | INV-7 | Count of '(' == Count of ')' in Structure | Yes | Balanced base pairs |
-| INV-8 | FreeEnergy < 0 for all valid hairpins (stabilizing) | Yes | Thermodynamic requirement — **ASSUMPTION** (simplified model) |
+| INV-8 | FreeEnergy < 0 for all valid hairpins (stabilizing) | Yes | Turner 2004 nearest-neighbor model (NNDB) |
 | INV-9 | Longer stem → more negative FreeEnergy (all else equal) | Yes | Turner (2004) principles |
 | INV-10 | Sequence is uppercase RNA (A, U, G, C only) | Yes | T→U conversion in implementation |
 
@@ -90,15 +90,15 @@
 | M8 | DotBracket_Structure_Correct | Structure has '(' for stem-5', '.' for loop, ')' for stem-3' | Matches stem/loop/stem pattern | Standard RNA notation |
 | M9 | DotBracket_Balanced | Count('(') == Count(')') in structure | Equal counts | Notation definition |
 | M10 | FreeEnergy_Negative | Free energy < 0 for valid hairpins | Negative value | Thermodynamic stability |
-| M11 | FreeEnergy_Ordering | Longer effective stem (23 bp) more negative than shorter (20 bp) | E(stem=23) < E(stem=20) | **ASSUMPTION** (simplified model) |
+| M11 | FreeEnergy_Ordering | Longer effective stem (23 bp) more negative than shorter (20 bp) | E(stem=23) < E(stem=20) | Turner (2004) nearest-neighbor model |
 | M12 | StemTooShort_Rejected | 55 nt sequence with only 15 bp stem (< 18 required); tests stem rejection, not n<55 | No hairpin found | Krol (2004) |
 | M13 | LoopTooLarge_Rejected | 66 nt candidate with 30 nt loop (> 25 max) | Rejected | Bartel (2004) |
 | M14 | TtoU_Conversion | DNA input (with T) handled correctly | T converted to U in output | RNA biology standard |
 | M15 | GU_WobblePairs_InStem | G-U pairs count as valid stem pairs | Hairpin accepted | Krol (2004) |
 | M16 | SequenceLength_InRange | All returned PreMiRnas have length within [min, max] | INV-1 verified | Scanning window definition |
 | M17 | Invariants_AllHold | All invariants verified on results | INV-1 through INV-10 | Multiple sources |
-| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 71 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22, Assumption #2 |
-| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 78 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22, Assumption #2 |
+| M18 | RealMiRBase_HsaMir21_NotDetected | hsa-mir-21 (MI0000077, 72 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22 |
+| M19 | RealMiRBase_HsaLet7a1_NotDetected | hsa-let-7a-1 (MI0000060, 80 nt) — real pre-miRNA not detected | Empty (known limitation) | miRBase v22 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -123,41 +123,73 @@
 ### 5.1 Discovery Summary
 
 - Original weak tests in `MiRnaAnalyzerTests.cs` lines 78–112 (#region Pre-miRNA Tests): 3 methods
-- Consolidated into canonical file `MiRnaAnalyzer_PreMiRna_Tests.cs`: 23 tests
+- Consolidated into canonical file `MiRnaAnalyzer_PreMiRna_Tests.cs`: 25 tests
 
 ### 5.2 Coverage Classification
 
-| Area / Test Case ID | Status | Notes |
-|---------------------|--------|-------|
-| M1–M17 | ✅ Covered | All MUST tests implemented with evidence-based assertions |
-| M18–M19 | ✅ Covered | Real miRBase known-limitation tests (hsa-mir-21, hsa-let-7a-1) |
-| S1–S4 | ✅ Covered | All SHOULD tests implemented |
-| C1–C2 | ❌ Not implemented | Optional, low priority |
+| Test ID | Status | Notes |
+|---------|--------|-------|
+| M1 | ✅ Covered | Null input returns empty |
+| M2 | ✅ Covered | Empty input returns empty |
+| M3 | ✅ Covered | Short sequence rejected |
+| M4 | ✅ Covered | Valid hairpin detected |
+| M5 | ✅ Covered | Exact Start=0/End=56 + sub-window Start=1/End=55; count=2 |
+| M6 | ✅ Covered | Exact mature = first 22 nt ("GCAUAGCUAGCUAGCUAGCUAG") |
+| M7 | ✅ Covered | Exact star = last 22 nt ("CUAGCUAGCUAGCUAGCUAUGC") |
+| M8 | ✅ Covered | Exact structure: 23×'(' + 11×'.' + 23×')' |
+| M9 | ✅ Covered | Balanced parentheses + dot count ≥ 3 |
+| M10 | ✅ Covered | Exact Turner energy −4⁣⁣⁣3.50 kcal/mol (hand-calculated from NNDB) |
+| M11 | ✅ Covered | Exact energies: stem-23 = −4⁣⁣⁣3.50, stem-20 = −36.02 (hand-calculated) |
+| M12 | ✅ Covered | 15 bp stem rejected (stem < 18) |
+| M13 | ✅ Covered | 30 nt loop rejected (> 25) |
+| M14 | ✅ Covered | DNA T→U conversion verified |
+| M15 | ✅ Covered | G:U wobble pairs accepted |
+| M16 | ✅ Covered | Sequence length in [min, max] range |
+| M17 | ✅ Covered | All 10 invariants verified in composite check |
+| M18 | ✅ Covered | hsa-mir-21 not detected (known limitation) |
+| M19 | ✅ Covered | hsa-let-7a-1 not detected (known limitation) |
+| S1 | ✅ Covered | Multiple hairpins in long sequence |
+| S2 | ✅ Covered | maxHairpinLength upper bound enforced |
+| S3 | ✅ Covered | Custom minHairpinLength applied |
+| S4 | ✅ Covered | No complementarity returns empty |
+| C1 | ✅ Covered | Mixed-case input produces same results as uppercase |
+| C2 | ✅ Covered | Custom matureLength=18 yields exact 18-nt mature/star |
 
-### 5.3 Consolidation Plan
+**Summary:** 0 missing, 0 weak, 0 duplicate. All 25 tests covered.
+
+### 5.3 Strengthening Log (2026-03-16)
+
+| Test | Change | Rationale |
+|------|--------|-----------|
+| M5 | Permissive bounds → exact Start/End + exact candidate count | Removes ambiguity; values derived from scanning algorithm + stem pairing |
+| M6 | "length ≤ 22" → exact mature sequence | "GCAUAGCUAGCUAGCUAGCUAG" derived from matureEnd=min(22,23)=22 |
+| M7 | "not null" → exact star sequence | "CUAGCUAGCUAGCUAGCUAUGC" derived from starStart=57−22=35 |
+| M8 | Regex pattern → exact structure string | 23×'(' + 11×'.' + 23×')' from stem=23, loop=57−46=11 |
+| M10 | "< 0" → exact −4⁣⁣⁣3.50 kcal/mol | Hand-calculated from Turner 2004 NNDB: 22 stacking pairs + loop(11) + TM(CUAG) |
+| M11 | Ordering only → ordering + exact magnitudes | −4⁣⁣⁣3.50 (stem-23) and −36.02 (stem-20) both hand-calculated |
+| C1 | New | Mixed-case → same as uppercase (ToUpperInvariant) |
+| C2 | New | matureLength=18 yields exact 18-nt mature/star |
+
+### 5.4 Consolidation Plan
 
 - **Canonical file:** `MiRnaAnalyzer_PreMiRna_Tests.cs` — all MIRNA-PRECURSOR-001 tests
 - **Removed from existing file:** Pre-miRNA Tests region from `MiRnaAnalyzerTests.cs` (3 weak tests replaced)
 - **Kept in existing file:** All other tests (reverse complement, base pairing, context, family, utility)
 
-### 5.4 Final State After Consolidation
+### 5.5 Final State
 
 | File | Role | Test Count |
 |------|------|------------|
-| `MiRnaAnalyzer_PreMiRna_Tests.cs` | Canonical for MIRNA-PRECURSOR-001 | 23 |
+| `MiRnaAnalyzer_PreMiRna_Tests.cs` | Canonical for MIRNA-PRECURSOR-001 | 25 |
 | `MiRnaAnalyzerTests.cs` | Residual tests for other units | Same minus 3 |
 
 ---
 
-## 6. Assumption Register
+## 6. Design Limitations
 
-**Total assumptions:** 3
-
-| # | Assumption | Used In |
-|---|-----------|---------|
-| 1 | Simplified energy model; test relative ordering not absolute values | M10, M11, INV-8, INV-9 |
-| 2 | Consecutive stem pairing; no bulge tolerance — real miRBase pre-miRNAs NOT detected | M4, M12, M18, M19 |
-| 3 | ValidateHairpin = AnalyzeHairpin (private); tested indirectly | Methods table |
+| # | Limitation | Impact | Tests |
+|---|-----------|--------|-------|
+| 1 | Consecutive stem pairing from ends; no tolerance for internal mismatches or bulges. Real pre-miRNAs (e.g., hsa-mir-21) have asymmetric internal loops that offset pairing alignment. A full RNA folding algorithm (Zuker/Nussinov) would be required to detect them. | Real miRBase pre-miRNAs are not detected by this model. | M18, M19 |
 
 ---
 

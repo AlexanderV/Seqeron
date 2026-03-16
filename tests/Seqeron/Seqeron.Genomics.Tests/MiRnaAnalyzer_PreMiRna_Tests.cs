@@ -73,13 +73,13 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     // real pre-miRNAs have internal mismatches and bulges that break
     // consecutive pairing from the ends.
 
-    /// <summary>hsa-mir-21 (MI0000077) — 71 nt, miRBase v22</summary>
+    /// <summary>hsa-mir-21 (MI0000077) — 72 nt, miRBase v22</summary>
     private const string HsaMir21_MI0000077 =
         "UGUCGGGUAGCUUAUCAGACUGAUGUUGA" +
         "CUGUUGAAUCUCAUGGCAACACCAGUCGA" +
         "UGGGCUGUCUGACA";
 
-    /// <summary>hsa-let-7a-1 (MI0000060) — 78 nt, miRBase v22</summary>
+    /// <summary>hsa-let-7a-1 (MI0000060) — 80 nt, miRBase v22</summary>
     private const string HsaLet7a1_MI0000060 =
         "UGGGAUGAGGUAGUAGGUUGUAUAGUUUU" +
         "AGGGUCACACCCACCACUGGGAGAUAACU" +
@@ -148,22 +148,37 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_Position_WithinInputBounds()
     {
+        // ValidHairpin57 is exactly 57 nt. Scanning with minHairpinLength=55:
+        // - i=0, len=57 → stem=23 (full hairpin) → accepted
+        // - i=1, len=55 → stem=22 (sub-window) → accepted
+        // Other windows rejected (pairing breaks at position 0/1).
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
-        Assert.That(results, Is.Not.Empty, "Prerequisite: must find at least one hairpin");
+        Assert.That(results, Has.Count.EqualTo(2),
+            "57 nt input with min=55 must yield exactly 2 candidates: " +
+            "full 57-nt window (stem=23) and 55-nt sub-window at offset 1 (stem=22)");
 
-        foreach (var pre in results)
+        // Primary result: full hairpin window
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(pre.Start, Is.GreaterThanOrEqualTo(0),
-                    "Start must be ≥ 0 (0-based index)");
-                Assert.That(pre.End, Is.LessThan(ValidHairpin57.Length),
-                    "End must be < input length");
-                Assert.That(pre.End, Is.GreaterThanOrEqualTo(pre.Start),
-                    "End must be ≥ Start");
-            });
-        }
+            Assert.That(results[0].Start, Is.EqualTo(0),
+                "Primary hairpin starts at position 0");
+            Assert.That(results[0].End, Is.EqualTo(56),
+                "Primary hairpin ends at position 56 (0-indexed, inclusive)");
+            Assert.That(results[0].Sequence.Length, Is.EqualTo(57),
+                "Primary hairpin is the full 57-nt input");
+        });
+
+        // Secondary result: sub-window starting at offset 1
+        Assert.Multiple(() =>
+        {
+            Assert.That(results[1].Start, Is.EqualTo(1),
+                "Sub-window hairpin starts at position 1");
+            Assert.That(results[1].End, Is.EqualTo(55),
+                "Sub-window hairpin ends at position 55");
+            Assert.That(results[1].Sequence.Length, Is.EqualTo(55),
+                "Sub-window is 55 nt");
+        });
     }
 
     #endregion
@@ -173,6 +188,10 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_MatureSequence_ExtractedFrom5PrimeArm()
     {
+        // For 57-nt hairpin with stem=23: mature = first min(22, 23) = 22 nt
+        // Hand-derived: first 22 chars of ValidHairpin57
+        const string expectedMature = "GCAUAGCUAGCUAGCUAGCUAG";
+
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
@@ -181,10 +200,9 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(pre.MatureSequence, Is.Not.Null.And.Not.Empty,
-                "Mature sequence must be extracted");
-            Assert.That(pre.MatureSequence.Length, Is.LessThanOrEqualTo(22),
-                "Mature miRNA is ~22 nt (Bartel 2009)");
+            Assert.That(pre.MatureSequence, Is.EqualTo(expectedMature),
+                "Mature must be the first 22 nt of 5' arm — " +
+                "matureEnd = min(matureLength=22, stemLength=23) = 22 (Bartel 2009)");
             Assert.That(pre.Sequence.StartsWith(pre.MatureSequence, StringComparison.Ordinal),
                 "Mature must come from 5' arm (beginning of hairpin sequence)");
         });
@@ -197,6 +215,10 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_StarSequence_ExtractedFrom3PrimeArm()
     {
+        // For 57-nt hairpin: star = last 22 chars (positions 35-56)
+        // Hand-derived from 3' stem of ValidHairpin57
+        const string expectedStar = "CUAGCUAGCUAGCUAGCUAUGC";
+
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
@@ -205,8 +227,9 @@ public class MiRnaAnalyzer_PreMiRna_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(pre.StarSequence, Is.Not.Null.And.Not.Empty,
-                "Star sequence must be extracted");
+            Assert.That(pre.StarSequence, Is.EqualTo(expectedStar),
+                "Star must be the last 22 nt from 3' arm — " +
+                "starStart = n(57) - matureEnd(22) = 35 (Bartel 2009)");
             Assert.That(pre.StarSequence.Length, Is.EqualTo(pre.MatureSequence.Length),
                 "Star and mature must have equal length (duplex symmetry)");
             Assert.That(pre.Sequence.EndsWith(pre.StarSequence, StringComparison.Ordinal),
@@ -221,19 +244,24 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_Structure_MatchesStemLoopPattern()
     {
+        // For 57-nt hairpin with stem=23, loop=11:
+        // Structure = 23×'(' + 11×'.' + 23×')'
+        const string expectedStructure =
+            "(((((((((((((((((((((((...........)))))))))))))))))))))))";
+
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
         var pre = results[0];
-        string structure = pre.Structure;
 
         Assert.Multiple(() =>
         {
-            Assert.That(structure.Length, Is.EqualTo(pre.Sequence.Length),
+            Assert.That(pre.Structure, Is.EqualTo(expectedStructure),
+                "Structure must be exactly 23×'(' + 11×'.' + 23×')' — " +
+                "stem=23 (maxStem=57/2-5=23), loop=57-2×23=11");
+            Assert.That(pre.Structure.Length, Is.EqualTo(57),
                 "Structure length must equal sequence length (INV-5)");
-            Assert.That(structure, Does.Match(@"^\(+\.+\)+$"),
-                "Structure must follow pattern: '('+ for 5' stem, '.'+ for loop, ')'+ for 3' stem");
         });
     }
 
@@ -273,15 +301,28 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_FreeEnergy_IsNegative()
     {
+        // Hand-calculated from Turner 2004 NNDB parameters for ValidHairpin57:
+        //   stem=23, loop=11
+        //   Stacking (22 pairs): 6×GC/CG(-3.42) + 1×CA/GU(-2.11) + 1×AU/UA(-1.10)
+        //                      + 5×UA/AU(-1.33) + 5×AG/UC(-2.08) + 4×CU/GA(-2.08) = -49.10
+        //   Loop init(11):    +6.60 (NNDB hairpin loop table)
+        //   Terminal mismatch(CUAG, closing C-G): -1.00 (NNDB tm-parameters)
+        //   AU/GU penalties:  0.00 (both outer G-C and closing C-G are WC, not AU/GU)
+        //   Total: -43.50 kcal/mol
+        const double expectedEnergy = -43.50;
+
         var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
 
+        Assert.That(results[0].FreeEnergy, Is.EqualTo(expectedEnergy).Within(0.01),
+            "Free energy must match hand-calculated Turner 2004 NNDB value (-43.50 kcal/mol) — " +
+            "sum of 22 stacking pairs + loop init(11) + terminal mismatch(CUAG)");
+
         foreach (var pre in results)
         {
             Assert.That(pre.FreeEnergy, Is.LessThan(0),
-                "Free energy must be negative for stable hairpin structures — " +
-                "ASSUMPTION: simplified model (-stemLength*1.5 + loopSize*0.5)");
+                "All candidates must have negative free energy (thermodynamic stability)");
         }
     }
 
@@ -292,11 +333,19 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_FreeEnergy_LongerStemMoreNegative()
     {
-        // Both hairpins ≥ 55 nt (AnalyzeHairpin hardcodes n < 55 rejection)
-        // Hairpin A: 57 nt, maxStem=23 → effective stem=23, loop=11
-        //   energy = -23*1.5 + 11*0.5 = -29.0
-        // Hairpin B: 55 nt, maxStem=22, actual stem=20 (pairing breaks at loop)
-        //   energy = -20*1.5 + 15*0.5 = -22.5
+        // Hairpin A: 57 nt, stem=23, loop=11
+        //   Hand-calculated Turner energy: -43.50 kcal/mol (see M10 for breakdown)
+        //
+        // Hairpin B: 55 nt, stem=20, loop=15
+        //   Stacking (19 pairs): 5×GC/CG(-3.42) + 1×CA/GU(-2.11) + 1×AU/UA(-1.10)
+        //                       + 4×UA/AU(-1.33) + 4×AG/UC(-2.08) + 4×CU/GA(-2.08) = -42.27
+        //   Loop init(15):    +6.90
+        //   Terminal mismatch(UAGA, closing U-A): -1.10
+        //   AU/GU penalty (closing U-A): +0.45
+        //   Total: -36.02 kcal/mol
+        const double expectedEnergyLong = -43.50;
+        const double expectedEnergyShort = -36.02;
+
         string stem20Hairpin55 =
             "GCAUAGCUAGCUAGCUAGCU" +     // 20 nt 5' stem
             "AUGCAUGCAUGCAUG" +           // 15 nt loop
@@ -308,12 +357,16 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         Assert.That(resultsLong, Is.Not.Empty, "23 bp effective stem hairpin (57 nt) must be detected");
         Assert.That(resultsShort, Is.Not.Empty, "20 bp stem hairpin (55 nt) must be detected");
 
-        double energyLong = resultsLong[0].FreeEnergy;
-        double energyShort = resultsShort[0].FreeEnergy;
-
-        Assert.That(energyLong, Is.LessThan(energyShort),
-            "Longer effective stem (23 bp) must produce more negative energy than shorter stem (20 bp) — " +
-            "reflects greater thermodynamic stability");
+        Assert.Multiple(() =>
+        {
+            Assert.That(resultsLong[0].FreeEnergy, Is.EqualTo(expectedEnergyLong).Within(0.01),
+                "Stem-23 energy must match hand-calculated Turner 2004 value");
+            Assert.That(resultsShort[0].FreeEnergy, Is.EqualTo(expectedEnergyShort).Within(0.01),
+                "Stem-20 energy must match hand-calculated Turner 2004 value");
+            Assert.That(resultsLong[0].FreeEnergy, Is.LessThan(resultsShort[0].FreeEnergy),
+                "Longer effective stem (23 bp, -43.50) must be more negative than shorter stem (20 bp, -36.02) — " +
+                "reflects greater thermodynamic stability (Turner 2004)");
+        });
     }
 
     #endregion
@@ -548,29 +601,95 @@ public class MiRnaAnalyzer_PreMiRna_Tests
     [Test]
     public void FindPreMiRnaHairpins_RealMiRBase_HsaMir21_NotDetected_KnownLimitation()
     {
-        // hsa-mir-21 (MI0000077, miRBase v22) — 71 nt
+        // hsa-mir-21 (MI0000077, miRBase v22) — 72 nt
         // Real pre-miRNA with internal mismatches and bulges.
-        // Consecutive-pairing model gets only ~16 pairs from ends (< 18 required).
-        // This is a KNOWN LIMITATION of the simplified algorithm.
+        // Consecutive-pairing model gets only 8 pairs from ends (< 18 required).
+        // This is a known limitation of the simplified consecutive-pairing model.
         var results = FindPreMiRnaHairpins(HsaMir21_MI0000077, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
-            "KNOWN LIMITATION: hsa-mir-21 (MI0000077) is a real pre-miRNA from miRBase " +
-            "but is not detected because the simplified consecutive-pairing model " +
-            "cannot handle internal mismatches and bulges (Assumption #2)");
+            "Known limitation: hsa-mir-21 (MI0000077) is a real pre-miRNA from miRBase " +
+            "but is not detected because the consecutive-pairing model " +
+            "cannot handle internal mismatches and bulges");
     }
 
     [Test]
     public void FindPreMiRnaHairpins_RealMiRBase_HsaLet7a1_NotDetected_KnownLimitation()
     {
-        // hsa-let-7a-1 (MI0000060, miRBase v22) — 78 nt
-        // Real pre-miRNA; consecutive pairing from ends yields only ~5 pairs.
+        // hsa-let-7a-1 (MI0000060, miRBase v22) — 80 nt
+        // Real pre-miRNA; consecutive pairing from ends yields only 5 pairs.
         var results = FindPreMiRnaHairpins(HsaLet7a1_MI0000060, minHairpinLength: 55).ToList();
 
         Assert.That(results, Is.Empty,
-            "KNOWN LIMITATION: hsa-let-7a-1 (MI0000060) is a real pre-miRNA from miRBase " +
-            "but is not detected because the simplified consecutive-pairing model " +
-            "cannot handle internal mismatches and bulges (Assumption #2)");
+            "Known limitation: hsa-let-7a-1 (MI0000060) is a real pre-miRNA from miRBase " +
+            "but is not detected because the consecutive-pairing model " +
+            "cannot handle internal mismatches and bulges");
+    }
+
+    #endregion
+
+    #region C1: Case-Insensitive Input — Robustness
+
+    [Test]
+    public void FindPreMiRnaHairpins_CaseInsensitive_SameResultAsUppercase()
+    {
+        // Mixed-case version of ValidHairpin57
+        string mixedCase = "gcAuAgCuAgCuAgCuAgCuAgCuA" +
+                           "gAaAuUu" +
+                           "uAgCuAgCuAgCuAgCuAgCuAuGc";
+
+        var upperResults = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55).ToList();
+        var mixedResults = FindPreMiRnaHairpins(mixedCase, minHairpinLength: 55).ToList();
+
+        Assert.That(mixedResults, Has.Count.EqualTo(upperResults.Count),
+            "Mixed-case input must produce same number of candidates as uppercase");
+
+        for (int i = 0; i < upperResults.Count; i++)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(mixedResults[i].Sequence, Is.EqualTo(upperResults[i].Sequence),
+                    $"Candidate {i}: sequences must match (both converted to uppercase RNA)");
+                Assert.That(mixedResults[i].FreeEnergy, Is.EqualTo(upperResults[i].FreeEnergy).Within(0.001),
+                    $"Candidate {i}: energies must match");
+                Assert.That(mixedResults[i].Structure, Is.EqualTo(upperResults[i].Structure),
+                    $"Candidate {i}: structures must match");
+            });
+        }
+    }
+
+    #endregion
+
+    #region C2: MatureLength Parameter — Parameterization
+
+    [Test]
+    public void FindPreMiRnaHairpins_CustomMatureLength_AffectsMatureAndStarSequence()
+    {
+        // With matureLength=18 and stem=23: matureEnd = min(18, 23) = 18
+        // Mature = first 18 chars: "GCAUAGCUAGCUAGCUAG"
+        // Star = last 18 chars (pos 39-56): "CUAGCUAGCUAGCUAUGC"
+        const int customMatureLength = 18;
+        const string expectedMature18 = "GCAUAGCUAGCUAGCUAG";
+        const string expectedStar18 = "CUAGCUAGCUAGCUAUGC";
+
+        var results = FindPreMiRnaHairpins(ValidHairpin57, minHairpinLength: 55,
+            matureLength: customMatureLength).ToList();
+
+        Assert.That(results, Is.Not.Empty, "Prerequisite: must detect hairpin");
+
+        var pre = results[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pre.MatureSequence, Is.EqualTo(expectedMature18),
+                "Mature must be first 18 nt when matureLength=18");
+            Assert.That(pre.MatureSequence.Length, Is.EqualTo(customMatureLength),
+                "Mature length must equal custom matureLength parameter");
+            Assert.That(pre.StarSequence, Is.EqualTo(expectedStar18),
+                "Star must be last 18 nt when matureLength=18");
+            Assert.That(pre.StarSequence.Length, Is.EqualTo(pre.MatureSequence.Length),
+                "Star and mature must have equal length (duplex symmetry)");
+        });
     }
 
     #endregion
@@ -595,23 +714,15 @@ public class MiRnaAnalyzer_PreMiRna_Tests
         {
             stem3[i] = stem5[stemLength - 1 - i] switch
             {
-                'A' => 'U', 'U' => 'A',
-                'G' => 'C', 'C' => 'G',
+                'A' => 'U',
+                'U' => 'A',
+                'G' => 'C',
+                'C' => 'G',
                 _ => stem5[stemLength - 1 - i]
             };
         }
 
         return new string(stem5) + loop + new string(stem3);
-    }
-
-    /// <summary>
-    /// Computes expected free energy using the implementation's simplified model.
-    /// Formula: -stemLength * 1.5 + loopSize * 0.5
-    /// Source: ASSUMPTION — simplified energy model (not Turner nearest-neighbor).
-    /// </summary>
-    private static double ComputeExpectedEnergy(int stemLength, int loopSize)
-    {
-        return -stemLength * 1.5 + loopSize * 0.5;
     }
 
     #endregion
