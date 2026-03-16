@@ -100,25 +100,39 @@ public class SpliceSitePredictor_GeneStructure_Tests
     #region M3: Two-Exon Gene with GT-AG Intron — Breathnach & Chambon (1981)
 
     [Test]
-    public void PredictGeneStructure_ClearGTAG_FindsOneIntron()
+    public void PredictGeneStructure_ClearGTAG_FindsOneIntronTwoExons()
     {
         var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
 
-        Assert.That(structure.Introns, Has.Count.GreaterThanOrEqualTo(1),
-            "Sequence with clear GT-AG intron (GUAAGU...PPT...CAG) must detect at least one intron "
-            + "per Breathnach & Chambon (1981)");
-    }
-
-    [Test]
-    public void PredictGeneStructure_ClearGTAG_ProducesTwoExons()
-    {
-        var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
-
-        if (structure.Introns.Count > 0)
+        Assert.Multiple(() =>
         {
-            Assert.That(structure.Exons, Has.Count.GreaterThanOrEqualTo(2),
-                "Gene with at least one intron must have at least two exons");
-        }
+            // Exact counts — designed sequence has one clear GT-AG intron
+            Assert.That(structure.Introns, Has.Count.EqualTo(1),
+                "Designed two-exon sequence must yield exactly 1 intron");
+            Assert.That(structure.Exons, Has.Count.EqualTo(2),
+                "One intron splits the sequence into exactly 2 exons");
+
+            var intron = structure.Introns[0];
+
+            // Intron boundaries per GT-AG rule — Breathnach & Chambon (1981)
+            Assert.That(intron.Start, Is.EqualTo(Exon1.Length),
+                "Intron must start at the GU donor (position after Exon1)");
+            Assert.That(intron.End, Is.EqualTo(Exon1.Length + IntronPartLength - 1),
+                "Intron must end at the G of AG acceptor");
+            Assert.That(intron.Length, Is.EqualTo(IntronPartLength),
+                $"Intron length = donor(6) + body(60) + PPT(14) + acceptor(3) = {IntronPartLength} nt");
+
+            // Intron sequence boundaries: starts with GU, ends with AG — S2
+            Assert.That(intron.Sequence, Does.StartWith("GU"),
+                "Intron must start with GU dinucleotide per GT-AG rule");
+            Assert.That(intron.Sequence, Does.EndWith("AG"),
+                "Intron must end with AG dinucleotide per GT-AG rule");
+
+            // INV-3: exon + intron positions cover entire sequence
+            int coveredPositions = structure.Exons.Sum(e => e.Length) + structure.Introns.Sum(i => i.Length);
+            Assert.That(coveredPositions, Is.EqualTo(TwoExonSequence.Length),
+                "Sum of exon and intron lengths must equal total sequence length (INV-3)");
+        });
     }
 
     #endregion
@@ -126,26 +140,32 @@ public class SpliceSitePredictor_GeneStructure_Tests
     #region M4: Spliced Sequence Excludes Intron — Gilbert (1978)
 
     [Test]
-    public void PredictGeneStructure_SplicedSequence_ShorterThanOriginal()
+    public void PredictGeneStructure_SplicedSequence_ExactContent()
     {
         var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
 
-        if (structure.Introns.Count > 0)
-        {
-            // Intron.Length = End - Start, but GenerateSplicedSequence removes
-            // positions Start..End inclusive = (End - Start + 1) characters.
-            int totalCharsRemoved = structure.Introns.Sum(i => i.End - i.Start + 1);
-            string upperInput = TwoExonSequence.ToUpperInvariant().Replace('T', 'U');
+        Assert.That(structure.Introns, Has.Count.GreaterThan(0),
+            "Prerequisite: introns must be found for this test to be meaningful");
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(structure.SplicedSequence.Length,
-                    Is.EqualTo(upperInput.Length - totalCharsRemoved),
-                    "Spliced sequence length must equal input length minus total removed characters (INV-5)");
-                Assert.That(structure.SplicedSequence.Length, Is.LessThan(upperInput.Length),
-                    "Spliced sequence must be shorter than original when introns are removed");
-            });
-        }
+        Assert.Multiple(() =>
+        {
+            // INV-5: length = total − intron length
+            int totalIntronLength = structure.Introns.Sum(i => i.Length);
+            Assert.That(structure.SplicedSequence.Length,
+                Is.EqualTo(TwoExonSequence.Length - totalIntronLength),
+                "Spliced length = input length − total intron length (INV-5)");
+
+            // INV-4: spliced sequence = concatenation of exon sequences
+            string exonConcat = string.Join("", structure.Exons.Select(e => e.Sequence));
+            Assert.That(structure.SplicedSequence, Is.EqualTo(exonConcat),
+                "Spliced sequence must equal concatenation of exon sequences (INV-4)");
+
+            // Exact expected value: Exon1 + Exon2 — Gilbert (1978)
+            Assert.That(structure.SplicedSequence, Is.EqualTo(Exon1 + Exon2),
+                "Spliced sequence = Exon1 + Exon2 (intron excised)");
+            Assert.That(structure.SplicedSequence.Length, Is.EqualTo(Exon1.Length + Exon2.Length),
+                $"Spliced length = {Exon1.Length} + {Exon2.Length} = {Exon1.Length + Exon2.Length} nt");
+        });
     }
 
     #endregion
@@ -155,22 +175,17 @@ public class SpliceSitePredictor_GeneStructure_Tests
     [Test]
     public void PredictIntrons_MinLength_FiltersShortCandidates()
     {
-        // Short intron-like pattern: GT...AG with only ~10 nt between
-        const string shortIntron = "CAGGUAAGUAAAAAAAAAAAACAGGGCCCC";
-        var introns = PredictIntrons(shortIntron, minIntronLength: 50).ToList();
+        // TwoExonSequence has intron candidates ≥79 nt — found when minIntronLength=60
+        var intronsFound = PredictIntrons(TwoExonSequence, minIntronLength: 60, minScore: 0.2).ToList();
+        Assert.That(intronsFound, Is.Not.Empty,
+            "Introns must be found when minIntronLength (60) ≤ candidate lengths");
+        Assert.That(intronsFound.All(i => i.Length >= 60), Is.True,
+            "Every returned intron must satisfy Length ≥ minIntronLength (INV-8)");
 
-        Assert.That(introns.All(i => i.Length >= 50), Is.True,
-            "No intron shorter than minIntronLength must be returned (INV-8)");
-    }
-
-    [Test]
-    public void PredictIntrons_LargerMinLength_EmptyForShortSequence()
-    {
-        // Full intron is ~83 nt, set minIntronLength above that
-        var introns = PredictIntrons(TwoExonSequence, minIntronLength: 200, minScore: 0.2).ToList();
-
-        Assert.That(introns, Is.Empty,
-            "When minIntronLength exceeds available intron length, no introns should be returned");
+        // Raise minIntronLength above all candidate lengths → must filter all out
+        var intronsFiltered = PredictIntrons(TwoExonSequence, minIntronLength: 200, minScore: 0.2).ToList();
+        Assert.That(intronsFiltered, Is.Empty,
+            "No introns when minIntronLength (200) > all candidate lengths");
     }
 
     #endregion
@@ -180,13 +195,17 @@ public class SpliceSitePredictor_GeneStructure_Tests
     [Test]
     public void PredictIntrons_MaxLength_FiltersLongCandidates()
     {
-        string longBody = new string('A', 600);
-        string sequence = $"CAGGUAAGU{longBody}UUUUUUUUUUUUUUCAGG";
+        // TwoExonSequence intron candidates are ≥79 nt — found with default maxIntronLength
+        var intronsFound = PredictIntrons(TwoExonSequence, minIntronLength: 60, minScore: 0.2).ToList();
+        Assert.That(intronsFound, Is.Not.Empty,
+            "Introns must be found with default maxIntronLength (100000)");
+        Assert.That(intronsFound.All(i => i.Length <= 100000), Is.True,
+            "Every returned intron must satisfy Length ≤ maxIntronLength (INV-9)");
 
-        var introns = PredictIntrons(sequence, maxIntronLength: 500, minScore: 0.1).ToList();
-
-        Assert.That(introns.All(i => i.Length <= 500), Is.True,
-            "No intron longer than maxIntronLength must be returned (INV-9)");
+        // Lower maxIntronLength below all candidate lengths → must filter all out
+        var intronsFiltered = PredictIntrons(TwoExonSequence, minIntronLength: 60, maxIntronLength: 70, minScore: 0.2).ToList();
+        Assert.That(intronsFiltered, Is.Empty,
+            "No introns when maxIntronLength (70) < all candidate lengths (≥79)");
     }
 
     #endregion
@@ -194,26 +213,21 @@ public class SpliceSitePredictor_GeneStructure_Tests
     #region M7: Intron Type U2 for GT-AG — Burge et al. (1999)
 
     [Test]
-    public void PredictIntrons_GTAG_NotClassifiedAsU12()
+    public void PredictIntrons_GTAG_ClassifiedAsU2()
     {
         var introns = PredictIntrons(TwoExonSequence, minIntronLength: 50, minScore: 0.2).ToList();
 
-        // Filter to introns with canonical GU donor (SpliceSiteType.Donor, not U12Donor)
-        var canonicalIntrons = introns
-            .Where(i => i.DonorSite.Type == SpliceSiteType.Donor
-                     && i.AcceptorSite.Type == SpliceSiteType.Acceptor)
-            .ToList();
+        // Filter to GU-donor introns by checking the intron sequence start
+        var guIntrons = introns.Where(i => i.Sequence.StartsWith("GU")).ToList();
 
-        Assert.That(canonicalIntrons, Is.Not.Empty,
-            "Should find at least one intron with canonical GU donor and AG acceptor");
+        Assert.That(guIntrons, Is.Not.Empty,
+            "Should find at least one GU-donor intron in the test sequence");
 
-        // Per Burge et al. (1999): GT-AG introns belong to the U2 (major) spliceosome.
-        // Implementation note: DetermineIntronType classifies by donor/acceptor Type fields;
-        // canonical GU-AG introns with Type=Donor are never classified as U12.
-        foreach (var intron in canonicalIntrons)
+        // Per Burge et al. (1999): GT-AG introns are spliced by the U2 (major) spliceosome
+        foreach (var intron in guIntrons)
         {
-            Assert.That(intron.Type, Is.Not.EqualTo(IntronType.U12),
-                "Canonical GU-AG intron must not be classified as U12 (minor spliceosome)");
+            Assert.That(intron.Type, Is.EqualTo(IntronType.U2),
+                "GT-AG intron must be classified as U2 per Burge et al. (1999)");
         }
     }
 
@@ -226,16 +240,16 @@ public class SpliceSitePredictor_GeneStructure_Tests
     {
         var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
 
-        if (structure.Exons.Count >= 2)
+        Assert.That(structure.Exons, Has.Count.EqualTo(2),
+            "Prerequisite: two exons from the designed two-exon sequence");
+
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(structure.Exons[0].Type, Is.EqualTo(ExonType.Initial),
-                    "First exon must be typed as Initial per Gilbert (1978)");
-                Assert.That(structure.Exons[^1].Type, Is.EqualTo(ExonType.Terminal),
-                    "Last exon must be typed as Terminal per Gilbert (1978)");
-            });
-        }
+            Assert.That(structure.Exons[0].Type, Is.EqualTo(ExonType.Initial),
+                "First exon must be typed as Initial per Gilbert (1978)");
+            Assert.That(structure.Exons[^1].Type, Is.EqualTo(ExonType.Terminal),
+                "Last exon must be typed as Terminal per Gilbert (1978)");
+        });
     }
 
     #endregion
@@ -247,13 +261,20 @@ public class SpliceSitePredictor_GeneStructure_Tests
     {
         var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
 
-        if (structure.Exons.Count >= 2)
+        Assert.That(structure.Exons, Has.Count.EqualTo(2),
+            "Prerequisite: two exons from the designed two-exon sequence");
+
+        Assert.Multiple(() =>
         {
-            // First exon phase must be 0 (start of reading frame)
+            // First exon phase must be 0 — trivially, no preceding exons
             Assert.That(structure.Exons[0].Phase, Is.EqualTo(0),
                 "First exon phase must be 0 per reading frame convention — Alberts et al. (2002)");
 
-            // Subsequent exon phases must equal cumulative preceding exon length mod 3
+            // Second exon phase = Exon1.Length mod 3 = 35 mod 3 = 2
+            Assert.That(structure.Exons[1].Phase, Is.EqualTo(Exon1.Length % 3),
+                $"Second exon phase = ({Exon1.Length} mod 3) = {Exon1.Length % 3} — cumulative length rule (INV-6)");
+
+            // General formula verification
             int cumulative = 0;
             for (int i = 0; i < structure.Exons.Count; i++)
             {
@@ -261,7 +282,7 @@ public class SpliceSitePredictor_GeneStructure_Tests
                     $"Exon {i} phase must be (sum of preceding exon lengths) mod 3 = {cumulative % 3} (INV-6)");
                 cumulative += structure.Exons[i].Length;
             }
-        }
+        });
     }
 
     #endregion
@@ -272,6 +293,9 @@ public class SpliceSitePredictor_GeneStructure_Tests
     public void PredictIntrons_Scores_InValidRange()
     {
         var introns = PredictIntrons(TwoExonSequence, minIntronLength: 50, minScore: 0.1).ToList();
+
+        Assert.That(introns, Is.Not.Empty,
+            "Prerequisite: at least one intron must be found for score validation");
 
         foreach (var intron in introns)
         {
@@ -332,6 +356,10 @@ public class SpliceSitePredictor_GeneStructure_Tests
                 "DNA (T) and RNA (U) input must produce same number of introns");
             Assert.That(dnaStructure.Exons.Count, Is.EqualTo(rnaStructure.Exons.Count),
                 "DNA (T) and RNA (U) input must produce same number of exons");
+            Assert.That(dnaStructure.SplicedSequence, Is.EqualTo(rnaStructure.SplicedSequence),
+                "DNA and RNA input must produce identical spliced sequence (T→U normalization)");
+            Assert.That(dnaStructure.OverallScore, Is.EqualTo(rnaStructure.OverallScore).Within(1e-10),
+                "DNA and RNA input must produce identical overall score");
         });
     }
 
@@ -385,6 +413,10 @@ public class SpliceSitePredictor_GeneStructure_Tests
                 "Lowercase input must produce same intron count as uppercase");
             Assert.That(lowerResult.Exons.Count, Is.EqualTo(upperResult.Exons.Count),
                 "Lowercase input must produce same exon count as uppercase");
+            Assert.That(lowerResult.SplicedSequence, Is.EqualTo(upperResult.SplicedSequence),
+                "Lowercase input must produce identical spliced sequence");
+            Assert.That(lowerResult.OverallScore, Is.EqualTo(upperResult.OverallScore).Within(1e-10),
+                "Lowercase input must produce identical overall score");
         });
     }
 
@@ -397,17 +429,12 @@ public class SpliceSitePredictor_GeneStructure_Tests
     {
         var structure = PredictGeneStructure(TwoExonSequence, minExonLength: 5, minScore: 0.2);
 
-        if (structure.Introns.Count > 0)
-        {
-            double expectedMean = structure.Introns.Average(i => i.Score);
-            Assert.That(structure.OverallScore, Is.EqualTo(expectedMean).Within(1e-10),
-                "OverallScore must equal arithmetic mean of intron scores (INV-7)");
-        }
-        else
-        {
-            Assert.That(structure.OverallScore, Is.EqualTo(0),
-                "OverallScore must be 0 when no introns are found");
-        }
+        Assert.That(structure.Introns, Has.Count.GreaterThan(0),
+            "Prerequisite: introns must be found for mean score verification");
+
+        double expectedMean = structure.Introns.Average(i => i.Score);
+        Assert.That(structure.OverallScore, Is.EqualTo(expectedMean).Within(1e-10),
+            "OverallScore must equal arithmetic mean of intron scores (INV-7)");
     }
 
     #endregion
@@ -419,12 +446,12 @@ public class SpliceSitePredictor_GeneStructure_Tests
     {
         var structure = PredictGeneStructure(SingleExonSequence, minExonLength: 10, minScore: 0.5);
 
-        if (structure.Introns.Count == 0)
-        {
-            string expectedSpliced = SingleExonSequence.ToUpperInvariant().Replace('T', 'U');
-            Assert.That(structure.SplicedSequence, Is.EqualTo(expectedSpliced),
-                "When no introns exist, spliced sequence must equal the (uppercased RNA) input");
-        }
+        Assert.That(structure.Introns, Has.Count.EqualTo(0),
+            "SingleExonSequence (no GU dinucleotide) must yield zero introns");
+
+        string expectedSpliced = SingleExonSequence.ToUpperInvariant().Replace('T', 'U');
+        Assert.That(structure.SplicedSequence, Is.EqualTo(expectedSpliced),
+            "When no introns exist, spliced sequence must equal the (uppercased RNA) input");
     }
 
     #endregion
