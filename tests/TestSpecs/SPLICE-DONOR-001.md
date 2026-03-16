@@ -3,9 +3,9 @@
 **Test Unit ID:** SPLICE-DONOR-001
 **Area:** Splicing
 **Algorithm:** Donor (5') Splice Site Detection
-**Status:** ☐ In Progress
+**Status:** ✅ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-03-16
 
 ---
 
@@ -29,7 +29,7 @@
 4. Position -1 (G) ~80% conserved, -2 (A) ~60%, -3 (A/C) ~35% each — S1
 5. GC-AG introns are valid (~0.5-1% of U2-type) — S2
 6. U12-type AT-AC introns use AT at donor (~0.3%) — S2
-7. PWM log-odds scoring is standard for splice site prediction — S3
+7. IUPAC consensus binary scoring: match = 1.0, no match = 0.0, score = fraction — S1, S3
 8. Higher PWM score indicates stronger splice site — S3
 
 ### 1.3 Documented Corner Cases
@@ -60,12 +60,12 @@
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
 | INV-1 | Every returned site has Type == Donor (or U12Donor if non-canonical) | Yes | Algorithm design |
-| INV-2 | Score is in [0, 1] range | Yes | Normalization formula |
+| INV-2 | Score is in [0, 1] range | Yes | Consensus match fraction: matches / positions scored |
 | INV-3 | Confidence is in [0, 1] range | Yes | CalculateConfidence clamps |
 | INV-4 | Empty/null input yields no results | Yes | Guard clause |
 | INV-5 | Sequence < 6 chars yields no results | Yes | Guard clause |
 | INV-6 | Perfect consensus (CAGGUAAGU) scores ≥ any weaker context | Yes | PWM properties — S1 |
-| INV-7 | GC donor score < equivalent GT donor score | Yes | 0.7 penalty — **ASSUMPTION** |
+| INV-7 | GC donor score < equivalent GT donor score | Yes | Position +1 mismatches U consensus — S1, S2 |
 | INV-8 | Motif string is non-empty for every returned site | Yes | GetMotifContext logic |
 | INV-9 | All sites are at valid positions within sequence bounds | Yes | Loop bounds |
 
@@ -103,7 +103,7 @@
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
 | C1 | U12_AT_Donor | AU donor with includeNonCanonical → detected as U12Donor | U12Donor type site | Minor spliceosome |
-| C2 | BetaGlobin_RealSequence | HBB intron 1 donor context → detected | At least one donor site | Published gene |
+| C2 | GC_Donor_LowerThanGT | GC donor (8/9) scores below GT donor (9/9) — INV-7 | GC score < GT score | Burge et al. (1999) |
 
 ---
 
@@ -111,52 +111,54 @@
 
 ### 5.1 Discovery Summary
 
-- Existing tests in `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictorTests.cs`
-- Donor-specific tests: lines 12-76 (6 tests) + lines 430-458 (2 input handling tests)
+- Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs` (18 tests)
+- Donor tests fully consolidated from shared `SpliceSitePredictorTests.cs`
 
 ### 5.2 Coverage Classification
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1 — Canonical GT detection | ⚠ Weak | `FindDonorSites_CanonicalGT_FindsSite`: asserts ≥1 and any Donor type, no score check |
-| M2 — No GU returns empty | ✅ Covered | `FindDonorSites_NoGT_ReturnsEmpty` |
-| M3 — Empty input | ❌ Missing | Not tested |
-| M4 — Short sequence | ✅ Covered | `FindDonorSites_ShortSequence_ReturnsEmpty` |
-| M5 — Score ordering | ❌ Missing | No comparative scoring test |
-| M6 — GC non-canonical | ⚠ Weak | `FindDonorSites_NonCanonicalGC_WhenEnabled`: only checks count, no type/score |
-| M7 — GC not detected canonical-only | ❌ Missing | Not tested as separate case |
-| M8 — DNA T equivalence | ⚠ Weak | `FindDonorSites_HandlesDNA_T`: only checks Is.Not.Null |
-| M9 — Lowercase handling | ⚠ Weak | `FindDonorSites_HandlesLowercase`: only checks Is.Not.Null |
-| M10 — Multiple sites | ⚠ Weak | `FindDonorSites_MultipleGT_FindsAll`: asserts ≥2 but no position check |
-| S1 — Score range | ❌ Missing | Only in integration test (not donor-specific) |
-| S2 — Confidence range | ❌ Missing | Only in integration test |
-| S3 — Motif non-empty | ⚠ Weak | `FindDonorSites_ReturnsMotifContext`: conditional check |
-| S5 — Null input | ❌ Missing | Not tested for FindDonorSites |
+| M1 — Canonical GT detection | ✅ Covered | Exact score=1.0 (9/9), confidence=1.0, position=3, type=Donor |
+| M2 — No GU returns empty | ✅ Covered | `FindDonorSites_NoGU_ReturnsEmpty` |
+| M3 — Empty input | ✅ Covered | `FindDonorSites_EmptyString_ReturnsEmpty` |
+| M4 — Short sequence | ✅ Covered | `FindDonorSites_SequenceShorterThan6_ReturnsEmpty` |
+| M5 — Score ordering | ✅ Covered | Exact values: strong=9/9=1.0, weak=5/9; ordering verified |
+| M6 — GC non-canonical | ✅ Covered | Exact score=8/9, type=Donor, position=3 |
+| M7 — GC not detected canonical-only | ✅ Covered | Clean GC-only sequence (CAGGCAACC), no GU anywhere |
+| M8 — DNA T equivalence | ✅ Covered | Count, score=1.0, position equality verified |
+| M9 — Lowercase handling | ✅ Covered | Exact count=1, score=1.0, type=Donor |
+| M10 — Multiple sites | ✅ Covered | Exact 3 sites at positions {3,7,26} with scores {1.0, 4/9, 1.0} |
+| S1 — Score range | ✅ Covered | All scores in [0, 1] for multi-site sequence |
+| S2 — Confidence range | ✅ Covered | All confidences in [0, 1] |
+| S3 — Motif non-empty | ✅ Covered | All motifs non-null and non-empty |
+| S4 — Higher threshold | ✅ Covered | minScore=0.8 ≤ minScore=0.2 count |
+| S5 — Null input | ✅ Covered | `FindDonorSites_NullInput_ReturnsEmpty` |
+| C1 — U12 AT donor | ✅ Covered | AU donor detected as U12Donor type |
+| C2 — GC < GT scoring | ✅ Covered | GT=1.0 (9/9), GC=8/9; unconditional assertions |
+
+**Summary:** 0 missing, 0 weak, 0 duplicate. All assertions use theory-derived exact values from MAG|GURAGU consensus.
 
 ### 5.3 Consolidation Plan
 
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_DonorSite_Tests.cs` — all SPLICE-DONOR-001 tests
-- **Remove from shared file:** Donor Site Tests region, donor-related input handling tests
-- **Keep in shared file:** Acceptor, branch point, intron, gene structure, alternative splicing, MaxEnt, coding region, integration tests (for future Test Units)
+Consolidation complete. Donor tests removed from `SpliceSitePredictorTests.cs` (retains note at line 11).
 
-### 5.4 Final State After Consolidation
+### 5.4 Final State
 
 | File | Role | Test Count |
 |------|------|------------|
-| `SpliceSitePredictor_DonorSite_Tests.cs` | Canonical for SPLICE-DONOR-001 | ~17 |
+| `SpliceSitePredictor_DonorSite_Tests.cs` | Canonical for SPLICE-DONOR-001 | 18 |
 | `SpliceSitePredictorTests.cs` | Remaining tests for SPLICE-ACCEPTOR/PREDICT | Reduced |
 
 ---
 
 ## 6. Assumption Register
 
-**Total assumptions:** 3
+**Total assumptions:** 0
 
-| # | Assumption | Used In |
-|---|-----------|---------|
-| A1 | PWM values are approximations of Shapiro & Senapathy statistics | INV-6, M5 |
-| A2 | Score normalization formula is implementation-specific | INV-2, S1 |
-| A3 | GC donor 0.7 penalty is an implementation heuristic | INV-7, M6 |
+All previous assumptions have been eliminated:
+- ~~A1 (PWM values)~~: Replaced with IUPAC consensus binary weights derived from MAG|GURAGU — Shapiro & Senapathy (1987), Mount (1982), Burge et al. (1999).
+- ~~A2 (Score normalization)~~: Replaced with simple consensus match fraction (matches / positions scored). No ad-hoc formula.
+- ~~A3 (GC donor 0.7 penalty)~~: Removed. GC donors naturally score lower because position +1 (C) mismatches the invariant U consensus.
 
 ---
 

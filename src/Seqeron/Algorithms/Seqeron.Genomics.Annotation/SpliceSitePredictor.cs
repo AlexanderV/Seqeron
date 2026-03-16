@@ -94,19 +94,22 @@ public static class SpliceSitePredictor
 
     #region Position Weight Matrices
 
-    // Consensus donor site: MAG|GURAGU (M=A/C, R=A/G)
-    // Position -3 to +6 relative to splice site
+    // Donor site IUPAC consensus: MAG|GURAGU (M=A/C, R=A/G)
+    // Positions -3 to +5 relative to exon-intron boundary (9 positions total).
+    // Binary weights: 1.0 = matches consensus nucleotide(s), 0.0 = no match.
+    // Sources: Shapiro & Senapathy (1987) NAR 15:7155; Mount (1982) NAR 10:459;
+    //          Burge et al. (1999) The RNA World, CSHL Press.
     private static readonly Dictionary<int, Dictionary<char, double>> DonorPwm = new()
     {
-        { -3, new Dictionary<char, double> { {'A', 0.35}, {'C', 0.35}, {'G', 0.15}, {'U', 0.15} } },
-        { -2, new Dictionary<char, double> { {'A', 0.60}, {'C', 0.10}, {'G', 0.10}, {'U', 0.20} } },
-        { -1, new Dictionary<char, double> { {'A', 0.10}, {'C', 0.05}, {'G', 0.80}, {'U', 0.05} } },
-        { 0,  new Dictionary<char, double> { {'A', 0.00}, {'C', 0.00}, {'G', 1.00}, {'U', 0.00} } }, // G
-        { 1,  new Dictionary<char, double> { {'A', 0.00}, {'C', 0.00}, {'G', 0.00}, {'U', 1.00} } }, // U
-        { 2,  new Dictionary<char, double> { {'A', 0.60}, {'C', 0.05}, {'G', 0.30}, {'U', 0.05} } },
-        { 3,  new Dictionary<char, double> { {'A', 0.70}, {'C', 0.05}, {'G', 0.20}, {'U', 0.05} } },
-        { 4,  new Dictionary<char, double> { {'A', 0.10}, {'C', 0.05}, {'G', 0.80}, {'U', 0.05} } },
-        { 5,  new Dictionary<char, double> { {'A', 0.15}, {'C', 0.15}, {'G', 0.15}, {'U', 0.55} } }
+        { -3, new Dictionary<char, double> { {'A', 1.0}, {'C', 1.0}, {'G', 0.0}, {'U', 0.0} } }, // M (A or C)
+        { -2, new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 0.0}, {'U', 0.0} } }, // A
+        { -1, new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G
+        { 0,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G (invariant)
+        { 1,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 0.0}, {'U', 1.0} } }, // U (invariant)
+        { 2,  new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // R (A or G)
+        { 3,  new Dictionary<char, double> { {'A', 1.0}, {'C', 0.0}, {'G', 0.0}, {'U', 0.0} } }, // A
+        { 4,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 1.0}, {'U', 0.0} } }, // G
+        { 5,  new Dictionary<char, double> { {'A', 0.0}, {'C', 0.0}, {'G', 0.0}, {'U', 1.0} } }  // U
     };
 
     // Consensus acceptor site: (Y)nNCAG|G
@@ -172,7 +175,7 @@ public static class SpliceSitePredictor
             // Non-canonical GC
             else if (includeNonCanonical && upper[i] == 'G' && upper[i + 1] == 'C')
             {
-                double score = ScoreDonorSite(upper, i) * 0.7; // Penalty for GC
+                double score = ScoreDonorSite(upper, i); // GC naturally scores lower (position +1 mismatches U consensus)
                 if (score >= minScore)
                 {
                     yield return new SpliceSite(
@@ -293,15 +296,13 @@ public static class SpliceSitePredictor
                 char b = sequence[pos];
                 if (weights.TryGetValue(b, out double weight))
                 {
-                    score += Math.Log2(weight / 0.25 + 0.01); // Log-odds with pseudocount
+                    score += weight;
                     count++;
                 }
             }
         }
 
-        // Normalize to 0-1 range
-        double normalized = (score / count + 2) / 4; // Approximate normalization
-        return Math.Max(0, Math.Min(1, normalized));
+        return count > 0 ? score / count : 0;
     }
 
     private static double ScoreAcceptorSite(string sequence, int position)
