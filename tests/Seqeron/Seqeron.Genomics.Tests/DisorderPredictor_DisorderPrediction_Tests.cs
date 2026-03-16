@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
 
@@ -87,26 +89,28 @@ public class DisorderPredictor_DisorderPrediction_Tests
     [Test]
     public void PredictDisorder_HydrophobicSequence_LowDisorderContent()
     {
-        // Poly-Ile: highest hydropathy (4.5), lowest propensity in order-promoting group
-        // Hydrophobic sequences fold into stable 3D structures → ordered
+        // Poly-Ile: highest hydropathy (4.5), TOP-IDP = -0.486
+        // Normalized = (-0.486 - (-0.884)) / 1.871 = 0.2127 < 0.542 → all residues ordered
+        // Therefore OverallDisorderContent must be exactly 0.0
         string ordered = new string('I', 30);
 
         var result = DisorderPredictor.PredictDisorder(ordered);
 
-        Assert.That(result.OverallDisorderContent, Is.LessThan(0.5),
-            "Hydrophobic poly-Ile (hydropathy=4.5, TOP-IDP=-0.486) must have low disorder content — Uversky (2000)");
+        Assert.That(result.OverallDisorderContent, Is.EqualTo(0.0),
+            "Poly-Ile: normalized TOP-IDP = 0.2127 < cutoff 0.542 → all ordered → content = 0.0 — Campen et al. (2008)");
     }
 
     [Test]
     public void PredictDisorder_MixedHydrophobic_LowDisorderContent()
     {
-        // Mixed hydrophobic residues: V(4.2), L(3.8), F(2.8), I(4.5), M(1.9)
+        // Mixed hydrophobic residues: M(0.260), V(0.408), I(0.213), L(0.298), F(0.100), A(0.505)
+        // All normalized TOP-IDP values < 0.542 → every window averages below cutoff → all ordered
         string ordered = "MVILLFFFLLLAAAAIIIIIVVVVVLLLLLL";
 
         var result = DisorderPredictor.PredictDisorder(ordered);
 
-        Assert.That(result.OverallDisorderContent, Is.LessThan(0.5),
-            "Mixed hydrophobic sequence must have low disorder content — Uversky (2000)");
+        Assert.That(result.OverallDisorderContent, Is.EqualTo(0.0),
+            "All residues have normalized TOP-IDP < 0.542 → all ordered → content = 0.0 — Campen et al. (2008)");
     }
 
     #endregion
@@ -116,26 +120,28 @@ public class DisorderPredictor_DisorderPrediction_Tests
     [Test]
     public void PredictDisorder_ChargedSequence_HighDisorderContent()
     {
-        // Poly-Glu: TOP-IDP=0.736, charge=-1, hydropathy=-3.5
-        // Charged sequences resist folding → disordered
+        // Poly-Glu: TOP-IDP = 0.736
+        // Normalized = (0.736 - (-0.884)) / 1.871 = 0.8660 >= 0.542 → all residues disordered
+        // Therefore OverallDisorderContent must be exactly 1.0
         string disordered = new string('E', 30);
 
         var result = DisorderPredictor.PredictDisorder(disordered);
 
-        Assert.That(result.OverallDisorderContent, Is.GreaterThan(0.3),
-            "Charged poly-Glu (TOP-IDP=0.736, charge=-1, hydropathy=-3.5) must be disordered — Uversky (2000)");
+        Assert.That(result.OverallDisorderContent, Is.EqualTo(1.0),
+            "Poly-Glu: normalized TOP-IDP = 0.8660 >= cutoff 0.542 → all disordered → content = 1.0 — Campen et al. (2008)");
     }
 
     [Test]
     public void PredictDisorder_MixedDisorderPromoting_HighDisorderContent()
     {
-        // Mixture of disorder-promoting residues: E, P, K, D, R
+        // Mixture of disorder-promoting residues: E(0.866), P(1.000), K(0.786), D(0.575), R(0.569)
+        // All normalized TOP-IDP values >= 0.542 → every window averages above cutoff → all disordered
         string disordered = "EPPPPKKKKEEEEDDDDRRRRKKKKEEEEPPPP";
 
         var result = DisorderPredictor.PredictDisorder(disordered);
 
-        Assert.That(result.OverallDisorderContent, Is.GreaterThan(0.3),
-            "Mixed disorder-promoting residues (E,P,K,D,R) must produce high disorder — Dunker (2001)");
+        Assert.That(result.OverallDisorderContent, Is.EqualTo(1.0),
+            "All residues have normalized TOP-IDP >= 0.542 → all disordered → content = 1.0 — Campen et al. (2008)");
     }
 
     #endregion
@@ -151,8 +157,13 @@ public class DisorderPredictor_DisorderPrediction_Tests
 
         var result = DisorderPredictor.PredictDisorder(prolineRich, minRegionLength: 5);
 
-        Assert.That(result.DisorderedRegions, Is.Not.Empty,
-            "30× Proline (highest propensity, TOP-IDP=0.987) must produce disordered regions — Campen et al. (2008)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverallDisorderContent, Is.EqualTo(1.0),
+                "Poly-Pro: normalized TOP-IDP = 1.0 ≥ cutoff 0.542 → all disordered → content = 1.0 — Campen et al. (2008)");
+            Assert.That(result.DisorderedRegions, Is.Not.Empty,
+                "30× Proline must produce at least one disordered region");
+        });
     }
 
     #endregion
@@ -218,20 +229,36 @@ public class DisorderPredictor_DisorderPrediction_Tests
         });
     }
 
-    [Test]
-    public void GetDisorderPropensity_ProlineIsHighest()
-    {
-        // Proline: highest disorder propensity = 0.987 — Campen et al. (2008) TOP-IDP
-        Assert.That(DisorderPredictor.GetDisorderPropensity('P'), Is.EqualTo(0.987).Within(0.001),
-            "Proline must have highest propensity (0.987) — Campen et al. (2008)");
-    }
+    #endregion
+
+    #region M8b: Normalized TOP-IDP Score Formula — Campen et al. (2008)
 
     [Test]
-    public void GetDisorderPropensity_TryptophanIsLowest()
+    public void PredictDisorder_HomopolymericSequences_MatchExactNormalizedTopIdpScores()
     {
-        // Tryptophan: lowest disorder propensity = -0.884 — Campen et al. (2008) TOP-IDP
-        Assert.That(DisorderPredictor.GetDisorderPropensity('W'), Is.EqualTo(-0.884).Within(0.001),
-            "Tryptophan must have lowest propensity (-0.884) — Campen et al. (2008)");
+        // Theory: S = (TOP-IDP(c) - TOP-IDP_min) / (TOP-IDP_max - TOP-IDP_min)
+        // where TOP-IDP_min = -0.884 (W), TOP-IDP_max = 0.987 (P), range = 1.871
+        // Source: Campen et al. (2008) PMC2676888, Table 2
+
+        // Poly-Trp: lowest propensity → normalized = (-0.884 + 0.884) / 1.871 = 0.0
+        var resultW = DisorderPredictor.PredictDisorder(new string('W', 30));
+        Assert.That(resultW.ResiduePredictions[15].DisorderScore, Is.EqualTo(0.0).Within(0.0001),
+            "Poly-Trp: normalized TOP-IDP = 0.0 (minimum anchor) — Campen et al. (2008)");
+
+        // Poly-Pro: highest propensity → normalized = (0.987 + 0.884) / 1.871 = 1.0
+        var resultP = DisorderPredictor.PredictDisorder(new string('P', 30));
+        Assert.That(resultP.ResiduePredictions[15].DisorderScore, Is.EqualTo(1.0).Within(0.0001),
+            "Poly-Pro: normalized TOP-IDP = 1.0 (maximum anchor) — Campen et al. (2008)");
+
+        // Poly-Glu: normalized = (0.736 + 0.884) / 1.871 = 1.620 / 1.871 ≈ 0.8660
+        var resultE = DisorderPredictor.PredictDisorder(new string('E', 30));
+        Assert.That(resultE.ResiduePredictions[15].DisorderScore, Is.EqualTo(0.8660).Within(0.0005),
+            "Poly-Glu: normalized TOP-IDP = 0.8660 — Campen et al. (2008)");
+
+        // Poly-Ile: normalized = (-0.486 + 0.884) / 1.871 = 0.398 / 1.871 ≈ 0.2127
+        var resultI = DisorderPredictor.PredictDisorder(new string('I', 30));
+        Assert.That(resultI.ResiduePredictions[15].DisorderScore, Is.EqualTo(0.2127).Within(0.0005),
+            "Poly-Ile: normalized TOP-IDP = 0.2127 — Campen et al. (2008)");
     }
 
     #endregion
@@ -367,13 +394,15 @@ public class DisorderPredictor_DisorderPrediction_Tests
     [Test]
     public void PredictDisorder_SingleResidue_ReturnsOnePrediction()
     {
+        // Single Pro: normalized TOP-IDP = (0.987 + 0.884) / 1.871 = 1.0 — Campen et al. (2008)
         var result = DisorderPredictor.PredictDisorder("P");
 
         Assert.Multiple(() =>
         {
             Assert.That(result.ResiduePredictions.Count, Is.EqualTo(1));
             Assert.That(result.ResiduePredictions[0].Residue, Is.EqualTo('P'));
-            Assert.That(result.ResiduePredictions[0].DisorderScore, Is.InRange(0.0, 1.0));
+            Assert.That(result.ResiduePredictions[0].DisorderScore, Is.EqualTo(1.0).Within(0.0001),
+                "Single Pro: normalized TOP-IDP = (0.987+0.884)/1.871 = 1.0 — Campen et al. (2008)");
         });
     }
 
@@ -400,6 +429,7 @@ public class DisorderPredictor_DisorderPrediction_Tests
     [Test]
     public void PredictDisorder_UnknownResidues_HandledGracefully()
     {
+        // All-unknown: no recognized AA → CalculateDisorderScore returns 0.0
         var result = DisorderPredictor.PredictDisorder("XXXXX");
 
         Assert.Multiple(() =>
@@ -407,8 +437,8 @@ public class DisorderPredictor_DisorderPrediction_Tests
             Assert.That(result.ResiduePredictions.Count, Is.EqualTo(5));
             foreach (var pred in result.ResiduePredictions)
             {
-                Assert.That(pred.DisorderScore, Is.InRange(0.0, 1.0),
-                    "Unknown residues must still produce valid scores");
+                Assert.That(pred.DisorderScore, Is.EqualTo(0.0).Within(0.0001),
+                    "Unknown residues contribute nothing → score = 0.0");
             }
         });
     }
@@ -492,9 +522,13 @@ public class DisorderPredictor_DisorderPrediction_Tests
 
         var result = DisorderPredictor.PredictDisorder(sequence, minRegionLength: 5);
 
-        // The disordered middle should be detected, though boundaries may be blurred by window
-        Assert.That(result.MeanDisorderScore, Is.GreaterThan(0.0),
-            "Mixed sequence must have non-zero mean disorder score");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.MeanDisorderScore, Is.GreaterThan(0.0),
+                "Mixed sequence must have non-zero mean disorder score");
+            Assert.That(result.DisorderedRegions, Is.Not.Empty,
+                "Disordered middle (P/E/K/D, all high TOP-IDP) must produce at least one region");
+        });
     }
 
     #endregion
@@ -509,14 +543,26 @@ public class DisorderPredictor_DisorderPrediction_Tests
         var result7 = DisorderPredictor.PredictDisorder(sequence, windowSize: 7);
         var result21 = DisorderPredictor.PredictDisorder(sequence, windowSize: 21);
 
-        // Different window sizes should produce at least slightly different score distributions
-        // (both should have same count though)
+        // Different window sizes should produce different score distributions
+        // because smaller windows capture local composition more sharply
         Assert.Multiple(() =>
         {
             Assert.That(result7.ResiduePredictions.Count, Is.EqualTo(result21.ResiduePredictions.Count),
                 "Both window sizes must produce same number of predictions");
-            // Scores may differ due to averaging over different windows
             Assert.That(result7.ResiduePredictions.Count, Is.EqualTo(sequence.Length));
+
+            bool anyDifferent = false;
+            for (int i = 0; i < result7.ResiduePredictions.Count; i++)
+            {
+                if (Math.Abs(result7.ResiduePredictions[i].DisorderScore
+                    - result21.ResiduePredictions[i].DisorderScore) > 0.0001)
+                {
+                    anyDifferent = true;
+                    break;
+                }
+            }
+            Assert.That(anyDifferent, Is.True,
+                "Different window sizes on mixed P/I sequence must produce different per-residue scores");
         });
     }
 
