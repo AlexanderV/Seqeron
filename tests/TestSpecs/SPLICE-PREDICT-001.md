@@ -120,47 +120,37 @@
 
 ### 5.1 Discovery Summary
 
-- Tests found in `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictorTests.cs`
-- 5 intron prediction tests, 5 gene structure tests in dedicated regions
+- Canonical file: `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs`
+- All SPLICE-PREDICT-001 tests consolidated in canonical file
+- 21 tests covering all MUST, SHOULD, and COULD cases (0 missing, 0 weak, 0 duplicate)
 
 ### 5.2 Coverage Classification
 
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| PredictIntrons_ValidDonorAcceptor_FindsIntron | ⚠ Weak | Asserts Count >= 0 (always true) |
-| PredictIntrons_RespectsMinLength | ⚠ Weak | Uses `‖ Count == 0` fallback |
-| PredictIntrons_RespectsMaxLength | ⚠ Weak | Uses `‖ Count == 0` fallback |
-| PredictIntrons_IncludesIntronSequence | ⚠ Weak | Guarded by `if`, asserts Not.Empty |
-| PredictIntrons_ClassifiesIntronType | ⚠ Weak | Guarded by `if`, allows Unknown |
-| PredictGeneStructure_SingleExon_NoIntrons | ⚠ Weak | Asserts Count == 0 OR > 0 (tautology) |
-| PredictGeneStructure_ReturnsExons | ⚠ Weak | Asserts Is.Not.Null only |
-| PredictGeneStructure_GeneratesSplicedSequence | ⚠ Weak | Guarded by `if` |
-| PredictGeneStructure_EmptySequence_ReturnsEmpty | ✅ Covered | Good empty check |
-| PredictGeneStructure_ExonPhase_Calculated | ⚠ Weak | Not.Null.Or.EqualTo(null) (tautology) |
-| M3 TwoExon OneIntron | ❌ Missing | |
-| M4 SplicedSequence excludes intron | ❌ Missing | |
-| M7 IntronType U2 | ❌ Missing | |
-| M8 ExonTypes assignment | ❌ Missing | |
-| M9 ExonPhase calculation | ❌ Missing | |
-| M10 Score range | ❌ Missing | |
-| S1 NonOverlapping | ❌ Missing | |
-| S2 DNA T equivalence | ❌ Missing | |
-| S3 IntronSequence | ❌ Missing | |
+| M1 EmptyNull_ReturnsEmpty | ✅ Covered | 2 tests: asserts all fields of empty structure (empty + null) |
+| M2 SingleExon_NoIntrons | ✅ Covered | Exact count, type=Single, start=0, end=len−1 |
+| M3 TwoExon OneIntron | ✅ Covered | Exact counts (1 intron, 2 exons), exact intron position/length, GU…AG sequence, INV-3 coverage |
+| M4 SplicedSequence excludes intron | ✅ Covered | INV-4 (concat of exon sequences), INV-5 (length check), exact Exon1+Exon2 |
+| M5 IntronMinLength | ✅ Covered | Non-vacuous: shows introns found at 60, filtered at 200 |
+| M6 IntronMaxLength | ✅ Covered | Non-vacuous: shows introns found at default, filtered at 70 |
+| M7 IntronType U2 | ✅ Covered | Asserts U2 for GU-donor introns per Burge et al. (1999) |
+| M8 ExonTypes assignment | ✅ Covered | Exact count prerequisite, Initial + Terminal |
+| M9 ExonPhase calculation | ✅ Covered | Exact count prerequisite, Phase[0]=0, Phase[1]=Exon1.Length%3=2, general formula |
+| M10 Score range | ✅ Covered | 2 tests: non-empty prerequisite + all scores in [0,1] |
+| S1 NonOverlapping | ✅ Covered | No position overlap in selected introns |
+| S2 DNA T equivalence | ✅ Covered | Same intron/exon counts, spliced sequence, and overall score |
+| S3 IntronSequence | ✅ Covered | Sequence matches input substring |
+| S4 Threshold_Filtering | ✅ Covered | Higher minScore → fewer introns |
+| S5 CaseInsensitive | ✅ Covered | Same intron/exon counts, spliced sequence, and overall score |
+| C1 OverallScore_MeanOfIntrons | ✅ Covered | Non-empty prerequisite + math verification (ε=1e-10) |
+| C2 SplicedSequence_NoIntrons_EqualsInput | ✅ Covered | Explicit 0-intron assertion + identity check |
 
-### 5.3 Consolidation Plan
-
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_GeneStructure_Tests.cs`
-  — all SPLICE-PREDICT-001 tests consolidated here
-- **Remove from shared file:** 5 intron tests + 5 gene structure tests from
-  `SpliceSitePredictorTests.cs` (all weak)
-- **Retain in shared file:** Alternative splicing, branch point, MaxEntScore,
-  IsWithinCodingRegion, input handling, integration tests (other Test Units)
-
-### 5.4 Final State After Consolidation
+### 5.3 Final State
 
 | File | Role | Test Count |
 |------|------|------------|
-| SpliceSitePredictor_GeneStructure_Tests.cs | Canonical for SPLICE-PREDICT-001 | 17 |
+| SpliceSitePredictor_GeneStructure_Tests.cs | Canonical for SPLICE-PREDICT-001 | 21 |
 | SpliceSitePredictorTests.cs | Shared (other TUs) | ~19 |
 | SpliceSitePredictor_DonorSite_Tests.cs | SPLICE-DONOR-001 | 17 |
 | SpliceSitePredictor_AcceptorSite_Tests.cs | SPLICE-ACCEPTOR-001 | 17 |
@@ -169,17 +159,19 @@
 
 ## 6. Assumption Register
 
-**Total assumptions:** 4
+**Total assumptions:** 0
 
-| # | Assumption | Used In |
-|---|-----------|---------|
-| A1 | Greedy non-overlapping selection is acceptable heuristic | S1, Algorithm doc |
-| A2 | Exon phase starts at 0 (no UTR offset) | M9 |
-| A3 | Overall score = arithmetic mean of intron scores | C1 |
-| A4 | Default branch point score of 0.3 when none found | Scoring tests |
+All former assumptions have been resolved:
+
+| # | Former Assumption | Resolution |
+|---|-------------------|------------|
+| ~A1~ | Greedy non-overlapping selection | **Design Decision** — external sources prescribe the biological constraint (introns don't overlap — S2, S4) but not the computational algorithm. Greedy-by-score is a valid simplified approach; no literature standard exists for overlap resolution in computational predictors. |
+| ~A2~ | Exon phase starts at 0 | **Mathematical Fact** — phase = (sum of preceding exon lengths) mod 3; with 0 preceding exons the result is trivially 0. Standard convention per Alberts et al. (2002). Removed. |
+| ~A3~ | Overall score = arithmetic mean | **Definition** — no biological standard exists for a gene structure quality metric. The arithmetic mean of intron scores is a defined internal metric, not a biological assumption. |
+| ~A4~ | Default branch point score 0.3 | **Fixed** — arbitrary magic constant removed from code. When no branch point is found, combined score is now (donor + acceptor) / 2 instead of (donor + acceptor + 0.3) / 3. |
 
 ---
 
 ## 7. Open Questions / Decisions
 
-None — all behaviors confirmed by evidence or documented as assumptions.
+None — all behaviors confirmed by evidence. No residual assumptions.

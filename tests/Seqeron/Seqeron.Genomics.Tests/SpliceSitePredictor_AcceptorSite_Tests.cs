@@ -24,17 +24,22 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     public void FindAcceptorSites_CanonicalAG_WithStrongPPT_FindsAcceptorSite()
     {
         // Consensus: (Y)nNCAG|G — strong PPT (continuous U) followed by CAG
-        // PPT at positions 0–15, CAG at 14–16, G at 17
+        // U×16 + C(16) + A(17) + G(18) + G(19) + G(20) = 21 nt
+        // AG at index 17–18, splice site at 19
         string sequence = "UUUUUUUUUUUUUUUUCAGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.1).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Has.Count.GreaterThanOrEqualTo(1),
-                "Canonical AG with strong PPT must produce at least one acceptor site");
-            Assert.That(sites.All(s => s.Type == SpliceSiteType.Acceptor), Is.True,
-                "All sites from canonical AG scan should have Type = Acceptor");
+            Assert.That(sites, Has.Count.EqualTo(1),
+                "Exactly one AG dinucleotide in scannable range");
+            Assert.That(sites[0].Type, Is.EqualTo(SpliceSiteType.Acceptor),
+                "Canonical AG site must have Type = Acceptor");
+            Assert.That(sites[0].Position, Is.EqualTo(18),
+                "Position = A_index + 1 = 17 + 1 = 18 (G of AG)");
+            Assert.That(sites[0].Score, Is.EqualTo(0.8393).Within(0.001),
+                "Strong PPT + perfect CAG|G consensus → high score (~0.84) — Shapiro & Senapathy (1987)");
         });
     }
 
@@ -100,23 +105,29 @@ public class SpliceSitePredictor_AcceptorSite_Tests
         string strongPpt = "UUUUUUUUUUUUUUUUCAGGG";
 
         // Weak context: purines interrupt the PPT region, but still has AG at scannable position
-        // Need 21+ chars with AG at position >= 15
+        // AAG×5 + AACAGGG = 22 chars, AG at index 18–19
         string weakContext = "AAGAAGAAGAAGAAGAACAGGG";
 
-        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.1).ToList();
-        var weakSites = FindAcceptorSites(weakContext, minScore: 0.1).ToList();
+        var strongSites = FindAcceptorSites(strongPpt, minScore: 0.0).ToList();
+        var weakSites = FindAcceptorSites(weakContext, minScore: 0.0).ToList();
 
-        Assert.That(strongSites, Is.Not.Empty,
-            "Strong PPT must produce at least one site — continuous pyrimidines are optimal");
-
-        if (weakSites.Count > 0)
+        Assert.Multiple(() =>
         {
+            Assert.That(strongSites, Is.Not.Empty,
+                "Strong PPT must produce at least one site — continuous pyrimidines are optimal");
+            Assert.That(weakSites.Where(s => s.Type == SpliceSiteType.Acceptor).ToList(), Is.Not.Empty,
+                "Weak context still has a canonical AG — must produce at least one Acceptor site");
+
             double strongScore = strongSites.Max(s => s.Score);
-            double weakScore = weakSites.Max(s => s.Score);
+            double weakScore = weakSites.Where(s => s.Type == SpliceSiteType.Acceptor).Max(s => s.Score);
 
             Assert.That(strongScore, Is.GreaterThan(weakScore),
                 "Strong PPT (continuous pyrimidines) should score higher than purine-interrupted context — Burge et al. (1999)");
-        }
+            Assert.That(strongScore, Is.GreaterThan(0.7),
+                "Perfect PPT + CAG|G consensus should produce high score (>0.7)");
+            Assert.That(weakScore, Is.LessThan(0.7),
+                "Purine-interrupted PPT with correct CAG consensus should produce moderate score (<0.7)");
+        });
     }
 
     #endregion
@@ -200,8 +211,18 @@ public class SpliceSitePredictor_AcceptorSite_Tests
         var upperSites = FindAcceptorSites(upper, minScore: 0.1).ToList();
         var lowerSites = FindAcceptorSites(lower, minScore: 0.1).ToList();
 
-        Assert.That(lowerSites.Count, Is.EqualTo(upperSites.Count),
-            "Lowercase input should produce same number of sites as uppercase — case insensitivity");
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowerSites.Count, Is.EqualTo(upperSites.Count),
+                "Lowercase input should produce same number of sites as uppercase — case insensitivity");
+            if (upperSites.Count > 0)
+            {
+                Assert.That(lowerSites[0].Score, Is.EqualTo(upperSites[0].Score).Within(1e-10),
+                    "Scores must be identical for lowercase vs uppercase — ToUpperInvariant normalization");
+                Assert.That(lowerSites[0].Position, Is.EqualTo(upperSites[0].Position),
+                    "Positions must match for lowercase vs uppercase");
+            }
+        });
     }
 
     #endregion
@@ -211,34 +232,49 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     [Test]
     public void FindAcceptorSites_MultipleAGSites_FindsAll()
     {
-        // Two AG dinucleotides at positions >= 15:
-        // First AG at position ~16, second AG at position ~20
+        // Two AG dinucleotides: AG at index 17–18 and AG at index 21–22
+        // U×16 + C(16) + A(17) + G(18) + C(19) + U(20) + A(21) + G(22) + G(23) + G(24) = 25 nt
         string sequence = "UUUUUUUUUUUUUUUUCAGCUAGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
 
-        Assert.That(sites.Count, Is.GreaterThanOrEqualTo(2),
-            "Sequence with two AG dinucleotides in scannable range should find at least 2 sites");
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Count, Is.EqualTo(2),
+                "Exactly two AG dinucleotides in scannable range");
+            Assert.That(sites[0].Position, Is.EqualTo(18),
+                "First AG at index 17 → position 18");
+            Assert.That(sites[1].Position, Is.EqualTo(22),
+                "Second AG at index 21 → position 22");
+            Assert.That(sites[0].Score, Is.GreaterThan(sites[1].Score),
+                "First AG has stronger PPT context upstream → higher score");
+        });
     }
 
     #endregion
 
-    #region S1: U12 AC Detected — Patel & Steitz (2003)
+    #region S1: U12 AC Detected — Patel & Steitz (2003), Hall & Padgett (1994)
 
     [Test]
-    public void FindAcceptorSites_U12AcceptorAC_DetectedWhenNonCanonicalEnabled()
+    public void FindAcceptorSites_U12AcceptorYCCAC_DetectedWhenNonCanonicalEnabled()
     {
-        // AC dinucleotide at position >= 15 with non-canonical enabled
-        string sequence = "UUUUUUUUUUUUUUUUACGGG";
+        // U12-type 3' splice site consensus: YCCAC (Hall & Padgett 1994, Jackson 1991)
+        // U×14 (PPT) + C(14) + C(15) + A(16) + C(17) + G(18) + G(19) + G(20) = 21 nt
+        // YCCAC pattern: Y=U(13), C=C(14), C=C(15), A=A(16), C=C(17)
+        // AC dinucleotide at index 16–17
+        string sequence = "UUUUUUUUUUUUUUCCACGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.1, includeNonCanonical: true).ToList();
+        var u12Sites = sites.Where(s => s.Type == SpliceSiteType.U12Acceptor).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sites, Is.Not.Empty,
-                "U12 AC acceptor should be detected when includeNonCanonical=true — Patel & Steitz (2003)");
-            Assert.That(sites.Any(s => s.Type == SpliceSiteType.U12Acceptor), Is.True,
-                "U12 site should have Type = U12Acceptor");
+            Assert.That(u12Sites, Has.Count.EqualTo(1),
+                "Exactly one U12 YCCAC acceptor — Hall & Padgett (1994)");
+            Assert.That(u12Sites[0].Position, Is.EqualTo(17),
+                "Position = AC_A_index + 1 = 16 + 1 = 17");
+            Assert.That(u12Sites[0].Score, Is.EqualTo(1.0).Within(0.001),
+                "Perfect YCCAC consensus + strong PPT → maximum U12 score (3.5/3.5)");
         });
     }
 
@@ -247,15 +283,15 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     #region S2: U12 AC Excluded When Canonical Only — Default Parameter
 
     [Test]
-    public void FindAcceptorSites_U12AcceptorAC_ExcludedByDefault()
+    public void FindAcceptorSites_U12AcceptorYCCAC_ExcludedByDefault()
     {
-        // AC dinucleotide but no AG — canonical-only mode should find nothing
-        string sequence = "UUUUUUUUUUUUUUUUACGGG";
+        // YCCAC dinucleotide but no AG — canonical-only mode should find no U12 sites
+        string sequence = "UUUUUUUUUUUUUUCCACGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.1).ToList();
 
         Assert.That(sites.Where(s => s.Type == SpliceSiteType.U12Acceptor).ToList(), Is.Empty,
-            "U12 AC acceptor should not be detected with includeNonCanonical=false (default)");
+            "U12 YCCAC acceptor should not be detected with includeNonCanonical=false (default)");
     }
 
     #endregion
@@ -265,21 +301,19 @@ public class SpliceSitePredictor_AcceptorSite_Tests
     [Test]
     public void FindAcceptorSites_ReturnsPositionAfterAG()
     {
-        // Construct sequence where AG is at a known position
-        // 15 U's + AG + GGG = 20 chars
-        // AG at indices 15–16, so position should be 16+1 = 17 (after the G of AG)
+        // U×15 + A(15) + G(16) + G(17) + G(18) + G(19) + G(20) = 21 nt
+        // AG at indices 15 (A) and 16 (G)
         string sequence = "UUUUUUUUUUUUUUUAGGGGG";
 
         var sites = FindAcceptorSites(sequence, minScore: 0.0).ToList();
 
-        if (sites.Count > 0)
-        {
-            // The AG is at position 15 (A) and 16 (G)
-            // Implementation: Position = i + 1 where i is the index of A in AG
-            // So Position = 15 + 1 = 16
-            Assert.That(sites[0].Position, Is.EqualTo(16),
-                "Position should be index after AG dinucleotide (first exonic nucleotide)");
-        }
+        Assert.That(sites, Has.Count.EqualTo(1),
+            "Exactly one AG in scannable range");
+
+        // Position = i + 1 where i is the index of A in AG
+        // So Position = 15 + 1 = 16 (index of G in AG — last intronic nucleotide)
+        Assert.That(sites[0].Position, Is.EqualTo(16),
+            "Position = A_index + 1 = 16 (G of AG, last intronic nucleotide) — INV-5");
     }
 
     #endregion

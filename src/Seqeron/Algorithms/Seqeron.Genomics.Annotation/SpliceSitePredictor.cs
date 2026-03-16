@@ -225,7 +225,7 @@ public static class SpliceSitePredictor
                 if (score >= minScore)
                 {
                     yield return new SpliceSite(
-                        Position: i + 1, // Position after the AG
+                        Position: i + 1, // Position of G in AG (last intron nucleotide)
                         Type: SpliceSiteType.Acceptor,
                         Motif: GetMotifContext(upper, i, 15, 2),
                         Score: score,
@@ -323,10 +323,10 @@ public static class SpliceSitePredictor
 
         score += pptScore / 12.0 * 2; // PPT contribution
 
-        // Score AG and context
+        // Score AG and context — PWM offsets are relative to splice site (position + 2)
         foreach (var (offset, weights) in AcceptorPwm)
         {
-            int pos = position + offset;
+            int pos = position + 2 + offset;
             if (pos >= 0 && pos < sequence.Length)
             {
                 char b = sequence[pos];
@@ -385,13 +385,48 @@ public static class SpliceSitePredictor
 
     private static double ScoreU12AcceptorSite(string sequence, int position)
     {
-        // Simplified U12 acceptor - /AC/ dinucleotide
-        if (position >= 0 && position + 1 < sequence.Length)
+        // U12-type 3' splice site consensus: YCCAC (Hall & Padgett 1994, Jackson 1991)
+        // position = index of A in the AC dinucleotide
+        // Expected upstream: sequence[pos-3]=Y, sequence[pos-2]=C, sequence[pos-1]=C
+        if (position < 3 || position + 1 >= sequence.Length)
+            return 0;
+
+        if (sequence[position] != 'A' || sequence[position + 1] != 'C')
+            return 0;
+
+        double score = 0;
+
+        // YCCAC consensus: check C at position-1 (second C of YCC)
+        if (sequence[position - 1] == 'C')
+            score += 1.0;
+
+        // YCCAC consensus: check C at position-2 (first C of YCC)
+        if (position - 2 >= 0 && sequence[position - 2] == 'C')
+            score += 1.0;
+
+        // YCCAC consensus: check Y (pyrimidine) at position-3
+        if (position - 3 >= 0 && (sequence[position - 3] == 'C' || sequence[position - 3] == 'U'))
+            score += 0.5;
+
+        // Polypyrimidine tract upstream
+        int pptCount = 0;
+        int pptTotal = 0;
+        for (int i = position - 15; i < position - 3; i++)
         {
-            if (sequence[position] == 'A' && sequence[position + 1] == 'C')
-                return 0.6;
+            if (i >= 0 && i < sequence.Length)
+            {
+                pptTotal++;
+                if (sequence[i] == 'C' || sequence[i] == 'U')
+                    pptCount++;
+            }
         }
-        return 0;
+
+        double pptFraction = pptTotal > 0 ? (double)pptCount / pptTotal : 0;
+        score += pptFraction;
+
+        // Max possible: 1.0 (C at -1) + 1.0 (C at -2) + 0.5 (Y at -3) + 1.0 (PPT) = 3.5
+        double normalized = score / 3.5;
+        return Math.Max(0, Math.Min(1, normalized));
     }
 
     #endregion
@@ -417,10 +452,10 @@ public static class SpliceSitePredictor
 
         foreach (var donor in donors)
         {
-            foreach (var acceptor in acceptors.Where(a => a.Position > donor.Position + minIntronLength))
+            foreach (var acceptor in acceptors)
             {
-                int intronLength = acceptor.Position - donor.Position;
-                if (intronLength > maxIntronLength)
+                int intronLength = acceptor.Position - donor.Position + 1;
+                if (intronLength < minIntronLength || intronLength > maxIntronLength)
                     continue;
 
                 // Determine intron type
@@ -432,7 +467,9 @@ public static class SpliceSitePredictor
                 var branchPoints = FindBranchPoints(upper, searchStart, searchEnd, 0.4).ToList();
                 var bestBranch = branchPoints.OrderByDescending(b => b.Score).FirstOrDefault();
 
-                double combinedScore = (donor.Score + acceptor.Score + (bestBranch.Score > 0 ? bestBranch.Score : 0.3)) / 3;
+                double combinedScore = bestBranch.Score > 0
+                    ? (donor.Score + acceptor.Score + bestBranch.Score) / 3
+                    : (donor.Score + acceptor.Score) / 2;
 
                 if (combinedScore >= minScore)
                 {
@@ -457,9 +494,11 @@ public static class SpliceSitePredictor
             return IntronType.U12;
 
         string donorMotif = donor.Motif.ToUpperInvariant();
-        if (donorMotif.Length >= 2)
+        // Motif = GetMotifContext(seq, pos, 3, 6): donor dinucleotide at offset min(3, pos)
+        int offset = Math.Min(3, donor.Position);
+        if (donorMotif.Length >= offset + 2)
         {
-            string dinuc = donorMotif.Substring(0, 2);
+            string dinuc = donorMotif.Substring(offset, 2);
             if (dinuc == "GC")
                 return IntronType.GcAg;
             if (dinuc == "GU" || dinuc == "GT")

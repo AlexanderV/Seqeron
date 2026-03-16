@@ -1,11 +1,18 @@
 ﻿{
-  ExonCount: 1,
-  SplicedSequenceLength: 131,
+  ExonCount: 2,
+  IntronCount: 1,
+  SplicedSequenceLength: 42,
+  OverallScore: 0.8085224624689347,
   Exons: [
     {
+      End: 20,
+      Length: 21
+    },
+    {
+      Start: 110,
       End: 130,
-      Length: 131,
-      Type: Single
+      Length: 21,
+      Type: Terminal
     }
   ]
 }

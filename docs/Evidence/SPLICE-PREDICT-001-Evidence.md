@@ -164,22 +164,23 @@ Cold Spring Harbor Laboratory Press; 1999:525-560.
 
 ## Assumptions
 
-1. **ASSUMPTION: Score threshold for greedy selection** — The greedy non-overlapping intron
-   selection by descending score is an implementation-specific heuristic, not formally
-   specified in literature. Most ab initio gene finders (e.g., GenScan, Augustus) use
-   dynamic programming instead. The greedy approach is acceptable for a simplified predictor.
+No residual assumptions. All former assumptions have been resolved:
 
-2. **ASSUMPTION: Exon phase calculation** — Phase = (sum of previous exon lengths) mod 3.
-   This follows the standard convention for reading frame tracking across introns
-   (Alberts et al., 2002, Molecular Biology of the Cell).
+1. **~RESOLVED: Score threshold for greedy selection~** — Reclassified as Design Decision.
+   External sources prescribe the biological invariant (introns don't overlap) but not
+   the computational algorithm. Greedy-by-score is a valid simplified approach.
 
-3. **ASSUMPTION: Overall score as mean of intron scores** — Using the arithmetic mean of
-   individual intron scores as the overall gene structure quality metric is
-   implementation-specific; no standard is defined in the literature.
+2. **~RESOLVED: Exon phase calculation~** — Mathematically trivial. Phase = (sum of
+   previous exon lengths) mod 3; first exon has 0 preceding lengths = phase 0 by definition.
+   Standard convention per Alberts et al. (2002).
 
-4. **ASSUMPTION: Minimum intron length default (60)** — The default of 60 bp is reasonable
-   for most eukaryotes but excludes the shortest known metazoan introns (30 bp).
-   This is a documented scope limitation.
+3. **~RESOLVED: Overall score as mean of intron scores~** — Reclassified as Definition.
+   No biological standard exists for a gene structure quality metric. This is a defined
+   formula, not a biological assumption.
+
+4. **~RESOLVED: Default branch point score of 0.3~** — Fixed in code. When no branch
+   point is found, combined score = (donor.Score + acceptor.Score) / 2 instead of
+   (donor.Score + acceptor.Score + 0.3) / 3. Eliminated arbitrary magic constant.
 
 ---
 
