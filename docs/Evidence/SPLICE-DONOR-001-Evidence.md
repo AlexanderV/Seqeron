@@ -132,11 +132,10 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: PWM values in implementation** — The specific PWM values in the implementation are approximations of Shapiro & Senapathy statistics. Exact values not individually verified against the original paper's tables; the pattern of conservation (positions 0,+1 invariant; -1 strongly G; -2 moderately A) is consistent with published consensus.
-
-2. **ASSUMPTION: Score normalization** — The implementation normalizes log-odds scores to [0, 1] range using an approximate linear transformation. The normalization formula is implementation-specific and not derived from MaxEntScan directly.
-
-3. **ASSUMPTION: GC donor penalty** — The 0.7 multiplier for GC donor sites is an implementation heuristic. No specific penalty factor was found in authoritative sources; the general principle that GC donors are weaker than GT donors is well-established.
+All previous assumptions have been eliminated:
+- ~~A1 (PWM values)~~: Replaced with IUPAC consensus binary weights (1.0 = match, 0.0 = no match) derived from the universally verified MAG|GURAGU consensus.
+- ~~A2 (Score normalization)~~: Replaced with simple consensus match fraction (matches / positions scored). No ad-hoc formula.
+- ~~A3 (GC donor 0.7 penalty)~~: Removed. GC donors naturally score lower because position +1 (C) mismatches the invariant U consensus (max 8/9 ≈ 0.889 vs 9/9 = 1.0 for GT).
 
 ---
 
