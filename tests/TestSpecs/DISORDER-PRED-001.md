@@ -5,7 +5,7 @@
 **Algorithm:** Disorder Prediction
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-03-17
 
 ---
 
@@ -85,11 +85,12 @@
 | M1 | PredictDisorder_EmptySequence_ReturnsEmptyResult | Empty string → zeroed result | Sequence="", no predictions, no regions, content=0, mean=0 | Standard edge case |
 | M2 | PredictDisorder_ReturnsCorrectLength | Prediction count matches input length | ResiduePredictions.Count == 20 for "ACDEFGHIKLMNPQRSTVWY" | INV-1 |
 | M3 | PredictDisorder_AllScoresInRange | All scores in [0,1] | Every ResiduePrediction.DisorderScore ∈ [0, 1] | INV-2, normalized TOP-IDP averaging |
-| M4 | PredictDisorder_HydrophobicSequence_LowDisorder | Poly-Ile (hydropathy 4.5, TOP-IDP -0.486) → low disorder | OverallDisorderContent < 0.5 | Uversky (2000), Kyte-Doolittle |
-| M5 | PredictDisorder_ChargedPolarSequence_HighDisorder | Poly-Glu (TOP-IDP 0.736, charge -1) → high disorder | OverallDisorderContent > 0.3 | Uversky (2000), Dunker (2001) |
-| M6 | PredictDisorder_ProlineRich_HighDisorder | Poly-Pro (highest TOP-IDP 0.987) → high disorder | DisorderedRegions not empty | Campen et al. (2008) |
+| M4 | PredictDisorder_HydrophobicSequence_LowDisorder | Poly-Ile (hydropathy 4.5, TOP-IDP -0.486) → all ordered | OverallDisorderContent == 0.0 | Uversky (2000), Campen (2008): normalized 0.2127 < 0.542 |
+| M5 | PredictDisorder_ChargedPolarSequence_HighDisorder | Poly-Glu (TOP-IDP 0.736, charge -1) → all disordered | OverallDisorderContent == 1.0 | Uversky (2000), Campen (2008): normalized 0.8660 ≥ 0.542 |
+| M6 | PredictDisorder_ProlineRich_HighDisorder | Poly-Pro (highest TOP-IDP 0.987) → all disordered | OverallDisorderContent == 1.0, DisorderedRegions not empty | Campen et al. (2008): normalized 1.0 ≥ 0.542 |
 | M7 | PredictDisorder_CaseInsensitive | Upper vs lower case produce same results | MeanDisorderScore equal within tolerance | INV-5 |
 | M8 | GetDisorderPropensity_AllTwentyAminoAcids_MatchScale | All 20 values match TOP-IDP scale | Exact values verified | Campen et al. (2008) Table 2 |
+| M8b | PredictDisorder_HomopolymericSequences_MatchExactNormalizedTopIdpScores | Exact normalized TOP-IDP score for poly-W/P/E/I | W→0.0, P→1.0, E→0.8660, I→0.2127 | Campen et al. (2008): S=(TOP-IDP+0.884)/1.871 |
 | M9 | IsDisorderPromoting_DisorderPromotingResidues_ReturnsTrue | A, R, Q, E, G, K, P, S → true | True for each | Dunker et al. (2001) |
 | M10 | IsDisorderPromoting_OrderPromotingResidues_ReturnsFalse | W, C, F, I, Y, V, L, N → false | False for each | Dunker et al. (2001) |
 | M10b | IsDisorderPromoting_AmbiguousResidues_ReturnsFalse | D, H, M, T → false (ambiguous ≠ disorder-promoting) | False for each | Dunker et al. (2001) |
@@ -101,9 +102,9 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | PredictDisorder_SingleResidue_Handles | Single AA input handled | 1 prediction returned | Boundary condition |
+| S1 | PredictDisorder_SingleResidue_Handles | Single Pro input → exact score | 1 prediction, score == 1.0 (normalized TOP-IDP for P) | Boundary condition, Campen (2008) |
 | S2 | PredictDisorder_ShortSequence_Handles | Sequence shorter than window | Correct count, no crash | Boundary condition |
-| S3 | PredictDisorder_UnknownResidue_Handles | "XXXXX" input handled gracefully | 5 predictions, no exception | Unknown AA tolerance |
+| S3 | PredictDisorder_UnknownResidue_Handles | "XXXXX" → all scores 0.0 | 5 predictions, all scores == 0.0 | Unknown AA tolerance |
 | S4 | PredictDisorder_MeanDisorderScore_IsAverage | Mean equals average of all residue scores | Computed manually | INV-4 |
 | S5 | PredictDisorder_OverallDisorderContent_IsFraction | Content = disordered count / length | Verified against predictions | INV-3 |
 | S6 | GetDisorderPropensity_UnknownResidue_ReturnsZero | Unknown char returns 0.0 | 0.0 | Implementation GetValueOrDefault |
@@ -113,8 +114,8 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| C1 | PredictDisorder_MixedOrderedDisordered_FindsTransition | Ordered flanks + disordered middle | At least one region detected | Functional verification |
-| C2 | PredictDisorder_CustomWindowSize_Respected | Window size parameter works | Different window → different scores | Parameter verification |
+| C1 | PredictDisorder_MixedOrderedDisordered_FindsTransition | Ordered flanks + disordered middle | MeanDisorderScore > 0, at least one region detected | Functional verification |
+| C2 | PredictDisorder_CustomWindowSize_Respected | Window size parameter works | Same count, different per-residue scores on mixed P/I | Parameter verification |
 | C3 | AmbiguousAminoAcids_ContainsExpected | Contains {D, H, M, T} | 4 AA — Dunker (2001) | Classification completeness |
 | C4 | CalculateHydropathy_ReturnsCorrectValues | Mean Kyte-Doolittle hydropathy | Verified against known values | Kyte & Doolittle (1982) |
 | C5 | ClassificationSets_AreDisjointAndCoverAll20 | 8+8+4=20, pairwise disjoint | Verified | Dunker et al. (2001) |
@@ -123,48 +124,46 @@
 
 ## 5. Audit of Existing Tests
 
-### 5.1 Discovery Summary
+### 5.1 Test Files
 
-- Tests found in: `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictorTests.cs` (339 lines, 22 tests)
+- **Canonical:** `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs` (49 tests)
+- **Future scope:** `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictorTests.cs` (MoRF/LowComplexity for DISORDER-REGION-001)
 
 ### 5.2 Coverage Classification
 
+All test cases are implemented in the canonical file `DisorderPredictor_DisorderPrediction_Tests.cs`.
+
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
-| M1: Empty sequence | ✅ Covered | `PredictDisorder_EmptySequence_ReturnsEmptyResult` exists |
-| M2: Correct length | ✅ Covered | `PredictDisorder_ReturnsCorrectLength` exists |
-| M3: Scores in range | ❌ Missing | No test verifies all scores ∈ [0,1] |
-| M4: Hydrophobic → low disorder | ⚠ Weak | Tests `Is.LessThan(0.5)` but not evidence-cited |
-| M5: Charged → high disorder | ⚠ Weak | Tests `Is.GreaterThan(0.3)` but not evidence-cited |
-| M6: Proline-rich → high disorder | ✅ Covered | `PredictDisorder_ProlineRich_ClassifiedCorrectly` |
-| M7: Case insensitive | ✅ Covered | `PredictDisorder_CaseInsensitive` exists |
-| M8: All 20 propensity values | ❌ Missing | Only tests P>0.3 and W<-0.3, not all 20 |
-| M9: Disorder-promoting classification | ⚠ Weak | Tests E,K,D,R but not A,G,Q,S,P,T,N |
-| M10: Order-promoting classification | ⚠ Weak | Tests I,L,V,F but not W,C,Y,M,H |
-| M11: DisorderPromotingAminoAcids | ⚠ Weak | Only checks P,E,K — not complete |
-| M12: OrderPromotingAminoAcids | ⚠ Weak | Only checks I,L,W,F — not complete |
-| M13: Position/Residue correctness | ✅ Covered | `PredictDisorder_ResiduePredictionsHavePositions` |
-| S1: Single residue | ✅ Covered | `PredictDisorder_SingleResidue_Handles` |
-| S2: Short sequence | ✅ Covered | `PredictDisorder_ShortSequence_Handles` |
-| S3: Unknown residue | ✅ Covered | `PredictDisorder_UnknownResidue_Handles` |
-| S4-S5: Mean/Content invariants | ❌ Missing | No explicit invariant tests |
-| S6: Unknown propensity zero | ❌ Missing | Not tested |
-| MoRF tests | 🔁 Out of scope | Belongs to DISORDER-REGION-001 |
-| Low complexity tests | 🔁 Out of scope | Belongs to DISORDER-REGION-001 |
-| Region classification | 🔁 Out of scope | Belongs to DISORDER-REGION-001 |
+| M1: Empty sequence | ✅ Covered | `PredictDisorder_EmptySequence_ReturnsEmptyResult` |
+| M2: Correct length | ✅ Covered | `PredictDisorder_AllTwentyAminoAcids_ReturnsCorrectLength` |
+| M3: Scores in range | ✅ Covered | `PredictDisorder_AllScoresInZeroOneRange` — diverse sequences |
+| M4: Hydrophobic → low disorder | ✅ Covered | Poly-Ile: OverallDisorderContent == 0.0 (all scores 0.2127 < 0.542) |
+| M5: Charged → high disorder | ✅ Covered | Poly-Glu: OverallDisorderContent == 1.0 (all scores 0.8660 ≥ 0.542) |
+| M6: Proline-rich → all disordered | ✅ Covered | OverallDisorderContent == 1.0 + DisorderedRegions not empty |
+| M7: Case insensitive | ✅ Covered | `PredictDisorder_CaseInsensitive_SameResults` |
+| M8: All 20 propensity values | ✅ Covered | `GetDisorderPropensity_AllTwentyAminoAcids_MatchScale` — all 20 exact values |
+| M8b: Exact normalized scores | ✅ Covered | Poly-W→0.0, Poly-P→1.0, Poly-E→0.8660, Poly-I→0.2127 |
+| M9: Disorder-promoting classification | ✅ Covered | All 8 AA tested: A,R,Q,E,G,K,P,S |
+| M10: Order-promoting classification | ✅ Covered | All 8 AA tested: C,F,I,L,N,V,W,Y |
+| M10b: Ambiguous classification | ✅ Covered | All 4 AA tested: D,H,M,T |
+| M11: DisorderPromotingAminoAcids | ✅ Covered | 8 AA verified + count check |
+| M12: OrderPromotingAminoAcids | ✅ Covered | 8 AA verified + count check |
+| M13: Position/Residue correctness | ✅ Covered | `PredictDisorder_ResiduePredictionsHaveCorrectPositionsAndResidues` |
+| S1: Single residue | ✅ Covered | Exact score 1.0 for single Pro (normalized TOP-IDP) |
+| S2: Short sequence | ✅ Covered | `PredictDisorder_ShortSequence_HandledCorrectly` |
+| S3: Unknown residue | ✅ Covered | All scores == 0.0 for "XXXXX" (unknown contributes nothing) |
+| S4: Mean is average of scores | ✅ Covered | `PredictDisorder_MeanDisorderScore_IsAverageOfResidueScores` |
+| S5: Content is fraction | ✅ Covered | `PredictDisorder_OverallDisorderContent_IsFraction` |
+| S6: Unknown propensity zero | ✅ Covered | `GetDisorderPropensity_UnknownResidue_ReturnsZero` |
+| S7: Lowercase input | ✅ Covered | `GetDisorderPropensity_LowercaseInput_SameAsUppercase` |
+| C1-C5: COULD tests | ✅ Covered | All 5 COULD tests implemented |
 
-### 5.3 Consolidation Plan
-
-- **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_DisorderPrediction_Tests.cs`
-  - All DISORDER-PRED-001 tests go here
-- **Keep in original:** MoRF, LowComplexity, RegionClassification tests stay in `DisorderPredictorTests.cs` for DISORDER-REGION-001
-- **Remove from new file:** Region detection tests (region boundaries, mean score) — these belong to DISORDER-REGION-001
-
-### 5.4 Final State After Consolidation
+### 5.3 Canonical Test Files
 
 | File | Role | Test Count |
 |------|------|------------|
-| `DisorderPredictor_DisorderPrediction_Tests.cs` | DISORDER-PRED-001 canonical | 50 |
+| `DisorderPredictor_DisorderPrediction_Tests.cs` | DISORDER-PRED-001 canonical | 49 |
 | `DisorderPredictorTests.cs` | DISORDER-REGION-001 (future) | ~12 |
 
 ---

@@ -81,6 +81,14 @@ public static class DisorderPredictor
     private static readonly HashSet<char> AmbiguousSet =
         new() { 'H', 'M', 'T', 'D' };
 
+    // Pre-sorted cached lists for public API.
+    private static readonly IReadOnlyList<char> CachedDisorderPromoting =
+        new List<char>(DisorderPromotingSet.OrderBy(c => c));
+    private static readonly IReadOnlyList<char> CachedOrderPromoting =
+        new List<char>(OrderPromotingSet.OrderBy(c => c));
+    private static readonly IReadOnlyList<char> CachedAmbiguous =
+        new List<char>(AmbiguousSet.OrderBy(c => c));
+
     // TOP-IDP normalization constants — Campen et al. (2008) Table 2.
     private const double TopIdpMin = -0.884;  // W (most order-promoting)
     private const double TopIdpMax = 0.987;   // P (most disorder-promoting)
@@ -284,7 +292,7 @@ public static class DisorderPredictor
                         regionStart.Value,
                         i - 1,
                         meanScore,
-                        CalculateConfidence(meanScore, length),
+                        CalculateConfidence(meanScore),
                         regionType);
                 }
                 regionStart = null;
@@ -305,7 +313,7 @@ public static class DisorderPredictor
                     regionStart.Value,
                     predictions.Count - 1,
                     meanScore,
-                    CalculateConfidence(meanScore, length),
+                    CalculateConfidence(meanScore),
                     regionType);
             }
         }
@@ -361,11 +369,11 @@ public static class DisorderPredictor
 
     /// <summary>
     /// Calculates prediction confidence as the normalized distance from the
-    /// TOP-IDP decision boundary. Directly derived from the Campen et al. (2008)
+    /// TOP-IDP decision boundary. Derived using values from the Campen et al. (2008)
     /// disorder propensity scale: confidence = (meanScore − cutoff) / (1.0 − cutoff),
     /// clamped to [0, 1].
     /// </summary>
-    private static double CalculateConfidence(double meanScore, int length)
+    private static double CalculateConfidence(double meanScore)
     {
         // Normalized distance from the TOP-IDP cutoff (0.542).
         // Score 0.542 → confidence 0.0; score 1.0 → confidence 1.0.
@@ -541,22 +549,19 @@ public static class DisorderPredictor
     /// Gets list of disorder-promoting amino acids — Dunker et al. (2001).
     /// {A, E, G, K, P, Q, R, S}
     /// </summary>
-    public static IReadOnlyList<char> DisorderPromotingAminoAcids =>
-        DisorderPromotingSet.OrderBy(c => c).ToList();
+    public static IReadOnlyList<char> DisorderPromotingAminoAcids => CachedDisorderPromoting;
 
     /// <summary>
     /// Gets list of order-promoting amino acids — Dunker et al. (2001).
     /// {C, F, I, L, N, V, W, Y}
     /// </summary>
-    public static IReadOnlyList<char> OrderPromotingAminoAcids =>
-        OrderPromotingSet.OrderBy(c => c).ToList();
+    public static IReadOnlyList<char> OrderPromotingAminoAcids => CachedOrderPromoting;
 
     /// <summary>
     /// Gets list of ambiguous amino acids — Dunker et al. (2001).
     /// {D, H, M, T} — neither clearly disorder-promoting nor order-promoting.
     /// </summary>
-    public static IReadOnlyList<char> AmbiguousAminoAcids =>
-        AmbiguousSet.OrderBy(c => c).ToList();
+    public static IReadOnlyList<char> AmbiguousAminoAcids => CachedAmbiguous;
 
     /// <summary>
     /// Calculates mean Kyte-Doolittle hydropathy for a sequence.

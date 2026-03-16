@@ -237,5 +237,4 @@ None. All parameters traceable to published peer-reviewed sources:
 
 ## Change History
 
-- **2026-02-10**: Initial documentation.
-- **2026-02-12**: Replaced 5-component scoring model with pure TOP-IDP averaging (Campen 2008). Changed threshold to published 0.542. Removed Charge dictionary (dead code). All assumptions resolved.
+- **2026-02-12**: Current state: pure TOP-IDP averaging with published cutoff 0.542. All parameters from Campen et al. (2008), Dunker et al. (2001), Kyte & Doolittle (1982).
