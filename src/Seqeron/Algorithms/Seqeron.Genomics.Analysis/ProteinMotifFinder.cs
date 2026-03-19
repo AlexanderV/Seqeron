@@ -80,8 +80,8 @@ public static class ProteinMotifFinder
         // PROSITE PS00004: cAMP/cGMP-dependent phosphorylation site — https://prosite.expasy.org/PS00004
         ["PS00004"] = new("PS00004", "CAMP_PHOSPHO_SITE", "[RK](2)-x-[ST]", @"[RK]{2}.[ST]", "cAMP-dependent phosphorylation site"),
 
-        // PROSITE PS00007: Tyrosine kinase phosphorylation site — https://prosite.expasy.org/PS00007
-        ["PS00007"] = new("PS00007", "TYR_PHOSPHO_SITE", "[RK]-x(2)-[DE]-x(3)-Y", @"[RK].{2}[DE].{3}Y", "Tyrosine kinase phosphorylation site"),
+        // PROSITE PS00007: Tyrosine kinase phosphorylation site 1 — https://prosite.expasy.org/PS00007
+        ["PS00007"] = new("PS00007", "TYR_PHOSPHO_SITE_1", "[RK]-x(2)-[DE]-x(3)-Y", @"[RK].{2}[DE].{3}Y", "Tyrosine kinase phosphorylation site 1"),
 
         // PROSITE PS00008: N-myristoylation site — https://prosite.expasy.org/PS00008
         ["PS00008"] = new("PS00008", "MYRISTYL", "G-{EDRKHPFYW}-x(2)-[STAGCN]-{P}", @"G[^EDRKHPFYW].{2}[STAGCN][^P]", "N-myristoylation site"),
@@ -108,13 +108,14 @@ public static class ProteinMotifFinder
 
         // NLS — Monopartite nuclear localization signal
         // Consensus: K-K/R-X-K/R (Chelsky et al. 1989; Dingwall & Laskey 1991)
-        ["NLS1"] = new("NLS1", "NLS_MONOPARTITE", "[KR]-[KR]-x-[KR]", @"[KR][KR].[KR]", "Monopartite nuclear localization signal"),
+        // Position 1 is K only per Chelsky consensus; confirmed by Wikipedia "Nuclear localization sequence"
+        ["NLS1"] = new("NLS1", "NLS_MONOPARTITE", "K-[KR]-x-[KR]", @"K[KR].[KR]", "Monopartite nuclear localization signal"),
 
         // NES — Nuclear export signal (CRM1-dependent)
-        // Simplified from la Cour et al. (2004) Nucleic Acids Res 32:W142-5
-        // General NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 where Φ = hydrophobic
-        // L-enriched form used here reduces false positives
-        ["NES1"] = new("NES1", "NES", "L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]", @"L.{2,3}[LIVFM].{2,3}L.[LI]", "Nuclear export signal"),
+        // General NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 where Φ = L,I,V,F,M
+        // la Cour et al. (2004) Protein Eng Des Sel 17:527-536
+        // All Φ positions allow full hydrophobic set per paper definition
+        ["NES1"] = new("NES1", "NES", "[LIVFM]-x(2,3)-[LIVFM]-x(2,3)-[LIVFM]-x-[LIVFM]", @"[LIVFM].{2,3}[LIVFM].{2,3}[LIVFM].[LIVFM]", "Nuclear export signal"),
 
         // SIM — SUMO-interacting motif (type b)
         // Consensus: Ψ-x-Ψ-Ψ where Ψ = V/I/L (Hecker et al. 2006, JBC 281:16117-27)
@@ -865,15 +866,14 @@ public static class ProteinMotifFinder
                 totalIC += Math.Log2((double)AminoAcidAlphabetSize / allowed);
         }
 
-        // Minimum non-zero score for fully unconstrained patterns
-        return totalIC > 0 ? totalIC : 0.01;
+        return totalIC;
     }
 
     /// <summary>
     /// Calculates E-value: expected number of random matches in a sequence.
-    /// E = (N - L + 1) × P_random, where P_random = 2^(-IC_total).
-    /// Reference: Altschul SF et al. (1990). "Basic Local Alignment Search Tool."
-    /// J Mol Biol 215:403-410.
+    /// E = (N - L + 1) × P_random, where P_random = 2^(-IC_total) = ∏(k_i / 20).
+    /// This is a direct combinatorial probability under uniform amino acid distribution;
+    /// IC definition per Schneider & Stephens (1990) Nucleic Acids Res 18:6097-6100.
     /// </summary>
     private static double CalculateEValue(int sequenceLength, int motifLength, double score)
     {

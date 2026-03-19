@@ -5,7 +5,7 @@
 **Algorithm:** Protein Motif Search
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-03-19
 
 ---
 
@@ -21,6 +21,7 @@
 | 4 | De Castro et al. (2006) | 1 | https://doi.org/10.1093/nar/gkl124 | 2026-02-12 |
 | 5 | Wikipedia: Sequence motif | 4 | https://en.wikipedia.org/wiki/Sequence_motif | 2026-02-12 |
 | 6 | PROSITE PS00001–PS00029 entries | 2 | https://prosite.expasy.org/PS00001 etc. | 2026-02-12 |
+| 7 | Wikipedia: Nuclear localization sequence | 4 | https://en.wikipedia.org/wiki/Nuclear_localization_sequence | 2026-03-19 |
 
 ### 1.2 Key Evidence Points
 
@@ -58,7 +59,7 @@
 
 | ID | Invariant | Verifiable | Evidence |
 |----|-----------|------------|----------|
-| INV-1 | FindMotifByPattern returns only non-overlapping matches | Yes | .NET Regex.Matches semantics |
+| INV-1 | FindMotifByPattern discovers all matches including overlapping occurrences | Yes | Lookahead regex; ScanProsite behavior (De Castro et al. 2006) |
 | INV-2 | Every match Start ≥ 0 and End < sequence.Length | Yes | Array bounds correctness |
 | INV-3 | Every match Sequence equals sequence.Substring(Start, End - Start + 1) | Yes | Regex match value consistency |
 | INV-4 | FindMotifByPattern is case-insensitive (upper/lower yield same results) | Yes | PROSITE convention |
@@ -76,11 +77,11 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | RGD_SimplePattern_ThreeMatches | FindMotifByPattern finds 3 RGD in `MRGDKLARGDPMRGD` | 3 matches at positions 1, 6, 12 with sequence "RGD" | PROSITE PS00016 |
 | M2 | RGD_PositionAndSequence | Verify Start, End, and Sequence fields are correct | Start=1,End=3; Start=6,End=8; Start=12,End=14 | Regex match semantics |
-| M3 | NGlycos_FindsValidSite | FindCommonMotifs finds N-glycosylation in sequence containing `NFTA` | Match with MotifName containing "GLYCOSYL" | PROSITE PS00001 |
+| M3 | NGlycos_FindsValidSite | FindCommonMotifs finds N-glycosylation in sequence containing `NFTA` | Exactly 1 match at position (4,7), sequence "NFTA" | PROSITE PS00001 |
 | M4 | NGlycos_ExcludesProline | No N-glycosylation match when P follows N or precedes end | No ASN_GLYCOSYLATION matches in `ANPSANPT` | PROSITE PS00001 exclusion |
-| M5 | PKC_FindsPhosphorylation | FindCommonMotifs finds PKC site in `[ST]-x-[RK]` | At least 1 PKC match | PROSITE PS00005 |
-| M6 | CK2_FindsPhosphorylation | FindCommonMotifs finds CK2 site in `[ST]-x(2)-[DE]` | At least 1 CK2 match | PROSITE PS00006 |
-| M7 | PLoop_FindsSite | FindCommonMotifs finds P-loop in `[AG]-x(4)-G-K-[ST]` | At least 1 ATP_GTP_A match | PROSITE PS00017 |
+| M5 | PKC_FindsPhosphorylation | FindCommonMotifs finds PKC site in `[ST]-x-[RK]` | Exactly 1 match: SAR at (5,7) | PROSITE PS00005 |
+| M6 | CK2_FindsPhosphorylation | FindCommonMotifs finds CK2 site in `[ST]-x(2)-[DE]` | Exactly 2 matches: SAAE at (4,7), SDED at (9,12) | PROSITE PS00006 |
+| M7 | PLoop_FindsSite | FindCommonMotifs finds P-loop in `[AG]-x(4)-G-K-[ST]` | Exactly 1 match: GXXXXGKS at (5,12) | PROSITE PS00017 |
 | M8 | EmptySequence_ReturnsEmpty | FindMotifByPattern("", pattern) returns empty | Empty enumerable | Trivial |
 | M9 | NullSequence_ReturnsEmpty | FindMotifByPattern(null, pattern) returns empty | Empty enumerable | Trivial |
 | M10 | InvalidRegex_ReturnsEmpty | FindMotifByPattern with malformed regex returns empty | Empty enumerable, no exception | Robustness |
@@ -96,7 +97,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| S1 | MultiplePatterns_SameSequence | FindCommonMotifs returns matches from different patterns on one sequence | Multiple motif types found | Integration |
+| S1 | MultiplePatterns_SameSequence | FindCommonMotifs returns matches from different patterns on one sequence | Exactly 4 motif types: ASN_GLYCOSYLATION, PKC_PHOSPHO_SITE, RGD, ATP_GTP_A | Integration |
 | S2 | NoMatch_ReturnsEmpty | Pattern that doesn't match the sequence returns empty | Empty result | Edge case |
 | S3 | OverlappingPotential_HandledConsistently | Sequence with potential overlapping motifs produces consistent results | Non-overlapping matches per regex semantics | **ASSUMPTION: non-overlapping** |
 
@@ -123,11 +124,11 @@
 |--------------|--------|----------------------|
 | M1 | ✅ Covered | `FindMotifByPattern_RGD_FindsThreeMatches` |
 | M2 | ✅ Covered | `FindMotifByPattern_RGD_ReturnsCorrectPositions` |
-| M3 | ✅ Covered | `FindCommonMotifs_NGlycosylation_FindsValidSite` |
+| M3 | ✅ Covered | `FindCommonMotifs_NGlycosylation_FindsValidSite` — exact count=1, position=(4,7), sequence="NFTA" |
 | M4 | ✅ Covered | `FindCommonMotifs_NGlycosylation_ExcludesProline` |
-| M5 | ✅ Covered | `FindCommonMotifs_PKC_FindsPhosphorylation` |
-| M6 | ✅ Covered | `FindCommonMotifs_CK2_FindsPhosphorylation` |
-| M7 | ✅ Covered | `FindCommonMotifs_PLoop_FindsSite` |
+| M5 | ✅ Covered | `FindCommonMotifs_PKC_FindsPhosphorylation` — exact count=1, pos=(5,7), seq="SAR" |
+| M6 | ✅ Covered | `FindCommonMotifs_CK2_FindsPhosphorylation` — exact count=2, positions, sequences |
+| M7 | ✅ Covered | `FindCommonMotifs_PLoop_FindsSite` — exact count=1, pos=(5,12), seq="GXXXXGKS" |
 | M8 | ✅ Covered | `FindMotifByPattern_EmptySequence_ReturnsEmpty` |
 | M9 | ✅ Covered | `FindMotifByPattern_NullSequence_ReturnsEmpty`, `FindCommonMotifs_NullSequence_ReturnsEmpty` |
 | M10 | ✅ Covered | `FindMotifByPattern_InvalidRegex_ReturnsEmpty` |
@@ -138,13 +139,13 @@
 | M15 | ✅ Covered | `CommonMotifs_AllRegexPatterns_CompileSuccessfully` |
 | M16 | ✅ Covered | `FindMotifByPattern_MatchSequence_EqualsSubstring`, `FindCommonMotifs_AllMatches_SatisfySubstringInvariant` |
 | M17 | ✅ Covered | `FindMotifByPattern_Score_IsInformationContent`, `FindMotifByPattern_Score_AccountsForCharacterClasses`, `FindMotifByPattern_EValue_UsesProperProbability` |
-| S1 | ✅ Covered | `FindCommonMotifs_MultiplePatterns_ReturnsMultipleMotifTypes` |
+| S1 | ✅ Covered | `FindCommonMotifs_MultiplePatterns_ReturnsMultipleMotifTypes` — exact 4 types verified |
 | S2 | ✅ Covered | `FindMotifByPattern_NoMatch_ReturnsEmpty`, `FindMotifByPattern_EmptyPattern_ReturnsEmpty` |
 | S3 | ✅ Covered | `FindMotifByPattern_MatchFields_ArePopulated` |
 | S4 | ✅ Covered | `FindMotifByPattern_OverlappingMatches_AllDiscovered`, `FindMotifByPattern_NonOverlapping_SameAsOverlapping` |
 | S5 | ✅ Covered | `CommonMotifs_NLS1_MatchesChelskysConsensus`, `CommonMotifs_NES1_MatchesLaCourConsensus`, `CommonMotifs_SIM1_MatchesHeckerConsensus`, `CommonMotifs_WW1_MatchesChenSudolConsensus`, `CommonMotifs_SH3_1_MatchesMayerClassIConsensus`, `CommonMotifs_AllNonProsite_HaveCorrectPatterns` |
 
-**Missing:** 0 &emsp; **Weak:** 0 &emsp; **Duplicate:** 0
+**Missing:** 0 &emsp; **Weak:** 0 (5 strengthened: M3, M5, M6, M7, S1) &emsp; **Duplicate:** 0
 
 ### 5.3 Residual Tests Coverage Classification
 

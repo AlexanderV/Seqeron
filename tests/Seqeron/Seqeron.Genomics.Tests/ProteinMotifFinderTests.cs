@@ -191,7 +191,7 @@ public class ProteinMotifFinderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(motifs, Has.Count.EqualTo(63), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
+            Assert.That(motifs, Has.Count.EqualTo(64), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
             Assert.That(signal, Is.Not.Null, "Signal peptide must be detected — classic tripartite structure");
             Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25),
                 "Cleavage at position 25 after c-region LASAG");
@@ -217,7 +217,7 @@ public class ProteinMotifFinderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(motifs, Has.Count.EqualTo(21), "Deterministic motif count for seed=42");
+            Assert.That(motifs, Has.Count.EqualTo(23), "Deterministic motif count for seed=42");
             // Random protein correctly yields no signal peptide with strict criteria:
             // {A,G,S} at -1/-3 per von Heijne (1983), h-region ≥ 7 per von Heijne (1985)
             Assert.That(signal, Is.Null, "Random sequence lacks signal peptide structure");
