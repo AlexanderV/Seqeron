@@ -85,6 +85,7 @@
 | M12 | ConvertProsite_ComplexPS00018 | Convert EF-hand pattern | Full expected regex | PROSITE PS00018 |
 | M13 | ConvertProsite_EmptyInput | Convert empty string | Empty string | Edge case |
 | M14 | ConvertProsite_TrailingPeriod | Convert `R-G-D.` | `RGD` | PROSITE User Manual |
+| M14b | ConvertProsite_PeriodTerminates | Convert `R-G-D.A-B-C` | `RGD` | PROSITE User Manual |
 | M15 | FindProsite_NGlycoMatch | Match PS00001 on `AANASAAANGTAAA` | 2 matches at positions 2 and 8 | Manual derivation from PS00001 |
 | M16 | FindProsite_RGDMatch | Match `R-G-D` on `AAARGDAAA` | 1 match at position 3 | PS00016 |
 | M17 | FindProsite_NoMatch | Match PS00001 on `AANPSAAA` | 0 matches | P at pos 3 violates {P} |
@@ -118,12 +119,7 @@
 
 ## 5. Audit of Existing Tests
 
-### 5.1 Discovery Summary
-
-- 7 PROSITE tests in `ProteinMotifFinderTests.cs` (lines 12–77)
-- No tests in `ProteinMotifFinder_MotifSearch_Tests.cs` for PROSITE conversion (that file covers PROTMOTIF-FIND-001)
-
-### 5.2 Coverage Classification
+### 5.1 Coverage Classification
 
 | Area / Test Case ID | Status | Canonical Test Method |
 |---------------------|--------|----------------------|
@@ -141,6 +137,7 @@
 | M12: Complex PS00018 | ✅ Covered | `ConvertPrositeToRegex_ComplexEFHand_ProducesFullRegex` |
 | M13: Empty input | ✅ Covered | `ConvertPrositeToRegex_EmptyString_ReturnsEmpty`, `ConvertPrositeToRegex_Null_ReturnsEmpty` |
 | M14: Trailing period | ✅ Covered | `ConvertPrositeToRegex_TrailingPeriod_IsIgnored` |
+| M14b: Period terminates parsing | ✅ Covered | `ConvertPrositeToRegex_PeriodTerminatesPattern` |
 | M15: N-glyco match positions | ✅ Covered | `FindMotifByProsite_NGlycosylation_MatchesAtCorrectPositions` |
 | M16: RGD match position | ✅ Covered | `FindMotifByProsite_RGDPattern_MatchesAtExactPosition` |
 | M17: No match | ✅ Covered | `FindMotifByProsite_ExclusionBlocks_ReturnsNoMatches` |
@@ -163,96 +160,11 @@
 
 **Missing:** 0 &emsp; **Weak:** 0 &emsp; **Duplicate:** 0
 
-### 5.3 Consolidation Plan
-
-- **Canonical file:** `ProteinMotifFinder_PrositePattern_Tests.cs` — all PROSITE conversion and matching tests
-- **Remove:** 7 PROSITE tests from `ProteinMotifFinderTests.cs` (lines 12–77, `#region PROSITE Pattern Conversion Tests`)
-- **Keep:** All non-PROSITE tests in `ProteinMotifFinderTests.cs` unchanged
-
-### 5.4 Final State After Consolidation
+### 5.2 Canonical Test File
 
 | File | Role | Test Count |
 |------|------|------------|
-| `ProteinMotifFinder_PrositePattern_Tests.cs` | Canonical PROSITE tests | 34 |
-| `ProteinMotifFinderTests.cs` | Residual (non-PROSITE): 12 strengthened, 11 OK | 23 |
-
-### 5.5 Phase 7 Work Queue
-
-| # | Test Case ID | §5.2 Status | Action Taken | Final Status |
-|---|-------------|-------------|--------------|--------------|
-| 1 | M1 | ✅ Covered | Rewrite in canonical file | ✅ Done |
-| 2 | M2 | ✅ Covered | Rewrite in canonical file | ✅ Done |
-| 3 | M3 | ❌ Missing | Implement | ✅ Done |
-| 4 | M4 | ✅ Covered | Rewrite in canonical file | ✅ Done |
-| 5 | M5 | ✅ Covered | Rewrite in canonical file | ✅ Done |
-| 6 | M6 | ⚠ Weak | Rewrite with full PS00001 pattern | ✅ Done |
-| 7 | M7 | ⚠ Weak | Rewrite with exact assertion | ✅ Done |
-| 8 | M8 | ❌ Missing | Implement | ✅ Done |
-| 9 | M9 | ❌ Missing | Implement | ✅ Done |
-| 10 | M10 | ❌ Missing | Implement | ✅ Done |
-| 11 | M11 | ❌ Missing | Implement | ✅ Done |
-| 12 | M12 | ❌ Missing | Implement | ✅ Done |
-| 13 | M13 | ❌ Missing | Implement | ✅ Done |
-| 14 | M14 | ❌ Missing | Implement | ✅ Done |
-| 15 | M15 | ❌ Missing | Implement | ✅ Done |
-| 16 | M16 | ❌ Missing | Implement | ✅ Done |
-| 17 | M17 | ❌ Missing | Implement | ✅ Done |
-| 18 | M18 | ❌ Missing | Implement | ✅ Done |
-| 19 | M19 | ❌ Missing | Implement | ✅ Done |
-| 20 | M20 | ❌ Missing | Implement | ✅ Done |
-| 21 | M21 | ❌ Missing | Implement | ✅ Done |
-| 22 | S1 | ❌ Missing | Implement | ✅ Done |
-| 23 | S2 | ❌ Missing | Implement | ✅ Done |
-| 24 | S3 | ❌ Missing | Implement | ✅ Done |
-| 25 | S4 | ❌ Missing | Implement | ✅ Done |
-| 26 | S5 | ❌ Missing | Implement | ✅ Done |
-| 27 | C1 | ❌ Missing | Implement | ✅ Done |
-| 28 | FindMotifByProsite_UsesConversion | ⚠ Weak | Remove (superseded by M15) | ✅ Done |
-| 29 | M22 | ❌ Missing | Implement `[G>]` conversion PS00267 | ✅ Done |
-| 30 | M22b | ❌ Missing | Implement `[G>]` conversion PS00539 | ✅ Done |
-| 31 | M23 | ❌ Missing | Implement `[G>]` match with G | ✅ Done |
-| 32 | M23b | ❌ Missing | Implement `[G>]` match at C-terminus | ✅ Done |
-| 33 | M23c | ❌ Missing | Implement `[G>]` no mid-seq match | ✅ Done |
-
-**Total items:** 33
-**✅ Done:** 33 | **⛔ Blocked:** 0 | **Remaining:** 0
-
-### 5.6 Post-Implementation Coverage
-
-| Area / Test Case ID | Status | Resolution |
-|---------------------|--------|------------|
-| M1: Simple literal | ✅ | Canonical test in new file |
-| M2: Any amino acid | ✅ | Canonical test in new file |
-| M3: Exact repeat x(n) | ✅ | New test implemented |
-| M4: Range repeat x(n,m) | ✅ | Canonical test in new file |
-| M5: Character class | ✅ | Canonical test in new file |
-| M6: Exclusion class (full PS00001) | ✅ | Rewritten with exact assertion |
-| M7: N-terminus | ✅ | Rewritten with exact assertion |
-| M8: C-terminus | ✅ | New test implemented |
-| M9: Element repetition | ✅ | New test implemented |
-| M10: Complex PS00028 | ✅ | New test implemented |
-| M11: Complex PS00008 | ✅ | New test implemented |
-| M12: Complex PS00018 | ✅ | New test implemented |
-| M13: Empty input | ✅ | New test implemented |
-| M14: Trailing period | ✅ | New test implemented |
-| M15: N-glyco match positions | ✅ | New test implemented |
-| M16: RGD match position | ✅ | New test implemented |
-| M17: No match | ✅ | New test implemented |
-| M18: Empty sequence | ✅ | New test implemented |
-| M19: Empty pattern | ✅ | New test implemented |
-| M20: Case insensitivity | ✅ | New test implemented |
-| M21: Multiple matches | ✅ | New test implemented |
-| S1: Real protein | ✅ | New test implemented |
-| S2: N-terminal anchor | ✅ | New test implemented |
-| S3: C-terminal anchor | ✅ | New test implemented |
-| S4: Matched sequence | ✅ | New test implemented |
-| S5: Leucine zipper partial | ✅ | New test implemented |
-| C1: Zinc finger complex | ✅ | New test implemented |
-| M22: `[G>]` conversion PS00267 | ✅ | New test implemented |
-| M22b: `[G>]` conversion PS00539 | ✅ | New test implemented |
-| M23: `[G>]` match with G | ✅ | New test implemented |
-| M23b: `[G>]` match at C-terminus | ✅ | New test implemented |
-| M23c: `[G>]` no mid-seq match | ✅ | New test implemented |
+| `ProteinMotifFinder_PrositePattern_Tests.cs` | Canonical PROSITE tests | 35 |
 
 ---
 
@@ -262,6 +174,11 @@
 
 None. All PROSITE syntax elements are fully implemented per the PROSITE User Manual §IV.E,
 including `[G>]` C-terminus inside brackets (PS00267, PS00539).
+
+All patterns, match positions, and expected values verified against official external sources:
+- 10 PROSITE entries (PS00001, PS00004, PS00005, PS00008, PS00016, PS00018, PS00028, PS00029, PS00267, PS00539)
+- UniProt P02787 sequence (698 aa) verified against UniProt flat file
+- Glycosylation at ASN-432 and ASN-630 (1-based) confirmed by UniProt annotations and ScanProsite output
 
 ---
 

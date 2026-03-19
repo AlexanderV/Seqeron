@@ -114,8 +114,9 @@
 ### From PROSITE User Manual
 
 1. **Empty pattern:** No specification; implementation should return empty.
-2. **Trailing period:** Patterns in data files end with `.` — must be ignored
-   during conversion.
+2. **Period terminates pattern:** A period `.` ends the pattern (PROSITE User Manual §IV.E).
+   Content after the period is not processed. Patterns in data files (PA lines) always
+   end with a period.
 3. **C-terminus inside brackets:** `[G>]` in rare patterns (PS00267, PS00539) means
    G-or-end-of-sequence. Implementation converts `[G>]` to `(?:G|$)` regex alternation.
 4. **Range only for x:** `A(2,4)` is invalid; only `x(2,4)` is valid. Fixed
@@ -151,6 +152,7 @@
 | `D-{W}-[DNS]-{ILVFYW}-[DENSTG]-[DNQGHRK]-{GP}-[LIVMC]-[DENQSTAGC]-x(2)-[DE]-[LIVMFYW]` | `D[^W][DNS][^ILVFYW][DENSTG][DNQGHRK][^GP][LIVMC][DENQSTAGC].{2}[DE][LIVMFYW]` | PS00018 |
 | (empty) | (empty) | Edge case |
 | `R-G-D.` | `RGD` | User Manual (trailing period) |
+| `R-G-D.A-B-C` | `RGD` | User Manual (period terminates parsing) |
 | `F-[IVFY]-G-[LM]-M-[G>].` | `F[IVFY]G[LM]M(?:G\|$)` | PS00267 (C-term inside brackets) |
 | `F-[GSTV]-P-R-L-[G>].` | `F[GSTV]PRL(?:G\|$)` | PS00539 (C-term inside brackets) |
 
@@ -161,7 +163,7 @@
 | Sequence | Pattern | Expected Matches (0-based start) | Reasoning |
 |----------|---------|----------------------------------|-----------|
 | `AAARGDAAA` | `R-G-D` | [3] | RGD at index 3 |
-| `AANASAAANGTAAA` | `N-{P}-[ST]-{P}` | [2, 8] | NAS at 2 (A≠P,S∈[ST],A≠P); NGT at 8 (G≠P,T∈[ST],A≠P) |
+| `AANASAAANGTAAAA` | `N-{P}-[ST]-{P}` | [2, 8] | NAS at 2 (A≠P,S∈[ST],A≠P); NGT at 8 (G≠P,T∈[ST],A≠P) |
 | `AANPSAAA` | `N-{P}-[ST]-{P}` | [] | P at pos 3 violates {P} |
 | `AASARKAAA` | `[ST]-x-[RK]` | [2] | SAR: S∈[ST], A=any, R∈[RK] |
 | (empty) | `R-G-D` | [] | Empty sequence |
@@ -177,7 +179,7 @@
 | Pattern | PS00001: `N-{P}-[ST]-{P}` |
 | Match count | 2 |
 | Match 1 position | 432–435 (1-based) / 431–434 (0-based) |
-| Match 2 position | 630–633 (1-based) / 631–632 (0-based) |
+| Match 2 position | 630–633 (1-based) / 629–632 (0-based) |
 
 ---
 
@@ -196,7 +198,8 @@
 11. **MUST Test:** ConvertPrositeToRegex converts complex PS00008 pattern — Evidence: PROSITE PS00008
 12. **MUST Test:** ConvertPrositeToRegex converts complex PS00018 pattern — Evidence: PROSITE PS00018
 13. **MUST Test:** ConvertPrositeToRegex handles empty input — Evidence: Edge case
-14. **MUST Test:** ConvertPrositeToRegex strips trailing period — Evidence: PROSITE User Manual
+14. **MUST Test:** ConvertPrositeToRegex handles trailing period — Evidence: PROSITE User Manual
+14b. **MUST Test:** ConvertPrositeToRegex terminates at period (mid-pattern) — Evidence: PROSITE User Manual §IV.E
 15. **MUST Test:** FindMotifByProsite matches PS00001 at correct positions — Evidence: Manual derivation
 16. **MUST Test:** FindMotifByProsite matches PS00016 (RGD) at correct position — Evidence: PS00016
 17. **MUST Test:** FindMotifByProsite returns empty when no match — Evidence: Edge case
