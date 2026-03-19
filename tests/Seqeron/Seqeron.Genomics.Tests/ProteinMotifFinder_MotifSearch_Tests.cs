@@ -128,10 +128,15 @@ public class ProteinMotifFinder_MotifSearch_Tests
 
         Assert.That(glycoMatches, Has.Count.EqualTo(1),
             "Should find exactly one N-glycosylation site (NFTA) per PS00001");
-        Assert.That(glycoMatches[0].Start, Is.EqualTo(4),
-            "N-glycosylation match should start at position 4 (the N)");
-        Assert.That(glycoMatches[0].Sequence, Does.StartWith("N"),
-            "Matched sequence should start with N (asparagine)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(glycoMatches[0].Start, Is.EqualTo(4),
+                "N-glycosylation match starts at position 4 (the N)");
+            Assert.That(glycoMatches[0].End, Is.EqualTo(7),
+                "N-glycosylation match ends at position 7 (4-char pattern N-{P}-[ST]-{P})");
+            Assert.That(glycoMatches[0].Sequence, Is.EqualTo("NFTA"),
+                "Matched sequence should be NFTA: N(Asn), F(not Pro), T(Ser/Thr), A(not Pro)");
+        });
     }
 
     #endregion
@@ -166,10 +171,15 @@ public class ProteinMotifFinder_MotifSearch_Tests
         var pkcMatches = motifs.Where(m =>
             m.MotifName == "PKC_PHOSPHO_SITE").ToList();
 
-        Assert.That(pkcMatches, Has.Count.GreaterThanOrEqualTo(1),
-            "Should find at least one PKC phosphorylation site (SAR) per PS00005");
-        Assert.That(pkcMatches.Any(m => m.Sequence.Length == 3),
-            Is.True, "PKC match should be 3 residues long: [ST]-x-[RK]");
+        Assert.That(pkcMatches, Has.Count.EqualTo(1),
+            "Should find exactly one PKC phosphorylation site per PS00005: S(5)-A(6)-R(7)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pkcMatches[0].Start, Is.EqualTo(5), "PKC match starts at position 5 (Ser)");
+            Assert.That(pkcMatches[0].End, Is.EqualTo(7), "PKC match ends at position 7 (Arg)");
+            Assert.That(pkcMatches[0].Sequence, Is.EqualTo("SAR"),
+                "PKC match sequence is SAR: [ST]=S, x=A, [RK]=R");
+        });
     }
 
     #endregion
@@ -186,10 +196,19 @@ public class ProteinMotifFinder_MotifSearch_Tests
         var ck2Matches = motifs.Where(m =>
             m.MotifName == "CK2_PHOSPHO_SITE").ToList();
 
-        Assert.That(ck2Matches, Has.Count.GreaterThanOrEqualTo(1),
-            "Should find at least one CK2 phosphorylation site per PS00006");
-        Assert.That(ck2Matches.Any(m => m.Sequence.Length == 4),
-            Is.True, "CK2 match should be 4 residues long: [ST]-x(2)-[DE]");
+        Assert.That(ck2Matches, Has.Count.EqualTo(2),
+            "Should find exactly 2 CK2 phosphorylation sites per PS00006");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ck2Matches[0].Start, Is.EqualTo(4), "First CK2 match starts at position 4 (Ser)");
+            Assert.That(ck2Matches[0].End, Is.EqualTo(7), "First CK2 match ends at position 7 (Glu)");
+            Assert.That(ck2Matches[0].Sequence, Is.EqualTo("SAAE"),
+                "First CK2: [ST]=S, x(2)=AA, [DE]=E");
+            Assert.That(ck2Matches[1].Start, Is.EqualTo(9), "Second CK2 match starts at position 9 (Ser)");
+            Assert.That(ck2Matches[1].End, Is.EqualTo(12), "Second CK2 match ends at position 12 (Asp)");
+            Assert.That(ck2Matches[1].Sequence, Is.EqualTo("SDED"),
+                "Second CK2: [ST]=S, x(2)=DE, [DE]=D");
+        });
     }
 
     #endregion
@@ -206,10 +225,15 @@ public class ProteinMotifFinder_MotifSearch_Tests
         var pLoopMatches = motifs.Where(m =>
             m.MotifName == "ATP_GTP_A").ToList();
 
-        Assert.That(pLoopMatches, Has.Count.GreaterThanOrEqualTo(1),
-            "Should find at least one P-loop (ATP/GTP-binding) site per PS00017");
-        Assert.That(pLoopMatches[0].Sequence.Length, Is.EqualTo(8),
-            "P-loop match should be 8 residues long: [AG]-x(4)-G-K-[ST]");
+        Assert.That(pLoopMatches, Has.Count.EqualTo(1),
+            "Should find exactly one P-loop (ATP/GTP-binding) site per PS00017");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pLoopMatches[0].Start, Is.EqualTo(5), "P-loop match starts at position 5 (Gly)");
+            Assert.That(pLoopMatches[0].End, Is.EqualTo(12), "P-loop match ends at position 12 (Ser)");
+            Assert.That(pLoopMatches[0].Sequence, Is.EqualTo("GXXXXGKS"),
+                "P-loop: [AG]=G, x(4)=XXXX, G=G, K=K, [ST]=S");
+        });
     }
 
     #endregion
@@ -313,7 +337,7 @@ public class ProteinMotifFinder_MotifSearch_Tests
         // [RK]-x(2)-[DE]-x(3)-Y = 1+2+1+3+1 = 8 residues
         const int expectedMatchLength = 8;
         const string protein = "AAARAAEDDDYAAAA";
-        var matches = FindMotifByPattern(protein, Ps00007Regex, "TYR_PHOSPHO_SITE").ToList();
+        var matches = FindMotifByPattern(protein, Ps00007Regex, "TYR_PHOSPHO_SITE_1").ToList();
 
         Assert.That(matches, Has.Count.EqualTo(1),
             "Should find exactly one PS00007 match in RAAEDDDY");
@@ -504,14 +528,29 @@ public class ProteinMotifFinder_MotifSearch_Tests
     [Test]
     public void FindCommonMotifs_MultiplePatterns_ReturnsMultipleMotifTypes()
     {
-        // Sequence containing N-glycosylation (NFTA), PKC (SAR[K]), RGD, and P-loop
+        // Sequence designed to contain exactly 4 motif types:
+        //   N-glycosylation: NFTA at pos 0 (PS00001)
+        //   PKC: SAR at pos 4 (PS00005)
+        //   RGD: RGD at pos 8 (PS00016)
+        //   P-loop: GXXXXGKS at pos 12 (PS00017)
         const string protein = "NFTASARKRGDAGXXXXGKS";
         var motifs = FindCommonMotifs(protein).ToList();
 
-        var motifNames = motifs.Select(m => m.MotifName).Distinct().ToList();
+        var motifNames = motifs.Select(m => m.MotifName).Distinct().OrderBy(n => n).ToList();
 
-        Assert.That(motifNames.Count, Is.GreaterThanOrEqualTo(2),
-            "Multiple motif types should be detected in a sequence with diverse sites");
+        Assert.That(motifNames, Has.Count.EqualTo(4),
+            "Should detect exactly 4 distinct motif types");
+        Assert.Multiple(() =>
+        {
+            Assert.That(motifNames, Does.Contain("ASN_GLYCOSYLATION"),
+                "N-glycosylation: NFTA at pos 0");
+            Assert.That(motifNames, Does.Contain("PKC_PHOSPHO_SITE"),
+                "PKC phosphorylation: SAR at pos 4");
+            Assert.That(motifNames, Does.Contain("RGD"),
+                "Cell attachment: RGD at pos 8");
+            Assert.That(motifNames, Does.Contain("ATP_GTP_A"),
+                "P-loop: GXXXXGKS at pos 12");
+        });
     }
 
     #endregion
@@ -602,15 +641,16 @@ public class ProteinMotifFinder_MotifSearch_Tests
     [Test]
     public void CommonMotifs_NLS1_MatchesChelskysConsensus()
     {
-        // NLS monopartite consensus: K-K/R-X-K/R (Dingwall & Laskey 1991)
+        // NLS monopartite consensus: K-K/R-X-K/R (Chelsky et al. 1989; Dingwall & Laskey 1991)
+        // Position 1 is K only per Chelsky consensus
         var nls = CommonMotifs["NLS1"];
 
         Assert.Multiple(() =>
         {
-            Assert.That(nls.Pattern, Is.EqualTo("[KR]-[KR]-x-[KR]"),
-                "NLS1 pattern should match Chelsky consensus K-K/R-X-K/R");
-            Assert.That(nls.RegexPattern, Is.EqualTo(@"[KR][KR].[KR]"),
-                "NLS1 regex should match [KR][KR].[KR]");
+            Assert.That(nls.Pattern, Is.EqualTo("K-[KR]-x-[KR]"),
+                "NLS1 pattern should match Chelsky consensus K-K/R-X-K/R (K at position 1)");
+            Assert.That(nls.RegexPattern, Is.EqualTo(@"K[KR].[KR]"),
+                "NLS1 regex should match K[KR].[KR]");
         });
 
         // Verify it matches a canonical NLS: KKKR
@@ -623,10 +663,11 @@ public class ProteinMotifFinder_MotifSearch_Tests
     public void CommonMotifs_NES1_MatchesLaCourConsensus()
     {
         // NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 (la Cour et al. 2004)
+        // All Φ positions: [LIVFM] per paper definition
         var nes = CommonMotifs["NES1"];
 
-        Assert.That(nes.Pattern, Is.EqualTo("L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]"),
-            "NES1 pattern should follow la Cour et al. 2004 NES consensus");
+        Assert.That(nes.Pattern, Is.EqualTo("[LIVFM]-x(2,3)-[LIVFM]-x(2,3)-[LIVFM]-x-[LIVFM]"),
+            "NES1 pattern should follow la Cour et al. 2004 NES consensus with full Φ set");
 
         // Verify with canonical NES: LAAILAALALI
         var matches = FindMotifByPattern("AAALAALAALALI", nes.RegexPattern, nes.Name).ToList();
@@ -699,8 +740,8 @@ public class ProteinMotifFinder_MotifSearch_Tests
         // Comprehensive verification: all 5 non-PROSITE entries present with source-verified patterns
         var expected = new Dictionary<string, (string Pattern, string Regex)>
         {
-            ["NLS1"] = ("[KR]-[KR]-x-[KR]", @"[KR][KR].[KR]"),
-            ["NES1"] = ("L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]", @"L.{2,3}[LIVFM].{2,3}L.[LI]"),
+            ["NLS1"] = ("K-[KR]-x-[KR]", @"K[KR].[KR]"),
+            ["NES1"] = ("[LIVFM]-x(2,3)-[LIVFM]-x(2,3)-[LIVFM]-x-[LIVFM]", @"[LIVFM].{2,3}[LIVFM].{2,3}[LIVFM].[LIVFM]"),
             ["SIM1"] = ("[VIL]-x-[VIL]-[VIL]", @"[VIL].[VIL][VIL]"),
             ["WW1"] = ("P-P-x-Y", @"PP.Y"),
             ["SH3_1"] = ("[RK]-x(2)-P-x(2)-P", @"[RK].{2}P.{2}P"),

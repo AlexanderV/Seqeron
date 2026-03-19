@@ -49,6 +49,17 @@
       MotifName: MYRISTYL
     },
     {
+      End: 10,
+      Sequence: MKTLLLTLVVV,
+      MotifName: NES
+    },
+    {
+      Start: 3,
+      End: 12,
+      Sequence: LLLTLVVVTL,
+      MotifName: NES
+    },
+    {
       Start: 4,
       End: 14,
       Sequence: LLTLVVVTLVL,

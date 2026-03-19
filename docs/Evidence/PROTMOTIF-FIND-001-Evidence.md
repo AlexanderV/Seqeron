@@ -113,8 +113,8 @@
 |-----------|-------|
 | Correct regex | `[RK].{2}[DE].{3}Y` |
 | Implementation (wrong) regex | `[RK].{2,3}[DE].{2,3}Y` |
-| Test sequence | `RAAEDDDDY` (9 chars: R + 2 any + E + 3 any + Y) |
-| Expected match | `RAAEDDDDY` (correct: matches with exact counts) |
+| Test sequence | `RAAEDDDY` (8 chars: R + 2 any + E + 3 any + Y) |
+| Expected match | `RAAEDDDY` (correct: matches with exact counts) |
 
 ### Dataset 4: PS00018 (EF-hand) pattern correction verification
 
@@ -135,8 +135,8 @@ All non-PROSITE patterns in the `CommonMotifs` dictionary are verified against p
 
 | ID | Pattern | Consensus Source | Reference |
 |----|---------|-----------------|-----------|
-| NLS1 | `[KR]-[KR]-x-[KR]` | Chelsky monopartite NLS: K-K/R-X-K/R | Dingwall C, Laskey RA (1991). Trends Biochem Sci 16:478-481 |
-| NES1 | `L-x(2,3)-[LIVFM]-x(2,3)-L-x-[LI]` | la Cour NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 (L-enriched form) | la Cour T et al. (2004). Nucleic Acids Res 32:W142-5 |
+| NLS1 | `K-[KR]-x-[KR]` | Chelsky monopartite NLS: K-K/R-X-K/R (K at position 1) | Chelsky D et al. (1989); Dingwall C, Laskey RA (1991). Trends Biochem Sci 16:478-481 |
+| NES1 | `[LIVFM]-x(2,3)-[LIVFM]-x(2,3)-[LIVFM]-x-[LIVFM]` | la Cour NES consensus: Φ1-x(2,3)-Φ2-x(2,3)-Φ3-x-Φ4 where Φ={L,I,V,F,M} | la Cour T et al. (2004). Protein Eng Des Sel 17:527-536 |
 | SIM1 | `[VIL]-x-[VIL]-[VIL]` | SIM type b: Ψ-x-Ψ-Ψ where Ψ = V/I/L | Hecker CM et al. (2006). JBC 281:16117-16127 |
 | WW1 | `P-P-x-Y` | PPxY consensus for WW domain binding | Chen HI, Sudol M (1995). PNAS 92:7819-7823 |
 | SH3_1 | `[RK]-x(2)-P-x(2)-P` | SH3 Class I consensus: +xxPxxP where + = R/K | Mayer BJ (2001). J Cell Sci 114:1253-1263 |
@@ -201,7 +201,7 @@ Scoring uses information content (IC) per Schneider & Stephens (1990):
 22. Chen HI, Sudol M (1995). "The WW domain of Yes-associated protein binds a proline-rich ligand that differs from the consensus established for Src homology 3-binding modules." PNAS 92:7819-7823.
 23. Mayer BJ (2001). "SH3 domains: complexity in moderation." J Cell Sci 114:1253-1263.
 24. Schneider TD, Stephens RM (1990). "Sequence logos: a new way to display consensus sequences." Nucleic Acids Res 18:6097-6100.
-25. Altschul SF, Gish W, Miller W, et al. (1990). "Basic Local Alignment Search Tool." J Mol Biol 215:403-410.
+25. ~~Altschul SF, Gish W, Miller W, et al. (1990). "Basic Local Alignment Search Tool." J Mol Biol 215:403-410.~~ Removed: E-value formula uses direct combinatorial probability under IC (Schneider & Stephens 1990), not BLAST statistics.
 
 ---
 
