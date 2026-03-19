@@ -421,6 +421,17 @@ public static class ProteinMotifFinder
             double hScore = ScoreHydrophobicRegion(hRegion);
             double cScore = ScoreCRegion(cRegion);
 
+            // N-region must contain positive charge — von Heijne (1986):
+            // "1–5 residues, positively charged (Lys, Arg)".
+            if (nScore <= 0)
+                continue;
+
+            // H-region must be predominantly hydrophobic — von Heijne (1985)
+            // J Mol Biol 184:99–105: hydrophobic core is "both necessary and
+            // sufficient for membrane targeting".
+            if (hScore < 0.5)
+                continue;
+
             // Weighted mean with 1:2:1 ratio (n:h:c).
             // H-region receives double weight: "both necessary and sufficient
             // for membrane targeting" — von Heijne (1985) J Mol Biol 184:99–105.
@@ -436,7 +447,7 @@ public static class ProteinMotifFinder
             }
         }
 
-        if (bestCleavage < 0 || bestScore < 0.4)
+        if (bestCleavage < 0)
             return null;
 
         return new SignalPeptide(

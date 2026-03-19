@@ -5,7 +5,7 @@
 **Algorithm:** Domain Prediction & Signal Peptide Prediction
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-02-13
+**Last Updated:** 2026-03-19
 
 ---
 
@@ -96,6 +96,7 @@
 | M12 | PredictSignalPeptide_EmptyInput | Empty string | Returns null | Trivial |
 | M13 | PredictSignalPeptide_CaseInsensitive | Upper and lower case same sequence produce identical results | signalLower == signalUpper | Convention |
 | M14 | PredictSignalPeptide_ScoreAndProbabilityInRange | Score ∈ (0,1], Probability = Score | INV-7, INV-8 | Scoring formula |
+| M15 | PredictSignalPeptide_RejectsThreonineAtMinusThree | Sequence with T at -3 for only cleavage candidate | Returns null | von Heijne (1983) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -105,8 +106,8 @@
 | S2 | FindDomains_SH3Domain | SH3 signature match | Domain detected | Pfam PF00018 |
 | S3 | FindDomains_PDZDomain | PDZ pattern match | Domain detected | Pfam PF00595 |
 | S4 | FindDomains_NoMatchingDomains | Random/short sequence | Empty result | Design |
-| S5 | PredictSignalPeptide_CleavagePositionRange | Cleavage ∈ [15, 35] | Within bounds | Implementation |
-| S6 | PredictSignalPeptide_HRegionMinLength | H-region must be ≥ 7 aa | Verified in result | von Heijne (1985) |
+| S5 | PredictSignalPeptide_CleavagePositionRange | Cleavage ∈ [15, 35] on AlternateSignalPeptide | Exact cleavage=18, within bounds | Implementation |
+| S6 | PredictSignalPeptide_HRegionMinLength | H-region must be ≥ 7 aa on AlternateSignalPeptide | Exact length=8, ≥ 7 | von Heijne (1985) |
 | S7 | FindDomains_CaseInsensitive | Upper and lower case produce identical domains | domainsLower == domainsUpper | INV-10, Convention |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -133,7 +134,7 @@
 | M2: FindDomains_WalkerA (P-loop) | ✅ Covered | Exact values, assertion messages, evidence citations |
 | M3: FindDomains_EmptySequence | ✅ Covered | Assertion message |
 | M4: FindDomains_NullSequence | ✅ Covered | Implemented |
-| M5: FindDomains_DomainMetadata | ✅ Covered | Verifies Name, Accession, Description, Score |
+| M5: FindDomains_DomainMetadata | ✅ Covered | Verifies Name, Accession, Description, Score across all 5 domain types |
 | M6: FindDomains_StartLessOrEqualEnd | ✅ Covered | Invariant over all 5 domain pattern types |
 | M7: PredictSignalPeptide_TripartiteStructure | ✅ Covered | Exact score ±1e-10, explicit region values |
 | M8: PredictSignalPeptide_MinusOneMinusThreeRule | ✅ Covered | Verifies -1,-3 positions ∈ {A,G,S} |
@@ -143,14 +144,15 @@
 | M12: PredictSignalPeptide_EmptyInput | ✅ Covered | Implemented |
 | M13: PredictSignalPeptide_CaseInsensitive | ✅ Covered | Tolerance ±1e-10 for identical computations |
 | M14: PredictSignalPeptide_ScoreRange | ✅ Covered | Range (0,1] + Probability == Score (INV-8) |
+| M15: PredictSignalPeptide_RejectsThreonine | ✅ Covered | T at -3 rejected; strict {A,G,S} per von Heijne (1983) |
 | S1: FindDomains_WD40 | ✅ Covered | Exact position and name |
 | S2: FindDomains_SH3 | ✅ Covered | Exact position and name |
 | S3: FindDomains_PDZ | ✅ Covered | Exact position and name |
 | S4: FindDomains_NoMatch | ✅ Covered | Short random peptide |
-| S5: PredictSignalPeptide_CleavageRange | ✅ Covered | Invariant [15, 35] |
-| S6: PredictSignalPeptide_HRegionMinLength | ✅ Covered | ≥ 7 aa per von Heijne (1985) |
+| S5: PredictSignalPeptide_CleavageRange | ✅ Covered | AlternateSignalPeptide, exact cleavage=18, INV-6 [15,35] |
+| S6: PredictSignalPeptide_HRegionMinLength | ✅ Covered | AlternateSignalPeptide, exact length=8, INV-11 ≥ 7 |
 | S7: FindDomains_CaseInsensitive | ✅ Covered | Upper/lower identical (INV-10) |
 | C1: FindDomains_MultipleDomainTypes | ✅ Covered | Both zinc finger and kinase |
 | C2: PredictSignalPeptide_MaxLengthParameter | ✅ Covered | Restricts search range |
 
-**Total: 23 tests — all passing (0 failures, 0 warnings)**
+**Total: 24 tests — all passing (0 failures, 0 warnings)**

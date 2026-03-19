@@ -91,6 +91,22 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     // Source: von Heijne (1983) Eur J Biochem 133:17–21 — {A, G, S}
     private static readonly HashSet<char> SmallAminoAcids = new("AGS");
 
+    // --- Alternate Signal Peptide (independent from ClassicSignalPeptide for invariant tests) ---
+    // M + K (n-region, 1 positive charge) + 12×L (h-region) + ASAG (c-region) + mature
+    // Cleavage=18: nRegion="MKLLL", hRegion=8×L, cRegion="LASAG"
+    // nScore=min(1.0, 1×0.5)=0.5, hScore=8/8=1.0, cScore=4/5=0.8
+    // Total=(0.5+2×1.0+0.8)/4.0=0.825
+    private const string AlternateSignalPeptide = "MKLLLLLLLLLLLLASAGDDDDDDDDDDDDD";
+    private const int AlternateSignalExpectedCleavage = 18;
+    private const double AlternateSignalExpectedScore = 0.825;
+
+    // --- Threonine at -3: strict {A,G,S} enforcement test ---
+    // M + K + 18×L + TTA + 11×D = 34 chars
+    // At cleavage=23: -3=T(20), -1=A(22). T ∉ {A,G,S} → rejected by strict rule.
+    // With relaxed {A,G,S,T}: would detect signal (score≈0.775) — false positive.
+    // Source: von Heijne (1983) — canonical {A, G, S} only.
+    private const string ThreonineMinusThreeSequence = "MKLLLLLLLLLLLLLLLLLLTTADDDDDDDDDDD";
+
     #endregion
 
     #region MUST: FindDomains Tests
@@ -166,27 +182,34 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     /// <summary>
     /// M5: Every returned domain has non-empty Name, Accession, and Description.
     /// Evidence: Pfam domain families require metadata — PF00096, PF00069, PF00400, PF00018, PF00595
+    /// Verifies all 5 domain pattern types, not just one.
     /// </summary>
     [Test]
     public void FindDomains_DomainMetadata_HasCorrectFields()
     {
-        // Use zinc finger sequence as representative
-        var domains = FindDomains(ZincFingerSequence).ToList();
+        // INV-2: Verify metadata across all 5 domain pattern types
+        var testSequences = new[] { ZincFingerSequence, KinaseSequence, Wd40Sequence, Sh3Sequence, PdzSequence };
 
-        Assert.That(domains, Is.Not.Empty, "At least one domain must be found for metadata verification");
-        foreach (var domain in domains)
+        foreach (var sequence in testSequences)
         {
-            Assert.Multiple(() =>
+            var domains = FindDomains(sequence).ToList();
+            Assert.That(domains, Is.Not.Empty,
+                $"At least one domain must be found in '{sequence[..Math.Min(20, sequence.Length)]}...'");
+
+            foreach (var domain in domains)
             {
-                Assert.That(domain.Name, Is.Not.Null.And.Not.Empty,
-                    $"Domain at {domain.Start}-{domain.End}: Name must not be null or empty");
-                Assert.That(domain.Accession, Is.Not.Null.And.Not.Empty,
-                    $"Domain at {domain.Start}-{domain.End}: Accession must not be null or empty");
-                Assert.That(domain.Description, Is.Not.Null.And.Not.Empty,
-                    $"Domain at {domain.Start}-{domain.End}: Description must not be null or empty");
-                Assert.That(domain.Score, Is.GreaterThan(0),
-                    $"Domain at {domain.Start}-{domain.End}: Score must be positive");
-            });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(domain.Name, Is.Not.Null.And.Not.Empty,
+                        $"Domain at {domain.Start}-{domain.End}: Name must not be null or empty");
+                    Assert.That(domain.Accession, Is.Not.Null.And.Not.Empty,
+                        $"Domain at {domain.Start}-{domain.End}: Accession must not be null or empty");
+                    Assert.That(domain.Description, Is.Not.Null.And.Not.Empty,
+                        $"Domain at {domain.Start}-{domain.End}: Description must not be null or empty");
+                    Assert.That(domain.Score, Is.GreaterThan(0),
+                        $"Domain at {domain.Start}-{domain.End}: Score must be positive");
+                });
+            }
         }
     }
 
@@ -362,6 +385,21 @@ public class ProteinMotifFinder_DomainPrediction_Tests
         });
     }
 
+    /// <summary>
+    /// M15: Threonine at position -3 must be rejected — strict {A, G, S} enforcement.
+    /// Evidence: von Heijne (1983) Eur J Biochem 133:17–21 — canonical set is {A, G, S} only.
+    /// Sequence has T at -3 for the only candidate cleavage site (pos 23).
+    /// With relaxed {A,G,S,T}: would detect signal (score ≈ 0.775) — false positive.
+    /// </summary>
+    [Test]
+    public void PredictSignalPeptide_RejectsThreonineAtMinusThree()
+    {
+        var signal = PredictSignalPeptide(ThreonineMinusThreeSequence);
+
+        Assert.That(signal, Is.Null,
+            "Threonine at position -3 must be rejected — von Heijne (1983) strictly requires {A, G, S}");
+    }
+
     #endregion
 
     #region SHOULD: FindDomains Tests
@@ -480,31 +518,38 @@ public class ProteinMotifFinder_DomainPrediction_Tests
 
     /// <summary>
     /// S5: INV-6 — Cleavage position is within the search range [15, 35].
+    /// Uses AlternateSignalPeptide (independent from M7's ClassicSignalPeptide).
     /// Evidence: Implementation scans cleavage sites from position 15 to min(35, searchLength).
     /// </summary>
     [Test]
     public void PredictSignalPeptide_CleavagePositionRange()
     {
-        var signal = PredictSignalPeptide(ClassicSignalPeptide);
+        var signal = PredictSignalPeptide(AlternateSignalPeptide);
 
-        Assert.That(signal, Is.Not.Null, "Signal must be detected to verify cleavage range");
+        Assert.That(signal, Is.Not.Null, "Alternate signal must be detected to verify cleavage range");
         Assert.That(signal!.Value.CleavagePosition,
+            Is.EqualTo(AlternateSignalExpectedCleavage),
+            "Cleavage at position 18 — best score for MK + 12L + ASAG structure");
+        Assert.That(signal.Value.CleavagePosition,
             Is.InRange(15, 35),
-            "Cleavage position must be within implementation search range [15, 35]");
+            "INV-6: Cleavage position must be within search range [15, 35]");
     }
 
     /// <summary>
     /// S6: H-region must be at least 7 amino acids.
+    /// Uses AlternateSignalPeptide (independent from M7's ClassicSignalPeptide).
     /// Evidence: von Heijne (1985) J Mol Biol 184:99–105 — h-region is 7–15 residues.
     /// </summary>
     [Test]
     public void PredictSignalPeptide_HRegionMinLength()
     {
-        var signal = PredictSignalPeptide(ClassicSignalPeptide);
+        var signal = PredictSignalPeptide(AlternateSignalPeptide);
 
-        Assert.That(signal, Is.Not.Null, "Signal must be detected to verify H-region length");
-        Assert.That(signal!.Value.HRegion.Length, Is.GreaterThanOrEqualTo(7),
-            "H-region must be ≥ 7 aa per von Heijne (1985)");
+        Assert.That(signal, Is.Not.Null, "Alternate signal must be detected to verify H-region length");
+        Assert.That(signal!.Value.HRegion.Length, Is.EqualTo(8),
+            "H-region exactly 8 L's for alternate signal peptide (MK + 12L h/c split)");
+        Assert.That(signal.Value.HRegion.Length, Is.GreaterThanOrEqualTo(7),
+            "INV-11: H-region must be ≥ 7 aa per von Heijne (1985)");
     }
 
     #endregion
