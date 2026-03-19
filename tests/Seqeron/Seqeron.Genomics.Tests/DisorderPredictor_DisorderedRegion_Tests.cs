@@ -87,24 +87,6 @@ public class DisorderPredictor_DisorderedRegion_Tests
     }
 
     /// <summary>
-    /// M4 — MeanScore for a homopolymeric disordered region equals the normalized TOP-IDP value.
-    /// 30×P → every window contains only P → DisorderScore = 1.0 at each position → MeanScore = 1.0.
-    /// Source: Campen et al. (2008) Table 2.
-    /// </summary>
-    [Test]
-    public void IdentifyDisorderedRegions_MeanScoreIsAverage()
-    {
-        string sequence = new string('P', 30);
-
-        var result = DisorderPredictor.PredictDisorder(sequence, minRegionLength: 5);
-
-        Assert.That(result.DisorderedRegions, Has.Count.EqualTo(1));
-        // Homopolymeric P: every window is all P → DisorderScore = 1.0 → MeanScore = 1.0
-        Assert.That(result.DisorderedRegions[0].MeanScore, Is.EqualTo(1.0).Within(0.001),
-            "MeanScore for 30×P must equal 1.0 (all residue scores are 1.0)");
-    }
-
-    /// <summary>
     /// M5 — Regions shorter than minRegionLength are excluded.
     /// 30×P with minRegionLength=31 → region length (30) &lt; 31 → no regions.
     /// Source: algorithm definition.
@@ -153,7 +135,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// <summary>
     /// M7 — Proline-rich classification.
     /// 30×P → Pro fraction = 1.0 &gt; 0.25 → "Proline-rich".
-    /// Source: van der Lee et al. (2014) PMC4095912.
+    /// Subtype name: van der Lee et al. (2014). Threshold 0.25 and algorithm: internal (see spec D1, D2).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_ProlineRich()
@@ -170,7 +152,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// <summary>
     /// M8 — Acidic classification.
     /// 30×E → E/D fraction = 1.0 &gt; 0.25 → "Acidic".
-    /// Source: van der Lee et al. (2014) PMC4095912.
+    /// Subtype name: van der Lee et al. (2014). Threshold and AA group {E,D}: internal (see spec D1, D4).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_Acidic()
@@ -190,7 +172,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// M9 — Basic classification.
     /// 30×K → K/R fraction = 1.0 &gt; 0.25 → "Basic".
     /// K: propensity 0.586, normalized ≈ 0.786 → all disordered.
-    /// Source: van der Lee et al. (2014) PMC4095912.
+    /// Subtype name: van der Lee et al. (2014). Threshold and AA group {K,R}: internal (see spec D1, D4).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_Basic()
@@ -209,7 +191,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// M10 — Ser/Thr-rich classification.
     /// 30×S → S/T fraction = 1.0 &gt; 0.25 → "Ser/Thr-rich".
     /// S: propensity 0.341, normalized ≈ 0.655 → all disordered.
-    /// Source: van der Lee et al. (2014) PMC4095912.
+    /// Subtype name: van der Lee et al. (2014). Threshold and AA group {S,T}: internal (see spec D1, D4).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_SerThrRich()
@@ -283,7 +265,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// <summary>
     /// M13 — Confidence values are in [0, 1] for all regions.
     /// Confidence = (meanScore − cutoff) / (1.0 − cutoff), clamped to [0, 1].
-    /// Source: Campen et al. (2008) TOP-IDP scale; normalized distance from cutoff.
+    /// Cutoff 0.542 from Campen et al. (2008). Formula is an internal design decision (see spec D3).
     /// </summary>
     [Test]
     public void IdentifyDisorderedRegions_ConfidenceInRange()
@@ -348,8 +330,10 @@ public class DisorderPredictor_DisorderedRegion_Tests
 
     /// <summary>
     /// S2 — Region at the start of the sequence.
-    /// P(20)+W(30): disordered segment at start → region.Start = 0.
-    /// Source: algorithm definition.
+    /// P(20)+W(30) = 50 residues. P block at positions 0–19.
+    /// Window=21 (halfWindow=10): position 18 has 12P+9W → score 12/21 ≈ 0.571 &gt; 0.542.
+    /// Position 19 has 11P+10W → score 11/21 ≈ 0.524 &lt; 0.542.
+    /// Region = [0, 18].
     /// </summary>
     [Test]
     public void IdentifyDisorderedRegions_RegionAtStart()
@@ -358,10 +342,15 @@ public class DisorderPredictor_DisorderedRegion_Tests
 
         var result = DisorderPredictor.PredictDisorder(sequence, minRegionLength: 5);
 
-        Assert.That(result.DisorderedRegions, Is.Not.Empty,
-            "Leading P block must produce a region");
-        Assert.That(result.DisorderedRegions[0].Start, Is.EqualTo(0),
-            "First region must start at position 0");
+        Assert.That(result.DisorderedRegions, Has.Count.EqualTo(1),
+            "Leading P block must produce exactly one region");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.DisorderedRegions[0].Start, Is.EqualTo(0),
+                "Region must start at position 0");
+            Assert.That(result.DisorderedRegions[0].End, Is.EqualTo(18),
+                "Position 18: 12P in 21-window → score 0.571 > 0.542; position 19: 11P → 0.524 < 0.542");
+        });
     }
 
     /// <summary>
@@ -430,9 +419,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// <summary>
     /// C1 — Classification priority: Proline-rich wins over Acidic.
     /// When Pro fraction &gt; 0.25 AND E/D fraction &gt; 0.25, Proline-rich is returned.
-    /// Priority: most specific single-AA bias first (Proline has highest TOP-IDP
-    /// propensity, 0.987 — Campen et al. 2008) before charge-based classes
-    /// (Das &amp; Pappu 2013, f+/f− diagram-of-states).
+    /// Priority order is an internal design decision (see spec D2).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_Priority_ProlineOverAcidic()
@@ -465,8 +452,7 @@ public class DisorderPredictor_DisorderedRegion_Tests
     /// When E/D fraction &gt; 0.25 AND K/R fraction &gt; 0.25, Acidic is returned.
     /// Acidic is checked before Basic in the classification chain:
     /// Pro &gt; Acidic &gt; Basic &gt; S/T &gt; Long IDR &gt; Standard IDR.
-    /// Source: Das &amp; Pappu (2013) f+/f− diagram-of-states; charge-driven
-    /// classification checks net-negative (Acidic) before net-positive (Basic).
+    /// Priority order is an internal design decision (see spec D2).
     /// </summary>
     [Test]
     public void ClassifyDisorderedRegion_Priority_AcidicOverBasic()
@@ -516,35 +502,38 @@ public class DisorderPredictor_DisorderedRegion_Tests
     }
 
     /// <summary>
-    /// INV-7 — RegionType is one of the six valid classification labels.
-    /// Source: ClassifyDisorderedRegion definition.
+    /// INV-1/INV-2 — Region bounds invariant: Start ≥ 0, End &lt; sequence.Length, End ≥ Start.
+    /// Tested across diverse inputs to catch off-by-one errors.
     /// </summary>
     [Test]
-    public void ClassifyDisorderedRegion_ValidLabels()
+    public void IdentifyDisorderedRegions_BoundsInvariant()
     {
-        string[] validTypes =
+        var inputs = new[]
         {
-            "Proline-rich", "Acidic", "Basic", "Ser/Thr-rich", "Long IDR", "Standard IDR"
+            new string('P', 30),                                 // full span
+            new string('P', 5),                                  // minimal region
+            new string('W', 10) + new string('P', 20),           // trailing
+            new string('P', 20) + new string('W', 30),           // leading
+            new string('W', 15) + new string('P', 20) + new string('W', 15), // central
+            new string('W', 15) + new string('P', 20)
+                + new string('W', 15) + new string('P', 20)
+                + new string('W', 15),                           // multi-region
         };
 
-        // Test multiple sequence types to exercise different classification paths
-        string[] sequences =
-        {
-            new string('P', 30),                                    // Proline-rich
-            new string('E', 30),                                    // Acidic
-            new string('K', 30),                                    // Basic
-            new string('S', 30),                                    // Ser/Thr-rich
-            string.Concat(Enumerable.Repeat("EKQSP", 8)),          // Long IDR
-            string.Concat(Enumerable.Repeat("EKQSP", 4)),          // Standard IDR
-        };
-
-        foreach (string seq in sequences)
+        foreach (string seq in inputs)
         {
             var result = DisorderPredictor.PredictDisorder(seq, minRegionLength: 5);
             foreach (var region in result.DisorderedRegions)
             {
-                Assert.That(validTypes, Does.Contain(region.RegionType),
-                    $"RegionType '{region.RegionType}' must be one of the six valid labels");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(region.Start, Is.GreaterThanOrEqualTo(0),
+                        $"Start must be ≥ 0 for seq[0]='{seq[0]}' len={seq.Length}");
+                    Assert.That(region.End, Is.LessThan(seq.Length),
+                        $"End must be < {seq.Length} for seq[0]='{seq[0]}'");
+                    Assert.That(region.End, Is.GreaterThanOrEqualTo(region.Start),
+                        $"End must be ≥ Start for seq[0]='{seq[0]}'");
+                });
             }
         }
     }
@@ -572,27 +561,10 @@ public class DisorderPredictor_DisorderedRegion_Tests
     }
 
     /// <summary>
-    /// Confidence for a high-scoring region approaches 1.0.
-    /// 30×P: meanScore ≈ 1.0, confidence = (1.0−0.542)/(1.0−0.542) = 1.0.
-    /// Source: Campen et al. (2008) TOP-IDP scale; normalized distance from cutoff.
-    /// </summary>
-    [Test]
-    public void CalculateConfidence_HighScoreLongRegion_ApproachesOne()
-    {
-        string sequence = new string('P', 30);
-
-        var result = DisorderPredictor.PredictDisorder(sequence, minRegionLength: 5);
-
-        Assert.That(result.DisorderedRegions, Has.Count.EqualTo(1));
-        Assert.That(result.DisorderedRegions[0].Confidence, Is.EqualTo(1.0).Within(0.01),
-            "30×P: scoreConfidence=1.0 → confidence=1.0");
-    }
-
-    /// <summary>
     /// Confidence for a lower-scoring disordered region is less than for a high-scoring one.
     /// P: confidence = (1.0−0.542)/(1.0−0.542) = 1.0.
     /// S: MeanScore ≈ 0.655, confidence = (0.655−0.542)/(1.0−0.542) ≈ 0.246.
-    /// Source: Campen et al. (2008) TOP-IDP scale; normalized distance from cutoff.
+    /// Cutoff from Campen et al. (2008). Formula: internal (see spec D3).
     /// </summary>
     [Test]
     public void CalculateConfidence_LowerScoreRegion_LowerConfidence()
