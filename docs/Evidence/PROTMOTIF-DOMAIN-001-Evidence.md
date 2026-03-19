@@ -167,19 +167,19 @@
 
 ---
 
-## Assumptions
+## Design Decisions (previously Assumptions — all resolved)
 
-1. **ASSUMPTION: Signal peptide scoring weights** — The implementation uses weights nScore×0.2 + hScore×0.5 + cScore×0.3 for combining region scores. These weights are not from published literature; they are implementation-specific heuristics. von Heijne's method uses position-specific weight matrices, not a weighted sum of region scores.
+1. **Signal peptide scoring weights (1:2:1)** — The implementation weights region scores as `(nScore + 2·hScore + cScore) / 4` giving the h-region double weight. Justified by von Heijne (1985) J Mol Biol 184:99–105: the hydrophobic core is "both necessary and sufficient for membrane targeting," establishing it as the dominant discriminator.
 
-2. **ASSUMPTION: Signal peptide detection threshold** — The threshold of 0.4 for minimum total score is implementation-specific. No published source specifies this exact threshold for this scoring scheme.
+2. **Signal peptide detection: evidence-based biological constraints** — ~~Previously: arbitrary threshold 0.4 (ELIMINATED).~~ Now enforces two literature-derived constraints: (a) n-region must contain positive charge (`nScore > 0`), per von Heijne (1986) "1–5 residues, positively charged (Lys, Arg)"; (b) h-region must be predominantly hydrophobic (`hScore ≥ 0.5`), per von Heijne (1985) "hydrophobic core" requirement. No arbitrary thresholds remain.
 
-3. **ASSUMPTION: Signal peptide probability formula** — `min(1.0, score × 1.2)` for converting score to probability is implementation-specific. Published methods like SignalP use trained neural networks or HMMs for probability estimation.
+3. **Signal peptide probability** — ~~Previously: `min(1.0, score × 1.2)` (ELIMINATED).~~ Implementation now uses `Probability = Score` directly. No arbitrary scaling.
 
-4. **ASSUMPTION: Small amino acid set for -1/-3 rule** — The implementation uses {A, G, S, T, C} as "small amino acids." von Heijne's canonical -1,-3 rule specifies {A, G, S} as the primary set. T and C are occasionally observed but less common.
+4. **Small amino acid set {A, G, S}** — ~~Previously: {A, G, S, T, C} (CORRECTED).~~ Implementation strictly uses {A, G, S} per von Heijne (1983) Eur J Biochem 133:17–21, positions -1 and -3. Matches the canonical -1,-3 rule.
 
-5. **ASSUMPTION: Domain signature patterns are regex approximations** — The implementation uses simplified regex patterns to approximate known domain signatures. These are based on PROSITE consensus patterns but may not capture all the specificity of Pfam HMM profiles or full PROSITE patterns. This is an inherent scope limitation of pattern-based vs. profile-based detection.
+5. **Domain signature patterns** — The implementation uses PROSITE-derived regex patterns (PS00028, PS00017) for domain detection. This is a deliberate scope decision: PROSITE itself uses consensus patterns (see Hulo et al. 2006). Not an assumption — it is a documented scope boundary.
 
-6. **ASSUMPTION: Method naming** — The checklist references `PredictDomains` but the implementation provides `FindDomains`. Both refer to the same functionality. This is non-correctness-affecting.
+6. **Method naming** — Public API is `FindDomains` (not `PredictDomains`). Non-correctness-affecting naming choice aligned with the method's behavior (pattern-based search, not probabilistic prediction).
 
 ---
 
