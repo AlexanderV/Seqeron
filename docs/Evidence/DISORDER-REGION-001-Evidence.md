@@ -162,16 +162,16 @@
 6. **MUST Test:** Regions shorter than minLength are excluded — Algorithm definition
 7. **MUST Test:** Trailing region (disorder at end of sequence) is captured — Algorithm definition
 8. **MUST Test:** Proline-rich classification (P fraction > 0.25 → "Proline-rich") — van der Lee (2014), Campen (2008)
-9. **MUST Test:** Acidic classification (E/D fraction > 0.25 → "Acidic") — Das & Pappu (2013), van der Lee (2014)
-10. **MUST Test:** Basic classification (K/R fraction > 0.25 → "Basic") — Das & Pappu (2013), van der Lee (2014)
-11. **MUST Test:** Ser/Thr-rich classification (S/T fraction > 0.25 → "Ser/Thr-rich") — van der Lee (2014) Table 1
+9. **MUST Test:** Acidic classification (E/D fraction > 0.25 → "Acidic") — van der Lee (2014); threshold is internal heuristic (5× random)
+10. **MUST Test:** Basic classification (K/R fraction > 0.25 → "Basic") — van der Lee (2014); threshold is internal heuristic (5× random)
+11. **MUST Test:** Ser/Thr-rich classification (S/T fraction > 0.25 → "Ser/Thr-rich") — van der Lee (2014); threshold is internal heuristic (5× random)
 12. **MUST Test:** Long IDR classification (length > 30, no composition bias → "Long IDR") — Ward (2004)
 13. **MUST Test:** Standard IDR classification (short, no composition bias → "Standard IDR") — fallback
 14. **MUST Test:** Confidence values in [0, 1] — invariant
 15. **SHOULD Test:** Multiple disordered regions separated by ordered segment — Algorithm definition
 16. **SHOULD Test:** Region at very start of sequence — boundary case
 17. **SHOULD Test:** MinLength edge case (region exactly == minLength) — boundary case
-18. **COULD Test:** Classification priority when multiple biases present — most-specific-bias-first per Campen (2008)
+18. **COULD Test:** Classification priority when multiple biases present — internal priority order (no published source)
 
 ---
 
@@ -182,7 +182,7 @@
 3. van der Lee R, et al. (2014). "Classification of intrinsically disordered regions and proteins." Chemical Reviews. 114(13):6589-6631. https://doi.org/10.1021/cr400525m
 4. Ward JJ, et al. (2004). "Prediction and functional analysis of native disorder in proteins from the three kingdoms of life." J Mol Biol. 337(3):635-645. https://doi.org/10.1016/j.jmb.2004.02.002
 5. Kyte J, Doolittle RF (1982). "A simple method for displaying the hydropathic character of a protein." J Mol Biol. 157(1):105-132. https://doi.org/10.1016/0022-2836(82)90515-0
-6. Das RK, Pappu RV (2013). "Conformations of intrinsically disordered proteins are influenced by linear sequence distributions of oppositely charged residues." Proc Natl Acad Sci USA. 110(33):13392-13397. https://doi.org/10.1073/pnas.1304749110
+6. Das RK, Pappu RV (2013). "Conformations of intrinsically disordered proteins are influenced by linear sequence distributions of oppositely charged residues." Proc Natl Acad Sci USA. 110(33):13392-13397. https://doi.org/10.1073/pnas.1304749110 — **Note:** This paper's 0.25 boundary is NCPR (net charge per residue) for globule/coil conformational state, NOT a compositional enrichment threshold for IDR classification.
 
 ---
 
