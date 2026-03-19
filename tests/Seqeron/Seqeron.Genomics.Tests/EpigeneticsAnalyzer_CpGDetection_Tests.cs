@@ -254,12 +254,14 @@ public class EpigeneticsAnalyzer_CpGDetection_Tests
     #region FindCpGIslands Tests
 
     // M15 — Positive CpG island detection
-    // Evidence: Gardiner-Garden & Frommer (1987) criteria: ≥200 bp, GC% > 50%, O/E > 0.6
+    // Evidence: Gardiner-Garden & Frommer (1987) criteria: ≥200 bp, GC% ≥ 50%, O/E ≥ 0.6
+    // Hand-derived: 400 bp "CGCG" repeat → C=200, G=200, CpG=200
+    //   Sliding window (100 bp step=1): every window is pure CG → one merged island (0,400)
+    //   GC = 400/400 = 1.0; expected = 200×200/400 = 100; O/E = 200/100 = 2.0
     [Test]
     public void FindCpGIslands_CpGRichRegion_DetectsIsland()
     {
-        // 400 bp CG repeat — GC=100%, O/E=2.0, length=400 ≥ 200
-        string cpgIsland = string.Concat(Enumerable.Repeat("CGCG", 100));
+        string cpgIsland = string.Concat(Enumerable.Repeat("CGCG", 100)); // 400 bp
 
         var islands = EpigeneticsAnalyzer.FindCpGIslands(
             cpgIsland,
@@ -267,12 +269,14 @@ public class EpigeneticsAnalyzer_CpGDetection_Tests
             minGc: 0.5,
             minCpGRatio: 0.6).ToList();
 
-        Assert.That(islands, Has.Count.GreaterThanOrEqualTo(1),
-            "400 bp CGCG repeat should produce at least 1 CpG island");
+        Assert.That(islands, Has.Count.EqualTo(1),
+            "400 bp CGCG repeat: all windows pass → exactly 1 merged island");
+        Assert.That(islands[0].Start, Is.EqualTo(0), "Island starts at position 0");
+        Assert.That(islands[0].End, Is.EqualTo(400), "Island ends at position 400");
         Assert.That(islands[0].GcContent, Is.EqualTo(1.0).Within(1e-10),
-            "GC content of pure CG sequence should be 1.0");
-        Assert.That(islands[0].CpGRatio, Is.GreaterThanOrEqualTo(0.6),
-            "CpG O/E ratio must meet minimum threshold");
+            "GC content of pure CG sequence = 400/400 = 1.0");
+        Assert.That(islands[0].CpGRatio, Is.EqualTo(2.0).Within(1e-10),
+            "O/E = 200 / (200×200/400) = 200/100 = 2.0");
     }
 
     // M16 — No CpG island in AT-rich sequence
@@ -298,27 +302,8 @@ public class EpigeneticsAnalyzer_CpGDetection_Tests
             "Sequence shorter than minLength should yield no islands");
     }
 
-    // S3 — Island result contains valid GcContent and CpGRatio
-    [Test]
-    public void FindCpGIslands_ResultContainsValidMetrics()
-    {
-        string cpgIsland = string.Concat(Enumerable.Repeat("CGCG", 100));
-
-        var islands = EpigeneticsAnalyzer.FindCpGIslands(
-            cpgIsland,
-            minLength: 100,
-            minGc: 0.5,
-            minCpGRatio: 0.6).ToList();
-
-        Assert.That(islands, Is.Not.Empty, "Should detect at least 1 island");
-        var island = islands[0];
-        Assert.That(island.Start, Is.GreaterThanOrEqualTo(0), "Start must be non-negative");
-        Assert.That(island.End, Is.GreaterThan(island.Start), "End must be after Start");
-        Assert.That(island.GcContent, Is.GreaterThan(0).And.LessThanOrEqualTo(1.0),
-            "GC content must be in (0, 1]");
-        Assert.That(island.CpGRatio, Is.GreaterThan(0),
-            "CpG O/E ratio must be positive for a detected island");
-    }
+    // S3 — REMOVED: duplicate of M15 (same input, weaker range assertions)
+    // All structural checks (Start, End, GcContent, CpGRatio) now covered by M15 with exact values
 
     // S4 — Custom parameters are respected
     [Test]

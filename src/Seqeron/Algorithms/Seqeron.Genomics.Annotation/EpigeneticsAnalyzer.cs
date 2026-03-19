@@ -249,11 +249,12 @@ public static class EpigeneticsAnalyzer
                 if (islandEnd - islandStart.Value >= minLength)
                 {
                     string island = sequence.Substring(islandStart.Value, islandEnd - islandStart.Value);
-                    yield return (
-                        islandStart.Value,
-                        islandEnd,
-                        CalculateGcContent(island),
-                        CalculateCpGObservedExpected(island));
+                    double islandGc = CalculateGcContent(island);
+                    double islandCpG = CalculateCpGObservedExpected(island);
+                    if (islandGc >= minGc && islandCpG >= minCpGRatio)
+                    {
+                        yield return (islandStart.Value, islandEnd, islandGc, islandCpG);
+                    }
                 }
                 islandStart = null;
             }
@@ -263,11 +264,12 @@ public static class EpigeneticsAnalyzer
         if (islandStart != null && islandEnd - islandStart.Value >= minLength)
         {
             string island = sequence.Substring(islandStart.Value, islandEnd - islandStart.Value);
-            yield return (
-                islandStart.Value,
-                islandEnd,
-                CalculateGcContent(island),
-                CalculateCpGObservedExpected(island));
+            double islandGc = CalculateGcContent(island);
+            double islandCpG = CalculateCpGObservedExpected(island);
+            if (islandGc >= minGc && islandCpG >= minCpGRatio)
+            {
+                yield return (islandStart.Value, islandEnd, islandGc, islandCpG);
+            }
         }
     }
 

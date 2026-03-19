@@ -146,19 +146,19 @@
 
 ## Assumptions
 
-None. All algorithm behavior is formally defined by Gardiner-Garden & Frommer (1987) and confirmed by Wikipedia's cited primary sources.
+None — all algorithm behavior is formally defined by Gardiner-Garden & Frommer (1987) and confirmed by Takai & Jones (2002) and Wikipedia's cited primary sources. Threshold operators (≥) confirmed by Takai & Jones (2002) explicit citation: "length ≥ 200 bp, ObsCpG/ExpCpG ≥ 0.6, and %GC ≥ 50%".
 
 ---
 
 ## Test Coverage Traceability
 
-All recommendations implemented in `EpigeneticsAnalyzer_CpGDetection_Tests.cs` (25 tests).
+All recommendations implemented in `EpigeneticsAnalyzer_CpGDetection_Tests.cs` (24 tests).
 
 | Evidence Point | Test Coverage |
 |---------------|---------------|
 | CpG = C followed by G in 5'→3' | M1, M2, M3, M6, M7, M18 |
 | Gardiner-Garden & Frommer O/E formula | M9, M11, M12 |
-| CpG island: ≥200 bp, GC% > 50%, O/E > 0.6 | M15, M16, M17, S3, S4 |
+| CpG island: ≥200 bp, GC% ≥ 50%, O/E ≥ 0.6 | M15, M16, M17, S4 |
 | Null/empty input handling | M4a, M4b, M13, C2 |
 | Case insensitivity | M5, S2 |
 | Edge cases (single char, no G, minimal CG) | M8, M14, S1, C1 |
