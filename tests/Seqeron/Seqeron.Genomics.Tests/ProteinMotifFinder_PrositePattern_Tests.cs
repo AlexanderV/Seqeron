@@ -296,7 +296,22 @@ public class ProteinMotifFinder_PrositePattern_Tests
         string result = ConvertPrositeToRegex("R-G-D.");
 
         Assert.That(result, Is.EqualTo("RGD"),
-            "Trailing period in PROSITE data file format must be silently stripped");
+            "Period must terminate pattern parsing per PROSITE User Manual §IV.E");
+    }
+
+    #endregion
+
+    #region M14b: Period Terminates Pattern Parsing — PROSITE User Manual
+
+    [Test]
+    public void ConvertPrositeToRegex_PeriodTerminatesPattern()
+    {
+        // PROSITE User Manual §IV.E: "A period ends the pattern"
+        // Content after the period must not be processed
+        string result = ConvertPrositeToRegex("R-G-D.A-B-C");
+
+        Assert.That(result, Is.EqualTo("RGD"),
+            "Period must terminate pattern parsing — content after period is ignored");
     }
 
     #endregion

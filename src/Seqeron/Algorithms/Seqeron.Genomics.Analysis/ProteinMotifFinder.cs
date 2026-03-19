@@ -356,6 +356,11 @@ public static class ProteinMotifFinder
                 sb.Append(char.ToUpperInvariant(c));
                 i++;
             }
+            else if (c == '.')
+            {
+                // PROSITE User Manual: "A period ends the pattern"
+                break;
+            }
             else
             {
                 i++;
