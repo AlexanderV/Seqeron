@@ -85,7 +85,7 @@
 | M12 | O/E minimal | "ACGT" → 4.0 | 1 CpG, C=1, G=1, exp=0.25 | Gardiner-Garden formula |
 | M13 | O/E null/empty | null → 0.0 | Guard against invalid input | Trivial correctness |
 | M14 | O/E single char | "A" → 0.0 | Length < 2 | Gardiner-Garden formula |
-| M15 | FindCpGIslands positive | 400 bp CGCG repeat → 1 island | All criteria met: L≥200, GC=100%, O/E=2.0 | Gardiner-Garden criteria |
+| M15 | FindCpGIslands positive | 400 bp CGCG repeat → 1 island (0,400), GC=1.0, O/E=2.0 | Exact count=1, Start=0, End=400, GcContent=1.0, CpGRatio=2.0 | Gardiner-Garden criteria |
 | M16 | FindCpGIslands no island | AT-only → empty | Fails GC% and O/E criteria | Gardiner-Garden criteria |
 | M17 | FindCpGIslands too short | "CGCGCG" with minLength=200 → empty | Length < minLength | Gardiner-Garden criteria |
 | M18 | GpC not counted as CpG | "GCGCGC" → CpG at [1, 3] only | GC at 0 is GpC, not CpG | CpG definition |
@@ -96,7 +96,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | FindCpGSites minimal CG | "CG" → position [0] | Minimal valid CpG | Edge case |
 | S2 | O/E case insensitive | "cgcgcgcgcgcgcgcgcgcg" → 2.0 | Same result as uppercase | Convention |
-| S3 | FindCpGIslands GC content check | Island must have GcContent and CpGRatio in result tuple | Verify returned values | Structural |
+| S3 | ~~Removed~~ | Duplicate of M15 (same input, weaker range assertions) | — | — |
 | S4 | FindCpGIslands custom params | Custom minLength=100, minGc=0.4 | Respects parameter overrides | API correctness |
 
 ### 4.3 COULD Tests (Nice to have)
@@ -111,7 +111,7 @@
 ## 5. Test Inventory
 
 **Canonical file:** `tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs`
-**Total tests:** 25
+**Total tests:** 24
 **Coverage:** ✅ Full — 0 missing, 0 weak, 0 duplicates
 
 | ID | Test Method | Assertion Type |
@@ -131,25 +131,27 @@
 | M12 | `CalculateCpGObservedExpected_MinimalSequence_ReturnsExact4` | `Is.EqualTo(4.0)` with formula derivation |
 | M13 | `CalculateCpGObservedExpected_NullSequence_ReturnsZero` | `Is.EqualTo(0.0)` |
 | M14 | `CalculateCpGObservedExpected_SingleChar_ReturnsZero` | `Is.EqualTo(0.0)` |
-| M15 | `FindCpGIslands_CpGRichRegion_DetectsIsland` | Exact GcContent + CpGRatio assertions |
+| M15 | `FindCpGIslands_CpGRichRegion_DetectsIsland` | Exact count=1, Start=0, End=400, GcContent=1.0, CpGRatio=2.0 |
 | M16 | `FindCpGIslands_ATRichSequence_ReturnsEmpty` | `Is.Empty` |
 | M17 | `FindCpGIslands_ShortSequence_ReturnsEmpty` | `Is.Empty` |
 | M18 | `FindCpGSites_GpCNotCountedAsCpG` | Exact count + exact positions |
 | S1 | `FindCpGSites_MinimalCG_ReturnsOnePosition` | Exact position 0 |
 | S2 | `CalculateCpGObservedExpected_Lowercase_ReturnsSameAsUppercase` | `Is.EqualTo(2.0)` both cases |
-| S3 | `FindCpGIslands_ResultContainsValidMetrics` | Start/End/GcContent/CpGRatio structural |
+| S3 | ~~Removed~~ | Duplicate of M15 — same input, weaker assertions |
 | S4 | `FindCpGIslands_CustomParameters_Respected` | Default finds, impossible threshold filters |
 | C1 | `CalculateCpGObservedExpected_OnlyCNoG_ReturnsZero` | `Is.EqualTo(0.0)` |
 | C2 | `FindCpGIslands_NullSequence_ReturnsEmpty` | `Is.Empty` |
 
 ---
 
-## 6. Assumption Register
+## 6. Deviations and Assumptions
 
-None.
+None — all behavior verified against external evidence sources.
 
----
-
-## 7. Open Questions / Decisions
-
-None.
+| Aspect | Verified Against | Status |
+|--------|-----------------|--------|
+| O/E formula: `CpG_count / (C_count × G_count / Length)` | Gardiner-Garden & Frommer (1987); Takai & Jones (2002) citing GGF as "ObsCpG/ExpCpG" | Exact match |
+| Threshold operators: `≥ 200 bp, ≥ 50% GC, ≥ 0.6 O/E` | Takai & Jones (2002): "length ≥ 200 bp, ObsCpG/ExpCpG ≥ 0.6, and %GC ≥ 50%" | Exact match |
+| CpG = C then G in 5'→3' direction only | Wikipedia CpG site, Gardiner-Garden & Frommer (1987) | Exact match |
+| Sliding window detection with 1-bp step | Gardiner-Garden & Frommer (1987) scanning method; Takai & Jones Fig. 1 step A | Exact match |
+| Merged island validated against GC% and O/E thresholds | Takai & Jones (2002) Fig. 1 steps G–H | Exact match |
