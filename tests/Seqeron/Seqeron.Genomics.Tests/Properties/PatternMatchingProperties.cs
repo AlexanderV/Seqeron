@@ -1,3 +1,6 @@
+using FsCheck;
+using FsCheck.Fluent;
+
 namespace Seqeron.Genomics.Tests.Properties;
 
 /// <summary>
@@ -10,39 +13,107 @@ namespace Seqeron.Genomics.Tests.Properties;
 [Category("Matching")]
 public class PatternMatchingProperties
 {
-    // -- PAT-EXACT-001 --
+    private static Arbitrary<string> DnaArbitrary(int minLen = 8) =>
+        Gen.Elements('A', 'C', 'G', 'T')
+            .ArrayOf()
+            .Where(a => a.Length >= minLen)
+            .Select(a => new string(a))
+            .ToArbitrary();
+
+    #region PAT-EXACT-001: R: positions ∈ [0, len-patLen]; M: substring → count≥1; D: deterministic; P: total ≤ len-patLen+1
 
     /// <summary>
-    /// Every occurrence position is within valid bounds.
+    /// INV-1: Every occurrence position is within valid bounds [0, seqLen - patLen].
+    /// Evidence: A match at position p requires p + patLen ≤ seqLen.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void ExactMatch_Positions_WithinBounds()
+    [FsCheck.NUnit.Property]
+    public Property ExactMatch_Positions_WithinBounds_Property()
     {
-        var dna = new DnaSequence("ACGTACGTACGT");
-        var positions = MotifFinder.FindExactMotif(dna, "ACGT").ToList();
-
-        foreach (int p in positions)
+        return Prop.ForAll(DnaArbitrary(8), seq =>
         {
-            Assert.That(p, Is.GreaterThanOrEqualTo(0));
-            Assert.That(p + 4, Is.LessThanOrEqualTo(dna.Length));
-        }
+            var dna = new DnaSequence(seq);
+            string pattern = seq.Substring(0, Math.Min(3, seq.Length));
+            var positions = MotifFinder.FindExactMotif(dna, pattern).ToList();
+
+            return positions.All(p => p >= 0 && p + pattern.Length <= seq.Length)
+                .Label($"All positions must be in [0, {seq.Length - pattern.Length}]");
+        });
     }
 
     /// <summary>
-    /// Substring at each found position equals the pattern.
+    /// INV-2: Substring at each found position equals the pattern.
+    /// Evidence: Exact match guarantees character-by-character equality.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void ExactMatch_FoundSubstrings_EqualPattern()
+    [FsCheck.NUnit.Property]
+    public Property ExactMatch_FoundSubstrings_EqualPattern_Property()
     {
-        string seq = "ACGTACGTACGT";
-        var dna = new DnaSequence(seq);
-        string pattern = "ACGT";
-        var positions = MotifFinder.FindExactMotif(dna, pattern).ToList();
+        return Prop.ForAll(DnaArbitrary(8), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            string pattern = seq.Substring(0, Math.Min(3, seq.Length));
+            var positions = MotifFinder.FindExactMotif(dna, pattern).ToList();
 
-        foreach (int p in positions)
-            Assert.That(seq.Substring(p, pattern.Length), Is.EqualTo(pattern));
+            return positions.All(p => seq.Substring(p, pattern.Length) == pattern)
+                .Label("Substring at each position must equal the pattern");
+        });
+    }
+
+    /// <summary>
+    /// INV-3: If the pattern is a known substring, at least one match exists.
+    /// Evidence: FindExactMotif must find the pattern at its known position.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ExactMatch_KnownSubstring_AtLeastOneMatch()
+    {
+        return Prop.ForAll(DnaArbitrary(8), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            int start = Math.Min(2, seq.Length - 1);
+            int len = Math.Min(3, seq.Length - start);
+            string pattern = seq.Substring(start, len);
+            var positions = MotifFinder.FindExactMotif(dna, pattern).ToList();
+
+            return (positions.Count >= 1)
+                .Label($"Pattern '{pattern}' is a substring at {start}, expected ≥1 match, got {positions.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: Total matches ≤ seqLen - patLen + 1 (upper bound on overlapping matches).
+    /// Evidence: Maximum matches occur when every sliding window matches.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ExactMatch_TotalMatches_AtMost_LenMinusPatLenPlus1()
+    {
+        return Prop.ForAll(DnaArbitrary(8), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            string pattern = seq.Substring(0, Math.Min(3, seq.Length));
+            var positions = MotifFinder.FindExactMotif(dna, pattern).ToList();
+            int maxPossible = seq.Length - pattern.Length + 1;
+
+            return (positions.Count <= maxPossible)
+                .Label($"Matches={positions.Count} must be ≤ {maxPossible}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: Exact match is deterministic — same input always yields same positions.
+    /// Evidence: FindExactMotif delegates to SuffixTree which is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ExactMatch_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(8), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            string pattern = seq.Substring(0, Math.Min(3, seq.Length));
+            var positions1 = MotifFinder.FindExactMotif(dna, pattern).ToList();
+            var positions2 = MotifFinder.FindExactMotif(dna, pattern).ToList();
+
+            return positions1.SequenceEqual(positions2)
+                .Label("FindExactMotif must be deterministic");
+        });
     }
 
     /// <summary>
@@ -56,6 +127,8 @@ public class PatternMatchingProperties
         var positions = MotifFinder.FindExactMotif(dna, "CCCC").ToList();
         Assert.That(positions, Is.Empty);
     }
+
+    #endregion
 
     // -- PAT-IUPAC-001 --
 

@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for codon tables, translation, and codon usage.
 /// Verifies invariants of the genetic code and translation process.
 ///
-/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001 (Property Extensions)
+/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001, CODON-OPT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -184,5 +184,117 @@ public class CodonProperties
         foreach (var codon in codons)
             Assert.That(code.Translate(codon), Is.EqualTo(aminoAcid),
                 $"Codon {codon} should translate to {aminoAcid}");
+    }
+
+    #region CODON-OPT-001: P: optimized translates to same protein; R: only valid codons; D: deterministic
+
+    /// <summary>
+    /// INV-1: Optimized sequence translates to the same protein as the original.
+    /// Evidence: Codon optimization replaces synonymous codons only — the amino acid
+    /// sequence encoded by the DNA must be preserved exactly.
+    /// This is the fundamental invariant of codon optimization.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CodonOptimization_PreservesProteinSequence()
+    {
+        // A known coding sequence (GFP fragment)
+        string codingSeq = "AUGGCUAGCAAAGGA";
+        var result = CodonOptimizer.OptimizeSequence(codingSeq, CodonOptimizer.EColiK12,
+            CodonOptimizer.OptimizationStrategy.MaximizeCAI);
+
+        // Translate both original and optimized
+        string originalProtein = TranslateRna(result.OriginalSequence);
+        string optimizedProtein = TranslateRna(result.OptimizedSequence);
+
+        Assert.That(optimizedProtein, Is.EqualTo(originalProtein),
+            $"Optimized protein '{optimizedProtein}' ≠ original '{originalProtein}'");
+    }
+
+    /// <summary>
+    /// INV-2: Optimized sequence translates to same protein for arbitrary coding DNA.
+    /// Evidence: Synonymous codon substitution preserves translation (by definition of the genetic code).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonOptimization_PreservesProtein_Property()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var result = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12);
+            if (result.OptimizedSequence.Length == 0) return true.ToProperty();
+
+            string origProtein = TranslateRna(result.OriginalSequence);
+            string optProtein = TranslateRna(result.OptimizedSequence);
+            return (origProtein == optProtein)
+                .Label($"Protein mismatch: orig='{origProtein[..Math.Min(10, origProtein.Length)]}' ≠ opt='{optProtein[..Math.Min(10, optProtein.Length)]}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3: Optimized sequence contains only valid RNA codons (A, C, G, U).
+    /// Evidence: CodonOptimizer works with RNA codons internally.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonOptimization_OnlyValidCodons()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var result = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12);
+            if (result.OptimizedSequence.Length == 0) return true.ToProperty();
+
+            bool valid = result.OptimizedSequence.All(c => "ACGU".Contains(c));
+            return valid.Label($"Invalid chars in optimized: {result.OptimizedSequence[..Math.Min(20, result.OptimizedSequence.Length)]}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: Optimized sequence length equals original sequence length.
+    /// Evidence: Codon optimization replaces codons 1:1, preserving total length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonOptimization_PreservesLength()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var result = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12);
+            return (result.OptimizedSequence.Length == result.OriginalSequence.Length)
+                .Label($"Length changed: orig={result.OriginalSequence.Length}, opt={result.OptimizedSequence.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: Codon optimization is deterministic.
+    /// Evidence: OptimizeSequence is a pure function.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonOptimization_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var r1 = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12);
+            var r2 = CodonOptimizer.OptimizeSequence(seq, CodonOptimizer.EColiK12);
+            return (r1.OptimizedSequence == r2.OptimizedSequence &&
+                    r1.OptimizedCAI == r2.OptimizedCAI)
+                .Label("OptimizeSequence must be deterministic");
+        });
+    }
+
+    #endregion
+
+    private static string TranslateRna(string rna)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i + 2 < rna.Length; i += 3)
+        {
+            string codon = rna.Substring(i, 3);
+            // Convert to DNA for GeneticCode
+            string dnaCodon = codon.Replace('U', 'T');
+            sb.Append(GeneticCode.Standard.Translate(dnaCodon));
+        }
+        return sb.ToString();
     }
 }
