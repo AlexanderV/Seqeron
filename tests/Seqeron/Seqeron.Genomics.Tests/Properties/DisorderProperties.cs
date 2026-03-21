@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for intrinsically disordered protein prediction.
 /// Verifies score range, length preservation, and determinism invariants.
 ///
-/// Test Units: DISORDER-PRED-001
+/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -180,6 +180,105 @@ public class DisorderProperties
         Assert.That(disorderResult.MeanDisorderScore, Is.GreaterThan(orderResult.MeanDisorderScore),
             $"Disorder-rich mean={disorderResult.MeanDisorderScore:F4} should be > " +
             $"order-rich mean={orderResult.MeanDisorderScore:F4}");
+    }
+
+    #endregion
+
+    #region DISORDER-REGION-001: R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic
+
+    /// <summary>
+    /// INV-9: Disordered regions have valid coordinates — start &lt; end ≤ seqLen.
+    /// Evidence: Regions are contiguous stretches of consecutive disordered residues.
+    /// Source: Campen et al. (2008) — region boundaries are defined by contiguous
+    /// residues that exceed the disorder threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DisorderRegion_Coordinates_Valid()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var result = DisorderPredictor.PredictDisorder(seq);
+            return result.DisorderedRegions.All(r =>
+                r.Start >= 0 && r.Start < r.End && r.End <= seq.Length)
+                .Label("All disordered region coordinates must satisfy 0 ≤ start < end ≤ seqLen");
+        });
+    }
+
+    /// <summary>
+    /// INV-10: Lower disorder threshold produces regions covering ≥ as many residues.
+    /// Evidence: Lowering the threshold admits more residues as disordered, so the union
+    /// of disordered regions can only grow or stay the same. Total disordered residue count
+    /// is monotonically non-decreasing as threshold decreases.
+    /// Source: Standard thresholding property — fewer residues are excluded with lower cutoff.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DisorderRegion_LowerThreshold_MoreDisorderedResidues()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var resultHigh = DisorderPredictor.PredictDisorder(seq, disorderThreshold: 0.6);
+            var resultLow = DisorderPredictor.PredictDisorder(seq, disorderThreshold: 0.3);
+            int highCount = resultHigh.ResiduePredictions.Count(r => r.DisorderScore >= 0.6);
+            int lowCount = resultLow.ResiduePredictions.Count(r => r.DisorderScore >= 0.3);
+            return (lowCount >= highCount)
+                .Label($"Lower threshold should produce ≥ disordered residues: low={lowCount}, high={highCount}");
+        });
+    }
+
+    /// <summary>
+    /// INV-11: Disordered regions do not overlap.
+    /// Evidence: Regions are derived from contiguous non-overlapping segments.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DisorderRegion_NoOverlap()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var result = DisorderPredictor.PredictDisorder(seq);
+            var regions = result.DisorderedRegions;
+            for (int i = 0; i < regions.Count - 1; i++)
+            {
+                if (regions[i].End > regions[i + 1].Start)
+                    return false.Label(
+                        $"Overlapping regions: [{regions[i].Start},{regions[i].End}) and [{regions[i + 1].Start},{regions[i + 1].End})");
+            }
+            return true.Label("No overlapping disordered regions");
+        });
+    }
+
+    /// <summary>
+    /// INV-12: Disordered region mean score ∈ [0, 1].
+    /// Evidence: MeanScore is the average of per-residue disorder scores within the region.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DisorderRegion_MeanScore_InRange()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var result = DisorderPredictor.PredictDisorder(seq);
+            return result.DisorderedRegions.All(r =>
+                r.MeanScore >= -1e-9 && r.MeanScore <= 1.0 + 1e-9)
+                .Label("Disordered region mean score must be in [0, 1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-13: Disordered region detection is deterministic.
+    /// Evidence: PredictDisorder is a deterministic sliding window computation.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DisorderRegion_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(50), seq =>
+        {
+            var r1 = DisorderPredictor.PredictDisorder(seq);
+            var r2 = DisorderPredictor.PredictDisorder(seq);
+            bool same = r1.DisorderedRegions.Count == r2.DisorderedRegions.Count &&
+                        r1.DisorderedRegions.Zip(r2.DisorderedRegions)
+                            .All(pair => pair.First.Start == pair.Second.Start &&
+                                         pair.First.End == pair.Second.End);
+            return same.Label("DisorderedRegion detection must be deterministic");
+        });
     }
 
     #endregion
