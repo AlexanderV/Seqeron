@@ -60,7 +60,11 @@ public class RnaStructureProperties
 
     private static char RnaComplement(char b) => b switch
     {
-        'A' => 'U', 'U' => 'A', 'G' => 'C', 'C' => 'G', _ => 'A'
+        'A' => 'U',
+        'U' => 'A',
+        'G' => 'C',
+        'C' => 'G',
+        _ => 'A'
     };
 
     #endregion
