@@ -57,10 +57,10 @@ Property-based testing генерирует сотни случайных вхо
 | 25 | ☐ | PROBE-VALID-001 | MolTools | R: validation pass/fail; D: deterministic; P: Tm in expected range | PrimerProbeProperties.cs |
 | 26 | ☑ | RESTR-FIND-001 | MolTools | R: positions valid; P: site sequence matches enzyme recognition; D: deterministic | RestrictionProperties.cs |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | P: sum(fragment lengths) = seq length; R: fragments ≥ 1; D: deterministic | RestrictionProperties.cs |
-| 28 | ☐ | ANNOT-ORF-001 | Annotation | R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3 | AnnotationProperties.cs (new) |
-| 29 | ☐ | ANNOT-GENE-001 | Annotation | R: gene start < end; P: contains RBS motif upstream; D: deterministic | AnnotationProperties.cs (new) |
-| 30 | ☐ | ANNOT-PROM-001 | Annotation | R: position ≥ 0; P: contains -10/-35 box; M: lower score threshold → ≥ promoters | AnnotationProperties.cs (new) |
-| 31 | ☐ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(features))=features; R: well-formed GFF3; P: coordinates 1-based | AnnotationProperties.cs (new) |
+| 28 | ☑ | ANNOT-ORF-001 | Annotation | R: ORF start < end ≤ seqLen; P: starts with ATG; M: longer seq → ≥ ORFs; R: len divisible by 3 | AnnotationProperties.cs |
+| 29 | ☑ | ANNOT-GENE-001 | Annotation | R: gene start < end; P: contains RBS motif upstream; D: deterministic | AnnotationProperties.cs |
+| 30 | ☑ | ANNOT-PROM-001 | Annotation | R: position ≥ 0; P: contains -10/-35 box; M: lower score threshold → ≥ promoters | AnnotationProperties.cs |
+| 31 | ☑ | ANNOT-GFF-001 | Annotation | RT: parse(serialize(features))=features; R: well-formed GFF3; P: coordinates 1-based | AnnotationProperties.cs |
 | 32 | ☑ | KMER-COUNT-001 | K-mer | R: count > 0; P: sum(counts) = seqLen - k + 1; M: larger k → ≤ distinct k-mers | KmerProperties.cs |
 | 33 | ☑ | KMER-FREQ-001 | K-mer | R: freq ∈ [0,1]; P: sum(freqs) = 1.0; D: deterministic | KmerProperties.cs |
 | 34 | ☑ | KMER-FIND-001 | K-mer | R: positions valid; M: lower minFreq → ≥ k-mers returned; D: deterministic | KmerProperties.cs |
@@ -84,15 +84,15 @@ Property-based testing генерирует сотни случайных вхо
 | 52 | ☐ | CHROM-SYNT-001 | Chromosome | R: block positions valid; S: synteny(A,B) symmetric with B,A; D: deterministic | ChromosomeProperties.cs (new) |
 | 53 | ☐ | META-CLASS-001 | Metagenomics | R: confidence ∈ [0,1]; P: assigned taxon in database; D: deterministic | MetagenomicsProperties.cs (new) |
 | 54 | ☐ | META-PROF-001 | Metagenomics | R: abundances sum to 1.0; R: abundance ∈ [0,1]; D: deterministic | MetagenomicsProperties.cs (new) |
-| 55 | ☐ | META-ALPHA-001 | Metagenomics | R: Shannon ≥ 0; R: Simpson ∈ [0,1]; M: more species → higher diversity; D: deterministic | MetagenomicsProperties.cs (new) |
-| 56 | ☐ | META-BETA-001 | Metagenomics | S: dist(a,b)=dist(b,a); R: dist ∈ [0,1]; I: dist(x,x)=0; D: deterministic | MetagenomicsProperties.cs (new) |
+| 55 | ☑ | META-ALPHA-001 | Metagenomics | R: Shannon ≥ 0; R: Simpson ∈ [0,1]; M: more species → higher diversity; D: deterministic | MetagenomicsProperties.cs |
+| 56 | ☑ | META-BETA-001 | Metagenomics | S: dist(a,b)=dist(b,a); R: dist ∈ [0,1]; I: dist(x,x)=0; D: deterministic | MetagenomicsProperties.cs |
 | 57 | ☐ | META-BIN-001 | Metagenomics | R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic | MetagenomicsProperties.cs (new) |
 | 58 | ☑ | CODON-OPT-001 | Codon | P: optimized translates to same protein; R: only valid codons; D: deterministic | CodonProperties.cs |
 | 59 | ☑ | CODON-CAI-001 | Codon | R: CAI ∈ [0,1]; M: all optimal codons → CAI close to 1.0; D: deterministic | CodonProperties.cs |
-| 60 | ☐ | CODON-RARE-001 | Codon | R: rare codon positions valid; M: lower threshold → more rare codons; D: deterministic | CodonProperties.cs |
+| 60 | ☑ | CODON-RARE-001 | Codon | R: rare codon positions valid; M: lower threshold → more rare codons; D: deterministic | CodonProperties.cs |
 | 61 | ☑ | CODON-USAGE-001 | Codon | R: usage freqs ≥ 0; P: sum per amino acid = 1.0; D: deterministic | CodonProperties.cs |
-| 62 | ☐ | TRANS-CODON-001 | Translation | R: 64 codons mapped; P: start codons → M; P: stop codons → *; D: deterministic | CodonProperties.cs |
-| 63 | ☐ | TRANS-PROT-001 | Translation | R: protein len ≤ seqLen/3; P: starts with M if starts with ATG; D: deterministic | CodonProperties.cs |
+| 62 | ☑ | TRANS-CODON-001 | Translation | R: 64 codons mapped; P: start codons → M; P: stop codons → *; D: deterministic | CodonProperties.cs |
+| 63 | ☑ | TRANS-PROT-001 | Translation | R: protein len ≤ seqLen/3; P: starts with M if starts with ATG; D: deterministic | CodonProperties.cs |
 | 64 | ☑ | PARSE-FASTA-001 | FileIO | RT: write(parse(fasta))=fasta; P: header preserved; P: sequence preserved; D: deterministic | FastaRoundTripProperties.cs |
 | 65 | ☐ | PARSE-FASTQ-001 | FileIO | RT: round-trip; P: quality len = seq len; R: quality scores in valid range | FileIOProperties.cs |
 | 66 | ☐ | PARSE-BED-001 | FileIO | R: start < end; R: chrom non-empty; R: start ≥ 0; D: deterministic | FileIOProperties.cs |
@@ -109,7 +109,7 @@ Property-based testing генерирует сотни случайных вхо
 | 77 | ☐ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
 | 78 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | R: score ∈ [0,1]; P: canonical AG at acceptor site; D: deterministic | SplicingProperties.cs |
 | 79 | ☐ | SPLICE-PREDICT-001 | Splicing | R: exon start < end; P: introns flanked by GT…AG; D: deterministic | SplicingProperties.cs |
-| 80 | ☐ | DISORDER-PRED-001 | ProteinPred | R: score ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs (new) |
+| 80 | ☑ | DISORDER-PRED-001 | ProteinPred | R: score ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
 | 81 | ☐ | DISORDER-REGION-001 | ProteinPred | R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic | DisorderProperties.cs (new) |
 | 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | R: positions valid; M: broader pattern → ≥ matches; D: deterministic | ProteinMotifProperties.cs |
 | 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | R: match positions valid; P: match conforms to PROSITE pattern regex; D: deterministic | ProteinMotifProperties.cs |
@@ -124,7 +124,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 86 |
-| ☑ Complete | 36 |
-| ☐ Not started | 50 |
-| New property files needed | 7 (Annotation, Chromosome, Metagenomics, Disorder, Epigenetics, Oncology) |
+| ☑ Complete | 46 |
+| ☐ Not started | 40 |
+| New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

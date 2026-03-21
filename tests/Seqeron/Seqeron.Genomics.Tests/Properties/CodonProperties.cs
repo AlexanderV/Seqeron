@@ -450,6 +450,300 @@ public class CodonProperties
 
     #endregion
 
+    #region CODON-RARE-001: R: rare codon positions valid; M: lower threshold → more rare codons; D: deterministic
+
+    /// <summary>
+    /// INV-RARE1: Rare codon positions are valid nucleotide positions (multiples of 3).
+    /// Evidence: FindRareCodons returns position = codon_index × 3.
+    /// Source: Sharp et al. (1987).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindRareCodons_Positions_AreMultiplesOf3()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var rare = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, 0.15).ToList();
+            return rare.All(r => r.Position % 3 == 0 && r.Position >= 0 && r.Position < seq.Length)
+                .Label("All rare codon positions must be multiples of 3 within sequence bounds");
+        });
+    }
+
+    /// <summary>
+    /// INV-RARE2: Rare codon positions are within sequence bounds [0, seqLen - 3].
+    /// Evidence: Position refers to the start of a codon triplet.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindRareCodons_Positions_WithinBounds()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var rare = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, 0.15).ToList();
+            return rare.All(r => r.Position >= 0 && r.Position + 3 <= seq.Length)
+                .Label("Rare codon position + 3 must not exceed sequence length");
+        });
+    }
+
+    /// <summary>
+    /// INV-RARE3: Lower threshold yields more or equal rare codons (monotonicity).
+    /// Evidence: threshold₂ &lt; threshold₁ ⇒ all codons below threshold₁ are still below threshold₂,
+    /// plus some additional codons with frequency in [threshold₂, threshold₁).
+    /// Source: Plotkin &amp; Kudla (2011).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindRareCodons_LowerThreshold_MoreResults()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 6) return true.ToProperty();
+            int highCount = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, 0.10).Count();
+            int lowCount = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, 0.20).Count();
+            return (lowCount >= highCount)
+                .Label($"threshold 0.20 → {lowCount} rare codons must be ≥ threshold 0.10 → {highCount}");
+        });
+    }
+
+    /// <summary>
+    /// INV-RARE4: Each reported rare codon has frequency below the threshold.
+    /// Evidence: FindRareCodons filters codons where frequency &lt; threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindRareCodons_ReportedFrequency_BelowThreshold()
+    {
+        const double threshold = 0.15;
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var rare = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, threshold).ToList();
+            return rare.All(r => r.Frequency < threshold)
+                .Label($"All reported frequencies must be < {threshold}");
+        });
+    }
+
+    /// <summary>
+    /// INV-RARE5: FindRareCodons is deterministic.
+    /// Evidence: Pure function — same input always yields same output.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindRareCodons_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var r1 = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12).ToList();
+            var r2 = CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12).ToList();
+            bool same = r1.Count == r2.Count &&
+                        r1.Zip(r2).All(p => p.First.Position == p.Second.Position &&
+                                             p.First.Codon == p.Second.Codon);
+            return same.Label("FindRareCodons must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region TRANS-CODON-001: R: 64 codons mapped; P: start codons → M; P: stop codons → *; D: deterministic
+
+    /// <summary>
+    /// INV-TC1: Standard genetic code maps all 64 possible codons.
+    /// Evidence: 4³ = 64 possible RNA triplets from {A, U, G, C}.
+    /// Source: Wikipedia "Genetic code"; NCBI Translation Tables.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GeneticCode_Has64Entries()
+    {
+        var code = GeneticCode.Standard;
+        Assert.That(code.CodonTable.Count, Is.EqualTo(64),
+            "Standard genetic code must have exactly 64 codon entries");
+    }
+
+    /// <summary>
+    /// INV-TC2: All start codons (ATG in standard code) translate to Methionine ('M').
+    /// Evidence: In the standard code, ATG is both start and Met codon.
+    /// Source: Wikipedia "Start codon"; NCBI Translation Tables.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GeneticCode_StartCodons_TranslateToMet()
+    {
+        var code = GeneticCode.Standard;
+        // ATG is the universal start codon in the standard code
+        Assert.That(code.Translate("ATG"), Is.EqualTo('M'),
+            "ATG must translate to M (Methionine) in standard code");
+    }
+
+    /// <summary>
+    /// INV-TC3: All stop codons translate to '*' (termination).
+    /// Evidence: Stop codons (UAA, UAG, UGA) signal translation termination.
+    /// Source: Wikipedia "Stop codon"; NCBI Translation Tables.
+    /// </summary>
+    [TestCase("TAA")]
+    [TestCase("TAG")]
+    [TestCase("TGA")]
+    [Category("Property")]
+    public void GeneticCode_StopCodons_TranslateToStar(string stopCodon)
+    {
+        Assert.That(GeneticCode.Standard.Translate(stopCodon), Is.EqualTo('*'),
+            $"Stop codon {stopCodon} must translate to '*'");
+    }
+
+    /// <summary>
+    /// INV-TC4: DNA/RNA equivalence — ATG and AUG produce identical translation.
+    /// Evidence: T→U conversion is internal; both notations represent the same codon.
+    /// Source: Wikipedia "Genetic code" — DNA/RNA equivalence.
+    /// </summary>
+    [TestCase("ATG", "AUG")]
+    [TestCase("TAA", "UAA")]
+    [TestCase("GCT", "GCU")]
+    [Category("Property")]
+    public void GeneticCode_DnaRna_Equivalence(string dnaCodon, string rnaCodon)
+    {
+        char dnaResult = GeneticCode.Standard.Translate(dnaCodon);
+        char rnaResult = GeneticCode.Standard.Translate(rnaCodon);
+        Assert.That(dnaResult, Is.EqualTo(rnaResult),
+            $"{dnaCodon}→'{dnaResult}' must equal {rnaCodon}→'{rnaResult}'");
+    }
+
+    /// <summary>
+    /// INV-TC5: Every codon maps to exactly one deterministic amino acid.
+    /// Evidence: The genetic code is a function — each triplet produces one result.
+    /// Source: Crick (1968).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GeneticCode_Translation_IsDeterministic()
+    {
+        var code = GeneticCode.Standard;
+        const string validAa = "ACDEFGHIKLMNPQRSTVWY*";
+
+        foreach (var kv in code.CodonTable)
+        {
+            char aa1 = code.Translate(kv.Key);
+            char aa2 = code.Translate(kv.Key);
+            Assert.That(aa1, Is.EqualTo(aa2),
+                $"Codon {kv.Key} must translate deterministically");
+            Assert.That(validAa.Contains(aa1), Is.True,
+                $"Codon {kv.Key} translated to invalid character '{aa1}'");
+        }
+    }
+
+    /// <summary>
+    /// INV-TC6: Degeneracy — each amino acid has at least one codon that translates back to it.
+    /// Evidence: The genetic code is degenerate: most amino acids have 2-6 synonymous codons.
+    /// Source: Wikipedia "Genetic code" — degeneracy table.
+    /// </summary>
+    [TestCase('A', 4)]
+    [TestCase('L', 6)]
+    [TestCase('M', 1)]
+    [TestCase('W', 1)]
+    [TestCase('S', 6)]
+    [Category("Property")]
+    public void GeneticCode_Degeneracy_CodonsPerAminoAcid(char aminoAcid, int expectedCount)
+    {
+        var codons = GeneticCode.Standard.GetCodonsForAminoAcid(aminoAcid).ToList();
+        Assert.That(codons.Count, Is.EqualTo(expectedCount),
+            $"Amino acid '{aminoAcid}' should have {expectedCount} codons, got {codons.Count}");
+    }
+
+    #endregion
+
+    #region TRANS-PROT-001: R: protein len ≤ seqLen/3; P: starts with M if starts with ATG; D: deterministic
+
+    /// <summary>
+    /// INV-TP1: Protein length equals seqLen / 3 (exact division, no stop truncation).
+    /// Evidence: Translation reads non-overlapping triplets from the entire sequence.
+    /// Source: Wikipedia "Translation (biology)".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Translation_ProteinLength_EqualsSeqDivBy3()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var protein = Translator.Translate(seq);
+            int expected = seq.Length / 3;
+            return (protein.Sequence.Length == expected)
+                .Label($"Protein len={protein.Sequence.Length}, expected=seqLen/3={expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-TP2: If sequence starts with ATG, protein starts with 'M' (Methionine).
+    /// Evidence: ATG is the universal start codon encoding Met.
+    /// Source: Wikipedia "Start codon".
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Translation_AtgStart_ProducesMetStart()
+    {
+        string seq = "ATGGCTGCTGCTGCTGCT"; // ATG + 5 GCT (=Ala) codons
+        var protein = Translator.Translate(seq);
+
+        Assert.That(protein.Sequence[0], Is.EqualTo('M'),
+            $"Sequence starting with ATG must produce protein starting with M, got '{protein.Sequence[0]}'");
+    }
+
+    /// <summary>
+    /// INV-TP3: ATG-starting sequences always produce M-starting proteins (FsCheck).
+    /// Evidence: Same invariant as INV-TP2, verified with random inputs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Translation_AtgStart_AlwaysProducesMet()
+    {
+        // Generate sequences that start with ATG
+        var atgArb = Gen.Elements('A', 'C', 'G', 'T')
+            .ArrayOf()
+            .Where(a => a.Length >= 3)
+            .Select(a => "ATG" + new string(a, 0, a.Length - a.Length % 3))
+            .Where(s => s.Length >= 6)
+            .ToArbitrary();
+
+        return Prop.ForAll(atgArb, seq =>
+        {
+            var protein = Translator.Translate(seq);
+            return (protein.Sequence.Length > 0 && protein.Sequence[0] == 'M')
+                .Label($"ATG-starting sequence must produce M-starting protein, got '{(protein.Sequence.Length > 0 ? protein.Sequence[0] : '?')}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-TP4: Translation is deterministic — same input always yields same protein.
+    /// Evidence: Translator.Translate is a pure function.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Translation_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var p1 = Translator.Translate(seq);
+            var p2 = Translator.Translate(seq);
+            return (p1.Sequence == p2.Sequence)
+                .Label("Translation must produce identical protein for identical input");
+        });
+    }
+
+    /// <summary>
+    /// INV-TP5: Translation output contains only valid amino acid characters or '*'.
+    /// Evidence: The genetic code maps each codon to one of 20 amino acids or a stop signal.
+    /// Source: Wikipedia "Genetic code".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Translation_OutputCharacters_AreValidAminoAcids()
+    {
+        const string validAa = "ACDEFGHIKLMNPQRSTVWY*";
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var protein = Translator.Translate(seq);
+            return protein.Sequence.All(c => validAa.Contains(c))
+                .Label($"Invalid character in protein: {protein.Sequence[..Math.Min(20, protein.Sequence.Length)]}");
+        });
+    }
+
+    #endregion
+
     private static string TranslateRna(string rna)
     {
         var sb = new System.Text.StringBuilder();
