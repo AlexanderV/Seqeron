@@ -100,20 +100,20 @@ Property-based testing генерирует сотни случайных вхо
 | 68 | ☐ | PARSE-GFF-001 | FileIO | RT: round-trip; R: start ≤ end; R: strand ∈ {+,-,.}; D: deterministic | FileIOProperties.cs |
 | 69 | ☐ | PARSE-GENBANK-001 | FileIO | RT: round-trip; P: locus line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
 | 70 | ☐ | PARSE-EMBL-001 | FileIO | RT: round-trip; P: ID line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
-| 71 | ☐ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
-| 72 | ☐ | RNA-STEMLOOP-001 | RnaStructure | R: stem len > 0; P: loop len ≥ minLoop; P: stem arms complementary; D: deterministic | RnaStructureProperties.cs |
-| 73 | ☐ | RNA-ENERGY-001 | RnaStructure | R: ΔG ≤ 0 for stable structures; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
+| 71 | ☑ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
+| 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | R: stem len > 0; P: loop len ≥ minLoop; P: stem arms complementary; D: deterministic | RnaStructureProperties.cs |
+| 73 | ☑ | RNA-ENERGY-001 | RnaStructure | R: ΔG ≤ 0 for stable structures; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
 | 74 | ☐ | MIRNA-SEED-001 | MiRNA | R: seed len = 6–8; P: seed at 5' end (pos 2–8); D: deterministic | MiRnaProperties.cs |
 | 75 | ☐ | MIRNA-TARGET-001 | MiRNA | R: score ∈ [0,1]; M: perfect seed match → higher score; D: deterministic | MiRnaProperties.cs |
 | 76 | ☐ | MIRNA-PRECURSOR-001 | MiRNA | R: precursor len > mature len; P: hairpin structure present; D: deterministic | MiRnaProperties.cs |
-| 77 | ☐ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
-| 78 | ☐ | SPLICE-ACCEPTOR-001 | Splicing | R: score ∈ [0,1]; P: canonical AG at acceptor site; D: deterministic | SplicingProperties.cs |
-| 79 | ☐ | SPLICE-PREDICT-001 | Splicing | R: exon start < end; P: introns flanked by GT…AG; D: deterministic | SplicingProperties.cs |
+| 77 | ☑ | SPLICE-DONOR-001 | Splicing | R: score ∈ [0,1]; P: canonical GT at donor site; D: deterministic | SplicingProperties.cs |
+| 78 | ☑ | SPLICE-ACCEPTOR-001 | Splicing | R: score ∈ [0,1]; P: canonical AG at acceptor site; D: deterministic | SplicingProperties.cs |
+| 79 | ☑ | SPLICE-PREDICT-001 | Splicing | R: exon start < end; P: introns flanked by GT…AG; D: deterministic | SplicingProperties.cs |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | R: score ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
-| 81 | ☐ | DISORDER-REGION-001 | ProteinPred | R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic | DisorderProperties.cs (new) |
-| 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | R: positions valid; M: broader pattern → ≥ matches; D: deterministic | ProteinMotifProperties.cs |
-| 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | R: match positions valid; P: match conforms to PROSITE pattern regex; D: deterministic | ProteinMotifProperties.cs |
-| 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | R: domain start < end; D: deterministic; P: domain score above threshold | ProteinMotifProperties.cs |
+| 81 | ☑ | DISORDER-REGION-001 | ProteinPred | R: region start < end ≤ seqLen; M: lower threshold → larger regions; D: deterministic | DisorderProperties.cs (new) |
+| 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | R: positions valid; M: broader pattern → ≥ matches; D: deterministic | ProteinMotifProperties.cs |
+| 83 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | R: match positions valid; P: match conforms to PROSITE pattern regex; D: deterministic | ProteinMotifProperties.cs |
+| 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | R: domain start < end; D: deterministic; P: domain score above threshold | ProteinMotifProperties.cs |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | R: CpG ratio ≥ 0; R: GC% ∈ [0,1]; M: more CG → higher ratio; D: deterministic | EpigeneticsProperties.cs (new) |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | R: infiltration score ∈ [0,1]; P: sum(cell fractions) ≤ 1.0; D: deterministic | OncologyProperties.cs (new) |
 
@@ -124,7 +124,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 86 |
-| ☑ Complete | 46 |
-| ☐ Not started | 40 |
+| ☑ Complete | 56 |
+| ☐ Not started | 30 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
