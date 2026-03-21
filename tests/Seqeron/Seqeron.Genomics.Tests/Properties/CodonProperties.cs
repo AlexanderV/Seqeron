@@ -285,6 +285,171 @@ public class CodonProperties
 
     #endregion
 
+    #region CODON-CAI-001: R: CAI ∈ [0,1]; M: all optimal codons → CAI close to 1.0; D: deterministic
+
+    /// <summary>
+    /// INV-CAI1: A sequence composed entirely of optimal codons produces CAI close to 1.0.
+    /// Evidence: CAI = geometric mean of w_i where w_i = freq(codon) / max_freq(AA).
+    /// When every codon is the most frequent for its AA, each w_i = 1, so CAI = 1.
+    /// Source: Sharp &amp; Li (1987) "The codon adaptation index".
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CAI_AllOptimalCodons_HighCAI()
+    {
+        // Build a sequence using only the most frequent codon for each amino acid in E. coli
+        var table = CodonOptimizer.EColiK12;
+        var optimalCodons = new List<string>();
+
+        // Select some amino acids and their optimal codons
+        string[] aminoAcids = { "L", "S", "A", "G", "V", "T", "P" };
+        foreach (var aa in aminoAcids)
+        {
+            // Find the codon with highest frequency for this AA from the CodonFrequencies
+            string best = table.CodonFrequencies
+                .Where(kv => table.CodonToAminoAcid.GetValueOrDefault(kv.Key) == aa)
+                .OrderByDescending(kv => kv.Value)
+                .First().Key;
+            optimalCodons.Add(best);
+        }
+
+        string optimalSeq = string.Join("", optimalCodons);
+        double cai = CodonOptimizer.CalculateCAI(optimalSeq, table);
+
+        Assert.That(cai, Is.GreaterThanOrEqualTo(0.9),
+            $"Sequence of optimal codons should have CAI ≈ 1.0, got {cai:F4}");
+    }
+
+    /// <summary>
+    /// INV-CAI2: CAI calculation is deterministic for any coding sequence.
+    /// Evidence: CalculateCAI is a pure function.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CAI_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            double cai1 = CodonOptimizer.CalculateCAI(seq, CodonOptimizer.EColiK12);
+            double cai2 = CodonOptimizer.CalculateCAI(seq, CodonOptimizer.EColiK12);
+            return (cai1 == cai2)
+                .Label($"CAI must be deterministic: {cai1:F6} vs {cai2:F6}");
+        });
+    }
+
+    /// <summary>
+    /// INV-CAI3: CodonUsageAnalyzer.CalculateCai also returns values in [0, 1].
+    /// Evidence: CAI is a geometric mean of ratios in (0, 1], bounded [0, 1].
+    /// Source: Sharp &amp; Li (1987).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CAI_CodonUsageAnalyzer_InRange()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            double cai = CodonUsageAnalyzer.CalculateCai(seq, CodonUsageAnalyzer.EColiOptimalCodons);
+            return (cai >= 0.0 && cai <= 1.0 + 0.0001)
+                .Label($"CAI={cai:F4} must be in [0, 1]");
+        });
+    }
+
+    #endregion
+
+    #region CODON-USAGE-001: R: usage freqs ≥ 0; P: sum per amino acid = k; D: deterministic
+
+    /// <summary>
+    /// INV-U1: All RSCU values are non-negative.
+    /// Evidence: RSCU = observed / expected where both are ≥ 0.
+    /// Source: Sharp &amp; Li (1986) "An evolutionary perspective on synonymous codon usage".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RSCU_AllValues_NonNegative()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var rscu = CodonUsageAnalyzer.CalculateRscu(seq);
+            bool allNonNeg = rscu.Values.All(v => v >= 0.0);
+            return allNonNeg.Label($"All RSCU values must be ≥ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-U2: For each amino acid with observed usage, RSCU values sum to the number
+    /// of synonymous codons (degeneracy k).
+    /// Evidence: RSCU_i = (observed_i × k) / total_AA. Sum = k × total_AA / total_AA = k.
+    /// Source: Sharp &amp; Li (1986).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void RSCU_SumPerAminoAcid_EqualsExpected()
+    {
+        string seq = "ATGATGAAATTCTTACTGCCCCCCACCACCGCTGCTGCAGCAGGCAGCG";
+        var rscu = CodonUsageAnalyzer.CalculateRscu(seq);
+        var code = GeneticCode.Standard;
+
+        // GeneticCode.Standard uses RNA codons (GCU); RSCU uses DNA codons (GCT)
+        foreach (var aaGroup in code.CodonTable.GroupBy(kv => kv.Value))
+        {
+            var synonymousCodons = aaGroup.Select(kv => kv.Key.Replace('U', 'T')).ToList();
+            int k = synonymousCodons.Count;
+            double sum = synonymousCodons.Sum(c => rscu.GetValueOrDefault(c, 0.0));
+
+            bool anyUsed = synonymousCodons.Any(c => rscu.GetValueOrDefault(c, 0.0) > 0);
+            if (anyUsed)
+            {
+                Assert.That(sum, Is.EqualTo(k).Within(0.01),
+                    $"AA '{aaGroup.Key}': RSCU sum={sum:F3}, expected={k}");
+            }
+            else
+            {
+                Assert.That(sum, Is.EqualTo(0).Within(0.01),
+                    $"AA '{aaGroup.Key}': unused amino acid should have RSCU sum=0");
+            }
+        }
+    }
+
+    /// <summary>
+    /// INV-U3: RSCU calculation is deterministic.
+    /// Evidence: CalculateRscu is a pure function.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RSCU_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var rscu1 = CodonUsageAnalyzer.CalculateRscu(seq);
+            var rscu2 = CodonUsageAnalyzer.CalculateRscu(seq);
+            bool same = rscu1.Count == rscu2.Count &&
+                        rscu1.All(kv => rscu2.ContainsKey(kv.Key) &&
+                                        Math.Abs(kv.Value - rscu2[kv.Key]) < 1e-10);
+            return same.Label("CalculateRscu must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-U4: Codon counts are all non-negative and sum to total number of codons.
+    /// Evidence: CountCodons tallies occurrences, each ≥ 0; total = seqLen / 3.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonCounts_AllNonNegative_SumToTotal()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            if (seq.Length < 3) return true.ToProperty();
+            var counts = CodonUsageAnalyzer.CountCodons(seq);
+            bool allNonNeg = counts.Values.All(c => c >= 0);
+            int total = counts.Values.Sum();
+            int expected = seq.Length / 3;
+            return (allNonNeg && total == expected)
+                .Label($"counts sum={total}, expected={expected}, allNonNeg={allNonNeg}");
+        });
+    }
+
+    #endregion
+
     private static string TranslateRna(string rna)
     {
         var sb = new System.Text.StringBuilder();

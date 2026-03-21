@@ -69,14 +69,14 @@ Property-based testing генерирует сотни случайных вхо
 | 37 | ☑ | ALIGN-SEMI-001 | Alignment | P: aligned1.len = aligned2.len; R: score ≥ 0; D: deterministic | AlignmentProperties.cs |
 | 38 | ☑ | ALIGN-MULTI-001 | Alignment | P: all aligned sequences same length; R: score ≥ 0; D: deterministic | AlignmentProperties.cs |
 | 39 | ☑ | PHYLO-DIST-001 | Phylogenetic | S: d(a,b)=d(b,a); I: d(x,x)=0; R: d ≥ 0; triangle inequality | PhylogeneticProperties.cs |
-| 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | R: N leaves = N input sequences; P: tree connected; R: all branch lengths ≥ 0 | PhylogeneticProperties.cs |
-| 41 | ☐ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(serialize(tree))=tree; P: leaf labels preserved; D: deterministic | PhylogeneticProperties.cs |
-| 42 | ☐ | PHYLO-COMP-001 | Phylogenetic | S: RF(a,b)=RF(b,a); I: RF(t,t)=0; R: RF ≥ 0; R: RF ≤ 2(n-3) | PhylogeneticProperties.cs |
-| 43 | ☐ | POP-FREQ-001 | PopGen | R: freq ∈ [0,1]; P: sum(allele freqs) = 1.0; D: deterministic | PopulationGeneticsProperties.cs |
-| 44 | ☐ | POP-DIV-001 | PopGen | R: π ≥ 0; R: θ ≥ 0; M: more diverse → higher π; D: deterministic | PopulationGeneticsProperties.cs |
-| 45 | ☐ | POP-HW-001 | PopGen | R: p² + 2pq + q² = 1.0; R: chi² ≥ 0; D: deterministic | PopulationGeneticsProperties.cs |
-| 46 | ☐ | POP-FST-001 | PopGen | R: Fst ∈ [0,1]; S: Fst(A,B)=Fst(B,A); I: Fst(A,A)=0; D: deterministic | PopulationGeneticsProperties.cs |
-| 47 | ☐ | POP-LD-001 | PopGen | R: D' ∈ [-1,1]; R: r² ∈ [0,1]; S: LD(a,b)=LD(b,a); D: deterministic | PopulationGeneticsProperties.cs |
+| 40 | ☑ | PHYLO-TREE-001 | Phylogenetic | R: N leaves = N input sequences; P: tree connected; R: all branch lengths ≥ 0 | PhylogeneticProperties.cs |
+| 41 | ☑ | PHYLO-NEWICK-001 | Phylogenetic | RT: parse(serialize(tree))=tree; P: leaf labels preserved; D: deterministic | PhylogeneticProperties.cs |
+| 42 | ☑ | PHYLO-COMP-001 | Phylogenetic | S: RF(a,b)=RF(b,a); I: RF(t,t)=0; R: RF ≥ 0; R: RF ≤ 2(n-3) | PhylogeneticProperties.cs |
+| 43 | ☑ | POP-FREQ-001 | PopGen | R: freq ∈ [0,1]; P: sum(allele freqs) = 1.0; D: deterministic | PopulationGeneticsProperties.cs |
+| 44 | ☑ | POP-DIV-001 | PopGen | R: π ≥ 0; R: θ ≥ 0; M: more diverse → higher π; D: deterministic | PopulationGeneticsProperties.cs |
+| 45 | ☑ | POP-HW-001 | PopGen | R: p² + 2pq + q² = 1.0; R: chi² ≥ 0; D: deterministic | PopulationGeneticsProperties.cs |
+| 46 | ☑ | POP-FST-001 | PopGen | R: Fst ∈ [0,1]; S: Fst(A,B)=Fst(B,A); I: Fst(A,A)=0; D: deterministic | PopulationGeneticsProperties.cs |
+| 47 | ☑ | POP-LD-001 | PopGen | R: D' ∈ [-1,1]; R: r² ∈ [0,1]; S: LD(a,b)=LD(b,a); D: deterministic | PopulationGeneticsProperties.cs |
 | 48 | ☐ | CHROM-TELO-001 | Chromosome | R: positions valid; P: telomere seq contains TTAGGG; M: more repeats → longer region; D: deterministic | ChromosomeProperties.cs (new) |
 | 49 | ☐ | CHROM-CENT-001 | Chromosome | R: centromere index ∈ [0, seqLen]; D: deterministic; P: AT-rich region | ChromosomeProperties.cs (new) |
 | 50 | ☐ | CHROM-KARYO-001 | Chromosome | R: chromosome count > 0; D: deterministic; P: each chrom has classification | ChromosomeProperties.cs (new) |
@@ -88,9 +88,9 @@ Property-based testing генерирует сотни случайных вхо
 | 56 | ☐ | META-BETA-001 | Metagenomics | S: dist(a,b)=dist(b,a); R: dist ∈ [0,1]; I: dist(x,x)=0; D: deterministic | MetagenomicsProperties.cs (new) |
 | 57 | ☐ | META-BIN-001 | Metagenomics | R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic | MetagenomicsProperties.cs (new) |
 | 58 | ☑ | CODON-OPT-001 | Codon | P: optimized translates to same protein; R: only valid codons; D: deterministic | CodonProperties.cs |
-| 59 | ☐ | CODON-CAI-001 | Codon | R: CAI ∈ [0,1]; M: all optimal codons → CAI close to 1.0; D: deterministic | CodonProperties.cs |
+| 59 | ☑ | CODON-CAI-001 | Codon | R: CAI ∈ [0,1]; M: all optimal codons → CAI close to 1.0; D: deterministic | CodonProperties.cs |
 | 60 | ☐ | CODON-RARE-001 | Codon | R: rare codon positions valid; M: lower threshold → more rare codons; D: deterministic | CodonProperties.cs |
-| 61 | ☐ | CODON-USAGE-001 | Codon | R: usage freqs ≥ 0; P: sum per amino acid = 1.0; D: deterministic | CodonProperties.cs |
+| 61 | ☑ | CODON-USAGE-001 | Codon | R: usage freqs ≥ 0; P: sum per amino acid = 1.0; D: deterministic | CodonProperties.cs |
 | 62 | ☐ | TRANS-CODON-001 | Translation | R: 64 codons mapped; P: start codons → M; P: stop codons → *; D: deterministic | CodonProperties.cs |
 | 63 | ☐ | TRANS-PROT-001 | Translation | R: protein len ≤ seqLen/3; P: starts with M if starts with ATG; D: deterministic | CodonProperties.cs |
 | 64 | ☑ | PARSE-FASTA-001 | FileIO | RT: write(parse(fasta))=fasta; P: header preserved; P: sequence preserved; D: deterministic | FastaRoundTripProperties.cs |
@@ -124,7 +124,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 86 |
-| ☑ Complete | 26 |
-| ☐ Not started | 60 |
+| ☑ Complete | 36 |
+| ☐ Not started | 50 |
 | New property files needed | 7 (Annotation, Chromosome, Metagenomics, Disorder, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
