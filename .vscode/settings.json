@@ -1,0 +1,27 @@
+{
+  "//": "Required settings for the Seqeron skill development pipeline.",
+  "//1": "Enables agent mode in Copilot Chat.",
+  "chat.agent.enabled": true,
+
+  "//2": "Enables the runSubagent tool so the orchestrator agent can",
+  "//3": "delegate to specialist subagents in this repo.",
+  "chat.customAgentInSubagent.enabled": true,
+
+  "//4": "Enables Agent Skills system and points it at the canonical",
+  "//5": "Copilot path. This is where the pipeline writes finished",
+  "//6": "skills (mirrored to .claude/skills/ for Claude consumption).",
+  "chat.useAgentSkills": true,
+  "chat.agentSkillsLocations": [
+    ".github/skills"
+  ],
+
+  "//7": "Tells VS Code to load custom agents from the standard",
+  "//8": "Copilot location.",
+  "chat.agentFilesLocations": [
+    ".github/agents"
+  ],
+
+  "//9": "Optional but recommended: shows Claude's reasoning so you",
+  "//10": "can audit the orchestrator's decisions in the chat panel.",
+  "github.copilot.chat.claude.showThinking": true
+}
