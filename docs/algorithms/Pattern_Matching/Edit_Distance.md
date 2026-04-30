@@ -1,138 +1,154 @@
 # Edit Distance (Levenshtein Distance)
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Pattern Matching |
+| Test Unit ID | PAT-APPROX-002 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-Edit distance is a string metric for measuring the difference between two sequences. The Levenshtein distance, named after Soviet mathematician Vladimir Levenshtein (1965), counts the minimum number of single-character edits (insertions, deletions, substitutions) required to transform one string into the other.
+## 1. Overview
 
-**Test Unit:** PAT-APPROX-002
-**Source Files:** `ApproximateMatcher.cs`
+Edit distance measures the minimum number of insertions, deletions, and substitutions required to transform one string into another. In this repository, the core Levenshtein distance implementation uses a two-row Wagner-Fischer dynamic program, and the approximate-search surface scans variable-length windows around the pattern length to find matches within a maximum edit threshold.
 
----
+## 2. Scientific / Formal Basis
 
-## Mathematical Definition
+### 2.1 Domain Context
 
-The Levenshtein distance between two strings $a, b$ (of length $|a|$ and $|b|$ respectively) is given by:
+Levenshtein distance is the standard edit-distance metric for strings when insertions, deletions, and substitutions all cost one unit. In bioinformatics it models sequence differences produced by insertion, deletion, and substitution events and provides a more appropriate notion of distance than Hamming distance when indels are possible. Sources: Levenshtein (1966), Wagner & Fischer (1974), Wikipedia (Levenshtein distance, Edit distance), Berger et al. (2021), Navarro (2001).
+
+### 2.2 Core Model
+
+The recursive definition preserved from the original document is:
 
 $$
-\text{lev}(a,b) = \begin{cases}
+lev(a,b) = \begin{cases}
 |a| & \text{if } |b| = 0 \\
 |b| & \text{if } |a| = 0 \\
-\text{lev}(\text{tail}(a), \text{tail}(b)) & \text{if } \text{head}(a) = \text{head}(b) \\
-1 + \min \begin{cases}
-\text{lev}(\text{tail}(a), b) & \text{(deletion)} \\
-\text{lev}(a, \text{tail}(b)) & \text{(insertion)} \\
-\text{lev}(\text{tail}(a), \text{tail}(b)) & \text{(substitution)}
+lev(tail(a), tail(b)) & \text{if } head(a) = head(b) \\
+1 + \min\begin{cases}
+lev(tail(a), b) \\
+lev(a, tail(b)) \\
+lev(tail(a), tail(b))
 \end{cases} & \text{otherwise}
 \end{cases}
 $$
 
-**Source:** Wikipedia - Levenshtein Distance
+The implemented search routine `FindWithEdits(...)` compares the pattern against windows whose lengths range from `pattern.Length - maxEdits` to `pattern.Length + maxEdits`.
 
----
+### 2.4 Properties and Invariants
 
-## Properties and Invariants
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `d(a, b) = 0` iff the strings are identical under the exact comparison used by `EditDistance(...)` | Zero cost is incurred only when every aligned character matches and lengths agree |
+| INV-02 | `d(a, b) >= |len(a) - len(b)|` | At least the length difference must be repaired by insertions or deletions |
+| INV-03 | `d(a, b) <= max(len(a), len(b))` | One string can be transformed into the other by deletions plus substitutions |
 
-### Metric Properties
-Edit distance with non-negative cost satisfies the axioms of a metric space:
+## 3. Contract
 
-1. **Identity:** $d(a, b) = 0$ if and only if $a = b$
-2. **Positivity:** $d(a, b) > 0$ when $a \neq b$
-3. **Symmetry:** $d(a, b) = d(b, a)$
-4. **Triangle inequality:** $d(a, c) \leq d(a, b) + d(b, c)$
+### 3.1 Inputs and Parameters
 
-**Source:** Wikipedia - Edit Distance
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `s1`, `s2` | `string` | required | Strings compared by `EditDistance(...)` | Null input throws `ArgumentNullException` |
+| `[FindWithEdits(string)] sequence` | `string` | required | Sequence searched by `FindWithEdits(...)` | Null or empty input yields no matches |
+| `[FindWithEdits(DnaSequence)] sequence` | `DnaSequence` | required | Sequence searched through the typed wrapper | Null input throws because the wrapper dereferences `sequence.Sequence` |
+| `pattern` | `string` | required | Pattern compared against variable-length windows | Null or empty input yields no matches |
+| `maxEdits` | `int` | required | Maximum allowed edit distance | Negative values throw `ArgumentOutOfRangeException` |
 
-### Upper and Lower Bounds
+### 3.2 Output / Return Value
 
-- Minimum: absolute value of the difference of string sizes
-- Maximum: length of the longer string
-- Zero if and only if strings are equal
-- For equal-length strings: Hamming distance ≥ Levenshtein distance
-- **Example:** "flaw" → "lawn" has Levenshtein distance 2 (delete 'f', insert 'n'), but Hamming distance 4
+| Field | Type | Description |
+|-------|------|-------------|
+| `distance` | `int` | Levenshtein distance between two strings |
+| `Position` | `int` | Start of a matching window in `FindWithEdits(...)` |
+| `MatchedSequence` | `string` | Window whose edit distance is within threshold |
+| `Distance` | `int` | Observed edit distance |
+| `MismatchType` | `MismatchType` | `Substitution` when the edit distance equals the Hamming distance on equal-length windows; otherwise `Edit` |
 
-**Source:** Wikipedia - Levenshtein Distance
+### 3.3 Preconditions and Validation
 
----
+`EditDistance(...)` throws `ArgumentNullException` when either string is null. `FindWithEdits(string, ...)` returns no matches when the sequence or pattern is null or empty and throws `ArgumentOutOfRangeException` when `maxEdits < 0`. The `DnaSequence` wrapper overload dereferences `sequence.Sequence` directly and therefore throws when `sequence` is null. The approximate-search method uppercases both sequence and pattern before scanning, but the core `EditDistance(...)` routine compares characters as-is.
 
-## Canonical Test Cases
+## 4. Algorithm
 
-From authoritative sources:
+### 4.1 High-Level Steps
 
-| String 1 | String 2 | Distance | Source |
-|----------|----------|----------|--------|
-| "kitten" | "sitting" | 3 | Wikipedia, Rosetta Code |
-| "rosettacode" | "raisethysword" | 8 | Rosetta Code |
-| "saturday" | "sunday" | 3 | Rosetta Code |
-| "" | "abc" | 3 | Definition (insertion of all chars) |
-| "abc" | "" | 3 | Definition (deletion of all chars) |
-| "flaw" | "lawn" | 2 | Wikipedia |
+1. For direct distance, initialize a two-row dynamic-programming table.
+2. Fill the current row from the previous row using insertion, deletion, and substitution costs.
+3. Return the final value in the last DP row as the Levenshtein distance.
+4. For approximate search, uppercase the sequence and pattern.
+5. Compare the pattern against every window whose length is between `pattern.Length - maxEdits` and `pattern.Length + maxEdits`.
+6. Yield windows whose edit distance is at most `maxEdits`.
 
-### "kitten" → "sitting" (distance = 3)
-1. kitten → sitten (substitution of 's' for 'k')
-2. sitten → sittin (substitution of 'i' for 'e')
-3. sittin → sitting (insertion of 'g' at end)
+### 4.3 Complexity
 
-**Source:** Wikipedia - Levenshtein Distance
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `EditDistance` | `O(m × n)` | `O(n)` | Two-row Wagner-Fischer dynamic program for strings of lengths `m` and `n` |
+| `FindWithEdits` | `O(s × (2e + 1) × p × (p + e))` | `O(p + e)` | `s` = sequence length, `p` = pattern length, `e` = `maxEdits`; each candidate window invokes `EditDistance(...)` on a window whose length ranges from `p - e` to `p + e` |
 
----
+## 5. Implementation Notes
 
-## Algorithm Complexity
+### 5.1 Location and Entry Points
 
-- **Time:** O(m × n) where m and n are string lengths (Wagner-Fischer algorithm)
-- **Space:** O(min(m, n)) with two-row optimization
+**Implementation location:** [ApproximateMatcher.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs)
 
-The implementation uses the space-optimized two-row variant.
+- `ApproximateMatcher.EditDistance(string, string)`: Two-row Levenshtein distance.
+- `ApproximateMatcher.FindWithEdits(string, string, int)`: Approximate search by variable-length windows.
+- `ApproximateMatcher.FindWithEdits(DnaSequence, string, int)`: Typed wrapper over the string implementation.
 
-**Source:** Wikipedia - Wagner-Fischer algorithm
+### 5.2 Current Behavior
 
----
+The core `EditDistance(...)` method is case-sensitive because it compares characters directly. `FindWithEdits(...)` uppercases both the sequence and pattern before scanning and distinguishes substitution-only matches from general edits by comparing the edit distance to a helper Hamming-like distance on equal-length windows. For edit matches that involve insertions or deletions, `MismatchPositions` is returned as an empty list. The `DnaSequence` overload is a thin wrapper over the string implementation and does not add its own null guard.
 
-## Implementation Notes
+### 5.3 Conformance to Theory / Spec
 
-### `ApproximateMatcher.EditDistance(string s1, string s2)`
+**Implemented (verbatim from the cited theory/spec):**
 
-The implementation in this library:
-- Uses the two-row space-optimized Wagner-Fischer algorithm
-- Compares characters as-is (case-sensitive, per standard Levenshtein definition)
-- Returns `n` if `s1` is empty (length of `s2`)
-- Returns `m` if `s2` is empty (length of `s1`)
-- Throws `ArgumentNullException` if either input is null
+- Levenshtein distance with insertion, deletion, and substitution costs of one.
+- Space-optimized Wagner-Fischer dynamic programming.
+- Approximate search by accepting windows with edit distance at most `maxEdits`.
 
-### `ApproximateMatcher.FindWithEdits(string sequence, string pattern, int maxEdits)`
+**Intentionally simplified:**
 
-Finds all approximate matches using edit distance:
-- Uses sliding window with variable length (pattern ± maxEdits)
-- Returns matches with distance ≤ maxEdits
-- Distinguishes substitution-only matches from edit matches (insertions/deletions)
+- `FindWithEdits(...)` uses a brute-force variable-window scan; **consequence:** it is easy to reason about but not optimized for very large texts or very permissive edit thresholds.
+- Edit-match results do not reconstruct insertion or deletion coordinates; **consequence:** callers receive the edit distance and matched window, but not a full alignment trace.
 
----
+**Not implemented:**
 
-## Bioinformatics Applications
+- Damerau-style transpositions or other extended edit operations; **users should rely on:** specialized edit-distance variants if those operations are required.
 
-In bioinformatics, Levenshtein distance measures the difference between biological sequences. The edits correspond to genetic mutations:
-- **Insertion:** Addition of a nucleotide
-- **Deletion:** Removal of a nucleotide
-- **Substitution:** Replacement of one nucleotide with another
+## 6. Edge Cases and Limitations
 
-A lower distance indicates closer evolutionary or functional relationship.
+### 6.1 Edge Cases
 
-**Source:** Wikipedia - Levenshtein Distance (Bioinformatics section), Berger et al. (2021)
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| `""` vs `"abc"` | Distance `3` | Three insertions or deletions are required |
+| Empty string sequence or pattern in `FindWithEdits(...)` | Returns no matches | Explicit source guard |
+| Null `DnaSequence` input in `FindWithEdits(...)` | Throws | The typed wrapper dereferences `sequence.Sequence` |
+| `maxEdits < 0` | Throws `ArgumentOutOfRangeException` | Invalid threshold |
+| Equal-length strings | Levenshtein distance is at most the Hamming distance | Substitutions alone can realize the Hamming path |
 
----
+### 6.2 Limitations
 
-## Related Algorithms
+The current search routine is a brute-force approximation layer over the core distance function and does not expose a full alignment traceback. The core distance method is also case-sensitive, so callers who need normalized comparisons must uppercase or otherwise normalize inputs before calling it directly.
 
-| Algorithm | Operations | Note |
-|-----------|------------|------|
-| Hamming distance | Substitution only | Equal-length strings only |
-| Damerau-Levenshtein | + Transposition | Adjacent character swap |
-| LCS distance | Insertion, Deletion | No substitution |
+## 7. Examples and Related Material
 
-**Source:** Wikipedia - Edit Distance
+### 7.1 Worked Example
 
----
+**Numerical / biological walk-through (optional):**
 
-## References
+`kitten -> sitting` has edit distance `3`:
+
+1. `kitten -> sitten`
+2. `sitten -> sittin`
+3. `sittin -> sitting`
+
+## 8. References
 
 1. Levenshtein, V.I. (1966). "Binary codes capable of correcting deletions, insertions, and reversals." Soviet Physics Doklady, 10(8): 707–710.
 2. Wagner, R.A.; Fischer, M.J. (1974). "The String-to-String Correction Problem." Journal of the ACM, 21(1): 168–173.

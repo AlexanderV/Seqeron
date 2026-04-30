@@ -1,94 +1,172 @@
 # Genome Binning
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Metagenomics |
+| Test Unit ID | META-BIN-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-Genome binning is the computational process of grouping assembled contigs from metagenomic data and assigning them to their separate genomes of origin. The resulting grouped contigs are called **Metagenome Assembled Genomes (MAGs)**.
+## 1. Overview
 
-## Algorithm
+Genome binning groups assembled metagenomic contigs into bins intended to represent their genomes of origin, producing candidate metagenome-assembled genomes (MAGs). Classical binning methods use compositional signals such as GC content and oligonucleotide frequencies, often combined with coverage information, to cluster contigs from the same organism. The repository implementation follows that general pattern with a deterministic k-means workflow over GC content, tetranucleotide frequencies, and coverage. It also reports completeness and contamination as proxy scores rather than marker-gene-based estimates.
 
-### Compositional Features
+## 2. Scientific / Formal Basis
 
-Binning methods exploit organism-specific characteristics of DNA:
+### 2.1 Domain Context
 
-1. **GC Content**: The ratio of guanine and cytosine bases to total bases. Different organisms have characteristic GC content signatures that remain relatively constant across their genomes.
+Metagenomic assemblies interleave contigs from many organisms, so binning attempts to recover organism-level groupings after assembly. Composition-based methods rely on the observation that genomes tend to maintain characteristic GC content and oligonucleotide usage signatures, while coverage adds an orthogonal abundance signal when contigs from the same organism share similar read depth patterns (Teeling et al., 2004).
 
-2. **Tetranucleotide Frequencies**: There are 256 (4⁴) possible 4-mer combinations. The frequency distribution of these tetramers is species-specific and can be used to cluster contigs from the same organism.
+### 2.2 Core Model
 
-### Coverage Features
+The theoretical basis for the current feature set is a joint representation of each contig by composition and abundance-related signals:
 
-Read depth across samples provides additional signal:
-- Contigs from the same genome should have correlated coverage patterns
-- Differential coverage across samples improves separation
+- GC content as the fraction of `G` and `C` bases in the contig.
+- Tetranucleotide frequency (TNF) as the normalized frequency vector over the `4^4 = 256` possible 4-mers (Teeling et al., 2004).
+- Coverage as a depth-derived abundance feature.
 
-### Clustering Approach
+The implementation combines these signals with a composite distance described in the source code:
 
-Common approaches include:
-- **K-means clustering**: Partitions contigs into k clusters based on feature similarity
-- **DBSCAN**: Density-based clustering that can identify arbitrary-shaped clusters
-- **Hierarchical clustering**: Builds nested clusters
+$$
+d(a, b) = |GC_a - GC_b| + |Cov_a - Cov_b| + \frac{1 - r_{TNF}(a, b)}{2}
+$$
 
-## Quality Metrics
+where $r_{TNF}(a, b)$ is the Pearson correlation between the two TNF vectors. The repository then applies hard clustering by k-means over that feature space.
 
-### Completeness
+The document also cites MIMAG quality categories for interpreting MAG quality:
 
-Proportion of expected single-copy marker genes present in a bin. Real implementations (CheckM) use:
-- Sets of universal single-copy genes
-- Lineage-specific marker gene sets
-- Completeness = (observed markers / expected markers) × 100
+- High-quality: `> 90%` complete and `< 5%` contamination.
+- Medium-quality: `>= 50%` complete and `< 10%` contamination.
+- Low-quality: `< 50%` complete and `< 10%` contamination.
 
-### Contamination
+### 2.3 Modeling Assumptions (Optional)
 
-Indicator of multiple genomes in a single bin:
-- Measured by duplicated single-copy marker genes
-- Contamination = (duplicated markers / total markers) × 100
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | Contigs from the same genome have similar GC content and tetranucleotide composition | Composition-based clustering may merge unrelated contigs or split one genome across bins |
+| ASM-02 | Coverage carries organism-specific signal that helps separate bins | Coverage contributes noise instead of separation when samples or contigs do not preserve comparable abundance patterns |
 
-### MIMAG Standards
+### 2.4 Properties and Invariants
 
-Minimum Information about a Metagenome-Assembled Genome:
-- **High-quality**: >90% complete, <5% contamination
-- **Medium-quality**: ≥50% complete, <10% contamination
-- **Low-quality**: <50% complete, <10% contamination
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Each reported bin is a hard cluster of contigs rather than an overlapping assignment | The implementation uses k-means assignments, so each contig index belongs to one cluster |
+| INV-02 | Reported completeness and contamination proxy values are clamped to `[0, 100]` | Both formulas use `Math.Min(..., 100)` in the implementation |
+| INV-03 | Bins smaller than the configured minimum size are not emitted | The code skips clusters whose `totalLength` is below `minBinSize` |
 
-## Complexity
+## 3. Contract
 
-- **Time Complexity**: O(n × k × i) where n = contigs, k = bins, i = iterations
-- **Space Complexity**: O(n × f) where f = feature dimensions
+### 3.1 Inputs and Parameters
 
-## Implementation Notes
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `contigs` | `IEnumerable<(string ContigId, string Sequence, double Coverage)>` | required | Input contigs with sequence and coverage data | Empty input yields no output bins |
+| `numBins` | `int` | `10` | Maximum number of bins (`k`) for k-means clustering | Effective `k` becomes `min(numBins, contigCount)` |
+| `minBinSize` | `double` | `500000` | Minimum total assembled length required for a bin to be reported | Clusters below this threshold are skipped |
+| `expectedGenomeSize` | `double` | `4000000` | Expected genome size in base pairs for completeness estimation | Used only in the completeness proxy formula |
 
-### Current Implementation
+### 3.2 Output / Return Value
 
-The `MetagenomicsAnalyzer.BinContigs` method implements compositional binning:
+| Field | Type | Description |
+|-------|------|-------------|
+| `BinId` | `string` | Generated bin identifier of the form `bin.<n>` |
+| `ContigIds` | `IReadOnlyList<string>` | Contig identifiers assigned to the bin |
+| `TotalLength` | `double` | Sum of sequence lengths of all contigs in the bin |
+| `GcContent` | `double` | Mean GC content over the bin's contigs |
+| `Coverage` | `double` | Mean raw coverage over the bin's contigs |
+| `Completeness` | `double` | Proxy completeness percentage based on total length versus `expectedGenomeSize` |
+| `Contamination` | `double` | Proxy contamination percentage based on within-bin GC standard deviation |
+| `PredictedTaxonomy` | `string` | Taxonomy placeholder; the current implementation returns an empty string |
 
-1. Calculates features per contig: GC content, tetranucleotide frequencies (TNF), coverage
-2. Normalizes coverage to [0, 1] for distance computation
-3. K-means clustering on composite distance: |ΔGC| + |Δcoverage| + TNF Pearson distance
-4. Centroid initialization by GC-sorted spread (deterministic, diverse)
-5. Iterative assignment/update until convergence (max 50 iterations)
-6. Filters bins below minimum size threshold
-7. Completeness: `min(totalLength / expectedGenomeSize × 100, 100)` — parameterized (default 4Mbp)
-8. Contamination: `min(gcStdDev / 0.5 × 100, 100)` — GC std dev normalized by theoretical maximum
+### 3.3 Preconditions and Validation
 
-### Design Decisions
+An empty input collection produces no bins. Coverage values are normalized internally to `[0, 1]` using the maximum observed coverage before clustering. Empty sequences produce zero GC content and no TNF entries through the helper methods. After clustering, any cluster whose total assembled length is less than `minBinSize` is filtered out before output.
 
-- **Completeness proxy**: Without a marker gene database (CheckM), completeness is estimated by
-  bin length relative to a configurable expected genome size. Callers can supply the appropriate
-  value for their target organism.
-- **Contamination proxy**: Within-bin GC standard deviation, normalized by the theoretical maximum
-  (0.5 for values in [0, 1]), serves as a documented proxy for mixing of genomes from different
-  taxonomic sources (Parks et al. 2014).
+## 4. Algorithm
 
-## References
+### 4.1 High-Level Steps
 
-1. Teeling H, et al. (2004). "TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences." BMC Bioinformatics. doi:10.1186/1471-2105-5-163
+1. Materialize the input contigs.
+2. Compute GC content, TNF vector, and raw coverage for each contig.
+3. Normalize coverage values by the maximum coverage observed in the input set.
+4. Initialize `k` centroids by spreading selections across GC-sorted contigs.
+5. Run k-means assignment and centroid updates until assignments stabilize or `50` iterations are reached.
+6. Group contigs by final cluster assignment.
+7. Discard clusters whose total sequence length is below `minBinSize`.
+8. Emit `GenomeBin` records with mean GC content, mean coverage, completeness proxy, and contamination proxy.
 
-2. Parks DH, et al. (2014). "Assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes." Genome Research 25:1043-1055.
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-3. Maguire F, et al. (2020). "Metagenome-assembled genome binning methods with short reads disproportionately fail for plasmids and genomic Islands." Microbial Genomics 6(10). doi:10.1099/mgen.0.000436
+The source code defines the composite distance as the sum of GC difference, normalized coverage difference, and TNF Pearson distance. TNF Pearson distance is `(1 - r) / 2`, which maps Pearson correlation into `[0, 1]`. Completeness is computed as `min(totalLength / expectedGenomeSize * 100, 100)`. Contamination is computed as `min(gcStdDev / 0.5 * 100, 100)`, where `0.5` is treated as the theoretical maximum standard deviation for GC fractions in `[0, 1]`.
 
-4. Wikipedia: Binning (metagenomics). https://en.wikipedia.org/wiki/Binning_(metagenomics)
+### 4.3 Complexity
 
----
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `BinContigs` | `O(n * k * i)` | `O(n * f)` | `n` = contigs, `k` = bins, `i` = k-means iterations, `f` = feature dimensions |
 
-**Document Version:** 1.0
-**Related Test Unit:** META-BIN-001
+## 5. Implementation Notes
+
+### 5.1 Location and Entry Points
+
+**Implementation location:** [MetagenomicsAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Metagenomics/MetagenomicsAnalyzer.cs)
+
+- `MetagenomicsAnalyzer.BinContigs(IEnumerable<(string ContigId, string Sequence, double Coverage)>, int, double, double)`: Performs the repository's contig binning workflow and emits `GenomeBin` results.
+
+### 5.2 Current Behavior
+
+The repository implementation fixes the clustering method to k-means and uses deterministic centroid initialization by spreading across GC-sorted contigs. Coverage is normalized by the maximum input coverage, but average coverage in the output bin record is reported in the original scale. Completeness and contamination are proxies rather than marker-gene-derived scores. The `PredictedTaxonomy` field is currently emitted as an empty string.
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Use of GC content, tetranucleotide frequency, and coverage as binning features.
+- Pearson-correlation-based TNF comparison in the spirit of TETRA-style composition analysis.
+- Hard clustering of contigs into bins.
+
+**Intentionally simplified:**
+
+- Bin quality uses `totalLength / expectedGenomeSize` as a completeness proxy instead of single-copy marker genes; **consequence:** completeness tracks assembled length rather than marker-gene recovery.
+- Contamination uses within-bin GC standard deviation instead of duplicated marker genes; **consequence:** contamination is a composition-based proxy and not a CheckM-equivalent estimate.
+- The implementation fixes the clustering method to k-means; **consequence:** density-based or hierarchical alternatives discussed in the document are not available in this API.
+
+**Not implemented:**
+
+- Marker-gene-based completeness and contamination estimation; **users should rely on:** external MAG quality tools such as CheckM rather than this class.
+- Predicted taxonomy assignment for output bins; **users should rely on:** no current alternative in this method.
+
+### 5.4 Deviations and Assumptions (Optional)
+
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | Completeness proxy by expected genome size | Deviation | Length-rich but incomplete bins can appear more complete than marker-gene-based tools would report | accepted | Controlled by the caller-supplied `expectedGenomeSize` parameter |
+| 2 | Contamination proxy by GC variance | Assumption | Low-variance mixed bins and high-variance single-genome bins can be misinterpreted relative to marker-gene methods | accepted | The code documents this as a proxy tied to within-bin GC dispersion |
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty input collection | No bins are returned | The method exits early when the contig list is empty |
+| `numBins` greater than the number of contigs | Effective `k` equals the number of contigs | The implementation sets `k = min(numBins, contigCount)` |
+| Cluster total length below `minBinSize` | Cluster is omitted from the output | Post-clustering filter on `totalLength` |
+| Bin with fewer than two contigs | `Contamination = 0` | The GC-variance helper returns `0` when fewer than two values are present |
+
+### 6.2 Limitations
+
+This implementation does not include marker-gene databases, lineage-specific models, or plasmid/genomic-island-specific handling. The cited literature notes that short-read metagenome binning can fail disproportionately for plasmids and genomic islands, so output bins should be interpreted as an algorithmic approximation rather than production-grade MAG curation.
+
+## 7. Examples and Related Material
+
+- [META-BIN-001](../../../tests/TestSpecs/META-BIN-001.md) documents the repository's genome-binning test specification.
+
+## 8. References
+
+1. Teeling, H., et al. 2004. TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences. BMC Bioinformatics 5:163. doi:10.1186/1471-2105-5-163.
+2. Parks, D. H., et al. 2014. Assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Research 25:1043-1055.
+3. Maguire, F., et al. 2020. Metagenome-assembled genome binning methods with short reads disproportionately fail for plasmids and genomic Islands. Microbial Genomics 6(10). doi:10.1099/mgen.0.000436.
+4. Wikipedia contributors. Binning (metagenomics). Wikipedia. https://en.wikipedia.org/wiki/Binning_(metagenomics)
+

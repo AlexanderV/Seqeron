@@ -1,36 +1,96 @@
 # PAM Site Detection Algorithm
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Molecular Tools |
+| Test Unit ID | CRISPR-PAM-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-PAM (Protospacer Adjacent Motif) site detection is the process of identifying DNA sequences adjacent to potential CRISPR target sites that are required for Cas nuclease binding and cleavage.
+## 1. Overview
 
-## Biological Background
+PAM (protospacer adjacent motif) site detection identifies DNA sequences adjacent to potential CRISPR targets that are required for Cas nuclease binding and cleavage. In this repository, the implementation searches both strands for system-specific PAM patterns, extracts the corresponding target region when it fits within sequence bounds, and returns site metadata describing the matched PAM, target, strand, and CRISPR system.
 
-### Definition
+## 2. Scientific / Formal Basis
 
-A protospacer adjacent motif (PAM) is a 2–6 base pair DNA sequence immediately following the DNA sequence targeted by the Cas9 nuclease in the CRISPR bacterial adaptive immune system [Wikipedia: PAM].
+### 2.1 Domain Context
 
-PAM is an essential targeting component which distinguishes bacterial self from non-self DNA, preventing the CRISPR locus from being targeted and destroyed by the CRISPR-associated nuclease [Wikipedia: PAM].
+A PAM is a short DNA sequence adjacent to a CRISPR target site, and Cas nucleases depend on the presence of that PAM to bind and cleave. The original document states that PAM recognition helps distinguish self from non-self DNA in the CRISPR immune system and that Cas9 does not successfully bind or cleave a target that lacks the required PAM. Sources: Wikipedia (PAM, CRISPR), Jinek et al. (2012).
 
-### PAM Requirements
+### 2.2 Core Model
 
-Cas9 will not successfully bind to or cleave the target DNA sequence if it is not followed by the PAM sequence [Wikipedia: PAM, Jinek et al. 2012].
+The algorithm scans the input sequence for system-specific PAM patterns defined with IUPAC ambiguity codes. For PAM-after-target systems such as Cas9, the guide target lies immediately upstream of the PAM:
 
-## PAM Sequences by CRISPR System
+$$
+targetStart = PAM_{pos} - guideLength, \quad targetEnd = PAM_{pos} - 1
+$$
+
+For PAM-before-target systems such as Cas12a, the guide target lies immediately downstream of the PAM:
+
+$$
+targetStart = PAM_{pos} + PAM_{length}, \quad targetEnd = targetStart + guideLength - 1
+$$
+
+The same search is repeated on the reverse complement to identify reverse-strand sites.
+
+### 2.4 Properties and Invariants
+
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | A returned PAM site always satisfies the system's PAM pattern under IUPAC matching | `FindPamSitesCore(...)` yields only after `MatchesPam(...)` succeeds |
+| INV-02 | A returned target sequence always fits within the scanned sequence bounds | The source checks `targetStart >= 0` and `targetEnd < seq.Length` before yielding |
+| INV-03 | Both forward and reverse strands are searched | The implementation scans `seq` and `revComp` |
+
+## 3. Contract
+
+### 3.1 Inputs and Parameters
+
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to scan for PAMs | String overload normalizes to uppercase; empty string returns no results |
+| `systemType` | `CrisprSystemType` | `SpCas9` | CRISPR system whose PAM definition is used | Must be one of the supported systems in `CrisprDesigner.GetSystem(...)` |
+
+### 3.2 Output / Return Value
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Position` | `int` | Start position of the PAM |
+| `PamSequence` | `string` | Actual matched PAM sequence |
+| `TargetSequence` | `string` | Guide-length target extracted from the scanned strand |
+| `TargetStart` | `int` | Start coordinate recorded for the target sequence |
+| `IsForwardStrand` | `bool` | `true` for forward-strand matches, `false` for reverse-strand matches |
+| `System` | `CrisprSystem` | System metadata including name, PAM pattern, guide length, PAM orientation, and description |
+
+### 3.3 Preconditions and Validation
+
+The `DnaSequence` overload throws `ArgumentNullException` for null input. The raw-string overload returns an empty result for null or empty input and uppercases the sequence before scanning. If the sequence is shorter than the effective PAM-plus-target span or if a matched PAM would place the target outside sequence bounds, no `PamSite` is yielded.
+
+## 4. Algorithm
+
+### 4.1 High-Level Steps
+
+1. Resolve the selected CRISPR system into its PAM pattern, guide length, and PAM orientation.
+2. Scan the forward strand for PAM matches using IUPAC-aware pattern matching.
+3. For each forward match, compute the target interval and yield a site only when the target fits within bounds.
+4. Reverse-complement the input sequence and repeat the PAM scan.
+5. Convert reverse-strand PAM positions back to forward-strand coordinates and yield the reverse-strand site metadata.
+
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
+
+Supported CRISPR systems in the current implementation:
 
 | System | PAM Sequence | PAM Location | Guide Length | Notes |
 |--------|--------------|--------------|--------------|-------|
 | SpCas9 | NGG | 3' of target | 20 bp | Canonical Cas9 from *Streptococcus pyogenes* |
-| SpCas9-NAG | NAG | 3' of target | 20 bp | Lower efficiency variant |
+| SpCas9-NAG | NAG | 3' of target | 20 bp | Lower-efficiency variant |
 | SaCas9 | NNGRRT | 3' of target | 21 bp | *Staphylococcus aureus* Cas9 |
-| Cas12a (Cpf1) | TTTV | 5' of target | 23 bp | V = A, C, or G |
+| Cas12a (Cpf1) | TTTV | 5' of target | 23 bp | `V = A, C, or G` |
 | AsCas12a | TTTV | 5' of target | 23 bp | *Acidaminococcus sp.* |
 | LbCas12a | TTTV | 5' of target | 24 bp | *Lachnospiraceae bacterium* |
 | CasX | TTCN | 5' of target | 20 bp | Compact Cas protein |
 
-**Sources:** Wikipedia (CRISPR, PAM), Zetsche et al. 2015 (Cas12a), Jinek et al. 2012 (SpCas9)
-
-### IUPAC Codes in PAM Patterns
+IUPAC codes used by the PAM matcher in the original document:
 
 | Code | Meaning | Nucleotides |
 |------|---------|-------------|
@@ -38,75 +98,63 @@ Cas9 will not successfully bind to or cleave the target DNA sequence if it is no
 | R | Purine | A, G |
 | V | Not T | A, C, G |
 
-**Source:** IUPAC-IUB nomenclature (1970)
+### 4.3 Complexity
 
-## Algorithm
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| PAM scan | `O(n)` | `O(k)` | `n` is sequence length and `k` is the number of yielded PAM sites |
 
-### PAM Detection Process
+## 5. Implementation Notes
 
-1. **Input validation**: Verify sequence is valid DNA
-2. **Forward strand search**:
-   - Scan sequence for PAM pattern matches using IUPAC matching
-   - For each PAM match at position `i`:
-     - Calculate target region based on PAM position (before or after)
-     - Verify target region is within sequence bounds
-     - Extract target sequence of appropriate guide length
-3. **Reverse strand search**:
-   - Generate reverse complement of input sequence
-   - Repeat scanning process on reverse complement
-   - Convert positions back to forward strand coordinates
-4. **Return all found PAM sites with metadata**
+### 5.1 Location and Entry Points
 
-### Position Conventions
+**Implementation location:** [CrisprDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs), [IupacHelper.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs)
 
-- **PAM after target (Cas9 systems)**: `[Target 20bp][NGG]`
-  - Target region: positions `PAM_pos - guideLength` to `PAM_pos - 1`
+- `CrisprDesigner.FindPamSites(DnaSequence, CrisprSystemType)`: Scans a validated DNA sequence for PAM sites.
+- `CrisprDesigner.FindPamSites(string, CrisprSystemType)`: Raw-string overload that uppercases input and yields no results for empty input.
+- `CrisprDesigner.GetSystem(CrisprSystemType)`: Maps the enum to PAM sequence, guide length, orientation, and description.
+- `IupacHelper.MatchesIupac(char, char)`: Evaluates per-base IUPAC ambiguity matches.
 
-- **PAM before target (Cas12a systems)**: `[TTTV][Target 23bp]`
-  - Target region: positions `PAM_pos + PAM_length` to `PAM_pos + PAM_length + guideLength - 1`
+### 5.2 Current Behavior
 
-### Complexity
+The current implementation searches both forward and reverse strands, uses `IupacHelper.MatchesIupac(...)` for ambiguity-code evaluation, and returns `PamSite` records carrying the matched PAM, target sequence, strand, and system metadata. For reverse-strand matches, `Position` is converted back to a forward-strand coordinate and `PamSequence` is reverse-complemented back to the forward-oriented PAM string. `TargetSequence` is extracted from the reverse-complement scan path, and `TargetStart` is recorded from that same reverse-strand traversal.
 
-- **Time**: O(n) where n = sequence length
-- **Space**: O(k) where k = number of PAM sites found
+### 5.3 Conformance to Theory / Spec
 
-## Implementation Notes
+**Implemented (verbatim from the cited theory/spec):**
 
-### Current Implementation
+- PAM recognition as a prerequisite for guide-target extraction.
+- IUPAC-based ambiguity handling for PAM patterns.
+- System-specific guide lengths and PAM-before/PAM-after orientation rules for the supported systems.
 
-The `CrisprDesigner.FindPamSites()` method in this library:
+**Intentionally simplified:**
 
-1. Searches both forward and reverse strands
-2. Uses IUPAC pattern matching via `IupacHelper.MatchesIupac()`
-3. Returns `PamSite` records containing:
-   - Position (on forward strand)
-   - PAM sequence (actual nucleotides matched)
-   - Target sequence
-   - Target start position
-   - Strand orientation
-   - CRISPR system information
+- The implementation is limited to the fixed set of CRISPR systems declared in `GetSystem(...)`; **consequence:** PAMs for other Cas proteins are not discoverable through this API.
+- Site discovery is sequence-only; **consequence:** chromatin state, cleavage efficiency, and organism-specific activity effects are not reflected in the returned sites.
 
-### GetSystem Method
+**Not implemented:**
 
-Returns `CrisprSystem` record with:
-- Name, PAM sequence pattern, guide length
-- PAM position relative to target (before/after)
-- Description of the system
+- Guide efficacy or cleavage-efficiency prediction for the detected PAM sites; **users should rely on:** `Guide_RNA_Design.md` and downstream evaluation workflows rather than PAM detection alone.
 
-## Edge Cases
+## 6. Edge Cases and Limitations
 
-| Case | Expected Behavior |
-|------|-------------------|
-| Empty sequence | Return empty collection |
-| Null sequence | Throw ArgumentNullException |
-| Sequence shorter than PAM + guide | Return empty (no valid sites) |
-| No PAM matches | Return empty collection |
-| PAM at sequence boundary | Include if target fits within bounds |
-| Multiple overlapping PAMs | Return all distinct PAM sites |
-| Both strands have matches | Return sites from both strands |
-| Lowercase input | Case-insensitive matching |
+### 6.1 Edge Cases
 
-## References
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | Returns an empty collection | No scanable sequence content |
+| Null `DnaSequence` input | Throws `ArgumentNullException` | Explicit guard in source |
+| Sequence shorter than PAM plus guide | Returns no valid sites | Bounds checks reject incomplete target intervals |
+| No PAM matches | Returns an empty collection | No valid PAM pattern exists in the sequence |
+| PAM at sequence boundary | Included only if the target also fits within bounds | Target extraction is validated before yielding |
+| Multiple overlapping PAMs | All distinct sites are returned | The scan yields every matching window |
+| Lowercase input to the string overload | Case-insensitive matching | The string overload uppercases the input |
+
+### 6.2 Limitations
+
+The current implementation is a sequence-pattern detector rather than a full CRISPR activity model. It does not score cleavage efficiency, off-target risk, chromatin accessibility, or non-listed PAM systems, and reverse-strand target metadata follows the current scan-path representation used in source.
+
+## 8. References
 
 1. Wikipedia: Protospacer adjacent motif. https://en.wikipedia.org/wiki/Protospacer_adjacent_motif
 2. Wikipedia: CRISPR. https://en.wikipedia.org/wiki/CRISPR

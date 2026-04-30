@@ -1,157 +1,166 @@
 # Direct Repeat Detection
 
-## Algorithm Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Repeat Analysis |
+| Test Unit ID | REP-DIRECT-001 |
+| Related Projects | Seqeron.Genomics.Analysis |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-| Property | Value |
-|----------|-------|
-| **Algorithm** | Direct Repeat Detection |
-| **Implementation** | `RepeatFinder.FindDirectRepeats` |
-| **Complexity** | O(n²) where n = sequence length |
-| **Category** | Repeat Analysis |
+## 1. Overview
 
----
+Direct repeat detection identifies nucleotide sequences that recur in the same 5'→3' orientation at multiple genomic positions [1][2]. Unlike inverted repeats, the downstream copy preserves the original sequence rather than its reverse complement. The repository implements exact direct-repeat discovery in `RepeatFinder.FindDirectRepeats` by combining length and position enumeration with suffix-tree occurrence lookup. Spacing between copies is configurable, so adjacent tandem-like repeats and separated direct repeats can both be reported.
 
-## Definition
+## 2. Scientific / Formal Basis
 
-A **direct repeat** is a nucleotide sequence that appears two or more times in a genome, with copies oriented in the same 5' to 3' direction. Unlike inverted repeats (which are reverse complements), direct repeats preserve the original sequence orientation.
+### 2.1 Domain Context
 
-**Canonical format:**
-```
+A direct repeat consists of two or more identical sequence copies oriented in the same 5'→3' direction [1]. A canonical representation is:
+
+```text
 5' TTACG------TTACG 3'
 3' AATGC------AATGC 5'
 ```
 
-Where `------` represents intervening nucleotides (spacing). Adjacent direct repeats (spacing = 0) are also valid.
+where `------` is an intervening spacer that may be zero bases long [1]. Direct repeats are biologically associated with transposable-element boundaries, homologous recombination, replication-slippage-mediated deletions, and some regulatory architectures [1][2][3]. The legacy reference set also notes that tandem trinucleotide expansions are a special case of direct-repeat biology and underlie disorders such as Huntington's disease, Fragile X syndrome, spinocerebellar ataxias, Friedreich's ataxia, and myotonic dystrophy [4].
 
----
+### 2.2 Core Model
 
-## Sources
+For a sequence $S$, repeat length $L$, first position $i$, and second position $j$, a direct-repeat pair is present when:
 
-| Source | Type | Reference |
-|--------|------|-----------|
-| Wikipedia - Direct repeat | Definition | https://en.wikipedia.org/wiki/Direct_repeat |
-| Wikipedia - Repeated sequence (DNA) | Context | https://en.wikipedia.org/wiki/Repeated_sequence_(DNA) |
-| Ussery et al. (2009) | Technical | Computing for Comparative Microbial Genomics, Chapter 8 |
-| Richard (2021) | Clinical | PMC8145212 - Trinucleotide repeat expansions |
+$$
+S[i..i+L) = S[j..j+L) \quad \text{and} \quad j > i + L - 1 + \text{minSpacing}
+$$
 
----
+The implementation reports spacing as:
 
-## Theory
+$$
+	ext{Spacing} = j - i - L
+$$
 
-### Structural Characteristics
+### 2.4 Properties and Invariants
 
-1. **Same directionality**: Both copies read identically in the 5' to 3' direction
-2. **Variable spacing**: Copies may be adjacent (tandem) or separated by intervening nucleotides
-3. **Length variability**: From short (2-6 bp) to long (hundreds of bp)
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `RepeatSequence` is identical at `FirstPosition` and `SecondPosition`. | Results are emitted only from suffix-tree occurrence matches of the same extracted pattern. |
+| INV-02 | `Spacing = SecondPosition - FirstPosition - Length`. | Spacing is constructed directly from the stored coordinates. |
+| INV-03 | When `minSpacing > 0`, reported copies do not overlap. | The filter requires `j > i + len - 1 + minSpacing`. |
+| INV-04 | Each `(FirstPosition, SecondPosition, Length)` tuple is unique. | A hash set suppresses duplicate result keys. |
 
-### Biological Significance
+## 3. Contract
 
-Direct repeats serve important biological functions:
+### 3.1 Inputs and Parameters
 
-1. **Transposable elements**: Long terminal repeats (LTRs) flank retrotransposons
-2. **DNA recombination**: Direct repeats are hotspots for homologous recombination
-3. **Genome instability**: Associated with deletions via replication slippage
-4. **Gene regulation**: Some regulatory elements contain direct repeats
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to search. | The `DnaSequence` overload throws on `null`; the `string` overload returns no results for `null` or empty input. |
+| `minLength` | `int` | `5` | Minimum repeat length to test. | The `DnaSequence` overload rejects values below `2`. |
+| `maxLength` | `int` | `50` | Maximum repeat length to test. | The `DnaSequence` overload rejects values below `minLength`. |
+| `minSpacing` | `int` | `1` | Minimum number of bases between copies. | `0` is allowed and enables adjacent repeat copies. |
 
-### Clinical Relevance
+### 3.2 Output / Return Value
 
-Trinucleotide repeat expansions (a form of tandem direct repeat) underlie several human diseases:
+| Field | Type | Description |
+|-------|------|-------------|
+| `FirstPosition` | `int` | 0-based position of the first repeat copy. |
+| `SecondPosition` | `int` | 0-based position of the downstream repeat copy. |
+| `RepeatSequence` | `string` | Exact repeated sequence shared by both copies. |
+| `Length` | `int` | Length of the repeat sequence in bases. |
+| `Spacing` | `int` | Number of nucleotides between the two copies. |
 
-| Disease | Repeat | Gene |
-|---------|--------|------|
-| Huntington's disease | CAG | HTT |
-| Fragile X syndrome | CGG | FMR1 |
-| Spinocerebellar ataxias | CAG | Various |
-| Friedreich's ataxia | GAA | FXN |
-| Myotonic dystrophy | CTG/CCTG | DMPK/ZNF9 |
+### 3.3 Preconditions and Validation
 
----
+`FindDirectRepeats(DnaSequence, ...)` throws `ArgumentNullException` when `sequence` is `null`, throws `ArgumentOutOfRangeException` when `minLength < 2`, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload uppercases non-empty input and yields no results for `null` or empty strings, but it does not duplicate the numeric range checks from the `DnaSequence` overload. Positions are 0-based in all returned results.
 
-## Implementation
+## 4. Algorithm
 
-### Method Signature
+### 4.1 High-Level Steps
 
-```csharp
-public static IEnumerable<DirectRepeatResult> FindDirectRepeats(
-    DnaSequence sequence,
-    int minLength = 5,
-    int maxLength = 50,
-    int minSpacing = 1)
-```
+1. Normalize the input sequence to uppercase when the raw-string overload is used.
+2. Build a suffix tree for the full sequence.
+3. For each candidate repeat length from `minLength` to `maxLength`, enumerate start positions where two copies plus the required spacing could still fit.
+4. Extract the candidate repeat at the current start position and query the suffix tree for all its occurrences.
+5. Keep downstream occurrences that satisfy the spacing constraint, suppress duplicate `(start, occurrence, length)` tuples, and emit a `DirectRepeatResult` for each qualifying pair.
 
-### Parameters
+### 4.3 Complexity
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `sequence` | required | DNA sequence to search |
-| `minLength` | 5 | Minimum repeat unit length |
-| `maxLength` | 50 | Maximum repeat unit length |
-| `minSpacing` | 1 | Minimum spacing between repeat copies |
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Suffix-tree construction | `O(n)` | `O(n)` | The full input sequence is indexed once before candidate enumeration. |
+| Repeat detection | `O(r × n × (m + k))` | `O(d)` plus suffix tree | `r` is the number of tested lengths, `m` is the candidate repeat length, `k` is the number of suffix-tree occurrences returned for that candidate, and `d` is the number of dedup keys retained. |
 
-### Return Value
+## 5. Implementation Notes
 
-```csharp
-public readonly record struct DirectRepeatResult(
-    int FirstPosition,    // 0-based position of first copy
-    int SecondPosition,   // 0-based position of second copy
-    string RepeatSequence,// The repeated sequence
-    int Length,           // Length of the repeat
-    int Spacing);         // Gap between copies
-```
+### 5.1 Location and Entry Points
 
-### Algorithm Strategy
+**Implementation location:** [RepeatFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs)
 
-The implementation uses a **suffix tree** for efficient pattern matching:
+- `RepeatFinder.FindDirectRepeats(DnaSequence, int, int, int)`: Validating overload for `DnaSequence` input.
+- `RepeatFinder.FindDirectRepeats(string, int, int, int)`: Uppercases raw string input and yields results for non-empty strings.
 
-1. Build suffix tree from the input sequence (O(n))
-2. For each position and length, extract candidate pattern
-3. Use suffix tree to find all occurrences in O(m + k) time
-4. Filter occurrences by spacing constraints
-5. Report non-duplicate results
+### 5.2 Current Behavior
 
-### Invariants
+The core implementation builds a suffix tree with `global::SuffixTree.SuffixTree.Build(seq)` and uses `FindAllOccurrences(repeat)` to locate repeated candidates. For a single starting position and repeat length, it can emit multiple result pairs if the same sequence occurs at multiple later positions that satisfy the spacing filter. Duplicate `(FirstPosition, SecondPosition, Length)` tuples are removed with a hash set. The raw-string overload normalizes case with `ToUpperInvariant()`, while the `DnaSequence` overload preserves the already-normalized `DnaSequence.Sequence` content.
 
-1. **Spacing calculation**: `Spacing = SecondPosition - FirstPosition - Length`
-2. **Non-overlap** (when minSpacing > 0): `SecondPosition >= FirstPosition + Length + minSpacing`
-3. **Result uniqueness**: No duplicate (FirstPosition, SecondPosition, Length) tuples
+### 5.3 Conformance to Theory / Spec
 
----
+**Implemented (verbatim from the cited theory/spec):**
 
-## Implementation-Specific Notes
+- Exact direct-repeat detection with same-orientation copies rather than reverse complements [1][2].
+- Configurable spacing so both adjacent and separated direct repeats can be represented [1].
+- Pairwise reporting of repeat coordinates, repeat sequence, length, and spacing for each qualifying repeat pair.
 
-### Case Handling
+**Intentionally simplified:**
 
-The string overload normalizes input to uppercase via `ToUpperInvariant()` before processing.
+- Exact matching only, with no mismatch or gap tolerance; **consequence:** approximate, degenerate, or interrupted direct repeats are not reported.
+- Raw repeat-pair output only, without higher-level annotation of transposable elements or regulatory context; **consequence:** downstream interpretation remains the caller's responsibility.
 
-### Empty/Null Handling
+**Not implemented:**
 
-- Null `DnaSequence` input throws `ArgumentNullException`
-- Empty string returns empty enumerable (no exception)
+- Approximate repeat scoring or specialized LTR/transposon annotation; **users should rely on:** `RepeatFinder.FindDirectRepeats` only for exact direct-repeat pairs.
 
-### Parameter Validation
+### 5.4 Deviations and Assumptions
 
-- `minLength < 2` throws `ArgumentOutOfRangeException`
-- `maxLength < minLength` throws `ArgumentOutOfRangeException`
-- `minSpacing` can be 0 (allows adjacent repeats)
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | The raw-string overload does not mirror the range validation performed by the `DnaSequence` overload. | Deviation | Invalid numeric ranges can behave differently depending on which overload is called. | accepted | The legacy doc described unified validation, but the current implementation only validates numeric ranges on the `DnaSequence` overload. |
 
----
+## 6. Edge Cases and Limitations
 
-## Edge Cases
+### 6.1 Edge Cases
 
-| Case | Behavior |
-|------|----------|
-| Empty sequence | Returns empty enumerable |
-| Sequence too short | Returns empty enumerable |
-| No repeats found | Returns empty enumerable |
-| Adjacent repeats (spacing=0) | Found when minSpacing=0 |
-| Multiple occurrences | Reports pairwise matches |
-| Case variation | Normalized to uppercase |
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | Returns empty enumerable. | The raw-string overload yields nothing for empty input, and a too-short indexed sequence produces no qualifying windows. |
+| Sequence too short for two copies | Returns empty enumerable. | The inner position loop requires room for two copies plus `minSpacing`. |
+| No repeats found | Returns empty enumerable. | No candidate pattern has a qualifying downstream occurrence. |
+| Adjacent repeats with `minSpacing = 0` | Reported when identical copies abut exactly. | The filter permits `j = i + len` when `minSpacing` is zero. |
+| Multiple later occurrences of the same repeat | One result per qualifying pair. | The occurrence loop emits every downstream match that satisfies the spacing filter. |
+| Case variation in raw strings | Normalized to uppercase before detection. | The string overload applies `ToUpperInvariant()`. |
 
----
+### 6.2 Limitations
 
-## Deviations / Assumptions
+The algorithm reports only exact direct repeats and does not score partial similarity, mismatches, or indels. It also does not perform biological annotation of why a repeat is present, so users must interpret whether a reported direct repeat corresponds to an LTR, a tandem expansion, a recombination substrate, or another structure. Numeric validation is asymmetric across overloads, so callers should prefer the `DnaSequence` overload when they want strict parameter checking.
 
-| ID | Note | Type |
-|----|------|------|
-| D1 | Only reports first-second pairs, not all pairwise combinations | Implementation |
-| A1 | minLength ≥ 2 prevents single-nucleotide "repeats" | ASSUMPTION |
+## 7. Examples and Related Material
+
+### 7.2 Related Use Cases
+
+- Transposable elements: direct repeats and long terminal repeats mark some mobile-element architectures [1][2].
+- Recombination and genome instability: same-orientation repeats are hotspots for repeat-mediated rearrangements and deletions [2][3].
+- Gene regulation: some regulatory elements contain repeated same-orientation sequence motifs [1].
+- Trinucleotide-repeat disease context: tandem direct-repeat expansions include the pathogenic motifs reported for Huntington's disease (`CAG`, `HTT`), Fragile X syndrome (`CGG`, `FMR1`), spinocerebellar ataxias (`CAG`, various genes), Friedreich's ataxia (`GAA`, `FXN`), and myotonic dystrophy (`CTG/CCTG`, `DMPK/ZNF9`) [4].
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [RepeatFinder_DirectRepeat_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_DirectRepeat_Tests.cs)
+- Test spec: [REP-DIRECT-001.md](../../../tests/TestSpecs/REP-DIRECT-001.md)
+- Related snapshot tests: [RepeatSnapshotTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Snapshots/RepeatSnapshotTests.cs)
+
+## 8. References
+
+1. Wikipedia. 2026. Direct repeat. Wikipedia. https://en.wikipedia.org/wiki/Direct_repeat
+2. Wikipedia. 2026. Repeated sequence (DNA). Wikipedia. https://en.wikipedia.org/wiki/Repeated_sequence_(DNA)
+3. Ussery DW, Wassenaar TM, Borini S. 2009. Computing for Comparative Microbial Genomics. Chapter 8.
+4. Richard GF. 2021. Trinucleotide repeat expansions and human disease. PMC8145212. https://pmc.ncbi.nlm.nih.gov/articles/PMC8145212/

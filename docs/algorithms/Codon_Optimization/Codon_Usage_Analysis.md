@@ -1,106 +1,167 @@
 # Codon Usage Analysis
 
-## Algorithm Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Codon Optimization |
+| Test Unit ID | CODON-USAGE-001 |
+| Related Projects | N/A |
+| Implementation Status | N/A |
+| Last Reviewed | 2026-04-30 |
 
-Codon usage analysis measures the frequency of synonymous codons in coding sequences to understand codon bias patterns and compare sequences across organisms.
+## 1. Overview
 
-## Theory
+Codon usage analysis measures how often codons appear in a coding sequence and compares codon distributions between sequences.[1][2] In this repository, `CodonOptimizer.CalculateCodonUsage` returns raw codon counts, while `CodonOptimizer.CompareCodonUsage` compares normalized codon-frequency distributions using a total-variation-distance similarity score. The implementation is case-insensitive, normalizes DNA to RNA notation, and ignores incomplete trailing bases. These methods are intended for direct sequence-level codon-profile analysis rather than organism-wide bias modeling by themselves.[2][4]
 
-### Codon Redundancy
+## 2. Scientific / Formal Basis
 
-The genetic code contains 64 codons that encode 20 amino acids plus 3 stop signals. Most amino acids are encoded by 2-6 synonymous codons. Organisms exhibit preferences for certain codons, reflecting:
+### 2.1 Domain Context
 
-- tRNA abundance patterns
-- GC content of the genome
-- Selection pressures on translation efficiency
-- Mutational biases
+The genetic code contains 64 codons encoding 20 amino acids plus stop signals, and most amino acids have multiple synonymous codons. Codon usage bias reflects biological factors such as tRNA abundance, genome GC content, translational selection, and mutational bias.[2][3]
 
-### Codon Usage Calculation
+### 2.2 Core Model
 
-Given a coding sequence, codon usage is calculated by:
+Given a coding sequence, codon usage is computed by splitting the sequence into non-overlapping triplets and counting occurrences of each codon:
 
-1. Splitting the sequence into non-overlapping triplets (codons)
-2. Counting occurrences of each codon
-3. Optionally normalizing to frequencies
+$$
+\mathrm{Count}(c) = |\{ i : \text{seq}[3i:3i+3] = c \}|
+$$
 
-**Formula** (raw counts):
-$$\text{Count}(c) = |\{i : \text{seq}[3i:3i+3] = c, \forall i \in [0, \lfloor n/3 \rfloor)\}|$$
+Normalized codon frequencies are then:
 
-**Formula** (frequency):
-$$f(c) = \frac{\text{Count}(c)}{\sum_{c'} \text{Count}(c')}$$
+$$
+f(c) = \frac{\text{Count}(c)}{\sum_{c'} \text{Count}(c')}
+$$
 
-### Codon Usage Comparison
+The repository compares two sequences using the normalized absolute-difference metric documented in the original file and the test specification:
 
-Comparing codon usage between two sequences quantifies how similar their codon preferences are. Common metrics include:
+$$
+\mathrm{Similarity} = 1 - \frac{\sum_c |f_1(c) - f_2(c)|}{2}
+$$
 
-1. **Cosine similarity** - angle between frequency vectors
-2. **Pearson correlation** - linear correlation of frequencies
-3. **Manhattan distance** - sum of absolute differences
+### 2.3 Modeling Assumptions
 
-The implementation uses a normalized Manhattan distance-based similarity:
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | The input is interpreted in-frame as coding triplets. | Trailing bases are ignored and counts may not represent the intended codon stream. |
+| ASM-02 | Comparing codon-frequency distributions is a meaningful proxy for codon-usage similarity. | Similarity can be mathematically correct yet biologically uninformative for the use case. |
 
-$$\text{Similarity} = 1 - \frac{\sum_{c} |f_1(c) - f_2(c)|}{2}$$
+### 2.4 Properties and Invariants
 
-Where the division by 2 normalizes the range to [0, 1], since the maximum possible sum of absolute differences between two probability distributions is 2.
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `sum(counts.Values) == floor(sequence.Length / 3)` after normalization to complete codons. | The counter increments exactly once per extracted codon. |
+| INV-02 | `0 <= similarity <= 1`. | The method uses a normalized total-variation-distance formula. |
+| INV-03 | `CompareCodonUsage(a, b) == CompareCodonUsage(b, a)`. | Absolute differences are symmetric. |
+| INV-04 | `CompareCodonUsage(s, s) == 1` for non-empty `s`. | The two normalized distributions are identical. |
 
-### Properties
+## 3. Contract
 
-| Property | Value |
-|----------|-------|
-| Range (similarity) | [0, 1] |
-| Identity | Sim(s, s) = 1.0 for non-empty s |
-| Symmetry | Sim(a, b) = Sim(b, a) |
-| Empty sequences | Returns 0 (no data to compare) |
+### 3.1 Inputs and Parameters
 
-## Complexity
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `[CalculateCodonUsage] codingSequence` | `string` | required | DNA or RNA sequence to count by codon. | `null` or empty input returns an empty dictionary. |
+| `[CompareCodonUsage] sequence1` | `string` | required | First sequence in the comparison. | Empty input contributes no codons. |
+| `[CompareCodonUsage] sequence2` | `string` | required | Second sequence in the comparison. | Empty input contributes no codons. |
 
-| Operation | Time | Space |
-|-----------|------|-------|
-| CalculateCodonUsage | O(n) | O(64) = O(1) |
-| CompareCodonUsage | O(n + m) | O(64) = O(1) |
+### 3.2 Output / Return Value
 
-Where n and m are sequence lengths.
+| Name | Type | Description |
+|------|------|-------------|
+| `CalculateCodonUsage` result | `Dictionary<string, int>` | Raw counts for the codons observed in the normalized input. |
+| `CompareCodonUsage` result | `double` | Similarity in `[0, 1]` based on normalized codon-frequency differences. |
 
-## Implementation Notes
+### 3.3 Preconditions and Validation
 
-### Current Implementation (Seqeron.Genomics.MolTools)
+Both methods uppercase the input and convert `T` to `U`. Codons are extracted only from complete triplets, so trailing one or two bases are ignored. `CompareCodonUsage` returns `0` when either sequence yields zero codons after preprocessing.
 
-The `CodonOptimizer` class provides:
+## 4. Algorithm
 
-```csharp
-public static Dictionary<string, int> CalculateCodonUsage(string codingSequence)
-public static double CompareCodonUsage(string sequence1, string sequence2)
-```
+### 4.1 High-Level Steps
 
-**Key behaviors**:
-- Converts DNA (T) to RNA (U) internally
-- Case-insensitive processing
-- Incomplete trailing codons are ignored
-- Empty sequences return empty dictionary / 0.0 similarity
+1. Normalize the input to uppercase RNA notation.
+2. Split the sequence into complete codons.
+3. For `CalculateCodonUsage`, increment a count for each observed codon.
+4. For `CompareCodonUsage`, compute counts for both sequences.
+5. Form the union of codons observed in either sequence.
+6. Convert counts to frequencies using the codon totals for each sequence.
+7. Sum the absolute frequency differences and return `1 - sum / 2`.
 
-### Edge Cases Handled
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-1. **Empty sequence**: Returns empty dictionary or 0.0 similarity
-2. **Incomplete codons**: Trailing 1-2 nucleotides ignored
-3. **Mixed T/U**: Converted to standard RNA (U)
-4. **Case variation**: Normalized to uppercase
+The comparison metric is the same total-variation-distance similarity documented in the spec.[5]
 
-## Applications
+| Situation | Expected Similarity |
+|-----------|---------------------|
+| Identical non-empty codon distributions | `1.0` |
+| Completely disjoint codon distributions | `0.0` |
+| Partially overlapping distributions | Strictly between `0` and `1` |
 
-1. **Codon optimization**: Selecting preferred codons for expression host
-2. **Evolutionary analysis**: Comparing codon usage across species
-3. **Gene expression prediction**: Highly expressed genes use preferred codons
-4. **Horizontal gene transfer detection**: Atypical codon usage may indicate foreign genes
+### 4.3 Complexity
 
-## References
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `CalculateCodonUsage` | `O(n)` | `O(64)` | Raw codon counting over the sequence. |
+| `CompareCodonUsage` | `O(n + m)` | `O(64)` | Counts both sequences and compares the resulting distributions. |
 
-1. Sharp PM, Li WH (1987). "The codon adaptation index-a measure of directional synonymous codon usage bias, and its potential applications." *Nucleic Acids Research* 15(3):1281-1295.
-2. Plotkin JB, Kudla G (2011). "Synonymous but not the same: The causes and consequences of codon bias." *Nature Reviews Genetics* 12(1):32-42.
-3. Wikipedia: Codon usage bias - https://en.wikipedia.org/wiki/Codon_usage_bias
-4. Kazusa Codon Usage Database - https://www.kazusa.or.jp/codon/
+## 5. Implementation Notes
 
-## Related Algorithms
+### 5.1 Location and Entry Points
 
-- [CAI_Calculation.md](CAI_Calculation.md) - Codon Adaptation Index uses codon frequencies
-- [Rare_Codon_Detection.md](Rare_Codon_Detection.md) - Finding rare codons based on usage
-- [Sequence_Optimization.md](Sequence_Optimization.md) - Optimizing codon usage for expression
+**Implementation location:** [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
+
+- `CodonOptimizer.CalculateCodonUsage(string)`
+- `CodonOptimizer.CompareCodonUsage(string, string)`
+
+### 5.2 Current Behavior
+
+`CalculateCodonUsage` returns counts only for codons observed in the normalized input; it does not pre-populate all 64 codons. `CompareCodonUsage` calls `CalculateCodonUsage` for both sequences, unions the observed codon keys, and computes `1 - (sum(abs(freq1 - freq2)) / 2)`. If both sequences are empty, or if either sequence has zero complete codons, the method returns `0`.[5]
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Codon usage is computed by counting non-overlapping triplets.[2]
+- Comparison uses the normalized absolute-difference similarity `1 - Σ|f₁-f₂|/2` documented in the repository test specification.[5]
+
+**Intentionally simplified:**
+
+- The count output includes only codons present in the sequence; **consequence:** absent codons are represented implicitly rather than as explicit zero entries.
+- The comparison metric is a single scalar similarity rather than a richer codon-bias profile; **consequence:** different distribution shapes can collapse to the same summary score.
+
+**Not implemented:**
+
+- Relative synonymous codon usage (RSCU), codon-pair bias, or position-specific codon statistics; **users should rely on:** no current alternative.
+- Organism-table-aware normalization inside these methods; **users should rely on:** [CAI_Calculation.md](CAI_Calculation.md) or caller-side interpretation.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | `CalculateCodonUsage` returns `{}`. | Explicit empty-input handling. |
+| One empty sequence in a comparison | Similarity is `0`. | One distribution has zero total codons. |
+| Both sequences empty | Similarity is `0`. | There is no data to compare. |
+| Incomplete trailing bases | Ignored. | Codon splitting requires three bases. |
+| DNA input | Converted to RNA notation before counting. | Internal normalization uses `T -> U`. |
+
+### 6.2 Limitations
+
+These methods operate only on direct codon counts and normalized frequency differences. They do not attach biological weighting, do not validate whether a sequence is a true CDS, and do not infer organism-specific codon bias without external context.
+
+## 7. Examples and Related Material
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [CodonOptimizer_CodonUsage_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CodonUsage_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Test specification: [CODON-USAGE-001.md](../../../tests/TestSpecs/CODON-USAGE-001.md)
+- Related algorithms: [CAI_Calculation.md](CAI_Calculation.md), [Rare_Codon_Detection.md](Rare_Codon_Detection.md), [Sequence_Optimization.md](Sequence_Optimization.md)
+
+## 8. References
+
+1. Sharp PM, Li WH. 1987. The codon adaptation index-a measure of directional synonymous codon usage bias, and its potential applications. Nucleic Acids Research. N/A
+2. Plotkin JB, Kudla G. 2011. Synonymous but not the same: the causes and consequences of codon bias. Nature Reviews Genetics. N/A
+3. Wikipedia contributors. 2026. Codon usage bias. Wikipedia. https://en.wikipedia.org/wiki/Codon_usage_bias
+4. Kazusa Codon Usage Database. 2026. https://www.kazusa.or.jp/codon/
+5. Test specification: [CODON-USAGE-001.md](../../../tests/TestSpecs/CODON-USAGE-001.md)

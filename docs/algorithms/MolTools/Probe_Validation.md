@@ -1,150 +1,152 @@
 # Probe Validation
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | MolTools |
+| Test Unit ID | PROBE-VALID-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-Probe validation is a computational process for assessing the quality and specificity of hybridization probes. It ensures that probes will bind specifically to their intended target sequences with minimal off-target hybridization. This is critical for applications such as FISH, DNA microarrays, qPCR, and other molecular biology techniques.
+## 1. Overview
 
-## Algorithm Description
+Probe validation assesses whether a hybridization probe is likely to bind specifically to its intended targets with limited cross-hybridization. In this repository, validation combines substitution-tolerant fixed-length window matching against reference sequences with self-complementarity and secondary-structure screening. The result is a simple validation record with a specificity score, issue list, and probe-quality flags.
 
-### Core Algorithm: `ValidateProbe`
+## 2. Scientific / Formal Basis
 
-The `ValidateProbe` method assesses a probe sequence against reference sequences:
+### 2.1 Domain Context
 
-1. **Normalize Input**
-   - Convert probe sequence to uppercase for consistent comparison
+Cross-hybridization occurs when a probe binds sequences other than its intended target, and this is a central design concern for FISH, DNA microarrays, qPCR, and related assays. The original document also notes that mismatch tolerance, assay stringency, and probe length affect specificity, and that self-complementarity and low-complexity content can increase the risk of non-specific behavior. Sources: Wikipedia (Hybridization probe, DNA microarray, BLAST), Altschul et al. (1990), Amann & Ludwig (2000).
 
-2. **Off-Target Analysis**
-   - Search each reference sequence for approximate matches within tolerance
-   - Count total number of matching sites across all references
-   - Multiple hits indicate potential cross-hybridization issues
+### 2.2 Core Model
 
-3. **Self-Complementarity Check**
-   - Calculate the degree of self-complementarity
-   - High self-complementarity (>30%) may form hairpins or dimers
+The validation workflow normalizes the probe to uppercase, counts approximate matches across all supplied reference sequences, and then maps hit counts to specificity:
 
-4. **Secondary Structure Detection**
-   - Check for potential hairpin formation
-   - Secondary structures can reduce hybridization efficiency
+$$
+specificity =
+\begin{cases}
+0.0, & offTargetHits = 0 \\
+1.0, & offTargetHits = 1 \\
+1.0 / offTargetHits, & offTargetHits > 1
+\end{cases}
+$$
 
-5. **Calculate Specificity Score**
-   - Unique match (1 hit): specificity = 1.0
-   - Multiple hits: specificity = 1.0 / hitCount
-   - No match: specificity = 0.0 (probe doesn't match target)
+It also computes self-complementarity as a fraction of aligned matches against the reverse complement and checks for secondary-structure potential with a sequence-level hairpin screen.
 
-6. **Return Validation Result**
-   - IsValid: true if issues count is 0 or (offTargetHits ≤ 1 and selfComp ≤ 0.4)
-   - SpecificityScore: calculated as above
-   - OffTargetHits: total count of matching sites
-   - SelfComplementarity: fraction of self-complementary bases
-   - HasSecondaryStructure: boolean indicating hairpin potential
-   - Issues: list of detected problems
+### 2.4 Properties and Invariants
 
-### Complexity
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `0.0 <= SpecificityScore <= 1.0` | The score is explicitly mapped from hit counts to `0`, `1`, or `1/hits` |
+| INV-02 | `SelfComplementarity` is non-negative and at most `1.0` | It is computed as a fraction of aligned positions |
+| INV-03 | `OffTargetHits >= 0` | Hit counts are accumulated from match enumeration |
+| INV-04 | `OffTargetHits == 1` implies `SpecificityScore == 1.0` | That mapping is explicit in source |
 
-- **Time**: O(n × g × m) where n = probe length, g = reference count, m = reference lengths
-- **Space**: O(1) for validation result (excluding input sequences)
+## 3. Contract
 
-### CheckSpecificity Algorithm (Suffix Tree Optimization)
+### 3.1 Inputs and Parameters
 
-The `CheckSpecificity` method provides fast specificity checking using a pre-built suffix tree:
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `probeSequence` | `string` | required | Probe sequence to validate | Null input throws `ArgumentNullException`; empty string yields a structured invalid result |
+| `referenceSequences` | `IEnumerable<string>` | required | Reference sequences scanned for approximate matches | Null input throws `ArgumentNullException` |
+| `maxMismatches` | `int` | `3` | Maximum mismatch tolerance for approximate matching | Passed through to the internal approximate-match search |
+| `selfComplementarityThreshold` | `double` | `0.3` | Threshold above which self-complementarity is recorded as an issue | Default documented in source |
+| `genomeIndex` | `ISuffixTree` | required for `CheckSpecificity(...)` | Pre-built suffix tree for exact hit counting | Used only by the suffix-tree specificity helper |
 
-```csharp
-// O(m) specificity check per probe using suffix tree
-var positions = genomeIndex.FindAllOccurrences(probeSequence);
-return positions.Count == 1 ? 1.0 : 1.0 / positions.Count;
-```
+### 3.2 Output / Return Value
 
-This provides O(m) lookup time instead of O(n × m) linear search, where m = probe length.
+| Field | Type | Description |
+|-------|------|-------------|
+| `IsValid` | `bool` | Validation outcome based on issue count, hit count, and self-complementarity |
+| `SpecificityScore` | `double` | Specificity value in the range `0.0-1.0` |
+| `OffTargetHits` | `int` | Total approximate hits across all reference sequences |
+| `SelfComplementarity` | `double` | Fraction of self-complementary positions |
+| `HasSecondaryStructure` | `bool` | Hairpin-potential flag |
+| `Issues` | `IReadOnlyList<string>` | Recorded validation issues |
 
-## Scientific Background
+### 3.3 Preconditions and Validation
 
-### Cross-Hybridization
+`ValidateProbe(...)` uppercases the input probe before analysis. Null probe or reference collections raise `ArgumentNullException`. An empty probe sequence returns a structured invalid result with `SpecificityScore = 0.0`, `OffTargetHits = 0`, and an `"Empty probe sequence"` issue. `CheckSpecificity(...)` uppercases the probe before querying the suffix tree.
 
-Cross-hybridization occurs when a probe binds to sequences other than the intended target. This is a major concern in probe design because:
+## 4. Algorithm
 
-- **Mismatch Tolerance**: Hybridization can occur with 1-5 base pair mismatches depending on conditions
-- **Stringency**: Higher stringency (temperature, salt) reduces non-specific binding but may also reduce specific binding
-- **Probe Length**: Longer probes have higher specificity but may have more off-target sites
+### 4.1 High-Level Steps
 
-Source: Wikipedia (Hybridization probe), Wikipedia (DNA microarray)
+1. Normalize the probe sequence to uppercase.
+2. Search every reference sequence for approximate matches within the mismatch tolerance.
+3. Accumulate the total number of hits across all references.
+4. Compute probe self-complementarity and secondary-structure potential.
+5. Map hit count to the specificity score and derive `IsValid` from the issue set plus the `offTargetHits <= 1 && selfComp <= 0.4` fallback rule.
 
-### Specificity Factors
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-| Factor | Effect on Specificity | Source |
-|--------|----------------------|--------|
-| Unique sequence | High specificity (score = 1.0) | Implementation |
-| Multiple genome hits | Reduced specificity (score = 1/hits) | Implementation |
-| Self-complementarity >30% | May form hairpins | General practice |
-| Low-complexity regions | Higher cross-hybridization risk | Wikipedia (DNA microarray) |
+Validation defaults preserved from the original document and source:
 
-### Off-Target Detection Methods
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `maxMismatches` | `3` | Approximate-match tolerance |
+| `selfComplementarityThreshold` | `0.3` | Threshold for recording a self-complementarity issue |
+| Secondary-structure check | enabled | `ValidateProbe(...)` always checks for hairpin potential |
 
-Modern off-target detection approaches include:
+### 4.3 Complexity
 
-1. **Approximate Matching**: Allow mismatches within a threshold
-2. **BLAST-like algorithms**: For database searching (O(n) heuristic)
-3. **Suffix tree indexing**: For O(m) exact or approximate matching
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `ValidateProbe` | `O(n × g × m)` | `O(1)` auxiliary | The original document describes dependence on probe length `n`, reference count `g`, and reference lengths `m` |
+| `CheckSpecificity` | `O(m)` | `O(1)` | Suffix-tree exact hit counting for probe length `m` |
 
-Source: Wikipedia (BLAST), Altschul et al. (1990)
+## 5. Implementation Notes
 
-### Validation Parameters
+### 5.1 Location and Entry Points
 
-| Parameter | Default | Description | Source |
-|-----------|---------|-------------|--------|
-| maxMismatches | 3 | Maximum allowed mismatches for off-target detection | Implementation (aligns with CRISPR off-target tolerance) |
-| Self-complementarity threshold | 0.3 | Maximum acceptable self-complementarity | Implementation |
-| Secondary structure check | true | Whether to check for hairpin potential | Implementation |
+**Implementation location:** [ProbeDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/ProbeDesigner.cs)
 
-## Implementation Notes
+- `ProbeDesigner.ValidateProbe(string, IEnumerable<string>, int, double)`: Performs approximate-match, self-complementarity, and secondary-structure validation.
+- `ProbeDesigner.CheckSpecificity(string, ISuffixTree)`: Computes exact-hit specificity from suffix-tree occurrence counts.
 
-### ValidateProbe Method
+### 5.2 Current Behavior
 
-```csharp
-public static ProbeValidation ValidateProbe(
-    string probeSequence,
-    IEnumerable<string> referenceSequences,
-    int maxMismatches = 3)
-```
+The current validator treats an empty probe as invalid rather than throwing. It records a cross-hybridization issue when more than one hit is found across all references and records a self-complementarity issue when the computed fraction exceeds the configured threshold. Approximate matching is implemented as an ungapped fixed-length sliding scan with mismatch tolerance rather than a gapped local-alignment search. `IsValid` becomes `true` either when no issues are found or when the probe has at most one hit and self-complementarity no greater than `0.4`. `CheckSpecificity(...)` uses exact suffix-tree hits rather than approximate matching.
 
-**Parameters:**
-- `probeSequence`: The probe sequence to validate
-- `referenceSequences`: Reference sequences to search for off-target sites
-- `maxMismatches`: Maximum mismatches for approximate matching (default: 3)
+### 5.3 Conformance to Theory / Spec
 
-**Returns:** `ProbeValidation` record with validation results
+**Implemented (verbatim from the cited theory/spec):**
 
-### CheckSpecificity Method
+- Approximate-match-based cross-hybridization screening.
+- Self-complementarity and secondary-structure checks.
+- Specificity scoring as `0`, `1`, or `1 / hits` depending on hit count.
 
-```csharp
-public static double CheckSpecificity(
-    string probeSequence,
-    ISuffixTree genomeIndex)
-```
+**Intentionally simplified:**
 
-**Parameters:**
-- `probeSequence`: The probe sequence to check
-- `genomeIndex`: Pre-built suffix tree index of the genome
+- Specificity collapses all multi-hit outcomes to `1 / hits`; **consequence:** it distinguishes hit multiplicity but not mismatch severity, thermodynamics, or genomic context.
+- Approximate probe matching is substitution-only and fixed-length; **consequence:** gaps, bulges, and local realignment effects are not modeled in `ValidateProbe(...)`.
+- Suffix-tree specificity uses exact hits only; **consequence:** approximate off-targets are only modeled through `ValidateProbe(...)`, not through `CheckSpecificity(...)`.
 
-**Returns:** Specificity score (0.0 to 1.0)
+**Not implemented:**
 
-## Invariants
+- Thermodynamic hybridization modeling and BLAST-like alignment ranking; **users should rely on:** external experimental validation or richer sequence-search tools when required.
 
-1. **Specificity Range**: 0.0 ≤ specificityScore ≤ 1.0 (Source: Implementation)
-2. **Self-Complementarity Range**: 0.0 ≤ selfComplementarity ≤ 1.0 (Source: Mathematical definition)
-3. **Off-Target Count Non-Negative**: offTargetHits ≥ 0 (Source: Implementation)
-4. **Unique Probe Maximum Specificity**: offTargetHits == 1 → specificityScore == 1.0 (Source: Implementation)
-5. **No Match Zero Specificity**: offTargetHits == 0 → specificityScore == 0.0 (Source: Implementation)
+## 6. Edge Cases and Limitations
 
-## Related Methods
+### 6.1 Edge Cases
 
-- `DesignProbes`: Designs probes with optional genome-wide specificity check
-- `FindApproximateMatches`: Internal method for approximate string matching
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty probe sequence | Returns a structured invalid result | Explicit special case in source |
+| Unique probe hit | `SpecificityScore = 1.0` | Exact mapping in implementation |
+| No probe hits | `SpecificityScore = 0.0` | Probe does not match the references |
+| Multiple hits | `SpecificityScore = 1.0 / hits` | Cross-hybridization penalty |
 
-## References
+### 6.2 Limitations
+
+The current implementation is a lightweight screening tool. It does not incorporate thermodynamic binding models, mismatch-position weighting, assay stringency, or database-scale alignment heuristics, and the suffix-tree helper only captures exact-hit uniqueness.
+
+## 8. References
 
 1. Wikipedia: Hybridization probe - https://en.wikipedia.org/wiki/Hybridization_probe
 2. Wikipedia: DNA microarray - https://en.wikipedia.org/wiki/DNA_microarray
 3. Wikipedia: Off-target genome editing - https://en.wikipedia.org/wiki/Off-target_genome_editing
 4. Wikipedia: BLAST (biotechnology) - https://en.wikipedia.org/wiki/BLAST_(biotechnology)
 5. Altschul et al. (1990) - Basic local alignment search tool, J. Mol. Biol.
-6. Amann R, Ludwig W (2000) - Ribosomal RNA-targeted nucleic acid probes for studies in microbial ecology, FEMS Microbiology Reviews
+6. Amann R, Ludwig W (2000) - Ribosomal RNA-targeted nucleic acid probes for studies in microbial ecology, FEMS Microbiology Reviews.

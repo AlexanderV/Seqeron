@@ -1,143 +1,146 @@
 # Newick Format
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Phylogenetics |
+| Test Unit ID | PHYLO-NEWICK-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-The Newick format (also known as New Hampshire format) is a standard notation for representing phylogenetic trees in text form. Named after Newick's restaurant in Dover, New Hampshire, where the format was finalized in 1986.
+## 1. Overview
 
-## Specification
+The Newick format is a compact text representation for phylogenetic trees. In this repository it appears as both a serializer (`ToNewick`) and a parser (`ParseNewick`) for the `PhyloNode` tree type. The implementation supports the core parenthesized tree grammar, internal names when they are valid unquoted labels, optional branch lengths, optional root branch lengths during parsing, and invariant-culture numeric formatting. It is simplified relative to the full ecosystem of Newick dialects because it only handles binary trees and omits quoted labels and comments.
 
-### Grammar (from Gary Olsen)
+## 2. Scientific / Formal Basis
 
-```
-Tree     → Subtree ";"
-Subtree  → Leaf | Internal
-Leaf     → Name
-Internal → "(" BranchSet ")" Name
-BranchSet → Branch | Branch "," BranchSet
-Branch   → Subtree Length
-Name     → empty | string
-Length   → empty | ":" number
-```
+### 2.1 Domain Context
 
-### Format Examples
+Newick, also called the New Hampshire format, is a standard text serialization for rooted or unrooted phylogenetic trees. Its governing logic is grammatical rather than biological: a tree is represented as recursively nested subtrees, optionally annotated with labels and branch lengths.
 
-| Pattern | Example | Description |
-|---------|---------|-------------|
-| Unnamed | `(,,(,));` | All nodes unnamed |
-| Leaf names | `(A,B,(C,D));` | Only leaves named |
-| All names | `(A,B,(C,D)E)F;` | Internal nodes also named |
-| With lengths | `(A:0.1,B:0.2);` | Branch lengths included |
-| Full | `(A:0.1,B:0.2,(C:0.3,D:0.4)E:0.5)F;` | Names + lengths |
+### 2.2 Core Model
 
-## Implementation
+The repository follows the basic Olsen-style grammar summarized in the original document:
 
-### Location
-
-- **Class:** `PhylogeneticAnalyzer`
-- **Namespace:** `Seqeron.Genomics`
-- **File:** `PhylogeneticAnalyzer.cs`
-
-### Methods
-
-#### ToNewick
-
-```csharp
-public static string ToNewick(PhyloNode node, bool includeBranchLengths = true)
+```text
+Tree      -> Subtree ";"
+Subtree   -> Leaf | Internal
+Leaf      -> Name
+Internal  -> "(" BranchSet ")" Name
+BranchSet -> Branch | Branch "," BranchSet
+Branch    -> Subtree Length
+Name      -> empty | string
+Length    -> empty | ":" number
 ```
 
-Converts a `PhyloNode` tree to Newick format string.
+Serializer and parser both rely on the same core constructs: parentheses for internal nodes, commas for sibling separation, optional labels after a subtree, and branch lengths introduced by `:`.
 
-**Parameters:**
-- `node`: Root node of the tree
-- `includeBranchLengths`: Whether to include `:length` notation
+### 2.4 Properties and Invariants
 
-**Returns:** Newick-formatted string ending with semicolon
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `ToNewick` output ends with `;` | The serializer appends a semicolon after recursive traversal |
+| INV-02 | Branch lengths are rendered with `.` as decimal separator | The serializer uses `CultureInfo.InvariantCulture` |
+| INV-03 | Internal node names are emitted only when they are valid unquoted Newick labels | The serializer suppresses names containing Newick metacharacters |
+| INV-04 | `ParseNewick` accepts an optional root branch length after the main subtree | The parser checks for `:` after parsing the root subtree |
 
-**Algorithm:**
-1. Recursive depth-first traversal
-2. Leaf nodes → emit name
-3. Internal nodes → emit `(left,right)` with optional lengths
-4. Append semicolon at end
+## 3. Contract
 
-**Complexity:** O(n) where n = number of nodes
+### 3.1 Inputs and Parameters
 
-#### ParseNewick
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `[ToNewick] node` | `PhyloNode` | required | Root node of the tree to serialize | `null` returns an empty string |
+| `[ToNewick] includeBranchLengths` | `bool` | `true` | Whether child branch lengths are emitted | Applies to non-root edges |
+| `[ParseNewick] newick` | `string` | required | Newick-formatted tree string | Null, empty, or whitespace-only input throws `ArgumentException` |
 
-```csharp
-public static PhyloNode ParseNewick(string newick)
-```
+### 3.2 Output / Return Value
 
-Parses a Newick format string into a tree structure.
+| Field | Type | Description |
+|-------|------|-------------|
+| `[ToNewick] return value` | `string` | Serialized Newick string ending with `;` |
+| `[ParseNewick] return value` | `PhyloNode` | Parsed binary tree rooted at a `PhyloNode` |
 
-**Parameters:**
-- `newick`: Newick-formatted string
+### 3.3 Preconditions and Validation
 
-**Returns:** Root `PhyloNode` of the parsed tree
+The parser trims the input string and strips a trailing semicolon if present. It then performs recursive descent over parentheses, commas, labels, and branch lengths. Only binary branch sets are supported by the current tree model because `PhyloNode` exposes only `Left` and `Right` children. Serializer-side internal-node label emission is restricted to valid unquoted labels; internal labels containing spaces or Newick metacharacters are omitted rather than quoted. `ParseNewick(...)` itself is more permissive and reads labels as raw runs up to the next structural delimiter rather than enforcing Olsen-style unquoted-label restrictions.
 
-**Throws:** `ArgumentException` if string is empty or null
+## 4. Algorithm
 
-**Algorithm:**
-1. Strip trailing semicolon
-2. Recursive descent parsing
-3. `(` starts internal node
-4. `,` separates siblings
-5. `:` precedes branch length
-6. `)` closes internal node
-7. Non-delimiter characters form names
+### 4.1 High-Level Steps
 
-**Complexity:** O(n) where n = string length
+1. For serialization, return an empty string when the root node is `null`.
+2. Traverse the tree recursively in depth-first order.
+3. Emit leaf names directly.
+4. Emit internal nodes as `(left,right)` with optional child branch lengths.
+5. Append an internal node name only when it is a valid unquoted label.
+6. Append the final semicolon.
+7. For parsing, recursively descend through `(`, `,`, `)`, labels, and numeric branch lengths.
+8. Optionally parse a root branch length after the main subtree.
 
-### PhyloNode Structure
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-```csharp
-public class PhyloNode
-{
-    public string Name { get; set; }
-    public double BranchLength { get; set; }
-    public PhyloNode? Left { get; set; }
-    public PhyloNode? Right { get; set; }
-    public bool IsLeaf => Left == null && Right == null;
-    public List<string> Taxa { get; set; }
-}
-```
+The serializer formats branch lengths with `ToString("F4", CultureInfo.InvariantCulture)`. The parser accepts digits, decimal points, signs, and scientific notation markers (`e`, `E`) inside numeric fields. Valid unquoted labels exclude blanks, parentheses, square brackets, single quotes, colons, semicolons, and commas.
 
-## Invariants
+### 4.3 Complexity
 
-| ID | Invariant | Verification |
-|----|-----------|--------------|
-| N1 | Output ends with semicolon | `newick.EndsWith(";")` |
-| N2 | Leaf count preserved | Count leaves after parsing |
-| N3 | Round-trip preserves topology | Compare leaf sets |
-| N4 | Round-trip preserves names | Compare sorted name lists |
-| N5 | Branch lengths ≥ 0 | Non-negative values |
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `ToNewick` | `O(n)` | `O(h)` | `n` = number of nodes, `h` = recursion depth |
+| `ParseNewick` | `O(n)` | `O(h)` | `n` = input length, `h` = parse-tree depth |
 
-## Limitations
+## 5. Implementation Notes
 
-The current implementation has these intentional scope boundaries relative to the full Newick specification:
+### 5.1 Location and Entry Points
 
-| Limitation | Spec Reference | Rationale |
-|------------|---------------|-----------|
-| Binary trees only | Wikipedia: `BranchSet → Branch \| Branch "," BranchSet` supports N children | UPGMA/NJ produce bifurcating trees; multifurcation not needed |
-| No quoted names | Olsen: `quoted_label ==> ' string '` | Out of scope; all current taxa use simple alphanumeric names |
-| No `[]` comments | Wikipedia Notes: "Comments are enclosed in square brackets" | Out of scope; no use case |
-| No underscore→blank | PHYLIP: "underscore stands for a blank" | Out of scope; no taxa use underscores |
+**Implementation location:** [PhylogeneticAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Phylogenetics/PhylogeneticAnalyzer.cs)
 
-### Spec Compliance
+- `PhylogeneticAnalyzer.ToNewick(PhyloNode, bool)`: Serializes a `PhyloNode` tree to Newick text.
+- `PhylogeneticAnalyzer.ParseNewick(string)`: Parses a Newick string into a `PhyloNode` tree.
 
-| Feature | Status | Source |
-|---------|--------|--------|
-| Internal node names in output | ✅ | Wikipedia Grammar: `Internal → "(" BranchSet ")" Name` |
-| Invalid label suppression (metacharacters) | ✅ | Olsen: unquoted label restrictions |
-| InvariantCulture for `.` decimal separator | ✅ | Olsen grammar: locale-independent numbers |
-| Root branch length parsing | ✅ | Olsen: `tree ==> ... [:branch_length] ;` |
-| Scientific notation in numbers | ✅ | Handles `e`, `E`, `+`, `-` |
+### 5.2 Current Behavior
 
-## Test Coverage
+The current serializer always emits binary trees because the `PhyloNode` type contains only `Left` and `Right` child slots. Internal node names containing Newick metacharacters are silently suppressed rather than quoted, but leaf labels are emitted verbatim because the serializer's unquoted-label check is applied only to internal-node names. The parser accepts optional root branch lengths and scientific-notation numbers, and it parses labels as raw character runs until a Newick delimiter is encountered.
 
-See [PHYLO-NEWICK-001.md](../../tests/TestSpecs/PHYLO-NEWICK-001.md) for test specification.
+### 5.3 Conformance to Theory / Spec
 
-## References
+**Implemented (verbatim from the cited theory/spec):**
 
-1. Wikipedia. "Newick format." https://en.wikipedia.org/wiki/Newick_format
-2. Felsenstein, J. "The Newick tree format." https://phylipweb.github.io/phylip/newicktree.html
-3. Olsen, G. "Interpretation of Newick's 8:45 Tree Format." (1990)
+- Parenthesized recursive tree structure with commas between siblings.
+- Optional branch lengths using `:`.
+- Optional internal node names when those names are valid unquoted labels.
+
+**Intentionally simplified:**
+
+- Only binary trees are supported; **consequence:** multifurcating `BranchSet` forms from the broader Newick grammar are out of scope for this parser and serializer.
+- Labels are never quoted; **consequence:** internal labels requiring quoting are omitted on serialization, while parsing remains permissive and does not enforce the same unquoted-label restrictions.
+
+**Not implemented:**
+
+- Square-bracket comments and underscore-to-blank translation; **users should rely on:** no current alternative in this class.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| `ToNewick(null)` | Returns an empty string | Explicit null branch in the serializer |
+| Empty or whitespace-only parse input | Throws `ArgumentException` | Parser rejects missing tree text |
+| Root branch length after the subtree | Parsed into `root.BranchLength` | Dedicated post-root `:` handling in `ParseNewick` |
+| Scientific notation in branch lengths | Accepted | `ParseNumber` allows `e`, `E`, `+`, and `-` |
+
+### 6.2 Limitations
+
+This implementation omits several Newick dialect features: multifurcations, quoted labels, comments, and underscore-to-blank conversion. It is also asymmetric about labels: internal names are filtered to a conservative unquoted subset during serialization, while parsing accepts permissive raw label tokens up to the next delimiter. It is appropriate for the binary trees produced by the repository's UPGMA and Neighbor-Joining builders, but not for general-purpose Newick interoperability across all tools.
+
+## 7. Examples and Related Material
+
+- [PHYLO-NEWICK-001](../../../tests/TestSpecs/PHYLO-NEWICK-001.md) documents the repository's Newick-format test specification.
+
+## 8. References
+
+1. Wikipedia contributors. Newick format. Wikipedia. https://en.wikipedia.org/wiki/Newick_format
+2. Felsenstein, J. The Newick tree format. https://phylipweb.github.io/phylip/newicktree.html
+3. Olsen, G. 1990. Interpretation of Newick's 8:45 Tree Format.
+

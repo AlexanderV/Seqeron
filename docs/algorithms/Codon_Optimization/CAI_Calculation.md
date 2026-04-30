@@ -1,130 +1,189 @@
 # Codon Adaptation Index (CAI) Calculation
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Codon Optimization |
+| Test Unit ID | CODON-CAI-001 |
+| Related Projects | N/A |
+| Implementation Status | N/A |
+| Last Reviewed | 2026-04-30 |
 
-The Codon Adaptation Index (CAI) is a quantitative measure of codon usage bias that predicts gene expression level based on codon composition. It was introduced by Sharp and Li in 1987 and remains the most widely used metric for analyzing synonymous codon usage bias.
+## 1. Overview
 
-## Algorithm
+The Codon Adaptation Index (CAI) measures how strongly a coding sequence favors codons that are preferred in a reference organism.[1][3] In this repository, `CodonOptimizer.CalculateCAI` computes CAI from organism-specific codon usage tables using the geometric mean of relative adaptiveness values and a logarithmic accumulation strategy for numeric stability. The implementation normalizes DNA to RNA notation, skips stop codons, and returns `0` when there are no evaluable codons. The result is organism-specific because the codon frequencies come from the supplied `CodonUsageTable`.[1][4][5][6]
 
-### Mathematical Definition
+## 2. Scientific / Formal Basis
 
-CAI is calculated as the geometric mean of relative adaptiveness values for all codons in a sequence.
+### 2.1 Domain Context
 
-**Step 1: Calculate Relative Adaptiveness (w_i)**
+Synonymous codon usage bias reflects organism-specific translation preferences and is widely used to study gene expression potential, codon optimization, and sequence adaptation.[1][3] The original repository document records these practical properties:
 
-For each codon `i` that encodes amino acid `a`:
+| Property | Meaning |
+|----------|---------|
+| Organism specificity | The same coding sequence can have different CAI values in different organisms. |
+| Geometric-mean sensitivity | A single rare codon can substantially lower the overall CAI. |
+| Range | CAI is bounded by `0` and `1`, with `1` representing exclusively optimal codons. |
 
-```
-w_i = f_i / max(f_j)  for all j encoding amino acid a
-```
+The repository ships three predefined reference tables in `CodonOptimizer`.[4][5][6]
 
-Where:
-- `f_i` = frequency of codon i in the reference set
-- `max(f_j)` = maximum frequency among all synonymous codons for amino acid a
+| Table | API Symbol | Example preference noted in the original document |
+|-------|------------|-----------------------------------------------|
+| E. coli K12 | `CodonOptimizer.EColiK12` | Leucine strongly favors `CUG` (`0.50`). |
+| S. cerevisiae | `CodonOptimizer.Yeast` | Leucine favors `UUA` and `UUG`. |
+| H. sapiens | `CodonOptimizer.Human` | Leucine still favors `CUG` (`0.40`), with weaker bias than E. coli. |
 
-**Step 2: Calculate CAI**
+### 2.2 Core Model
 
-```
-CAI = (∏_{i=1}^{L} w_i)^{1/L}
-```
+For each codon `i` encoding amino acid `a`, the relative adaptiveness is:
 
-Equivalently using logarithms:
-```
-CAI = exp((1/L) × Σ_{i=1}^{L} ln(w_i))
-```
-
-Where `L` = number of non-stop codons in the sequence.
-
-### Complexity
-
-- **Time:** O(n) where n = sequence length
-- **Space:** O(1) for computation (reference tables are constant)
-
-## Properties
-
-### Range
-- **Minimum:** 0 (theoretically; practically > 0 due to minimum frequency thresholds)
-- **Maximum:** 1 (when all codons are optimal for their amino acids)
-
-### Invariants
-1. **Single-codon amino acids always contribute w=1.0**
-   - Methionine (AUG) and Tryptophan (UGG) have no synonymous alternatives
-   
-2. **Geometric mean sensitivity**
-   - A single rare codon significantly lowers overall CAI
-   - Product of probabilities amplifies the effect of low values
-
-3. **Organism specificity**
-   - Same sequence has different CAI values for different organisms
-   - Reflects organism-specific tRNA pools and codon preferences
-
-## Implementation
-
-### Current Implementation
-
-```csharp
-// From CodonOptimizer.CalculateCAI
-public static double CalculateCAI(string codingSequence, CodonUsageTable table)
+```text
+w_i = f_i / max(f_j)  for all synonymous codons j of amino acid a
 ```
 
-**Key behaviors:**
-- Returns 0 for empty sequences (by convention)
-- Converts T→U and normalizes to uppercase
-- Excludes stop codons from calculation
-- Uses log-sum-exp for numerical stability
+where `f_i` is the frequency of codon `i` in the reference table. CAI is then the geometric mean over the `L` non-stop codons in the sequence:
 
-### Edge Case Handling
-
-| Case | Behavior |
-|------|----------|
-| Empty sequence | Returns 0 |
-| Null sequence | Returns 0 (safe handling) |
-| DNA input (with T) | Converts T→U automatically |
-| Lowercase input | Converts to uppercase |
-| Unknown codon | Uses minimum frequency (0.01) |
-| Stop codon | Excluded from calculation |
-
-## Reference Data
-
-### Supported Organism Tables
-
-1. **E. coli K12** (`CodonOptimizer.EColiK12`)
-   - Highly biased toward specific codons
-   - Example: CUG dominant for Leucine (0.50)
-
-2. **S. cerevisiae** (`CodonOptimizer.Yeast`)
-   - Different bias pattern
-   - Example: UUA/UUG preferred for Leucine
-
-3. **H. sapiens** (`CodonOptimizer.Human`)
-   - Less extreme bias than bacteria
-   - Example: CUG still preferred for Leucine (0.40)
-
-### Example Calculations
-
-**Optimal sequence for E. coli:**
+```text
+CAI = (product(w_i))^(1 / L)
+CAI = exp((1 / L) * sum(ln(w_i)))
 ```
-Sequence: AUGCUGCCGACC (Met-Leu-Pro-Thr)
+
+### 2.3 Modeling Assumptions
+
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | The provided `CodonUsageTable` is a meaningful reference for the target organism or condition. | CAI becomes a score against the wrong codon-preference landscape. |
+| ASM-02 | The input sequence is interpreted in coding-frame triplets. | Trailing bases outside a complete codon are ignored and the score reflects only the retained codons. |
+
+### 2.4 Properties and Invariants
+
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `0 <= CAI <= 1`. | `w_i` values are normalized by the maximum synonymous frequency and the result is a geometric mean over evaluated codons. |
+| INV-02 | Single-codon amino acids such as Met (`AUG`) and Trp (`UGG`) contribute `w_i = 1`. | Their synonymous set contains only the codon being evaluated. |
+| INV-03 | Stop codons do not affect the result. | The implementation skips codons whose translated amino acid is `*`. |
+| INV-04 | The same sequence can yield different CAI values for different organisms. | Frequencies are taken from the caller-supplied codon usage table. |
+
+## 3. Contract
+
+### 3.1 Inputs and Parameters
+
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `codingSequence` | `string` | required | Coding sequence in DNA or RNA notation. | `null` or empty input returns `0`. |
+| `table` | `CodonUsageTable` | required | Reference codon usage table used to compute relative adaptiveness. | Must provide codon-frequency data for the desired organism or reference set. |
+
+### 3.2 Output / Return Value
+
+| Name | Type | Description |
+|------|------|-------------|
+| `CAI` | `double` | Geometric-mean codon adaptation score for the evaluated non-stop codons. |
+
+### 3.3 Preconditions and Validation
+
+The implementation uppercases the sequence and converts `T` to `U` before splitting into triplets. Incomplete trailing bases are ignored because codons are extracted only when three bases are available. If the sequence is empty, or if no non-stop codons remain after filtering, the method returns `0`. Codons that translate to a non-standard amino acid and therefore lack synonymous-frequency data are skipped.
+
+## 4. Algorithm
+
+### 4.1 High-Level Steps
+
+1. Return `0` for `null` or empty input.
+2. Normalize the sequence to uppercase RNA notation.
+3. Split the sequence into complete codons.
+4. For each codon, translate it to an amino acid and skip stop codons.
+5. Compute relative adaptiveness `w_i` against the maximum synonymous frequency in the supplied table.
+6. Accumulate `ln(w_i)` and count the evaluated codons.
+7. Return `exp(logSum / count)` when at least one codon was evaluated; otherwise return `0`.
+
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
+
+Relative adaptiveness is calculated against the maximum synonymous frequency for the codon's amino acid. When the amino acid has no frequency data in the table, the codon is skipped. When the amino acid is represented in the table but the specific codon has frequency `0`, the current implementation clamps `w_i` to `1e-6` rather than allowing `0`, as documented in the test specification.[7]
+
+### 4.3 Complexity
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `CalculateCAI` | `O(n)` | `O(1)` | `n` is the sequence length; reference tables are constant-size. |
+
+## 5. Implementation Notes
+
+### 5.1 Location and Entry Points
+
+**Implementation location:** [CodonOptimizer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CodonOptimizer.cs)
+
+- `CodonOptimizer.CalculateCAI(string, CodonUsageTable)`
+- `CodonOptimizer.CalculateRelativeAdaptiveness(...)` (private helper)
+
+### 5.2 Current Behavior
+
+The method returns `0` for `null`, empty, or no-evaluable-codon input. It converts DNA input to RNA notation, ignores incomplete trailing bases, and excludes stop codons from the codon count `L`. Unknown or non-standard codons translate to `X`; because no synonymous-frequency set exists for `X`, those codons are skipped rather than assigned a frequency. Zero-frequency codons inside an otherwise populated synonymous set are clamped to `1e-6` before taking the logarithm.[7]
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Relative adaptiveness uses `w_i = f_i / max(f_j)` across synonymous codons.[1]
+- CAI is computed as a geometric mean using the equivalent logarithmic form `exp((1/L) * sum(ln(w_i)))`.[1]
+
+**Intentionally simplified:**
+
+- The implementation relies entirely on the provided codon-usage table and does not infer organism context; **consequence:** interpretation is only as good as the caller-supplied reference table.
+- Codons without recognizable synonymous-frequency data are skipped instead of causing an error; **consequence:** malformed or non-standard input can reduce the effective codon count without an exception.
+
+**Not implemented:**
+
+- Confidence intervals, bootstrap uncertainty, or statistical significance for CAI scores; **users should rely on:** no current alternative.
+- Automatic validation that the input sequence is a biologically valid CDS; **users should rely on:** caller-side validation.
+
+### 5.4 Deviations and Assumptions
+
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | Zero-frequency codons are clamped to `1e-6` when other synonymous codons exist in the table. | Deviation | CAI remains positive instead of becoming exactly `0` for those codons. | accepted | Documented in [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md). |
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | Returns `0`. | Explicit early return. |
+| Sequence containing only stop codons | Returns `0`. | Stop codons are excluded, leaving no evaluated codons. |
+| DNA input | Treated as RNA after `T -> U` normalization. | The method normalizes notation before splitting. |
+| Lowercase input | Handled identically to uppercase input. | The sequence is uppercased first. |
+| Incomplete trailing codon | Ignored. | Only complete triplets are split into codons. |
+
+### 6.2 Limitations
+
+CAI in this repository is a table-driven codon-bias score. It does not model tRNA abundance explicitly, does not validate full biological correctness of the coding sequence, and does not account for context effects such as codon pairs or mRNA structure. Interpretation remains specific to the chosen codon-usage table.
+
+## 7. Examples and Related Material
+
+### 7.1 Worked Example
+
+The original document included these hand-worked E. coli examples:
+
+```text
+Optimal sequence: AUGCUGCCGACC
 Codons: AUG(1.0), CUG(1.0), CCG(1.0), ACC(1.0)
-CAI = (1.0 × 1.0 × 1.0 × 1.0)^(1/4) = 1.0
-```
+CAI = 1.0
 
-**Suboptimal sequence for E. coli:**
-```
-Sequence: AUGCUACCAACU (Met-Leu-Pro-Thr)
+Suboptimal sequence: AUGCUACCAACU
 Codons: AUG(1.0), CUA(0.08), CCA(0.358), ACU(0.364)
-CAI = (1.0 × 0.08 × 0.358 × 0.364)^(1/4) ≈ 0.31
+CAI ≈ 0.31
 ```
 
-## Applications
+### 7.3 Related Tests, Evidence, or Documents
 
-1. **Gene expression prediction:** Higher CAI correlates with higher expression
-2. **Codon optimization:** Target CAI improvement during sequence design
-3. **Horizontal gene transfer detection:** Anomalous CAI may indicate foreign genes
-4. **Evolutionary analysis:** Compare codon adaptation across species
+- Tests: [CodonOptimizer_CAI_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/CodonOptimizer_CAI_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Test specification: [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md)
+- Related algorithms: [Codon_Usage_Analysis.md](Codon_Usage_Analysis.md), [Sequence_Optimization.md](Sequence_Optimization.md)
 
-## Sources
+## 8. References
 
-- Sharp, P.M. & Li, W.H. (1987). "The codon adaptation index-a measure of directional synonymous codon usage bias, and its potential applications." Nucleic Acids Research, 15(3):1281-1295.
-- Wikipedia: Codon Adaptation Index
-- Plotkin, J.B. & Kudla, G. (2011). "Synonymous but not the same." Nature Reviews Genetics, 12(1):32-42.
+1. Sharp PM, Li WH. 1987. The codon adaptation index-a measure of directional synonymous codon usage bias, and its potential applications. Nucleic Acids Research. N/A
+2. Wikipedia contributors. 2026. Codon Adaptation Index. Wikipedia. N/A
+3. Plotkin JB, Kudla G. 2011. Synonymous but not the same. Nature Reviews Genetics. N/A
+4. Kazusa Codon Usage Database. E. coli K-12 substr. W3110, species 316407. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=316407
+5. Kazusa Codon Usage Database. Saccharomyces cerevisiae, species 4932. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=4932
+6. Kazusa Codon Usage Database. Homo sapiens, species 9606. https://www.kazusa.or.jp/codon/cgi-bin/showcodon.cgi?species=9606
+7. Test specification: [CODON-CAI-001.md](../../../tests/TestSpecs/CODON-CAI-001.md)

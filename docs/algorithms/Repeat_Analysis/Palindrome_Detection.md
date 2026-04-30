@@ -1,211 +1,185 @@
 # Palindrome Detection
 
-## Algorithm Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Repeat Analysis |
+| Test Unit ID | REP-PALIN-001 |
+| Related Projects | Seqeron.Genomics.Analysis |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-| Property | Value |
-|----------|-------|
-| **Algorithm** | DNA Palindrome Detection |
-| **Implementation** | `RepeatFinder.FindPalindromes` |
-| **Complexity** | O(n² × L) where n = sequence length, L = length range |
-| **Category** | Repeat Analysis |
+## 1. Overview
 
----
+DNA palindrome detection identifies sequences that are equal to their own reverse complement [1]. This is a biological notion of palindrome, distinct from textual symmetry on a single strand, and it is central to restriction-enzyme recognition-site discovery [1][2]. The repository exposes a validating implementation in `RepeatFinder.FindPalindromes` and a second, lighter-weight implementation in `GenomicAnalyzer.FindPalindromes` with a different return type. Both implementations perform exact reverse-complement comparison over even-length windows.
 
-## Definition
+## 2. Scientific / Formal Basis
 
-A **DNA palindrome** (also called "reverse palindrome" or "biological palindrome") is a nucleotide sequence that equals its reverse complement. This differs from textual palindromes, which read the same forwards and backwards on a single strand.
+### 2.1 Domain Context
 
-**Key principle:** Reading 5'→3' on the forward strand gives the same sequence as reading 5'→3' on the reverse strand.
+A DNA palindrome reads the same in the 5'→3' direction on the forward strand as it does in the 5'→3' direction on the reverse strand [1]. For example, `GAATTC` is the EcoRI recognition sequence:
 
-**Example: GAATTC (EcoRI recognition site)**
-```
-5'-GAATTC-3'   (forward strand, read 5'→3')
-3'-CTTAAG-5'   (reverse strand, read 3'→5')
-     ↓
-5'-GAATTC-3'   (reverse strand, read 5'→3')
-```
-
-Mathematically:
-```
-Palindrome(S) ⟺ S == ReverseComplement(S)
+```text
+5'-GAATTC-3'
+3'-CTTAAG-5'
+     ↓ read reverse strand 5'→3'
+5'-GAATTC-3'
 ```
 
----
+DNA palindromes are biologically important because they are common restriction-enzyme recognition sites, can form cruciform and hairpin structures, and are associated with chromosome fragility when long self-complementary tracts occur in genomes [1][2].
 
-## Sources
+### 2.2 Core Model
 
-| Source | Type | Reference |
-|--------|------|-----------|
-| Wikipedia - Palindromic sequence | Definition | https://en.wikipedia.org/wiki/Palindromic_sequence |
-| Wikipedia - Restriction enzyme | Application | https://en.wikipedia.org/wiki/Restriction_enzyme |
-| Rosalind - REVP | Test data | https://rosalind.info/problems/revp/ |
-| REBASE | Database | https://rebase.neb.com/ |
+For a candidate sequence $S$, palindrome detection uses the criterion:
 
----
+$$
+\operatorname{Palindrome}(S) \iff S = \operatorname{ReverseComplement}(S)
+$$
 
-## Theory
+For an even-length sequence $S = s_1 s_2 \dots s_{2n}$, the equivalent basewise condition is:
 
-### Structural Characteristics
+$$
+s_i = \operatorname{complement}(s_{2n + 1 - i}) \quad \text{for all } i \in [1, 2n]
+$$
 
-1. **Even length required**: DNA palindromes must have even length because each base pairs with a complementary base in the opposite strand. An odd-length sequence would have a central base that cannot complement itself.
+with complement mapping `A↔T` and `G↔C` [1]. Biological DNA palindromes therefore require even length so that every base pairs with a complementary partner across the symmetry axis.
 
-2. **Symmetry axis**: The symmetry axis lies between the two central nucleotides.
+### 2.4 Properties and Invariants
 
-3. **Self-complementary**: The sequence can form a perfect duplex with itself.
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Every reported palindrome satisfies `Sequence = ReverseComplement(Sequence)`. | Both implementations emit results only after exact reverse-complement comparison. |
+| INV-02 | All reported lengths are even. | The scan steps through candidate lengths in increments of `2`. |
+| INV-03 | Reported positions are within sequence bounds. | Candidate windows are enumerated only when `start <= seq.Length - len`. |
+| INV-04 | `Length` equals the actual sequence length of the reported palindrome. | `PalindromeResult` stores the scanned candidate and its length directly. |
 
-### Mathematical Verification
+### 2.5 Comparison with Related Concepts
 
-For a sequence S of even length 2n:
-- S = s₁s₂...s₂ₙ
-- S is a palindrome iff sᵢ = complement(s₂ₙ₊₁₋ᵢ) for all i ∈ [1, 2n]
+| Concept | Relation |
+|---------|----------|
+| Inverted repeat | A palindrome is the zero-loop special case of an inverted repeat. |
+| Restriction site analysis | Palindrome detection is a structural prerequisite for recognizing many Type II restriction-enzyme sites [2]. |
 
-Where complement mapping is: A↔T, G↔C
+## 3. Contract
 
-### Biological Significance
+### 3.1 Inputs and Parameters
 
-DNA palindromes serve important biological functions:
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to search. | `RepeatFinder` throws on `null` `DnaSequence` input and yields no results for `null` or empty raw strings. |
+| `minLength` | `int` | `4` | Minimum palindrome length. | Must be even and at least `4` in `RepeatFinder`. |
+| `maxLength` | `int` | `12` | Maximum palindrome length. | Must be at least `minLength` in `RepeatFinder`. |
 
-1. **Restriction enzyme recognition**: Type II restriction endonucleases recognize palindromic sequences (4-8 bp typically)
-2. **Cruciform structures**: Long palindromes can form cruciform DNA under supercoiling
-3. **Hairpin formation**: Single-stranded palindromes can fold into hairpin structures
-4. **Genome instability**: Long palindromes are associated with chromosomal fragility
+### 3.2 Output / Return Value
 
-### Common Restriction Enzyme Sites
+| Field | Type | Description |
+|-------|------|-------------|
+| `Position` | `int` | 0-based start position of the palindrome. |
+| `Sequence` | `string` | Palindromic DNA sequence. |
+| `Length` | `int` | Length of the palindrome in bases. |
+
+`GenomicAnalyzer.FindPalindromes` returns `PalindromeInfo` instead of `PalindromeResult`, but it still reports the exact palindrome sequence and its start position.
+
+### 3.3 Preconditions and Validation
+
+`RepeatFinder.FindPalindromes(DnaSequence, ...)` throws `ArgumentNullException` on `null` sequence input, throws `ArgumentOutOfRangeException` when `minLength < 4` or `minLength` is odd, and throws `ArgumentOutOfRangeException` when `maxLength < minLength`. The raw-string overload applies the same length validation, yields no results for `null` or empty strings, and uppercases non-empty input before scanning. `GenomicAnalyzer.FindPalindromes` performs the same scan logic but does not apply those explicit argument checks.
+
+## 4. Algorithm
+
+### 4.1 High-Level Steps
+
+1. Validate `minLength` and `maxLength` in `RepeatFinder`.
+2. Normalize raw-string input to uppercase when needed.
+3. For each even candidate length from `minLength` through `maxLength`, enumerate every start position where a full window fits.
+4. Extract the candidate subsequence, compute its reverse complement, and compare for exact equality.
+5. Emit a palindrome result for every matching window.
+
+### 4.2 Reference Table
+
+Common restriction-enzyme palindrome examples cited in the legacy documentation are:
 
 | Enzyme | Sequence | Length | Source Organism |
 |--------|----------|--------|-----------------|
-| EcoRI | GAATTC | 6 | Escherichia coli |
-| BamHI | GGATCC | 6 | Bacillus amyloliquefaciens |
-| HindIII | AAGCTT | 6 | Haemophilus influenzae |
-| TaqI | TCGA | 4 | Thermus aquaticus |
-| AluI | AGCT | 4 | Arthrobacter luteus |
-| NotI | GCGGCCGC | 8 | Nocardia otitidis |
-| SmaI | CCCGGG | 6 | Serratia marcescens |
-| EcoRV | GATATC | 6 | Escherichia coli |
+| EcoRI | `GAATTC` | 6 | *Escherichia coli* |
+| BamHI | `GGATCC` | 6 | *Bacillus amyloliquefaciens* |
+| HindIII | `AAGCTT` | 6 | *Haemophilus influenzae* |
+| TaqI | `TCGA` | 4 | *Thermus aquaticus* |
+| AluI | `AGCT` | 4 | *Arthrobacter luteus* |
+| NotI | `GCGGCCGC` | 8 | *Nocardia otitidis* |
+| SmaI | `CCCGGG` | 6 | *Serratia marcescens* |
+| EcoRV | `GATATC` | 6 | *Escherichia coli* |
 
----
+### 4.3 Complexity
 
-## Implementation
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Palindrome detection | `O(n × r × m)` | `O(m)` | `r` is the number of even candidate lengths scanned and `m` is the cost of reverse-complement comparison for a candidate window. |
 
-### Method Signature
+## 5. Implementation Notes
 
-```csharp
-public static IEnumerable<PalindromeResult> FindPalindromes(
-    DnaSequence sequence,
-    int minLength = 4,
-    int maxLength = 12)
-```
+### 5.1 Location and Entry Points
 
-### Parameters
+**Implementation locations:** [RepeatFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RepeatFinder.cs), [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
-| Parameter | Default | Description | Constraints |
-|-----------|---------|-------------|-------------|
-| `sequence` | required | DNA sequence to search | Not null |
-| `minLength` | 4 | Minimum palindrome length | Must be ≥ 4 and even |
-| `maxLength` | 12 | Maximum palindrome length | Must be ≥ minLength |
+- `RepeatFinder.FindPalindromes(DnaSequence, int, int)`: Validating canonical API returning `PalindromeResult`.
+- `RepeatFinder.FindPalindromes(string, int, int)`: Raw-string overload with uppercase normalization.
+- `GenomicAnalyzer.FindPalindromes(DnaSequence, int, int)`: Alternate API returning `PalindromeInfo`.
 
-### Return Value
+### 5.2 Current Behavior
 
-```csharp
-public readonly record struct PalindromeResult(
-    int Position,    // 0-based position in sequence
-    string Sequence, // The palindromic sequence
-    int Length);     // Length of the palindrome
-```
+`RepeatFinder` enforces `minLength >= 4`, requires even `minLength`, requires `maxLength >= minLength`, and uppercases raw-string input before scanning. `GenomicAnalyzer.FindPalindromes` performs the same even-length stepwise scan and reverse-complement equality test but does not add explicit null or range validation before it dereferences `sequence.Sequence`. Both implementations report overlapping palindromes when different even lengths match at the same or neighboring positions.
 
-### Algorithm
+### 5.3 Conformance to Theory / Spec
 
-```
-FOR each length L from minLength to maxLength, step 2:
-    FOR each position i from 0 to (sequenceLength - L):
-        candidate = sequence[i..i+L]
-        IF candidate == ReverseComplement(candidate):
-            YIELD PalindromeResult(i, candidate, L)
-```
+**Implemented (verbatim from the cited theory/spec):**
 
-### Complexity Analysis
+- Exact biological palindrome detection using `Sequence == ReverseComplement(Sequence)` [1].
+- Even-length scanning appropriate for self-complementary DNA palindromes [1].
+- Detection of restriction-enzyme-style palindromic sites such as EcoRI, BamHI, and HindIII when those windows are present [2][4].
 
-- **Time**: O(n × L × k) where n = sequence length, L = length range / 2, k = cost of reverse complement comparison (O(length))
-- **Space**: O(L_max) for temporary strings
+**Intentionally simplified:**
 
-### Constraints
+- Exact DNA matching only, without IUPAC degeneracy or ambiguity-code handling; **consequence:** degenerate recognition motifs are not reported unless the sequence resolves to an exact palindrome.
 
-1. **minLength ≥ 4**: Prevents trivial 2bp matches which are extremely common
-2. **Even lengths only**: Biological palindromes require even length
-3. **Length step of 2**: Only even lengths checked
+**Not implemented:**
 
----
+- Restriction-enzyme catalog lookup and cleavage semantics; **users should rely on:** [RestrictionAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs) for restriction-site analysis beyond structural palindrome discovery.
 
-## Implementation Notes
+### 5.4 Deviations and Assumptions
 
-### String Overload
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | `GenomicAnalyzer.FindPalindromes` does not perform the explicit validation that `RepeatFinder.FindPalindromes` applies. | Deviation | Invalid lengths or `null` input can fail differently depending on the API used. | accepted | The algorithmic core is equivalent, but the validation surfaces differ. |
 
-The string overload converts input to uppercase before processing:
+## 6. Edge Cases and Limitations
 
-```csharp
-public static IEnumerable<PalindromeResult> FindPalindromes(
-    string sequence,
-    int minLength = 4,
-    int maxLength = 12)
-{
-    if (string.IsNullOrEmpty(sequence))
-        yield break;
+### 6.1 Edge Cases
 
-    foreach (var result in FindPalindromesCore(
-        sequence.ToUpperInvariant(), minLength, maxLength))
-        yield return result;
-}
-```
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | Returns empty enumerable from string overloads. | No candidate window fits. |
+| Sequence shorter than `minLength` | Returns empty enumerable. | No valid palindrome window can be formed. |
+| No palindromes present | Returns empty enumerable. | No candidate equals its reverse complement. |
+| Entire sequence is palindromic | Reported at the corresponding start position if length constraints permit it. | The window equality test succeeds for the full sequence. |
+| Overlapping palindromes of different lengths | Both can be reported. | The scan checks every even window independently. |
+| Odd `minLength` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | Biological palindromes require even length, and the validating API enforces it. |
+| `minLength < 4` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | The validating API excludes trivial 2-bp matches. |
+| `maxLength < minLength` | `RepeatFinder` throws `ArgumentOutOfRangeException`. | Ordered bounds are required. |
 
-### GenomicAnalyzer Alternate Implementation
+### 6.2 Limitations
 
-`GenomicAnalyzer.FindPalindromes` provides an alternate implementation with different return type (`PalindromeInfo` vs `PalindromeResult`). Both implementations use the same algorithm but have slightly different APIs:
+The algorithm detects only exact DNA palindromes and does not interpret ambiguous IUPAC symbols, cleavage positions, or enzyme-specific recognition context. Long palindromic tracts may have secondary-structure consequences, but the implementation reports only the local exact windows and does not model cruciform energetics or enzyme digestion behavior.
 
-| Aspect | RepeatFinder | GenomicAnalyzer |
-|--------|--------------|-----------------|
-| Return type | `PalindromeResult` (record struct) | `PalindromeInfo` (struct) |
-| Null handling | Throws `ArgumentNullException` | Not documented |
-| Length validation | Explicit exception for odd minLength | No explicit validation |
+## 7. Examples and Related Material
 
----
+### 7.3 Related Tests, Evidence, or Documents
 
-## Edge Cases
+- Tests: [RepeatFinder_Palindrome_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/RepeatFinder_Palindrome_Tests.cs)
+- Test spec: [REP-PALIN-001.md](../../../tests/TestSpecs/REP-PALIN-001.md)
+- Related smoke tests: [GenomicAnalyzerTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzerTests.cs)
 
-| Case | Behavior | Rationale |
-|------|----------|-----------|
-| Empty sequence | Returns empty | No positions to check |
-| Sequence shorter than minLength | Returns empty | Cannot contain palindrome |
-| No palindromes in sequence | Returns empty | Expected behavior |
-| Entire sequence is palindrome | Reports at valid positions | Standard behavior |
-| Overlapping palindromes (different lengths) | Both reported | 4bp and 6bp palindrome at same start |
-| Odd minLength | Throws ArgumentOutOfRangeException | Biological constraint |
-| minLength < 4 | Throws ArgumentOutOfRangeException | Implementation constraint |
-| maxLength < minLength | Throws ArgumentOutOfRangeException | Invalid parameter |
+## 8. References
 
----
-
-## Relation to Other Algorithms
-
-### Inverted Repeat Detection (REP-INV-001)
-
-Inverted repeats are related but distinct:
-- **Palindrome**: Sequence equals its reverse complement (no gap)
-- **Inverted repeat**: Two sequences that are reverse complements, separated by a loop
-
-A palindrome is essentially an inverted repeat with loop length = 0 and overlapping arms.
-
-### Restriction Site Analysis (RESTR-FIND-001)
-
-Palindrome detection is the foundation for restriction site analysis. Most Type II restriction enzymes recognize specific palindromic sequences.
-
----
-
-## Test Coverage
-
-See [TestSpec REP-PALIN-001](../../tests/TestSpecs/REP-PALIN-001.md) for complete test specification.
-
-Key test categories:
-1. Known restriction enzyme sites (EcoRI, BamHI, HindIII, etc.)
-2. Parameter validation (even length, range checks)
-3. Edge cases (empty, too short, no matches)
-4. Rosalind REVP sample dataset validation
+1. Wikipedia. 2026. Palindromic sequence. Wikipedia. https://en.wikipedia.org/wiki/Palindromic_sequence
+2. Wikipedia. 2026. Restriction enzyme. Wikipedia. https://en.wikipedia.org/wiki/Restriction_enzyme
+3. Rosalind. 2026. REVP: Locating Restriction Sites. Rosalind. https://rosalind.info/problems/revp/
+4. REBASE. 2026. Restriction Enzyme Database. https://rebase.neb.com/

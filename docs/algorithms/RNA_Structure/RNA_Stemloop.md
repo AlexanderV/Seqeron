@@ -1,239 +1,153 @@
 # RNA Stem-Loop Detection
 
-**Algorithm Group:** RNA Structure  
-**Algorithm Name:** Stem-Loop Detection  
-**Implementation:** `Seqeron.Genomics.Analysis.RnaSecondaryStructure.FindStemLoops`  
-**Test Unit:** RNA-STEMLOOP-001  
-**Version:** 1.0  
-**Last Updated:** 2026-02-05
-
----
+| Field | Value |
+|-------|-------|
+| Algorithm Group | RNA Structure |
+| Test Unit ID | RNA-STEMLOOP-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
 ## 1. Overview
 
-Stem-loop (hairpin) structures are fundamental RNA secondary structure motifs formed when a single-stranded RNA folds back on itself through Watson-Crick and wobble base pairing. The `FindStemLoops` method detects these structures in RNA sequences.
+Stem-loop detection scans a single RNA sequence for hairpin-like motifs formed by a paired stem flanking an unpaired loop. These motifs are a fundamental secondary-structure pattern and provide the candidate structures used elsewhere in the repository's RNA prediction code. The implementation performs an exhaustive local scan over loop starts and loop sizes, extends stems while pairing remains valid, and returns every candidate meeting the configured minimum stem length. It is therefore a motif detector, not a global structure optimizer.
 
----
+## 2. Scientific / Formal Basis
 
-## 2. Biological Background
+### 2.1 Domain Context
 
-### 2.1 Structure Definition
+Stem-loops consist of a paired stem and a terminal loop. In RNA, standard admissible pairs include Watson-Crick `A-U` and `G-C` pairs plus wobble `G-U` pairs. Hairpin loops shorter than three nucleotides are sterically disfavored and are treated as impossible in standard RNA secondary-structure models.
 
-A stem-loop consists of two components:
+### 2.2 Core Model
 
-| Component | Description | Constraints |
-|-----------|-------------|-------------|
-| **Stem** | Double-stranded helical region | Antiparallel base pairing |
-| **Loop** | Unpaired nucleotides at stem end | Minimum 3 nucleotides (steric) |
+The repository's detector treats a stem-loop as a candidate loop interval surrounded by antiparallel complementary sequence. For each candidate loop, the algorithm extends outward from the loop boundaries while base pairing remains valid. Once extension stops, the candidate is retained only if the resulting stem length is at least the configured minimum.
 
-**Diagram:**
-```
-      L O O P
-      A-A-A-A
-     /       \
-    G         C    <- Loop closing pair
-    |         |
-    G---------C    <- Stem (base pairs)
-    |         |
-    G---------C
-    |         |
-    C---------G
-   5'         3'
-```
+The resulting `TotalFreeEnergy` is:
 
-**Source:** Wikipedia (Stem-loop)
+$$
+\Delta G_{total} = \Delta G_{stem} + \Delta G_{hairpin}
+$$
 
-### 2.2 Valid Base Pairs
+where `ΔG_stem` is computed from stacked base pairs and `ΔG_hairpin` from the hairpin-loop energy helper.
 
-| Pair Type | Bases | Stability |
-|-----------|-------|-----------|
-| Watson-Crick | A-U, U-A | Standard |
-| Watson-Crick | G-C, C-G | Strong (3 H-bonds) |
-| Wobble | G-U, U-G | Valid in RNA |
+### 2.3 Modeling Assumptions (Optional)
 
-**Source:** IUPAC conventions, Wikipedia
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | Stem-loop motifs can be identified by local complementary extension around a loop candidate | More global structural context is ignored during motif detection |
+| ASM-02 | Wobble pairing is acceptable when `allowWobble = true` | Candidate sets change when wobble pairs are biologically inappropriate for the use case |
 
-### 2.3 Loop Size Constraints
+### 2.4 Properties and Invariants
 
-| Constraint | Value | Reason |
-|------------|-------|--------|
-| Minimum | 3 nucleotides | Steric impossibility for <3 |
-| Optimal | 4-8 nucleotides | Balance of stability |
-| Maximum | No hard limit | Larger loops are less stable |
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Returned stem-loops have `Loop.Size >= 3` | `minLoopSize` is clamped to `3` before scanning |
+| INV-02 | Returned stem-loops satisfy `Stem.Length >= minStemLength` | Candidates shorter than the threshold are discarded |
+| INV-03 | Returned loop type is always `Hairpin` | The constructor uses `LoopType.Hairpin` for this API |
+| INV-04 | `DotBracketNotation.Length = End - Start + 1` | The dot-bracket helper allocates exactly the detected span length |
 
-**Source:** Wikipedia (Stem-loop) - "loops that are fewer than three bases long are sterically impossible"
+## 3. Contract
 
-### 2.4 Tetraloops
+### 3.1 Inputs and Parameters
 
-Special 4-nucleotide loops with enhanced stability:
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `rnaSequence` | `string` | required | RNA sequence to analyze | Empty or too-short input yields no results |
+| `minStemLength` | `int` | `3` | Minimum number of paired bases in a returned stem | Candidates below this threshold are rejected |
+| `minLoopSize` | `int` | `3` | Minimum hairpin loop size | Values below `3` are clamped to `3` |
+| `maxLoopSize` | `int` | `10` | Maximum scanned loop size | Restricts candidate enumeration |
+| `allowWobble` | `bool` | `true` | Whether `G-U` / `U-G` wobble pairs are allowed during stem extension | When `false`, wobble pairs stop extension |
 
-| Family | Pattern | Examples | Bonus |
-|--------|---------|----------|-------|
-| GNRA | G-N-R-A | GAAA, GCAA, GGAA, GUAA | ~3 kcal/mol |
-| UNCG | U-N-C-G | UUCG, UACG, UGCG | ~3 kcal/mol |
-| CUUG | C-U-U-G | CUUG | ~2 kcal/mol |
+### 3.2 Output / Return Value
 
-**Source:** Wikipedia (Tetraloop), Woese et al. (1990), Heus & Pardi (1991)
+| Field | Type | Description |
+|-------|------|-------------|
+| `Start` | `int` | Inclusive 5' start of the detected stem-loop span |
+| `End` | `int` | Inclusive 3' end of the detected stem-loop span |
+| `Stem` | `Stem` | Stem coordinates, base pairs, and stem free energy |
+| `Loop` | `Loop` | Hairpin-loop coordinates, size, and sequence |
+| `TotalFreeEnergy` | `double` | Sum of stem and loop free energies |
+| `DotBracketNotation` | `string` | Local dot-bracket string covering only the detected stem-loop span |
 
----
+### 3.3 Preconditions and Validation
 
-## 3. Algorithm
+The input sequence is uppercased internally. If `minLoopSize < 3`, it is clamped to `3`. When the sequence is empty or shorter than `minStemLength * 2 + minLoopSize`, the method yields no candidates. Stem extension stops at the first invalid base pair, or at the first wobble pair when `allowWobble` is `false`.
 
-### 3.1 Method Signature
+## 4. Algorithm
 
-```csharp
-public static IEnumerable<StemLoop> FindStemLoops(
-    string rnaSequence,
-    int minStemLength = 3,
-    int minLoopSize = 3,
-    int maxLoopSize = 10,
-    bool allowWobble = true)
-```
+### 4.1 High-Level Steps
 
-### 3.2 Parameters
+1. Clamp `minLoopSize` to `3` and reject too-short sequences.
+2. Enumerate loop-start positions across the sequence.
+3. Enumerate loop sizes between `minLoopSize` and `maxLoopSize` for each start.
+4. Extend the stem outward from the candidate loop boundaries while pairing remains valid.
+5. Discard candidates whose stem length is below `minStemLength`.
+6. Build `Stem`, `Loop`, `TotalFreeEnergy`, and local dot-bracket notation for each accepted candidate.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `rnaSequence` | - | RNA sequence to analyze |
-| `minStemLength` | 3 | Minimum base pairs in stem |
-| `minLoopSize` | 3 | Minimum loop nucleotides |
-| `maxLoopSize` | 10 | Maximum loop nucleotides |
-| `allowWobble` | true | Allow G-U wobble pairs |
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-### 3.3 Algorithm Steps
+Base-pair extension uses `GetBasePairType`, so canonical pairs and optionally wobble pairs are accepted. Accepted base pairs are reversed before the result is built so that they are ordered from 5' to 3'. Stem energy comes from `CalculateStemEnergy`, and loop energy comes from `CalculateHairpinLoopEnergy`, including the special `G-U` closure detection path used by the source.
 
-1. **Validation:** Check sequence length is sufficient
-2. **Loop Scanning:** Iterate potential loop start positions
-3. **Loop Sizing:** For each position, try loop sizes in range
-4. **Stem Extension:** Extend stem by checking base pair validity
-5. **Collection:** Return structures meeting minimum requirements
+### 4.3 Complexity
 
-### 3.4 Complexity
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `FindStemLoops` | `O(n^2 * L)` | `O(k)` | `n` = sequence length, `L` = scanned loop-size range, `k` = number of returned stem-loops |
 
-- **Time:** O(n² × L) where n = sequence length, L = max loop size
-- **Space:** O(k) where k = number of stem-loops found
+## 5. Implementation Notes
 
----
+### 5.1 Location and Entry Points
 
-## 4. Return Type
+**Implementation location:** [RnaSecondaryStructure.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/RnaSecondaryStructure.cs)
 
-### 4.1 StemLoop Record
+- `RnaSecondaryStructure.FindStemLoops(string, int, int, int, bool)`: Enumerates candidate stem-loop motifs.
+- `RnaSecondaryStructure.DetectPseudoknots(IReadOnlyList<BasePair>)`: Post hoc crossing-pair detector for already assembled base-pair sets.
 
-```csharp
-public readonly record struct StemLoop(
-    int Start,                    // Start position
-    int End,                      // End position
-    Stem Stem,                    // Stem details
-    Loop Loop,                    // Loop details
-    double TotalFreeEnergy,       // Calculated energy
-    string DotBracketNotation);   // Structure notation
-```
+### 5.2 Current Behavior
 
-### 4.2 Stem Record
+The detector returns all candidates that satisfy the local constraints; it does not suppress overlaps or attempt to choose a single best motif. Each result includes both structural coordinates and a locally scored energy. Pseudoknots are not predicted directly from sequence in this method, but the same class exposes `DetectPseudoknots` for already assembled base-pair sets.
 
-```csharp
-public readonly record struct Stem(
-    int Start5Prime,
-    int End5Prime,
-    int Start3Prime,
-    int End3Prime,
-    int Length,
-    IReadOnlyList<BasePair> BasePairs,
-    double FreeEnergy);
-```
+### 5.3 Conformance to Theory / Spec
 
-### 4.3 Loop Record
+**Implemented (verbatim from the cited theory/spec):**
 
-```csharp
-public readonly record struct Loop(
-    LoopType Type,   // Always Hairpin for stem-loops
-    int Start,
-    int End,
-    int Size,
-    string Sequence);
-```
+- Minimum hairpin-loop size of three nucleotides.
+- Watson-Crick and optional wobble pairing for stem extension.
+- Hairpin free-energy scoring through Turner 2004-based helpers.
 
----
+**Intentionally simplified:**
 
-## 5. Related Methods
+- The method returns every qualifying candidate instead of choosing a globally optimal or non-overlapping subset; **consequence:** callers may need a downstream selection step.
+- Only hairpin stem-loops are modeled directly; **consequence:** internal-loop and whole-structure reasoning is left to other APIs.
 
-### 5.1 Pseudoknot Detection
+**Not implemented:**
 
-```csharp
-public static IEnumerable<Pseudoknot> DetectPseudoknots(
-    IReadOnlyList<BasePair> basePairs)
-```
+- Sequence-level pseudoknot prediction in this method; **users should rely on:** `RnaSecondaryStructure.DetectPseudoknots(...)` for post hoc detection or `RnaSecondaryStructure.PredictStructure(...)` for higher-level assembly.
 
-Detects crossing base pairs that indicate pseudoknots. A pseudoknot occurs when pairs (i,j) and (k,l) satisfy: i < k < j < l.
+## 6. Edge Cases and Limitations
 
-**Source:** Wikipedia (Pseudoknot)
+### 6.1 Edge Cases
 
-### 5.2 Inverted Repeat Finding
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty or too-short sequence | No results | No valid loop-plus-stem span can be formed |
+| `allowWobble = false` | Wobble pairs terminate stem extension | Explicit branch in the extension loop |
+| Overlapping candidates | All qualifying candidates are yielded | The method performs no overlap filtering |
 
-```csharp
-public static IEnumerable<(int, int, int, int, int)> FindInvertedRepeats(
-    string sequence,
-    int minLength = 4,
-    int minSpacing = 3,
-    int maxSpacing = 100)
-```
+### 6.2 Limitations
 
-Finds potential stem regions based on antiparallel complementarity.
+This API is restricted to local hairpin-like motifs. It does not optimize over the whole sequence, does not incorporate pseudoknots during sequence scanning, and still depends on simplified downstream interpretation when many overlapping candidates are returned.
 
----
+## 7. Examples and Related Material
 
-## 6. Usage Examples
-
-### 6.1 Basic Usage
-
-```csharp
-var rna = "GGGAAAACCC";
-var stemLoops = RnaSecondaryStructure.FindStemLoops(rna);
-
-foreach (var sl in stemLoops)
-{
-    Console.WriteLine($"Stem: {sl.Stem.Length} bp");
-    Console.WriteLine($"Loop: {sl.Loop.Sequence}");
-    Console.WriteLine($"Structure: {sl.DotBracketNotation}");
-}
-```
-
-### 6.2 Custom Parameters
-
-```csharp
-// Find only strong hairpins with 4-nucleotide tetraloops
-var stemLoops = RnaSecondaryStructure.FindStemLoops(
-    rnaSequence,
-    minStemLength: 4,
-    minLoopSize: 4,
-    maxLoopSize: 4,
-    allowWobble: false);
-```
-
----
-
-## 7. Limitations
-
-1. **No pseudoknot prediction:** Cannot predict pseudoknots from sequence alone
-2. **Simplified energy model:** Uses Turner 2004 parameters, less accurate than ViennaRNA
-3. **No internal loops:** Focus is on hairpin loops only
-4. **Overlapping structures:** Returns all candidates, may need filtering
-
----
+- [RNA-STEMLOOP-001](../../../tests/TestSpecs/RNA-STEMLOOP-001.md) documents the repository's stem-loop test specification.
+- [RNA_Secondary_Structure.md](./RNA_Secondary_Structure.md) documents the higher-level structure-prediction API that consumes these candidates.
 
 ## 8. References
 
-1. Wikipedia. "Stem-loop." https://en.wikipedia.org/wiki/Stem-loop
-2. Wikipedia. "Tetraloop." https://en.wikipedia.org/wiki/Tetraloop
-3. Wikipedia. "Pseudoknot." https://en.wikipedia.org/wiki/Pseudoknot
-4. Woese CR, Winker S, Gutell RR. (1990). "Architecture of ribosomal RNA: constraints on the sequence of 'tetra-loops'." PNAS 87(21):8467-8471.
-5. Heus HA, Pardi A. (1991). "Structural features that give rise to the unusual stability of RNA hairpins containing GNRA loops." Science 253(5016):191-194.
-6. Svoboda P, Cara A. (2006). "Hairpin RNA: A secondary structure of primary importance." Cell Mol Life Sci 63(7):901-908.
-
----
-
-## 9. See Also
-
-- [RNA Secondary Structure](./RNA_Secondary_Structure.md) - Full structure prediction
-- [RNA-STRUCT-001](../../tests/TestSpecs/RNA-STRUCT-001.md) - Structure prediction tests
-- [RNA-STEMLOOP-001](../../tests/TestSpecs/RNA-STEMLOOP-001.md) - Stem-loop tests
+1. Wikipedia contributors. Stem-loop. Wikipedia. https://en.wikipedia.org/wiki/Stem-loop
+2. Wikipedia contributors. Tetraloop. Wikipedia. https://en.wikipedia.org/wiki/Tetraloop
+3. Wikipedia contributors. Pseudoknot. Wikipedia. https://en.wikipedia.org/wiki/Pseudoknot
+4. Woese, C. R., S. Winker, and R. R. Gutell. 1990. Architecture of ribosomal RNA: constraints on the sequence of tetra-loops. Proceedings of the National Academy of Sciences 87(21):8467-8471.
+5. Heus, H. A., and A. Pardi. 1991. Structural features that give rise to the unusual stability of RNA hairpins containing GNRA loops. Science 253(5016):191-194.
+6. Svoboda, P., and A. Cara. 2006. Hairpin RNA: A secondary structure of primary importance. Cellular and Molecular Life Sciences 63(7):901-908.

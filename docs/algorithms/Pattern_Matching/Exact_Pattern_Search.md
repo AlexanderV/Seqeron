@@ -1,188 +1,156 @@
 # Exact Pattern Search (Suffix Tree)
 
-**Test Unit ID:** PAT-EXACT-001
-**Algorithm Group:** Pattern Matching
-**Implementation:** `SuffixTree` class (`SuffixTree.Search.cs`)
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Pattern Matching |
+| Test Unit ID | PAT-EXACT-001 |
+| Related Projects | N/A |
+| Implementation Status | N/A |
+| Last Reviewed | 2026-04-30 |
 
----
+## 1. Overview
 
-## 1. Definition
+Exact pattern matching finds every occurrence of a pattern `P` within a text `T`. In this repository, the core implementation uses a suffix tree and exposes existence checks, occurrence counting, and occurrence listing. Higher-level genomics wrappers normalize motifs to uppercase and, in one case, sort the returned positions.
 
-Exact pattern matching is the problem of finding all occurrences of a pattern string P in a text string T. Using a suffix tree, this problem can be solved in optimal time.
+## 2. Scientific / Formal Basis
 
-### Formal Problem Statement
+### 2.1 Domain Context
 
-**Input:**
-- Text T of length n (pre-indexed in suffix tree)
-- Pattern P of length m
+In a suffix tree for text `T`, every suffix of `T` is represented as a path from the root to a leaf. A pattern `P` occurs at position `i` if and only if `P` is a prefix of the suffix beginning at `i`. Exact pattern matching on a suffix tree therefore reduces to following the pattern across tree edges and collecting the leaves below the matched locus. Sources: Gusfield (1997), Ukkonen (1995), Wikipedia (Suffix tree), Rosalind SUBS.
 
-**Output:**
-- All positions i where T[i..i+m-1] = P
+### 2.2 Core Model
 
----
+The search logic is:
 
-## 2. Algorithm
+1. Start at the root of the suffix tree.
+2. Match the pattern against edge labels.
+3. If a mismatch occurs before the pattern is exhausted, the pattern is absent.
+4. If the pattern is exhausted, every leaf below the current match point corresponds to an occurrence.
 
-### Suffix Tree Search (Gusfield, 1997)
+### 2.4 Properties and Invariants
 
-The suffix tree for text T contains all suffixes of T as paths from root to leaves. Pattern P occurs at position i if and only if P is a prefix of the suffix starting at position i.
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Every reported position `i` satisfies `T[i..i+m-1] = P` | Leaves are collected only after a full edge-by-edge match |
+| INV-02 | `CountOccurrences(P) = FindAllOccurrences(P).Count` on the core suffix-tree API | `CountOccurrences(...)` returns the matched node's leaf count |
+| INV-03 | `Contains(P)` is equivalent to at least one exact occurrence | `Contains(...)` is a matched/not-matched specialization of the same traversal |
 
-**Search procedure:**
-1. Start at the root of the suffix tree
-2. Match P character-by-character along tree edges
-3. If mismatch occurs before P is exhausted → P not found
-4. If P is fully matched → all leaves in subtree below match point correspond to occurrences
-5. Collect leaf positions as occurrence positions
+## 3. Contract
 
-### Complexity (from Wikipedia)
+### 3.1 Inputs and Parameters
 
-| Operation | Complexity | Notes |
-|-----------|------------|-------|
-| Build suffix tree | O(n) | Ukkonen's algorithm |
-| Pattern search | O(m + z) | m = pattern length, z = occurrences |
-| Contains check | O(m) | Stop at first match |
-| Count occurrences | O(m) | Pre-computed leaf counts |
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `pattern` | `string` or `ReadOnlySpan<char>` | required | Pattern to search in an already built suffix tree | Null string input throws `ArgumentNullException` |
+| `sequence` | `DnaSequence` | required for genomics wrappers | DNA sequence whose cached suffix tree is searched | Wrappers return empty for null or empty motif |
+| `motif` | `string` | required for genomics wrappers | Exact motif to search | Uppercased before wrapper-level search |
 
-**Source:** Gusfield (1997), p.92, 123; Wikipedia "Suffix tree" article.
+### 3.2 Output / Return Value
 
----
+| Field | Type | Description |
+|-------|------|-------------|
+| `found` | `bool` | Whether the pattern occurs in the indexed text |
+| `count` | `int` | Number of occurrences |
+| `positions` | `IReadOnlyList<int>` or `IEnumerable<int>` | Zero-based occurrence positions |
 
-## 3. Implementation Details
+### 3.3 Preconditions and Validation
 
-### SuffixTree Class Methods
+Core suffix-tree string APIs throw `ArgumentNullException` on null pattern input. Empty-string patterns return all valid start positions `[0..n-1]` from the core tree and a count equal to text length. `MotifFinder.FindExactMotif(...)` and `GenomicAnalyzer.FindMotif(...)` both return empty for null or empty motifs and uppercase the motif before calling the suffix tree.
 
-```csharp
-// Core pattern matching
-public IReadOnlyList<int> FindAllOccurrences(string pattern);
-public IReadOnlyList<int> FindAllOccurrences(ReadOnlySpan<char> pattern);
+## 4. Algorithm
 
-// Existence check (optimized - stops early)
-public bool Contains(string value);
-public bool Contains(ReadOnlySpan<char> value);
+### 4.1 High-Level Steps
 
-// Count (uses pre-computed LeafCount - no leaf enumeration)
-public int CountOccurrences(string pattern);
-public int CountOccurrences(ReadOnlySpan<char> pattern);
-```
+1. Traverse the suffix tree edge by edge using the pattern characters.
+2. Stop immediately on the first mismatch.
+3. If the pattern fully matches, collect or count the leaves under the matched node.
+4. In genomics wrappers, uppercase the motif before searching.
+5. In `MotifFinder.FindExactMotif(...)`, sort the resulting positions before yielding them.
 
-### Internal Implementation
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-The implementation uses `MatchPatternCore` for edge-by-edge traversal:
+The core suffix-tree implementation uses:
 
-1. **Hybrid SIMD optimization:** Uses `SequenceEqual` for comparisons ≥8 chars, scalar loop for shorter
-2. **LeafCount pre-computation:** Each node stores count of leaves in subtree for O(m) counting
-3. **Thread-static buffers:** Reuses buffers to minimize allocations
+- Hybrid SIMD comparisons for edge fragments of length at least 8.
+- Scalar comparisons for shorter edge fragments.
+- Precomputed `LeafCount` values so `CountOccurrences(...)` is `O(m)` after traversal.
+- Thread-static buffers to reduce repeated allocations during traversal and leaf collection.
 
-### Edge Case Handling
+### 4.3 Complexity
 
-| Condition | Behavior | Rationale |
-|-----------|----------|-----------|
-| Null pattern | ArgumentNullException | Standard .NET convention |
-| Empty pattern (string) | Returns all positions [0..n-1] | Matches regex "" semantics |
-| Empty pattern (Span) | Returns empty list | Span API difference (documented) |
-| Empty text | Returns empty for non-empty pattern | No content to match |
-| Pattern longer than text | Returns empty | Cannot match |
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Build suffix tree | `O(n)` | `O(n)` | Ukkonen-style suffix-tree construction as cited in the original document |
+| `Contains` | `O(m)` | `O(1)` auxiliary | Stops after pattern traversal |
+| `CountOccurrences` | `O(m)` | `O(1)` auxiliary | Uses precomputed leaf counts |
+| `FindAllOccurrences` | `O(m + z)` | `O(z)` | `z` is the number of matches collected from leaves |
 
----
+## 5. Implementation Notes
 
-### Related Documentation
+### 5.1 Location and Entry Points
 
-- [Suffix Tree (Ukkonen)](Suffix_Tree.md)
+**Implementation location:** [SuffixTree.Search.cs](../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Search.cs), [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs), [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
----
+- `SuffixTree.Contains(string|ReadOnlySpan<char>)`: Exact existence check.
+- `SuffixTree.FindAllOccurrences(string|ReadOnlySpan<char>)`: Returns all occurrence positions.
+- `SuffixTree.CountOccurrences(string|ReadOnlySpan<char>)`: Returns the occurrence count via `LeafCount`.
+- `MotifFinder.FindExactMotif(DnaSequence, string)`: Uppercases the motif and yields sorted positions.
+- `GenomicAnalyzer.FindMotif(DnaSequence, string)`: Uppercases the motif and returns the suffix-tree positions directly.
 
-## 4. Genomics Wrappers
+### 5.2 Current Behavior
 
-### GenomicAnalyzer.FindMotif
+The core suffix-tree API returns all valid start positions for an empty pattern, returns `true` from `Contains(...)` on an empty pattern, and returns the text length from `CountOccurrences(...)` on an empty pattern. `MotifFinder.FindExactMotif(...)` sorts the positions before yielding them, while `GenomicAnalyzer.FindMotif(...)` returns the underlying suffix-tree list directly. Both wrappers normalize motifs to uppercase for case-insensitive DNA matching.
 
-```csharp
-public static IReadOnlyList<int> FindMotif(DnaSequence sequence, string motif)
-{
-    if (string.IsNullOrEmpty(motif)) return Array.Empty<int>();
-    string normalizedMotif = motif.ToUpperInvariant();
-    return sequence.SuffixTree.FindAllOccurrences(normalizedMotif);
-}
-```
+### 5.3 Conformance to Theory / Spec
 
-**Key difference:** Normalizes motif to uppercase for case-insensitive DNA matching.
+**Implemented (verbatim from the cited theory/spec):**
 
-### MotifFinder.FindExactMotif
+- Suffix-tree traversal for exact pattern matching.
+- Occurrence counting from leaf counts.
+- Full occurrence collection from leaves under the matched node.
 
-```csharp
-public static IEnumerable<int> FindExactMotif(DnaSequence sequence, string motif)
-{
-    // ... validation ...
-    string motifUpper = motif.ToUpperInvariant();
-    var positions = sequence.SuffixTree.FindAllOccurrences(motifUpper);
-    foreach (int pos in positions.OrderBy(p => p))
-        yield return pos;
-}
-```
+**Intentionally simplified:**
 
-**Key differences:**
-- Returns IEnumerable (lazy enumeration)
-- Orders results by position
-- Normalizes to uppercase
+- Wrapper-level exact motif search is restricted to exact uppercase-normalized DNA motifs; **consequence:** approximate or ambiguity-code matching is out of scope for these entry points.
 
----
+**Not implemented:**
 
-## 5. Test Strings from Literature
+- Approximate or degenerate matching in the exact-pattern search surface; **users should rely on:** `Approximate_Matching_Hamming.md`, `Edit_Distance.md`, or `IUPAC_Degenerate_Matching.md` for those cases.
 
-### "banana" (Wikipedia Suffix Tree Article)
+## 6. Edge Cases and Limitations
 
-The string "banana" is the canonical example used in Wikipedia's suffix tree article:
+### 6.1 Edge Cases
 
-| Pattern | Occurrences (0-indexed) |
-|---------|-------------------------|
-| "a" | [1, 3, 5] |
-| "na" | [2, 4] |
-| "ana" | [1, 3] |
-| "ban" | [0] |
-| "banana" | [0] |
-| "nan" | [2] |
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Null string pattern | Throws `ArgumentNullException` | Explicit core-string API contract |
+| Empty pattern on the core tree | Returns all positions `[0..n-1]` | Shared empty-pattern contract in source |
+| Empty motif in genomics wrappers | Returns an empty result | Wrapper-level guard |
+| Pattern longer than the text | Returns no matches | No full edge traversal is possible |
 
-### "mississippi" (Gusfield, 1997)
+### 6.2 Limitations
 
-Classic example from Gusfield's textbook:
+The documented surface is exact-only. Ambiguity-code matching and approximate alignment are separate algorithms in the repository, and wrapper-level result ordering differs between `MotifFinder` and `GenomicAnalyzer`.
 
-| Pattern | Occurrences (0-indexed) |
-|---------|-------------------------|
-| "i" | [1, 4, 7, 10] |
-| "s" | [2, 3, 5, 6] |
-| "issi" | [1, 4] |
-| "pp" | [8] |
-| "ss" | [2, 5] |
+## 7. Examples and Related Material
 
-### Rosalind SUBS Problem
+### 7.1 Worked Example
 
-Bioinformatics problem demonstrating overlapping occurrences:
+**Numerical / biological walk-through (optional):**
 
-**Text:** "GATATATGCATATACTT"
-**Pattern:** "ATAT"
-**Occurrences (0-indexed):** [1, 3, 9]
+Examples preserved from the original document:
 
-Note: Rosalind uses 1-indexed positions (2, 4, 10).
+| Text | Pattern | Occurrences (0-indexed) |
+|------|---------|-------------------------|
+| `banana` | `ana` | `[1, 3]` |
+| `mississippi` | `issi` | `[1, 4]` |
+| `GATATATGCATATACTT` | `ATAT` | `[1, 3, 9]` |
 
----
+Related documentation: [Suffix_Tree.md](Suffix_Tree.md)
 
-## 6. Invariants
+## 8. References
 
-| Property | Description |
-|----------|-------------|
-| Correctness | Every returned position i satisfies text[i..i+m-1] = pattern |
-| Completeness | All positions where pattern occurs are returned |
-| Consistency | `CountOccurrences(P)` = `FindAllOccurrences(P).Count` |
-| Existence | `Contains(P)` = `FindAllOccurrences(P).Count > 0` |
-| Substring property | Every substring of text can be found |
-
----
-
-## 7. References
-
-1. **Gusfield, D.** (1997). *Algorithms on Strings, Trees and Sequences: Computer Science and Computational Biology*. Cambridge University Press. ISBN 0-521-58519-8.
-
-2. **Ukkonen, E.** (1995). "On-line construction of suffix trees." *Algorithmica*, 14(3), 249-260.
-
-3. **Wikipedia contributors.** "Suffix tree." *Wikipedia, The Free Encyclopedia*. https://en.wikipedia.org/wiki/Suffix_tree
-
-4. **Rosalind Team.** "Finding a Motif in DNA." *Rosalind Bioinformatics*. https://rosalind.info/problems/subs/
+1. Gusfield, D. (1997). *Algorithms on Strings, Trees and Sequences: Computer Science and Computational Biology*. Cambridge University Press.
+2. Ukkonen, E. (1995). "On-line construction of suffix trees." *Algorithmica*, 14(3), 249-260.
+3. Wikipedia contributors. "Suffix tree." *Wikipedia, The Free Encyclopedia*. https://en.wikipedia.org/wiki/Suffix_tree
+4. Rosalind Team. "Finding a Motif in DNA." *Rosalind Bioinformatics*. https://rosalind.info/problems/subs/

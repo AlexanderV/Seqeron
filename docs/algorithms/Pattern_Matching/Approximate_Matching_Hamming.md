@@ -1,163 +1,151 @@
 # Approximate Matching: Hamming Distance
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Pattern Matching |
+| Test Unit ID | PAT-APPROX-001 |
+| Related Projects | N/A |
+| Implementation Status | N/A |
+| Last Reviewed | 2026-04-30 |
 
-Hamming distance is a fundamental string metric used for approximate pattern matching when only substitutions (mismatches) are allowed. It is widely used in bioinformatics for identifying point mutations, SNP detection, and primer/probe binding analysis.
+## 1. Overview
 
-## Definition
+Hamming distance is a substitutions-only string metric for equal-length sequences. In this repository, it supports both direct distance computation and brute-force approximate pattern matching with a maximum mismatch threshold. The implementation is case-insensitive and records mismatch positions for each reported approximate match.
 
-The **Hamming distance** between two strings $s$ and $t$ of equal length $n$ is the number of positions at which the corresponding symbols differ:
+## 2. Scientific / Formal Basis
 
-$$d_H(s, t) = |\{i : s[i] \neq t[i], 0 \leq i < n\}|$$
+### 2.1 Domain Context
 
-### Constraint
+Hamming distance is widely used for point-mutation analysis, SNP detection, approximate motif search, and primer or probe specificity checks when only substitutions are allowed. Because it forbids insertions and deletions, it applies to aligned strings of equal length. Sources: Hamming (1950), Wikipedia (Hamming distance), Rosalind HAMM, Navarro (2001), Gusfield (1997), Nicolae & Rajasekaran (2015).
 
-Hamming distance is **only defined for strings of equal length**. For strings of unequal length, use Edit distance (Levenshtein distance) instead.
+### 2.2 Core Model
 
-## Mathematical Properties
+For equal-length strings `s` and `t`:
 
-From Wikipedia and Robinson (2003):
+$$
+d_H(s, t) = |\{ i : s[i] \neq t[i], 0 \le i < n \}|
+$$
 
-| Property | Definition | Implication |
-|----------|------------|-------------|
-| Non-negativity | $d_H(s, t) \geq 0$ | Distance is always non-negative |
-| Identity | $d_H(s, t) = 0 \iff s = t$ | Zero distance means identical strings |
-| Symmetry | $d_H(s, t) = d_H(t, s)$ | Order of comparison doesn't matter |
-| Triangle inequality | $d_H(s, u) \leq d_H(s, t) + d_H(t, u)$ | Forms a proper metric space |
+Approximate matching with at most `k` mismatches compares the pattern to every equal-length window in the target sequence and reports windows whose Hamming distance is at most `k`.
 
-## Algorithm
+### 2.4 Properties and Invariants
 
-### Basic Hamming Distance (O(n))
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `d_H(s, t) >= 0` | Distance is a count of mismatching positions |
+| INV-02 | `d_H(s, t) = 0` iff the compared strings are identical under case-insensitive comparison | The implementation increments only on unequal uppercased characters |
+| INV-03 | `d_H(s, t) = d_H(t, s)` | Positionwise mismatch counting is symmetric |
 
-```
-function HammingDistance(s1, s2):
-    if length(s1) ≠ length(s2):
-        throw "Strings must have equal length"
+## 3. Contract
 
-    distance = 0
-    for i = 0 to length(s1) - 1:
-        if s1[i] ≠ s2[i]:
-            distance++
+### 3.1 Inputs and Parameters
 
-    return distance
-```
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `s1`, `s2` | `string` | required | Strings compared by `HammingDistance(...)` | Must be non-null and of equal length |
+| `[FindWithMismatches(string)] sequence` | `string` | required | Sequence searched for approximate matches | Empty or null input yields no matches |
+| `[FindWithMismatches(DnaSequence)] sequence` | `DnaSequence` | required | Sequence searched for approximate matches through the typed wrapper | Null input throws because the wrapper dereferences `sequence.Sequence` |
+| `pattern` | `string` | required | Pattern compared against equal-length windows | Empty or null pattern yields no matches |
+| `maxMismatches` | `int` | required | Maximum allowed substitutions | Negative values throw `ArgumentOutOfRangeException` |
 
-### Pattern Matching with k Mismatches (O(n × m))
+### 3.2 Output / Return Value
 
-The approximate pattern matching problem finds all positions in a text where a pattern occurs with at most $k$ mismatches:
+| Field | Type | Description |
+|-------|------|-------------|
+| `distance` | `int` | Hamming distance between two strings or spans |
+| `Position` | `int` | Start position of an approximate match |
+| `MatchedSequence` | `string` | Sequence window that matched within tolerance |
+| `Distance` | `int` | Observed mismatch count |
+| `MismatchPositions` | `IReadOnlyList<int>` | Zero-based mismatch positions |
+| `MismatchType` | `MismatchType` | Always `Substitution` for Hamming-based matching |
 
-```
-function FindWithMismatches(sequence, pattern, maxMismatches):
-    results = []
+### 3.3 Preconditions and Validation
 
-    for i = 0 to length(sequence) - length(pattern):
-        window = sequence[i : i + length(pattern)]
-        distance = HammingDistance(window, pattern)
+`ApproximateMatcher.HammingDistance(string, string)` throws `ArgumentNullException` for null inputs and `ArgumentException` for unequal lengths. `FindWithMismatches(string, ...)` returns no matches when the sequence or pattern is null or empty or when the pattern is longer than the sequence. The `DnaSequence` wrapper overloads do not add a null guard and therefore throw when `sequence` is null because they dereference `sequence.Sequence`. Matching uppercases both sequence and pattern before comparison and throws `ArgumentOutOfRangeException` when `maxMismatches < 0`.
 
-        if distance ≤ maxMismatches:
-            results.append((i, window, distance))
+## 4. Algorithm
 
-    return results
-```
+### 4.1 High-Level Steps
 
-## Complexity
+1. For direct distance, verify equal lengths and compare the strings character by character.
+2. For approximate matching, uppercase the sequence and pattern.
+3. Slide an equal-length window across the sequence.
+4. Count mismatches between the window and pattern and collect mismatch positions.
+5. Yield windows whose mismatch count is at most `maxMismatches`.
 
-| Operation | Time | Space |
-|-----------|------|-------|
-| Hamming distance | O(n) | O(1) |
-| Find with k mismatches (brute force) | O(n × m) | O(z) where z = matches |
-| Find with k mismatches (optimized) | O(n√k log k) | O(n + m) |
+### 4.3 Complexity
 
-**Reference:** Nicolae & Rajasekaran (2015) achieved O(n√k log k) for k-mismatch pattern matching.
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `HammingDistance` | `O(n)` | `O(1)` | Single pass over aligned strings |
+| `FindWithMismatches` | `O(n × m)` | `O(z)` | `n` is sequence length, `m` is pattern length, and `z` is number of reported matches |
 
-## Test Cases from Literature
+## 5. Implementation Notes
 
-### Rosalind HAMM Problem
+### 5.1 Location and Entry Points
 
-**Problem:** Given two DNA strings of equal length, return the Hamming distance.
+**Implementation location:** [ApproximateMatcher.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Alignment/ApproximateMatcher.cs), [SequenceExtensions.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/SequenceExtensions.cs)
 
-**Sample Input:**
-```
+- `ApproximateMatcher.HammingDistance(string, string)`: Case-insensitive string Hamming distance.
+- `ApproximateMatcher.FindWithMismatches(...)`: Brute-force approximate pattern matching with substitutions only.
+- `SequenceExtensions.HammingDistance(ReadOnlySpan<char>, ReadOnlySpan<char>)`: Case-insensitive span-based distance helper.
+
+### 5.2 Current Behavior
+
+The string and span Hamming-distance helpers both compare uppercased characters, so they are case-insensitive. `FindWithMismatches(...)` returns `ApproximateMatchResult` values whose `MismatchType` is always `Substitution`, and the `DnaSequence` overloads are thin wrappers over the string implementation that dereference `sequence.Sequence` without adding an extra null guard.
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Hamming distance over equal-length strings.
+- Approximate matching with a maximum mismatch threshold.
+- Reporting of mismatch counts and mismatch positions for each match.
+
+**Intentionally simplified:**
+
+- Approximate matching uses a brute-force sliding-window scan; **consequence:** the implementation favors clarity over asymptotically faster mismatch-search algorithms.
+
+**Not implemented:**
+
+- Insertions and deletions in the Hamming-based path; **users should rely on:** the edit-distance workflow for those operations.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty string sequence or pattern | Returns no matches | Explicit source guard |
+| Null `DnaSequence` input | Throws | The typed wrapper dereferences `sequence.Sequence` |
+| Pattern longer than sequence | Returns no matches | No equal-length windows exist |
+| `maxMismatches = 0` | Equivalent to exact matching | Only windows with zero mismatches qualify |
+| `maxMismatches >= pattern.Length` | All windows of equal length qualify | Every possible mismatch count is within threshold |
+
+### 6.2 Limitations
+
+The Hamming-based workflow models substitutions only and requires equal-length comparisons. It is not suitable when insertions or deletions are biologically relevant or when a more specialized approximate-matching algorithm is required for scale.
+
+## 7. Examples and Related Material
+
+### 7.1 Worked Example
+
+**Numerical / biological walk-through (optional):**
+
+Rosalind HAMM sample:
+
+```text
 GAGCCTACTAACGGGAT
 CATCGTAATGACGGCCT
 ```
 
-**Sample Output:** 7
+Expected Hamming distance: `7`.
 
-**Source:** https://rosalind.info/problems/hamm/
+## 8. References
 
-### Wikipedia Examples
-
-| String 1 | String 2 | Hamming Distance |
-|----------|----------|------------------|
-| "karolin" | "kathrin" | 3 |
-| "karolin" | "kerstin" | 3 |
-| "kathrin" | "kerstin" | 4 |
-| "0000" | "1111" | 4 |
-
-## Applications in Bioinformatics
-
-### 1. Point Mutation Detection
-
-Hamming distance measures the number of point mutations (substitutions) between two aligned sequences.
-
-### 2. SNP Analysis
-
-Single Nucleotide Polymorphisms (SNPs) are detected by comparing sequence variants where Hamming distance = 1 indicates a single SNP.
-
-### 3. Approximate Motif Finding
-
-Finding regulatory motifs that may contain mutations from a consensus sequence.
-
-### 4. Primer/Probe Binding
-
-Evaluating primer specificity by finding potential binding sites with allowed mismatches.
-
-## Implementation Notes
-
-### Current Implementation
-
-The `ApproximateMatcher` class provides:
-
-1. **`HammingDistance(string s1, string s2)`**
-   - Case-insensitive comparison (normalized to uppercase)
-   - Throws `ArgumentNullException` for null inputs
-   - Throws `ArgumentException` for unequal lengths
-
-2. **`FindWithMismatches(string sequence, string pattern, int maxMismatches)`**
-   - Returns `IEnumerable<ApproximateMatchResult>`
-   - Each result includes position, matched sequence, distance, and mismatch positions
-   - Throws `ArgumentOutOfRangeException` for negative maxMismatches
-
-3. **`HammingDistance(ReadOnlySpan<char>)` extension** (SequenceExtensions)
-   - High-performance span-based API
-   - Case-insensitive comparison
-
-### Edge Case Handling
-
-| Case | Behavior |
-|------|----------|
-| Empty pattern | Returns empty (no matches) |
-| Empty sequence | Returns empty (no matches) |
-| Pattern longer than sequence | Returns empty |
-| maxMismatches = 0 | Equivalent to exact matching |
-| maxMismatches ≥ pattern.Length | All positions match |
-
-## References
-
-1. **Hamming, R.W. (1950).** "Error detecting and error correcting codes." *Bell System Technical Journal*, 29(2): 147-160.
-
-2. **Wikipedia.** "Hamming distance." https://en.wikipedia.org/wiki/Hamming_distance
-
-3. **Rosalind.** "Counting Point Mutations." https://rosalind.info/problems/hamm/
-
-4. **Navarro, G. (2001).** "A guided tour to approximate string matching." *ACM Computing Surveys*, 33(1): 31-88.
-
-5. **Gusfield, D. (1997).** *Algorithms on Strings, Trees and Sequences.* Cambridge University Press.
-
-6. **Nicolae, M. & Rajasekaran, S. (2015).** "On string matching with mismatches." *Algorithms*, 8(2): 248-270.
-
----
-
-*Document generated for Test Unit PAT-APPROX-001*
-*Last updated: 2026-01-22*
+1. Hamming, R.W. (1950). "Error detecting and error correcting codes." *Bell System Technical Journal*, 29(2): 147-160.
+2. Wikipedia. "Hamming distance." https://en.wikipedia.org/wiki/Hamming_distance
+3. Rosalind. "Counting Point Mutations." https://rosalind.info/problems/hamm/
+4. Navarro, G. (2001). "A guided tour to approximate string matching." *ACM Computing Surveys*, 33(1): 31-88.
+5. Gusfield, D. (1997). *Algorithms on Strings, Trees and Sequences.* Cambridge University Press.
+6. Nicolae, M. & Rajasekaran, S. (2015). "On string matching with mismatches." *Algorithms*, 8(2): 248-270.

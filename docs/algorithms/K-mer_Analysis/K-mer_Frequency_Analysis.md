@@ -1,104 +1,146 @@
 # K-mer Frequency Analysis
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | K-mer Analysis |
+| Test Unit ID | KMER-FREQ-001 |
+| Related Projects | N/A |
+| Implementation Status | N/A |
+| Last Reviewed | 2026-04-30 |
 
-K-mer frequency analysis extends basic k-mer counting by computing normalized frequency distributions (where frequencies sum to 1.0), the k-mer spectrum (frequency-of-frequency distribution), and k-mer entropy (Shannon entropy over k-mer distribution). These derived metrics are essential for sequence comparison, genome assembly quality assessment, and metagenomics binning.
+## 1. Overview
 
-## Definition
+K-mer frequency analysis extends basic k-mer counting by deriving normalized k-mer frequencies, the k-mer spectrum, and k-mer entropy. These quantities are useful for sequence comparison, genome-assembly quality assessment, and metagenomics signatures. In this repository, all three metrics are built directly from exact k-mer counts returned by `KmerAnalyzer.CountKmers(...)`.
 
-### K-mer Frequencies (Normalized Counts)
+## 2. Scientific / Formal Basis
 
-For a sequence with counted k-mers, **k-mer frequencies** are the normalized probabilities:
+### 2.1 Domain Context
 
-$$f_i = \frac{c_i}{\sum_j c_j}$$
+Normalized k-mer frequencies convert counts into probabilities, the k-mer spectrum records how many k-mers occur with each multiplicity, and Shannon entropy summarizes the diversity of the resulting distribution. The original document also notes the use of k-mer spectra for assembly and error detection and tetranucleotide frequencies for metagenomics signatures. Sources: Wikipedia (K-mer, Entropy), Shannon (1948), Teeling et al. (2004), Chor et al. (2009), Rosalind.
 
-Where:
-- $c_i$ = count of k-mer $i$
-- $\sum_j c_j$ = total k-mer count = $L - k + 1$
+### 2.2 Core Model
 
-**Invariant:** $\sum_i f_i = 1.0$
+Normalized frequency for k-mer `i` is:
 
-### K-mer Spectrum
+$$
+f_i = \frac{c_i}{\sum_j c_j}
+$$
 
-The **k-mer spectrum** shows how many k-mers appear with each frequency (multiplicity). It is a histogram mapping count → number of k-mers with that count.
+where `c_i` is the observed count of k-mer `i`. The k-mer spectrum is the histogram mapping `count -> number of k-mers with that count`. Shannon k-mer entropy is:
 
-**Example:** For sequence "ACGTACGT" with k=4:
-- ACGT appears 2 times
-- CGTA, GTAC, TACG each appear 1 time
+$$
+H = -\sum_i f_i \log_2(f_i)
+$$
 
-Spectrum: {1: 3, 2: 1} (3 k-mers appear once, 1 k-mer appears twice)
+with the convention that terms with `f_i = 0` contribute `0`.
 
-The k-mer spectrum is widely used in genome assembly to estimate genome size, detect sequencing errors, and identify repeat regions. (Wikipedia: K-mer)
+### 2.4 Properties and Invariants
 
-### K-mer Entropy (Shannon Entropy)
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | The sum of all returned frequencies is `1.0` when at least one k-mer exists | Frequencies are each divided by the total count |
+| INV-02 | The spectrum total satisfies `Σ(count × multiplicity) = L - k + 1` when `k <= L` | Spectrum bins are derived from exact k-mer counts |
+| INV-03 | `0 <= H <= log2(unique k-mer count)` | Entropy is computed from a discrete probability distribution |
 
-**K-mer entropy** measures the diversity of k-mer composition using Shannon's information entropy:
+## 3. Contract
 
-$$H = -\sum_i f_i \log_2(f_i)$$
+### 3.1 Inputs and Parameters
 
-Where $f_i$ is the frequency of k-mer $i$.
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `string` | required | Sequence whose k-mer distribution is analyzed | Null or empty string yields empty outputs or zero entropy |
+| `k` | `int` | required | K-mer length | `k <= 0` throws through the underlying count routine |
 
-**Properties:**
-- **Minimum entropy (H = 0):** All k-mers are identical (homopolymer)
-- **Maximum entropy (H = log₂(n)):** All k-mers appear with equal frequency, where n = number of unique k-mers
-- For DNA with k=1: Maximum entropy = log₂(4) = 2 bits
+### 3.2 Output / Return Value
 
-**Key principle from Shannon (1948):** "Entropy is maximal when all outcomes are equally likely."
+| Field | Type | Description |
+|-------|------|-------------|
+| `frequencies` | `Dictionary<string, double>` | Normalized frequency per observed k-mer |
+| `spectrum` | `Dictionary<int, int>` | Histogram mapping count to number of k-mers |
+| `entropy` | `double` | Shannon entropy in bits |
 
-## Edge Cases
+### 3.3 Preconditions and Validation
 
-| Scenario | Frequencies | Spectrum | Entropy |
-|----------|-------------|----------|---------|
-| Empty sequence | Empty dictionary | Empty dictionary | 0.0 |
-| k > sequence length | Empty dictionary | Empty dictionary | 0.0 |
-| Single k-mer possible | {kmer: 1.0} | {1: 1} | 0.0 |
-| Homopolymer (AAAA, k=2) | {"AA": 1.0} | {3: 1} | 0.0 |
-| All distinct k-mers | Equal frequencies | {1: n} | log₂(n) |
+All three metrics delegate to `CountKmers(...)` for input handling. Null or empty sequences yield empty dictionaries and entropy `0.0`. If `k` exceeds sequence length, the count dictionary is empty and entropy is `0.0`. If `k <= 0`, the underlying counting routine throws `ArgumentOutOfRangeException`.
 
-## Invariants
+## 4. Algorithm
 
-1. **Frequency sum invariant:** Sum of all k-mer frequencies = 1.0
-2. **Spectrum total invariant:** Sum of (multiplicity × count) over spectrum = L − k + 1
-3. **Entropy bounds:** 0 ≤ H ≤ log₂(unique k-mer count)
-4. **Homopolymer entropy:** Homopolymer sequences (e.g., "AAAA") have entropy = 0
+### 4.1 High-Level Steps
 
-## Applications
+1. Count all k-mers in the sequence.
+2. Compute the total count and divide each count by that total to obtain normalized frequencies.
+3. Invert the count dictionary to build the multiplicity spectrum.
+4. Sum `-f * log2(f)` over the non-zero frequencies to obtain entropy.
 
-- **Genome assembly:** K-mer spectrum analysis for genome size estimation (Wikipedia: K-mer)
-- **Metagenomics binning:** Tetranucleotide (k=4) frequencies as genomic signatures (Teeling et al., 2004)
-- **Sequence comparison:** Alignment-free distance metrics using k-mer frequency profiles
-- **Sequencing error detection:** Low-frequency k-mers often represent errors
+### 4.3 Complexity
 
-## Implementation Notes
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `GetKmerFrequencies` | `O(n)` | `O(u)` | Derived from exact counts |
+| `GetKmerSpectrum` | `O(n)` | `O(u)` | Iterates over the count values |
+| `CalculateKmerEntropy` | `O(n)` | `O(u)` | Builds on normalized frequencies |
 
-### Current Implementation
+## 5. Implementation Notes
 
-| Method | Class | Description |
-|--------|-------|-------------|
-| `GetKmerFrequencies(string, k)` | KmerAnalyzer | Returns normalized frequencies (0.0–1.0) |
-| `GetKmerSpectrum(string, k)` | KmerAnalyzer | Returns frequency-of-frequency distribution |
-| `CalculateKmerEntropy(string, k)` | KmerAnalyzer | Returns Shannon entropy in bits |
+### 5.1 Location and Entry Points
 
-### Frequency Calculation
+**Implementation location:** [KmerAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/KmerAnalyzer.cs)
 
-1. Count all k-mers using `CountKmers`
-2. Compute total = sum of all counts
-3. Divide each count by total
-4. Return dictionary of {k-mer: frequency}
+- `KmerAnalyzer.GetKmerFrequencies(string, int)`: Returns normalized frequencies in `[0.0, 1.0]`.
+- `KmerAnalyzer.GetKmerSpectrum(string, int)`: Returns the count-of-counts histogram.
+- `KmerAnalyzer.CalculateKmerEntropy(string, int)`: Returns Shannon entropy in bits.
 
-### Spectrum Calculation
+### 5.2 Current Behavior
 
-1. Count all k-mers using `CountKmers`
-2. For each count value, count how many k-mers have that count
-3. Return dictionary of {count: number_of_kmers}
+The current implementation always computes these metrics from exact k-mer counts. Frequency normalization uses the sum of observed counts, not the theoretical number of possible k-mers. Entropy uses `Math.Log2` and skips zero-frequency terms by iterating only over observed frequencies.
 
-### Entropy Calculation
+### 5.3 Conformance to Theory / Spec
 
-Uses base-2 logarithm (log₂) for entropy in bits. Handles the edge case where f=0 by convention: 0 × log(0) = 0.
+**Implemented (verbatim from the cited theory/spec):**
 
-The implementation rounds to 4 decimal places for numerical stability.
+- Frequency normalization by total observed k-mer count.
+- Spectrum construction as a histogram of k-mer multiplicities.
+- Shannon entropy over the observed k-mer distribution using base-2 logarithms.
 
-## References
+**Intentionally simplified:**
+
+- (none)
+
+**Not implemented:**
+
+- (none)
+
+### 5.4 Deviations and Assumptions (Optional)
+
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | The original document described 4-decimal entropy rounding for numerical stability, but the current source returns the raw double sum without an explicit rounding step | Deviation | Reported entropy may include full floating-point precision | accepted | Confirmed from `CalculateKmerEntropy(...)` |
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty sequence | Empty frequency map, empty spectrum, entropy `0.0` | No k-mers exist |
+| `k > sequence.Length` | Empty frequency map, empty spectrum, entropy `0.0` | No valid windows exist |
+| Single possible k-mer | Frequency `1.0`, spectrum `{1: 1}`, entropy `0.0` | The distribution has one outcome |
+| Homopolymer such as `AAAA`, `k = 2` | Frequency `{"AA": 1.0}`, spectrum `{3: 1}`, entropy `0.0` | All windows are identical |
+
+### 6.2 Limitations
+
+The current implementation analyzes only observed k-mers and does not smooth the distribution or normalize against theoretical k-mer space. As with the underlying counting routine, memory usage grows with the number of unique observed k-mers.
+
+## 7. Examples and Related Material
+
+### 7.2 Applications and Use Cases (Optional)
+
+- Genome assembly through k-mer spectrum analysis.
+- Metagenomics binning via tetranucleotide signatures.
+- Alignment-free sequence comparison using k-mer profiles.
+- Sequencing-error detection from low-frequency k-mers.
+
+## 8. References
 
 1. Wikipedia. "K-mer." https://en.wikipedia.org/wiki/K-mer
 2. Wikipedia. "Entropy (information theory)." https://en.wikipedia.org/wiki/Entropy_(information_theory)
@@ -106,8 +148,3 @@ The implementation rounds to 4 decimal places for numerical stability.
 4. Rosalind. "K-mer Composition." https://rosalind.info/problems/kmer/
 5. Teeling, H. et al. (2004). "TETRA: a web-service and a stand-alone program for the analysis and comparison of tetranucleotide usage patterns in DNA sequences." BMC Bioinformatics, 5:163.
 6. Chor, B. et al. (2009). "Genomic DNA k-mer spectra: models and modalities." Genome Biology, 10(10): R108.
-
-## Test Unit
-
-- **ID:** KMER-FREQ-001
-- **Methods:** GetKmerSpectrum, GetKmerFrequencies, CalculateKmerEntropy

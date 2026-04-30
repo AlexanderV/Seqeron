@@ -278,3 +278,4 @@ persistent_*.txt
 /data/chr1.fa.gz
 /data/chr1.suffixtree.dat
 /*.ps1
+".skill-dev/" 

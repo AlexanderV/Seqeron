@@ -1,137 +1,125 @@
-﻿using System;
+using System.Diagnostics;
+using System.Text;
+using SuffixTree;
+using SuffixTree.Persistent;
 
-namespace SuffixTree.Console
+var text = BuildText(length: 120_000);
+var tempFile = Path.Combine(Path.GetTempPath(), $"suffix-tree-persistent-perf-{Guid.NewGuid():N}.tree");
+
+try
 {
-    class Program
+    var buildSw = Stopwatch.StartNew();
+    using (PersistentSuffixTreeFactory.CreatePersistent(new StringTextSource(text), tempFile))
     {
-        static void Main(string[] args)
+    }
+    buildSw.Stop();
+
+    using var tree = PersistentSuffixTreeFactory.LoadPersistent(tempFile);
+
+    string existingContains = "TTGACCAT";
+    string missingContains = "ZZZZZZZZ";
+    string multiHitPattern = "ACGTAC";
+
+    // Warm-up
+    _ = tree.Contains(existingContains);
+    _ = tree.Contains(missingContains);
+    _ = tree.CountOccurrences(multiHitPattern);
+    _ = tree.FindAllOccurrences(multiHitPattern);
+    _ = tree.LongestRepeatedSubstring();
+    _ = tree.LongestRepeatedSubstring();
+
+    var metrics = new Dictionary<string, double>
+    {
+        ["build_ms"] = buildSw.Elapsed.TotalMilliseconds,
+        ["contains_hit_us"] = Measure(40_000, () => tree.Contains(existingContains)),
+        ["contains_miss_us"] = Measure(40_000, () => tree.Contains(missingContains)),
+        ["count_us"] = Measure(30_000, () => tree.CountOccurrences(multiHitPattern)),
+        ["find_all_us"] = Measure(2_000, () => _ = tree.FindAllOccurrences(multiHitPattern).Count),
+        ["lrs_first_us"] = MeasureColdLrs(tempFile, text),
+        ["lrs_cached_us"] = Measure(50_000, () => _ = tree.LongestRepeatedSubstring().Length),
+    };
+
+    foreach (var metric in metrics.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+    {
+        Console.WriteLine($"{metric.Key}={metric.Value:F4}");
+    }
+}
+finally
+{
+    Cleanup(tempFile);
+}
+
+static double Measure(int iterations, Action action)
+{
+    var sw = Stopwatch.StartNew();
+    for (int i = 0; i < iterations; i++)
+    {
+        action();
+    }
+
+    sw.Stop();
+    return sw.Elapsed.TotalMilliseconds * 1000.0 / iterations;
+}
+
+static double MeasureColdLrs(string filePath, string expectedText)
+{
+    const int Iterations = 25;
+    var sw = Stopwatch.StartNew();
+    for (int i = 0; i < Iterations; i++)
+    {
+        using var tree = PersistentSuffixTreeFactory.LoadPersistent(filePath);
+        var lrs = tree.LongestRepeatedSubstring();
+        if (lrs.Length == 0 || !expectedText.Contains(lrs, StringComparison.Ordinal))
         {
-            // Extensive stress test
-            var r = new Random(12345);
-            int totalTests = 0;
-            int totalSubstrings = 0;
-
-            System.Console.WriteLine("Running exhaustive stress tests...");
-
-            // Test 1: Small strings with small alphabet (exhaustive)
-            System.Console.WriteLine("\n[Phase 1] Small strings, small alphabet (exhaustive)");
-            for (int length = 1; length <= 50; length++)
-            {
-                for (int trial = 0; trial < 5; trial++)
-                {
-                    var chars = new char[length];
-                    for (int i = 0; i < length; i++)
-                        chars[i] = (char)('a' + r.Next(4));
-
-                    var s = new string(chars);
-                    var tree = SuffixTree.Build(s);
-
-                    // Verify ALL substrings
-                    for (int i = 0; i < s.Length; i++)
-                    {
-                        for (int len = 1; len <= s.Length - i; len++)
-                        {
-                            var substr = s.Substring(i, len);
-                            if (!tree.Contains(substr))
-                            {
-                                System.Console.WriteLine($"FAIL! String '{s}': Substring '{substr}' not found!");
-                                return;
-                            }
-                            totalSubstrings++;
-                        }
-                    }
-                    totalTests++;
-                }
-            }
-            System.Console.WriteLine($"  Phase 1 complete: {totalTests} tests, {totalSubstrings:N0} substrings");
-
-            // Test 2: Large strings with large alphabet (spot check)
-            System.Console.WriteLine("\n[Phase 2] Large strings, large alphabet (spot check)");
-            const string FULL_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            for (int length = 100; length <= 5000; length += 100)
-            {
-                var chars = new char[length];
-                for (int i = 0; i < length; i++)
-                    chars[i] = FULL_ALPHABET[r.Next(FULL_ALPHABET.Length)];
-
-                var s = new string(chars);
-                var tree = SuffixTree.Build(s);
-
-                // Spot check: verify 500 random substrings
-                for (int check = 0; check < 500; check++)
-                {
-                    int start = r.Next(s.Length);
-                    int len = r.Next(1, Math.Min(50, s.Length - start + 1));
-                    var substr = s.Substring(start, len);
-                    if (!tree.Contains(substr))
-                    {
-                        System.Console.WriteLine($"FAIL! Length {length}: Substring '{substr}' not found!");
-                        return;
-                    }
-                    totalSubstrings++;
-                }
-
-                // Verify all suffixes
-                for (int i = 0; i < s.Length; i++)
-                {
-                    var suffix = s.Substring(i);
-                    if (!tree.Contains(suffix))
-                    {
-                        System.Console.WriteLine($"FAIL! Length {length}: Suffix at {i} not found!");
-                        return;
-                    }
-                }
-
-                totalTests++;
-                if (length % 1000 == 0)
-                    System.Console.WriteLine($"  Length {length} complete...");
-            }
-
-            // Test 3: Edge cases
-            System.Console.WriteLine("\n[Phase 3] Edge cases");
-            string[] edgeCases = {
-                "a",
-                "aa",
-                "ab",
-                "aaa",
-                "aba",
-                "abab",
-                "abcabc",
-                new string('a', 1000),
-                new string('a', 1000) + "b",
-                "abcabxabcd", // Classic Ukkonen test
-                "mississippi",
-                "abracadabra",
-                "aaaabaaaabaaaabaaa"
-            };
-
-            foreach (var s in edgeCases)
-            {
-                var tree = SuffixTree.Build(s);
-                var display = s.Length > 30 ? s.Substring(0, 27) + "..." : s;
-
-                // Verify ALL substrings
-                for (int i = 0; i < s.Length; i++)
-                {
-                    for (int len = 1; len <= s.Length - i; len++)
-                    {
-                        var substr = s.Substring(i, len);
-                        if (!tree.Contains(substr))
-                        {
-                            System.Console.WriteLine($"FAIL! Edge case '{display}': Substring '{substr}' not found!");
-                            return;
-                        }
-                        totalSubstrings++;
-                    }
-                }
-                totalTests++;
-                System.Console.WriteLine($"  '{display}' OK");
-            }
-
-            System.Console.WriteLine();
-            System.Console.WriteLine($"=== ALL TESTS PASSED ===");
-            System.Console.WriteLine($"Total tests: {totalTests}");
-            System.Console.WriteLine($"Total substrings verified: {totalSubstrings:N0}");
+            throw new InvalidOperationException("Unexpected LRS result during benchmark.");
         }
+    }
+
+    sw.Stop();
+    return sw.Elapsed.TotalMilliseconds * 1000.0 / Iterations;
+}
+
+static string BuildText(int length)
+{
+    const string motifA = "ACGTACGTTTGACCATGGAACCTA";
+    const string motifB = "GATTACAGGCTTAGGACCTTACGA";
+    const string motifC = "TTGACCATACGTACGGATTACAAC";
+
+    var builder = new StringBuilder(length + 64);
+    int seed = 17;
+
+    while (builder.Length < length)
+    {
+        seed = unchecked(seed * 1103515245 + 12345);
+        builder.Append((seed & 1) == 0 ? motifA : motifB);
+        builder.Append(motifC);
+        builder.Append((char)('A' + ((seed >> 8) & 0x0F) % 20));
+        builder.Append((char)('A' + ((seed >> 13) & 0x0F) % 20));
+    }
+
+    return builder.ToString(0, length);
+}
+
+static void Cleanup(string treePath)
+{
+    TryDelete(treePath);
+    TryDelete(treePath + ".children.tmp");
+    TryDelete(treePath + ".depth.tmp");
+}
+
+static void TryDelete(string path)
+{
+    try
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+    catch (IOException)
+    {
+    }
+    catch (UnauthorizedAccessException)
+    {
     }
 }

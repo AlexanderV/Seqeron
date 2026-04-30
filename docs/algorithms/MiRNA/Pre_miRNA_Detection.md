@@ -1,75 +1,212 @@
 # Pre-miRNA Hairpin Detection
 
-## Documented Theory
+| Field | Value |
+|-------|-------|
+| Algorithm Group | MiRNA |
+| Test Unit ID | MIRNA-PRECURSOR-001 |
+| Related Projects | Seqeron.Genomics.Annotation |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-### Purpose
+## 1. Overview
 
-Pre-miRNA detection identifies potential precursor microRNA (pre-miRNA) hairpin structures in RNA sequences. Pre-miRNAs are ~60–120 nt stem-loop structures that serve as intermediates in miRNA biogenesis, produced by Drosha/DGCR8 cleavage of pri-miRNA and subsequently processed by Dicer into mature ~22 nt miRNA duplexes (Bartel 2004, Cell 116:281-297).
+Pre-miRNA detection scans RNA sequence windows for stem-loop candidates that satisfy basic precursor-miRNA length, stem, and loop constraints [1][2][4]. The repository implements this in `MiRnaAnalyzer.FindPreMiRnaHairpins` by enumerating candidate windows, requiring uninterrupted complementary pairing from both ends inward, extracting a 5' mature strand and 3' star strand, and assigning a Turner-parameter-based hairpin free energy. The search is deterministic and exhaustive within the caller's length bounds, but it is intentionally stricter than real pre-miRNA structure because internal bulges, asymmetric loops, and arm switching are not modeled. This makes the implementation suitable for exact educational hairpin screening rather than production-grade precursor discovery on natural miRBase sequences [1][4][5].
 
-### Core Mechanism
+## 2. Scientific / Formal Basis
 
-Computational pre-miRNA detection relies on structural features:
+### 2.1 Domain Context
 
-1. **Stem identification:** Scan for self-complementary regions that can form a double-stranded stem. Watson-Crick (A-U, G-C) and wobble (G-U) base pairs are counted.
-2. **Loop identification:** The unpaired region between the two stem arms forms a terminal loop.
-3. **Structural validation:** Check that stem length (≥18 bp), loop size (3–25 nt), and overall length (~55–120 nt) match known pre-miRNA parameters.
-4. **Mature/star extraction:** The mature miRNA (~22 nt) is typically extracted from the 5' arm, with the star sequence from the 3' arm.
-5. **Energy estimation:** Approximate folding free energy indicates thermodynamic stability.
+Pre-miRNAs are stem-loop RNA intermediates in miRNA biogenesis, typically on the order of roughly 60-120 nt, from which Dicer processes a mature miRNA duplex of about 22 nt [1][2]. A valid precursor must fold into a hairpin with a stem and terminal loop, and the mature miRNA resides on one arm of that structure [1][2]. Thermodynamic stability of RNA hairpins is commonly modeled with nearest-neighbor parameters, including base-stacking energies, loop penalties, and terminal mismatch terms [3].
 
-Formal criteria (Ambros et al. 2003, RNA 9:277-279):
-- Must fold into a hairpin precursor structure
-- ~22 nt mature miRNA resides in one arm of the hairpin
+### 2.2 Core Model
 
-### Properties
+For a candidate RNA subsequence $S$ of length $n$, the repository accepts a precursor candidate only when it can be decomposed into:
 
-- **Deterministic:** Same input always produces same output.
-- **Scanning approach:** Examines all windows of valid length.
-- **Simplified model:** Uses consecutive base pairing from ends (no bulge/mismatch tolerance in stem).
+$$
+S = \text{5' stem} + \text{loop} + \text{3' stem}
+$$
 
-### Complexity
+with uninterrupted pairing between mirrored positions from the two ends inward under the pairing set:
 
-| Aspect | Value | Source |
-|--------|-------|--------|
-| Time | O(n² × L) where n = sequence length, L = max hairpin length | Implementation analysis |
-| Space | O(L) per candidate | Implementation analysis |
+$$
+\{A\!-\!U,\; U\!-\!A,\; G\!-\!C,\; C\!-\!G,\; G\!-\!U,\; U\!-\!G\}
+$$
 
----
+The current acceptance criteria are:
 
-## Implementation Notes
+- stem length $\ge 18$ bp,
+- loop length $= n - 2 \times \text{stem length}$ with $3 \le \text{loop length} \le 25$,
+- candidate length constrained by the caller, defaulting to 55-120 nt.
 
-**Implementation location:** [MiRnaAnalyzer.cs](src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs)
+Hairpin energy is then estimated with Turner-style nearest-neighbor terms:
 
-- `FindPreMiRnaHairpins(sequence, minHairpinLength, maxHairpinLength, matureLength)`: Public method. Scans input sequence for candidate subsequences, converts T→U, calls `AnalyzeHairpin` on each candidate. Returns `IEnumerable<PreMiRna>`.
-- `AnalyzeHairpin(sequence, matureLength)`: Private helper. Validates hairpin by checking consecutive complementary bases from ends inward. Requires stem ≥ 18 bp, loop 3–25 nt. Extracts mature/star sequences, generates dot-bracket notation, estimates free energy.
+$$
+\Delta G = \sum \Delta G_{\text{stack}} + \Delta G_{\text{loop}} + \Delta G_{\text{terminal mismatch}} + 0.45 \times n_{\text{terminal AU/GU}}
+$$
 
-### PreMiRna Record Fields
+using the repository's Turner 2004 lookup tables [3].
 
-| Field | Description |
-|-------|-------------|
-| Start | 0-based start position in input sequence |
-| End | 0-based end position (inclusive) |
-| Sequence | The candidate hairpin subsequence (RNA, uppercase) |
-| MatureSequence | Extracted mature miRNA from 5' arm |
-| StarSequence | Extracted star sequence from 3' arm |
-| Structure | Dot-bracket notation string |
-| FreeEnergy | Estimated folding energy (kcal/mol approximation) |
+### 2.3 Modeling Assumptions
 
----
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | Candidate stems are approximated by uninterrupted end-to-end pairing with no internal bulges or mismatches. | Natural pre-miRNAs with internal loops or asymmetric bulges can be missed even if they are biologically valid. |
+| ASM-02 | Turner nearest-neighbor parameters are used as a stability proxy for the accepted hairpin topology. | Energies are meaningful only to the extent that the simplified topology resembles a real RNA hairpin at standard conditions [3]. |
+| ASM-03 | The mature product is extracted from the 5' arm and the star sequence from the mirrored 3' arm. | Valid precursors whose dominant mature product comes from the opposite arm are represented asymmetrically. |
 
-## Deviations and Assumptions
+### 2.4 Properties and Invariants
 
-1. **Consecutive stem requirement:** The implementation requires consecutive base pairs from position 0 inward. Real pre-miRNAs contain internal bulges and mismatches. This is a simplification.
-2. **Simplified energy model:** Uses `-stemLength * 1.5 + loopSize * 0.5` instead of Turner nearest-neighbor parameters. Values are approximations, not thermodynamically precise.
-3. **No bulge tolerance:** A single non-pairing base breaks the stem count. Genuine pre-miRNAs often have 1–3 nt internal loops/bulges.
-4. **5' arm default:** Mature miRNA is always extracted from 5' arm. In biology, either arm can produce the dominant strand.
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Every reported precursor has a balanced dot-bracket structure string of the same length as `Sequence`. | `AnalyzeHairpin` fills the first `stemLength` positions with `(`, the last `stemLength` with `)`, and the loop with `.`. |
+| INV-02 | Every reported precursor has stem length `>= 18`. | Candidates with shorter uninterrupted stems are rejected before record creation. |
+| INV-03 | Every reported precursor has loop length between `3` and `25` nt. | `AnalyzeHairpin` explicitly rejects loops outside that range. |
+| INV-04 | `Start` and `End` are zero-based inclusive coordinates in the scanned input sequence. | `FindPreMiRnaHairpins` constructs `End = Start + length - 1`. |
+| INV-05 | `MatureSequence.Length = StarSequence.Length = min(matureLength, stemLength)`. | Both arms are extracted using the same bounded length. |
 
----
+## 3. Contract
 
-## Sources
+### 3.1 Inputs and Parameters
 
-- Bartel DP (2004). MicroRNAs: Genomics, Biogenesis, Mechanism, and Function. Cell 116:281-297.
-- Ambros V et al. (2003). A Uniform System for microRNA Annotation. RNA 9:277-279.
-- Bartel DP (2009). MicroRNAs: Target Recognition and Regulatory Functions. Cell 136:215-233.
-- Krol J et al. (2004). Structural Features of miRNA Precursors. J Biol Chem 279:42230-42239.
-- Wikipedia: MicroRNA. https://en.wikipedia.org/wiki/MicroRNA
-- miRBase. https://mirbase.org/
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `string` | required | RNA or DNA sequence to scan for precursor candidates. | `null`, empty, or shorter-than-`minHairpinLength` input yields no results; `T` is normalized to `U`. |
+| `minHairpinLength` | `int` | `55` | Minimum candidate window length considered during scanning. | Not explicitly validated; values larger than the input length produce no results. |
+| `maxHairpinLength` | `int` | `120` | Maximum candidate window length considered during scanning. | Not explicitly validated; values below `minHairpinLength` make the inner scan empty. |
+| `matureLength` | `int` | `22` | Maximum length extracted for mature and star strands. | Expected to be positive; explicit validation is not performed. |
+
+### 3.2 Output / Return Value
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Start` | `int` | Zero-based inclusive start coordinate of the candidate in the original input sequence. |
+| `End` | `int` | Zero-based inclusive end coordinate of the candidate in the original input sequence. |
+| `Sequence` | `string` | Uppercase RNA subsequence that satisfied the precursor tests. |
+| `MatureSequence` | `string` | Extracted mature strand from the 5' arm. |
+| `StarSequence` | `string` | Extracted star strand from the mirrored 3' arm. |
+| `Structure` | `string` | Dot-bracket representation with contiguous stem parentheses and loop dots. |
+| `FreeEnergy` | `double` | Turner-table-based heuristic energy for the accepted hairpin topology. |
+
+### 3.3 Preconditions and Validation
+
+`FindPreMiRnaHairpins` is non-throwing for `null`, empty, or too-short input: those cases simply yield no candidates. Input is normalized to uppercase RNA by replacing `T` with `U`. Candidate windows are rejected if they are shorter than 55 nt inside `AnalyzeHairpin`, if uninterrupted complementary pairing from the ends inward yields a stem shorter than 18 bp, or if the resulting loop falls outside 3-25 nt. Coordinates are zero-based and inclusive. Length parameters are not explicitly validated beyond their effect on the scan loops.
+
+## 4. Algorithm
+
+### 4.1 High-Level Steps
+
+1. Normalize the input to uppercase RNA.
+2. Slide a start position across the sequence and enumerate every candidate window whose length is between `minHairpinLength` and `maxHairpinLength`.
+3. For each candidate window, count uninterrupted complementary base pairs from the two ends inward, allowing Watson-Crick and G:U wobble pairs.
+4. Reject the candidate unless the resulting uninterrupted stem is at least 18 bp and the remaining loop is between 3 and 25 nt.
+5. Extract the mature strand from the 5' arm and the star strand from the mirrored 3' arm.
+6. Build a dot-bracket structure and compute free energy from the Turner lookup tables.
+7. Emit a `PreMiRna` record with genomic coordinates relative to the scanned input sequence.
+
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
+
+Hairpin stability uses repository-resident Turner 2004 tables for:
+
+- nearest-neighbor stacking energies,
+- hairpin loop initiation energies,
+- terminal mismatch energies,
+- a fixed `0.45 kcal/mol` AU/GU terminal penalty.
+
+The pairing test accepts both Watson-Crick and G:U wobble pairs, but the uninterrupted stem count stops at the first non-pairing mirrored position.
+
+### 4.3 Complexity
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Exhaustive precursor scan | `O(nH^2)` | `O(H)` | `n` is input length and `H` is the maximum scanned hairpin length, because up to `O(nH)` windows are enumerated and each candidate can cost `O(H)` to analyze. |
+
+## 5. Implementation Notes
+
+### 5.1 Location and Entry Points
+
+**Implementation location:** [MiRnaAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/MiRnaAnalyzer.cs)
+
+- `MiRnaAnalyzer.FindPreMiRnaHairpins(string, int, int, int)`: Public precursor scan over all candidate windows.
+- `MiRnaAnalyzer.AnalyzeHairpin(string, int)`: Private validator that checks stem continuity, loop size, arm extraction, and structure generation.
+
+### 5.2 Current Behavior
+
+The implementation searches candidates exhaustively rather than folding the full transcript once. Stem detection is based on uninterrupted end-to-end pairing, so the counter stops at the first mirrored mismatch and does not resume across bulges or internal loops. `MatureSequence` is always taken from the 5' arm beginning at the candidate start, and `StarSequence` is taken from the mirrored 3' arm of equal extracted length. Hairpin energy is not the older linear approximation described by the legacy document; it is computed from Turner 2004 stacking, loop, terminal mismatch, and AU/GU penalty tables stored directly in `MiRnaAnalyzer`. Although the loop-energy table contains extrapolation logic for loops larger than 30 nt, accepted precursors currently never reach that branch because `AnalyzeHairpin` rejects loops above 25 nt.
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- RNA hairpin validation using Watson-Crick and G:U wobble pairing [1][4].
+- Precursor-style constraints on hairpin length, stem length, and loop size [1][2][4].
+- Turner-style nearest-neighbor energy components from repository lookup tables [3].
+
+**Intentionally simplified:**
+
+- Stem discovery requires uninterrupted end-pairing from the candidate ends inward; **consequence:** biologically valid precursors with internal bulges, asymmetric loops, or local mismatches are frequently missed.
+- Mature and star sequences are extracted symmetrically from fixed arm positions; **consequence:** arm switching, offset mature products, and heterogeneous isomiR processing are not represented.
+- Candidate discovery is exhaustive over fixed windows rather than full secondary-structure optimization; **consequence:** overlapping windows can generate multiple related candidates and the search remains purely heuristic.
+
+**Not implemented:**
+
+- Bulge-tolerant precursor folding, pseudoknot handling, co-transcriptional processing cues, and competitive natural-pre-miRNA classification against background hairpins; **users should rely on:** no current in-repository alternative.
+
+### 5.4 Deviations and Assumptions
+
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | Mature-strand extraction is fixed to the 5' arm. | Assumption | Precursors whose dominant mature product derives from the opposite arm are represented asymmetrically. | accepted | See ASM-03. |
+| 2 | Uninterrupted stem pairing is stricter than natural pre-miRNA structure. | Deviation | Real miRBase precursors with bulges or internal mismatches can be rejected. | accepted | See ASM-01. |
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| `null` input | Returns no candidates. | The public method exits early for null or empty input. |
+| DNA input | `T` is normalized to `U` before scanning. | The method treats DNA input as RNA-like sequence content. |
+| Input shorter than `minHairpinLength` | Returns no candidates. | No candidate window can be formed. |
+| Candidate with stem `< 18` | Rejected. | The validator requires a precursor-scale stem. |
+| Candidate with loop `< 3` or `> 25` | Rejected. | The validator enforces the current loop-size bounds. |
+| Perfect synthetic hairpin with uninterrupted complementarity | Accepted if other length constraints are satisfied. | It matches the implementation's strongest-case topology. |
+
+### 6.2 Limitations
+
+This implementation is deliberately stricter than natural pre-miRNA folding. It does not tolerate internal bulges, asymmetric loops, pseudoknots, or arm ambiguity, and therefore can miss bona fide miRBase precursors that do not exhibit uninterrupted end-to-end pairing. Its exhaustive window scan is also a heuristic screen rather than a competitive predictor trained against genomic background hairpins.
+
+## 7. Examples and Related Material
+
+### 7.1 Worked Example
+
+**API usage example:**
+
+```csharp
+using Seqeron.Genomics.Annotation;
+
+string sequence =
+	"GCAUAGCUAGCUAGCUAGCUAGCUA" +
+	"GAAAUUU" +
+	"UAGCUAGCUAGCUAGCUAGCUAUGC";
+
+var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
+
+// candidates[0].Structure contains a simple dot-bracket hairpin
+// candidates[0].MatureSequence.Length <= 22
+```
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [MiRnaAnalyzer_PreMiRna_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_PreMiRna_Tests.cs)
+- Test spec: [MIRNA-PRECURSOR-001.md](../../../tests/TestSpecs/MIRNA-PRECURSOR-001.md)
+- Evidence: [MIRNA-PRECURSOR-001-Evidence.md](../../../docs/Evidence/MIRNA-PRECURSOR-001-Evidence.md)
+- Related property tests: [MiRnaProperties.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Properties/MiRnaProperties.cs)
+- Related snapshots: [MiRnaSnapshotTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/Snapshots/MiRnaSnapshotTests.cs)
+
+## 8. References
+
+1. Bartel DP. 2004. MicroRNAs: genomics, biogenesis, mechanism, and function. Cell. 116(2):281-297.
+2. Ambros V, Bartel B, Bartel DP, Burge CB, Carrington JC, Chen X, Dreyfuss G, Eddy SR, Griffiths-Jones S, Marshall M, et al. 2003. A uniform system for microRNA annotation. RNA. 9(3):277-279.
+3. Turner DH, Mathews DH. 2010. NNDB: the nearest neighbor parameter database for predicting stability of nucleic acid secondary structure. Nucleic Acids Research. 38(Database issue):D280-D282.
+4. Bartel DP. 2009. MicroRNAs: target recognition and regulatory functions. Cell. 136(2):215-233.
+5. Kozomara A, Birgaoanu M, Griffiths-Jones S. 2019. miRBase: from microRNA sequences to function. Nucleic Acids Research. 47(D1):D155-D162.

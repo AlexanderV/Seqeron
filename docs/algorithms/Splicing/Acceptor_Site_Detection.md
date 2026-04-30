@@ -1,74 +1,179 @@
 # Acceptor Site Detection
 
-## Documented Theory
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Splicing |
+| Test Unit ID | SPLICE-ACCEPTOR-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-### Purpose
+## 1. Overview
 
-The 3' splice site (acceptor site) marks the end of an intron in pre-mRNA. Detection of acceptor sites is essential for predicting intron boundaries and gene structure. The acceptor site is characterized by an almost invariant AG dinucleotide preceded by a polypyrimidine tract (PPT) and the consensus motif (Y)nNCAG|G (Shapiro & Senapathy 1987; Burge et al. 1999).
+Acceptor splice-site detection identifies candidate 3' splice sites at the ends of introns. In this repository, `SpliceSitePredictor.FindAcceptorSites` scans a normalized RNA sequence for canonical `AG` acceptors and, when requested, U12-style `AC` acceptors. Canonical scoring combines a polypyrimidine-tract contribution with a sparse position-weight matrix, while U12 acceptors are scored against a `YCCAC`-style consensus plus upstream pyrimidine content. Candidates meeting the configured threshold are returned as `SpliceSite` records.[1][2]
 
-### Core Mechanism
+## 2. Scientific / Formal Basis
 
-1. **AG dinucleotide recognition:** The 3' end of the intron terminates with AG (RNA) or AG (DNA). This is nearly invariant across eukaryotic introns (>99%).
+### 2.1 Domain Context
 
-2. **Polypyrimidine tract (PPT):** A pyrimidine-rich region (C and U) typically 15–20 nt long, located 5–40 nt upstream of the 3' splice site. PPT quality (fraction of pyrimidines) is a major determinant of splice site strength. U2AF65 binds the PPT during spliceosome assembly.
+The original document describes the 3' splice-site consensus as `(Y)nNCAG|G`, with an almost invariant terminal `AG` dinucleotide preceded by a polypyrimidine tract (PPT).[1][2]
 
-3. **Position Weight Matrix (PWM) scoring:** Nucleotide frequencies at each position around the acceptor site are compiled into a weight matrix. Log-odds scoring quantifies how well a candidate sequence matches the consensus versus background. Key conserved positions:
-   - Position -2: A (100% conserved)
-   - Position -1: G (100% conserved)
-   - Position -3: C (~70%)
-   - Positions -5 to -15: pyrimidine-enriched (PPT)
-   - Position 0 (first exonic): G (~50%)
+| Feature | Repository description |
+|---------|------------------------|
+| Canonical acceptor | `AG` |
+| Upstream context | PPT enriched in `C` and `U` |
+| Key conserved positions | `-3` favors `C`, `-2` is `A`, `-1` is `G`, position `0` often favors `G` |
+| U12-type acceptor | Optional `AC` with `YCCAC`-style upstream context |
 
-4. **U12-type acceptor:** Minor spliceosome introns use AC instead of AG at the 3' splice site (~0.4% of human introns; Patel & Steitz 2003).
+### 2.2 Core Model
 
-### Properties
+Canonical acceptor scoring combines two components:
 
-- Deterministic for a given sequence and parameters.
-- Score is a composite of PPT quality and PWM match.
-- Higher PPT pyrimidine fraction → higher acceptor score.
+1. PPT contribution: count pyrimidines in positions `[position - 15, position - 3)`, divide by `12`, and scale by `2`.
+2. Sparse PWM contribution: add log-like weights from the repository's `AcceptorPwm` at offsets `-15`, `-10`, `-5`, `-4`, `-3`, `-2`, `-1`, and `0` relative to the splice site.
 
-### Complexity
+The combined value is normalized with:
 
-| Aspect | Value | Source |
-|--------|-------|--------|
-| Time | O(n) | Linear scan over sequence |
-| Space | O(1) per site | Constant working memory per candidate |
+```text
+(score / (count + 1) + 2) / 4
+```
 
----
+U12 acceptors are scored by matching `C` at `-1` and `-2`, a pyrimidine at `-3`, and an upstream PPT fraction, then normalizing by the maximum score of `3.5`.
 
-## Implementation Notes
+### 2.3 Modeling Assumptions
 
-**Implementation location:** [SpliceSitePredictor.cs](src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs)
+| ID | Assumption | Consequence if Violated |
+|----|------------|--------------------------|
+| ASM-01 | A 15-base upstream PPT window captures enough local acceptor context. | Real acceptors with weaker or differently positioned upstream context can be underscored. |
+| ASM-02 | The sparse acceptor PWM is sufficient for candidate prioritization. | Fine-grained sequence preferences outside the represented offsets are ignored. |
 
-- `FindAcceptorSites(sequence, minScore, includeNonCanonical)`: Scans sequence for AG (canonical) and AC (U12) dinucleotides starting at position 15. Scores each candidate via `ScoreAcceptorSite` or `ScoreU12AcceptorSite`. Returns sites with score ≥ minScore.
-- `ScoreAcceptorSite(sequence, position)`: Private. Computes PPT score (count of C/U in positions [i-15, i-3), normalized by 12, scaled ×2) plus AcceptorPwm log-odds score. Normalizes to [0, 1] via `(score/(count+1) + 2) / 4`.
-- `ScoreU12AcceptorSite(sequence, position)`: Private. Scores AC dinucleotide against YCCAC consensus (Hall & Padgett 1994): checks C at positions -1 and -2, Y (pyrimidine) at position -3, plus upstream PPT quality. Normalizes to [0, 1].
-- `CalculateConfidence(score, minExpected, maxExpected)`: Utility. Linear interpolation clamped to [0, 1].
+### 2.4 Properties and Invariants
 
----
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Returned `Score` values are in `[0, 1]`. | Both canonical and U12 scorers clamp the normalized result. |
+| INV-02 | Returned `Confidence` values are in `[0, 1]`. | Confidence is computed through a clamped linear interpolation. |
+| INV-03 | Canonical `AG` sites use `Type = Acceptor`; optional `AC` sites use `Type = U12Acceptor`. | The public method assigns those enum values explicitly. |
+| INV-04 | Returned `Position` for a canonical acceptor is `i + 1`, the index of the `G` in `AG`. | The method yields `Position: i + 1`. |
 
-## Deviations and Assumptions
+## 3. Contract
 
-No deviations or assumptions remain. All aspects verified against external sources:
+### 3.1 Inputs and Parameters
 
-1. **Sparse AcceptorPwm:** The implementation uses 8 PWM positions (-15, -10, -5, -4, -3, -2, -1, 0). Values at key positions verified against Shapiro & Senapathy (1987): -3 C=0.70 (~65-70%), -2 A=1.00 (100%), -1 G=1.00 (100%), 0 G=0.50 (~50%). Design choice to use sparse rather than full 23-position matrix.
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `string` | required | DNA or RNA sequence to scan. | Empty, `null`, or length `< 20` yields no results. |
+| `minScore` | `double` | `0.5` | Minimum normalized score required to emit a site. | Applied after canonical or U12 scoring. |
+| `includeNonCanonical` | `bool` | `false` | Whether to include U12-style `AC` acceptors. | Canonical `AG` scanning is always active. |
 
-2. **PPT scoring separate from PWM:** PPT quality scored as pyrimidine fraction in [-15, -3) window, consistent with Burge et al. (1999) principle that PPT quality determines splice site strength. Design choice to score separately.
+### 3.2 Output / Return Value
 
-3. **Normalization heuristic:** The formula `(score/(count+1) + 2) / 4` is a design decision — linear mapping from composite scores to [0, 1]. Preserves monotonic ordering. Behavioural properties verified by tests.
+| Field | Type | Description |
+|-------|------|-------------|
+| `Position` | `int` | For canonical `AG`, the index of the `G` in the dinucleotide; for `AC`, the index of the `C`. |
+| `Type` | `SpliceSiteType` | `Acceptor` or `U12Acceptor`. |
+| `Motif` | `string` | Local context extracted around the first base of the candidate dinucleotide via `GetMotifContext(sequence, position - 1, 15, 2)`; `Position` itself reports the terminal intronic base. |
+| `Score` | `double` | Normalized acceptor score. |
+| `Confidence` | `double` | Clamped confidence derived from the score. |
 
-4. **U12 acceptor YCCAC scoring:** Scores based on match to YCCAC consensus (Hall & Padgett 1994, Jackson 1991) plus PPT quality. No longer a fixed score — context-dependent.
+### 3.3 Preconditions and Validation
 
-5. **Position reported as i+1:** `FindAcceptorSites` reports the position *after* the AG dinucleotide (the first exonic nucleotide), not the AG itself.
+The method uppercases the sequence and converts `T` to `U`. Canonical scanning begins at index `15` so that the upstream PPT window is available. Canonical `AG` and optional `AC` candidates are scored independently, and sites are emitted only when their normalized score meets `minScore`.[8]
 
----
+## 4. Algorithm
 
-## Sources
+### 4.1 High-Level Steps
 
-- Shapiro MB, Senapathy P (1987). Nucleic Acids Research 15(17):7155–7174.
-- Burge CB, Tuschl T, Sharp PA (1999). The RNA World, 2nd ed. CSHL Press, pp. 525–560.
-- Yeo G, Burge CB (2004). J Comput Biol 11(2–3):377–394.
-- Patel AA, Steitz JA (2003). Nat Rev Mol Cell Biol 4(12):960–970.
-- Hall SL, Padgett RA (1994). J Mol Biol 239(3):357–365.
-- Jackson IJ (1991). Nucleic Acids Res 19(14):3795–3798.
-- Dietrich RC, Incorvaia R, Padgett RA (1997). Molecular Cell 1(1):151–160.
+1. Return no results for `null`, empty, or too-short input.
+2. Normalize the sequence to uppercase RNA notation.
+3. Starting at index `15`, scan for canonical `AG` candidates and, optionally, `AC` candidates.
+4. For `AG`, compute PPT contribution and sparse-PWM contribution, then normalize the combined score.
+5. For `AC`, compute the U12 `YCCAC`-style score plus upstream PPT fraction, then normalize.
+6. Emit a `SpliceSite` when the candidate score is at least `minScore`.
+
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
+
+The current scoring rules are:
+
+| Candidate class | Recognition rule | Scoring rule |
+|-----------------|------------------|--------------|
+| Canonical acceptor | `AG` at positions `i`, `i+1` | PPT contribution + sparse `AcceptorPwm`, normalized to `[0, 1]` |
+| U12 acceptor | `AC` at positions `i`, `i+1` when non-canonical enabled | `YCCAC` component + PPT fraction, normalized by `3.5` |
+
+### 4.3 Complexity
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `FindAcceptorSites` | `O(n)` | `O(1)` auxiliary | Single scan over the normalized sequence. |
+
+## 5. Implementation Notes
+
+### 5.1 Location and Entry Points
+
+**Implementation location:** [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs)
+
+- `SpliceSitePredictor.FindAcceptorSites(string, double, bool)`
+- `SpliceSitePredictor.ScoreAcceptorSite(string, int)` (private helper)
+- `SpliceSitePredictor.ScoreU12AcceptorSite(string, int)` (private helper)
+
+### 5.2 Current Behavior
+
+Canonical acceptor scoring uses a separate PPT component and applies the `AcceptorPwm` with offsets relative to the splice site, implemented as `position + 2 + offset` inside `ScoreAcceptorSite`. `FindAcceptorSites` reports the index of the terminal intronic nucleotide (`G` in `AG`) rather than the first exonic nucleotide. U12 acceptors are returned only when `includeNonCanonical` is enabled and are scored against `YCCAC`-style upstream context plus PPT quality.[8]
+
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Canonical acceptor recognition is based on the `AG` terminus and upstream PPT-rich context of `(Y)nNCAG|G`.[1][2]
+- Optional U12-style acceptor handling is based on `AC` and `YCCAC`-style context.[4][5][6]
+
+**Intentionally simplified:**
+
+- The canonical scorer uses a sparse eight-position PWM and a separate PPT term rather than a full statistical acceptor model; **consequence:** scoring is interpretable and fast, but less expressive than richer trained predictors.
+- U12 acceptor scoring uses a short consensus and PPT fraction only; **consequence:** minor-spliceosome candidates are heuristic approximations.
+
+**Not implemented:**
+
+- Full-length acceptor models such as maximum-entropy or species-trained acceptor predictors; **users should rely on:** no current alternative.
+- Automatic disambiguation between cryptic and functional `AG` sites beyond local scoring; **users should rely on:** caller-side thresholding and downstream intron pairing.
+
+### 5.4 Deviations and Assumptions
+
+| # | Item | Type | Impact | Status | Notes |
+|---|------|------|--------|--------|-------|
+| 1 | The acceptor PWM is intentionally sparse, covering eight positions rather than a full continuous window. | Design choice | Reduces model complexity while preserving the strongest documented positions. | accepted | Confirmed in [SpliceSitePredictor.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Annotation/SpliceSitePredictor.cs). |
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty or `null` input | Returns no acceptor sites. | Guard clause. |
+| Sequence shorter than 20 nt | Returns no acceptor sites. | The method requires upstream context. |
+| DNA input | Same behavior as RNA input after normalization. | `T` is converted to `U`. |
+| Lowercase input | Same behavior as uppercase input. | The sequence is uppercased before scanning. |
+| Higher `minScore` | Returns a subset of lower-threshold results. | Filtering uses `score >= minScore`. |
+
+### 6.2 Limitations
+
+Acceptor detection in this repository is a local motif-and-PPT scorer. It does not use a full statistical acceptor model and does not decide exon or intron structure by itself.
+
+## 7. Examples and Related Material
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [SpliceSitePredictor_AcceptorSite_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/SpliceSitePredictor_AcceptorSite_Tests.cs) — covers `INV-01`, `INV-02`, `INV-03`, `INV-04`
+- Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)
+- Related algorithms: [Donor_Site_Detection.md](Donor_Site_Detection.md), [Gene_Structure_Prediction.md](Gene_Structure_Prediction.md)
+
+## 8. References
+
+1. Shapiro MB, Senapathy P. 1987. RNA splice junctions of different classes of eukaryotes. Nucleic Acids Research. N/A
+2. Burge CB, Tuschl T, Sharp PA. 1999. The RNA World. N/A
+3. Yeo G, Burge CB. 2004. Journal of Computational Biology. N/A
+4. Patel AA, Steitz JA. 2003. Nature Reviews Molecular Cell Biology. N/A
+5. Hall SL, Padgett RA. 1994. Journal of Molecular Biology. N/A
+6. Jackson IJ. 1991. Nucleic Acids Research. N/A
+7. Dietrich RC, Incorvaia R, Padgett RA. 1997. Molecular Cell. N/A
+8. Test specification: [SPLICE-ACCEPTOR-001.md](../../../tests/TestSpecs/SPLICE-ACCEPTOR-001.md)

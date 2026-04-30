@@ -1,201 +1,156 @@
 # Restriction Digest Simulation
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | MolTools |
+| Test Unit ID | N/A |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-Restriction digest simulation is the computational modeling of DNA fragmentation by restriction endonucleases. Given a DNA sequence and one or more restriction enzymes, the algorithm identifies cut sites, calculates fragment positions and sizes, and produces a virtual representation of the resulting fragments—equivalent to what would be observed on a gel electrophoresis.
+## 1. Overview
 
-## Algorithm Description
+Restriction digest simulation models DNA fragmentation after cleavage by one or more restriction enzymes. In this repository, digestion is performed by locating cut sites, taking forward-strand cut positions to avoid double-counting palindromic sites, and emitting fragments bounded by those cuts. The same source surface also provides digest summaries, restriction maps, and overhang-compatibility checks.
 
-### Core Algorithm: `Digest`
+## 2. Scientific / Formal Basis
 
-The `Digest` method simulates restriction enzyme digestion:
+### 2.1 Domain Context
 
-1. **Validate Input**
-   - Check sequence is not null
-   - Verify at least one enzyme is specified (throw `ArgumentException` if none)
+A restriction digest cleaves DNA at enzyme recognition sequences and produces fragments whose sizes can be checked experimentally by gel electrophoresis. The original document emphasizes the fragment-sum principle: the sum of fragment lengths must equal the original sequence length. It also states that two enzymes produce compatible ligatable ends when both are blunt cutters or when they generate identical sticky-end overhangs. Sources: Wikipedia (Restriction digest, Restriction enzyme, Restriction map), Addgene Restriction Digest Protocol, REBASE.
 
-2. **Find Cut Positions**
-   - For each enzyme, call `FindSites` to locate recognition sites
-   - Filter to forward-strand sites only (to avoid double-counting palindromic sites)
-   - Extract cut positions and store in a sorted set
-   - Maintain mapping from cut position to enzyme
+### 2.2 Core Model
 
-3. **Handle No Cuts Case**
-   - If no cut sites found, return entire sequence as single fragment
+Given a sequence of length `L` and forward-strand cut positions `c1 < c2 < ... < ck`, the digest fragments are the half-open intervals:
 
-4. **Generate Fragments**
-   - Create ordered list: [0, cut1, cut2, ..., cutN, sequenceLength]
-   - For each adjacent pair of positions, create a fragment:
-     - Extract subsequence between positions
-     - Record start position, length, flanking enzyme names
-     - Assign sequential fragment numbers
+$$
+[0, c_1), [c_1, c_2), \ldots, [c_k, L)
+$$
 
-5. **Return Results**
-   - Yield `DigestFragment` records
+This yields `k + 1` fragments when `k` cuts are present. `GetDigestSummary(...)` sorts fragment sizes in descending order, and `CreateMap(...)` groups sites by enzyme name while treating unique cutters as enzymes with exactly one forward-strand site.
 
-### Complexity
+### 2.4 Properties and Invariants
 
-- **Time**: O(n + k log k) where n = sequence length, k = number of cut sites
-  - O(n) for finding sites
-  - O(k log k) for sorting cut positions
-- **Space**: O(k) for storing cut positions
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `k` forward-strand cut positions produce `k + 1` fragments | `Digest(...)` inserts boundaries `[0, cuts..., sequence.Length]` |
+| INV-02 | The sum of fragment lengths equals the original sequence length | Adjacent boundaries partition the sequence |
+| INV-03 | `FragmentSizes` in `DigestSummary` are sorted descending | `GetDigestSummary(...)` orders sizes descending before constructing the record |
+| INV-04 | `AreCompatible(A, B) == AreCompatible(B, A)` | Compatibility is determined from bluntness or identical overhang type and sequence |
 
-### GetDigestSummary Algorithm
+## 3. Contract
 
-Produces a statistical summary of the digest:
+### 3.1 Inputs and Parameters
 
-```csharp
-var fragments = Digest(sequence, enzymeNames).ToList();
-var sizes = fragments.Select(f => f.Length).OrderByDescending(x => x).ToList();
-return new DigestSummary(
-    TotalFragments: fragments.Count,
-    FragmentSizes: sizes,  // Sorted descending
-    LargestFragment: sizes.First(),
-    SmallestFragment: sizes.Last(),
-    AverageFragmentSize: sizes.Average(),
-    EnzymesUsed: enzymeNames);
-```
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `DnaSequence` | required | DNA sequence to digest or map | Null input throws `ArgumentNullException` |
+| `enzymeNames` | `string[]` | required for digestion | Enzymes used for site discovery and fragment generation | `Digest(...)` throws `ArgumentException` when none are supplied |
+| `enzyme1Name`, `enzyme2Name` | `string` | required | Enzyme names for compatibility analysis | Unknown names produce `false` in `AreCompatible(...)` |
 
-### CreateMap Algorithm
+### 3.2 Output / Return Value
 
-Creates a comprehensive restriction map showing all enzyme sites:
+| Field | Type | Description |
+|-------|------|-------------|
+| `DigestFragment` | record | Sequence, start position, length, one representative left/right enzyme name per fragment boundary, and fragment number |
+| `DigestSummary` | record | Total fragment count, sorted sizes, largest/smallest fragment, average size, and enzyme list |
+| `RestrictionMap` | record | Sequence length, sites, grouped positions, forward-strand total site count, unique cutters, and non-cutters |
+| `compatible` | `bool` | Whether two enzymes generate compatible ends |
 
-1. Find all sites for specified enzymes (or all enzymes if none specified)
-2. Group sites by enzyme name
-3. Identify unique cutters (exactly one forward-strand site)
-4. Identify non-cutters (enzymes with zero sites)
-5. Return `RestrictionMap` with all data
+### 3.3 Preconditions and Validation
 
-## Scientific Background
+`Digest(...)` requires a non-null sequence and at least one enzyme name. When no cuts are found, it returns a single fragment equal to the full sequence. `CreateMap(...)` accepts zero enzyme names and then scans the full built-in enzyme catalog. `AreCompatible(...)` returns `false` if either enzyme name is not present in the catalog.
 
-### Restriction Digest
+## 4. Algorithm
 
-A restriction digest is a laboratory procedure where DNA is cleaved by restriction enzymes at specific recognition sequences. The resulting fragments can be separated by gel electrophoresis to verify size and count.
+### 4.1 High-Level Steps
 
-**Key validation principle**: The sum of all fragment sizes must equal the original sequence length.
+1. Validate the input sequence and enzyme list.
+2. Find restriction sites for each requested enzyme.
+3. Keep only forward-strand cut positions to avoid double-counting palindromic sites.
+4. Sort and deduplicate cut positions.
+5. Emit fragments between adjacent boundaries.
+6. Build summaries or maps by sorting fragment sizes and grouping site positions by enzyme.
 
-Source: Wikipedia (Restriction digest), Addgene Protocol
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-### Fragment Generation
+Compatibility rules preserved from the original document and confirmed in source:
 
-When an enzyme cuts at position p in a sequence of length L:
-- Single cut produces 2 fragments: [0, p) and [p, L)
-- n cuts produce n+1 fragments
+| Rule | Result |
+|------|--------|
+| Both enzymes produce blunt ends | Compatible |
+| Overhang types differ | Not compatible |
+| Overhang types match and overhang sequences match | Compatible |
+| Overhang sequences differ | Not compatible |
 
-Source: Wikipedia (Restriction digest)
+Examples called out in the original document:
 
-### Gel Electrophoresis Validation
+| Pair | Outcome |
+|------|---------|
+| BamHI and BglII | Compatible (`GATC` overhang) |
+| EcoRV and SmaI | Compatible (both blunt) |
+| EcoRI and PstI | Not compatible |
 
-In laboratory practice, restriction digest results are verified by:
-1. Running digest products on an agarose gel
-2. Comparing band sizes to a DNA ladder
-3. Verifying that fragment sizes sum to the expected total
+### 4.3 Complexity
 
-Source: Addgene Protocol, Wikipedia (Gel electrophoresis)
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `Digest` | `O(n + k log k)` | `O(k)` | Site discovery plus sorted cut handling |
+| `GetDigestSummary` | `O(n + k log k)` | `O(k)` | Materializes digest fragments and sorts sizes |
+| `CreateMap` | `O(n + k log k)` | `O(k)` | Groups positions by enzyme and identifies unique/non-cutters |
 
-### Enzyme Compatibility
+## 5. Implementation Notes
 
-Two enzymes produce compatible (ligatable) ends if:
-- Both produce blunt ends, OR
-- Both produce identical sticky-end overhangs
+### 5.1 Location and Entry Points
 
-Examples:
-- BamHI (GATC overhang) and BglII (GATC overhang) are compatible
-- EcoRV (blunt) and SmaI (blunt) are compatible
-- EcoRI (AATT overhang) and PstI (TGCA overhang) are NOT compatible
+**Implementation location:** [RestrictionAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs)
 
-Source: Wikipedia (Restriction enzyme), NEB
+- `RestrictionAnalyzer.Digest(DnaSequence, params string[])`: Generates digest fragments.
+- `RestrictionAnalyzer.GetDigestSummary(DnaSequence, params string[])`: Produces sorted fragment statistics.
+- `RestrictionAnalyzer.CreateMap(DnaSequence, params string[])`: Builds a restriction map from requested or all enzymes.
+- `RestrictionAnalyzer.AreCompatible(string, string)`: Tests end compatibility.
+- `RestrictionAnalyzer.FindCompatibleEnzymes()`: Enumerates compatible enzyme pairs from the built-in catalog.
 
-## Implementation Notes
+### 5.2 Current Behavior
 
-### Key Methods
+The current implementation records forward-strand cut positions only when digesting so that palindromic sites are not double-counted. If no cut positions are found, the digest yields a single fragment equal to the original sequence. When multiple enzymes cut at the same coordinate, the cut position is preserved but the digest stores only one representative enzyme name for that fragment boundary. `GetDigestSummary(...)` sorts fragment sizes descending before constructing the record. `CreateMap(...)` counts `TotalSites` on the forward strand only and defines `UniqueCutters` from distinct forward-strand positions, while `NonCutters` are requested enzymes that do not appear in the grouped map.
 
-```csharp
-// Simulate restriction digest
-public static IEnumerable<DigestFragment> Digest(DnaSequence sequence, params string[] enzymeNames)
+### 5.3 Conformance to Theory / Spec
 
-// Get digest summary with fragment sizes
-public static DigestSummary GetDigestSummary(DnaSequence sequence, params string[] enzymeNames)
+**Implemented (verbatim from the cited theory/spec):**
 
-// Create comprehensive restriction map
-public static RestrictionMap CreateMap(DnaSequence sequence, params string[] enzymeNames)
+- Fragment generation from ordered restriction cut positions.
+- Restriction-map construction by grouping sites per enzyme.
+- Compatibility rules for blunt ends and identical sticky-end overhangs.
 
-// Check enzyme compatibility
-public static bool AreCompatible(string enzyme1Name, string enzyme2Name)
+**Intentionally simplified:**
 
-// Find all compatible enzyme pairs
-public static IEnumerable<(string Enzyme1, string Enzyme2, string CompatibleEnd)> FindCompatibleEnzymes()
-```
+- Digest simulation uses forward-strand cut positions only; **consequence:** strand-paired palindromic site reports are collapsed to a single cut for digestion purposes.
+- The model reports virtual fragments and statistics only; **consequence:** gel-migration behavior is not simulated.
 
-### DigestFragment Record
+**Not implemented:**
 
-```csharp
-public sealed record DigestFragment(
-    string Sequence,        // The DNA sequence of this fragment
-    int StartPosition,      // Start position in original sequence
-    int Length,             // Fragment length in base pairs
-    string? LeftEnzyme,     // Enzyme that cut left end (null for first fragment)
-    string? RightEnzyme,    // Enzyme that cut right end (null for last fragment)
-    int FragmentNumber);    // Sequential number (1-based)
-```
+- Gel electrophoresis simulation and other downstream laboratory effects; **users should rely on:** external analysis or visualization tools for those steps.
 
-### DigestSummary Record
+## 6. Edge Cases and Limitations
 
-```csharp
-public sealed record DigestSummary(
-    int TotalFragments,
-    IReadOnlyList<int> FragmentSizes,    // Sorted descending
-    int LargestFragment,
-    int SmallestFragment,
-    double AverageFragmentSize,
-    IReadOnlyList<string> EnzymesUsed);
-```
+### 6.1 Edge Cases
 
-### RestrictionMap Record
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| No cut sites found | Returns one fragment equal to the original sequence | Explicit special case in `Digest(...)` |
+| First fragment | `LeftEnzyme = null` | No enzyme cuts before position 0 |
+| Last fragment | `RightEnzyme = null` | No enzyme cuts after the final boundary |
+| Zero-length fragments | Not generated | The source yields only when `length > 0` |
 
-```csharp
-public sealed record RestrictionMap(
-    int SequenceLength,
-    IReadOnlyList<RestrictionSite> Sites,
-    IReadOnlyDictionary<string, List<int>> SitesByEnzyme,
-    int TotalSites,                        // Forward-strand sites only
-    IReadOnlyList<string> UniqueCutters,   // Exactly one site
-    IReadOnlyList<string> NonCutters);     // Zero sites
-```
+### 6.2 Limitations
 
-## Invariants
+The digest model is a sequence-partitioning simulation. It does not simulate gel electrophoresis, incomplete digestion, methylation effects, or circular-DNA behavior, and it relies on the enzyme definitions available in the built-in restriction catalog. When different enzymes cut at the same coordinate, fragment-boundary provenance is reduced to a single representative enzyme name.
 
-### Digest Invariants
-
-1. **Fragment Count**: k cut positions → k+1 fragments
-2. **Fragment Sum**: Σ(fragment.Length) = sequence.Length
-3. **Fragment Numbering**: Fragments numbered 1 to n sequentially
-4. **Position Order**: Fragments ordered by ascending start position
-5. **Boundary Enzymes**: First fragment LeftEnzyme=null, last fragment RightEnzyme=null
-6. **Positive Length**: All fragments have Length > 0 (zero-length fragments not generated)
-7. **No Cuts**: Zero cut sites returns single fragment equal to original sequence
-
-### Summary Invariants
-
-8. **Sorted Descending**: FragmentSizes[i] ≥ FragmentSizes[i+1]
-9. **Size Bounds**: SmallestFragment ≤ AverageFragmentSize ≤ LargestFragment
-
-### Compatibility Invariants
-
-10. **Blunt-Blunt Compatible**: All blunt enzymes compatible with each other
-11. **Matching Overhangs Compatible**: Same overhang sequence = compatible
-12. **Symmetry**: AreCompatible(A, B) = AreCompatible(B, A)
-
-## Related Algorithms
-
-- `FindSites`: Identifies restriction sites (RESTR-FIND-001)
-- Gel electrophoresis simulation (not implemented)
-
-## References
+## 8. References
 
 1. Wikipedia: Restriction digest - https://en.wikipedia.org/wiki/Restriction_digest
 2. Wikipedia: Restriction enzyme - https://en.wikipedia.org/wiki/Restriction_enzyme
 3. Wikipedia: Restriction map - https://en.wikipedia.org/wiki/Restriction_map
 4. Addgene: Restriction Digest Protocol - https://www.addgene.org/protocols/restriction-digest/
-5. Roberts RJ (1976) - Restriction endonucleases, CRC Critical Reviews in Biochemistry
+5. Roberts RJ (1976) - Restriction endonucleases, CRC Critical Reviews in Biochemistry.
 6. REBASE (Restriction Enzyme Database) - http://rebase.neb.com/

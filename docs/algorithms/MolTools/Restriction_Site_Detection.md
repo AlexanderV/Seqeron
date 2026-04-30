@@ -1,94 +1,86 @@
 # Restriction Site Detection
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | MolTools |
+| Test Unit ID | N/A |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-Restriction site detection is the computational identification of DNA sequences recognized by restriction endonucleases (restriction enzymes). These enzymes cleave DNA at specific recognition sequences, producing defined fragments used in molecular cloning, DNA mapping, and genetic engineering.
+## 1. Overview
 
-## Algorithm Description
+Restriction site detection identifies DNA sequences recognized by restriction endonucleases and computes the corresponding cut positions. In this repository, the implementation scans both strands for recognition-sequence matches, supports IUPAC ambiguity codes in enzyme patterns, and returns site records that include the enzyme, strand, cut position, and matched sequence. The current implementation is sequence-based and centered on a built-in enzyme catalog.
 
-### Core Algorithm: `FindSites`
+## 2. Scientific / Formal Basis
 
-The `FindSites` method scans a DNA sequence for recognition sites of specified restriction enzymes:
+### 2.1 Domain Context
 
-1. **Validate Input**
-   - Check sequence and enzyme name are not null/empty
-   - Retrieve enzyme from database (case-insensitive lookup)
-   - Throw `ArgumentException` for unknown enzymes
+Restriction enzymes cleave DNA at specific recognition sequences, and Type II enzymes are the standard molecular-biology workhorses because they cut at or near their recognition sites. Recognition sequences are commonly 4-8 bases long, and many are palindromic so the same site appears on both strands. The original document also classifies cleavage products into 5' overhangs, 3' overhangs, and blunt ends. Sources: Wikipedia (Restriction enzyme, Restriction site, EcoRI), Roberts (1976), IUPAC-IUB (1970).
 
-2. **Forward Strand Search**
-   - Slide a window of recognition sequence length across the sequence
-   - At each position, check if the substring matches the recognition pattern
-   - Support IUPAC ambiguity codes in recognition sequences (e.g., N = any base)
-   - Record position, enzyme, and cut position for each match
+### 2.2 Core Model
 
-3. **Reverse Strand Search**
-   - Compute reverse complement of the sequence
-   - Search for recognition sites on the reverse complement
-   - Convert positions back to forward strand coordinates
-   - Record matches with `IsForwardStrand = false`
+For each enzyme, the algorithm slides a window of the recognition-sequence length across the input sequence and checks character-by-character matches under IUPAC ambiguity rules. A forward-strand match at position `i` yields a cut position of:
 
-4. **Return Results**
-   - Yield `RestrictionSite` records with position, enzyme, strand, cut position, and recognized sequence
+$$
+cutPosition = i + CutPositionForward
+$$
 
-### Complexity
+Reverse-strand matches are found by scanning the reverse complement, converting the recognition-site start back to forward coordinates, and using:
 
-- **Time**: O(n × k × m) where n = sequence length, k = number of enzymes, m = recognition sequence length
-- **Space**: O(1) for streaming results (excluding input)
+$$
+forwardPos = sequenceLength - i - patternLength
+$$
 
-### FindAllSites Algorithm
+with a reverse-strand cut position of `forwardPos + CutPositionReverse`.
 
-Searches for all 40+ enzymes in the database against the sequence:
+### 2.4 Properties and Invariants
 
-```csharp
-foreach (var enzyme in Enzymes.Values)
-    foreach (var site in FindSitesCore(sequence, enzyme))
-        yield return site;
-```
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `0 <= Position <= sequence.Length - recognitionLength` for every reported site | Sites are yielded only from valid window starts |
+| INV-02 | `RecognizedSequence.Length == Enzyme.RecognitionSequence.Length` | The source slices exactly the pattern length |
+| INV-03 | Enzyme-name lookup is case-insensitive | The built-in enzyme dictionary uses `StringComparer.OrdinalIgnoreCase` |
+| INV-04 | Empty raw-string input yields no sites | The raw-string overload short-circuits on null or empty input |
 
-## Scientific Background
+## 3. Contract
 
-### Restriction Enzymes
+### 3.1 Inputs and Parameters
 
-Restriction enzymes (restriction endonucleases) are enzymes that cleave DNA at specific recognition sequences. Type II restriction enzymes are most commonly used in molecular biology because they cleave at or near their recognition site.
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequence` | `DnaSequence` or `string` | required | DNA sequence to scan | Null `DnaSequence` input throws; empty raw-string input yields no results |
+| `enzymeName` | `string` | required | Name of the restriction enzyme to search | Unknown names throw `ArgumentException` |
+| `enzymeNames` | `string[]` | required for multi-enzyme overload | Set of enzyme names to scan | Multi-enzyme search yields the union of per-enzyme results |
+| `enzyme` | `RestrictionEnzyme` | required for custom-enzyme overload | Enzyme definition to apply directly | Null input throws `ArgumentNullException` |
 
-Source: Wikipedia (Restriction enzyme), Roberts RJ (1976)
+### 3.2 Output / Return Value
 
-### Recognition Sequences
+| Field | Type | Description |
+|-------|------|-------------|
+| `Position` | `int` | Start position of the recognition sequence |
+| `Enzyme` | `RestrictionEnzyme` | Enzyme definition that matched |
+| `IsForwardStrand` | `bool` | `true` for forward-strand matches and `false` for reverse-strand matches |
+| `CutPosition` | `int` | Computed cut position |
+| `RecognizedSequence` | `string` | Actual sequence segment that matched the enzyme pattern |
 
-- **Palindromic**: Most Type II enzymes recognize palindromic sequences (reads same on reverse strand)
-- **Length**: Typically 4-8 base pairs
-  - 4-cutter: cuts ~every 256 bp (4^4)
-  - 6-cutter: cuts ~every 4,096 bp (4^6)
-  - 8-cutter: cuts ~every 65,536 bp (4^8)
+### 3.3 Preconditions and Validation
 
-Source: Wikipedia (Restriction site), Cooper S (2003)
+The `DnaSequence` overloads require non-null sequence input. The raw-string overload returns no results for null or empty strings. Unknown enzyme names raise `ArgumentException`, while enzyme lookup itself is case-insensitive. Pattern matching uses IUPAC ambiguity codes through `IupacHelper.MatchesIupac(...)`.
 
-### Overhang Types
+## 4. Algorithm
 
-| Type | Description | Example |
-|------|-------------|---------|
-| **5' overhang (sticky)** | Cut position forward < reverse | EcoRI: G↓AATTC / CTTAA↓G |
-| **3' overhang (sticky)** | Cut position forward > reverse | PstI: CTGCA↓G / G↓ACGTC |
-| **Blunt end** | Cut position forward = reverse | EcoRV: GAT↓ATC / CTA↓TAG |
+### 4.1 High-Level Steps
 
-Source: Wikipedia (Restriction enzyme), Wikipedia (EcoRI)
+1. Resolve the enzyme definition from the built-in catalog or use the supplied custom enzyme.
+2. Scan the forward strand for IUPAC-aware recognition-sequence matches.
+3. Yield a forward-strand `RestrictionSite` for each match.
+4. Reverse-complement the sequence and repeat the recognition search.
+5. Convert reverse-strand positions back to forward coordinates and yield reverse-strand `RestrictionSite` records.
 
-### IUPAC Ambiguity Codes
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-Some enzymes have degenerate recognition sequences using IUPAC codes:
-- N = any nucleotide (A, C, G, T)
-- R = purine (A, G)
-- Y = pyrimidine (C, T)
-- W = weak (A, T)
-- S = strong (C, G)
-
-Source: IUPAC-IUB (1970)
-
-## Implementation Notes
-
-### Enzyme Database
-
-The implementation includes 40+ common restriction enzymes:
+Recognition-sequence categories called out in the original document:
 
 | Category | Examples | Recognition Length |
 |----------|----------|-------------------|
@@ -96,53 +88,74 @@ The implementation includes 40+ common restriction enzymes:
 | 6-cutters | EcoRI, BamHI, HindIII | 6 bp |
 | 8-cutters | NotI, PacI, AscI | 8 bp |
 
-### Key Methods
+Overhang types:
 
-```csharp
-// Find sites for specific enzyme(s)
-public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, string enzymeName)
-public static IEnumerable<RestrictionSite> FindSites(DnaSequence sequence, params string[] enzymeNames)
-public static IEnumerable<RestrictionSite> FindSites(string sequence, string enzymeName)
+| Type | Description | Example |
+|------|-------------|---------|
+| 5' overhang | `CutPositionForward < CutPositionReverse` | EcoRI |
+| 3' overhang | `CutPositionForward > CutPositionReverse` | PstI |
+| Blunt end | `CutPositionForward == CutPositionReverse` | EcoRV |
 
-// Find sites for all known enzymes
-public static IEnumerable<RestrictionSite> FindAllSites(DnaSequence sequence)
+### 4.3 Complexity
 
-// Enzyme lookup
-public static RestrictionEnzyme? GetEnzyme(string name)
-```
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Single-enzyme `FindSites` | `O(n × m)` | `O(1)` streaming | `n` is sequence length and `m` is recognition-sequence length |
+| Multi-enzyme `FindSites` / `FindAllSites` | `O(n × k × m)` | `O(1)` streaming | `k` is the number of enzymes scanned |
 
-### RestrictionSite Record
+## 5. Implementation Notes
 
-```csharp
-public sealed record RestrictionSite(
-    int Position,           // Start position of recognition sequence
-    RestrictionEnzyme Enzyme,
-    bool IsForwardStrand,   // True for forward, false for reverse complement
-    int CutPosition,        // Position where enzyme cuts
-    string RecognizedSequence);
-```
+### 5.1 Location and Entry Points
 
-## Invariants
+**Implementation location:** [RestrictionAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/RestrictionAnalyzer.cs), [IupacHelper.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Core/IupacHelper.cs)
 
-1. **Position Range**: 0 ≤ Position ≤ sequence.Length - recognitionLength
-2. **Cut Position**: Position ≤ CutPosition ≤ Position + recognitionLength
-3. **Recognition Sequence Length**: RecognizedSequence.Length == Enzyme.RecognitionSequence.Length
-4. **Case Insensitivity**: Enzyme lookup is case-insensitive
-5. **Empty Sequence**: Returns no sites for empty/null sequence
-6. **Unknown Enzyme**: Throws `ArgumentException` for unknown enzyme names
-7. **Both Strands**: Palindromic sites may appear on both strands at same position
+- `RestrictionAnalyzer.FindSites(DnaSequence, string)`: Searches a validated DNA sequence for one enzyme.
+- `RestrictionAnalyzer.FindSites(DnaSequence, params string[])`: Aggregates per-enzyme searches.
+- `RestrictionAnalyzer.FindSites(string, string)`: Raw-string overload that uppercases input and yields no results for empty input.
+- `RestrictionAnalyzer.FindAllSites(DnaSequence)`: Scans the full built-in enzyme set.
+- `RestrictionAnalyzer.GetEnzyme(string)`: Case-insensitive enzyme lookup.
 
-## Related Algorithms
+### 5.2 Current Behavior
 
-- `Digest`: Simulates restriction digestion to produce fragments (RESTR-DIGEST-001)
-- `CreateMap`: Creates comprehensive restriction map
-- `AreCompatible`: Checks if two enzymes produce compatible sticky ends
+The implementation ships with an in-memory catalog of common enzymes, including 4-cutters, 6-cutters, 8-cutters, blunt cutters, and enzymes with degenerate recognition motifs such as `SfiI` and `HincII`. Both strands are reported, so palindromic sites can appear twice at the same genomic position with different `IsForwardStrand` values. Reverse-strand matches compute `Position` in forward coordinates and compute the cut site with `CutPositionReverse`.
 
-## References
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Recognition-sequence scanning for a catalog of Type II-style enzymes.
+- IUPAC ambiguity handling in enzyme patterns.
+- Strand-aware reporting of recognition and cut positions.
+
+**Intentionally simplified:**
+
+- The implementation relies on a built-in enzyme catalog; **consequence:** only enzymes present in that catalog are available through name-based lookup.
+- Site finding is purely sequence-based; **consequence:** methylation sensitivity and experimental context are not modeled.
+
+**Not implemented:**
+
+- Contextual enzyme activity effects such as methylation-state filtering; **users should rely on:** external enzymology references or downstream validation when those matter.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty raw-string input | Returns no sites | Explicit short-circuit in source |
+| Unknown enzyme name | Throws `ArgumentException` | Name lookup must succeed before scanning |
+| Palindromic recognition site | May appear on both strands at the same position | Both strands are searched independently |
+| Degenerate recognition sequence | Matched with IUPAC ambiguity rules | `IupacHelper.MatchesIupac(...)` handles the pattern |
+
+### 6.2 Limitations
+
+The current implementation is limited to the built-in enzyme definitions and sequence-only matching. It does not model methylation dependence, assay conditions, or experimental digestion efficiency, and double reporting of palindromic sites must be interpreted downstream when unique cut counts are required.
+
+## 8. References
 
 1. Wikipedia: Restriction enzyme - https://en.wikipedia.org/wiki/Restriction_enzyme
 2. Wikipedia: Restriction site - https://en.wikipedia.org/wiki/Restriction_site
 3. Wikipedia: EcoRI - https://en.wikipedia.org/wiki/EcoRI
-4. Roberts RJ (1976) - Restriction endonucleases, CRC Critical Reviews in Biochemistry
+4. Roberts RJ (1976) - Restriction endonucleases, CRC Critical Reviews in Biochemistry.
 5. REBASE (Restriction Enzyme Database) - http://rebase.neb.com/
-6. IUPAC-IUB (1970) - Nucleic acid notation
+6. IUPAC-IUB (1970) - Nucleic acid notation.

@@ -1,229 +1,196 @@
 # GFF/GTF Parsing
 
-## Overview
+| Field | Value |
+|-------|-------|
+| Algorithm Group | FileIO |
+| Test Unit ID | PARSE-GFF-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-The General Feature Format (GFF) is a tab-delimited file format used for describing genes and other features of DNA, RNA, and protein sequences. This implementation supports GFF3 (the current standard), GTF (Gene Transfer Format), and legacy GFF2.
+## 1. Overview
 
-## Format Specification
+GFF parsing reads tab-delimited genome annotation records in GFF3, GTF, and legacy GFF2-style layouts.[1][2][3][4] In this repository, `GffParser` parses annotation rows from strings, files, and readers; filters records by type, sequence, and region; builds simplified gene models; writes records back out; extracts reference subsequences; and merges overlapping features. The implementation supports all three declared formats, but its `Auto` mode is intentionally conservative: it only uses the `##gff-version` directive to distinguish GFF3 from legacy GFF and otherwise defaults to GFF3.
 
-### Source
-- **GFF3 Specification v1.26** (Sequence Ontology Project, Lincoln Stein, 2020)
-- **UCSC Genome Browser Format Guide**
+## 2. Scientific / Formal Basis
 
-### File Structure
+### 2.1 Domain Context
 
-GFF/GTF files are nine-column, tab-delimited plain text files.
+GFF and GTF are nine-column annotation formats used to describe genes, transcripts, exons, CDS features, and related genome annotations.[1][2][4] Coordinates are 1-based and fully closed, so a feature spans both `start` and `end`.[1][2] Column 9 stores attributes, but the encoding differs between GFF3 (`key=value`) and GTF (`key "value"`).[1][4]
 
-```
+### 2.2 Core Model
+
+The shared nine-column row layout is:[1][2][4]
+
+```text
 seqid  source  type  start  end  score  strand  phase  attributes
 ```
 
-### Column Definitions
+Column definitions preserved from the current document are:
 
 | Column | Name | Type | Description |
 |--------|------|------|-------------|
-| 1 | seqid | string | Chromosome/scaffold identifier |
-| 2 | source | string | Program/database that generated the feature |
-| 3 | type | string | Feature type (gene, mRNA, exon, CDS, etc.) |
-| 4 | start | int | 1-based start position |
-| 5 | end | int | 1-based end position (inclusive) |
-| 6 | score | float? | Confidence score; "." if undefined |
-| 7 | strand | char | +, -, ., or ? |
-| 8 | phase | int? | 0, 1, 2 for CDS; "." otherwise |
-| 9 | attributes | dict | Key-value pairs |
+| 1 | `seqid` | string | Chromosome or scaffold identifier |
+| 2 | `source` | string | Generating program or database |
+| 3 | `type` | string | Feature type such as `gene`, `mRNA`, `exon`, or `CDS` |
+| 4 | `start` | int | 1-based start position |
+| 5 | `end` | int | 1-based end position, inclusive |
+| 6 | `score` | float? | Confidence score, or `.` when undefined |
+| 7 | `strand` | char | `+`, `-`, `.`, or `?` |
+| 8 | `phase` | int? | `0`, `1`, `2`, or `.` |
+| 9 | `attributes` | dict | Key-value attributes |
 
-### Coordinate System
+Attribute encodings preserved from the current document are:
 
-- **1-based, fully closed** [start, end]
-- Start is always ≤ end
-- Zero-length features: start equals end
+| Format | Syntax | Example |
+|--------|--------|---------|
+| GFF3 | `key=value;key=value` | `ID=gene00001;Name=EDEN;Parent=transcript001` |
+| GTF | `key "value"; key "value";` | `gene_id "ENSG00001"; gene_name "TestGene";` |
 
-### Attribute Formats
-
-**GFF3:** `key=value;key=value`
-```
-ID=gene00001;Name=EDEN;Parent=transcript001
-```
-
-**GTF:** `key "value"; key "value";`
-```
-gene_id "ENSG00001"; gene_name "TestGene";
-```
-
-### URL Escaping (RFC 3986)
-
-Reserved characters must be percent-encoded:
+Reserved-character encodings from the current document are:[1]
 
 | Character | Encoding |
 |-----------|----------|
-| Tab | %09 |
-| Newline | %0A |
-| Carriage Return | %0D |
-| % | %25 |
-| ; | %3B |
-| = | %3D |
-| & | %26 |
-| , | %2C |
+| Tab | `%09` |
+| Newline | `%0A` |
+| Carriage Return | `%0D` |
+| `%` | `%25` |
+| `;` | `%3B` |
+| `=` | `%3D` |
+| `&` | `%26` |
+| `,` | `%2C` |
 
-## Implementation
+### 2.4 Properties and Invariants
 
-### Class: `GffParser`
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | GFF/GTF coordinates are 1-based and fully closed | Format specifications define inclusive coordinates.[1][2][4] |
+| INV-02 | `start <= end` for valid features | The formats represent closed intervals.[1][2] |
+| INV-03 | `phase` is meaningful for CDS and is one of `0`, `1`, `2`, or `.` | Phase semantics are part of the column-8 definition.[1][4] |
+| INV-04 | Reserved characters in GFF3 attributes are percent-encoded | GFF3 attribute escaping follows the specification's URL-escape model.[1] |
 
-**Namespace:** `Seqeron.Genomics.IO`
+## 3. Contract
 
-### Data Structures
+### 3.1 Inputs and Parameters
 
-```csharp
-public readonly record struct GffRecord(
-    string Seqid,
-    string Source,
-    string Type,
-    int Start,
-    int End,
-    double? Score,
-    char Strand,
-    int? Phase,
-    IReadOnlyDictionary<string, string> Attributes);
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `filePath` | `string` | required | Path passed to `ParseFile(...)` | Missing or empty paths yield no records |
+| `content` | `string` | required | GFF or GTF text passed to `Parse(...)` | Null or empty input yields no records |
+| `reader` | `TextReader` | required | Reader passed to `Parse(...)` | Parsed line by line |
+| `format` | `GffParser.GffFormat` | `Auto` | Selected annotation dialect | `Auto` only uses `##gff-version` and otherwise falls back to GFF3 |
+| `records` | `IEnumerable<GffRecord>` | required | Parsed records used by filter, model, and merge helpers | Enumeration may be materialized internally |
 
-public enum GffFormat { GFF3, GTF, GFF2, Auto }
-```
+### 3.2 Output / Return Value
 
-### Core Methods
+| Field | Type | Description |
+|-------|------|-------------|
+| `Seqid` | `string` | Sequence or chromosome identifier |
+| `Source` | `string` | Source column |
+| `Type` | `string` | Feature type |
+| `Start` / `End` | `int` | 1-based inclusive coordinates |
+| `Score` | `double?` | Optional numeric score |
+| `Strand` | `char` | Strand symbol |
+| `Phase` | `int?` | Optional CDS phase |
+| `Attributes` | `IReadOnlyDictionary<string, string>` | Parsed attributes |
+| `GeneModel` | `GeneModel` | Aggregated gene, transcript, exon, CDS, and UTR collections |
 
-| Method | Description |
-|--------|-------------|
-| `Parse(string content, GffFormat)` | Parse GFF records from text content |
-| `Parse(TextReader reader, GffFormat)` | Parse GFF records from a stream |
-| `ParseFile(string filePath, GffFormat)` | Parse GFF records from a file |
+### 3.3 Preconditions and Validation
 
-### Filtering Methods
+The parser skips blank lines, `##` directives, and `#` comment lines. A data line is rejected when it has fewer than 8 tab-separated fields, or when `start` or `end` cannot be parsed as integers. A `.` score becomes `null`, and a `.` phase becomes `null`. Attributes are parsed only when column 9 is present; otherwise the record receives an empty attribute dictionary.
 
-| Method | Description |
-|--------|-------------|
-| `FilterByType(records, types[])` | Filter by feature type (case-insensitive) |
-| `FilterBySeqid(records, seqid)` | Filter by sequence ID |
-| `FilterByRegion(records, seqid, start, end)` | Filter by genomic region overlap |
-| `GetGenes(records)` | Get all gene features |
-| `GetExons(records)` | Get all exon features |
-| `GetCDS(records)` | Get all CDS features |
+## 4. Algorithm
 
-### Gene Model Building
+### 4.1 High-Level Steps
 
-```csharp
-public readonly record struct GeneModel(
-    GffRecord Gene,
-    IReadOnlyList<GffRecord> Transcripts,
-    IReadOnlyList<GffRecord> Exons,
-    IReadOnlyList<GffRecord> CDS,
-    IReadOnlyList<GffRecord> UTRs);
-```
+1. Read the input line by line.
+2. Skip blank lines and comments.
+3. In `Auto` mode, inspect `##gff-version` directives when present.
+4. Split each data row on tabs and parse columns 1 through 8.
+5. Parse attributes according to the resolved format.
+6. Yield `GffRecord` values and expose filtering, gene-model, writing, extraction, and merge helpers.
 
-| Method | Description |
-|--------|-------------|
-| `BuildGeneModels(records)` | Build hierarchical gene→transcript→exon/CDS models |
-| `GetGeneName(record)` | Extract gene name from attributes |
-| `GetAttribute(record, name)` | Get specific attribute value |
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-### Statistics
+The repository uses these attribute-parsing rules:
 
-```csharp
-public readonly record struct GffStatistics(
-    int TotalFeatures,
-    IReadOnlyDictionary<string, int> FeatureTypeCounts,
-    IReadOnlyList<string> SequenceIds,
-    IReadOnlyList<string> Sources,
-    int GeneCount,
-    int ExonCount);
-```
+| Format | Parsing rule |
+|--------|--------------|
+| GFF3 | Split on `;`, then split each part on the first `=`, and URL-unescape keys and values |
+| GTF | Split on `;`, trim each part, split on the first space, and strip surrounding quotes from the value |
+| GFF2 | Reuses the non-GTF branch in the implementation |
 
-### Writing Methods
+Gene-model construction follows the hierarchy encoded in `ID` and `Parent` attributes. The implementation groups top-level `gene` records, collects direct transcript-like children of types `mRNA`, `transcript`, or `ncRNA`, and then collects transcript children whose types are `exon`, `CDS`, or contain `utr`.
 
-| Method | Description |
-|--------|-------------|
-| `WriteToFile(filePath, records, format)` | Write records to file |
-| `WriteToStream(writer, records, format)` | Write records to stream |
+### 4.3 Complexity
 
-### Utility Methods
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `Parse` / `ParseFile` | `O(n)` | `O(n)` | Linear scan over annotation rows |
+| `FilterByType` / `FilterByRegion` | `O(n)` | `O(m)` | `m` = number of matches |
+| `BuildGeneModels` | `O(n)` | `O(n)` | Internal indexing by `ID` and `Parent` |
+| `MergeOverlapping` | `O(n log n)` | `O(n)` | Dominated by sorting |
 
-| Method | Description |
-|--------|-------------|
-| `ExtractSequence(record, reference)` | Extract sequence for a feature |
-| `MergeOverlapping(records)` | Merge overlapping features |
+## 5. Implementation Notes
 
-## Algorithm Details
+### 5.1 Location and Entry Points
 
-### Format Auto-Detection
+**Implementation location:** [GffParser.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/GffParser.cs)
 
-1. Scan for `##gff-version` directive
-2. If contains "3" → GFF3
-3. Otherwise → GFF2
-4. Attribute format (key=value vs key "value") determines GFF3 vs GTF
+- `GffParser.ParseFile(string, GffFormat)`, `Parse(string, GffFormat)`, and `Parse(TextReader, GffFormat)`: Parse GFF, GTF, or GFF2-like records.
+- `GffParser.FilterByType(...)`, `FilterBySeqid(...)`, `FilterByRegion(...)`, `GetGenes(...)`, `GetExons(...)`, `GetCDS(...)`: Filtering helpers.
+- `GffParser.BuildGeneModels(...)`, `GetAttribute(...)`, `GetGeneName(...)`: Hierarchy and attribute helpers.
+- `GffParser.CalculateStatistics(...)`, `WriteToStream(...)`, `WriteToFile(...)`: Statistics and output helpers.
+- `GffParser.ExtractSequence(...)`, `MergeOverlapping(...)`: Sequence extraction and interval merge helpers.
 
-### Line Parsing
+### 5.2 Current Behavior
 
-```
-1. Skip empty lines
-2. Skip comment lines (# prefix)
-3. Process directives (## prefix)
-4. Split line by tabs
-5. Validate minimum 8 fields
-6. Parse columns 1-8
-7. Parse column 9 attributes based on format
-8. Return GffRecord
-```
+`Auto` format detection only inspects the `##gff-version` directive. If that directive is absent, the implementation still parses rows as GFF3; it does not infer GTF from the attribute syntax. `ParseLine(...)` accepts eight-column rows and attaches an empty attribute dictionary when column 9 is missing. `BuildGeneModels(...)` recognizes `gene`, `mRNA`, `transcript`, and `ncRNA` as transcript-bearing hierarchy anchors and treats any feature type containing `utr` as a UTR. When a child record lists multiple `Parent` IDs, the same child record is attached under each referenced parent. `WriteToStream(...)` emits `##gff-version 3` only for GFF3 output and formats GTF attributes with trailing semicolons.
 
-### Attribute Parsing
+### 5.3 Conformance to Theory / Spec
 
-**GFF3 Algorithm:**
-```
-1. Split by ';'
-2. For each part:
-   a. Find first '='
-   b. key = part[0..=]
-   c. value = part[=+1..end]
-   d. URL-unescape both
-```
+**Implemented (verbatim from the cited theory/spec):**
 
-**GTF Algorithm:**
-```
-1. Split by ';'
-2. For each part:
-   a. Trim whitespace
-   b. Find first space
-   c. key = part[0..space]
-   d. value = part[space+1..end].Trim('"')
-```
+- Nine-column GFF/GTF row parsing with 1-based inclusive coordinates.[1][2][4]
+- GFF3 attribute escaping and GTF quoted-attribute parsing.[1][4]
+- Feature-level sequence extraction using the parsed interval and strand.
 
-### Gene Model Building
+**Intentionally simplified:**
 
-1. Index all records by ID and Parent attributes
-2. Identify top-level genes (type="gene")
-3. For each gene:
-   - Find direct children by Parent reference
-   - Classify children as transcript, exon, CDS, UTR
-   - For transcripts, recursively find their children
-4. Return GeneModel with hierarchical structure
+- `Auto` detection only consults `##gff-version`; **consequence:** GTF inputs must be selected explicitly when they lack that directive.
+- Gene-model construction recognizes a limited hierarchy of transcript, exon, CDS, and UTR feature types; **consequence:** richer ontologies remain available only as raw `GffRecord` rows.
 
-## Complexity
+**Not implemented:**
 
-| Operation | Time Complexity | Space Complexity |
-|-----------|-----------------|------------------|
-| Parse | O(n) | O(n) |
-| FilterByType | O(n) | O(m) where m = matched |
-| FilterByRegion | O(n) | O(m) |
-| BuildGeneModels | O(n) | O(n) |
-| MergeOverlapping | O(n log n) | O(n) |
+- Preservation of original directives, comments, and full metadata during round-trip writing; **users should rely on:** no current alternative in this repository.
 
-## References
+## 6. Edge Cases and Limitations
 
-1. **GFF3 Specification v1.26** - Sequence Ontology Project
-   https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+### 6.1 Edge Cases
 
-2. **UCSC Genome Browser FAQ - GFF Format**
-   https://genome.ucsc.edu/FAQ/FAQformat.html
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty or null input | Returns no records | Explicit early-return guards |
+| Directive or comment lines | Skipped | Parser ignores non-data lines |
+| Row with fewer than 8 columns | Skipped | Minimum structural validation |
+| `.` score or phase | Stored as `null` | Repository normalization behavior |
+| Multiple `Parent` IDs | Child record is attached to each parent | Hierarchy builder splits comma-separated parents |
 
-3. **Wikipedia - General Feature Format**
-   https://en.wikipedia.org/wiki/General_feature_format
+### 6.2 Limitations
 
-4. **GTF2.2 Specification** - Washington University
-   http://mblab.wustl.edu/GTF22.html
+The parser focuses on core row parsing and practical annotation utilities. Auto-detection is conservative, gene-model construction covers a restricted feature hierarchy, and the writer does not preserve comments or directives beyond the generated GFF3 header.
+
+## 7. Examples and Related Material
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [GffParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GffParserTests.cs)
+- Related tests: [GffParseTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/GffParseTests.cs), [GenomeAnnotator_GFF3_Tests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GFF3_Tests.cs)
+- Test specification: [PARSE-GFF-001.md](../../../tests/TestSpecs/PARSE-GFF-001.md)
+
+## 8. References
+
+1. Sequence Ontology Project. GFF3 Specification v1.26. https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+2. UCSC Genome Browser. GFF format FAQ. https://genome.ucsc.edu/FAQ/FAQformat.html
+3. Wikipedia contributors. General Feature Format. Wikipedia. https://en.wikipedia.org/wiki/General_feature_format
+4. Washington University. GTF2.2 Specification. http://mblab.wustl.edu/GTF22.html

@@ -1,193 +1,177 @@
-# Algorithm: Guide RNA Design
+# Guide RNA Design
 
-## Algorithm Group
-**MolTools** (Molecular Biology Tools)
+| Field | Value |
+|-------|-------|
+| Algorithm Group | MolTools |
+| Test Unit ID | CRISPR-GUIDE-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
-## Test Unit ID
-CRISPR-GUIDE-001
+## 1. Overview
 
-## Overview
-Guide RNA (gRNA/sgRNA) design algorithms for CRISPR-Cas genome editing. These methods evaluate and design optimal single guide RNAs based on sequence composition metrics that correlate with editing efficiency and specificity.
+Guide RNA (gRNA/sgRNA) design in this repository evaluates and generates CRISPR guide candidates using sequence-composition metrics that are intended to correlate with editing efficiency and specificity. The design surface combines PAM-based candidate extraction with a score-based evaluation over GC content, poly-T content, seed-region GC, self-complementarity, and common restriction-site presence. The resulting score is a heuristic quality measure rather than a learned or experimentally calibrated predictor.
 
-## Canonical Methods
-- `CrisprDesigner.DesignGuideRnas(DnaSequence, int, int, CrisprSystemType, GuideRnaParameters?)` - Design guide RNAs in a target region
-- `CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)` - Evaluate a guide RNA sequence for quality
+## 2. Scientific / Formal Basis
 
-## Theoretical Foundation
+### 2.1 Domain Context
 
-### Guide RNA Structure
-A single guide RNA (sgRNA) consists of:
-1. **Spacer Sequence**: ~20 nucleotides at the 5' end that determine targeting specificity
-2. **Scaffold Sequence**: Constant region required for Cas9 binding (tracrRNA-derived)
+An sgRNA consists of a spacer sequence that determines targeting specificity plus a scaffold sequence required for Cas binding. The original document cites Addgene for the canonical spacer-plus-scaffold structure and for the requirement that the target lie adjacent to a valid PAM. The same document also cites GC content, seed-region composition, and poly-T avoidance as practical guide-quality factors. Sources: Addgene CRISPR Guide, Wikipedia (Guide RNA, CRISPR gene editing, Protospacer adjacent motif).
 
-**Source**: Addgene CRISPR Guide - "The gRNA is a short synthetic RNA composed of a scaffold sequence necessary for Cas-binding and a user-defined ∼20-nucleotide spacer that defines the genomic target to be modified."
+### 2.2 Core Model
 
-### Key Quality Metrics
+Guide candidates are extracted from PAM sites in a target region and scored from a base score of `100` with the following deductions preserved from the original document and confirmed in source:
 
-#### 1. GC Content (40-70% optimal)
-Higher GC content enhances RNA-DNA duplex stability and reduces off-target hybridization. However, extremely high GC can cause secondary structures.
+| Rule | Deduction |
+|------|-----------|
+| GC below `MinGcContent` | `(MinGcContent - actual) × 2` |
+| GC above `MaxGcContent` | `(actual - MaxGcContent) × 2` |
+| Contains `TTTT` | `20` |
+| Self-complementarity above `0.3` | `selfComplementarity × 30` |
+| Seed-region GC outside `30-80%` | `5` |
+| Common restriction site detected | `5` |
 
-**Source**: Wikipedia Guide RNA - "The GC content of sgRNA should optimally be over 50% to improve the efficiency of targeting"
+The seed region is defined as the last 10 nucleotides for PAM-after-target systems and the first 10 nucleotides for PAM-before-target systems. The final score is clamped to `>= 0`.
 
-**Implementation**: Scoring penalizes guides outside 40-70% GC range.
+### 2.4 Properties and Invariants
 
-#### 2. Poly-T Sequences (TTTT/UUUU)
-Poly-T stretches of 4+ bases act as Pol III termination signals and must be avoided.
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | Guide scores are bounded below by `0` | `EvaluateGuideRna(...)` applies `Math.Max(0, score)` |
+| INV-02 | `DesignGuideRnas(...)` yields only candidates with `Score >= MinScore` | The source filters candidates against `effectiveParams.MinScore` |
+| INV-03 | The seed-region GC uses 10 nt at the PAM-proximal end chosen by system orientation | The source uses the last 10 bases for PAM-after-target systems and the first 10 for PAM-before-target systems |
+| INV-04 | `FullGuideRna` appends a fixed scaffold to `Sequence` | `GuideRnaCandidate.FullGuideRna` is a derived property in source |
 
-**Source**: Addgene - RNA polymerase III terminates at poly-T sequences, prematurely ending gRNA transcription.
+## 3. Contract
 
-**Implementation**: Detection of TTTT results in score penalty and issue flagging.
+### 3.1 Inputs and Parameters
 
-#### 3. Seed Region GC Content
-The seed sequence (last 8-12 nucleotides at 3' end) initiates target annealing. Seed region GC affects binding initiation.
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `[DesignGuideRnas] sequence` | `DnaSequence` | required | Target DNA sequence containing the region of interest | Null input throws `ArgumentNullException` |
+| `[DesignGuideRnas] regionStart` | `int` | required | Start of the target region | Must be `>= 0` and `< sequence.Length` |
+| `[DesignGuideRnas] regionEnd` | `int` | required | End of the target region | Must be `>= regionStart` and `< sequence.Length` |
+| `[DesignGuideRnas/EvaluateGuideRna] systemType` | `CrisprSystemType` | `SpCas9` | CRISPR system definition used for guide length and seed orientation | Must resolve through `CrisprDesigner.GetSystem(...)` |
+| `[DesignGuideRnas/EvaluateGuideRna] parameters` | `GuideRnaParameters?` | `GuideRnaParameters.Default` | Optional design thresholds | Defaults are `MinGcContent = 40`, `MaxGcContent = 70`, `MinScore = 50`, `AvoidPolyT = true`, `CheckSelfComplementarity = true`; the two boolean flags are stored in the current parameter record but not honored by the scoring path |
+| `[EvaluateGuideRna] guideSequence` | `string` | required | Guide sequence to score | Null or empty throws `ArgumentNullException` |
 
-**Source**: Addgene CRISPR Guide - "the seed sequence (8–10 bases at the 3′ end of the gRNA targeting sequence) will begin to anneal to the target DNA"
+### 3.2 Output / Return Value
 
-**Implementation**: Calculates GC% of last 10 nucleotides separately (Addgene evidence: 8–10bp; using upper bound).
-
-#### 4. Self-Complementarity
-Internal secondary structures reduce guide efficacy by sequestering the spacer sequence.
-
-**Implementation**: Checks for potential stem-loop formation within the guide.
-
-#### 5. Restriction Sites (Optional)
-Common restriction sites in the guide can complicate cloning workflows.
-
-**Implementation**: Optional detection of common 6-cutter recognition sequences.
-
-### PAM Requirement
-Guides are designed upstream of PAM sites. The DesignGuideRnas method identifies PAM sites in the target region and extracts the 20bp upstream sequence as guide candidates.
-
-**Source**: Addgene - "The genomic target of the gRNA can be any ~20 nucleotide sequence, provided it meets two conditions: The sequence is unique compared to the rest of the genome [and] The target is present immediately adjacent to a Protospacer Adjacent Motif (PAM)"
-
-## Algorithm Complexity
-- `DesignGuideRnas`: O(n) where n is the target region length
-- `EvaluateGuideRna`: O(k²) where k is guide length (due to self-complementarity check)
-
-## Input Parameters
-
-### EvaluateGuideRna
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| guide | string | 20bp guide sequence to evaluate |
-| systemType | CrisprSystemType | CRISPR system (SpCas9, SaCas9, etc.) |
-| parameters | GuideRnaParameters? | Optional custom parameters |
-
-### DesignGuideRnas
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| sequence | DnaSequence | Target DNA sequence |
-| regionStart | int | Start of target region (0-indexed) |
-| regionEnd | int | End of target region (0-indexed, exclusive) |
-| systemType | CrisprSystemType | CRISPR system type |
-| parameters | GuideRnaParameters? | Optional custom parameters |
-
-### GuideRnaParameters
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| MinGcContent | 40 | Minimum acceptable GC% |
-| MaxGcContent | 70 | Maximum acceptable GC% |
-| MinScore | 50 | Minimum score threshold |
-| AvoidPolyT | true | Penalize TTTT sequences |
-| CheckSelfComplementarity | true | Check for internal structures |
-
-## Output
-
-### GuideRnaCandidate Record
 | Field | Type | Description |
 |-------|------|-------------|
-| Sequence | string | 20bp guide sequence |
-| Position | int | Position in source sequence |
-| GcContent | double | Overall GC percentage |
-| SeedGcContent | double | GC% of seed region (last 10bp) |
-| HasPolyT | bool | Contains TTTT |
-| Score | double | Composite quality score (0-100) |
-| Issues | IReadOnlyList<string> | Quality concerns |
-| FullGuideRna | string | Guide + scaffold sequence |
+| `Sequence` | `string` | Guide sequence being evaluated |
+| `Position` | `int` | `pamSite.TargetStart` for designed guides and `-1` for standalone evaluation; reverse-strand designed guides currently keep that reverse-complement coordinate rather than a forward-source remap |
+| `IsForwardStrand` | `bool` | Strand orientation for designed candidates |
+| `GcContent` | `double` | Overall GC percentage |
+| `SeedGcContent` | `double` | GC percentage of the seed region |
+| `HasPolyT` | `bool` | Whether the guide contains `TTTT` |
+| `SelfComplementarityScore` | `double` | Internal self-complementarity measure |
+| `Score` | `double` | Composite guide-quality score |
+| `Issues` | `IReadOnlyList<string>` | Human-readable issues recorded during evaluation |
+| `System` | `CrisprSystem` | CRISPR system metadata returned by the current evaluation path; designed guides for systems not explicitly remapped in the helper currently reuse `SpCas9` metadata |
+| `FullGuideRna` | `string` | Guide plus the fixed scaffold sequence |
 
-## Scoring Algorithm
+### 3.3 Preconditions and Validation
 
-### Base Score: 100 points
+`DesignGuideRnas(...)` throws `ArgumentNullException` for a null sequence and `ArgumentOutOfRangeException` when the requested region falls outside the sequence. `EvaluateGuideRna(...)` throws `ArgumentNullException` for null or empty guide strings, uppercases the input, and scores it as given without enforcing a specific guide length. In contrast, `DesignGuideRnas(...)` derives the guide length from the selected CRISPR system's PAM definition and extracted target sequence.
 
-### Deductions:
-1. **GC Content Outside Range**:
-   - Below MinGcContent: -(MinGcContent − actual) × 2 points (proportional)
-   - Above MaxGcContent: -(actual − MaxGcContent) × 2 points (proportional)
+## 4. Algorithm
 
-2. **Poly-T Detection**:
-   - Contains TTTT: -20 points
+### 4.1 High-Level Steps
 
-3. **Self-Complementarity**:
-   - score × 30 deducted when self-complementarity > 0.3 threshold (up to ~30 points)
+1. Resolve the CRISPR system into its PAM pattern, guide length, and orientation.
+2. Find PAM sites in the requested region.
+3. Extract each candidate guide sequence from the PAM-adjacent target interval.
+4. Compute GC content, seed-region GC, poly-T presence, self-complementarity, and restriction-site presence.
+5. Apply the heuristic score deductions from a base score of `100`.
+6. Yield only candidates whose score meets the configured minimum threshold.
 
-4. **Seed Region GC**:
-   - Seed GC outside 30-80%: -5 points
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-5. **Restriction Sites**:
-   - Common restriction site detected: -5 points
+Guide-design defaults confirmed in source:
 
-## Edge Cases
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `MinGcContent` | `40` | Minimum acceptable GC percentage |
+| `MaxGcContent` | `70` | Maximum acceptable GC percentage |
+| `MinScore` | `50` | Minimum score for `DesignGuideRnas(...)` output |
+| `AvoidPolyT` | `true` | Stored in the current parameter record, but the `TTTT` penalty is still applied even when the flag is `false` |
+| `CheckSelfComplementarity` | `true` | Stored in the current parameter record, but self-complementarity penalties are still applied even when the flag is `false` |
 
-### Documented in Evidence
-1. **Empty guide sequence**: Throws ArgumentNullException
-2. **Null sequence for DesignGuideRnas**: Throws ArgumentNullException
-3. **Region start < 0**: Throws ArgumentOutOfRangeException
-4. **Region end > sequence length**: Throws ArgumentOutOfRangeException
-5. **Guide length ≠ 20**: Accepted and scored naturally; 20bp is standard per sources (Wikipedia: 17–24bp range). Non-standard lengths are not rejected but receive scores reflecting their composition.
+### 4.3 Complexity
 
-### Biological Edge Cases
-1. **All-A guide (0% GC)**: Valid but low score, issues reported
-2. **All-G/C guide (100% GC)**: Valid but low score, issues reported
-3. **Guide with TTTT in middle**: Detected, penalized
-4. **Guide with TTTT at boundary**: Detected if 4+ consecutive T's
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `DesignGuideRnas` | `O(n)` | `O(k)` | The original document describes linear-time design over the target region |
+| `EvaluateGuideRna` | `O(k)` | `O(1)` | The current source performs linear scans over guide length `k` for GC, seed, and self-complementarity checks |
 
-## Evidence Sources
+## 5. Implementation Notes
 
-### Primary Sources
-1. **Addgene CRISPR Guide** (https://www.addgene.org/guides/crispr/)
-   - Authoritative resource from nonprofit plasmid repository
-   - Details on gRNA structure, PAM requirements, seed sequence
+### 5.1 Location and Entry Points
 
-2. **Wikipedia: Guide RNA** (https://en.wikipedia.org/wiki/Guide_RNA)
-   - GC content >50% optimal
-   - Length typically 17-24bp with 20bp standard
+**Implementation location:** [CrisprDesigner.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.MolTools/CrisprDesigner.cs)
 
-3. **Wikipedia: CRISPR gene editing** (https://en.wikipedia.org/wiki/CRISPR_gene_editing)
-   - SpCas9 PAM is 5'-NGG-3'
-   - Target sequence is 20 bases long
+- `CrisprDesigner.DesignGuideRnas(DnaSequence, int, int, CrisprSystemType, GuideRnaParameters?)`: Generates and filters guide candidates from PAM sites in a target region.
+- `CrisprDesigner.EvaluateGuideRna(string, CrisprSystemType, GuideRnaParameters?)`: Scores a guide sequence with composition-based heuristics.
+- `GuideRnaParameters.Default`: Provides the default GC and score thresholds.
 
-4. **Wikipedia: Protospacer adjacent motif** (https://en.wikipedia.org/wiki/Protospacer_adjacent_motif)
-   - PAM sequences for different Cas proteins
-   - PAM is required for Cas9 cleavage
+### 5.2 Current Behavior
 
-### Academic References (from Addgene)
-- Doench et al. (2014) "Rational design of highly active sgRNAs" - Nature Biotechnology
-- Hsu et al. (2013) "DNA targeting specificity of RNA-guided Cas9 nucleases" - Nature Biotechnology
+The current implementation matches the documented `40-70%` GC window, penalizes `TTTT` poly-T sequences, uses a 10-base seed region, and reports issues when the seed GC falls outside `30-80%`. `DesignGuideRnas(...)` first filters PAM sites by a cut-site-in-region check and then evaluates the extracted guide. Standalone evaluation accepts non-standard guide lengths and scores them naturally from their composition, while designed guides follow the guide length of the selected CRISPR system for PAM-adjacent extraction. The internal `EvaluateGuideRna(PamSite, ...)` helper remaps only `SpCas9`, `SaCas9`, and `Cas12a/Cpf1` by name, so designed guides for systems such as `SpCas9NAG`, `AsCas12a`, `LbCas12a`, and `CasX` currently reuse `SpCas9` scoring metadata in the returned candidate. The reported `Position` is copied from `pamSite.TargetStart`, which is not remapped back to the original forward-sequence coordinate for reverse-strand designs. The `AvoidPolyT` and `CheckSelfComplementarity` parameter flags are currently passive record fields: the scoring path still applies poly-T and self-complementarity penalties even when those booleans are set to `false`. The derived `FullGuideRna` appends a fixed scaffold sequence to the spacer.
 
-## Implementation Notes
+### 5.3 Conformance to Theory / Spec
 
-### Current Implementation Accuracy
-The implementation aligns with documented guidelines from external sources:
-- ✅ 40-70% GC range matches commonly used thresholds
-- ✅ Poly-T detection (TTTT) correctly identifies Pol III termination signals
-- ✅ Seed region (10bp) matches the upper bound of the Addgene evidence range (8–10bp)
-- ✅ 20bp standard guide length
-- ✅ Scoring uses proportional GC penalty for granular quality differentiation
-- ✅ Scaffold sequence matches widely-used SpCas9 tracrRNA-derived scaffold
+**Implemented (verbatim from the cited theory/spec):**
 
-### Not Implemented
-| Feature | Reason | Source |
-|---------|--------|--------|
-| Position-weighted scoring (Doench rules) | Referenced in our Academic References (Doench et al. 2014) but not implemented — current scoring uses composition-only metrics | Doench et al. (2014) via Addgene |
-| Machine learning-based prediction | Out of scope — requires training data and model infrastructure beyond sequence-level analysis | N/A (general approach) |
-| Chromatin accessibility consideration | Out of scope — in-vivo factor, not determinable from sequence alone | N/A (epigenetic context) |
+- PAM-adjacent guide extraction for supported CRISPR systems.
+- GC-range screening, poly-T detection, seed-region GC evaluation, and self-complementarity checks.
+- A fixed scaffold appended to the designed spacer for `FullGuideRna`.
 
-## Related Test Units
-- **CRISPR-PAM-001**: PAM Site Detection (prerequisite)
-- **CRISPR-OFF-001**: Off-Target Analysis (related)
+**Intentionally simplified:**
 
-## Change History
-| Date | Version | Changes |
-|------|---------|---------|
-| 2025-01-08 | 1.0 | Initial documentation for CRISPR-GUIDE-001 |
-| 2026-03-03 | 2.1 | Fixed stale seed region reference (12bp → 10bp); restored Not Implemented section with honest classification |
+- Scoring is composition-based rather than position-weighted or experimentally fitted; **consequence:** scores are useful for ranking candidates heuristically but do not reproduce models such as Doench-style activity prediction.
+- The seed region is fixed to 10 nt using the upper bound of the cited `8-10` range; **consequence:** guides are evaluated with one fixed PAM-proximal window rather than a variable seed definition.
+- Designed-candidate metadata is only partially system-specific in the current helper path; **consequence:** some named CRISPR systems share `SpCas9` metadata in returned candidates even though guide extraction still follows the selected PAM geometry.
+- `GuideRnaParameters.AvoidPolyT` and `GuideRnaParameters.CheckSelfComplementarity` are not honored by the current scoring path; **consequence:** callers can store those booleans in the parameter record, but they do not disable the corresponding penalties.
+- Restriction-site screening is limited to the common-site check embedded in source; **consequence:** cloning constraints beyond that built-in list are not modeled.
+
+**Not implemented:**
+
+- Position-weighted scoring rules, machine-learning-based efficacy prediction, and chromatin-accessibility modeling; **users should rely on:** downstream experimental validation or external design tools for those features.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty guide sequence | Throws `ArgumentNullException` | Explicit source guard in `EvaluateGuideRna(...)` |
+| Null target sequence | Throws `ArgumentNullException` | Explicit source guard in `DesignGuideRnas(...)` |
+| `regionStart < 0` | Throws `ArgumentOutOfRangeException` | Explicit source guard |
+| `regionEnd` outside sequence bounds | Throws `ArgumentOutOfRangeException` | Explicit source guard |
+| Guide length not equal to 20 bp in standalone evaluation | Accepted and scored naturally | The standalone evaluator does not enforce system length |
+| All-A guide | Valid but low-scoring | GC penalties and issue reporting apply |
+| All-G/C guide | Valid but low-scoring | High-GC penalties and issue reporting apply |
+| Guide containing `TTTT` | Penalized and flagged | Poly-T detection is part of the score |
+
+### 6.2 Limitations
+
+The current guide-design surface does not implement position-weighted efficacy models, machine learning, chromatin context, or genome-wide uniqueness checks. It is a sequence-level heuristic evaluator whose main purpose is to rank or filter candidates rather than to predict editing outcomes directly.
+
+## 7. Examples and Related Material
+
+### 7.2 Applications and Use Cases (Optional)
+
+Related material called out in the original document:
+
+- `CRISPR-PAM-001`: PAM Site Detection (prerequisite).
+- `CRISPR-OFF-001`: Off-Target Analysis (related).
+
+## 8. References
+
+1. Addgene CRISPR Guide. https://www.addgene.org/guides/crispr/
+2. Wikipedia: Guide RNA. https://en.wikipedia.org/wiki/Guide_RNA
+3. Wikipedia: CRISPR gene editing. https://en.wikipedia.org/wiki/CRISPR_gene_editing
+4. Wikipedia: Protospacer adjacent motif. https://en.wikipedia.org/wiki/Protospacer_adjacent_motif
+5. Doench et al. (2014). "Rational design of highly active sgRNAs". Nature Biotechnology.
+6. Hsu et al. (2013). "DNA targeting specificity of RNA-guided Cas9 nucleases". Nature Biotechnology.

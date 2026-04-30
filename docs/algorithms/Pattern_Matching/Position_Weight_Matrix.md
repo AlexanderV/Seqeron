@@ -1,174 +1,177 @@
 # Position Weight Matrix (PWM)
 
-**Algorithm Group:** Pattern Matching
-**Test Unit:** PAT-PWM-001
-**Last Updated:** 2026-03-01
-
----
+| Field | Value |
+|-------|-------|
+| Algorithm Group | Pattern Matching |
+| Test Unit ID | PAT-PWM-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
 ## 1. Overview
 
-A Position Weight Matrix (PWM), also known as Position-Specific Scoring Matrix (PSSM), is a mathematical model representing sequence motifs in biological sequences. PWMs are widely used for identifying transcription factor binding sites and other conserved sequence patterns.
+A Position Weight Matrix (PWM), also called a position-specific scoring matrix, models a conserved motif by storing per-position nucleotide scores. In this repository, PWMs are constructed from aligned DNA sequences using log-odds scores with pseudocount smoothing and scanned across target sequences using a simple threshold test.
 
----
+## 2. Scientific / Formal Basis
 
-## 2. Theory
+### 2.1 Domain Context
 
-### 2.1 Definition (Wikipedia)
+PWMs are a standard representation for transcription factor binding sites and other conserved sequence motifs. They are typically derived from aligned sequences, smoothed with pseudocounts, and scored against candidate windows by summing per-position contributions. Sources preserved from the original document: Wikipedia (Position weight matrix), Kel et al. (2003), Nishida et al. (2008), Rosalind CONS, Stormo (2000).
 
-> A position weight matrix (PWM) is a commonly used representation of motifs
-> (patterns) in biological sequences. PWMs are often derived from a set of aligned
-> sequences that are thought to be functionally related.
+### 2.2 Core Model
 
-### 2.2 Construction Process
+The original document's construction equations apply directly to the implementation:
 
-**Step 1: Position Frequency Matrix (PFM)**
+$$
+PFM_{k,j} = \sum_{i=1}^{N} \mathbf{1}(X_{i,j} = k)
+$$
 
-Count occurrences of each nucleotide at each position:
+$$
+PPM_{k,j} = \frac{PFM_{k,j} + p}{N + |\Sigma| \cdot p}
+$$
 
-$$PFM_{k,j} = \sum_{i=1}^{N} \mathbf{1}(X_{i,j} = k)$$
+$$
+PWM_{k,j} = \log_2\left(\frac{PPM_{k,j}}{b_k}\right)
+$$
 
-Where:
-- N = number of sequences
-- j = position (1 to L, sequence length)
-- k ∈ {A, C, G, T}
+Where `p` is the pseudocount, `|Σ| = 4` for DNA, and the current implementation fixes `b_k = 0.25` for all nucleotides.
 
-**Step 2: Position Probability Matrix (PPM)**
+The sequence score for a window of length `L` is:
 
-Normalize by number of sequences:
+$$
+Score(S) = \sum_{j=1}^{L} PWM_{S_j, j}
+$$
 
-$$PPM_{k,j} = \frac{PFM_{k,j}}{N}$$
+### 2.4 Properties and Invariants
 
-**Step 3: Position Weight Matrix (PWM) with Log-Odds**
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `Length` equals the aligned training-sequence length | `CreatePwm(...)` validates equal sequence lengths before construction |
+| INV-02 | `Consensus` uses the highest-scoring base in each PWM column | `PositionWeightMatrix.GenerateConsensus()` picks the per-column maximum |
+| INV-03 | `MaxScore` and `MinScore` are sums of per-column extrema | The `PositionWeightMatrix` properties aggregate columnwise maxima and minima |
 
-Apply pseudocounts to PFM, normalize, then convert to log-odds:
+## 3. Contract
 
-$$PPM_{k,j} = \frac{PFM_{k,j} + p}{N + |\Sigma| \cdot p}$$
+### 3.1 Inputs and Parameters
 
-$$PWM_{k,j} = \log_2\left(\frac{PPM_{k,j}}{b_k}\right)$$
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `sequences` | `IEnumerable<string>` | required | Aligned DNA training sequences used to build the PWM | Must be non-null, non-empty, equal length, and contain only `A/C/G/T` |
+| `pseudocount` | `double` | `0.25` | Smoothing parameter used during PWM construction | Applied uniformly to all four bases |
+| `sequence` | `DnaSequence` | required | Sequence scanned with an existing PWM | Null input throws `ArgumentNullException` |
+| `pwm` | `PositionWeightMatrix` | required | Matrix used for scoring windows | Null input throws `ArgumentNullException` |
+| `threshold` | `double` | `0.0` | Minimum score required for a reported match | Match condition is `score >= threshold` |
 
-Where:
-- p = pseudocount (configurable, default 0.25)
-- |Σ| = alphabet size (4 for DNA)
-- b_k = background frequency (0.25 for uniform DNA)
+### 3.2 Output / Return Value
 
-### 2.3 Pseudocounts (Nishida et al., 2008)
+| Field | Type | Description |
+|-------|------|-------------|
+| `Matrix` | `double[,]` | Log-odds PWM with 4 rows (`A,C,G,T`) and `Length` columns |
+| `Length` | `int` | Motif width |
+| `Consensus` | `string` | Highest-scoring base per position |
+| `MaxScore` | `double` | Sum of per-column maxima |
+| `MinScore` | `double` | Sum of per-column minima |
+| `MotifMatch` | `MotifMatch` | Scan result with `Position`, `MatchedSequence`, `Pattern = pwm.Consensus`, and `Score` |
 
-> Pseudocounts are often applied when calculating PPMs if based on a small dataset,
-> in order to avoid matrix entries having a value of 0.
+### 3.3 Preconditions and Validation
 
-This prevents -∞ scores for unseen nucleotides. Common pseudocount values:
-- 0.25: Equivalent to adding one observation distributed equally
-- 0.5: More conservative smoothing
-- 1.0: Strong smoothing (Laplace estimator)
+`CreatePwm(...)` throws `ArgumentNullException` when `sequences` is null and `ArgumentException` when the collection is empty, when lengths differ, or when any character is outside `A/C/G/T`. `ScanWithPwm(...)` throws `ArgumentNullException` for null `sequence` or `pwm` and returns no matches when the target sequence is shorter than the PWM length.
 
-### 2.4 Scoring (Wikipedia)
+## 4. Algorithm
 
-> The sequence score can be calculated by adding the relevant values at each
-> position in the PWM. The score gives an indication of how different the sequence
-> is from a random sequence.
+### 4.1 High-Level Steps
 
-$$Score(S) = \sum_{j=1}^{L} PWM_{S_j, j}$$
+1. Uppercase all training sequences.
+2. Validate that at least one sequence is present, all lengths match, and all characters are `A/C/G/T`.
+3. Count nucleotide occurrences at each position.
+4. Apply pseudocount smoothing and convert the resulting frequencies to log-odds scores against a uniform background of `0.25`.
+5. Build a `PositionWeightMatrix` and derive its consensus from the maximum score in each column.
+6. For scanning, slide the PWM across the sequence, sum the per-position scores, and yield matches whose score is at least the threshold.
 
-**Interpretation:**
-- Score = 0: Equal probability as random
-- Score > 0: More likely functional
-- Score < 0: More likely random
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-### 2.5 Properties
+The PWM matrix layout is fixed:
 
-| Property | Description |
-|----------|-------------|
-| Length | Number of positions (width of motif) |
-| Consensus | String with highest-scoring base at each position |
-| MaxScore | Sum of maximum values at each position |
-| MinScore | Sum of minimum values at each position |
-
----
-
-## 3. Complexity
-
-| Operation | Time | Space |
-|-----------|------|-------|
-| CreatePwm | O(N × L) | O(L) |
-| ScanWithPwm | O(S × L) | O(1) per match |
-
-Where:
-- N = number of training sequences
-- L = motif length
-- S = target sequence length
-
----
-
-## 4. Implementation Notes
-
-### 4.1 Current Implementation
-
-The `MotifFinder.CreatePwm()` method implements the standard PWM construction:
-
-```
-1. Validate input sequences (non-empty, equal length)
-2. Count nucleotide frequencies at each position
-3. Apply pseudocounts (default 0.25)
-4. Convert to log-odds with background 0.25
-5. Generate consensus from maximum scores
+```text
+Matrix[4, Length]
+Row 0 = A
+Row 1 = C
+Row 2 = G
+Row 3 = T
 ```
 
-### 4.2 Matrix Layout
+`ScanWithPwm(...)` marks a window invalid if any scanned character maps to a negative base index, although `DnaSequence` input normally limits the alphabet to `A/C/G/T`.
 
-```
-Matrix[4, Length] where:
-  Row 0 = A scores
-  Row 1 = C scores
-  Row 2 = G scores
-  Row 3 = T scores
-```
+### 4.3 Complexity
 
-### 4.3 Scanning Behavior
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `CreatePwm` | `O(N × L)` | `O(L)` auxiliary beyond the `4 × L` matrix | `N` aligned sequences of length `L` |
+| `ScanWithPwm` | `O(S × L)` | `O(1)` auxiliary per window | `S` is target sequence length |
 
-The `MotifFinder.ScanWithPwm()` method:
-- Slides PWM along sequence
-- Computes sum of position scores
-- Returns matches where score ≥ threshold
-- Input is `DnaSequence` which guarantees only A,C,G,T
+## 5. Implementation Notes
 
-### 4.4 Edge Cases
+### 5.1 Location and Entry Points
 
-| Case | Behavior |
-|------|----------|
-| Empty input | ArgumentException |
-| Unequal lengths | ArgumentException |
-| Single sequence | Valid PWM with high confidence |
-| Non-ACGT in training | ArgumentException (strict validation) |
-| Sequence shorter than PWM | No matches (empty result) |
+**Implementation location:** [MotifFinder.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/MotifFinder.cs)
 
----
+- `MotifFinder.CreatePwm(IEnumerable<string>, double)`: Builds a DNA PWM.
+- `MotifFinder.ScanWithPwm(DnaSequence, PositionWeightMatrix, double)`: Scores each sequence window against the PWM.
+- `PositionWeightMatrix`: Holds `Matrix`, `Length`, `Consensus`, `MaxScore`, and `MinScore`.
 
-## 5. Sources
+### 5.2 Current Behavior
 
-| Source | Reference |
-|--------|-----------|
-| Wikipedia | https://en.wikipedia.org/wiki/Position_weight_matrix |
-| Kel et al. (2003) | MATCH: A tool for searching TF binding sites. Nucleic Acids Res. 31(13):3576-3579 |
-| Nishida et al. (2008) | Pseudocounts for transcription factor binding sites. Nucleic Acids Res. 37(3):939-944 |
-| Rosalind | https://rosalind.info/problems/cons/ (Consensus and Profile) |
-| Stormo (2000) | DNA binding sites: representation and discovery. Bioinformatics Review |
+`CreatePwm(...)` uppercases all training sequences, uses a default pseudocount of `0.25`, and always computes log-odds scores against a uniform background frequency of `0.25`. `ScanWithPwm(...)` reports matches whose score is greater than or equal to the threshold and uses the PWM consensus as the `Pattern` field in returned `MotifMatch` values.
 
----
+### 5.3 Conformance to Theory / Spec
 
-## 6. Related Algorithms
+**Implemented (verbatim from the cited theory/spec):**
 
-- **Consensus Sequence:** Simplified motif representation (single character per position)
-- **Hidden Markov Models:** Extension with insertion/deletion probabilities (Pfam)
-- **IUPAC Degenerate Matching:** Pattern matching with ambiguity codes
-- **Information Content:** Measure of PWM specificity
+- PWM construction from aligned sequences.
+- Pseudocount smoothing before log-odds conversion.
+- Window scoring by summing per-position PWM values.
 
----
+**Intentionally simplified:**
 
-## 7. Contracts
+- The background distribution is fixed at `0.25` for each DNA base; **consequence:** callers cannot model GC-biased or otherwise nonuniform backgrounds.
+- The implementation is DNA-specific with four matrix rows; **consequence:** it does not directly support protein alphabets or other symbol sets.
 
-| ID | Contract | Source |
-|----|----------|--------|
-| C1 | Background frequency = 0.25 per base | Wikipedia: "0.25 for nucleotides" |
-| C2 | Pseudocount configurable (default 0.25) | API parameter |
-| C3 | Non-ACGT in training → ArgumentException | Strict validation |
+**Not implemented:**
+
+- Insertions, deletions, or profile-HMM style state transitions; **users should rely on:** other motif models if gap-aware scoring is required.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty training set | Throws `ArgumentException` | At least one aligned sequence is required |
+| Unequal training-sequence lengths | Throws `ArgumentException` | PWM columns require alignment |
+| Non-ACGT training character | Throws `ArgumentException` | Source performs strict validation |
+| Single training sequence | Produces a valid PWM | The implementation permits `Count = 1` |
+| Sequence shorter than PWM | Returns no matches | The scan loop does not execute |
+
+### 6.2 Limitations
+
+The current implementation assumes a uniform DNA background and does not expose alternative alphabets or richer probabilistic motif models. It also returns raw PWM scores without converting them to calibrated probabilities or p-values.
+
+## 7. Examples and Related Material
+
+### 7.1 Worked Example
+
+**Numerical / biological walk-through (optional):**
+
+The original document highlights these related motif representations and alternatives:
+
+- Consensus sequence: one best character per column.
+- IUPAC degenerate matching: ambiguity-code pattern matching without weighted scores.
+- Hidden Markov Models: extension with insertion and deletion probabilities.
+
+## 8. References
+
+1. Wikipedia contributors. "Position weight matrix." *Wikipedia, The Free Encyclopedia*. https://en.wikipedia.org/wiki/Position_weight_matrix
+2. Kel, A.E. et al. (2003). "MATCH: A tool for searching transcription factor binding sites." *Nucleic Acids Research* 31(13):3576-3579.
+3. Nishida, K.; Frith, M.C.; Nakai, K. (2008). "Pseudocounts for transcription factor binding sites." *Nucleic Acids Research* 37(3):939-944.
+4. Rosalind. "Consensus and Profile." https://rosalind.info/problems/cons/
+5. Stormo, G.D. (2000). "DNA binding sites: representation and discovery." *Bioinformatics* review article.

@@ -1,179 +1,197 @@
 # BED Format Parsing
 
-**Algorithm Group:** FileIO  
-**Test Unit:** PARSE-BED-001
+| Field | Value |
+|-------|-------|
+| Algorithm Group | FileIO |
+| Test Unit ID | PARSE-BED-001 |
+| Related Projects | N/A |
+| Implementation Status | Simplified |
+| Last Reviewed | 2026-04-30 |
 
----
+## 1. Overview
 
-## Overview
+BED parsing reads tab-delimited genomic interval records whose required core is `chrom`, `chromStart`, and `chromEnd`.[1][2] In this repository, `BedParser` parses BED text, files, and readers; supports common BED3, BED4, BED5, BED6, and BED12 layouts; and exposes interval filtering, merging, intersection, subtraction, block expansion, statistics, and writing helpers. The coordinate model is the UCSC BED convention: `chromStart` is 0-based and `chromEnd` is non-inclusive.[1] The implementation is simplified relative to the full BED ecosystem because it focuses on standard text BED records and selected BED12 consistency checks rather than full UCSC toolchain compatibility.[1][2]
 
-BED (Browser Extensible Data) is a text-based format for storing genomic regions as coordinates with optional annotations. Developed during the Human Genome Project, it has become a de facto standard in bioinformatics.
+## 2. Scientific / Formal Basis
 
----
+### 2.1 Domain Context
 
-## Format Specification
+BED (Browser Extensible Data) is a plain-text interval format used to describe genomic regions for browsers, annotations, and interval analysis.[1][2] The format requires three columns and defines additional optional columns up to BED12.[1] Coordinates are 0-based and half-open, so a feature length is `chromEnd - chromStart`.[1]
 
-### Column Structure
+### 2.2 Core Model
+
+Standard BED columns are:[1][2]
 
 | Column | Field | Required | Description |
 |--------|-------|----------|-------------|
-| 1 | chrom | Yes | Chromosome or scaffold name |
-| 2 | chromStart | Yes | Start position (0-based) |
-| 3 | chromEnd | Yes | End position (non-inclusive) |
-| 4 | name | No | Feature name |
-| 5 | score | No | Score 0-1000 |
-| 6 | strand | No | +, -, or . |
-| 7 | thickStart | No | CDS start |
-| 8 | thickEnd | No | CDS end |
-| 9 | itemRgb | No | RGB color |
-| 10 | blockCount | No | Number of exons |
-| 11 | blockSizes | No | Comma-separated block sizes |
-| 12 | blockStarts | No | Comma-separated block starts |
+| 1 | `chrom` | Yes | Chromosome or scaffold name |
+| 2 | `chromStart` | Yes | 0-based start position |
+| 3 | `chromEnd` | Yes | Non-inclusive end position |
+| 4 | `name` | No | Feature name |
+| 5 | `score` | No | Score in the range `0..1000` |
+| 6 | `strand` | No | `+`, `-`, or `.` |
+| 7 | `thickStart` | No | Thick display start |
+| 8 | `thickEnd` | No | Thick display end |
+| 9 | `itemRgb` | No | RGB display color |
+| 10 | `blockCount` | No | Number of BED12 blocks |
+| 11 | `blockSizes` | No | Comma-separated block sizes |
+| 12 | `blockStarts` | No | Comma-separated block starts relative to `chromStart` |
 
-### Coordinate System
+The common named variants are BED3, BED4, BED5, BED6, and BED12.[1][2]
 
-BED uses a 0-based, half-open coordinate system:
-- `chromStart`: 0-based (first base is position 0)
-- `chromEnd`: Non-inclusive (the end base is NOT part of the feature)
+The BED length relationship is:
 
-**Example**: The first 100 bases of a chromosome:
-- chromStart = 0, chromEnd = 100
-- Represents bases at positions 0, 1, 2, ..., 99
-- Browser display: chr1:1-100 (1-based for user display)
+$$
+Length = chromEnd - chromStart
+$$
 
-**Feature Length**: `chromEnd - chromStart`
+For BED12 records, block coordinates expand as:
 
-### Zero-Length Features
+$$
+blockStart_i^{absolute} = chromStart + blockStarts_i
+$$
 
-When `chromStart == chromEnd`, the feature has zero length. This represents insertion points:
-- `chr1 5 5` = insertion point at position 5
+Zero-length features are allowed when `chromStart == chromEnd`, which represents an insertion point under the BED coordinate convention.[1]
 
----
+### 2.4 Properties and Invariants
 
-## BED Variants
+| ID | Invariant | Holds because |
+|----|-----------|---------------|
+| INV-01 | `Length = chromEnd - chromStart` | BED uses 0-based half-open coordinates.[1] |
+| INV-02 | Valid BED coordinates satisfy `chromStart <= chromEnd` | Zero-length intervals are allowed, but negative length is invalid.[1] |
+| INV-03 | For BED12, `blockCount` must match the lengths of `blockSizes` and `blockStarts` | The BED12 block model is defined by parallel block arrays.[1] |
+| INV-04 | For BED12, the first block start is `0`, blocks do not overlap, and the last `blockStart + blockSize` equals `chromEnd - chromStart` | These are the standard BED12 block constraints.[1] |
 
-| Format | Columns | Use Case |
-|--------|---------|----------|
-| BED3 | 3 | Simple intervals |
-| BED4 | 4 | Named intervals |
-| BED5 | 5 | Scored intervals |
-| BED6 | 6 | Stranded intervals |
-| BED12 | 12 | Gene models with exons |
+## 3. Contract
 
----
+### 3.1 Inputs and Parameters
 
-## Header Lines
+| Name | Type | Default | Description | Constraints |
+|------|------|---------|-------------|-------------|
+| `filePath` | `string` | required | Path passed to `ParseFile(...)` | Missing or empty paths yield no records |
+| `content` | `string` | required | BED text passed to `Parse(...)` | Null or empty input yields no records |
+| `reader` | `TextReader` | required | Streamed input passed to `Parse(...)` | Read line by line |
+| `format` | `BedParser.BedFormat` | `Auto` | Requested parser mode | `Auto` uses the first non-header data line to set and enforce the expected field count; explicit non-`Auto` values do not currently force BED3/BED6/BED12-specific field counts during line parsing |
 
-BED files may contain header lines (custom tracks only):
+### 3.2 Output / Return Value
 
-```
-track name=myTrack description="My Track"
-browser position chr7:127471196-127495720
-# This is a comment
-chr7	127471196	127472363	Feature1
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `Chrom` | `string` | Chromosome or scaffold identifier |
+| `ChromStart` | `int` | 0-based inclusive start coordinate |
+| `ChromEnd` | `int` | 0-based exclusive end coordinate |
+| `Name` | `string?` | Optional feature name |
+| `Score` | `int?` | Optional score, clamped to `0..1000` by the implementation |
+| `Strand` | `char?` | Optional strand character `+`, `-`, or `.` |
+| `ThickStart` / `ThickEnd` | `int?` | Optional BED display fields |
+| `ItemRgb` | `string?` | Optional BED display field |
+| `BlockCount` | `int?` | Optional BED12 block count |
+| `BlockSizes` / `BlockStarts` | `int[]?` | Optional BED12 block arrays |
+| `Length` | `int` | Derived feature length `ChromEnd - ChromStart` |
+| `HasBlocks` | `bool` | Whether the parsed record carries BED12 block information |
 
-Header line types:
-- `track `: Display settings for genome browsers
-- `browser `: Browser navigation settings
-- `#`: Comments
+### 3.3 Preconditions and Validation
 
-**Note**: Header lines are NOT allowed in files processed by bedToBigBed.
+The parser skips empty lines, `track` lines, `browser` lines, and `#` comments.[1] In `Auto` mode, it counts fields from the first non-header data line and skips later data lines whose field count differs. A line is rejected when it has fewer than 3 fields, when `chromStart` or `chromEnd` cannot be parsed as integers, or when `chromStart > chromEnd`. BED12 records are additionally rejected when `blockCount` does not match the block-array lengths, when the first block start is not `0`, when the last block does not end at `chromEnd - chromStart`, or when blocks overlap. The parser first splits on tabs and falls back to whitespace splitting only when fewer than 3 tab fields are present.
 
----
+## 4. Algorithm
 
-## BED12 Block Structure
+### 4.1 High-Level Steps
 
-For gene models with exons:
+1. Read the input line by line.
+2. Skip blank lines and BED header/comment lines.
+3. In `Auto` mode, determine the expected field count from the first data line.
+4. Split the line into fields and parse the required BED3 coordinates.
+5. Parse optional BED4-BED12 fields when present.
+6. Apply BED12 consistency checks when block fields exist.
+7. Yield a `BedRecord` for each valid line.
 
-```
-chr1  1000  5000  gene1  900  +  1100  4900  0  3  100,200,300  0,1000,3700
-```
+### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
-**Block Constraints**:
-1. First `blockStart` must be 0
-2. `blockStarts` are relative to `chromStart`
-3. Last `blockStart + blockSize` must equal `chromEnd - chromStart`
-4. Blocks must not overlap
+The repository recognizes these header line types and skips them during parsing:[1]
 
-**Calculating Exon Coordinates**:
-```
-exon[i].start = chromStart + blockStarts[i]
-exon[i].end = chromStart + blockStarts[i] + blockSizes[i]
-```
+| Prefix | Meaning |
+|--------|---------|
+| `track ` | UCSC browser display settings |
+| `browser ` | UCSC browser navigation settings |
+| `#` | Comment line |
 
----
+BED12 block-derived coordinates are expanded as:
 
-## Implementation
-
-### BedParser Class
-
-```csharp
-public static class BedParser
-{
-    // Parsing
-    public static IEnumerable<BedRecord> Parse(string content, BedFormat format = BedFormat.Auto);
-    public static IEnumerable<BedRecord> ParseFile(string filePath, BedFormat format = BedFormat.Auto);
-    
-    // Filtering
-    public static IEnumerable<BedRecord> FilterByChrom(IEnumerable<BedRecord> records, string chrom);
-    public static IEnumerable<BedRecord> FilterByRegion(IEnumerable<BedRecord> records, string chrom, int start, int end);
-    public static IEnumerable<BedRecord> FilterByStrand(IEnumerable<BedRecord> records, char strand);
-    
-    // Interval Operations
-    public static IEnumerable<BedRecord> MergeOverlapping(IEnumerable<BedRecord> records);
-    public static IEnumerable<BedRecord> Intersect(IEnumerable<BedRecord> a, IEnumerable<BedRecord> b);
-    public static IEnumerable<BedRecord> Subtract(IEnumerable<BedRecord> a, IEnumerable<BedRecord> b);
-    
-    // Block Operations (BED12)
-    public static IEnumerable<BedRecord> ExpandBlocks(BedRecord record);
-    public static int GetTotalBlockLength(BedRecord record);
-    public static IEnumerable<BedRecord> GetIntrons(BedRecord record);
-}
+```text
+exonStart = chromStart + blockStarts[i]
+exonEnd   = exonStart + blockSizes[i]
 ```
 
-### BedRecord Structure
+### 4.3 Complexity
 
-```csharp
-public readonly record struct BedRecord(
-    string Chrom,
-    int ChromStart,
-    int ChromEnd,
-    string? Name = null,
-    int? Score = null,
-    char? Strand = null,
-    int? ThickStart = null,
-    int? ThickEnd = null,
-    string? ItemRgb = null,
-    int? BlockCount = null,
-    int[]? BlockSizes = null,
-    int[]? BlockStarts = null)
-{
-    public int Length => ChromEnd - ChromStart;
-    public bool HasBlocks => BlockCount.HasValue && BlockSizes != null && BlockStarts != null;
-}
-```
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| `Parse` / `ParseFile` | `O(n)` | `O(1)` auxiliary | Linear scan over input lines |
+| `FilterByChrom` / `FilterByRegion` / `FilterByStrand` | `O(r)` | `O(1)` auxiliary | `r` = number of records |
+| `MergeOverlapping` | `O(r log r)` | `O(r)` | Dominated by sorting |
+| `Intersect` | `O(a * b)` worst case | `O(b)` | Grouped by chromosome, but still quadratic in the worst case |
+| `Subtract` | `O(a * b)` worst case | `O(a + b)` | Per-record interval subtraction |
 
----
+## 5. Implementation Notes
 
-## Complexity
+### 5.1 Location and Entry Points
 
-| Operation | Time Complexity |
-|-----------|-----------------|
-| Parse | O(n) |
-| FilterByChrom | O(n) |
-| FilterByRegion | O(n) |
-| MergeOverlapping | O(n log n) |
-| Intersect | O(n × m) |
-| Subtract | O(n × m) |
+**Implementation location:** [BedParser.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.IO/BedParser.cs)
 
-Where n = number of records, m = number of records in second set.
+- `BedParser.ParseFile(string, BedFormat)`: Parses BED records from a file path.
+- `BedParser.Parse(string, BedFormat)` and `BedParser.Parse(TextReader, BedFormat)`: Parse BED records from text or a reader.
+- `BedParser.FilterByChrom(...)`, `FilterByRegion(...)`, `FilterByStrand(...)`, `FilterByLength(...)`, `FilterByScore(...)`: Record-level filtering helpers.
+- `BedParser.MergeOverlapping(...)`, `Intersect(...)`, `Subtract(...)`, `ExpandIntervals(...)`: Interval operations over parsed records.
+- `BedParser.ExpandBlocks(...)`, `GetTotalBlockLength(...)`, `GetIntrons(...)`: BED12 block helpers.
+- `BedParser.CalculateStatistics(...)`, `Sort(...)`, `CalculateCoverage(...)`, `WriteToStream(...)`: Statistics, ordering, coverage, and writing utilities.
 
----
+### 5.2 Current Behavior
 
-## References
+`BedParser.Parse(...)` uses `Auto` mode by default and therefore skips mixed-width BED files once the first non-header data line establishes an expected field count. Outside `Auto` mode, the parser still follows the actual field count present on each line rather than enforcing a declared BED3/BED4/BED6/BED12 layout. The parser clamps parsed `score` values into `0..1000`, accepts only `+`, `-`, and `.` as strand values, and leaves invalid strand tokens unset. `MergeOverlapping(...)` merges touching intervals because it treats `next.ChromStart <= current.ChromEnd` as mergeable. `ExpandIntervals(...)` swaps the meaning of upstream and downstream on negative-strand records. `CalculateCoverage(...)` yields depth change points rather than one output row per base position.
 
-1. UCSC Genome Browser FAQ - BED Format: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
-2. Wikipedia - BED (file format): https://en.wikipedia.org/wiki/BED_(file_format)
-3. GA4GH BED v1.0 Specification (2021)
-4. Kent WJ, et al. (2002). "The Human Genome Browser at UCSC". Genome Research.
+### 5.3 Conformance to Theory / Spec
+
+**Implemented (verbatim from the cited theory/spec):**
+
+- Required BED3 parsing with optional BED4-BED12 fields.[1][2]
+- UCSC 0-based half-open coordinate semantics.[1]
+- BED12 block validation for block-count agreement, first-block origin, terminal block extent, and non-overlap.[1]
+
+**Intentionally simplified:**
+
+- `Auto` mode enforces a single field count for all parsed data lines; **consequence:** mixed-field BED files are partially skipped instead of being interpreted per line.
+- Optional BED display fields such as `thickStart`, `thickEnd`, and `itemRgb` are parsed syntactically but not fully semantically validated; **consequence:** some display-specific inconsistencies remain caller-visible.
+
+**Not implemented:**
+
+- bigBed conversion and full UCSC toolchain compatibility checks; **users should rely on:** external UCSC tooling for those workflows.
+
+## 6. Edge Cases and Limitations
+
+### 6.1 Edge Cases
+
+| Case | Expected Behavior | Rationale |
+|------|-------------------|-----------|
+| Empty or null input | Returns no records | Explicit early-return guards |
+| `track`, `browser`, or comment lines | Skipped | BED header/comment handling |
+| `chromStart == chromEnd` | Parsed as a zero-length feature | BED permits insertion-point intervals.[1] |
+| Invalid numeric coordinates | Line skipped | Parsing requires integer `chromStart` and `chromEnd` |
+| Invalid BED12 block structure | Line skipped | Implementation enforces selected BED12 constraints |
+
+### 6.2 Limitations
+
+The parser targets standard BED text records and selected interval utilities rather than full UCSC ecosystem behavior. Auto-detection assumes a uniform data-line width across the file, and optional BED display semantics are not exhaustively validated.
+
+## 7. Examples and Related Material
+
+### 7.3 Related Tests, Evidence, or Documents
+
+- Tests: [BedParserTests.cs](../../../tests/Seqeron/Seqeron.Genomics.Tests/BedParserTests.cs)
+- Related tests: [BedFilterTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedFilterTests.cs), [BedIntersectTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedIntersectTests.cs), [BedMergeTests.cs](../../../tests/Seqeron/Seqeron.Mcp.Parsers.Tests/BedMergeTests.cs)
+- Test specification: [PARSE-BED-001.md](../../../tests/TestSpecs/PARSE-BED-001.md)
+
+## 8. References
+
+1. UCSC Genome Browser. BED format FAQ. https://genome.ucsc.edu/FAQ/FAQformat.html#format1
+2. Wikipedia contributors. BED (file format). Wikipedia. https://en.wikipedia.org/wiki/BED_(file_format)
