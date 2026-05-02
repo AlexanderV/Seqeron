@@ -6,8 +6,8 @@ namespace Seqeron.Mcp.Parsers.Tests;
 [TestFixture]
 public class EmblParseTests
 {
-    // Use the same format as in EmblParserTests.cs
-    private const string TestEmbl = @"ID   TEST001; SV 1; linear; DNA; STD; HUM; 100 BP.
+    // Use INSDC vocabulary in the mol_type field (EmblParser only recognises multi-word forms).
+    private const string TestEmbl = @"ID   TEST001; SV 1; linear; genomic DNA; STD; HUM; 100 BP.
 XX
 AC   TEST001;
 XX
@@ -54,7 +54,7 @@ SQ   Sequence 100 BP; 25 A; 25 C; 25 G; 25 T; 0 other;
         Assert.That(result.Count, Is.EqualTo(1));
         Assert.That(result.Records[0].Accession, Is.EqualTo("TEST001"));
         Assert.That(result.Records[0].SequenceLength, Is.EqualTo(100));
-        Assert.That(result.Records[0].MoleculeType, Is.EqualTo("DNA"));
+        Assert.That(result.Records[0].MoleculeType, Is.EqualTo("genomic DNA"));
         Assert.That(result.Records[0].Topology, Is.EqualTo("linear"));
     }
 
@@ -110,7 +110,7 @@ SQ   Sequence 100 BP; 25 A; 25 C; 25 G; 25 T; 0 other;
 [TestFixture]
 public class EmblFeaturesTests
 {
-    private const string TestEmbl = @"ID   TEST001; SV 1; linear; DNA; STD; HUM; 100 BP.
+    private const string TestEmbl = @"ID   TEST001; SV 1; linear; genomic DNA; STD; HUM; 100 BP.
 XX
 AC   TEST001;
 XX
@@ -189,7 +189,7 @@ SQ   Sequence 100 BP;
 [TestFixture]
 public class EmblStatisticsTests
 {
-    private const string TestEmbl = @"ID   TEST001; SV 1; linear; DNA; STD; HUM; 100 BP.
+    private const string TestEmbl = @"ID   TEST001; SV 1; linear; genomic DNA; STD; HUM; 100 BP.
 XX
 AC   TEST001;
 XX
@@ -240,6 +240,6 @@ SQ   Sequence 100 BP;
     {
         var result = ParsersTools.EmblStatistics(TestEmbl);
 
-        Assert.That(result.MoleculeTypes, Contains.Item("DNA"));
+        Assert.That(result.MoleculeTypes, Contains.Item("genomic DNA"));
     }
 }

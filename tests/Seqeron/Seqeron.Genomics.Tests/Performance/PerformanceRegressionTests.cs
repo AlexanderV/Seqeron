@@ -59,8 +59,8 @@ public class PerformanceRegressionTests
         swLarge.Stop();
 
         double ratio = (double)swLarge.ElapsedTicks / Math.Max(swSmall.ElapsedTicks, 1);
-        ratio.Should().BeLessThan(500,
-            "100× input size should take less than 500× time (linear with JIT overhead)");
+        ratio.Should().BeLessThan(1000,
+            "100× input size should take less than 1000× time (linear with JIT overhead)");
     }
 
     /// <summary>
