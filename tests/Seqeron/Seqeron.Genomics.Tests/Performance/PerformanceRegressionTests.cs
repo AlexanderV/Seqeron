@@ -36,7 +36,7 @@ public class PerformanceRegressionTests
     }
 
     /// <summary>
-    /// GC content should scale linearly: 100× input should take &lt;200× time.
+    /// GC content should scale linearly: 100× input should stay well below 1000× time.
     /// </summary>
     [Test]
     public void GcContent_ScalesLinearly()
