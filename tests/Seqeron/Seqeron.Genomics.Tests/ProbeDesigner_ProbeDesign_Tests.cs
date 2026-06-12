@@ -173,7 +173,7 @@ public class ProbeDesigner_ProbeDesign_Tests
     [Test]
     public void DesignProbes_MicroarrayDefaults_ProducesCorrectLengthProbes()
     {
-        // M11: Microarray defaults: length 50-70 bp
+        // M11: Microarray defaults: length 50-60 bp
         var param = ProbeDesigner.Defaults.Microarray;
         string target = new string('G', 25) + "ACGTACGTACGTACGTACGTACGTACGT" + new string('C', 25);
 

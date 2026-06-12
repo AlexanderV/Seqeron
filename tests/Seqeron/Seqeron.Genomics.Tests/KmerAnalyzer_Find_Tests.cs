@@ -28,12 +28,9 @@ namespace Seqeron.Genomics.Tests
             // Act
             var result = KmerAnalyzer.FindMostFrequentKmers(sequence, k).ToList();
 
-            // Assert
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Does.Contain("CATG"), "CATG should be a most frequent 4-mer");
-                Assert.That(result, Does.Contain("GCAT"), "GCAT should be a most frequent 4-mer");
-            });
+            // Assert - Rosalind BA1B expected output is exactly {CATG, GCAT} (both appear 3×)
+            Assert.That(result, Is.EquivalentTo(new[] { "CATG", "GCAT" }),
+                "Most frequent 4-mers must be exactly CATG and GCAT (Rosalind BA1B)");
         }
 
         /// <summary>
@@ -251,13 +248,9 @@ namespace Seqeron.Genomics.Tests
             // Act
             var result = KmerAnalyzer.FindClumps(sequence, k, windowSize, minOccurrences).ToList();
 
-            // Assert
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Does.Contain("CGACA"), "CGACA should form a (75,4)-clump");
-                Assert.That(result, Does.Contain("GAAGA"), "GAAGA should form a (75,4)-clump");
-                Assert.That(result, Does.Contain("AATGT"), "AATGT should form a (75,4)-clump");
-            });
+            // Assert - Rosalind BA1E expected output is exactly {CGACA, GAAGA, AATGT}
+            Assert.That(result, Is.EquivalentTo(new[] { "CGACA", "GAAGA", "AATGT" }),
+                "(75,4)-clumps must be exactly CGACA, GAAGA, AATGT (Rosalind BA1E)");
         }
 
         /// <summary>

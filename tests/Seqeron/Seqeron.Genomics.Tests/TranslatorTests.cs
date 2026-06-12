@@ -355,6 +355,26 @@ namespace Seqeron.Genomics.Tests
         #region Real Sequences
 
         [Test]
+        public void Translate_RosalindPROT_SampleDataset_ProducesExpectedProtein()
+        {
+            // Rosalind PROT sample dataset.
+            // Source: https://rosalind.info/problems/prot/
+            // Input RNA: AUGGCCAUGGCGCCCAGAACUGAGAUCAAUAGUACCCGUAUUAACGGGUGA
+            // Codons: AUG GCC AUG GCG CCC AGA ACU GAG AUC AAU AGU ACC CGU AUU AAC GGG UGA
+            //         M   A   M   A   P   R   T   E   I   N   S   T   R   I   N   G   *
+            // Rosalind excludes the terminating stop codon → MAMAPRTEINSTRING
+            var rna = new RnaSequence("AUGGCCAUGGCGCCCAGAACUGAGAUCAAUAGUACCCGUAUUAACGGGUGA");
+
+            // toFirstStop:true follows the Rosalind convention (stop terminates, excluded).
+            var protein = Translator.Translate(rna, toFirstStop: true);
+            Assert.That(protein.Sequence, Is.EqualTo("MAMAPRTEINSTRING"));
+
+            // Default (toFirstStop:false) shows the stop codon as '*'.
+            var withStop = Translator.Translate(rna);
+            Assert.That(withStop.Sequence, Is.EqualTo("MAMAPRTEINSTRING*"));
+        }
+
+        [Test]
         public void Translate_InsulinBChain_ProducesCorrectProtein()
         {
             // Human insulin B chain coding sequence
