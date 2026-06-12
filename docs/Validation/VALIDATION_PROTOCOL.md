@@ -4,7 +4,7 @@
 **Started:** 2026-06-12
 **Scope (phase 1):** the 86 *implemented* test units (status ☑ in `ALGORITHMS_CHECKLIST_V2.md`).
 **Tracker:** [VALIDATION_LEDGER.md](VALIDATION_LEDGER.md)
-**Reports:** `docs/Validation/reports/{UnitID}.md`
+**Reports:** per-unit reports were consolidated into the ledger + findings register and archived in git (`git show cb113ce:docs/Validation/reports/{UnitID}.md`).
 
 ---
 
