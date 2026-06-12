@@ -543,8 +543,12 @@ public static class SpliceSitePredictor
         // Derive exons from intron positions
         var exons = DeriveExons(upper, selectedIntrons, minExonLength);
 
-        // Generate spliced sequence
-        string splicedSequence = GenerateSplicedSequence(upper, selectedIntrons);
+        // Generate spliced sequence from the SAME exon set that DeriveExons reports,
+        // so that splicedSequence == concat(reportedExons) by construction and the
+        // coverage invariants stay internally consistent (INV-3 / INV-4). Sub-threshold
+        // inter-intron regions filtered by minExonLength are excluded from BOTH the exon
+        // list AND the spliced product, preserving the documented filtering semantics.
+        string splicedSequence = GenerateSplicedSequence(exons);
 
         double overallScore = selectedIntrons.Count > 0
             ? selectedIntrons.Average(i => i.Score)
@@ -645,27 +649,21 @@ public static class SpliceSitePredictor
         return totalLength % 3;
     }
 
-    private static string GenerateSplicedSequence(string sequence, List<Intron> introns)
+    /// <summary>
+    /// Builds the spliced (mature mRNA) sequence by concatenating the exon
+    /// sequences exactly as reported by <see cref="DeriveExons"/>. Using the same
+    /// exon set guarantees splicedSequence == concat(reportedExons) (INV-4) and
+    /// keeps coverage internally consistent with the reported exons (INV-3),
+    /// including sub-threshold inter-intron regions that DeriveExons drops.
+    /// </summary>
+    private static string GenerateSplicedSequence(List<Exon> exons)
     {
-        if (introns.Count == 0)
-            return sequence;
+        if (exons.Count == 0)
+            return string.Empty;
 
         var sb = new StringBuilder();
-        int currentPos = 0;
-
-        foreach (var intron in introns.OrderBy(i => i.Start))
-        {
-            if (intron.Start > currentPos)
-            {
-                sb.Append(sequence.Substring(currentPos, intron.Start - currentPos));
-            }
-            currentPos = intron.End + 1;
-        }
-
-        if (currentPos < sequence.Length)
-        {
-            sb.Append(sequence.Substring(currentPos));
-        }
+        foreach (var exon in exons.OrderBy(e => e.Start))
+            sb.Append(exon.Sequence);
 
         return sb.ToString();
     }

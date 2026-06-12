@@ -518,7 +518,7 @@ public class ProteinMotifFinder_MotifSearch_Tests
         double ic = 3 * Math.Log2(20);
         double expectedEValue = 7 * Math.Pow(2.0, -ic); // 7/8000 ≈ 0.000875
         Assert.That(matches[0].EValue, Is.EqualTo(expectedEValue).Within(1e-6),
-            "E-value = (N-L+1) × 2^(-IC) per Altschul et al. 1990");
+            "E-value = (N-L+1) × 2^(-IC), direct combinatorial probability under IC (Schneider & Stephens 1990)");
     }
 
     #endregion

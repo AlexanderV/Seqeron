@@ -363,7 +363,19 @@ public static class ProteinMotifFinder
             }
             else
             {
-                i++;
+                // Unsupported construct. The supported PROSITE PA-line grammar is handled by
+                // the branches above ('-', 'x', '[...]', '{...}', '<', '>', '(...)', letters,
+                // '.'). Any other character — notably the extended ScanProsite *query*
+                // metacharacter '*' (Kleene star, e.g. '<{C}*>'), or stray '?'/'+' — would
+                // otherwise fall through and be silently dropped, mis-parsing the pattern.
+                // Mirror the "reject, don't silently drop" policy used by the Newick parser
+                // and throw rather than producing a deceptively-valid regex.
+                throw new FormatException(
+                    $"Unsupported PROSITE construct: '{c}' at position {i} in pattern " +
+                    $"\"{prositePattern}\". The PROSITE→regex converter supports only the " +
+                    "standard PA-line grammar (residue letters, x, [...], {...}, <, >, " +
+                    "(n)/(m,n) repetition, '-' separators and the '.' terminator); the " +
+                    "extended ScanProsite query metacharacter '*' (Kleene star) is not supported.");
             }
         }
 

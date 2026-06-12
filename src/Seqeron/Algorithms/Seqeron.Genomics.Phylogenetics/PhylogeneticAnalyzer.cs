@@ -559,6 +559,13 @@ public static class PhylogeneticAnalyzer
             root.BranchLength = ParseNumber(newick, ref pos);
         }
 
+        // Any remaining input (the terminal ';' and surrounding whitespace were already
+        // stripped above) is unconsumed trailing garbage and indicates a malformed tree.
+        // Throw rather than silently ignoring it.
+        if (pos < newick.Length)
+            throw new FormatException(
+                $"Malformed Newick string: unexpected trailing input '{newick[pos..]}' at position {pos}.");
+
         return root;
     }
 
@@ -595,6 +602,15 @@ public static class PhylogeneticAnalyzer
                 pos++;
                 node.Right.BranchLength = ParseNumber(newick, ref pos);
             }
+
+            // Reject multifurcation: after the first two children, a comma here means a
+            // third (or further) child at this level. The binary PhyloNode model (Left/Right)
+            // cannot represent this faithfully, so we throw instead of silently dropping the
+            // extra child(ren). Full N-ary Newick support is out of scope (binary tree model).
+            if (pos < newick.Length && newick[pos] == ',')
+                throw new FormatException(
+                    $"Multifurcating (non-binary) Newick trees are not supported by the binary tree model; " +
+                    $"encountered a third child at position {pos}.");
 
             // Skip ')'
             if (pos < newick.Length && newick[pos] == ')')

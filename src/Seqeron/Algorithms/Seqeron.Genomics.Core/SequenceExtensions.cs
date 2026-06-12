@@ -157,14 +157,18 @@ public static class SequenceExtensions
     };
 
     /// <summary>
-    /// Gets the complement of a single RNA nucleotide.
-    /// A ↔ U, C ↔ G, T → A (case-insensitive, returns uppercase).
-    /// Unknown bases are returned unchanged.
+    /// Gets the complement of a single RNA nucleotide (IUPAC-complete).
+    /// Standard: A ↔ U, C ↔ G, T → A (T accepted, pairs with A).
+    /// Ambiguity codes per IUPAC NC-IUB 1984 (emitting RNA alphabet, U not T):
+    /// R ↔ Y, S ↔ S, W ↔ W, K ↔ M, B ↔ V, D ↔ H, N ↔ N.
+    /// Case-insensitive input, always returns uppercase for recognized bases.
+    /// Non-IUPAC characters (gaps, etc.) pass through unchanged.
     /// </summary>
     /// <remarks>
-    /// Matches Biopython complement_rna() behavior:
-    /// - T is accepted and complements to A (T pairs with A regardless of context).
-    /// - Unknown/non-nucleotide characters pass through unchanged.
+    /// Matches Biopython complement_rna() behavior. The ambiguity complements are
+    /// identical to the DNA path; only the base alphabet differs (T → U).
+    /// Cross-verified against Biopython: complement_rna("ACGTUacgtuXYZxyz") → "UGCAAugcaaXRZxrz"
+    /// (recognized bases uppercased here; unknowns pass through verbatim).
     /// See: https://biopython.org/docs/latest/api/Bio.Seq.html
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -175,7 +179,18 @@ public static class SequenceExtensions
         'G' or 'g' => 'C',
         'C' or 'c' => 'G',
         'T' or 't' => 'A', // T pairs with A (Biopython: complement_rna("T") → "A")
-        _ => nucleotide    // Unknown bases returned unchanged (Biopython behavior)
+        'R' or 'r' => 'Y', // Purine (A|G) → Pyrimidine (C|U)
+        'Y' or 'y' => 'R', // Pyrimidine (C|U) → Purine (A|G)
+        'S' or 's' => 'S', // Strong (G|C) → Strong (G|C)
+        'W' or 'w' => 'W', // Weak (A|U) → Weak (A|U)
+        'K' or 'k' => 'M', // Keto (G|U) → Amino (A|C)
+        'M' or 'm' => 'K', // Amino (A|C) → Keto (G|U)
+        'B' or 'b' => 'V', // Not A (C|G|U) → Not U (A|C|G)
+        'D' or 'd' => 'H', // Not C (A|G|U) → Not G (A|C|U)
+        'H' or 'h' => 'D', // Not G (A|C|U) → Not C (A|G|U)
+        'V' or 'v' => 'B', // Not U (A|C|G) → Not A (C|G|U)
+        'N' or 'n' => 'N', // Any nucleotide → Any nucleotide
+        _ => nucleotide    // Non-IUPAC (gaps, etc.) pass through unchanged
     };
 
     #endregion

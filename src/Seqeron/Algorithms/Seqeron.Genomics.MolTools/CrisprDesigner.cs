@@ -429,8 +429,8 @@ public static class CrisprDesigner
         {
             if (guide[i] != target[i])
             {
-                // Mismatches in seed region are more tolerated (lower off-target activity)
-                // but still concerning
+                // Seed-region (PAM-proximal) mismatches are LESS tolerated by Cas9
+                // (Hsu et al. 2013), so they receive a higher penalty here.
                 bool inSeed = i >= seedStart && i < seedEnd;
                 score += inSeed ? 5 : 2;
             }
@@ -513,6 +513,18 @@ public sealed record CrisprSystem(
 /// <summary>
 /// Represents a PAM site in a sequence.
 /// </summary>
+/// <param name="Position">PAM start coordinate, always expressed on the forward strand.</param>
+/// <param name="PamSequence">The matched PAM sequence (forward-strand orientation).</param>
+/// <param name="TargetSequence">The guide/protospacer sequence sliced from the strand on which the PAM was found.</param>
+/// <param name="TargetStart">
+/// Start index of <see cref="TargetSequence"/> on the strand the hit was found on.
+/// For forward-strand hits (<see cref="IsForwardStrand"/> == true) this is a forward-strand
+/// index. For reverse-strand hits it is an index into the reverse-complement string (used to
+/// slice <see cref="TargetSequence"/>), NOT a forward-strand coordinate — unlike
+/// <see cref="Position"/>, which is always forward-strand.
+/// </param>
+/// <param name="IsForwardStrand">True if the PAM was found on the forward strand; false for the reverse strand.</param>
+/// <param name="System">The CRISPR system whose PAM/guide-length parameters produced this site.</param>
 public sealed record PamSite(
     int Position,
     string PamSequence,

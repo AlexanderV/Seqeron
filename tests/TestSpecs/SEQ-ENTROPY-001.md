@@ -124,7 +124,7 @@ No extractable k-mers (length < k) → $H = 0.0$ (empty sum = 0)
 |-------|---|----------------|-------|---------|---|
 | `"AAAAAAAAAA"` | 2 | AA(9) | 9 | $-(1 \cdot \log_2 1)$ | $0.0$ exact |
 | `"ATCG"` | 2 | AT(1), TC(1), CG(1) | 3 | $-3 \times (\frac{1}{3} \log_2 \frac{1}{3})$ | $\log_2(3)$ |
-| `"ATGCATGCATGCATGC"` | 2 | AT(4), TG(4), GC(4), CA(3) | 15 | $-3 \cdot \frac{4}{15} \log_2 \frac{4}{15} - \frac{3}{15} \log_2 \frac{3}{15}$ | $\approx 1.98082$ |
+| `"ATGCATGCATGCATGC"` | 2 | AT(4), TG(4), GC(4), CA(3) | 15 | $-3 \cdot \frac{4}{15} \log_2 \frac{4}{15} - \frac{3}{15} \log_2 \frac{3}{15}$ | $\approx 1.98990$ |
 | `"AT"` | 5 | — | 0 | empty (length < k) | $0.0$ |
 
 ---

@@ -484,7 +484,7 @@ public static partial class GenBankParser
                 if (eqIdx > 0)
                 {
                     var qualName = qualLine[..eqIdx];
-                    var qualValue = qualLine[(eqIdx + 1)..].Trim('"');
+                    var qualValue = UnquoteQualifierValue(qualLine[(eqIdx + 1)..].Trim());
                     qualifiers[qualName] = qualValue;
                 }
                 else
@@ -510,6 +510,27 @@ public static partial class GenBankParser
         }
 
         return features;
+    }
+
+    /// <summary>
+    /// Unquotes a free-text qualifier value. When the value is enclosed in double
+    /// quotes, the single outer pair is removed and INSDC-escaped embedded quotes
+    /// (a literal '"' encoded as two consecutive quotes "") are collapsed to one.
+    /// Unquoted values are returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// Per the INSDC Feature Table Definition (qualifier value format): free text is
+    /// surrounded by double quotation marks and an embedded quotation mark is
+    /// represented by a pair of adjacent quotation marks.
+    /// </remarks>
+    private static string UnquoteQualifierValue(string value)
+    {
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+        {
+            return value[1..^1].Replace("\"\"", "\"");
+        }
+
+        return value;
     }
 
     private static Feature CreateFeature(string key, string rawLocation, Dictionary<string, string> qualifiers)

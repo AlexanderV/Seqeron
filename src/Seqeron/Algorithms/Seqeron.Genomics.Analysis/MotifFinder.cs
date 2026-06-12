@@ -178,11 +178,11 @@ public static class MotifFinder
                     'W' => seqChar == 'A' || seqChar == 'T',
                     'K' => seqChar == 'G' || seqChar == 'T',
                     'M' => seqChar == 'A' || seqChar == 'C',
-                    'B' => seqChar != 'A',
-                    'D' => seqChar != 'C',
-                    'H' => seqChar != 'G',
-                    'V' => seqChar != 'T',
-                    'N' => true,
+                    'B' => seqChar is 'C' or 'G' or 'T',
+                    'D' => seqChar is 'A' or 'G' or 'T',
+                    'H' => seqChar is 'A' or 'C' or 'T',
+                    'V' => seqChar is 'A' or 'C' or 'G',
+                    'N' => seqChar is 'A' or 'C' or 'G' or 'T',
                     _ => throw new ArgumentException(
                         $"Invalid IUPAC code '{motifChar}' in motif pattern. Valid codes: A, C, G, T, N, R, Y, S, W, K, M, B, D, H, V.",
                         nameof(motif))

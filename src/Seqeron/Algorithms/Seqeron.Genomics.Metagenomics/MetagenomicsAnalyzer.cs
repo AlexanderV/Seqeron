@@ -105,8 +105,17 @@ public static class MetagenomicsAnalyzer
     #region K-mer Based Classification
 
     /// <summary>
-    /// Classifies metagenomic reads using k-mer matching.
+    /// Classifies metagenomic reads using k-mer matching with a flat best-hit rule.
     /// </summary>
+    /// <remarks>
+    /// Each read is assigned to the single taxon with the highest count of matching (canonical)
+    /// k-mers. This is a BEST-HIT (highest k-mer count) classifier — it is NOT an LCA / Kraken
+    /// weighted root-to-leaf classifier: there is no taxonomy tree, no lowest-common-ancestor
+    /// resolution, and no per-rank weighting. Each database k-mer maps to exactly one taxon
+    /// (see <see cref="BuildKmerDatabase"/>). Ties (two or more taxa with the same best k-mer count)
+    /// resolve to an arbitrary best-count taxon determined by dictionary/enumeration ordering.
+    /// Confidence is simply matched-best-taxon k-mers / total non-ambiguous k-mers.
+    /// </remarks>
     public static IEnumerable<TaxonomicClassification> ClassifyReads(
         IEnumerable<(string Id, string Sequence)> reads,
         IReadOnlyDictionary<string, string> kmerDatabase,
@@ -128,11 +137,11 @@ public static class MetagenomicsAnalyzer
             {
                 string kmer = sequence.Substring(i, k).ToUpperInvariant();
 
-                // Per Kraken: skip k-mers containing ambiguous nucleotides
+                // Skip k-mers containing ambiguous nucleotides (Kraken-style filtering)
                 if (!kmer.All(c => "ACGT".Contains(c)))
                     continue;
 
-                // Per Kraken: use canonical k-mer for database lookup
+                // Use canonical k-mer (strand-independent) for database lookup
                 string canonical = GetCanonicalKmer(kmer);
                 totalKmers++;
 
@@ -151,9 +160,10 @@ public static class MetagenomicsAnalyzer
                 continue;
             }
 
-            // Per Kraken: classify to taxon with most k-mer hits
+            // Best-hit rule: classify to the taxon with the most k-mer hits.
+            // NOT an LCA — ties resolve to an arbitrary best-count taxon (enumeration order).
             var bestTaxon = taxonCounts.OrderByDescending(kv => kv.Value).First();
-            // Per Kraken: C = k-mers supporting classification, Q = non-ambiguous k-mers
+            // C = k-mers supporting the chosen classification, Q = non-ambiguous k-mers
             int matchedKmers = bestTaxon.Value;
             double confidence = totalKmers > 0 ? (double)matchedKmers / totalKmers : 0;
 
@@ -175,8 +185,15 @@ public static class MetagenomicsAnalyzer
     }
 
     /// <summary>
-    /// Builds a k-mer database from reference genomes.
+    /// Builds a flat k-mer → taxon database from reference genomes.
     /// </summary>
+    /// <remarks>
+    /// Each canonical k-mer is mapped to exactly ONE taxon — the FIRST reference genome in which
+    /// it is encountered (subsequent occurrences in other taxa are ignored). This is NOT a Kraken
+    /// LCA database: there is no taxonomy tree and no lowest-common-ancestor assignment for k-mers
+    /// shared across taxa. The resulting database supports only the flat best-hit classification
+    /// performed by <see cref="ClassifyReads"/>.
+    /// </remarks>
     public static Dictionary<string, string> BuildKmerDatabase(
         IEnumerable<(string TaxonId, string Sequence)> referenceGenomes,
         int k = 31)

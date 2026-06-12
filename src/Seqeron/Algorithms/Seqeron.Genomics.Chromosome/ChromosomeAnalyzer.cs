@@ -199,7 +199,8 @@ public static class ChromosomeAnalyzer
     /// </summary>
     private static string GetChromosomeBaseName(string name)
     {
-        // Handle formats like "chr1_1", "chr1_2" or "chr1a", "chr1b"
+        // Strips a trailing "_N" integer copy suffix, e.g. "chr1_2" -> "chr1".
+        // Only numeric "_N" suffixes are removed; letter suffixes (e.g. "chr1a") are left intact.
         int underscoreIdx = name.LastIndexOf('_');
         if (underscoreIdx > 0 && underscoreIdx < name.Length - 1)
         {

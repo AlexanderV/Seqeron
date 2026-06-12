@@ -590,10 +590,16 @@ public static class PopulationGeneticsAnalyzer
         if (pop1.Count == 0 || pop2.Count == 0)
             return 0;
 
+        if (pop1.Count != pop2.Count)
+            throw new ArgumentException(
+                $"The two populations' per-locus allele frequency counts must match; " +
+                $"got {pop1.Count} and {pop2.Count}.",
+                nameof(population2));
+
         double numerator = 0;
         double denominator = 0;
 
-        for (int i = 0; i < Math.Min(pop1.Count, pop2.Count); i++)
+        for (int i = 0; i < pop1.Count; i++)
         {
             double p1 = pop1[i].AlleleFreq;
             double p2 = pop2[i].AlleleFreq;

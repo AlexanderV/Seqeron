@@ -185,7 +185,7 @@
 | E | E | 0.736 | Disorder-promoting |
 | P | P | 0.987 | Disorder-promoting |
 
-**Ranking (order→disorder):** W, F, Y, I, M, L, V, N, C, T, A, G, R, D, H, Q, K, S, E, P
+**Ranking (order→disorder):** W, F, Y, I, M, L, V, N, C, T, A, G, R, D, H, Q, S, K, E, P
 
 ---
 

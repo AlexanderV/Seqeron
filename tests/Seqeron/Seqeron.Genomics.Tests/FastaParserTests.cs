@@ -213,6 +213,29 @@ namespace Seqeron.Genomics.Tests
         }
 
         /// <summary>
+        /// CRLF line endings are tolerated; no stray carriage return leaks into the sequence.
+        /// Evidence: FASTA parsers must tolerate both LF and CRLF line endings (Windows/Unix).
+        /// </summary>
+        [Test]
+        public void Parse_CrlfLineEndings_NoCarriageReturnInSequence()
+        {
+            const string fasta = ">seq1 desc here\r\nACGT\r\nTTGG\r\n>seq2\r\nGGCC\r\n";
+
+            var entries = FastaParser.Parse(fasta).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(entries, Has.Count.EqualTo(2));
+                Assert.That(entries[0].Id, Is.EqualTo("seq1"));
+                Assert.That(entries[0].Description, Is.EqualTo("desc here"));
+                Assert.That(entries[0].Sequence.Sequence, Is.EqualTo("ACGTTTGG"));
+                Assert.That(entries[0].Sequence.Sequence, Does.Not.Contain("\r"));
+                Assert.That(entries[1].Id, Is.EqualTo("seq2"));
+                Assert.That(entries[1].Sequence.Sequence, Is.EqualTo("GGCC"));
+            });
+        }
+
+        /// <summary>
         /// S5: Blank lines in input are skipped.
         /// Evidence: Common real-world data contains extra blank lines
         /// </summary>

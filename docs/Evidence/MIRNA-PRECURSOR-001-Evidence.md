@@ -138,7 +138,7 @@
 | Sequence | `UGUCGGGUAGCUUAUCAGACUGAUGUUGACUGUUGAAUCUCAUGGCAACACCAGUCGAUGGGCUGUCUGACA` |
 | Length | 72 nt |
 | Expected result | **NOT detected** — known limitation of consecutive-pairing model |
-| Reason | Internal mismatches and bulges yield only 8 consecutive pairs from ends (< 18 threshold) |
+| Reason | Internal mismatches and bulges yield only 16 consecutive pairs from ends (< 18 threshold) |
 
 ### Dataset 4: Real miRBase — hsa-let-7a-1 (MI0000060)
 

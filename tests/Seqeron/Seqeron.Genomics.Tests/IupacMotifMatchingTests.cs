@@ -716,4 +716,179 @@ public class IupacMotifMatchingTests
     }
 
     #endregion
+
+    #region H1-H20: Defensive Hardening — Positive-Set IUPAC Matching (PAT-IUPAC-001 fix)
+
+    // The string overload FindDegenerateMotif(string, string, CancellationToken) routes through
+    // FindDegenerateMotifCore, which historically expressed B/D/H/V as negation ("not A", etc.)
+    // and N as unconditional true. With unvalidated string input, a non-ACGT sequence char could
+    // spuriously match B/D/H/V/N. These tests lock the positive-set membership behaviour:
+    //   B={C,G,T} D={A,G,T} H={A,C,T} V={A,C,G} N={A,C,G,T}.
+
+    // --- B (positive set {C,G,T}) ---
+
+    [Test]
+    [Description("H1: degenerate B does NOT match A (positive set {C,G,T})")]
+    public void FindDegenerateMotif_String_B_DoesNotMatchA()
+    {
+        var matches = MotifFinder.FindDegenerateMotif("A", "B", CancellationToken.None).ToList();
+        Assert.That(matches, Is.Empty);
+    }
+
+    [Test]
+    [Description("H2: degenerate B matches C, G, T (and lowercase)")]
+    public void FindDegenerateMotif_String_B_MatchesCGT()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("C", "B", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("G", "B", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("T", "B", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("cgt", "B", CancellationToken.None).Count(), Is.EqualTo(3));
+        });
+    }
+
+    // --- D (positive set {A,G,T}) ---
+
+    [Test]
+    [Description("H3: degenerate D does NOT match C (positive set {A,G,T})")]
+    public void FindDegenerateMotif_String_D_DoesNotMatchC()
+    {
+        var matches = MotifFinder.FindDegenerateMotif("C", "D", CancellationToken.None).ToList();
+        Assert.That(matches, Is.Empty);
+    }
+
+    [Test]
+    [Description("H4: degenerate D matches A, G, T (and lowercase)")]
+    public void FindDegenerateMotif_String_D_MatchesAGT()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("A", "D", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("G", "D", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("T", "D", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("agt", "D", CancellationToken.None).Count(), Is.EqualTo(3));
+        });
+    }
+
+    // --- H (positive set {A,C,T}) ---
+
+    [Test]
+    [Description("H5: degenerate H does NOT match G (positive set {A,C,T})")]
+    public void FindDegenerateMotif_String_H_DoesNotMatchG()
+    {
+        var matches = MotifFinder.FindDegenerateMotif("G", "H", CancellationToken.None).ToList();
+        Assert.That(matches, Is.Empty);
+    }
+
+    [Test]
+    [Description("H6: degenerate H matches A, C, T (and lowercase)")]
+    public void FindDegenerateMotif_String_H_MatchesACT()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("A", "H", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("C", "H", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("T", "H", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("act", "H", CancellationToken.None).Count(), Is.EqualTo(3));
+        });
+    }
+
+    // --- V (positive set {A,C,G}) ---
+
+    [Test]
+    [Description("H7: degenerate V does NOT match T (positive set {A,C,G})")]
+    public void FindDegenerateMotif_String_V_DoesNotMatchT()
+    {
+        var matches = MotifFinder.FindDegenerateMotif("T", "V", CancellationToken.None).ToList();
+        Assert.That(matches, Is.Empty);
+    }
+
+    [Test]
+    [Description("H8: degenerate V matches A, C, G (and lowercase)")]
+    public void FindDegenerateMotif_String_V_MatchesACG()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("A", "V", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("C", "V", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("G", "V", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("acg", "V", CancellationToken.None).Count(), Is.EqualTo(3));
+        });
+    }
+
+    // --- N (positive set {A,C,G,T}) ---
+
+    [Test]
+    [Description("H9: degenerate N matches each of A, C, G, T (and lowercase)")]
+    public void FindDegenerateMotif_String_N_MatchesAllStandardBases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("A", "N", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("C", "N", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("G", "N", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("T", "N", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("acgt", "N", CancellationToken.None).Count(), Is.EqualTo(4));
+        });
+    }
+
+    // --- Core bug case: non-ACGT sequence chars must NOT match B/D/H/V/N ---
+
+    [Test]
+    [Description("H10: non-ACGT sequence char 'X' is NOT matched by B/D/H/V/N (previous negation bug)")]
+    public void FindDegenerateMotif_String_NonAcgtChar_NotMatchedByDegenerateCodes()
+    {
+        foreach (var code in new[] { "B", "D", "H", "V", "N" })
+        {
+            var matches = MotifFinder.FindDegenerateMotif("X", code, CancellationToken.None).ToList();
+            Assert.That(matches, Is.Empty, $"'X' must not match degenerate code {code}");
+        }
+    }
+
+    [Test]
+    [Description("H11: sequence 'N' (ambiguity char in SEQUENCE) is NOT matched by B/D/H/V (previous negation bug)")]
+    public void FindDegenerateMotif_String_SequenceN_NotMatchedByThreeBaseCodes()
+    {
+        foreach (var code in new[] { "B", "D", "H", "V" })
+        {
+            var matches = MotifFinder.FindDegenerateMotif("N", code, CancellationToken.None).ToList();
+            Assert.That(matches, Is.Empty, $"sequence 'N' must not match degenerate code {code}");
+        }
+    }
+
+    [Test]
+    [Description("H12: in a mixed sequence, only true ACGT members of B match; non-ACGT '-' gap does not")]
+    public void FindDegenerateMotif_String_MixedWithGap_OnlyTrueMembersMatch()
+    {
+        // sequence "C-GT": '-' at index 1 is non-ACGT and must NOT match B.
+        var matches = MotifFinder.FindDegenerateMotif("C-GT", "B", CancellationToken.None)
+            .Select(m => m.Position).ToList();
+        Assert.That(matches, Is.EqualTo(new[] { 0, 2, 3 }));
+    }
+
+    // --- REGRESSION: positive cases through the string overload unchanged ---
+
+    [Test]
+    [Description("H13/REGRESSION: GAAY matches GAAC and GAAT via string overload")]
+    public void FindDegenerateMotif_String_GAAY_MatchesGAACandGAAT()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MotifFinder.FindDegenerateMotif("GAAC", "GAAY", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("GAAT", "GAAY", CancellationToken.None).Count(), Is.EqualTo(1));
+            Assert.That(MotifFinder.FindDegenerateMotif("GAAA", "GAAY", CancellationToken.None), Is.Empty);
+        });
+    }
+
+    [Test]
+    [Description("H14/REGRESSION: N matches any single ACGT base via string overload")]
+    public void FindDegenerateMotif_String_N_MatchesAnyAcgt_Regression()
+    {
+        var matches = MotifFinder.FindDegenerateMotif("ACGT", "N", CancellationToken.None)
+            .Select(m => m.Position).ToList();
+        Assert.That(matches, Is.EqualTo(new[] { 0, 1, 2, 3 }));
+    }
+
+    #endregion
 }

@@ -69,7 +69,7 @@
 | INV-6 | Structure contains only '(', ')', and '.' characters | Yes | Standard notation |
 | INV-7 | Count of '(' == Count of ')' in Structure | Yes | Balanced base pairs |
 | INV-8 | FreeEnergy < 0 for all valid hairpins (stabilizing) | Yes | Turner 2004 nearest-neighbor model (NNDB) |
-| INV-9 | Longer stem → more negative FreeEnergy (all else equal) | Yes | Turner (2004) principles |
+| INV-9 | A hairpin with a longer effective stem (23 bp / 11 nt loop) has more negative FreeEnergy than one with a shorter stem (20 bp / 7 nt loop); the added paired stem bases dominate the energy despite the differing loop size (see M11) | Yes | Turner (2004) principles |
 | INV-10 | Sequence is uppercase RNA (A, U, G, C only) | Yes | T→U conversion in implementation |
 
 ---
