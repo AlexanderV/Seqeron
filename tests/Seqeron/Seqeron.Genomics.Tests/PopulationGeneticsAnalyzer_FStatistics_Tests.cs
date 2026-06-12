@@ -664,4 +664,76 @@ public class PopulationGeneticsAnalyzer_FStatistics_Tests
     }
 
     #endregion
+
+    #region Mismatched-Length Contract Tests (POP-FST-001 Finding #1)
+
+    /// <summary>
+    /// CalculateFst must NOT silently drop surplus trailing loci when the two
+    /// populations have different per-locus counts. It must throw ArgumentException
+    /// to signal the locus-count mismatch (silent-data hazard for a critical library).
+    /// Source: POP-FST-001 validation finding #1.
+    /// </summary>
+    [Test]
+    public void CalculateFst_MismatchedLocusCounts_Throws()
+    {
+        var pop1 = new List<(double, int)> { (0.8, 100), (0.2, 100), (0.5, 100) };
+        var pop2 = new List<(double, int)> { (0.2, 100) };
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2));
+
+        Assert.That(ex!.Message, Does.Contain("match").IgnoreCase,
+            "Message must state the per-locus counts must match");
+    }
+
+    /// <summary>
+    /// Mismatch must also throw when the second population is the longer one
+    /// (symmetry — neither side may be silently truncated).
+    /// </summary>
+    [Test]
+    public void CalculateFst_MismatchedLocusCounts_Pop2Longer_Throws()
+    {
+        var pop1 = new List<(double, int)> { (0.8, 100) };
+        var pop2 = new List<(double, int)> { (0.2, 100), (0.5, 100) };
+
+        Assert.Throws<ArgumentException>(() =>
+            PopulationGeneticsAnalyzer.CalculateFst(pop1, pop2));
+    }
+
+    /// <summary>
+    /// Regression: equal-length inputs must continue to produce the exact same Fst
+    /// values as before the guard was added (worked examples 0 / 1 / 0.16 / 0.36).
+    /// </summary>
+    [Test]
+    public void CalculateFst_EqualLength_RegressionExactValues()
+    {
+        Assert.Multiple(() =>
+        {
+            // 0: identical single locus
+            Assert.That(PopulationGeneticsAnalyzer.CalculateFst(
+                    new List<(double, int)> { (0.5, 100) },
+                    new List<(double, int)> { (0.5, 100) }),
+                Is.EqualTo(0.0).Within(1e-10), "Identical → 0");
+
+            // 1: fixed differences
+            Assert.That(PopulationGeneticsAnalyzer.CalculateFst(
+                    new List<(double, int)> { (1.0, 100) },
+                    new List<(double, int)> { (0.0, 100) }),
+                Is.EqualTo(1.0).Within(1e-10), "Fixed differences → 1");
+
+            // 0.16: p1=0.7, p2=0.3, equal sizes
+            Assert.That(PopulationGeneticsAnalyzer.CalculateFst(
+                    new List<(double, int)> { (0.7, 100) },
+                    new List<(double, int)> { (0.3, 100) }),
+                Is.EqualTo(0.16).Within(1e-10), "0.7 vs 0.3 → 0.16");
+
+            // 0.36: p1=0.8, p2=0.2, equal sizes
+            Assert.That(PopulationGeneticsAnalyzer.CalculateFst(
+                    new List<(double, int)> { (0.8, 100) },
+                    new List<(double, int)> { (0.2, 100) }),
+                Is.EqualTo(0.36).Within(1e-10), "0.8 vs 0.2 → 0.36");
+        });
+    }
+
+    #endregion
 }
