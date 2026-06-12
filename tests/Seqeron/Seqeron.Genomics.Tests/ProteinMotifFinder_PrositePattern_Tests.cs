@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
@@ -733,6 +734,104 @@ public class ProteinMotifFinder_PrositePattern_Tests
                 "Score must be positive for a non-trivial pattern");
             Assert.That(match.EValue, Is.GreaterThanOrEqualTo(0),
                 "E-value must be non-negative");
+        });
+    }
+
+    #endregion
+
+    #region Unsupported-Construct Rejection Tests (reject, don't silently drop)
+
+    // The PROSITE→regex converter supports the standard PA-line grammar only. The extended
+    // ScanProsite *query* metacharacter '*' (Kleene star, e.g. '<{C}*>') is NOT supported and
+    // was previously silently dropped, mis-parsing the pattern. Mirroring the "reject, don't
+    // silently drop" pattern used for Newick parsing, an unsupported construct must throw a
+    // clear FormatException naming the offending character rather than being ignored.
+
+    [Test]
+    public void ConvertPrositeToRegex_KleeneStar_Throws()
+    {
+        // '<{C}*>' — the '*' is an unsupported ScanProsite query metacharacter.
+        Assert.Throws<FormatException>(
+            () => ConvertPrositeToRegex("<{C}*>"),
+            "Kleene-star '*' is unsupported and must be rejected, not silently dropped");
+    }
+
+    [Test]
+    public void ConvertPrositeToRegex_KleeneStarBetweenElements_Throws()
+    {
+        // 'A-x*-B' — '*' after an element is likewise unsupported.
+        var ex = Assert.Throws<FormatException>(
+            () => ConvertPrositeToRegex("A-x*-B"),
+            "Kleene-star '*' is unsupported and must be rejected, not silently dropped");
+        Assert.That(ex!.Message, Does.Contain("*"),
+            "Exception message must name the unsupported '*' construct");
+    }
+
+    [Test]
+    public void FindMotifByProsite_KleeneStar_Throws()
+    {
+        // The throw must surface through the end-to-end entry point as well.
+        Assert.Throws<FormatException>(
+            () => FindMotifByProsite("ACDEFGHIK", "A-x*-B").ToList(),
+            "FindMotifByProsite must reject patterns containing unsupported '*'");
+    }
+
+    [Test]
+    public void ConvertPrositeToRegex_UnsupportedMetachar_Throws()
+    {
+        // Other stray metacharacters that previously fell through the final 'else' (and were
+        // silently dropped) must also be rejected, e.g. '?' and '+'.
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A-x?-B"),
+                "'?' is unsupported and must be rejected");
+            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A-x+-B"),
+                "'+' is unsupported and must be rejected");
+        });
+    }
+
+    #endregion
+
+    #region Regression: Supported Operators Still Parse Exactly
+
+    [Test]
+    public void ConvertPrositeToRegex_SupportedOperators_StillParseExactly()
+    {
+        Assert.Multiple(() =>
+        {
+            // N-glycosylation PS00001: exclusion {P} and char classes
+            Assert.That(ConvertPrositeToRegex("N-{P}-[ST]-{P}"), Is.EqualTo("N[^P][ST][^P]"));
+            // ATP/GTP P-loop PS00017: x(4) fixed repeat
+            Assert.That(ConvertPrositeToRegex("[AG]-x(4)-G-K-[ST]"), Is.EqualTo("[AG].{4}GK[ST]"));
+            // Both anchors: '<' N-terminus and '>' C-terminus
+            Assert.That(ConvertPrositeToRegex("<M-x-K>"), Is.EqualTo("^M.K$"));
+            // x(m,n) variable range
+            Assert.That(ConvertPrositeToRegex("A-x(2,4)-G"), Is.EqualTo("A.{2,4}G"));
+            // Element repetition (n)
+            Assert.That(ConvertPrositeToRegex("[RK](2)-x-[ST]"), Is.EqualTo("[RK]{2}.[ST]"));
+            // Trailing period terminates the pattern
+            Assert.That(ConvertPrositeToRegex("R-G-D."), Is.EqualTo("RGD"));
+            // [G>] C-terminus inside brackets
+            Assert.That(ConvertPrositeToRegex("F-[GSTV]-P-R-L-[G>]."), Is.EqualTo("F[GSTV]PRL(?:G|$)"));
+        });
+    }
+
+    [Test]
+    public void FindMotifByProsite_SupportedOperators_StillMatchExactly()
+    {
+        Assert.Multiple(() =>
+        {
+            // N-glyc {2,8} on canonical example
+            var nglyc = FindMotifByProsite("AANASAAANGTAAA", "N-{P}-[ST]-{P}").Select(m => m.Start).ToList();
+            Assert.That(nglyc, Is.EqualTo(new[] { 2, 8 }));
+
+            // Anchored '<' only matches at start
+            var anchored = FindMotifByProsite("MAKMAK", "<M-x-K").Select(m => m.Start).ToList();
+            Assert.That(anchored, Is.EqualTo(new[] { 0 }));
+
+            // x(m,n) range matches the expected span
+            var range = FindMotifByProsite("AGGGGG", "A-x(2,4)-G").ToList();
+            Assert.That(range, Has.Count.GreaterThanOrEqualTo(1));
         });
     }
 
