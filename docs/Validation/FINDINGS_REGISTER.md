@@ -1,0 +1,82 @@
+# Findings Register — full disposition of every note across the validation campaign
+
+**Date:** 2026-06-12   **Library:** Seqeron.Genomics (mission-critical)
+**Source:** every note/limitation/follow-up across all 86 reports in `docs/Validation/reports/`.
+
+Each finding is placed in exactly one category:
+
+| Category | Meaning |
+|----------|---------|
+| **FIXED-NOW** | Non-radical (doc/comment/spec text or small safe code change). Fixed in this pass. |
+| **FEASIBLE → IMPLEMENT** | Needs real code change but is implementable safely with strict tests, in its own context. |
+| **NOT-POSSIBLE (radical)** | Requires a redesign / public-API change / new model. Documented here, not changed. |
+| **BY-DESIGN** | Note documents *correct, sourced* intended behaviour; "fixing" it would be wrong. No change. |
+
+---
+
+## A. FIXED-NOW — non-radical (doc/comment/spec) + small safe code fixes
+
+| # | Unit | Finding | Fix |
+|---|------|---------|-----|
+| A1 | DISORDER-PRED-001 | Stale residue-ranking string `…Q,K,S,E,P` in Evidence doc & TestSpec (S<K, so order is `Q,S,K,E,P`). Code comment already fixed mid-campaign. | Correct the string in Evidence + TestSpec. |
+| A2 | MIRNA-PRECURSOR-001 | Evidence "Dataset 3": hsa-mir-21 "8 consecutive pairs" → actually 16. | Correct Evidence text. |
+| A3 | MIRNA-PRECURSOR-001 | INV-9 "all else equal" wording imprecise vs M11 (varies stem+loop). | Tighten spec wording. |
+| A4 | MIRNA-PRECURSOR-001 | Stale checklist method names `FindPreMiRnas`/`ValidateHairpin` → real `FindPreMiRnaHairpins`. | Fix `ALGORITHMS_CHECKLIST_V2.md`. |
+| A5 | SEQ-GCSKEW-001 | Stale method name `FindOriginOfReplication` → `PredictReplicationOrigin` in checklist line ~1543. | Fix `ALGORITHMS_CHECKLIST_V2.md`. |
+| A6 | CHROM-KARYO-001 | `GetChromosomeBaseName` comment mentions "chr1a, chr1b" but code handles only `_N` integer suffixes. | Correct the code comment. |
+| A7 | PROBE-DESIGN-001 | Stale inline comment "50-70 bp" in M11 test (params are 50-60); assertion already uses live params. | Correct the test comment. |
+| A8 | PHYLO-DIST-001 | Evidence §5.3 prose rounds pure-transversion K2P to 0.31726; exact is 0.317162 (test tolerance fine). | Correct Evidence prose. |
+| A9 | CRISPR-PAM-001 | Reverse-strand `PamSite.TargetStart` is a revComp-string index while `Position` is forward — internally consistent but easy to misread. | Add an XML `<remarks>` caveat on the field (no behaviour change). |
+| A10 | META-CLASS-001 | Docs/spec conflate the implemented flat best-hit with Kraken/LCA (overclaim). | De-overclaim the description/XML docs/spec so it honestly states "best-hit, no LCA" (the LCA *implementation* is NOT-POSSIBLE → §C1). |
+| — | CRISPR-OFF-001, SEQ-ENTROPY-001, PROTMOTIF-FIND-001, KMER-FIND-001 | Backwards comment / rounding typo / stale citation / weak asserts. | **Already fixed mid-campaign** (here for completeness). |
+
+## B. FEASIBLE → IMPLEMENT (own context, strict tests first, project patterns)
+
+| # | Unit | Finding | Planned implementation |
+|---|------|---------|------------------------|
+| B1 | PROTMOTIF-PROSITE-001 | Extended ScanProsite `*` (Kleene-star) query metachar silently dropped → a pattern using it is silently mis-parsed. | **Reject** unsupported PROSITE metacharacters with a clear exception (mirror the Newick "throw, don't silently drop" fix). Strict tests. |
+| B2 | POP-FST-001 | `CalculateFst` silently truncates to `min(count1,count2)` on mismatched locus counts. | Validate equal locus counts → throw `ArgumentException` on mismatch (defensive contract). Strict tests. |
+| B3 | PARSE-EMBL-001 | INSDC doubled-quote escaping `""`→`"` not unescaped in qualifier values; plus a dead `QualifierRegex` path. | Unescape `""`→`"` in qualifier parsing; remove dead code. Strict tests with the doubled-quote case. |
+| B4 | SPLICE-PREDICT-001 (LIMITED) | Region shorter than `minExonLength` dropped by `DeriveExons` but kept by `GenerateSplicedSequence` → coverage/spliced-length invariants (INV-3/4/11) inconsistent. | Make the two consistent (spliced sequence derives from the same reported-exon set), restoring all invariants while preserving `minExonLength` semantics and the `start<end` property test. Strict tests. |
+
+## C. NOT-POSSIBLE (radical — documented, not changed in this pass)
+
+| # | Unit | Gap | Why radical / what a real fix needs |
+|---|------|-----|--------------------------------------|
+| C1 | META-CLASS-001 | True taxonomic classification (Kraken weighted root-to-leaf / LCA). | Needs a taxonomy DAG data model, LCA-at-DB-build, per-read classification tree — changes the public API and the semantics of 27 locked tests. (Overclaim text is corrected in A10.) |
+| C2 | Phylogenetics (PHYLO-NEWICK / TREE / COMP) | Full N-ary (multifurcating) trees. | `PhyloNode` is a binary `Left`/`Right` model; N-ary requires refactoring the node type and every consumer (UPGMA, NJ, RF, MRCA, Newick). Mitigated: Newick now **throws** instead of silently truncating (done mid-campaign). |
+| C3 | PHYLO-COMP-001 | Unrooted-bipartition Robinson-Foulds as an alternative to the current rooted-clade metric. | Different metric; additive feature + new tests. Current rooted-clade RF is correct and documented. |
+| C4 | ALIGN-MULTI-001 | Guide-tree progressive MSA. | Current star alignment is honestly declared; progressive MSA is a different algorithm (guide tree + profile-profile). |
+| C5 | RESTR-DIGEST-001 | Circular-molecule digest. | Needs a topology parameter + wrap-around fragment joining; current linear digest is correct and documented. |
+| C6 | ANNOT-GENE-001 | Reverse-strand ribosome-binding-site (SD) reporting in the RBS helper. | Feature addition (PredictGenes already covers both strands). |
+| C7 | CRISPR-GUIDE/OFF-001, PRIMER-TM-001 | Doench/Azimuth on-target, MIT/Hsu off-target weight model, SantaLucia NN Tm. | New scientific models; current methods are honestly-declared heuristics, not defects. |
+| C8 | PARSE-EMBL-001 | Remote references, deprecated single-dot ranges, dedicated site-between flag. | Rare/edge INSDC location features; out of standard-record scope. |
+
+## D. BY-DESIGN — correct, sourced behaviour; intentionally unchanged
+
+| Unit | Note | Why no change |
+|------|------|---------------|
+| PARSE-FASTA-001 | Orphan sequence (no header) / header with no sequence silently skipped. | Documented, matches Biopython lenient convention; "fixing" would break the sourced contract. |
+| PARSE-FASTQ-001 | Negative-Q (Solexa) unsupported, clamps to Q0. | Spec scopes Phred+33/+64 only; Solexa obsolete. |
+| PAT-EXACT-001 | Empty pattern → all positions `[0..n-1]`. | Defined via formal-language ε-substring convention. |
+| SEQ-VALID-001 | Empty sequence → valid (true). | Only choice consistent with Biopython + universal-quantifier semantics. |
+| ALIGN-SEMI-001 | Fitting-alignment variant (query fully aligned, reference ends free). | Sourced (Rosalind SIMS); correct semi-global variant. |
+| ALIGN-MULTI-001 / RF / heuristics | Star MSA, rooted-clade RF, declared heuristics. | Honestly scoped; correct for their stated contract (see C3-C7 for optional upgrades). |
+| RNA-STRUCT-001 | `PredictStructure` greedy dot-bracket vs Nussinov/Zuker DP traceback. | Documented approximation; the DP score values themselves are correct. |
+
+---
+
+## Status
+
+- A (FIXED-NOW): see per-row commits / this pass.
+- B (FEASIBLE): implemented in separate contexts with strict tests — status tracked below.
+- C (NOT-POSSIBLE): documented above; carried in the ledger's "Deferred BIG fixes" backlog.
+- D (BY-DESIGN): no action.
+
+| Item | State |
+|------|-------|
+| A1–A10 doc/comment fixes | ✅ DONE — all text/comment-only, 0 behaviour change, suite 4503 green. (A1 TestSpec had no such string — only Evidence; A8 corrected to exact 0.317128.) META-CLASS overclaim de-claimed in code XML docs + spec + Evidence. |
+| B1 PROSITE reject `*` | ✅ DONE — throws FormatException on unsupported tokens, +6 tests, suite 4495 green, operators byte-for-byte unchanged |
+| B2 FST mismatch throw | ✅ DONE — ArgumentException on mismatched locus counts (PairwiseFst inherits), +3 tests, suite 4498 green |
+| B3 EMBL `""` unescape | ✅ DONE — INSDC `""`→`"` in EMBL **and** GenBank (old `.Trim('"')` was doubly wrong), dead QualifierRegex removed, +5 tests, suite 4503 green |
+| B4 SPLICE-PREDICT invariants | ✅ DONE — consistent-filter fix, +3 strict tests, suite 4489 green, unit now CLEAN |
