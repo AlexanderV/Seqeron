@@ -634,4 +634,99 @@ public class PhylogeneticAnalyzer_NewickIO_Tests
     }
 
     #endregion
+
+    #region Multifurcation / Malformed Input (PHYLO-NEWICK-001 fix: reject, don't silently truncate)
+
+    [Test]
+    [Description("MUST: ParseNewick throws on a multifurcating (3-child) root instead of silently truncating ('(A,B,C);')")]
+    public void ParseNewick_MultifurcatingRoot_Throws()
+    {
+        // Source: Wikipedia/PHYLIP allow N-ary BranchSet; the binary PhyloNode model cannot
+        // represent it, so the parser must reject rather than silently drop the third child.
+        var ex = Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("(A,B,C);"));
+
+        Assert.That(ex!.Message, Does.Contain("ultifurcat"),
+            "Exception message should explain that multifurcating trees are unsupported");
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on a multifurcating nested subtree ('(A,B,(C,D,E));')")]
+    public void ParseNewick_MultifurcatingNestedSubtree_Throws()
+    {
+        Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("(A,B,(C,D,E));"));
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on trailing garbage instead of silently ignoring it ('(A,B);extra')")]
+    public void ParseNewick_TrailingGarbage_Throws()
+    {
+        var ex = Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("(A,B);extra"));
+
+        Assert.That(ex!.Message, Does.Contain("trailing").IgnoreCase,
+            "Exception message should indicate unexpected trailing input");
+    }
+
+    #endregion
+
+    #region Regression: valid binary trees still parse after the reject-multifurcation fix
+
+    [Test]
+    [Description("REGRESSION: valid binary trees still parse identically after the multifurcation/trailing-garbage fix")]
+    public void ParseNewick_ValidBinaryTrees_StillParse()
+    {
+        Assert.Multiple(() =>
+        {
+            // (A,B);
+            var ab = PhylogeneticAnalyzer.ParseNewick("(A,B);");
+            Assert.That(ab.Left!.Name, Is.EqualTo("A"));
+            Assert.That(ab.Right!.Name, Is.EqualTo("B"));
+
+            // (A:0.1,B:0.2);
+            var abLen = PhylogeneticAnalyzer.ParseNewick("(A:0.1,B:0.2);");
+            Assert.That(abLen.Left!.BranchLength, Is.EqualTo(0.1).Within(0.0001));
+            Assert.That(abLen.Right!.BranchLength, Is.EqualTo(0.2).Within(0.0001));
+
+            // ((A,B),(C,D));
+            var nested = PhylogeneticAnalyzer.ParseNewick("((A,B),(C,D));");
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(nested).Count(), Is.EqualTo(4));
+            Assert.That(nested.Left!.IsLeaf, Is.False);
+            Assert.That(nested.Right!.IsLeaf, Is.False);
+
+            // A;  (single leaf)
+            var leaf = PhylogeneticAnalyzer.ParseNewick("A;");
+            Assert.That(leaf.IsLeaf, Is.True);
+            Assert.That(leaf.Name, Is.EqualTo("A"));
+        });
+    }
+
+    [Test]
+    [Description("REGRESSION: round-trip (parse(serialize(tree)) preserves topology + branch lengths) still holds after the fix")]
+    public void ParseNewick_RoundTrip_StillPreservesTopologyAndBranchLengths()
+    {
+        // Arrange - a fully binary tree with named internal nodes and branch lengths.
+        string input = "((A:0.1,B:0.2)AB:0.3,(C:0.4,D:0.5)CD:0.6)Root;";
+        var tree = PhylogeneticAnalyzer.ParseNewick(input);
+
+        // Act - round-trip: ToNewick → ParseNewick
+        string newick = PhylogeneticAnalyzer.ToNewick(tree);
+        var parsed = PhylogeneticAnalyzer.ParseNewick(newick);
+
+        // Assert - topology (4 leaves) and branch lengths preserved.
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(parsed).Count(), Is.EqualTo(4),
+                "Leaf count must be preserved through round-trip");
+            Assert.That(parsed.Left!.Left!.BranchLength, Is.EqualTo(0.1).Within(0.0001));
+            Assert.That(parsed.Left!.Right!.BranchLength, Is.EqualTo(0.2).Within(0.0001));
+            Assert.That(parsed.Left!.BranchLength, Is.EqualTo(0.3).Within(0.0001));
+            Assert.That(parsed.Right!.Left!.BranchLength, Is.EqualTo(0.4).Within(0.0001));
+            Assert.That(parsed.Right!.Right!.BranchLength, Is.EqualTo(0.5).Within(0.0001));
+            Assert.That(parsed.Right!.BranchLength, Is.EqualTo(0.6).Within(0.0001));
+        });
+    }
+
+    #endregion
 }
