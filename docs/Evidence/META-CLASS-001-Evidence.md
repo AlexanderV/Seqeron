@@ -10,6 +10,8 @@
 | Methods | `ClassifyReads`, `BuildKmerDatabase` |
 | Date | 2026-02-01 |
 
+> **Classifier scope (important):** `ClassifyReads` is a flat **best-hit (highest k-mer count)** classifier — it assigns each read to the single taxon with the most matching canonical k-mers. It is **NOT** an LCA / Kraken weighted root-to-leaf classifier: there is no taxonomy tree and no lowest-common-ancestor resolution. `BuildKmerDatabase` maps each canonical k-mer to exactly one taxon (the first reference genome it appears in), so shared k-mers are not resolved to an ancestor. Ties (taxa with equal best k-mer counts) resolve to an **arbitrary best-count taxon** (enumeration order). The Kraken references below are cited only for the *shared mechanics* — canonical k-mer indexing, ambiguous-k-mer filtering, and the C/Q confidence ratio — and must NOT be read as a claim that this unit implements Kraken's LCA assignment.
+
 ---
 
 ## Authoritative Sources
@@ -88,7 +90,7 @@ Per Kraken 1 & 2 manuals:
 | Empty sequence | Implementation standard | Return "Unclassified", no error |
 | Sequence shorter than k | Kraken manual | Cannot extract k-mers, "Unclassified" |
 | No matching k-mers | Kraken | Return "Unclassified" |
-| Multiple taxon matches | Kraken (LCA) | Classify to highest-count taxon |
+| Multiple taxon matches | Best-hit rule (NOT LCA) | Classify to highest-count taxon; ties resolve to an arbitrary best-count taxon |
 | All-N sequence | DUST filtering docs | Handle gracefully |
 
 ---

@@ -79,7 +79,7 @@ public static class DisorderPredictor
     // Source: Campen et al. (2008) "TOP-IDP-Scale: A New Amino Acid Scale Measuring
     //   Propensity for Intrinsic Disorder" Protein Pept Lett 15(9):956-963.
     //   PMC2676888, PMID 18991772, Table 2.
-    // Ranking (order→disorder): W,F,Y,I,M,L,V,N,C,T,A,G,R,D,H,Q,K,S,E,P
+    // Ranking (order→disorder): W,F,Y,I,M,L,V,N,C,T,A,G,R,D,H,Q,S,K,E,P
     private static readonly Dictionary<char, double> DisorderPropensity = new()
     {
         ['A'] = 0.060,

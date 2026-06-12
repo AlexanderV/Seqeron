@@ -144,7 +144,7 @@ Pure transversion (Wikipedia: purine↔pyrimidine):
   Seq1: ACGT
   Seq2: CCGT (1 transversion A→C at pos 0)
   S = 0, V = 1/4
-  K2P = -0.5 × ln(0.75 × √0.5) ≈ 0.31726
+  K2P = -0.5 × ln(0.75 × √0.5) ≈ 0.317128
 
 Mixed:
   Seq1: ACGTACGT

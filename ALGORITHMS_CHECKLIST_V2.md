@@ -1540,7 +1540,7 @@
 | `CalculateGcSkew(sequence)` | GcSkewCalculator | Canonical |
 | `CalculateWindowedGcSkew(seq, window, step)` | GcSkewCalculator | Windowed |
 | `CalculateCumulativeGcSkew(sequence)` | GcSkewCalculator | Cumulative |
-| `FindOriginOfReplication(sequence)` | GcSkewCalculator | Origin detection |
+| `PredictReplicationOrigin(sequence)` | GcSkewCalculator | Origin detection |
 
 ---
 
@@ -1639,14 +1639,13 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MiRnaAnalyzer.FindPreMiRnas(...)` |
+| **Canonical** | `MiRnaAnalyzer.FindPreMiRnaHairpins(...)` |
 | **Complexity** | O(n²) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindPreMiRnas(sequence)` | MiRnaAnalyzer | Canonical |
-| `ValidateHairpin(structure)` | MiRnaAnalyzer | Validation |
+| `FindPreMiRnaHairpins(sequence)` | MiRnaAnalyzer | Canonical (hairpin detection + structural validation) |
 
 ---
 
@@ -4432,12 +4431,12 @@
 | `FindMotifs` | PROTMOTIF-FIND-001 |
 | `FindOffTargets` | CRISPR-OFF-001 |
 | `FindOrfs` | ANNOT-ORF-001 |
-| `FindOriginOfReplication` | SEQ-GCSKEW-001 |
+| `PredictReplicationOrigin` | SEQ-GCSKEW-001 |
 | `FindOrthologs` | COMPGEN-ORTHO-001 |
 | `FindPalindromes` | REP-PALIN-001 |
 | `FindPamSites` | CRISPR-PAM-001 |
 | `FindParalogs` | COMPGEN-ORTHO-001 |
-| `FindPreMiRnas` | MIRNA-PRECURSOR-001 |
+| `FindPreMiRnaHairpins` | MIRNA-PRECURSOR-001 |
 | `FindPromoterMotifs` | ANNOT-PROM-001 |
 | `FindRareCodons` | CODON-RARE-001 |
 | `FindRibosomeBindingSites` | ANNOT-GENE-001 |

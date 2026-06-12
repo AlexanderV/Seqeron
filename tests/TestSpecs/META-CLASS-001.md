@@ -17,6 +17,8 @@
 | `ClassifyReads(reads, kmerDB, k)` | MetagenomicsAnalyzer | Canonical | Deep |
 | `BuildKmerDatabase(refGenomes, k)` | MetagenomicsAnalyzer | DB construction | Deep |
 
+> **Classifier scope (important):** This is a flat **best-hit (highest k-mer count)** classifier — each read is assigned to the single taxon with the most matching canonical k-mers. It is **NOT** an LCA / Kraken weighted root-to-leaf classifier: there is no taxonomy tree, no lowest-common-ancestor resolution, and `BuildKmerDatabase` maps each canonical k-mer to exactly one taxon (the first reference it appears in). Ties between taxa with equal best k-mer counts resolve to an **arbitrary best-count taxon** (enumeration order). The Kraken citations below justify only the *shared mechanics* — canonical k-mers, ambiguous-k-mer filtering, and the C/Q confidence ratio — not LCA assignment.
+
 ## Evidence Sources
 
 1. **Wikipedia — Metagenomics:** K-mer based binning, taxonomic classification principles
@@ -59,7 +61,7 @@
 | ID | Test | Rationale |
 |----|------|-----------|
 | S1 | Mixed case input handled (uppercased internally) | Robustness for real data |
-| S2 | Multiple taxon matches resolves to highest count | LCA-like behavior |
+| S2 | Multiple taxon matches resolves to highest count | Best-hit rule (highest k-mer count); NOT LCA — ties resolve to an arbitrary best-count taxon |
 | S3 | Canonical k-mer lookup in ClassifyReads (RC read matches canonical DB) | Kraken: canonicalize before lookup |
 | S4 | Ambiguous nucleotides excluded from TotalKmers | Kraken: Q = non-ambiguous k-mers only |
 | S5 | Multi-taxon confidence uses winning taxon count (C/Q) | Kraken 1&2: C = clade k-mers |
