@@ -1015,5 +1015,67 @@ SQ   Sequence 30 BP;
         Assert.That(location.RawLocation, Is.EqualTo("123^124"));
     }
 
+    [Test]
+    public void Parse_Qualifier_EscapedDoubleQuote_Unescaped()
+    {
+        // INSDC Feature Table Definition: a literal double quote inside a
+        // free-text quoted qualifier value is encoded as two consecutive quotes ("").
+        // The parser must collapse "" -> " when unquoting the value.
+        var embl = @"ID   QUAL003; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""he said """"hi""""""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("he said \"hi\""));
+    }
+
+    [Test]
+    public void Parse_Qualifier_NoEscapedQuotes_ValueUnchanged()
+    {
+        // A quoted value with no embedded "" pairs is returned verbatim (outer quotes stripped).
+        var embl = @"ID   QUAL004; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""plain value""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("plain value"));
+    }
+
+    [Test]
+    public void Parse_Qualifier_MultipleEscapedQuotePairs_AllUnescaped()
+    {
+        // Several independent "" pairs each collapse to a single ".
+        var embl = @"ID   QUAL005; SV 1; linear; mRNA; STD; PLN; 20 BP.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..20
+FT                   /note=""a """"b"""" c """"d""""""
+XX
+SQ   Sequence 20 BP;
+     acgtacgtac gtacgtacgt                                          20
+//";
+        var record = EmblParser.Parse(embl).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("a \"b\" c \"d\""));
+    }
+
     #endregion
 }

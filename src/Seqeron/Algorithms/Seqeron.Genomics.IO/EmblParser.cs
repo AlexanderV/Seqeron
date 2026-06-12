@@ -550,87 +550,29 @@ public static partial class EmblParser
     {
         if (name != null)
         {
-            var val = value.ToString().Trim().Trim('"');
-            qualifiers[name] = val;
+            qualifiers[name] = UnquoteQualifierValue(value.ToString().Trim());
         }
     }
 
-    private static IReadOnlyList<Feature> ParseFeatures(IEnumerable<string> featureLines)
+    /// <summary>
+    /// Unquotes a free-text qualifier value. When the value is enclosed in double
+    /// quotes, the single outer pair is removed and INSDC-escaped embedded quotes
+    /// (a literal '"' encoded as two consecutive quotes "") are collapsed to one.
+    /// Unquoted values are returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// Per the INSDC Feature Table Definition (qualifier value format): free text is
+    /// surrounded by double quotation marks and an embedded quotation mark is
+    /// represented by a pair of adjacent quotation marks.
+    /// </remarks>
+    private static string UnquoteQualifierValue(string value)
     {
-        var features = new List<Feature>();
-        var allContent = string.Join(" ", featureLines);
-
-        if (string.IsNullOrWhiteSpace(allContent))
-            return features;
-
-        // Parse FT lines - format: key location /qualifier=value
-        string currentKey = "";
-        string currentLocation = "";
-        var qualifiers = new Dictionary<string, string>();
-
-        // Re-process raw lines
-        var lines = allContent.Split(new[] { "FT " }, StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var segment in lines)
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
         {
-            var trimmed = segment.Trim();
-            if (string.IsNullOrEmpty(trimmed)) continue;
-
-            // Check if this is a new feature (starts with key) or qualifier
-            if (!trimmed.StartsWith('/'))
-            {
-                // Save previous feature
-                if (!string.IsNullOrEmpty(currentKey))
-                {
-                    features.Add(CreateFeature(currentKey, currentLocation, qualifiers));
-                }
-
-                // Parse new feature
-                var spaceIdx = trimmed.IndexOf(' ');
-                if (spaceIdx > 0)
-                {
-                    currentKey = trimmed[..spaceIdx];
-                    var rest = trimmed[(spaceIdx + 1)..];
-
-                    // Find location (up to first / or end)
-                    var qualStart = rest.IndexOf('/');
-                    if (qualStart > 0)
-                    {
-                        currentLocation = rest[..qualStart].Trim();
-                        ParseQualifierString(rest[qualStart..], qualifiers = new Dictionary<string, string>());
-                    }
-                    else
-                    {
-                        currentLocation = rest.Trim();
-                        qualifiers = new Dictionary<string, string>();
-                    }
-                }
-            }
-            else
-            {
-                // Qualifier continuation
-                ParseQualifierString(trimmed, qualifiers);
-            }
+            return value[1..^1].Replace("\"\"", "\"");
         }
 
-        // Save last feature
-        if (!string.IsNullOrEmpty(currentKey))
-        {
-            features.Add(CreateFeature(currentKey, currentLocation, qualifiers));
-        }
-
-        return features;
-    }
-
-    private static void ParseQualifierString(string text, Dictionary<string, string> qualifiers)
-    {
-        var matches = QualifierRegex().Matches(text);
-        foreach (Match match in matches)
-        {
-            var name = match.Groups[1].Value;
-            var value = match.Groups[2].Success ? match.Groups[2].Value.Trim('"') : "true";
-            qualifiers[name] = value;
-        }
+        return value;
     }
 
     private static Feature CreateFeature(string key, string rawLocation, Dictionary<string, string> qualifiers)
@@ -771,9 +713,6 @@ public static partial class EmblParser
 
     [GeneratedRegex(@"\[(\d+)\]")]
     private static partial Regex ReferenceNumberRegex();
-
-    [GeneratedRegex(@"/(\w+)(?:=([^/]+))?")]
-    private static partial Regex QualifierRegex();
 
     #endregion
 }

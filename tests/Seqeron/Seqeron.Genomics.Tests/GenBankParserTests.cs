@@ -233,6 +233,42 @@ ORIGIN
         });
     }
 
+    [Test]
+    public void Parse_Qualifier_EscapedDoubleQuote_Unescaped()
+    {
+        // INSDC Feature Table Definition: a literal double quote inside a
+        // free-text quoted qualifier value is encoded as two consecutive quotes ("").
+        // The parser must collapse "" -> " when unquoting the value.
+        var gb = @"LOCUS       QUOTE001                  20 bp    DNA     linear   UNK
+FEATURES             Location/Qualifiers
+     source          1..20
+                     /note=""he said """"hi""""""
+ORIGIN
+        1 acgtacgtac gtacgtacgt
+//";
+        var record = GenBankParser.Parse(gb).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("he said \"hi\""));
+    }
+
+    [Test]
+    public void Parse_Qualifier_NoEscapedQuotes_ValueUnchanged()
+    {
+        // A quoted value with no embedded "" pairs is returned verbatim (outer quotes stripped).
+        var gb = @"LOCUS       QUOTE002                  20 bp    DNA     linear   UNK
+FEATURES             Location/Qualifiers
+     source          1..20
+                     /note=""plain value""
+ORIGIN
+        1 acgtacgtac gtacgtacgt
+//";
+        var record = GenBankParser.Parse(gb).First();
+        var source = record.Features.First(f => f.Key == "source");
+
+        Assert.That(source.Qualifiers["note"], Is.EqualTo("plain value"));
+    }
+
     #endregion
 
     #region Sequence Tests
