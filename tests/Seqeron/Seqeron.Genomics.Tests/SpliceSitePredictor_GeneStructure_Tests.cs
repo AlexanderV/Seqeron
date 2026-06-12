@@ -456,6 +456,119 @@ public class SpliceSitePredictor_GeneStructure_Tests
 
     #endregion
 
+    #region SPLICE-PREDICT-001 Fix: Spliced == concat(reported exons) when a sub-threshold region is dropped
+
+    // Builds a sequence with two GT-AG introns separated by a SHORT inter-intron region
+    // that is below minExonLength. The historical bug: DeriveExons dropped that short
+    // region from the exon list, but GenerateSplicedSequence still included it, so
+    // splicedSequence ≠ concat(reported exons) and coverage was inconsistent.
+    // Fix invariant (locked here): splicedSequence == string.Concat(reported exon
+    // sequences) and splicedSequence.Length == Σ reported-exon lengths, by construction.
+    //
+    // Geometry (matches the validator repro):
+    //   exon1(50) + intronA(83) + mid(40) + intronB(83) + exon2(50)
+    // With minExonLength=50 the 40-nt mid region is sub-threshold and dropped from BOTH
+    // the exon list and the spliced product.
+
+    private const string Intron83 =
+        "GUAAGU" +                                                   // donor (6)
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + // body (60)
+        "UUUUUUUUUUUUUU" +                                           // PPT (14)
+        "CAG";                                                       // acceptor (3) → 83 nt
+
+    private const string FlankExon50 =
+        "AUGCCCAAAGGGCCCUUUAAAGGGCCCUUUAAAGCAUGCCCAAAGGGCCC"; // 50 nt
+    private const string MidRegion40 =
+        "GCCUUUAAAGGGCCCUUUAAAGGGCCCUUUAAAGCAUGCC"; // 40 nt
+
+    private static readonly string TwoIntronSequence =
+        FlankExon50 + Intron83 + MidRegion40 + Intron83 + FlankExon50;
+
+    private static void AssertSplicedConsistency(GeneStructure structure)
+    {
+        // INV-4: spliced sequence is exactly the concatenation of the reported exon sequences.
+        string exonConcat = string.Concat(structure.Exons.Select(e => e.Sequence));
+        Assert.That(structure.SplicedSequence, Is.EqualTo(exonConcat),
+            "Spliced sequence must equal concatenation of the REPORTED exon sequences (INV-4)");
+
+        // Spliced length == sum of reported exon lengths.
+        int reportedExonLength = structure.Exons.Sum(e => e.Length);
+        Assert.That(structure.SplicedSequence.Length, Is.EqualTo(reportedExonLength),
+            "Spliced length must equal the sum of reported exon lengths");
+
+        // Internal coverage consistency: reported exons + introns tile a consistent span.
+        // coverage(reported exons) + coverage(introns) == spliced length + total intron length.
+        int coverage = reportedExonLength + structure.Introns.Sum(i => i.Length);
+        Assert.That(coverage, Is.EqualTo(structure.SplicedSequence.Length + structure.Introns.Sum(i => i.Length)),
+            "Reported-exon + intron coverage must be internally consistent (INV-3)");
+    }
+
+    [Test]
+    public void PredictGeneStructure_DroppedSubThresholdRegion_SplicedEqualsReportedExons()
+    {
+        // 2×83-nt introns, 40-nt mid region, minExonLength=50 → the 40-nt mid region is dropped.
+        var structure = PredictGeneStructure(
+            TwoIntronSequence, minExonLength: 50, minIntronLength: 60, minScore: 0.2);
+
+        Assert.That(structure.Introns, Has.Count.EqualTo(2),
+            "Prerequisite: two GT-AG introns must be selected");
+
+        // The sub-threshold mid region must be dropped from the exon list (≤ 2 exons),
+        // and the spliced product must contain exactly the reported exons — never the
+        // dropped mid region.
+        AssertSplicedConsistency(structure);
+
+        // Concretely: only the two 50-nt flank exons are reported; the 40-nt mid region is gone.
+        Assert.That(structure.Exons, Has.Count.EqualTo(2),
+            "Sub-threshold 40-nt mid region must be dropped, leaving the two 50-nt flank exons");
+        Assert.That(structure.SplicedSequence, Is.EqualTo(FlankExon50 + FlankExon50),
+            "Spliced product must be the two reported flank exons, excluding the dropped mid region");
+        Assert.That(structure.SplicedSequence, Does.Not.Contain(MidRegion40),
+            "Dropped sub-threshold region must NOT appear in the spliced sequence");
+    }
+
+    [Test]
+    public void PredictGeneStructure_LowMinExon_KeepsMidRegion_SplicedEqualsReportedExons()
+    {
+        // Same sequence but minExonLength low enough to KEEP the 40-nt mid region.
+        var structure = PredictGeneStructure(
+            TwoIntronSequence, minExonLength: 10, minIntronLength: 60, minScore: 0.2);
+
+        Assert.That(structure.Introns, Has.Count.EqualTo(2),
+            "Prerequisite: two GT-AG introns must be selected");
+        Assert.That(structure.Exons, Has.Count.EqualTo(3),
+            "With low minExonLength the mid region is retained → three exons");
+
+        AssertSplicedConsistency(structure);
+
+        // Now coverage(exons) + coverage(introns) == total sequence length (nothing dropped).
+        int coverage = structure.Exons.Sum(e => e.Length) + structure.Introns.Sum(i => i.Length);
+        Assert.That(coverage, Is.EqualTo(TwoIntronSequence.Length),
+            "With nothing dropped, exon + intron coverage must equal the full sequence length");
+        Assert.That(structure.SplicedSequence, Is.EqualTo(FlankExon50 + MidRegion40 + FlankExon50),
+            "Spliced product must be exon1 + mid + exon2 when the mid region is retained");
+    }
+
+    [Test]
+    public void PredictGeneStructure_BothFlanksSubThreshold_SplicedEqualsReportedExons()
+    {
+        // Variant: minExonLength=60 drops BOTH the 50-nt flanks AND the 40-nt mid region.
+        var structure = PredictGeneStructure(
+            TwoIntronSequence, minExonLength: 60, minIntronLength: 60, minScore: 0.2);
+
+        Assert.That(structure.Introns, Has.Count.EqualTo(2),
+            "Prerequisite: two GT-AG introns must be selected");
+        Assert.That(structure.Exons, Is.Empty,
+            "All inter-/flanking regions (50,40,50) are sub-threshold → no exons reported");
+
+        // Even with zero exons the spliced product must equal concat(reported exons) == "".
+        AssertSplicedConsistency(structure);
+        Assert.That(structure.SplicedSequence, Is.Empty,
+            "When every region is dropped, the spliced product is empty (concat of no exons)");
+    }
+
+    #endregion
+
     #region PredictIntrons: Empty/Null → Empty — Guard Clause
 
     [Test]
