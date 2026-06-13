@@ -77,19 +77,39 @@ public static class RestrictionAnalyzer
         _enzymes.TryGetValue(name, out var enzyme) ? enzyme : null;
 
     /// <summary>
-    /// Gets all enzymes with a specific cut length.
+    /// Gets all enzymes whose recognition sequence has exactly the given length (in base pairs).
     /// </summary>
+    /// <param name="length">Recognition-sequence length to match (Type II sites are 4–8 nt;
+    /// see Wikipedia "Restriction enzyme").</param>
     public static IEnumerable<RestrictionEnzyme> GetEnzymesByCutLength(int length) =>
         _enzymes.Values.Where(e => e.RecognitionSequence.Length == length);
 
     /// <summary>
-    /// Gets all enzymes that produce blunt ends.
+    /// Gets all enzymes whose recognition-sequence length falls within the inclusive range
+    /// [<paramref name="minLength"/>, <paramref name="maxLength"/>] base pairs.
+    /// </summary>
+    /// <param name="minLength">Inclusive lower bound on recognition-sequence length (bp).</param>
+    /// <param name="maxLength">Inclusive upper bound on recognition-sequence length (bp).</param>
+    /// <remarks>
+    /// Type II restriction recognition sites are 4–8 nucleotides in length
+    /// (Wikipedia, "Restriction enzyme"). Both bounds are inclusive; an inverted range
+    /// (<paramref name="minLength"/> &gt; <paramref name="maxLength"/>) yields no enzymes.
+    /// </remarks>
+    public static IEnumerable<RestrictionEnzyme> GetEnzymesByCutLength(int minLength, int maxLength) =>
+        _enzymes.Values.Where(e =>
+            e.RecognitionSequence.Length >= minLength &&
+            e.RecognitionSequence.Length <= maxLength);
+
+    /// <summary>
+    /// Gets all enzymes that produce blunt ends — both strands are cut at the same position
+    /// so each strand "terminates in a base pair" (Wikipedia, "Sticky and blunt ends").
     /// </summary>
     public static IEnumerable<RestrictionEnzyme> GetBluntCutters() =>
         _enzymes.Values.Where(e => e.IsBluntEnd);
 
     /// <summary>
-    /// Gets all enzymes that produce sticky ends.
+    /// Gets all enzymes that produce sticky (cohesive) ends — a staggered cut leaving a
+    /// 5' or 3' single-stranded overhang (Wikipedia, "Sticky and blunt ends").
     /// </summary>
     public static IEnumerable<RestrictionEnzyme> GetStickyCutters() =>
         _enzymes.Values.Where(e => !e.IsBluntEnd);
