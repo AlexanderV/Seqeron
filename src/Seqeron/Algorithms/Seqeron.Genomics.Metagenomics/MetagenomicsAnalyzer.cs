@@ -92,6 +92,20 @@ public static class MetagenomicsAnalyzer
         double BitScore);
 
     /// <summary>
+    /// Result of a pathway over-representation (enrichment) test.
+    /// <paramref name="PValue"/> is the right-tail hypergeometric probability
+    /// P(X ≥ Overlap): the chance of seeing at least this many query genes in the
+    /// pathway by random sampling from the background.
+    /// </summary>
+    public readonly record struct PathwayEnrichment(
+        string Pathway,
+        int Overlap,
+        int PathwaySize,
+        int QuerySize,
+        int BackgroundSize,
+        double PValue);
+
+    /// <summary>
     /// K-mer database entry for taxonomic classification.
     /// </summary>
     public readonly record struct KmerTaxonEntry(
@@ -698,37 +712,133 @@ public static class MetagenomicsAnalyzer
 
     #region Functional Profiling
 
+    // Ungapped Karlin-Altschul parameters for the BLOSUM62 scoring system, taken from
+    // the first (ungapped) row of `blosum62_values` in NCBI's BLAST core blast_stat.c.
+    // Source: NCBI C BLAST Toolkit, algo/blast/core/blast_stat.c.
+    private const double Blosum62UngappedLambda = 0.3176;
+    private const double Blosum62UngappedK = 0.134;
+
+    // ln(2): the bit-score normalization divides by ln 2 so the score is expressed in bits.
+    // Source: Altschul et al., NCBI BLAST tutorial, "The Statistics of Sequence Similarity Scores".
+    private static readonly double Ln2 = Math.Log(2.0);
+
+    // BLOSUM62 diagonal (self-match) substitution scores per amino acid.
+    // An exact (ungapped) self-alignment of a protein segment scores the sum of these
+    // entries over its residues. Source: NCBI BLOSUM62 matrix file (blast/matrices/BLOSUM62).
+    private static readonly IReadOnlyDictionary<char, int> Blosum62Diagonal = new Dictionary<char, int>
+    {
+        ['A'] = 4, ['R'] = 5, ['N'] = 6, ['D'] = 6, ['C'] = 9, ['Q'] = 5, ['E'] = 5,
+        ['G'] = 6, ['H'] = 8, ['I'] = 4, ['L'] = 4, ['K'] = 5, ['M'] = 5, ['F'] = 6,
+        ['P'] = 7, ['S'] = 4, ['T'] = 5, ['W'] = 11, ['Y'] = 7, ['V'] = 4,
+    };
+
     /// <summary>
-    /// Predicts functional annotations using HMM profiles (simplified simulation).
+    /// Predicts functional annotations by homology-based annotation transfer: each query
+    /// protein is matched against a signature database; for every database signature that
+    /// occurs exactly in the protein, the ungapped BLOSUM62 raw score of the matched
+    /// segment is converted into a bit score and an E-value using Karlin-Altschul
+    /// statistics, and the annotation (function, pathway, KO) of the single best hit
+    /// (lowest E-value) is transferred to the gene.
     /// </summary>
+    /// <remarks>
+    /// Bit score: S' = (λ·S − ln K) / ln 2; E-value: E = K·m·n·e^(−λ·S), equivalently
+    /// E = m·n·2^(−S'), with the ungapped BLOSUM62 λ = 0.3176, K = 0.134 (NCBI blast_stat.c)
+    /// and the matched-segment raw score S summed from BLOSUM62 diagonal scores. m and n are
+    /// the lengths of the query protein and the matched signature. Source: Altschul et al.,
+    /// NCBI BLAST tutorial.
+    /// </remarks>
+    /// <param name="proteins">Query genes as (GeneId, ProteinSequence) pairs (single-letter amino acids).</param>
+    /// <param name="functionDatabase">Maps a signature (subsequence) to its (Function, Pathway, KO).</param>
+    /// <returns>One best-hit <see cref="FunctionalAnnotation"/> per gene that matched at least one signature.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="proteins"/> or <paramref name="functionDatabase"/> is null.</exception>
     public static IEnumerable<FunctionalAnnotation> PredictFunctions(
         IEnumerable<(string GeneId, string ProteinSequence)> proteins,
         IReadOnlyDictionary<string, (string Function, string Pathway, string Ko)> functionDatabase)
     {
-        foreach (var (geneId, sequence) in proteins)
-        {
-            if (string.IsNullOrEmpty(sequence))
-                continue;
+        if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+        if (functionDatabase is null) throw new ArgumentNullException(nameof(functionDatabase));
 
-            // Simplified: look for conserved motifs
-            foreach (var entry in functionDatabase)
+        return Iterate();
+
+        IEnumerable<FunctionalAnnotation> Iterate()
+        {
+            foreach (var (geneId, sequence) in proteins)
             {
-                string motif = entry.Key;
-                if (sequence.Contains(motif))
+                if (string.IsNullOrWhiteSpace(sequence))
+                    continue;
+
+                FunctionalAnnotation? best = null;
+
+                foreach (var entry in functionDatabase)
                 {
+                    string signature = entry.Key;
+                    if (string.IsNullOrEmpty(signature) || !sequence.Contains(signature, StringComparison.Ordinal))
+                        continue;
+
+                    int rawScore = Blosum62SelfScore(signature);
+                    double bitScore = FunctionalBitScore(rawScore);
+                    // m·n is the search space: query length × matched-signature length.
+                    double eValue = ExpectedValue(rawScore, sequence.Length, signature.Length);
+
                     var (function, pathway, ko) = entry.Value;
-                    yield return new FunctionalAnnotation(
+                    var candidate = new FunctionalAnnotation(
                         GeneId: geneId,
                         Function: function,
                         Pathway: pathway,
                         KoNumber: ko,
                         CogCategory: InferCogCategory(function),
-                        EValue: 1e-10, // Simulated
-                        BitScore: motif.Length * 2.0);
+                        EValue: eValue,
+                        BitScore: bitScore);
+
+                    // Best hit = lowest E-value (most significant). Source: BLAST E-value ranks significance.
+                    if (best is null || candidate.EValue < best.Value.EValue)
+                        best = candidate;
                 }
+
+                if (best is not null)
+                    yield return best.Value;
             }
         }
     }
+
+    /// <summary>
+    /// Ungapped BLOSUM62 raw self-alignment score of a protein segment: the sum of the
+    /// BLOSUM62 diagonal scores over its residues. Unknown residues contribute 0.
+    /// Source: NCBI BLOSUM62 matrix file.
+    /// </summary>
+    public static int Blosum62SelfScore(string segment)
+    {
+        if (string.IsNullOrEmpty(segment))
+            return 0;
+
+        int score = 0;
+        foreach (char residue in segment)
+        {
+            if (Blosum62Diagonal.TryGetValue(char.ToUpperInvariant(residue), out int s))
+                score += s;
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    /// Bit (normalized) score from a raw ungapped BLOSUM62 alignment score:
+    /// S' = (λ·S − ln K) / ln 2. Source: Altschul et al., NCBI BLAST tutorial.
+    /// </summary>
+    public static double FunctionalBitScore(double rawScore)
+        => (Blosum62UngappedLambda * rawScore - Math.Log(Blosum62UngappedK)) / Ln2;
+
+    /// <summary>
+    /// Karlin-Altschul E-value of an ungapped BLOSUM62 alignment with raw score
+    /// <paramref name="rawScore"/> over a search space of size m·n:
+    /// E = K·m·n·e^(−λ·S). Source: Altschul et al., NCBI BLAST tutorial.
+    /// </summary>
+    /// <param name="rawScore">Raw alignment score S.</param>
+    /// <param name="queryLength">Query length m.</param>
+    /// <param name="subjectLength">Matched-subject length n.</param>
+    public static double ExpectedValue(double rawScore, int queryLength, int subjectLength)
+        => Blosum62UngappedK * queryLength * subjectLength
+           * Math.Exp(-Blosum62UngappedLambda * rawScore);
 
     private static string InferCogCategory(string function)
     {
@@ -742,6 +852,132 @@ public static class MetagenomicsAnalyzer
         if (function.Contains("membrane")) return "M"; // Cell membrane
 
         return "S"; // Function unknown
+    }
+
+    /// <summary>
+    /// Pathway over-representation (enrichment) analysis using the hypergeometric test.
+    /// For each pathway, computes the right-tail probability of observing at least as many
+    /// query genes in the pathway as were observed, by random sampling from the background:
+    /// P(X ≥ x) = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n), where N = background size,
+    /// M = pathway size, n = query size, x = overlap. Source: PNNL Proteomics Data Analysis
+    /// §8.2 Over-Representation Analysis.
+    /// </summary>
+    /// <param name="queryGenes">The gene set of interest (e.g. predicted/differential genes).</param>
+    /// <param name="pathwayDatabase">Maps pathway id → its member genes.</param>
+    /// <param name="backgroundGenes">
+    /// The background gene universe. If null or empty, the union of all pathway members is
+    /// used as the background.
+    /// </param>
+    /// <returns>One <see cref="PathwayEnrichment"/> per pathway, ascending by p-value.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="queryGenes"/> or <paramref name="pathwayDatabase"/> is null.</exception>
+    public static IReadOnlyList<PathwayEnrichment> FindPathwayEnrichment(
+        IEnumerable<string> queryGenes,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> pathwayDatabase,
+        IEnumerable<string>? backgroundGenes = null)
+    {
+        if (queryGenes is null) throw new ArgumentNullException(nameof(queryGenes));
+        if (pathwayDatabase is null) throw new ArgumentNullException(nameof(pathwayDatabase));
+
+        var query = new HashSet<string>(queryGenes, StringComparer.Ordinal);
+
+        var background = backgroundGenes is not null
+            ? new HashSet<string>(backgroundGenes, StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        if (background.Count == 0)
+        {
+            foreach (var members in pathwayDatabase.Values)
+                foreach (var gene in members)
+                    background.Add(gene);
+        }
+        // The query is part of the universe being sampled from.
+        background.UnionWith(query);
+
+        int n = query.Count;            // sample size (interesting genes)
+        int bigN = background.Count;    // population size (background)
+
+        var results = new List<PathwayEnrichment>(pathwayDatabase.Count);
+        foreach (var (pathwayId, rawMembers) in pathwayDatabase)
+        {
+            // Count pathway members and overlap relative to the background universe.
+            var members = new HashSet<string>(rawMembers, StringComparer.Ordinal);
+            members.IntersectWith(background);
+
+            int bigM = members.Count;   // successes in population (pathway size)
+            int x = 0;                  // observed successes in sample (overlap)
+            foreach (var gene in query)
+                if (members.Contains(gene)) x++;
+
+            double pValue = HypergeometricUpperTail(x, bigN, bigM, n);
+            results.Add(new PathwayEnrichment(pathwayId, x, bigM, n, bigN, pValue));
+        }
+
+        results.Sort((a, b) => a.PValue.CompareTo(b.PValue));
+        return results;
+    }
+
+    /// <summary>
+    /// Right-tail hypergeometric probability P(X ≥ x) for drawing <paramref name="n"/> items
+    /// from a population of <paramref name="bigN"/> containing <paramref name="bigM"/> successes:
+    /// P(X ≥ x) = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n).
+    /// Computed in log-space (log-Gamma) for numerical stability. Source: PNNL ORA §8.2.
+    /// </summary>
+    public static double HypergeometricUpperTail(int x, int bigN, int bigM, int n)
+    {
+        // Degenerate / empty-sum cases: no over-representation possible ⇒ p = 1.
+        if (x <= 0 || bigM <= 0 || n <= 0 || bigN <= 0)
+            return 1.0;
+
+        double logDenom = LogChoose(bigN, n);
+        double cumulative = 0.0; // Σ_{i=0}^{x-1} P(X = i)
+        for (int i = 0; i < x; i++)
+        {
+            // P(X = i) is 0 when the partial table is infeasible (LogChoose → −∞).
+            double logTerm = LogChoose(bigM, i) + LogChoose(bigN - bigM, n - i) - logDenom;
+            if (!double.IsNegativeInfinity(logTerm))
+                cumulative += Math.Exp(logTerm);
+        }
+
+        return Math.Clamp(1.0 - cumulative, 0.0, 1.0);
+    }
+
+    /// <summary>Log of the binomial coefficient C(n, k) via log-Gamma; −∞ when k ∉ [0, n].</summary>
+    private static double LogChoose(int n, int k)
+    {
+        if (k < 0 || k > n)
+            return double.NegativeInfinity;
+
+        return LogGamma(n + 1) - LogGamma(k + 1) - LogGamma(n - k + 1);
+    }
+
+    /// <summary>Lanczos approximation of ln Γ(x) for x &gt; 0.</summary>
+    private static double LogGamma(double x)
+    {
+        if (x <= 0)
+            return double.PositiveInfinity;
+
+        // Lanczos approximation coefficients.
+        double[] c =
+        {
+            76.18009172947146,
+            -86.50532032941677,
+            24.01409824083091,
+            -1.231739572450155,
+            0.1208650973866179e-2,
+            -0.5395239384953e-5,
+        };
+
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.Log(tmp);
+
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++)
+        {
+            y += 1;
+            ser += c[j] / y;
+        }
+
+        return -tmp + Math.Log(2.5066282746310005 * ser / x);
     }
 
     /// <summary>
