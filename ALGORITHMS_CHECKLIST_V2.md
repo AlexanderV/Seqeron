@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 106 |
+| **Completed** | 107 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 128 |
+| **Not Started** | 127 |
 
 ---
 
@@ -134,7 +134,7 @@
 | ☑ | SEQ-PI-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-PI-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-PI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) |
 | ☑ | SEQ-HYDRO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-HYDRO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-HYDRO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateHydrophobicity_Tests.cs) |
 | ☑ | SEQ-THERMO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-THERMO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-THERMO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
-| ☐ | SEQ-DINUC-001 | Statistics | 2 | - | - | - |
+| ☑ | SEQ-DINUC-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-DINUC-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-DINUC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateDinucleotide_Tests.cs) |
 | ☐ | SEQ-SECSTRUCT-001 | Statistics | 1 | - | - | - |
 | ☐ | CODON-RSCU-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-ENC-001 | Codon | 1 | - | - | - |
@@ -2346,7 +2346,7 @@
 
 ---
 
-#### SEQ-DINUC-001: Dinucleotide Analysis
+#### SEQ-DINUC-001: Dinucleotide Analysis ☑
 
 | Field | Value |
 |------|----------|

@@ -594,7 +594,10 @@ public static class SequenceStatistics
     #region Sequence Patterns
 
     /// <summary>
-    /// Calculates dinucleotide frequencies.
+    /// Calculates normalized dinucleotide frequencies f_XY = count(XY) / (number of dinucleotide
+    /// positions, i.e. N-1) over the alphabet {A,T,G,C,U}. Non-alphabet dinucleotides are excluded.
+    /// Frequency normalization follows the Karlin genomic-signature convention
+    /// (Karlin S., "Pervasive properties of the genomic signature", PMC126251).
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideFrequencies(string sequence)
     {
@@ -628,7 +631,12 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates observed vs expected dinucleotide ratios (CpG ratio, etc.).
+    /// Calculates the dinucleotide relative abundance (odds ratio) ρ_XY = f_XY / (f_X · f_Y),
+    /// where f_XY is the dinucleotide frequency and f_X, f_Y are single-base frequencies.
+    /// ρ = 1 indicates no bias (observed equals the product of base frequencies); ρ &gt; 1
+    /// over-representation and ρ &lt; 1 under-representation
+    /// (Karlin S., PMC126251; Karlin &amp; Burge 1995, Trends Genet 11(7):283-290).
+    /// When a constituent base is absent the expected frequency is 0 and the ratio is reported as 0.
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(string sequence)
     {
@@ -665,7 +673,10 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates codon usage frequencies.
+    /// Calculates codon usage frequencies by reading consecutive, non-overlapping triplets from the
+    /// given reading frame: frequency = count(codon) / total counted codons. Triplets containing any
+    /// non-ACGT base are excluded and trailing 1-2 leftover bases are ignored
+    /// (Kazusa Codon Usage Database / CUTG, https://www.kazusa.or.jp/codon/readme_codon.html).
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
         string dnaSequence,
