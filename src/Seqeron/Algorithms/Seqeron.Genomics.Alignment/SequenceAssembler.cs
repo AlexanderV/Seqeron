@@ -925,28 +925,51 @@ public static class SequenceAssembler
         return sb.ToString();
     }
 
+    // Sanger/Phred+33 ASCII offset: quality char Q decodes to Phred value (Q - 33).
+    // Cock et al. (2010) NAR 38(6):1767–1771; BWA bwa_trim_read decodes as (qual - 33).
+    private const int PhredAsciiOffset = 33;
+
     /// <summary>
-    /// Quality trims reads based on quality scores.
+    /// Quality-trims reads using the BWA / cutadapt running-sum algorithm, then drops
+    /// reads shorter than <paramref name="minLength"/>.
     /// </summary>
+    /// <remarks>
+    /// For each read the running-sum method is applied to the 3' end and then the 5' end:
+    /// subtract the quality cutoff from every Phred score, compute the partial sum from
+    /// each index to that end, and cut at the index where the partial sum is minimal.
+    /// This is the algorithm used by BWA (<c>bwa_trim_read</c>) and cutadapt; it removes
+    /// low-quality bases from the ends while allowing some high-quality bases among the
+    /// bad ones. Qualities are decoded as Phred+33 (Sanger encoding).
+    /// A cutoff &lt; 1 disables trimming (BWA <c>trim_qual &lt; 1</c> guard).
+    /// </remarks>
+    /// <param name="reads">Reads as (sequence, Phred+33 quality string) pairs; the two strings must be equal length per read.</param>
+    /// <param name="minQuality">Quality cutoff subtracted from each Phred score. Values &lt; 1 disable trimming.</param>
+    /// <param name="minLength">Reads whose trimmed length is below this are dropped.</param>
+    /// <returns>The surviving trimmed sequences, in input order.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> is null.</exception>
     public static IReadOnlyList<string> QualityTrimReads(
         IReadOnlyList<(string sequence, string quality)> reads,
         int minQuality = 20,
         int minLength = 50)
     {
-        var trimmed = new List<string>();
+        ArgumentNullException.ThrowIfNull(reads);
+
+        var trimmed = new List<string>(reads.Count);
 
         foreach (var (sequence, quality) in reads)
         {
             int start = 0;
             int end = sequence.Length;
 
-            // Trim from start
-            while (start < end && (quality[start] - 33) < minQuality)
-                start++;
-
-            // Trim from end
-            while (end > start && (quality[end - 1] - 33) < minQuality)
-                end--;
+            // BWA: a cutoff below 1 disables trimming (bwa_trim_read returns 0).
+            if (minQuality >= 1)
+            {
+                // 3' end: cut at the index minimizing the partial sum of (q - cutoff)
+                // from that index to the end (cutadapt) — keep [start, end).
+                end = TrimEnd(quality, start, end, minQuality);
+                // 5' end: mirror the procedure on the surviving window.
+                start = TrimStart(quality, start, end, minQuality);
+            }
 
             if (end - start >= minLength)
             {
@@ -955,6 +978,52 @@ public static class SequenceAssembler
         }
 
         return trimmed;
+    }
+
+    /// <summary>
+    /// Running-sum 3'-end cut over <c>quality[start..end)</c>: returns the new exclusive
+    /// upper bound (index of the minimal partial sum of (Phred − cutoff) from the end).
+    /// </summary>
+    private static int TrimEnd(string quality, int start, int end, int cutoff)
+    {
+        int sum = 0;
+        int min = 0;
+        int cut = end; // default: keep everything (minimum at the end position)
+
+        for (int i = end - 1; i >= start; i--)
+        {
+            sum += (quality[i] - PhredAsciiOffset) - cutoff;
+            if (sum < min)
+            {
+                min = sum;
+                cut = i;
+            }
+        }
+
+        return cut;
+    }
+
+    /// <summary>
+    /// Running-sum 5'-end cut over <c>quality[start..end)</c>: returns the new inclusive
+    /// lower bound (index after the minimal partial sum of (Phred − cutoff) from the start).
+    /// </summary>
+    private static int TrimStart(string quality, int start, int end, int cutoff)
+    {
+        int sum = 0;
+        int min = 0;
+        int cut = start; // default: keep everything (minimum at the start position)
+
+        for (int i = start; i < end; i++)
+        {
+            sum += (quality[i] - PhredAsciiOffset) - cutoff;
+            if (sum < min)
+            {
+                min = sum;
+                cut = i + 1;
+            }
+        }
+
+        return cut;
     }
 
     /// <summary>

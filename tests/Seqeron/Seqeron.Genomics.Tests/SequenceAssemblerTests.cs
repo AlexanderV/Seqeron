@@ -222,51 +222,8 @@ public class SequenceAssemblerTests
     // ComputeConsensus tests consolidated into SequenceAssembler_ComputeConsensus_Tests.cs
     // (canonical file for ASSEMBLY-CONSENSUS-001).
 
-    #region QualityTrimReads Tests
-
-    [Test]
-    public void QualityTrimReads_TrimsLowQualityEnds()
-    {
-        // Quality scores: '!' = 0, 'I' = 40 (Phred+33)
-        var reads = new List<(string, string)>
-        {
-            ("ACGTACGT", "!!IIII!!") // Low quality at ends
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 2);
-
-        Assert.That(trimmed.Count, Is.EqualTo(1));
-        Assert.That(trimmed[0].Length, Is.LessThan(8));
-    }
-
-    [Test]
-    public void QualityTrimReads_RemovesTooShort()
-    {
-        var reads = new List<(string, string)>
-        {
-            ("ACGT", "!!!!") // All low quality
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 50);
-
-        Assert.That(trimmed.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void QualityTrimReads_KeepsHighQuality()
-    {
-        var reads = new List<(string, string)>
-        {
-            ("ACGTACGT", "IIIIIIII") // All high quality
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 5);
-
-        Assert.That(trimmed.Count, Is.EqualTo(1));
-        Assert.That(trimmed[0], Is.EqualTo("ACGTACGT"));
-    }
-
-    #endregion
+    // QualityTrimReads tests consolidated into SequenceAssembler_QualityTrimReads_Tests.cs
+    // (canonical file for ASSEMBLY-TRIM-001).
 
     #region ErrorCorrectReads Tests
 

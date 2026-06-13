@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 116 |
+| **Completed** | 117 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 118 |
+| **Not Started** | 117 |
 
 ---
 
@@ -144,7 +144,7 @@
 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-SCAFFOLD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_Scaffold_Tests.cs) |
 | ☑ | ASSEMBLY-COVER-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-COVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-COVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_CalculateCoverage_Tests.cs) |
 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CONSENSUS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ComputeConsensus_Tests.cs) |
-| ☐ | ASSEMBLY-TRIM-001 | Assembly | 1 | - | - | - |
+| ☑ | ASSEMBLY-TRIM-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-TRIM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_QualityTrimReads_Tests.cs) |
 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | 1 | - | - | - |
 | ☐ | PAT-APPROX-003 | Matching | 3 | - | - | - |
 | ☐ | ALIGN-STATS-001 | Alignment | 2 | - | - | - |
