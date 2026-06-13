@@ -785,29 +785,50 @@ public static class SequenceStatistics
 
     #region Protein Secondary Structure
 
-    // Chou-Fasman propensity parameters
-    private static readonly Dictionary<char, (double helix, double sheet, double turn)> SecondaryStructurePropensity = new()
+    // Chou-Fasman conformational parameters (Pa = helix, Pb = sheet, Pt = turn),
+    // expressed as propensities (the published integer parameters / 100).
+    // Values verbatim from Chou PY, Fasman GD (1978) "Empirical predictions of protein
+    // conformation" Annu Rev Biochem 47:251-276, as reproduced in the cited academic
+    // tables and reference implementation. See docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md.
+    private static readonly Dictionary<char, (double Helix, double Sheet, double Turn)> SecondaryStructurePropensity = new()
     {
         { 'A', (1.42, 0.83, 0.66) }, { 'R', (0.98, 0.93, 0.95) },
         { 'N', (0.67, 0.89, 1.56) }, { 'D', (1.01, 0.54, 1.46) },
         { 'C', (0.70, 1.19, 1.19) }, { 'E', (1.51, 0.37, 0.74) },
         { 'Q', (1.11, 1.10, 0.98) }, { 'G', (0.57, 0.75, 1.56) },
         { 'H', (1.00, 0.87, 0.95) }, { 'I', (1.08, 1.60, 0.47) },
-        { 'L', (1.21, 1.30, 0.59) }, { 'K', (1.16, 0.74, 1.01) },
+        { 'L', (1.21, 1.30, 0.59) }, { 'K', (1.14, 0.74, 1.01) },
         { 'M', (1.45, 1.05, 0.60) }, { 'F', (1.13, 1.38, 0.60) },
         { 'P', (0.57, 0.55, 1.52) }, { 'S', (0.77, 0.75, 1.43) },
         { 'T', (0.83, 1.19, 0.96) }, { 'W', (1.08, 1.37, 0.96) },
         { 'Y', (0.69, 1.47, 1.14) }, { 'V', (1.06, 1.70, 0.50) }
     };
 
+    // Default sliding-window length. Chou & Fasman (1978) scan a hexapeptide window for
+    // helix nucleation (4 of 6) and a pentapeptide window for sheet nucleation (3 of 5);
+    // this profile uses a single configurable window whose default is the helix window + 1
+    // residue of context. The window length is a caller parameter, not a Chou-Fasman constant.
+    private const int DefaultWindowSize = 7;
+
     /// <summary>
-    /// Predicts secondary structure propensities using Chou-Fasman parameters.
+    /// Computes per-window mean Chou-Fasman conformational propensities (helix Pa,
+    /// sheet Pb, turn Pt) along a protein sequence. Each emitted tuple is the average
+    /// propensity over a sliding window of <paramref name="windowSize"/> residues, stepping
+    /// one residue at a time. A window mean &gt; 1.0 indicates a residue stretch that favours
+    /// the corresponding conformation. Unknown residues (e.g. X, B, Z, gaps) are skipped and
+    /// excluded from the per-window average.
     /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="windowSize">Sliding-window length (residues). Must be positive and
+    /// not exceed the sequence length.</param>
+    /// <returns>One (Helix, Sheet, Turn) mean-propensity tuple per window position, in
+    /// order from the N-terminus. Empty when the sequence is null/empty, the window is
+    /// larger than the sequence, or the window is non-positive.</returns>
     public static IEnumerable<(double Helix, double Sheet, double Turn)> PredictSecondaryStructure(
         string proteinSequence,
-        int windowSize = 7)
+        int windowSize = DefaultWindowSize)
     {
-        if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
+        if (string.IsNullOrEmpty(proteinSequence) || windowSize < 1 || windowSize > proteinSequence.Length)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
@@ -821,9 +842,9 @@ public static class SequenceStatistics
             {
                 if (SecondaryStructurePropensity.TryGetValue(upper[i + j], out var prop))
                 {
-                    helixSum += prop.helix;
-                    sheetSum += prop.sheet;
-                    turnSum += prop.turn;
+                    helixSum += prop.Helix;
+                    sheetSum += prop.Sheet;
+                    turnSum += prop.Turn;
                     count++;
                 }
             }
