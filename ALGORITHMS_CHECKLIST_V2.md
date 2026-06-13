@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 151 |
+| **Completed** | 152 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 83 |
+| **Not Started** | 82 |
 
 ---
 
@@ -179,7 +179,7 @@
 | ☑ | PROTMOTIF-CC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-CC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-CC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) |
 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) |
 | ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
-| ☐ | RNA-PAIR-001 | RnaStructure | 3 | - | - | - |
+| ☑ | RNA-PAIR-001 | RnaStructure | 3 | [Evidence](docs/Evidence/RNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_CanPair_Tests.cs) |
 | ☐ | RNA-HAIRPIN-001 | RnaStructure | 2 | - | - | - |
 | ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | - | - | - |
@@ -3152,6 +3152,11 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 | `CanPair(base1, base2)` | RnaSecondaryStructure | Canonical |
 | `GetBasePairType(base1, base2)` | RnaSecondaryStructure | Pair type |
 | `GetComplement(base)` | RnaSecondaryStructure | RNA complement |
+
+**Status:** ☑ Complete — Watson-Crick A-U/G-C (Watson & Crick) + G:U wobble (Crick 1966)
+classified as a distinct type; RNA complement per IUPAC-IUB (1970)/Biopython complement_rna.
+CanPair/GetBasePairType are O(1) symmetric table lookups over the RNA alphabet {A,C,G,U}.
+See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
