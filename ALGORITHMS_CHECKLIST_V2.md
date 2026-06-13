@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 152 |
+| **Completed** | 153 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 82 |
+| **Not Started** | 81 |
 
 ---
 
@@ -180,7 +180,7 @@
 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) |
 | ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
 | ☑ | RNA-PAIR-001 | RnaStructure | 3 | [Evidence](docs/Evidence/RNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_CanPair_Tests.cs) |
-| ☐ | RNA-HAIRPIN-001 | RnaStructure | 2 | - | - | - |
+| ☑ | RNA-HAIRPIN-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-HAIRPIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_HairpinEnergy_Tests.cs) |
 | ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | - | - | - |
 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | 2 | - | - | - |
@@ -3160,12 +3160,13 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### RNA-HAIRPIN-001: Hairpin Energy Calculation
+#### ☑ RNA-HAIRPIN-001: Hairpin Energy Calculation
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `RnaSecondaryStructure.CalculateHairpinLoopEnergy(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — Turner 2004 NNDB; Evidence/TestSpec/Tests linked in Registry |
 
 **Methods:**
 | Method | Class | Type |
