@@ -353,7 +353,9 @@ public static class SequenceStatistics
 
     #region Hydrophobicity
 
-    // Kyte-Doolittle hydrophobicity scale
+    // Kyte-Doolittle hydropathy scale (kcal-derived index, the 20 standard residues).
+    // Values per Kyte J, Doolittle RF (1982) J Mol Biol 157:105-132; identical to
+    // Biopython Bio.SeqUtils.ProtParamData.kd.
     private static readonly Dictionary<char, double> HydrophobicityScale = new()
     {
         { 'A', 1.8 },  { 'R', -4.5 }, { 'N', -3.5 }, { 'D', -3.5 },
@@ -363,8 +365,15 @@ public static class SequenceStatistics
         { 'T', -0.7 }, { 'W', -0.9 }, { 'Y', -1.3 }, { 'V', 4.2 }
     };
 
+    // Default sliding-window size; Kyte & Doolittle (1982) report window 9 gives the
+    // best results for surface regions of globular proteins (per GCAT/Davidson summary).
+    private const int DefaultHydropathyWindow = 9;
+
     /// <summary>
-    /// Calculates the grand average of hydropathy (GRAVY) index.
+    /// Calculates the grand average of hydropathy (GRAVY) index: the sum of Kyte-Doolittle
+    /// hydropathy values of all recognized residues divided by the residue count.
+    /// Positive values indicate hydrophobic, negative hydrophilic. Non-standard residues
+    /// are skipped (not counted). Returns 0 for null/empty input or no recognized residues.
     /// </summary>
     public static double CalculateHydrophobicity(string proteinSequence)
     {
@@ -387,11 +396,14 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates hydrophobicity profile using a sliding window.
+    /// Calculates the sliding-window hydropathy profile: the unweighted mean Kyte-Doolittle
+    /// value over each window of <paramref name="windowSize"/> residues. Yields exactly
+    /// N - windowSize + 1 values; yields nothing when the window exceeds the sequence length
+    /// or the input is null/empty. Non-standard residues contribute 0 to a window's sum.
     /// </summary>
     public static IEnumerable<double> CalculateHydrophobicityProfile(
         string proteinSequence,
-        int windowSize = 9)
+        int windowSize = DefaultHydropathyWindow)
     {
         if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
             yield break;

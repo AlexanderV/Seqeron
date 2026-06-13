@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 104 |
+| **Completed** | 105 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 130 |
+| **Not Started** | 129 |
 
 ---
 
@@ -132,7 +132,7 @@
 | ☑ | SEQ-STATS-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
 | ☑ | SEQ-MW-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-MW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-MW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateMolecularWeight_Tests.cs) |
 | ☑ | SEQ-PI-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-PI-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-PI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) |
-| ☐ | SEQ-HYDRO-001 | Statistics | 2 | - | - | - |
+| ☑ | SEQ-HYDRO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-HYDRO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-HYDRO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateHydrophobicity_Tests.cs) |
 | ☐ | SEQ-THERMO-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-DINUC-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-SECSTRUCT-001 | Statistics | 1 | - | - | - |
