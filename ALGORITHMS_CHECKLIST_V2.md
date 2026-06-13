@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 79 |
+| **Completed** | 104 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 155 |
+| **Not Started** | 130 |
 
 ---
 
@@ -107,31 +107,31 @@
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
 | ☑ | EPIGEN-CPG-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CPG-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CPG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs) |
-| ☐ | EPIGEN-METHYL-001 | Epigenetics | 3 | - | - | - |
-| ☐ | EPIGEN-DMR-001 | Epigenetics | 2 | - | - | - |
-| ☐ | VARIANT-CALL-001 | Variants | 3 | - | - | - |
-| ☐ | VARIANT-SNP-001 | Variants | 2 | - | - | - |
-| ☐ | VARIANT-INDEL-001 | Variants | 2 | - | - | - |
-| ☐ | VARIANT-ANNOT-001 | Variants | 2 | - | - | - |
-| ☐ | SV-DETECT-001 | StructuralVar | 3 | - | - | - |
-| ☐ | SV-BREAKPOINT-001 | StructuralVar | 2 | - | - | - |
-| ☐ | SV-CNV-001 | StructuralVar | 2 | - | - | - |
-| ☐ | ASSEMBLY-OLC-001 | Assembly | 2 | - | - | - |
-| ☐ | ASSEMBLY-DBG-001 | Assembly | 2 | - | - | - |
-| ☐ | ASSEMBLY-STATS-001 | Assembly | 4 | - | - | - |
-| ☐ | TRANS-EXPR-001 | Transcriptome | 3 | - | - | - |
-| ☐ | TRANS-DIFF-001 | Transcriptome | 2 | - | - | - |
-| ☐ | TRANS-SPLICE-001 | Transcriptome | 2 | - | - | - |
-| ☐ | COMPGEN-SYNTENY-001 | Comparative | 2 | - | - | - |
-| ☐ | COMPGEN-ORTHO-001 | Comparative | 2 | - | - | - |
-| ☐ | COMPGEN-REARR-001 | Comparative | 2 | - | - | - |
-| ☐ | PANGEN-CORE-001 | PanGenome | 2 | - | - | - |
-| ☐ | PANGEN-CLUSTER-001 | PanGenome | 2 | - | - | - |
-| ☐ | QUALITY-PHRED-001 | Quality | 3 | - | - | - |
-| ☐ | QUALITY-STATS-001 | Quality | 2 | - | - | - |
-| ☐ | SEQ-STATS-001 | Statistics | 3 | - | - | - |
-| ☐ | SEQ-MW-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-PI-001 | Statistics | 1 | - | - | - |
+| ☑ | EPIGEN-METHYL-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-METHYL-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-METHYL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Methylation_Tests.cs) |
+| ☑ | EPIGEN-DMR-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-DMR-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-DMR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_DMR_Tests.cs) |
+| ☑ | VARIANT-CALL-001 | Variants | 3 | [Evidence](docs/Evidence/VARIANT-CALL-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-CALL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_CallVariants_Tests.cs) |
+| ☑ | VARIANT-SNP-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-SNP-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-SNP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindSnps_Tests.cs) |
+| ☑ | VARIANT-INDEL-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-INDEL-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-INDEL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindIndels_Tests.cs) |
+| ☑ | VARIANT-ANNOT-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantAnnotator_FunctionalImpact_Tests.cs) |
+| ☑ | SV-DETECT-001 | StructuralVar | 3 | [Evidence](docs/Evidence/SV-DETECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-DETECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectSVs_Tests.cs) |
+| ☑ | SV-BREAKPOINT-001 | StructuralVar | 2 | [Evidence](docs/Evidence/SV-BREAKPOINT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-BREAKPOINT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_FindBreakpoints_Tests.cs) |
+| ☑ | SV-CNV-001 | StructuralVar | 2 | [Evidence](docs/Evidence/SV-CNV-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-CNV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectCNV_Tests.cs) |
+| ☑ | ASSEMBLY-OLC-001 | Assembly | 2 | [Evidence](docs/Evidence/ASSEMBLY-OLC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-OLC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleOLC_Tests.cs) |
+| ☑ | ASSEMBLY-DBG-001 | Assembly | 2 | [Evidence](docs/Evidence/ASSEMBLY-DBG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-DBG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleDeBruijn_Tests.cs) |
+| ☑ | ASSEMBLY-STATS-001 | Assembly | 4 | [Evidence](docs/Evidence/ASSEMBLY-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs) |
+| ☑ | TRANS-EXPR-001 | Transcriptome | 3 | [Evidence](docs/Evidence/TRANS-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs) |
+| ☑ | TRANS-DIFF-001 | Transcriptome | 2 | [Evidence](docs/Evidence/TRANS-DIFF-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-DIFF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_DifferentialExpression_Tests.cs) |
+| ☑ | TRANS-SPLICE-001 | Transcriptome | 2 | [Evidence](docs/Evidence/TRANS-SPLICE-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-SPLICE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) |
+| ☑ | COMPGEN-SYNTENY-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-SYNTENY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindSyntenicBlocks_Tests.cs) |
+| ☑ | COMPGEN-ORTHO-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-ORTHO-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-ORTHO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindOrthologs_Tests.cs) |
+| ☑ | COMPGEN-REARR-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-REARR-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REARR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_DetectRearrangements_Tests.cs) |
+| ☑ | PANGEN-CORE-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-CORE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-CORE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ConstructPanGenome_Tests.cs) |
+| ☑ | PANGEN-CLUSTER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ClusterGenes_Tests.cs) |
+| ☑ | QUALITY-PHRED-001 | Quality | 3 | [Evidence](docs/Evidence/QUALITY-PHRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/QUALITY-PHRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_ParseQualityString_Tests.cs) |
+| ☑ | QUALITY-STATS-001 | Quality | 2 | [Evidence](docs/Evidence/QUALITY-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/QUALITY-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_CalculateStatistics_Tests.cs) |
+| ☑ | SEQ-STATS-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
+| ☑ | SEQ-MW-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-MW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-MW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateMolecularWeight_Tests.cs) |
+| ☑ | SEQ-PI-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-PI-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-PI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) |
 | ☐ | SEQ-HYDRO-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-THERMO-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-DINUC-001 | Statistics | 2 | - | - | - |
@@ -1892,7 +1892,7 @@
 
 ---
 
-#### VARIANT-ANNOT-001: Variant Annotation
+#### VARIANT-ANNOT-001: Variant Annotation ☑
 
 | Field | Value |
 |------|----------|
@@ -1903,14 +1903,19 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `Annotate(variants, annotations)` | VariantAnnotator | Canonical |
-| `PredictFunctionalImpact(variant)` | VariantAnnotator | Impact |
+| `Annotate(variants, annotations, referenceSequence?)` | VariantAnnotator | Canonical |
+| `PredictFunctionalImpact(variant, transcript, referenceSequence)` | VariantAnnotator | Impact |
+
+> Implemented per Ensembl VEP (McLaren et al. 2016) SO consequence terms + IMPACT/rank
+> (Constants.pm) and VariationEffect.pm coding predicates; codons translated with the
+> NCBI Standard code (table 1). `PredictFunctionalImpact` takes the overlapping
+> transcript and a forward-strand reference window to translate ref/alt codons.
 
 ---
 
 ### 23. Structural Variant Analysis (3 units)
 
-#### SV-DETECT-001: SV Detection
+#### SV-DETECT-001: SV Detection ☑
 
 | Field | Value |
 |------|----------|
@@ -1921,14 +1926,14 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectSVs(readPairs, splitReads)` | StructuralVariantAnalyzer | Canonical |
+| `DetectSVs(readPairs, params)` | StructuralVariantAnalyzer | Canonical |
 | `FindDiscordantPairs(readPairs, params)` | StructuralVariantAnalyzer | Discordant |
-| `ClassifySV(sv)` | StructuralVariantAnalyzer | Classification |
+| `ClassifySV(pair, params)` | StructuralVariantAnalyzer | Classification |
 
 **SV Types:**
-- [ ] Deletion, Duplication, Inversion
-- [ ] Insertion, Translocation
-- [ ] Complex rearrangements
+- [x] Deletion, Duplication, Inversion
+- [x] Insertion, Translocation
+- [x] Complex rearrangements
 
 ---
 
@@ -1957,26 +1962,47 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectCNV(depthData, window)` | StructuralVariantAnalyzer | Canonical |
-| `SegmentCopyNumber(logRatios)` | StructuralVariantAnalyzer | Segmentation |
+| `DetectCNV(depthData, windowSize, referenceDepth, chromosome)` | StructuralVariantAnalyzer | Canonical |
+| `SegmentCopyNumber(logRatios, chromosome)` | StructuralVariantAnalyzer | Segmentation |
+
+**Status:** ☑ Complete — read-depth windowed log2-ratio → integer copy number (Yoon et al. 2009; CNVkit `CN = round(2·2^log2)`). Evidence: docs/Evidence/SV-CNV-001-Evidence.md; TestSpec: tests/TestSpecs/SV-CNV-001.md; Tests: StructuralVariantAnalyzer_DetectCNV_Tests.cs.
 
 ---
 
 ### 24. Sequence Assembly (3 units)
 
-#### ASSEMBLY-OLC-001: Overlap-Layout-Consensus
+#### ASSEMBLY-OLC-001: Overlap-Layout-Consensus ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAssembler.AssembleOLC(...)` |
 | **Complexity** | O(n² × m) |
 | **Class** | SequenceAssembler |
+| **Evidence** | [ASSEMBLY-OLC-001-Evidence.md](docs/Evidence/ASSEMBLY-OLC-001-Evidence.md) |
+| **TestSpec** | [ASSEMBLY-OLC-001.md](tests/TestSpecs/ASSEMBLY-OLC-001.md) |
+| **Algorithm doc** | [Overlap_Layout_Consensus.md](docs/algorithms/Assembly/Overlap_Layout_Consensus.md) |
+| **Tests** | [SequenceAssembler_AssembleOLC_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleOLC_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `AssembleOLC(reads, params)` | SequenceAssembler | Canonical |
 | `FindAllOverlaps(reads, minOverlap, minId)` | SequenceAssembler | Overlaps |
+
+**Edge Cases (derived from Evidence — no prior by-area list):**
+- [x] null / empty read set → empty `AssemblyResult` (no exception)
+- [x] no above-threshold overlap → each read is its own singleton contig (INV-05)
+- [x] unambiguous chain → single merged superstring contig (INV-04)
+- [x] overlap exactly = `minOverlap` accepted; below rejected (INV-02)
+- [x] identity threshold gates approximate overlaps
+- [x] case-insensitive overlaps
+- [x] repeat longer than read length not collapsed below longest read (ASM-02)
+
+**Definition of Done:**
+- [x] TestSpec, tests, Evidence, algorithm doc created; Registry updated
+- [x] All tests pass (`dotnet test`); deterministic; zero warnings in changed files
+- [x] Edge cases covered (null, empty, boundary, invalid) for in-scope methods
+- [x] O(n²) algorithm: property-based invariant test (INV-04) + performance baseline recorded (algorithm doc §7.2)
 
 ---
 
@@ -1995,7 +2021,7 @@
 
 ---
 
-#### ASSEMBLY-STATS-001: Assembly Statistics
+#### ASSEMBLY-STATS-001: Assembly Statistics ☑
 
 | Field | Value |
 |------|----------|
@@ -2003,13 +2029,23 @@
 | **Complexity** | O(n log n) |
 | **Class** | GenomeAssemblyAnalyzer |
 
+**Status:** ☑ Complete — N50/L50 = "smallest contig in the smallest set of largest contigs whose combined length is ≥ 50% of the assembly" (Miller, Koren & Sutton 2010, Genomics 95(6):315-327, §1.2); inclusive ≥ threshold% cumulative test verified against QUAST `quast_libs/N50.py`; auN = Σl²/Σl (Li 2020). Worked example {80,70,50,40,30,20}→N50=70,L50=2 (Wikipedia). Evidence: docs/Evidence/ASSEMBLY-STATS-001-Evidence.md; TestSpec: tests/TestSpecs/ASSEMBLY-STATS-001.md; Tests: GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs.
+
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `CalculateStatistics(contigs)` | GenomeAssemblyAnalyzer | Canonical |
 | `CalculateN50(contigs)` | GenomeAssemblyAnalyzer | N50 |
 | `CalculateNx(contigs, threshold)` | GenomeAssemblyAnalyzer | Nx/Lx |
+| `CalculateAuN(contigs)` | GenomeAssemblyAnalyzer | auN (Σl²/Σl) |
 | `FindGaps(sequence)` | GenomeAssemblyAnalyzer | Gap detection |
+
+**Edge Cases:**
+- [x] Empty contig set → all-zero statistics / Nx=Lx=0 / auN=0
+- [x] Single contig → N50 = its length, L50 = 1
+- [x] Cumulative reaching exactly threshold% (inclusive boundary)
+- [x] Leading / trailing / all-N gap runs
+- [x] minGapLength filtering
 
 ---
 
@@ -2047,27 +2083,40 @@
 
 ---
 
-#### TRANS-SPLICE-001: Alternative Splicing
+#### TRANS-SPLICE-001: Alternative Splicing ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `TranscriptomeAnalyzer.DetectAlternativeSplicing(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(n) (PSI O(1); classification O(g·k²·e)) |
+| **Evidence** | [TRANS-SPLICE-001-Evidence.md](docs/Evidence/TRANS-SPLICE-001-Evidence.md) |
+| **TestSpec** | [TRANS-SPLICE-001.md](tests/TestSpecs/TRANS-SPLICE-001.md) |
+| **Tests** | [TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `DetectAlternativeSplicing(isoforms)` | TranscriptomeAnalyzer | Canonical |
-| `CalculatePSI(event, reads)` | TranscriptomeAnalyzer | Percent spliced in |
+| `CalculatePSI(inclusionReads, exclusionReads, ...)` | TranscriptomeAnalyzer | Canonical (Percent Spliced In) |
+
+**Edge Cases:**
+- [x] PSI of 0/0 (no reads) → NaN (undefined)
+- [x] PSI = 1 (S=0) and PSI = 0 (I=0)
+- [x] rMATS length-normalized PSI when both effective lengths > 0
+- [x] negative read counts → ArgumentOutOfRangeException
+- [x] fewer than two isoforms / identical isoforms → no event
+- [x] null / empty isoform input → empty result
+- [x] all five event classes (SE, RI, A5SS, A3SS, MXE) classified
 
 ---
 
 ### 26. Comparative Genomics (3 units)
 
-#### COMPGEN-SYNTENY-001: Synteny Detection
+#### COMPGEN-SYNTENY-001: Synteny Detection ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete (MCScanX collinearity model; Wang et al. 2012, NAR 40(7):e49) |
 | **Canonical** | `ComparativeGenomics.FindSyntenicBlocks(...)` |
 | **Complexity** | O(n²) |
 | **Class** | ComparativeGenomics |
@@ -2080,7 +2129,7 @@
 
 ---
 
-#### COMPGEN-ORTHO-001: Ortholog Identification
+#### ☑ COMPGEN-ORTHO-001: Ortholog Identification
 
 | Field | Value |
 |------|----------|
@@ -2090,8 +2139,10 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindOrthologs(genes1, genes2, minIdentity)` | ComparativeGenomics | Canonical |
-| `FindParalogs(genes, minIdentity)` | ComparativeGenomics | Paralogs |
+| `FindOrthologs(genes1, genes2, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (Reciprocal Best Hits) |
+| `FindParalogs(genes, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (within-genome best hits / in-paralogs) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical methods, signatures, invariants, and edge cases were derived from the Evidence (Tatusov 1997; Moreno-Hagelsieb & Latimer 2008; Fitch 1970; Remm et al. 2001). `FindOrthologs` was corrected from a one-directional best hit to the reciprocal (RBH) criterion; `FindParalogs` was newly implemented.
 
 ---
 
@@ -2123,8 +2174,8 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ConstructPanGenome(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
-| `IdentifyCoreGenes(clusters, threshold)` | PanGenomeAnalyzer | Core genes |
+| `ConstructPanGenome(genomes, identityThreshold, coreFraction)` | PanGenomeAnalyzer | Canonical |
+| `GetCoreGeneClusters(clusters, totalGenomes, threshold)` | PanGenomeAnalyzer | Core genes (implements `IdentifyCoreGenes` referent) |
 
 ---
 
@@ -2139,7 +2190,9 @@
 | Method | Class | Type |
 |-------|-------|-----|
 | `ClusterGenes(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
-| `GeneratePresenceAbsenceMatrix(clusters)` | PanGenomeAnalyzer | Matrix |
+| `CreatePresenceAbsenceMatrix(genomes, clusters)` | PanGenomeAnalyzer | Matrix |
+
+> Note (PANGEN-CLUSTER-001): the matrix method ships as `CreatePresenceAbsenceMatrix` (sibling-consistent name), not `GeneratePresenceAbsenceMatrix`; API-naming only, see TestSpec §7. `ClusterGenes` was corrected from a k-mer Jaccard heuristic to CD-HIT global sequence identity (identical positions / shorter length) per Li & Godzik (2006).
 
 ---
 
@@ -2230,12 +2283,13 @@
 
 ---
 
-#### SEQ-MW-001: Molecular Weight Calculation
+#### SEQ-MW-001: Molecular Weight Calculation ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateMolecularWeight(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — Evidence/TestSpec/Tests linked in Processing Registry |
 
 **Methods:**
 | Method | Class | Type |
@@ -4459,7 +4513,7 @@
 | `HammingDistance` | PAT-APPROX-001 |
 | `HasHairpinPotential` | PRIMER-STRUCT-001 |
 | `HasPrimerDimer` | PRIMER-STRUCT-001 |
-| `IdentifyCoreGenes` | PANGEN-CORE-001 |
+| `GetCoreGeneClusters` (a.k.a. `IdentifyCoreGenes`) | PANGEN-CORE-001 |
 | `IdentifyDisorderedRegions` | DISORDER-REGION-001 |
 | `IsStartCodon` | TRANS-CODON-001 |
 | `IsStopCodon` | TRANS-CODON-001 |
@@ -4747,8 +4801,8 @@
 | CRISPR-OFF-001 | O(n × m) | ⚠️ | May be exponential with high mismatches |
 | RNA-STRUCT-001 | O(n³) | ✓ | Standard Nussinov/Zuker |
 | ASSEMBLY-OLC-001 | O(n² × m) | ⚠️ | Depends on overlap detection method |
-| PANGEN-CORE-001 | O(g² × s) | ⚠️ | All-vs-all comparison |
-| SV-CNV-001 | O(n) | ⚠️ | Segmentation may be O(n log n) |
+| PANGEN-CORE-001 | O(g² × s) | ✓ | All-vs-all k-mer clustering dominates (verified PANGEN-CORE-001) |
+| SV-CNV-001 | O(n) | ✓ | One pass over depth + O(w log w) median over w windows (w << n) |
 
 ---
 
