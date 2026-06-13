@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 118 |
+| **Completed** | 119 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 116 |
+| **Not Started** | 115 |
 
 ---
 
@@ -146,7 +146,7 @@
 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CONSENSUS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ComputeConsensus_Tests.cs) |
 | ☑ | ASSEMBLY-TRIM-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-TRIM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_QualityTrimReads_Tests.cs) |
 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CORRECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ErrorCorrectReads_Tests.cs) |
-| ☐ | PAT-APPROX-003 | Matching | 3 | - | - | - |
+| ☑ | PAT-APPROX-003 | Matching | 3 | [Evidence](docs/Evidence/PAT-APPROX-003-Evidence.md) | [TestSpec](tests/TestSpecs/PAT-APPROX-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ApproximateMatcher_FindBestMatch_Tests.cs) |
 | ☐ | ALIGN-STATS-001 | Alignment | 2 | - | - | - |
 | ☐ | EPIGEN-BISULF-001 | Epigenetics | 2 | - | - | - |
 | ☐ | EPIGEN-CHROM-001 | Epigenetics | 3 | - | - | - |
