@@ -147,72 +147,112 @@ public static class PanGenomeAnalyzer
         return new PanGenomeResult(coreGenes, accessoryGenes, uniqueGenes, genomeToGenes, stats);
     }
 
+    // CD-HIT default sequence-identity clustering threshold (-c option, default 0.9):
+    // "sequence identity threshold, default 0.9" (Li & Godzik 2006; CD-HIT User's Guide).
+    private const double DefaultIdentityThreshold = 0.9;
+
     /// <summary>
-    /// Clusters genes into ortholog groups based on sequence similarity.
+    /// Clusters genes into ortholog (homolog) groups using the CD-HIT greedy incremental
+    /// clustering model (Li &amp; Godzik, 2006): sequences are sorted from longest to
+    /// shortest; the longest sequence becomes the representative of the first cluster, and
+    /// each remaining sequence joins the first existing representative whose global
+    /// sequence identity meets <paramref name="identityThreshold"/>, otherwise it becomes
+    /// the representative of a new cluster. Global sequence identity is the number of
+    /// identical residues in the (ungapped) alignment divided by the length of the shorter
+    /// sequence (CD-HIT "-G 1" default).
     /// </summary>
+    /// <param name="genomes">Genome id → list of (gene id, sequence) entries.</param>
+    /// <param name="identityThreshold">
+    /// Global sequence-identity cutoff in [0,1]; a gene joins a cluster only when its
+    /// identity to that cluster's representative is &gt;= this value (CD-HIT -c, default 0.9).
+    /// </param>
     public static IEnumerable<GeneCluster> ClusterGenes(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        double identityThreshold = 0.9)
+        double identityThreshold = DefaultIdentityThreshold)
     {
-        var allGenes = new List<(string GenomeId, string GeneId, string Sequence)>();
+        if (genomes == null)
+            yield break;
 
+        var allGenes = new List<(string GenomeId, string GeneId, string Sequence)>();
         foreach (var (genomeId, genes) in genomes)
         {
+            if (genes == null)
+                continue;
             foreach (var (geneId, sequence) in genes)
-            {
                 allGenes.Add((genomeId, geneId, sequence));
-            }
         }
 
         if (allGenes.Count == 0)
             yield break;
 
-        var assigned = new HashSet<int>();
-        int clusterId = 1;
+        // CD-HIT: "sorts the input sequences from long to short, and processes them
+        // sequentially from the longest to the shortest." Ties are broken by original
+        // order via a stable sort so the result is deterministic.
+        var order = Enumerable.Range(0, allGenes.Count)
+            .OrderByDescending(i => allGenes[i].Sequence?.Length ?? 0)
+            .ToList();
 
-        for (int i = 0; i < allGenes.Count; i++)
+        // Each cluster keeps its representative's index plus its accumulated members.
+        var representatives = new List<int>();
+        var members = new List<List<int>>();
+
+        foreach (int idx in order)
         {
-            if (assigned.Contains(i))
-                continue;
+            string seq = allGenes[idx].Sequence ?? string.Empty;
 
-            var clusterMembers = new List<int> { i };
-            assigned.Add(i);
-
-            for (int j = i + 1; j < allGenes.Count; j++)
+            int joined = -1;
+            // "each query sequence ... is compared to the representative sequences found
+            // before it, and is classified as redundant ... if it is similar to one of the
+            // existing representative sequences." First match wins (greedy).
+            for (int c = 0; c < representatives.Count; c++)
             {
-                if (assigned.Contains(j))
-                    continue;
-
-                double identity = CalculateSequenceIdentity(allGenes[i].Sequence, allGenes[j].Sequence);
+                double identity = CalculateSequenceIdentity(seq, allGenes[representatives[c]].Sequence ?? string.Empty);
                 if (identity >= identityThreshold)
                 {
-                    clusterMembers.Add(j);
-                    assigned.Add(j);
+                    joined = c;
+                    break;
                 }
             }
 
+            if (joined >= 0)
+            {
+                members[joined].Add(idx);
+            }
+            else
+            {
+                representatives.Add(idx);
+                members.Add(new List<int> { idx });
+            }
+        }
+
+        int clusterId = 1;
+        foreach (var clusterMembers in members)
+        {
             var geneIds = clusterMembers.Select(m => allGenes[m].GeneId).ToList();
             var genomeIds = clusterMembers.Select(m => allGenes[m].GenomeId).Distinct().ToList();
 
-            // Calculate average identity within cluster
+            // Average pairwise global identity within the cluster (1.0 for singletons,
+            // which are 100% identical to themselves).
             double avgIdentity = 1.0;
             if (clusterMembers.Count > 1)
             {
-                var identities = new List<double>();
+                double sum = 0;
+                int pairs = 0;
                 for (int a = 0; a < clusterMembers.Count; a++)
                 {
                     for (int b = a + 1; b < clusterMembers.Count; b++)
                     {
-                        identities.Add(CalculateSequenceIdentity(
-                            allGenes[clusterMembers[a]].Sequence,
-                            allGenes[clusterMembers[b]].Sequence));
+                        sum += CalculateSequenceIdentity(
+                            allGenes[clusterMembers[a]].Sequence ?? string.Empty,
+                            allGenes[clusterMembers[b]].Sequence ?? string.Empty);
+                        pairs++;
                     }
                 }
-                avgIdentity = identities.Count > 0 ? identities.Average() : 1.0;
+                avgIdentity = pairs > 0 ? sum / pairs : 1.0;
             }
 
-            // Get consensus (just use first sequence for simplicity)
-            string consensus = allGenes[clusterMembers[0]].Sequence;
+            // The cluster representative (longest member, per CD-HIT) is its consensus.
+            string consensus = allGenes[clusterMembers[0]].Sequence ?? string.Empty;
 
             yield return new GeneCluster(
                 ClusterId: $"cluster_{clusterId++}",
@@ -224,35 +264,41 @@ public static class PanGenomeAnalyzer
         }
     }
 
+    /// <summary>
+    /// Computes CD-HIT global sequence identity between two sequences: the number of
+    /// identical residues in the ungapped positional alignment divided by the length of
+    /// the shorter sequence (Li &amp; Godzik, 2006; CD-HIT "-G 1" default). Two empty
+    /// sequences are defined as identical (1.0); one empty and one non-empty are 0.0.
+    /// </summary>
     private static double CalculateSequenceIdentity(string seq1, string seq2)
     {
-        if (string.IsNullOrEmpty(seq1) || string.IsNullOrEmpty(seq2))
-            return 0;
+        seq1 ??= string.Empty;
+        seq2 ??= string.Empty;
 
-        int minLen = Math.Min(seq1.Length, seq2.Length);
-        int maxLen = Math.Max(seq1.Length, seq2.Length);
+        int len1 = seq1.Length;
+        int len2 = seq2.Length;
 
-        if (maxLen == 0)
-            return 1;
+        // Two empty sequences: identical by convention (0 differences over 0 positions).
+        if (len1 == 0 && len2 == 0)
+            return 1.0;
 
-        // Quick k-mer based similarity
-        int k = 7;
-        if (minLen < k)
-            return seq1 == seq2 ? 1 : 0;
+        // One empty, one not: no shared residues -> 0% identity.
+        if (len1 == 0 || len2 == 0)
+            return 0.0;
 
-        var kmers1 = new HashSet<string>();
-        var kmers2 = new HashSet<string>();
+        int shorter = Math.Min(len1, len2);
 
-        for (int i = 0; i <= seq1.Length - k; i++)
-            kmers1.Add(seq1.Substring(i, k));
+        // Ungapped alignment: compare residues position-by-position over the shared prefix.
+        // Positions beyond the shorter length count as non-identical (no residue to match).
+        int identical = 0;
+        for (int i = 0; i < shorter; i++)
+        {
+            if (seq1[i] == seq2[i])
+                identical++;
+        }
 
-        for (int i = 0; i <= seq2.Length - k; i++)
-            kmers2.Add(seq2.Substring(i, k));
-
-        int shared = kmers1.Intersect(kmers2).Count();
-        int total = kmers1.Union(kmers2).Count();
-
-        return total > 0 ? (double)shared / total : 0;
+        // Global identity denominator is the full length of the shorter sequence.
+        return (double)identical / shorter;
     }
 
     #endregion
@@ -354,8 +400,22 @@ public static class PanGenomeAnalyzer
         return pairCount > 0 ? totalFluidity / pairCount : 0;
     }
 
+    // Heaps' law openness criterion: the number of NEW gene clusters added by the
+    // k-th genome follows a power law n_new(k) = K * k^(-alpha). The pan-genome is
+    // OPEN when alpha < 1 (new genes keep accumulating without bound) and CLOSED when
+    // alpha > 1. Per Tettelin et al. (2008) Curr Opin Microbiol 11:472, and the
+    // micropan heaps() reference implementation: "If alpha<1.0 the pan-genome is open,
+    // if alpha>1.0 it is closed."
+    private const double HeapsOpennessThreshold = 1.0;
+
+    // The decay exponent is only meaningful once several genomes have accumulated; the
+    // new-gene curve is degenerate below this many genomes (Tettelin 2008; micropan).
+    private const int MinGenomesForOpennessFit = 3;
+
     /// <summary>
-    /// Determines if pan-genome is open or closed based on gene accumulation.
+    /// Determines whether the pan-genome is open or closed using the Heaps' law decay
+    /// exponent of newly observed gene clusters per added genome (Tettelin et al., 2008).
+    /// Open when the decay exponent alpha &lt; 1, closed when alpha &gt; 1.
     /// </summary>
     private static PanGenomeType DeterminePanGenomeType(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
@@ -363,13 +423,70 @@ public static class PanGenomeAnalyzer
     {
         var clusterList = clusters.ToList();
 
-        // Simple heuristic: if unique genes > 10% of total, likely open
-        int uniqueGenes = clusterList.Count(c => c.GenomeCount == 1);
-        int totalGenes = clusterList.Count;
+        // Below the minimum count the decay exponent cannot be estimated; the conservative
+        // default is Closed (no evidence of unbounded growth).
+        if (genomes.Count < MinGenomesForOpennessFit || clusterList.Count == 0)
+            return PanGenomeType.Closed;
 
-        double uniqueFraction = totalGenes > 0 ? (double)uniqueGenes / totalGenes : 0;
+        double alpha = EstimateHeapsDecayExponent(genomes, clusterList);
 
-        return uniqueFraction > 0.1 ? PanGenomeType.Open : PanGenomeType.Closed;
+        // alpha == threshold is the boundary; treat the non-open boundary as Closed.
+        return alpha < HeapsOpennessThreshold ? PanGenomeType.Open : PanGenomeType.Closed;
+    }
+
+    /// <summary>
+    /// Estimates the Heaps' law decay exponent alpha of the new-gene-cluster curve
+    /// n_new(k) = K * k^(-alpha) by log-log least-squares regression over the cumulative
+    /// gene-cluster accumulation as genomes are added in dictionary order.
+    /// </summary>
+    private static double EstimateHeapsDecayExponent(
+        IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
+        IReadOnlyList<GeneCluster> clusterList)
+    {
+        // Map each genome to the set of cluster IDs it contains.
+        var genomeToClusters = new Dictionary<string, HashSet<string>>();
+        foreach (var genomeId in genomes.Keys)
+            genomeToClusters[genomeId] = new HashSet<string>();
+
+        foreach (var cluster in clusterList)
+        {
+            foreach (var genomeId in cluster.GenomeIds)
+            {
+                if (genomeToClusters.TryGetValue(genomeId, out var set))
+                    set.Add(cluster.ClusterId);
+            }
+        }
+
+        // Accumulate genomes in order; record the count of NEW clusters contributed at
+        // each step k = 2, 3, ... (the first genome has no "new" baseline to compare).
+        var accumulated = new HashSet<string>();
+        var logK = new List<double>();
+        var logNew = new List<double>();
+
+        int k = 0;
+        foreach (var genomeId in genomes.Keys)
+        {
+            k++;
+            int before = accumulated.Count;
+            accumulated.UnionWith(genomeToClusters[genomeId]);
+            int newClusters = accumulated.Count - before;
+
+            // Only positions k >= 2 are part of the decay curve; log requires positive
+            // new-cluster counts, so zero-novelty steps are mapped to the minimum (1) to
+            // keep the curve defined (cumulative curve flattening drives alpha upward).
+            if (k >= 2)
+            {
+                logK.Add(Math.Log(k));
+                logNew.Add(Math.Log(Math.Max(newClusters, 1)));
+            }
+        }
+
+        if (logK.Count < 2)
+            return HeapsOpennessThreshold; // not enough points to fit -> boundary (Closed)
+
+        // log(n_new) = log(K) - alpha * log(k); slope of the regression is -alpha.
+        var (slope, _, _) = LinearRegression(logK, logNew);
+        return -slope;
     }
 
     /// <summary>
