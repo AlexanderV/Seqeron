@@ -610,7 +610,7 @@ public static class SequenceIO
         if (!int.TryParse(fields[3], out int start)) return null;
         if (!int.TryParse(fields[4], out int end)) return null;
 
-        double? score = fields[5] != "." && double.TryParse(fields[5], out double s) ? s : null;
+        double? score = fields[5] != "." && double.TryParse(fields[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double s) ? s : null;
         char strand = fields[6].Length > 0 ? fields[6][0] : '.';
         int? phase = fields[7] != "." && int.TryParse(fields[7], out int p) ? p : null;
 
@@ -810,7 +810,7 @@ public static class SequenceIO
 
         if (!int.TryParse(fields[1], out int pos)) return null;
 
-        double? qual = fields[5] != "." && double.TryParse(fields[5], out double q) ? q : null;
+        double? qual = fields[5] != "." && double.TryParse(fields[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double q) ? q : null;
 
         var alts = fields[4].Split(',').ToList();
 
