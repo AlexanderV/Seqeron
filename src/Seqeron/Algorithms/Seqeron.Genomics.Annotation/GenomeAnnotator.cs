@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -882,5 +883,104 @@ public static class GenomeAnnotator
         }
 
         return usage;
+    }
+
+    // RSCU is defined only over sense codons; codons encoding this character in the
+    // genetic-code table are stop codons and are excluded (CodonU uses forward_table,
+    // i.e. sense codons only — SouradiptoC/CodonU internal_comp.py `rscu`).
+    private const char StopCodonSymbol = '*';
+
+    // A codon is exactly three nucleotides.
+    private const int CodonLength = 3;
+
+    /// <summary>
+    /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
+    /// (DNA) sequences using the Standard genetic code (NCBI translation table 1).
+    /// </summary>
+    /// <remarks>
+    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is
+    /// <c>RSCU = n_i · x_(i,j) / Σ_j x_(i,j)</c>, where <c>n_i</c> is the number of
+    /// synonymous codons for amino acid <c>i</c> and <c>x_(i,j)</c> is the observed
+    /// count of codon <c>j</c> (Sharp &amp; Li 1986, NAR 14(19):7737–7749). An RSCU of
+    /// 1.0 indicates no codon bias; values above 1 indicate a preferred codon.
+    /// Codon counts are pooled across all input sequences before the RSCU is computed.
+    /// Stop codons are excluded; an unobserved synonymous family yields RSCU 0.0 for
+    /// each of its codons (the CAI 0.5 pseudocount is intentionally not applied).
+    /// </remarks>
+    /// <param name="codingSequences">The coding (CDS) DNA sequences. Read in frame
+    /// from position 0 in steps of three; a partial trailing codon is ignored. Only
+    /// codons over the alphabet A/C/G/T are counted.</param>
+    /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> is null.</exception>
+    public static IReadOnlyDictionary<string, double> GetCodonUsage(IEnumerable<string> codingSequences)
+        => GetCodonUsage(codingSequences, GeneticCode.Standard);
+
+    /// <summary>
+    /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
+    /// (DNA) sequences using the supplied genetic code.
+    /// </summary>
+    /// <param name="codingSequences">The coding (CDS) DNA sequences (see the
+    /// Standard-code overload for framing and alphabet rules).</param>
+    /// <param name="code">The genetic code defining synonymous codon families.</param>
+    /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> or
+    /// <paramref name="code"/> is null.</exception>
+    public static IReadOnlyDictionary<string, double> GetCodonUsage(
+        IEnumerable<string> codingSequences,
+        GeneticCode code)
+    {
+        ArgumentNullException.ThrowIfNull(codingSequences);
+        ArgumentNullException.ThrowIfNull(code);
+
+        // Pool observed counts across all coding sequences (CodonU pools the whole
+        // reference set before computing RSCU).
+        var counts = new Dictionary<string, long>();
+        foreach (string sequence in codingSequences)
+        {
+            if (string.IsNullOrEmpty(sequence)) continue;
+            string seq = sequence.ToUpperInvariant();
+            for (int i = 0; i <= seq.Length - CodonLength; i += CodonLength)
+            {
+                string codon = seq.Substring(i, CodonLength);
+                if (codon.All(c => "ACGT".Contains(c)))
+                {
+                    counts[codon] = counts.GetValueOrDefault(codon, 0) + 1;
+                }
+            }
+        }
+
+        // Group sense codons by the amino acid they encode (the synonymous families).
+        // GeneticCode.CodonTable is keyed by RNA codons, so convert DNA T -> U.
+        var familyByAminoAcid = new Dictionary<char, List<string>>();
+        foreach (KeyValuePair<string, char> entry in code.CodonTable)
+        {
+            if (entry.Value == StopCodonSymbol) continue; // sense codons only
+            string dnaCodon = entry.Key.Replace('U', 'T');
+            if (!familyByAminoAcid.TryGetValue(entry.Value, out List<string>? family))
+            {
+                family = new List<string>();
+                familyByAminoAcid[entry.Value] = family;
+            }
+            family.Add(dnaCodon);
+        }
+
+        var rscu = new Dictionary<string, double>();
+        foreach (List<string> family in familyByAminoAcid.Values)
+        {
+            int nI = family.Count; // number of synonymous codons for this amino acid
+            long familyTotal = 0;
+            foreach (string codon in family)
+                familyTotal += counts.GetValueOrDefault(codon, 0);
+
+            foreach (string codon in family)
+            {
+                long x = counts.GetValueOrDefault(codon, 0);
+                // RSCU = n_i * x / Σ(synonymous counts); an unobserved family (total 0)
+                // yields 0.0 for every member (no preferred codon).
+                rscu[codon] = familyTotal == 0 ? 0.0 : (double)nI * x / familyTotal;
+            }
+        }
+
+        return rscu;
     }
 }

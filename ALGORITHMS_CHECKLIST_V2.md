@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 137 |
+| **Completed** | 138 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 97 |
+| **Not Started** | 96 |
 
 ---
 
@@ -165,7 +165,7 @@
 | ☑ | PHYLO-STATS-001 | Phylogenetic | 3 | [Evidence](docs/Evidence/PHYLO-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) |
 | ☑ | ANNOT-CODING-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODING-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODING-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_CalculateCodingPotential_Tests.cs) |
 | ☑ | ANNOT-REPEAT-001 | Annotation | 2 | [Evidence](docs/Evidence/ANNOT-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_FindRepetitiveElements_Tests.cs) |
-| ☐ | ANNOT-CODONUSAGE-001 | Annotation | 1 | - | - | - |
+| ☑ | ANNOT-CODONUSAGE-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODONUSAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GetCodonUsage_Tests.cs) |
 | ☐ | RESTR-FILTER-001 | MolTools | 3 | - | - | - |
 | ☐ | KMER-DIST-001 | K-mer | 1 | - | - | - |
 | ☐ | MOTIF-CONS-001 | Matching | 1 | - | - | - |
