@@ -292,23 +292,9 @@ public class ProteinMotifProperties
         });
     }
 
-    /// <summary>
-    /// Signal peptide prediction: cleavage position within bounds (if found).
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void PredictSignalPeptide_CleavagePosition_WithinBounds()
-    {
-        string proteinWithSignal = "MKTLLLTLVVVTLVLSSQPVLSRELRECPRGSGKSCQACPAG";
-        var sp = ProteinMotifFinder.PredictSignalPeptide(proteinWithSignal);
-
-        if (sp.HasValue)
-        {
-            Assert.That(sp.Value.CleavagePosition, Is.GreaterThan(0));
-            Assert.That(sp.Value.CleavagePosition, Is.LessThan(proteinWithSignal.Length));
-            Assert.That(sp.Value.Score, Is.InRange(0.0, 1.0));
-        }
-    }
+    // Signal-peptide prediction invariants are covered by Test Unit PROTMOTIF-SP-001
+    // (ProteinMotifFinder_PredictSignalPeptide_Tests.cs), including the cleavage-position
+    // bound property test, so they are not duplicated here.
 
     /// <summary>
     /// Transmembrane helix predictions have valid positions.

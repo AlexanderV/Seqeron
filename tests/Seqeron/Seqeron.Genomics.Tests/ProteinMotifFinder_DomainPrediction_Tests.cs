@@ -61,51 +61,8 @@ public class ProteinMotifFinder_DomainPrediction_Tests
     // --- Multi-domain sequence (zinc finger + kinase) ---
     private const string MultiDomainSequence = "AAAACAACAAALEEEEEEEEHAAAHAAAGAAEAGKSAAAA";
 
-    // --- Signal Peptide (von Heijne 1986; tripartite model) ---
-    // Regions: n-region (charged), h-region (hydrophobic), c-region (cleavage)
-    // Source: von Heijne G (1986) J Mol Biol 184:99–105
-    // (-1,-3) rule: small amino acids {A, G, S} at positions -1 and -3
-    // Source: von Heijne G (1983) Eur J Biochem 133:17–21
-
-    // Classic signal peptide: M + KR (n-region) + 18×L (h-region) + ASAG (c-region) + mature
-    private const string ClassicSignalPeptide = "MKRLLLLLLLLLLLLLLLLLLASAGDDDEEEFFF";
-
-    // Expected values derived from algorithm:
-    // n-region "MKRLL": 2 KR × 0.5 = 1.0 — von Heijne (1986) mean charge ≈ +2.0
-    // h-region (15 L's): 15/15 = 1.0 — von Heijne (1985) hydrophobic fraction
-    // c-region "LASAG": 4/5 {AGSTN} = 0.8 — von Heijne (1984) small/polar fraction
-    // Total = (1.0 + 2×1.0 + 0.8) / 4.0 = 0.95 — 1:2:1 weighting (von Heijne 1985)
-    private const int ClassicSignalExpectedCleavage = 25;
-    private const double ClassicSignalExpectedScore = 0.95;
-    private const string ClassicSignalExpectedNRegion = "MKRLL";
-    private const int ClassicSignalExpectedHRegionLength = 15;
-    private const string ClassicSignalExpectedCRegion = "LASAG";
-
-    // All-charged sequence (no hydrophobic region → no signal peptide)
-    private const string AllChargedSequence = "EEEEEEEEEEKKKKKKKKKKDDDDDRRRRR";
-
-    // Short sequence (below minimum 15 aa threshold)
-    private const string ShortSequence = "MKKLLLL";
-
-    // Set of small amino acids for -1,-3 rule verification
-    // Source: von Heijne (1983) Eur J Biochem 133:17–21 — {A, G, S}
-    private static readonly HashSet<char> SmallAminoAcids = new("AGS");
-
-    // --- Alternate Signal Peptide (independent from ClassicSignalPeptide for invariant tests) ---
-    // M + K (n-region, 1 positive charge) + 12×L (h-region) + ASAG (c-region) + mature
-    // Cleavage=18: nRegion="MKLLL", hRegion=8×L, cRegion="LASAG"
-    // nScore=min(1.0, 1×0.5)=0.5, hScore=8/8=1.0, cScore=4/5=0.8
-    // Total=(0.5+2×1.0+0.8)/4.0=0.825
-    private const string AlternateSignalPeptide = "MKLLLLLLLLLLLLASAGDDDDDDDDDDDDD";
-    private const int AlternateSignalExpectedCleavage = 18;
-    private const double AlternateSignalExpectedScore = 0.825;
-
-    // --- Threonine at -3: strict {A,G,S} enforcement test ---
-    // M + K + 18×L + TTA + 11×D = 34 chars
-    // At cleavage=23: -3=T(20), -1=A(22). T ∉ {A,G,S} → rejected by strict rule.
-    // With relaxed {A,G,S,T}: would detect signal (score≈0.775) — false positive.
-    // Source: von Heijne (1983) — canonical {A, G, S} only.
-    private const string ThreonineMinusThreeSequence = "MKLLLLLLLLLLLLLLLLLLTTADDDDDDDDDDD";
+    // Signal-peptide prediction (PredictSignalPeptide) is covered by its own Test Unit
+    // PROTMOTIF-SP-001 — see ProteinMotifFinder_PredictSignalPeptide_Tests.cs.
 
     #endregion
 
@@ -235,173 +192,6 @@ public class ProteinMotifFinder_DomainPrediction_Tests
 
     #endregion
 
-    #region MUST: PredictSignalPeptide Tests
-
-    /// <summary>
-    /// M7: Signal peptide with classic tripartite structure (n/h/c regions) is detected.
-    /// Evidence: von Heijne G (1986) — Signal peptides consist of n-region (positively charged),
-    /// h-region (hydrophobic core), and c-region (polar, small residues at cleavage site).
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_TripartiteStructure()
-    {
-        var signal = PredictSignalPeptide(ClassicSignalPeptide);
-
-        Assert.That(signal, Is.Not.Null, "Classic signal peptide must be detected");
-        Assert.Multiple(() =>
-        {
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(ClassicSignalExpectedCleavage),
-                "Cleavage position after c-region");
-            Assert.That(signal.Value.NRegion, Is.EqualTo(ClassicSignalExpectedNRegion),
-                "N-region: positively charged (K, R) residues near N-terminus");
-            Assert.That(signal.Value.HRegion, Has.Length.EqualTo(ClassicSignalExpectedHRegionLength),
-                "H-region: hydrophobic core of 15 leucines");
-            Assert.That(signal.Value.CRegion, Is.EqualTo(ClassicSignalExpectedCRegion),
-                "C-region: small/polar residues at cleavage site (LASAG)");
-            Assert.That(signal.Value.Score, Is.EqualTo(ClassicSignalExpectedScore).Within(1e-10),
-                "Combined 1:2:1 weighted mean of region scores: (1.0 + 2×1.0 + 0.8) / 4.0");
-        });
-    }
-
-    /// <summary>
-    /// M8: Cleavage site respects the -1,-3 rule: small amino acids at positions -1 and -3.
-    /// Evidence: von Heijne G (1983) Eur J Biochem 133:17–21 — {A, G, S} at -1/-3.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_MinusOneMinusThreeRule()
-    {
-        var signal = PredictSignalPeptide(ClassicSignalPeptide);
-
-        Assert.That(signal, Is.Not.Null, "Signal peptide must be detected to verify -1,-3 rule");
-
-        string upper = ClassicSignalPeptide.ToUpperInvariant();
-        int cleavage = signal!.Value.CleavagePosition;
-        char minusOne = upper[cleavage - 1];
-        char minusThree = upper[cleavage - 3];
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(SmallAminoAcids.Contains(minusOne), Is.True,
-                $"Position -1 ('{minusOne}') must be a small amino acid {{A,G,S}} per von Heijne (1983)");
-            Assert.That(SmallAminoAcids.Contains(minusThree), Is.True,
-                $"Position -3 ('{minusThree}') must be a small amino acid {{A,G,S}} per von Heijne (1983)");
-        });
-    }
-
-    /// <summary>
-    /// M9: All-charged sequence with no hydrophobic region returns null.
-    /// Evidence: von Heijne (1986) — h-region hydrophobic core is required.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_NoSignal_AllCharged()
-    {
-        var signal = PredictSignalPeptide(AllChargedSequence);
-
-        Assert.That(signal, Is.Null,
-            "All-charged sequence (E, K, D, R) has no hydrophobic core → no signal peptide");
-    }
-
-    /// <summary>
-    /// M10: Sequence shorter than 15 aa returns null.
-    /// Evidence: Signal peptides are 16–30 aa (Owji et al. 2018); minimum search at position 15.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_ShortSequence_ReturnsNull()
-    {
-        var signal = PredictSignalPeptide(ShortSequence);
-
-        Assert.That(signal, Is.Null,
-            $"Sequence of {ShortSequence.Length} aa is below minimum 15 aa for signal peptide detection");
-    }
-
-    /// <summary>
-    /// M11: Null input returns null.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_NullInput_ReturnsNull()
-    {
-        var signal = PredictSignalPeptide(null!);
-
-        Assert.That(signal, Is.Null, "Null input must return null");
-    }
-
-    /// <summary>
-    /// M12: Empty input returns null.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_EmptyInput_ReturnsNull()
-    {
-        var signal = PredictSignalPeptide("");
-
-        Assert.That(signal, Is.Null, "Empty input must return null");
-    }
-
-    /// <summary>
-    /// M13: Upper and lower case inputs produce identical results.
-    /// Evidence: Standard convention — protein sequences are case-insensitive.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_CaseInsensitive()
-    {
-        string lower = ClassicSignalPeptide.ToLowerInvariant();
-
-        var signalUpper = PredictSignalPeptide(ClassicSignalPeptide);
-        var signalLower = PredictSignalPeptide(lower);
-
-        Assert.That(signalUpper, Is.Not.Null, "Upper case signal must be detected");
-        Assert.That(signalLower, Is.Not.Null, "Lower case signal must be detected");
-        Assert.Multiple(() =>
-        {
-            Assert.That(signalLower!.Value.CleavagePosition,
-                Is.EqualTo(signalUpper!.Value.CleavagePosition),
-                "Cleavage position must be identical regardless of case");
-            Assert.That(signalLower.Value.Score,
-                Is.EqualTo(signalUpper.Value.Score).Within(1e-10),
-                "Score must be identical regardless of case — same computation on ToUpperInvariant");
-            Assert.That(signalLower.Value.Probability,
-                Is.EqualTo(signalUpper.Value.Probability).Within(1e-10),
-                "Probability must be identical regardless of case — same computation on ToUpperInvariant");
-        });
-    }
-
-    /// <summary>
-    /// M14: INV-7, INV-8 — Score ∈ (0, 1] and Probability ∈ (0, 1] when signal is detected.
-    /// Probability equals Score (direct quality measure, no arbitrary transformation).
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_ScoreAndProbabilityInRange()
-    {
-        var signal = PredictSignalPeptide(ClassicSignalPeptide);
-
-        Assert.That(signal, Is.Not.Null, "Signal must be detected to verify score range");
-        Assert.Multiple(() =>
-        {
-            Assert.That(signal!.Value.Score, Is.GreaterThan(0).And.LessThanOrEqualTo(1.0),
-                "Score must be in (0, 1]");
-            Assert.That(signal.Value.Probability, Is.GreaterThan(0).And.LessThanOrEqualTo(1.0),
-                "Probability must be in (0, 1]");
-            Assert.That(signal.Value.Probability, Is.EqualTo(signal.Value.Score).Within(1e-10),
-                "INV-8: Probability must equal Score — direct quality measure, no transformation");
-        });
-    }
-
-    /// <summary>
-    /// M15: Threonine at position -3 must be rejected — strict {A, G, S} enforcement.
-    /// Evidence: von Heijne (1983) Eur J Biochem 133:17–21 — canonical set is {A, G, S} only.
-    /// Sequence has T at -3 for the only candidate cleavage site (pos 23).
-    /// With relaxed {A,G,S,T}: would detect signal (score ≈ 0.775) — false positive.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_RejectsThreonineAtMinusThree()
-    {
-        var signal = PredictSignalPeptide(ThreonineMinusThreeSequence);
-
-        Assert.That(signal, Is.Null,
-            "Threonine at position -3 must be rejected — von Heijne (1983) strictly requires {A, G, S}");
-    }
-
-    #endregion
-
     #region SHOULD: FindDomains Tests
 
     /// <summary>
@@ -514,46 +304,6 @@ public class ProteinMotifFinder_DomainPrediction_Tests
 
     #endregion
 
-    #region SHOULD: PredictSignalPeptide Tests
-
-    /// <summary>
-    /// S5: INV-6 — Cleavage position is within the search range [15, 35].
-    /// Uses AlternateSignalPeptide (independent from M7's ClassicSignalPeptide).
-    /// Evidence: Implementation scans cleavage sites from position 15 to min(35, searchLength).
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_CleavagePositionRange()
-    {
-        var signal = PredictSignalPeptide(AlternateSignalPeptide);
-
-        Assert.That(signal, Is.Not.Null, "Alternate signal must be detected to verify cleavage range");
-        Assert.That(signal!.Value.CleavagePosition,
-            Is.EqualTo(AlternateSignalExpectedCleavage),
-            "Cleavage at position 18 — best score for MK + 12L + ASAG structure");
-        Assert.That(signal.Value.CleavagePosition,
-            Is.InRange(15, 35),
-            "INV-6: Cleavage position must be within search range [15, 35]");
-    }
-
-    /// <summary>
-    /// S6: H-region must be at least 7 amino acids.
-    /// Uses AlternateSignalPeptide (independent from M7's ClassicSignalPeptide).
-    /// Evidence: von Heijne (1985) J Mol Biol 184:99–105 — h-region is 7–15 residues.
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_HRegionMinLength()
-    {
-        var signal = PredictSignalPeptide(AlternateSignalPeptide);
-
-        Assert.That(signal, Is.Not.Null, "Alternate signal must be detected to verify H-region length");
-        Assert.That(signal!.Value.HRegion.Length, Is.EqualTo(8),
-            "H-region exactly 8 L's for alternate signal peptide (MK + 12L h/c split)");
-        Assert.That(signal.Value.HRegion.Length, Is.GreaterThanOrEqualTo(7),
-            "INV-11: H-region must be ≥ 7 aa per von Heijne (1985)");
-    }
-
-    #endregion
-
     #region COULD Tests
 
     /// <summary>
@@ -573,22 +323,6 @@ public class ProteinMotifFinder_DomainPrediction_Tests
             Assert.That(domains.Any(d => d.Name == KinaseExpectedName), Is.True,
                 "Protein Kinase ATP-binding must be detected in multi-domain sequence");
         });
-    }
-
-    /// <summary>
-    /// C2: Custom maxLength limits the signal peptide search range.
-    /// Using maxLength=20 limits search to positions 15–20, where no valid cleavage site exists
-    /// for the classic signal peptide (all positions have L at -3).
-    /// </summary>
-    [Test]
-    public void PredictSignalPeptide_MaxLengthParameter()
-    {
-        // With maxLength=20, searchLength=min(20,34)=20, cleavage scans 15..min(35,20)=15..20
-        // At all these positions, -3 is L (not small AA) → no valid cleavage site → null
-        var signal = PredictSignalPeptide(ClassicSignalPeptide, maxLength: 20);
-
-        Assert.That(signal, Is.Null,
-            "maxLength=20 restricts search to positions 15–20 where no valid cleavage site exists");
     }
 
     #endregion

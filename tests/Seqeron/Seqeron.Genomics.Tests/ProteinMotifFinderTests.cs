@@ -187,14 +187,12 @@ public class ProteinMotifFinderTests
                         "EEEEE";
 
         var motifs = FindCommonMotifs(protein).ToList();
-        var signal = PredictSignalPeptide(protein);
+        // Signal-peptide prediction is covered by PROTMOTIF-SP-001
+        // (ProteinMotifFinder_PredictSignalPeptide_Tests.cs).
 
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(64), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
-            Assert.That(signal, Is.Not.Null, "Signal peptide must be detected — classic tripartite structure");
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25),
-                "Cleavage at position 25 after c-region LASAG");
             Assert.That(motifs.Any(m => m.MotifName == "RGD"), Is.True, "RGD cell attachment motif");
             Assert.That(motifs.Any(m => m.MotifName == "ASN_GLYCOSYLATION"), Is.True, "N-glycosylation site");
         });
@@ -210,17 +208,15 @@ public class ProteinMotifFinderTests
             .Select(_ => aas[random.Next(aas.Length)]).ToArray());
 
         var motifs = FindCommonMotifs(protein).ToList();
-        var signal = PredictSignalPeptide(protein);
         var tm = PredictTransmembraneHelices(protein).ToList();
         var disorder = PredictDisorderedRegions(protein).ToList();
         var domains = FindDomains(protein).ToList();
+        // Signal-peptide prediction is covered by PROTMOTIF-SP-001
+        // (ProteinMotifFinder_PredictSignalPeptide_Tests.cs).
 
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(23), "Deterministic motif count for seed=42");
-            // Random protein correctly yields no signal peptide with strict criteria:
-            // {A,G,S} at -1/-3 per von Heijne (1983), h-region ≥ 7 per von Heijne (1985)
-            Assert.That(signal, Is.Null, "Random sequence lacks signal peptide structure");
             Assert.That(tm, Is.Empty, "No TM helices in random sequence");
             Assert.That(disorder, Has.Count.EqualTo(23), "Disordered regions in random sequence");
             Assert.That(domains, Is.Empty, "No domains in random sequence");

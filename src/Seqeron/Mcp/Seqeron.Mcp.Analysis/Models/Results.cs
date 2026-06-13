@@ -218,15 +218,14 @@ public record FindProteinMotifsResult(ProteinMotifMatchItem[] Items);
 /// <summary>Result of <c>prosite_to_regex</c>.</summary>
 public record PrositeRegexResult(string Regex);
 
-/// <summary>Signal peptide prediction (von Heijne tripartite model).</summary>
+/// <summary>Signal-peptide cleavage-site prediction (von Heijne 1986 weight-matrix method).</summary>
 public record SignalPeptideResult(
     bool Found,
     int CleavagePosition,
-    string NRegion,
-    string HRegion,
-    string CRegion,
     double Score,
-    double Probability);
+    string SignalSequence,
+    string WindowSequence,
+    bool IsLikelySignalPeptide);
 
 /// <summary>A scored region (start, end, score) — used for TM helices and coiled-coils.</summary>
 public record RegionScoreItem(int Start, int End, double Score);

@@ -43,9 +43,9 @@ public class ProteinMotifSnapshotTests
         return Verify(new
         {
             HasSignalPeptide = sp.HasValue,
-            CleavagePosition = sp?.CleavagePosition,
-            Score = sp?.Score,
-            Probability = sp?.Probability
+            sp?.CleavagePosition,
+            sp?.Score,
+            sp?.IsLikelySignalPeptide
         });
     }
 }

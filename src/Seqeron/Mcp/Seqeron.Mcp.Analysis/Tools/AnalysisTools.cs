@@ -608,17 +608,17 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_signal_peptide", Title = "Protein — Signal Peptide (von Heijne)", ReadOnly = true)]
-    [Description("Tripartite (n/h/c regions) signal-peptide cleavage-site prediction (von Heijne).")]
+    [Description("von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave).")]
     public static SignalPeptideResult PredictSignalPeptide(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Maximum N-terminal scan length (default 70).")] int maxLength = 70)
+        [Description("Score against the prokaryotic matrix instead of the default eukaryotic one.")] bool prokaryote = false)
     {
         var sp = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .PredictSignalPeptide(proteinSequence ?? string.Empty, maxLength);
+            .PredictSignalPeptide(proteinSequence ?? string.Empty, prokaryote);
         if (sp is null)
-            return new SignalPeptideResult(false, 0, "", "", "", 0.0, 0.0);
+            return new SignalPeptideResult(false, 0, 0.0, "", "", false);
         var v = sp.Value;
-        return new SignalPeptideResult(true, v.CleavagePosition, v.NRegion, v.HRegion, v.CRegion, v.Score, v.Probability);
+        return new SignalPeptideResult(true, v.CleavagePosition, v.Score, v.SignalSequence, v.WindowSequence, v.IsLikelySignalPeptide);
     }
 
     [McpServerTool(Name = "predict_transmembrane_helices", Title = "Protein — Transmembrane Helices (Kyte-Doolittle)", ReadOnly = true)]
