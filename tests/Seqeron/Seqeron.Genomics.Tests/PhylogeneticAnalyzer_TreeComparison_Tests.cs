@@ -775,51 +775,6 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
 
     #endregion
 
-    #region Bootstrap Tests (Different Scope - Kept for Coverage)
-
-    [Test]
-    [Description("Bootstrap returns supports in valid range")]
-    public void Bootstrap_ReturnsSupportsInValidRange()
-    {
-        // Arrange
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGTACGTAC",
-            ["B"] = "ACGTACGTAC",
-            ["C"] = "TCGTACGTAC",
-            ["D"] = "TCGTACGTAC"
-        };
-
-        // Act
-        var supports = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 10);
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(supports, Is.Not.Empty);
-            Assert.That(supports.Values, Has.All.InRange(0.0, 1.0));
-        });
-    }
-
-    [Test]
-    [Description("Bootstrap with distinct groups shows high support")]
-    public void Bootstrap_DistinctGroups_HighSupport()
-    {
-        // Arrange - Groups with very different sequences should have high bootstrap support
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "AAAAAAAAAA",
-            ["B"] = "AAAAAAAAAC",
-            ["C"] = "CCCCCCCCCC",
-            ["D"] = "CCCCCCCCCA"
-        };
-
-        // Act
-        var supports = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 50);
-
-        // Assert - At least some splits should have high support
-        Assert.That(supports.Values.Any(v => v >= 0.5), Is.True);
-    }
-
-    #endregion
+    // Bootstrap tests moved to the canonical PHYLO-BOOT-001 fixture:
+    // PhylogeneticAnalyzer_Bootstrap_Tests.cs (the two prior weak tests were superseded).
 }

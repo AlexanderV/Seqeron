@@ -827,15 +827,49 @@ public static class PhylogeneticAnalyzer
         return double.NaN;
     }
 
+    /// <summary>Default number of bootstrap replicates (Felsenstein 1985 uses ≈100+ replicates).</summary>
+    private const int DefaultBootstrapReplicates = 100;
+
     /// <summary>
-    /// Bootstrap analysis - builds multiple trees from resampled alignments.
+    /// Default RNG seed for the column-resampling step. Fixed so that, for a given
+    /// alignment and parameters, the returned support values are reproducible.
     /// </summary>
+    private const int DefaultBootstrapSeed = 42;
+
+    /// <summary>
+    /// Felsenstein's phylogenetic bootstrap: estimates clade support by resampling
+    /// alignment columns (sites) with replacement and rebuilding the tree on each replicate.
+    /// </summary>
+    /// <remarks>
+    /// Procedure (Felsenstein 1985; Lemoine et al. 2018; Biopython <c>Bio.Phylo.Consensus</c>):
+    /// keep all taxa, resample the alignment columns with replacement to a pseudo-alignment of the
+    /// <em>same length</em> as the original, rebuild a tree, and for every non-trivial clade of the
+    /// reference (original-data) tree count the proportion of replicate trees that contain a clade
+    /// with the identical set of leaf names. The returned support is that proportion in [0,1]
+    /// (multiply by 100 for the published percentage).
+    /// </remarks>
+    /// <param name="sequences">Named aligned sequences (≥2, equal length).</param>
+    /// <param name="replicates">Number of bootstrap replicates (≥1).</param>
+    /// <param name="distanceMethod">Distance method used to build each tree.</param>
+    /// <param name="treeMethod">Tree-construction method used for the reference and replicate trees.</param>
+    /// <param name="seed">RNG seed for column resampling; fixed value makes results reproducible.</param>
+    /// <returns>Map from clade (sorted, '|'-joined leaf names) to bootstrap support in [0,1].</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">When fewer than 2 sequences are supplied, or <paramref name="replicates"/> &lt; 1.</exception>
     public static IReadOnlyDictionary<string, double> Bootstrap(
         IReadOnlyDictionary<string, string> sequences,
-        int replicates = 100,
+        int replicates = DefaultBootstrapReplicates,
         DistanceMethod distanceMethod = DistanceMethod.JukesCantor,
-        TreeMethod treeMethod = TreeMethod.UPGMA)
+        TreeMethod treeMethod = TreeMethod.UPGMA,
+        int seed = DefaultBootstrapSeed)
     {
+        if (sequences == null)
+            throw new ArgumentNullException(nameof(sequences));
+        if (sequences.Count < 2)
+            throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
+        if (replicates < 1)
+            throw new ArgumentException("At least 1 replicate required.", nameof(replicates));
+
         var taxa = sequences.Keys.ToList();
         var seqs = sequences.Values.ToList();
         int alignmentLength = seqs[0].Length;
@@ -849,11 +883,12 @@ public static class PhylogeneticAnalyzer
         foreach (var clade in refClades)
             supportCounts[clade] = 0;
 
-        var random = new Random(42);
+        var random = new Random(seed);
 
         for (int rep = 0; rep < replicates; rep++)
         {
-            // Resample columns with replacement
+            // Resample alignmentLength columns with replacement (Felsenstein 1985:
+            // pseudo-alignments are the same size as the original; Biopython bootstrap_trees).
             var resampledSeqs = new Dictionary<string, string>();
             var columns = new int[alignmentLength];
             for (int i = 0; i < alignmentLength; i++)
