@@ -1026,64 +1026,219 @@ public static class SequenceAssembler
         return cut;
     }
 
+    // Canonical DNA alphabet over which substitution candidates are enumerated, in fixed
+    // A,C,G,T order so the correction is deterministic. Quake/Musket correct only the four
+    // standard nucleotides. Source: Kelley et al. (2010) Genome Biol 11:R116 (nucleotide edits);
+    // Liu et al. (2013) Musket, Bioinformatics 29(3):308-315 (substitution model).
+    private static readonly char[] DnaBases = { 'A', 'C', 'G', 'T' };
+
+    // Default k-mer length. Quake/Musket leave k user-selectable; the de Bruijn default in this
+    // class is 31, but error correction uses smaller k so that error k-mers stay rare and solid
+    // k-mers are well sampled at typical read depth. We follow Quake's recommended order of
+    // magnitude (k chosen so the genome is well covered); k is exposed as a parameter so callers
+    // set it from their data. Source: Kelley et al. (2010) Genome Biol 11:R116 (k selection).
+    private const int DefaultErrorCorrectKmerSize = 15;
+
+    // Default solidity (trusted) coverage cut-off: a k-mer is "trusted/solid" when its
+    // multiplicity is at least this value, "untrusted/weak" otherwise. Quake and Musket choose
+    // this cut-off automatically from the coverage histogram valley; we expose it as a parameter
+    // (callers pass the data-driven cut-off) and default to 2 so a k-mer must be seen more than
+    // once to be trusted. Source: Liu et al. (2013) Musket (multiplicity > cut-off => trusted);
+    // Kelley et al. (2010) Quake (high-coverage k-mers trusted, low-coverage untrusted).
+    private const int DefaultMinKmerFrequency = 2;
+
     /// <summary>
-    /// Error corrects reads using k-mer frequency analysis.
+    /// Corrects substitution errors in reads using the k-mer spectrum (two-sided) method of
+    /// Musket / Quake. A k-mer is <em>trusted</em> (solid) when its multiplicity across all reads
+    /// is at least <paramref name="minKmerFrequency"/> and <em>untrusted</em> (weak) otherwise.
+    /// For every read position covered only by untrusted k-mers, the method looks for a single
+    /// alternative base that makes <em>every</em> k-mer covering that position trusted; the base is
+    /// changed only when that alternative is <em>unique</em> — if zero or more than one alternative
+    /// works, the base is left unchanged (ambiguity is not resolved). The k-mer frequency table is
+    /// computed once from the original reads and is not updated during correction.
     /// </summary>
+    /// <remarks>
+    /// Algorithm: Liu, Schmidt &amp; Maskell (2013), "Musket: a multistage k-mer spectrum-based
+    /// error corrector for Illumina sequence data", Bioinformatics 29(3):308-315,
+    /// DOI 10.1093/bioinformatics/bts690 — two-sided correction: "a base covered by any trusted
+    /// k-mer is trusted"; find a unique alternative base making the k-mers covering position i
+    /// trusted; "if more than one alternative is found ... the base will keep unchanged as a
+    /// result of ambiguity". Kelley, Schatz &amp; Salzberg (2010), "Quake", Genome Biol 11:R116,
+    /// DOI 10.1186/gb-2010-11-11-r116 — trusted = high-coverage k-mers, untrusted = low-coverage;
+    /// corrections are single-nucleotide edits over a region of untrusted k-mers.
+    /// Corrections are restricted to single-base substitutions (no insertions/deletions), matching
+    /// the substitution model of both tools.
+    /// </remarks>
+    /// <param name="reads">Reads to correct. Compared case-insensitively (upper-cased internally).</param>
+    /// <param name="kmerSize">k-mer length k (k ≥ 1). Reads shorter than k contribute no k-mers and are returned unchanged.</param>
+    /// <param name="minKmerFrequency">Trusted cut-off: k-mers with multiplicity ≥ this value are trusted.</param>
+    /// <returns>The corrected reads, upper-cased, in input order; length and count are preserved.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="reads"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="kmerSize"/> &lt; 1.</exception>
     public static IReadOnlyList<string> ErrorCorrectReads(
         IReadOnlyList<string> reads,
-        int kmerSize = 21,
-        int minKmerFrequency = 3)
+        int kmerSize = DefaultErrorCorrectKmerSize,
+        int minKmerFrequency = DefaultMinKmerFrequency)
     {
-        // Build k-mer frequency table
-        var kmerCounts = new Dictionary<string, int>();
+        ArgumentNullException.ThrowIfNull(reads);
+        if (kmerSize < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(kmerSize), kmerSize, "k-mer size must be at least 1.");
+        }
+
+        // Stage 1: build the k-mer spectrum (multiplicity table) from the original reads once.
+        var kmerCounts = BuildKmerSpectrum(reads, kmerSize);
+
+        var corrected = new List<string>(reads.Count);
+
         foreach (string read in reads)
         {
-            for (int i = 0; i <= read.Length - kmerSize; i++)
+            corrected.Add(CorrectRead(read, kmerSize, minKmerFrequency, kmerCounts));
+        }
+
+        return corrected;
+    }
+
+    /// <summary>
+    /// Builds the k-mer multiplicity table (k-mer spectrum) over all reads, counting overlapping
+    /// k-mers case-insensitively. Reads shorter than k contribute nothing.
+    /// </summary>
+    private static Dictionary<string, int> BuildKmerSpectrum(IReadOnlyList<string> reads, int kmerSize)
+    {
+        var kmerCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (string read in reads)
+        {
+            if (read is null)
+            {
+                continue;
+            }
+
+            for (int i = 0; i + kmerSize <= read.Length; i++)
             {
                 string kmer = read.Substring(i, kmerSize).ToUpperInvariant();
                 kmerCounts[kmer] = kmerCounts.GetValueOrDefault(kmer, 0) + 1;
             }
         }
 
-        var corrected = new List<string>();
+        return kmerCounts;
+    }
 
-        foreach (string read in reads)
+    /// <summary>
+    /// Applies the Musket two-sided substitution rule to one read against the global k-mer
+    /// spectrum: for each position covered only by untrusted k-mers, substitute the unique base
+    /// (if any) that makes every k-mer covering that position trusted.
+    /// </summary>
+    private static string CorrectRead(
+        string read,
+        int kmerSize,
+        int minKmerFrequency,
+        Dictionary<string, int> kmerCounts)
+    {
+        // Reads with no k-mers (shorter than k) cannot be evaluated; return upper-cased copy.
+        if (read.Length < kmerSize)
         {
-            var sb = new StringBuilder(read);
+            return read.ToUpperInvariant();
+        }
 
-            for (int i = 0; i <= read.Length - kmerSize; i++)
+        var sb = new StringBuilder(read.ToUpperInvariant());
+
+        for (int pos = 0; pos < sb.Length; pos++)
+        {
+            if (IsPositionTrusted(sb, pos, kmerSize, minKmerFrequency, kmerCounts))
             {
-                string kmer = read.Substring(i, kmerSize).ToUpperInvariant();
+                continue; // Base is covered by a trusted k-mer -> leave it unchanged.
+            }
 
-                if (kmerCounts.GetValueOrDefault(kmer, 0) < minKmerFrequency)
+            char original = sb[pos];
+            char unique = '\0';
+            int candidateCount = 0;
+
+            foreach (char candidate in DnaBases)
+            {
+                if (candidate == original)
                 {
-                    // Try to correct by substituting middle base
-                    int midPos = i + kmerSize / 2;
-                    char original = char.ToUpperInvariant(sb[midPos]);
+                    continue;
+                }
 
-                    foreach (char replacement in new[] { 'A', 'C', 'G', 'T' })
-                    {
-                        if (replacement == original) continue;
-
-                        sb[midPos] = replacement;
-                        string newKmer = sb.ToString().Substring(i, kmerSize).ToUpperInvariant();
-
-                        if (kmerCounts.GetValueOrDefault(newKmer, 0) >= minKmerFrequency)
-                        {
-                            break; // Keep correction
-                        }
-                        else
-                        {
-                            sb[midPos] = original; // Revert
-                        }
-                    }
+                sb[pos] = candidate;
+                if (AllCoveringKmersTrusted(sb, pos, kmerSize, minKmerFrequency, kmerCounts))
+                {
+                    candidateCount++;
+                    unique = candidate;
                 }
             }
 
-            corrected.Add(sb.ToString());
+            // Apply only an unambiguous correction; otherwise restore the original base.
+            sb[pos] = candidateCount == 1 ? unique : original;
         }
 
-        return corrected;
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// True when position <paramref name="pos"/> is covered by at least one trusted k-mer
+    /// (multiplicity ≥ <paramref name="minKmerFrequency"/>) — the Musket "trusted base" rule.
+    /// </summary>
+    private static bool IsPositionTrusted(
+        StringBuilder sb,
+        int pos,
+        int kmerSize,
+        int minKmerFrequency,
+        Dictionary<string, int> kmerCounts)
+    {
+        foreach (int start in CoveringKmerStarts(sb.Length, pos, kmerSize))
+        {
+            if (kmerCounts.GetValueOrDefault(KmerAt(sb, start, kmerSize), 0) >= minKmerFrequency)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// True when EVERY k-mer covering position <paramref name="pos"/> is trusted. Used to test a
+    /// candidate substitution: a correction is valid only if it makes all covering k-mers solid.
+    /// </summary>
+    private static bool AllCoveringKmersTrusted(
+        StringBuilder sb,
+        int pos,
+        int kmerSize,
+        int minKmerFrequency,
+        Dictionary<string, int> kmerCounts)
+    {
+        foreach (int start in CoveringKmerStarts(sb.Length, pos, kmerSize))
+        {
+            if (kmerCounts.GetValueOrDefault(KmerAt(sb, start, kmerSize), 0) < minKmerFrequency)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Enumerates the start indices of all length-k windows that cover read position
+    /// <paramref name="pos"/> within a read of length <paramref name="length"/>.
+    /// </summary>
+    private static IEnumerable<int> CoveringKmerStarts(int length, int pos, int kmerSize)
+    {
+        int first = Math.Max(0, pos - kmerSize + 1);
+        int last = Math.Min(pos, length - kmerSize);
+        for (int start = first; start <= last; start++)
+        {
+            yield return start;
+        }
+    }
+
+    /// <summary>Reads the length-k window starting at <paramref name="start"/> from the buffer.</summary>
+    private static string KmerAt(StringBuilder sb, int start, int kmerSize)
+    {
+        char[] buffer = new char[kmerSize];
+        sb.CopyTo(start, buffer, 0, kmerSize);
+        return new string(buffer);
     }
 }
 
