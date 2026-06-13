@@ -1020,6 +1020,170 @@ public static class MetagenomicsAnalyzer
 
     #region Antibiotic Resistance Gene Detection
 
+    // ResFinder-style acquired-resistance-gene detection thresholds.
+    // ResFinder reports the best-matching database gene found by a sequence search and
+    // applies a percent-identity (%ID) cutoff and a coverage (length) cutoff.
+    // Zankari et al. (2012) JAC 67(11):2640-2644: the web service default %ID is 100% and
+    // is user-selectable; a gene must "cover at least 2/5 of the length of the resistance
+    // gene in the database". The 90% identity / 60% coverage pair is the documented
+    // ResFinder web-service operating point (Zankari et al. 2017, JAC 72(10):2764-2768).
+    // Source URLs recorded in docs/Evidence/META-RESIST-001-Evidence.md.
+
+    /// <summary>Default minimum percent identity (0–1) for calling a resistance gene present.</summary>
+    public const double DefaultResistanceIdentityThreshold = 0.90;   // ResFinder web service default %ID.
+
+    /// <summary>Default minimum coverage (0–1) of the reference gene length.</summary>
+    public const double DefaultResistanceCoverageThreshold = 0.60;   // ResFinder min coverage (Zankari 2012/2017).
+
+    /// <summary>
+    /// A detected antibiotic-resistance gene: the best-matching reference gene for a contig
+    /// that meets the identity and coverage thresholds.
+    /// </summary>
+    /// <param name="ContigId">Identifier of the query contig/gene that was searched.</param>
+    /// <param name="ResistanceGene">Name of the matched reference resistance gene.</param>
+    /// <param name="AntibioticClass">Antibiotic class conferred by the matched gene.</param>
+    /// <param name="PercentIdentity">
+    /// BLAST-style percent identity (0–1): identical positions divided by the gapless
+    /// alignment length of the best ungapped match.
+    /// </param>
+    /// <param name="Coverage">
+    /// Fraction (0–1) of the reference gene length spanned by the best ungapped match.
+    /// </param>
+    public readonly record struct ResistanceHit(
+        string ContigId,
+        string ResistanceGene,
+        string AntibioticClass,
+        double PercentIdentity,
+        double Coverage);
+
+    /// <summary>
+    /// Detects acquired antibiotic-resistance genes in assembled contigs against a
+    /// caller-supplied reference database, following the ResFinder methodology: for each
+    /// reference gene the best ungapped alignment to the contig is located, percent identity
+    /// and reference coverage are computed, and the reference gene is reported only when it
+    /// passes both thresholds. For each contig the single best-matching reference gene is
+    /// reported (highest identity, ties broken by higher coverage), mirroring ResFinder's
+    /// "best-matching gene" output.
+    /// </summary>
+    /// <param name="contigs">Assembled contigs (id + nucleotide sequence) to screen.</param>
+    /// <param name="referenceGenes">
+    /// Reference resistance genes (id, full nucleotide sequence, gene name, antibiotic class).
+    /// The caller supplies the curated database (e.g. ResFinder/CARD); no gene list is hard-coded.
+    /// </param>
+    /// <param name="identityThreshold">Minimum percent identity (0–1). Defaults to the ResFinder web-service value.</param>
+    /// <param name="coverageThreshold">Minimum reference coverage (0–1). Defaults to the ResFinder value.</param>
+    /// <returns>One <see cref="ResistanceHit"/> per contig that has a passing best match.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="contigs"/> or <paramref name="referenceGenes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If a threshold is outside [0, 1].</exception>
+    public static IEnumerable<ResistanceHit> FindAntibioticResistanceGenes(
+        IEnumerable<(string ContigId, string Sequence)> contigs,
+        IEnumerable<(string GeneId, string Sequence, string Name, string AntibioticClass)> referenceGenes,
+        double identityThreshold = DefaultResistanceIdentityThreshold,
+        double coverageThreshold = DefaultResistanceCoverageThreshold)
+    {
+        if (contigs is null) throw new ArgumentNullException(nameof(contigs));
+        if (referenceGenes is null) throw new ArgumentNullException(nameof(referenceGenes));
+        if (identityThreshold < 0.0 || identityThreshold > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(identityThreshold), identityThreshold, "Identity threshold must be in [0, 1].");
+        if (coverageThreshold < 0.0 || coverageThreshold > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(coverageThreshold), coverageThreshold, "Coverage threshold must be in [0, 1].");
+
+        var refList = referenceGenes
+            .Where(r => !string.IsNullOrEmpty(r.Sequence))
+            .ToList();
+
+        return Iterate();
+
+        IEnumerable<ResistanceHit> Iterate()
+        {
+            foreach (var (contigId, sequence) in contigs)
+            {
+                if (string.IsNullOrEmpty(sequence))
+                    continue;
+
+                ResistanceHit? best = null;
+
+                foreach (var reference in refList)
+                {
+                    var (identity, coverage) = BestUngappedMatch(sequence, reference.Sequence);
+
+                    // ResFinder: report only matches passing both the %ID and coverage cutoffs.
+                    if (identity < identityThreshold || coverage < coverageThreshold)
+                        continue;
+
+                    var candidate = new ResistanceHit(
+                        ContigId: contigId,
+                        ResistanceGene: reference.Name,
+                        AntibioticClass: reference.AntibioticClass,
+                        PercentIdentity: identity,
+                        Coverage: coverage);
+
+                    // Best-matching gene: highest identity, ties broken by greater coverage.
+                    if (best is null
+                        || candidate.PercentIdentity > best.Value.PercentIdentity
+                        || (candidate.PercentIdentity == best.Value.PercentIdentity
+                            && candidate.Coverage > best.Value.Coverage))
+                    {
+                        best = candidate;
+                    }
+                }
+
+                if (best is not null)
+                    yield return best.Value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds the best ungapped (gapless) alignment of <paramref name="reference"/> within
+    /// <paramref name="contig"/> and returns its BLAST-style percent identity and reference
+    /// coverage. The reference is slid across the contig at every offset (including offsets
+    /// where it overhangs an end, so partially assembled genes on a contig edge are scored);
+    /// for each offset identical positions are counted over the overlapping window. The
+    /// returned identity = identical positions / window length (gaps are not introduced, so
+    /// the gapless alignment length equals the overlap length); coverage = window length /
+    /// reference length. The offset maximizing identical positions is chosen.
+    /// </summary>
+    private static (double Identity, double Coverage) BestUngappedMatch(string contig, string reference)
+    {
+        int n = contig.Length;
+        int m = reference.Length;
+        int bestMatches = 0;
+        int bestWindow = 0;
+
+        // Offsets from -(m-1) (reference overhangs the left end) to (n-1) (overhangs the right end).
+        for (int offset = -(m - 1); offset <= n - 1; offset++)
+        {
+            int start = Math.Max(0, offset);
+            int end = Math.Min(n, offset + m);     // exclusive on the contig
+            int window = end - start;
+            if (window <= 0)
+                continue;
+
+            int matches = 0;
+            for (int i = 0; i < window; i++)
+            {
+                // contig[start + i] aligns to reference[(start - offset) + i]
+                if (contig[start + i] == reference[start - offset + i])
+                    matches++;
+            }
+
+            // Prefer the window with the most identical positions; ties favour the longer window.
+            if (matches > bestMatches || (matches == bestMatches && window > bestWindow))
+            {
+                bestMatches = matches;
+                bestWindow = window;
+            }
+        }
+
+        if (bestWindow == 0)
+            return (0.0, 0.0);
+
+        double identity = (double)bestMatches / bestWindow;   // identical positions / gapless alignment length
+        double coverage = (double)bestWindow / m;             // fraction of reference gene length covered
+        return (identity, coverage);
+    }
+
     /// <summary>
     /// Searches for antibiotic resistance genes.
     /// </summary>

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 130 |
+| **Completed** | 131 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 104 |
+| **Not Started** | 103 |
 
 ---
 
@@ -158,7 +158,7 @@
 | ☑ | POP-ANCESTRY-001 | PopGen | 1 | [Evidence](docs/Evidence/POP-ANCESTRY-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-ANCESTRY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs) |
 | ☑ | POP-ROH-001 | PopGen | 2 | [Evidence](docs/Evidence/POP-ROH-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-ROH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_FindROH_Tests.cs) |
 | ☑ | META-FUNC-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-FUNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-FUNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_PredictFunctions_Tests.cs) |
-| ☐ | META-RESIST-001 | Metagenomics | 1 | - | - | - |
+| ☑ | META-RESIST-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-RESIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-RESIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs) |
 | ☐ | META-PATHWAY-001 | Metagenomics | 1 | - | - | - |
 | ☐ | META-TAXA-001 | Metagenomics | 1 | - | - | - |
 | ☐ | PHYLO-BOOT-001 | Phylogenetic | 1 | - | - | - |
