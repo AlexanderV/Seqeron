@@ -426,7 +426,12 @@ public static class SequenceStatistics
 
     #region DNA Thermodynamics
 
-    // Nearest-neighbor thermodynamic parameters (kcal/mol for ΔH and ΔS)
+    // Unified nearest-neighbor thermodynamic parameters for Watson-Crick base pairs
+    // in 1 M NaCl, ΔH in kcal/mol and ΔS in cal/(mol·K).
+    // Source: Allawi HT, SantaLucia J (1997), Biochemistry 36(34):10581-10594,
+    //         Table 1 (also tabulated as DNA_NN3 in Biopython Bio.SeqUtils.MeltingTemp).
+    // Each entry and its Watson-Crick complement share the same values
+    // (e.g. AA/TT, CA/TG), so all 16 dinucleotides are listed explicitly.
     private static readonly Dictionary<string, (double dH, double dS)> NearestNeighborParams = new()
     {
         { "AA", (-7.9, -22.2) }, { "TT", (-7.9, -22.2) },
@@ -441,6 +446,35 @@ public static class SequenceStatistics
         { "GG", (-8.0, -19.9) }, { "CC", (-8.0, -19.9) }
     };
 
+    // Helix-initiation parameters applied once at EACH duplex terminus,
+    // selected by whether that terminal base pair is G·C or A·T.
+    // Source: Allawi & SantaLucia (1997), Table 1; "init. w/ term. G·C" and
+    // "init. w/ term. A·T" (Biopython DNA_NN3 keys init_G/C, init_A/T).
+    private const double InitTerminalGcDeltaH = 0.1;   // kcal/mol
+    private const double InitTerminalGcDeltaS = -2.8;  // cal/(mol·K)
+    private const double InitTerminalAtDeltaH = 2.3;   // kcal/mol
+    private const double InitTerminalAtDeltaS = 4.1;   // cal/(mol·K)
+
+    // Salt (Na+) entropy correction per SantaLucia (1998) "method 5":
+    // ΔS(salt) = 0.368 * (N-1) * ln[Na+], [Na+] in mol/L.
+    // Source: SantaLucia J (1998), PNAS 95(4):1460-1465; Biopython salt_correction method 5.
+    private const double SaltEntropyCoefficient = 0.368;
+
+    // Gas constant R in cal/(mol·K) used in the Tm equation.
+    // Source: Allawi & SantaLucia (1997); Biopython Tm_NN uses R = 1.987.
+    private const double GasConstantCalPerMolK = 1.987;
+
+    // Reference temperature for ΔG° calculation: 37 °C = 310.15 K.
+    private const double ReferenceTemperatureKelvin = 310.15;
+
+    // Kelvin-to-Celsius offset.
+    private const double KelvinToCelsiusOffset = 273.15;
+
+    // Total-strand-concentration divisor F for the Tm equation.
+    // For two non-self-complementary strands in equal amount, F = 4 (default);
+    // Source: SantaLucia (1998); MELTING 5 user guide §4.2 ("F is 4 ... by default").
+    private const double NonSelfComplementaryFactor = 4.0;
+
     /// <summary>
     /// DNA thermodynamic properties.
     /// </summary>
@@ -451,8 +485,20 @@ public static class SequenceStatistics
         double MeltingTemperature);
 
     /// <summary>
-    /// Calculates thermodynamic properties of a DNA duplex.
+    /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex
+    /// using the unified nearest-neighbor model of Allawi &amp; SantaLucia (1997) /
+    /// SantaLucia (1998), with the SantaLucia (1998) "method 5" Na+ salt correction.
     /// </summary>
+    /// <param name="dnaSequence">DNA sequence (5'→3'); requires length ≥ 2.</param>
+    /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM).</param>
+    /// <param name="primerConcentration">
+    /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM); the Tm equation
+    /// divides this by F = 4 for two non-self-complementary strands in equal amount.
+    /// </param>
+    /// <returns>
+    /// ΔH° (kcal/mol), ΔS° (cal/(mol·K)), ΔG°₃₇ (kcal/mol) and Tm (°C). For an empty or
+    /// length-1 input all four fields are 0.
+    /// </returns>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration = 0.05, // 50 mM
@@ -463,23 +509,16 @@ public static class SequenceStatistics
 
         string upper = dnaSequence.ToUpperInvariant();
 
-        // Calculate ΔH and ΔS using nearest-neighbor method
+        // Calculate ΔH and ΔS using the nearest-neighbor method.
         double dH = 0;
         double dS = 0;
 
-        // Initiation parameters
-        if (upper[0] == 'G' || upper[0] == 'C')
-        {
-            dH += 0.1;
-            dS += -2.8;
-        }
-        else
-        {
-            dH += 2.3;
-            dS += 4.1;
-        }
+        // Helix-initiation parameters are applied at BOTH duplex termini
+        // (first and last base pair) per Allawi & SantaLucia (1997), Table 1.
+        AddTerminalInitiation(upper[0], ref dH, ref dS);
+        AddTerminalInitiation(upper[^1], ref dH, ref dS);
 
-        // Sum nearest-neighbor contributions
+        // Sum nearest-neighbor contributions over each overlapping dinucleotide.
         for (int i = 0; i < upper.Length - 1; i++)
         {
             string dinuc = upper.Substring(i, 2);
@@ -490,24 +529,38 @@ public static class SequenceStatistics
             }
         }
 
-        // Salt correction for ΔS
-        double saltCorrection = 0.368 * (upper.Length - 1) * Math.Log(naConcentration);
+        // Salt correction for ΔS (SantaLucia 1998, method 5).
+        double saltCorrection = SaltEntropyCoefficient * (upper.Length - 1) * Math.Log(naConcentration);
         dS += saltCorrection;
 
-        // Calculate ΔG at 37°C (310.15 K)
-        double dG = dH - (310.15 * dS / 1000.0);
+        // ΔG° at 37 °C: ΔG° = ΔH° - T·ΔS° (ΔS° converted from cal to kcal).
+        double dG = dH - (ReferenceTemperatureKelvin * dS / 1000.0);
 
-        // Calculate Tm
-        // Tm = ΔH / (ΔS + R * ln(Ct/4))
-        // R = 1.987 cal/(mol·K)
-        double R = 1.987;
-        double tm = (dH * 1000) / (dS + R * Math.Log(primerConcentration / 4.0)) - 273.15;
+        // Tm = ΔH° / (ΔS° + R · ln(C_T / F)) - 273.15, with ΔH° converted to cal.
+        double tm = (dH * 1000) /
+                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / NonSelfComplementaryFactor))
+                    - KelvinToCelsiusOffset;
 
         return new ThermodynamicProperties(
             DeltaH: Math.Round(dH, 2),
             DeltaS: Math.Round(dS, 2),
             DeltaG: Math.Round(dG, 2),
             MeltingTemperature: Math.Round(tm, 1));
+    }
+
+    // Adds the helix-initiation contribution for one terminal base.
+    private static void AddTerminalInitiation(char terminalBase, ref double dH, ref double dS)
+    {
+        if (terminalBase is 'G' or 'C')
+        {
+            dH += InitTerminalGcDeltaH;
+            dS += InitTerminalGcDeltaS;
+        }
+        else
+        {
+            dH += InitTerminalAtDeltaH;
+            dS += InitTerminalAtDeltaS;
+        }
     }
 
     /// <summary>
