@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 144 |
+| **Completed** | 145 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 90 |
+| **Not Started** | 89 |
 
 ---
 
@@ -172,7 +172,7 @@
 | ☑ | GENOMIC-REPEAT-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindRepeats_Tests.cs) |
 | ☑ | GENOMIC-COMMON-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindCommonRegion_Tests.cs) |
 | ☑ | GENOMIC-MOTIFS-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-MOTIFS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindKnownMotifs_Tests.cs) |
-| ☐ | SEQ-RNACOMP-001 | Composition | 1 | - | - | - |
+| ☑ | SEQ-RNACOMP-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-RNACOMP-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-RNACOMP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceExtensions_GetRnaComplementBase_Tests.cs) |
 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | - | - | - |
 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | 1 | - | - | - |
 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | 1 | - | - | - |
