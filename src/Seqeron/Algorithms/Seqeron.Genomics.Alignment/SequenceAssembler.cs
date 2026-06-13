@@ -43,8 +43,21 @@ public static class SequenceAssembler
         int MinContigLength = 100);
 
     /// <summary>
-    /// Assembles reads using overlap-layout-consensus approach.
+    /// Assembles reads using the Overlap-Layout-Consensus (OLC) paradigm:
+    /// (1) Overlap — build the overlap graph by finding the longest suffix-prefix
+    /// overlap (length ≥ <see cref="AssemblyParameters.MinOverlap"/>) between every
+    /// ordered pair of reads; (2) Layout — greedily chain reads by their best
+    /// (longest) overlap into contigs; (3) Consensus — emit the merged superstring
+    /// of each chain. Exact OLC layout (a Hamiltonian path through the overlap graph)
+    /// is NP-complete, so a greedy heuristic is used; it reconstructs unambiguous
+    /// (non-repeat) tilings but, like all OLC heuristics, may split or not optimally
+    /// resolve repeats longer than the read length.
     /// </summary>
+    /// <remarks>
+    /// References: Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol 29:987–991,
+    /// DOI 10.1038/nbt.2023 (overlap graph, Hamiltonian-path layout, NP-completeness);
+    /// Langmead, "Overlap Layout Consensus assembly" (JHU lecture notes), p.4–5, 25, 28.
+    /// </remarks>
     public static AssemblyResult AssembleOLC(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
@@ -70,8 +83,24 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Assembles reads using de Bruijn graph approach.
+    /// Assembles reads using the de Bruijn graph (DBG) paradigm. The reads are decomposed
+    /// into k-mers; each k-mer is a directed edge from its (k-1)-prefix to its (k-1)-suffix
+    /// in a directed multigraph whose nodes are (k-1)-mers (see <see cref="BuildDeBruijnGraph"/>).
+    /// Each weakly-connected component is then spelled out by an Eulerian walk — a walk that
+    /// traverses every edge exactly once — and the resulting superstring is emitted as one
+    /// contig. Reconstruction is exact when a component's Eulerian walk is unique (no repeated
+    /// (k-1)-mer); when a (k-1)-mer repeats, several Eulerian walks exist and only one is the
+    /// true genome, so the emitted contig may not be the original sequence.
     /// </summary>
+    /// <remarks>
+    /// References: Langmead B., "De Bruijn Graph assembly" (JHU lecture notes), p.5-11
+    /// (nodes = (k-1)-mers, edges = k-mers), p.15-19 (Eulerian walk spells the genome,
+    /// <c>path[0] + concat(last char of each subsequent node)</c>); Jones &amp; Pevzner (2004),
+    /// <i>An Introduction to Bioinformatics Algorithms</i>, MIT Press, Theorems 8.1/8.2
+    /// (a connected graph has an Eulerian path iff it has at most two semi-balanced nodes,
+    /// all others balanced); Compeau, Pevzner &amp; Tesler (2011), Nat Biotechnol 29:987-991,
+    /// DOI 10.1038/nbt.2023.
+    /// </remarks>
     public static AssemblyResult AssembleDeBruijn(
         IReadOnlyList<string> reads,
         AssemblyParameters? parameters = null)
@@ -83,21 +112,33 @@ public static class SequenceAssembler
 
         int k = param.KmerSize;
 
-        // Build de Bruijn graph
+        // Build the (k-1)-mer de Bruijn multigraph (edges = input k-mers).
         var graph = BuildDeBruijnGraph(reads, k);
 
-        // Find Eulerian paths / contigs
-        var contigs = FindContigs(graph, k);
+        // One Eulerian walk per weakly-connected component -> one contig per component.
+        var contigs = ReconstructContigs(graph);
 
-        // Filter by minimum length
+        // Filter by minimum contig length.
         contigs = contigs.Where(c => c.Length >= param.MinContigLength).ToList();
 
         return CalculateStats(contigs, reads.Count);
     }
 
     /// <summary>
-    /// Finds all overlaps between reads above minimum threshold.
+    /// Builds the directed overlap graph for a set of reads: for every ordered pair
+    /// (i, j), i ≠ j, reports the longest suffix-of-read[i] / prefix-of-read[j] overlap
+    /// whose length is ≥ <paramref name="minOverlap"/> and whose identity is
+    /// ≥ <paramref name="minIdentity"/>. Each returned <see cref="Overlap"/> is an edge
+    /// i → j with weight <see cref="Overlap.OverlapLength"/>. Self-overlaps are excluded.
     /// </summary>
+    /// <remarks>
+    /// Overlap definition and "report only the longest suffix/prefix match" per
+    /// Langmead, "Overlap Layout Consensus assembly" (JHU lecture notes), p.5, p.10;
+    /// overlap-graph edge semantics per Compeau, Pevzner &amp; Tesler (2011),
+    /// Nat Biotechnol 29:987–991, DOI 10.1038/nbt.2023. All-pairs scan is O(N²); chosen
+    /// over the O(N+a) suffix-tree approach because <paramref name="minIdentity"/> permits
+    /// mismatches, which the exact-match suffix tree cannot model (Langmead OLC p.16).
+    /// </remarks>
     public static IReadOnlyList<Overlap> FindAllOverlaps(
         IReadOnlyList<string> reads,
         int minOverlap = 20,
@@ -171,7 +212,11 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Finds suffix-prefix overlap between two sequences.
+    /// Finds the longest suffix-of-<paramref name="seq1"/> / prefix-of-<paramref name="seq2"/>
+    /// overlap whose length is ≥ <paramref name="minOverlap"/> and whose identity is
+    /// ≥ <paramref name="minIdentity"/>; returns the overlap length and the 0-based start
+    /// positions (<c>pos1</c> in seq1, <c>pos2</c> = 0 in seq2), or <c>null</c> if none.
+    /// Only the single longest qualifying overlap is reported (Langmead OLC p.5, p.10).
     /// </summary>
     public static (int length, int pos1, int pos2)? FindOverlap(
         string seq1, string seq2,
@@ -300,111 +345,225 @@ public static class SequenceAssembler
         return contigs;
     }
 
-    private static Dictionary<string, List<string>> BuildDeBruijnGraph(
+    /// <summary>
+    /// Builds the de Bruijn multigraph for a set of reads at k-mer length
+    /// <paramref name="k"/>. Each input k-mer becomes one directed edge from its left
+    /// (k-1)-mer (prefix, <c>kmer[0..k-1]</c>) to its right (k-1)-mer (suffix,
+    /// <c>kmer[1..k]</c>); the graph nodes are the distinct (k-1)-mers. The result is the
+    /// out-adjacency multimap: <c>graph[u]</c> lists the suffix node for every k-mer whose
+    /// prefix is <c>u</c>, so a k-mer that occurs more than once yields a repeated
+    /// (multi-)edge. Reads shorter than <paramref name="k"/> contribute no k-mers and are
+    /// silently skipped.
+    /// </summary>
+    /// <param name="reads">Input reads (k-mers are read left-to-right, no reverse-complement).</param>
+    /// <param name="k">k-mer length; must be ≥ 2 so that the (k-1)-mer nodes are non-empty.</param>
+    /// <returns>Out-adjacency multimap from each (k-1)-mer node to its successor nodes.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If <paramref name="k"/> &lt; 2.</exception>
+    /// <remarks>
+    /// Node/edge definition and the prefix/suffix split per Langmead B., "De Bruijn Graph
+    /// assembly" (JHU lecture notes), p.5-9, p.16; multiedges per the same notes p.8.
+    /// </remarks>
+    public static Dictionary<string, List<string>> BuildDeBruijnGraph(
         IReadOnlyList<string> reads, int k)
     {
+        // k-mers split into two (k-1)-mers, so k must be at least 2 (Langmead DBG p.5).
+        const int MinKmerLength = 2;
+        if (k < MinKmerLength)
+            throw new ArgumentOutOfRangeException(nameof(k), k,
+                $"k-mer length must be at least {MinKmerLength} so that (k-1)-mer nodes are non-empty.");
+
         var graph = new Dictionary<string, List<string>>();
+
+        if (reads == null)
+            return graph;
 
         foreach (string read in reads)
         {
+            if (read == null || read.Length < k)
+                continue; // A read shorter than k contributes no k-mers (Langmead DBG p.16).
+
+            // Chop the read into k-mers: i in [0, read.Length - k].
             for (int i = 0; i <= read.Length - k; i++)
             {
-                string kmer = read.Substring(i, k);
-                string prefix = kmer.Substring(0, k - 1);
-                string suffix = kmer.Substring(1);
+                string prefix = read.Substring(i, k - 1);     // left (k-1)-mer
+                string suffix = read.Substring(i + 1, k - 1); // right (k-1)-mer
 
-                if (!graph.ContainsKey(prefix))
-                    graph[prefix] = new List<string>();
+                if (!graph.TryGetValue(prefix, out var neighbors))
+                {
+                    neighbors = new List<string>();
+                    graph[prefix] = neighbors;
+                }
 
-                graph[prefix].Add(suffix);
+                neighbors.Add(suffix);
             }
         }
 
         return graph;
     }
 
-    private static List<string> FindContigs(
-        Dictionary<string, List<string>> graph, int k)
+    /// <summary>
+    /// Reconstructs contigs from a de Bruijn multigraph by computing one Eulerian walk per
+    /// weakly-connected component and spelling each walk out into a superstring. Each
+    /// component contributes one contig: the first node is emitted in full and the last
+    /// character of every subsequent node is appended (Langmead DBG p.18). A walk starts at a
+    /// semi-balanced source node (out-degree − in-degree = 1) when one exists, otherwise at any
+    /// node of the component (an Eulerian cycle); this realizes the Eulerian-path existence
+    /// condition of Jones &amp; Pevzner Theorems 8.1/8.2.
+    /// </summary>
+    private static List<string> ReconstructContigs(Dictionary<string, List<string>> graph)
     {
         var contigs = new List<string>();
+        if (graph.Count == 0)
+            return contigs;
 
-        // Count in-degrees and out-degrees
-        var outDegree = new Dictionary<string, int>();
+        // Mutable copy of the out-adjacency (edges are consumed by the walk).
+        var adjacency = new Dictionary<string, List<string>>();
         var inDegree = new Dictionary<string, int>();
+        var outDegree = new Dictionary<string, int>();
+        var allNodes = new HashSet<string>();
 
         foreach (var kvp in graph)
         {
-            outDegree[kvp.Key] = kvp.Value.Count;
+            adjacency[kvp.Key] = new List<string>(kvp.Value);
+            allNodes.Add(kvp.Key);
+            outDegree[kvp.Key] = outDegree.GetValueOrDefault(kvp.Key, 0) + kvp.Value.Count;
             foreach (string target in kvp.Value)
             {
+                allNodes.Add(target);
                 inDegree[target] = inDegree.GetValueOrDefault(target, 0) + 1;
             }
         }
 
-        // Find all nodes
-        var allNodes = new HashSet<string>(graph.Keys);
-        foreach (var targets in graph.Values)
-            foreach (var t in targets)
-                allNodes.Add(t);
+        // Undirected adjacency for connectivity (weakly-connected components).
+        var undirected = BuildUndirectedAdjacency(graph, allNodes);
 
-        // Find starting points (out > in or sources)
-        var startNodes = new List<string>();
-        foreach (string node in allNodes)
+        var visitedNodes = new HashSet<string>();
+        // Deterministic component order: by lexicographically smallest node.
+        foreach (string node in allNodes.OrderBy(n => n, StringComparer.Ordinal))
         {
-            int outD = outDegree.GetValueOrDefault(node, 0);
-            int inD = inDegree.GetValueOrDefault(node, 0);
+            if (visitedNodes.Contains(node))
+                continue;
 
-            if (outD > inD || (outD > 0 && inD == 0))
-                startNodes.Add(node);
-        }
-
-        if (startNodes.Count == 0 && graph.Count > 0)
-            startNodes.Add(graph.Keys.First());
-
-        // Trace paths from starting nodes
-        var usedEdges = new Dictionary<string, HashSet<int>>();
-
-        foreach (string start in startNodes)
-        {
-            var contig = TraceContig(graph, start, usedEdges);
-            if (contig.Length >= k)
+            var component = CollectComponent(node, undirected, visitedNodes);
+            string start = ChooseEulerStart(component, inDegree, outDegree);
+            string contig = SpellEulerianWalk(adjacency, start);
+            if (contig.Length > 0)
                 contigs.Add(contig);
         }
 
         return contigs;
     }
 
-    private static string TraceContig(
-        Dictionary<string, List<string>> graph,
-        string start,
-        Dictionary<string, HashSet<int>> usedEdges)
+    private static Dictionary<string, List<string>> BuildUndirectedAdjacency(
+        Dictionary<string, List<string>> graph, HashSet<string> allNodes)
     {
-        var sb = new StringBuilder(start);
-        string current = start;
+        var undirected = new Dictionary<string, List<string>>();
+        foreach (string n in allNodes)
+            undirected[n] = new List<string>();
 
-        while (graph.TryGetValue(current, out var neighbors) && neighbors.Count > 0)
+        foreach (var kvp in graph)
         {
-            if (!usedEdges.ContainsKey(current))
-                usedEdges[current] = new HashSet<int>();
-
-            // Find unused edge
-            int edgeIndex = -1;
-            for (int i = 0; i < neighbors.Count; i++)
+            foreach (string target in kvp.Value)
             {
-                if (!usedEdges[current].Contains(i))
-                {
-                    edgeIndex = i;
-                    break;
-                }
+                undirected[kvp.Key].Add(target);
+                undirected[target].Add(kvp.Key);
             }
-
-            if (edgeIndex == -1) break;
-
-            usedEdges[current].Add(edgeIndex);
-            string next = neighbors[edgeIndex];
-            sb.Append(next[^1]); // Append last character
-            current = next;
         }
+
+        return undirected;
+    }
+
+    private static List<string> CollectComponent(
+        string start,
+        Dictionary<string, List<string>> undirected,
+        HashSet<string> visitedNodes)
+    {
+        var component = new List<string>();
+        var stack = new Stack<string>();
+        stack.Push(start);
+        visitedNodes.Add(start);
+
+        while (stack.Count > 0)
+        {
+            string current = stack.Pop();
+            component.Add(current);
+            foreach (string neighbor in undirected[current])
+            {
+                if (visitedNodes.Add(neighbor))
+                    stack.Push(neighbor);
+            }
+        }
+
+        return component;
+    }
+
+    /// <summary>
+    /// Picks the Eulerian-walk start node for one component: the unique semi-balanced node
+    /// with one more outgoing than incoming edge (Langmead DBG p.15; J&amp;P Theorem 8.2),
+    /// or — for a balanced component (Eulerian cycle) or any imperfect graph — the
+    /// lexicographically smallest node, for determinism.
+    /// </summary>
+    private static string ChooseEulerStart(
+        List<string> component,
+        Dictionary<string, int> inDegree,
+        Dictionary<string, int> outDegree)
+    {
+        string fallback = component[0];
+        foreach (string node in component)
+        {
+            if (StringComparer.Ordinal.Compare(node, fallback) < 0)
+                fallback = node;
+
+            int outD = outDegree.GetValueOrDefault(node, 0);
+            int inD = inDegree.GetValueOrDefault(node, 0);
+            if (outD - inD == 1)
+                return node; // semi-balanced source: start of the Eulerian path
+        }
+
+        return fallback;
+    }
+
+    /// <summary>
+    /// Hierholzer's algorithm: traverses each out-edge of the component exactly once starting
+    /// from <paramref name="start"/>, then spells the resulting node walk into a superstring
+    /// (<c>walk[0] + concat(last char of walk[i] for i &gt; 0)</c>). Runs in O(|E|) time
+    /// (Langmead DBG p.17).
+    /// </summary>
+    private static string SpellEulerianWalk(
+        Dictionary<string, List<string>> adjacency, string start)
+    {
+        // Index of next unused out-edge per node (edges consumed in stored order).
+        var edgeCursor = new Dictionary<string, int>();
+        var stack = new Stack<string>();
+        var walk = new List<string>();
+        stack.Push(start);
+
+        while (stack.Count > 0)
+        {
+            string node = stack.Peek();
+            int cursor = edgeCursor.GetValueOrDefault(node, 0);
+
+            if (adjacency.TryGetValue(node, out var neighbors) && cursor < neighbors.Count)
+            {
+                edgeCursor[node] = cursor + 1;
+                stack.Push(neighbors[cursor]);
+            }
+            else
+            {
+                walk.Add(node);
+                stack.Pop();
+            }
+        }
+
+        // Hierholzer produces the Eulerian walk in reverse order.
+        walk.Reverse();
+
+        if (walk.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder(walk[0]);
+        for (int i = 1; i < walk.Count; i++)
+            sb.Append(walk[i][^1]); // append last character of each subsequent (k-1)-mer node
 
         return sb.ToString();
     }
