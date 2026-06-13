@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 150 |
+| **Completed** | 151 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 84 |
+| **Not Started** | 83 |
 
 ---
 
@@ -178,7 +178,7 @@
 | ☑ | PROTMOTIF-TM-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs) |
 | ☑ | PROTMOTIF-CC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-CC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-CC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) |
 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) |
-| ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | - | - | - |
+| ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
 | ☐ | RNA-PAIR-001 | RnaStructure | 3 | - | - | - |
 | ☐ | RNA-HAIRPIN-001 | RnaStructure | 2 | - | - | - |
 | ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
@@ -3105,18 +3105,34 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 
 ---
 
-#### PROTMOTIF-COMMON-001: Common Motif Finding
+#### PROTMOTIF-COMMON-001: Common Motif Finding ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `ProteinMotifFinder.FindCommonMotifs(...)` |
 | **Complexity** | O(n × m) |
+| **Evidence** | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) |
+| **TestSpec** | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) |
+| **Tests** | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
+| **Algorithm Doc** | [Algorithm](docs/algorithms/ProteinMotif/Common_Motif_Finding.md) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `FindCommonMotifs(sequence)` | ProteinMotifFinder | Canonical |
-| `FindAllKnownMotifs(sequence)` | ProteinMotifFinder | All patterns |
+
+> Note: `FindAllKnownMotifs` was listed in the original method table but does not exist in
+> the codebase and has no authoritative basis distinct from `FindCommonMotifs`; the canonical
+> evidence-derived method is `FindCommonMotifs`. PROSITE patterns (PS00001/05/06/16/17, …)
+> verified against https://prosite.expasy.org/ (2026-06-14).
+
+**Edge Cases:**
+- [x] null / empty input → empty result
+- [x] Proline at `{P}` excluded position rejects N-glycosylation site (PS00001)
+- [x] multiple distinct pattern types aggregated from one sequence
+- [x] multiple occurrences of one pattern reported
+- [x] case-insensitive matching
 
 ---
 
