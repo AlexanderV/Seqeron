@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 121 |
+| **Completed** | 122 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 113 |
+| **Not Started** | 112 |
 
 ---
 
@@ -149,7 +149,7 @@
 | ☑ | PAT-APPROX-003 | Matching | 3 | [Evidence](docs/Evidence/PAT-APPROX-003-Evidence.md) | [TestSpec](tests/TestSpecs/PAT-APPROX-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ApproximateMatcher_FindBestMatch_Tests.cs) |
 | ☑ | ALIGN-STATS-001 | Alignment | 2 | [Evidence](docs/Evidence/ALIGN-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ALIGN-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_CalculateStatistics_Tests.cs) |
 | ☑ | EPIGEN-BISULF-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-BISULF-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-BISULF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Bisulfite_Tests.cs) |
-| ☐ | EPIGEN-CHROM-001 | Epigenetics | 3 | - | - | - |
+| ☑ | EPIGEN-CHROM-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CHROM-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CHROM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) |
 | ☐ | EPIGEN-AGE-001 | Epigenetics | 1 | - | - | - |
 | ☐ | MIRNA-PAIR-001 | MiRNA | 3 | - | - | - |
 | ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |

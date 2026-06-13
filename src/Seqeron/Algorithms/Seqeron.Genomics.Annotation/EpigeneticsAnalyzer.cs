@@ -60,15 +60,39 @@ public static class EpigeneticsAnalyzer
     /// <summary>
     /// Represents a chromatin state.
     /// </summary>
+    /// <summary>
+    /// Chromatin states inferred from combinatorial histone-mark signatures.
+    /// Names follow the Roadmap Epigenomics core/expanded model mnemonics
+    /// (TssA, Enh, Tx, ReprPC, Het, TssBiv, EnhBiv, Quies).
+    /// </summary>
+    /// <remarks>Roadmap Epigenomics chromatin state learning (15/18-state models).</remarks>
     public enum ChromatinState
     {
+        /// <summary>Active TSS / promoter (Roadmap TssA) — H3K4me3 present.</summary>
         ActivePromoter,
-        WeakPromoter,
+
+        /// <summary>Active enhancer (Roadmap active Enh) — H3K4me1 + H3K27ac present.</summary>
         ActiveEnhancer,
+
+        /// <summary>Weak / poised enhancer (Roadmap Enh) — H3K4me1 present without H3K27ac.</summary>
         WeakEnhancer,
+
+        /// <summary>Transcribed gene body (Roadmap Tx) — H3K36me3 present.</summary>
         Transcribed,
+
+        /// <summary>Polycomb-repressed (Roadmap ReprPC) — H3K27me3 present.</summary>
         Repressed,
+
+        /// <summary>Constitutive heterochromatin (Roadmap Het) — H3K9me3 present.</summary>
         Heterochromatin,
+
+        /// <summary>Bivalent / poised promoter (Roadmap TssBiv) — H3K4me3 + H3K27me3.</summary>
+        BivalentPromoter,
+
+        /// <summary>Bivalent enhancer (Roadmap EnhBiv) — H3K4me1 + H3K27me3.</summary>
+        BivalentEnhancer,
+
+        /// <summary>Quiescent / low signal (Roadmap Quies) — no mark present.</summary>
         LowSignal
     }
 
@@ -822,51 +846,111 @@ public static class EpigeneticsAnalyzer
 
     #region Histone Modification Analysis
 
+    // ChromHMM models each chromatin mark as present/absent (binarized) before
+    // assigning a state (Ernst & Kellis 2012, Nat Methods 9:215-216; ChromHMM
+    // BinarizeBed/BinarizeBam). A mark is "present" when its (normalized [0,1])
+    // enrichment signal meets the presence call. The exact numeric call is not
+    // fixed by the sources; 0.5 is the default midpoint for a normalized signal.
+    private const double DefaultMarkPresenceThreshold = 0.5;
+
     /// <summary>
-    /// Predicts chromatin state from histone modification signals.
+    /// Predicts the chromatin state at a locus from six histone-modification signals,
+    /// using the canonical Roadmap Epigenomics mark-combination signatures.
     /// </summary>
+    /// <remarks>
+    /// Each mark is binarized to present/absent at <paramref name="presenceThreshold"/>
+    /// (ChromHMM binary model; Ernst &amp; Kellis 2012). The state is then assigned from the
+    /// present-mark set per the Roadmap 15/18-state definitions:
+    /// H3K4me3→active promoter (TssA; Liang 2004); H3K4me1+H3K27ac→active enhancer
+    /// (active Enh; Creyghton 2010); H3K4me1 alone→weak/poised enhancer (Enh;
+    /// Rada-Iglesias 2018); H3K36me3→transcribed (Tx); H3K27me3→Polycomb-repressed
+    /// (ReprPC; Ferrari 2014); H3K9me3→heterochromatin (Het; Nicetto 2019);
+    /// H3K4me3+H3K27me3→bivalent promoter (TssBiv); H3K4me1+H3K27me3→bivalent enhancer
+    /// (EnhBiv); no mark present→quiescent/low (Quies). Active promoter signature takes
+    /// precedence over the enhancer signature when both occur (TSS ranks above Enh).
+    /// </remarks>
+    /// <param name="h3k4me3">H3K4me3 signal (active-promoter mark).</param>
+    /// <param name="h3k4me1">H3K4me1 signal (enhancer mark).</param>
+    /// <param name="h3k27ac">H3K27ac signal (active-enhancer/active-regulatory mark).</param>
+    /// <param name="h3k36me3">H3K36me3 signal (transcribed gene-body mark).</param>
+    /// <param name="h3k27me3">H3K27me3 signal (Polycomb-repression mark).</param>
+    /// <param name="h3k9me3">H3K9me3 signal (heterochromatin mark).</param>
+    /// <param name="presenceThreshold">
+    /// Inclusive presence call: a mark counts as present when its signal is
+    /// &gt;= this value. Defaults to <see cref="DefaultMarkPresenceThreshold"/>.
+    /// </param>
+    /// <returns>The predicted <see cref="ChromatinState"/>.</returns>
     public static ChromatinState PredictChromatinState(
-        double h3k4me3,  // Active promoter
-        double h3k4me1,  // Enhancer
-        double h3k27ac,  // Active enhancer
-        double h3k36me3, // Transcription
-        double h3k27me3, // Polycomb repression
-        double h3k9me3)  // Heterochromatin
+        double h3k4me3,
+        double h3k4me1,
+        double h3k27ac,
+        double h3k36me3,
+        double h3k27me3,
+        double h3k9me3,
+        double presenceThreshold = DefaultMarkPresenceThreshold)
     {
-        // Simple decision rules based on histone marks
-        if (h3k4me3 > 0.5 && h3k27ac > 0.5)
+        // Binarize each mark (ChromHMM present/absent model; Ernst & Kellis 2012).
+        bool hasK4me3 = h3k4me3 >= presenceThreshold;
+        bool hasK4me1 = h3k4me1 >= presenceThreshold;
+        bool hasK27ac = h3k27ac >= presenceThreshold;
+        bool hasK36me3 = h3k36me3 >= presenceThreshold;
+        bool hasK27me3 = h3k27me3 >= presenceThreshold;
+        bool hasK9me3 = h3k9me3 >= presenceThreshold;
+
+        // Bivalent signatures: an active promoter/enhancer mark co-occurring with the
+        // Polycomb mark H3K27me3 (Roadmap TssBiv / EnhBiv). Checked first because the
+        // combination, not the active mark alone, defines the state.
+        if (hasK4me3 && hasK27me3)
+            return ChromatinState.BivalentPromoter;
+
+        if (hasK4me1 && hasK27me3)
+            return ChromatinState.BivalentEnhancer;
+
+        // Active promoter (Roadmap TssA; Liang 2004). H3K4me3 dominates the enhancer
+        // mark when both are present (TSS ranks above Enh in the Roadmap model).
+        if (hasK4me3)
             return ChromatinState.ActivePromoter;
 
-        if (h3k4me3 > 0.3 && h3k27ac < 0.3)
-            return ChromatinState.WeakPromoter;
+        // Enhancer: active when accompanied by H3K27ac (Creyghton 2010), otherwise
+        // weak/poised (Roadmap Enh; Rada-Iglesias 2018).
+        if (hasK4me1)
+            return hasK27ac ? ChromatinState.ActiveEnhancer : ChromatinState.WeakEnhancer;
 
-        if (h3k4me1 > 0.5 && h3k27ac > 0.5)
-            return ChromatinState.ActiveEnhancer;
-
-        if (h3k4me1 > 0.3 && h3k27ac < 0.3)
-            return ChromatinState.WeakEnhancer;
-
-        if (h3k36me3 > 0.5)
+        // Transcribed gene body (Roadmap Tx).
+        if (hasK36me3)
             return ChromatinState.Transcribed;
 
-        if (h3k27me3 > 0.5)
+        // Polycomb-repressed (Roadmap ReprPC; Ferrari 2014).
+        if (hasK27me3)
             return ChromatinState.Repressed;
 
-        if (h3k9me3 > 0.5)
+        // Constitutive heterochromatin (Roadmap Het; Nicetto 2019).
+        if (hasK9me3)
             return ChromatinState.Heterochromatin;
 
+        // No mark present → quiescent/low (Roadmap Quies).
         return ChromatinState.LowSignal;
     }
 
     /// <summary>
-    /// Annotates regions with histone modifications.
+    /// Annotates genomic regions with the chromatin state implied by their single
+    /// histone mark, labelling each region by that mark's canonical Roadmap state.
     /// </summary>
+    /// <remarks>
+    /// A region is labelled by the present-mark rule: a mark below
+    /// <paramref name="presenceThreshold"/> yields <see cref="ChromatinState.LowSignal"/>;
+    /// otherwise the mark maps to its canonical state per the Roadmap definitions
+    /// (see <see cref="PredictChromatinState"/>). H3K27ac is an active-enhancer mark
+    /// (Creyghton 2010); H3K9 acetylation is linked to transcriptional activation
+    /// (Wang et al. 2008, Nat Genet 40:897-903).
+    /// </remarks>
     public static IEnumerable<HistoneModification> AnnotateHistoneModifications(
-        IEnumerable<(int Start, int End, string Mark, double Signal)> modifications)
+        IEnumerable<(int Start, int End, string Mark, double Signal)> modifications,
+        double presenceThreshold = DefaultMarkPresenceThreshold)
     {
         foreach (var (start, end, mark, signal) in modifications)
         {
-            var state = InferStateFromMark(mark, signal);
+            var state = InferStateFromMark(mark, signal, presenceThreshold);
 
             yield return new HistoneModification(
                 Start: start,
@@ -877,20 +961,22 @@ public static class EpigeneticsAnalyzer
         }
     }
 
-    private static ChromatinState InferStateFromMark(string mark, double signal)
+    private static ChromatinState InferStateFromMark(string mark, double signal, double presenceThreshold)
     {
-        if (signal < 0.3)
+        // Mark not present (below the ChromHMM-style binarization call) → no enrichment.
+        if (signal < presenceThreshold)
             return ChromatinState.LowSignal;
 
+        // Single-mark Roadmap signature mapping (Roadmap Epigenomics 15/18-state models).
         return mark.ToUpperInvariant() switch
         {
-            "H3K4ME3" => ChromatinState.ActivePromoter,
-            "H3K4ME1" => ChromatinState.WeakEnhancer,
-            "H3K27AC" => signal > 0.5 ? ChromatinState.ActiveEnhancer : ChromatinState.WeakEnhancer,
-            "H3K36ME3" => ChromatinState.Transcribed,
-            "H3K27ME3" => ChromatinState.Repressed,
-            "H3K9ME3" => ChromatinState.Heterochromatin,
-            "H3K9AC" => ChromatinState.ActivePromoter,
+            "H3K4ME3" => ChromatinState.ActivePromoter,       // TssA (Liang 2004)
+            "H3K4ME1" => ChromatinState.WeakEnhancer,         // Enh, weak without H3K27ac (Rada-Iglesias 2018)
+            "H3K27AC" => ChromatinState.ActiveEnhancer,       // active enhancer mark (Creyghton 2010)
+            "H3K36ME3" => ChromatinState.Transcribed,         // Tx (transcribed gene body)
+            "H3K27ME3" => ChromatinState.Repressed,           // ReprPC (Ferrari 2014)
+            "H3K9ME3" => ChromatinState.Heterochromatin,      // Het (Nicetto 2019)
+            "H3K9AC" => ChromatinState.ActivePromoter,        // H3K9 acetylation → activation (Wang 2008)
             _ => ChromatinState.LowSignal
         };
     }
@@ -979,12 +1065,18 @@ public static class EpigeneticsAnalyzer
         }
     }
 
+    // Descriptive strength labels for an accessibility peak's normalized [0,1] score.
+    // These cutoffs set only the cosmetic PeakType label; they do not affect which
+    // regions are detected or returned (that is governed by the caller's threshold).
+    private const double StrongPeakScoreCutoff = 0.8;
+    private const double ModeratePeakScoreCutoff = 0.5;
+
     private static string ClassifyPeakType(double score)
     {
         return score switch
         {
-            > 0.8 => "Strong",
-            > 0.5 => "Moderate",
+            > StrongPeakScoreCutoff => "Strong",
+            > ModeratePeakScoreCutoff => "Moderate",
             _ => "Weak"
         };
     }
