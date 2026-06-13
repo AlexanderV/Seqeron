@@ -1532,33 +1532,52 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Detects pseudoknots in a set of base pairs.
-    /// A pseudoknot occurs when pairs cross: i < i' < j < j' for pairs (i,j) and (i',j').
+    /// Two base pairs (i,j) and (k,l) — written with open &lt; close positions — form a
+    /// pseudoknot when they CROSS, i.e. i &lt; k &lt; j &lt; l. Nested pairs (i &lt; k &lt; l &lt; j) and
+    /// disjoint pairs (j &lt; k) are not pseudoknots. Each crossing pair-of-pairs is reported
+    /// as one <see cref="Pseudoknot"/>.
     /// </summary>
+    /// <remarks>
+    /// Crossing condition per Antczak et al. (2018) Bioinformatics 34(8):1304–1312 and
+    /// biotite.structure.pseudoknots: a pseudoknot is a non-nested ("crossing") arrangement
+    /// of base pairs. Endpoints are normalized to (open &lt; close) before the comparison.
+    /// </remarks>
+    /// <param name="basePairs">The base pairs to scan. A <c>null</c> set yields no pseudoknots.</param>
+    /// <returns>One <see cref="Pseudoknot"/> per crossing pair-of-pairs, in deterministic input order.</returns>
     public static IEnumerable<Pseudoknot> DetectPseudoknots(IReadOnlyList<BasePair> basePairs)
     {
-        var crossingGroups = new List<List<BasePair>>();
+        // A pseudoknot requires two base pairs that cross; fewer than two cannot.
+        if (basePairs is null || basePairs.Count < 2)
+            yield break;
 
-        for (int i = 0; i < basePairs.Count; i++)
+        for (int a = 0; a < basePairs.Count; a++)
         {
-            for (int j = i + 1; j < basePairs.Count; j++)
+            for (int b = a + 1; b < basePairs.Count; b++)
             {
-                var bp1 = basePairs[i];
-                var bp2 = basePairs[j];
+                var bp1 = basePairs[a];
+                var bp2 = basePairs[b];
 
-                // Check for crossing: i < i' < j < j'
-                int i1 = Math.Min(bp1.Position1, bp1.Position2);
-                int j1 = Math.Max(bp1.Position1, bp1.Position2);
-                int i2 = Math.Min(bp2.Position1, bp2.Position2);
-                int j2 = Math.Max(bp2.Position1, bp2.Position2);
+                // Normalize each pair to (open < close) so storage order does not matter.
+                int i = Math.Min(bp1.Position1, bp1.Position2);
+                int j = Math.Max(bp1.Position1, bp1.Position2);
+                int k = Math.Min(bp2.Position1, bp2.Position2);
+                int l = Math.Max(bp2.Position1, bp2.Position2);
 
-                if (i1 < i2 && i2 < j1 && j1 < j2)
+                // Order the two pairs by their opening position so the crossing test is
+                // direction-independent: the pair that opens first plays the role of (i,j).
+                if (k < i)
                 {
-                    // Found crossing pairs
+                    (i, j, k, l) = (k, l, i, j);
+                }
+
+                // Crossing (pseudoknot) condition: i < k < j < l.
+                if (i < k && k < j && j < l)
+                {
                     yield return new Pseudoknot(
-                        Start1: i1,
-                        End1: j1,
-                        Start2: i2,
-                        End2: j2,
+                        Start1: i,
+                        End1: j,
+                        Start2: k,
+                        End2: l,
                         CrossingPairs: new List<BasePair> { bp1, bp2 });
                 }
             }
