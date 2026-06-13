@@ -365,21 +365,24 @@ public class MetagenomicsTools
     }
 
     /// <summary>
-    /// Pick informative phylogenetic-marker clusters from the core set: those
-    /// with average identity in [<paramref name="minIdentity"/>,
-    /// <paramref name="maxIdentity"/>], ranked by consensus length, capped at
-    /// <paramref name="maxMarkers"/>.
+    /// Pick phylogenetic-marker clusters from the core set: single-copy core clusters
+    /// (present in all <paramref name="totalGenomes"/> genomes with exactly one gene per
+    /// genome) that contain at least one parsimony-informative site, ranked by descending
+    /// parsimony-informative-site count and capped at <paramref name="maxMarkers"/>
+    /// (Ding et al. 2018, panX; Page et al. 2015, Roary).
     /// </summary>
     [McpServerTool(Name = "select_phylogenetic_markers", Title = "Pan-genome — Select Phylogenetic Markers", ReadOnly = true)]
-    [Description("Pick informative phylogenetic-marker clusters from the core set: those with average identity in [minIdentity, maxIdentity], ranked by consensus length and identity, capped at maxMarkers.")]
+    [Description("Pick phylogenetic markers: single-copy core clusters (present in all genomes with exactly one gene each) with >= 1 parsimony-informative site, ranked by descending parsimony-informative-site count, capped at maxMarkers (panX/Roary).")]
     public static SelectPhylogeneticMarkersResult SelectPhylogeneticMarkers(
-        [Description("Core gene clusters to filter.")]
+        [Description("Genomes (id + ordered list of genes), used to recover each cluster's member sequences.")]
+        IReadOnlyList<GenomeInput> genomes,
+        [Description("Core gene clusters to filter (e.g. from core_gene_clusters).")]
         IReadOnlyList<PanGenomeAnalyzer.GeneCluster> coreClusters,
-        [Description("Maximum number of markers to return (default 100).")] int maxMarkers = 100,
-        [Description("Minimum average within-cluster identity (default 0.7).")] double minIdentity = 0.7,
-        [Description("Maximum average within-cluster identity (default 0.99).")] double maxIdentity = 0.99)
+        [Description("Total number of genomes in the analysis.")] int totalGenomes,
+        [Description("Maximum number of markers to return (default 100).")] int maxMarkers = 100)
     {
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(coreClusters, maxMarkers, minIdentity, maxIdentity).ToList();
+        var dict = ToGenomesDict(genomes);
+        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(dict, coreClusters, totalGenomes, maxMarkers).ToList();
         return new SelectPhylogeneticMarkersResult(markers);
     }
 

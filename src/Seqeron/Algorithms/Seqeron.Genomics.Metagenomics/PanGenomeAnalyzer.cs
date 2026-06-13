@@ -875,20 +875,148 @@ public static class PanGenomeAnalyzer
 
     #region Phylogenetic Marker Selection
 
+    // panX default number of markers to retain; chosen by the caller. micropan/panX rank
+    // single-copy core genes by phylogenetic informativeness and take the top-scoring set.
+    private const int DefaultMaxMarkers = 100;
+
+    // A column is parsimony-informative only when at least two distinct states each occur
+    // in at least this many sequences (Zvelebil & Baum 2008, "Understanding Bioinformatics";
+    // via Wikipedia "Informative site"): "at least two different character states and each
+    // of those states occurs in at least two of the sequences."
+    private const int MinSequencesPerState = 2;
+
+    // A parsimony-informative column needs at least this many distinct character states
+    // (Zvelebil & Baum 2008): monomorphic columns carry no phylogenetic signal.
+    private const int MinDistinctStates = 2;
+
+    // A phylogenetic marker must contain at least this many parsimony-informative sites;
+    // panX "extracts all variable positions" — a fully conserved (0-PIS) core gene carries
+    // no phylogenetic signal and is not a usable marker (Ding et al. 2018, panX).
+    private const int MinInformativeSites = 1;
+
     /// <summary>
-    /// Selects informative markers from core genes for phylogenetic analysis.
+    /// Counts the parsimony-informative sites in a multiple sequence alignment. A column
+    /// (position) is parsimony-informative when it has at least two different character
+    /// states and each of at least two of those states occurs in at least two sequences
+    /// (Zvelebil &amp; Baum, <em>Understanding Bioinformatics</em>, 2008). Monomorphic
+    /// columns (one state) and singleton columns (a variant appearing in only one sequence)
+    /// are not informative because they imply the same number of changes on every topology.
     /// </summary>
-    public static IEnumerable<GeneCluster> SelectPhylogeneticMarkers(
-        IEnumerable<GeneCluster> coreClusters,
-        int maxMarkers = 100,
-        double minIdentity = 0.7,
-        double maxIdentity = 0.99)
+    /// <param name="alignedSequences">
+    /// Aligned sequences (rows) of equal length; column <c>j</c> is the <c>j</c>-th
+    /// character of every sequence. Fewer than two rows, empty rows, null, or rows of
+    /// unequal length yield 0 (no common alignment over which columns can be compared).
+    /// </param>
+    /// <returns>The number of parsimony-informative columns (0 ≤ result ≤ alignment length).</returns>
+    public static int CountParsimonyInformativeSites(IReadOnlyList<string> alignedSequences)
     {
-        return coreClusters
-            .Where(c => c.AverageIdentity >= minIdentity && c.AverageIdentity <= maxIdentity)
-            .OrderByDescending(c => c.ConsensusSequence.Length)
-            .ThenBy(c => c.AverageIdentity)
-            .Take(maxMarkers);
+        if (alignedSequences == null || alignedSequences.Count < MinSequencesPerState)
+            return 0;
+
+        int length = alignedSequences[0]?.Length ?? -1;
+        if (length <= 0)
+            return 0;
+
+        // Parsimony-informative counting is only defined over aligned columns: every row
+        // must share the same length (Assumption 1 — no in-repo aligner, so unequal lengths
+        // mean "no common alignment" and contribute no countable columns).
+        foreach (var seq in alignedSequences)
+        {
+            if (seq == null || seq.Length != length)
+                return 0;
+        }
+
+        int informative = 0;
+        var stateCounts = new Dictionary<char, int>();
+
+        for (int col = 0; col < length; col++)
+        {
+            stateCounts.Clear();
+            foreach (var seq in alignedSequences)
+            {
+                char state = seq[col];
+                stateCounts[state] = stateCounts.TryGetValue(state, out int n) ? n + 1 : 1;
+            }
+
+            if (stateCounts.Count < MinDistinctStates)
+                continue; // monomorphic column
+
+            // Count distinct states that each occur in >= MinSequencesPerState rows.
+            int statesWithSupport = stateCounts.Values.Count(c => c >= MinSequencesPerState);
+
+            // Informative when at least two distinct states are each supported by >= 2 rows.
+            if (statesWithSupport >= MinDistinctStates)
+                informative++;
+        }
+
+        return informative;
+    }
+
+    /// <summary>
+    /// Selects single-copy core gene clusters as phylogenetic markers, ranked by their
+    /// number of parsimony-informative sites. A cluster qualifies as a marker when it is a
+    /// <em>single-copy core</em> cluster — present in all <paramref name="totalGenomes"/>
+    /// genomes with exactly one gene per genome (Ding et al. 2018, panX: "gene clusters in
+    /// which all strains are represented exactly once"; Page et al. 2015, Roary: paralog-
+    /// containing clusters are filtered out) — and it contains at least one parsimony-
+    /// informative site (panX extracts the variable positions; fully conserved clusters
+    /// carry no signal). Qualifying markers are returned ordered by descending parsimony-
+    /// informative-site count (most informative first), capped at <paramref name="maxMarkers"/>.
+    /// </summary>
+    /// <param name="genomes">Genome id → list of (gene id, sequence) entries, used to
+    /// recover each cluster's per-genome member sequences for parsimony scoring.</param>
+    /// <param name="coreClusters">Candidate clusters (typically the core set from
+    /// <see cref="GetCoreGeneClusters"/>).</param>
+    /// <param name="totalGenomes">Total number of genomes in the analysis; a marker must be
+    /// present in all of them with exactly one gene each.</param>
+    /// <param name="maxMarkers">Maximum number of markers to return (panX/micropan keep the
+    /// top-scoring set; default 100).</param>
+    public static IEnumerable<GeneCluster> SelectPhylogeneticMarkers(
+        IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
+        IEnumerable<GeneCluster> coreClusters,
+        int totalGenomes,
+        int maxMarkers = DefaultMaxMarkers)
+    {
+        if (genomes == null || coreClusters == null || totalGenomes <= 0 || maxMarkers <= 0)
+            return Enumerable.Empty<GeneCluster>();
+
+        // Map every gene id to its sequence for fast per-cluster member lookup.
+        var geneSequences = new Dictionary<string, string>();
+        foreach (var genes in genomes.Values)
+        {
+            if (genes == null)
+                continue;
+            foreach (var (geneId, sequence) in genes)
+                geneSequences[geneId] = sequence ?? string.Empty;
+        }
+
+        var scored = new List<(GeneCluster Cluster, int Pis)>();
+
+        foreach (var cluster in coreClusters)
+        {
+            // Single-copy core: present in every genome with exactly one gene per genome
+            // (panX "all strains represented exactly once"; Roary paralog filtering).
+            if (cluster.GenomeCount != totalGenomes)
+                continue; // not core (absent from at least one genome)
+            if (cluster.GeneIds.Count != totalGenomes)
+                continue; // a genome contributes 0 or >= 2 genes -> not single-copy (paralog)
+
+            var members = cluster.GeneIds
+                .Select(g => geneSequences.TryGetValue(g, out var s) ? s : string.Empty)
+                .ToList();
+
+            int pis = CountParsimonyInformativeSites(members);
+
+            // panX keeps only the variable (informative) markers.
+            if (pis >= MinInformativeSites)
+                scored.Add((cluster, pis));
+        }
+
+        return scored
+            .OrderByDescending(t => t.Pis)
+            .ThenBy(t => t.Cluster.ClusterId, StringComparer.Ordinal) // deterministic ties
+            .Take(maxMarkers)
+            .Select(t => t.Cluster);
     }
 
     #endregion

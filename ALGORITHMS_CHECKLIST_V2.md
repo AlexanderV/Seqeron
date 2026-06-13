@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 125 |
+| **Completed** | 126 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 109 |
+| **Not Started** | 108 |
 
 ---
 
@@ -153,7 +153,7 @@
 | ☑ | EPIGEN-AGE-001 | Epigenetics | 1 | [Evidence](docs/Evidence/EPIGEN-AGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-AGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) |
 | ☑ | MIRNA-PAIR-001 | MiRNA | 3 | [Evidence](docs/Evidence/MIRNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) |
 | ☑ | PANGEN-HEAP-001 | PanGenome | 1 | [Evidence](docs/Evidence/PANGEN-HEAP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-HEAP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) |
-| ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
+| ☑ | PANGEN-MARKER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-MARKER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-MARKER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) |
 | ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
 | ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
 | ☐ | POP-ROH-001 | PopGen | 2 | - | - | - |

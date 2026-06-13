@@ -194,43 +194,10 @@ public class PanGenomeAnalyzerTests
 
     #endregion
 
-    #region Phylogenetic Marker Tests
-
-    [Test]
-    public void SelectPhylogeneticMarkers_FiltersAndLimits()
-    {
-        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
-        {
-            new("c1", new[] { "g1" }, new[] { "g1", "g2", "g3" }, 3, 0.85, "ATGCATGCATGC"),
-            new("c2", new[] { "g2" }, new[] { "g1", "g2", "g3" }, 3, 0.95, "ATGC"),
-            new("c3", new[] { "g3" }, new[] { "g1", "g2", "g3" }, 3, 0.99, "ATGCAT"),
-            new("c4", new[] { "g4" }, new[] { "g1", "g2", "g3" }, 3, 0.65, "ATGCATGCATGCAT") // Too divergent
-        };
-
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(
-            clusters, maxMarkers: 2, minIdentity: 0.7, maxIdentity: 0.99).ToList();
-
-        Assert.That(markers.Count, Is.LessThanOrEqualTo(2));
-        Assert.That(markers.All(m => m.AverageIdentity >= 0.7 && m.AverageIdentity <= 0.99), Is.True);
-    }
-
-    [Test]
-    public void SelectPhylogeneticMarkers_PrefersLongerSequences()
-    {
-        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
-        {
-            new("short", new[] { "g1" }, new[] { "g1" }, 1, 0.9, "ATGC"),
-            new("long", new[] { "g2" }, new[] { "g1" }, 1, 0.9, "ATGCATGCATGCATGC")
-        };
-
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(clusters, maxMarkers: 1).ToList();
-
-        Assert.That(markers, Has.Count.EqualTo(1), "Should return exactly 1 marker");
-        Assert.That(markers[0].ClusterId, Is.EqualTo("long"),
-            "Should prefer longer sequence (16bp) over shorter (4bp)");
-    }
-
-    #endregion
+    // Phylogenetic marker selection (single-copy core genes ranked by parsimony-informative
+    // sites) is covered canonically in PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs
+    // (PANGEN-MARKER-001). The previous identity-band + consensus-length heuristic tests were
+    // removed because that heuristic was unsourced and the method now conforms to panX/Roary.
 
     // Pan-genome open/closed classification and genome fluidity are covered canonically in
     // PanGenomeAnalyzer_ConstructPanGenome_Tests.cs (PANGEN-CORE-001) with exact values.
