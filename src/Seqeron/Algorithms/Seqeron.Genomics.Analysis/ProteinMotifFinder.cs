@@ -882,101 +882,153 @@ public static class ProteinMotifFinder
 
     #region Coiled-Coil Prediction
 
+    // --- Coiled-coil heptad-repeat constants (all source-traceable) ---
+
+    // Heptad repeat is denoted (abcdefg)n; the hydrophobic core positions are a and d.
+    // Lupas A, Van Dyke M, Stock J (1991) Science 252:1162-1164; Mason JM, Arndt KM (2004)
+    // ChemBioChem 5(2):170-176.
+    private const int HeptadLength = 7;          // a,b,c,d,e,f,g
+    private const int HeptadPositionA = 0;        // core position a
+    private const int HeptadPositionD = 3;        // core position d
+
+    // Hydrophobic-core residues at positions a and d: "isoleucine, leucine, or valine"
+    // (Wikipedia "Coiled coil", citing Mason & Arndt 2004).
+    private static readonly char[] CoiledCoilCoreResidues = { 'I', 'L', 'V' };
+
+    // Default scoring window = 28 residues (4 heptads) and 7 candidate registers per Lupas (1991):
+    // "a window can be assigned seven different heptad repeat frames ... 28 positions in a gliding window".
+    private const int DefaultCoiledCoilWindow = 28;
+
+    // Default threshold = 0.5: a window is coiled-coil if MORE THAN HALF (>= 50%) of its a/d positions
+    // are occupied by hydrophobic-core residues ("predominantly hydrophobic at a and d", Mason & Arndt 2004).
+    private const double DefaultCoiledCoilThreshold = 0.5;
+
+    // Minimum reported region length = 21 residues (3 heptads): naturally occurring coiled coils are
+    // built from multiple heptads, (abcdefg)1-(abcdefg)2-(abcdefg)3... (Mason & Arndt 2004).
+    private const int MinCoiledCoilRegion = 3 * HeptadLength;
+
     /// <summary>
-    /// Predicts coiled-coil regions using heptad repeat analysis.
+    /// Predicts coiled-coil regions by heptad-repeat analysis. For every residue window the score is the
+    /// fraction of its heptad a/d core positions occupied by a hydrophobic core residue (I, L or V),
+    /// maximised over the seven possible heptad registers (frames); contiguous windows scoring at or above
+    /// <paramref name="threshold"/> form a region. This is the fully-specified heptad a/d occupancy model
+    /// (Lupas 1991; Mason &amp; Arndt 2004); it deliberately does NOT use the COILS position-specific
+    /// scoring matrix, whose weights were not available from authoritative sources.
     /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence (case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window length in residues (default 28 = 4 heptads).</param>
+    /// <param name="threshold">Minimum a/d hydrophobic-core occupancy fraction in [0,1] (default 0.5).</param>
+    /// <returns>Non-overlapping regions (Start, End inclusive 0-based; Score = peak occupancy fraction).</returns>
     public static IEnumerable<(int Start, int End, double Score)> PredictCoiledCoils(
         string proteinSequence,
-        int windowSize = 28,
-        double threshold = 0.5)
+        int windowSize = DefaultCoiledCoilWindow,
+        double threshold = DefaultCoiledCoilThreshold)
     {
         if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
+        var coreResidues = new HashSet<char>(CoiledCoilCoreResidues);
 
-        // Coiled-coil scoring based on heptad positions (a-g)
-        // Positions a and d favor hydrophobic residues
-        var positionWeights = new Dictionary<int, Dictionary<char, double>>
+        int windowCount = upper.Length - windowSize + 1;
+        var profile = new double[windowCount];
+        for (int i = 0; i < windowCount; i++)
         {
-            // Position a (hydrophobic)
-            { 0, new Dictionary<char, double> { {'L', 0.9}, {'I', 0.8}, {'V', 0.7}, {'M', 0.6}, {'A', 0.4} } },
-            // Position d (hydrophobic)
-            { 3, new Dictionary<char, double> { {'L', 0.9}, {'I', 0.8}, {'V', 0.7}, {'M', 0.6}, {'A', 0.4} } },
-            // Position e (charged, negative)
-            { 4, new Dictionary<char, double> { {'E', 0.8}, {'D', 0.6}, {'Q', 0.4}, {'N', 0.4} } },
-            // Position g (charged, positive)
-            { 6, new Dictionary<char, double> { {'K', 0.8}, {'R', 0.7}, {'E', 0.5}, {'Q', 0.4} } }
-        };
-
-        var profile = new List<double>();
-
-        for (int i = 0; i <= upper.Length - windowSize; i++)
-        {
-            double score = 0;
-            int count = 0;
-
-            for (int j = 0; j < windowSize; j++)
-            {
-                int pos = j % 7;
-                char aa = upper[i + j];
-
-                if (positionWeights.TryGetValue(pos, out var weights))
-                {
-                    if (weights.TryGetValue(aa, out double weight))
-                    {
-                        score += weight;
-                    }
-                }
-                count++;
-            }
-
-            profile.Add(score / (windowSize / 7 * 4));
+            profile[i] = BestHeptadOccupancy(upper, i, windowSize, coreResidues);
         }
 
-        // Find regions above threshold
+        // Group contiguous above-threshold windows into regions; a window at profile index i covers
+        // residues [i, i + windowSize - 1]. Region score = peak window occupancy in the run.
         int? regionStart = null;
-        double maxScore = 0;
+        double peak = 0;
 
-        for (int i = 0; i < profile.Count; i++)
+        for (int i = 0; i < profile.Length; i++)
         {
             if (profile[i] >= threshold)
             {
-                if (regionStart == null)
+                if (regionStart is null)
                 {
                     regionStart = i;
-                    maxScore = profile[i];
+                    peak = profile[i];
                 }
                 else
                 {
-                    maxScore = Math.Max(maxScore, profile[i]);
+                    peak = Math.Max(peak, profile[i]);
                 }
             }
-            else if (regionStart != null)
+            else if (regionStart is not null)
             {
-                int start = regionStart.Value;
-                int end = i - 1 + windowSize;
-
-                if (end - start >= 21) // Minimum 3 heptads
-                {
-                    yield return (start, Math.Min(end, upper.Length - 1), maxScore);
-                }
-
+                var region = BuildRegion(regionStart.Value, i - 1, windowSize, peak);
+                if (region.HasValue)
+                    yield return region.Value;
                 regionStart = null;
-                maxScore = 0;
+                peak = 0;
             }
         }
 
-        if (regionStart != null)
+        if (regionStart is not null)
         {
-            int start = regionStart.Value;
-            int end = profile.Count - 1 + windowSize;
-
-            if (end - start >= 21)
-            {
-                yield return (start, Math.Min(end, upper.Length - 1), maxScore);
-            }
+            var region = BuildRegion(regionStart.Value, profile.Length - 1, windowSize, peak);
+            if (region.HasValue)
+                yield return region.Value;
         }
+    }
+
+    /// <summary>
+    /// Returns the maximum, over the seven heptad registers, of the fraction of a/d core positions in the
+    /// window starting at <paramref name="windowStart"/> that are occupied by a hydrophobic core residue.
+    /// </summary>
+    private static double BestHeptadOccupancy(
+        string upper, int windowStart, int windowSize, HashSet<char> coreResidues)
+    {
+        double best = 0;
+        for (int register = 0; register < HeptadLength; register++)
+        {
+            int coreCount = 0;
+            int hydrophobicCount = 0;
+            for (int j = 0; j < windowSize; j++)
+            {
+                int index = windowStart + j;
+                int heptadPosition = Mod(index - register, HeptadLength);
+                if (heptadPosition != HeptadPositionA && heptadPosition != HeptadPositionD)
+                    continue;
+
+                coreCount++;
+                if (coreResidues.Contains(upper[index]))
+                    hydrophobicCount++;
+            }
+
+            if (coreCount == 0)
+                continue;
+
+            double occupancy = (double)hydrophobicCount / coreCount;
+            if (occupancy > best)
+                best = occupancy;
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Maps a run of above-threshold window indices [<paramref name="firstWindow"/>,
+    /// <paramref name="lastWindow"/>] to a residue region, keeping it only if it spans at least
+    /// <see cref="MinCoiledCoilRegion"/> residues.
+    /// </summary>
+    private static (int Start, int End, double Score)? BuildRegion(
+        int firstWindow, int lastWindow, int windowSize, double peak)
+    {
+        int start = firstWindow;
+        int end = lastWindow + windowSize - 1;
+        if (end - start + 1 < MinCoiledCoilRegion)
+            return null;
+        return (start, end, peak);
+    }
+
+    /// <summary>Non-negative modulo (C# % can be negative for negative operands).</summary>
+    private static int Mod(int value, int modulus)
+    {
+        int result = value % modulus;
+        return result < 0 ? result + modulus : result;
     }
 
     #endregion

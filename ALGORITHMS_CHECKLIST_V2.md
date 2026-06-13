@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 148 |
+| **Completed** | 149 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 86 |
+| **Not Started** | 85 |
 
 ---
 
@@ -176,7 +176,7 @@
 | ☑ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | [Evidence](docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PATTERN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindMotifByPattern_Tests.cs) |
 | ☑ | PROTMOTIF-SP-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-SP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-SP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictSignalPeptide_Tests.cs) |
 | ☑ | PROTMOTIF-TM-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs) |
-| ☐ | PROTMOTIF-CC-001 | ProteinMotif | 1 | - | - | - |
+| ☑ | PROTMOTIF-CC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-CC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-CC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) |
 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | 1 | - | - | - |
 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | - | - | - |
 | ☐ | RNA-PAIR-001 | RnaStructure | 3 | - | - | - |

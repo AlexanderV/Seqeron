@@ -96,43 +96,9 @@ public class ProteinMotifFinderTests
 
     #endregion
 
-    #region Coiled-Coil Prediction Tests
-
-    [Test]
-    public void PredictCoiledCoils_HeptadPattern_FindsCoil()
-    {
-        // Ideal coiled-coil: L at a,d positions, E at e, K at g
-        // abcdefg pattern repeated 6 times = 42 residues
-        string coiledCoil = "";
-        for (int i = 0; i < 6; i++)
-        {
-            coiledCoil += "LAEALEK"; // L-A-E-A-L-E-K pattern
-        }
-
-        var coils = PredictCoiledCoils(coiledCoil, threshold: 0.3).ToList();
-
-        Assert.That(coils, Has.Count.EqualTo(5), "Five overlapping coiled-coil windows");
-        Assert.That(coils[0].Start, Is.EqualTo(0));
-        Assert.That(coils[0].Score, Is.EqualTo(0.525).Within(0.01));
-    }
-
-    [Test]
-    public void PredictCoiledCoils_NoPattern_ReturnsEmpty()
-    {
-        string protein = new string('P', 50); // Proline breaks helices
-        var coils = PredictCoiledCoils(protein, threshold: 0.5).ToList();
-
-        Assert.That(coils, Is.Empty);
-    }
-
-    [Test]
-    public void PredictCoiledCoils_ShortSequence_ReturnsEmpty()
-    {
-        var coils = PredictCoiledCoils("LAELAE").ToList();
-        Assert.That(coils, Is.Empty);
-    }
-
-    #endregion
+    // Coiled-coil prediction tests moved to the canonical file
+    // ProteinMotifFinder_PredictCoiledCoils_Tests.cs (PROTMOTIF-CC-001). The previous tests here
+    // encoded the now-removed fabricated position-weight table and are superseded.
 
     #region Low Complexity Tests
 
