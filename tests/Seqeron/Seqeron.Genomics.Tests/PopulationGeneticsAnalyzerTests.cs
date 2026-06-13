@@ -94,60 +94,8 @@ public class PopulationGeneticsAnalyzerTests
 
     #endregion
 
-    #region Ancestry Analysis Tests
-
-    [Test]
-    public void EstimateAncestry_SinglePopulation_Returns100Percent()
-    {
-        var individuals = new List<(string, IReadOnlyList<int>)>
-        {
-            ("IND1", new List<int> { 2, 2, 2, 2, 2 })
-        };
-
-        var refPops = new List<(string, IReadOnlyList<double>)>
-        {
-            ("POP1", new List<double> { 1.0, 1.0, 1.0, 1.0, 1.0 })
-        };
-
-        var ancestry = PopulationGeneticsAnalyzer.EstimateAncestry(
-            individuals, refPops, maxIterations: 10).ToList();
-
-        Assert.That(ancestry, Has.Count.EqualTo(1));
-        Assert.That(ancestry[0].Proportions["POP1"], Is.EqualTo(1.0).Within(0.01));
-    }
-
-    [Test]
-    public void EstimateAncestry_TwoPopulations_SumsToOne()
-    {
-        var individuals = new List<(string, IReadOnlyList<int>)>
-        {
-            ("IND1", new List<int> { 1, 1, 1, 1, 1 })
-        };
-
-        var refPops = new List<(string, IReadOnlyList<double>)>
-        {
-            ("POP1", new List<double> { 0.9, 0.9, 0.9, 0.9, 0.9 }),
-            ("POP2", new List<double> { 0.1, 0.1, 0.1, 0.1, 0.1 })
-        };
-
-        var ancestry = PopulationGeneticsAnalyzer.EstimateAncestry(
-            individuals, refPops).ToList();
-
-        double sum = ancestry[0].Proportions.Values.Sum();
-        Assert.That(sum, Is.EqualTo(1.0).Within(0.01));
-    }
-
-    [Test]
-    public void EstimateAncestry_EmptyInput_ReturnsEmpty()
-    {
-        var ancestry = PopulationGeneticsAnalyzer.EstimateAncestry(
-            new List<(string, IReadOnlyList<int>)>(),
-            new List<(string, IReadOnlyList<double>)>()).ToList();
-
-        Assert.That(ancestry, Is.Empty);
-    }
-
-    #endregion
+    // Ancestry Analysis tests moved to the canonical unit file
+    // PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs (POP-ANCESTRY-001).
 
     #region Inbreeding Tests
 

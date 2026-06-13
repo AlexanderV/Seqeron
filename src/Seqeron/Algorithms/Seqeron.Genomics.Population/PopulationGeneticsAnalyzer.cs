@@ -1224,9 +1224,42 @@ public static class PopulationGeneticsAnalyzer
 
     #region Ancestry Analysis
 
+    // ADMIXTURE default stopping criterion ε for the convergence rule (Equation 5):
+    // declare convergence once the log-likelihood gain falls below ε.
+    // Alexander, Novembre & Lange (2009), Genome Research 19(9):1655–1664, Eq. 5
+    // ("we choose ε = 10⁻⁴ as the default stopping criterion in ADMIXTURE").
+    private const double AncestryLogLikelihoodTolerance = 1e-4;
+
     /// <summary>
-    /// Estimates ancestry proportions using a simplified ADMIXTURE-like approach.
+    /// Estimates individual ancestry (admixture) proportions by maximum likelihood given
+    /// <b>fixed</b> reference-population allele frequencies, i.e. the supervised / projection
+    /// mode of ADMIXTURE. For each individual the ancestry vector q (one fraction per reference
+    /// population) is found with the FRAPPE expectation-maximization update on the binomial
+    /// admixture log-likelihood of Alexander, Novembre &amp; Lange (2009).
     /// </summary>
+    /// <param name="individuals">
+    /// Individuals to estimate. <c>Genotypes[j]</c> is the observed number of copies of allele 1
+    /// at SNP <c>j</c> (0, 1, or 2); any other value is treated as missing and that SNP is skipped
+    /// for the individual. The genotype length must equal the reference-panel SNP count.
+    /// </param>
+    /// <param name="referencePops">
+    /// Reference populations with fixed allele-1 frequencies (one per SNP, in [0,1]); all panels
+    /// must cover the same SNP set in the same order.
+    /// </param>
+    /// <param name="maxIterations">Maximum EM iterations per individual (default 100).</param>
+    /// <returns>
+    /// One <see cref="AncestryProportion"/> per valid individual, whose <c>Proportions</c> are
+    /// keyed by reference-population id and sum to 1.
+    /// </returns>
+    /// <remarks>
+    /// Model (Alexander et al. 2009): q_ik is the fraction of individual i's genome from
+    /// population k; f_kj is the allele-1 frequency in population k at SNP j. With F fixed, the
+    /// EM update (their Equation 4) is
+    /// q_ik^{n+1} = (1/2J) Σ_j [ g_ij·a_ijk + (2−g_ij)·b_ijk ], where
+    /// a_ijk = q_ik f_kj / Σ_m q_im f_mj and b_ijk = q_ik (1−f_kj) / Σ_m q_im (1−f_mj).
+    /// Iteration stops early once the log-likelihood gain (Equation 2) falls below
+    /// <see cref="AncestryLogLikelihoodTolerance"/> (their Equation 5).
+    /// </remarks>
     public static IEnumerable<AncestryProportion> EstimateAncestry(
         IEnumerable<(string IndividualId, IReadOnlyList<int> Genotypes)> individuals,
         IEnumerable<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> referencePops,
@@ -1246,67 +1279,120 @@ public static class PopulationGeneticsAnalyzer
             if (genotypes.Count != m)
                 continue;
 
-            // Initialize proportions uniformly
-            var proportions = new double[k];
-            for (int i = 0; i < k; i++)
-                proportions[i] = 1.0 / k;
+            double[] proportions = EstimateIndividualAncestry(genotypes, refList, k, m, maxIterations);
 
-            // EM-like optimization (simplified)
-            for (int iter = 0; iter < maxIterations; iter++)
-            {
-                var newProportions = new double[k];
-
-                for (int snp = 0; snp < m; snp++)
-                {
-                    int geno = genotypes[snp];
-
-                    // Calculate likelihood for each population
-                    var likelihoods = new double[k];
-                    double totalLik = 0;
-
-                    for (int pop = 0; pop < k; pop++)
-                    {
-                        double p = refList[pop].AlleleFrequencies[snp];
-
-                        // Genotype probability under HWE
-                        double prob = geno switch
-                        {
-                            0 => (1 - p) * (1 - p),
-                            1 => 2 * p * (1 - p),
-                            2 => p * p,
-                            _ => 0.25
-                        };
-
-                        likelihoods[pop] = proportions[pop] * prob;
-                        totalLik += likelihoods[pop];
-                    }
-
-                    if (totalLik > 0)
-                    {
-                        for (int pop = 0; pop < k; pop++)
-                        {
-                            newProportions[pop] += likelihoods[pop] / totalLik;
-                        }
-                    }
-                }
-
-                // Normalize
-                double sum = newProportions.Sum();
-                for (int pop = 0; pop < k; pop++)
-                {
-                    proportions[pop] = sum > 0 ? newProportions[pop] / sum : 1.0 / k;
-                }
-            }
-
-            // Create result
-            var propDict = new Dictionary<string, double>();
+            var propDict = new Dictionary<string, double>(k);
             for (int pop = 0; pop < k; pop++)
-            {
                 propDict[refList[pop].PopulationId] = proportions[pop];
-            }
 
             yield return new AncestryProportion(indId, propDict);
         }
+    }
+
+    /// <summary>
+    /// Runs the FRAPPE EM (Alexander et al. 2009, Eq. 4) for one individual with the reference
+    /// allele frequencies held fixed, returning ancestry fractions that sum to 1.
+    /// </summary>
+    private static double[] EstimateIndividualAncestry(
+        IReadOnlyList<int> genotypes,
+        List<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> refList,
+        int k,
+        int m,
+        int maxIterations)
+    {
+        // Initialize q uniformly over the K reference populations.
+        var q = new double[k];
+        for (int pop = 0; pop < k; pop++)
+            q[pop] = 1.0 / k;
+
+        double previousLogLik = AncestryLogLikelihood(genotypes, refList, q, k, m);
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            var next = new double[k];
+
+            // EM update q_ik^{n+1} = (1/2J) Σ_j [ g_ij a_ijk + (2-g_ij) b_ijk ]  (Eq. 4),
+            // where J counts only the informative (non-missing) SNPs for this individual.
+            int informativeSnps = 0;
+            for (int snp = 0; snp < m; snp++)
+            {
+                int g = genotypes[snp];
+                if (g < 0 || g > 2)
+                    continue; // missing genotype contributes no likelihood term (Eq. 2)
+                informativeSnps++;
+
+                // Admixed allele-1 / allele-2 frequencies for this individual: Σ_m q_im f_mj.
+                double mixAllele1 = 0;
+                double mixAllele2 = 0;
+                for (int pop = 0; pop < k; pop++)
+                {
+                    double f = refList[pop].AlleleFrequencies[snp];
+                    mixAllele1 += q[pop] * f;
+                    mixAllele2 += q[pop] * (1 - f);
+                }
+
+                for (int pop = 0; pop < k; pop++)
+                {
+                    double f = refList[pop].AlleleFrequencies[snp];
+                    double a = mixAllele1 > 0 ? q[pop] * f / mixAllele1 : 0;
+                    double b = mixAllele2 > 0 ? q[pop] * (1 - f) / mixAllele2 : 0;
+                    next[pop] += g * a + (2 - g) * b;
+                }
+            }
+
+            if (informativeSnps == 0)
+                break; // nothing informative: keep the uniform prior
+
+            // Divide by 2J (J = informative SNP count). The EM preserves Σ_k q_ik = 1 exactly.
+            double normalizer = 2.0 * informativeSnps;
+            for (int pop = 0; pop < k; pop++)
+                q[pop] = next[pop] / normalizer;
+
+            double logLik = AncestryLogLikelihood(genotypes, refList, q, k, m);
+            if (logLik - previousLogLik < AncestryLogLikelihoodTolerance)
+            {
+                previousLogLik = logLik;
+                break; // converged per Eq. 5
+            }
+            previousLogLik = logLik;
+        }
+
+        return q;
+    }
+
+    /// <summary>
+    /// Binomial admixture log-likelihood for one individual given fixed allele frequencies
+    /// (Alexander et al. 2009, Equation 2), summed over informative SNPs.
+    /// </summary>
+    private static double AncestryLogLikelihood(
+        IReadOnlyList<int> genotypes,
+        List<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> refList,
+        double[] q,
+        int k,
+        int m)
+    {
+        double logLik = 0;
+        for (int snp = 0; snp < m; snp++)
+        {
+            int g = genotypes[snp];
+            if (g < 0 || g > 2)
+                continue;
+
+            double mixAllele1 = 0;
+            double mixAllele2 = 0;
+            for (int pop = 0; pop < k; pop++)
+            {
+                double f = refList[pop].AlleleFrequencies[snp];
+                mixAllele1 += q[pop] * f;
+                mixAllele2 += q[pop] * (1 - f);
+            }
+
+            if (g > 0 && mixAllele1 > 0)
+                logLik += g * Math.Log(mixAllele1);
+            if (g < 2 && mixAllele2 > 0)
+                logLik += (2 - g) * Math.Log(mixAllele2);
+        }
+        return logLik;
     }
 
     #endregion

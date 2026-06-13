@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 127 |
+| **Completed** | 128 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 107 |
+| **Not Started** | 106 |
 
 ---
 
@@ -155,7 +155,7 @@
 | ☑ | PANGEN-HEAP-001 | PanGenome | 1 | [Evidence](docs/Evidence/PANGEN-HEAP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-HEAP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) |
 | ☑ | PANGEN-MARKER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-MARKER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-MARKER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) |
 | ☑ | POP-SELECT-001 | PopGen | 2 | [Evidence](docs/Evidence/POP-SELECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-SELECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs) |
-| ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
+| ☑ | POP-ANCESTRY-001 | PopGen | 1 | [Evidence](docs/Evidence/POP-ANCESTRY-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-ANCESTRY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs) |
 | ☐ | POP-ROH-001 | PopGen | 2 | - | - | - |
 | ☐ | META-FUNC-001 | Metagenomics | 2 | - | - | - |
 | ☐ | META-RESIST-001 | Metagenomics | 1 | - | - | - |
@@ -2731,17 +2731,26 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 
 ---
 
-#### POP-ANCESTRY-001: Ancestry Estimation
+#### ☑ POP-ANCESTRY-001: Ancestry Estimation
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.EstimateAncestry(...)` |
-| **Complexity** | O(n × k) |
+| **Complexity** | O(I × iterations × J × K) (per-iteration O(JK), F fixed) |
+| **Status** | ☑ Complete — supervised/projection ADMIXTURE EM (Alexander et al. 2009, Eq. 2/4/5) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateAncestry(genotypes, refPanels, k)` | PopulationGeneticsAnalyzer | Canonical |
+| `EstimateAncestry(individuals, referencePops, maxIterations)` | PopulationGeneticsAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Empty individuals → empty result
+- [x] Empty reference panels → empty result
+- [x] Genotype length ≠ panel SNP count → individual skipped
+- [x] Genotype value outside {0,1,2} → SNP treated as missing
+- [x] All genotypes missing → uniform prior returned
+- [x] Identical panels → uniform stays uniform
 
 ---
 
