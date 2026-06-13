@@ -219,55 +219,8 @@ public class SequenceAssemblerTests
 
     #endregion
 
-    #region ComputeConsensus Tests
-
-    [Test]
-    public void ComputeConsensus_IdenticalReads_ReturnsRead()
-    {
-        var reads = new List<string> { "ACGT", "ACGT", "ACGT" };
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus, Is.EqualTo("ACGT"));
-    }
-
-    [Test]
-    public void ComputeConsensus_MajorityVote()
-    {
-        var reads = new List<string>
-        {
-            "ACGT",
-            "ACGT",
-            "TCGT"  // First position differs
-        };
-
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus[0], Is.EqualTo('A')); // Majority
-    }
-
-    [Test]
-    public void ComputeConsensus_IgnoresGaps()
-    {
-        var reads = new List<string>
-        {
-            "A-GT",
-            "ACGT",
-            "ACGT"
-        };
-
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus, Is.EqualTo("ACGT"));
-    }
-
-    [Test]
-    public void ComputeConsensus_EmptyReads_ReturnsEmpty()
-    {
-        string consensus = SequenceAssembler.ComputeConsensus(new List<string>());
-        Assert.That(consensus, Is.EqualTo(""));
-    }
-
-    #endregion
+    // ComputeConsensus tests consolidated into SequenceAssembler_ComputeConsensus_Tests.cs
+    // (canonical file for ASSEMBLY-CONSENSUS-001).
 
     #region QualityTrimReads Tests
 

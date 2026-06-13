@@ -818,40 +818,108 @@ public static class SequenceAssembler
         return bestPos;
     }
 
+    // Default plurality cut-off for emitting a committed residue. EMBOSS `cons` defines the
+    // default plurality as a simple majority (half the total weight); we use 0.5 so the default
+    // is a true majority vote. Biopython's `dumb_consensus` documented default (0.7) is reachable
+    // by passing threshold: 0.7. Source: EMBOSS cons (plurality cut-off); Biopython dumb_consensus.
+    private const double DefaultConsensusThreshold = 0.5;
+
+    // Default IUPAC "any base" symbol emitted when a column has no committed residue. Biopython's
+    // dumb_consensus default ambiguous symbol is 'X' (protein); for DNA/RNA the IUPAC degenerate
+    // code for "any base" is 'N'. Source: Wikipedia "Consensus sequence" (IUPAC N = any base).
+    private const char DefaultAmbiguousSymbol = 'N';
+
+    // Gap symbols excluded from the per-column tally per Biopython dumb_consensus
+    // (residue counted only when it is neither '-' nor '.').
+    private const char GapDash = '-';
+    private const char GapDot = '.';
+
     /// <summary>
-    /// Computes the consensus sequence from multiple aligned reads.
+    /// Computes the consensus sequence from a set of aligned reads using the column-wise
+    /// majority/threshold rule of Biopython's <c>dumb_consensus</c>: for each alignment column,
+    /// non-gap residues ('-' and '.' are skipped) are tallied; a residue is emitted only when a
+    /// single residue holds the strict maximum count AND its frequency among the non-gap residues
+    /// is at least <paramref name="threshold"/>. Ties for the maximum count, sub-threshold majorities,
+    /// and all-gap columns emit <paramref name="ambiguous"/>. The consensus length equals the longest
+    /// input read (the full alignment length); reads shorter than a column contribute nothing there.
     /// </summary>
-    public static string ComputeConsensus(IReadOnlyList<string> alignedReads)
+    /// <remarks>
+    /// Reference: Biopython <c>Bio.Align.AlignInfo.SummaryInfo.dumb_consensus</c> (v1.79),
+    /// https://raw.githubusercontent.com/biopython/biopython/biopython-179/Bio/Align/AlignInfo.py
+    /// (decision rule, gap skipping, tie→ambiguous, alignment-length consensus);
+    /// EMBOSS <c>cons</c> (plurality cut-off below which there is no consensus).
+    /// </remarks>
+    /// <param name="alignedReads">Pre-aligned reads (equal columns; ragged lengths allowed).</param>
+    /// <param name="threshold">
+    /// Minimum frequency (max count / non-gap count in the column) required to commit a residue.
+    /// Default <see cref="DefaultConsensusThreshold"/> (simple majority); pass 0.7 to reproduce
+    /// Biopython's documented default.
+    /// </param>
+    /// <param name="ambiguous">Symbol emitted when a column has no committed residue.</param>
+    /// <returns>The consensus string, length equal to the longest read.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="alignedReads"/> is null.</exception>
+    public static string ComputeConsensus(
+        IReadOnlyList<string> alignedReads,
+        double threshold = DefaultConsensusThreshold,
+        char ambiguous = DefaultAmbiguousSymbol)
     {
+        ArgumentNullException.ThrowIfNull(alignedReads);
+
         if (alignedReads.Count == 0) return "";
 
-        int length = alignedReads[0].Length;
-        var sb = new StringBuilder();
+        // Consensus spans the full alignment length = the longest read (Biopython: con_len).
+        int length = 0;
+        foreach (string read in alignedReads)
+        {
+            if (read.Length > length) length = read.Length;
+        }
+
+        var sb = new StringBuilder(length);
 
         for (int pos = 0; pos < length; pos++)
         {
             var counts = new Dictionary<char, int>();
+            int numAtoms = 0; // non-gap residues contributing to this column (Biopython: num_atoms)
+
             foreach (string read in alignedReads)
             {
-                if (pos < read.Length)
+                if (pos >= read.Length) continue;
+
+                char c = char.ToUpperInvariant(read[pos]);
+                if (c == GapDash || c == GapDot) continue;
+
+                counts[c] = counts.GetValueOrDefault(c, 0) + 1;
+                numAtoms++;
+            }
+
+            // Determine the residue(s) with the maximum count (Biopython: max_atoms / max_size).
+            int maxSize = 0;
+            int maxCount = 0; // how many residues share the maximum (>1 means a tie)
+            char maxResidue = ambiguous;
+
+            foreach (KeyValuePair<char, int> kvp in counts)
+            {
+                if (kvp.Value > maxSize)
                 {
-                    char c = char.ToUpperInvariant(read[pos]);
-                    if (c != '-' && c != 'N')
-                    {
-                        counts[c] = counts.GetValueOrDefault(c, 0) + 1;
-                    }
+                    maxSize = kvp.Value;
+                    maxCount = 1;
+                    maxResidue = kvp.Key;
+                }
+                else if (kvp.Value == maxSize)
+                {
+                    maxCount++;
                 }
             }
 
-            if (counts.Count > 0)
-            {
-                char consensus = counts.MaxBy(kvp => kvp.Value).Key;
-                sb.Append(consensus);
-            }
-            else
-            {
-                sb.Append('N');
-            }
+            // Emit the residue only when exactly one residue holds the max AND it meets the
+            // threshold among non-gap residues; otherwise emit the ambiguous symbol. The
+            // numAtoms > 0 guard mirrors Biopython's len(max_atoms)==1 short-circuit, which
+            // prevents division by zero on all-gap columns.
+            bool committed = maxCount == 1
+                             && numAtoms > 0
+                             && (double)maxSize / numAtoms >= threshold;
+
+            sb.Append(committed ? maxResidue : ambiguous);
         }
 
         return sb.ToString();
