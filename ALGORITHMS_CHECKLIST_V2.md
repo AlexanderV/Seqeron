@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 135 |
+| **Completed** | 136 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 99 |
+| **Not Started** | 98 |
 
 ---
 
@@ -163,7 +163,7 @@
 | ☑ | META-TAXA-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-TAXA-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-TAXA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) |
 | ☑ | PHYLO-BOOT-001 | Phylogenetic | 1 | [Evidence](docs/Evidence/PHYLO-BOOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-BOOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_Bootstrap_Tests.cs) |
 | ☑ | PHYLO-STATS-001 | Phylogenetic | 3 | [Evidence](docs/Evidence/PHYLO-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) |
-| ☐ | ANNOT-CODING-001 | Annotation | 1 | - | - | - |
+| ☑ | ANNOT-CODING-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODING-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODING-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_CalculateCodingPotential_Tests.cs) |
 | ☐ | ANNOT-REPEAT-001 | Annotation | 2 | - | - | - |
 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | 1 | - | - | - |
 | ☐ | RESTR-FILTER-001 | MolTools | 3 | - | - | - |

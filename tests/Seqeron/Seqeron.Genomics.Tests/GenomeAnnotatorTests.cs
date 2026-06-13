@@ -24,39 +24,10 @@ public class GenomeAnnotatorTests
     // NOTE: FindPromoterMotifs tests moved to GenomeAnnotator_PromoterMotif_Tests.cs
     // as part of ANNOT-PROM-001 consolidation.
 
-    #region CalculateCodingPotential Tests
-
-    [Test]
-    public void CalculateCodingPotential_ValidCodingSequence_HighScore()
-    {
-        // Real coding sequence without internal stops
-        string coding = "ATGGCAACGTCAACGACGTCAACGTAA"; // No internal stops
-
-        double score = GenomeAnnotator.CalculateCodingPotential(coding);
-
-        Assert.That(score, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateCodingPotential_ShortSequence_ReturnsZero()
-    {
-        double score = GenomeAnnotator.CalculateCodingPotential("ACG");
-
-        Assert.That(score, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateCodingPotential_ManyStopCodons_LowerScore()
-    {
-        string withStops = "ATGTAATAGTGA"; // Multiple stops
-
-        double score = GenomeAnnotator.CalculateCodingPotential(withStops);
-
-        // Score should be lower due to internal stops
-        Assert.That(score, Is.GreaterThanOrEqualTo(0));
-    }
-
-    #endregion
+    // NOTE: CalculateCodingPotential tests moved to
+    // GenomeAnnotator_CalculateCodingPotential_Tests.cs as part of ANNOT-CODING-001
+    // consolidation. The prior heuristic (invented 0.7/0.6 weights) was replaced by the
+    // evidence-based CPAT hexamer usage-bias score (Wang et al. 2013).
 
     #region FindRepetitiveElements Tests
 

@@ -515,50 +515,105 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Calculates coding potential using hexamer frequency bias.
+    /// Default k-mer (hexamer) word size used by the CPAT hexamer-usage score.
     /// </summary>
-    public static double CalculateCodingPotential(string sequence)
+    /// <remarks>
+    /// Per Wang et al. (2013), CPAT scores hexamers (6-mers); the reference
+    /// implementation calls <c>kmer_ratio(seq, word_size, step_size, ...)</c>
+    /// with <c>word_size = 6</c>.
+    /// CPAT: Wang L et al. (2013). Nucleic Acids Res 41(6):e74. https://doi.org/10.1093/nar/gkt006
+    /// FrameKmer.kmer_ratio: https://github.com/WGLab/lncScore/blob/master/tools/cpmodule/FrameKmer.py
+    /// </remarks>
+    private const int HexamerWordSize = 6;
+
+    /// <summary>
+    /// Default step size for the in-frame hexamer sliding window.
+    /// </summary>
+    /// <remarks>
+    /// CPAT extracts hexamers in-frame: the sliding window advances by 3
+    /// nucleotides (one codon) so successive 6-mers stay on codon boundaries
+    /// (FrameKmer.word_generator with step_size = 3, frame = 0).
+    /// </remarks>
+    private const int HexamerStepSize = 3;
+
+    /// <summary>
+    /// Calculates the coding potential of a DNA sequence using the CPAT hexamer
+    /// usage-bias log-likelihood score (Wang et al. 2013).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to score (case-insensitive).</param>
+    /// <param name="codingHexamerFrequencies">
+    /// In-frame hexamer frequency table built from a coding (CDS) training set.
+    /// Keys are uppercase 6-mers over A/C/G/T; values are non-negative counts or
+    /// proportions.
+    /// </param>
+    /// <param name="noncodingHexamerFrequencies">
+    /// In-frame hexamer frequency table built from a non-coding (background)
+    /// training set, in the same units as <paramref name="codingHexamerFrequencies"/>.
+    /// </param>
+    /// <param name="wordSize">Hexamer length (default 6, per CPAT).</param>
+    /// <param name="stepSize">In-frame window step (default 3, per CPAT).</param>
+    /// <returns>
+    /// The mean per-hexamer log-likelihood ratio. Positive values indicate a
+    /// coding sequence, negative values a non-coding sequence. Returns 0 when the
+    /// sequence is shorter than <paramref name="wordSize"/> or when no scorable
+    /// hexamer is found.
+    /// </returns>
+    /// <remarks>
+    /// Implements <c>FrameKmer.kmer_ratio</c> (frame 0) from the CPAT reference
+    /// implementation. For each in-frame hexamer present in both tables the score
+    /// adds <c>ln(coding[k] / noncoding[k])</c>; a hexamer found only in the
+    /// coding table adds +1, one found only in the non-coding table subtracts 1;
+    /// hexamers missing from either table (e.g. containing N) are skipped. The sum
+    /// is divided by the number of scored hexamers.
+    /// CPAT: Wang L et al. (2013). Nucleic Acids Res 41(6):e74. https://doi.org/10.1093/nar/gkt006
+    /// </remarks>
+    public static double CalculateCodingPotential(
+        string sequence,
+        IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+        IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+        int wordSize = HexamerWordSize,
+        int stepSize = HexamerStepSize)
     {
-        if (sequence.Length < 6) return 0;
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+        ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+        if (wordSize <= 0) throw new ArgumentOutOfRangeException(nameof(wordSize));
+        if (stepSize <= 0) throw new ArgumentOutOfRangeException(nameof(stepSize));
 
-        // Simplified approach: measure in-frame vs out-of-frame hexamer usage
-        // In real implementation, would use pre-computed coding/non-coding hexamer tables
+        // kmer_ratio: sequences shorter than one word yield no hexamer → score 0.
+        if (sequence.Length < wordSize) return 0;
 
-        sequence = sequence.ToUpperInvariant();
+        string seq = sequence.ToUpperInvariant();
 
-        // Count in-frame vs out-of-frame codon usage patterns
-        int validCodons = 0;
-        int totalCodons = 0;
+        double sumOfLogRatio = 0.0;
+        int scoredHexamers = 0;
 
-        for (int i = 0; i <= sequence.Length - 3; i += 3)
+        // word_generator(frame=0): start at 0, advance by stepSize, keep only
+        // full-length words.
+        for (int i = 0; i + wordSize <= seq.Length; i += stepSize)
         {
-            string codon = sequence.Substring(i, 3);
-            if (codon.All(c => "ACGT".Contains(c)))
-            {
-                totalCodons++;
-                // Stop codons indicate non-coding in middle
-                if (!StopCodons.Contains(codon) || i == sequence.Length - 3)
-                {
-                    validCodons++;
-                }
-            }
+            string kmer = seq.Substring(i, wordSize);
+
+            bool inCoding = codingHexamerFrequencies.TryGetValue(kmer, out double coding);
+            bool inNoncoding = noncodingHexamerFrequencies.TryGetValue(kmer, out double noncoding);
+
+            // Skip hexamers absent from either table (matches has_key guard).
+            if (!inCoding || !inNoncoding) continue;
+
+            if (coding > 0 && noncoding > 0)
+                sumOfLogRatio += Math.Log(coding / noncoding);
+            else if (coding > 0 && noncoding == 0)
+                sumOfLogRatio += 1;
+            else if (coding == 0 && noncoding > 0)
+                sumOfLogRatio -= 1;
+            // coding == 0 && noncoding == 0 contributes 0 but still counts.
+
+            scoredHexamers++;
         }
 
-        if (totalCodons == 0) return 0;
+        if (scoredHexamers == 0) return 0;
 
-        // Additional factors: GC content in third position (wobble)
-        int gc3 = 0;
-        for (int i = 2; i < sequence.Length; i += 3)
-        {
-            if (sequence[i] == 'G' || sequence[i] == 'C')
-                gc3++;
-        }
-
-        double gc3ratio = totalCodons > 0 ? (double)gc3 / totalCodons : 0;
-        double validRatio = (double)validCodons / totalCodons;
-
-        // Combine factors (simplified scoring)
-        return validRatio * 0.7 + Math.Abs(gc3ratio - 0.5) * 0.6;
+        return sumOfLogRatio / scoredHexamers;
     }
 
     /// <summary>
