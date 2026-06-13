@@ -141,12 +141,21 @@ public static class CodonUsageAnalyzer
 
     private static double CalculateCaiCore(string seq, Dictionary<string, double> referenceRscu)
     {
-        // Calculate relative adaptiveness (w) for each codon
+        // Relative adaptiveness w_i = f_i / max(f_j) over the synonymous family of the
+        // codon's amino acid (Sharp & Li 1987, Nucleic Acids Res. 15:1281-1295).
+        // Non-synonymous codons (single-codon amino acids Met/Trp) and termination codons
+        // are excluded from CAI (Sharp & Li 1987; CodonW codon-usage indices; EMBOSS cai).
         var relativeAdaptiveness = new Dictionary<string, double>();
 
         foreach (var aaGroup in CodonToAminoAcid.GroupBy(kv => kv.Value))
         {
+            // Exclude termination codons ('*') and single-codon amino acids (Met, Trp):
+            // they carry no synonymous bias and are not counted in CAI.
+            if (aaGroup.Key == '*') continue;
+
             var synonymousCodons = aaGroup.Select(kv => kv.Key).ToList();
+            if (synonymousCodons.Count == 1) continue;
+
             double maxRscu = synonymousCodons.Max(c => referenceRscu.GetValueOrDefault(c, 0));
 
             foreach (var codon in synonymousCodons)
@@ -156,7 +165,8 @@ public static class CodonUsageAnalyzer
             }
         }
 
-        // Calculate CAI as geometric mean of relative adaptiveness values
+        // CAI = geometric mean of w over the L scored codons, computed as
+        // exp((1/L) Σ ln w_i) for numerical stability (Sharp & Li 1987, Eq. 2).
         double logSum = 0;
         int codonCount = 0;
 
@@ -174,146 +184,61 @@ public static class CodonUsageAnalyzer
     }
 
     /// <summary>
-    /// Gets a reference RSCU table for E. coli highly expressed genes.
+    /// Reference relative-adaptiveness (w) table for E. coli very highly expressed genes,
+    /// from Sharp &amp; Li (1987), Nucleic Acids Res. 15(13):1281-1295, as reproduced in
+    /// Biopython's <c>SharpEcoliIndex</c> (Bio.SeqUtils.CodonUsageIndices, v1.79).
+    /// Values are w = f_codon / f_max-synonym in [0,1]; the most-used codon of each amino
+    /// acid is 1.0. Stop codons are not part of CAI and are listed as 0.0.
+    /// Suitable as the <c>referenceRscu</c> argument of <see cref="CalculateCai(string, Dictionary{string, double})"/>:
+    /// since CAI rescales each value by its family maximum, passing w (max 1.0) reproduces w.
     /// </summary>
     public static Dictionary<string, double> EColiOptimalCodons => new()
     {
-        // Preferred codons in E. coli highly expressed genes
-        ["TTT"] = 0.30,
-        ["TTC"] = 1.70,
-        ["TTA"] = 0.07,
-        ["TTG"] = 0.10,
-        ["CTT"] = 0.10,
-        ["CTC"] = 0.07,
-        ["CTA"] = 0.03,
-        ["CTG"] = 5.63,
-        ["ATT"] = 0.45,
-        ["ATC"] = 2.55,
-        ["ATA"] = 0.01,
-        ["ATG"] = 1.00,
-        ["GTT"] = 2.03,
-        ["GTC"] = 0.15,
-        ["GTA"] = 0.83,
-        ["GTG"] = 0.99,
-        ["TCT"] = 1.65,
-        ["TCC"] = 1.32,
-        ["TCA"] = 0.10,
-        ["TCG"] = 0.10,
-        ["CCT"] = 0.12,
-        ["CCC"] = 0.07,
-        ["CCA"] = 0.32,
-        ["CCG"] = 3.49,
-        ["ACT"] = 1.43,
-        ["ACC"] = 2.29,
-        ["ACA"] = 0.15,
-        ["ACG"] = 0.12,
-        ["GCT"] = 1.51,
-        ["GCC"] = 0.30,
-        ["GCA"] = 1.07,
-        ["GCG"] = 1.12,
-        ["TAT"] = 0.44,
-        ["TAC"] = 1.56,
-        ["TAA"] = 1.64,
-        ["TAG"] = 0.00,
-        ["CAT"] = 0.40,
-        ["CAC"] = 1.60,
-        ["CAA"] = 0.14,
-        ["CAG"] = 1.86,
-        ["AAT"] = 0.10,
-        ["AAC"] = 1.90,
-        ["AAA"] = 1.52,
-        ["AAG"] = 0.48,
-        ["GAT"] = 0.56,
-        ["GAC"] = 1.44,
-        ["GAA"] = 1.48,
-        ["GAG"] = 0.52,
-        ["TGT"] = 0.50,
-        ["TGC"] = 1.50,
-        ["TGA"] = 1.36,
-        ["TGG"] = 1.00,
-        ["CGT"] = 4.88,
-        ["CGC"] = 0.88,
-        ["CGA"] = 0.04,
-        ["CGG"] = 0.04,
-        ["AGT"] = 0.13,
-        ["AGC"] = 2.70,
-        ["AGA"] = 0.04,
-        ["AGG"] = 0.04,
-        ["GGT"] = 2.76,
-        ["GGC"] = 1.20,
-        ["GGA"] = 0.04,
-        ["GGG"] = 0.04
+        ["TTT"] = 0.296, ["TTC"] = 1.000, ["TTA"] = 0.020, ["TTG"] = 0.020,
+        ["CTT"] = 0.042, ["CTC"] = 0.037, ["CTA"] = 0.007, ["CTG"] = 1.000,
+        ["ATT"] = 0.185, ["ATC"] = 1.000, ["ATA"] = 0.003, ["ATG"] = 1.000,
+        ["GTT"] = 1.000, ["GTC"] = 0.066, ["GTA"] = 0.495, ["GTG"] = 0.221,
+        ["TCT"] = 1.000, ["TCC"] = 0.744, ["TCA"] = 0.077, ["TCG"] = 0.017,
+        ["CCT"] = 0.070, ["CCC"] = 0.012, ["CCA"] = 0.135, ["CCG"] = 1.000,
+        ["ACT"] = 0.965, ["ACC"] = 1.000, ["ACA"] = 0.076, ["ACG"] = 0.099,
+        ["GCT"] = 1.000, ["GCC"] = 0.122, ["GCA"] = 0.586, ["GCG"] = 0.424,
+        ["TAT"] = 0.239, ["TAC"] = 1.000, ["TAA"] = 0.000, ["TAG"] = 0.000,
+        ["CAT"] = 0.291, ["CAC"] = 1.000, ["CAA"] = 0.124, ["CAG"] = 1.000,
+        ["AAT"] = 0.051, ["AAC"] = 1.000, ["AAA"] = 1.000, ["AAG"] = 0.253,
+        ["GAT"] = 0.434, ["GAC"] = 1.000, ["GAA"] = 1.000, ["GAG"] = 0.259,
+        ["TGT"] = 0.500, ["TGC"] = 1.000, ["TGA"] = 0.000, ["TGG"] = 1.000,
+        ["CGT"] = 1.000, ["CGC"] = 0.356, ["CGA"] = 0.004, ["CGG"] = 0.004,
+        ["AGT"] = 0.085, ["AGC"] = 0.410, ["AGA"] = 0.004, ["AGG"] = 0.002,
+        ["GGT"] = 1.000, ["GGC"] = 0.724, ["GGA"] = 0.010, ["GGG"] = 0.019
     };
 
     /// <summary>
-    /// Gets a reference RSCU table for human highly expressed genes.
+    /// Reference RSCU table for <i>Homo sapiens</i>, derived from the Kazusa codon-usage
+    /// database (Nakamura, Gojobori &amp; Ikemura 2000, Nucleic Acids Res. 28(1):292; species
+    /// Homo sapiens [gbpri], 93,487 CDS / 40,662,582 codons, accessed 2026-06-13).
+    /// RSCU_j = n·x_j / Σ_k x_k over the n synonymous codons of each amino acid, computed
+    /// from the published per-thousand frequencies (Sharp, Tuohy &amp; Mosurski 1986).
+    /// Single-codon families (Met, Trp) are 1.0; the '*' column holds the RSCU of the three
+    /// stop codons treated as one family (not used by CAI).
     /// </summary>
     public static Dictionary<string, double> HumanOptimalCodons => new()
     {
-        ["TTT"] = 0.87,
-        ["TTC"] = 1.13,
-        ["TTA"] = 0.43,
-        ["TTG"] = 0.77,
-        ["CTT"] = 0.78,
-        ["CTC"] = 1.17,
-        ["CTA"] = 0.43,
-        ["CTG"] = 2.41,
-        ["ATT"] = 1.08,
-        ["ATC"] = 1.41,
-        ["ATA"] = 0.51,
-        ["ATG"] = 1.00,
-        ["GTT"] = 0.72,
-        ["GTC"] = 0.95,
-        ["GTA"] = 0.47,
-        ["GTG"] = 1.86,
-        ["TCT"] = 1.14,
-        ["TCC"] = 1.32,
-        ["TCA"] = 0.90,
-        ["TCG"] = 0.33,
-        ["CCT"] = 1.16,
-        ["CCC"] = 1.29,
-        ["CCA"] = 1.09,
-        ["CCG"] = 0.45,
-        ["ACT"] = 0.99,
-        ["ACC"] = 1.41,
-        ["ACA"] = 1.14,
-        ["ACG"] = 0.45,
-        ["GCT"] = 1.08,
-        ["GCC"] = 1.60,
-        ["GCA"] = 0.90,
-        ["GCG"] = 0.42,
-        ["TAT"] = 0.88,
-        ["TAC"] = 1.12,
-        ["TAA"] = 1.00,
-        ["TAG"] = 0.80,
-        ["CAT"] = 0.84,
-        ["CAC"] = 1.16,
-        ["CAA"] = 0.54,
-        ["CAG"] = 1.46,
-        ["AAT"] = 0.94,
-        ["AAC"] = 1.06,
-        ["AAA"] = 0.86,
-        ["AAG"] = 1.14,
-        ["GAT"] = 0.92,
-        ["GAC"] = 1.08,
-        ["GAA"] = 0.84,
-        ["GAG"] = 1.16,
-        ["TGT"] = 0.92,
-        ["TGC"] = 1.08,
-        ["TGA"] = 1.20,
-        ["TGG"] = 1.00,
-        ["CGT"] = 0.48,
-        ["CGC"] = 1.08,
-        ["CGA"] = 0.66,
-        ["CGG"] = 1.20,
-        ["AGT"] = 0.90,
-        ["AGC"] = 1.41,
-        ["AGA"] = 1.26,
-        ["AGG"] = 1.32,
-        ["GGT"] = 0.64,
-        ["GGC"] = 1.36,
-        ["GGA"] = 1.00,
-        ["GGG"] = 1.00
+        ["TTT"] = 0.9288, ["TTC"] = 1.0712, ["TTA"] = 0.4611, ["TTG"] = 0.7725,
+        ["CTT"] = 0.7904, ["CTC"] = 1.1737, ["CTA"] = 0.4311, ["CTG"] = 2.3713,
+        ["ATT"] = 1.0835, ["ATC"] = 1.4086, ["ATA"] = 0.5079, ["ATG"] = 1.0000,
+        ["GTT"] = 0.7249, ["GTC"] = 0.9555, ["GTA"] = 0.4679, ["GTG"] = 1.8517,
+        ["TCT"] = 1.1245, ["TCC"] = 1.3095, ["TCA"] = 0.9026, ["TCG"] = 0.3255,
+        ["CCT"] = 1.1457, ["CCC"] = 1.2962, ["CCA"] = 1.1064, ["CCG"] = 0.4517,
+        ["ACT"] = 0.9850, ["ACC"] = 1.4211, ["ACA"] = 1.1353, ["ACG"] = 0.4586,
+        ["GCT"] = 1.0620, ["GCC"] = 1.5988, ["GCA"] = 0.9120, ["GCG"] = 0.4271,
+        ["TAT"] = 0.8873, ["TAC"] = 1.1127, ["TAA"] = 0.8824, ["TAG"] = 0.7059,
+        ["CAT"] = 0.8385, ["CAC"] = 1.1615, ["CAA"] = 0.5290, ["CAG"] = 1.4710,
+        ["AAT"] = 0.9418, ["AAC"] = 1.0582, ["AAA"] = 0.8668, ["AAG"] = 1.1332,
+        ["GAT"] = 0.9296, ["GAC"] = 1.0704, ["GAA"] = 0.8455, ["GAG"] = 1.1545,
+        ["TGT"] = 0.9138, ["TGC"] = 1.0862, ["TGA"] = 1.4118, ["TGG"] = 1.0000,
+        ["CGT"] = 0.4762, ["CGC"] = 1.1005, ["CGA"] = 0.6561, ["CGG"] = 1.2063,
+        ["AGT"] = 0.8952, ["AGC"] = 1.4427, ["AGA"] = 1.2910, ["AGG"] = 1.2698,
+        ["GGT"] = 0.6545, ["GGC"] = 1.3455, ["GGA"] = 1.0000, ["GGG"] = 1.0000
     };
 
     #endregion
@@ -469,9 +394,17 @@ public static class CodonUsageAnalyzer
 
         int totalCodons = counts.Values.Sum();
 
-        // GC content at different codon positions
+        // GC content at codon positions 1/2/3 over all valid codons (EMBOSS cusp:
+        // "1st/2nd/3rd letter GC"). Reported as a percentage of valid codons.
         int gc1 = 0, gc2 = 0, gc3 = 0;
         int positionCount = 0;
+
+        // GC3s: frequency of G/C at the THIRD position of *synonymous* codons, i.e.
+        // excluding Met, Trp and termination codons (Peden 1999, CodonW thesis §1.8.2.1.3:
+        // "the frequency of G or C nucleotides present at the third position of synonymous
+        // codons (i.e. excluding Met, Trp and termination codons)").
+        int gc3sCount = 0;          // numerator: synonymous codons with G/C at position 3
+        int synonymousCodonCount = 0; // denominator: codons at synonymous third positions
 
         for (int i = 0; i + 3 <= seq.Length; i += 3)
         {
@@ -482,13 +415,21 @@ public static class CodonUsageAnalyzer
                 gc2 += IsGC(codon[1]) ? 1 : 0;
                 gc3 += IsGC(codon[2]) ? 1 : 0;
                 positionCount++;
+
+                if (IsSynonymousAtThirdPosition(codon))
+                {
+                    synonymousCodonCount++;
+                    gc3sCount += IsGC(codon[2]) ? 1 : 0;
+                }
             }
         }
 
         double gc1Percent = positionCount > 0 ? (double)gc1 / positionCount * 100 : 0;
         double gc2Percent = positionCount > 0 ? (double)gc2 / positionCount * 100 : 0;
         double gc3Percent = positionCount > 0 ? (double)gc3 / positionCount * 100 : 0;
-        double gc3s = gc3Percent; // GC3s (synonymous third position GC)
+        // GC3s expressed as a percentage for consistency with GC1/GC2/GC3 above
+        // (CodonW reports it as a fraction in [0,1]).
+        double gc3s = synonymousCodonCount > 0 ? (double)gc3sCount / synonymousCodonCount * 100 : 0;
 
         return new CodonUsageStatistics(
             CodonCounts: counts,
@@ -502,6 +443,16 @@ public static class CodonUsageAnalyzer
     }
 
     private static bool IsGC(char c) => c is 'G' or 'C';
+
+    // A codon is "synonymous at the third position" iff its amino acid has more than one
+    // codon (degeneracy > 1). This excludes Met (ATG), Trp (TGG) and the three stop codons,
+    // exactly the set CodonW omits from GC3s (Peden 1999, §1.8.2.1.3).
+    private static bool IsSynonymousAtThirdPosition(string codon)
+    {
+        if (!CodonToAminoAcid.TryGetValue(codon, out char aa) || aa == '*')
+            return false;
+        return CodonToAminoAcid.Count(kv => kv.Value == aa) > 1;
+    }
 
     #endregion
 

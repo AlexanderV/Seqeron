@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 110 |
+| **Completed** | 111 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 124 |
+| **Not Started** | 123 |
 
 ---
 
@@ -138,7 +138,7 @@
 | ☑ | SEQ-SECSTRUCT-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SECSTRUCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_PredictSecondaryStructure_Tests.cs) |
 | ☑ | CODON-RSCU-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-RSCU-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-RSCU-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateRscu_Tests.cs) |
 | ☑ | CODON-ENC-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-ENC-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-ENC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateEnc_Tests.cs) |
-| ☐ | CODON-STATS-001 | Codon | 1 | - | - | - |
+| ☑ | CODON-STATS-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_GetStatistics_Tests.cs) |
 | ☐ | TRANS-SIXFRAME-001 | Translation | 1 | - | - | - |
 | ☐ | ASSEMBLY-MERGE-001 | Assembly | 1 | - | - | - |
 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | - | - | - |
