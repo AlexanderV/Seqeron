@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 108 |
+| **Completed** | 109 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 126 |
+| **Not Started** | 125 |
 
 ---
 
@@ -136,7 +136,7 @@
 | ☑ | SEQ-THERMO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-THERMO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-THERMO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
 | ☑ | SEQ-DINUC-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-DINUC-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-DINUC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateDinucleotide_Tests.cs) |
 | ☑ | SEQ-SECSTRUCT-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SECSTRUCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_PredictSecondaryStructure_Tests.cs) |
-| ☐ | CODON-RSCU-001 | Codon | 1 | - | - | - |
+| ☑ | CODON-RSCU-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-RSCU-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-RSCU-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateRscu_Tests.cs) |
 | ☐ | CODON-ENC-001 | Codon | 1 | - | - | - |
 | ☐ | CODON-STATS-001 | Codon | 1 | - | - | - |
 | ☐ | TRANS-SIXFRAME-001 | Translation | 1 | - | - | - |

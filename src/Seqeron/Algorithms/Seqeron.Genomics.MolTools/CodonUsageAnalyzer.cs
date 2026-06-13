@@ -62,8 +62,11 @@ public static class CodonUsageAnalyzer
 
     /// <summary>
     /// Calculates Relative Synonymous Codon Usage (RSCU).
-    /// RSCU = (observed frequency) / (expected frequency if all synonymous codons are used equally)
-    /// RSCU = 1 means no bias, > 1 means over-represented, < 1 means under-represented.
+    /// For codon j of an amino acid with n synonymous codons and observed counts x,
+    /// RSCU = x_j / ((1/n) * sum_k x_k) = (n * x_j) / sum_k x_k.
+    /// RSCU = 1 means no bias, &gt; 1 means over-represented, &lt; 1 means under-represented.
+    /// Definition per Sharp, Tuohy &amp; Mosurski (1986), Nucleic Acids Res. 14(13):5125-5143.
+    /// Single-codon families (Met, Trp) always yield RSCU = 1 when present.
     /// </summary>
     public static Dictionary<string, double> CalculateRscu(DnaSequence sequence)
     {

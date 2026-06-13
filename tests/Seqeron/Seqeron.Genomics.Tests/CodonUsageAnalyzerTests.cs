@@ -7,105 +7,8 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class CodonUsageAnalyzerTests
 {
-    #region Codon Counting Tests
-
-    [Test]
-    public void CountCodons_SimpleCodingSequence_CountsCorrectly()
-    {
-        var sequence = new DnaSequence("ATGAAATGA"); // Met-Lys-Stop
-        var counts = CodonUsageAnalyzer.CountCodons(sequence);
-
-        Assert.That(counts["ATG"], Is.EqualTo(1));
-        Assert.That(counts["AAA"], Is.EqualTo(1));
-        Assert.That(counts["TGA"], Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CountCodons_RepeatedCodons_CountsCorrectly()
-    {
-        var sequence = new DnaSequence("ATGATGATG"); // 3x ATG
-        var counts = CodonUsageAnalyzer.CountCodons(sequence);
-
-        Assert.That(counts["ATG"], Is.EqualTo(3));
-    }
-
-    [Test]
-    public void CountCodons_EmptySequence_ReturnsEmpty()
-    {
-        var counts = CodonUsageAnalyzer.CountCodons("");
-        Assert.That(counts, Is.Empty);
-    }
-
-    [Test]
-    public void CountCodons_IncompleteCodon_IgnoresLastBases()
-    {
-        var sequence = new DnaSequence("ATGAA"); // ATG + AA (incomplete)
-        var counts = CodonUsageAnalyzer.CountCodons(sequence);
-
-        Assert.That(counts.Count, Is.EqualTo(1));
-        Assert.That(counts["ATG"], Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CountCodons_StringOverload_Works()
-    {
-        var counts = CodonUsageAnalyzer.CountCodons("ATGAAATGA");
-
-        Assert.That(counts["ATG"], Is.EqualTo(1));
-        Assert.That(counts["AAA"], Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CountCodons_AllSixtyFourCodons_RecognizesAll()
-    {
-        // Create sequence with various codons
-        var sequence = new DnaSequence("ATGTTTTTATGCCCCCA");
-        var counts = CodonUsageAnalyzer.CountCodons(sequence);
-
-        Assert.That(counts.Values.Sum(), Is.EqualTo(5));
-    }
-
-    #endregion
-
-    #region RSCU Tests
-
-    [Test]
-    public void CalculateRscu_UnbiasedUsage_ReturnsOne()
-    {
-        // Equal usage of Phe codons (TTT and TTC)
-        var sequence = new DnaSequence("TTTTTC");
-        var rscu = CodonUsageAnalyzer.CalculateRscu(sequence);
-
-        Assert.That(rscu["TTT"], Is.EqualTo(1.0).Within(0.01));
-        Assert.That(rscu["TTC"], Is.EqualTo(1.0).Within(0.01));
-    }
-
-    [Test]
-    public void CalculateRscu_BiasedUsage_ReturnsCorrectValues()
-    {
-        // Only using TTT for Phe (biased)
-        var sequence = new DnaSequence("TTTTTT");
-        var rscu = CodonUsageAnalyzer.CalculateRscu(sequence);
-
-        Assert.That(rscu["TTT"], Is.EqualTo(2.0).Within(0.01)); // Over-represented
-        Assert.That(rscu["TTC"], Is.EqualTo(0.0).Within(0.01)); // Under-represented
-    }
-
-    [Test]
-    public void CalculateRscu_EmptySequence_ReturnsEmpty()
-    {
-        var rscu = CodonUsageAnalyzer.CalculateRscu("");
-        Assert.That(rscu, Is.Empty);
-    }
-
-    [Test]
-    public void CalculateRscu_StringOverload_Works()
-    {
-        var rscu = CodonUsageAnalyzer.CalculateRscu("TTTTTC");
-        Assert.That(rscu.ContainsKey("TTT"));
-    }
-
-    #endregion
+    // NOTE: CountCodons and RSCU tests live in the canonical file
+    // CodonUsageAnalyzer_CalculateRscu_Tests.cs (Test Unit CODON-RSCU-001).
 
     #region CAI Tests
 
@@ -270,20 +173,6 @@ public class CodonUsageAnalyzerTests
     #endregion
 
     #region Edge Cases
-
-    [Test]
-    public void CountCodons_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            CodonUsageAnalyzer.CountCodons((DnaSequence)null!));
-    }
-
-    [Test]
-    public void CalculateRscu_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            CodonUsageAnalyzer.CalculateRscu((DnaSequence)null!));
-    }
 
     [Test]
     public void CalculateCai_NullSequence_ThrowsException()
