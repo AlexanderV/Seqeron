@@ -604,11 +604,37 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Merges two overlapping contigs.
+    /// Merges two contigs whose suffix/prefix overlap length is already known, collapsing the
+    /// shared region so it appears once: the merged superstring is
+    /// <paramref name="contig1"/> followed by <paramref name="contig2"/> with its length-<c>l</c>
+    /// prefix removed (<c>l = overlapLength</c>). For a valid overlap the result length is
+    /// <c>|contig1| + |contig2| − overlapLength</c>.
     /// </summary>
+    /// <remarks>
+    /// An overlap is a length-<c>l</c> suffix of <paramref name="contig1"/> that matches a
+    /// length-<c>l</c> prefix of <paramref name="contig2"/>; merging keeps a single copy of that
+    /// region (Langmead, "Assembly &amp; shortest common superstring", JHU notes — overlap
+    /// definition and the greedy merge trace, e.g. <c>BAA</c> + <c>AAB</c> at overlap 2 → <c>BAAB</c>).
+    /// A non-positive overlap, or one larger than the shorter contig, is not a usable suffix/prefix
+    /// overlap, so the contigs are simply concatenated (Langmead: "without requirement of 'shortest',
+    /// it's easy: just concatenate them"; a valid overlap is bounded by <c>min(|x|,|y|)</c>).
+    /// The supplied <paramref name="overlapLength"/> is trusted; computing/verifying it is the
+    /// responsibility of <see cref="FindOverlap"/> / <c>FindAllOverlaps</c>.
+    /// </remarks>
+    /// <param name="contig1">The left contig; its suffix overlaps the prefix of <paramref name="contig2"/>.</param>
+    /// <param name="contig2">The right contig; its length-<paramref name="overlapLength"/> prefix is the shared region.</param>
+    /// <param name="overlapLength">Length of the suffix(contig1)/prefix(contig2) overlap to collapse.</param>
+    /// <returns>The merged superstring.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contig1"/> or <paramref name="contig2"/> is null.</exception>
     public static string MergeContigs(string contig1, string contig2, int overlapLength)
     {
-        if (overlapLength <= 0 || overlapLength > Math.Min(contig1.Length, contig2.Length))
+        ArgumentNullException.ThrowIfNull(contig1);
+        ArgumentNullException.ThrowIfNull(contig2);
+
+        // Overlap length 0 means "no overlap → concatenate" and a valid overlap cannot exceed the
+        // shorter contig (it is both a suffix of contig1 and a prefix of contig2): Langmead SCS notes.
+        const int NoOverlap = 0;
+        if (overlapLength <= NoOverlap || overlapLength > Math.Min(contig1.Length, contig2.Length))
             return contig1 + contig2;
 
         return contig1 + contig2.Substring(overlapLength);

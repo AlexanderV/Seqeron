@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 112 |
+| **Completed** | 113 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 122 |
+| **Not Started** | 121 |
 
 ---
 
@@ -140,7 +140,7 @@
 | ☑ | CODON-ENC-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-ENC-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-ENC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateEnc_Tests.cs) |
 | ☑ | CODON-STATS-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_GetStatistics_Tests.cs) |
 | ☑ | TRANS-SIXFRAME-001 | Translation | 1 | [Evidence](docs/Evidence/TRANS-SIXFRAME-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-SIXFRAME-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/Translator_SixFrames_Tests.cs) |
-| ☐ | ASSEMBLY-MERGE-001 | Assembly | 1 | - | - | - |
+| ☑ | ASSEMBLY-MERGE-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-MERGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_MergeContigs_Tests.cs) |
 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | - | - | - |
 | ☐ | ASSEMBLY-COVER-001 | Assembly | 1 | - | - | - |
 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | - | - | - |
