@@ -334,68 +334,8 @@ public class EpigeneticsAnalyzerTests
 
     #endregion
 
-    #region Epigenetic Age Tests
-
-    [Test]
-    public void CalculateEpigeneticAge_WithDefaultCoefficients_ReturnsAge()
-    {
-        var methylation = new Dictionary<string, double>
-        {
-            { "cg00000029", 0.5 },
-            { "cg00000165", 0.3 },
-            { "cg00000236", 0.7 }
-        };
-
-        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
-
-        Assert.That(age, Is.GreaterThanOrEqualTo(0));
-    }
-
-    [Test]
-    public void CalculateEpigeneticAge_EmptyInput_ReturnsZero()
-    {
-        var methylation = new Dictionary<string, double>();
-
-        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
-
-        Assert.That(age, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateEpigeneticAge_CustomCoefficients_Works()
-    {
-        var methylation = new Dictionary<string, double>
-        {
-            { "custom_cpg1", 0.5 },
-            { "custom_cpg2", 0.5 }
-        };
-
-        var coefficients = new Dictionary<string, double>
-        {
-            { "custom_cpg1", 1.0 },
-            { "custom_cpg2", 1.0 }
-        };
-
-        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation, coefficients);
-
-        // exp(1.0) - 1 ≈ 1.718
-        Assert.That(age, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateEpigeneticAge_UnknownCpGs_Ignored()
-    {
-        var methylation = new Dictionary<string, double>
-        {
-            { "unknown_cpg", 1.0 }
-        };
-
-        double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylation);
-
-        Assert.That(age, Is.EqualTo(0)); // No matching coefficients
-    }
-
-    #endregion
+    // Epigenetic-age tests moved to the canonical fixture
+    // EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs (EPIGEN-AGE-001).
 
     #region Edge Cases Tests
 

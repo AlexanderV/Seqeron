@@ -1116,43 +1116,69 @@ public static class EpigeneticsAnalyzer
 
     #region DNA Methylation Age (Epigenetic Clock)
 
+    // Adult-age constant of the Horvath (2013) calibration function F. The relationship
+    // between chronological age and DNAm is logarithmic up to this age and linear after.
+    // Source: Horvath S (2013), Genome Biology 14:R115, "A transformed version of age"
+    // (Additional file 2); reference implementations use adult.age = 20.
+    private const double HorvathAdultAge = 20.0;
+
     /// <summary>
-    /// Calculates epigenetic age using simplified Horvath clock-like model.
+    /// Estimates DNA methylation (epigenetic) age from methylation values at clock CpGs using a
+    /// caller-supplied linear predictor (generalised Horvath-style epigenetic clock).
     /// </summary>
+    /// <remarks>
+    /// Computes the linear predictor Y = intercept + Σ(coefficient_i · β_i) over the CpGs present in
+    /// both <paramref name="methylationAtClockCpGs"/> and <paramref name="coefficients"/>, then maps it
+    /// to age with the Horvath (2013) inverse calibration F⁻¹ (<see cref="HorvathAntiTransform"/>).
+    /// Clock coefficients (e.g. the 353-CpG Horvath set) are large published tables and are NOT bundled;
+    /// the caller MUST supply the coefficient table and intercept for the clock they intend to use.
+    /// </remarks>
+    /// <param name="methylationAtClockCpGs">Methylation β-values keyed by CpG identifier (0..1).</param>
+    /// <param name="coefficients">Clock coefficients keyed by CpG identifier. Required.</param>
+    /// <param name="intercept">Model intercept added to the weighted sum before the inverse transform.</param>
+    /// <returns>Estimated DNAm age in years.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="methylationAtClockCpGs"/> or <paramref name="coefficients"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="coefficients"/> is empty.</exception>
     public static double CalculateEpigeneticAge(
         IReadOnlyDictionary<string, double> methylationAtClockCpGs,
-        IReadOnlyDictionary<string, double>? coefficients = null)
+        IReadOnlyDictionary<string, double> coefficients,
+        double intercept = 0.0)
     {
-        if (methylationAtClockCpGs == null || methylationAtClockCpGs.Count == 0)
-            return 0;
+        if (methylationAtClockCpGs == null)
+            throw new ArgumentNullException(nameof(methylationAtClockCpGs));
+        if (coefficients == null)
+            throw new ArgumentNullException(nameof(coefficients));
+        if (coefficients.Count == 0)
+            throw new ArgumentException("Clock coefficient table cannot be empty.", nameof(coefficients));
 
-        coefficients ??= GetDefaultClockCoefficients();
-
-        double age = 0;
+        // Linear predictor: Y = intercept + Σ coef_i · β_i over the clock CpGs.
+        // Source: Horvath (2013) reference R code — predictedAge = anti.trafo(
+        //   CoefficientTraining[1] + datMethClock %*% CoefficientTraining[-1]).
+        double linearPredictor = intercept;
 
         foreach (var (cpg, methylation) in methylationAtClockCpGs)
         {
             if (coefficients.TryGetValue(cpg, out double coef))
             {
-                age += coef * methylation;
+                linearPredictor += coef * methylation;
             }
         }
 
-        // Anti-log transformation (Horvath uses transformed age)
-        return age > 0 ? Math.Exp(age) - 1 : 0;
+        return HorvathAntiTransform(linearPredictor);
     }
 
-    private static Dictionary<string, double> GetDefaultClockCoefficients()
+    /// <summary>
+    /// Horvath (2013) inverse calibration F⁻¹ mapping a transformed-age linear predictor to years.
+    /// </summary>
+    /// <remarks>
+    /// anti.trafo(x) = (1 + adult.age)·exp(x) − 1 for x &lt; 0; (1 + adult.age)·x + adult.age otherwise.
+    /// Source: Horvath (2013) reference R code (anti.trafo), with adult.age = 20.
+    /// </remarks>
+    public static double HorvathAntiTransform(double transformedAge)
     {
-        // Simplified example coefficients
-        return new Dictionary<string, double>
-        {
-            { "cg00000029", 0.0127 },
-            { "cg00000165", -0.0312 },
-            { "cg00000236", 0.0089 },
-            { "cg00000289", -0.0156 },
-            { "cg00000363", 0.0245 }
-        };
+        return transformedAge < 0
+            ? (1 + HorvathAdultAge) * Math.Exp(transformedAge) - 1
+            : (1 + HorvathAdultAge) * transformedAge + HorvathAdultAge;
     }
 
     #endregion

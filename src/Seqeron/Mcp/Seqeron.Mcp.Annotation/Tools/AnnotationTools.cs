@@ -977,12 +977,15 @@ public class AnnotationTools
     [Description("Estimate epigenetic age (Horvath-clock-style) from methylation values at clock CpGs.")]
     public static EpigeneticAgeResult EpigeneticAge(
         [Description("Methylation values at clock CpGs (CpG ID → methylation 0..1)")] Dictionary<string, double> methylationAtClockCpGs,
-        [Description("Optional clock coefficients (CpG ID → coefficient); uses built-in defaults when null")] Dictionary<string, double>? coefficients = null)
+        [Description("Clock coefficients (CpG ID → coefficient); required — caller supplies the published clock table")] Dictionary<string, double> coefficients,
+        [Description("Model intercept added to the weighted sum before the Horvath inverse transform")] double intercept = 0.0)
     {
         if (methylationAtClockCpGs is null || methylationAtClockCpGs.Count == 0)
             throw new ArgumentException("Methylation map cannot be null or empty", nameof(methylationAtClockCpGs));
+        if (coefficients is null || coefficients.Count == 0)
+            throw new ArgumentException("Clock coefficient table cannot be null or empty", nameof(coefficients));
 
-        var age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylationAtClockCpGs, coefficients);
+        var age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylationAtClockCpGs, coefficients, intercept);
         return new EpigeneticAgeResult(age);
     }
 

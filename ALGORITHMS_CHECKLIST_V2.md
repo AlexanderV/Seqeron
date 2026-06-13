@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 122 |
+| **Completed** | 123 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 112 |
+| **Not Started** | 111 |
 
 ---
 
@@ -150,7 +150,7 @@
 | ☑ | ALIGN-STATS-001 | Alignment | 2 | [Evidence](docs/Evidence/ALIGN-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ALIGN-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_CalculateStatistics_Tests.cs) |
 | ☑ | EPIGEN-BISULF-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-BISULF-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-BISULF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Bisulfite_Tests.cs) |
 | ☑ | EPIGEN-CHROM-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CHROM-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CHROM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) |
-| ☐ | EPIGEN-AGE-001 | Epigenetics | 1 | - | - | - |
+| ☑ | EPIGEN-AGE-001 | Epigenetics | 1 | [Evidence](docs/Evidence/EPIGEN-AGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-AGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) |
 | ☐ | MIRNA-PAIR-001 | MiRNA | 3 | - | - | - |
 | ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |
 | ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
@@ -2628,8 +2628,14 @@ gap/mismatch). The prior implementation's similarity formula was corrected in th
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateEpigeneticAge(methylationProfile, clockType)` | EpigeneticsAnalyzer | Canonical |
-| `PredictImprintedGenes(methylationProfile)` | EpigeneticsAnalyzer | Imprinting |
+| `CalculateEpigeneticAge(methylationAtClockCpGs, coefficients, intercept)` | EpigeneticsAnalyzer | Canonical |
+| `HorvathAntiTransform(transformedAge)` | EpigeneticsAnalyzer | Canonical |
+| `PredictImprintedGenes(...)` | EpigeneticsAnalyzer | Out of scope (no retrieved authoritative basis; not part of the age clock) |
+
+> Signature corrected from the placeholder `(methylationProfile, clockType)` to the evidence-based
+> `(methylationAtClockCpGs, coefficients, intercept)`: Horvath (2013) computes DNAm age as
+> `anti.trafo(intercept + Σ coef·β)` with caller-supplied clock coefficients (the 353-CpG table is a
+> large published table and is not bundled — fabricated coefficients are forbidden). See EPIGEN-AGE-001 Evidence/TestSpec.
 
 ---
 
