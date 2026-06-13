@@ -51,50 +51,8 @@ public class CodonUsageAnalyzerTests
 
     #endregion
 
-    #region ENC Tests
-
-    [Test]
-    public void CalculateEnc_NoBias_ReturnsHigh()
-    {
-        // For ENC to be high, we need diverse codon usage across synonymous families
-        // Using a realistic coding sequence with varied codons
-        var sequence = new DnaSequence("ATGAAAGAGCTGTTCGCCAAA");
-
-        double enc = CodonUsageAnalyzer.CalculateEnc(sequence);
-
-        // ENC ranges from 20 (max bias) to 61 (no bias)
-        // Even with limited data, should be >= 20
-        Assert.That(enc, Is.GreaterThanOrEqualTo(20));
-    }
-
-    [Test]
-    public void CalculateEnc_HighBias_ReturnsLow()
-    {
-        // Only one codon type per amino acid (extreme bias)
-        var sequence = new DnaSequence("TTTTTTTTTTTTTTT"); // Only Phe-TTT
-        double enc = CodonUsageAnalyzer.CalculateEnc(sequence);
-
-        Assert.That(enc, Is.GreaterThanOrEqualTo(20)); // Min ENC = 20
-    }
-
-    [Test]
-    public void CalculateEnc_RangeIsTwentyToSixtyOne()
-    {
-        var sequence = new DnaSequence("ATGAAATTTGGGCCC");
-        double enc = CodonUsageAnalyzer.CalculateEnc(sequence);
-
-        Assert.That(enc, Is.GreaterThanOrEqualTo(20));
-        Assert.That(enc, Is.LessThanOrEqualTo(61));
-    }
-
-    [Test]
-    public void CalculateEnc_EmptySequence_ReturnsZero()
-    {
-        double enc = CodonUsageAnalyzer.CalculateEnc("");
-        Assert.That(enc, Is.EqualTo(0));
-    }
-
-    #endregion
+    // ENC tests for CODON-ENC-001 live in the canonical file
+    // CodonUsageAnalyzer_CalculateEnc_Tests.cs (evidence-based).
 
     #region Statistics Tests
 

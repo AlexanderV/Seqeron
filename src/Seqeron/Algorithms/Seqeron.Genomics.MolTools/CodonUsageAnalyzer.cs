@@ -320,9 +320,31 @@ public static class CodonUsageAnalyzer
 
     #region Effective Number of Codons (ENC)
 
+    // --- Constants per Wright F. (1990) Gene 87(1):23–29, as reproduced verbatim in
+    //     Fuglsang A. (2004) BBRC 317:957–964 (Eqs. 1–5a). ---
+
+    // Number of synonymous-codon amino acids in each degeneracy class of the
+    // standard (NCBI table 1) genetic code, used as the numerators of Wright Eq. (3).
+    private const int TwoFoldAminoAcidCount = 9;   // 9 doublets (His, Gln, …)
+    private const int ThreeFoldAminoAcidCount = 1; // 1 triplet  (Ile)
+    private const int FourFoldAminoAcidCount = 5;  // 5 quartets (Ala, Gly, Pro, Thr, Val)
+    private const int SixFoldAminoAcidCount = 3;   // 3 sextets  (Leu, Ser, Arg)
+
+    // The two single-codon amino acids Met (ATG) and Trp (TGG) each contribute exactly
+    // one effective codon; this is the constant "2" in Wright Eq. (3).
+    private const double SingleCodonAminoAcidContribution = 2.0;
+
+    // Wright Eq. (3): if Nc exceeds 61 it is re-adjusted down to 61 (the maximum number
+    // of sense codons in the standard genetic code).
+    private const double MaxEffectiveCodons = 61.0;
+
+    // Structural lower bound: every degeneracy class collapsed to one codon gives Nc = 20
+    // (the extreme-bias limit stated by Wright/Fuglsang).
+    private const double MinEffectiveCodons = 20.0;
+
     /// <summary>
-    /// Calculates Effective Number of Codons (ENC/Nc).
-    /// ENC ranges from 20 (extreme bias - one codon per amino acid) to 61 (no bias).
+    /// Calculates the Effective Number of Codons (ENC / Nc) per Wright (1990).
+    /// Nc ranges from 20 (extreme bias — one codon per amino acid) to 61 (no bias).
     /// </summary>
     public static double CalculateEnc(DnaSequence sequence)
     {
@@ -331,7 +353,7 @@ public static class CodonUsageAnalyzer
     }
 
     /// <summary>
-    /// Calculates ENC from a raw sequence string.
+    /// Calculates ENC from a raw sequence string. Null/empty returns 0.
     /// </summary>
     public static double CalculateEnc(string sequence)
     {
@@ -345,63 +367,72 @@ public static class CodonUsageAnalyzer
     {
         var counts = CountCodonsCore(seq);
 
-        // Group by amino acid degeneracy
-        var fValues = new Dictionary<int, List<double>>();
+        // Wright Eq. (1): per-amino-acid codon homozygosity, grouped by degeneracy class.
+        var fByDegeneracy = new Dictionary<int, List<double>>();
 
         foreach (var aaGroup in CodonToAminoAcid.GroupBy(kv => kv.Value))
         {
+            // Exclude stop codons ('*'); they are not amino acids and not counted in Nc.
+            if (aaGroup.Key == '*') continue;
+
             var synonymousCodons = aaGroup.Select(kv => kv.Key).ToList();
             int degeneracy = synonymousCodons.Count;
 
-            if (degeneracy == 1) continue; // Skip Met and Trp
+            if (degeneracy == 1) continue; // Met / Trp handled by SingleCodonAminoAcidContribution.
 
-            var codonCounts = synonymousCodons.Select(c => counts.GetValueOrDefault(c, 0)).ToList();
-            int n = codonCounts.Sum();
+            int n = synonymousCodons.Sum(c => counts.GetValueOrDefault(c, 0));
+            if (n <= 1) continue; // F̂ undefined for n ≤ 1 (denominator n − 1); Fuglsang 2004.
 
-            if (n <= 1) continue;
+            // Wright Eq. (1): F̂ = (n·Σ p_i² − 1)/(n − 1), p_i = n_i/n.
+            double sumPSquared = 0;
+            foreach (var codon in synonymousCodons)
+            {
+                double p = (double)counts.GetValueOrDefault(codon, 0) / n;
+                sumPSquared += p * p;
+            }
+            double f = (n * sumPSquared - 1) / (n - 1);
 
-            // Calculate F for this amino acid
-            double sumPiSquared = codonCounts.Sum(ni => (double)ni * ni);
-            double f = (n * sumPiSquared - 1) / (n - 1) / n;
-
-            if (!fValues.ContainsKey(degeneracy))
-                fValues[degeneracy] = new List<double>();
-
-            fValues[degeneracy].Add(f);
+            if (!fByDegeneracy.TryGetValue(degeneracy, out var list))
+            {
+                list = new List<double>();
+                fByDegeneracy[degeneracy] = list;
+            }
+            list.Add(f);
         }
 
-        // Calculate average F for each degeneracy class
-        double enc = 0;
+        // Wright Eq. (4): the class average F̂ substitutes for any amino acid that cannot
+        // be estimated within the same degeneracy class.
+        double? f2 = AverageOrNull(fByDegeneracy, 2);
+        double? f3 = AverageOrNull(fByDegeneracy, 3);
+        double? f4 = AverageOrNull(fByDegeneracy, 4);
+        double? f6 = AverageOrNull(fByDegeneracy, 6);
 
-        // 2-fold degenerate (9 amino acids)
-        if (fValues.ContainsKey(2) && fValues[2].Count > 0)
-            enc += 9 / fValues[2].Average();
-        else
-            enc += 9;
+        // Wright Eq. (5a): when isoleucine (the only 3-fold amino acid) cannot be
+        // estimated, F̂₃ = (F̂₂ + F̂₄)/2.
+        if (f3 is null && f2 is not null && f4 is not null)
+            f3 = (f2.Value + f4.Value) / 2.0;
 
-        // 3-fold degenerate (1 amino acid - Ile)
-        if (fValues.ContainsKey(3) && fValues[3].Count > 0)
-            enc += 1 / fValues[3].Average();
-        else
-            enc += 1;
+        // Wright Eq. (3): Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆.
+        // A class with no estimable F̂ (and, for Ile, no Eq. 5a fallback) contributes its
+        // full codon count, i.e. all its codons are assumed effectively present.
+        double enc = SingleCodonAminoAcidContribution
+            + ClassContribution(TwoFoldAminoAcidCount, f2)
+            + ClassContribution(ThreeFoldAminoAcidCount, f3)
+            + ClassContribution(FourFoldAminoAcidCount, f4)
+            + ClassContribution(SixFoldAminoAcidCount, f6);
 
-        // 4-fold degenerate (5 amino acids)
-        if (fValues.ContainsKey(4) && fValues[4].Count > 0)
-            enc += 5 / fValues[4].Average();
-        else
-            enc += 5;
-
-        // 6-fold degenerate (3 amino acids)
-        if (fValues.ContainsKey(6) && fValues[6].Count > 0)
-            enc += 3 / fValues[6].Average();
-        else
-            enc += 3;
-
-        // Add Met (1) + Trp (1) + Stop (3) = 5 single codons are fixed
-        enc += 2;
-
-        return Math.Min(61, Math.Max(20, enc));
+        return Math.Min(MaxEffectiveCodons, Math.Max(MinEffectiveCodons, enc));
     }
+
+    private static double? AverageOrNull(Dictionary<int, List<double>> fByDegeneracy, int degeneracy)
+        => fByDegeneracy.TryGetValue(degeneracy, out var list) && list.Count > 0
+            ? list.Average()
+            : null;
+
+    private static double ClassContribution(int aminoAcidCount, double? averageF)
+        // No estimable homozygosity for the class ⇒ assume all codons of every amino acid
+        // in the class are effectively in use (contribution equals the codon count).
+        => averageF is double f && f > 0 ? aminoAcidCount / f : aminoAcidCount;
 
     #endregion
 
