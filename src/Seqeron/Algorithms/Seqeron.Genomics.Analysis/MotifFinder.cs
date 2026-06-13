@@ -362,6 +362,80 @@ public static class MotifFinder
         return consensus.ToString();
     }
 
+    /// <summary>
+    /// Nucleotide alphabet in alphabetical order, used both for column counting and for
+    /// deterministic tie-breaking. The order A &lt; C &lt; G &lt; T realises the alphabetical
+    /// tie-break rule: "In the event of a tie, the residue letter occurring earlier in the
+    /// alphabet was chosen" (Los Alamos HIV Database / Geneious consensus documentation).
+    /// </summary>
+    private static readonly char[] ConsensusAlphabet = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// Creates a consensus sequence from a multiple alignment by selecting, at each column,
+    /// the most frequent nucleotide (the symbol with the maximum count in that column of the
+    /// profile matrix). This is the classical "most common symbol per position" consensus
+    /// (Rosalind CONS; Wikipedia "Consensus sequence"), not the IUPAC-degenerate variant
+    /// produced by <see cref="GenerateConsensus(IEnumerable{string})"/>.
+    /// </summary>
+    /// <param name="alignedSequences">
+    /// Aligned DNA sequences of equal length over the alphabet {A, C, G, T} (case-insensitive).
+    /// </param>
+    /// <returns>
+    /// The consensus string. Each position is the most frequent base in that column; ties are
+    /// broken alphabetically (A &lt; C &lt; G &lt; T) for determinism. Returns an empty string for
+    /// an empty collection.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="alignedSequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the sequences are not all of equal length, or contain a non-ACGT character.
+    /// </exception>
+    public static string CreateConsensusFromAlignment(IEnumerable<string> alignedSequences)
+    {
+        ArgumentNullException.ThrowIfNull(alignedSequences);
+
+        var seqList = alignedSequences.Select(s => s.ToUpperInvariant()).ToList();
+        if (seqList.Count == 0) return "";
+
+        int length = seqList[0].Length;
+        if (!seqList.All(s => s.Length == length))
+            throw new ArgumentException(
+                "All aligned sequences must have the same length.", nameof(alignedSequences));
+
+        var consensus = new StringBuilder(length);
+
+        for (int col = 0; col < length; col++)
+        {
+            // Profile counts for this column in alphabetical order (A, C, G, T).
+            var counts = new int[ConsensusAlphabet.Length];
+
+            for (int s = 0; s < seqList.Count; s++)
+            {
+                char nucleotide = seqList[s][col];
+                int index = Array.IndexOf(ConsensusAlphabet, nucleotide);
+                if (index < 0)
+                    throw new ArgumentException(
+                        $"Invalid character '{nucleotide}' at position {col} in sequence {s}. " +
+                        "Only A, C, G, T are valid nucleotide characters.",
+                        nameof(alignedSequences));
+
+                counts[index]++;
+            }
+
+            // Most frequent base; iterating the alphabet in order makes ties resolve to the
+            // alphabetically-earliest base (strict '>' keeps the first maximum).
+            int bestIndex = 0;
+            for (int b = 1; b < counts.Length; b++)
+            {
+                if (counts[b] > counts[bestIndex])
+                    bestIndex = b;
+            }
+
+            consensus.Append(ConsensusAlphabet[bestIndex]);
+        }
+
+        return consensus.ToString();
+    }
+
     private static char GetIupacCode(Dictionary<char, int> counts, int total)
     {
         double threshold = total * 0.25; // Base must be > 25% to be included
