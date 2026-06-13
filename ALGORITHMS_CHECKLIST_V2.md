@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 126 |
+| **Completed** | 127 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 108 |
+| **Not Started** | 107 |
 
 ---
 
@@ -154,7 +154,7 @@
 | ☑ | MIRNA-PAIR-001 | MiRNA | 3 | [Evidence](docs/Evidence/MIRNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) |
 | ☑ | PANGEN-HEAP-001 | PanGenome | 1 | [Evidence](docs/Evidence/PANGEN-HEAP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-HEAP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) |
 | ☑ | PANGEN-MARKER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-MARKER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-MARKER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) |
-| ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
+| ☑ | POP-SELECT-001 | PopGen | 2 | [Evidence](docs/Evidence/POP-SELECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-SELECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs) |
 | ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
 | ☐ | POP-ROH-001 | PopGen | 2 | - | - | - |
 | ☐ | META-FUNC-001 | Metagenomics | 2 | - | - | - |
@@ -2714,13 +2714,14 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 
 ### 39. Extended Population Genetics (3 units)
 
-#### POP-SELECT-001: Selection Signature Detection
+#### POP-SELECT-001: Selection Signature Detection ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `PopulationGeneticsAnalyzer.CalculateIHS(...)` |
+| **Canonical** | `PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex)` |
 | **Complexity** | O(n × h) |
 | **Class** | PopulationGeneticsAnalyzer |
+| **Status** | ☑ Complete — unstandardized iHS = ln(iHH_A/iHH_D) per Voight et al. (2006); EHH per Sabeti et al. (2002) / selscan. Edge cases (null, empty, monomorphic, invalid allele, out-of-range, bad bin/window) covered. |
 
 **Methods:**
 | Method | Class | Type |
