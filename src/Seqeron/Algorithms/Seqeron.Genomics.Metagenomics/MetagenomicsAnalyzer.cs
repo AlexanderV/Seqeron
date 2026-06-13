@@ -1283,4 +1283,192 @@ public static class MetagenomicsAnalyzer
     }
 
     #endregion
+
+    #region Significant Taxa Detection (Mann–Whitney U)
+
+    // Normal-approximation constants for the Mann–Whitney U statistic.
+    // Mean m_U = n1*n2/2 and variance n1*n2*(n1+n2+1)/12 per Mann & Whitney (1947),
+    // Ann. Math. Statist. 18(1):50–60 (see docs/Evidence/META-TAXA-001-Evidence.md).
+    private const double MannWhitneyVarianceDivisor = 12.0;
+    // Continuity correction subtracts 0.5 from |U − m_U| (SciPy mannwhitneyu, use_continuity=True default).
+    private const double ContinuityCorrection = 0.5;
+
+    /// <summary>
+    /// Result of a single taxon's two-group differential-abundance test.
+    /// </summary>
+    /// <param name="Taxon">Taxon identifier.</param>
+    /// <param name="U">Mann–Whitney U statistic (the larger of U1, U2 used for the z-score).</param>
+    /// <param name="Z">Normal-approximation z-score, <c>(|U − m_U| − cc) / σ_U</c>.</param>
+    /// <param name="PValue">Two-tailed asymptotic p-value, <c>2·SF(|z|)</c>, clamped to [0,1].</param>
+    /// <param name="Significant"><c>PValue &lt; pThreshold</c>.</param>
+    public readonly record struct SignificantTaxon(
+        string Taxon,
+        double U,
+        double Z,
+        double PValue,
+        bool Significant);
+
+    /// <summary>
+    /// Result of the Mann–Whitney U (Wilcoxon rank-sum) test under the normal approximation.
+    /// </summary>
+    /// <param name="U1">U statistic for <c>group1</c>: <c>R1 − n1(n1+1)/2</c>.</param>
+    /// <param name="U2">U statistic for <c>group2</c>: <c>n1·n2 − U1</c>.</param>
+    /// <param name="Z">z-score from the larger U: <c>(|U − m_U| − cc) / σ_U</c>.</param>
+    /// <param name="PValue">Two-tailed asymptotic p-value <c>2·SF(|z|)</c>, clamped to [0,1].</param>
+    public readonly record struct MannWhitneyResult(double U1, double U2, double Z, double PValue);
+
+    /// <summary>
+    /// Computes the Mann–Whitney U (Wilcoxon rank-sum) test between two independent samples using
+    /// the asymptotic normal approximation with midrank tie handling.
+    /// </summary>
+    /// <remarks>
+    /// U1 = R1 − n1(n1+1)/2 where R1 is the rank sum of <paramref name="group1"/> in the pooled
+    /// midrank ranking; U2 = n1·n2 − U1. The z-score uses m_U = n1·n2/2 and the tie-corrected
+    /// σ_U = sqrt(n1·n2·(n1+n2+1)/12 − n1·n2·Σ(t³−t)/(12·n·(n−1))). Mann &amp; Whitney (1947).
+    /// </remarks>
+    /// <param name="group1">First sample's observations (e.g., abundances). Must be non-empty.</param>
+    /// <param name="group2">Second sample's observations. Must be non-empty.</param>
+    /// <param name="useContinuityCorrection">Subtract 0.5 from |U − m_U| (default true, matching SciPy).</param>
+    /// <returns>U1, U2, z, and the two-tailed asymptotic p-value.</returns>
+    /// <exception cref="ArgumentNullException">A group is null.</exception>
+    /// <exception cref="ArgumentException">A group is empty.</exception>
+    public static MannWhitneyResult MannWhitneyU(
+        IReadOnlyList<double> group1,
+        IReadOnlyList<double> group2,
+        bool useContinuityCorrection = true)
+    {
+        ArgumentNullException.ThrowIfNull(group1);
+        ArgumentNullException.ThrowIfNull(group2);
+        if (group1.Count == 0 || group2.Count == 0)
+            throw new ArgumentException("Both groups must contain at least one observation.");
+
+        int n1 = group1.Count;
+        int n2 = group2.Count;
+        int n = n1 + n2;
+
+        // Pool both samples and assign midranks (ties share the average of their positions).
+        var pooled = new (double Value, int Group)[n];
+        for (int i = 0; i < n1; i++) pooled[i] = (group1[i], 1);
+        for (int j = 0; j < n2; j++) pooled[n1 + j] = (group2[j], 2);
+        Array.Sort(pooled, (a, b) => a.Value.CompareTo(b.Value));
+
+        var ranks = new double[n];
+        double tieTermSum = 0; // Σ (t_k³ − t_k) over tie groups
+        int idx = 0;
+        while (idx < n)
+        {
+            int start = idx;
+            while (idx < n && pooled[idx].Value == pooled[start].Value) idx++;
+            int tieCount = idx - start;
+            // Ranks are 1-based; midrank = average of the (start+1 .. idx) positions.
+            double midRank = (start + 1 + idx) / 2.0;
+            for (int k = start; k < idx; k++) ranks[k] = midRank;
+            if (tieCount > 1)
+            {
+                double t = tieCount;
+                tieTermSum += t * t * t - t;
+            }
+        }
+
+        double r1 = 0;
+        for (int k = 0; k < n; k++)
+            if (pooled[k].Group == 1) r1 += ranks[k];
+
+        // U1 = R1 − n1(n1+1)/2 ; U2 = n1·n2 − U1  (Mann & Whitney 1947).
+        double u1 = r1 - (double)n1 * (n1 + 1) / 2.0;
+        double nProduct = (double)n1 * n2;
+        double u2 = nProduct - u1;
+
+        double meanU = nProduct / 2.0;
+        // Tie-corrected variance: n1·n2/12 · [(n+1) − Σ(t³−t)/(n(n−1))].
+        double variance = n > 1
+            ? nProduct / MannWhitneyVarianceDivisor * ((n + 1) - tieTermSum / ((double)n * (n - 1)))
+            : 0.0;
+
+        double z;
+        double pValue;
+        if (variance <= 0)
+        {
+            // Degenerate: all observations tied → σ = 0, no evidence against H0.
+            z = 0.0;
+            pValue = 1.0;
+        }
+        else
+        {
+            double sigma = Math.Sqrt(variance);
+            double uForZ = Math.Max(u1, u2);
+            double distance = Math.Abs(uForZ - meanU);
+            if (useContinuityCorrection)
+                distance = Math.Max(0.0, distance - ContinuityCorrection);
+            z = distance / sigma;
+            // Two-tailed: 2·SF(|z|) = 2·(1 − Φ(|z|)). Clamp to [0,1] for tiny numerical overshoot.
+            pValue = Math.Clamp(2.0 * (1.0 - StatisticsHelper.NormalCDF(z)), 0.0, 1.0);
+        }
+
+        return new MannWhitneyResult(u1, u2, z, pValue);
+    }
+
+    /// <summary>
+    /// Identifies taxa whose abundances differ significantly between two sample groups using a
+    /// per-taxon Mann–Whitney U (Wilcoxon rank-sum) test, the standard non-parametric approach for
+    /// differential abundance in metagenomics (Xia &amp; Sun 2017).
+    /// </summary>
+    /// <param name="profiles">Per-sample taxon→abundance maps. A taxon absent in a profile counts as abundance 0.</param>
+    /// <param name="groups">Group label (1 or 2) for each profile, aligned by index with <paramref name="profiles"/>.</param>
+    /// <param name="pThreshold">Significance threshold; a taxon is significant when its p-value is below it.</param>
+    /// <param name="useContinuityCorrection">Passed to <see cref="MannWhitneyU"/> (default true).</param>
+    /// <returns>One <see cref="SignificantTaxon"/> per taxon observed in any profile, ordered by ascending p-value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="profiles"/> or <paramref name="groups"/> is null.</exception>
+    /// <exception cref="ArgumentException">Counts mismatch, fewer than two groups present, or a profile lacks a 1/2 label.</exception>
+    public static IReadOnlyList<SignificantTaxon> FindSignificantTaxa(
+        IReadOnlyList<IReadOnlyDictionary<string, double>> profiles,
+        IReadOnlyList<int> groups,
+        double pThreshold = 0.05,
+        bool useContinuityCorrection = true)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(groups);
+        if (profiles.Count != groups.Count)
+            throw new ArgumentException("profiles and groups must have the same length.");
+        if (profiles.Count == 0)
+            return Array.Empty<SignificantTaxon>();
+
+        var group1Indices = new List<int>();
+        var group2Indices = new List<int>();
+        for (int i = 0; i < groups.Count; i++)
+        {
+            if (groups[i] == 1) group1Indices.Add(i);
+            else if (groups[i] == 2) group2Indices.Add(i);
+            else throw new ArgumentException($"Group label at index {i} must be 1 or 2.");
+        }
+
+        if (group1Indices.Count == 0 || group2Indices.Count == 0)
+            throw new ArgumentException("Both group 1 and group 2 must contain at least one profile.");
+
+        var allTaxa = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var profile in profiles)
+            foreach (var taxon in profile.Keys)
+                allTaxa.Add(taxon);
+
+        var results = new List<SignificantTaxon>(allTaxa.Count);
+        foreach (var taxon in allTaxa)
+        {
+            var g1 = group1Indices.Select(i => profiles[i].GetValueOrDefault(taxon, 0.0)).ToList();
+            var g2 = group2Indices.Select(i => profiles[i].GetValueOrDefault(taxon, 0.0)).ToList();
+
+            var mw = MannWhitneyU(g1, g2, useContinuityCorrection);
+            double u = Math.Max(mw.U1, mw.U2);
+            results.Add(new SignificantTaxon(taxon, u, mw.Z, mw.PValue, mw.PValue < pThreshold));
+        }
+
+        // Deterministic ordering: ascending p-value, then taxon name for stable ties.
+        results.Sort((a, b) =>
+        {
+            int cmp = a.PValue.CompareTo(b.PValue);
+            return cmp != 0 ? cmp : string.CompareOrdinal(a.Taxon, b.Taxon);
+        });
+        return results;
+    }
+
+    #endregion
 }

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 132 |
+| **Completed** | 133 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 102 |
+| **Not Started** | 101 |
 
 ---
 
@@ -160,7 +160,7 @@
 | ☑ | META-FUNC-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-FUNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-FUNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_PredictFunctions_Tests.cs) |
 | ☑ | META-RESIST-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-RESIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-RESIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs) |
 | ☑ | META-PATHWAY-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-PATHWAY-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-PATHWAY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs) |
-| ☐ | META-TAXA-001 | Metagenomics | 1 | - | - | - |
+| ☑ | META-TAXA-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-TAXA-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-TAXA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) |
 | ☐ | PHYLO-BOOT-001 | Phylogenetic | 1 | - | - | - |
 | ☐ | PHYLO-STATS-001 | Phylogenetic | 3 | - | - | - |
 | ☐ | ANNOT-CODING-001 | Annotation | 1 | - | - | - |
@@ -2821,12 +2821,15 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 | Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.FindSignificantTaxa(...)` |
-| **Complexity** | O(n × t) |
+| **Complexity** | O(t × s log s) (t taxa, s samples; per-taxon Mann–Whitney sort) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindSignificantTaxa(profiles, groups, pThreshold)` | MetagenomicsAnalyzer | Canonical |
+| `FindSignificantTaxa(profiles, groups, pThreshold, useContinuityCorrection)` | MetagenomicsAnalyzer | Canonical |
+| `MannWhitneyU(group1, group2, useContinuityCorrection)` | MetagenomicsAnalyzer | Canonical |
+
+**Behavior:** per-taxon Wilcoxon rank-sum (Mann–Whitney U) test under the asymptotic normal approximation with midrank tie correction and a SciPy-default continuity correction; a taxon is significant when its two-tailed p-value < `pThreshold`. Source: Mann & Whitney (1947), SciPy `mannwhitneyu`, Xia & Sun (2017). No by-area edge-case list pre-existed; edge cases derived from Evidence (null/empty/single-group/invalid-label/all-tied/absent-taxon).
 
 ---
 
@@ -4667,6 +4670,7 @@ exponent, gene-id matching) was non-conforming and was rewritten to the micropan
 | `FindAntibioticResistanceGenes` | META-RESIST-001 |
 | `FindPathwayEnrichment` | META-PATHWAY-001 |
 | `FindSignificantTaxa` | META-TAXA-001 |
+| `MannWhitneyU` | META-TAXA-001 |
 | `Bootstrap` | PHYLO-BOOT-001 |
 | `GetLeaves` | PHYLO-STATS-001 |
 | `CalculateTreeLength` | PHYLO-STATS-001 |
