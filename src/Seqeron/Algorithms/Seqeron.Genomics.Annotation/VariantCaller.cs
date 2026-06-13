@@ -10,6 +10,12 @@ namespace Seqeron.Genomics.Annotation;
 /// </summary>
 public static class VariantCaller
 {
+    // Alignment gap character. A reference-side gap marks an insertion in the query and a
+    // query-side gap marks a deletion (Danecek et al. 2011, Bioinformatics 27(15):2156-2158,
+    // doi:10.1093/bioinformatics/btr330 — VCF stores SNPs, insertions and deletions).
+    private const char GapChar = '-';
+    private const string GapAllele = "-";
+
     #region Variant Detection
 
     /// <summary>
@@ -50,29 +56,29 @@ public static class VariantCaller
             char refBase = alignedReference[i];
             char queryBase = alignedQuery[i];
 
-            if (refBase == '-' && queryBase != '-')
+            if (refBase == GapChar && queryBase != GapChar)
             {
                 // Insertion in query
                 yield return new Variant(
                     Position: refPos,
-                    ReferenceAllele: "-",
+                    ReferenceAllele: GapAllele,
                     AlternateAllele: queryBase.ToString(),
                     Type: VariantType.Insertion,
                     QueryPosition: queryPos);
                 queryPos++;
             }
-            else if (refBase != '-' && queryBase == '-')
+            else if (refBase != GapChar && queryBase == GapChar)
             {
                 // Deletion in query
                 yield return new Variant(
                     Position: refPos,
                     ReferenceAllele: refBase.ToString(),
-                    AlternateAllele: "-",
+                    AlternateAllele: GapAllele,
                     Type: VariantType.Deletion,
                     QueryPosition: queryPos);
                 refPos++;
             }
-            else if (refBase != '-' && queryBase != '-' && refBase != queryBase)
+            else if (refBase != GapChar && queryBase != GapChar && refBase != queryBase)
             {
                 // SNP
                 yield return new Variant(
@@ -86,9 +92,9 @@ public static class VariantCaller
             }
             else
             {
-                // Match
-                if (refBase != '-') refPos++;
-                if (queryBase != '-') queryPos++;
+                // Match (or gap-gap column, which advances neither coordinate)
+                if (refBase != GapChar) refPos++;
+                if (queryBase != GapChar) queryPos++;
             }
         }
     }

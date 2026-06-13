@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -495,6 +497,258 @@ public static class VariantAnnotator
             return position >= transcript.CdsStart.Value && position <= transcript.CdsStart.Value + 2;
         else
             return position >= transcript.CdsEnd!.Value - 2 && position <= transcript.CdsEnd.Value;
+    }
+
+    #endregion
+
+    #region Functional Impact (VEP / Sequence Ontology) — VARIANT-ANNOT-001
+
+    // Standard genetic code (NCBI transl_table 1) used to translate reference and
+    // alternate codons. Codon → peptide comparison drives synonymous / missense /
+    // stop_gained / stop_lost classification per VEP VariationEffect.pm predicates.
+    // Source: NCBI gc.prt (table 1); Ensembl ensembl-variation VariationEffect.pm.
+    private static readonly GeneticCode StandardCode = GeneticCode.Standard;
+
+    // Severity rank of each consequence (1 = most severe), copied verbatim from
+    // Ensembl ensembl-variation Utils/Constants.pm OverlapConsequence 'rank' fields
+    // (release/110). Lower rank wins when selecting the most severe consequence.
+    // Source: Constants.pm; McLaren et al. (2016) Genome Biology 17:122.
+    private static readonly IReadOnlyDictionary<ConsequenceType, int> ConsequenceRank =
+        new Dictionary<ConsequenceType, int>
+        {
+            [ConsequenceType.TranscriptAblation] = 1,
+            [ConsequenceType.SpliceAcceptorVariant] = 2,
+            [ConsequenceType.SpliceDonorVariant] = 3,
+            [ConsequenceType.StopGained] = 4,
+            [ConsequenceType.FrameshiftVariant] = 5,
+            [ConsequenceType.StopLost] = 6,
+            [ConsequenceType.StartLost] = 7,
+            [ConsequenceType.TranscriptAmplification] = 8,
+            [ConsequenceType.FeatureElongation] = 9,
+            [ConsequenceType.FeatureTruncation] = 10,
+            [ConsequenceType.InframeInsertion] = 11,
+            [ConsequenceType.InframeDeletion] = 12,
+            [ConsequenceType.MissenseVariant] = 13,
+            [ConsequenceType.ProteinAlteringVariant] = 14,
+            [ConsequenceType.SpliceRegionVariant] = 16,
+            [ConsequenceType.IncompleteTerminalCodonVariant] = 19,
+            [ConsequenceType.StartRetained] = 20,
+            [ConsequenceType.StopRetained] = 21,
+            [ConsequenceType.SynonymousVariant] = 22,
+            [ConsequenceType.CodingSequenceVariant] = 23,
+            [ConsequenceType.MatureMirnaVariant] = 24,
+            [ConsequenceType.FivePrimeUtrVariant] = 25,
+            [ConsequenceType.ThreePrimeUtrVariant] = 26,
+            [ConsequenceType.NonCodingTranscriptExonVariant] = 27,
+            [ConsequenceType.IntronVariant] = 28,
+            [ConsequenceType.NmdTranscriptVariant] = 29,
+            [ConsequenceType.NonCodingTranscriptVariant] = 30,
+            [ConsequenceType.TfbsAblation] = 34,
+            [ConsequenceType.TfbsAmplification] = 35,
+            [ConsequenceType.TfBindingSiteVariant] = 36,
+            [ConsequenceType.RegulatoryRegionAblation] = 37,
+            [ConsequenceType.UpstreamGeneVariant] = 32,
+            [ConsequenceType.DownstreamGeneVariant] = 33,
+            [ConsequenceType.RegulatoryRegionAmplification] = 38,
+            [ConsequenceType.RegulatoryRegionVariant] = 39,
+            [ConsequenceType.IntergenicVariant] = 40,
+        };
+
+    /// <summary>
+    /// Result of functional-impact prediction for a single variant against a single transcript.
+    /// </summary>
+    public readonly record struct FunctionalImpact(
+        ConsequenceType Consequence,
+        ImpactLevel Impact,
+        string? CodonChange,
+        string? AminoAcidChange);
+
+    /// <summary>
+    /// Returns the Ensembl/Constants.pm severity rank of a consequence term
+    /// (1 = most severe). Used to select the most severe consequence.
+    /// </summary>
+    public static int GetConsequenceRank(ConsequenceType consequence) =>
+        ConsequenceRank.TryGetValue(consequence, out int rank) ? rank : int.MaxValue;
+
+    /// <summary>
+    /// Predicts the functional impact (Sequence Ontology consequence term + IMPACT)
+    /// of a variant on one transcript, translating the affected reference and
+    /// alternate codons with the NCBI Standard genetic code.
+    /// Conforms to Ensembl VEP <c>VariationEffect.pm</c> consequence predicates.
+    /// </summary>
+    /// <param name="variant">The variant (1-based genomic position; <see cref="Variant.Reference"/>/<see cref="Variant.Alternate"/> on the forward strand).</param>
+    /// <param name="transcript">The overlapping transcript with coding exons and CDS bounds.</param>
+    /// <param name="referenceSequence">
+    /// Forward-strand reference sequence whose index 0 corresponds to genomic position
+    /// <paramref name="sequenceStart"/>. Must cover the variant and its codon context.
+    /// </param>
+    /// <param name="sequenceStart">Genomic position (1-based) of <paramref name="referenceSequence"/>[0]. Default 1.</param>
+    public static FunctionalImpact PredictFunctionalImpact(
+        Variant variant,
+        Transcript transcript,
+        string referenceSequence,
+        int sequenceStart = 1)
+    {
+        if (string.IsNullOrEmpty(referenceSequence))
+            throw new ArgumentException("Reference sequence must be provided.", nameof(referenceSequence));
+
+        var consequence = DetermineConsequence(variant, transcript, referenceSequence);
+
+        string? codonChange = null;
+        string? aaChange = null;
+
+        // Coding indels: frameshift vs inframe is purely length-based (already
+        // classified by DetermineCodingConsequence). Refine SNV/MNV coding
+        // substitutions via real codon translation.
+        if (IsCodingConsequence(consequence) &&
+            transcript.CdsStart.HasValue &&
+            (variant.Type == VariantType.SNV || variant.Type == VariantType.MNV))
+        {
+            var refined = RefineCodingSubstitution(variant, transcript, referenceSequence, sequenceStart);
+            if (refined.HasValue)
+            {
+                consequence = refined.Value.Consequence;
+                codonChange = refined.Value.CodonChange;
+                aaChange = refined.Value.AaChange;
+            }
+        }
+
+        return new FunctionalImpact(consequence, GetImpactLevel(consequence), codonChange, aaChange);
+    }
+
+    /// <summary>
+    /// Translates the reference and alternate codon(s) overlapping a coding substitution
+    /// and assigns the Sequence Ontology term (synonymous / missense / stop_gained /
+    /// stop_lost / start_lost) per VEP predicate logic.
+    /// </summary>
+    private static (ConsequenceType Consequence, string? CodonChange, string? AaChange)?
+        RefineCodingSubstitution(
+            Variant variant,
+            Transcript transcript,
+            string referenceSequence,
+            int sequenceStart)
+    {
+        int? cdsPos = CalculateCdsPosition(variant.Position, transcript);
+        if (!cdsPos.HasValue)
+            return null;
+
+        // Codon boundaries within the CDS (0-based codon index, position within codon).
+        int positionInCodon = (cdsPos.Value - 1) % 3;           // 0,1,2
+        int codonNumber = (cdsPos.Value - 1) / 3 + 1;           // 1-based protein position
+        int codonGenomicStart = variant.Position - positionInCodon; // forward-strand only (ASSUMPTION A2)
+
+        string? refCodon = ExtractCodon(referenceSequence, sequenceStart, codonGenomicStart);
+        if (refCodon is null)
+            return null;
+
+        // Build the alternate codon by substituting the variant base(s).
+        char[] altCodonChars = refCodon.ToCharArray();
+        for (int i = 0; i < variant.Alternate.Length && positionInCodon + i < 3; i++)
+            altCodonChars[positionInCodon + i] = char.ToUpperInvariant(variant.Alternate[i]);
+        string altCodon = new(altCodonChars);
+
+        char refAa = StandardCode.Translate(refCodon);
+        char altAa = StandardCode.Translate(altCodon);
+
+        string codonChange = $"c.{cdsPos.Value}{variant.Reference}>{variant.Alternate}";
+
+        // start_lost: substitution at the canonical start (ATG) codon, codon 1.
+        // VEP: start_lost takes precedence over missense at the start codon.
+        if (codonNumber == 1 && StandardCode.IsStartCodon(refCodon) && !StandardCode.IsStartCodon(altCodon))
+            return (ConsequenceType.StartLost, codonChange, $"p.{refAa}1?");
+
+        // stop_gained: alt peptide contains a stop ('*') absent from ref. (Src: VariationEffect.pm)
+        if (altAa == '*' && refAa != '*')
+            return (ConsequenceType.StopGained, codonChange, $"p.{refAa}{codonNumber}*");
+
+        // stop_lost: ref peptide is a stop, alt is not. (Src: VariationEffect.pm)
+        if (refAa == '*' && altAa != '*')
+            return (ConsequenceType.StopLost, codonChange, $"p.*{codonNumber}{altAa}");
+
+        // Untranslatable/ambiguous codon ('X') is excluded from synonymous. (Src: VariationEffect.pm)
+        if (refAa == 'X' || altAa == 'X')
+            return (ConsequenceType.CodingSequenceVariant, codonChange, null);
+
+        // synonymous: ref peptide == alt peptide. (Src: VariationEffect.pm)
+        if (refAa == altAa)
+            return (ConsequenceType.SynonymousVariant, codonChange, $"p.{refAa}{codonNumber}=");
+
+        // missense: peptides differ, same length, not start/stop change. (Src: VariationEffect.pm)
+        return (ConsequenceType.MissenseVariant, codonChange, $"p.{refAa}{codonNumber}{altAa}");
+    }
+
+    /// <summary>
+    /// Extracts the 3-base codon starting at <paramref name="codonGenomicStart"/>
+    /// (1-based) from the reference window, or null if out of range.
+    /// </summary>
+    private static string? ExtractCodon(string referenceSequence, int sequenceStart, int codonGenomicStart)
+    {
+        int offset = codonGenomicStart - sequenceStart;
+        if (offset < 0 || offset + 3 > referenceSequence.Length)
+            return null;
+        return referenceSequence.Substring(offset, 3).ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Annotates each variant against the supplied transcripts and returns the single
+    /// most severe consequence per variant (lowest Ensembl/Constants.pm rank),
+    /// matching VEP's most-severe-consequence behaviour (McLaren et al., 2016).
+    /// </summary>
+    /// <param name="variants">Variants to annotate.</param>
+    /// <param name="annotations">Transcript models to annotate against.</param>
+    /// <param name="referenceSequence">Optional forward-strand reference for codon-level refinement.</param>
+    /// <param name="sequenceStart">Genomic position (1-based) of <paramref name="referenceSequence"/>[0]. Default 1.</param>
+    public static IEnumerable<VariantAnnotation> Annotate(
+        IEnumerable<Variant> variants,
+        IEnumerable<Transcript> annotations,
+        string? referenceSequence = null,
+        int sequenceStart = 1)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(annotations);
+
+        var transcripts = annotations.ToList();
+
+        foreach (var variant in variants)
+        {
+            var candidates = AnnotateVariant(variant, transcripts, referenceSequence)
+                .Select(a => referenceSequence != null
+                    ? RefineAnnotation(a, transcripts, referenceSequence, sequenceStart)
+                    : a)
+                .ToList();
+
+            // Most severe = lowest rank. Deterministic tie-break on transcript id.
+            yield return candidates
+                .OrderBy(a => GetConsequenceRank(a.Consequence))
+                .ThenBy(a => a.TranscriptId, StringComparer.Ordinal)
+                .First();
+        }
+    }
+
+    /// <summary>
+    /// Re-runs codon-level refinement for an annotation when a reference sequence is available.
+    /// </summary>
+    private static VariantAnnotation RefineAnnotation(
+        VariantAnnotation annotation,
+        IReadOnlyList<Transcript> transcripts,
+        string referenceSequence,
+        int sequenceStart)
+    {
+        if (string.IsNullOrEmpty(annotation.TranscriptId))
+            return annotation;
+
+        var transcript = transcripts.FirstOrDefault(t => t.TranscriptId == annotation.TranscriptId);
+        if (transcript.TranscriptId != annotation.TranscriptId)
+            return annotation;
+
+        var impact = PredictFunctionalImpact(annotation.Variant, transcript, referenceSequence, sequenceStart);
+        return annotation with
+        {
+            Consequence = impact.Consequence,
+            Impact = impact.Impact,
+            CodonChange = impact.CodonChange ?? annotation.CodonChange,
+            AminoAcidChange = impact.AminoAcidChange ?? annotation.AminoAcidChange,
+        };
     }
 
     #endregion
@@ -1221,11 +1475,13 @@ public static class VariantAnnotator
         if (annotation.CodonChange != null)
             parts.Add($"HGVSC={annotation.CodonChange}");
 
+        // VCF 4.x INFO fields are locale-independent ASCII: numeric values use a
+        // '.' decimal separator regardless of the current culture (VCFv4.x spec).
         if (annotation.SiftScore.HasValue)
-            parts.Add($"SIFT={annotation.SiftScore:F3}");
+            parts.Add($"SIFT={annotation.SiftScore.Value.ToString("F3", CultureInfo.InvariantCulture)}");
 
         if (annotation.PolyphenScore.HasValue)
-            parts.Add($"POLYPHEN={annotation.PolyphenScore:F3}");
+            parts.Add($"POLYPHEN={annotation.PolyphenScore.Value.ToString("F3", CultureInfo.InvariantCulture)}");
 
         return string.Join(";", parts);
     }
