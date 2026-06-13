@@ -97,78 +97,8 @@ public class PopulationGeneticsAnalyzerTests
     // Ancestry Analysis tests moved to the canonical unit file
     // PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs (POP-ANCESTRY-001).
 
-    #region Inbreeding Tests
-
-    [Test]
-    public void CalculateInbreedingFromROH_NoROH_ReturnsZero()
-    {
-        var roh = new List<(int, int)>();
-
-        double f = PopulationGeneticsAnalyzer.CalculateInbreedingFromROH(roh, 300_000_000);
-
-        Assert.That(f, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateInbreedingFromROH_WithROH_CalculatesCorrectly()
-    {
-        var roh = new List<(int, int)>
-        {
-            (0, 10_000_000),
-            (50_000_000, 60_000_000)
-        };
-
-        double f = PopulationGeneticsAnalyzer.CalculateInbreedingFromROH(roh, 100_000_000);
-
-        Assert.That(f, Is.EqualTo(0.2).Within(0.001)); // 20M / 100M
-    }
-
-    [Test]
-    public void FindROH_LongHomozygousRun_DetectsROH()
-    {
-        // Create 100 homozygous SNPs spanning 2Mb
-        var genotypes = Enumerable.Range(0, 100)
-            .Select(i => (Position: i * 20000, Genotype: 0))
-            .ToList();
-
-        var roh = PopulationGeneticsAnalyzer.FindROH(
-            genotypes,
-            minSnps: 50,
-            minLength: 1_000_000,
-            maxHeterozygotes: 1).ToList();
-
-        Assert.That(roh, Has.Count.EqualTo(1));
-    }
-
-    [Test]
-    public void FindROH_TooManyHeterozygotes_NoROH()
-    {
-        var genotypes = Enumerable.Range(0, 100)
-            .Select(i => (Position: i * 20000, Genotype: i % 5 == 0 ? 1 : 0))
-            .ToList();
-
-        var roh = PopulationGeneticsAnalyzer.FindROH(
-            genotypes,
-            maxHeterozygotes: 1).ToList();
-
-        Assert.That(roh, Is.Empty);
-    }
-
-    [Test]
-    public void FindROH_ShortRun_NotDetected()
-    {
-        var genotypes = Enumerable.Range(0, 20)
-            .Select(i => (Position: i * 1000, Genotype: 0))
-            .ToList();
-
-        var roh = PopulationGeneticsAnalyzer.FindROH(
-            genotypes,
-            minSnps: 50).ToList();
-
-        Assert.That(roh, Is.Empty);
-    }
-
-    #endregion
+    // Inbreeding (ROH / F_ROH) tests moved to the canonical unit file
+    // PopulationGeneticsAnalyzer_FindROH_Tests.cs (POP-ROH-001).
 
     #region Edge Cases Tests
 

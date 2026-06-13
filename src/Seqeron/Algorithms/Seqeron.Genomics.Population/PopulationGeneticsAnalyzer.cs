@@ -1399,13 +1399,51 @@ public static class PopulationGeneticsAnalyzer
 
     #region Inbreeding
 
+    // Default minimum number of homozygous SNPs a run must contain to be retained.
+    // PLINK 1.9 --homozyg-snp default is 100 consecutive SNPs (Chang et al. 2015,
+    // PLINK 1.9 "Runs of homozygosity" documentation, --homozyg-snp).
+    private const int DefaultRohMinSnps = 100;
+
+    // Default minimum physical length (in base pairs) for a retained run.
+    // PLINK 1.9 --homozyg-kb default is 1000 kb = 1,000,000 bp (Chang et al. 2015).
+    private const int DefaultRohMinLengthBp = 1_000_000;
+
+    // Default maximum number of heterozygous (opposite) genotypes tolerated inside a
+    // single run before it is broken. The consecutive-runs method of Marras et al.
+    // (2015) allows a small number of opposite genotypes (maxOppRun) to account for
+    // genotyping error; PLINK's scanning window likewise permits one heterozygous call
+    // per window (--homozyg-window-het default 1).
+    private const int DefaultRohMaxHeterozygotes = 1;
+
+    // Default maximum physical gap (in base pairs) between two consecutive SNPs that may
+    // still belong to the same run. PLINK 1.9 --homozyg-gap default is 1000 kb =
+    // 1,000,000 bp (Chang et al. 2015): SNPs farther apart than this break the run.
+    private const int DefaultRohMaxGapBp = 1_000_000;
+
     /// <summary>
-    /// Calculates inbreeding coefficient from runs of homozygosity.
+    /// Calculates the genomic inbreeding coefficient F_ROH from runs of homozygosity:
+    /// F_ROH = (Σ L_ROH) / L_AUTO, the total length of an individual's runs of homozygosity
+    /// (above a chosen minimum length) divided by the length of the autosomal genome covered
+    /// by SNPs (McQuillan et al. 2008, Eq. for F_roh = ΣL_roh / L_auto).
     /// </summary>
+    /// <param name="rohSegments">
+    /// Half-open ROH intervals <c>[Start, End)</c>; each contributes length <c>End − Start</c>.
+    /// </param>
+    /// <param name="genomeLength">
+    /// L_AUTO — the SNP-covered autosomal genome length in the same units as the segments
+    /// (base pairs). Must be positive.
+    /// </param>
+    /// <returns>
+    /// F_ROH in [0, 1] when segments lie within the genome. Returns 0 when
+    /// <paramref name="genomeLength"/> is non-positive (no defined denominator).
+    /// </returns>
     public static double CalculateInbreedingFromROH(
         IEnumerable<(int Start, int End)> rohSegments,
         int genomeLength)
     {
+        if (rohSegments is null)
+            throw new ArgumentNullException(nameof(rohSegments));
+
         if (genomeLength <= 0)
             return 0;
 
@@ -1414,62 +1452,131 @@ public static class PopulationGeneticsAnalyzer
     }
 
     /// <summary>
-    /// Identifies runs of homozygosity (ROH).
+    /// Identifies runs of homozygosity (ROH) with the window-free consecutive-runs method
+    /// of Marras et al. (2015): the genome is scanned SNP by SNP in ascending position
+    /// order; a candidate run is extended while it contains at most
+    /// <paramref name="maxHeterozygotes"/> opposite (heterozygous) genotypes and no gap
+    /// between consecutive SNPs exceeds <paramref name="maxGap"/>. A run that violates either
+    /// limit is closed (ending at the last SNP that still satisfied them), and a new run
+    /// starts at the breaking SNP. A closed run is reported only when it contains at least
+    /// <paramref name="minSnps"/> homozygous SNPs and spans at least <paramref name="minLength"/>
+    /// base pairs (PLINK 1.9 --homozyg-snp / --homozyg-kb thresholds; Chang et al. 2015).
     /// </summary>
+    /// <param name="genotypes">
+    /// Per-SNP <c>(Position, Genotype)</c> pairs, where genotype 0 = homozygous reference and
+    /// 2 = homozygous alternate (both homozygous) and 1 = heterozygous (opposite). Positions
+    /// need not be pre-sorted; they are ordered ascending internally.
+    /// </param>
+    /// <param name="minSnps">Minimum number of SNPs in a retained run (default 100; PLINK --homozyg-snp).</param>
+    /// <param name="minLength">Minimum physical length in bp of a retained run (default 1,000,000; PLINK --homozyg-kb 1000).</param>
+    /// <param name="maxHeterozygotes">Maximum opposite (heterozygous) genotypes tolerated within a run (default 1).</param>
+    /// <param name="maxGap">Maximum bp gap between consecutive SNPs in one run (default 1,000,000; PLINK --homozyg-gap 1000).</param>
+    /// <returns>
+    /// The retained runs as <c>(Start, End, SnpCount)</c>, where Start/End are the positions of
+    /// the first and last SNP of the run (inclusive) and SnpCount is the number of SNPs in it,
+    /// emitted in ascending Start order.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="genotypes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="minSnps"/> &lt; 1, or any of <paramref name="minLength"/>,
+    /// <paramref name="maxHeterozygotes"/>, <paramref name="maxGap"/> is negative.
+    /// </exception>
     public static IEnumerable<(int Start, int End, int SnpCount)> FindROH(
         IEnumerable<(int Position, int Genotype)> genotypes,
-        int minSnps = 50,
-        int minLength = 1_000_000,
-        int maxHeterozygotes = 1)
+        int minSnps = DefaultRohMinSnps,
+        int minLength = DefaultRohMinLengthBp,
+        int maxHeterozygotes = DefaultRohMaxHeterozygotes,
+        int maxGap = DefaultRohMaxGapBp)
+    {
+        if (genotypes is null)
+            throw new ArgumentNullException(nameof(genotypes));
+        if (minSnps < 1)
+            throw new ArgumentOutOfRangeException(nameof(minSnps), minSnps, "Minimum SNP count must be at least 1.");
+        if (minLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLength), minLength, "Minimum length cannot be negative.");
+        if (maxHeterozygotes < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxHeterozygotes), maxHeterozygotes, "Maximum heterozygotes cannot be negative.");
+        if (maxGap < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxGap), maxGap, "Maximum gap cannot be negative.");
+
+        return FindROHIterator(genotypes, minSnps, minLength, maxHeterozygotes, maxGap);
+    }
+
+    private static IEnumerable<(int Start, int End, int SnpCount)> FindROHIterator(
+        IEnumerable<(int Position, int Genotype)> genotypes,
+        int minSnps,
+        int minLength,
+        int maxHeterozygotes,
+        int maxGap)
     {
         var genoList = genotypes.OrderBy(g => g.Position).ToList();
-
-        if (genoList.Count < minSnps)
+        if (genoList.Count == 0)
             yield break;
 
-        int segmentStart = genoList[0].Position;
-        int snpCount = 0;
-        int hetCount = 0;
+        // State of the currently growing run. The run is reported on the closed interval
+        // [runStartIndex .. lastHomIndex]: a run must begin and end on a homozygous SNP, so
+        // trailing tolerated heterozygotes are not part of the emitted run. snpCountAtLastHom
+        // is the SNP count of that emitted interval (interior tolerated heterozygotes included).
+        int runStartIndex = 0;     // first SNP of the current run (homozygous)
+        int snpCount = 0;          // SNPs scanned into the current run so far
+        int hetCount = 0;          // opposite genotypes inside the current run so far
+        int lastHomIndex = 0;      // index of the most recent homozygous SNP in the run
+        int snpCountAtLastHom = 0; // snpCount as of lastHomIndex (the emitted interval size)
+
+        bool QualifiesForEmit(out (int, int, int) run)
+        {
+            int start = genoList[runStartIndex].Position;
+            int end = genoList[lastHomIndex].Position;
+            run = (start, end, snpCountAtLastHom);
+            return snpCountAtLastHom >= minSnps && end - start >= minLength;
+        }
 
         for (int i = 0; i < genoList.Count; i++)
         {
             var (pos, geno) = genoList[i];
+            bool isHet = geno == 1;
 
-            if (geno == 1) // Heterozygous
+            // A gap larger than maxGap breaks the run before this SNP is considered.
+            bool gapBreak = snpCount > 0 && pos - genoList[i - 1].Position > maxGap;
+            // Adding this SNP would push opposite-genotype count past the tolerance.
+            bool hetBreak = isHet && hetCount + 1 > maxHeterozygotes;
+
+            if (snpCount > 0 && (gapBreak || hetBreak))
             {
-                hetCount++;
+                if (QualifiesForEmit(out var run))
+                    yield return run;
+
+                // Restart a fresh run at the breaking SNP. A heterozygous breaker cannot seed a
+                // homozygous run, so begin counting from the next homozygous SNP instead.
+                runStartIndex = i;
+                snpCount = isHet ? 0 : 1;
+                hetCount = 0;
+                lastHomIndex = i;
+                snpCountAtLastHom = isHet ? 0 : 1;
+                continue;
+            }
+
+            if (snpCount == 0)
+            {
+                if (isHet)
+                    continue; // skip leading heterozygous SNPs until a run can start
+                runStartIndex = i;
             }
 
             snpCount++;
-
-            if (hetCount > maxHeterozygotes)
+            if (isHet)
             {
-                // End segment
-                if (snpCount >= minSnps)
-                {
-                    int segmentEnd = genoList[i - 1].Position;
-                    if (segmentEnd - segmentStart >= minLength)
-                    {
-                        yield return (segmentStart, segmentEnd, snpCount - 1);
-                    }
-                }
-
-                // Start new segment
-                segmentStart = pos;
-                snpCount = 1;
-                hetCount = geno == 1 ? 1 : 0;
+                hetCount++;
+            }
+            else
+            {
+                lastHomIndex = i;
+                snpCountAtLastHom = snpCount;
             }
         }
 
-        // Check final segment
-        if (snpCount >= minSnps)
-        {
-            int segmentEnd = genoList.Last().Position;
-            if (segmentEnd - segmentStart >= minLength)
-            {
-                yield return (segmentStart, segmentEnd, snpCount);
-            }
-        }
+        if (snpCount > 0 && QualifiesForEmit(out var finalRun))
+            yield return finalRun;
     }
 
     #endregion
