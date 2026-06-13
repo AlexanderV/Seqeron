@@ -335,8 +335,23 @@ public static class EpigeneticsAnalyzer
     #region Methylation Analysis
 
     /// <summary>
-    /// Simulates bisulfite conversion of a DNA sequence.
+    /// Simulates in-silico sodium-bisulfite conversion of a single DNA strand.
     /// </summary>
+    /// <remarks>
+    /// Per Frommer et al. (1992): bisulfite treatment converts unmethylated cytosine to
+    /// uracil (which reads/amplifies as thymine), while 5-methylcytosine remains
+    /// nonreactive and stays a cytosine. This method substitutes each unprotected
+    /// cytosine with thymine (case preserved: <c>C</c>→<c>T</c>, <c>c</c>→<c>t</c>),
+    /// leaves cytosines whose 0-based index is in <paramref name="methylatedPositions"/>
+    /// as cytosines, and returns every non-cytosine base unchanged. Only the supplied
+    /// strand is converted; the complementary strand is a separate molecule and is not
+    /// synthesized or merged (Frommer's protocol is strand-specific).
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to convert. Null or empty yields an empty string.</param>
+    /// <param name="methylatedPositions">
+    /// 0-based indices of protected (methylated) cytosines. Null means none are protected.
+    /// </param>
+    /// <returns>The bisulfite-converted strand; same length as <paramref name="sequence"/>.</returns>
     public static string SimulateBisulfiteConversion(
         string sequence,
         IReadOnlySet<int>? methylatedPositions = null)
@@ -374,8 +389,21 @@ public static class EpigeneticsAnalyzer
     }
 
     /// <summary>
-    /// Calculates methylation level from bisulfite sequencing data.
+    /// Calls per-CpG methylation levels from aligned bisulfite reads against a reference.
     /// </summary>
+    /// <remarks>
+    /// Methylation call rule (Krueger &amp; Andrews 2011, Bismark): at a reference CpG
+    /// cytosine, a read base of <c>C</c> indicates a methylated cytosine (protected from
+    /// conversion) and a read base of <c>T</c> indicates an unmethylated cytosine
+    /// (converted). Any other read base is not a valid bisulfite call and is ignored.
+    /// The reported methylation level is the Bismark fraction
+    /// <c>methylated / (methylated + unmethylated)</c> and <c>Coverage</c> is the number of
+    /// valid C/T calls. CpG sites with zero coverage have an undefined percentage and are
+    /// excluded from the result. Read bases falling outside the reference are ignored.
+    /// </remarks>
+    /// <param name="referenceSequence">Reference DNA sequence (case-insensitive).</param>
+    /// <param name="bisulfiteReads">Aligned reads as (read sequence, 0-based start position) pairs.</param>
+    /// <returns>One <see cref="MethylationSite"/> per covered CpG site, in reference order.</returns>
     public static IEnumerable<MethylationSite> CalculateMethylationFromBisulfite(
         string referenceSequence,
         IEnumerable<(string ReadSequence, int StartPosition)> bisulfiteReads)
