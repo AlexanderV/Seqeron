@@ -664,8 +664,14 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Gets all leaf nodes (taxa) from the tree.
+    /// Gets all leaf (terminal) nodes of the tree in left-to-right (pre-order) traversal order.
+    /// A leaf is a node with no children (<see cref="PhyloNode.IsLeaf"/>); in a phylogenetic tree
+    /// the leaves are the taxa/operational taxonomic units.
+    /// Source: a leaf is "a vertex with no children" (Tree (graph theory)); Biopython
+    /// <c>Tree.get_terminals</c> returns "all of this tree's terminal (leaf) nodes".
     /// </summary>
+    /// <param name="root">The root of the (sub)tree. A <c>null</c> root yields no leaves.</param>
+    /// <returns>The leaf nodes; empty when <paramref name="root"/> is null.</returns>
     public static IEnumerable<PhyloNode> GetLeaves(PhyloNode root)
     {
         if (root == null) yield break;
@@ -686,8 +692,18 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Calculates the total tree length (sum of all branch lengths).
+    /// Calculates the total tree length: the sum of the branch lengths of every node in the
+    /// (sub)tree rooted at <paramref name="root"/>. This is the quantity minimized by the
+    /// minimum-evolution criterion (Rzhetsky &amp; Nei 1992).
+    /// Source: DendroPy <c>Tree.length()</c> — "the sum of edge lengths of self"; Biopython
+    /// <c>Tree.total_branch_length</c> — "the sum of all the branch lengths in this tree".
     /// </summary>
+    /// <param name="root">The root of the (sub)tree.</param>
+    /// <returns>
+    /// The sum of all branch lengths; <c>0</c> for a null tree (no edges) and for a tree whose
+    /// branch lengths are all zero. (DendroPy treats undefined edge lengths as 0; here the default
+    /// <see cref="PhyloNode.BranchLength"/> is 0.)
+    /// </returns>
     public static double CalculateTreeLength(PhyloNode root)
     {
         if (root == null) return 0;
@@ -699,12 +715,31 @@ public static class PhylogeneticAnalyzer
         return length;
     }
 
+    /// <summary>Height of an empty tree (no vertices), by convention.</summary>
+    /// <remarks>
+    /// "Conventionally, an empty tree (a tree with no vertices, if such are allowed) has depth and
+    /// height −1." (Tree (graph theory) / Tree (abstract data type)).
+    /// </remarks>
+    private const int EmptyTreeHeight = -1;
+
     /// <summary>
-    /// Gets the depth (height) of the tree.
+    /// Gets the height (topological depth) of the tree: the number of edges on the longest
+    /// downward path from <paramref name="root"/> to a leaf. The height of the tree is the height
+    /// of its root.
+    /// Source: "The height of a node is the length of the longest downward path to a leaf from that
+    /// node. The height of the root is the height of the tree." (Tree (abstract data type)).
     /// </summary>
+    /// <param name="root">The root of the tree.</param>
+    /// <returns>
+    /// The height in edges: <c>0</c> for a single-node (leaf-only) tree — "a tree with only a single
+    /// node ... has depth and height zero" — and <c>-1</c> for a null/empty tree by the cited
+    /// convention.
+    /// </returns>
     public static int GetTreeDepth(PhyloNode root)
     {
-        if (root == null || root.IsLeaf) return 0;
+        // Empty tree (null): height -1 by convention; a single leaf node has height 0.
+        if (root == null) return EmptyTreeHeight;
+        if (root.IsLeaf) return 0;
 
         int leftDepth = root.Left != null ? GetTreeDepth(root.Left) : 0;
         int rightDepth = root.Right != null ? GetTreeDepth(root.Right) : 0;

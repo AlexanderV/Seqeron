@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 134 |
+| **Completed** | 135 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 100 |
+| **Not Started** | 99 |
 
 ---
 
@@ -162,7 +162,7 @@
 | ☑ | META-PATHWAY-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-PATHWAY-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-PATHWAY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs) |
 | ☑ | META-TAXA-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-TAXA-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-TAXA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) |
 | ☑ | PHYLO-BOOT-001 | Phylogenetic | 1 | [Evidence](docs/Evidence/PHYLO-BOOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-BOOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_Bootstrap_Tests.cs) |
-| ☐ | PHYLO-STATS-001 | Phylogenetic | 3 | - | - | - |
+| ☑ | PHYLO-STATS-001 | Phylogenetic | 3 | [Evidence](docs/Evidence/PHYLO-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) |
 | ☐ | ANNOT-CODING-001 | Annotation | 1 | - | - | - |
 | ☐ | ANNOT-REPEAT-001 | Annotation | 2 | - | - | - |
 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | 1 | - | - | - |
