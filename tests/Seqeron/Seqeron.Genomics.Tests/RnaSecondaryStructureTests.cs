@@ -386,42 +386,9 @@ public class RnaSecondaryStructureTests
         Assert.That(energy_CCCC, Is.GreaterThan(energy_AAAA));
     }
 
-    [Test]
-    public void CalculateMinimumFreeEnergy_SimpleHairpin_ReturnsNegative()
-    {
-        string rna = "GGGCAAAAGCCC";
-        double mfe = CalculateMinimumFreeEnergy(rna);
-
-        Assert.That(mfe, Is.LessThan(0));
-    }
-
-    [Test]
-    public void CalculateMinimumFreeEnergy_NoStructure_ReturnsZero()
-    {
-        string rna = "AAAAAA";
-        double mfe = CalculateMinimumFreeEnergy(rna);
-
-        Assert.That(mfe, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateMinimumFreeEnergy_EmptySequence_ReturnsZero()
-    {
-        Assert.That(CalculateMinimumFreeEnergy(""), Is.EqualTo(0));
-        Assert.That(CalculateMinimumFreeEnergy(null!), Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateMinimumFreeEnergy_LongerStem_MoreStable()
-    {
-        string shortStem = "GCAAAAGC";
-        string longStem = "GCGCAAAAGCGC";
-
-        double mfeShort = CalculateMinimumFreeEnergy(shortStem);
-        double mfeLong = CalculateMinimumFreeEnergy(longStem);
-
-        Assert.That(mfeLong, Is.LessThanOrEqualTo(mfeShort));
-    }
+    // MFE tests moved to canonical file RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs
+    // (RNA-MFE-001) with exact evidence-based expected values; the previous permissive
+    // MFE tests here (Is.LessThan(0) / Is.LessThanOrEqualTo) were superseded.
 
     /// <summary>
     /// Evidence: GC-rich stems are more stable (more negative energy) than AU-rich stems

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 153 |
+| **Completed** | 154 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 81 |
+| **Not Started** | 80 |
 
 ---
 
@@ -181,7 +181,7 @@
 | ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
 | ☑ | RNA-PAIR-001 | RnaStructure | 3 | [Evidence](docs/Evidence/RNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_CanPair_Tests.cs) |
 | ☑ | RNA-HAIRPIN-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-HAIRPIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_HairpinEnergy_Tests.cs) |
-| ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
+| ☑ | RNA-MFE-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-MFE-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-MFE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) |
 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | - | - | - |
 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | 2 | - | - | - |
 | ☐ | RNA-INVERT-001 | RnaStructure | 1 | - | - | - |
