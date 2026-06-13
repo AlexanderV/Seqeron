@@ -100,40 +100,10 @@ public class ProteinMotifFinderTests
     // ProteinMotifFinder_PredictCoiledCoils_Tests.cs (PROTMOTIF-CC-001). The previous tests here
     // encoded the now-removed fabricated position-weight table and are superseded.
 
-    #region Low Complexity Tests
-
-    [Test]
-    public void FindLowComplexityRegions_PolyAlanine_Finds()
-    {
-        string protein = "MKKK" + new string('A', 15) + "VVVV";
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Has.Count.EqualTo(1), "Single low-complexity region");
-        Assert.That(regions[0].DominantAa, Is.EqualTo('A'));
-        Assert.That(regions[0].Frequency, Is.EqualTo(1.0).Within(0.01), "Pure poly-A frequency");
-    }
-
-    [Test]
-    public void FindLowComplexityRegions_Diverse_ReturnsEmpty()
-    {
-        string protein = "ACDEFGHIKLMNPQRSTVWY"; // All different
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Is.Empty);
-    }
-
-    [Test]
-    public void FindLowComplexityRegions_MultipleRegions_FindsAll()
-    {
-        string protein = new string('G', 12) + "MKLVFP" + new string('S', 12);
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Has.Count.EqualTo(2), "Two low-complexity regions: poly-G and poly-S");
-        Assert.That(regions[0].DominantAa, Is.EqualTo('G'));
-        Assert.That(regions[1].DominantAa, Is.EqualTo('S'));
-    }
-
-    #endregion
+    // Low-complexity-region tests moved to the canonical file
+    // ProteinMotifFinder_FindLowComplexityRegions_Tests.cs (PROTMOTIF-LC-001). The previous tests here
+    // encoded an invented "dominant single-AA frequency" rule (now removed in favour of the SEG
+    // Wootton & Federhen complexity measure) and are superseded.
 
     // Domain Finding tests moved to ProteinMotifFinder_DomainPrediction_Tests.cs (PROTMOTIF-DOMAIN-001)
 

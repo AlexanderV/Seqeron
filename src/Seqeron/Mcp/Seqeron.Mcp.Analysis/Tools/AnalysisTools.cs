@@ -650,15 +650,16 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_protein_low_complexity_regions", Title = "Protein — Low-Complexity Regions", ReadOnly = true)]
-    [Description("Compositionally biased regions in a protein: window with single AA frequency above threshold.")]
+    [Description("Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-pass trigger/extension.")]
     public static FindProteinLowComplexityRegionsResult FindProteinLowComplexityRegions(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Sliding window size (default 12).")] int windowSize = 12,
-        [Description("Frequency threshold (default 0.4).")] double threshold = 0.4)
+        [Description("Sliding window size W (default 12).")] int windowSize = 12,
+        [Description("Trigger complexity K1 in bits/residue (default 2.2).")] double triggerComplexity = 2.2,
+        [Description("Extension complexity K2 in bits/residue (default 2.5).")] double extensionComplexity = 2.5)
     {
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindLowComplexityRegions(proteinSequence ?? string.Empty, windowSize, threshold)
-            .Select(t => new ProteinLowComplexityItem(t.Start, t.End, t.DominantAa, t.Frequency))
+            .FindLowComplexityRegions(proteinSequence ?? string.Empty, windowSize, triggerComplexity, extensionComplexity)
+            .Select(t => new ProteinLowComplexityItem(t.Start, t.End, t.Complexity))
             .ToArray();
         return new FindProteinLowComplexityRegionsResult(items);
     }

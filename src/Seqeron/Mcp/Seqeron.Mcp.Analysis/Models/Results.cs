@@ -236,8 +236,8 @@ public record PredictTransmembraneHelicesResult(RegionScoreItem[] Items);
 /// <summary>Result of <c>predict_coiled_coils</c>.</summary>
 public record PredictCoiledCoilsResult(RegionScoreItem[] Items);
 
-/// <summary>A protein low-complexity region.</summary>
-public record ProteinLowComplexityItem(int Start, int End, char DominantAa, double Frequency);
+/// <summary>A protein low-complexity region (SEG): 0-based inclusive span and minimum window complexity in bits/residue.</summary>
+public record ProteinLowComplexityItem(int Start, int End, double Complexity);
 
 /// <summary>Result of <c>find_protein_low_complexity_regions</c>.</summary>
 public record FindProteinLowComplexityRegionsResult(ProteinLowComplexityItem[] Items);

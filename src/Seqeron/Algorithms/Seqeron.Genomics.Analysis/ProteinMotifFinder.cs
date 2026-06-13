@@ -1036,60 +1036,124 @@ public static class ProteinMotifFinder
     #region Low Complexity Regions
 
     /// <summary>
-    /// Finds low complexity regions (compositionally biased).
+    /// Default SEG sliding-window length W. Source: NCBI SEG man page ("Trigger window length
+    /// [Default 12]") and NCBI blast_seg.c (<c>kSegWindow = 12</c>).
     /// </summary>
-    public static IEnumerable<(int Start, int End, char DominantAa, double Frequency)> FindLowComplexityRegions(
+    private const int DefaultSegWindow = 12;
+
+    /// <summary>
+    /// Default SEG trigger complexity K1 (locut), in bits/residue. A window with complexity ≤ K1
+    /// triggers a low-complexity segment. Source: NCBI SEG man page ("Trigger complexity [Default 2.2]")
+    /// and blast_seg.c (<c>kSegLocut = 2.2</c>).
+    /// </summary>
+    private const double DefaultSegTriggerComplexity = 2.2;
+
+    /// <summary>
+    /// Default SEG extension complexity K2 (hicut), in bits/residue. A triggered segment is extended
+    /// over neighbouring windows whose complexity is ≤ K2. Source: NCBI SEG man page
+    /// ("Extension complexity [Default 2.5]") and blast_seg.c (<c>kSegHicut = 2.5</c>).
+    /// </summary>
+    private const double DefaultSegExtensionComplexity = 2.5;
+
+    /// <summary>
+    /// Finds low-complexity regions in a protein sequence using the SEG algorithm of
+    /// Wootton &amp; Federhen (1993). Local complexity is the Shannon entropy of the residue
+    /// composition in a sliding window, measured in bits per residue:
+    /// K = −Σ pᵢ·log₂(pᵢ), with maximum log₂(20) ≈ 4.322 for the 20 amino acids.
+    /// A window with complexity ≤ <paramref name="triggerComplexity"/> (K1) triggers a
+    /// low-complexity segment, which is then extended over adjacent windows whose complexity
+    /// is ≤ <paramref name="extensionComplexity"/> (K2).
+    /// References: Wootton &amp; Federhen (1993) Comput. Chem. 17:149–163, eq. (3);
+    /// NCBI SEG (ncbi-seg) man page; NCBI blast_seg.c (s_Entropy).
+    /// </summary>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window length W (default 12).</param>
+    /// <param name="triggerComplexity">Trigger complexity K1 in bits/residue (default 2.2).</param>
+    /// <param name="extensionComplexity">Extension complexity K2 in bits/residue (default 2.5).</param>
+    /// <returns>
+    /// 0-based, inclusive low-complexity regions as <c>(Start, End, Complexity)</c>, where
+    /// <c>Complexity</c> is the minimum window complexity (bits/residue) observed inside the region.
+    /// Empty if the sequence is null/empty or shorter than the window.
+    /// </returns>
+    public static IEnumerable<(int Start, int End, double Complexity)> FindLowComplexityRegions(
         string proteinSequence,
-        int windowSize = 12,
-        double threshold = 0.4)
+        int windowSize = DefaultSegWindow,
+        double triggerComplexity = DefaultSegTriggerComplexity,
+        double extensionComplexity = DefaultSegExtensionComplexity)
     {
+        if (windowSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be positive.");
+
         if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
+        int windowCount = upper.Length - windowSize + 1;
 
-        int? regionStart = null;
-        char dominantAa = ' ';
-        double maxFreq = 0;
+        // Per-window SEG complexity (bits/residue) for every window start position.
+        var windowComplexity = new double[windowCount];
+        for (int i = 0; i < windowCount; i++)
+            windowComplexity[i] = CalculateSegComplexity(upper.AsSpan(i, windowSize));
 
-        for (int i = 0; i <= upper.Length - windowSize; i++)
+        // SEG pass 1: find trigger windows (complexity ≤ K1); pass 2: extend over adjacent
+        // windows with complexity ≤ K2. Windows form a contiguous run; the residue span of the
+        // run is [firstStart, lastStart + W - 1] (0-based inclusive).
+        int i2 = 0;
+        while (i2 < windowCount)
         {
-            string window = upper.Substring(i, windowSize);
-            var composition = window.GroupBy(c => c)
-                .OrderByDescending(g => g.Count())
-                .First();
-
-            double freq = (double)composition.Count() / windowSize;
-
-            if (freq >= threshold)
+            if (windowComplexity[i2] > extensionComplexity)
             {
-                if (regionStart == null)
-                {
-                    regionStart = i;
-                    dominantAa = composition.Key;
-                    maxFreq = freq;
-                }
-                else
-                {
-                    if (freq > maxFreq)
-                    {
-                        dominantAa = composition.Key;
-                        maxFreq = freq;
-                    }
-                }
+                i2++;
+                continue;
             }
-            else if (regionStart != null)
+
+            // Start of a maximal run of windows with complexity ≤ K2.
+            int runStart = i2;
+            double minComplexity = windowComplexity[i2];
+            bool triggered = windowComplexity[i2] <= triggerComplexity;
+            int runEnd = i2;
+            while (runEnd + 1 < windowCount && windowComplexity[runEnd + 1] <= extensionComplexity)
             {
-                yield return (regionStart.Value, i - 1 + windowSize, dominantAa, maxFreq);
-                regionStart = null;
-                maxFreq = 0;
+                runEnd++;
+                if (windowComplexity[runEnd] < minComplexity)
+                    minComplexity = windowComplexity[runEnd];
+                if (windowComplexity[runEnd] <= triggerComplexity)
+                    triggered = true;
             }
+
+            // Only emit the run if at least one window actually triggered (complexity ≤ K1).
+            if (triggered)
+                yield return (runStart, runEnd + windowSize - 1, minComplexity);
+
+            i2 = runEnd + 1;
+        }
+    }
+
+    /// <summary>
+    /// Computes the SEG local complexity of a residue window as Shannon entropy in bits/residue:
+    /// K = −Σ pᵢ·log₂(pᵢ), where pᵢ is the fraction of the window occupied by residue type i.
+    /// A homopolymer window yields 0; a window of W distinct residues yields log₂(W).
+    /// Source: Wootton &amp; Federhen (1993) eq. (3); NCBI blast_seg.c s_Entropy; SeqComplex `ce`.
+    /// </summary>
+    private static double CalculateSegComplexity(ReadOnlySpan<char> window)
+    {
+        Span<int> counts = stackalloc int[char.MaxValue + 1];
+        foreach (char c in window)
+            counts[c]++;
+
+        double length = window.Length;
+        double entropy = 0.0;
+        foreach (char c in window)
+        {
+            // Visit each distinct residue once: tally on the first occurrence only.
+            if (counts[c] == 0)
+                continue;
+            double p = counts[c] / length;
+            entropy -= p * Math.Log2(p);
+            counts[c] = 0; // mark consumed so duplicates are not double-counted
         }
 
-        if (regionStart != null)
-        {
-            yield return (regionStart.Value, upper.Length - 1, dominantAa, maxFreq);
-        }
+        return entropy;
     }
 
     #endregion
