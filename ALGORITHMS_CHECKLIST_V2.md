@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 143 |
+| **Completed** | 144 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 91 |
+| **Not Started** | 90 |
 
 ---
 
@@ -171,7 +171,7 @@
 | ☑ | MOTIF-CONS-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-CONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-CONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_CreateConsensusFromAlignment_Tests.cs) |
 | ☑ | GENOMIC-REPEAT-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindRepeats_Tests.cs) |
 | ☑ | GENOMIC-COMMON-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindCommonRegion_Tests.cs) |
-| ☐ | GENOMIC-MOTIFS-001 | Analysis | 1 | - | - | - |
+| ☑ | GENOMIC-MOTIFS-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-MOTIFS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindKnownMotifs_Tests.cs) |
 | ☐ | SEQ-RNACOMP-001 | Composition | 1 | - | - | - |
 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | - | - | - |
 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | 1 | - | - | - |

@@ -160,22 +160,60 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Searches for a set of known motifs in a sequence.
+    /// Searches a sequence for a set of known motifs, returning, for each motif that occurs,
+    /// the 0-based start positions of <b>all</b> its occurrences. This is the classical exact
+    /// set-matching problem ("find all occurrences of each pattern P in text T") solved over the
+    /// generalized index of one text: each query is matched against this sequence's suffix tree
+    /// (Gusfield 1997, ISBN 0-521-58519-8; exact-matching definition, Tufts COMP 150GEN exact.html).
+    /// <para>
+    /// <b>Overlapping occurrences are all reported</b> — e.g. motif "AAA" in "AAAAA" yields
+    /// {0, 1, 2}, mirroring Biopython's overlap-aware semantics (<c>Seq("AAAA").count_overlap("AA") == 3</c>).
+    /// </para>
+    /// Motifs are upper-cased before searching (DNA is processed upper-cased, per Biopython
+    /// <c>Bio.Seq</c>); the result is keyed by the upper-cased motif. Empty or whitespace-only
+    /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif"/>), and a
+    /// motif with no occurrence is omitted from the result. Positions for each motif are returned
+    /// <b>sorted ascending</b> for a deterministic, stable contract (the suffix tree enumerates
+    /// occurrences in DFS order, which is not inherently sorted). Duplicate motifs that normalize to
+    /// the same upper-cased key collapse to a single entry.
+    /// Time complexity: O(n) suffix-tree construction (Ukkonen) plus O(|m| + occ) per motif query
+    /// and O(occ·log occ) to sort each motif's positions. See
+    /// docs/algorithms/Motif_Analysis/Known_Motif_Search.md.
     /// </summary>
     public static Dictionary<string, IReadOnlyList<int>> FindKnownMotifs(
         DnaSequence sequence,
         IEnumerable<string> motifs)
     {
+        if (motifs is null)
+        {
+            throw new ArgumentNullException(nameof(motifs));
+        }
+
         var result = new Dictionary<string, IReadOnlyList<int>>();
         var tree = sequence.SuffixTree;
 
         foreach (var motif in motifs)
         {
+            // The empty string is not a motif (suffix-tree FindAllOccurrences("") would return
+            // every position, which is not a meaningful match). Skip empty/whitespace motifs,
+            // consistent with FindMotif's empty-pattern guard.
+            if (string.IsNullOrWhiteSpace(motif))
+            {
+                continue;
+            }
+
             string normalized = motif.ToUpperInvariant();
+            if (result.ContainsKey(normalized))
+            {
+                continue; // duplicate motif key — already searched
+            }
+
             var positions = tree.FindAllOccurrences(normalized);
             if (positions.Count > 0)
             {
-                result[normalized] = positions;
+                // Suffix-tree occurrence enumeration is DFS-order (not sorted); sort ascending
+                // so each motif's positions form the deterministic exact-matching set.
+                result[normalized] = positions.OrderBy(p => p).ToList();
             }
         }
 
