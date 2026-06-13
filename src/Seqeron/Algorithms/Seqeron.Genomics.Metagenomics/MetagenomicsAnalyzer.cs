@@ -918,8 +918,13 @@ public static class MetagenomicsAnalyzer
     /// <summary>
     /// Right-tail hypergeometric probability P(X ≥ x) for drawing <paramref name="n"/> items
     /// from a population of <paramref name="bigN"/> containing <paramref name="bigM"/> successes:
-    /// P(X ≥ x) = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n).
-    /// Computed in log-space (log-Gamma) for numerical stability. Source: PNNL ORA §8.2.
+    /// P(X ≥ x) = Σ_{i=x}^{min(n,M)} C(M,i)·C(N−M, n−i) / C(N, n)
+    ///          = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n).
+    /// The upper tail is summed directly (i = x … min(n, M)) rather than as 1 − lower-tail, to
+    /// avoid catastrophic cancellation when the tail probability is tiny (e.g. 7.88e-8 for the
+    /// PNNL §8.2 example): subtracting a sum ≈ 1 from 1.0 would destroy the small result.
+    /// Each PMF term is computed in log-space (log-Gamma) for numerical stability.
+    /// Source: PNNL ORA §8.2; Boyle et al. (2004), Bioinformatics 20(18):3710-3715.
     /// </summary>
     public static double HypergeometricUpperTail(int x, int bigN, int bigM, int n)
     {
@@ -928,16 +933,17 @@ public static class MetagenomicsAnalyzer
             return 1.0;
 
         double logDenom = LogChoose(bigN, n);
-        double cumulative = 0.0; // Σ_{i=0}^{x-1} P(X = i)
-        for (int i = 0; i < x; i++)
+        double tail = 0.0; // Σ_{i=x}^{min(n,M)} P(X = i)
+        int upper = Math.Min(n, bigM); // beyond this, C(M,i) = 0 (cannot draw more successes than exist)
+        for (int i = x; i <= upper; i++)
         {
             // P(X = i) is 0 when the partial table is infeasible (LogChoose → −∞).
             double logTerm = LogChoose(bigM, i) + LogChoose(bigN - bigM, n - i) - logDenom;
             if (!double.IsNegativeInfinity(logTerm))
-                cumulative += Math.Exp(logTerm);
+                tail += Math.Exp(logTerm);
         }
 
-        return Math.Clamp(1.0 - cumulative, 0.0, 1.0);
+        return Math.Clamp(tail, 0.0, 1.0);
     }
 
     /// <summary>Log of the binomial coefficient C(n, k) via log-Gamma; −∞ when k ∉ [0, n].</summary>
