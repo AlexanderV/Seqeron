@@ -187,9 +187,16 @@ public static class GenomicAnalyzer
     #region Sequence Comparison
 
     /// <summary>
-    /// Finds the longest common subsequence between two DNA sequences.
-    /// Useful for identifying conserved regions, gene homology, etc.
-    /// Time complexity: O(n + m) using suffix tree.
+    /// Finds the longest common <b>substring</b> (a longest <i>contiguous</i> string that is a
+    /// substring of both sequences), not a gapped subsequence — Wikipedia "Longest common substring";
+    /// the contiguous distinction is explicit there. Computed via the generalized suffix tree of
+    /// <paramref name="sequence1"/>: the deepest node whose subtree has leaves from both strings spells
+    /// the answer (Gusfield 1997, ISBN 0-521-58519-8; GeeksforGeeks "Suffix Tree Application 5").
+    /// On a length tie, the substring first found in <paramref name="sequence2"/> is returned
+    /// (documented tie-break of <see cref="SuffixTree.SuffixTree.LongestCommonSubstringInfo(string)"/>).
+    /// Returns <see cref="CommonRegion.None"/> when there is no shared substring (including any empty input).
+    /// Time complexity: O(n + m) with the generalized suffix tree (Gusfield 1997).
+    /// See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </summary>
     public static CommonRegion FindLongestCommonRegion(DnaSequence sequence1, DnaSequence sequence2)
     {
@@ -205,7 +212,16 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds all common regions of at least the specified length.
+    /// Finds every distinct common <b>substring</b> (contiguous, per Wikipedia "Longest common substring")
+    /// of length ≥ <paramref name="minLength"/> that occurs in both sequences. For each start position in
+    /// <paramref name="sequence2"/> the longest substring also present in <paramref name="sequence1"/>
+    /// (located via the generalized suffix tree) is taken; distinct substrings are reported once, with the
+    /// first occurrence position in <paramref name="sequence1"/> and the start position in
+    /// <paramref name="sequence2"/>. A common substring is non-empty, so values of
+    /// <paramref name="minLength"/> below 1 are treated as 1 (the empty string is not a region).
+    /// Time complexity: O(n + m·log m) — O(n + m) suffix-tree construction plus a per-position
+    /// binary search using O(m) <see cref="SuffixTree.SuffixTree.Contains(string)"/> lookups
+    /// (Gusfield 1997, ISBN 0-521-58519-8). See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </summary>
     public static IEnumerable<CommonRegion> FindCommonRegions(
         DnaSequence sequence1,
@@ -216,11 +232,15 @@ public static class GenomicAnalyzer
         string seq2 = sequence2.Sequence;
         var found = new HashSet<string>();
 
+        // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
+        // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
+        int effectiveMinLength = Math.Max(1, minLength);
+
         // Slide through sequence2 and find matches
-        for (int i = 0; i < seq2.Length - minLength + 1; i++)
+        for (int i = 0; i < seq2.Length - effectiveMinLength + 1; i++)
         {
             // Binary search for longest match at this position
-            int lo = minLength, hi = seq2.Length - i;
+            int lo = effectiveMinLength, hi = seq2.Length - i;
             string? bestMatch = null;
 
             while (lo <= hi)

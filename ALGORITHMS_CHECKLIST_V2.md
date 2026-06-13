@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 142 |
+| **Completed** | 143 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 92 |
+| **Not Started** | 91 |
 
 ---
 
@@ -170,7 +170,7 @@
 | ☑ | KMER-DIST-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-DIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-DIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_KmerDistance_Tests.cs) |
 | ☑ | MOTIF-CONS-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-CONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-CONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_CreateConsensusFromAlignment_Tests.cs) |
 | ☑ | GENOMIC-REPEAT-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindRepeats_Tests.cs) |
-| ☐ | GENOMIC-COMMON-001 | Analysis | 2 | - | - | - |
+| ☑ | GENOMIC-COMMON-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindCommonRegion_Tests.cs) |
 | ☐ | GENOMIC-MOTIFS-001 | Analysis | 1 | - | - | - |
 | ☐ | SEQ-RNACOMP-001 | Composition | 1 | - | - | - |
 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | - | - | - |
