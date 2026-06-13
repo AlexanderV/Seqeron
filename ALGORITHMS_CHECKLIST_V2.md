@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 119 |
+| **Completed** | 120 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 115 |
+| **Not Started** | 114 |
 
 ---
 
@@ -147,7 +147,7 @@
 | ☑ | ASSEMBLY-TRIM-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-TRIM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_QualityTrimReads_Tests.cs) |
 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CORRECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ErrorCorrectReads_Tests.cs) |
 | ☑ | PAT-APPROX-003 | Matching | 3 | [Evidence](docs/Evidence/PAT-APPROX-003-Evidence.md) | [TestSpec](tests/TestSpecs/PAT-APPROX-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ApproximateMatcher_FindBestMatch_Tests.cs) |
-| ☐ | ALIGN-STATS-001 | Alignment | 2 | - | - | - |
+| ☑ | ALIGN-STATS-001 | Alignment | 2 | [Evidence](docs/Evidence/ALIGN-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ALIGN-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_CalculateStatistics_Tests.cs) |
 | ☐ | EPIGEN-BISULF-001 | Epigenetics | 2 | - | - | - |
 | ☐ | EPIGEN-CHROM-001 | Epigenetics | 3 | - | - | - |
 | ☐ | EPIGEN-AGE-001 | Epigenetics | 1 | - | - | - |
@@ -2555,7 +2555,7 @@
 
 ### 35. Alignment Statistics (1 unit)
 
-#### ALIGN-STATS-001: Alignment Statistics and Formatting
+#### ☑ ALIGN-STATS-001: Alignment Statistics and Formatting
 
 | Field | Value |
 |------|----------|
@@ -2566,8 +2566,20 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateStatistics(alignment)` | SequenceAligner | Statistics |
-| `FormatAlignment(alignment, lineWidth)` | SequenceAligner | Formatting |
+| `CalculateStatistics(alignment, scoring)` | SequenceAligner | Statistics |
+| `FormatAlignment(alignment, lineWidth, scoring)` | SequenceAligner | Formatting |
+
+**Behavioral note (evidence-corrected):** Identity/Similarity/Gaps follow the EMBOSS
+needle definition — denominator is the alignment length **including gap columns**.
+Similarity counts identical columns **plus** non-identical columns whose substitution
+score is **positive** (EMBOSS/BLAST "positives"); it is NOT `(matches+mismatches)/length`.
+For the DNA models exposed by this class (Mismatch < 0) Similarity equals Identity.
+`FormatAlignment` uses the srspair markup legend (`|` identity, `:` similarity, space
+gap/mismatch). The prior implementation's similarity formula was corrected in this unit.
+
+- [x] Edge cases: null alignment, empty alignment, all-gap, perfect identity, non-positive lineWidth
+- [x] Evidence-based exact values (EMBOSS HBA/HBB 43.6/60.4/6.0), invariants INV-1..INV-4
+- [x] Tests pass, zero warnings in changed files
 
 ---
 

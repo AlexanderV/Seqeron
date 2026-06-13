@@ -537,17 +537,44 @@ public static class SequenceAligner
 
     #region Alignment Statistics
 
+    // EMBOSS srspair markup legend (Rice, Longden & Bleasby 2000; EMBOSS AlignFormats):
+    //   '|' = identical column, ':' = similar column (positive substitution score, not
+    //   identical), ' ' = gap or non-positive (mismatch) column.
+    //   Source: https://emboss.sourceforge.net/docs/themes/AlignFormats.html
+    private const char IdentityMark = '|';
+    private const char SimilarityMark = ':';
+    private const char GapOrMismatchMark = ' ';
+
     /// <summary>
-    /// Calculates alignment statistics from an alignment result.
+    /// Calculates alignment statistics (Identity, Similarity, Gaps) from an alignment
+    /// result, following the EMBOSS needle/water convention.
     /// </summary>
-    public static AlignmentStatistics CalculateStatistics(AlignmentResult alignment)
+    /// <param name="alignment">The pairwise alignment to summarise.</param>
+    /// <param name="scoring">
+    /// Scoring model used to decide whether a non-identical aligned pair counts as
+    /// "similar". A column is similar when its substitution score is positive
+    /// (Rice et al. 2000). For the DNA models used by this class (Match &gt; 0,
+    /// Mismatch &lt; 0) no non-identical pair scores positively, so Similarity equals
+    /// Identity. Defaults to <see cref="SimpleDna"/>.
+    /// </param>
+    /// <remarks>
+    /// Identity = identical columns / alignment length × 100 (length includes gap
+    /// columns); Similarity = (identical + similar) columns / length × 100;
+    /// Gaps = gap columns / length × 100. Denominator is the full alignment length
+    /// including gaps, per the EMBOSS needle definition.
+    /// </remarks>
+    public static AlignmentStatistics CalculateStatistics(
+        AlignmentResult alignment,
+        ScoringMatrix? scoring = null)
     {
         ArgumentNullException.ThrowIfNull(alignment);
 
         if (string.IsNullOrEmpty(alignment.AlignedSequence1))
             return AlignmentStatistics.Empty;
 
-        int matches = 0, mismatches = 0, gaps = 0;
+        var score = scoring ?? SimpleDna;
+
+        int matches = 0, mismatches = 0, gaps = 0, similarSubstitutions = 0;
         int alignmentLength = alignment.AlignedSequence1.Length;
 
         for (int i = 0; i < alignmentLength; i++)
@@ -556,16 +583,29 @@ public static class SequenceAligner
             char c2 = alignment.AlignedSequence2[i];
 
             if (c1 == '-' || c2 == '-')
+            {
                 gaps++;
+            }
             else if (c1 == c2)
+            {
                 matches++;
+            }
             else
+            {
                 mismatches++;
+                // A non-identical column is "similar" iff its substitution score is
+                // positive (Rice, Longden & Bleasby 2000).
+                if (score.Mismatch > 0)
+                    similarSubstitutions++;
+            }
         }
 
-        double identity = alignmentLength > 0 ? (double)matches / alignmentLength * 100 : 0;
-        double similarity = alignmentLength > 0 ? (double)(matches + mismatches) / alignmentLength * 100 : 0;
-        double gapPercent = alignmentLength > 0 ? (double)gaps / alignmentLength * 100 : 0;
+        // Length (including gaps) is the EMBOSS needle denominator for all three
+        // percentages. Source: EMBOSS needle documentation (Rice et al. 2000).
+        int similar = matches + similarSubstitutions;
+        double identity = (double)matches / alignmentLength * 100;
+        double similarity = (double)similar / alignmentLength * 100;
+        double gapPercent = (double)gaps / alignmentLength * 100;
 
         return new AlignmentStatistics(
             Matches: matches,
@@ -578,15 +618,27 @@ public static class SequenceAligner
     }
 
     /// <summary>
-    /// Generates a visual alignment string showing matches.
+    /// Generates a visual three-line pairwise alignment using the EMBOSS srspair
+    /// markup legend ('|' identity, ':' similarity, ' ' gap/mismatch).
     /// </summary>
-    public static string FormatAlignment(AlignmentResult alignment, int lineWidth = 60)
+    /// <param name="alignment">The pairwise alignment to render.</param>
+    /// <param name="lineWidth">Residues per block (must be positive; default 60).</param>
+    /// <param name="scoring">
+    /// Scoring model used to mark similar (positive-score) columns; defaults to
+    /// <see cref="SimpleDna"/>. See <see cref="CalculateStatistics"/>.
+    /// </param>
+    public static string FormatAlignment(
+        AlignmentResult alignment,
+        int lineWidth = 60,
+        ScoringMatrix? scoring = null)
     {
         ArgumentNullException.ThrowIfNull(alignment);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(lineWidth);
 
         if (string.IsNullOrEmpty(alignment.AlignedSequence1))
             return "";
 
+        var score = scoring ?? SimpleDna;
         var sb = new StringBuilder();
         int length = alignment.AlignedSequence1.Length;
 
@@ -596,18 +648,20 @@ public static class SequenceAligner
 
             sb.AppendLine(alignment.AlignedSequence1[start..end]);
 
-            // Match line
+            // Markup line (EMBOSS srspair legend).
             for (int i = start; i < end; i++)
             {
                 char c1 = alignment.AlignedSequence1[i];
                 char c2 = alignment.AlignedSequence2[i];
 
-                if (c1 == c2 && c1 != '-')
-                    sb.Append('|');
-                else if (c1 == '-' || c2 == '-')
-                    sb.Append(' ');
+                if (c1 == '-' || c2 == '-')
+                    sb.Append(GapOrMismatchMark);
+                else if (c1 == c2)
+                    sb.Append(IdentityMark);
+                else if (score.Mismatch > 0)
+                    sb.Append(SimilarityMark);
                 else
-                    sb.Append('.');
+                    sb.Append(GapOrMismatchMark);
             }
             sb.AppendLine();
 
