@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 114 |
+| **Completed** | 115 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 120 |
+| **Not Started** | 119 |
 
 ---
 
@@ -142,7 +142,7 @@
 | ☑ | TRANS-SIXFRAME-001 | Translation | 1 | [Evidence](docs/Evidence/TRANS-SIXFRAME-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-SIXFRAME-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/Translator_SixFrames_Tests.cs) |
 | ☑ | ASSEMBLY-MERGE-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-MERGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_MergeContigs_Tests.cs) |
 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-SCAFFOLD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_Scaffold_Tests.cs) |
-| ☐ | ASSEMBLY-COVER-001 | Assembly | 1 | - | - | - |
+| ☑ | ASSEMBLY-COVER-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-COVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-COVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_CalculateCoverage_Tests.cs) |
 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | - | - | - |
 | ☐ | ASSEMBLY-TRIM-001 | Assembly | 1 | - | - | - |
 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | 1 | - | - | - |

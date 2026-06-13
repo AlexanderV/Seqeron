@@ -744,15 +744,42 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Calculates coverage depth at each position of the reference.
+    /// Default minimum number of matching characters required to place a read against the
+    /// reference. This is a usability default for read placement, not a biological constant;
+    /// the depth-counting arithmetic (per-base depth = number of placed reads spanning the
+    /// position) is independent of its value (Metagenomics Wiki, "SAMtools: get breadth of
+    /// coverage"; Cook, "Calculate Depth and Breadth of Coverage From a bam File").
     /// </summary>
-    public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = 20)
+    private const int DefaultMinOverlap = 20;
+
+    /// <summary>
+    /// Calculates per-base sequencing coverage (read depth) along the reference. Each read is
+    /// placed at its best ungapped match position (requiring at least <paramref name="minOverlap"/>
+    /// matching characters); a placed read of length L starting at position p increments the depth
+    /// of every reference position in the half-open interval [p, min(p + L, reference.Length)).
+    /// Per-base depth is the number of reads covering that position (Metagenomics Wiki, "SAMtools:
+    /// get breadth of coverage"; Cook, "Calculate Depth and Breadth of Coverage From a bam File").
+    /// </summary>
+    /// <param name="reference">Reference sequence; depth is reported per position.</param>
+    /// <param name="reads">Reads to map against the reference.</param>
+    /// <param name="minOverlap">Minimum matching characters required to place a read.</param>
+    /// <returns>
+    /// An array of length <c>reference.Length</c> whose i-th element is the number of placed reads
+    /// covering reference position i. Reads that fail to place contribute nothing; portions of a
+    /// read extending past the reference end are clipped and do not contribute.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="reference"/> or <paramref name="reads"/> is null.</exception>
+    public static int[] CalculateCoverage(string reference, IReadOnlyList<string> reads, int minOverlap = DefaultMinOverlap)
     {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(reads);
+
         var coverage = new int[reference.Length];
 
         foreach (string read in reads)
         {
-            // Find where read maps to reference
+            // Place the read at its best ungapped match, then increment the depth of every
+            // reference position the read spans (clipped at the reference end).
             int pos = FindBestAlignment(reference, read, minOverlap);
             if (pos >= 0)
             {
