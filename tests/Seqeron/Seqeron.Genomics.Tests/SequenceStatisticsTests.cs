@@ -130,59 +130,8 @@ public class SequenceStatisticsTests
 
     #endregion
 
-    #region Molecular Weight Tests
-
-    [Test]
-    public void CalculateMolecularWeight_ValidProtein_ReturnsPositive()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("MKVLWAIFGAPV");
-
-        Assert.That(mw, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_SingleAminoAcid_ReturnsWeight()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("A");
-
-        Assert.That(mw, Is.GreaterThan(70)); // Alanine ~89 Da
-        Assert.That(mw, Is.LessThan(110));
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_LongerProtein_IncreasesProperly()
-    {
-        double mw1 = SequenceStatistics.CalculateMolecularWeight("AAA");
-        double mw2 = SequenceStatistics.CalculateMolecularWeight("AAAAAA");
-
-        Assert.That(mw2, Is.GreaterThan(mw1));
-    }
-
-    [Test]
-    public void CalculateNucleotideMolecularWeight_Dna_ReturnsPositive()
-    {
-        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight("ATGCATGC", isDna: true);
-
-        Assert.That(mw, Is.GreaterThan(2000)); // ~8 * 330 Da
-    }
-
-    [Test]
-    public void CalculateNucleotideMolecularWeight_Rna_ReturnsDifferentWeight()
-    {
-        double dnaMw = SequenceStatistics.CalculateNucleotideMolecularWeight("ATGC", isDna: true);
-        double rnaMw = SequenceStatistics.CalculateNucleotideMolecularWeight("AUGC", isDna: false);
-
-        Assert.That(rnaMw, Is.GreaterThan(dnaMw)); // RNA has extra OH groups
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_EmptyString_ReturnsZero()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("");
-        Assert.That(mw, Is.EqualTo(0));
-    }
-
-    #endregion
+    // Molecular Weight tests moved to the canonical SEQ-MW-001 fixture:
+    // SequenceStatistics_CalculateMolecularWeight_Tests.cs (evidence-based exact values).
 
     #region Isoelectric Point Tests
 

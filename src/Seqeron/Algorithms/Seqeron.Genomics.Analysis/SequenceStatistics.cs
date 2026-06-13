@@ -142,96 +142,162 @@ public static class SequenceStatistics
 
     #region Molecular Weight
 
-    // Amino acid molecular weights (Da) - average isotopic mass
+    // Average isotopic mass of one water molecule (Da).
+    // Expasy FindMod "Other mass values": H2O = 18.01524; Biopython SeqUtils uses water = 18.0153.
+    // Source: https://web.expasy.org/findmod/findmod_masses.html ;
+    //         Biopython Bio/SeqUtils/__init__.py (molecular_weight).
+    private const double AverageWaterMass = 18.0153;
+
+    // Average molecular masses of the 20 standard free amino acids (Da).
+    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master), "Mass data taken from PubChem";
+    // consistent with Expasy FindMod average residue masses + AverageWaterMass.
     private static readonly Dictionary<char, double> AminoAcidWeights = new()
     {
-        { 'A', 89.09 },   { 'R', 174.20 }, { 'N', 132.12 }, { 'D', 133.10 },
-        { 'C', 121.16 },  { 'E', 147.13 }, { 'Q', 146.15 }, { 'G', 75.07 },
-        { 'H', 155.16 },  { 'I', 131.18 }, { 'L', 131.18 }, { 'K', 146.19 },
-        { 'M', 149.21 },  { 'F', 165.19 }, { 'P', 115.13 }, { 'S', 105.09 },
-        { 'T', 119.12 },  { 'W', 204.23 }, { 'Y', 181.19 }, { 'V', 117.15 },
-        { 'U', 168.05 },  { 'O', 255.31 }, { 'B', 132.61 }, { 'Z', 146.64 },
-        { 'X', 110.0 }    // Average for unknown
+        { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
+        { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
+        { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
+        { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },  { 'S', 105.0926 },
+        { 'T', 119.1192 }, { 'V', 117.1463 }, { 'W', 204.2252 }, { 'Y', 181.1885 }
+    };
+
+    // Average molecular masses of DNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython Bio/Data/IUPACData.py `unambiguous_dna_weights`.
+    private static readonly Dictionary<char, double> DnaNucleotideWeights = new()
+    {
+        { 'A', 331.2218 }, { 'C', 307.1971 }, { 'G', 347.2212 }, { 'T', 322.2085 }
+    };
+
+    // Average molecular masses of RNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython Bio/Data/IUPACData.py `unambiguous_rna_weights`.
+    private static readonly Dictionary<char, double> RnaNucleotideWeights = new()
+    {
+        { 'A', 347.2212 }, { 'C', 323.1965 }, { 'G', 363.2206 }, { 'U', 324.1813 }
     };
 
     /// <summary>
-    /// Calculates molecular weight of a protein sequence (Da).
+    /// Calculates the average-isotopic molecular weight of a protein sequence (Da).
     /// </summary>
+    /// <remarks>
+    /// Implements the Expasy Compute pI/Mw definition: the sum of the average isotopic
+    /// masses of the amino acids plus the average isotopic mass of one water molecule.
+    /// Equivalently (Biopython): sum(free amino-acid masses) − (n − 1) × water, removing
+    /// one water per peptide bond. Unknown symbols are skipped (contribute no mass and no bond).
+    /// </remarks>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateMolecularWeight(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             return 0;
 
-        double weight = 18.015; // Water molecule (for peptide bond formation)
+        double weight = 0;
+        int residues = 0;
 
         foreach (char aa in proteinSequence.ToUpperInvariant())
         {
             if (AminoAcidWeights.TryGetValue(aa, out double aaWeight))
             {
-                weight += aaWeight - 18.015; // Subtract water for each peptide bond
+                weight += aaWeight;
+                residues++;
             }
         }
 
-        return weight + 18.015; // Add back water for N and C terminus
+        if (residues == 0)
+            return 0;
+
+        // One water is lost per peptide bond; n residues form (n − 1) bonds.
+        return weight - (residues - 1) * AverageWaterMass;
     }
 
     /// <summary>
-    /// Calculates molecular weight of a DNA/RNA sequence.
+    /// Calculates the average-isotopic molecular weight of a DNA or RNA sequence (Da).
     /// </summary>
+    /// <remarks>
+    /// Uses average monophosphate (5'-phosphate) mononucleotide masses and removes one
+    /// water per phosphodiester bond: sum(monophosphate masses) − (n − 1) × water
+    /// (Biopython Bio.SeqUtils.molecular_weight). Unknown symbols are skipped.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="isDna">True for DNA (uses A/C/G/T table); false for RNA (A/C/G/U table).</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateNucleotideMolecularWeight(string sequence, bool isDna = true)
     {
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        // Average molecular weights for nucleotides (as monophosphates)
-        double aWeight = isDna ? 331.2 : 347.2;
-        double tWeight = 322.2;  // DNA only
-        double uWeight = 324.2;  // RNA only
-        double gWeight = isDna ? 347.2 : 363.2;
-        double cWeight = isDna ? 307.2 : 323.2;
+        Dictionary<char, double> table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
 
         double weight = 0;
+        int monomers = 0;
+
         foreach (char ch in sequence.ToUpperInvariant())
         {
-            weight += ch switch
+            if (table.TryGetValue(ch, out double ntWeight))
             {
-                'A' => aWeight,
-                'T' => tWeight,
-                'U' => uWeight,
-                'G' => gWeight,
-                'C' => cWeight,
-                _ => 330.0 // Average
-            };
+                weight += ntWeight;
+                monomers++;
+            }
         }
 
-        return weight;
+        if (monomers == 0)
+            return 0;
+
+        // One water is lost per phosphodiester bond; n monomers form (n − 1) bonds.
+        return weight - (monomers - 1) * AverageWaterMass;
     }
 
     #endregion
 
     #region Isoelectric Point
 
-    // pKa values for ionizable groups
+    // pKa values for ionizable side chains — EMBOSS Epk.dat scale (EMBOSS iep documentation).
+    // charge: +1 = basic group (protonated, positive at low pH); -1 = acidic group (deprotonated, negative at high pH).
+    // Source: EMBOSS iep, https://emboss.sourceforge.net/emboss/apps/iep.html (accessed 2026-06-13).
     private static readonly Dictionary<char, (double pKa, int charge)> IonizableGroups = new()
     {
-        { 'D', (3.9, -1) },  // Aspartic acid
-        { 'E', (4.1, -1) },  // Glutamic acid
-        { 'C', (8.3, -1) },  // Cysteine
-        { 'Y', (10.1, -1) }, // Tyrosine
-        { 'H', (6.0, 1) },   // Histidine
-        { 'K', (10.5, 1) },  // Lysine
-        { 'R', (12.5, 1) }   // Arginine
+        { 'D', (3.9, -1) },  // Aspartic acid — EMBOSS pKa 3.9
+        { 'E', (4.1, -1) },  // Glutamic acid — EMBOSS pKa 4.1
+        { 'C', (8.5, -1) },  // Cysteine — EMBOSS pKa 8.5
+        { 'Y', (10.1, -1) }, // Tyrosine — EMBOSS pKa 10.1
+        { 'H', (6.5, 1) },   // Histidine — EMBOSS pKa 6.5
+        { 'K', (10.8, 1) },  // Lysine — EMBOSS pKa 10.8
+        { 'R', (12.5, 1) }   // Arginine — EMBOSS pKa 12.5
     };
 
+    // Terminal-group pKa values — EMBOSS Epk.dat scale (EMBOSS iep documentation).
+    private const double NTerminusPka = 8.6; // EMBOSS "Amino" (N-terminus) pKa
+    private const double CTerminusPka = 3.6; // EMBOSS "Carboxyl" (C-terminus) pKa
+
+    // Bisection search bounds and convergence — pI lies in the standard pH window [0, 14].
+    private const double MinPh = 0.0;
+    private const double MaxPh = 14.0;
+    private const double PiBisectionPrecision = 0.01; // pH resolution of the returned pI
+
+    // pI returned for empty/null input: pI is undefined for a zero-length protein (a real
+    // protein always has both termini); neutral 7.0 is used as a documented input-guard sentinel.
+    private const double NeutralPhDefault = 7.0;
+
+    private const int PiDecimalPlaces = 2;
+
     /// <summary>
-    /// Calculates the isoelectric point (pI) of a protein.
+    /// Calculates the theoretical isoelectric point (pI) of a protein: the pH at which the net
+    /// charge is zero. Uses the EMBOSS Epk.dat pKa scale and the Henderson–Hasselbalch net-charge
+    /// model, with charge contributions summed over ionizable side chains and both termini.
+    /// The pH where net charge crosses zero is located by bisection over [0, 14].
     /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive). Non-ionizable
+    /// residues are ignored. Null or empty returns the neutral sentinel 7.0.</param>
+    /// <returns>The isoelectric point in [0, 14], rounded to two decimal places.</returns>
+    /// <remarks>
+    /// pKa values and charge formula: EMBOSS iep (https://emboss.sourceforge.net/emboss/apps/iep.html)
+    /// and Peptides charge model (Osorio et al. 2015, Henderson–Hasselbalch per Moore 1985).
+    /// </remarks>
     public static double CalculateIsoelectricPoint(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
-            return 7.0;
+            return NeutralPhDefault;
 
-        // Count ionizable residues
+        // Count ionizable residues (composition-only model; sequence order does not affect pI).
         var counts = new Dictionary<char, int>();
         foreach (char aa in proteinSequence.ToUpperInvariant())
         {
@@ -239,52 +305,48 @@ public static class SequenceStatistics
                 counts[aa] = counts.GetValueOrDefault(aa) + 1;
         }
 
-        // Binary search for pH where net charge = 0
-        double pHLow = 0.0;
-        double pHHigh = 14.0;
-        double pH = 7.0;
-        const double precision = 0.01;
+        // Bisection for the pH where net charge = 0.
+        double pHLow = MinPh;
+        double pHHigh = MaxPh;
+        double pH = NeutralPhDefault;
 
-        // N-terminus pKa = 9.6, C-terminus pKa = 2.3
-        const double nTermPka = 9.6;
-        const double cTermPka = 2.3;
-
-        while (pHHigh - pHLow > precision)
+        while (pHHigh - pHLow > PiBisectionPrecision)
         {
             pH = (pHLow + pHHigh) / 2.0;
+            double charge = NetCharge(counts, pH);
 
-            // Calculate net charge at this pH
-            double charge = 0;
-
-            // N-terminus (positive)
-            charge += 1.0 / (1.0 + Math.Pow(10, pH - nTermPka));
-
-            // C-terminus (negative)
-            charge -= 1.0 / (1.0 + Math.Pow(10, cTermPka - pH));
-
-            // Side chains
-            foreach (var (aa, count) in counts)
-            {
-                var (pKa, baseCharge) = IonizableGroups[aa];
-                if (baseCharge > 0)
-                {
-                    // Positive residue
-                    charge += count * 1.0 / (1.0 + Math.Pow(10, pH - pKa));
-                }
-                else
-                {
-                    // Negative residue
-                    charge -= count * 1.0 / (1.0 + Math.Pow(10, pKa - pH));
-                }
-            }
-
+            // Net charge is monotonically non-increasing in pH: positive ⇒ pI is higher.
             if (charge > 0)
                 pHLow = pH;
             else
                 pHHigh = pH;
         }
 
-        return Math.Round(pH, 2);
+        return Math.Round(pH, PiDecimalPlaces);
+    }
+
+    /// <summary>
+    /// Net charge of a protein at a given pH from its ionizable-residue counts, using the
+    /// Henderson–Hasselbalch model: basic groups contribute +1/(1+10^(pH−pKa)), acidic groups
+    /// contribute −1/(1+10^(pKa−pH)). Both termini are counted once.
+    /// Source: Peptides charge_pI.cpp (Osorio et al. 2015); EMBOSS iep pKa scale.
+    /// </summary>
+    private static double NetCharge(Dictionary<char, int> counts, double pH)
+    {
+        // N-terminus (basic) and C-terminus (acidic).
+        double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
+        charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
+
+        foreach (var (aa, count) in counts)
+        {
+            var (pKa, baseCharge) = IonizableGroups[aa];
+            if (baseCharge > 0)
+                charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
+            else
+                charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
+        }
+
+        return charge;
     }
 
     #endregion
