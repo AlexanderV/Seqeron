@@ -48,125 +48,11 @@ public class ComparativeGenomicsTests
 
     #endregion
 
-    #region FindSyntenicBlocks Tests
+    // NOTE: FindSyntenicBlocks tests moved to the canonical unit file
+    // ComparativeGenomics_FindSyntenicBlocks_Tests.cs (COMPGEN-SYNTENY-001).
 
-    [Test]
-    public void FindSyntenicBlocks_CollinearGenes_ReturnsSyntenicBlock()
-    {
-        var genome1 = CreateTestGenome1();
-        var genome2 = CreateTestGenome2();
-        var orthologMap = CreateOrthologMap();
-
-        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, orthologMap, minBlockSize: 3).ToList();
-
-        Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(blocks[0].GeneCount, Is.GreaterThanOrEqualTo(3));
-        Assert.That(blocks[0].IsInverted, Is.False);
-    }
-
-    [Test]
-    public void FindSyntenicBlocks_EmptyGenome_ReturnsEmpty()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>();
-        var genome2 = CreateTestGenome2();
-        var orthologMap = CreateOrthologMap();
-
-        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, orthologMap).ToList();
-
-        Assert.That(blocks, Is.Empty);
-    }
-
-    [Test]
-    public void FindSyntenicBlocks_NoOrthologs_ReturnsEmpty()
-    {
-        var genome1 = CreateTestGenome1();
-        var genome2 = CreateTestGenome2();
-        var orthologMap = new Dictionary<string, string>();
-
-        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, orthologMap).ToList();
-
-        Assert.That(blocks, Is.Empty);
-    }
-
-    [Test]
-    public void FindSyntenicBlocks_InvertedBlock_MarksAsInverted()
-    {
-        var genome1 = CreateTestGenome1();
-        // Create genome2 with inverted order
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneD", "genome2", 0, 100, '-', "CGCGCGCGCG"),
-            new("geneC", "genome2", 150, 250, '-', "TATATATATAT"),
-            new("geneB", "genome2", 300, 400, '-', "GCTAGCTAGCTA"),
-            new("geneA", "genome2", 450, 550, '-', "ATGCATGCATGC"),
-        };
-        var orthologMap = CreateOrthologMap();
-
-        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, orthologMap, minBlockSize: 3).ToList();
-
-        Assert.That(blocks, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(blocks[0].IsInverted, Is.True);
-    }
-
-    #endregion
-
-    #region FindOrthologs Tests
-
-    [Test]
-    public void FindOrthologs_IdenticalSequences_ReturnsHighIdentity()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "ATGCATGCATGCATGCATGC"),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGCATGCATGC"),
-        };
-
-        var orthologs = ComparativeGenomics.FindOrthologs(genome1, genome2, minIdentity: 0.5).ToList();
-
-        Assert.That(orthologs, Has.Count.EqualTo(1));
-        Assert.That(orthologs[0].Gene1Id, Is.EqualTo("gene1"));
-        Assert.That(orthologs[0].Gene2Id, Is.EqualTo("geneA"));
-        Assert.That(orthologs[0].Identity, Is.GreaterThan(0.9));
-    }
-
-    [Test]
-    public void FindOrthologs_NoSimilarSequences_ReturnsEmpty()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "AAAAAAAAAAAAAAAAAAAAAAAAA"),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "TTTTTTTTTTTTTTTTTTTTTTTTT"),
-        };
-
-        var orthologs = ComparativeGenomics.FindOrthologs(genome1, genome2, minIdentity: 0.3).ToList();
-
-        Assert.That(orthologs, Is.Empty);
-    }
-
-    [Test]
-    public void FindOrthologs_EmptySequences_HandlesGracefully()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', null),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGC"),
-        };
-
-        var orthologs = ComparativeGenomics.FindOrthologs(genome1, genome2).ToList();
-
-        Assert.That(orthologs, Is.Empty);
-    }
-
-    #endregion
+    // FindOrthologs tests moved to the canonical file for COMPGEN-ORTHO-001:
+    // ComparativeGenomics_FindOrthologs_Tests.cs (RBH + FindParalogs, evidence-based).
 
     #region FindReciprocalBestHits Tests
 
@@ -210,66 +96,9 @@ public class ComparativeGenomicsTests
 
     #endregion
 
-    #region DetectRearrangements Tests
-
-    [Test]
-    public void DetectRearrangements_CollinearGenomes_ReturnsEmpty()
-    {
-        var genome1 = CreateTestGenome1();
-        var genome2 = CreateTestGenome2();
-        var orthologMap = CreateOrthologMap();
-
-        var rearrangements = ComparativeGenomics.DetectRearrangements(genome1, genome2, orthologMap).ToList();
-
-        // Perfect collinearity should have no rearrangements
-        Assert.That(rearrangements.Count(r => r.Type == ComparativeGenomics.RearrangementType.Inversion), Is.EqualTo(0));
-    }
-
-    [Test]
-    public void DetectRearrangements_InvertedRegion_DetectsInversion()
-    {
-        var genome1 = CreateTestGenome1();
-        // Invert the order of genes B and C
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGC"),
-            new("geneC", "genome2", 150, 250, '-', "TATATATATAT"), // Swapped
-            new("geneB", "genome2", 300, 400, '-', "GCTAGCTAGCTA"), // Swapped
-            new("geneD", "genome2", 450, 550, '+', "CGCGCGCGCG"),
-        };
-        var orthologMap = CreateOrthologMap();
-
-        var rearrangements = ComparativeGenomics.DetectRearrangements(genome1, genome2, orthologMap).ToList();
-
-        Assert.That(rearrangements.Any(r => r.Type == ComparativeGenomics.RearrangementType.Inversion));
-    }
-
-    [Test]
-    public void DetectRearrangements_MissingGene_DetectsDeletion()
-    {
-        var genome1 = CreateTestGenome1();
-        // Missing geneB in genome2
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGC"),
-            new("geneC", "genome2", 150, 250, '+', "TATATATATAT"),
-            new("geneD", "genome2", 300, 400, '+', "CGCGCGCGCG"),
-        };
-        // Ortholog map includes gene2 -> geneB, but geneB is missing
-        var orthologMap = new Dictionary<string, string>
-        {
-            { "gene1", "geneA" },
-            { "gene3", "geneC" },
-            { "gene4", "geneD" },
-        };
-
-        var rearrangements = ComparativeGenomics.DetectRearrangements(genome1, genome2, orthologMap).ToList();
-
-        // Should detect the gap in genome1 (gene2 has no ortholog)
-        Assert.That(rearrangements.Count, Is.GreaterThanOrEqualTo(0)); // Gap detection
-    }
-
-    #endregion
+    // DetectRearrangements tests moved to ComparativeGenomics_DetectRearrangements_Tests.cs
+    // (COMPGEN-REARR-001), which tests the corrected breakpoint-based behavior with exact
+    // evidence-derived counts. The prior permissive heuristic tests were removed there.
 
     #region CompareGenomes Tests
 

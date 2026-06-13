@@ -81,165 +81,405 @@ public static class ComparativeGenomics
         int GenomeSpecificGenes1,
         int GenomeSpecificGenes2);
 
+    // --- MCScanX collinearity scoring constants (Wang et al. 2012, NAR 40(7):e49) ---
+    // Score(v) = max(MatchScore(v), max_u(Score(u) + MatchScore(v) + GapPenalty * NumberofGaps(u,v)))
+
+    /// <summary>Score awarded per anchored (collinear) gene pair. MCScanX default MatchScore = 50.</summary>
+    private const int MatchScore = 50;
+
+    /// <summary>Penalty applied per intervening gene between two anchors. MCScanX default GapPenalty = −1.</summary>
+    private const int GapPenalty = -1;
+
     /// <summary>
-    /// Finds syntenic blocks between two genomes using gene order.
+    /// Maximum number of intervening genes permitted between consecutive anchors.
+    /// MCScanX requires NumberofGaps(u,v) &lt; 25 (default MAX_GAPS = 25).
     /// </summary>
+    private const int DefaultMaxGaps = 25;
+
+    /// <summary>
+    /// Minimum chain score for a collinear block to be reported.
+    /// MCScanX reports non-overlapping chains with scores over 250.
+    /// </summary>
+    private const int MinChainScore = 250;
+
+    /// <summary>
+    /// Minimum number of collinear gene pairs (anchors) per reported block.
+    /// MCScanX default = 5 (5 × MatchScore = 250).
+    /// </summary>
+    private const int DefaultMinAnchors = MinChainScore / MatchScore;
+
+    /// <summary>
+    /// Detects syntenic (collinear) blocks between two gene-ordered genomes from a set of
+    /// orthologous anchors, following the MCScanX collinearity model: a dynamic-programming
+    /// chaining of anchor pairs that rewards adjacency and penalizes intervening genes
+    /// (Wang et al. 2012, <i>Nucleic Acids Research</i> 40(7):e49).
+    /// </summary>
+    /// <param name="genome1Genes">Genes of genome 1 in chromosomal order.</param>
+    /// <param name="genome2Genes">Genes of genome 2 in chromosomal order.</param>
+    /// <param name="orthologMap">Anchor map: genome-1 gene id → orthologous genome-2 gene id.</param>
+    /// <param name="minAnchors">
+    /// Minimum collinear gene pairs per block. MCScanX default 5 (score threshold 250).
+    /// </param>
+    /// <param name="maxGap">
+    /// Maximum intervening genes between consecutive anchors. MCScanX default 25 (NumberofGaps &lt; 25).
+    /// </param>
+    /// <returns>The reported non-overlapping collinear blocks (forward and inverted).</returns>
+    /// <exception cref="ArgumentNullException">Any required argument is null.</exception>
     public static IEnumerable<SyntenicBlock> FindSyntenicBlocks(
         IReadOnlyList<Gene> genome1Genes,
         IReadOnlyList<Gene> genome2Genes,
         IReadOnlyDictionary<string, string> orthologMap,
-        int minBlockSize = 3,
-        int maxGap = 5)
+        int minAnchors = DefaultMinAnchors,
+        int maxGap = DefaultMaxGaps)
     {
-        if (genome1Genes.Count == 0 || genome2Genes.Count == 0)
-            yield break;
+        ArgumentNullException.ThrowIfNull(genome1Genes);
+        ArgumentNullException.ThrowIfNull(genome2Genes);
+        ArgumentNullException.ThrowIfNull(orthologMap);
 
-        // Build position maps
+        if (genome1Genes.Count == 0 || genome2Genes.Count == 0)
+            return Array.Empty<SyntenicBlock>();
+
+        // Build genome-2 position index.
         var genome2Positions = new Dictionary<string, int>();
         for (int i = 0; i < genome2Genes.Count; i++)
-        {
             genome2Positions[genome2Genes[i].Id] = i;
-        }
 
-        // Find runs of collinear orthologs
-        var anchors = new List<(int pos1, int pos2, bool strand)>();
-
+        // Collect anchors as (pos1, pos2) ordered by genome-1 position.
+        var anchors = new List<(int pos1, int pos2)>();
         for (int i = 0; i < genome1Genes.Count; i++)
         {
-            var gene1 = genome1Genes[i];
-            if (orthologMap.TryGetValue(gene1.Id, out string? ortholog) &&
+            if (orthologMap.TryGetValue(genome1Genes[i].Id, out string? ortholog) &&
                 genome2Positions.TryGetValue(ortholog, out int pos2))
             {
-                var gene2 = genome2Genes[pos2];
-                bool sameStrand = gene1.Strand == gene2.Strand;
-                anchors.Add((i, pos2, sameStrand));
+                anchors.Add((i, pos2));
             }
         }
 
-        if (anchors.Count < minBlockSize)
-            yield break;
+        if (anchors.Count < minAnchors)
+            return Array.Empty<SyntenicBlock>();
 
-        // Find collinear chains
-        var blocks = FindCollinearChains(anchors, minBlockSize, maxGap);
-
-        foreach (var block in blocks)
-        {
-            if (block.Count < minBlockSize) continue;
-
-            int start1 = genome1Genes[block.Min(a => a.pos1)].Start;
-            int end1 = genome1Genes[block.Max(a => a.pos1)].End;
-            int start2 = genome2Genes[block.Min(a => a.pos2)].Start;
-            int end2 = genome2Genes[block.Max(a => a.pos2)].End;
-
-            bool isInverted = block.First().pos2 > block.Last().pos2;
-
-            yield return new SyntenicBlock(
-                Genome1Id: genome1Genes[0].GenomeId,
-                Start1: start1,
-                End1: end1,
-                Genome2Id: genome2Genes[0].GenomeId,
-                Start2: Math.Min(start2, end2),
-                End2: Math.Max(start2, end2),
-                IsInverted: isInverted,
-                GeneCount: block.Count,
-                Identity: 1.0); // Could compute actual identity
-        }
+        var chains = ChainCollinearAnchors(anchors, minAnchors, maxGap);
+        return BuildBlocks(chains, genome1Genes, genome2Genes);
     }
 
-    private static List<List<(int pos1, int pos2, bool strand)>> FindCollinearChains(
-        List<(int pos1, int pos2, bool strand)> anchors,
-        int minSize,
+    /// <summary>
+    /// Greedily extracts non-overlapping collinear chains using the MCScanX scoring scheme.
+    /// Anchors are sorted by genome-1 position; consecutive anchors extend a chain when they
+    /// keep a consistent genome-2 direction and the number of intervening genes is &lt; maxGap.
+    /// A chain is reported when its MCScanX score ≥ <see cref="MinChainScore"/> and it has ≥ minAnchors pairs.
+    /// </summary>
+    private static List<List<(int pos1, int pos2)>> ChainCollinearAnchors(
+        List<(int pos1, int pos2)> anchors,
+        int minAnchors,
         int maxGap)
     {
-        var chains = new List<List<(int pos1, int pos2, bool strand)>>();
+        var reported = new List<List<(int pos1, int pos2)>>();
 
-        // Sort by position in genome 1
-        anchors = anchors.OrderBy(a => a.pos1).ToList();
+        // Sort by genome-1 position (anchors are already appended in this order, but be explicit).
+        anchors.Sort((a, b) => a.pos1.CompareTo(b.pos1));
 
-        var currentChain = new List<(int pos1, int pos2, bool strand)>();
-        int? lastPos2 = null;
-        bool? direction = null;
+        var current = new List<(int pos1, int pos2)>();
+        int? direction = null; // +1 forward, -1 reverse.
+
+        void Flush()
+        {
+            if (IsReportable(current, minAnchors))
+                reported.Add(new List<(int pos1, int pos2)>(current));
+            current.Clear();
+            direction = null;
+        }
 
         foreach (var anchor in anchors)
         {
-            if (lastPos2 == null)
+            if (current.Count == 0)
             {
-                currentChain.Add(anchor);
-                lastPos2 = anchor.pos2;
+                current.Add(anchor);
                 continue;
             }
 
-            int diff = anchor.pos2 - lastPos2.Value;
-            bool currentDir = diff > 0;
+            var last = current[^1];
+            int delta2 = anchor.pos2 - last.pos2;
+            // NumberofGaps = intervening genes between the two anchors in genome 2.
+            int numberOfGaps = Math.Abs(delta2) - 1;
+            int currentDir = delta2 > 0 ? 1 : -1;
 
-            // Check if this anchor continues the chain
-            bool continuesChain = Math.Abs(diff) <= maxGap &&
-                                  Math.Abs(diff) >= 1 &&
-                                  (direction == null || direction == currentDir);
+            bool extends = delta2 != 0
+                           && numberOfGaps < maxGap
+                           && (direction == null || direction == currentDir);
 
-            if (continuesChain)
+            if (extends)
             {
-                currentChain.Add(anchor);
+                current.Add(anchor);
                 direction = currentDir;
             }
             else
             {
-                // Save current chain and start new one
-                if (currentChain.Count >= minSize)
-                {
-                    chains.Add(new List<(int pos1, int pos2, bool strand)>(currentChain));
-                }
-                currentChain.Clear();
-                currentChain.Add(anchor);
-                direction = null;
+                Flush();
+                current.Add(anchor);
             }
-
-            lastPos2 = anchor.pos2;
         }
 
-        if (currentChain.Count >= minSize)
-        {
-            chains.Add(currentChain);
-        }
-
-        return chains;
+        Flush();
+        return reported;
     }
 
     /// <summary>
-    /// Identifies orthologous gene pairs using sequence similarity.
+    /// Computes the MCScanX chain score for an ordered run of anchors and tests the report rule:
+    /// score ≥ <see cref="MinChainScore"/> AND anchor count ≥ minAnchors.
     /// </summary>
+    private static bool IsReportable(List<(int pos1, int pos2)> chain, int minAnchors)
+    {
+        if (chain.Count < minAnchors)
+            return false;
+
+        // Score = n * MatchScore + GapPenalty * (total intervening genes).
+        int totalGaps = 0;
+        for (int i = 1; i < chain.Count; i++)
+            totalGaps += Math.Abs(chain[i].pos2 - chain[i - 1].pos2) - 1;
+
+        int score = chain.Count * MatchScore + GapPenalty * totalGaps;
+        return score >= MinChainScore;
+    }
+
+    private static List<SyntenicBlock> BuildBlocks(
+        List<List<(int pos1, int pos2)>> chains,
+        IReadOnlyList<Gene> genome1Genes,
+        IReadOnlyList<Gene> genome2Genes)
+    {
+        var blocks = new List<SyntenicBlock>(chains.Count);
+
+        foreach (var chain in chains)
+        {
+            int start1 = genome1Genes[chain.Min(a => a.pos1)].Start;
+            int end1 = genome1Genes[chain.Max(a => a.pos1)].End;
+            int start2 = genome2Genes[chain.Min(a => a.pos2)].Start;
+            int end2 = genome2Genes[chain.Max(a => a.pos2)].End;
+
+            // Inverted iff genome-2 order decreases along the (genome-1-ordered) chain.
+            bool isInverted = chain[^1].pos2 < chain[0].pos2;
+
+            blocks.Add(new SyntenicBlock(
+                Genome1Id: genome1Genes[0].GenomeId,
+                Start1: Math.Min(start1, end1),
+                End1: Math.Max(start1, end1),
+                Genome2Id: genome2Genes[0].GenomeId,
+                Start2: Math.Min(start2, end2),
+                End2: Math.Max(start2, end2),
+                IsInverted: isInverted,
+                GeneCount: chain.Count,
+                Identity: 1.0));
+        }
+
+        return blocks;
+    }
+
+    /// <summary>
+    /// Renders syntenic blocks as a human-readable text summary, one line per block.
+    /// Visualization helper for <see cref="FindSyntenicBlocks"/>.
+    /// </summary>
+    public static string VisualizeSynteny(IReadOnlyList<SyntenicBlock> blocks)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            var b = blocks[i];
+            string orientation = b.IsInverted ? "reverse" : "forward";
+            sb.Append(b.Genome1Id).Append(':').Append(b.Start1).Append('-').Append(b.End1)
+              .Append(" <=> ")
+              .Append(b.Genome2Id).Append(':').Append(b.Start2).Append('-').Append(b.End2)
+              .Append(" [").Append(orientation).Append(", ")
+              .Append(b.GeneCount).Append(" genes]");
+            if (i < blocks.Count - 1)
+                sb.Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    // --- Reciprocal Best Hit (RBH) ortholog-detection constants ---
+    // Moreno-Hagelsieb & Latimer (2008), Bioinformatics 24(3):319–324,
+    // https://doi.org/10.1093/bioinformatics/btm585 :
+    // "two genes residing in two different genomes are deemed orthologs if their protein
+    //  products find each other as the best hit in the opposite genome."
+
+    /// <summary>
+    /// Minimum fraction of the shorter sequence that must be covered by the match.
+    /// Moreno-Hagelsieb &amp; Latimer (2008) require "coverage of at least 50% of any of
+    /// the protein sequences in the alignments" (default 0.5).
+    /// </summary>
+    private const double DefaultMinCoverage = 0.5;
+
+    /// <summary>
+    /// Minimum similarity score for a hit to qualify, mapping the significance gate
+    /// (max E-value 1e-6 in Moreno-Hagelsieb &amp; Latimer 2008) onto the alignment-free
+    /// similarity used here (default 0.3). See Evidence Assumption 1.
+    /// </summary>
+    private const double DefaultMinIdentity = 0.3;
+
+    /// <summary>
+    /// Identifies orthologous gene pairs as <b>reciprocal best hits</b> (RBH/BBH): two genes,
+    /// one in each genome, are orthologs iff each gene's best qualifying hit in the other genome
+    /// is the other gene. This is the symmetrical-best-hit criterion of Tatusov, Koonin &amp; Lipman
+    /// (1997, <i>Science</i> 278:631–637) and the operational RBH definition of Moreno-Hagelsieb &amp;
+    /// Latimer (2008, <i>Bioinformatics</i> 24:319–324). A one-directional best hit is NOT an ortholog.
+    /// </summary>
+    /// <param name="genome1Genes">Genes of genome 1 (each must carry a non-empty <see cref="Gene.Sequence"/>).</param>
+    /// <param name="genome2Genes">Genes of genome 2.</param>
+    /// <param name="minIdentity">Minimum similarity score for a qualifying hit (default 0.3).</param>
+    /// <param name="minCoverage">Minimum coverage fraction for a qualifying hit (default 0.5).</param>
+    /// <returns>The reciprocal best-hit ortholog pairs (an unordered matching: each gene appears at most once).</returns>
+    /// <exception cref="ArgumentNullException">Either gene list is null.</exception>
     public static IEnumerable<OrthologPair> FindOrthologs(
         IReadOnlyList<Gene> genome1Genes,
         IReadOnlyList<Gene> genome2Genes,
-        double minIdentity = 0.3,
-        double minCoverage = 0.5)
+        double minIdentity = DefaultMinIdentity,
+        double minCoverage = DefaultMinCoverage)
     {
-        foreach (var gene1 in genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
+        ArgumentNullException.ThrowIfNull(genome1Genes);
+        ArgumentNullException.ThrowIfNull(genome2Genes);
+
+        var seqGenes1 = genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
+        var seqGenes2 = genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
+
+        if (seqGenes1.Count == 0 || seqGenes2.Count == 0)
+            return Array.Empty<OrthologPair>();
+
+        // Best hit of each genome-1 gene into genome 2, and vice versa.
+        var best1To2 = new Dictionary<string, (Gene hit, double identity, double coverage, int alignLen)>();
+        foreach (var g1 in seqGenes1)
         {
-            OrthologPair? bestMatch = null;
-
-            foreach (var gene2 in genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
-            {
-                var (identity, coverage, alignLen) = CalculateSequenceSimilarity(
-                    gene1.Sequence!, gene2.Sequence!);
-
-                if (identity >= minIdentity && coverage >= minCoverage)
-                {
-                    if (bestMatch == null || identity > bestMatch.Value.Identity)
-                    {
-                        bestMatch = new OrthologPair(
-                            Gene1Id: gene1.Id,
-                            Gene2Id: gene2.Id,
-                            Identity: identity,
-                            Coverage: coverage,
-                            AlignmentLength: alignLen);
-                    }
-                }
-            }
-
-            if (bestMatch != null)
-                yield return bestMatch.Value;
+            var bh = FindBestHit(g1, seqGenes2, minIdentity, minCoverage);
+            if (bh != null)
+                best1To2[g1.Id] = bh.Value;
         }
+
+        var best2To1Id = new Dictionary<string, string>();
+        foreach (var g2 in seqGenes2)
+        {
+            var bh = FindBestHit(g2, seqGenes1, minIdentity, minCoverage);
+            if (bh != null)
+                best2To1Id[g2.Id] = bh.Value.hit.Id;
+        }
+
+        // Keep only reciprocal pairs: g1->g2 best AND g2->g1 best (== g1).
+        var orthologs = new List<OrthologPair>();
+        foreach (var g1 in seqGenes1)
+        {
+            if (best1To2.TryGetValue(g1.Id, out var hit) &&
+                best2To1Id.TryGetValue(hit.hit.Id, out string? backId) &&
+                backId == g1.Id)
+            {
+                orthologs.Add(new OrthologPair(
+                    Gene1Id: g1.Id,
+                    Gene2Id: hit.hit.Id,
+                    Identity: hit.identity,
+                    Coverage: hit.coverage,
+                    AlignmentLength: hit.alignLen));
+            }
+        }
+
+        return orthologs;
+    }
+
+    /// <summary>
+    /// Identifies within-genome paralog pairs (recent in-paralogs) as <b>mutual best hits inside the
+    /// same genome</b>. Paralogs arise by gene duplication within an organism's history (Fitch 1970,
+    /// <i>Syst. Zool.</i> 19:99–106); recent in-paralogs are within-species pairs reciprocally more
+    /// similar to each other than to outside genes (Remm, Storm &amp; Sonnhammer 2001, <i>J. Mol. Biol.</i>
+    /// 314:1041–1052). Each returned pair is an unordered pair of distinct genes that are mutual best
+    /// hits within <paramref name="genes"/>.
+    /// </summary>
+    /// <param name="genes">Genes of a single genome (each must carry a non-empty <see cref="Gene.Sequence"/>).</param>
+    /// <param name="minIdentity">Minimum similarity score for a qualifying hit (default 0.3).</param>
+    /// <param name="minCoverage">Minimum coverage fraction for a qualifying hit (default 0.5).</param>
+    /// <returns>Within-genome reciprocal best-hit paralog pairs (each unordered pair reported once).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="genes"/> is null.</exception>
+    public static IEnumerable<OrthologPair> FindParalogs(
+        IReadOnlyList<Gene> genes,
+        double minIdentity = DefaultMinIdentity,
+        double minCoverage = DefaultMinCoverage)
+    {
+        ArgumentNullException.ThrowIfNull(genes);
+
+        var seqGenes = genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
+        if (seqGenes.Count < 2)
+            return Array.Empty<OrthologPair>();
+
+        // Best within-genome hit for each gene (excluding itself).
+        var bestHit = new Dictionary<string, (Gene hit, double identity, double coverage, int alignLen)>();
+        foreach (var g in seqGenes)
+        {
+            var others = seqGenes.Where(o => o.Id != g.Id).ToList();
+            var bh = FindBestHit(g, others, minIdentity, minCoverage);
+            if (bh != null)
+                bestHit[g.Id] = bh.Value;
+        }
+
+        // Mutual best hits, each unordered pair reported once.
+        var paralogs = new List<OrthologPair>();
+        var seen = new HashSet<string>();
+        foreach (var g in seqGenes)
+        {
+            if (!bestHit.TryGetValue(g.Id, out var hit))
+                continue;
+            if (!bestHit.TryGetValue(hit.hit.Id, out var back) || back.hit.Id != g.Id)
+                continue;
+
+            string key = string.CompareOrdinal(g.Id, hit.hit.Id) < 0
+                ? g.Id + "\0" + hit.hit.Id
+                : hit.hit.Id + "\0" + g.Id;
+            if (!seen.Add(key))
+                continue;
+
+            paralogs.Add(new OrthologPair(
+                Gene1Id: g.Id,
+                Gene2Id: hit.hit.Id,
+                Identity: hit.identity,
+                Coverage: hit.coverage,
+                AlignmentLength: hit.alignLen));
+        }
+
+        return paralogs;
+    }
+
+    /// <summary>
+    /// Returns the single best qualifying hit of <paramref name="query"/> among <paramref name="targets"/>.
+    /// "Best" = maximum similarity score; ties are broken by larger coverage, then by ordinal gene id, so
+    /// the best hit is unique and deterministic (Moreno-Hagelsieb &amp; Latimer 2008: sort hits by score,
+    /// break ties deterministically). A hit qualifies only when identity ≥ minIdentity and coverage ≥ minCoverage.
+    /// </summary>
+    private static (Gene hit, double identity, double coverage, int alignLen)? FindBestHit(
+        Gene query,
+        IReadOnlyList<Gene> targets,
+        double minIdentity,
+        double minCoverage)
+    {
+        (Gene hit, double identity, double coverage, int alignLen)? best = null;
+
+        foreach (var target in targets)
+        {
+            if (string.IsNullOrEmpty(target.Sequence))
+                continue;
+
+            var (identity, coverage, alignLen) = CalculateSequenceSimilarity(
+                query.Sequence!, target.Sequence!);
+
+            if (identity < minIdentity || coverage < minCoverage)
+                continue;
+
+            if (best == null ||
+                identity > best.Value.identity ||
+                (identity == best.Value.identity && coverage > best.Value.coverage) ||
+                (identity == best.Value.identity && coverage == best.Value.coverage &&
+                 string.CompareOrdinal(target.Id, best.Value.hit.Id) < 0))
+            {
+                best = (target, identity, coverage, alignLen);
+            }
+        }
+
+        return best;
     }
 
     /// <summary>
@@ -335,87 +575,191 @@ public static class ComparativeGenomics
         int shared = kmers1.Intersect(kmers2).Count();
         int total = kmers1.Union(kmers2).Count();
 
+        // identity = k-mer Jaccard similarity (alignment-free; Ondov et al. 2016). Used only as the
+        // best-hit ranking score (Evidence Assumption 1).
         double identity = total > 0 ? (double)shared / total : 0;
-        double coverage = (double)shared / Math.Max(kmers1.Count, kmers2.Count);
+        // coverage = fraction of the SHORTER sequence's k-mers that are shared; maps the
+        // ">= 50% coverage of any of the protein sequences" gate of Moreno-Hagelsieb & Latimer (2008)
+        // onto k-mer space. Identical sequences => coverage 1.0.
+        int minKmerCount = Math.Min(kmers1.Count, kmers2.Count);
+        double coverage = minKmerCount > 0 ? (double)shared / minKmerCount : 0;
         int alignLen = Math.Min(seq1.Length, seq2.Length);
 
         return (identity, coverage, alignLen);
     }
 
+    // --- Signed-permutation breakpoint model (Bafna & Pevzner 1998; Tannier et al. 2009) ---
+    // A genome's marker order is a signed permutation; the target (genome 2) is relabelled to the
+    // identity. The permutation is extended with a left sentinel 0 and a right sentinel n+1
+    // (Bafna & Pevzner 1998, SIAM J. Discrete Math. 11(2):224–240). A consecutive pair (x, y) of
+    // the extended permutation is a BREAKPOINT iff it is not an identity adjacency, i.e. iff
+    // y != x + 1 (this single signed test subsumes both the (x,y) and (-y,-x) clauses of the
+    // breakpoint definition because a reversal negates the signs of the block it reverses —
+    // Hunter College CompBio Lecture 16). Each breakpoint marks a rearrangement boundary;
+    // breakpoint count is the breakpoint distance d_BP = n - (common adjacencies),
+    // a lower bound d >= b/2 on the reversal distance (Tannier et al. 2009; Hunter Lecture 16).
+
+    /// <summary>Left sentinel prepended to the extended signed permutation (π₀ = 0). Bafna &amp; Pevzner (1998).</summary>
+    private const int LeftSentinel = 0;
+
     /// <summary>
-    /// Detects genome rearrangements by comparing gene orders.
+    /// Detects genome rearrangements between two gene orders as <b>breakpoints</b> of the signed
+    /// gene-order permutation. Orthologous markers (via <paramref name="orthologMap"/>) are read in
+    /// genome-1 order and relabelled to genome 2's rank with a sign for relative strand; the
+    /// permutation is extended with sentinels <c>0</c> and <c>n+1</c>. Every consecutive pair that is
+    /// not an identity adjacency (<c>y ≠ x + 1</c>) is a breakpoint and is reported as one
+    /// <see cref="RearrangementEvent"/>, classified by <see cref="ClassifyRearrangement"/>. This is the
+    /// formally defined breakpoint model of Bafna &amp; Pevzner (1998, <i>SIAM J. Discrete Math.</i>
+    /// 11(2):224–240) and Tannier, Zheng &amp; Sankoff (2009); the breakpoint count equals the
+    /// breakpoint distance <c>d_BP = n − (common adjacencies)</c>.
     /// </summary>
+    /// <param name="genome1Genes">Genes of genome 1 in chromosomal order.</param>
+    /// <param name="genome2Genes">Genes of genome 2 in chromosomal order.</param>
+    /// <param name="orthologMap">Anchor map: genome-1 gene id → orthologous genome-2 gene id.</param>
+    /// <returns>One <see cref="RearrangementEvent"/> per breakpoint, in genome-1 order.</returns>
+    /// <exception cref="ArgumentNullException">Any required argument is null.</exception>
     public static IEnumerable<RearrangementEvent> DetectRearrangements(
         IReadOnlyList<Gene> genome1Genes,
         IReadOnlyList<Gene> genome2Genes,
         IReadOnlyDictionary<string, string> orthologMap)
     {
-        // Build position and strand maps
-        var gene1Positions = genome1Genes
-            .Select((g, i) => (g, i))
-            .ToDictionary(x => x.g.Id, x => (pos: x.i, strand: x.g.Strand));
+        ArgumentNullException.ThrowIfNull(genome1Genes);
+        ArgumentNullException.ThrowIfNull(genome2Genes);
+        ArgumentNullException.ThrowIfNull(orthologMap);
 
-        var gene2Positions = genome2Genes
-            .Select((g, i) => (g, i))
-            .ToDictionary(x => x.g.Id, x => (pos: x.i, strand: x.g.Strand));
+        return DetectRearrangementsIterator(genome1Genes, genome2Genes, orthologMap);
+    }
 
-        // Map genome1 positions to genome2 positions via orthologs
-        var mappedPositions = new List<(int pos1, int pos2, bool inverted)>();
+    private static IEnumerable<RearrangementEvent> DetectRearrangementsIterator(
+        IReadOnlyList<Gene> genome1Genes,
+        IReadOnlyList<Gene> genome2Genes,
+        IReadOnlyDictionary<string, string> orthologMap)
+    {
+        // Genome-2 rank index (1-based so sentinel 0 cannot collide with a real marker).
+        var genome2Rank = new Dictionary<string, int>(genome2Genes.Count);
+        for (int i = 0; i < genome2Genes.Count; i++)
+            genome2Rank[genome2Genes[i].Id] = i + 1;
 
-        foreach (var gene1 in genome1Genes)
+        // Build the signed permutation: for each genome-1 ortholog (in order), its genome-2 rank,
+        // signed by relative strand (+ if strands agree, − if they differ). Carry the genome-1
+        // gene index so we can report a coordinate per breakpoint.
+        var perm = new List<(int signedRank, int g1Index)>();
+        for (int i = 0; i < genome1Genes.Count; i++)
         {
-            if (orthologMap.TryGetValue(gene1.Id, out string? ortholog) &&
-                gene2Positions.TryGetValue(ortholog, out var gene2Info))
+            var g1 = genome1Genes[i];
+            if (orthologMap.TryGetValue(g1.Id, out string? ortholog) &&
+                genome2Rank.TryGetValue(ortholog, out int rank))
             {
-                bool inverted = gene1.Strand != genome2Genes[gene2Info.pos].Strand;
-                mappedPositions.Add((gene1Positions[gene1.Id].pos, gene2Info.pos, inverted));
+                int sign = g1.Strand == genome2Genes[rank - 1].Strand ? 1 : -1;
+                perm.Add((sign * rank, i));
             }
         }
 
-        if (mappedPositions.Count < 2)
+        // A permutation of fewer than 2 markers has no internal adjacency, hence no breakpoint.
+        if (perm.Count < 2)
             yield break;
 
-        mappedPositions = mappedPositions.OrderBy(p => p.pos1).ToList();
+        int n = perm.Count;
+        int rightSentinel = n + 1; // π_{n+1} = n + 1 (Bafna & Pevzner 1998).
 
-        // Detect inversions
-        for (int i = 0; i < mappedPositions.Count - 1; i++)
+        // Walk consecutive pairs of the extended permutation (0, perm..., n+1).
+        // The two sentinel pairs at the ends are evaluated against the real markers' rank order,
+        // not their genome-2 ranks, to remain a permutation of 0..n+1. We therefore compare the
+        // *order ranks* of consecutive markers; a pair is a breakpoint iff its order-rank successor
+        // is not exactly +1 with matching sign — equivalently iff |Δrank| != 1 or the signs flip.
+        // To stay faithful to the signed-permutation definition we relabel the genome-2 ranks to
+        // their order positions 1..n (the relative permutation), preserving sign.
+        var orderOfRank = new Dictionary<int, int>(n);
+        var sortedByAbs = perm.Select((p, idx) => (abs: Math.Abs(p.signedRank), idx))
+                              .OrderBy(t => t.abs)
+                              .ToList();
+        for (int r = 0; r < sortedByAbs.Count; r++)
+            orderOfRank[sortedByAbs[r].idx] = r + 1; // 1..n in genome-2 order
+
+        // relabelled[i] = signed order position of marker i (sign preserved from genome-2 strand).
+        var relabelled = new int[n];
+        for (int i = 0; i < n; i++)
+            relabelled[i] = Math.Sign(perm[i].signedRank) * orderOfRank[i];
+
+        // Extended sequence of signed values: [0, relabelled..., n+1].
+        // Evaluate each consecutive pair (x, y): breakpoint iff y != x + 1.
+        int prev = LeftSentinel;
+        for (int i = 0; i <= n; i++)
         {
-            var current = mappedPositions[i];
-            var next = mappedPositions[i + 1];
+            int curr = i < n ? relabelled[i] : rightSentinel;
 
-            // Check for inversion (position decreases or strand changes)
-            if (current.pos2 > next.pos2 || current.inverted != next.inverted)
+            if (curr != prev + 1)
             {
+                // This boundary lies just before marker i (or at the right sentinel).
+                int g1Index = i < n ? perm[i].g1Index : perm[n - 1].g1Index;
+                var anchorGene = genome1Genes[g1Index];
+
                 yield return new RearrangementEvent(
-                    Type: RearrangementType.Inversion,
+                    Type: ClassifyBoundary(prev, curr),
                     GenomeId: genome1Genes[0].GenomeId,
-                    Position: genome1Genes[current.pos1].Start,
-                    Length: genome1Genes[next.pos1].End - genome1Genes[current.pos1].Start);
+                    Position: anchorGene.Start,
+                    // Length encodes the signed pair so ClassifyRearrangement can re-derive the type:
+                    // |Δ| of the signed values across the breakpoint.
+                    Length: Math.Abs(curr - prev),
+                    TargetPosition: $"{prev}->{curr}");
             }
 
-            // Check for large gaps (potential deletions/insertions)
-            int gap1 = next.pos1 - current.pos1;
-            int gap2 = Math.Abs(next.pos2 - current.pos2);
+            prev = curr;
+        }
+    }
 
-            if (gap1 > 1 && gap2 <= 1)
+    /// <summary>
+    /// Classifies a single breakpoint boundary (the signed pair <paramref name="x"/>→<paramref name="y"/>
+    /// of the extended permutation) into a <see cref="RearrangementType"/>: a sign reversal across the
+    /// boundary (one value negative w.r.t. an otherwise-consecutive relation) indicates an
+    /// <b>inversion</b> (a reversal negates the signs of the block it reverses — Hunter College CompBio
+    /// Lecture 16); an orientation-preserving discontinuity (both values positive, non-consecutive)
+    /// indicates a <b>transposition</b> (a block relocated to a new position preserving orientation —
+    /// Bafna &amp; Pevzner 1998).
+    /// </summary>
+    private static RearrangementType ClassifyBoundary(int x, int y)
+    {
+        // A reversal produces an internal adjacency of the form (-(k+1), -k); at a reversal *boundary*
+        // exactly one of the two flanking values carries a flipped sign relative to a forward chain.
+        // Detect the sign flip: if the boundary separates values of opposite sign (and is not the
+        // sentinel start where x=0), it was created by a reversal => Inversion. Otherwise the block
+        // moved without re-orientation => Transposition.
+        bool signFlip = (Math.Sign(x) != Math.Sign(y)) && x != LeftSentinel;
+        bool negativeInvolved = x < 0 || y < 0;
+
+        if (signFlip || negativeInvolved)
+            return RearrangementType.Inversion;
+
+        return RearrangementType.Transposition;
+    }
+
+    /// <summary>
+    /// Classifies a detected <see cref="RearrangementEvent"/> by its breakpoint signature. The event's
+    /// <see cref="RearrangementEvent.TargetPosition"/> records the signed pair <c>x-&gt;y</c> spanning the
+    /// breakpoint; a sign reversal across the pair denotes an <b>inversion</b> (a reversal negates the
+    /// signs of the reversed block — Hunter College CompBio Lecture 16), while an orientation-preserving
+    /// discontinuity denotes a <b>transposition</b> (Bafna &amp; Pevzner 1998, <i>SIAM J. Discrete Math.</i>
+    /// 11(2):224–240). Only these two operation classes are derivable from a single signed in-order
+    /// permutation; translocation / deletion / insertion / duplication require chromosome identifiers or
+    /// gene-set differences and are out of scope for this method (see Evidence Assumption 3).
+    /// </summary>
+    /// <param name="rearrangement">A breakpoint event produced by <see cref="DetectRearrangements"/>.</param>
+    /// <returns>The rearrangement type implied by the breakpoint signature.</returns>
+    public static RearrangementType ClassifyRearrangement(RearrangementEvent rearrangement)
+    {
+        // Re-derive (x, y) from TargetPosition "x->y" when available; otherwise trust the stored Type.
+        if (rearrangement.TargetPosition is string tp)
+        {
+            int arrow = tp.IndexOf("->", StringComparison.Ordinal);
+            if (arrow > 0 &&
+                int.TryParse(tp.AsSpan(0, arrow), out int x) &&
+                int.TryParse(tp.AsSpan(arrow + 2), out int y))
             {
-                // Gap in genome1 but not genome2 - potential deletion in genome2
-                yield return new RearrangementEvent(
-                    Type: RearrangementType.Deletion,
-                    GenomeId: genome2Genes[0].GenomeId,
-                    Position: genome2Genes[current.pos2].End,
-                    Length: gap1 - 1);
-            }
-            else if (gap2 > 1 && gap1 <= 1)
-            {
-                // Gap in genome2 but not genome1 - potential insertion in genome2
-                yield return new RearrangementEvent(
-                    Type: RearrangementType.Insertion,
-                    GenomeId: genome2Genes[0].GenomeId,
-                    Position: genome2Genes[current.pos2].End,
-                    Length: gap2 - 1);
+                return ClassifyBoundary(x, y);
             }
         }
+
+        return rearrangement.Type;
     }
 
     /// <summary>
