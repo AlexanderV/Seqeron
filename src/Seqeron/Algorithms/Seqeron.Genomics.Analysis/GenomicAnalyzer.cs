@@ -13,9 +13,14 @@ public static class GenomicAnalyzer
     #region Repeat Finding
 
     /// <summary>
-    /// Finds the longest repeated region in a DNA sequence.
-    /// Useful for detecting tandem repeats, transposable elements, etc.
-    /// Time complexity: O(n) using suffix tree.
+    /// Finds the longest repeated substring (LRS) of a DNA sequence: the longest
+    /// substring that occurs at least twice (occurrences may overlap). This is the
+    /// classical suffix-tree application — the deepest internal node, whose path label
+    /// spells a longest substring occurring ≥ 2 times (CMU 15-451 Lecture #10 §2.1;
+    /// Wikipedia, Longest repeated substring problem). Returns <see cref="RepeatInfo.None"/>
+    /// when no substring repeats (including the empty sequence).
+    /// Time complexity: O(n) for the deepest-node query after O(n) suffix-tree construction
+    /// (Ukkonen); occurrence enumeration adds O(occ). See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static RepeatInfo FindLongestRepeat(DnaSequence sequence)
     {
@@ -32,12 +37,23 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds all repeated substrings of at least the specified length.
+    /// Finds every distinct substring that occurs at least twice and has length ≥ <paramref name="minLength"/>.
+    /// Each such repeated substring is the longest common prefix of two adjacent suffixes in
+    /// sorted order; only those occurring ≥ 2 times are returned (a repeated substring maps to an
+    /// internal suffix-tree node, never a leaf — CMU 15-451 Lecture #10 §2.1; GeeksforGeeks,
+    /// Suffix Tree Application 3). Worst-case time O(n²) because adjacent-suffix prefix comparison
+    /// and occurrence enumeration are over O(n) suffixes of up to O(n) length.
+    /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
     {
         var tree = sequence.SuffixTree;
         var found = new HashSet<string>();
+
+        // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
+        // node, never the root). The empty string is not a repeat, so the effective minimum is
+        // at least 1 even when the caller passes minLength <= 0. (CMU 15-451 Lecture #10 §2.1.)
+        int effectiveMinLength = Math.Max(1, minLength);
 
         // Get all suffixes and find common prefixes
         var suffixes = tree.GetAllSuffixes().OrderBy(s => s).ToList();
@@ -55,7 +71,7 @@ public static class GenomicAnalyzer
                 lcpLen++;
             }
 
-            if (lcpLen >= minLength)
+            if (lcpLen >= effectiveMinLength)
             {
                 string repeat = s1.Substring(0, lcpLen);
                 if (!found.Contains(repeat))
