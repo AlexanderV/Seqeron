@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 123 |
+| **Completed** | 124 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 111 |
+| **Not Started** | 110 |
 
 ---
 
@@ -151,7 +151,7 @@
 | ☑ | EPIGEN-BISULF-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-BISULF-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-BISULF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Bisulfite_Tests.cs) |
 | ☑ | EPIGEN-CHROM-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CHROM-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CHROM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) |
 | ☑ | EPIGEN-AGE-001 | Epigenetics | 1 | [Evidence](docs/Evidence/EPIGEN-AGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-AGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) |
-| ☐ | MIRNA-PAIR-001 | MiRNA | 3 | - | - | - |
+| ☑ | MIRNA-PAIR-001 | MiRNA | 3 | [Evidence](docs/Evidence/MIRNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) |
 | ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |
 | ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
 | ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
@@ -2656,6 +2656,11 @@ gap/mismatch). The prior implementation's similarity formula was corrected in th
 | `GetReverseComplement(sequence)` | MiRnaAnalyzer | Helper |
 | `CanPair(base1, base2)` | MiRnaAnalyzer | Pairing check |
 | `IsWobblePair(base1, base2)` | MiRnaAnalyzer | Wobble check |
+
+**Status:** ☑ Complete — Watson-Crick (A-U, C-G) + G:U wobble (Crick 1966) antiparallel
+reverse-complement duplex pairing. Invented free-energy constants (−2.0/−1.0/−0.5/+0.5)
+replaced by NNDB Turner 2004 nearest-neighbor stacking sum; free-energy magnitude is
+"Intentionally simplified" (only sign validated). See MIRNA-PAIR-001 Evidence/TestSpec.
 
 ---
 

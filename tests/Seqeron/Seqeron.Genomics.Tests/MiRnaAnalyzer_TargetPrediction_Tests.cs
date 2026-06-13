@@ -411,7 +411,11 @@ public class MiRnaAnalyzer_TargetPrediction_Tests
             Assert.That(site.TargetSequence, Is.Not.Empty);
             Assert.That(site.MiRnaName, Is.EqualTo("let-7a"));
             Assert.That(site.Score, Is.InRange(0.0, 1.0));
-            Assert.That(site.FreeEnergy, Is.Not.EqualTo(0.0));
+            // FreeEnergy is the Turner 2004 nearest-neighbor stacking sum (MIRNA-PAIR-001);
+            // it is 0.0 when a sparse duplex has no consecutive paired stacks, so assert it is
+            // a finite value rather than non-zero (the old != 0.0 check assumed the removed
+            // invented per-position mismatch penalty).
+            Assert.That(double.IsFinite(site.FreeEnergy), Is.True);
             Assert.That(site.Alignment, Is.Not.Empty);
         });
     }
