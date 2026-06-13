@@ -189,13 +189,35 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Computes the k-mer distance between two sequences using Euclidean distance.
+    /// Computes the alignment-free k-mer distance between two sequences as the Euclidean
+    /// distance between their normalized k-mer frequency vectors.
     /// </summary>
+    /// <remarks>
+    /// Each sequence is mapped to a vector of k-mer frequencies, where a frequency is the
+    /// k-mer count divided by the total number of k-mer windows (sequence length − k + 1).
+    /// The distance is √(Σ (f1[w] − f2[w])²) taken over the union of k-mers occurring in
+    /// either sequence; a k-mer absent from a sequence contributes a 0 component.
+    /// Identical sequences yield 0. This is the frequency (relative-count) variant of the
+    /// word-composition Euclidean distance: counts are normalized per Lau et al. (2022) and
+    /// the Euclidean metric is applied to the relative-frequency vectors per Boden et al.
+    /// (2014); the word-vector model follows Zielezinski et al. (2017) Fig. 1 and
+    /// Vinga &amp; Almeida (2003).
+    /// </remarks>
+    /// <param name="seq1">First sequence. Null/empty or sequences shorter than <paramref name="k"/>
+    /// produce an empty frequency vector (treated as the zero vector).</param>
+    /// <param name="seq2">Second sequence, same conventions as <paramref name="seq1"/>.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <returns>Non-negative Euclidean distance between the two frequency vectors; 0 when both are empty or equal.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
     public static double KmerDistance(string seq1, string seq2, int k)
     {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
         var freq1 = GetKmerFrequencies(seq1, k);
         var freq2 = GetKmerFrequencies(seq2, k);
 
+        // Distance spans the union of k-mers in either sequence; absent k-mers are 0.
         var allKmers = new HashSet<string>(freq1.Keys);
         allKmers.UnionWith(freq2.Keys);
 

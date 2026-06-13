@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 139 |
+| **Completed** | 140 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 95 |
+| **Not Started** | 94 |
 
 ---
 
@@ -167,7 +167,7 @@
 | ☑ | ANNOT-REPEAT-001 | Annotation | 2 | [Evidence](docs/Evidence/ANNOT-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_FindRepetitiveElements_Tests.cs) |
 | ☑ | ANNOT-CODONUSAGE-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODONUSAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GetCodonUsage_Tests.cs) |
 | ☑ | RESTR-FILTER-001 | MolTools | 3 | [Evidence](docs/Evidence/RESTR-FILTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/RESTR-FILTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RestrictionAnalyzer_Filter_Tests.cs) |
-| ☐ | KMER-DIST-001 | K-mer | 1 | - | - | - |
+| ☑ | KMER-DIST-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-DIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-DIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_KmerDistance_Tests.cs) |
 | ☐ | MOTIF-CONS-001 | Matching | 1 | - | - | - |
 | ☐ | GENOMIC-REPEAT-001 | Analysis | 2 | - | - | - |
 | ☐ | GENOMIC-COMMON-001 | Analysis | 2 | - | - | - |
