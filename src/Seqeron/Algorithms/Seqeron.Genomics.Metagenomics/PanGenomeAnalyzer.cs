@@ -65,13 +65,33 @@ public static class PanGenomeAnalyzer
         int PresentGenes);
 
     /// <summary>
-    /// Result of heaps law fitting for pan-genome size prediction.
+    /// Result of fitting Heaps' law to the pan-genome new-gene-discovery curve
+    /// (Tettelin et al., 2008; micropan <c>heaps()</c>). The fitted model is
+    /// <c>n(N) = Intercept · N^(-Alpha)</c>, the number of <em>new</em> gene clusters
+    /// contributed by the N-th genome.
     /// </summary>
+    /// <param name="Intercept">
+    /// The Heaps' law intercept K (micropan "Intercept" parameter), constrained to
+    /// [0, 10000] per the micropan <c>heaps()</c> reference implementation.
+    /// </param>
+    /// <param name="Alpha">
+    /// The Heaps' law decay exponent α (micropan "alpha" parameter), constrained to
+    /// [0, 2]. Per Tettelin et al. (2008) the pan-genome is OPEN when α &lt; 1 and
+    /// CLOSED when α &gt; 1.
+    /// </param>
+    /// <param name="IsOpen">
+    /// <c>true</c> when α &lt; 1 (open pan-genome), otherwise <c>false</c>
+    /// (Tettelin et al., 2008).
+    /// </param>
+    /// <param name="PredictNewGenes">
+    /// Predictor n(N) = Intercept · N^(-Alpha): the expected number of new gene
+    /// clusters added by the N-th genome.
+    /// </param>
     public readonly record struct HeapsLawFit(
-        double K,
-        double Gamma,
-        double RSquared,
-        Func<int, double> PredictPanGenomeSize);
+        double Intercept,
+        double Alpha,
+        bool IsOpen,
+        Func<int, double> PredictNewGenes);
 
     #endregion
 
@@ -489,71 +509,248 @@ public static class PanGenomeAnalyzer
         return -slope;
     }
 
+    // micropan heaps() classification rule (Tettelin et al., 2008): the pan-genome is
+    // OPEN when the decay exponent alpha < 1 and CLOSED when alpha > 1.
+    private const double HeapsAlphaOpenThreshold = 1.0;
+
+    // Lower/upper bounds on the fitted parameters, copied verbatim from the micropan
+    // heaps() reference implementation:
+    //   optim(p0, objectFun, ..., lower = c(0, 0), upper = c(10000, 2))
+    // i.e. Intercept K in [0, 10000] and decay exponent alpha in [0, 2].
+    private const double HeapsInterceptLowerBound = 0.0;
+    private const double HeapsInterceptUpperBound = 10000.0;
+    private const double HeapsAlphaLowerBound = 0.0;
+    private const double HeapsAlphaUpperBound = 2.0;
+
+    // Heaps' law is fit to new-gene counts at genome indices N = 2, 3, ... ; the first
+    // genome has no predecessor against which "new" can be defined (micropan: x = 2:ng).
+    private const int HeapsFirstFittedIndex = 2;
+
+    // micropan default number of random genome-order permutations (heaps() n.perm
+    // default = 100; "The default value of 100 is certainly a minimum.").
+    private const int DefaultHeapsPermutations = 100;
+
+    // Deterministic RNG seed so the permutation-averaged fit is reproducible.
+    private const int HeapsPermutationSeed = 42;
+
     /// <summary>
-    /// Fits Heaps' law to predict pan-genome size growth.
+    /// Fits Heaps' law to the pan-genome new-gene-discovery curve from a gene
+    /// presence/absence matrix, following the micropan <c>heaps()</c> reference
+    /// implementation (Tettelin et al., 2008). For each of <paramref name="permutations"/>
+    /// random genome orderings, the number of new gene clusters contributed by the N-th
+    /// genome is recorded; the model <c>n(N) = K · N^(-alpha)</c> is then fit to the pooled
+    /// (N, new-gene-count) points for N = 2..G by minimizing
+    /// <c>J = sqrt(Σ (y − K·x^(−alpha))²) / |x|</c> over K ∈ [0,10000], alpha ∈ [0,2].
+    /// </summary>
+    /// <param name="matrix">
+    /// Gene presence/absence rows (one per genome), e.g. from
+    /// <see cref="CreatePresenceAbsenceMatrix"/>. A cluster is present in a genome when its
+    /// entry in <see cref="GenePresenceRow.GenePresence"/> is <c>true</c>.
+    /// </param>
+    /// <param name="permutations">Number of random genome-order permutations to pool over
+    /// (micropan n.perm; default 100).</param>
+    /// <returns>The fitted Intercept (K), decay exponent (alpha), open/closed flag, and a
+    /// predictor for new genes at the N-th genome.</returns>
+    public static HeapsLawFit FitHeapsLaw(
+        IEnumerable<GenePresenceRow> matrix,
+        int permutations = DefaultHeapsPermutations)
+    {
+        var rows = matrix?.ToList() ?? new List<GenePresenceRow>();
+        return FitHeapsLawFromOrderings(BuildPermutedNewGeneCurves(rows, permutations));
+    }
+
+    /// <summary>
+    /// Convenience overload that clusters <paramref name="genomes"/> into ortholog groups,
+    /// builds the presence/absence matrix, and fits Heaps' law (micropan <c>heaps()</c>;
+    /// Tettelin et al., 2008). See <see cref="FitHeapsLaw(IEnumerable{GenePresenceRow}, int)"/>.
     /// </summary>
     public static HeapsLawFit FitHeapsLaw(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        double identityThreshold = 0.9,
-        int permutations = 10)
+        double identityThreshold = DefaultIdentityThreshold,
+        int permutations = DefaultHeapsPermutations)
     {
-        if (genomes.Count < 3)
+        if (genomes == null || genomes.Count == 0)
+            return EmptyHeapsFit();
+
+        var clusters = ClusterGenes(genomes, identityThreshold).ToList();
+        var matrix = CreatePresenceAbsenceMatrix(genomes, clusters);
+        return FitHeapsLaw(matrix, permutations);
+    }
+
+    /// <summary>
+    /// Builds, for each random genome ordering, the per-step count of newly observed gene
+    /// clusters. A cluster is "new" at ordering position i (1-based, i &gt;= 2) when it is
+    /// present at position i but absent in all positions 1..i-1 — micropan's
+    /// <c>rowSums((cm == 1)[2:ng,] &amp; (cm == 0)[1:(ng-1),])</c> over the binary matrix.
+    /// </summary>
+    private static List<int[]> BuildPermutedNewGeneCurves(
+        IReadOnlyList<GenePresenceRow> rows, int permutations)
+    {
+        var curves = new List<int[]>();
+        int genomeCount = rows.Count;
+        if (genomeCount < HeapsFirstFittedIndex)
+            return curves;
+
+        // Stable cluster ordering across all rows (the matrix columns).
+        var clusterIds = rows
+            .SelectMany(r => r.GenePresence.Keys)
+            .Distinct()
+            .ToList();
+        if (clusterIds.Count == 0)
+            return curves;
+
+        // Binary presence vector per genome (micropan: pan.matrix[pan.matrix > 0] <- 1).
+        var presence = rows
+            .Select(r => clusterIds
+                .Select(c => r.GenePresence.TryGetValue(c, out bool p) && p)
+                .ToArray())
+            .ToArray();
+
+        int permCount = Math.Max(1, permutations);
+        var random = new Random(HeapsPermutationSeed);
+
+        for (int perm = 0; perm < permCount; perm++)
         {
-            return new HeapsLawFit(0, 0, 0, n => 0);
+            int[] order = Enumerable.Range(0, genomeCount).ToArray();
+            // First permutation uses the natural input order so a single-permutation,
+            // fixed-order fit is exactly reproducible; the rest are Fisher-Yates shuffles.
+            if (perm > 0)
+            {
+                for (int i = genomeCount - 1; i > 0; i--)
+                {
+                    int j = random.Next(i + 1);
+                    (order[i], order[j]) = (order[j], order[i]);
+                }
+            }
+
+            var seen = new bool[clusterIds.Count];
+            // Seed "seen" with the first genome; new counts are recorded from position 2.
+            for (int c = 0; c < clusterIds.Count; c++)
+                seen[c] = presence[order[0]][c];
+
+            var newCounts = new int[genomeCount - 1]; // for positions 2..G
+            for (int pos = 1; pos < genomeCount; pos++)
+            {
+                int added = 0;
+                var pv = presence[order[pos]];
+                for (int c = 0; c < clusterIds.Count; c++)
+                {
+                    if (pv[c] && !seen[c])
+                    {
+                        seen[c] = true;
+                        added++;
+                    }
+                }
+                newCounts[pos - 1] = added;
+            }
+            curves.Add(newCounts);
         }
 
-        var genomeList = genomes.Keys.ToList();
-        var dataPoints = new List<(int N, double PanSize)>();
-        var random = new Random(42);
+        return curves;
+    }
 
-        for (int perm = 0; perm < permutations; perm++)
+    /// <summary>
+    /// Fits n(N) = K · N^(-alpha) to the pooled (N, new-gene-count) points and returns the
+    /// micropan-style result. Pooling and the objective follow micropan <c>heaps()</c>:
+    /// x = rep(2:ng, n.perm), y = stacked new-gene counts.
+    /// </summary>
+    private static HeapsLawFit FitHeapsLawFromOrderings(List<int[]> curves)
+    {
+        if (curves.Count == 0)
+            return EmptyHeapsFit();
+
+        var x = new List<double>();
+        var y = new List<double>();
+        foreach (var curve in curves)
         {
-            var shuffled = genomeList.OrderBy(_ => random.Next()).ToList();
-            var accumulatedGenes = new HashSet<string>();
-
-            for (int i = 0; i < shuffled.Count; i++)
+            for (int k = 0; k < curve.Length; k++)
             {
-                var genomeGenes = genomes[shuffled[i]];
-
-                foreach (var (geneId, sequence) in genomeGenes)
-                {
-                    bool isNew = true;
-                    foreach (var existingGene in accumulatedGenes.ToList())
-                    {
-                        // Simplified: just use gene ID matching
-                        if (geneId == existingGene)
-                        {
-                            isNew = false;
-                            break;
-                        }
-                    }
-
-                    if (isNew)
-                        accumulatedGenes.Add(geneId);
-                }
-
-                dataPoints.Add((i + 1, accumulatedGenes.Count));
+                x.Add(HeapsFirstFittedIndex + k); // genome index N = 2, 3, ...
+                y.Add(curve[k]);
             }
         }
 
-        // Average pan-genome size at each N
-        var avgSizes = dataPoints
-            .GroupBy(p => p.N)
-            .ToDictionary(g => g.Key, g => g.Average(p => p.PanSize));
+        if (x.Count == 0)
+            return EmptyHeapsFit();
 
-        // Fit Heaps' law: P(N) = K * N^gamma
-        // Using log-linear regression: log(P) = log(K) + gamma * log(N)
-        var logN = avgSizes.Keys.Select(n => Math.Log(n)).ToList();
-        var logP = avgSizes.Values.Select(p => Math.Log(Math.Max(p, 1))).ToList();
+        // micropan start values: p0 = c(mean(y at x==2), 1).
+        double meanAtFirst = y.Where((_, i) => x[i] == HeapsFirstFittedIndex).DefaultIfEmpty(0).Average();
+        double k0 = Math.Clamp(meanAtFirst, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
 
-        var (slope, intercept, rSquared) = LinearRegression(logN, logP);
+        var (intercept, alpha) = MinimizeHeapsObjective(x, y, k0, HeapsAlphaOpenThreshold);
 
-        double gamma = slope;
-        double k = Math.Exp(intercept);
+        bool isOpen = alpha < HeapsAlphaOpenThreshold;
+        Func<int, double> predictor = n => intercept * Math.Pow(n, -alpha);
+        return new HeapsLawFit(intercept, alpha, isOpen, predictor);
+    }
 
-        Func<int, double> predictor = n => k * Math.Pow(n, gamma);
+    private static HeapsLawFit EmptyHeapsFit()
+    {
+        // Below 2 genomes (or no clusters) the new-gene curve is undefined: report a
+        // degenerate, closed fit with a zero predictor rather than inventing parameters.
+        return new HeapsLawFit(0, 0, IsOpen: false, n => 0);
+    }
 
-        return new HeapsLawFit(k, gamma, rSquared, predictor);
+    /// <summary>
+    /// Heaps' law least-squares objective from micropan heaps():
+    /// <c>J(K, alpha) = sqrt(Σ (y − K·x^(−alpha))²) / |x|</c>.
+    /// </summary>
+    private static double HeapsObjective(IReadOnlyList<double> x, IReadOnlyList<double> y,
+        double k, double alpha)
+    {
+        double ss = 0;
+        for (int i = 0; i < x.Count; i++)
+        {
+            double yHat = k * Math.Pow(x[i], -alpha);
+            double r = y[i] - yHat;
+            ss += r * r;
+        }
+        return Math.Sqrt(ss) / x.Count;
+    }
+
+    /// <summary>
+    /// Bounded minimization of the Heaps' law objective over K ∈ [0,10000], alpha ∈ [0,2]
+    /// (the micropan optim() bounds). Deterministic coordinate descent with geometric
+    /// step refinement from the micropan start point; for data lying exactly on a power
+    /// curve within the bounds it recovers the analytic (K, alpha) to machine precision.
+    /// </summary>
+    private static (double K, double Alpha) MinimizeHeapsObjective(
+        IReadOnlyList<double> x, IReadOnlyList<double> y, double k0, double alpha0)
+    {
+        double k = Math.Clamp(k0, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
+        double alpha = Math.Clamp(alpha0, HeapsAlphaLowerBound, HeapsAlphaUpperBound);
+        double best = HeapsObjective(x, y, k, alpha);
+
+        double kStep = Math.Max(k, 1.0);
+        double alphaStep = HeapsAlphaUpperBound;
+        const double minStep = 1e-12;
+        const int maxIterations = 200_000;
+
+        int iterations = 0;
+        while ((kStep > minStep || alphaStep > minStep) && iterations < maxIterations)
+        {
+            bool improved = false;
+            foreach (double dk in new[] { kStep, -kStep })
+            {
+                double nk = Math.Clamp(k + dk, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
+                double j = HeapsObjective(x, y, nk, alpha);
+                if (j < best) { best = j; k = nk; improved = true; }
+            }
+            foreach (double da in new[] { alphaStep, -alphaStep })
+            {
+                double na = Math.Clamp(alpha + da, HeapsAlphaLowerBound, HeapsAlphaUpperBound);
+                double j = HeapsObjective(x, y, k, na);
+                if (j < best) { best = j; alpha = na; improved = true; }
+            }
+            if (!improved)
+            {
+                kStep *= 0.5;
+                alphaStep *= 0.5;
+            }
+            iterations++;
+        }
+
+        return (k, alpha);
     }
 
     private static (double Slope, double Intercept, double RSquared) LinearRegression(

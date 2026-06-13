@@ -93,93 +93,9 @@ public class PanGenomeAnalyzerTests
 
     #endregion
 
-    #region Presence/Absence Matrix Tests
-
-    [Test]
-    public void CreatePresenceAbsenceMatrix_CreatesCorrectMatrix()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("gene1", "ATGC"), ("gene2", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("gene1", "ATGC") }
-        };
-
-        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
-        var matrix = PanGenomeAnalyzer.CreatePresenceAbsenceMatrix(genomes, clusters).ToList();
-
-        Assert.That(matrix.Count, Is.EqualTo(2));
-        Assert.That(matrix.First(r => r.GenomeId == "g1").PresentGenes, Is.EqualTo(2));
-        Assert.That(matrix.First(r => r.GenomeId == "g2").PresentGenes, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CreatePresenceAbsenceMatrix_RecordsTotalGenes()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "AAAA"), ("b", "TTTT"), ("c", "GGGG") },
-            ["g2"] = new List<(string, string)> { ("a", "AAAA") }
-        };
-
-        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
-        var matrix = PanGenomeAnalyzer.CreatePresenceAbsenceMatrix(genomes, clusters).ToList();
-
-        Assert.That(matrix[0].TotalGenes, Is.EqualTo(clusters.Count));
-    }
-
-    #endregion
-
-    #region Heaps Law Tests
-
-    [Test]
-    public void FitHeapsLaw_WithMultipleGenomes_ReturnsValidFit()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a1", "ATGC"), ("b1", "GCTA"), ("c1", "TTTT") },
-            ["g2"] = new List<(string, string)> { ("a2", "ATGC"), ("b2", "GCTA"), ("d2", "AAAA") },
-            ["g3"] = new List<(string, string)> { ("a3", "ATGC"), ("b3", "GCTA"), ("e3", "GGGG") },
-            ["g4"] = new List<(string, string)> { ("a4", "ATGC"), ("f4", "CCCC"), ("g4", "TATA") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes, permutations: 5);
-
-        Assert.That(fit.K, Is.GreaterThan(0));
-        Assert.That(fit.PredictPanGenomeSize, Is.Not.Null);
-    }
-
-    [Test]
-    public void FitHeapsLaw_PredictorWorks()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC"), ("b", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("c", "TTTT"), ("d", "AAAA") },
-            ["g3"] = new List<(string, string)> { ("e", "GGGG"), ("f", "CCCC") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes, permutations: 3);
-
-        double predicted5 = fit.PredictPanGenomeSize(5);
-        double predicted10 = fit.PredictPanGenomeSize(10);
-
-        Assert.That(predicted10, Is.GreaterThanOrEqualTo(predicted5));
-    }
-
-    [Test]
-    public void FitHeapsLaw_TooFewGenomes_ReturnsEmpty()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes);
-
-        Assert.That(fit.K, Is.EqualTo(0));
-    }
-
-    #endregion
+    // Presence/absence matrix and Heaps' law fit tests now live canonically in
+    // PanGenomeAnalyzer_FitHeapsLaw_Tests.cs (Test Unit PANGEN-HEAP-001) with exact,
+    // evidence-based assertions against the micropan heaps() reference model.
 
     #region Core Genome Tests
 

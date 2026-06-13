@@ -141,8 +141,9 @@ public record GenePresenceRowDto(
 /// <summary>Result of gene_presence_absence_matrix.</summary>
 public record PresenceAbsenceMatrixResult(IReadOnlyList<GenePresenceRowDto> Items);
 
-/// <summary>Result of fit_heaps_law (Func predictor field dropped).</summary>
-public record HeapsLawFitDto(double K, double Gamma, double RSquared);
+/// <summary>Result of fit_heaps_law (Func predictor field dropped). Heaps' law decay
+/// model n(N) = Intercept · N^(-Alpha); IsOpen is true when Alpha &lt; 1 (Tettelin 2008).</summary>
+public record HeapsLawFitDto(double Intercept, double Alpha, bool IsOpen);
 
 /// <summary>Result of core_gene_clusters.</summary>
 public record CoreGeneClustersResult(

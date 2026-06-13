@@ -281,19 +281,19 @@ public class MetagenomicsTools
     }
 
     /// <summary>
-    /// Fit Heaps' law to pan-genome size growth via permuted gene-accumulation
-    /// curves and log-linear regression (Tettelin et al. 2008).
+    /// Fit Heaps' law to the pan-genome new-gene-discovery curve via permuted
+    /// presence/absence orderings (Tettelin et al. 2008; micropan heaps()).
     /// </summary>
     [McpServerTool(Name = "fit_heaps_law", Title = "Pan-genome — Fit Heaps' Law", ReadOnly = true)]
-    [Description("Fit Heaps' law P(N) = K · N^gamma to permuted gene-accumulation curves (Tettelin 2008). Callers reconstruct the predictor as k * pow(n, gamma).")]
+    [Description("Fit Heaps' law n(N) = Intercept · N^(-Alpha) to the permuted new-gene-discovery curve (Tettelin 2008; micropan heaps). Pan-genome is open when Alpha < 1.")]
     public static HeapsLawFitDto FitHeapsLaw(
         [Description("Genomes (id + ordered list of genes).")] IReadOnlyList<GenomeInput> genomes,
-        [Description("Sequence-identity threshold (currently unused by the simplified estimator; default 0.9).")] double identityThreshold = 0.9,
-        [Description("Number of random genome-order permutations to average over (default 10).")] int permutations = 10)
+        [Description("Sequence-identity threshold for ortholog clustering (default 0.9).")] double identityThreshold = 0.9,
+        [Description("Number of random genome-order permutations to pool over (default 100).")] int permutations = 100)
     {
         var dict = ToGenomesDict(genomes);
         var fit = PanGenomeAnalyzer.FitHeapsLaw(dict, identityThreshold, permutations);
-        return new HeapsLawFitDto(fit.K, fit.Gamma, fit.RSquared);
+        return new HeapsLawFitDto(fit.Intercept, fit.Alpha, fit.IsOpen);
     }
 
     /// <summary>

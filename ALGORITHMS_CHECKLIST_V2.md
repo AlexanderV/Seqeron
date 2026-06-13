@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 124 |
+| **Completed** | 125 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 110 |
+| **Not Started** | 109 |
 
 ---
 
@@ -152,7 +152,7 @@
 | ☑ | EPIGEN-CHROM-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CHROM-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CHROM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) |
 | ☑ | EPIGEN-AGE-001 | Epigenetics | 1 | [Evidence](docs/Evidence/EPIGEN-AGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-AGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) |
 | ☑ | MIRNA-PAIR-001 | MiRNA | 3 | [Evidence](docs/Evidence/MIRNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) |
-| ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |
+| ☑ | PANGEN-HEAP-001 | PanGenome | 1 | [Evidence](docs/Evidence/PANGEN-HEAP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-HEAP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) |
 | ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
 | ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
 | ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
@@ -2666,19 +2666,32 @@ replaced by NNDB Turner 2004 nearest-neighbor stacking sum; free-energy magnitud
 
 ### 38. Extended Pan-Genome Analysis (2 units)
 
-#### PANGEN-HEAP-001: Pan-Genome Growth Model
+#### PANGEN-HEAP-001: Pan-Genome Growth Model ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `PanGenomeAnalyzer.FitHeapsLaw(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(P·G·C) (P perms, G genomes, C clusters) |
 | **Class** | PanGenomeAnalyzer |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FitHeapsLaw(panGenomeData)` | PanGenomeAnalyzer | Canonical |
-| `CreatePresenceAbsenceMatrix(clusters, genomes)` | PanGenomeAnalyzer | Matrix |
+| `FitHeapsLaw(matrix \| genomes)` | PanGenomeAnalyzer | Canonical |
+| `CreatePresenceAbsenceMatrix(genomes, clusters)` | PanGenomeAnalyzer | Matrix |
+
+**Behavior (external evidence overrides checklist):** Heaps' law is the *new-gene-discovery
+decay* model `n(N) = K·N^(−alpha)` fit over permuted genome orderings (Tettelin et al. 2008;
+micropan `heaps()`), NOT a cumulative pan-genome *size* growth `P=K·N^+gamma`. Open ⇔ alpha < 1,
+closed ⇔ alpha > 1. The prior implementation (log-log fit of cumulative size with a positive
+exponent, gene-id matching) was non-conforming and was rewritten to the micropan model.
+
+**Edge cases:**
+- [x] Fewer than 2 genomes / null / empty → degenerate fit (Intercept 0, predictor 0), no exception.
+- [x] First genome contributes no "new" count (curve uses N = 2..G).
+- [x] Binary presence: duplicate/over-counted presence collapses to 1.
+- [x] alpha bounded to [0,2], Intercept to [0,10000] (micropan optim box).
+- [x] Exact power-curve data → analytic (K, alpha) recovered.
 
 ---
 
