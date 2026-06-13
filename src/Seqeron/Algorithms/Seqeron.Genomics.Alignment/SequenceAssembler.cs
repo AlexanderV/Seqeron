@@ -641,21 +641,70 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Scaffolds contigs using paired-end information.
+    /// Default gap length, in characters, used when a paired-end link reports a non-positive
+    /// (zero, negative, or unknown) gap estimate. Negative estimates indicate the contigs should
+    /// overlap, but resolving that overlap is out of scope here, so a placeholder gap is emitted
+    /// instead. 100 is the GenBank/EMBL/DDBJ standard length for a gap of unknown size
+    /// (NCBI AGP Specification v2.1, §"Gaps": "use ... 100 as the gap size, since 100 is the
+    /// GenBank/EMBL/DDBJ standard for gaps of unknown size"; gap lengths must be positive).
     /// </summary>
+    private const int UnknownGapLength = 100;
+
+    /// <summary>
+    /// Joins ordered contigs into scaffolds using paired-end link information. Following the
+    /// scaffold construction of Jackman et al. (ABySS 2.0, Genome Research 2017), the contigs
+    /// along a link path are concatenated, "interspersed with gaps represented by a run of the
+    /// character <c>N</c>, whose length corresponds to the estimate of the distance between those
+    /// two contigs". Each link <c>(contig1, contig2, gapSize)</c> places <paramref name="contigs"/>
+    /// [contig2] immediately after [contig1] with a gap of <c>gapSize</c> copies of
+    /// <paramref name="gapCharacter"/> between them.
+    /// </summary>
+    /// <remarks>
+    /// Gap length: a positive <c>gapSize</c> emits exactly that many gap characters (Jackman et al.
+    /// 2017). A non-positive estimate (<c>gapSize ≤ 0</c>) is treated as a gap of unknown size: a
+    /// negative estimate indicates the contigs should overlap (Sahlin et al. 2012, "Improved gap
+    /// size estimation for scaffolding algorithms"; Jackman et al. 2017: "It is possible that the
+    /// distance estimate is negative, indicating that the two contigs should in fact overlap"), but
+    /// overlap resolution is out of scope here, so the GenBank/EMBL/DDBJ standard unknown-gap length
+    /// of <see cref="UnknownGapLength"/> characters is emitted (NCBI AGP Specification v2.1).
+    /// Each contig is placed into at most one scaffold; a link to an already-placed contig is
+    /// skipped (a contig cannot appear twice). Contigs not reached by any followed link start their
+    /// own single-contig scaffold, in ascending index order.
+    /// </remarks>
+    /// <param name="contigs">The contigs to scaffold, indexed by position; links reference these indices.</param>
+    /// <param name="links">Paired-end links: each <c>(contig1, contig2, gapSize)</c> orders contig2 after contig1 with the given gap estimate (in characters). Indices out of range are ignored.</param>
+    /// <param name="gapCharacter">The character used to fill gaps between contigs (default <c>'N'</c>).</param>
+    /// <returns>The assembled scaffolds, one string per scaffold.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contigs"/> or <paramref name="links"/> is null.</exception>
     public static IReadOnlyList<string> Scaffold(
         IReadOnlyList<string> contigs,
         IReadOnlyList<(int contig1, int contig2, int gapSize)> links,
         char gapCharacter = 'N')
     {
-        if (contigs.Count == 0) return contigs;
+        ArgumentNullException.ThrowIfNull(contigs);
+        ArgumentNullException.ThrowIfNull(links);
+
+        if (contigs.Count == 0) return Array.Empty<string>();
+
+        // Index the first usable forward link out of each contig (links to in-range, distinct
+        // contigs), preserving input order so the first declared link wins on ties.
+        var linkMap = new Dictionary<int, List<(int contig1, int contig2, int gapSize)>>();
+        foreach (var link in links)
+        {
+            if (link.contig1 < 0 || link.contig1 >= contigs.Count) continue;
+            if (link.contig2 < 0 || link.contig2 >= contigs.Count) continue;
+            if (link.contig2 == link.contig1) continue;
+
+            if (!linkMap.TryGetValue(link.contig1, out var bucket))
+            {
+                bucket = new List<(int, int, int)>();
+                linkMap[link.contig1] = bucket;
+            }
+            bucket.Add(link);
+        }
 
         var scaffolds = new List<string>();
         var used = new HashSet<int>();
-
-        // Group links by first contig
-        var linkMap = links.GroupBy(l => l.contig1)
-            .ToDictionary(g => g.Key, g => g.ToList());
 
         for (int i = 0; i < contigs.Count; i++)
         {
@@ -664,26 +713,28 @@ public static class SequenceAssembler
             var sb = new StringBuilder(contigs[i]);
             used.Add(i);
 
-            // Follow links
+            // Follow the link path from the current contig, appending each unplaced successor
+            // separated by a run of gap characters (Jackman et al. 2017 scaffold construction).
             int current = i;
             while (linkMap.TryGetValue(current, out var nextLinks))
             {
-                var link = nextLinks.FirstOrDefault(l => !used.Contains(l.contig2));
-                if (link.contig2 == 0 && link.gapSize == 0 && used.Contains(0))
+                int nextIndex = -1;
+                int gapSize = 0;
+                foreach (var link in nextLinks)
+                {
+                    if (used.Contains(link.contig2)) continue;
+                    nextIndex = link.contig2;
+                    gapSize = link.gapSize;
                     break;
+                }
 
-                if (!used.Contains(link.contig2))
-                {
-                    // Add gap
-                    sb.Append(new string(gapCharacter, Math.Max(1, link.gapSize)));
-                    sb.Append(contigs[link.contig2]);
-                    used.Add(link.contig2);
-                    current = link.contig2;
-                }
-                else
-                {
-                    break;
-                }
+                if (nextIndex < 0) break;
+
+                int gapLength = gapSize > 0 ? gapSize : UnknownGapLength;
+                sb.Append(gapCharacter, gapLength);
+                sb.Append(contigs[nextIndex]);
+                used.Add(nextIndex);
+                current = nextIndex;
             }
 
             scaffolds.Add(sb.ToString());
