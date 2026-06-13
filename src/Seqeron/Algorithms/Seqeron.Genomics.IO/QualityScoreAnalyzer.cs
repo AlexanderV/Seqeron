@@ -60,6 +60,125 @@ public static class QualityScoreAnalyzer
         int OriginalLength,
         int FinalLength);
 
+    // FASTQ encoding offsets and valid Phred score ranges per Cock et al. (2010),
+    // Nucleic Acids Research 38(6):1767-1771, https://doi.org/10.1093/nar/gkp1137
+    // Sanger/Phred+33: ASCII 33-126 -> Phred 0-93 (offset 33).
+    // Illumina 1.3+/Phred+64: ASCII 64-126 -> Phred 0-62 (offset 64).
+    private const int Phred33Offset = 33;
+    private const int Phred64Offset = 64;
+    private const int Phred33MaxScore = 93;
+    private const int Phred64MaxScore = 62;
+    private const int PhredMinScore = 0;
+
+    // Q20/Q30 quality thresholds (inclusive). Q30 = 99.9% base-call accuracy (1-in-1000 error)
+    // and is the NGS run-quality benchmark; Q20 = 99% (1-in-100). Per Illumina, "Sequencing
+    // Quality Scores" (Q = -10 log10 e), and Ewing & Green (1998) Genome Research 8(3):186-194.
+    // A base whose Phred score is >= the threshold is counted (inclusive comparison).
+    private const int Q20Threshold = 20;
+    private const int Q30Threshold = 30;
+    private const double PercentScale = 100.0;
+
+    private static (int Offset, int MaxScore) GetEncodingParameters(QualityEncoding encoding)
+    {
+        return encoding == QualityEncoding.Phred64
+            ? (Phred64Offset, Phred64MaxScore)
+            : (Phred33Offset, Phred33MaxScore);
+    }
+
+    /// <summary>
+    /// Parses a FASTQ quality string into an array of Phred quality scores using the
+    /// specified encoding. Decodes each character as Q = ord(char) - offset, where the
+    /// offset is 33 for Phred+33 and 64 for Phred+64.
+    /// Per Cock et al. (2010), Phred+33 holds scores 0-93 and Phred+64 holds scores 0-62;
+    /// a character that decodes outside the encoding's valid range is rejected as malformed.
+    /// </summary>
+    /// <param name="qualityString">FASTQ quality line (ASCII-encoded Phred scores).</param>
+    /// <param name="encoding">Phred+33 (Sanger/Illumina 1.8+) or Phred+64 (Illumina 1.3-1.7). Auto is resolved by <see cref="DetectEncoding"/>.</param>
+    /// <returns>Array of Phred scores; empty for an empty input.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="qualityString"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a character decodes to a Phred score outside the encoding's valid range.</exception>
+    public static int[] ParseQualityString(string qualityString, QualityEncoding encoding = QualityEncoding.Phred33)
+    {
+        if (qualityString is null)
+            throw new ArgumentNullException(nameof(qualityString));
+        if (qualityString.Length == 0)
+            return Array.Empty<int>();
+
+        var actualEncoding = encoding == QualityEncoding.Auto
+            ? DetectEncoding(qualityString)
+            : encoding;
+        var (offset, maxScore) = GetEncodingParameters(actualEncoding);
+
+        var scores = new int[qualityString.Length];
+        for (int i = 0; i < qualityString.Length; i++)
+        {
+            int score = qualityString[i] - offset;
+            if (score < PhredMinScore || score > maxScore)
+                throw new ArgumentOutOfRangeException(
+                    nameof(qualityString),
+                    $"Character '{qualityString[i]}' (ASCII {(int)qualityString[i]}) at index {i} decodes to Phred score {score}, " +
+                    $"outside the valid range [{PhredMinScore}, {maxScore}] for {actualEncoding}.");
+            scores[i] = score;
+        }
+
+        return scores;
+    }
+
+    /// <summary>
+    /// Encodes an array of Phred quality scores into a FASTQ quality string using the
+    /// specified encoding. Encodes each score as char = chr(Q + offset), where the offset
+    /// is 33 for Phred+33 and 64 for Phred+64 (Cock et al., 2010).
+    /// </summary>
+    /// <param name="scores">Phred quality scores.</param>
+    /// <param name="encoding">Phred+33 or Phred+64 (Auto is treated as Phred+33 for encoding, the modern default).</param>
+    /// <returns>ASCII quality string; empty for an empty input.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scores"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a score is outside the encoding's valid range.</exception>
+    public static string ToQualityString(IReadOnlyList<int> scores, QualityEncoding encoding = QualityEncoding.Phred33)
+    {
+        if (scores is null)
+            throw new ArgumentNullException(nameof(scores));
+        if (scores.Count == 0)
+            return string.Empty;
+
+        var encodeAs = encoding == QualityEncoding.Phred64 ? QualityEncoding.Phred64 : QualityEncoding.Phred33;
+        var (offset, maxScore) = GetEncodingParameters(encodeAs);
+
+        var chars = new char[scores.Count];
+        for (int i = 0; i < scores.Count; i++)
+        {
+            int score = scores[i];
+            if (score < PhredMinScore || score > maxScore)
+                throw new ArgumentOutOfRangeException(
+                    nameof(scores),
+                    $"Phred score {score} at index {i} is outside the valid range [{PhredMinScore}, {maxScore}] for {encodeAs}.");
+            chars[i] = (char)(score + offset);
+        }
+
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// Converts a FASTQ quality string from one Phred encoding to another by re-offsetting
+    /// each character while preserving the underlying Phred score. Because the Phred score is
+    /// invariant across the Sanger (Phred+33) and Illumina 1.3+ (Phred+64) variants, conversion
+    /// is a pure re-offset (Cock et al., 2010).
+    /// </summary>
+    /// <param name="qualityString">Source FASTQ quality string.</param>
+    /// <param name="fromEncoding">Encoding of the input string.</param>
+    /// <param name="toEncoding">Target encoding.</param>
+    /// <returns>Quality string re-encoded under <paramref name="toEncoding"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="qualityString"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a decoded score is invalid for the source encoding, or not representable in the target encoding (e.g. a Phred+33 score &gt; 62 has no Phred+64 representation).</exception>
+    public static string ConvertEncoding(string qualityString, QualityEncoding fromEncoding, QualityEncoding toEncoding)
+    {
+        if (qualityString is null)
+            throw new ArgumentNullException(nameof(qualityString));
+
+        var scores = ParseQualityString(qualityString, fromEncoding);
+        return ToQualityString(scores, toEncoding);
+    }
+
     /// <summary>
     /// Converts a quality character to Phred score.
     /// </summary>
@@ -229,8 +348,8 @@ public static class QualityScoreAnalyzer
         double variance = phredScores.Select(x => Math.Pow(x - mean, 2)).Average();
         double stdDev = Math.Sqrt(variance);
 
-        int aboveQ20 = phredScores.Count(q => q >= 20);
-        int aboveQ30 = phredScores.Count(q => q >= 30);
+        int aboveQ20 = phredScores.Count(q => q >= Q20Threshold);
+        int aboveQ30 = phredScores.Count(q => q >= Q30Threshold);
 
         var positionMean = perPositionMean ?? phredScores.Select(p => (double)p).ToList();
 
@@ -243,9 +362,34 @@ public static class QualityScoreAnalyzer
             TotalBases: phredScores.Length,
             BasesAboveQ20: aboveQ20,
             BasesAboveQ30: aboveQ30,
-            PercentAboveQ20: 100.0 * aboveQ20 / phredScores.Length,
-            PercentAboveQ30: 100.0 * aboveQ30 / phredScores.Length,
+            PercentAboveQ20: PercentScale * aboveQ20 / phredScores.Length,
+            PercentAboveQ30: PercentScale * aboveQ30 / phredScores.Length,
             PerPositionMeanQuality: positionMean);
+    }
+
+    /// <summary>
+    /// Calculates the Q30 percentage: the percentage of bases in the quality string whose
+    /// decoded Phred score is greater than or equal to 30 (the NGS run-quality benchmark; a
+    /// Q30 base has an estimated 1-in-1000 error, i.e. 99.9% accuracy). The threshold is
+    /// inclusive — a base at exactly Q30 is counted. Equivalent to
+    /// <see cref="CalculateStatistics(string, QualityEncoding)"/>.<see cref="QualityStatistics.PercentAboveQ30"/>.
+    /// </summary>
+    /// <param name="qualityString">FASTQ quality line. Null or empty yields 0.</param>
+    /// <param name="encoding">Phred+33 (default), Phred+64, or Auto.</param>
+    /// <returns>Percentage of bases with Phred score &gt;= 30, in [0, 100]; 0 for empty/null input.</returns>
+    public static double CalculateQ30Percentage(
+        string qualityString,
+        QualityEncoding encoding = QualityEncoding.Phred33)
+    {
+        if (string.IsNullOrEmpty(qualityString))
+            return 0.0;
+
+        var phred = QualityStringToPhred(qualityString, encoding);
+        if (phred.Length == 0)
+            return 0.0;
+
+        int aboveQ30 = phred.Count(q => q >= Q30Threshold);
+        return PercentScale * aboveQ30 / phred.Length;
     }
 
     /// <summary>
