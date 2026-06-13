@@ -640,15 +640,56 @@ public static class ProteinMotifFinder
 
     #region Transmembrane Prediction
 
+    // --- Kyte & Doolittle (1982) hydropathy parameters -----------------------------------------
+    // Source: Kyte J, Doolittle RF. "A simple method for displaying the hydropathic character of a
+    //         protein." J Mol Biol. 157(1):105-132 (1982). https://doi.org/10.1016/0022-2836(82)90515-0
+    // TM-detection parameters (window 19, threshold 1.6) verified against the Davidson College
+    //         Kyte-Doolittle background page (citing Kyte & Doolittle 1982):
+    //         https://gcat.davidson.edu/DGPB/kd/kyte-doolittle-background.htm
+    // Windowing (arithmetic mean of the window's per-residue values) matches Biopython 1.x
+    //         Bio.SeqUtils.ProtParam.protein_scale with edge weight 1.0:
+    //         https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/ProtParam.py
+
     /// <summary>
-    /// Predicts transmembrane helices using hydropathy analysis.
+    /// Default sliding-window width for transmembrane-helix detection. Kyte &amp; Doolittle (1982)
+    /// found a 19-residue window optimal for identifying membrane-spanning segments.
     /// </summary>
+    private const int DefaultTransmembraneWindow = 19;
+
+    /// <summary>
+    /// Default hydropathy threshold: a window whose mean Kyte-Doolittle score exceeds 1.6 is
+    /// considered part of a transmembrane segment (Kyte &amp; Doolittle 1982; Davidson background page).
+    /// </summary>
+    private const double DefaultTransmembraneThreshold = 1.6;
+
+    /// <summary>
+    /// Minimum span (residues) a candidate region must cover to be reported as a transmembrane helix.
+    /// A single α-helix needs ≈18–21 residues to cross the ≈30 Å lipid bilayer, matching the
+    /// 19-residue scanning window (each residue rises ≈1.5 Å along the helix axis). Set to the
+    /// window width so that any region containing at least one above-threshold window qualifies.
+    /// </summary>
+    private const int MinTransmembraneHelixLength = DefaultTransmembraneWindow;
+
+    /// <summary>
+    /// Predicts transmembrane α-helices with the Kyte &amp; Doolittle (1982) hydropathy method:
+    /// the mean hydropathy is computed over a sliding window of <paramref name="windowSize"/>
+    /// residues, and each maximal run of windows whose mean exceeds <paramref name="threshold"/>
+    /// is reported as a candidate transmembrane segment.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence (one-letter codes; case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window width; defaults to 19 (Kyte &amp; Doolittle 1982).</param>
+    /// <param name="threshold">Mean-hydropathy cutoff; defaults to 1.6 (Kyte &amp; Doolittle 1982).</param>
+    /// <returns>
+    /// One tuple per predicted segment: 0-based inclusive <c>Start</c>/<c>End</c> residue indices and
+    /// the peak (maximum) window mean within the segment. Empty when the sequence is null/empty or
+    /// shorter than <paramref name="windowSize"/>.
+    /// </returns>
     public static IEnumerable<(int Start, int End, double Score)> PredictTransmembraneHelices(
         string proteinSequence,
-        int windowSize = 19,
-        double threshold = 1.6)
+        int windowSize = DefaultTransmembraneWindow,
+        double threshold = DefaultTransmembraneThreshold)
     {
-        if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
+        if (string.IsNullOrEmpty(proteinSequence) || windowSize <= 0 || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
@@ -680,7 +721,7 @@ public static class ProteinMotifFinder
                 int start = regionStart.Value;
                 int end = i - 1 + windowSize;
 
-                if (end - start >= 15) // Minimum TM helix length
+                if (end - start >= MinTransmembraneHelixLength)
                 {
                     yield return (start, Math.Min(end, upper.Length - 1), maxScore);
                 }
@@ -696,7 +737,7 @@ public static class ProteinMotifFinder
             int start = regionStart.Value;
             int end = hydropathy.Count - 1 + windowSize;
 
-            if (end - start >= 15)
+            if (end - start >= MinTransmembraneHelixLength)
             {
                 yield return (start, Math.Min(end, upper.Length - 1), maxScore);
             }
@@ -704,7 +745,8 @@ public static class ProteinMotifFinder
     }
 
     /// <summary>
-    /// Kyte-Doolittle hydropathy scale.
+    /// Kyte-Doolittle hydropathy scale (Kyte &amp; Doolittle 1982, J Mol Biol 157:105-132).
+    /// Values verified against QIAGEN CLC Genomics Workbench "Hydrophobicity scales" reference.
     /// </summary>
     private static readonly Dictionary<char, double> HydropathyScale = new()
     {
@@ -714,6 +756,11 @@ public static class ProteinMotifFinder
         {'S', -0.8}, {'T', -0.7}, {'W', -0.9}, {'Y', -1.3}, {'V', 4.2}
     };
 
+    /// <summary>
+    /// Computes the Kyte-Doolittle sliding-window hydropathy profile as the arithmetic mean of the
+    /// per-residue scores in each window (Biopython <c>protein_scale</c> with edge weight 1.0).
+    /// Non-standard residues (X, B, Z, *) carry no scale value and are excluded from the mean.
+    /// </summary>
     private static List<double> CalculateHydropathyProfile(string sequence, int windowSize)
     {
         var profile = new List<double>();
