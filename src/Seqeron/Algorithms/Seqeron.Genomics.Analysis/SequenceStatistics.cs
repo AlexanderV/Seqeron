@@ -860,12 +860,38 @@ public static class SequenceStatistics
 
     #region Sequence Windows
 
+    // GC content is expressed as a percentage per the GC-content definition
+    // GC% = (G + C) / (A + T + G + C) × 100  [Wikipedia GC-content; Biopython gc_fraction ×100].
+    private const double PercentScale = 100.0;
+    // Default sliding-window width for GC profiling (bp); a window of 100 is a common
+    // local-GC resolution and matches the sibling profile methods in this class.
+    private const int DefaultGcProfileWindow = 100;
+
     /// <summary>
-    /// Calculates GC content in sliding windows.
+    /// Calculates the GC-content profile of a sequence: the GC content of each sliding
+    /// window of length <paramref name="windowSize"/> advanced by <paramref name="stepSize"/>,
+    /// expressed as a percentage GC% = (G + C) / (A + T + G + C) × 100.
     /// </summary>
+    /// <param name="sequence">Input nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="windowSize">Window width W in bases (default 100). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in bases (default 1).</param>
+    /// <returns>
+    /// One GC% value per window position, in order, for offsets 0, stepSize, 2·stepSize, …
+    /// up to (length − windowSize); empty when the sequence is null/empty or
+    /// <paramref name="windowSize"/> exceeds its length. The denominator counts only the
+    /// standard bases A/T/U/G/C in the window (ambiguous symbols such as N are excluded,
+    /// matching Biopython gc_fraction's default <c>ambiguous="remove"</c>); a window with no
+    /// standard base yields 0.
+    /// </returns>
+    /// <remarks>
+    /// GC-content definition: (G + C) / (A + T + G + C) × 100 — Wikipedia, GC-content
+    /// (citing primary literature); Biopython <c>Bio.SeqUtils.gc_fraction</c> returns the
+    /// same quantity as a fraction in [0, 1] (×100 here). U is treated as a non-GC base
+    /// equivalent to T.
+    /// </remarks>
     public static IEnumerable<double> CalculateGcContentProfile(
         string sequence,
-        int windowSize = 100,
+        int windowSize = DefaultGcProfileWindow,
         int stepSize = 1)
     {
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
@@ -892,7 +918,7 @@ public static class SequenceStatistics
                 }
             }
 
-            yield return total > 0 ? (double)gc / total : 0;
+            yield return total > 0 ? (double)gc / total * PercentScale : 0;
         }
     }
 

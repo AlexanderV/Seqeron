@@ -405,24 +405,8 @@ public class SequenceStatisticsTests
 
     #region Profile Tests
 
-    [Test]
-    public void CalculateGcContentProfile_ReturnsCorrectCount()
-    {
-        string seq = string.Concat(Enumerable.Repeat("ATGCATGCATGC", 10));
-        int windowSize = 20;
-
-        var profile = SequenceStatistics.CalculateGcContentProfile(seq, windowSize, stepSize: 10).ToList();
-
-        Assert.That(profile, Has.Count.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateGcContentProfile_AllGc_Returns100Percent()
-    {
-        var profile = SequenceStatistics.CalculateGcContentProfile("GGGGGGGGGGCCCCCCCCCC", 10).ToList();
-
-        Assert.That(profile.All(p => p >= 0.99));
-    }
+    // GC content profile tests live in the canonical SEQ-GC-PROFILE-001 fixture:
+    // SequenceStatistics_CalculateGcContentProfile_Tests.cs (evidence-based, exact %).
 
     [Test]
     public void CalculateEntropyProfile_ReturnsCorrectCount()
@@ -433,14 +417,6 @@ public class SequenceStatisticsTests
         var profile = SequenceStatistics.CalculateEntropyProfile(seq, windowSize).ToList();
 
         Assert.That(profile, Has.Count.EqualTo(seq.Length - windowSize + 1));
-    }
-
-    [Test]
-    public void CalculateGcContentProfile_WindowTooLarge_ReturnsEmpty()
-    {
-        var profile = SequenceStatistics.CalculateGcContentProfile("ATGC", windowSize: 100).ToList();
-
-        Assert.That(profile, Is.Empty);
     }
 
     #endregion

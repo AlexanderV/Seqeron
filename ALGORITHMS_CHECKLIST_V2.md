@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 187 |
+| **Completed** | 188 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 47 |
+| **Not Started** | 46 |
 
 ---
 
@@ -215,7 +215,7 @@
 | ☑ | SEQ-COMPOSITION-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-COMPOSITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPOSITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
 | ☑ | SEQ-TM-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md | tests/TestSpecs/SEQ-ENTROPY-PROFILE-001.md | tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateEntropyProfile_Tests.cs |
-| ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
+| ☑ | SEQ-GC-PROFILE-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-PROFILE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateGcContentProfile_Tests.cs) |
 | ☐ | SEQ-CODON-FREQ-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-SUMMARY-001 | Statistics | 1 | - | - | - |
 | ☐ | GENOMIC-TANDEM-001 | Analysis | 1 | - | - | - |
