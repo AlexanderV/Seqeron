@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 182 |
+| **Completed** | 183 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 52 |
+| **Not Started** | 51 |
 
 ---
 
@@ -210,7 +210,7 @@
 | ☑ | SEQ-REPLICATION-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-REPLICATION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-REPLICATION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) |
 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-ANALYSIS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) |
 | ☑ | DISORDER-MORF-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-MORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-MORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) |
-| ☐ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | - | - | - |
+| ☑ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PROPENSITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
 | ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |
 | ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
@@ -3659,15 +3659,20 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `DisorderPredictor.GetDisorderPropensity(...)` |
 | **Complexity** | O(1) |
+| **Evidence** | [DISORDER-PROPENSITY-001-Evidence.md](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) |
+| **TestSpec** | [DISORDER-PROPENSITY-001.md](tests/TestSpecs/DISORDER-PROPENSITY-001.md) |
+| **Tests** | [DisorderPredictor_GetDisorderPropensity_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `GetDisorderPropensity(aminoAcid)` | DisorderPredictor | Propensity value |
-| `IsDisorderPromoting(aminoAcid)` | DisorderPredictor | Boolean check |
-| `DisorderPromotingAminoAcids` | DisorderPredictor | Property |
+| `GetDisorderPropensity(aminoAcid)` | DisorderPredictor | Propensity value (TOP-IDP, Campen 2008) |
+| `IsDisorderPromoting(aminoAcid)` | DisorderPredictor | Boolean check (Dunker 2001) |
+| `DisorderPromotingAminoAcids` | DisorderPredictor | Property (8 AA, Dunker 2001) |
+| `OrderPromotingAminoAcids` | DisorderPredictor | Property (8 AA, Dunker 2001) |
 
 ---
 

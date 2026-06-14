@@ -51,12 +51,20 @@
 |--------|-------|------|-------|
 | `PredictDisorder(sequence, windowSize, threshold)` | DisorderPredictor | **Canonical** | Main prediction entry point |
 | `CalculateDisorderScore(window)` | DisorderPredictor | **Internal** | Private; tested indirectly via PredictDisorder |
-| `GetDisorderPropensity(char)` | DisorderPredictor | **Canonical** | Returns TOP-IDP propensity — Campen et al. (2008) |
-| `IsDisorderPromoting(char)` | DisorderPredictor | **Canonical** | Dunker (2001) classification: true for {A,R,G,Q,S,P,E,K} |
-| `DisorderPromotingAminoAcids` | DisorderPredictor | **Canonical** | 8 AA — Dunker et al. (2001) |
-| `OrderPromotingAminoAcids` | DisorderPredictor | **Canonical** | 8 AA — Dunker et al. (2001) |
-| `AmbiguousAminoAcids` | DisorderPredictor | **Canonical** | 4 AA {D,H,M,T} — Dunker et al. (2001) |
+| `GetDisorderPropensity(char)` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 (Method Index); tests live there |
+| `IsDisorderPromoting(char)` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
+| `DisorderPromotingAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
+| `OrderPromotingAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
+| `AmbiguousAminoAcids` | DisorderPredictor | **Moved** | Owned by DISORDER-PROPENSITY-001 |
 | `CalculateHydropathy(string)` | DisorderPredictor | **Canonical** | Mean Kyte-Doolittle hydropathy |
+
+> **2026-06-14 (DISORDER-PROPENSITY-001):** the five amino-acid propensity/classification
+> methods above were over-claimed by this spec; per the Method Index in `ALGORITHMS_CHECKLIST_V2.md`
+> `GetDisorderPropensity`, `IsDisorderPromoting`, `DisorderPromotingAminoAcids`, and
+> `OrderPromotingAminoAcids` belong to DISORDER-PROPENSITY-001. Their tests (and the
+> `AmbiguousAminoAcids` / disjointness tests that complete the classification) were moved to
+> `DisorderPredictor_GetDisorderPropensity_Tests.cs`. PredictDisorder normalized-score tests
+> (which exercise the scale) remain here.
 
 **Note:** All previously missing methods have been implemented. Scoring uses pure TOP-IDP averaging with published cutoff 0.542.
 
