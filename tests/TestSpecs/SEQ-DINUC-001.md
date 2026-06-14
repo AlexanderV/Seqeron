@@ -5,7 +5,14 @@
 **Algorithm:** Dinucleotide Analysis (frequencies, observed/expected relative abundance, codon frequencies)
 **Status:** ☑ Complete
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-06-14
+
+> **Migration note (2026-06-14):** `CalculateCodonFrequencies` and its tests (cases
+> M4–M6, S5–S6, and the codon part of S3) have moved to their dedicated unit
+> **SEQ-CODON-FREQ-001** (canonical file
+> `SequenceStatistics_CalculateCodonFrequencies_Tests.cs`). The codon rows below are
+> retained for historical traceability; live codon-frequency coverage now lives in that
+> unit. SEQ-DINUC-001 continues to own only the dinucleotide frequency / odds-ratio tests.
 
 ---
 

@@ -285,37 +285,6 @@ public class SequenceStatisticsTests
 
     #endregion
 
-    #region Codon Frequency Tests
-
-    [Test]
-    public void CalculateCodonFrequencies_ReturnsFrequencies()
-    {
-        var freq = SequenceStatistics.CalculateCodonFrequencies("ATGATGATGATG");
-
-        Assert.That(freq, Is.Not.Empty);
-        Assert.That(freq.ContainsKey("ATG"), Is.True);
-    }
-
-    [Test]
-    public void CalculateCodonFrequencies_DifferentReadingFrame()
-    {
-        string seq = "AATGATGATG";
-        var frame0 = SequenceStatistics.CalculateCodonFrequencies(seq, readingFrame: 0);
-        var frame1 = SequenceStatistics.CalculateCodonFrequencies(seq, readingFrame: 1);
-
-        // Different frames should give different codon sets
-        Assert.That(frame0.Keys, Is.Not.EquivalentTo(frame1.Keys));
-    }
-
-    [Test]
-    public void CalculateCodonFrequencies_ShortSequence_ReturnsEmpty()
-    {
-        var freq = SequenceStatistics.CalculateCodonFrequencies("AT");
-        Assert.That(freq, Is.Empty);
-    }
-
-    #endregion
-
     #region Entropy and Complexity Tests
 
     [Test]

@@ -675,25 +675,36 @@ public static class SequenceStatistics
     /// <summary>
     /// Calculates codon usage frequencies by reading consecutive, non-overlapping triplets from the
     /// given reading frame: frequency = count(codon) / total counted codons. Triplets containing any
-    /// non-ACGT base are excluded and trailing 1-2 leftover bases are ignored
-    /// (Kazusa Codon Usage Database / CUTG, https://www.kazusa.or.jp/codon/readme_codon.html).
+    /// non-ACGT base are excluded and trailing 1-2 leftover bases are ignored. This is the count/total
+    /// fraction used by the Kazusa Codon Usage Database (CUTG); it equals the CUTG per-thousand
+    /// frequency divided by 1000, and is distinct from the per-amino-acid "fraction" reported by
+    /// EMBOSS cusp. Input shorter than 3 bases, or with no valid codon (total = 0), yields an empty
+    /// table. Sources: Nakamura, Gojobori, Ikemura (2000), Nucleic Acids Res 28(1):292,
+    /// DOI 10.1093/nar/28.1.292; Kazusa CUTG README, https://www.kazusa.or.jp/codon/readme_codon.html.
     /// </summary>
+    /// <param name="dnaSequence">DNA coding sequence; case-insensitive, non-ACGT bases excluded.</param>
+    /// <param name="readingFrame">0-based offset of the first codon (0, 1, or 2 in practice).</param>
+    /// <returns>Map of codon to its frequency (count / total counted codons); empty if no valid codon.</returns>
     public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
         string dnaSequence,
         int readingFrame = 0)
     {
+        // Codon length is fixed by the genetic code (non-overlapping triplets), per Kazusa CUTG.
+        const int CodonLength = 3;
+
         var counts = new Dictionary<string, int>();
         var freq = new Dictionary<string, double>();
 
-        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < 3)
+        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < CodonLength)
             return freq;
 
         string upper = dnaSequence.ToUpperInvariant();
         int total = 0;
 
-        for (int i = readingFrame; i <= upper.Length - 3; i += 3)
+        for (int i = readingFrame; i <= upper.Length - CodonLength; i += CodonLength)
         {
-            string codon = upper.Substring(i, 3);
+            string codon = upper.Substring(i, CodonLength);
+            // Kazusa CUTG: codons containing an ambiguous (non-ACGT) base are excluded from the count.
             if (codon.All(c => "ATGC".Contains(c)))
             {
                 counts[codon] = counts.GetValueOrDefault(codon) + 1;
@@ -701,6 +712,8 @@ public static class SequenceStatistics
             }
         }
 
+        // total == 0 (no valid codon) leaves counts empty, so this loop yields an empty table
+        // and avoids any division by zero.
         foreach (var (codon, count) in counts)
         {
             freq[codon] = (double)count / total;
