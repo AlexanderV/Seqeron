@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 175 |
+| **Completed** | 176 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 59 |
+| **Not Started** | 58 |
 
 ---
 
@@ -203,7 +203,7 @@
 | ☑ | KMER-ASYNC-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-ASYNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-ASYNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersAsync_Tests.cs) |
 | ☑ | KMER-UNIQUE-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-UNIQUE-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-UNIQUE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindUniqueAndMinCount_Tests.cs) |
 | ☑ | KMER-GENERATE-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_GenerateAllKmers_Tests.cs) |
-| ☐ | KMER-BOTH-001 | K-mer | 1 | - | - | - |
+| ☑ | KMER-BOTH-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-BOTH-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-BOTH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersBothStrands_Tests.cs) |
 | ☐ | KMER-STATS-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-POSITIONS-001 | K-mer | 1 | - | - | - |
 | ☐ | SEQ-ATSKEW-001 | Composition | 1 | - | - | - |
@@ -3554,6 +3554,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `KmerAnalyzer.CountKmersBothStrands(...)` |
 | **Complexity** | O(n) |
 

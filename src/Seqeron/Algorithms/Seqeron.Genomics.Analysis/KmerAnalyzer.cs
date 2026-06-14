@@ -425,25 +425,59 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Counts k-mers on both strands (forward and reverse complement).
+    /// Counts every k-mer over BOTH strands of double-stranded DNA: the reported
+    /// count of a k-mer <c>w</c> is its overlapping occurrences on the forward
+    /// strand plus its overlapping occurrences on the reverse-complement strand.
     /// </summary>
-    public static Dictionary<string, int> CountKmersBothStrands(DnaSequence dna, int k)
+    /// <remarks>
+    /// Because double-stranded DNA carries information on both strands, a strand-aware
+    /// profile sums each k-mer's count with that of its complementary reading. Counting
+    /// <c>w</c> on the reverse-complement strand (read 5'→3') equals counting its reverse
+    /// complement <c>RC(w)</c> on the forward strand, so this method yields
+    /// <c>count[w] = forward[w] + forward[RC(w)]</c>. This is the "balance" operation of
+    /// kPAL — "adding the values of each k-mer to its reverse complement" (Anvar et al.,
+    /// 2014) — and reflects the generalized second Chargaff rule / inversion symmetry,
+    /// whereby a k-mer's count on one strand equals its reverse-complement's count on the
+    /// other (Shporer et al., 2016). Unlike canonical k-mer counting (Marçais &amp;
+    /// Kingsford, 2011), which collapses the pair onto a single lexicographically-smaller
+    /// key, this method retains a key for every observed k-mer; w and RC(w) carry equal
+    /// counts. The total over all k-mers is 2·(L − k + 1).
+    /// </remarks>
+    /// <param name="sequence">The DNA sequence (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>
+    /// Dictionary mapping each observed k-mer to its summed forward + reverse-complement
+    /// strand occurrence count. Empty when the sequence is null/empty or k exceeds the
+    /// sequence length (L − k + 1 ≤ 0).
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    public static Dictionary<string, int> CountKmersBothStrands(string sequence, int k)
     {
-        var forwardCounts = CountKmers(dna.Sequence, k);
-        var revCompCounts = CountKmers(dna.ReverseComplement().Sequence, k);
+        var forwardCounts = CountKmers(sequence, k);
+        var revCompCounts = CountKmers(DnaSequence.GetReverseComplementString(sequence ?? string.Empty), k);
 
         var combined = new Dictionary<string, int>(forwardCounts);
 
         foreach (var kvp in revCompCounts)
         {
-            if (combined.ContainsKey(kvp.Key))
+            if (!combined.TryAdd(kvp.Key, kvp.Value))
                 combined[kvp.Key] += kvp.Value;
-            else
-                combined[kvp.Key] = kvp.Value;
         }
 
         return combined;
     }
+
+    /// <summary>
+    /// Counts k-mers on both strands (forward and reverse complement) of a
+    /// <see cref="DnaSequence"/>. Convenience overload of
+    /// <see cref="CountKmersBothStrands(string, int)"/>.
+    /// </summary>
+    /// <param name="dna">The DNA sequence.</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>Dictionary mapping each observed k-mer to its summed forward + reverse-complement count.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    public static Dictionary<string, int> CountKmersBothStrands(DnaSequence dna, int k)
+        => CountKmersBothStrands(dna.Sequence, k);
 
     /// <summary>
     /// Analyzes k-mer composition and returns statistics.
