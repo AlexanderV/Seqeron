@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 214 |
+| **Completed** | 215 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 20 |
+| **Not Started** | 19 |
 
 ---
 
@@ -242,7 +242,7 @@
 | ☑ | ONCO-CNA-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) |
 | ☑ | ONCO-PURITY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PURITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PURITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) |
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
-| ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
@@ -4406,20 +4406,22 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CLONAL-001: Clonal vs Subclonal Classification
+#### ONCO-CLONAL-001: Clonal vs Subclonal Classification ☑
+
+> Note: the registry stub listed class `TumorAnalyzer` and signature `ClassifyClonality(variants, purity, ploidy)`. The authoritative Landau et al. (2013) CCF posterior model uses the **per-locus** absolute copy number q (not a genome-wide ploidy scalar), so the canonical method is `OncologyAnalyzer.ClassifyClonality(variants, purity)` with q carried per `ClonalityVariant` (mirrors the ONCO-WGD scalar→per-segment decision). The analyzer class is `OncologyAnalyzer` (all sibling ONCO units).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.ClassifyClonality(...)` |
+| **Canonical** | `OncologyAnalyzer.ClassifyClonality(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | clonal_count + subclonal_count = total_variants |
-| **Depends on** | ONCO-CCF-001 |
+| **Depends on** | ONCO-CCF-001 (CCF; consumed by `IdentifyClonalMutations`) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ClassifyClonality(variants, purity, ploidy)` | TumorAnalyzer | Canonical |
-| `IdentifyClonalMutations(ccfValues)` | TumorAnalyzer | CCF ≈ 1.0 |
+| `ClassifyClonality(variants, purity)` | OncologyAnalyzer | Canonical — clonal iff P(CCF>0.95) > 0.5 (Landau 2013) |
+| `IdentifyClonalMutations(ccfValues)` | OncologyAnalyzer | Canonical — clonal iff CCF > 0.95 |
 
 ---
 

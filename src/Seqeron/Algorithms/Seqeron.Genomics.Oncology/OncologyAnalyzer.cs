@@ -4517,4 +4517,266 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Clonal vs Subclonal Classification (ONCO-CLONAL-001)
+
+    /// <summary>
+    /// Cancer-cell-fraction (CCF) threshold separating clonal from subclonal mutations. A mutation is called
+    /// clonal when its CCF exceeds this value (with sufficient posterior probability); subclonal otherwise.
+    /// Source: Landau et al. (2013), <i>Cell</i> 152(4):714–726 — "We classified a mutation as clonal if the
+    /// CCF harboring it was &gt;0.95 with probability &gt; 0.5, and subclonal otherwise."
+    /// </summary>
+    public const double ClonalCcfThreshold = 0.95;
+
+    /// <summary>
+    /// Minimum posterior probability that the CCF exceeds <see cref="ClonalCcfThreshold"/> required to call a
+    /// mutation clonal. Source: Landau et al. (2013), <i>Cell</i> 152(4):714–726 — clonal if P(CCF &gt; 0.95) &gt; 0.5.
+    /// </summary>
+    public const double ClonalProbabilityThreshold = 0.5;
+
+    /// <summary>
+    /// Number of CCF grid points used to evaluate the posterior over the CCF c ∈ [0.01, 1]. Source: Landau et al.
+    /// (2013), <i>Cell</i> 152(4):714–726, Extended Experimental Procedures — "calculating these values over a
+    /// regular grid of 100 c values and normalizing by dividing them by their sum".
+    /// </summary>
+    private const int CcfGridPointCount = 100;
+
+    /// <summary>
+    /// Lower bound of the CCF grid. Source: Landau et al. (2013) — "with c ∈ [0.01,1]" (a mutation is present in
+    /// at least one cancer cell, so the CCF cannot be exactly zero).
+    /// </summary>
+    private const double CcfGridLowerBound = 0.01;
+
+    /// <summary>Upper bound of the CCF grid (a mutation present in every cancer cell). Source: Landau et al. (2013), c ∈ [0.01,1].</summary>
+    private const double CcfGridUpperBound = 1.0;
+
+    /// <summary>Clonal/subclonal status of one somatic mutation.</summary>
+    public enum ClonalityStatus
+    {
+        /// <summary>Present in (essentially) all cancer cells: CCF &gt; 0.95 with posterior probability &gt; 0.5.</summary>
+        Clonal,
+
+        /// <summary>Present in only a subpopulation of cancer cells: it does not meet the clonal criterion.</summary>
+        Subclonal,
+    }
+
+    /// <summary>
+    /// Read evidence for one somatic mutation at a locus with known purity-corrected copy-number state, used to
+    /// infer its cancer cell fraction. Source: Landau et al. (2013), <i>Cell</i> 152(4):714–726 — the posterior
+    /// over CCF is built from <c>a</c> alternate reads out of <c>N</c> total reads at a locus of absolute somatic
+    /// copy number <c>q</c>, with mutation multiplicity <c>M</c> (the number of tumour-genome copies carrying the
+    /// mutant allele; DeCiFering / Satas et al. 2021, <i>Cell Systems</i> 12(10):1004–1018, Eq. 1).
+    /// </summary>
+    /// <param name="AltReads">Alternate-allele supporting reads <c>a</c> (≥ 0, ≤ <paramref name="TotalReads"/>).</param>
+    /// <param name="TotalReads">Total reads at the locus <c>N</c> (≥ 1).</param>
+    /// <param name="LocalCopyNumber">Absolute tumour total copy number at the locus <c>q</c> (≥ 1).</param>
+    /// <param name="Multiplicity">Mutation multiplicity <c>M</c> — tumour-genome copies carrying the mutation (≥ 1, ≤ <paramref name="LocalCopyNumber"/>).</param>
+    public readonly record struct ClonalityVariant(int AltReads, int TotalReads, int LocalCopyNumber, int Multiplicity)
+    {
+        /// <summary>Creates a variant at multiplicity 1 (one mutated copy), the default for a heterozygous SNV.</summary>
+        public ClonalityVariant(int altReads, int totalReads, int localCopyNumber)
+            : this(altReads, totalReads, localCopyNumber, 1)
+        {
+        }
+    }
+
+    /// <summary>The clonality classification of one mutation, with the CCF point estimate and posterior that produced it.</summary>
+    /// <param name="Variant">The variant that was classified.</param>
+    /// <param name="Ccf">Posterior-mean cancer cell fraction estimate (grid expectation), in [0.01, 1].</param>
+    /// <param name="ProbabilityClonal">Posterior probability that the CCF exceeds <see cref="ClonalCcfThreshold"/>.</param>
+    /// <param name="Status">Clonal / Subclonal classification.</param>
+    public readonly record struct ClonalityCall(ClonalityVariant Variant, double Ccf, double ProbabilityClonal, ClonalityStatus Status);
+
+    /// <summary>Summary of a clonal/subclonal classification over a set of variants.</summary>
+    /// <param name="Calls">Per-variant classifications, in input order.</param>
+    /// <param name="ClonalCount">Number of variants classified <see cref="ClonalityStatus.Clonal"/>.</param>
+    /// <param name="SubclonalCount">Number of variants classified <see cref="ClonalityStatus.Subclonal"/>.</param>
+    /// <param name="ClonalFraction">Fraction of variants that are clonal (ClonalCount / total); 0 for an empty set.</param>
+    public readonly record struct ClonalityResult(
+        IReadOnlyList<ClonalityCall> Calls,
+        int ClonalCount,
+        int SubclonalCount,
+        double ClonalFraction);
+
+    /// <summary>
+    /// Classifies each somatic mutation as clonal or subclonal from its read evidence and the tumour purity.
+    /// For each variant the posterior over the cancer cell fraction c is built on a regular grid of
+    /// <see cref="CcfGridPointCount"/> points c ∈ [<see cref="CcfGridLowerBound"/>, 1] as
+    /// <c>P(c) ∝ Binomial(a | N, f(c))</c> with a uniform prior, where the expected alternate-allele fraction is
+    /// <c>f(c) = ρ·M·c / (2(1−ρ) + ρ·q)</c> — purity ρ, multiplicity M, local copy number q, normal diploid
+    /// contribution 2(1−ρ). A mutation is called <see cref="ClonalityStatus.Clonal"/> when the posterior
+    /// probability that c &gt; <see cref="ClonalCcfThreshold"/> exceeds <see cref="ClonalProbabilityThreshold"/>,
+    /// and <see cref="ClonalityStatus.Subclonal"/> otherwise. Source: Landau et al. (2013), <i>Cell</i>
+    /// 152(4):714–726 (Extended Experimental Procedures); multiplicity generalisation per Satas et al. (2021),
+    /// <i>Cell Systems</i> 12(10):1004–1018 (Eq. 1).
+    /// </summary>
+    /// <param name="variants">Per-variant read evidence and copy-number state.</param>
+    /// <param name="purity">Tumor purity ρ ∈ (0, 1].</param>
+    /// <returns>Per-variant calls plus clonal/subclonal counts and the clonal fraction.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">purity ∉ (0, 1].</exception>
+    /// <exception cref="ArgumentException">A variant has invalid read counts, copy number, or multiplicity.</exception>
+    public static ClonalityResult ClassifyClonality(IEnumerable<ClonalityVariant> variants, double purity)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(purity), purity, "Purity must be in the range (0, 1]; the CCF model divides by purity.");
+        }
+
+        var calls = new List<ClonalityCall>();
+        int clonalCount = 0;
+        foreach (ClonalityVariant variant in variants)
+        {
+            ClonalityCall call = ClassifyOne(variant, purity);
+            calls.Add(call);
+            if (call.Status == ClonalityStatus.Clonal)
+            {
+                clonalCount++;
+            }
+        }
+
+        int total = calls.Count;
+        int subclonalCount = total - clonalCount;
+        // ClonalFraction is the clonal share; undefined for an empty set so reported as 0.
+        double clonalFraction = total == 0 ? 0.0 : (double)clonalCount / total;
+        return new ClonalityResult(calls, clonalCount, subclonalCount, clonalFraction);
+    }
+
+    /// <summary>
+    /// Classifies a set of already-estimated cancer cell fractions (CCF point estimates, e.g. from
+    /// <c>EstimateCCF</c>) as clonal vs subclonal and returns the indices of the clonal mutations. A CCF is
+    /// clonal when it exceeds <see cref="ClonalCcfThreshold"/> (CCF &gt; 0.95), reflecting a mutation present in
+    /// (essentially) all cancer cells. Source: Landau et al. (2013), <i>Cell</i> 152(4):714–726 — "classified a
+    /// mutation as clonal if the CCF harboring it was &gt;0.95 … and subclonal otherwise".
+    /// </summary>
+    /// <param name="ccfValues">Cancer cell fractions, each in [0, 1].</param>
+    /// <returns>The 0-based indices of the clonal CCF values, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ccfValues"/> is null.</exception>
+    /// <exception cref="ArgumentException">A CCF value is NaN or outside [0, 1].</exception>
+    public static IReadOnlyList<int> IdentifyClonalMutations(IEnumerable<double> ccfValues)
+    {
+        ArgumentNullException.ThrowIfNull(ccfValues);
+
+        var clonalIndices = new List<int>();
+        int index = 0;
+        foreach (double ccf in ccfValues)
+        {
+            if (double.IsNaN(ccf) || ccf < 0.0 || ccf > 1.0)
+            {
+                throw new ArgumentException(
+                    $"Cancer cell fraction must be in [0, 1]; got {ccf} at index {index}.", nameof(ccfValues));
+            }
+
+            if (ccf > ClonalCcfThreshold)
+            {
+                clonalIndices.Add(index);
+            }
+
+            index++;
+        }
+
+        return clonalIndices;
+    }
+
+    /// <summary>
+    /// Builds the posterior over CCF for one variant and classifies it (Landau et al. 2013 grid model).
+    /// </summary>
+    private static ClonalityCall ClassifyOne(ClonalityVariant variant, double purity)
+    {
+        ValidateClonalityVariant(variant);
+
+        // Expected alt-allele fraction f(c) = ρ·M·c / (2(1−ρ) + ρ·q): mutant copies M·c per cell scaled by
+        // purity over the total DNA (normal 2(1−ρ) + tumour ρ·q). Landau 2013 (M=1) generalised by DeCiFering Eq.1.
+        double denominator = NormalDiploidCopyNumber * (1.0 - purity) + purity * variant.LocalCopyNumber;
+        double alleleFractionPerUnitCcf = purity * variant.Multiplicity / denominator;
+
+        // Posterior P(c) ∝ Binomial(a | N, f(c)) on a uniform grid c ∈ [0.01, 1], uniform prior; normalise by sum.
+        // The binomial coefficient C(N, a) is constant in c, so it cancels in normalisation and is omitted.
+        double step = (CcfGridUpperBound - CcfGridLowerBound) / (CcfGridPointCount - 1);
+        Span<double> weights = stackalloc double[CcfGridPointCount];
+        double weightSum = 0.0;
+        for (int i = 0; i < CcfGridPointCount; i++)
+        {
+            double c = CcfGridLowerBound + step * i;
+            double f = Math.Min(1.0, alleleFractionPerUnitCcf * c);
+            double likelihood = BinomialLikelihoodKernel(variant.AltReads, variant.TotalReads, f);
+            weights[i] = likelihood;
+            weightSum += likelihood;
+        }
+
+        double ccfMean = 0.0;
+        double probabilityClonal = 0.0;
+        // Guard against an all-zero posterior (e.g. f≈0 with a>0): fall back to a flat posterior over the grid.
+        bool degenerate = weightSum <= 0.0 || double.IsNaN(weightSum);
+        for (int i = 0; i < CcfGridPointCount; i++)
+        {
+            double c = CcfGridLowerBound + step * i;
+            double posterior = degenerate ? 1.0 / CcfGridPointCount : weights[i] / weightSum;
+            ccfMean += c * posterior;
+            if (c > ClonalCcfThreshold)
+            {
+                probabilityClonal += posterior;
+            }
+        }
+
+        ClonalityStatus status = probabilityClonal > ClonalProbabilityThreshold
+            ? ClonalityStatus.Clonal
+            : ClonalityStatus.Subclonal;
+        return new ClonalityCall(variant, ccfMean, probabilityClonal, status);
+    }
+
+    /// <summary>
+    /// Binomial likelihood kernel L(a | N, p) = p^a · (1−p)^(N−a), without the constant C(N, a) factor (it cancels
+    /// under grid normalisation). Computed via log-space to avoid underflow for large N.
+    /// </summary>
+    private static double BinomialLikelihoodKernel(int altReads, int totalReads, double p)
+    {
+        int refReads = totalReads - altReads;
+        if (p <= 0.0)
+        {
+            // p = 0 explains zero alternate reads exactly, nothing else.
+            return altReads == 0 ? 1.0 : 0.0;
+        }
+
+        if (p >= 1.0)
+        {
+            // p = 1 explains all-alternate reads exactly, nothing else.
+            return refReads == 0 ? 1.0 : 0.0;
+        }
+
+        double logLikelihood = altReads * Math.Log(p) + refReads * Math.Log(1.0 - p);
+        return Math.Exp(logLikelihood);
+    }
+
+    /// <summary>Validates read counts, local copy number, and multiplicity of a clonality variant.</summary>
+    private static void ValidateClonalityVariant(ClonalityVariant variant)
+    {
+        if (variant.TotalReads < 1)
+        {
+            throw new ArgumentException(
+                $"Total reads must be at least 1; got {variant.TotalReads}.", nameof(variant));
+        }
+
+        if (variant.AltReads < 0 || variant.AltReads > variant.TotalReads)
+        {
+            throw new ArgumentException(
+                $"Alternate reads must be in [0, {variant.TotalReads}]; got {variant.AltReads}.", nameof(variant));
+        }
+
+        if (variant.LocalCopyNumber < 1)
+        {
+            throw new ArgumentException(
+                $"Local copy number must be at least 1; got {variant.LocalCopyNumber}.", nameof(variant));
+        }
+
+        if (variant.Multiplicity < 1 || variant.Multiplicity > variant.LocalCopyNumber)
+        {
+            throw new ArgumentException(
+                $"Multiplicity must be in [1, {variant.LocalCopyNumber}]; got {variant.Multiplicity}.", nameof(variant));
+        }
+    }
+
+    #endregion
 }
