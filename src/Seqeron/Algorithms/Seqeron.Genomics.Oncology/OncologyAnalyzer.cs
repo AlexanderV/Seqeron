@@ -2904,4 +2904,227 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Mutational Process Classification (ONCO-SIG-004)
+
+    /// <summary>
+    /// Minimum normalized relative contribution for a single mutational signature to be reported as
+    /// present/active. A signature whose contribution falls below this fraction is excluded (set to zero).
+    /// Source: Rosenthal R. et al. (2016), deconstructSigs, <i>Genome Biology</i> 17:31 — "the weights W
+    /// are normalized between 0 and 1 and any signature with Wᵢ &lt; 6% is excluded"
+    /// (https://doi.org/10.1186/s13059-016-0893-4); reference implementation <c>whichSignatures.R</c>
+    /// declares <c>signature.cutoff = 0.06</c> and applies <c>weights[weights &lt; signature.cutoff] &lt;- 0</c>.
+    /// The comparison is strict less-than, so a contribution of exactly 0.06 is retained. Value = 0.06.
+    /// </summary>
+    public const double DefaultSignatureContributionCutoff = 0.06;
+
+    /// <summary>
+    /// A recognized mutational process (mutagenic aetiology) inferred from active COSMIC SBS signatures.
+    /// Aetiology assignments are from the COSMIC SBS catalogue (https://cancer.sanger.ac.uk/signatures/sbs/;
+    /// Alexandrov et al. 2020, <i>Nature</i> 578:94–101).
+    /// </summary>
+    public enum MutationalProcess
+    {
+        /// <summary>Signature label not mapped to any recognized COSMIC aetiology.</summary>
+        Unknown = 0,
+
+        /// <summary>
+        /// Aging / clock-like mutagenesis. COSMIC SBS1 ("Spontaneous deamination of 5-methylcytosine
+        /// (clock-like signature)") and SBS5 ("Unknown (clock-like signature)").
+        /// </summary>
+        Aging,
+
+        /// <summary>
+        /// APOBEC cytidine-deaminase activity. COSMIC SBS2 and SBS13 ("Activity of APOBEC family of
+        /// cytidine deaminases").
+        /// </summary>
+        Apobec,
+
+        /// <summary>Tobacco smoking. COSMIC SBS4 ("Tobacco smoking").</summary>
+        TobaccoSmoking,
+
+        /// <summary>Ultraviolet light exposure. COSMIC SBS7a/7b/7c/7d ("Ultraviolet light exposure").</summary>
+        UltravioletLight,
+
+        /// <summary>
+        /// Defective DNA mismatch repair. COSMIC SBS6, SBS15, SBS26 ("Defective DNA mismatch repair") and
+        /// SBS20 ("Concurrent POLD1 mutations and defective DNA mismatch repair").
+        /// </summary>
+        MismatchRepairDeficiency,
+    }
+
+    /// <summary>
+    /// COSMIC SBS signature label → mutational process map, taken verbatim from the COSMIC SBS catalogue
+    /// proposed-aetiology strings (https://cancer.sanger.ac.uk/signatures/sbs/; Alexandrov et al. 2020).
+    /// Only the five canonical processes named for ONCO-SIG-004 are mapped: Aging (SBS1, SBS5),
+    /// APOBEC (SBS2, SBS13), Tobacco smoking (SBS4), UV (SBS7a–d), MMR deficiency (SBS6, SBS15, SBS20, SBS26).
+    /// Labels are matched case-insensitively. Signatures outside this map resolve to
+    /// <see cref="MutationalProcess.Unknown"/>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, MutationalProcess> SbsToProcess =
+        new Dictionary<string, MutationalProcess>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SBS1"] = MutationalProcess.Aging,
+            ["SBS5"] = MutationalProcess.Aging,
+            ["SBS2"] = MutationalProcess.Apobec,
+            ["SBS13"] = MutationalProcess.Apobec,
+            ["SBS4"] = MutationalProcess.TobaccoSmoking,
+            ["SBS7a"] = MutationalProcess.UltravioletLight,
+            ["SBS7b"] = MutationalProcess.UltravioletLight,
+            ["SBS7c"] = MutationalProcess.UltravioletLight,
+            ["SBS7d"] = MutationalProcess.UltravioletLight,
+            ["SBS6"] = MutationalProcess.MismatchRepairDeficiency,
+            ["SBS15"] = MutationalProcess.MismatchRepairDeficiency,
+            ["SBS20"] = MutationalProcess.MismatchRepairDeficiency,
+            ["SBS26"] = MutationalProcess.MismatchRepairDeficiency,
+        };
+
+    /// <summary>
+    /// Resolves a COSMIC SBS signature label (e.g. <c>"SBS2"</c>, <c>"SBS7a"</c>) to its mutational process
+    /// per the COSMIC proposed-aetiology assignments. Matching is case-insensitive. Unmapped or
+    /// unknown-aetiology labels return <see cref="MutationalProcess.Unknown"/>. Source: COSMIC SBS catalogue
+    /// (https://cancer.sanger.ac.uk/signatures/sbs/; Alexandrov et al. 2020, <i>Nature</i> 578:94–101).
+    /// </summary>
+    /// <param name="signatureLabel">A COSMIC SBS signature label.</param>
+    /// <returns>The mapped <see cref="MutationalProcess"/>, or <see cref="MutationalProcess.Unknown"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="signatureLabel"/> is null.</exception>
+    public static MutationalProcess GetMutationalProcess(string signatureLabel)
+    {
+        ArgumentNullException.ThrowIfNull(signatureLabel);
+        return SbsToProcess.TryGetValue(signatureLabel, out MutationalProcess process)
+            ? process
+            : MutationalProcess.Unknown;
+    }
+
+    /// <summary>
+    /// The aggregated activity of one mutational process within a tumour sample, produced by
+    /// <see cref="ClassifyMutationalProcess"/>.
+    /// </summary>
+    /// <param name="Process">The mutational process (aetiology).</param>
+    /// <param name="Contribution">
+    /// The summed normalized relative contribution of all of this process's signatures that survived the
+    /// per-signature cutoff (a fraction in [0, 1]). Source: additive deconstructSigs weights (Rosenthal 2016).
+    /// </param>
+    public readonly record struct ProcessActivity(MutationalProcess Process, double Contribution);
+
+    /// <summary>
+    /// The result of classifying which mutational processes are active in a tumour sample.
+    /// </summary>
+    /// <param name="ActiveProcesses">
+    /// The active processes (those with at least one surviving signature), in descending contribution order
+    /// then by process for deterministic ordering. Empty when no signature survives the cutoff.
+    /// </param>
+    /// <param name="DominantProcess">
+    /// The active process with the largest aggregated contribution, or <see cref="MutationalProcess.Unknown"/>
+    /// when no process is active.
+    /// </param>
+    public readonly record struct MutationalProcessClassification(
+        IReadOnlyList<ProcessActivity> ActiveProcesses,
+        MutationalProcess DominantProcess);
+
+    /// <summary>
+    /// Classifies the mutational processes active in a tumour from per-signature exposures (activities).
+    /// <para>
+    /// The exposures are first converted to normalized relative contributions (each divided by their sum,
+    /// so they sum to 1) per deconstructSigs ("the weights W are normalized between 0 and 1"). A signature
+    /// is then declared present/active only when its normalized contribution is at least
+    /// <paramref name="contributionCutoff"/> (default 6%); contributions below the cutoff are dropped, so
+    /// the surviving contributions can sum to less than 1 (Rosenthal et al. 2016, deconstructSigs:
+    /// "any signature with Wᵢ &lt; 6% is excluded"; <c>weights[weights &lt; signature.cutoff] &lt;- 0</c>).
+    /// Each surviving signature is mapped to its mutational process via the COSMIC SBS aetiology map
+    /// (<see cref="GetMutationalProcess"/>), and the per-signature contributions are summed per process.
+    /// The dominant process is the active process with the largest aggregated contribution.
+    /// </para>
+    /// <para>
+    /// Reference signature <i>profiles</i> are caller-supplied elsewhere (e.g. COSMIC SBS matrices used by
+    /// <see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>); this method
+    /// consumes only the resulting exposures and their COSMIC labels.
+    /// </para>
+    /// Sources: Rosenthal R. et al. (2016), <i>Genome Biology</i> 17:31
+    /// (https://doi.org/10.1186/s13059-016-0893-4); COSMIC SBS catalogue
+    /// (https://cancer.sanger.ac.uk/signatures/sbs/); Alexandrov L.B. et al. (2020), <i>Nature</i> 578:94–101.
+    /// </summary>
+    /// <param name="exposures">
+    /// Per-signature exposures as (COSMIC SBS label, non-negative activity) pairs. Activities are arbitrary
+    /// non-negative magnitudes (mutation counts or proportions); they are normalized internally.
+    /// </param>
+    /// <param name="contributionCutoff">
+    /// Minimum normalized relative contribution (strict lower bound is a contribution that is &lt; this value)
+    /// for a signature to be active; default <see cref="DefaultSignatureContributionCutoff"/> (0.06).
+    /// </param>
+    /// <returns>The active processes (descending contribution) and the dominant process.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="exposures"/> (or a label) is null.</exception>
+    /// <exception cref="ArgumentException">An exposure is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="contributionCutoff"/> is outside [0, 1).</exception>
+    public static MutationalProcessClassification ClassifyMutationalProcess(
+        IReadOnlyList<(string Signature, double Exposure)> exposures,
+        double contributionCutoff = DefaultSignatureContributionCutoff)
+    {
+        ArgumentNullException.ThrowIfNull(exposures);
+
+        if (double.IsNaN(contributionCutoff) || contributionCutoff < 0.0 || contributionCutoff >= 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(contributionCutoff), contributionCutoff,
+                "The contribution cutoff must be in the half-open interval [0, 1).");
+        }
+
+        double total = 0.0;
+        for (int i = 0; i < exposures.Count; i++)
+        {
+            (string signature, double exposure) = exposures[i];
+            ArgumentNullException.ThrowIfNull(signature);
+            if (double.IsNaN(exposure) || exposure < 0.0)
+            {
+                throw new ArgumentException("Exposures must be non-negative.", nameof(exposures));
+            }
+
+            total += exposure;
+        }
+
+        var empty = new MutationalProcessClassification(
+            Array.Empty<ProcessActivity>(), MutationalProcess.Unknown);
+
+        // Σ exposure = 0 ⇒ normalization undefined ⇒ no active processes (INV-5).
+        if (total <= 0.0)
+        {
+            return empty;
+        }
+
+        // Per-signature normalized contribution, cutoff, then aggregate surviving contributions by process.
+        var byProcess = new Dictionary<MutationalProcess, double>();
+        foreach ((string signature, double exposure) in exposures)
+        {
+            double contribution = exposure / total;
+            if (contribution < contributionCutoff)
+            {
+                continue; // deconstructSigs: weights[weights < signature.cutoff] <- 0
+            }
+
+            MutationalProcess process = GetMutationalProcess(signature);
+            if (process == MutationalProcess.Unknown)
+            {
+                continue; // unmapped-aetiology signatures contribute to no recognized process (COSMIC)
+            }
+
+            byProcess.TryGetValue(process, out double accumulated);
+            byProcess[process] = accumulated + contribution;
+        }
+
+        if (byProcess.Count == 0)
+        {
+            return empty;
+        }
+
+        // Deterministic order: descending contribution, then by process enum for ties.
+        var active = byProcess
+            .Select(kv => new ProcessActivity(kv.Key, kv.Value))
+            .OrderByDescending(p => p.Contribution)
+            .ThenBy(p => p.Process)
+            .ToArray();
+
+        return new MutationalProcessClassification(active, active[0].Process);
+    }
+
+    #endregion
 }

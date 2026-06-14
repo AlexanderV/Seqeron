@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 205 |
+| **Completed** | 206 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 29 |
+| **Not Started** | 28 |
 
 ---
 
@@ -233,7 +233,7 @@
 | ☑ | ONCO-SIG-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) |
 | ☑ | ONCO-SIG-002 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) |
 | ☑ | ONCO-SIG-003 | Oncology | 1 | [Evidence](docs/Evidence/ONCO-SIG-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) |
-| ☐ | ONCO-SIG-004 | Oncology | 1 | - | - | - |
+| ☑ | ONCO-SIG-004 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-SIG-004-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-004.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) |
 | ☐ | ONCO-FUSION-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-FUSION-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-FUSION-003 | Oncology | 2 | - | - | - |
@@ -4138,20 +4138,37 @@ supersedes the original by-area title. Reference signature profiles are caller-s
 
 ---
 
-#### ONCO-SIG-004: Mutational Process Classification
+#### ONCO-SIG-004: Mutational Process Classification ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.ClassifyMutationalProcess(...)` |
-| **Complexity** | O(k) |
+| **Canonical** | `OncologyAnalyzer.ClassifyMutationalProcess(...)` / `OncologyAnalyzer.GetMutationalProcess(...)` |
+| **Complexity** | O(k log k) (k signatures; ordering of ≤5 processes) |
+| **Invariant** | each surviving contribution ∈ [0,1], Σ ≤ 1; active iff normalized contribution ≥ 0.06 (strict `<` excludes); dominant = max per-process sum; Σ exposure = 0 ⇒ no active processes |
 | **Depends on** | ONCO-SIG-003 |
 
-**Methods:**
+**Scope note:** the by-area registry placed this in a `MutationalSignatures` class, but the area's analyzer is
+`OncologyAnalyzer` (ONCO-SIG-001..003 all live there), so the methods were added there. Classification follows
+the deconstructSigs presence rule — exposures are converted to normalized relative contributions and a
+signature is active only when its contribution ≥ 6% (Rosenthal et al. 2016, *Genome Biology* 17:31:
+"any signature with Wᵢ < 6% is excluded"; reference `whichSignatures.R` `signature.cutoff = 0.06`) — and the
+COSMIC SBS→aetiology map (https://cancer.sanger.ac.uk/signatures/sbs/; Alexandrov et al. 2020, *Nature* 578).
+Reference signature profiles are caller-supplied (not fabricated); only exposures + COSMIC labels are consumed.
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ClassifyMutationalProcess(exposures)` | MutationalSignatures | Canonical |
+| `ClassifyMutationalProcess(exposures, contributionCutoff)` | OncologyAnalyzer | Canonical |
+| `GetMutationalProcess(signatureLabel)` | OncologyAnalyzer | Canonical |
 
-**Processes:** Aging (SBS1/5), APOBEC (SBS2/13), Smoking (SBS4), UV (SBS7), MMR deficiency (SBS6/15/20/26)
+**Processes:** Aging (SBS1/5), APOBEC (SBS2/13), Smoking (SBS4), UV (SBS7a–d), MMR deficiency (SBS6/15/20/26)
+
+**Edge Cases:**
+- [x] All-zero / empty exposures (Σ = 0) ⇒ no active processes, dominant = Unknown
+- [x] Contribution exactly 0.06 ⇒ retained (strict `<` cutoff); just below ⇒ excluded
+- [x] Multiple signatures per process (SBS2+SBS13, SBS6/15/20/26, SBS7a+7b) ⇒ summed
+- [x] Unmapped / unknown-aetiology SBS label ⇒ contributes to no recognized process
+- [x] Null exposures / null label ⇒ ArgumentNullException; negative exposure ⇒ ArgumentException; cutoff ∉ [0,1) ⇒ ArgumentOutOfRangeException
 
 ---
 
@@ -5098,7 +5115,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | SequenceStatistics | SEQ-STATS-001 to SEQ-SUMMARY-001 | ✓ |
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
-| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☐ |
+| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
 | FusionDetector | ONCO-FUSION-001 to ONCO-FUSION-003 | ☐ |
 | CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
