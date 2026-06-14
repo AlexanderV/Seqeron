@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 191 |
+| **Completed** | 192 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 43 |
+| **Not Started** | 42 |
 
 ---
 
@@ -219,7 +219,7 @@
 | ☑ | SEQ-CODON-FREQ-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-CODON-FREQ-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateCodonFrequencies_Tests.cs) |
 | ☑ | SEQ-SUMMARY-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SUMMARY-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SUMMARY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) |
 | ☑ | GENOMIC-TANDEM-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-TANDEM-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs (consolidated into REP-TANDEM-001) |
-| ☐ | GENOMIC-SIMILARITY-001 | Analysis | 1 | - | - | - |
+| ☑ | GENOMIC-SIMILARITY-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) |
 | ☐ | GENOMIC-ORF-001 | Analysis | 1 | - | - | - |
 | ☐ | ONCO-SOMATIC-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-VAF-001 | Oncology | 2 | - | - | - |
@@ -3799,17 +3799,26 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### GENOMIC-SIMILARITY-001: Sequence Similarity
+#### GENOMIC-SIMILARITY-001: Sequence Similarity ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.CalculateSimilarity(...)` |
 | **Complexity** | O(n + m) |
+| **Metric** | k-mer Jaccard index `J=|A∩B|/|A∪B|` over distinct-k-mer sets, ×100 (Jaccard 1901; Ondov et al. 2016) |
+| **Status** | ☑ Complete — see [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md), [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md). |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateSimilarity(seq1, seq2, k)` | GenomicAnalyzer | K-mer based similarity |
+| `CalculateSimilarity(seq1, seq2, k)` | GenomicAnalyzer | K-mer Jaccard similarity |
+
+**Edge Cases:**
+- [x] Identical sequences → 100.0 (J=1)
+- [x] Disjoint k-mer sets → 0.0 (J=0)
+- [x] Both empty / shorter than k → 0.0 (empty union; Jaccard undefined, impl convention)
+- [x] Repeated k-mers counted once (distinct-set semantics)
+- [x] Null sequence → ArgumentNullException; kmerSize < 1 → ArgumentOutOfRangeException
 
 ---
 

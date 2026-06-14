@@ -306,18 +306,67 @@ public static class GenomicAnalyzer
         }
     }
 
+    // Default k-mer length. Mash uses k=21 for whole genomes; for short DNA
+    // sequences a smaller default is appropriate. The value only sets the
+    // resolution of the comparison and does not change the Jaccard formula.
+    private const int DefaultKmerSize = 5;
+
+    // Jaccard index is defined on [0, 1] (Jaccard 1901). This factor only
+    // re-expresses that ratio as a percentage for reporting; it is not part
+    // of the formal coefficient.
+    private const double PercentScale = 100.0;
+
     /// <summary>
-    /// Calculates sequence similarity as percentage of matching k-mers.
+    /// Computes the k-mer Jaccard similarity index between two DNA sequences,
+    /// reported as a percentage in [0, 100].
     /// </summary>
-    public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = 5)
+    /// <remarks>
+    /// <para>
+    /// Each sequence is decomposed into its <b>set</b> of distinct length-<paramref name="kmerSize"/>
+    /// substrings (k-mers). The Jaccard index is the size of the intersection of the two
+    /// k-mer sets divided by the size of their union:
+    /// <c>J(A,B) = |A ∩ B| / |A ∪ B|</c> (Jaccard, 1901). Applied to k-mer sets this is the
+    /// fraction of shared k-mers out of all distinct k-mers in the two sequences (Ondov et al.,
+    /// Mash, 2016). The result is multiplied by 100 to report a percentage.
+    /// </para>
+    /// <para>
+    /// The Jaccard index is undefined when the union is empty (Jaccard 1901 is stated for
+    /// non-empty sets). This occurs only when both k-mer sets are empty (e.g. both sequences
+    /// are empty or shorter than <paramref name="kmerSize"/>); this method returns 0 in that case.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence1">First DNA sequence.</param>
+    /// <param name="sequence2">Second DNA sequence.</param>
+    /// <param name="kmerSize">k-mer length; must be ≥ 1.</param>
+    /// <returns>Jaccard similarity as a percentage in [0, 100].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is less than 1.</exception>
+    public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize)
     {
-        var kmers1 = GetKmers(sequence1.Sequence, kmerSize);
-        var kmers2 = GetKmers(sequence2.Sequence, kmerSize);
+        if (sequence1 is null)
+        {
+            throw new ArgumentNullException(nameof(sequence1));
+        }
 
-        int intersection = kmers1.Intersect(kmers2).Count();
-        int union = kmers1.Union(kmers2).Count();
+        if (sequence2 is null)
+        {
+            throw new ArgumentNullException(nameof(sequence2));
+        }
 
-        return union == 0 ? 0 : (double)intersection / union * 100;
+        if (kmerSize < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(kmerSize), kmerSize, "k-mer size must be at least 1.");
+        }
+
+        HashSet<string> kmers1 = GetKmers(sequence1.Sequence, kmerSize);
+        HashSet<string> kmers2 = GetKmers(sequence2.Sequence, kmerSize);
+
+        // |A ∪ B| = |A| + |B| − |A ∩ B|, computed on the distinct-k-mer sets.
+        int intersection = kmers1.Count(kmers2.Contains);
+        int union = kmers1.Count + kmers2.Count - intersection;
+
+        // Union is empty only when both k-mer sets are empty; Jaccard is undefined there.
+        return union == 0 ? 0.0 : (double)intersection / union * PercentScale;
     }
 
     #endregion
