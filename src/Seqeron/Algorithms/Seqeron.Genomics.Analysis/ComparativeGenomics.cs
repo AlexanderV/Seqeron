@@ -879,78 +879,145 @@ public static class ComparativeGenomics
         return (breakpoints + 1) / MaxBreakpointsRemovedPerReversal;
     }
 
+    // --- Conserved gene clusters: common intervals of permutations (Uno & Yagiura 1998/2000;
+    //     Heber & Stoye 2001; common-interval definition per Bui-Xuan, Habib & Paul 2013) ---
+    // Each genome is read as the sequence of ortholog-GROUP labels of its genes (in chromosomal
+    // order). A CONSERVED GENE CLUSTER is a COMMON INTERVAL: "a set of integers that is an interval
+    // of each Pk" (Bui-Xuan, Habib & Paul 2013, Def. 1, citing Uno & Yagiura) — i.e. a set of
+    // ortholog groups that occupies a *contiguous window* (interval) in EVERY genome. An interval of
+    // a permutation is the SET of ALL elements in some window [i,j] (Bui-Xuan et al. §2; Didier et
+    // al. 2013 §2 for the sequence/duplicate case), so no foreign group may sit between members.
+    // Intervals are defined only for i < j, so a cluster has size >= 2; the whole set is always a
+    // (trivial) common interval. The strict model is gap-free; see Evidence Assumption 1 for maxGap.
+
+    /// <summary>Smallest meaningful common interval has size 2 (interval defined only for i &lt; j; Bui-Xuan et al. 2013 §2).</summary>
+    private const int MinCommonIntervalSize = 2;
+
     /// <summary>
-    /// Finds conserved gene clusters (genes that appear together in multiple genomes).
+    /// Finds conserved gene clusters across multiple genomes as <b>common intervals</b> of the
+    /// ortholog-group permutations: a set of ortholog-group labels that occupies a contiguous window
+    /// (interval) in <i>every</i> genome. This is the common-interval gene-cluster model of Uno &amp;
+    /// Yagiura (2000, <i>Algorithmica</i> 26(2):290–309) and Heber &amp; Stoye (2001, CPM, LNCS 2089:207–218);
+    /// formal definition per Bui-Xuan, Habib &amp; Paul (2013, arXiv:1304.5140, Def. 1): "a set of integers
+    /// that is an interval of each Pₖ". Genes are mapped to their ortholog group via
+    /// <paramref name="orthologGroups"/>; genes with no group are treated as window-breaking non-members.
     /// </summary>
+    /// <param name="genomes">Genomes, each a gene list in chromosomal order.</param>
+    /// <param name="orthologGroups">Map: gene id → ortholog-group id (the alphabet of group labels).</param>
+    /// <param name="minClusterSize">Minimum number of distinct ortholog groups per reported cluster (≥ 2). Default 3.</param>
+    /// <param name="maxGap">
+    /// Retained for API/MCP backward compatibility. The validated behaviour is the strict (gap-free)
+    /// common-interval model: clusters are contiguous windows in every genome. See Evidence Assumption 1.
+    /// </param>
+    /// <returns>The conserved clusters, each as the sorted list of its ortholog-group labels, in a deterministic order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="genomes"/> or <paramref name="orthologGroups"/> is null.</exception>
     public static IEnumerable<IReadOnlyList<string>> FindConservedClusters(
         IReadOnlyList<IReadOnlyList<Gene>> genomes,
         IReadOnlyDictionary<string, string> orthologGroups,
         int minClusterSize = 3,
         int maxGap = 2)
     {
-        if (genomes.Count < 2)
-            yield break;
+        ArgumentNullException.ThrowIfNull(genomes);
+        ArgumentNullException.ThrowIfNull(orthologGroups);
+        _ = maxGap; // strict gap-free model; parameter kept for signature/MCP compatibility (Evidence Assumption 1).
 
-        // Find gene clusters in first genome
-        var genome1 = genomes[0];
-        var clusters = new List<List<string>>();
+        // A common interval is a *family* notion (K ≥ 2 permutations): with fewer than two genomes
+        // every window is trivially "common", so the conserved-cluster question is vacuous.
+        if (genomes.Count < MinCommonIntervalSize)
+            return Array.Empty<IReadOnlyList<string>>();
 
-        for (int start = 0; start < genome1.Count; start++)
+        int effectiveMin = Math.Max(minClusterSize, MinCommonIntervalSize);
+
+        // Read each genome as its ordered sequence of ortholog-group labels.
+        var groupSequences = new List<string[]>(genomes.Count);
+        foreach (var genome in genomes)
         {
-            var cluster = new List<string>();
+            var labels = new string[genome.Count];
+            for (int i = 0; i < genome.Count; i++)
+                labels[i] = orthologGroups.TryGetValue(genome[i].Id, out string? grp) ? grp : NoGroupSentinel;
+            groupSequences.Add(labels);
+        }
 
-            for (int i = start; i < Math.Min(start + 20, genome1.Count); i++)
-            {
-                if (orthologGroups.ContainsKey(genome1[i].Id))
-                {
-                    cluster.Add(orthologGroups[genome1[i].Id]);
-                }
-            }
+        // Candidate cluster sets = the group set of every contiguous window of the first genome that
+        // contains no non-member sentinel. (Every common interval is, in particular, an interval of
+        // genome 0, so enumerating genome-0 windows is complete.)
+        var candidates = new HashSet<string>(StringComparer.Ordinal); // canonical key per distinct set
+        var byKey = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
 
-            if (cluster.Count >= minClusterSize)
+        string[] g0 = groupSequences[0];
+        for (int start = 0; start < g0.Length; start++)
+        {
+            var set = new SortedSet<string>(StringComparer.Ordinal);
+            for (int end = start; end < g0.Length; end++)
             {
-                clusters.Add(cluster);
+                string label = g0[end];
+                if (string.Equals(label, NoGroupSentinel, StringComparison.Ordinal))
+                    break; // a window cannot contain a non-member group (interval = set of ALL window elements).
+
+                set.Add(label);
+                if (set.Count < effectiveMin)
+                    continue;
+
+                string key = string.Join("", set);
+                if (candidates.Add(key))
+                    byKey[key] = new SortedSet<string>(set, StringComparer.Ordinal);
             }
         }
 
-        // Check which clusters are conserved in other genomes
-        foreach (var cluster in clusters)
+        // Keep only candidate sets that are an interval in EVERY genome (common interval).
+        var reported = new List<IReadOnlyList<string>>();
+        foreach (var key in candidates)
         {
-            bool conserved = true;
+            var set = byKey[key];
+            bool commonToAll = true;
+            for (int g = 0; g < groupSequences.Count && commonToAll; g++)
+                commonToAll = IsIntervalOf(groupSequences[g], set);
 
-            for (int g = 1; g < genomes.Count && conserved; g++)
+            if (commonToAll)
+                reported.Add(set.ToList());
+        }
+
+        // Deterministic, order-independent output: by size, then lexicographically by joined labels.
+        reported.Sort((a, b) =>
+        {
+            int c = a.Count.CompareTo(b.Count);
+            if (c != 0) return c;
+            return string.CompareOrdinal(string.Join("", a), string.Join("", b));
+        });
+
+        return reported;
+    }
+
+    /// <summary>Sentinel label for genes with no ortholog group; it can never be a cluster member and breaks windows.</summary>
+    private const string NoGroupSentinel = "\0__NOGROUP__\0";
+
+    /// <summary>
+    /// Tests whether <paramref name="set"/> is an interval of the group sequence: there exists a
+    /// contiguous window whose set of group labels equals exactly <paramref name="set"/> (Bui-Xuan,
+    /// Habib &amp; Paul 2013 §2: an interval is the set of all elements of a window; Didier et al. 2013
+    /// §2 for sequences with duplicates — any matching location suffices).
+    /// </summary>
+    private static bool IsIntervalOf(string[] sequence, SortedSet<string> set)
+    {
+        int target = set.Count;
+        for (int start = 0; start < sequence.Length; start++)
+        {
+            if (!set.Contains(sequence[start]))
+                continue;
+
+            var window = new HashSet<string>(StringComparer.Ordinal);
+            for (int end = start; end < sequence.Length; end++)
             {
-                var genome = genomes[g];
-                var geneGroups = genome
-                    .Where(gene => orthologGroups.ContainsKey(gene.Id))
-                    .Select(gene => orthologGroups[gene.Id])
-                    .ToList();
+                if (!set.Contains(sequence[end]))
+                    break; // foreign element inside the window → not this location.
 
-                // Check if cluster genes appear within maxGap of each other
-                var clusterSet = new HashSet<string>(cluster);
-                int found = 0;
-                int lastFoundPos = -maxGap - 1;
-
-                for (int i = 0; i < geneGroups.Count; i++)
-                {
-                    if (clusterSet.Contains(geneGroups[i]))
-                    {
-                        if (i - lastFoundPos <= maxGap + 1)
-                        {
-                            found++;
-                        }
-                        lastFoundPos = i;
-                    }
-                }
-
-                conserved = found >= minClusterSize;
-            }
-
-            if (conserved)
-            {
-                yield return cluster;
+                window.Add(sequence[end]);
+                if (window.Count == target)
+                    return true; // window's set == set (no foreign elements, all members present).
             }
         }
+
+        return false;
     }
 
     /// <summary>

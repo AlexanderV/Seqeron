@@ -9,22 +9,6 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class ComparativeGenomicsTests
 {
-    #region Test Data
-
-    private static List<ComparativeGenomics.Gene> CreateTestGenome1()
-    {
-        return new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "ATGCATGCATGC"),
-            new("gene2", "genome1", 150, 250, '+', "GCTAGCTAGCTA"),
-            new("gene3", "genome1", 300, 400, '+', "TATATATATAT"),
-            new("gene4", "genome1", 450, 550, '+', "CGCGCGCGCG"),
-            new("gene5", "genome1", 600, 700, '+', "AAAATTTTCCCC"),
-        };
-    }
-
-    #endregion
-
     // NOTE: FindSyntenicBlocks tests moved to the canonical unit file
     // ComparativeGenomics_FindSyntenicBlocks_Tests.cs (COMPGEN-SYNTENY-001).
 
@@ -100,51 +84,8 @@ public class ComparativeGenomicsTests
 
     #endregion
 
-    #region FindConservedClusters Tests
-
-    [Test]
-    public void FindConservedClusters_ConservedCluster_ReturnsCluster()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "g1", 0, 100, '+'),
-            new("gene2", "g1", 150, 250, '+'),
-            new("gene3", "g1", 300, 400, '+'),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "g2", 0, 100, '+'),
-            new("geneB", "g2", 150, 250, '+'),
-            new("geneC", "g2", 300, 400, '+'),
-        };
-
-        var orthologGroups = new Dictionary<string, string>
-        {
-            { "gene1", "group1" }, { "geneA", "group1" },
-            { "gene2", "group2" }, { "geneB", "group2" },
-            { "gene3", "group3" }, { "geneC", "group3" },
-        };
-
-        var genomes = new List<IReadOnlyList<ComparativeGenomics.Gene>> { genome1, genome2 };
-        var clusters = ComparativeGenomics.FindConservedClusters(genomes, orthologGroups, minClusterSize: 3).ToList();
-
-        Assert.That(clusters, Has.Count.GreaterThanOrEqualTo(1));
-        Assert.That(clusters[0], Has.Count.GreaterThanOrEqualTo(3));
-    }
-
-    [Test]
-    public void FindConservedClusters_SingleGenome_ReturnsEmpty()
-    {
-        var genome1 = CreateTestGenome1();
-        var orthologGroups = new Dictionary<string, string> { { "gene1", "group1" } };
-        var genomes = new List<IReadOnlyList<ComparativeGenomics.Gene>> { genome1 };
-
-        var clusters = ComparativeGenomics.FindConservedClusters(genomes, orthologGroups).ToList();
-
-        Assert.That(clusters, Is.Empty);
-    }
-
-    #endregion
+    // FindConservedClusters tests moved to the canonical evidence-based fixture
+    // ComparativeGenomics_FindConservedClusters_Tests.cs (COMPGEN-CLUSTER-001).
 
     #region CalculateANI Tests
 

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 165 |
+| **Completed** | 166 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 69 |
+| **Not Started** | 68 |
 
 ---
 
@@ -193,7 +193,7 @@
 | ☑ | COMPGEN-RBH-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-RBH-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-RBH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) |
 | ☑ | COMPGEN-COMPARE-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-COMPARE-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-COMPARE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CompareGenomes_Tests.cs) |
 | ☑ | COMPGEN-REVERSAL-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REVERSAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateReversalDistance_Tests.cs) |
-| ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
+| ☑ | COMPGEN-CLUSTER-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindConservedClusters_Tests.cs) |
 | ☐ | COMPGEN-ANI-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | 1 | - | - | - |
 | ☐ | MOTIF-DISCOVER-001 | Matching | 1 | - | - | - |
@@ -3394,17 +3394,26 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### COMPGEN-CLUSTER-001: Conserved Gene Clusters
+#### COMPGEN-CLUSTER-001: Conserved Gene Clusters ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `ComparativeGenomics.FindConservedClusters(...)` |
-| **Complexity** | O(n × g) |
+| **Complexity** | O(n² × g) |
+| **Model** | Common intervals of permutations (Uno & Yagiura 2000; Heber & Stoye 2001; def. per Bui-Xuan, Habib & Paul 2013) — a cluster is a set of ortholog groups contiguous in every genome |
+| **Evidence** | [COMPGEN-CLUSTER-001-Evidence.md](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindConservedClusters(genomes)` | ComparativeGenomics | Multi-genome clusters |
+| `FindConservedClusters(genomes)` | ComparativeGenomics | Multi-genome clusters (common intervals) |
+
+**Edge Cases:**
+- [x] Fewer than two genomes → empty (family notion, K ≥ 2)
+- [x] Set contiguous in some but not all genomes → excluded
+- [x] Foreign ortholog group inside the window → breaks the cluster
+- [x] Repeated group labels (paralogs) → any matching window counts
+- [x] `minClusterSize` filters smaller clusters; null arguments → ArgumentNullException
 
 ---
 
