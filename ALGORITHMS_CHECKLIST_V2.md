@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 185 |
+| **Completed** | 186 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 49 |
+| **Not Started** | 48 |
 
 ---
 
@@ -213,7 +213,7 @@
 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PROPENSITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
 | ☑ | DISORDER-LC-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) |
 | ☑ | SEQ-COMPOSITION-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-COMPOSITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPOSITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
-| ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
+| ☑ | SEQ-TM-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-CODON-FREQ-001 | Statistics | 1 | - | - | - |
@@ -3709,12 +3709,13 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### SEQ-TM-001: Melting Temperature
+#### SEQ-TM-001: Melting Temperature ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateMeltingTemperature(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — duplicate of SEQ-THERMO-001; resolved by consolidation (no new code/tests; same canonical fixture). See `tests/TestSpecs/SEQ-TM-001.md` §7. |
 
 **Methods:**
 | Method | Class | Type |
