@@ -4926,4 +4926,204 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region ClassifyMhcBinding
+
+    /// <summary>
+    /// MHC molecule class for peptide-binding classification. Class I and class II have different accepted
+    /// peptide-length ranges and different %Rank cutoffs (Reynisson et al. 2020, <i>Nucleic Acids Res.</i>
+    /// 48(W1):W449–W454).
+    /// </summary>
+    public enum MhcClass
+    {
+        /// <summary>MHC class I (HLA-A/B/C). Canonical neoantigen peptide length 8–11.</summary>
+        ClassI,
+
+        /// <summary>MHC class II (HLA-DR/DQ/DP). Peptide length 13–25.</summary>
+        ClassII
+    }
+
+    /// <summary>
+    /// Binding-strength category assigned to a peptide–MHC pair from a caller-supplied predicted affinity
+    /// (IC50) or %Rank. Categories follow the IEDB / NetMHCpan strong-/weak-binder convention.
+    /// </summary>
+    public enum BindingStrength
+    {
+        /// <summary>Strong binder (IC50 &lt; 50 nM, or class I %Rank &lt; 0.5% / class II %Rank &lt; 2%).</summary>
+        Strong,
+
+        /// <summary>Weak (intermediate) binder (IC50 &lt; 500 nM, or class I %Rank &lt; 2% / class II %Rank &lt; 10%).</summary>
+        Weak,
+
+        /// <summary>Not a binder (above the weak-binder cutoff).</summary>
+        NonBinder
+    }
+
+    /// <summary>
+    /// IC50 (nM) below which a peptide–MHC pair is a strong (high-affinity) binder. Source: Sette et al.
+    /// (1994), <i>J. Immunol.</i> 153(12):5586–5592 — "an affinity threshold of approximately 500 nM
+    /// (preferably 50 nM or less) apparently determines the capacity" to elicit a CTL response; the IEDB
+    /// states "Peptides with IC50 values &lt;50 nM are considered high affinity". Strict inequality.
+    /// </summary>
+    public const double StrongBinderIc50Nm = 50.0;
+
+    /// <summary>
+    /// IC50 (nM) below which a peptide–MHC pair is at least a weak (intermediate-affinity) binder. Source:
+    /// IEDB — "&lt;500 nM intermediate affinity"; Sette et al. (1994) (≈500 nM threshold); corroborated by
+    /// Roomp, Antes &amp; Lengauer (2010), <i>BMC Bioinformatics</i> 11:90 (500 nM binder demarcation). Strict
+    /// inequality.
+    /// </summary>
+    public const double WeakBinderIc50Nm = 500.0;
+
+    /// <summary>
+    /// Class I %Rank below which a peptide is a strong binder. Source: Reynisson et al. (2020) — "by default,
+    /// %Rank &lt; 0.5% and %Rank &lt; 2% thresholds are considered for detecting SBs and WBs for class I".
+    /// Strict inequality.
+    /// </summary>
+    public const double ClassIStrongBinderRankPercent = 0.5;
+
+    /// <summary>
+    /// Class I %Rank below which a peptide is at least a weak binder. Source: Reynisson et al. (2020) (class I
+    /// WB &lt; 2%). Strict inequality.
+    /// </summary>
+    public const double ClassIWeakBinderRankPercent = 2.0;
+
+    /// <summary>
+    /// Class II %Rank below which a peptide is a strong binder. Source: Reynisson et al. (2020) — "%Rank &lt; 2%
+    /// and %Rank &lt; 10%, for SBs and WBs for class II". Strict inequality.
+    /// </summary>
+    public const double ClassIIStrongBinderRankPercent = 2.0;
+
+    /// <summary>
+    /// Class II %Rank below which a peptide is at least a weak binder. Source: Reynisson et al. (2020) (class
+    /// II WB &lt; 10%). Strict inequality.
+    /// </summary>
+    public const double ClassIIWeakBinderRankPercent = 10.0;
+
+    /// <summary>
+    /// Minimum accepted peptide length for MHC class II. Source: IEDB MHC class II tool description —
+    /// "Peptides binding to MHC class II molecules ... typically range between 13 and 25 amino acids long".
+    /// </summary>
+    public const int MhcClassIIMinPeptideLength = 13;
+
+    /// <summary>
+    /// Maximum accepted peptide length for MHC class II. Source: IEDB MHC class II tool description (13–25).
+    /// </summary>
+    public const int MhcClassIIMaxPeptideLength = 25;
+
+    /// <summary>
+    /// Largest finite %Rank value (a %Rank is a percentile and must lie in [0, 100]). Source: Reynisson et
+    /// al. (2020) — %Rank is "the top X% scores from random natural peptides".
+    /// </summary>
+    private const double MaxRankPercent = 100.0;
+
+    /// <summary>
+    /// Classifies a caller-supplied predicted peptide–MHC binding affinity (IC50 in nanomolar) into
+    /// <see cref="BindingStrength.Strong"/> (IC50 &lt; 50 nM), <see cref="BindingStrength.Weak"/>
+    /// (IC50 &lt; 500 nM), or <see cref="BindingStrength.NonBinder"/> (IC50 ≥ 500 nM). The cutoffs are the
+    /// standard IEDB / NetMHCpan convention (Sette et al. 1994; IEDB) and the boundaries are strict
+    /// inequalities, so 50 nM is weak (not strong) and 500 nM is a non-binder (not weak).
+    /// <para>
+    /// This method does NOT predict the IC50 — that requires a trained MHC-binding model (e.g. NetMHCpan) and
+    /// is caller-supplied / out of scope (ONCO-MHC-001). It only classifies a supplied value.
+    /// </para>
+    /// </summary>
+    /// <param name="ic50Nm">Predicted half-maximal inhibitory concentration in nM (must be &gt; 0).</param>
+    /// <returns>The binding-strength category.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="ic50Nm"/> is not a finite value greater than 0 (IC50 is a positive concentration).
+    /// </exception>
+    public static BindingStrength ClassifyBindingAffinity(double ic50Nm)
+    {
+        if (double.IsNaN(ic50Nm) || double.IsInfinity(ic50Nm) || ic50Nm <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ic50Nm), ic50Nm, "IC50 must be a finite concentration greater than 0 nM.");
+        }
+
+        if (ic50Nm < StrongBinderIc50Nm)
+        {
+            return BindingStrength.Strong;
+        }
+
+        return ic50Nm < WeakBinderIc50Nm ? BindingStrength.Weak : BindingStrength.NonBinder;
+    }
+
+    /// <summary>
+    /// Classifies a caller-supplied predicted %Rank into <see cref="BindingStrength"/> using the NetMHCpan-4.1
+    /// default cutoffs (Reynisson et al. 2020): class I — strong &lt; 0.5%, weak &lt; 2%; class II — strong
+    /// &lt; 2%, weak &lt; 10%. The boundaries are strict inequalities (a value exactly at a cutoff falls into
+    /// the weaker category).
+    /// <para>
+    /// This method does NOT predict the %Rank — the trained model is caller-supplied / out of scope.
+    /// </para>
+    /// </summary>
+    /// <param name="percentRank">Predicted %Rank as a percentile in [0, 100].</param>
+    /// <param name="mhcClass">MHC class selecting the cutoff set.</param>
+    /// <returns>The binding-strength category.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="percentRank"/> is NaN or outside [0, 100] (a %Rank is a percentile).
+    /// </exception>
+    public static BindingStrength ClassifyBindingRank(double percentRank, MhcClass mhcClass)
+    {
+        if (double.IsNaN(percentRank) || percentRank < 0.0 || percentRank > MaxRankPercent)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(percentRank), percentRank, "%Rank must be a percentile in [0, 100].");
+        }
+
+        double strongCutoff = mhcClass == MhcClass.ClassI
+            ? ClassIStrongBinderRankPercent
+            : ClassIIStrongBinderRankPercent;
+        double weakCutoff = mhcClass == MhcClass.ClassI
+            ? ClassIWeakBinderRankPercent
+            : ClassIIWeakBinderRankPercent;
+
+        if (percentRank < strongCutoff)
+        {
+            return BindingStrength.Strong;
+        }
+
+        return percentRank < weakCutoff ? BindingStrength.Weak : BindingStrength.NonBinder;
+    }
+
+    /// <summary>
+    /// Determines whether <paramref name="length"/> is a valid presented-peptide length for the given MHC
+    /// class: class I 8–11 (canonical neoantigen range; Reynisson et al. 2020 gives 8–14 with default 8–11,
+    /// matching <see cref="MhcClassIMinPeptideLength"/>/<see cref="MhcClassIMaxPeptideLength"/>), class II
+    /// 13–25 (IEDB MHC class II tool description). Both bounds are inclusive.
+    /// </summary>
+    /// <param name="length">Peptide length (residue count).</param>
+    /// <param name="mhcClass">MHC class selecting the accepted length range.</param>
+    /// <returns><see langword="true"/> iff <paramref name="length"/> is within the class's accepted range.</returns>
+    public static bool IsValidPeptideLength(int length, MhcClass mhcClass)
+    {
+        return mhcClass == MhcClass.ClassI
+            ? length >= MhcClassIMinPeptideLength && length <= MhcClassIMaxPeptideLength
+            : length >= MhcClassIIMinPeptideLength && length <= MhcClassIIMaxPeptideLength;
+    }
+
+    /// <summary>
+    /// Classifies a candidate peptide–MHC pair end-to-end: a peptide whose length is not valid for the MHC
+    /// class is not a presentable candidate and is classified <see cref="BindingStrength.NonBinder"/>
+    /// regardless of affinity; otherwise the supplied IC50 is classified by
+    /// <see cref="ClassifyBindingAffinity(double)"/>. Thin convenience wrapper over the length gate
+    /// (<see cref="IsValidPeptideLength(int, MhcClass)"/>) and the affinity classifier.
+    /// </summary>
+    /// <param name="peptideLength">Peptide length (residue count).</param>
+    /// <param name="ic50Nm">Caller-supplied predicted IC50 in nM (must be &gt; 0).</param>
+    /// <param name="mhcClass">MHC class.</param>
+    /// <returns>The binding-strength category, or <see cref="BindingStrength.NonBinder"/> for invalid length.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ic50Nm"/> is not finite and &gt; 0.</exception>
+    public static BindingStrength ClassifyMhcBinding(int peptideLength, double ic50Nm, MhcClass mhcClass)
+    {
+        if (!IsValidPeptideLength(peptideLength, mhcClass))
+        {
+            return BindingStrength.NonBinder;
+        }
+
+        return ClassifyBindingAffinity(ic50Nm);
+    }
+
+    #endregion
 }

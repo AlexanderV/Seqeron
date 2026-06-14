@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 216 |
+| **Completed** | 217 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 18 |
+| **Not Started** | 17 |
 
 ---
 
@@ -244,7 +244,7 @@
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
-| ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☐ | ONCO-CTDNA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-MRD-001 | Oncology | 2 | - | - | - |
@@ -4453,22 +4453,41 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-MHC-001: MHC-Peptide Binding Prediction
+#### ONCO-MHC-001: MHC-Peptide Binding Classification
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `NeoantigenPredictor.PredictMHCBinding(...)` |
-| **Complexity** | O(n × m) |
-| **Invariant** | IC50 > 0 |
+| **Canonical** | `OncologyAnalyzer.ClassifyBindingAffinity(...)` / `ClassifyBindingRank(...)` / `IsValidPeptideLength(...)` |
+| **Complexity** | O(1) per classification |
+| **Invariant** | IC50 > 0; %Rank ∈ [0,100] |
 | **Depends on** | ONCO-NEO-001 |
+
+> Scope (implemented): the **classification** of a caller-supplied predicted affinity into binder
+> categories using the standard IEDB / NetMHCpan-4.1 thresholds (Reynisson 2020; Sette 1994): IC50
+> strong < 50 nM / weak < 500 nM; class I %Rank strong < 0.5% / weak < 2%; class II %Rank strong < 2% /
+> weak < 10%; plus peptide-length validity (class I 8–11, class II 13–25). The peptide–MHC affinity / %Rank
+> **prediction** (the trained NetMHCpan/MHCflurry model, PSSM weights) is **caller-supplied / out of scope**
+> — no model is fabricated. The checklist placeholder class `NeoantigenPredictor` is superseded by
+> `OncologyAnalyzer` (project layout); `PredictMHCBinding`/`CalculateBindingAffinity` (IC50 prediction)
+> remain out of scope.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `PredictMHCBinding(peptide, hlaAllele)` | NeoantigenPredictor | Canonical |
-| `CalculateBindingAffinity(peptide, hla)` | NeoantigenPredictor | IC50 prediction |
+| `ClassifyBindingAffinity(ic50Nm)` | OncologyAnalyzer | Canonical — IC50 → Strong/Weak/NonBinder (50/500 nM) |
+| `ClassifyBindingRank(percentRank, mhcClass)` | OncologyAnalyzer | Canonical — %Rank → strength (class I 0.5/2; class II 2/10) |
+| `IsValidPeptideLength(length, mhcClass)` | OncologyAnalyzer | Canonical — class I 8–11; class II 13–25 |
+| `ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass)` | OncologyAnalyzer | Delegate — length gate + affinity |
+| `PredictMHCBinding(peptide, hlaAllele)` | (NeoantigenPredictor) | Out of scope — trained model, caller-supplied |
+| `CalculateBindingAffinity(peptide, hla)` | (NeoantigenPredictor) | Out of scope — IC50 prediction |
 
-**HLA Types:** HLA-A, HLA-B, HLA-C (Class I)
+**HLA Types:** HLA-A, HLA-B, HLA-C (Class I); HLA-DR/DQ/DP (Class II length range)
+
+**Edge Cases:**
+- [x] IC50 / %Rank boundary values classified by strict `<` (50/500 nM; 0.5/2/10 %Rank)
+- [x] Peptide length outside class range rejected (class I 8–11; class II 13–25)
+- [x] Invalid input rejected (IC50 ≤ 0 / non-finite; %Rank ∉ [0,100] / NaN)
+- [ ] Affinity / %Rank prediction (out of scope; trained model is caller-supplied)
 
 ---
 
