@@ -282,10 +282,20 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Generates all possible k-mers for a given alphabet.
+    /// Generates all possible k-mers over a given alphabet: the k-fold Cartesian
+    /// product of the alphabet. The number of k-mers produced is
+    /// <c>alphabet.Length^k</c> (4^k for the default DNA alphabet), per the k-mer
+    /// universe size n^k (Wikipedia — K-mer; Clavijo 2018, BioInfoLogics).
+    /// When the alphabet is supplied in sorted order the k-mers are emitted in
+    /// lexicographic order, with the rightmost position advancing fastest
+    /// (odometer ordering, cf. Python itertools.product). The default alphabet
+    /// "ACGT" is already sorted, so DNA k-mers are produced AAA, AAC, ..., TTT.
     /// </summary>
-    /// <param name="k">The k-mer length.</param>
-    /// <param name="alphabet">The alphabet to use (default: DNA = "ACGT").</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="alphabet">The alphabet to use (default: DNA = "ACGT"). Must be non-empty.</param>
+    /// <returns>All <c>alphabet.Length^k</c> distinct k-mers.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="alphabet"/> is null or empty.</exception>
     public static IEnumerable<string> GenerateAllKmers(int k, string alphabet = "ACGT")
     {
         if (k <= 0)
