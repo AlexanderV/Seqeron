@@ -2615,4 +2615,293 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Signature Exposure Bootstrap Confidence Intervals (ONCO-SIG-003)
+
+    /// <summary>
+    /// Default number of bootstrap replicates for exposure confidence-interval estimation. Source:
+    /// Senkin S. (2021), MSA — confidence intervals are derived from "1000 bootstrap variations"
+    /// (https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/); Wang S. et al., sigminer
+    /// <c>sig_fit_bootstrap</c> recommends "Bootstrap replicates &gt;= 100"
+    /// (https://shixiangwang.github.io/sigminer-doc/sigfit.html). Default = 1000.
+    /// </summary>
+    public const int DefaultBootstrapReplicates = 1000;
+
+    /// <summary>
+    /// Default RNG seed for the multinomial resampling step. Fixed so that, for a given catalog,
+    /// signatures, replicate count and confidence level, the returned intervals are reproducible
+    /// (deterministic test/clinical re-runs). Mirrors the fixed-seed convention used by
+    /// <see cref="Seqeron.Genomics.Phylogenetics"/> bootstrap. Value = 42.
+    /// </summary>
+    public const int DefaultBootstrapSeed = 42;
+
+    /// <summary>
+    /// Default two-sided confidence level for the percentile bootstrap interval. Source: Efron B. (1979),
+    /// percentile method — a 95% interval is the [2.5%, 97.5%] percentiles of the bootstrap distribution
+    /// (Senkin 2021, MSA: "95% confidence intervals … taking [2.5%, 97.5%] percentiles of the resulting
+    /// bootstrap activities", https://pmc.ncbi.nlm.nih.gov/articles/PMC8567580/). Default = 0.95.
+    /// </summary>
+    public const double DefaultBootstrapConfidence = 0.95;
+
+    /// <summary>
+    /// A bootstrap confidence interval for one signature's exposure (activity), produced by
+    /// <see cref="BootstrapExposures"/>.
+    /// </summary>
+    /// <param name="PointEstimate">
+    /// The exposure for this signature from the NNLS fit of the <i>observed</i> (un-resampled) catalog —
+    /// the point estimate the interval is centred on (Senkin 2021; Huang et al. 2018).
+    /// </param>
+    /// <param name="Mean">The mean of this signature's exposure across the bootstrap replicates.</param>
+    /// <param name="Lower">
+    /// Lower bound of the percentile interval — the (½(1−c))·100-th percentile of the replicate exposures
+    /// (2.5th percentile for c = 0.95). Source: Efron (1979) percentile method; Senkin (2021).
+    /// </param>
+    /// <param name="Upper">
+    /// Upper bound — the (1−½(1−c))·100-th percentile of the replicate exposures (97.5th for c = 0.95).
+    /// </param>
+    /// <param name="Confidence">The two-sided confidence level c the interval was computed at.</param>
+    public readonly record struct ExposureConfidenceInterval(
+        double PointEstimate,
+        double Mean,
+        double Lower,
+        double Upper,
+        double Confidence);
+
+    /// <summary>
+    /// Estimates per-signature exposure confidence intervals by the parametric (multinomial) bootstrap:
+    /// the observed integer mutational catalog is repeatedly resampled as a draw of N = Σ catalog
+    /// mutations from the multinomial distribution with per-channel probabilities pₖ = catalogₖ / N, each
+    /// resampled catalog is refit to the reference signatures by NNLS
+    /// (<see cref="FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>), and a
+    /// two-sided percentile confidence interval is taken per signature from the resulting bootstrap
+    /// exposure distribution. The point estimate is the NNLS exposure of the un-resampled observed catalog.
+    /// <para>
+    /// Sources: Huang X., Wojtowicz D., Przytycka T.M. (2018), <i>Bioinformatics</i> 34(2):330–337 — bootstrap
+    /// resampling of the mutation-count vector to assess decomposition confidence; Senkin S. (2021), MSA,
+    /// <i>BMC Bioinformatics</i> 22:540 — "mutations are accumulated following Poisson distributions for each
+    /// mutation class", "For each bootstrap sample, NNLS attribution is applied", "95% confidence intervals …
+    /// taking [2.5%, 97.5%] percentiles"; Wang S. et al., sigminer <c>sig_fit_bootstrap</c> — resample via
+    /// <c>sample(K, total, replace=TRUE, prob=catalog/sum(catalog))</c> (a multinomial draw) then refit;
+    /// Efron B. (1979) percentile interval. Reference signature profiles are caller-supplied (not fabricated).
+    /// </para>
+    /// </summary>
+    /// <param name="catalog">
+    /// The observed mutational catalog as non-negative integer per-channel mutation counts (e.g. a 96-channel
+    /// SBS spectrum). Counts (not proportions) are required because the multinomial draw needs the total N.
+    /// </param>
+    /// <param name="signatures">Reference signatures as equal-length channel vectors (one per signature).</param>
+    /// <param name="replicates">Number of bootstrap replicates (≥ 1; default <see cref="DefaultBootstrapReplicates"/>).</param>
+    /// <param name="confidence">Two-sided confidence level in (0, 1); default <see cref="DefaultBootstrapConfidence"/>.</param>
+    /// <param name="seed">RNG seed for the multinomial resampling; fixed value makes results reproducible.</param>
+    /// <returns>One <see cref="ExposureConfidenceInterval"/> per signature, in signature order.</returns>
+    /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// No signatures, ragged signatures, catalog length ≠ channel count, or a negative catalog count.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">replicates &lt; 1, or confidence outside (0, 1).</exception>
+    public static IReadOnlyList<ExposureConfidenceInterval> BootstrapExposures(
+        IReadOnlyList<int> catalog,
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        int replicates = DefaultBootstrapReplicates,
+        double confidence = DefaultBootstrapConfidence,
+        int seed = DefaultBootstrapSeed)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        int channelCount = ValidateSignatures(signatures);
+
+        if (catalog.Count != channelCount)
+        {
+            throw new ArgumentException(
+                $"Catalog length ({catalog.Count}) must equal the signature channel count ({channelCount}).",
+                nameof(catalog));
+        }
+
+        if (replicates < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(replicates), replicates, "At least one bootstrap replicate is required.");
+        }
+
+        if (double.IsNaN(confidence) || confidence <= 0.0 || confidence >= 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(confidence), confidence, "Confidence must be in the open interval (0, 1).");
+        }
+
+        // Observed counts and total N = Σ catalog (the multinomial sample size).
+        long total = 0;
+        var observed = new double[channelCount];
+        for (int k = 0; k < channelCount; k++)
+        {
+            int count = catalog[k];
+            if (count < 0)
+            {
+                throw new ArgumentException("Catalog counts cannot be negative.", nameof(catalog));
+            }
+
+            observed[k] = count;
+            total += count;
+        }
+
+        int signatureCount = signatures.Count;
+
+        // Point estimate: NNLS exposures of the observed (un-resampled) catalog (Senkin 2021; Huang 2018).
+        IReadOnlyList<double> pointEstimate = FitSignatures(observed, signatures).Exposures;
+
+        // Per-signature bootstrap exposure distributions.
+        var replicateExposures = new double[signatureCount][];
+        for (int j = 0; j < signatureCount; j++)
+        {
+            replicateExposures[j] = new double[replicates];
+        }
+
+        var random = new Random(seed);
+        var resampled = new double[channelCount];
+        for (int rep = 0; rep < replicates; rep++)
+        {
+            MultinomialResample(observed, total, random, resampled);
+            IReadOnlyList<double> exposures = FitSignatures(resampled, signatures).Exposures;
+            for (int j = 0; j < signatureCount; j++)
+            {
+                replicateExposures[j][rep] = exposures[j];
+            }
+        }
+
+        double lowerProbability = (1.0 - confidence) / 2.0;
+        double upperProbability = 1.0 - lowerProbability;
+
+        var intervals = new ExposureConfidenceInterval[signatureCount];
+        for (int j = 0; j < signatureCount; j++)
+        {
+            double[] distribution = replicateExposures[j];
+            double mean = Mean(distribution);
+            double lower = Percentile(distribution, lowerProbability);
+            double upper = Percentile(distribution, upperProbability);
+            intervals[j] = new ExposureConfidenceInterval(
+                pointEstimate[j], mean, lower, upper, confidence);
+        }
+
+        return intervals;
+    }
+
+    /// <summary>
+    /// Draws one multinomial resample of the catalog: N = <paramref name="total"/> mutations are assigned to
+    /// channels with probabilities pₖ = observedₖ / N, written into <paramref name="destination"/>. Implements
+    /// the standard sequential conditional-binomial construction of a multinomial draw: channel k receives
+    /// Binomial(remaining, pₖ / Σ_{i≥k} pᵢ) of the mutations not yet assigned. Source: Senkin (2021), MSA
+    /// (multinomial/Poisson resampling); sigminer <c>sig_fit_bootstrap</c>
+    /// (<c>sample(..., replace=TRUE, prob=catalog/sum(catalog))</c>). When N = 0 the resample is all zeros.
+    /// </summary>
+    private static void MultinomialResample(double[] observed, long total, Random random, double[] destination)
+    {
+        int channelCount = observed.Length;
+        Array.Clear(destination, 0, channelCount);
+
+        if (total == 0)
+        {
+            return;
+        }
+
+        long remaining = total;
+        double remainingProbabilityMass = total; // Σ observed = N (un-normalized probability mass).
+
+        for (int k = 0; k < channelCount && remaining > 0; k++)
+        {
+            double weight = observed[k];
+            if (weight > 0.0)
+            {
+                // Conditional probability of falling in channel k among the not-yet-assigned channels.
+                double p = remainingProbabilityMass > 0.0 ? weight / remainingProbabilityMass : 0.0;
+                if (p >= 1.0)
+                {
+                    // Last channel with any mass: it takes all remaining draws.
+                    destination[k] = remaining;
+                    remaining = 0;
+                }
+                else
+                {
+                    long drawn = SampleBinomial(remaining, p, random);
+                    destination[k] = drawn;
+                    remaining -= drawn;
+                }
+            }
+
+            remainingProbabilityMass -= weight;
+        }
+    }
+
+    /// <summary>
+    /// Samples a Binomial(n, p) variate by summing n independent Bernoulli(p) trials. Exact for the
+    /// per-channel sample sizes encountered in mutational catalogs. Source: standard definition of the
+    /// Binomial distribution as the number of successes in n independent Bernoulli(p) trials.
+    /// </summary>
+    private static long SampleBinomial(long n, double p, Random random)
+    {
+        if (p <= 0.0)
+        {
+            return 0;
+        }
+
+        if (p >= 1.0)
+        {
+            return n;
+        }
+
+        long successes = 0;
+        for (long i = 0; i < n; i++)
+        {
+            if (random.NextDouble() < p)
+            {
+                successes++;
+            }
+        }
+
+        return successes;
+    }
+
+    /// <summary>Arithmetic mean of a non-empty array.</summary>
+    private static double Mean(double[] values)
+    {
+        double sum = 0.0;
+        foreach (double value in values)
+        {
+            sum += value;
+        }
+
+        return sum / values.Length;
+    }
+
+    /// <summary>
+    /// Computes the empirical percentile (quantile) of <paramref name="values"/> at probability
+    /// <paramref name="probability"/> ∈ [0, 1] using linear interpolation between order statistics on the
+    /// 0-based rank h = probability·(n − 1) (the "linear interpolation of the modes for the order statistics"
+    /// /R type-7 / NumPy default convention): result = x₍⌊h⌋₎ + (h − ⌊h⌋)·(x₍⌊h⌋₊₁₎ − x₍⌊h⌋₎) over the sorted
+    /// values. Source: Hyndman R.J. &amp; Fan Y. (1996), <i>The American Statistician</i> 50(4):361–365
+    /// (sample-quantile type 7); used to realise the Efron (1979) percentile bootstrap interval.
+    /// </summary>
+    private static double Percentile(double[] values, double probability)
+    {
+        int n = values.Length;
+        if (n == 1)
+        {
+            return values[0];
+        }
+
+        var sorted = (double[])values.Clone();
+        Array.Sort(sorted);
+
+        double rank = probability * (n - 1);
+        int lowerIndex = (int)Math.Floor(rank);
+        int upperIndex = (int)Math.Ceiling(rank);
+        double fraction = rank - lowerIndex;
+
+        if (lowerIndex == upperIndex)
+        {
+            return sorted[lowerIndex];
+        }
+
+        return sorted[lowerIndex] + fraction * (sorted[upperIndex] - sorted[lowerIndex]);
+    }
+
+    #endregion
 }

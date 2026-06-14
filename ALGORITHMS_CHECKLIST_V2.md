@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 204 |
+| **Completed** | 205 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 30 |
+| **Not Started** | 29 |
 
 ---
 
@@ -232,7 +232,7 @@
 | ☑ | ONCO-LOH-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-LOH-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-LOH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) |
 | ☑ | ONCO-SIG-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) |
 | ☑ | ONCO-SIG-002 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) |
-| ☐ | ONCO-SIG-003 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-SIG-003 | Oncology | 1 | [Evidence](docs/Evidence/ONCO-SIG-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) |
 | ☐ | ONCO-SIG-004 | Oncology | 1 | - | - | - |
 | ☐ | ONCO-FUSION-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-FUSION-002 | Oncology | 2 | - | - | - |
@@ -4105,20 +4105,36 @@ profiles are caller-supplied (not fabricated). External evidence supersedes the 
 
 ---
 
-#### ONCO-SIG-003: Signature Exposure Estimation
+#### ONCO-SIG-003: Signature Exposure Estimation — Bootstrap Confidence Intervals ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.EstimateExposures(...)` |
-| **Complexity** | O(n × k²) |
-| **Invariant** | all(exposure ≥ 0) |
-| **Depends on** | ONCO-SIG-001 |
+| **Canonical** | `OncologyAnalyzer.BootstrapExposures(...)` |
+| **Complexity** | O(R·(N + NNLS)) — R replicates, each a multinomial draw of N mutations + one NNLS refit |
+| **Invariant** | all(exposure ≥ 0); lower ≤ upper; deterministic for a fixed seed |
+| **Depends on** | ONCO-SIG-001 (catalog) and ONCO-SIG-002 (NNLS `FitSignatures` refit) |
 
-**Methods:**
+**Scope note:** the by-area registry titled this unit "Signature Exposure Estimation" with a canonical
+`EstimateExposures`, but point exposure estimation (NNLS) was already delivered by ONCO-SIG-002
+(`FitSignatures`). The genuinely next mutational-signature piece — and the registry's second listed method
+`BootstrapConfidenceIntervals(spectrum)` — is **bootstrap confidence intervals on exposures**, implemented
+here as `OncologyAnalyzer.BootstrapExposures`: a parametric multinomial bootstrap (resample the integer
+catalog as Multinomial(N, p), NNLS-refit each resample, take per-signature percentile intervals). Sources:
+Senkin 2021 (MSA, BMC Bioinformatics 22:540), Huang et al. 2018 (Bioinformatics 34(2):330–337), sigminer
+`sig_fit_bootstrap`, Efron 1979 percentile method, Hyndman & Fan 1996 type-7 quantile. External evidence
+supersedes the original by-area title. Reference signature profiles are caller-supplied (not fabricated).
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateExposures(spectrum, signatures)` | MutationalSignatures | Canonical |
-| `BootstrapConfidenceIntervals(spectrum)` | MutationalSignatures | CI estimation |
+| `BootstrapExposures(catalog, signatures, replicates, confidence, seed)` | OncologyAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Zero-mutation catalog (N = 0) ⇒ every interval [0, 0], point/mean 0
+- [x] Single non-zero channel ⇒ deterministic resample ⇒ lower = upper = mean = point estimate
+- [x] Single replicate (R = 1) ⇒ percentile of one-element sample ⇒ lower = upper = mean
+- [x] Null / empty / ragged / dimension-mismatched / negative-count inputs ⇒ ArgumentNullException / ArgumentException
+- [x] replicates < 1 or confidence ∉ (0, 1) ⇒ ArgumentOutOfRangeException
 
 ---
 
