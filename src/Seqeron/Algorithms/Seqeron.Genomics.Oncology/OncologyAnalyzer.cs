@@ -3936,4 +3936,182 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Focal Amplification Detection (ONCO-CNA-002)
+
+    /// <summary>
+    /// Default fraction-of-chromosome-arm cutoff separating focal from broad (arm-level) copy-number
+    /// events. A segment whose length is strictly less than this fraction of its chromosome arm is focal;
+    /// a segment occupying this fraction or more of the arm is arm-level. Source: Mermel et al. (2011)
+    /// GISTIC2.0 — focal SCNAs have "length &lt; 98% of a chromosome arm"; events "occupying more than 98%
+    /// of a chromosome arm" are arm-level. GISTIC2 parameter <c>broad_len_cutoff</c> default 0.98.
+    /// </summary>
+    public const double DefaultBroadLengthCutoff = 0.98;
+
+    /// <summary>
+    /// Default log2-ratio amplitude above which a copy-number gain is called an amplification. Source:
+    /// GISTIC2 parameter <c>t_amp</c> default 0.1 — "Regions with a copy number gain above this positive
+    /// value are considered amplified." A single-copy gain is log2(3/2) = 0.585 (CNVkit), well above 0.1.
+    /// </summary>
+    public const double DefaultAmplificationLog2Threshold = 0.1;
+
+    /// <summary>
+    /// Thresholds controlling focal-amplification detection: the amplitude cutoff (GISTIC2 <c>t_amp</c>)
+    /// and the focal/broad length cutoff as a fraction of chromosome arm (GISTIC2 <c>broad_len_cutoff</c>).
+    /// </summary>
+    /// <param name="AmplificationLog2Threshold">log2 gain must strictly exceed this to be amplified (GISTIC2 <c>t_amp</c>, default 0.1).</param>
+    /// <param name="BroadLengthCutoff">segment length ÷ arm length must be strictly below this to be focal (GISTIC2 <c>broad_len_cutoff</c>, default 0.98).</param>
+    public readonly record struct FocalAmplificationThresholds(
+        double AmplificationLog2Threshold,
+        double BroadLengthCutoff)
+    {
+        /// <summary>GISTIC2 default thresholds: <c>t_amp</c> = 0.1, <c>broad_len_cutoff</c> = 0.98.</summary>
+        public static FocalAmplificationThresholds Default { get; } =
+            new(DefaultAmplificationLog2Threshold, DefaultBroadLengthCutoff);
+    }
+
+    /// <summary>
+    /// A segmented copy-number region with the chromosome-arm context needed to apply the GISTIC2 length
+    /// rule. The arm label (chromosome + arm letter, e.g. "17q") is matched against oncogene locations;
+    /// the arm length lets the algorithm compute the segment-length / arm-length fraction.
+    /// </summary>
+    /// <param name="Arm">Chromosome-arm label, chromosome number followed by p/q (e.g. "17q", "8q", "7p").</param>
+    /// <param name="Start">Segment start coordinate (bp); must satisfy <see cref="End"/> &gt; <see cref="Start"/>.</param>
+    /// <param name="End">Segment end coordinate (bp).</param>
+    /// <param name="ArmLength">Total length of the chromosome arm in bp; must be positive.</param>
+    /// <param name="Log2Ratio">Segment mean log2 copy ratio.</param>
+    public readonly record struct CopyNumberArmSegment(
+        string Arm,
+        long Start,
+        long End,
+        long ArmLength,
+        double Log2Ratio)
+    {
+        /// <summary>Segment length in base pairs (End − Start).</summary>
+        public long Length => End - Start;
+
+        /// <summary>Segment length as a fraction of the chromosome arm (Length ÷ ArmLength).</summary>
+        public double ArmFraction => (double)Length / ArmLength;
+    }
+
+    /// <summary>
+    /// Tests whether a segment is a focal amplification: it is amplified (log2 strictly above the amplitude
+    /// threshold) AND focal (length strictly below the broad-length cutoff fraction of its arm). Source:
+    /// Mermel et al. (2011) length rule + GISTIC2 <c>t_amp</c>/<c>broad_len_cutoff</c>.
+    /// </summary>
+    /// <param name="segment">The arm-anchored copy-number segment.</param>
+    /// <param name="thresholds">Amplitude and length cutoffs.</param>
+    /// <returns><c>true</c> when the segment is an amplified, focal-length event.</returns>
+    /// <exception cref="ArgumentException"><paramref name="segment"/> has non-positive arm length or End ≤ Start.</exception>
+    public static bool IsFocalAmplification(
+        in CopyNumberArmSegment segment,
+        FocalAmplificationThresholds thresholds)
+    {
+        ValidateArmSegment(segment);
+
+        bool amplified = segment.Log2Ratio > thresholds.AmplificationLog2Threshold;
+        bool focal = segment.ArmFraction < thresholds.BroadLengthCutoff;
+        return amplified && focal;
+    }
+
+    /// <summary>
+    /// Detects focal amplifications among arm-anchored copy-number segments. A segment is reported when it
+    /// is amplified (log2 &gt; <c>t_amp</c>) and focal (length &lt; <c>broad_len_cutoff</c> × arm length).
+    /// The result is a subset of the input in input order (length- and order-preserving filter). Source:
+    /// Mermel et al. (2011) GISTIC2.0 length-based focal/arm-level split; GISTIC2 <c>t_amp</c>/<c>broad_len_cutoff</c>.
+    /// </summary>
+    /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
+    /// <param name="thresholds">Amplitude and length cutoffs; null uses <see cref="FocalAmplificationThresholds.Default"/> (GISTIC2 defaults).</param>
+    /// <returns>The focal amplifications, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive arm length or End ≤ Start.</exception>
+    public static IReadOnlyList<CopyNumberArmSegment> DetectFocalAmplifications(
+        IEnumerable<CopyNumberArmSegment> segments,
+        FocalAmplificationThresholds? thresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        FocalAmplificationThresholds cutoffs = thresholds ?? FocalAmplificationThresholds.Default;
+
+        var result = new List<CopyNumberArmSegment>();
+        foreach (CopyNumberArmSegment segment in segments)
+        {
+            if (IsFocalAmplification(segment, cutoffs))
+            {
+                result.Add(segment);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Maps focal-amplification segments to the recurrently amplified oncogenes resident on their
+    /// chromosome arms. Each oncogene is reported once if any focal amplification falls on its arm. The
+    /// panel and arms are: ERBB2 (17q), MYC (8q), EGFR (7p), CCND1 (11q), MDM2 (12q), CDK4 (12q). Source:
+    /// NCBI Gene cytogenetic locations — ERBB2 17q12, MYC 8q24.21, EGFR 7p11.2, CCND1 11q13.3, MDM2 12q15,
+    /// CDK4 12q14.1.
+    /// </summary>
+    /// <param name="amplifications">Focal amplifications (typically the output of <see cref="DetectFocalAmplifications"/>).</param>
+    /// <returns>Distinct oncogene symbols whose arm carries a focal amplification, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="amplifications"/> is null.</exception>
+    public static IReadOnlyList<string> IdentifyAmplifiedOncogenes(
+        IEnumerable<CopyNumberArmSegment> amplifications)
+    {
+        ArgumentNullException.ThrowIfNull(amplifications);
+
+        var amplifiedArms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (CopyNumberArmSegment segment in amplifications)
+        {
+            if (!string.IsNullOrEmpty(segment.Arm))
+            {
+                amplifiedArms.Add(segment.Arm);
+            }
+        }
+
+        var genes = new List<string>();
+        foreach ((string gene, string arm) in OncogeneArms)
+        {
+            if (amplifiedArms.Contains(arm))
+            {
+                genes.Add(gene);
+            }
+        }
+
+        return genes;
+    }
+
+    /// <summary>
+    /// Recurrently amplified oncogenes and their chromosome arms (chromosome + arm letter), from NCBI Gene
+    /// cytogenetic locations. Order is the registry panel order. Source: NCBI Gene — ERBB2 17q12 (Gene ID
+    /// 2064), MYC 8q24.21 (4609), EGFR 7p11.2 (1956), CCND1 11q13.3 (595), MDM2 12q15 (4193), CDK4 12q14.1 (1019).
+    /// </summary>
+    private static readonly IReadOnlyList<(string Gene, string Arm)> OncogeneArms = new[]
+    {
+        ("ERBB2", "17q"),
+        ("MYC", "8q"),
+        ("EGFR", "7p"),
+        ("CCND1", "11q"),
+        ("MDM2", "12q"),
+        ("CDK4", "12q"),
+    };
+
+    /// <summary>Validates an arm segment: positive arm length and End &gt; Start.</summary>
+    private static void ValidateArmSegment(in CopyNumberArmSegment segment)
+    {
+        if (segment.ArmLength <= 0)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must have a positive arm length (got {segment.ArmLength}).",
+                nameof(segment));
+        }
+
+        if (segment.End <= segment.Start)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Arm}' must have End > Start (got Start={segment.Start}, End={segment.End}).",
+                nameof(segment));
+        }
+    }
+
+    #endregion
 }

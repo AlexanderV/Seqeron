@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 210 |
+| **Completed** | 211 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 24 |
+| **Not Started** | 23 |
 
 ---
 
@@ -238,7 +238,7 @@
 | ☑ | ONCO-FUSION-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) |
 | ☑ | ONCO-FUSION-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) |
 | ☑ | ONCO-CNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) |
-| ☐ | ONCO-CNA-002 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-CNA-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) |
 | ☐ | ONCO-CNA-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PURITY-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PLOIDY-001 | Oncology | 2 | - | - | - |
@@ -4291,21 +4291,34 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CNA-002: Focal Amplification Detection
+#### ONCO-CNA-002: Focal Amplification Detection ☑
+
+> **Scope note (resolved in implementation):** Placed in `OncologyAnalyzer` (consistent with
+> ONCO-CNA-001, which superseded the `CopyNumberAnalyzer` names). A segment is a focal amplification
+> when it is amplified (log2 > GISTIC2 `t_amp` = 0.1) AND focal (length < GISTIC2 `broad_len_cutoff`
+> = 0.98 × chromosome-arm length), per Mermel et al. (2011) GISTIC2.0 length-based focal/arm-level
+> split. Oncogene mapping uses NCBI Gene cytogenetic arms. Class-name conflict noted in TestSpec §7.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `CopyNumberAnalyzer.DetectFocalAmplifications(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds?)` |
 | **Complexity** | O(n) |
 | **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectFocalAmplifications(segments)` | CopyNumberAnalyzer | Canonical |
-| `IdentifyAmplifiedOncogenes(amplifications)` | CopyNumberAnalyzer | Gene mapping |
+| `DetectFocalAmplifications(segments, thresholds?)` | OncologyAnalyzer | Canonical (length < 0.98·arm AND log2 > t_amp) |
+| `IdentifyAmplifiedOncogenes(amplifications)` | OncologyAnalyzer | Canonical (arm → ERBB2/MYC/EGFR/CCND1/MDM2/CDK4) |
+| `IsFocalAmplification(segment, thresholds)` | OncologyAnalyzer | Internal predicate |
 
-**Oncogenes:** ERBB2/HER2, MYC, EGFR, CCND1, MDM2, CDK4
+**Oncogenes:** ERBB2/HER2 (17q), MYC (8q), EGFR (7p), CCND1 (11q), MDM2 (12q), CDK4 (12q)
+
+**Edge Cases:**
+- [x] Whole-arm event (≥ 98% of arm) excluded as arm-level/broad — GISTIC2 `broad_len_cutoff` 0.98
+- [x] Low-amplitude gain (log2 ≤ t_amp 0.1) not called amplified — GISTIC2 `t_amp`
+- [x] Boundary exactly 0.98 of arm is arm-level (strict focal test)
+- [x] Null / empty input and invalid arm length / coordinates validated
 
 ---
 
