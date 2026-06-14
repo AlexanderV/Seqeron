@@ -5780,4 +5780,390 @@ public static class OncologyAnalyzer
         (v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele);
 
     #endregion
+
+    #region Tumor Phylogeny Reconstruction (ONCO-PHYLO-001)
+
+    /// <summary>
+    /// Cancer cell fraction (CCF) of the synthetic root (normal / germline) clone in every sample: it is, by
+    /// definition, present in 100% of cells. Source: Popic et al. (2015), <i>Genome Biology</i> 16:91 — the
+    /// lineage tree is a spanning tree rooted at the population that contains all observed clones.
+    /// </summary>
+    private const double RootCcf = 1.0;
+
+    /// <summary>
+    /// Default noise margin ε for the lineage-precedence (Eq. 2) and sum-rule (Eq. 5) inequalities. The cited
+    /// sources relax both rules by a configurable ε (Popic et al. 2015 ϵ; Zheng et al. 2022 ε₁=0.1, ε₂=0.2). Because
+    /// this unit consumes already-clustered CCF point estimates (clustering and its noise model are ONCO-CCF-001),
+    /// the default is the strict ε = 0; callers may pass a positive tolerance to reproduce the source defaults.
+    /// </summary>
+    public const double DefaultPhylogenyTolerance = 0.0;
+
+    /// <summary>
+    /// One CCF cluster (a candidate clone/subclone) used as input to phylogeny reconstruction. Each cluster carries
+    /// its cancer cell fraction in each sequenced sample. CCF clustering itself is out of scope (ONCO-CCF-001).
+    /// </summary>
+    /// <param name="Id">Caller-assigned cluster identifier (e.g. a subclone label). Used for deterministic tie-breaking.</param>
+    /// <param name="CcfPerSample">Cancer cell fraction in each sample, each value in [0, 1]; all clusters must share length.</param>
+    public readonly record struct CcfCluster(int Id, IReadOnlyList<double> CcfPerSample);
+
+    /// <summary>A single parent → child edge of the reconstructed clonal tree.</summary>
+    /// <param name="ParentId">Id of the ancestral cluster, or <see cref="ClonalPhylogeny.RootId"/> for the normal root.</param>
+    /// <param name="ChildId">Id of the descendant cluster.</param>
+    public readonly record struct ClonalEdge(int ParentId, int ChildId);
+
+    /// <summary>
+    /// The reconstructed rooted clonal tree: a synthetic normal root (<see cref="RootId"/>, CCF = 1 in every sample)
+    /// plus one node per input CCF cluster, connected by parent→child <see cref="Edges"/>.
+    /// </summary>
+    /// <param name="RootId">Identifier of the synthetic normal/germline root node.</param>
+    /// <param name="Clusters">Input clusters keyed by id, in input order.</param>
+    /// <param name="Edges">Tree edges (parent→child), one per non-root cluster.</param>
+    /// <param name="SampleCount">Number of samples per cluster.</param>
+    public readonly record struct ClonalPhylogeny(
+        int RootId,
+        IReadOnlyList<CcfCluster> Clusters,
+        IReadOnlyList<ClonalEdge> Edges,
+        int SampleCount)
+    {
+        /// <summary>Returns the parent id of <paramref name="clusterId"/>, or null if it is the root or absent.</summary>
+        public int? ParentOf(int clusterId)
+        {
+            foreach (ClonalEdge e in Edges)
+            {
+                if (e.ChildId == clusterId)
+                {
+                    return e.ParentId;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Returns the ids of the direct children of <paramref name="clusterId"/>, in input order.</summary>
+        public IReadOnlyList<int> ChildrenOf(int clusterId)
+        {
+            var children = new List<int>();
+            foreach (ClonalEdge e in Edges)
+            {
+                if (e.ParentId == clusterId)
+                {
+                    children.Add(e.ChildId);
+                }
+            }
+
+            return children;
+        }
+    }
+
+    /// <summary>
+    /// Reconstructs a rooted clonal (tumor) phylogeny from per-sample CCF clusters, applying the two lineage
+    /// constraints from the multi-sample perfect-phylogeny model:
+    /// <list type="number">
+    /// <item><description><b>Lineage precedence (ancestor ≥ descendant), Eq. 2:</b> an edge u→v is admissible only if,
+    /// for every sample i, <c>u.CCF[i] ≥ v.CCF[i] − ε</c> and (presence) <c>u.CCF[i] = 0 ⇒ v.CCF[i] = 0</c>. Source:
+    /// Popic et al. (2015), <i>Genome Biology</i> 16:91, Eq. 2; Zheng et al. (2022) PICTograph, <i>Bioinformatics</i>
+    /// 38(15):3677–3683 — "the CCF of any mutation cannot exceed the CCF of its ancestor".</description></item>
+    /// <item><description><b>Sum rule, Eq. 5:</b> for every node u and every sample i, the children CCFs may not exceed
+    /// the parent: <c>Σ_children v.CCF[i] ≤ u.CCF[i] + ε</c>. Source: Popic et al. (2015) Eq. 5; Zheng et al. (2022) —
+    /// "the CCF of an ancestral clone must be greater than or equal to the sum of CCFs of its descendants".</description></item>
+    /// </list>
+    /// The constraints leave a set of valid trees; to return a single deterministic tree this method attaches each
+    /// cluster (processed in descending order of total CCF) to its <i>deepest valid ancestor</i> — the admissible
+    /// parent with the smallest total CCF whose remaining per-sample sum-rule budget still admits the child — with
+    /// ties broken by ascending cluster id (Evidence Assumption 1).
+    /// </summary>
+    /// <param name="clusters">CCF clusters to place; each cluster's <see cref="CcfCluster.CcfPerSample"/> must have the same length.</param>
+    /// <param name="tolerance">Noise margin ε for both inequalities; default <see cref="DefaultPhylogenyTolerance"/> (0).</param>
+    /// <returns>The reconstructed <see cref="ClonalPhylogeny"/> rooted at a synthetic normal node.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="clusters"/> or any cluster's CCF list is null.</exception>
+    /// <exception cref="ArgumentException">CCF lists differ in length, are empty, or contain NaN / out-of-[0,1] values; or two clusters share an id.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative or NaN.</exception>
+    public static ClonalPhylogeny ReconstructPhylogeny(
+        IReadOnlyList<CcfCluster> clusters,
+        double tolerance = DefaultPhylogenyTolerance)
+    {
+        ArgumentNullException.ThrowIfNull(clusters);
+        if (double.IsNaN(tolerance) || tolerance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(tolerance), tolerance, "Phylogeny tolerance ε must be a non-negative number.");
+        }
+
+        int rootId = RootIdFor(clusters);
+        if (clusters.Count == 0)
+        {
+            // Empty cohort: tree is the root alone, no clusters, no edges. One synthetic sample of CCF 1.
+            return new ClonalPhylogeny(rootId, Array.Empty<CcfCluster>(), Array.Empty<ClonalEdge>(), 1);
+        }
+
+        int sampleCount = ValidateAndGetSampleCount(clusters);
+
+        // Synthetic root: present in 100% of cells in every sample, so it is a valid ancestor of every cluster and
+        // its sum-rule budget is the full RootCcf. The root participates in placement as node id = rootId.
+        double[] rootCcf = new double[sampleCount];
+        Array.Fill(rootCcf, RootCcf);
+
+        // Per-node remaining sum-rule budget = node CCF minus the sum of CCFs of children already attached (per sample).
+        var remainingBudget = new Dictionary<int, double[]>(clusters.Count + 1);
+        remainingBudget[rootId] = (double[])rootCcf.Clone();
+        var ccfById = new Dictionary<int, double[]>(clusters.Count + 1) { [rootId] = rootCcf };
+        foreach (CcfCluster c in clusters)
+        {
+            double[] ccf = c.CcfPerSample.ToArray();
+            ccfById[c.Id] = ccf;
+            remainingBudget[c.Id] = (double[])ccf.Clone();
+        }
+
+        // Process clusters most-clonal-first (descending total CCF) so that ancestors are placed before descendants;
+        // ties broken by ascending id for determinism (Evidence Assumption 1).
+        var ordered = clusters
+            .OrderByDescending(c => TotalCcf(ccfById[c.Id]))
+            .ThenBy(c => c.Id)
+            .ToList();
+
+        var edges = new List<ClonalEdge>(clusters.Count);
+        foreach (CcfCluster child in ordered)
+        {
+            double[] childCcf = ccfById[child.Id];
+
+            // Candidate parents: the root plus every already-placed cluster. Choose the deepest valid ancestor =
+            // the candidate with the smallest total CCF that (a) satisfies lineage precedence and (b) still has
+            // per-sample budget for this child. Ties broken by ascending id.
+            int bestParent = rootId;
+            double bestParentTotal = double.PositiveInfinity;
+            bool found = false;
+            foreach (int candidateId in EnumerateCandidates(rootId, edges))
+            {
+                if (candidateId == child.Id)
+                {
+                    continue;
+                }
+
+                double[] parentCcf = ccfById[candidateId];
+                if (!SatisfiesLineagePrecedence(parentCcf, childCcf, tolerance))
+                {
+                    continue;
+                }
+
+                if (!FitsSumRule(remainingBudget[candidateId], childCcf, tolerance))
+                {
+                    continue;
+                }
+
+                double candidateTotal = TotalCcf(parentCcf);
+                if (!found
+                    || candidateTotal < bestParentTotal
+                    || (candidateTotal == bestParentTotal && candidateId < bestParent))
+                {
+                    bestParent = candidateId;
+                    bestParentTotal = candidateTotal;
+                    found = true;
+                }
+            }
+
+            // The root always satisfies lineage precedence (CCF=1 ≥ any child) and, per the sum rule, can only be
+            // exhausted if children already consumed its full budget; in that degenerate case we still attach to the
+            // root because every cluster must have a parent (Popic 2015: spanning tree). 'found' is therefore the
+            // generic path; the explicit root fallback preserves the spanning-tree invariant.
+            int parentId = found ? bestParent : rootId;
+            edges.Add(new ClonalEdge(parentId, child.Id));
+
+            // Debit the chosen parent's per-sample budget by the child's CCF.
+            double[] budget = remainingBudget[parentId];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                budget[i] -= childCcf[i];
+            }
+        }
+
+        var clusterList = clusters.ToArray();
+        return new ClonalPhylogeny(rootId, clusterList, edges, sampleCount);
+    }
+
+    /// <summary>
+    /// Returns the ids of clusters on the <b>trunk</b> of the phylogeny — the clonal mutations shared by every
+    /// tumor cell. The trunk is the path from the root down to (but excluding) the first branch point: a maximal
+    /// chain of single-child nodes starting at the root's unique child. Source: Popic et al. (2015) — the trunk
+    /// holds the mutations of the common predecessor present across all samples.
+    /// </summary>
+    /// <param name="phylogeny">A phylogeny produced by <see cref="ReconstructPhylogeny"/>.</param>
+    /// <returns>Trunk cluster ids, ordered from the root downward; empty if the tree has no clusters.</returns>
+    public static IReadOnlyList<int> IdentifyTrunkMutations(ClonalPhylogeny phylogeny)
+    {
+        var trunk = new List<int>();
+        if (phylogeny.Clusters is null || phylogeny.Clusters.Count == 0)
+        {
+            return trunk;
+        }
+
+        // Walk down from the root while each node has exactly one child (no branching yet) and the root itself has
+        // exactly one child. The first node with ≠1 children is the branch point; nodes below it are subclonal.
+        int current = phylogeny.RootId;
+        while (true)
+        {
+            IReadOnlyList<int> children = phylogeny.ChildrenOf(current);
+            if (children.Count != 1)
+            {
+                break;
+            }
+
+            int only = children[0];
+            trunk.Add(only);
+            current = only;
+        }
+
+        return trunk;
+    }
+
+    /// <summary>
+    /// Returns the ids of <b>branch</b> (subclonal) clusters — every input cluster that is not on the trunk.
+    /// Source: Popic et al. (2015) — mutations off the common-predecessor trunk are subclonal lineage branches.
+    /// </summary>
+    /// <param name="phylogeny">A phylogeny produced by <see cref="ReconstructPhylogeny"/>.</param>
+    /// <returns>Branch cluster ids in input order.</returns>
+    public static IReadOnlyList<int> IdentifyBranchMutations(ClonalPhylogeny phylogeny)
+    {
+        var branches = new List<int>();
+        if (phylogeny.Clusters is null || phylogeny.Clusters.Count == 0)
+        {
+            return branches;
+        }
+
+        var trunk = new HashSet<int>(IdentifyTrunkMutations(phylogeny));
+        foreach (CcfCluster c in phylogeny.Clusters)
+        {
+            if (!trunk.Contains(c.Id))
+            {
+                branches.Add(c.Id);
+            }
+        }
+
+        return branches;
+    }
+
+    /// <summary>
+    /// Lineage precedence (Popic 2015 Eq. 2): for every sample i, <c>parent ≥ child − ε</c> and a parent absent in
+    /// a sample (CCF = 0) cannot have a child present there (presence pattern, constraint (1)).
+    /// </summary>
+    private static bool SatisfiesLineagePrecedence(double[] parentCcf, double[] childCcf, double tolerance)
+    {
+        for (int i = 0; i < parentCcf.Length; i++)
+        {
+            if (parentCcf[i] < childCcf[i] - tolerance)
+            {
+                return false;
+            }
+
+            // Presence: if the parent is absent in sample i, the child must also be absent there.
+            if (parentCcf[i] <= 0.0 && childCcf[i] > 0.0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Sum rule (Popic 2015 Eq. 5): the child's CCF fits a parent only if, in every sample, the parent's remaining
+    /// budget (parent CCF minus already-attached children) is ≥ child CCF − ε.
+    /// </summary>
+    private static bool FitsSumRule(double[] remainingParentBudget, double[] childCcf, double tolerance)
+    {
+        for (int i = 0; i < remainingParentBudget.Length; i++)
+        {
+            if (remainingParentBudget[i] < childCcf[i] - tolerance)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Sum of a cluster's CCF over all samples (proxy for clonal dominance / processing order).</summary>
+    private static double TotalCcf(double[] ccf)
+    {
+        double total = 0.0;
+        foreach (double v in ccf)
+        {
+            total += v;
+        }
+
+        return total;
+    }
+
+    /// <summary>Candidate parents = the root plus every cluster already attached to the tree (in attachment order).</summary>
+    private static IEnumerable<int> EnumerateCandidates(int rootId, List<ClonalEdge> edges)
+    {
+        yield return rootId;
+        foreach (ClonalEdge e in edges)
+        {
+            yield return e.ChildId;
+        }
+    }
+
+    /// <summary>Chooses a synthetic root id distinct from every cluster id (one less than the minimum, or -1).</summary>
+    private static int RootIdFor(IReadOnlyList<CcfCluster> clusters)
+    {
+        int minId = int.MaxValue;
+        foreach (CcfCluster c in clusters)
+        {
+            if (c.Id < minId)
+            {
+                minId = c.Id;
+            }
+        }
+
+        // -1 is conventional for "no real cluster"; if a caller used -1, step below the minimum to stay unique.
+        return clusters.Count == 0 ? -1 : Math.Min(-1, minId - 1);
+    }
+
+    /// <summary>Validates every cluster's CCF list and returns the common sample count.</summary>
+    private static int ValidateAndGetSampleCount(IReadOnlyList<CcfCluster> clusters)
+    {
+        int sampleCount = -1;
+        var seenIds = new HashSet<int>(clusters.Count);
+        foreach (CcfCluster c in clusters)
+        {
+            if (c.CcfPerSample is null)
+            {
+                throw new ArgumentNullException(nameof(clusters), $"Cluster {c.Id} has a null CCF list.");
+            }
+
+            if (c.CcfPerSample.Count == 0)
+            {
+                throw new ArgumentException($"Cluster {c.Id} has an empty CCF list; at least one sample is required.", nameof(clusters));
+            }
+
+            if (sampleCount < 0)
+            {
+                sampleCount = c.CcfPerSample.Count;
+            }
+            else if (c.CcfPerSample.Count != sampleCount)
+            {
+                throw new ArgumentException(
+                    $"All clusters must have the same number of samples; cluster {c.Id} has {c.CcfPerSample.Count}, expected {sampleCount}.",
+                    nameof(clusters));
+            }
+
+            if (!seenIds.Add(c.Id))
+            {
+                throw new ArgumentException($"Duplicate cluster id {c.Id}; cluster ids must be unique.", nameof(clusters));
+            }
+
+            foreach (double v in c.CcfPerSample)
+            {
+                if (double.IsNaN(v) || v < 0.0 || v > 1.0)
+                {
+                    throw new ArgumentException(
+                        $"Cancer cell fraction must be in [0, 1]; cluster {c.Id} has {v}.", nameof(clusters));
+                }
+            }
+        }
+
+        return sampleCount;
+    }
+
+    #endregion
 }

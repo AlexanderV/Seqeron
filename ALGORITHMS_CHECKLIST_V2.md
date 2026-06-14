@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 220 |
+| **Completed** | 221 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 14 |
+| **Not Started** | 13 |
 
 ---
 
@@ -249,7 +249,7 @@
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
 | ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
-| ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
 | ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
@@ -4590,16 +4590,26 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.ReconstructPhylogeny(...)` |
+| **Canonical** | `OncologyAnalyzer.ReconstructPhylogeny(...)` (placed in OncologyAnalyzer, the area's existing analyzer) |
 | **Complexity** | O(n² × k) |
 | **Depends on** | ONCO-CCF-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
+
+**Method:** clonal tree built from CCF clusters via the lineage-precedence rule (ancestor CCF ≥ descendant CCF, Popic et al. 2015 *Genome Biology* 16:91 Eq. 2; Zheng et al. 2022 *Bioinformatics* PICTograph) and the sum rule (children CCF sum ≤ parent CCF, Popic 2015 Eq. 5). CCF clustering itself is ONCO-CCF-001.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ReconstructPhylogeny(multiSampleVariants)` | TumorEvolutionAnalyzer | Canonical |
-| `IdentifyTrunkMutations(phylogeny)` | TumorEvolutionAnalyzer | Clonal mutations |
-| `IdentifyBranchMutations(phylogeny)` | TumorEvolutionAnalyzer | Subclonal mutations |
+| `ReconstructPhylogeny(IReadOnlyList<CcfCluster>, tolerance)` | OncologyAnalyzer | Canonical |
+| `IdentifyTrunkMutations(phylogeny)` | OncologyAnalyzer | Clonal mutations |
+| `IdentifyBranchMutations(phylogeny)` | OncologyAnalyzer | Subclonal mutations |
+
+**Edge Cases:**
+- [x] Empty cluster set → root-only tree
+- [x] Single cluster → trunk only, no branches
+- [x] Sum-rule conflict (sibling CCFs exceed parent) → forced chain
+- [x] Private (single-sample) clusters → branching via presence pattern
+- [x] Null / NaN / out-of-[0,1] CCF / ragged sample counts / duplicate ids → exceptions
 
 ---
 
@@ -5251,7 +5261,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
 | ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
 | LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
-| TumorEvolutionAnalyzer | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ |
+| TumorEvolutionAnalyzer (ONCO-PHYLO-001 implemented in OncologyAnalyzer) | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ (ONCO-PHYLO-001 ☑) |
 | HlaTyper | ONCO-HLA-001 | ☐ |
 | ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
 | StructuralVariantDetector | ONCO-SV-001 | ☐ |
