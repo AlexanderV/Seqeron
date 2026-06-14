@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 199 |
+| **Completed** | 200 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 35 |
+| **Not Started** | 34 |
 
 ---
 
@@ -227,7 +227,7 @@
 | ☑ | ONCO-ARTIFACT-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-ARTIFACT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ARTIFACT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) |
 | ☑ | ONCO-ANNOT-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) |
 | ☑ | ONCO-TMB-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-TMB-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-TMB-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) |
-| ☐ | ONCO-MSI-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-MSI-001 | Oncology | 3 | Niu et al. (2014) MSIsensor, niu-lab/msisensor2, Boland et al. (1998) | [ONCO-MSI-001.md](TestSpecs/ONCO-MSI-001.md) | OncologyAnalyzer_DetectMSI_Tests.cs |
 | ☐ | ONCO-HRD-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-LOH-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-001 | Oncology | 3 | - | - | - |
@@ -3997,9 +3997,9 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Markers:** BAT25, BAT26, NR21, NR24, MONO27 (Bethesda panel)
 
 **Edge Cases:**
-- [ ] Tumor-only mode (no matched normal)
-- [ ] Insufficient coverage at microsatellite loci
-- [ ] < 5 evaluable markers (unreliable classification)
+- [x] Tumor-only mode (no matched normal) — fraction-of-unstable-loci definition is normal-independent; DetectMSI takes per-locus flags
+- [x] Insufficient coverage at microsatellite loci — zero valid loci → CalculateMSIScore/DetectMSI throw (score undefined)
+- [x] < 5 evaluable markers (unreliable classification) — ClassifyBethesdaPanel validates 0 ≤ unstable ≤ total; MSS/MSI-L ambiguity documented per Boland 1998
 
 ---
 
