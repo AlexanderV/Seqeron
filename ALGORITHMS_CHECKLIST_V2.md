@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 197 |
+| **Completed** | 198 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 37 |
+| **Not Started** | 36 |
 
 ---
 
@@ -225,7 +225,7 @@
 | ☑ | ONCO-VAF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-VAF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-VAF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) |
 | ☑ | ONCO-DRIVER-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-DRIVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-DRIVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyDriverMutations_Tests.cs) |
 | ☑ | ONCO-ARTIFACT-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-ARTIFACT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ARTIFACT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) |
-| ☐ | ONCO-ANNOT-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-ANNOT-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) |
 | ☐ | ONCO-TMB-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-MSI-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-HRD-001 | Oncology | 3 | - | - | - |
@@ -3928,19 +3928,29 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### ONCO-ANNOT-001: Cancer-Specific Variant Annotation
+#### ONCO-ANNOT-001: Cancer-Specific Variant Annotation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `OncologyAnalyzer.AnnotateCancerVariants(...)` |
-| **Complexity** | O(n × k) |
+| **Canonical** | `OncologyAnalyzer.AnnotateCancerVariants(...)` / `ClassifyVariantTier(...)` |
+| **Complexity** | O(n) per batch; O(1) per variant |
+| **Standard** | AMP/ASCO/CAP 2017 four-tier system (Li et al. 2017, J Mol Diagn 19(1):4–23) |
 | **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
+| `ClassifyVariantTier(variant)` | OncologyAnalyzer | Canonical |
 | `AnnotateCancerVariants(variants)` | OncologyAnalyzer | Canonical |
-| `GetCOSMICAnnotation(variant)` | OncologyAnalyzer | COSMIC lookup |
+| `GetCOSMICAnnotation(variant, catalog)` | OncologyAnalyzer | COSMIC lookup (caller-supplied catalog) |
+
+**Edge Cases:**
+- [x] Clinical evidence (Level A/B) takes priority over high population MAF (still Tier I)
+- [x] Population MAF ≥ 1% with no clinical evidence ⇒ Tier IV (benign cutoff, Li 2017)
+- [x] Rare variant, no evidence: Tier III if cancer association present, else Tier IV
+- [x] MAF boundary exactly 0.01 (inclusive ≥) ⇒ Tier IV
+- [x] Invalid MAF (negative / > 1 / NaN) throws; null inputs throw; empty batch ⇒ empty
+- [x] COSMIC catalog miss ⇒ null (external content not fabricated)
 
 ---
 

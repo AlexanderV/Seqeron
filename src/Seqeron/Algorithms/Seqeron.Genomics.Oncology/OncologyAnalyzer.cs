@@ -1042,4 +1042,211 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Cancer Variant Annotation (AMP/ASCO/CAP 2017 tiers)
+
+    /// <summary>
+    /// Minor-allele-frequency (MAF) cutoff at or above which a variant is treated as a common
+    /// polymorphism and classified Tier IV (benign / likely benign). Source: Li MM et al. (2017),
+    /// J Mol Diagn 19(1):4–23 — "the work group recommends using 1% (0.01) as a primary cutoff" for
+    /// eliminating polymorphic or benign variants (Population Databases section), and Table 7 (Tier IV)
+    /// lists "MAF ≥ 1% in the general population" as the population-database criterion. Value = 0.01.
+    /// </summary>
+    public const double BenignPopulationMafThreshold = 0.01;
+
+    /// <summary>
+    /// Strength of clinical/experimental evidence supporting a variant as a biomarker, per the
+    /// four evidence levels of Li MM et al. (2017), Table 3 / Figure 2. Levels A and B map to Tier I
+    /// (strong clinical significance); Levels C and D map to Tier II (potential clinical significance).
+    /// </summary>
+    public enum ClinicalEvidenceLevel
+    {
+        /// <summary>No biomarker evidence level assigned (the variant is not a known biomarker).</summary>
+        None,
+
+        /// <summary>
+        /// Level A: biomarkers that predict response/resistance to FDA-approved therapies for a specific
+        /// tumor type, or are included in professional guidelines (therapeutic/diagnostic/prognostic).
+        /// Maps to Tier I. Source: Li et al. (2017), Table 3.
+        /// </summary>
+        A,
+
+        /// <summary>
+        /// Level B: biomarkers based on well-powered studies with expert consensus. Maps to Tier I.
+        /// Source: Li et al. (2017), Table 3.
+        /// </summary>
+        B,
+
+        /// <summary>
+        /// Level C: FDA-approved/guideline therapies for a different tumor type (off-label), clinical-trial
+        /// inclusion criteria, or diagnostic/prognostic significance from multiple small studies. Maps to
+        /// Tier II. Source: Li et al. (2017), Table 3.
+        /// </summary>
+        C,
+
+        /// <summary>
+        /// Level D: plausible therapeutic significance from preclinical studies, or diagnostic/prognostic
+        /// support from small studies / case reports without consensus. Maps to Tier II.
+        /// Source: Li et al. (2017), Table 3.
+        /// </summary>
+        D
+    }
+
+    /// <summary>
+    /// AMP/ASCO/CAP 2017 four-tier clinical-significance classification of a somatic sequence variant.
+    /// Source: Li MM et al. (2017), J Mol Diagn 19(1):4–23, Figure 2.
+    /// </summary>
+    public enum VariantTier
+    {
+        /// <summary>Tier I: variants of strong clinical significance (Level A or B evidence).</summary>
+        TierI_StrongClinicalSignificance,
+
+        /// <summary>Tier II: variants of potential clinical significance (Level C or D evidence).</summary>
+        TierII_PotentialClinicalSignificance,
+
+        /// <summary>
+        /// Tier III: variants of unknown clinical significance — not common in population databases and
+        /// with no convincing published evidence of cancer association.
+        /// </summary>
+        TierIII_UnknownClinicalSignificance,
+
+        /// <summary>
+        /// Tier IV: benign or likely benign variants — observed at a significant allele frequency
+        /// (MAF ≥ 1%) in population databases, or with no evidence of cancer association.
+        /// </summary>
+        TierIV_BenignOrLikelyBenign
+    }
+
+    /// <summary>
+    /// Caller-supplied evidence for one somatic variant, reduced to the features the AMP/ASCO/CAP 2017
+    /// tiering rule consumes (Li et al. 2017, Figure 2 / Tables 4–7). The guideline classifies variants
+    /// from external knowledge (professional guidelines, population databases, somatic databases,
+    /// literature); this library does not reproduce those curated resources — the relevant facts are
+    /// supplied by the caller, who has performed the database lookups.
+    /// </summary>
+    /// <param name="Gene">Gene symbol the variant falls in.</param>
+    /// <param name="ProteinChange">HGVS protein change (e.g. p.V600E); informational.</param>
+    /// <param name="EvidenceLevel">Strongest assigned clinical evidence level (A–D, or None).</param>
+    /// <param name="PopulationMaf">
+    /// Minor allele frequency in a population database (e.g. gnomAD/ExAC/1000 Genomes), in [0, 1].
+    /// A value ≥ <see cref="BenignPopulationMafThreshold"/> indicates a common polymorphism.
+    /// </param>
+    /// <param name="HasCancerAssociation">
+    /// True when there is published evidence associating the variant with cancer (somatic database
+    /// presence, functional/population study). Distinguishes Tier III from Tier IV when MAF is low.
+    /// </param>
+    public readonly record struct CancerVariantAnnotationInput(
+        string Gene,
+        string ProteinChange,
+        ClinicalEvidenceLevel EvidenceLevel,
+        double PopulationMaf,
+        bool HasCancerAssociation);
+
+    /// <summary>The tier classification of one variant, with the input evidence that produced it.</summary>
+    /// <param name="Variant">The variant evidence that was classified.</param>
+    /// <param name="Tier">Assigned AMP/ASCO/CAP 2017 tier.</param>
+    public readonly record struct CancerVariantAnnotation(
+        CancerVariantAnnotationInput Variant,
+        VariantTier Tier);
+
+    /// <summary>
+    /// Classifies a single somatic variant into the AMP/ASCO/CAP 2017 four-tier system from caller-supplied
+    /// evidence, applying the decision criteria of Li MM et al. (2017), Figure 2 in priority order:
+    /// <list type="number">
+    /// <item><description>Level A or B evidence ⇒ <see cref="VariantTier.TierI_StrongClinicalSignificance"/>.</description></item>
+    /// <item><description>Level C or D evidence ⇒ <see cref="VariantTier.TierII_PotentialClinicalSignificance"/>.</description></item>
+    /// <item><description>Otherwise, MAF ≥ 1% (common polymorphism) OR no cancer association ⇒
+    /// <see cref="VariantTier.TierIV_BenignOrLikelyBenign"/> (Table 7).</description></item>
+    /// <item><description>Otherwise (rare, no clinical evidence, but a cancer association exists) ⇒
+    /// <see cref="VariantTier.TierIII_UnknownClinicalSignificance"/> (Table 6).</description></item>
+    /// </list>
+    /// Clinical evidence (Tier I/II) is evaluated before the benign-frequency rule because a Level A/B
+    /// biomarker remains strongly significant even if it also appears in population databases; Table 4
+    /// (Tier I) and Table 5 (Tier II) note such variants are "absent or extremely low MAF" but the
+    /// guideline assigns them by evidence level, not frequency.
+    /// </summary>
+    /// <param name="variant">Caller-supplied evidence for the variant.</param>
+    /// <returns>The variant's tier classification.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">PopulationMaf is NaN or outside [0, 1].</exception>
+    public static VariantTier ClassifyVariantTier(CancerVariantAnnotationInput variant)
+    {
+        if (double.IsNaN(variant.PopulationMaf) || variant.PopulationMaf < 0.0 || variant.PopulationMaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.PopulationMaf, "Population MAF must be in the range [0, 1].");
+        }
+
+        // Tier I — strong clinical significance: Level A or B evidence (Li et al. 2017, Figure 2).
+        if (variant.EvidenceLevel is ClinicalEvidenceLevel.A or ClinicalEvidenceLevel.B)
+        {
+            return VariantTier.TierI_StrongClinicalSignificance;
+        }
+
+        // Tier II — potential clinical significance: Level C or D evidence (Li et al. 2017, Figure 2).
+        if (variant.EvidenceLevel is ClinicalEvidenceLevel.C or ClinicalEvidenceLevel.D)
+        {
+            return VariantTier.TierII_PotentialClinicalSignificance;
+        }
+
+        // No clinical evidence level. Tier IV — benign/likely benign: observed at a significant allele
+        // frequency (MAF ≥ 1%, Table 7), OR no published evidence of cancer association (Figure 2).
+        if (variant.PopulationMaf >= BenignPopulationMafThreshold || !variant.HasCancerAssociation)
+        {
+            return VariantTier.TierIV_BenignOrLikelyBenign;
+        }
+
+        // Tier III — unknown clinical significance: rare (low MAF), no clinical evidence, but a cancer
+        // association exists so it cannot be called benign (Li et al. 2017, Table 6).
+        return VariantTier.TierIII_UnknownClinicalSignificance;
+    }
+
+    /// <summary>
+    /// Annotates a set of somatic variants with their AMP/ASCO/CAP 2017 clinical-significance tiers by
+    /// applying <see cref="ClassifyVariantTier"/> to each variant. The output preserves input order and
+    /// has one entry per input variant. Source: Li MM et al. (2017), J Mol Diagn 19(1):4–23.
+    /// </summary>
+    /// <param name="variants">Caller-supplied variant evidence records.</param>
+    /// <returns>One <see cref="CancerVariantAnnotation"/> per input variant, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A variant's PopulationMaf is outside [0, 1].</exception>
+    public static IReadOnlyList<CancerVariantAnnotation> AnnotateCancerVariants(
+        IEnumerable<CancerVariantAnnotationInput> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        var annotations = new List<CancerVariantAnnotation>();
+        foreach (var variant in variants)
+        {
+            annotations.Add(new CancerVariantAnnotation(variant, ClassifyVariantTier(variant)));
+        }
+
+        return annotations;
+    }
+
+    /// <summary>
+    /// Looks up a variant's COSMIC (Catalogue Of Somatic Mutations In Cancer) annotation in a
+    /// caller-supplied catalog keyed by (gene, protein change). COSMIC is a large, expert-curated
+    /// somatic-mutation database (Tate JG et al. 2019, Nucleic Acids Res 47:D941–D947) that cannot be
+    /// reproduced or hardcoded here; the caller passes the relevant records (e.g. a COSMIC export),
+    /// and this method performs the exact-match lookup the AMP/ASCO/CAP workflow uses to flag a variant
+    /// as present in a somatic database (Li et al. 2017, Tables 4–6, "Somatic database: COSMIC...").
+    /// </summary>
+    /// <param name="variant">The variant to look up.</param>
+    /// <param name="cosmicCatalog">
+    /// Caller-supplied COSMIC records keyed by (gene, protein change); e.g. COSMIC identifier strings.
+    /// </param>
+    /// <returns>
+    /// The catalog value (e.g. a COSMIC ID) for the variant's (gene, protein change), or <c>null</c>
+    /// when the variant is not present in the supplied catalog.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="cosmicCatalog"/> is null.</exception>
+    public static string? GetCOSMICAnnotation(
+        CancerVariantAnnotationInput variant,
+        IReadOnlyDictionary<(string Gene, string ProteinChange), string> cosmicCatalog)
+    {
+        ArgumentNullException.ThrowIfNull(cosmicCatalog);
+        return cosmicCatalog.TryGetValue((variant.Gene, variant.ProteinChange), out string? id) ? id : null;
+    }
+
+    #endregion
 }
