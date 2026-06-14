@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 186 |
+| **Completed** | 187 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 48 |
+| **Not Started** | 47 |
 
 ---
 
@@ -214,7 +214,7 @@
 | ☑ | DISORDER-LC-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) |
 | ☑ | SEQ-COMPOSITION-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-COMPOSITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPOSITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
 | ☑ | SEQ-TM-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
-| ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |
+| ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md | tests/TestSpecs/SEQ-ENTROPY-PROFILE-001.md | tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateEntropyProfile_Tests.cs |
 | ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-CODON-FREQ-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-SUMMARY-001 | Statistics | 1 | - | - | - |

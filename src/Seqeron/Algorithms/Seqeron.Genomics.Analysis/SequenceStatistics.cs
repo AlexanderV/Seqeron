@@ -897,8 +897,24 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates entropy in sliding windows.
+    /// Calculates the Shannon entropy profile of a sequence: the per-symbol Shannon
+    /// entropy H = -Σ pᵢ log₂ pᵢ (in bits) of each sliding window of length
+    /// <paramref name="windowSize"/>, advanced by <paramref name="stepSize"/>.
+    /// Per-window entropy is delegated to <see cref="CalculateShannonEntropy"/>.
     /// </summary>
+    /// <param name="sequence">Input sequence; symbol frequencies are taken over its letters (case-folded).</param>
+    /// <param name="windowSize">Window width W in symbols (default 50). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in symbols (default 1).</param>
+    /// <returns>
+    /// One entropy value (bits) per window position, in order, for offsets
+    /// 0, stepSize, 2·stepSize, … up to (length − windowSize); empty when the
+    /// sequence is null/empty or <paramref name="windowSize"/> exceeds its length.
+    /// </returns>
+    /// <remarks>
+    /// Shannon C. E. (1948), A Mathematical Theory of Communication, Bell Syst. Tech. J.
+    /// 27(3):379–423. Base-2 logarithm yields bits; maximum is log₂k for k distinct symbols
+    /// (2 bits for the 4-letter DNA alphabet).
+    /// </remarks>
     public static IEnumerable<double> CalculateEntropyProfile(
         string sequence,
         int windowSize = 50,
