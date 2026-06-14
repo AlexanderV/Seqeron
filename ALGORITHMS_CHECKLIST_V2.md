@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 164 |
+| **Completed** | 165 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 70 |
+| **Not Started** | 69 |
 
 ---
 
@@ -192,7 +192,7 @@
 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) |
 | ☑ | COMPGEN-RBH-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-RBH-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-RBH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) |
 | ☑ | COMPGEN-COMPARE-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-COMPARE-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-COMPARE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CompareGenomes_Tests.cs) |
-| ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
+| ☑ | COMPGEN-REVERSAL-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REVERSAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateReversalDistance_Tests.cs) |
 | ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-ANI-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | 1 | - | - | - |
@@ -3378,7 +3378,19 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateReversalDistance(geneOrder1, geneOrder2)` | ComparativeGenomics | Reversal distance |
+| `CalculateReversalDistance(geneOrder1, geneOrder2)` | ComparativeGenomics | Canonical (unsigned breakpoint lower bound) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical method, invariants, and edge cases were derived from the Evidence (Bafna & Pevzner 1998 §2; Hunter College CompBio Lecture 16; Hübotter 2020). The method returns the **unsigned breakpoint lower bound** ⌈b/2⌉, NOT the exact signed Hannenhalli–Pevzner distance — documented as **Simplified**. The pre-existing implementation was correct as the unsigned bound but its XML doc wrongly claimed "signed permutations"; the doc was corrected and source-cited constants added. Actual complexity is **O(n)** (single pass + one hash map), not the O(n log n) listed above.
+
+**Edge Cases:**
+- [x] Identity (perm1 == perm2) → 0
+- [x] Empty / single-element → 0
+- [x] Fully reversed → 1 (b=2)
+- [x] Unequal lengths → `ArgumentException`
+- [x] Arbitrary (non 1..n) labels → relabelled to relative order
+- [x] Symmetry d(α,β) = d(β,α)
+- [x] Lower-bound property (result ≤ reversals actually applied)
+- [x] Deterministic / order-independent
 
 ---
 

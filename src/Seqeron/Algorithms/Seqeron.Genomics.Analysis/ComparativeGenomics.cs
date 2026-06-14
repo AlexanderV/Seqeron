@@ -809,10 +809,34 @@ public static class ComparativeGenomics
             GenomeSpecificGenes2: specific2);
     }
 
+    // --- Reversal distance: unsigned breakpoint lower bound (Bafna & Pevzner 1998) ---
+    // The reversal distance is the minimum number of reversals transforming one gene order into
+    // another. This method returns the BREAKPOINT LOWER BOUND on that distance for UNSIGNED
+    // permutations, NOT the exact (signed) Hannenhalli–Pevzner distance:
+    //   * A pair (π_i, π_{i+1}) of the extended permutation is a breakpoint iff π_{i+1} ≠ π_i + 1
+    //     — unsigned form: |π_{i+1} − π_i| ≠ 1 (Bafna & Pevzner 1998, SIAM J. Discrete Math.
+    //     11(2):224–240, §2; unsigned form per Hübotter 2020).
+    //   * A single reversal removes at most two breakpoints, so b(π) ≤ 2t ⇒ d(π) ≥ b(π)/2
+    //     (Hunter College CompBio Lecture 16).
+    //   * The smallest integer satisfying d ≥ b/2 is ⌈b/2⌉, returned as (b + 1) / 2 below.
+
+    // Breakpoint reduction cap: a reversal cuts two adjacencies, so it removes ≤ 2 breakpoints,
+    // giving the divisor in d(π) ≥ b(π)/2 (Hunter College CompBio Lecture 16; Bafna & Pevzner 1998).
+    private const int MaxBreakpointsRemovedPerReversal = 2;
+
     /// <summary>
-    /// Calculates the reversal distance between two gene orders.
-    /// Uses breakpoint-based approximation for signed permutations.
+    /// Calculates a lower bound on the reversal distance between two gene orders using the
+    /// <b>unsigned breakpoint</b> model of Bafna &amp; Pevzner (1998, <i>SIAM J. Discrete Math.</i>
+    /// 11(2):224–240, §2). Both inputs are treated as <b>unsigned</b> permutations of the same
+    /// marker set; the result is <c>⌈b/2⌉</c> where <c>b</c> is the number of breakpoints of the
+    /// extended relative permutation (a pair is a breakpoint iff the values are not consecutive
+    /// integers). Because a reversal removes at most two breakpoints, this value is a guaranteed
+    /// lower bound on the true reversal distance, NOT the exact signed Hannenhalli–Pevzner distance.
     /// </summary>
+    /// <param name="permutation1">Source gene order (distinct integer marker ids).</param>
+    /// <param name="permutation2">Target gene order over the same marker set.</param>
+    /// <returns>Lower bound <c>⌈b/2⌉ ≥ 0</c> on the reversal distance.</returns>
+    /// <exception cref="ArgumentException">The two orders have different lengths.</exception>
     public static int CalculateReversalDistance(
         IReadOnlyList<int> permutation1,
         IReadOnlyList<int> permutation2)
@@ -821,36 +845,38 @@ public static class ComparativeGenomics
             throw new ArgumentException("Permutations must have the same length");
 
         int n = permutation1.Count;
+        // A permutation of fewer than two markers has no internal adjacency, hence no breakpoint.
         if (n <= 1) return 0;
 
-        // Convert to relative permutation
-        var positionMap = new Dictionary<int, int>();
+        // Relabel to the relative permutation: target maps to the identity 0..n-1, so the
+        // extended permutation is (-1, relative..., n) (Hunter Lecture 16: extended = (0, π, n+1)).
+        var positionMap = new Dictionary<int, int>(n);
         for (int i = 0; i < n; i++)
             positionMap[permutation2[i]] = i;
 
         var relative = permutation1.Select(x => positionMap[x]).ToList();
 
-        // Count breakpoints: positions where consecutive elements are not adjacent
-        // Include boundaries as implicit breakpoints
+        // Count breakpoints of the extended permutation. A pair is a breakpoint iff its two values
+        // are not consecutive integers (unsigned definition, Bafna & Pevzner 1998 §2).
         int breakpoints = 0;
 
-        // Check if first element is in correct position (extended permutation with 0 at start)
+        // Left sentinel boundary: (-1, relative[0]) is a breakpoint iff relative[0] != 0.
         if (relative[0] != 0)
             breakpoints++;
 
-        // Check adjacency between consecutive elements
+        // Internal boundaries.
         for (int i = 0; i < n - 1; i++)
         {
             if (Math.Abs(relative[i + 1] - relative[i]) != 1)
                 breakpoints++;
         }
 
-        // Check if last element is in correct position (extended permutation with n at end)
+        // Right sentinel boundary: (relative[n-1], n) is a breakpoint iff relative[n-1] != n-1.
         if (relative[n - 1] != n - 1)
             breakpoints++;
 
-        // Lower bound on reversal distance (breakpoint distance / 2)
-        return (breakpoints + 1) / 2;
+        // Lower bound d(π) ≥ b/2; smallest satisfying integer is ⌈b/2⌉ = (b + 1) / 2.
+        return (breakpoints + 1) / MaxBreakpointsRemovedPerReversal;
     }
 
     /// <summary>
