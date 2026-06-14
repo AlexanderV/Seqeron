@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 222 |
+| **Completed** | 223 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 12 |
+| **Not Started** | 11 |
 
 ---
 
@@ -251,7 +251,7 @@
 | ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
 | ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
 | ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
-| ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-HETERO-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
 | ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
@@ -4637,21 +4637,24 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-HETERO-001: Tumor Heterogeneity Analysis
+#### ONCO-HETERO-001: Tumor Heterogeneity Analysis ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.AnalyzeHeterogeneity(...)` |
+| **Canonical** | `OncologyAnalyzer.AnalyzeHeterogeneity(...)` |
 | **Complexity** | O(n log n) |
 | **Invariant** | ITH_score ≥ 0 |
 | **Depends on** | ONCO-CCF-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
+
+**Note:** implemented in `OncologyAnalyzer` (the area's analyzer class; the registry's `TumorEvolutionAnalyzer` label is logical, mirroring ONCO-PHYLO-001/ONCO-CCF-001). ITH metrics: MATH = 100·1.4826·MAD(VAF)/median(VAF) (Mroz & Rocco 2013); Shannon H = −Σ pᵢ ln pᵢ over CCF-cluster fractions (Shannon 1948; Liu & Zhang 2017); subclone count = occupied CCF clusters; subclonal fraction = #(CCF < 0.95)/n (Landau 2013).
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `AnalyzeHeterogeneity(variants, ccfValues)` | TumorEvolutionAnalyzer | Canonical |
-| `CalculateITH(ccfDistribution)` | TumorEvolutionAnalyzer | ITH score |
-| `InferSubclones(ccfClusters)` | TumorEvolutionAnalyzer | Subclone count |
+| `AnalyzeHeterogeneity(variants, ccfValues, clusterCount)` | OncologyAnalyzer | Canonical |
+| `CalculateITH(ccfDistribution)` | OncologyAnalyzer | ITH score (MATH) |
+| `InferSubclones(ccfClusters)` | OncologyAnalyzer | Subclone count |
 
 ---
 
