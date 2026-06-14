@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 203 |
+| **Completed** | 204 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 31 |
+| **Not Started** | 30 |
 
 ---
 
@@ -231,7 +231,7 @@
 | ☑ | ONCO-HRD-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) |
 | ☑ | ONCO-LOH-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-LOH-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-LOH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) |
 | ☑ | ONCO-SIG-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) |
-| ☐ | ONCO-SIG-002 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-SIG-002 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) |
 | ☐ | ONCO-SIG-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-004 | Oncology | 1 | - | - | - |
 | ☐ | ONCO-FUSION-001 | Oncology | 3 | - | - | - |
@@ -4073,19 +4073,35 @@ implemented here (reference profiles must not be fabricated). Signatures: SBS (D
 
 ---
 
-#### ONCO-SIG-002: Trinucleotide Context Analysis
+#### ONCO-SIG-002: Mutational Signature Fitting / Refitting ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.GetTrinucleotideContext(...)` |
-| **Complexity** | O(n) |
-| **Depends on** | ONCO-SOMATIC-001 |
+| **Canonical** | `OncologyAnalyzer.FitSignatures(...)` / `OncologyAnalyzer.CosineSimilarity(...)` |
+| **Complexity** | NNLS active-set: O(k³ + k²·n) per outer iteration, ≤ O(k) outer iterations (k signatures, n channels); cosine O(n) |
+| **Invariant** | all exposures ≥ 0; cosine ∈ [0,1]; residual SSE ≤ ‖d‖²; normalized exposures sum to 1 |
+| **Depends on** | ONCO-SIG-001 (96-context catalog supplies the observed `catalog` vector) |
 
-**Methods:**
+**Scope note:** the by-area registry originally titled this unit "Trinucleotide Context Analysis", but the
+trinucleotide-context catalog (`ClassifySbsContext` / `Build96ContextCatalog`) was already implemented under
+ONCO-SIG-001. The genuinely next mutational-signature piece — and the one implemented here — is signature
+**fitting/refitting**: decomposing an observed 96-channel catalog into a non-negative combination of
+caller-supplied reference signatures via NNLS (min‖S·x−d‖², x≥0; Blokzijl et al. 2018; Lawson & Hanson 1974)
+plus cosine similarity between catalogs/signatures (Blokzijl et al. 2018; iMutSig). Reference signature
+profiles are caller-supplied (not fabricated). External evidence supersedes the original by-area title.
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `GetTrinucleotideContext(variant, refGenome)` | MutationalSignatures | Canonical |
-| `Build96ChannelSpectrum(variants)` | MutationalSignatures | SBS spectrum |
+| `CosineSimilarity(a, b)` | OncologyAnalyzer | Canonical |
+| `FitSignatures(catalog, signatures)` | OncologyAnalyzer | Canonical |
+| `ReconstructCatalog(signatures, exposures)` | OncologyAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Zero observed catalog ⇒ all exposures 0, reconstruction 0
+- [x] Zero-norm vector in cosine similarity (÷0) ⇒ 0.0
+- [x] Unconstrained LS coefficient < 0 ⇒ clamped to 0, refit on remaining set
+- [x] Null / empty / dimension-mismatched inputs ⇒ ArgumentNullException / ArgumentException
 
 ---
 

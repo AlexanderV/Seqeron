@@ -2063,4 +2063,556 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Signature Fitting / Refitting (ONCO-SIG-002)
+
+    /// <summary>
+    /// Convergence tolerance ε for the Lawson-Hanson active-set NNLS main loop: the iteration stops when the
+    /// largest gradient component over the inactive set R is ≤ ε. Source: Lawson C.L. &amp; Hanson R.J. (1974),
+    /// <i>Solving Least Squares Problems</i>, Ch. 23 — the active-set algorithm terminates when
+    /// max(w_R) ≤ ε (https://en.wikipedia.org/wiki/Non-negative_least_squares). A small positive value
+    /// (1e-12) makes the stop effectively exact for the well-conditioned signature matrices used here.
+    /// </summary>
+    private const double NnlsTolerance = 1e-12;
+
+    /// <summary>
+    /// Maximum number of outer (active-set growth) iterations for the NNLS solver. The Lawson-Hanson method
+    /// adds at most one index per outer iteration and is guaranteed to terminate in a finite number of steps;
+    /// this cap (a small multiple of the number of signatures) is a safety bound against floating-point
+    /// non-termination. Source: Lawson &amp; Hanson (1974), Ch. 23 (finite termination of the active-set method).
+    /// </summary>
+    private const int NnlsMaxOuterIterationsPerSignature = 30;
+
+    /// <summary>
+    /// The result of fitting (refitting) an observed mutational catalog to a set of reference signatures.
+    /// </summary>
+    /// <param name="Exposures">
+    /// The fitted non-negative contribution (weight) of each reference signature, in signature order — the
+    /// NNLS solution x of min‖S·x − d‖² with x ≥ 0 (Blokzijl et al. 2018; Lawson &amp; Hanson 1974).
+    /// </param>
+    /// <param name="NormalizedExposures">
+    /// <paramref name="Exposures"/> divided by their sum, so they sum to 1 when the total is positive (all
+    /// zero otherwise) — the proportion of mutations attributed to each signature (Rosenthal et al. 2016).
+    /// </param>
+    /// <param name="Reconstruction">The reconstructed catalog S·x (Rosenthal et al. 2016, R = S·W).</param>
+    /// <param name="ReconstructionCosineSimilarity">
+    /// Cosine similarity between the observed catalog d and the reconstruction S·x — the reconstruction
+    /// quality measure (Blokzijl et al. 2018); 1.0 means the catalog is exactly representable.
+    /// </param>
+    public readonly record struct SignatureFitResult(
+        IReadOnlyList<double> Exposures,
+        IReadOnlyList<double> NormalizedExposures,
+        IReadOnlyList<double> Reconstruction,
+        double ReconstructionCosineSimilarity);
+
+    /// <summary>
+    /// Computes the cosine similarity between two equal-length non-negative vectors:
+    /// <code>sim(A,B) = Σᵢ AᵢBᵢ / ( √(Σᵢ Aᵢ²) · √(Σᵢ Bᵢ²) )</code>
+    /// i.e. the dot product divided by the product of the Euclidean norms — the cosine of the angle between
+    /// the two vectors. The value lies in [0, 1] for non-negative inputs (0 = independent / orthogonal,
+    /// 1 = identical direction) and is invariant to positive scaling of either vector. Source: Blokzijl et al.
+    /// (2018), <i>Genome Medicine</i> 10:33 (§ "Mutational profile similarity"); Pan &amp; Wang (2020), iMutSig.
+    /// When either vector has zero Euclidean norm the cosine is undefined (division by zero); this method
+    /// returns 0.0 for that degenerate case (no shared direction).
+    /// </summary>
+    /// <param name="a">First vector (e.g. a mutational profile / 96-channel catalog).</param>
+    /// <param name="b">Second vector of the same length as <paramref name="a"/>.</param>
+    /// <returns>Cosine similarity in [0, 1]; 0.0 when either vector is all-zero.</returns>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <exception cref="ArgumentException">The two vectors have different lengths, or are empty.</exception>
+    public static double CosineSimilarity(IReadOnlyList<double> a, IReadOnlyList<double> b)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+
+        if (a.Count == 0 || b.Count == 0)
+        {
+            throw new ArgumentException("Cosine similarity is undefined for empty vectors.", nameof(a));
+        }
+
+        if (a.Count != b.Count)
+        {
+            throw new ArgumentException(
+                $"Vectors must have the same length (got {a.Count} and {b.Count}).", nameof(b));
+        }
+
+        double dot = 0.0;
+        double normASquared = 0.0;
+        double normBSquared = 0.0;
+        for (int i = 0; i < a.Count; i++)
+        {
+            dot += a[i] * b[i];
+            normASquared += a[i] * a[i];
+            normBSquared += b[i] * b[i];
+        }
+
+        if (normASquared == 0.0 || normBSquared == 0.0)
+        {
+            // Undefined (zero-norm vector has no direction); treated as no shared direction.
+            return 0.0;
+        }
+
+        return dot / (Math.Sqrt(normASquared) * Math.Sqrt(normBSquared));
+    }
+
+    /// <summary>
+    /// Reconstructs a mutational catalog from reference signatures and their exposures: the matrix-vector
+    /// product S·x, where each entry is Σⱼ signatures[j][channel] · exposures[j]. Source: Rosenthal et al.
+    /// (2016), <i>Genome Biology</i> 17:31 — the reconstructed profile is S·W.
+    /// </summary>
+    /// <param name="signatures">
+    /// Reference signatures as a list of equal-length channel vectors (one vector per signature; element
+    /// <c>signatures[j][k]</c> is the weight of signature j in channel k).
+    /// </param>
+    /// <param name="exposures">The per-signature exposure (weight) of each signature, same count as signatures.</param>
+    /// <returns>The reconstructed catalog vector of length equal to the signature channel count.</returns>
+    /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
+    /// <exception cref="ArgumentException">No signatures, ragged signatures, or count mismatch with exposures.</exception>
+    public static IReadOnlyList<double> ReconstructCatalog(
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        IReadOnlyList<double> exposures)
+    {
+        int channelCount = ValidateSignatures(signatures);
+        ArgumentNullException.ThrowIfNull(exposures);
+
+        if (exposures.Count != signatures.Count)
+        {
+            throw new ArgumentException(
+                $"Exposure count ({exposures.Count}) must equal signature count ({signatures.Count}).",
+                nameof(exposures));
+        }
+
+        var reconstruction = new double[channelCount];
+        for (int j = 0; j < signatures.Count; j++)
+        {
+            IReadOnlyList<double> signature = signatures[j];
+            double weight = exposures[j];
+            for (int k = 0; k < channelCount; k++)
+            {
+                reconstruction[k] += signature[k] * weight;
+            }
+        }
+
+        return reconstruction;
+    }
+
+    /// <summary>
+    /// Fits (refits) an observed mutational catalog to a set of caller-supplied reference signatures by solving
+    /// the non-negative least-squares problem
+    /// <code>minₓ ‖ S·x − d ‖₂²,  subject to x ≥ 0</code>
+    /// where the columns of S are the reference signatures, d is the observed catalog, and x is the fitted
+    /// per-signature exposure (contribution) vector. The decomposition is the standard signature-refitting
+    /// model: the catalog is projected onto the non-negative cone spanned by the reference signatures
+    /// (Blokzijl et al. 2018). Reference signature profiles are <b>not</b> hardcoded — they are supplied by the
+    /// caller (e.g. COSMIC SBS profiles); this method only performs the fit. The NNLS problem is solved with
+    /// the Lawson-Hanson active-set algorithm (Lawson &amp; Hanson 1974). The result also exposes the
+    /// proportion-normalised exposures (Rosenthal et al. 2016), the reconstruction S·x, and the cosine
+    /// similarity between d and S·x as a reconstruction-quality measure (Blokzijl et al. 2018).
+    /// </summary>
+    /// <param name="catalog">The observed mutational catalog d (e.g. a 96-channel SBS spectrum), non-negative.</param>
+    /// <param name="signatures">Reference signatures as equal-length channel vectors (one per signature).</param>
+    /// <returns>The fit result: exposures, normalised exposures, reconstruction, and reconstruction cosine.</returns>
+    /// <exception cref="ArgumentNullException">Any argument (or a signature vector) is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// No signatures, ragged signatures, or the catalog length differs from the signature channel count.
+    /// </exception>
+    public static SignatureFitResult FitSignatures(
+        IReadOnlyList<double> catalog,
+        IReadOnlyList<IReadOnlyList<double>> signatures)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        int channelCount = ValidateSignatures(signatures);
+
+        if (catalog.Count != channelCount)
+        {
+            throw new ArgumentException(
+                $"Catalog length ({catalog.Count}) must equal the signature channel count ({channelCount}).",
+                nameof(catalog));
+        }
+
+        double[] exposures = SolveNonNegativeLeastSquares(signatures, catalog, channelCount);
+
+        IReadOnlyList<double> reconstruction = ReconstructCatalog(signatures, exposures);
+        double[] normalized = NormalizeExposures(exposures);
+        double reconstructionCosine = CosineSimilarity(catalog, reconstruction);
+
+        return new SignatureFitResult(exposures, normalized, reconstruction, reconstructionCosine);
+    }
+
+    /// <summary>
+    /// Normalises exposures into proportions that sum to 1 (each divided by the total), or all zeros when the
+    /// total is zero. Source: Rosenthal et al. (2016) — "the weights W are normalized between 0 and 1".
+    /// </summary>
+    private static double[] NormalizeExposures(double[] exposures)
+    {
+        double sum = 0.0;
+        foreach (double e in exposures)
+        {
+            sum += e;
+        }
+
+        var normalized = new double[exposures.Length];
+        if (sum > 0.0)
+        {
+            for (int i = 0; i < exposures.Length; i++)
+            {
+                normalized[i] = exposures[i] / sum;
+            }
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Solves minₓ ‖ S·x − d ‖₂² subject to x ≥ 0 with the Lawson-Hanson active-set algorithm.
+    /// Source: Lawson C.L. &amp; Hanson R.J. (1974), <i>Solving Least Squares Problems</i>, Ch. 23
+    /// (https://en.wikipedia.org/wiki/Non-negative_least_squares). Index set P holds the passive (free,
+    /// possibly non-zero) variables; R holds the active (clamped-to-zero) variables; the gradient
+    /// w = Sᵀ(d − S·x) selects the next variable to free.
+    /// </summary>
+    /// <param name="signatures">Signature matrix S (column j = signatures[j]).</param>
+    /// <param name="catalog">Observed vector d.</param>
+    /// <param name="channelCount">Number of channels (rows of S, length of d).</param>
+    /// <returns>The NNLS solution x (length = number of signatures).</returns>
+    private static double[] SolveNonNegativeLeastSquares(
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        IReadOnlyList<double> catalog,
+        int channelCount)
+    {
+        int n = signatures.Count;
+        var x = new double[n];
+        bool[] passive = new bool[n]; // true => index in P, false => in R
+
+        int maxOuter = n * NnlsMaxOuterIterationsPerSignature;
+        int outer = 0;
+
+        while (outer++ < maxOuter)
+        {
+            // w = Sᵀ(d − S·x); only inactive (R) components matter for selection.
+            double[] residual = ComputeResidual(signatures, x, catalog, channelCount);
+            double[] gradient = ComputeGradient(signatures, residual);
+
+            int j = -1;
+            double maxGradient = NnlsTolerance;
+            for (int i = 0; i < n; i++)
+            {
+                if (!passive[i] && gradient[i] > maxGradient)
+                {
+                    maxGradient = gradient[i];
+                    j = i;
+                }
+            }
+
+            if (j < 0)
+            {
+                // R empty or max(w_R) ≤ ε — KKT conditions satisfied.
+                break;
+            }
+
+            passive[j] = true;
+
+            // Inner loop: solve the unconstrained LS on P; if any becomes ≤ 0, take the bounded step.
+            int innerGuard = 0;
+            while (innerGuard++ <= n)
+            {
+                double[] s = SolveLeastSquaresOnPassiveSet(signatures, catalog, passive, channelCount, n);
+
+                double minPassive = double.PositiveInfinity;
+                for (int i = 0; i < n; i++)
+                {
+                    if (passive[i] && s[i] < minPassive)
+                    {
+                        minPassive = s[i];
+                    }
+                }
+
+                if (minPassive > 0.0)
+                {
+                    x = s;
+                    break;
+                }
+
+                // α = min over i in P with s_i ≤ 0 of x_i / (x_i − s_i).
+                double alpha = double.PositiveInfinity;
+                for (int i = 0; i < n; i++)
+                {
+                    if (passive[i] && s[i] <= 0.0)
+                    {
+                        double denom = x[i] - s[i];
+                        if (denom != 0.0)
+                        {
+                            double candidate = x[i] / denom;
+                            if (candidate < alpha)
+                            {
+                                alpha = candidate;
+                            }
+                        }
+                    }
+                }
+
+                if (double.IsPositiveInfinity(alpha))
+                {
+                    // Numerical safeguard: no feasible step (should not occur for valid inputs).
+                    x = s;
+                    break;
+                }
+
+                for (int i = 0; i < n; i++)
+                {
+                    x[i] += alpha * (s[i] - x[i]);
+                }
+
+                // Move indices with x_i ≤ 0 from P back to R.
+                for (int i = 0; i < n; i++)
+                {
+                    if (passive[i] && x[i] <= 0.0)
+                    {
+                        x[i] = 0.0;
+                        passive[i] = false;
+                    }
+                }
+            }
+        }
+
+        return x;
+    }
+
+    /// <summary>Computes the residual d − S·x.</summary>
+    private static double[] ComputeResidual(
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        double[] x,
+        IReadOnlyList<double> catalog,
+        int channelCount)
+    {
+        var residual = new double[channelCount];
+        for (int k = 0; k < channelCount; k++)
+        {
+            residual[k] = catalog[k];
+        }
+
+        for (int j = 0; j < signatures.Count; j++)
+        {
+            double weight = x[j];
+            if (weight == 0.0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<double> signature = signatures[j];
+            for (int k = 0; k < channelCount; k++)
+            {
+                residual[k] -= signature[k] * weight;
+            }
+        }
+
+        return residual;
+    }
+
+    /// <summary>Computes the gradient w = Sᵀ·residual.</summary>
+    private static double[] ComputeGradient(
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        double[] residual)
+    {
+        var gradient = new double[signatures.Count];
+        for (int j = 0; j < signatures.Count; j++)
+        {
+            IReadOnlyList<double> signature = signatures[j];
+            double sum = 0.0;
+            for (int k = 0; k < residual.Length; k++)
+            {
+                sum += signature[k] * residual[k];
+            }
+
+            gradient[j] = sum;
+        }
+
+        return gradient;
+    }
+
+    /// <summary>
+    /// Solves the unconstrained least-squares problem restricted to the passive set P:
+    /// s_P = ((S_P)ᵀ S_P)⁻¹ (S_P)ᵀ d, with s_R = 0, via the normal equations solved by Gaussian elimination.
+    /// Source: Lawson &amp; Hanson (1974), Ch. 23.
+    /// </summary>
+    private static double[] SolveLeastSquaresOnPassiveSet(
+        IReadOnlyList<IReadOnlyList<double>> signatures,
+        IReadOnlyList<double> catalog,
+        bool[] passive,
+        int channelCount,
+        int n)
+    {
+        var passiveIndices = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            if (passive[i])
+            {
+                passiveIndices.Add(i);
+            }
+        }
+
+        int p = passiveIndices.Count;
+        var s = new double[n];
+        if (p == 0)
+        {
+            return s;
+        }
+
+        // Normal equations: (S_Pᵀ S_P) z = S_Pᵀ d.
+        var ata = new double[p, p];
+        var atb = new double[p];
+        for (int a = 0; a < p; a++)
+        {
+            IReadOnlyList<double> sigA = signatures[passiveIndices[a]];
+            double rhs = 0.0;
+            for (int k = 0; k < channelCount; k++)
+            {
+                rhs += sigA[k] * catalog[k];
+            }
+
+            atb[a] = rhs;
+
+            for (int b = 0; b < p; b++)
+            {
+                IReadOnlyList<double> sigB = signatures[passiveIndices[b]];
+                double dot = 0.0;
+                for (int k = 0; k < channelCount; k++)
+                {
+                    dot += sigA[k] * sigB[k];
+                }
+
+                ata[a, b] = dot;
+            }
+        }
+
+        double[] z = SolveLinearSystem(ata, atb, p);
+        for (int a = 0; a < p; a++)
+        {
+            s[passiveIndices[a]] = z[a];
+        }
+
+        return s;
+    }
+
+    /// <summary>
+    /// Solves the dense linear system M·z = rhs (M is p×p, symmetric positive semi-definite here) by Gaussian
+    /// elimination with partial pivoting. Standard direct method (CLRS, §28; Numerical Recipes §2.1).
+    /// </summary>
+    private static double[] SolveLinearSystem(double[,] matrix, double[] rhs, int p)
+    {
+        // Work on copies so the inputs are not mutated.
+        var m = new double[p, p];
+        var b = new double[p];
+        for (int i = 0; i < p; i++)
+        {
+            b[i] = rhs[i];
+            for (int k = 0; k < p; k++)
+            {
+                m[i, k] = matrix[i, k];
+            }
+        }
+
+        for (int col = 0; col < p; col++)
+        {
+            // Partial pivot: largest magnitude in this column at or below the diagonal.
+            int pivot = col;
+            double best = Math.Abs(m[col, col]);
+            for (int row = col + 1; row < p; row++)
+            {
+                double magnitude = Math.Abs(m[row, col]);
+                if (magnitude > best)
+                {
+                    best = magnitude;
+                    pivot = row;
+                }
+            }
+
+            if (pivot != col)
+            {
+                for (int k = 0; k < p; k++)
+                {
+                    (m[col, k], m[pivot, k]) = (m[pivot, k], m[col, k]);
+                }
+
+                (b[col], b[pivot]) = (b[pivot], b[col]);
+            }
+
+            double diagonal = m[col, col];
+            if (diagonal == 0.0)
+            {
+                // Singular column (collinear signatures); leave this component at 0.
+                continue;
+            }
+
+            for (int row = col + 1; row < p; row++)
+            {
+                double factor = m[row, col] / diagonal;
+                if (factor == 0.0)
+                {
+                    continue;
+                }
+
+                for (int k = col; k < p; k++)
+                {
+                    m[row, k] -= factor * m[col, k];
+                }
+
+                b[row] -= factor * b[col];
+            }
+        }
+
+        // Back-substitution.
+        var z = new double[p];
+        for (int row = p - 1; row >= 0; row--)
+        {
+            double sum = b[row];
+            for (int k = row + 1; k < p; k++)
+            {
+                sum -= m[row, k] * z[k];
+            }
+
+            double diagonal = m[row, row];
+            z[row] = diagonal == 0.0 ? 0.0 : sum / diagonal;
+        }
+
+        return z;
+    }
+
+    /// <summary>
+    /// Validates a signature matrix (non-null, at least one signature, each signature non-null and equal-length,
+    /// non-empty) and returns the common channel count.
+    /// </summary>
+    private static int ValidateSignatures(IReadOnlyList<IReadOnlyList<double>> signatures)
+    {
+        ArgumentNullException.ThrowIfNull(signatures);
+
+        if (signatures.Count == 0)
+        {
+            throw new ArgumentException("At least one reference signature is required.", nameof(signatures));
+        }
+
+        IReadOnlyList<double> first = signatures[0]
+            ?? throw new ArgumentException("Signature vectors cannot be null.", nameof(signatures));
+        int channelCount = first.Count;
+        if (channelCount == 0)
+        {
+            throw new ArgumentException("Signature vectors cannot be empty.", nameof(signatures));
+        }
+
+        for (int j = 1; j < signatures.Count; j++)
+        {
+            IReadOnlyList<double> signature = signatures[j]
+                ?? throw new ArgumentException("Signature vectors cannot be null.", nameof(signatures));
+            if (signature.Count != channelCount)
+            {
+                throw new ArgumentException(
+                    $"All signatures must have the same length (signature 0 has {channelCount}, " +
+                    $"signature {j} has {signature.Count}).",
+                    nameof(signatures));
+            }
+        }
+
+        return channelCount;
+    }
+
+    #endregion
 }
