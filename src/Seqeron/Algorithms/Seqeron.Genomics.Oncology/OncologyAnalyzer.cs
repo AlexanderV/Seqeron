@@ -5596,4 +5596,188 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Clonal Hematopoiesis Filtering (ONCO-CHIP-001)
+
+    /// <summary>
+    /// Minimum variant allele fraction (VAF) for a driver-gene somatic mutation in blood to meet the
+    /// clonal-hematopoiesis-of-indeterminate-potential (CHIP) definition. Source: Steensma et al. (2015),
+    /// <i>Blood</i> 126(1):9–16 — "the mutant allele fraction must be ≥2% in the peripheral blood"
+    /// (threshold is inclusive: ≥ 0.02).
+    /// </summary>
+    public const double ChipVafThreshold = 0.02;
+
+    /// <summary>
+    /// Default canonical CHIP driver-gene panel (HGNC symbols, upper-case): genes recurrently mutated in
+    /// clonal hematopoiesis. Source: Steensma et al. (2015) Fig. 2A and Genovese et al. (2014),
+    /// <i>NEJM</i> 371(26):2477–2487 ("Four genes (DNMT3A, TET2, ASXL1, and PPM1D) had disproportionately
+    /// high numbers of somatic mutations"; JAK2 V617F and SF3B1 K700E recurrent; SRSF2/TP53 are established
+    /// CHIP drivers). This is a labelled canonical set, NOT an invented value — callers may override it via
+    /// the <c>chipGenes</c> parameter (the algorithm is gene-panel-agnostic, per Razavi et al. 2019).
+    /// </summary>
+    public static readonly IReadOnlyCollection<string> DefaultChipGenes = new[]
+    {
+        "DNMT3A", "TET2", "ASXL1", "TP53", "JAK2", "SF3B1", "SRSF2", "PPM1D"
+    };
+
+    /// <summary>
+    /// A variant observed in plasma cell-free DNA (cfDNA) for CHIP analysis, carrying its locus, gene
+    /// symbol, and plasma VAF, plus optional matched white-blood-cell (WBC) alt-read evidence used by
+    /// <see cref="FilterCHIP(IEnumerable{ChipVariant}, IEnumerable{ChipVariant}, IReadOnlyCollection{string}?, double, int)"/>.
+    /// </summary>
+    /// <param name="Chromosome">Contig / chromosome identifier of the locus.</param>
+    /// <param name="Position">1-based reference position.</param>
+    /// <param name="ReferenceAllele">Reference allele.</param>
+    /// <param name="AlternateAllele">Alternate (mutant) allele.</param>
+    /// <param name="Gene">HGNC gene symbol the variant falls in (case-insensitive on comparison).</param>
+    /// <param name="Vaf">Plasma variant allele fraction in [0, 1].</param>
+    /// <param name="AltReads">Alternate (mutant) supporting reads at this locus (≥ 0); used as WBC evidence.</param>
+    public readonly record struct ChipVariant(
+        string Chromosome,
+        int Position,
+        string ReferenceAllele,
+        string AlternateAllele,
+        string Gene,
+        double Vaf,
+        int AltReads = 0);
+
+    /// <summary>
+    /// Reports whether a gene symbol belongs to the CHIP driver-gene panel (case-insensitive). Source:
+    /// Steensma et al. (2015) / Genovese et al. (2014) canonical driver genes; the panel is caller-supplied
+    /// when <paramref name="chipGenes"/> is provided, otherwise <see cref="DefaultChipGenes"/>.
+    /// </summary>
+    /// <param name="gene">Gene symbol to test (null/empty ⇒ <c>false</c>).</param>
+    /// <param name="chipGenes">Optional caller-supplied CHIP panel; defaults to <see cref="DefaultChipGenes"/>.</param>
+    /// <returns><c>true</c> when <paramref name="gene"/> is in the panel; otherwise <c>false</c>.</returns>
+    public static bool IsCanonicalChipGene(string? gene, IReadOnlyCollection<string>? chipGenes = null)
+    {
+        if (string.IsNullOrEmpty(gene))
+        {
+            return false;
+        }
+
+        IReadOnlyCollection<string> panel = chipGenes ?? DefaultChipGenes;
+        foreach (string g in panel)
+        {
+            if (string.Equals(g, gene, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Identifies candidate clonal-hematopoiesis (CHIP) variants by the gene + VAF heuristic: a variant is
+    /// flagged CHIP when its gene is in the CHIP driver panel AND its plasma VAF is at or above
+    /// <paramref name="minVaf"/> (default <see cref="ChipVafThreshold"/> = 0.02). Source: Steensma et al.
+    /// (2015) — a somatic mutation in a gene recurrently mutated in hematologic malignancies at VAF ≥ 2%.
+    /// This is a candidate flag; the definitive tumour-vs-CH origin test is matched-WBC subtraction
+    /// (<see cref="FilterCHIP(IEnumerable{ChipVariant}, IEnumerable{ChipVariant}, IReadOnlyCollection{string}?, double, int)"/>,
+    /// Razavi et al. 2019).
+    /// </summary>
+    /// <param name="variants">cfDNA variants to screen (non-null).</param>
+    /// <param name="chipGenes">Optional caller-supplied CHIP panel; defaults to <see cref="DefaultChipGenes"/>.</param>
+    /// <param name="minVaf">Minimum VAF to meet the CHIP definition (default <see cref="ChipVafThreshold"/>); must be in (0, 1].</param>
+    /// <returns>The subset of <paramref name="variants"/> flagged as candidate CHIP, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minVaf"/> ∉ (0, 1].</exception>
+    public static IReadOnlyList<ChipVariant> IdentifyCHIPVariants(
+        IEnumerable<ChipVariant> variants,
+        IReadOnlyCollection<string>? chipGenes = null,
+        double minVaf = ChipVafThreshold)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        if (minVaf <= 0.0 || minVaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
+        }
+
+        var result = new List<ChipVariant>();
+        foreach (ChipVariant variant in variants)
+        {
+            if (IsCanonicalChipGene(variant.Gene, chipGenes) && variant.Vaf >= minVaf)
+            {
+                result.Add(variant);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Removes clonal-hematopoiesis (CHIP) confounder variants from a plasma cfDNA call set so that the
+    /// retained variants are candidate tumour-derived variants. A cfDNA variant is removed when EITHER
+    /// (a) it is also detected in the matched white-blood-cell (WBC) sample at the same locus — the
+    /// definitive matched-WBC origin test (Razavi et al. 2019, <i>Nat Med</i> 25:1928–1937: matched
+    /// cfDNA–WBC sequencing assigns variant origin tumour-vs-CH) — OR (b) it meets the gene + VAF CHIP
+    /// heuristic (<see cref="IdentifyCHIPVariants"/>, Steensma et al. 2015). Rule (a) applies regardless of
+    /// gene; rule (b) is the fallback when no matched-WBC evidence exists. Output is a subset of the input
+    /// in input order.
+    /// </summary>
+    /// <param name="variants">Plasma cfDNA variants to filter (non-null).</param>
+    /// <param name="whiteBloodCellVariants">
+    /// Matched WBC variants; a cfDNA variant sharing a locus (chromosome, position, ref, alt) with a WBC
+    /// variant carrying ≥ <paramref name="minWbcAltReads"/> alt reads is treated as WBC/CH-derived.
+    /// </param>
+    /// <param name="chipGenes">Optional caller-supplied CHIP panel; defaults to <see cref="DefaultChipGenes"/>.</param>
+    /// <param name="minVaf">Minimum VAF for the gene+VAF CHIP heuristic (default <see cref="ChipVafThreshold"/>); in (0, 1].</param>
+    /// <param name="minWbcAltReads">Minimum alt reads in matched WBC to count the locus as present (default 1; Wan et al. 2020).</param>
+    /// <returns>cfDNA variants retained as candidate tumour-derived, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> or <paramref name="whiteBloodCellVariants"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minVaf"/> ∉ (0, 1], or <paramref name="minWbcAltReads"/> &lt; 1.</exception>
+    public static IReadOnlyList<ChipVariant> FilterCHIP(
+        IEnumerable<ChipVariant> variants,
+        IEnumerable<ChipVariant> whiteBloodCellVariants,
+        IReadOnlyCollection<string>? chipGenes = null,
+        double minVaf = ChipVafThreshold,
+        int minWbcAltReads = DefaultMrdMinSupportingReads)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+        ArgumentNullException.ThrowIfNull(whiteBloodCellVariants);
+
+        if (minVaf <= 0.0 || minVaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minVaf), minVaf, "Minimum CHIP VAF must be in the interval (0, 1].");
+        }
+
+        if (minWbcAltReads < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minWbcAltReads), minWbcAltReads, "Minimum WBC alt reads must be at least 1.");
+        }
+
+        // Build the set of loci present in the matched WBC (alt reads >= cutoff) for O(1) lookup.
+        var wbcLoci = new HashSet<(string, int, string, string)>();
+        foreach (ChipVariant wbc in whiteBloodCellVariants)
+        {
+            if (wbc.AltReads >= minWbcAltReads)
+            {
+                wbcLoci.Add(LocusKey(wbc));
+            }
+        }
+
+        var retained = new List<ChipVariant>();
+        foreach (ChipVariant variant in variants)
+        {
+            bool inMatchedWbc = wbcLoci.Contains(LocusKey(variant));
+            bool meetsChipHeuristic = IsCanonicalChipGene(variant.Gene, chipGenes) && variant.Vaf >= minVaf;
+            if (!inMatchedWbc && !meetsChipHeuristic)
+            {
+                retained.Add(variant);
+            }
+        }
+
+        return retained;
+    }
+
+    /// <summary>Locus identity key (chromosome, 1-based position, ref allele, alt allele) for matched-WBC subtraction.</summary>
+    private static (string, int, string, string) LocusKey(ChipVariant v) =>
+        (v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele);
+
+    #endregion
 }

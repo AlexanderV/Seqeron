@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 219 |
+| **Completed** | 220 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 15 |
+| **Not Started** | 14 |
 
 ---
 
@@ -248,7 +248,7 @@
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
-| ☐ | ONCO-CHIP-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
 | ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
@@ -4556,21 +4556,33 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CHIP-001: Clonal Hematopoiesis Filtering
+#### ONCO-CHIP-001: Clonal Hematopoiesis Filtering ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `LiquidBiopsyAnalyzer.FilterCHIP(...)` |
+| **Canonical** | `OncologyAnalyzer.FilterCHIP(...)` |
 | **Complexity** | O(n) |
 | **Depends on** | ONCO-CTDNA-001 |
+
+> Conflict resolved: by-area table originally named `LiquidBiopsyAnalyzer`, but all ONCO units
+> live in `OncologyAnalyzer` (the actual repository class); implemented there to match every sibling.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FilterCHIP(variants, whiteBloodCellVcf)` | LiquidBiopsyAnalyzer | Canonical |
-| `IdentifyCHIPVariants(variants)` | LiquidBiopsyAnalyzer | Known CHIP genes |
+| `FilterCHIP(variants, whiteBloodCellVariants, ...)` | OncologyAnalyzer | Canonical (matched-WBC subtraction, Razavi 2019) |
+| `IdentifyCHIPVariants(variants, chipGenes?, minVaf?)` | OncologyAnalyzer | Canonical (gene + VAF≥0.02, Steensma 2015) |
+| `IsCanonicalChipGene(gene, chipGenes?)` | OncologyAnalyzer | Internal (case-insensitive panel membership) |
 
-**CHIP Genes:** DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1
+**CHIP Genes (canonical default, caller-overridable):** DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM1D — Steensma 2015 Fig 2A / Genovese 2014.
+**VAF threshold:** ≥ 2% (0.02), inclusive — Steensma et al. (2015) *Blood* 126(1):9–16.
+
+**Edge Cases:**
+- [x] CHIP gene at VAF ≥ 0.02 flagged; sub-2% not flagged (Steensma 2015).
+- [x] Non-CHIP gene never flagged regardless of VAF.
+- [x] Matched-WBC variant removed regardless of gene (Razavi 2019).
+- [x] WBC-absent variant retained as tumour candidate.
+- [x] null / empty / out-of-range inputs validated.
 
 ---
 
@@ -5238,7 +5250,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
 | ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
-| LiquidBiopsyAnalyzer | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☐ |
+| LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
 | TumorEvolutionAnalyzer | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ |
 | HlaTyper | ONCO-HLA-001 | ☐ |
 | ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
