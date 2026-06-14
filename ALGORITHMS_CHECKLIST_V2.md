@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 162 |
+| **Completed** | 163 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 72 |
+| **Not Started** | 71 |
 
 ---
 
@@ -190,7 +190,7 @@
 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-WINDOW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) |
 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | [Evidence](docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-DUST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) |
 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) |
-| ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
+| ☑ | COMPGEN-RBH-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-RBH-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-RBH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) |
 | ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
@@ -3327,7 +3327,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ### 51. Extended Comparative Genomics (6 units)
 
-#### COMPGEN-RBH-001: Reciprocal Best Hits
+#### ☑ COMPGEN-RBH-001: Reciprocal Best Hits
 
 | Field | Value |
 |------|----------|
@@ -3338,7 +3338,19 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindReciprocalBestHits(genes1, genes2)` | ComparativeGenomics | RBH ortholog identification |
+| `FindReciprocalBestHits(genes1, genes2, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (RBH ortholog identification) |
+| `FindOrthologs(...)` | ComparativeGenomics | Delegate (delegates to RBH) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical method, signature, invariants, and edge cases were derived from the Evidence (Moreno-Hagelsieb & Latimer 2008; Tatusov et al. 1997). The pre-existing `FindReciprocalBestHits` was **nonconforming** (no coverage gate, no deterministic tie-break, placeholder `Coverage=1.0`/`AlignmentLength=0`, `Identity` set to the score product); it was corrected to the canonical RBH (matching the corrected `FindOrthologs` from COMPGEN-ORTHO-001), and `FindOrthologs` now delegates to it so the two entry points cannot diverge. RBH here is the same algorithm as COMPGEN-ORTHO-001's RBH criterion (validate + fix + document + test this dedicated entry point).
+
+**Edge Cases:**
+- [x] Null genome list → `ArgumentNullException`
+- [x] Empty genome → no pairs
+- [x] Gene without sequence → skipped
+- [x] One-directional best hit → excluded (reciprocity)
+- [x] Sub-threshold pair → excluded (coverage/identity gate)
+- [x] Actual hit metrics reported (not placeholders)
+- [x] Deterministic / order-independent
 
 ---
 

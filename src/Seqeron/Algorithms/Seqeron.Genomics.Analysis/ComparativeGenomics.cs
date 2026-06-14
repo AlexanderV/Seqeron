@@ -336,52 +336,9 @@ public static class ComparativeGenomics
         IReadOnlyList<Gene> genome2Genes,
         double minIdentity = DefaultMinIdentity,
         double minCoverage = DefaultMinCoverage)
-    {
-        ArgumentNullException.ThrowIfNull(genome1Genes);
-        ArgumentNullException.ThrowIfNull(genome2Genes);
-
-        var seqGenes1 = genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
-        var seqGenes2 = genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
-
-        if (seqGenes1.Count == 0 || seqGenes2.Count == 0)
-            return Array.Empty<OrthologPair>();
-
-        // Best hit of each genome-1 gene into genome 2, and vice versa.
-        var best1To2 = new Dictionary<string, (Gene hit, double identity, double coverage, int alignLen)>();
-        foreach (var g1 in seqGenes1)
-        {
-            var bh = FindBestHit(g1, seqGenes2, minIdentity, minCoverage);
-            if (bh != null)
-                best1To2[g1.Id] = bh.Value;
-        }
-
-        var best2To1Id = new Dictionary<string, string>();
-        foreach (var g2 in seqGenes2)
-        {
-            var bh = FindBestHit(g2, seqGenes1, minIdentity, minCoverage);
-            if (bh != null)
-                best2To1Id[g2.Id] = bh.Value.hit.Id;
-        }
-
-        // Keep only reciprocal pairs: g1->g2 best AND g2->g1 best (== g1).
-        var orthologs = new List<OrthologPair>();
-        foreach (var g1 in seqGenes1)
-        {
-            if (best1To2.TryGetValue(g1.Id, out var hit) &&
-                best2To1Id.TryGetValue(hit.hit.Id, out string? backId) &&
-                backId == g1.Id)
-            {
-                orthologs.Add(new OrthologPair(
-                    Gene1Id: g1.Id,
-                    Gene2Id: hit.hit.Id,
-                    Identity: hit.identity,
-                    Coverage: hit.coverage,
-                    AlignmentLength: hit.alignLen));
-            }
-        }
-
-        return orthologs;
-    }
+        // Orthology by RBH is exactly the reciprocal-best-hit criterion; delegate to the
+        // canonical RBH implementation so the two entry points cannot diverge.
+        => FindReciprocalBestHits(genome1Genes, genome2Genes, minIdentity, minCoverage);
 
     /// <summary>
     /// Identifies within-genome paralog pairs (recent in-paralogs) as <b>mutual best hits inside the
@@ -483,76 +440,79 @@ public static class ComparativeGenomics
     }
 
     /// <summary>
-    /// Finds reciprocal best hits (RBH) for ortholog identification.
+    /// Finds <b>reciprocal best hits</b> (RBH, a.k.a. bidirectional/symmetrical best hits) between two
+    /// genomes for ortholog identification. Per Moreno-Hagelsieb &amp; Latimer (2008,
+    /// <i>Bioinformatics</i> 24:319–324): "two genes residing in two different genomes are deemed orthologs
+    /// if their protein products find each other as the best hit in the opposite genome." This is the
+    /// symmetrical-best-hit criterion underlying the COGs of Tatusov, Koonin &amp; Lipman (1997,
+    /// <i>Science</i> 278:631–637). A one-directional best hit is NOT an ortholog.
     /// </summary>
+    /// <remarks>
+    /// A candidate hit qualifies only when it passes the significance gate (identity ≥ <paramref name="minIdentity"/>
+    /// and coverage ≥ <paramref name="minCoverage"/>, mapping the 1×10⁻⁶ E-value and ≥50% coverage gates of
+    /// Moreno-Hagelsieb &amp; Latimer 2008). The best hit is the qualifying candidate with the maximum similarity
+    /// score; ties are broken deterministically (larger coverage, then ordinal gene id) so the returned matching
+    /// is unique and order-independent. Each returned pair carries the actual identity, coverage, and alignment
+    /// length of the hit. This is the dedicated RBH entry point; <see cref="FindOrthologs"/> applies the same
+    /// criterion under the "orthologs" name.
+    /// </remarks>
+    /// <param name="genome1Genes">Genes of genome 1 (each must carry a non-empty <see cref="Gene.Sequence"/>).</param>
+    /// <param name="genome2Genes">Genes of genome 2.</param>
+    /// <param name="minIdentity">Minimum similarity score for a qualifying hit (default 0.3).</param>
+    /// <param name="minCoverage">Minimum coverage fraction for a qualifying hit (default 0.5, per the ≥50% gate).</param>
+    /// <returns>The reciprocal best-hit pairs (an unordered matching: each gene appears at most once).</returns>
+    /// <exception cref="ArgumentNullException">Either gene list is null.</exception>
     public static IEnumerable<OrthologPair> FindReciprocalBestHits(
         IReadOnlyList<Gene> genome1Genes,
         IReadOnlyList<Gene> genome2Genes,
-        double minIdentity = 0.3)
+        double minIdentity = DefaultMinIdentity,
+        double minCoverage = DefaultMinCoverage)
     {
-        // Best hits from genome1 to genome2
-        var bestHits1To2 = new Dictionary<string, (string gene2, double score)>();
-        // Best hits from genome2 to genome1
-        var bestHits2To1 = new Dictionary<string, (string gene1, double score)>();
+        ArgumentNullException.ThrowIfNull(genome1Genes);
+        ArgumentNullException.ThrowIfNull(genome2Genes);
 
-        // Find best hits in both directions
-        foreach (var gene1 in genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
+        var seqGenes1 = genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
+        var seqGenes2 = genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)).ToList();
+
+        if (seqGenes1.Count == 0 || seqGenes2.Count == 0)
+            return Array.Empty<OrthologPair>();
+
+        // Best qualifying hit of each genome-1 gene into genome 2 (with full hit metrics),
+        // and the best-hit id of each genome-2 gene back into genome 1.
+        var best1To2 = new Dictionary<string, (Gene hit, double identity, double coverage, int alignLen)>();
+        foreach (var g1 in seqGenes1)
         {
-            double bestScore = 0;
-            string? bestMatch = null;
-
-            foreach (var gene2 in genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
-            {
-                var (identity, coverage, _) = CalculateSequenceSimilarity(
-                    gene1.Sequence!, gene2.Sequence!);
-                double score = identity * coverage;
-
-                if (score > bestScore && identity >= minIdentity)
-                {
-                    bestScore = score;
-                    bestMatch = gene2.Id;
-                }
-            }
-
-            if (bestMatch != null)
-                bestHits1To2[gene1.Id] = (bestMatch, bestScore);
+            var bh = FindBestHit(g1, seqGenes2, minIdentity, minCoverage);
+            if (bh != null)
+                best1To2[g1.Id] = bh.Value;
         }
 
-        foreach (var gene2 in genome2Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
+        var best2To1Id = new Dictionary<string, string>();
+        foreach (var g2 in seqGenes2)
         {
-            double bestScore = 0;
-            string? bestMatch = null;
-
-            foreach (var gene1 in genome1Genes.Where(g => !string.IsNullOrEmpty(g.Sequence)))
-            {
-                var (identity, coverage, _) = CalculateSequenceSimilarity(
-                    gene2.Sequence!, gene1.Sequence!);
-                double score = identity * coverage;
-
-                if (score > bestScore && identity >= minIdentity)
-                {
-                    bestScore = score;
-                    bestMatch = gene1.Id;
-                }
-            }
-
-            if (bestMatch != null)
-                bestHits2To1[gene2.Id] = (bestMatch, bestScore);
+            var bh = FindBestHit(g2, seqGenes1, minIdentity, minCoverage);
+            if (bh != null)
+                best2To1Id[g2.Id] = bh.Value.hit.Id;
         }
 
-        // Find reciprocal best hits
-        foreach (var (gene1, (gene2, score)) in bestHits1To2)
+        // Keep only reciprocal pairs: g1's best hit is g2 AND g2's best hit is g1.
+        var rbh = new List<OrthologPair>();
+        foreach (var g1 in seqGenes1)
         {
-            if (bestHits2To1.TryGetValue(gene2, out var reverse) && reverse.gene1 == gene1)
+            if (best1To2.TryGetValue(g1.Id, out var hit) &&
+                best2To1Id.TryGetValue(hit.hit.Id, out string? backId) &&
+                backId == g1.Id)
             {
-                yield return new OrthologPair(
-                    Gene1Id: gene1,
-                    Gene2Id: gene2,
-                    Identity: score,
-                    Coverage: 1.0,
-                    AlignmentLength: 0);
+                rbh.Add(new OrthologPair(
+                    Gene1Id: g1.Id,
+                    Gene2Id: hit.hit.Id,
+                    Identity: hit.identity,
+                    Coverage: hit.coverage,
+                    AlignmentLength: hit.alignLen));
             }
         }
+
+        return rbh;
     }
 
     private static (double identity, double coverage, int alignLength) CalculateSequenceSimilarity(

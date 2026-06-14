@@ -54,47 +54,8 @@ public class ComparativeGenomicsTests
     // FindOrthologs tests moved to the canonical file for COMPGEN-ORTHO-001:
     // ComparativeGenomics_FindOrthologs_Tests.cs (RBH + FindParalogs, evidence-based).
 
-    #region FindReciprocalBestHits Tests
-
-    [Test]
-    public void FindReciprocalBestHits_MutualBestMatches_ReturnsRBH()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "ATGCATGCATGCATGCATGC"),
-            new("gene2", "genome1", 150, 250, '+', "GCTAGCTAGCTAGCTAGCTA"),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGCATGCATGC"),
-            new("geneB", "genome2", 150, 250, '+', "GCTAGCTAGCTAGCTAGCTA"),
-        };
-
-        var rbh = ComparativeGenomics.FindReciprocalBestHits(genome1, genome2, minIdentity: 0.5).ToList();
-
-        Assert.That(rbh, Has.Count.EqualTo(2));
-        Assert.That(rbh.Any(r => r.Gene1Id == "gene1" && r.Gene2Id == "geneA"));
-        Assert.That(rbh.Any(r => r.Gene1Id == "gene2" && r.Gene2Id == "geneB"));
-    }
-
-    [Test]
-    public void FindReciprocalBestHits_NoMutualBest_ReturnsEmpty()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "AAAAAAAAAAAAAAAAAAAAAAAAA"),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "TTTTTTTTTTTTTTTTTTTTTTTTT"),
-        };
-
-        var rbh = ComparativeGenomics.FindReciprocalBestHits(genome1, genome2).ToList();
-
-        Assert.That(rbh, Is.Empty);
-    }
-
-    #endregion
+    // FindReciprocalBestHits tests moved to the canonical file for COMPGEN-RBH-001:
+    // ComparativeGenomics_FindReciprocalBestHits_Tests.cs (evidence-based RBH).
 
     // DetectRearrangements tests moved to ComparativeGenomics_DetectRearrangements_Tests.cs
     // (COMPGEN-REARR-001), which tests the corrected breakpoint-based behavior with exact
