@@ -232,18 +232,45 @@ public static class KmerAnalyzer
         return Math.Sqrt(sumSquares);
     }
 
+    // A k-mer is "unique" when it appears exactly once in the sequence
+    // (frequency = 1), as opposed to "distinct" (each different k-mer counted
+    // once). See BioInfoLogics — k-mer counting, part I (2018):
+    // "Unique k-mers are those that appear only once."
+    private const int UniqueKmerCount = 1;
+
     /// <summary>
-    /// Finds unique k-mers that appear only once in the sequence.
+    /// Finds the unique k-mers of length <paramref name="k"/> — those that occur
+    /// exactly once (overlapping occurrence count = 1) in <paramref name="sequence"/>.
     /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>
+    /// The k-mers whose occurrence count equals 1. Empty when the sequence is
+    /// null/empty or when <paramref name="k"/> exceeds the sequence length
+    /// (L − k + 1 ≤ 0). Order is unspecified.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static IEnumerable<string> FindUniqueKmers(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
-        return counts.Where(kvp => kvp.Value == 1).Select(kvp => kvp.Key);
+        return counts.Where(kvp => kvp.Value == UniqueKmerCount).Select(kvp => kvp.Key);
     }
 
     /// <summary>
-    /// Finds k-mers that appear at least a minimum number of times.
+    /// Finds k-mers of length <paramref name="k"/> whose overlapping occurrence
+    /// count is at least <paramref name="minCount"/> (recurrent k-mers,
+    /// Count(Text, Pattern) ≥ t per Compeau &amp; Pevzner), ordered by count descending.
     /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="minCount">Inclusive minimum occurrence count threshold.</param>
+    /// <returns>
+    /// (k-mer, Count) pairs with Count ≥ <paramref name="minCount"/>, ordered by
+    /// Count descending. Empty when the sequence is null/empty or k exceeds the
+    /// sequence length. With <paramref name="minCount"/> ≤ 1 every distinct k-mer
+    /// qualifies.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
         string sequence, int k, int minCount)
     {

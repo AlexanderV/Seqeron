@@ -13,36 +13,16 @@ namespace Seqeron.Genomics.Tests
     /// - KMER-DIST-001: KmerAnalyzer_KmerDistance_Tests.cs
     ///
     /// This file contains tests for auxiliary methods:
-    /// - FindKmersWithMinCount
     /// - GenerateAllKmers
     /// - FindKmerPositions
     /// - AnalyzeKmers
+    ///
+    /// FindUniqueKmers / FindKmersWithMinCount are covered by KMER-UNIQUE-001:
+    /// KmerAnalyzer_FindUniqueAndMinCount_Tests.cs (deep, evidence-based).
     /// </summary>
     [TestFixture]
     public class KmerAnalyzerTests
     {
-        #region K-mers With Min Count
-
-        [Test]
-        public void FindKmersWithMinCount_FiltersCorrectly()
-        {
-            var kmers = KmerAnalyzer.FindKmersWithMinCount("ACGTACGT", 4, 2).ToList();
-
-            Assert.That(kmers, Has.Count.EqualTo(1));
-            Assert.That(kmers[0].Kmer, Is.EqualTo("ACGT"));
-            Assert.That(kmers[0].Count, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void FindKmersWithMinCount_OrdersByCountDescending()
-        {
-            var kmers = KmerAnalyzer.FindKmersWithMinCount("AAAACGT", 2, 1).ToList();
-
-            Assert.That(kmers[0].Count, Is.GreaterThanOrEqualTo(kmers[^1].Count));
-        }
-
-        #endregion
-
         #region Generate All K-mers
 
         [Test]
