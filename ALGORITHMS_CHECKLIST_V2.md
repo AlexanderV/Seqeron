@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 172 |
+| **Completed** | 173 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 62 |
+| **Not Started** | 61 |
 
 ---
 
@@ -200,7 +200,7 @@
 | ☑ | MOTIF-SHARED-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-SHARED-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-SHARED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindSharedMotifs_Tests.cs) |
 | ☑ | MOTIF-REGULATORY-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-REGULATORY-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-REGULATORY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindRegulatoryElements_Tests.cs) |
 | ☑ | MOTIF-GENERATE-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_GenerateConsensus_Tests.cs) |
-| ☐ | KMER-ASYNC-001 | K-mer | 1 | - | - | - |
+| ☑ | KMER-ASYNC-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-ASYNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-ASYNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersAsync_Tests.cs) |
 | ☐ | KMER-UNIQUE-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-GENERATE-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-BOTH-001 | K-mer | 1 | - | - | - |
