@@ -427,42 +427,8 @@ public class SequenceComplexityTests
 
     #endregion
 
-    #region Windowed Complexity Tests
-
-    [Test]
-    public void CalculateWindowedComplexity_ReturnsCorrectPointCount()
-    {
-        // 50A + 50T + 80bp = 180 total; floor((180-20)/20)+1 = 9 windows
-        var sequence = new DnaSequence(new string('A', 50) + new string('T', 50) + string.Concat(Enumerable.Repeat("ATGCATGC", 10)));
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 20).ToList();
-
-        Assert.That(points.Count, Is.EqualTo(9));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_IncludesBothMetrics_ExactValues()
-    {
-        // 68bp of repeated ATGC: each 20bp window has equal base distribution
-        // Shannon entropy of 20bp "ATGCATGCATGCATGCATGC" = 2.0 (4 bases equally distributed)
-        // LC computed with maxWordLength=min(6,20)=6 for each window
-        var sequence = new DnaSequence("ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC");
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 10).ToList();
-
-        Assert.That(points[0].ShannonEntropy, Is.EqualTo(2.0).Within(1e-10));
-        Assert.That(points[0].LinguisticComplexity, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_PositionsAreCorrect()
-    {
-        var sequence = new DnaSequence(new string('A', 100));
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 20).ToList();
-
-        Assert.That(points[0].Position, Is.EqualTo(10)); // Center of first window
-        Assert.That(points[1].Position, Is.EqualTo(30)); // Center of second window
-    }
-
-    #endregion
+    // Windowed complexity tests moved to canonical file
+    // SequenceComplexity_CalculateWindowedComplexity_Tests.cs (SEQ-COMPLEX-WINDOW-001).
 
     #region Low Complexity Region Tests
 
@@ -660,13 +626,6 @@ public class SequenceComplexityTests
     }
 
     [Test]
-    public void CalculateWindowedComplexity_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity((DnaSequence)null!).ToList());
-    }
-
-    [Test]
     public void FindLowComplexityRegions_NullSequence_ThrowsException()
     {
         Assert.Throws<ArgumentNullException>(() =>
@@ -726,22 +685,6 @@ public class SequenceComplexityTests
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 1.0);
 
         Assert.That(masked.Length, Is.EqualTo(sequence.Length));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_ZeroWindowSize_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 0).ToList());
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_ZeroStepSize_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGCATGCATGCATGCATGC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 10, stepSize: 0).ToList());
     }
 
     [Test]

@@ -192,8 +192,17 @@ public static class SequenceComplexity
 
     #region Sliding Window Complexity
 
+    // Per-window linguistic-complexity vocabulary cap. Following Gabrielian & Bolshoy (1999),
+    // the linguistic-complexity assessment limits vocabulary evaluation to a bounded set of
+    // word lengths (W) rather than all N-1 lengths, for computational efficiency. Sequence
+    // complexity and DNA curvature, Comput. Chem. 23(3-4):263-274. doi:10.1016/S0097-8485(99)00007-8
+    private const int WindowLcMaxWordLength = 6;
+
     /// <summary>
-    /// Calculates complexity across the sequence using a sliding window.
+    /// Calculates complexity across the sequence using a sliding window (a complexity
+    /// profile, in the sense of Troyanskaya et al. (2002)). For each window fully contained
+    /// in the sequence the per-window Shannon entropy (bits, Shannon 1948) and linguistic
+    /// complexity (summation form) are reported with the window's coordinates.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Size of the sliding window (default: 64).</param>
@@ -220,7 +229,7 @@ public static class SequenceComplexity
         {
             string window = seq.Substring(i, windowSize);
             double entropy = CalculateShannonEntropyCore(window);
-            double lc = CalculateLinguisticComplexityCore(window, Math.Min(6, windowSize));
+            double lc = CalculateLinguisticComplexityCore(window, Math.Min(WindowLcMaxWordLength, windowSize));
 
             yield return new ComplexityPoint(
                 Position: i + windowSize / 2,

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 159 |
+| **Completed** | 160 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 75 |
+| **Not Started** | 74 |
 
 ---
 
@@ -187,7 +187,7 @@
 | ☑ | RNA-INVERT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-INVERT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-INVERT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) |
 | ☑ | RNA-PARTITION-001 | RnaStructure | 4 | [Evidence](docs/Evidence/RNA-PARTITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PARTITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) |
 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-KMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) |
-| ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
+| ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-WINDOW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) |
 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
 | ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
