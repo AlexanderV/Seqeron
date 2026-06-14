@@ -407,8 +407,28 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Finds the positions of all occurrences of a k-mer in a sequence.
+    /// Finds all starting positions where a k-mer occurs in a sequence.
     /// </summary>
+    /// <remarks>
+    /// Solves the Pattern Matching Problem: "find all occurrences of a pattern in a string"
+    /// and report "all starting positions in Genome where Pattern appears as a substring"
+    /// using 0-based indexing (Rosalind BA1D; Compeau &amp; Pevzner, <i>Bioinformatics
+    /// Algorithms</i>). Occurrences may overlap and every overlapping start is reported,
+    /// e.g. <c>AA</c> in <c>AAAA</c> yields 0, 1, 2. There are at most
+    /// <c>L − k + 1</c> candidate positions for a length-L sequence (Wikipedia, "k-mer").
+    /// Matching is case-insensitive (both arguments are upper-cased), mirroring the sibling
+    /// <see cref="CountKmers(string,int)"/> methods. Positions are produced in ascending
+    /// order via a single forward scan; the repository <c>SuffixTree.FindAllOccurrences</c>
+    /// was evaluated but rejected for this single-query case because it returns positions
+    /// unordered and needs O(n) construction per text (see algorithm doc §5.2).
+    /// </remarks>
+    /// <param name="sequence">The sequence to search (case-insensitive).</param>
+    /// <param name="kmer">The k-mer / pattern to locate (case-insensitive).</param>
+    /// <returns>
+    /// Ascending 0-based start positions of every (possibly overlapping) occurrence.
+    /// Empty when <paramref name="sequence"/> or <paramref name="kmer"/> is null/empty,
+    /// when the k-mer is longer than the sequence, or when the k-mer does not occur.
+    /// </returns>
     public static IEnumerable<int> FindKmerPositions(string sequence, string kmer)
     {
         if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(kmer))
@@ -417,9 +437,11 @@ public static class KmerAnalyzer
         var seq = sequence.ToUpperInvariant();
         var km = kmer.ToUpperInvariant();
 
+        // L − k + 1 candidate start positions; scan every one to count overlapping
+        // occurrences (Rosalind BA1D: overlapping occurrences are all reported).
         for (int i = 0; i <= seq.Length - km.Length; i++)
         {
-            if (seq.Substring(i, km.Length) == km)
+            if (seq.AsSpan(i, km.Length).SequenceEqual(km.AsSpan()))
                 yield return i;
         }
     }

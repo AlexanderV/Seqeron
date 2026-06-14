@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 177 |
+| **Completed** | 178 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 57 |
+| **Not Started** | 56 |
 
 ---
 
@@ -205,7 +205,7 @@
 | ☑ | KMER-GENERATE-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_GenerateAllKmers_Tests.cs) |
 | ☑ | KMER-BOTH-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-BOTH-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-BOTH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersBothStrands_Tests.cs) |
 | ☑ | KMER-STATS-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_AnalyzeKmers_Tests.cs) |
-| ☐ | KMER-POSITIONS-001 | K-mer | 1 | - | - | - |
+| ☑ | KMER-POSITIONS-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-POSITIONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-POSITIONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindKmerPositions_Tests.cs) |
 | ☐ | SEQ-ATSKEW-001 | Composition | 1 | - | - | - |
 | ☐ | SEQ-REPLICATION-001 | Composition | 1 | - | - | - |
 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | 1 | - | - | - |
