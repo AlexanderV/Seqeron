@@ -480,8 +480,29 @@ public static class KmerAnalyzer
         => CountKmersBothStrands(dna.Sequence, k);
 
     /// <summary>
-    /// Analyzes k-mer composition and returns statistics.
+    /// Computes comprehensive k-mer composition statistics for a sequence: the
+    /// total number of (overlapping) k-mers, the number of distinct k-mers, the
+    /// maximum/minimum/average multiplicity, and the Shannon entropy of the k-mer
+    /// frequency distribution.
     /// </summary>
+    /// <remarks>
+    /// The total k-mer count is the number of overlapping length-k windows,
+    /// L − k + 1 (Wikipedia — K-mer; BioInfoLogics, k-mer counting part I, 2018).
+    /// <see cref="KmerStatistics.UniqueKmers"/> reports the number of <i>distinct</i>
+    /// k-mers (each different k-mer counted once) — not the count-1 "unique" set of
+    /// <see cref="FindUniqueKmers"/>. <see cref="KmerStatistics.AverageCount"/> is the
+    /// mean multiplicity total/distinct, rounded to two decimals for display.
+    /// <see cref="KmerStatistics.Entropy"/> is the k-mer Shannon entropy
+    /// E_k = −Σ p(α) log₂ p(α) with p(α) = mult(α) / (L − k + 1), the relative
+    /// frequency of k-mer α over the L − k + 1 windows (Manca et al., 2021,
+    /// "Spectral concepts in genome informational analysis", arXiv:2106.15351;
+    /// log base 2 ⇒ bits). An empty sequence or k exceeding the length yields an
+    /// all-zero result (L − k + 1 ≤ 0 ⇒ no k-mers).
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>A <see cref="KmerStatistics"/> record with the composition statistics; all-zero when no k-mers exist.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static KmerStatistics AnalyzeKmers(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
@@ -518,8 +539,14 @@ public static class KmerAnalyzer
 }
 
 /// <summary>
-/// Statistics about k-mers in a sequence.
+/// Comprehensive k-mer composition statistics for a sequence.
 /// </summary>
+/// <param name="TotalKmers">Total number of overlapping k-mers, L − k + 1.</param>
+/// <param name="UniqueKmers">Number of <i>distinct</i> k-mers (each different k-mer counted once).</param>
+/// <param name="MaxCount">Maximum k-mer multiplicity observed.</param>
+/// <param name="MinCount">Minimum k-mer multiplicity observed.</param>
+/// <param name="AverageCount">Mean multiplicity (TotalKmers / UniqueKmers), rounded to two decimals.</param>
+/// <param name="Entropy">Shannon entropy of the k-mer frequency distribution, −Σ p log₂ p, in bits.</param>
 public readonly record struct KmerStatistics(
     int TotalKmers,
     int UniqueKmers,
