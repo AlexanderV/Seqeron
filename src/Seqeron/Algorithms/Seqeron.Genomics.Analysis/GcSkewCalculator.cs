@@ -161,9 +161,16 @@ public static class GcSkewCalculator
     #region AT Skew Calculation
 
     /// <summary>
-    /// Calculates AT skew for a sequence.
-    /// AT skew = (A - T) / (A + T).
+    /// Calculates AT skew for a sequence: (A - T) / (A + T).
+    /// The result lies in [-1, 1]; +1 when no T, -1 when no A. Returns 0 when the
+    /// sequence contains no A and no T (A + T = 0).
     /// </summary>
+    /// <remarks>
+    /// AT skew = (A - T) / (A + T) per Charneski et al. (2011) PLoS Genet 7(9):e1002283
+    /// and Lobry (1996) Mol Biol Evol 13(5):660-665. Only A and T are counted; all other
+    /// symbols are ignored (cf. Biopython Bio.SeqUtils.GC_skew, which ignores non-G/C bases).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static double CalculateAtSkew(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -171,8 +178,14 @@ public static class GcSkewCalculator
     }
 
     /// <summary>
-    /// Calculates AT skew from a raw sequence string.
+    /// Calculates AT skew from a raw sequence string: (A - T) / (A + T).
+    /// Counting is case-insensitive; symbols other than A/T are ignored. Returns 0 for
+    /// null/empty input or when A + T = 0.
     /// </summary>
+    /// <remarks>
+    /// AT skew = (A - T) / (A + T) per Charneski et al. (2011) PLoS Genet 7(9):e1002283
+    /// and Lobry (1996) Mol Biol Evol 13(5):660-665.
+    /// </remarks>
     public static double CalculateAtSkew(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -187,6 +200,8 @@ public static class GcSkewCalculator
         int tCount = seq.Count(c => c == 'T');
         int total = aCount + tCount;
 
+        // (A - T) / (A + T); zero denominator (no A and no T) -> 0
+        // per Biopython GC_skew ZeroDivisionError -> 0.0 convention.
         return total > 0 ? (double)(aCount - tCount) / total : 0;
     }
 
