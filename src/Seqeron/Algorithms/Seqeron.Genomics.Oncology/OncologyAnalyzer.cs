@@ -7172,4 +7172,256 @@ public static class OncologyAnalyzer
     public static bool IsStandardCare(OncoKbLevel level) => StandardCareLevels.Contains(level);
 
     #endregion
+
+    #region Complex Somatic Rearrangement (Chromothripsis) Classification
+
+    /// <summary>
+    /// Minimum number of oscillating copy-number changes (per-segment CN state transitions) required by
+    /// the first-pass chromothripsis screen. Source: Magrangeas et al. (2011), Blood 118(3):675–678 — the
+    /// lowest first-pass operational cutoff of "10, 20, or 50 oscillating copy number changes" cited by the
+    /// Korbel &amp; Campbell (2013) framework (Cell 152:1226–1236; review PMC3861665). Default = 10.
+    /// </summary>
+    public const int MinOscillatingCopyNumberChanges = 10;
+
+    /// <summary>
+    /// Maximum number of distinct copy-number states permitted for a chromothripsis call. Korbel &amp;
+    /// Campbell (2013) define the hallmark profile as oscillation between (canonically) two — and at most
+    /// two-or-three — copy-number states, in contrast with progressive amplification (many ascending
+    /// states). Source: Korbel &amp; Campbell (2013), Cell 152:1226–1236 (criterion B). Default = 3.
+    /// </summary>
+    public const int MaxChromothripsisCopyNumberStates = 3;
+
+    /// <summary>
+    /// Minimum number of clustered intrachromosomal structural variants for an event to be eligible for a
+    /// chromothripsis call. Source: Cortés-Ciriano et al. (2020), Nat. Genet. 52:331–341 — focal events
+    /// "comprising fewer than six SVs" are excluded. Default = 6.
+    /// </summary>
+    public const int MinChromothripsisSvBurden = 6;
+
+    /// <summary>
+    /// Number of adjacent oscillating copy-number segments at or above which a chromothripsis call is
+    /// high-confidence. Source: Cortés-Ciriano et al. (2020) — high-confidence calls "display oscillations
+    /// between two states in at least seven adjacent segments". Default = 7.
+    /// </summary>
+    public const int HighConfidenceOscillatingSegments = 7;
+
+    /// <summary>
+    /// Minimum number of adjacent oscillating copy-number segments for a low-confidence chromothripsis
+    /// signal. Source: Cortés-Ciriano et al. (2020) — low-confidence calls "involve between four and six
+    /// segments". Default = 4 (the band [4, 6] is low-confidence; ≥ 7 is high-confidence).
+    /// </summary>
+    public const int LowConfidenceOscillatingSegments = 4;
+
+    /// <summary>
+    /// Coefficient of variation of inter-breakpoint distances expected under the random-breakpoint null.
+    /// Source: Korbel &amp; Campbell (2013) — "the null hypothesis of random breakpoints predicts that the
+    /// distance between breakpoints should be distributed exponentially"; the exponential distribution has
+    /// CV = 1, so over-dispersion toward many short gaps with few long gaps (clustering) gives CV &gt; 1.
+    /// </summary>
+    private const double ExponentialNullCoefficientOfVariation = 1.0;
+
+    /// <summary>
+    /// Classification of a chromosome's somatic structural-rearrangement profile.
+    /// </summary>
+    public enum ComplexRearrangementType
+    {
+        /// <summary>Does not meet the chromothripsis hallmark criteria.</summary>
+        NotComplex,
+
+        /// <summary>
+        /// Chromothripsis: clustered breakpoints with oscillation between ≤ 3 (canonically 2) copy-number
+        /// states and sufficient oscillation/SV burden (Korbel &amp; Campbell 2013; Cortés-Ciriano 2020).
+        /// </summary>
+        Chromothripsis
+    }
+
+    /// <summary>
+    /// Confidence tier for a chromothripsis signal, from the number of adjacent oscillating segments.
+    /// </summary>
+    public enum ChromothripsisConfidence
+    {
+        /// <summary>Fewer than four adjacent oscillating segments — no chromothripsis signal.</summary>
+        None,
+
+        /// <summary>Four to six adjacent oscillating segments — low-confidence (Cortés-Ciriano 2020).</summary>
+        Low,
+
+        /// <summary>Seven or more adjacent oscillating segments — high-confidence (Cortés-Ciriano 2020).</summary>
+        High
+    }
+
+    /// <summary>
+    /// Input for <see cref="ClassifyComplexRearrangement"/>: the per-segment copy-number states along one
+    /// chromosomal region and the number of clustered intrachromosomal structural variants supporting it.
+    /// </summary>
+    /// <param name="SegmentCopyNumbers">Per-segment integer copy numbers in genomic order along the region.</param>
+    /// <param name="StructuralVariantCount">Number of clustered intrachromosomal SVs in the region.</param>
+    public readonly record struct ComplexRearrangementInput(
+        IReadOnlyList<int> SegmentCopyNumbers,
+        int StructuralVariantCount);
+
+    /// <summary>
+    /// Result of complex-rearrangement classification.
+    /// </summary>
+    /// <param name="Type">The classification (chromothripsis or not).</param>
+    /// <param name="Confidence">The confidence tier derived from adjacent oscillating-segment count.</param>
+    /// <param name="OscillationCount">Number of per-segment copy-number state transitions.</param>
+    /// <param name="OscillatingSegmentCount">Number of segments participating in the oscillation.</param>
+    /// <param name="DistinctStateCount">Number of distinct copy-number states in the profile.</param>
+    /// <param name="StructuralVariantCount">Clustered intrachromosomal SV burden of the region.</param>
+    public readonly record struct ComplexRearrangementResult(
+        ComplexRearrangementType Type,
+        ChromothripsisConfidence Confidence,
+        int OscillationCount,
+        int OscillatingSegmentCount,
+        int DistinctStateCount,
+        int StructuralVariantCount);
+
+    /// <summary>
+    /// Summary of a breakpoint-clustering test against the random-breakpoint exponential null.
+    /// </summary>
+    /// <param name="BreakpointCount">Number of breakpoints provided.</param>
+    /// <param name="MeanGap">Mean inter-breakpoint distance.</param>
+    /// <param name="CoefficientOfVariation">Standard deviation / mean of inter-breakpoint distances.</param>
+    /// <param name="IsClustered">True when CV &gt; 1 (over-dispersed relative to the exponential null).</param>
+    public readonly record struct BreakpointClusteringResult(
+        int BreakpointCount,
+        double MeanGap,
+        double CoefficientOfVariation,
+        bool IsClustered);
+
+    /// <summary>
+    /// Counts the number of oscillating copy-number changes along a region: the number of adjacent segments
+    /// whose copy-number state differs from the immediately preceding segment. This is the "oscillating
+    /// copy number changes" quantity used by the first-pass chromothripsis screen.
+    /// Source: Magrangeas et al. (2011), Blood 118(3):675–678; Korbel &amp; Campbell (2013), Cell 152:1226–1236.
+    /// For <c>n</c> segments the count is in [0, n−1]; fewer than two segments yields 0.
+    /// </summary>
+    /// <param name="segmentCopyNumbers">Per-segment integer copy numbers in genomic order.</param>
+    /// <returns>The number of adjacent copy-number state transitions.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segmentCopyNumbers"/> is null.</exception>
+    public static int CountCopyNumberStateOscillations(IReadOnlyList<int> segmentCopyNumbers)
+    {
+        ArgumentNullException.ThrowIfNull(segmentCopyNumbers);
+
+        int transitions = 0;
+        for (int i = 1; i < segmentCopyNumbers.Count; i++)
+        {
+            if (segmentCopyNumbers[i] != segmentCopyNumbers[i - 1])
+            {
+                transitions++;
+            }
+        }
+
+        return transitions;
+    }
+
+    /// <summary>
+    /// Tests a set of genomic breakpoint positions for clustering against the random-breakpoint null.
+    /// Under the null of uniformly random breakpoints the inter-breakpoint distances are exponentially
+    /// distributed, which has a coefficient of variation (CV = sd/mean) of 1; over-dispersion toward many
+    /// short gaps with a few long gaps (a tight cluster plus outliers) gives CV &gt; 1, which flags
+    /// clustering. Source: Korbel &amp; Campbell (2013), Cell 152:1226–1236 (criterion A, exponential null).
+    /// </summary>
+    /// <param name="breakpointPositions">Genomic breakpoint coordinates (any order); sorted internally.</param>
+    /// <returns>The clustering summary; with fewer than three breakpoints clustering cannot be assessed
+    /// (fewer than two gaps), so <see cref="BreakpointClusteringResult.IsClustered"/> is false.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="breakpointPositions"/> is null.</exception>
+    public static BreakpointClusteringResult TestBreakpointClustering(IReadOnlyList<long> breakpointPositions)
+    {
+        ArgumentNullException.ThrowIfNull(breakpointPositions);
+
+        // Need at least two gaps (three breakpoints) to define a CV; otherwise clustering is undefined.
+        if (breakpointPositions.Count < 3)
+        {
+            return new BreakpointClusteringResult(breakpointPositions.Count, 0.0, 0.0, false);
+        }
+
+        var sorted = breakpointPositions.OrderBy(p => p).ToArray();
+        int gapCount = sorted.Length - 1;
+        var gaps = new double[gapCount];
+        for (int i = 0; i < gapCount; i++)
+        {
+            gaps[i] = sorted[i + 1] - sorted[i];
+        }
+
+        double mean = gaps.Average();
+        if (mean <= 0.0)
+        {
+            // All breakpoints coincide: degenerate, treat as not assessable.
+            return new BreakpointClusteringResult(breakpointPositions.Count, 0.0, 0.0, false);
+        }
+
+        double variance = gaps.Sum(g => (g - mean) * (g - mean)) / gapCount;
+        double cv = Math.Sqrt(variance) / mean;
+        bool clustered = cv > ExponentialNullCoefficientOfVariation;
+
+        return new BreakpointClusteringResult(breakpointPositions.Count, mean, cv, clustered);
+    }
+
+    /// <summary>
+    /// Classifies a chromosomal region's somatic structural-rearrangement profile as chromothripsis or not,
+    /// applying the Korbel &amp; Campbell (2013) hallmark criteria together with the Cortés-Ciriano (2020)
+    /// operational thresholds. A region is called <see cref="ComplexRearrangementType.Chromothripsis"/> when
+    /// ALL of the following hold: (i) the copy-number profile oscillates between at most
+    /// <see cref="MaxChromothripsisCopyNumberStates"/> (canonically 2) distinct states — the two-state
+    /// hallmark, excluding progressive amplification; (ii) it has at least
+    /// <see cref="MinOscillatingCopyNumberChanges"/> oscillating copy-number changes (first-pass screen);
+    /// and (iii) the clustered intrachromosomal SV burden is at least <see cref="MinChromothripsisSvBurden"/>.
+    /// The confidence tier is derived independently from the number of adjacent oscillating segments
+    /// (≥ <see cref="HighConfidenceOscillatingSegments"/> → High; [<see cref="LowConfidenceOscillatingSegments"/>, 6] → Low; else None).
+    /// Source: Korbel &amp; Campbell (2013), Cell 152:1226–1236; Cortés-Ciriano et al. (2020), Nat. Genet. 52:331–341;
+    /// Magrangeas et al. (2011), Blood 118(3):675–678.
+    /// </summary>
+    /// <param name="input">Per-segment copy numbers and the clustered SV burden of the region.</param>
+    /// <returns>The classification result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="input"/>.SegmentCopyNumbers is null.</exception>
+    public static ComplexRearrangementResult ClassifyComplexRearrangement(ComplexRearrangementInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input.SegmentCopyNumbers);
+
+        var states = input.SegmentCopyNumbers;
+        int oscillations = CountCopyNumberStateOscillations(states);
+
+        // Segments participating in an oscillation: a run of k transitions spans k+1 segments.
+        int oscillatingSegments = oscillations > 0 ? oscillations + 1 : 0;
+
+        int distinctStates = states.Count == 0 ? 0 : states.Distinct().Count();
+
+        // Confidence tier from adjacent oscillating-segment count (Cortés-Ciriano 2020).
+        ChromothripsisConfidence confidence;
+        if (oscillatingSegments >= HighConfidenceOscillatingSegments)
+        {
+            confidence = ChromothripsisConfidence.High;
+        }
+        else if (oscillatingSegments >= LowConfidenceOscillatingSegments)
+        {
+            confidence = ChromothripsisConfidence.Low;
+        }
+        else
+        {
+            confidence = ChromothripsisConfidence.None;
+        }
+
+        // Chromothripsis hallmark gate: two-state oscillation + ≥10 oscillations + ≥6 clustered SVs.
+        bool isChromothripsis =
+            distinctStates >= 2 &&
+            distinctStates <= MaxChromothripsisCopyNumberStates &&
+            oscillations >= MinOscillatingCopyNumberChanges &&
+            input.StructuralVariantCount >= MinChromothripsisSvBurden;
+
+        var type = isChromothripsis
+            ? ComplexRearrangementType.Chromothripsis
+            : ComplexRearrangementType.NotComplex;
+
+        return new ComplexRearrangementResult(
+            type,
+            confidence,
+            oscillations,
+            oscillatingSegments,
+            distinctStates,
+            input.StructuralVariantCount);
+    }
+
+    #endregion
 }

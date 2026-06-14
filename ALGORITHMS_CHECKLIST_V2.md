@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 225 |
+| **Completed** | 226 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 9 |
+| **Not Started** | 8 |
 
 ---
 
@@ -254,7 +254,7 @@
 | ☑ | ONCO-HETERO-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
 | ☑ | ONCO-HLA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HLA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HLA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) |
 | ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
-| ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
 | ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
@@ -4737,9 +4737,11 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `FilterSomaticSVs(svs, normalBam)` | StructuralVariantDetector | Somatic filter |
 
 **Edge Cases:**
-- [ ] Complex rearrangements (chromothripsis)
-- [ ] Low-coverage samples (insufficient split reads)
-- [ ] Repetitive regions (ambiguous breakpoints)
+- [x] Complex rearrangements (chromothripsis) — `ClassifyComplexRearrangement` (Korbel & Campbell 2013 hallmark criteria; Cortés-Ciriano 2020 thresholds)
+- [ ] Low-coverage samples (insufficient split reads) — N/A: generic read-based SV detection is covered by `StructuralVariantAnalyzer` (out of scope for the oncology complex-rearrangement layer)
+- [ ] Repetitive regions (ambiguous breakpoints) — N/A: out of scope (read-level breakpoint refinement is `StructuralVariantAnalyzer`)
+
+> **Scope note (ONCO-SV-001):** Generic SV typing (DEL/DUP/INV/TRA from breakpoints) already exists in `StructuralVariantAnalyzer`. ONCO-SV-001 implements the oncology-specific complex-rearrangement layer — chromothripsis inference (`OncologyAnalyzer.ClassifyComplexRearrangement`, `CountCopyNumberStateOscillations`, `TestBreakpointClustering`) per Korbel & Campbell (2013) and Cortés-Ciriano et al. (2020). The two low-coverage / repetitive-region edge cases pertain to read-level detection and remain out of scope.
 
 ---
 
