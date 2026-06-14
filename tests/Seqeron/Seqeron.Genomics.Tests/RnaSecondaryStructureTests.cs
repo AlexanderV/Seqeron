@@ -1420,68 +1420,7 @@ public class RnaSecondaryStructureTests
 
     #endregion
 
-    #region Dot-Bracket Tests
-
-    /// <summary>
-    /// Evidence: Dot-bracket notation is the standard text representation
-    /// for RNA secondary structure. Dots (.) represent unpaired bases,
-    /// matching parentheses represent base pairs.
-    /// Source: Wikipedia (Nucleic acid secondary structure representation)
-    /// </summary>
-    [Test]
-    public void ParseDotBracket_SimpleStructure_ReturnsPairs()
-    {
-        string dotBracket = "(((...)))";
-        var pairs = ParseDotBracket(dotBracket).ToList();
-
-        Assert.That(pairs, Has.Count.EqualTo(3));
-        Assert.That(pairs, Does.Contain((0, 8)));
-        Assert.That(pairs, Does.Contain((1, 7)));
-        Assert.That(pairs, Does.Contain((2, 6)));
-    }
-
-    [Test]
-    public void ParseDotBracket_EmptyStructure_ReturnsEmpty()
-    {
-        string dotBracket = ".....";
-        var pairs = ParseDotBracket(dotBracket).ToList();
-
-        Assert.That(pairs, Is.Empty);
-    }
-
-    [Test]
-    public void ParseDotBracket_MultipleBrackets_ParsesAll()
-    {
-        string dotBracket = "(([[]]))";
-        var pairs = ParseDotBracket(dotBracket).ToList();
-
-        Assert.That(pairs, Has.Count.EqualTo(4));
-    }
-
-    [Test]
-    public void ValidateDotBracket_Balanced_ReturnsTrue()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(ValidateDotBracket("(((...)))"), Is.True);
-            Assert.That(ValidateDotBracket("...."), Is.True);
-            Assert.That(ValidateDotBracket("((..))((..))"), Is.True);
-            Assert.That(ValidateDotBracket(""), Is.True);
-        });
-    }
-
-    [Test]
-    public void ValidateDotBracket_Unbalanced_ReturnsFalse()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(ValidateDotBracket("(((...)"), Is.False);
-            Assert.That(ValidateDotBracket("...)"), Is.False);
-            Assert.That(ValidateDotBracket(")("), Is.False);
-        });
-    }
-
-    #endregion
+    // Dot-Bracket tests moved to canonical RnaSecondaryStructure_ParseDotBracket_Tests.cs (RNA-DOTBRACKET-001).
 
     #region Inverted Repeat Tests (Smoke - see RepeatFinder_InvertedRepeat_Tests.cs for full coverage)
 

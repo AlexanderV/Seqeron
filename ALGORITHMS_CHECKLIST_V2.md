@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 155 |
+| **Completed** | 156 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 79 |
+| **Not Started** | 78 |
 
 ---
 
@@ -183,7 +183,7 @@
 | ☑ | RNA-HAIRPIN-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-HAIRPIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_HairpinEnergy_Tests.cs) |
 | ☑ | RNA-MFE-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-MFE-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-MFE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) |
 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PSEUDOKNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) |
-| ☐ | RNA-DOTBRACKET-001 | RnaStructure | 2 | - | - | - |
+| ☑ | RNA-DOTBRACKET-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-DOTBRACKET-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-DOTBRACKET-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) |
 | ☐ | RNA-INVERT-001 | RnaStructure | 1 | - | - | - |
 | ☐ | RNA-PARTITION-001 | RnaStructure | 2 | - | - | - |
 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |

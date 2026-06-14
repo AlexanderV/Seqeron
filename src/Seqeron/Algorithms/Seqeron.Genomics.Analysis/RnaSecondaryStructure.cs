@@ -1625,55 +1625,125 @@ public static class RnaSecondaryStructure
         return new string(notation);
     }
 
+    // Dot-bracket / extended WUSS bracket pairs. Each opening symbol pairs ONLY with
+    // its matching closing symbol; the four bracket families are independent pairing
+    // systems so crossing (pseudoknotted) helices can be annotated.
+    // Sources: ViennaRNA RNA Structure Notations — nested base pairs annotated by matching
+    //   pairs of <> () {} []; Infernal/WUSS — "any matching nested pair of (), [], {}
+    //   indicates a base pair ... so long as the left and right partners match up".
+    private static readonly IReadOnlyDictionary<char, char> ClosingToOpening = new Dictionary<char, char>
+    {
+        [')'] = '(',
+        [']'] = '[',
+        ['}'] = '{',
+        ['>'] = '<',
+    };
+
+    private static readonly IReadOnlyDictionary<char, char> OpeningToClosing = new Dictionary<char, char>
+    {
+        ['('] = ')',
+        ['['] = ']',
+        ['{'] = '}',
+        ['<'] = '>',
+    };
+
     /// <summary>
-    /// Parses dot-bracket notation to extract base pairs.
+    /// Parses dot-bracket / extended WUSS notation to extract base pairs as
+    /// (5' position, 3' position) index tuples (zero-based).
     /// </summary>
+    /// <remarks>
+    /// Each bracket family (<c>()</c>, <c>[]</c>, <c>{}</c>, <c>&lt;&gt;</c>) is matched on
+    /// its own stack, and uppercase/lowercase letter pairs (<c>Aa</c>, <c>Bb</c>, ...) are
+    /// matched as independent pseudoknot systems, per ViennaRNA / WUSS conventions.
+    /// An opening symbol is paired with the nearest unmatched opening of the SAME family
+    /// (correct nesting). Dots and any other symbols denote unpaired residues and are skipped.
+    /// Closing symbols with no open partner are ignored (parse is best-effort; use
+    /// <see cref="ValidateDotBracket"/> to test well-formedness first).
+    /// </remarks>
     public static IEnumerable<(int Position1, int Position2)> ParseDotBracket(string dotBracket)
     {
-        var stack = new Stack<int>();
+        if (string.IsNullOrEmpty(dotBracket))
+            yield break;
+
+        // One independent stack per opening symbol (brackets + uppercase letters).
+        var stacks = new Dictionary<char, Stack<int>>();
 
         for (int i = 0; i < dotBracket.Length; i++)
         {
-            switch (dotBracket[i])
-            {
-                case '(':
-                case '[':
-                case '{':
-                case '<':
-                    stack.Push(i);
-                    break;
+            char c = dotBracket[i];
 
-                case ')':
-                case ']':
-                case '}':
-                case '>':
-                    if (stack.Count > 0)
-                    {
-                        int j = stack.Pop();
-                        yield return (j, i);
-                    }
-                    break;
+            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
+            {
+                if (!stacks.TryGetValue(c, out var stack))
+                {
+                    stack = new Stack<int>();
+                    stacks[c] = stack;
+                }
+                stack.Push(i);
             }
+            else if (ClosingToOpening.TryGetValue(c, out char opener))
+            {
+                if (stacks.TryGetValue(opener, out var stack) && stack.Count > 0)
+                    yield return (stack.Pop(), i);
+            }
+            else if (char.IsLetter(c) && char.IsLower(c))
+            {
+                char up = char.ToUpperInvariant(c);
+                if (stacks.TryGetValue(up, out var stack) && stack.Count > 0)
+                    yield return (stack.Pop(), i);
+            }
+            // '.', ',', '-', ':', '_', '~' and any other symbol => unpaired, skip.
         }
     }
 
     /// <summary>
-    /// Validates dot-bracket notation.
+    /// Validates dot-bracket / extended WUSS notation: every closing symbol must match an
+    /// earlier unmatched opening symbol of the SAME family, and no opening symbol may be left
+    /// unclosed. Each bracket family and each letter (case) pair is checked independently, so a
+    /// mismatched pairing such as <c>(]</c> is rejected even though the total count is balanced.
     /// </summary>
+    /// <remarks>
+    /// Sources: ViennaRNA — base pairs are matching pairs of <c>()</c> (and extended <c>[]{}&lt;&gt;</c>,
+    /// letters) and the structure must be balanced; WUSS — left and right partners must match up.
+    /// </remarks>
     public static bool ValidateDotBracket(string dotBracket)
     {
-        int count = 0;
+        if (string.IsNullOrEmpty(dotBracket))
+            return true;
+
+        var stacks = new Dictionary<char, Stack<int>>();
+
         foreach (char c in dotBracket)
         {
-            if (c == '(' || c == '[' || c == '{' || c == '<')
-                count++;
-            else if (c == ')' || c == ']' || c == '}' || c == '>')
-                count--;
-
-            if (count < 0)
-                return false;
+            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
+            {
+                if (!stacks.TryGetValue(c, out var stack))
+                {
+                    stack = new Stack<int>();
+                    stacks[c] = stack;
+                }
+                stack.Push(0);
+            }
+            else if (ClosingToOpening.TryGetValue(c, out char opener))
+            {
+                if (!stacks.TryGetValue(opener, out var stack) || stack.Count == 0)
+                    return false;
+                stack.Pop();
+            }
+            else if (char.IsLetter(c) && char.IsLower(c))
+            {
+                char up = char.ToUpperInvariant(c);
+                if (!stacks.TryGetValue(up, out var stack) || stack.Count == 0)
+                    return false;
+                stack.Pop();
+            }
+            // unpaired symbol => ignore.
         }
-        return count == 0;
+
+        foreach (var stack in stacks.Values)
+            if (stack.Count != 0)
+                return false;
+        return true;
     }
 
     #endregion
