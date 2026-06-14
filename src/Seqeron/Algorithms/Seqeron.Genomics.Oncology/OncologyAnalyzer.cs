@@ -3127,4 +3127,233 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Fusion Gene Detection (ONCO-FUSION-001)
+
+    /// <summary>
+    /// Default minimum number of junction-spanning (split) reads required to support a fusion.
+    /// Source: STAR-Fusion source (Haas et al. 2017), default <c>my $MIN_JUNCTION_READS = 1;</c>
+    /// https://raw.githubusercontent.com/STAR-Fusion/STAR-Fusion/master/STAR-Fusion
+    /// </summary>
+    public const int DefaultMinJunctionReads = 1;
+
+    /// <summary>
+    /// Default minimum total fusion support = (junction reads + spanning/discordant fragments), applied
+    /// when at least one junction read is present.
+    /// Source: STAR-Fusion source, default <c>my $MIN_SUM_FRAGS = 2;</c> ("requires at least one junction
+    /// read"). https://raw.githubusercontent.com/STAR-Fusion/STAR-Fusion/master/STAR-Fusion
+    /// </summary>
+    public const int DefaultMinSumFrags = 2;
+
+    /// <summary>
+    /// Default minimum number of spanning (discordant) fragments required when there are NO junction reads.
+    /// Source: STAR-Fusion source, default <c>my $MIN_SPANNING_FRAGS_ONLY = 5;</c>
+    /// https://raw.githubusercontent.com/STAR-Fusion/STAR-Fusion/master/STAR-Fusion
+    /// </summary>
+    public const int DefaultMinSpanningFragsOnly = 5;
+
+    /// <summary>Number of nucleotides per codon (reading frame is read in triplets).
+    /// Source: Wikipedia "Reading frame" (Badger &amp; Olsen 1999; Lodish 6th ed.):
+    /// a reading frame reads nucleotides "as a sequence of triplets". https://en.wikipedia.org/wiki/Reading_frame</summary>
+    private const int CodonLength = 3;
+
+    /// <summary>
+    /// A candidate gene-fusion breakpoint with its per-class supporting-read counts.
+    /// Read classes follow the Arriba output schema (Uhrig et al. 2021): split reads anchored in each
+    /// partner and discordant (spanning) mate-pairs.
+    /// </summary>
+    /// <param name="Gene5Prime">5' (upstream) fusion partner gene symbol.</param>
+    /// <param name="Gene3Prime">3' (downstream) fusion partner gene symbol.</param>
+    /// <param name="SplitReads5Prime">Split (junction) reads whose longer segment (anchor) maps to the 5' gene (Arriba split_reads1).</param>
+    /// <param name="SplitReads3Prime">Split (junction) reads whose longer segment (anchor) maps to the 3' gene (Arriba split_reads2).</param>
+    /// <param name="DiscordantMates">Discordant (spanning/bridge) mate-pairs supporting the fusion (Arriba discordant_mates).</param>
+    /// <param name="FivePrimeCodingBases">Coding bases the 5' partner contributes upstream of the breakpoint (for the reading-frame test); -1 if unknown.</param>
+    /// <param name="ThreePrimeStartPhase">Coding-start phase (0, 1, or 2) of the 3' partner at the breakpoint; -1 if unknown.</param>
+    public readonly record struct FusionCandidate(
+        string Gene5Prime,
+        string Gene3Prime,
+        int SplitReads5Prime,
+        int SplitReads3Prime,
+        int DiscordantMates,
+        int FivePrimeCodingBases = -1,
+        int ThreePrimeStartPhase = -1);
+
+    /// <summary>
+    /// Minimum-support thresholds for fusion calling. Defaults mirror STAR-Fusion (Haas et al.).
+    /// </summary>
+    /// <param name="MinJunctionReads">Minimum junction (split) reads required (STAR-Fusion min_junction_reads).</param>
+    /// <param name="MinSumFrags">Minimum total support when ≥1 junction read present (STAR-Fusion min_sum_frags).</param>
+    /// <param name="MinSpanningFragsOnly">Minimum discordant fragments required when there are no junction reads (STAR-Fusion min_spanning_frags_only).</param>
+    public readonly record struct FusionDetectionThresholds(
+        int MinJunctionReads = DefaultMinJunctionReads,
+        int MinSumFrags = DefaultMinSumFrags,
+        int MinSpanningFragsOnly = DefaultMinSpanningFragsOnly)
+    {
+        // A record struct's *implicit* parameterless constructor (e.g. default(T) / new()) bypasses the
+        // positional defaults above and zero-initialises every field, which would silently disable the
+        // STAR-Fusion thresholds. Declaring an explicit parameterless constructor restores the defaults.
+        public FusionDetectionThresholds()
+            : this(DefaultMinJunctionReads, DefaultMinSumFrags, DefaultMinSpanningFragsOnly)
+        {
+        }
+    }
+
+    /// <summary>Reading-frame status of the 3' partner across the fusion junction.</summary>
+    public enum FusionReadingFrame
+    {
+        /// <summary>Reading frame is preserved across the junction (3' partner stays in phase).</summary>
+        InFrame,
+
+        /// <summary>Reading frame is shifted across the junction (3' partner translated out of phase).</summary>
+        OutOfFrame,
+
+        /// <summary>Coding-phase information was not supplied, so frame could not be determined.</summary>
+        Unknown
+    }
+
+    /// <summary>A detected (passing) gene fusion with its supporting evidence.</summary>
+    /// <param name="Gene5Prime">5' fusion partner.</param>
+    /// <param name="Gene3Prime">3' fusion partner.</param>
+    /// <param name="JunctionReads">Total junction (split) reads = SplitReads5Prime + SplitReads3Prime.</param>
+    /// <param name="DiscordantMates">Discordant (spanning) mate-pairs.</param>
+    /// <param name="TotalSupport">Total supporting reads = SplitReads5Prime + SplitReads3Prime + DiscordantMates (Arriba).</param>
+    /// <param name="ReadingFrame">In-frame / out-of-frame / unknown status of the junction.</param>
+    public readonly record struct FusionCall(
+        string Gene5Prime,
+        string Gene3Prime,
+        int JunctionReads,
+        int DiscordantMates,
+        int TotalSupport,
+        FusionReadingFrame ReadingFrame);
+
+    /// <summary>
+    /// Total supporting reads for a candidate = split_reads1 + split_reads2 + discordant_mates.
+    /// Source: Arriba output spec — "The total number of supporting reads can be obtained by summing up the
+    /// reads given in the columns split_reads1, split_reads2, discordant_mates".
+    /// https://github.com/suhrig/arriba/wiki/05-Output-files
+    /// </summary>
+    public static int ComputeTotalSupport(FusionCandidate candidate)
+        => candidate.SplitReads5Prime + candidate.SplitReads3Prime + candidate.DiscordantMates;
+
+    /// <summary>
+    /// Determines whether the 3' partner is fused in-frame using codon phase.
+    /// A fusion is in-frame iff the coding bases the 5' partner contributes upstream of the breakpoint,
+    /// taken modulo 3 relative to the 3' partner's coding-start phase, keep the downstream codons in phase:
+    /// <c>(fivePrimeCodingBases - threePrimeStartPhase) mod 3 == 0</c>.
+    /// Source: Genomics England exon-phase rule ("if one exon finishes after the second letter of a triplet
+    /// (end phase 2), the next one should start with the third letter") +
+    /// reading frames read in triplets / modulo 3 (Wikipedia "Reading frame", Badger &amp; Olsen 1999).
+    /// https://www.genomicsengland.co.uk/blog/gene-fusion-reporting , https://en.wikipedia.org/wiki/Reading_frame
+    /// </summary>
+    /// <param name="fivePrimeCodingBases">Coding bases contributed by the 5' partner upstream of the breakpoint (≥ 0).</param>
+    /// <param name="threePrimeStartPhase">Coding-start phase of the 3' partner at the breakpoint (0, 1, or 2).</param>
+    /// <returns><see langword="true"/> if the junction preserves the reading frame.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A negative base count, or a phase outside {0,1,2}.</exception>
+    public static bool IsInFrame(int fivePrimeCodingBases, int threePrimeStartPhase)
+    {
+        if (fivePrimeCodingBases < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fivePrimeCodingBases),
+                "Coding-base count cannot be negative.");
+        }
+
+        if (threePrimeStartPhase < 0 || threePrimeStartPhase >= CodonLength)
+        {
+            throw new ArgumentOutOfRangeException(nameof(threePrimeStartPhase),
+                "Coding-start phase must be 0, 1, or 2.");
+        }
+
+        // Modulo arithmetic over a non-negative dividend; result is in [0, CodonLength).
+        return (fivePrimeCodingBases - threePrimeStartPhase) % CodonLength == 0;
+    }
+
+    /// <summary>
+    /// Detects candidate gene fusions from breakpoint supporting-read counts using the STAR-Fusion
+    /// minimum-support rule, and reports each passing fusion with its total support and reading-frame status.
+    /// </summary>
+    /// <remarks>
+    /// A candidate is reported as a fusion iff:
+    /// <list type="bullet">
+    /// <item><description>gene5p ≠ gene3p (a gene is not fused with itself — Registry invariant); and</description></item>
+    /// <item><description>when junction (split) reads ≥ 1: junctionReads ≥ MinJunctionReads AND totalSupport ≥ MinSumFrags
+    /// (STAR-Fusion min_junction_reads / min_sum_frags); OR</description></item>
+    /// <item><description>when there are no junction reads: discordantMates ≥ MinSpanningFragsOnly
+    /// (STAR-Fusion min_spanning_frags_only).</description></item>
+    /// </list>
+    /// Results are returned ordered by descending total support (STAR-Fusion scores fusions by the
+    /// abundance of supporting reads), with the gene pair as a deterministic tie-breaker.
+    /// </remarks>
+    /// <param name="candidates">Candidate breakpoints with per-class supporting-read counts.</param>
+    /// <param name="thresholds">Optional support thresholds; defaults to STAR-Fusion defaults.</param>
+    /// <returns>Detected fusions ordered by descending total support.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="candidates"/> is null.</exception>
+    /// <exception cref="ArgumentException">A candidate has a negative supporting-read count.</exception>
+    public static IReadOnlyList<FusionCall> DetectFusions(
+        IEnumerable<FusionCandidate> candidates,
+        FusionDetectionThresholds? thresholds = null)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        FusionDetectionThresholds t = thresholds ?? new FusionDetectionThresholds();
+        var calls = new List<FusionCall>();
+
+        foreach (FusionCandidate candidate in candidates)
+        {
+            if (candidate.SplitReads5Prime < 0 || candidate.SplitReads3Prime < 0 || candidate.DiscordantMates < 0)
+            {
+                throw new ArgumentException(
+                    "Supporting-read counts cannot be negative.", nameof(candidates));
+            }
+
+            // INV-1: a gene is not fused with itself (case-insensitive symbol comparison).
+            if (string.Equals(candidate.Gene5Prime, candidate.Gene3Prime, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            int junctionReads = candidate.SplitReads5Prime + candidate.SplitReads3Prime;
+            int totalSupport = ComputeTotalSupport(candidate);
+
+            bool passes = junctionReads >= t.MinJunctionReads
+                ? totalSupport >= t.MinSumFrags
+                // No junction reads: fall back to the spanning-fragments-only rule.
+                : candidate.DiscordantMates >= t.MinSpanningFragsOnly;
+
+            if (!passes)
+            {
+                continue;
+            }
+
+            FusionReadingFrame frame = ResolveReadingFrame(candidate);
+            calls.Add(new FusionCall(
+                candidate.Gene5Prime,
+                candidate.Gene3Prime,
+                junctionReads,
+                candidate.DiscordantMates,
+                totalSupport,
+                frame));
+        }
+
+        // INV-4: order by descending total support (abundance of supporting reads), deterministic ties.
+        return calls
+            .OrderByDescending(c => c.TotalSupport)
+            .ThenBy(c => c.Gene5Prime, StringComparer.Ordinal)
+            .ThenBy(c => c.Gene3Prime, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static FusionReadingFrame ResolveReadingFrame(FusionCandidate candidate)
+    {
+        if (candidate.FivePrimeCodingBases < 0 || candidate.ThreePrimeStartPhase < 0
+            || candidate.ThreePrimeStartPhase >= CodonLength)
+        {
+            return FusionReadingFrame.Unknown;
+        }
+
+        return IsInFrame(candidate.FivePrimeCodingBases, candidate.ThreePrimeStartPhase)
+            ? FusionReadingFrame.InFrame
+            : FusionReadingFrame.OutOfFrame;
+    }
+
+    #endregion
 }

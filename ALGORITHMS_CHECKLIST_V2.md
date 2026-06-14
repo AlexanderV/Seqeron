@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 206 |
+| **Completed** | 207 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 28 |
+| **Not Started** | 27 |
 
 ---
 
@@ -234,7 +234,7 @@
 | ☑ | ONCO-SIG-002 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) |
 | ☑ | ONCO-SIG-003 | Oncology | 1 | [Evidence](docs/Evidence/ONCO-SIG-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) |
 | ☑ | ONCO-SIG-004 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-SIG-004-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-004.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) |
-| ☐ | ONCO-FUSION-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-FUSION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-FUSION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) |
 | ☐ | ONCO-FUSION-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-FUSION-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CNA-001 | Oncology | 3 | - | - | - |
@@ -4172,11 +4172,11 @@ Reference signature profiles are caller-supplied (not fabricated); only exposure
 
 ---
 
-#### ONCO-FUSION-001: Fusion Gene Detection
+#### ☑ ONCO-FUSION-001: Fusion Gene Detection
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `FusionDetector.DetectFusions(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectFusions(...)` |
 | **Complexity** | O(n log n) |
 | **Invariant** | gene5p ≠ gene3p |
 | **Depends on** | — (standalone) |
@@ -4184,16 +4184,23 @@ Reference signature profiles are caller-supplied (not fabricated); only exposure
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectFusions(readPairs, splitReads)` | FusionDetector | Canonical |
-| `FindChimericReads(bamFile)` | FusionDetector | Read extraction |
-| `ValidateFusion(fusion, refGenome)` | FusionDetector | Validation |
+| `DetectFusions(candidates, thresholds?)` | OncologyAnalyzer | Canonical |
+| `IsInFrame(fivePrimeCodingBases, threePrimeStartPhase)` | OncologyAnalyzer | Canonical |
+| `ComputeTotalSupport(candidate)` | OncologyAnalyzer | Internal |
+| `FindChimericReads(bamFile)` | (FusionDetector) | Read extraction — out of scope (raw-BAM step) |
+| `ValidateFusion(fusion, refGenome)` | (FusionDetector) | Validation — out of scope |
+
+Implemented on `OncologyAnalyzer` (this session's mandated class) using STAR-Fusion min-support thresholds
+(MIN_JUNCTION_READS=1, MIN_SUM_FRAGS=2, MIN_SPANNING_FRAGS_ONLY=5) and Arriba total-support / reading-frame
+definitions. `FindChimericReads`/`ValidateFusion` are raw-BAM/validation steps outside the count-based
+canonical scope.
 
 **Clinical Fusions:** BCR-ABL, EML4-ALK, ROS1, NTRK, FGFR, RET
 
 **Edge Cases:**
-- [ ] Read-through transcripts (false positive fusions)
-- [ ] Low supporting read count
-- [ ] Reciprocal fusions (same partners, swapped orientation)
+- [x] Read-through transcripts (false positive fusions) — distinct-gene rule (gene5p ≠ gene3p) + support thresholds
+- [x] Low supporting read count — MIN_SUM_FRAGS / MIN_SPANNING_FRAGS_ONLY thresholds reject low-evidence candidates
+- [x] Reciprocal fusions (same partners, swapped orientation) — treated as distinct candidates by 5'/3' assignment
 
 ---
 
@@ -5116,7 +5123,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
 | MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
-| FusionDetector | ONCO-FUSION-001 to ONCO-FUSION-003 | ☐ |
+| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑ (002–003 ☐) | ◐ |
 | CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
