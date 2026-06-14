@@ -163,48 +163,8 @@ public class MotifFinderTests
 
     #endregion
 
-    #region Motif Discovery Tests
-
-    [Test]
-    public void DiscoverMotifs_FindsRepeatedKmer()
-    {
-        var sequence = new DnaSequence("ATGCATGCATGC");
-        var motifs = MotifFinder.DiscoverMotifs(sequence, k: 4, minCount: 2).ToList();
-
-        Assert.That(motifs.Any(m => m.Sequence == "ATGC"));
-    }
-
-    [Test]
-    public void DiscoverMotifs_ReturnsPositions()
-    {
-        var sequence = new DnaSequence("ATGCATGC");
-        var motifs = MotifFinder.DiscoverMotifs(sequence, k: 4, minCount: 2).ToList();
-
-        var atgcMotif = motifs.First(m => m.Sequence == "ATGC");
-        Assert.That(atgcMotif.Positions, Does.Contain(0));
-        Assert.That(atgcMotif.Positions, Does.Contain(4));
-    }
-
-    [Test]
-    public void DiscoverMotifs_CalculatesEnrichment()
-    {
-        var sequence = new DnaSequence("AAAAAAAAAA");
-        var motifs = MotifFinder.DiscoverMotifs(sequence, k: 3, minCount: 1).ToList();
-
-        var aaaMotif = motifs.First(m => m.Sequence == "AAA");
-        Assert.That(aaaMotif.Enrichment, Is.GreaterThan(1));
-    }
-
-    [Test]
-    public void DiscoverMotifs_FiltersByMinCount()
-    {
-        var sequence = new DnaSequence("ATGCAAAA");
-        var motifs = MotifFinder.DiscoverMotifs(sequence, k: 4, minCount: 2).ToList();
-
-        Assert.That(motifs.All(m => m.Count >= 2));
-    }
-
-    #endregion
+    // NOTE: DiscoverMotifs tests are in the canonical file
+    // MotifFinder_DiscoverMotifs_Tests.cs (MOTIF-DISCOVER-001).
 
     #region Shared Motif Tests
 
@@ -314,20 +274,8 @@ public class MotifFinderTests
 
     // NOTE: PWM null tests moved to MotifFinder_PWM_Tests.cs (PAT-PWM-001)
 
-    [Test]
-    public void DiscoverMotifs_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.DiscoverMotifs(null!).ToList());
-    }
-
-    [Test]
-    public void DiscoverMotifs_ZeroK_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            MotifFinder.DiscoverMotifs(sequence, k: 0).ToList());
-    }
+    // NOTE: DiscoverMotifs null/k-range tests moved to the canonical
+    // MotifFinder_DiscoverMotifs_Tests.cs (MOTIF-DISCOVER-001).
 
     [Test]
     public void FindSharedMotifs_NullSequences_ThrowsException()

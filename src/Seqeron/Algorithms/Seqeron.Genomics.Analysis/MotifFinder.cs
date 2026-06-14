@@ -477,12 +477,28 @@ public static class MotifFinder
     #region Motif Discovery
 
     /// <summary>
+    /// Size of the DNA nucleotide alphabet {A, C, G, T}; the base of the
+    /// 4^k count of distinct k-mers used in the expected-occurrence formula.
+    /// </summary>
+    private const int DnaAlphabetSize = 4;
+
+    /// <summary>
     /// Discovers overrepresented k-mers that may represent motifs.
     /// </summary>
+    /// <remarks>
+    /// Overrepresentation is measured by the observed-over-expected (O/E) ratio. Under the
+    /// zero-order (i.i.d. uniform) background model in which each of the four nucleotides is
+    /// equally likely (probability 1/4), the expected number of occurrences of any specific
+    /// k-mer in a string of length N is E = (N − k + 1) / 4^k (Compeau &amp; Pevzner,
+    /// <i>Bioinformatics Algorithms: An Active Learning Approach</i>; the (N − k + 1) factor
+    /// is the number of length-k windows and 4^k is the number of distinct k-mers). The
+    /// <see cref="DiscoveredMotif.Enrichment"/> field is the observed count divided by E, so a
+    /// value &gt; 1 means the k-mer occurs more often than chance predicts.
+    /// </remarks>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="k">K-mer length (default: 6).</param>
     /// <param name="minCount">Minimum occurrence count (default: 2).</param>
-    /// <returns>Overrepresented k-mers with their counts and positions.</returns>
+    /// <returns>Overrepresented k-mers with their counts, positions, and O/E enrichment.</returns>
     public static IEnumerable<DiscoveredMotif> DiscoverMotifs(
         DnaSequence sequence,
         int k = 6,
@@ -494,7 +510,7 @@ public static class MotifFinder
         string seq = sequence.Sequence;
         var kmerPositions = new Dictionary<string, List<int>>();
 
-        // Count k-mers
+        // Count k-mers at every length-k window (0-based start positions).
         for (int i = 0; i <= seq.Length - k; i++)
         {
             string kmer = seq.Substring(i, k);
@@ -505,16 +521,19 @@ public static class MotifFinder
             kmerPositions[kmer].Add(i);
         }
 
-        // Calculate expected frequency
-        double expectedFreq = seq.Length - k + 1.0;
-        double expectedCount = expectedFreq / Math.Pow(4, k);
+        // Expected occurrences of a specific k-mer under the i.i.d. uniform background:
+        // E = (N - k + 1) / 4^k  (Compeau & Pevzner, Bioinformatics Algorithms).
+        // windowCount = N - k + 1 is the number of length-k windows; it is >= 1 whenever
+        // at least one k-mer was counted, so E is strictly positive here.
+        double windowCount = seq.Length - k + 1.0;
+        double expectedCount = windowCount / Math.Pow(DnaAlphabetSize, k);
 
-        // Return overrepresented k-mers
+        // Return overrepresented k-mers with their observed/expected (O/E) ratio.
         foreach (var (kmer, positions) in kmerPositions)
         {
             if (positions.Count >= minCount)
             {
-                double enrichment = positions.Count / Math.Max(expectedCount, 0.1);
+                double enrichment = positions.Count / expectedCount;
 
                 yield return new DiscoveredMotif(
                     Sequence: kmer,

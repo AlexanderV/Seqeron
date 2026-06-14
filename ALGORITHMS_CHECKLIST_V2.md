@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 168 |
+| **Completed** | 169 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 66 |
+| **Not Started** | 65 |
 
 ---
 
@@ -196,7 +196,7 @@
 | ☑ | COMPGEN-CLUSTER-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindConservedClusters_Tests.cs) |
 | ☑ | COMPGEN-ANI-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-ANI-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-ANI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateANI_Tests.cs) |
 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-DOTPLOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_GenerateDotPlot_Tests.cs) |
-| ☐ | MOTIF-DISCOVER-001 | Matching | 1 | - | - | - |
+| ☑ | MOTIF-DISCOVER-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-DISCOVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-DISCOVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_DiscoverMotifs_Tests.cs) |
 | ☐ | MOTIF-SHARED-001 | Matching | 1 | - | - | - |
 | ☐ | MOTIF-REGULATORY-001 | Matching | 1 | - | - | - |
 | ☐ | MOTIF-GENERATE-001 | Matching | 1 | - | - | - |
