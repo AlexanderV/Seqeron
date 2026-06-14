@@ -4779,4 +4779,151 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region GenerateNeoantigenPeptides
+
+    /// <summary>
+    /// Shortest MHC class I peptide length (8-mer) over which candidate neoantigen windows are enumerated.
+    /// Source: Jurtz et al. (2017) NetMHCpan-4.0, <i>J. Immunol.</i> 199(9):3360–3368 — class I predictions
+    /// are made for peptides of length 8–14; the NetMHCpan-4.1 web service offers 8/9/10/11/12/13/14-mer
+    /// peptide options (https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/). pVACtools restricts the
+    /// canonical class I neoantigen search to lengths 8–11 (Hundal et al. 2020, <i>Cancer Immunol. Res.</i>
+    /// 8(3):409–420 — "8–11-mer for Class I MHC").
+    /// </summary>
+    public const int MhcClassIMinPeptideLength = 8;
+
+    /// <summary>
+    /// Longest MHC class I peptide length (11-mer) over which candidate neoantigen windows are enumerated.
+    /// Source: Hundal et al. (2020), <i>Cancer Immunol. Res.</i> 8(3):409–420 — pVACtools predicts the
+    /// strongest MHC-binding peptides "(8–11-mer for Class I MHC …)".
+    /// </summary>
+    public const int MhcClassIMaxPeptideLength = 11;
+
+    /// <summary>
+    /// A candidate neoantigen peptide: a fixed-length window of the mutant protein that spans the mutated
+    /// residue, paired with the wild-type peptide occupying the same coordinates (the agretope). Mutant and
+    /// wild-type peptides differ only at the substituted residue (Hundal et al. 2020, <i>Cancer Immunol.
+    /// Res.</i> 8(3):409–420; agretopicity is the differential binding of these two — Wells et al. 2020,
+    /// <i>Cell</i> 183(3):818–834).
+    /// </summary>
+    /// <param name="Length">Peptide length k (number of residues), in [<see cref="MhcClassIMinPeptideLength"/>,
+    /// <see cref="MhcClassIMaxPeptideLength"/>].</param>
+    /// <param name="StartPosition">1-based position in the protein of the first residue of the window.</param>
+    /// <param name="MutantPeptide">The k-mer taken from the mutant protein (carries the substituted residue).</param>
+    /// <param name="WildTypePeptide">The k-mer at the same coordinates in the wild-type protein (the agretope).</param>
+    /// <param name="MutationOffset">0-based offset of the mutated residue within the peptide window.</param>
+    public readonly record struct NeoantigenPeptide(
+        int Length,
+        int StartPosition,
+        string MutantPeptide,
+        string WildTypePeptide,
+        int MutationOffset);
+
+    /// <summary>
+    /// Generates the candidate MHC class I neoantigen peptide windows arising from a single somatic missense
+    /// (amino-acid substitution) mutation. For each peptide length k the method enumerates every length-k
+    /// window of the mutant protein that <b>spans</b> the mutated residue, and pairs it with the wild-type
+    /// window at the same coordinates (the agretope). This is the windowing step of neoantigen prediction as
+    /// defined by pVACtools (Hundal et al. 2020) and the 21-mer ± 10-flank construction of ProGeo-neo (Li et
+    /// al. 2020, <i>BMC Med. Genomics</i> 13:52): a 21-mer with 10 residues flanking the substitution on each
+    /// side contains exactly the 8–11-mer windows that overlap the mutation.
+    /// <para>
+    /// Binding affinity / IC50 is NOT computed here — that requires a trained MHC-binding model (e.g.
+    /// NetMHCpan) and is caller-supplied or out of scope (ONCO-MHC-001).
+    /// </para>
+    /// </summary>
+    /// <param name="wildTypeProtein">The wild-type (reference) protein sequence (one-letter amino-acid codes).</param>
+    /// <param name="mutantResidue">The substituted (mutant) amino acid (one-letter code).</param>
+    /// <param name="mutationPosition">1-based position of the substituted residue within the protein.</param>
+    /// <param name="minLength">Minimum peptide length (default <see cref="MhcClassIMinPeptideLength"/>).</param>
+    /// <param name="maxLength">Maximum peptide length (default <see cref="MhcClassIMaxPeptideLength"/>).</param>
+    /// <returns>
+    /// All candidate peptides, ordered by length ascending then by start position ascending. Empty only if no
+    /// window of any requested length fits within the protein bounds while spanning the mutation.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="wildTypeProtein"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The protein is empty; <paramref name="mutantResidue"/> is not a single character; the wild-type residue
+    /// at the mutation position already equals the mutant residue (not a substitution); or the length range is
+    /// invalid (min &gt; max, or min &lt; 1).
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="mutationPosition"/> is outside [1, protein length].
+    /// </exception>
+    public static IReadOnlyList<NeoantigenPeptide> GenerateNeoantigenPeptides(
+        string wildTypeProtein,
+        char mutantResidue,
+        int mutationPosition,
+        int minLength = MhcClassIMinPeptideLength,
+        int maxLength = MhcClassIMaxPeptideLength)
+    {
+        ArgumentNullException.ThrowIfNull(wildTypeProtein);
+
+        if (wildTypeProtein.Length == 0)
+        {
+            throw new ArgumentException("Protein sequence must be non-empty.", nameof(wildTypeProtein));
+        }
+
+        if (minLength < 1)
+        {
+            throw new ArgumentException($"Minimum peptide length must be at least 1; got {minLength}.", nameof(minLength));
+        }
+
+        if (maxLength < minLength)
+        {
+            throw new ArgumentException(
+                $"Maximum peptide length ({maxLength}) must be ≥ minimum ({minLength}).", nameof(maxLength));
+        }
+
+        if (mutationPosition < 1 || mutationPosition > wildTypeProtein.Length)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(mutationPosition),
+                mutationPosition,
+                $"Mutation position must be in [1, {wildTypeProtein.Length}].");
+        }
+
+        int mutationIndex = mutationPosition - 1; // 0-based index of the substituted residue.
+        char wildTypeResidue = wildTypeProtein[mutationIndex];
+        if (wildTypeResidue == mutantResidue)
+        {
+            throw new ArgumentException(
+                $"Mutant residue '{mutantResidue}' equals the wild-type residue at position {mutationPosition}; " +
+                "a missense mutation requires a different amino acid.", nameof(mutantResidue));
+        }
+
+        // The mutant protein differs from the wild type only at the substituted residue.
+        char[] mutantChars = wildTypeProtein.ToCharArray();
+        mutantChars[mutationIndex] = mutantResidue;
+        string mutantProtein = new(mutantChars);
+
+        var peptides = new List<NeoantigenPeptide>();
+        int proteinLength = wildTypeProtein.Length;
+
+        // For each requested length k, a length-k window starts at 0-based index s and covers [s, s+k-1].
+        // It spans the mutation iff s ≤ mutationIndex ≤ s+k-1, i.e. s ∈ [mutationIndex-k+1, mutationIndex],
+        // additionally clamped to the protein bounds s ∈ [0, proteinLength-k]. This is exactly the set of
+        // 8–11-mers contained in the 21-mer ±10-flank window of pVACtools / ProGeo-neo.
+        for (int k = minLength; k <= maxLength; k++)
+        {
+            if (k > proteinLength)
+            {
+                continue; // No window of this length fits in the protein.
+            }
+
+            int firstStart = Math.Max(0, mutationIndex - k + 1);
+            int lastStart = Math.Min(mutationIndex, proteinLength - k);
+            for (int start = firstStart; start <= lastStart; start++)
+            {
+                string mutantPeptide = mutantProtein.Substring(start, k);
+                string wildTypePeptide = wildTypeProtein.Substring(start, k);
+                int offset = mutationIndex - start; // 0-based offset of the mutation within the window.
+                peptides.Add(new NeoantigenPeptide(k, start + 1, mutantPeptide, wildTypePeptide, offset));
+            }
+        }
+
+        return peptides;
+    }
+
+    #endregion
 }

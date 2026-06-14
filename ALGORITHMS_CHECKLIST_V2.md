@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 215 |
+| **Completed** | 216 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 19 |
+| **Not Started** | 18 |
 
 ---
 
@@ -243,7 +243,7 @@
 | ☑ | ONCO-PURITY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PURITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PURITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) |
 | ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
-| ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
 | ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☐ | ONCO-CTDNA-001 | Oncology | 3 | - | - | - |
@@ -4425,25 +4425,31 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-NEO-001: Neoantigen Prediction
+#### ONCO-NEO-001: Neoantigen Prediction (candidate peptide window generation)
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `NeoantigenPredictor.PredictNeoantigens(...)` |
-| **Complexity** | O(n × m) where m=HLA alleles |
-| **Depends on** | ONCO-SOMATIC-001, ONCO-HLA-001 |
+| **Canonical** | `OncologyAnalyzer.GenerateNeoantigenPeptides(...)` |
+| **Complexity** | O(Σ_k k) per missense mutation (constant for the fixed 8–11 class I range) |
+| **Depends on** | ONCO-SOMATIC-001 |
+
+> Scope (implemented): the well-defined windowing step — every 8–11-mer (MHC-I) window of the mutant
+> protein that SPANS a somatic missense residue, paired with the wild-type agretope at the same
+> coordinates (pVACtools / Hundal 2020; ProGeo-neo / Li 2020; TESLA / Wells 2020). Binding affinity /
+> IC50 scoring is caller-supplied / out of scope (ONCO-MHC-001) — no MHC model is fabricated. The
+> checklist placeholder class `NeoantigenPredictor` is superseded by `OncologyAnalyzer` (project layout).
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `PredictNeoantigens(variants, hlaType)` | NeoantigenPredictor | Canonical |
-| `GenerateMutantPeptides(variant, lengths)` | NeoantigenPredictor | 8-11mer |
-| `ScoreNeoantigens(peptides, hlaAlleles)` | NeoantigenPredictor | Binding affinity |
+| `GenerateNeoantigenPeptides(wildTypeProtein, mutantResidue, mutationPosition, minLength, maxLength)` | OncologyAnalyzer | Canonical (8-11mer windowing + agretope pairing) |
 
 **Edge Cases:**
-- [ ] Unknown HLA type (incomplete typing)
-- [ ] Frameshift mutations (long peptide sequences)
-- [ ] Variants in non-coding regions (no peptide generated)
+- [x] Mutation at N-/C-terminus (truncated window count — only windows that fit while spanning the residue)
+- [x] Requested peptide length exceeds protein length (length skipped; shorter lengths still returned)
+- [x] Non-substitution (mutant residue == wild-type) rejected; out-of-range position / invalid length range rejected
+- [ ] Frameshift / indel / fusion neopeptides (out of scope; separate translation step)
+- [ ] Binding-affinity scoring (out of scope; ONCO-MHC-001)
 
 ---
 
