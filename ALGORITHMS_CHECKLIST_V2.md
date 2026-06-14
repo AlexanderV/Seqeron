@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 193 |
+| **Completed** | 194 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 41 |
+| **Not Started** | 40 |
 
 ---
 
@@ -221,7 +221,7 @@
 | ☑ | GENOMIC-TANDEM-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-TANDEM-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs (consolidated into REP-TANDEM-001) |
 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) |
 | ☑ | GENOMIC-ORF-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-ORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-ORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) |
-| ☐ | ONCO-SOMATIC-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-SOMATIC-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SOMATIC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SOMATIC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) |
 | ☐ | ONCO-VAF-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-DRIVER-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-ARTIFACT-001 | Oncology | 2 | - | - | - |
@@ -3863,9 +3863,9 @@ See RNA-PAIR-001 Evidence/TestSpec.
 | `CalculateSomaticScore(variant)` | OncologyAnalyzer | Scoring |
 
 **Edge Cases:**
-- [ ] Tumor-only mode (no matched normal)
-- [ ] Low tumor purity samples
-- [ ] Clonal hematopoiesis contamination
+- [x] Tumor-only mode (no matched normal)
+- [x] Low tumor purity samples
+- [x] Clonal hematopoiesis contamination
 
 ---
 
