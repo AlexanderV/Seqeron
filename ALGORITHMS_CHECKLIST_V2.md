@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 167 |
+| **Completed** | 168 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 67 |
+| **Not Started** | 66 |
 
 ---
 
@@ -195,7 +195,7 @@
 | ☑ | COMPGEN-REVERSAL-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REVERSAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateReversalDistance_Tests.cs) |
 | ☑ | COMPGEN-CLUSTER-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindConservedClusters_Tests.cs) |
 | ☑ | COMPGEN-ANI-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-ANI-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-ANI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateANI_Tests.cs) |
-| ☐ | COMPGEN-DOTPLOT-001 | Comparative | 1 | - | - | - |
+| ☑ | COMPGEN-DOTPLOT-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-DOTPLOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_GenerateDotPlot_Tests.cs) |
 | ☐ | MOTIF-DISCOVER-001 | Matching | 1 | - | - | - |
 | ☐ | MOTIF-SHARED-001 | Matching | 1 | - | - | - |
 | ☐ | MOTIF-REGULATORY-001 | Matching | 1 | - | - | - |

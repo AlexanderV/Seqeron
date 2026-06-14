@@ -1134,29 +1134,72 @@ public static class ComparativeGenomics
         return (identity, MaxIdentity);
     }
 
+    // Default word (tuple) size for the word-match dot plot. EMBOSS dottup uses a default
+    // wordsize of 10 (Rice, Longden & Bleasby 2000; EMBOSS dottup manual). A dot is drawn
+    // wherever an exact word of this length is shared by both sequences (Gibbs & McIntyre 1970).
+    private const int DefaultDotPlotWordSize = 10;
+
+    // Default sampling step along sequence 1. Step 1 examines every starting position, which is
+    // the standard exhaustive word-match dot matrix (Gibbs & McIntyre 1970).
+    private const int DefaultDotPlotStepSize = 1;
+
     /// <summary>
-    /// Generates a dot plot comparison between two sequences.
-    /// Uses SuffixTree for efficient O(m+k) word matching.
+    /// Generates a word-match (k-tuple) dot plot of two sequences in the style of EMBOSS
+    /// <c>dottup</c>: it reports every position pair (x, y) at which an exact word of length
+    /// <paramref name="wordSize"/> starting at <c>sequence1[x]</c> equals the word starting at
+    /// <c>sequence2[y]</c>. Plotting the returned coordinates yields the classic dot matrix in
+    /// which regions of similarity appear as diagonal runs (Gibbs &amp; McIntyre 1970; Rice et al. 2000).
     /// </summary>
+    /// <param name="sequence1">First sequence; positions map to the x coordinate (0-based).</param>
+    /// <param name="sequence2">Second sequence; positions map to the y coordinate (0-based).</param>
+    /// <param name="wordSize">
+    /// Length of the exact-match word (tuple). Longer words show less random noise but are less
+    /// sensitive; shorter words are more sensitive but noisier (EMBOSS dottup). Must be positive.
+    /// </param>
+    /// <param name="stepSize">
+    /// Sampling step along <paramref name="sequence1"/>; 1 examines every start position. Must be positive.
+    /// </param>
+    /// <returns>
+    /// Lazily yielded (x, y) coordinate pairs of exact word matches; empty when either sequence is
+    /// null/empty or shorter than <paramref name="wordSize"/>. Comparison is case-insensitive.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="wordSize"/> or <paramref name="stepSize"/> is not positive.
+    /// </exception>
     public static IEnumerable<(int x, int y)> GenerateDotPlot(
         string sequence1,
         string sequence2,
-        int wordSize = 10,
-        int stepSize = 1)
+        int wordSize = DefaultDotPlotWordSize,
+        int stepSize = DefaultDotPlotStepSize)
+    {
+        if (wordSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(wordSize), "Word size must be positive.");
+        if (stepSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(stepSize), "Step size must be positive.");
+
+        return GenerateDotPlotIterator(sequence1, sequence2, wordSize, stepSize);
+    }
+
+    private static IEnumerable<(int x, int y)> GenerateDotPlotIterator(
+        string sequence1,
+        string sequence2,
+        int wordSize,
+        int stepSize)
     {
         if (string.IsNullOrEmpty(sequence1) || string.IsNullOrEmpty(sequence2))
             yield break;
+        if (sequence1.Length < wordSize || sequence2.Length < wordSize)
+            yield break;
 
-        // Build SuffixTree on sequence2 for efficient pattern matching
+        // Build a SuffixTree on sequence2: after O(n) construction every wordSize-length query is
+        // located in O(wordSize + occurrences), giving exact word-match enumeration (dottup-style).
         var suffixTree = global::SuffixTree.SuffixTree.Build(sequence2.ToUpperInvariant());
 
-        // Find matching words from sequence1 in sequence2
+        // Slide an exact word along sequence1 and report each occurrence found in sequence2.
         for (int i = 0; i <= sequence1.Length - wordSize; i += stepSize)
         {
             string word = sequence1.Substring(i, wordSize).ToUpperInvariant();
-            var positions = suffixTree.FindAllOccurrences(word);
-
-            foreach (int j in positions)
+            foreach (int j in suffixTree.FindAllOccurrences(word))
             {
                 yield return (i, j);
             }
