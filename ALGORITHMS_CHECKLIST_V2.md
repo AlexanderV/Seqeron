@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 161 |
+| **Completed** | 162 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 73 |
+| **Not Started** | 72 |
 
 ---
 
@@ -189,7 +189,7 @@
 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-KMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) |
 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-WINDOW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) |
 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | [Evidence](docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-DUST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) |
-| ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
+| ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) |
 | ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
@@ -3311,13 +3311,17 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `SequenceComplexity.EstimateCompressionRatio(...)` |
+| **Canonical** | `SequenceComplexity.EstimateCompressionRatio(...)` (= normalized Lempel–Ziv complexity) |
 | **Complexity** | O(n) |
+
+> Note: behavior is defined as the **Lempel–Ziv (1976) complexity** (number of exhaustive-history factors), not an unspecified compressor ratio. The prior heuristic was replaced; `EstimateCompressionRatio` now delegates to `CalculateNormalizedLempelZivComplexity`. See `docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md`.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateCompressionRatio(sequence)` | SequenceComplexity | Compression-based complexity |
+| `CalculateLempelZivComplexity(sequence)` | SequenceComplexity | Raw LZ76 component count |
+| `CalculateNormalizedLempelZivComplexity(sequence)` | SequenceComplexity | Length-normalized LZ complexity |
+| `EstimateCompressionRatio(sequence)` | SequenceComplexity | Compression-based complexity (delegates to normalized LZ) |
 
 ---
 

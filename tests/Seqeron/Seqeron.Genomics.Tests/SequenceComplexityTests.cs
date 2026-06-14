@@ -568,43 +568,16 @@ public class SequenceComplexityTests
 
     #region Compression Ratio Tests
 
-    [Test]
-    public void EstimateCompressionRatio_HighComplexity_ReturnsExact()
-    {
-        // "ATGCTAGCATGCAATGCTAGCATGCAATGC" (N=30): diverse vocabulary
-        // unique substrings = 112, expected = 216 → ratio = 112/216 = 14/27
-        var sequence = new DnaSequence("ATGCTAGCATGCAATGCTAGCATGCAATGC");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.EqualTo(14.0 / 27.0).Within(1e-10));
-    }
-
-    [Test]
-    public void EstimateCompressionRatio_LowComplexity_ReturnsExact()
-    {
-        // 31×A: only 1 unique substring per length → unique=10, expected=224
-        // ratio = 10/224 = 5/112
-        var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.EqualTo(5.0 / 112.0).Within(1e-10));
-    }
+    // Canonical Lempel–Ziv / compression-ratio tests live in
+    // SequenceComplexity_EstimateCompressionRatio_Tests.cs (SEQ-COMPLEX-COMPRESS-001).
+    // The earlier heuristic-output assertions were removed when the implementation
+    // was corrected to the source-backed Lempel–Ziv (1976) complexity.
 
     [Test]
     public void EstimateCompressionRatio_EmptySequence_ReturnsZero()
     {
         double ratio = SequenceComplexity.EstimateCompressionRatio("");
         Assert.That(ratio, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void EstimateCompressionRatio_RangeIsZeroToOne()
-    {
-        var sequence = new DnaSequence("ATGCATGCATGC");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.GreaterThanOrEqualTo(0));
-        Assert.That(ratio, Is.LessThanOrEqualTo(1));
     }
 
     #endregion

@@ -441,59 +441,136 @@ public static class SequenceComplexity
 
     #endregion
 
-    #region Compression Ratio
+    #region Lempel-Ziv Complexity (compression-based)
+
+    // Lempel-Ziv (1976) complexity: the number of distinct components (substrings)
+    // produced by an exhaustive-history left-to-right parse of the sequence.
+    // Ref: Lempel A, Ziv J (1976) "On the Complexity of Finite Sequences",
+    // IEEE Trans. Inf. Theory 22(1):75-81, doi:10.1109/TIT.1976.1055501.
+    // Parsing rule and worked values cross-checked against the reference
+    // implementation Naereen/Lempel-Ziv_Complexity (lempel_ziv_complexity.py).
 
     /// <summary>
-    /// Estimates sequence complexity using compression ratio.
-    /// Lower ratios indicate more repetitive/less complex sequences.
+    /// Calculates the raw Lempel–Ziv (1976) complexity of a DNA sequence: the number
+    /// of distinct components produced by an exhaustive-history left-to-right parse.
+    /// Higher values indicate more complex (less compressible) sequences.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <returns>Estimated compression ratio (0 to 1).</returns>
+    /// <returns>Number of Lempel–Ziv components (≥ 0).</returns>
+    public static int CalculateLempelZivComplexity(DnaSequence sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateLempelZivComplexityCore(sequence.Sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the raw Lempel–Ziv (1976) complexity from a raw sequence string.
+    /// </summary>
+    public static int CalculateLempelZivComplexity(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateLempelZivComplexityCore(sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the normalized Lempel–Ziv complexity: c / (n / log_b(n)), where
+    /// c is the raw complexity, n the sequence length and b the alphabet size
+    /// (number of distinct symbols present). Normalization removes the length
+    /// dependence of the raw count (Zhang et al. 2009).
+    /// When fewer than two distinct symbols are present (log base undefined), the
+    /// raw complexity is returned.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <returns>Normalized Lempel–Ziv complexity.</returns>
+    public static double CalculateNormalizedLempelZivComplexity(DnaSequence sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateNormalizedLempelZivComplexityCore(sequence.Sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the normalized Lempel–Ziv complexity from a raw sequence string.
+    /// </summary>
+    public static double CalculateNormalizedLempelZivComplexity(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateNormalizedLempelZivComplexityCore(sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Estimates sequence complexity using a compression-based measure.
+    /// Returns the normalized Lempel–Ziv complexity (c / (n / log_b(n))); lower
+    /// values indicate more repetitive/less complex sequences.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <returns>Normalized Lempel–Ziv complexity.</returns>
     public static double EstimateCompressionRatio(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return EstimateCompressionRatioCore(sequence.Sequence);
+        return CalculateNormalizedLempelZivComplexity(sequence);
     }
 
     /// <summary>
-    /// Estimates compression ratio from a raw sequence string.
+    /// Estimates compression-based complexity (normalized Lempel–Ziv) from a raw
+    /// sequence string.
     /// </summary>
     public static double EstimateCompressionRatio(string sequence)
     {
-        if (string.IsNullOrEmpty(sequence)) return 0;
-        return EstimateCompressionRatioCore(sequence.ToUpperInvariant());
+        return CalculateNormalizedLempelZivComplexity(sequence);
     }
 
-    private static double EstimateCompressionRatioCore(string seq)
+    private static int CalculateLempelZivComplexityCore(string seq)
     {
-        if (seq.Length == 0) return 0;
+        // Exhaustive-history parse: grow the running substring while it is already
+        // a seen component; otherwise add it as a new component and restart.
+        var components = new HashSet<string>();
+        int ind = 0;
+        int inc = 1;
 
-        // Use LZ77-like approach: count unique substrings
-        var seen = new HashSet<string>();
-        int uniqueCount = 0;
-
-        for (int len = 1; len <= Math.Min(10, seq.Length); len++)
+        while (ind + inc <= seq.Length)
         {
-            for (int i = 0; i <= seq.Length - len; i++)
+            string sub = seq.Substring(ind, inc);
+            if (components.Contains(sub))
             {
-                string sub = seq.Substring(i, len);
-                if (!seen.Contains(sub))
-                {
-                    seen.Add(sub);
-                    uniqueCount++;
-                }
+                inc++;
+            }
+            else
+            {
+                components.Add(sub);
+                ind += inc;
+                inc = 1;
             }
         }
 
-        // Calculate expected unique substrings for random sequence
-        double expected = 0;
-        for (int len = 1; len <= Math.Min(10, seq.Length); len++)
-        {
-            expected += Math.Min(Math.Pow(4, len), seq.Length - len + 1);
-        }
-
-        return expected > 0 ? (double)uniqueCount / expected : 0;
+        return components.Count;
     }
+
+    private static double CalculateNormalizedLempelZivComplexityCore(string seq)
+    {
+        int n = seq.Length;
+        if (n == 0) return 0;
+
+        int c = CalculateLempelZivComplexityCore(seq);
+
+        // Alphabet size b = number of distinct symbols actually present.
+        var alphabet = new HashSet<char>();
+        foreach (char ch in seq) alphabet.Add(ch);
+        int b = alphabet.Count;
+
+        // log_b(n) is undefined for b < 2; return the raw count in that case.
+        if (b < MinAlphabetForNormalization) return c;
+
+        // b(n) = n / log_b(n); normalized complexity = c / b(n).
+        double logBaseN = Math.Log(n) / Math.Log(b);
+        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0
+
+        double upperBound = n / logBaseN;
+        return c / upperBound;
+    }
+
+    // Normalization needs an alphabet of at least 2 symbols so log_b(n) is defined.
+    // Ref: Zhang et al. (2009) normalized LZ; entropy/antropy lziv_complexity.
+    private const int MinAlphabetForNormalization = 2;
 
     #endregion
 }
