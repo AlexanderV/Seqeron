@@ -133,44 +133,7 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region Open Reading Frames
-
-        [Test]
-        public void FindOpenReadingFrames_SimpleOrf_FindsIt()
-        {
-            // ATG (start) + 30 codons + TAA (stop) = 99bp ORF
-            string seq = "ATG" + new string('A', 93) + "TAA";
-            var dna = new DnaSequence(seq);
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 90).ToList();
-
-            Assert.That(orfs, Has.Count.GreaterThanOrEqualTo(1));
-            Assert.That(orfs.Any(o => o.Sequence.StartsWith("ATG")), Is.True);
-        }
-
-        [Test]
-        public void FindOpenReadingFrames_MultipleFrames_FindsAll()
-        {
-            // ORF in frame 1
-            string seq = "ATGAAAAAATAA" + "ATGCCCCCCTAGATGGGGGGGTGA";
-            var dna = new DnaSequence(seq);
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 9).ToList();
-
-            // Should find ORFs starting with ATG
-            Assert.That(orfs.All(o => o.Sequence.StartsWith("ATG")), Is.True);
-        }
-
-        [Test]
-        public void FindOpenReadingFrames_NoOrf_ReturnsEmpty()
-        {
-            var dna = new DnaSequence("TTTTTTTTT");
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 30).ToList();
-
-            Assert.That(orfs, Is.Empty);
-        }
-
-        #endregion
+        // ORF tests for GenomicAnalyzer.FindOpenReadingFrames are the canonical fixture
+        // GenomicAnalyzer_FindOpenReadingFrames_Tests.cs (GENOMIC-ORF-001).
     }
 }

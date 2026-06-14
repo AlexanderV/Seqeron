@@ -373,30 +373,57 @@ public static class GenomicAnalyzer
 
     #region Open Reading Frames
 
+    // Standard genetic code (NCBI transl_table=1): start codon ATG, stop codons TAA/TAG/TGA.
+    // NCBI Genetic Codes, https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi (accessed 2026-06-14).
+    private const string StartCodon = "ATG";
+    private static readonly string[] StopCodons = { "TAA", "TAG", "TGA" };
+
+    // A codon is three nucleotides.
+    private const int CodonLength = 3;
+
+    // Number of reading frames per strand (offsets 0,1,2). Six-frame search uses both strands.
+    // Open reading frame, https://en.wikipedia.org/wiki/Open_reading_frame (accessed 2026-06-14).
+    private const int FramesPerStrand = 3;
+
     /// <summary>
-    /// Finds potential Open Reading Frames (ORFs) - regions that could encode proteins.
-    /// An ORF starts with ATG (start codon) and ends with TAA, TAG, or TGA (stop codons).
+    /// Finds potential Open Reading Frames (ORFs) in all six reading frames (three on the
+    /// forward strand and three on the reverse complement).
     /// </summary>
+    /// <remarks>
+    /// An ORF starts at a start codon (ATG) and ends at the first in-frame stop codon
+    /// (TAA, TAG, or TGA). Following the canonical ORF definition (Rosalind "Open Reading
+    /// Frames"; NCBI ORFfinder with "ATG only"), <b>every</b> in-frame ATG that is terminated
+    /// by a downstream in-frame stop is reported — including nested/overlapping ORFs that share
+    /// the same stop codon. A reading begun at an ATG that has no downstream in-frame stop is
+    /// not a complete ORF and is not reported. The reported <see cref="OrfInfo.Sequence"/>
+    /// spans the start codon through the stop codon inclusive, so its length is divisible by 3;
+    /// the encoded protein candidate is the translation up to (excluding) the stop.
+    /// </remarks>
+    /// <param name="sequence">The DNA sequence to scan.</param>
+    /// <param name="minLength">
+    /// Minimum ORF length in nucleotides (inclusive lower bound), matching NCBI ORFfinder's
+    /// nucleotide length filter. ORFs with length &lt; <paramref name="minLength"/> are excluded.
+    /// </param>
     public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength = 100)
     {
-        string seq = sequence.Sequence;
-        var startCodon = "ATG";
-        var stopCodons = new[] { "TAA", "TAG", "TGA" };
-
-        // Check all 3 reading frames on forward strand
-        for (int frame = 0; frame < 3; frame++)
+        if (sequence is null)
         {
-            foreach (var orf in FindOrfsInFrame(seq, frame, startCodon, stopCodons, minLength, false))
+            throw new ArgumentNullException(nameof(sequence));
+        }
+
+        string seq = sequence.Sequence;
+        for (int frame = 0; frame < FramesPerStrand; frame++)
+        {
+            foreach (var orf in FindOrfsInFrame(seq, frame, minLength, isReverseComplement: false))
             {
                 yield return orf;
             }
         }
 
-        // Check all 3 reading frames on reverse complement
         string revComp = sequence.ReverseComplement().Sequence;
-        for (int frame = 0; frame < 3; frame++)
+        for (int frame = 0; frame < FramesPerStrand; frame++)
         {
-            foreach (var orf in FindOrfsInFrame(revComp, frame, startCodon, stopCodons, minLength, true))
+            foreach (var orf in FindOrfsInFrame(revComp, frame, minLength, isReverseComplement: true))
             {
                 yield return orf;
             }
@@ -404,32 +431,54 @@ public static class GenomicAnalyzer
     }
 
     private static IEnumerable<OrfInfo> FindOrfsInFrame(
-        string seq, int frame, string startCodon, string[] stopCodons, int minLength, bool isReverseComplement)
+        string seq, int frame, int minLength, bool isReverseComplement)
     {
-        int? orfStart = null;
-
-        for (int i = frame; i <= seq.Length - 3; i += 3)
+        // Scan codon positions in this frame. At each ATG, find the first in-frame stop
+        // downstream; report that ATG→stop span. Every ATG is considered independently, so
+        // nested ORFs sharing a stop are all reported (canonical Rosalind ORF semantics).
+        for (int start = frame; start <= seq.Length - CodonLength; start += CodonLength)
         {
-            string codon = seq.Substring(i, 3);
-
-            if (orfStart == null && codon == startCodon)
+            if (!IsCodon(seq, start, StartCodon))
             {
-                orfStart = i;
+                continue;
             }
-            else if (orfStart != null && stopCodons.Contains(codon))
+
+            for (int i = start; i <= seq.Length - CodonLength; i += CodonLength)
             {
-                int length = i + 3 - orfStart.Value;
+                if (!IsStopCodon(seq, i))
+                {
+                    continue;
+                }
+
+                int length = i + CodonLength - start;
                 if (length >= minLength)
                 {
                     yield return new OrfInfo(
-                        seq.Substring(orfStart.Value, length),
-                        orfStart.Value,
+                        seq.Substring(start, length),
+                        start,
                         frame + 1,
                         isReverseComplement);
                 }
-                orfStart = null;
+
+                break; // ORF ends at the first in-frame stop.
             }
         }
+    }
+
+    private static bool IsCodon(string seq, int index, string codon) =>
+        string.CompareOrdinal(seq, index, codon, 0, CodonLength) == 0;
+
+    private static bool IsStopCodon(string seq, int index)
+    {
+        foreach (string stop in StopCodons)
+        {
+            if (IsCodon(seq, index, stop))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #endregion

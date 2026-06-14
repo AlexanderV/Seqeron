@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 192 |
+| **Completed** | 193 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 42 |
+| **Not Started** | 41 |
 
 ---
 
@@ -220,7 +220,7 @@
 | ☑ | SEQ-SUMMARY-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SUMMARY-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SUMMARY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) |
 | ☑ | GENOMIC-TANDEM-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-TANDEM-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs (consolidated into REP-TANDEM-001) |
 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) |
-| ☐ | GENOMIC-ORF-001 | Analysis | 1 | - | - | - |
+| ☑ | GENOMIC-ORF-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-ORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-ORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) |
 | ☐ | ONCO-SOMATIC-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-VAF-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-DRIVER-001 | Oncology | 3 | - | - | - |
@@ -3827,12 +3827,20 @@ See RNA-PAIR-001 Evidence/TestSpec.
 | Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.FindOpenReadingFrames(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(n²) worst case (per-ATG scan to next in-frame stop; O(n) typical) — corrected from O(n); see Evidence GENOMIC-ORF-001 |
+| **Invariant** | Every ORF starts ATG, ends TAA/TAG/TGA, length % 3 == 0; six-frame search |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindOpenReadingFrames(sequence)` | GenomicAnalyzer | Potential ORFs |
+| `FindOpenReadingFrames(sequence, minLength=100)` | GenomicAnalyzer | Canonical — every-ATG-to-first-in-frame-stop, both strands |
+
+**Edge Cases:**
+- [x] ATG with no in-frame stop → not reported
+- [x] Nested ORFs sharing a stop → both reported (Rosalind canonical)
+- [x] Reverse-complement-only ORF detected
+- [x] minLength filtering (nucleotides, inclusive)
+- [x] null sequence → ArgumentNullException
 
 ---
 
