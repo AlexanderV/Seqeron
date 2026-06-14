@@ -74,6 +74,42 @@ public static class OncologyAnalyzer
     /// </summary>
     private const double HeterozygousDiploidPurityFactor = 2.0;
 
+    /// <summary>
+    /// Mass in picograms of one haploid human genome equivalent. Source: Devonshire A.S. et al. (2014),
+    /// <i>Anal. Bioanal. Chem.</i> (PMC4182654) — "one copy is … a single human haploid genome that is
+    /// calculated as 3.3 pg." Corroborated by Alcaide et al. (2020), <i>Sci. Rep.</i> 10:12564
+    /// ("1 ng of cfDNA roughly contains 303 haploid genome equivalents"; 1000 / 3.3 ≈ 303).
+    /// </summary>
+    private const double PicogramsPerHaploidGenome = 3.3;
+
+    /// <summary>Picograms per nanogram (unit conversion).</summary>
+    private const double PicogramsPerNanogram = 1000.0;
+
+    /// <summary>
+    /// Factor relating a clonal heterozygous somatic SNV VAF to ctDNA tumor fraction at a copy-neutral
+    /// diploid locus: tumor fraction = 2·VAF. Same diploid-heterozygous identity as
+    /// <see cref="HeterozygousDiploidPurityFactor"/> (CNAqc expected-VAF relation v = π/2; Antonello et al.
+    /// 2024, <i>Genome Biology</i> 25:38). For ctDNA the tumour-derived fraction plays the role of purity.
+    /// </summary>
+    private const double TumorFractionFromVafFactor = 2.0;
+
+    /// <summary>
+    /// Default minimum detection probability for <see cref="IsCtDnaDetected"/> — the 95% sensitivity
+    /// convention. Same 0.95 confidence level already used by <see cref="DefaultVafConfidence"/>.
+    /// Source: Newman et al. (2014), <i>Nat. Med.</i> 20(5):548–554 report assay sensitivity/specificity at
+    /// the conventional 95% operating point. ASSUMPTION: only the boolean detect flag depends on this value;
+    /// the returned probability (<see cref="CtDnaDetectionProbability"/>) is source-exact.
+    /// </summary>
+    public const double DefaultCtDnaDetectionProbability = 0.95;
+
+    /// <summary>
+    /// Minimum expected number of mutant molecules (λ = n·d·k) for a variant to be considered detectable:
+    /// at least one mutant molecule must be expected in the sequenced input. Source: the Poisson detection
+    /// model (US Patent 11,085,084 B2; Avanzini et al. 2020, <i>Sci. Adv.</i> 6(50):eabc4308), under which
+    /// detection in the low-burden regime is Poisson-limited by the expected mutant count λ.
+    /// </summary>
+    private const double MinExpectedMutantMolecules = 1.0;
+
     #endregion
 
     #region Public types
@@ -5123,6 +5159,222 @@ public static class OncologyAnalyzer
         }
 
         return ClassifyBindingAffinity(ic50Nm);
+    }
+
+    #endregion
+
+    #region ctDNA analysis (ONCO-CTDNA-001)
+
+    /// <summary>
+    /// Computes the probability of detecting at least one circulating-tumor-DNA (ctDNA) molecule in a
+    /// plasma cfDNA sample under the Poisson sampling model. With <paramref name="genomeEquivalents"/> n
+    /// sequenced haploid genome equivalents, mutant allele fraction <paramref name="mutantAlleleFraction"/> d,
+    /// and <paramref name="reporterCount"/> k independent tumour reporters, the expected number of mutant
+    /// molecules is λ = n·d·k and the detection probability is
+    /// <code>
+    /// p = 1 − e^(−n·d·k)
+    /// </code>
+    /// Source: US Patent 11,085,084 B2 ("the probability of observing a single tumor reporter in cfDNA
+    /// follows a Poisson distribution with mean λ = n × d … x = 1 − e^(−nd) … for k independent reporters
+    /// p = 1 − e^(−ndk)"); Avanzini et al. (2020), <i>Science Advances</i> 6(50):eabc4308.
+    /// </summary>
+    /// <param name="genomeEquivalents">Number of sequenced haploid genome equivalents n (≥ 0).</param>
+    /// <param name="mutantAlleleFraction">Mutant allele fraction d ∈ [0, 1] (the ctDNA detection-limit fraction).</param>
+    /// <param name="reporterCount">Number of independent tumour reporters k (≥ 1). Default 1.</param>
+    /// <returns>Detection probability p = 1 − e^(−n·d·k) ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="genomeEquivalents"/> &lt; 0, <paramref name="mutantAlleleFraction"/> ∉ [0, 1] or not finite,
+    /// or <paramref name="reporterCount"/> &lt; 1.
+    /// </exception>
+    public static double CtDnaDetectionProbability(
+        int genomeEquivalents, double mutantAlleleFraction, int reporterCount = 1)
+    {
+        if (genomeEquivalents < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(genomeEquivalents), genomeEquivalents, "Genome equivalents (n) cannot be negative.");
+        }
+
+        if (double.IsNaN(mutantAlleleFraction) || mutantAlleleFraction < 0.0 || mutantAlleleFraction > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(mutantAlleleFraction), mutantAlleleFraction, "Mutant allele fraction (d) must be in [0, 1].");
+        }
+
+        if (reporterCount < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(reporterCount), reporterCount, "Reporter count (k) must be at least 1.");
+        }
+
+        // λ = n·d·k; p = 1 − e^(−λ). λ = 0 ⇒ p = 0; large λ ⇒ p → 1 (never exceeds 1).
+        double lambda = (double)genomeEquivalents * mutantAlleleFraction * reporterCount;
+        return 1.0 - Math.Exp(-lambda); // p = 1 − e^(−λ).
+    }
+
+    /// <summary>
+    /// Expected number of mutant molecules λ = n·d·k for a ctDNA sample. Source: US Patent 11,085,084 B2 /
+    /// Avanzini et al. (2020) — Poisson mean λ = n × d (× k reporters); corroborated by the worked example of
+    /// Pessoa et al. (2023): n = 15,000 genome equivalents at d = 0.001 (0.1% VAF) ⇒ λ = 15 mutant molecules.
+    /// </summary>
+    /// <param name="genomeEquivalents">Sequenced haploid genome equivalents n (≥ 0).</param>
+    /// <param name="mutantAlleleFraction">Mutant allele fraction d ∈ [0, 1].</param>
+    /// <param name="reporterCount">Independent tumour reporters k (≥ 1). Default 1.</param>
+    /// <returns>Expected mutant-molecule count λ = n·d·k.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Same domain limits as <see cref="CtDnaDetectionProbability"/>.</exception>
+    public static double ExpectedMutantMolecules(
+        int genomeEquivalents, double mutantAlleleFraction, int reporterCount = 1)
+    {
+        if (genomeEquivalents < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(genomeEquivalents), genomeEquivalents, "Genome equivalents (n) cannot be negative.");
+        }
+
+        if (double.IsNaN(mutantAlleleFraction) || mutantAlleleFraction < 0.0 || mutantAlleleFraction > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(mutantAlleleFraction), mutantAlleleFraction, "Mutant allele fraction (d) must be in [0, 1].");
+        }
+
+        if (reporterCount < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(reporterCount), reporterCount, "Reporter count (k) must be at least 1.");
+        }
+
+        return (double)genomeEquivalents * mutantAlleleFraction * reporterCount;
+    }
+
+    /// <summary>
+    /// Decides whether ctDNA is detectable: at least one mutant molecule must be expected (λ = n·d·k ≥ 1)
+    /// AND the Poisson detection probability must reach <paramref name="minDetectionProbability"/>. Source:
+    /// the Poisson detection model (US Patent 11,085,084 B2; Avanzini et al. 2020) gives the probability;
+    /// Newman et al. (2014), <i>Nat. Med.</i> 20(5):548–554 establish a validated detection range
+    /// (0.025%–10% allele fraction) at the conventional 95% operating point. The λ ≥ 1 requirement enforces
+    /// the physical limit that no mutant molecule can be observed when fewer than one is expected.
+    /// </summary>
+    /// <param name="genomeEquivalents">Sequenced haploid genome equivalents n (≥ 0).</param>
+    /// <param name="mutantAlleleFraction">Mutant allele fraction d ∈ [0, 1].</param>
+    /// <param name="reporterCount">Independent tumour reporters k (≥ 1). Default 1.</param>
+    /// <param name="minDetectionProbability">Minimum p to call detected; default <see cref="DefaultCtDnaDetectionProbability"/> (0.95).</param>
+    /// <returns><c>true</c> if λ ≥ 1 and p ≥ <paramref name="minDetectionProbability"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Domain limits of <see cref="CtDnaDetectionProbability"/>, or <paramref name="minDetectionProbability"/> ∉ (0, 1].
+    /// </exception>
+    public static bool IsCtDnaDetected(
+        int genomeEquivalents,
+        double mutantAlleleFraction,
+        int reporterCount = 1,
+        double minDetectionProbability = DefaultCtDnaDetectionProbability)
+    {
+        if (double.IsNaN(minDetectionProbability) || minDetectionProbability <= 0.0 || minDetectionProbability > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minDetectionProbability), minDetectionProbability,
+                "Minimum detection probability must be in (0, 1].");
+        }
+
+        double lambda = ExpectedMutantMolecules(genomeEquivalents, mutantAlleleFraction, reporterCount);
+        if (lambda < MinExpectedMutantMolecules)
+        {
+            return false;
+        }
+
+        double probability = 1.0 - Math.Exp(-lambda);
+        return probability >= minDetectionProbability;
+    }
+
+    /// <summary>
+    /// Estimates the ctDNA tumour fraction from clonal heterozygous somatic SNVs observed in plasma at
+    /// copy-neutral diploid loci. For such a variant the expected VAF is half the tumour-derived fraction
+    /// (v = TF/2), so tumour fraction = 2 · (mean VAF). The mean is taken over the supplied variants'
+    /// plasma VAFs (alt / total reads). Source: Antonello et al. (2024), CNAqc, <i>Genome Biology</i> 25:38
+    /// (m = 1, n_tot = 2 special case of v = m·π / [2(1−π) + π·n_tot] gives v = π/2). The result is clamped
+    /// to [0, 1] since a fraction cannot exceed 1.
+    /// </summary>
+    /// <param name="variants">Clonal heterozygous somatic SNVs observed in plasma (each VAF ≤ 0.5).</param>
+    /// <returns>Estimated ctDNA tumour fraction ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="variants"/> is empty (tumour fraction undefined).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A variant has invalid read counts or a VAF &gt; 0.5.</exception>
+    public static double CalculateTumorFraction(IEnumerable<VariantObservation> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        double vafSum = 0.0;
+        int count = 0;
+        foreach (VariantObservation variant in variants)
+        {
+            double vaf = CalculateVaf(variant.TumorAltReads, variant.TumorTotalReads);
+            if (vaf > 0.5)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(variants), vaf,
+                    "A clonal heterozygous SNV cannot have VAF > 0.5 under the diploid model; locus is not copy-neutral diploid heterozygous.");
+            }
+
+            vafSum += vaf;
+            count++;
+        }
+
+        if (count == 0)
+        {
+            throw new ArgumentException("Cannot estimate tumour fraction from an empty variant set.", nameof(variants));
+        }
+
+        double meanVaf = vafSum / count;
+        double tumorFraction = TumorFractionFromVafFactor * meanVaf;
+        return Math.Min(tumorFraction, 1.0); // a fraction cannot exceed 1.
+    }
+
+    /// <summary>
+    /// Computes the mean plasma variant allele fraction across ctDNA reporters: the arithmetic mean of each
+    /// variant's VAF = alt reads / total reads. Source: Newman et al. (2014), <i>Nat. Med.</i> 20(5):548–554 —
+    /// ctDNA level is summarized as the fraction of mutant molecules across SNV/indel reporters.
+    /// </summary>
+    /// <param name="variants">Observed ctDNA reporters with plasma read counts.</param>
+    /// <returns>Mean variant allele fraction ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="variants"/> is empty (mean undefined).</exception>
+    public static double CalculateMeanVaf(IEnumerable<VariantObservation> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        double vafSum = 0.0;
+        int count = 0;
+        foreach (VariantObservation variant in variants)
+        {
+            vafSum += CalculateVaf(variant.TumorAltReads, variant.TumorTotalReads);
+            count++;
+        }
+
+        if (count == 0)
+        {
+            throw new ArgumentException("Cannot compute mean VAF from an empty variant set.", nameof(variants));
+        }
+
+        return vafSum / count;
+    }
+
+    /// <summary>
+    /// Converts a cfDNA input mass in nanograms to the number of haploid genome equivalents, using the
+    /// standard conversion 3.3 pg per haploid genome (Devonshire et al. 2014, PMC4182654), i.e.
+    /// GE = ng · 1000 / 3.3 (≈ 303 GE per ng; Alcaide et al. 2020, <i>Sci. Rep.</i> 10:12564). This gives the
+    /// sampling depth n used in the Poisson detection model <see cref="CtDnaDetectionProbability"/>.
+    /// </summary>
+    /// <param name="cfDnaNanograms">cfDNA input mass in nanograms (≥ 0).</param>
+    /// <returns>Haploid genome equivalents (a continuous count; not rounded).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="cfDnaNanograms"/> is negative or not finite.</exception>
+    public static double HaploidGenomeEquivalents(double cfDnaNanograms)
+    {
+        if (double.IsNaN(cfDnaNanograms) || double.IsInfinity(cfDnaNanograms) || cfDnaNanograms < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(cfDnaNanograms), cfDnaNanograms, "cfDNA mass (ng) must be a finite non-negative value.");
+        }
+
+        return cfDnaNanograms * PicogramsPerNanogram / PicogramsPerHaploidGenome;
     }
 
     #endregion

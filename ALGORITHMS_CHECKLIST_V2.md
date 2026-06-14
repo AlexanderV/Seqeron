@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 217 |
+| **Completed** | 218 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 17 |
+| **Not Started** | 16 |
 
 ---
 
@@ -246,7 +246,7 @@
 | ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
 | ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
-| ☐ | ONCO-CTDNA-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
 | ☐ | ONCO-MRD-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CHIP-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
@@ -4523,9 +4523,9 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `AnalyzeFragmentSizeDistribution(bamFile)` | LiquidBiopsyAnalyzer | Fragment analysis |
 
 **Edge Cases:**
-- [ ] ctDNA fraction < 0.1% (below detection limit)
-- [ ] High background of CHIP mutations
-- [ ] No matched primary tumor VCF
+- [x] ctDNA fraction < 0.1% (below detection limit) — covered by Poisson LoD (λ < 1 ⇒ not detected); tests M6/S1–S5.
+- [ ] High background of CHIP mutations — out of scope; handled by ONCO-CHIP-001 (see CtDNA_Analysis.md §5.3).
+- [ ] No matched primary tumor VCF — out of scope; matched-tumour cross-referencing belongs to ONCO-MRD-001.
 
 ---
 
