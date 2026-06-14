@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 194 |
+| **Completed** | 195 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 40 |
+| **Not Started** | 39 |
 
 ---
 
@@ -222,7 +222,7 @@
 | ☑ | GENOMIC-SIMILARITY-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) |
 | ☑ | GENOMIC-ORF-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-ORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-ORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) |
 | ☑ | ONCO-SOMATIC-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SOMATIC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SOMATIC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) |
-| ☐ | ONCO-VAF-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-VAF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-VAF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-VAF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) |
 | ☐ | ONCO-DRIVER-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-ARTIFACT-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-ANNOT-001 | Oncology | 2 | - | - | - |
@@ -3869,7 +3869,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### ONCO-VAF-001: Variant Allele Frequency Analysis
+#### ONCO-VAF-001: Variant Allele Frequency Analysis ☑
 
 | Field | Value |
 |------|----------|
@@ -3882,12 +3882,13 @@ See RNA-PAIR-001 Evidence/TestSpec.
 | Method | Class | Type |
 |-------|-------|-----|
 | `CalculateVAF(altReads, totalReads)` | OncologyAnalyzer | Canonical |
+| `CalculateVAFConfidenceInterval(altReads, totalReads, confidence)` | OncologyAnalyzer | Canonical (Wilson 1927) |
 | `AdjustVAFForPurity(vaf, purity, ploidy)` | OncologyAnalyzer | Correction |
 
 **Edge Cases:**
-- [ ] totalReads = 0 (division by zero)
-- [ ] Multiallelic sites (multiple ALT alleles)
-- [ ] VAF > 1.0 due to alignment artifacts
+- [x] totalReads = 0 (division by zero)
+- [x] Multiallelic sites (multiple ALT alleles) — per-allele alt/total ratio is well-defined for each ALT
+- [x] VAF > 1.0 due to alignment artifacts (altReads > totalReads → ArgumentOutOfRangeException)
 
 ---
 

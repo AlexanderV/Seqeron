@@ -48,6 +48,24 @@ public static class OncologyAnalyzer
     /// </summary>
     public const double DefaultNormalVafThreshold = 0.01;
 
+    /// <summary>
+    /// Standard-normal quantile z for a two-sided 95% confidence level used by the Wilson score interval.
+    /// Source: Wilson E.B. (1927), via the Binomial proportion confidence interval specification, which
+    /// states z₀.₀₅ = 1.96 for a 95% interval
+    /// (https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
+    /// </summary>
+    private const double ZScore95 = 1.96;
+
+    /// <summary>Default confidence level (0.95) for <see cref="CalculateVAFConfidenceInterval"/>.</summary>
+    public const double DefaultVafConfidence = 0.95;
+
+    /// <summary>
+    /// Normal (germline) total copy number assumed by <see cref="AdjustVAFForPurity"/> — autosomal diploid.
+    /// Source: Tarabichi et al. (2017), PMC5538405; CNAqc (Genome Biology 2024) — the VAF/purity relation
+    /// fixes the normal contribution at n_tot,n = 2.
+    /// </summary>
+    private const double NormalDiploidCopyNumber = 2.0;
+
     #endregion
 
     #region Public types
@@ -98,6 +116,19 @@ public static class OncologyAnalyzer
         double NormalVaf,
         SomaticStatus Status,
         double SomaticScore);
+
+    /// <summary>
+    /// A variant allele frequency point estimate with a Wilson score confidence interval.
+    /// </summary>
+    /// <param name="Vaf">Point estimate VAF = altReads / totalReads (the empirical allele fraction).</param>
+    /// <param name="Lower">Lower bound of the Wilson score interval (≥ 0).</param>
+    /// <param name="Upper">Upper bound of the Wilson score interval (≤ 1).</param>
+    /// <param name="Confidence">Two-sided confidence level the interval was computed at (e.g. 0.95).</param>
+    public readonly record struct VafConfidenceInterval(
+        double Vaf,
+        double Lower,
+        double Upper,
+        double Confidence);
 
     #endregion
 
@@ -235,7 +266,137 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region Variant Allele Frequency
+
+    /// <summary>
+    /// Computes the empirical variant allele frequency (VAF) at a locus as the fraction of covering reads
+    /// that support the alternate allele: VAF = altReads / totalReads. This is the model-free allele
+    /// fraction derived from per-allele read depths (GATK <c>AD</c> field: alt AD / Σ AD; samtools read
+    /// counts), distinct from Mutect2's Bayesian <c>AF</c> estimate. A site with no coverage
+    /// (totalReads == 0) returns 0, since an uncovered site provides no evidence of the allele.
+    /// </summary>
+    /// <param name="altReads">Reads supporting the alternate allele (≥ 0, ≤ <paramref name="totalReads"/>).</param>
+    /// <param name="totalReads">Total covering reads at the locus (≥ 0).</param>
+    /// <returns>VAF in [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A count is negative, or altReads &gt; totalReads.</exception>
+    public static double CalculateVAF(int altReads, int totalReads) => CalculateVaf(altReads, totalReads);
+
+    /// <summary>
+    /// Computes the empirical VAF and its Wilson score confidence interval for the underlying allele
+    /// proportion. The Wilson score interval (Wilson 1927) for n trials with p̂ = altReads/totalReads is:
+    /// <code>
+    /// center = (p̂ + z²/(2n)) / (1 + z²/n)
+    /// margin = (z / (1 + z²/n)) · √( p̂(1−p̂)/n + z²/(4n²) )
+    /// interval = center ± margin
+    /// </code>
+    /// where z is the standard-normal quantile for the requested confidence (z = 1.96 for 95%). The
+    /// interval is bounded within [0, 1] (no overshoot) and has non-zero width even at p̂ = 0 or 1,
+    /// unlike the Wald interval. Source: Wilson E.B. (1927), JASA 22(158):209–212, via the Binomial
+    /// proportion confidence interval specification.
+    /// </summary>
+    /// <param name="altReads">Reads supporting the alternate allele (≥ 0, ≤ <paramref name="totalReads"/>).</param>
+    /// <param name="totalReads">Total covering reads at the locus (&gt; 0 for a defined interval).</param>
+    /// <param name="confidence">Two-sided confidence level in (0, 1); default 0.95 (z = 1.96).</param>
+    /// <returns>The VAF point estimate with its Wilson score interval.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A read count is invalid (see <see cref="CalculateVAF"/>), totalReads == 0, or confidence is outside (0, 1)
+    /// at a level other than the supported 0.95.
+    /// </exception>
+    public static VafConfidenceInterval CalculateVAFConfidenceInterval(
+        int altReads,
+        int totalReads,
+        double confidence = DefaultVafConfidence)
+    {
+        double vaf = CalculateVaf(altReads, totalReads);
+
+        if (totalReads == 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(totalReads), "A confidence interval is undefined with zero coverage.");
+        }
+
+        double z = ZScoreFor(confidence);
+
+        double n = totalReads;
+        double pHat = vaf;
+        double z2 = z * z;
+        double denominator = 1.0 + z2 / n;
+        double center = (pHat + z2 / (2.0 * n)) / denominator;
+        double margin = (z / denominator) * Math.Sqrt(pHat * (1.0 - pHat) / n + z2 / (4.0 * n * n));
+
+        // The Wilson interval is mathematically within [0, 1]; clamp guards against floating-point drift
+        // at the exact boundaries p̂ = 0 (lower = 0) and p̂ = 1 (upper = 1).
+        double lower = Math.Max(0.0, center - margin);
+        double upper = Math.Min(1.0, center + margin);
+
+        return new VafConfidenceInterval(vaf, lower, upper, confidence);
+    }
+
+    /// <summary>
+    /// Adjusts an observed VAF for tumor purity and tumor-segment ploidy, recovering the per-tumour-copy
+    /// mutant fraction (multiplicity × cancer cell fraction). Inverting the CNAqc expected-VAF relation
+    /// v = (m·π) / (2(1−π) + π·n_tot) gives:
+    /// <code>
+    /// adjusted = vaf · (2(1−π) + π·ploidy) / π
+    /// </code>
+    /// where π = purity, ploidy = tumor total copy number n_tot, and the normal contribution is fixed at
+    /// 2 (autosomal diploid). For a heterozygous somatic SNV in a diploid tumor (ploidy = 2) this reduces
+    /// to adjusted = vaf / (π/2): e.g. observed VAF 0.4 at purity 0.8 ⇒ 1.0. Source: CNAqc
+    /// (Genome Biology 2024); Tarabichi et al. (2017), PMC5538405.
+    /// </summary>
+    /// <param name="vaf">Observed VAF in [0, 1].</param>
+    /// <param name="purity">Tumor purity π in (0, 1].</param>
+    /// <param name="ploidy">Tumor total copy number n_tot at the locus (&gt; 0); 2 for a diploid segment.</param>
+    /// <returns>The purity/ploidy-corrected mutant fraction (multiplicity × CCF).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">vaf ∉ [0, 1], purity ∉ (0, 1], or ploidy ≤ 0.</exception>
+    public static double AdjustVAFForPurity(double vaf, double purity, double ploidy)
+    {
+        if (double.IsNaN(vaf) || vaf < 0.0 || vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vaf), vaf, "VAF must be in the range [0, 1].");
+        }
+
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(purity), purity, "Purity must be in the range (0, 1]; correction divides by purity.");
+        }
+
+        if (double.IsNaN(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy (tumor total copy number) must be positive.");
+        }
+
+        // Weighted average total copies per cell: 2(1−π) from normal cells + π·ploidy from tumor cells.
+        double averageCopiesPerCell = NormalDiploidCopyNumber * (1.0 - purity) + purity * ploidy;
+        return vaf * averageCopiesPerCell / purity;
+    }
+
+    #endregion
+
     #region Helpers
+
+    /// <summary>
+    /// Maps a two-sided confidence level to its standard-normal quantile z. Only the source-cited 95%
+    /// level (z = 1.96, Wilson 1927) is supported; other levels would require additional cited z values.
+    /// </summary>
+    private static double ZScoreFor(double confidence)
+    {
+        if (double.IsNaN(confidence) || confidence <= 0.0 || confidence >= 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(confidence), confidence, "Confidence must be in the open interval (0, 1).");
+        }
+
+        if (Math.Abs(confidence - DefaultVafConfidence) < 1e-12)
+        {
+            return ZScore95;
+        }
+
+        throw new ArgumentOutOfRangeException(
+            nameof(confidence), confidence,
+            "Only the 0.95 confidence level (z = 1.96) is supported by the cited source.");
+    }
 
     /// <summary>
     /// Computes a variant allele frequency f = altReads / totalReads. Returns 0 when there is no coverage
