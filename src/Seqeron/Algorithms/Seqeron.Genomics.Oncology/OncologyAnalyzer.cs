@@ -6906,4 +6906,270 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Clinical Actionability (OncoKB Therapeutic Levels of Evidence)
+
+    /// <summary>
+    /// OncoKB therapeutic level of evidence assigned to a biomarker–drug association, indicating how
+    /// strongly an alteration is predictive of sensitivity (Levels 1, 2, 3A, 3B, 4) or resistance
+    /// (Levels R1, R2) to a therapy. Source: Chakravarty D et al. (2017), JCO Precis Oncol 2017:1–16;
+    /// definitions verbatim from the OncoKB Therapeutic Levels of Evidence (V2) document.
+    /// </summary>
+    public enum OncoKbLevel
+    {
+        /// <summary>No leveled therapeutic association (variant is not actionable on this axis).</summary>
+        None,
+
+        /// <summary>
+        /// Level R2 — Investigational Resistance: "Compelling clinical evidence supports the biomarker as
+        /// being predictive of resistance to a drug." Lowest in the combined order. Source: OncoKB Levels V2.
+        /// </summary>
+        R2,
+
+        /// <summary>
+        /// Level 4 — Hypothetical: "Compelling biological evidence supports the biomarker as being
+        /// predictive of response to a drug." Source: OncoKB Levels V2.
+        /// </summary>
+        Level4,
+
+        /// <summary>
+        /// Level 3B — Investigational: "Standard care or investigational biomarker predictive of response
+        /// to an FDA-approved or investigational drug in another indication." Source: OncoKB Levels V2.
+        /// </summary>
+        Level3B,
+
+        /// <summary>
+        /// Level 3A — Investigational: "Compelling clinical evidence supports the biomarker as being
+        /// predictive of response to a drug in this indication." Source: OncoKB Levels V2.
+        /// </summary>
+        Level3A,
+
+        /// <summary>
+        /// Level 2 — Standard Care: "Standard care biomarker recommended by the NCCN or other professional
+        /// guidelines predictive of response to an FDA-approved drug in this indication." Source: OncoKB Levels V2.
+        /// </summary>
+        Level2,
+
+        /// <summary>
+        /// Level 1 — Standard Care: "FDA-recognized biomarker predictive of response to an FDA-approved drug
+        /// in this indication." Source: OncoKB Levels V2.
+        /// </summary>
+        Level1,
+
+        /// <summary>
+        /// Level R1 — Standard Care Resistance: "Standard care biomarker predictive of resistance to an
+        /// FDA-approved drug in this indication." Highest in the combined order. Source: OncoKB Levels V2.
+        /// </summary>
+        R1
+    }
+
+    /// <summary>
+    /// Combined actionability ranking of the OncoKB levels, highest first. The integer order of this array
+    /// encodes the OncoKB HIGHEST_LEVEL precedence: R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2. Source:
+    /// oncokb-annotator README, column HIGHEST_LEVEL — "Order: LEVEL_R1 &gt; LEVEL_1 &gt; LEVEL_2 &gt;
+    /// LEVEL_3A &gt; LEVEL_3B &gt; LEVEL_4 &gt; LEVEL_R2".
+    /// </summary>
+    private static readonly OncoKbLevel[] CombinedRankingHighestFirst =
+    {
+        OncoKbLevel.R1,
+        OncoKbLevel.Level1,
+        OncoKbLevel.Level2,
+        OncoKbLevel.Level3A,
+        OncoKbLevel.Level3B,
+        OncoKbLevel.Level4,
+        OncoKbLevel.R2
+    };
+
+    /// <summary>Levels that denote sensitivity (response) to a therapy. Source: OncoKB Levels V2 (1/2/3A/3B/4).</summary>
+    private static readonly HashSet<OncoKbLevel> SensitivityLevels = new()
+    {
+        OncoKbLevel.Level1, OncoKbLevel.Level2, OncoKbLevel.Level3A, OncoKbLevel.Level3B, OncoKbLevel.Level4
+    };
+
+    /// <summary>Levels that denote resistance to a therapy. Source: OncoKB Levels V2 (R1/R2).</summary>
+    private static readonly HashSet<OncoKbLevel> ResistanceLevels = new()
+    {
+        OncoKbLevel.R1, OncoKbLevel.R2
+    };
+
+    /// <summary>
+    /// Levels categorized as "standard care" by OncoKB (as opposed to investigational/hypothetical):
+    /// Levels 1, 2 (sensitivity) and R1 (resistance). Source: OncoKB Curation SOP v3 — "The highest levels
+    /// of evidence, Levels 1 and 2, refer to the standard implications... Level R1 refers to the standard
+    /// implications for resistance"; Levels 3A/3B/4/R2 are investigational/hypothetical.
+    /// </summary>
+    private static readonly HashSet<OncoKbLevel> StandardCareLevels = new()
+    {
+        OncoKbLevel.Level1, OncoKbLevel.Level2, OncoKbLevel.R1
+    };
+
+    /// <summary>
+    /// One caller-supplied biomarker–drug therapeutic association from a precision-oncology knowledgebase
+    /// (e.g. an OncoKB export). The library does not embed the OncoKB curated content (3,000+ alterations
+    /// across 418 genes, Chakravarty 2017); the caller performs the lookup and supplies the relevant rows.
+    /// </summary>
+    /// <param name="Drug">Therapy name the association refers to.</param>
+    /// <param name="Level">OncoKB therapeutic level of evidence for this drug–variant association.</param>
+    public readonly record struct TherapyAssociation(string Drug, OncoKbLevel Level);
+
+    /// <summary>
+    /// Caller-supplied evidence for one variant's clinical actionability: the gene/protein change (for
+    /// reporting) and the set of leveled drug associations curated for it. Mirrors the framework boundary of
+    /// <see cref="CancerVariantAnnotationInput"/> — actionability comes from a caller-supplied knowledgebase.
+    /// </summary>
+    /// <param name="Gene">Gene symbol the variant falls in.</param>
+    /// <param name="ProteinChange">HGVS protein change (e.g. p.V600E); informational.</param>
+    /// <param name="Associations">Leveled drug associations from the knowledgebase (may be empty, never null).</param>
+    public readonly record struct VariantActionabilityInput
+    {
+        /// <summary>Gene symbol the variant falls in.</summary>
+        public string Gene { get; }
+
+        /// <summary>HGVS protein change (e.g. p.V600E); informational.</summary>
+        public string ProteinChange { get; }
+
+        /// <summary>Leveled drug associations from the caller-supplied knowledgebase.</summary>
+        public IReadOnlyList<TherapyAssociation> Associations { get; }
+
+        /// <summary>Creates an actionability input. <paramref name="associations"/> must not be null.</summary>
+        /// <exception cref="ArgumentNullException"><paramref name="associations"/> is null.</exception>
+        public VariantActionabilityInput(
+            string gene, string proteinChange, IReadOnlyList<TherapyAssociation> associations)
+        {
+            ArgumentNullException.ThrowIfNull(associations);
+            Gene = gene;
+            ProteinChange = proteinChange;
+            Associations = associations;
+        }
+    }
+
+    /// <summary>
+    /// Per-variant clinical actionability assessment under the OncoKB therapeutic levels system.
+    /// </summary>
+    /// <param name="Variant">The variant evidence that was assessed.</param>
+    /// <param name="HighestSensitiveLevel">Highest sensitivity level (1 &gt; 2 &gt; 3A &gt; 3B &gt; 4), or None.</param>
+    /// <param name="HighestResistanceLevel">Highest resistance level (R1 &gt; R2), or None.</param>
+    /// <param name="HighestCombinedLevel">Highest level over both axes (R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2), or None.</param>
+    public readonly record struct ActionabilityAssessment(
+        VariantActionabilityInput Variant,
+        OncoKbLevel HighestSensitiveLevel,
+        OncoKbLevel HighestResistanceLevel,
+        OncoKbLevel HighestCombinedLevel)
+    {
+        /// <summary>True when the variant has at least one leveled therapeutic association.</summary>
+        public bool IsActionable => HighestCombinedLevel != OncoKbLevel.None;
+    }
+
+    /// <summary>
+    /// Compares two OncoKB levels by the combined actionability order R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2.
+    /// Returns a positive number when <paramref name="a"/> is more actionable than <paramref name="b"/>,
+    /// negative when less, zero when equal. <see cref="OncoKbLevel.None"/> ranks below every leveled value.
+    /// Source: oncokb-annotator README HIGHEST_LEVEL order.
+    /// </summary>
+    /// <param name="a">First level.</param>
+    /// <param name="b">Second level.</param>
+    /// <returns>Sign indicates which level is higher in the combined order.</returns>
+    public static int CompareLevels(OncoKbLevel a, OncoKbLevel b)
+        // The enum is declared in ascending actionability (None lowest, R1 highest), so the underlying
+        // integer value already encodes the combined order; comparing values is the documented precedence.
+        => ((int)a).CompareTo((int)b);
+
+    /// <summary>
+    /// Returns the highest OncoKB level over a set of levels using the combined order R1 &gt; 1 &gt; 2 &gt;
+    /// 3A &gt; 3B &gt; 4 &gt; R2, restricted to the levels in <paramref name="allowed"/> (used to compute the
+    /// sensitivity-only and resistance-only maxima). Returns <see cref="OncoKbLevel.None"/> when no allowed
+    /// level is present. Source: oncokb-annotator README HIGHEST_*_LEVEL orders.
+    /// </summary>
+    private static OncoKbLevel HighestLevel(
+        IReadOnlyList<TherapyAssociation> associations, HashSet<OncoKbLevel>? allowed)
+    {
+        OncoKbLevel best = OncoKbLevel.None;
+        foreach (var association in associations)
+        {
+            if (allowed is not null && !allowed.Contains(association.Level))
+            {
+                continue;
+            }
+
+            if (CompareLevels(association.Level, best) > 0)
+            {
+                best = association.Level;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Classifies a single variant's clinical actionability to the highest OncoKB therapeutic level over all
+    /// its caller-supplied drug associations, under the combined order R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4
+    /// &gt; R2. Returns <see cref="OncoKbLevel.None"/> when the variant has no leveled association (not
+    /// actionable). Source: Chakravarty D et al. (2017); oncokb-annotator README HIGHEST_LEVEL.
+    /// </summary>
+    /// <param name="variant">Caller-supplied variant actionability evidence.</param>
+    /// <returns>The highest combined OncoKB level, or <see cref="OncoKbLevel.None"/>.</returns>
+    public static OncoKbLevel ClassifyActionabilityLevel(VariantActionabilityInput variant)
+    {
+        ArgumentNullException.ThrowIfNull(variant.Associations);
+        return HighestLevel(variant.Associations, allowed: null);
+    }
+
+    /// <summary>
+    /// Assesses the clinical actionability of each variant under the OncoKB therapeutic levels system,
+    /// computing the highest sensitivity level (1 &gt; 2 &gt; 3A &gt; 3B &gt; 4), highest resistance level
+    /// (R1 &gt; R2), and highest combined level (R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2) from the
+    /// caller-supplied drug associations. Output preserves input order, one entry per variant. Source:
+    /// Chakravarty D et al. (2017); oncokb-annotator README HIGHEST_LEVEL / HIGHEST_SENSITIVE_LEVEL /
+    /// HIGHEST_RESISTANCE_LEVEL.
+    /// </summary>
+    /// <param name="variants">Caller-supplied variant actionability evidence records.</param>
+    /// <returns>One <see cref="ActionabilityAssessment"/> per input variant, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    public static IReadOnlyList<ActionabilityAssessment> AssessActionability(
+        IEnumerable<VariantActionabilityInput> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        var assessments = new List<ActionabilityAssessment>();
+        foreach (var variant in variants)
+        {
+            ArgumentNullException.ThrowIfNull(variant.Associations);
+
+            OncoKbLevel sensitive = HighestLevel(variant.Associations, SensitivityLevels);
+            OncoKbLevel resistance = HighestLevel(variant.Associations, ResistanceLevels);
+            OncoKbLevel combined = HighestLevel(variant.Associations, allowed: null);
+
+            assessments.Add(new ActionabilityAssessment(variant, sensitive, resistance, combined));
+        }
+
+        return assessments;
+    }
+
+    /// <summary>
+    /// Returns the caller-supplied therapy associations for a variant ordered by descending OncoKB level
+    /// (most actionable first) under the combined order R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2. Thin
+    /// presentation wrapper over the knowledgebase rows; returns an empty list (never null) when there are no
+    /// associations. Source: oncokb-annotator README HIGHEST_LEVEL order.
+    /// </summary>
+    /// <param name="variant">Caller-supplied variant actionability evidence.</param>
+    /// <returns>The associations ordered most-actionable first.</returns>
+    public static IReadOnlyList<TherapyAssociation> GetTherapyRecommendations(VariantActionabilityInput variant)
+    {
+        ArgumentNullException.ThrowIfNull(variant.Associations);
+
+        var ordered = new List<TherapyAssociation>(variant.Associations);
+        // Descending by combined order: higher enum value = more actionable, so negate the comparison.
+        ordered.Sort((x, y) => CompareLevels(y.Level, x.Level));
+        return ordered;
+    }
+
+    /// <summary>
+    /// True when the level is one of OncoKB's "standard care" levels (1, 2, R1) as opposed to the
+    /// investigational/hypothetical levels (3A, 3B, 4, R2). Source: OncoKB Curation SOP v3.
+    /// </summary>
+    /// <param name="level">An OncoKB therapeutic level.</param>
+    /// <returns>True for standard-care levels (1, 2, R1).</returns>
+    public static bool IsStandardCare(OncoKbLevel level) => StandardCareLevels.Contains(level);
+
+    #endregion
 }

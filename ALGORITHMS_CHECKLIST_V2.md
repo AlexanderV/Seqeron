@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 224 |
+| **Completed** | 225 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 10 |
+| **Not Started** | 9 |
 
 ---
 
@@ -253,7 +253,7 @@
 | ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
 | ☑ | ONCO-HETERO-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
 | ☑ | ONCO-HLA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HLA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HLA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) |
-| ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
 | ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
 
@@ -4692,11 +4692,14 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-ACTION-001: Clinical Actionability Assessment
+#### ONCO-ACTION-001: Clinical Actionability Assessment ☑
+
+> Scoped to OncoKB therapeutic levels of evidence (Chakravarty 2017); AMP/ASCO/CAP tiering is covered by
+> ONCO-ANNOT-001. Implemented in `OncologyAnalyzer` (not a separate `ClinicalInterpreter` class).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `ClinicalInterpreter.AssessActionability(...)` |
+| **Canonical** | `OncologyAnalyzer.AssessActionability(...)` |
 | **Complexity** | O(n × k) where k=knowledge base entries |
 | **Invariant** | evidence tier ∈ {Tier I, Tier II, Tier III, Tier IV} |
 | **Depends on** | ONCO-DRIVER-001, ONCO-ANNOT-001 |
@@ -4711,9 +4714,9 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 **Databases:** OncoKB, CIViC, ClinVar
 
 **Edge Cases:**
-- [ ] VUS (variants of uncertain significance)
-- [ ] Conflicting evidence across databases
-- [ ] Off-label therapy recommendations
+- [x] VUS (variants of uncertain significance) — no leveled association ⇒ NotActionable
+- [x] Conflicting evidence across databases — highest level wins (max under combined order)
+- [x] Off-label therapy recommendations — Level 3B (response in another indication)
 
 ---
 
@@ -5079,7 +5082,7 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `AnalyzeFragmentSizeDistribution` | ONCO-CTDNA-001 |
 | `AnalyzeHeterogeneity` (TumorEvolutionAnalyzer) | ONCO-HETERO-001 |
 | `AnnotateCancerVariants` | ONCO-ANNOT-001 |
-| `AssessActionability` | ONCO-ACTION-001 |
+| `AssessActionability` (OncologyAnalyzer) | ONCO-ACTION-001 |
 | `BootstrapConfidenceIntervals` (MutationalSignatures) | ONCO-SIG-003 |
 | `Build96ChannelSpectrum` | ONCO-SIG-002 |
 | `CalculateBindingAffinity` | ONCO-MHC-001 |
@@ -5278,7 +5281,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
 | TumorEvolutionAnalyzer (ONCO-PHYLO-001 implemented in OncologyAnalyzer) | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ (ONCO-PHYLO-001 ☑) |
 | HLA analysis (implemented in OncologyAnalyzer) | ONCO-HLA-001 | ☑ |
-| ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
+| Clinical actionability (implemented in OncologyAnalyzer) | ONCO-ACTION-001 | ☑ |
 | StructuralVariantDetector | ONCO-SV-001 | ☐ |
 | TumorExpressionAnalyzer | ONCO-EXPR-001 | ☐ |
 
