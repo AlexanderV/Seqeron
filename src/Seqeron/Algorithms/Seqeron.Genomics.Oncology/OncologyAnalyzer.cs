@@ -1897,4 +1897,170 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region SBS-96 Trinucleotide Context Catalog
+
+    /// <summary>
+    /// Number of single-base-substitution channels in the SBS-96 classification: six pyrimidine substitution
+    /// subtypes × four 5' bases × four 3' bases. Source: Alexandrov et al. (2013), Nature 500:415-421 — "96
+    /// possible mutation types (6 types of substitution * 4 types of 5' base * 4 types of 3' base)"; COSMIC
+    /// SBS96 (https://cancer.sanger.ac.uk/signatures/sbs/sbs96/). Value = 96.
+    /// </summary>
+    public const int Sbs96ChannelCount = 96;
+
+    /// <summary>
+    /// The four 5'/3' flanking bases of an SBS-96 trinucleotide context, in canonical alphabetical order
+    /// (A, C, G, T). Source: COSMIC SBS96; SigProfilerMatrixGenerator (Bergstrom et al. 2019, BMC Genomics
+    /// 20:685) — each substitution has "sixteen possible trinucleotide (4 types of 5' base * 4 types of 3' base)".
+    /// </summary>
+    private static readonly char[] ContextBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// The six single-base substitutions of the SBS-6 / SBS-96 classification, each referred to by the
+    /// pyrimidine (C or T) of the mutated Watson-Crick base pair, in canonical order. Source: COSMIC SBS96 —
+    /// "C>A, C>G, C>T, T>A, T>C, and T>G"; Alexandrov et al. (2013); Bergstrom et al. (2019).
+    /// </summary>
+    private static readonly (char Ref, char Alt)[] PyrimidineSubstitutions =
+    {
+        ('C', 'A'), ('C', 'G'), ('C', 'T'), ('T', 'A'), ('T', 'C'), ('T', 'G')
+    };
+
+    /// <summary>
+    /// Classifies a single-base substitution into its SBS-96 trinucleotide-context channel, folded onto the
+    /// pyrimidine strand. The mutated base sits in the centre of the trinucleotide; the channel is rendered as
+    /// <c>5'[REF&gt;ALT]3'</c> (e.g. <c>A[C&gt;A]A</c>). Each substitution is referred to by the pyrimidine of
+    /// the mutated Watson-Crick base pair: when the reference (mutated) base is a purine (A or G), the
+    /// trinucleotide context and the substitution are reverse-complemented onto the pyrimidine strand before
+    /// counting (e.g. a G&gt;T at 5'-T G A-3' folds to <c>T[C&gt;A]A</c>). Source: Alexandrov et al. (2013),
+    /// Nature 500:415-421; COSMIC SBS96; SigProfilerMatrixGenerator (Bergstrom et al. 2019) — "using the purine
+    /// base of the Watson-Crick base-pair for classifying mutation types will require taking the reverse
+    /// complement sequence". Complement map A↔T, C↔G (Watson-Crick base pairing).
+    /// </summary>
+    /// <param name="fivePrime">Reference base immediately 5' of the mutated base (A/C/G/T, case-insensitive).</param>
+    /// <param name="referenceBase">The mutated (reference) base (A/C/G/T, case-insensitive).</param>
+    /// <param name="alternateBase">The substituted (alternate) base (A/C/G/T, case-insensitive, ≠ reference).</param>
+    /// <param name="threePrime">Reference base immediately 3' of the mutated base (A/C/G/T, case-insensitive).</param>
+    /// <returns>The SBS-96 channel label in the form <c>5'[REF&gt;ALT]3'</c> with a pyrimidine reference base.</returns>
+    /// <exception cref="ArgumentException">A base is not A/C/G/T, or the reference and alternate bases are equal.</exception>
+    public static string ClassifySbsContext(char fivePrime, char referenceBase, char alternateBase, char threePrime)
+    {
+        char five = NormalizeBase(fivePrime, nameof(fivePrime));
+        char reference = NormalizeBase(referenceBase, nameof(referenceBase));
+        char alternate = NormalizeBase(alternateBase, nameof(alternateBase));
+        char three = NormalizeBase(threePrime, nameof(threePrime));
+
+        if (reference == alternate)
+        {
+            throw new ArgumentException(
+                $"A substitution requires reference ≠ alternate (got '{reference}' = '{alternate}').",
+                nameof(alternateBase));
+        }
+
+        // Fold purine-reference substitutions onto the pyrimidine strand by reverse-complementing the
+        // trinucleotide context AND the substitution (SigProfiler / COSMIC). For a pyrimidine reference
+        // (C or T) the mutation is already on the pyrimidine strand and is kept as-is.
+        if (reference is 'A' or 'G')
+        {
+            char foldedFive = Complement(three);   // 3' neighbour becomes the 5' neighbour after reversal
+            char foldedThree = Complement(five);   // 5' neighbour becomes the 3' neighbour after reversal
+            reference = Complement(reference);
+            alternate = Complement(alternate);
+            five = foldedFive;
+            three = foldedThree;
+        }
+
+        return $"{five}[{reference}>{alternate}]{three}";
+    }
+
+    /// <summary>
+    /// Enumerates all 96 canonical SBS-96 channel labels (<c>5'[REF&gt;ALT]3'</c>), in deterministic
+    /// substitution-major order: the six pyrimidine substitutions (C&gt;A, C&gt;G, C&gt;T, T&gt;A, T&gt;C,
+    /// T&gt;G), then 5' base (A,C,G,T), then 3' base (A,C,G,T). Source: COSMIC SBS96; Alexandrov et al. (2013)
+    /// — 6 × 4 × 4 = 96. The ordering is a presentation convention and does not affect per-variant classification.
+    /// </summary>
+    /// <returns>The 96 distinct channel labels.</returns>
+    public static IReadOnlyList<string> EnumerateSbs96Channels()
+    {
+        var channels = new List<string>(Sbs96ChannelCount);
+        foreach (var (reference, alternate) in PyrimidineSubstitutions)
+        {
+            foreach (char five in ContextBases)
+            {
+                foreach (char three in ContextBases)
+                {
+                    channels.Add($"{five}[{reference}>{alternate}]{three}");
+                }
+            }
+        }
+
+        return channels;
+    }
+
+    /// <summary>
+    /// Builds the SBS-96 mutational catalog (the 96-channel spectrum) from a collection of single-base
+    /// substitutions, each given as its 5' base, reference (mutated) base, alternate base, and 3' base.
+    /// Every variant is classified via <see cref="ClassifySbsContext"/> (with pyrimidine-strand folding) and
+    /// tallied into its channel. All 96 channels are present in the result, including those with a zero count,
+    /// so the spectrum has a fixed shape. The sum of the counts equals the number of input variants (each
+    /// classifiable variant contributes exactly one count — the catalog is a partition). Source: Alexandrov
+    /// et al. (2013); COSMIC SBS96; SigProfilerMatrixGenerator (Bergstrom et al. 2019).
+    /// </summary>
+    /// <param name="variants">
+    /// SBS variants as (FivePrime, Reference, Alternate, ThreePrime) tuples; each must be a valid single-base
+    /// substitution (A/C/G/T bases, reference ≠ alternate).
+    /// </param>
+    /// <returns>
+    /// A dictionary keyed by all 96 channel labels mapping to the count of variants in each channel.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentException">Any variant has an invalid base or reference == alternate.</exception>
+    public static IReadOnlyDictionary<string, int> Build96ContextCatalog(
+        IEnumerable<(char FivePrime, char Reference, char Alternate, char ThreePrime)> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        // Initialise all 96 channels to zero so the spectrum always has the full, fixed shape.
+        var catalog = new Dictionary<string, int>(Sbs96ChannelCount, StringComparer.Ordinal);
+        foreach (string channel in EnumerateSbs96Channels())
+        {
+            catalog[channel] = 0;
+        }
+
+        foreach (var (fivePrime, reference, alternate, threePrime) in variants)
+        {
+            string channel = ClassifySbsContext(fivePrime, reference, alternate, threePrime);
+            catalog[channel]++;
+        }
+
+        return catalog;
+    }
+
+    /// <summary>
+    /// Returns the Watson-Crick complement of a DNA base (A↔T, C↔G). Source: complementary base pairing,
+    /// adenine pairs with thymine and cytosine pairs with guanine.
+    /// </summary>
+    private static char Complement(char baseChar) => baseChar switch
+    {
+        'A' => 'T',
+        'T' => 'A',
+        'C' => 'G',
+        'G' => 'C',
+        _ => throw new ArgumentException($"'{baseChar}' is not a DNA base (A/C/G/T).", nameof(baseChar))
+    };
+
+    /// <summary>
+    /// Validates and upper-cases a single DNA base, rejecting anything that is not A/C/G/T.
+    /// </summary>
+    private static char NormalizeBase(char baseChar, string paramName)
+    {
+        char upper = char.ToUpperInvariant(baseChar);
+        if (upper is not ('A' or 'C' or 'G' or 'T'))
+        {
+            throw new ArgumentException($"'{baseChar}' is not a DNA base (A/C/G/T).", paramName);
+        }
+
+        return upper;
+    }
+
+    #endregion
 }

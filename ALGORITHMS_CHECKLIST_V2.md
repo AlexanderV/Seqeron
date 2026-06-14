@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 202 |
+| **Completed** | 203 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 32 |
+| **Not Started** | 31 |
 
 ---
 
@@ -230,7 +230,7 @@
 | ☑ | ONCO-MSI-001 | Oncology | 3 | Niu et al. (2014) MSIsensor, niu-lab/msisensor2, Boland et al. (1998) | [ONCO-MSI-001.md](TestSpecs/ONCO-MSI-001.md) | OncologyAnalyzer_DetectMSI_Tests.cs |
 | ☑ | ONCO-HRD-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) |
 | ☑ | ONCO-LOH-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-LOH-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-LOH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) |
-| ☐ | ONCO-SIG-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-SIG-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) |
 | ☐ | ONCO-SIG-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-004 | Oncology | 1 | - | - | - |
@@ -4049,19 +4049,27 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.ExtractSignatures(...)` |
-| **Complexity** | O(n × k) where k=signature count |
-| **Invariant** | sum(exposures) = total_mutations |
-| **Depends on** | ONCO-SIG-002 |
+| **Canonical** | `OncologyAnalyzer.ClassifySbsContext(...)` / `Build96ContextCatalog(...)` |
+| **Complexity** | O(n) to build the 96-channel SBS catalog (n = #variants) |
+| **Invariant** | Σ catalog counts = #classifiable SBS variants; 96 channels; pyrimidine reference base |
+| **Depends on** | — (foundational 96-context catalog is self-contained) |
 
-**Methods:**
+**Implemented (this unit):** the foundational, well-defined and authoritatively retrievable piece — the
+96-class SBS trinucleotide-context catalog: each single-base substitution classified by the 6 pyrimidine
+substitution types (C>A,C>G,C>T,T>A,T>C,T>G) × 4 5'-bases × 4 3'-bases, with reverse-complement folding of
+purine-reference mutations onto the pyrimidine strand (Alexandrov et al. 2013, Nature 500:415-421; COSMIC
+SBS96; SigProfilerMatrixGenerator, Bergstrom et al. 2019).
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ExtractSignatures(mutations, refGenome)` | MutationalSignatures | Canonical |
-| `FitToCosmicSignatures(spectrum)` | MutationalSignatures | COSMIC v3.3 |
-| `DecomposeSpectrum(spectrum, signatures)` | MutationalSignatures | NMF decomposition |
+| `ClassifySbsContext(fivePrime, ref, alt, threePrime)` | OncologyAnalyzer | Canonical |
+| `Build96ContextCatalog(variants)` | OncologyAnalyzer | Canonical |
+| `EnumerateSbs96Channels()` | OncologyAnalyzer | Canonical |
 
-**Signatures:** SBS, DBS, ID (COSMIC v3.3)
+**Deferred to later units:** NMF signature extraction / COSMIC fitting (`ExtractSignatures`,
+`FitToCosmicSignatures`, `DecomposeSpectrum`) require caller-supplied signature reference matrices and are NOT
+implemented here (reference profiles must not be fabricated). Signatures: SBS (DBS, ID out of scope).
 
 ---
 
