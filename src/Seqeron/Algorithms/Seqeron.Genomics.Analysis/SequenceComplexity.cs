@@ -120,17 +120,45 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates Shannon entropy using k-mers.
+    /// Calculates the Shannon entropy (in bits) of the overlapping k-mer frequency
+    /// distribution of the sequence.
     /// </summary>
+    /// <remarks>
+    /// The sequence is decomposed into its L-k+1 overlapping k-mers (sliding window,
+    /// one base step). With n_i the count of distinct k-mer i and N = L-k+1 the total
+    /// number of k-mers, p_i = n_i / N and the entropy is H = -Σ p_i · log₂(p_i)
+    /// (Shannon 1948). Entropy is reported in bits (log base 2): it is 0 when a single
+    /// k-mer dominates (deterministic distribution) and reaches log₂(N) when every k-mer
+    /// is distinct (uniform distribution). See longdust (Li 2025) for the k-mer-frequency
+    /// formulation used to detect low-complexity DNA.
+    /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="k">K-mer size (default: 2 for dinucleotides).</param>
-    /// <returns>Shannon entropy based on k-mer frequencies.</returns>
+    /// <param name="k">K-mer size (default: 2 for dinucleotides). Must be ≥ 1.</param>
+    /// <returns>Shannon entropy (bits) of the k-mer frequency distribution; 0 when L &lt; k.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> &lt; 1.</exception>
     public static double CalculateKmerEntropy(DnaSequence sequence, int k = 2)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
 
         return CalculateKmerEntropyCore(sequence.Sequence, k);
+    }
+
+    /// <summary>
+    /// Calculates the Shannon entropy (in bits) of the overlapping k-mer frequency
+    /// distribution from a raw sequence string. The string is upper-cased to match the
+    /// normalization applied by <see cref="DnaSequence"/>.
+    /// </summary>
+    /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
+    /// <param name="k">K-mer size (default: 2 for dinucleotides). Must be ≥ 1.</param>
+    /// <returns>Shannon entropy (bits) of the k-mer frequency distribution; 0 when L &lt; k.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> &lt; 1.</exception>
+    public static double CalculateKmerEntropy(string sequence, int k = 2)
+    {
+        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateKmerEntropyCore(sequence.ToUpperInvariant(), k);
     }
 
     private static double CalculateKmerEntropyCore(string seq, int k)

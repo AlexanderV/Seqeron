@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 158 |
+| **Completed** | 159 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 76 |
+| **Not Started** | 75 |
 
 ---
 
@@ -186,7 +186,7 @@
 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-DOTBRACKET-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-DOTBRACKET-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) |
 | ☑ | RNA-INVERT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-INVERT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-INVERT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) |
 | ☑ | RNA-PARTITION-001 | RnaStructure | 4 | [Evidence](docs/Evidence/RNA-PARTITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PARTITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) |
-| ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |
+| ☑ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-KMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) |
 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
