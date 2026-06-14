@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 223 |
+| **Completed** | 224 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 11 |
+| **Not Started** | 10 |
 
 ---
 
@@ -252,7 +252,7 @@
 | ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
 | ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
 | ☑ | ONCO-HETERO-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
-| ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-HLA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HLA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HLA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) |
 | ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
@@ -4658,28 +4658,37 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-HLA-001: HLA Typing from NGS Data
+#### ONCO-HLA-001: HLA nomenclature parsing + allele-specific HLA LOH (LOHHLA)
+
+> **Scope note (external evidence wins):** the original by-area definition listed a full HLA genotyping
+> caller (`HlaTyper.TypeHLA(bamFile)`). That caller requires a trained model / IPD-IMGT/HLA reference
+> allele database whose behaviour is not retrievable as an exact specification; fabricating it would
+> violate the evidence-first policy. This unit instead implements the two retrievable, formally-specified
+> pieces and takes genotype/coverage as caller-supplied: (a) HLA allele nomenclature parsing/validation
+> per the WHO HLA Nomenclature (Marsh et al. 2010; hla.alleles.org), and (b) allele-specific HLA LOH
+> classification per LOHHLA (McGranahan et al. 2017, Cell).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `HlaTyper.TypeHLA(...)` |
-| **Complexity** | O(n × k) where k=HLA alleles in database |
-| **Invariant** | result contains HLA-A, HLA-B, HLA-C (2 alleles each) |
+| **Canonical** | `OncologyAnalyzer.DetectHlaLoh(...)`, `OncologyAnalyzer.ParseHlaAllele(...)` |
+| **Complexity** | parse O(n); LOH classification O(1) |
+| **Invariant** | HLA LOH ⇔ one allele CN < 0.5 ∧ allelic-imbalance p < 0.01 (McGranahan 2017) |
 | **Depends on** | — (standalone) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `TypeHLA(bamFile)` | HlaTyper | Canonical |
-| `ResolveAmbiguities(candidates)` | HlaTyper | Disambiguation |
-| `GetFourDigitType(hlaResult)` | HlaTyper | Resolution |
+| `ParseHlaAllele(name)` | OncologyAnalyzer | Canonical |
+| `TryParseHlaAllele(name, out allele)` | OncologyAnalyzer | Delegate |
+| `DetectHlaLoh(alleleCopyNumber)` | OncologyAnalyzer | Canonical |
 
-**Databases:** IPD-IMGT/HLA
+**Databases:** IPD-IMGT/HLA (nomenclature only; not used as a runtime allele DB)
 
 **Edge Cases:**
-- [ ] Homozygous alleles (single allele detected)
-- [ ] Novel alleles not in database
-- [ ] Low coverage at HLA loci
+- [x] Boundary copy number (CN exactly 0.5 → retained)
+- [x] Over-calling guard (low CN but allelic-imbalance p ≥ 0.01 → no LOH)
+- [x] Homozygous loss (both alleles CN < 0.5 → not allele-specific LOH)
+- [x] Malformed nomenclature (missing prefix / wrong field count / invalid suffix)
 
 ---
 
@@ -5120,7 +5129,8 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `FitToCosmicSignatures` | ONCO-SIG-001 |
 | `GenerateMutantPeptides` | ONCO-NEO-001 |
 | `GetCOSMICAnnotation` | ONCO-ANNOT-001 |
-| `GetFourDigitType` | ONCO-HLA-001 |
+| `DetectHlaLoh` | ONCO-HLA-001 |
+| `ParseHlaAllele` | ONCO-HLA-001 |
 | `GetFusionAnnotation` | ONCO-FUSION-002 |
 | `GetTherapyRecommendations` | ONCO-ACTION-001 |
 | `GetTrinucleotideContext` | ONCO-SIG-002 |
@@ -5141,12 +5151,11 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `PredictNeoantigens` | ONCO-NEO-001 |
 | `QuantifyExpression` | ONCO-EXPR-001 |
 | `ReconstructPhylogeny` | ONCO-PHYLO-001 |
-| `ResolveAmbiguities` (HlaTyper) | ONCO-HLA-001 |
 | `ScoreDriverPotential` | ONCO-DRIVER-001 |
 | `ScoreNeoantigens` | ONCO-NEO-001 |
 | `SegmentCopyNumber` (CopyNumberAnalyzer) | ONCO-CNA-001 |
 | `TrackVariantsOverTime` | ONCO-MRD-001 |
-| `TypeHLA` | ONCO-HLA-001 |
+| `TryParseHlaAllele` | ONCO-HLA-001 |
 | `ValidateFusion` | ONCO-FUSION-001 |
 
 ---
@@ -5268,7 +5277,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
 | LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
 | TumorEvolutionAnalyzer (ONCO-PHYLO-001 implemented in OncologyAnalyzer) | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ (ONCO-PHYLO-001 ☑) |
-| HlaTyper | ONCO-HLA-001 | ☐ |
+| HLA analysis (implemented in OncologyAnalyzer) | ONCO-HLA-001 | ☑ |
 | ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
 | StructuralVariantDetector | ONCO-SV-001 | ☐ |
 | TumorExpressionAnalyzer | ONCO-EXPR-001 | ☐ |

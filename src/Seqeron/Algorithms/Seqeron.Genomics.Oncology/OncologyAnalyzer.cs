@@ -6599,4 +6599,311 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region HLA nomenclature parsing and allele-specific HLA LOH (ONCO-HLA-001)
+
+    /// <summary>
+    /// Minimum number of colon-separated numeric fields in a valid HLA allele name. Source: WHO HLA
+    /// Nomenclature (hla.alleles.org "Naming Alleles"); Marsh et al. (2010), Tissue Antigens 75(4):291–455 —
+    /// "All alleles receive at least a four digit name, which corresponds to the first two sets of digits".
+    /// </summary>
+    private const int HlaMinFieldCount = 2;
+
+    /// <summary>
+    /// Maximum number of colon-separated numeric fields in a valid HLA allele name (type : protein :
+    /// synonymous coding : non-coding). Source: WHO HLA Nomenclature — "up to four sets of digits separated
+    /// by colons" (hla.alleles.org "Naming Alleles"; Marsh et al. 2010).
+    /// </summary>
+    private const int HlaMaxFieldCount = 4;
+
+    /// <summary>
+    /// Allele copy-number threshold below which an HLA allele is classified as lost. Source (verbatim):
+    /// McGranahan et al. (2017), Cell 171(6):1259–1271 (PMC5720478) — "A copy number &lt; 0.5, is classified
+    /// as subject to loss, and thereby indicative of LOH." The comparison is strict (CN must be &lt; 0.5).
+    /// </summary>
+    public const double HlaLohCopyNumberThreshold = 0.5;
+
+    /// <summary>
+    /// Allelic-imbalance significance threshold required before HLA LOH may be called. Source (verbatim):
+    /// McGranahan et al. (2017), Cell 171(6):1259–1271 — "To avoid over-calling LOH, we also calculate a p
+    /// value relating to allelic imbalance for each HLA gene. Allelic imbalance is determined if p &lt; 0.01
+    /// using the paired Student's t-Test." The comparison is strict (p must be &lt; 0.01). Corroborated by the
+    /// paired <c>t.test(..., paired=TRUE)</c> in mskcc/lohhla <c>LOHHLAscript.R</c>.
+    /// </summary>
+    public const double HlaLohAllelicImbalancePValueThreshold = 0.01;
+
+    /// <summary>HLA expression-status suffix per WHO HLA Nomenclature ("Naming Alleles", hla.alleles.org).</summary>
+    public enum HlaExpressionSuffix
+    {
+        /// <summary>No suffix — normally expressed allele.</summary>
+        None,
+
+        /// <summary><c>N</c> — Null allele (not expressed).</summary>
+        Null,
+
+        /// <summary><c>L</c> — Low cell-surface expression.</summary>
+        Low,
+
+        /// <summary><c>S</c> — Secreted molecule only (not on the cell surface).</summary>
+        Secreted,
+
+        /// <summary><c>C</c> — present in the Cytoplasm but not on the cell surface.</summary>
+        Cytoplasm,
+
+        /// <summary><c>A</c> — Aberrant expression (uncertain whether expressed).</summary>
+        Aberrant,
+
+        /// <summary><c>Q</c> — Questionable expression.</summary>
+        Questionable,
+    }
+
+    /// <summary>
+    /// Which of the two homologous HLA alleles at a locus was lost (had copy number below the loss threshold).
+    /// </summary>
+    public enum HlaLostAllele
+    {
+        /// <summary>No allele was lost (locus retained, no allele-specific LOH).</summary>
+        None,
+
+        /// <summary>The first allele (allele 1) is the lost allele.</summary>
+        Allele1,
+
+        /// <summary>The second allele (allele 2) is the lost allele.</summary>
+        Allele2,
+
+        /// <summary>Both alleles fell below the loss threshold (homozygous loss; not allele-specific LOH).</summary>
+        Both,
+    }
+
+    /// <summary>
+    /// A parsed HLA allele name per the WHO HLA Nomenclature. Format: <c>HLA-&lt;Gene&gt;*F1:F2[:F3[:F4]][suffix]</c>.
+    /// Source: hla.alleles.org "Naming Alleles"; Marsh et al. (2010), Tissue Antigens 75(4):291–455.
+    /// </summary>
+    /// <param name="Gene">Gene name (e.g. "A", "B", "C", "DRB1"), upper-cased.</param>
+    /// <param name="Fields">The 2–4 numeric fields, each as its original digit string (e.g. ["02","01"]).
+    /// Field 1 = type/allele group; Field 2 = specific HLA protein; Field 3 = synonymous coding substitutions;
+    /// Field 4 = non-coding differences.</param>
+    /// <param name="Suffix">Optional expression-status suffix (None when absent).</param>
+    public readonly record struct HlaAllele(string Gene, IReadOnlyList<string> Fields, HlaExpressionSuffix Suffix)
+    {
+        /// <summary>The allele-group (first) field — the serological "type" digits.</summary>
+        public string AlleleGroup => Fields[0];
+
+        /// <summary>The specific-HLA-protein (second) field.</summary>
+        public string Protein => Fields[1];
+
+        /// <summary>The canonical normalized allele name, e.g. <c>HLA-A*02:01:01:02L</c>.</summary>
+        public string Name
+        {
+            get
+            {
+                string body = "HLA-" + Gene + "*" + string.Join(":", Fields);
+                return Suffix == HlaExpressionSuffix.None ? body : body + SuffixLetter(Suffix);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Caller-supplied allele-specific copy-number evidence at one HLA gene, as produced by an HLA copy-number
+    /// caller (e.g. LOHHLA): the estimated copy number of each of the two homologous alleles plus the
+    /// allelic-imbalance p value. Source: McGranahan et al. (2017) — LOHHLA reports per-allele copy number
+    /// (<c>HLA_type1copyNum</c>, <c>HLA_type2copyNum</c>) and a paired-t-test allelic-imbalance p value.
+    /// </summary>
+    /// <param name="Allele1">Allele 1 name (informational).</param>
+    /// <param name="Allele1CopyNumber">Estimated copy number of allele 1 (≥ 0).</param>
+    /// <param name="Allele2">Allele 2 name (informational).</param>
+    /// <param name="Allele2CopyNumber">Estimated copy number of allele 2 (≥ 0).</param>
+    /// <param name="AllelicImbalancePValue">Paired Student's t-test p value for allelic imbalance, in [0, 1].</param>
+    public readonly record struct HlaAlleleCopyNumber(
+        string Allele1,
+        double Allele1CopyNumber,
+        string Allele2,
+        double Allele2CopyNumber,
+        double AllelicImbalancePValue);
+
+    /// <summary>Result of an allele-specific HLA LOH determination (LOHHLA classification).</summary>
+    /// <param name="IsLoh">True iff allele-specific HLA LOH was called (one allele lost with significant imbalance).</param>
+    /// <param name="LostAllele">Which allele was lost (<see cref="HlaLostAllele.None"/> when no LOH).</param>
+    /// <param name="AllelicImbalanceSignificant">True iff the allelic-imbalance p value is below the threshold.</param>
+    public readonly record struct HlaLohResult(bool IsLoh, HlaLostAllele LostAllele, bool AllelicImbalanceSignificant);
+
+    private static char SuffixLetter(HlaExpressionSuffix suffix) => suffix switch
+    {
+        HlaExpressionSuffix.Null => 'N',
+        HlaExpressionSuffix.Low => 'L',
+        HlaExpressionSuffix.Secreted => 'S',
+        HlaExpressionSuffix.Cytoplasm => 'C',
+        HlaExpressionSuffix.Aberrant => 'A',
+        HlaExpressionSuffix.Questionable => 'Q',
+        _ => '\0',
+    };
+
+    private static bool TryMapSuffix(char letter, out HlaExpressionSuffix suffix)
+    {
+        // WHO HLA Nomenclature expression-status suffixes (hla.alleles.org "Naming Alleles").
+        switch (letter)
+        {
+            case 'N': suffix = HlaExpressionSuffix.Null; return true;
+            case 'L': suffix = HlaExpressionSuffix.Low; return true;
+            case 'S': suffix = HlaExpressionSuffix.Secreted; return true;
+            case 'C': suffix = HlaExpressionSuffix.Cytoplasm; return true;
+            case 'A': suffix = HlaExpressionSuffix.Aberrant; return true;
+            case 'Q': suffix = HlaExpressionSuffix.Questionable; return true;
+            default: suffix = HlaExpressionSuffix.None; return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses and validates an HLA allele name per the WHO HLA Nomenclature
+    /// (<c>HLA-&lt;Gene&gt;*F1:F2[:F3[:F4]][suffix]</c>). The input is trimmed and the gene name upper-cased;
+    /// the <c>HLA-</c> prefix is mandatory, the gene is separated from the fields by <c>*</c>, fields are
+    /// colon-separated digit groups, and an optional trailing expression-status letter (N/L/S/C/A/Q) may
+    /// follow the last field. Source: hla.alleles.org "Naming Alleles"; Marsh et al. (2010), Tissue Antigens
+    /// 75(4):291–455.
+    /// </summary>
+    /// <param name="alleleName">The HLA allele name to parse.</param>
+    /// <returns>The parsed <see cref="HlaAllele"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="alleleName"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="alleleName"/> is empty or whitespace.</exception>
+    /// <exception cref="FormatException">The name does not conform to WHO HLA nomenclature (missing
+    /// <c>HLA-</c> prefix or <c>*</c>; fewer than 2 or more than 4 fields; a non-numeric field; an invalid
+    /// trailing suffix).</exception>
+    public static HlaAllele ParseHlaAllele(string alleleName)
+    {
+        ArgumentNullException.ThrowIfNull(alleleName);
+        if (string.IsNullOrWhiteSpace(alleleName))
+        {
+            throw new ArgumentException("HLA allele name must not be empty or whitespace.", nameof(alleleName));
+        }
+
+        string text = alleleName.Trim();
+
+        // The "HLA-" prefix is mandatory (case-insensitive); the gene is separated from the fields by '*'.
+        const string Prefix = "HLA-";
+        if (!text.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new FormatException($"HLA allele name must start with '{Prefix}': '{alleleName}'.");
+        }
+
+        string afterPrefix = text.Substring(Prefix.Length);
+        int star = afterPrefix.IndexOf('*');
+        if (star <= 0 || star == afterPrefix.Length - 1)
+        {
+            throw new FormatException($"HLA allele name must have a gene and field block separated by '*': '{alleleName}'.");
+        }
+
+        string gene = afterPrefix.Substring(0, star).ToUpperInvariant();
+        string fieldBlock = afterPrefix.Substring(star + 1);
+
+        // Strip an optional single trailing expression-status suffix (only when the last char is a letter).
+        var suffix = HlaExpressionSuffix.None;
+        char last = fieldBlock[fieldBlock.Length - 1];
+        if (char.IsLetter(last))
+        {
+            if (!TryMapSuffix(char.ToUpperInvariant(last), out suffix))
+            {
+                throw new FormatException($"Invalid HLA expression-status suffix '{last}' (allowed: N, L, S, C, A, Q): '{alleleName}'.");
+            }
+
+            fieldBlock = fieldBlock.Substring(0, fieldBlock.Length - 1);
+        }
+
+        string[] fields = fieldBlock.Split(':');
+        if (fields.Length < HlaMinFieldCount || fields.Length > HlaMaxFieldCount)
+        {
+            throw new FormatException(
+                $"HLA allele name must have between {HlaMinFieldCount} and {HlaMaxFieldCount} colon-separated fields, found {fields.Length}: '{alleleName}'.");
+        }
+
+        foreach (string field in fields)
+        {
+            if (field.Length == 0 || !field.All(char.IsDigit))
+            {
+                throw new FormatException($"HLA allele field '{field}' must be a non-empty digit group: '{alleleName}'.");
+            }
+        }
+
+        return new HlaAllele(gene, fields, suffix);
+    }
+
+    /// <summary>
+    /// Non-throwing variant of <see cref="ParseHlaAllele(string)"/>. Returns true and the parsed allele on
+    /// success; false and the default value when the name is null/empty or does not conform to WHO HLA
+    /// nomenclature.
+    /// </summary>
+    /// <param name="alleleName">The HLA allele name to parse.</param>
+    /// <param name="allele">The parsed allele on success; default otherwise.</param>
+    /// <returns>True if parsing succeeded; otherwise false.</returns>
+    public static bool TryParseHlaAllele(string? alleleName, out HlaAllele allele)
+    {
+        if (alleleName is null)
+        {
+            allele = default;
+            return false;
+        }
+
+        try
+        {
+            allele = ParseHlaAllele(alleleName);
+            return true;
+        }
+        catch (Exception ex) when (ex is FormatException or ArgumentException)
+        {
+            allele = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Classifies allele-specific HLA loss of heterozygosity from caller-supplied per-allele copy number and
+    /// the allelic-imbalance p value, per the LOHHLA decision rule. HLA LOH is called iff <b>exactly one</b>
+    /// of the two homologous alleles has copy number strictly below
+    /// <see cref="HlaLohCopyNumberThreshold"/> (0.5) <b>and</b> the allelic-imbalance p value is strictly
+    /// below <see cref="HlaLohAllelicImbalancePValueThreshold"/> (0.01). If both alleles fall below the loss
+    /// threshold the locus is reported as homozygous loss (<see cref="HlaLostAllele.Both"/>), which is not
+    /// allele-specific LOH. Source: McGranahan et al. (2017), Cell 171(6):1259–1271 (PMC5720478) — "A copy
+    /// number &lt; 0.5, is classified as subject to loss, and thereby indicative of LOH" and "Allelic
+    /// imbalance is determined if p &lt; 0.01 using the paired Student's t-Test".
+    /// </summary>
+    /// <param name="alleleCopyNumber">Caller-supplied per-allele copy number and allelic-imbalance p value.</param>
+    /// <returns>The HLA LOH classification.</returns>
+    /// <exception cref="ArgumentException">A copy number is negative, or the p value is outside [0, 1].</exception>
+    public static HlaLohResult DetectHlaLoh(HlaAlleleCopyNumber alleleCopyNumber)
+    {
+        if (alleleCopyNumber.Allele1CopyNumber < 0 || alleleCopyNumber.Allele2CopyNumber < 0)
+        {
+            throw new ArgumentException("HLA allele copy numbers must be non-negative.", nameof(alleleCopyNumber));
+        }
+
+        if (alleleCopyNumber.AllelicImbalancePValue is < 0.0 or > 1.0)
+        {
+            throw new ArgumentException("Allelic-imbalance p value must be in [0, 1].", nameof(alleleCopyNumber));
+        }
+
+        // LOHHLA over-calling guard: significant allelic imbalance (paired t-test p < 0.01) is required.
+        bool imbalanceSignificant = alleleCopyNumber.AllelicImbalancePValue < HlaLohAllelicImbalancePValueThreshold;
+
+        bool allele1Lost = alleleCopyNumber.Allele1CopyNumber < HlaLohCopyNumberThreshold;
+        bool allele2Lost = alleleCopyNumber.Allele2CopyNumber < HlaLohCopyNumberThreshold;
+
+        if (allele1Lost && allele2Lost)
+        {
+            // Both homologs below 0.5 → homozygous loss, not allele-specific LOH (Evidence assumption).
+            return new HlaLohResult(false, HlaLostAllele.Both, imbalanceSignificant);
+        }
+
+        if (imbalanceSignificant && allele1Lost)
+        {
+            return new HlaLohResult(true, HlaLostAllele.Allele1, true);
+        }
+
+        if (imbalanceSignificant && allele2Lost)
+        {
+            return new HlaLohResult(true, HlaLostAllele.Allele2, true);
+        }
+
+        return new HlaLohResult(false, HlaLostAllele.None, imbalanceSignificant);
+    }
+
+    #endregion
 }
