@@ -544,20 +544,39 @@ public static class MotifFinder
         }
     }
 
+    // Default oligonucleotide (word) length for shared-motif enumeration. RSAT oligo-analysis
+    // permits any oligo length in [1,8]; 6 is a common default and sits inside that range.
+    // Source: RSAT oligo-analysis manual (https://rsat.eead.csic.es/plants/help.oligo-analysis.html).
+    private const int DefaultSharedMotifLength = 6;
+
+    // Default quorum: a word must occur in at least this many input sequences ("matching
+    // sequences") to be reported. 2 is the minimum meaningful "shared" threshold.
+    // Source: word-enumeration quorum (Das & Dai 2007, BMC Bioinformatics 8(S7):S21).
+    private const int DefaultMinMatchingSequences = 2;
+
     /// <summary>
-    /// Finds common motifs shared between multiple sequences.
+    /// Finds fixed-length words (oligonucleotides) shared across multiple DNA sequences,
+    /// using the "matching sequences" quorum of the van Helden / RSAT oligo-analysis method:
+    /// each length-<paramref name="k"/> word is scored by the number of input sequences that
+    /// contain at least one (exact) occurrence of it, and words whose matching-sequence count
+    /// is at least <paramref name="minSequences"/> are reported.
+    /// A word repeated several times within one sequence still contributes 1 to its
+    /// matching-sequence count. Matching is exact (no degenerate/substituted matches).
     /// </summary>
-    /// <param name="sequences">Collection of DNA sequences.</param>
-    /// <param name="k">K-mer length (default: 6).</param>
-    /// <param name="minSequences">Minimum sequences containing the motif (default: 2).</param>
-    /// <returns>Shared motifs with occurrence information.</returns>
+    /// <param name="sequences">Collection of DNA sequences (each scanned for its distinct words).</param>
+    /// <param name="k">Word (oligonucleotide) length; must be ≥ 1. Default: 6.</param>
+    /// <param name="minSequences">Quorum: minimum number of distinct sequences a word must occur in. Must be ≥ 1. Default: 2.</param>
+    /// <returns>Shared words with their distinct sequence indices and prevalence (matching sequences / total sequences).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="k"/> &lt; 1 or <paramref name="minSequences"/> &lt; 1.</exception>
     public static IEnumerable<SharedMotif> FindSharedMotifs(
         IEnumerable<DnaSequence> sequences,
-        int k = 6,
-        int minSequences = 2)
+        int k = DefaultSharedMotifLength,
+        int minSequences = DefaultMinMatchingSequences)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        if (minSequences < 1) throw new ArgumentOutOfRangeException(nameof(minSequences));
 
         var seqList = sequences.ToList();
         var kmerOccurrences = new Dictionary<string, List<int>>();
