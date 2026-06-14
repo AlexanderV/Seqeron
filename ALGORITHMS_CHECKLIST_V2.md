@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 170 |
+| **Completed** | 171 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 64 |
+| **Not Started** | 63 |
 
 ---
 
@@ -198,7 +198,7 @@
 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-DOTPLOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_GenerateDotPlot_Tests.cs) |
 | ☑ | MOTIF-DISCOVER-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-DISCOVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-DISCOVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_DiscoverMotifs_Tests.cs) |
 | ☑ | MOTIF-SHARED-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-SHARED-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-SHARED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindSharedMotifs_Tests.cs) |
-| ☐ | MOTIF-REGULATORY-001 | Matching | 1 | - | - | - |
+| ☑ | MOTIF-REGULATORY-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-REGULATORY-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-REGULATORY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindRegulatoryElements_Tests.cs) |
 | ☐ | MOTIF-GENERATE-001 | Matching | 1 | - | - | - |
 | ☐ | KMER-ASYNC-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-UNIQUE-001 | K-mer | 1 | - | - | - |

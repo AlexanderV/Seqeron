@@ -213,53 +213,8 @@ public class MotifFinderTests
 
     #endregion
 
-    #region Regulatory Element Tests
-
-    [Test]
-    public void FindRegulatoryElements_FindsTataBox()
-    {
-        var sequence = new DnaSequence("ATATATAAAGCATGC");
-        var elements = MotifFinder.FindRegulatoryElements(sequence).ToList();
-
-        Assert.That(elements.Any(e => e.Name == "TATA Box"));
-    }
-
-    [Test]
-    public void FindRegulatoryElements_FindsPolyASignal()
-    {
-        var sequence = new DnaSequence("ATGCAATAAAGCATGC");
-        var elements = MotifFinder.FindRegulatoryElements(sequence).ToList();
-
-        Assert.That(elements.Any(e => e.Name == "Poly(A) Signal"));
-    }
-
-    [Test]
-    public void FindRegulatoryElements_FindsEBox()
-    {
-        var sequence = new DnaSequence("CAGCTG");
-        var elements = MotifFinder.FindRegulatoryElements(sequence).ToList();
-
-        Assert.That(elements.Any(e => e.Name == "E-box"));
-    }
-
-    [Test]
-    public void FindRegulatoryElements_ReturnsDescription()
-    {
-        var sequence = new DnaSequence("TATAAA");
-        var elements = MotifFinder.FindRegulatoryElements(sequence).ToList();
-
-        Assert.That(elements.First().Description, Does.Contain("promoter"));
-    }
-
-    [Test]
-    public void KnownMotifs_ContainsExpectedPatterns()
-    {
-        Assert.That(MotifFinder.KnownMotifs.TataBox, Is.EqualTo("TATAAA"));
-        Assert.That(MotifFinder.KnownMotifs.ShineDalgarno, Is.EqualTo("AGGAGG"));
-        Assert.That(MotifFinder.KnownMotifs.PolyASignal, Is.EqualTo("AATAAA"));
-    }
-
-    #endregion
+    // NOTE: FindRegulatoryElements / KnownMotifs tests moved to the canonical
+    // MotifFinder_FindRegulatoryElements_Tests.cs (MOTIF-REGULATORY-001).
 
     #region Edge Cases
 
@@ -282,13 +237,6 @@ public class MotifFinderTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             MotifFinder.FindSharedMotifs(null!).ToList());
-    }
-
-    [Test]
-    public void FindRegulatoryElements_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.FindRegulatoryElements(null!).ToList());
     }
 
     [Test]

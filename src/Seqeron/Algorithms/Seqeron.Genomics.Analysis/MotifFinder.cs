@@ -625,34 +625,42 @@ public static class MotifFinder
     /// </summary>
     public static class KnownMotifs
     {
-        /// <summary>TATA box consensus: TATAAA</summary>
+        // Eukaryotic core-promoter consensus per Bucher (1990) weight-matrix analysis of 502 promoters.
+        /// <summary>TATA box consensus: TATAAA (eukaryotic RNA Pol II core promoter, Bucher 1990).</summary>
         public const string TataBox = "TATAAA";
 
-        /// <summary>CAAT box consensus: CCAAT</summary>
+        /// <summary>CCAAT box consensus pentanucleotide: CCAAT (Bucher 1990).</summary>
         public const string CaatBox = "CCAAT";
 
-        /// <summary>GC box consensus: GGGCGG</summary>
+        /// <summary>GC box (Sp1) consensus: GGGCGG (Lundin, Nehlin &amp; Ronne 1994).</summary>
         public const string GcBox = "GGGCGG";
 
-        /// <summary>Kozak consensus: GCCGCCACC (around start codon)</summary>
+        // Prokaryotic sigma-70 promoter hexamers per Harley &amp; Reynolds (1987) compilation.
+        /// <summary>-10 (Pribnow) box consensus hexamer: TATAAT (Pribnow 1975; Harley &amp; Reynolds 1987).</summary>
+        public const string MinusTenBox = "TATAAT";
+
+        /// <summary>-35 box consensus hexamer: TTGACA (Harley &amp; Reynolds 1987).</summary>
+        public const string MinusThirtyFiveBox = "TTGACA";
+
+        /// <summary>Kozak optimal-context sequence: GCCGCCACCATGG (Kozak 1987, most-preferred bases -9..+4).</summary>
         public const string Kozak = "GCCGCCACCATGG";
 
-        /// <summary>Shine-Dalgarno (bacterial RBS): AGGAGG</summary>
+        /// <summary>Shine-Dalgarno (bacterial RBS) consensus: AGGAGG (complementary to 3' end of 16S rRNA).</summary>
         public const string ShineDalgarno = "AGGAGG";
 
-        /// <summary>Poly(A) signal: AATAAA</summary>
+        /// <summary>Poly(A) signal hexamer: AATAAA (Proudfoot &amp; Brownlee 1976).</summary>
         public const string PolyASignal = "AATAAA";
 
-        /// <summary>E-box consensus: CANNTG (using IUPAC)</summary>
+        /// <summary>E-box consensus (IUPAC): CANNTG (Massari &amp; Murre 2000).</summary>
         public const string EBox = "CANNTG";
 
-        /// <summary>AP-1 binding site: TGAGTCA</summary>
-        public const string Ap1 = "TGAGTCA";
+        /// <summary>AP-1 (TRE) recognition motif: TGACTCA (Lee, Mitchell &amp; Tjian 1987).</summary>
+        public const string Ap1 = "TGACTCA";
 
-        /// <summary>NF-kB consensus: GGGACTTTCC</summary>
+        /// <summary>NF-κB κB site: GGGACTTTCC (consensus GGGRNWYYCC; Sen &amp; Baltimore 1986).</summary>
         public const string NfKb = "GGGACTTTCC";
 
-        /// <summary>CREB binding site: TGACGTCA</summary>
+        /// <summary>CREB CRE palindrome: TGACGTCA (Montminy et al. 1986).</summary>
         public const string Creb = "TGACGTCA";
     }
 
@@ -667,9 +675,11 @@ public static class MotifFinder
 
         var patterns = new (string Name, string Pattern, string Description)[]
         {
-            ("TATA Box", KnownMotifs.TataBox, "Core promoter element"),
+            ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),
             ("CAAT Box", KnownMotifs.CaatBox, "Promoter element"),
             ("GC Box", KnownMotifs.GcBox, "Sp1 binding site"),
+            ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box"),
+            ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element"),
             ("Kozak", KnownMotifs.Kozak, "Translation initiation"),
             ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding"),
             ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal"),
