@@ -1750,56 +1750,120 @@ public static class RnaSecondaryStructure
 
     #region Utility Methods
 
+    // Default parameters for inverted-repeat detection.
+    // Minimum arm length: an arm shorter than this is not reported (IUPACpal "minimum length").
+    // Source: Alamro et al. (2021) IUPACpal, BMC Bioinformatics 22:51. https://doi.org/10.1186/s12859-021-03983-2
+    private const int DefaultMinArmLength = 4;
+    // Minimum loop length: a stable RNA hairpin loop needs at least 3 unpaired nucleotides.
+    // Source: IUPACpal gap |G| >= 0; EMBOSS einverted loop. 3-nt minimum is the repository RNA convention.
+    private const int DefaultMinLoopLength = 3;
+    // Maximum loop length searched (bounds the gap G; IUPACpal "maximum gap size").
+    private const int DefaultMaxLoopLength = 100;
+
     /// <summary>
-    /// Finds inverted repeats (potential stem regions).
+    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c> followed by a
+    /// loop and then a right arm equal to the <b>reverse complement</b> of <c>W</c>, i.e. the
+    /// pattern <c>W G W̄ᴿ</c> with a perfect (zero-mismatch) antiparallel stem. The two arms form
+    /// the stem of a potential hairpin and the intervening region is the loop.
     /// </summary>
+    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="minLength">Minimum arm length; arms shorter than this are not reported (default 4).</param>
+    /// <param name="minSpacing">Minimum loop length between the two arms (default 3).</param>
+    /// <param name="maxSpacing">Maximum loop length between the two arms (default 100).</param>
+    /// <returns>
+    /// Maximal, non-overlapping inverted repeats as tuples: left arm <c>[Start1..End1]</c>,
+    /// right arm <c>[Start2..End2]</c> (both 0-based inclusive), and the common arm <c>Length</c>.
+    /// For every reported repeat and every k in [0,Length), the antiparallel pairing
+    /// <c>complement(seq[Start2+Length-1-k]) == seq[Start1+k]</c> holds (strict Watson-Crick/IUPAC).
+    /// </returns>
+    /// <remarks>
+    /// Sources: an inverted repeat is "a single stranded sequence ... followed downstream by its
+    /// reverse complement", formally <c>WGW̄ᴿ</c> with |G| >= 0 (Alamro et al. 2021, IUPACpal,
+    /// https://doi.org/10.1186/s12859-021-03983-2; Ussery et al. 2008 via Wikipedia). This is the
+    /// k = 0 (perfect) case; the scored mismatch/gap variant (EMBOSS einverted) is out of scope.
+    /// Search reuse: the repository SuffixTree was evaluated and not used — matching here is
+    /// antiparallel reverse-complement extension over a bounded loop window, not exact substring
+    /// occurrence enumeration, which is the established approach (EMBOSS einverted uses local DP).
+    /// </remarks>
     public static IEnumerable<(int Start1, int End1, int Start2, int End2, int Length)> FindInvertedRepeats(
         string sequence,
-        int minLength = 4,
-        int minSpacing = 3,
-        int maxSpacing = 100)
+        int minLength = DefaultMinArmLength,
+        int minSpacing = DefaultMinLoopLength,
+        int maxSpacing = DefaultMaxLoopLength)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < minLength * 2 + minSpacing)
+        if (string.IsNullOrEmpty(sequence) || minLength < 1 || minSpacing < 0 || maxSpacing < minSpacing)
             yield break;
 
         string upper = sequence.ToUpperInvariant();
+        int n = upper.Length;
+        // Smallest sequence that can hold two arms of minLength plus the minimum loop.
+        if (n < 2 * minLength + minSpacing)
+            yield break;
 
-        for (int i = 0; i <= upper.Length - minLength * 2 - minSpacing; i++)
+        // Scan loop boundaries: p = last index of the left arm, q = first index of the right arm,
+        // with loop length (q - p - 1) in [minSpacing, maxSpacing]. The innermost base pair is
+        // (seq[p], seq[q]); the stem extends OUTWARD: seq[p-k] pairs antiparallel with seq[q+k].
+        // This realizes the W G W̄ᴿ pattern where the right arm is the reverse complement of the left.
+        // Collect the best (maximal) stem per loop boundary, then report non-overlapping repeats
+        // preferring the longest stems first (einverted-style maximal local alignment).
+        var candidates = new List<(int Start1, int End1, int Start2, int End2, int Length)>();
+        for (int p = 0; p < n; p++)
         {
-            for (int spacing = minSpacing; spacing <= Math.Min(maxSpacing, upper.Length - i - minLength * 2); spacing++)
+            int firstQ = p + 1 + minSpacing;
+            int lastQ = Math.Min(p + 1 + maxSpacing, n - 1);
+            int bestLen = 0;
+            int bestRightEnd = -1;
+            for (int q = firstQ; q <= lastQ; q++)
             {
-                int j = i + minLength + spacing;
-                int maxPossibleLen = Math.Min(upper.Length - j, j - i - minSpacing);
-
-                // Check for ANTIPARALLEL complementary regions (biologically correct for RNA hairpin stems)
-                // Position i+k should pair with position j+len-1-k (antiparallel)
-                int matchLen = 0;
-                for (int len = minLength; len <= maxPossibleLen; len++)
+                // Extend the stem outward while complementary; arms may not cross into the loop
+                // (left stays >= 0, right stays <= n-1, and they may not overlap each other).
+                int maxExtend = Math.Min(p + 1, n - q);
+                int len = 0;
+                while (len < maxExtend &&
+                       GetComplement(upper[q + len]) == upper[p - len])
                 {
-                    // Check if all positions in this length form valid base pairs
-                    bool valid = true;
-                    for (int k = 0; k < len && valid; k++)
-                    {
-                        // Antiparallel: i+k pairs with j+len-1-k
-                        char left = upper[i + k];
-                        char right = upper[j + len - 1 - k];
-                        if (left != GetComplement(right))
-                            valid = false;
-                    }
-                    if (valid)
-                        matchLen = len;
-                    else
-                        break; // If shorter length fails, longer will too
+                    len++;
                 }
 
-                if (matchLen >= minLength)
+                if (len < minLength)
+                    continue;
+
+                // Prefer the longest arm; on ties prefer the smaller loop (q closer to p).
+                if (len > bestLen)
                 {
-                    yield return (i, i + matchLen - 1, j, j + matchLen - 1, matchLen);
-                    // Skip overlapping matches
-                    i += matchLen - 1;
-                    break;
+                    bestLen = len;
+                    bestRightEnd = q + len - 1;
                 }
             }
+
+            if (bestLen >= minLength)
+                candidates.Add((p - bestLen + 1, p, bestRightEnd - bestLen + 1, bestRightEnd, bestLen));
+        }
+
+        // Greedy non-overlapping selection: longest stems first; ties broken by left position then loop.
+        candidates.Sort((a, b) =>
+        {
+            int c = b.Length.CompareTo(a.Length);
+            if (c != 0) return c;
+            c = a.Start1.CompareTo(b.Start1);
+            if (c != 0) return c;
+            return a.Start2.CompareTo(b.Start2);
+        });
+
+        var occupied = new bool[n];
+        foreach (var cand in candidates)
+        {
+            bool overlaps = false;
+            for (int idx = cand.Start1; idx <= cand.End1 && !overlaps; idx++)
+                if (occupied[idx]) overlaps = true;
+            for (int idx = cand.Start2; idx <= cand.End2 && !overlaps; idx++)
+                if (occupied[idx]) overlaps = true;
+            if (overlaps)
+                continue;
+
+            for (int idx = cand.Start1; idx <= cand.End1; idx++) occupied[idx] = true;
+            for (int idx = cand.Start2; idx <= cand.End2; idx++) occupied[idx] = true;
+            yield return cand;
         }
     }
 

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 156 |
+| **Completed** | 157 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 78 |
+| **Not Started** | 77 |
 
 ---
 
@@ -184,7 +184,7 @@
 | ☑ | RNA-MFE-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-MFE-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-MFE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) |
 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PSEUDOKNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) |
 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-DOTBRACKET-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-DOTBRACKET-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) |
-| ☐ | RNA-INVERT-001 | RnaStructure | 1 | - | - | - |
+| ☑ | RNA-INVERT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-INVERT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-INVERT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) |
 | ☐ | RNA-PARTITION-001 | RnaStructure | 2 | - | - | - |
 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |
 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
@@ -3220,7 +3220,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### RNA-INVERT-001: RNA Inverted Repeats
+#### RNA-INVERT-001: RNA Inverted Repeats ☑
 
 | Field | Value |
 |------|----------|
