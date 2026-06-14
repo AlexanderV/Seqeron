@@ -382,81 +382,6 @@ public class GcSkewCalculatorTests
 
     #endregion
 
-    #region Replication Origin Prediction Tests (Evidence: Grigoriev 1998)
-
-    /// <summary>
-    /// Evidence: Grigoriev 1998 — minimum of cumulative GC skew = origin.
-    /// G×50 + C×100 + G×50, window=10:
-    ///   5 G-windows (+1 each) → cumulative peaks at +5
-    ///   10 C-windows (−1 each) → cumulative drops to −5 at window [140..149], center=145
-    ///   5 G-windows (+1 each) → cumulative returns to 0
-    /// Global minimum −5 at position 145 → PredictedOrigin = 145.
-    /// </summary>
-    [Test]
-    public void PredictReplicationOrigin_FindsMinimum()
-    {
-        var sequence = new DnaSequence(
-            new string('G', 50) + new string('C', 100) + new string('G', 50));
-
-        var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 10);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(prediction.PredictedOrigin, Is.EqualTo(145), "Min cumulative at center of last C-window");
-            Assert.That(prediction.OriginSkew, Is.EqualTo(-5.0).Within(0.0001), "Cumulative minimum = −5");
-            Assert.That(prediction.IsSignificant, Is.True, "Amplitude 10 >> threshold 0.2");
-        });
-    }
-
-    /// <summary>
-    /// Evidence: Grigoriev 1998 — maximum of cumulative GC skew = terminus.
-    /// C×50 + G×100 + C×50, window=10:
-    ///   5 C-windows (−1 each) → cumulative drops to −5
-    ///   10 G-windows (+1 each) → cumulative rises to +5 at window [140..149], center=145
-    ///   5 C-windows (−1 each) → cumulative returns to 0
-    /// Global maximum +5 at position 145 → PredictedTerminus = 145.
-    /// </summary>
-    [Test]
-    public void PredictReplicationOrigin_FindsMaximum()
-    {
-        var sequence = new DnaSequence(
-            new string('C', 50) + new string('G', 100) + new string('C', 50));
-
-        var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 10);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(prediction.PredictedTerminus, Is.EqualTo(145), "Max cumulative at center of last G-window");
-            Assert.That(prediction.TerminusSkew, Is.EqualTo(5.0).Within(0.0001), "Cumulative maximum = +5");
-            Assert.That(prediction.IsSignificant, Is.True, "Amplitude 10 >> threshold 0.2");
-        });
-    }
-
-    /// <summary>
-    /// Exact positions and skew values for a deterministic small genome.
-    /// GGGGGGCCCCCCGGGGGGCCCCCC (24 nt), window=4, step=4:
-    ///   GGGG(+1), GGCC(0), CCCC(−1), GGGG(+1), GGCC(0), CCCC(−1)
-    ///   Cumulative: +1, +1, 0, +1, +1, 0
-    ///   Min=0 at pos 10 (first occurrence), Max=+1 at pos 2 (first occurrence)
-    /// </summary>
-    [Test]
-    public void PredictReplicationOrigin_ExactPositionsAndSkew()
-    {
-        var sequence = new DnaSequence("GGGGGGCCCCCCGGGGGGCCCCCC");
-
-        var prediction = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 4);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(prediction.PredictedOrigin, Is.EqualTo(10), "Min cumulative at CCCC window center");
-            Assert.That(prediction.PredictedTerminus, Is.EqualTo(2), "Max cumulative at first GGGG window center");
-            Assert.That(prediction.OriginSkew, Is.EqualTo(0.0).Within(0.0001));
-            Assert.That(prediction.TerminusSkew, Is.EqualTo(1.0).Within(0.0001));
-        });
-    }
-
-    #endregion
-
     #region GC Content Analysis Tests
 
     /// <summary>
@@ -648,16 +573,6 @@ public class GcSkewCalculatorTests
     }
 
     /// <summary>
-    /// Null DnaSequence for origin prediction throws ArgumentNullException.
-    /// </summary>
-    [Test]
-    public void PredictReplicationOrigin_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            GcSkewCalculator.PredictReplicationOrigin((DnaSequence)null!, 10));
-    }
-
-    /// <summary>
     /// Null DnaSequence for analysis throws ArgumentNullException.
     /// </summary>
     [Test]
@@ -698,25 +613,6 @@ public class GcSkewCalculatorTests
     {
         double skew = GcSkewCalculator.CalculateAtSkew("");
         Assert.That(skew, Is.EqualTo(0.0));
-    }
-
-    /// <summary>
-    /// Sequence shorter than window size produces no cumulative points,
-    /// so PredictReplicationOrigin returns default (zeros, not significant).
-    /// </summary>
-    [Test]
-    public void PredictReplicationOrigin_TooShortSequence_ReturnsDefault()
-    {
-        var sequence = new DnaSequence("ATGC");
-
-        var result = GcSkewCalculator.PredictReplicationOrigin(sequence, windowSize: 100);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.PredictedOrigin, Is.EqualTo(0));
-            Assert.That(result.PredictedTerminus, Is.EqualTo(0));
-            Assert.That(result.IsSignificant, Is.False);
-        });
     }
 
     #endregion

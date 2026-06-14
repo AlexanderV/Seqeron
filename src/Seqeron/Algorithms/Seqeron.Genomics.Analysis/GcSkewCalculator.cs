@@ -209,37 +209,79 @@ public static class GcSkewCalculator
 
     #region Origin/Terminus Prediction
 
+    // Per-nucleotide skew increments for the cumulative skew diagram:
+    // G contributes +1, C contributes -1, A/T contribute 0.
+    // Grigoriev A (1998) Nucleic Acids Res 26(10):2286-2290; Rosalind BA1F "Minimum Skew Problem".
+    private const int GuanineSkewIncrement = +1;
+    private const int CytosineSkewIncrement = -1;
+
     /// <summary>
-    /// Predicts the origin and terminus of replication based on cumulative GC skew.
+    /// Predicts the origin and terminus of replication from the cumulative GC-skew diagram.
     /// </summary>
-    /// <param name="sequence">DNA sequence (should be complete circular genome).</param>
-    /// <param name="windowSize">Window size for analysis (default: 1000).</param>
-    /// <returns>Predicted origin and terminus positions.</returns>
-    public static ReplicationOriginPrediction PredictReplicationOrigin(
-        DnaSequence sequence,
-        int windowSize = 1000)
+    /// <remarks>
+    /// The cumulative skew Skew_i is the running difference (#G − #C) over the prefix
+    /// Genome[0..i): Skew_0 = 0 and each base updates the running total by +1 for G, −1 for C,
+    /// and 0 for A/T (Grigoriev 1998; Rosalind BA1F). The global <b>minimum</b> of this
+    /// diagram marks the replication <b>origin</b> and the global <b>maximum</b> marks the
+    /// <b>terminus</b> (Lobry 1996; Grigoriev 1998; GC-skew Wikipedia citing both). Positions
+    /// are 0-based prefix indices i ∈ [0, n], so position i refers to the boundary <i>before</i>
+    /// base i, matching the Rosalind BA1F convention (its sample returns 53 and 97). When
+    /// several positions tie for the extreme value, the first (smallest index) is reported.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence (typically a complete bacterial chromosome).</param>
+    /// <returns>Predicted origin and terminus positions and their cumulative skew values.
+    /// <see cref="ReplicationOriginPrediction.IsSignificant"/> is true when the diagram has a
+    /// non-zero amplitude (max &gt; min), i.e. a detectable strand-composition asymmetry.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return PredictReplicationOriginCore(sequence.Sequence);
+    }
 
-        var cumulativePoints = CalculateCumulativeGcSkewCore(sequence.Sequence, windowSize).ToList();
-
-        if (cumulativePoints.Count == 0)
-        {
+    /// <summary>
+    /// Predicts the origin and terminus of replication from the cumulative GC-skew diagram of a
+    /// raw sequence string. Counting is case-insensitive; only G and C affect the skew.
+    /// Returns a zero prediction with <c>IsSignificant = false</c> for null/empty input.
+    /// </summary>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
             return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        return PredictReplicationOriginCore(sequence.ToUpperInvariant());
+    }
+
+    private static ReplicationOriginPrediction PredictReplicationOriginCore(string seq)
+    {
+        if (seq.Length == 0)
+            return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        // Build the cumulative skew diagram and track its first global min/max prefix index.
+        int cumulative = 0;          // Skew_0 = 0
+        int minSkew = 0, maxSkew = 0;
+        int minPos = 0, maxPos = 0;
+
+        for (int i = 0; i < seq.Length; i++)
+        {
+            char c = seq[i];
+            if (c == 'G') cumulative += GuanineSkewIncrement;
+            else if (c == 'C') cumulative += CytosineSkewIncrement;
+            // A, T and any other symbol leave the cumulative skew unchanged.
+
+            int prefixIndex = i + 1; // Skew_{i+1} is defined after consuming base i.
+            if (cumulative < minSkew) { minSkew = cumulative; minPos = prefixIndex; }
+            if (cumulative > maxSkew) { maxSkew = cumulative; maxPos = prefixIndex; }
         }
 
-        // Find minimum (origin) and maximum (terminus)
-        var minPoint = cumulativePoints.MinBy(p => p.CumulativeGcSkew);
-        var maxPoint = cumulativePoints.MaxBy(p => p.CumulativeGcSkew);
-
-        double skewAmplitude = maxPoint!.CumulativeGcSkew - minPoint!.CumulativeGcSkew;
-        bool isSignificant = Math.Abs(skewAmplitude) > cumulativePoints.Count * 0.01;
+        // Amplitude > 0 means the strands differ in G/C composition (a detectable origin signal).
+        bool isSignificant = maxSkew > minSkew;
 
         return new ReplicationOriginPrediction(
-            PredictedOrigin: minPoint.Position,
-            PredictedTerminus: maxPoint.Position,
-            OriginSkew: minPoint.CumulativeGcSkew,
-            TerminusSkew: maxPoint.CumulativeGcSkew,
+            PredictedOrigin: minPos,
+            PredictedTerminus: maxPos,
+            OriginSkew: minSkew,
+            TerminusSkew: maxSkew,
             IsSignificant: isSignificant);
     }
 
