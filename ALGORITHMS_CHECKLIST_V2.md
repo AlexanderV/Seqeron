@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 196 |
+| **Completed** | 197 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 38 |
+| **Not Started** | 37 |
 
 ---
 
@@ -224,7 +224,7 @@
 | ☑ | ONCO-SOMATIC-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SOMATIC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SOMATIC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) |
 | ☑ | ONCO-VAF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-VAF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-VAF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) |
 | ☑ | ONCO-DRIVER-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-DRIVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-DRIVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyDriverMutations_Tests.cs) |
-| ☐ | ONCO-ARTIFACT-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-ARTIFACT-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-ARTIFACT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ARTIFACT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) |
 | ☐ | ONCO-ANNOT-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-TMB-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-MSI-001 | Oncology | 3 | - | - | - |
