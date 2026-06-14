@@ -1020,45 +1020,118 @@ public static class ComparativeGenomics
         return false;
     }
 
+    // --- Average Nucleotide Identity (ANI) — Goris et al. 2007 (ANIb) ---
+    // ANI of two genomes is the mean nucleotide identity of the conserved (alignable) genomic
+    // fragments. The query genome is cut into consecutive non-overlapping fragments of a fixed
+    // length, each fragment is aligned to the reference genome, and the per-fragment identity is
+    // computed over the fragment length. Fragments whose best alignment passes the identity and
+    // alignable-region cut-offs contribute to the mean; the rest are discarded.
+    // Source: Goris J, Konstantinidis KT, Klappenbach JA, Coenye T, Vandamme P, Tiedje JM (2007).
+    //   "DNA-DNA hybridization values and their relationship to whole-genome sequence similarities."
+    //   Int J Syst Evol Microbiol 57:81-91. DOI:10.1099/ijs.0.64483-0 (Methods, ANI calculation).
+
+    // Goris et al. 2007 cut the query genome into consecutive 1020 nt fragments to mirror the
+    // ~1 kb fragmentation of genomic DNA in DDH experiments ("cut into consecutive 1020 nt
+    // fragments").
+    private const int DefaultAniFragmentLength = 1020;
+
+    // Goris et al. 2007: a BLASTN match contributes to ANI only when it shows "more than 30 %
+    // overall sequence identity (recalculated to an identity along the entire sequence)".
+    private const double DefaultAniMinIdentity = 0.30;
+
+    // Goris et al. 2007: the match must span "an alignable region of at least 70 % of their
+    // length" (i.e. 70 % of the fragment length).
+    private const double DefaultAniMinAlignableFraction = 0.70;
+
+    // Per-fragment identity and ANI are fractions in [0, 1].
+    private const double MaxIdentity = 1.0;
+
     /// <summary>
-    /// Calculates Average Nucleotide Identity (ANI) between two genomes.
+    /// Calculates the Average Nucleotide Identity (ANI) between two genomes following the ANIb
+    /// definition of Goris et al. (2007, <i>Int J Syst Evol Microbiol</i> 57:81-91). The
+    /// <paramref name="querySequence"/> is cut into consecutive non-overlapping fragments of
+    /// <paramref name="fragmentLength"/> nucleotides; each fragment is locally aligned (ungapped)
+    /// to <paramref name="referenceSequence"/> to find its best match. The match contributes to
+    /// ANI only when its identity recalculated over the whole fragment exceeds
+    /// <paramref name="minIdentity"/> and its alignable region covers at least
+    /// <paramref name="minAlignableFraction"/> of the fragment. ANI is the mean of the qualifying
+    /// fragments' identities. ANI ≈ 95 % corresponds to the 70 % DDH species boundary.
     /// </summary>
+    /// <param name="querySequence">Query genome nucleotide sequence (the one that is fragmented).</param>
+    /// <param name="referenceSequence">Reference genome nucleotide sequence searched against.</param>
+    /// <param name="fragmentLength">Fragment length in nucleotides; Goris et al. use 1020.</param>
+    /// <param name="minIdentity">Minimum per-fragment identity (over the fragment length) to keep a match; Goris et al. use 0.30.</param>
+    /// <param name="minAlignableFraction">Minimum fraction of the fragment that must align; Goris et al. use 0.70.</param>
+    /// <returns>
+    /// ANI as a fraction in [0, 1] (mean identity of qualifying fragments), or 0 when either
+    /// sequence is null/empty, no fragment of the requested length fits, or no fragment qualifies.
+    /// </returns>
     public static double CalculateANI(
-        string genome1Sequence,
-        string genome2Sequence,
-        int fragmentSize = 1000,
-        double minFragmentIdentity = 0.7)
+        string querySequence,
+        string referenceSequence,
+        int fragmentLength = DefaultAniFragmentLength,
+        double minIdentity = DefaultAniMinIdentity,
+        double minAlignableFraction = DefaultAniMinAlignableFraction)
     {
-        if (string.IsNullOrEmpty(genome1Sequence) || string.IsNullOrEmpty(genome2Sequence))
+        if (string.IsNullOrEmpty(querySequence) || string.IsNullOrEmpty(referenceSequence))
             return 0;
+        if (fragmentLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(fragmentLength), "Fragment length must be positive.");
 
-        var identities = new List<double>();
+        string query = querySequence.ToUpperInvariant();
+        string reference = referenceSequence.ToUpperInvariant();
 
-        // Fragment genome1 and compare to genome2
-        for (int i = 0; i <= genome1Sequence.Length - fragmentSize; i += fragmentSize / 2)
+        // Goris et al. 2007: consecutive (non-overlapping) fragments of the query genome.
+        var qualifyingIdentities = new List<double>();
+        for (int start = 0; start + fragmentLength <= query.Length; start += fragmentLength)
         {
-            string fragment = genome1Sequence.Substring(i, fragmentSize);
-            double bestIdentity = FindBestFragmentMatch(fragment, genome2Sequence);
+            (double identity, double alignableFraction) =
+                BestUngappedFragmentMatch(query.AsSpan(start, fragmentLength), reference);
 
-            if (bestIdentity >= minFragmentIdentity)
+            // Keep only matches passing BOTH the identity and the alignable-region cut-offs.
+            if (identity > minIdentity && alignableFraction >= minAlignableFraction)
+                qualifyingIdentities.Add(identity);
+        }
+
+        return qualifyingIdentities.Count > 0 ? qualifyingIdentities.Average() : 0;
+    }
+
+    /// <summary>
+    /// Finds the best ungapped local placement of <paramref name="fragment"/> within
+    /// <paramref name="reference"/> and returns (identity over the fragment length, alignable
+    /// fraction). Identity is the number of matching bases at the best offset divided by the
+    /// fragment length ("recalculated to an identity along the entire sequence", Goris et al. 2007).
+    /// For ungapped full-length placement the alignable region equals the fragment, so the alignable
+    /// fraction is 1.0 whenever any placement fits; it is 0 only when the reference is shorter than
+    /// the fragment (no placement of the full fragment exists).
+    /// </summary>
+    private static (double identity, double alignableFraction) BestUngappedFragmentMatch(
+        ReadOnlySpan<char> fragment, string reference)
+    {
+        int fragLen = fragment.Length;
+        if (reference.Length < fragLen)
+            return (0.0, 0.0);
+
+        int bestMatches = 0;
+        ReadOnlySpan<char> refSpan = reference.AsSpan();
+        for (int offset = 0; offset + fragLen <= refSpan.Length; offset++)
+        {
+            int matches = 0;
+            for (int k = 0; k < fragLen; k++)
             {
-                identities.Add(bestIdentity);
+                if (fragment[k] == refSpan[offset + k])
+                    matches++;
+            }
+            if (matches > bestMatches)
+            {
+                bestMatches = matches;
+                if (bestMatches == fragLen)
+                    break; // Perfect placement; cannot improve.
             }
         }
 
-        return identities.Count > 0 ? identities.Average() : 0;
-    }
-
-    private static double FindBestFragmentMatch(string fragment, string genome)
-    {
-        // Use SuffixTree for efficient longest common substring search
-        var suffixTree = global::SuffixTree.SuffixTree.Build(genome.ToUpperInvariant());
-        string lcs = suffixTree.LongestCommonSubstring(fragment.ToUpperInvariant());
-
-        // Calculate identity based on LCS length relative to fragment length
-        double identity = fragment.Length > 0 ? (double)lcs.Length / fragment.Length : 0;
-
-        return Math.Min(identity, 1.0);
+        double identity = Math.Min((double)bestMatches / fragLen, MaxIdentity);
+        return (identity, MaxIdentity);
     }
 
     /// <summary>

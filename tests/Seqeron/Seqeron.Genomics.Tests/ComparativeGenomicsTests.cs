@@ -87,76 +87,9 @@ public class ComparativeGenomicsTests
     // FindConservedClusters tests moved to the canonical evidence-based fixture
     // ComparativeGenomics_FindConservedClusters_Tests.cs (COMPGEN-CLUSTER-001).
 
-    #region CalculateANI Tests
-
-    [Test]
-    public void CalculateANI_IdenticalSequences_ReturnsHigh()
-    {
-        string genome1 = string.Concat(Enumerable.Repeat("ATGCATGCATGC", 200)); // 2400 bp
-        string genome2 = genome1;
-
-        double ani = ComparativeGenomics.CalculateANI(genome1, genome2, fragmentSize: 100);
-
-        Assert.That(ani, Is.GreaterThan(0.9));
-    }
-
-    [Test]
-    public void CalculateANI_CompletelyDifferent_ReturnsLow()
-    {
-        string genome1 = string.Concat(Enumerable.Repeat("AAAAAAAAAA", 200));
-        string genome2 = string.Concat(Enumerable.Repeat("TTTTTTTTTT", 200));
-
-        double ani = ComparativeGenomics.CalculateANI(genome1, genome2, fragmentSize: 100);
-
-        Assert.That(ani, Is.LessThan(0.3));
-    }
-
-    [Test]
-    public void CalculateANI_EmptySequence_ReturnsZero()
-    {
-        string genome1 = "";
-        string genome2 = "ATGCATGCATGC";
-
-        double ani = ComparativeGenomics.CalculateANI(genome1, genome2);
-
-        Assert.That(ani, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateANI_NullSequence_ReturnsZero()
-    {
-        string genome1 = null!;
-        string genome2 = "ATGCATGCATGC";
-
-        double ani = ComparativeGenomics.CalculateANI(genome1, genome2);
-
-        Assert.That(ani, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CalculateANI_PartialSimilarity_ReturnsIntermediate()
-    {
-        // Create sequences where only a portion matches
-        // Use completely different patterns to ensure distinct fragments
-        string pattern1 = "ATGCATGCATGCATGCATGCATGCATGCATGC"; // 32bp repeating pattern
-        string pattern2 = "TTTTAAAATTTTAAAATTTTAAAATTTTAAAA"; // Completely different pattern
-
-        // Build genomes with distinct halves (2000bp each for reliable fragment comparison)
-        string sharedPart = string.Concat(Enumerable.Repeat(pattern1, 63)); // ~2000bp
-        string diffPart1 = string.Concat(Enumerable.Repeat(pattern2, 63));
-        string diffPart2 = string.Concat(Enumerable.Repeat("CCCCGGGGCCCCGGGGCCCCGGGGCCCCGGGG", 63));
-
-        string genome1 = sharedPart + diffPart1;
-        string genome2 = sharedPart + diffPart2;
-
-        double ani = ComparativeGenomics.CalculateANI(genome1, genome2, fragmentSize: 200, minFragmentIdentity: 0.5);
-
-        // Should find matches in the shared part but not in the different parts
-        Assert.That(ani, Is.GreaterThan(0.0)); // Some fragments match
-        Assert.That(ani, Is.LessThanOrEqualTo(1.0));
-    }
-
-    #endregion
+    // CalculateANI tests are consolidated into the canonical fixture
+    // ComparativeGenomics_CalculateANI_Tests.cs (COMPGEN-ANI-001). The previous permissive
+    // tests here (GreaterThan/LessThan ranges) were superseded by exact evidence-based cases.
 
     #region GenerateDotPlot Tests
 
