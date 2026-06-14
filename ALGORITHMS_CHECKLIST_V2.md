@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 157 |
+| **Completed** | 158 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 77 |
+| **Not Started** | 76 |
 
 ---
 
@@ -185,7 +185,7 @@
 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PSEUDOKNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) |
 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-DOTBRACKET-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-DOTBRACKET-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) |
 | ☑ | RNA-INVERT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-INVERT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-INVERT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) |
-| ☐ | RNA-PARTITION-001 | RnaStructure | 2 | - | - | - |
+| ☑ | RNA-PARTITION-001 | RnaStructure | 4 | [Evidence](docs/Evidence/RNA-PARTITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PARTITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) |
 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |
 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
@@ -3234,18 +3234,30 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### RNA-PARTITION-001: Partition Function
+#### RNA-PARTITION-001: Partition Function ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `RnaSecondaryStructure.CalculateStructureProbability(...)` |
+| **Canonical** | `RnaSecondaryStructure.CalculatePartitionFunction(...)` |
 | **Complexity** | O(n³) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateStructureProbability(sequence)` | RnaSecondaryStructure | Probability |
-| `GenerateRandomRna(length)` | RnaSecondaryStructure | Random generation |
+| `CalculatePartitionFunction(sequence, basePairEnergy, temperature)` | RnaSecondaryStructure | McCaskill partition function Z + base-pair probabilities |
+| `CalculateStructureProbability(structureEnergy, ensembleEnergy, temperature)` | RnaSecondaryStructure | Boltzmann structure probability `p = exp(−βE)/Z` |
+| `GenerateRandomRna(length[, random], gcContent)` | RnaSecondaryStructure | Random RNA generation (seeded overload deterministic) |
+
+> **Conflict note (external evidence wins):** the original checklist listed the canonical
+> as `CalculateStructureProbability(sequence)`, but the implemented API takes energies, not
+> a sequence. The substantive O(n³) partition function is implemented as
+> `CalculatePartitionFunction(sequence)` per McCaskill (1990). Energy model is the simplified
+> fixed-per-pair model (Freiburg teaching tool); see Evidence/TestSpec.
+>
+> Edge cases covered: - [x] null sequence - [x] empty sequence - [x] no admissible pair
+> - [x] pair span below min loop - [x] probabilities in [0,1] - [x] Z ≥ 1 invariant
+> - [x] monotonicity in E_bp - [x] non-positive temperature - [x] property-based invariants
+> - [x] performance baseline (n=300)
 
 ---
 
@@ -4730,6 +4742,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 | `ParseDotBracket` | RNA-DOTBRACKET-001 |
 | `ValidateDotBracket` | RNA-DOTBRACKET-001 |
 | `FindInvertedRepeats` (RnaSecondaryStructure) | RNA-INVERT-001 |
+| `CalculatePartitionFunction` | RNA-PARTITION-001 |
 | `CalculateStructureProbability` | RNA-PARTITION-001 |
 | `GenerateRandomRna` | RNA-PARTITION-001 |
 | `CalculateKmerEntropy` (SequenceComplexity) | SEQ-COMPLEX-KMER-001 |

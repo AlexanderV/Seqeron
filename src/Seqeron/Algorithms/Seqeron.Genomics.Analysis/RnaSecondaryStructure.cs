@@ -94,6 +94,21 @@ public static class RnaSecondaryStructure
         IReadOnlyList<Pseudoknot> Pseudoknots,
         double MinimumFreeEnergy);
 
+    /// <summary>
+    /// Result of the McCaskill equilibrium partition-function computation over the
+    /// full ensemble of (pseudoknot-free) secondary structures of a sequence.
+    /// </summary>
+    /// <param name="PartitionFunction">
+    /// Z = Σ_S exp(−E(S)/RT) over all admissible structures S (McCaskill 1990, Z = Q₁ₙ).
+    /// </param>
+    /// <param name="BasePairProbabilities">
+    /// P[i,j] = (Σ_{S ∋ (i,j)} exp(−E(S)/RT)) / Z, the equilibrium base-pair probability
+    /// for every pair (i,j) that can form, indexed by 0-based (i,j) with i &lt; j.
+    /// </param>
+    public readonly record struct PartitionFunctionResult(
+        double PartitionFunction,
+        IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities);
+
     #endregion
 
     #region Free Energy Parameters
@@ -1867,26 +1882,157 @@ public static class RnaSecondaryStructure
         }
     }
 
-    /// <summary>
-    /// Calculates the probability of a structure forming based on partition function (simplified).
-    /// </summary>
-    public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = 310.15)
-    {
-        const double R = 1.987; // cal/(mol·K)
-        double RT = R * temperature / 1000.0; // kcal/mol
+    // McCaskill partition function — physical constants.
+    // R = 1.987 cal/(mol·K) (molar gas constant); RT expressed in kcal/mol matches
+    // the kcal/mol energy unit used by the simplified model below.
+    // ViennaRNA documents the same Boltzmann constant k ≈ 1.987e-3 kcal/(mol·K)
+    // and p(s) = exp(−βE(s))/Z with β = 1/kT.  Source: ViennaRNA pf_fold reference;
+    // McCaskill JS (1990) Biopolymers 29:1105-1119 (PMID 1695107).
+    private const double GasConstant_CalPerMolK = 1.987;
+    // Default folding temperature 37 °C = 310.15 K (ViennaRNA / NNDB default).
+    private const double DefaultTemperatureKelvin = 310.15;
+    // Minimum number of unpaired bases enclosed by a hairpin loop. A pair (i,j) is
+    // sterically admissible only when j − i > MinHairpinLoop. The classic value is 3
+    // (Nussinov 1980 / standard nearest-neighbour models forbid loops shorter than 3 nt).
+    private const int MinHairpinLoop = 3;
+    // Per-base-pair free-energy increment for the SIMPLIFIED energy model (kcal/mol).
+    // Each base pair contributes a fixed term E_bp (Freiburg RNA teaching model:
+    // "each base pair of a structure contributes a fixed energy term E_bp").
+    private const double SimplifiedBasePairEnergy = -1.0;
 
-        double boltzmann = Math.Exp(-structureEnergy / RT);
-        double partition = Math.Exp(-ensembleEnergy / RT);
+    /// <summary>
+    /// Computes the McCaskill equilibrium partition function Z and the equilibrium
+    /// base-pair probabilities P[i,j] over the full ensemble of pseudoknot-free
+    /// secondary structures of the given RNA sequence.
+    /// </summary>
+    /// <remarks>
+    /// Implements the McCaskill (1990) inside recursion Q/Q^b with Z = Q₁ₙ in O(n³) time,
+    /// O(n²) space, followed by the external base-pair-probability formula
+    /// P[i,j] = Q(1,i−1)·Q^b(i,j)·Q(j+1,n)/Z. The energy model is the simplified
+    /// fixed-per-pair model (each pair contributes <c>basePairEnergy</c>); this is the
+    /// model documented by the Freiburg RNA McCaskill teaching tool. The well-defined
+    /// partition-function mathematics (Z ≥ 1, probabilities in [0,1], normalisation,
+    /// symmetry) hold independently of the energy parameter.
+    /// </remarks>
+    /// <param name="sequence">RNA sequence (A/C/G/U, case-insensitive; T is treated as U).</param>
+    /// <param name="basePairEnergy">Fixed free energy E_bp (kcal/mol) per base pair.</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
+    public static PartitionFunctionResult CalculatePartitionFunction(
+        string sequence,
+        double basePairEnergy = SimplifiedBasePairEnergy,
+        double temperature = DefaultTemperatureKelvin)
+    {
+        if (sequence is null)
+            throw new ArgumentNullException(nameof(sequence));
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+
+        int n = sequence.Length;
+        var empty = new Dictionary<(int, int), double>();
+        if (n == 0)
+            return new PartitionFunctionResult(1.0, empty); // empty sequence: only the empty structure, Z = 1.
+
+        string s = sequence.ToUpperInvariant();
+
+        // RT in kcal/mol, β = 1/RT; Boltzmann weight of one base pair = exp(−β·E_bp).
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0;
+        double pairWeight = Math.Exp(-basePairEnergy / rt);
+
+        // Inside matrices, 0-based inclusive sub-sequences [i..j].
+        // Q[i,j]  = partition function of [i..j]; empty interval (i > j) is defined as 1.
+        // Qb[i,j] = partition function of [i..j] restricted to structures with (i,j) paired.
+        var q = new double[n, n];
+        var qb = new double[n, n];
+
+        double GetQ(int i, int j) => i > j ? 1.0 : q[i, j];
+
+        // Fill by increasing sub-sequence length so dependencies are already computed.
+        for (int length = 1; length <= n; length++)
+        {
+            for (int i = 0; i + length - 1 < n; i++)
+            {
+                int j = i + length - 1;
+
+                // Q^b recursion (simplified model): a closing pair contributes pairWeight
+                // times the partition function of the enclosed interval.
+                if (j - i > MinHairpinLoop && CanPair(s[i], s[j]))
+                    qb[i, j] = pairWeight * GetQ(i + 1, j - 1);
+                else
+                    qb[i, j] = 0.0;
+
+                // Q recursion: Q[i,j] = Q[i,j-1] + Σ_k Q[i,k-1]·Q^b[k,j]
+                // (McCaskill / Will 18.417: structures where j is unpaired, plus structures
+                // where j pairs with some k, splitting the interval unambiguously).
+                double val = GetQ(i, j - 1);
+                for (int k = i; k <= j; k++)
+                {
+                    if (j - k > MinHairpinLoop && CanPair(s[k], s[j]))
+                        val += GetQ(i, k - 1) * qb[k, j];
+                }
+                q[i, j] = val;
+            }
+        }
+
+        double z = GetQ(0, n - 1); // Z = Q(1,n) in 1-based notation.
+
+        // External base-pair probabilities: in the flat (fixed-per-pair) model every pair
+        // is an external pair of the decomposition Q(1,i-1)·Q^b(i,j)·Q(j+1,n).
+        var probabilities = new Dictionary<(int I, int J), double>();
+        if (z > 0)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (qb[i, j] > 0)
+                    {
+                        double p = GetQ(0, i - 1) * qb[i, j] * GetQ(j + 1, n - 1) / z;
+                        probabilities[(i, j)] = p;
+                    }
+                }
+            }
+        }
+
+        return new PartitionFunctionResult(z, probabilities);
+    }
+
+    /// <summary>
+    /// Calculates the Boltzmann probability of a single structure within the ensemble:
+    /// p(S) = exp(−E_S/RT) / exp(−E_ensemble/RT), where E_ensemble = −RT·ln Z is the
+    /// ensemble free energy. Equivalent to the McCaskill normalisation p(S) = exp(−E_S/RT)/Z.
+    /// </summary>
+    /// <remarks>
+    /// Source: McCaskill JS (1990) Biopolymers 29:1105-1119, p(P|S) = Z⁻¹·exp(−βE(P));
+    /// ViennaRNA pf_fold reference (β = 1/kT, k ≈ 1.987e-3 kcal/(mol·K)).
+    /// </remarks>
+    public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = DefaultTemperatureKelvin)
+    {
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
+
+        double boltzmann = Math.Exp(-structureEnergy / rt);
+        double partition = Math.Exp(-ensembleEnergy / rt);
 
         return partition > 0 ? boltzmann / partition : 0;
     }
 
     /// <summary>
-    /// Generates a random RNA sequence.
+    /// Generates a random RNA sequence with the given target GC content.
+    /// Uses a non-deterministic seed; for reproducible output use the seeded overload.
     /// </summary>
     public static string GenerateRandomRna(int length, double gcContent = 0.5)
+        => GenerateRandomRna(length, new Random(), gcContent);
+
+    /// <summary>
+    /// Generates a random RNA sequence with the given target GC content using a
+    /// caller-supplied <see cref="Random"/> instance (deterministic when seeded).
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="random"/> is null.</exception>
+    public static string GenerateRandomRna(int length, Random random, double gcContent = 0.5)
     {
-        var random = new Random();
+        if (random is null)
+            throw new ArgumentNullException(nameof(random));
         var sb = new StringBuilder(length);
 
         for (int i = 0; i < length; i++)
