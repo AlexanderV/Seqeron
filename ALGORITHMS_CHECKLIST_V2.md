@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 221 |
+| **Completed** | 222 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 13 |
+| **Not Started** | 12 |
 
 ---
 
@@ -250,7 +250,7 @@
 | ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
 | ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
 | ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
-| ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
 | ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
@@ -4613,24 +4613,27 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CCF-001: Cancer Cell Fraction Estimation
+#### ONCO-CCF-001: Cancer Cell Fraction Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.EstimateCCF(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimateCcf(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ CCF ≤ 1 |
 | **Depends on** | ONCO-VAF-001, ONCO-PURITY-001, ONCO-CNA-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
+
+**Method:** point CCF estimate `CCF = VAF·(ρ·N_T + 2(1−ρ))/(ρ·m)` (McGranahan et al. 2016 *Science* 351:1463–1469; Tarabichi et al. 2021 *Nat. Methods* 18:144–155 Box 1; Zheng et al. 2022 *Bioinformatics* 38:3677), reported capped to [0,1] with raw exposed; CCF values clustered into clones/subclones by deterministic 1D Lloyd k-means (Lloyd 1982 *IEEE TIT* 28:129–137), clonal cluster = highest centroid (Tarabichi 2021). Distinct from ONCO-CLONAL-001 (Bayesian grid posterior). Implemented on `OncologyAnalyzer` (the area's analyzer class used by sibling units), not the registry's placeholder `TumorEvolutionAnalyzer`.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateCCF(vaf, purity, localCopyNumber)` | TumorEvolutionAnalyzer | Canonical |
-| `ClusterCCFValues(ccfValues)` | TumorEvolutionAnalyzer | Subclone inference |
+| `EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)` | OncologyAnalyzer | Canonical |
+| `ClusterCcfValues(ccfValues, clusterCount)` | OncologyAnalyzer | Subclone inference |
 
 **Edge Cases:**
-- [ ] Purity not determined (unknown purity)
-- [ ] Multi-copy loci (ambiguous CCF)
+- [x] Purity not determined (unknown purity) — purity ∉ (0,1] rejected (ArgumentOutOfRangeException)
+- [x] Multi-copy loci (ambiguous CCF) — multiplicity m ∈ [1, N_T] required; tested at N_T=4, m=2
 
 ---
 

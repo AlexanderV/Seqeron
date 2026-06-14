@@ -4816,6 +4816,232 @@ public static class OncologyAnalyzer
 
     #endregion
 
+    #region EstimateCcf
+
+    /// <summary>
+    /// Normal locus copy number (diploid) contributing the 2(1−ρ) term in the CCF denominator.
+    /// Source: McGranahan et al. (2016), <i>Science</i> 351(6280):1463–1469 — n_mut = VAF·(1/p)·[p·CN_t + CN_n·(1−p)]
+    /// with CN_n = 2; Tarabichi et al. (2021), <i>Nat. Methods</i> 18:144–155 (Box 1).
+    /// </summary>
+    private const double NormalLocusCopyNumber = 2.0;
+
+    /// <summary>Upper bound on a reported cancer cell fraction (a mutation in all cancer cells has CCF = 1).</summary>
+    private const double MaxCancerCellFraction = 1.0;
+
+    /// <summary>
+    /// A single cancer-cell-fraction point estimate for one somatic mutation.
+    /// </summary>
+    /// <param name="Ccf">Reported cancer cell fraction, capped to [0, 1] (the registry invariant; a mutation
+    /// present in all cancer cells has CCF = 1, per McGranahan et al. 2016).</param>
+    /// <param name="RawCcf">Uncapped formula value VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m); may exceed 1 under sampling
+    /// noise (CNAqc reports e.g. 1.06).</param>
+    public readonly record struct CcfEstimate(double Ccf, double RawCcf);
+
+    /// <summary>
+    /// Result of clustering cancer cell fractions into clones/subclones by deterministic 1D k-means.
+    /// </summary>
+    /// <param name="Centroids">Cluster centroids (means) sorted in ascending order, one per cluster.</param>
+    /// <param name="Assignments">For each input CCF (input order), the 0-based index of its assigned cluster
+    /// in <paramref name="Centroids"/>.</param>
+    /// <param name="ClonalClusterIndex">Index (into <paramref name="Centroids"/>) of the clonal cluster — the
+    /// cluster with the highest centroid (Tarabichi et al. 2021: "the cluster with the highest CP … deemed clonal").</param>
+    public readonly record struct CcfClustering(
+        IReadOnlyList<double> Centroids,
+        IReadOnlyList<int> Assignments,
+        int ClonalClusterIndex);
+
+    /// <summary>
+    /// Estimates the cancer cell fraction (CCF) of a somatic mutation from its variant allele fraction, the tumor
+    /// purity, the local tumor copy number, and the mutation multiplicity, using the standard point estimate
+    /// <c>CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m)</c> — VAF the variant allele fraction, ρ the purity, N_T the local
+    /// tumor copy number, the normal contributing 2(1−ρ), and m the integer mutation multiplicity (number of
+    /// mutated copies per cancer cell). Source: McGranahan et al. (2016), <i>Science</i> 351(6280):1463–1469
+    /// (n_mut = VAF·(1/p)·[p·CN_t + 2(1−p)], CCF = n_mut/m); Tarabichi et al. (2021), <i>Nat. Methods</i>
+    /// 18:144–155 (Box 1); Zheng et al. (2022), <i>Bioinformatics</i> 38(15):3677–3683 (VAF = m·CCF·p/(c·p+2(1−p))).
+    /// The reported <see cref="CcfEstimate.Ccf"/> is capped to [0, 1] to honour the 0 ≤ CCF ≤ 1 invariant while the
+    /// uncapped value is exposed as <see cref="CcfEstimate.RawCcf"/>.
+    /// </summary>
+    /// <param name="vaf">Variant allele fraction (mutant read fraction), in [0, 1].</param>
+    /// <param name="purity">Tumor purity ρ ∈ (0, 1].</param>
+    /// <param name="tumorCopyNumber">Local tumor copy number N_T (≥ 1).</param>
+    /// <param name="multiplicity">Mutation multiplicity m (number of mutated copies per cancer cell), in
+    /// [1, <paramref name="tumorCopyNumber"/>].</param>
+    /// <returns>The capped and raw cancer cell fraction.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">vaf ∉ [0,1], purity ∉ (0,1], or tumorCopyNumber &lt; 1.</exception>
+    /// <exception cref="ArgumentException">multiplicity ∉ [1, tumorCopyNumber].</exception>
+    public static CcfEstimate EstimateCcf(double vaf, double purity, int tumorCopyNumber, int multiplicity)
+    {
+        if (double.IsNaN(vaf) || vaf < 0.0 || vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vaf), vaf, "VAF must be in [0, 1].");
+        }
+
+        if (double.IsNaN(purity) || purity <= 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(purity), purity, "Purity must be in (0, 1]; the CCF formula divides by purity.");
+        }
+
+        if (tumorCopyNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(tumorCopyNumber), tumorCopyNumber, "Tumor copy number must be at least 1.");
+        }
+
+        if (multiplicity < 1 || multiplicity > tumorCopyNumber)
+        {
+            throw new ArgumentException(
+                $"Multiplicity must be in [1, {tumorCopyNumber}]; got {multiplicity}.", nameof(multiplicity));
+        }
+
+        // CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m): total DNA per cell = tumour ρ·N_T + normal 2(1−ρ); dividing the
+        // observed mutant fraction by ρ·m / totalDna recovers the fraction of cancer cells carrying the mutation.
+        double totalDnaPerCell = purity * tumorCopyNumber + NormalLocusCopyNumber * (1.0 - purity);
+        double rawCcf = vaf * totalDnaPerCell / (purity * multiplicity);
+        double cappedCcf = Math.Min(MaxCancerCellFraction, rawCcf);
+        return new CcfEstimate(cappedCcf, rawCcf);
+    }
+
+    /// <summary>
+    /// Clusters cancer cell fractions into <paramref name="clusterCount"/> clones/subclones using a deterministic
+    /// one-dimensional Lloyd's k-means (Lloyd 1982, <i>IEEE Trans. Inf. Theory</i> 28(2):129–137): each value is
+    /// assigned to the nearest centroid (least squared distance) and each centroid is recomputed as the mean of
+    /// its members, iterating to convergence. Determinism is achieved without any RNG by seeding the centroids at
+    /// evenly spaced quantiles of the sorted input. The clonal cluster is the one with the highest centroid
+    /// (Tarabichi et al. 2021, <i>Nat. Methods</i> 18:144–155: "the cluster with the highest CP can be deemed clonal").
+    /// </summary>
+    /// <param name="ccfValues">Cancer cell fractions to cluster (each finite).</param>
+    /// <param name="clusterCount">Number of clusters k, in [1, count of values].</param>
+    /// <returns>Ascending-sorted centroids, per-value cluster assignments (input order), and the clonal cluster index.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ccfValues"/> is null.</exception>
+    /// <exception cref="ArgumentException">no values are supplied, or a value is NaN/infinite.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">clusterCount ∉ [1, count].</exception>
+    public static CcfClustering ClusterCcfValues(IReadOnlyList<double> ccfValues, int clusterCount)
+    {
+        ArgumentNullException.ThrowIfNull(ccfValues);
+
+        int n = ccfValues.Count;
+        if (n == 0)
+        {
+            throw new ArgumentException("At least one CCF value is required.", nameof(ccfValues));
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            if (double.IsNaN(ccfValues[i]) || double.IsInfinity(ccfValues[i]))
+            {
+                throw new ArgumentException($"CCF value must be finite; got {ccfValues[i]} at index {i}.", nameof(ccfValues));
+            }
+        }
+
+        if (clusterCount < 1 || clusterCount > n)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterCount), clusterCount, $"Cluster count must be in [1, {n}].");
+        }
+
+        // Sort values (carrying original indices) so seeding and assignment are deterministic and order-independent.
+        int[] order = Enumerable.Range(0, n).OrderBy(i => ccfValues[i]).ToArray();
+        double[] sorted = order.Select(i => ccfValues[i]).ToArray();
+
+        // Deterministic seeding: place centroid j at the value at quantile (j + 0.5)/k of the sorted data.
+        double[] centroids = new double[clusterCount];
+        for (int j = 0; j < clusterCount; j++)
+        {
+            int idx = (int)((j + 0.5) / clusterCount * n);
+            if (idx >= n)
+            {
+                idx = n - 1;
+            }
+
+            centroids[j] = sorted[idx];
+        }
+
+        int[] sortedAssignments = new int[n];
+        // Lloyd iterations: assignment step then update step; converges when no assignment changes.
+        // Bounded by n iterations (each iteration strictly reduces WCSS until a fixed point on a finite set).
+        for (int iteration = 0; iteration <= n; iteration++)
+        {
+            bool changed = AssignToNearestCentroid(sorted, centroids, sortedAssignments);
+            RecomputeCentroids(sorted, sortedAssignments, centroids);
+            if (!changed && iteration > 0)
+            {
+                break;
+            }
+        }
+
+        // Map cluster labels to ascending-centroid order so the result is canonical and assignments are stable.
+        int[] centroidRank = Enumerable.Range(0, clusterCount).OrderBy(j => centroids[j]).ToArray();
+        int[] rankOfCluster = new int[clusterCount];
+        double[] sortedCentroids = new double[clusterCount];
+        for (int rank = 0; rank < clusterCount; rank++)
+        {
+            rankOfCluster[centroidRank[rank]] = rank;
+            sortedCentroids[rank] = centroids[centroidRank[rank]];
+        }
+
+        int[] assignments = new int[n];
+        for (int s = 0; s < n; s++)
+        {
+            assignments[order[s]] = rankOfCluster[sortedAssignments[s]];
+        }
+
+        // Clonal cluster = highest centroid; centroids are ascending so it is the last index.
+        int clonalClusterIndex = clusterCount - 1;
+        return new CcfClustering(sortedCentroids, assignments, clonalClusterIndex);
+    }
+
+    /// <summary>Assignment step: assigns each value to the nearest centroid; returns whether any assignment changed.</summary>
+    private static bool AssignToNearestCentroid(double[] values, double[] centroids, int[] assignments)
+    {
+        bool changed = false;
+        for (int i = 0; i < values.Length; i++)
+        {
+            int best = 0;
+            double bestDistance = double.PositiveInfinity;
+            for (int j = 0; j < centroids.Length; j++)
+            {
+                double diff = values[i] - centroids[j];
+                double distance = diff * diff;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = j;
+                }
+            }
+
+            if (assignments[i] != best)
+            {
+                assignments[i] = best;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Update step: recomputes each centroid as the mean of its assigned values (empty clusters keep their centroid).</summary>
+    private static void RecomputeCentroids(double[] values, int[] assignments, double[] centroids)
+    {
+        Span<double> sums = stackalloc double[centroids.Length];
+        Span<int> counts = stackalloc int[centroids.Length];
+        for (int i = 0; i < values.Length; i++)
+        {
+            sums[assignments[i]] += values[i];
+            counts[assignments[i]]++;
+        }
+
+        for (int j = 0; j < centroids.Length; j++)
+        {
+            if (counts[j] > 0)
+            {
+                centroids[j] = sums[j] / counts[j];
+            }
+        }
+    }
+
+    #endregion
+
     #region GenerateNeoantigenPeptides
 
     /// <summary>
