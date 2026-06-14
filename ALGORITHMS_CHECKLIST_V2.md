@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 209 |
+| **Completed** | 210 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 25 |
+| **Not Started** | 24 |
 
 ---
 
@@ -237,7 +237,7 @@
 | ☑ | ONCO-FUSION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-FUSION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) |
 | ☑ | ONCO-FUSION-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) |
 | ☑ | ONCO-FUSION-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) |
-| ☐ | ONCO-CNA-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-CNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) |
 | ☐ | ONCO-CNA-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CNA-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PURITY-001 | Oncology | 2 | - | - | - |
@@ -4259,24 +4259,35 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CNA-001: Cancer Copy Number Segmentation
+#### ONCO-CNA-001: Cancer Copy Number Alteration Classification ☑
+
+> **Scope note (resolved in implementation):** The well-defined, source-traceable
+> foundational piece of CNA analysis is log2 copy-ratio → absolute/integer copy number →
+> discrete CNA classification (deep deletion / loss / neutral / gain / amplification),
+> implemented in `OncologyAnalyzer` per CNVkit `absolute_threshold` / GISTIC2.0. Full CBS
+> segmentation (`SegmentCopyNumber`) already exists in `StructuralVariantAnalyzer`
+> (SV-CNV-001); the original `CopyNumberAnalyzer` / `CallCopyNumberStates` names are
+> superseded by the `OncologyAnalyzer.ClassifyCopyNumber` API below. Conflict noted in
+> the TestSpec §7.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `CopyNumberAnalyzer.SegmentCopyNumber(...)` |
-| **Complexity** | O(n log n) |
-| **Invariant** | segments cover entire genome without gaps |
-| **Depends on** | — (standalone) |
+| **Canonical** | `OncologyAnalyzer.ClassifyCopyNumber(log2Ratio, thresholds, ploidy)` |
+| **Complexity** | O(1) per region; O(n) per batch |
+| **Invariant** | integer CN monotonic non-decreasing in log2; CN≥0; state↔CN mapping fixed |
+| **Depends on** | — (standalone; reuses CNVkit n = 2·2^log2, cited shared with SV-CNV-001) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `SegmentCopyNumber(logRatios)` | CopyNumberAnalyzer | CBS algorithm |
-| `CallCopyNumberStates(segments, purity)` | CopyNumberAnalyzer | State calling |
+| `Log2RatioToCopyNumber(log2Ratio, ploidy)` | OncologyAnalyzer | Canonical (n = ploidy·2^log2) |
+| `CallCopyNumber(log2Ratio, thresholds, ploidy)` | OncologyAnalyzer | Canonical (hard-threshold integer CN) |
+| `ClassifyCopyNumber(log2Ratio, thresholds, ploidy)` | OncologyAnalyzer | Canonical (5-state classification) |
+| `ClassifyCopyNumbers(log2Ratios, ...)` | OncologyAnalyzer | Delegate (batch) |
 
 **Edge Cases:**
-- [ ] Noisy log-ratio data (low coverage)
-- [ ] Whole-genome doubling (WGD)
+- [x] Noisy log-ratio data (low coverage) — neutral noise band (−0.25, 0.2]; NaN no-call → Neutral
+- [x] Whole-genome doubling (WGD) — `ploidy` parameter exposed (default diploid; ASM-01)
 
 ---
 

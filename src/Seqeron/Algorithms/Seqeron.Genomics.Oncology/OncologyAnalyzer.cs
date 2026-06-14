@@ -3685,4 +3685,255 @@ public static class OncologyAnalyzer
     private const char StopCodonSymbol = '*';
 
     #endregion
+
+    #region Copy-Number Alteration Classification (ONCO-CNA-001)
+
+    /// <summary>
+    /// Reference (germline) ploidy used as the log2 anchor: an autosomal diploid genome has copy number 2.
+    /// Source: CNVkit <c>cnvlib/call.py</c> — <c>_log2_ratio_to_absolute_pure</c> uses
+    /// <c>ncopies = ref_copies * 2**log2_ratio</c> with <c>ref_copies = ploidy = 2</c> for autosomes.
+    /// </summary>
+    public const double DiploidReferencePloidy = 2.0;
+
+    /// <summary>
+    /// Default CNVkit hard-threshold cutoffs for calling integer copy number from a log2 ratio, in
+    /// ascending order. The four cutoffs partition the log2 axis into the five copy-number states
+    /// 0 / 1 / 2 / 3 / 4+. Source: CNVkit <c>cnvlib/call.py</c> <c>do_call</c> default
+    /// <c>thresholds = (-1.1, -0.25, 0.2, 0.7)</c>; the <c>absolute_threshold</c> docstring states the
+    /// cutoffs verbatim as DEL(0) &lt; −1.1, LOSS(1) &lt; −0.25, GAIN(3) ≥ +0.2, AMP(4) ≥ +0.7
+    /// (tumor-sample heuristic, safe for purity ≥ 30%).
+    /// </summary>
+    public static readonly IReadOnlyList<double> DefaultCopyNumberThresholds =
+        new[] { -1.1, -0.25, 0.2, 0.7 };
+
+    /// <summary>
+    /// Number of hard-threshold cutoffs required to define the five copy-number states. Four cutoffs
+    /// partition the log2 axis into states 0/1/2/3/4+. Source: CNVkit <c>absolute_threshold</c>.
+    /// </summary>
+    private const int CopyNumberThresholdCount = 4;
+
+    /// <summary>
+    /// Integer copy number that marks the start of the amplification class (CN ≥ 4). Source: CNVkit
+    /// <c>absolute_threshold</c> docstring — "AMP(4) ≥ +0.7"; values above the last threshold are called
+    /// <c>ceil(2·2^log2)</c>, which is ≥ 4.
+    /// </summary>
+    private const int AmplificationCopyNumber = 4;
+
+    /// <summary>
+    /// A discrete copy-number alteration (CNA) state assigned to a genomic region from its log2 copy ratio.
+    /// The five states correspond to CNVkit integer copy-number calls 0 / 1 / 2 / 3 / ≥4 for a diploid
+    /// reference. Source: CNVkit <c>cnvlib/call.py</c> <c>absolute_threshold</c>; GISTIC2.0 amplitude
+    /// semantics (Mermel et al. 2011).
+    /// </summary>
+    public enum CopyNumberState
+    {
+        /// <summary>Deep (homozygous) deletion: integer copy number 0 (log2 ≤ −1.1).</summary>
+        DeepDeletion,
+
+        /// <summary>Single-copy loss: integer copy number 1 (−1.1 &lt; log2 ≤ −0.25).</summary>
+        Loss,
+
+        /// <summary>Copy-number neutral (diploid): integer copy number 2 (−0.25 &lt; log2 ≤ 0.2).</summary>
+        Neutral,
+
+        /// <summary>Single-copy gain: integer copy number 3 (0.2 &lt; log2 ≤ 0.7).</summary>
+        Gain,
+
+        /// <summary>Amplification: integer copy number ≥ 4 (log2 &gt; 0.7).</summary>
+        Amplification
+    }
+
+    /// <summary>
+    /// A copy-number call for one region: the input log2 ratio, the continuous and integer absolute copy
+    /// numbers, and the discrete CNA state.
+    /// </summary>
+    /// <param name="Log2Ratio">Input log2 copy ratio log2(tumor_depth / normal_depth).</param>
+    /// <param name="AbsoluteCopyNumber">Continuous absolute copy number n = ploidy·2^log2.</param>
+    /// <param name="IntegerCopyNumber">Hard-threshold integer copy number (CNVkit <c>absolute_threshold</c>).</param>
+    /// <param name="State">Discrete CNA classification.</param>
+    public readonly record struct CopyNumberCall(
+        double Log2Ratio,
+        double AbsoluteCopyNumber,
+        int IntegerCopyNumber,
+        CopyNumberState State);
+
+    /// <summary>
+    /// Converts a log2 copy ratio to a continuous absolute copy number for a pure sample:
+    /// <c>n = ploidy · 2^log2</c>. For an autosomal diploid reference (ploidy = 2) this is
+    /// <c>n = 2 · 2^log2</c>, so log2 = 0 ⇒ 2 copies, log2 = 1 ⇒ 4 copies, log2 = −1 ⇒ 1 copy.
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>_log2_ratio_to_absolute_pure</c>:
+    /// <c>ncopies = ref_copies * 2**log2_ratio</c>.
+    /// </summary>
+    /// <param name="log2Ratio">log2 copy ratio (may be any finite value; NaN propagates to NaN).</param>
+    /// <param name="ploidy">Reference (germline) ploidy; 2 for an autosomal diploid genome.</param>
+    /// <returns>Continuous absolute copy number n = ploidy·2^log2 (≥ 0 for finite input).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static double Log2RatioToCopyNumber(double log2Ratio, double ploidy = DiploidReferencePloidy)
+    {
+        if (double.IsNaN(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be positive.");
+        }
+
+        return ploidy * Math.Pow(2.0, log2Ratio);
+    }
+
+    /// <summary>
+    /// Calls an integer copy number from a log2 ratio using CNVkit's hard-threshold method. The copy number
+    /// is the index of the first ascending threshold the log2 value is less than or equal to (counting up
+    /// from 0); if the log2 value exceeds every threshold, the copy number is <c>ceil(ploidy · 2^log2)</c>.
+    /// A NaN log2 ratio is a no-call and returns the neutral reference copy number (rounded ploidy).
+    /// Source: CNVkit <c>cnvlib/call.py</c> <c>absolute_threshold</c> — "Integer values are assigned for
+    /// log2 ratio values less than each given threshold value in sequence, counting up from zero. Above the
+    /// last threshold value, integer copy numbers are called assuming full purity, diploidy, and rounding up."
+    /// </summary>
+    /// <param name="log2Ratio">log2 copy ratio; NaN is a no-call (neutral).</param>
+    /// <param name="thresholds">
+    /// Exactly four strictly ascending cutoffs partitioning the log2 axis into states 0/1/2/3/4+; when null,
+    /// <see cref="DefaultCopyNumberThresholds"/> (−1.1, −0.25, 0.2, 0.7) is used.
+    /// </param>
+    /// <param name="ploidy">Reference ploidy used both for the neutral no-call and the amplification ceiling.</param>
+    /// <returns>The integer copy number (≥ 0).</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static int CallCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds = null,
+        double ploidy = DiploidReferencePloidy)
+    {
+        var cutoffs = ValidateThresholds(thresholds);
+        if (double.IsNaN(ploidy) || ploidy <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ploidy), ploidy, "Ploidy must be positive.");
+        }
+
+        if (double.IsNaN(log2Ratio))
+        {
+            // No-call: CNVkit replaces a NaN log2 with the neutral reference copy number.
+            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+        }
+
+        // CN = index of the first cutoff the log2 value is <= (inclusive boundary), counting from 0.
+        for (int cn = 0; cn < cutoffs.Count; cn++)
+        {
+            if (log2Ratio <= cutoffs[cn])
+            {
+                return cn;
+            }
+        }
+
+        // Above the last cutoff: round up the absolute copy number (CNVkit ceil), yielding CN ≥ 4.
+        return (int)Math.Ceiling(Log2RatioToCopyNumber(log2Ratio, ploidy));
+    }
+
+    /// <summary>
+    /// Classifies a single region's log2 copy ratio into a <see cref="CopyNumberCall"/> carrying the
+    /// continuous absolute copy number, the hard-threshold integer copy number, and the discrete
+    /// <see cref="CopyNumberState"/>. The state is derived from the integer copy number: 0 → DeepDeletion,
+    /// 1 → Loss, 2 → Neutral, 3 → Gain, ≥4 → Amplification. Source: CNVkit <c>absolute_threshold</c>
+    /// (DEL(0)/LOSS(1)/neutral(2)/GAIN(3)/AMP(4)); GISTIC2.0 amplitude semantics (Mermel et al. 2011).
+    /// </summary>
+    /// <param name="log2Ratio">log2 copy ratio; NaN is a no-call (Neutral, CN = rounded ploidy).</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy (default diploid).</param>
+    /// <returns>The copy-number call with absolute CN, integer CN, and CNA state.</returns>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static CopyNumberCall ClassifyCopyNumber(
+        double log2Ratio,
+        IReadOnlyList<double>? thresholds = null,
+        double ploidy = DiploidReferencePloidy)
+    {
+        int integerCopyNumber = CallCopyNumber(log2Ratio, thresholds, ploidy);
+        double absolute = double.IsNaN(log2Ratio) ? ploidy : Log2RatioToCopyNumber(log2Ratio, ploidy);
+        CopyNumberState state = StateFromCopyNumber(integerCopyNumber);
+
+        return new CopyNumberCall(log2Ratio, absolute, integerCopyNumber, state);
+    }
+
+    /// <summary>
+    /// Classifies a sequence of per-region log2 copy ratios, returning one <see cref="CopyNumberCall"/> per
+    /// input value in input order (length and order preserving). Thin per-element wrapper over
+    /// <see cref="ClassifyCopyNumber(double, IReadOnlyList{double}?, double)"/>.
+    /// </summary>
+    /// <param name="log2Ratios">Per-region log2 copy ratios.</param>
+    /// <param name="thresholds">Four ascending cutoffs; null uses <see cref="DefaultCopyNumberThresholds"/>.</param>
+    /// <param name="ploidy">Reference ploidy (default diploid).</param>
+    /// <returns>One call per input log2 ratio, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="log2Ratios"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="thresholds"/> is not four strictly ascending values.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static IReadOnlyList<CopyNumberCall> ClassifyCopyNumbers(
+        IEnumerable<double> log2Ratios,
+        IReadOnlyList<double>? thresholds = null,
+        double ploidy = DiploidReferencePloidy)
+    {
+        ArgumentNullException.ThrowIfNull(log2Ratios);
+        var cutoffs = ValidateThresholds(thresholds);
+
+        var calls = new List<CopyNumberCall>();
+        foreach (double log2Ratio in log2Ratios)
+        {
+            calls.Add(ClassifyCopyNumber(log2Ratio, cutoffs, ploidy));
+        }
+
+        return calls;
+    }
+
+    /// <summary>Maps an integer copy number to its CNA state per CNVkit (0/1/2/3/≥4).</summary>
+    private static CopyNumberState StateFromCopyNumber(int copyNumber)
+    {
+        // CN ≥ 4 is the amplification class (CNVkit AMP(4) ≥ +0.7).
+        if (copyNumber >= AmplificationCopyNumber)
+        {
+            return CopyNumberState.Amplification;
+        }
+
+        return copyNumber switch
+        {
+            0 => CopyNumberState.DeepDeletion,
+            1 => CopyNumberState.Loss,
+            2 => CopyNumberState.Neutral,
+            _ => CopyNumberState.Gain // copyNumber == 3
+        };
+    }
+
+    /// <summary>
+    /// Validates and returns the threshold cutoffs: exactly four strictly ascending values, or the default
+    /// when null. Four cutoffs are required to define the five copy-number states (CNVkit
+    /// <c>absolute_threshold</c>); a non-ascending list would not partition the log2 axis.
+    /// </summary>
+    private static IReadOnlyList<double> ValidateThresholds(IReadOnlyList<double>? thresholds)
+    {
+        if (thresholds is null)
+        {
+            return DefaultCopyNumberThresholds;
+        }
+
+        if (thresholds.Count != CopyNumberThresholdCount)
+        {
+            throw new ArgumentException(
+                $"Exactly {CopyNumberThresholdCount} thresholds are required to define the five copy-number " +
+                $"states (got {thresholds.Count}).",
+                nameof(thresholds));
+        }
+
+        for (int i = 0; i < thresholds.Count; i++)
+        {
+            if (double.IsNaN(thresholds[i]))
+            {
+                throw new ArgumentException("Thresholds must not contain NaN.", nameof(thresholds));
+            }
+
+            if (i > 0 && thresholds[i] <= thresholds[i - 1])
+            {
+                throw new ArgumentException(
+                    "Thresholds must be in strictly ascending order.", nameof(thresholds));
+            }
+        }
+
+        return thresholds;
+    }
+
+    #endregion
 }
