@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 181 |
+| **Completed** | 182 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 53 |
+| **Not Started** | 52 |
 
 ---
 
@@ -209,7 +209,7 @@
 | ☑ | SEQ-ATSKEW-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-ATSKEW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-ATSKEW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_CalculateAtSkew_Tests.cs) |
 | ☑ | SEQ-REPLICATION-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-REPLICATION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-REPLICATION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) |
 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-ANALYSIS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) |
-| ☐ | DISORDER-MORF-001 | ProteinPred | 1 | - | - | - |
+| ☑ | DISORDER-MORF-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-MORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-MORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) |
 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | - | - | - |
 | ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |
 | ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |

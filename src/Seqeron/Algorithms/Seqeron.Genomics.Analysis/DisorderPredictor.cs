@@ -32,8 +32,10 @@ namespace Seqeron.Genomics.Analysis;
 /// Results are similar for typical LC regions but may diverge at threshold boundaries.</para>
 ///
 /// <para><b>MoRF prediction.</b>
-/// The MoRF annotator is a hydropathy-enrichment heuristic inspired by
-/// Mohan et al. (2006, J Mol Biol 362:1043-1059, PMID 16949612),
+/// The MoRF annotator detects short regions of relative order ("dips" below the
+/// 0.5 disorder threshold) embedded within longer disordered regions, in the
+/// 10–70 residue band — the operational definition of Cheng/Oldfield et al.
+/// (PMC2570644) and Mohan et al. (2006, J Mol Biol 362:1043-1059, PMID 16935303),
 /// not a trained predictor. Dedicated tools such as MoRFchibi
 /// (Malhis et al. 2016, Bioinformatics 32:1906-1913, PMID 27153720)
 /// and ANCHOR2 (Mészáros et al. 2009, J Mol Biol 392:760-773, PMID 19654615)
@@ -288,25 +290,6 @@ public static class DisorderPredictor
         }
 
         return entropy;
-    }
-
-    /// <summary>
-    /// Mean Kyte-Doolittle hydropathy for a subsequence.
-    /// Source: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
-    /// </summary>
-    private static double MeanHydropathy(string sequence, int start, int length)
-    {
-        double sum = 0;
-        int count = 0;
-        for (int i = start; i < start + length; i++)
-        {
-            if (Hydropathy.TryGetValue(sequence[i], out double h))
-            {
-                sum += h;
-                count++;
-            }
-        }
-        return count > 0 ? sum / count : 0;
     }
 
     /// <summary>
@@ -567,70 +550,106 @@ public static class DisorderPredictor
     }
 
     /// <summary>
-    /// Predicts Molecular Recognition Features (MoRFs) within disordered regions.
-    /// MoRFs are short segments within IDRs that undergo disorder-to-order transition
-    /// upon binding a partner protein. Identified here by elevated Kyte-Doolittle
-    /// hydropathy relative to the surrounding IDR context.
-    ///
-    /// Definition: Mohan et al. (2006) J Mol Biol 362:1043-1059.
-    /// Hydropathy scale: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
-    /// Note: this is a heuristic annotation, not a machine-learning predictor.
+    /// MoRF order/disorder boundary in the per-residue disorder profile.
+    /// A residue with disorder score below this value is treated as predicted ORDER
+    /// (part of a "dip"); at or above it is predicted DISORDER.
+    /// Source: Cheng/Oldfield et al. "Mining α-helix-forming molecular recognition
+    /// features" (PMC2570644): MoRFs are identified as "short regions of order within
+    /// longer regions of disorder – or 'dips'" using "the threshold of 0.5".
     /// </summary>
+    private const double MoRFOrderThreshold = 0.5;
+
+    /// <summary>
+    /// Minimum MoRF length in residues. Source: Mohan et al. (2006) J Mol Biol
+    /// 362:1043-1059 — MoRFs are "relatively short (10-70 residues)".
+    /// </summary>
+    private const int MoRFMinLength = 10;
+
+    /// <summary>
+    /// Maximum MoRF length in residues. Source: Mohan et al. (2006) — 10–70 residues.
+    /// </summary>
+    private const int MoRFMaxLength = 70;
+
+    /// <summary>
+    /// Predicts Molecular Recognition Features (MoRFs) in a protein sequence.
+    /// A MoRF is a short region of relative <i>order</i> — a downward "dip" in the
+    /// per-residue disorder profile (disorder score below <see cref="MoRFOrderThreshold"/>)
+    /// — embedded <i>within a longer region of disorder</i> (flanked by predicted disorder
+    /// on both sides) whose length lies in the 10–70 residue band. MoRFs undergo a
+    /// disorder-to-order transition upon binding a partner protein.
+    /// </summary>
+    /// <remarks>
+    /// Definition (dip-in-disorder): Cheng/Oldfield et al. "Mining α-helix-forming
+    /// molecular recognition features" (PMC2570644) — "short regions of order within
+    /// longer regions of disorder – or 'dips'", "threshold of 0.5".
+    /// Length range 10–70: Mohan et al. (2006) J Mol Biol 362:1043-1059 (PMID 16935303).
+    /// Per-residue disorder scores: normalized TOP-IDP scale via
+    /// <see cref="PredictDisorder(string, int, double, int)"/> (Campen et al. 2008).
+    /// The returned <c>Score</c> is the dip depth below the 0.5 threshold, normalized to
+    /// [0,1] as (0.5 − meanDisorderScore) / 0.5. This is an evidence-driven heuristic
+    /// annotation, not a trained machine-learning predictor.
+    /// </remarks>
+    /// <param name="sequence">Protein sequence (case-insensitive).</param>
+    /// <param name="minLength">Minimum MoRF length (default 10, per Mohan 2006).</param>
+    /// <param name="maxLength">Maximum MoRF length (default 70, per Mohan 2006).</param>
+    /// <returns>Non-overlapping MoRFs ordered by start position; each as
+    /// (Start, End inclusive 0-based, Score in [0,1]).</returns>
     public static IEnumerable<(int Start, int End, double Score)> PredictMoRFs(
         string sequence,
-        int minLength = 10,
-        int maxLength = 25)
+        int minLength = MoRFMinLength,
+        int maxLength = MoRFMaxLength)
     {
+        if (string.IsNullOrEmpty(sequence))
+            return Array.Empty<(int, int, double)>();
+
         sequence = sequence.ToUpperInvariant();
+
+        // Per-residue disorder scores (normalized TOP-IDP, higher = more disordered).
         var prediction = PredictDisorder(sequence);
+        var residues = prediction.ResiduePredictions;
 
-        var candidates = new List<(int Start, int End, double Score)>();
+        var morfs = new List<(int Start, int End, double Score)>();
 
-        foreach (var region in prediction.DisorderedRegions)
+        // Scan for maximal ordered runs (a "dip": disorder score < 0.5).
+        int i = 0;
+        while (i < residues.Count)
         {
-            int regionLength = region.End - region.Start + 1;
-            if (regionLength < minLength)
+            if (residues[i].DisorderScore >= MoRFOrderThreshold)
+            {
+                i++;
+                continue;
+            }
+
+            int start = i;
+            double scoreSum = 0;
+            while (i < residues.Count && residues[i].DisorderScore < MoRFOrderThreshold)
+            {
+                scoreSum += residues[i].DisorderScore;
+                i++;
+            }
+            int end = i - 1;
+            int length = end - start + 1;
+
+            // Length must lie in the 10–70 residue band (Mohan 2006).
+            if (length < minLength || length > maxLength)
                 continue;
 
-            // Mean hydropathy of the entire IDR — context baseline
-            double idrHydropathy = MeanHydropathy(sequence, region.Start, regionLength);
+            // Must be embedded within disorder: flanked by a disordered residue
+            // (score ≥ 0.5) on BOTH immediate sides. A dip touching either terminus
+            // is not "within a longer region of disorder" (Oldfield 2005 / Mohan 2006).
+            bool flankedLeft = start > 0 && residues[start - 1].DisorderScore >= MoRFOrderThreshold;
+            bool flankedRight = end < residues.Count - 1 && residues[end + 1].DisorderScore >= MoRFOrderThreshold;
+            if (!flankedLeft || !flankedRight)
+                continue;
 
-            // Scan all windows within the IDR
-            int effectiveMaxLen = Math.Min(maxLength, regionLength);
-            for (int len = minLength; len <= effectiveMaxLen; len++)
-            {
-                for (int s = region.Start; s + len - 1 <= region.End; s++)
-                {
-                    double windowHydropathy = MeanHydropathy(sequence, s, len);
+            // Score = dip depth below the 0.5 threshold, normalized to [0,1].
+            double meanDisorder = scoreSum / length;
+            double score = Math.Max(0.0, Math.Min(1.0, (MoRFOrderThreshold - meanDisorder) / MoRFOrderThreshold));
 
-                    // MoRF criterion: window more hydrophobic than IDR context
-                    // Epsilon 0.01 KD units filters floating-point noise
-                    if (windowHydropathy > idrHydropathy + 0.01)
-                    {
-                        double diff = windowHydropathy - idrHydropathy;
-                        candidates.Add((s, s + len - 1, diff));
-                    }
-                }
-            }
+            morfs.Add((start, end, score));
         }
 
-        // Greedy non-overlapping selection: best score first
-        var sorted = candidates.OrderByDescending(c => c.Score).ToList();
-        var selected = new List<(int Start, int End, double Score)>();
-        foreach (var cand in sorted)
-        {
-            bool overlaps = selected.Any(sel => cand.Start <= sel.End && cand.End >= sel.Start);
-            if (!overlaps)
-                selected.Add(cand);
-        }
-
-        // Normalize scores to [0, 1]: difference / 3.0, clamped
-        // 3.0 KD units ≈ maximum plausible hydrophobic island vs IDR context
-        selected = selected
-            .Select(s => (s.Start, s.End, Math.Min(1.0, s.Score / 3.0)))
-            .ToList();
-
-        return selected.OrderBy(s => s.Start);
+        return morfs;
     }
 
     #endregion
