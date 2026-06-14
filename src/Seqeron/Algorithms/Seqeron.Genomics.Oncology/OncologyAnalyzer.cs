@@ -5378,4 +5378,222 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Minimal/Molecular Residual Disease (ONCO-MRD-001)
+
+    /// <summary>
+    /// Minimum number of tracked patient-specific variants that must be detected in plasma for a
+    /// tumour-informed MRD assay to call the sample ctDNA-positive (MRD-positive). Source: Reinert et al.
+    /// (2019), <i>JAMA Oncology</i> 5(8):1124–1131, as quoted in the tumour-informed ctDNA MRD review
+    /// (PMC9265001, Table 1): "Plasma samples with at least two tumor-specific SNVs are defined as
+    /// ctDNA-positive." (Signatera personalised 16-plex assay.)
+    /// </summary>
+    public const int DefaultMrdPositivityThreshold = 2;
+
+    /// <summary>
+    /// Minimum number of alternate (mutant) supporting reads at a tracked locus for that variant to be
+    /// counted as detected in plasma. A variant with no supporting reads contributes no MRD signal.
+    /// Source: Wan et al. (2020), <i>Sci. Transl. Med.</i> 12(548):eaaz8084 — per-locus signal must exceed
+    /// background; the publishable universal read-count cutoff is error-model specific, so the minimal
+    /// presence rule (≥ 1 alt read) is used by default and is configurable. The panel-level ≥2 calling rule
+    /// (<see cref="DefaultMrdPositivityThreshold"/>) is independent of this value.
+    /// </summary>
+    public const int DefaultMrdMinSupportingReads = 1;
+
+    /// <summary>
+    /// A single patient-specific tumour marker tracked in plasma for MRD, with its plasma read evidence.
+    /// </summary>
+    /// <param name="Chromosome">Contig / chromosome identifier of the tracked locus.</param>
+    /// <param name="Position">1-based reference position of the tracked variant.</param>
+    /// <param name="ReferenceAllele">Reference allele.</param>
+    /// <param name="AlternateAllele">Tumour-specific alternate allele tracked at this locus.</param>
+    /// <param name="PlasmaAltReads">Alternate (mutant) supporting reads observed in plasma at this locus (≥ 0).</param>
+    /// <param name="PlasmaTotalReads">Total covering reads in plasma at this locus (≥ 0).</param>
+    public readonly record struct TumorMarker(
+        string Chromosome,
+        int Position,
+        string ReferenceAllele,
+        string AlternateAllele,
+        int PlasmaAltReads,
+        int PlasmaTotalReads);
+
+    /// <summary>Binary MRD call for a plasma timepoint.</summary>
+    public enum MrdStatus
+    {
+        /// <summary>Fewer than the positivity threshold of tracked variants detected: no residual disease signal.</summary>
+        Negative,
+
+        /// <summary>At least the positivity threshold of tracked variants detected: molecular residual disease present.</summary>
+        Positive
+    }
+
+    /// <summary>
+    /// Result of a tumour-informed MRD assessment of one plasma sample against a patient-specific marker panel.
+    /// </summary>
+    /// <param name="Status">MRD-positive when <see cref="DetectedVariantCount"/> ≥ positivity threshold; else negative.</param>
+    /// <param name="DetectedVariantCount">Number of tracked variants detected (alt reads ≥ minSupportingReads).</param>
+    /// <param name="TrackedVariantCount">Total number of tracked variants in the panel.</param>
+    /// <param name="IntegratedMutantAlleleFraction">
+    /// Depth-weighted (read-pooled) mean plasma VAF across tracked loci: Σ alt / Σ total (INVAR IMAF). 0 when no reads.
+    /// </param>
+    /// <param name="DetectionProbability">
+    /// Panel-level Poisson probability of detecting ≥ 1 ctDNA molecule, p = 1 − e^(−n·f·m), at the observed IMAF.
+    /// </param>
+    public readonly record struct MrdResult(
+        MrdStatus Status,
+        int DetectedVariantCount,
+        int TrackedVariantCount,
+        double IntegratedMutantAlleleFraction,
+        double DetectionProbability);
+
+    /// <summary>Per-timepoint MRD call in a longitudinal series.</summary>
+    /// <param name="TimepointIndex">0-based index of the timepoint in input order.</param>
+    /// <param name="Result">The MRD assessment for that timepoint's plasma sample.</param>
+    public readonly record struct MrdTimepoint(int TimepointIndex, MrdResult Result);
+
+    /// <summary>Longitudinal MRD tracking across ordered plasma timepoints.</summary>
+    /// <param name="Timepoints">Per-timepoint MRD results, preserving input order.</param>
+    /// <param name="FirstPositiveIndex">0-based index of the earliest MRD-positive timepoint, or −1 if none.</param>
+    public readonly record struct MrdLongitudinalResult(
+        IReadOnlyList<MrdTimepoint> Timepoints,
+        int FirstPositiveIndex);
+
+    /// <summary>
+    /// Reports whether a tracked tumour marker is detected in plasma: its alternate (mutant) supporting-read
+    /// count is at or above <paramref name="minSupportingReads"/>. Source: Wan et al. (2020) — a locus
+    /// contributes ctDNA signal only when supported by mutant reads above background.
+    /// </summary>
+    /// <param name="marker">The tracked marker with its plasma read evidence.</param>
+    /// <param name="minSupportingReads">Minimum alt reads to count as detected (default <see cref="DefaultMrdMinSupportingReads"/>).</param>
+    /// <returns><c>true</c> if <c>PlasmaAltReads ≥ minSupportingReads</c>; otherwise <c>false</c>.</returns>
+    public static bool IsVariantDetected(TumorMarker marker, int minSupportingReads = DefaultMrdMinSupportingReads)
+    {
+        if (minSupportingReads < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minSupportingReads), minSupportingReads, "Minimum supporting reads must be at least 1.");
+        }
+
+        return marker.PlasmaAltReads >= minSupportingReads;
+    }
+
+    /// <summary>
+    /// Tumour-informed minimal/molecular residual disease (MRD) detection. Given a panel of patient-specific
+    /// somatic markers (selected from the tumour and tracked in plasma), counts how many are detected and
+    /// calls the sample MRD-positive when the number of detected variants reaches
+    /// <paramref name="positivityThreshold"/> (default 2 of up to 16). Source: Reinert et al. (2019),
+    /// <i>JAMA Oncology</i> 5(8):1124–1131 / Signatera analytical-validation white paper — "Plasma samples
+    /// with at least two tumor-specific SNVs are defined as ctDNA-positive." The integrated mutant allele
+    /// fraction (IMAF) is the depth-weighted mean plasma VAF across loci (Wan et al. 2020), and the
+    /// panel-level Poisson detection probability p = 1 − e^(−n·f·m) reuses
+    /// <see cref="CtDnaDetectionProbability"/> with m = number of tracked markers (Signatera white paper,
+    /// Figure 2; Avanzini et al. 2020).
+    /// </summary>
+    /// <param name="tumorMarkers">Patient-specific tracked markers with plasma read evidence (non-empty).</param>
+    /// <param name="positivityThreshold">Minimum detected variants to call positive (default <see cref="DefaultMrdPositivityThreshold"/>).</param>
+    /// <param name="minSupportingReads">Minimum alt reads for a marker to count as detected (default <see cref="DefaultMrdMinSupportingReads"/>).</param>
+    /// <param name="genomeEquivalents">Sequenced haploid genome equivalents n for the panel Poisson p (≥ 0; default 0 ⇒ p = 0).</param>
+    /// <returns>The MRD call with detected count, tracked count, IMAF, and panel detection probability.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tumorMarkers"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="tumorMarkers"/> is empty (no panel to interrogate).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold or <paramref name="genomeEquivalents"/> is out of range.</exception>
+    public static MrdResult DetectMRD(
+        IEnumerable<TumorMarker> tumorMarkers,
+        int positivityThreshold = DefaultMrdPositivityThreshold,
+        int minSupportingReads = DefaultMrdMinSupportingReads,
+        int genomeEquivalents = 0)
+    {
+        ArgumentNullException.ThrowIfNull(tumorMarkers);
+
+        if (positivityThreshold < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(positivityThreshold), positivityThreshold, "Positivity threshold must be at least 1.");
+        }
+
+        if (minSupportingReads < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minSupportingReads), minSupportingReads, "Minimum supporting reads must be at least 1.");
+        }
+
+        if (genomeEquivalents < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(genomeEquivalents), genomeEquivalents, "Genome equivalents (n) cannot be negative.");
+        }
+
+        int trackedCount = 0;
+        int detectedCount = 0;
+        long altReadSum = 0;
+        long totalReadSum = 0;
+        foreach (TumorMarker marker in tumorMarkers)
+        {
+            trackedCount++;
+            altReadSum += Math.Max(0, marker.PlasmaAltReads);
+            totalReadSum += Math.Max(0, marker.PlasmaTotalReads);
+            if (IsVariantDetected(marker, minSupportingReads))
+            {
+                detectedCount++;
+            }
+        }
+
+        if (trackedCount == 0)
+        {
+            throw new ArgumentException(
+                "Cannot assess MRD against an empty marker panel.", nameof(tumorMarkers));
+        }
+
+        // INVAR integrated mutant allele fraction: depth-weighted (read-pooled) plasma VAF across loci.
+        double imaf = totalReadSum == 0 ? 0.0 : (double)altReadSum / totalReadSum;
+
+        // Panel-level Poisson p = 1 - e^(-n*f*m) with f = IMAF, m = tracked markers (Signatera Fig 2).
+        double detectionProbability = CtDnaDetectionProbability(genomeEquivalents, imaf, trackedCount);
+
+        MrdStatus status = detectedCount >= positivityThreshold ? MrdStatus.Positive : MrdStatus.Negative;
+
+        return new MrdResult(status, detectedCount, trackedCount, imaf, detectionProbability);
+    }
+
+    /// <summary>
+    /// Longitudinal MRD tracking: applies <see cref="DetectMRD"/> to each timepoint's plasma marker panel,
+    /// preserving input order, and reports the earliest MRD-positive timepoint (serial surveillance of
+    /// residual disease, Reinert et al. 2019). Each timepoint is an independent plasma marker panel.
+    /// </summary>
+    /// <param name="timepoints">Ordered plasma marker panels, one per timepoint.</param>
+    /// <param name="positivityThreshold">Minimum detected variants to call positive (default <see cref="DefaultMrdPositivityThreshold"/>).</param>
+    /// <param name="minSupportingReads">Minimum alt reads for a marker to count as detected (default <see cref="DefaultMrdMinSupportingReads"/>).</param>
+    /// <param name="genomeEquivalents">Sequenced haploid genome equivalents n for the panel Poisson p (≥ 0; default 0).</param>
+    /// <returns>Per-timepoint MRD results and the 0-based index of the first positive timepoint (−1 if none).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="timepoints"/> is null, or a timepoint panel is null.</exception>
+    /// <exception cref="ArgumentException">A timepoint panel is empty.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A threshold or <paramref name="genomeEquivalents"/> is out of range.</exception>
+    public static MrdLongitudinalResult TrackVariantsOverTime(
+        IEnumerable<IEnumerable<TumorMarker>> timepoints,
+        int positivityThreshold = DefaultMrdPositivityThreshold,
+        int minSupportingReads = DefaultMrdMinSupportingReads,
+        int genomeEquivalents = 0)
+    {
+        ArgumentNullException.ThrowIfNull(timepoints);
+
+        var results = new List<MrdTimepoint>();
+        int firstPositiveIndex = -1;
+        int index = 0;
+        foreach (IEnumerable<TumorMarker> panel in timepoints)
+        {
+            ArgumentNullException.ThrowIfNull(panel);
+            MrdResult result = DetectMRD(panel, positivityThreshold, minSupportingReads, genomeEquivalents);
+            if (firstPositiveIndex < 0 && result.Status == MrdStatus.Positive)
+            {
+                firstPositiveIndex = index;
+            }
+
+            results.Add(new MrdTimepoint(index, result));
+            index++;
+        }
+
+        return new MrdLongitudinalResult(results, firstPositiveIndex);
+    }
+
+    #endregion
 }

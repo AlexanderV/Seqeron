@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 218 |
+| **Completed** | 219 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 16 |
+| **Not Started** | 15 |
 
 ---
 
@@ -247,7 +247,7 @@
 | ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
 | ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
-| ☐ | ONCO-MRD-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
 | ☐ | ONCO-CHIP-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
@@ -4529,19 +4529,30 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-MRD-001: Minimal Residual Disease Detection
+#### ONCO-MRD-001: Minimal Residual Disease Detection ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `LiquidBiopsyAnalyzer.DetectMRD(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectMRD(...)` |
 | **Complexity** | O(n × k) where k=tracked mutations |
 | **Depends on** | ONCO-CTDNA-001 |
+
+> Class note: the area's liquid-biopsy/ctDNA methods live on `OncologyAnalyzer` (no separate
+> `LiquidBiopsyAnalyzer` exists), mirroring ONCO-CTDNA-001. Behaviour: tumour-informed panel-level call —
+> MRD-positive when ≥2 tracked patient-specific variants are detected (Reinert 2019 / Signatera; PMC9265001
+> Table 1). Reuses the ONCO-CTDNA-001 Poisson primitive `p = 1 − e^(−n·f·m)` and reports the INVAR
+> integrated mutant allele fraction (Wan 2020).
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectMRD(plasmaVcf, tumorMarkers)` | LiquidBiopsyAnalyzer | Canonical |
-| `TrackVariantsOverTime(timepoints)` | LiquidBiopsyAnalyzer | Longitudinal |
+| `DetectMRD(tumorMarkers, positivityThreshold, minSupportingReads, genomeEquivalents)` | OncologyAnalyzer | Canonical |
+| `TrackVariantsOverTime(timepoints, ...)` | OncologyAnalyzer | Longitudinal |
+
+**Edge Cases:**
+- [x] Exactly 1 variant detected — below the ≥2 rule ⇒ MRD-negative (tests M2; S2).
+- [x] Empty / null marker panel — ArgumentException / ArgumentNullException (tests C1, C2).
+- [x] Configurable positivity threshold and per-locus supporting-read cutoff (tests S1, S3).
 
 ---
 
