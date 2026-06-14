@@ -67,6 +67,13 @@ public static class OncologyAnalyzer
     /// </summary>
     private const double NormalDiploidCopyNumber = 2.0;
 
+    /// <summary>
+    /// Factor relating a clonal heterozygous somatic SNV VAF to tumor purity at a copy-neutral diploid locus:
+    /// purity ρ = 2·VAF. Source: Antonello et al. (2024), CNAqc, Genome Biology 25:38 — the expected-VAF
+    /// relation v = m·π / [2(1−π) + π·n_tot] with m = 1, n_tot = 2 gives v = π/2 (CNAqc: purity 60% ⇔ VAF 30%).
+    /// </summary>
+    private const double HeterozygousDiploidPurityFactor = 2.0;
+
     #endregion
 
     #region Public types
@@ -130,6 +137,16 @@ public static class OncologyAnalyzer
         double Lower,
         double Upper,
         double Confidence);
+
+    /// <summary>
+    /// A clonal somatic mutation together with the allele-specific copy-number state required to estimate
+    /// tumor purity by inverting the CNAqc expected-VAF relation v = m·π / [2(1−π) + π·n_tot]
+    /// (Antonello et al. 2024, <i>Genome Biology</i> 25:38).
+    /// </summary>
+    /// <param name="Vaf">Observed variant allele frequency v ∈ [0, 1] of a clonal somatic mutation.</param>
+    /// <param name="Multiplicity">Mutation multiplicity m: number of tumour-genome copies carrying the mutant allele (≥ 1).</param>
+    /// <param name="TumorTotalCopyNumber">Tumour total copy number n_tot = n_A + n_B at the locus (≥ 1).</param>
+    public readonly record struct PurityVariant(double Vaf, int Multiplicity, int TumorTotalCopyNumber);
 
     #endregion
 
@@ -371,6 +388,156 @@ public static class OncologyAnalyzer
         // Weighted average total copies per cell: 2(1−π) from normal cells + π·ploidy from tumor cells.
         double averageCopiesPerCell = NormalDiploidCopyNumber * (1.0 - purity) + purity * ploidy;
         return vaf * averageCopiesPerCell / purity;
+    }
+
+    /// <summary>
+    /// Estimates tumor purity ρ from the variant allele frequencies of clonal, heterozygous somatic SNVs
+    /// at copy-neutral diploid loci. For such a variant (multiplicity m = 1, total copy number n_tot = 2),
+    /// the CNAqc expected-VAF relation v = m·π / [2(1−π) + π·n_tot] reduces to v = π/2, so the per-variant
+    /// purity is ρ = 2·v (Antonello et al. 2024, <i>Genome Biology</i> 25:38; CNAqc reports purity 60% ⇔ VAF 30%).
+    /// The per-variant estimates are aggregated by their median, which is robust to subclonal / outlier VAFs.
+    /// </summary>
+    /// <param name="variants">Observed clonal heterozygous somatic SNVs (each contributes ρ = 2·VAF).</param>
+    /// <returns>Estimated tumor purity ρ ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="variants"/> is empty (purity is undefined).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A variant has invalid read counts, or a VAF &gt; 0.5 (which would imply purity &gt; 1 under the diploid model).
+    /// </exception>
+    public static double EstimatePurityFromVAF(IEnumerable<VariantObservation> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        var purities = new List<double>();
+        foreach (VariantObservation variant in variants)
+        {
+            double vaf = CalculateVAF(variant.TumorAltReads, variant.TumorTotalReads);
+            purities.Add(EstimatePurityFromVaf(vaf));
+        }
+
+        if (purities.Count == 0)
+        {
+            throw new ArgumentException("Cannot estimate purity from an empty variant set.", nameof(variants));
+        }
+
+        return Median(purities);
+    }
+
+    /// <summary>
+    /// Estimates tumor purity ρ from a single clonal heterozygous somatic SNV VAF at a copy-neutral diploid
+    /// locus using the closed form ρ = 2·v (the m = 1, n_tot = 2 special case of the CNAqc expected-VAF
+    /// relation; Antonello et al. 2024, <i>Genome Biology</i> 25:38).
+    /// </summary>
+    /// <param name="vaf">Observed VAF v ∈ [0, 0.5] of the clonal heterozygous SNV.</param>
+    /// <returns>Estimated tumor purity ρ = 2·v ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// vaf ∉ [0, 1], or vaf &gt; 0.5 (which would imply purity &gt; 1 under the diploid heterozygous model).
+    /// </exception>
+    public static double EstimatePurityFromVaf(double vaf)
+    {
+        if (double.IsNaN(vaf) || vaf < 0.0 || vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(vaf), vaf, "VAF must be in the range [0, 1].");
+        }
+
+        // ρ = 2·v; a heterozygous SNV in a diploid tumour cannot exceed VAF 0.5, so ρ > 1 is impossible input.
+        double purity = HeterozygousDiploidPurityFactor * vaf;
+        if (purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(vaf), vaf,
+                "VAF > 0.5 implies purity > 1 under the heterozygous diploid model; the locus is not copy-neutral diploid heterozygous.");
+        }
+
+        return purity;
+    }
+
+    /// <summary>
+    /// Estimates tumor purity ρ from clonal somatic mutations with known allele-specific copy-number state by
+    /// inverting the CNAqc expected-VAF relation v = m·π / [2(1−π) + π·n_tot] for π:
+    /// <code>
+    /// π = 2·v / [m + v·(2 − n_tot)]
+    /// </code>
+    /// where m is the mutation multiplicity and n_tot the tumour total copy number (Antonello et al. 2024,
+    /// <i>Genome Biology</i> 25:38). The per-variant estimates are aggregated by their median.
+    /// </summary>
+    /// <param name="variants">Clonal somatic mutations with VAF, multiplicity m, and tumour total copy number n_tot.</param>
+    /// <returns>Estimated tumor purity ρ ∈ [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="variants"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="variants"/> is empty (purity is undefined).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A variant has vaf ∉ [0, 1], multiplicity &lt; 1, n_tot &lt; 1, or yields a purity outside [0, 1].
+    /// </exception>
+    public static double EstimatePurity(IEnumerable<PurityVariant> variants)
+    {
+        ArgumentNullException.ThrowIfNull(variants);
+
+        var purities = new List<double>();
+        foreach (PurityVariant variant in variants)
+        {
+            purities.Add(EstimatePurityFromAlleleSpecificVaf(variant));
+        }
+
+        if (purities.Count == 0)
+        {
+            throw new ArgumentException("Cannot estimate purity from an empty variant set.", nameof(variants));
+        }
+
+        return Median(purities);
+    }
+
+    /// <summary>
+    /// Inverts the CNAqc expected-VAF relation for a single allele-specific variant:
+    /// π = 2·v / [m + v·(2 − n_tot)].
+    /// </summary>
+    private static double EstimatePurityFromAlleleSpecificVaf(in PurityVariant variant)
+    {
+        if (double.IsNaN(variant.Vaf) || variant.Vaf < 0.0 || variant.Vaf > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.Vaf, "VAF must be in the range [0, 1].");
+        }
+
+        if (variant.Multiplicity < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.Multiplicity, "Mutation multiplicity m must be at least 1.");
+        }
+
+        if (variant.TumorTotalCopyNumber < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.TumorTotalCopyNumber, "Tumour total copy number n_tot must be at least 1.");
+        }
+
+        // π = 2v / [m + v(2 − n_tot)], the algebraic inverse of v = mπ / [2(1−π) + π·n_tot].
+        double denominator = variant.Multiplicity + variant.Vaf * (NormalDiploidCopyNumber - variant.TumorTotalCopyNumber);
+        if (denominator <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.Vaf,
+                "The (VAF, multiplicity, copy-number) combination does not correspond to a purity in [0, 1].");
+        }
+
+        double purity = NormalDiploidCopyNumber * variant.Vaf / denominator;
+        if (purity < 0.0 || purity > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(variant), variant.Vaf,
+                "The (VAF, multiplicity, copy-number) combination yields a purity outside [0, 1].");
+        }
+
+        return purity;
+    }
+
+    /// <summary>Median of a non-empty list of values (lower-mid average for even counts). Does not mutate the input.</summary>
+    private static double Median(List<double> values)
+    {
+        double[] sorted = values.ToArray();
+        Array.Sort(sorted);
+        int n = sorted.Length;
+        int mid = n / 2;
+        return (n % 2 == 1) ? sorted[mid] : 0.5 * (sorted[mid - 1] + sorted[mid]);
     }
 
     #endregion

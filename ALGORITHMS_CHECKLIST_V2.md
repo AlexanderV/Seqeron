@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 212 |
+| **Completed** | 213 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 22 |
+| **Not Started** | 21 |
 
 ---
 
@@ -240,7 +240,7 @@
 | ☑ | ONCO-CNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) |
 | ☑ | ONCO-CNA-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) |
 | ☑ | ONCO-CNA-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) |
-| ☐ | ONCO-PURITY-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-PURITY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PURITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PURITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) |
 | ☐ | ONCO-PLOIDY-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
@@ -4357,25 +4357,26 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-PURITY-001: Tumor Purity Estimation
+#### ONCO-PURITY-001: Tumor Purity Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.EstimatePurity(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimatePurity(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ purity ≤ 1 |
 | **Depends on** | ONCO-VAF-001, ONCO-CNA-001 |
 
-**Methods:**
+**Methods:** (implemented on `OncologyAnalyzer`; closed-form inversion of the CNAqc expected-VAF relation v = mπ/[2(1−π)+π·n_tot])
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimatePurity(variants, cnvSegments)` | TumorAnalyzer | Canonical |
-| `EstimatePurityFromVAF(variants)` | TumorAnalyzer | VAF-based |
+| `EstimatePurity(IEnumerable<PurityVariant>)` | OncologyAnalyzer | Canonical (allele-specific) |
+| `EstimatePurityFromVAF(IEnumerable<VariantObservation>)` | OncologyAnalyzer | Canonical (diploid het, ρ = 2·VAF) |
+| `EstimatePurityFromVaf(double)` | OncologyAnalyzer | Delegate (single-VAF closed form) |
 
 **Edge Cases:**
-- [ ] Purity < 0.1 (below detection limit)
-- [ ] No heterozygous SNPs in matched normal
-- [ ] High stromal contamination
+- [x] Purity < 0.1 (below detection limit)
+- [x] No heterozygous SNPs / no informative variants (empty input → undefined)
+- [x] High stromal contamination (low-purity / boundary handling)
 
 ---
 
