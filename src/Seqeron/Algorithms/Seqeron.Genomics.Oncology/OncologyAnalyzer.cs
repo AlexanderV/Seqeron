@@ -1648,4 +1648,253 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Loss of heterozygosity (ONCO-LOH-001)
+
+    /// <summary>
+    /// Minimum LOH-region length (in base pairs) for a region to be counted toward the HRD-LOH score.
+    /// The size comparison is strict (length must be &gt; this value). Source: Abkevich V et al. (2012),
+    /// Br J Cancer 107(10):1776–1782 (PMID 23047548) — HRD-LOH counts LOH regions of "intermediate size"
+    /// (&gt; 15 Mb and &lt; whole chromosome); reproduced in the scarHRD reference implementation as
+    /// <c>sizelimitLOH = 15e6</c> with the filter <c>segLOH[,4]-segLOH[,3] &gt; sizelimit1</c>
+    /// (https://github.com/sztup/scarHRD/blob/master/R/calc.hrd.R). 15 Mb = 15,000,000 bp.
+    /// </summary>
+    public const long HrdLohMinRegionLengthBp = 15_000_000L;
+
+    /// <summary>
+    /// An allele-specific copy-number segment: the unit of input for LOH detection, mirroring the scarHRD
+    /// segmentation table (chromosome, start, end, major-allele CN, minor-allele CN). Source: scarHRD
+    /// <c>scar_score.R</c> input columns (chromosome / start / end / A-allele CN / B-allele CN).
+    /// </summary>
+    /// <param name="Chromosome">Chromosome identifier (e.g. "1", "chrX"). Used to group segments.</param>
+    /// <param name="Start">Segment start coordinate (bp). Must satisfy <see cref="End"/> &gt; <see cref="Start"/>.</param>
+    /// <param name="End">Segment end coordinate (bp). Segment length = <see cref="End"/> − <see cref="Start"/>.</param>
+    /// <param name="MajorCopyNumber">Major-allele copy number (A allele, the larger of the two). Must be ≥ 0.</param>
+    /// <param name="MinorCopyNumber">Minor-allele copy number (B allele, the smaller of the two). Must be ≥ 0.</param>
+    public readonly record struct AlleleSpecificSegment(
+        string Chromosome,
+        long Start,
+        long End,
+        int MajorCopyNumber,
+        int MinorCopyNumber)
+    {
+        /// <summary>Segment length in base pairs, computed as End − Start (per scarHRD: <c>seg[,4]-seg[,3]</c>).</summary>
+        public long Length => End - Start;
+    }
+
+    /// <summary>A copy-number segment that was counted as an HRD-LOH region.</summary>
+    /// <param name="Chromosome">Chromosome of the region.</param>
+    /// <param name="Start">Region start (bp).</param>
+    /// <param name="End">Region end (bp).</param>
+    /// <param name="Length">Region length (bp) = End − Start.</param>
+    public readonly record struct LohRegion(string Chromosome, long Start, long End, long Length);
+
+    /// <summary>Result of an HRD-LOH determination over a set of allele-specific segments.</summary>
+    /// <param name="Regions">The qualifying LOH regions that were counted.</param>
+    /// <param name="Score">HRD-LOH score = number of qualifying regions (= <c>Regions.Count</c>).</param>
+    public readonly record struct LohResult(IReadOnlyList<LohRegion> Regions, int Score);
+
+    /// <summary>
+    /// Tests whether a single segment exhibits loss of heterozygosity: the minor-allele copy number is 0
+    /// while the major-allele copy number is non-zero. Source: scarHRD <c>calc.hrd.R</c> —
+    /// <c>segLOH &lt;- segSamp[segSamp[,nB] == 0 &amp; segSamp[,nA] != 0,]</c> (minor lost, major retained).
+    /// A homozygous deletion (both alleles 0) is therefore NOT LOH.
+    /// </summary>
+    private static bool IsLohSegment(in AlleleSpecificSegment segment)
+        => segment.MinorCopyNumber == 0 && segment.MajorCopyNumber != 0;
+
+    /// <summary>
+    /// Detects HRD-associated loss-of-heterozygosity regions from allele-specific copy-number segments and
+    /// returns both the qualifying regions and the HRD-LOH score. The score is the number of LOH regions
+    /// longer than 15 Mb (<see cref="HrdLohMinRegionLengthBp"/>, strict) that do not span a whole chromosome.
+    /// Algorithm (Abkevich et al. 2012; scarHRD <c>calc.hrd</c>):
+    /// <list type="number">
+    /// <item><description>Group segments by chromosome.</description></item>
+    /// <item><description>Mark a chromosome as whole-chromosome-LOH when every one of its segments is LOH
+    /// (minor == 0); regions on such chromosomes are excluded (Abkevich: "&lt; whole chromosome").</description></item>
+    /// <item><description>Merge adjacent same-LOH-state segments (oncoscanR <c>score_loh</c> merge step) so a
+    /// long LOH region split into pieces counts once.</description></item>
+    /// <item><description>Keep LOH regions whose length is strictly greater than 15 Mb, excluding
+    /// whole-chromosome-LOH chromosomes; the count of survivors is the HRD-LOH score.</description></item>
+    /// </list>
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments. Must not be null.</param>
+    /// <returns>The qualifying LOH regions and the HRD-LOH score.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    public static LohResult DetectLOH(IEnumerable<AlleleSpecificSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        var regions = new List<LohRegion>();
+
+        foreach (var group in GroupValidatedByChromosome(segments))
+        {
+            // scarHRD: a chromosome whose every segment is LOH (minor == 0) is "global LOH" → excluded.
+            bool wholeChromosomeLoh = group.All(static s => s.MinorCopyNumber == 0);
+            if (wholeChromosomeLoh)
+            {
+                continue;
+            }
+
+            foreach (var merged in MergeAdjacentSameState(group))
+            {
+                // scarHRD: LOH region kept when minor == 0, major != 0, and length strictly > 15 Mb.
+                if (IsLohSegment(merged) && merged.Length > HrdLohMinRegionLengthBp)
+                {
+                    regions.Add(new LohRegion(merged.Chromosome, merged.Start, merged.End, merged.Length));
+                }
+            }
+        }
+
+        return new LohResult(regions, regions.Count);
+    }
+
+    /// <summary>
+    /// Computes the HRD-LOH score (number of qualifying LOH regions &gt; 15 Mb that do not span a whole
+    /// chromosome) from allele-specific copy-number segments. Convenience wrapper over
+    /// <see cref="DetectLOH(IEnumerable{AlleleSpecificSegment})"/>. Source: Abkevich et al. (2012) /
+    /// scarHRD <c>calc.hrd</c>.
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments. Must not be null.</param>
+    /// <returns>The HRD-LOH score (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    public static int CalculateHrdLohScore(IEnumerable<AlleleSpecificSegment> segments)
+        => DetectLOH(segments).Score;
+
+    /// <summary>
+    /// Computes the length-weighted fraction of a single chromosome that lies under loss of heterozygosity:
+    /// (total length of LOH segments on the chromosome) ÷ (total covered length on the chromosome). The
+    /// result is in [0, 1] (Registry invariant). A segment is LOH per the Abkevich/scarHRD rule
+    /// (minor == 0 &amp; major != 0). Unlike the HRD-LOH score, this fraction applies no 15 Mb size filter and
+    /// no whole-chromosome exclusion — it is a raw per-chromosome LOH burden. If the chromosome has no
+    /// covered length (absent from <paramref name="segments"/>), the fraction is 0.
+    /// </summary>
+    /// <param name="segments">Allele-specific copy-number segments. Must not be null.</param>
+    /// <param name="chromosome">The chromosome identifier to score. Must not be null.</param>
+    /// <returns>The LOH fraction of the chromosome in [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> or <paramref name="chromosome"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive length or a negative copy number.</exception>
+    public static double CalculateLOHFraction(IEnumerable<AlleleSpecificSegment> segments, string chromosome)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        ArgumentNullException.ThrowIfNull(chromosome);
+
+        long totalLength = 0;
+        long lohLength = 0;
+
+        foreach (var segment in segments)
+        {
+            ValidateSegment(segment);
+            if (!string.Equals(segment.Chromosome, chromosome, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            totalLength += segment.Length;
+            if (IsLohSegment(segment))
+            {
+                lohLength += segment.Length;
+            }
+        }
+
+        if (totalLength == 0)
+        {
+            return 0.0;
+        }
+
+        return (double)lohLength / totalLength;
+    }
+
+    /// <summary>
+    /// Groups validated segments by chromosome (each segment validated as it is read), preserving first-seen
+    /// chromosome order. Validation here means LOH detection is order-independent in count (INV-6).
+    /// </summary>
+    private static IEnumerable<IReadOnlyList<AlleleSpecificSegment>> GroupValidatedByChromosome(
+        IEnumerable<AlleleSpecificSegment> segments)
+    {
+        var byChromosome = new Dictionary<string, List<AlleleSpecificSegment>>(StringComparer.Ordinal);
+        var order = new List<string>();
+
+        foreach (var segment in segments)
+        {
+            ValidateSegment(segment);
+            if (!byChromosome.TryGetValue(segment.Chromosome, out var list))
+            {
+                list = new List<AlleleSpecificSegment>();
+                byChromosome[segment.Chromosome] = list;
+                order.Add(segment.Chromosome);
+            }
+
+            list.Add(segment);
+        }
+
+        foreach (var chromosome in order)
+        {
+            yield return byChromosome[chromosome];
+        }
+    }
+
+    /// <summary>
+    /// Merges adjacent segments that share the same LOH state into single regions, after sorting by start.
+    /// Two segments are merged when they share the same LOH/non-LOH state and are adjacent or overlapping
+    /// (gap ≤ 1 bp). Source: oncoscanR <c>score_loh</c> — "merges overlapping or adjacent LOH segments
+    /// (separated by 1bp)"; analogous to scarHRD's <c>shrink.seg.ai.wrapper</c> state merge.
+    /// </summary>
+    private static IReadOnlyList<AlleleSpecificSegment> MergeAdjacentSameState(
+        IReadOnlyList<AlleleSpecificSegment> chromosomeSegments)
+    {
+        var sorted = chromosomeSegments.OrderBy(static s => s.Start).ThenBy(static s => s.End).ToList();
+        var merged = new List<AlleleSpecificSegment>();
+
+        foreach (var segment in sorted)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(segment);
+                continue;
+            }
+
+            var last = merged[^1];
+            bool sameState = IsLohSegment(last) == IsLohSegment(segment);
+            // Adjacent/overlapping = the next segment starts at most 1 bp after the previous one ends.
+            const long MaxMergeGapBp = 1L;
+            bool adjacent = segment.Start - last.End <= MaxMergeGapBp;
+
+            if (sameState && adjacent)
+            {
+                long newEnd = Math.Max(last.End, segment.End);
+                // Preserve LOH state: keep the major/minor of the LOH side when merging an LOH run.
+                merged[^1] = last with { End = newEnd };
+            }
+            else
+            {
+                merged.Add(segment);
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>Validates a segment: positive length and non-negative copy numbers.</summary>
+    private static void ValidateSegment(in AlleleSpecificSegment segment)
+    {
+        if (segment.End <= segment.Start)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Chromosome}' must have End > Start (got Start={segment.Start}, End={segment.End}).",
+                nameof(segment));
+        }
+
+        if (segment.MajorCopyNumber < 0 || segment.MinorCopyNumber < 0)
+        {
+            throw new ArgumentException(
+                $"Segment on '{segment.Chromosome}' must have non-negative copy numbers " +
+                $"(got Major={segment.MajorCopyNumber}, Minor={segment.MinorCopyNumber}).",
+                nameof(segment));
+        }
+    }
+
+    #endregion
 }

@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 201 |
+| **Completed** | 202 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 33 |
+| **Not Started** | 32 |
 
 ---
 
@@ -229,7 +229,7 @@
 | ☑ | ONCO-TMB-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-TMB-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-TMB-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) |
 | ☑ | ONCO-MSI-001 | Oncology | 3 | Niu et al. (2014) MSIsensor, niu-lab/msisensor2, Boland et al. (1998) | [ONCO-MSI-001.md](TestSpecs/ONCO-MSI-001.md) | OncologyAnalyzer_DetectMSI_Tests.cs |
 | ☑ | ONCO-HRD-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) |
-| ☐ | ONCO-LOH-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-LOH-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-LOH-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-LOH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) |
 | ☐ | ONCO-SIG-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-SIG-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-003 | Oncology | 2 | - | - | - |
