@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 183 |
+| **Completed** | 184 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 51 |
+| **Not Started** | 50 |
 
 ---
 
@@ -211,7 +211,7 @@
 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-ANALYSIS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) |
 | ☑ | DISORDER-MORF-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-MORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-MORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) |
 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PROPENSITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
-| ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |
+| ☑ | DISORDER-LC-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) |
 | ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |

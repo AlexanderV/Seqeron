@@ -139,6 +139,14 @@ public static class DisorderPredictor
     /// </summary>
     private const double TopIdpCutoff = 0.542;
 
+    // SEG low-complexity defaults — Wootton &amp; Federhen (1993) Comput. Chem. 17(2):149-163;
+    // reference values from the NCBI BLAST implementation (blast_seg.c:
+    // kSegWindow=12, kSegLocut=2.2, kSegHicut=2.5). Complexity is the Shannon entropy
+    // of the window residue composition in bits/residue (max log2(20) = 4.322).
+    private const int SegTriggerWindow = 12;       // W (kSegWindow)
+    private const double SegTriggerComplexity = 2.2; // K1 (kSegLocut), bits/residue
+    private const double SegExtensionComplexity = 2.5; // K2 (kSegHicut), bits/residue
+
     #endregion
 
     #region Records
@@ -471,19 +479,29 @@ public static class DisorderPredictor
     #region Specialized Predictions
 
     /// <summary>
-    /// Predicts low complexity regions using the SEG algorithm.
-    /// Two-pass approach: K1 trigger scan on small window, K2 extension.
-    /// Source: Wootton &amp; Federhen (1993) Computers &amp; Chemistry 17(2):149-163.
-    ///         Wootton &amp; Federhen (1996) Methods Enzymol 266:554-571.
-    /// Default parameters (standard SEG): triggerWindow=12, K1=2.2 bits, K2=2.5 bits.
+    /// Predicts low-complexity regions in a protein sequence using the SEG algorithm.
+    /// Complexity is the Shannon entropy of the window residue composition in
+    /// bits/residue: H = -&#931; p&#7522;&#183;log&#8322;(p&#7522;) (max log&#8322;(20) &#8776; 4.322 for amino acids).
+    /// Two-stage scan: stage 1 marks windows with H &#8804; K1 (trigger); stage 2 extends
+    /// triggered segments while H &#8804; K2.
+    /// Source: Wootton &amp; Federhen (1993) Computers &amp; Chemistry 17(2):149-163;
+    ///         Wootton &amp; Federhen (1996) Methods Enzymol 266:554-571;
+    ///         NCBI BLAST blast_seg.c (kSegWindow=12, kSegLocut=2.2, kSegHicut=2.5).
     /// </summary>
+    /// <param name="sequence">Protein sequence (case-insensitive); non-letter chars do not contribute to composition.</param>
+    /// <param name="triggerWindow">Trigger window length W (default 12).</param>
+    /// <param name="triggerThreshold">Trigger complexity K1 in bits/residue (default 2.2).</param>
+    /// <param name="extensionThreshold">Extension complexity K2 in bits/residue (default 2.5).</param>
+    /// <param name="minLength">Minimum reported segment length (default 1).</param>
+    /// <returns>Non-overlapping (Start, End, Type) segments, 0-based inclusive coordinates.</returns>
     public static IEnumerable<(int Start, int End, string Type)> PredictLowComplexityRegions(
         string sequence,
-        int triggerWindow = 12,
-        double triggerThreshold = 2.2,
-        double extensionThreshold = 2.5,
+        int triggerWindow = SegTriggerWindow,
+        double triggerThreshold = SegTriggerComplexity,
+        double extensionThreshold = SegExtensionComplexity,
         int minLength = 1)
     {
+        ArgumentNullException.ThrowIfNull(sequence);
         sequence = sequence.ToUpperInvariant();
         if (sequence.Length < triggerWindow)
             yield break;
