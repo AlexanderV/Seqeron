@@ -987,12 +987,18 @@ public static class SequenceStatistics
     /// <summary>
     /// Generates comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
-    public static SequenceSummary SummarizeNucleotideSequence(string sequence)
+    public static SequenceSummary SummarizeNucleotideSequence(string? sequence)
     {
-        var comp = CalculateNucleotideComposition(sequence);
-        double entropy = CalculateShannonEntropy(sequence);
-        double complexity = CalculateLinguisticComplexity(sequence);
-        double tm = CalculateMeltingTemperature(sequence, useWallaceRule: sequence.Length < 14);
+        // Treat null and empty identically (each per-metric method guards IsNullOrEmpty);
+        // normalizing null to empty avoids dereferencing a null length when selecting the
+        // Tm formula branch and keeps every per-metric call non-null.
+        string seq = sequence ?? string.Empty;
+        var comp = CalculateNucleotideComposition(seq);
+        double entropy = CalculateShannonEntropy(seq);
+        double complexity = CalculateLinguisticComplexity(seq);
+        // Wallace rule applies to short oligos (length < WallaceMaxLength); the GC/Marmur-Doty
+        // formula applies otherwise. Boundary per SEQ-TM-001 (ThermoConstants.WallaceMaxLength = 14).
+        double tm = CalculateMeltingTemperature(seq, useWallaceRule: seq.Length < ThermoConstants.WallaceMaxLength);
 
         var composition = new Dictionary<char, int>
         {

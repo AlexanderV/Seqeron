@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 189 |
+| **Completed** | 190 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 45 |
+| **Not Started** | 44 |
 
 ---
 
@@ -217,7 +217,7 @@
 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md | tests/TestSpecs/SEQ-ENTROPY-PROFILE-001.md | tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateEntropyProfile_Tests.cs |
 | ☑ | SEQ-GC-PROFILE-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-PROFILE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateGcContentProfile_Tests.cs) |
 | ☑ | SEQ-CODON-FREQ-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-CODON-FREQ-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateCodonFrequencies_Tests.cs) |
-| ☐ | SEQ-SUMMARY-001 | Statistics | 1 | - | - | - |
+| ☑ | SEQ-SUMMARY-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SUMMARY-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SUMMARY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) |
 | ☐ | GENOMIC-TANDEM-001 | Analysis | 1 | - | - | - |
 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | 1 | - | - | - |
 | ☐ | GENOMIC-ORF-001 | Analysis | 1 | - | - | - |
