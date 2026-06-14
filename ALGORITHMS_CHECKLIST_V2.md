@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 184 |
+| **Completed** | 185 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 50 |
+| **Not Started** | 49 |
 
 ---
 
@@ -212,7 +212,7 @@
 | ☑ | DISORDER-MORF-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-MORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-MORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) |
 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PROPENSITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
 | ☑ | DISORDER-LC-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) |
-| ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |
+| ☑ | SEQ-COMPOSITION-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-COMPOSITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPOSITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
 | ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |
 | ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
@@ -3692,13 +3692,14 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ### 56. Extended Sequence Statistics (6 units)
 
-#### SEQ-COMPOSITION-001: Sequence Composition
+#### SEQ-COMPOSITION-001: Sequence Composition ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateNucleotideComposition(...)` |
 | **Complexity** | O(n) |
 | **Class** | SequenceStatistics |
+| **Status** | ☑ Complete — duplicate of SEQ-STATS-001; resolved by consolidation (no new code/tests; same canonical fixture). See `tests/TestSpecs/SEQ-COMPOSITION-001.md` §7. |
 
 **Methods:**
 | Method | Class | Type |
