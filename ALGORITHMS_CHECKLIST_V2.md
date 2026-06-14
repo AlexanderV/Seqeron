@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 200 |
+| **Completed** | 201 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 34 |
+| **Not Started** | 33 |
 
 ---
 
@@ -228,7 +228,7 @@
 | ☑ | ONCO-ANNOT-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) |
 | ☑ | ONCO-TMB-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-TMB-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-TMB-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) |
 | ☑ | ONCO-MSI-001 | Oncology | 3 | Niu et al. (2014) MSIsensor, niu-lab/msisensor2, Boland et al. (1998) | [ONCO-MSI-001.md](TestSpecs/ONCO-MSI-001.md) | OncologyAnalyzer_DetectMSI_Tests.cs |
-| ☐ | ONCO-HRD-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-HRD-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) |
 | ☐ | ONCO-LOH-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-SIG-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-SIG-002 | Oncology | 2 | - | - | - |
@@ -4023,8 +4023,8 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Clinical:** PARP inhibitor response prediction (BRCA1/2, PALB2)
 
 **Edge Cases:**
-- [ ] Insufficient number of CNV segments for scoring
-- [ ] Near-diploid tumors (low signal)
+- [x] Insufficient number of CNV segments for scoring — component counts supplied as input; sum is well-defined for any non-negative counts (scope per ONCO-HRD-001 NOTE: composite-sum + threshold)
+- [x] Near-diploid tumors (low signal) — all-zero components → score 0 → HRD-negative (DetectHRD_NearDiploidZeroComponents_IsHrdNegative)
 
 ---
 

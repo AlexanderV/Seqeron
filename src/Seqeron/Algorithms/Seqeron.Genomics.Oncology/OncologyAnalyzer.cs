@@ -1536,4 +1536,116 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region HRD score (ONCO-HRD-001)
+
+    /// <summary>
+    /// Myriad myChoice CDx / Telli et al. (2016) genomic-instability cutoff: a tumour is HRD-high when its
+    /// combined HRD score is at or above this value. Source: Telli ML et al. (2016), Clin Cancer Res
+    /// 22(15):3764–3773 — "HR deficiency, defined as HRD score ≥42 or BRCA1/2 mutation". Boundary inclusive.
+    /// </summary>
+    public const int HrdHighScoreThreshold = 42;
+
+    /// <summary>HRD (homologous recombination deficiency) classification of a combined genomic-scar score.</summary>
+    public enum HrdStatus
+    {
+        /// <summary>HRD score below the <see cref="HrdHighScoreThreshold"/> cutoff (HR-proficient signal).</summary>
+        HrdNegative,
+
+        /// <summary>HRD score at or above the <see cref="HrdHighScoreThreshold"/> cutoff (HR-deficient).</summary>
+        HrdHigh
+    }
+
+    /// <summary>
+    /// The three genomic-scar component counts that sum to the combined HRD score.
+    /// </summary>
+    /// <param name="Loh">
+    /// HRD-LOH score: number of LOH regions longer than 15 Mb but shorter than a whole chromosome
+    /// (Abkevich et al. 2012).
+    /// </param>
+    /// <param name="Tai">
+    /// Telomeric allelic-imbalance score (NtAI): number of allelic-imbalance regions that extend to a
+    /// sub-telomere but do not cross the centromere (Birkbak et al. 2012).
+    /// </param>
+    /// <param name="Lst">
+    /// Large-scale state-transition score: number of chromosomal breaks between adjacent regions each
+    /// ≥ 10 Mb after filtering regions &lt; 3 Mb (Popova et al. 2012).
+    /// </param>
+    public readonly record struct HrdComponents(int Loh, int Tai, int Lst);
+
+    /// <summary>Result of a combined HRD determination from the three genomic-scar component counts.</summary>
+    /// <param name="Components">The LOH / TAI / LST component counts that were summed.</param>
+    /// <param name="Score">Combined HRD score = LOH + TAI + LST (unweighted sum).</param>
+    /// <param name="Status">HRD-high when <paramref name="Score"/> ≥ <see cref="HrdHighScoreThreshold"/>, else HRD-negative.</param>
+    public readonly record struct HrdResult(HrdComponents Components, int Score, HrdStatus Status);
+
+    /// <summary>
+    /// Computes the combined HRD score as the unweighted sum of the three genomic-scar component counts:
+    /// score = <paramref name="loh"/> + <paramref name="tai"/> + <paramref name="lst"/>. Source: Telli ML
+    /// et al. (2016), Clin Cancer Res 22(15):3764–3773 — the "combined homologous recombination deficiency
+    /// (HRD) score, an unweighted sum of LOH, TAI, and LST scores". The components are non-negative event
+    /// counts (LOH regions / telomeric allelic imbalances / large-scale state transitions), so each must be ≥ 0.
+    /// </summary>
+    /// <param name="loh">HRD-LOH component count (Abkevich et al. 2012); must be ≥ 0.</param>
+    /// <param name="tai">Telomeric allelic-imbalance (NtAI) component count (Birkbak et al. 2012); must be ≥ 0.</param>
+    /// <param name="lst">Large-scale state-transition component count (Popova et al. 2012); must be ≥ 0.</param>
+    /// <returns>The combined HRD score (LOH + TAI + LST).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Any component is negative.</exception>
+    public static int CalculateHRDScore(int loh, int tai, int lst)
+    {
+        if (loh < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(loh), loh, "HRD component counts must be ≥ 0.");
+        }
+
+        if (tai < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tai), tai, "HRD component counts must be ≥ 0.");
+        }
+
+        if (lst < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lst), lst, "HRD component counts must be ≥ 0.");
+        }
+
+        // Telli et al. (2016): HRD score = unweighted sum of LOH + TAI + LST.
+        return loh + tai + lst;
+    }
+
+    /// <summary>
+    /// Classifies a combined HRD score as <see cref="HrdStatus.HrdHigh"/> when it is at or above the
+    /// myChoice/Telli 2016 cutoff (≥ <see cref="HrdHighScoreThreshold"/> = 42; boundary inclusive),
+    /// otherwise <see cref="HrdStatus.HrdNegative"/>. Source: Telli ML et al. (2016), Clin Cancer Res
+    /// 22(15):3764–3773 — "HR deficiency, defined as HRD score ≥42".
+    /// </summary>
+    /// <param name="score">Combined HRD score (LOH + TAI + LST); must be ≥ 0.</param>
+    /// <returns><see cref="HrdStatus.HrdHigh"/> if score ≥ 42, else <see cref="HrdStatus.HrdNegative"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="score"/> is negative.</exception>
+    public static HrdStatus ClassifyHRDStatus(int score)
+    {
+        if (score < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(score), score, "HRD score must be ≥ 0.");
+        }
+
+        return score >= HrdHighScoreThreshold ? HrdStatus.HrdHigh : HrdStatus.HrdNegative;
+    }
+
+    /// <summary>
+    /// End-to-end HRD determination from the three genomic-scar component counts: sums them into the
+    /// combined HRD score (<see cref="CalculateHRDScore(int,int,int)"/>) and classifies it against the
+    /// myChoice/Telli 2016 cutoff (<see cref="ClassifyHRDStatus"/>). The three counts are produced upstream
+    /// from segmented copy-number/allelic data per Abkevich et al. (2012) (LOH), Birkbak et al. (2012) (TAI),
+    /// and Popova et al. (2012) (LST).
+    /// </summary>
+    /// <param name="components">The LOH / TAI / LST component counts.</param>
+    /// <returns>The components, the combined HRD score, and the HRD status.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Any component count is negative.</exception>
+    public static HrdResult DetectHRD(HrdComponents components)
+    {
+        int score = CalculateHRDScore(components.Loh, components.Tai, components.Lst);
+        return new HrdResult(components, score, ClassifyHRDStatus(score));
+    }
+
+    #endregion
 }
