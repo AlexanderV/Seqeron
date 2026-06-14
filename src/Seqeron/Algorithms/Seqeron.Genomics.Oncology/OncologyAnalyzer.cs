@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Oncology;
 
@@ -3451,6 +3452,237 @@ public static class OncologyAnalyzer
 
         return new KnownFusionMatch(designation, IsKnown: false, Annotation: null);
     }
+
+    #endregion
+
+    #region Fusion Breakpoint Analysis (ONCO-FUSION-003)
+
+    /// <summary>
+    /// Location category of a fusion breakpoint within a partner transcript, mirroring the Arriba
+    /// <c>site1</c>/<c>site2</c> output column. Source: Arriba output spec — "Possible values are: 5'UTR,
+    /// 3'UTR, UTR, CDS, exon, intron, and intergenic". https://github.com/suhrig/arriba/wiki/05-Output-files
+    /// </summary>
+    public enum BreakpointSite
+    {
+        /// <summary>Coding sequence (the only site at which two reading frames are joined).</summary>
+        Cds,
+
+        /// <summary>5' untranslated region.</summary>
+        FivePrimeUtr,
+
+        /// <summary>3' untranslated region.</summary>
+        ThreePrimeUtr,
+
+        /// <summary>Untranslated region (strand/UTR side not resolved).</summary>
+        Utr,
+
+        /// <summary>Exon (non-coding part).</summary>
+        Exon,
+
+        /// <summary>Intron.</summary>
+        Intron,
+
+        /// <summary>Intergenic region.</summary>
+        Intergenic
+    }
+
+    /// <summary>
+    /// Reading-frame consequence reported by <see cref="AnalyzeBreakpoint"/>, mirroring the Arriba
+    /// <c>reading_frame</c> column. Source: Arriba output spec — reading_frame ∈ {in-frame, out-of-frame,
+    /// stop-codon, .}; the dot ("not predicted") is used when the peptide cannot be predicted because a
+    /// breakpoint is not in coding context. https://github.com/suhrig/arriba/wiki/05-Output-files
+    /// </summary>
+    public enum BreakpointFrameStatus
+    {
+        /// <summary>Both breakpoints are in CDS and the junction preserves the reading frame (in-frame).</summary>
+        InFrame,
+
+        /// <summary>Both breakpoints are in CDS but the junction shifts the reading frame (out-of-frame).</summary>
+        OutOfFrame,
+
+        /// <summary>The chimeric ORF reaches a stop codon at/after the junction (Arriba <c>stop-codon</c>).</summary>
+        StopCodon,
+
+        /// <summary>Frame cannot be called because a breakpoint is not in coding context (Arriba <c>.</c>).</summary>
+        NotPredicted
+    }
+
+    /// <summary>
+    /// A fusion breakpoint described by its per-partner site categories and the coding-frame quantities
+    /// needed to call the junction reading frame. The 5'/3' partner symbols carry over from a
+    /// <see cref="FusionCall"/>; <see cref="FivePrimeCodingBases"/> and <see cref="ThreePrimeStartPhase"/>
+    /// are the same coding-frame inputs used by <see cref="IsInFrame"/> (ONCO-FUSION-001). Read class
+    /// schema follows Arriba (Uhrig et al. 2021). https://github.com/suhrig/arriba/wiki/05-Output-files
+    /// </summary>
+    /// <param name="Gene5Prime">5' (upstream) fusion partner gene symbol.</param>
+    /// <param name="Gene3Prime">3' (downstream) fusion partner gene symbol.</param>
+    /// <param name="Site5Prime">Site category of the breakpoint in the 5' partner.</param>
+    /// <param name="Site3Prime">Site category of the breakpoint in the 3' partner.</param>
+    /// <param name="FivePrimeCodingBases">Coding bases the 5' partner contributes upstream of the breakpoint (≥ 0).</param>
+    /// <param name="ThreePrimeStartPhase">Coding-start phase (0, 1, or 2) of the 3' partner at the breakpoint.</param>
+    public readonly record struct FusionBreakpoint(
+        string Gene5Prime,
+        string Gene3Prime,
+        BreakpointSite Site5Prime,
+        BreakpointSite Site3Prime,
+        int FivePrimeCodingBases,
+        int ThreePrimeStartPhase);
+
+    /// <summary>The breakpoint-analysis result for a fusion junction.</summary>
+    /// <param name="Gene5Prime">5' partner (carried through unchanged).</param>
+    /// <param name="Gene3Prime">3' partner (carried through unchanged).</param>
+    /// <param name="Site5Prime">Site category of the 5' breakpoint.</param>
+    /// <param name="Site3Prime">Site category of the 3' breakpoint.</param>
+    /// <param name="BreakpointInCoding">True iff both breakpoints lie in CDS (a coding-to-coding junction).</param>
+    /// <param name="FrameStatus">Reading-frame consequence of the junction.</param>
+    public readonly record struct BreakpointAnalysis(
+        string Gene5Prime,
+        string Gene3Prime,
+        BreakpointSite Site5Prime,
+        BreakpointSite Site3Prime,
+        bool BreakpointInCoding,
+        BreakpointFrameStatus FrameStatus);
+
+    /// <summary>The predicted protein product of a fusion junction.</summary>
+    /// <param name="ChimericCds">The chimeric coding sequence = 5' CDS prefix ++ 3' CDS suffix (uppercased DNA).</param>
+    /// <param name="Peptide">The translated fusion peptide, truncated at the first stop codon.</param>
+    /// <param name="Effect">Reading-frame effect of the junction (in-frame / out-of-frame).</param>
+    /// <param name="HasPrematureStop">True iff a stop codon was reached before the end of the chimeric ORF.</param>
+    public readonly record struct FusionProteinPrediction(
+        string ChimericCds,
+        string Peptide,
+        BreakpointFrameStatus Effect,
+        bool HasPrematureStop);
+
+    /// <summary>
+    /// Analyzes a fusion breakpoint: reports the per-partner site categories and calls the junction
+    /// reading frame. A reading-frame call (<see cref="BreakpointFrameStatus.InFrame"/> /
+    /// <see cref="BreakpointFrameStatus.OutOfFrame"/>) is made ONLY when both breakpoints lie in CDS; if
+    /// either breakpoint is in a UTR, intron, exon (non-coding part), or intergenic region the frame is
+    /// <see cref="BreakpointFrameStatus.NotPredicted"/> (Arriba <c>reading_frame = .</c>). The in-frame
+    /// test reuses the codon-phase rule of <see cref="IsInFrame"/>:
+    /// <c>(fivePrimeCodingBases − threePrimeStartPhase) mod 3 == 0</c>.
+    /// Source: Arriba output spec (site / reading_frame), AGFusion frame rule (Murphy &amp; Elemento 2016).
+    /// https://github.com/suhrig/arriba/wiki/05-Output-files
+    /// </summary>
+    /// <param name="fusion">The breakpoint to analyze.</param>
+    /// <returns>The site categories and reading-frame consequence of the junction.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Both breakpoints are CDS but <see cref="FusionBreakpoint.FivePrimeCodingBases"/> is negative or
+    /// <see cref="FusionBreakpoint.ThreePrimeStartPhase"/> is outside {0, 1, 2}.
+    /// </exception>
+    public static BreakpointAnalysis AnalyzeBreakpoint(FusionBreakpoint fusion)
+    {
+        bool bothCoding = fusion.Site5Prime == BreakpointSite.Cds
+                       && fusion.Site3Prime == BreakpointSite.Cds;
+
+        // A frame call is only defined for a coding-to-coding junction (Arriba reading_frame = '.' otherwise).
+        BreakpointFrameStatus frame = bothCoding
+            ? (IsInFrame(fusion.FivePrimeCodingBases, fusion.ThreePrimeStartPhase)
+                ? BreakpointFrameStatus.InFrame
+                : BreakpointFrameStatus.OutOfFrame)
+            : BreakpointFrameStatus.NotPredicted;
+
+        return new BreakpointAnalysis(
+            fusion.Gene5Prime,
+            fusion.Gene3Prime,
+            fusion.Site5Prime,
+            fusion.Site3Prime,
+            bothCoding,
+            frame);
+    }
+
+    /// <summary>
+    /// Predicts the protein product of a fusion from the two partners' coding sequences. The chimeric CDS
+    /// is the 5' partner's CDS taken up to the breakpoint (a prefix) concatenated with the 3' partner's CDS
+    /// taken from the breakpoint onward (a suffix); it is then translated with the standard genetic code
+    /// (NCBI Table 1) and truncated at the first stop codon.
+    /// Source (verbatim from AGFusion model.py, Murphy &amp; Elemento 2016):
+    /// <c>cds_5prime = transcript1.coding_sequence[0:junction5]</c>,
+    /// <c>cds_3prime = transcript2.coding_sequence[junction3:]</c>,
+    /// <c>seq = cds_5prime + cds_3prime</c>,
+    /// <c>protein_seq = cds.seq.translate(); protein_seq = protein_seq[0:protein_seq.find("*")]</c>.
+    /// When the junction is out-of-frame the chimeric CDS is first trimmed to a whole number of codons
+    /// (<c>cds[0:3*(len//3)]</c>) so the 3' partner is read in its (shifted) frame.
+    /// https://raw.githubusercontent.com/murphycj/AGFusion/master/agfusion/model.py
+    /// </summary>
+    /// <param name="fusion">The breakpoint (its site categories and codon-frame quantities drive the effect call).</param>
+    /// <param name="transcripts">
+    /// The two partner CDS sequences as (fivePrimeCds, threePrimeCds): the 5' partner's full coding sequence
+    /// and the 3' partner's full coding sequence (DNA, A/C/G/T). The breakpoint offsets are taken from
+    /// <paramref name="fusion"/>: the 5' prefix length is <see cref="FusionBreakpoint.FivePrimeCodingBases"/>
+    /// and the 3' suffix starts at <see cref="FusionBreakpoint.ThreePrimeStartPhase"/>.
+    /// </param>
+    /// <returns>The chimeric CDS, the translated (first-stop-truncated) peptide, the frame effect, and a premature-stop flag.</returns>
+    /// <exception cref="ArgumentNullException">A CDS sequence is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// An offset is out of range for its CDS, or the 3' start phase is outside {0, 1, 2}.
+    /// </exception>
+    public static FusionProteinPrediction PredictFusionProtein(
+        FusionBreakpoint fusion,
+        (string FivePrimeCds, string ThreePrimeCds) transcripts)
+    {
+        ArgumentNullException.ThrowIfNull(transcripts.FivePrimeCds);
+        ArgumentNullException.ThrowIfNull(transcripts.ThreePrimeCds);
+
+        string fivePrimeCds = transcripts.FivePrimeCds.ToUpperInvariant();
+        string threePrimeCds = transcripts.ThreePrimeCds.ToUpperInvariant();
+
+        int junction5 = fusion.FivePrimeCodingBases;
+        int junction3 = fusion.ThreePrimeStartPhase;
+
+        if (junction5 < 0 || junction5 > fivePrimeCds.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fusion),
+                "FivePrimeCodingBases (5' prefix length) is out of range for the 5' CDS.");
+        }
+
+        if (junction3 < 0 || junction3 > threePrimeCds.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fusion),
+                "ThreePrimeStartPhase (3' suffix start) is out of range for the 3' CDS.");
+        }
+
+        // AGFusion: cds_5prime = transcript1.coding_sequence[0:junction5]; cds_3prime = transcript2[junction3:].
+        string cds5 = fivePrimeCds.Substring(0, junction5);
+        string cds3 = threePrimeCds.Substring(junction3);
+        string chimericCds = cds5 + cds3;
+
+        // Frame effect by the AGFusion / IsInFrame codon-phase rule (only meaningful junction3 in {0,1,2}).
+        bool inFrame = junction3 < CodonLength
+            && IsInFrame(junction5, junction3);
+        BreakpointFrameStatus effect = inFrame
+            ? BreakpointFrameStatus.InFrame
+            : BreakpointFrameStatus.OutOfFrame;
+
+        // AGFusion: an out-of-frame CDS is trimmed to whole codons before translation; an in-frame CDS is
+        // translated as-is (a trailing partial codon, if any, is not translatable and is dropped).
+        int translatableLength = chimericCds.Length - (chimericCds.Length % CodonLength);
+        var peptide = new System.Text.StringBuilder(translatableLength / CodonLength);
+        bool hasStop = false;
+
+        for (int i = 0; i < translatableLength; i += CodonLength)
+        {
+            string codon = chimericCds.Substring(i, CodonLength);
+            char aminoAcid = GeneticCode.Standard.Translate(codon);
+            if (aminoAcid == StopCodonSymbol)
+            {
+                // AGFusion truncates the peptide at the first stop codon (protein_seq[0:find("*")]).
+                hasStop = true;
+                break;
+            }
+
+            peptide.Append(aminoAcid);
+        }
+
+        return new FusionProteinPrediction(chimericCds, peptide.ToString(), effect, hasStop);
+    }
+
+    /// <summary>
+    /// Stop-codon marker returned by <see cref="GeneticCode.Translate"/> for UAA/UAG/UGA (NCBI Table 1).
+    /// Source: AGFusion truncation at the first <c>'*'</c>; <see cref="GeneticCode"/> emits '*' for stops.
+    /// </summary>
+    private const char StopCodonSymbol = '*';
 
     #endregion
 }

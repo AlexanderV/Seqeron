@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 208 |
+| **Completed** | 209 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 26 |
+| **Not Started** | 25 |
 
 ---
 
@@ -236,7 +236,7 @@
 | ☑ | ONCO-SIG-004 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-SIG-004-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-004.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) |
 | ☑ | ONCO-FUSION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-FUSION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) |
 | ☑ | ONCO-FUSION-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) |
-| ☐ | ONCO-FUSION-003 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-FUSION-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) |
 | ☐ | ONCO-CNA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-CNA-002 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CNA-003 | Oncology | 2 | - | - | - |
@@ -4231,19 +4231,31 @@ Fusions / Mitelman content is the caller's responsibility), making this a Framew
 
 ---
 
-#### ONCO-FUSION-003: Fusion Breakpoint Analysis
+#### ☑ ONCO-FUSION-003: Fusion Breakpoint Analysis
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `FusionDetector.AnalyzeBreakpoint(...)` |
+| **Canonical** | `OncologyAnalyzer.AnalyzeBreakpoint(...)` |
 | **Complexity** | O(n) |
 | **Depends on** | ONCO-FUSION-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `AnalyzeBreakpoint(fusion)` | FusionDetector | Canonical |
-| `PredictFusionProtein(fusion, transcripts)` | FusionDetector | Protein product |
+| `AnalyzeBreakpoint(fusion)` | OncologyAnalyzer | Canonical |
+| `PredictFusionProtein(fusion, transcripts)` | OncologyAnalyzer | Canonical (protein product) |
+
+Implemented on `OncologyAnalyzer` (same class as ONCO-FUSION-001/002). Breakpoint site categories follow
+the Arriba `site`/`reading_frame` output schema (Uhrig et al. 2021); the fusion protein is the chimeric CDS
+(5' CDS prefix ++ 3' CDS suffix) translated with the standard genetic code (NCBI Table 1) and truncated at
+the first stop codon, exactly per AGFusion (`model.py`; Murphy & Elemento 2016). Frame call reuses the
+ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences and breakpoint offsets are
+**caller-supplied** (no genome/transcript DB in repo) — a Framework algorithm.
+
+**Edge Cases:**
+- [x] Breakpoint not in CDS (UTR/intron/intergenic) — reading frame `NotPredicted` (Arriba `reading_frame = .`)
+- [x] Premature stop codon at/after junction — peptide truncated at first stop; `HasPrematureStop` flag (AGFusion `protein[0:find("*")]`)
+- [x] Out-of-frame junction — chimeric CDS trimmed to whole codons; 3' partner read in shifted frame (AGFusion)
 
 ---
 
@@ -5132,7 +5144,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
 | MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
-| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑, ONCO-FUSION-002 ☑ (003 ☐) | ◐ |
+| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑, ONCO-FUSION-002 ☑, ONCO-FUSION-003 ☑ | ● |
 | CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
