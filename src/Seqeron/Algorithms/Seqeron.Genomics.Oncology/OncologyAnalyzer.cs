@@ -110,6 +110,14 @@ public static class OncologyAnalyzer
     /// </summary>
     private const double MinExpectedMutantMolecules = 1.0;
 
+    /// <summary>
+    /// Default absolute expression z-score threshold above which a gene is an over/under-expression outlier.
+    /// Source: cBioPortal FAQ (https://docs.cbioportal.org/user-guide/faq/) — "By default, samples with
+    /// expression z-scores &gt;2 or &lt;-2 in any queried genes are considered altered." The rule is strict:
+    /// z &gt; +2 ⇒ overexpressed, z &lt; −2 ⇒ underexpressed; |z| = 2 exactly is NOT an outlier. Default = 2.0.
+    /// </summary>
+    public const double DefaultExpressionOutlierThreshold = 2.0;
+
     #endregion
 
     #region Public types
@@ -7421,6 +7429,185 @@ public static class OncologyAnalyzer
             oscillatingSegments,
             distinctStates,
             input.StructuralVariantCount);
+    }
+
+    #endregion
+
+    #region Tumor Gene Expression Outlier / Signature Score (ONCO-EXPR-001)
+
+    /// <summary>
+    /// Direction of an expression outlier relative to the reference cohort.
+    /// </summary>
+    public enum ExpressionDirection
+    {
+        /// <summary>z &gt; +threshold — expression is elevated versus the reference cohort (overexpressed).</summary>
+        Over,
+
+        /// <summary>z &lt; −threshold — expression is reduced versus the reference cohort (underexpressed).</summary>
+        Under,
+    }
+
+    /// <summary>
+    /// A single gene whose sample expression is an outlier relative to its reference cohort.
+    /// </summary>
+    /// <param name="Gene">Gene identifier.</param>
+    /// <param name="ZScore">The expression z-score z = (value − μ)/σ of the gene in this sample.</param>
+    /// <param name="Direction">Whether the gene is over- or under-expressed (sign of the z-score).</param>
+    public readonly record struct ExpressionOutlier(string Gene, double ZScore, ExpressionDirection Direction);
+
+    /// <summary>
+    /// Computes the expression z-score of a single sample value relative to a reference cohort:
+    /// z = (value − μ) / σ, where μ is the arithmetic mean and σ is the <b>sample</b> standard deviation
+    /// (divisor n − 1) of the cohort.
+    /// </summary>
+    /// <remarks>
+    /// Source: cBioPortal mRNA z-score normalization specification
+    /// (https://docs.cbioportal.org/z-score-normalization-script/) — z = "(r - mu)/sigma where r is the raw
+    /// expression value, and mu and sigma are the mean and standard deviation". The reference implementation
+    /// <c>NormalizeExpressionLevels.java</c> (cbioportal-core) computes σ with divisor (n − 1)
+    /// (<c>std = std/(double)(v.length-1)</c>), i.e. the sample standard deviation, and aborts when σ = 0.
+    /// </remarks>
+    /// <param name="value">The sample expression value (raw <c>r</c>) on a normalization scale.</param>
+    /// <param name="referenceCohort">Reference expression values for this gene; at least two values required.</param>
+    /// <returns>The z-score of <paramref name="value"/> relative to the cohort.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="referenceCohort"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The cohort has fewer than two values (sample standard deviation is undefined), or the cohort has a
+    /// standard deviation of 0 (no defined z-score; mirrors the reference implementation's fatal error).
+    /// </exception>
+    public static double CalculateExpressionZScore(double value, IReadOnlyList<double> referenceCohort)
+    {
+        ArgumentNullException.ThrowIfNull(referenceCohort);
+
+        int n = referenceCohort.Count;
+
+        // Sample standard deviation (divisor n − 1) is undefined for fewer than two observations.
+        if (n < 2)
+        {
+            throw new ArgumentException(
+                "Reference cohort must contain at least two values to compute a sample standard deviation.",
+                nameof(referenceCohort));
+        }
+
+        double mean = 0.0;
+        for (int i = 0; i < n; i++)
+        {
+            mean += referenceCohort[i];
+        }
+
+        mean /= n;
+
+        double sumSquaredDeviations = 0.0;
+        for (int i = 0; i < n; i++)
+        {
+            double d = referenceCohort[i] - mean;
+            sumSquaredDeviations += d * d;
+        }
+
+        // Sample standard deviation: divisor (n − 1) per NormalizeExpressionLevels.java std().
+        double sd = Math.Sqrt(sumSquaredDeviations / (n - 1));
+
+        if (sd == 0.0)
+        {
+            throw new ArgumentException(
+                "Cannot compute a z-score relative to a reference cohort with a standard deviation of 0.",
+                nameof(referenceCohort));
+        }
+
+        return (value - mean) / sd;
+    }
+
+    /// <summary>
+    /// Identifies genes whose sample expression is an outlier relative to per-gene reference cohorts, using
+    /// the z-score rule z &gt; +threshold (overexpressed) or z &lt; −threshold (underexpressed).
+    /// </summary>
+    /// <remarks>
+    /// Source: cBioPortal FAQ (https://docs.cbioportal.org/user-guide/faq/) — "samples with expression
+    /// z-scores &gt;2 or &lt;-2 in any queried genes are considered altered." The default threshold is 2.0
+    /// (<see cref="DefaultExpressionOutlierThreshold"/>); the comparison is strict, so |z| = threshold is not
+    /// reported as an outlier.
+    /// </remarks>
+    /// <param name="sampleExpression">The sample's expression value per gene.</param>
+    /// <param name="referenceCohorts">Per-gene reference cohort values; must contain every gene in the sample.</param>
+    /// <param name="threshold">Absolute z-score threshold (must be positive). Default 2.0.</param>
+    /// <returns>The outlier genes, in the iteration order of <paramref name="sampleExpression"/>.</returns>
+    /// <exception cref="ArgumentNullException">Either dictionary is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="threshold"/> is not positive.</exception>
+    /// <exception cref="ArgumentException">A sampled gene has no reference cohort, or a cohort is degenerate.</exception>
+    public static IReadOnlyList<ExpressionOutlier> IdentifyOutlierGenes(
+        IReadOnlyDictionary<string, double> sampleExpression,
+        IReadOnlyDictionary<string, IReadOnlyList<double>> referenceCohorts,
+        double threshold = DefaultExpressionOutlierThreshold)
+    {
+        ArgumentNullException.ThrowIfNull(sampleExpression);
+        ArgumentNullException.ThrowIfNull(referenceCohorts);
+
+        if (threshold <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(threshold), threshold, "Outlier threshold must be positive.");
+        }
+
+        var outliers = new List<ExpressionOutlier>();
+
+        foreach (KeyValuePair<string, double> entry in sampleExpression)
+        {
+            if (!referenceCohorts.TryGetValue(entry.Key, out IReadOnlyList<double>? cohort))
+            {
+                throw new ArgumentException(
+                    $"No reference cohort supplied for gene '{entry.Key}'.", nameof(referenceCohorts));
+            }
+
+            double z = CalculateExpressionZScore(entry.Value, cohort);
+
+            // Strict thresholds: z > +t ⇒ over, z < −t ⇒ under; |z| = t is not an outlier (cBioPortal FAQ).
+            if (z > threshold)
+            {
+                outliers.Add(new ExpressionOutlier(entry.Key, z, ExpressionDirection.Over));
+            }
+            else if (z < -threshold)
+            {
+                outliers.Add(new ExpressionOutlier(entry.Key, z, ExpressionDirection.Under));
+            }
+        }
+
+        return outliers;
+    }
+
+    /// <summary>
+    /// Computes the combined z-score (gene-signature / pathway activity score) over a set of member-gene
+    /// z-scores: a = (Σᵢ zᵢ) / √k, where k is the number of member genes.
+    /// </summary>
+    /// <remarks>
+    /// Source: Lee E. et al. (2008), "Inferring Pathway Activity toward Precise Disease Classification",
+    /// PLoS Comput Biol 4(11):e1000217 (https://doi.org/10.1371/journal.pcbi.1000217) — the per-gene
+    /// z-scores of a gene set are "averaged into a combined z-score … the square root of the number of member
+    /// genes is used in the denominator to stabilize the variance of the mean." Corroborated by the GSVA
+    /// "combined z-score" method. Member z-scores are caller-supplied (e.g. from
+    /// <see cref="CalculateExpressionZScore"/>); the signature gene set is caller-defined.
+    /// </remarks>
+    /// <param name="memberZScores">The per-gene z-scores of the signature's member genes (k ≥ 1).</param>
+    /// <returns>The combined z-score activity a = (Σ z) / √k.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="memberZScores"/> is null.</exception>
+    /// <exception cref="ArgumentException">The signature is empty (k = 0; the score is undefined).</exception>
+    public static double CalculateSignatureScore(IReadOnlyList<double> memberZScores)
+    {
+        ArgumentNullException.ThrowIfNull(memberZScores);
+
+        int k = memberZScores.Count;
+        if (k == 0)
+        {
+            throw new ArgumentException(
+                "Signature must contain at least one member gene z-score.", nameof(memberZScores));
+        }
+
+        double sum = 0.0;
+        for (int i = 0; i < k; i++)
+        {
+            sum += memberZScores[i];
+        }
+
+        return sum / Math.Sqrt(k);
     }
 
     #endregion

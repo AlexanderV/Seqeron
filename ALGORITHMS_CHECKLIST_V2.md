@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 226 |
+| **Completed** | 227 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 8 |
+| **Not Started** | 7 |
 
 ---
 
@@ -255,7 +255,7 @@
 | ☑ | ONCO-HLA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HLA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HLA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) |
 | ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
 | ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
-| ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-EXPR-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -4749,22 +4749,26 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorExpressionAnalyzer.QuantifyExpression(...)` |
-| **Complexity** | O(n × g) where g=gene count |
-| **Invariant** | all TPM values ≥ 0, sum(TPM) ≈ 1e6 |
+| **Canonical** | `OncologyAnalyzer.IdentifyOutlierGenes(...)` (z-score outliers) + `CalculateSignatureScore(...)` |
+| **Complexity** | O(g × n), g=gene count, n=reference cohort size |
+| **Invariant** | z=(r−μ)/σ; outlier iff z>+t or z<−t (strict, t=2); signature a=Σz/√k |
 | **Depends on** | — (standalone) |
 
-**Methods:**
+**Methods (as implemented — oncology-specific expression layer on `OncologyAnalyzer`):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `QuantifyExpression(rnaBam, annotation)` | TumorExpressionAnalyzer | Canonical |
-| `NormalizeExpression(counts)` | TumorExpressionAnalyzer | TPM/FPKM normalization |
-| `IdentifyOutlierGenes(expression, reference)` | TumorExpressionAnalyzer | Z-score outliers |
+| `CalculateExpressionZScore(value, referenceCohort)` | OncologyAnalyzer | Canonical (z = (r−μ)/σ, sample SD n−1; cBioPortal) |
+| `IdentifyOutlierGenes(sampleExpression, referenceCohorts, threshold)` | OncologyAnalyzer | Canonical (strict z>±2 over/under outliers) |
+| `CalculateSignatureScore(memberZScores)` | OncologyAnalyzer | Canonical (combined z-score a=Σz/√k; Lee et al. 2008) |
+
+Note: TPM/FPKM quantification (`CalculateTPM`/`CalculateFPKM`, TRANS-EXPR-001) and differential expression
+(TRANS-DIFF-001) already exist in `TranscriptomeAnalyzer`; ONCO-EXPR-001 implements the oncology-specific
+outlier/signature layer over caller-supplied reference cohorts and signatures.
 
 **Edge Cases:**
-- [ ] Low RNA quality (degraded, 3' bias)
-- [ ] No matched normal expression profile
-- [ ] Batch effects between samples
+- [x] Zero-variance / degenerate reference cohort (sd=0 → throws; mirrors NormalizeExpressionLevels.java)
+- [x] No reference cohort for a queried gene / reference smaller than 2 samples (sample SD undefined → throws)
+- [x] Batch effects / unrepresentative cohort (documented limitation: z-scores miscalibrated; caller responsibility — algorithm doc §6.2)
 
 ---
 
@@ -5088,12 +5092,14 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `BootstrapConfidenceIntervals` (MutationalSignatures) | ONCO-SIG-003 |
 | `Build96ChannelSpectrum` | ONCO-SIG-002 |
 | `CalculateBindingAffinity` | ONCO-MHC-001 |
+| `CalculateExpressionZScore` | ONCO-EXPR-001 |
 | `CalculateHRDScore` | ONCO-HRD-001 |
 | `CalculateITH` | ONCO-HETERO-001 |
 | `CalculateLOHFraction` | ONCO-LOH-001 |
 | `CalculateLOHScore` | ONCO-HRD-001 |
 | `CalculateLSTScore` | ONCO-HRD-001 |
 | `CalculateMSIScore` | ONCO-MSI-001 |
+| `CalculateSignatureScore` | ONCO-EXPR-001 |
 | `CalculateSomaticScore` | ONCO-SOMATIC-001 |
 | `CalculateTAIScore` | ONCO-HRD-001 |
 | `CalculateTMB` | ONCO-TMB-001 |
@@ -5150,11 +5156,9 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 | `InferSubclones` | ONCO-HETERO-001 |
 | `MatchCancerHotspots` | ONCO-DRIVER-001 |
 | `MatchKnownFusions` | ONCO-FUSION-002 |
-| `NormalizeExpression` | ONCO-EXPR-001 |
 | `PredictFusionProtein` | ONCO-FUSION-003 |
 | `PredictMHCBinding` | ONCO-MHC-001 |
 | `PredictNeoantigens` | ONCO-NEO-001 |
-| `QuantifyExpression` | ONCO-EXPR-001 |
 | `ReconstructPhylogeny` | ONCO-PHYLO-001 |
 | `ScoreDriverPotential` | ONCO-DRIVER-001 |
 | `ScoreNeoantigens` | ONCO-NEO-001 |
@@ -5285,7 +5289,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | HLA analysis (implemented in OncologyAnalyzer) | ONCO-HLA-001 | ☑ |
 | Clinical actionability (implemented in OncologyAnalyzer) | ONCO-ACTION-001 | ☑ |
 | StructuralVariantDetector | ONCO-SV-001 | ☐ |
-| TumorExpressionAnalyzer | ONCO-EXPR-001 | ☐ |
+| TumorExpressionAnalyzer (implemented in OncologyAnalyzer) | ONCO-EXPR-001 | ☑ |
 
 **Total Classes Covered: 44/57 (77%)**
 
