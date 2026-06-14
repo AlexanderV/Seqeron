@@ -3356,4 +3356,101 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Known Fusion Database Lookup (ONCO-FUSION-002)
+
+    /// <summary>
+    /// HGNC fusion-designation separator: a double colon between the 5' and 3' partner symbols.
+    /// Source: Bruford et al. (2021), HGNC recommendations for the designation of gene fusions —
+    /// "HGNC recommends that a new separator—a double colon (::)—be used in describing gene fusions,
+    /// e.g., BCR::ABL1." https://pmc.ncbi.nlm.nih.gov/articles/PMC8550944/
+    /// </summary>
+    public const string FusionDesignationSeparator = "::";
+
+    /// <summary>
+    /// The result of looking a fusion up against a known-fusion set.
+    /// </summary>
+    /// <param name="Designation">The HGNC <c>5'::3'</c> designation of the queried fusion (e.g. <c>BCR::ABL1</c>).</param>
+    /// <param name="IsKnown"><see langword="true"/> if the directional designation was present in the supplied set.</param>
+    /// <param name="Annotation">The caller-supplied annotation for the matched designation, or <see langword="null"/> if not known.</param>
+    public readonly record struct KnownFusionMatch(string Designation, bool IsKnown, string? Annotation);
+
+    /// <summary>
+    /// Formats the HGNC designation of a gene fusion as <c>gene5p::gene3p</c>.
+    /// The 5' partner is always written first, before the double colon, irrespective of chromosomal
+    /// location or gene orientation; the designation is therefore directional (A::B ≠ B::A).
+    /// Source: Bruford et al. (2021), HGNC recommendations for the designation of gene fusions —
+    /// "the 5′ partner gene should always be listed first in the description of a fusion gene, i.e.,
+    /// before the double colon" and "a double colon (::) … e.g., BCR::ABL1".
+    /// https://pmc.ncbi.nlm.nih.gov/articles/PMC8550944/
+    /// </summary>
+    /// <param name="gene5p">5' (upstream) partner gene symbol; must be non-empty.</param>
+    /// <param name="gene3p">3' (downstream) partner gene symbol; must be non-empty.</param>
+    /// <returns>The designation string <c>gene5p + "::" + gene3p</c>.</returns>
+    /// <exception cref="ArgumentException">Either symbol is null, empty, or whitespace.</exception>
+    public static string GetFusionAnnotation(string gene5p, string gene3p)
+    {
+        if (string.IsNullOrWhiteSpace(gene5p))
+        {
+            throw new ArgumentException("5' partner gene symbol must be non-empty.", nameof(gene5p));
+        }
+
+        if (string.IsNullOrWhiteSpace(gene3p))
+        {
+            throw new ArgumentException("3' partner gene symbol must be non-empty.", nameof(gene3p));
+        }
+
+        return gene5p + FusionDesignationSeparator + gene3p;
+    }
+
+    /// <summary>
+    /// Looks a detected fusion up against a caller-supplied set of known fusions, keyed by their
+    /// HGNC <c>5'::3'</c> designation.
+    /// </summary>
+    /// <remarks>
+    /// The lookup is <b>directional</b>: the key is built with the 5' partner first (per Bruford et al. 2021),
+    /// so a reciprocal fusion (partners swapped) is a different designation and does NOT match.
+    /// Symbol comparison is case-insensitive (ordinal-ignore-case); the known-fusion set membership and the
+    /// annotation text are entirely caller-supplied — this library bundles no curated fusion database
+    /// (Mitelman / COSMIC / ChimerDB content is the caller's responsibility).
+    /// Source (designation format and directional keying): Bruford et al. (2021),
+    /// https://pmc.ncbi.nlm.nih.gov/articles/PMC8550944/
+    /// </remarks>
+    /// <param name="fusion">The fusion to look up (its 5'/3' partners define the key).</param>
+    /// <param name="knownFusions">
+    /// Caller-supplied map from <c>5'::3'</c> designation to its annotation. For case-insensitive matching,
+    /// supply a dictionary built with <see cref="StringComparer.OrdinalIgnoreCase"/> (the method also probes
+    /// case-insensitively when the dictionary is not already case-insensitive).
+    /// </param>
+    /// <returns>A <see cref="KnownFusionMatch"/> reporting the designation and, if present, its annotation.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="knownFusions"/> is null.</exception>
+    /// <exception cref="ArgumentException">A fusion partner symbol is null, empty, or whitespace.</exception>
+    public static KnownFusionMatch MatchKnownFusions(
+        FusionCall fusion,
+        IReadOnlyDictionary<string, string> knownFusions)
+    {
+        ArgumentNullException.ThrowIfNull(knownFusions);
+
+        string designation = GetFusionAnnotation(fusion.Gene5Prime, fusion.Gene3Prime);
+
+        // Directional key (5'::3'). Try the supplied dictionary's own comparer first; if it is not
+        // case-insensitive, fall back to an explicit case-insensitive scan so that e.g. "eml4::alk"
+        // matches a stored "EML4::ALK" (HGNC symbols are case-defined, but inputs vary in case).
+        if (knownFusions.TryGetValue(designation, out string? annotation))
+        {
+            return new KnownFusionMatch(designation, IsKnown: true, annotation);
+        }
+
+        foreach (KeyValuePair<string, string> entry in knownFusions)
+        {
+            if (string.Equals(entry.Key, designation, StringComparison.OrdinalIgnoreCase))
+            {
+                return new KnownFusionMatch(designation, IsKnown: true, entry.Value);
+            }
+        }
+
+        return new KnownFusionMatch(designation, IsKnown: false, Annotation: null);
+    }
+
+    #endregion
 }

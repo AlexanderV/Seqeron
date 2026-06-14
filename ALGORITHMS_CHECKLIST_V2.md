@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 207 |
+| **Completed** | 208 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 27 |
+| **Not Started** | 26 |
 
 ---
 
@@ -235,7 +235,7 @@
 | ☑ | ONCO-SIG-003 | Oncology | 1 | [Evidence](docs/Evidence/ONCO-SIG-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) |
 | ☑ | ONCO-SIG-004 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-SIG-004-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-004.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) |
 | ☑ | ONCO-FUSION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-FUSION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) |
-| ☐ | ONCO-FUSION-002 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-FUSION-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) |
 | ☐ | ONCO-FUSION-003 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CNA-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-CNA-002 | Oncology | 2 | - | - | - |
@@ -4204,21 +4204,30 @@ canonical scope.
 
 ---
 
-#### ONCO-FUSION-002: Known Fusion Database Lookup
+#### ☑ ONCO-FUSION-002: Known Fusion Database Lookup
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `FusionDetector.MatchKnownFusions(...)` |
-| **Complexity** | O(n × k) |
+| **Canonical** | `OncologyAnalyzer.MatchKnownFusions(...)` |
+| **Complexity** | O(1) hash lookup (O(k) case-insensitive fallback) |
+| **Invariant** | designation = 5'::3' (directional); A::B ≠ B::A |
 | **Depends on** | ONCO-FUSION-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `MatchKnownFusions(fusion)` | FusionDetector | Canonical |
-| `GetFusionAnnotation(gene5p, gene3p)` | FusionDetector | Lookup |
+| `GetFusionAnnotation(gene5p, gene3p)` | OncologyAnalyzer | Canonical |
+| `MatchKnownFusions(fusion, knownFusions)` | OncologyAnalyzer | Canonical |
 
-**Databases:** ChimerDB, COSMIC Fusions, Mitelman
+Implemented on `OncologyAnalyzer` (same class as ONCO-FUSION-001). Designation format and directional 5'→3'
+keying follow HGNC nomenclature (Bruford et al. 2021, double colon `::`, 5' partner first). Known-fusion set
+membership and annotations are **caller-supplied** — the library bundles no curated database (ChimerDB / COSMIC
+Fusions / Mitelman content is the caller's responsibility), making this a Framework algorithm.
+
+**Edge Cases:**
+- [x] Reciprocal fusion not matched — directional designation (A::B ≠ B::A) per 5'-first rule
+- [x] Case-varied symbols — case-insensitive (ordinal-ignore-case) matching
+- [x] Null/empty partner or null known-fusion set — input validation (ArgumentException / ArgumentNullException)
 
 ---
 
@@ -5123,7 +5132,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
 | MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
-| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑ (002–003 ☐) | ◐ |
+| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑, ONCO-FUSION-002 ☑ (003 ☐) | ◐ |
 | CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
