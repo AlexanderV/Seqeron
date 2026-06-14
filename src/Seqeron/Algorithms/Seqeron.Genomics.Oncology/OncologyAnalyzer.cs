@@ -1249,4 +1249,108 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Tumor Mutational Burden (TMB)
+
+    /// <summary>
+    /// FDA-approved tumor-mutational-burden-high (TMB-H) cutoff for pembrolizumab, in mutations per
+    /// megabase. A tumor is TMB-High when its TMB is at or above this value (the threshold is inclusive).
+    /// Source: Marcus L et al. (2021), FDA Approval Summary: Pembrolizumab for the Treatment of Tumor
+    /// Mutational Burden–High Solid Tumors, Clin Cancer Res 27(17):4685–4689 — pembrolizumab approved
+    /// (June 16, 2020) for solid tumors with "TMB ≥10 mutations/megabase (mut/Mb)", companion diagnostic
+    /// FoundationOne CDx. Value = 10.0 mut/Mb.
+    /// </summary>
+    public const double TmbHighThreshold = 10.0;
+
+    /// <summary>
+    /// TMB-High classification result. Only the FDA/F1CDx TMB-High cutoff (≥ 10 mut/Mb) is source-backed,
+    /// so the classification is two-tier (High vs Low); intermediate research cut-points (e.g. tumor-type
+    /// specific 6/20 boundaries) are not implemented because no authoritative source defines them.
+    /// Source: Marcus et al. (2021).
+    /// </summary>
+    public enum TmbStatus
+    {
+        /// <summary>TMB below the FDA TMB-High cutoff (TMB &lt; 10 mut/Mb).</summary>
+        Low,
+
+        /// <summary>TMB at or above the FDA TMB-High cutoff (TMB ≥ 10 mut/Mb).</summary>
+        High
+    }
+
+    /// <summary>
+    /// Computes the tumor mutational burden (TMB) as the number of somatic coding mutations per megabase of
+    /// sequenced region: TMB = <paramref name="mutationCount"/> / <paramref name="targetRegionMb"/>, in
+    /// mutations/megabase (mut/Mb). Source: Chalmers ZR et al. (2017), Genome Medicine 9:34 — "TMB was
+    /// defined as the number of somatic, coding, base substitution, and indel mutations per megabase of
+    /// genome examined" (the FoundationOne 315-gene panel denominator is 1.1 Mb of coding genome). The
+    /// caller supplies the already-filtered somatic mutation count (germline / known-driver filtering is the
+    /// upstream somatic caller's responsibility, per Chalmers 2017's pre-count filtering and ONCO-SOMATIC-001).
+    /// </summary>
+    /// <param name="mutationCount">Number of counted somatic mutations (≥ 0).</param>
+    /// <param name="targetRegionMb">Size of the sequenced coding region in megabases (&gt; 0, finite).</param>
+    /// <returns>TMB in mutations per megabase (≥ 0).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="mutationCount"/> is negative, or <paramref name="targetRegionMb"/> is not a finite
+    /// value greater than 0 (TMB is undefined when the megabase denominator is 0).
+    /// </exception>
+    public static double CalculateTMB(int mutationCount, double targetRegionMb)
+    {
+        if (mutationCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(mutationCount), mutationCount, "Mutation count cannot be negative.");
+        }
+
+        if (double.IsNaN(targetRegionMb) || double.IsInfinity(targetRegionMb) || targetRegionMb <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(targetRegionMb), targetRegionMb,
+                "Target region size (Mb) must be a finite value greater than 0; TMB is undefined at 0 Mb.");
+        }
+
+        // TMB = mutations / megabase (Chalmers et al. 2017).
+        return mutationCount / targetRegionMb;
+    }
+
+    /// <summary>
+    /// Computes TMB from a set of classified somatic calls (e.g. from <see cref="CallSomaticMutations"/>):
+    /// counts the calls with <see cref="SomaticStatus.Somatic"/> status and divides by
+    /// <paramref name="targetRegionMb"/>. Germline and not-detected calls are excluded, matching the TMB
+    /// definition of counting only somatic mutations (Chalmers et al. 2017; Friends of Cancer Research TMB
+    /// Harmonization, Merino et al. 2020). Thin wrapper over
+    /// <see cref="CalculateTMB(int, double)"/>.
+    /// </summary>
+    /// <param name="calls">Classified somatic calls; only <see cref="SomaticStatus.Somatic"/> are counted.</param>
+    /// <param name="targetRegionMb">Size of the sequenced coding region in megabases (&gt; 0, finite).</param>
+    /// <returns>TMB in mutations per megabase (≥ 0).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="calls"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="targetRegionMb"/> is not finite and &gt; 0.</exception>
+    public static double CalculateTMB(IEnumerable<SomaticCall> calls, double targetRegionMb)
+    {
+        ArgumentNullException.ThrowIfNull(calls);
+
+        int somaticCount = calls.Count(c => c.Status == SomaticStatus.Somatic);
+        return CalculateTMB(somaticCount, targetRegionMb);
+    }
+
+    /// <summary>
+    /// Classifies a TMB value (mut/Mb) as <see cref="TmbStatus.High"/> when it is at or above the FDA
+    /// TMB-High cutoff (≥ <see cref="TmbHighThreshold"/> = 10 mut/Mb; the boundary is inclusive), otherwise
+    /// <see cref="TmbStatus.Low"/>. Source: Marcus et al. (2021), FDA Approval Summary — pembrolizumab for
+    /// "TMB ≥10 mut/Mb" solid tumors (companion diagnostic FoundationOne CDx).
+    /// </summary>
+    /// <param name="tmb">Tumor mutational burden in mutations per megabase (≥ 0, finite).</param>
+    /// <returns><see cref="TmbStatus.High"/> if tmb ≥ 10, else <see cref="TmbStatus.Low"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tmb"/> is negative or not finite.</exception>
+    public static TmbStatus ClassifyTMB(double tmb)
+    {
+        if (double.IsNaN(tmb) || double.IsInfinity(tmb) || tmb < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tmb), tmb, "TMB must be a finite value ≥ 0.");
+        }
+
+        return tmb >= TmbHighThreshold ? TmbStatus.High : TmbStatus.Low;
+    }
+
+    #endregion
 }

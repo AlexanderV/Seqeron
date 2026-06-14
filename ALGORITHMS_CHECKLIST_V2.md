@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 198 |
+| **Completed** | 199 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 36 |
+| **Not Started** | 35 |
 
 ---
 
@@ -226,7 +226,7 @@
 | ☑ | ONCO-DRIVER-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-DRIVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-DRIVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyDriverMutations_Tests.cs) |
 | ☑ | ONCO-ARTIFACT-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-ARTIFACT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ARTIFACT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) |
 | ☑ | ONCO-ANNOT-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) |
-| ☐ | ONCO-TMB-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-TMB-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-TMB-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-TMB-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) |
 | ☐ | ONCO-MSI-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-HRD-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-LOH-001 | Oncology | 2 | - | - | - |
@@ -3954,7 +3954,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### ONCO-TMB-001: Tumor Mutational Burden
+#### ☑ ONCO-TMB-001: Tumor Mutational Burden
 
 | Field | Value |
 |------|----------|
@@ -3966,15 +3966,15 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateTMB(variants, targetRegionSize)` | OncologyAnalyzer | Canonical |
-| `ClassifyTMB(tmb)` | OncologyAnalyzer | Low/Medium/High |
+| `CalculateTMB(mutationCount, targetRegionMb)` / `CalculateTMB(calls, targetRegionMb)` | OncologyAnalyzer | Canonical |
+| `ClassifyTMB(tmb)` | OncologyAnalyzer | Low/High (FDA ≥10) |
 
-**Thresholds:** Low (<6/Mb), Intermediate (6-20/Mb), High (>20/Mb)
+**Thresholds:** TMB-High = TMB ≥ 10 mut/Mb (inclusive), else Low. Source: FDA pembrolizumab approval / FoundationOne CDx (Marcus et al. 2021, Clin Cancer Res 27(17):4685). NOTE: the previous "Low (<6/Mb), Intermediate (6–20/Mb), High (>20/Mb)" boundaries had no retrievable authoritative source and were replaced by the source-backed FDA ≥10 cutoff (evidence-first; see TestSpec §7).
 
 **Edge Cases:**
-- [ ] targetRegionSize = 0 (division by zero)
-- [ ] Panel < 1 Mb (unstable TMB estimation)
-- [ ] Synonymous-only variants (should be excluded)
+- [x] targetRegionMb = 0 (division by zero — throws)
+- [x] Panel < 0.5 Mb (value still computed; instability documented, not an error — Chalmers 2017)
+- [x] Synonymous/germline variants excluded by upstream somatic caller (count is pre-filtered; SomaticCall overload counts only Somatic status)
 
 ---
 
