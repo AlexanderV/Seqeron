@@ -479,25 +479,25 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_LowComplexity_ReturnsHigh()
     {
-        // "AAAAAAAAAAAAAAAAAA" (N=18): 16 AAA triplets
-        // score = 16×15/2 = 120, DUST = 120/(16-1) = 8.0
-        // Source: Morgulis et al. (2006) symmetric DUST formula
+        // "AAAAAAAAAAAAAAAAAA" (L=18): 16 AAA triplets
+        // score = 16×15/2 = 120, DUST = 120/(L-2) = 120/16 = 7.5
+        // Source: Li (2025) longdust restatement S = Σ c(c-1)/2 / (L-2); Morgulis et al. (2006)
         var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAA");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(8.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(7.5).Within(1e-10));
     }
 
     [Test]
     public void CalculateDustScore_HighComplexity_ReturnsLow()
     {
-        // "ATGCTAGCATGCTAGC" (N=16): diverse triplets, low pair counts
-        // Hand-calculated: score=6/(14-1) = 6/13
-        // Source: Morgulis et al. (2006)
+        // "ATGCTAGCATGCTAGC" (L=16): 14 triplets, ATG,TGC,GCT,CTA,TAG,AGC each ×2 (GCA,CAT ×1)
+        // Σ = 6×(2·1/2) = 6, DUST = 6/(L-2) = 6/14 = 3/7
+        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
         var sequence = new DnaSequence("ATGCTAGCATGCTAGC");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(6.0 / 13.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(6.0 / 14.0).Within(1e-10));
     }
 
     [Test]
@@ -518,11 +518,11 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_StringOverload_ReturnsExact()
     {
-        // "AAAAAAA" (N=7): 5 triplets, all AAA
-        // score = 5×4/2 = 10, DUST = 10/(5-1) = 2.5
-        // Source: Morgulis et al. (2006) symmetric formula
+        // "AAAAAAA" (L=7): 5 triplets, all AAA
+        // score = 5×4/2 = 10, DUST = 10/(L-2) = 10/5 = 2.0
+        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
         double dust = SequenceComplexity.CalculateDustScore("AAAAAAA");
-        Assert.That(dust, Is.EqualTo(2.5).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(2.0).Within(1e-10));
     }
 
     #endregion

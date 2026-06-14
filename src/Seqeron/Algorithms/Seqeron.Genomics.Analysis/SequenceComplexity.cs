@@ -323,24 +323,44 @@ public static class SequenceComplexity
 
     #region Dust Score
 
+    // DUST/SDUST uses overlapping nucleotide triplets (3-mers) as the default word.
+    // k = 3 is hardcoded in the reference implementation; Morgulis et al. (2006),
+    // J Comput Biol 13(5):1028-1040, doi:10.1089/cmb.2006.13.1028, and lh3/sdust.
+    private const int DustWordSize = 3;
+
+    // Mask/low-complexity threshold for the DUST score: 2.0, corresponding to the
+    // reference default level T = 20 (lh3/sdust: "rw*10 > L*T" ⇔ score > T/10 = 2.0).
+    private const double DustMaskThreshold = 2.0;
+
     /// <summary>
-    /// Calculates DUST score for low-complexity filtering (as used in BLAST).
-    /// Higher scores indicate lower complexity.
+    /// Calculates the DUST low-complexity score of a sequence (Morgulis et al. 2006).
+    /// The score is Σ_t c_t·(c_t−1)/2 over all overlapping words t, divided by the number
+    /// of words (L − wordSize + 1, equal to L − 2 for triplets). A HIGHER score indicates
+    /// LOWER complexity (more repeated words); fully distinct words give 0.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="wordSize">Triplet word size (default: 3).</param>
-    /// <returns>DUST score.</returns>
-    public static double CalculateDustScore(DnaSequence sequence, int wordSize = 3)
+    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
+    /// <returns>DUST score (≥ 0); 0 when the sequence is shorter than one word.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    public static double CalculateDustScore(DnaSequence sequence, int wordSize = DustWordSize)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
         return CalculateDustScoreCore(sequence.Sequence, wordSize);
     }
 
     /// <summary>
-    /// Calculates DUST score from a raw sequence string.
+    /// Calculates the DUST low-complexity score from a raw sequence string. The string is
+    /// upper-cased to match the normalization applied by <see cref="DnaSequence"/>.
     /// </summary>
-    public static double CalculateDustScore(string sequence, int wordSize = 3)
+    /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
+    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
+    /// <returns>DUST score (≥ 0); 0 when null/empty or shorter than one word.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    public static double CalculateDustScore(string sequence, int wordSize = DustWordSize)
     {
+        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
         if (string.IsNullOrEmpty(sequence)) return 0;
         return CalculateDustScoreCore(sequence.ToUpperInvariant(), wordSize);
     }
@@ -349,27 +369,31 @@ public static class SequenceComplexity
     {
         if (seq.Length < wordSize) return 0;
 
-        var tripletCounts = new Dictionary<string, int>();
-        int total = seq.Length - wordSize + 1;
+        var wordCounts = new Dictionary<string, int>();
 
-        for (int i = 0; i <= seq.Length - wordSize; i++)
+        // Number of overlapping words; equals L − 2 for the default triplet word.
+        int wordCount = seq.Length - wordSize + 1;
+
+        for (int i = 0; i < wordCount; i++)
         {
-            string triplet = seq.Substring(i, wordSize);
-            if (tripletCounts.ContainsKey(triplet))
-                tripletCounts[triplet]++;
+            string word = seq.Substring(i, wordSize);
+            if (wordCounts.ContainsKey(word))
+                wordCounts[word]++;
             else
-                tripletCounts[triplet] = 1;
+                wordCounts[word] = 1;
         }
 
-        // DUST score is sum of (count * (count - 1) / 2) for each triplet
-        double score = 0;
-        foreach (int count in tripletCounts.Values)
+        // DUST score numerator: Σ_t c_t·(c_t−1)/2 over all distinct words
+        // (Morgulis et al. 2006; longdust restatement S = Σ c(c−1)/2 / (L−2), Li 2025).
+        double sum = 0;
+        foreach (int count in wordCounts.Values)
         {
-            score += count * (count - 1) / 2.0;
+            sum += count * (count - 1) / 2.0;
         }
 
-        // Normalize by window length
-        return total > 1 ? score / (total - 1) : 0;
+        // Normalize by the number of words (L − wordSize + 1 = L − 2 for triplets), per
+        // the 1/(L−2) factor in Li (2025) and lh3/sdust's per-triplet running length.
+        return sum / wordCount;
     }
 
     /// <summary>
@@ -383,7 +407,7 @@ public static class SequenceComplexity
     public static string MaskLowComplexity(
         DnaSequence sequence,
         int windowSize = 64,
-        double threshold = 2.0,
+        double threshold = DustMaskThreshold,
         char maskChar = 'N')
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -401,7 +425,7 @@ public static class SequenceComplexity
         for (int i = 0; i + windowSize <= seq.Length; i++)
         {
             string window = seq.Substring(i, windowSize);
-            double dustScore = CalculateDustScoreCore(window, 3);
+            double dustScore = CalculateDustScoreCore(window, DustWordSize);
 
             if (dustScore > threshold)
             {

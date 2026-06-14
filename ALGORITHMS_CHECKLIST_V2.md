@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 160 |
+| **Completed** | 161 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 74 |
+| **Not Started** | 73 |
 
 ---
 
@@ -188,7 +188,7 @@
 | ☑ | RNA-PARTITION-001 | RnaStructure | 4 | [Evidence](docs/Evidence/RNA-PARTITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PARTITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) |
 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-KMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) |
 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-WINDOW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) |
-| ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
+| ☑ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | [Evidence](docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-DUST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) |
 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
 | ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
