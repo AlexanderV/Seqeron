@@ -431,4 +431,256 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Driver Mutation Detection (20/20 rule)
+
+    /// <summary>
+    /// Fraction-of-mutations threshold of the Vogelstein 20/20 rule: a gene is classified as a driver
+    /// only when more than this fraction of its mutations meet the oncogene or tumor-suppressor criterion.
+    /// Source: Vogelstein B et al. (2013), Science 339(6127):1546–1558 — "more than 20%"; restated verbatim
+    /// by Tokheim &amp; Karchin (2020), Bioinformatics 36(6):1712–1719 ("OGs have &gt;20% ... TSGs have &gt;20% ...").
+    /// The comparison is strict (&gt;), so an exact 20% fraction is not sufficient. Value = 0.20.
+    /// </summary>
+    public const double DriverGeneFractionThreshold = 0.20;
+
+    /// <summary>
+    /// Minimum number of mutations at the same protein position for that position to count as
+    /// <i>recurrent</i> (a hotspot). Source: Miller ML et al. (2017), Oncotarget 8(20):33321–33333 — a
+    /// recurrent position requires "at least two mutations of the same class" at an identical location.
+    /// Value = 2.
+    /// </summary>
+    public const int RecurrentPositionMinCount = 2;
+
+    /// <summary>
+    /// The functional consequence of a coding mutation, restricted to the categories the 20/20 rule
+    /// distinguishes. Truncating categories are those listed by Schroeder MP et al. (2014),
+    /// Bioinformatics 30(17):i549–i555 and Miller ML et al. (2017): nonsense (stop gain/loss), frameshift
+    /// indels, and splice donor/acceptor mutations. Missense at recurrent positions drives the oncogene call.
+    /// </summary>
+    public enum MutationConsequence
+    {
+        /// <summary>Amino-acid-changing substitution (drives the oncogene criterion when recurrent).</summary>
+        Missense,
+
+        /// <summary>Premature/lost stop codon (nonsense) — truncating/inactivating.</summary>
+        Nonsense,
+
+        /// <summary>Insertion/deletion shifting the reading frame — truncating/inactivating.</summary>
+        Frameshift,
+
+        /// <summary>Mutation at a splice donor/acceptor site — truncating/inactivating.</summary>
+        SpliceSite,
+
+        /// <summary>Synonymous or other non-truncating, non-missense change (counts toward the denominator only).</summary>
+        Other
+    }
+
+    /// <summary>The 20/20-rule role assigned to a gene from its mutation spectrum.</summary>
+    public enum DriverGeneRole
+    {
+        /// <summary>&gt;20% of mutations are missense at recurrent positions (Vogelstein 2013).</summary>
+        Oncogene,
+
+        /// <summary>&gt;20% of mutations are truncating/inactivating (Vogelstein 2013).</summary>
+        TumorSuppressor,
+
+        /// <summary>Neither criterion exceeds 20% (or an exact tie): not classified as a driver gene.</summary>
+        Ambiguous
+    }
+
+    /// <summary>
+    /// A single coding mutation observed in a gene, reduced to the features the 20/20 rule needs.
+    /// </summary>
+    /// <param name="Gene">Gene symbol the mutation falls in.</param>
+    /// <param name="ProteinPosition">1-based codon / amino-acid position used to detect recurrence.</param>
+    /// <param name="Consequence">Functional consequence category.</param>
+    public readonly record struct GeneMutation(string Gene, int ProteinPosition, MutationConsequence Consequence);
+
+    /// <summary>
+    /// The 20/20-rule classification of one gene, with the two criterion fractions that produced it.
+    /// </summary>
+    /// <param name="Gene">Gene symbol.</param>
+    /// <param name="Role">Assigned <see cref="DriverGeneRole"/>.</param>
+    /// <param name="TruncatingFraction">Fraction of mutations that are truncating/inactivating, in [0, 1].</param>
+    /// <param name="RecurrentMissenseFraction">Fraction of mutations that are missense at a recurrent position, in [0, 1].</param>
+    /// <param name="MutationCount">Total number of mutations considered (the denominator).</param>
+    public readonly record struct DriverGeneClassification(
+        string Gene,
+        DriverGeneRole Role,
+        double TruncatingFraction,
+        double RecurrentMissenseFraction,
+        int MutationCount);
+
+    /// <summary>
+    /// Classifies a single gene by the Vogelstein 20/20 rule from its observed coding mutations. The gene is
+    /// an <see cref="DriverGeneRole.Oncogene"/> when more than 20% of its mutations are missense at recurrent
+    /// positions (a position observed ≥ <see cref="RecurrentPositionMinCount"/> times), and a
+    /// <see cref="DriverGeneRole.TumorSuppressor"/> when more than 20% of its mutations are truncating
+    /// (nonsense, frameshift, or splice-site). If both criteria are met the dominant fraction decides; an exact
+    /// tie or neither criterion met yields <see cref="DriverGeneRole.Ambiguous"/>.
+    /// Source: Vogelstein et al. (2013); Tokheim &amp; Karchin (2020); Schroeder et al. (2014); Miller et al. (2017).
+    /// </summary>
+    /// <param name="mutations">All coding mutations observed in one gene.</param>
+    /// <returns>The gene's 20/20-rule classification with its criterion fractions.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    public static DriverGeneClassification ClassifyGene(IEnumerable<GeneMutation> mutations)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+
+        var list = mutations as IReadOnlyList<GeneMutation> ?? mutations.ToList();
+        int total = list.Count;
+        string gene = total > 0 ? list[0].Gene : string.Empty;
+
+        if (total == 0)
+        {
+            return new DriverGeneClassification(gene, DriverGeneRole.Ambiguous, 0.0, 0.0, 0);
+        }
+
+        int truncating = list.Count(IsTruncating);
+        int recurrentMissense = CountRecurrentMissense(list);
+
+        double truncatingFraction = (double)truncating / total;
+        double recurrentMissenseFraction = (double)recurrentMissense / total;
+
+        bool isTsg = truncatingFraction > DriverGeneFractionThreshold;
+        bool isOg = recurrentMissenseFraction > DriverGeneFractionThreshold;
+
+        DriverGeneRole role;
+        if (isTsg && isOg)
+        {
+            // Both criteria pass (atypical per Vogelstein 2013 — well-documented genes far surpass one
+            // criterion). Resolve by the dominant signal; an exact tie is genuinely ambiguous.
+            role = truncatingFraction > recurrentMissenseFraction ? DriverGeneRole.TumorSuppressor
+                 : recurrentMissenseFraction > truncatingFraction ? DriverGeneRole.Oncogene
+                 : DriverGeneRole.Ambiguous;
+        }
+        else if (isTsg)
+        {
+            role = DriverGeneRole.TumorSuppressor;
+        }
+        else if (isOg)
+        {
+            role = DriverGeneRole.Oncogene;
+        }
+        else
+        {
+            role = DriverGeneRole.Ambiguous;
+        }
+
+        return new DriverGeneClassification(gene, role, truncatingFraction, recurrentMissenseFraction, total);
+    }
+
+    /// <summary>
+    /// Computes the 20/20-rule driver-signal score for a gene: the larger of its truncating fraction and its
+    /// recurrent-missense fraction, in [0, 1]. This is the transparent, source-derived strength of the driver
+    /// signal underlying <see cref="ClassifyGene"/>; it is NOT an external pathogenicity model (CADD/SIFT/
+    /// PolyPhen), which are caller-supplied / not implemented. Source: Vogelstein et al. (2013) 20/20 rule.
+    /// </summary>
+    /// <param name="mutations">All coding mutations observed in one gene.</param>
+    /// <returns>max(truncating fraction, recurrent-missense fraction), in [0, 1].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    public static double ScoreDriverPotential(IEnumerable<GeneMutation> mutations)
+    {
+        var c = ClassifyGene(mutations);
+        return Math.Max(c.TruncatingFraction, c.RecurrentMissenseFraction);
+    }
+
+    /// <summary>
+    /// Tests whether a mutation's (gene, protein position) is present in a caller-supplied set of known
+    /// cancer hotspot positions. The 20/20 rule treats recurrent positions as the activating signal of
+    /// oncogenes (Miller et al. 2017); curated hotspot catalogs (COSMIC, Cancer Hotspots, OncoKB) are
+    /// supplied by the caller rather than hardcoded, since they cannot be reproduced authoritatively here.
+    /// </summary>
+    /// <param name="mutation">The mutation to test.</param>
+    /// <param name="knownHotspots">Set of known hotspots as (gene, protein position) pairs.</param>
+    /// <returns><c>true</c> when (gene, position) is in <paramref name="knownHotspots"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="knownHotspots"/> is null.</exception>
+    public static bool MatchCancerHotspots(
+        GeneMutation mutation,
+        IReadOnlySet<(string Gene, int ProteinPosition)> knownHotspots)
+    {
+        ArgumentNullException.ThrowIfNull(knownHotspots);
+        return knownHotspots.Contains((mutation.Gene, mutation.ProteinPosition));
+    }
+
+    /// <summary>
+    /// Identifies driver mutations across a set of somatic coding mutations by applying the 20/20 rule
+    /// per gene: a mutation is a driver if its gene classifies as an <see cref="DriverGeneRole.Oncogene"/>
+    /// or <see cref="DriverGeneRole.TumorSuppressor"/>, OR if its (gene, position) is a known hotspot in
+    /// <paramref name="knownHotspots"/>. The returned mutations are always a subset of the input, in input
+    /// order (invariant: driver_mutations ⊆ somatic_mutations). Source: Vogelstein et al. (2013); Miller
+    /// et al. (2017).
+    /// </summary>
+    /// <param name="mutations">Somatic coding mutations (one entry per observed mutation).</param>
+    /// <param name="knownHotspots">Optional caller-supplied hotspot set; null is treated as empty.</param>
+    /// <returns>The subset of input mutations that fall in a driver gene or at a known hotspot.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mutations"/> is null.</exception>
+    public static IReadOnlyList<GeneMutation> IdentifyDriverMutations(
+        IEnumerable<GeneMutation> mutations,
+        IReadOnlySet<(string Gene, int ProteinPosition)>? knownHotspots = null)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+
+        var list = mutations as IReadOnlyList<GeneMutation> ?? mutations.ToList();
+        var hotspots = knownHotspots ?? EmptyHotspots;
+
+        // Classify each gene once from its full mutation spectrum.
+        var driverGenes = new HashSet<string>();
+        foreach (var byGene in list.GroupBy(m => m.Gene, StringComparer.Ordinal))
+        {
+            if (ClassifyGene(byGene).Role != DriverGeneRole.Ambiguous)
+            {
+                driverGenes.Add(byGene.Key);
+            }
+        }
+
+        var drivers = new List<GeneMutation>();
+        foreach (var mutation in list)
+        {
+            if (driverGenes.Contains(mutation.Gene) || hotspots.Contains((mutation.Gene, mutation.ProteinPosition)))
+            {
+                drivers.Add(mutation);
+            }
+        }
+
+        return drivers;
+    }
+
+    private static readonly IReadOnlySet<(string Gene, int ProteinPosition)> EmptyHotspots =
+        new HashSet<(string, int)>();
+
+    private static bool IsTruncating(GeneMutation mutation) =>
+        mutation.Consequence is MutationConsequence.Nonsense
+            or MutationConsequence.Frameshift
+            or MutationConsequence.SpliceSite;
+
+    /// <summary>
+    /// Counts mutations that are missense AND located at a recurrent position (a protein position carrying
+    /// ≥ <see cref="RecurrentPositionMinCount"/> missense mutations), per Miller et al. (2017).
+    /// </summary>
+    private static int CountRecurrentMissense(IReadOnlyList<GeneMutation> mutations)
+    {
+        var missenseByPosition = new Dictionary<int, int>();
+        foreach (var mutation in mutations)
+        {
+            if (mutation.Consequence == MutationConsequence.Missense)
+            {
+                missenseByPosition.TryGetValue(mutation.ProteinPosition, out int count);
+                missenseByPosition[mutation.ProteinPosition] = count + 1;
+            }
+        }
+
+        int recurrent = 0;
+        foreach (var positionCount in missenseByPosition.Values)
+        {
+            if (positionCount >= RecurrentPositionMinCount)
+            {
+                recurrent += positionCount;
+            }
+        }
+
+        return recurrent;
+    }
+
+    #endregion
 }

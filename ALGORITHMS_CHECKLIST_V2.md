@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 195 |
+| **Completed** | 196 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 39 |
+| **Not Started** | 38 |
 
 ---
 
@@ -223,7 +223,7 @@
 | ☑ | GENOMIC-ORF-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-ORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-ORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) |
 | ☑ | ONCO-SOMATIC-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SOMATIC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SOMATIC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) |
 | ☑ | ONCO-VAF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-VAF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-VAF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) |
-| ☐ | ONCO-DRIVER-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-DRIVER-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-DRIVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-DRIVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyDriverMutations_Tests.cs) |
 | ☐ | ONCO-ARTIFACT-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-ANNOT-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-TMB-001 | Oncology | 2 | - | - | - |
@@ -3892,7 +3892,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 ---
 
-#### ONCO-DRIVER-001: Driver Mutation Detection
+#### ☑ ONCO-DRIVER-001: Driver Mutation Detection
 
 | Field | Value |
 |------|----------|
