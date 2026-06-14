@@ -1021,11 +1021,10 @@ public class AnalysisTools
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
     [Description("Predicts replication origin and terminus from cumulative GC skew extrema. Best on complete circular bacterial genomes.")]
     public static PredictReplicationOriginResult PredictReplicationOrigin(
-        [Description("DNA sequence (ideally complete circular genome).")] string sequence,
-        [Description("Window size (default 1000).")] int windowSize = 1000)
+        [Description("DNA sequence (ideally complete circular genome).")] string sequence)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.PredictReplicationOrigin(dna, windowSize);
+        var r = GcSkewCalculator.PredictReplicationOrigin(dna);
         return new PredictReplicationOriginResult(
             r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant);
     }

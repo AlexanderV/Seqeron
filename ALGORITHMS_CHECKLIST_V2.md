@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 180 |
+| **Completed** | 181 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 54 |
+| **Not Started** | 53 |
 
 ---
 
@@ -208,7 +208,7 @@
 | ☑ | KMER-POSITIONS-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-POSITIONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-POSITIONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindKmerPositions_Tests.cs) |
 | ☑ | SEQ-ATSKEW-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-ATSKEW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-ATSKEW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_CalculateAtSkew_Tests.cs) |
 | ☑ | SEQ-REPLICATION-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-REPLICATION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-REPLICATION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) |
-| ☐ | SEQ-GC-ANALYSIS-001 | Composition | 1 | - | - | - |
+| ☑ | SEQ-GC-ANALYSIS-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-ANALYSIS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) |
 | ☐ | DISORDER-MORF-001 | ProteinPred | 1 | - | - | - |
 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | - | - | - |
 | ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |

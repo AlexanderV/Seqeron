@@ -290,21 +290,57 @@ public static class GcSkewCalculator
     #region Comprehensive GC Analysis
 
     /// <summary>
-    /// Gets comprehensive GC analysis including skew, content, and variability.
+    /// Gets comprehensive GC analysis including overall GC content, GC skew, AT skew, sliding-window
+    /// GC-skew/GC-content profiles, and the compositional variability of those windows.
     /// </summary>
+    /// <remarks>
+    /// Combines the per-metric definitions used elsewhere in this class:
+    /// GC content = (G+C)/(A+T+G+C)·100 (Madigan &amp; Martinko, <i>Brock Biology of Microorganisms</i>,
+    /// via Wikipedia "GC-content"); GC skew = (G−C)/(G+C) and AT skew = (A−T)/(A+T) (Lobry 1996;
+    /// Charneski et al. 2011). "Variability" is the <b>population</b> variance σ² = Σ(xᵢ−μ)²/N of the
+    /// per-window values (the windows form the complete population for this sequence; cf. the
+    /// population-variance definition Σ(x−μ)²/N). When the sequence is shorter than the window no full
+    /// window exists, so the windowed lists are empty and both window-derived variances are 0; the
+    /// overall scalar metrics are still computed over the whole sequence.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="windowSize">Sliding-window length for the profiles (default: 1000).</param>
+    /// <param name="stepSize">Step between window starts (default: 100).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static GcAnalysisResult AnalyzeGcContent(
         DnaSequence sequence,
         int windowSize = 1000,
         int stepSize = 100)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return AnalyzeGcContentCore(sequence.Sequence, windowSize, stepSize);
+    }
 
-        var windowedSkew = CalculateWindowedGcSkewCore(sequence.Sequence, windowSize, stepSize).ToList();
-        var windowedContent = CalculateWindowedGcContentCore(sequence.Sequence, windowSize, stepSize).ToList();
+    /// <summary>
+    /// Gets comprehensive GC analysis from a raw sequence string. Counting is case-insensitive; only
+    /// A/T/G/C contribute to the metrics, other symbols are ignored. Returns a zero result with empty
+    /// windowed profiles for null/empty input.
+    /// </summary>
+    /// <remarks>See <see cref="AnalyzeGcContent(DnaSequence,int,int)"/> for the formulas and conventions.</remarks>
+    public static GcAnalysisResult AnalyzeGcContent(
+        string sequence,
+        int windowSize = 1000,
+        int stepSize = 100)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return new GcAnalysisResult(0, 0, 0, 0, 0, Array.Empty<GcSkewPoint>(), Array.Empty<GcContentPoint>(), 0);
 
-        double overallGcContent = CalculateGcContent(sequence.Sequence);
-        double overallGcSkew = CalculateGcSkewCore(sequence.Sequence);
-        double overallAtSkew = CalculateAtSkewCore(sequence.Sequence);
+        return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize);
+    }
+
+    private static GcAnalysisResult AnalyzeGcContentCore(string seq, int windowSize, int stepSize)
+    {
+        var windowedSkew = CalculateWindowedGcSkewCore(seq, windowSize, stepSize).ToList();
+        var windowedContent = CalculateWindowedGcContentCore(seq, windowSize, stepSize).ToList();
+
+        double overallGcContent = CalculateGcContent(seq);
+        double overallGcSkew = CalculateGcSkewCore(seq);
+        double overallAtSkew = CalculateAtSkewCore(seq);
 
         double gcContentVariance = windowedContent.Count > 0
             ? CalculateVariance(windowedContent.Select(w => w.GcContent).ToList())
@@ -322,7 +358,7 @@ public static class GcSkewCalculator
             GcSkewVariance: gcSkewVariance,
             WindowedGcSkew: windowedSkew,
             WindowedGcContent: windowedContent,
-            SequenceLength: sequence.Length);
+            SequenceLength: seq.Length);
     }
 
     private static IEnumerable<GcContentPoint> CalculateWindowedGcContentCore(
@@ -343,13 +379,20 @@ public static class GcSkewCalculator
         }
     }
 
+    // GC content as a percentage of all bases: GC% = (G+C)/(A+T+G+C)·100
+    // per Madigan & Martinko, Brock Biology of Microorganisms (via Wikipedia "GC-content").
+    private const double PercentScale = 100.0;
+
     private static double CalculateGcContent(string seq)
     {
         if (string.IsNullOrEmpty(seq)) return 0;
         int gcCount = seq.Count(c => c is 'G' or 'C');
-        return (double)gcCount / seq.Length * 100;
+        return (double)gcCount / seq.Length * PercentScale;
     }
 
+    // Population variance σ² = Σ(xᵢ−μ)²/N (division by N, not Bessel-corrected N−1):
+    // the windows are the complete population for this sequence. Population-variance definition
+    // Σ(x−μ)²/N (Cuemath "Population Variance"; worked example {12,13,12,14,19} -> 6.8).
     private static double CalculateVariance(IList<double> values)
     {
         if (values.Count == 0) return 0;
