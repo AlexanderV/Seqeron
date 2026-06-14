@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 163 |
+| **Completed** | 164 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 71 |
+| **Not Started** | 70 |
 
 ---
 
@@ -191,7 +191,7 @@
 | ☑ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | [Evidence](docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-DUST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) |
 | ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) |
 | ☑ | COMPGEN-RBH-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-RBH-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-RBH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) |
-| ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
+| ☑ | COMPGEN-COMPARE-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-COMPARE-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-COMPARE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CompareGenomes_Tests.cs) |
 | ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
 | ☐ | COMPGEN-ANI-001 | Comparative | 1 | - | - | - |

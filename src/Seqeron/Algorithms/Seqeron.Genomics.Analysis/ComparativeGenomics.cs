@@ -722,16 +722,56 @@ public static class ComparativeGenomics
         return rearrangement.Type;
     }
 
+    // --- CompareGenomes: pan-genome partition (Tettelin et al. 2005) + syntenic-gene fraction ---
+    // Tettelin H, et al. (2005) PNAS 102(39):13950–13955, https://doi.org/10.1073/pnas.0506758102:
+    // the species pan-genome = "a core genome containing genes present in all strains" plus
+    // "a dispensable genome composed of genes absent from one or more strains and genes that are
+    // unique to each strain." For two genomes: a gene that has an ortholog in the other genome is
+    // CORE (conserved); a gene with no ortholog is DISPENSABLE (genome-specific). Shared genes are
+    // found as reciprocal best hits (Moreno-Hagelsieb & Latimer 2008). OverallSynteny is the
+    // "fraction of syntenic genes" (genes inside syntenic blocks ÷ smaller genome size), a standard
+    // synteny-conservation metric, clamped to ≤ 1.
+
+    /// <summary>Default RBH minimum similarity for the conserved-gene gate (inherited from FindReciprocalBestHits / COMPGEN-RBH-001).</summary>
+    private const double DefaultCompareMinIdentity = DefaultMinIdentity;
+
     /// <summary>
-    /// Performs comprehensive comparative analysis between two genomes.
+    /// Default minimum collinear anchors per syntenic block used by CompareGenomes.
+    /// Passed to FindSyntenicBlocks as minAnchors; note MCScanX still enforces the score ≥ 250
+    /// (≥ 5 anchors) report rule, so OverallSynteny is non-zero only for ≥ 5 collinear orthologs.
     /// </summary>
+    private const int DefaultCompareMinSyntenicBlockSize = 3;
+
+    /// <summary>A fraction (e.g. OverallSynteny) cannot exceed 1.0.</summary>
+    private const double MaxFraction = 1.0;
+
+    /// <summary>
+    /// Performs comprehensive two-genome comparison. Partitions genes into the <b>core (conserved)</b>
+    /// set and each genome's <b>dispensable (genome-specific)</b> set following the pan-genome model of
+    /// Tettelin et al. (2005, <i>PNAS</i> 102(39):13950–13955): a gene with an ortholog in the other
+    /// genome is core; a gene with no ortholog is genome-specific. Shared genes are reciprocal best hits
+    /// (Moreno-Hagelsieb &amp; Latimer 2008). <see cref="ComparisonResult.OverallSynteny"/> is the
+    /// fraction of syntenic genes — genes inside syntenic blocks divided by the smaller genome's gene
+    /// count, clamped to ≤ 1. Orthologs, syntenic blocks, and rearrangements are produced by the
+    /// validated sub-methods (<see cref="FindReciprocalBestHits"/>, <see cref="FindSyntenicBlocks"/>,
+    /// <see cref="DetectRearrangements"/>).
+    /// </summary>
+    /// <param name="genome1Genes">Genes of genome 1 in chromosomal order (each carrying a sequence for ortholog detection).</param>
+    /// <param name="genome2Genes">Genes of genome 2 in chromosomal order.</param>
+    /// <param name="minOrthologIdentity">Minimum RBH similarity for a conserved (shared) gene.</param>
+    /// <param name="minSyntenicBlockSize">Minimum collinear anchors per syntenic block (see remarks on the MCScanX score threshold).</param>
+    /// <returns>The comparison result: syntenic blocks, ortholog pairs, rearrangements, overall synteny, and the core/dispensable gene partition.</returns>
+    /// <exception cref="ArgumentNullException">Either gene list is null.</exception>
     public static ComparisonResult CompareGenomes(
         IReadOnlyList<Gene> genome1Genes,
         IReadOnlyList<Gene> genome2Genes,
-        double minOrthologIdentity = 0.3,
-        int minSyntenicBlockSize = 3)
+        double minOrthologIdentity = DefaultCompareMinIdentity,
+        int minSyntenicBlockSize = DefaultCompareMinSyntenicBlockSize)
     {
-        // Find orthologs
+        ArgumentNullException.ThrowIfNull(genome1Genes);
+        ArgumentNullException.ThrowIfNull(genome2Genes);
+
+        // Find orthologs (the shared/core genes) as reciprocal best hits.
         var orthologs = FindReciprocalBestHits(genome1Genes, genome2Genes, minOrthologIdentity).ToList();
 
         // Build ortholog map
@@ -744,22 +784,26 @@ public static class ComparativeGenomics
         // Detect rearrangements
         var rearrangements = DetectRearrangements(genome1Genes, genome2Genes, orthologMap).ToList();
 
-        // Calculate statistics
+        // Pan-genome partition (Tettelin et al. 2005): core = genes with an ortholog in the other
+        // genome; dispensable/genome-specific = genes with no ortholog. The RBH matching maps each
+        // gene at most once, so core + specific = genome size for each genome.
         var orthologGenes1 = new HashSet<string>(orthologs.Select(o => o.Gene1Id));
         var orthologGenes2 = new HashSet<string>(orthologs.Select(o => o.Gene2Id));
 
         int specific1 = genome1Genes.Count(g => !orthologGenes1.Contains(g.Id));
         int specific2 = genome2Genes.Count(g => !orthologGenes2.Contains(g.Id));
 
-        double synteny = syntenicBlocks.Count > 0
-            ? (double)syntenicBlocks.Sum(b => b.GeneCount) / Math.Min(genome1Genes.Count, genome2Genes.Count)
+        // OverallSynteny = fraction of syntenic genes = genes inside syntenic blocks ÷ smaller genome.
+        int smallerGenome = Math.Min(genome1Genes.Count, genome2Genes.Count);
+        double synteny = syntenicBlocks.Count > 0 && smallerGenome > 0
+            ? (double)syntenicBlocks.Sum(b => b.GeneCount) / smallerGenome
             : 0;
 
         return new ComparisonResult(
             SyntenicBlocks: syntenicBlocks,
             Orthologs: orthologs,
             Rearrangements: rearrangements,
-            OverallSynteny: Math.Min(1.0, synteny),
+            OverallSynteny: Math.Min(MaxFraction, synteny),
             ConservedGenes: orthologs.Count,
             GenomeSpecificGenes1: specific1,
             GenomeSpecificGenes2: specific2);

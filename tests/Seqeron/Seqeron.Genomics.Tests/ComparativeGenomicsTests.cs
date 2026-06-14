@@ -23,29 +23,6 @@ public class ComparativeGenomicsTests
         };
     }
 
-    private static List<ComparativeGenomics.Gene> CreateTestGenome2()
-    {
-        return new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "ATGCATGCATGC"), // Ortholog of gene1
-            new("geneB", "genome2", 150, 250, '+', "GCTAGCTAGCTA"), // Ortholog of gene2
-            new("geneC", "genome2", 300, 400, '+', "TATATATATAT"), // Ortholog of gene3
-            new("geneD", "genome2", 450, 550, '+', "CGCGCGCGCG"), // Ortholog of gene4
-            new("geneE", "genome2", 600, 700, '+', "GGGGTTTTAAAA"), // Different from gene5
-        };
-    }
-
-    private static Dictionary<string, string> CreateOrthologMap()
-    {
-        return new Dictionary<string, string>
-        {
-            { "gene1", "geneA" },
-            { "gene2", "geneB" },
-            { "gene3", "geneC" },
-            { "gene4", "geneD" },
-        };
-    }
-
     #endregion
 
     // NOTE: FindSyntenicBlocks tests moved to the canonical unit file
@@ -61,56 +38,9 @@ public class ComparativeGenomicsTests
     // (COMPGEN-REARR-001), which tests the corrected breakpoint-based behavior with exact
     // evidence-derived counts. The prior permissive heuristic tests were removed there.
 
-    #region CompareGenomes Tests
-
-    [Test]
-    public void CompareGenomes_SimilarGenomes_ReturnsComprehensiveResult()
-    {
-        var genome1 = CreateTestGenome1();
-        var genome2 = CreateTestGenome2();
-
-        var result = ComparativeGenomics.CompareGenomes(genome1, genome2, minOrthologIdentity: 0.3);
-
-        Assert.That(result.ConservedGenes, Is.GreaterThan(0));
-        Assert.That(result.Orthologs.Count, Is.GreaterThan(0));
-        Assert.That(result.OverallSynteny, Is.GreaterThanOrEqualTo(0));
-    }
-
-    [Test]
-    public void CompareGenomes_EmptyGenomes_HandlesGracefully()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>();
-        var genome2 = new List<ComparativeGenomics.Gene>();
-
-        var result = ComparativeGenomics.CompareGenomes(genome1, genome2);
-
-        Assert.That(result.ConservedGenes, Is.EqualTo(0));
-        Assert.That(result.GenomeSpecificGenes1, Is.EqualTo(0));
-        Assert.That(result.GenomeSpecificGenes2, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void CompareGenomes_CompletelyDifferent_ReturnsNoConservation()
-    {
-        var genome1 = new List<ComparativeGenomics.Gene>
-        {
-            new("gene1", "genome1", 0, 100, '+', "AAAAAAAAAAAAAAAAAAAAAAAAA"),
-            new("gene2", "genome1", 150, 250, '+', "AAAAAAAAAAAAAAAAAAAAAAAA"),
-        };
-        var genome2 = new List<ComparativeGenomics.Gene>
-        {
-            new("geneA", "genome2", 0, 100, '+', "TTTTTTTTTTTTTTTTTTTTTTTTT"),
-            new("geneB", "genome2", 150, 250, '+', "TTTTTTTTTTTTTTTTTTTTTTTT"),
-        };
-
-        var result = ComparativeGenomics.CompareGenomes(genome1, genome2);
-
-        Assert.That(result.ConservedGenes, Is.EqualTo(0));
-        Assert.That(result.GenomeSpecificGenes1, Is.EqualTo(2));
-        Assert.That(result.GenomeSpecificGenes2, Is.EqualTo(2));
-    }
-
-    #endregion
+    // CompareGenomes tests moved to the canonical unit file
+    // ComparativeGenomics_CompareGenomes_Tests.cs (COMPGEN-COMPARE-001): evidence-based
+    // core/dispensable partition and syntenic-gene fraction with exact expected values.
 
     #region CalculateReversalDistance Tests
 
