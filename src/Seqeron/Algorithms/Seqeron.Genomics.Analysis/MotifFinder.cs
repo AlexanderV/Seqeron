@@ -436,9 +436,22 @@ public static class MotifFinder
         return consensus.ToString();
     }
 
+    /// <summary>
+    /// Minimum column frequency (as a fraction of the number of aligned sequences) a base must
+    /// exceed to be included in the position's IUPAC degeneracy code. The "combine the bases
+    /// that pass a frequency threshold into the IUPAC symbol for that set" rule is the standard
+    /// threshold-consensus mechanism (Bioconductor DECIPHER <c>ConsensusSequence</c>: "removes
+    /// the least frequent characters … so long as they represent less than <c>threshold</c> …");
+    /// the set→symbol mapping itself follows NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The
+    /// 0.25 cut and strict '&gt;' boundary are this implementation's documented design constant
+    /// (a base must be present in more than a quarter of the sequences). See
+    /// docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
+    /// </summary>
+    private const double IupacInclusionThreshold = 0.25;
+
     private static char GetIupacCode(Dictionary<char, int> counts, int total)
     {
-        double threshold = total * 0.25; // Base must be > 25% to be included
+        double threshold = total * IupacInclusionThreshold; // base count must be strictly > threshold
 
         var present = counts.Where(kv => kv.Value > threshold)
                            .Select(kv => kv.Key)

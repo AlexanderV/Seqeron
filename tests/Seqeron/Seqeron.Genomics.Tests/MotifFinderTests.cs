@@ -119,49 +119,8 @@ public class MotifFinderTests
 
     #endregion
 
-    #region Consensus Sequence Tests
-
-    [Test]
-    public void GenerateConsensus_IdenticalSequences_ReturnsSame()
-    {
-        var sequences = new[] { "ATGC", "ATGC", "ATGC" };
-        string consensus = MotifFinder.GenerateConsensus(sequences);
-
-        Assert.That(consensus, Is.EqualTo("ATGC"));
-    }
-
-    [Test]
-    public void GenerateConsensus_MixedBases_ReturnsIupac()
-    {
-        var sequences = new[] { "ATGC", "GTGC" }; // First position: A and G = R
-        string consensus = MotifFinder.GenerateConsensus(sequences);
-
-        Assert.That(consensus[0], Is.EqualTo('R').Or.EqualTo('A').Or.EqualTo('G'));
-    }
-
-    [Test]
-    public void GenerateConsensus_Empty_ReturnsEmpty()
-    {
-        var sequences = Array.Empty<string>();
-        string consensus = MotifFinder.GenerateConsensus(sequences);
-
-        Assert.That(consensus, Is.Empty);
-    }
-
-    [Test]
-    public void GenerateConsensus_AllDifferent_ReturnsMostCommon()
-    {
-        // When bases are equally distributed, the algorithm returns the most common one
-        // (alphabetically first if tied: A > C > G > T)
-        var sequences = new[] { "AAAA", "TTTT", "GGGG", "CCCC" };
-        string consensus = MotifFinder.GenerateConsensus(sequences);
-
-        // With 25% threshold, all bases are exactly at threshold, so it falls back to most common
-        Assert.That(consensus.Length, Is.EqualTo(4));
-        Assert.That(consensus, Does.Match("^[ACGTN]+$")); // Valid DNA chars
-    }
-
-    #endregion
+    // NOTE: GenerateConsensus tests are in the canonical file
+    // MotifFinder_GenerateConsensus_Tests.cs (MOTIF-GENERATE-001).
 
     // NOTE: DiscoverMotifs tests are in the canonical file
     // MotifFinder_DiscoverMotifs_Tests.cs (MOTIF-DISCOVER-001).
@@ -237,13 +196,6 @@ public class MotifFinderTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             MotifFinder.FindSharedMotifs(null!).ToList());
-    }
-
-    [Test]
-    public void GenerateConsensus_NullSequences_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            MotifFinder.GenerateConsensus(null!));
     }
 
     #endregion

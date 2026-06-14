@@ -259,63 +259,9 @@ public class MutationKillerTests
 
     #endregion
 
-    // ═══════════════════════════════════════════════════════════════════
-    // MotifFinder.cs — GenerateConsensus / GetIupacCode (Survived L355, 367, 369, 374, 375)
-    // ═══════════════════════════════════════════════════════════════════
-
-    #region MotifFinder — Consensus generation survivors
-
-    [Test]
-    public void GenerateConsensus_ThresholdBoundary_ExactlyAtQuarter()
-    {
-        // Kills L367: total * 0.25 → * (arithmetic), and L369: kv.Value > threshold → >=
-        // With 4 sequences, threshold = 4 * 0.25 = 1.0
-        // A base with count=1 (exactly at threshold) should NOT be present (> not >=)
-        // A base with count=2 should be present
-        var seqs = new[] { "AAAA", "AAGT", "AACT", "AATT" };
-        // Position 0: A=4 → 'A'
-        // Position 1: A=4 → 'A'
-        // Position 2: A=1,G=1,C=1,T=1 → all at exactly 1.0 = threshold → none > threshold → fallback to max
-        // Position 3: A=1,T=2,G=1 → T=2 > 1.0 → 'T' (only T passes threshold)
-        var consensus = MotifFinder.GenerateConsensus(seqs);
-
-        consensus.Should().HaveLength(4);
-        consensus[0].Should().Be('A'); // All A
-        consensus[1].Should().Be('A'); // All A
-        // Position 2: all counts=1, all at threshold, none > threshold → fallback to MaxBy
-        // Position 3: T(2) > 1.0 threshold → only T present → 'T'
-        consensus[3].Should().Be('T');
-    }
-
-    [Test]
-    public void GenerateConsensus_NoPresentBases_FallbackToMaxBy()
-    {
-        // Kills L374: present.Count != 0 → == 0, and L375: block removal mutation
-        // When all counts are equal (=threshold), none pass > threshold,
-        // present.Count == 0, so we take MaxBy
-        var seqs = new[] { "A", "C", "G", "T" };
-        // Each base has count=1, threshold=1.0, none > 1.0 → present is empty
-        // Should pick MaxBy(count) → first one in dictionary order
-        var consensus = MotifFinder.GenerateConsensus(seqs);
-
-        consensus.Should().HaveLength(1);
-        // Should not throw and should return a valid base
-        consensus[0].Should().BeOneOf('A', 'C', 'G', 'T');
-    }
-
-    [Test]
-    public void GenerateConsensus_TwoBases_ReturnsAmbiguityCode()
-    {
-        // Kills L355: Logical mutation on loop / L355: Equality mutation on boundary
-        // Two bases (A and G) each above threshold → R
-        var seqs = new[] { "A", "A", "A", "G", "G", "G" };
-        // A=3, G=3, threshold=6*0.25=1.5. Both > 1.5 → present={A,G} → "AG" → 'R'
-        var consensus = MotifFinder.GenerateConsensus(seqs);
-
-        consensus.Should().Be("R");
-    }
-
-    #endregion
+    // NOTE: GenerateConsensus / GetIupacCode mutation coverage lives in the canonical file
+    // MotifFinder_GenerateConsensus_Tests.cs (MOTIF-GENERATE-001), which pins the exact 25%
+    // threshold boundary, the no-pass fallback, and the NC-IUB set→symbol mapping.
 
     // ═══════════════════════════════════════════════════════════════════
     // MotifFinder.cs — DiscoverMotifs / FindSharedMotifs (Survived L418, 435, 467)

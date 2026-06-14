@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 171 |
+| **Completed** | 172 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 63 |
+| **Not Started** | 62 |
 
 ---
 
@@ -199,7 +199,7 @@
 | ☑ | MOTIF-DISCOVER-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-DISCOVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-DISCOVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_DiscoverMotifs_Tests.cs) |
 | ☑ | MOTIF-SHARED-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-SHARED-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-SHARED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindSharedMotifs_Tests.cs) |
 | ☑ | MOTIF-REGULATORY-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-REGULATORY-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-REGULATORY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindRegulatoryElements_Tests.cs) |
-| ☐ | MOTIF-GENERATE-001 | Matching | 1 | - | - | - |
+| ☑ | MOTIF-GENERATE-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_GenerateConsensus_Tests.cs) |
 | ☐ | KMER-ASYNC-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-UNIQUE-001 | K-mer | 1 | - | - | - |
 | ☐ | KMER-GENERATE-001 | K-mer | 1 | - | - | - |
@@ -3494,6 +3494,7 @@ See RNA-PAIR-001 Evidence/TestSpec.
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `MotifFinder.GenerateConsensus(...)` |
 | **Complexity** | O(n × m) |
 
