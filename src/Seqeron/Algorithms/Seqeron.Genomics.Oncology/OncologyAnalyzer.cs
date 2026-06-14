@@ -4404,4 +4404,117 @@ public static class OncologyAnalyzer
     };
 
     #endregion
+
+    #region Tumor Ploidy Estimation (ONCO-PLOIDY-001)
+
+    /// <summary>
+    /// Minimum major-allele copy number for a segment to count as "elevated" toward whole-genome doubling.
+    /// Source: facets-suite <c>is_genome_doubled</c> (<c>segs$mcn &gt;= 2</c>; PMID 30013179, Bielski et al.
+    /// 2018) — WGD is assessed on the major copy number, where <c>mcn = tcn - lcn</c>.
+    /// </summary>
+    private const int WholeGenomeDoublingMajorCopyNumber = 2;
+
+    /// <summary>
+    /// Genome fraction (by length) at major copy number ≥ 2 above which a tumour is called whole-genome doubled.
+    /// Source: facets-suite <c>is_genome_doubled(..., treshold = 0.5)</c> (PMID 30013179, Bielski et al. 2018):
+    /// <c>wgd = frac_elevated_mcn &gt; treshold</c> — strictly greater than half of the genome.
+    /// </summary>
+    private const double WholeGenomeDoublingFractionThreshold = 0.5;
+
+    /// <summary>
+    /// Estimates the average tumour ploidy ψ as the segment-length-weighted mean of per-segment total copy
+    /// number: ψ = Σ(CN_i · L_i) / Σ(L_i), where CN_i = MajorCopyNumber + MinorCopyNumber and L_i = End − Start.
+    /// Source: Patchwork (Genome Biology) — "The average ploidy, PloidyTum, is the average total copy number of
+    /// all genomic segments weighted by segment length"; the originating allele-specific method is ASCAT
+    /// (Van Loo et al., PNAS 2010, 10.1073/pnas.1009843107), which reports a final tumour ploidy on the n-scale
+    /// (2n = diploid). A pure-diploid (all 1:1) genome has ψ = 2.0; ">2.7n" marks aneuploidy (Van Loo et al.).
+    /// </summary>
+    /// <param name="segments">
+    /// Allele-specific copy-number segments (the <see cref="AlleleSpecificSegment"/> shared with ONCO-LOH-001 /
+    /// ONCO-HRD-001). Per-segment total copy number is Major + Minor; length is End − Start. Must not be null,
+    /// must be non-empty, and every segment must have End &gt; Start and non-negative copy numbers.
+    /// </param>
+    /// <returns>The length-weighted average ploidy ψ (&gt; 0 for any genome with at least one positive copy number).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="segments"/> is empty (ploidy is undefined for an empty genome), or a segment has
+    /// End ≤ Start or a negative copy number.
+    /// </exception>
+    public static double EstimatePloidy(IEnumerable<AlleleSpecificSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        double weightedCopyNumberSum = 0.0;
+        long totalLength = 0L;
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            long length = segment.Length;
+            int totalCopyNumber = segment.MajorCopyNumber + segment.MinorCopyNumber;
+            weightedCopyNumberSum += (double)totalCopyNumber * length;
+            totalLength += length;
+        }
+
+        if (totalLength == 0L)
+        {
+            throw new ArgumentException(
+                "Cannot estimate ploidy from an empty segment set (the length-weighted mean is undefined).",
+                nameof(segments));
+        }
+
+        // ψ = Σ(CN_i · L_i) / Σ(L_i) — Patchwork length-weighted mean of total copy number.
+        return weightedCopyNumberSum / totalLength;
+    }
+
+    /// <summary>
+    /// Determines whether a tumour genome has undergone whole-genome doubling (WGD). WGD is called when the
+    /// fraction of the genome (by segment length) with major-allele copy number ≥ 2 is strictly greater than
+    /// 0.5. Source: facets-suite <c>is_genome_doubled</c> (PMID 30013179, Bielski et al. 2018, Nat Genet
+    /// 50:1189–1195): <c>frac_elevated_mcn = Σ(length where mcn ≥ 2) / genome; wgd = frac_elevated_mcn &gt; 0.5</c>,
+    /// with <c>mcn = tcn − lcn</c> (the major-allele copy number). The test uses the major (not total) copy
+    /// number, so a balanced diploid genome (all 1:1, total CN 2, major CN 1) is NOT doubled, whereas a 2:0 LOH
+    /// or 2:2 genome IS.
+    /// </summary>
+    /// <param name="segments">
+    /// Allele-specific copy-number segments (<see cref="AlleleSpecificSegment"/>). The fraction denominator is
+    /// the total length of the supplied segments (the interrogated genome). Must not be null, must be non-empty,
+    /// and every segment must have End &gt; Start and non-negative copy numbers.
+    /// </param>
+    /// <returns><c>true</c> when more than half the genome (by length) has major copy number ≥ 2.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="segments"/> is empty (the fraction is undefined), or a segment has End ≤ Start or a
+    /// negative copy number.
+    /// </exception>
+    public static bool DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment> segments)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        long elevatedLength = 0L;
+        long totalLength = 0L;
+        foreach (AlleleSpecificSegment segment in segments)
+        {
+            ValidateSegment(segment);
+            long length = segment.Length;
+            totalLength += length;
+            // mcn = major-allele copy number; elevated when major CN ≥ 2 (facets-suite segs$mcn >= 2).
+            if (segment.MajorCopyNumber >= WholeGenomeDoublingMajorCopyNumber)
+            {
+                elevatedLength += length;
+            }
+        }
+
+        if (totalLength == 0L)
+        {
+            throw new ArgumentException(
+                "Cannot assess whole-genome doubling from an empty segment set (the genome fraction is undefined).",
+                nameof(segments));
+        }
+
+        // wgd = frac_elevated_mcn > 0.5 (strict) — facets-suite is_genome_doubled.
+        double fractionElevatedMajorCn = (double)elevatedLength / totalLength;
+        return fractionElevatedMajorCn > WholeGenomeDoublingFractionThreshold;
+    }
+
+    #endregion
 }

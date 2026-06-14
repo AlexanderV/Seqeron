@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 213 |
+| **Completed** | 214 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 21 |
+| **Not Started** | 20 |
 
 ---
 
@@ -241,7 +241,7 @@
 | ☑ | ONCO-CNA-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) |
 | ☑ | ONCO-CNA-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) |
 | ☑ | ONCO-PURITY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PURITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PURITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) |
-| ☐ | ONCO-PLOIDY-001 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
 | ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
 | ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
@@ -4380,20 +4380,29 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-PLOIDY-001: Tumor Ploidy Estimation
+#### ONCO-PLOIDY-001: Tumor Ploidy Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.EstimatePloidy(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimatePloidy(...)` |
 | **Complexity** | O(n) |
-| **Invariant** | ploidy > 0 |
-| **Depends on** | ONCO-CNA-001 |
+| **Invariant** | ploidy > 0; WGD ⇔ frac(major CN ≥ 2 by length) > 0.5 |
+| **Depends on** | ONCO-CNA-001 / ONCO-LOH-001 (`AlleleSpecificSegment`) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimatePloidy(cnvSegments)` | TumorAnalyzer | Canonical |
-| `DetectWholeGenomeDoubling(ploidy)` | TumorAnalyzer | WGD detection |
+| `EstimatePloidy(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — ψ = Σ(CN·L)/Σ(L), CN = Major+Minor (Patchwork/ASCAT) |
+| `DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — facets-suite rule: frac(major CN ≥ 2 by length) > 0.5 (Bielski 2018, PMID 30013179) |
+
+**Edge Cases:**
+- [x] Empty segment set → ArgumentException (weighted mean / fraction undefined)
+- [x] Segment End ≤ Start (non-positive length) → ArgumentException
+- [x] Negative copy number → ArgumentException
+- [x] All-1:1 genome → ψ = 2.0, WGD = false (major CN, not total)
+- [x] Exactly 50% major CN ≥ 2 → WGD = false (strict `>`)
+
+> Note: the registry stub listed `DetectWholeGenomeDoubling(ploidy)` (scalar) and class `TumorAnalyzer`. The authoritative WGD definition (major CN ≥ 2 over >50% of the genome, Bielski 2018 / facets-suite) requires per-segment data, so the canonical method takes segments; the area's analyzer class is `OncologyAnalyzer` (matching all sibling ONCO units).
 
 ---
 
