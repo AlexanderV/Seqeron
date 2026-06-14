@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 211 |
+| **Completed** | 212 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 23 |
+| **Not Started** | 22 |
 
 ---
 
@@ -239,7 +239,7 @@
 | ☑ | ONCO-FUSION-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) |
 | ☑ | ONCO-CNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) |
 | ☑ | ONCO-CNA-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) |
-| ☐ | ONCO-CNA-003 | Oncology | 2 | - | - | - |
+| ☑ | ONCO-CNA-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) |
 | ☐ | ONCO-PURITY-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-PLOIDY-001 | Oncology | 2 | - | - | - |
 | ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
@@ -4322,21 +4322,38 @@ ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences a
 
 ---
 
-#### ONCO-CNA-003: Homozygous Deletion Detection
+#### ONCO-CNA-003: Homozygous Deletion Detection ☑
+
+> **Scope note (resolved in implementation):** Placed in `OncologyAnalyzer` (consistent with
+> ONCO-CNA-001/002, which superseded the `CopyNumberAnalyzer` names). A segment is a homozygous
+> (deep) deletion when its hard-threshold integer copy number is 0 — total copy number 0, both
+> alleles lost — i.e. the cBioPortal "−2" Deep Deletion / DeepDeletion state, per Cheng et al.
+> (2017) "zero copies of both alleles" and CNVkit `absolute_threshold` integer-CN calling (reused
+> from ONCO-CNA-001). Tumour-suppressor mapping uses NCBI Gene cytogenetic arms. Reuses the
+> ONCO-CNA-002 `CopyNumberArmSegment`. Class-name conflict noted in TestSpec §7.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `CopyNumberAnalyzer.DetectHomozygousDeletions(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectHomozygousDeletions(segments, thresholds?, ploidy?)` |
 | **Complexity** | O(n) |
+| **Invariant** | reported iff integer CN = 0; single-copy (CN 1) loss never reported; order-preserving |
 | **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectHomozygousDeletions(segments)` | CopyNumberAnalyzer | Canonical |
-| `IdentifyDeletedTumorSuppressors(deletions)` | CopyNumberAnalyzer | Gene mapping |
+| `DetectHomozygousDeletions(segments, thresholds?, ploidy?)` | OncologyAnalyzer | Canonical (integer CN = 0) |
+| `IsHomozygousDeletion(segment, thresholds?, ploidy?)` | OncologyAnalyzer | Internal predicate |
+| `IdentifyDeletedTumorSuppressors(deletions)` | OncologyAnalyzer | Canonical (arm → TP53/RB1/CDKN2A/PTEN/BRCA1/BRCA2) |
 
-**Tumor Suppressors:** TP53, RB1, CDKN2A, PTEN, BRCA1/2
+**Tumor Suppressors:** TP53 (17p), RB1 (13q), CDKN2A (9p), PTEN (10q), BRCA1 (17q), BRCA2 (13q)
+
+**Edge Cases:**
+- [x] Single-copy / heterozygous loss (CN 1, cBioPortal −1) NOT reported as homozygous
+- [x] Boundary log2 exactly at deletion cutoff (−1.1) is CN 0 (homozygous); just above is CN 1
+- [x] NaN log2 no-call → neutral (CN = rounded ploidy), not homozygous
+- [x] Null / empty input and invalid arm length / coordinates validated
+- [x] Custom thresholds and ploidy shift the CN-0 boundary
 
 ---
 
@@ -5169,7 +5186,7 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
 | MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
 | OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑, ONCO-FUSION-002 ☑, ONCO-FUSION-003 ☑ | ● |
-| CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
+| CopyNumberAnalyzer (→ OncologyAnalyzer) | ONCO-CNA-001 ☑, ONCO-CNA-002 ☑, ONCO-CNA-003 ☑ | ☑ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
 | ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |

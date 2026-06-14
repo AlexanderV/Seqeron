@@ -4114,4 +4114,127 @@ public static class OncologyAnalyzer
     }
 
     #endregion
+
+    #region Homozygous Deletion Detection (ONCO-CNA-003)
+
+    /// <summary>
+    /// Integer copy number of a homozygous (deep) deletion: a region with zero copies of both alleles, i.e.
+    /// total/absolute copy number 0. Source: Cheng et al. (2017) Nat Commun 8:1221 — homozygous deletions are
+    /// "regions having zero copies of both alleles in the tumour cells"; cBioPortal discrete-CNA scale — "−2"
+    /// (Deep Deletion) is "a deep loss, possibly a homozygous deletion" (the deepest discrete loss), mapping to
+    /// the integer copy-number 0 (CNVkit <c>absolute_threshold</c> DEL(0), shared with ONCO-CNA-001).
+    /// </summary>
+    private const int HomozygousDeletionCopyNumber = 0;
+
+    /// <summary>
+    /// Tests whether an arm-anchored segment is a homozygous (deep) deletion: its hard-threshold integer copy
+    /// number is 0 (DeepDeletion). A single-copy loss (integer CN 1, cBioPortal "−1" shallow / heterozygous) is
+    /// NOT a homozygous deletion. Source: Cheng et al. (2017) (total CN 0 = both alleles lost); cBioPortal
+    /// (−2 = Deep Deletion); CNVkit <c>absolute_threshold</c> integer-CN calling (via <see cref="CallCopyNumber"/>).
+    /// </summary>
+    /// <param name="segment">The arm-anchored copy-number segment.</param>
+    /// <param name="thresholds">
+    /// Exactly four strictly ascending log2 cutoffs partitioning states 0/1/2/3/4+; null uses
+    /// <see cref="DefaultCopyNumberThresholds"/> (CNVkit −1.1, −0.25, 0.2, 0.7).
+    /// </param>
+    /// <param name="ploidy">Reference (germline) ploidy; 2 for an autosomal diploid genome.</param>
+    /// <returns><c>true</c> when the segment's integer copy number is 0.</returns>
+    /// <exception cref="ArgumentException"><paramref name="segment"/> has non-positive arm length or End ≤ Start; or invalid thresholds.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static bool IsHomozygousDeletion(
+        in CopyNumberArmSegment segment,
+        IReadOnlyList<double>? thresholds = null,
+        double ploidy = DiploidReferencePloidy)
+    {
+        ValidateArmSegment(segment);
+        return CallCopyNumber(segment.Log2Ratio, thresholds, ploidy) == HomozygousDeletionCopyNumber;
+    }
+
+    /// <summary>
+    /// Detects homozygous (deep) deletions among arm-anchored copy-number segments. A segment is reported when
+    /// its hard-threshold integer copy number is 0 — total copy number 0, i.e. both alleles lost — which is the
+    /// cBioPortal "−2" Deep Deletion / DeepDeletion state. Single-copy (heterozygous) losses, neutral, gain and
+    /// amplification segments are excluded. The result is a subset of the input in input order (order-preserving
+    /// filter). Source: Cheng et al. (2017) Nat Commun 8:1221 (homozygous = zero copies of both alleles);
+    /// cBioPortal discrete-CNA scale; CNVkit <c>absolute_threshold</c> integer-CN calling.
+    /// </summary>
+    /// <param name="segments">Arm-anchored copy-number segments. Must not be null.</param>
+    /// <param name="thresholds">Four strictly ascending log2 cutoffs; null uses CNVkit defaults (−1.1, −0.25, 0.2, 0.7).</param>
+    /// <param name="ploidy">Reference (germline) ploidy; 2 for an autosomal diploid genome.</param>
+    /// <returns>The homozygous-deletion segments, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="segments"/> is null.</exception>
+    /// <exception cref="ArgumentException">A segment has non-positive arm length or End ≤ Start; or invalid thresholds.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="ploidy"/> is not positive.</exception>
+    public static IReadOnlyList<CopyNumberArmSegment> DetectHomozygousDeletions(
+        IEnumerable<CopyNumberArmSegment> segments,
+        IReadOnlyList<double>? thresholds = null,
+        double ploidy = DiploidReferencePloidy)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        var result = new List<CopyNumberArmSegment>();
+        foreach (CopyNumberArmSegment segment in segments)
+        {
+            if (IsHomozygousDeletion(segment, thresholds, ploidy))
+            {
+                result.Add(segment);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Maps homozygous-deletion segments to the recurrently deleted tumour suppressors resident on their
+    /// chromosome arms. Each gene is reported once if any homozygous deletion falls on its arm. The panel and
+    /// arms are: TP53 (17p), RB1 (13q), CDKN2A (9p), PTEN (10q), BRCA1 (17q), BRCA2 (13q). Source: NCBI Gene
+    /// cytogenetic locations — TP53 17p13.1, RB1 13q14.2, CDKN2A 9p21.3, PTEN 10q23.31, BRCA1 17q21.31,
+    /// BRCA2 13q13.1; tumour-suppressor role of recurrent homozygous deletions per Cheng et al. (2017).
+    /// </summary>
+    /// <param name="deletions">Homozygous deletions (typically the output of <see cref="DetectHomozygousDeletions"/>).</param>
+    /// <returns>Distinct tumour-suppressor symbols whose arm carries a homozygous deletion, in panel order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="deletions"/> is null.</exception>
+    public static IReadOnlyList<string> IdentifyDeletedTumorSuppressors(
+        IEnumerable<CopyNumberArmSegment> deletions)
+    {
+        ArgumentNullException.ThrowIfNull(deletions);
+
+        var deletedArms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (CopyNumberArmSegment segment in deletions)
+        {
+            if (!string.IsNullOrEmpty(segment.Arm))
+            {
+                deletedArms.Add(segment.Arm);
+            }
+        }
+
+        var genes = new List<string>();
+        foreach ((string gene, string arm) in TumorSuppressorArms)
+        {
+            if (deletedArms.Contains(arm))
+            {
+                genes.Add(gene);
+            }
+        }
+
+        return genes;
+    }
+
+    /// <summary>
+    /// Recurrently deleted tumour suppressors and their chromosome arms (chromosome + arm letter), from NCBI
+    /// Gene cytogenetic locations. Order is the registry panel order. Source: NCBI Gene — TP53 17p13.1 (Gene ID
+    /// 7157), RB1 13q14.2 (5925), CDKN2A 9p21.3 (1029), PTEN 10q23.31 (5728), BRCA1 17q21.31 (672), BRCA2
+    /// 13q13.1 (675).
+    /// </summary>
+    private static readonly IReadOnlyList<(string Gene, string Arm)> TumorSuppressorArms = new[]
+    {
+        ("TP53", "17p"),
+        ("RB1", "13q"),
+        ("CDKN2A", "9p"),
+        ("PTEN", "10q"),
+        ("BRCA1", "17q"),
+        ("BRCA2", "13q"),
+    };
+
+    #endregion
 }
