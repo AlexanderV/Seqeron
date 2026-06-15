@@ -182,3 +182,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 57 | ANNOT-CODING-001 | Annotation | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 58 | ANNOT-REPEAT-001 | Annotation | ✅ | ❌→✅ | ✅ CLEAN | - |
 | 59 | ANNOT-CODONUSAGE-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | - |
+| 60 | RESTR-FILTER-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | - |

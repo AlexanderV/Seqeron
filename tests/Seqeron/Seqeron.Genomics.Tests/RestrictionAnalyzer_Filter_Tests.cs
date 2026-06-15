@@ -53,6 +53,34 @@ public class RestrictionAnalyzer_Filter_Tests
             "A blunt cutter must cut both strands at the same position (Wikipedia, Restriction enzyme)");
     }
 
+    // M1 — EXACT blunt-cutter set. Every name below is the documented center-cut (blunt) enzyme,
+    //      each cut site cross-checked against REBASE / NEB / Wikipedia this session:
+    //        AluI  AG^CT   [blunt]   DpnI  Gm6A^TC [blunt]  EcoRV GAT^ATC [blunt]
+    //        HaeIII GG^CC  [blunt]   HincII GTY^RAC [blunt]  RsaI  GT^AC   [blunt]
+    //        ScaI  AGT^ACT [blunt]   SmaI  CCC^GGG [blunt]   StuI  AGG^CCT [blunt]
+    //        SwaI  ATTT^AAAT [blunt]
+    //      A locked exact-set assertion: a wrong cut-position for ANY one enzyme (mis-classifying
+    //      it as sticky, or pulling a sticky enzyme in) fails here — not just the 4-of-10 spot check.
+    //      Sources: NEB R0176 DpnI (Gm6A^TC blunt); NEB R0103 HincII (GTY^RAC blunt);
+    //      NEB R0167 RsaI (GT^AC blunt); ScaI/StuI/SwaI center cut (REBASE/Thermo/research);
+    //      Wikipedia "Restriction enzyme" (SmaI/EcoRV blunt examples).
+    [Test]
+    public void GetBluntCutters_ReturnsExactlyTheDocumentedBluntSet()
+    {
+        // Arrange: the complete, externally-sourced set of blunt (center-cut) enzymes in the library.
+        var expectedBlunt = new[]
+        {
+            "AluI", "DpnI", "EcoRV", "HaeIII", "HincII", "RsaI", "ScaI", "SmaI", "StuI", "SwaI"
+        };
+
+        // Act
+        var blunt = RestrictionAnalyzer.GetBluntCutters().Select(e => e.Name).ToHashSet();
+
+        // Assert: exact set equality — no missing blunt cutter, no sticky cutter leaking in.
+        Assert.That(blunt, Is.EquivalentTo(expectedBlunt),
+            "GetBluntCutters must return exactly the documented center-cut (blunt) enzymes");
+    }
+
     #endregion
 
     #region GetStickyCutters
