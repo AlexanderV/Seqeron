@@ -184,6 +184,67 @@ public class ProteinMotifFinder_PredictCoiledCoils_Tests
         Assert.That(regions, Is.Empty, "Empty input must yield an empty result.");
     }
 
+    // S6 — Two separated cores -> two non-overlapping regions in increasing Start order (INV-03), and
+    // exercises the mid-sequence "drop and emit, then continue" branch. core1 (LAALAAA x5) + G x40 +
+    // core2 (LAALAAA x5) = 110 aa. The G gap drops the window score to 0 between the cores. Closed-form
+    // occupancy scan (independently reproduced) -> region1 (0,48,1.0) [same drop as S5] and region2 starts
+    // once windows re-enter core2 at window index 58 -> (58,109,1.0).
+    [Test]
+    public void PredictCoiledCoils_TwoSeparatedCores_ReturnsTwoNonOverlappingRegions()
+    {
+        string sequence = Repeat("LAALAAA", 5) + new string('G', 40) + Repeat("LAALAAA", 5); // 110 aa
+
+        var regions = ProteinMotifFinder.PredictCoiledCoils(sequence).ToList();
+
+        Assert.That(regions, Has.Count.EqualTo(2),
+            "Two cores separated by a long hydrophilic gap must yield two distinct regions.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions[0].Start, Is.EqualTo(0), "First region starts at residue 0.");
+            Assert.That(regions[0].End, Is.EqualTo(48), "First region ends at 48 (window 21 + 28 - 1).");
+            Assert.That(regions[0].Score, Is.EqualTo(1.0).Within(1e-10), "First core peak occupancy 1.0.");
+            Assert.That(regions[1].Start, Is.EqualTo(58), "Second region starts at window index 58.");
+            Assert.That(regions[1].End, Is.EqualTo(109), "Second region ends at the last residue (109).");
+            Assert.That(regions[1].Score, Is.EqualTo(1.0).Within(1e-10), "Second core peak occupancy 1.0.");
+            Assert.That(regions[0].End, Is.LessThan(regions[1].Start),
+                "Regions are non-overlapping and in increasing Start order (INV-03).");
+        });
+    }
+
+    // S7 — Custom windowSize that produces a scoring run shorter than MinRegion (21) -> BuildRegion rejects
+    // it -> empty. With windowSize=7 the perfect single heptad scores 1.0 over windows [4..7]; that run maps
+    // to residues [4, 7+7-1] = [4,13], length 10 < 21 -> rejected. Exercises the min-region filter branch and
+    // the non-default windowSize parameter (independently reproduced by closed-form scan).
+    [Test]
+    public void PredictCoiledCoils_CustomWindowRunBelowMinRegion_ReturnsEmpty()
+    {
+        string sequence = new string('G', 7) + "LAALAAA" + new string('G', 7); // 21 aa
+
+        var regions = ProteinMotifFinder.PredictCoiledCoils(sequence, windowSize: 7, threshold: 0.99).ToList();
+
+        Assert.That(regions, Is.Empty,
+            "A scoring run spanning fewer than 21 residues is rejected by the 3-heptad minimum (INV-02).");
+    }
+
+    // S8 — Custom windowSize (14 = 2 heptads) still detects a perfect repeat. LAALAAA x4 (28 aa): every
+    // 14-residue window scores 1.0 over all 15 windows; run [0..14] -> residues [0, 14+14-1] = [0,27],
+    // length 28 >= 21 -> one region (0,27,1.0). Confirms the windowSize parameter is honoured.
+    [Test]
+    public void PredictCoiledCoils_CustomWindowSize_DetectsPerfectRepeat()
+    {
+        string sequence = Repeat("LAALAAA", 4); // 28 aa
+
+        var regions = ProteinMotifFinder.PredictCoiledCoils(sequence, windowSize: 14).ToList();
+
+        Assert.That(regions, Has.Count.EqualTo(1), "A 2-heptad window must still detect the perfect repeat.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions[0].Start, Is.EqualTo(0), "Region starts at residue 0.");
+            Assert.That(regions[0].End, Is.EqualTo(27), "Region end = last window 14 + 14 - 1 = 27.");
+            Assert.That(regions[0].Score, Is.EqualTo(1.0).Within(1e-10), "All a/d are L -> occupancy 1.0.");
+        });
+    }
+
     // C1 — Case-insensitive: lowercase perfect heptad must behave identically to M1.
     [Test]
     public void PredictCoiledCoils_LowercaseInput_TreatedSameAsUppercase()
