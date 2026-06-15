@@ -206,6 +206,50 @@ public class SequenceAssembler_Scaffold_Tests
             "Null links is invalid input and must throw ArgumentNullException.");
     }
 
+    // S6 — A successor that is already placed elsewhere in the path is skipped, so a contig never
+    // appears twice and the substrings stay verbatim in link order (INV-04/INV-05). Path
+    // 0->1->2 is followed; the back-link 2->1 targets an already-placed contig and is dropped.
+    // Source: Pop et al. (2004) path-of-distinct-contigs; Jackman et al. (2017) verbatim concatenation.
+    [Test]
+    public void Scaffold_SuccessorAlreadyPlaced_SkippedKeepingContigsDistinct()
+    {
+        var contigs = new[] { "AA", "CC", "GG" };
+        var links = new[] { (0, 1, 2), (1, 2, 3), (2, 1, 4) };
+
+        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scaffolds.Count, Is.EqualTo(1),
+                "0->1->2 forms one path; the 2->1 back-link hits an already-placed contig (INV-04).");
+            Assert.That(scaffolds[0], Is.EqualTo("AANNCCNNNGG"),
+                "AA + 2 N + CC + 3 N + GG, each contig verbatim and used once (INV-05).");
+            Assert.That(scaffolds[0].Length, Is.EqualTo(11),
+                "Length = contigs (6) + gaps (2+3) = 11 (INV-03).");
+        });
+    }
+
+    // S7 — When a contig has several forward links, the first declared link is followed (the unit
+    // consumes pre-ordered links; input order is the documented tie-break). Following 0->1 ends the
+    // path because contig 1 has no outgoing link, so the later 0->2 link is never taken and contig 2
+    // stays its own length-1 scaffold. Source: Pop et al. (2004) path model; documented tie-break.
+    [Test]
+    public void Scaffold_MultipleForwardLinks_FollowsFirstDeclared()
+    {
+        var contigs = new[] { "AA", "CC", "GG" };
+        var links = new[] { (0, 1, 2), (0, 2, 3) };
+
+        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scaffolds, Is.EqualTo(new[] { "AANNCC", "GG" }),
+                "First declared link 0->1 is followed (AA+2N+CC); contig 2 stays a length-1 scaffold.");
+            Assert.That(scaffolds.Count, Is.EqualTo(2),
+                "Two scaffolds: the 0->1 path and the unreached contig 2 (INV-04).");
+        });
+    }
+
     // C1 — An empty contig list yields an empty scaffold list (trivial identity).
     [Test]
     public void Scaffold_EmptyContigs_ReturnsEmpty()
