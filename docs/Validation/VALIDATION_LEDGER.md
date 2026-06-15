@@ -163,3 +163,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 38 | ASSEMBLY-TRIM-001 | Assembly | ✅ | ❌→✅ | ✅ CLEAN | - |
 | 39 | ASSEMBLY-CORRECT-001 | Assembly | ✅ | ❌→✅ | ✅ CLEAN | - |
 | 40 | PAT-APPROX-003 | Matching | ✅ | 🟡 | ✅ CLEAN | - |
+| 41 | ALIGN-STATS-001 | Alignment | 🟡 | 🟡 | ✅ CLEAN | - |
