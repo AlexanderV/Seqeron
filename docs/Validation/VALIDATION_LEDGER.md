@@ -146,3 +146,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 21 | QUALITY-PHRED-001 | Quality | ✅ | ✅ | ✅ CLEAN | - |
 | 22 | QUALITY-STATS-001 | Quality | 🟡 | ✅ | ✅ CLEAN | - |
 | 23 | SEQ-STATS-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
+| 24 | SEQ-MW-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |

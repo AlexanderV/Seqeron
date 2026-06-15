@@ -88,6 +88,17 @@ public class SequenceStatistics_CalculateMolecularWeight_Tests
             "Two residues form exactly one peptide bond, removing one water (INV-03)");
     }
 
+    // Branch: no recognized monomers -> 0 (distinct from null/empty short-circuit).
+    // Evidence: spec §3.3 "A sequence containing no recognized monomers returns 0".
+    [Test]
+    public void CalculateMolecularWeight_AllUnknownSymbols_ReturnsZero()
+    {
+        double mw = SequenceStatistics.CalculateMolecularWeight("***");
+
+        Assert.That(mw, Is.EqualTo(0),
+            "A sequence with no recognized amino acids contributes no mass and returns 0 (spec §3.3)");
+    }
+
     #endregion
 
     #region CalculateNucleotideMolecularWeight (DNA/RNA)
@@ -184,6 +195,41 @@ public class SequenceStatistics_CalculateMolecularWeight_Tests
 
         Assert.That(mw, Is.EqualTo(660.4277).Within(Tolerance),
             "Two nucleotides form exactly one phosphodiester bond, removing one water (INV-04)");
+    }
+
+    // Full DNA alphabet, exercises the T table entry (untested by AGC).
+    // Evidence: Biopython unambiguous_dna_weights {A 331.2218, C 307.1971, G 347.2212, T 322.2085};
+    //           331.2218 + 307.1971 + 347.2212 + 322.2085 - 3*18.0153 = 1253.8027 Da.
+    [Test]
+    public void CalculateNucleotideMolecularWeight_DnaACGT_ReturnsExactAverageMass()
+    {
+        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight("ACGT", isDna: true);
+
+        Assert.That(mw, Is.EqualTo(1253.8027).Within(Tolerance),
+            "Sum of all four DNA monophosphate masses minus three waters (Biopython tables)");
+    }
+
+    // Full RNA alphabet, exercises the U table entry (untested by AGC).
+    // Evidence: Biopython unambiguous_rna_weights {A 347.2212, C 323.1965, G 363.2206, U 324.1813};
+    //           347.2212 + 323.1965 + 363.2206 + 324.1813 - 3*18.0153 = 1303.7737 Da.
+    [Test]
+    public void CalculateNucleotideMolecularWeight_RnaACGU_ReturnsExactAverageMass()
+    {
+        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight("ACGU", isDna: false);
+
+        Assert.That(mw, Is.EqualTo(1303.7737).Within(Tolerance),
+            "Sum of all four RNA monophosphate masses minus three waters (Biopython tables)");
+    }
+
+    // Branch: no recognized monomers -> 0 (distinct from null/empty short-circuit).
+    // Evidence: spec §3.3 "A sequence containing no recognized monomers returns 0".
+    [Test]
+    public void CalculateNucleotideMolecularWeight_AllUnknownSymbols_ReturnsZero()
+    {
+        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight("***", isDna: true);
+
+        Assert.That(mw, Is.EqualTo(0),
+            "A sequence with no recognized nucleotides contributes no mass and returns 0 (spec §3.3)");
     }
 
     #endregion

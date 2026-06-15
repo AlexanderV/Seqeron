@@ -26,7 +26,7 @@
 1. Protein Mw = sum of average amino-acid masses + average mass of one water molecule. — Expasy Compute pI/Mw (source 1).
 2. Reference formula (all sequence types): `weight = sum(table[x]) − (len−1)·water`, water_avg = 18.0153 Da. — Biopython `molecular_weight` (source 4).
 3. Average protein residue/free-amino-acid masses and DNA/RNA monophosphate masses are fixed tables. — Biopython IUPACData (source 5); Expasy FindMod (source 2).
-4. Worked examples: AGC protein = 249.29, DNA = 949.61, RNA = 997.61. — Biopython docstring (source 4).
+4. Worked examples: AGC protein = 249.2874 (≈249.29), DNA = 949.6095 (≈949.61), RNA = 997.6077 (≈997.61). — Biopython docstring (source 4).
 5. Nucleotide masses are monophosphates with an assumed 5' phosphate; one water removed per phosphodiester bond. — Biopython (sources 4, 5).
 
 ### 1.3 Documented Corner Cases
@@ -71,7 +71,7 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | Protein AGC | Average-mass protein Mw of "AGC" | 249.2874 Da (`.Within(1e-3)`; docstring 249.29) | Sources 1,4,5 |
 | M2 | DNA AGC | Average-mass DNA Mw of "AGC" | 949.6095 Da (docstring 949.61) | Sources 4,5 |
-| M3 | RNA AGC | Average-mass RNA Mw of "AGC" | 997.6177 Da (docstring 997.61) | Sources 4,5 |
+| M3 | RNA AGC | Average-mass RNA Mw of "AGC" | 997.6077 Da (docstring 997.61) | Sources 4,5 |
 | M4 | Single Gly | Protein Mw of "G" (zero bonds) | 75.0666 Da | Sources 1,5 |
 | M5 | Single DNA A | DNA Mw of "A" (zero bonds) | 331.2218 Da | Source 5 |
 | M6 | Single RNA A | RNA Mw of "A" (zero bonds) | 347.2212 Da | Source 5 |

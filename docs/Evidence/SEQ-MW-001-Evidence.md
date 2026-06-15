@@ -101,7 +101,7 @@
 Derivation (average tables, water = 18.0153), re-computed in this session:
 - protein AGC = 89.0932 + 75.0666 + 121.1582 − 2·18.0153 = 249.2874 ≈ 249.29
 - DNA AGC = 331.2218 + 347.2212 + 307.1971 − 2·18.0153 = 949.6095 ≈ 949.61
-- RNA AGC = 347.2212 + 363.2206 + 323.1965 − 2·18.0153 = 997.6177 ≈ 997.61
+- RNA AGC = 347.2212 + 363.2206 + 323.1965 − 2·18.0153 = 997.6077 ≈ 997.61
 
 ### Dataset: Single-monomer reference values
 
