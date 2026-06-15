@@ -195,6 +195,32 @@ public class StructuralVariantAnalyzer_FindBreakpoints_Tests
             "A gap one base beyond the tolerance (6 > 5) splits the reads into separate singleton groups, each below min support.");
     }
 
+    // Single-linkage chaining: ClipCrop clusters junctions "within 5-base differences" between
+    // ADJACENT sorted positions. {5000,5005,5010} each differ from their neighbour by exactly the
+    // tolerance (5), so the chain is one breakpoint even though the span (5000..5010) exceeds it.
+    [Test]
+    public void FindBreakpoints_AdjacentGapsWithinTolerance_ChainIntoOneBreakpoint()
+    {
+        var reads = new[]
+        {
+            Read("chr1", 5000, "r1"),
+            Read("chr1", 5005, "r2"),
+            Read("chr1", 5010, "r3"),
+        };
+
+        var breakpoints = FindBreakpoints(reads, Tolerance, MinSupport).ToList();
+
+        Assert.That(breakpoints, Has.Count.EqualTo(1),
+            "Junctions whose ADJACENT differences are each within the 5-base tolerance chain into one cluster (ClipCrop: sorted and clustered within 5-base differences).");
+        Assert.Multiple(() =>
+        {
+            Assert.That(breakpoints[0].SupportingReads, Is.EqualTo(3),
+                "All three chained reads support the single breakpoint.");
+            Assert.That(breakpoints[0].Position1, Is.EqualTo(5005),
+                "Reported coordinate is the rounded mean of {5000,5005,5010} = 5005 (ASM-01).");
+        });
+    }
+
     #endregion
 
     #region RefineBreakpoint
@@ -216,6 +242,41 @@ public class StructuralVariantAnalyzer_FindBreakpoints_Tests
             "The consensus is the junction shared by the most reads (mode 5000), the position where clipped reads accumulate (SoftSearch).");
     }
 
+    // M8b — Mode tie: junctions {5000,5004} each occur once (no single mode); the documented
+    // tie-break is the rounded mean of the tied modal coordinates = round((5000+5004)/2) = 5002.
+    [Test]
+    public void RefineBreakpoint_ModeTie_ReturnsRoundedMeanOfModalJunctions()
+    {
+        var reads = new[]
+        {
+            Read("chr1", 5000, "r1"),
+            Read("chr1", 5004, "r2"),
+        };
+
+        var refined = RefineBreakpoint("chr1", 4990, 5010, reads);
+
+        Assert.That(refined, Is.EqualTo(5002),
+            "With no single mode the consensus is the rounded mean of the tied modal junctions {5000,5004} = 5002 (documented tie-break).");
+    }
+
+    // M8c — RefineBreakpoint ignores junctions on a different chromosome (SAM POS is contig-local):
+    // only the chr1 read at 5000 falls in the chr1 region, so the consensus is 5000, not the chr2 read.
+    [Test]
+    public void RefineBreakpoint_OtherChromosomeJunctions_Excluded()
+    {
+        var reads = new[]
+        {
+            Read("chr1", 5000, "r1"),
+            Read("chr2", 5000, "r2"),
+            Read("chr2", 5000, "r3"),
+        };
+
+        var refined = RefineBreakpoint("chr1", 4990, 5010, reads);
+
+        Assert.That(refined, Is.EqualTo(5000),
+            "Only chr1 junctions support a chr1 region; chr2 reads are excluded even at the same coordinate (SAM POS is contig-local).");
+    }
+
     // S3 — Region with no member junctions returns null (no support to form a consensus).
     [Test]
     public void RefineBreakpoint_NoReadsInRegion_ReturnsNull()
@@ -230,6 +291,24 @@ public class StructuralVariantAnalyzer_FindBreakpoints_Tests
 
         Assert.That(refined, Is.Null,
             "A region containing no split-read junction has no consensus breakpoint and must return null.");
+    }
+
+    // S3b — Region bounds are inclusive: a junction sitting exactly on regionStart/regionEnd is in
+    // the region. Junctions {4990,5010} are the two endpoints of [4990,5010]; both are included,
+    // each a singleton mode, so the consensus is their rounded mean round((4990+5010)/2)=5000.
+    [Test]
+    public void RefineBreakpoint_JunctionsOnRegionBounds_AreInclusive()
+    {
+        var reads = new[]
+        {
+            Read("chr1", 4990, "r1"),
+            Read("chr1", 5010, "r2"),
+        };
+
+        var refined = RefineBreakpoint("chr1", 4990, 5010, reads);
+
+        Assert.That(refined, Is.EqualTo(5000),
+            "Junctions on the inclusive region bounds [4990,5010] are both counted; with a tie the consensus is their rounded mean = 5000.");
     }
 
     // C1 — Null input throws ArgumentNullException (input-validation contract).

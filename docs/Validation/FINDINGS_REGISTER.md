@@ -67,6 +67,7 @@ Each finding is placed in exactly one category:
 | ALIGN-SEMI-001 | Fitting-alignment variant (query fully aligned, reference ends free). | Sourced (Rosalind SIMS); correct semi-global variant. |
 | ALIGN-MULTI-001 / RF / heuristics | Star MSA, rooted-clade RF, declared heuristics. | Honestly scoped; correct for their stated contract (see C3-C7 for optional upgrades). |
 | RNA-STRUCT-001 | `PredictStructure` greedy dot-bracket vs Nussinov/Zuker DP traceback. | Documented approximation; the DP score values themselves are correct. |
+| SV-BREAKPOINT-001 | `FindBreakpoints` uses single-linkage on ADJACENT sorted junctions; INV-03 ("reported position within clusterTolerance of EVERY member") can fail on long chains where reported coord = rounded mean. | Single-linkage matches ClipCrop "sorted and clustered within 5-base differences" (adjacent diffs); reported coord is the explicit ASSUMPTION A1 (mean). INV-03 wording overstates the guarantee but the clustering+support logic is sourced and correct. Added chaining test to lock the actual behaviour. |
 
 ---
 
