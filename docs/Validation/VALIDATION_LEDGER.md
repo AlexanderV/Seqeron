@@ -175,3 +175,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 50 | POP-ROH-001 | PopGen | ✅ | ✅ | ✅ CLEAN | - |
 | 51 | META-FUNC-001 | Metagenomics | ✅ | 🟡 | ✅ CLEAN | - |
 | 52 | META-RESIST-001 | Metagenomics | 🟡 | ❌→✅ | ✅ CLEAN | - |
+| 53 | META-PATHWAY-001 | Metagenomics | 🟡 | 🟡 | ✅ CLEAN | - |

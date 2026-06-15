@@ -96,6 +96,21 @@ public class MetagenomicsAnalyzer_FindPathwayEnrichment_Tests
         });
     }
 
+    // M7b — Infeasible overlap (x > min(M,n)): cannot draw more successes than exist ⇒ P=0.
+    // N=10, M=3, n=5, x=4 → upper tail is empty (i ranges x..min(n,M)=3 < 4) ⇒ tail = 0.
+    // Cross-checked with SciPy: hypergeom.sf(3, 10, 3, 5) = 0.0.
+    [Test]
+    public void HypergeometricUpperTail_OverlapExceedsAvailableSuccesses_EqualsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(MetagenomicsAnalyzer.HypergeometricUpperTail(4, 10, 3, 5), Is.EqualTo(0.0),
+                "x=4 > M=3: no feasible draw of 4 successes from 3 ⇒ P(X≥4)=0 (SciPy sf=0).");
+            Assert.That(MetagenomicsAnalyzer.HypergeometricUpperTail(4, 10, 5, 3), Is.EqualTo(0.0),
+                "x=4 > n=3: cannot draw 4 successes in only 3 draws ⇒ P(X≥4)=0 (symmetry, SciPy sf=0).");
+        });
+    }
+
     #endregion
 
     #region FindPathwayEnrichment — end-to-end, sorting, fields (M8–M14, S1, S2)
