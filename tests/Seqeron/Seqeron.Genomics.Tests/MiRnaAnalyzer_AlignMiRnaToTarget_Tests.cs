@@ -54,7 +54,8 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         });
     }
 
-    // M4 — Case-insensitive and DNA T handled (T treated as U for pairing). Evidence: T↔U RNA normalisation contract.
+    // M4 — Case-insensitive and DNA T handled (T treated as U for pairing).
+    // Evidence: T↔U RNA normalisation contract (MiRNA_Target_Pairing.md §3.1, §6.1; TestSpec M4 "A-T → true").
     [Test]
     public void CanPair_LowercaseAndDnaT_ReturnsTrue()
     {
@@ -62,6 +63,25 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         {
             Assert.That(CanPair('a', 'u'), Is.True, "Lowercase a-u must pair (case-insensitive)");
             Assert.That(CanPair('g', 'c'), Is.True, "Lowercase g-c must pair (case-insensitive)");
+            // DNA T is normalised to RNA U, so A-T must pair like A-U (contract §3.1, §6.1).
+            Assert.That(CanPair('A', 'T'), Is.True, "DNA A-T must pair (T normalised to U)");
+            Assert.That(CanPair('T', 'A'), Is.True, "DNA T-A must pair (T normalised to U)");
+            Assert.That(CanPair('G', 'T'), Is.True, "G-T is a wobble (T normalised to U → G-U)");
+            // Mixed case + DNA T together.
+            Assert.That(CanPair('a', 't'), Is.True, "Lowercase a-t must pair (case + T→U)");
+        });
+    }
+
+    // M4b — IsWobblePair also honours the DNA T→U contract: G-T / T-G are wobble.
+    // Evidence: contract §3.1 "T treated via U where relevant"; Crick (1966) G-U wobble.
+    [Test]
+    public void IsWobblePair_DnaT_TreatedAsU()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(IsWobblePair('G', 'T'), Is.True, "G-T is a wobble (T→U)");
+            Assert.That(IsWobblePair('T', 'G'), Is.True, "T-G is a wobble (T→U)");
+            Assert.That(IsWobblePair('A', 'T'), Is.False, "A-T (A-U) is Watson-Crick, not wobble");
         });
     }
 
@@ -213,16 +233,24 @@ public class MiRnaAnalyzer_AlignMiRnaToTarget_Tests
         });
     }
 
-    // M15 — Count invariant: matches + mismatches + wobbles = overlap length, no gaps. Evidence: INV-05.
+    // M15 — Count invariant on a genuinely mixed duplex exercising all three classes.
+    // miRNA AGGU vs target AUCG, antiparallel (miRNA[i] pairs target[3-i]):
+    //   i0: A-G → mismatch ' ';  i1: G-C → Watson-Crick '|';  i2: G-U → wobble ':';  i3: U-A → Watson-Crick '|'.
+    // Exact counts derive from the pairing rules (Agarwal A-U/C-G; Crick G-U); INV-05 sum = overlap.
     [Test]
     public void AlignMiRnaToTarget_CountInvariant_SumEqualsOverlapLength()
     {
-        // miRNA UGAGGUAG vs target CUACCUCA → mixed matches/mismatches/wobbles over 8 positions
-        var duplex = AlignMiRnaToTarget("UGAGGUAG", "CUACCUCA");
-        int overlap = System.Math.Min("UGAGGUAG".Length, "CUACCUCA".Length);
+        const string mirna = "AGGU";
+        const string target = "AUCG";
+        var duplex = AlignMiRnaToTarget(mirna, target);
+        int overlap = System.Math.Min(mirna.Length, target.Length);
 
         Assert.Multiple(() =>
         {
+            Assert.That(duplex.Matches, Is.EqualTo(2), "G-C and U-A are the two Watson-Crick matches");
+            Assert.That(duplex.GUWobbles, Is.EqualTo(1), "G-U is the single wobble");
+            Assert.That(duplex.Mismatches, Is.EqualTo(1), "A-G is the single mismatch");
+            Assert.That(duplex.AlignmentString, Is.EqualTo(" |:|"), "Alignment symbols per position");
             Assert.That(duplex.Matches + duplex.Mismatches + duplex.GUWobbles, Is.EqualTo(overlap),
                 "Every overlap position is classified exactly once (INV-05)");
             Assert.That(duplex.Gaps, Is.EqualTo(0), "Aligner is ungapped (INV-05)");

@@ -318,11 +318,12 @@ public static class MiRnaAnalyzer
 
     /// <summary>
     /// Checks if two bases can pair (Watson-Crick or G-U wobble).
+    /// Inputs are case-insensitive and DNA T is treated as RNA U.
     /// </summary>
     public static bool CanPair(char base1, char base2)
     {
-        char b1 = char.ToUpperInvariant(base1);
-        char b2 = char.ToUpperInvariant(base2);
+        char b1 = NormalizeBase(base1);
+        char b2 = NormalizeBase(base2);
 
         return (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
                (b1 == 'G' && b2 == 'C') || (b1 == 'C' && b2 == 'G') ||
@@ -331,13 +332,23 @@ public static class MiRnaAnalyzer
 
     /// <summary>
     /// Checks if a pair is a G-U wobble.
+    /// Inputs are case-insensitive and DNA T is treated as RNA U.
     /// </summary>
     public static bool IsWobblePair(char base1, char base2)
     {
-        char b1 = char.ToUpperInvariant(base1);
-        char b2 = char.ToUpperInvariant(base2);
+        char b1 = NormalizeBase(base1);
+        char b2 = NormalizeBase(base2);
 
         return (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
+    }
+
+    /// <summary>
+    /// Normalizes a nucleotide to the uppercase RNA alphabet (DNA T → RNA U).
+    /// </summary>
+    private static char NormalizeBase(char b)
+    {
+        char u = char.ToUpperInvariant(b);
+        return u == 'T' ? 'U' : u;
     }
 
     #endregion

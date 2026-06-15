@@ -167,3 +167,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 42 | EPIGEN-BISULF-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | - |
 | 43 | EPIGEN-CHROM-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | - |
 | 44 | EPIGEN-AGE-001 | Epigenetics | ✅ | 🟡 | ✅ CLEAN | - |
+| 45 | MIRNA-PAIR-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | - |

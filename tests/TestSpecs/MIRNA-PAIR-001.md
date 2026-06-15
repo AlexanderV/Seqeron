@@ -190,7 +190,8 @@
 | M1 | ✅ | CanPair_WatsonCrickPairs_ReturnsTrue |
 | M2 | ✅ | CanPair_WobblePairs_ReturnsTrue |
 | M3 | ✅ | CanPair_NonPairs_ReturnsFalse |
-| M4 | ✅ | CanPair_LowercaseAndDnaT_ReturnsTrue |
+| M4 | ✅ | CanPair_LowercaseAndDnaT_ReturnsTrue (now asserts CanPair('A','T')==true per contract §3.1/§6.1) |
+| M4b | ✅ | IsWobblePair_DnaT_TreatedAsU (G-T/T-G wobble; A-T not wobble) |
 | M5 | ✅ | IsWobblePair_GU_ReturnsTrue |
 | M6 | ✅ | IsWobblePair_WatsonCrick_ReturnsFalse |
 | M7 | ✅ | GetReverseComplement_Let7aSeed_ReturnsExpected |
