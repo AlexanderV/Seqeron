@@ -178,3 +178,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 53 | META-PATHWAY-001 | Metagenomics | 🟡 | 🟡 | ✅ CLEAN | - |
 | 54 | META-TAXA-001 | Metagenomics | ✅ | 🟡 | ✅ CLEAN | - |
 | 55 | PHYLO-BOOT-001 | Phylogenetics | ✅ | 🟡 | ✅ CLEAN | - |
+| 56 | PHYLO-STATS-001 | Phylogenetics | ✅ | ✅ | ✅ CLEAN | - |
