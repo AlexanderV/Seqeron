@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 27 / 148 processed.
+**Progress:** 34 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -156,3 +156,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 31 | CODON-ENC-001 | Codon | 🟡 | 🟡 | ✅ CLEAN | - |
 | 32 | CODON-STATS-001 | Codon | 🟡 | ✅ | ✅ CLEAN | - |
 | 33 | TRANS-SIXFRAME-001 | Translation | 🟡 | 🟡 | ✅ CLEAN | - |
+| 34 | ASSEMBLY-MERGE-001 | Assembly | ✅ | ✅ | ✅ CLEAN | - |
