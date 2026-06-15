@@ -152,3 +152,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 27 | SEQ-THERMO-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 28 | SEQ-DINUC-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 29 | SEQ-SECSTRUCT-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
+| 30 | CODON-RSCU-001 | Codon | ✅ | 🟡 | ✅ CLEAN | - |

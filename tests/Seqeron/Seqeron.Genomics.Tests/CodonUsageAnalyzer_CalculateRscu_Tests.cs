@@ -108,6 +108,70 @@ public class CodonUsageAnalyzer_CalculateRscu_Tests
         });
     }
 
+    // C2 — Absent synonymous family (0/0): the repository convention is to return 0 for
+    // every codon of a family that never appears (no pseudocount), since canonical RSCU is
+    // undefined for 0/0. Input `ATGATG` contains only Met, so the entire Leu family is absent.
+    // [TestSpec Assumption #1 / Evidence corner case "Absent family (0/0) → repository returns 0";
+    //  cubar est_rscu documents this as implementation-defined.]
+    [Test]
+    public void CalculateRscu_AbsentFamily_ReturnsZeroForEveryCodon()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu(new DnaSequence("ATGATG"));
+
+        Assert.Multiple(() =>
+        {
+            foreach (var c in LeuCodons)
+            {
+                Assert.That(rscu[c], Is.EqualTo(0.0).Within(1e-10),
+                    $"Leu family is absent in 'ATGATG' (0/0) -> repository returns RSCU({c})=0");
+            }
+            Assert.That(rscu["TTT"], Is.EqualTo(0.0).Within(1e-10),
+                "Phe family is absent (0/0) -> RSCU(TTT)=0");
+        });
+    }
+
+    // C3 — Stop codons treated as one 3-fold synonymous family (TAA/TAG/TGA), degeneracy 3.
+    // Input `TAATAGTGA` uses each stop once: total=3, RSCU = 3*1/3 = 1.0 for each.
+    // [TestSpec Assumption #2 / Evidence corner case: repository groups the three standard
+    //  stop codons as a synonymous family of size 3 and computes RSCU like any family. The
+    //  family-ratio formula RSCU=(n_i*x)/Σx (Source 3 / LIRMM) gives 1.0 for equal usage.]
+    [Test]
+    public void CalculateRscu_StopCodonFamily_TreatedAsThreeFoldFamily()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu(new DnaSequence("TAATAGTGA"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["TAA"], Is.EqualTo(1.0).Within(1e-10),
+                "Stop family size 3, each used once -> RSCU(TAA)=3*1/3=1.0");
+            Assert.That(rscu["TAG"], Is.EqualTo(1.0).Within(1e-10),
+                "Stop family size 3, each used once -> RSCU(TAG)=3*1/3=1.0");
+            Assert.That(rscu["TGA"], Is.EqualTo(1.0).Within(1e-10),
+                "Stop family size 3, each used once -> RSCU(TGA)=3*1/3=1.0");
+        });
+    }
+
+    // C4 — Stop family biased: `TAATAATGA` (TAA x2, TGA x1, TAG x0); total=3, n_i=3.
+    // RSCU(TAA)=3*2/3=2.0, RSCU(TGA)=3*1/3=1.0, RSCU(TAG)=3*0/3=0.0; sum over family = 3 = n_i.
+    // [Source 3 / LIRMM family-ratio formula applied to the 3-fold stop family.]
+    [Test]
+    public void CalculateRscu_StopFamilyBiased_ComputesFamilyRatioAndSumsToDegeneracy()
+    {
+        var rscu = CodonUsageAnalyzer.CalculateRscu(new DnaSequence("TAATAATGA"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu["TAA"], Is.EqualTo(2.0).Within(1e-10),
+                "RSCU(TAA)=3*2/3=2.0 for n_i=3, x=2, total=3");
+            Assert.That(rscu["TGA"], Is.EqualTo(1.0).Within(1e-10),
+                "RSCU(TGA)=3*1/3=1.0 for n_i=3, x=1, total=3");
+            Assert.That(rscu["TAG"], Is.EqualTo(0.0).Within(1e-10),
+                "RSCU(TAG)=3*0/3=0.0 (unused in present stop family)");
+            Assert.That(rscu["TAA"] + rscu["TAG"] + rscu["TGA"], Is.EqualTo(3.0).Within(1e-10),
+                "Sum of RSCU over the present stop family equals its degeneracy n_i=3");
+        });
+    }
+
     // S1 — null DnaSequence throws.
     [Test]
     public void CalculateRscu_NullDnaSequence_ThrowsArgumentNullException()
