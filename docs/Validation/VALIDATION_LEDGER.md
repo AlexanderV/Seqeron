@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 4 / 148 processed.
+**Progress:** 5 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -127,3 +127,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 2 | EPIGEN-DMR-001 | Epigenetics | 🟡 | ✅ | ✅ CLEAN | - |
 | 3 | VARIANT-CALL-001 | Variants | ✅ | ✅ | ✅ CLEAN | - |
 | 4 | VARIANT-SNP-001 | Variants | ✅ | 🟡 | ✅ CLEAN | - |
+| 5 | VARIANT-INDEL-001 | Variants | ✅ | ✅ | ✅ CLEAN | - |
