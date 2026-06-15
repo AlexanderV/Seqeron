@@ -72,7 +72,7 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | TPM three-gene | A(10,2000),B(20,4000),C(30,1000) | TPM = 125000,125000,750000 | Source 2/3 formula derivation |
 | M2 | TPM sums to million | M1 result summed | 1,000,000 (±1e-6) | Sources 1,2 (INV-1) |
-| M3 | TPM equal RPK ⇒ equal TPM | A,B both RPK 0.005 | TPM_A = TPM_B = 125000 | Source 2 (INV-2) |
+| M3 | TPM equal RPK ⇒ equal TPM | A(10,2000),B(20,4000) both RPK 0.005 | TPM_A = TPM_B = 500000 (ΣRPK=0.01) | Source 2 (INV-2) |
 | M4 | FPKM single gene | X=1000,l=2000,N=10^6 | FPKM = 500 | Source 2/3 formula |
 | M5 | FPKM scales linearly with count | X=2000 (else as M4) | FPKM = 1000 | Source 2 formula |
 | M6 | Quantile norm worked example | C1=(5,2,3,4),C2=(4,1,4,2),C3=(3,4,6,8) | Output matrix per Evidence (incl. tie) | Source 4 |

@@ -62,8 +62,38 @@ public class TranscriptomeAnalyzer_ExpressionQuantification_Tests
 
         var result = TranscriptomeAnalyzer.CalculateTPM(input).ToList();
 
-        Assert.That(result[0].TPM, Is.EqualTo(result[1].TPM).Within(Tol),
-            "INV-02: TPM depends only on X/l; equal rates ⇒ equal TPM (here both 500000).");
+        Assert.Multiple(() =>
+        {
+            // Two genes, both RPK 0.005, ΣRPK = 0.01 ⇒ each TPM = 0.005/0.01*1e6 = 500000.
+            Assert.That(result[0].TPM, Is.EqualTo(500000.0).Within(Tol),
+                "INV-02: TPM_A = (10/2000)/0.01*1e6 = 500000 (Zhao/Ye/Stanton 2020 TPM formula).");
+            Assert.That(result[1].TPM, Is.EqualTo(500000.0).Within(Tol),
+                "INV-02: TPM_B = (20/4000)/0.01*1e6 = 500000; equal rate ⇒ equal (and exact) TPM.");
+        });
+    }
+
+    // M4b — CalculateTPM also populates each gene's FPKM field using the sample's total raw count as N.
+    // For A(10,2000),B(20,4000),C(30,1000): N=60. FPKM = X*1e9/(l*N):
+    //   A = 10*1e9/(2000*60) = 1e10/120000 = 83333.333… ; B = 20*1e9/(4000*60) = same = 83333.333… ;
+    //   C = 30*1e9/(1000*60) = 3e10/60000 = 500000. Source: Zhao/Ye/Stanton (2020) RPKM formula.
+    [Test]
+    public void CalculateTPM_PopulatesFpkmField_UsingTotalCountAsDepth()
+    {
+        var input = new[] { ("A", 10.0, 2000), ("B", 20.0, 4000), ("C", 30.0, 1000) };
+        double ab = 10.0 * 1e9 / (2000.0 * 60.0); // 83333.333…
+        double c = 30.0 * 1e9 / (1000.0 * 60.0);  // 500000
+
+        var result = TranscriptomeAnalyzer.CalculateTPM(input).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0].FPKM, Is.EqualTo(ab).Within(Tol),
+                "FPKM_A = 10*1e9/(2000*60) = 83333.33… (N = total raw count = 60).");
+            Assert.That(result[1].FPKM, Is.EqualTo(ab).Within(Tol),
+                "FPKM_B = 20*1e9/(4000*60) = 83333.33… (same RPK as A).");
+            Assert.That(result[2].FPKM, Is.EqualTo(c).Within(Tol),
+                "FPKM_C = 30*1e9/(1000*60) = 500000.");
+        });
     }
 
     // S1 — empty input ⇒ empty sequence. Degenerate case.
@@ -230,6 +260,32 @@ public class TranscriptomeAnalyzer_ExpressionQuantification_Tests
                 "INV-04: rank order is monotone — larger input ⇒ larger rank mean.");
             Assert.That(col0[1], Is.LessThan(col0[3]),
                 "INV-04: the largest value gets the largest rank mean.");
+        });
+    }
+
+    // INV-05 — every untied column is a permutation of the same rank-mean multiset {r0,r1,r2,r3}.
+    // Columns 1 and 3 of the Wikipedia example are untied; both must contain exactly {2, 3, 14/3, 17/3}.
+    // Source: Wikipedia/Bolstad 2003 (each rank is assigned exactly one rank mean).
+    [Test]
+    public void QuantileNormalize_UntiedColumns_ArePermutationsOfSameRankMeanMultiset()
+    {
+        var samples = new[]
+        {
+            new[] { 5.0, 2.0, 3.0, 4.0 }, // untied
+            new[] { 4.0, 1.0, 4.0, 2.0 }, // tied (excluded from this multiset check)
+            new[] { 3.0, 4.0, 6.0, 8.0 }, // untied
+        };
+        var expectedMultiset = new[] { 2.0, 3.0, 14.0 / 3.0, 17.0 / 3.0 };
+
+        var result = TranscriptomeAnalyzer.QuantileNormalize(samples)
+            .Select(s => s.OrderBy(v => v).ToArray()).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0], Is.EqualTo(expectedMultiset).Within(Tol),
+                "INV-05: untied column 1 sorted = {2, 3, 14/3, 17/3} (the rank-mean multiset).");
+            Assert.That(result[2], Is.EqualTo(expectedMultiset).Within(Tol),
+                "INV-05: untied column 3 sorted = same rank-mean multiset.");
         });
     }
 
