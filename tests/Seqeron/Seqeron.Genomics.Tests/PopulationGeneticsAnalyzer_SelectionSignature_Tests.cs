@@ -122,21 +122,38 @@ public class PopulationGeneticsAnalyzer_SelectionSignature_Tests
 
         var result = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 2);
 
-        Assert.That(result.UnstandardizedIHS, Is.LessThan(0.0),
-            "A long derived haplotype yields large iHH_D, so ln(iHH_A/iHH_D) < 0 (Voight 2006).");
+        // Voight (2006): negative iHS ⇒ long derived haplotype. Exact value is known for this
+        // panel (iHH_A=10, iHH_D=40 ⇒ ln(10/40)), so lock it instead of a one-sided bound.
+        Assert.That(result.UnstandardizedIHS, Is.EqualTo(Math.Log(10.0 / 40.0)).Within(Tol),
+            "A long derived haplotype yields iHH_D=40, iHH_A=10 ⇒ ln(iHH_A/iHH_D)=ln(0.25)<0 (Voight 2006).");
     }
 
-    // S1 — reference-implementation ratio (rehh SNP F1205400): IHH_A=284429.9, IHH_D=2057107.4.
-    // unstandardized iHS (Voight) = ln(284429.9/2057107.4) = -1.9785692742315621.
+    // S1 — Voight (2006) sign convention, exercised through CalculateIHS end-to-end:
+    // UnstandardizedIHS must equal ln(IhhAncestral / IhhDerived) — ancestral numerator, derived
+    // denominator (selscan note: Voight = reciprocal of selscan's ln(iHH_1/iHH_0)).
+    // The rehh reference SNP F1205400 (IHH_A=284429.9, IHH_D=2057107.4 ⇒ -1.97857) anchors the
+    // arithmetic direction the implementation must reproduce.
     [Test]
-    public void CalculateIHS_RehhRatio_MatchesReference()
+    public void CalculateIHS_VoightSignConvention_AncestralOverDerived()
     {
-        const double ihhA = 284429.9;
-        const double ihhD = 2057107.4;
-        double expected = Math.Log(ihhA / ihhD);
+        // Asymmetric panel: derived flanks more conserved than ancestral (derived sweep).
+        var haplotypes = new[] { "AA1GG", "AA1GG", "AT1GC", "TC0TC", "GA0AG", "CT0CA" };
+        var positions = new[] { 0, 10, 20, 30, 40 };
 
-        Assert.That(expected, Is.EqualTo(-1.9785692742315621).Within(1e-9),
-            "rehh worked iHH_A/iHH_D gives unstandardized iHS = -1.97857 (Gautier et al.).");
+        var result = PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex: 2);
+
+        // rehh reference arithmetic (documents the expected direction/sign for the genome SNP).
+        Assert.That(Math.Log(284429.9 / 2057107.4), Is.EqualTo(-1.9785692742315621).Within(1e-9),
+            "rehh F1205400: ln(IHH_A/IHH_D) = -1.97857 (Gautier et al.) — ancestral over derived.");
+
+        // The implementation must realise exactly the Voight ratio ln(iHH_A/iHH_D), not its reciprocal.
+        Assert.That(result.UnstandardizedIHS,
+            Is.EqualTo(Math.Log(result.IhhAncestral / result.IhhDerived)).Within(Tol),
+            "CalculateIHS must return ln(iHH_A/iHH_D) (Voight 2006 sign), not selscan's reciprocal.");
+        // And the reciprocal must be the wrong sign (guards against a silent swap in the code).
+        Assert.That(result.UnstandardizedIHS,
+            Is.Not.EqualTo(Math.Log(result.IhhDerived / result.IhhAncestral)).Within(Tol),
+            "Derived/ancestral (selscan) would be the opposite sign; the code must not use it here.");
     }
 
     // M10 — null haplotypes.

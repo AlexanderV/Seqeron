@@ -170,3 +170,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 45 | MIRNA-PAIR-001 | MiRNA | ✅ | 🟡 | ✅ CLEAN | - |
 | 46 | PANGEN-HEAP-001 | PanGenome | ✅ | 🟡 | ✅ CLEAN | - |
 | 47 | PANGEN-MARKER-001 | PanGenome | ✅ | ✅ | ✅ CLEAN | - |
+| 48 | POP-SELECT-001 | PopGen | ✅ | 🟡 | ✅ CLEAN | - |
