@@ -94,6 +94,50 @@ public class PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests
             "Four singletons: no state occurs in >=2 sequences, so not PI (Zvelebil 2008).");
     }
 
+    // M5b — Informative despite a third singleton state. Column A,A,C,C,G: states A and C
+    // each occur in >=2 sequences, so the column is parsimony-informative (=1) even though
+    // G is a singleton. The criterion is "at least two states each in >=2 taxa" — it does NOT
+    // require every present state to occur twice. (Zvelebil & Baum 2008; IQ-TREE FAQ; Memorial
+    // University parsimony notes.) A wrong "every state must occur >=2 times" reading returns 0.
+    [Test]
+    public void CountParsimonyInformativeSites_TwoSupportedStatesPlusSingleton_ReturnsOne()
+    {
+        var aln = new[] { "A", "A", "C", "C", "G" };
+
+        int pis = PanGenomeAnalyzer.CountParsimonyInformativeSites(aln);
+
+        Assert.That(pis, Is.EqualTo(1),
+            "A:2, C:2 (each >=2 sequences) makes the column PI; the lone singleton G is "
+            + "irrelevant to the two-states-each-twice criterion (Zvelebil 2008; IQ-TREE).");
+    }
+
+    // M5c — Informative with unequal support counts. Column A,A,A,C,C: A:3, C:2; two states
+    // each occur in >=2 sequences -> informative (=1). Confirms the count is "states with
+    // support >=2", not "states with count exactly 2" (Zvelebil 2008; Memorial University).
+    [Test]
+    public void CountParsimonyInformativeSites_UnequalSupportCounts_ReturnsOne()
+    {
+        var aln = new[] { "A", "A", "A", "C", "C" };
+
+        int pis = PanGenomeAnalyzer.CountParsimonyInformativeSites(aln);
+
+        Assert.That(pis, Is.EqualTo(1),
+            "A:3 and C:2 both occur in >=2 sequences -> parsimony-informative (Zvelebil 2008).");
+    }
+
+    // INV-1 upper bound — every column informative: PIS equals the alignment length. Three
+    // columns each A,A,C,C -> 3 PI columns = length. (Bounds 0 <= PIS <= length, Zvelebil 2008.)
+    [Test]
+    public void CountParsimonyInformativeSites_AllColumnsInformative_EqualsAlignmentLength()
+    {
+        var aln = new[] { "AAA", "AAA", "CCC", "CCC" };
+
+        int pis = PanGenomeAnalyzer.CountParsimonyInformativeSites(aln);
+
+        Assert.That(pis, Is.EqualTo(3),
+            "All three columns are A,A,C,C (PI); PIS reaches its upper bound = alignment length (INV-1).");
+    }
+
     // S2 — Single sequence (fewer than 2 rows) -> 0 (no state can be in >=2 rows).
     [Test]
     public void CountParsimonyInformativeSites_SingleSequence_ReturnsZero()
