@@ -172,3 +172,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 47 | PANGEN-MARKER-001 | PanGenome | ✅ | ✅ | ✅ CLEAN | - |
 | 48 | POP-SELECT-001 | PopGen | ✅ | 🟡 | ✅ CLEAN | - |
 | 49 | POP-ANCESTRY-001 | PopGen | ✅ | ✅ | ✅ CLEAN | - |
+| 50 | POP-ROH-001 | PopGen | ✅ | ✅ | ✅ CLEAN | - |

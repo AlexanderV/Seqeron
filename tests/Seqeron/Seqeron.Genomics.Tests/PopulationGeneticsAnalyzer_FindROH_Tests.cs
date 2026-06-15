@@ -190,6 +190,50 @@ public class PopulationGeneticsAnalyzer_FindROH_Tests
         Assert.That(roh[0].Start, Is.EqualTo(2 * 20_000), "Leading heterozygotes are skipped; run starts at index 2.");
     }
 
+    // S6 — A run ends at its last homozygous SNP; a trailing tolerated heterozygote is NOT part
+    // of the emitted run. A ROH is by definition bounded by homozygous markers (Marras et al.
+    // 2015: a run is a stretch of homozygous SNPs; opposite genotypes are only tolerated to
+    // bridge interior error, not to extend the run past its last homozygous locus). With a het
+    // at the FINAL index (100), the run must close at index 99 with SnpCount = 100, End =
+    // 1,980,000 — i.e. the trailing het is excluded from both End and SnpCount.
+    [Test]
+    public void FindROH_TrailingHeterozygote_RunEndsAtLastHomozygousSnp()
+    {
+        var snps = Snps(101, 20_000, 100); // 100 hom SNPs followed by one trailing het
+
+        var roh = FindROH(snps, maxHeterozygotes: 1, minSnps: 100, minLength: 1_000_000).ToList();
+
+        Assert.That(roh, Has.Count.EqualTo(1), "The trailing het does not start a new run.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(roh[0].Start, Is.EqualTo(0), "Run starts at the first homozygous SNP.");
+            Assert.That(roh[0].End, Is.EqualTo(1_980_000), "Run ends at the last homozygous SNP (index 99), excluding the trailing het.");
+            Assert.That(roh[0].SnpCount, Is.EqualTo(100), "The trailing het is excluded from the run's SNP count.");
+        });
+    }
+
+    // S7 — With zero tolerance (maxHeterozygotes = 0) any heterozygote breaks the run; this is
+    // the strict consecutive-homozygous-run case. A het at index 50 splits 100 homozygous SNPs
+    // into [0..49] (50 SNPs) and [51..99] (49 SNPs) — Marras et al. (2015) maxOppRun = 0.
+    [Test]
+    public void FindROH_ZeroToleranceHeterozygote_BreaksRunImmediately()
+    {
+        var snps = Snps(100, 20_000, 50); // het at the midpoint
+
+        var roh = FindROH(snps, minSnps: 40, minLength: 500_000, maxHeterozygotes: 0).ToList();
+
+        Assert.That(roh, Has.Count.EqualTo(2), "With zero tolerance, a single het splits the run.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(roh[0].Start, Is.EqualTo(0), "First run starts at SNP 0.");
+            Assert.That(roh[0].End, Is.EqualTo(49 * 20_000), "First run ends at the last homozygous SNP before the het.");
+            Assert.That(roh[0].SnpCount, Is.EqualTo(50), "First run holds the 50 homozygous SNPs 0..49.");
+            Assert.That(roh[1].Start, Is.EqualTo(51 * 20_000), "Second run restarts after the breaking het.");
+            Assert.That(roh[1].End, Is.EqualTo(99 * 20_000), "Second run ends at the final SNP.");
+            Assert.That(roh[1].SnpCount, Is.EqualTo(49), "Second run holds the 49 homozygous SNPs 51..99.");
+        });
+    }
+
     // C1 — Invalid arguments raise ArgumentOutOfRangeException / ArgumentNullException.
     [Test]
     public void FindROH_InvalidArguments_Throw()
