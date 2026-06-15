@@ -128,6 +128,40 @@ public class RnaSecondaryStructure_MinimumFreeEnergy_Tests
             "INV-02: extending the sequence must not raise the MFE (more options can only lower it).");
     }
 
+    // M9 — minLoopSize < 3 is clamped to the nearest-neighbour minimum of 3 nt
+    // (NNDB Turner 2004: "the nearest neighbor rules prohibit hairpin loops with fewer
+    // than 3 nucleotides"; Zuker & Stiegler 1981). Passing 0 or a negative value must
+    // not enable a shorter (sterically impossible) loop, so the result is identical to
+    // minLoopSize = 3, and a sequence that could only fold via a 2-nt loop stays at 0.
+    [Test]
+    public void CalculateMinimumFreeEnergy_MinLoopSizeBelow3_ClampedToThree()
+    {
+        double atThree = CalculateMinimumFreeEnergy("CACAAAAAAAUGUG", 3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CalculateMinimumFreeEnergy("CACAAAAAAAUGUG", 0), Is.EqualTo(atThree).Within(1e-9),
+                "minLoopSize=0 must be clamped to 3, giving the same MFE as minLoopSize=3.");
+            Assert.That(CalculateMinimumFreeEnergy("CACAAAAAAAUGUG", -5), Is.EqualTo(atThree).Within(1e-9),
+                "A negative minLoopSize must be clamped to 3, not enable shorter loops.");
+            // GGCGCC could only pair via a 2-nt loop (G-C over loop 'CG'); clamping to 3
+            // forbids it, so no pair forms and the MFE is the 0-energy open chain.
+            Assert.That(CalculateMinimumFreeEnergy("GGCGCC", 0), Is.EqualTo(0.0).Within(1e-9),
+                "A 2-nt hairpin loop is prohibited; clamping to 3 leaves the open chain (MFE = 0).");
+        });
+    }
+
+    // M10 — Input is case-insensitive (contract §3.1: "case-insensitive, U-based").
+    // The lowercase spelling of NNDB Example 1 must give the identical -1.41 kcal/mol.
+    [Test]
+    public void CalculateMinimumFreeEnergy_LowercaseInput_SameAsUppercase()
+    {
+        double expectedExact = -2.11 - 2.24 - 2.11 + 0.45 - 0.8 + 5.4; // -1.41 (NNDB Ex1)
+
+        Assert.That(CalculateMinimumFreeEnergy("cacaaaaaaaugug"), Is.EqualTo(expectedExact).Within(1e-9),
+            "Lowercase input must be folded identically to uppercase (case-insensitive contract).");
+    }
+
     #endregion
 
     #region PredictStructure

@@ -197,3 +197,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 72 | PROTMOTIF-COMMON-001 | ProteinMotif | ✅ | 🟡 | ✅ CLEAN | - |
 | 73 | RNA-PAIR-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
 | 74 | RNA-HAIRPIN-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
+| 75 | RNA-MFE-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
