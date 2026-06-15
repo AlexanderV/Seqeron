@@ -41,6 +41,10 @@ public class EpigeneticsAnalyzer_DMR_Tests
             Assert.That(dmrs[0].Annotation, Is.EqualTo("Hypermethylated"),
                 "positive difference = treatment higher than control = hypermethylated (Akalin 2012)");
             Assert.That(dmrs[0].CpGCount, Is.EqualTo(3), "all three covered sites are in the region");
+            // Pooled 2x2 table is [[0,60],[60,0]] (complete separation).
+            // scipy.stats.fisher_exact([[0,60],[60,0]]) -> two-sided p = 2.070073888186964e-35.
+            Assert.That(dmrs[0].PValue, Is.EqualTo(2.070073888186964e-35).Within(1e-44),
+                "two-sided Fisher's exact p of the fully-separated pooled table (scipy reference)");
         });
     }
 
@@ -136,7 +140,9 @@ public class EpigeneticsAnalyzer_DMR_Tests
         Assert.That(dmrs, Is.Empty, "no covered positions means no tiles and no DMRs");
     }
 
-    // M8 — PValue within [0,1] for any reported DMR (Fisher exact probability bounds)
+    // M8 — PValue within [0,1] AND equal to the externally-computed two-sided Fisher value.
+    // control 0.1 cov 30 -> numC=3,numT=27 ; treatment 0.9 cov 30 -> numC=27,numT=3 ; 4 sites pooled
+    // -> 2x2 table [[12,108],[108,12]]. scipy.stats.fisher_exact([[12,108],[108,12]]) -> p = 2.475428262210228e-39.
     [Test]
     public void FindDMRs_ReportedRegion_PValueWithinUnitInterval()
     {
@@ -146,8 +152,15 @@ public class EpigeneticsAnalyzer_DMR_Tests
         var dmrs = EpigeneticsAnalyzer.FindDMRs(control, treatment).ToList();
 
         Assert.That(dmrs, Is.Not.Empty, "strongly differential window must be reported");
-        Assert.That(dmrs[0].PValue, Is.InRange(0.0, 1.0),
-            "a Fisher's exact p-value is a probability in [0,1]");
+        Assert.Multiple(() =>
+        {
+            Assert.That(dmrs[0].PValue, Is.InRange(0.0, 1.0),
+                "a Fisher's exact p-value is a probability in [0,1]");
+            // Exact two-sided value (independent reference: scipy.stats.fisher_exact); lock it, do not
+            // settle for a bounds check that any wrong implementation would also pass.
+            Assert.That(dmrs[0].PValue, Is.EqualTo(2.475428262210228e-39).Within(1e-48),
+                "two-sided Fisher's exact p of pooled table [[12,108],[108,12]] (scipy reference)");
+        });
     }
 
     // S1 — Window with fewer covered sites than minCpGCount is not reported
@@ -238,6 +251,34 @@ public class EpigeneticsAnalyzer_DMR_Tests
             "hypergeometric probability of the published 2x2 table (Fisher's exact test worked example)");
     }
 
+    // FisherExactProbability: empty table (n == 0) is the degenerate everything-zero case → p = 1.0.
+    [Test]
+    public void FisherExactProbability_ZeroTotal_ReturnsOne()
+    {
+        Assert.That(EpigeneticsAnalyzer.FisherExactProbability(0, 0, 0, 0), Is.EqualTo(1.0),
+            "an all-zero contingency table has no information → single-table probability defined as 1.0");
+    }
+
+    // FisherExactProbability: negative cell counts are invalid and rejected.
+    [Test]
+    public void FisherExactProbability_NegativeCell_Throws()
+    {
+        Assert.That(() => EpigeneticsAnalyzer.FisherExactProbability(-1, 9, 11, 3),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(),
+            "contingency-table cells must be non-negative");
+    }
+
+    // FisherExactProbability: a balanced symmetric table — the single-table probability matches
+    // the hypergeometric value computed independently (scipy hypergeom / C(.)·C(.)/C(.)).
+    // [[5,5],[5,5]] -> C(10,5)*C(10,5)/C(20,10) = 252*252/184756 = 0.34371820130334063.
+    [Test]
+    public void FisherExactProbability_SymmetricTable_MatchesHypergeometric()
+    {
+        Assert.That(EpigeneticsAnalyzer.FisherExactProbability(5, 5, 5, 5),
+            Is.EqualTo(0.34371820130334063).Within(1e-12),
+            "single-table hypergeometric probability of [[5,5],[5,5]] (independent reference)");
+    }
+
     // S2 — Degenerate margin (a zero row/column total) → only one feasible table → not differential.
     // Verified through FindDMRs: a window with zero coverage in one group is not reported.
     [Test]
@@ -282,6 +323,25 @@ public class EpigeneticsAnalyzer_DMR_Tests
                 "DMR [100,200] overlaps feature [150,400) → labelled with the feature");
             Assert.That(annotated[1].Annotation, Is.EqualTo("Hypomethylated"),
                 "non-overlapping DMR keeps its methylation annotation");
+        });
+    }
+
+    // AnnotateDMRs — null inputs are rejected eagerly (input-validation contract).
+    [Test]
+    public void AnnotateDMRs_NullInput_Throws()
+    {
+        var dmrs = new[]
+        {
+            new DMR(Start: 100, End: 200, MeanDifference: 0.5, PValue: 0.001, CpGCount: 4, Annotation: "Hypermethylated"),
+        };
+        var annotations = new[] { new GeneAnnotation("TP53", 150, 400) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => EpigeneticsAnalyzer.AnnotateDMRs(null!, annotations),
+                NUnit.Framework.Throws.ArgumentNullException, "null dmrs must be rejected");
+            Assert.That(() => EpigeneticsAnalyzer.AnnotateDMRs(dmrs, null!),
+                NUnit.Framework.Throws.ArgumentNullException, "null annotations must be rejected");
         });
     }
 
