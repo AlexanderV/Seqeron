@@ -228,6 +228,38 @@ public class EpigeneticsAnalyzer_Bisulfite_Tests
         });
     }
 
+    // M8b — Schultz et al. (2012) canonical worked example: a region with one site at
+    // 90/100 methylated reads and one at 1/2. The paper contrasts the weighted methylation
+    // level (read-pooled) with the unweighted mean of per-site levels.
+    //   weighted = (90 + 1) / (100 + 2) = 91/102 = 0.8921568627...
+    //   unweighted mean = (0.90 + 0.50) / 2 = 0.70  (NOT what the weighted level returns)
+    // Source: Schultz MD, Schmitz RJ, Ecker JR (2012) Trends Genet. 28(12):583–585.
+    [Test]
+    public void GenerateProfile_SchultzWorkedExample_ReturnsWeightedLevel()
+    {
+        var sites = new[]
+        {
+            new MethylationSite(1, MethylationType.CpG, "CG", 0.90, 100),
+            new MethylationSite(5, MethylationType.CpG, "CG", 0.50, 2),
+        };
+
+        var profile = EpigeneticsAnalyzer.GenerateMethylationProfile(sites);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.CpGMethylation, Is.EqualTo(91.0 / 102.0).Within(1e-12),
+                "Weighted CpG methylation = (90+1)/(100+2) = 91/102 ≈ 0.89216 (Schultz 2012), not the 0.70 unweighted mean");
+            Assert.That(profile.GlobalMethylation, Is.EqualTo(91.0 / 102.0).Within(1e-12),
+                "All sites are CpG, so the global weighted level equals the CpG weighted level");
+            Assert.That(profile.CpGMethylation, Is.Not.EqualTo(0.70).Within(1e-3),
+                "Weighted level must differ from the unweighted mean 0.70 under unequal coverage (Schultz 2012)");
+            Assert.That(profile.TotalCpGSites, Is.EqualTo(2),
+                "Both inputs are CpG sites");
+            Assert.That(profile.MethylatedCpGSites, Is.EqualTo(2),
+                "Both per-site levels (0.90 and 0.50) are ≥ 0.5, so both count as methylated");
+        });
+    }
+
     // M9 — Per-context separation: CpG and CHG levels reported independently
     [Test]
     public void GenerateProfile_SeparatesContexts_ReportsPerContextLevels()
@@ -246,6 +278,55 @@ public class EpigeneticsAnalyzer_Bisulfite_Tests
                 "The single fully methylated CpG site → CpG level 1.0");
             Assert.That(profile.CHGMethylation, Is.EqualTo(0.0).Within(1e-10),
                 "The single unmethylated CHG site → CHG level 0.0");
+        });
+    }
+
+    // M9b — CHH context is weighted independently (third Bismark context: Krueger 2011).
+    // Two CHH sites: 2/2 methylated (level 1.0, cov 2) and 0/8 (level 0.0, cov 8).
+    //   weighted CHH = (1.0*2 + 0.0*8)/(2+8) = 2/10 = 0.2 (Schultz read-pooled level)
+    [Test]
+    public void GenerateProfile_ChhContext_UsesWeightedLevel()
+    {
+        var sites = new[]
+        {
+            new MethylationSite(1, MethylationType.CHH, "CAA", 1.0, 2),
+            new MethylationSite(9, MethylationType.CHH, "CTT", 0.0, 8),
+        };
+
+        var profile = EpigeneticsAnalyzer.GenerateMethylationProfile(sites);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.CHHMethylation, Is.EqualTo(0.2).Within(1e-12),
+                "Weighted CHH = (1.0·2 + 0.0·8)/(2+8) = 2/10 = 0.2 (Schultz 2012)");
+            Assert.That(profile.CpGMethylation, Is.EqualTo(0.0).Within(1e-12),
+                "No CpG sites → CpG level 0");
+            Assert.That(profile.TotalCpGSites, Is.EqualTo(0),
+                "No CpG sites present");
+        });
+    }
+
+    // M9c — A per-site level below the 0.5 methylated-site cutoff is not counted in
+    // MethylatedCpGSites, but still contributes to the continuous weighted level.
+    [Test]
+    public void GenerateProfile_LevelBelowThreshold_NotCountedAsMethylatedSite()
+    {
+        var sites = new[]
+        {
+            new MethylationSite(1, MethylationType.CpG, "CG", 0.49, 100),
+            new MethylationSite(5, MethylationType.CpG, "CG", 0.80, 100),
+        };
+
+        var profile = EpigeneticsAnalyzer.GenerateMethylationProfile(sites);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile.MethylatedCpGSites, Is.EqualTo(1),
+                "Only the 0.80 site is ≥ 0.5; the 0.49 site is below the cutoff");
+            Assert.That(profile.TotalCpGSites, Is.EqualTo(2),
+                "Both are CpG sites regardless of the methylated-site cutoff");
+            Assert.That(profile.CpGMethylation, Is.EqualTo((0.49 + 0.80) / 2.0).Within(1e-12),
+                "Equal coverage → weighted level equals the mean of per-site levels = 0.645");
         });
     }
 
