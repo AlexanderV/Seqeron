@@ -135,8 +135,18 @@ public class VariantAnnotator_FunctionalImpact_Tests
         // base3 A>A would be a no-op; use base3 A>G on an N-containing codon: NAG still translates to X.
         var fi = Predict(117, "A", "G", VariantAnnotator.VariantType.SNV);
 
-        Assert.That(fi.Consequence, Is.Not.EqualTo(VariantAnnotator.ConsequenceType.SynonymousVariant),
-            "a codon containing N translates to X and is excluded from synonymous_variant");
+        Assert.Multiple(() =>
+        {
+            // Synonymous predicate excludes any peptide containing X (VariationEffect.pm).
+            Assert.That(fi.Consequence, Is.Not.EqualTo(VariantAnnotator.ConsequenceType.SynonymousVariant),
+                "a codon containing N translates to X and is excluded from synonymous_variant");
+            // The protein consequence cannot be determined for an ambiguous codon; VEP falls
+            // back to coding_sequence_variant (Constants.pm rank 23, MODIFIER).
+            Assert.That(fi.Consequence, Is.EqualTo(VariantAnnotator.ConsequenceType.CodingSequenceVariant),
+                "an undeterminable coding peptide is reported as coding_sequence_variant");
+            Assert.That(fi.Impact, Is.EqualTo(VariantAnnotator.ImpactLevel.Modifier),
+                "coding_sequence_variant impact is MODIFIER in Constants.pm");
+        });
     }
 
     #endregion
@@ -268,6 +278,55 @@ public class VariantAnnotator_FunctionalImpact_Tests
             foreach (var c in modifier)
                 Assert.That(VariantAnnotator.GetImpactLevel(c), Is.EqualTo(VariantAnnotator.ImpactLevel.Modifier),
                     $"{c} is MODIFIER impact in Constants.pm");
+        });
+    }
+
+    // INV-4/INV-5 — GetConsequenceRank returns the exact Constants.pm 'rank' field
+    // (1 = most severe). Lower rank wins in Annotate's most-severe selection.
+    // Source: Ensembl ensembl-variation rel/110 Utils/Constants.pm.
+    [Test]
+    public void GetConsequenceRank_MatchesConstantsPmRanks()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.TranscriptAblation), Is.EqualTo(1));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.SpliceAcceptorVariant), Is.EqualTo(2));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.SpliceDonorVariant), Is.EqualTo(3));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.StopGained), Is.EqualTo(4));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.FrameshiftVariant), Is.EqualTo(5));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.StopLost), Is.EqualTo(6));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.StartLost), Is.EqualTo(7));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.InframeInsertion), Is.EqualTo(11));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.InframeDeletion), Is.EqualTo(12));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.MissenseVariant), Is.EqualTo(13));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.SpliceRegionVariant), Is.EqualTo(16));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.SynonymousVariant), Is.EqualTo(22));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.CodingSequenceVariant), Is.EqualTo(23));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.FivePrimeUtrVariant), Is.EqualTo(25));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.ThreePrimeUtrVariant), Is.EqualTo(26));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.IntronVariant), Is.EqualTo(28));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.UpstreamGeneVariant), Is.EqualTo(32));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.DownstreamGeneVariant), Is.EqualTo(33));
+            Assert.That(VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.IntergenicVariant), Is.EqualTo(40));
+        });
+    }
+
+    // INV-5 — the severity rank ordering is consistent with the IMPACT tiers:
+    // every HIGH term ranks above every MODERATE, which ranks above LOW, above MODIFIER.
+    // Source: Constants.pm (impact + rank are properties of the same OverlapConsequence).
+    [Test]
+    public void GetConsequenceRank_OrderingConsistentWithImpactTiers()
+    {
+        int high = VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.StartLost);        // 7 (last HIGH)
+        int moderate = VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.InframeInsertion); // 11 (first MODERATE)
+        int low = VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.SpliceRegionVariant);    // 16 (first LOW)
+        int modifier = VariantAnnotator.GetConsequenceRank(VariantAnnotator.ConsequenceType.CodingSequenceVariant); // 23 (first MODIFIER)
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(high, Is.LessThan(moderate), "HIGH terms rank above MODERATE");
+            Assert.That(moderate, Is.LessThan(low), "MODERATE terms rank above LOW");
+            Assert.That(low, Is.LessThan(modifier), "LOW terms rank above MODIFIER");
         });
     }
 
