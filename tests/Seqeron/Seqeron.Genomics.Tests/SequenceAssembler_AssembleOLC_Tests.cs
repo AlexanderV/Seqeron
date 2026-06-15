@@ -241,6 +241,31 @@ public class SequenceAssembler_AssembleOLC_Tests
         });
     }
 
+    // M5b — MinContigLength discards short contigs: a singleton read below the threshold is
+    // dropped while one at/above it is kept (algorithm doc §3.2: "Contigs shorter than this are
+    // discarded"). Two non-overlapping reads (5 and 10 bases) at MinContigLength 8 -> only the
+    // 10-base read survives.
+    [Test]
+    public void AssembleOLC_MinContigLength_DiscardsShortContigs()
+    {
+        var reads = new List<string> { "AAAAA", "CCCCCCCCCC" };
+
+        var result = SequenceAssembler.AssembleOLC(reads,
+            new SequenceAssembler.AssemblyParameters(MinOverlap: 5, MinIdentity: 1.0, MinContigLength: 8));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs.Count, Is.EqualTo(1),
+                "The 5-base read is shorter than MinContigLength 8 and must be discarded.");
+            Assert.That(result.Contigs[0], Is.EqualTo("CCCCCCCCCC"),
+                "Only the 10-base read meets the MinContigLength 8 threshold.");
+            Assert.That(result.TotalReads, Is.EqualTo(2),
+                "TotalReads reflects the input read count regardless of contig filtering.");
+            Assert.That(result.TotalLength, Is.EqualTo(10),
+                "TotalLength sums only the surviving contigs (the 5-base read was discarded).");
+        });
+    }
+
     // M6 — Empty read set returns an empty AssemblyResult (trivial identity; ASSUMPTION-2).
     [Test]
     public void AssembleOLC_EmptyReads_ReturnsEmptyResult()
