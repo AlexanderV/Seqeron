@@ -144,20 +144,34 @@ public class ProteinMotifFinder_FindCommonMotifs_Tests
     #region FindCommonMotifs — whole-dictionary aggregation (MUST)
 
     // M7 — whole-dictionary scan must surface two DIFFERENT pattern types from one sequence.
-    // RGD (PS00016) + N-glycosylation (PS00001) both present in RGDNFTA.
+    // RGDNFTA contains exactly two PROSITE windows over the whole CommonMotifs library:
+    // RGD (PS00016) at 0..2 and N-glycosylation (PS00001) at 3..6 — independently confirmed
+    // by scanning every library pattern (no other entry matches this 7-mer).
     [Test]
     public void FindCommonMotifs_TwoDistinctPatterns_ReturnsBothTypes()
     {
         const string protein = "RGDNFTA";
 
-        var names = FindCommonMotifs(protein).Select(m => m.MotifName).Distinct().ToList();
+        var hits = FindCommonMotifs(protein)
+            .OrderBy(m => m.Start).ThenBy(m => m.MotifName).ToList();
 
+        // Exact, not "contains": the entire library yields precisely these two hits.
+        Assert.That(hits, Has.Count.EqualTo(2),
+            "RGDNFTA matches exactly two library patterns across the whole CommonMotifs scan");
         Assert.Multiple(() =>
         {
-            Assert.That(names, Does.Contain("RGD"),
-                "RGD at 0..2 must be reported (PS00016)");
-            Assert.That(names, Does.Contain("ASN_GLYCOSYLATION"),
-                "NFTA at 3..6 must be reported (PS00001) — proves the scan covers the whole library");
+            Assert.That(hits[0].MotifName, Is.EqualTo("RGD"), "first hit is RGD (PS00016)");
+            Assert.That(hits[0].Pattern, Is.EqualTo("PS00016"));
+            Assert.That(hits[0].Start, Is.EqualTo(0));
+            Assert.That(hits[0].End, Is.EqualTo(2));
+            Assert.That(hits[0].Sequence, Is.EqualTo("RGD"));
+
+            Assert.That(hits[1].MotifName, Is.EqualTo("ASN_GLYCOSYLATION"),
+                "second hit is N-glycosylation (PS00001) — proves the scan covers the whole library");
+            Assert.That(hits[1].Pattern, Is.EqualTo("PS00001"));
+            Assert.That(hits[1].Start, Is.EqualTo(3));
+            Assert.That(hits[1].End, Is.EqualTo(6));
+            Assert.That(hits[1].Sequence, Is.EqualTo("NFTA"));
         });
     }
 
@@ -179,6 +193,34 @@ public class ProteinMotifFinder_FindCommonMotifs_Tests
             Assert.That(hits[0].End, Is.EqualTo(2), "first RGD 0..2");
             Assert.That(hits[1].Start, Is.EqualTo(3), "second RGD at 3");
             Assert.That(hits[1].End, Is.EqualTo(5), "second RGD 3..5");
+        });
+    }
+
+    // M8b — INV-03: genuinely OVERLAPPING occurrences of one pattern are both reported.
+    // PS00005 [ST]-x-[RK] on "STRK": window S(0)-T(1)-R(2) = "STR" and T(1)-R(2)-K(3) = "TRK"
+    // share residues 1..2 yet neither is contained in the other, so ScanProsite default
+    // ("greedy, overlaps, no includes") reports BOTH. Independently hand-verified with the
+    // lookahead translation (?=([ST].[RK])) over "STRK". Source: ScanProsite overlap doc
+    // (https://prosite.expasy.org/scanprosite/scanprosite_doc.html).
+    [Test]
+    public void FindCommonMotifs_OverlappingPkcOccurrences_ReturnsBoth()
+    {
+        const string protein = "STRK";
+
+        var hits = FindCommonMotifs(protein)
+            .Where(m => m.MotifName == "PKC_PHOSPHO_SITE")
+            .OrderBy(m => m.Start).ToList();
+
+        Assert.That(hits, Has.Count.EqualTo(2),
+            "two overlapping [ST]-x-[RK] windows must both be reported (overlaps, no includes)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits[0].Start, Is.EqualTo(0), "first window S(0)..R(2)");
+            Assert.That(hits[0].End, Is.EqualTo(2));
+            Assert.That(hits[0].Sequence, Is.EqualTo("STR"));
+            Assert.That(hits[1].Start, Is.EqualTo(1), "second window T(1)..K(3) overlaps the first");
+            Assert.That(hits[1].End, Is.EqualTo(3));
+            Assert.That(hits[1].Sequence, Is.EqualTo("TRK"));
         });
     }
 

@@ -194,3 +194,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 69 | PROTMOTIF-TM-001 | ProteinMotif | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 70 | PROTMOTIF-CC-001 | ProteinMotif | 🟡 | 🟡 | ✅ CLEAN | - |
 | 71 | PROTMOTIF-LC-001 | ProteinMotif | 🟡 | 🟡 | ✅ CLEAN | - |
+| 72 | PROTMOTIF-COMMON-001 | ProteinMotif | ✅ | 🟡 | ✅ CLEAN | - |
