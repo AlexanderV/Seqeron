@@ -152,7 +152,10 @@ public class RnaSecondaryStructure_CanPair_Tests
         });
     }
 
-    // S3 — IUPAC degenerate complements. Evidence: IUPAC-IUB (1970) complement table N->N, R->Y, Y->R.
+    // S3 — IUPAC degenerate complements. Evidence: IUPAC-IUB (1970) Biochemistry 9(20):4022-4027,
+    //      via Wikipedia "Nucleic acid notation" full complement table:
+    //      W<->W, S<->S, M<->K, K<->M, R<->Y, Y<->R, B<->V, V<->B, D<->H, H<->D, N<->N.
+    //      All 11 degenerate branches of GetRnaComplementBase are exercised against the sourced table.
     [Test]
     public void GetComplement_IupacDegenerate_ReturnsExpected()
     {
@@ -161,6 +164,39 @@ public class RnaSecondaryStructure_CanPair_Tests
             Assert.That(GetComplement('N'), Is.EqualTo('N'), "N (any) complements to N");
             Assert.That(GetComplement('R'), Is.EqualTo('Y'), "R (A|G purine) complements to Y (C|U pyrimidine)");
             Assert.That(GetComplement('Y'), Is.EqualTo('R'), "Y (C|U) complements to R (A|G)");
+            Assert.That(GetComplement('W'), Is.EqualTo('W'), "W (weak, A|U) is self-complementary");
+            Assert.That(GetComplement('S'), Is.EqualTo('S'), "S (strong, G|C) is self-complementary");
+            Assert.That(GetComplement('M'), Is.EqualTo('K'), "M (amino, A|C) complements to K (keto, G|U)");
+            Assert.That(GetComplement('K'), Is.EqualTo('M'), "K (keto, G|U) complements to M (amino, A|C)");
+            Assert.That(GetComplement('B'), Is.EqualTo('V'), "B (not A, C|G|U) complements to V (not U, A|C|G)");
+            Assert.That(GetComplement('V'), Is.EqualTo('B'), "V (not U, A|C|G) complements to B (not A, C|G|U)");
+            Assert.That(GetComplement('D'), Is.EqualTo('H'), "D (not C, A|G|U) complements to H (not G, A|C|U)");
+            Assert.That(GetComplement('H'), Is.EqualTo('D'), "H (not G, A|C|U) complements to D (not C, A|G|U)");
+        });
+    }
+
+    // S3b — Lowercase IUPAC degenerate complements preserve case mapping (normalization contract).
+    // Evidence: same IUPAC-IUB table; GetRnaComplementBase accepts lowercase via 'X' or 'x' arms.
+    [Test]
+    public void GetComplement_LowercaseIupacDegenerate_ReturnsExpected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GetComplement('r'), Is.EqualTo('Y'), "lowercase r complements to Y");
+            Assert.That(GetComplement('n'), Is.EqualTo('N'), "lowercase n complements to N");
+            Assert.That(GetComplement('k'), Is.EqualTo('M'), "lowercase k complements to M");
+        });
+    }
+
+    // S3c — Non-IUPAC characters pass through unchanged (Core helper contract).
+    // Evidence: doc 6.1 "Non-IUPAC char in GetComplement -> passed through unchanged".
+    [Test]
+    public void GetComplement_NonIupacChar_PassesThroughUnchanged()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GetComplement('-'), Is.EqualTo('-'), "gap character passes through unchanged");
+            Assert.That(GetComplement('X'), Is.EqualTo('X'), "non-IUPAC 'X' passes through unchanged");
         });
     }
 
