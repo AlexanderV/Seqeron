@@ -67,6 +67,29 @@ public class SequenceStatistics_CalculateNucleotideComposition_Tests
             "AT content (A+T)/total = 2/4 = 0.5");
     }
 
+    // M4b — AT content includes U for RNA: (A+T+U)/total
+    // Evidence: SEQ-STATS-001 Evidence worked example AAUUGGCC -> A2 T0 U2 G2 C2,
+    //           AT content (A+T+U)/total = (2+0+2)/8 = 0.5. Locks the documented U-inclusion branch.
+    [Test]
+    public void CalculateNucleotideComposition_RnaSequence_AtContentIncludesUracil()
+    {
+        var comp = SequenceStatistics.CalculateNucleotideComposition("AAUUGGCC");
+
+        Assert.That(comp.AtContent, Is.EqualTo(0.5).Within(Tolerance),
+            "AT content (A+T+U)/total = (2+0+2)/8 = 0.5 (U counted with A/T for RNA)");
+    }
+
+    // M7b — AT skew uses DNA formula (A-T)/(A+T) without U; AAUUGGCC -> (2-0)/(2+0) = 1.0
+    // Evidence: SEQ-STATS-001 Evidence worked example AAUUGGCC AT skew = 1.0 (Wikipedia "GC skew" formula).
+    [Test]
+    public void CalculateNucleotideComposition_RnaSequence_AtSkewExcludesUracil()
+    {
+        var comp = SequenceStatistics.CalculateNucleotideComposition("AAUUGGCC");
+
+        Assert.That(comp.AtSkew, Is.EqualTo(1.0).Within(Tolerance),
+            "AT skew (A-T)/(A+T) = (2-0)/(2+0) = 1.0; U excluded per Lobry/Wikipedia DNA-specific formula");
+    }
+
     // M5 — GC skew positive = (G-C)/(G+C)
     // Evidence: Wikipedia/Biopython GC_skew; GGGC -> (3-1)/4 = 0.5
     [Test]
