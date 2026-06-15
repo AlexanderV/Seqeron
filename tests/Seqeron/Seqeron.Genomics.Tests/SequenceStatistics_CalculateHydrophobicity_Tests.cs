@@ -92,6 +92,18 @@ public class SequenceStatistics_CalculateHydrophobicity_Tests
             "'X' is not in the kd scale and is skipped; GRAVY = 1.8/1 = 1.8 (deviation 5.4)");
     }
 
+    // S1b — all non-standard residues: recognized count is 0 -> GRAVY 0 (not NaN)
+    // Evidence: scale defines only the 20 standard residues (Kyte-Doolittle 1982 / Expasy);
+    //           impl returns 0 when no residue is recognized (contract 6.1).
+    [Test]
+    public void CalculateHydrophobicity_AllUnknownResidues_ReturnsZero()
+    {
+        double gravy = SequenceStatistics.CalculateHydrophobicity("XXZB");
+
+        Assert.That(gravy, Is.EqualTo(0),
+            "No residue is in the kd scale; recognized count is 0, GRAVY = 0 (not NaN) (contract 6.1)");
+    }
+
     #endregion
 
     #region CalculateHydrophobicityProfile (sliding window)
@@ -148,6 +160,25 @@ public class SequenceStatistics_CalculateHydrophobicity_Tests
 
         Assert.That(profile, Has.Count.EqualTo(4),
             "n - W + 1 = 6 - 3 + 1 = 4 windows (INV-02)");
+    }
+
+    // S3 — profile divides by window size (W), so a non-standard residue contributes 0
+    // to its window's sum (still divided by W, not by recognized count).
+    // Evidence: contract 5.2/6.1 deviation; window mean is sum/W with unknowns adding 0.
+    [Test]
+    public void CalculateHydrophobicityProfile_UnknownResidueInWindow_ContributesZero()
+    {
+        var profile = SequenceStatistics.CalculateHydrophobicityProfile("FXIV", 3).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(profile, Has.Count.EqualTo(2),
+                "n - W + 1 = 4 - 3 + 1 = 2 windows (INV-02)");
+            Assert.That(profile[0], Is.EqualTo((2.8 + 0.0 + 4.5) / 3).Within(Tolerance),
+                "Window F,X,I: X is non-standard => 0; sum 7.3 divided by W=3 (deviation 5.4)");
+            Assert.That(profile[1], Is.EqualTo((0.0 + 4.5 + 4.2) / 3).Within(Tolerance),
+                "Window X,I,V: X is non-standard => 0; sum 8.7 divided by W=3 (deviation 5.4)");
+        });
     }
 
     // C1 — transmembrane-style window (W=19) over a hydrophobic stretch exceeds 1.6
