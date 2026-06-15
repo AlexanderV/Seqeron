@@ -243,17 +243,50 @@ public class MetagenomicsAnalyzer_FindSignificantTaxa_Tests
         var b = result.Single(t => t.Taxon == "TaxonB");
         Assert.Multiple(() =>
         {
-            // Fully separated 3 vs 3: U1=0,U2=9, no-cc... with cc z=(9-4.5-0.5)/σ. σ=sqrt(9*7/12)=sqrt(5.25)=2.2913.
-            // z=4.0/2.2913=1.7457 → p=2*(1-Φ(1.7457))≈0.0808 (>0.05, with continuity). So assert significance flag
-            // matches p<threshold rather than a fixed direction for the separated case.
-            Assert.That(a.Significant, Is.EqualTo(a.PValue < 0.05),
-                "INV-04: Significant flag must equal PValue < pThreshold for TaxonA.");
-            Assert.That(b.Significant, Is.EqualTo(b.PValue < 0.05),
-                "INV-04: Significant flag must equal PValue < pThreshold for TaxonB.");
+            // Sourced p-values (scipy 1.13.1, mannwhitneyu method='asymptotic', use_continuity=True,
+            // alternative='two-sided'), recomputed this validation session:
+            //   TaxonA: group1=[1,2,3] vs group2=[10,11,12] (fully separated, U1=0,U2=9) → p=0.08085559837005224
+            //   TaxonB: group1=[5,6,5] vs group2=[6,5,6] (overlapping, U=3)              → p=0.6192567541768621
+            // Erf approximation tolerance applies (A&S 7.1.26, |ε| ≤ 1.5e-7 ⇒ p within ~1e-6).
+            Assert.That(a.PValue, Is.EqualTo(0.08085559837005224).Within(ErfPTolerance),
+                "scipy mannwhitneyu([1,2,3],[10,11,12]) two-sided asymptotic p (cc) = 0.08085559837005224.");
+            Assert.That(b.PValue, Is.EqualTo(0.6192567541768621).Within(ErfPTolerance),
+                "scipy mannwhitneyu([5,6,5],[6,5,6]) two-sided asymptotic p (cc) = 0.6192567541768621.");
+            // At p=0.05 neither taxon clears the threshold for n1=n2=3 (smallest attainable cc p is 0.0809).
+            Assert.That(a.Significant, Is.False,
+                "INV-04: TaxonA p=0.0809 ≥ 0.05 → not significant (3-vs-3 cannot reach 0.05).");
+            Assert.That(b.Significant, Is.False,
+                "INV-04: TaxonB p=0.619 ≥ 0.05 → not significant.");
             Assert.That(a.PValue, Is.LessThan(b.PValue),
                 "Fully separated TaxonA must have a smaller p-value than overlapping TaxonB.");
             Assert.That(result.Select(t => t.PValue), Is.Ordered,
                 "Results must be ordered by ascending p-value.");
+        });
+    }
+
+    // M9b — with enough replicates (4 vs 4) a fully separated taxon clears p<0.05 and is flagged.
+    [Test]
+    public void FindSignificantTaxa_FullySeparated_FlagsSignificant()
+    {
+        // group1=[1,2,3,4] vs group2=[10,11,12,13]; scipy mannwhitneyu two-sided asymptotic (cc)
+        // p = 0.030382821976577504 < 0.05 (recomputed this session, scipy 1.13.1;
+        // hand-check: U1=0,U2=16, μ=8, σ=sqrt(4·4·9/12)=sqrt(12), z=(8-0.5)/σ=2.16506, p=2·SF(z)).
+        var profiles = new List<IReadOnlyDictionary<string, double>>
+        {
+            Profile(("TaxonA", 1)), Profile(("TaxonA", 2)), Profile(("TaxonA", 3)), Profile(("TaxonA", 4)),
+            Profile(("TaxonA", 10)), Profile(("TaxonA", 11)), Profile(("TaxonA", 12)), Profile(("TaxonA", 13)),
+        };
+        var groups = new[] { 1, 1, 1, 1, 2, 2, 2, 2 };
+
+        var a = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, pThreshold: 0.05)
+            .Single(t => t.Taxon == "TaxonA");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.PValue, Is.EqualTo(0.030382821976577504).Within(ErfPTolerance),
+                "scipy mannwhitneyu([1,2,3,4],[10,11,12,13]) two-sided asymptotic p (cc) = 0.030382821976577504.");
+            Assert.That(a.Significant, Is.True,
+                "INV-04: p=0.0285 < 0.05 → significant.");
         });
     }
 
@@ -274,10 +307,14 @@ public class MetagenomicsAnalyzer_FindSignificantTaxa_Tests
         var result = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups);
 
         var z = result.Single(t => t.Taxon == "TaxonZ");
-        // group1 = [0, 0] (one explicit, one filled), group2 = [50,60]. Fully separated 2 vs 2.
-        // U1=0,U2=4 → m_U=2, σ=sqrt(2*2*5/12)=sqrt(1.6667)=1.291. cc z=(4-2-0.5)/1.291=1.162 → p≈0.245.
-        Assert.That(z.PValue, Is.GreaterThan(0.0).And.LessThanOrEqualTo(1.0),
-            "Absent TaxonZ in group1 filled with 0 abundance; test runs and yields a valid p-value.");
+        // group1 = [0, 0] (one explicit 0, one filled because TaxonZ is absent from that profile),
+        // group2 = [50, 60]. The absent-→-0 fill must make this a fully separated 2-vs-2 comparison.
+        // Sourced value (scipy 1.13.1, mannwhitneyu([0,0],[50,60]) method='asymptotic',
+        // use_continuity=True, alternative='two-sided'), recomputed this session: p = 0.22067136191984682.
+        // This exact value can only be produced if the absent TaxonZ was filled with 0 (ASM-03);
+        // a NaN/skip or a different fill would not reproduce it, so it genuinely locks the behaviour.
+        Assert.That(z.PValue, Is.EqualTo(0.22067136191984682).Within(ErfPTolerance),
+            "Absent TaxonZ filled with 0 → mannwhitneyu([0,0],[50,60]) two-sided asymptotic p (cc) = 0.22067136191984682.");
     }
 
     [Test]
