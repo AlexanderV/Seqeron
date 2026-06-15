@@ -50,12 +50,21 @@ Q[i,j]  = Q[i,j-1] + Σ_{i ≤ k < j-m} Q[i,k-1] · Qᵇ[k,j]          (Q[i,j] =
 Qᵇ[i,j] = exp(−β·E_bp) · Q[i+1,j-1]   if (i,j) can pair and j-i > m, else 0
 ```
 
-The total partition function is `Z = Q[1,n]` [2]. The equilibrium base-pair probability,
-via the external decomposition, is [3]:
+The total partition function is `Z = Q[1,n]` [2]. The equilibrium base-pair probability is
+the **outside recursion** [3]: `P[i,j] = Qᵇ[i,j]·O[i,j]/Z`, where the outside partition
+function `O[i,j]` collects every structure of the sequence outside `[i..j]` together with
+every enclosing pair:
 
 ```
-P[i,j] = ( Q[1,i-1] · Qᵇ[i,j] · Q[j+1,n] ) / Z
+O[i,j] = Q[1,i-1]·Q[j+1,n]                                              (external: (i,j) unenclosed)
+       + Σ_{k<i, l>j, CanPair(k,l), l-k>m}  w·Q[k+1,i-1]·Q[j+1,l-1]·O[k,l]   (enclosing pairs)
+P[i,j] = Qᵇ[i,j] · O[i,j] / Z
 ```
+
+with `w = exp(−β·E_bp)`. The **external term alone is not sufficient**, even in the flat
+fixed-per-pair model: a pair that can be nested inside another pair receives a strictly larger
+probability from the enclosing terms (e.g. `GGGAAACCC`, E_bp=0: P[2,6]=6/20=0.30, whereas the
+external term gives only 1/20=0.05).
 
 The single-structure Boltzmann probability is `p(S) = exp(−βE(S)) / Z` [1][5].
 
@@ -121,8 +130,9 @@ The sequence is upper-cased internally; only A-U, G-C, and GU pairs are admissib
 2. Compute `RT` and the per-pair Boltzmann weight `exp(−E_bp/RT)`.
 3. Fill `Qᵇ` and `Q` by increasing sub-sequence length (inside recursion).
 4. Read `Z = Q[0,n-1]`.
-5. Compute every base-pair probability via the external decomposition
-   `Q[0,i-1]·Qᵇ[i,j]·Q[j+1,n-1] / Z`.
+5. Compute every base-pair probability via the outside recursion
+   `P[i,j] = Qᵇ[i,j]·O[i,j]/Z` (external term plus enclosing-pair terms; see §2.2),
+   processing pairs outermost-first so each enclosing `O[k,l]` is ready.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
@@ -150,10 +160,12 @@ The sequence is upper-cased internally; only A-U, G-C, and GU pairs are admissib
 ### 5.2 Current Behavior
 
 The DP fills matrices by increasing interval length so all dependencies precede each cell.
-Base-pair probabilities are computed only via the external decomposition: in the flat
-fixed-per-pair model there are no loop-dependent energy terms, so the outside recursion's
-stacking/multiloop contributions vanish and every pair's probability is its external term
-[3]. The implementation does **not** use the repository suffix tree: this is a numerical
+Base-pair probabilities are computed via the full **outside recursion** `P[i,j] = Qᵇ[i,j]·O[i,j]/Z`
+(see §2.2): the external term plus, for every enclosing pair, `w·Q[k+1,i-1]·Q[j+1,l-1]·O[k,l]`.
+Pairs are processed outermost-first so each enclosing `O[k,l]` is already known. (An earlier
+version computed only the external term; that under-reported the probability of any nestable
+pair and was corrected on 2026-06-16 — see the validation report.) The implementation does
+**not** use the repository suffix tree: this is a numerical
 dynamic program over base-pairing weights, not a substring-search task, so the suffix tree
 does not apply (N/A).
 
@@ -164,7 +176,7 @@ does not apply (N/A).
 - `Z = Σ_S exp(−E(S)/RT)` and `Z = Q[1,n]` [1][2].
 - Inside recursion `Q[i,j] = Q[i,j-1] + Σ_k Q[i,k-1]·Qᵇ[k,j]`, base case `Q = 1` [2].
 - `Qᵇ[i,j] = exp(−β E_bp)·Q[i+1,j-1]` for admissible pairs [2][4].
-- External base-pair probability `P[i,j] = Q[1,i-1]·Qᵇ[i,j]·Q[j+1,n]/Z` [3].
+- Base-pair probability via the outside recursion `P[i,j] = Qᵇ[i,j]·O[i,j]/Z`, `O` per §2.2 [3].
 - Boltzmann structure probability `p = exp(−βE)/Z` [1][5].
 
 **Intentionally simplified:**

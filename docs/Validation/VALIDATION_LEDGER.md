@@ -201,3 +201,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 76 | RNA-PSEUDOKNOT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | - |
 | 77 | RNA-DOTBRACKET-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | - |
 | 78 | RNA-INVERT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | - |
+| 79 | RNA-PARTITION-001 | RnaStructure | 🟡 | ❌→✅ | ✅ CLEAN | - |

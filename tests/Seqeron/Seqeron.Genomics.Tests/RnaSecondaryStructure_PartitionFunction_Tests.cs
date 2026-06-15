@@ -87,21 +87,103 @@ public class RnaSecondaryStructure_PartitionFunction_Tests
     }
 
     // M6 — Exact base-pair-probability spectrum for GGGAAACCC at E_bp=0 (Z=20).
-    // P[0,8]=6/20, P[0,7]=3/20, P[0,6]=1/20. Evidence: external P formula; counts independently derived.
+    // EVERY one of the 9 admissible pairs is checked against the structure count obtained by
+    // independent exhaustive enumeration (P = #structures-containing-pair / 20). Crucially this
+    // includes pairs that are NESTABLE inside another pair, e.g. (2,6) and (1,7): for those the
+    // McCaskill probability is NOT the external decomposition term — it requires the outside
+    // recursion. A purely-external implementation gives P[2,6]=0.05 (wrong); the true value is
+    // 6/20=0.30. These rows are the regression lock for the outside-recursion fix.
+    // Evidence: brute-force enumeration in docs/Evidence/RNA-PARTITION-001-Evidence.md.
     [Test]
     public void CalculatePartitionFunction_GGGAAACCC_ZeroEnergy_HasExactPairProbabilities()
     {
         var result = CalculatePartitionFunction("GGGAAACCC", basePairEnergy: 0.0);
+        var p = result.BasePairProbabilities;
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.BasePairProbabilities[(0, 8)], Is.EqualTo(0.30).Within(1e-10),
-                "Pair (0,8) occurs in 6 of 20 equally weighted structures → P = 0.30.");
-            Assert.That(result.BasePairProbabilities[(0, 7)], Is.EqualTo(0.15).Within(1e-10),
-                "Pair (0,7) occurs in 3 of 20 structures → P = 0.15.");
-            Assert.That(result.BasePairProbabilities[(0, 6)], Is.EqualTo(0.05).Within(1e-10),
-                "Pair (0,6) occurs in 1 of 20 structures → P = 0.05.");
+            // Outermost pairs (never enclosed) — external term equals the truth here.
+            Assert.That(p[(0, 6)], Is.EqualTo(1.0 / 20.0).Within(1e-10), "Pair (0,6): 1 of 20 structures.");
+            Assert.That(p[(0, 7)], Is.EqualTo(3.0 / 20.0).Within(1e-10), "Pair (0,7): 3 of 20 structures.");
+            Assert.That(p[(0, 8)], Is.EqualTo(6.0 / 20.0).Within(1e-10), "Pair (0,8): 6 of 20 structures.");
+            Assert.That(p[(2, 8)], Is.EqualTo(1.0 / 20.0).Within(1e-10), "Pair (2,8): 1 of 20 structures.");
+            // Nestable pairs — REQUIRE the outside recursion; external-only would under-report.
+            Assert.That(p[(1, 6)], Is.EqualTo(3.0 / 20.0).Within(1e-10), "Pair (1,6): 3 of 20 structures (nestable).");
+            Assert.That(p[(1, 7)], Is.EqualTo(4.0 / 20.0).Within(1e-10), "Pair (1,7): 4 of 20 structures (nestable).");
+            Assert.That(p[(1, 8)], Is.EqualTo(3.0 / 20.0).Within(1e-10), "Pair (1,8): 3 of 20 structures (nestable).");
+            Assert.That(p[(2, 6)], Is.EqualTo(6.0 / 20.0).Within(1e-10), "Pair (2,6): 6 of 20 structures (nestable).");
+            Assert.That(p[(2, 7)], Is.EqualTo(3.0 / 20.0).Within(1e-10), "Pair (2,7): 3 of 20 structures (nestable).");
         });
+    }
+
+    // M6b — Exact base-pair-probability spectrum for GGGGCCCC at E_bp=0 (Z=16). All 10 admissible
+    // pairs checked against the independent structure counts. (1,5) and (2,6) are nestable inside
+    // (0,6)/(0,7): true P = 3/16 = 0.1875, whereas the external-only formula gives 1/16 = 0.0625.
+    // Evidence: brute-force enumeration (docs/Evidence/RNA-PARTITION-001-Evidence.md).
+    [Test]
+    public void CalculatePartitionFunction_GGGGCCCC_ZeroEnergy_HasExactPairProbabilities()
+    {
+        var result = CalculatePartitionFunction("GGGGCCCC", basePairEnergy: 0.0);
+        var p = result.BasePairProbabilities;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p[(0, 4)], Is.EqualTo(1.0 / 16.0).Within(1e-10), "Pair (0,4): 1 of 16.");
+            Assert.That(p[(0, 5)], Is.EqualTo(1.0 / 16.0).Within(1e-10), "Pair (0,5): 1 of 16.");
+            Assert.That(p[(0, 6)], Is.EqualTo(2.0 / 16.0).Within(1e-10), "Pair (0,6): 2 of 16.");
+            Assert.That(p[(0, 7)], Is.EqualTo(4.0 / 16.0).Within(1e-10), "Pair (0,7): 4 of 16.");
+            Assert.That(p[(1, 5)], Is.EqualTo(3.0 / 16.0).Within(1e-10), "Pair (1,5): 3 of 16 (nestable).");
+            Assert.That(p[(1, 6)], Is.EqualTo(2.0 / 16.0).Within(1e-10), "Pair (1,6): 2 of 16 (nestable).");
+            Assert.That(p[(1, 7)], Is.EqualTo(2.0 / 16.0).Within(1e-10), "Pair (1,7): 2 of 16 (nestable).");
+            Assert.That(p[(2, 6)], Is.EqualTo(3.0 / 16.0).Within(1e-10), "Pair (2,6): 3 of 16 (nestable).");
+            Assert.That(p[(2, 7)], Is.EqualTo(1.0 / 16.0).Within(1e-10), "Pair (2,7): 1 of 16 (nestable).");
+            Assert.That(p[(3, 7)], Is.EqualTo(1.0 / 16.0).Within(1e-10), "Pair (3,7): 1 of 16.");
+        });
+    }
+
+    // M6c — Weighted (E_bp=-1) base-pair probabilities for GGGGCCCC. Every admissible pair is
+    // checked against an independent Boltzmann-weighted exhaustive enumeration (weight w^#pairs,
+    // w=exp(1/RT)). This locks the outside recursion for the general w≠1 case, where the wrong
+    // "divide by Q^b(k,l)" shortcut also fails. Evidence: brute-force weighted enumeration.
+    [Test]
+    public void CalculatePartitionFunction_GGGGCCCC_NegativeEnergy_HasExactWeightedProbabilities()
+    {
+        var result = CalculatePartitionFunction("GGGGCCCC", basePairEnergy: -1.0);
+        var p = result.BasePairProbabilities;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PartitionFunction, Is.EqualTo(180.01834483039346).Within(1e-7), "Z weighted.");
+            Assert.That(p[(0, 4)], Is.EqualTo(0.02814492).Within(1e-7), "P(0,4) weighted.");
+            Assert.That(p[(0, 6)], Is.EqualTo(0.17074408).Within(1e-7), "P(0,6) weighted.");
+            Assert.That(p[(0, 7)], Is.EqualTo(0.45594238).Within(1e-7), "P(0,7) weighted.");
+            Assert.That(p[(1, 5)], Is.EqualTo(0.31334323).Within(1e-7), "P(1,5) weighted (nestable).");
+            Assert.That(p[(2, 6)], Is.EqualTo(0.31334323).Within(1e-7), "P(2,6) weighted (nestable).");
+            Assert.That(p[(1, 6)], Is.EqualTo(0.17074408).Within(1e-7), "P(1,6) weighted (nestable).");
+            Assert.That(p[(1, 7)], Is.EqualTo(0.17074408).Within(1e-7), "P(1,7) weighted (nestable).");
+        });
+    }
+
+    // M6d — Single-base pairing-probability invariant: for any position, the sum of probabilities
+    // over all pairs incident to it is ≤ 1 (a base pairs with at most one partner). Verified
+    // independently above (max row sum 0.983 over 300 random cases). Locks the outside recursion
+    // against over-counting. Evidence: McCaskill ensemble property.
+    [Test]
+    public void CalculatePartitionFunction_PerBasePairingProbability_NeverExceedsOne()
+    {
+        foreach (var (seq, ebp) in new[] { ("GGGGCCCC", 0.0), ("GGGGCCCC", -2.0), ("GGGAAACCC", -1.0) })
+        {
+            var result = CalculatePartitionFunction(seq, basePairEnergy: ebp);
+            var rowSum = new double[seq.Length];
+            foreach (var kv in result.BasePairProbabilities)
+            {
+                rowSum[kv.Key.I] += kv.Value;
+                rowSum[kv.Key.J] += kv.Value;
+            }
+            for (int i = 0; i < seq.Length; i++)
+                Assert.That(rowSum[i], Is.LessThanOrEqualTo(1.0 + 1e-9),
+                    $"Position {i} of '{seq}' (E_bp={ebp}) pairs with total probability ≤ 1.");
+        }
     }
 
     // M7 — Every base-pair probability must lie in [0,1] for a folding sequence (INV-2).

@@ -78,8 +78,11 @@
 | M2 | Z short-span | `Z("GC")` — only pair has span ≤ m | `Z = 1` | Source 2 (min-loop) |
 | M3 | Z count GGGGCCCC | `Z("GGGGCCCC", E_bp=0)` | `Z = 16` (# structures) | Evidence dataset (recurrence + brute force) |
 | M4 | Z count GGGAAACCC | `Z("GGGAAACCC", E_bp=0)` | `Z = 20` (# structures) | Evidence dataset (recurrence + brute force) |
-| M5 | Single-pair probability | `P[0,5]("GAAAAC", E_bp=0)` | `Z=2`, `P[0,5]=0.5` | Source 3 external formula |
-| M6 | Probability spectrum | `P("GGGAAACCC", E_bp=0)` | `P[0,8]=0.30`, `P[0,7]=0.15`, `P[0,6]=0.05` | Source 3 external formula |
+| M5 | Single-pair probability | `P[0,5]("GAAAAC", E_bp=0)` | `Z=2`, `P[0,5]=0.5` | Source 3 outside recursion |
+| M6 | Probability spectrum (all 9 pairs incl. nested) | `P("GGGAAACCC", E_bp=0)` | `P[0,8]=6/20`, `P[1,7]=4/20`, `P[2,6]=6/20`, `P[1,6]=P[2,7]=P[1,8]=3/20`, `P[0,6]=P[2,8]=1/20`, `P[0,7]=3/20` | Brute-force enumeration; outside recursion |
+| M6b | Probability spectrum (all 10 pairs incl. nested) | `P("GGGGCCCC", E_bp=0)` | `P[1,5]=P[2,6]=3/16`, `P[0,7]=4/16`, … (all 10) | Brute-force enumeration; outside recursion |
+| M6c | Weighted probabilities (nested) | `P("GGGGCCCC", E_bp=-1)` | `Z=180.0183…`, `P[1,5]=P[2,6]=0.31334323`, … | Weighted brute-force enumeration |
+| M6d | Per-base pairing ≤ 1 | `Σ_{pairs at p} P ≤ 1` for several seqs | every position ≤ 1 | McCaskill ensemble property |
 | M7 | Probabilities in [0,1] | All `P[i,j]` for a folding sequence | every value in [0,1] | INV-2 |
 | M8 | Boltzmann identity | `CalculateStructureProbability(−5,−5)` | `= 1.0` | INV-5; Source 1 |
 | M9 | Boltzmann value | `CalculateStructureProbability(−5,−6)` | `= exp(−1/RT) = 0.197370910785…` | INV-5; Source 1, 5 |

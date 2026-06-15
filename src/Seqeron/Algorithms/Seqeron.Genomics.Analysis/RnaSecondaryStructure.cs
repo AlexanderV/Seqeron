@@ -1977,21 +1977,51 @@ public static class RnaSecondaryStructure
 
         double z = GetQ(0, n - 1); // Z = Q(1,n) in 1-based notation.
 
-        // External base-pair probabilities: in the flat (fixed-per-pair) model every pair
-        // is an external pair of the decomposition Q(1,i-1)·Q^b(i,j)·Q(j+1,n).
+        // McCaskill (1990) base-pair probabilities via the outside recursion.
+        // p[i,j] = Q^b(i,j)·O(i,j)/Z, where O(i,j) is the OUTSIDE partition function: the sum
+        // of Boltzmann weights of every structure of the parts of the sequence that lie outside
+        // [i..j] (and of every pair that encloses (i,j)). It obeys
+        //     O(i,j) = Q(0,i-1)·Q(j+1,n-1)                                  (external: (i,j) unenclosed)
+        //            + Σ_{k<i, l>j, CanPair(k,l), l-k>m}  w·Q(k+1,i-1)·Q(j+1,l-1)·O(k,l)
+        // where w = exp(−β·E_bp) is the per-pair Boltzmann weight: an enclosing pair (k,l)
+        // contributes its own weight w, the two gap regions (k+1..i-1) and (j+1..l-1) fold
+        // freely (Q), and the structure outside (k,l) is O(k,l) (computed recursively).
+        // Using only the external term (the first line) is WRONG for any pair that can be
+        // nested inside another pair — it omits the enclosing contributions and under-reports
+        // those pairs. Sources: McCaskill JS (1990) Biopolymers 29:1105-1119; Will S., MIT
+        // 18.417 McCaskill base-pair-probability slides (mccaskill2.pdf); ViennaRNA pf_fold.
         var probabilities = new Dictionary<(int I, int J), double>();
+        var outside = new double[n, n];
         if (z > 0)
         {
+            // Collect admissible pairs and process them outermost-first (decreasing span)
+            // so that every enclosing pair's outside value O(k,l) is already known.
+            var pairs = new List<(int I, int J)>();
             for (int i = 0; i < n; i++)
-            {
                 for (int j = i + 1; j < n; j++)
-                {
                     if (qb[i, j] > 0)
+                        pairs.Add((i, j));
+            pairs.Sort((a, b) => (b.J - b.I).CompareTo(a.J - a.I));
+
+            foreach (var (i, j) in pairs)
+            {
+                // External term: (i,j) is not enclosed by any other pair.
+                double o = GetQ(0, i - 1) * GetQ(j + 1, n - 1);
+
+                // Enclosing terms: every pair (k,l) with k<i, j<l that can directly enclose (i,j).
+                for (int k = 0; k < i; k++)
+                {
+                    for (int l = j + 1; l < n; l++)
                     {
-                        double p = GetQ(0, i - 1) * qb[i, j] * GetQ(j + 1, n - 1) / z;
-                        probabilities[(i, j)] = p;
+                        if (qb[k, l] > 0)
+                        {
+                            o += pairWeight * GetQ(k + 1, i - 1) * GetQ(j + 1, l - 1) * outside[k, l];
+                        }
                     }
                 }
+
+                outside[i, j] = o;
+                probabilities[(i, j)] = qb[i, j] * o / z;
             }
         }
 

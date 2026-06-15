@@ -45,7 +45,9 @@
 **Key Extracted Points:**
 
 1. **External base-pair probability (verbatim):** `p^E_kl = Z(P^E_kl)/Z = (Q_{1,k-1} · Q^b_{kl} · Q_{l+1,n}) / Q_{1n}`, where `(k,l)` is an external base pair (no enclosing pair).
-2. **General case:** the full probability sums the external term plus stacking/bulge/interior-loop and multiloop terms when `(k,l)` is enclosed by an outer pair `(i,j)`. In a flat model where each pair contributes the same fixed energy with no loop-dependent terms, only the external decomposition contributes, so `p_kl = p^E_kl`.
+2. **General case (outside recursion):** the full probability sums the external term PLUS, for every pair `(i,j)` that encloses `(k,l)`, the contribution `p_ij · Q^b_kl · (region between (i,j) and (k,l)) / (inside of (i,j))`. This enclosing term does **not** vanish in the flat fixed-per-pair model: a pair `(k,l)` that can be nested inside another pair gets probability strictly larger than its external term. Concretely the correct McCaskill probability is `p_kl = Q^b_kl · O_kl / Z`, where the **outside partition function** obeys
+   `O_kl = Q_{1,k-1}·Q_{l+1,n} + Σ_{i<k, j>l, CanPair(i,j), j−i>m} w·Q_{i+1,k-1}·Q_{l+1,j-1}·O_ij`
+   with `w = exp(−βE_bp)`. **Verified independently** this session against exhaustive Boltzmann-weighted enumeration on `GGGGCCCC` and `GGGAAACCC` (E_bp = 0 and −1) and on 300 random sequences: the outside recursion matches brute force to machine precision (max error 3.3e-16), whereas the external-only term is wrong for nestable pairs (e.g. `GGGAAACCC` P[2,6] = 6/20 = 0.30, not the external 1/20 = 0.05; `GGGGCCCC` P[1,5] = 3/16 = 0.1875, not 1/16). **CORRECTION (2026-06-16):** an earlier version of this Evidence doc claimed "only the external decomposition contributes, so p_kl = p^E_kl" in the flat model — that is FALSE and matched a bug in the implementation; the outside recursion above is required.
 
 ### Freiburg RNA Tools — McCaskill teaching tool (simplified energy model)
 
@@ -104,6 +106,26 @@ When `E_bp = 0`, `exp(−β·0) = 1`, so `Z` counts the number of admissible (ps
 
 Brute-force confirmation of `GGGGCCCC` and `GGGAAACCC`: enumerate every subset of admissible G-C pairs that is pairwise non-crossing and base-disjoint (the empty structure counts as 1). Both the recurrence and the exhaustive enumerator yield 16 and 20 respectively.
 
+### Dataset: Exact base-pair probabilities (E_bp = 0 ⇒ P = #structures-containing-pair / Z)
+
+**Source:** exhaustive non-crossing-subset enumeration (independent of library code), cross-checked against the McCaskill outside recursion. These values include **nestable** pairs (a pair that can be enclosed by another pair), for which the external decomposition alone is wrong.
+
+`GGGGCCCC` (Z = 16): P(0,4)=1/16, P(0,5)=1/16, P(0,6)=2/16, P(0,7)=4/16, **P(1,5)=3/16**, P(1,6)=2/16, P(1,7)=2/16, **P(2,6)=3/16**, P(2,7)=1/16, P(3,7)=1/16.
+
+`GGGAAACCC` (Z = 20): P(0,6)=1/20, P(0,7)=3/20, P(0,8)=6/20, **P(1,6)=3/20**, **P(1,7)=4/20**, **P(1,8)=3/20**, **P(2,6)=6/20**, **P(2,7)=3/20**, P(2,8)=1/20.
+
+(Bold = nestable pairs whose external-only probability is strictly smaller than the truth; e.g. external P(2,6)=1/20=0.05 vs true 6/20=0.30.)
+
+### Dataset: Exact weighted base-pair probabilities (E_bp = −1)
+
+**Source:** Boltzmann-weighted exhaustive enumeration (weight = w^{#pairs}, w = exp(1/RT), RT = 0.61626805), independent of library code; matches the outside recursion to machine precision.
+
+`GGGGCCCC` (Z = 180.018344830…): P(0,4)=0.02814492, P(0,6)=0.17074408, P(0,7)=0.45594238, P(1,5)=0.31334323, P(1,6)=0.17074408, P(1,7)=0.17074408, P(2,6)=0.31334323.
+
+### Invariant: per-base pairing probability ≤ 1
+
+For any position p, `Σ_{(i,j): i=p or j=p} P(i,j) ≤ 1` (a base pairs with at most one partner). Verified over 300 random sequences (lengths 0–12, E_bp ∈ {0, −1, −2, 0.5}): max single-base sum 0.983, and max |brute-force − outside-recursion| = 3.3e-16.
+
 ### Dataset: Boltzmann structure probability (closed form)
 
 **Source:** McCaskill 1990 `Pr[P|S] = Z⁻¹ exp(−βE(P))`; ViennaRNA `p = exp(−βE)/Z`.
@@ -150,3 +172,4 @@ Brute-force confirmation of `GGGGCCCC` and `GGGAAACCC`: enumerate every subset o
 ## Change History
 
 - **2026-06-14**: Initial documentation (RNA-PARTITION-001).
+- **2026-06-16**: Validation session. Corrected the base-pair-probability evidence: the prior claim that the external decomposition suffices in the flat model is FALSE for nestable pairs; documented the McCaskill outside recursion `P[i,j] = Q^b·O/Z`, added exact probability datasets (E_bp=0 and −1) for all pairs incl. nested ones, and the per-base ≤1 invariant. Implementation was fixed to use the outside recursion (validation report RNA-PARTITION-001).
