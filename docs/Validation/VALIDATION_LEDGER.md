@@ -183,3 +183,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 58 | ANNOT-REPEAT-001 | Annotation | ✅ | ❌→✅ | ✅ CLEAN | - |
 | 59 | ANNOT-CODONUSAGE-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | - |
 | 60 | RESTR-FILTER-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | - |
+| 61 | KMER-DIST-001 | K-mer | 🟡 | ✅ | ✅ CLEAN | - |

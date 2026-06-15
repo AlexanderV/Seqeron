@@ -151,5 +151,20 @@ public class KmerAnalyzer_KmerDistance_Tests
             "Two empty sequences are both the zero frequency vector, so the distance is 0 (A2).");
     }
 
+    // C3 — Null input is documented as allowed (empty/zero vector, ASSUMPTION A2). A null
+    // sequence vs a populated one must equal the L2 norm of the populated one's frequency
+    // vector: AAAAA (k=3) -> AAA freq 1 => distance = sqrt(1) = 1.0.
+    [Test]
+    public void KmerDistance_NullInput_TreatedAsZeroVector()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(KmerAnalyzer.KmerDistance(null!, "AAAAA", 3), Is.EqualTo(1.0).Within(Tolerance),
+                "Null sequence is the zero vector; AAAAA gives AAA freq 1, so distance = sqrt(1) = 1.0 (A2).");
+            Assert.That(KmerAnalyzer.KmerDistance(null!, null!, 3), Is.EqualTo(0.0).Within(Tolerance),
+                "Two null sequences are both the zero frequency vector, so the distance is 0 (A2).");
+        });
+    }
+
     #endregion
 }
