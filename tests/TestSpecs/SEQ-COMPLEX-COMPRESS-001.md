@@ -33,7 +33,7 @@
 
 - Empty sequence → complexity 0 (no components) — traced reference parser.
 - Homopolymer `"0"×16` → components `0/00/000/0000/00000` → c=5 (`c = ⌊(√(8n+1)−1)/2⌋`) — traced reference parser.
-- Single distinct symbol (b<2) → `log_b n` undefined → normalization returns the raw count — source #4 rule.
+- Single distinct symbol (b<2) → the reference (entropy/antropy `lziv_complexity`) clamps the log base to 2 (`base = 2 if base < 2 else base`) and returns the normalized value `c/(n/log_2 n)`, NOT the raw count — verified against antropy `entropy.py` source (2026-06-16). For `"0"×16` this is `5/(16/log_2 16) = 5/4 = 1.25`.
 
 ### 1.4 Known Failure Modes / Pitfalls
 
@@ -81,7 +81,7 @@
 | M5 | Homopolymer | `CalculateLempelZivComplexity("0000000000000000")` | 5 | traced parser (source #3 rule) |
 | M6 | All-distinct | `CalculateLempelZivComplexity("ACGT")` | 4 | parsing rule (source #3) |
 | M7 | Normalized | `CalculateNormalizedLempelZivComplexity("1001111011000010")` | 2.0 (8/(16/log₂16)) | source #4 formula + derivation |
-| M8 | b<2 fallback | `CalculateNormalizedLempelZivComplexity("0000000000000000")` | 5.0 (raw count) | source #4 undefined-log rule |
+| M8 | b<2 clamp | `CalculateNormalizedLempelZivComplexity("0000000000000000")` | 1.25 (`5/(16/log₂16)`) | source #4 code: `base = 2 if base < 2 else base` |
 | M9 | Delegation | `EstimateCompressionRatio("1001111011000010")` equals normalized (2.0) | 2.0 | INV-5 (design) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -176,7 +176,7 @@
 | M5 | ✅ Covered | homopolymer 5 |
 | M6 | ✅ Covered | all-distinct 4 |
 | M7 | ✅ Covered | normalized 2.0 |
-| M8 | ✅ Covered | b<2 fallback 5.0 |
+| M8 | ✅ Covered | b<2 clamp-to-2 → 1.25 |
 | M9 | ✅ Covered | delegation 2.0 |
 | S1 | ✅ Covered | empty → 0 |
 | S2 | ✅ Covered | null → ArgumentNullException |
@@ -194,7 +194,7 @@
 | # | Assumption | Used In |
 |---|-----------|---------|
 | A1 | Trailing-partial-component convention follows the set-based reference (source #3), not the +1 of the Wikipedia pseudocode | parsing contract, M1–M6 |
-| A2 | Normalization log base = number of distinct symbols actually present (b); b<2 returns raw count | M7, M8, C2 |
+| A2 | Normalization log base = number of distinct symbols actually present (b); b<2 is clamped to 2 (per entropy/antropy `base = 2 if base < 2 else base`), not a raw-count fallback | M7, M8, C2 |
 
 ---
 

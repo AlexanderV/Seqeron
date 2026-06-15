@@ -103,7 +103,7 @@
 ### From entropy/antropy
 
 1. **Length dependence:** raw LZ grows with `n`; normalization by `n/log_b(n)` is required for cross-length comparison.
-2. **Single distinct symbol (b=1):** `log_b(n)` with b=1 is undefined (log base 1) → normalization is undefined; raw count is still defined. Must be handled explicitly.
+2. **Single distinct symbol (b=1):** `log_b(n)` with b=1 is undefined (log base 1). The entropy/antropy reference handles this by clamping the base to 2 (`base = 2 if base < 2 else base`) and returning the normalized value `c/(n/log_2 n)` — NOT the raw count. (Corrected 2026-06-16 from the earlier "return raw count" reading.)
 
 ---
 
@@ -127,7 +127,13 @@
 | Input string | n | b (alphabet) | c | log_b(n) | b(n)=n/log_b(n) | normalized = c/b(n) |
 |--------------|---|--------------|---|----------|-----------------|---------------------|
 | `1001111011000010` | 16 | 2 | 8 | log₂16 = 4 | 16/4 = 4 | 8/4 = **2.0** |
-| `0000000000000000` | 16 | 1 | 5 | undefined (b=1) | undefined | **undefined → return raw c (=5) per b<2 rule** |
+| `0000000000000000` | 16 | 1→2 (clamped) | 5 | log₂16 = 4 | 16/4 = 4 | 5/4 = **1.25** |
+
+**Correction (2026-06-16):** the entropy/antropy reference does NOT return the raw count for b<2.
+Its source (`antropy/src/antropy/entropy.py`, function `lziv_complexity`) reads
+`base = 2 if base < 2 else base; return _lz_complexity(s) / (n / log(n, base))` — i.e. it clamps the
+log base to 2. For `"0"×16` this gives `5/(16/log₂16) = 5/4 = 1.25`, not 5.0. The implementation and
+test M8 were corrected to 1.25 during validation of SEQ-COMPLEX-COMPRESS-001.
 
 Additional traced raw values (reference parser, retrieved 2026-06-14): `"AAAA"` → c=2 (`A/AA`); `"ACGT"` → c=4 (`A/C/G/T`); `""` → c=0.
 

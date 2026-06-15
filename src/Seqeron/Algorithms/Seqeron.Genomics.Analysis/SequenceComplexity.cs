@@ -477,8 +477,10 @@ public static class SequenceComplexity
     /// c is the raw complexity, n the sequence length and b the alphabet size
     /// (number of distinct symbols present). Normalization removes the length
     /// dependence of the raw count (Zhang et al. 2009).
-    /// When fewer than two distinct symbols are present (log base undefined), the
-    /// raw complexity is returned.
+    /// Following the reference implementation (entropy/antropy <c>lziv_complexity</c>),
+    /// when fewer than two distinct symbols are present the base is clamped to 2 so
+    /// log_b(n) stays defined (b := max(b, 2)). For the degenerate single-symbol
+    /// length-1 input (log_b(1) = 0) the raw complexity is returned.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <returns>Normalized Lempel–Ziv complexity.</returns>
@@ -557,18 +559,20 @@ public static class SequenceComplexity
         foreach (char ch in seq) alphabet.Add(ch);
         int b = alphabet.Count;
 
-        // log_b(n) is undefined for b < 2; return the raw count in that case.
-        if (b < MinAlphabetForNormalization) return c;
+        // entropy/antropy reference: `base = 2 if base < 2 else base`. The log base
+        // is clamped to 2 (never returns the raw count for a single-symbol input).
+        if (b < MinAlphabetForNormalization) b = MinAlphabetForNormalization;
 
         // b(n) = n / log_b(n); normalized complexity = c / b(n).
         double logBaseN = Math.Log(n) / Math.Log(b);
-        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0
+        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0 (degenerate guard)
 
         double upperBound = n / logBaseN;
         return c / upperBound;
     }
 
-    // Normalization needs an alphabet of at least 2 symbols so log_b(n) is defined.
+    // Reference (entropy/antropy lziv_complexity) clamps the log base to 2 when fewer
+    // than 2 distinct symbols are present, so log_b(n) stays defined.
     // Ref: Zhang et al. (2009) normalized LZ; entropy/antropy lziv_complexity.
     private const int MinAlphabetForNormalization = 2;
 

@@ -95,14 +95,16 @@ public class SequenceComplexity_EstimateCompressionRatio_Tests
             "Normalized = c/(n/log_b n) = 8/(16/log2 16) = 8/(16/4) = 2.0 (entropy/antropy formula).");
     }
 
-    // M8 — single-symbol input: log base undefined (b<2) → returns raw count 5.
+    // M8 — single-symbol input: the entropy/antropy reference clamps the log base to 2
+    // (`base = 2 if base < 2 else base`), so normalized = c/(n/log2 n) = 5/(16/log2 16)
+    // = 5/(16/4) = 1.25. (NOT the raw count; verified against antropy entropy.py.)
     [Test]
-    public void CalculateNormalizedLempelZivComplexity_SingleSymbol_ReturnsRawCount()
+    public void CalculateNormalizedLempelZivComplexity_SingleSymbol_ClampsBaseToTwo()
     {
         double norm = SequenceComplexity.CalculateNormalizedLempelZivComplexity("0000000000000000");
 
-        Assert.That(norm, Is.EqualTo(5.0).Within(1e-10),
-            "With one distinct symbol log_b(n) is undefined; the b<2 rule returns the raw count (5).");
+        Assert.That(norm, Is.EqualTo(1.25).Within(1e-10),
+            "With one distinct symbol the reference clamps base to 2: 5/(16/log2 16) = 5/(16/4) = 1.25 (antropy lziv_complexity).");
     }
 
     #endregion
@@ -193,6 +195,66 @@ public class SequenceComplexity_EstimateCompressionRatio_Tests
 
         Assert.That(norm, Is.EqualTo(1.125).Within(1e-10),
             "n=16,b=4,c=9: normalized = 9/(16/log4 16) = 9/(16/2) = 9/8 = 1.125 (Zhang 2009 bio-sequence application).");
+    }
+
+    // Normalized DnaSequence overload parity: same input via DnaSequence must equal the
+    // string overload (b=4 → 1.125). Exercises CalculateNormalizedLempelZivComplexity(DnaSequence).
+    [Test]
+    public void CalculateNormalizedLempelZivComplexity_DnaSequenceOverload_MatchesString()
+    {
+        double viaSeq = SequenceComplexity.CalculateNormalizedLempelZivComplexity(new DnaSequence("ACGTACGTACGTACGT"));
+        double viaStr = SequenceComplexity.CalculateNormalizedLempelZivComplexity("ACGTACGTACGTACGT");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viaSeq, Is.EqualTo(1.125).Within(1e-10),
+                "DnaSequence overload must give 1.125 for ACGT×4 (b=4).");
+            Assert.That(viaSeq, Is.EqualTo(viaStr).Within(1e-10),
+                "DnaSequence and string normalized overloads must agree.");
+        });
+    }
+
+    // Normalized null DnaSequence → ArgumentNullException (overload guard parity).
+    [Test]
+    public void CalculateNormalizedLempelZivComplexity_NullDnaSequence_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => SequenceComplexity.CalculateNormalizedLempelZivComplexity((DnaSequence)null!),
+            "Null DnaSequence must throw ArgumentNullException.");
+    }
+
+    // Normalized empty string → 0 (length guard).
+    [Test]
+    public void CalculateNormalizedLempelZivComplexity_EmptyString_ReturnsZero()
+    {
+        Assert.That(SequenceComplexity.CalculateNormalizedLempelZivComplexity(""), Is.EqualTo(0.0),
+            "Empty input → 0 (no components, length guard).");
+    }
+
+    // Degenerate single-character input: n=1 ⇒ log_b(1)=0 ⇒ raw count returned (=1),
+    // avoiding division by zero. antropy would yield lz/(1/0)=0; we adopt the raw-count guard.
+    [Test]
+    public void CalculateNormalizedLempelZivComplexity_SingleChar_ReturnsRawCount()
+    {
+        Assert.That(SequenceComplexity.CalculateNormalizedLempelZivComplexity("A"), Is.EqualTo(1.0).Within(1e-10),
+            "n=1: log_b(1)=0; the degenerate guard returns the raw count (1).");
+    }
+
+    // EstimateCompressionRatio DnaSequence overload delegates to the normalized value.
+    [Test]
+    public void EstimateCompressionRatio_DnaSequenceOverload_EqualsNormalized()
+    {
+        var seq = new DnaSequence("ACGTACGTACGTACGT");
+        double ratio = SequenceComplexity.EstimateCompressionRatio(seq);
+        double norm = SequenceComplexity.CalculateNormalizedLempelZivComplexity(seq);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ratio, Is.EqualTo(1.125).Within(1e-10),
+                "EstimateCompressionRatio(DnaSequence) returns normalized LZ = 1.125 for ACGT×4.");
+            Assert.That(ratio, Is.EqualTo(norm).Within(1e-10),
+                "EstimateCompressionRatio(DnaSequence) must equal CalculateNormalizedLempelZivComplexity (delegation).");
+        });
     }
 
     #endregion
