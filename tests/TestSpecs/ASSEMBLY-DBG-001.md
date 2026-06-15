@@ -3,7 +3,7 @@
 **Test Unit ID:** ASSEMBLY-DBG-001
 **Area:** Assembly
 **Algorithm:** De Bruijn graph assembly — graph construction (`BuildDeBruijnGraph`) and Eulerian-walk reconstruction (`AssembleDeBruijn`)
-**Status:** ☐ In Progress
+**Status:** ☑ Validated (ASSEMBLY-DBG-001, 2026-06-15)
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-06-13
 
@@ -176,6 +176,20 @@
 | S4 | ✅ Covered | `AssembleDeBruijn_ALongRepeat_StatisticsAreConsistent` |
 | C1 | ✅ Covered | `BuildDeBruijnGraph_ToEveryK3_HasBranchNode` |
 | C2 | ✅ Covered | `BuildDeBruijnGraph_MultiRead_EdgeCountEqualsKmerCount` |
+
+### 5.7 Validation Addendum (ASSEMBLY-DBG-001, 2026-06-15)
+
+Validation added three tests for documented Stage-A branches that the original fixture
+(17 tests) left untested. Values were re-derived from the fetched Langmead PDF + an
+independent Hierholzer reference, not from the implementation's output:
+
+| Test | Branch covered | Expected value | Source |
+|------|----------------|----------------|--------|
+| `AssembleDeBruijn_DisconnectedGraph_OneContigPerComponent` | weakly-connected components → one contig each | `{ATGGCGTGCA, GATTACAGGTC}` (reads share no 3-mer; each unique-walk) | Langmead DBG p.24; algorithm step 3-4 |
+| `AssembleDeBruijn_MinContigLength_FiltersShortContigs` | `MinContigLength` discard filter | only `GATTACAGGTC` survives at MinContigLength=11 | contract §3.1 |
+| `BuildDeBruijnGraph_NullReads_ProducesEmptyGraph` | null-reads guard | empty graph, no exception | contract §3.3 |
+
+Fixture count after validation: **20** (17 prior + 3). Full unfiltered suite: 6497 passed, 0 failed.
 
 ---
 

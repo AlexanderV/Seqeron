@@ -141,6 +141,15 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
             "k must be >= 2 so that (k-1)-mer nodes are non-empty.");
     }
 
+    // Edge-case — null read list yields an empty graph (no exception). Implementation contract.
+    [Test]
+    public void BuildDeBruijnGraph_NullReads_ProducesEmptyGraph()
+    {
+        var graph = SequenceAssembler.BuildDeBruijnGraph(null!, 3);
+
+        Assert.That(graph.Count, Is.EqualTo(0), "Null reads are treated as empty -> no nodes or edges.");
+    }
+
     #endregion
 
     #region AssembleDeBruijn
@@ -246,6 +255,52 @@ public class SequenceAssembler_AssembleDeBruijn_Tests
             Assert.That(result.LongestContig, Is.EqualTo(result.Contigs.Max(c => c.Length)),
                 "INV-06: LongestContig equals the maximum contig length.");
             Assert.That(result.TotalReads, Is.EqualTo(1), "TotalReads equals the input read count.");
+        });
+    }
+
+    // Disconnected graph — two reads that share no (k-1)-mer form two weakly-connected
+    // components, each individually Eulerian, so assembly yields one contig per component,
+    // each reconstructing its source read exactly. Source: Langmead DBG p.24-25
+    // ("Connected components are individually Eulerian, overall graph is not"); algorithm
+    // step "one Eulerian walk per weakly-connected component".
+    // ATGGCGTGCA and GATTACAGGTC each have all-distinct 3-mers (unique walk) and share no
+    // 3-mer node; expected contig set re-derived independently with a Hierholzer reference
+    // (see report ASSEMBLY-DBG-001.md), not from this implementation's output.
+    [Test]
+    public void AssembleDeBruijn_DisconnectedGraph_OneContigPerComponent()
+    {
+        var reads = new[] { "ATGGCGTGCA", "GATTACAGGTC" };
+
+        var result = SequenceAssembler.AssembleDeBruijn(reads,
+            new SequenceAssembler.AssemblyParameters(KmerSize: 4, MinContigLength: 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs.Count, Is.EqualTo(2),
+                "Two disjoint reads => two weakly-connected components => two contigs (Langmead DBG p.24).");
+            Assert.That(result.Contigs.OrderBy(c => c, StringComparer.Ordinal),
+                Is.EqualTo(new[] { "ATGGCGTGCA", "GATTACAGGTC" }),
+                "INV-04: each component's unique Eulerian walk reconstructs its source read exactly.");
+        });
+    }
+
+    // MinContigLength filter — contigs shorter than MinContigLength are discarded (contract §3.1).
+    // With the two disjoint reads above (lengths 10 and 11), MinContigLength=11 keeps only the
+    // 11-mer contig GATTACAGGTC and drops ATGGCGTGCA.
+    [Test]
+    public void AssembleDeBruijn_MinContigLength_FiltersShortContigs()
+    {
+        var reads = new[] { "ATGGCGTGCA", "GATTACAGGTC" }; // lengths 10 and 11
+
+        var result = SequenceAssembler.AssembleDeBruijn(reads,
+            new SequenceAssembler.AssemblyParameters(KmerSize: 4, MinContigLength: 11));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Contigs.Count, Is.EqualTo(1),
+                "The length-10 contig is below MinContigLength=11 and is discarded (contract §3.1).");
+            Assert.That(result.Contigs.Single(), Is.EqualTo("GATTACAGGTC"),
+                "Only the length-11 contig survives the MinContigLength filter.");
         });
     }
 
