@@ -171,7 +171,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | `ClassifyRepeat` matches the library by exact substring containment rather than Smith-Waterman homology; the class vocabulary is source-backed | M5, M6, M7 |
+| 1 | `ClassifyRepeat` matches the library by exact substring containment of a library element within the query (one-directional, element ⊆ query) rather than Smith-Waterman homology; the class vocabulary is source-backed | M5, M6, M7 |
 
 ---
 

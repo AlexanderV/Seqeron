@@ -93,6 +93,54 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
         });
     }
 
+    // INV-3 — For every reported inverted repeat, the right arm equals the reverse complement of the
+    //         left arm (Wikipedia "Inverted repeat"; IUPACpal WGW^R, Hampson et al. 2021).
+    //         Hand-checked: revcomp(GAA)=TTC, revcomp(TTACG)=CGTAA, revcomp(GGATCC)=GGATCC (palindrome).
+    [Test]
+    public void FindRepetitiveElements_InvertedRepeats_RightArmIsReverseComplementOfLeftArm()
+    {
+        // (sequence, minArm, expectedLeftArm, expectedRightArm)
+        var cases = new[]
+        {
+            ("GAATTC", 3, "GAA", "TTC"),                 // EcoRI palindrome, gap 0
+            ("TTACGAAAAAACGTAA", 5, "TTACG", "CGTAA"),   // gapped, gap 6 (Wikipedia example)
+            ("GGATCC", 3, "GGA", "TCC"),                 // BamHI palindrome, gap 0
+        };
+
+        foreach (var (seq, minArm, leftArm, rightArm) in cases)
+        {
+            int armLen = leftArm.Length;
+            var ir = GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: minArm, minCopies: 2)
+                .Where(e => e.type == "inverted_repeat" && e.start == 0)
+                .OrderBy(e => e.end - e.start)
+                .First(e => e.end == seq.Length);
+
+            string actualLeft = seq.Substring(0, armLen);
+            string actualRight = seq.Substring(seq.Length - armLen, armLen);
+            string revComp = ReverseComplement(actualLeft);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(actualLeft, Is.EqualTo(leftArm), $"Left arm of '{seq}'.");
+                Assert.That(actualRight, Is.EqualTo(rightArm), $"Right arm of '{seq}'.");
+                Assert.That(actualRight, Is.EqualTo(revComp),
+                    $"INV-3: right arm must equal reverse complement of left arm for '{seq}'.");
+            });
+        }
+    }
+
+    // Test helper: A<->T, C<->G complement then reverse (independent of library code under test).
+    private static string ReverseComplement(string s)
+    {
+        var chars = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[s.Length - 1 - i];
+            chars[i] = c switch { 'A' => 'T', 'T' => 'A', 'C' => 'G', 'G' => 'C', _ => c };
+        }
+        return new string(chars);
+    }
+
     // S1 — Primitive unit preference: "AAAAAA" reported as mononucleotide A, not AA/AAA (Wikipedia non-primitive).
     [Test]
     public void FindRepetitiveElements_HomopolymerRun_ReportedAsPrimitiveMononucleotide()
@@ -226,6 +274,76 @@ public class GenomeAnnotator_FindRepetitiveElements_Tests
 
         Assert.That(cls, Is.EqualTo("Unknown"),
             "A non-matching, non-simple sequence is unclassified (Unknown).");
+    }
+
+    // M7b — A trivially short query must NOT be classified as a library class merely because
+    //       a longer consensus happens to contain those letters. RepeatMasker screens the
+    //       query for occurrences of known elements (element within query), not the reverse;
+    //       a single base "A" is not a SINE just because an Alu consensus contains an A.
+    //       (Defect found in validation: bidirectional containment misclassified short queries.)
+    [Test]
+    public void ClassifyRepeat_SingleBaseSubstringOfConsensus_DoesNotInheritLibraryClass()
+    {
+        // Both library consensi contain the letter 'A'; neither equals nor is contained in "A".
+        var db = new Dictionary<string, string>
+        {
+            ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu", // contains an 'A'
+            ["TTAGGG"] = "Satellite",              // contains an 'A'
+        };
+
+        // "A" is a 1-bp homopolymer: not a library element occurrence, but a simple mononucleotide repeat
+        // is only recognised with >=2 copies, so a lone base is unclassified (Unknown), never SINE/Alu.
+        string cls = GenomeAnnotator.ClassifyRepeat("A", db);
+
+        Assert.That(cls, Is.EqualTo("Unknown"),
+            "A 1-bp query is not an occurrence of any library element; it must not inherit a library class.");
+    }
+
+    // M7c — A short query that is a *substring of* a longer library consensus (but does not itself
+    //       contain that consensus) is not a library-element occurrence. RepeatMasker reports a
+    //       known element found *within* the query, so a 7-bp fragment of a 20-bp Alu consensus,
+    //       containing no full library element, is not classified as that family by containment.
+    [Test]
+    public void ClassifyRepeat_QueryIsSubstringOfConsensus_NotClassifiedByReverseContainment()
+    {
+        var db = new Dictionary<string, string> { ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu" };
+
+        // "GGCCGGG" is a substring of the consensus but contains no full library element and is not simple.
+        string cls = GenomeAnnotator.ClassifyRepeat("GGCCGGG", db);
+
+        Assert.That(cls, Is.EqualTo("Unknown"),
+            "A fragment that is contained in a consensus (but does not contain a full library element) is Unknown, not SINE/Alu.");
+    }
+
+    // M5b — Best (longest) match wins when several library elements occur in the query (RepeatMasker
+    //       reports the best match). A query harbouring both a 6-bp Satellite motif and a 20-bp Alu
+    //       consensus is classified by the longer Alu element.
+    [Test]
+    public void ClassifyRepeat_MultipleElementsOccur_ReturnsLongestMatch()
+    {
+        var db = new Dictionary<string, string>
+        {
+            ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu", // 20 bp
+            ["TTAGGG"] = "Satellite",              // 6 bp
+        };
+
+        // Query contains both elements; the 20-bp Alu is the better (longer) match.
+        string cls = GenomeAnnotator.ClassifyRepeat("TTAGGGAAGGCCGGGCGCGGTGGCTCACTT", db);
+
+        Assert.That(cls, Is.EqualTo("SINE/Alu"),
+            "When several library elements occur, the longest (best) match's class is assigned.");
+    }
+
+    // M6b — Empty query is a degenerate simple-repeat fallback (no library element can occur in it).
+    [Test]
+    public void ClassifyRepeat_EmptySequence_ReturnsSimpleRepeat()
+    {
+        var db = new Dictionary<string, string> { ["GGCCGGGCGCGGTGGCTCAC"] = "SINE/Alu" };
+
+        string cls = GenomeAnnotator.ClassifyRepeat("", db);
+
+        Assert.That(cls, Is.EqualTo("Simple_repeat"),
+            "An empty query has no library occurrence; the documented fallback is Simple_repeat.");
     }
 
     // S4 — null arguments throw (input contract).

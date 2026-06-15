@@ -793,10 +793,12 @@ public static class GenomeAnnotator
 
     /// <summary>
     /// Classifies a repeat sequence against a repeat-element library, mirroring the
-    /// RepeatMasker convention of assigning the class of the best-matching library
-    /// entry. Matching here is exact substring containment (either direction); when
-    /// no library entry matches, the query falls back to a simple-repeat class by
-    /// primitive motif size (STR 1-6 bp) or "Unknown".
+    /// RepeatMasker convention of screening the query for occurrences of known
+    /// library elements and assigning the class of the best (longest) match. Matching
+    /// here is exact substring containment of a library element within the query
+    /// (the query is a region harbouring the known repeat); when no library entry
+    /// matches, the query falls back to a simple-repeat class by primitive motif
+    /// size (STR 1-6 bp) or "Unknown".
     /// </summary>
     /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
     /// <param name="repeatDb">
@@ -815,17 +817,19 @@ public static class GenomeAnnotator
 
         string query = sequence.ToUpperInvariant();
 
-        // Best library match: prefer the longest known element that is contained in
-        // the query (or that contains the query) — approximates RepeatMasker's
-        // "best match above a minimum score" against the Repbase library.
+        // Best library match: prefer the longest known element that occurs within the
+        // query — approximates RepeatMasker's model of screening a query sequence for
+        // occurrences of known repeat elements and reporting the best match. Matching
+        // is one-directional (element ⊆ query): a query that merely is a *substring of*
+        // a longer consensus is not a meaningful match (e.g. a single base "A" must not
+        // be classified as a SINE just because an Alu consensus happens to contain an A).
         string? bestClass = null;
         int bestLen = -1;
         foreach (var entry in repeatDb)
         {
             string element = entry.Key.ToUpperInvariant();
             if (element.Length == 0) continue;
-            bool matches = query.Contains(element, StringComparison.Ordinal) ||
-                           element.Contains(query, StringComparison.Ordinal);
+            bool matches = query.Contains(element, StringComparison.Ordinal);
             if (matches && element.Length > bestLen)
             {
                 bestLen = element.Length;

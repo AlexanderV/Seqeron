@@ -116,7 +116,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: `ClassifyRepeat` library matching is exact-substring containment, not Smith-Waterman homology.** RepeatMasker uses Smith-Waterman-Gotoh against Repbase. A full local-alignment + curated Repbase library is out of scope for one unit; the implemented `ClassifyRepeat(sequence, repeatDb)` assigns the class of the library entry that the query exactly contains / is contained by, and falls back to motif-size simple-repeat classification when no library entry matches. The repeat-class vocabulary (SINE/LINE/LTR/DNA/Satellite/Simple_repeat/Unknown) is source-backed; only the *matching* relaxation (exact substring vs. scored alignment) is assumed. This is documented as a Framework/Simplified limitation, not an invented constant.
+1. **ASSUMPTION: `ClassifyRepeat` library matching is exact-substring containment, not Smith-Waterman homology.** RepeatMasker uses Smith-Waterman-Gotoh against Repbase. A full local-alignment + curated Repbase library is out of scope for one unit; the implemented `ClassifyRepeat(sequence, repeatDb)` screens the query for occurrences of known library elements (a library element exactly contained within the query) and assigns the class of the longest such match, falling back to motif-size simple-repeat classification when no library entry matches. Matching is one-directional (element ⊆ query) so a trivially short query is not forced into a class merely because a longer consensus happens to contain its letters. The repeat-class vocabulary (SINE/LINE/LTR/DNA/Satellite/Simple_repeat/Unknown) is source-backed; only the *matching* relaxation (exact substring vs. scored alignment) is assumed. This is documented as a Framework/Simplified limitation, not an invented constant.
 
 ---
 
