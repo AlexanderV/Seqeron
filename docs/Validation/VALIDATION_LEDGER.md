@@ -143,3 +143,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 18 | COMPGEN-REARR-001 | Comparative Genomics | 🟡 | 🟡 | ✅ CLEAN | - |
 | 19 | PANGEN-CORE-001 | PanGenome | 🟡 | 🟡 | ✅ CLEAN | - |
 | 20 | PANGEN-CLUSTER-001 | PanGenome | ✅ | ✅ | ✅ CLEAN | - |
+| 21 | QUALITY-PHRED-001 | Quality | ✅ | ✅ | ✅ CLEAN | - |
