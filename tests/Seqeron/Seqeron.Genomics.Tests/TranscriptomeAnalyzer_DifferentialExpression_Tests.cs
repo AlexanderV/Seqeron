@@ -119,31 +119,76 @@ public class TranscriptomeAnalyzer_DifferentialExpression_Tests
         });
     }
 
-    // M5 — Benjamini-Hochberg adjusted p-values for raw (0.001,0.4,0.5,0.9):
-    // products from largest rank down: 0.9, 0.6667, 0.8, 0.004 → cummin → restore order → (0.004,0.6667,0.6667,0.9).
-    // Source: R p.adjust BH algorithm pmin(1,cummin(n/i*p[o]))[ro]; Benjamini & Hochberg (1995).
+    // M5 — Benjamini-Hochberg adjusted p-values, locked to EXTERNALLY-SOURCED values.
+    // Four genes whose raw two-sided Welch p-values (computed independently by SciPy
+    // ttest_ind(equal_var=False)) are:
+    //   A {1,2,3}->{20,21,22}        raw = 2.021279422844894e-05
+    //   B {10,11,12}->{12,13,14}     raw = 0.07048399691021993
+    //   C {10,11,12}->{11,12,13}     raw = 0.2878641347266908
+    //   D {10,10.5,11}->{10.2,10.6,11.1} raw = 0.7490421372551438
+    // Feeding those raw p-values through the R p.adjust(method="BH") algorithm
+    // pmin(1, cummin(n/i * p[o]))[ro] gives the adjusted p-values:
+    //   A = 8.085117691379576e-05, B = 0.14096799382043987,
+    //   C = 0.38381884630225443,   D = 0.7490421372551438
+    // Both the raw and the adjusted vectors below are sourced from SciPy + the BH algorithm,
+    // NOT read back from production output, so a wrong t-test OR a wrong BH would fail this test.
+    // Source: SciPy scipy.stats.ttest_ind(equal_var=False); R p.adjust BH; Benjamini & Hochberg (1995).
     [Test]
     public void FindDifferentiallyExpressed_BenjaminiHochberg_ReturnsExactAdjustedPValues()
     {
-        // Construct genes whose raw Welch p-values are exactly 0.001, 0.4, 0.5, 0.9 is hard analytically,
-        // so verify BH via the deterministic mapping on known raw p-values is exercised through the public
-        // method by checking the adjusted values it produces match the BH derivation for those raw p-values.
-        // We use four genes with controlled separation and assert the BH ordering relationship on real output.
         var genes = MakeGenesWithApproxPValues();
 
-        var results = TranscriptomeAnalyzer.FindDifferentiallyExpressed(genes, alpha: 0.05).ToList();
+        var results = TranscriptomeAnalyzer
+            .FindDifferentiallyExpressed(genes, alpha: 0.05)
+            .ToDictionary(r => r.GeneId);
 
-        // Independent BH derivation from the genes' actual raw p-values (exact reference computation).
-        double[] raw = results.Select(r => r.PValue).ToArray();
-        double[] expected = BenjaminiHochbergReference(raw);
+        // Externally-sourced expectations (SciPy raw p; BH-adjusted via R p.adjust algorithm).
+        var expectedRaw = new Dictionary<string, double>
+        {
+            ["A"] = 2.021279422844894e-05,
+            ["B"] = 0.07048399691021993,
+            ["C"] = 0.2878641347266908,
+            ["D"] = 0.7490421372551438,
+        };
+        var expectedAdjusted = new Dictionary<string, double>
+        {
+            ["A"] = 8.085117691379576e-05,
+            ["B"] = 0.14096799382043987,
+            ["C"] = 0.38381884630225443,
+            ["D"] = 0.7490421372551438,
+        };
 
         Assert.Multiple(() =>
         {
-            for (int i = 0; i < results.Count; i++)
+            foreach (var id in expectedRaw.Keys)
             {
-                Assert.That(results[i].AdjustedPValue, Is.EqualTo(expected[i]).Within(1e-12),
-                    $"Gene {i}: BH adjusted p must equal the R p.adjust step-up value for the raw p-vector.");
+                Assert.That(results[id].PValue, Is.EqualTo(expectedRaw[id]).Within(1e-9),
+                    $"Gene {id}: raw Welch p must match SciPy ttest_ind(equal_var=False).");
+                Assert.That(results[id].AdjustedPValue, Is.EqualTo(expectedAdjusted[id]).Within(1e-9),
+                    $"Gene {id}: BH adjusted p must match R p.adjust(method=\"BH\") on the sourced raw p-vector.");
             }
+        });
+    }
+
+    // M5b — Benjamini-Hochberg on the canonical sourced example raw (0.001, 0.4, 0.5, 0.9).
+    // R p.adjust(method="BH") gives (0.004, 0.6666667, 0.6666667, 0.9):
+    //   products from largest rank down: 4/4*0.9=0.9, 4/3*0.5=0.6667, 4/2*0.4=0.8, 4/1*0.001=0.004;
+    //   cummin (largest p down) keeps (0.9, 0.6667, 0.6667, 0.004); restore ascending → (0.004,0.6667,0.6667,0.9).
+    // This locks the BH step-up math to a known external vector independent of the t-test.
+    // Source: R p.adjust BH algorithm pmin(1,cummin(n/i*p[o]))[ro]; Benjamini & Hochberg (1995).
+    [Test]
+    public void BenjaminiHochbergReference_CanonicalSourcedVector_MatchesRPAdjust()
+    {
+        double[] raw = { 0.001, 0.4, 0.5, 0.9 };
+
+        double[] adjusted = BenjaminiHochbergReference(raw);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adjusted[0], Is.EqualTo(0.004).Within(1e-9), "rank 1: 4/1*0.001 = 0.004.");
+            Assert.That(adjusted[1], Is.EqualTo(2.0 / 3.0).Within(1e-9), "rank 2: cummin = 4/3*0.5 = 0.6667.");
+            Assert.That(adjusted[2], Is.EqualTo(2.0 / 3.0).Within(1e-9), "rank 3: 4/3*0.5 = 0.6667.");
+            Assert.That(adjusted[3], Is.EqualTo(0.9).Within(1e-9), "rank 4: 4/4*0.9 = 0.9.");
         });
     }
 
@@ -274,6 +319,30 @@ public class TranscriptomeAnalyzer_DifferentialExpression_Tests
                 "N<2 makes the sample variance undefined → gene not testable → p = 1.");
             Assert.That(r.IsSignificant, Is.False,
                 "p = 1 fails the adjusted-p criterion regardless of fold change.");
+        });
+    }
+
+    // Edge — zero standard error with separated means: each group is constant but the two means differ,
+    // so the t-statistic diverges (t → ∞) and the two-sided p-value reaches its limit of 0.
+    // Source: limit of Welch's t-statistic for zero within-group variance (Evidence Assumption 3).
+    [Test]
+    public void FindDifferentiallyExpressed_ZeroVarianceSeparatedMeans_PValueIsZero()
+    {
+        var genes = new (string, IReadOnlyList<double>, IReadOnlyList<double>)[]
+        {
+            ("G", V(5, 5, 5), V(50, 50, 50)),
+        };
+
+        var r = TranscriptomeAnalyzer
+            .FindDifferentiallyExpressed(genes, alpha: 0.05, log2FoldChangeThreshold: 1.0)
+            .Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.PValue, Is.EqualTo(0.0).Within(Tol),
+                "Zero within-group variance with unequal means → t → ∞ → two-sided p = 0.");
+            Assert.That(r.IsSignificant, Is.True,
+                "p = 0 < alpha and |log2FC| = log2(51/6) > 1 → significant (both criteria met).");
         });
     }
 
