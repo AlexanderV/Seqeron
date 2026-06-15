@@ -63,7 +63,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Single hydrophobic stretch | `D`×10 + `L`×20 + `D`×10, window 19, threshold 1.6 | Exactly one segment (Start=5, End=35), Score=3.8 | Davidson rule + KD scale (QIAGEN) |
+| M1 | Single hydrophobic stretch | `D`×10 + `L`×20 + `D`×10, window 19, threshold 1.6 | Exactly one segment (Start=5, End=34), Score=3.8 | Davidson rule + KD scale (QIAGEN); End = last residue covered by a passing window |
 | M2 | All-hydrophilic sequence | `D`×40 (D=−3.5 < 1.6) | No segments | KD scale value D=−3.5 |
 | M3 | Exactly one window of poly-Leu | `L`×19 | One segment (Start=0, End=18, Score=3.8) | Window mean = 3.8 ≥ 1.6 |
 | M4 | Scale value reproduction | 19-residue uniform window for each of I, V, R reproduces its KD value as the peak score | Score = 4.5 (I), 4.2 (V); R → no segment (−4.5 < 1.6) | QIAGEN / Davidson scale tables |
@@ -167,7 +167,7 @@
 
 | # | Assumption | Used In |
 |---|-----------|---------|
-| 1 | Segment `End` reported as `lastProfileIndex + windowSize` (clamped) — output coordinate convention, not a detection-rule change | M1, M3 expected `End` values |
+| 1 | Segment `End` reported as `lastProfileIndex + windowSize − 1` (clamped) = last residue covered by an above-threshold window — output coordinate convention, not a detection-rule change | M1, M3 expected `End` values |
 
 ---
 

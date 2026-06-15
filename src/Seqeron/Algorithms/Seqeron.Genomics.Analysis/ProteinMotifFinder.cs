@@ -717,13 +717,15 @@ public static class ProteinMotifFinder
             }
             else if (regionStart != null)
             {
-                // End of region
+                // End of region: the last above-threshold window starts at (i - 1) and therefore
+                // covers residues up to (i - 1) + windowSize - 1. The reported End is that last
+                // covered residue (0-based inclusive), clamped to the last residue index.
                 int start = regionStart.Value;
-                int end = i - 1 + windowSize;
+                int lastCoveredResidue = i - 1 + windowSize - 1;
 
-                if (end - start >= MinTransmembraneHelixLength)
+                if (lastCoveredResidue - start + 1 >= MinTransmembraneHelixLength)
                 {
-                    yield return (start, Math.Min(end, upper.Length - 1), maxScore);
+                    yield return (start, Math.Min(lastCoveredResidue, upper.Length - 1), maxScore);
                 }
 
                 regionStart = null;
@@ -735,11 +737,11 @@ public static class ProteinMotifFinder
         if (regionStart != null)
         {
             int start = regionStart.Value;
-            int end = hydropathy.Count - 1 + windowSize;
+            int lastCoveredResidue = hydropathy.Count - 1 + windowSize - 1;
 
-            if (end - start >= MinTransmembraneHelixLength)
+            if (lastCoveredResidue - start + 1 >= MinTransmembraneHelixLength)
             {
-                yield return (start, Math.Min(end, upper.Length - 1), maxScore);
+                yield return (start, Math.Min(lastCoveredResidue, upper.Length - 1), maxScore);
             }
         }
     }

@@ -310,7 +310,8 @@ public class ProteinMotifProperties
         foreach (var (start, end, score) in helices)
         {
             Assert.That(start, Is.GreaterThanOrEqualTo(0));
-            Assert.That(end, Is.LessThanOrEqualTo(protein.Length));
+            Assert.That(start, Is.LessThanOrEqualTo(end));
+            Assert.That(end, Is.LessThan(protein.Length)); // 0-based inclusive index (INV-02: End ≤ length-1)
             Assert.That(double.IsFinite(score), Is.True);
         }
     }

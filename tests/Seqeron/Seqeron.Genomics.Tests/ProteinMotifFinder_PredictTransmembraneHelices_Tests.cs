@@ -28,8 +28,11 @@ public class ProteinMotifFinder_PredictTransmembraneHelices_Tests
     #region PredictTransmembraneHelices
 
     // M1 — Single hydrophobic stretch (D×10 + L×20 + D×10), window 19, threshold 1.6.
-    // Per the KD rule the run of above-threshold windows is profile indices 5..16; the segment maps
-    // to residues (5, 35) with peak = mean of an all-L window = 3.8.
+    // Per the KD rule the run of above-threshold windows is profile indices 5..16 (hand-computed,
+    // arithmetic mean over each 19-residue window). The first above-threshold window starts at
+    // residue 5; the last starts at residue 16 and covers residues 16..34, so the segment spans
+    // residues 5..34 (every residue lying within at least one above-threshold window). Peak = mean
+    // of an all-Leu window = 3.8.
     [Test]
     public void PredictTransmembraneHelices_SingleHydrophobicStretch_ReturnsOneSegmentWithExactBounds()
     {
@@ -43,8 +46,8 @@ public class ProteinMotifFinder_PredictTransmembraneHelices_Tests
         {
             Assert.That(segments[0].Start, Is.EqualTo(5),
                 "Segment start = first profile index whose window mean ≥ 1.6 (KD window 19 rule).");
-            Assert.That(segments[0].End, Is.EqualTo(35),
-                "Segment end = last above-threshold profile index (16) + window (19) = 35.");
+            Assert.That(segments[0].End, Is.EqualTo(34),
+                "Segment end = last covered residue = last above-threshold window start (16) + window (19) - 1 = 34.");
             Assert.That(segments[0].Score, Is.EqualTo(LeuKd).Within(1e-10),
                 "Peak score = mean of an all-Leu window = 3.8 (KD value for L).");
         });
@@ -179,7 +182,7 @@ public class ProteinMotifFinder_PredictTransmembraneHelices_Tests
         Assert.Multiple(() =>
         {
             Assert.That(segments[0].Start, Is.EqualTo(5), "Same start as the uppercase case (M1).");
-            Assert.That(segments[0].End, Is.EqualTo(35), "Same end as the uppercase case (M1).");
+            Assert.That(segments[0].End, Is.EqualTo(34), "Same end as the uppercase case (M1).");
             Assert.That(segments[0].Score, Is.EqualTo(LeuKd).Within(1e-10), "Same peak score as M1.");
         });
     }

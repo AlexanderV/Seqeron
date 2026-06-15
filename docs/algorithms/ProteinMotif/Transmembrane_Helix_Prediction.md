@@ -40,7 +40,7 @@ A residue position is part of a transmembrane segment when its window mean excee
 | ID | Invariant | Holds because |
 |----|-----------|---------------|
 | INV-01 | Every reported segment's peak score ≥ *T*. | A segment is, by construction, a run of windows each with `P(i) ≥ T`; the peak is the max of those. |
-| INV-02 | `0 ≤ Start ≤ End ≤ length−1`. | `Start` is a window index ≥ 0; `End` is clamped to `length−1`. |
+| INV-02 | `0 ≤ Start ≤ End ≤ length−1`. | `Start` is the first above-threshold window's first residue; `End` is the last covered residue (`lastProfileIndex + windowSize − 1`), clamped to `length−1`. |
 | INV-03 | A uniform run of one residue (length ≥ *w*) gives `P(i) = h(r)` everywhere. | The mean of *w* identical values is that value [1]. |
 | INV-04 | Null / empty / shorter-than-window input yields no segments. | No window can be formed below *w* residues. |
 
@@ -67,7 +67,7 @@ A residue position is part of a transmembrane segment when its window mean excee
 | Field | Type | Description |
 |-------|------|-------------|
 | `Start` | `int` | 0-based inclusive index of the first residue of the segment |
-| `End` | `int` | 0-based inclusive index of the last residue (clamped to `length−1`) |
+| `End` | `int` | 0-based inclusive index of the last residue covered by an above-threshold window (`lastProfileIndex + windowSize − 1`, clamped to `length−1`) |
 | `Score` | `double` | Peak (maximum) window mean within the segment |
 
 ### 3.3 Preconditions and Validation
@@ -118,7 +118,7 @@ The method computes the full profile then performs a single linear scan to delim
 
 **Intentionally simplified:**
 
-- Segment-to-residue boundary mapping: the source defines the window run, not exact residue boundaries; **consequence:** the reported `End` is `lastProfileIndex + windowSize` (clamped), an output-coordinate convention (§5.4) — it does not change which residues are classified as transmembrane.
+- Segment-to-residue boundary mapping: the source defines the window run, not exact residue boundaries; **consequence:** the reported `End` is the last residue actually covered by an above-threshold window, `lastProfileIndex + windowSize − 1` (clamped) — i.e. the union of all passing windows' residue spans (§5.4). It does not change which windows pass detection.
 
 **Not implemented:**
 
@@ -128,7 +128,7 @@ The method computes the full profile then performs a single linear scan to delim
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | `End = lastProfileIndex + windowSize` (clamped) | Assumption | Affects reported segment end coordinate only | accepted | Output convention; detection (which windows pass) is unchanged |
+| 1 | `End = lastProfileIndex + windowSize − 1` (clamped) | Assumption | Affects reported segment end coordinate only | accepted | Last residue covered by an above-threshold window (union of passing windows' spans); detection (which windows pass) is unchanged |
 
 ## 6. Edge Cases and Limitations
 
@@ -155,10 +155,10 @@ A hydropathy filter detects hydrophobic stretches; it does not distinguish true 
 ```csharp
 var segments = ProteinMotifFinder.PredictTransmembraneHelices(
     new string('D', 10) + new string('L', 20) + new string('D', 10));
-// → one segment: (Start: 5, End: 35, Score: 3.8)
+// → one segment: (Start: 5, End: 34, Score: 3.8)
 ```
 
-**Numerical walk-through:** For `D×10 L×20 D×10` (window 19, threshold 1.6): the profile has 22 points; window means rise above 1.6 first at profile index 5 and last at index 16; any all-Leu window has mean 3.8 (peak). The single run maps to residues (5, 35).
+**Numerical walk-through:** For `D×10 L×20 D×10` (window 19, threshold 1.6): the profile has 22 points; window means rise above 1.6 first at profile index 5 and last at index 16; any all-Leu window has mean 3.8 (peak). The last passing window (start 16) covers residues 16..34, so the single run maps to residues (5, 34).
 
 ### 7.3 Related Tests, Evidence, or Documents
 

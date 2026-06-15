@@ -95,7 +95,8 @@
 | Profile length | 40 − 19 + 1 = 22 |
 | First window mean ≥ 1.6 at profile index | 5 |
 | Last window mean ≥ 1.6 at profile index | 16 |
-| Reported segment (Start, End) | (5, 35) |
+| Last passing window start / residues it covers | index 16 / residues 16..34 |
+| Reported segment (Start, End) | (5, 34) — `End = lastProfileIndex + windowSize − 1` = last residue covered by a passing window |
 | Peak score | 3.8 (any all-L window: mean of 19 × 3.8 = 3.8) |
 
 ### Dataset: All-hydrophilic sequence (negative control)
@@ -122,7 +123,7 @@
 
 ## Assumptions
 
-1. **ASSUMPTION: Segment `End` reporting convention** — The published rule defines the threshold-crossing window run; it does not prescribe how the window-indexed run maps back to exact residue boundaries. The implementation reports `End = lastProfileIndex + windowSize` (clamped to the last residue index). This is an output-coordinate convention, not a change to the detection rule (which residues qualify), and is documented in the algorithm doc §5.4. Expected boundary values in tests are derived from this stated convention.
+1. **ASSUMPTION: Segment `End` reporting convention** — The published rule defines the threshold-crossing window run; it does not prescribe how the window-indexed run maps back to exact residue boundaries. The biologically meaningful span is the union of all passing windows' residue coverage: the last passing window starts at `lastProfileIndex` and covers residues up to `lastProfileIndex + windowSize − 1`, which is the last residue actually inside any above-threshold window. The implementation reports `End = lastProfileIndex + windowSize − 1` (clamped to the last residue index). Expected boundary values in tests are derived from this convention. (Validation 2026-06-16 corrected an earlier off-by-one — `lastProfileIndex + windowSize`, which named residue `lastProfileIndex + windowSize`, a residue not covered by any passing window.)
 
 ---
 
