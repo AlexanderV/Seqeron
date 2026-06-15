@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 37 / 148 processed.
+**Progress:** 38 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -190,3 +190,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 65 | GENOMIC-MOTIFS-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
 | 66 | SEQ-RNACOMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | - |
 | 67 | PROTMOTIF-PATTERN-001 | ProteinMotif | ✅ | 🟡 | ✅ CLEAN | - |
+| 68 | PROTMOTIF-SP-001 | ProteinMotif | ✅ | 🟡 | ✅ CLEAN | - |

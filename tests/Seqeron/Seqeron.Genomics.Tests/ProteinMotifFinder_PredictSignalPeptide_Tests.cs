@@ -128,7 +128,17 @@ public class ProteinMotifFinder_PredictSignalPeptide_Tests
 
         Assert.That(sp, Is.Not.Null, "15-residue sequence must yield exactly one full-window site");
 
-        double expected = HandScoreEukaryotic(seq, sp!.Value.CleavagePosition - 1);
+        // Externally re-derived value (independent Python re-implementation using the verbatim
+        // EMBOSS 6.6.0 data/Esig.euk matrix and natural-log transform): the best window of
+        // "AAAAAAAAAAAAGAN" scores 3.2425554865825688. Asserting this literal — rather than only
+        // comparing to the test's own HandScoreEukaryotic helper — locks the score to a value
+        // sourced outside the production code path.
+        const double externallyComputedScore = 3.2425554865825688;
+        Assert.That(sp!.Value.Score, Is.EqualTo(externallyComputedScore).Within(1e-12),
+            "Score must equal the externally re-derived sum of ln(count/expect) log-odds weights");
+
+        // Independent re-derivation cross-check (separate matrix copy, separate code path).
+        double expected = HandScoreEukaryotic(seq, sp.Value.CleavagePosition - 1);
         Assert.That(sp.Value.Score, Is.EqualTo(expected).Within(1e-9),
             "Score must equal the sum of ln(count/expect) log-odds weights over the window");
     }
