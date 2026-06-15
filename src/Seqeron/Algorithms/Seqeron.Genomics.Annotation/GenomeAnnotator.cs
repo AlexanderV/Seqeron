@@ -605,9 +605,12 @@ public static class GenomeAnnotator
                 sumOfLogRatio += Math.Log(coding / noncoding);
             else if (coding > 0 && noncoding == 0)
                 sumOfLogRatio += 1;
+            else if (coding == 0 && noncoding == 0)
+                continue; // both-zero: skipped, NOT counted (FrameKmer.kmer_ratio).
             else if (coding == 0 && noncoding > 0)
                 sumOfLogRatio -= 1;
-            // coding == 0 && noncoding == 0 contributes 0 but still counts.
+            else
+                continue; // any other case (e.g. negative values): skipped.
 
             scoredHexamers++;
         }

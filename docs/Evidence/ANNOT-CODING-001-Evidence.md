@@ -52,14 +52,24 @@
                sum_of_log_ratio_0  +=  math.log( coding[k] / noncoding[k])
            elif coding[k]>0 and noncoding[k] == 0:
                sum_of_log_ratio_0 += 1
+           elif coding[k] == 0 and noncoding[k] == 0:
+               continue
            elif coding[k] == 0 and noncoding[k] >0 :
                sum_of_log_ratio_0 -= 1
+           else:
+               continue
            frame0_count += 1
        try:
            return sum_of_log_ratio_0/frame0_count
        except:
            return -1
    ```
+   **(Corrected 2026-06-15 during ANNOT-CODING-001 validation:** the initial transcription
+   omitted the `elif coding[k] == 0 and noncoding[k] == 0: continue` branch and trailing
+   `else: continue`. Verified verbatim against the **canonical CPAT** repo `liguowang/cpat`
+   `src/cpmodule/FrameKmer.py` (lines 95-96, fetched 2026-06-15) and the lncScore copy
+   `WGLab/lncScore` `tools/cpmodule/FrameKmer.py` (lines 90-91). A both-zero in-both hexamer is
+   `continue`d and **does NOT increment `frame0_count`** — skipped, not counted as 0.)
 3. **Log base:** `math.log` is Python's natural logarithm (base e). Imports at top: `import math`.
 4. **Missing-key handling:** a hexamer absent from either table is skipped (`continue`) and does not count toward `frame0_count`. Hexamers containing `N` are not in the tables (see point 6) so they are skipped.
 5. **Empty / too-short input:** `len(seq) < word_size` returns 0; if no hexamer is scored, division by zero is caught and returns -1 (frame-0-only path); the public CPAT path returns `sum/count` for frame 0.
@@ -87,6 +97,7 @@
 3. **Hexamer present in only one table:** skipped via the `has_key` guard (does not count).
 4. **Coding>0, noncoding==0:** contributes +1 (pseudo-score, avoids division by zero / log of infinity).
 5. **Coding==0, noncoding>0:** contributes −1 (pseudo-score).
+6. **Coding==0, noncoding==0:** `continue` — the hexamer is skipped and **does NOT increment `frame0_count`** (it is not counted as a scored 0). Verified against canonical CPAT `liguowang/cpat` and lncScore (2026-06-15).
 
 ### From CPAT paper
 

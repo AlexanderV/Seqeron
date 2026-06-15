@@ -25,6 +25,7 @@ For a sequence `S`, extract its in-frame hexamers `H1, H2, … , Hm` (window siz
 - if `F(k) > 0` and `F'(k) > 0`: contribution = `ln( F(k) / F'(k) )` (natural log) [2];
 - if `F(k) > 0` and `F'(k) = 0`: contribution = `+1` [2];
 - if `F(k) = 0` and `F'(k) > 0`: contribution = `−1` [2];
+- if `F(k) = 0` and `F'(k) = 0`: skipped (`continue`) and **not counted** [2];
 - a hexamer absent from either table is skipped and not counted [2].
 
 Score `= ( Σ contributions ) / (number of scored hexamers)` [2]. Positive ⇒ coding, negative ⇒ non-coding [1].
@@ -109,7 +110,7 @@ The per-hexamer contribution rule (§2.2) is the only decision table; constants 
 
 ### 5.2 Current Behavior
 
-Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 && noncoding == 0` case (a hexamer present in both tables with zero value) contributes 0 to the sum but is still counted, matching the reference fall-through (no matching elif, then `frame0_count += 1`). For the degenerate "no scorable hexamer" case the implementation returns 0 (the reference returns −1 there); see §5.4. No substring/search reuse is relevant: scoring is a single linear in-frame scan with O(1) table lookups, so the repository suffix tree does not apply (no occurrence enumeration or multi-query matching).
+Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 && noncoding == 0` case (a hexamer present in both tables with zero value) is `continue`d — skipped and **not counted** toward the scored-hexamer denominator, matching the reference branch `elif coding[k]==0 and noncoding[k]==0: continue` (verified against canonical CPAT `liguowang/cpat` `src/cpmodule/FrameKmer.py` and lncScore, 2026-06-15). For the degenerate "no scorable hexamer" case the implementation returns 0 (the reference returns −1 there); see §5.4. No substring/search reuse is relevant: scoring is a single linear in-frame scan with O(1) table lookups, so the repository suffix tree does not apply (no occurrence enumeration or multi-query matching).
 
 ### 5.3 Conformance to Theory / Spec
 
@@ -147,7 +148,7 @@ Implements `FrameKmer.kmer_ratio` frame-0 path verbatim [2]. The `coding == 0 &&
 | Hexamer missing from one/both tables | skipped, not counted | `has_key` guard [2] |
 | Coding-only hexamer | +1 contribution | `kmer_ratio` branch [2] |
 | Non-coding-only hexamer | −1 contribution | `kmer_ratio` branch [2] |
-| Both tables value 0 for an in-both hexamer | contributes 0, counted | fall-through [2] |
+| Both tables value 0 for an in-both hexamer | skipped (`continue`), not counted | branch `coding==0 && noncoding==0: continue` [2] |
 | No scorable hexamer at all | 0 | implementation choice (§5.4) |
 | null sequence / table | `ArgumentNullException` | validation |
 | wordSize ≤ 0 / stepSize ≤ 0 | `ArgumentOutOfRangeException` | validation |

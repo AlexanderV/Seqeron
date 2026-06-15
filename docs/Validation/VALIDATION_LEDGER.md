@@ -179,3 +179,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 54 | META-TAXA-001 | Metagenomics | ✅ | 🟡 | ✅ CLEAN | - |
 | 55 | PHYLO-BOOT-001 | Phylogenetics | ✅ | 🟡 | ✅ CLEAN | - |
 | 56 | PHYLO-STATS-001 | Phylogenetics | ✅ | ✅ | ✅ CLEAN | - |
+| 57 | ANNOT-CODING-001 | Annotation | 🟡 | ❌→✅ | ✅ CLEAN | - |

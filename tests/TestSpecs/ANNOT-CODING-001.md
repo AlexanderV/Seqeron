@@ -100,7 +100,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Notes |
 |----|-----------|-------------|------------------|-------|
-| C1 | Coding==0 & noncoding==0 entry | hexamer present in both tables with both values 0 | contributes 0 but is counted | matches reference branch fall-through |
+| C1 | Coding==0 & noncoding==0 entry | hexamer present in both tables with both values 0 | skipped (`continue`), NOT counted | matches reference branch `elif coding[k]==0 and noncoding[k]==0: continue` |
 
 ---
 
@@ -148,7 +148,7 @@
 | 15 | M15 | ❌ Missing | Implemented no-scorable-hexamer test | ✅ Done |
 | 16 | S1 | ❌ Missing | Implemented case-insensitivity test | ✅ Done |
 | 17 | S2 | ❌ Missing | Implemented empty-sequence test | ✅ Done |
-| 18 | C1 | ❌ Missing | Implemented both-zero-counted test | ✅ Done |
+| 18 | C1 | ❌ Missing | Implemented both-zero-skipped test (corrected from counted in ANNOT-CODING-001 validation) | ✅ Done |
 
 **Total items:** 18
 **✅ Done:** 18 | **⛔ Blocked:** 0 | **Remaining:** 0
@@ -174,7 +174,7 @@
 | M15 | ✅ Covered | CalculateCodingPotential_NoScorableHexamer_ReturnsZero |
 | S1 | ✅ Covered | CalculateCodingPotential_LowercaseSequence_MatchesUppercase |
 | S2 | ✅ Covered | CalculateCodingPotential_EmptySequence_ReturnsZero |
-| C1 | ✅ Covered | CalculateCodingPotential_BothTablesZero_HexamerIsCountedAsZero |
+| C1 | ✅ Covered | CalculateCodingPotential_BothTablesZero_HexamerIsSkipped |
 
 ---
 

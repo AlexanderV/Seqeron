@@ -236,19 +236,23 @@ public class GenomeAnnotator_CalculateCodingPotential_Tests
             "Empty sequence has no hexamer; score is 0.");
     }
 
-    // C1 — In-both hexamer with both values 0: contributes 0 but IS counted (reference fall-through).
+    // C1 — In-both hexamer with both values 0: `continue`d, NOT counted (FrameKmer.kmer_ratio
+    //      branch `elif coding[k]==0 and noncoding[k]==0: continue` — frame0_count NOT incremented).
+    //      Verified against canonical CPAT (liguowang/cpat src/cpmodule/FrameKmer.py lines 95-96)
+    //      and lncScore (WGLab/lncScore tools/cpmodule/FrameKmer.py lines 90-91).
     [Test]
-    public void CalculateCodingPotential_BothTablesZero_HexamerIsCountedAsZero()
+    public void CalculateCodingPotential_BothTablesZero_HexamerIsSkipped()
     {
-        // ATGAAA: coding=0, noncoding=0 → contributes 0, counted. AAACCC: ln(4/1)=1.3862943611198906, counted.
+        // ATGAAA: coding=0, noncoding=0 → continue, NOT counted.
+        // AAACCC: ln(4/1)=1.3862943611198906, counted (count=1).
         var coding = new Dictionary<string, double> { ["ATGAAA"] = 0, ["AAACCC"] = 4 };
         var noncoding = new Dictionary<string, double> { ["ATGAAA"] = 0, ["AAACCC"] = 1 };
 
         double score = GenomeAnnotator.CalculateCodingPotential("ATGAAACCC", coding, noncoding);
 
-        // sum = 0 + 1.3862943611198906; count = 2 → 0.6931471805599453.
-        Assert.That(score, Is.EqualTo(0.6931471805599453).Within(1e-10),
-            "A both-zero in-both hexamer adds 0 but is counted, so it halves the AAACCC contribution.");
+        // sum = 1.3862943611198906; count = 1 → 1.3862943611198906.
+        Assert.That(score, Is.EqualTo(1.3862943611198906).Within(1e-10),
+            "A both-zero in-both hexamer is skipped (continue) and NOT counted, leaving only AAACCC scored.");
     }
 
     #endregion
