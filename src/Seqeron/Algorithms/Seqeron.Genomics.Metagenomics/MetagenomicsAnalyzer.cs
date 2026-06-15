@@ -1148,7 +1148,10 @@ public static class MetagenomicsAnalyzer
     /// for each offset identical positions are counted over the overlapping window. The
     /// returned identity = identical positions / window length (gaps are not introduced, so
     /// the gapless alignment length equals the overlap length); coverage = window length /
-    /// reference length. The offset maximizing identical positions is chosen.
+    /// reference length. The offset maximizing identical positions is chosen; on an equal
+    /// match count the higher-identity (shorter) window is preferred so the alignment is never
+    /// padded with flanking mismatches (a padded window would lower identity and could spuriously
+    /// fail the identity threshold even when a perfect HSP exists).
     /// </summary>
     private static (double Identity, double Coverage) BestUngappedMatch(string contig, string reference)
     {
@@ -1174,8 +1177,11 @@ public static class MetagenomicsAnalyzer
                     matches++;
             }
 
-            // Prefer the window with the most identical positions; ties favour the longer window.
-            if (matches > bestMatches || (matches == bestMatches && window > bestWindow))
+            // Prefer the window with the most identical positions; on an equal match count
+            // favour the shorter (higher-identity) window so the chosen alignment is not padded
+            // with mismatching flanks. bestWindow == 0 marks the unset state.
+            if (matches > bestMatches
+                || (matches == bestMatches && bestWindow != 0 && window < bestWindow))
             {
                 bestMatches = matches;
                 bestWindow = window;

@@ -109,8 +109,10 @@ conversion is performed.
 `BestUngappedMatch` slides the reference across the contig at every offset from `-(m-1)` to
 `n-1` (overhanging both ends so contig-edge / truncated genes are scored against the reference
 length [3]); for each offset it counts identical positions over the overlapping window and keeps
-the offset with the most matches (ties → longer window). Thresholds (0.90 / 0.60) are named
-constants citing ResFinder [1][2][3][4].
+the offset with the most matches (ties → **shorter**, i.e. higher-identity window, so the chosen
+alignment is never padded with flanking mismatches; padding would dilute identity and could
+spuriously fail the identity threshold even when a perfect HSP exists — mirroring BLAST reporting
+the best-scoring HSP [5]). Thresholds (0.90 / 0.60) are named constants citing ResFinder [1][2][3][4].
 
 ### 4.3 Complexity
 

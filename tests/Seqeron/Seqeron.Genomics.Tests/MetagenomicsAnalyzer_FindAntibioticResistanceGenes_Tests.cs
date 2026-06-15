@@ -87,19 +87,57 @@ public class MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests
 
     #region FindAntibioticResistanceGenes — reporting thresholds (M3, M5)
 
-    // M3 — Contig-edge partial below the coverage floor: only 4 of 7 bases → coverage 4/7 ≈ 0.571 < 0.60.
-    // Not reported. Evidence: Zankari (2012) "cover at least 2/5 of the reference"; default 0.60 floor.
+    // M3 — Contig-edge partial below the coverage floor: only 4 of 7 reference bases present at the
+    // contig end ("CGTA"). The best ungapped alignment is the perfect 4-base HSP: identity 4/4 = 1.0,
+    // coverage 4/7 ≈ 0.571 < 0.60 → rejected on coverage. Evidence: Zankari (2012) "cover at least
+    // 2/5 of the reference"; default 0.60 floor; Evidence table %ID=4/4=1.0, coverage 4/7.
     [Test]
     public void FindAntibioticResistanceGenes_PartialBelowCoverageFloor_NotReported()
     {
         var contigs = Contig("c1", "TTTCGTA");             // matches first 4 of CGTACGT ("CGTA")
         var db = Db(("blaX", "CGTACGT", "blaX-like", "beta-lactam"));
 
-        var hits = MetagenomicsAnalyzer
+        // At default thresholds the gene must NOT be reported (coverage below the 0.60 floor).
+        var defaultHits = MetagenomicsAnalyzer
             .FindAntibioticResistanceGenes(contigs, db)    // default 0.90 / 0.60
             .ToList();
 
-        Assert.That(hits, Is.Empty, "Coverage 4/7 ≈ 0.571 is below the 0.60 floor → gene fragment not reported.");
+        // Lowering only the coverage floor exposes the computed identity/coverage of the best
+        // ungapped match, locking the sourced values (NOT just "empty"): a perfect 4-base HSP must
+        // be chosen over any longer mismatch-padded window.
+        var exposedHit = MetagenomicsAnalyzer
+            .FindAntibioticResistanceGenes(contigs, db, identityThreshold: 0.90, coverageThreshold: 0.50)
+            .Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(defaultHits, Is.Empty, "Coverage 4/7 ≈ 0.571 is below the 0.60 floor → gene fragment not reported.");
+            Assert.That(exposedHit.PercentIdentity, Is.EqualTo(1.0).Within(1e-10), "Best ungapped HSP is the perfect 4-base match: 4/4 = 1.0.");
+            Assert.That(exposedHit.Coverage, Is.EqualTo(4.0 / 7.0).Within(1e-10), "4 of 7 reference bases covered = 4/7 ≈ 0.571.");
+        });
+    }
+
+    // M3b — Tie-break regression guard: an edge gene whose true alignment is a perfect HSP covering
+    // 7/10 of the reference (identity 1.0, coverage 0.70) must be REPORTED at default 0.90/0.60.
+    // The contig's last 7 bases ("ACGTACG") match reference[0:7] exactly. A mismatch-padded longer
+    // window (9 wide, 7 matches → identity 0.778) must NOT be preferred, else the gene is wrongly
+    // missed. Evidence: BLAST reports the best-scoring HSP (Li 2018 identity = matches/columns);
+    // ResFinder 60% coverage floor exists so edge genes are still detected (Sci Rep 2023).
+    [Test]
+    public void FindAntibioticResistanceGenes_EdgePerfectHsp_PreferredOverPaddedWindow()
+    {
+        var contigs = Contig("c1", "GGGACGTACG");          // last 7 = "ACGTACG" == reference[0:7]
+        var db = Db(("blaX", "ACGTACGTAC", "blaX-like", "beta-lactam")); // m = 10
+
+        var hit = MetagenomicsAnalyzer
+            .FindAntibioticResistanceGenes(contigs, db)    // default 0.90 / 0.60
+            .Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hit.PercentIdentity, Is.EqualTo(1.0).Within(1e-10), "Perfect 7-base HSP: identity 7/7 = 1.0 (not the padded 7/9 ≈ 0.778).");
+            Assert.That(hit.Coverage, Is.EqualTo(7.0 / 10.0).Within(1e-10), "7 of 10 reference bases covered = 0.70 ≥ 0.60 floor.");
+        });
     }
 
     // M5 — Below the identity threshold: 5/7 ≈ 0.714 identity over a full-length window, threshold 0.90.
