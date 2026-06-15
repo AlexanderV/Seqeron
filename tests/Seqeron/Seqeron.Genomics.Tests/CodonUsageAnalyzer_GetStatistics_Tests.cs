@@ -61,13 +61,20 @@ public class CodonUsageAnalyzer_GetStatistics_Tests
             "Met, Trp and stop codons are excluded from CAI; no scorable codon remains so CAI is 0.");
     }
 
-    // S6 / INV-1 — CAI is bounded in [0,1] for any sequence.
+    // S6 / INV-1 — CAI is bounded in [0,1] for any sequence, and equals the exact geometric
+    // mean of the scorable codons' E. coli w values (ATG=Met excluded). Sequence
+    // ATG AAA TTT GGG CTG GTT AAA CGT -> scorable {AAA=1, TTT=0.296, GGG=0.019, CTG=1,
+    // GTT=1, AAA=1, CGT=1}; CAI = (1*0.296*0.019*1*1*1*1)^(1/7) = 0.47706538020472955.
+    // w values from Biopython SharpEcoliIndex (Sharp & Li 1987).
     [Test]
-    public void CalculateCai_ArbitrarySequence_IsBetweenZeroAndOne()
+    public void CalculateCai_ArbitrarySequence_EqualsExactGeometricMeanAndIsBetweenZeroAndOne()
     {
         double cai = CodonUsageAnalyzer.CalculateCai("ATGAAATTTGGGCTGGTTAAACGT", CodonUsageAnalyzer.EColiOptimalCodons);
+        double expected = Math.Pow(1.0 * 0.296 * 0.019 * 1.0 * 1.0 * 1.0 * 1.0, 1.0 / 7.0);
         Assert.Multiple(() =>
         {
+            Assert.That(cai, Is.EqualTo(expected).Within(Tol),
+                "CAI is the geometric mean over the 7 scorable codons (Met ATG excluded); Sharp & Li 1987.");
             Assert.That(cai, Is.GreaterThanOrEqualTo(0.0), "CAI is a geometric mean of non-negative weights.");
             Assert.That(cai, Is.LessThanOrEqualTo(1.0), "Each w <= 1, so the geometric mean <= 1 (Sharp & Li 1987).");
         });
@@ -200,6 +207,22 @@ public class CodonUsageAnalyzer_GetStatistics_Tests
         {
             Assert.That(lower.TotalCodons, Is.EqualTo(upper.TotalCodons), "Codon count is case-insensitive.");
             Assert.That(lower.CodonCounts["CTG"], Is.EqualTo(2), "Lowercase 'ctg' is normalized to 'CTG'.");
+        });
+    }
+
+    // INV-5 / doc §6.1 — a codon containing a non-ACGT character is skipped entirely (not
+    // counted in TotalCodons, counts, or GC positions). EMBOSS cusp counts only valid codons.
+    // CTG NNN GTT -> the middle codon is invalid; only CTG and GTT remain (2 codons).
+    [Test]
+    public void GetStatistics_NonAcgtCodon_IsSkipped()
+    {
+        var stats = CodonUsageAnalyzer.GetStatistics("CTGNNNGTT");
+        Assert.Multiple(() =>
+        {
+            Assert.That(stats.TotalCodons, Is.EqualTo(2), "The NNN codon is non-ACGT and is skipped.");
+            Assert.That(stats.CodonCounts.ContainsKey("NNN"), Is.False, "Invalid codons are not recorded.");
+            Assert.That(stats.CodonCounts["CTG"], Is.EqualTo(1), "CTG is the only valid Leu codon counted.");
+            Assert.That(stats.CodonCounts["GTT"], Is.EqualTo(1), "GTT is counted.");
         });
     }
 
