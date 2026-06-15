@@ -85,22 +85,32 @@ public class SequenceAssembler_ErrorCorrectReads_Tests
             "T has two trusted alternatives (A,C) -> ambiguous -> unchanged");
     }
 
-    // M4 — No valid alternative: an isolated read whose error position cannot be made
-    //      trusted by any substitution is left unchanged (Quake: no correcting set).
+    // M4 — No valid alternative (Quake: no correcting set). The error read carries TWO adjacent
+    //      substitutions (pos 2,3) inside the same window, so NO single base substitution makes all
+    //      k-mers covering an untrusted position trusted -> the position is left unchanged.
+    //      Genome reads "AAAAAAAA" x3 make only the 4-mer AAAA trusted (mult=16>=2). In the error
+    //      read "AACCAAAA" positions 2 and 3 are each covered solely by untrusted 4-mers, and for
+    //      each the candidate search yields ZERO valid bases (the other error keeps a covering k-mer
+    //      weak). Verified independently by hand and by a reference reimplementation:
+    //          pos 2 valid candidates = {}; pos 3 valid candidates = {} -> unchanged.
+    //      NOTE: this case must NOT use a read that is itself fully trusted (e.g. "TTTTTTTT", where
+    //      TTT is trusted) — that would exercise the trusted-base rule (M2), not the no-correction
+    //      branch tested here.
     [Test]
     public void ErrorCorrectReads_NoTrustedAlternative_LeavesBaseUnchanged()
     {
-        // Arrange: only ACGTACGT is trusted (x2). The lone read "TTTTTTTT" shares no
-        //          trusted k-mer and no single substitution creates one -> unchanged.
-        var reads = new List<string> { TrueRead, TrueRead, "TTTTTTTT" };
+        // Arrange
+        const string genomeRead = "AAAAAAAA";
+        const string twoErrorRead = "AACCAAAA"; // two substitutions at indices 2 and 3
+        var reads = new List<string> { genomeRead, genomeRead, genomeRead, twoErrorRead };
 
         // Act
         IReadOnlyList<string> result =
-            SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 3, minKmerFrequency: 2);
+            SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 4, minKmerFrequency: 2);
 
         // Assert
-        Assert.That(result[2], Is.EqualTo("TTTTTTTT"),
-            "no single substitution makes covering k-mers trusted -> base unchanged");
+        Assert.That(result[3], Is.EqualTo(twoErrorRead),
+            "untrusted positions 2,3 have no single substitution making all covering k-mers trusted -> unchanged");
     }
 
     // M5 — Substitution-only model: output count and per-read length always preserved

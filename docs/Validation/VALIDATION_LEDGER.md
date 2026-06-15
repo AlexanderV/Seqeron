@@ -161,3 +161,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 36 | ASSEMBLY-COVER-001 | Assembly | 🟡 | ✅ | ✅ CLEAN | - |
 | 37 | ASSEMBLY-CONSENSUS-001 | Assembly | 🟡 | ✅ | ✅ CLEAN | - |
 | 38 | ASSEMBLY-TRIM-001 | Assembly | ✅ | ❌→✅ | ✅ CLEAN | - |
+| 39 | ASSEMBLY-CORRECT-001 | Assembly | ✅ | ❌→✅ | ✅ CLEAN | - |
