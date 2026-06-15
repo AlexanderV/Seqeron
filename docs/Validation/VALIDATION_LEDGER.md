@@ -110,3 +110,16 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | 🟡 | ✅ | ✅ CLEAN | archived @cb113ce |
 | 85 | EPIGEN-CPG-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | archived @cb113ce |
 | 86 | ONCO-IMMUNE-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | archived @cb113ce |
+
+---
+
+# Validation Ledger — Phase 2 (Phase-2 Registry units)
+
+Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phase 1, one fresh
+session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
+State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
+
+**Progress:** 0 / 148 processed.
+
+| # | Unit ID | Area | Stage A | Stage B | State | Commit |
+|---|---------|------|:---:|:---:|:---:|--------|
