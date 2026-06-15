@@ -83,6 +83,7 @@
 | M9 | FindOrfs_ForwardStartToStop_Positions | `GGGATGAAACCCTAAGGG`, minLength 1, fwd only | one ORF: Start=3, End=14, Frame=1, Protein=`MKP` | INV-5; EMBOSS getorf `-find 1` |
 | M10 | FindOrfs_NoStartCodon_Empty | sequence with no ATG/TTG/CTG, fwd only | no ORFs | EMBOSS getorf START→STOP |
 | M11 | FindOrfs_BelowMinLength_Filtered | ORF protein shorter than minLength | filtered out | EMBOSS getorf `-minsize` |
+| M11b | FindOrfs_OrfRunsToSequenceEndWithoutStop | `ATGAAACCCGGG`, minLength 1, fwd only | open ORF: Start=0, End=11, Frame=1, Protein=`MKPG` | INV-5; EMBOSS getorf incomplete-ORF (doc §6.1) |
 | M12 | FindOrfs_NullInput_Throws | null DnaSequence | `ArgumentNullException` | implementation contract |
 | M13 | FindOrfs_OrfResult_LengthDerivations | check Nucleotide/AminoAcid length of M9 ORF | NucleotideLength=12, AminoAcidLength=3 | INV-6 |
 

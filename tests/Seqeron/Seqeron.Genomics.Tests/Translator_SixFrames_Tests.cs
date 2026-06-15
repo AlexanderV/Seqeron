@@ -215,6 +215,29 @@ public class Translator_SixFrames_Tests
         Assert.That(orfs, Is.Empty, "An ORF whose protein is shorter than minLength is discarded.");
     }
 
+    // M11b — INV-5 / doc §6.1: an ORF that begins at a START codon but reaches the end of the
+    // sequence with no in-frame STOP is emitted as an open (incomplete) ORF ending at the last base.
+    // EMBOSS getorf -find 1 incomplete-ORF handling. Hand-verified: ATG AAA CCC GGG -> "MKPG",
+    // Start=0, End=11 (last base, 0-based, inclusive).
+    [Test]
+    public void FindOrfs_OrfRunsToSequenceEndWithoutStop_EmitsOpenOrf()
+    {
+        var dna = new DnaSequence("ATGAAACCCGGG");
+
+        var orfs = Translator.FindOrfs(dna, minLength: 1, searchBothStrands: false).ToList();
+
+        Assert.That(orfs, Has.Count.EqualTo(1), "An ORF with no downstream STOP runs to the sequence end.");
+        var orf = orfs[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(orf.StartPosition, Is.EqualTo(0), "Start = first base of the ATG start codon.");
+            Assert.That(orf.EndPosition, Is.EqualTo(11), "End = last base of the sequence (open ORF, no STOP).");
+            Assert.That(orf.Frame, Is.EqualTo(1), "ORF is in forward frame +1.");
+            Assert.That(orf.Protein.Sequence, Is.EqualTo("MKPG"),
+                "Open ORF protein covers START to end with no terminating STOP residue.");
+        });
+    }
+
     // M12 — null input throws.
     [Test]
     public void FindOrfs_NullInput_ThrowsArgumentNullException()
