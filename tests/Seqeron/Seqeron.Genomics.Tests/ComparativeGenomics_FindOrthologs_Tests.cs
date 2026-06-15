@@ -24,11 +24,14 @@ public class ComparativeGenomics_FindOrthologs_Tests
     // k-mer sets are computed over these sequences (k = 5):
     //   AcgtRepeat14 / AcgtRepeat14b are identical -> Jaccard 1.0
     //   AcgtPlusAA shares all of AcgtRepeat14's k-mers but adds 2 more -> Jaccard 0.667
-    //   GcBlock / TtBlock are unrelated to the ACGT sequences -> Jaccard 0.0
+    //   GcBlock / TtBlock are unrelated to the ACGT sequences (Jaccard 0.0 vs ACGT).
+    //   NOTE: TtBlock and GcBlock are cyclic rotations of one another and share 8 of 12 5-mers
+    //   (Jaccard 0.5) — but each is identical to its own genome-2 counterpart (Jaccard 1.0),
+    //   so the 1.0 self-match always wins the best-hit ranking and the RBH matching is unaffected.
     private const string AcgtRepeat14 = "ACGTACGTACGTAC";    // k-mers {ACGTA,CGTAC,GTACG,TACGT}
-    private const string AcgtPlusAA = "ACGTACGTACGTACAA";  // adds {GTACA,TACAA}
-    private const string TtBlock = "TTTTGGGGCCCCAAAA";      // unrelated 12 k-mers
-    private const string GcBlock = "GGGGCCCCAAAATTTT";      // unrelated 12 k-mers
+    private const string AcgtPlusAA = "ACGTACGTACGTACAA";  // adds {GTACA,TACAA} -> vs AcgtRepeat14 Jaccard 0.667
+    private const string TtBlock = "TTTTGGGGCCCCAAAA";      // 12 5-mers; vs ACGT Jaccard 0.0
+    private const string GcBlock = "GGGGCCCCAAAATTTT";      // 12 5-mers; vs ACGT Jaccard 0.0; vs TtBlock Jaccard 0.5
 
     #endregion
 
@@ -55,6 +58,8 @@ public class ComparativeGenomics_FindOrthologs_Tests
             Assert.That(byG1["a2"], Is.EqualTo("b2"), "a2 and b2 are mutual best hits (identical sequence)");
             Assert.That(pairs.Select(p => p.Identity), Is.All.EqualTo(1.0).Within(1e-10),
                 "identical sequences => k-mer Jaccard identity 1.0");
+            Assert.That(pairs.Select(p => p.Coverage), Is.All.EqualTo(1.0).Within(1e-10),
+                "identical sequences => all shared 5-mers => coverage 1.0");
         });
     }
 
@@ -79,6 +84,8 @@ public class ComparativeGenomics_FindOrthologs_Tests
             Assert.That(pairs[0].Gene2Id, Is.EqualTo("b1"), "a1's reciprocal best hit is b1, not b2");
             Assert.That(pairs.Any(p => p.Gene2Id == "b2"), Is.False,
                 "b2's best hit is a1 but a1's best hit is b1 => non-reciprocal => excluded");
+            Assert.That(pairs[0].Identity, Is.EqualTo(1.0).Within(1e-10),
+                "the kept pair is the Jaccard-1.0 a1<->b1, not the 0.667 a1-b2 hit");
         });
     }
 
@@ -201,6 +208,45 @@ public class ComparativeGenomics_FindOrthologs_Tests
         });
     }
 
+    // S5 — The public FindReciprocalBestHits entry point yields the same matching as FindOrthologs.
+    // FindOrthologs delegates to FindReciprocalBestHits; assert the dedicated RBH entry point directly
+    // (it is public and otherwise only exercised indirectly). Source: Moreno-Hagelsieb & Latimer (2008).
+    [Test]
+    public void FindReciprocalBestHits_SameAsFindOrthologs()
+    {
+        // Arrange
+        var g1 = new[] { Gene("a1", "G1", AcgtRepeat14), Gene("a2", "G1", TtBlock) };
+        var g2 = new[] { Gene("b1", "G2", AcgtRepeat14), Gene("b2", "G2", TtBlock) };
+
+        // Act
+        var rbh = ComparativeGenomics.FindReciprocalBestHits(g1, g2)
+            .Select(p => (p.Gene1Id, p.Gene2Id)).OrderBy(p => p.Item1).ToList();
+        var ortho = ComparativeGenomics.FindOrthologs(g1, g2)
+            .Select(p => (p.Gene1Id, p.Gene2Id)).OrderBy(p => p.Item1).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(rbh, Is.EqualTo(ortho), "FindOrthologs is the RBH criterion under another name");
+            Assert.That(rbh, Is.EqualTo(new[] { ("a1", "b1"), ("a2", "b2") }),
+                "the two reciprocal best-hit pairs");
+        });
+    }
+
+    // S6 — FindReciprocalBestHits also validates null inputs (its own ArgumentNullException guards).
+    [Test]
+    public void FindReciprocalBestHits_NullInput_Throws()
+    {
+        var g = new[] { Gene("a1", "G1", AcgtRepeat14) };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(
+                () => ComparativeGenomics.FindReciprocalBestHits(null!, g).ToList(), "null genome1 must throw");
+            Assert.Throws<ArgumentNullException>(
+                () => ComparativeGenomics.FindReciprocalBestHits(g, null!).ToList(), "null genome2 must throw");
+        });
+    }
+
     #endregion
 
     #region FindOrthologs — COULD Tests
@@ -249,6 +295,7 @@ public class ComparativeGenomics_FindOrthologs_Tests
             Assert.That(ids, Is.EquivalentTo(new[] { "p1", "p2" }), "p1 and p2 are mutual best hits");
             Assert.That(ids.Contains("q1"), Is.False, "unrelated q1 is not a paralog of either");
             Assert.That(pairs[0].Identity, Is.EqualTo(1.0).Within(1e-10), "duplicate => Jaccard identity 1.0");
+            Assert.That(pairs[0].Coverage, Is.EqualTo(1.0).Within(1e-10), "duplicate => coverage 1.0");
         });
     }
 

@@ -88,6 +88,8 @@
 | S2 | Symmetry of pairs (INV-1) | Each returned pair verified reciprocal by re-checking best hits | All pairs reciprocal | INV-1 |
 | S3 | Genes without sequence skipped | Gene with empty Sequence | Not paired | similarity undefined |
 | S4 | Paralog identity not self-paired | gene not paired with itself | p1≠p2 in pair | INV-3 |
+| S5 | FindReciprocalBestHits == FindOrthologs | public RBH entry point directly | same matching {a1↔b1, a2↔b2} | delegation; Moreno-Hagelsieb (2008) |
+| S6 | Null inputs (FindReciprocalBestHits) | null genome1 / null genome2 | `ArgumentNullException` | repository contract |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -171,6 +173,8 @@
 | S2 | ✅ | `FindOrthologs_AllPairs_AreReciprocal` |
 | S3 | ✅ | `FindOrthologs_GeneWithoutSequence_IsSkipped` |
 | S4 | ✅ | `FindParalogs_PairGenesAreDistinct` |
+| S5 | ✅ | `FindReciprocalBestHits_SameAsFindOrthologs` (added 2026-06-15) |
+| S6 | ✅ | `FindReciprocalBestHits_NullInput_Throws` (added 2026-06-15) |
 | C1 | ✅ | `FindOrthologs_RunTwice_IsDeterministic` |
 
 ---
