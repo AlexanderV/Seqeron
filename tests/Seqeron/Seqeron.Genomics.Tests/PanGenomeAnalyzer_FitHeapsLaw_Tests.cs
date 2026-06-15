@@ -93,26 +93,72 @@ public class PanGenomeAnalyzer_FitHeapsLaw_Tests
         });
     }
 
-    // M4 — New-gene counting by first appearance drives the fitted curve.
-    // Verified via the M1 curve: only first-appearance counts (shared 'core' excluded)
-    // produce y=[8,4]; if shared genes were recounted the fit would differ.
+    // M4 — New-gene count is FIRST APPEARANCE (micropan (cm==1)[i] & (cm==0)[i-1]), not a
+    // recount of all-present clusters. Distinguishing matrix (fixed order g1,g2,g3):
+    //   g1={core,a,b}, g2={core,a,b,c}, g3={core,a,b,c,d}
+    // First-appearance curve: g2 introduces {c}=1, g3 introduces {d}=1 -> y=[1,1]
+    // (a,b first appear at g1, never recounted; core never recounted) -> alpha=0, K=1, OPEN.
+    // A WRONG impl that recounted non-core present clusters per genome would get
+    // y=[3,4] (present-minus-nothing) -> a different fit. The exact (alpha=0,K=1,open)
+    // result can only arise from the first-appearance rule on this matrix.
     [Test]
     public void FitHeapsLaw_CountsNewGenesByFirstAppearance()
     {
-        // G2 shares 'core' with G1 and adds 8; G3 shares 'core' and adds 4.
         var rows = Rows(
-            ("g1", new[] { "core" }),
-            ("g2", new[] { "core", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8" }),
-            ("g3", new[] { "core", "m1", "m2", "m3", "m4" }));
+            ("g1", new[] { "core", "a", "b" }),
+            ("g2", new[] { "core", "a", "b", "c" }),
+            ("g3", new[] { "core", "a", "b", "c", "d" }));
 
         var fit = PanGenomeAnalyzer.FitHeapsLaw(rows, permutations: 1);
 
-        // Predictor at N=2 reproduces the first new-gene count (8) only if 'core' was
-        // NOT counted as new at G2 (first-appearance rule); recovered K*2^-alpha == 8.
-        Assert.That(fit.PredictNewGenes(2), Is.EqualTo(8.0).Within(1e-6),
-            "first-appearance counting yields 8 new clusters at genome 2 (shared core excluded)");
-        Assert.That(fit.PredictNewGenes(3), Is.EqualTo(4.0).Within(1e-6),
-            "first-appearance counting yields 4 new clusters at genome 3");
+        Assert.Multiple(() =>
+        {
+            // First-appearance: exactly 1 new cluster at g2 (c) and 1 at g3 (d).
+            Assert.That(fit.PredictNewGenes(2), Is.EqualTo(1.0).Within(1e-6),
+                "g2 introduces exactly one new cluster (c); a,b,core already seen at g1");
+            Assert.That(fit.PredictNewGenes(3), Is.EqualTo(1.0).Within(1e-6),
+                "g3 introduces exactly one new cluster (d); a,b,c,core already seen");
+            // Constant new-gene curve y=[1,1] -> alpha=0, K=1, open (Evidence derived dataset).
+            Assert.That(fit.Alpha, Is.EqualTo(0.0).Within(Tol),
+                "constant first-appearance curve y=[1,1] -> alpha=0");
+            Assert.That(fit.Intercept, Is.EqualTo(1.0).Within(Tol),
+                "constant first-appearance curve y=[1,1] -> K=1");
+            Assert.That(fit.IsOpen, Is.True, "alpha < 1 -> open");
+        });
+    }
+
+    // M4b — Distinguishing closed curve: a cluster present in g1, ABSENT in g2, then present
+    // again in g3 must NOT be recounted as new at g3 (it first appeared at g1). Fixed order:
+    //   g1={core,x}, g2={core,a,b}, g3={core,x,c}
+    // First-appearance: g2 introduces {a,b}=2; g3 introduces {c}=1 (x already seen at g1) ->
+    // y=[2,1] on the exact power curve K*N^-alpha with alpha=ln2/ln(3/2), K=2*2^alpha.
+    // A WRONG impl comparing only to the immediately-previous genome would count x as new at
+    // g3 (present g3, absent g2) -> y=[2,2] -> alpha=0/open, a different verdict.
+    [Test]
+    public void FitHeapsLaw_FirstAppearance_NotImmediatePredecessor()
+    {
+        var rows = Rows(
+            ("g1", new[] { "core", "x" }),
+            ("g2", new[] { "core", "a", "b" }),
+            ("g3", new[] { "core", "x", "c" }));
+
+        var fit = PanGenomeAnalyzer.FitHeapsLaw(rows, permutations: 1);
+
+        // Exact curve y=[2,1]: alpha = ln2/ln(3/2), K = 2*2^alpha (Evidence model + hand calc).
+        double expectedAlpha = Math.Log(2.0) / Math.Log(1.5);
+        double expectedK = 2.0 * Math.Pow(2.0, expectedAlpha);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.PredictNewGenes(2), Is.EqualTo(2.0).Within(1e-6),
+                "g2 introduces a,b = 2 new clusters");
+            Assert.That(fit.PredictNewGenes(3), Is.EqualTo(1.0).Within(1e-6),
+                "g3 introduces only c = 1 new cluster; x first appeared at g1, not recounted");
+            Assert.That(fit.Alpha, Is.EqualTo(expectedAlpha).Within(Tol),
+                "first-appearance curve y=[2,1] -> alpha=ln2/ln(3/2) (>1, closed)");
+            Assert.That(fit.Intercept, Is.EqualTo(expectedK).Within(1e-6),
+                "first-appearance curve y=[2,1] -> K=2*2^alpha");
+            Assert.That(fit.IsOpen, Is.False, "alpha > 1 -> closed");
+        });
     }
 
     // M6 — Fewer than two genomes -> degenerate fit, no exception.
@@ -270,14 +316,18 @@ public class PanGenomeAnalyzer_FitHeapsLaw_Tests
         });
     }
 
-    // M5 — Binarization: a cluster present via duplicate gene ids counts once (INV-03).
+    // M5 — Binarization (micropan pan.matrix[pan.matrix>0] <- 1): a cluster whose gene family
+    // has MULTIPLE member genes in one genome is present ONCE, not once per member. g1 carries
+    // two identical-sequence genes (a,b) -> they cluster into a single cluster (GeneIds=[a,b]);
+    // that cluster must contribute PresentGenes = 1, not 2. A wrong impl counting gene
+    // occurrences (or cluster members) instead of distinct present clusters would yield 2.
     [Test]
     public void CreatePresenceAbsenceMatrix_DuplicatePresence_CountsOnce()
     {
-        // 'dup' appears twice in g1 (same id) -> one cluster, counted once.
         var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
         {
-            ["g1"] = new List<(string, string)> { ("dup", "ATGCATGC"), ("dup", "ATGCATGC") }
+            // Two genes, identical sequence -> CD-HIT identity 1.0 -> ONE cluster with 2 members.
+            ["g1"] = new List<(string, string)> { ("a", "ATGCATGC"), ("b", "ATGCATGC") }
         };
         var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
 
@@ -286,11 +336,36 @@ public class PanGenomeAnalyzer_FitHeapsLaw_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(row.GenePresence.Values.Count(v => v), Is.EqualTo(row.GenePresence.Count),
-                "every cluster column for g1 is present (binary), no value exceeds true");
-            Assert.That(row.GenePresence.Values.All(v => v == true || v == false), Is.True,
-                "presence is strictly binary (true/false), never a multiplicity");
+            Assert.That(clusters.Count, Is.EqualTo(1),
+                "two identical-sequence genes collapse into a single ortholog cluster");
+            Assert.That(row.GenePresence.Count, Is.EqualTo(1), "exactly one cluster column");
+            Assert.That(row.PresentGenes, Is.EqualTo(1),
+                "the multi-member cluster is present ONCE (binary), not once per member gene");
+            Assert.That(row.GenePresence.Values.Count(v => v), Is.EqualTo(1),
+                "exactly one present flag for the single cluster");
         });
+    }
+
+    // M5b — Binarization in the FIT path: duplicate copies of a cluster in a genome do not
+    // inflate the new-gene count. Two genomes both carry a 2-member shared cluster plus
+    // distinct singletons; the second genome contributes exactly its singleton as new (1),
+    // never the shared cluster twice. Verified via the new-gene count at g2 = 1.
+    [Test]
+    public void FitHeapsLaw_BinarizesMultiMemberPresence()
+    {
+        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
+        {
+            // shared 2-member cluster ("ATGCATGC" twice) + one unique gene each.
+            ["g1"] = new List<(string, string)> { ("s1", "ATGCATGC"), ("s2", "ATGCATGC"), ("u1", "AAAAAAAA") },
+            ["g2"] = new List<(string, string)> { ("s3", "ATGCATGC"), ("s4", "ATGCATGC"), ("u2", "GGGGGGGG") }
+        };
+
+        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes, permutations: 1);
+
+        // 2 genomes -> single new-gene point at N=2. g1 seeds {shared, u1}; g2 adds only u2
+        // (its two shared-cluster members collapse to the already-seen shared cluster) -> new=1.
+        Assert.That(fit.PredictNewGenes(2), Is.EqualTo(1.0).Within(1e-6),
+            "g2 adds exactly one new cluster (u2); its duplicate shared-cluster members count once");
     }
 
     #endregion
