@@ -189,3 +189,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 64 | GENOMIC-COMMON-001 | Analysis | 🟡 | 🟡 | ✅ CLEAN | - |
 | 65 | GENOMIC-MOTIFS-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
 | 66 | SEQ-RNACOMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | - |
+| 67 | PROTMOTIF-PATTERN-001 | ProteinMotif | ✅ | 🟡 | ✅ CLEAN | - |

@@ -77,6 +77,42 @@ public class ProteinMotifFinder_FindMotifByPattern_Tests
         });
     }
 
+    // M11 — PS00006 [ST]-x(2)-[DE] -> [ST].{2}[DE]: the x(n) gap form. https://prosite.expasy.org/PS00006
+    [Test]
+    public void ConvertPrositeToRegex_PS00006GapCount_ProducesRangeQuantifier()
+    {
+        Assert.That(ConvertPrositeToRegex("[ST]-x(2)-[DE]"), Is.EqualTo("[ST].{2}[DE]"),
+            "x(2) maps to .{2} (PROSITE PS00006 casein-kinase-II site)");
+    }
+
+    // M12 — PS00028 ranges x(2,4)/x(3,5) -> .{2,4}/.{3,5}: the x(n,m) range form.
+    // https://prosite.expasy.org/PS00028
+    [Test]
+    public void ConvertPrositeToRegex_PS00028Ranges_ProduceRangeQuantifiers()
+    {
+        Assert.That(ConvertPrositeToRegex("C-x(2,4)-C-x(3)-[LIVMFYWC]-x(8)-H-x(3,5)-H"),
+            Is.EqualTo("C.{2,4}C.{3}[LIVMFYWC].{8}H.{3,5}H"),
+            "x(2,4) -> .{2,4} and x(3,5) -> .{3,5} (PROSITE PS00028 C2H2 zinc finger)");
+    }
+
+    // M13 — PS00004 [RK](2)-x-[ST] -> [RK]{2}.[ST]: a fixed count on a residue element (class).
+    // PROSITE doc: "A(3) corresponds to A-A-A". https://prosite.expasy.org/PS00004
+    [Test]
+    public void ConvertPrositeToRegex_PS00004FixedCountOnClass_ProducesQuantifier()
+    {
+        Assert.That(ConvertPrositeToRegex("[RK](2)-x-[ST]"), Is.EqualTo("[RK]{2}.[ST]"),
+            "[RK](2) -> [RK]{2} — a fixed count applies to the preceding element (PROSITE PS00004)");
+    }
+
+    // M14 — Fixed count on a single residue letter: A(3) -> A{3}.
+    // PROSITE doc (scanprosite_doc / prosuser §IV.E): "A(3) corresponds to A-A-A".
+    [Test]
+    public void ConvertPrositeToRegex_FixedCountOnLetter_ProducesQuantifier()
+    {
+        Assert.That(ConvertPrositeToRegex("A(3)"), Is.EqualTo("A{3}"),
+            "A(3) maps to A{3} per PROSITE 'A(3) corresponds to A-A-A'");
+    }
+
     #endregion
 
     #region FindMotifByPattern — positions and IC scoring (M6–M8, INV-02, INV-03)
@@ -115,6 +151,20 @@ public class ProteinMotifFinder_FindMotifByPattern_Tests
 
         Assert.That(match.Score, Is.EqualTo(2.0 * Log2Of10).Within(Tol),
             "Two 2-residue classes (log2(20/2) each) + wildcard (0) = 2*log2(10) bits (INV-03)");
+    }
+
+    // M8b — IC score for a negated class: PS00001 N[^P][ST][^P].
+    // k = 1, 19, 2, 19 -> IC = log2(20) + log2(20/19) + log2(10) + log2(20/19). Schneider & Stephens (1990).
+    [Test]
+    public void FindMotifByPattern_NegatedClassScore_EqualsSumOfPerPositionIC()
+    {
+        // "NASA": N (k=1), A (in [^P], k=19), S (in [ST], k=2), A (in [^P], k=19).
+        var match = FindMotifByPattern("NASA", "N[^P][ST][^P]").Single();
+
+        double expected = Math.Log2(20.0 / 1) + Math.Log2(20.0 / 19)
+                        + Math.Log2(20.0 / 2) + Math.Log2(20.0 / 19);
+        Assert.That(match.Score, Is.EqualTo(expected).Within(Tol),
+            "Negated class [^P] allows 20-1=19 residues -> log2(20/19) bits each (INV-03)");
     }
 
     #endregion
@@ -193,6 +243,20 @@ public class ProteinMotifFinder_FindMotifByPattern_Tests
         var ex = Assert.Throws<FormatException>(() => ConvertPrositeToRegex("<{C}*>"),
             "Kleene star '*' is not part of the PA-line grammar and must be rejected (INV-06)");
         Assert.That(ex!.Message, Does.Contain("*"), "Exception names the offending '*' construct");
+    }
+
+    // S3b — '?' and '+' are likewise not PA-line atoms; reject-don't-drop (INV-06).
+    // PROSITE PA-line grammar (scanprosite_doc) has no '?'/'+' metacharacters.
+    [Test]
+    public void ConvertPrositeToRegex_OtherRegexMetacharacters_ThrowFormatException()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A?"),
+                "'?' is not a PA-line atom and must be rejected (INV-06)");
+            Assert.Throws<FormatException>(() => ConvertPrositeToRegex("A+"),
+                "'+' is not a PA-line atom and must be rejected (INV-06)");
+        });
     }
 
     // S4 — matching is case-insensitive: lower/mixed case give the same match as upper case.
