@@ -116,7 +116,25 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
         Assert.Multiple(() =>
         {
             Assert.That(result.DeltaH, Is.EqualTo(0.0), "Length-1 has no dinucleotide (INV-06)");
+            Assert.That(result.DeltaS, Is.EqualTo(0.0), "Length-1 has no dinucleotide (INV-06)");
+            Assert.That(result.DeltaG, Is.EqualTo(0.0), "Length-1 has no dinucleotide (INV-06)");
             Assert.That(result.MeltingTemperature, Is.EqualTo(0.0), "Length-1 has no dinucleotide (INV-06)");
+        });
+    }
+
+    // M6b — Null input returns all-zero (guarded by string.IsNullOrEmpty; no throw).
+    // The NN model is undefined for length < 2; the API contract returns (0,0,0,0).
+    [Test]
+    public void CalculateThermodynamics_NullInput_ReturnsAllZero()
+    {
+        var result = SequenceStatistics.CalculateThermodynamics(null!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.DeltaH, Is.EqualTo(0.0), "Null input returns zero (INV-06)");
+            Assert.That(result.DeltaS, Is.EqualTo(0.0), "Null input returns zero (INV-06)");
+            Assert.That(result.DeltaG, Is.EqualTo(0.0), "Null input returns zero (INV-06)");
+            Assert.That(result.MeltingTemperature, Is.EqualTo(0.0), "Null input returns zero (INV-06)");
         });
     }
 
@@ -206,6 +224,19 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
 
         Assert.That(tm, Is.EqualTo(51.78).Within(1e-9),
             "Marmur-Doty: 64.9 + 41*(10-16.4)/20 = 51.78 °C");
+    }
+
+    // C3 — Null / empty input to the delegate returns 0 (guarded by string.IsNullOrEmpty).
+    [Test]
+    public void CalculateMeltingTemperature_NullOrEmptyInput_ReturnsZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(null!), Is.EqualTo(0.0),
+                "Null input returns 0");
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(""), Is.EqualTo(0.0),
+                "Empty input returns 0");
+        });
     }
 
     #endregion

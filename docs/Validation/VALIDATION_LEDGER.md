@@ -149,3 +149,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 24 | SEQ-MW-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
 | 25 | SEQ-PI-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 26 | SEQ-HYDRO-001 | Statistics | ✅ | 🟡 | ✅ CLEAN | - |
+| 27 | SEQ-THERMO-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
