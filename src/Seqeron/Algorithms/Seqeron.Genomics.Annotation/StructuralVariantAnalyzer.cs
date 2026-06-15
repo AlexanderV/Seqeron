@@ -193,16 +193,21 @@ public static class StructuralVariantAnalyzer
     }
 
     /// <summary>
-    /// Returns true when two mates have the concordant forward-reverse (FR) or reverse-forward (RF)
-    /// orientation, i.e. they map to opposite strands (one '+', one '−').
+    /// Returns true when two mates have the concordant forward-reverse (FR, inward-facing)
+    /// orientation for a standard short-insert library: the upstream mate on the '+' strand and the
+    /// downstream mate on the '−' strand, so the reads point towards one another.
     /// </summary>
     /// <remarks>
-    /// Standard Illumina paired-end libraries yield FR pairs (SAM proper-pair FLAG 0x02);
-    /// FF or RR (same strand) is the abnormal orientation that supports an inversion.
-    /// Source: cureffi.org / BWA proper-pair convention; Medvedev et al. 2009.
+    /// Standard Illumina paired-end libraries yield FR pairs (SAM proper-pair FLAG 0x02). Every other
+    /// orientation is a discordant signature: FF/RR (same strand) supports an inversion, and RF
+    /// (reverse-forward, outward-facing / "everted") supports a tandem duplication — DELLY, LUMPY,
+    /// Manta and SVXplorer all read an FR cluster as a deletion candidate and an RF cluster as a
+    /// duplication candidate. RF is "proper" only for opposite-orientation mate-pair libraries, not for
+    /// the short-insert library modelled here. Source: cureffi.org / BWA proper-pair convention
+    /// ("RF, FF or RR … that's a problem"); Rausch et al. 2012 (DELLY); SVXplorer (Kumar et al. 2020).
     /// </remarks>
     private static bool IsConcordantOrientation(char strand1, char strand2) =>
-        (strand1 == '+' && strand2 == '-') || (strand1 == '-' && strand2 == '+');
+        strand1 == '+' && strand2 == '-';
 
     /// <summary>
     /// Classifies a discordant read-pair signature into a structural-variant type using the
@@ -213,8 +218,9 @@ public static class StructuralVariantAnalyzer
     /// <list type="number">
     /// <item>mates on different chromosomes → <see cref="SVType.Translocation"/> (linking/CTX signature; ASSUMPTION A1: chromosome difference takes precedence over orientation);</item>
     /// <item>same chromosome, mates on the same strand → <see cref="SVType.Inversion"/> (flipped orientation);</item>
-    /// <item>same chromosome, span &gt; mean + c·sd → <see cref="SVType.Deletion"/> (span larger than insert size);</item>
-    /// <item>same chromosome, span &lt; mean − c·sd → <see cref="SVType.Insertion"/> (span smaller than insert size);</item>
+    /// <item>same chromosome, reverse-forward (RF, outward-facing / everted) mates → <see cref="SVType.Duplication"/> (tandem-duplication signature; DELLY, LUMPY, Manta, SVXplorer read an RF cluster as a duplication);</item>
+    /// <item>same chromosome, forward-reverse (FR) mates, span &gt; mean + c·sd → <see cref="SVType.Deletion"/> (span larger than insert size);</item>
+    /// <item>same chromosome, forward-reverse (FR) mates, span &lt; mean − c·sd → <see cref="SVType.Insertion"/> (span smaller than insert size);</item>
     /// <item>otherwise → <see cref="SVType.ComplexRearrangement"/> (anomalous but not matching a basic signature).</item>
     /// </list>
     /// </remarks>
@@ -236,10 +242,18 @@ public static class StructuralVariantAnalyzer
         if (pair.Strand1 == pair.Strand2)
             return SVType.Inversion;
 
+        // Same chromosome, reverse-forward (RF, outward-facing / everted): the mates have swapped
+        // relative order but kept opposite strands → tandem-duplication signature (DELLY, LUMPY,
+        // Manta and SVXplorer all read an RF cluster as a duplication candidate). The data model
+        // stores the upstream mate first, so RF is strand1 '−', strand2 '+'.
+        if (pair.Strand1 == '-' && pair.Strand2 == '+')
+            return SVType.Duplication;
+
         double upperBound = expectedInsertSize + cutoffSd * insertSizeStdDev;
         double lowerBound = expectedInsertSize - cutoffSd * insertSizeStdDev;
 
-        // Span larger than the insert size → deletion (Medvedev et al. 2009).
+        // Forward-reverse (FR) mates from here on: span larger than the insert size → deletion
+        // (Medvedev et al. 2009).
         if (pair.InsertSize > upperBound)
             return SVType.Deletion;
 

@@ -27,7 +27,7 @@
 3. Inversion ⇒ one mate's orientation flipped (intra-chromosomal FF/RR) — Medvedev et al. 2009; cureffi/BWA.
 4. Translocation ⇒ mates on different chromosomes (linking/CTX signature) — Medvedev et al. 2009; BreakDancer.
 5. Discordant-by-span cutoff: bounds = mean ± c·sd, default c = 3 — BreakDancer README; protocol confirms "3 s.d.".
-6. Concordant orientation = FR (one mate +, one mate −); FF/RR/RF is abnormal — cureffi/BWA, SAM proper-pair FLAG 0x02.
+6. Concordant orientation = FR only (upstream mate +, downstream mate −, inward-facing); FF/RR (inversion) and RF (everted ⇒ tandem duplication) are all abnormal — cureffi/BWA "RF, FF or RR … that's a problem", SAM proper-pair FLAG 0x02; DELLY (Rausch et al. 2012); SVXplorer (Kumar et al. 2020).
 7. Minimum supporting read pairs to call an SV: default 2 — BreakDancer README (-r).
 
 ### 1.3 Documented Corner Cases
@@ -57,6 +57,7 @@
 |----|-----------|------------|----------|
 | INV-1 | A pair with chr1 ≠ chr2 classifies as Translocation regardless of orientation/span. | Yes | Medvedev et al. 2009 (linking across chromosomes); ASSUMPTION A1 (precedence) |
 | INV-2 | An intra-chromosomal pair with strand1 == strand2 classifies as Inversion. | Yes | Medvedev et al. 2009; cureffi/BWA |
+| INV-2b | An intra-chromosomal RF (everted, strand1 == '−', strand2 == '+') pair classifies as Duplication and is discordant. | Yes | DELLY (Rausch et al. 2012); SVXplorer (Kumar et al. 2020); cureffi/BWA |
 | INV-3 | An intra-chromosomal FR/RF pair with span > mean + c·sd classifies as Deletion. | Yes | Medvedev et al. 2009 |
 | INV-4 | An intra-chromosomal FR/RF pair with span < mean − c·sd classifies as Insertion. | Yes | Medvedev et al. 2009 |
 | INV-5 | A pair is flagged discordant-by-span iff span < mean − c·sd OR span > mean + c·sd. | Yes | BreakDancer README (bounds = mean ± c·sd) |
@@ -78,6 +79,7 @@
 | M6 | FindDiscordantPairs concordant excluded | Same chr, FR, span 400 (in [250,550]) | not returned (concordant) | BreakDancer normal class; FR proper pair |
 | M7 | DetectSVs min-support gate (below) | 1 deletion-signature pair, minSupport 2 | no SV emitted | BreakDancer -r default 2 |
 | M8 | DetectSVs min-support gate (meets) | 3 clustered deletion pairs, minSupport 2 | 1 SV, Type=Deletion, SupportingReads=3 | BreakDancer -r; Medvedev clustering |
+| M9 | ClassifySV duplication | Same chr, RF (everted, strand1='−', strand2='+'), span 400 | SVType.Duplication | DELLY (Rausch et al. 2012); SVXplorer (Kumar et al. 2020): RF cluster ⇒ tandem duplication |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -86,7 +88,7 @@
 | S1 | Cutoff lower boundary | span = mean − c·sd (=250) exactly | concordant (not discordant) | bound is inclusive: discordant iff strictly outside |
 | S2 | Cutoff just below lower bound | span = 249 | discordant, Insertion | one unit beyond lower bound |
 | S3 | Cutoff upper boundary | span = mean + c·sd (=550) exactly | concordant | inclusive upper bound |
-| S4 | RF orientation within bounds | same chr, RF, span 400 | concordant (FR/RF both proper) | cureffi: FR/RF pointing-inward proper |
+| S4 | RF orientation within bounds | same chr, RF (everted), span 400 | discordant → Duplication | RF (outward-facing) is the tandem-duplication signature (DELLY/LUMPY/Manta/SVXplorer); only FR is the proper short-insert orientation (cureffi/BWA, SAM FLAG 0x02) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -118,7 +120,8 @@
 | S1 | ✅ Covered | FindDiscordantPairs_SpanAtLowerBound_NotDiscordant |
 | S2 | ✅ Covered | FindDiscordantPairs_SpanBelowLowerBound_IsDiscordant |
 | S3 | ✅ Covered | FindDiscordantPairs_SpanAtUpperBound_NotDiscordant |
-| S4 | ✅ Covered | FindDiscordantPairs_RfOrientationWithinBounds_NotDiscordant |
+| M9 | ✅ Covered | ClassifySV_RfEvertedOrientationSameChr_ReturnsDuplication |
+| S4 | ✅ Covered | FindDiscordantPairs_RfOrientationWithinBounds_IsDiscordantDuplication |
 | C1 | ✅ Covered | DetectSVs_EmptyInput_ReturnsEmpty |
 | C2 | ✅ Covered | DetectSVs_NullInput_Throws |
 
@@ -170,7 +173,8 @@
 | S1 | ✅ | Lower bound inclusive |
 | S2 | ✅ | Below bound discordant |
 | S3 | ✅ | Upper bound inclusive |
-| S4 | ✅ | RF concordant |
+| M9 | ✅ | RF (everted) → Duplication asserted |
+| S4 | ✅ | RF discordant → Duplication asserted |
 | C1 | ✅ | Empty → empty |
 | C2 | ✅ | Null → ArgumentNullException |
 

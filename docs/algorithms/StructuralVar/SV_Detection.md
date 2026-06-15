@@ -39,7 +39,10 @@ classified as follows [1][2][4]:
 - **Deletion (DEL):** same chromosome, span larger than the insert size (`s > μ + c·σ`) — "the mapped distance is greater than the insert size" [1].
 - **Insertion (INS):** same chromosome, span smaller than the insert size (`s < μ − c·σ`) — "if the event is an insertion, then the distance is smaller" [1].
 - **Inversion (INV):** same chromosome, mates on the same strand (`st₁ == st₂`) — "the orientation of the read, lying within the inversion, flipped" [1]; FF/RR is the abnormal orientation that supports an inversion [4].
+- **Duplication (DUP):** same chromosome, reverse-forward (RF, outward-facing / "everted") orientation (`st₁ == '−'`, `st₂ == '+'`) — DELLY, LUMPY, Manta and SVXplorer all read an RF read-pair cluster as a tandem-duplication candidate (an FR cluster is the deletion candidate) [5][6]. RF is "proper" only for opposite-orientation mate-pair libraries, not for the short-insert FR library modelled here [4].
 - **Translocation (CTX):** mates on different chromosomes (`chr₁ ≠ chr₂`) — a linking signature that "can connect regions ... on different chromosomes" [1]; BreakDancer code CTX [2].
+
+The only concordant (proper-pair, FLAG 0x02) orientation for this short-insert library is **FR**: the upstream mate on '+' and the downstream mate on '−', pointing inward [4]. Every other orientation (FF/RR ⇒ inversion, RF ⇒ duplication) is discordant.
 
 ### 2.3 Modeling Assumptions
 
@@ -84,7 +87,7 @@ classified as follows [1][2][4]:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `ClassifySV` | `SVType` | One of Deletion / Insertion / Inversion / Translocation / ComplexRearrangement |
+| `ClassifySV` | `SVType` | One of Deletion / Insertion / Inversion / Duplication / Translocation / ComplexRearrangement |
 | `DetectSVs` | `IEnumerable<StructuralVariant>` | One SV per qualifying cluster (Type, Start, End, Length, SupportingReads, Quality) |
 | `FindDiscordantPairs` | `IEnumerable<ReadPairSignature>` | The pairs flagged anomalous |
 
@@ -100,7 +103,7 @@ normally be produced by `FindDiscordantPairs`.
 
 ### 4.1 High-Level Steps
 
-1. **Flag discordant pairs** (`FindDiscordantPairs`): mark a pair anomalous if interchromosomal, span outside μ ± c·σ, or non-FR/RF orientation [1][2][4].
+1. **Flag discordant pairs** (`FindDiscordantPairs`): mark a pair anomalous if interchromosomal, span outside μ ± c·σ, or non-FR orientation (i.e. FF/RR/RF) [1][2][4][5][6].
 2. **Cluster** (`ClusterDiscordantPairs`): sort by (chr, position) and group pairs whose coordinates lie within `clusterDistance` of the previous pair.
 3. **Support gate:** discard clusters with fewer than `minSupport` pairs [2].
 4. **Classify** (`ClassifySV`): assign the cluster's SV type from the representative pair's PEM signature [1].
@@ -108,9 +111,9 @@ normally be produced by `FindDiscordantPairs`.
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 Classification order (first match wins), per §2.2: (1) `chr₁ ≠ chr₂` → Translocation; (2)
-`st₁ == st₂` → Inversion; (3) `s > μ + c·σ` → Deletion; (4) `s < μ − c·σ` → Insertion; (5)
-otherwise → ComplexRearrangement. Numeric parameters: cutoff c default 3 σ [2]; min support
-default 2 [2].
+`st₁ == st₂` → Inversion; (3) RF (`st₁ == '−'`, `st₂ == '+'`) → Duplication; (4) FR and
+`s > μ + c·σ` → Deletion; (5) FR and `s < μ − c·σ` → Insertion; (6) otherwise →
+ComplexRearrangement. Numeric parameters: cutoff c default 3 σ [2]; min support default 2 [2].
 
 ### 4.3 Complexity
 
@@ -146,12 +149,12 @@ applicable and was not used.
 - Deletion = larger span, Insertion = smaller span, Inversion = flipped (same-strand) orientation, Translocation = interchromosomal linking signature [1].
 - Discordant-by-span cutoff bounds μ ± c·σ with default c = 3 [2].
 - Minimum supporting read pairs default 2 [2].
-- Concordant FR/RF (opposite-strand) orientation; FF/RR abnormal [4].
+- Concordant orientation is FR only (inward-facing, FLAG 0x02); FF/RR (inversion) and RF (everted ⇒ duplication) are abnormal [4][5][6].
 
 **Intentionally simplified:**
 
 - Clustering: linear adjacency sweep; **consequence:** no statistical confidence model or windowing as in BreakDancer's connection scoring — cluster membership depends only on `clusterDistance`.
-- Tandem duplication / everted-duplication and complex linking signatures are folded into `ComplexRearrangement` rather than separately resolved; **consequence:** duplications from PEM are not distinguished here.
+- Tandem duplication is resolved from the RF (everted) read-pair signature [5][6], but more complex linking signatures (interspersed/distal duplications, copy-paste insertions producing overlapping FR+RF clusters) are folded into `ComplexRearrangement` rather than separately resolved; **consequence:** only the basic tandem-duplication signature is distinguished here.
 
 **Not implemented:**
 
@@ -213,4 +216,6 @@ var svs = StructuralVariantAnalyzer.DetectSVs(
 1. Medvedev P, Stanciu M, Brudno M. 2009. Computational methods for discovering structural variation with next-generation sequencing. Nature Methods 6(11s):S13–S20. https://doi.org/10.1038/nmeth.1374
 2. Chen K, Wallis JW, McLellan MD, et al. 2009. BreakDancer: an algorithm for high-resolution mapping of genomic structural variation. Nature Methods 6:677–681. https://doi.org/10.1038/nmeth.1363 (distribution README: https://raw.githubusercontent.com/genome/breakdancer/master/README)
 3. Fan X, Abbott TE, Larson D, Chen K. 2014. BreakDancer: Identification of Genomic Structural Variation from Paired-End Read Mapping. Curr Protoc Bioinformatics 45:15.6.1–15.6.11. https://pmc.ncbi.nlm.nih.gov/articles/PMC3661775/
-4. Kennedy A. 2012. Forward and reverse reads in paired-end sequencing (SAM proper-pair FLAG 0x02; BWA FR convention). https://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
+4. Kennedy A. 2012. Forward and reverse reads in paired-end sequencing (SAM proper-pair FLAG 0x02; BWA FR convention; "RF, FF or RR … that's a problem"). https://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
+5. Rausch T, Zichner T, Schlattl A, et al. 2012. DELLY: structural variant discovery by integrated paired-end and split-read analysis. Bioinformatics 28(18):i333–i339. https://doi.org/10.1093/bioinformatics/bts378 (deletion = default orientation, far span; tandem duplication = mates with swapped relative order keeping default strands, i.e. RF/everted)
+6. Kumar S, Razzaq SK, Vo AD, et al. 2020. SVXplorer: a three-tier approach to identification of structural variants. PLoS Comput Biol 16(4):e1007737. https://doi.org/10.1371/journal.pcbi.1007737 (FR cluster ⇒ deletion candidate; RF cluster ⇒ tandem-duplication candidate; FF/RR ⇒ inversion)

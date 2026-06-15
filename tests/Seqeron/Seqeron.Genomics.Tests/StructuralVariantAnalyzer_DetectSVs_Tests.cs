@@ -96,6 +96,19 @@ public class StructuralVariantAnalyzer_DetectSVs_Tests
             "Chromosome difference takes precedence over orientation: a cross-chromosome event is a translocation, not an inversion (ASM-02).");
     }
 
+    // M9 — Duplication: same chr, RF (reverse-forward, outward-facing / everted) orientation.
+    // Tandem-duplication signature per DELLY/LUMPY/Manta/SVXplorer (RF cluster ⇒ duplication).
+    [Test]
+    public void ClassifySV_RfEvertedOrientationSameChr_ReturnsDuplication()
+    {
+        var pair = Pair("chr1", '-', "chr1", '+', insertSize: Mean);
+
+        var type = ClassifySV(pair, Mean, Sd, Cutoff);
+
+        Assert.That(type, Is.EqualTo(SVType.Duplication),
+            "An intra-chromosomal RF (everted, outward-facing) pair is the tandem-duplication signature: LUMPY/Manta/DELLY/SVXplorer all read an RF cluster as a duplication candidate, distinct from the FR deletion signature.");
+    }
+
     #endregion
 
     #region FindDiscordantPairs (cutoff and orientation boundaries)
@@ -155,16 +168,21 @@ public class StructuralVariantAnalyzer_DetectSVs_Tests
             "Span exactly at the upper bound mean + c*sd (550) is inside the concordant range (inclusive bounds = mean +/- c*std, BreakDancer).");
     }
 
-    // S4 — RF orientation within bounds is concordant (FR/RF both point mates inward). FR proper-pair convention.
+    // S4 — RF (outward-facing / everted) orientation is DISCORDANT and is the tandem-duplication
+    // signature, even with an in-bounds span. Only FR (inward) is the proper short-insert orientation;
+    // DELLY/LUMPY/Manta/SVXplorer all read an RF cluster as a duplication candidate. cureffi/BWA:
+    // "RF, FF or RR … that's a problem." SAM proper-pair FLAG 0x02 is set only for FR.
     [Test]
-    public void FindDiscordantPairs_RfOrientationWithinBounds_NotDiscordant()
+    public void FindDiscordantPairs_RfOrientationWithinBounds_IsDiscordantDuplication()
     {
         var pairs = new[] { Tuple("chr1", '-', "chr1", '+', insertSize: Mean) };
 
         var result = FindDiscordantPairs(pairs, Mean, Sd, Cutoff).ToList();
 
-        Assert.That(result, Is.Empty,
-            "Opposite-strand mates (RF as well as FR) are the concordant proper-pair orientation; only same-strand (FF/RR) is abnormal (cureffi/BWA).");
+        Assert.That(result, Has.Count.EqualTo(1),
+            "An outward-facing RF pair is everted relative to the FR proper-pair orientation and must be flagged discordant (DELLY/LUMPY/Manta/SVXplorer treat an RF cluster as a duplication; cureffi/BWA: RF 'is a problem').");
+        Assert.That(ClassifySV(result[0], Mean, Sd, Cutoff), Is.EqualTo(SVType.Duplication),
+            "An RF (reverse-forward, everted) intra-chromosomal pair is the tandem-duplication signature (DELLY: 'paired-ends where the first and second read changed their relative order but kept the alignment strand'; SVXplorer: 'an RF cluster … as a tandem duplication').");
     }
 
     #endregion

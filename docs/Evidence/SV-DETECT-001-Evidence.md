@@ -58,9 +58,22 @@
 
 **Key Extracted Points:**
 
-1. **Concordant FR orientation:** "one read should align to the forward strand, and the other should align to the reverse strand, ... so that they are pointed towards one another." → concordant pair has one mate on + and the mate on −.
-2. **Abnormal orientation:** "If they instead align RF, FF or RR, that's a problem and often indicates the reads aligned incorrectly ... or ... a real inversion or translocation exists." → same-orientation (FF/RR) supports inversion.
-3. **Proper-pair flag:** "BWA will only set the 'proper pair flag' to 1 for Illumina reads aligned FR." (SAM FLAG 0x02). → FR is the formal concordant orientation.
+1. **Concordant FR orientation:** "one read should align to the forward strand, and the other should align to the reverse strand, ... so that they are pointed towards one another." → concordant pair has the upstream mate on + and the downstream mate on −.
+2. **Abnormal orientation:** "If they instead align RF, FF or RR, that's a problem and often indicates the reads aligned incorrectly ... or ... a real inversion or translocation exists." → **RF as well as FF/RR is abnormal** (RF is not concordant for a short-insert FR library).
+3. **Proper-pair flag:** "BWA will only set the 'proper pair flag' to 1 for Illumina reads aligned FR." (SAM FLAG 0x02). → **FR is the only formal concordant orientation**; RF is everted.
+
+### DELLY (Rausch T et al. 2012, Bioinformatics 28(18):i333–i339) and SVXplorer (Kumar S et al. 2020, PLoS Comput Biol 16(4):e1007737) — read-pair orientation ⇒ SV type
+
+**URLs:** https://doi.org/10.1093/bioinformatics/bts378 ; https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1007737
+**Accessed:** 2026-06-15
+**Authority rank:** 1 (peer-reviewed reference implementations)
+**Retrieved how:** WebSearch + WebFetch this session.
+
+**Key Extracted Points:**
+
+1. **RF ⇒ tandem duplication.** SVXplorer: "an 'RF' cluster … as a tandem duplication"; "an 'FR' cluster … significantly larger than the average insert length" ⇒ deletion. LUMPY/Manta/DELLY likewise: an FR cluster is a deletion candidate, an RF cluster is a duplication candidate.
+2. **DELLY orientation patterns:** deletions = "paired-end outliers at the far end of the insert size distribution but at default library orientation" (FR); tandem duplications = "paired-ends where the first and second read changed their relative order but kept the alignment strand induced by the default library orientation" (i.e. RF / everted); inversions = "abnormally oriented paired-ends where an orientation change of one read leads to the default library orientation" (FF/RR).
+3. **Conclusion:** for a short-insert FR library, RF (outward-facing / everted) is **discordant** and is the basic tandem-duplication signature; it is NOT a concordant proper pair.
 
 ---
 
@@ -93,6 +106,7 @@
 | Large-span pair (span 5000, FR, same chr) | Deletion signature (span > 550) |
 | Small-span pair (span 100, FR, same chr) | Insertion signature (span < 250) |
 | Same-orientation pair (FF, same chr, span 400) | Inversion signature |
+| Everted pair (RF, same chr, span 400) | Duplication signature (discordant) |
 | Inter-chromosomal pair (chr1 ≠ chr2) | Translocation signature |
 
 ---
@@ -121,7 +135,9 @@
 1. Medvedev P, Stanciu M, Brudno M. 2009. Computational methods for discovering structural variation with next-generation sequencing. Nature Methods 6(11s):S13–S20. https://doi.org/10.1038/nmeth.1374 (author PDF: http://www.cs.toronto.edu/~brudno/nmeth_review09.pdf)
 2. Chen K, Wallis JW, McLellan MD, et al. 2009. BreakDancer: an algorithm for high-resolution mapping of genomic structural variation. Nature Methods 6:677–681. https://doi.org/10.1038/nmeth.1363 (distribution README: https://raw.githubusercontent.com/genome/breakdancer/master/README)
 3. Fan X, Abbott TE, Larson D, Chen K. 2014. BreakDancer: Identification of Genomic Structural Variation from Paired-End Read Mapping. Curr Protoc Bioinformatics 45:15.6.1–15.6.11. https://pmc.ncbi.nlm.nih.gov/articles/PMC3661775/
-4. Kennedy A. 2012. Forward and reverse reads in paired-end sequencing (citing the SAM proper-pair FLAG 0x02 and BWA FR convention). https://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
+4. Kennedy A. 2012. Forward and reverse reads in paired-end sequencing (citing the SAM proper-pair FLAG 0x02 and BWA FR convention; "RF, FF or RR … that's a problem"). https://www.cureffi.org/2012/12/19/forward-and-reverse-reads-in-paired-end-sequencing/
+5. Rausch T, Zichner T, Schlattl A, Stütz AM, Benes V, Korbel JO. 2012. DELLY: structural variant discovery by integrated paired-end and split-read analysis. Bioinformatics 28(18):i333–i339. https://doi.org/10.1093/bioinformatics/bts378
+6. Kumar S, Razzaq SK, Vo AD, B-Rao C, Nagarajan N. 2020. SVXplorer: a three-tier approach to identification of structural variants. PLoS Comput Biol 16(4):e1007737. https://doi.org/10.1371/journal.pcbi.1007737
 
 ---
 
