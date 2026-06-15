@@ -158,3 +158,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 33 | TRANS-SIXFRAME-001 | Translation | 🟡 | 🟡 | ✅ CLEAN | - |
 | 34 | ASSEMBLY-MERGE-001 | Assembly | ✅ | ✅ | ✅ CLEAN | - |
 | 35 | ASSEMBLY-SCAFFOLD-001 | Assembly | ✅ | ✅ | ✅ CLEAN | - |
+| 36 | ASSEMBLY-COVER-001 | Assembly | 🟡 | ✅ | ✅ CLEAN | - |

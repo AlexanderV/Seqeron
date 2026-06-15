@@ -183,6 +183,20 @@ public class SequenceAssembler_CalculateCoverage_Tests
             "Matching is case-insensitive; the lowercase read places and increments [0,5) like its uppercase form.");
     }
 
+    // Edge — Empty reference yields an empty depth array (one value per reference position; zero
+    // positions → length-0 array). Per-base depth is defined per reference base (Metagenomics Wiki);
+    // with no reference bases there are no depth values. (Description §3.3.)
+    [Test]
+    public void CalculateCoverage_EmptyReference_ReturnsEmptyArray()
+    {
+        var reads = new[] { "AAAAA" };
+
+        int[] depth = SequenceAssembler.CalculateCoverage(string.Empty, reads, minOverlap: 5);
+
+        Assert.That(depth, Is.Empty,
+            "An empty reference has no positions, so the per-base depth array is empty (length 0).");
+    }
+
     // Edge — null reference throws ArgumentNullException (input validation).
     [Test]
     public void CalculateCoverage_NullReference_ThrowsArgumentNullException()
