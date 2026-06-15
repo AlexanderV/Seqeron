@@ -1006,12 +1006,16 @@ public static class StructuralVariantAnalyzer
     /// </summary>
     /// <remarks>
     /// CNVkit <c>_log2_ratio_to_absolute_pure</c>: <c>n = r · 2^v</c> (here r = ploidy = 2), rounded to
-    /// the nearest integer; copy number is physically ≥ 0 (CNVkit <c>max(0, n)</c>).
+    /// the nearest integer; copy number is physically ≥ 0 (CNVkit <c>max(0, n)</c>). CNVkit's
+    /// <c>do_call</c> rounds with NumPy's <c>ndarray.round()</c>, which uses round-half-to-even
+    /// (banker's rounding: numpy.round(0.5)=0, numpy.round(2.5)=2), so the conversion here uses
+    /// <see cref="MidpointRounding.ToEven"/> to match the reference implementation exactly at
+    /// half-integer copy numbers.
     /// </remarks>
     private static int LogRatioToCopyNumber(double logRatio)
     {
         double copies = DiploidPloidy * Math.Pow(2, logRatio);
-        int rounded = (int)Math.Round(copies, MidpointRounding.AwayFromZero);
+        int rounded = (int)Math.Round(copies, MidpointRounding.ToEven);
         return Math.Max(0, rounded);
     }
 

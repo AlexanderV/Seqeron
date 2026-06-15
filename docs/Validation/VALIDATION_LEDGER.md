@@ -131,3 +131,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 6 | VARIANT-ANNOT-001 | Variants | ✅ | ✅ | ✅ CLEAN | - |
 | 7 | SV-DETECT-001 | StructuralVar | 🟡 | 🟡 | ✅ CLEAN | - |
 | 8 | SV-BREAKPOINT-001 | StructuralVar | ✅ | 🟡 | ✅ CLEAN | - |
+| 9 | SV-CNV-001 | StructuralVar | ✅ | 🟡 | ✅ CLEAN | - |

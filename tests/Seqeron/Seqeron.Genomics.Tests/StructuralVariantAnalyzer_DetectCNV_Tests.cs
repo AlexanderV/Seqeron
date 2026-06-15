@@ -196,6 +196,16 @@ public class StructuralVariantAnalyzer_DetectCNV_Tests
             .Select(s => s.CopyNumber)
             .ToList();
 
+        // Exact sourced copy numbers (CNVkit CN = round(2*2^log2(meanRD/100)), away-from-zero):
+        //   25  -> log2(0.25)=-2 -> round(2*0.25)=round(0.5)=0
+        //   50  -> log2(0.5)=-1  -> round(2*0.5)=round(1.0)=1
+        //   100 -> log2(1)=0     -> round(2*1)=2
+        //   200 -> log2(2)=1     -> round(2*2)=4
+        //   400 -> log2(4)=2     -> round(2*4)=8
+        // These exact values are stronger than (and imply) the INV-03 non-negativity and
+        // INV-04 monotonicity invariants; a merely monotone-but-wrong implementation would fail here.
+        Assert.That(copyNumbers, Is.EqualTo(new[] { 0, 1, 2, 4, 8 }),
+            "CN = round(2*2^log2) gives exactly [0,1,2,4,8] for window means [25,50,100,200,400] vs reference 100 (CNVkit _log2_ratio_to_absolute_pure).");
         Assert.That(copyNumbers, Has.All.GreaterThanOrEqualTo(0),
             "Copy number is physically non-negative (CNVkit clamps max(0,n)). [INV-03]");
         for (int i = 1; i < copyNumbers.Count; i++)
@@ -299,6 +309,25 @@ public class StructuralVariantAnalyzer_DetectCNV_Tests
             Assert.That(segments[1].CopyNumber, Is.EqualTo(1), "Second run is the CN-1 loss run after the no-call.");
             Assert.That(segments[1].Start, Is.EqualTo(3), "The loss run starts at index 3, after the NaN at index 2.");
         });
+    }
+
+    // M8c — Half-integer copy numbers round half-to-even, matching CNVkit do_call's NumPy ndarray.round()
+    // (numpy.round: 0.5->0, 1.5->2, 2.5->2, 3.5->4). The log2 ratio is derived from the exact target
+    // copies as log2(targetCopies/2), so the implementation's 2*2^log2 reconstructs the midpoint exactly.
+    // A single log2 ratio per call avoids run-merging.
+    [TestCase(0.5, 0)]   // 0.5 -> even 0
+    [TestCase(1.5, 2)]   // 1.5 -> even 2
+    [TestCase(2.5, 2)]   // 2.5 -> even 2
+    [TestCase(3.5, 4)]   // 3.5 -> even 4
+    public void SegmentCopyNumber_HalfIntegerCopyNumber_RoundsHalfToEven(double targetCopies, int expectedCopyNumber)
+    {
+        double log2Ratio = Math.Log2(targetCopies / 2.0);
+
+        var segments = SegmentCopyNumber(new[] { log2Ratio }).ToList();
+
+        Assert.That(segments, Has.Count.EqualTo(1));
+        Assert.That(segments[0].CopyNumber, Is.EqualTo(expectedCopyNumber),
+            "CN = round(2*2^log2) uses round-half-to-even to match CNVkit/NumPy at exact half-integer copy numbers.");
     }
 
     // C2c — Null log2 ratios throws ArgumentNullException (delegate smoke / input-validation).
