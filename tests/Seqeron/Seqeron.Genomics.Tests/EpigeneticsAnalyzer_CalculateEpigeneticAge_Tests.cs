@@ -84,8 +84,16 @@ public class EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests
         double ageWithExtra = EpigeneticsAnalyzer.CalculateEpigeneticAge(withExtra, coefficients, intercept);
         double ageWithoutExtra = EpigeneticsAnalyzer.CalculateEpigeneticAge(withoutExtra, coefficients, intercept);
 
-        Assert.That(ageWithExtra, Is.EqualTo(ageWithoutExtra).Within(1e-12),
-            "CpGs without a clock coefficient contribute nothing (source #3); both calls must match exactly");
+        // Exact sourced value: only cg_clock enters the sum → Y = 0.1 + 0.5*0.4 = 0.3 (>=0)
+        // → linear branch 21*0.3 + 20 = 26.3 (anti.trafo, sources #2,#3). Asserting the exact value
+        // (not just equality of the two calls) prevents a consistent-but-wrong predictor from passing.
+        Assert.Multiple(() =>
+        {
+            Assert.That(ageWithExtra, Is.EqualTo(26.3).Within(1e-12),
+                "Y=0.3 (>=0) → 21*0.3+20=26.3; non-clock CpG must not change the sourced age (sources #2,#3)");
+            Assert.That(ageWithExtra, Is.EqualTo(ageWithoutExtra).Within(1e-12),
+                "CpGs without a clock coefficient contribute nothing (source #3); both calls must match exactly");
+        });
     }
 
     // S1 — empty methylation map: no CpG contributions, so Y = intercept only. intercept 1.0 → 21*1+20 = 41.

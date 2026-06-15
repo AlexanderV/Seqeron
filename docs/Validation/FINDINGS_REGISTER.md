@@ -116,3 +116,4 @@ Each finding is placed in exactly one category:
 | B2 FST mismatch throw | ✅ DONE — ArgumentException on mismatched locus counts (PairwiseFst inherits), +3 tests, suite 4498 green |
 | B3 EMBL `""` unescape | ✅ DONE — INSDC `""`→`"` in EMBL **and** GenBank (old `.Trim('"')` was doubly wrong), dead QualifierRegex removed, +5 tests, suite 4503 green |
 | B4 SPLICE-PREDICT invariants | ✅ DONE — consistent-filter fix, +3 strict tests, suite 4489 green, unit now CLEAN |
+| EPIGEN-AGE-001 M4 test weakness | ✅ DONE — M4 ("non-clock CpG ignored") asserted only relative equality (`ageWithExtra==ageWithoutExtra`), which a consistent-but-wrong predictor could pass; added exact sourced value 26.3 (Y=0.3→21·0.3+20, anti.trafo). No code defect; formula matches 3 independent reference impls verbatim. Full suite 6542 green. |
