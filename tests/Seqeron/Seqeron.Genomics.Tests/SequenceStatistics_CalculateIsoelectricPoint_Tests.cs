@@ -30,16 +30,25 @@ public class SequenceStatistics_CalculateIsoelectricPoint_Tests
             "EMBOSS-scale net charge is still +0.72 at pH 9, so pI is basic (9.67); validates the charge formula + pKa set");
     }
 
-    // M2 / INV-01 — pI bounds 0..14 for any input.
-    // Evidence: bisection is confined to [0, 14] (EMBOSS iep).
+    // M2 / INV-01 — pI bounds 0..14 for any input, anchored to exact sourced values.
+    // Evidence: bisection is confined to [0, 14] (EMBOSS iep). The exact pI values
+    // (DDDDDDDD = 2.96, RRRRRRRR = 13.35) were reproduced by an independent reference
+    // implementation built from the EMBOSS Epk.dat pKa scale + Henderson-Hasselbalch
+    // charge formula (the same formula that reproduces the Peptides worked example).
+    // Asserting the exact values — not just the bounds — means this test fails against a
+    // deliberately-wrong implementation that merely returns something inside [0,14].
     [Test]
-    public void CalculateIsoelectricPoint_AnySequence_StaysWithinPhBounds()
+    public void CalculateIsoelectricPoint_AnySequence_StaysWithinPhBoundsWithExactValues()
     {
         double acidic = SequenceStatistics.CalculateIsoelectricPoint("DDDDDDDD");
         double basic = SequenceStatistics.CalculateIsoelectricPoint("RRRRRRRR");
 
         Assert.Multiple(() =>
         {
+            Assert.That(acidic, Is.EqualTo(2.96).Within(Tolerance),
+                "EMBOSS-scale pI of an 8-Asp peptide is 2.96 (acidic-dominated, within [0,14])");
+            Assert.That(basic, Is.EqualTo(13.35).Within(Tolerance),
+                "EMBOSS-scale pI of an 8-Arg peptide is 13.35 (highly basic, within [0,14])");
             Assert.That(acidic, Is.GreaterThanOrEqualTo(0.0).And.LessThanOrEqualTo(14.0),
                 "INV-01: pI must lie in [0,14] for an acidic peptide");
             Assert.That(basic, Is.GreaterThanOrEqualTo(0.0).And.LessThanOrEqualTo(14.0),
@@ -157,6 +166,26 @@ public class SequenceStatistics_CalculateIsoelectricPoint_Tests
 
         Assert.That(dk, Is.EqualTo(kd).Within(Tolerance),
             "INV-02: pI depends only on composition, so reordering the same residues gives the same pI");
+    }
+
+    // Coverage — non-ionizable characters (gaps, whitespace, punctuation, non-standard
+    // residues) are ignored, never throw, and leave the result equal to the termini-only pI.
+    // Evidence: doc §3.3 "non-standard residues, gaps, or whitespace do not throw"; the
+    // composition model counts only the nine ionizable groups, so a string with no ionizable
+    // side chains yields the termini-only midpoint 6.10 (verified by the independent reference).
+    [Test]
+    public void CalculateIsoelectricPoint_NonIonizableCharacters_IgnoredEqualsTerminiOnly()
+    {
+        double withNoise = SequenceStatistics.CalculateIsoelectricPoint("A B!G");
+        double nonStandard = SequenceStatistics.CalculateIsoelectricPoint("XZ");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withNoise, Is.EqualTo(6.10).Within(Tolerance),
+                "Whitespace/punctuation are ignored, so 'A B!G' has only termini → pI 6.10");
+            Assert.That(nonStandard, Is.EqualTo(6.10).Within(Tolerance),
+                "Non-ionizable residues X/Z contribute no charge → termini-only pI 6.10");
+        });
     }
 
     #endregion
