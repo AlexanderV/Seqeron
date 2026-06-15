@@ -3,9 +3,9 @@
 **Test Unit ID:** PHYLO-BOOT-001
 **Area:** Phylogenetic
 **Algorithm:** Phylogenetic Bootstrap Analysis (Felsenstein's Bootstrap Proportions)
-**Status:** ☐ In Progress
+**Status:** ☑ Validated (PHYLO-BOOT-001 session, 2026-06-15)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-06-15
 
 ---
 
@@ -74,6 +74,7 @@
 | M4 | Keys = reference clades | Build reference tree from same data; collect non-trivial clades | result keys set == reference non-trivial clade set | INV-3; Biopython `find_clades(terminal=False)` |
 | M5 | Determinism (same seed) | Run twice with seed 42, identical inputs | both dictionaries equal key-for-key and value-for-value | INV-4; Felsenstein randomized method |
 | M6 | All-identical sequences | A=B=C=`ACGTACGT`, fixed seed | every reported clade has support 1.0 | Evidence Dataset 2; INV-5 |
+| M7 | NeighborJoining branch | Two-group dataset, `treeMethod=NeighborJoining`, JC, 50 reps, seed 42 | support({A,B})=1.0 and support({C,D})=1.0 | Felsenstein (1985): support procedure is tree-method-agnostic; distances invariant under column resampling (exercises the NJ branch of `treeMethod`) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -82,7 +83,9 @@
 | S1 | Null sequences | `Bootstrap(null, ...)` | throws `ArgumentException` (or `ArgumentNullException`) | BuildTree requires non-null ≥2 |
 | S2 | Fewer than 2 sequences | single-sequence dictionary | throws `ArgumentException` | Cannot build a tree from 1 taxon |
 | S3 | Replicates < 1 | replicates = 0 | throws `ArgumentException` | Denominator must be ≥ 1 |
+| S3b | Negative replicates | replicates = −5 | throws `ArgumentException` | Boundary below the ≥1 contract |
 | S4 | Different seeds may differ but stay valid | seed 1 vs seed 7 on a partly-informative alignment | both results satisfy INV-1/INV-2 | Determinism is per-seed |
+| S5 | Unequal-length sequences | A=`ACGT`, B=`ACG` | throws `ArgumentException` | Bootstrap resamples alignment columns; unequal lengths are not an alignment (Felsenstein 1985; surfaces from `BuildTree`) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -125,8 +128,14 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `PhylogeneticAnalyzer_Bootstrap_Tests.cs` | Canonical PHYLO-BOOT-001 fixture | 11 |
+| `PhylogeneticAnalyzer_Bootstrap_Tests.cs` | Canonical PHYLO-BOOT-001 fixture | 13 |
 | `PhylogeneticAnalyzer_TreeComparison_Tests.cs` | PHYLO-COMPARE — bootstrap region removed | (unchanged otherwise) |
+
+> **Validation update (2026-06-15, PHYLO-BOOT-001 session):** added M7 (NeighborJoining
+> branch — `treeMethod` had no coverage), S3b (negative replicates), and S5 (unequal-length
+> sequences — a documented Stage-A edge case that was previously untested). Fixture 11→13 tests.
+> Note: the §5.4 "11" above was the count claimed at authoring; the file actually held 10 before
+> this session (M1–M6, M4/M5, S1–S4 → 10), now 13.
 
 ### 5.5 Phase 7 Work Queue
 

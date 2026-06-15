@@ -137,6 +137,32 @@ public class PhylogeneticAnalyzer_Bootstrap_Tests
             "Identical sequences give identical reference and replicate topologies (INV-5).");
     }
 
+    [Test]
+    [Description("M7: bootstrap is tree-method-agnostic — NeighborJoining recovers the two invariant groups with support 1.0 (Felsenstein 1985: the resampling/support procedure does not depend on the tree builder; distances are invariant under column resampling here).")]
+    public void Bootstrap_NeighborJoining_TwoSeparatedGroups_SupportIsExactlyOne()
+    {
+        // Arrange — same two-group dataset, but exercise the NeighborJoining branch of treeMethod.
+        // d(A,B)=d(C,D)=0 and the cross distances stay saturated under any column multiset, so every
+        // NJ replicate recovers the {A,B},{C,D} split (Felsenstein 1985: 100% occurrence -> P=1).
+        var sequences = TwoGroupAlignment();
+
+        // Act
+        var support = PhylogeneticAnalyzer.Bootstrap(
+            sequences, replicates: 50, distanceMethod: PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            treeMethod: PhylogeneticAnalyzer.TreeMethod.NeighborJoining, seed: Seed);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(support.ContainsKey("A|B"), Is.True, "NeighborJoining must score reference clade {A,B}.");
+            Assert.That(support.ContainsKey("C|D"), Is.True, "NeighborJoining must score reference clade {C,D}.");
+            Assert.That(support["A|B"], Is.EqualTo(1.0).Within(1e-10),
+                "{A,B} is recovered in every NJ replicate (distances invariant under column resampling).");
+            Assert.That(support["C|D"], Is.EqualTo(1.0).Within(1e-10),
+                "{C,D} is recovered in every NJ replicate (distances invariant under column resampling).");
+        });
+    }
+
     #endregion
 
     #region Bootstrap — structure and determinism (M4, M5, S4)
@@ -248,6 +274,25 @@ public class PhylogeneticAnalyzer_Bootstrap_Tests
         var sequences = TwoGroupAlignment();
         Assert.Throws<ArgumentException>(() => PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 0),
             "At least 1 replicate is required.");
+    }
+
+    [Test]
+    [Description("S3b: negative replicates throw ArgumentException (boundary below the >=1 contract).")]
+    public void Bootstrap_NegativeReplicates_Throws()
+    {
+        var sequences = TwoGroupAlignment();
+        Assert.Throws<ArgumentException>(() => PhylogeneticAnalyzer.Bootstrap(sequences, replicates: -5),
+            "A negative replicate count is invalid (denominator must be >=1).");
+    }
+
+    [Test]
+    [Description("S5: unequal-length sequences throw ArgumentException (bootstrap resamples columns of an alignment; Felsenstein 1985 requires aligned characters). Contract: surfaces from BuildTree.")]
+    public void Bootstrap_UnequalLengthSequences_Throws()
+    {
+        // Bootstrap resamples alignment columns; sequences of different lengths are not an alignment.
+        var sequences = new Dictionary<string, string> { ["A"] = "ACGT", ["B"] = "ACG" };
+        Assert.Throws<ArgumentException>(() => PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 10),
+            "Sequences must be aligned (equal length) to resample columns.");
     }
 
     #endregion
