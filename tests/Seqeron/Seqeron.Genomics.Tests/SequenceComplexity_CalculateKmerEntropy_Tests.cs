@@ -159,6 +159,26 @@ public class SequenceComplexity_CalculateKmerEntropy_Tests
         });
     }
 
+    // S4 — string overload has its OWN k<1 guard (distinct code path from the DnaSequence
+    // overload tested in M7); k=0 must throw ArgumentOutOfRangeException.
+    [Test]
+    public void CalculateKmerEntropy_StringOverload_InvalidK_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => SequenceComplexity.CalculateKmerEntropy("ACGT", k: 0),
+            "string overload must reject k<1 with ArgumentOutOfRangeException.");
+    }
+
+    // S5 — string overload, non-empty sequence shorter than k ⇒ 0 (L<k core branch via string path).
+    // "AC", k=5: L=2 < k=5 ⇒ no k-mers ⇒ 0 (independently confirmed: empty multiset entropy = 0).
+    [Test]
+    public void CalculateKmerEntropy_StringOverload_SequenceShorterThanK_ReturnsZero()
+    {
+        Assert.That(SequenceComplexity.CalculateKmerEntropy("AC", k: 5),
+            Is.EqualTo(0.0).Within(1e-10),
+            "string overload, L=2 < k=5: no k-mers exist ⇒ entropy 0.");
+    }
+
     #endregion
 
     #region Invariant (C1)
