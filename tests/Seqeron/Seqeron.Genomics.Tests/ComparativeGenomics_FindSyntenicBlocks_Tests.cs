@@ -249,6 +249,59 @@ public class ComparativeGenomics_FindSyntenicBlocks_Tests
             "null genome1 must throw ArgumentNullException");
     }
 
+    // S2b — Null genome2 -> ArgumentNullException (contract: all required args validated).
+    [Test]
+    public void FindSyntenicBlocks_NullGenome2_Throws()
+    {
+        var genome1 = Genome1(3);
+        var map = new Dictionary<string, string>();
+
+        Assert.Throws<ArgumentNullException>(
+            () => ComparativeGenomics.FindSyntenicBlocks(genome1, null!, map).ToList(),
+            "null genome2 must throw ArgumentNullException");
+    }
+
+    // S2c — Null orthologMap -> ArgumentNullException (contract: all required args validated).
+    [Test]
+    public void FindSyntenicBlocks_NullOrthologMap_Throws()
+    {
+        var genome1 = Genome1(3);
+        var genome2 = Genome2(new[] { 0, 1, 2 });
+
+        Assert.Throws<ArgumentNullException>(
+            () => ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, null!).ToList(),
+            "null orthologMap must throw ArgumentNullException");
+    }
+
+    // S4 — A chain that switches genome-2 direction mid-run is broken at the switch.
+    // Source: collinearity requires a single consistent transcriptional direction within a
+    //         block (MCScanX sorts in both directions; one block keeps one direction) (PMC3326336).
+    // INV-3: consecutive anchors keep one direction. Here g0..g4 ascend (h0..h4 -> 5-pair forward
+    //        block, score 250), then g5 maps to h3 (a decrease) which cannot extend the ascending
+    //        chain. The forward run is flushed as one block; the trailing 1-anchor run is dropped.
+    [Test]
+    public void FindSyntenicBlocks_DirectionSwitchMidRun_BreaksChainAtSwitch()
+    {
+        var genome1 = Genome1(6);
+        var positions = new[] { 0, 1, 2, 3, 4, 3 }; // ascending 0..4 then a decrease to 3
+        var genome2 = Enumerable.Range(0, 10)
+            .Select(i => new ComparativeGenomics.Gene($"h{i}", "genome2", i * 100, i * 100 + 50, '+'))
+            .ToList();
+        var map = new Dictionary<string, string>();
+        for (int i = 0; i < positions.Length; i++) map[$"g{i}"] = $"h{positions[i]}";
+
+        var blocks = ComparativeGenomics.FindSyntenicBlocks(genome1, genome2, map).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocks, Has.Count.EqualTo(1),
+                "direction switch flushes the ascending 5-pair run; the trailing single anchor is below threshold");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(5),
+                "only the 5 consistently-ascending anchors form the block");
+            Assert.That(blocks[0].IsInverted, Is.False, "the reported run ascends => forward");
+        });
+    }
+
     // S3 — An ortholog whose target gene is absent in genome2 is skipped, not a crash.
     [Test]
     public void FindSyntenicBlocks_OrthologTargetAbsent_SkipsAnchor()

@@ -87,7 +87,10 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | Gap-penalised long chain | 6 anchors with one 1-gene gap (NumberofGaps=1) | 1 block, GeneCount=6 (score 6×50−1=299≥250) | GapPenalty=−1 reduces but keeps chain |
 | S2 | Null genome1 argument | genome1 = null | ArgumentNullException | Input validation |
+| S2b | Null genome2 argument | genome2 = null | ArgumentNullException | Input validation (added 2026-06-15) |
+| S2c | Null orthologMap argument | orthologMap = null | ArgumentNullException | Input validation (added 2026-06-15) |
 | S3 | Ortholog points to absent gene | orthologMap target id not in genome2 | anchor skipped; no crash | Robustness |
+| S4 | Direction switch mid-run | 5 ascending anchors then a decrease | 1 forward block of 5; switch flushes chain | INV-3 consistent direction (added 2026-06-15) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -132,7 +135,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `ComparativeGenomics_FindSyntenicBlocks_Tests.cs` | Canonical for COMPGEN-SYNTENY-001 | 13 |
+| `ComparativeGenomics_FindSyntenicBlocks_Tests.cs` | Canonical for COMPGEN-SYNTENY-001 | 17 |
 | `ComparativeGenomicsTests.cs` | Other ComparativeGenomics methods (synteny region removed) | unchanged |
 
 ### 5.5 Phase 7 Work Queue
