@@ -204,3 +204,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 79 | RNA-PARTITION-001 | RnaStructure | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 80 | SEQ-COMPLEX-KMER-001 | Complexity | ✅ | ✅ | ✅ CLEAN | - |
 | 81 | SEQ-COMPLEX-WINDOW-001 | Complexity | 🟡 | ✅ | ✅ CLEAN | - |
+| 82 | SEQ-COMPLEX-DUST-001 | Complexity | ✅ | ✅ | ✅ CLEAN | - |
