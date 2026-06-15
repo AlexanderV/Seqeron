@@ -62,6 +62,33 @@ public class GenomeAnnotator_GetCodonUsage_Tests
             "Methionine has one codon (n_i=1), so RSCU = 1*2/2 = 1.0.");
     }
 
+    // M3b — Single-codon amino acid Trp (TGG), the other n_i=1 family (INV-02). NCBI table 1: Trp = TGG only.
+    [Test]
+    public void GetCodonUsage_TryptophanSingleCodon_ReturnsOnePointZero()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(new[] { "TGGTGGTGG" });
+
+        Assert.That(rscu["TGG"], Is.EqualTo(1.0).Within(1e-10),
+            "Tryptophan has one codon (n_i=1), so RSCU = 1*3/3 = 1.0 regardless of count.");
+    }
+
+    // INV-04 / table-1 cardinality: the output enumerates exactly the 61 sense codons of the
+    // Standard code (64 codons − 3 stops), and no stop codon ever appears. (NCBI translation table 1.)
+    [Test]
+    public void GetCodonUsage_OutputContainsExactlyThe61SenseCodons_NoStops()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(new[] { "ATGTGG" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rscu.Count, Is.EqualTo(61),
+                "Standard code has 64 codons − 3 stops = 61 sense codons (NCBI table 1).");
+            Assert.That(rscu.ContainsKey("TAA"), Is.False, "TAA stop excluded.");
+            Assert.That(rscu.ContainsKey("TAG"), Is.False, "TAG stop excluded.");
+            Assert.That(rscu.ContainsKey("TGA"), Is.False, "TGA stop excluded.");
+        });
+    }
+
     // M4 — Pooling across sequences: ["CTTCTT","CTGTTA"] pools to the M1 Leu counts (CodonU pools the reference set).
     [Test]
     public void GetCodonUsage_PoolsCountsAcrossSequences_MatchesAggregate()
@@ -138,13 +165,17 @@ public class GenomeAnnotator_GetCodonUsage_Tests
     [Test]
     public void GetCodonUsage_EmptyInput_ReturnsAllZeroRscu()
     {
-        var rscu = GenomeAnnotator.GetCodonUsage(new[] { "" });
+        var fromEmptyString = GenomeAnnotator.GetCodonUsage(new[] { "" });
+        var fromEmptyList = GenomeAnnotator.GetCodonUsage(Array.Empty<string>());
 
         Assert.Multiple(() =>
         {
-            Assert.That(rscu.Count, Is.GreaterThan(0), "Output enumerates all sense codons of the code.");
-            Assert.That(rscu.Values.All(v => v == 0.0), Is.True,
+            Assert.That(fromEmptyString.Count, Is.EqualTo(61), "Output enumerates all 61 sense codons of the code.");
+            Assert.That(fromEmptyString.Values.All(v => v == 0.0), Is.True,
                 "With nothing observed, every synonymous family totals 0 ⇒ RSCU 0.0 for all codons.");
+            Assert.That(fromEmptyList.Count, Is.EqualTo(61), "Empty enumerable also yields the 61-codon zero map.");
+            Assert.That(fromEmptyList.Values.All(v => v == 0.0), Is.True,
+                "Empty enumerable: nothing observed ⇒ RSCU 0.0 for all codons.");
         });
     }
 

@@ -181,3 +181,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 56 | PHYLO-STATS-001 | Phylogenetics | ✅ | ✅ | ✅ CLEAN | - |
 | 57 | ANNOT-CODING-001 | Annotation | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 58 | ANNOT-REPEAT-001 | Annotation | ✅ | ❌→✅ | ✅ CLEAN | - |
+| 59 | ANNOT-CODONUSAGE-001 | Annotation | ✅ | 🟡 | ✅ CLEAN | - |
