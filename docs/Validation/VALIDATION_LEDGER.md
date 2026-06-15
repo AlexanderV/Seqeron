@@ -203,3 +203,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 78 | RNA-INVERT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | - |
 | 79 | RNA-PARTITION-001 | RnaStructure | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 80 | SEQ-COMPLEX-KMER-001 | Complexity | ✅ | ✅ | ✅ CLEAN | - |
+| 81 | SEQ-COMPLEX-WINDOW-001 | Complexity | 🟡 | ✅ | ✅ CLEAN | - |
