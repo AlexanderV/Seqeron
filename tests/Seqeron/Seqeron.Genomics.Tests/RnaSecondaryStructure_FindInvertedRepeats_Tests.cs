@@ -136,6 +136,21 @@ public class RnaSecondaryStructure_FindInvertedRepeats_Tests
         Assert.That(result, Is.Empty, "length 4 < 2*minLength+minSpacing (11); cannot hold two arms and a loop");
     }
 
+    // S6 — Out-of-range parameters yield an empty result with no throw, per the documented contract
+    // (doc/TestSpec §3.1: minLength < 1, minSpacing < 0, maxSpacing < minSpacing -> empty). The input
+    // UUACGAAAAAACGUAA contains a real IR under default params, so an empty result isolates the guard.
+    [Test]
+    public void FindInvertedRepeats_OutOfRangeParameters_ReturnEmpty()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Find("UUACGAAAAAACGUAA", minLength: 0), Is.Empty, "minLength < 1 -> empty (§3.1)");
+            Assert.That(Find("UUACGAAAAAACGUAA", minSpacing: -1), Is.Empty, "minSpacing < 0 -> empty (§3.1)");
+            Assert.That(Find("UUACGAAAAAACGUAA", minSpacing: 5, maxSpacing: 4), Is.Empty,
+                "maxSpacing < minSpacing -> empty (§3.1)");
+        });
+    }
+
     // C1 — Maximal-arm extension: a perfect 5-nt arm is reported at full length, not truncated to minLength 4.
     // GGGGC + AAA + GCCCC: right arm GCCCC = revcomp(GGGGC). Evidence: einverted maximal local alignment.
     [Test]
