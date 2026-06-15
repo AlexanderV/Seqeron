@@ -46,7 +46,7 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 | Aspect | Running-sum (this) | Naive per-base cutoff |
 |--------|--------------------|------------------------|
-| Boundary rule | argmin of partial sums | first base ≥ cutoff from each end |
+| Boundary rule | argmin of partial sums up to the `s < 0` early break | first base ≥ cutoff from each end |
 | Isolated good base in bad tail | may be retained [1] | always cut at first good base |
 | Origin | BWA / cutadapt [1][2] | ad-hoc |
 
@@ -75,15 +75,17 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 ### 4.1 High-Level Steps
 
 1. If `minQuality < 1`, skip trimming for the read (keep full sequence) [2].
-2. 3' end: over `quality[start..end)`, scan from the end accumulating `(Phred − cutoff)`; set `end` to the index of the minimal partial sum [1].
-3. 5' end: over the surviving `quality[start..end)`, scan from the start accumulating `(Phred − cutoff)`; set `start` to one past the index of the minimal partial sum [1].
-4. If `end − start ≥ minLength`, emit `sequence[start..end)`; otherwise drop the read.
+2. 3' end: over the full read `quality[0..n)`, scan from the end accumulating `(Phred − cutoff)`; stop as soon as the running sum becomes positive (the cutadapt/BWA `s < 0` early break, sign-flipped); set `end` to the index of the minimal partial sum reached before the break [1][2].
+3. 5' end: independently over the full read `quality[0..n)`, scan from the start accumulating `(Phred − cutoff)` with the same early break; set `start` to one past the index of the minimal partial sum [1][2].
+4. If `start ≥ end`, the good-quality segment is empty (cutadapt `start >= stop ⇒ (0,0)`): drop the read.
+5. Otherwise, if `end − start ≥ minLength`, emit `sequence[start..end)`; else drop the read.
 
 ### 4.2 Decision Rules, Scoring, Reference Tables, or Data Structures
 
 - Phred decoding offset = 33 (named constant `PhredAsciiOffset`) [3].
 - Min-length filter drops survivors below `minLength` (cutadapt `--minimum-length` semantics).
-- BWA additionally floors trimmed length at `BWA_MIN_RDLEN = 35` and early-breaks when the accumulator goes negative [2]; this implementation follows the cutadapt formulation (true global minimum, no fixed floor; the configurable `minLength` filter plays the corresponding role).
+- This implementation reproduces cutadapt's `quality_trim_index` exactly, including the `s < 0` early break (the accumulator stops once the high-quality suffix/prefix outweighs the low-quality run) and the `start >= stop ⇒ empty` rule [1][2]. The early break is essential: it is what "allows some good-quality bases among the bad ones" — a high-quality base near an end protects the bases on its interior side from being trimmed by that end's pass. A naive global-minimum scan *without* the break over-trims (it would cut at the deepest minimum anywhere in the read).
+- BWA additionally floors trimmed length at `BWA_MIN_RDLEN = 35` [2]; this implementation omits that fixed floor (the configurable `minLength` filter plays the corresponding role), so reads can be trimmed below 35 bases unless `minLength` forbids it.
 
 ### 4.3 Complexity
 
@@ -102,19 +104,20 @@ for (l = p->len - 1; l >= BWA_MIN_RDLEN; --l) {
 
 ### 5.2 Current Behavior
 
-Trimming runs the 3' pass then the 5' pass on the surviving window; the two operate on disjoint ends so order does not change which bases survive. A cutoff `< 1` returns the read unchanged. Reads with length `< minLength` after trimming (or `0`) are omitted. This is a single short scan per read, not a substring-search problem, so the repository suffix tree is not applicable.
+Trimming runs the 3' pass and the 5' pass independently over the full read (cutadapt `quality_trim_index`), each with the `s < 0` early break; if the resulting windows cross (`start >= stop`) the read is dropped. A cutoff `< 1` returns the read unchanged. Reads with length `< minLength` after trimming (or `0`) are omitted. This is a single short scan per read, not a substring-search problem, so the repository suffix tree is not applicable.
 
 ### 5.3 Conformance to Theory / Spec
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Running-sum cut at the index of the minimal partial sum of `(q − cutoff)`, applied to both ends [1].
+- Running-sum cut at the index of the minimal partial sum of `(q − cutoff)`, applied independently to both ends, **including the `s < 0` early break** [1][2].
+- The `start >= stop ⇒ empty good-quality segment` rule [1].
 - Phred+33 decoding (`ASCII − 33`) [2][3].
 - Cutoff `< 1` disables trimming [2].
 
 **Intentionally simplified:**
 
-- BWA's fixed `BWA_MIN_RDLEN = 35` floor and the `s < 0` early break are replaced by the cutadapt global-minimum formulation plus a configurable `minLength` filter; **consequence:** trimmed boundaries match cutadapt exactly and reads can be trimmed below 35 bases unless `minLength` forbids it [1][2].
+- BWA's fixed `BWA_MIN_RDLEN = 35` floor is omitted; the configurable `minLength` filter plays the corresponding role; **consequence:** trimmed boundaries match cutadapt exactly and reads can be trimmed below 35 bases unless `minLength` forbids it [1][2].
 
 **Not implemented:**
 
@@ -124,7 +127,7 @@ Trimming runs the 3' pass then the 5' pass on the surviving window; the two oper
 
 | # | Item | Type | Impact | Status | Notes |
 |---|------|------|--------|--------|-------|
-| 1 | Both-end pass order (3' then 5') | Assumption | None — disjoint ends | accepted | Cutadapt "repeat for the other end" [1] |
+| 1 | Both-end passes run independently over the full read | Resolved | Matches cutadapt `quality_trim_index` exactly | accepted | Cutadapt runs the 5' and 3' passes independently, then drops the read if `start >= stop` [1] |
 | 2 | `minLength` post-trim filter | Assumption | Drops short survivors | accepted | cutadapt min-length semantics |
 
 ## 6. Edge Cases and Limitations

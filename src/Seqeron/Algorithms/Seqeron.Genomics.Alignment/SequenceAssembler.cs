@@ -958,17 +958,28 @@ public static class SequenceAssembler
 
         foreach (var (sequence, quality) in reads)
         {
+            int n = sequence.Length;
             int start = 0;
-            int end = sequence.Length;
+            int end = n;
 
             // BWA: a cutoff below 1 disables trimming (bwa_trim_read returns 0).
             if (minQuality >= 1)
             {
-                // 3' end: cut at the index minimizing the partial sum of (q - cutoff)
-                // from that index to the end (cutadapt) — keep [start, end).
-                end = TrimEnd(quality, start, end, minQuality);
-                // 5' end: mirror the procedure on the surviving window.
-                start = TrimStart(quality, start, end, minQuality);
+                // cutadapt quality_trim_index: the 3' and 5' passes are run independently
+                // over the FULL read (not on each other's surviving window), then the read
+                // is dropped entirely if the two windows cross (start >= stop).
+                // 3' end: cut at the index minimizing the partial sum of (q - cutoff) from
+                // that index to the 3' end — keep [start, end).
+                end = TrimEnd(quality, n, minQuality);
+                // 5' end: mirror the procedure from the 5' end over the full read.
+                start = TrimStart(quality, n, minQuality);
+
+                // cutadapt: if start >= stop the good-quality segment is empty.
+                if (start >= end)
+                {
+                    start = 0;
+                    end = 0;
+                }
             }
 
             if (end - start >= minLength)
@@ -981,18 +992,26 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Running-sum 3'-end cut over <c>quality[start..end)</c>: returns the new exclusive
-    /// upper bound (index of the minimal partial sum of (Phred − cutoff) from the end).
+    /// Running-sum 3'-end cut over <c>quality[0..length)</c>: returns the new exclusive upper
+    /// bound (the index of the minimal partial sum of (Phred − cutoff) accumulated from the 3'
+    /// end). Scanning stops once the partial sum becomes positive — the cutadapt/BWA
+    /// <c>s &lt; 0</c> early break (sign-flipped here), which is what lets a few good-quality
+    /// bases survive inside a low-quality tail.
     /// </summary>
-    private static int TrimEnd(string quality, int start, int end, int cutoff)
+    private static int TrimEnd(string quality, int length, int cutoff)
     {
         int sum = 0;
         int min = 0;
-        int cut = end; // default: keep everything (minimum at the end position)
+        int cut = length; // default: keep everything (minimum at the end position)
 
-        for (int i = end - 1; i >= start; i--)
+        for (int i = length - 1; i >= 0; i--)
         {
             sum += (quality[i] - PhredAsciiOffset) - cutoff;
+            if (sum > 0)
+            {
+                break; // cutadapt bwa_trim_read: stop when the accumulated (cutoff - q) < 0.
+            }
+
             if (sum < min)
             {
                 min = sum;
@@ -1004,18 +1023,25 @@ public static class SequenceAssembler
     }
 
     /// <summary>
-    /// Running-sum 5'-end cut over <c>quality[start..end)</c>: returns the new inclusive
-    /// lower bound (index after the minimal partial sum of (Phred − cutoff) from the start).
+    /// Running-sum 5'-end cut over <c>quality[0..length)</c>: returns the new inclusive lower
+    /// bound (one past the index of the minimal partial sum of (Phred − cutoff) accumulated from
+    /// the 5' end). Scanning stops once the partial sum becomes positive — the cutadapt/BWA
+    /// <c>s &lt; 0</c> early break (sign-flipped here).
     /// </summary>
-    private static int TrimStart(string quality, int start, int end, int cutoff)
+    private static int TrimStart(string quality, int length, int cutoff)
     {
         int sum = 0;
         int min = 0;
-        int cut = start; // default: keep everything (minimum at the start position)
+        int cut = 0; // default: keep everything (minimum at the start position)
 
-        for (int i = start; i < end; i++)
+        for (int i = 0; i < length; i++)
         {
             sum += (quality[i] - PhredAsciiOffset) - cutoff;
+            if (sum > 0)
+            {
+                break; // cutadapt bwa_trim_read: stop when the accumulated (cutoff - q) < 0.
+            }
+
             if (sum < min)
             {
                 min = sum;

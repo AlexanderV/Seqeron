@@ -171,6 +171,72 @@ public class SequenceAssembler_QualityTrimReads_Tests
         });
     }
 
+    // C4 — Refinement / s<0 early break: a high-quality base at the 3' end protects the
+    //      bases to its 5' side from the 3' pass. Qualities 20,0,8,40 ("5!)I"), cutoff 10.
+    //      cutadapt/BWA bwa_trim_read: the 3' pass accumulates (cutoff - q); at index 3 the
+    //      sum is 10-40 = -30 < 0 so it breaks immediately (stop stays 4); the 5' pass breaks
+    //      at index 0 (10-20 = -10 < 0, start stays 0). Result (0,4): NOTHING is trimmed.
+    //      A global-minimum scan WITHOUT the early break would over-trim to the last base.
+    //      Source: cutadapt quality_trim_index (qualtrim.pyx); BWA bwa_trim_read `if (s<0) break`.
+    [Test]
+    public void QualityTrimReads_GoodBaseAt3PrimeEnd_KeepsLowQualityInterior()
+    {
+        // Arrange: Phred 20,0,8,40 = ASCII "5!)I".
+        var reads = new List<(string, string)> { ("ACGT", "5!)I") };
+
+        // Act
+        IReadOnlyList<string> result =
+            SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1);
+
+        // Assert
+        Assert.That(result, Has.Count.EqualTo(1), "read survives");
+        Assert.That(result[0], Is.EqualTo("ACGT"),
+            "high-quality 3' base triggers the s<0 break; no bases are trimmed (cutadapt/BWA)");
+    }
+
+    // C5 — "A few good-quality bases among the bad ones": qualities 2,2,40,2,2 ("##I##"),
+    //      cutoff 10. 3' pass: i4 -> cutoff-q=8 (s=8,stop=4), i3 -> +8 (s=16,stop=3),
+    //      i2 -> 10-40=-30 (s=-14<0) break => stop=3. 5' pass: i0 -> 8 (s=8,start=1),
+    //      i1 -> 8 (s=16,start=2), i2 -> -30 (s=-14<0) break => start=2. Result (2,3):
+    //      only the single isolated high-quality base is kept.
+    //      Source: cutadapt algorithm docs ("allowing some good-quality bases among the bad ones").
+    [Test]
+    public void QualityTrimReads_IsolatedGoodBaseInBadRead_KeepsOnlyGoodBase()
+    {
+        // Arrange: Phred 2,2,40,2,2 = ASCII "##I##".
+        var reads = new List<(string, string)> { ("ACGTA", "##I##") };
+
+        // Act
+        IReadOnlyList<string> result =
+            SequenceAssembler.QualityTrimReads(reads, minQuality: 10, minLength: 1);
+
+        // Assert
+        Assert.That(result, Has.Count.EqualTo(1), "the isolated good base survives");
+        Assert.That(result[0], Is.EqualTo("G"),
+            "both passes break at the high-quality base, keeping only index 2");
+    }
+
+    // C6 — start >= stop => empty good-quality segment (read dropped). cutadapt
+    //      quality_trim_index final guard `if start >= stop: start, stop = 0, 0`.
+    //      Qualities 20,5,5 ("5&&"), cutoff 20. 5' pass: i0 -> 20-20=0 (s=0, start stays 0),
+    //      i1 -> 20-5=15 (s=15,start=2), i2 -> 15 (s=30,start=3) => start=3. 3' pass:
+    //      i2 -> 15 (s=15,stop=2), i1 -> 15 (s=30,stop=1), i0 -> 0 (s=30) => stop=1.
+    //      start(3) >= stop(1) -> (0,0) -> dropped.
+    [Test]
+    public void QualityTrimReads_WindowsCross_DropsRead()
+    {
+        // Arrange: Phred 20,5,5 = ASCII "5&&".
+        var reads = new List<(string, string)> { ("ACG", "5&&") };
+
+        // Act
+        IReadOnlyList<string> result =
+            SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 1);
+
+        // Assert
+        Assert.That(result, Is.Empty,
+            "start >= stop after both passes -> empty good-quality segment -> read dropped");
+    }
+
     // C1 — Empty reads list -> empty result.
     [Test]
     public void QualityTrimReads_EmptyList_ReturnsEmpty()
