@@ -165,9 +165,13 @@ public class TranscriptomeAnalyzer_AlternativeSplicing_Tests
         });
     }
 
-    // M8 — Alternative 3' splice site: shared start 200, different end (300 vs 350). Source: Wang et al. (2008).
+    // M8 — Alternative 5' splice site (A5SS): the two alternative exons share their 5' start (200) but
+    // differ at the 3' end (300 vs 350). The 3' end of an exon is its donor / 5' splice site, so an
+    // alternative donor is an A5SS event. Source: rMATS A5SS/A3SS coordinate convention (Xinglab/rmats-turbo):
+    // for A5SS the long/short exon forms differ at their downstream (END) boundary while sharing the upstream
+    // (START) boundary; 5' splice site = donor = 3' end of the upstream exon (Wang 2008; splice-site biology).
     [Test]
-    public void DetectAlternativeSplicing_SharedStartDifferentEnd_ClassifiesAlternativeThreePrimeSS()
+    public void DetectAlternativeSplicing_SharedStartDifferentEnd_ClassifiesAlternativeFivePrimeSS()
     {
         var isoforms = new[]
         {
@@ -180,16 +184,20 @@ public class TranscriptomeAnalyzer_AlternativeSplicing_Tests
         Assert.Multiple(() =>
         {
             Assert.That(events, Has.Count.EqualTo(1), "One difference → one event.");
-            Assert.That(events[0].EventType, Is.EqualTo(nameof(TranscriptomeAnalyzer.SplicingEventType.AlternativeThreePrimeSS)),
-                "Unique exons sharing the 5' boundary but differing 3' end → A3SS (Wang 2008).");
+            Assert.That(events[0].EventType, Is.EqualTo(nameof(TranscriptomeAnalyzer.SplicingEventType.AlternativeFivePrimeSS)),
+                "Unique exons sharing the START (5') boundary but differing END (3', donor) → A5SS (rMATS convention).");
+            Assert.That(events[0].Start, Is.EqualTo(200), "Event spans the leftmost affected coordinate (shared start 200).");
+            Assert.That(events[0].End, Is.EqualTo(350), "Event spans the rightmost affected coordinate (longer end 350).");
         });
     }
 
-    // M9 — Alternative 5' splice site: shared end 300, different start (1 vs ... ) on the donor exon.
-    // A=(1,100); B=(1,150) share start 1 differ end → A3SS; use shared END to force A5SS:
-    // A=(200,300) and B=(150,300) share end 300, differ start. Source: Wang et al. (2008).
+    // M9 — Alternative 3' splice site (A3SS): the two alternative exons share their 3' end (300) but
+    // differ at the 5' start (200 vs 150). The 5' start of an exon is its acceptor / 3' splice site, so an
+    // alternative acceptor is an A3SS event. Source: rMATS A5SS/A3SS coordinate convention (Xinglab/rmats-turbo):
+    // for A3SS the long/short exon forms differ at their upstream (START) boundary while sharing the downstream
+    // (END) boundary; 3' splice site = acceptor = 5' start of the downstream exon (Wang 2008; splice-site biology).
     [Test]
-    public void DetectAlternativeSplicing_SharedEndDifferentStart_ClassifiesAlternativeFivePrimeSS()
+    public void DetectAlternativeSplicing_SharedEndDifferentStart_ClassifiesAlternativeThreePrimeSS()
     {
         var isoforms = new[]
         {
@@ -202,8 +210,10 @@ public class TranscriptomeAnalyzer_AlternativeSplicing_Tests
         Assert.Multiple(() =>
         {
             Assert.That(events, Has.Count.EqualTo(1), "One difference → one event.");
-            Assert.That(events[0].EventType, Is.EqualTo(nameof(TranscriptomeAnalyzer.SplicingEventType.AlternativeFivePrimeSS)),
-                "Unique exons sharing the 3' boundary but differing 5' start → A5SS (Wang 2008).");
+            Assert.That(events[0].EventType, Is.EqualTo(nameof(TranscriptomeAnalyzer.SplicingEventType.AlternativeThreePrimeSS)),
+                "Unique exons sharing the END (3') boundary but differing START (5', acceptor) → A3SS (rMATS convention).");
+            Assert.That(events[0].Start, Is.EqualTo(150), "Event spans the leftmost affected coordinate (earlier start 150).");
+            Assert.That(events[0].End, Is.EqualTo(300), "Event spans the rightmost affected coordinate (shared end 300).");
         });
     }
 

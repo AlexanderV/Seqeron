@@ -873,15 +873,19 @@ public static class TranscriptomeAnalyzer
         }
 
         // Alternative splice site: a unique exon in one isoform shares exactly one boundary with a unique
-        // exon in the other (same start, different end ⇒ A3SS; same end, different start ⇒ A5SS). Source: Wang 2008.
+        // exon in the other. On the forward strand the 5′ splice site (donor) is an exon's END boundary and
+        // the 3′ splice site (acceptor) is an exon's START boundary, so:
+        //   same Start, different End  ⇒ alternative donor      ⇒ A5SS (AlternativeFivePrimeSS)
+        //   same End,   different Start ⇒ alternative acceptor   ⇒ A3SS (AlternativeThreePrimeSS)
+        // Source: Wang 2008; rMATS A5SS/A3SS coordinate convention (Xinglab/rmats-turbo).
         if (onlyA.Count == 1 && onlyB.Count == 1)
         {
             var ea = onlyA[0];
             var eb = onlyB[0];
             if (ea.Start == eb.Start && ea.End != eb.End)
-                return MakeEvent(geneId, SplicingEventType.AlternativeThreePrimeSS, ea, eb);
-            if (ea.End == eb.End && ea.Start != eb.Start)
                 return MakeEvent(geneId, SplicingEventType.AlternativeFivePrimeSS, ea, eb);
+            if (ea.End == eb.End && ea.Start != eb.Start)
+                return MakeEvent(geneId, SplicingEventType.AlternativeThreePrimeSS, ea, eb);
         }
 
         // Otherwise: an exon present in one isoform and absent from the other is a skipped/cassette exon,

@@ -77,8 +77,8 @@
 | M5 | PSI undefined | I=0,S=0 | NaN | Source 2 (INV-2) |
 | M6 | Classify SkippedExon | A=(1,100),(200,300),(400,500); B=(1,100),(400,500) | one event, SkippedExon | Source 1 |
 | M7 | Classify RetainedIntron | A=(1,100),(200,300); B=(1,300) | one event, RetainedIntron | Source 1 |
-| M8 | Classify AlternativeThreePrimeSS | A=(1,100),(200,300); B=(1,100),(200,350) | one event, AlternativeThreePrimeSS | Source 1 |
-| M9 | Classify AlternativeFivePrimeSS | A=(1,100),(200,300); B=(1,150),(200,300) | one event, AlternativeFivePrimeSS | Source 1 |
+| M8 | Classify AlternativeFivePrimeSS | A=(1,100),(200,300); B=(1,100),(200,350) | one event, AlternativeFivePrimeSS (shared START 200, different END 300/350 ⇒ alternative donor ⇒ A5SS) | Source 1; Source 4 (rMATS) |
+| M9 | Classify AlternativeThreePrimeSS | A=(1,100),(200,300); B=(1,100),(150,300) | one event, AlternativeThreePrimeSS (shared END 300, different START 200/150 ⇒ alternative acceptor ⇒ A3SS) | Source 1; Source 4 (rMATS) |
 | M10 | Classify MutuallyExclusiveExons | A=(1,100),(200,300),(500,600); B=(1,100),(350,400),(500,600) | one event, MutuallyExclusiveExons | Source 1 |
 
 ### 4.2 SHOULD Tests (Important edge cases)
@@ -172,8 +172,8 @@
 | M5 | ✅ | NaN |
 | M6 | ✅ | SkippedExon |
 | M7 | ✅ | RetainedIntron |
-| M8 | ✅ | AlternativeThreePrimeSS |
-| M9 | ✅ | AlternativeFivePrimeSS |
+| M8 | ✅ | AlternativeFivePrimeSS (shared start, different end = alternative donor) |
+| M9 | ✅ | AlternativeThreePrimeSS (shared end, different start = alternative acceptor) |
 | M10 | ✅ | MutuallyExclusiveExons |
 | S1 | ✅ | bounds invariant |
 | S2 | ✅ | no event for single isoform |

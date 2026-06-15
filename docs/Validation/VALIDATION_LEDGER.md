@@ -137,3 +137,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 12 | ASSEMBLY-STATS-001 | Assembly | ✅ | ✅ | ✅ CLEAN | - |
 | 13 | TRANS-EXPR-001 | Transcriptome | ✅ | 🟡 | ✅ CLEAN | - |
 | 14 | TRANS-DIFF-001 | Transcriptome | ✅ | 🟡 | ✅ CLEAN | - |
+| 15 | TRANS-SPLICE-001 | Transcriptome | 🟡 | ❌ | ✅ CLEAN | - |

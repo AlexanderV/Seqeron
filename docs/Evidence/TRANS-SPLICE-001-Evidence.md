@@ -65,6 +65,7 @@
 **Key Extracted Points:**
 
 1. **Event-type vocabulary (rMATS):** rMATS detects all major AS patterns; output files name event classes SE (skipped exon), A5SS, A3SS, MXE, RI — matching the Wang 2008 five-class taxonomy.
+1a. **A5SS / A3SS coordinate convention (verified 2026-06-15 vs https://github.com/Xinglab/rmats-turbo README, columns `longExonStart_0base,longExonEnd,shortES,shortEE,flankingES,flankingEE`):** on the **+ strand**, for **A5SS** the long/short exon forms differ at their **downstream (END/3′) boundary** while sharing the upstream (START/5′) boundary (alternative **donor** = 5′ splice site = 3′ end of the upstream exon); for **A3SS** they differ at their **upstream (START/5′) boundary** while sharing the downstream (END/3′) boundary (alternative **acceptor** = 3′ splice site = 5′ start of the downstream exon). Confirmed independently by molecular-biology splice-site definitions (5′ splice site = donor at the exon→intron boundary; 3′ splice site = acceptor at the intron→exon boundary) and by NAR 34(21):6305 (alternative 5′SS = exon extension/truncation at the downstream boundary of the upstream exon).
 2. **SUPPA PSI (verbatim from fetched WebSearch summary):** "PSI is calculated as the number of reads covering the included exon divided by the sum of reads covering the skipped exon and reads covering the included exon" — i.e. Ψ = inclusion/(inclusion+exclusion); inclusion = junctions between the upstream exon and the exon of interest, exclusion = junction between upstream and downstream exons skipping the exon of interest.
 
 ---
@@ -117,8 +118,8 @@
 |-----------------|-----------------|-----------|----------------|
 | (1,100),(200,300),(400,500) | (1,100),(400,500) | middle exon (200,300) present in A, absent in B | SkippedExon |
 | (1,100),(200,300) | (1,100),(101,199),(200,300) | intron (101,199) retained as exon-body in B | RetainedIntron |
-| (1,100),(200,300) | (1,100),(200,350) | shared 5′ start 200, different 3′ end (300 vs 350) | AlternativeThreePrimeSS |
-| (1,100),(200,300) | (1,150),(200,300) | shared start 1, different donor end (100 vs 150) | AlternativeFivePrimeSS |
+| (1,100),(200,300) | (1,100),(200,350) | shared 5′ start 200, different 3′ end (300 vs 350) ⇒ alternative **donor** (5′ splice site = exon END) | AlternativeFivePrimeSS (A5SS) |
+| (1,100),(200,300) | (1,100),(150,300) | shared 3′ end 300, different 5′ start (200 vs 150) ⇒ alternative **acceptor** (3′ splice site = exon START) | AlternativeThreePrimeSS (A3SS) |
 | (1,100),(200,300),(500,600) | (1,100),(350,400),(500,600) | exactly one of two alternative middle exons used | MutuallyExclusiveExons |
 
 ---
