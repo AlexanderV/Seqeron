@@ -137,6 +137,18 @@ substring/pattern search, so the repository suffix tree is **not applicable**.
 
 ### 6.2 Limitations
 
+`MeanQuality` is the **arithmetic mean of the decoded Phred scores** (`(1/N) Σ qᵢ`), matching
+the "average quality" reported by `samtools stats` (Σ base qualities ÷ length) and FastQC's
+per-base mean. Because Phred Q is logarithmic (`Q = -10 log10 e`), this arithmetic mean is a
+crude indicator of a read's *overall accuracy*: a single very-low-Q base contributes far more to
+the true error rate than the mean of Q suggests. A read's expected error rate is more faithfully
+summarised by averaging error probabilities (`P̄ = (1/N) Σ 10^(-qᵢ/10)`, then `Q̄ = -10 log10 P̄`)
+or by the expected-error sum `Σ 10^(-qᵢ/10)`. This unit reports the conventional arithmetic mean
+of Q (the samtools/FastQC metric); the probability-based summaries are provided separately by
+`CalculateExpectedErrors` and `PhredToErrorProbability`, not by `MeanQuality`. See *Averaging
+basecall quality scores the right way* (gigabaseorgigabyte.wordpress.com, 2017) and the USEARCH
+"average Q is a bad idea" note (drive5.com/usearch/manual/avgq.html).
+
 Statistics summarize quality only; they do not assess sequence content, adapter contamination,
 or per-tile artefacts. For an empty input the percentages are defined as 0 by contract rather
 than mathematically (0/0 is undefined).

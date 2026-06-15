@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 13 / 148 processed.
+**Progress:** 22 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -144,3 +144,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 19 | PANGEN-CORE-001 | PanGenome | 🟡 | 🟡 | ✅ CLEAN | - |
 | 20 | PANGEN-CLUSTER-001 | PanGenome | ✅ | ✅ | ✅ CLEAN | - |
 | 21 | QUALITY-PHRED-001 | Quality | ✅ | ✅ | ✅ CLEAN | - |
+| 22 | QUALITY-STATS-001 | Quality | 🟡 | ✅ | ✅ CLEAN | - |
