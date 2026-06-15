@@ -75,8 +75,9 @@
 | M3 | LRS overlapping period-2 | `FindLongestRepeat("ATATATA")` | Sequence `ATATA`, Length 5, Count 2, Positions {0,2} | Source 3 (ABABABA→ABABA analog) |
 | M4 | LRS no repeat | `FindLongestRepeat("ACGT")` | `RepeatInfo.None` / `IsEmpty` true | Source 3 (ABCDEFG→none analog) |
 | M5 | LRS empty input | `FindLongestRepeat("")` | `RepeatInfo.None` / `IsEmpty` true | Definition (no substring twice in ε) |
-| M6 | FindRepeats full enumeration | `FindRepeats("ACGTACGTTTTTACGT", 3)` | Exactly {ACGT@{0,4,12}, CGT@{1,5,13}, TACGT@{3,11}, TTT@{7,8,9}, TTTT@{7,8}} | Definition; each substring occurs ≥2× (verified against suffix tree) |
+| M6 | FindRepeats full enumeration | `FindRepeats("ACGTACGTTTTTACGT", 3)` | Exactly {ACG@{0,4,12}, ACGT@{0,4,12}, CGT@{1,5,13}, TAC@{3,11}, TACG@{3,11}, TACGT@{3,11}, TTT@{7,8,9}, TTTT@{7,8}} (8 substrings) | Definition (every substring occurring ≥2×); brute-force ground truth |
 | M7 | FindRepeats all occur ≥ 2 & meet minLength | Every result of M6 has Count ≥ 2 and Length ≥ 3 | INV-1, INV-5 hold for all | Source 1 §2.1; method contract |
+| M8 | FindRepeats completeness (all LCP prefixes) | `FindRepeats("ACGTACGT", 2)` | Exactly {AC@{0,4}, ACG@{0,4}, ACGT@{0,4}, CG@{1,5}, CGT@{1,5}, GT@{2,6}} (6 substrings) | Definition; brute-force ground truth; regression guard for completeness fix |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 

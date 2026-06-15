@@ -185,3 +185,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 60 | RESTR-FILTER-001 | MolTools | ✅ | 🟡 | ✅ CLEAN | - |
 | 61 | KMER-DIST-001 | K-mer | 🟡 | ✅ | ✅ CLEAN | - |
 | 62 | MOTIF-CONS-001 | Matching | 🟡 | ✅ | ✅ CLEAN | - |
+| 63 | GENOMIC-REPEAT-001 | Analysis | ✅ | ❌→✅ | ✅ CLEAN | - |

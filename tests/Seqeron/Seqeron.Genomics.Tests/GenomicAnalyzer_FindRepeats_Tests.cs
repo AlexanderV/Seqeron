@@ -112,8 +112,13 @@ public class GenomicAnalyzer_FindRepeats_Tests
     private static Dictionary<string, int[]> ToMap(IEnumerable<RepeatInfo> repeats) =>
         repeats.ToDictionary(r => r.Sequence, r => r.Positions.ToArray());
 
-    // M6 — Full enumeration at minLength 3: exact set of repeated substrings with exact positions.
-    // Each listed substring occurs >=2 times in ACGTACGTTTTTACGT (positions 0-based).
+    // M6 — Full enumeration at minLength 3: the EXACT set of every distinct substring occurring
+    // >=2 times with length >=3 in ACGTACGTTTTTACGT (positions 0-based). Ground truth is an
+    // independent brute-force enumeration of all length>=3 substrings (every i..j) keeping those
+    // with >=2 occurrences; cross-checked by hand against the sorted-suffix LCP set. The contract
+    // (Repeat_Detection.md §1 / INV-5) promises *every* such substring, so the shorter repeats
+    // ACG, TAC, TACG — proper prefixes of ACGT/TACGT but with their own occurrence sets — MUST be
+    // present, not only the maximal-length LCP of each adjacent suffix pair.
     [Test]
     public void FindRepeats_MinLengthThree_ReturnsExactSetWithPositions()
     {
@@ -123,10 +128,14 @@ public class GenomicAnalyzer_FindRepeats_Tests
 
         Assert.Multiple(() =>
         {
-            Assert.That(map.Keys, Is.EquivalentTo(new[] { "ACGT", "CGT", "TACGT", "TTT", "TTTT" }),
-                "Exactly these substrings occur >=2 times with length >=3 in " + EnumInput + ".");
+            Assert.That(map.Keys, Is.EquivalentTo(
+                new[] { "ACG", "ACGT", "CGT", "TAC", "TACG", "TACGT", "TTT", "TTTT" }),
+                "Exactly these 8 substrings occur >=2 times with length >=3 in " + EnumInput + ".");
+            Assert.That(map["ACG"], Is.EqualTo(new[] { 0, 4, 12 }), "ACG occurs at 0,4,12.");
             Assert.That(map["ACGT"], Is.EqualTo(new[] { 0, 4, 12 }), "ACGT occurs at 0,4,12.");
             Assert.That(map["CGT"], Is.EqualTo(new[] { 1, 5, 13 }), "CGT occurs at 1,5,13.");
+            Assert.That(map["TAC"], Is.EqualTo(new[] { 3, 11 }), "TAC occurs at 3,11.");
+            Assert.That(map["TACG"], Is.EqualTo(new[] { 3, 11 }), "TACG occurs at 3,11.");
             Assert.That(map["TACGT"], Is.EqualTo(new[] { 3, 11 }), "TACGT occurs at 3,11.");
             Assert.That(map["TTT"], Is.EqualTo(new[] { 7, 8, 9 }), "TTT occurs at 7,8,9 (overlapping).");
             Assert.That(map["TTTT"], Is.EqualTo(new[] { 7, 8 }), "TTTT occurs at 7,8 (overlapping).");
@@ -151,6 +160,30 @@ public class GenomicAnalyzer_FindRepeats_Tests
                 Assert.That(r.Length, Is.GreaterThanOrEqualTo(3),
                     $"INV-5: '{r.Sequence}' must have length >= minLength (3).");
             }
+        });
+    }
+
+    // M8 — Completeness regression guard. For ACGTACGT at minLength 2 the brute-force ground truth
+    // (all length>=2 substrings occurring >=2 times) is exactly {AC, ACG, ACGT, CG, CGT, GT}.
+    // The old implementation, which emitted only the full adjacent-suffix LCP, returned just
+    // {ACGT, CGT, GT} and would FAIL this test — locking the completeness fix in place.
+    [Test]
+    public void FindRepeats_AllPrefixesOfLcp_AreEnumerated()
+    {
+        var dna = new DnaSequence("ACGTACGT");
+
+        var map = ToMap(GenomicAnalyzer.FindRepeats(dna, minLength: 2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(map.Keys, Is.EquivalentTo(new[] { "AC", "ACG", "ACGT", "CG", "CGT", "GT" }),
+                "Exactly these 6 substrings occur >=2 times with length >=2 in ACGTACGT.");
+            Assert.That(map["AC"], Is.EqualTo(new[] { 0, 4 }), "AC occurs at 0,4.");
+            Assert.That(map["ACG"], Is.EqualTo(new[] { 0, 4 }), "ACG occurs at 0,4.");
+            Assert.That(map["ACGT"], Is.EqualTo(new[] { 0, 4 }), "ACGT occurs at 0,4.");
+            Assert.That(map["CG"], Is.EqualTo(new[] { 1, 5 }), "CG occurs at 1,5.");
+            Assert.That(map["CGT"], Is.EqualTo(new[] { 1, 5 }), "CGT occurs at 1,5.");
+            Assert.That(map["GT"], Is.EqualTo(new[] { 2, 6 }), "GT occurs at 2,6.");
         });
     }
 

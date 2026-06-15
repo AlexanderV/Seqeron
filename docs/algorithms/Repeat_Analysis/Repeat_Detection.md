@@ -6,7 +6,7 @@
 | Test Unit ID | GENOMIC-REPEAT-001 |
 | Related Projects | Seqeron.Genomics.Analysis, SuffixTree |
 | Implementation Status | Production |
-| Last Reviewed | 2026-06-13 |
+| Last Reviewed | 2026-06-15 |
 
 ## 1. Overview
 
@@ -79,8 +79,8 @@ Indexing is 0-based. `DnaSequence` normalises to uppercase and rejects non-ACGT 
 
 **FindRepeats**
 1. Obtain all suffixes (`GetAllSuffixes`) and sort them.
-2. For each adjacent pair, compute the LCP length.
-3. If LCP length ≥ `minLength` and the prefix is new, enumerate its occurrences; emit when it occurs ≥ 2 times.
+2. For each adjacent pair, compute the LCP length `L`.
+3. For every prefix length `ℓ` from `max(1, minLength)` to `L`, take the length-`ℓ` prefix; if it is new, enumerate its occurrences and emit when it occurs ≥ 2 times. (A substring occurs ≥ 2 times iff it is a *prefix* of some adjacent-pair LCP, so all prefixes — not just the full LCP — must be considered for completeness.)
 
 ### 4.3 Complexity
 
@@ -101,7 +101,7 @@ Indexing is 0-based. `DnaSequence` normalises to uppercase and rejects non-ACGT 
 
 ### 5.2 Current Behavior
 
-Both methods delegate the core string work to the repository suffix tree. `FindLongestRepeat` uses the suffix tree's cached deepest-internal-node bookkeeping (`LongestRepeatedSubstring`) directly. `FindRepeats` uses `GetAllSuffixes` + adjacent-pair LCP and resolves positions with `FindAllOccurrences`. Positions are returned ascending. Overlapping occurrences are counted (consistent with the definition [3]).
+Both methods delegate the core string work to the repository suffix tree. `FindLongestRepeat` uses the suffix tree's cached deepest-internal-node bookkeeping (`LongestRepeatedSubstring`) directly. `FindRepeats` uses `GetAllSuffixes` + adjacent-pair LCP, enumerating every prefix (length ≥ `max(1, minLength)`) of each LCP for completeness, and resolves positions with `FindAllOccurrences`. Positions are returned ascending. Overlapping occurrences are counted (consistent with the definition [3]).
 
 **Search-reuse decision (mandatory record):** the repository `SuffixTree` (namespace `SuffixTree`) is the algorithmically appropriate structure here — repeat finding is *the* canonical suffix-tree application (deepest internal node) [1][2][3], and many occurrence queries run against one fixed text (O(m) lookups after O(n) build). The existing implementation already builds on it; **no naive scan was introduced**. A naive O(n²)/O(n³) all-pairs substring scan would be strictly worse and was rejected.
 
@@ -158,7 +158,9 @@ RepeatInfo lrs = GenomicAnalyzer.FindLongestRepeat(dna);
 
 foreach (var r in GenomicAnalyzer.FindRepeats(new DnaSequence("ACGTACGTTTTTACGT"), 3))
 {
-    // e.g. "ACGT" at {0,4,12}; "TTT" at {7,8,9}
+    // Full set (8 distinct substrings, each occurring >=2 times, length >=3):
+    //   ACG@{0,4,12}, ACGT@{0,4,12}, CGT@{1,5,13},
+    //   TAC@{3,11}, TACG@{3,11}, TACGT@{3,11}, TTT@{7,8,9}, TTTT@{7,8}
 }
 ```
 

@@ -106,11 +106,11 @@
 
 ### Dataset: FindRepeats enumeration (all repeated substrings ≥ minLength)
 
-**Source:** Definition (CMU §2.1 generalized to all internal nodes ≥ minLength) + repository semantics verified against the suffix tree. Every substring that occurs ≥ 2 times in `ACGTACGTTTTTACGT` and has length ≥ 3.
+**Source:** Definition (CMU §2.1: a repeat is *any* substring occurring ≥ 2 times). Ground truth is an independent brute-force enumeration of **every** distinct substring of `ACGTACGTTTTTACGT` of length ≥ minLength that occurs ≥ 2 times (all `s[i:j]`, keep those with ≥ 2 occurrences), cross-checked against the sorted-suffix-LCP prefix set. *(Updated 2026-06-15: the earlier 5-entry row only listed the maximal-length LCP of each adjacent suffix pair and was a code echo of a defective implementation; it omitted the shorter repeated prefixes `ACG`, `TAC`, `TACG`. See report GENOMIC-REPEAT-001.md / FINDINGS_REGISTER.)*
 
 | minLength | Repeated substrings (occurrences ≥ 2), with positions |
 |-----------|--------------------------------------------------------|
-| 3 | `ACGT` @ {0,4,12}; `CGT` @ {1,5,13}; `TACGT` @ {3,11}; `TTT` @ {7,8,9}; `TTTT` @ {7,8} |
+| 3 | `ACG` @ {0,4,12}; `ACGT` @ {0,4,12}; `CGT` @ {1,5,13}; `TAC` @ {3,11}; `TACG` @ {3,11}; `TACGT` @ {3,11}; `TTT` @ {7,8,9}; `TTTT` @ {7,8} |
 
 ---
 
@@ -128,7 +128,7 @@
 3. **MUST Test:** `FindLongestRepeat("ATATATA")` returns `ATATA` (overlapping, length 5, positions {0,2}). — Evidence: GeeksforGeeks `ABABABA`→`ABABA` analog.
 4. **MUST Test:** `FindLongestRepeat("ACGT")` (no repeat) returns `RepeatInfo.None`/IsEmpty. — Evidence: GeeksforGeeks `ABCDEFG`→no repeat.
 5. **MUST Test:** `FindLongestRepeat("")` (empty) returns `RepeatInfo.None`. — Evidence: definition (no substring occurs twice in the empty string).
-6. **MUST Test:** `FindRepeats("ACGTACGTTTTTACGT", 3)` yields exactly {ACGT@{0,4,12}, CGT@{1,5,13}, TACGT@{3,11}, TTT@{7,8,9}, TTTT@{7,8}}; every result has count ≥ 2 and length ≥ minLength. — Evidence: definition; all listed substrings occur ≥ 2 times.
+6. **MUST Test:** `FindRepeats("ACGTACGTTTTTACGT", 3)` yields exactly {ACG@{0,4,12}, ACGT@{0,4,12}, CGT@{1,5,13}, TAC@{3,11}, TACG@{3,11}, TACGT@{3,11}, TTT@{7,8,9}, TTTT@{7,8}} (8 substrings); every result has count ≥ 2 and length ≥ minLength. — Evidence: definition (every substring occurring ≥ 2 times); brute-force ground truth.
 7. **SHOULD Test:** `FindRepeats` returns empty when minLength exceeds any repeat length, and only repeats meeting minLength are returned. — Rationale: minLength filter boundary.
 8. **SHOULD Test:** Every `RepeatInfo` from both methods satisfies the invariants (count ≥ 2; length = sequence length; positions sorted; each position is a true occurrence). — Rationale: invariant guard (property test for the O(n²)-or-worse enumeration path).
 9. **COULD Test:** `FindRepeats` with minLength ≤ 0 still returns only substrings occurring ≥ 2 times (no zero-length repeats). — Rationale: degenerate parameter.

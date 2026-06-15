@@ -38,11 +38,12 @@ public static class GenomicAnalyzer
 
     /// <summary>
     /// Finds every distinct substring that occurs at least twice and has length ≥ <paramref name="minLength"/>.
-    /// Each such repeated substring is the longest common prefix of two adjacent suffixes in
-    /// sorted order; only those occurring ≥ 2 times are returned (a repeated substring maps to an
-    /// internal suffix-tree node, never a leaf — CMU 15-451 Lecture #10 §2.1; GeeksforGeeks,
-    /// Suffix Tree Application 3). Worst-case time O(n²) because adjacent-suffix prefix comparison
-    /// and occurrence enumeration are over O(n) suffixes of up to O(n) length.
+    /// A substring occurs ≥ 2 times iff it is a prefix of the longest common prefix (LCP) of some
+    /// pair of adjacent suffixes in sorted order; the method enumerates every such prefix of length
+    /// ≥ <paramref name="minLength"/> (not only the full LCP) and returns each distinct one occurring
+    /// ≥ 2 times (CMU 15-451 Lecture #10 §2.1; GeeksforGeeks, Suffix Tree Application 3). Worst-case
+    /// time O(n²) because adjacent-suffix prefix comparison and occurrence enumeration are over O(n)
+    /// suffixes of up to O(n) length.
     /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
@@ -71,12 +72,18 @@ public static class GenomicAnalyzer
                 lcpLen++;
             }
 
-            if (lcpLen >= effectiveMinLength)
+            // A substring occurs >= 2 times iff it is a prefix of the longest common prefix of
+            // some pair of adjacent suffixes in sorted order (standard LCP-array result). The
+            // adjacent-pair LCP itself is only the *longest* such shared prefix; every shorter
+            // prefix (down to effectiveMinLength) is also a repeated substring with its own,
+            // possibly larger, occurrence set. Emitting only the full LCP would drop those
+            // shorter repeats, so we enumerate every qualifying prefix. (CMU 15-451 Lecture #10
+            // §2.1: a repeat is any substring occurring >= 2 times.)
+            for (int prefixLen = effectiveMinLength; prefixLen <= lcpLen; prefixLen++)
             {
-                string repeat = s1.Substring(0, lcpLen);
-                if (!found.Contains(repeat))
+                string repeat = s1.Substring(0, prefixLen);
+                if (found.Add(repeat))
                 {
-                    found.Add(repeat);
                     var positions = tree.FindAllOccurrences(repeat).OrderBy(p => p).ToList();
                     if (positions.Count >= 2)
                     {
