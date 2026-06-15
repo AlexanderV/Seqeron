@@ -232,6 +232,43 @@ public class ComparativeGenomics_DetectRearrangements_Tests
             "null orthologMap must throw ArgumentNullException before iteration");
     }
 
+    // M9b — Null genome2 => ArgumentNullException (eager validation; contract §3.3: any null arg throws).
+    [Test]
+    public void DetectRearrangements_NullGenome2_Throws()
+    {
+        var genome1 = new List<ComparativeGenomics.Gene> { G1(0, '+'), G1(1, '+') };
+        var map = new Dictionary<string, string>();
+
+        Assert.Throws<ArgumentNullException>(
+            () => ComparativeGenomics.DetectRearrangements(genome1, null!, map),
+            "null genome2 must throw ArgumentNullException before iteration");
+    }
+
+    // M10 — ClassifyRearrangement falls back to the stored Type when TargetPosition is absent/unparsable.
+    // Source: documented fallback (ComparativeGenomics.cs ClassifyRearrangement: "otherwise trust the stored Type").
+    [Test]
+    public void ClassifyRearrangement_NoParsableTargetPosition_ReturnsStoredType()
+    {
+        Assert.Multiple(() =>
+        {
+            // No TargetPosition => the stored Type is returned verbatim.
+            var noTarget = new ComparativeGenomics.RearrangementEvent(
+                Type: ComparativeGenomics.RearrangementType.Transposition,
+                GenomeId: "g", Position: 10, Length: 1, TargetPosition: null);
+            Assert.That(ComparativeGenomics.ClassifyRearrangement(noTarget),
+                Is.EqualTo(ComparativeGenomics.RearrangementType.Transposition),
+                "null TargetPosition => return the stored Type");
+
+            // Malformed TargetPosition (no signed pair) => still the stored Type.
+            var malformed = new ComparativeGenomics.RearrangementEvent(
+                Type: ComparativeGenomics.RearrangementType.Inversion,
+                GenomeId: "g", Position: 10, Length: 1, TargetPosition: "not-a-pair");
+            Assert.That(ComparativeGenomics.ClassifyRearrangement(malformed),
+                Is.EqualTo(ComparativeGenomics.RearrangementType.Inversion),
+                "unparsable TargetPosition => return the stored Type");
+        });
+    }
+
     #endregion
 
     #region DetectRearrangements — SHOULD Tests

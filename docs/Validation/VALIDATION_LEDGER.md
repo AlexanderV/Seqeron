@@ -140,3 +140,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 15 | TRANS-SPLICE-001 | Transcriptome | 🟡 | ❌ | ✅ CLEAN | - |
 | 16 | COMPGEN-SYNTENY-001 | Comparative Genomics | 🟡 | ✅ | ✅ CLEAN | - |
 | 17 | COMPGEN-ORTHO-001 | Comparative Genomics | 🟡 | 🟡 | ✅ CLEAN | - |
+| 18 | COMPGEN-REARR-001 | Comparative Genomics | 🟡 | 🟡 | ✅ CLEAN | - |
