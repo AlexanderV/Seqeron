@@ -286,6 +286,50 @@ public class PopulationGeneticsAnalyzer_EstimateAncestry_Tests
         });
     }
 
+    // INV-2 — every proportion lies in [0,1] (constraint q_ik >= 0 with Sigma_k q_ik = 1,
+    // Alexander 2009). Exercised on an informative 3-population case.
+    [Test]
+    public void EstimateAncestry_ArbitraryInput_ProportionsInUnitInterval()
+    {
+        var inds = Inds(("IND1", new[] { 2, 1, 0, 2, 1 }));
+        var refs = Refs(
+            ("A", new[] { 0.8, 0.3, 0.6, 0.9, 0.2 }),
+            ("B", new[] { 0.1, 0.9, 0.2, 0.1, 0.7 }),
+            ("C", new[] { 0.5, 0.4, 0.5, 0.5, 0.5 }));
+
+        var r = EstimateAncestry(inds, refs, maxIterations: 100).Single();
+
+        Assert.Multiple(() =>
+        {
+            foreach (var v in r.Proportions.Values)
+            {
+                Assert.That(v, Is.GreaterThanOrEqualTo(0.0 - Tol),
+                    "Constraint q_ik >= 0 (Alexander 2009).");
+                Assert.That(v, Is.LessThanOrEqualTo(1.0 + Tol),
+                    "q_ik <= 1 because q_ik >= 0 and Sigma_k q_ik = 1 (Alexander 2009).");
+            }
+        });
+    }
+
+    // maxIterations=0 boundary — no EM update runs, so the uniform prior 1/K is returned
+    // (same code path as the all-missing case; documented contract maxIterations >= 0).
+    [Test]
+    public void EstimateAncestry_ZeroIterations_ReturnsUniformPrior()
+    {
+        var inds = Inds(("IND1", new[] { 2, 0 }));
+        var refs = Refs(("A", new[] { 0.8, 0.2 }), ("B", new[] { 0.2, 0.8 }));
+
+        var r = EstimateAncestry(inds, refs, maxIterations: 0).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Proportions["A"], Is.EqualTo(0.5).Within(Tol),
+                "With zero iterations the EM never updates; the uniform prior 1/K is returned.");
+            Assert.That(r.Proportions["B"], Is.EqualTo(0.5).Within(Tol),
+                "Uniform prior for K=2.");
+        });
+    }
+
     // C1 — label invariance (Eq. 2): permuting panels permutes the proportions consistently.
     [Test]
     public void EstimateAncestry_PermutedPanels_PermutesProportions()
