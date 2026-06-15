@@ -102,10 +102,37 @@ public class ProteinMotifFinder_FindLowComplexityRegions_Tests
 
         var regions = ProteinMotifFinder.FindLowComplexityRegions(sequence).ToList();
 
+        // Boundaries (independently computed from K = -Σ p·log2 p per window, W=12, K1=2.2, K2=2.5):
+        // 44-residue sequence = flank[0..11] + Q[12..31] + flank[32..43]. Window K-values rise from the
+        // left flank, dip to 0 inside the Q core, then rise again. The maximal run of windows with K ≤ K2
+        // that contains a trigger window (K ≤ K1) is windows [6..26]; residue span = [6, 26+12-1] = [6,37].
         Assert.That(regions, Has.Count.EqualTo(1),
             "A single poly-Q tract between diverse flanks must yield exactly one low-complexity region.");
-        Assert.That(regions[0].Complexity, Is.EqualTo(0.0).Within(1e-10),
-            "The poly-Q core contains homopolymer windows, so the region's minimum complexity is 0 bits.");
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions[0].Start, Is.EqualTo(6),
+                "Run of windows ≤K2 containing a trigger begins at window 6 (residue 6).");
+            Assert.That(regions[0].End, Is.EqualTo(37),
+                "Run ends at window 26; span = 26+12-1 = 37 (0-based inclusive).");
+            Assert.That(regions[0].Complexity, Is.EqualTo(0.0).Within(1e-10),
+                "The poly-Q core contains homopolymer windows, so the region's minimum complexity is 0 bits.");
+        });
+    }
+
+    // M6b — K1 trigger rule: a window with K1 < K ≤ K2 lies in the extension band but never triggers,
+    // so on its own it must NOT be reported. "AAABBBCCDDEE" (counts 3,3,2,2,2) has
+    // K = -Σ p·log2 p = 2.292481 bits/residue, which is > K1=2.2 and ≤ K2=2.5 (independently computed).
+    // A correct SEG emits a region only if at least one window has K ≤ K1; this one has none -> empty.
+    // This locks the trigger semantics: an implementation that emitted any run ≤ K2 would fail here.
+    [Test]
+    public void FindLowComplexityRegions_WindowAboveK1WithinK2_NotTriggered_ReturnsEmpty()
+    {
+        // Single 12-residue window, K=2.2925: extension-band but never a trigger.
+        var regions = ProteinMotifFinder.FindLowComplexityRegions("AAABBBCCDDEE").ToList();
+
+        Assert.That(regions, Is.Empty,
+            "A window with K1(2.2) < K(2.2925) ≤ K2(2.5) is in the extension band but never triggers; "
+            + "with no window ≤ K1 the run must not be emitted (SEG two-pass trigger rule).");
     }
 
     // M7 — Fully diverse protein: every window has K = log2(20+) > K2 = 2.5 -> no regions.
