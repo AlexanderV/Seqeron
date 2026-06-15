@@ -165,3 +165,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 40 | PAT-APPROX-003 | Matching | ✅ | 🟡 | ✅ CLEAN | - |
 | 41 | ALIGN-STATS-001 | Alignment | 🟡 | 🟡 | ✅ CLEAN | - |
 | 42 | EPIGEN-BISULF-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | - |
+| 43 | EPIGEN-CHROM-001 | Epigenetics | ✅ | ✅ | ✅ CLEAN | - |

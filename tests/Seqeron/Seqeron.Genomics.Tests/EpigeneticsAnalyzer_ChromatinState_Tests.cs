@@ -176,6 +176,57 @@ public class EpigeneticsAnalyzer_ChromatinState_Tests
             "When both promoter (H3K4me3) and enhancer (H3K4me1) marks are present, TSS ranks above Enh (Roadmap)");
     }
 
+    // M8b — H3K4me3 + H3K4me1 + H3K27me3 all present → bivalent PROMOTER (TssBiv),
+    // not bivalent enhancer. Roadmap TssBiv = H3K4me3 + H3K27me3 and TSS ranks above Enh,
+    // so the promoter-bivalent signature dominates when both active marks co-occur with K27me3.
+    // (Roadmap chr-state learning; TssBiv vs EnhBiv definitions.)
+    [Test]
+    public void PredictChromatinState_K4me3AndK4me1AndK27me3_BivalentPromoter()
+    {
+        var state = EpigeneticsAnalyzer.PredictChromatinState(
+            h3k4me3: Present, h3k4me1: Present, h3k27ac: Absent,
+            h3k36me3: Absent, h3k27me3: Present, h3k9me3: Absent);
+
+        Assert.That(state, Is.EqualTo(ChromatinState.BivalentPromoter),
+            "H3K4me3+H3K27me3 is TssBiv; the promoter-bivalent signature ranks above the enhancer-bivalent one (Roadmap)");
+    }
+
+    // M9b — H3K4me1 + H3K27ac + H3K27me3 → bivalent ENHANCER (EnhBiv), not active enhancer.
+    // The co-occurring Polycomb mark H3K27me3 makes the locus bivalent/poised; the H3K27ac
+    // active call does NOT override the repressive co-occurrence (Roadmap EnhBiv).
+    [Test]
+    public void PredictChromatinState_K4me1AndK27acAndK27me3_BivalentEnhancer()
+    {
+        var state = EpigeneticsAnalyzer.PredictChromatinState(
+            h3k4me3: Absent, h3k4me1: Present, h3k27ac: Present,
+            h3k36me3: Absent, h3k27me3: Present, h3k9me3: Absent);
+
+        Assert.That(state, Is.EqualTo(ChromatinState.BivalentEnhancer),
+            "H3K4me1+H3K27me3 is the bivalent enhancer (EnhBiv); H3K27ac does not override the Polycomb co-occurrence (Roadmap)");
+    }
+
+    // INV-01 (full) — binary invariance for a multi-mark combination: an active-enhancer
+    // signature (H3K4me1+H3K27ac) at barely-present vs near-max magnitudes gives the same
+    // state. ChromHMM binarizes marks present/absent before state learning (Ernst & Kellis 2012).
+    [Test]
+    public void PredictChromatinState_BinaryInvariance_MultiMarkSignature()
+    {
+        var low = EpigeneticsAnalyzer.PredictChromatinState(
+            h3k4me3: Absent, h3k4me1: 0.51, h3k27ac: 0.51,
+            h3k36me3: Absent, h3k27me3: Absent, h3k9me3: Absent);
+        var high = EpigeneticsAnalyzer.PredictChromatinState(
+            h3k4me3: Absent, h3k4me1: 0.99, h3k27ac: 0.99,
+            h3k36me3: Absent, h3k27me3: Absent, h3k9me3: Absent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(low, Is.EqualTo(ChromatinState.ActiveEnhancer),
+                "H3K4me1+H3K27ac present → active enhancer (Creyghton 2010)");
+            Assert.That(high, Is.EqualTo(low),
+                "magnitude above the presence call does not change the binarized state (INV-01)");
+        });
+    }
+
     // S1 — threshold boundary: a mark exactly at the threshold counts as present (inclusive >=)
     [Test]
     public void PredictChromatinState_MarkExactlyAtThreshold_CountsAsPresent()
