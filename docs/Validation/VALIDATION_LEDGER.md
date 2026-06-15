@@ -198,3 +198,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 73 | RNA-PAIR-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
 | 74 | RNA-HAIRPIN-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
 | 75 | RNA-MFE-001 | RnaStructure | ✅ | 🟡 | ✅ CLEAN | - |
+| 76 | RNA-PSEUDOKNOT-001 | RnaStructure | ✅ | ✅ | ✅ CLEAN | - |

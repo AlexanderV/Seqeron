@@ -79,6 +79,7 @@
 | S2 | Single pair | one pair | 0 pseudoknots | INV-4 |
 | S3 | Mixed set | nested+crossing+disjoint together | only the crossing relations reported | INV-1..3 |
 | S4 | Order independence | shuffle input order | identical detected set | INV-5 |
+| S5 | Multi-crossing reporting | `([{)]}` pairs (0,3)+(1,4)+(2,5) all mutually cross | exactly 3 pseudoknots, one per pairwise crossing {(0,3,1,4),(0,3,2,5),(1,4,2,5)} | Antczak (2018) crossing condition applied pairwise; documented separate-reporting contract (Assumption 2) |
 
 ### 4.3 COULD Tests (Nice to have)
 
@@ -118,7 +119,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| `RnaSecondaryStructure_DetectPseudoknots_Tests.cs` | canonical | 10 |
+| `RnaSecondaryStructure_DetectPseudoknots_Tests.cs` | canonical | 12 |
 
 ### 5.5 Phase 7 Work Queue
 

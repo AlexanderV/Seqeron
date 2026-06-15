@@ -178,6 +178,34 @@ public class RnaSecondaryStructure_DetectPseudoknots_Tests
         });
     }
 
+    // S5 — Three mutually-crossing pairs "([{)]}": (0,3),(1,4),(2,5). Each pair crosses each other
+    // (0<1<3<4, 0<2<3<5, 1<2<4<5), so all C(3,2)=3 pairwise crossings are reported separately.
+    // Evidence: Antczak (2018) crossing condition i<k<j<l applied to every pair-of-pairs; the
+    // documented contract reports each crossing pair-of-pairs as its own Pseudoknot (no order grouping).
+    [Test]
+    public void DetectPseudoknots_ThreeMutuallyCrossingPairs_ReportsEachPairwiseCrossing()
+    {
+        var pairs = new List<BasePair> { Pair(0, 3), Pair(1, 4), Pair(2, 5) };
+
+        var result = DetectPseudoknots(pairs).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(3),
+                "([{)]}: all three pairs mutually cross — C(3,2)=3 pairwise crossings reported");
+            Assert.That(result.All(k =>
+                    k.Start1 < k.Start2 && k.Start2 < k.End1 && k.End1 < k.End2),
+                Is.True, "each reported crossing satisfies i<k<j<l");
+            var reported = result
+                .Select(k => (k.Start1, k.End1, k.Start2, k.End2))
+                .OrderBy(t => t).ToList();
+            Assert.That(reported, Is.EqualTo(new List<(int, int, int, int)>
+            {
+                (0, 3, 1, 4), (0, 3, 2, 5), (1, 4, 2, 5),
+            }), "the three reported crossings are (0,3)x(1,4), (0,3)x(2,5), (1,4)x(2,5)");
+        });
+    }
+
     // C1 — Property test (O(n^2) invariant): every reported pseudoknot's pairs satisfy i<k<j<l.
     // Evidence: INV-01 crossing condition. Deterministic seed for reproducibility.
     [Test]
