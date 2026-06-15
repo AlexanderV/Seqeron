@@ -82,7 +82,7 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 **Implementation location:** [GenomicAnalyzer.cs](../../../src/Seqeron/Algorithms/Seqeron.Genomics.Analysis/GenomicAnalyzer.cs)
 
 - `GenomicAnalyzer.FindLongestCommonRegion(seq1, seq2)`: longest common substring with positions.
-- `GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength)`: all distinct common substrings of length ≥ max(1, minLength).
+- `GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength)`: for each start position in `sequence2`, the single longest common substring of length ≥ max(1, minLength) (right-maximal matches keyed by start position, deduplicated) — **not** every common substring (a shorter prefix sharing a start position with a longer match is omitted).
 - Underlying LCS: [SuffixTree.Algorithms.cs](../../../src/SuffixTree/Algorithms/SuffixTree/SuffixTree.Algorithms.cs) `LongestCommonSubstringInfo`.
 
 ### 5.2 Current Behavior
@@ -95,11 +95,11 @@ Inputs are `DnaSequence` (case-normalized to upper, alphabet A/C/G/T enforced at
 
 - Longest common *substring* (contiguous) of two strings via generalized suffix tree, Θ(n+m) [1][3][4].
 - Deterministic representative on ties (first-in-`sequence2`) [5].
-- All common substrings of length ≥ minLength enumerated (`FindCommonRegions`).
+- Right-maximal common substrings of length ≥ minLength, one per start position in `sequence2`, deduplicated (`FindCommonRegions`). This is a derived helper, not a notion taken verbatim from [1][3][4]; it is **not** the full set of every common substring (see 6.2).
 
 **Intentionally simplified:**
 
-- `FindCommonRegions` uses a per-position binary search (O(n + m·log m)) rather than a single deepest-common-node DFS enumeration (O(n+m)); **consequence:** identical set of regions, higher asymptotic cost on long inputs.
+- `FindCommonRegions` reports only the longest match per start position in `sequence2` (right-maximal), deduplicated — **not** every common substring. For example, for `ACGTACGT` vs `TTACGTGG` with minLength 3 it returns `{TACGT, ACGT, CGT}`; the prefixes `TAC`, `TACG`, `ACG` (which are also common substrings of length ≥ 3) are intentionally omitted. This keeps the output to a useful set of anchor regions instead of the O(n²) set of all substrings; **consequence:** callers needing the exhaustive set must expand each region's prefixes themselves.
 
 **Not implemented:**
 

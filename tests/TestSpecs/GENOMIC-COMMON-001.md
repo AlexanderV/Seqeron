@@ -44,7 +44,7 @@
 | Method | Class | Type | Notes |
 |--------|-------|------|-------|
 | `FindLongestCommonRegion(seq1, seq2)` | GenomicAnalyzer | Canonical | longest contiguous common substring with positions |
-| `FindCommonRegions(seq1, seq2, minLength)` | GenomicAnalyzer | Canonical | all distinct common substrings of length ≥ minLength |
+| `FindCommonRegions(seq1, seq2, minLength)` | GenomicAnalyzer | Canonical | for each start position in seq2, the single longest common substring of length ≥ minLength (right-maximal, deduplicated) — NOT every common substring |
 
 ---
 
@@ -55,7 +55,7 @@
 | INV-1 | The returned substring is contiguous and occurs in **both** sequences at the reported 0-based positions | Yes | Wikipedia definition (source 2) |
 | INV-2 | No common contiguous substring strictly longer than the returned one exists | Yes | Wikipedia definition (source 2) |
 | INV-3 | Empty / no-shared-character input → `CommonRegion.None` (empty, length 0, positions −1) | Yes | Wikipedia definition (source 2) |
-| INV-4 | Every region from `FindCommonRegions(minLength)` has length ≥ minLength and is contained in sequence1 | Yes | definition extended to all common substrings (source 2) |
+| INV-4 | Every region from `FindCommonRegions(minLength)` has length ≥ minLength, is contiguous, occurs in both sequences at the reported 0-based positions, and is the single longest match at its start position in sequence2 (right-maximal; shorter prefixes at the same start are NOT reported) | Yes | substring/contiguity definition (source 2); right-maximal contract derived from the implementation, hand-verified |
 | INV-5 | On ties, the representative is "first found in sequence2" (deterministic) | Yes | **ASSUMPTION** (SuffixTree XML doc; see §6) |
 
 ---
@@ -70,8 +70,8 @@
 | M2 | Tie | `CACAGAG` vs `TACATAGAT` | `ACA` (first-in-other of {ACA,AGA}), length 3, pos1=1, pos2=1 | Wikipedia tie property (source 2); SuffixTree tie-break |
 | M3 | Identical | `ACGT` vs `ACGT` | `ACGT`, length 4, pos1=0, pos2=0 | Wikipedia def (source 2) |
 | M4 | No common substring | `AAAA` vs `GGGG` | `CommonRegion.None` (empty, length 0, IsEmpty, pos −1/−1) | Wikipedia def (source 2) |
-| M5 | All regions, minLength=4 | `FindCommonRegions(ACGTACGT, TTACGTGG, 4)` | `{(TACGT,3,1),(ACGT,0,2)}` | def of all common substrings (source 2); brute-force-verified |
-| M6 | All regions, minLength=3 | `FindCommonRegions(ACGTACGT, TTACGTGG, 3)` | `{(TACGT,3,1),(ACGT,0,2),(CGT,1,3)}` | def (source 2); brute-force-verified |
+| M5 | Right-maximal regions, minLength=4 | `FindCommonRegions(ACGTACGT, TTACGTGG, 4)` | `{(TACGT,3,1),(ACGT,0,2)}` (longest match per start in seq2) | contiguity def (source 2); right-maximal contract hand-verified |
+| M6 | Right-maximal regions, minLength=3 | `FindCommonRegions(ACGTACGT, TTACGTGG, 3)` | `{(TACGT,3,1),(ACGT,0,2),(CGT,1,3)}` — note the prefixes TAC/TACG/ACG, which are ALSO common substrings ≥3, are NOT returned (only the longest per start) | contiguity def (source 2); right-maximal contract hand-verified |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 

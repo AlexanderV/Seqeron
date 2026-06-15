@@ -158,8 +158,12 @@ public class GenomicAnalyzer_FindCommonRegion_Tests
 
     #region FindCommonRegions
 
-    // M6 — All distinct common substrings of length >= 3 in ACGTACGT vs TTACGTGG.
-    // Brute-force-verified set: TACGT@(3,1), ACGT@(0,2), CGT@(1,3).
+    // M6 — Right-maximal common regions of length >= 3 in ACGTACGT vs TTACGTGG.
+    // FindCommonRegions returns, per start position in seq2, the SINGLE LONGEST substring also in seq1
+    // (deduplicated), NOT every common substring. Hand-enumerating the longest match at each start of
+    // TTACGTGG (positions 0..5) and deduplicating gives exactly {TACGT@(3,1), ACGT@(0,2), CGT@(1,3)}.
+    // The FULL set of all common substrings >=3 would also include the prefixes TAC, TACG, ACG — those
+    // are intentionally OMITTED (see FindCommonRegions_DoesNotReturnPrefixesOfLongerMatches below).
     [Test]
     public void FindCommonRegions_MinLengthThree_ReturnsThreeRegions()
     {
@@ -174,10 +178,12 @@ public class GenomicAnalyzer_FindCommonRegion_Tests
             ("TACGT", 3, 1),
             ("ACGT", 0, 2),
             ("CGT", 1, 3),
-        }), "minLength=3 yields exactly TACGT@(3,1), ACGT@(0,2), CGT@(1,3).");
+        }), "minLength=3 yields exactly the right-maximal set TACGT@(3,1), ACGT@(0,2), CGT@(1,3).");
     }
 
-    // M5 — Same pair, minLength=4 drops CGT (length 3); leaves TACGT and ACGT.
+    // M5 — Same pair, minLength=4 drops CGT (length 3); leaves the right-maximal TACGT and ACGT.
+    // Hand-verified: at each start of TTACGTGG, the longest substring also in ACGTACGT with length >=4 is
+    // TACGT (start 1) and ACGT (start 2); all other starts have no match >=4.
     [Test]
     public void FindCommonRegions_MinLengthFour_ReturnsTwoRegions()
     {
@@ -192,6 +198,60 @@ public class GenomicAnalyzer_FindCommonRegion_Tests
             ("TACGT", 3, 1),
             ("ACGT", 0, 2),
         }), "minLength=4 yields exactly TACGT@(3,1) and ACGT@(0,2).");
+    }
+
+    // M7 — Contract lock: FindCommonRegions reports ONLY the longest match per start position in seq2
+    // (right-maximal), NOT every common substring. For ACGTACGT vs TTACGTGG (minLength 3) the prefixes
+    // TAC, TACG (prefixes of TACGT) and ACG (prefix of ACGT) are common substrings of length >= 3 but are
+    // intentionally NOT returned. Hand-verified by full enumeration of all common substrings >= 3:
+    // {TAC, TACG, TACGT, ACG, ACGT, CGT}; the returned set is the right-maximal subset {TACGT, ACGT, CGT}.
+    [Test]
+    public void FindCommonRegions_DoesNotReturnPrefixesOfLongerMatches()
+    {
+        var seq1 = new DnaSequence("ACGTACGT");
+        var seq2 = new DnaSequence("TTACGTGG");
+
+        var returned = GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength: 3)
+            .Select(r => r.Sequence)
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            // These ARE common substrings of length >= 3, yet are deliberately omitted (not right-maximal).
+            Assert.That(seq1.Sequence.Contains("TAC") && seq2.Sequence.Contains("TAC"), Is.True,
+                "Sanity: TAC is a genuine common substring.");
+            Assert.That(returned, Does.Not.Contain("TAC"), "Prefix TAC of TACGT must be omitted.");
+            Assert.That(returned, Does.Not.Contain("TACG"), "Prefix TACG of TACGT must be omitted.");
+            Assert.That(returned, Does.Not.Contain("ACG"), "Prefix ACG of ACGT must be omitted.");
+            // The returned set is exactly the right-maximal one.
+            Assert.That(returned, Is.EquivalentTo(new[] { "TACGT", "ACGT", "CGT" }),
+                "Only the longest match per start position in seq2 is reported.");
+        });
+    }
+
+    // S5 — minLength < 1 is treated as 1 (a region is non-empty). For ACGT vs ACGT the right-maximal
+    // match at each start of seq2 is ACGT@(0,0), CGT@(1,1), GT@(2,2), T@(3,3). Hand-verified; minLength=0
+    // and minLength=-5 must give the same result as minLength=1 (no empty/length-0 regions).
+    [Test]
+    public void FindCommonRegions_MinLengthBelowOne_TreatedAsOne()
+    {
+        var seq1 = new DnaSequence("ACGT");
+        var seq2 = new DnaSequence("ACGT");
+
+        var expected = new[] { ("ACGT", 0, 0), ("CGT", 1, 1), ("GT", 2, 2), ("T", 3, 3) };
+
+        var atZero = GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength: 0)
+            .Select(r => (r.Sequence, r.PositionInFirst, r.PositionInSecond)).ToList();
+        var atNeg = GenomicAnalyzer.FindCommonRegions(seq1, seq2, minLength: -5)
+            .Select(r => (r.Sequence, r.PositionInFirst, r.PositionInSecond)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(atZero, Is.EquivalentTo(expected), "minLength=0 is treated as 1; no empty regions.");
+            Assert.That(atNeg, Is.EquivalentTo(expected), "minLength<0 is treated as 1; no empty regions.");
+            Assert.That(atZero.All(t => t.Sequence.Length >= 1), Is.True,
+                "No length-0 / empty region is ever returned.");
+        });
     }
 
     // S3 — No shared substring -> empty enumeration.

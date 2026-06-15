@@ -257,12 +257,19 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds every distinct common <b>substring</b> (contiguous, per Wikipedia "Longest common substring")
-    /// of length ≥ <paramref name="minLength"/> that occurs in both sequences. For each start position in
-    /// <paramref name="sequence2"/> the longest substring also present in <paramref name="sequence1"/>
-    /// (located via the generalized suffix tree) is taken; distinct substrings are reported once, with the
-    /// first occurrence position in <paramref name="sequence1"/> and the start position in
-    /// <paramref name="sequence2"/>. A common substring is non-empty, so values of
+    /// For each start position in <paramref name="sequence2"/>, finds the <b>single longest</b> contiguous
+    /// substring (per Wikipedia "Longest common substring") of length ≥ <paramref name="minLength"/> that
+    /// also occurs in <paramref name="sequence1"/>, located via the generalized suffix tree; distinct such
+    /// substrings are reported once, with the first occurrence position in <paramref name="sequence1"/> and
+    /// the start position in <paramref name="sequence2"/>.
+    /// <para>
+    /// This is the set of right-maximal common substrings keyed by start position in
+    /// <paramref name="sequence2"/>, <b>not</b> the full set of every common substring: shorter prefixes
+    /// that share a start position with a longer match are not reported (e.g. for <c>ACGTACGT</c> vs
+    /// <c>TTACGTGG</c> with minLength 3 the result is <c>{TACGT, ACGT, CGT}</c> — the prefixes
+    /// <c>TAC</c>, <c>TACG</c>, <c>ACG</c> of those matches are omitted).
+    /// </para>
+    /// A common substring is non-empty, so values of
     /// <paramref name="minLength"/> below 1 are treated as 1 (the empty string is not a region).
     /// Time complexity: O(n + m·log m) — O(n + m) suffix-tree construction plus a per-position
     /// binary search using O(m) <see cref="SuffixTree.SuffixTree.Contains(string)"/> lookups
