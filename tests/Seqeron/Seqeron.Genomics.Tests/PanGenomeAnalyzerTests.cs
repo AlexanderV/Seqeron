@@ -71,8 +71,11 @@ public class PanGenomeAnalyzerTests
             "Two identical genes MUST form a multi-gene cluster");
 
         var multiGeneCluster = clusters.First(c => c.GeneIds.Count > 1);
-        Assert.That(multiGeneCluster.AverageIdentity, Is.GreaterThan(0.9),
-            "Identical sequences should have >90% average identity");
+        // Two identical sequences have CD-HIT global identity 30/30 = 1.0 exactly
+        // (identical residues / shorter length), so the single-pair mean is 1.0
+        // (CD-HIT User's Guide -G 1). Exact, not a lower bound.
+        Assert.That(multiGeneCluster.AverageIdentity, Is.EqualTo(1.0).Within(1e-10),
+            "Identical sequences -> mean pairwise global identity exactly 1.0 (CD-HIT -G 1).");
     }
 
     [Test]

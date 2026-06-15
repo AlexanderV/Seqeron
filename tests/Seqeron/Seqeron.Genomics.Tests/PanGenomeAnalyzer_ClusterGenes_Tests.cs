@@ -188,6 +188,32 @@ public class PanGenomeAnalyzer_ClusterGenes_Tests
         });
     }
 
+    // M8b — AverageIdentity of a 3-member cluster is the MEAN of all 3 pairwise global
+    // identities (not a single pair). Members Q2(AAAAAAAAAAAA,12), R(AAAAAAAAAA,10),
+    // Q1(AAAAAAAAAT,10): id(Q2,R)=10/10=1.0, id(Q2,Q1)=9/10=0.9, id(R,Q1)=9/10=0.9
+    // -> mean = (1.0+0.9+0.9)/3 = 2.8/3 = 0.9333... (CD-HIT -G 1 global identity, mean over
+    // all C(3,2) pairs). Exercises the multi-pair averaging path (sum/pairs) with an exact
+    // hand-computed value, not just the 2-member single-pair shortcut (M8).
+    [Test]
+    public void ClusterGenes_ThreeMembers_AverageIdentityIsMeanOfAllPairs()
+    {
+        var genomes = Genomes(
+            ("g1", new[] { ("R", "AAAAAAAAAA") }),     // 10
+            ("g2", new[] { ("Q1", "AAAAAAAAAT") }),    // 10, 9/10 = 0.9
+            ("g3", new[] { ("Q2", "AAAAAAAAAAAA") })); // 12 -> representative
+
+        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes, identityThreshold: 0.8).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clusters, Has.Count.EqualTo(1),
+                "All three group at threshold 0.8 (>= 0.9 to the Q2 representative).");
+            Assert.That(clusters[0].GeneIds, Has.Count.EqualTo(3), "Cluster holds R, Q1 and Q2.");
+            Assert.That(clusters[0].AverageIdentity, Is.EqualTo(2.8 / 3.0).Within(1e-10),
+                "Mean of the 3 pairwise global identities (1.0+0.9+0.9)/3 = 0.9333... (CD-HIT -G 1).");
+        });
+    }
+
     // M9 — Partition invariant: every input gene appears in exactly one cluster (INV-01/INV-02).
     [Test]
     public void ClusterGenes_MixedInput_ClustersPartitionAllGenes()
