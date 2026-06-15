@@ -153,3 +153,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 28 | SEQ-DINUC-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 29 | SEQ-SECSTRUCT-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
 | 30 | CODON-RSCU-001 | Codon | ✅ | 🟡 | ✅ CLEAN | - |
+| 31 | CODON-ENC-001 | Codon | 🟡 | 🟡 | ✅ CLEAN | - |

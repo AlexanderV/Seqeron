@@ -92,19 +92,35 @@ public class CodonUsageAnalyzer_CalculateEnc_Tests
             "Near-uniform codon usage overshoots Eq. (3) and is re-adjusted to exactly 61.");
     }
 
-    // M3 — Single two-fold amino acid Phe (TTT x3, TTC x1). Hand derivation by Eq. (1):
-    // n=4, p=(0.75,0.25), Σp²=0.625, F̂=(4*0.625-1)/3=0.5, so 9/F̂₂=18. The 3-,4-,6-fold
-    // classes have no estimable amino acid and contribute their full counts 1+5+3. Met+Trp=2.
-    // Nc = 2 + 18 + 1 + 5 + 3 = 29.0.
+    // M3 — Fully-populated biased gene (every degeneracy class estimable, no Eq. 5a / no
+    // absent-class fallback). Exercises Wright Eq. (1) homozygosity + Eq. (4) within-class
+    // averaging + Eq. (3) aggregation on a realistic input. Codon counts:
+    //   Phe(2):  TTTx4 TTCx1        Leu(6):  CTGx3 CTCx2 TTAx1
+    //   Ile(3):  ATTx3 ATCx2 ATAx1  Val(4):  GTGx4 GTCx1
+    //   Ser(6):  AGCx3 TCTx2 TCAx1  Arg(6):  CGCx4 CGTx2
+    //   Gly(4):  GGCx3 GGTx2 GGAx1
+    // Per-class average homozygosities (Eq. 1, then class mean):
+    //   F̂₂=0.6, F̂₃=0.2666666667, F̂₄=0.4333333333, F̂₆=0.3333333333.
+    // Eq. (3): Nc = 2 + 9/0.6 + 1/0.266… + 5/0.433… + 3/0.333… = 41.288461538461526.
+    // Expected value is computed by an INDEPENDENT reference implementation of the Wright/
+    // codonW algorithm (Python, /tmp/enc_ref.py during validation), NOT read back from the code.
     [Test]
-    public void CalculateEnc_SinglePhenylalanineTwoFold_MatchesHandDerivation()
+    public void CalculateEnc_FullyPopulatedBiasedGene_MatchesIndependentReference()
     {
-        string seq = Repeat("TTT", 3) + "TTC"; // F̂₂ = 0.5
+        string seq =
+            Repeat("TTT", 4) + "TTC" +
+            Repeat("CTG", 3) + Repeat("CTC", 2) + "TTA" +
+            Repeat("ATT", 3) + Repeat("ATC", 2) + "ATA" +
+            Repeat("GTG", 4) + "GTC" +
+            Repeat("AGC", 3) + Repeat("TCT", 2) + "TCA" +
+            Repeat("CGC", 4) + Repeat("CGT", 2) +
+            Repeat("GGC", 3) + Repeat("GGT", 2) + "GGA";
 
         double enc = CodonUsageAnalyzer.CalculateEnc(seq);
 
-        Assert.That(enc, Is.EqualTo(29.0).Within(1e-9),
-            "Phe TTTx3/TTCx1 gives F̂=0.5 (Eq.1); Nc = 2 + 9/0.5 + 1 + 5 + 3 = 29 (Eq.3 with absent classes at full count).");
+        Assert.That(enc, Is.EqualTo(41.288461538461526).Within(1e-9),
+            "Fully-populated biased gene: F̂₂=0.6, F̂₃=0.2666…, F̂₄=0.4333…, F̂₆=0.3333… (Eq.1) ⇒ "
+            + "Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆ = 41.288461538461526 (independent reference).");
     }
 
     // M4 — Invariant INV-01: 20 ≤ Nc ≤ 61 for any non-empty coding sequence (property test).
@@ -126,22 +142,53 @@ public class CodonUsageAnalyzer_CalculateEnc_Tests
         });
     }
 
-    // M5 — Isoleucine absent, but a 2-fold (Phe) and a 4-fold (Ala) amino acid present.
-    // Wright Eq. (5a) sets F̂₃ = (F̂₂ + F̂₄)/2. Hand derivation:
-    //   Phe TTTx3,TTCx1: F̂₂ = 0.5 ⇒ 9/F̂₂ = 18.
-    //   Ala GCTx2,GCCx2: n=4, Σp²=0.5, F̂₄ = (4*0.5-1)/3 = 1/3 ⇒ 5/F̂₄ = 15.
-    //   F̂₃ = (0.5 + 1/3)/2 = 0.416666...; 1/F̂₃ = 2.4.
-    //   6-fold absent ⇒ full count 3. Met+Trp = 2.
-    //   Nc = 2 + 18 + 2.4 + 15 + 3 = 40.4.
+    // M5 — Isoleucine (the only 3-fold amino acid) absent, but the 2-, 4- and 6-fold classes
+    // are all populated, so Wright Eq. (5a) F̂₃ = (F̂₂ + F̂₄)/2 genuinely fires (codonW: "an
+    // exception is made … isoleucine 3-fold absent ⇒ F̂₃ = average of F̂₂ and F̂₄", Peden thesis).
+    // Same gene as M3 with Ile removed; counts:
+    //   Phe(2): TTTx4 TTCx1   Leu(6): CTGx3 CTCx2 TTAx1   Val(4): GTGx4 GTCx1
+    //   Ser(6): AGCx3 TCTx2 TCAx1   Arg(6): CGCx4 CGTx2   Gly(4): GGCx3 GGTx2 GGAx1
+    // F̂₂=0.6, F̂₄=0.4333333333, F̂₆=0.3333333333; Eq. (5a) ⇒ F̂₃=(0.6+0.4333…)/2=0.5166666667.
+    // Eq. (3): Nc = 2 + 9/F̂₂ + 1/F̂₃ + 5/F̂₄ + 3/F̂₆ = 39.47394540942927 (independent reference).
     [Test]
     public void CalculateEnc_IsoleucineAbsent_UsesEq5aFallback()
     {
-        string seq = Repeat("TTT", 3) + "TTC" + Repeat("GCT", 2) + Repeat("GCC", 2);
+        string seq =
+            Repeat("TTT", 4) + "TTC" +
+            Repeat("CTG", 3) + Repeat("CTC", 2) + "TTA" +
+            Repeat("GTG", 4) + "GTC" +
+            Repeat("AGC", 3) + Repeat("TCT", 2) + "TCA" +
+            Repeat("CGC", 4) + Repeat("CGT", 2) +
+            Repeat("GGC", 3) + Repeat("GGT", 2) + "GGA";
 
         double enc = CodonUsageAnalyzer.CalculateEnc(seq);
 
-        Assert.That(enc, Is.EqualTo(40.4).Within(1e-9),
-            "With no isoleucine, F̂₃ = (F̂₂+F̂₄)/2 (Eq. 5a) gives Nc = 2 + 18 + 2.4 + 15 + 3 = 40.4.");
+        Assert.That(enc, Is.EqualTo(39.47394540942927).Within(1e-9),
+            "Ile absent, F̂₂/F̂₄/F̂₆ estimable ⇒ Eq. (5a) F̂₃=(F̂₂+F̂₄)/2=0.5166…; "
+            + "Nc = 2 + 9/0.6 + 1/0.5166… + 5/0.4333… + 3/0.3333… = 39.47394540942927 (independent reference).");
+    }
+
+    // M5b — Whole-degeneracy-class-absent behaviour (documented LIBRARY-SPECIFIC convention,
+    // NOT a Wright/codonW rule). Source check: Peden (codonW thesis) states that when a
+    // synonymous family is empty (F̂ₙ = 0) "Nc is not calculated, as the gene is assumed to be
+    // either too short or to have extremely skewed amino-acid usage", except for the isoleucine
+    // 3-fold exception. This implementation instead lets an entirely-absent class contribute its
+    // full codon count (ClassContribution returns the codon count when no F̂ is estimable). That
+    // is an undocumented divergence; this test pins the CURRENT behaviour and flags it so the
+    // value is never mistaken for a sourced Wright result. See validation report CODON-ENC-001.
+    [Test]
+    public void CalculateEnc_WholeClassAbsent_LibrarySpecificFullCountFallback()
+    {
+        // Only Phe present: 3-, 4- and 6-fold classes entirely empty; codonW would not compute Nc.
+        string seq = Repeat("TTT", 3) + "TTC"; // F̂₂ = 0.5
+
+        double enc = CodonUsageAnalyzer.CalculateEnc(seq);
+
+        // 2 (Met+Trp) + 9/0.5 (Phe) + 1 + 5 + 3 (absent classes at full count) = 29.0.
+        // DIVERGENCE from codonW ("Nc not calculated"); recorded as a library convention only.
+        Assert.That(enc, Is.EqualTo(29.0).Within(1e-9),
+            "LIBRARY-SPECIFIC (not Wright): absent 3/4/6-fold classes contribute their full codon "
+            + "counts; codonW would decline to compute Nc here. Behaviour pinned by validation, not sourced.");
     }
 
     // M7 — Empty / null string returns 0 (degenerate input contract).

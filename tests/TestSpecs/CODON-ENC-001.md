@@ -71,9 +71,10 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | MaxBias_OneCodonPerAa | Each amino acid uses exactly one codon, ≥2 times | Nc = 20 (Within 1e-9) | Fuglsang 2004 range; F=1 ⇒ Nc(aa)=1, sum=20 |
 | M2 | NearUniform_CapsAt61 | All codons equal counts (c=2 per codon) → raw Nc > 61 | Nc = 61 exactly | Fuglsang 2004 cap rule |
-| M3 | TwoFold_ExactF | Only Phe: TTT×3, TTC×1 | Nc(Phe)=2 via F=0.5; full Nc derived in test | Fuglsang 2004 Eq. 1, Eq. 2, Eq. 4 |
+| M3 | FullyPopulatedBiasedGene | All classes estimable (no fallback) | Nc = 41.288461538461526 (independent reference) | Fuglsang 2004 Eq. 1, Eq. 3, Eq. 4 |
 | M4 | Invariant_Range | Several arbitrary deterministic sequences | 20 ≤ Nc ≤ 61 | Fuglsang 2004 range (INV-1, property test) |
-| M5 | IsoleucineAbsent_UsesFallback | Gene with no Ile but Phe(2-fold) and Ala(4-fold) present | F₃ = (F₂+F₄)/2 used; matches hand derivation | Fuglsang 2004 Eq. 5a |
+| M5 | IsoleucineAbsent_UsesFallback | All classes present except Ile; Eq. 5a genuinely fires | Nc = 39.47394540942927 (independent reference) | Fuglsang 2004 Eq. 5a; Peden codonW thesis |
+| M5b | WholeClassAbsent (library convention) | Only Phe; 3/4/6-fold classes empty | Nc = 29.0 — **LIBRARY-SPECIFIC**, diverges from codonW ("Nc not calculated") | Peden codonW thesis; flagged FR (see report) |
 | M6 | Null_Throws | `CalculateEnc((DnaSequence)null!)` | ArgumentNullException | Contract |
 | M7 | Empty_ReturnsZero | empty string | 0 | Contract |
 
@@ -175,4 +176,5 @@
 
 ## 7. Open Questions / Decisions
 
-1. None. The Eq. 5a isoleucine fallback and Eq. 4 within-class averaging are implemented per Fuglsang 2004; the lower clamp at 20 is documented as a defensive bound consistent with the published range.
+1. The Eq. 5a isoleucine fallback and Eq. 4 within-class averaging are implemented per Fuglsang 2004; the lower clamp at 20 is documented as a defensive bound consistent with the published range.
+2. **Whole-class-absent handling diverges from the reference (codonW).** Peden's codonW thesis (the de-facto reference implementation) states that when a synonymous family is entirely empty (F̂ₙ = 0), "Nc is not calculated, as the gene is assumed to be either too short or to have extremely skewed amino-acid usage", with the sole exception of the isoleucine 3-fold class (Eq. 5a). This implementation instead lets an absent class contribute its full codon count (e.g. an absent 2-fold class adds 9). On real coding sequences this divergence is never reached (all four classes are always populated; core formula verified exact to double precision against an independent reference). It is a documented divergence only on degenerate synthetic genes. Logged in FINDINGS_REGISTER (CODON-ENC-001). Validation 2026-06-15 rewrote the former code-echo expectations (29.0, 40.4) to sourced exact values on fully-populated genes and pinned the absent-class case as an explicitly library-specific convention (M5b).
