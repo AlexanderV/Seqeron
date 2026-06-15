@@ -25,7 +25,7 @@
 ### 1.2 Key Evidence Points
 
 1. Core genome = gene families present in all genomes; accessory/dispensable = present in some but not all; unique/strain-specific = in exactly one genome — Tettelin (2005, 2008).
-2. Operational core threshold is a fraction of genomes (Roary default 99%); membership = occupancy ≥ floor(coreFraction · N) — Page et al. (2015).
+2. Operational core threshold is a fraction of genomes (Roary default 99%); membership = present in ≥ coreFraction of genomes, i.e. occupancy / N ≥ coreFraction (a fractional/percentage test, NOT floor(coreFraction · N)) — Page et al. (2015): "a gene being in at least 99% of samples".
 3. Genome fluidity `φ = [2/(N(N−1))]·Σ_{k<l}(U_k+U_l)/(M_k+M_l)`, range 0..1; 0 = identical gene content, 1 = disjoint — Kislyuk (2011).
 4. Open pan-genome ⟺ Heaps'-law decay exponent alpha < 1 (new genes keep accumulating); closed ⟺ alpha > 1 — Tettelin (2008), micropan.
 
@@ -61,7 +61,7 @@
 |----|-----------|------------|----------|
 | INV-01 | core ∪ accessory ∪ unique = all clusters; the three sets are disjoint | Yes | Tettelin (2005, 2008) |
 | INV-02 | CoreGeneCount + AccessoryGeneCount + UniqueGeneCount = TotalGenes | Yes | Tettelin (2008) |
-| INV-03 | A cluster is core ⟺ occupancy ≥ floor(coreFraction · N); unique ⟺ occupancy = 1; accessory otherwise | Yes | Page et al. (2015) |
+| INV-03 | A cluster is core ⟺ occupancy / N ≥ coreFraction (present in ≥ coreFraction of genomes); unique ⟺ occupancy = 1; accessory otherwise | Yes | Page et al. (2015) |
 | INV-04 | 0 ≤ GenomeFluidity ≤ 1 | Yes | Kislyuk (2011) |
 | INV-05 | Identical gene content across all genomes ⇒ fluidity = 0; pairwise-disjoint ⇒ fluidity = 1 | Yes | Kislyuk (2011) |
 | INV-06 | CoreFraction = CoreGeneCount / TotalGenes (0 when TotalGenes = 0) | Yes | definitional |
@@ -93,7 +93,8 @@
 | S1 | Empty input | empty genomes dict | empty result, TotalGenomes=0, fluidity 0, Type Closed | corner case |
 | S2 | Null input | null genomes | empty result (no throw) | matches existing contract |
 | S3 | Single genome | N=1, two clusters | no pairs ⇒ fluidity 0; both clusters unique (occupancy 1) | corner case |
-| S4 | Core threshold boundary | 3 genomes, coreFraction 0.99 → floor(2.97)=2; cluster occupancy 2 is core | occupancy-2 cluster counted core | Page (2015) floor boundary |
+| S4 | Core threshold boundary | 3 genomes, coreFraction 0.99 → core iff occupancy/3 ≥ 0.99 → only occupancy 3; occupancy 2 (66.7%) is accessory | only the 3/3 cluster counted core; 2/3 accessory | Page (2015) fractional "≥ 99% of samples" |
+| S4b | Core threshold float boundary | N=100, coreFraction 0.99 → 99/100 (99%) core, 98/100 (98%) not | 99-occupancy cluster core, 98 not | Page (2015) exact 99% boundary |
 | S5 | GetCoreGeneClusters empty | empty cluster list | empty | trivial |
 
 ### 4.3 COULD Tests (Nice to have)

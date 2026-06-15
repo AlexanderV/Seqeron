@@ -92,10 +92,13 @@ public class PanGenomeAnalyzer_ConstructPanGenome_Tests
             "INV-06: CoreFraction = CoreGeneCount (1) / TotalGenes (5) = 0.2.");
     }
 
-    // S4 — Core threshold boundary: coreFraction 0.99, N=3 => floor(2.97)=2; an occupancy-2
-    // cluster counts as core (Roary soft-core / floor boundary, Page 2015).
+    // S4 — Core threshold is a FRACTIONAL test: Roary core = "a gene being in at least 99%
+    // of samples" (Page et al., 2015). With coreFraction 0.99 and N=3, a cluster is core
+    // iff occupancy/3 >= 0.99, i.e. occupancy = 3 only. A 2-of-3 (66.7%) cluster is NOT
+    // core (it is accessory/shell) — this guards against the unsourced floor(0.99*3)=2
+    // convention that would wrongly include it.
     [Test]
-    public void ConstructPanGenome_CoreFraction099_OccupancyTwoOfThreeIsCore()
+    public void ConstructPanGenome_CoreFraction099_OnlyFullyConservedClusterIsCore()
     {
         var genomes = Genomes(
             ("g1", new[] { ("a", SeqCore), ("b", SeqShared2) }),
@@ -106,13 +109,41 @@ public class PanGenomeAnalyzer_ConstructPanGenome_Tests
 
         Assert.Multiple(() =>
         {
-            // SeqCore (3/3) and SeqShared2 (2/3 >= floor(2.97)=2) both core.
-            Assert.That(s.CoreGeneCount, Is.EqualTo(2),
-                "coreThreshold = floor(0.99*3) = 2; clusters with occupancy 3 and 2 are both core (Page 2015).");
+            // Only SeqCore (3/3 = 100% >= 99%) is core; SeqShared2 (2/3 = 66.7% < 99%) is NOT.
+            Assert.That(s.CoreGeneCount, Is.EqualTo(1),
+                "Roary core = present in >= 99% of samples (Page 2015); only the 3/3 cluster qualifies, not 2/3 (66.7%).");
+            Assert.That(s.AccessoryGeneCount, Is.EqualTo(1),
+                "SeqShared2 in 2 of 3 genomes (66.7% < 99%) is accessory/shell, not core (Page 2015).");
             Assert.That(s.UniqueGeneCount, Is.EqualTo(1),
                 "SeqU1 occurs in one genome -> unique.");
         });
     }
+
+    // S4b — Fractional core at the exact 99% boundary with N=100: a 99/100 cluster (99%)
+    // IS core; a 98/100 cluster (98% < 99%) is NOT. Guards the float round-off of 0.99*100
+    // (= 98.999...) and confirms the boundary matches Roary's "at least 99%" (Page 2015).
+    [Test]
+    public void GetCoreGeneClusters_CoreFraction099_NinetyNineOfHundredIsCoreNotNinetyEight()
+    {
+        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
+        {
+            new("c99", new[] { "g99" }, GenomeNames(99), 99, 1.0, "ATGC"),
+            new("c98", new[] { "g98" }, GenomeNames(98), 98, 1.0, "GCTA"),
+        };
+
+        var core = PanGenomeAnalyzer.GetCoreGeneClusters(clusters, totalGenomes: 100, threshold: 0.99).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(core, Has.Count.EqualTo(1),
+                "At threshold 0.99 over 100 genomes, only occupancy >= 99 (>= 99%) is core (Page 2015).");
+            Assert.That(core[0].ClusterId, Is.EqualTo("c99"),
+                "99/100 = 99% >= 99% is core; 98/100 = 98% < 99% is not.");
+        });
+    }
+
+    private static string[] GenomeNames(int count) =>
+        Enumerable.Range(1, count).Select(i => $"genome{i}").ToArray();
 
     #endregion
 

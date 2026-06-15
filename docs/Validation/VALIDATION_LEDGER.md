@@ -141,3 +141,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 16 | COMPGEN-SYNTENY-001 | Comparative Genomics | 🟡 | ✅ | ✅ CLEAN | - |
 | 17 | COMPGEN-ORTHO-001 | Comparative Genomics | 🟡 | 🟡 | ✅ CLEAN | - |
 | 18 | COMPGEN-REARR-001 | Comparative Genomics | 🟡 | 🟡 | ✅ CLEAN | - |
+| 19 | PANGEN-CORE-001 | PanGenome | 🟡 | 🟡 | ✅ CLEAN | - |

@@ -22,7 +22,7 @@ The pan-genome of a clade is the union of all gene families across its genomes; 
 
 Let there be `N` genomes and a set of gene-family clusters, each cluster having an *occupancy* = number of distinct genomes containing it.
 
-- **Core:** occupancy ≥ `floor(coreFraction · N)`. The operational core fraction is typically 0.99 (Roary default `-cd 99`), which tolerates assembly error [4].
+- **Core:** present in at least `coreFraction` of the genomes, i.e. `occupancy / N ≥ coreFraction` (Roary `-cd 99`: "a gene being in at least 99% of samples" [4]). This is a fractional (percentage) test — **not** `floor(coreFraction · N)`: e.g. a 2-of-3 (66.7%) cluster is *not* core under a 0.99 threshold.
 - **Unique (strain-specific / cloud):** occupancy = 1 [1][2].
 - **Accessory (dispensable / shell):** all remaining clusters [2].
 
@@ -49,7 +49,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 |----|-----------|---------------|
 | INV-01 | core, accessory, unique are pairwise disjoint and partition all clusters | each cluster is classified by exactly one branch on its occupancy |
 | INV-02 | CoreGeneCount + AccessoryGeneCount + UniqueGeneCount = TotalGenes | direct consequence of INV-01 |
-| INV-03 | core ⟺ occupancy ≥ floor(coreFraction·N); unique ⟺ occupancy = 1 | Tettelin/Roary definition [1][2][4] |
+| INV-03 | core ⟺ occupancy / N ≥ coreFraction (present in ≥ coreFraction of genomes); unique ⟺ occupancy = 1 | Tettelin/Roary definition [1][2][4] |
 | INV-04 | 0 ≤ GenomeFluidity ≤ 1 | each pair term ∈ [0,1]; φ is their convex average [3] |
 | INV-05 | identical gene content ⇒ φ = 0; pairwise-disjoint ⇒ φ = 1 | U_k = 0 for all pairs (resp. U_k + U_l = M_k + M_l) [3] |
 | INV-06 | CoreFraction = CoreGeneCount / TotalGenes (0 if TotalGenes = 0) | definitional |
@@ -90,7 +90,7 @@ where `U_k`, `U_l` are the numbers of gene families found only in genome `k` and
 ### 4.1 High-Level Steps
 
 1. Cluster all genes into ortholog groups (`ClusterGenes`), giving each cluster an occupancy (distinct genome count).
-2. For each cluster: core if occupancy ≥ `floor(coreFraction·N)`, else unique if occupancy = 1, else accessory.
+2. For each cluster: core if `occupancy / N ≥ coreFraction` (present in ≥ coreFraction of genomes), else unique if occupancy = 1, else accessory.
 3. Compute genome fluidity over all genome pairs from each genome's cluster-ID set [3].
 4. Estimate the Heaps' law decay exponent α of new clusters per added genome and classify Open (α<1) / Closed (α≥1) [2][6].
 
@@ -126,7 +126,7 @@ Clustering uses an in-repo k-mer (k=7) Jaccard similarity, not BLAST. The reposi
 
 **Implemented (verbatim from the cited theory/spec):**
 
-- Core = occupancy ≥ floor(coreFraction·N); unique = occupancy 1; accessory = remainder [1][2][4].
+- Core = occupancy / N ≥ coreFraction (present in ≥ coreFraction of genomes); unique = occupancy 1; accessory = remainder [1][2][4].
 - Genome fluidity φ = (2/(N(N−1)))·Σ_{k<l}(U_k+U_l)/(M_k+M_l) [3].
 - Open ⟺ Heaps decay exponent α < 1 [2][6].
 

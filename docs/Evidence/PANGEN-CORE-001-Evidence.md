@@ -109,7 +109,7 @@
 
 ### From Page et al. (2015)
 
-1. **Soft core vs hard core:** the 99% core threshold tolerates assembly error; with few genomes the integer `floor(coreFraction · N)` boundary determines membership.
+1. **Soft core vs hard core:** the 99% core threshold tolerates assembly error. Roary's rule is fractional — "a gene being in at least 99% of samples", i.e. `occupancy / N ≥ coreFraction` — **not** `floor(coreFraction · N)`. With few genomes the fractional rule is strict (N=3, 0.99 ⇒ only 3/3 is core; 2/3 = 66.7% is shell/accessory). (Corrected 2026-06-15 during PANGEN-CORE-001 validation; see report.)
 
 ---
 
@@ -155,7 +155,7 @@ With coreFraction = 1.0 → coreThreshold = 3: core = {c1}; unique (occupancy 1)
 
 ## Recommendations for Test Coverage
 
-1. **MUST Test:** core/accessory/unique partition by cluster occupancy with `coreThreshold = floor(coreFraction · N)` — Evidence: Tettelin (2005, 2008), Page et al. (2015).
+1. **MUST Test:** core/accessory/unique partition by cluster occupancy with the fractional rule `occupancy / N ≥ coreFraction` (Roary "at least 99% of samples", not `floor(coreFraction · N)`) — Evidence: Tettelin (2005, 2008), Page et al. (2015).
 2. **MUST Test:** genome fluidity equals the closed-form `φ = [2/(N(N−1))]·Σ_{k<l}(U_k+U_l)/(M_k+M_l)` on the hand-derived 3-genome example (= 0.5̄) — Evidence: Kislyuk (2011).
 3. **MUST Test:** fluidity bounds — identical gene content → 0; disjoint gene content → 1 — Evidence: Kislyuk (2011).
 4. **MUST Test:** open vs closed classification by Heaps'-law decay exponent alpha (open ⟺ alpha < 1) — Evidence: Tettelin (2008), micropan.

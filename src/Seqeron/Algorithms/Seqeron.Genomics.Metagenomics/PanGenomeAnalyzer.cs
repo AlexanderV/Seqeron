@@ -119,7 +119,6 @@ public static class PanGenomeAnalyzer
         var clusters = ClusterGenes(genomes, identityThreshold).ToList();
 
         int totalGenomes = genomes.Count;
-        int coreThreshold = (int)(totalGenomes * coreFraction);
 
         var coreGenes = new List<string>();
         var accessoryGenes = new List<string>();
@@ -127,7 +126,12 @@ public static class PanGenomeAnalyzer
 
         foreach (var cluster in clusters)
         {
-            if (cluster.GenomeCount >= coreThreshold)
+            // Roary core definition (Page et al., 2015): "a gene being in at least 99% of
+            // samples", i.e. occupancy/N >= coreFraction. This is a fractional (percentage)
+            // test, NOT floor(coreFraction*N): a 2-of-3 (66.7%) cluster is NOT core under a
+            // 0.99 threshold. A small epsilon absorbs the exact-boundary float round-off
+            // (e.g. 0.99*100 = 98.999...).
+            if (IsCoreOccupancy(cluster.GenomeCount, totalGenomes, coreFraction))
             {
                 coreGenes.Add(cluster.ClusterId);
             }
@@ -165,6 +169,23 @@ public static class PanGenomeAnalyzer
             Type: type);
 
         return new PanGenomeResult(coreGenes, accessoryGenes, uniqueGenes, genomeToGenes, stats);
+    }
+
+    // Float tolerance for the fractional core-occupancy boundary (absorbs e.g. the
+    // 0.99*100 = 98.99999999999999 round-off so a 99/100 cluster is correctly core).
+    private const double CoreOccupancyEpsilon = 1e-9;
+
+    /// <summary>
+    /// Roary core-membership test (Page et al., 2015): a gene cluster is core when it is
+    /// present in at least <paramref name="coreFraction"/> of the genomes — that is, when
+    /// its occupancy fraction <c>occupancy / totalGenomes &gt;= coreFraction</c>. This is a
+    /// fractional ("at least 99% of samples") test, not <c>floor(coreFraction*totalGenomes)</c>.
+    /// </summary>
+    private static bool IsCoreOccupancy(int occupancy, int totalGenomes, double coreFraction)
+    {
+        if (totalGenomes <= 0)
+            return false;
+        return (double)occupancy / totalGenomes >= coreFraction - CoreOccupancyEpsilon;
     }
 
     // CD-HIT default sequence-identity clustering threshold (-c option, default 0.9):
@@ -791,8 +812,10 @@ public static class PanGenomeAnalyzer
         int totalGenomes,
         double threshold = 0.99)
     {
-        int minGenomes = (int)(totalGenomes * threshold);
-        return clusters.Where(c => c.GenomeCount >= minGenomes);
+        // Roary core definition (Page et al., 2015): present in at least `threshold` of the
+        // genomes, i.e. occupancy/totalGenomes >= threshold (a fractional test, not
+        // floor(threshold*totalGenomes)).
+        return clusters.Where(c => IsCoreOccupancy(c.GenomeCount, totalGenomes, threshold));
     }
 
     /// <summary>
