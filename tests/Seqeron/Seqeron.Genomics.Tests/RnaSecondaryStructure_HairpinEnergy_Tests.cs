@@ -88,8 +88,11 @@ public class RnaSecondaryStructure_HairpinEnergy_Tests
     public void CalculateHairpinLoopEnergy_LoopShorterThanThree_ReturnsProhibitiveEnergy()
     {
         double dg = CalculateHairpinLoopEnergy("AA", 'G', 'C');
-        Assert.That(dg, Is.GreaterThanOrEqualTo(100.0),
-            "NNDB: hairpin loops < 3 nt are prohibited; energy must be prohibitive (>= 100), never a normal low value");
+        // The source assigns NO thermodynamic value (loops <3 nt are prohibited); the implementation
+        // returns an exact prohibitive sentinel of 100.0 (INV-02). Assert the exact sentinel so the
+        // test cannot pass against a wrong-but-still-large value.
+        Assert.That(dg, Is.EqualTo(100.0).Within(Tol),
+            "NNDB: hairpin loops < 3 nt are prohibited; implementation returns the exact prohibitive sentinel 100.0 (INV-02)");
     }
 
     // S1 — special-GU closure bonus (-2.2) is applied only when the flag is set AND closing pair is G-U.
@@ -144,6 +147,18 @@ public class RnaSecondaryStructure_HairpinEnergy_Tests
         double dg = CalculateHairpinLoopEnergy("CAGUGU", 'A', 'U');
         Assert.That(dg, Is.EqualTo(1.8).Within(Tol),
             "NNDB special hexaloop ACAGUGUU total = 1.8 kcal/mol (overrides model)");
+    }
+
+    // S6 — n>30 length extrapolation (Jacobson-Stockmayer): init(n>9) = init(9) + 1.75·R·T·ln(n/9).
+    // Loop = 40×A, closing G-C. init(40) = 6.4 + 1.75·1.987·310.15/1000·ln(40/9) = 8.01;
+    // terminal mismatch GAAC (closing G-C, first/last A) = -1.1 ⇒ 8.01 - 1.1 = 6.91.
+    // Evidence: hairpin.html (init(n>9)=init(9)+1.75 RT ln(n/9)); loop.txt (init9=6.4); tstack.txt (GAAC=-1.1).
+    [Test]
+    public void CalculateHairpinLoopEnergy_LongLoop_UsesLogExtrapolation()
+    {
+        double dg = CalculateHairpinLoopEnergy(new string('A', 40), 'G', 'C');
+        Assert.That(dg, Is.EqualTo(6.91).Within(1e-2),
+            "NNDB: init(40)=init(9)+1.75 RT ln(40/9)=8.01; + terminal mismatch GAAC -1.1 = 6.91 kcal/mol");
     }
 
     // C2 — Determinism (INV-1): identical inputs yield identical output.
@@ -203,6 +218,41 @@ public class RnaSecondaryStructure_HairpinEnergy_Tests
         // -2.08 (AG/UC) + -2.35 (GA/CU) + 0.45 + 0.45 = -3.53
         Assert.That(dg, Is.EqualTo(-3.53).Within(Tol),
             "NNDB: stacks AG/UC -2.08 + GA/CU -2.35 + two AU-end penalties (+0.45 each) = -3.53 kcal/mol");
+    }
+
+    // S7 — A helix terminating in a G-U wobble pair receives the +0.45 "per GU end" penalty.
+    // Pairs G-C (outer, WC), G-U (inner, wobble): one stack GG/CU = -1.53; G-C end no penalty,
+    // G-U wobble end +0.45 ⇒ -1.53 + 0.45 = -1.08.
+    // Evidence: gu-parameters.html ("Per GU end +0.45"; 5'GG3'/3'CU5' = -1.53).
+    [Test]
+    public void CalculateStemEnergy_WobbleGUEnd_AddsGuEndPenalty()
+    {
+        var pairs = new List<BasePair>
+        {
+            new(0, 3, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 2, 'G', 'U', BasePairType.Wobble),
+        };
+        double dg = CalculateStemEnergy("GGUC", pairs);
+        Assert.That(dg, Is.EqualTo(-1.08).Within(Tol),
+            "NNDB: stack GG/CU -1.53 + one GU-end penalty +0.45 = -1.08 kcal/mol");
+    }
+
+    // S8 — Special GGUC/CUGG 3-stack context: the 3 individual stacks are replaced by -4.12 total.
+    // Pairs G-C, G-U, U-G, C-G (outer→inner). Neither terminal pair (G-C / C-G) is AU/GU, so no end penalty.
+    // Evidence: gu-parameters.html note b ("5'GGUC3'/3'CUGG5' = -4.12").
+    [Test]
+    public void CalculateStemEnergy_SpecialGGUC_CUGG_Returns_Minus4_12()
+    {
+        var pairs = new List<BasePair>
+        {
+            new(0, 7, 'G', 'C', BasePairType.WatsonCrick),
+            new(1, 6, 'G', 'U', BasePairType.Wobble),
+            new(2, 5, 'U', 'G', BasePairType.Wobble),
+            new(3, 4, 'C', 'G', BasePairType.WatsonCrick),
+        };
+        double dg = CalculateStemEnergy("GGUCCUGG", pairs);
+        Assert.That(dg, Is.EqualTo(-4.12).Within(Tol),
+            "NNDB: special 5'GGUC3'/3'CUGG5' context = -4.12 kcal/mol (replaces 3 individual stacks)");
     }
 
     #endregion
