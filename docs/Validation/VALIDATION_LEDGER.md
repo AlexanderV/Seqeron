@@ -173,3 +173,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 48 | POP-SELECT-001 | PopGen | ✅ | 🟡 | ✅ CLEAN | - |
 | 49 | POP-ANCESTRY-001 | PopGen | ✅ | ✅ | ✅ CLEAN | - |
 | 50 | POP-ROH-001 | PopGen | ✅ | ✅ | ✅ CLEAN | - |
+| 51 | META-FUNC-001 | Metagenomics | ✅ | 🟡 | ✅ CLEAN | - |
