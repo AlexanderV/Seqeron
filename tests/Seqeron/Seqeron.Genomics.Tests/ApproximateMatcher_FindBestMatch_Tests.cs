@@ -249,6 +249,34 @@ public class ApproximateMatcher_FindBestMatch_Tests
         });
     }
 
+    // S2b — tie-break with a LATER equal-distance window: leftmost minimum still wins.
+    // This distinguishes "leftmost minimum" from "any minimum": position 0 is NOT a minimum
+    // (it must be skipped over), and positions 1..4 all tie at the minimum distance, so the
+    // returned position (1) can only be correct if the leftmost minimum is chosen.
+    [Test]
+    [Description("Tie-break: a later window equals the minimum but the leftmost minimum (not pos 0) is returned")]
+    public void FindBestMatch_LaterTiedMinimum_ReturnsLeftmostMinimumNotFirstWindow()
+    {
+        // GAATAAAT vs AAAA: window distances by position are
+        //   0:GAAT=2, 1:AATA=1, 2:ATAA=1, 3:TAAA=1, 4:AAAT=1.
+        // Minimum distance is 1, first achieved at position 1 (the leftmost minimum); later
+        // windows tie at 1 but must NOT replace it. Position 0 is not a minimum.
+        var result = ApproximateMatcher.FindBestMatch("GAATAAAT", "AAAA");
+
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result!.Value.Distance, Is.EqualTo(1),
+                "Minimum Hamming distance over all 4-mer windows of GAATAAAT vs AAAA is 1");
+            Assert.That(result!.Value.Position, Is.EqualTo(1),
+                "Leftmost minimum-distance window is position 1 (AATA), not the first window (pos 0, distance 2)");
+            Assert.That(result!.Value.MatchedSequence, Is.EqualTo("AATA"),
+                "Leftmost minimal window is the 4-mer AATA");
+            Assert.That(result!.Value.IsExact, Is.False,
+                "Distance 1 is not an exact match");
+        });
+    }
+
     // C1 — empty / too-short inputs return null.
     [Test]
     [Description("Empty inputs or pattern longer than sequence return null")]
