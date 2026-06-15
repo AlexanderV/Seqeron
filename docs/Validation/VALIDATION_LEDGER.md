@@ -188,3 +188,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 63 | GENOMIC-REPEAT-001 | Analysis | ✅ | ❌→✅ | ✅ CLEAN | - |
 | 64 | GENOMIC-COMMON-001 | Analysis | 🟡 | 🟡 | ✅ CLEAN | - |
 | 65 | GENOMIC-MOTIFS-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
+| 66 | SEQ-RNACOMP-001 | Composition | ✅ | ✅ | ✅ CLEAN | - |
