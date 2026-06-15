@@ -134,6 +134,20 @@ public class EpigeneticsAnalyzer_Methylation_Tests
             "A non-ACGT base in the H position leaves the context undetermined");
     }
 
+    // C1b — Non-ACGT base in the THIRD (second H) position → undetermined.
+    // C A N : C, H=A (valid), then N ∉ {A,C,G,T}; not G (so not CHG) and not H
+    // (so not CHH) → unclassified. Covers the CHH invalid-third-base branch.
+    // Evidence: non-ACGT bases in context positions give an undetermined context
+    // (Cornish-Bowden 1985 H = A/C/T; Bismark context geometry).
+    [Test]
+    public void GetMethylationContext_NonAcgtThirdBase_ReturnsNull()
+    {
+        var ctx = EpigeneticsAnalyzer.GetMethylationContext("CAN", 0);
+
+        Assert.That(ctx, Is.Null,
+            "A non-ACGT base in the third context position leaves CHG/CHH undetermined");
+    }
+
     // C2 — Index out of range → null
     [Test]
     public void GetMethylationContext_IndexOutOfRange_ReturnsNull()
@@ -186,8 +200,13 @@ public class EpigeneticsAnalyzer_Methylation_Tests
 
         var sites = EpigeneticsAnalyzer.FindMethylationSites(sequence).ToList();
 
-        Assert.That(sites.All(s => char.ToUpperInvariant(sequence[s.Position]) == 'C'),
-            Is.True, "Every site position must index a cytosine (0-based)");
+        Assert.Multiple(() =>
+        {
+            // Guard against a vacuously-true All(...) on an empty result.
+            Assert.That(sites, Is.Not.Empty, "Sequence must yield sites to test positions");
+            Assert.That(sites.All(s => char.ToUpperInvariant(sequence[s.Position]) == 'C'),
+                Is.True, "Every site position must index a cytosine (0-based)");
+        });
     }
 
     // M15 — Null and empty input → empty

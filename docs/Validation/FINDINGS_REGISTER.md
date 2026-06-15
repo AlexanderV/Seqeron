@@ -28,6 +28,7 @@ Each finding is placed in exactly one category:
 | A8 | PHYLO-DIST-001 | Evidence §5.3 prose rounds pure-transversion K2P to 0.31726; exact is 0.317162 (test tolerance fine). | Correct Evidence prose. |
 | A9 | CRISPR-PAM-001 | Reverse-strand `PamSite.TargetStart` is a revComp-string index while `Position` is forward — internally consistent but easy to misread. | Add an XML `<remarks>` caveat on the field (no behaviour change). |
 | A10 | META-CLASS-001 | Docs/spec conflate the implemented flat best-hit with Kraken/LCA (overclaim). | De-overclaim the description/XML docs/spec so it honestly states "best-hit, no LCA" (the LCA *implementation* is NOT-POSSIBLE → §C1). |
+| A11 | EPIGEN-METHYL-001 (Phase-2) | Test gaps only (no algorithm defect): CHH invalid-third-base branch (`CAN`→null) untested; `FindMethylationSites` positions test used a vacuously-true `All(...)`. | Added `GetMethylationContext_NonAcgtThirdBase_ReturnsNull`; guarded the positions test with `Is.Not.Empty`. Suite 6478 green. |
 | — | CRISPR-OFF-001, SEQ-ENTROPY-001, PROTMOTIF-FIND-001, KMER-FIND-001 | Backwards comment / rounding typo / stale citation / weak asserts. | **Already fixed mid-campaign** (here for completeness). |
 
 ## B. FEASIBLE → IMPLEMENT (own context, strict tests first, project patterns)
