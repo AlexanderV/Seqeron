@@ -53,23 +53,52 @@ public class SequenceStatistics_CalculateDinucleotide_Tests
             "rho_AA = f_AA/(f_A*f_A) = 1/(1*1) = 1.0, the no-bias baseline (INV-03)");
     }
 
-    // S4 — division-by-zero guard: in GATTACA there is no C-before-G context but base C is present;
-    //      use a sequence missing a base so an expected product is 0. AATT has no G or C, so any
-    //      hypothetical GC would have expected 0; we verify the present dinucleotides and that no
-    //      ratio is non-finite. Construct ACGT-only-missing-G: ATAT -> bases A,T only.
-    // Evidence: expected=0 guard returns ratio 0 (Evidence corner case).
+    // S4 — robustness when some bases are absent: a present dinucleotide always has both of its
+    //      constituent bases present, so the expected product f_X*f_Y is strictly positive and the
+    //      ratio is finite (no division by zero) even when other bases (here G, C) never occur.
+    //      "ATAT": A=2,T=2,G=0,C=0. Dinucs: AT,TA,AT. f_AT=2/3, f_A=2/4, f_T=2/4 -> rho_AT=(2/3)/(1/4)=8/3.
+    //      f_TA=1/3, rho_TA=(1/3)/((2/4)(2/4))=4/3. Independently recomputed with exact rationals.
+    // Evidence: Karlin PMC126251 (odds-ratio definition); no infinity arises because expected>0 for
+    //           every dinucleotide that actually occurs.
     [Test]
     public void CalculateDinucleotideRatios_AbsentBaseContext_DoesNotProduceInfinity()
     {
-        // "ATAT": A=2,T=2,G=0,C=0. Dinucs: AT,TA,AT. f_AT=2/3, f_A=2/4, f_T=2/4 -> rho_AT=(2/3)/(0.25)=8/3.
         var ratios = SequenceStatistics.CalculateDinucleotideRatios("ATAT");
 
         Assert.Multiple(() =>
         {
             Assert.That(ratios["AT"], Is.EqualTo(8.0 / 3.0).Within(Tolerance),
                 "rho_AT = (2/3)/((2/4)(2/4)) = 8/3");
+            Assert.That(ratios["TA"], Is.EqualTo(4.0 / 3.0).Within(Tolerance),
+                "rho_TA = (1/3)/((2/4)(2/4)) = 4/3");
+            Assert.That(ratios.Keys, Is.EquivalentTo(new[] { "AT", "TA" }),
+                "only dinucleotides over present bases appear; absent bases G and C yield no keys");
             Assert.That(ratios.Values, Has.All.Matches<double>(double.IsFinite),
-                "no ratio is infinite/NaN even though G and C are absent (expected=0 guard)");
+                "no ratio is infinite/NaN even though G and C are absent");
+        });
+    }
+
+    // S5 — non-alphabet (ambiguous) bases are excluded from ratio inputs. "ATGNCG": the N breaks
+    //      the GN and NC contexts, leaving valid dinucleotides AT, TG, CG (each f = 1/3). Single-base
+    //      frequencies are over the 5 unambiguous bases (A1,T1,G2,C1; N excluded), N_total = 5.
+    //      rho_AT = (1/3)/((1/5)(1/5)) = 25/3; rho_TG = (1/3)/((1/5)(2/5)) = 25/6;
+    //      rho_CG = (1/3)/((1/5)(2/5)) = 25/6. Independently recomputed with exact rationals.
+    // Evidence: Karlin PMC126251 (normalized base/dinucleotide frequencies over the valid alphabet).
+    [Test]
+    public void CalculateDinucleotideRatios_AmbiguousBase_ExcludedFromCounts()
+    {
+        var ratios = SequenceStatistics.CalculateDinucleotideRatios("ATGNCG");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ratios.Keys, Is.EquivalentTo(new[] { "AT", "TG", "CG" }),
+                "GN and NC are excluded; only ACGT dinucleotides remain");
+            Assert.That(ratios["AT"], Is.EqualTo(25.0 / 3.0).Within(Tolerance),
+                "rho_AT = (1/3)/((1/5)(1/5)) = 25/3");
+            Assert.That(ratios["TG"], Is.EqualTo(25.0 / 6.0).Within(Tolerance),
+                "rho_TG = (1/3)/((1/5)(2/5)) = 25/6");
+            Assert.That(ratios["CG"], Is.EqualTo(25.0 / 6.0).Within(Tolerance),
+                "rho_CG = (1/3)/((1/5)(2/5)) = 25/6");
         });
     }
 
@@ -146,6 +175,27 @@ public class SequenceStatistics_CalculateDinucleotide_Tests
                 "empty input yields empty dictionary");
             Assert.That(SequenceStatistics.CalculateDinucleotideFrequencies("A"), Is.Empty,
                 "length < 2 yields empty dictionary");
+        });
+    }
+
+    // S5f — non-alphabet (ambiguous) bases excluded from frequency counts. "ATGNCG": dinucleotides
+    //       GN and NC contain N and are dropped, leaving AT, TG, CG over 3 valid positions, each 1/3.
+    //       Independently recomputed (count/(valid positions)).
+    // Evidence: Karlin PMC126251 (frequency over valid dinucleotide positions); ambiguous units excluded.
+    [Test]
+    public void CalculateDinucleotideFrequencies_AmbiguousBase_ExcludedFromCounts()
+    {
+        var freq = SequenceStatistics.CalculateDinucleotideFrequencies("ATGNCG");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(freq.Keys, Is.EquivalentTo(new[] { "AT", "TG", "CG" }),
+                "GN and NC contain the ambiguous base N and are excluded");
+            Assert.That(freq["AT"], Is.EqualTo(1.0 / 3.0).Within(Tolerance), "f_AT = 1/3");
+            Assert.That(freq["TG"], Is.EqualTo(1.0 / 3.0).Within(Tolerance), "f_TG = 1/3");
+            Assert.That(freq["CG"], Is.EqualTo(1.0 / 3.0).Within(Tolerance), "f_CG = 1/3");
+            Assert.That(freq.Values.Sum(), Is.EqualTo(1.0).Within(Tolerance),
+                "valid-position frequencies still sum to 1.0 (INV-01)");
         });
     }
 
