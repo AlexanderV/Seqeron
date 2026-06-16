@@ -217,3 +217,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 92 | MOTIF-REGULATORY-001 | Matching | ✅ | ✅ | ✅ CLEAN | - |
 | 93 | MOTIF-GENERATE-001 | Matching | 🟡 | ✅ | ✅ CLEAN | - |
 | 94 | KMER-ASYNC-001 | K-mer Analysis | ✅ | 🟡 | ✅ CLEAN | - |
+| 95 | KMER-UNIQUE-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
