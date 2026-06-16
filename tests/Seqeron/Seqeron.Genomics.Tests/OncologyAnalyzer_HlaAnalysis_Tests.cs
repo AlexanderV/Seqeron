@@ -75,6 +75,36 @@ public class OncologyAnalyzer_HlaAnalysis_Tests
         });
     }
 
+    // M4b — every WHO expression suffix {N,L,S,C,A,Q} maps to its documented status and round-trips
+    // in the normalized Name. Letters/meanings verbatim from hla.alleles.org "Assigning Suffixes":
+    // N=Null(not expressed), L=Low cell-surface, S=Secreted (soluble, not on surface),
+    // C=Cytoplasm (not on surface), A=Aberrant (doubt whether expressed), Q=Questionable.
+    [TestCase("HLA-A*01:01:01:02N", HlaExpressionSuffix.Null)]
+    [TestCase("HLA-A*24:02:01:02L", HlaExpressionSuffix.Low)]
+    [TestCase("HLA-B*44:02:01:02S", HlaExpressionSuffix.Secreted)]
+    [TestCase("HLA-A*01:01:01:01C", HlaExpressionSuffix.Cytoplasm)]
+    [TestCase("HLA-A*01:01:01:01A", HlaExpressionSuffix.Aberrant)]
+    [TestCase("HLA-A*32:11Q", HlaExpressionSuffix.Questionable)]
+    public void ParseHlaAllele_EachExpressionSuffix_MapsAndRoundTrips(string name, HlaExpressionSuffix expected)
+    {
+        HlaAllele allele = OncologyAnalyzer.ParseHlaAllele(name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(allele.Suffix, Is.EqualTo(expected), "Suffix letter maps to the WHO expression status.");
+            Assert.That(allele.Name, Is.EqualTo(name), "Normalized Name re-appends the suffix verbatim (INV-02).");
+        });
+    }
+
+    // M4c — the suffix letter is matched case-insensitively (lowercase 'l' => Low).
+    [Test]
+    public void ParseHlaAllele_LowercaseSuffix_MapsCaseInsensitively()
+    {
+        HlaAllele allele = OncologyAnalyzer.ParseHlaAllele("HLA-A*24:02:01:02l");
+
+        Assert.That(allele.Suffix, Is.EqualTo(HlaExpressionSuffix.Low), "Suffix is matched case-insensitively.");
+    }
+
     // M5 — missing 'HLA-' prefix is invalid.
     [Test]
     public void ParseHlaAllele_MissingPrefix_ThrowsFormatException()
@@ -113,6 +143,17 @@ public class OncologyAnalyzer_HlaAnalysis_Tests
     {
         Assert.That(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*0A:01"), NUnit.Framework.Throws.TypeOf<FormatException>(),
             "HLA fields must be digit groups; '0A' contains a letter.");
+    }
+
+    // M8c — the gene/field separator '*' is mandatory and must bound a gene and a field block:
+    // missing '*', empty gene ('HLA-*...'), and empty field block ('HLA-A*') are all invalid.
+    [TestCase("HLA-A02:01")]    // no '*' at all
+    [TestCase("HLA-*02:01")]    // '*' present but gene token empty
+    [TestCase("HLA-A*")]        // '*' present but field block empty
+    public void ParseHlaAllele_MissingOrEmptyGeneFieldSeparator_ThrowsFormatException(string name)
+    {
+        Assert.That(() => OncologyAnalyzer.ParseHlaAllele(name), NUnit.Framework.Throws.TypeOf<FormatException>(),
+            "WHO nomenclature requires a gene and a field block separated by '*'.");
     }
 
     // C2 — lowercase gene/prefix is normalized to upper-case.

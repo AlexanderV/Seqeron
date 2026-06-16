@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 52 / 148 processed.
+**Progress:** 53 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -267,3 +267,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 142 | ONCO-PHYLO-001 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
 | 143 | ONCO-CCF-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 144 | ONCO-HETERO-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 145 | ONCO-HLA-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
