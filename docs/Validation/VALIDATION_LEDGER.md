@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 42 / 148 processed.
+**Progress:** 43 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -208,3 +208,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 83 | SEQ-COMPLEX-COMPRESS-001 | Complexity | 🟡 | ❌→✅ | ✅ CLEAN | - |
 | 84 | COMPGEN-RBH-001 | Comparative | 🟡 | ✅ | ✅ CLEAN | - |
 | 85 | COMPGEN-COMPARE-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
+| 86 | COMPGEN-REVERSAL-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
