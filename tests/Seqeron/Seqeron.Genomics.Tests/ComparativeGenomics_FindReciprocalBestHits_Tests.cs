@@ -29,6 +29,16 @@ public class ComparativeGenomics_FindReciprocalBestHits_Tests
     private const string TtBlock = "TTTTGGGGCCCCAAAA";      // unrelated 12 k-mers
     private const string GcBlock = "GGGGCCCCAAAATTTT";      // unrelated 12 k-mers
 
+    // Partial-overlap pair for the COVERAGE gate (independent of the identity gate):
+    //   AcPrefix / AcPrefixAlt share the 6-mer-content prefix AAAAACCCCC...; by hand (k = 5):
+    //   AcPrefix    k-mers = {AAAAA,AAAAC,AAACC,AACCC,ACCCC,CCCCC,CCCCG,CCCGG,CCGGG,CGGGG,GGGGG} (11)
+    //   AcPrefixAlt k-mers = {AAAAA,AAAAC,AAACC,AACCC,ACCCC,CCCCC,CCCCT,CCCTT,CCTTT,CTTTT,TTTTT} (11)
+    //   shared = {AAAAA,AAAAC,AAACC,AACCC,ACCCC,CCCCC} = 6  =>  identity = 6/16 = 0.375 (>= 0.3),
+    //   coverage = 6/11 = 0.5455 (>= 0.5 default, but < 0.6). So minCoverage 0.6 rejects on coverage
+    //   ALONE while identity still passes — isolating the >= 50% coverage gate of Moreno-Hagelsieb (2008).
+    private const string AcPrefix = "AAAAACCCCCGGGGG";     // 11 k-mers
+    private const string AcPrefixAlt = "AAAAACCCCCTTTTT";  // 11 k-mers; 6 shared with AcPrefix
+
     #endregion
 
     #region FindReciprocalBestHits — MUST Tests
@@ -156,6 +166,37 @@ public class ComparativeGenomics_FindReciprocalBestHits_Tests
         });
     }
 
+    // M7 — A pair passing the identity gate but FAILING the coverage gate is rejected (coverage gate is
+    // a distinct, independent filter). Source: Moreno-Hagelsieb & Latimer (2008): "coverage of at least
+    // 50% of any of the protein sequences in the alignments" is a separate qualifying requirement.
+    [Test]
+    public void FindReciprocalBestHits_BelowMinCoverage_RejectsPair()
+    {
+        // Arrange: AcPrefix vs AcPrefixAlt => identity 0.375 (>= 0.3), coverage 6/11 = 0.5455.
+        var g1 = new[] { Gene("a1", "G1", AcPrefix) };
+        var g2 = new[] { Gene("b1", "G2", AcPrefixAlt) };
+
+        // Control: with the default coverage gate (0.5) the pair qualifies and is returned, and its
+        // reported coverage is the actual 6/11 — proving the gate, not the sequences, drives M7.
+        var withDefaultCoverage = ComparativeGenomics.FindReciprocalBestHits(g1, g2).ToList();
+        // Act: raise the coverage gate above 0.5455 while leaving identity (0.375) qualifying.
+        var withHighCoverage =
+            ComparativeGenomics.FindReciprocalBestHits(g1, g2, minIdentity: 0.3, minCoverage: 0.6).ToList();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(withDefaultCoverage, Has.Count.EqualTo(1),
+                "identity 0.375 >= 0.3 and coverage 0.5455 >= 0.5 => the pair qualifies by default");
+            Assert.That(withDefaultCoverage[0].Identity, Is.EqualTo(6.0 / 16.0).Within(1e-10),
+                "identity = shared/union = 6/16 = 0.375 (hand-computed)");
+            Assert.That(withDefaultCoverage[0].Coverage, Is.EqualTo(6.0 / 11.0).Within(1e-10),
+                "coverage = shared/min(kmers) = 6/11 = 0.5455 (hand-computed)");
+            Assert.That(withHighCoverage, Is.Empty,
+                "coverage 0.5455 < minCoverage 0.6 => rejected by the coverage gate even though identity passes");
+        });
+    }
+
     #endregion
 
     #region FindReciprocalBestHits — SHOULD Tests
@@ -225,6 +266,24 @@ public class ComparativeGenomics_FindReciprocalBestHits_Tests
             Assert.That(pairs, Has.Count.EqualTo(1), "only the sequenced gene a1 can be an RBH");
             Assert.That(pairs.Any(p => p.Gene1Id == "a2"), Is.False, "a2 has no sequence => skipped");
         });
+    }
+
+    // S4 — Sequences shorter than k = 5 have an empty k-mer set => similarity 0 => never qualify.
+    // Source: Reciprocal_Best_Hits.md §6.1 (k-mer set empty for len < k); the gate then rejects them.
+    [Test]
+    public void FindReciprocalBestHits_SequencesShorterThanK_NeverQualify()
+    {
+        // Arrange: identical 4-nt sequences (< k = 5) => k-mer set empty => identity 0, coverage 0.
+        var g1 = new[] { Gene("a1", "G1", "ACGT") };
+        var g2 = new[] { Gene("b1", "G2", "ACGT") };
+
+        // Act: even with the gate dropped to 0, similarity 0 < any positive identity floor; use 0.0
+        // to show it is the empty k-mer set (similarity 0), not the gate, that excludes the pair.
+        var pairs = ComparativeGenomics.FindReciprocalBestHits(g1, g2, minIdentity: 0.3).ToList();
+
+        // Assert
+        Assert.That(pairs, Is.Empty,
+            "sequence length 4 < k = 5 => empty k-mer set => similarity 0 < minIdentity => no RBH pair");
     }
 
     #endregion

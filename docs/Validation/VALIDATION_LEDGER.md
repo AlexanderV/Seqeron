@@ -206,3 +206,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 81 | SEQ-COMPLEX-WINDOW-001 | Complexity | 🟡 | ✅ | ✅ CLEAN | - |
 | 82 | SEQ-COMPLEX-DUST-001 | Complexity | ✅ | ✅ | ✅ CLEAN | - |
 | 83 | SEQ-COMPLEX-COMPRESS-001 | Complexity | 🟡 | ❌→✅ | ✅ CLEAN | - |
+| 84 | COMPGEN-RBH-001 | Comparative | 🟡 | ✅ | ✅ CLEAN | - |

@@ -73,6 +73,7 @@
 | M4 | Below-threshold rejected | minIdentity = 1.0 on a Jaccard-0.667 superstring pair | empty (no qualifying hit) | Moreno-Hagelsieb (2008) ≥50% coverage / significance gate |
 | M5 | Empty genome | genome2 empty | empty | RBH requires a between-genome pair |
 | M6 | Null inputs throw | null genome1 / null genome2 | `ArgumentNullException` | Repository contract (sibling methods) |
+| M7 | Coverage gate (independent of identity gate) | id 0.375 (≥0.3) but coverage 6/11=0.5455; minCoverage=0.6 | kept by default; empty at minCoverage 0.6 | Moreno-Hagelsieb & Latimer (2008) ≥50% coverage gate |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -81,6 +82,7 @@
 | S1 | Matching property | Three independent identical pairs | each gene id distinct across pairs | INV-2 |
 | S2 | Reciprocity property | Pairs from forward call are reciprocal under reversed call | every pair symmetric | INV-1 |
 | S3 | Gene without sequence skipped | a2 has null sequence | a2 never paired | similarity undefined without sequence |
+| S4 | Sequence shorter than k=5 | identical 4-nt sequences | empty (similarity 0) | empty k-mer set ⇒ never qualifies |
 
 ### 4.3 COULD Tests (Nice to have)
 
