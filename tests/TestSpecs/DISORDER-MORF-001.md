@@ -69,7 +69,7 @@
 
 | ID | Test Case | Description | Expected Outcome | Evidence |
 |----|-----------|-------------|------------------|----------|
-| M1 | Ordered dip in disorder | 15 ordered L (score 0.298) flanked by 20 disordered P each side | Exactly one MoRF covering the L run (positions 20–34) | PMC2570644 "dips"; Mohan length |
+| M1 | Ordered dip in disorder | 30 ordered L (per-residue 0.298) flanked by 25 disordered P each side | Exactly one MoRF over the smoothed dip (positions 29–50, length 22, score 0.275934) | PMC2570644 "dips"; Mohan length |
 | M2 | Fully ordered sequence | 40 L (all ordered) | No MoRFs (no surrounding disorder) | PMC2570644 |
 | M3 | Fully disordered sequence | 40 P (all disordered) | No MoRFs (no ordered dip) | PMC2570644 |
 | M4 | Dip too short | 8 ordered L flanked by 20 P each side | No MoRFs (< 10 residues) | Mohan 2006 length |
@@ -149,7 +149,7 @@
 
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
-| M1 | ✅ | Exact coordinates 20–34 |
+| M1 | ✅ | Exact coordinates 29–50 (smoothed dip) |
 | M2 | ✅ | Empty |
 | M3 | ✅ | Empty |
 | M4 | ✅ | Empty (too short) |
