@@ -97,7 +97,9 @@
 | 2 | DNMT3A | 0.01 | — | not CHIP (VAF < 0.02) | kept |
 | 3 | EGFR | 0.30 | — | not CHIP (not a CHIP gene) | kept |
 | 4 | EGFR | 0.30 | yes | n/a (gene rule) | removed (WBC-matched ⇒ CH) |
-| 5 | TP53 | 0.40 | no | CHIP candidate (driver gene) | kept (not in WBC ⇒ tumor) |
+| 5 | TP53 | 0.40 | no | CHIP candidate (driver gene) | removed (gene+VAF heuristic, rule b) |
+
+> **Note on row 5 (origin caveat).** Under a *strict matched-WBC-only* origin call (Razavi 2019), a CH-gene variant **absent** from the matched WBC would be retained as a candidate tumour variant — the matched-WBC presence test, not gene identity, is the definitive origin test, and "the exact relationship between VAF and variant origin remains unclear" (Arango-Argoty 2025). `FilterCHIP` is deliberately **conservative**: rule (b) is a labelled gene+VAF *heuristic fallback* (see `Clonal_Hematopoiesis_Filtering.md` §2.2) that removes a CH-driver-gene variant meeting VAF ≥ τ even with no WBC evidence, exactly as rows 1 and 5 show. The heuristic over-removes relative to the strict matched-WBC definition; callers who want the strict rule pass an empty/custom `chipGenes` panel so only matched-WBC subtraction applies. The earlier "kept" entry for row 5 contradicted both row 1 and the documented contract and was corrected on 2026-06-16.
 
 ---
 

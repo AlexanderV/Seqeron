@@ -263,3 +263,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 138 | ONCO-MHC-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 139 | ONCO-CTDNA-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
+| 141 | ONCO-CHIP-001 | Oncology | 🟡 | 🟡 | ✅ CLEAN | - |

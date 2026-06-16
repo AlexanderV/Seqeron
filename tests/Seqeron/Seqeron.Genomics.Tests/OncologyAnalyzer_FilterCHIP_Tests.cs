@@ -96,8 +96,9 @@ public class OncologyAnalyzer_FilterCHIP_Tests
         // Act
         IReadOnlyList<OncologyAnalyzer.ChipVariant> chip = OncologyAnalyzer.IdentifyCHIPVariants(variants);
 
-        // Assert
-        Assert.That(chip, Has.Count.EqualTo(genes.Length),
+        // Assert: every canonical gene must be returned (not merely the right count) — a bug that
+        // dropped one gene but duplicated another would still pass a count-only check.
+        Assert.That(chip.Select(v => v.Gene), Is.EquivalentTo(genes),
             "All canonical CH driver genes (Steensma 2015 Fig 2A / Genovese 2014) at VAF >= 0.02 are CHIP.");
     }
 
@@ -337,6 +338,49 @@ public class OncologyAnalyzer_FilterCHIP_Tests
         var cfDna = new[] { Var("EGFR", 0.30) };
         Assert.That(() => OncologyAnalyzer.FilterCHIP(cfDna, null!),
             NUnit.Framework.Throws.TypeOf<ArgumentNullException>(), "Null matched-WBC collection is rejected.");
+    }
+
+    // V4b — domain: FilterCHIP minVaf must lie in (0, 1] (same contract as IdentifyCHIPVariants).
+    [Test]
+    public void FilterCHIP_MinVafOutOfRange_Throws()
+    {
+        var cfDna = new[] { Var("DNMT3A", 0.05) };
+        var wbc = Array.Empty<OncologyAnalyzer.ChipVariant>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => OncologyAnalyzer.FilterCHIP(cfDna, wbc, minVaf: 0.0),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(), "minVaf 0 is out of (0, 1].");
+            Assert.That(() => OncologyAnalyzer.FilterCHIP(cfDna, wbc, minVaf: 1.5),
+                NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(), "minVaf 1.5 is out of (0, 1].");
+        });
+    }
+
+    // V7 — domain (contract §3.3): minWbcAltReads must be >= 1; a value below 1 is rejected.
+    [Test]
+    public void FilterCHIP_MinWbcAltReadsBelowOne_Throws()
+    {
+        var cfDna = new[] { Var("EGFR", 0.30) };
+        var wbc = Array.Empty<OncologyAnalyzer.ChipVariant>();
+        Assert.That(() => OncologyAnalyzer.FilterCHIP(cfDna, wbc, minWbcAltReads: 0),
+            NUnit.Framework.Throws.TypeOf<ArgumentOutOfRangeException>(),
+            "minWbcAltReads must be at least 1 (Wan 2020 per-locus alt-read evidence); 0 is rejected.");
+    }
+
+    // M8b — Razavi 2019 boundary: the WBC alt-read cutoff is inclusive (>=). A WBC locus with exactly
+    // minWbcAltReads alt reads counts as present, so the matched cfDNA variant is subtracted.
+    [Test]
+    public void FilterCHIP_WbcAltReadsExactlyAtCutoff_Removed()
+    {
+        // Arrange: matched locus, WBC has exactly 1 alt read (default cutoff = 1).
+        var cfDna = new[] { Var("EGFR", 0.30, chrom: "7", pos: 55259515, refA: "T", altA: "G") };
+        var wbc = new[] { Var("EGFR", 0.30, chrom: "7", pos: 55259515, refA: "T", altA: "G", altReads: 1) };
+
+        // Act
+        IReadOnlyList<OncologyAnalyzer.ChipVariant> kept = OncologyAnalyzer.FilterCHIP(cfDna, wbc);
+
+        // Assert
+        Assert.That(kept, Is.Empty,
+            "A WBC locus with alt reads == cutoff (1) is 'present' (inclusive >=), so the cfDNA variant is removed.");
     }
 
     // V5 — empty cfDNA input yields an empty result.
