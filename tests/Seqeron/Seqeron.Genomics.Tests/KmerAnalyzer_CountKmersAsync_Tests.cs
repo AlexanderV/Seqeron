@@ -32,7 +32,8 @@ public class KmerAnalyzer_CountKmersAsync_Tests
 
     /// <summary>
     /// M1: Async result is identical to the synchronous reference (GTAGAGCTGT, k=3).
-    /// Evidence: Wikipedia table — k=3 yields 8 total, 6 unique k-mers; INV-1.
+    /// Evidence: Wikipedia table — k=3 yields 8 total k-mers; the 8 windows
+    /// GTA,TAG,AGA,GAG,AGC,GCT,CTG,TGT are all distinct (8 distinct, hand-derived); INV-1.
     /// </summary>
     [Test]
     public async Task CountKmersAsync_Gtagagctgt_K3_EqualsSynchronousReference()
@@ -115,6 +116,25 @@ public class KmerAnalyzer_CountKmersAsync_Tests
             Assert.That(counts.Values.Sum(), Is.EqualTo(expectedTotal),
                 $"k={k}: total k-mers must equal L−k+1 = {expectedTotal} (Wikipedia, INV-2).");
         }
+    }
+
+    /// <summary>
+    /// M4b: k=1 distinct count = 4 on GTAGAGCTGT (the four bases G,T,A,C).
+    /// Evidence: Wikipedia GTAGAGCTGT table states k=1 → "4 distinct k-mers" — the only
+    /// distinct figure the source gives for this sequence; carried through the async path.
+    /// </summary>
+    [Test]
+    public async Task CountKmersAsync_Gtagagctgt_K1_HasFourDistinctBases()
+    {
+        var counts = await KmerAnalyzer.CountKmersAsync(Gtagagctgt, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(counts.Count, Is.EqualTo(4),
+                "k=1 distinct = 4 (bases G,T,A,C) — Wikipedia GTAGAGCTGT table.");
+            Assert.That(counts.Values.Sum(), Is.EqualTo(10),
+                "k=1 total = L−k+1 = 10 (Wikipedia formula, INV-2).");
+        });
     }
 
     #endregion
