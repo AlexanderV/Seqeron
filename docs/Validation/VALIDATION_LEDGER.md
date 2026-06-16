@@ -238,3 +238,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 113 | GENOMIC-SIMILARITY-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
 | 114 | GENOMIC-ORF-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
 | 115 | ONCO-SOMATIC-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 116 | ONCO-VAF-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
