@@ -224,6 +224,8 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
                 "TotalReads < 1 is invalid");
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClassifyClonality(new[] { V(120, 100, 2) }, 0.8),
                 "AltReads > TotalReads is invalid");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClassifyClonality(new[] { V(-1, 100, 2) }, 0.8),
+                "AltReads < 0 is invalid (lower bound of [0, N])");
         });
     }
 
@@ -237,6 +239,8 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
                 "LocalCopyNumber < 1 is invalid");
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClassifyClonality(new[] { V(50, 100, 2, 3) }, 0.8),
                 "Multiplicity > LocalCopyNumber is invalid");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClassifyClonality(new[] { V(50, 100, 2, 0) }, 0.8),
+                "Multiplicity < 1 is invalid (lower bound of [1, q])");
         });
     }
 
@@ -297,6 +301,8 @@ public class OncologyAnalyzer_ClassifyClonality_Tests
                 "CCF > 1 is invalid");
             Assert.Throws<ArgumentException>(() => OncologyAnalyzer.IdentifyClonalMutations(new[] { double.NaN }),
                 "CCF NaN is invalid");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.IdentifyClonalMutations(new[] { -0.1 }),
+                "CCF < 0 is invalid (lower bound of [0, 1])");
         });
     }
 
