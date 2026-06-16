@@ -219,3 +219,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 94 | KMER-ASYNC-001 | K-mer Analysis | ✅ | 🟡 | ✅ CLEAN | - |
 | 95 | KMER-UNIQUE-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
 | 96 | KMER-GENERATE-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
+| 97 | KMER-BOTH-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
