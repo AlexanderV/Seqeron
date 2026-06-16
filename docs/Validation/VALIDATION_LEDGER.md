@@ -214,3 +214,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 89 | COMPGEN-DOTPLOT-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
 | 90 | MOTIF-DISCOVER-001 | Matching | ✅ | 🟡 | ✅ CLEAN | - |
 | 91 | MOTIF-SHARED-001 | Matching | ✅ | ✅ | ✅ CLEAN | - |
+| 92 | MOTIF-REGULATORY-001 | Matching | ✅ | ✅ | ✅ CLEAN | - |

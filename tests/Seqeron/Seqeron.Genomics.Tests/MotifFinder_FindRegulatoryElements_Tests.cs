@@ -253,25 +253,29 @@ public class MotifFinder_FindRegulatoryElements_Tests
     [Test]
     public void FindRegulatoryElements_MultipleDistinctElements_AllReported()
     {
-        // TATAAA at 0 (TATA Box) ; AGGAGG at 6 (Shine-Dalgarno).
-        var names = Scan("TATAAAAGGAGG").Select(e => e.Name).ToArray();
+        // "TATAAAAGGAGG": TATAAA at index 0 (TATA Box); AGGAGG at index 6 (Shine-Dalgarno).
+        var hits = Scan("TATAAAAGGAGG");
+        var tata = hits.Where(e => e.Name == "TATA Box").ToArray();
+        var sd = hits.Where(e => e.Name == "Shine-Dalgarno").ToArray();
         Assert.Multiple(() =>
         {
-            Assert.That(names, Does.Contain("TATA Box"), "TATAAA at index 0 is a TATA box.");
-            Assert.That(names, Does.Contain("Shine-Dalgarno"), "AGGAGG at index 6 is a Shine-Dalgarno site.");
+            Assert.That(tata.Length, Is.EqualTo(1), "Exactly one TATA box (TATAAA at index 0).");
+            Assert.That(tata[0].Position, Is.EqualTo(0), "TATAAA begins at index 0.");
+            Assert.That(sd.Length, Is.EqualTo(1), "Exactly one Shine-Dalgarno (AGGAGG at index 6).");
+            Assert.That(sd[0].Position, Is.EqualTo(6), "AGGAGG begins at index 6 in TATAAAAGGAGG.");
         });
     }
 
-    // S3 — A sequence with no library consensus yields no elements.
+    // S3 — A sequence with no library consensus yields no elements at all.
     [Test]
     public void FindRegulatoryElements_NoConsensusPresent_ReturnsNoElements()
     {
-        // GC-only stretch: contains none of the 12 consensus strings.
+        // GGGGCCCCGCGC contains NONE of the 12 consensus strings (no GGGCGG; no AT-rich
+        // TATAAA/TATAAT/AATAAA/TTGACA; no CANNTG since there is no "CA..TG"; etc.), so the
+        // whole scan must be empty, not merely the two probes checked before.
         var hits = Scan("GGGGCCCCGCGC");
-        Assert.That(hits.Where(e => e.Name == "GC Box"), Is.Empty,
-            "GGGGCCCCGCGC does not contain GGGCGG, so no GC Box.");
-        Assert.That(hits.Where(e => e.Name == "TATA Box"), Is.Empty,
-            "No AT-rich consensus present, so no TATA box.");
+        Assert.That(hits, Is.Empty,
+            "A sequence containing none of the 12 library consensus strings yields an empty result.");
     }
 
     #endregion
