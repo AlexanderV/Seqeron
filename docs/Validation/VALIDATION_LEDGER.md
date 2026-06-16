@@ -212,3 +212,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 87 | COMPGEN-CLUSTER-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
 | 88 | COMPGEN-ANI-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
 | 89 | COMPGEN-DOTPLOT-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
+| 90 | MOTIF-DISCOVER-001 | Matching | ✅ | 🟡 | ✅ CLEAN | - |

@@ -85,16 +85,35 @@ public class MotifFinder_DiscoverMotifs_Tests
         });
     }
 
-    // M5 — minCount filter: every returned motif satisfies Count >= minCount. INV-03.
+    // M5 — minCount filter both INCLUDES count>=minCount k-mers and EXCLUDES count<minCount ones.
+    // In "ACGTACGTAA" (N=10), k=4 the 4-mer multiset is:
+    //   ACGT -> {0,4} (count 2), CGTA -> {1,5} (count 2),
+    //   GTAC -> {2}, TACG -> {3}, GTAA -> {6} (each count 1).
+    // With minCount=2 exactly {ACGT, CGTA} must be returned and the three singletons excluded.
+    // (Verified by hand window enumeration.) This is a non-vacuous filter test: it would fail
+    // both an implementation that returns nothing and one that ignores the minCount filter.
     [Test]
-    public void DiscoverMotifs_MinCountTwo_ReturnsOnlyKmersAtOrAboveThreshold()
+    public void DiscoverMotifs_MinCountTwo_KeepsAtOrAboveThresholdAndDropsBelow()
     {
-        var sequence = new DnaSequence("ATGCAAAA");
+        var sequence = new DnaSequence("ACGTACGTAA");
 
         var motifs = MotifFinder.DiscoverMotifs(sequence, k: 4, minCount: 2).ToList();
 
-        Assert.That(motifs.All(m => m.Count >= 2), Is.True,
-            "With minCount=2 no k-mer occurring only once may be returned (INV-03).");
+        var returned = motifs.Select(m => m.Sequence).OrderBy(s => s).ToArray();
+        Assert.Multiple(() =>
+        {
+            // INV-03: every returned motif satisfies Count >= minCount.
+            Assert.That(motifs.All(m => m.Count >= 2), Is.True,
+                "With minCount=2 no k-mer occurring only once may be returned (INV-03).");
+            // Exactly the two count-2 k-mers are returned (inclusion side).
+            Assert.That(returned, Is.EqualTo(new[] { "ACGT", "CGTA" }),
+                "Only ACGT (count 2) and CGTA (count 2) reach minCount=2 in ACGTACGTAA.");
+            // The three count-1 k-mers are excluded (exclusion side).
+            Assert.That(returned, Does.Not.Contain("GTAC")
+                                    .And.Not.Contain("TACG")
+                                    .And.Not.Contain("GTAA"),
+                "Singletons GTAC, TACG, GTAA occur once and must be filtered out.");
+        });
     }
 
     #endregion
