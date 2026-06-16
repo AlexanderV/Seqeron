@@ -51,16 +51,18 @@ public class ComparativeGenomics_GenerateDotPlot_Tests
             "All length-4 words matched at all positions: ACGT->{0,4} at x in {0,4} plus the unique internal words on the diagonal (dottup, INV-01).");
     }
 
-    // M3 — Self-comparison main diagonal: ACGT vs itself, wordSize=1 must contain every (i,i)
-    // for 0<=i<=3 ("the main diagonal represents the sequence's alignment with itself", Wikipedia;
-    // INV-02). ACGT has distinct letters so the diagonal is exactly the full match set.
+    // M3 — Self-comparison main diagonal: ACGT vs itself, wordSize=1. "The main diagonal represents
+    // the sequence's alignment with itself" (Wikipedia; INV-02). ACGT has four DISTINCT residues, so
+    // the only equal-character pairs are (i,i): the exact match set is the full main diagonal and
+    // nothing else. Assert the exact set (not a superset) — a wrong impl emitting extra off-diagonal
+    // dots, or missing a diagonal dot, would fail.
     [Test]
     public void GenerateDotPlot_SelfComparison_ContainsMainDiagonal()
     {
         var dots = Dots("ACGT", "ACGT", wordSize: 1);
 
-        Assert.That(dots, Is.SupersetOf(new[] { (0, 0), (1, 1), (2, 2), (3, 3) }),
-            "Self-comparison must contain the full main diagonal (i,i) (Gibbs & McIntyre 1970; INV-02).");
+        Assert.That(dots, Is.EquivalentTo(new[] { (0, 0), (1, 1), (2, 2), (3, 3) }),
+            "Self-comparison of distinct-residue ACGT is exactly the full main diagonal (i,i) (Wikipedia main diagonal; INV-02).");
     }
 
     // M4 — No shared residues: AAAA vs CCCC, wordSize=1. A dot is placed only on a match, so with
@@ -140,6 +142,19 @@ public class ComparativeGenomics_GenerateDotPlot_Tests
             Assert.That(dots.Select(d => d.x), Is.All.Matches<int>(x => x % 4 == 0),
                 "Every reported x must be a multiple of stepSize=4 (INV-04).");
         });
+    }
+
+    // S3 — Default wordSize locks the documented EMBOSS dottup default of 10 (dottup manpage:
+    // "Default value: 10"). A length-10 self-comparison of "ACGTACGTAC" has exactly one length-10
+    // word start (x=0), and that word occurs once in seq2 (x=0), so the default-parameter call must
+    // yield exactly {(0,0)}. Guards against the default silently drifting from 10.
+    [Test]
+    public void GenerateDotPlot_DefaultWordSize_IsTenAndMatchesFullWord()
+    {
+        var dots = ComparativeGenomics.GenerateDotPlot("ACGTACGTAC", "ACGTACGTAC").ToHashSet();
+
+        Assert.That(dots, Is.EquivalentTo(new[] { (0, 0) }),
+            "Default wordSize=10 (EMBOSS dottup default): one length-10 word, one occurrence => exactly {(0,0)}.");
     }
 
     // S2 — Case-insensitivity: acgtacgt vs ACGTACGT, wordSize=4 must give the same match set as M2
