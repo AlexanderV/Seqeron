@@ -231,6 +231,21 @@ public class OncologyAnalyzer_AnalyzeHeterogeneity_Tests
             "Exactly 2 of 4 CCFs are < 0.95 (0.40, 0.50) => fraction 0.5 (Landau 2013).");
     }
 
+    // M9b — subclonal threshold boundary: CCF exactly 0.95 is clonal (strict CCF < 0.95, Landau 2013).
+    //       CCFs {0.94, 0.95, 0.96, 0.97}: only 0.94 is strictly below 0.95 => fraction 1/4 = 0.25.
+    [Test]
+    public void AnalyzeHeterogeneity_SubclonalThresholdBoundary_ExcludesExactly0Point95()
+    {
+        var vafs = new[] { 0.47, 0.475, 0.48, 0.485 };
+        var ccf = new[] { 0.94, 0.95, 0.96, 0.97 };
+
+        OncologyAnalyzer.HeterogeneityResult result =
+            OncologyAnalyzer.AnalyzeHeterogeneity(vafs, ccf, clusterCount: 2);
+
+        Assert.That(result.SubclonalFraction, Is.EqualTo(0.25).Within(Tolerance),
+            "Subclonal iff CCF < 0.95 (strict); CCF=0.95 is clonal, so only 0.94 counts => 1/4 = 0.25 (Landau 2013).");
+    }
+
     // M10 — aggregate consistency: MATH component equals CalculateITH on the same VAFs
     [Test]
     public void AnalyzeHeterogeneity_MathComponent_MatchesCalculateITH()
