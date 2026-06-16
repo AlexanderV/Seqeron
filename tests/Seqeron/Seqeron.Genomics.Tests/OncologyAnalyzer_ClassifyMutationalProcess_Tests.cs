@@ -259,6 +259,49 @@ public class OncologyAnalyzer_ClassifyMutationalProcess_Tests
             "Negative exposures are invalid.");
     }
 
+    // NaN exposure is invalid input (contract §3.3: "a negative or NaN exposure → ArgumentException").
+    [Test]
+    public void ClassifyMutationalProcess_NaNExposure_Throws()
+    {
+        var exposures = new (string, double)[] { ("SBS1", double.NaN) };
+
+        Assert.Throws<ArgumentException>(
+            () => ClassifyMutationalProcess(exposures),
+            "A NaN exposure is invalid.");
+    }
+
+    // NaN cutoff is rejected before the [0,1) range check (contract §3.3).
+    [Test]
+    public void ClassifyMutationalProcess_NaNCutoff_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ClassifyMutationalProcess(CanonicalDataset(), contributionCutoff: double.NaN),
+            "A NaN cutoff is outside the valid [0,1) interval.");
+    }
+
+    // Tie-break ordering: two processes with equal aggregated contribution are ordered by the
+    // MutationalProcess enum value (Aging=1 before Apobec=2), so dominant is the lower enum.
+    // Aging (SBS1=0.50) and APOBEC (SBS2=0.50) tie at 0.50 each.
+    [Test]
+    public void ClassifyMutationalProcess_EqualContributions_OrderedByProcessEnum()
+    {
+        var exposures = new (string, double)[] { ("SBS1", 50), ("SBS2", 50) }; // total 100
+
+        var result = ClassifyMutationalProcess(exposures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ContributionOf(result, MutationalProcess.Aging), Is.EqualTo(0.50).Within(1e-10),
+                "Aging = SBS1 50/100 = 0.50.");
+            Assert.That(ContributionOf(result, MutationalProcess.Apobec), Is.EqualTo(0.50).Within(1e-10),
+                "APOBEC = SBS2 50/100 = 0.50.");
+            Assert.That(result.ActiveProcesses[0].Process, Is.EqualTo(MutationalProcess.Aging),
+                "On equal contribution the lower MutationalProcess enum (Aging) sorts first.");
+            Assert.That(result.DominantProcess, Is.EqualTo(MutationalProcess.Aging),
+                "Tie is broken deterministically by process enum: Aging precedes APOBEC.");
+        });
+    }
+
     [Test]
     public void ClassifyMutationalProcess_CutoffOutOfRange_Throws()
     {
