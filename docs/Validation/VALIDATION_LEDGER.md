@@ -235,3 +235,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 110 | SEQ-CODON-FREQ-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 111 | SEQ-SUMMARY-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
 | 112 | GENOMIC-TANDEM-001 | Analysis | ✅ | 🟡 | ✅ CLEAN (DUPLICATE-OF REP-TANDEM-001) | - |
+| 113 | GENOMIC-SIMILARITY-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
