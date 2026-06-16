@@ -218,5 +218,55 @@ public class SequenceStatistics_CalculateEntropyProfile_Tests
             "case-folded counting → lowercase profile equals uppercase profile");
     }
 
+    // C2 — degenerate N is counted as its own symbol (no special-casing).
+    // ACGN has 4 distinct equally-frequent letters → H = log2(4) = 2.0.
+    // Expected value derived from H = -Σ pᵢ log₂ pᵢ (Shannon 1948), independent of code;
+    // documents the §3.3 behavior "degenerate/N symbols are counted as their own symbol".
+    [Test]
+    public void CalculateShannonEntropy_NCountedAsOwnSymbol_ReturnsLog2OfDistinctCount()
+    {
+        double h = SequenceStatistics.CalculateShannonEntropy("ACGN");
+
+        Assert.That(h, Is.EqualTo(2.0).Within(Tolerance),
+            "A,C,G,N each once → 4 distinct equal symbols → H = log2(4) = 2 bits");
+    }
+
+    // C3 — no T↔U normalization: T and U are distinct symbols.
+    // ATUG has 4 distinct equally-frequent letters → H = log2(4) = 2.0 (not 3-symbol log2(3)).
+    // Expected value from the Shannon formula; documents §3.3 "no T↔U normalization".
+    [Test]
+    public void CalculateShannonEntropy_TAndUAreDistinctSymbols_NoNormalization()
+    {
+        double h = SequenceStatistics.CalculateShannonEntropy("ATUG");
+
+        Assert.That(h, Is.EqualTo(2.0).Within(Tolerance),
+            "A,T,U,G distinct (no T↔U merge) → 4 equal symbols → H = log2(4) = 2 bits");
+    }
+
+    // C4 — non-letter characters are ignored (only char.IsLetter symbols counted).
+    // "A-C-G-T" contributes 4 distinct equal letters → H = log2(4) = 2.0, dashes ignored.
+    // Expected value from the Shannon formula; documents §3.3 "non-letters ignored".
+    [Test]
+    public void CalculateShannonEntropy_NonLetterCharacters_AreIgnored()
+    {
+        double h = SequenceStatistics.CalculateShannonEntropy("A-C-G-T");
+
+        Assert.That(h, Is.EqualTo(2.0).Within(Tolerance),
+            "dashes ignored; A,C,G,T each once → H = log2(4) = 2 bits");
+    }
+
+    // INV-2 (general k>4) — entropy is alphabet-sensitive; a protein-style window with
+    // 8 distinct equal residues yields log2(8) = 3 bits, exceeding the 2-bit DNA ceiling.
+    // Expected value from H = log₂ k at the uniform distribution (Wikipedia max=log₂ n);
+    // documents §6.2 "protein windows can exceed 2 bits since k > 4".
+    [Test]
+    public void CalculateShannonEntropy_EightDistinctSymbols_ExceedsTwoBits()
+    {
+        double h = SequenceStatistics.CalculateShannonEntropy("ACDEFGHI");
+
+        Assert.That(h, Is.EqualTo(3.0).Within(Tolerance),
+            "8 distinct equal residues → H = log2(8) = 3 bits (> 2-bit DNA max, INV-02 with k=8)");
+    }
+
     #endregion
 }
