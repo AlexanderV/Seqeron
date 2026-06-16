@@ -124,7 +124,7 @@
 
 | File | Role | Test Count |
 |------|------|------------|
-| OncologyAnalyzer_DetectMSI_Tests.cs | canonical | 22 |
+| OncologyAnalyzer_DetectMSI_Tests.cs | canonical | 25 |
 
 ### 5.5 Phase 7 Work Queue
 

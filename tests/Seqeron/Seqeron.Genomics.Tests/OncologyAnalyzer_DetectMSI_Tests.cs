@@ -122,7 +122,28 @@ public class OncologyAnalyzer_DetectMSI_Tests
             "0.0 < 0.20 -> MSS");
     }
 
-    // S4 — score outside [0,1] or non-finite throws.
+    // M5b — just below the 20% boundary (0.19999) is MSS: the cutoff is ">= 20%", so a value
+    // strictly below 0.20 must NOT be MSI-H. This guards against an off-by-epsilon (> vs >=) regression.
+    [Test]
+    public void ClassifyMSIStatus_JustBelow20Percent_ReturnsMss()
+    {
+        OncologyAnalyzer.MsiStatus status = OncologyAnalyzer.ClassifyMSIStatus(0.19999);
+
+        Assert.That(status, Is.EqualTo(OncologyAnalyzer.MsiStatus.MSS),
+            "0.19999 < 0.20 -> MSS (MSIsensor2 cutoff 'msi score >= 20%')");
+    }
+
+    // M7b — upper bound score 1.0 is a valid input and is MSI-H (>= 0.20).
+    [Test]
+    public void ClassifyMSIStatus_One_ReturnsMsiHigh()
+    {
+        OncologyAnalyzer.MsiStatus status = OncologyAnalyzer.ClassifyMSIStatus(1.0);
+
+        Assert.That(status, Is.EqualTo(OncologyAnalyzer.MsiStatus.MSI_High),
+            "1.0 >= 0.20 -> MSI-H; score == 1.0 is a valid in-range input (INV-01 upper bound)");
+    }
+
+    // S4 — score outside [0,1] or non-finite throws (each guarded branch: >1, <0, NaN, +Inf, -Inf).
     [Test]
     public void ClassifyMSIStatus_InvalidScore_Throws()
     {
@@ -134,6 +155,10 @@ public class OncologyAnalyzer_DetectMSI_Tests
                 "score < 0 is invalid");
             Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyMSIStatus(double.NaN),
                 "NaN score is invalid");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyMSIStatus(double.PositiveInfinity),
+                "+Infinity score is invalid (non-finite)");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyMSIStatus(double.NegativeInfinity),
+                "-Infinity score is invalid (non-finite)");
         });
     }
 
@@ -260,6 +285,26 @@ public class OncologyAnalyzer_DetectMSI_Tests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.DetectMSI(Array.Empty<bool>()),
             "no valid loci -> MSI score undefined");
+    }
+
+    #endregion
+
+    #region Sourced constants
+
+    // Lock the source-backed thresholds so a silent constant change is caught.
+    // MSIsensor2 README: "msi high: msi score >= 20%". Boland 1998: MSI-H >=2/5, MSI-L exactly 1/5.
+    [Test]
+    public void Constants_MatchSources()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.MsiHighScoreThreshold, Is.EqualTo(0.20).Within(1e-12),
+                "MSIsensor2 recommended cutoff is 20% (>=)");
+            Assert.That(OncologyAnalyzer.BethesdaMsiHighMarkerCount, Is.EqualTo(2),
+                "Boland 1998: >=2 of 5 markers -> MSI-H");
+            Assert.That(OncologyAnalyzer.BethesdaMsiLowMarkerCount, Is.EqualTo(1),
+                "Boland 1998: exactly 1 of 5 markers -> MSI-L");
+        });
     }
 
     #endregion
