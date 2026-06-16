@@ -142,6 +142,7 @@ public class OncologyAnalyzer_IdentifyDriverMutations_Tests
         {
             Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.20).Within(1e-10), "2/10 missense at codon 12");
             Assert.That(c.Role, Is.Not.EqualTo(Role.Oncogene), "exactly 0.20 does not exceed the strict threshold");
+            Assert.That(c.Role, Is.EqualTo(Role.Ambiguous), "neither criterion exceeds 0.20 → ambiguous");
         });
     }
 
@@ -157,6 +158,79 @@ public class OncologyAnalyzer_IdentifyDriverMutations_Tests
         var c = OncologyAnalyzer.ClassifyGene(muts);
 
         Assert.That(c.Role, Is.EqualTo(Role.Ambiguous), "neither fraction exceeds 0.20 → ambiguous");
+    }
+
+    // Dual-pass tie-break — both criteria exceed 0.20; dominant fraction wins (Assumption #1; INV-02/03).
+    // Construction: pos X carries 3 missense (recurrent) and pos Y 3 missense (recurrent) → f_OG = 6/10 = 0.60;
+    // 3 nonsense → f_TSG = 3/10 = 0.30; 1 Other pads the denominator. Both > 0.20, f_OG dominant → Oncogene.
+    // Evidence: Vogelstein 2013 well-documented genes "far surpass" one criterion; dominant-signal resolution.
+    [Test]
+    public void ClassifyGene_DualPassOncogeneDominant_ClassifiesOncogene()
+    {
+        var muts = new List<GM>
+        {
+            new("MIX", 10, Cons.Missense), new("MIX", 10, Cons.Missense), new("MIX", 10, Cons.Missense),
+            new("MIX", 20, Cons.Missense), new("MIX", 20, Cons.Missense), new("MIX", 20, Cons.Missense),
+            new("MIX", 30, Cons.Nonsense), new("MIX", 31, Cons.Nonsense), new("MIX", 32, Cons.Nonsense),
+            new("MIX", 40, Cons.Other),
+        };
+
+        var c = OncologyAnalyzer.ClassifyGene(muts);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.60).Within(1e-10), "6/10 recurrent missense");
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.30).Within(1e-10), "3/10 truncating");
+            Assert.That(c.Role, Is.EqualTo(Role.Oncogene), "both > 0.20; f_OG (0.60) dominates f_TSG (0.30)");
+        });
+    }
+
+    // Dual-pass exact tie — both fractions equal and > 0.20 → Ambiguous (Assumption #1: exact tie is ambiguous).
+    // Construction: pos X carries 3 missense (recurrent) → f_OG = 3/10 = 0.30; 3 nonsense → f_TSG = 3/10 = 0.30;
+    // 4 Other pad the denominator. f_OG == f_TSG, both > 0.20 → genuinely ambiguous.
+    [Test]
+    public void ClassifyGene_DualPassExactTie_ClassifiesAmbiguous()
+    {
+        var muts = new List<GM>
+        {
+            new("TIE", 10, Cons.Missense), new("TIE", 10, Cons.Missense), new("TIE", 10, Cons.Missense),
+            new("TIE", 30, Cons.Nonsense), new("TIE", 31, Cons.Nonsense), new("TIE", 32, Cons.Nonsense),
+            new("TIE", 40, Cons.Other), new("TIE", 41, Cons.Other), new("TIE", 42, Cons.Other), new("TIE", 43, Cons.Other),
+        };
+
+        var c = OncologyAnalyzer.ClassifyGene(muts);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.30).Within(1e-10), "3/10 recurrent missense");
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.30).Within(1e-10), "3/10 truncating");
+            Assert.That(c.Role, Is.EqualTo(Role.Ambiguous), "exact tie of two passing criteria → ambiguous");
+        });
+    }
+
+    // Other-consequence counts toward the denominator only (neither truncating nor missense).
+    // Evidence: Vogelstein 2013 — fractions are over ALL recorded mutations in the gene; synonymous/other
+    // changes dilute both fractions. Here 2 nonsense among N=10 → f_TSG = 0.20 (not > 0.20) → not a TSG.
+    [Test]
+    public void ClassifyGene_OtherConsequence_CountsInDenominatorOnly()
+    {
+        var muts = new List<GM>
+        {
+            new("DEN", 10, Cons.Nonsense), new("DEN", 11, Cons.Nonsense),
+            new("DEN", 20, Cons.Missense), new("DEN", 21, Cons.Missense), // distinct → not recurrent
+        };
+        for (int i = 0; i < 6; i++) muts.Add(new GM("DEN", 50 + i, Cons.Other));
+        // N = 10; truncating = 2 → f_TSG = 0.20 (NOT > 0.20); recurrent missense = 0
+
+        var c = OncologyAnalyzer.ClassifyGene(muts);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.MutationCount, Is.EqualTo(10), "Other mutations are part of the denominator");
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.20).Within(1e-10), "2 truncating / 10 total");
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.00).Within(1e-10), "no recurrent missense");
+            Assert.That(c.Role, Is.EqualTo(Role.Ambiguous), "0.20 does not exceed the strict threshold");
+        });
     }
 
     // C1 — Empty gene mutations → Ambiguous, fractions 0.
