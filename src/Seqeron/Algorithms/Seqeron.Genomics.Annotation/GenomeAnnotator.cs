@@ -242,29 +242,123 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences.
+    /// Consensus Shine-Dalgarno motifs (purine-rich, complementary to the anti-SD
+    /// 3' tail of 16S rRNA 5'-...PyACCUCCUUA-3'). Longest first so the highest score wins.
+    /// Source: Shine &amp; Dalgarno (1975) Nature 254:34-38; full consensus AGGAGG.
     /// </summary>
+    private static readonly string[] ShineDalgarnoMotifs =
+        { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+
+    /// <summary>
+    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on the FORWARD
+    /// strand only. The motif AGGAGG (and shorter variants) is sought upstream of every
+    /// forward-strand ORF start codon at an aligned spacing within [minDistance, maxDistance].
+    /// </summary>
+    /// <remarks>
+    /// This overload preserves the original forward-strand-only behaviour. To also report
+    /// reverse-strand Shine-Dalgarno hits, use
+    /// <see cref="FindRibosomeBindingSitesBothStrands"/>.
+    /// </remarks>
     public static IEnumerable<(int position, string sequence, double score)> FindRibosomeBindingSites(
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
         int maxDistance = 15)
     {
-        // Consensus Shine-Dalgarno: AGGAGG (binds to 3' end of 16S rRNA)
-        string[] sdMotifs = { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+        if (string.IsNullOrEmpty(dnaSequence))
+            yield break;
 
-        var orfs = FindOrfs(dnaSequence, minLength: 30).ToList();
+        var orfs = FindOrfs(dnaSequence, minLength: 30)
+            .Where(o => !o.IsReverseComplement)
+            .ToList();
 
-        foreach (var orf in orfs.Where(o => !o.IsReverseComplement))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance))
+        {
+            yield return (hit.position, hit.sequence, hit.score);
+        }
+    }
+
+    /// <summary>
+    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on BOTH strands,
+    /// reporting the strand of each hit. Forward-strand hits are scanned exactly as in
+    /// <see cref="FindRibosomeBindingSites"/>; reverse-strand hits are found by applying the
+    /// same scan to the reverse complement (i.e. the mRNA orientation of reverse-strand
+    /// genes) and mapping the motif position back to a forward-strand genomic coordinate.
+    /// </summary>
+    /// <remarks>
+    /// For a reverse-strand gene the mRNA is the reverse complement of the forward genomic
+    /// strand, so the AGGAGG Shine-Dalgarno motif lies upstream of that gene's start codon
+    /// on the reverse strand — which is downstream (higher forward coordinate) of the ORF on
+    /// the forward strand. The reported <c>position</c> is the forward-strand index of the
+    /// motif's 5' base; <c>sequence</c> is the motif as read 5'→3' on the reverse strand
+    /// (so reverse-strand hits read AGGAGG, GGAGG, … just like forward hits); <c>strand</c>
+    /// is '+' or '-'.
+    /// </remarks>
+    public static IEnumerable<(int position, string sequence, double score, char strand)>
+        FindRibosomeBindingSitesBothStrands(
+        string dnaSequence,
+        int upstreamWindow = 20,
+        int minDistance = 4,
+        int maxDistance = 15)
+    {
+        if (string.IsNullOrEmpty(dnaSequence))
+            yield break;
+
+        var allOrfs = FindOrfs(dnaSequence, minLength: 30).ToList();
+
+        // Forward strand: scan the genomic sequence as-is.
+        var forwardOrfs = allOrfs.Where(o => !o.IsReverseComplement).ToList();
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance))
+        {
+            yield return (hit.position, hit.sequence, hit.score, '+');
+        }
+
+        // Reverse strand: the reverse complement is the mRNA orientation of reverse-strand
+        // genes, where the SD motif again reads 5'→3' upstream of the (now forward-facing)
+        // start codon. We rebuild the reverse-complement ORFs in that coordinate space and
+        // reuse the identical scan, then map each motif's reverse-strand coordinate back to a
+        // forward-strand genomic coordinate.
+        int len = dnaSequence.Length;
+        string revComp = DnaSequence.GetReverseComplementString(dnaSequence);
+
+        var reverseOrfsInRevComp = allOrfs
+            .Where(o => o.IsReverseComplement)
+            // FindOrfs already mapped Start/End into forward coordinates; undo that mapping to
+            // recover the ORF position within the reverse-complement string used for scanning.
+            .Select(o => o with { Start = len - o.End, End = len - o.Start })
+            .ToList();
+
+        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance))
+        {
+            // hit.position is the 5' base of the motif within the reverse-complement string;
+            // the motif occupies revComp[position, position+len) ↔ forward
+            // [len - position - motifLen, len - position).
+            int forwardPosition = len - hit.position - hit.sequence.Length;
+            yield return (forwardPosition, hit.sequence, hit.score, '-');
+        }
+    }
+
+    /// <summary>
+    /// Scans a single strand sequence for Shine-Dalgarno motifs upstream of the supplied ORFs'
+    /// start codons. Positions are reported in the coordinate space of <paramref name="sequence"/>.
+    /// </summary>
+    private static IEnumerable<(int position, string sequence, double score)> ScanStrandForShineDalgarno(
+        string sequence,
+        IReadOnlyList<OpenReadingFrame> orfs,
+        int upstreamWindow,
+        int minDistance,
+        int maxDistance)
+    {
+        foreach (var orf in orfs)
         {
             int searchStart = Math.Max(0, orf.Start - upstreamWindow);
             int searchEnd = orf.Start - minDistance;
 
             if (searchEnd <= searchStart) continue;
 
-            string upstream = dnaSequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
+            string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
 
-            foreach (string motif in sdMotifs)
+            foreach (string motif in ShineDalgarnoMotifs)
             {
                 int pos = upstream.IndexOf(motif, StringComparison.Ordinal);
                 while (pos >= 0)

@@ -51,6 +51,36 @@ public class GenomeAnnotator_Gene_Tests
         return padding + sdMotif + spacer + orf;
     }
 
+    /// <summary>
+    /// Reverse-complement of a nucleotide string (A↔T, C↔G, reversed).
+    /// </summary>
+    private static string ReverseComplement(string s)
+    {
+        var map = new Dictionary<char, char> { ['A'] = 'T', ['T'] = 'A', ['C'] = 'G', ['G'] = 'C' };
+        var chars = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+            chars[i] = map[s[s.Length - 1 - i]];
+        return new string(chars);
+    }
+
+    /// <summary>
+    /// Builds a forward-strand genomic sequence that harbours a single REVERSE-strand gene
+    /// with a Shine-Dalgarno motif at the given aligned spacing.
+    /// </summary>
+    /// <remarks>
+    /// Constructed as the reverse complement of <see cref="CreateSequenceWithSd"/>. The
+    /// reverse complement of that forward SD+ORF construct, read as a forward genomic
+    /// sequence, contains exactly one reverse-strand ORF whose SD motif reads 5'→3' on the
+    /// reverse strand. On the forward strand the SD region appears as the anti-SD complement
+    /// (e.g. AGGAGG → CCTCCT). The reverse SD's forward-strand 5'-base coordinate equals
+    /// (length − 10 − sdMotif.Length), since the SD sits at offset 10 in the source construct.
+    /// </remarks>
+    private static string CreateSequenceWithReverseStrandSd(
+        string sdMotif, int distanceToStart, int orfLength = 100)
+    {
+        return ReverseComplement(CreateSequenceWithSd(sdMotif, distanceToStart, orfLength));
+    }
+
     #endregion
 
     #region PredictGenes - Must Tests
@@ -429,6 +459,158 @@ public class GenomeAnnotator_Gene_Tests
 
         // Should be empty because no ORF to associate with
         Assert.That(sites, Is.Empty);
+    }
+
+    #endregion
+
+    #region FindRibosomeBindingSitesBothStrands - Reverse-Strand Tests (C6)
+
+    /// <summary>
+    /// R1: Reverse-strand Shine-Dalgarno is reported with the correct forward coordinate,
+    /// motif (read 5'→3' on the reverse strand) and strand label.
+    /// Source: Shine &amp; Dalgarno (1975) Nature 254:34-38 — consensus AGGAGG;
+    ///         the mRNA of a reverse-strand gene is the reverse complement of the forward
+    ///         genomic strand, so the SD motif lies on the reverse strand upstream of that
+    ///         gene's start codon (https://en.wikipedia.org/wiki/Shine-Dalgarno_sequence).
+    /// Hand computation: source construct places AGGAGG at offset 10, aligned spacing 8.
+    ///         Reverse complement length = 10+6+8+303 = 327. Reverse SD 5'-base in forward
+    ///         coordinates = 327 − 10 − 6 = 311. Forward bases there are the anti-SD CCTCCT.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_ReverseStrandConsensus_Detected()
+    {
+        string sequence = CreateSequenceWithReverseStrandSd("AGGAGG", distanceToStart: 8, orfLength: 100);
+        // Guard the hand computation: the forward strand carries the anti-SD, not AGGAGG.
+        Assert.That(sequence.Substring(311, 6), Is.EqualTo("CCTCCT"),
+            "Forward strand at the reverse SD locus must read the anti-SD complement CCTCCT");
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        var reverseHit = sites.SingleOrDefault(s => s.strand == '-' && s.sequence == "AGGAGG");
+        Assert.Multiple(() =>
+        {
+            Assert.That(reverseHit, Is.Not.EqualTo(default((int, string, double, char))),
+                "Reverse-strand AGGAGG must be reported");
+            Assert.That(reverseHit.position, Is.EqualTo(311),
+                "Reverse SD 5'-base forward coordinate must be 327 − 10 − 6 = 311");
+            Assert.That(reverseHit.strand, Is.EqualTo('-'),
+                "Hit must be labelled reverse strand");
+            Assert.That(reverseHit.score, Is.EqualTo(1.0).Within(1e-12),
+                "Full AGGAGG consensus scores 6/6 = 1.0");
+        });
+    }
+
+    /// <summary>
+    /// R2: The forward-only overload must NOT report a reverse-strand SD (behaviour preserved).
+    /// The reverse-only construct has zero forward ORFs, so the legacy method yields nothing.
+    /// This pins down that wrong strand handling (e.g. scanning the forward strand for AGGAGG)
+    /// would change the legacy output.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSites_ForwardOnly_IgnoresReverseStrandSd()
+    {
+        string sequence = CreateSequenceWithReverseStrandSd("AGGAGG", distanceToStart: 8, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSites(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites, Is.Empty,
+            "Forward-only helper must not report reverse-strand SD (no forward ORF present)");
+    }
+
+    /// <summary>
+    /// R3: Both-strands overload reports BOTH a forward and a reverse SD when both genes exist.
+    /// The construct concatenates a forward SD+ORF and a reverse SD+ORF (reverse part offset by
+    /// the forward part's length). Exact coordinates derived by hand.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_ForwardAndReverse_BothReported()
+    {
+        string forwardPart = CreateSequenceWithSd("AGGAGG", distanceToStart: 8, orfLength: 100); // len 327, fwd SD at 10
+        string reversePart = CreateSequenceWithReverseStrandSd("AGGAGG", distanceToStart: 8, orfLength: 100); // len 327, rev SD at 311 within itself
+        string sequence = forwardPart + reversePart;
+        int offset = forwardPart.Length; // 327
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(
+            sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sites.Any(s => s.strand == '+' && s.sequence == "AGGAGG" && s.position == 10), Is.True,
+                "Forward AGGAGG at position 10 must be reported on '+' strand");
+            Assert.That(sites.Any(s => s.strand == '-' && s.sequence == "AGGAGG" && s.position == offset + 311), Is.True,
+                "Reverse AGGAGG at forward position 327+311=638 must be reported on '-' strand");
+        });
+    }
+
+    /// <summary>
+    /// R4: Reverse-strand SD at exactly maxDistance (15 bp aligned spacing) is detected.
+    /// Source: Wikipedia Shine-Dalgarno — functional aligned spacing window upper bound.
+    /// Reverse construct length = 10+6+15+303 = 334; reverse SD 5'-base forward coord = 334−10−6 = 318.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_ReverseAtMaxDistance_Detected()
+    {
+        string sequence = CreateSequenceWithReverseStrandSd("AGGAGG", distanceToStart: 15, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(
+            sequence, upstreamWindow: 30, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites.Any(s => s.strand == '-' && s.sequence == "AGGAGG" && s.position == 318), Is.True,
+            "Reverse AGGAGG at aligned spacing 15 (forward pos 318) must be detected");
+    }
+
+    /// <summary>
+    /// R5: Reverse-strand SD beyond maxDistance (16 bp) is NOT detected.
+    /// Source: Wikipedia Shine-Dalgarno — beyond 15 bp is outside the functional window.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_ReverseBeyondMaxDistance_NotDetected()
+    {
+        string sequence = CreateSequenceWithReverseStrandSd("AGGAGG", distanceToStart: 16, orfLength: 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(
+            sequence, upstreamWindow: 30, minDistance: 4, maxDistance: 15).ToList();
+
+        Assert.That(sites.Any(s => s.strand == '-' && s.sequence == "AGGAGG"), Is.False,
+            "Reverse AGGAGG at aligned spacing 16 (above maxDistance) must be filtered out");
+    }
+
+    /// <summary>
+    /// R6: No ORF on either strand ⇒ no hits from the both-strands overload.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_NoOrfs_ReturnsEmpty()
+    {
+        string sequence = "CCCCAGGAGGCCCC" + new string('C', 100);
+
+        var sites = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(sequence).ToList();
+
+        Assert.That(sites, Is.Empty);
+    }
+
+    /// <summary>
+    /// R7: Both-strands overload reproduces the legacy forward-only result for a pure
+    /// forward construct (same positions, sequences and scores), with every hit on '+'.
+    /// Guards against the both-strands path altering forward behaviour.
+    /// </summary>
+    [Test]
+    public void FindRibosomeBindingSitesBothStrands_ForwardConstruct_MatchesLegacyForwardHits()
+    {
+        string sequence = CreateSequenceWithSd("AGGAGG", distanceToStart: 8, orfLength: 100);
+
+        var legacy = GenomeAnnotator.FindRibosomeBindingSites(
+                sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15)
+            .OrderBy(s => s.position).ThenBy(s => s.sequence).ToList();
+        var both = GenomeAnnotator.FindRibosomeBindingSitesBothStrands(
+                sequence, upstreamWindow: 20, minDistance: 4, maxDistance: 15)
+            .OrderBy(s => s.position).ThenBy(s => s.sequence).ToList();
+
+        Assert.That(both.All(s => s.strand == '+'), Is.True,
+            "A pure forward construct must yield only '+' hits");
+        Assert.That(both.Select(s => (s.position, s.sequence, s.score)).ToList(),
+            Is.EqualTo(legacy), "Both-strands forward hits must equal the legacy forward result");
     }
 
     #endregion
