@@ -144,6 +144,71 @@ public class DisorderPredictor_LowComplexity_Tests
             "single residue A at 100% (>50%) → 'A-rich' label");
     }
 
+    // M8 — Two-residue (X/Y-rich) label branch: a low-complexity segment where no single
+    // residue exceeds 50% takes the "top-two" label. For the dipeptide block 12×A + 12×L the
+    // merged segment (0,23) has A=L=12 (each 50%, neither > 0.5) → "A/L-rich".
+    // (Label rule is a documented repository extension, Assumption #1 in the TestSpec.)
+    [Test]
+    public void PredictLowComplexityRegions_DipeptideBlock_TwoResidueLabel()
+    {
+        string sequence = new string('A', 12) + new string('L', 12); // 24 AA, A=L=12
+
+        var regions = DisorderPredictor.PredictLowComplexityRegions(sequence).ToList();
+
+        Assert.That(regions, Has.Count.EqualTo(1), "one merged segment");
+        Assert.That(regions[0].Type, Is.EqualTo("A/L-rich"),
+            "neither A (50%) nor L (50%) exceeds 50% → top-two label 'A/L-rich'");
+    }
+
+    // M9 — Custom trigger window W=4: with a smaller window AAABBBCCCDDD still triggers
+    // everywhere (each length-4 window has H ≤ 1.0 ≤ K1=2.2: AAAB/ABBB → 0.811 bits,
+    // AABB → 1.0 bit) → one segment (0,11). Locks the triggerWindow parameter.
+    [Test]
+    public void PredictLowComplexityRegions_CustomTriggerWindow4_OneRegion()
+    {
+        string fourTypes = "AAABBBCCCDDD"; // length-4 windows: H ∈ {0.811, 1.0} ≤ K1
+
+        var regions = DisorderPredictor.PredictLowComplexityRegions(
+            fourTypes, triggerWindow: 4).ToList();
+
+        Assert.That(regions, Has.Count.EqualTo(1),
+            "every length-4 window has H ≤ 1.0 bit ≤ K1=2.2 → one segment");
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions[0].Start, Is.EqualTo(0), "starts at 0");
+            Assert.That(regions[0].End, Is.EqualTo(11), "ends at 11");
+        });
+    }
+
+    // M10 — Custom extension threshold K2=2.0 (stricter than default 2.5): on the M6 input
+    // (20×Q + 60-AA max-complexity spacer + 20×A) the trigger spans (0,24)/(75,99) extend
+    // less far. H(0..28)=1.877 ≤ 2.0 but H(0..29)=2.026 > 2.0, and H(71..99)=1.877 ≤ 2.0 but
+    // H(70..99)=2.026 > 2.0, giving (0,28) and (71,99). Locks the extensionThreshold parameter.
+    [Test]
+    public void PredictLowComplexityRegions_CustomExtensionThreshold_ShorterSegments()
+    {
+        string polyQ = new string('Q', 20);
+        string spacer = string.Concat(Enumerable.Repeat("ACDEFGHIKLMNPQRSTVWY", 3));
+        string polyA = new string('A', 20);
+        string sequence = polyQ + spacer + polyA; // length 100
+
+        var regions = DisorderPredictor.PredictLowComplexityRegions(
+                sequence, extensionThreshold: 2.0)
+            .OrderBy(r => r.Start).ToList();
+
+        Assert.That(regions, Has.Count.EqualTo(2),
+            "two homopolymer runs, max-complexity spacer between → two segments");
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions[0].Start, Is.EqualTo(0), "first starts at 0");
+            Assert.That(regions[0].End, Is.EqualTo(28),
+                "first extends to 28: H(0..28)=1.877 ≤ K2=2.0, H(0..29)=2.026 > 2.0");
+            Assert.That(regions[1].Start, Is.EqualTo(71),
+                "second starts at 71: H(71..99)=1.877 ≤ K2=2.0, H(70..99)=2.026 > 2.0");
+            Assert.That(regions[1].End, Is.EqualTo(99), "second ends at 99");
+        });
+    }
+
     #endregion
 
     #region PredictLowComplexityRegions — SHOULD / Corner
