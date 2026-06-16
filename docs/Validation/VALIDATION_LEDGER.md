@@ -257,3 +257,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 132 | ONCO-CNA-002 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 133 | ONCO-CNA-003 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 134 | ONCO-PURITY-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 135 | ONCO-PLOIDY-001 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
