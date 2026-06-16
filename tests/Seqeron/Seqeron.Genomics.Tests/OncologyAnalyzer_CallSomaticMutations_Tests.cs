@@ -199,6 +199,42 @@ public class OncologyAnalyzer_CallSomaticMutations_Tests
             "Alt reads cannot exceed total reads");
     }
 
+    // Read counts must be non-negative (contract §3.3); the negative-read guard is part of
+    // this unit's classification path (CalculateVaf), not only the standalone CalculateVAF.
+    [Test]
+    public void Classify_NegativeReadCounts_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.Classify(Make(-1, 100, 0, 100)),
+                "Negative tumor alt reads are rejected");
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.Classify(Make(10, 100, -2, 100)),
+                "Negative normal alt reads are rejected");
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.Classify(Make(10, -100, 0, 100)),
+                "Negative tumor total reads are rejected");
+        });
+    }
+
+    // Direct coverage of the public single-variant Classify overload: all three Stage-A branches.
+    // f_t=0.25,f_n=0 → Somatic (Saunders 2012); f_t=0.48,f_n=0.50 → Germline (Benjamin 2019);
+    // f_t=0.02<0.05 → NotDetected (Yan 2021). Threshold defaults τ_t=0.05, τ_n=0.01.
+    [Test]
+    public void Classify_SingleVariant_CoversAllThreeBranches()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.Classify(Make(25, 100, 0, 100)).Status,
+                Is.EqualTo(Status.Somatic), "f_t=0.25 ≥ 0.05, f_n=0.00 ≤ 0.01 → Somatic");
+            Assert.That(OncologyAnalyzer.Classify(Make(48, 100, 50, 100)).Status,
+                Is.EqualTo(Status.Germline), "f_t=0.48, f_n=0.50 > 0.01 → Germline");
+            Assert.That(OncologyAnalyzer.Classify(Make(2, 100, 0, 100)).Status,
+                Is.EqualTo(Status.NotDetected), "f_t=0.02 < 0.05 → NotDetected");
+        });
+    }
+
     #endregion
 
     #region FilterGermlineVariants Tests

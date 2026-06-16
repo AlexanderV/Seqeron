@@ -237,3 +237,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 112 | GENOMIC-TANDEM-001 | Analysis | ✅ | 🟡 | ✅ CLEAN (DUPLICATE-OF REP-TANDEM-001) | - |
 | 113 | GENOMIC-SIMILARITY-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
 | 114 | GENOMIC-ORF-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
+| 115 | ONCO-SOMATIC-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
