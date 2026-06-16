@@ -236,3 +236,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 111 | SEQ-SUMMARY-001 | Statistics | 🟡 | ✅ | ✅ CLEAN | - |
 | 112 | GENOMIC-TANDEM-001 | Analysis | ✅ | 🟡 | ✅ CLEAN (DUPLICATE-OF REP-TANDEM-001) | - |
 | 113 | GENOMIC-SIMILARITY-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
+| 114 | GENOMIC-ORF-001 | Analysis | ✅ | ✅ | ✅ CLEAN | - |
