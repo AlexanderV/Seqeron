@@ -145,6 +145,23 @@ public class OncologyAnalyzer_DetectLOH_Tests
             "Adding a het segment removes chr11 from chrDel, so the 16 Mb LOH region is now counted (contrast with M6).");
     }
 
+    // M2b — copy-neutral LOH: minor=0 with total CN = 2 (major=2) is still LOH (scarHRD nB==0 & nA!=0,
+    // independent of total copy number). A wrong impl keying on total<2 ("copy loss only") would miss this.
+    [Test]
+    public void DetectLOH_CopyNeutralLoh_IsCounted()
+    {
+        var segments = new[]
+        {
+            new Segment("6", 0, 20_000_000, 2, 0),          // 20 Mb copy-NEUTRAL LOH (total CN = 2, minor = 0)
+            new Segment("6", 20_000_000, 40_000_000, 1, 1), // het → chr6 not whole-chromosome LOH
+        };
+
+        int score = OncologyAnalyzer.CalculateHrdLohScore(segments);
+
+        Assert.That(score, Is.EqualTo(1),
+            "scarHRD LOH = (minor==0 & major!=0), independent of total copy number; a 20 Mb copy-neutral LOH (major=2, minor=0) is one HRD-LOH region.");
+    }
+
     #endregion
 
     #region CalculateLOHFraction

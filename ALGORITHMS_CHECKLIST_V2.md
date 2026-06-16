@@ -4040,8 +4040,15 @@ See RNA-PAIR-001 Evidence/TestSpec.
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectLOH(tumorVcf, normalVcf)` | OncologyAnalyzer | Canonical |
-| `CalculateLOHFraction(chromosome)` | OncologyAnalyzer | Per chromosome |
+| `DetectLOH(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — qualifying HRD-LOH regions + score |
+| `CalculateHrdLohScore(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | HRD-LOH count (Abkevich 2012 / scarHRD) |
+| `CalculateLOHFraction(IEnumerable<AlleleSpecificSegment>, chromosome)` | OncologyAnalyzer | Length-weighted per-chromosome LOH fraction |
+
+> **Validation note (ONCO-LOH-001):** the HRD-LOH algorithm of Abkevich et al. (2012) / scarHRD / oncoscanR
+> is defined over *allele-specific copy-number segments* (chromosome, start, end, major CN, minor CN), not
+> raw `(tumorVcf, normalVcf)` text — raw segmentation/BAF is upstream (ONCO-CNA-001). The canonical signature
+> is therefore `DetectLOH(IEnumerable<AlleleSpecificSegment>)`. (Earlier `DetectLOH(tumorVcf, normalVcf)` stub
+> corrected 2026-06-16.)
 
 ---
 

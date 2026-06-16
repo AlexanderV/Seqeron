@@ -3,9 +3,9 @@
 **Test Unit ID:** ONCO-LOH-001
 **Area:** Oncology
 **Algorithm:** Loss of Heterozygosity (LOH) detection and HRD-LOH genomic-scar score
-**Status:** ☐ In Progress
+**Status:** ☑ Validated (2026-06-16 — Stage A PASS, Stage B PASS-WITH-NOTES, CLEAN; see docs/Validation/reports/ONCO-LOH-001.md)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-16
 
 ---
 
