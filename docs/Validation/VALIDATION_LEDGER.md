@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 43 / 148 processed.
+**Progress:** 44 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -215,3 +215,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 90 | MOTIF-DISCOVER-001 | Matching | ✅ | 🟡 | ✅ CLEAN | - |
 | 91 | MOTIF-SHARED-001 | Matching | ✅ | ✅ | ✅ CLEAN | - |
 | 92 | MOTIF-REGULATORY-001 | Matching | ✅ | ✅ | ✅ CLEAN | - |
+| 93 | MOTIF-GENERATE-001 | Matching | 🟡 | ✅ | ✅ CLEAN | - |
