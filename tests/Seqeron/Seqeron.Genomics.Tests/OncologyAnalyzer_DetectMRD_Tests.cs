@@ -235,6 +235,101 @@ public class OncologyAnalyzer_DetectMRD_Tests
             "Positivity threshold must be at least 1.");
     }
 
+    // C5 — minSupportingReads < 1 => ArgumentOutOfRangeException (contract: r_min >= 1).
+    [Test]
+    public void DetectMRD_InvalidMinSupportingReads_Throws()
+    {
+        var panel = new[] { Marker(5, 200), Marker(3, 200) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.DetectMRD(panel, minSupportingReads: 0),
+            "Minimum supporting reads must be at least 1 (MRD_Detection contract §3.1).");
+    }
+
+    // C6 — genomeEquivalents < 0 => ArgumentOutOfRangeException (contract: n >= 0).
+    [Test]
+    public void DetectMRD_NegativeGenomeEquivalents_Throws()
+    {
+        var panel = new[] { Marker(5, 200), Marker(3, 200) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.DetectMRD(panel, genomeEquivalents: -1),
+            "Genome equivalents n cannot be negative (MRD_Detection contract §3.1).");
+    }
+
+    // M7b — documented edge case: with the default genomeEquivalents = 0, lambda = n*f*m = 0 so the
+    // panel Poisson detection probability p = 1 - e^(-0) = 0 (MRD_Detection.md §6.1, §3.1 default n=0).
+    [Test]
+    public void DetectMRD_DefaultGenomeEquivalents_DetectionProbabilityZero()
+    {
+        var panel = new[] { Marker(3, 200), Marker(2, 200) };
+
+        OncologyAnalyzer.MrdResult result = OncologyAnalyzer.DetectMRD(panel);
+
+        Assert.That(result.DetectionProbability, Is.EqualTo(0.0).Within(1e-12),
+            "n = 0 (default) => lambda = 0 => p = 1 - e^0 = 0 (no informative sampling).");
+    }
+
+    // M3b — documented edge case: all total reads = 0 => IMAF = 0 and (with n given) p = 0
+    // (MRD_Detection.md §6.1: "All total reads = 0 => IMAF = 0, p = 0").
+    [Test]
+    public void DetectMRD_AllTotalReadsZero_ImafAndProbabilityZero()
+    {
+        var panel = new[] { Marker(0, 0), Marker(0, 0), Marker(0, 0) };
+
+        OncologyAnalyzer.MrdResult result = OncologyAnalyzer.DetectMRD(panel, genomeEquivalents: 1000);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IntegratedMutantAlleleFraction, Is.EqualTo(0.0).Within(1e-12),
+                "Sigma(total) = 0 => IMAF defined as 0 (no informative reads).");
+            Assert.That(result.DetectionProbability, Is.EqualTo(0.0).Within(1e-12),
+                "f = IMAF = 0 => lambda = 0 => p = 0.");
+            Assert.That(result.Status, Is.EqualTo(OncologyAnalyzer.MrdStatus.Negative),
+                "0 detected < 2 => MRD-negative.");
+        });
+    }
+
+    #endregion
+
+    #region IsVariantDetected
+
+    // Direct coverage of the per-locus presence call (MRD_Detection.md §2.2: detected iff a_i >= r_min).
+    // Boundary at the default cutoff r_min = 1: exactly 1 alt read counts as detected, 0 does not.
+    [Test]
+    public void IsVariantDetected_DefaultCutoff_OneAltReadIsDetected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IsVariantDetected(Marker(1, 200)), Is.True,
+                "1 alt read >= default r_min = 1 => detected.");
+            Assert.That(OncologyAnalyzer.IsVariantDetected(Marker(0, 200)), Is.False,
+                "0 alt reads < r_min = 1 => not detected.");
+        });
+    }
+
+    // Boundary at a custom cutoff r_min = 3: exactly 3 detected, 2 not detected (Wan 2020 background rule).
+    [Test]
+    public void IsVariantDetected_CustomCutoff_BoundaryExactlyAtThreshold()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IsVariantDetected(Marker(3, 200), minSupportingReads: 3), Is.True,
+                "alt = 3 >= r_min = 3 => detected (boundary inclusive).");
+            Assert.That(OncologyAnalyzer.IsVariantDetected(Marker(2, 200), minSupportingReads: 3), Is.False,
+                "alt = 2 < r_min = 3 => not detected.");
+        });
+    }
+
+    // minSupportingReads < 1 is invalid for the per-locus call as well.
+    [Test]
+    public void IsVariantDetected_InvalidMinSupportingReads_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.IsVariantDetected(Marker(1, 200), minSupportingReads: 0),
+            "Minimum supporting reads must be at least 1.");
+    }
+
     #endregion
 
     #region TrackVariantsOverTime
