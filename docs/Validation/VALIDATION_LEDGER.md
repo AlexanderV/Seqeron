@@ -228,3 +228,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 103 | DISORDER-MORF-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | - |
 | 104 | DISORDER-PROPENSITY-001 | ProteinPred | ✅ | ✅ | ✅ CLEAN | - |
 | 105 | DISORDER-LC-001 | ProteinPred | 🟡 | ✅ | ✅ CLEAN | - |
+| 106 | SEQ-COMPOSITION-001 | Statistics | — | — | ↩︎ DUPLICATE-OF SEQ-STATS-001 | - |
