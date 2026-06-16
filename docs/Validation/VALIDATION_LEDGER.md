@@ -250,3 +250,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 125 | ONCO-SIG-002 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 126 | ONCO-SIG-003 | Oncology | 🟡 | 🟡 | ✅ CLEAN | - |
 | 127 | ONCO-SIG-004 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
+| 128 | ONCO-FUSION-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
