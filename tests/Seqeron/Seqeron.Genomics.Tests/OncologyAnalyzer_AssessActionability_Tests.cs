@@ -203,6 +203,44 @@ public class OncologyAnalyzer_AssessActionability_Tests
 
     #endregion
 
+    #region CompareLevels (combined-order comparator, public)
+
+    // M12 — CompareLevels realises the full combined order R1 > 1 > 2 > 3A > 3B > 4 > R2 and ranks
+    // None below every leveled value. Expected signs traced to the annotator README HIGHEST_LEVEL order
+    // (LEVEL_R1 > LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4 > LEVEL_R2), NOT to code output.
+    [Test]
+    public void CompareLevels_RealisesCombinedOrderAndNoneIsLowest()
+    {
+        // Strictly ascending in actionability (lowest → highest) per README + "None is not actionable".
+        var ascending = new[]
+        {
+            Level.None, Level.R2, Level.Level4, Level.Level3B, Level.Level3A, Level.Level2, Level.Level1, Level.R1
+        };
+
+        Assert.Multiple(() =>
+        {
+            // Reflexivity: each level compares equal to itself.
+            foreach (var lvl in ascending)
+            {
+                Assert.That(OncologyAnalyzer.CompareLevels(lvl, lvl), Is.Zero, $"{lvl} must equal itself.");
+            }
+
+            // Strict monotonicity across every ordered pair (i below j ⇒ ascending[j] outranks ascending[i]).
+            for (int i = 0; i < ascending.Length; i++)
+            {
+                for (int j = i + 1; j < ascending.Length; j++)
+                {
+                    Assert.That(OncologyAnalyzer.CompareLevels(ascending[j], ascending[i]), Is.GreaterThan(0),
+                        $"{ascending[j]} must outrank {ascending[i]} (README HIGHEST_LEVEL order, None lowest).");
+                    Assert.That(OncologyAnalyzer.CompareLevels(ascending[i], ascending[j]), Is.LessThan(0),
+                        $"{ascending[i]} must rank below {ascending[j]} (README HIGHEST_LEVEL order, None lowest).");
+                }
+            }
+        });
+    }
+
+    #endregion
+
     #region GetTherapyRecommendations (Delegate — ordering smoke)
 
     // S3 — recommendations ordered by descending combined level: {4,1,3A} ⇒ 1, 3A, 4.
@@ -224,6 +262,45 @@ public class OncologyAnalyzer_AssessActionability_Tests
                 Is.EqualTo(new[] { Level.Level1, Level.Level3A, Level.Level4 }),
                 "Therapies ordered most-actionable first (1 > 3A > 4).");
             Assert.That(ordered[0].Drug, Is.EqualTo("D1"), "Top recommendation is the Level 1 drug.");
+        });
+    }
+
+    // S5 — recommendations sort interleaves resistance with sensitivity per the combined order:
+    // {R2, 3A, R1, 1} ⇒ R1, 1, 3A, R2 (R1 > 1 > 3A > R2). Expected from annotator README HIGHEST_LEVEL order.
+    [Test]
+    public void GetTherapyRecommendations_InterleavesResistanceAndSensitivity()
+    {
+        var variant = new Input("GENE", "p.X1Y", new[]
+        {
+            new Assoc("Dr2", Level.R2),
+            new Assoc("D3A", Level.Level3A),
+            new Assoc("Dr1", Level.R1),
+            new Assoc("D1", Level.Level1),
+        });
+
+        var ordered = OncologyAnalyzer.GetTherapyRecommendations(variant);
+
+        Assert.That(ordered.Select(a => a.Level),
+            Is.EqualTo(new[] { Level.R1, Level.Level1, Level.Level3A, Level.R2 }),
+            "Combined order interleaves R1 above 1 and R2 below 4 (README HIGHEST_LEVEL: R1 > 1 > ... > 4 > R2).");
+    }
+
+    // S6 — AssessActionability combined axis on {4, R2}: combined = Level 4 (4 > R2), resistance = R2,
+    // sensitive = Level 4. Combined-order interleaving via the canonical batch method. README HIGHEST_LEVEL.
+    [Test]
+    public void AssessActionability_Level4AndR2_CombinedIsLevel4()
+    {
+        var result = OncologyAnalyzer.AssessActionability(new[] { Variant(Level.R2, Level.Level4) })[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.HighestCombinedLevel, Is.EqualTo(Level.Level4),
+                "Combined of {4,R2} is Level 4 (4 > R2 in HIGHEST_LEVEL order).");
+            Assert.That(result.HighestSensitiveLevel, Is.EqualTo(Level.Level4),
+                "Sensitive axis sees only Level 4.");
+            Assert.That(result.HighestResistanceLevel, Is.EqualTo(Level.R2),
+                "Resistance axis sees only R2.");
+            Assert.That(result.IsActionable, Is.True, "Leveled associations present ⇒ actionable.");
         });
     }
 
