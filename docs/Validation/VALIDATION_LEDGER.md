@@ -265,3 +265,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 140 | ONCO-MRD-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 141 | ONCO-CHIP-001 | Oncology | 🟡 | 🟡 | ✅ CLEAN | - |
 | 142 | ONCO-PHYLO-001 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
+| 143 | ONCO-CCF-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |

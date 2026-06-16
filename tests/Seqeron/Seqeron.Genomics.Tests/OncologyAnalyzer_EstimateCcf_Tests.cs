@@ -108,6 +108,33 @@ public class OncologyAnalyzer_EstimateCcf_Tests
             "VAF = 0 implies no mutated reads, so CCF = 0.");
     }
 
+    // CNAqc real worked outputs (Caravagna lab, "Computation of Cancer Cell Fractions" vignette,
+    // sample purity 89%, diploid N_T=2): VAF=0.08/m=1 -> 0.180, VAF=0.883/m=2 -> 0.993, VAF=0.471/m=1 -> 1.06.
+    // These are reference-implementation outputs (not derived from this code), reproduced to 1e-2 by
+    // CCF = VAF·(ρ·N_T + 2(1−ρ))/(ρ·m) with ρ=0.89, N_T=2.
+    // https://caravagnalab.github.io/CNAqc/articles/a4_ccf_computation.html
+    [Test]
+    public void EstimateCcf_CnaqcWorkedOutputs_MatchReferenceImplementation()
+    {
+        const double cnaqcTolerance = 5e-3;
+
+        OncologyAnalyzer.CcfEstimate low = OncologyAnalyzer.EstimateCcf(0.08, 0.89, 2, 1);
+        OncologyAnalyzer.CcfEstimate mid = OncologyAnalyzer.EstimateCcf(0.883, 0.89, 2, 2);
+        OncologyAnalyzer.CcfEstimate high = OncologyAnalyzer.EstimateCcf(0.471, 0.89, 2, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(low.RawCcf, Is.EqualTo(0.180).Within(cnaqcTolerance),
+                "CNAqc: VAF=0.08, multiplicity=1, CCF=0.180.");
+            Assert.That(mid.RawCcf, Is.EqualTo(0.993).Within(cnaqcTolerance),
+                "CNAqc: VAF=0.883, multiplicity=2, CCF=0.993.");
+            Assert.That(high.RawCcf, Is.EqualTo(1.06).Within(cnaqcTolerance),
+                "CNAqc: VAF=0.471, multiplicity=1, CCF=1.06 (raw exceeds 1 from sampling noise).");
+            Assert.That(high.Ccf, Is.EqualTo(1.0).Within(Tolerance),
+                "Reported CCF is capped at 1.0 even though the raw CNAqc value is 1.06.");
+        });
+    }
+
     // S2 — INV-CCF-02: CCF strictly increases with VAF holding other inputs fixed.
     [Test]
     public void EstimateCcf_IncreasingVaf_IncreasesCcf()
@@ -270,6 +297,40 @@ public class OncologyAnalyzer_EstimateCcf_Tests
 
         Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClusterCcfValues(values, 1),
             "NaN cannot be clustered by squared distance.");
+    }
+
+    // Validation — infinite value rejected (separate branch from NaN).
+    [Test]
+    public void ClusterCcfValues_InfiniteValue_Throws()
+    {
+        var values = new[] { 0.3, double.PositiveInfinity };
+
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.ClusterCcfValues(values, 1),
+            "Infinite CCF cannot be clustered by squared distance.");
+    }
+
+    // INV-5 / relabeling — clonal cluster is always the highest centroid and centroids are returned
+    // ascending, regardless of input order. Here the high-CCF (clonal) values are listed FIRST, which
+    // exercises the ascending-centroid relabeling rather than an identity mapping.
+    // Centroids: mean(0.10,0.12,0.14)=0.12 and mean(0.90,0.92,0.94)=0.92; clonal = high = index 1.
+    [Test]
+    public void ClusterCcfValues_HighCcfValuesFirst_ClonalIsHighestCentroidAscending()
+    {
+        var values = new[] { 0.94, 0.92, 0.90, 0.14, 0.12, 0.10 };
+
+        OncologyAnalyzer.CcfClustering result = OncologyAnalyzer.ClusterCcfValues(values, 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Centroids[0], Is.EqualTo(0.12).Within(Tolerance),
+                "Centroids returned ascending: low = mean(0.10,0.12,0.14) = 0.12.");
+            Assert.That(result.Centroids[1], Is.EqualTo(0.92).Within(Tolerance),
+                "High centroid = mean(0.90,0.92,0.94) = 0.92.");
+            Assert.That(result.Assignments, Is.EqualTo(new[] { 1, 1, 1, 0, 0, 0 }),
+                "Input order preserved: the first three (high CCF) map to the high cluster 1.");
+            Assert.That(result.ClonalClusterIndex, Is.EqualTo(1),
+                "Clonal cluster is the highest centroid (0.92) at index 1 (Tarabichi 2021).");
+        });
     }
 
     #endregion
