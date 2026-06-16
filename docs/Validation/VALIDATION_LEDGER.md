@@ -119,7 +119,7 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 50 / 148 processed.
+**Progress:** 51 / 148 processed.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
@@ -251,3 +251,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 126 | ONCO-SIG-003 | Oncology | 🟡 | 🟡 | ✅ CLEAN | - |
 | 127 | ONCO-SIG-004 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
 | 128 | ONCO-FUSION-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 129 | ONCO-FUSION-002 | Oncology | ✅ | ✅ | ✅ CLEAN | - |

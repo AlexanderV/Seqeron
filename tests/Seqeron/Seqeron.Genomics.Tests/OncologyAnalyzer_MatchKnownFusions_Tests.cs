@@ -75,6 +75,35 @@ public class OncologyAnalyzer_MatchKnownFusions_Tests
             NUnit.Framework.Throws.ArgumentException, "An empty 3' partner symbol cannot form a designation.");
     }
 
+    // M7b — empty 5' partner is invalid input (the other half of the 5' validation branch).
+    [Test]
+    public void GetFusionAnnotation_EmptyFivePrime_Throws()
+    {
+        Assert.That(() => OncologyAnalyzer.GetFusionAnnotation("", "ABL1"),
+            NUnit.Framework.Throws.ArgumentException, "An empty 5' partner symbol cannot form a designation.");
+    }
+
+    // M6b — null 3' partner is invalid input (the other half of the 3' validation branch).
+    [Test]
+    public void GetFusionAnnotation_NullThreePrime_Throws()
+    {
+        Assert.That(() => OncologyAnalyzer.GetFusionAnnotation("BCR", null!),
+            NUnit.Framework.Throws.ArgumentException, "A null 3' partner symbol cannot form a designation.");
+    }
+
+    // M7c — whitespace-only symbols are rejected (contract: non-empty, non-whitespace).
+    [Test]
+    public void GetFusionAnnotation_WhitespaceSymbols_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => OncologyAnalyzer.GetFusionAnnotation("   ", "ABL1"),
+                NUnit.Framework.Throws.ArgumentException, "A whitespace-only 5' partner is not a valid symbol.");
+            Assert.That(() => OncologyAnalyzer.GetFusionAnnotation("BCR", "\t"),
+                NUnit.Framework.Throws.ArgumentException, "A whitespace-only 3' partner is not a valid symbol.");
+        });
+    }
+
     #endregion
 
     #region MatchKnownFusions — directional lookup against caller-supplied set
@@ -141,6 +170,17 @@ public class OncologyAnalyzer_MatchKnownFusions_Tests
     {
         Assert.That(() => OncologyAnalyzer.MatchKnownFusions(MakeCall("EML4", "ALK"), null!),
             NUnit.Framework.Throws.ArgumentNullException, "The known-fusion set must be supplied.");
+    }
+
+    // M8b — a fusion with an invalid (empty) partner symbol propagates the designation-format contract.
+    [Test]
+    public void MatchKnownFusions_EmptyPartner_Throws()
+    {
+        var known = new Dictionary<string, string> { ["EML4::ALK"] = "NSCLC driver" };
+
+        Assert.That(() => OncologyAnalyzer.MatchKnownFusions(MakeCall("", "ALK"), known),
+            NUnit.Framework.Throws.ArgumentException,
+            "An empty partner symbol cannot form the 5'::3' lookup key (delegates to GetFusionAnnotation).");
     }
 
     // S1 — case-insensitive symbol matching: lowercased query matches a stored uppercase designation.
