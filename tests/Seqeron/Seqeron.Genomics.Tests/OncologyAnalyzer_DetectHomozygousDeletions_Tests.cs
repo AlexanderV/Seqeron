@@ -204,6 +204,50 @@ public class OncologyAnalyzer_DetectHomozygousDeletions_Tests
             "A segment with End <= Start must throw ArgumentException.");
     }
 
+    // C3b — invalid segment (non-positive ArmLength) ⇒ ArgumentException.
+    // Source: contract §3.3 — "A segment with non-positive ArmLength ... → ArgumentException" (ValidateArmSegment).
+    [Test]
+    public void DetectHomozygousDeletions_NonPositiveArmLength_Throws()
+    {
+        var bad = new[] { new Segment("9p", 0, 1_000, 0, -2.0) }; // ArmLength == 0
+
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.DetectHomozygousDeletions(bad),
+            "A segment with non-positive ArmLength must throw ArgumentException.");
+    }
+
+    // C6 — non-positive ploidy ⇒ ArgumentOutOfRangeException (via CallCopyNumber).
+    // Source: contract §3.3 — "Non-positive ploidy → ArgumentOutOfRangeException".
+    [Test]
+    public void DetectHomozygousDeletions_NonPositivePloidy_Throws()
+    {
+        var segments = new[] { Seg("9p", -2.0) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.DetectHomozygousDeletions(segments, thresholds: null, ploidy: 0.0),
+            "Ploidy must be positive; ploidy = 0 must throw ArgumentOutOfRangeException.");
+    }
+
+    // C7 — thresholds not four strictly-ascending values ⇒ ArgumentException (via CallCopyNumber).
+    // Source: contract §3.3 — "thresholds not four strictly ascending values → ArgumentException".
+    [Test]
+    public void DetectHomozygousDeletions_InvalidThresholds_Throws()
+    {
+        var segments = new[] { Seg("9p", -2.0) };
+        var notAscending = new[] { -1.1, -1.1, 0.2, 0.7 }; // not strictly ascending
+        var wrongCount = new[] { -1.1, -0.25, 0.2 };        // only three thresholds
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.DetectHomozygousDeletions(segments, notAscending),
+                "Thresholds must be strictly ascending.");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.DetectHomozygousDeletions(segments, wrongCount),
+                "Exactly four thresholds are required.");
+        });
+    }
+
     // C5 — NaN log2 ⇒ neutral no-call ⇒ NOT reported.
     // Source: CNVkit NaN log2 is a no-call returning the neutral reference CN.
     [Test]
@@ -236,6 +280,32 @@ public class OncologyAnalyzer_DetectHomozygousDeletions_Tests
             Assert.That(OncologyAnalyzer.IsHomozygousDeletion(cn1), Is.False,
                 "log2 = -0.5 (CN 1) is a heterozygous loss, not homozygous.");
         });
+    }
+
+    // M8b — IsHomozygousDeletion at the inclusive boundary: log2 = -1.1 (<= cutoff) is true,
+    // log2 just above (-1.0999) is false. Source: CNVkit "<= each threshold" boundary.
+    [Test]
+    public void IsHomozygousDeletion_DeletionCutoffBoundary_TrueThenFalse()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IsHomozygousDeletion(Seg("9p", -1.1)), Is.True,
+                "log2 exactly -1.1 is <= the deletion cutoff, so CN 0 (homozygous).");
+            Assert.That(OncologyAnalyzer.IsHomozygousDeletion(Seg("9p", -1.0999)), Is.False,
+                "log2 = -1.0999 is above -1.1, so CN 1 (not homozygous).");
+        });
+    }
+
+    // M8c — IsHomozygousDeletion validates the segment (End <= Start) ⇒ ArgumentException.
+    // Source: contract §3.3 — IsHomozygousDeletion calls ValidateArmSegment.
+    [Test]
+    public void IsHomozygousDeletion_InvalidSegment_Throws()
+    {
+        var bad = new Segment("9p", 1_000, 1_000, Arm, -2.0); // End == Start
+
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.IsHomozygousDeletion(bad),
+            "IsHomozygousDeletion must validate the segment (End <= Start ⇒ ArgumentException).");
     }
 
     #endregion
