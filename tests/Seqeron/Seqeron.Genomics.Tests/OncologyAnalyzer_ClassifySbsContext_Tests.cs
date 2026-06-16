@@ -77,6 +77,22 @@ public class OncologyAnalyzer_ClassifySbsContext_Tests
             "A is a purine: revcomp(AAA)=TTT, A>T->T>A => T[T>A]T.");
     }
 
+    // M4b — Purine G>A at 5'-A G C-3' folds to G[C>T]T (covers the G>A->C>T fold; Wikipedia/SigProfiler).
+    [Test]
+    public void ClassifySbsContext_PurineGtoA_FoldsToReverseComplement()
+    {
+        Assert.That(OncologyAnalyzer.ClassifySbsContext('A', 'G', 'A', 'C'), Is.EqualTo("G[C>T]T"),
+            "G is a purine: revcomp(AGC)=GCT, G>A->C>T => G[C>T]T (Wikipedia: G>A counted as its C>T equivalent).");
+    }
+
+    // M4c — Purine A>C at 5'-G A T-3' folds to A[T>G]C (covers the A>C->T>G fold; Wikipedia/SigProfiler).
+    [Test]
+    public void ClassifySbsContext_PurineAtoC_FoldsToReverseComplement()
+    {
+        Assert.That(OncologyAnalyzer.ClassifySbsContext('G', 'A', 'C', 'T'), Is.EqualTo("A[T>G]C"),
+            "A is a purine: revcomp(GAT)=ATC, A>C->T>G => A[T>G]C (Wikipedia: A>C counted as its T>G equivalent).");
+    }
+
     // C1 — Lower-case input classifies identically (bases are upper-cased; robustness).
     [Test]
     public void ClassifySbsContext_LowerCaseBases_ClassifySameAsUpperCase()
@@ -114,6 +130,24 @@ public class OncologyAnalyzer_ClassifySbsContext_Tests
         Assert.Throws<System.ArgumentException>(
             () => OncologyAnalyzer.ClassifySbsContext('A', 'X', 'A', 'A'),
             "A reference base that is not A/C/G/T must be rejected.");
+    }
+
+    // S5b — Invalid (non-ACGT) alternate base is rejected.
+    [Test]
+    public void ClassifySbsContext_InvalidAlternateBase_Throws()
+    {
+        Assert.Throws<System.ArgumentException>(
+            () => OncologyAnalyzer.ClassifySbsContext('A', 'C', 'Z', 'A'),
+            "An alternate base that is not A/C/G/T must be rejected.");
+    }
+
+    // S5c — Invalid (non-ACGT) 3' flanking base is rejected.
+    [Test]
+    public void ClassifySbsContext_Invalid3PrimeBase_Throws()
+    {
+        Assert.Throws<System.ArgumentException>(
+            () => OncologyAnalyzer.ClassifySbsContext('A', 'C', 'A', 'N'),
+            "A 3' flanking base that is not A/C/G/T must be rejected.");
     }
 
     #endregion
