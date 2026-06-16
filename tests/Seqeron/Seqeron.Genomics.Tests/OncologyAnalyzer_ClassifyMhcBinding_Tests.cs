@@ -141,6 +141,14 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
             "Class II %Rank 1.5 < 2 ⇒ Strong (Reynisson 2020 '%Rank < 2% ... for SBs ... class II').");
     }
 
+    // M11b — class II %Rank exactly 2.0 (strong-cutoff boundary): strict "<" ⇒ NOT strong ⇒ Weak (2.0 < 10).
+    [Test]
+    public void ClassifyBindingRank_ClassIITwoBoundary_ReturnsWeak()
+    {
+        Assert.That(OncologyAnalyzer.ClassifyBindingRank(2.0, MhcClass.ClassII), Is.EqualTo(BindingStrength.Weak),
+            "Reynisson 2020 class II '%Rank < 2%' (strict): 2.0 is not strong; 2.0 < 10 ⇒ Weak.");
+    }
+
     // M12 — class II %Rank exactly 10.0: strict "<" ⇒ NonBinder.
     [Test]
     public void ClassifyBindingRank_ClassIITenBoundary_ReturnsNonBinder()
@@ -262,6 +270,15 @@ public class OncologyAnalyzer_ClassifyMhcBinding_Tests
     {
         Assert.That(OncologyAnalyzer.ClassifyMhcBinding(9, 10.0, MhcClass.ClassI), Is.EqualTo(BindingStrength.Strong),
             "Length 9 valid (class I 8-11) and IC50 10 nM < 50 ⇒ Strong.");
+    }
+
+    // M21b — valid length but invalid IC50 (≤ 0) propagates ClassifyBindingAffinity's validation (INV-01).
+    [Test]
+    public void ClassifyMhcBinding_ValidLengthInvalidIc50_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.ClassifyMhcBinding(9, 0.0, MhcClass.ClassI),
+            "Valid length passes the length gate, so the IC50 = 0 invariant (IC50 > 0) is enforced ⇒ throws.");
     }
 
     #endregion
