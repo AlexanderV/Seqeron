@@ -3,9 +3,9 @@
 **Test Unit ID:** ONCO-CTDNA-001
 **Area:** Oncology
 **Algorithm:** ctDNA Analysis (Poisson limit-of-detection, tumor-fraction estimation, mean-VAF summarization)
-**Status:** ☐ In Progress
+**Status:** ☑ Validated (ONCO-CTDNA-001, 2026-06-16)
 **Owner:** Algorithm QA Architect
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-06-16
 
 ---
 
@@ -97,6 +97,10 @@
 | S3 | CalculateMeanVaf null/empty | null; empty | ArgumentNullException; ArgumentException | domain guards |
 | S4 | CalculateTumorFraction VAF>0.5 | a variant VAF 0.6 | ArgumentOutOfRangeException (per-variant het cap) | het diploid SNV ≤0.5 |
 | S5 | HaploidGenomeEquivalents negative | −1 ng | ArgumentOutOfRangeException | mass ≥ 0 |
+| S6 | IsCtDnaDetected λ≥1 but p<threshold | n=1000, d=0.001, k=1 ⇒ λ=1, p=0.6321 < 0.95 | false (and true at thr=0.5) | second AND-condition; Patent US11085084 formula |
+| S7 | IsCtDnaDetected threshold ∉ (0,1] | thr=0.0, 1.1, NaN | ArgumentOutOfRangeException | documented contract bound |
+| S8 | ExpectedMutantMolecules k scaling | n=15000, d=0.001, k=10 | λ = 150 | λ = n·d·k (Patent US11085084) |
+| S9 | ExpectedMutantMolecules invalid args | n=−1; d=1.1; d=NaN; k=0 | ArgumentOutOfRangeException | domain guards mirror CtDnaDetectionProbability |
 
 ### 4.3 COULD Tests (Nice to have)
 

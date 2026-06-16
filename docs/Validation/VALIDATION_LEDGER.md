@@ -261,3 +261,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 136 | ONCO-CLONAL-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 137 | ONCO-NEO-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 138 | ONCO-MHC-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
+| 139 | ONCO-CTDNA-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |

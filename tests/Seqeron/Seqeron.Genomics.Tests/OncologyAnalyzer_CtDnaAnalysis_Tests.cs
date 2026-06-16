@@ -151,6 +151,37 @@ public class OncologyAnalyzer_CtDnaAnalysis_Tests
             "lambda = 0.01 < 1 mutant molecule => not detectable regardless of probability threshold.");
     }
 
+    // M5b — lambda >= 1 but probability below threshold => not detected (the second AND-condition).
+    // n=1000, d=0.001, k=1 => lambda=1 (>= 1) but p = 1 - e^(-1) = 0.6321... < 0.95 default threshold.
+    [Test]
+    public void IsCtDnaDetected_LambdaAtLeastOneButProbabilityBelowThreshold_ReturnsFalse()
+    {
+        // lambda = 1 satisfies the >=1 molecule floor, yet p = 0.6321205588 < 0.95 (Patent US11085084 formula).
+        Assert.That(OncologyAnalyzer.IsCtDnaDetected(1000, 0.001, 1), Is.False,
+            "lambda = 1 (>= 1) but p = 1 - e^(-1) = 0.6321 < 0.95 default => not detected.");
+        // The same inputs ARE detected if the caller lowers the threshold below the actual probability.
+        Assert.That(OncologyAnalyzer.IsCtDnaDetected(1000, 0.001, 1, 0.5), Is.True,
+            "Same lambda=1, p=0.6321 >= 0.5 caller threshold => detected.");
+    }
+
+    // S6 — minDetectionProbability outside (0, 1] throws (documented contract bound).
+    [Test]
+    public void IsCtDnaDetected_ThresholdOutOfRange_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.IsCtDnaDetected(15000, 0.001, 1, 0.0),
+                "Threshold must be > 0 (a 0 threshold is not a valid operating point).");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.IsCtDnaDetected(15000, 0.001, 1, 1.1),
+                "Threshold must be <= 1 (a probability cannot exceed 1).");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.IsCtDnaDetected(15000, 0.001, 1, double.NaN),
+                "Threshold NaN is invalid.");
+        });
+    }
+
     #endregion
 
     #region ExpectedMutantMolecules
@@ -161,6 +192,31 @@ public class OncologyAnalyzer_CtDnaAnalysis_Tests
     {
         Assert.That(OncologyAnalyzer.ExpectedMutantMolecules(15000, 0.001, 1), Is.EqualTo(15.0).Within(1e-12),
             "lambda = n*d*k = 15000*0.001*1 = 15 (Pessoa 2023).");
+    }
+
+    // lambda is multiplicative in k: 15000*0.001*10 = 150 (Patent US11085084: mean lambda = n*d*k).
+    [Test]
+    public void ExpectedMutantMolecules_TenReporters_Returns150()
+    {
+        Assert.That(OncologyAnalyzer.ExpectedMutantMolecules(15000, 0.001, 10), Is.EqualTo(150.0).Within(1e-12),
+            "lambda = n*d*k = 15000*0.001*10 = 150.");
+    }
+
+    // Domain guards mirror CtDnaDetectionProbability (negative n, d out of [0,1], k < 1).
+    [Test]
+    public void ExpectedMutantMolecules_InvalidArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ExpectedMutantMolecules(-1, 0.01, 1),
+                "Genome equivalents (n) cannot be negative.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ExpectedMutantMolecules(100, 1.1, 1),
+                "Mutant allele fraction (d) must be in [0, 1].");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ExpectedMutantMolecules(100, double.NaN, 1),
+                "Mutant allele fraction NaN is invalid.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ExpectedMutantMolecules(100, 0.01, 0),
+                "Reporter count (k) must be at least 1.");
+        });
     }
 
     #endregion
