@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Seqeron.Genomics.Oncology;
 
 namespace Seqeron.Genomics.Tests;
@@ -147,6 +148,9 @@ public class OncologyAnalyzer_BootstrapExposures_Tests
     // M8 — Type-7 percentile property on a constant distribution: for any probability p, Q(p) of a constant
     // sample equals that constant (h=p*(n-1), interpolation between equal order statistics). Verified at the
     // median (p=0.5) via a deterministic collapse so the bound is exactly the point estimate.
+    // NOTE: a constant distribution does NOT exercise the type-7 interpolation rule (any quantile estimator
+    // returns the constant). The interpolation itself is locked on non-constant samples by
+    // Percentile_Type7_NonConstantSamples_MatchesHandDerivedValues below.
     [Test]
     public void BootstrapExposures_Type7Median_OnConstantSplit_IsExact()
     {
@@ -166,6 +170,42 @@ public class OncologyAnalyzer_BootstrapExposures_Tests
                 "Type-7 75th percentile of constant {4} = 4.");
         });
     }
+
+    // M8b — Type-7 interpolation on NON-constant samples. The percentile bound values are determined by the
+    // internal Percentile() (R-7 / NumPy-default linear interpolation, Hyndman & Fan 1996). The deterministic
+    // collapse tests above cannot distinguish type-7 from any other quantile rule, so this test exercises the
+    // interpolation directly on the two hand-derived datasets in the Evidence artifact. The expected values
+    // were independently confirmed with numpy.quantile(..., method='linear'):
+    //   [0,1,2,3,4]: p=0.025 -> 0.1, p=0.5 -> 2.0, p=0.975 -> 3.9 ; p=0 -> 0 (min), p=1 -> 4 (max)
+    //   [2,4,6,8]:   p=0.025 -> 2.15, p=0.5 -> 5.0, p=0.975 -> 7.85
+    // Source: Hyndman & Fan (1996), The American Statistician 50(4):361-365 (type-7);
+    //         cross-checked numpy.quantile method='linear'.
+    [Test]
+    public void Percentile_Type7_NonConstantSamples_MatchesHandDerivedValues()
+    {
+        var sampleA = new[] { 0.0, 1.0, 2.0, 3.0, 4.0 };
+        var sampleB = new[] { 2.0, 4.0, 6.0, 8.0 };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(InvokePercentile(sampleA, 0.0), Is.EqualTo(0.0).Within(1e-12), "min of [0..4].");
+            Assert.That(InvokePercentile(sampleA, 0.025), Is.EqualTo(0.1).Within(1e-12), "type-7 p=0.025 of [0..4].");
+            Assert.That(InvokePercentile(sampleA, 0.5), Is.EqualTo(2.0).Within(1e-12), "type-7 median of [0..4].");
+            Assert.That(InvokePercentile(sampleA, 0.975), Is.EqualTo(3.9).Within(1e-12), "type-7 p=0.975 of [0..4].");
+            Assert.That(InvokePercentile(sampleA, 1.0), Is.EqualTo(4.0).Within(1e-12), "max of [0..4].");
+
+            Assert.That(InvokePercentile(sampleB, 0.025), Is.EqualTo(2.15).Within(1e-12), "type-7 p=0.025 of [2,4,6,8].");
+            Assert.That(InvokePercentile(sampleB, 0.5), Is.EqualTo(5.0).Within(1e-12), "type-7 median of [2,4,6,8].");
+            Assert.That(InvokePercentile(sampleB, 0.975), Is.EqualTo(7.85).Within(1e-12), "type-7 p=0.975 of [2,4,6,8].");
+        });
+    }
+
+    private static readonly MethodInfo PercentileMethod =
+        typeof(OncologyAnalyzer).GetMethod("Percentile", BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException("OncologyAnalyzer.Percentile(double[], double) not found.");
+
+    private static double InvokePercentile(double[] values, double probability) =>
+        (double)PercentileMethod.Invoke(null, new object[] { values, probability })!;
 
     #endregion
 
