@@ -232,3 +232,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 107 | SEQ-TM-001 | Statistics | ✅ | ✅ | ✅ CLEAN (DUPLICATE-OF SEQ-THERMO-001) | - |
 | 108 | SEQ-ENTROPY-PROFILE-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |
 | 109 | SEQ-GC-PROFILE-001 | Statistics | ✅ | 🟡 | ✅ CLEAN | - |
+| 110 | SEQ-CODON-FREQ-001 | Statistics | ✅ | ✅ | ✅ CLEAN | - |

@@ -54,6 +54,25 @@ public class SequenceStatistics_CalculateCodonFrequencies_Tests
         });
     }
 
+    // M2b — frame 2 of ATGATGAAA: from index 2 the triplets are GAT, GAA (then 'A' leftover)
+    // -> GAT=1/2, GAA=1/2. Exercises the readingFrame=2 path of the same method.
+    // Evidence: CUTG non-overlapping triplets read from the frame start (count/total).
+    [Test]
+    public void CalculateCodonFrequencies_Frame2_ReturnsExactFrequencies()
+    {
+        var freq = SequenceStatistics.CalculateCodonFrequencies("ATGATGAAA", readingFrame: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(freq["GAT"], Is.EqualTo(0.5).Within(Tolerance),
+                "GAT (bases 2-4) is 1 of 2 counted codons in frame 2 -> 1/2");
+            Assert.That(freq["GAA"], Is.EqualTo(0.5).Within(Tolerance),
+                "GAA (bases 5-7) is 1 of 2 counted codons in frame 2 -> 1/2");
+            Assert.That(freq.Keys, Is.EquivalentTo(new[] { "GAT", "GAA" }),
+                "trailing 'A' is ignored; frame 2 yields the {GAT, GAA} multiset");
+        });
+    }
+
     // M3 — INV-02: codon frequencies over all counted codons sum to 1.0.
     // Evidence: Kazusa CUTG count/total normalization.
     [Test]
