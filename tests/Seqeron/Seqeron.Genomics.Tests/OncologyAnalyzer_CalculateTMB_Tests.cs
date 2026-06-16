@@ -119,6 +119,17 @@ public class OncologyAnalyzer_CalculateTMB_Tests
             "Only the 3 Somatic calls count toward TMB (germline/not-detected excluded): 3/1.0 = 3.0 mut/Mb");
     }
 
+    // Empty somatic-call collection: no somatic mutations → TMB = 0/Mb = 0.0 (no burden).
+    [Test]
+    public void CalculateTMB_FromEmptySomaticCalls_ReturnsZero()
+    {
+        double tmb = OncologyAnalyzer.CalculateTMB(
+            System.Array.Empty<OncologyAnalyzer.SomaticCall>(), 1.1);
+
+        Assert.That(tmb, Is.EqualTo(0.0).Within(1e-10),
+            "No somatic calls → 0 mutations / 1.1 Mb = 0.0 mut/Mb");
+    }
+
     // S4 — null collection is rejected.
     [Test]
     public void CalculateTMB_NullCalls_Throws()
