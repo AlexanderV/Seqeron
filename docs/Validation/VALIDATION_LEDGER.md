@@ -244,3 +244,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 119 | ONCO-ANNOT-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 120 | ONCO-TMB-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 121 | ONCO-MSI-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 122 | ONCO-HRD-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
