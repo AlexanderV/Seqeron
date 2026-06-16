@@ -214,6 +214,19 @@ public class OncologyAnalyzer_EstimatePurity_Tests
         }), "VAF 0.6 at m=1,n=2 implies purity 1.2 > 1");
     }
 
+    // M10b — a (VAF, m, n_tot) combination whose VAF is unreachable by any purity in [0,1] (non-positive
+    // denominator) is rejected. For m=1, n_tot=4 the forward relation v = π/[2(1−π)+4π] maps π∈[0,1] onto
+    // VAF∈[0, 0.25]; VAF 0.9 is impossible, so the inverse denominator m+v(2−n_tot)=1+0.9·(−2)=−0.8 ≤ 0.
+    // Evidence: CNAqc/ABSOLUTE forward range of v (Antonello 2024; Carter 2012, F=αs_q/[αq+2(1−α)]).
+    [Test]
+    public void EstimatePurity_VafUnreachableForCopyState_NonPositiveDenominator_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurity(new[]
+        {
+            new OncologyAnalyzer.PurityVariant(0.90, Multiplicity: 1, TumorTotalCopyNumber: 4)
+        }), "VAF 0.9 at m=1,n_tot=4 is unreachable (denominator 1+0.9·(2−4)=−0.8 ≤ 0)");
+    }
+
     // M11/M14 — empty and null.
     [Test]
     public void EstimatePurity_EmptyAndNull_Throw()
