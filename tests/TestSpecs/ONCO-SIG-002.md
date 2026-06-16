@@ -3,7 +3,7 @@
 **Test Unit ID:** ONCO-SIG-002
 **Area:** Oncology
 **Algorithm:** Mutational Signature Fitting / Refitting (NNLS decomposition + cosine similarity)
-**Status:** ☐ In Progress
+**Status:** ☑ Validated (2026-06-16; +3 coverage tests: imperfect-fit recon cosine = 1/√3, empty-vector cosine throw, null ReconstructCatalog)
 **Owner:** Algorithm QA Architect
 **Last Updated:** 2026-06-14
 

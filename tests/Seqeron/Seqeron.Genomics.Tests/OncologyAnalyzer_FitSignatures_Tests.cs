@@ -125,6 +125,15 @@ public class OncologyAnalyzer_FitSignatures_Tests
             "Vectors of different lengths cannot be compared and must throw ArgumentException.");
     }
 
+    // Cosine similarity is "undefined for empty vectors" (no components to sum) -> ArgumentException.
+    [Test]
+    public void CosineSimilarity_EmptyVectors_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.CosineSimilarity(Array.Empty<double>(), Array.Empty<double>()),
+            "Cosine similarity has no components to sum for empty vectors and must throw ArgumentException.");
+    }
+
     #endregion
 
     #region FitSignatures
@@ -273,6 +282,33 @@ public class OncologyAnalyzer_FitSignatures_Tests
             "INV-05: x=0 is feasible, so the NNLS minimiser's residual SSE must be ≤ ‖d‖².");
     }
 
+    // Imperfect (under-determined) fit: a single flat signature [1,1,1] cannot represent d=[3,0,0].
+    // NNLS exposure = (s·d)/(s·s) = 3/3 = 1; reconstruction = [1,1,1]; reconstruction cosine =
+    // cos([3,0,0],[1,1,1]) = 3/(3·√3) = 1/√3 ≈ 0.5773502691896258 (Blokzijl 2018 reconstruction-quality
+    // measure; below the 0.95 "successful reconstruction" threshold). Cross-checked vs scipy.optimize.nnls.
+    [Test]
+    public void FitSignatures_ImperfectFit_ReportsExactSubUnityReconstructionCosine()
+    {
+        var catalog = new double[] { 3, 0, 0 };
+        var signatures = new IReadOnlyList<double>[]
+        {
+            new double[] { 1, 1, 1 }
+        };
+
+        var fit = OncologyAnalyzer.FitSignatures(catalog, signatures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(1.0).Within(1e-9),
+                "NNLS exposure of the flat signature = (s·d)/(s·s) = 3/3 = 1.");
+            Assert.That(fit.Reconstruction[0], Is.EqualTo(1.0).Within(1e-9), "S·x channel 0 = 1·1 = 1.");
+            Assert.That(fit.Reconstruction[1], Is.EqualTo(1.0).Within(1e-9), "S·x channel 1 = 1·1 = 1.");
+            Assert.That(fit.Reconstruction[2], Is.EqualTo(1.0).Within(1e-9), "S·x channel 2 = 1·1 = 1.");
+            Assert.That(fit.ReconstructionCosineSimilarity, Is.EqualTo(0.57735026918962584).Within(1e-12),
+                "cos([3,0,0],[1,1,1]) = 3/(3·√3) = 1/√3 (reconstruction quality below the 0.95 threshold).");
+        });
+    }
+
     [Test]
     public void FitSignatures_NullCatalog_Throws()
     {
@@ -334,6 +370,21 @@ public class OncologyAnalyzer_FitSignatures_Tests
         Assert.Throws<ArgumentException>(
             () => OncologyAnalyzer.ReconstructCatalog(signatures, new double[] { 1, 2 }),
             "Exposure count must equal the signature count; otherwise ArgumentException.");
+    }
+
+    [Test]
+    public void ReconstructCatalog_NullArguments_Throw()
+    {
+        var signatures = new IReadOnlyList<double>[] { new double[] { 1, 0 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.ReconstructCatalog(null!, new double[] { 1 }),
+                "Null signatures must throw ArgumentNullException.");
+            Assert.Throws<ArgumentNullException>(
+                () => OncologyAnalyzer.ReconstructCatalog(signatures, null!),
+                "Null exposures must throw ArgumentNullException.");
+        });
     }
 
     #endregion
