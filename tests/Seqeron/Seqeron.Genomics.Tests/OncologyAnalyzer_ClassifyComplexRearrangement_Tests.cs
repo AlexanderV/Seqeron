@@ -216,15 +216,19 @@ public class OncologyAnalyzer_ClassifyComplexRearrangement_Tests
     [Test]
     public void TestBreakpointClustering_TightClusterPlusOutlier_Clustered()
     {
-        // gaps {1,1,1,997}: mean 250, var ((249^2)*3 + 747^2)/4 = 186003, sd ~431.28, CV ~1.725.
+        // gaps {1,1,1,997}: mean = 1000/4 = 250; population var = ((1-250)^2*3 + (997-250)^2)/4
+        //   = (62001*3 + 558009)/4 = 744012/4 = 186003; sd = sqrt(186003); CV = sqrt(186003)/250.
+        const double expectedMean = 250.0;
+        double expectedCv = Math.Sqrt(186003.0) / 250.0; // = 1.7251226043386019
         long[] positions = { 0, 1, 2, 3, 1000 };
         var r = OncologyAnalyzer.TestBreakpointClustering(positions);
         Assert.Multiple(() =>
         {
-            Assert.That(r.CoefficientOfVariation, Is.GreaterThan(1.0),
-                "Many short gaps with one long gap over-disperse beyond the exponential null (CV>1).");
+            Assert.That(r.MeanGap, Is.EqualTo(expectedMean).Within(Tolerance), "Gaps {1,1,1,997} have mean 250.");
+            Assert.That(r.CoefficientOfVariation, Is.EqualTo(expectedCv).Within(Tolerance),
+                "sqrt(186003)/250 = 1.7251226043386019 (population sd / mean of inter-breakpoint gaps).");
             Assert.That(r.IsClustered, Is.True,
-                "CV > 1 flags clustering (Korbel & Campbell criterion A).");
+                "CV > 1 (exponential null CV = 1): over-dispersed, so clustered (Korbel & Campbell criterion A).");
         });
     }
 

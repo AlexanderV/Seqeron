@@ -269,3 +269,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 144 | ONCO-HETERO-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 145 | ONCO-HLA-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 146 | ONCO-ACTION-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 147 | ONCO-SV-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
