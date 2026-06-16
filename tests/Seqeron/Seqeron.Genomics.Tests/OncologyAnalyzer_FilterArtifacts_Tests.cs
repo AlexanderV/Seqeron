@@ -169,10 +169,18 @@ public class OncologyAnalyzer_FilterArtifacts_Tests
     }
 
     [Test]
-    public void CalculateGivScore_NegativeCount_Throws()
+    public void CalculateGivScore_NegativeR1_Throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateGivScore(-1, 10),
             "Negative read counts are invalid.");
+    }
+
+    // Negative read-2 count is rejected too (mirror branch of the read-1 validation).
+    [Test]
+    public void CalculateGivScore_NegativeR2_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateGivScore(10, -1),
+            "Negative read-2 count is invalid.");
     }
 
     #endregion
@@ -210,6 +218,28 @@ public class OncologyAnalyzer_FilterArtifacts_Tests
 
         Assert.That(fs, Is.EqualTo(24.148182890180962).Within(1e-6),
             "Independently computed: two-sided Fisher p = 0.0038475273 -> FS = 24.1481829.");
+    }
+
+    // Edge case — an all-zero strand table (no reads at all) provides no evidence of strand bias:
+    // p = 1 => FS = 0. Documented in the spec (§3.3: "An all-zero strand table yields p = 1, FS = 0").
+    [Test]
+    public void CalculateStrandBias_EmptyTable_ReturnsZero()
+    {
+        double fs = OncologyAnalyzer.CalculateStrandBias(0, 0, 0, 0);
+
+        Assert.That(fs, Is.EqualTo(0.0).Within(1e-9),
+            "A table with no reads has no evidence of strand bias: two-sided Fisher p = 1, FS = 0.");
+    }
+
+    // Edge case — a zero-margin table (no reverse reads at all): the two-sided Fisher p = 1 (no bias),
+    // so FS = 0. Independently confirmed with scipy.stats.fisher_exact([[10,0],[10,0]]) = 1.0.
+    [Test]
+    public void CalculateStrandBias_ZeroMarginTable_ReturnsZero()
+    {
+        double fs = OncologyAnalyzer.CalculateStrandBias(10, 0, 10, 0);
+
+        Assert.That(fs, Is.EqualTo(0.0).Within(1e-9),
+            "All reads on the forward strand for both alleles gives no strand bias: p = 1, FS = 0.");
     }
 
     // C1 / INV-05 — monotonicity: increasing strand segregation does not decrease FS.
@@ -261,6 +291,15 @@ public class OncologyAnalyzer_FilterArtifacts_Tests
             Assert.That(oxoG[0].Type, Is.EqualTo(OncologyAnalyzer.ArtifactType.OxoG), "The returned call is OxoG.");
             Assert.That(oxoG[0].GivScore, Is.EqualTo(2.0).Within(1e-10), "Its GIV is 2.0 (> 1.5).");
         });
+    }
+
+    // Empty variant set yields an empty OxoG result (nothing to detect).
+    [Test]
+    public void DetectOxoGArtifacts_Empty_ReturnsEmpty()
+    {
+        var oxoG = OncologyAnalyzer.DetectOxoGArtifacts(System.Array.Empty<Obs>());
+
+        Assert.That(oxoG, Is.Empty, "An empty variant set produces no OxoG calls.");
     }
 
     [Test]

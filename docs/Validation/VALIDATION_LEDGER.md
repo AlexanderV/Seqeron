@@ -240,3 +240,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 115 | ONCO-SOMATIC-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 116 | ONCO-VAF-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 117 | ONCO-DRIVER-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 118 | ONCO-ARTIFACT-001 | Oncology | ✅ | 🟡 | ✅ CLEAN | - |
