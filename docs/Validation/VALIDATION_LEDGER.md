@@ -119,7 +119,19 @@ Independent re-validation of the 148 Phase-2 ☑ Registry units absent from Phas
 session per unit, same protocol. Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL · ⬜ pending.
 State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 
-**Progress:** 53 / 148 processed.
+**Progress:** 148 / 148 processed · 147 ✅ CLEAN · 1 ↩︎ DUPLICATE-OF · 0 🔧 LIMITED. ✅ PHASE 2 COMPLETE.
+
+> **Campaign result.** Every Phase-2 ☑ Registry unit independently re-validated against external
+> first sources, one fresh session per unit. **13 genuine algorithm/behaviour defects** were found
+> and completely fixed in-session (all ✅ CLEAN): SV-DETECT-001 (RF/everted→tandem-dup signature),
+> SV-CNV-001 (half-integer CN rounding), TRANS-SPLICE-001 (A5SS/A3SS swapped), PANGEN-CORE-001
+> (floor→fractional core rule), ASSEMBLY-TRIM-001 (missing cutadapt s<0 early break), MIRNA-PAIR-001
+> (DNA-T→U pairing), META-RESIST-001 (ungapped tie-break false negatives), ANNOT-CODING-001 (CPAT
+> both-zero hexamer), ANNOT-REPEAT-001 (ClassifyRepeat short-query), GENOMIC-REPEAT-001 (incomplete
+> FindRepeats), PROTMOTIF-TM-001 (segment-End off-by-one), SEQ-COMPLEX-COMPRESS-001 (b<2 LZ base
+> clamp), RNA-PARTITION-001 (McCaskill base-pair probabilities). Plus numerous green-washed/code-echoing
+> tests rewritten to exact externally-sourced values and many untested-branch coverage gaps closed.
+> Full suite grew 6484 → 6694 (Failed: 0); SEQ-COMPOSITION-001 is a documented duplicate of SEQ-STATS-001.
 
 | # | Unit ID | Area | Stage A | Stage B | State | Commit |
 |---|---------|------|:---:|:---:|:---:|--------|
