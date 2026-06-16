@@ -34,6 +34,12 @@ public class SequenceStatistics_SummarizeNucleotideSequence_Tests
                 "uniform over 4 symbols -> H = log2(4) = 2.0 bits per Shannon 1948");
             Assert.That(summary.MeltingTemperature, Is.EqualTo(24.0).Within(Tolerance),
                 "len<14 -> Wallace Tm = 2*(A+T)+4*(G+C) = 8+16 = 24.0");
+            // Complexity is the mean of per-word-size vocabulary-usage ratios U_k = observed/possible,
+            // k=1..6 (Trifonov 1990 vocabulary usage; this method uses the mean, not the product).
+            // Hand-computed independently: k=1: 4/4=1; k=2: 4/7; k=3: 4/6; k=4: 4/5; k=5: 4/4=1; k=6: 3/3=1
+            // mean = (1 + 4/7 + 2/3 + 0.8 + 1 + 1)/6 = 0.83968253968253968...
+            Assert.That(summary.Complexity, Is.EqualTo(0.8396825396825397).Within(Tolerance),
+                "Complexity = mean of vocabulary-usage ratios over k=1..6 = 0.8396825396825397");
         });
     }
 
