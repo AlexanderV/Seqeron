@@ -179,9 +179,13 @@ public class OncologyAnalyzer_AnalyzeBreakpoint_Tests
         });
     }
 
-    // M10 — mid-codon junction: ATGA(4) + AAGGT(5) → ATGAAAGGT → ATG AAA GGT → MKG; in-frame (1+2 complement).
+    // M10 — 5' prefix off the codon boundary, 3' starts at native phase 0: ATGA(4 ≡ phase 1) + AAGGT(phase 0).
+    // The 3' partner is read shifted relative to its native frame, so this is OUT-OF-FRAME under the Arriba
+    // reading_frame model ("whether the 3' gene is fused in-frame or out-of-frame"): (4 - 0) mod 3 == 1 ≠ 0.
+    // (AGFusion would label the *contiguous ORF* "in-frame (with mutation)" because len(chimeric) is a multiple
+    // of 3, but the repo models Arriba's two-way 3'-gene-frame call, not AGFusion's three-way ORF-continuity call.)
     [Test]
-    public void PredictFusionProtein_MidCodonJunction_InFramePeptide()
+    public void PredictFusionProtein_MidCodonJunctionPhaseMismatch_OutOfFrame()
     {
         var bp = Bp(Site.Cds, Site.Cds, fivePrimeCodingBases: 4, threePrimeStartPhase: 0);
 
@@ -191,6 +195,30 @@ public class OncologyAnalyzer_AnalyzeBreakpoint_Tests
         {
             Assert.That(p.ChimericCds, Is.EqualTo("ATGAAAGGT"),
                 "5' prefix [0:4]='ATGA' joined to 3' suffix [0:]='AAGGT' (AGFusion concat).");
+            Assert.That(p.Effect, Is.EqualTo(Frame.OutOfFrame),
+                "(4 - 0) mod 3 == 1 ≠ 0: the 3' partner is read frameshifted → out-of-frame (Arriba reading_frame).");
+            Assert.That(p.Peptide, Is.EqualTo("MKG"),
+                "ATG=M, AAA=K, GGT=G: the 9-base chimeric CDS still translates cleanly even though the 3' gene is frameshifted.");
+        });
+    }
+
+    // M10b — genuinely in-frame mid-codon junction: 5' contributes 4 bases (phase 1) and the 3' suffix begins at
+    // its native phase 1, so the frames are compatible: (4 - 1) mod 3 == 0 → in-frame. 3' CDS 'TAAGGT' sliced at
+    // offset 1 gives the suffix 'AAGGT'; chimeric ATGA + AAGGT = ATGAAAGGT → ATG AAA GGT → MKG. (AGFusion frame
+    // rule: len(cds5)=4 (1/3 frac) and len(cds3)=5 (2/3 frac) complement → in-frame.)
+    [Test]
+    public void PredictFusionProtein_MidCodonJunctionPhaseMatch_InFrame()
+    {
+        var bp = Bp(Site.Cds, Site.Cds, fivePrimeCodingBases: 4, threePrimeStartPhase: 1);
+
+        var p = OncologyAnalyzer.PredictFusionProtein(bp, ("ATGA", "TAAGGT"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ChimericCds, Is.EqualTo("ATGAAAGGT"),
+                "5' prefix [0:4]='ATGA' joined to 3' suffix [1:]='AAGGT' (AGFusion concat).");
+            Assert.That(p.Effect, Is.EqualTo(Frame.InFrame),
+                "(4 - 1) mod 3 == 0: the 3' partner is read in its native frame → in-frame.");
             Assert.That(p.Peptide, Is.EqualTo("MKG"),
                 "ATG=M, AAA=K, GGT=G: the junction completes a codon across the breakpoint.");
         });

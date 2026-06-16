@@ -77,7 +77,8 @@
 | M7 | Both UTR → NotPredicted | site5=3'UTR, site3=CDS | NotPredicted | Arriba `.` (Source 1) |
 | M8 | Predict protein, in-frame, no stop | cds5=`ATGAAA`, cds3=`GATGGT` | peptide = `MKDG`, Effect=InFrame, PrematureStop=false | AGFusion translate (Source 2) |
 | M9 | Predict protein, in-frame, premature stop | cds5=`ATGAAA`, cds3=`GATTAAGGT` | peptide = `MKD`, PrematureStop=true | AGFusion translate+truncate (Source 2) |
-| M10 | Predict protein, mid-codon junction in-frame | cds5=`ATGA`, cds3=`AAGGT` | chimeric `ATGAAAGGT` → peptide = `MKG` | AGFusion concat (4%3=1,5%3=2) (Source 2) |
+| M10 | Predict protein, mid-codon junction, 3' frameshifted | cds5=`ATGA`(4, phase 1), cds3=`AAGGT` (phase 0) | chimeric `ATGAAAGGT` → peptide = `MKG`; Effect=**OutOfFrame** ((4−0)%3=1≠0; the 3' gene is read frameshifted under the Arriba 3'-gene-frame model) | Arriba reading_frame (Source 1); AGFusion concat (Source 2) |
+| M10b | Predict protein, mid-codon junction, frames compatible | cds5=`ATGA`(4, phase 1), 3' CDS `TAAGGT` sliced at phase 1 → suffix `AAGGT` | chimeric `ATGAAAGGT` → peptide = `MKG`; Effect=**InFrame** ((4−1)%3=0; 3' read in native frame) | Arriba reading_frame (Source 1); AGFusion concat (Source 2) |
 | M11 | Predict protein, out-of-frame trims to whole codons | cds5=`ATGAA`(5), cds3=`GATGGT`(6) | chimeric trimmed `ATGAAGATG` → peptide = `MKM`, Effect=OutOfFrame | AGFusion out-of-frame branch (Source 2) |
 | M12 | Chimeric CDS composition | cds5=`ATGAAA`, cds3=`GATGGT` | ChimericCds = `ATGAAAGATGGT` | AGFusion concat (Source 2) |
 
@@ -160,7 +161,8 @@
 | M7 | ✅ | AnalyzeBreakpoint_FivePrimeUtr_NotPredicted |
 | M8 | ✅ | PredictFusionProtein_InFrameNoStop_TranslatesFullPeptide |
 | M9 | ✅ | PredictFusionProtein_PrematureStop_TruncatesAtStop |
-| M10 | ✅ | PredictFusionProtein_MidCodonJunction_InFramePeptide |
+| M10 | ✅ | PredictFusionProtein_MidCodonJunctionPhaseMismatch_OutOfFrame |
+| M10b | ✅ | PredictFusionProtein_MidCodonJunctionPhaseMatch_InFrame |
 | M11 | ✅ | PredictFusionProtein_OutOfFrame_TrimsAndShifts |
 | M12 | ✅ | PredictFusionProtein_ChimericCds_ConcatenatesPrefixSuffix |
 | S1 | ✅ | PredictFusionProtein_PrematureStop_FlagsStopCodon |
