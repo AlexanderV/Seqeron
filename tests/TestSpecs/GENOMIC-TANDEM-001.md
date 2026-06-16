@@ -99,7 +99,7 @@
 | Area / Test Case ID | Status | Notes |
 |---------------------|--------|-------|
 | M1 exact trinucleotide | ✅ Covered | `FindTandemRepeats_SimpleTrinucleotide_FindsRepeat` |
-| M2 worked example | ✅ Covered | `..._TelomereRepeat_TTAGGG` / tetra-/pentanucleotide tests (same unit≥2 contiguous form) |
+| M2 worked example | ✅ Covered | `..._WikipediaWorkedExample_ATTCG` (verbatim Wikipedia `ATTCGATTCGATTCG` → ATTCG, pos 0, 3 copies, len 15; added 2026-06-16) plus telomere/tetra/penta analogues |
 | M3 minRepetitions floor | ✅ Covered | `..._MinRepetitionsFilter_RespectsThreshold` |
 | M4 no-repeat / empty | ✅ Covered | `..._NoRepeatsFound_ReturnsEmpty`, `..._EmptySequence_ReturnsEmpty` |
 | S1 position 0-based | ✅ Covered | `..._PositionCorrect_ZeroBased` |
@@ -131,7 +131,7 @@
 | Area / Test Case ID | Status | Resolution |
 |---------------------|--------|------------|
 | M1 | ✅ | Covered by canonical fixture |
-| M2 | ✅ | Covered by canonical fixture |
+| M2 | ✅ | Covered by canonical fixture (`..._WikipediaWorkedExample_ATTCG`, added 2026-06-16) |
 | M3 | ✅ | Covered by canonical fixture |
 | M4 | ✅ | Covered by canonical fixture |
 | S1 | ✅ | Covered by canonical fixture |
