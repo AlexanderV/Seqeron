@@ -222,3 +222,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 97 | KMER-BOTH-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
 | 98 | KMER-STATS-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
 | 99 | KMER-POSITIONS-001 | K-mer | ✅ | ✅ | ✅ CLEAN | - |
+| 100 | SEQ-ATSKEW-001 | Composition | ✅ | ✅ | ✅ CLEAN | - |

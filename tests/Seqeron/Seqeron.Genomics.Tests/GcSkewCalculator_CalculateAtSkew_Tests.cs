@@ -114,14 +114,18 @@ public class GcSkewCalculator_CalculateAtSkew_Tests
             "Empty string has A+T=0 => 0");
     }
 
-    // S5 / INV-1 — result stays within [-1, 1] for a mixed sequence.
+    // S5 / INV-1 — mixed sequence: exact sourced value AND within [-1, 1].
+    // "AAATTGCGCAATA" => A=6, T=3, G/C ignored => (6-3)/(6+3) = 1/3 (formula (A-T)/(A+T),
+    // Charneski 2011); the result is also within the [-1,+1] range bound (Wikipedia/Lobry).
     [Test]
-    public void CalculateAtSkew_AnyInput_StaysWithinBounds()
+    public void CalculateAtSkew_MixedSequence_ReturnsExactValueWithinBounds()
     {
         double skew = GcSkewCalculator.CalculateAtSkew("AAATTGCGCAATA");
 
         Assert.Multiple(() =>
         {
+            Assert.That(skew, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+                "A=6, T=3 => (6-3)/(6+3) = 1/3; G/C ignored (exact value from (A-T)/(A+T))");
             Assert.That(skew, Is.GreaterThanOrEqualTo(-1.0),
                 "AT skew is bounded below by -1 (INV-01)");
             Assert.That(skew, Is.LessThanOrEqualTo(1.0),
@@ -150,8 +154,14 @@ public class GcSkewCalculator_CalculateAtSkew_Tests
         double viaString = GcSkewCalculator.CalculateAtSkew(seq);
         double viaDna = GcSkewCalculator.CalculateAtSkew(new DnaSequence(seq));
 
-        Assert.That(viaDna, Is.EqualTo(viaString).Within(1e-10),
-            "DnaSequence overload delegates to the same core => identical value (0.5)");
+        Assert.Multiple(() =>
+        {
+            // Exact sourced value: A=3, T=1, G/C ignored => (3-1)/(3+1) = 0.5.
+            Assert.That(viaDna, Is.EqualTo(0.5).Within(1e-10),
+                "DnaSequence overload computes (A-T)/(A+T) = (3-1)/4 = 0.5");
+            Assert.That(viaDna, Is.EqualTo(viaString).Within(1e-10),
+                "DnaSequence overload delegates to the same core => identical to string overload");
+        });
     }
 
     #endregion
