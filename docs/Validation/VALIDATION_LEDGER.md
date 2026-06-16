@@ -210,3 +210,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 85 | COMPGEN-COMPARE-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
 | 86 | COMPGEN-REVERSAL-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
 | 87 | COMPGEN-CLUSTER-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
+| 88 | COMPGEN-ANI-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
