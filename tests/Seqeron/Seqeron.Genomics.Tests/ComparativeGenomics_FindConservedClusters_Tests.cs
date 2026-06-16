@@ -103,8 +103,15 @@ public class ComparativeGenomics_FindConservedClusters_Tests
 
         var actual = KeySet(ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 3));
 
-        Assert.That(actual, Contains.Item(Key("a", "b", "c")),
-            "{a,b,c} occupies a contiguous window in both genomes despite the duplicated 'x'; it is a common interval.");
+        // Exact common-interval set (size >= 3), independently brute-forced over the sequence model
+        // (Didier et al. 2013, Set(T[i..j])): {a,b,c}, {a,b,c,x} and {b,c,x} each occupy a contiguous
+        // window in both genomes despite the duplicated 'x'.
+        var expected = new HashSet<string>(StringComparer.Ordinal)
+        {
+            Key("a", "b", "c"), Key("a", "b", "c", "x"), Key("b", "c", "x"),
+        };
+        Assert.That(actual, Is.EquivalentTo(expected),
+            "The repeated label 'x' does not stop {a,b,c}, {a,b,c,x}, {b,c,x} from each being a common interval (some window in each genome has exactly that label set).");
     }
 
     // M4 — minClusterSize filters out smaller common intervals. With size>=4 on the golden vector,
@@ -140,8 +147,12 @@ public class ComparativeGenomics_FindConservedClusters_Tests
 
         var actual = KeySet(ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 3));
 
-        Assert.That(actual, Does.Not.Contain(Key("a", "b", "c")),
-            "An interval is the set of all window elements; the foreign group 'z' inside the window in genome B excludes {a,b,c}.");
+        // An interval is the set of ALL window elements; 'z' inside the only {a,b,c}-spanning window in
+        // genome B means no window has set exactly {a,b,c}. No size>=3 set is common here, so the result
+        // is EXACTLY empty (independently brute-forced over the sequence model). Lock the full set, not
+        // just the absence of {a,b,c}, so a wrong implementation that over-reports cannot pass.
+        Assert.That(actual, Is.Empty,
+            "The foreign group 'z' inside the window in genome B leaves no common interval of size >= 3.");
     }
 
     // S1 — A common interval is a family (K>=2) notion; a single genome yields no conserved clusters.
@@ -194,13 +205,15 @@ public class ComparativeGenomics_FindConservedClusters_Tests
 
         var actual = KeySet(ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 2));
 
-        Assert.Multiple(() =>
+        // Exact common-interval set (size >= 2), independently brute-forced: '9' in genome C splits
+        // every set containing both 1 and 2, leaving exactly {2,3}, {3,4}, {2,3,4}. Lock the full set
+        // so the test fails against an implementation that wrongly keeps {1,2} or drops {2,3,4}.
+        var expected = new HashSet<string>(StringComparer.Ordinal)
         {
-            Assert.That(actual, Does.Not.Contain(Key("1", "2")),
-                "{1,2} is split by '9' in genome C, so it is not common to all three genomes.");
-            Assert.That(actual, Contains.Item(Key("2", "3", "4")),
-                "{2,3,4} stays contiguous in all three genomes and is a common interval.");
-        });
+            Key("2", "3"), Key("3", "4"), Key("2", "3", "4"),
+        };
+        Assert.That(actual, Is.EquivalentTo(expected),
+            "Only sets that stay contiguous in all three genomes are common: {2,3}, {3,4}, {2,3,4}; {1,2} is split by '9' in genome C.");
     }
 
     // C1 — Determinism: identical inputs produce an identical cluster sequence on repeated runs.

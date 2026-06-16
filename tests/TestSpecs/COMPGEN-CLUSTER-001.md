@@ -69,9 +69,9 @@
 |----|-----------|-------------|------------------|----------|
 | M1 | GoldenVector_AllCommonIntervals | P1=Id7, P2=(7 2 1 3 6 4 5), minClusterSize=2 | Returned label-sets exactly = {1,2},{1,2,3},{3,4,5,6},{4,5},{4,5,6},{1..6},{1..7} | Source 1, Example 1 |
 | M2 | SetContiguousInOneGenomeOnly_NotReturned | {2,3}: contiguous in P1, split in P2 | {2,3} is NOT among returned clusters | Source 1, Example 1 (positions of 2,3 in P2 = 2,4) |
-| M3 | RepeatedLabels_WindowMatch | Genomes with a duplicated group label where a window has the same set in both | The set is reported despite duplicates | Source 3, Example 1 |
+| M3 | RepeatedLabels_WindowMatch | Genomes with a duplicated group label where a window has the same set in both | Exact set (size≥3) = {a,b,c},{a,b,c,x},{b,c,x} reported despite duplicates (brute-forced over the Source-3 sequence model) | Source 3, Example 1 |
 | M4 | MinClusterSize_FiltersSmall | Golden vector with minClusterSize=4 | Only sets of size ≥ 4 returned ({3,4,5,6},{1..6},{1..7}) | Source 1, §2 + Example 1 |
-| M5 | AllMembersContiguousInAllGenomes | Cluster window contains no foreign group between members in all genomes | Returned cluster's set = exactly the window's group set | Source 1, §2 (interval = Set of window) |
+| M5 | AllMembersContiguousInAllGenomes | A foreign group between members breaks the window in one genome (A=(a,b,c), B=(a,z,b,c)) | Result is EXACTLY empty for size≥3 (no window has set {a,b,c}; brute-forced) | Source 1, §2 (interval = Set of window) |
 
 ### 4.2 SHOULD Tests (Important edge cases)
 
@@ -79,7 +79,7 @@
 |----|-----------|-------------|------------------|-------|
 | S1 | SingleGenome_ReturnsEmpty | One genome only | Empty | INV-04 |
 | S2 | IdenticalOrderThreeGenomes | Three genomes, identical group order 1..5, minClusterSize=3 | All windows of size ≥ 3 conserved: {1,2,3},{2,3,4},{3,4,5},{1,2,3,4},{2,3,4,5},{1,2,3,4,5} | Identity vs identity, all intervals common (Source 1) |
-| S3 | ThreeGenomes_OnlyAllConservedReported | Set conserved in genomes 1,2 but split in genome 3 | Not returned | INV-01/INV-03, Source 4 (k-permutation) |
+| S3 | ThreeGenomes_OnlyAllConservedReported | A=B=(1,2,3,4), C=(1,9,2,3,4), minClusterSize=2 | Exact set = {2,3},{3,4},{2,3,4} (9 splits every set containing 1 and 2; brute-forced) | INV-01/INV-03, Source 4 (k-permutation) |
 
 ### 4.3 COULD Tests (Nice to have)
 

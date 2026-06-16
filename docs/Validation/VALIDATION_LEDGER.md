@@ -209,3 +209,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 84 | COMPGEN-RBH-001 | Comparative | 🟡 | ✅ | ✅ CLEAN | - |
 | 85 | COMPGEN-COMPARE-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
 | 86 | COMPGEN-REVERSAL-001 | Comparative | ✅ | ✅ | ✅ CLEAN | - |
+| 87 | COMPGEN-CLUSTER-001 | Comparative | ✅ | 🟡 | ✅ CLEAN | - |
