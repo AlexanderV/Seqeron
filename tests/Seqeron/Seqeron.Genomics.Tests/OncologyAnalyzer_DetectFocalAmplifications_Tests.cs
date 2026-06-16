@@ -94,6 +94,22 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
             "A single-copy-gain log2 (0.585) exceeds t_amp=0.1 and 0.10-of-arm is focal, so it must be reported.");
     }
 
+    // M4b — log2 exactly at t_amp (0.1) is NOT amplified: GISTIC2 t_amp is "above this positive
+    // value", so the amplitude test is strictly greater-than (boundary excluded).
+    // Source: GISTIC2 docs t_amp — "Regions with a copy number gain ABOVE this positive value are
+    // considered amplified." (https://broadinstitute.github.io/gistic2/)
+    [Test]
+    public void DetectFocalAmplifications_Log2ExactlyAtTamp_NotReported()
+    {
+        // 0.10-of-arm (focal) but log2 == t_amp exactly: amplitude test is strict > 0.1 ⇒ not amplified.
+        var segments = new[] { Seg("17q", 0, 100_000, OncologyAnalyzer.DefaultAmplificationLog2Threshold) };
+
+        var result = OncologyAnalyzer.DetectFocalAmplifications(segments);
+
+        Assert.That(result, Is.Empty,
+            "log2 exactly equal to t_amp (0.1) is not 'above' the threshold, so the segment is not amplified.");
+    }
+
     // M11 — mixed list: only the two focal amplifications survive, in input order.
     // Source: INV-03 (subset, order-preserving).
     [Test]
@@ -132,6 +148,59 @@ public class OncologyAnalyzer_DetectFocalAmplifications_Tests
 
         Assert.That(result, Is.Empty,
             "With t_amp raised to 0.3, a log2=0.2 segment is below threshold and must not be reported.");
+    }
+
+    // S1b — custom broad_len_cutoff: raising it to 0.999 makes a 0.99-of-arm segment focal again.
+    // Source: GISTIC2 broad_len_cutoff is a parameter (fraction of arm); the focal test is L/A < cutoff.
+    [Test]
+    public void DetectFocalAmplifications_CustomBroadLengthCutoff_AdmitsLongerSegment()
+    {
+        var thresholds = new Thresholds(OncologyAnalyzer.DefaultAmplificationLog2Threshold, 0.999);
+        var segments = new[] { Seg("8q", 0, 990_000, 1.5) }; // 0.99 of arm; arm-level under default 0.98
+
+        var result = OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds);
+
+        Assert.That(result, Has.Count.EqualTo(1),
+            "With broad_len_cutoff raised to 0.999, a 0.99-of-arm amplified segment is focal (0.99 < 0.999).");
+    }
+
+    // IsFocalAmplification (public predicate) — direct coverage of the conjunction it computes.
+    // Source: Mermel 2011 focal (L/A < 0.98) AND GISTIC2 t_amp (log2 > 0.1).
+    [Test]
+    public void IsFocalAmplification_Predicate_FocalAndAmplified_True()
+    {
+        var seg = Seg("17q", 100_000, 600_000, 1.0); // 0.50 of arm, log2 1.0
+
+        Assert.That(OncologyAnalyzer.IsFocalAmplification(seg, Thresholds.Default), Is.True,
+            "A 0.50-of-arm (focal), log2=1.0 (amplified) segment satisfies both predicates.");
+    }
+
+    [Test]
+    public void IsFocalAmplification_Predicate_ArmLevel_False()
+    {
+        var seg = Seg("8q", 0, 990_000, 1.5); // 0.99 of arm ⇒ not focal
+
+        Assert.That(OncologyAnalyzer.IsFocalAmplification(seg, Thresholds.Default), Is.False,
+            "A 0.99-of-arm segment is arm-level (not focal), so the predicate is false even when amplified.");
+    }
+
+    [Test]
+    public void IsFocalAmplification_Predicate_NotAmplified_False()
+    {
+        var seg = Seg("7p", 0, 300_000, 0.05); // focal length but log2 0.05 < t_amp
+
+        Assert.That(OncologyAnalyzer.IsFocalAmplification(seg, Thresholds.Default), Is.False,
+            "A focal-length but low-amplitude (log2=0.05) segment is not amplified, so the predicate is false.");
+    }
+
+    [Test]
+    public void IsFocalAmplification_Predicate_InvalidSegment_Throws()
+    {
+        var seg = new Segment("17q", 0, 100, 0, 1.0); // non-positive arm length
+
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.IsFocalAmplification(seg, Thresholds.Default),
+            "A segment with non-positive arm length must throw ArgumentException from the predicate.");
     }
 
     // C1 — null segments ⇒ ArgumentNullException.

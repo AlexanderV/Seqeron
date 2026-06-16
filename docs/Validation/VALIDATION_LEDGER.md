@@ -254,3 +254,4 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 129 | ONCO-FUSION-002 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 130 | ONCO-FUSION-003 | Oncology | 🟡 | 🟡 | ✅ CLEAN | - |
 | 131 | ONCO-CNA-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+| 132 | ONCO-CNA-002 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
