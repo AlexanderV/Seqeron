@@ -116,6 +116,24 @@ public class GcSkewCalculator_AnalyzeGcContent_Tests
         });
     }
 
+    // M8b — pure-C lower bound: GC skew = (0-4)/4 = -1; GC% = 100 (skew range lower bound, Wikipedia GC skew:
+    // "-1 corresponds to G = 0"). Complements M8 so both documented bounds (+1 and -1) are pinned directly.
+    [Test]
+    public void AnalyzeGcContent_PureCytosine_SkewIsMinusOneContentIsHundred()
+    {
+        var seq = new DnaSequence("CCCC");
+
+        var result = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: 4, stepSize: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.OverallGcSkew, Is.EqualTo(-1.0).Within(1e-10),
+                "Pure-C: (G-C)/(G+C) = (0-4)/4 = -1 (lower bound; Wikipedia GC skew '-1 corresponds to G = 0')");
+            Assert.That(result.OverallGcContent, Is.EqualTo(100.0).Within(1e-10),
+                "All bases are C: GC% = 4/4*100 = 100");
+        });
+    }
+
     // M9 — no G/C: skew zero-division -> 0; GC% numerator 0 -> 0; AT skew of ATATAT = 0 (balanced).
     [Test]
     public void AnalyzeGcContent_NoGcBases_SkewAndContentAreZero()
@@ -133,6 +151,20 @@ public class GcSkewCalculator_AnalyzeGcContent_Tests
             Assert.That(result.OverallAtSkew, Is.EqualTo(0.0).Within(1e-10),
                 "A=3,T=3 => AT skew (3-3)/6 = 0");
         });
+    }
+
+    // M3b — asymmetric AT skew pins the (A-T)/(A+T) formula and its sign: "AAAT" has A=3,T=1 =>
+    // AT skew = (3-1)/(3+1) = +0.5. A balanced-only test (M3) cannot distinguish (A-T)/(A+T) from
+    // (T-A)/(A+T) or (A-T)/n; this asymmetric case does.
+    [Test]
+    public void AnalyzeGcContent_AdenineRich_AtSkewIsPositiveHalf()
+    {
+        var seq = new DnaSequence("AAAT");
+
+        var result = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: 4, stepSize: 4);
+
+        Assert.That(result.OverallAtSkew, Is.EqualTo(0.5).Within(1e-10),
+            "AT skew = (A-T)/(A+T) = (3-1)/(3+1) = +0.5 (Charneski et al. 2011 / Lobry 1996)");
     }
 
     #endregion
