@@ -226,6 +226,22 @@ public class SequenceStatistics_CalculateThermodynamics_Tests
             "Marmur-Doty: 64.9 + 41*(10-16.4)/20 = 51.78 °C");
     }
 
+    // C2b — Auto-switch branch: useWallaceRule=true but length >= 14 falls through to
+    //       the Marmur-Doty GC formula (the Wallace rule of thumb is only applied below
+    //       WallaceMaxLength = 14). 'ACGTTGCAATGCCGTA' is 16 nt, GC = 8.
+    // Evidence: Marmur-Doty/GC form Tm = 64.9 + 41*(GC-16.4)/N (Marmur & Doty 1962;
+    //           UGENE/Primer3 GC method). 64.9 + 41*(8-16.4)/16 = 43.375.
+    //           NOT the Wallace value 48.0, because length 16 >= 14 disables Wallace.
+    [Test]
+    public void CalculateMeltingTemperature_WallaceRequestedButTooLong_UsesMarmurDoty()
+    {
+        double tm = SequenceStatistics.CalculateMeltingTemperature(
+            "ACGTTGCAATGCCGTA", useWallaceRule: true); // 16 nt (>= 14) => Marmur-Doty
+
+        Assert.That(tm, Is.EqualTo(43.375).Within(1e-9),
+            "Length 16 (>= WallaceMaxLength 14) auto-switches to Marmur-Doty: 64.9 + 41*(8-16.4)/16 = 43.375");
+    }
+
     // C3 — Null / empty input to the delegate returns 0 (guarded by string.IsNullOrEmpty).
     [Test]
     public void CalculateMeltingTemperature_NullOrEmptyInput_ReturnsZero()
