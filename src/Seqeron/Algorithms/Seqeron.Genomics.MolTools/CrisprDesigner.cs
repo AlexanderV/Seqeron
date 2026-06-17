@@ -722,6 +722,198 @@ public static class CrisprDesigner
 
     #endregion
 
+    #region CFD (Cutting Frequency Determination) Off-Target Score — Doench 2016
+
+    // ---------------------------------------------------------------------------------------------
+    // CFD (Cutting Frequency Determination) off-target score (PUBLISHED, fully reproducible from the
+    // shipped matrices).
+    //
+    // Source: Doench, Fusi, Sullender, Hegde, et al. "Optimized sgRNA design to maximize activity and
+    //   minimize off-target effects of CRISPR-Cas9." Nat Biotechnol 34, 184-191 (2016).
+    //   PMID 26780180. doi:10.1038/nbt.3437. CFD is defined in the paper and Supplementary Table 19
+    //   (per-position, per-mismatch-type percent-activity matrix) plus a PAM-activity table.
+    //
+    // Canonical reference implementation: `cfd-score-calculator.py` distributed by John Doench's lab
+    //   and redistributed in CRISPOR (maximilianh/crisporWebsite, CFD_Scoring/) and bm2-lab/iGWOS
+    //   (CFD/). The matrices are shipped as the Python pickles `mismatch_score.pkl` (240 entries =
+    //   12 mismatch types x 20 positions) and `pam_scores.pkl` (16 NGG-region dinucleotides).
+    //
+    // The matrices below were obtained this session by decoding those authoritative pickles to text
+    // and were cross-checked element-by-element across TWO independent repositories
+    // (maximilianh/crisporWebsite and bm2-lab/iGWOS): 240/240 mismatch values and 16/16 PAM values
+    // are identical between the two sources (zero diffs). They are reproduced here verbatim at full
+    // double precision (the exact bit patterns decoded from the pickle).
+    //
+    // ALGORITHM (verbatim from `calc_cfd` in cfd-score-calculator.py):
+    //   score = 1
+    //   for i, off_base in enumerate(offTarget20):           # i = 0..19, 5' -> 3'
+    //       if guide[i] == off_base: score *= 1
+    //       else:  key = 'r' + guide[i]            (guide base, T written as U)
+    //                  + ':d' + complement(off_base)  (base on the non-target DNA strand)
+    //                  + ',' + str(i + 1)            (1-based position, 1 = position 0)
+    //              score *= mm_scores[key]
+    //   score *= pam_scores[ pam[-2:] ]              # last two PAM nt; PAM position 1 (N) -> 1
+    //
+    // ORIENTATION (pinned from the source, NOT from this code): the loop enumerates the 20-nt
+    //   protospacer 5'->3', so position 1 (index 0) is the 5' / PAM-DISTAL end and position 20 is the
+    //   3' / PAM-PROXIMAL (seed) end. (`sg = off[:-3]`, `pam = off[-2:]` => the protospacer precedes
+    //   the PAM, so the high index is adjacent to the PAM.) Getting this backwards is the classic CFD
+    //   bug; the orientation guard test asserts rC:dT,1 = 1.0 vs rC:dT,20 = 0.5 and fails on reversal.
+    //
+    // KEY CONVENTION (pinned from the source): 'rX' is the GUIDE (RNA) base with T written as U; 'dY'
+    //   is the COMPLEMENT of the off-target protospacer base (i.e. the base on the off-target's
+    //   non-target DNA strand that pairs against the guide). A position only contributes a penalty
+    //   when guide[i] != offTarget[i]; matched positions contribute 1.0. Perfect match + GG PAM -> 1.0.
+    //
+    // CONTRACT: this implementation scores a 20-nt guide vs a 20-nt off-target protospacer plus the
+    //   off-target's PAM, all A/C/G/T only (case-insensitive). The PAM score uses the last two PAM
+    //   nucleotides; a 2-nt PAM string is taken as-is, a 3-nt PAM uses its last two. Insertions /
+    //   deletions and non-ACGT bases are NOT supported (CFD is undefined for them) and throw.
+    //
+    // Cross-checks reproduced this session (independent Python re-derivation from the decoded pickle,
+    // NOT from the C# arrays; the first is the published iGWOS doctest oracle):
+    //   guide "GGGGGGGGGGGGGGGGGGGG" vs off "GGGGGGGGGGGGGGGGGAAA" + GG  -> 0.4635989007074176
+    //     (= rG:dT,18 x rG:dT,19 x rG:dT,20 = 0.692307692 x 0.714285714 x 0.9375)
+    //   perfect match + GG -> 1.0 ; perfect match + GA -> 0.069444 ; perfect + AG -> 0.259259
+    //   guide "GACGCATAAAGATGAGACGC": off A@pos1 (rG:dT,1) -> 0.9 ; off A@pos20 (rC:dT,20) -> 0.5 ;
+    //     off A@{1,20} -> 0.45 (product) ; off T@pos16 (rG:dA,16) -> 0.0
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// CFD per-position mismatch percent-activity matrix (Doench 2016), keyed by mismatch type
+    /// <c>"rX:dY"</c> (X = guide/RNA base with T as U; Y = complement of the off-target base), each
+    /// value an array indexed 0..19 by 0-based protospacer position (index 0 = 5'/PAM-distal,
+    /// index 19 = 3'/PAM-proximal). Verbatim from the authoritative <c>mismatch_score.pkl</c>.
+    /// </summary>
+    private static readonly Dictionary<string, double[]> CfdMismatchScores = new()
+    {
+        ["rA:dA"] = new[] { 1.0, 0.727272727, 0.705882353, 0.636363636, 0.363636364, 0.7142857140000001, 0.4375, 0.428571429, 0.6, 0.882352941, 0.307692308, 0.333333333, 0.3, 0.533333333, 0.2, 0.0, 0.133333333, 0.5, 0.538461538, 0.6 },
+        ["rA:dC"] = new[] { 1.0, 0.8, 0.611111111, 0.625, 0.72, 0.7142857140000001, 0.705882353, 0.7333333329999999, 0.666666667, 0.5555555560000001, 0.65, 0.7222222220000001, 0.6521739129999999, 0.46666666700000003, 0.65, 0.192307692, 0.176470588, 0.4, 0.375, 0.764705882 },
+        ["rA:dG"] = new[] { 0.857142857, 0.7857142859999999, 0.428571429, 0.352941176, 0.5, 0.454545455, 0.4375, 0.428571429, 0.571428571, 0.333333333, 0.4, 0.263157895, 0.21052631600000002, 0.214285714, 0.272727273, 0.0, 0.176470588, 0.19047619, 0.20689655199999998, 0.22727272699999998 },
+        ["rC:dA"] = new[] { 1.0, 0.9090909090000001, 0.6875, 0.8, 0.636363636, 0.9285714290000001, 0.8125, 0.875, 0.875, 0.9411764709999999, 0.307692308, 0.538461538, 0.7, 0.7333333329999999, 0.066666667, 0.307692308, 0.46666666700000003, 0.642857143, 0.46153846200000004, 0.3 },
+        ["rC:dC"] = new[] { 0.913043478, 0.695652174, 0.5, 0.5, 0.6, 0.5, 0.470588235, 0.642857143, 0.6190476189999999, 0.38888888899999996, 0.25, 0.444444444, 0.13636363599999998, 0.0, 0.05, 0.153846154, 0.058823529000000006, 0.133333333, 0.125, 0.058823529000000006 },
+        ["rC:dT"] = new[] { 1.0, 0.727272727, 0.8666666670000001, 0.842105263, 0.571428571, 0.9285714290000001, 0.75, 0.65, 0.857142857, 0.8666666670000001, 0.75, 0.7142857140000001, 0.384615385, 0.35, 0.222222222, 1.0, 0.46666666700000003, 0.538461538, 0.428571429, 0.5 },
+        ["rG:dA"] = new[] { 1.0, 0.636363636, 0.5, 0.363636364, 0.3, 0.666666667, 0.571428571, 0.625, 0.533333333, 0.8125, 0.384615385, 0.384615385, 0.3, 0.26666666699999997, 0.14285714300000002, 0.0, 0.25, 0.666666667, 0.666666667, 0.7 },
+        ["rG:dG"] = new[] { 0.7142857140000001, 0.692307692, 0.384615385, 0.529411765, 0.7857142859999999, 0.681818182, 0.6875, 0.615384615, 0.538461538, 0.4, 0.428571429, 0.529411765, 0.42105263200000004, 0.428571429, 0.272727273, 0.0, 0.235294118, 0.47619047600000003, 0.448275862, 0.428571429 },
+        ["rG:dT"] = new[] { 0.9, 0.846153846, 0.75, 0.9, 0.8666666670000001, 1.0, 1.0, 1.0, 0.642857143, 0.933333333, 1.0, 0.933333333, 0.923076923, 0.75, 0.9411764709999999, 1.0, 0.933333333, 0.692307692, 0.7142857140000001, 0.9375 },
+        ["rU:dC"] = new[] { 0.956521739, 0.84, 0.5, 0.625, 0.64, 0.571428571, 0.588235294, 0.7333333329999999, 0.6190476189999999, 0.5, 0.4, 0.5, 0.260869565, 0.0, 0.05, 0.346153846, 0.117647059, 0.333333333, 0.25, 0.176470588 },
+        ["rU:dG"] = new[] { 0.857142857, 0.857142857, 0.428571429, 0.647058824, 1.0, 0.9090909090000001, 0.6875, 1.0, 0.923076923, 0.533333333, 0.666666667, 0.947368421, 0.7894736840000001, 0.28571428600000004, 0.272727273, 0.666666667, 0.705882353, 0.428571429, 0.275862069, 0.090909091 },
+        ["rU:dT"] = new[] { 1.0, 0.846153846, 0.7142857140000001, 0.47619047600000003, 0.5, 0.8666666670000001, 0.875, 0.8, 0.9285714290000001, 0.857142857, 0.75, 0.8, 0.692307692, 0.6190476189999999, 0.578947368, 0.9090909090000001, 0.533333333, 0.666666667, 0.28571428600000004, 0.5625 }
+    };
+
+    /// <summary>
+    /// CFD PAM-activity table (Doench 2016) for the last two PAM nucleotides (the "GG" region of NGG).
+    /// Verbatim from the authoritative <c>pam_scores.pkl</c>; canonical GG = 1.0. Position 1 of the
+    /// PAM is N and contributes 1 (not part of this table).
+    /// </summary>
+    private static readonly Dictionary<string, double> CfdPamScores = new()
+    {
+        ["AA"] = 0.0,
+        ["AC"] = 0.0,
+        ["AG"] = 0.25925925899999996,
+        ["AT"] = 0.0,
+        ["CA"] = 0.0,
+        ["CC"] = 0.0,
+        ["CG"] = 0.107142857,
+        ["CT"] = 0.0,
+        ["GA"] = 0.06944444400000001,
+        ["GC"] = 0.022222222000000003,
+        ["GG"] = 1.0,
+        ["GT"] = 0.016129031999999998,
+        ["TA"] = 0.0,
+        ["TC"] = 0.0,
+        ["TG"] = 0.038961038999999996,
+        ["TT"] = 0.0
+    };
+
+    private static char CfdComplement(char b) => b switch
+    {
+        'A' => 'T',
+        'C' => 'G',
+        'G' => 'C',
+        'T' => 'A',
+        _ => throw new ArgumentException($"CFD requires A/C/G/T sequences; found '{b}'.")
+    };
+
+    /// <summary>
+    /// Calculates the Doench 2016 CFD (Cutting Frequency Determination) off-target score for a 20-nt
+    /// guide RNA against a 20-nt off-target protospacer with the off-target's PAM. The score is the
+    /// product over the 20 protospacer positions of the per-position mismatch penalty (1.0 where the
+    /// guide:off-target base pair matches) times the PAM-activity score for the off-target's PAM.
+    /// A perfect match against a canonical NGG PAM scores exactly 1.0; weaker off-targets score lower.
+    /// </summary>
+    /// <param name="sgRna20">
+    /// The 20-nt guide/protospacer, 5' (PAM-distal) first. A/C/G/T only, case-insensitive (T is
+    /// treated as the RNA base U internally, per the model).
+    /// </param>
+    /// <param name="offTarget20">
+    /// The 20-nt candidate off-target protospacer, same length and orientation as <paramref name="sgRna20"/>.
+    /// </param>
+    /// <param name="offTargetPam">
+    /// The off-target's PAM. Only the last two nucleotides are scored (the N of NGG always contributes 1);
+    /// pass either a 2-nt PAM (e.g. <c>"GG"</c>) or a 3-nt PAM (e.g. <c>"AGG"</c>). A/C/G/T only.
+    /// </param>
+    /// <returns>The CFD off-target score in [0, 1]; higher = more likely an active off-target.</returns>
+    /// <remarks>
+    /// Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); matrices from the
+    /// authoritative <c>mismatch_score.pkl</c>/<c>pam_scores.pkl</c> (cross-checked across CRISPOR and
+    /// iGWOS). Insertions/deletions and non-ACGT bases are unsupported and throw; CFD is defined only
+    /// for a 20-nt:20-nt protospacer comparison plus the off-target PAM.
+    /// </remarks>
+    public static double CalculateCfdScore(string sgRna20, string offTarget20, string offTargetPam)
+    {
+        if (string.IsNullOrEmpty(sgRna20))
+            throw new ArgumentNullException(nameof(sgRna20));
+        if (string.IsNullOrEmpty(offTarget20))
+            throw new ArgumentNullException(nameof(offTarget20));
+        if (string.IsNullOrEmpty(offTargetPam))
+            throw new ArgumentNullException(nameof(offTargetPam));
+
+        if (sgRna20.Length != 20)
+            throw new ArgumentException($"CFD requires a 20-nt guide; got {sgRna20.Length}.", nameof(sgRna20));
+        if (offTarget20.Length != 20)
+            throw new ArgumentException($"CFD requires a 20-nt off-target protospacer; got {offTarget20.Length}.", nameof(offTarget20));
+
+        var guide = sgRna20.ToUpperInvariant();
+        var off = offTarget20.ToUpperInvariant();
+        var pam = offTargetPam.ToUpperInvariant();
+
+        // PAM: score the last two nucleotides (the N of NGG always contributes 1).
+        if (pam.Length is not (2 or 3))
+            throw new ArgumentException($"CFD PAM must be 2 or 3 nt; got {pam.Length}.", nameof(offTargetPam));
+        string pamKey = pam.Length == 3 ? pam.Substring(1) : pam;
+        if (!CfdPamScores.TryGetValue(pamKey, out double pamScore))
+            throw new ArgumentException($"CFD PAM '{offTargetPam}' must contain only A/C/G/T.", nameof(offTargetPam));
+
+        double score = 1.0;
+
+        for (int i = 0; i < 20; i++)
+        {
+            char g = guide[i];
+            char o = off[i];
+
+            if (g is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException($"CFD requires A/C/G/T sequences; found '{g}'.", nameof(sgRna20));
+            if (o is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException($"CFD requires A/C/G/T sequences; found '{o}'.", nameof(offTarget20));
+
+            if (g == o)
+                continue; // matched position contributes 1.0
+
+            // rX = guide base (T written as U); dY = complement of the off-target base.
+            char rBase = g == 'T' ? 'U' : g;
+            char dBase = CfdComplement(o);
+            string key = $"r{rBase}:d{dBase}";
+
+            // Position is 1-based 1..20 (= index i+1); index 0 = 5'/PAM-distal end.
+            score *= CfdMismatchScores[key][i];
+        }
+
+        return score * pamScore;
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static double CalculateGcContent(string sequence) =>

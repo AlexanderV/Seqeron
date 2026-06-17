@@ -114,6 +114,122 @@ primary source and reference implementation; all worked numbers reproduced indep
   confirmed index 0 = PAM-distal, 19 = PAM-proximal/seed.
 - Uncommitted orientation guard test verified source-correct and committed.
 - Residual (documented, not a defect of this unit; see FINDINGS_REGISTER C7): Doench Rule Set 2 /
-  Azimuth (GBT, no coefficient table) and CFD (Doench 2016, binary pickle) intentionally not
-  implemented. These are on-target / alternative off-target models, out of scope for the MIT/Hsu unit.
+  Azimuth (GBT, no coefficient table) and — at the time of the MIT/Hsu validation — CFD (Doench 2016,
+  binary pickle) intentionally not implemented. **CFD is now implemented (see the CFD section below).**
 - Full unfiltered suite: **6773 passed, 0 failed**; build 0 errors.
+
+---
+
+# Validation Report: CRISPR-OFF-001 (continued) — CFD off-target score (Doench 2016)
+
+- **Validated/Implemented:** 2026-06-17   **Area:** MolTools
+- **Canonical method added:** `CrisprDesigner.CalculateCfdScore(string sgRna20, string offTarget20, string offTargetPam)` → CFD score in [0,1].
+- **Stage A verdict:** PASS · **Stage B verdict:** PASS · **End-state:** ✅ CLEAN (CFD residual cleared).
+
+## Scope
+
+Implementation of the deferred CFD (Cutting Frequency Determination) off-target score — the last
+off-target residual of CRISPR-OFF-001 / C7. Governing rule: tests follow the primary source/spec; the
+code obeys the tests; every matrix value and expected number re-derived independently from the external
+source, never read off the C# code.
+
+## Stage A — Description
+
+### Faithfulness boundary — CLEARED this session
+CFD's mismatch + PAM matrices originate from Doench et al. 2016 (Nat Biotechnol 34:184, PMID 26780180)
+and are shipped by the reference tools as binary pickles. The boundary requires obtaining them as
+verbatim numbers cross-checked across **two independent sources**. Both conditions were met:
+
+- **Authoritative source 1:** `maximilianh/crisporWebsite`, `CFD_Scoring/mismatch_score.pkl` +
+  `pam_scores.pkl` + `cfd-score-calculator.py` (the canonical John Doench reference calculator).
+- **Authoritative source 2:** `bm2-lab/iGWOS`, `CFD/mismatch_score.pkl` + `pam_scores.pkl` +
+  `otscore.py` (independent repository shipping the same matrices, with documented `calcCfdScore`
+  doctest oracles).
+- **Cross-check (this session):** both pickles decoded to text and diffed element-by-element —
+  **mismatch matrix 240/240 entries identical, PAM table 16/16 entries identical, ZERO diffs.**
+  The decoded values were reproduced into C# at full `double` precision (exact decoded bit patterns).
+
+Decoding the authoritative pickle to text IS obtaining the verbatim numbers (the pickle is the
+canonical distribution); nothing was fabricated or approximated.
+
+### Algorithm (verbatim from `calc_cfd`, cfd-score-calculator.py / otscore.py — identical in both)
+```
+score = 1
+sg = offTarget.replace('T','U'); wt = guide.replace('T','U')
+for i, off_base in enumerate(sg):            # i = 0..19, 5'->3'
+    if wt[i] == off_base: score *= 1
+    else: key = 'r'+wt[i]+':d'+complement(off_base)+','+str(i+1); score *= mm_scores[key]
+score *= pam_scores[ pam ]                    # pam = off[-2:]  (last two PAM nt)
+```
+
+### Orientation — pinned from the SOURCE (not the code)
+In the reference, `sg = off[:-3]` and `pam = off[-2:]`, so the 20-nt protospacer precedes the PAM and
+the loop enumerates it 5'→3' with key position `i+1`. Therefore **position 1 (index 0) = 5' / PAM-DISTAL
+end; position 20 = 3' / PAM-PROXIMAL (seed) end.** Getting this backwards is the classic CFD bug; the
+orientation guard test detects reversal.
+
+### Key convention — pinned from the source
+`rX` = the **guide (RNA)** base, T written as U. `dY` = the **complement of the off-target base** (the
+base on the off-target's non-target DNA strand that pairs the guide). A position contributes a penalty
+only when guide[i] ≠ offTarget[i]; matched positions contribute 1.0. Perfect match + GG PAM → 1.0.
+
+### PAM table (16 NGG-region dinucleotides; the N of NGG contributes 1)
+`GG=1.0` (canonical), `AG=0.259259`, `CG=0.107143`, `GA=0.069444`, `TG=0.038961`, `GC=0.022222`,
+`GT=0.016129`, all others (AA/AC/AT/CA/CC/CT/TA/TC/TT) `=0.0`. (Verbatim from both pickles.)
+
+### Contract implemented
+20-nt guide vs 20-nt off-target protospacer + the off-target PAM (2-nt or 3-nt; only the last two nt
+scored), A/C/G/T only (case-insensitive; guide T treated as U). Insertions/deletions and non-ACGT bases
+are unsupported (CFD undefined) and throw.
+
+### Independent cross-checks (Python re-derivation from the decoded pickle, NOT from the C# arrays)
+| Case | Re-derived (Python from decoded matrices) | Test expects |
+|------|-------------------------------------------|--------------|
+| perfect match + GG | 1.0 | 1.0 ✓ |
+| published iGWOS doctest: G×20 vs G…AAA + GG | 0.4635989007074176 (= rG:dT,18·rG:dT,19·rG:dT,20) | 0.4635989007074176 ✓ |
+| published iGWOS doctest: G×20 vs aaaaGaGaG… +gg | 0.5140384614450001 | 0.5140384614450001 ✓ |
+| perfect + GA / AG / TG PAM | 0.069444 / 0.259259 / 0.038961 | same ✓ |
+| perfect + AA PAM | 0.0 | 0.0 ✓ |
+| single mm rG:dT,1 (pos 1) | 0.9 | 0.9 ✓ |
+| single mm rC:dT,5 (pos 5) | 0.571428571 | 0.571428571 ✓ |
+| single mm rU:dG,7 (pos 7, guide T→U, off C) | 0.6875 | 0.6875 ✓ |
+| single mm rG:dA,16 (pos 16) | 0.0 | 0.0 ✓ |
+| single mm rC:dT,20 (pos 20) | 0.5 | 0.5 ✓ |
+| two mm rG:dT,1 · rC:dT,20 (product) | 0.45 | 0.45 ✓ |
+
+**Orientation counterfactual** (guide C×20): rC:dT,1 = **1.0** but rC:dT,20 = **0.5**; if the position
+axis were reversed the two would swap, so the guard test (asserting 1.0 at pos 1 AND 0.5 at pos 20)
+fails on reversal — a genuine reversal-detector.
+
+**Stage A verdict: PASS** — matrices 240/240 + 16/16 cross-source identical, algorithm verbatim,
+orientation + key convention pinned from the source, all worked numbers reproduced independently.
+
+## Stage B — Implementation
+
+- **Code path:** `CrisprDesigner.cs` — `CfdMismatchScores` (12 keys × 20 positions), `CfdPamScores`
+  (16 keys), `CfdComplement`, `CalculateCfdScore`. Additive; no existing method/signature/test changed.
+- **Realised correctly:** loops i=0..19, skips matches (×1), builds key `r{guide,T→U}:d{complement(off)}`
+  and multiplies `CfdMismatchScores[key][i]`, then × `CfdPamScores[pam last-2-nt]`. Returns [0,1].
+- **Edge/error cases:** null guide/off/PAM → `ArgumentNullException`; empty guide → `ArgumentNullException`;
+  wrong-length guide/off (≠20) → `ArgumentException`; PAM length ∉{2,3} → `ArgumentException`; non-ACGT in
+  guide/off/PAM → `ArgumentException`. All tested.
+- **Tests:** new fixture `CrisprDesigner_Cfd_Tests` (32 `[Test]` methods): perfect→1.0 (×2: 2-nt and 3-nt
+  PAM), two published doctest oracles, six single-mismatch exact-matrix-entry, four PAM-application
+  (GA/AG/TG/AA), product-of-penalties, mismatch×PAM combined, **orientation guard**
+  `Cfd_OrientationGuard_Position1VsPosition20_NotReversed`, unit-interval / lowercase / determinism
+  invariants, and the full edge/error set. Every expected value traces to the independent Python
+  re-derivation or a published doctest — none read off the C# arrays; computed value is the NUnit
+  `actual` (no NUnit2007). The orientation guard caught a real off-base-complementation distinction
+  during authoring (off C → dG, not dC), confirming the suite is non-tautological.
+- **Defects:** none.
+
+**Stage B verdict: PASS.**
+
+## Verdict & follow-ups
+
+- **Stage A: PASS · Stage B: PASS · End-state: ✅ CLEAN.**
+- CFD matrices confirmed 240/240 + 16/16 across CRISPOR and iGWOS; orientation index 0 = PAM-distal,
+  19 = PAM-proximal; key `rX` = guide(T→U), `dY` = complement(off-target base).
+- **Remaining C7 residual: ONLY Doench Rule Set 2 / Azimuth** (gradient-boosted-tree, no coefficient
+  table — not reproducible from published numbers without the trained model). CFD is no longer a residual.
+- Full unfiltered suite: **6812 passed, 0 failed**; build 0 errors AND 0 warnings.
