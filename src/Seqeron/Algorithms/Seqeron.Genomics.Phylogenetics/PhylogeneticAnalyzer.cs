@@ -15,13 +15,71 @@ public static class PhylogeneticAnalyzer
     /// <summary>
     /// Represents a node in a phylogenetic tree.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The tree model is <b>N-ary (multifurcating)</b>: an internal node holds an ordered
+    /// collection of <see cref="Children"/> rather than a fixed left/right pair. A node with
+    /// 0 children is a leaf (taxon); 2 children is the common bifurcation; ≥3 children is a
+    /// <i>multifurcation</i> / <i>polytomy</i> — an unresolved or hard polytomy
+    /// (Newick format; a node "is multifurcating if it has three or more immediate descendant lineages").
+    /// This enables genuine Newick multifurcations <c>(A,B,C);</c> and the natural unrooted
+    /// trifurcation of Neighbor-Joining (Saitou &amp; Nei 1987).
+    /// </para>
+    /// <para>
+    /// <see cref="Left"/> and <see cref="Right"/> are convenience accessors over the first two
+    /// children for the common binary case; reading them on a node with fewer children yields
+    /// <c>null</c>, and assigning them rewrites <see cref="Children"/>[0]/[1] (growing the list
+    /// as needed). Code that must handle multifurcations should traverse <see cref="Children"/>.
+    /// </para>
+    /// </remarks>
     public class PhyloNode
     {
         public string Name { get; set; } = "";
         public double BranchLength { get; set; }
-        public PhyloNode? Left { get; set; }
-        public PhyloNode? Right { get; set; }
-        public bool IsLeaf => Left == null && Right == null;
+
+        /// <summary>
+        /// The ordered child subtrees. Empty for a leaf, 2 for a bifurcation, ≥3 for a multifurcation.
+        /// </summary>
+        public List<PhyloNode> Children { get; set; } = new();
+
+        /// <summary>
+        /// Convenience accessor for the first child (binary-tree compatibility).
+        /// Returns <c>null</c> when there are no children. Setting to a non-null value places
+        /// the node at <see cref="Children"/>[0]; setting to <c>null</c> removes the first child.
+        /// </summary>
+        public PhyloNode? Left
+        {
+            get => Children.Count > 0 ? Children[0] : null;
+            set => SetChildAt(0, value);
+        }
+
+        /// <summary>
+        /// Convenience accessor for the second child (binary-tree compatibility).
+        /// Returns <c>null</c> when there are fewer than two children. Setting to a non-null value
+        /// places the node at <see cref="Children"/>[1]; setting to <c>null</c> removes the second child.
+        /// </summary>
+        public PhyloNode? Right
+        {
+            get => Children.Count > 1 ? Children[1] : null;
+            set => SetChildAt(1, value);
+        }
+
+        private void SetChildAt(int index, PhyloNode? value)
+        {
+            if (value == null)
+            {
+                if (Children.Count > index)
+                    Children.RemoveAt(index);
+                return;
+            }
+            while (Children.Count <= index)
+                Children.Add(value);
+            Children[index] = value;
+        }
+
+        /// <summary>A leaf is a node with no children (a terminal taxon/OTU).</summary>
+        public bool IsLeaf => Children.Count == 0;
+
         public List<string> Taxa { get; set; } = new();
 
         public PhyloNode() { }
@@ -357,6 +415,15 @@ public static class PhylogeneticAnalyzer
     /// <summary>
     /// Builds a tree using Neighbor-Joining algorithm.
     /// </summary>
+    /// <remarks>
+    /// Neighbor-Joining infers an <b>unrooted</b> tree, so the algorithm stops when three OTUs
+    /// remain and connects them to a single central node — the characteristic
+    /// <i>trifurcation</i> at the centre of the unrooted tree (Saitou &amp; Nei 1987; the
+    /// three final branch lengths are obtained from the three pairwise distances via the
+    /// standard additive system <c>L_ix = (d_ij + d_ik − d_jk)/2</c>). Under the N-ary
+    /// <see cref="PhyloNode"/> model this final node carries three children rather than two,
+    /// so an NJ tree round-trips through Newick as a genuine trifurcation.
+    /// </remarks>
     private static PhyloNode BuildNeighborJoining(List<string> taxa, double[,] distMatrix)
     {
         int n = taxa.Count;
@@ -373,7 +440,9 @@ public static class PhylogeneticAnalyzer
         Array.Copy(distMatrix, dist, distMatrix.Length);
         var active = Enumerable.Range(0, n).ToList();
 
-        while (active.Count > 2)
+        // Stop at three remaining OTUs: NJ yields an unrooted tree whose centre is a
+        // trifurcation of the last three nodes (Saitou & Nei 1987).
+        while (active.Count > 3)
         {
             int m = active.Count;
 
@@ -441,7 +510,34 @@ public static class PhylogeneticAnalyzer
             active.Remove(minJ);
         }
 
-        // Join last two nodes
+        // Final step: connect the last three OTUs to one central node (NJ trifurcation).
+        // The three branch lengths solve the additive 3-taxon system (Saitou & Nei 1987):
+        //   L_i = (d_ij + d_ik − d_jk)/2, and symmetrically for j and k.
+        if (active.Count == 3)
+        {
+            int i = active[0];
+            int j = active[1];
+            int k = active[2];
+
+            double dij = dist[i, j];
+            double dik = dist[i, k];
+            double djk = dist[j, k];
+
+            nodes[i].BranchLength = (dij + dik - djk) / 2;
+            nodes[j].BranchLength = (dij + djk - dik) / 2;
+            nodes[k].BranchLength = (dik + djk - dij) / 2;
+
+            var root = new PhyloNode
+            {
+                Name = $"({nodes[i].Name},{nodes[j].Name},{nodes[k].Name})",
+                Children = new List<PhyloNode> { nodes[i], nodes[j], nodes[k] },
+                Taxa = nodes[i].Taxa.Concat(nodes[j].Taxa).Concat(nodes[k].Taxa).ToList()
+            };
+
+            return root;
+        }
+
+        // Two-taxon degenerate input: a single edge between the two leaves.
         if (active.Count == 2)
         {
             int i = active[0];
@@ -451,8 +547,7 @@ public static class PhylogeneticAnalyzer
             var root = new PhyloNode
             {
                 Name = $"({nodes[i].Name},{nodes[j].Name})",
-                Left = nodes[i],
-                Right = nodes[j],
+                Children = new List<PhyloNode> { nodes[i], nodes[j] },
                 Taxa = nodes[i].Taxa.Concat(nodes[j].Taxa).ToList()
             };
 
@@ -486,24 +581,19 @@ public static class PhylogeneticAnalyzer
         }
         else
         {
+            // N-ary: emit every child (≥2), comma-separated, per the Newick grammar
+            // Internal → "(" BranchSet ")" Name where BranchSet is a comma-separated
+            // list of Branch entries. A node with ≥3 children is a multifurcation.
             sb.Append('(');
-            if (node.Left != null)
+            for (int c = 0; c < node.Children.Count; c++)
             {
-                ToNewickRecursive(node.Left, sb, includeBranchLengths, isRoot: false);
+                if (c > 0) sb.Append(',');
+                var child = node.Children[c];
+                ToNewickRecursive(child, sb, includeBranchLengths, isRoot: false);
                 if (includeBranchLengths)
                 {
                     sb.Append(':');
-                    sb.Append(node.Left.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
-                }
-            }
-            sb.Append(',');
-            if (node.Right != null)
-            {
-                ToNewickRecursive(node.Right, sb, includeBranchLengths, isRoot: false);
-                if (includeBranchLengths)
-                {
-                    sb.Append(':');
-                    sb.Append(node.Right.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
+                    sb.Append(child.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
                 }
             }
             sb.Append(')');
@@ -577,40 +667,30 @@ public static class PhylogeneticAnalyzer
         {
             pos++; // skip '('
 
-            // Parse left child
-            node.Left = ParseNewickRecursive(newick, ref pos);
-            node.Taxa.AddRange(node.Left.Taxa);
-
-            // Parse branch length for left child
-            if (pos < newick.Length && newick[pos] == ':')
+            // N-ary descendant list: parse one or more children separated by commas.
+            // Newick grammar: BranchSet → Branch | Branch "," BranchSet. A node with three or
+            // more children is a genuine multifurcation (polytomy) and is parsed faithfully.
+            while (true)
             {
-                pos++;
-                node.Left.BranchLength = ParseNumber(newick, ref pos);
+                var child = ParseNewickRecursive(newick, ref pos);
+
+                // Parse branch length for this child
+                if (pos < newick.Length && newick[pos] == ':')
+                {
+                    pos++;
+                    child.BranchLength = ParseNumber(newick, ref pos);
+                }
+
+                node.Children.Add(child);
+                node.Taxa.AddRange(child.Taxa);
+
+                if (pos < newick.Length && newick[pos] == ',')
+                {
+                    pos++; // consume separator, parse the next child
+                    continue;
+                }
+                break;
             }
-
-            // Skip comma
-            if (pos < newick.Length && newick[pos] == ',')
-                pos++;
-
-            // Parse right child
-            node.Right = ParseNewickRecursive(newick, ref pos);
-            node.Taxa.AddRange(node.Right.Taxa);
-
-            // Parse branch length for right child
-            if (pos < newick.Length && newick[pos] == ':')
-            {
-                pos++;
-                node.Right.BranchLength = ParseNumber(newick, ref pos);
-            }
-
-            // Reject multifurcation: after the first two children, a comma here means a
-            // third (or further) child at this level. The binary PhyloNode model (Left/Right)
-            // cannot represent this faithfully, so we throw instead of silently dropping the
-            // extra child(ren). Full N-ary Newick support is out of scope (binary tree model).
-            if (pos < newick.Length && newick[pos] == ',')
-                throw new FormatException(
-                    $"Multifurcating (non-binary) Newick trees are not supported by the binary tree model; " +
-                    $"encountered a third child at position {pos}.");
 
             // Skip ')'
             if (pos < newick.Length && newick[pos] == ')')
@@ -682,11 +762,8 @@ public static class PhylogeneticAnalyzer
         }
         else
         {
-            if (root.Left != null)
-                foreach (var leaf in GetLeaves(root.Left))
-                    yield return leaf;
-            if (root.Right != null)
-                foreach (var leaf in GetLeaves(root.Right))
+            foreach (var child in root.Children)
+                foreach (var leaf in GetLeaves(child))
                     yield return leaf;
         }
     }
@@ -709,8 +786,8 @@ public static class PhylogeneticAnalyzer
         if (root == null) return 0;
 
         double length = root.BranchLength;
-        if (root.Left != null) length += CalculateTreeLength(root.Left);
-        if (root.Right != null) length += CalculateTreeLength(root.Right);
+        foreach (var child in root.Children)
+            length += CalculateTreeLength(child);
 
         return length;
     }
@@ -741,10 +818,11 @@ public static class PhylogeneticAnalyzer
         if (root == null) return EmptyTreeHeight;
         if (root.IsLeaf) return 0;
 
-        int leftDepth = root.Left != null ? GetTreeDepth(root.Left) : 0;
-        int rightDepth = root.Right != null ? GetTreeDepth(root.Right) : 0;
+        int maxChildDepth = 0;
+        foreach (var child in root.Children)
+            maxChildDepth = Math.Max(maxChildDepth, GetTreeDepth(child));
 
-        return 1 + Math.Max(leftDepth, rightDepth);
+        return 1 + maxChildDepth;
     }
 
     /// <summary>
@@ -876,9 +954,14 @@ public static class PhylogeneticAnalyzer
         if (node.IsLeaf)
             return new List<string> { node.Name };
 
-        var leftTaxa = CollectBipartitions(node.Left, splits, allTaxa);
-        var rightTaxa = CollectBipartitions(node.Right, splits, allTaxa);
-        var subtreeTaxa = leftTaxa.Concat(rightTaxa).ToList();
+        // Each internal node corresponds to one edge (incident to its parent); the leaves
+        // beneath it are one side of the induced split. A multifurcation simply produces one
+        // such side (one candidate split) instead of the two an internal binary node would —
+        // i.e. an unresolved node contributes fewer non-trivial bipartitions (Robinson–Foulds:
+        // collapsing/contracting an internal edge removes its split from Σ(T)).
+        var subtreeTaxa = new List<string>();
+        foreach (var child in node.Children)
+            subtreeTaxa.AddRange(CollectBipartitions(child, splits, allTaxa));
 
         int total = allTaxa.Count;
         int side = subtreeTaxa.Count;
@@ -922,9 +1005,13 @@ public static class PhylogeneticAnalyzer
             return new List<string> { node.Name };
         }
 
-        var leftTaxa = node.Left != null ? CollectClades(node.Left, clades, totalLeaves) : new List<string>();
-        var rightTaxa = node.Right != null ? CollectClades(node.Right, clades, totalLeaves) : new List<string>();
-        var subtreeTaxa = leftTaxa.Concat(rightTaxa).OrderBy(n => n).ToList();
+        // N-ary: a clade is the set of taxa beneath an internal node, gathered over all children.
+        // A multifurcation contributes a single clade (its own subtree) rather than the nested
+        // clades a fully-resolved binary subtree would, so an unresolved node yields fewer clades.
+        var collected = new List<string>();
+        foreach (var child in node.Children)
+            collected.AddRange(CollectClades(child, clades, totalLeaves));
+        var subtreeTaxa = collected.OrderBy(n => n).ToList();
 
         // Non-trivial clade: more than one taxon (not a leaf) and fewer than all (not root).
         // Each clade is represented as the sorted, joined taxon names of the subtree.
@@ -964,13 +1051,26 @@ public static class PhylogeneticAnalyzer
             return node.Name == taxon1 || node.Name == taxon2 ? node : null;
         }
 
-        var leftResult = FindMRCAInternal(node.Left!, taxon1, taxon2);
-        var rightResult = FindMRCAInternal(node.Right!, taxon1, taxon2);
+        // N-ary: recurse into every child. The MRCA is the deepest node whose subtree contains
+        // both taxa. If two (or more) distinct children each return a hit, the split between the
+        // taxa happens here, so this node is the MRCA. If exactly one child returns a hit, the
+        // MRCA lies within (or is) that child's result and is propagated upward.
+        PhyloNode? singleHit = null;
+        int childrenWithHit = 0;
 
-        if (leftResult != null && rightResult != null)
-            return node;
+        foreach (var child in node.Children)
+        {
+            var childResult = FindMRCAInternal(child, taxon1, taxon2);
+            if (childResult != null)
+            {
+                childrenWithHit++;
+                if (childrenWithHit >= 2)
+                    return node;
+                singleHit = childResult;
+            }
+        }
 
-        return leftResult ?? rightResult;
+        return singleHit;
     }
 
     /// <summary>
@@ -994,13 +1094,14 @@ public static class PhylogeneticAnalyzer
         if (node.IsLeaf)
             return node.Name == taxon ? 0 : double.NaN;
 
-        double leftDist = DistanceToTaxon(node.Left!, taxon);
-        if (!double.IsNaN(leftDist))
-            return leftDist + (node.Left?.BranchLength ?? 0);
-
-        double rightDist = DistanceToTaxon(node.Right!, taxon);
-        if (!double.IsNaN(rightDist))
-            return rightDist + (node.Right?.BranchLength ?? 0);
+        // N-ary: descend into whichever child subtree contains the taxon, accumulating that
+        // child's branch length onto the distance returned from below it.
+        foreach (var child in node.Children)
+        {
+            double childDist = DistanceToTaxon(child, taxon);
+            if (!double.IsNaN(childDist))
+                return childDist + child.BranchLength;
+        }
 
         return double.NaN;
     }

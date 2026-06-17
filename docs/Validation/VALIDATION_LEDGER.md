@@ -17,7 +17,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 
 **Deferred BIG fixes (revisit later — too large for an in-session "perfect" autofix):**
 - ~~META-CLASS-001: real taxonomy-DAG + LCA / weighted root-to-leaf classification~~ — **DONE (C1).** Taxonomy-tree + k-mer-LCA DB + RTL classification implemented (approved breaking API change).
-- Phylogenetics: full N-ary (multifurcating) tree model (PhyloNode is Left/Right binary) — enables true NJ trifurcation round-trip; also an optional unrooted-bipartition RF metric alongside the current rooted-clade one.
+- ~~Phylogenetics: full N-ary (multifurcating) tree model (PhyloNode is Left/Right binary)~~ — **DONE (C2, approved breaking change).** `PhyloNode` now stores `List<PhyloNode> Children` (Left/Right kept as convenience accessors); Newick parses/writes genuine multifurcations `(A,B,C);`, NJ produces its unrooted trifurcation (true round-trip), UPGMA stays binary, RF (rooted-clade + unrooted-bipartition) handles collapsed edges. (The unrooted-bipartition RF metric itself was the separate C3 fix.) See [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md) §C2.
 - Alignment: guide-tree progressive MSA (current is star alignment).
 - RESTR-DIGEST-001: circular-molecule digest (topology parameter + wrap-around fragments).
 - Scientific scoring upgrades (only if desired): Doench/Azimuth on-target, MIT/Hsu off-target weights, SantaLucia NN Tm — currently honest heuristics, not defects.

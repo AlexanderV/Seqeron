@@ -958,6 +958,101 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
 
     #endregion
 
+    #region Multifurcation (N-ary) — RF with collapsed edges, MRCA over a polytomy (C2)
+
+    [Test]
+    [Description("C2 / RF-MULTI-ROOTED: rooted-clade RF between a fully-resolved binary tree and its multifurcating (one collapsed internal edge) version equals exactly the number of resolved clades lost (1). Hand-derived: clades((((A,B),C),(D,E))) = {A|B, A|B|C, D|E}; collapsing the (A,B) edge gives ((A,B,C),(D,E)) with clades {A|B|C, D|E}; the only differing clade is {A,B} -> RF = 1.")]
+    public void RobinsonFoulds_BinaryVsCollapsedMultifurcation_EqualsResolvedCladesLost()
+    {
+        // Source: Robinson & Foulds (1981); RF = |Σ(T1) △ Σ(T2)|. Contracting an internal edge
+        // (creating a multifurcation) removes exactly that edge's split from Σ(T).
+        var binary = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+        var collapsed = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
+
+        // Sanity: the collapsed tree's root-side polytomy node really has 3 children.
+        var abc = collapsed.Left!;
+        Assert.That(abc.Children.Count, Is.EqualTo(3), "Collapsed node (A,B,C) is a 3-child polytomy");
+
+        int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(binary, collapsed);
+
+        Assert.That(rf, Is.EqualTo(1),
+            "Exactly one resolved clade ({A,B}) is lost when the (A,B) edge is collapsed.");
+
+        // Mutation guard: an identity comparison would report 0; a wrong-direction count would
+        // differ. RF of a tree with itself is 0 (so 1 here is meaningful).
+        Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(binary, binary), Is.EqualTo(0));
+        Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(collapsed, collapsed), Is.EqualTo(0));
+    }
+
+    [Test]
+    [Description("C2 / RF-MULTI-UNROOTED: unrooted-bipartition RF between a binary tree and its collapsed-edge version equals the number of internal splits lost (1). Hand-derived: a binary 5-taxon tree has n-3=2 non-trivial splits {A,B|C,D,E} and {A,B,C|D,E}; collapsing the (A,B) edge removes the {A,B|C,D,E} split, leaving 1; symmetric difference = 1.")]
+    public void UnrootedRobinsonFoulds_BinaryVsCollapsedMultifurcation_EqualsSplitsLost()
+    {
+        var binary = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+        var collapsed = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
+
+        int rf = PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(binary, collapsed);
+
+        Assert.That(rf, Is.EqualTo(1),
+            "Collapsing one internal edge removes exactly one non-trivial bipartition.");
+
+        // A multifurcating tree compared with itself has RF 0 (the metric is well-defined over it).
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(collapsed, collapsed),
+            Is.EqualTo(0));
+    }
+
+    [Test]
+    [Description("C2 / MRCA-POLYTOMY: MRCA over a multifurcating (3-child) node. In ((A,B,C),(D,E)) the MRCA of any two of A,B,C is the polytomy node (its 3 children are leaves A,B,C); MRCA of A and D is the root. Hand-derived from the tree shape.")]
+    public void FindMRCA_OverMultifurcatingNode_ReturnsPolytomyNode()
+    {
+        var tree = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
+        var polytomy = tree.Left!;            // the (A,B,C) node
+        var root = tree;
+
+        Assert.Multiple(() =>
+        {
+            // Any pair drawn from {A,B,C} shares the polytomy node as MRCA.
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "B"), Is.SameAs(polytomy));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "B", "C"), Is.SameAs(polytomy));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "C"), Is.SameAs(polytomy));
+
+            // A taxon under the polytomy vs a taxon on the other side -> the root.
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "D"), Is.SameAs(root));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "C", "E"), Is.SameAs(root));
+
+            // Missing taxon -> null (the polytomy traversal still reports absence correctly).
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "Z"), Is.Null);
+        });
+    }
+
+    [Test]
+    [Description("C2 / STATS-POLYTOMY: tree statistics traverse all children of a polytomy. For ((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6); the leaf count is 5, the total tree length is the sum over ALL children (0.1+0.2+0.3+0.0+0.4+0.5+0.6 = 2.1), and depth is 2. Hand-derived from the branch lengths.")]
+    public void TreeStatistics_OverMultifurcatingNode_TraverseAllChildren()
+    {
+        var tree = PhylogeneticAnalyzer.ParseNewick("((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6);");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(tree).Count(), Is.EqualTo(5),
+                "All 5 leaves under the polytomy + binary node are counted.");
+            Assert.That(PhylogeneticAnalyzer.CalculateTreeLength(tree),
+                Is.EqualTo(2.1).Within(1e-9),
+                "Total length sums branch lengths over all children, including the 3rd child C.");
+            Assert.That(PhylogeneticAnalyzer.GetTreeDepth(tree), Is.EqualTo(2),
+                "Depth = 2 edges from root to any leaf.");
+
+            // Patristic distance across the polytomy: A->B = 0.1 + 0.2 = 0.3 (both under polytomy).
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B"),
+                Is.EqualTo(0.3).Within(1e-9));
+            // A->C must include the 3rd child C (0.1 + 0.3) — a binary-only traversal that ignored
+            // the 3rd child would fail to find C and return NaN.
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C"),
+                Is.EqualTo(0.4).Within(1e-9));
+        });
+    }
+
+    #endregion
+
     // Bootstrap tests moved to the canonical PHYLO-BOOT-001 fixture:
     // PhylogeneticAnalyzer_Bootstrap_Tests.cs (the two prior weak tests were superseded).
 }

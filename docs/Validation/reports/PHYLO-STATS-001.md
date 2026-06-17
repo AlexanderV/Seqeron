@@ -111,3 +111,13 @@ None. No code or test change was required.
 - **Stage B: PASS** — implementation realises the validated formulas; tests assert exact externally-sourced values covering every branch.
 - **End-state: CLEAN** — no defect found; full suite green (6561 passed, 0 failed).
 - **No logged defects.**
+
+## Update (2026-06-17) — N-ary (multifurcating) tree model (C2)
+
+`PhyloNode` was refactored from the binary `Left`/`Right` model to **N-ary**: storage is now an
+ordered `List<PhyloNode> Children` (`Left`/`Right` retained as convenience accessors over the first
+two children). `GetLeaves`, `CalculateTreeLength`, and `GetTreeDepth` now traverse **all** children,
+so they are correct over multifurcations (polytomies) as well as binary trees. Added a strict test
+over a 3-child polytomy `((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6);` — leaves = 5, total length =
+2.1 (sum over **all** children incl. the 3rd child C), depth = 2 — hand-derived from the branch
+lengths. The existing binary-tree expectations are unchanged. See FINDINGS_REGISTER §C2.

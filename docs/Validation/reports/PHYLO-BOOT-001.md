@@ -126,3 +126,14 @@ count + new rows).
   findings were untested branches/edge cases, fixed in-session with sourced assertions.
 - **End-state: CLEAN** — no defect; coverage gaps closed; build + full suite green.
 - **Test-quality gate: PASS** (after the M7/S5/S3b additions).
+
+## Update (2026-06-17) — N-ary (multifurcating) tree model (C2)
+
+After the `PhyloNode` N-ary refactor (C2), bootstrap clade collection traverses `Children` and is
+correct over multifurcations. Neighbor-Joining now yields its natural **unrooted trifurcation** at the
+centre (Saitou & Nei 1987), so a 4-taxon two-group NJ reference tree is `((A,B),C,D)`: its single
+non-trivial rooted clade is `{A,B}` (support 1.0 in every replicate), while `{C,D}` crosses the
+unrooted trifurcation and is no longer a rooted clade. The M7 NJ bootstrap test was corrected to this
+sourced reality (previously it expected both `{A,B}` and `{C,D}` under the old binary root). No
+assertion was weakened; the corrected expectation is hand-derived from the NJ trifurcation. See
+FINDINGS_REGISTER §C2.

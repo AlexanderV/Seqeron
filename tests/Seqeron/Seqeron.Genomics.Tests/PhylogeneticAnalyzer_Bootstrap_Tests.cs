@@ -138,12 +138,15 @@ public class PhylogeneticAnalyzer_Bootstrap_Tests
     }
 
     [Test]
-    [Description("M7: bootstrap is tree-method-agnostic — NeighborJoining recovers the two invariant groups with support 1.0 (Felsenstein 1985: the resampling/support procedure does not depend on the tree builder; distances are invariant under column resampling here).")]
+    [Description("M7 (N-ary NJ): NeighborJoining infers an UNROOTED tree whose centre is a trifurcation (Saitou & Nei 1987). For the 4-taxon two-group dataset the NJ root is the trifurcation ((A,B),C,D): {A,B} is the single non-trivial rooted CLADE (recovered in every replicate, support 1.0), while {C,D} sits across the unrooted trifurcation and is therefore NOT a rooted clade. The bootstrap proportion procedure is tree-method-agnostic (Felsenstein 1985).")]
     public void Bootstrap_NeighborJoining_TwoSeparatedGroups_SupportIsExactlyOne()
     {
-        // Arrange — same two-group dataset, but exercise the NeighborJoining branch of treeMethod.
-        // d(A,B)=d(C,D)=0 and the cross distances stay saturated under any column multiset, so every
-        // NJ replicate recovers the {A,B},{C,D} split (Felsenstein 1985: 100% occurrence -> P=1).
+        // Arrange — same two-group dataset, exercising the NeighborJoining branch.
+        // d(A,B)=d(C,D)=0; the cross distances are saturated, so every NJ replicate recovers the
+        // same unrooted topology ((A,B),C,D). Hand-derived: with the N-ary model NJ stops at three
+        // OTUs {AB, C, D} and connects them to one central node — a trifurcation, NOT a binary root.
+        // Under a rooted-clade reading the only non-trivial clade is {A,B}; C and D hang directly off
+        // the trifurcation so no internal node groups exactly {C,D}.
         var sequences = TwoGroupAlignment();
 
         // Act
@@ -154,12 +157,13 @@ public class PhylogeneticAnalyzer_Bootstrap_Tests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(support.ContainsKey("A|B"), Is.True, "NeighborJoining must score reference clade {A,B}.");
-            Assert.That(support.ContainsKey("C|D"), Is.True, "NeighborJoining must score reference clade {C,D}.");
+            // Exactly one non-trivial clade for the trifurcating root.
+            Assert.That(support.Keys, Is.EquivalentTo(new[] { "A|B" }),
+                "NJ trifurcation ((A,B),C,D) has exactly one non-trivial rooted clade: {A,B}.");
             Assert.That(support["A|B"], Is.EqualTo(1.0).Within(1e-10),
                 "{A,B} is recovered in every NJ replicate (distances invariant under column resampling).");
-            Assert.That(support["C|D"], Is.EqualTo(1.0).Within(1e-10),
-                "{C,D} is recovered in every NJ replicate (distances invariant under column resampling).");
+            Assert.That(support.ContainsKey("C|D"), Is.False,
+                "{C,D} crosses the unrooted NJ trifurcation, so it is not a rooted clade.");
         });
     }
 
