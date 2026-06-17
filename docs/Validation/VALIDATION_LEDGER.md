@@ -297,3 +297,4 @@ Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL. State: ✅ CLEAN · �
 | # | Unit ID | Enhancement re-validated | Stage A | Stage B | State | Commit |
 |---|---------|--------------------------|:---:|:---:|:---:|--------|
 | 1 | ANNOT-GENE-001 | Reverse-strand Shine-Dalgarno / RBS reporting (`FindRibosomeBindingSitesBothStrands`; `forwardPos = len − revPos − motifLen` mapping) | ✅ | ✅ | ✅ CLEAN | - |
+| 2 | RESTR-DIGEST-001 | Circular-molecule digest (`Digest(DnaSequence, MoleculeTopology, params string[])`; `MoleculeTopology{Linear,Circular}`; circular k sites → k fragments, origin-spanning join len `(len−lastCut)+firstCut`; 0→1 uncut, 1→1 linearized) | ✅ | ✅ | ✅ CLEAN | - |

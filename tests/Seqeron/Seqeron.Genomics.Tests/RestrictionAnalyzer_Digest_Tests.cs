@@ -444,6 +444,62 @@ public class RestrictionAnalyzer_Digest_Tests
         });
     }
 
+    /// <summary>
+    /// Independent validator test (RESTR-DIGEST-001 re-validation). The existing circular tests
+    /// all use tandem-repeat sequences in which every fragment — including the origin-spanning
+    /// one — happens to read "AATTCAAAG", so a mis-implemented wrap-around join (wrong slice
+    /// offset, or head+tail swapped) could coincidentally still pass the sequence assertion.
+    /// This case uses a NON-repetitive sequence whose origin-spanning fragment ("AATTCAACG")
+    /// is unique: it does not appear as any contiguous substring of the molecule, so it can only
+    /// arise from the correct tail([lastCut,len)) + head([0,firstCut)) join.
+    ///
+    /// Hand-derived independently (EcoRI cuts G↓AATTC, confirmed Wikipedia "EcoRI"):
+    /// "CGAATTCTTTGAATTCAA" (18 bp), GAATTC starts at 1 and 10 → cuts at {2, 11}.
+    ///   Fragment 1: [2,11)  = "AATTCTTTG" (len 9)
+    ///   Fragment 2: origin-spanning [11,18)+[0,2) = "AATTCAA"+"CG" = "AATTCAACG"
+    ///               (len = (18−11)+2 = 9)
+    /// DISCRIMINATING: linear yields k+1 = 3 fragments; circular yields exactly k = 2.
+    /// Fragment-count rule sourced: Univ. of Illinois MolBio "Restriction Digestion/Gel
+    /// Electrophoresis" ("If you cut a circle once, you get one linear fragment ... cut it a
+    /// second time to get 2 linear fragments"); Addgene Plasmids 101 (single cutter linearizes).
+    /// </summary>
+    [Test]
+    public void Digest_Circular_TwoSites_OriginSpanningSequenceIsUnique_NotTandemRepeat()
+    {
+        var sequence = new DnaSequence("CGAATTCTTTGAATTCAA"); // 18 bp, NON-repetitive
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "EcoRI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear, Has.Count.EqualTo(3), "Linear: 2 cuts → 3 fragments (k+1)");
+            Assert.That(circular, Has.Count.EqualTo(2), "Circular: 2 cuts → 2 fragments (k)");
+
+            // Cut1→Cut2 fragment.
+            Assert.That(circular[0].StartPosition, Is.EqualTo(2));
+            Assert.That(circular[0].Length, Is.EqualTo(9));
+            Assert.That(circular[0].Sequence, Is.EqualTo("AATTCTTTG"), "Cut1→Cut2 fragment");
+
+            // Origin-spanning fragment: its sequence is UNIQUE and only forms from tail+head.
+            Assert.That(circular[1].StartPosition, Is.EqualTo(11));
+            Assert.That(circular[1].Length, Is.EqualTo(9), "Origin-spanning len = (18−11)+2 = 9");
+            Assert.That(circular[1].Sequence, Is.EqualTo("AATTCAACG"),
+                "Origin-spanning join is tail [11,18) + head [0,2), not any internal slice");
+
+            // The origin-spanning sequence must not be confusable with the other fragment.
+            Assert.That(circular[0].Sequence, Is.Not.EqualTo(circular[1].Sequence),
+                "Distinct-content fragments guard against tandem-repeat self-confirmation");
+
+            // The wrap sequence is genuinely absent as a contiguous substring of the molecule.
+            Assert.That(sequence.Sequence.Contains("AATTCAACG"), Is.False,
+                "Origin-spanning content can only come from a correct wrap-around join");
+
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(18),
+                "Circular fragment lengths sum to molecule length");
+        });
+    }
+
     #endregion
 
     #region GetDigestSummary Tests
