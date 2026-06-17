@@ -1,10 +1,10 @@
 # Validation Report: PHYLO-STATS-001 — Tree Statistics (leaves, total tree length, tree height/depth)
 
-- **Validated:** 2026-06-15   **Area:** Phylogenetics
-- **Canonical method(s):** `PhylogeneticAnalyzer.GetLeaves(PhyloNode)`, `PhylogeneticAnalyzer.CalculateTreeLength(PhyloNode)`, `PhylogeneticAnalyzer.GetTreeDepth(PhyloNode)`
+- **Validated:** 2026-06-15   **Re-validated (Phase-3, N-ary refactor):** 2026-06-17   **Area:** Phylogenetics
+- **Canonical method(s):** `PhylogeneticAnalyzer.GetLeaves(PhyloNode)`, `PhylogeneticAnalyzer.CalculateTreeLength(PhyloNode)`, `PhylogeneticAnalyzer.GetTreeDepth(PhyloNode)`, `PhylogeneticAnalyzer.PatristicDistance(PhyloNode, string, string)` (via `FindMRCA`/`DistanceToTaxon`)
 - **Stage A verdict:** PASS
 - **Stage B verdict:** PASS
-- **End-state:** CLEAN (no defect found)
+- **End-state:** CLEAN (no defect found; N-ary traversal mutation-verified 2026-06-17)
 
 ## Stage A — Description
 
@@ -112,12 +112,72 @@ None. No code or test change was required.
 - **End-state: CLEAN** — no defect found; full suite green (6561 passed, 0 failed).
 - **No logged defects.**
 
-## Update (2026-06-17) — N-ary (multifurcating) tree model (C2)
+## Phase-3 independent re-validation (2026-06-17) — N-ary (multifurcating) refactor (ledger row #11)
 
-`PhyloNode` was refactored from the binary `Left`/`Right` model to **N-ary**: storage is now an
-ordered `List<PhyloNode> Children` (`Left`/`Right` retained as convenience accessors over the first
-two children). `GetLeaves`, `CalculateTreeLength`, and `GetTreeDepth` now traverse **all** children,
-so they are correct over multifurcations (polytomies) as well as binary trees. Added a strict test
-over a 3-child polytomy `((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6);` — leaves = 5, total length =
-2.1 (sum over **all** children incl. the 3rd child C), depth = 2 — hand-derived from the branch
-lengths. The existing binary-tree expectations are unchanged. See FINDINGS_REGISTER §C2.
+### Scope and concern
+
+`PhyloNode` was refactored from the binary `Left`/`Right` model to **N-ary** (commit `c4f0190`):
+canonical storage is now an ordered `List<PhyloNode> Children` (`Left`/`Right` retained as accessors
+over the first two children). The traversals in this unit — `GetLeaves`, `CalculateTreeLength`,
+`GetTreeDepth`, and **`PatristicDistance`** (via `FindMRCAInternal` + `DistanceToTaxon`) — were
+rewritten to iterate N children. The load-bearing concern this session: **does every child get
+visited, or could a "first-two-children-only" regression have slipped in?**
+
+### Stage A — definitions re-sourced independently this session
+
+Re-fetched the reference docs (not trusted by label):
+
+- **Biopython `Bio.Phylo.BaseTree`** (WebFetch 2026-06-17): `total_branch_length` = "Calculate the sum
+  of all the branch lengths in this tree."; `count_terminals` = "Count the number of terminal (leaf)
+  nodes within this tree."; `get_terminals` = "Get a list of all of this tree's terminal (leaf)
+  nodes."; **`distance()`** = "Calculate the sum of the branch lengths between two targets." — i.e.
+  **patristic distance** = sum of branch lengths along the path between two leaves through their MRCA.
+  URL: https://biopython.org/docs/latest/api/Bio.Phylo.BaseTree.html
+- **DendroPy `Tree.length()`** (WebFetch 2026-06-17): "Returns sum of edge lengths of self. Edges with
+  no lengths defined (None) will be considered to have a length of 0."
+  URL: https://dendropy.org/library/treemodel.html
+- **Wikipedia — Tree (graph theory) / Tree (abstract data type)**: leaf = node with no children;
+  height = length of longest downward path to a leaf in **edges**; single node 0; empty tree −1.
+  (Biopython's branch-length `depths()` is a *distinct* metric — confirmed not what this unit reports.)
+
+All four definitions (leaf count, total length, edge-height, patristic distance) match the code's
+behaviour. **Stage A: PASS.**
+
+### Stage B — polytomy hand-derivation (load-bearing regression guard)
+
+Tree: `((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6);` — internal node **P** (BranchLength 0.0) is a
+**3-child polytomy** over leaves A(0.1), B(0.2), **C(0.3)**; node Q(0.6) over D(0.4), E(0.5).
+
+| Quantity | Hand-derived from definition | Code |
+|----------|------------------------------|------|
+| Leaf count | A,B,C,D,E = **5** | 5 ✓ |
+| Total length | 0.1+0.2+0.3+0.0+0.4+0.5+0.6 = **2.1** (incl. 3rd child C's 0.3) | 2.1 ✓ |
+| Depth (edges) | root→P→leaf = root→Q→leaf = **2** | 2 ✓ |
+| Patristic A→B (MRCA = P) | 0.1 + 0.2 = **0.3** | 0.3 ✓ |
+| **Patristic A→C (3rd-child guard, MRCA = P)** | 0.1 + 0.3 = **0.4** | 0.4 ✓ |
+
+The A→C path crosses the polytomy to its **3rd** child (`Children[2]`): a binary-only traversal would
+never reach C. Code reviewed: `GetLeaves`/`CalculateTreeLength`/`GetTreeDepth` (lines ~767/796/827)
+and `FindMRCAInternal`/`DistanceToTaxon` (lines ~1057/1102) all iterate `foreach (… in
+node.Children)` — no `Take(2)`/`Left`+`Right`-only shortcut. **Stage B: PASS.**
+
+### HARD test-quality gate — mutation-verified this session
+
+The polytomy test `TreeStatistics_OverMultifurcatingNode_TraverseAllChildren` lives in
+`PhylogeneticAnalyzer_TreeComparison_Tests.cs` (§"Multifurcation (N-ary)" region). To prove it is a
+genuine guard and not green-washing, the production source was mutated to `Children.Take(2)` in
+`CalculateTreeLength` and `DistanceToTaxon`:
+
+- `CalculateTreeLength` returned **1.8** (drops 3rd child C's 0.3) ≠ 2.1 → **FAIL**.
+- `PatristicDistance(A,C)` returned **NaN** (C, the 3rd child, never found) ≠ 0.4 → **FAIL**.
+
+Both assertions failed exactly as required; the source was then restored byte-for-byte (working tree
+clean, `git status` empty after restore). Expectations are exact sourced values (`Within 1e-9`), no
+ranges, no skips, no widened tolerances. **Test-quality gate: PASS.**
+
+### End-state
+
+**CLEAN** — no code or test defect; all four N-ary traversals visit every child, confirmed by hand
+and by mutation. No code/test change required. Full **unfiltered** suite = **Passed: 6779, Failed:
+0**; build 0 errors (4 pre-existing unrelated NUnit2007 warnings in `ApproximateMatcher_EditDistance_Tests.cs`).
+See FINDINGS_REGISTER §D (PHYLO-STATS-001) and VALIDATION_LEDGER Phase-3 row #11.
