@@ -283,3 +283,16 @@ State: ✅ CLEAN · 🔧 LIMITED · ↩︎ DUPLICATE-OF.
 | 146 | ONCO-ACTION-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
 | 147 | ONCO-SV-001 | Oncology | 🟡 | ✅ | ✅ CLEAN | - |
 | 148 | ONCO-EXPR-001 | Oncology | ✅ | ✅ | ✅ CLEAN | - |
+
+---
+
+# Validation Ledger — Phase 3 (Independent re-validation of enhanced units)
+
+After the open-questions program implemented 8 enhancements (Group 1 features + Group 2 breaking
+changes), each touched unit is **independently re-validated in a fresh session** against external
+first sources — the implementer and the validator are different contexts, per the protocol's premise
+that code + tests authored together share blind spots. Scope = only the units whose code/tests changed.
+Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL. State: ✅ CLEAN · 🔧 LIMITED.
+
+| # | Unit ID | Enhancement re-validated | Stage A | Stage B | State | Commit |
+|---|---------|--------------------------|:---:|:---:|:---:|--------|
