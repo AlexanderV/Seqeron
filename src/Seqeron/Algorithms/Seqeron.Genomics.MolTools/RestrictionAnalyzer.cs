@@ -249,7 +249,9 @@ public static class RestrictionAnalyzer
     #region Digest Simulation
 
     /// <summary>
-    /// Simulates a restriction digest and returns the resulting fragments.
+    /// Simulates a restriction digest of a <b>linear</b> molecule and returns the resulting
+    /// fragments. For circular-molecule (plasmid) support use the
+    /// <see cref="Digest(DnaSequence, MoleculeTopology, string[])"/> overload.
     /// </summary>
     /// <param name="sequence">DNA sequence to digest.</param>
     /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
@@ -312,6 +314,125 @@ public static class RestrictionAnalyzer
                     RightEnzyme: i == cuts.Count - 2 ? null : sitesByPosition.GetValueOrDefault(end)?.Enzyme.Name,
                     FragmentNumber: i + 1);
             }
+        }
+    }
+
+    /// <summary>
+    /// Simulates a restriction digest of a molecule with the given topology (linear or circular)
+    /// and returns the resulting fragments.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Linear</b> (<see cref="MoleculeTopology.Linear"/>) is the default behaviour and is
+    /// identical to <see cref="Digest(DnaSequence, string[])"/>: with <c>k</c> distinct
+    /// forward-strand cut positions a linear molecule yields <c>k+1</c> fragments; with zero
+    /// cuts it yields the single whole linear molecule.
+    /// </para>
+    /// <para>
+    /// <b>Circular</b> (<see cref="MoleculeTopology.Circular"/>) models a closed plasmid. With
+    /// <c>k</c> distinct forward-strand cut positions a circular molecule yields exactly
+    /// <c>k</c> fragments — "cutting a circular DNA molecule at k sites produces k fragments"
+    /// (Quora summary of the standard rule; Univ. of Illinois MolBio "Restriction
+    /// Digestion/Gel Electrophoresis": "If you cut a circle once, you get one linear
+    /// fragment... cut it a second time to get 2 linear fragments"; Addgene Plasmids 101:
+    /// a single cutter linearizes the plasmid into one fragment). Each fragment spans one cut
+    /// to the next cut; the fragment that crosses the origin is the join of the
+    /// last-cut→end piece and the start→first-cut piece, with length
+    /// <c>(SequenceLength − lastCut) + firstCut</c>. A circular molecule with <b>zero</b> cut
+    /// sites yields a single full-length (uncut) circular fragment; a circular molecule with a
+    /// <b>single</b> cut site is linearized into one full-length fragment.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence">DNA sequence to digest.</param>
+    /// <param name="topology">Whether the molecule is linear or circular.</param>
+    /// <param name="enzymeNames">Names of restriction enzymes to use.</param>
+    /// <returns>Collection of DNA fragments after digestion.</returns>
+    public static IEnumerable<DigestFragment> Digest(
+        DnaSequence sequence,
+        MoleculeTopology topology,
+        params string[] enzymeNames)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        if (enzymeNames == null || enzymeNames.Length == 0)
+            throw new ArgumentException("At least one enzyme is required", nameof(enzymeNames));
+
+        if (topology == MoleculeTopology.Linear)
+            return Digest(sequence, enzymeNames);
+
+        return DigestCircular(sequence, enzymeNames);
+    }
+
+    private static IEnumerable<DigestFragment> DigestCircular(DnaSequence sequence, string[] enzymeNames)
+    {
+        // Collect distinct forward-strand cut positions (same convention as the linear path:
+        // forward strand only, to avoid double-counting palindromic sites).
+        var cutPositions = new SortedSet<int>();
+        var sitesByPosition = new Dictionary<int, RestrictionSite>();
+
+        foreach (var name in enzymeNames)
+        {
+            foreach (var site in FindSites(sequence, name))
+            {
+                if (!site.IsForwardStrand)
+                    continue;
+
+                // On a circle, a cut at the very end is the same physical position as a cut
+                // at the origin; normalise so the count is not inflated.
+                int cut = site.CutPosition % sequence.Length;
+                cutPositions.Add(cut);
+                sitesByPosition[cut] = site;
+            }
+        }
+
+        if (cutPositions.Count == 0)
+        {
+            // No cuts on a closed circle: a single full-length, uncut circular fragment.
+            yield return new DigestFragment(
+                Sequence: sequence.Sequence,
+                StartPosition: 0,
+                Length: sequence.Length,
+                LeftEnzyme: null,
+                RightEnzyme: null,
+                FragmentNumber: 1);
+            yield break;
+        }
+
+        // k cut sites on a circle → k fragments. Each fragment runs from one cut to the next
+        // cut (cyclically). The fragment that wraps past the origin joins the last-cut→end
+        // piece with the start→first-cut piece.
+        var cuts = cutPositions.ToList();
+        int n = sequence.Length;
+        string seq = sequence.Sequence;
+
+        for (int i = 0; i < cuts.Count; i++)
+        {
+            int start = cuts[i];
+            int nextCut = cuts[(i + 1) % cuts.Count];
+
+            string fragmentSeq;
+            int length;
+            if (i < cuts.Count - 1)
+            {
+                length = nextCut - start;
+                fragmentSeq = seq.Substring(start, length);
+            }
+            else
+            {
+                // Origin-spanning fragment: last-cut → end, then start → first-cut.
+                string tail = seq.Substring(start, n - start);
+                string head = seq.Substring(0, nextCut);
+                fragmentSeq = tail + head;
+                length = (n - start) + nextCut;
+            }
+
+            yield return new DigestFragment(
+                Sequence: fragmentSeq,
+                StartPosition: start,
+                Length: length,
+                // On a circle every fragment end is a cut: both flanks carry an enzyme.
+                LeftEnzyme: sitesByPosition.GetValueOrDefault(start)?.Enzyme.Name,
+                RightEnzyme: sitesByPosition.GetValueOrDefault(nextCut)?.Enzyme.Name,
+                FragmentNumber: i + 1);
         }
     }
 
@@ -492,6 +613,22 @@ public sealed record RestrictionEnzyme(
     /// Gets the length of the recognition sequence.
     /// </summary>
     public int RecognitionLength => RecognitionSequence.Length;
+}
+
+/// <summary>
+/// Topology of a DNA molecule being digested.
+/// </summary>
+/// <remarks>
+/// Linear and circular molecules differ in fragment count: with <c>k</c> cut sites a linear
+/// molecule yields <c>k+1</c> fragments whereas a circular molecule yields <c>k</c> fragments
+/// (Univ. of Illinois MolBio "Restriction Digestion/Gel Electrophoresis"; Addgene Plasmids 101).
+/// </remarks>
+public enum MoleculeTopology
+{
+    /// <summary>A linear molecule with two free ends (default digest behaviour).</summary>
+    Linear,
+    /// <summary>A closed circular molecule (e.g. a plasmid); fragments may span the origin.</summary>
+    Circular
 }
 
 /// <summary>

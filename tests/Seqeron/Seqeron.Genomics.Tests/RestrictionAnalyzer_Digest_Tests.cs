@@ -283,6 +283,169 @@ public class RestrictionAnalyzer_Digest_Tests
 
     #endregion
 
+    #region Circular Digest Tests (RESTR-DIGEST-001 / C5)
+
+    // Evidence for circular-molecule digest (k sites → k fragments; origin-spanning join):
+    // - Univ. of Illinois MolBio, "Restriction Digestion/Gel Electrophoresis Assignment 1"
+    //   (https://www.life.illinois.edu/molbio/geldigest/assign1.html):
+    //   "If you cut a circle once, you get one linear fragment ... cut it a second time to
+    //   get 2 linear fragments."
+    // - Addgene, "Plasmids 101: How to Verify Your Plasmid Using a Restriction Digest"
+    //   (https://blog.addgene.org/plasmids-101-how-to-verify-your-plasmid):
+    //   a single cutter linearizes the plasmid → 1 fragment; fragment count = cut-site count.
+    // - Quora summary of the standard rule (linear k+1 vs circular k):
+    //   https://www.quora.com/How-shall-I-calculate-DNA-fragments-produced-when-a-circular-linear-plasmid-is-digested-with-a-restriction-enzyme-having-N-sites
+    // Rule: circular molecule with k cut sites → k fragments. The origin-spanning fragment is
+    // the join of last-cut→end and start→first-cut, length = (SequenceLength − lastCut) + firstCut.
+
+    /// <summary>
+    /// Worked circular example (hand-traced). EcoRI (G↓AATTC) on the 18 bp circle
+    /// "GAATTCAAAGAATTCAAA" has forward-strand sites at 0 and 9, cutting at positions 1 and 10.
+    /// LINEAR (control): cuts {1,10} → 3 fragments [0,1)="G", [1,10)="AATTCAAAG", [10,18)="AATTCAAA".
+    /// CIRCULAR: 2 cut sites → 2 fragments. Fragment 1 spans cut1→cut2 = [1,10)="AATTCAAAG" (len 9).
+    /// Fragment 2 is the origin-spanning join of [10,18)+[0,1) = "AATTCAAA"+"G" = "AATTCAAAG"
+    /// (len = (18−10)+1 = 9). This is a DISCRIMINATING test: the linear implementation returns 3
+    /// fragments here, the circular path returns exactly 2.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_TwoSites_ProducesTwoFragments_LinearProducesThree()
+    {
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAA"); // 18 bp
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "EcoRI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Discriminating: linear k+1 = 3 vs circular k = 2.
+            Assert.That(linear, Has.Count.EqualTo(3), "Linear: 2 cuts → 3 fragments (k+1)");
+            Assert.That(circular, Has.Count.EqualTo(2), "Circular: 2 cuts → 2 fragments (k)");
+
+            // Default overload must match Linear (non-breaking).
+            var defaultDigest = RestrictionAnalyzer.Digest(sequence, "EcoRI").ToList();
+            Assert.That(defaultDigest.Select(f => f.Sequence),
+                Is.EqualTo(linear.Select(f => f.Sequence)),
+                "Default Digest overload must equal Linear topology");
+
+            // Exact circular fragments (sequence + length + start).
+            Assert.That(circular[0].StartPosition, Is.EqualTo(1));
+            Assert.That(circular[0].Length, Is.EqualTo(9));
+            Assert.That(circular[0].Sequence, Is.EqualTo("AATTCAAAG"), "Cut1→Cut2 fragment");
+            Assert.That(circular[0].LeftEnzyme, Is.EqualTo("EcoRI"), "Circular: both flanks are cuts");
+            Assert.That(circular[0].RightEnzyme, Is.EqualTo("EcoRI"));
+
+            Assert.That(circular[1].StartPosition, Is.EqualTo(10));
+            Assert.That(circular[1].Length, Is.EqualTo(9), "Origin-spanning len = (18−10)+1 = 9");
+            Assert.That(circular[1].Sequence, Is.EqualTo("AATTCAAAG"), "Origin-spanning join [10,18)+[0,1)");
+            Assert.That(circular[1].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(circular[1].RightEnzyme, Is.EqualTo("EcoRI"));
+
+            // Fragment sum invariant still holds on a circle.
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(18),
+                "Circular fragment lengths sum to molecule length");
+        });
+    }
+
+    /// <summary>
+    /// Circular, 0 cut sites → a single full-length uncut circular fragment.
+    /// Distinct from linear-0 only in topology semantics; both return the whole molecule.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_NoSites_ReturnsSingleFullLengthFragment()
+    {
+        var sequence = new DnaSequence("AAAAAAAAAAAA"); // 12 bp, no EcoRI site
+
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(circular, Has.Count.EqualTo(1), "0 sites → 1 uncut circular fragment");
+            Assert.That(circular[0].Length, Is.EqualTo(12));
+            Assert.That(circular[0].Sequence, Is.EqualTo(sequence.Sequence));
+            Assert.That(circular[0].LeftEnzyme, Is.Null);
+            Assert.That(circular[0].RightEnzyme, Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// Circular, 1 cut site → the plasmid is linearized into ONE full-length fragment.
+    /// EcoRI on "AAAGAATTCAAA" (12 bp) cuts at position 4. Circular fragment is the
+    /// origin-spanning join [4,12)+[0,4) = "AATTCAAA"+"AAAG" = "AATTCAAAAAAG" (len 12).
+    /// DISCRIMINATING: linear here yields 2 fragments, circular yields exactly 1.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_SingleSite_LinearizesToOneFragment_LinearProducesTwo()
+    {
+        var sequence = new DnaSequence("AAAGAATTCAAA"); // 12 bp, EcoRI cut at 4
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "EcoRI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear, Has.Count.EqualTo(2), "Linear: 1 cut → 2 fragments");
+            Assert.That(circular, Has.Count.EqualTo(1), "Circular: 1 cut → 1 linearized fragment");
+
+            Assert.That(circular[0].StartPosition, Is.EqualTo(4));
+            Assert.That(circular[0].Length, Is.EqualTo(12), "Full-length linearized: (12−4)+4 = 12");
+            Assert.That(circular[0].Sequence, Is.EqualTo("AATTCAAAAAAG"),
+                "Origin-spanning join [4,12)+[0,4)");
+            Assert.That(circular[0].LeftEnzyme, Is.EqualTo("EcoRI"));
+            Assert.That(circular[0].RightEnzyme, Is.EqualTo("EcoRI"));
+        });
+    }
+
+    /// <summary>
+    /// Three cut sites on a circle → exactly 3 fragments (vs 4 linear), with the origin-spanning
+    /// fragment joining last-cut→end and start→first-cut. EcoRI on the 27 bp circle
+    /// "GAATTCAAAGAATTCAAAGAATTCAAA" has sites at 0, 9, 18 → cuts at 1, 10, 19.
+    /// CIRCULAR fragments: [1,10)="AATTCAAAG" (9), [10,19)="AATTCAAAG" (9),
+    /// origin-spanning [19,27)+[0,1)="AATTCAAA"+"G"="AATTCAAAG" (len (27−19)+1 = 9).
+    /// </summary>
+    [Test]
+    public void Digest_Circular_ThreeSites_ProducesThreeFragments_WithOriginSpan()
+    {
+        var sequence = new DnaSequence("GAATTCAAAGAATTCAAAGAATTCAAA"); // 27 bp
+
+        var linear = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Linear, "EcoRI").ToList();
+        var circular = RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular, "EcoRI").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(linear, Has.Count.EqualTo(4), "Linear: 3 cuts → 4 fragments");
+            Assert.That(circular, Has.Count.EqualTo(3), "Circular: 3 cuts → 3 fragments");
+
+            Assert.That(circular[0].Sequence, Is.EqualTo("AATTCAAAG"));
+            Assert.That(circular[1].Sequence, Is.EqualTo("AATTCAAAG"));
+
+            // Origin-spanning fragment.
+            Assert.That(circular[2].StartPosition, Is.EqualTo(19));
+            Assert.That(circular[2].Length, Is.EqualTo(9), "Origin-spanning len = (27−19)+1 = 9");
+            Assert.That(circular[2].Sequence, Is.EqualTo("AATTCAAAG"), "Join [19,27)+[0,1)");
+
+            Assert.That(circular.Sum(f => f.Length), Is.EqualTo(27),
+                "Circular fragment lengths sum to molecule length");
+        });
+    }
+
+    /// <summary>
+    /// API contract: the topology overload still rejects an empty enzyme list and null sequence.
+    /// </summary>
+    [Test]
+    public void Digest_Circular_NoEnzymesOrNullSequence_Throws()
+    {
+        var sequence = new DnaSequence("GAATTCAAA");
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(
+                () => RestrictionAnalyzer.Digest(sequence, MoleculeTopology.Circular).ToList());
+            Assert.Throws<ArgumentNullException>(
+                () => RestrictionAnalyzer.Digest(null!, MoleculeTopology.Circular, "EcoRI").ToList());
+        });
+    }
+
+    #endregion
+
     #region GetDigestSummary Tests
 
     /// <summary>
