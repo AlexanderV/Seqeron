@@ -199,17 +199,21 @@ namespace Seqeron.Genomics.Tests
         [Description("S08: Distance bounds - |len(a) - len(b)| ≤ distance ≤ max(len(a), len(b)) (Wikipedia)")]
         public void EditDistance_Bounds_WithinExpectedRange()
         {
+            // Compute the distances into locals so the bound assertions check the actual
+            // computed value (a genuine 0 ≤ |Δlen| ≤ d ≤ max(len) invariant), not a literal.
+            int sameLen = ApproximateMatcher.EditDistance("flaw", "lawn");
+            int diffLen = ApproximateMatcher.EditDistance("saturday", "sunday");
             Assert.Multiple(() =>
             {
                 // Same-length: "flaw"(4) vs "lawn"(4) → distance=2, bounds: 0 ≤ 2 ≤ 4
-                Assert.That(ApproximateMatcher.EditDistance("flaw", "lawn"), Is.EqualTo(2));
-                Assert.That(2, Is.GreaterThanOrEqualTo(Math.Abs(4 - 4)));
-                Assert.That(2, Is.LessThanOrEqualTo(Math.Max(4, 4)));
+                Assert.That(sameLen, Is.EqualTo(2));
+                Assert.That(sameLen, Is.GreaterThanOrEqualTo(Math.Abs(4 - 4)));
+                Assert.That(sameLen, Is.LessThanOrEqualTo(Math.Max(4, 4)));
 
                 // Different-length: "saturday"(8) vs "sunday"(6) → distance=3, bounds: 2 ≤ 3 ≤ 8
-                Assert.That(ApproximateMatcher.EditDistance("saturday", "sunday"), Is.EqualTo(3));
-                Assert.That(3, Is.GreaterThanOrEqualTo(Math.Abs(8 - 6)));
-                Assert.That(3, Is.LessThanOrEqualTo(Math.Max(8, 6)));
+                Assert.That(diffLen, Is.EqualTo(3));
+                Assert.That(diffLen, Is.GreaterThanOrEqualTo(Math.Abs(8 - 6)));
+                Assert.That(diffLen, Is.LessThanOrEqualTo(Math.Max(8, 6)));
             });
         }
 
