@@ -476,6 +476,164 @@ public class CrisprDesigner_OffTarget_Tests
 
     #endregion
 
+    #region MIT / Hsu 2013 Score Tests (CRISPR-OFF-001, C7)
+
+    // Source of the model + weights (re-grounded this session):
+    //   Hsu et al. Nat Biotechnol 31:827-832 (2013), PMID 23873081; scoring scheme per
+    //   crispr.mit.edu, transcribed in CRISPOR's calcHitScore / calcMitGuideScore:
+    //   https://github.com/maximilianh/crisporWebsite/blob/master/crispor.py
+    // Published W vector (index 0 = PAM-distal .. 19 = PAM-proximal):
+    //   [0,0,0.014,0,0,0.395,0.317,0,0.389,0.079,0.445,0.508,0.613,0.851,0.732,0.828,0.615,0.804,0.685,0.583]
+    // All expected values below come from an INDEPENDENT Python run of the reference formula,
+    // not from this C# code. Reference guide used: "GACGCATAAAGATGAGACGC".
+
+    private const string MitGuide = "GACGCATAAAGATGAGACGC"; // 20 nt; index 5 = 'A', 15 = 'G', 19 = 'C'
+
+    /// <summary>
+    /// MIT-001 (boundary): an exact match scores exactly 100 (on-target, no mismatches).
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_PerfectMatch_Returns100()
+    {
+        double score = CrisprDesigner.CalculateMitHitScore(MitGuide, MitGuide);
+        Assert.That(score, Is.EqualTo(100.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-002: single mismatch at PAM-distal position 0 (W[0]=0) → 100*(1-0)=100.
+    /// Verifies the zero-weight positions contribute no penalty (only nmm term, =1 for 1 mm).
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_SingleMismatchPos0_ZeroWeight_Returns100()
+    {
+        string ot = "T" + MitGuide.Substring(1); // pos 0: G→T
+        double score = CrisprDesigner.CalculateMitHitScore(MitGuide, ot);
+        Assert.That(score, Is.EqualTo(100.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-003 (known penalty): single mismatch at position 5 (W[5]=0.395) → 100*(1-0.395)=60.5.
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_SingleMismatchPos5_Returns60Point5()
+    {
+        var chars = MitGuide.ToCharArray();
+        chars[5] = 'T'; // guide[5]='A' → 'T'
+        double score = CrisprDesigner.CalculateMitHitScore(MitGuide, new string(chars));
+        Assert.That(score, Is.EqualTo(60.5).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-004 (known penalty, PAM-proximal): single mismatch at position 19 (W[19]=0.583)
+    /// → 100*(1-0.583)=41.7. PAM-proximal mismatch is penalized far more than the distal pos-0.
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_SingleMismatchPos19_Returns41Point7()
+    {
+        var chars = MitGuide.ToCharArray();
+        chars[19] = 'A'; // guide[19]='C' → 'A'
+        double score = CrisprDesigner.CalculateMitHitScore(MitGuide, new string(chars));
+        Assert.That(score, Is.EqualTo(41.7).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-005 (two mismatches → all three terms active): positions 5 and 15
+    /// (W[5]=0.395, W[15]=0.828). Independent Python computation:
+    ///   score1 = (1-0.395)*(1-0.828) = 0.10406
+    ///   meanDist = 15-5 = 10; score2 = 1/(((19-10)/19)*4 + 1) = 0.34545454545...
+    ///   score3 = 1/(2^2) = 0.25
+    ///   hitScore = 0.10406 * 0.345454.. * 0.25 * 100 = 0.8987
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_TwoMismatches_AllTermsActive()
+    {
+        var chars = MitGuide.ToCharArray();
+        chars[5] = 'T';  // 'A' → 'T'
+        chars[15] = 'A'; // 'G' → 'A'
+        double score = CrisprDesigner.CalculateMitHitScore(MitGuide, new string(chars));
+        Assert.That(score, Is.EqualTo(0.8987).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-006 (aggregate, boundary): empty off-target set → specificity 100.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_NoHits_Returns100()
+    {
+        double score = CrisprDesigner.CalculateMitSpecificityScore(System.Array.Empty<double>());
+        Assert.That(score, Is.EqualTo(100.0).Within(1e-12));
+    }
+
+    /// <summary>
+    /// MIT-007 (aggregate, known): one single-hit score of 60.5
+    /// → 100/(100+60.5)*100 = 62.305295950155... (independent Python).
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_SingleHit_KnownAggregate()
+    {
+        double score = CrisprDesigner.CalculateMitSpecificityScore(new[] { 60.5 });
+        Assert.That(score, Is.EqualTo(62.30529595015576).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-008 (aggregate, additivity): two hits 60.5 and 41.7
+    /// → 100/(100+102.2)*100 = 49.455984174... (independent Python).
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_TwoHits_KnownAggregate()
+    {
+        double score = CrisprDesigner.CalculateMitSpecificityScore(new[] { 60.5, 41.7 });
+        // sum = 102.2; 100/(100+102.2)*100 = 49.45598417... (independent Python).
+        Assert.That(score, Is.EqualTo(100.0 / (100.0 + 102.2) * 100.0).Within(1e-12));
+        Assert.That(score, Is.EqualTo(49.455984174).Within(1e-6));
+    }
+
+    /// <summary>
+    /// MIT-009: genome-scanning overload — a guide with one single-mismatch off-target.
+    /// The off-target protospacer differs at exactly one position; the aggregate specificity
+    /// equals 100/(100 + hitScore)*100 with the MIT/Hsu single-hit score of that one site.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Genome_SingleOffTarget_MatchesFormula()
+    {
+        // Guide "GACGCATAAAGATGAGACGC"; off-target = same with pos 0 (PAM-distal, W=0) changed,
+        // plus an NGG PAM, so the off-target protospacer differs by 1 mismatch at a zero-weight
+        // position → single-hit score 100 → aggregate 100/(100+100)*100 = 50.
+        string offProto = "TACGCATAAAGATGAGACGC"; // pos0 G→T (W[0]=0)
+        var genome = new DnaSequence(offProto + "AGG");
+
+        double score = CrisprDesigner.CalculateMitSpecificityScore(
+            MitGuide, genome, 3, CrisprSystemType.SpCas9);
+
+        Assert.That(score, Is.EqualTo(50.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// MIT-010: genome with no off-targets → specificity 100.
+    /// </summary>
+    [Test]
+    public void CalculateMitSpecificityScore_Genome_NoOffTargets_Returns100()
+    {
+        var genome = new DnaSequence(MitGuide + "AGG"); // only the exact on-target site
+        double score = CrisprDesigner.CalculateMitSpecificityScore(
+            MitGuide, genome, 3, CrisprSystemType.SpCas9);
+        Assert.That(score, Is.EqualTo(100.0).Within(1e-12));
+    }
+
+    /// <summary>
+    /// MIT-011: input-length validation — non-20-nt sequences throw.
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_WrongLength_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            CrisprDesigner.CalculateMitHitScore("ACGT", "ACGT"));
+        Assert.Throws<ArgumentNullException>(() =>
+            CrisprDesigner.CalculateMitHitScore(null!, MitGuide));
+    }
+
+    #endregion
+
     #region Invariant Tests
 
     /// <summary>

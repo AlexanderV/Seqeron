@@ -441,6 +441,287 @@ public static class CrisprDesigner
 
     #endregion
 
+    #region Doench 2014 On-Target Score (Rule Set 1)
+
+    // ---------------------------------------------------------------------------------------------
+    // Doench et al. 2014 "Rule Set 1" on-target efficacy model (PUBLISHED, fully reproducible).
+    //
+    // Source: Doench, Hartenian, Graham, et al. "Rational design of highly active sgRNAs for
+    //   CRISPR-Cas9-mediated gene inactivation." Nat Biotechnol 32, 1262-1267 (2014).
+    //   PMID 25184501. doi:10.1038/nbt.3026.
+    //
+    // Coefficients transcribed verbatim from the reference implementation distributed with the
+    //   CRISPOR tool (Haeussler et al. 2016, Genome Biol 17:148), file `doenchScore.py`:
+    //   https://github.com/maximilianh/crisporWebsite/blob/master/doenchScore.py
+    //   (this is the original on_target model published by Doench 2014; the same coefficient set
+    //   used by Azimuth's `model_comparison` baseline and by CRISPOR/CRISPRscan).
+    //
+    // The model is a logistic-regression linear model over a fixed 30-nt context window:
+    //     [4 nt upstream] + [20 nt protospacer] + [3 nt PAM (NGG)] + [3 nt downstream] = 30 nt.
+    // It is the dot product of the feature vector with the published weights, passed through a
+    // logistic sigmoid. Score in (0, 1); higher = more active. We expose it on a 0-100 scale.
+    //
+    // The position indices in the weight table are 0-based offsets directly into the 30-mer
+    // (this matches the reference: subSeq = seq[pos : pos+len(modelSeq)]). The GC-count term
+    // is computed over the 20-nt protospacer = seq[4:24].
+    //
+    // Cross-checks reproduced this session (independent Python run of the reference coefficients):
+    //   "TATAGCTGCGATCTGAGGTAGGGAGGGACC" -> 0.7130893 (reference example value 0.713089368437)
+    //   "TCCGCACCTGTCACGGTCGGGGCTTGGCGC" -> 0.0189838 (reference example value 0.0189838463593)
+    // ---------------------------------------------------------------------------------------------
+
+    private const double DoenchIntercept = 0.59763615;
+    private const double DoenchGcHigh = -0.1665878;
+    private const double DoenchGcLow = -0.2026259;
+
+    /// <summary>
+    /// (0-based 30-mer offset, sub-sequence, weight) feature table for the Doench 2014 Rule Set 1
+    /// linear model. Single-nucleotide features (length-1) and dinucleotide features (length-2).
+    /// Transcribed verbatim from the published reference implementation (see region comment).
+    /// </summary>
+    private static readonly (int Pos, string Seq, double Weight)[] DoenchParams =
+    {
+        (1, "G", -0.2753771), (2, "A", -0.3238875), (2, "C", 0.17212887), (3, "C", -0.1006662),
+        (4, "C", -0.2018029), (4, "G", 0.24595663), (5, "A", 0.03644004), (5, "C", 0.09837684),
+        (6, "C", -0.7411813), (6, "G", -0.3932644), (11, "A", -0.466099), (14, "A", 0.08537695),
+        (14, "C", -0.013814), (15, "A", 0.27262051), (15, "C", -0.1190226), (15, "T", -0.2859442),
+        (16, "A", 0.09745459), (16, "G", -0.1755462), (17, "C", -0.3457955), (17, "G", -0.6780964),
+        (18, "A", 0.22508903), (18, "C", -0.5077941), (19, "G", -0.4173736), (19, "T", -0.054307),
+        (20, "G", 0.37989937), (20, "T", -0.0907126), (21, "C", 0.05782332), (21, "T", -0.5305673),
+        (22, "T", -0.8770074), (23, "C", -0.8762358), (23, "G", 0.27891626), (23, "T", -0.4031022),
+        (24, "A", -0.0773007), (24, "C", 0.28793562), (24, "T", -0.2216372), (27, "G", -0.6890167),
+        (27, "T", 0.11787758), (28, "C", -0.1604453), (29, "G", 0.38634258), (1, "GT", -0.6257787),
+        (4, "GC", 0.30004332), (5, "AA", -0.8348362), (5, "TA", 0.76062777), (6, "GG", -0.4908167),
+        (11, "GG", -1.5169074), (11, "TA", 0.7092612), (11, "TC", 0.49629861), (11, "TT", -0.5868739),
+        (12, "GG", -0.3345637), (13, "GA", 0.76384993), (13, "GC", -0.5370252), (16, "TG", -0.7981461),
+        (18, "GG", -0.6668087), (18, "TC", 0.35318325), (19, "CC", 0.74807209), (19, "TG", -0.3672668),
+        (20, "AC", 0.56820913), (20, "CG", 0.32907207), (20, "GA", -0.8364568), (20, "GG", -0.7822076),
+        (21, "TC", -1.029693), (22, "CG", 0.85619782), (22, "CT", -0.4632077), (23, "AA", -0.5794924),
+        (23, "AG", 0.64907554), (24, "AG", -0.0773007), (24, "CG", 0.28793562), (24, "TG", -0.2216372),
+        (26, "GT", 0.11787758), (28, "GG", -0.69774)
+    };
+
+    /// <summary>
+    /// Calculates the Doench et al. 2014 "Rule Set 1" on-target efficacy score for an SpCas9 guide,
+    /// expressed on a 0-100 scale (higher = predicted more active).
+    /// </summary>
+    /// <param name="context30Mer">
+    /// The 30-nt sequence context required by the model:
+    /// 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be N<c>GG</c>) + 3 nt downstream.
+    /// Case-insensitive; must contain only A/C/G/T.
+    /// </param>
+    /// <returns>The predicted on-target activity in the range [0, 100].</returns>
+    /// <remarks>
+    /// This is the published, exactly-reproducible linear model (logistic regression).
+    /// It is NOT Doench "Rule Set 2" / Azimuth, which is a gradient-boosted-tree model that cannot
+    /// be reproduced from published coefficients without the trained model file.
+    /// Source: Doench et al. 2014, Nat Biotechnol 32:1262 (PMID 25184501); coefficients per the
+    /// reference implementation in CRISPOR's <c>doenchScore.py</c>.
+    /// </remarks>
+    public static double CalculateOnTargetDoench2014(string context30Mer)
+    {
+        if (string.IsNullOrEmpty(context30Mer))
+            throw new ArgumentNullException(nameof(context30Mer));
+
+        var seq = context30Mer.ToUpperInvariant();
+
+        if (seq.Length != 30)
+            throw new ArgumentException(
+                $"Doench 2014 requires a 30-nt context (4 upstream + 20 protospacer + 3 PAM + 3 downstream); got {seq.Length}.",
+                nameof(context30Mer));
+
+        foreach (var c in seq)
+        {
+            if (c is not ('A' or 'C' or 'G' or 'T'))
+                throw new ArgumentException(
+                    $"Doench 2014 context must contain only A/C/G/T; found '{c}'.",
+                    nameof(context30Mer));
+        }
+
+        // PAM is at offsets 25-26 (the GG of NGG) within the 30-mer.
+        if (seq[25] != 'G' || seq[26] != 'G')
+            throw new ArgumentException(
+                "Doench 2014 expects an SpCas9 NGG PAM at offsets 25-26 of the 30-nt context.",
+                nameof(context30Mer));
+
+        double score = DoenchIntercept;
+
+        // GC-count term over the 20-nt protospacer = offsets [4, 24).
+        int gcCount = 0;
+        for (int i = 4; i < 24; i++)
+        {
+            if (seq[i] is 'G' or 'C')
+                gcCount++;
+        }
+        double gcWeight = gcCount <= 10 ? DoenchGcLow : DoenchGcHigh;
+        score += Math.Abs(10 - gcCount) * gcWeight;
+
+        // Position-specific single- and di-nucleotide features.
+        foreach (var (pos, modelSeq, weight) in DoenchParams)
+        {
+            if (string.CompareOrdinal(seq, pos, modelSeq, 0, modelSeq.Length) == 0)
+                score += weight;
+        }
+
+        double probability = 1.0 / (1.0 + Math.Exp(-score));
+        return probability * 100.0;
+    }
+
+    #endregion
+
+    #region MIT / Hsu 2013 Off-Target Score
+
+    // ---------------------------------------------------------------------------------------------
+    // MIT / Hsu 2013 off-target specificity score (PUBLISHED, fully reproducible).
+    //
+    // Source: Hsu, Scott, Weinstein, et al. "DNA targeting specificity of RNA-guided Cas9
+    //   nucleases." Nat Biotechnol 31, 827-832 (2013). PMID 23873081. doi:10.1038/nbt.2647.
+    //   Scoring scheme as published on the (now-retired) crispr.mit.edu "about" page and
+    //   transcribed in CRISPOR's `crispor.py` (calcHitScore / calcMitGuideScore).
+    //   https://github.com/maximilianh/crisporWebsite/blob/master/crispor.py
+    //
+    // Single-hit score for one candidate off-target with mismatches relative to the 20-nt guide:
+    //     score1 = product over mismatched positions i of (1 - W[i])
+    //     score2 = 1 / ( ((19 - meanPairwiseMismatchDistance) / 19) * 4 + 1 )   [only if >=2 mm]
+    //     score3 = 1 / (nmm^2)                                                   [only if >=1 mm]
+    //     hitScore = score1 * score2 * score3 * 100
+    //   where W is the published 20-position mismatch-penalty weight vector (PAM-distal -> proximal),
+    //   meanPairwiseMismatchDistance is the mean of consecutive inter-mismatch gaps, and nmm is the
+    //   number of mismatches. (score2/score3 special-cased to 1 below their thresholds, matching the
+    //   reference; a 0-mismatch on-target therefore scores exactly 100.)
+    //
+    // Aggregate (guide-level) MIT specificity:
+    //     guideScore = 100 / (100 + sum of all single-hit scores) * 100
+    //   i.e. 100 with no off-targets; decreasing as off-target hits accumulate.
+    //
+    // Published W vector (20 positions, index 0 = PAM-distal .. index 19 = PAM-proximal):
+    //   [0, 0, 0.014, 0, 0, 0.395, 0.317, 0, 0.389, 0.079, 0.445, 0.508, 0.613, 0.851,
+    //    0.732, 0.828, 0.615, 0.804, 0.685, 0.583]
+    //
+    // Cross-checks reproduced this session (independent Python run of the reference):
+    //   perfect match -> 100; single mm @pos19 -> 100*(1-0.583)=41.7; @pos5 -> 60.5;
+    //   mm @{5,15} -> score1=0.10406, score2=0.34545.., score3=0.25 -> 0.8987;
+    //   aggregate of one 60.5 hit -> 100/(100+60.5)*100 = 62.305296.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The published 20-position MIT/Hsu 2013 single-nucleotide mismatch-penalty weight vector.
+    /// Index 0 is the PAM-distal (5') end of the 20-nt protospacer; index 19 is PAM-proximal (3').
+    /// </summary>
+    private static readonly double[] MitHitScoreWeights =
+    {
+        0, 0, 0.014, 0, 0, 0.395, 0.317, 0, 0.389, 0.079,
+        0.445, 0.508, 0.613, 0.851, 0.732, 0.828, 0.615, 0.804, 0.685, 0.583
+    };
+
+    /// <summary>
+    /// Calculates the MIT / Hsu 2013 single-hit off-target score for a candidate off-target site
+    /// against a 20-nt guide. Returns a value in [0, 100]; 100 means an exact match (on-target),
+    /// lower values mean the site is a weaker (less likely cut) off-target.
+    /// </summary>
+    /// <param name="guide20">The 20-nt guide/protospacer (PAM-distal first), A/C/G/T only.</param>
+    /// <param name="offTarget20">The 20-nt candidate off-target protospacer, same length/orientation.</param>
+    /// <returns>The single-hit MIT/Hsu score in [0, 100].</returns>
+    /// <remarks>
+    /// Source: Hsu et al. 2013, Nat Biotechnol 31:827 (PMID 23873081); formula per crispr.mit.edu
+    /// as transcribed in CRISPOR's <c>calcHitScore</c>.
+    /// </remarks>
+    public static double CalculateMitHitScore(string guide20, string offTarget20)
+    {
+        if (string.IsNullOrEmpty(guide20))
+            throw new ArgumentNullException(nameof(guide20));
+        if (string.IsNullOrEmpty(offTarget20))
+            throw new ArgumentNullException(nameof(offTarget20));
+        if (guide20.Length != 20 || offTarget20.Length != 20)
+            throw new ArgumentException("MIT/Hsu score requires two 20-nt sequences.");
+
+        var g = guide20.ToUpperInvariant();
+        var o = offTarget20.ToUpperInvariant();
+
+        const int maxDist = 19;
+
+        var dists = new List<int>();
+        int mmCount = 0;
+        int lastMmPos = -1;
+        double score1 = 1.0;
+
+        for (int pos = 0; pos < 20; pos++)
+        {
+            if (g[pos] != o[pos])
+            {
+                mmCount++;
+                if (lastMmPos != -1)
+                    dists.Add(pos - lastMmPos);
+                score1 *= 1.0 - MitHitScoreWeights[pos];
+                lastMmPos = pos;
+            }
+        }
+
+        double score2;
+        if (mmCount < 2)
+        {
+            score2 = 1.0;
+        }
+        else
+        {
+            double avgDist = (double)dists.Sum() / dists.Count;
+            score2 = 1.0 / (((maxDist - avgDist) / maxDist) * 4.0 + 1.0);
+        }
+
+        double score3 = mmCount == 0 ? 1.0 : 1.0 / (mmCount * (double)mmCount);
+
+        return score1 * score2 * score3 * 100.0;
+    }
+
+    /// <summary>
+    /// Calculates the aggregate MIT / Hsu 2013 guide specificity score from a set of single-hit
+    /// off-target scores: <c>100 / (100 + Σ hitScores) × 100</c>. Returns 100 when there are no
+    /// off-target hits and decreases toward 0 as off-target burden grows.
+    /// </summary>
+    /// <param name="singleHitScores">The single-hit MIT/Hsu scores of all candidate off-targets.</param>
+    /// <returns>The aggregate guide specificity in [0, 100].</returns>
+    /// <remarks>
+    /// Source: Hsu et al. 2013; aggregate "Guide score" per crispr.mit.edu (CRISPOR
+    /// <c>calcMitGuideScore</c>). The reference rounds to an integer; this method returns the
+    /// unrounded value so callers may round as they wish.
+    /// </remarks>
+    public static double CalculateMitSpecificityScore(IEnumerable<double> singleHitScores)
+    {
+        ArgumentNullException.ThrowIfNull(singleHitScores);
+        double sum = singleHitScores.Sum();
+        return 100.0 / (100.0 + sum) * 100.0;
+    }
+
+    /// <summary>
+    /// Calculates the aggregate MIT / Hsu 2013 specificity score for a guide against a genome by
+    /// enumerating off-target sites (via <see cref="FindOffTargets"/>) and combining their MIT/Hsu
+    /// single-hit scores. Exact on-target matches are excluded (they are not off-targets).
+    /// </summary>
+    /// <param name="guideSequence">The 20-nt SpCas9 guide sequence.</param>
+    /// <param name="genome">The genome/sequence to scan for off-targets.</param>
+    /// <param name="maxMismatches">Maximum mismatches to consider (1-5).</param>
+    /// <param name="systemType">CRISPR system (SpCas9 by default).</param>
+    /// <returns>The aggregate MIT/Hsu specificity in [0, 100]; 100 when no off-targets are found.</returns>
+    public static double CalculateMitSpecificityScore(
+        string guideSequence,
+        DnaSequence genome,
+        int maxMismatches = 4,
+        CrisprSystemType systemType = CrisprSystemType.SpCas9)
+    {
+        var offTargets = FindOffTargets(guideSequence, genome, maxMismatches, systemType).ToList();
+        if (offTargets.Count == 0)
+            return 100.0;
+
+        var guide = guideSequence.ToUpperInvariant();
+        var hitScores = offTargets
+            .Where(ot => ot.Sequence.Length == 20 && guide.Length == 20)
+            .Select(ot => CalculateMitHitScore(guide, ot.Sequence.ToUpperInvariant()));
+
+        return CalculateMitSpecificityScore(hitScores);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static double CalculateGcContent(string sequence) =>
