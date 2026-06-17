@@ -315,6 +315,41 @@ public class SequenceAligner_MultipleAlignProgressive_Tests
         });
     }
 
+    /// <summary>
+    /// M12: PROFILE-LEVEL "once a gap, always a gap". Two gapped profiles are merged and each
+    /// profile's gap must be carried verbatim into the final alignment (never filled with a
+    /// residue, never edited). Independently hand-derived (validator session).
+    ///
+    /// Input ["ACGT","ACGT","AGT","AGT"].
+    /// Distances: d(0,1)=0, d(2,3)=0 (both minimal); deterministic lowest-index tie-break merges
+    /// (0,1) first, then (2,3), then the two profiles. Profile P1=[ACGT/ACGT] (width 4) aligns to
+    /// P2=[AGT/AGT] (width 3): the optimal places one new all-gap column in P2 opposite the 'C'
+    /// column of P1. EXACT columns (length 4):
+    ///   ACGT
+    ///   ACGT
+    ///   A-GT
+    ///   A-GT
+    /// SP (SimpleDna, 6 pairs/col): col0 AAAA=+6; col1 {C,C,-,-} = (C,C)+1 + four (C,-)·−1 + (-,-)0
+    ///   = −3; col2 GGGG=+6; col3 TTTT=+6 ⇒ SP = 15. Gap-removal recovers every input.
+    /// </summary>
+    [Test]
+    public void MultipleAlignProgressive_TwoGappedProfilesMerge_GapsCarriedVerbatim_ExactColumns()
+    {
+        var originals = new[] { "ACGT", "ACGT", "AGT", "AGT" };
+        var result = SequenceAligner.MultipleAlignProgressive(
+            originals.Select(s => new DnaSequence(s)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.AlignedSequences,
+                Is.EqualTo(new[] { "ACGT", "ACGT", "A-GT", "A-GT" }));
+            Assert.That(result.TotalScore, Is.EqualTo(15));
+            // Once-a-gap: removing gaps recovers each input exactly (no gap was ever residue-filled).
+            for (int i = 0; i < originals.Length; i++)
+                Assert.That(result.AlignedSequences[i].Replace("-", ""), Is.EqualTo(originals[i]));
+        });
+    }
+
     #endregion
 
     #region SHOULD — Additivity / non-breaking guarantee
