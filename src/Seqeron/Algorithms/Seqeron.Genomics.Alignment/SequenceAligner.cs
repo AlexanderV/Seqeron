@@ -1081,5 +1081,411 @@ public static class SequenceAligner
     }
 
     #endregion
+
+    #region Multiple Sequence Alignment (Guide-Tree Progressive / Feng-Doolittle)
+
+    // Progressive (guide-tree) multiple sequence alignment, the Feng-Doolittle /
+    // Clustal-style method, added as a SECOND aligner alongside the star MSA above.
+    // The star MSA (MultipleAlign) is unchanged.
+    //
+    // Algorithm (Feng & Doolittle 1987; Wikipedia "Multiple sequence alignment"):
+    //   1. Compute all C(k,2) pairwise global (Needleman-Wunsch) alignments and derive a
+    //      distance matrix. Distance = 1 - fractional identity, where fractional identity =
+    //      identical columns / alignment length of the pairwise NW alignment. (Feng-Doolittle
+    //      converts pairwise alignment scores to distances; identity-based distance is the
+    //      standard, simplest such conversion used by Clustal-style tools.)
+    //   2. Build a guide tree by UPGMA over that distance matrix — "an efficient clustering
+    //      method such as neighbor-joining or unweighted pair group method with arithmetic
+    //      mean (UPGMA)" (Wikipedia "Multiple sequence alignment"). UPGMA is the classic
+    //      Feng-Doolittle choice. The UPGMA cluster-merge formula mirrors
+    //      PhylogeneticAnalyzer.BuildUPGMA (proportional averaging, Sokal & Michener 1958);
+    //      it is reimplemented here because the Phylogenetics project already depends on this
+    //      Alignment project, so a reverse reference would be circular.
+    //   3. Progressively align along the guide tree from the tips: sequence-sequence, then
+    //      sequence-profile, then profile-profile, using the Needleman-Wunsch recurrence over
+    //      *columns* (a profile is the set of already-aligned rows). Column-vs-column score is
+    //      the average match/mismatch over all cross-profile residue pairs (sum-of-pairs profile
+    //      scoring). The "once a gap, always a gap" rule (Feng & Doolittle 1987: "Once a gap is
+    //      introduced ... it is preserved within all subsequent fusions") is enforced: gaps
+    //      already present in a profile are never removed; merging two profiles only inserts
+    //      whole new gap columns, never edits existing columns.
+    //
+    // Sources retrieved this session:
+    //   - Feng & Doolittle (1987) "Progressive sequence alignment as a prerequisite to correct
+    //     phylogenetic trees", J Mol Evol 25:351-360 (PubMed 3118049) — progressive method,
+    //     guide tree, "once a gap, always a gap".
+    //   - Wikipedia "Multiple sequence alignment", § Progressive alignment construction
+    //     (https://en.wikipedia.org/wiki/Multiple_sequence_alignment) — guide tree built by
+    //     NJ/UPGMA; sequences added sequentially along the guide tree.
+    //   - Wikipedia UPGMA / Sokal & Michener (1958) — cluster averaging formula.
+
+    /// <summary>
+    /// Performs guide-tree <b>progressive</b> multiple sequence alignment (the Feng-Doolittle /
+    /// Clustal-style method), as an additive alternative to the star-alignment
+    /// <see cref="MultipleAlign(IEnumerable{DnaSequence}, ScoringMatrix?)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pipeline (Feng &amp; Doolittle 1987; Wikipedia "Multiple sequence alignment"):
+    /// </para>
+    /// <list type="number">
+    /// <item>All pairwise Needleman-Wunsch alignments give a distance matrix using
+    /// distance = 1 − fractional identity (identical columns / pairwise alignment length).</item>
+    /// <item>A UPGMA guide tree is built over that matrix (the classic Feng-Doolittle choice).</item>
+    /// <item>Profiles are aligned progressively from the tips with the NW recurrence over
+    /// columns and sum-of-pairs profile scoring, enforcing "once a gap, always a gap".</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="sequences">Collection of sequences to align.</param>
+    /// <param name="scoring">Scoring matrix (default: <see cref="SimpleDna"/>).</param>
+    /// <returns>Multiple alignment result (aligned rows, majority consensus, sum-of-pairs score).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    public static MultipleAlignmentResult MultipleAlignProgressive(
+        IEnumerable<DnaSequence> sequences,
+        ScoringMatrix? scoring = null)
+    {
+        ArgumentNullException.ThrowIfNull(sequences);
+
+        var seqList = sequences.ToList();
+        if (seqList.Count == 0)
+            return MultipleAlignmentResult.Empty;
+
+        if (seqList.Count == 1)
+        {
+            return new MultipleAlignmentResult(
+                AlignedSequences: new[] { seqList[0].Sequence },
+                Consensus: seqList[0].Sequence,
+                TotalScore: 0);
+        }
+
+        var effectiveScoring = scoring ?? SimpleDna;
+        int k = seqList.Count;
+        var rawSeqs = seqList.Select(s => s.Sequence).ToArray();
+
+        // Step 1: pairwise NW alignments -> distance matrix (1 - fractional identity).
+        var distance = new double[k, k];
+        for (int i = 0; i < k; i++)
+        {
+            for (int j = i + 1; j < k; j++)
+            {
+                double d = PairwiseIdentityDistance(rawSeqs[i], rawSeqs[j], effectiveScoring);
+                distance[i, j] = d;
+                distance[j, i] = d;
+            }
+        }
+
+        // Step 2: UPGMA guide tree.
+        ProgressiveGuideNode root = BuildProgressiveGuideTree(k, distance);
+
+        // Step 3: progressive alignment along the tree (post-order: tips first).
+        Profile aligned = AlignProfileSubtree(root, rawSeqs, effectiveScoring);
+
+        // Reproject rows back into input order (the tree visited leaves in tree order).
+        var orderedRows = new string[k];
+        for (int r = 0; r < aligned.Rows.Count; r++)
+            orderedRows[aligned.SequenceIndices[r]] = aligned.Rows[r];
+
+        var alignedList = orderedRows.ToList();
+        int maxLen = alignedList.Count == 0 ? 0 : alignedList.Max(s => s.Length);
+        string consensus = BuildConsensus(alignedList, maxLen);
+        int spScore = ComputeSumOfPairsScore(alignedList, effectiveScoring);
+
+        return new MultipleAlignmentResult(
+            AlignedSequences: orderedRows,
+            Consensus: consensus,
+            TotalScore: spScore);
+    }
+
+    /// <summary>
+    /// Pairwise distance for the guide tree: 1 − (identical columns / pairwise NW alignment
+    /// length). Two empty sequences (no comparable column) are treated as distance 0.
+    /// Source: Feng &amp; Doolittle (1987) convert pairwise alignment to a distance; the
+    /// identity-based distance d = 1 − fractional identity is the standard Clustal-style choice.
+    /// </summary>
+    private static double PairwiseIdentityDistance(string a, string b, ScoringMatrix scoring)
+    {
+        if (a.Length == 0 && b.Length == 0)
+            return 0.0;
+        if (a.Length == 0 || b.Length == 0)
+            return 1.0; // no shared residues possible
+
+        var pa = GlobalAlignCore(a, b, scoring);
+        int length = pa.AlignedSequence1.Length;
+        if (length == 0)
+            return 0.0;
+
+        int identical = 0;
+        for (int i = 0; i < length; i++)
+        {
+            char c1 = pa.AlignedSequence1[i];
+            char c2 = pa.AlignedSequence2[i];
+            if (c1 != '-' && c2 != '-' && c1 == c2)
+                identical++;
+        }
+
+        return 1.0 - (double)identical / length;
+    }
+
+    /// <summary>
+    /// A node of the progressive-alignment guide tree. Leaves carry a single input-sequence
+    /// index; internal nodes carry two children. (Distinct from PhylogeneticAnalyzer.PhyloNode,
+    /// which lives in a project that already depends on this one.)
+    /// </summary>
+    private sealed class ProgressiveGuideNode
+    {
+        public int LeafIndex = -1; // >= 0 for leaves, -1 for internal nodes
+        public ProgressiveGuideNode? Left;
+        public ProgressiveGuideNode? Right;
+        public bool IsLeaf => Left == null && Right == null;
+    }
+
+    /// <summary>
+    /// Builds a UPGMA guide tree over the pairwise distance matrix. Uses proportional
+    /// (cluster-size weighted) averaging, identical to PhylogeneticAnalyzer.BuildUPGMA
+    /// (Sokal &amp; Michener 1958). Tie-breaking is deterministic: the lowest (i, j) index
+    /// pair wins, so hand-derived test cases have a unique tree.
+    /// </summary>
+    private static ProgressiveGuideNode BuildProgressiveGuideTree(int k, double[,] distance)
+    {
+        var nodes = new Dictionary<int, ProgressiveGuideNode>();
+        var sizes = new Dictionary<int, int>();
+        var dist = new Dictionary<(int, int), double>();
+
+        for (int i = 0; i < k; i++)
+        {
+            nodes[i] = new ProgressiveGuideNode { LeafIndex = i };
+            sizes[i] = 1;
+        }
+        for (int i = 0; i < k; i++)
+            for (int j = i + 1; j < k; j++)
+            {
+                dist[(i, j)] = distance[i, j];
+                dist[(j, i)] = distance[i, j];
+            }
+
+        // Keep active clusters in a sorted list so tie-breaking is by ascending index.
+        var active = Enumerable.Range(0, k).ToList();
+
+        while (active.Count > 1)
+        {
+            double minDist = double.MaxValue;
+            int minI = -1, minJ = -1;
+            for (int ii = 0; ii < active.Count; ii++)
+            {
+                for (int jj = ii + 1; jj < active.Count; jj++)
+                {
+                    int a = active[ii];
+                    int b = active[jj];
+                    var key = a < b ? (a, b) : (b, a);
+                    double d = dist.GetValueOrDefault(key, 0);
+                    if (d < minDist)
+                    {
+                        minDist = d;
+                        minI = a;
+                        minJ = b;
+                    }
+                }
+            }
+
+            int newSize = sizes[minI] + sizes[minJ];
+            var newNode = new ProgressiveGuideNode
+            {
+                Left = nodes[minI],
+                Right = nodes[minJ]
+            };
+
+            foreach (int c in active)
+            {
+                if (c == minI || c == minJ) continue;
+                var keyIK = minI < c ? (minI, c) : (c, minI);
+                var keyJK = minJ < c ? (minJ, c) : (c, minJ);
+                double dIK = dist.GetValueOrDefault(keyIK, 0);
+                double dJK = dist.GetValueOrDefault(keyJK, 0);
+                double newDist = (dIK * sizes[minI] + dJK * sizes[minJ]) / newSize;
+                var newKey = minI < c ? (minI, c) : (c, minI);
+                dist[newKey] = newDist;
+            }
+
+            nodes[minI] = newNode;
+            sizes[minI] = newSize;
+            nodes.Remove(minJ);
+            sizes.Remove(minJ);
+            active.Remove(minJ);
+            // active stays ascending: minJ removed, minI keeps its (smaller) slot.
+        }
+
+        return nodes[active[0]];
+    }
+
+    /// <summary>
+    /// A profile: a block of aligned rows of equal length, each tagged with the input-sequence
+    /// index it represents (so the final output can be reordered back to input order).
+    /// </summary>
+    private sealed class Profile
+    {
+        public List<string> Rows { get; } = new();
+        public List<int> SequenceIndices { get; } = new();
+        public int Width => Rows.Count == 0 ? 0 : Rows[0].Length;
+    }
+
+    /// <summary>
+    /// Post-order traversal of the guide tree: align each subtree's profile, combining child
+    /// profiles by profile-profile NW alignment. Leaves start as a single-row profile.
+    /// </summary>
+    private static Profile AlignProfileSubtree(
+        ProgressiveGuideNode node, string[] rawSeqs, ScoringMatrix scoring)
+    {
+        if (node.IsLeaf)
+        {
+            var leaf = new Profile();
+            leaf.Rows.Add(rawSeqs[node.LeafIndex]);
+            leaf.SequenceIndices.Add(node.LeafIndex);
+            return leaf;
+        }
+
+        var left = AlignProfileSubtree(node.Left!, rawSeqs, scoring);
+        var right = AlignProfileSubtree(node.Right!, rawSeqs, scoring);
+        return AlignProfiles(left, right, scoring);
+    }
+
+    /// <summary>
+    /// Aligns two profiles with the Needleman-Wunsch recurrence over columns. The column-vs-column
+    /// substitution score is the average match/mismatch over all cross-profile residue pairs
+    /// (sum-of-pairs profile scoring); a gap column scores GapExtend per residue averaged.
+    /// Existing columns are never edited — gaps are inserted as whole new all-gap columns into one
+    /// profile, enforcing "once a gap, always a gap" (Feng &amp; Doolittle 1987).
+    /// </summary>
+    private static Profile AlignProfiles(Profile p1, Profile p2, ScoringMatrix scoring)
+    {
+        int m = p1.Width;
+        int n = p2.Width;
+
+        // F(i,j): best score aligning first i columns of p1 with first j columns of p2.
+        var f = new double[m + 1, n + 1];
+        for (int i = 1; i <= m; i++)
+            f[i, 0] = f[i - 1, 0] + ProfileColumnVsGap(p1, i - 1, p2.Rows.Count, scoring);
+        for (int j = 1; j <= n; j++)
+            f[0, j] = f[0, j - 1] + ProfileColumnVsGap(p2, j - 1, p1.Rows.Count, scoring);
+
+        for (int i = 1; i <= m; i++)
+        {
+            for (int j = 1; j <= n; j++)
+            {
+                double diag = f[i - 1, j - 1] + ProfileColumnScore(p1, i - 1, p2, j - 1, scoring);
+                double up = f[i - 1, j] + ProfileColumnVsGap(p1, i - 1, p2.Rows.Count, scoring);
+                double left = f[i, j - 1] + ProfileColumnVsGap(p2, j - 1, p1.Rows.Count, scoring);
+                f[i, j] = Math.Max(diag, Math.Max(up, left));
+            }
+        }
+
+        // Traceback, building column lists for both profiles.
+        var cols1 = new List<int>(); // column index in p1, or -1 for a gap column
+        var cols2 = new List<int>();
+        int ii = m, jj = n;
+        while (ii > 0 || jj > 0)
+        {
+            if (ii > 0 && jj > 0)
+            {
+                double diag = f[ii - 1, jj - 1] + ProfileColumnScore(p1, ii - 1, p2, jj - 1, scoring);
+                if (AreClose(f[ii, jj], diag))
+                {
+                    cols1.Add(ii - 1);
+                    cols2.Add(jj - 1);
+                    ii--; jj--;
+                    continue;
+                }
+            }
+
+            if (ii > 0)
+            {
+                double up = f[ii - 1, jj] + ProfileColumnVsGap(p1, ii - 1, p2.Rows.Count, scoring);
+                if (jj == 0 || AreClose(f[ii, jj], up))
+                {
+                    cols1.Add(ii - 1);
+                    cols2.Add(-1);
+                    ii--;
+                    continue;
+                }
+            }
+
+            cols1.Add(-1);
+            cols2.Add(jj - 1);
+            jj--;
+        }
+
+        cols1.Reverse();
+        cols2.Reverse();
+
+        var merged = new Profile();
+        merged.SequenceIndices.AddRange(p1.SequenceIndices);
+        merged.SequenceIndices.AddRange(p2.SequenceIndices);
+        AppendReprojectedRows(merged, p1, cols1);
+        AppendReprojectedRows(merged, p2, cols2);
+        return merged;
+    }
+
+    /// <summary>
+    /// Re-emits each row of <paramref name="source"/> according to <paramref name="columnMap"/>:
+    /// a non-negative entry copies that existing column (gaps in it preserved), a -1 inserts a
+    /// fresh gap. Existing columns are copied verbatim ("once a gap, always a gap").
+    /// </summary>
+    private static void AppendReprojectedRows(Profile dest, Profile source, List<int> columnMap)
+    {
+        foreach (var row in source.Rows)
+        {
+            var sb = new StringBuilder(columnMap.Count);
+            foreach (int col in columnMap)
+                sb.Append(col < 0 ? '-' : row[col]);
+            dest.Rows.Add(sb.ToString());
+        }
+    }
+
+    /// <summary>Profile-profile column score: average match/mismatch/gap over all cross pairs.</summary>
+    private static double ProfileColumnScore(Profile p1, int col1, Profile p2, int col2, ScoringMatrix scoring)
+    {
+        double total = 0;
+        int pairs = p1.Rows.Count * p2.Rows.Count;
+        for (int r1 = 0; r1 < p1.Rows.Count; r1++)
+        {
+            char a = p1.Rows[r1][col1];
+            for (int r2 = 0; r2 < p2.Rows.Count; r2++)
+            {
+                char b = p2.Rows[r2][col2];
+                if (a == '-' && b == '-')
+                    total += 0; // gap-gap neutral
+                else if (a == '-' || b == '-')
+                    total += scoring.GapExtend;
+                else
+                    total += a == b ? scoring.Match : scoring.Mismatch;
+            }
+        }
+        return total / pairs;
+    }
+
+    /// <summary>
+    /// Score for aligning one profile column against an all-gap column of the other profile of
+    /// <paramref name="otherRowCount"/> rows: average gap penalty over all cross pairs.
+    /// Residue-vs-gap costs GapExtend; gap-vs-gap is neutral.
+    /// </summary>
+    private static double ProfileColumnVsGap(Profile p, int col, int otherRowCount, ScoringMatrix scoring)
+    {
+        double total = 0;
+        int pairs = p.Rows.Count * otherRowCount;
+        for (int r = 0; r < p.Rows.Count; r++)
+        {
+            char a = p.Rows[r][col];
+            // The other side is a gap for all otherRowCount rows.
+            if (a != '-')
+                total += scoring.GapExtend * otherRowCount;
+            // a == '-' : gap-gap, neutral.
+        }
+        return total / pairs;
+    }
+
+    private const double ProfileScoreEpsilon = 1e-9;
+
+    private static bool AreClose(double x, double y) => Math.Abs(x - y) <= ProfileScoreEpsilon;
+
+    #endregion
 }
 
