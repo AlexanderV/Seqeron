@@ -294,6 +294,16 @@ first sources — the implementer and the validator are different contexts, per 
 that code + tests authored together share blind spots. Scope = only the units whose code/tests changed.
 Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL. State: ✅ CLEAN · 🔧 LIMITED.
 
+**Progress:** 12 / 12 re-validated · 12 ✅ CLEAN · 0 🔧 LIMITED. ✅ PHASE 3 COMPLETE.
+
+> Each enhanced unit was re-checked by an independent fresh validator against the **primary source**,
+> under the rule **tests follow the source, code obeys the tests, tests are never bent to the code**.
+> The independent pass found **1 real latent defect** the implementer + its tests had missed:
+> PHYLO-NEWICK-001's parser silently accepted unbalanced parentheses (`((A,B);` → wrong topology) —
+> now throws (650f18d). The published scoring tables were diffed element-by-element against freshly
+> retrieved references (Doench-2014 70-coefficient table; MIT/Hsu 20-element W-vector + orientation;
+> Kraken RTL/LCA/CQ re-derived in Python) — no transcription errors. Suite 6761 → 6780 (Failed: 0).
+
 | # | Unit ID | Enhancement re-validated | Stage A | Stage B | State | Commit |
 |---|---------|--------------------------|:---:|:---:|:---:|--------|
 | 1 | ANNOT-GENE-001 | Reverse-strand Shine-Dalgarno / RBS reporting (`FindRibosomeBindingSitesBothStrands`; `forwardPos = len − revPos − motifLen` mapping) | ✅ | ✅ | ✅ CLEAN | - |
