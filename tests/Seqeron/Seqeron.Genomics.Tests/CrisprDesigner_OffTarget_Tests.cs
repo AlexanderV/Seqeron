@@ -555,6 +555,40 @@ public class CrisprDesigner_OffTarget_Tests
     }
 
     /// <summary>
+    /// MIT-005b (W-vector ORIENTATION guard): pins index 0 = PAM-distal (5') .. index 19 =
+    /// PAM-proximal (3'). A single mismatch at the maximum-weight position 13 (W[13]=0.851)
+    /// must score 100*(1-0.851)=14.9. If the published W vector were transcribed REVERSED
+    /// (index 0 = PAM-proximal), position 13 would map to W=0.317 and this would score 68.3,
+    /// failing this test. Conversely a PAM-distal mismatch at the zero-weight position 0 must
+    /// score 100. Asserting BOTH locks the orientation: the PAM-proximal/seed end is the
+    /// high-penalty end, exactly as in CRISPOR calcHitScore (hitScoreM indexed 5'→3').
+    /// Independent Python: 100*(1-0.851)=14.9; 100*(1-0)=100.
+    /// </summary>
+    [Test]
+    public void CalculateMitHitScore_WeightOrientation_PamProximalIsHighPenalty()
+    {
+        // Max-weight PAM-proximal position 13 (W=0.851) — reversed vector would give 68.3.
+        var proximal = MitGuide.ToCharArray();
+        proximal[13] = proximal[13] == 'A' ? 'C' : 'A'; // ensure a real mismatch
+        double proximalScore = CrisprDesigner.CalculateMitHitScore(MitGuide, new string(proximal));
+
+        // Zero-weight PAM-distal position 0 (W=0) — reversed vector would give 41.7.
+        var distal = MitGuide.ToCharArray();
+        distal[0] = distal[0] == 'A' ? 'C' : 'A';
+        double distalScore = CrisprDesigner.CalculateMitHitScore(MitGuide, new string(distal));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(proximalScore, Is.EqualTo(14.9).Within(1e-9),
+                "Max-weight PAM-proximal pos 13 (W=0.851) → 14.9; reversed W would give 68.3");
+            Assert.That(distalScore, Is.EqualTo(100.0).Within(1e-9),
+                "Zero-weight PAM-distal pos 0 (W=0) → 100; reversed W would give 41.7");
+            Assert.That(proximalScore, Is.LessThan(distalScore),
+                "PAM-proximal (seed) mismatch must be penalised far more than PAM-distal");
+        });
+    }
+
+    /// <summary>
     /// MIT-006 (aggregate, boundary): empty off-target set → specificity 100.
     /// </summary>
     [Test]
