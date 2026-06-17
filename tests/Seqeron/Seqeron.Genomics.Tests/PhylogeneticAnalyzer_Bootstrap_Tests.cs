@@ -167,6 +167,53 @@ public class PhylogeneticAnalyzer_Bootstrap_Tests
         });
     }
 
+    [Test]
+    [Description("M8 (N-ary clade collection): a trifurcating NJ root whose THIRD child is itself an " +
+        "internal clade must have that clade scored. Six taxa in three invariant pairs give the " +
+        "unrooted NJ tree ((A,B),(C,D),(E,F)) (Saitou & Nei 1987): a single central node with three " +
+        "internal children. Felsenstein's procedure scores every non-trivial reference clade, so all " +
+        "three pair-clades {A,B},{C,D},{E,F} are reported with support 1.0 (distances invariant under " +
+        "column resampling). This test fails if clade collection visits only the first two children " +
+        "of the trifurcation (the third-child clade {E,F} would be lost and a spurious {A,B,C,D} would " +
+        "appear), so it directly guards the N-ary refactor's all-children traversal.")]
+    public void Bootstrap_NeighborJoining_TrifurcationWithThreeInternalChildren_AllCladesScored()
+    {
+        // Arrange — three well-separated invariant pairs. d within a pair = 0; all cross distances are
+        // saturated (JC, p=1), so every column resample leaves the matrix unchanged and every NJ
+        // replicate recovers the same trifurcation ((A,B),(C,D),(E,F)). Hand-derived non-trivial
+        // rooted clades of that tree: {A,B}, {C,D}, {E,F} — one per child of the central node. {E,F}
+        // sits under the THIRD child; dropping it from clade collection drops {E,F} and emits the
+        // spurious union {A,B,C,D} of the first two children instead.
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "AAAAAAAAAA",
+            ["B"] = "AAAAAAAAAA",
+            ["C"] = "GGGGGGGGGG",
+            ["D"] = "GGGGGGGGGG",
+            ["E"] = "CCCCCCCCCC",
+            ["F"] = "CCCCCCCCCC",
+        };
+
+        // Act
+        var support = PhylogeneticAnalyzer.Bootstrap(
+            sequences, replicates: 50, distanceMethod: PhylogeneticAnalyzer.DistanceMethod.JukesCantor,
+            treeMethod: PhylogeneticAnalyzer.TreeMethod.NeighborJoining, seed: Seed);
+
+        // Assert — exactly the three pair-clades, each at full support; no spurious union clade.
+        Assert.Multiple(() =>
+        {
+            Assert.That(support.Keys, Is.EquivalentTo(new[] { "A|B", "C|D", "E|F" }),
+                "Trifurcation ((A,B),(C,D),(E,F)) has exactly three non-trivial rooted clades, one " +
+                "per child of the central node; all three children must be visited during collection.");
+            Assert.That(support["A|B"], Is.EqualTo(1.0).Within(1e-10), "{A,B} recovered every replicate.");
+            Assert.That(support["C|D"], Is.EqualTo(1.0).Within(1e-10), "{C,D} recovered every replicate.");
+            Assert.That(support["E|F"], Is.EqualTo(1.0).Within(1e-10),
+                "{E,F} is the THIRD child's clade; full support proves it is collected, not dropped.");
+            Assert.That(support.ContainsKey("A|B|C|D"), Is.False,
+                "No spurious union clade: collection must not stop after the first two children.");
+        });
+    }
+
     #endregion
 
     #region Bootstrap — structure and determinism (M4, M5, S4)

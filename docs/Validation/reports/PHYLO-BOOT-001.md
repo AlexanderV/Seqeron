@@ -137,3 +137,49 @@ unrooted trifurcation and is no longer a rooted clade. The M7 NJ bootstrap test 
 sourced reality (previously it expected both `{A,B}` and `{C,D}` under the old binary root). No
 assertion was weakened; the corrected expectation is hand-derived from the NJ trifurcation. See
 FINDINGS_REGISTER §C2.
+
+## Independent re-validation (2026-06-17, Phase-3 row #12) — N-ary clade collection
+
+Fresh-context independent re-validation triggered by the N-ary (multifurcating) refactor (commit
+c4f0190): `PhyloNode` now holds a `Children` list; bootstrap clade collection (`CollectClades`) and
+support counting were rewritten, and the NJ-bootstrap test was updated for the trifurcating root.
+The bootstrap *algorithm* is unchanged. Per the governing rule, expected values were hand-derived
+from the bootstrap definition, not read from code output.
+
+### Stage A — re-confirmed PASS
+The bootstrap definition matches the three in-repo first sources (Felsenstein 1985 OSTI 6044842;
+Lemoine 2018 PMC6030568; Biopython `Bio.Phylo.Consensus`): resample columns with replacement to the
+**same length**, keep **all taxa**, support = **proportion in [0,1]** of replicate trees containing
+each non-trivial reference-tree clade matched by leaf-name set; 100% agreement → 1.0. Pinned
+invariants: support ∈ [0,1]; quantized to k/replicates; **1.0 when every replicate agrees**; resample
+preserves length + taxa; deterministic per seed.
+
+### Stage B — re-confirmed PASS; one test-coverage gap hardened
+`CollectClades` (`PhylogeneticAnalyzer.cs:1011`) `foreach`-iterates **every** `node.Children` when
+gathering a node's subtree leaf set, so all children — including the 3rd+ of a multifurcation — enter
+the clade sets for both the reference and every replicate tree. Confirmed by a standalone probe against
+the compiled assembly.
+
+**N-ary clade-collection check (hand-derived):**
+- 4-taxon two-group → NJ root `((A,B),C,D)` is a genuine 3-child trifurcation (probe:
+  `root.Children.Count == 3`); the only non-trivial rooted clade is `{A,B}` → support 1.0.
+- 6-taxon three-pair `((A,B),(C,D),(E,F))` → 3rd root child is the **internal** node `(E,F)`; clades =
+  `{A|B, C|D, E|F}`, each support 1.0 (invariant distances → one topology per replicate).
+
+**HARD mutation gate (run this session via standalone probe):** mutating collection to
+`Children.Take(2)` drops the 3rd child — on the 6-taxon tree it **loses `{E,F}`** and emits a spurious
+`{A,B,C,D}` (`{A|B, A|B|C|D, C|D}`); on the 4-taxon tree it emits a spurious `{A,B,C}`
+(`{A|B, A|B|C}`). The pre-existing **M7** (4-taxon NJ) detects the drop only via an *extra* key, never
+via a *lost* real clade.
+
+**Fix (test-only hardening, no algorithm defect):** added **M8**
+`Bootstrap_NeighborJoining_TrifurcationWithThreeInternalChildren_AllCladesScored` — the 6-taxon
+trifurcation case, asserting keys ≡ `{A|B, C|D, E|F}`, each support exactly 1.0, and **no** spurious
+`A|B|C|D` union. M8 is a lost-clade guard (it fails under the dropped-3rd-child mutation), complementing
+M7's extra-key guard. All expected values hand-derived; no assertion weakened, no skip. Bootstrap
+fixture 13→14 tests.
+
+### End-state: CLEAN
+No code or description defect. Test-quality gate PASS (M1 1.0-on-identical and resample-length/taxa
+invariants exact; determinism via fixed seed; M8 fails if a 3rd child is dropped). Full unfiltered
+suite **6780 passed / 0 failed**; build 0 errors. See FINDINGS_REGISTER §A57 and ledger Phase-3 #12.
