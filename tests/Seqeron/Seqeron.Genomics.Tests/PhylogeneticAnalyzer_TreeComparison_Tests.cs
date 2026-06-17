@@ -348,6 +348,189 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
 
     #endregion
 
+    #region Unrooted-Bipartition Robinson-Foulds Tests (C3)
+
+    // Evidence (sources retrieved this session):
+    //   - Robinson & Foulds (1981): RF = symmetric difference of the sets of bipartitions (splits).
+    //   - Wikipedia "Robinson–Foulds metric": RF = A + B, partitions of one tree absent in the other.
+    //   - Rice CS comp571 tree-metrics worked example (cs.rice.edu/~ogilvie/comp571/tree-metrics/):
+    //       T1 internal splits {BC|ADE, ABC|DE}, T2 internal splits {AB|CDE, ABC|DE}
+    //       differ in exactly one internal split each → unrooted RF = 1 + 1 = 2.
+    //   - Trivial splits (terminal/leaf edges: single leaf vs all-but-one) are excluded.
+    //   - Normalization: RF / (2n−6); 2n−6 = 2(n−3) is the max for unrooted binary trees (n−3 internal edges).
+
+    // Builds a binary rooted tree from a Newick-like nested structure via the existing parser.
+    private static PhylogeneticAnalyzer.PhyloNode Tree(string newick)
+        => PhylogeneticAnalyzer.ParseNewick(newick);
+
+    /// <summary>
+    /// Five-taxon tree T1 rooted so its non-trivial bipartitions are {BC|ADE, DE|ABC}.
+    /// Newick: ((B,C),(A,(D,E)))
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode CreateFiveTaxa_T1()
+        => Tree("((B,C),(A,(D,E)));");
+
+    /// <summary>
+    /// Five-taxon tree T2 differing from T1 by a single NNI: {AB|CDE, DE|ABC}.
+    /// Newick: ((A,B),(C,(D,E)))
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode CreateFiveTaxa_T2()
+        => Tree("((A,B),(C,(D,E)));");
+
+    [Test]
+    [Description("URF-M01: Identical trees → unrooted RF = 0 (Robinson & Foulds 1981).")]
+    public void UnrootedRobinsonFoulds_IdenticalTrees_ReturnsZero()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T1();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(0), "Identical trees share all bipartitions → RF = 0");
+    }
+
+    [Test]
+    [Description("URF-M02: Single NNI rearrangement → unrooted RF = 2 " +
+                 "(Rice comp571 worked example: one internal split differs in each tree).")]
+    public void UnrootedRobinsonFoulds_SingleNni_ReturnsExact2()
+    {
+        // T1 splits: {BC|ADE, DE|ABC};  T2 splits: {AB|CDE, DE|ABC}
+        // DE|ABC shared; BC|ADE unique to T1; AB|CDE unique to T2 → RF = 1 + 1 = 2.
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(2), "One internal split differs in each tree → RF = 2");
+    }
+
+    [Test]
+    [Description("URF-M03: Unrooted RF is symmetric (metric property).")]
+    public void UnrootedRobinsonFoulds_IsSymmetric()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t2, t1)),
+            "RF(T1,T2) = RF(T2,T1)");
+    }
+
+    [Test]
+    [Description("URF-ROOT: ROOT-INVARIANCE — two binary trees that are the SAME unrooted tree " +
+                 "but rooted on different edges have unrooted RF = 0, while rooted-clade RF ≠ 0. " +
+                 "This is the whole point of the unrooted metric.")]
+    public void UnrootedRobinsonFoulds_DifferByRootPositionOnly_IsZero_WhileRootedRfIsNonZero()
+    {
+        // Same unrooted topology, two root placements:
+        //   X = ((A,B),(C,(D,E)))   — rooted on the AB|CDE edge
+        //   Y = (((A,B),C),(D,E))   — rooted on the DE|ABC edge (the SAME unrooted tree)
+        // Unrooted bipartitions of BOTH = {AB|CDE, DE|ABC}  →  unrooted RF = 0.
+        // Rooted clades:  X = {A,B},{D,E},{C,D,E};  Y = {A,B},{D,E},{A,B,C}
+        //   → {C,D,E} unique to X, {A,B,C} unique to Y → rooted RF = 2 ≠ 0.
+        var x = Tree("((A,B),(C,(D,E)));");
+        var y = Tree("(((A,B),C),(D,E));");
+
+        int unrooted = PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(x, y);
+        int rooted = PhylogeneticAnalyzer.RobinsonFouldsDistance(x, y);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unrooted, Is.EqualTo(0),
+                "Re-rooting the same unrooted tree must not change its bipartitions → RF = 0");
+            Assert.That(rooted, Is.EqualTo(2),
+                "The existing rooted-clade RF is non-zero for the same pair (it is root-sensitive)");
+        });
+    }
+
+    [Test]
+    [Description("URF-M04: Maximally different 5-taxon binary trees → unrooted RF = 2(n−3) = 4.")]
+    public void UnrootedRobinsonFoulds_MaximallyDifferent_ReturnsExact4()
+    {
+        // T1 = ((A,B),(C,(D,E)))  splits {AB|CDE, DE|ABC}
+        // T3 = ((A,C),(B,(D,E)))  splits {AC|BDE, DE|ABC}? — choose a tree sharing NO internal split.
+        // T3 = (((A,C),E),(B,D)): splits {AC|BDE, ACE|BD}; T1 has {AB|CDE, DE|ABC}; disjoint → RF = 4.
+        var t1 = Tree("((A,B),(C,(D,E)));");
+        var t3 = Tree("(((A,C),E),(B,D));");
+
+        // n = 5 → max unrooted RF for binary trees = 2(n−3) = 4.
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t3),
+            Is.EqualTo(4), "No shared internal split → RF = 2(n−3) = 4");
+    }
+
+    [Test]
+    [Description("URF-N01: Normalized unrooted RF = RF / (2n−6). " +
+                 "Single NNI on 5 taxa: 2 / (2·5−6) = 2/4 = 0.5; identical = 0; max = 1.")]
+    public void UnrootedRobinsonFoulds_Normalized_ExactValues()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+        var t3 = Tree("(((A,C),E),(B,D));");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t1),
+                Is.EqualTo(0.0).Within(1e-12), "identical → 0");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0.5).Within(1e-12), "single NNI: 2/(2·5−6) = 0.5");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t3),
+                Is.EqualTo(1.0).Within(1e-12), "maximally different: 4/4 = 1");
+        });
+    }
+
+    [Test]
+    [Description("URF-N02: For n = 3 the denominator 2n−6 = 0 (one unrooted topology); normalized RF = 0.")]
+    public void UnrootedRobinsonFoulds_Normalized_ThreeTaxa_IsZero()
+    {
+        // Both 3-taxon trees are the SAME unrooted star; no internal split exists.
+        var t1 = CreateThreeTaxaTree();      // ((A,B),C)
+        var t2 = CreateThreeTaxaTree_ACB();  // ((A,C),B)
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0), "3 taxa: only one unrooted topology → no differing split → RF = 0");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0.0).Within(1e-12), "n=3: denominator 2n−6 = 0 → defined as 0");
+        });
+    }
+
+    [Test]
+    [Description("URF-E01: Fewer than 3 leaves throws (no non-trivial bipartition can exist).")]
+    public void UnrootedRobinsonFoulds_FewerThanThreeLeaves_Throws()
+    {
+        var two = CreateTwoTaxaTree();
+
+        Assert.Throws<System.ArgumentException>(
+            () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(two, two));
+    }
+
+    [Test]
+    [Description("URF-E02: Different leaf sets throw (RF defined only on a common taxon set).")]
+    public void UnrootedRobinsonFoulds_DifferentLeafSets_Throws()
+    {
+        var abcde = CreateFiveTaxa_T1();             // {A,B,C,D,E}
+        var abcdf = Tree("((B,C),(A,(D,F)));");      // {A,B,C,D,F}
+
+        Assert.Throws<System.ArgumentException>(
+            () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(abcde, abcdf));
+    }
+
+    [Test]
+    [Description("URF-E03: Null tree throws ArgumentNullException.")]
+    public void UnrootedRobinsonFoulds_NullTree_Throws()
+    {
+        var t1 = CreateFiveTaxa_T1();
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentNullException>(
+                () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(null!, t1));
+            Assert.Throws<System.ArgumentNullException>(
+                () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, null!));
+        });
+    }
+
+    #endregion
+
     #region FindMRCA Tests
 
     [Test]

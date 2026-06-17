@@ -26,7 +26,7 @@ limitations are tracked separately as the "Deferred BIG fixes" backlog in the le
 | ALIGN-MULTI-001 | Star (center-star) MSA | Guide-tree progressive MSA (profile–profile) | Honestly declared; a different algorithm. |
 | RESTR-DIGEST-001 | Linear-molecule digest | Circular-molecule digest (wrap-around fragments) | Correct for linear input; no topology parameter. |
 | RNA-STRUCT-001 | Greedy dot-bracket structure | Nussinov/Zuker DP traceback structure | The DP **energy/score values** themselves are correct; only the returned structure is the greedy approximation. |
-| PHYLO-COMP-001 | Rooted-clade Robinson–Foulds | Unrooted-bipartition RF | Current metric is correct & documented; the other is an alternative, not a fix. |
+| PHYLO-COMP-001 | Rooted-clade **and** unrooted-bipartition Robinson–Foulds | — | **Both metrics now implemented (C3).** `RobinsonFouldsDistance` (rooted clades) is unchanged; `CalculateUnrootedRobinsonFoulds` / `CalculateNormalizedUnrootedRobinsonFoulds` add the original Robinson & Foulds (1981) split-symmetric-difference metric, which is root-invariant. No remaining gap. |
 | Phylogenetics (PHYLO-NEWICK/TREE/COMP) | Strictly **binary** trees (`PhyloNode` Left/Right) | True N-ary (multifurcating) trees | Newick now **throws** instead of silently truncating a multifurcation (fixed mid-campaign). |
 | META-CLASS-001 | Flat best-hit classification | Kraken-style taxonomy-DAG + LCA | The only Phase-1 `🔧 LIMITED` unit; overclaim text already de-claimed in code/spec/Evidence. |
 | CRISPR-GUIDE/OFF-001, PRIMER-TM-001 | Honest heuristic scores | Doench/Azimuth on-target, MIT/Hsu off-target weight models | NN-thermodynamics (ΔH/ΔS/Tm) **is** validated (SEQ-THERMO-001); only the CRISPR ML scoring is heuristic. |

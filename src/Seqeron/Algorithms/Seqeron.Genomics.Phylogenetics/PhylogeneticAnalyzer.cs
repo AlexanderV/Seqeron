@@ -770,6 +770,149 @@ public static class PhylogeneticAnalyzer
         return clades;
     }
 
+    /// <summary>
+    /// Calculates the <b>unrooted</b> Robinson–Foulds distance between two trees,
+    /// as the symmetric difference of their sets of non-trivial <i>bipartitions</i>
+    /// (splits) — the original Robinson &amp; Foulds (1981) metric.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an additive alternative to <see cref="RobinsonFouldsDistance"/>, which
+    /// compares rooted <i>clades</i>. Removing any internal edge of a tree partitions
+    /// the leaf set into two complementary subsets; that unordered pair is a
+    /// <i>bipartition</i> (split). The unrooted RF distance is
+    /// <c>RF = |A\B| + |B\A|</c> over the bipartition sets A = splits(T1), B = splits(T2).
+    /// </para>
+    /// <para>
+    /// <b>Root invariance.</b> A bipartition is an <i>unordered</i> {S, complement} pair,
+    /// so it does not depend on where the tree is rooted. Two binary rooted trees that
+    /// describe the same unrooted topology but are rooted on different edges therefore
+    /// have unrooted RF = 0, even though their rooted-clade RF can be non-zero. This is the
+    /// distinguishing behaviour of this metric.
+    /// </para>
+    /// <para>
+    /// <b>Trivial splits are excluded.</b> Splits induced by terminal (leaf) edges —
+    /// a single leaf versus all-but-one — are shared by every tree on the same taxa and
+    /// carry no topological information, so only splits with at least 2 leaves on each side
+    /// are counted. The binary <see cref="PhyloNode"/> model is read as unrooted by ignoring
+    /// the root placement when forming bipartitions.
+    /// </para>
+    /// </remarks>
+    /// <param name="tree1">First tree (root of a binary <see cref="PhyloNode"/> tree).</param>
+    /// <param name="tree2">Second tree.</param>
+    /// <returns>The unrooted RF distance (a non-negative, even integer).</returns>
+    /// <exception cref="ArgumentNullException">Either tree is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either tree has fewer than 3 leaves (no non-trivial split is possible), or the two
+    /// trees do not have identical leaf sets (the RF metric is only defined on a common taxon set).
+    /// </exception>
+    public static int CalculateUnrootedRobinsonFoulds(PhyloNode tree1, PhyloNode tree2)
+    {
+        if (tree1 == null) throw new ArgumentNullException(nameof(tree1));
+        if (tree2 == null) throw new ArgumentNullException(nameof(tree2));
+
+        var leaves1 = GetLeaves(tree1).Select(l => l.Name).ToList();
+        var leaves2 = GetLeaves(tree2).Select(l => l.Name).ToList();
+
+        if (leaves1.Count < 3 || leaves2.Count < 3)
+            throw new ArgumentException(
+                "Unrooted Robinson–Foulds distance requires at least 3 leaves per tree " +
+                "(no non-trivial bipartition exists below that).");
+
+        var taxa1 = new HashSet<string>(leaves1);
+        var taxa2 = new HashSet<string>(leaves2);
+        if (!taxa1.SetEquals(taxa2))
+            throw new ArgumentException(
+                "Unrooted Robinson–Foulds distance is only defined for trees over the same leaf set.");
+
+        var splits1 = GetBipartitions(tree1, taxa1);
+        var splits2 = GetBipartitions(tree2, taxa2);
+
+        return splits1.Except(splits2).Count() + splits2.Except(splits1).Count();
+    }
+
+    /// <summary>
+    /// Calculates the <b>normalized</b> unrooted Robinson–Foulds distance:
+    /// <c>RF / (2n − 6)</c>, where <c>n</c> is the number of leaves. The denominator is the
+    /// maximum possible unrooted RF for two fully-resolved (binary) trees on <c>n</c> leaves
+    /// (each has <c>n − 3</c> internal edges, so the symmetric difference is at most
+    /// <c>2(n − 3) = 2n − 6</c>). The result is in [0, 1] for binary trees.
+    /// </summary>
+    /// <param name="tree1">First tree.</param>
+    /// <param name="tree2">Second tree.</param>
+    /// <returns>Normalized RF in [0, 1] for binary trees; 0 when n &lt; 4 (no internal split possible).</returns>
+    /// <exception cref="ArgumentNullException">Either tree is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than 3 leaves, or mismatched leaf sets.</exception>
+    public static double CalculateNormalizedUnrootedRobinsonFoulds(PhyloNode tree1, PhyloNode tree2)
+    {
+        int rf = CalculateUnrootedRobinsonFoulds(tree1, tree2);
+
+        int n = GetLeaves(tree1).Count();
+        int denominator = 2 * n - 6;
+        // n == 3 ⇒ denominator 0: only one unrooted topology exists, RF is always 0.
+        if (denominator <= 0) return 0.0;
+
+        return (double)rf / denominator;
+    }
+
+    /// <summary>
+    /// Collects the set of non-trivial bipartitions (splits) of a tree, read as unrooted.
+    /// Each internal edge induces a split of the leaf set; the split is canonicalised to its
+    /// smaller side (ties broken lexicographically) so that {S, complement} is represented once,
+    /// independent of root placement.
+    /// </summary>
+    private static HashSet<string> GetBipartitions(PhyloNode root, HashSet<string> allTaxa)
+    {
+        var splits = new HashSet<string>();
+        CollectBipartitions(root, splits, allTaxa);
+        return splits;
+    }
+
+    private static List<string> CollectBipartitions(
+        PhyloNode? node, HashSet<string> splits, HashSet<string> allTaxa)
+    {
+        if (node == null) return new List<string>();
+
+        if (node.IsLeaf)
+            return new List<string> { node.Name };
+
+        var leftTaxa = CollectBipartitions(node.Left, splits, allTaxa);
+        var rightTaxa = CollectBipartitions(node.Right, splits, allTaxa);
+        var subtreeTaxa = leftTaxa.Concat(rightTaxa).ToList();
+
+        int total = allTaxa.Count;
+        int side = subtreeTaxa.Count;
+        // Non-trivial split: at least 2 leaves on each side. A side of size 0/1 (leaf edge)
+        // or total-1 (the complementary leaf edge) is trivial and shared by all trees.
+        if (side >= 2 && total - side >= 2)
+        {
+            var key = CanonicalSplitKey(subtreeTaxa, allTaxa);
+            splits.Add(key);
+        }
+
+        return subtreeTaxa;
+    }
+
+    /// <summary>
+    /// Builds a root-invariant key for a bipartition: the lexicographically sorted leaf names
+    /// of whichever side is smaller (lexicographically smaller side on a size tie), so the same
+    /// {S, complement} pair maps to one key regardless of which side the edge removal exposed.
+    /// </summary>
+    private static string CanonicalSplitKey(List<string> oneSide, HashSet<string> allTaxa)
+    {
+        var sideA = oneSide.OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var setA = new HashSet<string>(oneSide);
+        var sideB = allTaxa.Where(t => !setA.Contains(t))
+                           .OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+        // Choose the smaller side (by count, then lexicographically) for a canonical, unordered key.
+        bool aFirst = sideA.Count < sideB.Count ||
+                      (sideA.Count == sideB.Count &&
+                       string.CompareOrdinal(string.Join("|", sideA), string.Join("|", sideB)) <= 0);
+
+        return aFirst ? string.Join("|", sideA) : string.Join("|", sideB);
+    }
+
     private static List<string> CollectClades(PhyloNode node, HashSet<string> clades, int totalLeaves)
     {
         if (node == null) return new List<string>();
