@@ -1237,5 +1237,42 @@ SQ   Sequence 20 BP;
         Assert.That(location.IsBetween, Is.False);
     }
 
+    [Test]
+    public void ParseLocation_RemoteReference_MultiDigitVersion_DoesNotLeakIntoSpan()
+    {
+        // Independent validator hardening: the INSDC accession.version (3.4.2.1(e))
+        // version is a sequence of digits, not a single digit. A two-digit version
+        // (".12") must be captured whole and must NOT leak into the parsed span — the
+        // shared range regex would otherwise read "12" as a spurious single-base part
+        // and pull Start down to 12. Sourced span = bases 100..202 inclusive.
+        var location = EmblParser.ParseLocation("J00194.12:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("12"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_RefSeqUnderscoreAccession_CapturesAccessionVersion()
+    {
+        // Independent validator hardening: INSDC remote entry identifiers include
+        // RefSeq-style accessions containing an underscore (e.g. NC_000001.11). The
+        // accession (including '_') and the version must be captured cleanly with no
+        // digit of the accession or version leaking into the local descriptor span.
+        var location = EmblParser.ParseLocation("NC_000001.11:5..9");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("NC_000001"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("11"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(5));
+        Assert.That(location.End, Is.EqualTo(9));
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((5, 9)));
+    }
+
     #endregion
 }
