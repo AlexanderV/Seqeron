@@ -1,13 +1,27 @@
 ﻿{
   Classifications: [
     {
-      ReadId: read1
+      ReadId: read1,
+      TaxonId: 100,
+      TaxonName: E_coli,
+      RtlScore: 6,
+      Confidence: 1.0,
+      MatchedKmers: 6,
+      TotalKmers: 6
     },
     {
-      ReadId: read2
+      ReadId: read2,
+      TaxonId: 200,
+      TaxonName: B_subtilis,
+      RtlScore: 6,
+      Confidence: 1.0,
+      MatchedKmers: 6,
+      TotalKmers: 6
     },
     {
-      ReadId: read3
+      ReadId: read3,
+      TaxonId: 1,
+      TaxonName: root
     }
   ]
 }

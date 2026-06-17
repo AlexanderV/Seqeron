@@ -7,10 +7,10 @@
 | Test Unit ID | META-CLASS-001 |
 | Algorithm | K-mer Based Taxonomic Classification |
 | Area | Metagenomics |
-| Methods | `ClassifyReads`, `BuildKmerDatabase` |
-| Date | 2026-02-01 |
+| Methods | `ClassifyReads`, `BuildKmerDatabase`, `TaxonomyTree` (+ `Lca`) |
+| Date | 2026-06-17 |
 
-> **Classifier scope (important):** `ClassifyReads` is a flat **best-hit (highest k-mer count)** classifier — it assigns each read to the single taxon with the most matching canonical k-mers. It is **NOT** an LCA / Kraken weighted root-to-leaf classifier: there is no taxonomy tree and no lowest-common-ancestor resolution. `BuildKmerDatabase` maps each canonical k-mer to exactly one taxon (the first reference genome it appears in), so shared k-mers are not resolved to an ancestor. Ties (taxa with equal best k-mer counts) resolve to an **arbitrary best-count taxon** (enumeration order). The Kraken references below are cited only for the *shared mechanics* — canonical k-mer indexing, ambiguous-k-mer filtering, and the C/Q confidence ratio — and must NOT be read as a claim that this unit implements Kraken's LCA assignment.
+> **Classifier scope:** This unit implements the **faithful Kraken algorithm** (Wood & Salzberg 2014). `BuildKmerDatabase` maps each canonical k-mer to the **lowest common ancestor (LCA) of all reference taxa that contain it** ("a k-mer and the LCA of all organisms whose genomes contain that k-mer"; subsequent owners fold via LCA). `ClassifyReads` builds the per-read **classification tree** (hit taxa + ancestors, weighted by k-mer count), assigns the leaf of the **maximum-scoring root-to-leaf (RTL) path**, and breaks ties by the **LCA of the maximally-scoring leaves**; reads with no hits are **unclassified** (taxonomy root). Confidence is Kraken 2's **C/Q** (C = k-mers in the clade rooted at the assigned label, Q = non-ambiguous k-mers queried). `TaxonomyTree.Lca` provides the LCA used in both DB build and tie-break. (Prior to enhancement C1 this was a flat best-hit classifier with no LCA; that wording is now obsolete.)
 
 ---
 
@@ -58,20 +58,27 @@
 | Default k | 31 | Standard for genomic classification |
 | Classification method | Exact k-mer matching | Maps k-mers to taxonomy database |
 | Canonical k-mers | Yes | Min(kmer, reverse_complement(kmer)) lexicographically |
-| Confidence | C / Q | C = k-mers supporting winning taxon; Q = non-ambiguous k-mers queried |
+| Confidence | C / Q | C = k-mers in the clade rooted at the assigned label; Q = non-ambiguous k-mers queried |
 | Ambiguous filtering | Yes | K-mers with non-ACGT characters skipped during classification |
 
-### Classification Algorithm
+### Classification Algorithm (Kraken — Wood & Salzberg 2014)
 
-Per Kraken 1 & 2 manuals:
-1. Extract all k-mers from a read
-2. Skip k-mers containing ambiguous nucleotides (non-ACGT)
-3. Canonicalize each k-mer: min(kmer, reverse_complement(kmer))
-4. Query canonical k-mer against the database
-5. Count k-mer hits per taxon
-6. Classify to taxon with most k-mer hits
-7. Confidence = C/Q where C = hits for winning taxon, Q = total non-ambiguous k-mers
-8. Reads with no hits → "Unclassified"
+**Database build.** For each labeled reference, set each contained canonical k-mer's stored taxon to
+the **LCA of the previously-stored taxon (if any) and this reference's taxon** — "if a k-mer … has
+had its LCA value previously set, then the LCA of the stored value and the current sequence's taxon
+is calculated."
+
+**Per-read classification:**
+1. Extract all k-mers from a read; skip those with ambiguous (non-ACGT) nucleotides (not counted in Q).
+2. Canonicalize each k-mer: `min(kmer, reverse_complement(kmer))`; query against the database.
+3. Tally per-taxon k-mer hit counts; if none, the read is **unclassified** (root).
+4. The hit taxa + their ancestors form the **classification tree**; each node is weighted by its
+   k-mer count.
+5. Score every **root-to-leaf (RTL)** path as the sum of node weights along it; the **maximum-scoring
+   path** is the classification path and its **leaf** is the assigned taxon.
+6. Tie-break: if several paths share the maximum score, assign the **LCA of their leaves**.
+7. Confidence = **C/Q**, C = k-mers mapped to a taxon in the clade rooted at the assigned label, Q =
+   non-ambiguous k-mers queried.
 
 ---
 
@@ -90,7 +97,8 @@ Per Kraken 1 & 2 manuals:
 | Empty sequence | Implementation standard | Return "Unclassified", no error |
 | Sequence shorter than k | Kraken manual | Cannot extract k-mers, "Unclassified" |
 | No matching k-mers | Kraken | Return "Unclassified" |
-| Multiple taxon matches | Best-hit rule (NOT LCA) | Classify to highest-count taxon; ties resolve to an arbitrary best-count taxon |
+| Multiple taxon matches | Kraken RTL / LCA | Assign the leaf of the max-scoring root-to-leaf path; equal-score paths → LCA of their leaves |
+| K-mer shared by several taxa (DB) | Kraken LCA | Stored as the LCA of the owning taxa |
 | All-N sequence | DUST filtering docs | Handle gracefully |
 
 ---
@@ -131,7 +139,7 @@ From `MetagenomicsAnalyzer.cs`:
 
 2. **Canonical k-mer**: Uses `DnaSequence.GetReverseComplementString()` for reverse complement
 
-3. **Confidence calculation**: `C / Q` per Kraken — C = k-mers supporting winning taxon, Q = non-ambiguous k-mers
+3. **Confidence calculation**: `C / Q` per Kraken — C = k-mers in the clade rooted at the assigned label, Q = non-ambiguous k-mers
 
 4. **Ambiguous k-mer filtering**: K-mers with non-ACGT characters skipped (not counted in TotalKmers)
 
@@ -171,11 +179,14 @@ From `MetagenomicsAnalyzer.cs`:
 
 1. **Output count invariant**: |output| = |input reads|
 2. **Confidence range**: 0 ≤ Confidence ≤ 1
-3. **K-mer count invariant**: TotalKmers = count of non-ambiguous k-mers (equals len - k + 1 for all-ACGT sequences)
-4. **Matched k-mers bound**: MatchedKmers ≤ TotalKmers; MatchedKmers = k-mers supporting winning taxon only
-5. **Unclassified criteria**: If MatchedKmers = 0, Kingdom = "Unclassified"
+3. **K-mer count invariant**: TotalKmers (Q) = count of non-ambiguous k-mers (equals len - k + 1 for all-ACGT sequences)
+4. **Matched k-mers bound**: MatchedKmers (C) ≤ TotalKmers (Q); C = k-mers in the clade rooted at the assigned label
+5. **Unclassified criteria**: no k-mer hits ⇒ TaxonId = root (`TaxonomyTree.RootId`), C = 0
 6. **Canonical k-mer uniqueness**: For any k-mer, exactly one canonical form exists
-7. **Confidence formula**: Confidence = MatchedKmers / TotalKmers (Kraken's C/Q)
+7. **Confidence formula**: Confidence = C / Q (Kraken 2)
+8. **DB-build LCA**: a canonical k-mer owned by several taxa is stored as their LCA
+9. **RTL assignment**: assigned taxon = leaf of the maximum-scoring root-to-leaf path; ties → LCA of tied leaves
+10. **LCA correctness**: siblings → parent; ancestor/descendant → ancestor; self → self; disjoint → root
 
 ---
 

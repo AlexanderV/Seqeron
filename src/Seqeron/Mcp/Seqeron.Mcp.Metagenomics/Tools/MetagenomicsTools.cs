@@ -16,37 +16,43 @@ public class MetagenomicsTools
     #region MetagenomicsAnalyzer
 
     /// <summary>
-    /// Classify metagenomic reads using exact k-mer matching against a taxonomic
-    /// k-mer database (Kraken-style; canonical k-mer convention,
-    /// Wood &amp; Salzberg 2014).
+    /// Classify metagenomic reads with the Kraken k-mer / LCA algorithm: collect each read's
+    /// canonical k-mer hits, build the classification tree over the hit taxa weighted by k-mer
+    /// count, and assign the leaf of the maximum-scoring root-to-leaf path (LCA-of-leaves on ties).
+    /// Reads with no hits are assigned the root / unclassified taxon (Wood &amp; Salzberg 2014).
     /// </summary>
     [McpServerTool(Name = "classify_reads", Title = "Metagenomics — Classify Reads", ReadOnly = true)]
-    [Description("Classify metagenomic reads against a k-mer→taxon database (Kraken-style). Returns per-read taxonomy lineage and confidence.")]
+    [Description("Classify metagenomic reads with the Kraken k-mer/LCA algorithm against a canonical-k-mer→taxon-id database and a taxonomy tree. Returns the assigned taxon, RTL score, lineage and C/Q confidence per read.")]
     public static ClassifyReadsResult ClassifyReads(
         [Description("Reads to classify (id + nucleotide sequence).")] IReadOnlyList<ReadInput> reads,
-        [Description("Flattened k-mer→taxon database. Keys must be canonical k-mers (lex-min of forward / reverse complement); taxon strings use ';' or '|' rank separators.")] IReadOnlyList<KmerDatabaseEntry> kmerDatabase,
+        [Description("Flattened canonical-k-mer→taxon-id database. Keys must be canonical k-mers (lex-min of forward / reverse complement); values are taxon ids in the taxonomy tree.")] IReadOnlyList<KmerDatabaseEntry> kmerDatabase,
+        [Description("Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.")] IReadOnlyList<TaxonNodeInput> taxonomy,
         [Description("k-mer length (default 31, per Kraken).")] int k = 31)
     {
-        var dict = new Dictionary<string, string>(kmerDatabase.Count);
+        var dict = new Dictionary<string, int>(kmerDatabase.Count);
         foreach (var entry in kmerDatabase)
             dict[entry.Kmer] = entry.TaxonId;
 
+        var tree = ToTaxonomyTree(taxonomy);
         var inputs = reads.Select(r => (r.Id, r.Sequence));
-        var classifications = MetagenomicsAnalyzer.ClassifyReads(inputs, dict, k).ToList();
+        var classifications = MetagenomicsAnalyzer.ClassifyReads(inputs, dict, tree, k).ToList();
         return new ClassifyReadsResult(classifications);
     }
 
     /// <summary>
-    /// Build a canonical-k-mer→taxon database from reference genomes.
+    /// Build a Kraken canonical-k-mer→taxon-id database from labeled reference sequences:
+    /// each shared k-mer is mapped to the lowest common ancestor of its owning taxa.
     /// </summary>
     [McpServerTool(Name = "build_kmer_database", Title = "Metagenomics — Build K-mer Database", ReadOnly = true)]
-    [Description("Build a canonical-k-mer→taxon database from reference genomes (Kraken-style). Skips ambiguous nucleotides; first taxon to claim a k-mer wins.")]
+    [Description("Build a Kraken canonical-k-mer→taxon-id database from labeled reference sequences. Skips ambiguous nucleotides; a k-mer shared by several taxa maps to their lowest common ancestor in the taxonomy tree.")]
     public static BuildKmerDatabaseResult BuildKmerDatabase(
-        [Description("Reference genomes (taxon id + sequence).")] IReadOnlyList<ReferenceGenomeInput> referenceGenomes,
+        [Description("Reference sequences (taxon id + nucleotide sequence).")] IReadOnlyList<ReferenceGenomeInput> referenceGenomes,
+        [Description("Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.")] IReadOnlyList<TaxonNodeInput> taxonomy,
         [Description("k-mer length (default 31).")] int k = 31)
     {
+        var tree = ToTaxonomyTree(taxonomy);
         var inputs = referenceGenomes.Select(g => (g.TaxonId, g.Sequence));
-        var dict = MetagenomicsAnalyzer.BuildKmerDatabase(inputs, k);
+        var dict = MetagenomicsAnalyzer.BuildKmerDatabase(inputs, tree, k);
         var entries = dict.Select(kv => new KmerDatabaseEntry(kv.Key, kv.Value)).ToList();
         return new BuildKmerDatabaseResult(entries, entries.Count);
     }
@@ -389,6 +395,14 @@ public class MetagenomicsTools
     #endregion
 
     #region Helpers
+
+    private static Seqeron.Genomics.Metagenomics.TaxonomyTree ToTaxonomyTree(
+        IReadOnlyList<TaxonNodeInput> nodes)
+    {
+        var taxa = nodes.Select(n =>
+            new Seqeron.Genomics.Metagenomics.TaxonNode(n.Id, n.Name, n.Rank, n.ParentId));
+        return new Seqeron.Genomics.Metagenomics.TaxonomyTree(taxa);
+    }
 
     private static List<AbundanceItem> ToAbundanceList(IReadOnlyDictionary<string, double> dict)
     {

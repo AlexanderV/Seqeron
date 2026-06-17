@@ -12,11 +12,11 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 > Recover any report with: `git show cb113ce:docs/Validation/reports/{UNIT-ID}.md`.
 
 **LIMITED units (not fully functional — see [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md)):**
-- META-CLASS-001 — implements flat best-hit, not Kraken/LCA. **Overclaim now de-claimed** in code XML docs + spec + Evidence (2026-06-12). The remaining gap — a real taxonomy-DAG + LCA classifier — is NOT-POSSIBLE in-session (changes public API + 27 locked tests); see [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md) §C1.
+- ~~META-CLASS-001~~ — **FIXED (C1, approved breaking change):** replaced the flat best-hit classifier with the faithful Kraken taxonomy-tree + k-mer-LCA + RTL (max-weight root-to-leaf path, LCA-of-leaves tie-break) classifier (Wood & Salzberg 2014). New public surface (`TaxonomyTree`, int-taxon `BuildKmerDatabase`/`ClassifyReads`); the 27 locked tests were rewritten to the new sourced semantics (28 tests on a hand-built taxonomy, mutation-checked). Now ✅ CLEAN. See [FINDINGS_REGISTER.md](FINDINGS_REGISTER.md) §C1.
 - ~~SPLICE-PREDICT-001~~ — **FIXED 2026-06-12**: `GenerateSplicedSequence` now concatenates the same reported-exon set as `DeriveExons` (consistent-filter); INV-3/INV-4 hold by construction; +3 strict tests; now ✅ CLEAN.
 
 **Deferred BIG fixes (revisit later — too large for an in-session "perfect" autofix):**
-- META-CLASS-001: real taxonomy-DAG + LCA / weighted root-to-leaf classification (or rename method + de-overclaim docs).
+- ~~META-CLASS-001: real taxonomy-DAG + LCA / weighted root-to-leaf classification~~ — **DONE (C1).** Taxonomy-tree + k-mer-LCA DB + RTL classification implemented (approved breaking API change).
 - Phylogenetics: full N-ary (multifurcating) tree model (PhyloNode is Left/Right binary) — enables true NJ trifurcation round-trip; also an optional unrooted-bipartition RF metric alongside the current rooted-clade one.
 - Alignment: guide-tree progressive MSA (current is star alignment).
 - RESTR-DIGEST-001: circular-molecule digest (topology parameter + wrap-around fragments).
@@ -76,7 +76,7 @@ State (end of session): ✅ CLEAN (fully functional) · 🔧 LIMITED (see report
 | 50 | CHROM-KARYO-001 | Chromosome | ✅ | 🟡 | ✅ CLEAN | archived @cb113ce |
 | 51 | CHROM-ANEU-001 | Chromosome | ✅ | ✅ | ✅ CLEAN | archived @cb113ce |
 | 52 | CHROM-SYNT-001 | Chromosome | 🟡 | 🟡 | ✅ CLEAN | archived @cb113ce |
-| 53 | META-CLASS-001 | Metagenomics | 🟡 | 🟡 | 🔧 LIMITED | archived @cb113ce |
+| 53 | META-CLASS-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | C1 (Kraken tree+LCA+RTL) |
 | 54 | META-PROF-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | archived @cb113ce |
 | 55 | META-ALPHA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | archived @cb113ce |
 | 56 | META-BETA-001 | Metagenomics | ✅ | ✅ | ✅ CLEAN | archived @cb113ce |

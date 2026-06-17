@@ -31,32 +31,40 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
     {
         return new MetagenomicsAnalyzer.TaxonomicClassification(
             ReadId: readId,
+            TaxonId: 100,
+            TaxonName: species,
+            Rank: "species",
+            RtlScore: 100,
+            Confidence: 0.9,
+            MatchedKmers: 100,
+            TotalKmers: 110,
             Kingdom: kingdom,
             Phylum: phylum,
             Class: "",
             Order: "",
             Family: "",
             Genus: genus,
-            Species: species,
-            Confidence: 0.9,
-            MatchedKmers: 100,
-            TotalKmers: 110);
+            Species: species);
     }
 
     private static MetagenomicsAnalyzer.TaxonomicClassification CreateUnclassified(string readId)
     {
         return new MetagenomicsAnalyzer.TaxonomicClassification(
             ReadId: readId,
+            TaxonId: TaxonomyTree.RootId,
+            TaxonName: "root",
+            Rank: "root",
+            RtlScore: 0,
+            Confidence: 0,
+            MatchedKmers: 0,
+            TotalKmers: 110,
             Kingdom: "Unclassified",
             Phylum: "",
             Class: "",
             Order: "",
             Family: "",
             Genus: "",
-            Species: "",
-            Confidence: 0,
-            MatchedKmers: 0,
-            TotalKmers: 110);
+            Species: "");
     }
 
     #endregion
@@ -504,9 +512,10 @@ public class MetagenomicsAnalyzer_TaxonomicProfile_Tests
         {
             CreateClassification("r1", "Bacteria", "P1", "G1", "sp1"),
             new MetagenomicsAnalyzer.TaxonomicClassification(
-                ReadId: "r2", Kingdom: "", Phylum: "P2", Class: "", Order: "",
-                Family: "", Genus: "G2", Species: "sp2",
-                Confidence: 0.5, MatchedKmers: 50, TotalKmers: 110),
+                ReadId: "r2", TaxonId: 0, TaxonName: "", Rank: "", RtlScore: 0,
+                Confidence: 0.5, MatchedKmers: 50, TotalKmers: 110,
+                Kingdom: "", Phylum: "P2", Class: "", Order: "",
+                Family: "", Genus: "G2", Species: "sp2"),
         };
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);

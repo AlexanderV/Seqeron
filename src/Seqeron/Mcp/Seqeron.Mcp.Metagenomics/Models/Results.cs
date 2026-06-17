@@ -9,11 +9,14 @@ namespace Seqeron.Mcp.Metagenomics.Tools;
 /// <summary>Input read for taxonomic classification.</summary>
 public record ReadInput(string Id, string Sequence);
 
-/// <summary>K-mer → taxon mapping entry (flattened from a dictionary).</summary>
-public record KmerDatabaseEntry(string Kmer, string TaxonId);
+/// <summary>Canonical-k-mer → taxon-id mapping entry (flattened from a dictionary).</summary>
+public record KmerDatabaseEntry(string Kmer, int TaxonId);
 
 /// <summary>Reference genome (taxon id + nucleotide sequence) for k-mer DB construction.</summary>
-public record ReferenceGenomeInput(string TaxonId, string Sequence);
+public record ReferenceGenomeInput(int TaxonId, string Sequence);
+
+/// <summary>One taxonomy-tree node (NCBI-style). The root is self-parented (ParentId == Id).</summary>
+public record TaxonNodeInput(int Id, string Name, string Rank, int ParentId);
 
 /// <summary>Single (species/taxon → fractional abundance) entry.</summary>
 public record AbundanceItem(string Name, double Fraction);

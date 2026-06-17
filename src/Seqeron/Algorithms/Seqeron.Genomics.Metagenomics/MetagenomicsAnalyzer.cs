@@ -14,20 +14,50 @@ public static class MetagenomicsAnalyzer
     #region Records and Types
 
     /// <summary>
-    /// Represents a taxonomic classification result.
+    /// Represents the taxonomic classification of a single read by the Kraken-style
+    /// k-mer / lowest-common-ancestor classifier.
     /// </summary>
+    /// <param name="ReadId">Input read identifier.</param>
+    /// <param name="TaxonId">
+    /// Assigned taxon id — the leaf of the maximum-scoring root-to-leaf (RTL) path in the read's
+    /// classification tree (Wood &amp; Salzberg 2014). Reads with no k-mer hits are assigned the
+    /// root / unclassified taxon (<see cref="TaxonomyTree.RootId"/>).
+    /// </param>
+    /// <param name="TaxonName">Name of the assigned taxon, from the taxonomy tree.</param>
+    /// <param name="Rank">Rank label of the assigned taxon, from the taxonomy tree.</param>
+    /// <param name="RtlScore">
+    /// Score of the winning RTL path: the sum of node weights (k-mer hit counts) along the path
+    /// from the root to the assigned leaf.
+    /// </param>
+    /// <param name="Confidence">
+    /// Kraken C/Q confidence: C = number of k-mers mapped to a taxon in the clade rooted at the
+    /// assigned label, Q = number of non-ambiguous k-mers queried. 0 when there are no hits.
+    /// </param>
+    /// <param name="MatchedKmers">C — k-mers supporting the assigned clade.</param>
+    /// <param name="TotalKmers">Q — non-ambiguous k-mers queried against the database.</param>
+    /// <param name="Kingdom">Kingdom on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Phylum">Phylum on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Class">Class on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Order">Order on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Family">Family on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Genus">Genus on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Species">Species on the assigned taxon's lineage, or empty.</param>
     public readonly record struct TaxonomicClassification(
         string ReadId,
+        int TaxonId,
+        string TaxonName,
+        string Rank,
+        int RtlScore,
+        double Confidence,
+        int MatchedKmers,
+        int TotalKmers,
         string Kingdom,
         string Phylum,
         string Class,
         string Order,
         string Family,
         string Genus,
-        string Species,
-        double Confidence,
-        int MatchedKmers,
-        int TotalKmers);
+        string Species);
 
     /// <summary>
     /// Represents a taxonomic profile of a metagenomic sample.
@@ -116,146 +146,268 @@ public static class MetagenomicsAnalyzer
 
     #endregion
 
-    #region K-mer Based Classification
+    #region K-mer / LCA Taxonomic Classification (Kraken)
+
+    // Kraken (Wood & Salzberg 2014, Genome Biology 15:R46) taxonomic classifier.
+    //
+    // Database build: "a database that contains records consisting of a k-mer and the LCA of all
+    // organisms whose genomes contain that k-mer". As reference sequences are processed, "if a
+    // k-mer from a sequence has had its LCA value previously set, then the LCA of the stored value
+    // and the current sequence's taxon is calculated" and stored.
+    //
+    // Per-read classification: the read's hit taxa "and their ancestors in the taxonomy tree form
+    // what we term the classification tree ... Each node in the classification tree is weighted with
+    // the number of k-mers in K(S) that mapped to the taxon associated with that node. ... each
+    // root-to-leaf (RTL) path in the classification tree is scored by calculating the sum of all
+    // node weights along the path. The maximum scoring RTL path in the classification tree is the
+    // classification path [and its leaf is the assigned label]." Tie-break: "if there are multiple
+    // maximally scoring paths, the LCA of all those paths' leaves is selected."
+    //
+    // Unclassified: "Sequences for which none of the k-mers in K(S) are found in any genome are left
+    // unclassified by this algorithm" — reported here as the root taxon (TaxonomyTree.RootId).
+    //
+    // Confidence reuses Kraken 2's C/Q score: C = k-mers mapped to a taxon in the clade rooted at the
+    // assigned label, Q = non-ambiguous k-mers queried.
+
+    private const string AcgtAlphabet = "ACGT";
 
     /// <summary>
-    /// Classifies metagenomic reads using k-mer matching with a flat best-hit rule.
+    /// Classifies metagenomic reads with the Kraken k-mer / LCA algorithm: for each read it
+    /// collects the (canonical) k-mer hits, builds the classification tree over the hit taxa and
+    /// their ancestors weighted by k-mer count, finds the maximum-scoring root-to-leaf (RTL) path,
+    /// and assigns the leaf of that path (LCA-of-leaves on ties). Reads with no hits are assigned
+    /// the root / unclassified taxon.
     /// </summary>
-    /// <remarks>
-    /// Each read is assigned to the single taxon with the highest count of matching (canonical)
-    /// k-mers. This is a BEST-HIT (highest k-mer count) classifier — it is NOT an LCA / Kraken
-    /// weighted root-to-leaf classifier: there is no taxonomy tree, no lowest-common-ancestor
-    /// resolution, and no per-rank weighting. Each database k-mer maps to exactly one taxon
-    /// (see <see cref="BuildKmerDatabase"/>). Ties (two or more taxa with the same best k-mer count)
-    /// resolve to an arbitrary best-count taxon determined by dictionary/enumeration ordering.
-    /// Confidence is simply matched-best-taxon k-mers / total non-ambiguous k-mers.
-    /// </remarks>
+    /// <param name="reads">Reads to classify (id + nucleotide sequence).</param>
+    /// <param name="kmerDatabase">
+    /// Canonical-k-mer → taxon-id database (see <see cref="BuildKmerDatabase"/>). Keys are canonical
+    /// k-mers; values are taxon ids present in <paramref name="taxonomy"/>.
+    /// </param>
+    /// <param name="taxonomy">Taxonomy tree providing parent chains and the LCA operation.</param>
+    /// <param name="k">K-mer length (default 31, per Kraken). Must be positive.</param>
+    /// <returns>One <see cref="TaxonomicClassification"/> per input read, in input order.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is not positive.</exception>
     public static IEnumerable<TaxonomicClassification> ClassifyReads(
         IEnumerable<(string Id, string Sequence)> reads,
-        IReadOnlyDictionary<string, string> kmerDatabase,
+        IReadOnlyDictionary<string, int> kmerDatabase,
+        TaxonomyTree taxonomy,
         int k = 31)
     {
-        foreach (var (id, sequence) in reads)
+        ArgumentNullException.ThrowIfNull(reads);
+        ArgumentNullException.ThrowIfNull(kmerDatabase);
+        ArgumentNullException.ThrowIfNull(taxonomy);
+        if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), k, "k must be positive.");
+
+        return Iterate();
+
+        IEnumerable<TaxonomicClassification> Iterate()
         {
-            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
-            {
-                yield return new TaxonomicClassification(
-                    id, "Unclassified", "", "", "", "", "", "", 0, 0, 0);
-                continue;
-            }
-
-            var taxonCounts = new Dictionary<string, int>();
-            int totalKmers = 0;
-
-            for (int i = 0; i <= sequence.Length - k; i++)
-            {
-                string kmer = sequence.Substring(i, k).ToUpperInvariant();
-
-                // Skip k-mers containing ambiguous nucleotides (Kraken-style filtering)
-                if (!kmer.All(c => "ACGT".Contains(c)))
-                    continue;
-
-                // Use canonical k-mer (strand-independent) for database lookup
-                string canonical = GetCanonicalKmer(kmer);
-                totalKmers++;
-
-                if (kmerDatabase.TryGetValue(canonical, out string? taxon))
-                {
-                    if (!taxonCounts.ContainsKey(taxon))
-                        taxonCounts[taxon] = 0;
-                    taxonCounts[taxon]++;
-                }
-            }
-
-            if (taxonCounts.Count == 0)
-            {
-                yield return new TaxonomicClassification(
-                    id, "Unclassified", "", "", "", "", "", "", 0, 0, totalKmers);
-                continue;
-            }
-
-            // Best-hit rule: classify to the taxon with the most k-mer hits.
-            // NOT an LCA — ties resolve to an arbitrary best-count taxon (enumeration order).
-            var bestTaxon = taxonCounts.OrderByDescending(kv => kv.Value).First();
-            // C = k-mers supporting the chosen classification, Q = non-ambiguous k-mers
-            int matchedKmers = bestTaxon.Value;
-            double confidence = totalKmers > 0 ? (double)matchedKmers / totalKmers : 0;
-
-            var taxonomy = ParseTaxonomyString(bestTaxon.Key);
-
-            yield return new TaxonomicClassification(
-                ReadId: id,
-                Kingdom: taxonomy.GetValueOrDefault("kingdom", ""),
-                Phylum: taxonomy.GetValueOrDefault("phylum", ""),
-                Class: taxonomy.GetValueOrDefault("class", ""),
-                Order: taxonomy.GetValueOrDefault("order", ""),
-                Family: taxonomy.GetValueOrDefault("family", ""),
-                Genus: taxonomy.GetValueOrDefault("genus", ""),
-                Species: taxonomy.GetValueOrDefault("species", ""),
-                Confidence: confidence,
-                MatchedKmers: matchedKmers,
-                TotalKmers: totalKmers);
+            foreach (var (id, sequence) in reads)
+                yield return ClassifyRead(id, sequence, kmerDatabase, taxonomy, k);
         }
     }
 
-    /// <summary>
-    /// Builds a flat k-mer → taxon database from reference genomes.
-    /// </summary>
-    /// <remarks>
-    /// Each canonical k-mer is mapped to exactly ONE taxon — the FIRST reference genome in which
-    /// it is encountered (subsequent occurrences in other taxa are ignored). This is NOT a Kraken
-    /// LCA database: there is no taxonomy tree and no lowest-common-ancestor assignment for k-mers
-    /// shared across taxa. The resulting database supports only the flat best-hit classification
-    /// performed by <see cref="ClassifyReads"/>.
-    /// </remarks>
-    public static Dictionary<string, string> BuildKmerDatabase(
-        IEnumerable<(string TaxonId, string Sequence)> referenceGenomes,
-        int k = 31)
+    private static TaxonomicClassification ClassifyRead(
+        string id,
+        string sequence,
+        IReadOnlyDictionary<string, int> kmerDatabase,
+        TaxonomyTree taxonomy,
+        int k)
     {
-        var database = new Dictionary<string, string>();
+        // Collect per-taxon k-mer hit counts (the leaf weights of the classification tree) and Q.
+        var hitCounts = new Dictionary<int, int>();
+        int totalKmers = 0; // Q = non-ambiguous k-mers queried
 
-        foreach (var (taxonId, sequence) in referenceGenomes)
+        if (!string.IsNullOrEmpty(sequence) && sequence.Length >= k)
         {
-            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
-                continue;
-
             string seq = sequence.ToUpperInvariant();
-
             for (int i = 0; i <= seq.Length - k; i++)
             {
                 string kmer = seq.Substring(i, k);
-                if (kmer.All(c => "ACGT".Contains(c)))
-                {
-                    // Use canonical k-mer (lexicographically smaller of forward/reverse)
-                    string canonical = GetCanonicalKmer(kmer);
+                if (!IsAcgtOnly(kmer))
+                    continue; // skip ambiguous k-mers (not counted in Q)
 
-                    if (!database.ContainsKey(canonical))
-                        database[canonical] = taxonId;
+                totalKmers++;
+                string canonical = GetCanonicalKmer(kmer);
+                if (kmerDatabase.TryGetValue(canonical, out int taxon) && taxonomy.Contains(taxon))
+                {
+                    hitCounts.TryGetValue(taxon, out int c);
+                    hitCounts[taxon] = c + 1;
                 }
+            }
+        }
+
+        if (hitCounts.Count == 0)
+            return BuildResult(id, taxonomy.Root, 0, 0, totalKmers, taxonomy);
+
+        // Classification tree node weights: weight[node] = k-mers mapped to that exact taxon
+        // (= hitCounts). The RTL score of a leaf L is Σ weight over taxa lying on the path Root..L.
+        //
+        // Leaves of the classification tree = hit taxa that are not a proper ancestor of another hit
+        // taxon. (A hit taxon that is an ancestor of another hit taxon is an internal node, never a
+        // leaf, since the deeper hit extends the path.) Score each candidate leaf as the sum of
+        // hit-weights over taxa lying on its root path.
+        var hitTaxa = hitCounts.Keys.ToList();
+        var leaves = new List<int>();
+        foreach (int candidate in hitTaxa)
+        {
+            bool isAncestorOfAnother = hitTaxa.Any(other =>
+                other != candidate && taxonomy.IsAncestorOf(candidate, other));
+            if (!isAncestorOfAnother)
+                leaves.Add(candidate);
+        }
+
+        int bestScore = int.MinValue;
+        var bestLeaves = new List<int>();
+        foreach (int leaf in leaves)
+        {
+            int score = 0;
+            foreach (int node in taxonomy.GetPathToRoot(leaf))
+                if (hitCounts.TryGetValue(node, out int w))
+                    score += w;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestLeaves.Clear();
+                bestLeaves.Add(leaf);
+            }
+            else if (score == bestScore)
+            {
+                bestLeaves.Add(leaf);
+            }
+        }
+
+        // Tie-break: LCA of all maximally-scoring leaves.
+        int assigned = bestLeaves.Count == 1 ? bestLeaves[0] : taxonomy.Lca(bestLeaves);
+
+        // C = k-mers mapped to any taxon in the clade rooted at the assigned label.
+        int cladeKmers = 0;
+        foreach (var (taxon, weight) in hitCounts)
+            if (taxonomy.IsAncestorOf(assigned, taxon))
+                cladeKmers += weight;
+
+        return BuildResult(id, assigned, bestScore, cladeKmers, totalKmers, taxonomy);
+    }
+
+    private static TaxonomicClassification BuildResult(
+        string id, int assignedTaxon, int rtlScore, int cladeKmers, int totalKmers, TaxonomyTree taxonomy)
+    {
+        var node = taxonomy.GetNode(assignedTaxon);
+        double confidence = totalKmers > 0 ? (double)cladeKmers / totalKmers : 0.0;
+        var ranks = ExtractRankLineage(assignedTaxon, taxonomy);
+
+        return new TaxonomicClassification(
+            ReadId: id,
+            TaxonId: assignedTaxon,
+            TaxonName: node.Name,
+            Rank: node.Rank,
+            RtlScore: rtlScore,
+            Confidence: confidence,
+            MatchedKmers: cladeKmers,
+            TotalKmers: totalKmers,
+            Kingdom: ranks.GetValueOrDefault("kingdom", ""),
+            Phylum: ranks.GetValueOrDefault("phylum", ""),
+            Class: ranks.GetValueOrDefault("class", ""),
+            Order: ranks.GetValueOrDefault("order", ""),
+            Family: ranks.GetValueOrDefault("family", ""),
+            Genus: ranks.GetValueOrDefault("genus", ""),
+            Species: ranks.GetValueOrDefault("species", ""));
+    }
+
+    /// <summary>
+    /// Reads the seven standard ranks off the assigned taxon's lineage (root path), keyed by the
+    /// lowercased rank label on each node, for compatibility with the downstream profile.
+    /// </summary>
+    private static Dictionary<string, string> ExtractRankLineage(int taxonId, TaxonomyTree taxonomy)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (int node in taxonomy.GetPathToRoot(taxonId))
+        {
+            var n = taxonomy.GetNode(node);
+            string rank = (n.Rank ?? "").ToLowerInvariant();
+            switch (rank)
+            {
+                case "kingdom":
+                case "domain":
+                    result["kingdom"] = n.Name; break;
+                case "phylum":
+                case "class":
+                case "order":
+                case "family":
+                case "genus":
+                case "species":
+                    result[rank] = n.Name; break;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Builds a Kraken-style canonical-k-mer → taxon database from labeled reference sequences.
+    /// Each canonical k-mer is mapped to the <em>lowest common ancestor</em> of the taxa of all
+    /// references that contain it: the first reference sets the k-mer's taxon, and every subsequent
+    /// reference replaces the stored value with its LCA against that reference's taxon.
+    /// </summary>
+    /// <param name="referenceSequences">
+    /// Labeled references (taxon id + nucleotide sequence). The taxon id must exist in
+    /// <paramref name="taxonomy"/>.
+    /// </param>
+    /// <param name="taxonomy">Taxonomy tree used to compute the LCA of shared k-mers.</param>
+    /// <param name="k">K-mer length (default 31). Must be positive.</param>
+    /// <returns>A canonical-k-mer → taxon-id database for <see cref="ClassifyReads"/>.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is not positive.</exception>
+    /// <exception cref="KeyNotFoundException">A reference's taxon id is not in <paramref name="taxonomy"/>.</exception>
+    public static Dictionary<string, int> BuildKmerDatabase(
+        IEnumerable<(int TaxonId, string Sequence)> referenceSequences,
+        TaxonomyTree taxonomy,
+        int k = 31)
+    {
+        ArgumentNullException.ThrowIfNull(referenceSequences);
+        ArgumentNullException.ThrowIfNull(taxonomy);
+        if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), k, "k must be positive.");
+
+        var database = new Dictionary<string, int>();
+
+        foreach (var (taxonId, sequence) in referenceSequences)
+        {
+            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
+                continue;
+            if (!taxonomy.Contains(taxonId))
+                throw new KeyNotFoundException($"Reference taxon id {taxonId} is not in the taxonomy tree.");
+
+            string seq = sequence.ToUpperInvariant();
+            for (int i = 0; i <= seq.Length - k; i++)
+            {
+                string kmer = seq.Substring(i, k);
+                if (!IsAcgtOnly(kmer))
+                    continue;
+
+                string canonical = GetCanonicalKmer(kmer);
+                if (database.TryGetValue(canonical, out int existing))
+                    database[canonical] = taxonomy.Lca(existing, taxonId); // collapse to LCA
+                else
+                    database[canonical] = taxonId;
             }
         }
 
         return database;
     }
 
+    private static bool IsAcgtOnly(string kmer)
+    {
+        foreach (char c in kmer)
+            if (AcgtAlphabet.IndexOf(c) < 0)
+                return false;
+        return true;
+    }
+
     private static string GetCanonicalKmer(string kmer)
     {
         string revComp = DnaSequence.GetReverseComplementString(kmer);
         return string.Compare(kmer, revComp, StringComparison.Ordinal) <= 0 ? kmer : revComp;
-    }
-
-    private static Dictionary<string, string> ParseTaxonomyString(string taxonomy)
-    {
-        var result = new Dictionary<string, string>();
-        var ranks = new[] { "kingdom", "phylum", "class", "order", "family", "genus", "species" };
-
-        var parts = taxonomy.Split(';', '|');
-        for (int i = 0; i < Math.Min(parts.Length, ranks.Length); i++)
-        {
-            result[ranks[i]] = parts[i].Trim();
-        }
-
-        return result;
     }
 
     #endregion
