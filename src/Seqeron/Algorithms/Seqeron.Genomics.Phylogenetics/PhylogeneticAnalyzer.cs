@@ -692,9 +692,21 @@ public static class PhylogeneticAnalyzer
                 break;
             }
 
-            // Skip ')'
+            // Require the matching ')'. The Newick grammar (Olsen; Wikipedia) defines an
+            // internal node as Internal → "(" BranchSet ")" Name: the closing parenthesis is
+            // mandatory. An opened descendant list that is never closed (e.g. "(A,B" or
+            // "((A,B);") is a malformed tree with unbalanced parentheses and must be rejected
+            // rather than silently accepted as a (truncated/degenerate) tree.
             if (pos < newick.Length && newick[pos] == ')')
+            {
                 pos++;
+            }
+            else
+            {
+                throw new FormatException(
+                    "Malformed Newick string: unbalanced parentheses — an opening '(' has no " +
+                    $"matching ')' (unexpected end of descendant list at position {pos}).");
+            }
 
             // Parse internal node name (if any)
             if (pos < newick.Length && newick[pos] != ':' && newick[pos] != ',' &&

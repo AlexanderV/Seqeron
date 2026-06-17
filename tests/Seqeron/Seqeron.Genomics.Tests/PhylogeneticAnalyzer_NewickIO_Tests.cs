@@ -735,6 +735,46 @@ public class PhylogeneticAnalyzer_NewickIO_Tests
             "Exception message should indicate unexpected trailing input");
     }
 
+    [Test]
+    [Description("MUST: ParseNewick throws on an extra ')' — unbalanced parentheses ('(A,B));').")]
+    public void ParseNewick_ExtraCloseParen_Throws()
+    {
+        // Grammar: Internal → "(" BranchSet ")" Name. A surplus ')' is unconsumed input after
+        // the root subtree, i.e. a malformed (unbalanced) tree. Must throw, not silently accept.
+        Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("(A,B));"));
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on an unclosed '(' — unbalanced parentheses ('(A,B' / '(A,B;').")]
+    public void ParseNewick_UnclosedParen_Throws()
+    {
+        // The Newick grammar requires the matching ')' (Internal → "(" BranchSet ")" Name).
+        // An opening '(' with no closing ')' is a malformed tree. Previously this was silently
+        // accepted as a complete "(A,B)" — a grammar violation and silent data corruption.
+        Assert.Multiple(() =>
+        {
+            var ex1 = Assert.Throws<FormatException>(() =>
+                PhylogeneticAnalyzer.ParseNewick("(A,B"));
+            Assert.That(ex1!.Message, Does.Contain("unbalanced").IgnoreCase,
+                "Message should indicate unbalanced parentheses");
+
+            // Same defect even when a terminating ';' is present.
+            Assert.Throws<FormatException>(() =>
+                PhylogeneticAnalyzer.ParseNewick("(A,B;"));
+        });
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on a missing inner ')' that yields a degenerate single-child node ('((A,B);').")]
+    public void ParseNewick_MissingInnerCloseParen_Throws()
+    {
+        // "((A,B);" has two '(' but only one ')'. Under the lenient old parser this produced a
+        // degenerate single-child wrapper node "((A,B))" — wrong topology. The grammar rejects it.
+        Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("((A,B);"));
+    }
+
     #endregion
 
     #region Regression: valid binary trees still parse after the reject-multifurcation fix
