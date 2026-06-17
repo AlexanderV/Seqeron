@@ -296,3 +296,4 @@ Per-stage: ✅ PASS · 🟡 PASS-WITH-NOTES · ❌ FAIL. State: ✅ CLEAN · �
 
 | # | Unit ID | Enhancement re-validated | Stage A | Stage B | State | Commit |
 |---|---------|--------------------------|:---:|:---:|:---:|--------|
+| 1 | ANNOT-GENE-001 | Reverse-strand Shine-Dalgarno / RBS reporting (`FindRibosomeBindingSitesBothStrands`; `forwardPos = len − revPos − motifLen` mapping) | ✅ | ✅ | ✅ CLEAN | - |
