@@ -53,6 +53,14 @@ public static partial class EmblParser
         IReadOnlyDictionary<string, string> Qualifiers);
 
     /// <summary>Feature location</summary>
+    /// <remarks>
+    /// The trailing members (<see cref="IsBetween"/>, <see cref="IsSingleBaseFromRange"/>,
+    /// <see cref="RemoteAccession"/>, <see cref="RemoteVersion"/>) support three rarer
+    /// INSDC Feature Table location forms (section 3.4.2.1 / 3.4.3): the site-between
+    /// operator <c>n^m</c>, the deprecated single-base-from-range <c>n.m</c>, and remote
+    /// references <c>accession[.version]:descriptor</c>. They default to
+    /// <c>false</c>/<c>null</c> so ordinary local spans are reported exactly as before.
+    /// </remarks>
     public readonly record struct Location(
         int Start,
         int End,
@@ -62,7 +70,18 @@ public static partial class EmblParser
         bool Is5PrimePartial,
         bool Is3PrimePartial,
         IReadOnlyList<(int Start, int End)> Parts,
-        string RawLocation);
+        string RawLocation,
+        bool IsBetween = false,
+        bool IsSingleBaseFromRange = false,
+        string? RemoteAccession = null,
+        string? RemoteVersion = null)
+    {
+        /// <summary>
+        /// True when this location points into another INSDC entry
+        /// (i.e. a remote reference such as <c>J00194.1:100..202</c>).
+        /// </summary>
+        public bool IsRemote => RemoteAccession is not null;
+    }
 
     #endregion
 
@@ -590,10 +609,52 @@ public static partial class EmblParser
             return new Location(0, 0, false, false, false, false, false,
                 Array.Empty<(int, int)>(), locationStr);
 
+        // INSDC FT 3.4.2.1(e): a remote reference is a remote entry identifier
+        // ("accession[.version]") followed by ':' and a local location descriptor that
+        // applies to that entry's sequence (e.g. "J00194.1:100..202"). Strip and capture
+        // the prefix so the accession-version digits do not leak into the parsed span;
+        // the trailing descriptor is then parsed exactly like a local location.
+        string? remoteAccession = null;
+        string? remoteVersion = null;
+        string descriptor = locationStr;
+        var remoteMatch = RemoteReferenceRegex().Match(locationStr);
+        if (remoteMatch.Success)
+        {
+            remoteAccession = remoteMatch.Groups["acc"].Value;
+            remoteVersion = remoteMatch.Groups["ver"].Success ? remoteMatch.Groups["ver"].Value : null;
+            descriptor = locationStr[remoteMatch.Length..];
+        }
+
+        // INSDC FT 3.4.2.1(b)/(c): the site-between operator "n^m" (a site between two
+        // adjoining bases) and the deprecated single-base-from-range "n.m" (a single
+        // base somewhere in [n,m]) are both bare two-number forms with a distinct
+        // separator. Detect them before delegating, since the shared range regex only
+        // understands the two-period span "n..m".
+        var betweenMatch = SiteBetweenRegex().Match(descriptor);
+        if (betweenMatch.Success)
+        {
+            int bStart = int.Parse(betweenMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+            int bEnd = int.Parse(betweenMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+            return new Location(bStart, bEnd, false, false, false, false, false,
+                new[] { (bStart, bEnd) }, locationStr,
+                IsBetween: true, RemoteAccession: remoteAccession, RemoteVersion: remoteVersion);
+        }
+
+        var singleDotMatch = SingleBaseFromRangeRegex().Match(descriptor);
+        if (singleDotMatch.Success)
+        {
+            int sStart = int.Parse(singleDotMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+            int sEnd = int.Parse(singleDotMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+            return new Location(sStart, sEnd, false, false, false, false, false,
+                new[] { (sStart, sEnd) }, locationStr,
+                IsSingleBaseFromRange: true, RemoteAccession: remoteAccession, RemoteVersion: remoteVersion);
+        }
+
         var (start, end, isComplement, isJoin, isOrder, is5PrimePartial, is3PrimePartial, parts) =
-            SequenceFormatHelper.ParseLocationParts(locationStr, useStartsWithForComplement: false);
+            SequenceFormatHelper.ParseLocationParts(descriptor, useStartsWithForComplement: false);
         return new Location(start, end, isComplement, isJoin, isOrder,
-            is5PrimePartial, is3PrimePartial, parts, locationStr);
+            is5PrimePartial, is3PrimePartial, parts, locationStr,
+            RemoteAccession: remoteAccession, RemoteVersion: remoteVersion);
     }
 
     private static string ParseSequence(List<string> lines)
@@ -713,6 +774,19 @@ public static partial class EmblParser
 
     [GeneratedRegex(@"\[(\d+)\]")]
     private static partial Regex ReferenceNumberRegex();
+
+    // INSDC FT 3.4.2.1(e): remote entry identifier "accession[.version]" then ':'.
+    [GeneratedRegex(@"^(?<acc>[A-Za-z][A-Za-z0-9_]*)(?:\.(?<ver>\d+))?:")]
+    private static partial Regex RemoteReferenceRegex();
+
+    // INSDC FT 3.4.2.1(b): site between two adjoining bases, "n^m" (e.g. 123^124).
+    [GeneratedRegex(@"^(\d+)\^(\d+)$")]
+    private static partial Regex SiteBetweenRegex();
+
+    // INSDC FT 3.4.2.1(c): deprecated single base from a range, "n.m" (single period,
+    // e.g. 102.110) — distinct from the two-period sequence span "n..m".
+    [GeneratedRegex(@"^(\d+)\.(\d+)$")]
+    private static partial Regex SingleBaseFromRangeRegex();
 
     #endregion
 }

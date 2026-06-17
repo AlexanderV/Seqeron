@@ -1078,4 +1078,164 @@ SQ   Sequence 20 BP;
     }
 
     #endregion
+
+    #region Location Parsing — INSDC Remote Reference, Site-Between (^), Single-Dot (C8)
+
+    // Source: INSDC Feature Table Definition, section 3.4.2.1 / 3.4.3
+    // (https://www.insdc.org/submitting-standards/feature-table/ and
+    //  https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt).
+    //
+    // 3.4.3 examples (verbatim):
+    //   "J00194.1:100..202  Points to bases 100 to 202, inclusive, in the entry
+    //                       with primary accession number 'J00194'"
+    //   "123^124            Points to a site between bases 123 and 124"
+    //   "102.110            Indicates that the exact location is unknown but that
+    //                       it is one of the bases between bases 102 and 110, inclusive"
+
+    [Test]
+    public void ParseLocation_RemoteReference_CapturesAccessionVersionAndSpan()
+    {
+        // 3.4.3: "J00194.1:100..202 Points to bases 100 to 202, inclusive,
+        // in the entry with primary accession number 'J00194'".
+        var location = EmblParser.ParseLocation("J00194.1:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+        // The accession-version digit ('.1') must NOT leak into the parsed span:
+        // the old regex parser captured '1', '100..202' as spurious parts giving Start=1.
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((100, 202)));
+        Assert.That(location.RawLocation, Is.EqualTo("J00194.1:100..202"));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_WithoutVersion_CapturesAccession()
+    {
+        // 3.4.2.1: "a remote entry identifier followed by a colon ':'".
+        var location = EmblParser.ParseLocation("J00194:100..202");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.Null);
+        Assert.That(location.IsRemote, Is.True);
+        Assert.That(location.Start, Is.EqualTo(100));
+        Assert.That(location.End, Is.EqualTo(202));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_SingleBase_CapturesAccession()
+    {
+        var location = EmblParser.ParseLocation("J00194.1:467");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.Start, Is.EqualTo(467));
+        Assert.That(location.End, Is.EqualTo(467));
+    }
+
+    [Test]
+    public void ParseLocation_LocalSpan_IsNotRemote()
+    {
+        // A plain local span must report no remote reference (default unchanged).
+        var location = EmblParser.ParseLocation("100..200");
+
+        Assert.That(location.IsRemote, Is.False);
+        Assert.That(location.RemoteAccession, Is.Null);
+        Assert.That(location.RemoteVersion, Is.Null);
+    }
+
+    [Test]
+    public void ParseLocation_SiteBetween_SetsBetweenFlag()
+    {
+        // 3.4.3: "123^124 Points to a site between bases 123 and 124".
+        // The old regex parser treated '123' and '124' as two single-base parts
+        // and exposed no flag distinguishing this from an ordinary span.
+        var location = EmblParser.ParseLocation("123^124");
+
+        Assert.That(location.IsBetween, Is.True);
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.RawLocation, Is.EqualTo("123^124"));
+    }
+
+    [Test]
+    public void ParseLocation_OrdinarySpan_BetweenFlagFalse()
+    {
+        // Discriminator: a normal span must have IsBetween=false.
+        var location = EmblParser.ParseLocation("100..200");
+
+        Assert.That(location.IsBetween, Is.False);
+    }
+
+    [Test]
+    public void ParseLocation_SingleDotRange_SetsSingleBaseFromRangeFlag()
+    {
+        // 3.4.3: "102.110 ... one of the bases between bases 102 and 110, inclusive".
+        // The old regex (\d+)(?:\.\.(\d+))? required two dots, so '102.110'
+        // mis-parsed as two single-base parts (102 and 110) with no flag.
+        var location = EmblParser.ParseLocation("102.110");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.True);
+        Assert.That(location.Start, Is.EqualTo(102));
+        Assert.That(location.End, Is.EqualTo(110));
+        Assert.That(location.IsBetween, Is.False);
+        Assert.That(location.Parts.Count, Is.EqualTo(1));
+        Assert.That(location.Parts[0], Is.EqualTo((102, 110)));
+        Assert.That(location.RawLocation, Is.EqualTo("102.110"));
+    }
+
+    [Test]
+    public void ParseLocation_TwoDotSpan_SingleBaseFromRangeFlagFalse()
+    {
+        // Discriminator: a two-period sequence span (n..m) must NOT be flagged
+        // as a single-base-from-range.
+        var location = EmblParser.ParseLocation("102..110");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.IsBetween, Is.False);
+        Assert.That(location.Start, Is.EqualTo(102));
+        Assert.That(location.End, Is.EqualTo(110));
+    }
+
+    [Test]
+    public void ParseLocation_RemoteReference_SiteBetween_CombinesFlags()
+    {
+        // Remote reference whose local descriptor is a site-between.
+        var location = EmblParser.ParseLocation("J00194.1:123^124");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.IsBetween, Is.True);
+        Assert.That(location.Start, Is.EqualTo(123));
+        Assert.That(location.End, Is.EqualTo(124));
+    }
+
+    [Test]
+    public void ParseLocation_MalformedRemoteReference_NoTrailingLocation_DoesNotThrow()
+    {
+        // Malformed: accession with empty local descriptor. Must not throw;
+        // remote prefix captured, span empty.
+        var location = EmblParser.ParseLocation("J00194.1:");
+
+        Assert.That(location.RemoteAccession, Is.EqualTo("J00194"));
+        Assert.That(location.RemoteVersion, Is.EqualTo("1"));
+        Assert.That(location.Start, Is.EqualTo(0));
+        Assert.That(location.End, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ParseLocation_MalformedSingleDot_NoUpperBound_DoesNotThrow()
+    {
+        // Malformed single-dot ('102.') must not throw and must not be flagged
+        // as a single-base-from-range (no valid upper bound).
+        var location = EmblParser.ParseLocation("102.");
+
+        Assert.That(location.IsSingleBaseFromRange, Is.False);
+        Assert.That(location.IsBetween, Is.False);
+    }
+
+    #endregion
 }
