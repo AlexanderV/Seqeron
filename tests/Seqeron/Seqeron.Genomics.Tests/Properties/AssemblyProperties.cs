@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -342,6 +342,107 @@ public class AssemblyProperties
                 Is.All.Zero, "no reads must give zero depth everywhere");
             var tooLong = SequenceAssembler.CalculateCoverage(reference, new[] { reference + "ACGT" }, minOverlap: CoverMinOverlap);
             Assert.That(tooLong.Sum(), Is.EqualTo(0), "a read longer than the reference cannot be placed");
+        });
+    }
+
+    #endregion
+
+    #region ASSEMBLY-DBG-001: P: reconstructs an unambiguous genome; M: larger k → ≤ branching; R: result fields consistent; D: deterministic
+
+    // AssembleDeBruijn decomposes reads into k-mers (edges of a (k-1)-mer graph) and spells one
+    // Eulerian walk per component (Compeau et al. 2011; Langmead DBG notes). Reconstruction is exact
+    // when the walk is unique — i.e. when no (k-1)-mer repeats. Larger k makes (k-1)-mers more
+    // specific, removing the repeat-induced branch nodes.
+
+    private static SequenceAssembler.AssemblyResult Dbg(string[] reads, int k) =>
+        SequenceAssembler.AssembleDeBruijn(reads,
+            new SequenceAssembler.AssemblyParameters(KmerSize: k, MinContigLength: 1));
+
+    private static int BranchNodeCount(string seq, int k) =>
+        SequenceAssembler.BuildDeBruijnGraph(new[] { seq }, k).Values.Count(v => v.Distinct().Count() >= 2);
+
+    /// <summary>
+    /// INV-1 (P): When a sequence has no repeated (k-1)-mer its de Bruijn graph is a simple path, so
+    /// the unique Eulerian walk reconstructs exactly that sequence as a single contig.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dbg_UnambiguousSequence_IsReconstructedExactly()
+    {
+        return Prop.ForAll(DnaReadArbitrary(25), seq =>
+        {
+            const int k = 10; // (k-1)=9-mer nodes
+            var km1mers = Enumerable.Range(0, seq.Length - (k - 1) + 1).Select(i => seq.Substring(i, k - 1));
+            bool unambiguous = km1mers.Distinct().Count() == seq.Length - (k - 1) + 1;
+            if (!unambiguous)
+                return true.Label("skip: repeated (k-1)-mer");
+
+            var contigs = Dbg(new[] { seq }, k).Contigs;
+            return (contigs.Count == 1 && contigs[0] == seq)
+                .Label($"reconstruction failed: got [{string.Join(",", contigs)}], expected {seq}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): Increasing k removes repeat-induced branching. A sequence with a repeated 4-mer
+    /// branches at k=5 (4-mer nodes) but the branch disappears once the (k-1)-mer is longer than the
+    /// repeat (k=9, 8-mer nodes).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Dbg_LargerK_ReducesBranching()
+    {
+        const string seq = "AAAATTTTAAAACCCC"; // 4-mer "AAAA" repeats at offsets 0 and 8
+        int branchSmallK = BranchNodeCount(seq, 5);
+        int branchLargeK = BranchNodeCount(seq, 9);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(branchSmallK, Is.GreaterThan(0), "the repeated 4-mer must branch at k=5");
+            Assert.That(branchLargeK, Is.LessThan(branchSmallK), "larger k must not increase branching");
+            Assert.That(branchLargeK, Is.EqualTo(0), "an 8-mer node no longer captures the 4-mer repeat");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (R): Reported assembly statistics are internally consistent — total length equals the
+    /// sum of contig lengths and the longest-contig length equals the maximum contig length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dbg_ResultFields_AreConsistent()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+        {
+            var result = Dbg(reads, 4);
+            int sum = result.Contigs.Sum(c => c.Length);
+            int max = result.Contigs.Count == 0 ? 0 : result.Contigs.Max(c => c.Length);
+            return (result.TotalLength == sum && result.LongestContig == max
+                    && result.Contigs.All(c => c.Length >= 1))
+                .Label($"inconsistent stats: TotalLength={result.TotalLength} vs {sum}, LongestContig={result.LongestContig} vs {max}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): De Bruijn assembly is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dbg_IsDeterministic()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+            Dbg(reads, 4).Contigs.SequenceEqual(Dbg(reads, 4).Contigs)
+                .Label("AssembleDeBruijn must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): empty input yields an empty assembly; k &lt; 2 is rejected by the graph builder.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Dbg_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dbg(Array.Empty<string>(), 4).Contigs, Is.Empty, "no reads → no contigs");
+            Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.BuildDeBruijnGraph(new[] { "ACGT" }, 1));
         });
     }
 
