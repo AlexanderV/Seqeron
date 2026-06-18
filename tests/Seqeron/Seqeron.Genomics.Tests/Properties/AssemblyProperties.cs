@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -246,6 +246,104 @@ public class AssemblyProperties
     private static Arbitrary<string> DnaReadArbitrary(int len) =>
         Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= len)
             .Select(a => new string(a, 0, len)).ToArbitrary();
+
+    #endregion
+
+    #region ASSEMBLY-COVER-001: R: depth ≥ 0; P: Σ depth = total placed bases (mean = bases/ref length); D: deterministic
+
+    // CalculateCoverage places each read at its best ungapped match (≥ minOverlap matches) and
+    // increments per-base depth over the spanned, end-clipped interval (SAMtools depth model). The
+    // mean depth is the total placed bases divided by the reference length.
+
+    private const int CoverMinOverlap = 5;
+
+    /// <summary>Generates a 30 bp reference and 1..5 reads that are exact substrings of it (so they place).</summary>
+    private static Arbitrary<(string reference, string[] reads)> CoverageInputArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int refLen = 30;
+            var refChars = new char[refLen];
+            for (int i = 0; i < refLen; i++) refChars[i] = bases[rng.Next(4)];
+            string reference = new string(refChars);
+
+            int n = 1 + rng.Next(5);
+            var reads = new string[n];
+            for (int r = 0; r < n; r++)
+            {
+                int len = 5 + rng.Next(6);               // 5..10
+                int start = rng.Next(refLen - len + 1);   // fits fully within the reference
+                reads[r] = reference.Substring(start, len);
+            }
+            return (reference, reads);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): The depth array has one entry per reference base and every entry is non-negative.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Coverage_DepthsAreNonNegative()
+    {
+        return Prop.ForAll(DnaReadArbitrary(30), AlignedReadsArbitrary(), (reference, reads) =>
+        {
+            int[] depth = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap: CoverMinOverlap);
+            return (depth.Length == reference.Length && depth.All(d => d >= 0))
+                .Label("depth array length wrong or a negative depth produced");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): For reads that place fully (here, exact substrings), the total depth equals the sum
+    /// of read lengths, so the mean depth equals total placed bases ÷ reference length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Coverage_TotalDepth_EqualsPlacedBases()
+    {
+        return Prop.ForAll(CoverageInputArbitrary(), input =>
+        {
+            var (reference, reads) = input;
+            int[] depth = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap: CoverMinOverlap);
+            long totalDepth = depth.Sum();
+            long placedBases = reads.Sum(r => (long)r.Length);
+            double meanDepth = (double)totalDepth / reference.Length;
+            return (totalDepth == placedBases
+                    && Math.Abs(meanDepth - (double)placedBases / reference.Length) < 1e-9)
+                .Label($"Σdepth={totalDepth} ≠ placed bases={placedBases}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Coverage computation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Coverage_IsDeterministic()
+    {
+        return Prop.ForAll(CoverageInputArbitrary(), input =>
+        {
+            var (reference, reads) = input;
+            var a = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap: CoverMinOverlap);
+            var b = SequenceAssembler.CalculateCoverage(reference, reads, minOverlap: CoverMinOverlap);
+            return a.SequenceEqual(b).Label("CalculateCoverage must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): no reads → all-zero depth; a read longer than the reference cannot place.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Coverage_Boundaries()
+    {
+        const string reference = "ACGTACGTACGTACGT";
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.CalculateCoverage(reference, Array.Empty<string>(), minOverlap: CoverMinOverlap),
+                Is.All.Zero, "no reads must give zero depth everywhere");
+            var tooLong = SequenceAssembler.CalculateCoverage(reference, new[] { reference + "ACGT" }, minOverlap: CoverMinOverlap);
+            Assert.That(tooLong.Sum(), Is.EqualTo(0), "a read longer than the reference cannot be placed");
+        });
+    }
 
     #endregion
 }

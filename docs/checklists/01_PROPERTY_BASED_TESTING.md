@@ -171,7 +171,7 @@ Property-based testing генерирует сотни случайных вхо
 | 139 | ☑ | COMPGEN-SYNTENY-001 | Comparative | R: block positions valid; M: lower minBlockSize → ≥ blocks; P: blocks collinear; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 140 | ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | R: consensus length ≥ 0; P: each position = majority base; D: deterministic | AssemblyProperties.cs (new) |
 | 141 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | P: corrected reads keep length; M: more coverage → fewer errors; D: deterministic | AssemblyProperties.cs (new) |
-| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | R: coverage ≥ 0; P: mean coverage = total bases / ref length; D: deterministic | AssemblyProperties.cs (new) |
+| 142 | ☑ | ASSEMBLY-COVER-001 | Assembly | R: coverage ≥ 0; P: mean coverage = total bases / ref length; D: deterministic | AssemblyProperties.cs (new) |
 | 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | R: contig positions valid; P: contigs are k-mer paths; M: larger k → ≤ branching; D: deterministic | AssemblyProperties.cs (new) |
 | 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | P: merged length ≥ max input; P: overlap consistent; D: deterministic | AssemblyProperties.cs (new) |
 | 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | R: contig count ≥ 1; P: overlaps ≥ minOverlap; D: deterministic | AssemblyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 141 |
-| ☐ Not started | 93 |
+| ☑ Complete | 142 |
+| ☐ Not started | 92 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
