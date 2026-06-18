@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001, COMPGEN-REARR-001, COMPGEN-REVERSAL-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001, COMPGEN-REARR-001, COMPGEN-REVERSAL-001, COMPGEN-SYNTENY-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -946,6 +946,148 @@ public class ComparativeGenomicsProperties
     {
         Assert.Throws<ArgumentException>(
             () => ComparativeGenomics.CalculateReversalDistance(new[] { 0, 1, 2 }, new[] { 0, 1 }));
+    }
+
+    #endregion
+
+    #region COMPGEN-SYNTENY-001: R: block positions valid; M: lower minAnchors → ≥ blocks; P: blocks collinear; D: deterministic
+
+    // FindSyntenicBlocks chains orthologous anchors into collinear blocks under the MCScanX model
+    // (Wang et al. 2012): consecutive anchors extend a chain while genome-2 direction is consistent
+    // and intervening genes < maxGap; a chain is reported when its score ≥ 250 and it has ≥ minAnchors
+    // anchors. A forward block keeps genome-2 order increasing; an inverted block decreasing.
+
+    /// <summary>Builds two collinear genomes of n orthologs; genome 2 is forward or fully reversed.</summary>
+    private static (List<ComparativeGenomics.Gene> g1, List<ComparativeGenomics.Gene> g2, Dictionary<string, string> map)
+        BuildCollinear(int n, bool reverse)
+    {
+        var g1 = new List<ComparativeGenomics.Gene>(n);
+        var g2 = new List<ComparativeGenomics.Gene>(n);
+        var map = new Dictionary<string, string>(n);
+        for (int i = 0; i < n; i++)
+            g1.Add(new ComparativeGenomics.Gene($"G1_{i}", "genome1", i * 100, i * 100 + 50, '+'));
+        for (int j = 0; j < n; j++)
+            g2.Add(new ComparativeGenomics.Gene($"G2_{j}", "genome2", j * 100, j * 100 + 50, '+'));
+        for (int i = 0; i < n; i++)
+            map[$"G1_{i}"] = $"G2_{(reverse ? n - 1 - i : i)}";
+        return (g1, g2, map);
+    }
+
+    /// <summary>Generates a collinear genome pair of 5..10 orthologs, forward or reversed.</summary>
+    private static Arbitrary<(int n, bool reverse)> SyntenyArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return (5 + rng.Next(6), rng.Next(2) == 0);
+        }).ToArbitrary();
+
+    private static (int, int, int, int, bool, int) BlockKey(ComparativeGenomics.SyntenicBlock b)
+        => (b.Start1, b.End1, b.Start2, b.End2, b.IsInverted, b.GeneCount);
+
+    /// <summary>
+    /// INV-1 (R): Every reported block has ordered coordinates (Start ≤ End on both genomes), lies
+    /// within the genomes' coordinate spans, and has at least minAnchors (≥ 5) genes.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Synteny_BlockPositions_AreValid()
+    {
+        return Prop.ForAll(SyntenyArbitrary(), nr =>
+        {
+            var (g1, g2, map) = BuildCollinear(nr.n, nr.reverse);
+            int max1 = g1[^1].End, max2 = g2[^1].End;
+            var blocks = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map).ToList();
+            bool ok = blocks.All(b =>
+                b.Start1 <= b.End1 && b.Start2 <= b.End2 &&
+                b.Start1 >= 0 && b.End1 <= max1 && b.Start2 >= 0 && b.End2 <= max2 &&
+                b.GeneCount >= 5);
+            return ok.Label($"a block had invalid coordinates or too few genes (blocks={blocks.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): Raising minAnchors cannot add blocks — the stricter (minAnchors = 8) block set is a
+    /// subset of the looser (minAnchors = 5) set. Chaining is independent of the count gate, so a
+    /// higher threshold only filters chains out.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Synteny_HigherMinAnchors_IsSubset()
+    {
+        return Prop.ForAll(SyntenyArbitrary(), nr =>
+        {
+            var (g1, g2, map) = BuildCollinear(nr.n, nr.reverse);
+            var loose = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors: 5).Select(BlockKey).ToHashSet();
+            var strict = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors: 8).Select(BlockKey).ToHashSet();
+            return (strict.IsSubsetOf(loose) && strict.Count <= loose.Count)
+                .Label($"minAnchors=8 blocks ({strict.Count}) not ⊆ minAnchors=5 blocks ({loose.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, collinear forward): a forward-collinear genome pair yields a single block spanning
+    /// all genes, oriented forward, with GeneCount equal to the number of orthologs.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Synteny_ForwardCollinear_IsOneForwardBlock()
+    {
+        var (g1, g2, map) = BuildCollinear(6, reverse: false);
+        var blocks = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map).ToList();
+
+        Assert.That(blocks, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocks[0].IsInverted, Is.False, "forward collinear block must not be inverted");
+            Assert.That(blocks[0].GeneCount, Is.EqualTo(6));
+            Assert.That(blocks[0].Start1, Is.EqualTo(0));
+            Assert.That(blocks[0].End1, Is.EqualTo(g1[^1].End));
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, inverted): when genome 2 carries the orthologs in reverse order the single block is
+    /// flagged inverted (collinear with decreasing genome-2 order).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Synteny_ReverseCollinear_IsOneInvertedBlock()
+    {
+        var (g1, g2, map) = BuildCollinear(6, reverse: true);
+        var blocks = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map).ToList();
+
+        Assert.That(blocks, Has.Count.EqualTo(1));
+        Assert.That(blocks[0].IsInverted, Is.True, "reverse-ordered orthologs must form an inverted block");
+        Assert.That(blocks[0].GeneCount, Is.EqualTo(6));
+    }
+
+    /// <summary>
+    /// INV-5 (M, explicit): a 6-anchor collinear block is reported at minAnchors=5 but filtered out at
+    /// minAnchors=7 (only 6 anchors), confirming the count gate.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Synteny_MinAnchorsGate_FiltersSmallBlocks()
+    {
+        var (g1, g2, map) = BuildCollinear(6, reverse: false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors: 5).Count(), Is.EqualTo(1));
+            Assert.That(ComparativeGenomics.FindSyntenicBlocks(g1, g2, map, minAnchors: 7).Count(), Is.EqualTo(0));
+        });
+    }
+
+    /// <summary>
+    /// INV-6 (D): Syntenic block detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Synteny_IsDeterministic()
+    {
+        return Prop.ForAll(SyntenyArbitrary(), nr =>
+        {
+            var (g1, g2, map) = BuildCollinear(nr.n, nr.reverse);
+            var a = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map).Select(BlockKey).ToList();
+            var b = ComparativeGenomics.FindSyntenicBlocks(g1, g2, map).Select(BlockKey).ToList();
+            return a.SequenceEqual(b).Label("FindSyntenicBlocks must be deterministic");
+        });
     }
 
     #endregion
