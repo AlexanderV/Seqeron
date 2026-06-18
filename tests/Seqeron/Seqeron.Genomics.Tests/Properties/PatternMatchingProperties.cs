@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001, MOTIF-SHARED-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -678,6 +678,90 @@ public class PatternMatchingProperties
             var a = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
             var b = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
             return a.SequenceEqual(b).Label("FindRegulatoryElements must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-SHARED-001: P: shared motif present in all listed inputs; R: indices valid; D: deterministic
+
+    // FindSharedMotifs reports each length-k word occurring in at least minSequences distinct input
+    // sequences (RSAT oligo-analysis "matching sequences" quorum).
+
+    private static string RandDnaStr(Random rng, int len)
+    {
+        const string bases = "ACGT";
+        var c = new char[len];
+        for (int i = 0; i < len; i++) c[i] = bases[rng.Next(4)];
+        return new string(c);
+    }
+
+    /// <summary>Builds 2..4 sequences each containing a common 6-mer, plus that shared motif.</summary>
+    private static Arbitrary<(DnaSequence[] seqs, string shared)> SharedMotifArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string shared = RandDnaStr(rng, 6);
+            int n = 2 + rng.Next(3);
+            var seqs = new DnaSequence[n];
+            for (int i = 0; i < n; i++)
+                seqs[i] = new DnaSequence(RandDnaStr(rng, 1 + rng.Next(4)) + shared + RandDnaStr(rng, 1 + rng.Next(4)));
+            return (seqs, shared);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every reported shared motif occurs in each of its listed sequences, its indices
+    /// are distinct and in range, it meets the quorum, and its prevalence equals count/total.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SharedMotifs_AreValidAndPresentInListedInputs()
+    {
+        return Prop.ForAll(SharedMotifArbitrary(), input =>
+        {
+            var (seqs, _) = input;
+            var motifs = MotifFinder.FindSharedMotifs(seqs, 6, 2).ToList();
+            bool ok = motifs.All(m =>
+                m.Sequence.Length == 6 &&
+                m.SequenceIndices.Count >= 2 &&
+                m.SequenceIndices.Distinct().Count() == m.SequenceIndices.Count &&
+                m.SequenceIndices.All(idx => idx >= 0 && idx < seqs.Length && seqs[idx].Sequence.Contains(m.Sequence)) &&
+                Math.Abs(m.Prevalence - (double)m.SequenceIndices.Count / seqs.Length) < 1e-9);
+            return ok.Label("a shared motif was invalid or absent from a listed sequence");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a motif embedded in every input is reported with all sequence
+    /// indices (prevalence 1.0).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SharedMotifs_CommonMotif_HasFullQuorum()
+    {
+        return Prop.ForAll(SharedMotifArbitrary(), input =>
+        {
+            var (seqs, shared) = input;
+            var motifs = MotifFinder.FindSharedMotifs(seqs, 6, 2).ToList();
+            var hit = motifs.FirstOrDefault(m => m.Sequence == shared);
+            return (hit.Sequence == shared && hit.SequenceIndices.Count == seqs.Length)
+                .Label($"shared motif '{shared}' not reported across all {seqs.Length} sequences");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + boundary): shared-motif detection is deterministic; invalid k / quorum rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SharedMotifs_DeterministicAndBoundary()
+    {
+        var seqs = new[] { new DnaSequence("ACGTACGT"), new DnaSequence("TTACGTAA") };
+        var a = MotifFinder.FindSharedMotifs(seqs, 4, 2).Select(m => m.Sequence).OrderBy(s => s).ToList();
+        var b = MotifFinder.FindSharedMotifs(seqs, 4, 2).Select(m => m.Sequence).OrderBy(s => s).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 0).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 4, 0).ToList());
         });
     }
 
