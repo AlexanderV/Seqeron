@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001, RNA-PARTITION-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001, RNA-PARTITION-001, RNA-PSEUDOKNOT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -833,6 +833,104 @@ public class RnaStructureProperties
             Assert.That(empty.BasePairProbabilities, Is.Empty);
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", temperature: 0));
+        });
+    }
+
+    #endregion
+
+    #region RNA-PSEUDOKNOT-001: P: detects exactly the crossing pairs; R: positions valid; D: deterministic
+
+    // DetectPseudoknots reports each crossing pair-of-pairs: normalising endpoints to (open<close) and
+    // ordering by opening position, two pairs cross iff i < k < j < l (Antczak et al. 2018). Nested or
+    // disjoint pairs are not pseudoknots.
+
+    private static RnaSecondaryStructure.BasePair Bp(int p1, int p2) =>
+        new(p1, p2, 'A', 'U', RnaSecondaryStructure.BasePairType.WatsonCrick);
+
+    private static bool Cross(RnaSecondaryStructure.BasePair x, RnaSecondaryStructure.BasePair y)
+    {
+        int i = Math.Min(x.Position1, x.Position2), j = Math.Max(x.Position1, x.Position2);
+        int k = Math.Min(y.Position1, y.Position2), l = Math.Max(y.Position1, y.Position2);
+        if (k < i) (i, j, k, l) = (k, l, i, j);
+        return i < k && k < j && j < l;
+    }
+
+    /// <summary>Generates 2..6 base pairs over positions 0..19 (distinct endpoints per pair).</summary>
+    private static Arbitrary<List<RnaSecondaryStructure.BasePair>> BasePairsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int m = 2 + rng.Next(5);
+            var pairs = new List<RnaSecondaryStructure.BasePair>(m);
+            for (int t = 0; t < m; t++)
+            {
+                int a = rng.Next(20), b = rng.Next(20);
+                while (a == b) b = rng.Next(20);
+                pairs.Add(Bp(a, b));
+            }
+            return pairs;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): The set of reported pseudoknots is exactly the set of crossing pair-of-pairs,
+    /// verified against an independent crossing predicate, and each carries its two crossing pairs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_DetectsExactlyCrossingPairs()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+        {
+            int expected = 0;
+            for (int a = 0; a < pairs.Count; a++)
+                for (int b = a + 1; b < pairs.Count; b++)
+                    if (Cross(pairs[a], pairs[b])) expected++;
+
+            var detected = RnaSecondaryStructure.DetectPseudoknots(pairs).ToList();
+            bool eachHasTwo = detected.All(pk => pk.CrossingPairs.Count == 2);
+            return (detected.Count == expected && eachHasTwo)
+                .Label($"detected {detected.Count} pseudoknots, expected {expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every reported pseudoknot has the crossing layout Start1 &lt; Start2 &lt; End1 &lt; End2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_Positions_AreCrossing()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+            RnaSecondaryStructure.DetectPseudoknots(pairs)
+                .All(pk => pk.Start1 < pk.Start2 && pk.Start2 < pk.End1 && pk.End1 < pk.End2)
+                .Label("a pseudoknot did not satisfy i < k < j < l"));
+    }
+
+    /// <summary>
+    /// INV-3 (D): Pseudoknot detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pseudoknot_IsDeterministic()
+    {
+        return Prop.ForAll(BasePairsArbitrary(), pairs =>
+            RnaSecondaryStructure.DetectPseudoknots(pairs).Select(pk => (pk.Start1, pk.End1, pk.Start2, pk.End2))
+                .SequenceEqual(RnaSecondaryStructure.DetectPseudoknots(pairs).Select(pk => (pk.Start1, pk.End1, pk.Start2, pk.End2)))
+                .Label("DetectPseudoknots must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-4 (golden): crossing pairs are flagged; nested and disjoint pairs are not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pseudoknot_GoldenCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 5), Bp(3, 8) }).Count(), Is.EqualTo(1),
+                "0<3<5<8 crosses → pseudoknot");
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 10), Bp(2, 8) }), Is.Empty,
+                "nested pairs are not a pseudoknot");
+            Assert.That(RnaSecondaryStructure.DetectPseudoknots(new[] { Bp(0, 3), Bp(5, 8) }), Is.Empty,
+                "disjoint pairs are not a pseudoknot");
         });
     }
 
