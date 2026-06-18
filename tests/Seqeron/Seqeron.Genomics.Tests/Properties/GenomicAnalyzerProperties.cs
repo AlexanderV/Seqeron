@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for the high-level GenomicAnalyzer façade: common regions, known motifs,
 /// ORFs, repeats, similarity, and tandem repeats.
 ///
-/// Test Units: GENOMIC-COMMON-001
+/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -110,6 +110,87 @@ public class GenomicAnalyzerProperties
             Assert.That(lcr.IsEmpty, Is.True, "disjoint alphabets share no region");
             Assert.That(GenomicAnalyzer.FindCommonRegions(new DnaSequence("AAAAAA"), new DnaSequence("CCCCCC"), 3),
                 Is.Empty);
+        });
+    }
+
+    #endregion
+
+    #region GENOMIC-MOTIFS-001: R: positions valid; P: motif matches queried set; D: deterministic
+
+    // FindKnownMotifs returns, for each queried motif that occurs, all overlapping start positions
+    // (sorted ascending) via exact suffix-tree matching (Gusfield 1997).
+
+    /// <summary>A sequence with a motif list: two of its own 3-mers plus two random 3-mers.</summary>
+    private static Arbitrary<(string seq, string[] motifs)> SeqMotifsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string seq = RandDna(rng, 20);
+            var motifs = new[]
+            {
+                seq.Substring(rng.Next(seq.Length - 3 + 1), 3),
+                seq.Substring(rng.Next(seq.Length - 3 + 1), 3),
+                RandDna(rng, 3),
+                RandDna(rng, 3),
+            };
+            return (seq, motifs);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every returned motif is one of the queried motifs, and its positions are exactly
+    /// all overlapping occurrences of it in the sequence (valid, ascending, genuine substrings).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KnownMotifs_PositionsAreExactOccurrences()
+    {
+        return Prop.ForAll(SeqMotifsArbitrary(), input =>
+        {
+            var (seq, motifs) = input;
+            var queried = motifs.Select(m => m.ToUpperInvariant()).ToHashSet();
+            var result = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+
+            bool ok = result.All(kv =>
+            {
+                if (!queried.Contains(kv.Key)) return false;
+                var expected = Enumerable.Range(0, seq.Length - kv.Key.Length + 1)
+                    .Where(i => seq.Substring(i, kv.Key.Length) == kv.Key).ToList();
+                return kv.Value.SequenceEqual(expected) && kv.Value.Count > 0;
+            });
+            return ok.Label("a known-motif entry was not an exact occurrence set of a queried motif");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a motif embedded in the sequence is reported at its position; an
+    /// absent motif is omitted.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void KnownMotifs_PresentReported_AbsentOmitted()
+    {
+        var result = GenomicAnalyzer.FindKnownMotifs(new DnaSequence("GGGATCGGG"), new[] { "ATC", "TTT", "" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ContainsKey("ATC"), Is.True);
+            Assert.That(result["ATC"], Is.EqualTo(new[] { 3 }));
+            Assert.That(result.ContainsKey("TTT"), Is.False, "absent motif omitted");
+            Assert.That(result.ContainsKey(""), Is.False, "empty motif skipped");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Known-motif search is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KnownMotifs_IsDeterministic()
+    {
+        return Prop.ForAll(SeqMotifsArbitrary(), input =>
+        {
+            var (seq, motifs) = input;
+            var a = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+            var b = GenomicAnalyzer.FindKnownMotifs(new DnaSequence(seq), motifs);
+            return (a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v.SequenceEqual(kv.Value)))
+                .Label("FindKnownMotifs must be deterministic");
         });
     }
 
