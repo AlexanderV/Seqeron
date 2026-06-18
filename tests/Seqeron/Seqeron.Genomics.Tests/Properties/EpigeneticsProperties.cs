@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001.
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -559,6 +559,100 @@ public class EpigeneticsProperties
             Assert.That(EpigeneticsAnalyzer.HorvathAntiTransform(0.0), Is.EqualTo(20.0).Within(1e-9));
             Assert.Throws<ArgumentException>(
                 () => EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, new Dictionary<string, double>()));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-BISULF-001: P: unmethylated C→T, methylated C preserved; P: length preserved; D: deterministic
+
+    // SimulateBisulfiteConversion (Frommer et al. 1992): unmethylated cytosine → thymine; methylated
+    // (protected) cytosine and all non-cytosine bases are unchanged; the strand length is preserved.
+
+    /// <summary>A DNA sequence and a random subset of indices marked as protected (methylated).</summary>
+    private static Arbitrary<(string seq, HashSet<int> methylated)> BisulfiteInputArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int len = 10 + rng.Next(20);
+            var c = new char[len];
+            for (int i = 0; i < len; i++) c[i] = bases[rng.Next(4)];
+            var methylated = new HashSet<int>();
+            for (int i = 0; i < len; i++) if (rng.Next(2) == 0) methylated.Add(i);
+            return (new string(c), methylated);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): each position follows the conversion rule — unmethylated C→T, methylated C kept,
+    /// non-cytosine unchanged — and the converted strand has the same length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_AppliesConversionRule()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, methylated) = input;
+            string conv = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+            if (conv.Length != seq.Length) return false.Label("length changed");
+            for (int i = 0; i < seq.Length; i++)
+            {
+                char s = seq[i], r = conv[i];
+                bool isC = s is 'C' or 'c';
+                char expected = isC ? (methylated.Contains(i) ? s : (s == 'C' ? 'T' : 't')) : s;
+                if (r != expected) return false.Label($"pos {i}: '{s}'→'{r}', expected '{expected}'");
+            }
+            return true.Label("conversion rule holds");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): with no protected positions, every cytosine is converted (none remain) and all
+    /// other bases are unchanged.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_NoMethylation_ConvertsAllCytosines()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, _) = input;
+            string conv = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq);
+            return (!conv.Contains('C') && !conv.Contains('c'))
+                .Label("an unmethylated cytosine survived conversion");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (involution-like): re-converting the output with the same protected set is a no-op (the
+    /// only remaining cytosines are protected).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Bisulfite_Reconversion_IsStable()
+    {
+        return Prop.ForAll(BisulfiteInputArbitrary(), input =>
+        {
+            var (seq, methylated) = input;
+            string once = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+            string twice = EpigeneticsAnalyzer.SimulateBisulfiteConversion(once, methylated);
+            return (once == twice).Label("re-conversion changed the strand");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D + boundary): conversion is deterministic; empty input yields empty output.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Bisulfite_DeterministicAndBoundary()
+    {
+        var methylated = new HashSet<int> { 2 };
+        string a = EpigeneticsAnalyzer.SimulateBisulfiteConversion("ACCGT", methylated);
+        string b = EpigeneticsAnalyzer.SimulateBisulfiteConversion("ACCGT", methylated);
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.That(a, Is.EqualTo("ATCGT"), "pos1 C→T, pos2 C protected, others unchanged");
+            Assert.That(EpigeneticsAnalyzer.SimulateBisulfiteConversion(""), Is.EqualTo(""));
         });
     }
 
