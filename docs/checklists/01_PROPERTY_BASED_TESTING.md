@@ -83,7 +83,7 @@ Property-based testing генерирует сотни случайных вхо
 | 51 | ☑ | CHROM-ANEU-001 | Chromosome | R: copy number ≥ 0; M: higher depth → higher CN; D: deterministic | ChromosomeProperties.cs (new) |
 | 52 | ☑ | CHROM-SYNT-001 | Chromosome | R: block positions valid; S: synteny(A,B) symmetric with B,A; D: deterministic | ChromosomeProperties.cs (new) |
 | 53 | ☑ | META-CLASS-001 | Metagenomics | R: confidence ∈ [0,1]; P: assigned taxon in database; D: deterministic | MetagenomicsProperties.cs (new) |
-| 54 | ☐ | META-PROF-001 | Metagenomics | R: abundances sum to 1.0; R: abundance ∈ [0,1]; D: deterministic | MetagenomicsProperties.cs (new) |
+| 54 | ☑ | META-PROF-001 | Metagenomics | R: abundances sum to 1.0; R: abundance ∈ [0,1]; D: deterministic | MetagenomicsProperties.cs (new) |
 | 55 | ☑ | META-ALPHA-001 | Metagenomics | R: Shannon ≥ 0; R: Simpson ∈ [0,1]; M: more species → higher diversity; D: deterministic | MetagenomicsProperties.cs |
 | 56 | ☑ | META-BETA-001 | Metagenomics | S: dist(a,b)=dist(b,a); R: dist ∈ [0,1]; I: dist(x,x)=0; D: deterministic | MetagenomicsProperties.cs |
 | 57 | ☐ | META-BIN-001 | Metagenomics | R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic | MetagenomicsProperties.cs (new) |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 77 |
-| ☐ Not started | 149 |
+| ☑ Complete | 78 |
+| ☐ Not started | 148 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

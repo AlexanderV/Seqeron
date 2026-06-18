@@ -823,4 +823,413 @@ public class MetagenomicsProperties
     }
 
     #endregion
+
+    #region META-PROF-001: R: abundance ∈ [0,1]; Kingdom sums to 1 (lower ranks ≤ 1, exact shortfall); INV-01..04; D: deterministic
+
+    // META-PROF-001 — Taxonomic profile generation (doc: docs/algorithms/Metagenomics/Taxonomic_Profile.md).
+    //
+    // GenerateTaxonomicProfile aggregates per-read TaxonomicClassification records into a community
+    // profile. The tests below treat the doc §2.2 / §2.4 contract as the specification and verify the
+    // implementation against INDEPENDENT oracles recomputed from the generated input:
+    //   * INV-01  TotalReads     = input.Count.
+    //   * INV-02  ClassifiedReads = #reads whose Kingdom is NEITHER "Unclassified" NOR empty/whitespace.
+    //   * R       every abundance value in all four maps ∈ [0,1].
+    //   * sum     KingdomAbundance sums to exactly 1 when ClassifiedReads>0 (else empty);
+    //             Phylum/Genus/Species each sum to ≤ 1, and == 1 IFF every retained read has a
+    //             non-empty value at that rank — with the exact shortfall == emptyCount/ClassifiedReads.
+    //   * oracle  abundance[label] = (#retained reads with that non-empty label) / ClassifiedReads.
+    //   * INV-04  Shannon = −Σ p·ln p, Simpson = Σ p² over the SPECIES distribution (natural log).
+    //   * D       identical input ⇒ identical profile.
+    //
+    // The generator draws Kingdom/Phylum/Genus/Species from small label sets that INCLUDE the special
+    // values "Unclassified" and "" so both the unclassified filter (Kingdom) and the empty-rank skip
+    // (lower ranks) are exercised. Non-profiling fields are harmless defaults.
+
+    /// <summary>Label pool for the kingdom rank — includes the two filtered-out specials.</summary>
+    private static readonly string[] ProfKingdoms = { "Bacteria", "Archaea", "Unclassified", "" };
+
+    /// <summary>Label pool for the lower ranks — includes "" so empty-rank skipping is exercised.</summary>
+    private static readonly string[] ProfPhyla = { "Firmicutes", "Proteobacteria", "" };
+    private static readonly string[] ProfGenera = { "Escherichia", "Bacillus", "Clostridium", "" };
+    private static readonly string[] ProfSpecies = { "E_coli", "B_subtilis", "C_difficile", "S_aureus", "" };
+
+    /// <summary>
+    /// Builds a <see cref="MetagenomicsAnalyzer.TaxonomicClassification"/> from rank labels alone,
+    /// filling the (irrelevant-to-profiling) classifier fields with harmless deterministic defaults.
+    /// </summary>
+    private static MetagenomicsAnalyzer.TaxonomicClassification ProfRead(
+        int idx, string kingdom, string phylum, string genus, string species) =>
+        new(
+            ReadId: $"read_{idx}",
+            TaxonId: 0,
+            TaxonName: "",
+            Rank: "",
+            RtlScore: 0,
+            Confidence: 0.0,
+            MatchedKmers: 0,
+            TotalKmers: 0,
+            Kingdom: kingdom,
+            Phylum: phylum,
+            Class: "",
+            Order: "",
+            Family: "",
+            Genus: genus,
+            Species: species);
+
+    /// <summary>Generates a single read's four rank labels, each drawn from its pool (which includes specials).</summary>
+    private static Gen<(string K, string P, string G, string S)> ProfReadGen() =>
+        Gen.Elements(ProfKingdoms).SelectMany(k =>
+            Gen.Elements(ProfPhyla).SelectMany(ph =>
+                Gen.Elements(ProfGenera).SelectMany(g =>
+                    Gen.Elements(ProfSpecies).Select(sp => (k, ph, g, sp)))));
+
+    /// <summary>Generates a (possibly empty) list of classifications drawing each rank from the pools above.</summary>
+    private static Arbitrary<List<MetagenomicsAnalyzer.TaxonomicClassification>> ProfClassificationsArbitrary() =>
+        Gen.Choose(0, 30)
+            .SelectMany(n =>
+                ProfReadGen().ArrayOf(n)
+                    .Select(tuples =>
+                    {
+                        var list = new List<MetagenomicsAnalyzer.TaxonomicClassification>(tuples.Length);
+                        for (int i = 0; i < tuples.Length; i++)
+                            list.Add(ProfRead(i, tuples[i].K, tuples[i].P, tuples[i].G, tuples[i].S));
+                        return list;
+                    }))
+            .ToArbitrary();
+
+    /// <summary>Independent oracle: retained (classified) reads = Kingdom not "Unclassified" and not blank.</summary>
+    private static List<MetagenomicsAnalyzer.TaxonomicClassification> Retained(
+        IEnumerable<MetagenomicsAnalyzer.TaxonomicClassification> reads) =>
+        reads.Where(c => c.Kingdom != "Unclassified" && !string.IsNullOrWhiteSpace(c.Kingdom)).ToList();
+
+    /// <summary>
+    /// Independent oracle for a single rank's abundance map: count non-empty labels among retained
+    /// reads, divide by ClassifiedReads. Empty/blank labels are excluded from the map.
+    /// </summary>
+    private static Dictionary<string, double> ExpectedAbundance(
+        IReadOnlyList<MetagenomicsAnalyzer.TaxonomicClassification> retained,
+        Func<MetagenomicsAnalyzer.TaxonomicClassification, string> rank)
+    {
+        int classified = retained.Count;
+        var map = new Dictionary<string, double>();
+        if (classified == 0) return map;
+        foreach (var label in retained.Select(rank).Where(s => !string.IsNullOrEmpty(s)))
+            map[label] = map.GetValueOrDefault(label) + 1.0;
+        foreach (var key in map.Keys.ToList())
+            map[key] /= classified;
+        return map;
+    }
+
+    private static bool MapsApproxEqual(IReadOnlyDictionary<string, double> a, IReadOnlyDictionary<string, double> b)
+    {
+        if (a.Count != b.Count) return false;
+        foreach (var kv in a)
+            if (!b.TryGetValue(kv.Key, out double v) || Math.Abs(v - kv.Value) > 1e-9) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// INV-01: <c>TotalReads</c> equals the number of input classification records (counted before
+    /// any filtering). Source: doc §2.4 INV-01.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_TotalReads_EqualsInputCount()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            return (p.TotalReads == reads.Count)
+                .Label($"TotalReads={p.TotalReads}, expected {reads.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02: <c>ClassifiedReads</c> equals the number of reads whose Kingdom is neither
+    /// "Unclassified" nor empty/whitespace — the unclassified filter is on Kingdom only.
+    /// Source: doc §2.4 INV-02 / §3.3.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_ClassifiedReads_EqualsKingdomFilteredCount()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            int expected = Retained(reads).Count;
+            return (p.ClassifiedReads == expected)
+                .Label($"ClassifiedReads={p.ClassifiedReads}, expected {expected}");
+        });
+    }
+
+    /// <summary>
+    /// R (abundance ∈ [0,1]): every value in all four abundance maps lies in [0,1].
+    /// Evidence: each is a non-empty-label count divided by ClassifiedReads ≥ that count.
+    /// Source: doc §2.2 (abundance = count/Σcount).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_AllAbundances_InUnitInterval()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            bool ok = new[] { p.KingdomAbundance, p.PhylumAbundance, p.GenusAbundance, p.SpeciesAbundance }
+                .SelectMany(m => m.Values)
+                .All(v => v >= -1e-12 && v <= 1.0 + 1e-12);
+            return ok.Label("every abundance value must be in [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// Abundance value oracle: for every rank map, <c>map[label]</c> equals
+    /// (#retained reads with that non-empty label) / ClassifiedReads, recomputed independently.
+    /// Source: doc §2.2 (abundance = count / Σcount) with denominator = ClassifiedReads.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_AbundanceMaps_MatchCountOverClassifiedOracle()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            var ret = Retained(reads);
+            bool kOk = MapsApproxEqual(p.KingdomAbundance, ExpectedAbundance(ret, c => c.Kingdom));
+            bool phOk = MapsApproxEqual(p.PhylumAbundance, ExpectedAbundance(ret, c => c.Phylum));
+            bool gOk = MapsApproxEqual(p.GenusAbundance, ExpectedAbundance(ret, c => c.Genus));
+            bool spOk = MapsApproxEqual(p.SpeciesAbundance, ExpectedAbundance(ret, c => c.Species));
+            return (kOk && phOk && gOk && spOk)
+                .Label("abundance maps must equal count/ClassifiedReads oracle for every rank");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (Kingdom): <c>KingdomAbundance</c> sums to exactly 1 when ClassifiedReads &gt; 0, and is
+    /// empty (sum 0) when ClassifiedReads == 0. Kingdom labels of retained reads are never empty (the
+    /// filter removes blank kingdoms), so no kingdom count is skipped. Source: doc §2.4 INV-03.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_KingdomAbundance_SumsToExactlyOneWhenClassified()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            double sum = p.KingdomAbundance.Values.Sum();
+            bool ok = p.ClassifiedReads > 0
+                ? Math.Abs(sum - 1.0) < 1e-9
+                : p.KingdomAbundance.Count == 0;
+            return ok.Label($"ClassifiedReads={p.ClassifiedReads}, kingdom sum={sum:F12}");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (lower ranks, exact shortfall): each of Phylum/Genus/Species sums to ≤ 1, and the exact
+    /// shortfall from 1 equals (#retained reads with an EMPTY value at that rank) / ClassifiedReads —
+    /// because empty rank strings are skipped while the denominator stays ClassifiedReads. Hence the
+    /// sum is exactly 1 IFF every retained read has a non-empty value at that rank. Both directions are
+    /// covered: random inputs include reads with empty and non-empty lower ranks. Source: doc §2.4
+    /// INV-03 / §6.1 (missing rank ⇒ sum &lt; 1).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_LowerRankSums_HaveExactEmptyShortfall()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            var ret = Retained(reads);
+            int classified = ret.Count;
+
+            bool CheckRank(IReadOnlyDictionary<string, double> map,
+                Func<MetagenomicsAnalyzer.TaxonomicClassification, string> rank)
+            {
+                double sum = map.Values.Sum();
+                if (sum > 1.0 + 1e-9) return false;
+                if (classified == 0) return map.Count == 0 && Math.Abs(sum) < 1e-9;
+                int empties = ret.Count(c => string.IsNullOrEmpty(rank(c)));
+                double expectedSum = (classified - empties) / (double)classified;
+                bool shortfallOk = Math.Abs(sum - expectedSum) < 1e-9;
+                // IFF direction: sum == 1 exactly when there are no empty values at this rank.
+                bool iffOk = (Math.Abs(sum - 1.0) < 1e-9) == (empties == 0);
+                return shortfallOk && iffOk;
+            }
+
+            bool ok = CheckRank(p.PhylumAbundance, c => c.Phylum)
+                      && CheckRank(p.GenusAbundance, c => c.Genus)
+                      && CheckRank(p.SpeciesAbundance, c => c.Species);
+            return ok.Label("lower-rank sum must be 1 minus emptyCount/ClassifiedReads");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 + diversity oracle: <c>ShannonDiversity</c> = −Σ pᵢ ln pᵢ and <c>SimpsonDiversity</c> =
+    /// Σ pᵢ² over the SPECIES distribution, where pᵢ = (species count) / (Σ species counts), recomputed
+    /// independently with the natural log. Source: doc §2.2 (H, D) / §2.4 INV-04.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_Diversity_MatchesSpeciesOracle()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            var ret = Retained(reads);
+
+            // Independent species-count distribution (non-empty species among retained reads).
+            var counts = ret.Select(c => c.Species)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .GroupBy(s => s)
+                .Select(g => (double)g.Count())
+                .ToList();
+            double sum = counts.Sum();
+
+            double expectedShannon = 0.0, expectedSimpson = 0.0;
+            if (sum > 0)
+            {
+                foreach (double c in counts)
+                {
+                    double pi = c / sum;
+                    expectedShannon -= pi * Math.Log(pi);
+                    expectedSimpson += pi * pi;
+                }
+            }
+
+            bool ok = Math.Abs(p.ShannonDiversity - expectedShannon) < 1e-9
+                      && Math.Abs(p.SimpsonDiversity - expectedSimpson) < 1e-9;
+            return ok.Label(
+                $"Shannon={p.ShannonDiversity:F9} (exp {expectedShannon:F9}), " +
+                $"Simpson={p.SimpsonDiversity:F9} (exp {expectedSimpson:F9})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical input produces an identical profile — all four maps and every scalar.
+    /// Evidence: <c>GenerateTaxonomicProfile</c> is a pure function of its input. Source: doc INV-D.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateTaxonomicProfile_IsDeterministic()
+    {
+        return Prop.ForAll(ProfClassificationsArbitrary(), reads =>
+        {
+            var a = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            var b = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+            bool ok = a.TotalReads == b.TotalReads
+                      && a.ClassifiedReads == b.ClassifiedReads
+                      && Math.Abs(a.ShannonDiversity - b.ShannonDiversity) < 1e-12
+                      && Math.Abs(a.SimpsonDiversity - b.SimpsonDiversity) < 1e-12
+                      && MapsApproxEqual(a.KingdomAbundance, b.KingdomAbundance)
+                      && MapsApproxEqual(a.PhylumAbundance, b.PhylumAbundance)
+                      && MapsApproxEqual(a.GenusAbundance, b.GenusAbundance)
+                      && MapsApproxEqual(a.SpeciesAbundance, b.SpeciesAbundance);
+            return ok.Label("GenerateTaxonomicProfile must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// Edge (doc §6.1): empty input ⇒ TotalReads=0, ClassifiedReads=0, all maps empty, zero diversity.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateTaxonomicProfile_EmptyInput_IsZeroProfile()
+    {
+        var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(
+            Array.Empty<MetagenomicsAnalyzer.TaxonomicClassification>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.TotalReads, Is.EqualTo(0));
+            Assert.That(p.ClassifiedReads, Is.EqualTo(0));
+            Assert.That(p.KingdomAbundance, Is.Empty);
+            Assert.That(p.PhylumAbundance, Is.Empty);
+            Assert.That(p.GenusAbundance, Is.Empty);
+            Assert.That(p.SpeciesAbundance, Is.Empty);
+            Assert.That(p.ShannonDiversity, Is.EqualTo(0.0));
+            Assert.That(p.SimpsonDiversity, Is.EqualTo(0.0));
+        });
+    }
+
+    /// <summary>
+    /// Edge (doc §6.1): all-unclassified input (Kingdom "Unclassified" or empty) ⇒ ClassifiedReads=0,
+    /// all maps empty, zero diversity, while TotalReads still counts every input record.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateTaxonomicProfile_AllUnclassified_HasNoClassifiedReads()
+    {
+        var reads = new[]
+        {
+            ProfRead(0, "Unclassified", "Firmicutes", "Bacillus", "B_subtilis"),
+            ProfRead(1, "", "Proteobacteria", "Escherichia", "E_coli"),
+            ProfRead(2, "Unclassified", "", "", ""),
+        };
+
+        var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.TotalReads, Is.EqualTo(3));
+            Assert.That(p.ClassifiedReads, Is.EqualTo(0));
+            Assert.That(p.KingdomAbundance, Is.Empty);
+            Assert.That(p.PhylumAbundance, Is.Empty);
+            Assert.That(p.GenusAbundance, Is.Empty);
+            Assert.That(p.SpeciesAbundance, Is.Empty);
+            Assert.That(p.ShannonDiversity, Is.EqualTo(0.0));
+            Assert.That(p.SimpsonDiversity, Is.EqualTo(0.0));
+        });
+    }
+
+    /// <summary>
+    /// Anchor (doc §6.1): a single distinct species after filtering ⇒ ShannonDiversity = 0,
+    /// SimpsonDiversity = 1 (one-category distribution). Three reads of the same species; the kingdom
+    /// map sums to 1 and the species map has a single entry equal to 1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateTaxonomicProfile_SingleSpecies_ShannonZeroSimpsonOne()
+    {
+        var reads = new[]
+        {
+            ProfRead(0, "Bacteria", "Firmicutes", "Bacillus", "B_subtilis"),
+            ProfRead(1, "Bacteria", "Firmicutes", "Bacillus", "B_subtilis"),
+            ProfRead(2, "Bacteria", "Firmicutes", "Bacillus", "B_subtilis"),
+        };
+
+        var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ClassifiedReads, Is.EqualTo(3));
+            Assert.That(p.ShannonDiversity, Is.EqualTo(0.0).Within(1e-9), "single species ⇒ H = 0");
+            Assert.That(p.SimpsonDiversity, Is.EqualTo(1.0).Within(1e-9), "single species ⇒ D = 1");
+            Assert.That(p.KingdomAbundance.Values.Sum(), Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(p.SpeciesAbundance.Count, Is.EqualTo(1));
+            Assert.That(p.SpeciesAbundance["B_subtilis"], Is.EqualTo(1.0).Within(1e-9));
+        });
+    }
+
+    /// <summary>
+    /// Lower-rank shortfall (concrete, doc §6.1): four classified reads, two with empty species. The
+    /// species map must sum to exactly 1 − 2/4 = 0.5 while the kingdom map still sums to 1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateTaxonomicProfile_SomeEmptySpecies_SpeciesSumHasExactShortfall()
+    {
+        var reads = new[]
+        {
+            ProfRead(0, "Bacteria", "Firmicutes", "Bacillus", "B_subtilis"),
+            ProfRead(1, "Bacteria", "Firmicutes", "Clostridium", "C_difficile"),
+            ProfRead(2, "Bacteria", "Proteobacteria", "Escherichia", ""),
+            ProfRead(3, "Bacteria", "Proteobacteria", "Escherichia", ""),
+        };
+
+        var p = MetagenomicsAnalyzer.GenerateTaxonomicProfile(reads);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.ClassifiedReads, Is.EqualTo(4));
+            Assert.That(p.KingdomAbundance.Values.Sum(), Is.EqualTo(1.0).Within(1e-9),
+                "kingdom labels are never empty for retained reads ⇒ sum 1");
+            Assert.That(p.SpeciesAbundance.Values.Sum(), Is.EqualTo(0.5).Within(1e-9),
+                "2 of 4 retained reads have empty species ⇒ shortfall 2/4 ⇒ sum 0.5");
+            Assert.That(p.GenusAbundance.Values.Sum(), Is.EqualTo(1.0).Within(1e-9),
+                "all retained reads have a non-empty genus ⇒ genus sum 1");
+        });
+    }
+
+    #endregion
 }
