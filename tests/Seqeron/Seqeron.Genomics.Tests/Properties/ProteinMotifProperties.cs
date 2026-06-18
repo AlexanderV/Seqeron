@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -375,6 +375,85 @@ public class ProteinMotifProperties
         return Prop.ForAll(ProteinArbitrary(40), seq =>
             ProteinMotifFinder.PredictCoiledCoils(seq).SequenceEqual(ProteinMotifFinder.PredictCoiledCoils(seq))
                 .Label("PredictCoiledCoils must be deterministic"));
+    }
+
+    #endregion
+
+    #region PROTMOTIF-COMMON-001: R: positions valid; P: each match conforms to its motif pattern; M: more occurrences → ≥ support; D: deterministic
+
+    // FindCommonMotifs scans the curated PROSITE common-motif catalogue over a protein and reports
+    // each occurrence (overlapping, ScanProsite style; De Castro et al. 2006).
+
+    private static readonly IReadOnlyDictionary<string, string> MotifNameToRegex =
+        ProteinMotifFinder.CommonMotifs.Values
+            .GroupBy(m => m.Name)
+            .ToDictionary(g => g.Key, g => g.First().RegexPattern);
+
+    /// <summary>
+    /// INV-1 (R): every match has valid coordinates and its reported Sequence equals the substring at
+    /// those coordinates.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CommonMotifs_PositionsAndSubstring_AreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var matches = ProteinMotifFinder.FindCommonMotifs(seq).ToList();
+            bool ok = matches.All(m =>
+                m.Start >= 0 && m.Start <= m.End && m.End < seq.Length &&
+                seq.Substring(m.Start, m.End - m.Start + 1) == m.Sequence);
+            return ok.Label("a common-motif match had invalid coordinates or substring");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): every reported match conforms to its motif's PROSITE-derived regex pattern.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CommonMotifs_EachMatch_ConformsToPattern()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var matches = ProteinMotifFinder.FindCommonMotifs(seq).ToList();
+            bool ok = matches.All(m =>
+                MotifNameToRegex.TryGetValue(m.MotifName, out string? rx) &&
+                System.Text.RegularExpressions.Regex.IsMatch(
+                    m.Sequence, "^(?:" + rx + ")$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            return ok.Label("a match did not conform to its motif regex");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M, support): a motif-bearing protein yields matches, and duplicating it does not reduce
+    /// the number of matches (more occurrences → ≥ support).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CommonMotifs_MoreOccurrences_DoNotReduceSupport()
+    {
+        int single = ProteinMotifFinder.FindCommonMotifs(TestProtein).Count();
+        int doubled = ProteinMotifFinder.FindCommonMotifs(TestProtein + TestProtein).Count();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(single, Is.GreaterThan(0), "the test protein must contain common motifs");
+            Assert.That(doubled, Is.GreaterThanOrEqualTo(single), "more occurrences must not reduce support");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Common-motif scanning is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CommonMotifs_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var a = ProteinMotifFinder.FindCommonMotifs(seq).Select(m => (m.Start, m.End, m.MotifName)).ToList();
+            var b = ProteinMotifFinder.FindCommonMotifs(seq).Select(m => (m.Start, m.End, m.MotifName)).ToList();
+            return a.SequenceEqual(b).Label("FindCommonMotifs must be deterministic");
+        });
     }
 
     #endregion
