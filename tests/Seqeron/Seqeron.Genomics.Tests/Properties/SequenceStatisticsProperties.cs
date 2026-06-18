@@ -343,4 +343,132 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-MW-001 — Protein Molecular Weight (Expasy / Biopython average mass)
+
+    // -------------------------------------------------------------------------
+    // Theory (Expasy Compute pI/Mw; Biopython protein_weights):
+    //   • MW = Σ(free residue masses) − (n − 1)·water, removing one water per peptide bond.
+    //   • MW > 0 for any sequence with a recognized residue; 0 for empty / all-unknown.   (R)
+    //   • Appending a residue raises MW by (residue mass − water) > 0.                     (M longer → higher)
+    //   • Concatenation: MW(A+B) = MW(A) + MW(B) − water (one extra joining bond).         (P additive)
+    //
+    // The residue masses and the water-loss correction are reconstructed independently.
+    // -------------------------------------------------------------------------
+
+    private const double WaterMassOracle = 18.0153;
+
+    private static readonly Dictionary<char, double> AaWeightOracle = new()
+    {
+        ['A'] = 89.0932, ['C'] = 121.1582, ['D'] = 133.1027, ['E'] = 147.1293, ['F'] = 165.1891,
+        ['G'] = 75.0666, ['H'] = 155.1546, ['I'] = 131.1729, ['K'] = 146.1876, ['L'] = 131.1729,
+        ['M'] = 149.2113, ['N'] = 132.1179, ['P'] = 115.1305, ['Q'] = 146.1445, ['R'] = 174.201,
+        ['S'] = 105.0926, ['T'] = 119.1192, ['V'] = 117.1463, ['W'] = 204.2252, ['Y'] = 181.1885,
+    };
+
+    private static (double mw, int residues) OracleMolecularWeight(string seq)
+    {
+        double sum = 0;
+        int n = 0;
+        foreach (char aa in seq.ToUpperInvariant())
+        {
+            if (AaWeightOracle.TryGetValue(aa, out double w))
+            {
+                sum += w;
+                n++;
+            }
+        }
+
+        return n == 0 ? (0.0, 0) : (sum - (n - 1) * WaterMassOracle, n);
+    }
+
+    /// <summary>
+    /// R (checklist "MW &gt; 0 for non-empty") + P (additive over residues): the molecular weight equals the
+    /// independent Σ(residue masses) − (n−1)·water and is strictly positive when at least one residue is
+    /// recognized (0 otherwise). (Expasy / Biopython)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeight_EqualsResidueSumMinusPeptideWater()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+        {
+            double mw = SequenceStatistics.CalculateMolecularWeight(seq);
+            (double oracle, int residues) = OracleMolecularWeight(seq);
+            bool formulaOk = Math.Abs(mw - oracle) <= 1e-6 * Math.Max(1.0, oracle);
+            bool positivity = residues > 0 ? mw > 0.0 : mw == 0.0;
+            return (formulaOk && positivity).Label($"MW {mw} ≠ oracle {oracle} (residues {residues})");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "longer sequence → higher MW"): appending a recognized residue strictly increases the
+    /// molecular weight (each residue adds its mass minus one water, ≥ Gly − water &gt; 0). (Expasy / Biopython)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeight_AppendingResidue_StrictlyIncreases()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+        {
+            double baseMw = SequenceStatistics.CalculateMolecularWeight(seq);
+            double longer = SequenceStatistics.CalculateMolecularWeight(seq + "G");
+            return (longer > baseMw).Label($"appending G did not increase MW: {baseMw} → {longer}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "additive over residues"): concatenating two peptides each with a recognized residue adds
+    /// their weights minus one water for the new joining bond — MW(A+B) = MW(A) + MW(B) − water. (Expasy)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeight_Concatenation_RemovesOneJoiningWater()
+    {
+        var arb = (from a in ProteinArbitrary().Generator
+                   from b in ProteinArbitrary().Generator
+                   select (a, b)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            (_, int nA) = OracleMolecularWeight(t.a);
+            (_, int nB) = OracleMolecularWeight(t.b);
+            if (nA == 0 || nB == 0)
+            {
+                return true.ToProperty(); // the joining-water relation needs a residue on each side
+            }
+
+            double mwA = SequenceStatistics.CalculateMolecularWeight(t.a);
+            double mwB = SequenceStatistics.CalculateMolecularWeight(t.b);
+            double mwAb = SequenceStatistics.CalculateMolecularWeight(t.a + t.b);
+            return (Math.Abs(mwAb - (mwA + mwB - WaterMassOracle)) < 1e-6 * Math.Max(1.0, mwAb))
+                .Label($"MW(A+B)={mwAb} ≠ MW(A)+MW(B)−water = {mwA + mwB - WaterMassOracle}");
+        });
+    }
+
+    /// <summary>D (determinism): protein molecular weight is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MolecularWeight_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+            (SequenceStatistics.CalculateMolecularWeight(seq) == SequenceStatistics.CalculateMolecularWeight(seq))
+                .Label("CalculateMolecularWeight is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: glycine "G" is a free amino acid (75.0666 Da, no peptide bond); "GG" loses one water; empty
+    /// and all-unknown sequences are 0. (Expasy / Biopython)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MolecularWeight_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateMolecularWeight("G"), Is.EqualTo(75.0666).Within(1e-6), "Free Gly.");
+            Assert.That(SequenceStatistics.CalculateMolecularWeight("GG"), Is.EqualTo(2 * 75.0666 - 18.0153).Within(1e-6),
+                "Gly-Gly loses one water for the peptide bond.");
+            Assert.That(SequenceStatistics.CalculateMolecularWeight(""), Is.EqualTo(0.0), "Empty ⇒ 0.");
+            Assert.That(SequenceStatistics.CalculateMolecularWeight("BZX"), Is.EqualTo(0.0), "No recognized residue ⇒ 0.");
+        });
+    }
+
+    #endregion
 }
