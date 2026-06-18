@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -613,6 +613,56 @@ public class RnaStructureProperties
                 Assert.That(RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]), Is.EqualTo(seq[r.End1 - m]),
                     $"arm position {m} not reverse-complementary");
         });
+    }
+
+    #endregion
+
+    #region RNA-MFE-001: R: MFE ≤ 0; M: more GC pairs → lower energy; D: deterministic
+
+    // CalculateMinimumFreeEnergy is a Zuker-style DP with Turner 2004 parameters. The unfolded
+    // structure always scores 0, so the MFE can never be positive; a GC stem (≈ −3 kcal/mol/stack)
+    // is more stable than an equivalent AU stem (≈ −1 to −2).
+
+    /// <summary>
+    /// INV-1 (R): The MFE is never positive — the empty (unfolded) structure is always available at 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mfe_IsNonPositive()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            double mfe = RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq);
+            return (mfe <= 1e-9).Label($"MFE={mfe} must be ≤ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): A hairpin closed by a GC stem has a lower (more negative) MFE than the same hairpin
+    /// closed by an AU stem of equal length — more GC pairs stabilise the structure.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Mfe_GcStem_IsMoreStableThanAuStem()
+    {
+        double mfeGc = RnaSecondaryStructure.CalculateMinimumFreeEnergy("GGGGGUUUUCCCCC"); // 5-bp G-C stem
+        double mfeAu = RnaSecondaryStructure.CalculateMinimumFreeEnergy("AAAAAGGGUUUUU");   // 5-bp A-U stem
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mfeGc, Is.LessThan(0.0), "a GC stem should fold to a negative MFE");
+            Assert.That(mfeGc, Is.LessThan(mfeAu), "the GC stem must be more stable than the AU stem");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): MFE computation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Mfe_IsDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+            (RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq) == RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq))
+                .Label("CalculateMinimumFreeEnergy must be deterministic"));
     }
 
     #endregion
