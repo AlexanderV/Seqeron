@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001, RNA-PARTITION-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -743,6 +743,96 @@ public class RnaStructureProperties
                             : type == RnaSecondaryStructure.BasePairType.WatsonCrick))
                       && (!expectedWc || type == RnaSecondaryStructure.BasePairType.WatsonCrick);
             return ok.Label($"type inconsistent for ({a},{b}): can={can}, type={type}");
+        });
+    }
+
+    #endregion
+
+    #region RNA-PARTITION-001: R: Z > 0; R: base-pair probability ∈ [0,1]; D: deterministic
+
+    // CalculatePartitionFunction implements McCaskill (1990): the inside partition function Z (≥ 1,
+    // since the all-unpaired structure always weighs 1) and equilibrium base-pair probabilities
+    // P[i,j] ∈ [0,1] with Σ_j P[i,j] ≤ 1 for each position (a base pairs with at most one partner).
+
+    /// <summary>
+    /// INV-1 (R): The partition function is at least 1 (the empty structure is always in the ensemble).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_Z_IsAtLeastOne()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            double z = RnaSecondaryStructure.CalculatePartitionFunction(seq).PartitionFunction;
+            return (z >= 1.0 - 1e-9).Label($"Z={z} must be ≥ 1");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every equilibrium base-pair probability lies in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_Probabilities_InUnitInterval()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var probs = RnaSecondaryStructure.CalculatePartitionFunction(seq).BasePairProbabilities;
+            return probs.Values.All(p => p >= -1e-9 && p <= 1.0 + 1e-9)
+                .Label("a base-pair probability fell outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): For each position the probabilities of all pairs involving it sum to ≤ 1 — a base
+    /// can be paired with at most one partner in any structure.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_PerBasePairing_AtMostOne()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var probs = RnaSecondaryStructure.CalculatePartitionFunction(seq).BasePairProbabilities;
+            var perBase = new Dictionary<int, double>();
+            foreach (var kv in probs)
+            {
+                perBase[kv.Key.I] = perBase.GetValueOrDefault(kv.Key.I) + kv.Value;
+                perBase[kv.Key.J] = perBase.GetValueOrDefault(kv.Key.J) + kv.Value;
+            }
+            return perBase.Values.All(p => p <= 1.0 + 1e-9)
+                .Label("a base's total pairing probability exceeded 1");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): The partition function and probabilities are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Partition_IsDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(8), seq =>
+        {
+            var a = RnaSecondaryStructure.CalculatePartitionFunction(seq);
+            var b = RnaSecondaryStructure.CalculatePartitionFunction(seq);
+            bool same = a.PartitionFunction == b.PartitionFunction
+                        && a.BasePairProbabilities.Count == b.BasePairProbabilities.Count
+                        && a.BasePairProbabilities.All(kv => b.BasePairProbabilities.TryGetValue(kv.Key, out double v) && v == kv.Value);
+            return same.Label("CalculatePartitionFunction must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): empty sequence has Z=1 and no pairs; a non-positive temperature is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Partition_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            var empty = RnaSecondaryStructure.CalculatePartitionFunction("");
+            Assert.That(empty.PartitionFunction, Is.EqualTo(1.0));
+            Assert.That(empty.BasePairProbabilities, Is.Empty);
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => RnaSecondaryStructure.CalculatePartitionFunction("GGGAAACCC", temperature: 0));
         });
     }
 
