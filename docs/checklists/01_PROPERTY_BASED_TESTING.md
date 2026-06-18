@@ -143,7 +143,7 @@ Property-based testing генерирует сотни случайных вхо
 | 111 | ☑ | ONCO-CTDNA-001 | Oncology | R: ctDNA fraction ∈ [0,1]; M: more tumor-supporting reads → higher fraction; D: deterministic | OncologyProperties.cs (new) |
 | 112 | ☑ | ONCO-MRD-001 | Oncology | R: detection ∈ {positive,negative}; M: more tracked variants observed → MRD-positive; R: sensitivity ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
 | 113 | ☑ | ONCO-CHIP-001 | Oncology | P: CHIP flagged by gene list ∧ VAF band; P: survivors ⊆ input; D: deterministic | OncologyProperties.cs (new) |
-| 114 | ☐ | ONCO-PHYLO-001 | Oncology | R: #leaves = #clones/samples; P: trunk mutations shared by all clones; R: branch lengths ≥ 0; D: deterministic | OncologyProperties.cs (new) |
+| 114 | ☑ | ONCO-PHYLO-001 | Oncology | R: #leaves = #clones/samples; P: trunk mutations shared by all clones; R: branch lengths ≥ 0; D: deterministic | OncologyProperties.cs (new) |
 | 115 | ☐ | ONCO-CCF-001 | Oncology | R: CCF ∈ [0,1]; P: CCF derived from VAF, CN, purity; M: higher VAF → higher CCF; D: deterministic | OncologyProperties.cs (new) |
 | 116 | ☐ | ONCO-HETERO-001 | Oncology | R: heterogeneity (MATH) ≥ 0; M: wider VAF spread → higher heterogeneity; D: deterministic | OncologyProperties.cs (new) |
 | 117 | ☐ | ONCO-HLA-001 | Oncology | P: alleles valid HLA nomenclature; R: ≤ 2 alleles per locus; D: deterministic | OncologyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 113 |
-| ☐ Not started | 121 |
+| ☑ Complete | 114 |
+| ☐ Not started | 120 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

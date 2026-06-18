@@ -8430,4 +8430,183 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-PHYLO-001 — Tumor Phylogeny Reconstruction (CCF lineage tree)
+
+    // -------------------------------------------------------------------------
+    // Theory (Popic 2015; Zheng 2022 PICTograph):
+    //   • Rooted spanning tree: a synthetic normal root (CCF = 1 per sample) plus one
+    //     node per CCF cluster, each non-root cluster having exactly one parent.
+    //   • Lineage precedence (Eq. 2): on every edge u→v, u.CCF[i] ≥ v.CCF[i] − ε per sample.
+    //   • Trunk = chain of single-child nodes from the root (mutations shared by all clones);
+    //     branches = the remaining (subclonal) clusters; the two partition the clusters.
+    //
+    // The tree invariants are checked structurally; lineage precedence is recomputed
+    // from the cluster CCFs (NOT routed through production). The sum rule is NOT asserted
+    // universally because the spanning-tree root fallback may attach a cluster to the
+    // root even when its budget is exhausted (documented degenerate path).
+    // -------------------------------------------------------------------------
+
+    private static Gen<OncologyAnalyzer.CcfCluster[]> CcfClustersGen() =>
+        from sampleCount in Gen.Choose(1, 3)
+        from n in Gen.Choose(1, 6)
+        from vectors in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(sampleCount).ArrayOf(n)
+        select vectors.Select((vec, i) => new OncologyAnalyzer.CcfCluster(i + 1, vec)).ToArray();
+
+    private static Arbitrary<(OncologyAnalyzer.CcfCluster[] clusters, double tolerance)> PhylogenyProblemArbitrary() =>
+        (from clusters in CcfClustersGen()
+         from tolMilli in Gen.Choose(0, 100)
+         select (clusters, tolMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// R (tree structure): the reconstructed phylogeny preserves the input clusters, has exactly one parent
+    /// edge per cluster (each cluster is a child exactly once), every parent is the root or a cluster, and the
+    /// whole set of clusters is reachable from the root — a rooted spanning tree. (Popic 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_IsRootedSpanningTreeOverTheClusters()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var clusterIds = p.clusters.Select(c => c.Id).ToHashSet();
+
+            bool clustersPreserved = phylo.Clusters.SequenceEqual(p.clusters);
+            bool oneParentEach = phylo.Edges.Count == p.clusters.Length
+                && phylo.Edges.Select(e => e.ChildId).Distinct().Count() == p.clusters.Length
+                && phylo.Edges.All(e => clusterIds.Contains(e.ChildId));
+            bool parentsValid = phylo.Edges.All(e => e.ParentId == phylo.RootId || clusterIds.Contains(e.ParentId));
+
+            // BFS from the root following parent→child edges must reach every cluster exactly once.
+            var reached = new HashSet<int>();
+            var queue = new Queue<int>();
+            queue.Enqueue(phylo.RootId);
+            while (queue.Count > 0)
+            {
+                int node = queue.Dequeue();
+                foreach (int childId in phylo.ChildrenOf(node))
+                {
+                    if (reached.Add(childId))
+                    {
+                        queue.Enqueue(childId);
+                    }
+                }
+            }
+
+            bool connectedAcyclic = reached.SetEquals(clusterIds);
+            return (clustersPreserved && oneParentEach && parentsValid && connectedAcyclic)
+                .Label($"clusters={phylo.Clusters.Count}, edges={phylo.Edges.Count}, reached={reached.Count}/{clusterIds.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (lineage precedence, "ancestor ≥ descendant"): on every reconstructed edge the parent's CCF is at
+    /// least the child's in every sample (within ε). The synthetic root (CCF = 1) trivially satisfies it.
+    /// (Popic 2015 Eq. 2; Zheng 2022)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_EveryEdge_SatisfiesLineagePrecedence()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var ccfById = p.clusters.ToDictionary(c => c.Id, c => c.CcfPerSample);
+            double[] rootCcf = Enumerable.Repeat(1.0, phylo.SampleCount).ToArray();
+
+            return phylo.Edges.All(e =>
+            {
+                IReadOnlyList<double> parent = e.ParentId == phylo.RootId ? rootCcf : ccfById[e.ParentId];
+                IReadOnlyList<double> child = ccfById[e.ChildId];
+                for (int i = 0; i < phylo.SampleCount; i++)
+                {
+                    if (parent[i] < child[i] - p.tolerance - 1e-12)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }).Label("an edge violated lineage precedence (parent CCF < child CCF)");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "trunk mutations shared by all clones"): the trunk and branch sets partition the clusters
+    /// (disjoint, together covering every cluster), and the trunk is a root-anchored chain — its first node is
+    /// the root's unique child and each trunk node is the parent of the next. (Popic 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TrunkAndBranches_PartitionClusters_AndTrunkIsARootChain()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var phylo = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var trunk = OncologyAnalyzer.IdentifyTrunkMutations(phylo);
+            var branches = OncologyAnalyzer.IdentifyBranchMutations(phylo);
+
+            var allIds = p.clusters.Select(c => c.Id).ToHashSet();
+            bool disjoint = !trunk.Intersect(branches).Any();
+            bool covering = trunk.Concat(branches).ToHashSet().SetEquals(allIds);
+            bool sameCount = trunk.Count + branches.Count == p.clusters.Length;
+
+            bool chain = trunk.Count == 0 || phylo.ParentOf(trunk[0]) == phylo.RootId;
+            for (int i = 0; chain && i + 1 < trunk.Count; i++)
+            {
+                chain &= phylo.ParentOf(trunk[i + 1]) == trunk[i];
+            }
+
+            return (disjoint && covering && sameCount && chain)
+                .Label($"trunk=[{string.Join(",", trunk)}], branches=[{string.Join(",", branches)}]");
+        });
+    }
+
+    /// <summary>D (determinism): phylogeny reconstruction yields identical clusters/edges for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructPhylogeny_IsDeterministic()
+    {
+        return Prop.ForAll(PhylogenyProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            var b = OncologyAnalyzer.ReconstructPhylogeny(p.clusters, p.tolerance);
+            return (a.RootId == b.RootId && a.SampleCount == b.SampleCount
+                    && a.Clusters.SequenceEqual(b.Clusters) && a.Edges.SequenceEqual(b.Edges))
+                .Label("ReconstructPhylogeny is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a single-sample descending chain (CCF 1.0 → 0.5 → 0.25) is an all-trunk lineage; a two-sample
+    /// divergent cohort (A=[1,1], B=[1,0], C=[0,1]) branches at A so trunk=[A], branches=[B,C]. (Popic 2015)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ReconstructPhylogeny_CanonicalChainAndBranch()
+    {
+        var chain = OncologyAnalyzer.ReconstructPhylogeny(new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 1.0 }),
+            new OncologyAnalyzer.CcfCluster(2, new[] { 0.5 }),
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.25 }),
+        });
+
+        var branch = OncologyAnalyzer.ReconstructPhylogeny(new[]
+        {
+            new OncologyAnalyzer.CcfCluster(1, new[] { 1.0, 1.0 }),
+            new OncologyAnalyzer.CcfCluster(2, new[] { 1.0, 0.0 }),
+            new OncologyAnalyzer.CcfCluster(3, new[] { 0.0, 1.0 }),
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(chain), Is.EqualTo(new[] { 1, 2, 3 }),
+                "A descending single-sample chain is entirely trunk.");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(chain), Is.Empty, "No subclonal branches in a pure chain.");
+            Assert.That(OncologyAnalyzer.IdentifyTrunkMutations(branch), Is.EqualTo(new[] { 1 }),
+                "Divergent samples branch at the clonal ancestor A ⇒ trunk = [A].");
+            Assert.That(OncologyAnalyzer.IdentifyBranchMutations(branch), Is.EqualTo(new[] { 2, 3 }),
+                "B and C are subclonal branches.");
+        });
+    }
+
+    #endregion
 }
