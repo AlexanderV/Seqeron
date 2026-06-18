@@ -3446,4 +3446,277 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-HRD-001 — Homologous Recombination Deficiency (HRD) Score
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (transcribed from HRD_Score.md §2.2/§2.4, NOT routed
+    // through production constants). The unweighted sum and the ≥ 42 cutoff are
+    // recomputed here from LOCAL literals so a self-consistent-but-wrong
+    // production constant (e.g. a drifted threshold) is still caught.
+    //   INV-01 HRD = LOH + TAI + LST   (unweighted sum, Telli 2016)
+    //   INV-02 sum is order-independent (integer addition; "unweighted")
+    //   INV-03 status = HrdHigh iff score ≥ 42 (boundary inclusive)
+    //   INV-04 score ≥ 0 and each component ≥ 0 (event counts)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-03 local literal cutoff (Telli et al. 2016 "HRD score ≥42"), transcribed independently of
+    /// the production constant <see cref="OncologyAnalyzer.HrdHighScoreThreshold"/> so threshold drift is caught.
+    /// </summary>
+    private const int HrdHighCutoff = 42;
+
+    /// <summary>INV-01 score oracle: the unweighted sum of the three genomic-scar component counts.</summary>
+    private static int ExpectedHrdScore(int loh, int tai, int lst) => loh + tai + lst;
+
+    /// <summary>INV-03 status oracle: HrdHigh iff score ≥ 42 (inclusive), recomputed from the local literal.</summary>
+    private static OncologyAnalyzer.HrdStatus ExpectedHrdStatus(int score) =>
+        score >= HrdHighCutoff ? OncologyAnalyzer.HrdStatus.HrdHigh : OncologyAnalyzer.HrdStatus.HrdNegative;
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Generates a triple of non-negative genomic-scar component counts (INV-04). The 0..60 range per
+    /// component spans both sides of the 42 cutoff for the summed score, including all-zero (near-diploid).
+    /// </summary>
+    private static Arbitrary<(int loh, int tai, int lst)> HrdComponentTripleArbitrary() =>
+        (from loh in Gen.Choose(0, 60)
+         from tai in Gen.Choose(0, 60)
+         from lst in Gen.Choose(0, 60)
+         select (loh, tai, lst))
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates a non-negative HRD score (INV-04), drawn 0..120 so it straddles the 42 cutoff densely,
+    /// with the exact boundaries 41 and 42 injected so the inclusive comparison is always exercised.
+    /// </summary>
+    private static Arbitrary<int> HrdScoreArbitrary() =>
+        Gen.OneOf(Gen.Choose(0, 120), Gen.Elements(41, 42)).ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // P + INV-01 (additive) / INV-04 (R: score ≥ 0)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P + INV-01 + INV-04 (R): <c>CalculateHRDScore(loh, tai, lst)</c> equals the independently recomputed
+    /// unweighted sum <c>loh + tai + lst</c>, and the result is ≥ 0 for non-negative components.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_Score_IsUnweightedSumAndNonNegative()
+    {
+        return Prop.ForAll(HrdComponentTripleArbitrary(), t =>
+        {
+            int score = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst);
+            int expected = ExpectedHrdScore(t.loh, t.tai, t.lst);
+            return (score == expected && score >= 0)
+                .Label($"score {score} != sum {expected} (loh={t.loh}, tai={t.tai}, lst={t.lst})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-02 (commutative / order-independent)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-02: <c>CalculateHRDScore</c> is invariant under every permutation of its three arguments
+    /// (unweighted integer addition is commutative). All 6 permutations of (loh, tai, lst) must agree.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_Score_IsOrderIndependent()
+    {
+        return Prop.ForAll(HrdComponentTripleArbitrary(), t =>
+        {
+            int s = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst);
+            int[] perms =
+            {
+                OncologyAnalyzer.CalculateHRDScore(t.loh, t.lst, t.tai),
+                OncologyAnalyzer.CalculateHRDScore(t.tai, t.loh, t.lst),
+                OncologyAnalyzer.CalculateHRDScore(t.tai, t.lst, t.loh),
+                OncologyAnalyzer.CalculateHRDScore(t.lst, t.loh, t.tai),
+                OncologyAnalyzer.CalculateHRDScore(t.lst, t.tai, t.loh),
+            };
+            return perms.All(p => p == s)
+                .Label($"permutations disagree with {s} (loh={t.loh}, tai={t.tai}, lst={t.lst})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M (more genomic scars → higher score)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Generator for the monotonicity check: a base triple plus a strictly-positive bump (1..30).</summary>
+    private static Arbitrary<(int loh, int tai, int lst, int bump)> HrdBumpArbitrary() =>
+        (from loh in Gen.Choose(0, 60)
+         from tai in Gen.Choose(0, 60)
+         from lst in Gen.Choose(0, 60)
+         from bump in Gen.Choose(1, 30)
+         select (loh, tai, lst, bump))
+        .ToArbitrary();
+
+    /// <summary>
+    /// M: increasing ANY single component (others fixed) by a strictly-positive amount strictly increases the
+    /// score — more genomic scars ⇒ higher HRD. Checked independently for each of the three components.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_Score_StrictlyIncreasesWhenAnyComponentIncreases()
+    {
+        return Prop.ForAll(HrdBumpArbitrary(), t =>
+        {
+            int baseScore = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst);
+            int upLoh = OncologyAnalyzer.CalculateHRDScore(t.loh + t.bump, t.tai, t.lst);
+            int upTai = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai + t.bump, t.lst);
+            int upLst = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst + t.bump);
+            return (upLoh > baseScore && upTai > baseScore && upLst > baseScore)
+                .Label($"not strictly increasing: base={baseScore}, +loh={upLoh}, +tai={upTai}, +lst={upLst} (bump={t.bump})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-03 (classification at the inclusive 42 cutoff)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-03: <c>ClassifyHRDStatus(score)</c> equals <c>score ≥ 42 ? HrdHigh : HrdNegative</c>, recomputed from
+    /// the LOCAL literal 42 (boundary inclusive). Driven over random scores ≥ 0 incl. the boundaries 41 and 42.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_Status_MatchesInclusive42Cutoff()
+    {
+        return Prop.ForAll(HrdScoreArbitrary(), score =>
+        {
+            var status = OncologyAnalyzer.ClassifyHRDStatus(score);
+            var expected = ExpectedHrdStatus(score);
+            return (status == expected)
+                .Label($"status {status} != oracle {expected} (score={score}, cutoff={HrdHighCutoff})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DetectHRD end-to-end
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// End-to-end (INV-01 + INV-03): <c>DetectHRD</c> returns the input components unchanged, a Score equal to the
+    /// independent sum, and a Status equal to the independent inclusive-42 classification of that score.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_DetectHRD_ComposesSumAndClassification()
+    {
+        return Prop.ForAll(HrdComponentTripleArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(t.loh, t.tai, t.lst));
+            int expectedScore = ExpectedHrdScore(t.loh, t.tai, t.lst);
+            var expectedStatus = ExpectedHrdStatus(expectedScore);
+            bool componentsEqual = result.Components.Loh == t.loh
+                                   && result.Components.Tai == t.tai
+                                   && result.Components.Lst == t.lst;
+            return (componentsEqual && result.Score == expectedScore && result.Status == expectedStatus)
+                .Label($"components/score/status mismatch: {result} vs sum {expectedScore}/{expectedStatus} " +
+                       $"(loh={t.loh}, tai={t.tai}, lst={t.lst})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D (determinism)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D (determinism): identical inputs yield identical results across repeated calls for all three methods
+    /// (<c>CalculateHRDScore</c>, <c>ClassifyHRDStatus</c>, <c>DetectHRD</c>) — pure, side-effect-free.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hrd_AllMethods_AreDeterministic()
+    {
+        return Prop.ForAll(HrdComponentTripleArbitrary(), t =>
+        {
+            int s1 = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst);
+            int s2 = OncologyAnalyzer.CalculateHRDScore(t.loh, t.tai, t.lst);
+            var c1 = OncologyAnalyzer.ClassifyHRDStatus(s1);
+            var c2 = OncologyAnalyzer.ClassifyHRDStatus(s1);
+            var d1 = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(t.loh, t.tai, t.lst));
+            var d2 = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(t.loh, t.tai, t.lst));
+            return (s1 == s2 && c1 == c2 && d1.Equals(d2))
+                .Label($"non-deterministic: score {s1}/{s2}, status {c1}/{c2}, result {d1} vs {d2}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation / edge cases (§3.3, §6.1) — explicit anchors and throw contracts
+    // -------------------------------------------------------------------------
+
+    /// <summary>§7.1 worked example: (20, 15, 12) ⇒ score 47 ⇒ HrdHigh (47 ≥ 42).</summary>
+    [Test]
+    [Category("Property")]
+    public void Hrd_DetectHRD_WorkedExample_20_15_12_Is47AndHrdHigh()
+    {
+        var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(20, 15, 12));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Score, Is.EqualTo(47));
+            Assert.That(result.Status, Is.EqualTo(OncologyAnalyzer.HrdStatus.HrdHigh));
+            Assert.That(result.Components.Loh, Is.EqualTo(20));
+            Assert.That(result.Components.Tai, Is.EqualTo(15));
+            Assert.That(result.Components.Lst, Is.EqualTo(12));
+        });
+    }
+
+    /// <summary>
+    /// §6.1 classification anchors: score 42 ⇒ HrdHigh (inclusive boundary), 41 ⇒ HrdNegative,
+    /// 0 ⇒ HrdNegative (all-zero near-diploid).
+    /// </summary>
+    [TestCase(42, OncologyAnalyzer.HrdStatus.HrdHigh)]
+    [TestCase(41, OncologyAnalyzer.HrdStatus.HrdNegative)]
+    [TestCase(0, OncologyAnalyzer.HrdStatus.HrdNegative)]
+    [Category("Property")]
+    public void Hrd_ClassifyHRDStatus_BoundaryAnchors(int score, OncologyAnalyzer.HrdStatus expected)
+    {
+        Assert.That(OncologyAnalyzer.ClassifyHRDStatus(score), Is.EqualTo(expected));
+    }
+
+    /// <summary>§6.1 all-components-zero anchor: (0, 0, 0) ⇒ score 0 ⇒ HrdNegative.</summary>
+    [Test]
+    [Category("Property")]
+    public void Hrd_DetectHRD_AllZeroComponents_IsZeroAndHrdNegative()
+    {
+        var result = OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(0, 0, 0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Score, Is.EqualTo(0));
+            Assert.That(result.Status, Is.EqualTo(OncologyAnalyzer.HrdStatus.HrdNegative));
+        });
+    }
+
+    /// <summary>§3.3: any negative component to <c>CalculateHRDScore</c> throws ArgumentOutOfRangeException.</summary>
+    [TestCase(-1, 0, 0)]
+    [TestCase(0, -1, 0)]
+    [TestCase(0, 0, -1)]
+    [Category("Property")]
+    public void Hrd_CalculateHRDScore_NegativeComponent_Throws(int loh, int tai, int lst)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateHRDScore(loh, tai, lst));
+    }
+
+    /// <summary>§3.3: any negative component to <c>DetectHRD</c> throws ArgumentOutOfRangeException.</summary>
+    [TestCase(-1, 0, 0)]
+    [TestCase(0, -1, 0)]
+    [TestCase(0, 0, -1)]
+    [Category("Property")]
+    public void Hrd_DetectHRD_NegativeComponent_Throws(int loh, int tai, int lst)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.DetectHRD(new OncologyAnalyzer.HrdComponents(loh, tai, lst)));
+    }
+
+    /// <summary>§3.3: a negative score to <c>ClassifyHRDStatus</c> throws ArgumentOutOfRangeException.</summary>
+    [TestCase(-1)]
+    [TestCase(-42)]
+    [Category("Property")]
+    public void Hrd_ClassifyHRDStatus_NegativeScore_Throws(int score)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyHRDStatus(score));
+    }
+
+    #endregion
 }
