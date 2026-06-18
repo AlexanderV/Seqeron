@@ -14,7 +14,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// self-consistent-but-wrong production constant is still caught.
 ///
 /// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001, ONCO-VAF-001, ONCO-DRIVER-001,
-/// ONCO-ARTIFACT-001
+/// ONCO-ARTIFACT-001, ONCO-ANNOT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -2307,6 +2307,454 @@ public class OncologyProperties
     public void Artifact_StrandBias_NegativeCount_Throws()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateStrandBias(-1, 0, 0, 0));
+    }
+
+    #endregion
+
+    #region ONCO-ANNOT-001 — Cancer Variant Annotation (AMP/ASCO/CAP 2017 Tiers)
+
+    // -------------------------------------------------------------------------
+    // Independent theory oracle — the AMP/ASCO/CAP 2017 Level→Tier cascade
+    // (Li MM et al. 2017, J Mol Diagn 19(1):4–23, Figure 2 / Tables 6–7).
+    //
+    // NOTE on the checklist row: the loose row text reads "R: consequence ∈ SO
+    // vocabulary", but Cancer_Variant_Annotation.md classifies into the four-member
+    // AMP/ASCO/CAP VariantTier vocabulary, not Sequence-Ontology consequences. We
+    // therefore map "R" to the documented contract: tier ∈ {TierI,TierII,TierIII,
+    // TierIV} (INV-01, total/exhaustive). The remaining rows (P: annotation preserves
+    // the variant; D: deterministic) are honoured verbatim.
+    //
+    // The 0.01 benign cutoff is a LOCAL literal here (not routed through the
+    // production constant) so a wrong production constant is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// AMP/ASCO/CAP 2017 benign population-frequency cutoff (1%), transcribed LITERALLY from the
+    /// guideline ("the work group recommends using 1% (0.01) as a primary cutoff"). Kept as a local
+    /// literal so a wrong production constant is not silently mirrored into the oracle.
+    /// </summary>
+    private const double AnnotBenignMafCutoff = 0.01;
+
+    /// <summary>
+    /// Independent Level→Tier cascade transcribed from Cancer_Variant_Annotation.md §4.1 / §4.2
+    /// (Li et al. 2017, Figure 2): Level A or B ⇒ Tier I; Level C or D ⇒ Tier II; otherwise (no level)
+    /// MAF ≥ 0.01 OR no cancer association ⇒ Tier IV; otherwise Tier III. Recomputed without calling the
+    /// production classifier, so a wrong production rule is caught.
+    /// </summary>
+    private static OncologyAnalyzer.VariantTier ExpectedTier(
+        OncologyAnalyzer.ClinicalEvidenceLevel level, double maf, bool hasCancerAssociation)
+    {
+        if (level is OncologyAnalyzer.ClinicalEvidenceLevel.A or OncologyAnalyzer.ClinicalEvidenceLevel.B)
+        {
+            return OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance;
+        }
+
+        if (level is OncologyAnalyzer.ClinicalEvidenceLevel.C or OncologyAnalyzer.ClinicalEvidenceLevel.D)
+        {
+            return OncologyAnalyzer.VariantTier.TierII_PotentialClinicalSignificance;
+        }
+
+        if (maf >= AnnotBenignMafCutoff || !hasCancerAssociation)
+        {
+            return OncologyAnalyzer.VariantTier.TierIV_BenignOrLikelyBenign;
+        }
+
+        return OncologyAnalyzer.VariantTier.TierIII_UnknownClinicalSignificance;
+    }
+
+    /// <summary>The four members of the controlled <see cref="OncologyAnalyzer.VariantTier"/> vocabulary.</summary>
+    private static readonly OncologyAnalyzer.VariantTier[] AnnotTierVocabulary =
+    {
+        OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance,
+        OncologyAnalyzer.VariantTier.TierII_PotentialClinicalSignificance,
+        OncologyAnalyzer.VariantTier.TierIII_UnknownClinicalSignificance,
+        OncologyAnalyzer.VariantTier.TierIV_BenignOrLikelyBenign,
+    };
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>All five evidence levels, including None, so every cascade branch is reachable.</summary>
+    private static readonly OncologyAnalyzer.ClinicalEvidenceLevel[] AnnotEvidenceLevels =
+    {
+        OncologyAnalyzer.ClinicalEvidenceLevel.None,
+        OncologyAnalyzer.ClinicalEvidenceLevel.A,
+        OncologyAnalyzer.ClinicalEvidenceLevel.B,
+        OncologyAnalyzer.ClinicalEvidenceLevel.C,
+        OncologyAnalyzer.ClinicalEvidenceLevel.D,
+    };
+
+    /// <summary>Small gene-symbol pool for variant generation and COSMIC-key collisions.</summary>
+    private static readonly string[] AnnotGenes = { "BRAF", "KRAS", "EGFR", "TP53", "PIK3CA" };
+
+    /// <summary>Small protein-change pool (HGVS p.-notation).</summary>
+    private static readonly string[] AnnotProteinChanges = { "p.V600E", "p.G12D", "p.L858R", "p.R175H" };
+
+    /// <summary>
+    /// Generates a contract-valid MAF in [0, 1] with deliberate emphasis on the 0.01 cutoff boundary:
+    /// the exact cutoff (0.01), just below (0.0099), 0.0, 1.0, and a dense band of values straddling
+    /// the threshold, plus a uniform sweep over the full range.
+    /// </summary>
+    private static Gen<double> AnnotMafGen() =>
+        Gen.Frequency(
+            (1, Gen.Constant(0.0)),
+            (1, Gen.Constant(1.0)),
+            (1, Gen.Constant(AnnotBenignMafCutoff)),                // exactly 0.01 ⇒ Tier IV
+            (1, Gen.Constant(0.0099)),                              // just below ⇒ III/IV by assoc
+            (2, Gen.Choose(0, 200).Select(p => p / 10000.0)),       // dense band [0, 0.02]
+            (2, Gen.Choose(0, 10000).Select(p => p / 10000.0)));    // uniform [0, 1]
+
+    /// <summary>Generates a fully-populated, contract-valid variant spanning all branches of the cascade.</summary>
+    private static Arbitrary<OncologyAnalyzer.CancerVariantAnnotationInput> AnnotVariantArbitrary() =>
+        (from gene in Gen.Elements(AnnotGenes)
+         from change in Gen.Elements(AnnotProteinChanges)
+         from level in Gen.Elements(AnnotEvidenceLevels)
+         from maf in AnnotMafGen()
+         from assoc in Gen.Elements(true, false)
+         select new OncologyAnalyzer.CancerVariantAnnotationInput(gene, change, level, maf, assoc))
+        .ToArbitrary();
+
+    /// <summary>Generates a batch (0..12) of contract-valid variants, order-preserving.</summary>
+    private static Arbitrary<OncologyAnalyzer.CancerVariantAnnotationInput[]> AnnotVariantListArbitrary() =>
+        (from n in Gen.Choose(0, 12)
+         from arr in AnnotVariantArbitrary().Generator.ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates a variant restricted to evidence level A or B (so the oracle expects Tier I regardless
+    /// of MAF / association), paired with a random MAF and association flag to prove INV-02 independence.
+    /// </summary>
+    private static Arbitrary<OncologyAnalyzer.CancerVariantAnnotationInput> AnnotTierIVariantArbitrary() =>
+        (from gene in Gen.Elements(AnnotGenes)
+         from change in Gen.Elements(AnnotProteinChanges)
+         from level in Gen.Elements(
+             OncologyAnalyzer.ClinicalEvidenceLevel.A, OncologyAnalyzer.ClinicalEvidenceLevel.B)
+         from maf in AnnotMafGen()
+         from assoc in Gen.Elements(true, false)
+         select new OncologyAnalyzer.CancerVariantAnnotationInput(gene, change, level, maf, assoc))
+        .ToArbitrary();
+
+    /// <summary>Generates a variant restricted to evidence level C or D (oracle: Tier II regardless of MAF/assoc).</summary>
+    private static Arbitrary<OncologyAnalyzer.CancerVariantAnnotationInput> AnnotTierIIVariantArbitrary() =>
+        (from gene in Gen.Elements(AnnotGenes)
+         from change in Gen.Elements(AnnotProteinChanges)
+         from level in Gen.Elements(
+             OncologyAnalyzer.ClinicalEvidenceLevel.C, OncologyAnalyzer.ClinicalEvidenceLevel.D)
+         from maf in AnnotMafGen()
+         from assoc in Gen.Elements(true, false)
+         select new OncologyAnalyzer.CancerVariantAnnotationInput(gene, change, level, maf, assoc))
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // Tier classification (INV-01, INV-02, INV-03 / R: tier ∈ vocabulary)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-01/INV-03 (R: tier ∈ the four-member VariantTier vocabulary): <c>ClassifyVariantTier</c> matches
+    /// the independent Level→Tier cascade EXACTLY over generators spanning every evidence level (incl. None),
+    /// MAF ∈ [0,1] with boundary emphasis (0.01 / 0.0099), and both association flags. The cascade is total,
+    /// so this also proves the result is always one of the four tiers.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_ClassifyTier_MatchesCascadeOracle()
+    {
+        return Prop.ForAll(AnnotVariantArbitrary(), v =>
+        {
+            var tier = OncologyAnalyzer.ClassifyVariantTier(v);
+            var expected = ExpectedTier(v.EvidenceLevel, v.PopulationMaf, v.HasCancerAssociation);
+            return (tier == expected)
+                .Label($"level={v.EvidenceLevel}, maf={v.PopulationMaf}, assoc={v.HasCancerAssociation}: " +
+                       $"got {tier}, expected {expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-01 (exhaustive/total): for any contract-valid variant, <c>ClassifyVariantTier</c> returns a value
+    /// that is a member of the four-element <see cref="OncologyAnalyzer.VariantTier"/> vocabulary.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_ClassifyTier_AlwaysInControlledVocabulary()
+    {
+        return Prop.ForAll(AnnotVariantArbitrary(), v =>
+        {
+            var tier = OncologyAnalyzer.ClassifyVariantTier(v);
+            return AnnotTierVocabulary.Contains(tier).Label($"tier {tier} not in VariantTier vocabulary");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (Level A/B ⇒ Tier I, independent of MAF / association): driven with RANDOM MAF and association,
+    /// a level-A/B variant is always Tier I — proving the tier depends only on the evidence level here.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_LevelAB_AlwaysTierI_RegardlessOfMafAndAssociation()
+    {
+        return Prop.ForAll(AnnotTierIVariantArbitrary(), v =>
+        {
+            var tier = OncologyAnalyzer.ClassifyVariantTier(v);
+            return (tier == OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance)
+                .Label($"level={v.EvidenceLevel}, maf={v.PopulationMaf}, assoc={v.HasCancerAssociation}: got {tier}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (Level C/D ⇒ Tier II, independent of MAF / association): driven with RANDOM MAF and association,
+    /// a level-C/D variant is always Tier II.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_LevelCD_AlwaysTierII_RegardlessOfMafAndAssociation()
+    {
+        return Prop.ForAll(AnnotTierIIVariantArbitrary(), v =>
+        {
+            var tier = OncologyAnalyzer.ClassifyVariantTier(v);
+            return (tier == OncologyAnalyzer.VariantTier.TierII_PotentialClinicalSignificance)
+                .Label($"level={v.EvidenceLevel}, maf={v.PopulationMaf}, assoc={v.HasCancerAssociation}: got {tier}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Batch annotation (P: annotation preserves the variant + input order)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P (annotation preserves the variant / order, §3.2): <c>AnnotateCancerVariants</c> returns exactly one
+    /// annotation per input, in input order, each preserving the input variant VERBATIM (Gene, ProteinChange,
+    /// EvidenceLevel, PopulationMaf, HasCancerAssociation) with <c>Tier == ClassifyVariantTier(thatInput)</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_Annotate_PreservesVariantAndOrderWithMatchingTier()
+    {
+        return Prop.ForAll(AnnotVariantListArbitrary(), variants =>
+        {
+            var annotations = OncologyAnalyzer.AnnotateCancerVariants(variants);
+
+            bool countOk = annotations.Count == variants.Length;
+            bool allOk = countOk && variants
+                .Select((v, i) => annotations[i].Variant.Equals(v)
+                    && annotations[i].Tier == OncologyAnalyzer.ClassifyVariantTier(v))
+                .All(ok => ok);
+
+            return allOk.Label($"count={annotations.Count}/{variants.Length}, perItem preserved+tier-matched={allOk}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // COSMIC lookup (exact ordinal (gene, proteinChange) key)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// §3.3 / §5.2: <c>GetCOSMICAnnotation</c> returns the catalog value on an exact (Gene, ProteinChange)
+    /// hit and <c>null</c> on a miss. Built by seeding the catalog with the variant's own key, so a hit is
+    /// guaranteed and the returned value equals the seeded id.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_Cosmic_ReturnsSeededValueOnExactHit()
+    {
+        return Prop.ForAll(AnnotVariantArbitrary(), v =>
+        {
+            var catalog = new Dictionary<(string Gene, string ProteinChange), string>
+            {
+                [(v.Gene, v.ProteinChange)] = "COSV-SEED",
+            };
+            return (OncologyAnalyzer.GetCOSMICAnnotation(v, catalog) == "COSV-SEED")
+                .Label($"hit on ({v.Gene},{v.ProteinChange})");
+        });
+    }
+
+    /// <summary>
+    /// §6.1 (catalog miss ⇒ null): against an EMPTY catalog, <c>GetCOSMICAnnotation</c> always returns null.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_Cosmic_ReturnsNullOnMiss()
+    {
+        var empty = new Dictionary<(string Gene, string ProteinChange), string>();
+        return Prop.ForAll(AnnotVariantArbitrary(), v =>
+            (OncologyAnalyzer.GetCOSMICAnnotation(v, empty) == null)
+                .Label($"expected null for ({v.Gene},{v.ProteinChange})"));
+    }
+
+    /// <summary>
+    /// §3.3 ordinal (case-sensitive) key equality: a catalog keyed by an UPPER-cased gene does not match a
+    /// variant whose gene differs only in case ⇒ <c>null</c> (no case-folding).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_Cosmic_IsOrdinalCaseSensitive()
+    {
+        // Genes in the pool are upper-case; a lower-cased gene is a distinct ordinal key.
+        return Prop.ForAll(AnnotVariantArbitrary(), v =>
+        {
+            string lowered = v.Gene.ToLowerInvariant();
+            return Prop.When(!string.Equals(lowered, v.Gene, StringComparison.Ordinal), () =>
+            {
+                var catalog = new Dictionary<(string Gene, string ProteinChange), string>
+                {
+                    [(v.Gene, v.ProteinChange)] = "COSV-SEED",
+                };
+                var lowerVariant = v with { Gene = lowered };
+                return (OncologyAnalyzer.GetCOSMICAnnotation(lowerVariant, catalog) == null)
+                    .Label($"case-differing gene '{lowered}' vs key '{v.Gene}' should miss");
+            });
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D — determinism
+    // -------------------------------------------------------------------------
+
+    /// <summary>D (determinism): identical input ⇒ identical tier, annotation list, and COSMIC result.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Annot_Deterministic()
+    {
+        return Prop.ForAll(AnnotVariantListArbitrary(), variants =>
+        {
+            var tiers1 = variants.Select(OncologyAnalyzer.ClassifyVariantTier).ToArray();
+            var tiers2 = variants.Select(OncologyAnalyzer.ClassifyVariantTier).ToArray();
+
+            var ann1 = OncologyAnalyzer.AnnotateCancerVariants(variants);
+            var ann2 = OncologyAnalyzer.AnnotateCancerVariants(variants);
+
+            var catalog = new Dictionary<(string Gene, string ProteinChange), string>
+            {
+                [("BRAF", "p.V600E")] = "COSV56056643",
+            };
+            var cos1 = variants.Select(v => OncologyAnalyzer.GetCOSMICAnnotation(v, catalog)).ToArray();
+            var cos2 = variants.Select(v => OncologyAnalyzer.GetCOSMICAnnotation(v, catalog)).ToArray();
+
+            return (tiers1.SequenceEqual(tiers2)
+                    && ann1.SequenceEqual(ann2)
+                    && cos1.SequenceEqual(cos2))
+                .Label($"n={variants.Length}: tiers/annotations/cosmic stable across repeats");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation and worked-example anchors (§3.3, §6.1, §7.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>§3.3: PopulationMaf NaN ⇒ <c>ArgumentOutOfRangeException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Maf_NaN_Throws()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.None, double.NaN, true);
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyVariantTier(v));
+    }
+
+    /// <summary>§3.3: PopulationMaf &lt; 0 ⇒ <c>ArgumentOutOfRangeException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Maf_Negative_Throws()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.None, -0.01, true);
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyVariantTier(v));
+    }
+
+    /// <summary>§3.3: PopulationMaf &gt; 1 ⇒ <c>ArgumentOutOfRangeException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Maf_AboveOne_Throws()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.None, 1.5, true);
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyVariantTier(v));
+    }
+
+    /// <summary>§3.3: a null variants batch ⇒ <c>ArgumentNullException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Annotate_NullBatch_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.AnnotateCancerVariants(null!));
+    }
+
+    /// <summary>§3.3: an empty batch ⇒ an empty annotation list.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Annotate_EmptyBatch_IsEmpty()
+    {
+        Assert.That(
+            OncologyAnalyzer.AnnotateCancerVariants(
+                Array.Empty<OncologyAnalyzer.CancerVariantAnnotationInput>()),
+            Is.Empty);
+    }
+
+    /// <summary>§3.3: a null COSMIC catalog ⇒ <c>ArgumentNullException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_Cosmic_NullCatalog_Throws()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.A, 0.0, true);
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.GetCOSMICAnnotation(v, null!));
+    }
+
+    /// <summary>§6.1 anchor: Level A but high MAF ⇒ Tier I (categorized by evidence level).</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_LevelA_HighMaf_IsTierI()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.A, 0.95, false);
+        Assert.That(OncologyAnalyzer.ClassifyVariantTier(v),
+            Is.EqualTo(OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance));
+    }
+
+    /// <summary>§6.1 anchor: no level, MAF exactly 0.01 ⇒ Tier IV (cutoff is inclusive).</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_NoLevel_MafExactlyCutoff_IsTierIV()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "TP53", "p.R175H", OncologyAnalyzer.ClinicalEvidenceLevel.None, 0.01, true);
+        Assert.That(OncologyAnalyzer.ClassifyVariantTier(v),
+            Is.EqualTo(OncologyAnalyzer.VariantTier.TierIV_BenignOrLikelyBenign));
+    }
+
+    /// <summary>§6.1 anchor: no level, MAF 0.0099, cancer association ⇒ Tier III (below cutoff, associated).</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_NoLevel_JustBelowCutoff_WithAssociation_IsTierIII()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "TP53", "p.R175H", OncologyAnalyzer.ClinicalEvidenceLevel.None, 0.0099, true);
+        Assert.That(OncologyAnalyzer.ClassifyVariantTier(v),
+            Is.EqualTo(OncologyAnalyzer.VariantTier.TierIII_UnknownClinicalSignificance));
+    }
+
+    /// <summary>§6.1 anchor: no level, low MAF, no cancer association ⇒ Tier IV.</summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_NoLevel_LowMaf_NoAssociation_IsTierIV()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "TP53", "p.R175H", OncologyAnalyzer.ClinicalEvidenceLevel.None, 0.0, false);
+        Assert.That(OncologyAnalyzer.ClassifyVariantTier(v),
+            Is.EqualTo(OncologyAnalyzer.VariantTier.TierIV_BenignOrLikelyBenign));
+    }
+
+    /// <summary>
+    /// §7.1 worked example: BRAF p.V600E Level A ⇒ Tier I, and the COSMIC lookup returns the catalog id.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Annot_BrafV600E_WorkedExample_Anchor()
+    {
+        var v = new OncologyAnalyzer.CancerVariantAnnotationInput(
+            "BRAF", "p.V600E", OncologyAnalyzer.ClinicalEvidenceLevel.A, 0.0, true);
+        var catalog = new Dictionary<(string Gene, string ProteinChange), string>
+        {
+            [("BRAF", "p.V600E")] = "COSV56056643",
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.ClassifyVariantTier(v),
+                Is.EqualTo(OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance));
+            Assert.That(OncologyAnalyzer.GetCOSMICAnnotation(v, catalog), Is.EqualTo("COSV56056643"));
+        });
     }
 
     #endregion
