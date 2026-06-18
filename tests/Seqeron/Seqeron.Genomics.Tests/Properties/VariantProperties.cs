@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for variant calling and annotation (VariantCaller).
 ///
-/// Test Units: VARIANT-ANNOT-001
+/// Test Units: VARIANT-ANNOT-001, VARIANT-CALL-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -108,6 +108,92 @@ public class VariantProperties
             var b = VariantCaller.AnnotateVariants(new DnaSequence(r), new DnaSequence(q)).ToList();
             return (a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second))
                 .Label("AnnotateVariants must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region VARIANT-CALL-001: P: variants only where sequences differ; R: positions valid; D: deterministic
+
+    // CallVariants aligns reference and query then emits a variant at each differing alignment column.
+    // (There is no read pileup/depth model here, so the checklist's depth→confidence is N/A.)
+
+    /// <summary>Two gap-free DNA sequences of equal length L (12..18).</summary>
+    private static Arbitrary<(string a, string b)> EqualLengthPairArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int len = 12 + rng.Next(7);
+            return (RandDna(rng, len), RandDna(rng, len));
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): a sequence compared to itself produces no variants.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Call_Identity_HasNoVariants()
+    {
+        return Prop.ForAll(EqualLengthPairArbitrary(), input =>
+        {
+            var (a, _) = input;
+            return GenomicCallEmpty(a).Label("identical sequences produced variants");
+        });
+    }
+
+    private static bool GenomicCallEmpty(string a) =>
+        !VariantCaller.CallVariants(new DnaSequence(a), new DnaSequence(a)).Any();
+
+    /// <summary>
+    /// INV-2 (P + R): over a gap-free alignment, variants are exactly the differing columns — each is a
+    /// SNP at the differing position with the correct reference/alternate bases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Call_FromAlignment_OnlyAtDifferences()
+    {
+        return Prop.ForAll(EqualLengthPairArbitrary(), input =>
+        {
+            var (a, b) = input;
+            var variants = VariantCaller.CallVariantsFromAlignment(a, b).ToList();
+            var expectedPositions = Enumerable.Range(0, a.Length).Where(i => a[i] != b[i]).ToList();
+
+            bool positionsMatch = variants.Select(v => v.Position).SequenceEqual(expectedPositions);
+            bool wellFormed = variants.All(v =>
+                v.Type == VariantType.SNP &&
+                v.Position >= 0 && v.Position < a.Length &&
+                v.ReferenceAllele == a[v.Position].ToString() &&
+                v.AlternateAllele == b[v.Position].ToString());
+            return (positionsMatch && wellFormed).Label("variants were not exactly the differing columns");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (R): every called variant has a position within the reference span.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Call_Positions_AreValid()
+    {
+        return Prop.ForAll(SeqPairArbitrary(), input =>
+        {
+            var (r, q) = input;
+            var variants = VariantCaller.CallVariants(new DnaSequence(r), new DnaSequence(q)).ToList();
+            return variants.All(v => v.Position >= 0 && v.Position <= r.Length)
+                .Label("a variant position was out of range");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Variant calling is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Call_IsDeterministic()
+    {
+        return Prop.ForAll(SeqPairArbitrary(), input =>
+        {
+            var (r, q) = input;
+            var a = VariantCaller.CallVariants(new DnaSequence(r), new DnaSequence(q)).ToList();
+            var b = VariantCaller.CallVariants(new DnaSequence(r), new DnaSequence(q)).ToList();
+            return (a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second))
+                .Label("CallVariants must be deterministic");
         });
     }
 

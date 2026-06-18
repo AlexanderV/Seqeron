@@ -216,7 +216,7 @@ Property-based testing генерирует сотни случайных вхо
 | 184 | ☑ | EPIGEN-DMR-001 | Epigenetics | R: region start < end; M: lower threshold → ≥ DMRs; P: |Δmethylation| ≥ threshold; D: deterministic | EpigeneticsProperties.cs (new) |
 | 185 | ☑ | EPIGEN-METHYL-001 | Epigenetics | R: methylation level ∈ [0,1]; P: = methylated/total; D: deterministic | EpigeneticsProperties.cs (new) |
 | 186 | ☑ | VARIANT-ANNOT-001 | Variants | R: impact ∈ ordered categories; P: annotation preserves position; D: deterministic | VariantProperties.cs (new) |
-| 187 | ☐ | VARIANT-CALL-001 | Variants | R: positions valid; P: called only where pileup differs from ref; M: higher depth → ≥ confidence; D: deterministic | VariantProperties.cs (new) |
+| 187 | ☑ | VARIANT-CALL-001 | Variants | R: positions valid; P: called only where pileup differs from ref; M: higher depth → ≥ confidence; D: deterministic | VariantProperties.cs (new) |
 | 188 | ☐ | VARIANT-INDEL-001 | Variants | R: indel length > 0; P: ref and alt lengths differ; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 189 | ☐ | VARIANT-SNP-001 | Variants | P: ref/alt single bases, ref≠alt; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | P: each gene in exactly one cluster; M: lower identity → ≥ merging; D: deterministic | PanGenomeProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 186 |
-| ☐ Not started | 48 |
+| ☑ Complete | 187 |
+| ☐ Not started | 47 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
