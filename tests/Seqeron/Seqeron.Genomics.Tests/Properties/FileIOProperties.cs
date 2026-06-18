@@ -732,12 +732,316 @@ public class FileIOProperties
 
     #region PARSE-EMBL-001: RT: round-trip; P: ID line present; P: sequence preserved; D: deterministic
 
+    // ------------------------------------------------------------------ //
+    // Theory & oracle.
+    //
+    // EmblParser is a core EMBL/INSDC reader; the doc (EMBL_Parsing.md §1, §6.2)
+    // states it is "a core EMBL/INSDC parser rather than a full-fidelity
+    // round-trip serializer" — there is NO EMBL writer. So the round-trip we can
+    // prove is construct→parse: we generate field VALUES, format them into
+    // CANONICAL EMBL text with correct 5-column line prefixes, and assert that
+    // EmblParser.Parse recovers each generated field. Every expected value is
+    // derived from the generated input (or the documented parse rule:
+    // "Sequence extraction keeps only letters from the SQ section and uppercases
+    // them" — §3.3), NEVER from running the parser first.
+    //
+    // ID-line grammar (EMBL_Parsing.md §2.2, EmblParser.ParseIdLine):
+    //   ID   ACCESSION; SV VERSION; TOPOLOGY; MOLECULE; DATA_CLASS; DIVISION; LENGTH BP.
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Bundle of generated EMBL field values feeding the construct→parse oracle.</summary>
+    private readonly record struct EmblFields(
+        string Accession,
+        string Version,
+        string Topology,
+        string MoleculeType,
+        string DataClass,
+        string Division,
+        int DeclaredLength,
+        string Description,
+        string Sequence);
+
+    // Controlled vocabularies, copied verbatim from EmblParser's Valid* sets so the
+    // generator only emits tokens the parser is documented to recognise.
+    private static readonly string[] EmblMolTypes =
+    {
+        "genomic DNA", "genomic RNA", "mRNA", "tRNA", "rRNA",
+        "other RNA", "other DNA", "transcribed RNA", "viral cRNA",
+        "unassigned DNA", "unassigned RNA"
+    };
+    private static readonly string[] EmblDataClasses =
+        { "CON", "PAT", "EST", "GSS", "HTC", "HTG", "WGS", "TSA", "STS", "STD" };
+    private static readonly string[] EmblDivisions =
+    {
+        "PHG", "ENV", "FUN", "HUM", "INV", "MAM", "VRT",
+        "MUS", "PLN", "PRO", "ROD", "SYN", "TGN", "UNC", "VRL"
+    };
+    private static readonly string[] EmblTopologies = { "linear", "circular" };
+
+    /// <summary>Generates an accession: a letters+digits token with no spaces or semicolons.</summary>
+    private static Gen<string> EmblAccessionGen() =>
+        from prefix in Gen.Elements("ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray()).NonEmptyListOf().Select(cs => cs.Take(3))
+        from digits in Gen.Choose(0, 999999)
+        select new string(prefix.ToArray()) + digits.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Generates a numeric sequence-version token (digit string).</summary>
+    private static Gen<string> EmblVersionGen() =>
+        Gen.Choose(0, 99).Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    /// <summary>Generates a single-word description token (letters only, no normalization ambiguity).</summary>
+    private static Gen<string> EmblDescriptionGen() =>
+        from cs in Gen.Elements("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray())
+            .NonEmptyListOf()
+        select new string(cs.Take(20).ToArray());
+
+    /// <summary>Generates an UPPERCASE A/C/G/T sequence (possibly empty).</summary>
+    private static Gen<string> EmblSequenceGen() =>
+        Gen.Elements('A', 'C', 'G', 'T').ListOf().Select(cs => new string(cs.ToArray()));
+
+    /// <summary>Generates a full bundle of EMBL field values.</summary>
+    private static Arbitrary<EmblFields> EmblFieldsArbitrary() =>
+        (from acc in EmblAccessionGen()
+         from ver in EmblVersionGen()
+         from topo in Gen.Elements(EmblTopologies)
+         from mol in Gen.Elements(EmblMolTypes)
+         from dc in Gen.Elements(EmblDataClasses)
+         from div in Gen.Elements(EmblDivisions)
+         from len in Gen.Choose(0, 1_000_000)
+         from desc in EmblDescriptionGen()
+         from seq in EmblSequenceGen()
+         select new EmblFields(acc, ver, topo, mol, dc, div, len, desc, seq)).ToArbitrary();
+
     /// <summary>
-    /// EMBL parsed record has non-empty sequence.
+    /// Formats field values into canonical EMBL text with correct 2-char-code + 3-space
+    /// (column-5) prefixes and the documented ID-line grammar. The SQ block uses the
+    /// continuation prefix (5 spaces) for sequence chunk lines.
+    /// </summary>
+    private static string BuildEmbl(EmblFields f)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("ID   ").Append(f.Accession).Append("; SV ").Append(f.Version)
+          .Append("; ").Append(f.Topology).Append("; ").Append(f.MoleculeType)
+          .Append("; ").Append(f.DataClass).Append("; ").Append(f.Division)
+          .Append("; ").Append(f.DeclaredLength.ToString(System.Globalization.CultureInfo.InvariantCulture))
+          .Append(" BP.\n");
+        sb.Append("XX\n");
+        sb.Append("AC   ").Append(f.Accession).Append(";\n");
+        sb.Append("XX\n");
+        sb.Append("DE   ").Append(f.Description).Append('\n');
+        sb.Append("XX\n");
+        sb.Append("SQ   Sequence ").Append(f.Sequence.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(" BP;\n");
+        // Sequence chunk lines: 5-space continuation prefix, 60 bases per line.
+        for (int i = 0; i < f.Sequence.Length; i += 60)
+        {
+            sb.Append("     ").Append(f.Sequence.Substring(i, Math.Min(60, f.Sequence.Length - i))).Append('\n');
+        }
+        sb.Append("//\n");
+        return sb.ToString();
+    }
+
+    /// <summary>The documented letters-only-uppercase projection (EMBL_Parsing.md §3.3).</summary>
+    private static string LettersUpper(string s) =>
+        new string(s.Where(char.IsLetter).Select(char.ToUpperInvariant).ToArray());
+
+    /// <summary>
+    /// INV (RT): construct→parse round-trip recovers EXACTLY one record whose ID-line
+    /// fields (accession, version, topology, molecule, data class, division, declared
+    /// length) equal the generated values. No serializer exists, so this is the only
+    /// honest round-trip; each expected value is the generated input itself.
+    /// Source: EMBL_Parsing.md §2.2, §3.2; EmblParser.ParseIdLine.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_ConstructParse_RecoversIdLineFields()
+    {
+        return Prop.ForAll(EmblFieldsArbitrary(), f =>
+        {
+            var recs = EmblParser.Parse(BuildEmbl(f)).ToList();
+            return (recs.Count == 1
+                    && recs[0].Accession == f.Accession
+                    && recs[0].SequenceVersion == f.Version
+                    && recs[0].Topology == f.Topology
+                    && recs[0].MoleculeType == f.MoleculeType
+                    && recs[0].DataClass == f.DataClass
+                    && recs[0].TaxonomicDivision == f.Division
+                    && recs[0].SequenceLength == f.DeclaredLength)
+                .Label($"ID-line round-trip mismatch for acc='{f.Accession}', got {recs.Count} record(s)");
+        });
+    }
+
+    /// <summary>
+    /// INV (RT): declared SequenceLength is read from the ID-line "… BP" token and is
+    /// INDEPENDENT of the actual sequence length (the generated declaredLength is random
+    /// and unrelated to seq.Length). Source: EmblParser.ParseIdLine / LengthRegex.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_ConstructParse_LengthFromIdLineNotSequence()
+    {
+        return Prop.ForAll(EmblFieldsArbitrary(), f =>
+        {
+            var recs = EmblParser.Parse(BuildEmbl(f)).ToList();
+            return (recs.Count == 1 && recs[0].SequenceLength == f.DeclaredLength)
+                .Label($"declared length {f.DeclaredLength} not recovered (seqLen={f.Sequence.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV (RT): Description from the DE line is recovered verbatim for a single-word
+    /// token (no JoinLines normalization ambiguity). Source: EmblParser.JoinLines.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_ConstructParse_RecoversDescription()
+    {
+        return Prop.ForAll(EmblFieldsArbitrary(), f =>
+        {
+            var recs = EmblParser.Parse(BuildEmbl(f)).ToList();
+            return (recs.Count == 1 && recs[0].Description == f.Description)
+                .Label($"description mismatch: expected '{f.Description}', got '{(recs.Count == 1 ? recs[0].Description : "<none>")}'");
+        });
+    }
+
+    /// <summary>
+    /// INV (P, sequence preserved): for a canonical SQ block of UPPERCASE A/C/G/T the
+    /// parsed sequence equals the generated sequence exactly. Source: EmblParser.ParseSequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_ConstructParse_PreservesSequence()
+    {
+        return Prop.ForAll(EmblFieldsArbitrary(), f =>
+        {
+            var recs = EmblParser.Parse(BuildEmbl(f)).ToList();
+            return (recs.Count == 1 && recs[0].Sequence == f.Sequence)
+                .Label($"sequence mismatch for acc='{f.Accession}'");
+        });
+    }
+
+    /// <summary>
+    /// INV (P, sequence preserved): injecting lowercase letters, spaces, digits and a
+    /// residue count into the SQ block does not change the parsed sequence — it equals
+    /// the letters-only, uppercased projection of the injected text. This proves
+    /// non-letters are dropped and case is normalized. Source: EMBL_Parsing.md §3.3, §6.1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_SqBlock_NonLettersDropped_AndUppercased()
+    {
+        // Generate "dirty" SQ payload lines: bases (mixed case) plus spaces/digits.
+        var dirtyArb =
+            (from cs in Gen.Elements('a', 'c', 'g', 't', 'A', 'C', 'G', 'T',
+                                     ' ', '0', '1', '2', '9').ListOf()
+             select new string(cs.ToArray())).ToArbitrary();
+
+        return Prop.ForAll(dirtyArb, payload =>
+        {
+            string content =
+                "ID   X1; SV 1; linear; genomic DNA; STD; STD; 0 BP.\n" +
+                "XX\n" +
+                "SQ   Sequence 0 BP;\n" +
+                "     " + payload + "        99\n" +
+                "//\n";
+            var recs = EmblParser.Parse(content).ToList();
+            string expected = LettersUpper(payload); // "99" residue count is on the same line → also stripped
+            return (recs.Count == 1 && recs[0].Sequence == expected)
+                .Label($"letters-only/upper projection failed for payload '{payload}': got '{(recs.Count == 1 ? recs[0].Sequence : "<none>")}', expected '{expected}'");
+        });
+    }
+
+    /// <summary>
+    /// INV (D, determinism): parsing identical content twice yields identical field values.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_Parsing_IsDeterministic()
+    {
+        return Prop.ForAll(EmblFieldsArbitrary(), f =>
+        {
+            string content = BuildEmbl(f);
+            var a = EmblParser.Parse(content).ToList();
+            var b = EmblParser.Parse(content).ToList();
+            bool ok = a.Count == b.Count;
+            for (int i = 0; ok && i < a.Count; i++)
+            {
+                ok = a[i].Accession == b[i].Accession
+                     && a[i].SequenceVersion == b[i].SequenceVersion
+                     && a[i].Topology == b[i].Topology
+                     && a[i].MoleculeType == b[i].MoleculeType
+                     && a[i].DataClass == b[i].DataClass
+                     && a[i].TaxonomicDivision == b[i].TaxonomicDivision
+                     && a[i].SequenceLength == b[i].SequenceLength
+                     && a[i].Description == b[i].Description
+                     && a[i].Sequence == b[i].Sequence;
+            }
+            return ok.Label($"non-deterministic parse for acc='{f.Accession}'");
+        });
+    }
+
+    /// <summary>
+    /// INV (Multi-record): two canonical records concatenated (each ending '//') parse
+    /// to two records with the respective accessions and sequences — proves the '\n//'
+    /// record split. Source: EmblParser.Parse split on "\n//".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Embl_TwoRecords_SplitOnTerminator()
+    {
+        var pairArb =
+            (from a in EmblFieldsArbitrary().Generator
+             from b in EmblFieldsArbitrary().Generator
+             select (a, b)).ToArbitrary();
+
+        return Prop.ForAll(pairArb, pair =>
+        {
+            var (a, b) = pair;
+            string content = BuildEmbl(a) + BuildEmbl(b);
+            var recs = EmblParser.Parse(content).ToList();
+            return (recs.Count == 2
+                    && recs[0].Accession == a.Accession && recs[0].Sequence == a.Sequence
+                    && recs[1].Accession == b.Accession && recs[1].Sequence == b.Sequence)
+                .Label($"two-record split failed: got {recs.Count} record(s)");
+        });
+    }
+
+    // ------------------------------------------------------------------ //
+    // [Test]/[TestCase] anchors (case edges).
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Case (P, ID line present): a block WITH an ID line yields exactly one record;
+    /// a block WITHOUT an ID line (starts with AC/DE/SQ) yields NO records.
+    /// Source: EmblParser.Parse keeps only blocks starting with "ID".
     /// </summary>
     [Test]
     [Category("Property")]
-    public void Embl_ParsedRecord_HasSequence()
+    [TestCase("ID   AB1; SV 1; linear; genomic DNA; STD; STD; 4 BP.\nSQ   Sequence 4 BP;\n     acgt\n//\n", 1)]
+    [TestCase("AC   AB1;\nDE   no id line\nSQ   Sequence 4 BP;\n     acgt\n//\n", 0)]
+    [TestCase("DE   only a description\n//\n", 0)]
+    [TestCase("SQ   Sequence 4 BP;\n     acgt\n//\n", 0)]
+    public void Embl_IdLineRequired(string content, int expectedRecordCount)
+    {
+        var recs = EmblParser.Parse(content).ToList();
+        Assert.That(recs, Has.Count.EqualTo(expectedRecordCount),
+            "Only blocks beginning with an ID line yield records");
+    }
+
+    /// <summary>
+    /// Case (edge): null / empty / whitespace content yields no records.
+    /// Source: EmblParser.Parse early-return guard on null-or-empty.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    [TestCase(null)]
+    [TestCase("")]
+    public void Embl_EmptyOrNull_YieldsNoRecords(string? content)
+    {
+        Assert.That(EmblParser.Parse(content!).ToList(), Is.Empty);
+    }
+
+    /// <summary>
+    /// Anchor: the literal EMBL example from the doc / former weak test parses to one
+    /// record with the expected fields and the lowercase sequence uppercased.
+    /// Note: the example's division token "UNK" is NOT in the EMBL division vocabulary
+    /// (which has "UNC"), so per ParseIdLine the parsed TaxonomicDivision is empty —
+    /// asserted here to document that documented-vocabulary behavior exactly.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Embl_DocExample_ParsesExpectedFields()
     {
         string emblContent =
             "ID   TEST001; SV 1; linear; genomic DNA; STD; UNK; 10 BP.\n" +
@@ -751,8 +1055,20 @@ public class FileIOProperties
             "//\n";
         var records = EmblParser.Parse(emblContent).ToList();
 
-        foreach (var r in records)
-            Assert.That(r.Sequence, Is.Not.Null.And.Not.Empty, "EMBL sequence should not be empty");
+        Assert.That(records, Has.Count.EqualTo(1));
+        var r = records[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Accession, Is.EqualTo("TEST001"));
+            Assert.That(r.SequenceVersion, Is.EqualTo("1"));
+            Assert.That(r.Topology, Is.EqualTo("linear"));
+            Assert.That(r.MoleculeType, Is.EqualTo("genomic DNA"));
+            Assert.That(r.DataClass, Is.EqualTo("STD"));
+            Assert.That(r.TaxonomicDivision, Is.EqualTo(""), "UNK is not a valid EMBL division (UNC is)");
+            Assert.That(r.SequenceLength, Is.EqualTo(10));
+            Assert.That(r.Description, Is.EqualTo("Test sequence."));
+            Assert.That(r.Sequence, Is.EqualTo("ACGTACGTAC"), "lowercase sequence is uppercased, count stripped");
+        });
     }
 
     #endregion

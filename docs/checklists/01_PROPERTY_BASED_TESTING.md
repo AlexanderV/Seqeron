@@ -99,7 +99,7 @@ Property-based testing генерирует сотни случайных вхо
 | 67 | ☑ | PARSE-VCF-001 | FileIO | R: pos > 0; P: ref allele non-empty; R: qual ≥ 0 or missing; D: deterministic | FileIOProperties.cs |
 | 68 | ☑ | PARSE-GFF-001 | FileIO | RT: round-trip; R: start ≤ end; R: strand ∈ {+,-,.}; D: deterministic | FileIOProperties.cs |
 | 69 | ☑ | PARSE-GENBANK-001 | FileIO | RT: round-trip; P: locus line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
-| 70 | ☐ | PARSE-EMBL-001 | FileIO | RT: round-trip; P: ID line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
+| 70 | ☑ | PARSE-EMBL-001 | FileIO | RT: round-trip; P: ID line present; P: sequence preserved; D: deterministic | FileIOProperties.cs |
 | 71 | ☑ | RNA-STRUCT-001 | RnaStructure | R: pairs count ≤ len/2; P: no crossing pairs (Nussinov); P: paired bases complementary; D: deterministic | RnaStructureProperties.cs |
 | 72 | ☑ | RNA-STEMLOOP-001 | RnaStructure | R: stem len > 0; P: loop len ≥ minLoop; P: stem arms complementary; D: deterministic | RnaStructureProperties.cs |
 | 73 | ☑ | RNA-ENERGY-001 | RnaStructure | R: ΔG ≤ 0 for stable structures; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 79 |
-| ☐ Not started | 147 |
+| ☑ Complete | 80 |
+| ☐ Not started | 146 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
