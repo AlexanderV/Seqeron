@@ -3,7 +3,7 @@
 **Priority:** P2  
 **Framework:** ArchUnitNET  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 94
 
 ---
 
@@ -150,6 +150,14 @@ Architecture тесты предотвращают архитектурный д
 | 84 | PROTMOTIF-DOMAIN-001 | ProteinMotif | Analysis | Core !→ Analysis |
 | 85 | EPIGEN-CPG-001 | Epigenetics | Analysis | Core !→ Analysis |
 | 86 | ONCO-IMMUNE-001 | Oncology | Oncology | Core !→ Oncology, IO !→ Oncology |
+| 87 | SEQ-CODON-FREQ-001 | Statistics | Analysis | Core !→ Analysis |
+| 88 | SEQ-COMPLEX-COMPRESS-001 | Complexity | Analysis | Core !→ Analysis |
+| 89 | SEQ-COMPLEX-DUST-001 | Complexity | Analysis | Core !→ Analysis |
+| 90 | SEQ-COMPLEX-KMER-001 | Complexity | Analysis | Core !→ Analysis |
+| 91 | SEQ-COMPLEX-WINDOW-001 | Complexity | Analysis | Core !→ Analysis |
+| 92 | SEQ-ENTROPY-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
+| 93 | SEQ-GC-ANALYSIS-001 | Composition | Analysis | Core !→ Analysis |
+| 94 | SEQ-GC-PROFILE-001 | Statistics | Analysis | Core !→ Analysis |
 
 ---
 
@@ -157,7 +165,7 @@ Architecture тесты предотвращают архитектурный д
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 94 |
 | Module-level rules | 5 existing + 14 new = 19 |
 | Modules covered | 13 |
 | Existing rules ☑ | 5 |

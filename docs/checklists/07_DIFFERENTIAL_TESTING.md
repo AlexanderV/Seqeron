@@ -2,7 +2,7 @@
 
 **Priority:** P2
 **Date:** 2026-03-19
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -112,6 +112,154 @@ Differential testing сравнивает выходы двух независи
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | Domain predictor | HMM profile scan | Correlated domains |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | CpG island detector | Sliding window O/E calc | Same islands |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | Immune infiltration | ssGSEA manual calc | Correlated scores |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | Somatic caller | Mutect2-style manual calc | Concordant call set |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | VAF calc | alt/(ref+alt) by hand | Exact match |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | Driver scoring | OncoKB / dN-dS reference | Concordant driver ranking |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | Artifact filter | strand-bias formula | Same survivors |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | Variant annotation | VEP / SnpEff consequence | Same consequence class |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | TMB calc | count/Mb by hand | Exact match |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MSI detection | MSIsensor logic | Concordant MSI status |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score | LOH+TAI+LST reference | Same composite |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | LOH detection | BAF-deviation reference | Same regions |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | SBS context | manual trinucleotide assignment | Identical 96-vector |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | Signature fit | NNLS reference solver | Correlated exposures |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap CI | resampling by hand | Overlapping CIs |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | Process classify | argmax reference | Same dominant process |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | Fusion detection | STAR-Fusion-style logic | Concordant fusions |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion match | DB lookup | Same matches |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint frame | manual frame calc | Same in/out-of-frame |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | CN classification | log2→CN reference | Same CN class |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification | GISTIC-style threshold | Same focal calls |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion | CN≈0 reference | Same deletions |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | Purity estimate | ASCAT-style reference | Correlated purity |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | Ploidy estimate | weighted-CN reference | Correlated ploidy |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | Clonality | CCF-threshold reference | Same class |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | Neoantigen peptides | sliding-window reference | Same peptide set |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | MHC binding | NetMHC-style rank | Concordant binders |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ctDNA fraction | tumor-read fraction by hand | Correlated fraction |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MRD detection | tumor-informed reference | Same MRD status |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | CHIP filter | gene+VAF reference | Same flags |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | Tumor phylogeny | parsimony reference | Concordant topology |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | CCF estimate | VAF·CN/purity by hand | Match within tolerance |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | Heterogeneity | MATH formula | Exact MATH |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | HLA typing | OptiType-style reference | Concordant alleles |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability | OncoKB tier reference | Same tier |
+| 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV class | breakpoint-pattern reference | Same class |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier genes | z-score reference | Same outliers |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | Composition | manual count/length | Exact match |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | Dinucleotide freq | manual sliding count | Exact match |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | Hydrophobicity | Kyte-Doolittle by hand | Exact match |
+| 124 | ☐ | SEQ-MW-001 | Statistics | Molecular weight | residue-MW sum reference | Match within tolerance |
+| 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point | Henderson-Hasselbalch reference | Match within tolerance |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure | Chou-Fasman reference | Same assignment |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | Composition stats | manual calc | Exact match |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | manual calc | Exact match |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamics | nearest-neighbour reference | Match within tolerance |
+| 130 | ☐ | SEQ-TM-001 | Statistics | Tm | Marmur-Doty/Wallace by hand | Match within tolerance |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI | fastANI-style reference | Correlated ANI |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | Conserved clusters | identity-threshold reference | Same clusters |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | Genome comparison | manual metric calc | Concordant metrics |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | Dot plot | k-mer match reference | Same coordinates |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | Orthologs | OrthoFinder-style reference | Concordant pairs |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | RBH | BLAST-RBH reference | Same pairs |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | Rearrangements | breakpoint reference | Same breakpoints |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | Reversal distance | GRIMM-style reference | Exact distance |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks | MCScanX-style reference | Concordant blocks |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | Consensus | majority-vote by hand | Exact match |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Error correction | k-mer spectrum reference | Concordant reads |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage | total-bases/length by hand | Exact match |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | DBG assembly | Velvet-style reference | Concordant contigs |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Contig merge | overlap reference | Same merges |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC assembly | overlap-graph reference | Concordant contigs |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffolding | mate-pair reference | Same layout |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly stats | QUAST-style reference | Exact N50/L50 |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Quality trim | sliding-window reference | Same trimmed reads |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | Dot-bracket parse | manual pairing | Same pairs |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | Hairpin energy | Turner-rule reference | Match within tolerance |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | Inverted repeats | revcomp scan reference | Same repeats |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | MFE | Nussinov/Zuker reference | Match within tolerance |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | Base pairing | Watson-Crick+wobble table | Exact match |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | Partition function | McCaskill reference | Correlated probabilities |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | Pseudoknots | crossing-pair reference | Same detections |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | Async count | sync count | Exact match |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | Both-strand count | fwd+revcomp by hand | Exact match |
+| 158 | ☐ | KMER-DIST-001 | K-mer | K-mer distance | manual metric | Exact match |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | Generate k-mers | Cartesian product | Exact set |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | Positions | naive scan | Exact positions |
+| 161 | ☐ | KMER-STATS-001 | K-mer | K-mer stats | manual calc | Exact match |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | Unique k-mers | count==1 reference | Exact set |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | Coiled-coil | COILS-style reference | Concordant scores |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | Common motifs | naive enumeration | Same motifs |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | Low-complexity | SEG-style reference | Same regions |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | Pattern match | regex reference | Same matches |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | Signal peptide | SignalP-style reference | Concordant calls |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | TM helices | TMHMM-style reference | Concordant helices |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | Consensus | majority by hand | Exact consensus |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | Motif discovery | enumeration reference | Same motifs |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | Generate consensus | majority reference | Exact consensus |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | Regulatory elements | known-set reference | Same elements |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | Shared motifs | intersection reference | Same set |
+| 174 | ☐ | PAT-APPROX-003 | Matching | Best match | brute-force min distance | Exact distance |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | Common region | LCS reference | Same region |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | Known motifs | naive scan | Same hits |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | ORFs | NCBI ORFfinder logic | Same ORFs |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | Repeats | naive scan | Same repeats |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | Similarity | identity by hand | Match within tolerance |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | Tandem repeats | TRF-style reference | Concordant repeats |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | Epigenetic age | Horvath-clock reference | Match within tolerance |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | Bisulfite | manual C→T conversion | Exact match |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | Chromatin state | ChromHMM-style reference | Concordant states |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | DMR | t-test reference | Same regions |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | Methylation level | methylated/total by hand | Exact match |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | Variant annotation | VEP-style reference | Same impact |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | Variant calling | bcftools-style logic | Concordant calls |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | Indel calling | pileup reference | Same indels |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | SNP calling | pileup reference | Same SNPs |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | Gene clusters | CD-HIT-style reference | Concordant clusters |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | Pan-genome | Roary-style reference | Same core/accessory |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | Heaps' law | regression reference | Match within tolerance |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | Markers | core-gene reference | Same markers |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | Functions | KEGG-style reference | Concordant assignments |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | Pathway enrichment | hypergeometric reference | Match within tolerance |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | Resistance genes | CARD-style reference | Same hits |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | Significant taxa | LEfSe-style reference | Concordant taxa |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | Differential expr | DESeq-style reference | Correlated FC |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | Expression | TPM by hand | Match within tolerance |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | Alt splicing | PSI by hand | Match within tolerance |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | Breakpoints | split-read reference | Same breakpoints |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | CNV | read-depth reference | Concordant CN |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | SV detection | Manta-style reference | Concordant SVs |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | Low-complexity | SEG-style reference | Same regions |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | MoRF | ANCHOR-style reference | Concordant MoRFs |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | Propensity | IUPred-style reference | Correlated scores |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | Ancestry | ADMIXTURE-style reference | Correlated proportions |
+| 208 | ☐ | POP-ROH-001 | PopGen | ROH | PLINK-style reference | Same segments |
+| 209 | ☐ | POP-SELECT-001 | PopGen | Selection | iHS/Fst reference | Correlated signal |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | AT skew | (A−T)/(A+T) by hand | Exact match |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | Replication origin | skew-minimum reference | Same index |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | RNA complement | base table | Exact match |
+| 213 | ☐ | CODON-ENC-001 | Codon | ENC | Wright reference | Match within tolerance |
+| 214 | ☐ | CODON-RSCU-001 | Codon | RSCU | manual calc | Exact match |
+| 215 | ☐ | CODON-STATS-001 | Codon | Codon stats | manual calc | Exact match |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | Coding potential | CPC-style reference | Correlated score |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | Codon usage | manual calc | Exact match |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | Repetitive elements | naive scan | Same elements |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | Phred parse | ASCII−offset by hand | Exact match |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | Quality stats | manual calc | Exact match |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | Bootstrap | resampling reference | Concordant support |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | Tree stats | manual calc | Exact match |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Six-frame | manual translation | Exact frames |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | Filter sites | criteria reference | Same survivors |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | miRNA align | seed-pairing reference | Concordant alignment |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | Alignment stats | manual calc | Exact match |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Triplet scan | LINQ GroupBy | Exact frequencies |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Built-in compression estimate | GZip ratio | Ratio within tolerance |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST score | SDUST reference | Concordant score |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy | manual Shannon calc | Exact entropy |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Sliding window | naive per-window recompute | Identical profile |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
 
 ---
 
@@ -119,9 +267,9 @@ Differential testing сравнивает выходы двух независи
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
+| ☐ Not started | 234 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

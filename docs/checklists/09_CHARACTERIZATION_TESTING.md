@@ -2,7 +2,7 @@
 
 **Priority:** P3  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -119,6 +119,154 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | Domain predictions | Profile/HMM update |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | CpG island regions | O/E criteria change |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | Immune scores full output | Gene set / algorithm change |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | Somatic call set golden master | Caller logic / threshold change |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | VAF outputs for fixed pileups | Counting / rounding change |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | Driver list + scores | Scoring / gene-list change |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | Surviving variant set | Filter threshold change |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | Annotation records | Consequence rules / DB change |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | TMB value + class | Panel-size / counting change |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MSI status + loci | Threshold / locus-panel change |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score + components | Component formula change |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | LOH regions | BAF threshold change |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | 96-channel SBS matrix | Context-assignment change |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | Exposure vector | Fit algorithm change |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap CIs | Resampling / seed change |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | Process classification | Classification rule change |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | Fusion call set | Detection logic change |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion matches | DB change |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint / frame output | Frame logic change |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | CN classification | log2→CN mapping change |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification calls | Threshold change |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion calls | Threshold change |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | Purity estimate | Estimator change |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | Ploidy estimate | Estimator change |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | Clonality classification | CCF threshold change |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | Neoantigen peptides | Window / length change |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | Binding classification | Affinity model change |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ctDNA fraction + output | Estimator change |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MRD status | Detection threshold change |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | CHIP flags | Gene-list / VAF band change |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | Tumor phylogeny (Newick) | Reconstruction algorithm change |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | CCF estimates | Formula change |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | MATH / heterogeneity output | Metric change |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | HLA alleles | Typing algorithm change |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability tiers | Evidence DB / tier change |
+| 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV classification | Pattern rules change |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier gene list | z-score threshold change |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | Composition vector | Counting / normalization change |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | Dinucleotide table | Counting change |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | Hydrophobicity profile | Scale / window change |
+| 124 | ☐ | SEQ-MW-001 | Statistics | Molecular weight | Residue-mass table change |
+| 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point | pKa table change |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure assignment | Propensity table change |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | Composition statistics | Calculation change |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | Summary-field change |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamic parameters | NN-parameter change |
+| 130 | ☐ | SEQ-TM-001 | Statistics | Tm value | Formula change |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI matrix | Identity / k-mer method change |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | Conserved clusters | Threshold change |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | Comparison report | Metric change |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | Dot-plot coordinates | Word size change |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | Ortholog pairs | Detection algorithm change |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | RBH pairs | Scoring change |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | Rearrangement output | Breakpoint logic change |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | Reversal distance | Algorithm change |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks | minBlockSize / chaining change |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | Consensus sequence | Voting rule change |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Corrected reads | Correction threshold change |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage profile | Calculation change |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | De Bruijn contigs | k / graph-cleaning change |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Merged contigs | Overlap rule change |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC contigs | minOverlap change |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffold layout | Linking rule change |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly statistics | Metric-definition change |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Trimmed reads | Quality cutoff / window change |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | Parsed pairs | Notation / parser change |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | Hairpin energy | Energy model change |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | Inverted repeats | Detection logic change |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | MFE structure | Energy parameter change |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | Pairing table | Pairing rule change |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | Pair probabilities | Algorithm change |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | Pseudoknots | Detection logic change |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | Async counts | Counting change |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | Both-strand counts | Counting change |
+| 158 | ☐ | KMER-DIST-001 | K-mer | Distance value | Metric change |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | Generated set | Generation change |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | Positions | Indexing change |
+| 161 | ☐ | KMER-STATS-001 | K-mer | Statistics | Calculation change |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | Unique k-mers | Threshold change |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | Coiled-coil scores | Scoring change |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | Common motifs | Algorithm change |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | Low-complexity regions | Threshold change |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | Pattern matches | Pattern engine change |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | Signal-peptide call | Model change |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | TM helices | Threshold change |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | Consensus | Voting change |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | Discovered motifs | Algorithm change |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | Consensus | Tie-break change |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | Regulatory elements | Reference-set change |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | Shared motifs | Algorithm change |
+| 174 | ☐ | PAT-APPROX-003 | Matching | Best match | Distance metric change |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | Common region | Algorithm change |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | Motif hits | Reference change |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | ORF list | ORF rule change |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | Repeats | Parameter change |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | Similarity | Metric change |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | Tandem repeats | Parameter change |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | Age value | Clock model change |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | Converted sequence | Conversion rule change |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | Chromatin states | Model change |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | DMRs | Threshold change |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | Methylation | Calculation change |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | Annotations | Rule / DB change |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | Calls | Caller threshold change |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | Indels | Detection change |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | SNPs | Detection change |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | Clusters | Identity change |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | Core / accessory | Definition change |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | Heaps fit | Regression change |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | Markers | Selection change |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | Functions | DB change |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | Enrichment | Statistic change |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | Resistance hits | DB change |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | Significant taxa | Statistic change |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | DE table | Model change |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | Expression | Normalization change |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | Splicing | Algorithm change |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | Breakpoints | Detection change |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | CNV calls | Threshold change |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | SV calls | Detection change |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | Low-complexity regions | Threshold change |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | MoRFs | Model change |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | Propensity | Scale change |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | Ancestry | Model change |
+| 208 | ☐ | POP-ROH-001 | PopGen | ROH segments | Parameter change |
+| 209 | ☐ | POP-SELECT-001 | PopGen | Selection signal | Statistic change |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | AT-skew array | Calculation change |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | Origin | Method change |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | RNA complement | Mapping change |
+| 213 | ☐ | CODON-ENC-001 | Codon | ENC | Formula change |
+| 214 | ☐ | CODON-RSCU-001 | Codon | RSCU | Calculation change |
+| 215 | ☐ | CODON-STATS-001 | Codon | Statistics | Calculation change |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | Coding score | Model change |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | Codon usage | Calculation change |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | Repetitive elements | Parameter change |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | Phred scores | Offset change |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | Quality stats | Calculation change |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | Support values | Resampling change |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | Tree stats | Metric change |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Six frames | Table change |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | Filtered sites | Criteria change |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | Alignment | Pairing rule change |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | Statistics | Calculation change |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Codon frequencies for 10+ CDS | Counting optimization |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Compression ratios for edge seqs | Compression algorithm change |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST scores for edge seqs | Scoring change |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy for edge seqs | Entropy formula change |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Windowed complexity profile | Window-stepping optimization |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Entropy profile for edge seqs | Window-stepping optimization |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GC analysis for edge seqs | Span-based optimization |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | GC profile for edge seqs | Window-stepping optimization |
 
 ---
 
@@ -126,10 +274,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
-| Applies on-demand (before refactoring) | All 86 |
+| ☐ Not started | 234 |
+| Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |
