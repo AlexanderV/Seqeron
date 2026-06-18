@@ -132,7 +132,7 @@ Property-based testing генерирует сотни случайных вхо
 | 100 | ☑ | ONCO-FUSION-001 | Oncology | R: breakpoint positions valid; P: fusion joins two distinct genes; M: more split/spanning reads → higher confidence; D: deterministic | OncologyProperties.cs (new) |
 | 101 | ☑ | ONCO-FUSION-002 | Oncology | P: matched fusions ⊆ known DB; R: match ∈ {true,false}; D: deterministic | OncologyProperties.cs (new) |
 | 102 | ☑ | ONCO-FUSION-003 | Oncology | P: reading frame (in/out) correctly derived; R: breakpoint within gene bounds; D: deterministic | OncologyProperties.cs (new) |
-| 103 | ☐ | ONCO-CNA-001 | Oncology | R: copy number ≥ 0; M: higher log2-ratio → higher CN; P: CN=2 → neutral; D: deterministic | OncologyProperties.cs (new) |
+| 103 | ☑ | ONCO-CNA-001 | Oncology | R: copy number ≥ 0; M: higher log2-ratio → higher CN; P: CN=2 → neutral; D: deterministic | OncologyProperties.cs (new) |
 | 104 | ☐ | ONCO-CNA-002 | Oncology | P: focal segment length < arm-level cutoff; M: higher CN → amplified; R: positions valid; D: deterministic | OncologyProperties.cs (new) |
 | 105 | ☐ | ONCO-CNA-003 | Oncology | P: CN ≈ 0 over deletion; R: positions valid; M: higher CN threshold → ≤ deletions; D: deterministic | OncologyProperties.cs (new) |
 | 106 | ☐ | ONCO-PURITY-001 | Oncology | R: purity ∈ [0,1]; M: higher clonal VAF → higher purity; D: deterministic | OncologyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 102 |
-| ☐ Not started | 132 |
+| ☑ Complete | 103 |
+| ☐ Not started | 131 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

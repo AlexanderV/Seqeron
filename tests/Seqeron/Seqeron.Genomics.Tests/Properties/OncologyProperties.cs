@@ -6498,4 +6498,230 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CNA-001 — Copy-Number Alteration Classification (log2 ratio → CN → state)
+
+    // -------------------------------------------------------------------------
+    // Theory (CNVkit cnvlib/call.py; GISTIC2.0 Mermel 2011):
+    //   • Continuous absolute copy number n = ploidy · 2^log2.                       (INV-1)
+    //   • Hard-threshold integer CN = index of the first ascending cutoff the log2    (CNVkit
+    //     value is ≤ (counting from 0); above the last cutoff CN = ceil(ploidy·2^log2). absolute_threshold)
+    //   • NaN log2 is a no-call ⇒ round(ploidy) (neutral).
+    //   • State: CN 0→DeepDeletion, 1→Loss, 2→Neutral, 3→Gain, ≥4→Amplification.       (INV-4)
+    //   • Integer CN is non-decreasing in log2 (default diploid regime).               (INV-2)
+    //
+    // The absolute-CN formula, the threshold binning and the CN→state map are
+    // reconstructed here from the CNVkit description — NOT routed through production —
+    // so a wrong exponent base, boundary sense (< vs ≤), or state cutoff is caught.
+    // Monotonicity is asserted only for the documented default thresholds / diploid
+    // ploidy, where the ceil branch necessarily lands at CN ≥ 4 (above the last bin).
+    // -------------------------------------------------------------------------
+
+    private const double CnaTolerance = 1e-9;
+
+    private static Gen<double> Log2RatioGen() => Gen.Choose(-4000, 4000).Select(v => v / 1000.0);
+
+    private static Gen<double> PloidyGen() => Gen.Choose(1000, 4000).Select(v => v / 1000.0); // 1.0 .. 4.0
+
+    /// <summary>Four strictly ascending threshold cutoffs, built from positive increments.</summary>
+    private static Arbitrary<double[]> AscendingThresholdsArbitrary() =>
+        (from t0 in Gen.Choose(-4000, -1000)
+         from d1 in Gen.Choose(1, 2000)
+         from d2 in Gen.Choose(1, 2000)
+         from d3 in Gen.Choose(1, 2000)
+         select new[] { t0 / 1000.0, (t0 + d1) / 1000.0, (t0 + d1 + d2) / 1000.0, (t0 + d1 + d2 + d3) / 1000.0 })
+        .ToArbitrary();
+
+    /// <summary>Independent CNVkit absolute_threshold integer-CN oracle (re-derived from the docstring).</summary>
+    private static int OracleCallCopyNumber(double log2Ratio, IReadOnlyList<double> cutoffs, double ploidy)
+    {
+        if (double.IsNaN(log2Ratio))
+        {
+            return (int)Math.Round(ploidy, MidpointRounding.AwayFromZero);
+        }
+
+        for (int cn = 0; cn < cutoffs.Count; cn++)
+        {
+            if (log2Ratio <= cutoffs[cn])
+            {
+                return cn;
+            }
+        }
+
+        return (int)Math.Ceiling(ploidy * Math.Pow(2.0, log2Ratio));
+    }
+
+    /// <summary>Independent CNVkit CN→state map.</summary>
+    private static OncologyAnalyzer.CopyNumberState OracleState(int cn) =>
+        cn >= 4 ? OncologyAnalyzer.CopyNumberState.Amplification
+        : cn switch
+        {
+            0 => OncologyAnalyzer.CopyNumberState.DeepDeletion,
+            1 => OncologyAnalyzer.CopyNumberState.Loss,
+            2 => OncologyAnalyzer.CopyNumberState.Neutral,
+            _ => OncologyAnalyzer.CopyNumberState.Gain,
+        };
+
+    /// <summary>
+    /// INV-1: <c>Log2RatioToCopyNumber(log2, ploidy)</c> equals the independent <c>ploidy · 2^log2</c>
+    /// (≥ 0), and is strictly increasing in the log2 ratio. (CNVkit _log2_ratio_to_absolute_pure)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Log2RatioToCopyNumber_EqualsPloidyTimesTwoPow_AndIncreasesWithLog2()
+    {
+        var arb = (from lo in Log2RatioGen()
+                   from delta in Gen.Choose(1, 2000).Select(v => v / 1000.0)
+                   from ploidy in PloidyGen()
+                   select (lo, hi: lo + delta, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double low = OncologyAnalyzer.Log2RatioToCopyNumber(t.lo, t.ploidy);
+            double high = OncologyAnalyzer.Log2RatioToCopyNumber(t.hi, t.ploidy);
+            double oracle = t.ploidy * Math.Pow(2.0, t.lo);
+            bool formulaOk = Math.Abs(low - oracle) <= CnaTolerance * Math.Max(1.0, Math.Abs(oracle));
+            bool nonNeg = low >= 0.0;
+            bool increasing = high > low;
+            return (formulaOk && nonNeg && increasing)
+                .Label($"n({t.lo})={low} vs {oracle}; n({t.hi})={high}; ploidy={t.ploidy}");
+        });
+    }
+
+    /// <summary>
+    /// CallCopyNumber reproduces the independent CNVkit hard-threshold oracle exactly for arbitrary
+    /// strictly-ascending cutoffs and positive ploidy (binning with the inclusive ≤ boundary, ceil above
+    /// the last cutoff). (CNVkit absolute_threshold)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CallCopyNumber_MatchesCnvkitThresholdOracle()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            int actual = OncologyAnalyzer.CallCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            int oracle = OracleCallCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            return (actual == oracle).Label($"CN({t.log2})={actual} ≠ oracle {oracle} (cutoffs=[{string.Join(",", t.cutoffs)}], ploidy={t.ploidy})");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "copy number ≥ 0", INV-3): both the integer copy number and the continuous absolute
+    /// copy number are non-negative for every finite log2 ratio, ascending cutoffs and positive ploidy.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CopyNumber_IsNonNegative()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var call = OncologyAnalyzer.ClassifyCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            return (call.IntegerCopyNumber >= 0 && call.AbsoluteCopyNumber >= 0.0)
+                .Label($"negative CN: integer={call.IntegerCopyNumber}, absolute={call.AbsoluteCopyNumber}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher log2 → higher CN", INV-2): under the documented default thresholds and diploid
+    /// ploidy, the integer copy number is monotonically non-decreasing in the log2 ratio.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CallCopyNumber_IsMonotonicInLog2_DefaultDiploid()
+    {
+        var arb = (from a in Log2RatioGen()
+                   from b in Log2RatioGen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            int lowCn = OncologyAnalyzer.CallCopyNumber(t.lo);
+            int highCn = OncologyAnalyzer.CallCopyNumber(t.hi);
+            return (lowCn <= highCn).Label($"CN({t.lo})={lowCn} > CN({t.hi})={highCn}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, checklist "CN=2 → neutral"): the CNA state is exactly the CN→state map
+    /// (0→DeepDeletion, 1→Loss, 2→Neutral, 3→Gain, ≥4→Amplification); in particular CN 2 ⟺ Neutral.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyCopyNumber_State_MatchesCnToStateMap()
+    {
+        var arb = (from log2 in Log2RatioGen()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (log2, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var call = OncologyAnalyzer.ClassifyCopyNumber(t.log2, t.cutoffs, t.ploidy);
+            bool stateOk = call.State == OracleState(call.IntegerCopyNumber);
+            bool neutralIffTwo = (call.IntegerCopyNumber == 2) == (call.State == OncologyAnalyzer.CopyNumberState.Neutral);
+            return (stateOk && neutralIffTwo)
+                .Label($"CN={call.IntegerCopyNumber} state={call.State} (expected {OracleState(call.IntegerCopyNumber)})");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 + D: <c>ClassifyCopyNumbers</c> preserves input length and order — element i equals the
+    /// single-region <c>ClassifyCopyNumber</c> of input i — and is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyCopyNumbers_IsLengthAndOrderPreservingMap()
+    {
+        var arb = (from ratios in Log2RatioGen().ArrayOf()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from ploidy in PloidyGen()
+                   select (ratios, cutoffs, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var calls = OncologyAnalyzer.ClassifyCopyNumbers(t.ratios, t.cutoffs, t.ploidy);
+            bool ok = calls.Count == t.ratios.Length;
+            for (int i = 0; ok && i < t.ratios.Length; i++)
+            {
+                ok &= calls[i].Equals(OncologyAnalyzer.ClassifyCopyNumber(t.ratios[i], t.cutoffs, t.ploidy));
+            }
+
+            return ok.Label($"ClassifyCopyNumbers is not a length/order-preserving map ({calls.Count} vs {t.ratios.Length})");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (default thresholds, diploid): the canonical CNVkit bins and the neutral/no-call cases —
+    /// log2 0 ⇒ 2 copies/Neutral; −2 ⇒ CN 0/DeepDeletion; +1 ⇒ CN 4/Amplification; NaN ⇒ neutral no-call.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyCopyNumber_CanonicalCnvkitBins()
+    {
+        Assert.Multiple(() =>
+        {
+            var neutral = OncologyAnalyzer.ClassifyCopyNumber(0.0);
+            Assert.That(neutral.AbsoluteCopyNumber, Is.EqualTo(2.0).Within(CnaTolerance), "n = 2·2^0 = 2.");
+            Assert.That(neutral.IntegerCopyNumber, Is.EqualTo(2), "log2 0 ∈ (−0.25, 0.2] ⇒ CN 2.");
+            Assert.That(neutral.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Neutral), "CN 2 ⇒ Neutral.");
+
+            var del = OncologyAnalyzer.ClassifyCopyNumber(-2.0);
+            Assert.That(del.IntegerCopyNumber, Is.EqualTo(0), "log2 −2 ≤ −1.1 ⇒ CN 0.");
+            Assert.That(del.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.DeepDeletion), "CN 0 ⇒ DeepDeletion.");
+
+            var amp = OncologyAnalyzer.ClassifyCopyNumber(1.0);
+            Assert.That(amp.IntegerCopyNumber, Is.EqualTo(4), "log2 1 > 0.7 ⇒ ceil(2·2^1) = 4.");
+            Assert.That(amp.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Amplification), "CN ≥ 4 ⇒ Amplification.");
+
+            var noCall = OncologyAnalyzer.ClassifyCopyNumber(double.NaN);
+            Assert.That(noCall.IntegerCopyNumber, Is.EqualTo(2), "NaN is a no-call ⇒ round(ploidy) = 2.");
+            Assert.That(noCall.State, Is.EqualTo(OncologyAnalyzer.CopyNumberState.Neutral), "No-call ⇒ Neutral.");
+        });
+    }
+
+    #endregion
 }
