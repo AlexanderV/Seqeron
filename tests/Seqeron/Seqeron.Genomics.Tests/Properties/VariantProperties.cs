@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for variant calling and annotation (VariantCaller).
 ///
-/// Test Units: VARIANT-ANNOT-001, VARIANT-CALL-001, VARIANT-INDEL-001
+/// Test Units: VARIANT-ANNOT-001, VARIANT-CALL-001, VARIANT-INDEL-001, VARIANT-SNP-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -263,6 +263,63 @@ public class VariantProperties
             var b = VariantCaller.FindIndels(new DnaSequence(r), new DnaSequence(q)).ToList();
             return (a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second))
                 .Label("FindIndels must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region VARIANT-SNP-001: P: ref/alt single bases with ref≠alt; R: positions valid; D: deterministic
+
+    private static bool IsWellFormedSnp(Variant v) =>
+        v.Type == VariantType.SNP &&
+        v.ReferenceAllele.Length == 1 && v.AlternateAllele.Length == 1 &&
+        v.ReferenceAllele != v.AlternateAllele &&
+        "ACGT".Contains(v.ReferenceAllele[0]) && "ACGT".Contains(v.AlternateAllele[0]);
+
+    /// <summary>
+    /// INV-1 (P + completeness): FindSnpsDirect reports a single-base ref≠alt SNP at exactly each
+    /// position where the equal-length sequences differ.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Snps_Direct_AreExactSingleBaseDifferences()
+    {
+        return Prop.ForAll(EqualLengthPairArbitrary(), input =>
+        {
+            var (a, b) = input;
+            var snps = VariantCaller.FindSnpsDirect(a, b).ToList();
+            var expected = Enumerable.Range(0, a.Length).Where(i => a[i] != b[i]).ToList();
+            bool ok = snps.Select(v => v.Position).SequenceEqual(expected)
+                      && snps.All(v => IsWellFormedSnp(v) && v.ReferenceAllele[0] == a[v.Position] && v.AlternateAllele[0] == b[v.Position]);
+            return ok.Label("SNPs were not exactly the single-base differences");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P + R): every alignment-based SNP is a single-base ref≠alt change at a valid position.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Snps_AreWellFormed()
+    {
+        return Prop.ForAll(SeqPairArbitrary(), input =>
+        {
+            var (r, q) = input;
+            var snps = VariantCaller.FindSnps(new DnaSequence(r), new DnaSequence(q)).ToList();
+            return snps.All(v => IsWellFormedSnp(v) && v.Position >= 0 && v.Position < r.Length)
+                .Label("a SNP was malformed or out of range");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): SNP detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Snps_IsDeterministic()
+    {
+        return Prop.ForAll(EqualLengthPairArbitrary(), input =>
+        {
+            var (a, b) = input;
+            return VariantCaller.FindSnpsDirect(a, b).SequenceEqual(VariantCaller.FindSnpsDirect(a, b))
+                .Label("FindSnpsDirect must be deterministic");
         });
     }
 
