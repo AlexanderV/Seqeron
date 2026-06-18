@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -423,6 +423,76 @@ public class KmerProperties
         return Prop.ForAll(DnaArbitrary(5), DnaArbitrary(5), (a, b) =>
             (KmerAnalyzer.KmerDistance(a, b, DistK) == KmerAnalyzer.KmerDistance(a, b, DistK))
                 .Label("KmerDistance must be deterministic"));
+    }
+
+    #endregion
+
+    #region KMER-GENERATE-001: R: count = |alphabet|^k; P: all distinct, length k, over alphabet; D: deterministic
+
+    // GenerateAllKmers enumerates the k-fold Cartesian product of the alphabet — |alphabet|^k distinct
+    // strings (4^k for DNA), in lexicographic order when the alphabet is sorted.
+
+    private static Arbitrary<int> SmallKArbitrary() => Gen.Choose(1, 6).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): The number of generated k-mers equals |alphabet|^k for the DNA alphabet (4^k) and
+    /// for a 5-letter alphabet (5^k).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateAllKmers_Count_IsAlphabetPowK()
+    {
+        return Prop.ForAll(SmallKArbitrary(), k =>
+        {
+            int dna = KmerAnalyzer.GenerateAllKmers(k).Count();
+            int five = KmerAnalyzer.GenerateAllKmers(k, "ACGTN").Count();
+            return (dna == (int)Math.Pow(4, k) && five == (int)Math.Pow(5, k))
+                .Label($"k={k}: DNA {dna} vs {(int)Math.Pow(4, k)}, 5-letter {five} vs {(int)Math.Pow(5, k)}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): Every generated k-mer is distinct, has length k, and uses only alphabet letters.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateAllKmers_AreDistinctWellFormed()
+    {
+        return Prop.ForAll(SmallKArbitrary(), k =>
+        {
+            var all = KmerAnalyzer.GenerateAllKmers(k).ToList();
+            bool distinct = all.Distinct().Count() == all.Count;
+            bool wellFormed = all.All(m => m.Length == k && m.All(c => "ACGT".Contains(c)));
+            return (distinct && wellFormed).Label($"k={k}: distinct={distinct}, wellFormed={wellFormed}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Generation is deterministic and, for the sorted DNA alphabet, lexicographically ordered.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateAllKmers_IsDeterministicAndSorted()
+    {
+        return Prop.ForAll(SmallKArbitrary(), k =>
+        {
+            var a = KmerAnalyzer.GenerateAllKmers(k).ToList();
+            var b = KmerAnalyzer.GenerateAllKmers(k).ToList();
+            bool deterministic = a.SequenceEqual(b);
+            bool sorted = a.SequenceEqual(a.OrderBy(x => x, StringComparer.Ordinal));
+            return (deterministic && sorted).Label($"k={k}: deterministic={deterministic}, sorted={sorted}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): non-positive k and an empty alphabet are rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateAllKmers_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.GenerateAllKmers(0).ToList());
+            Assert.Throws<ArgumentException>(() => KmerAnalyzer.GenerateAllKmers(2, "").ToList());
+        });
     }
 
     #endregion

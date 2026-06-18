@@ -188,7 +188,7 @@ Property-based testing генерирует сотни случайных вхо
 | 156 | ☑ | KMER-ASYNC-001 | K-mer | P: async result = sync result; D: deterministic | KmerProperties.cs |
 | 157 | ☑ | KMER-BOTH-001 | K-mer | P: count = forward + reverse-complement; S: strand-symmetric; D: deterministic | KmerProperties.cs |
 | 158 | ☑ | KMER-DIST-001 | K-mer | R: distance ≥ 0; S: d(a,b)=d(b,a); I: d(x,x)=0; D: deterministic | KmerProperties.cs |
-| 159 | ☐ | KMER-GENERATE-001 | K-mer | R: count = 4^k (DNA); P: all distinct; D: deterministic | KmerProperties.cs |
+| 159 | ☑ | KMER-GENERATE-001 | K-mer | R: count = 4^k (DNA); P: all distinct; D: deterministic | KmerProperties.cs |
 | 160 | ☐ | KMER-POSITIONS-001 | K-mer | R: positions ∈ [0, len−k]; P: seq[pos..pos+k] = kmer; D: deterministic | KmerProperties.cs |
 | 161 | ☐ | KMER-STATS-001 | K-mer | R: counts ≥ 0; P: Σ counts = len−k+1; D: deterministic | KmerProperties.cs |
 | 162 | ☐ | KMER-UNIQUE-001 | K-mer | P: unique k-mers have count 1; R: minCount ≥ 1; D: deterministic | KmerProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 158 |
-| ☐ Not started | 76 |
+| ☑ Complete | 159 |
+| ☐ Not started | 75 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
