@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Seqeron.Mcp.Alignment.Tests</RootNamespace>
     <AssemblyName>Seqeron.Mcp.Alignment.Tests</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>

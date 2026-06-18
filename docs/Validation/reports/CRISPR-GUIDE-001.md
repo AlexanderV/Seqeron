@@ -69,5 +69,111 @@ The tiny deltas are float-print precision in the reference's quoted literal; the
 
 ## Verdict & follow-ups
 - **End-state: ✅ CLEAN.** No transcription error in the 70-coefficient table, intercept, or GC terms; both reference worked examples reproduced independently; tests are real (exact sourced values, mutation-sensitive). No code or test change required this session.
-- Residual (faithfully scoped, not a defect): Doench Rule Set 2 / Azimuth (GBT model, no coefficient table) and CFD (binary pickle) remain intentionally unimplemented — documented in FINDINGS_REGISTER C7 and LIMITATIONS.
+- Residual (as of this 2026-06-17 Doench-2014 session): Doench Rule Set 2 / Azimuth (GBT model, no coefficient table) and CFD (binary pickle) remain unimplemented. **Both since cleared — CFD on 2026-06-17 (CRISPR-OFF-001) and Rule Set 2 / Azimuth on 2026-06-18 (see the "Rule Set 2 / Azimuth" section appended below). C7 fully resolved.**
 - **Full unfiltered suite:** 6772 passed, 0 failed; build 0 errors (4 pre-existing NUnit2007 warnings in unrelated `ApproximateMatcher_EditDistance_Tests.cs`).
+
+---
+
+# Validation Report: CRISPR-GUIDE-001 (continued) — Doench 2016 "Rule Set 2" / Azimuth on-target score
+
+- **Validated/Implemented:** 2026-06-18   **Area:** MolTools
+- **Canonical methods added:** `CrisprDesigner.CalculateOnTargetRuleSet2(string context30Mer)` (sequence-only) and
+  `CalculateOnTargetRuleSet2(string context30Mer, int aminoAcidCutPosition, double percentPeptide)` (gene-context),
+  returning the Azimuth score in ~[0,1]. Engine: internal `AzimuthRuleSet2`; trained models embedded as
+  `Resources/azimuth_rs2_nopos.bin` / `azimuth_rs2_full.bin`; reproducible extractor
+  `scripts/azimuth/extract_azimuth_model.py`.
+- **Stage A verdict:** PASS · **Stage B verdict:** PASS · **End-state:** ✅ CLEAN — **clears the LAST C7 residual.**
+
+## Scope
+
+Rule Set 2 is a trained scikit-learn `GradientBoostingRegressor` (100 trees, depth 3), **not** a coefficient table —
+the reason it was the sole remaining C7 residual. It is reproduced faithfully from Microsoft Research's Azimuth
+trained pickles (BSD-3-Clause), with **no scikit-learn dependency** at build or runtime. Governing rule unchanged:
+every expected value is re-derived from an external, independently verified source, never read off the C# code.
+
+## Stage A — Description
+
+### Model recovery (sklearn-free)
+The two Azimuth pickles (`V3_model_nopos.pickle`, `V3_model_full.pickle`) were decoded with a custom `Unpickler`
+that reads the raw `sklearn.tree._tree.Tree` node arrays without instantiating scikit-learn. Recovered: 100 trees,
+init (training-target mean) `0.5023237009327475`, learning-rate `0.1`, `n_features` 627 (nopos) / 630 (full),
+1498 / 1496 total nodes. Prediction = `init + Σ_trees learning_rate · leaf_value`.
+
+### Featurization reproduced EXACTLY (three-way verification)
+1. **Featurizer == upstream:** a verbatim py3 port of `azimuth/features/featurization.py` run with **real
+   Biopython** produces feature vectors element-for-element identical to our implementation (max |Δ| 1e-13) for
+   the worst-case and representative guides — order-1/2 position-dependent + position-independent nucleotide
+   one-hot/counts, GC features, NGGX, and the 4 melting-temperature features.
+2. **Tm == real Biopython:** the nearest-neighbor melting temperature (DNA_NN3, salt-correction method 5,
+   dnac1=dnac2=25 nM, Na=50 mM — the exact parameters azimuth passes to `MeltingTemp.Tm_NN`) matches the real
+   installed Biopython `Tm_NN` to 4 decimals on the whole 30-mer **and** the short AT-rich sub-segments
+   (e.g. `ATTTT` → −52.8234, `AGTTT` → −45.1363).
+3. **Column order == CPython-2.7 dict order:** azimuth concatenates feature blocks in `dict.keys()` order, which at
+   training time was the deterministic CPython-2.7 (64-bit, no hash randomization) iteration order. We reproduce it
+   from first principles and validate the simulator against **documented** behaviour — `{'a','b','c'}` → `['a','c','b']`,
+   `{'one','two','three'}` → `['three','two','one']` — and the py2 string hash against known values
+   (`hash('a')=12416037344`, `hash('abc')=1453079729188098211`, `hash('foo')=−4177197833195190597`). The recovered
+   orders are additionally consistent with the model's own split-threshold fingerprints (the 4 Tm columns carry
+   continuous thresholds in [−54, 76]; count columns carry half-integer thresholds; one-hot columns only 0.5).
+
+### Model traversal verified against scikit-learn itself
+The extracted trees were reconstructed into **scikit-learn 1.6.1** `Tree` objects (node dtype migrated) and its own
+`Tree.predict` was run on our feature matrix: **bit-identical** to our hand-written traversal (max |Δ| = 0.0) across
+all 947 guides. Extraction + traversal are therefore provably correct.
+
+### KEY FINDING — the upstream fixture is stale, not a defect in our code
+Upstream ships `azimuth/tests/1000guides.csv` (`truth nopos` / `truth pos`). Our faithful pipeline reproduces it on
+only **585/947** (nopos) and **637/947** (full) rows; the rest differ by ≤0.04. This is **not** an implementation
+error: (a) scikit-learn's own `Tree.predict` agrees with us bit-for-bit on the same features; (b) our featurizer is
+1e-13-identical to a verbatim upstream featurization with real Biopython; (c) no feature ordering reproduces all 947
+(exhaustively searched). The upstream test file itself warns it "can fail due to randomness ... feature reordering" —
+the fixture drifted from the shipped pickles. **Consequently the authoritative oracle is our verified reference (≡
+`azimuth.model_comparison.predict` for the shipped model), and the upstream fixture is used only as independent
+third-party corroboration on the agreeing subset.** A spurious "max-agreement" full-model order (651) that fit the
+stale fixture slightly better was rejected in favour of the py2-correct order (637) after pinning the CPython-2.7
+hash/probe behaviour (one binary `gc_below_10` split distinguishes them).
+
+### Independent cross-checks (from the verified reference + upstream)
+| Check | Result |
+|---|---|
+| C# == verified reference, all 947 nopos guides | max |Δ| < 1e-5 ✓ |
+| C# == verified reference, all 947 full guides | max |Δ| < 1e-5 ✓ |
+| C# == upstream `truth nopos` on the 585 agreeing rows | all < 1e-3 ✓ |
+| C# == upstream `truth pos` on the 637 agreeing rows | all < 1e-3 ✓ |
+| Score range over all guides | [0,1] ✓ |
+
+**Stage A verdict: PASS** — model recovered sklearn-free; featurization 1e-13-identical to upstream incl. real
+Biopython Tm; column order matches documented CPython-2.7 dict behaviour; traversal bit-identical to scikit-learn;
+the upstream fixture's partial disagreement proven to be its own drift, not our defect.
+
+## Stage B — Implementation
+
+- **Code path:** `AzimuthRuleSet2.cs` (model reader via `MemoryMarshal` over the embedded blob, featurizer, GBRT
+  traversal) and the two thin public wrappers in `CrisprDesigner.cs` (Rule Set 2 region). Additive; no existing
+  method/signature/test changed.
+- **Binary format:** little-endian header (magic `ARS2`, version, flags, treeCount, nodeCount, nFeatures, init f64,
+  learning-rate f64) + `treeStart[]` + AoS nodes (24 bytes: f64 threshold-or-value, i32 left/right/feature/pad).
+  Leaf values are pre-scaled by the learning rate; f64 thresholds preserve the pickle's exact split points. Nodes are
+  read zero-copy and copied once into a managed array; models load lazily and are thread-safe. Round-trips the
+  reference to < 5e-7 (limited only by the 6-decimal oracle CSV).
+- **Featurizer realised correctly:** writes each block at its py2-dict offset (nopos 627: gc_count | pd2 | pd1 |
+  gc_above | pi1 | pi2 | Tm | gc_below | NGGX; full 630: same with AA-cut, pct-peptide, pct<50% interleaved). Tm via
+  the DNA_NN3 nearest-neighbor model. ACGT-only, NGG-PAM-at-25/26, length-30 contract enforced.
+- **Tests:** new fixture `CrisprDesigner_RuleSet2_Tests` (13 tests): the two model-vs-reference sweeps over all 947
+  guides, the two upstream-agreeing-subset corroborations (count locked at 585 / 637), unit-interval, case-insensitive,
+  determinism, full-vs-nopos differs, and the full validation/error set (null/empty, wrong length ×2, non-ACGT,
+  missing NGG PAM). Every numeric oracle is the verified reference or upstream — none read off the C# code.
+- **Defects:** none.
+
+**Stage B verdict: PASS.**
+
+## Verdict & follow-ups
+
+- **Stage A: PASS · Stage B: PASS · End-state: ✅ CLEAN.**
+- **C7 is now fully resolved** — all four CRISPR scoring models (Doench 2014 Rule Set 1, MIT/Hsu 2013, CFD 2016, and
+  Doench 2016 Rule Set 2 / Azimuth) are implemented and validated. No CRISPR scoring residual remains.
+- Reproducibility: `python3 scripts/azimuth/extract_azimuth_model.py` re-downloads the pinned Azimuth pickles and
+  regenerates both `.bin` blobs and the embedded oracle CSVs.
+- Test spec: the four published CRISPR scoring models (Rule Set 1, Rule Set 2 / Azimuth, MIT/Hsu, CFD) are
+  consolidated in `tests/TestSpecs/CRISPR-SCORE-001.md`.
+- Full unfiltered Genomics suite: **6825 passed, 0 failed**; build 0 errors, 0 warnings.

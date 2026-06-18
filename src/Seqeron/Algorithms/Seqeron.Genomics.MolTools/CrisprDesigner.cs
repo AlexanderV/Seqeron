@@ -569,6 +569,49 @@ public static class CrisprDesigner
 
     #endregion
 
+    #region Doench 2016 On-Target Score (Rule Set 2 / Azimuth)
+
+    /// <summary>
+    /// Calculates the Doench et al. 2016 "Rule Set 2" / Azimuth on-target efficacy score for an SpCas9
+    /// guide, using sequence context only (the standard "Azimuth score" reported by CRISPOR).
+    /// </summary>
+    /// <param name="context30Mer">
+    /// The 30-nt sequence context required by the model:
+    /// 4 nt upstream + 20 nt protospacer + 3 nt PAM (must be N<c>GG</c>) + 3 nt downstream.
+    /// Case-insensitive; must contain only A/C/G/T.
+    /// </param>
+    /// <returns>The predicted on-target activity, conventionally in the range [0, 1] (higher = more active).</returns>
+    /// <remarks>
+    /// Rule Set 2 is a trained gradient-boosted-tree model (not a published linear formula like
+    /// <see cref="CalculateOnTargetDoench2014"/>). This uses a faithful, sklearn-free reconstruction of
+    /// Microsoft Research's Azimuth <c>V3_model_nopos</c>; the score reproduces
+    /// <c>azimuth.model_comparison.predict</c> for that model.
+    /// Source: Doench et al. 2016, Nat Biotechnol 34:184 (PMID 26780180); trained model from
+    /// https://github.com/MicrosoftResearch/Azimuth (BSD-3-Clause). See
+    /// scripts/azimuth/extract_azimuth_model.py for the full provenance and reproduction.
+    /// </remarks>
+    public static double CalculateOnTargetRuleSet2(string context30Mer)
+        => AzimuthRuleSet2.Score(context30Mer);
+
+    /// <summary>
+    /// Calculates the Doench et al. 2016 "Rule Set 2" / Azimuth on-target score using the gene-context
+    /// (full) model, which additionally incorporates where the cut falls within the target protein.
+    /// </summary>
+    /// <param name="context30Mer">The 30-nt context (see <see cref="CalculateOnTargetRuleSet2(string)"/>).</param>
+    /// <param name="aminoAcidCutPosition">The amino-acid position of the cut site within the target protein.</param>
+    /// <param name="percentPeptide">
+    /// The cut position as a percentage [0, 100] along the coding sequence (how far into the protein).
+    /// </param>
+    /// <returns>The predicted on-target activity, conventionally in the range [0, 1].</returns>
+    /// <remarks>
+    /// Uses Azimuth's <c>V3_model_full</c>. When gene context is unavailable, prefer the sequence-only
+    /// <see cref="CalculateOnTargetRuleSet2(string)"/> overload. See the remarks there for provenance.
+    /// </remarks>
+    public static double CalculateOnTargetRuleSet2(string context30Mer, int aminoAcidCutPosition, double percentPeptide)
+        => AzimuthRuleSet2.Score(context30Mer, aminoAcidCutPosition, percentPeptide);
+
+    #endregion
+
     #region MIT / Hsu 2013 Off-Target Score
 
     // ---------------------------------------------------------------------------------------------

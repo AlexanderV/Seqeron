@@ -10,9 +10,9 @@ namespace SuffixTree.Benchmarks;
 /// Measures build, load, and query performance with unsafe pointer access,
 /// capacity pre-estimation, and PrefetchVirtualMemory optimizations.
 ///
-/// Run:  dotnet run -c Release -f net9.0 -- --filter "*Persistent*"
+/// Run:  dotnet run -c Release -f net10.0 -- --filter "*Persistent*"
 /// </summary>
-[SimpleJob(RuntimeMoniker.Net90)]
+[SimpleJob(RuntimeMoniker.Net10_0)]
 [MemoryDiagnoser]
 [RankColumn]
 public class PersistentSuffixTreeBenchmarks

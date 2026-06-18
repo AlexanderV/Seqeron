@@ -115,7 +115,7 @@ primary source and reference implementation; all worked numbers reproduced indep
 - Uncommitted orientation guard test verified source-correct and committed.
 - Residual (documented, not a defect of this unit; see FINDINGS_REGISTER C7): Doench Rule Set 2 /
   Azimuth (GBT, no coefficient table) and — at the time of the MIT/Hsu validation — CFD (Doench 2016,
-  binary pickle) intentionally not implemented. **CFD is now implemented (see the CFD section below).**
+  binary pickle) intentionally not implemented. **CFD is now implemented (see the CFD section below); Rule Set 2 / Azimuth is now also implemented (2026-06-18) — see `reports/CRISPR-GUIDE-001.md`. C7 fully resolved.**
 - Full unfiltered suite: **6773 passed, 0 failed**; build 0 errors.
 
 ---
@@ -230,6 +230,7 @@ orientation + key convention pinned from the source, all worked numbers reproduc
 - **Stage A: PASS · Stage B: PASS · End-state: ✅ CLEAN.**
 - CFD matrices confirmed 240/240 + 16/16 across CRISPOR and iGWOS; orientation index 0 = PAM-distal,
   19 = PAM-proximal; key `rX` = guide(T→U), `dY` = complement(off-target base).
-- **Remaining C7 residual: ONLY Doench Rule Set 2 / Azimuth** (gradient-boosted-tree, no coefficient
+- **Remaining C7 residual (as of this 2026-06-17 session): ONLY Doench Rule Set 2 / Azimuth** (gradient-boosted-tree, no coefficient
   table — not reproducible from published numbers without the trained model). CFD is no longer a residual.
+  **UPDATE 2026-06-18: Rule Set 2 / Azimuth now implemented (sklearn-free reconstruction of the trained model); C7 fully resolved — see `reports/CRISPR-GUIDE-001.md`.**
 - Full unfiltered suite: **6812 passed, 0 failed**; build 0 errors AND 0 warnings.

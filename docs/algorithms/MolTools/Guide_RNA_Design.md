@@ -6,7 +6,7 @@
 | Test Unit ID | CRISPR-GUIDE-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-18 |
 
 ## 1. Overview
 
@@ -129,7 +129,7 @@ The current implementation matches the documented `40-70%` GC window, penalizes 
 
 **Intentionally simplified:**
 
-- Scoring is composition-based rather than position-weighted or experimentally fitted; **consequence:** scores are useful for ranking candidates heuristically but do not reproduce models such as Doench-style activity prediction.
+- The `EvaluateGuideRna` quality score is composition-based rather than position-weighted or experimentally fitted; **consequence:** it ranks candidates heuristically and does not itself reproduce learned activity models — for experimentally-calibrated on-target efficacy call the dedicated `CalculateOnTargetDoench2014` (Rule Set 1) or `CalculateOnTargetRuleSet2` (Rule Set 2 / Azimuth) over the 30-nt context.
 - The seed region is fixed to 10 nt using the upper bound of the cited `8-10` range; **consequence:** guides are evaluated with one fixed PAM-proximal window rather than a variable seed definition.
 - Designed-candidate metadata is only partially system-specific in the current helper path; **consequence:** some named CRISPR systems share `SpCas9` metadata in returned candidates even though guide extraction still follows the selected PAM geometry.
 - `GuideRnaParameters.AvoidPolyT` and `GuideRnaParameters.CheckSelfComplementarity` are not honored by the current scoring path; **consequence:** callers can store those booleans in the parameter record, but they do not disable the corresponding penalties.
@@ -137,7 +137,7 @@ The current implementation matches the documented `40-70%` GC window, penalizes 
 
 **Not implemented:**
 
-- Position-weighted scoring rules, machine-learning-based efficacy prediction, and chromatin-accessibility modeling; **users should rely on:** downstream experimental validation or external design tools for those features.
+- Position-weighted scoring *within the `EvaluateGuideRna` heuristic* and chromatin-accessibility modeling; **users should rely on:** the dedicated `CalculateOnTargetDoench2014` / `CalculateOnTargetRuleSet2` methods for learned on-target efficacy prediction (both now implemented), and downstream experimental validation or external tools for chromatin accessibility.
 
 ## 6. Edge Cases and Limitations
 
