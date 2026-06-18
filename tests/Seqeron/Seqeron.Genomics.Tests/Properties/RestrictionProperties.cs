@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for restriction enzyme analysis: site finding and digestion.
 ///
-/// Test Units: RESTR-FIND-001, RESTR-DIGEST-001
+/// Test Units: RESTR-FIND-001, RESTR-DIGEST-001, RESTR-FILTER-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -287,6 +287,62 @@ public class RestrictionProperties
         var fragments = RestrictionAnalyzer.Digest(dna, "EcoRI").ToList();
 
         Assert.That(summary.TotalFragments, Is.EqualTo(fragments.Count));
+    }
+
+    #endregion
+
+    #region RESTR-FILTER-001: P: filtered ⊆ all sites; M: stricter enzyme set → ≤ sites; D: deterministic
+
+    // Restricting the site search to a subset of enzymes is a filter: its sites are a subset of all
+    // sites, and removing enzymes can only remove sites.
+
+    private static (int, string, bool, int) Key(RestrictionSite s)
+        => (s.Position, s.Enzyme.Name, s.IsForwardStrand, s.CutPosition);
+
+    /// <summary>
+    /// INV-1 (P): sites for a chosen enzyme set are a subset of all sites across every enzyme.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilteredSites_AreSubsetOfAll()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var all = RestrictionAnalyzer.FindAllSites(dna).Select(Key).ToHashSet();
+            var filtered = RestrictionAnalyzer.FindSites(dna, "EcoRI", "BamHI", "HindIII").Select(Key).ToHashSet();
+            return filtered.IsSubsetOf(all).Label("filtered sites not a subset of all sites");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a stricter (smaller) enzyme set yields a subset of sites with no more occurrences.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilteredSites_FewerEnzymes_FewerSites()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var loose = RestrictionAnalyzer.FindSites(dna, "EcoRI", "BamHI").Select(Key).ToHashSet();
+            var strict = RestrictionAnalyzer.FindSites(dna, "EcoRI").Select(Key).ToHashSet();
+            return (strict.IsSubsetOf(loose) && strict.Count <= loose.Count)
+                .Label($"single-enzyme sites ({strict.Count}) not ⊆ two-enzyme sites ({loose.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Site filtering is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilteredSites_AreDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(30), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var a = RestrictionAnalyzer.FindSites(dna, "EcoRI", "BamHI").Select(Key).ToList();
+            var b = RestrictionAnalyzer.FindSites(dna, "EcoRI", "BamHI").Select(Key).ToList();
+            return a.SequenceEqual(b).Label("FindSites must be deterministic");
+        });
     }
 
     #endregion
