@@ -262,7 +262,7 @@ Property-based testing генерирует сотни случайных вхо
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | R: entropy ≥ 0; M: more distinct k-mers → higher entropy; P: homopolymer → 0; D: deterministic | SequenceComplexityProperties.cs (new) |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | R: each window score ∈ [0,1]; P: window count = len−w+1; D: deterministic | SequenceComplexityProperties.cs (new) |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic | GcSkewProperties.cs |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic | GcSkewProperties.cs |
 | 234 | ☑ | SEQ-GC-PROFILE-001 | Statistics | R: each GC% ∈ [0,100]; P: profile length = len−w+1; D: deterministic | SequenceStatisticsProperties.cs (new) |
 
 ---
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 231 |
-| ☐ Not started | 3 |
+| ☑ Complete | 234 |
+| ☐ Not started | 0 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

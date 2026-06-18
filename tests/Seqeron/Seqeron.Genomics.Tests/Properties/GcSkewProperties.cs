@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for GC skew calculations.
 /// Verifies skew range, complement negation, and windowed consistency.
 ///
-/// Test Unit: SEQ-GCSKEW-001 (Property Extension), SEQ-ATSKEW-001, SEQ-REPLICATION-001
+/// Test Unit: SEQ-GCSKEW-001 (Property Extension), SEQ-ATSKEW-001, SEQ-REPLICATION-001, SEQ-GC-ANALYSIS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -152,6 +152,66 @@ public class GcSkewProperties
         return Prop.ForAll(DnaArbitrary(10), seq =>
             (GcSkewCalculator.PredictReplicationOrigin(seq) == GcSkewCalculator.PredictReplicationOrigin(seq))
                 .Label("PredictReplicationOrigin must be deterministic"));
+    }
+
+    #endregion
+
+    #region SEQ-GC-ANALYSIS-001: R: GC% ∈ [0,100]; P: windows tile sequence; D: deterministic
+
+    // AnalyzeGcContent reports overall GC% and a windowed GC-content/skew profile. With step =
+    // windowSize the windows are non-overlapping consecutive tiles.
+
+    /// <summary>
+    /// INV-1 (R): overall and per-window GC% are in [0,100], skews in [-1,1], variances ≥ 0, and the
+    /// reported sequence length matches the input.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_ValuesInRange()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var r = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: 5, stepSize: 5);
+            bool ok = r.OverallGcContent is >= 0.0 and <= 100.0
+                      && r.OverallGcSkew is >= -1.0 and <= 1.0 && r.OverallAtSkew is >= -1.0 and <= 1.0
+                      && r.GcContentVariance >= 0 && r.GcSkewVariance >= 0
+                      && r.SequenceLength == seq.Length
+                      && r.WindowedGcContent.All(w => w.GcContent is >= 0.0 and <= 100.0);
+            return ok.Label($"GC analysis out of range (overall={r.OverallGcContent})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): with step = windowSize the GC-content windows tile the sequence — consecutive,
+    /// non-overlapping, in-bounds windows whose count is ⌊len/windowSize⌋.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_Windows_TileSequence()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            const int w = 5;
+            var windows = GcSkewCalculator.AnalyzeGcContent(seq, windowSize: w, stepSize: w).WindowedGcContent;
+            bool tiles = windows.Count == seq.Length / w
+                         && windows.Select((win, i) => win.WindowStart == i * w && win.WindowEnd == i * w + w - 1).All(x => x)
+                         && windows.All(win => win.WindowEnd < seq.Length);
+            return tiles.Label($"windows do not tile: count={windows.Count}, expected {seq.Length / w}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): GC-content analysis is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcAnalysis_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var a = GcSkewCalculator.AnalyzeGcContent(seq, 5, 5);
+            var b = GcSkewCalculator.AnalyzeGcContent(seq, 5, 5);
+            return (a.OverallGcContent == b.OverallGcContent
+                    && a.WindowedGcContent.Count == b.WindowedGcContent.Count)
+                .Label("AnalyzeGcContent must be deterministic");
+        });
     }
 
     #endregion
