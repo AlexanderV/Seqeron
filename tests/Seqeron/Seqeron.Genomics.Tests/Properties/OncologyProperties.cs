@@ -4570,4 +4570,561 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-SIG-002 — Mutational Signature Fitting (NNLS Refitting + Cosine Similarity)
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (derived from the doc, NOT from the implementation):
+    //   - cosine(a,b) = dot(a,b) / (‖a‖·‖b‖); 0 when either norm is 0  (doc §2.2, INV-01)
+    //   - reconstruction[k] = Σ_j signatures[j][k]·exposures[j]        (doc §2.2, R = S·x)
+    //   - residual error E(x) = ‖S·x − d‖₂²                            (doc §2.2 NNLS objective)
+    // These are recomputed here from scratch so the tests assert the theory,
+    // not the code's own output.
+    // -------------------------------------------------------------------------
+
+    private const double SigClosedFormTolerance = 1e-9;   // closed-form algebra
+    private const double SigSolverRecoveryTolerance = 1e-6; // NNLS recovery / optimality
+
+    /// <summary>Independent cosine oracle: dot(a,b)/(‖a‖·‖b‖); 0.0 when either Euclidean norm is 0.</summary>
+    private static double OracleCosine(IReadOnlyList<double> a, IReadOnlyList<double> b)
+    {
+        double dot = 0.0, na = 0.0, nb = 0.0;
+        for (int i = 0; i < a.Count; i++)
+        {
+            dot += a[i] * b[i];
+            na += a[i] * a[i];
+            nb += b[i] * b[i];
+        }
+
+        if (na == 0.0 || nb == 0.0)
+        {
+            return 0.0;
+        }
+
+        return dot / (Math.Sqrt(na) * Math.Sqrt(nb));
+    }
+
+    /// <summary>Independent linear-combination oracle for the reconstruction S·x.</summary>
+    private static double[] OracleReconstruct(IReadOnlyList<IReadOnlyList<double>> signatures, IReadOnlyList<double> x)
+    {
+        int channels = signatures[0].Count;
+        var r = new double[channels];
+        for (int j = 0; j < signatures.Count; j++)
+        {
+            for (int k = 0; k < channels; k++)
+            {
+                r[k] += signatures[j][k] * x[j];
+            }
+        }
+
+        return r;
+    }
+
+    /// <summary>Independent residual oracle E(x) = ‖S·x − d‖₂² (the NNLS objective).</summary>
+    private static double OracleResidual(
+        IReadOnlyList<IReadOnlyList<double>> signatures, IReadOnlyList<double> x, IReadOnlyList<double> d)
+    {
+        double[] r = OracleReconstruct(signatures, x);
+        double sum = 0.0;
+        for (int k = 0; k < r.Length; k++)
+        {
+            double diff = r[k] - d[k];
+            sum += diff * diff;
+        }
+
+        return sum;
+    }
+
+    // ---- generators -----------------------------------------------------------
+
+    /// <summary>Non-negative finite double in a sane magnitude (0 .. 100, milli-resolution).</summary>
+    private static Gen<double> NonNegDoubleGen() => Gen.Choose(0, 100_000).Select(v => v / 1000.0);
+
+    /// <summary>A non-negative double vector of the given length.</summary>
+    private static Gen<double[]> NonNegVectorGen(int length) => NonNegDoubleGen().ArrayOf(length);
+
+    /// <summary>A pair of non-negative vectors sharing a common (small) length, length ≥ 1.</summary>
+    private static Arbitrary<(double[] a, double[] b)> NonNegVectorPairArbitrary() =>
+        (from n in Gen.Choose(1, 8)
+         from a in NonNegVectorGen(n)
+         from b in NonNegVectorGen(n)
+         select (a, b)).ToArbitrary();
+
+    /// <summary>A single non-zero non-negative vector (forces at least one positive entry).</summary>
+    private static Arbitrary<double[]> NonZeroVectorArbitrary() =>
+        (from n in Gen.Choose(1, 8)
+         from baseVec in NonNegVectorGen(n)
+         from idx in Gen.Choose(0, n - 1)
+         from bump in Gen.Choose(1, 100_000).Select(v => v / 1000.0)
+         select Bump(baseVec, idx, bump)).ToArbitrary();
+
+    private static double[] Bump(double[] v, int idx, double bump)
+    {
+        var c = (double[])v.Clone();
+        c[idx] += bump; // guarantees a strictly positive entry ⇒ non-zero norm
+        return c;
+    }
+
+    /// <summary>
+    /// A general fitting problem: n channels, k signatures (non-negative finite entries) and a
+    /// non-negative catalog of length n — for invariants that must hold on ARBITRARY problems.
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, double[] catalog)> FitProblemArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from k in Gen.Choose(1, 4)
+         from sigs in NonNegVectorGen(n).ArrayOf(k)
+         from catalog in NonNegVectorGen(n)
+         select (sigs, catalog)).ToArbitrary();
+
+    /// <summary>
+    /// A CONSTRUCTIBLE problem with a known answer: well-separated (standard-basis-scaled) signatures
+    /// S and a known non-negative exposure x, with d = S·x. Because each signature occupies a distinct
+    /// channel block scaled positively, S has full column rank and the unique NNLS optimum equals x.
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, double[] exposures, double[] catalog)> KnownAnswerArbitrary() =>
+        (from k in Gen.Choose(1, 4)
+         from scales in Gen.Choose(1, 50).Select(v => v / 10.0).ArrayOf(k) // strictly positive scales
+         from xRaw in Gen.Choose(0, 50_000).Select(v => v / 1000.0).ArrayOf(k)
+         select BuildKnownAnswer(scales, xRaw)).ToArbitrary();
+
+    private static (double[][] signatures, double[] exposures, double[] catalog) BuildKnownAnswer(
+        double[] scales, double[] x)
+    {
+        int k = scales.Length;
+        // Signature j is scales[j]·e_j over k channels ⇒ S diagonal, full rank, columns orthogonal.
+        var sigs = new double[k][];
+        for (int j = 0; j < k; j++)
+        {
+            sigs[j] = new double[k];
+            sigs[j][j] = scales[j];
+        }
+
+        double[] d = OracleReconstruct(sigs, x);
+        return (sigs, x, d);
+    }
+
+    private static IReadOnlyList<IReadOnlyList<double>> AsSignatures(double[][] sigs) =>
+        sigs.Select(s => (IReadOnlyList<double>)s).ToArray();
+
+    // ===== CosineSimilarity ===================================================
+
+    /// <summary>
+    /// INV-01: <c>CosineSimilarity(a,b) ∈ [0,1]</c> for non-negative vectors and equals the independent
+    /// dot/norm oracle within 1e-9; a zero-norm vector yields exactly 0.0. (doc §2.2, §2.4 INV-01, §6.1)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CosineSimilarity_MatchesDotNormOracle_AndIsInUnitRange()
+    {
+        return Prop.ForAll(NonNegVectorPairArbitrary(), pair =>
+        {
+            double actual = OncologyAnalyzer.CosineSimilarity(pair.a, pair.b);
+            double oracle = OracleCosine(pair.a, pair.b);
+            bool matches = Math.Abs(actual - oracle) < SigClosedFormTolerance;
+            // For non-negative inputs the cosine is in [0,1] (allow fp slack at the bounds).
+            bool inRange = actual >= -SigClosedFormTolerance && actual <= 1.0 + SigClosedFormTolerance;
+            return (matches && inRange).Label($"cos {actual} vs oracle {oracle}, inRange={inRange}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02: <c>CosineSimilarity(a,a) = 1</c> (within 1e-9) for any non-zero vector a. (doc §2.4 INV-02)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CosineSimilarity_OfVectorWithItself_IsOne()
+    {
+        return Prop.ForAll(NonZeroVectorArbitrary(), a =>
+        {
+            double self = OncologyAnalyzer.CosineSimilarity(a, a);
+            return (Math.Abs(self - 1.0) < SigClosedFormTolerance).Label($"cos(a,a) = {self} ≠ 1");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (scale invariance): <c>CosineSimilarity(a, k·b) = CosineSimilarity(a,b)</c> for any k &gt; 0.
+    /// The cosine of an angle is invariant under positive scaling. (doc §2.4 INV-03)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CosineSimilarity_IsInvariantUnderPositiveScaling()
+    {
+        var arb = (from pair in NonNegVectorPairArbitrary().Generator
+                   from kMilli in Gen.Choose(1, 100_000)
+                   select (pair.a, pair.b, k: kMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double baseCos = OncologyAnalyzer.CosineSimilarity(t.a, t.b);
+            double[] scaled = t.b.Select(x => x * t.k).ToArray();
+            double scaledCos = OncologyAnalyzer.CosineSimilarity(t.a, scaled);
+            return (Math.Abs(baseCos - scaledCos) < SigClosedFormTolerance)
+                .Label($"cos(a,b)={baseCos} ≠ cos(a,{t.k}·b)={scaledCos}");
+        });
+    }
+
+    /// <summary>
+    /// Anchor: orthogonal non-negative vectors (disjoint support) ⇒ cosine 0; a zero vector ⇒ 0.0.
+    /// (doc §6.1 orthogonal/zero-norm cases)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CosineSimilarity_OrthogonalAndZeroVectors_AreZero()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CosineSimilarity(new double[] { 1, 0 }, new double[] { 0, 1 }),
+                Is.EqualTo(0.0).Within(SigClosedFormTolerance), "orthogonal ⇒ 0");
+            Assert.That(OncologyAnalyzer.CosineSimilarity(new double[] { 0, 0 }, new double[] { 3, 4 }),
+                Is.EqualTo(0.0), "zero-norm ⇒ 0.0");
+            Assert.That(OncologyAnalyzer.CosineSimilarity(new double[] { 3, 4 }, new double[] { 0, 0 }),
+                Is.EqualTo(0.0), "zero-norm ⇒ 0.0");
+        });
+    }
+
+    // ===== ReconstructCatalog =================================================
+
+    /// <summary>
+    /// Reconstruction oracle: <c>Reconstruction[k] = Σ_j signatures[j][k]·exposures[j]</c> within 1e-9,
+    /// recomputed independently. (doc §2.2 R = S·x)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReconstructCatalog_EqualsLinearCombinationOracle()
+    {
+        var arb = (from n in Gen.Choose(1, 6)
+                   from k in Gen.Choose(1, 4)
+                   from sigs in NonNegVectorGen(n).ArrayOf(k)
+                   from exposures in NonNegVectorGen(k)
+                   select (sigs, exposures)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            IReadOnlyList<double> actual = OncologyAnalyzer.ReconstructCatalog(AsSignatures(t.sigs), t.exposures);
+            double[] oracle = OracleReconstruct(AsSignatures(t.sigs), t.exposures);
+            bool ok = actual.Count == oracle.Length;
+            for (int k = 0; ok && k < oracle.Length; k++)
+            {
+                ok &= Math.Abs(actual[k] - oracle[k]) < SigClosedFormTolerance;
+            }
+
+            return ok.Label("ReconstructCatalog ≠ Σ_j signatures[j][k]·exposures[j]");
+        });
+    }
+
+    // ===== FitSignatures ======================================================
+
+    /// <summary>
+    /// R + INV-04: every fitted exposure is non-negative (NNLS constraint x ≥ 0; allow −1e-9 fp slack).
+    /// (doc §2.4 INV-04, checklist R: exposures ≥ 0)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_Exposures_AreNonNegative()
+    {
+        return Prop.ForAll(FitProblemArbitrary(), t =>
+        {
+            var fit = OncologyAnalyzer.FitSignatures(t.catalog, AsSignatures(t.signatures));
+            return fit.Exposures.All(e => e >= -SigClosedFormTolerance)
+                .Label($"negative exposure in [{string.Join(",", fit.Exposures)}]");
+        });
+    }
+
+    /// <summary>
+    /// P + INV-06: <c>NormalizedExposures = Exposures / Σ Exposures</c> (sum to 1 within 1e-9) when the
+    /// total is positive; otherwise all zero. The doc-derived "Σ proportions = 1" form, NOT the loose
+    /// "Σ exposures = #mutations". (doc §2.4 INV-06; checklist P: normalised 1.0)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_NormalizedExposures_AreExposuresOverTheirSum()
+    {
+        return Prop.ForAll(FitProblemArbitrary(), t =>
+        {
+            var fit = OncologyAnalyzer.FitSignatures(t.catalog, AsSignatures(t.signatures));
+            double sum = fit.Exposures.Sum();
+
+            bool ok;
+            if (sum > 0.0)
+            {
+                ok = Math.Abs(fit.NormalizedExposures.Sum() - 1.0) < SigClosedFormTolerance;
+                for (int j = 0; ok && j < fit.Exposures.Count; j++)
+                {
+                    ok &= Math.Abs(fit.NormalizedExposures[j] - fit.Exposures[j] / sum) < SigClosedFormTolerance;
+                }
+            }
+            else
+            {
+                ok = fit.NormalizedExposures.All(p => p == 0.0);
+            }
+
+            return ok.Label($"normalized {string.Join(",", fit.NormalizedExposures)} (Σexp={sum})");
+        });
+    }
+
+    /// <summary>
+    /// Reconstruction + quality: the result's <c>Reconstruction</c> equals
+    /// <c>ReconstructCatalog(signatures, Exposures)</c> and <c>ReconstructionCosineSimilarity</c> equals
+    /// <c>CosineSimilarity(catalog, Reconstruction)</c>, both within 1e-9. (doc §2.2/§3.2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_ReconstructionAndCosine_AreSelfConsistent()
+    {
+        return Prop.ForAll(FitProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var fit = OncologyAnalyzer.FitSignatures(t.catalog, sigs);
+
+            double[] oracleRecon = OracleReconstruct(sigs, fit.Exposures);
+            bool reconOk = fit.Reconstruction.Count == oracleRecon.Length;
+            for (int k = 0; reconOk && k < oracleRecon.Length; k++)
+            {
+                reconOk &= Math.Abs(fit.Reconstruction[k] - oracleRecon[k]) < SigClosedFormTolerance;
+            }
+
+            double oracleCos = OracleCosine(t.catalog, fit.Reconstruction);
+            bool cosOk = Math.Abs(fit.ReconstructionCosineSimilarity - oracleCos) < SigClosedFormTolerance;
+
+            return (reconOk && cosOk)
+                .Label($"recon/cos mismatch: cos={fit.ReconstructionCosineSimilarity} vs {oracleCos}");
+        });
+    }
+
+    /// <summary>
+    /// Known-answer recovery (standard basis): with signature j = e_j (S = identity over n channels),
+    /// <c>FitSignatures(catalog, basis).Exposures == catalog</c> exactly and the reconstruction cosine
+    /// is 1 for a non-zero catalog. The identity decomposition is unique. (doc §7.1; INV-07)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_StandardBasis_RecoversCatalogExactly()
+    {
+        return Prop.ForAll(NonZeroVectorArbitrary(), catalog =>
+        {
+            int n = catalog.Length;
+            var basis = new double[n][];
+            for (int j = 0; j < n; j++)
+            {
+                basis[j] = new double[n];
+                basis[j][j] = 1.0; // e_j
+            }
+
+            var fit = OncologyAnalyzer.FitSignatures(catalog, AsSignatures(basis));
+
+            bool exposuresOk = fit.Exposures.Count == n;
+            for (int j = 0; exposuresOk && j < n; j++)
+            {
+                exposuresOk &= Math.Abs(fit.Exposures[j] - catalog[j]) < SigClosedFormTolerance;
+            }
+
+            bool cosOk = Math.Abs(fit.ReconstructionCosineSimilarity - 1.0) < SigClosedFormTolerance;
+            return (exposuresOk && cosOk)
+                .Label($"basis recovery failed: exposures={string.Join(",", fit.Exposures)} cos={fit.ReconstructionCosineSimilarity}");
+        });
+    }
+
+    /// <summary>
+    /// Known-answer recovery (well-conditioned S, d = S·x): with full-column-rank (diagonal-scaled)
+    /// signatures and a known non-negative x, fitting d = S·x recovers x within ~1e-6 and cosine ≈ 1.
+    /// The unconstrained LS optimum is already non-negative, so the NNLS optimum equals it (INV-07).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_WellConditionedKnownX_RecoversExposures()
+    {
+        return Prop.ForAll(KnownAnswerArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var fit = OncologyAnalyzer.FitSignatures(t.catalog, sigs);
+
+            bool xOk = fit.Exposures.Count == t.exposures.Length;
+            for (int j = 0; xOk && j < t.exposures.Length; j++)
+            {
+                xOk &= Math.Abs(fit.Exposures[j] - t.exposures[j]) < SigSolverRecoveryTolerance;
+            }
+
+            // Cosine ≈ 1 only when d ≠ 0 (a zero x gives a zero catalog ⇒ cosine 0 by convention).
+            double dNorm = Math.Sqrt(t.catalog.Sum(v => v * v));
+            bool cosOk = dNorm == 0.0
+                ? fit.ReconstructionCosineSimilarity == 0.0
+                : Math.Abs(fit.ReconstructionCosineSimilarity - 1.0) < SigSolverRecoveryTolerance;
+
+            return (xOk && cosOk)
+                .Label($"recovered {string.Join(",", fit.Exposures)} vs x {string.Join(",", t.exposures)} cos={fit.ReconstructionCosineSimilarity}");
+        });
+    }
+
+    /// <summary>
+    /// M ("better fit → lower reconstruction error") = NNLS optimality (INV-05/INV-07). The fitted
+    /// solution's residual ‖S·x_nnls − d‖² is (a) ≤ ‖d‖² because x = 0 is feasible, and (b) no worse
+    /// than the residual of ANY randomly generated non-negative exposure vector y (within 1e-6):
+    /// a strictly better fit can never have a higher reconstruction error. (doc §2.4 INV-05/INV-07)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_Residual_IsNoWorseThanAnyFeasibleExposure()
+    {
+        var arb = (from problem in FitProblemArbitrary().Generator
+                   from y in NonNegVectorGen(problem.signatures.Length)
+                   select (problem.signatures, problem.catalog, y)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var fit = OncologyAnalyzer.FitSignatures(t.catalog, sigs);
+
+            double residualNnls = OracleResidual(sigs, fit.Exposures, t.catalog);
+            double dNormSquared = t.catalog.Sum(v => v * v);
+            double residualY = OracleResidual(sigs, t.y, t.catalog);
+
+            // (a) x = 0 feasible ⇒ optimum residual ≤ ‖d‖²; (b) optimum ≤ any feasible y's residual.
+            bool boundedByD = residualNnls <= dNormSquared + SigSolverRecoveryTolerance;
+            bool optimal = residualNnls <= residualY + SigSolverRecoveryTolerance;
+
+            return (boundedByD && optimal)
+                .Label($"nnls residual {residualNnls} > ‖d‖²={dNormSquared} or > feasible-y residual {residualY}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical inputs produce an identical <see cref="SignatureFitResult"/> — every
+    /// field equal entrywise. (checklist D: deterministic)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FitSignatures_IsDeterministic()
+    {
+        return Prop.ForAll(FitProblemArbitrary(), t =>
+        {
+            var sigs1 = AsSignatures(t.signatures);
+            var sigs2 = AsSignatures(t.signatures);
+            var a = OncologyAnalyzer.FitSignatures(t.catalog, sigs1);
+            var b = OncologyAnalyzer.FitSignatures(t.catalog, sigs2);
+
+            bool ok = a.Exposures.SequenceEqual(b.Exposures)
+                      && a.NormalizedExposures.SequenceEqual(b.NormalizedExposures)
+                      && a.Reconstruction.SequenceEqual(b.Reconstruction)
+                      && a.ReconstructionCosineSimilarity.Equals(b.ReconstructionCosineSimilarity);
+
+            return ok.Label("FitSignatures is not deterministic for identical inputs");
+        });
+    }
+
+    // ===== Validation / edge cases ============================================
+
+    /// <summary>Validation: null vectors to <c>CosineSimilarity</c> throw <see cref="ArgumentNullException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void CosineSimilarity_NullArguments_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CosineSimilarity(null!, new double[] { 1 }));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CosineSimilarity(new double[] { 1 }, null!));
+        });
+    }
+
+    /// <summary>Validation: empty or length-mismatched cosine vectors throw <see cref="ArgumentException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void CosineSimilarity_EmptyOrMismatchedVectors_Throw()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentException>(() =>
+                OncologyAnalyzer.CosineSimilarity(Array.Empty<double>(), Array.Empty<double>()));
+            Assert.Throws<ArgumentException>(() =>
+                OncologyAnalyzer.CosineSimilarity(new double[] { 1, 2 }, new double[] { 1 }));
+        });
+    }
+
+    /// <summary>Validation: null catalog/signatures (or a null signature vector) throw <see cref="ArgumentNullException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void FitSignatures_NullArguments_Throw()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitSignatures(null!, sigs));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FitSignatures(new double[] { 1, 1 }, null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ReconstructCatalog(null!, new double[] { 1 }));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ReconstructCatalog(sigs, null!));
+        });
+    }
+
+    /// <summary>
+    /// Validation: empty, ragged, or dimension-mismatched inputs throw <see cref="ArgumentException"/>.
+    /// (doc §3.3)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitSignatures_EmptyRaggedOrMismatched_Throw()
+    {
+        var ragged = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1, 2 } };
+        var good = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            // No signatures.
+            Assert.Throws<ArgumentException>(() =>
+                OncologyAnalyzer.FitSignatures(new double[] { 1 }, Array.Empty<IReadOnlyList<double>>()));
+            // Ragged signature matrix.
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitSignatures(new double[] { 1, 0 }, ragged));
+            // Catalog length ≠ channel count.
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.FitSignatures(new double[] { 1, 2, 3 }, good));
+            // ReconstructCatalog: exposure count ≠ signature count.
+            Assert.Throws<ArgumentException>(() =>
+                OncologyAnalyzer.ReconstructCatalog(good, new double[] { 1, 2, 3 }));
+        });
+    }
+
+    /// <summary>
+    /// Edge (doc §6.1): a zero catalog d = 0 yields all-zero exposures, all-zero normalized exposures,
+    /// and a zero reconstruction (the only feasible minimiser of ‖S·x‖², x ≥ 0).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitSignatures_ZeroCatalog_YieldsAllZeros()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 2 }, new double[] { 3, 1 } };
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 0, 0 }, sigs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures, Is.All.EqualTo(0.0));
+            Assert.That(fit.NormalizedExposures, Is.All.EqualTo(0.0));
+            Assert.That(fit.Reconstruction, Is.All.EqualTo(0.0));
+        });
+    }
+
+    /// <summary>
+    /// Anchor (doc §7.1 API example): catalog [3,5] with standard-basis signatures sig1=[1,0], sig2=[0,1]
+    /// ⇒ exposures [3,5], reconstruction [3,5], cosine 1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitSignatures_Anchor_BasisCatalog35()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 3, 5 }, sigs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(3.0).Within(SigClosedFormTolerance));
+            Assert.That(fit.Exposures[1], Is.EqualTo(5.0).Within(SigClosedFormTolerance));
+            Assert.That(fit.Reconstruction[0], Is.EqualTo(3.0).Within(SigClosedFormTolerance));
+            Assert.That(fit.Reconstruction[1], Is.EqualTo(5.0).Within(SigClosedFormTolerance));
+            Assert.That(fit.ReconstructionCosineSimilarity, Is.EqualTo(1.0).Within(SigClosedFormTolerance));
+        });
+    }
+
+    /// <summary>
+    /// Anchor (doc §7.1 walk-through): catalog [0,1] with sig1=[1,0], sig2=[1,1]. The unconstrained LS
+    /// gives x₁ &lt; 0, so sig1 clamps to 0 and sig2 refits to 0.5 ⇒ exposures [0, 0.5],
+    /// reconstruction [0.5, 0.5].
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FitSignatures_Anchor_ClampedNnls01()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 1, 1 } };
+        var fit = OncologyAnalyzer.FitSignatures(new double[] { 0, 1 }, sigs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fit.Exposures[0], Is.EqualTo(0.0).Within(SigSolverRecoveryTolerance));
+            Assert.That(fit.Exposures[1], Is.EqualTo(0.5).Within(SigSolverRecoveryTolerance));
+            Assert.That(fit.Reconstruction[0], Is.EqualTo(0.5).Within(SigSolverRecoveryTolerance));
+            Assert.That(fit.Reconstruction[1], Is.EqualTo(0.5).Within(SigSolverRecoveryTolerance));
+        });
+    }
+
+    #endregion
 }
