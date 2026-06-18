@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001, COMPGEN-REARR-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -707,6 +707,143 @@ public class ComparativeGenomicsProperties
         var pairs = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(g1, g2));
         Assert.That(pairs, Is.EquivalentTo(new[] { ("A_0", "B_0") }),
             "only the reciprocal pair survives; A_1's hit is one-directional");
+    }
+
+    #endregion
+
+    #region COMPGEN-REARR-001: P: collinear genomes have no rearrangement; R: events have valid coordinates/types; P: type encoding consistent; D: deterministic
+
+    // DetectRearrangements reads the orthologous markers in genome-1 order, relabels them to a signed
+    // genome-2 order permutation (sign = relative strand), and yields one RearrangementEvent per
+    // breakpoint of the extended permutation (Bafna & Pevzner 1998; Tannier et al. 2009). Only the two
+    // operation classes derivable from a single signed in-order permutation are produced: Inversion
+    // (sign reversal across the boundary) and Transposition (orientation-preserving discontinuity).
+
+    /// <summary>
+    /// Generates (σ, flip): a random genome-2 ordering permutation of n markers and per-marker strand
+    /// flips, deterministically from a seed.
+    /// </summary>
+    private static Arbitrary<(int[] perm, bool[] flip)> RearrArbitrary(int n = 6) =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            var perm = Enumerable.Range(0, n).ToArray();
+            for (int i = n - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (perm[i], perm[j]) = (perm[j], perm[i]);
+            }
+            var flip = new bool[n];
+            for (int j = 0; j < n; j++) flip[j] = rng.Next(2) == 0;
+            return (perm, flip);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// Builds two gene-ordered genomes plus the ortholog map. genome-1 gene i (always '+') is
+    /// orthologous to genome-2 gene σ(i); genome-2 gene j has '-' strand iff flip[j].
+    /// </summary>
+    private static (List<ComparativeGenomics.Gene> g1, List<ComparativeGenomics.Gene> g2, Dictionary<string, string> map)
+        BuildRearr(int[] perm, bool[] flip)
+    {
+        int n = perm.Length;
+        var g1 = new List<ComparativeGenomics.Gene>(n);
+        var g2 = new List<ComparativeGenomics.Gene>(n);
+        var map = new Dictionary<string, string>(n);
+        for (int i = 0; i < n; i++)
+            g1.Add(new ComparativeGenomics.Gene($"G1_{i}", "genome1", i * 100, i * 100 + 50, '+'));
+        for (int j = 0; j < n; j++)
+            g2.Add(new ComparativeGenomics.Gene($"G2_{j}", "genome2", j * 100, j * 100 + 50, flip[j] ? '-' : '+'));
+        for (int i = 0; i < n; i++)
+            map[$"G1_{i}"] = $"G2_{perm[i]}";
+        return (g1, g2, map);
+    }
+
+    /// <summary>
+    /// INV-1 (P): Collinear genomes have no rearrangement. When the orthologs appear in the same
+    /// order and orientation in both genomes, the relabelled permutation is the identity and there
+    /// are zero breakpoints.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Rearrangements_CollinearGenomes_HaveNoBreakpoints()
+    {
+        int n = 6;
+        var (g1, g2, map) = BuildRearr(Enumerable.Range(0, n).ToArray(), new bool[n]);
+        Assert.That(ComparativeGenomics.DetectRearrangements(g1, g2, map), Is.Empty,
+            "identity gene order must produce no rearrangement events");
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every event has a valid genome-1 anchor coordinate, non-negative length, and one of
+    /// the two derivable rearrangement types (Inversion or Transposition).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rearrangements_HaveValidCoordinatesAndTypes()
+    {
+        return Prop.ForAll(RearrArbitrary(), pf =>
+        {
+            var (g1, g2, map) = BuildRearr(pf.perm, pf.flip);
+            var starts = g1.Select(g => g.Start).ToHashSet();
+            var events = ComparativeGenomics.DetectRearrangements(g1, g2, map).ToList();
+            bool ok = events.All(e =>
+                starts.Contains(e.Position) &&
+                e.Length >= 0 &&
+                (e.Type == ComparativeGenomics.RearrangementType.Inversion ||
+                 e.Type == ComparativeGenomics.RearrangementType.Transposition));
+            return ok.Label("an event had an invalid coordinate, negative length, or unexpected type");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): The stored event type is consistent with its breakpoint encoding —
+    /// re-deriving the type from the event via ClassifyRearrangement reproduces Type.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rearrangements_TypeEncoding_IsConsistent()
+    {
+        return Prop.ForAll(RearrArbitrary(), pf =>
+        {
+            var (g1, g2, map) = BuildRearr(pf.perm, pf.flip);
+            var events = ComparativeGenomics.DetectRearrangements(g1, g2, map).ToList();
+            return events.All(e => ComparativeGenomics.ClassifyRearrangement(e) == e.Type)
+                .Label("ClassifyRearrangement disagreed with the stored event Type");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Rearrangement detection is deterministic in content and order.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rearrangements_AreDeterministic()
+    {
+        return Prop.ForAll(RearrArbitrary(), pf =>
+        {
+            var (g1, g2, map) = BuildRearr(pf.perm, pf.flip);
+            var a = ComparativeGenomics.DetectRearrangements(g1, g2, map)
+                .Select(e => (e.Type, e.Position, e.Length, e.TargetPosition)).ToList();
+            var b = ComparativeGenomics.DetectRearrangements(g1, g2, map)
+                .Select(e => (e.Type, e.Position, e.Length, e.TargetPosition)).ToList();
+            return a.SequenceEqual(b).Label("DetectRearrangements must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (P, positive control): a whole-genome reversal (orthologs in reverse order with flipped
+    /// strands) yields only Inversion events — a reversal negates the signs of the block it reverses.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Rearrangements_WholeGenomeReversal_AreAllInversions()
+    {
+        int n = 6;
+        var reversed = Enumerable.Range(0, n).Select(i => n - 1 - i).ToArray();
+        var allFlipped = Enumerable.Repeat(true, n).ToArray();
+        var (g1, g2, map) = BuildRearr(reversed, allFlipped);
+
+        var events = ComparativeGenomics.DetectRearrangements(g1, g2, map).ToList();
+        Assert.That(events, Is.Not.Empty, "a whole-genome reversal must register breakpoints");
+        Assert.That(events.All(e => e.Type == ComparativeGenomics.RearrangementType.Inversion), Is.True,
+            "every breakpoint of a strand-flipped reversal must classify as an inversion");
     }
 
     #endregion

@@ -166,7 +166,7 @@ Property-based testing генерирует сотни случайных вхо
 | 134 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | R: dot positions valid (i<lenA, j<lenB); P: main diagonal for identical seqs; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 135 | ☑ | COMPGEN-ORTHO-001 | Comparative | P: ortholog pairs bidirectional; R: positions valid; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 136 | ☑ | COMPGEN-RBH-001 | Comparative | S: RBH(A,B)=RBH(B,A); P: each gene in ≤ 1 RBH pair; D: deterministic | ComparativeGenomicsProperties.cs (new) |
-| 137 | ☐ | COMPGEN-REARR-001 | Comparative | R: breakpoint count ≥ 0; P: rearrangement preserves gene content; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 137 | ☑ | COMPGEN-REARR-001 | Comparative | R: breakpoint count ≥ 0; P: rearrangement preserves gene content; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | R: distance ≥ 0; S: d(A,B)=d(B,A); I: d(A,A)=0; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | R: block positions valid; M: lower minBlockSize → ≥ blocks; P: blocks collinear; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | R: consensus length ≥ 0; P: each position = majority base; D: deterministic | AssemblyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 136 |
-| ☐ Not started | 98 |
+| ☑ Complete | 137 |
+| ☐ Not started | 97 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
