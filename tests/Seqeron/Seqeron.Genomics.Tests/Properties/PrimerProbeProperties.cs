@@ -459,51 +459,427 @@ public class PrimerProbeProperties
         });
     }
 
-    // -- PRIMER-DESIGN-001 --
+    #region Generators &amp; Theory Oracle (PRIMER-DESIGN-001)
 
     /// <summary>
-    /// DesignPrimers returns valid forward/reverse primers spanning the target.
+    /// Generates a random ACGT template at least <paramref name="minLen"/> bases long.
+    /// Only valid DNA bases are produced so <see cref="DnaSequence"/> construction never throws,
+    /// and the sequence is realistic enough to yield candidates across the filter windows.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DesignPrimers_ProductSize_IsPositive()
-    {
-        string template = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 30));
-        var dna = new DnaSequence(template);
-        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 100, targetEnd: 200);
+    private static Gen<string> TemplateGen(int minLen, int maxLen) =>
+        from len in Gen.Choose(minLen, maxLen)
+        from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+        select new string(chars);
 
-        Assert.That(result.ProductSize, Is.GreaterThanOrEqualTo(0));
+    /// <summary>
+    /// Generates a randomized parameter window (the design "config knobs") together with a
+    /// template long enough to host both flanking search regions and a target between them.
+    /// The length/GC/Tm windows are deliberately varied so the invariants are exercised across
+    /// configurations rather than a single hard-coded setting (cf. ADVANCED_TESTING_CHECKLIST
+    /// "multiple configuration knobs": length range + GC range + Tm range).
+    /// </summary>
+    private static Arbitrary<(string template, int targetStart, int targetEnd, PrimerParameters param)>
+        DesignScenarioArbitrary() =>
+        (from minLen in Gen.Choose(15, 20)
+         from extra in Gen.Choose(0, 8)
+         let maxLen = minLen + extra
+         from minGc in Gen.Choose(20, 45)
+         from gcSpan in Gen.Choose(15, 50)
+         let maxGc = Math.Min(100, minGc + gcSpan)
+         from minTm in Gen.Choose(40, 58)
+         from tmSpan in Gen.Choose(8, 30)
+         let maxTm = minTm + tmSpan
+         // Template must hold: forward flank (>= maxLen) + target (>= 1) + reverse flank (>= maxLen).
+         from fwdFlank in Gen.Choose(maxLen, maxLen + 40)
+         from targetSpan in Gen.Choose(1, 30)
+         from revFlank in Gen.Choose(maxLen, maxLen + 40)
+         let total = fwdFlank + targetSpan + revFlank
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(total)
+         let param = new PrimerParameters(
+             MinLength: minLen, MaxLength: maxLen, OptimalLength: (minLen + maxLen) / 2,
+             MinGcContent: minGc, MaxGcContent: maxGc,
+             MinTm: minTm, MaxTm: maxTm, OptimalTm: (minTm + maxTm) / 2.0,
+             MaxHomopolymer: 4, MaxDinucleotideRepeats: 4,
+             Avoid3PrimeGC: false, Check3PrimeStability: true)
+         select (new string(chars), fwdFlank, fwdFlank + targetSpan, param)).ToArbitrary();
+
+    /// <summary>
+    /// Generates a candidate-enumeration scenario: a template, a region inside it, an orientation,
+    /// and a randomized parameter window. Used to test <see cref="PrimerDesigner.GeneratePrimerCandidates"/>.
+    /// </summary>
+    private static Arbitrary<(string template, int regionStart, int regionEnd, bool forward, PrimerParameters param)>
+        CandidateScenarioArbitrary() =>
+        (from minLen in Gen.Choose(15, 20)
+         from extra in Gen.Choose(0, 8)
+         let maxLen = minLen + extra
+         from minGc in Gen.Choose(20, 45)
+         from gcSpan in Gen.Choose(15, 50)
+         let maxGc = Math.Min(100, minGc + gcSpan)
+         from minTm in Gen.Choose(40, 58)
+         from tmSpan in Gen.Choose(8, 30)
+         let maxTm = minTm + tmSpan
+         from regionLen in Gen.Choose(maxLen, maxLen + 60)
+         from forward in Gen.Elements(true, false)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(regionLen)
+         let param = new PrimerParameters(
+             MinLength: minLen, MaxLength: maxLen, OptimalLength: (minLen + maxLen) / 2,
+             MinGcContent: minGc, MaxGcContent: maxGc,
+             MinTm: minTm, MaxTm: maxTm, OptimalTm: (minTm + maxTm) / 2.0,
+             MaxHomopolymer: 4, MaxDinucleotideRepeats: 4,
+             Avoid3PrimeGC: false, Check3PrimeStability: true)
+         select (new string(chars), 0, regionLen, forward, param)).ToArbitrary();
+
+    /// <summary>Independent GC% oracle: 100 × (#G + #C) / length, computed from raw base counts.</summary>
+    private static double ExpectedGcPercent(string seq)
+    {
+        if (seq.Length == 0) return 0;
+        var (_, gc) = CountAtGc(seq);
+        return 100.0 * gc / seq.Length;
     }
 
     /// <summary>
-    /// Primer candidate GC content is in [0, 1].
+    /// Independent re-implementation of the pair-validity predicate (INV-02), derived from the
+    /// doc contract rather than reused production code: a pair is valid iff |Tm_f − Tm_r| ≤ 5
+    /// AND the two primers do not form a primer-dimer.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void PrimerCandidate_GcContent_InRange()
-    {
-        string template = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 30));
-        var dna = new DnaSequence(template);
-        var candidates = PrimerDesigner.GeneratePrimerCandidates(dna, 10, 100, forward: true).ToList();
+    private static bool ExpectedPairValid(PrimerCandidate fwd, PrimerCandidate rev) =>
+        Math.Abs(fwd.MeltingTemperature - rev.MeltingTemperature) <= 5.0
+        && !PrimerDesigner.HasPrimerDimer(fwd.Sequence, rev.Sequence);
 
-        foreach (var c in candidates)
-            Assert.That(c.GcContent, Is.InRange(0.0, 100.0));
+    #endregion
+
+    #region PRIMER-DESIGN-001 — Candidate Filter Invariants (R: length, P: GC, R: Tm)
+
+    /// <summary>
+    /// INV-R-len: Every VALID candidate returned by <see cref="PrimerDesigner.GeneratePrimerCandidates"/>
+    /// has Length within the configured [MinLength, MaxLength] window, and an out-of-window length is
+    /// never accepted. Exercised across randomized templates AND randomized length windows so the
+    /// bound is a true config-driven invariant, not a single-template coincidence.
+    /// Source: Primer_Design.md §3 contract (length 18-25 default; window from parameters).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GeneratePrimerCandidates_ValidLength_InConfiguredWindow()
+    {
+        return Prop.ForAll(CandidateScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var candidates = PrimerDesigner
+                .GeneratePrimerCandidates(dna, s.regionStart, s.regionEnd, s.forward, s.param)
+                .ToList();
+
+            bool allValidInWindow = candidates
+                .Where(c => c.IsValid)
+                .All(c => c.Length >= s.param.MinLength && c.Length <= s.param.MaxLength);
+
+            return allValidInWindow.Label(
+                $"valid candidate length outside [{s.param.MinLength},{s.param.MaxLength}] " +
+                $"in region len {s.template.Length}");
+        });
     }
 
     /// <summary>
-    /// Primer candidate score is finite.
+    /// INV-P-GC: Every VALID candidate has GcContent (a percentage 0-100 in source) within the
+    /// configured [MinGcContent, MaxGcContent] window; a candidate whose GC% falls outside the window
+    /// is never marked valid. GcContent is recomputed independently from base counts (ExpectedGcPercent)
+    /// to confirm the production value used for filtering is itself correct.
+    /// Source: Primer_Design.md §3 / §4.2 (GC 40-60 default; window from parameters).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GeneratePrimerCandidates_ValidGcContent_InConfiguredWindow()
+    {
+        return Prop.ForAll(CandidateScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var candidates = PrimerDesigner
+                .GeneratePrimerCandidates(dna, s.regionStart, s.regionEnd, s.forward, s.param)
+                .ToList();
+
+            foreach (var c in candidates)
+            {
+                // GcContent is rounded to 1 decimal in source; oracle within that tolerance.
+                if (Math.Abs(c.GcContent - ExpectedGcPercent(c.Sequence)) > 0.06)
+                    return false.Label($"GcContent {c.GcContent} != oracle {ExpectedGcPercent(c.Sequence)} for {c.Sequence}");
+
+                if (c.IsValid &&
+                    (c.GcContent < s.param.MinGcContent || c.GcContent > s.param.MaxGcContent))
+                    return false.Label(
+                        $"valid candidate GC {c.GcContent}% outside [{s.param.MinGcContent},{s.param.MaxGcContent}]");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-R-Tm: Every VALID candidate has MeltingTemperature within the configured [MinTm, MaxTm]
+    /// window; a candidate whose Tm is outside the window is never marked valid.
+    /// Source: Primer_Design.md §3 (Tm 57-63 default; window from parameters).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GeneratePrimerCandidates_ValidTm_InConfiguredWindow()
+    {
+        return Prop.ForAll(CandidateScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var candidates = PrimerDesigner
+                .GeneratePrimerCandidates(dna, s.regionStart, s.regionEnd, s.forward, s.param)
+                .ToList();
+
+            bool allValidInWindow = candidates
+                .Where(c => c.IsValid)
+                .All(c => c.MeltingTemperature >= s.param.MinTm && c.MeltingTemperature <= s.param.MaxTm);
+
+            return allValidInWindow.Label(
+                $"valid candidate Tm outside [{s.param.MinTm},{s.param.MaxTm}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-R-len (negation): an invalid-length primer is never marked valid by
+    /// <see cref="PrimerDesigner.EvaluatePrimer"/>. Builds primers one base shorter than MinLength
+    /// and one longer than MaxLength and asserts IsValid is false in both cases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EvaluatePrimer_LengthOutsideWindow_IsNeverValid()
+    {
+        var arb = (from minLen in Gen.Choose(16, 22)
+                   from extra in Gen.Choose(2, 8)
+                   let maxLen = minLen + extra
+                   from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(maxLen + 6)
+                   select (new string(chars), minLen, maxLen)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var (seq, minLen, maxLen) = t;
+            var param = new PrimerParameters(minLen, maxLen, (minLen + maxLen) / 2,
+                0, 100, 0, 200, 60, 99, 99, false, false);
+
+            string tooShort = seq.Substring(0, minLen - 1);
+            string tooLong = seq.Substring(0, maxLen + 1);
+
+            bool shortInvalid = !PrimerDesigner.EvaluatePrimer(tooShort, 0, true, param).IsValid;
+            bool longInvalid = !PrimerDesigner.EvaluatePrimer(tooLong, 0, true, param).IsValid;
+
+            return (shortInvalid && longInvalid)
+                .Label($"len-window violation accepted: short={shortInvalid}, long={longInvalid} for [{minLen},{maxLen}]");
+        });
+    }
+
+    #endregion
+
+    #region PRIMER-DESIGN-001 — Pair Invariants (INV-02 validity, INV-03 product size)
+
+    /// <summary>
+    /// INV-03 (product size): when <see cref="PrimerDesigner.DesignPrimers"/> returns both primers,
+    /// ProductSize equals reverse.Position + reverse.Sequence.Length − forward.Position, recomputed
+    /// independently from the returned candidates. Source: Primer_Design.md §2.4 INV-03.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignPrimers_ProductSize_MatchesIndependentFormula()
+    {
+        return Prop.ForAll(DesignScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var result = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
+
+            if (result.Forward is null || result.Reverse is null)
+                return true.ToProperty(); // INV-03 only applies when both primers exist.
+
+            int expected = result.Reverse.Position + result.Reverse.Sequence.Length - result.Forward.Position;
+            return (result.ProductSize == expected)
+                .Label($"ProductSize {result.ProductSize} != {expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (pair validity): result.IsValid ⟺ (|Tm_f − Tm_r| ≤ 5 AND not HasPrimerDimer(fwd,rev)),
+    /// with the predicate recomputed independently (ExpectedPairValid) from the returned candidates.
+    /// Source: Primer_Design.md §2.4 INV-02.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignPrimers_PairValidity_MatchesIndependentPredicate()
+    {
+        return Prop.ForAll(DesignScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var result = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
+
+            if (result.Forward is null || result.Reverse is null)
+                return result.IsValid == false ? true.ToProperty()  // INV-01: missing side ⇒ invalid.
+                    : false.ToProperty().Label("missing primer but IsValid==true");
+
+            bool expected = ExpectedPairValid(result.Forward, result.Reverse);
+            return (result.IsValid == expected)
+                .Label($"IsValid {result.IsValid} != predicate {expected} " +
+                       $"(Tm {result.Forward.MeltingTemperature}/{result.Reverse.MeltingTemperature})");
+        });
+    }
+
+    /// <summary>
+    /// INV-R/P/R on the chosen pair: whenever DesignPrimers selects primers, EACH selected primer
+    /// satisfies the configured length, GC, and Tm windows (selection only ever draws from valid
+    /// candidates). Ties the three filter invariants to the public design entry point.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignPrimers_SelectedPrimers_SatisfyAllWindows()
+    {
+        return Prop.ForAll(DesignScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var result = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
+
+            foreach (var c in new[] { result.Forward, result.Reverse })
+            {
+                if (c is null) continue;
+                bool ok = c.Length >= s.param.MinLength && c.Length <= s.param.MaxLength
+                          && c.GcContent >= s.param.MinGcContent && c.GcContent <= s.param.MaxGcContent
+                          && c.MeltingTemperature >= s.param.MinTm && c.MeltingTemperature <= s.param.MaxTm;
+                if (!ok)
+                    return false.Label(
+                        $"selected primer len={c.Length} gc={c.GcContent} tm={c.MeltingTemperature} " +
+                        $"violates windows len[{s.param.MinLength},{s.param.MaxLength}] " +
+                        $"gc[{s.param.MinGcContent},{s.param.MaxGcContent}] tm[{s.param.MinTm},{s.param.MaxTm}]");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    #endregion
+
+    #region PRIMER-DESIGN-001 — Determinism (D)
+
+    /// <summary>
+    /// INV-D (DesignPrimers): identical inputs yield identical pair results — same validity,
+    /// product size, message, and selected primer sequences/positions.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignPrimers_IsDeterministic()
+    {
+        return Prop.ForAll(DesignScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var a = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
+            var b = PrimerDesigner.DesignPrimers(dna, s.targetStart, s.targetEnd, s.param);
+
+            bool same = a.IsValid == b.IsValid
+                        && a.ProductSize == b.ProductSize
+                        && a.Message == b.Message
+                        && a.Forward?.Sequence == b.Forward?.Sequence
+                        && a.Forward?.Position == b.Forward?.Position
+                        && a.Reverse?.Sequence == b.Reverse?.Sequence
+                        && a.Reverse?.Position == b.Reverse?.Position;
+
+            return same.Label("DesignPrimers not deterministic for identical inputs");
+        });
+    }
+
+    /// <summary>
+    /// INV-D (GeneratePrimerCandidates): the candidate list is identical across repeated calls —
+    /// same count, sequences, positions, validity flags, and scores.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GeneratePrimerCandidates_IsDeterministic()
+    {
+        return Prop.ForAll(CandidateScenarioArbitrary(), s =>
+        {
+            var dna = new DnaSequence(s.template);
+            var a = PrimerDesigner.GeneratePrimerCandidates(dna, s.regionStart, s.regionEnd, s.forward, s.param).ToList();
+            var b = PrimerDesigner.GeneratePrimerCandidates(dna, s.regionStart, s.regionEnd, s.forward, s.param).ToList();
+
+            if (a.Count != b.Count)
+                return false.Label($"candidate count differs: {a.Count} vs {b.Count}");
+
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i].Sequence != b[i].Sequence || a[i].Position != b[i].Position
+                    || a[i].IsValid != b[i].IsValid || a[i].Score != b[i].Score)
+                    return false.Label($"candidate {i} differs between runs");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    #endregion
+
+    #region PRIMER-DESIGN-001 — Edge Cases &amp; Evidence-Based Anchors
+
+    /// <summary>
+    /// Edge (§6.1): an invalid target region throws ArgumentException — targetStart &lt; 0,
+    /// targetEnd ≥ template.Length, or targetStart ≥ targetEnd. Source: explicit guard in DesignPrimers.
+    /// </summary>
+    [TestCase(-1, 50, TestName = "targetStart < 0 throws")]
+    [TestCase(0, 500, TestName = "targetEnd >= length throws")]
+    [TestCase(60, 60, TestName = "targetStart == targetEnd throws")]
+    [TestCase(80, 40, TestName = "targetStart > targetEnd throws")]
+    [Category("Property")]
+    public void DesignPrimers_InvalidTargetRegion_ThrowsArgumentException(int start, int end)
+    {
+        var dna = new DnaSequence(string.Concat(Enumerable.Repeat("ACGT", 75))); // length 300
+        Assert.That(() => PrimerDesigner.DesignPrimers(dna, start, end),
+            NUnit.Framework.Throws.ArgumentException);
+    }
+
+    /// <summary>
+    /// Evidence anchor (GcContent + Tm): a hand-constructed 22-mer with a known composition.
+    /// "CGGTTCACTACGTCCGTTCTGG" has 13 G/C of 22 bases ⇒ GC% = 1300/22 = 59.09 → 59.1 (rounded),
+    /// and (≥14 bases) Marmur-Doty Tm = 64.9 + 41×(13 − 16.4)/22 = 58.56 → 58.6 (rounded).
+    /// Both fall inside the default windows (GC 40-60, Tm 57-63), pinning EvaluatePrimer's
+    /// per-primer metrics to literally computed values independent of production constants.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void PrimerCandidate_Score_InRange()
+    public void EvaluatePrimer_KnownMer_HasComputedGcAndTm()
     {
-        string template = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 30));
-        var dna = new DnaSequence(template);
-        var candidates = PrimerDesigner.GeneratePrimerCandidates(dna, 10, 100, forward: true).ToList();
-
-        foreach (var c in candidates)
-            Assert.That(double.IsFinite(c.Score), Is.True, $"Score {c.Score} is not finite");
+        var c = PrimerDesigner.EvaluatePrimer("CGGTTCACTACGTCCGTTCTGG", 0, true);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.Length, Is.EqualTo(22));
+            Assert.That(c.GcContent, Is.EqualTo(59.1).Within(0.05),
+                "GC% = 100×13/22 = 59.09 → 59.1");
+            Assert.That(c.MeltingTemperature, Is.EqualTo(58.6).Within(0.05),
+                "Marmur-Doty Tm = 64.9 + 41×(13−16.4)/22 = 58.56 → 58.6");
+        });
     }
+
+    /// <summary>
+    /// Evidence anchor (valid pair + product size): a hand-constructed 48 bp template engineered so
+    /// the design produces a known-valid pair. The forward flank is the verified valid 22-mer
+    /// "CGGTTCACTACGTCCGTTCTGG" (positions 0-21); a 4 bp target ("AAAA") occupies 22-25; the reverse
+    /// flank (positions 26-47) is the reverse complement of the verified valid 22-mer
+    /// "CAAGCCGGGGCTAATCCGTCAT", so reverse-complementing it back recovers that primer. Both Tm = 58.6
+    /// (|ΔTm| = 0 ≤ 5) and they are not a dimer ⇒ a valid pair. ProductSize = reverse.Position(26) +
+    /// reverse.Length(22) − forward.Position(0) = 48. This pins INV-03 and INV-02 to literal values.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DesignPrimers_KnownTemplate_ProductSizeEqualsSpan()
+    {
+        const string forwardPrimer = "CGGTTCACTACGTCCGTTCTGG";
+        const string reversePrimer = "CAAGCCGGGGCTAATCCGTCAT";
+        string reverseFlank = new DnaSequence(reversePrimer).ReverseComplement().Sequence;
+        string template = forwardPrimer + "AAAA" + reverseFlank; // length 48
+
+        var dna = new DnaSequence(template);
+        var result = PrimerDesigner.DesignPrimers(dna, targetStart: 22, targetEnd: 26);
+
+        Assert.That(result.Forward, Is.Not.Null, "expected a forward primer on this template");
+        Assert.That(result.Reverse, Is.Not.Null, "expected a reverse primer on this template");
+
+        int expected = result.Reverse!.Position + result.Reverse.Sequence.Length - result.Forward!.Position;
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsValid, Is.True, "engineered pair must be compatible");
+            Assert.That(result.Forward!.Sequence, Is.EqualTo(forwardPrimer));
+            Assert.That(result.Reverse!.Sequence, Is.EqualTo(reversePrimer));
+            Assert.That(result.ProductSize, Is.EqualTo(expected));
+            Assert.That(result.ProductSize, Is.EqualTo(48),
+                "ProductSize = 26 + 22 − 0 = 48");
+        });
+    }
+
+    #endregion
 
     // -- PROBE-DESIGN-001 --
 
