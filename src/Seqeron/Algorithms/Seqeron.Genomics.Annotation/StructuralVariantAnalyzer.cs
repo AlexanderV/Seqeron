@@ -9,6 +9,40 @@ namespace Seqeron.Genomics.Annotation;
 /// </summary>
 public static class StructuralVariantAnalyzer
 {
+    #region Constants
+
+    // Default anomaly cutoff in units of insert-size standard deviation. A read pair is flagged
+    // discordant-by-span when its insert size falls outside mean ± cutoff·sd.
+    // Source: BreakDancer README (-c, default 3); Fan et al. 2014 (Curr Protoc Bioinformatics) "3 s.d.".
+    private const double DefaultInsertSizeCutoffSd = 3.0;
+
+    // Default minimum number of supporting read pairs required to report an SV.
+    // Source: BreakDancer README (-r minimum number of read pairs to establish a connection, default 2).
+    private const int DefaultMinSupport = 2;
+
+    // Default position tolerance (bases) within which split-read junctions are clustered into one
+    // breakpoint. Source: ClipCrop (Suzuki et al. 2011) — breakpoints are "clustered within 5-base
+    // differences"; mapping imprecision spreads a single breakpoint across nearby positions.
+    private const int DefaultBreakpointClusterTolerance = 5;
+
+    // Default minimum number of supporting split reads required to report a breakpoint.
+    // Source: SoftSearch (Hart et al. 2013) — "A putative breakpoint is defined when there is at
+    // least x soft-clipped reads beginning at position y"; the configurable minimum, set here to 2
+    // to match the sibling read-pair support default (BreakDancer -r = 2).
+    private const int DefaultBreakpointMinSupport = 2;
+
+    // Diploid copy-number baseline (reference ploidy). CNVkit converts a log2 ratio to absolute copy
+    // number as CN = ploidy · 2^log2; for a diploid genome "the absolute copy number is calculated as
+    // 2 * 2^(log2 value)". Source: CNVkit calling docs / cnvlib/call.py `_log2_ratio_to_absolute_pure`.
+    private const int DiploidPloidy = 2;
+
+    // Default read-depth window size (positions per window). Read depth is summarised over
+    // non-overlapping fixed-size windows. Yoon et al. (2009) used 100-bp windows; the size is a
+    // parameter and 100 is the literature default. Source: Yoon et al. 2009, Genome Research 19(9).
+    private const int DefaultCnvWindowSize = 100;
+
+    #endregion
+
     #region Records and Types
 
     /// <summary>
@@ -105,40 +139,42 @@ public static class StructuralVariantAnalyzer
     #region Read Pair Analysis
 
     /// <summary>
-    /// Identifies discordant read pairs.
+    /// Identifies discordant (anomalous) read pairs from paired-end mappings.
     /// </summary>
+    /// <remarks>
+    /// A pair is anomalous when it shows "unexpected separation distances or orientation"
+    /// (BreakDancer, Chen et al. 2009): interchromosomal mapping, an insert size outside
+    /// mean ± <paramref name="cutoffSd"/>·sd, or an orientation that is neither FR nor RF.
+    /// </remarks>
+    /// <param name="readPairs">Mapped read pairs (mate coordinates, strands, insert size).</param>
+    /// <param name="expectedInsertSize">Mean library insert size.</param>
+    /// <param name="insertSizeStdDev">Library insert-size standard deviation.</param>
+    /// <param name="cutoffSd">Anomaly cutoff in units of standard deviation (BreakDancer -c, default 3).</param>
+    /// <param name="maxInsertSize">Hard upper bound above which a pair is always anomalous.</param>
     public static IEnumerable<ReadPairSignature> FindDiscordantPairs(
         IEnumerable<(string ReadId, string Chr1, int Pos1, char Strand1, string Chr2, int Pos2, char Strand2, int InsertSize)> readPairs,
         int expectedInsertSize = 400,
         int insertSizeStdDev = 50,
+        double cutoffSd = DefaultInsertSizeCutoffSd,
         int maxInsertSize = 10000)
     {
-        double lowerBound = expectedInsertSize - 3 * insertSizeStdDev;
-        double upperBound = expectedInsertSize + 3 * insertSizeStdDev;
+        ArgumentNullException.ThrowIfNull(readPairs);
+
+        // Anomaly bounds: a pair is discordant-by-span when its insert size is strictly
+        // outside [mean − c·sd, mean + c·sd] (BreakDancer README: bounds = mean ± c·std).
+        double lowerBound = expectedInsertSize - cutoffSd * insertSizeStdDev;
+        double upperBound = expectedInsertSize + cutoffSd * insertSizeStdDev;
 
         foreach (var (readId, chr1, pos1, strand1, chr2, pos2, strand2, insertSize) in readPairs)
         {
-            bool isDiscordant = false;
-            string reason = "";
-
-            // Check for interchromosomal
-            if (chr1 != chr2)
-            {
-                isDiscordant = true;
-                reason = "Interchromosomal";
-            }
-            // Check insert size
-            else if (insertSize < lowerBound || insertSize > upperBound)
-            {
-                isDiscordant = true;
-                reason = insertSize > upperBound ? "LargeInsert" : "SmallInsert";
-            }
-            // Check orientation (expecting FR for standard library)
-            else if (!((strand1 == '+' && strand2 == '-') || (strand1 == '-' && strand2 == '+')))
-            {
-                isDiscordant = true;
-                reason = "AbnormalOrientation";
-            }
+            bool isDiscordant =
+                // Interchromosomal mapping is a linking/translocation signature (Medvedev et al. 2009).
+                chr1 != chr2
+                // Span outside the cutoff is a deletion (larger) or insertion (smaller) signature.
+                || insertSize < lowerBound
+                || insertSize > upperBound
+                // Concordant orientation is FR or RF (mates pointing inward); anything else is abnormal.
+                || !IsConcordantOrientation(strand1, strand2);
 
             if (isDiscordant || insertSize > maxInsertSize)
             {
@@ -157,13 +193,120 @@ public static class StructuralVariantAnalyzer
     }
 
     /// <summary>
+    /// Returns true when two mates have the concordant forward-reverse (FR, inward-facing)
+    /// orientation for a standard short-insert library: the upstream mate on the '+' strand and the
+    /// downstream mate on the '−' strand, so the reads point towards one another.
+    /// </summary>
+    /// <remarks>
+    /// Standard Illumina paired-end libraries yield FR pairs (SAM proper-pair FLAG 0x02). Every other
+    /// orientation is a discordant signature: FF/RR (same strand) supports an inversion, and RF
+    /// (reverse-forward, outward-facing / "everted") supports a tandem duplication — DELLY, LUMPY,
+    /// Manta and SVXplorer all read an FR cluster as a deletion candidate and an RF cluster as a
+    /// duplication candidate. RF is "proper" only for opposite-orientation mate-pair libraries, not for
+    /// the short-insert library modelled here. Source: cureffi.org / BWA proper-pair convention
+    /// ("RF, FF or RR … that's a problem"); Rausch et al. 2012 (DELLY); SVXplorer (Kumar et al. 2020).
+    /// </remarks>
+    private static bool IsConcordantOrientation(char strand1, char strand2) =>
+        strand1 == '+' && strand2 == '-';
+
+    /// <summary>
+    /// Classifies a discordant read-pair signature into a structural-variant type using the
+    /// paired-end mapping (PEM) signatures of Medvedev, Stanciu &amp; Brudno (2009).
+    /// </summary>
+    /// <remarks>
+    /// Decision order (source-traceable):
+    /// <list type="number">
+    /// <item>mates on different chromosomes → <see cref="SVType.Translocation"/> (linking/CTX signature; ASSUMPTION A1: chromosome difference takes precedence over orientation);</item>
+    /// <item>same chromosome, mates on the same strand → <see cref="SVType.Inversion"/> (flipped orientation);</item>
+    /// <item>same chromosome, reverse-forward (RF, outward-facing / everted) mates → <see cref="SVType.Duplication"/> (tandem-duplication signature; DELLY, LUMPY, Manta, SVXplorer read an RF cluster as a duplication);</item>
+    /// <item>same chromosome, forward-reverse (FR) mates, span &gt; mean + c·sd → <see cref="SVType.Deletion"/> (span larger than insert size);</item>
+    /// <item>same chromosome, forward-reverse (FR) mates, span &lt; mean − c·sd → <see cref="SVType.Insertion"/> (span smaller than insert size);</item>
+    /// <item>otherwise → <see cref="SVType.ComplexRearrangement"/> (anomalous but not matching a basic signature).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="pair">A read-pair signature (typically one flagged by <see cref="FindDiscordantPairs"/>).</param>
+    /// <param name="expectedInsertSize">Mean library insert size.</param>
+    /// <param name="insertSizeStdDev">Library insert-size standard deviation.</param>
+    /// <param name="cutoffSd">Anomaly cutoff in units of standard deviation (default 3).</param>
+    public static SVType ClassifySV(
+        ReadPairSignature pair,
+        int expectedInsertSize = 400,
+        int insertSizeStdDev = 50,
+        double cutoffSd = DefaultInsertSizeCutoffSd)
+    {
+        // Interchromosomal: linking signature → translocation (Medvedev et al. 2009; BreakDancer CTX).
+        if (pair.Chromosome1 != pair.Chromosome2)
+            return SVType.Translocation;
+
+        // Same chromosome, same-strand mates: one read's orientation is flipped → inversion.
+        if (pair.Strand1 == pair.Strand2)
+            return SVType.Inversion;
+
+        // Same chromosome, reverse-forward (RF, outward-facing / everted): the mates have swapped
+        // relative order but kept opposite strands → tandem-duplication signature (DELLY, LUMPY,
+        // Manta and SVXplorer all read an RF cluster as a duplication candidate). The data model
+        // stores the upstream mate first, so RF is strand1 '−', strand2 '+'.
+        if (pair.Strand1 == '-' && pair.Strand2 == '+')
+            return SVType.Duplication;
+
+        double upperBound = expectedInsertSize + cutoffSd * insertSizeStdDev;
+        double lowerBound = expectedInsertSize - cutoffSd * insertSizeStdDev;
+
+        // Forward-reverse (FR) mates from here on: span larger than the insert size → deletion
+        // (Medvedev et al. 2009).
+        if (pair.InsertSize > upperBound)
+            return SVType.Deletion;
+
+        // Span smaller than the insert size → insertion (Medvedev et al. 2009).
+        if (pair.InsertSize < lowerBound)
+            return SVType.Insertion;
+
+        // Anomalous (e.g. flagged by the maxInsertSize guard) but no basic signature matched.
+        return SVType.ComplexRearrangement;
+    }
+
+    /// <summary>
+    /// Detects structural variants from paired-end mappings: flags discordant pairs, clusters
+    /// nearby pairs supporting the same event, and reports an SV for each cluster meeting the
+    /// minimum read-pair support. This is the canonical SV-detection entry point.
+    /// </summary>
+    /// <param name="readPairs">Mapped read pairs (mate coordinates, strands, insert size).</param>
+    /// <param name="expectedInsertSize">Mean library insert size.</param>
+    /// <param name="insertSizeStdDev">Library insert-size standard deviation.</param>
+    /// <param name="cutoffSd">Anomaly cutoff in units of standard deviation (default 3).</param>
+    /// <param name="clusterDistance">Maximum coordinate gap to keep adjacent discordant pairs in one cluster.</param>
+    /// <param name="minSupport">Minimum supporting read pairs to report an SV (BreakDancer -r, default 2).</param>
+    public static IEnumerable<StructuralVariant> DetectSVs(
+        IEnumerable<(string ReadId, string Chr1, int Pos1, char Strand1, string Chr2, int Pos2, char Strand2, int InsertSize)> readPairs,
+        int expectedInsertSize = 400,
+        int insertSizeStdDev = 50,
+        double cutoffSd = DefaultInsertSizeCutoffSd,
+        int clusterDistance = 500,
+        int minSupport = DefaultMinSupport)
+    {
+        ArgumentNullException.ThrowIfNull(readPairs);
+
+        var discordant = FindDiscordantPairs(
+            readPairs, expectedInsertSize, insertSizeStdDev, cutoffSd);
+
+        return ClusterDiscordantPairs(
+            discordant, clusterDistance, minSupport,
+            expectedInsertSize, insertSizeStdDev, cutoffSd);
+    }
+
+    /// <summary>
     /// Clusters discordant read pairs into SV candidates.
     /// </summary>
     public static IEnumerable<StructuralVariant> ClusterDiscordantPairs(
         IEnumerable<ReadPairSignature> discordantPairs,
         int clusterDistance = 500,
-        int minSupport = 3)
+        int minSupport = DefaultMinSupport,
+        int expectedInsertSize = 400,
+        int insertSizeStdDev = 50,
+        double cutoffSd = DefaultInsertSizeCutoffSd)
     {
+        ArgumentNullException.ThrowIfNull(discordantPairs);
+
         var pairs = discordantPairs.OrderBy(p => p.Chromosome1).ThenBy(p => p.Position1).ToList();
 
         if (pairs.Count == 0)
@@ -204,7 +347,7 @@ public static class StructuralVariantAnalyzer
         int svId = 1;
         foreach (var cluster in clusters)
         {
-            var sv = CreateSVFromCluster(cluster, svId++);
+            var sv = CreateSVFromCluster(cluster, svId++, expectedInsertSize, insertSizeStdDev, cutoffSd);
             if (sv != null)
             {
                 yield return sv.Value;
@@ -212,7 +355,12 @@ public static class StructuralVariantAnalyzer
         }
     }
 
-    private static StructuralVariant? CreateSVFromCluster(List<ReadPairSignature> cluster, int id)
+    private static StructuralVariant? CreateSVFromCluster(
+        List<ReadPairSignature> cluster,
+        int id,
+        int expectedInsertSize,
+        int insertSizeStdDev,
+        double cutoffSd)
     {
         if (cluster.Count == 0)
             return null;
@@ -221,23 +369,9 @@ public static class StructuralVariantAnalyzer
         int start = cluster.Min(p => p.Position1);
         int end = cluster.Max(p => p.Position2);
 
-        SVType type;
-        if (first.Chromosome1 != first.Chromosome2)
-        {
-            type = SVType.Translocation;
-        }
-        else if (first.Strand1 == first.Strand2)
-        {
-            type = SVType.Inversion;
-        }
-        else if (end - start > 10000)
-        {
-            type = SVType.Deletion;
-        }
-        else
-        {
-            type = SVType.Duplication;
-        }
+        // SV type comes from the evidence-based PEM signature of the representative pair
+        // (Medvedev, Stanciu & Brudno 2009), not from an ad-hoc size threshold.
+        SVType type = ClassifySV(first, expectedInsertSize, insertSizeStdDev, cutoffSd);
 
         return new StructuralVariant(
             Id: $"SV{id}",
@@ -411,6 +545,160 @@ public static class StructuralVariantAnalyzer
         }
     }
 
+    /// <summary>
+    /// Detects structural-variant breakpoints from split (soft-clipped) reads. Each split read
+    /// contributes its aligned/clipped junction coordinate (the single-base breakpoint, i.e. the
+    /// "marginal point between a clipped sequence and matched sequence" of Suzuki et al. 2011);
+    /// reads on the same chromosome whose junctions agree within <paramref name="clusterTolerance"/>
+    /// are grouped, and a breakpoint is reported for every group meeting <paramref name="minSupport"/>.
+    /// This is the canonical breakpoint-detection entry point.
+    /// </summary>
+    /// <remarks>
+    /// Method (source-traceable):
+    /// <list type="number">
+    /// <item>The per-read breakpoint coordinate is <see cref="SplitRead.SupplementaryPosition"/>, the
+    /// junction between aligned and clipped portions (ClipCrop, Suzuki et al. 2011; single-base
+    /// resolution per Tattini et al. 2015).</item>
+    /// <item>Junctions are sorted by chromosome then position and split into clusters whenever the gap
+    /// to the previous junction exceeds <paramref name="clusterTolerance"/> or the chromosome changes
+    /// (ClipCrop "clustered within 5-base differences"; SAM POS is per-contig).</item>
+    /// <item>A cluster is reported only when it contains at least <paramref name="minSupport"/> reads,
+    /// and its support count is the cluster size (SoftSearch, Hart et al. 2013: "at least x
+    /// soft-clipped reads beginning at position y").</item>
+    /// </list>
+    /// The reported coordinate is the rounded mean of the member junctions (ASSUMPTION A1: the sources
+    /// fix the junction and the tolerance window but not the summary statistic; the mean stays inside
+    /// the same ≤ tolerance neighbourhood and does not change cluster membership or support).
+    /// </remarks>
+    /// <param name="splitReads">Split reads, each carrying its anchored position and junction coordinate.</param>
+    /// <param name="clusterTolerance">Maximum junction-position gap (bases) to keep adjacent reads in one breakpoint (ClipCrop, default 5).</param>
+    /// <param name="minSupport">Minimum supporting split reads to report a breakpoint (SoftSearch, default 2).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="splitReads"/> is null.</exception>
+    public static IEnumerable<Breakpoint> FindBreakpoints(
+        IEnumerable<SplitRead> splitReads,
+        int clusterTolerance = DefaultBreakpointClusterTolerance,
+        int minSupport = DefaultBreakpointMinSupport)
+    {
+        ArgumentNullException.ThrowIfNull(splitReads);
+
+        return FindBreakpointsIterator(splitReads, clusterTolerance, minSupport);
+    }
+
+    private static IEnumerable<Breakpoint> FindBreakpointsIterator(
+        IEnumerable<SplitRead> splitReads,
+        int clusterTolerance,
+        int minSupport)
+    {
+        // Sort by chromosome then by the junction coordinate so a single linear scan can group
+        // adjacent junctions (ClipCrop: breakpoints are "sorted and clustered").
+        var reads = splitReads
+            .OrderBy(r => r.Chromosome, StringComparer.Ordinal)
+            .ThenBy(r => r.SupplementaryPosition)
+            .ToList();
+
+        if (reads.Count == 0)
+            yield break;
+
+        var currentCluster = new List<SplitRead> { reads[0] };
+
+        for (int i = 1; i < reads.Count; i++)
+        {
+            var prev = reads[i - 1];
+            var curr = reads[i];
+
+            // Same breakpoint iff same chromosome and junction within the tolerance window.
+            bool sameCluster =
+                prev.Chromosome == curr.Chromosome &&
+                Math.Abs(curr.SupplementaryPosition - prev.SupplementaryPosition) <= clusterTolerance;
+
+            if (sameCluster)
+            {
+                currentCluster.Add(curr);
+            }
+            else
+            {
+                if (currentCluster.Count >= minSupport)
+                    yield return CreateBreakpoint(currentCluster);
+
+                currentCluster = new List<SplitRead> { curr };
+            }
+        }
+
+        if (currentCluster.Count >= minSupport)
+            yield return CreateBreakpoint(currentCluster);
+    }
+
+    private static Breakpoint CreateBreakpoint(List<SplitRead> cluster)
+    {
+        // Reported coordinate = rounded mean of member junctions (ASSUMPTION A1; sub-tolerance only).
+        int position = (int)Math.Round(cluster.Average(r => (double)r.SupplementaryPosition));
+
+        return new Breakpoint(
+            Chromosome1: cluster[0].Chromosome,
+            Position1: position,
+            Strand1: '+',
+            Chromosome2: cluster[0].Chromosome,
+            Position2: position,
+            Strand2: '-',
+            SupportingReads: cluster.Count,
+            Quality: Math.Min(cluster.Count * 15.0, 100.0));
+    }
+
+    /// <summary>
+    /// Refines a candidate breakpoint region to its consensus single-base junction using the split
+    /// reads whose junction falls inside the region. Returns the most frequently observed junction
+    /// coordinate (the mode; ties broken by the rounded mean of the modal coordinates), or
+    /// <see langword="null"/> when no split read supports the region.
+    /// </summary>
+    /// <remarks>
+    /// Source-traceable: the breakpoint is the aligned/clipped junction (Suzuki et al. 2011); the
+    /// junction shared by the most reads is the best single-base estimate (SoftSearch, Hart et al.
+    /// 2013: a breakpoint is the position where soft-clipped reads accumulate). The region bounds are
+    /// inclusive.
+    /// </remarks>
+    /// <param name="chromosome">Chromosome of the candidate region.</param>
+    /// <param name="regionStart">Inclusive start of the candidate region (reference coordinate).</param>
+    /// <param name="regionEnd">Inclusive end of the candidate region (reference coordinate).</param>
+    /// <param name="splitReads">Split reads to draw junction support from.</param>
+    /// <returns>The consensus junction coordinate, or null if no read's junction lies in the region.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="splitReads"/> is null.</exception>
+    public static int? RefineBreakpoint(
+        string chromosome,
+        int regionStart,
+        int regionEnd,
+        IEnumerable<SplitRead> splitReads)
+    {
+        ArgumentNullException.ThrowIfNull(splitReads);
+
+        var junctions = splitReads
+            .Where(r => r.Chromosome == chromosome &&
+                        r.SupplementaryPosition >= regionStart &&
+                        r.SupplementaryPosition <= regionEnd)
+            .Select(r => r.SupplementaryPosition)
+            .ToList();
+
+        if (junctions.Count == 0)
+            return null;
+
+        // Consensus = the junction supported by the most reads (mode). The position where clipped
+        // reads accumulate is the breakpoint (SoftSearch, Hart et al. 2013).
+        int maxCount = junctions
+            .GroupBy(p => p)
+            .Max(g => g.Count());
+
+        var modalPositions = junctions
+            .GroupBy(p => p)
+            .Where(g => g.Count() == maxCount)
+            .Select(g => g.Key)
+            .ToList();
+
+        // Single mode → that coordinate; tie → rounded mean of the tied modal coordinates (they are
+        // already within the same support neighbourhood).
+        return modalPositions.Count == 1
+            ? modalPositions[0]
+            : (int)Math.Round(modalPositions.Average(p => (double)p));
+    }
+
     #endregion
 
     #region Copy Number Analysis
@@ -526,6 +814,228 @@ public static class StructuralVariantAnalyzer
                 SupportingReads: segment.ProbeCount,
                 InsertedSequence: null);
         }
+    }
+
+    #endregion
+
+    #region Read-Depth CNV Detection (SV-CNV-001)
+
+    /// <summary>
+    /// Detects copy-number variation from per-position read depth using the read-depth-of-coverage
+    /// model. The depth track is summarised into non-overlapping windows of
+    /// <paramref name="windowSize"/> positions; each window's mean read depth is converted to a
+    /// log2 ratio against a reference depth and then to an integer copy number. This is the canonical
+    /// CNV entry point.
+    /// </summary>
+    /// <remarks>
+    /// Source-traceable method:
+    /// <list type="number">
+    /// <item>Read depth is "counting the number of mapped reads in [fixed-size] windows" and is a
+    /// quantitative measure of copy number — there is "a linear relationship between coverage and
+    /// copy number" (Yoon et al. 2009, Genome Research 19(9):1586–1592). A trailing partial window
+    /// is dropped so every reported window has exactly <paramref name="windowSize"/> positions.</item>
+    /// <item>The reference (diploid baseline) depth is, when not supplied, the overall median of the
+    /// non-zero window means, mirroring the overall median <c>m</c> of the Yoon GC-correction
+    /// equation <c>r' = r·m/m_GC</c> (ASSUMPTION A1).</item>
+    /// <item>The log2 ratio is <c>log2(windowMeanRD / referenceRD)</c> and the integer copy number is
+    /// <c>round(ploidy · 2^log2)</c> — CNVkit <c>_log2_ratio_to_absolute_pure</c>: <c>n = r·2^v</c>;
+    /// for a diploid genome "the absolute copy number is calculated as 2 * 2^(log2 value)".</item>
+    /// <item>A window with zero read depth has an undefined ratio (<c>log2 0 = −∞</c>) and is reported
+    /// as a no-call (excluded), not a finite call (Yoon RD = read count; CNVkit treats unusable
+    /// signal as a no-call). Copy number is clamped to be non-negative (CNVkit <c>max(0, n)</c>).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="depthData">Per-position read depth (mapped read count) along one contig, 0-based.</param>
+    /// <param name="windowSize">Number of positions per non-overlapping window (Yoon et al. used 100).</param>
+    /// <param name="referenceDepth">
+    /// Reference (copy-number-neutral) mean read depth used as the log2 anchor. When
+    /// <see langword="null"/>, the overall median of non-zero window means is used (ASSUMPTION A1).
+    /// </param>
+    /// <param name="chromosome">Contig label recorded on each emitted segment.</param>
+    /// <returns>One <see cref="CopyNumberSegment"/> per full, non-zero-depth window, in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="depthData"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="windowSize"/> is not positive.</exception>
+    public static IEnumerable<CopyNumberSegment> DetectCNV(
+        IReadOnlyList<int> depthData,
+        int windowSize = DefaultCnvWindowSize,
+        double? referenceDepth = null,
+        string chromosome = "chr1")
+    {
+        ArgumentNullException.ThrowIfNull(depthData);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(windowSize);
+
+        return DetectCnvIterator(depthData, windowSize, referenceDepth, chromosome);
+    }
+
+    private static IEnumerable<CopyNumberSegment> DetectCnvIterator(
+        IReadOnlyList<int> depthData,
+        int windowSize,
+        double? referenceDepth,
+        string chromosome)
+    {
+        int windowCount = depthData.Count / windowSize;
+        if (windowCount == 0)
+            yield break;
+
+        // Mean read depth per non-overlapping full window (Yoon et al. 2009: read counts per window).
+        var windowMeans = new double[windowCount];
+        for (int w = 0; w < windowCount; w++)
+        {
+            long sum = 0;
+            int baseIndex = w * windowSize;
+            for (int j = 0; j < windowSize; j++)
+                sum += depthData[baseIndex + j];
+            windowMeans[w] = (double)sum / windowSize;
+        }
+
+        // Reference depth: explicit value, or the overall median of non-zero window means
+        // (Yoon overall-median baseline m; ASSUMPTION A1). A zero/absent reference means no call.
+        double reference = referenceDepth ?? OverallMedianNonZero(windowMeans);
+        if (reference <= 0)
+            yield break;
+
+        for (int w = 0; w < windowCount; w++)
+        {
+            double meanRd = windowMeans[w];
+
+            // Zero-depth window: log2(0) is undefined (−∞) → no-call, not a finite call
+            // (Yoon RD = read count; CNVkit no-call for unusable signal).
+            if (meanRd <= 0)
+                continue;
+
+            double logRatio = Math.Log2(meanRd / reference);
+            int copyNumber = LogRatioToCopyNumber(logRatio);
+
+            yield return new CopyNumberSegment(
+                Chromosome: chromosome,
+                Start: w * windowSize,
+                End: w * windowSize + windowSize - 1,
+                LogRatio: logRatio,
+                CopyNumber: copyNumber,
+                BAlleleFrequency: double.NaN, // BAF requires allele-specific data, not provided here.
+                ProbeCount: windowSize);
+        }
+    }
+
+    /// <summary>
+    /// Converts a sequence of per-window log2 ratios into copy-number segments, merging maximal runs
+    /// of consecutive windows that share the same integer copy number. This is the segmentation
+    /// variant of read-depth CNV calling: it consumes log2 ratios directly (e.g. from an external
+    /// reference profile) rather than raw depth.
+    /// </summary>
+    /// <remarks>
+    /// Each log2 ratio is converted with the same rule as <see cref="DetectCNV"/>
+    /// (<c>CN = round(2 · 2^log2)</c>, CNVkit <c>_log2_ratio_to_absolute_pure</c>); adjacent windows
+    /// with equal copy number are merged into one segment whose <see cref="CopyNumberSegment.LogRatio"/>
+    /// is the mean of its members and whose <see cref="CopyNumberSegment.ProbeCount"/> is the number of
+    /// merged windows. NaN log2 ratios are dropped (no-call). Coordinates are window indices.
+    /// </remarks>
+    /// <param name="logRatios">Per-window log2 ratios (window i covers coordinate i).</param>
+    /// <param name="chromosome">Contig label recorded on each emitted segment.</param>
+    /// <returns>Merged copy-number segments in input order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="logRatios"/> is null.</exception>
+    public static IEnumerable<CopyNumberSegment> SegmentCopyNumber(
+        IEnumerable<double> logRatios,
+        string chromosome = "chr1")
+    {
+        ArgumentNullException.ThrowIfNull(logRatios);
+
+        return SegmentCopyNumberIterator(logRatios, chromosome);
+    }
+
+    private static IEnumerable<CopyNumberSegment> SegmentCopyNumberIterator(
+        IEnumerable<double> logRatios,
+        string chromosome)
+    {
+        int index = 0;
+        int? runCopyNumber = null;
+        int runStart = 0;
+        var runLogRatios = new List<double>();
+
+        foreach (double logRatio in logRatios)
+        {
+            int position = index++;
+
+            // NaN ratio → no usable signal → no-call window; it breaks the current run.
+            if (double.IsNaN(logRatio))
+            {
+                if (runCopyNumber.HasValue)
+                {
+                    yield return BuildSegment(chromosome, runStart, position - 1, runLogRatios, runCopyNumber.Value);
+                    runCopyNumber = null;
+                    runLogRatios = new List<double>();
+                }
+                continue;
+            }
+
+            int copyNumber = LogRatioToCopyNumber(logRatio);
+
+            if (runCopyNumber == copyNumber)
+            {
+                runLogRatios.Add(logRatio);
+            }
+            else
+            {
+                if (runCopyNumber.HasValue)
+                    yield return BuildSegment(chromosome, runStart, position - 1, runLogRatios, runCopyNumber.Value);
+
+                runCopyNumber = copyNumber;
+                runStart = position;
+                runLogRatios = new List<double> { logRatio };
+            }
+        }
+
+        if (runCopyNumber.HasValue)
+            yield return BuildSegment(chromosome, runStart, index - 1, runLogRatios, runCopyNumber.Value);
+    }
+
+    private static CopyNumberSegment BuildSegment(
+        string chromosome, int start, int end, List<double> logRatios, int copyNumber) =>
+        new(
+            Chromosome: chromosome,
+            Start: start,
+            End: end,
+            LogRatio: logRatios.Average(),
+            CopyNumber: copyNumber,
+            BAlleleFrequency: double.NaN,
+            ProbeCount: logRatios.Count);
+
+    /// <summary>
+    /// Converts a log2 ratio to an integer copy number for a diploid genome:
+    /// <c>round(ploidy · 2^log2)</c>, clamped to be non-negative.
+    /// </summary>
+    /// <remarks>
+    /// CNVkit <c>_log2_ratio_to_absolute_pure</c>: <c>n = r · 2^v</c> (here r = ploidy = 2), rounded to
+    /// the nearest integer; copy number is physically ≥ 0 (CNVkit <c>max(0, n)</c>). CNVkit's
+    /// <c>do_call</c> rounds with NumPy's <c>ndarray.round()</c>, which uses round-half-to-even
+    /// (banker's rounding: numpy.round(0.5)=0, numpy.round(2.5)=2), so the conversion here uses
+    /// <see cref="MidpointRounding.ToEven"/> to match the reference implementation exactly at
+    /// half-integer copy numbers.
+    /// </remarks>
+    private static int LogRatioToCopyNumber(double logRatio)
+    {
+        double copies = DiploidPloidy * Math.Pow(2, logRatio);
+        int rounded = (int)Math.Round(copies, MidpointRounding.ToEven);
+        return Math.Max(0, rounded);
+    }
+
+    /// <summary>
+    /// Returns the median of the strictly positive (non-zero) values, or 0 when none are positive.
+    /// </summary>
+    /// <remarks>
+    /// The reference baseline is the overall median <c>m</c> of windows (Yoon et al. 2009 GC-correction
+    /// equation); zero-depth windows are no-calls and excluded from the baseline.
+    /// </remarks>
+    private static double OverallMedianNonZero(IReadOnlyList<double> values)
+    {
+        var positive = values.Where(v => v > 0).OrderBy(v => v).ToList();
+        if (positive.Count == 0)
+            return 0;
+
+        int mid = positive.Count / 2;
+        return positive.Count % 2 == 1
+            ? positive[mid]
+            : (positive[mid - 1] + positive[mid]) / 2.0;
     }
 
     #endregion

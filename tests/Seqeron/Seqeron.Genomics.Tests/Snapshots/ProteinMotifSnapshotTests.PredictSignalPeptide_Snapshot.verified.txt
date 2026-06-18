@@ -1,3 +1,6 @@
 ﻿{
-  HasSignalPeptide: false
+  HasSignalPeptide: true,
+  CleavagePosition: 17,
+  Score: 11.152834574562595,
+  IsLikelySignalPeptide: true
 }

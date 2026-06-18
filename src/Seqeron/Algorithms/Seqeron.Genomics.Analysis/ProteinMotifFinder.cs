@@ -47,15 +47,25 @@ public static class ProteinMotifFinder
         string Description);
 
     /// <summary>
-    /// Signal peptide prediction result.
+    /// Signal-peptide cleavage-site prediction result (von Heijne 1986 weight-matrix method).
     /// </summary>
+    /// <param name="CleavagePosition">
+    /// 1-based position of the first residue of the mature protein; cleavage occurs between
+    /// residue <c>CleavagePosition − 1</c> (position −1) and <c>CleavagePosition</c> (position +1).
+    /// </param>
+    /// <param name="Score">
+    /// von Heijne weight-matrix score at the best site: sum of log-odds weights over positions
+    /// −13..+2 (natural log of observed/expected residue frequencies).
+    /// </param>
+    /// <param name="SignalSequence">Predicted signal peptide (residues 1..<c>CleavagePosition − 1</c>).</param>
+    /// <param name="WindowSequence">The 15-residue scoring window (positions −13..+2) at the best site.</param>
+    /// <param name="IsLikelySignalPeptide"><c>true</c> when <see cref="Score"/> ≥ the von Heijne acceptance threshold (3.5).</param>
     public readonly record struct SignalPeptide(
         int CleavagePosition,
-        string NRegion,
-        string HRegion,
-        string CRegion,
         double Score,
-        double Probability);
+        string SignalSequence,
+        string WindowSequence,
+        bool IsLikelySignalPeptide);
 
     #endregion
 
@@ -386,144 +396,300 @@ public static class ProteinMotifFinder
 
     #region Signal Peptide Prediction
 
+    // --- von Heijne (1986) weight-matrix parameters --------------------------------------------
+    // Source: von Heijne G. "A new method for predicting signal sequence cleavage sites."
+    //         Nucleic Acids Res. 14:4683-4690 (1986). https://doi.org/10.1093/nar/14.11.4683
+    // Reference implementation: EMBOSS 6.6.0 `sigcleave` (emboss/sigcleave.c) with data files
+    //         data/Esig.euk (161 eukaryotic signal peptides) and data/Esig.pro (36 prokaryotic).
+    //         https://emboss.sourceforge.net/apps/release/6.6/emboss/apps/sigcleave.html
+
     /// <summary>
-    /// Predicts signal peptide cleavage site using von Heijne's tripartite model.
-    /// Regions: n-region (positively charged), h-region (hydrophobic core), c-region (cleavage site).
-    /// Sources: von Heijne (1983) Eur J Biochem 133:17–21; von Heijne (1985) J Mol Biol 184:99–105;
-    ///          von Heijne (1986) Nucl Acids Res 14:4683–4690.
+    /// Number of residue columns in the weight matrix: positions −13..+2 inclusive (von Heijne 1986).
     /// </summary>
-    public static SignalPeptide? PredictSignalPeptide(string proteinSequence, int maxLength = 70)
+    private const int WeightMatrixColumns = 15;
+
+    /// <summary>
+    /// Window offset of the first scoring column relative to the candidate +1 residue.
+    /// Column 0 = position −13; EMBOSS <c>sigcleave</c> uses <c>pval = −13</c>.
+    /// </summary>
+    private const int FirstColumnOffset = -13;
+
+    /// <summary>
+    /// Matrix column index of position −3 (the conserved small-residue site of the (−3,−1) rule).
+    /// EMBOSS treats a zero count here as a strong penalty (<see cref="ZeroCountPenaltyPseudocount"/>).
+    /// </summary>
+    private const int MinusThreeColumn = 10;
+
+    /// <summary>Matrix column index of position −1 (the residue immediately N-terminal to the cleavage site).</summary>
+    private const int MinusOneColumn = 12;
+
+    /// <summary>
+    /// Pseudocount substituted for a zero count at columns −3 / −1, producing a large negative
+    /// log-odds weight (EMBOSS <c>sigcleave.c</c>: <c>mat[i][j] = 1.0e-10</c> for j==10 || j==12).
+    /// </summary>
+    private const double ZeroCountPenaltyPseudocount = 1.0e-10;
+
+    /// <summary>
+    /// Pseudocount substituted for a zero count at all other columns
+    /// (EMBOSS <c>sigcleave.c</c>: <c>mat[i][j] = 1.0</c>).
+    /// </summary>
+    private const double ZeroCountDefaultPseudocount = 1.0;
+
+    /// <summary>
+    /// Default minimum acceptance weight. EMBOSS recommends <c>-minweight ≥ 3.5</c>: at this level the
+    /// method identifies ≈95% of signal peptides and rejects ≈95% of non-signal peptides
+    /// (von Heijne 1986; EMBOSS <c>sigcleave</c> documentation).
+    /// </summary>
+    public const double DefaultMinWeight = 3.5;
+
+    /// <summary>
+    /// Eukaryotic amino-acid count matrix (161 aligned signal peptides), rows in alphabetical
+    /// one-letter order A,C,D,E,F,G,H,I,K,L,M,N,P,Q,R,S,T,V,W,Y; columns −13..+2 then the
+    /// per-residue background "Expect" count. Verbatim from EMBOSS 6.6.0 data/Esig.euk
+    /// (von Heijne 1986).
+    /// </summary>
+    private static readonly int[][] EukaryoticCounts =
     {
-        if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < 15)
+        //         -13 -12 -11 -10  -9  -8  -7  -6  -5  -4  -3  -2  -1  +1  +2   (Expect is held separately)
+        /* A */ new[] { 16, 13, 14, 15, 20, 18, 18, 17, 25, 15, 47,  6, 80, 18,  6 },
+        /* C */ new[] {  3,  6,  9,  7,  9, 14,  6,  8,  5,  6, 19,  3,  9,  8,  3 },
+        /* D */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  5,  3,  0,  5,  0, 10, 11 },
+        /* E */ new[] {  0,  0,  0,  1,  0,  0,  0,  0,  3,  7,  0,  7,  0, 13, 14 },
+        /* F */ new[] { 13,  9, 11, 11,  6,  7, 18, 13,  4,  5,  0, 13,  0,  6,  4 },
+        /* G */ new[] {  4,  4,  3,  6,  3, 13,  3,  2, 19, 34,  5,  7, 39, 10,  7 },
+        /* H */ new[] {  0,  0,  0,  0,  0,  1,  1,  0,  5,  0,  0,  6,  0,  4,  2 },
+        /* I */ new[] { 15, 15,  8,  6, 11,  5,  4,  8,  5,  1, 10,  5,  0,  8,  7 },
+        /* K */ new[] {  0,  0,  0,  1,  0,  0,  1,  0,  0,  4,  0,  2,  0, 11,  9 },
+        /* L */ new[] { 71, 68, 72, 79, 78, 45, 64, 49, 10, 23,  8, 20,  1,  8,  4 },
+        /* M */ new[] {  0,  3,  7,  4,  1,  6,  2,  2,  0,  0,  0,  1,  0,  1,  2 },
+        /* N */ new[] {  0,  1,  0,  1,  1,  0,  0,  0,  3,  3,  0, 10,  0,  4,  7 },
+        /* P */ new[] {  2,  0,  2,  0,  0,  4,  1,  8, 20, 14,  0,  1,  3,  0, 22 },
+        /* Q */ new[] {  0,  0,  0,  1,  0,  6,  1,  0, 10,  8,  0, 18,  3, 19, 10 },
+        /* R */ new[] {  2,  0,  0,  0,  0,  1,  0,  0,  7,  4,  0, 15,  0, 12,  9 },
+        /* S */ new[] {  9,  3,  8,  6, 13, 10, 15, 16, 26, 11, 23, 17, 20, 15, 10 },
+        /* T */ new[] {  2, 10,  5,  4,  5, 13,  7,  7, 12,  6, 17,  8,  6,  3, 10 },
+        /* V */ new[] { 20, 25, 15, 18, 13, 15, 11, 27,  0, 12, 32,  3,  0,  8, 17 },
+        /* W */ new[] {  4,  3,  3,  1,  1,  2,  6,  3,  1,  3,  0,  9,  0,  2,  0 },
+        /* Y */ new[] {  0,  1,  4,  0,  0,  1,  3,  1,  1,  2,  0,  5,  0,  1,  7 },
+    };
+
+    /// <summary>Eukaryotic background "Expect" counts (one per residue), from EMBOSS data/Esig.euk.</summary>
+    private static readonly double[] EukaryoticExpect =
+    {
+        /* A */ 14.5, /* C */ 4.5, /* D */ 8.9, /* E */ 10.0, /* F */ 5.6,
+        /* G */ 12.1, /* H */ 3.4, /* I */ 7.4, /* K */ 11.3, /* L */ 12.1,
+        /* M */ 2.7,  /* N */ 7.1, /* P */ 7.4, /* Q */ 6.3,  /* R */ 7.6,
+        /* S */ 11.4, /* T */ 9.7, /* V */ 11.1,/* W */ 1.8,  /* Y */ 5.6,
+    };
+
+    /// <summary>
+    /// Prokaryotic amino-acid count matrix (36 aligned signal peptides); same row/column layout
+    /// as <see cref="EukaryoticCounts"/>. Verbatim from EMBOSS 6.6.0 data/Esig.pro (von Heijne 1986).
+    /// </summary>
+    private static readonly int[][] ProkaryoticCounts =
+    {
+        /* A */ new[] { 10,  8,  8,  9,  6,  7,  5,  6,  7,  7, 24,  2, 31, 18,  4 },
+        /* C */ new[] {  1,  0,  0,  1,  1,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0 },
+        /* D */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  8 },
+        /* E */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  4,  8 },
+        /* F */ new[] {  2,  4,  3,  4,  1,  1,  8,  0,  4,  1,  0,  7,  0,  1,  0 },
+        /* G */ new[] {  4,  2,  2,  2,  3,  5,  2,  4,  2,  2,  0,  2,  2,  1,  0 },
+        /* H */ new[] {  0,  0,  1,  0,  0,  0,  0,  1,  1,  0,  0,  7,  0,  1,  0 },
+        /* I */ new[] {  3,  1,  5,  1,  5,  0,  1,  3,  0,  0,  0,  0,  0,  0,  2 },
+        /* K */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  2,  0,  3,  0 },
+        /* L */ new[] {  8, 11,  9,  8,  9, 13,  1,  0,  2,  2,  1,  2,  0,  0,  1 },
+        /* M */ new[] {  0,  2,  1,  1,  3,  2,  3,  0,  1,  2,  0,  4,  0,  0,  1 },
+        /* N */ new[] {  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  0,  3,  0,  1,  4 },
+        /* P */ new[] {  0,  1,  1,  1,  1,  1,  2,  3,  5,  2,  0,  0,  0,  0,  5 },
+        /* Q */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  2,  2,  0,  3,  0,  0,  1 },
+        /* R */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
+        /* S */ new[] {  1,  0,  1,  4,  4,  1,  5, 15,  5,  8,  5,  2,  2,  0,  0 },
+        /* T */ new[] {  2,  0,  4,  2,  2,  2,  2,  2,  5,  1,  3,  0,  1,  1,  2 },
+        /* V */ new[] {  5,  7,  1,  3,  1,  4,  7,  0,  0,  4,  3,  0,  0,  2,  0 },
+        /* W */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
+        /* Y */ new[] {  0,  0,  0,  0,  0,  0,  0,  0,  0,  3,  0,  1,  0,  0,  0 },
+    };
+
+    /// <summary>Prokaryotic background "Expect" counts, from EMBOSS data/Esig.pro.</summary>
+    private static readonly double[] ProkaryoticExpect =
+    {
+        /* A */ 3.2, /* C */ 1.0, /* D */ 2.0, /* E */ 2.2, /* F */ 1.3,
+        /* G */ 2.7, /* H */ 0.8, /* I */ 1.7, /* K */ 2.5, /* L */ 2.7,
+        /* M */ 0.6, /* N */ 1.6, /* P */ 1.7, /* Q */ 1.4, /* R */ 1.7,
+        /* S */ 2.6, /* T */ 2.2, /* V */ 2.5, /* W */ 0.4, /* Y */ 1.3,
+    };
+
+    /// <summary>Residue rows of the weight matrices, in matrix order (index = matrix row).</summary>
+    private const string MatrixResidues = "ACDEFGHIKLMNPQRSTVWY";
+
+    /// <summary>
+    /// Log-odds weight matrix [residueRow][column] = ln(count/expect), built once from
+    /// <see cref="EukaryoticCounts"/> with EMBOSS pseudocount handling.
+    /// </summary>
+    private static readonly double[][] EukaryoticWeights = BuildWeightMatrix(EukaryoticCounts, EukaryoticExpect);
+
+    /// <summary>Log-odds weight matrix built from <see cref="ProkaryoticCounts"/>.</summary>
+    private static readonly double[][] ProkaryoticWeights = BuildWeightMatrix(ProkaryoticCounts, ProkaryoticExpect);
+
+    /// <summary>
+    /// Predicts the signal-peptide cleavage site using von Heijne's (1986) position-specific
+    /// weight-matrix method, scoring identically to the EMBOSS <c>sigcleave</c> reference
+    /// implementation: at each candidate site the score is the sum of log-odds weights
+    /// (ln of observed/expected residue frequency) over positions −13..+2, and the highest-scoring
+    /// site is returned.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence (one-letter codes; case-insensitive).</param>
+    /// <param name="prokaryote">
+    /// When <c>true</c>, scores against the 36-sequence prokaryotic matrix; otherwise the default
+    /// 161-sequence eukaryotic matrix. Source: EMBOSS <c>sigcleave -prokaryote</c>.
+    /// </param>
+    /// <param name="minWeight">
+    /// Acceptance threshold for <see cref="SignalPeptide.IsLikelySignalPeptide"/>; defaults to
+    /// <see cref="DefaultMinWeight"/> (3.5).
+    /// </param>
+    /// <returns>
+    /// The best-scoring cleavage site, or <c>null</c> when the sequence is null/empty or too short
+    /// to contain a full scoring window (fewer than <see cref="WeightMatrixColumns"/> residues).
+    /// </returns>
+    public static SignalPeptide? PredictSignalPeptide(
+        string proteinSequence,
+        bool prokaryote = false,
+        double minWeight = DefaultMinWeight)
+    {
+        if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < WeightMatrixColumns)
             return null;
 
         string upper = proteinSequence.ToUpperInvariant();
-        int searchLength = Math.Min(maxLength, upper.Length);
+        double[][] weights = prokaryote ? ProkaryoticWeights : EukaryoticWeights;
 
-        // Signal peptide tripartite structure — von Heijne (1986):
-        // N-region (1–5 aa, positively charged, K/R)
-        // H-region (7–15 aa, hydrophobic core)
-        // C-region (3–7 aa, polar, small amino acids at -1/-3)
+        double bestScore = double.NegativeInfinity;
+        int bestSite = -1;
 
-        double bestScore = 0;
-        int bestCleavage = -1;
-        string bestN = "", bestH = "", bestC = "";
-
-        // Scan candidate cleavage sites at positions 15–35
-        for (int cleavage = 15; cleavage <= Math.Min(35, searchLength); cleavage++)
+        // Candidate site i (0-based) is the +1 residue (first residue of the mature protein).
+        // The scoring window spans matrix columns 0..14 → sequence positions i+FirstColumnOffset..i+1.
+        // EMBOSS sigcleave.c: weight = Σ matrix[aa(j)][ic], j = i−13..i+1, ic = 0..14.
+        for (int i = 0; i < upper.Length; i++)
         {
-            // (-1, -3) rule: small neutral amino acids at positions -1 and -3
-            // Source: von Heijne (1983) — {A, G, S} at -1/-3
-            char m3 = upper[cleavage - 3];
-            char m1 = upper[cleavage - 1];
-
-            if (!IsSmallAminoAcid(m3) || !IsSmallAminoAcid(m1))
-                continue;
-
-            // Score the three regions
-            string nRegion = upper.Substring(0, Math.Min(5, cleavage / 3));
-            string hRegion = upper.Substring(nRegion.Length, cleavage - nRegion.Length - 5);
-            string cRegion = upper.Substring(cleavage - 5, 5);
-
-            // H-region minimum length: 7 residues — von Heijne (1985)
-            if (hRegion.Length < 7)
-                continue;
-
-            double nScore = ScoreNRegion(nRegion);
-            double hScore = ScoreHydrophobicRegion(hRegion);
-            double cScore = ScoreCRegion(cRegion);
-
-            // N-region must contain positive charge — von Heijne (1986):
-            // "1–5 residues, positively charged (Lys, Arg)".
-            if (nScore <= 0)
-                continue;
-
-            // H-region must be predominantly hydrophobic — von Heijne (1985)
-            // J Mol Biol 184:99–105: hydrophobic core is "both necessary and
-            // sufficient for membrane targeting".
-            if (hScore < 0.5)
-                continue;
-
-            // Weighted mean with 1:2:1 ratio (n:h:c).
-            // H-region receives double weight: "both necessary and sufficient
-            // for membrane targeting" — von Heijne (1985) J Mol Biol 184:99–105.
-            double totalScore = (nScore + 2.0 * hScore + cScore) / 4.0;
-
-            if (totalScore > bestScore)
+            double weight = 0.0;
+            for (int col = 0; col < WeightMatrixColumns; col++)
             {
-                bestScore = totalScore;
-                bestCleavage = cleavage;
-                bestN = nRegion;
-                bestH = hRegion;
-                bestC = cRegion;
+                int j = i + FirstColumnOffset + col;
+                if (j < 0 || j >= upper.Length)
+                    continue;
+
+                int row = MatrixResidues.IndexOf(upper[j]);
+                if (row < 0)
+                    continue; // non-standard residue (X, B, Z, *) contributes nothing, as in EMBOSS
+
+                weight += weights[row][col];
+            }
+
+            if (weight > bestScore)
+            {
+                bestScore = weight;
+                bestSite = i;
             }
         }
 
-        if (bestCleavage < 0)
+        if (bestSite < 0)
             return null;
 
+        // Cleavage is between residue (bestSite − 1) and bestSite; mature protein starts at bestSite.
+        int cleavagePosition = bestSite + 1; // 1-based mature start
+        int windowStart = Math.Max(0, bestSite + FirstColumnOffset);
+        int windowEnd = Math.Min(upper.Length - 1, bestSite + 1); // inclusive (position +2)
+
         return new SignalPeptide(
-            CleavagePosition: bestCleavage,
-            NRegion: bestN,
-            HRegion: bestH,
-            CRegion: bestC,
+            CleavagePosition: cleavagePosition,
             Score: bestScore,
-            Probability: bestScore);
+            SignalSequence: upper.Substring(0, bestSite),
+            WindowSequence: upper.Substring(windowStart, windowEnd - windowStart + 1),
+            IsLikelySignalPeptide: bestScore >= minWeight);
     }
 
     /// <summary>
-    /// Small neutral amino acids for the (-1, -3) cleavage site rule.
-    /// Source: von Heijne (1983) Eur J Biochem 133:17–21 — {A, G, S} at positions -1 and -3.
+    /// Builds the log-odds weight matrix from raw counts using the EMBOSS <c>sigcleave</c> transform:
+    /// a zero count becomes <see cref="ZeroCountPenaltyPseudocount"/> at columns −3/−1 (a strong
+    /// penalty) and <see cref="ZeroCountDefaultPseudocount"/> elsewhere, then each cell is
+    /// <c>ln(count / expect)</c>. Source: EMBOSS 6.6.0 emboss/sigcleave.c <c>sigcleave_readSig</c>.
     /// </summary>
-    private static bool IsSmallAminoAcid(char aa)
+    private static double[][] BuildWeightMatrix(int[][] counts, double[] expect)
     {
-        return "AGS".Contains(aa);
-    }
+        var weights = new double[counts.Length][];
+        for (int row = 0; row < counts.Length; row++)
+        {
+            weights[row] = new double[WeightMatrixColumns];
+            for (int col = 0; col < WeightMatrixColumns; col++)
+            {
+                double value = counts[row][col];
+                if (value == 0.0)
+                {
+                    value = (col == MinusThreeColumn || col == MinusOneColumn)
+                        ? ZeroCountPenaltyPseudocount
+                        : ZeroCountDefaultPseudocount;
+                }
 
-    /// <summary>
-    /// N-region score: positive charge density (K, R).
-    /// Source: von Heijne (1986) — mean n-region charge ≈ +2.0 (eukaryotic +1.7, prokaryotic +2.3).
-    /// Normalized so 2 positive residues = 1.0 (at the combined mean).
-    /// </summary>
-    private static double ScoreNRegion(string region)
-    {
-        int positiveCharges = region.Count(c => c == 'K' || c == 'R');
-        return Math.Min(1.0, positiveCharges * 0.5);
-    }
+                weights[row][col] = Math.Log(value / expect[row]);
+            }
+        }
 
-    /// <summary>
-    /// H-region score: fraction of hydrophobic amino acids {A, I, L, M, F, V, W}.
-    /// Source: von Heijne (1985) J Mol Biol 184:99–105 — h-region defined by hydrophobic content.
-    /// </summary>
-    private static double ScoreHydrophobicRegion(string region)
-    {
-        int hydrophobic = region.Count(c => "AILMFVW".Contains(c));
-        return (double)hydrophobic / region.Length;
-    }
-
-    /// <summary>
-    /// C-region score: fraction of small/polar amino acids {A, G, S, T, N}.
-    /// Source: von Heijne (1984) J Mol Biol 173:243–251 — c-region enriched in small polar residues.
-    /// </summary>
-    private static double ScoreCRegion(string region)
-    {
-        int smallPolar = region.Count(c => "AGSTN".Contains(c));
-        return (double)smallPolar / region.Length;
+        return weights;
     }
 
     #endregion
 
     #region Transmembrane Prediction
 
+    // --- Kyte & Doolittle (1982) hydropathy parameters -----------------------------------------
+    // Source: Kyte J, Doolittle RF. "A simple method for displaying the hydropathic character of a
+    //         protein." J Mol Biol. 157(1):105-132 (1982). https://doi.org/10.1016/0022-2836(82)90515-0
+    // TM-detection parameters (window 19, threshold 1.6) verified against the Davidson College
+    //         Kyte-Doolittle background page (citing Kyte & Doolittle 1982):
+    //         https://gcat.davidson.edu/DGPB/kd/kyte-doolittle-background.htm
+    // Windowing (arithmetic mean of the window's per-residue values) matches Biopython 1.x
+    //         Bio.SeqUtils.ProtParam.protein_scale with edge weight 1.0:
+    //         https://github.com/biopython/biopython/blob/master/Bio/SeqUtils/ProtParam.py
+
     /// <summary>
-    /// Predicts transmembrane helices using hydropathy analysis.
+    /// Default sliding-window width for transmembrane-helix detection. Kyte &amp; Doolittle (1982)
+    /// found a 19-residue window optimal for identifying membrane-spanning segments.
     /// </summary>
+    private const int DefaultTransmembraneWindow = 19;
+
+    /// <summary>
+    /// Default hydropathy threshold: a window whose mean Kyte-Doolittle score exceeds 1.6 is
+    /// considered part of a transmembrane segment (Kyte &amp; Doolittle 1982; Davidson background page).
+    /// </summary>
+    private const double DefaultTransmembraneThreshold = 1.6;
+
+    /// <summary>
+    /// Minimum span (residues) a candidate region must cover to be reported as a transmembrane helix.
+    /// A single α-helix needs ≈18–21 residues to cross the ≈30 Å lipid bilayer, matching the
+    /// 19-residue scanning window (each residue rises ≈1.5 Å along the helix axis). Set to the
+    /// window width so that any region containing at least one above-threshold window qualifies.
+    /// </summary>
+    private const int MinTransmembraneHelixLength = DefaultTransmembraneWindow;
+
+    /// <summary>
+    /// Predicts transmembrane α-helices with the Kyte &amp; Doolittle (1982) hydropathy method:
+    /// the mean hydropathy is computed over a sliding window of <paramref name="windowSize"/>
+    /// residues, and each maximal run of windows whose mean exceeds <paramref name="threshold"/>
+    /// is reported as a candidate transmembrane segment.
+    /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence (one-letter codes; case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window width; defaults to 19 (Kyte &amp; Doolittle 1982).</param>
+    /// <param name="threshold">Mean-hydropathy cutoff; defaults to 1.6 (Kyte &amp; Doolittle 1982).</param>
+    /// <returns>
+    /// One tuple per predicted segment: 0-based inclusive <c>Start</c>/<c>End</c> residue indices and
+    /// the peak (maximum) window mean within the segment. Empty when the sequence is null/empty or
+    /// shorter than <paramref name="windowSize"/>.
+    /// </returns>
     public static IEnumerable<(int Start, int End, double Score)> PredictTransmembraneHelices(
         string proteinSequence,
-        int windowSize = 19,
-        double threshold = 1.6)
+        int windowSize = DefaultTransmembraneWindow,
+        double threshold = DefaultTransmembraneThreshold)
     {
-        if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
+        if (string.IsNullOrEmpty(proteinSequence) || windowSize <= 0 || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
@@ -551,13 +717,15 @@ public static class ProteinMotifFinder
             }
             else if (regionStart != null)
             {
-                // End of region
+                // End of region: the last above-threshold window starts at (i - 1) and therefore
+                // covers residues up to (i - 1) + windowSize - 1. The reported End is that last
+                // covered residue (0-based inclusive), clamped to the last residue index.
                 int start = regionStart.Value;
-                int end = i - 1 + windowSize;
+                int lastCoveredResidue = i - 1 + windowSize - 1;
 
-                if (end - start >= 15) // Minimum TM helix length
+                if (lastCoveredResidue - start + 1 >= MinTransmembraneHelixLength)
                 {
-                    yield return (start, Math.Min(end, upper.Length - 1), maxScore);
+                    yield return (start, Math.Min(lastCoveredResidue, upper.Length - 1), maxScore);
                 }
 
                 regionStart = null;
@@ -569,17 +737,18 @@ public static class ProteinMotifFinder
         if (regionStart != null)
         {
             int start = regionStart.Value;
-            int end = hydropathy.Count - 1 + windowSize;
+            int lastCoveredResidue = hydropathy.Count - 1 + windowSize - 1;
 
-            if (end - start >= 15)
+            if (lastCoveredResidue - start + 1 >= MinTransmembraneHelixLength)
             {
-                yield return (start, Math.Min(end, upper.Length - 1), maxScore);
+                yield return (start, Math.Min(lastCoveredResidue, upper.Length - 1), maxScore);
             }
         }
     }
 
     /// <summary>
-    /// Kyte-Doolittle hydropathy scale.
+    /// Kyte-Doolittle hydropathy scale (Kyte &amp; Doolittle 1982, J Mol Biol 157:105-132).
+    /// Values verified against QIAGEN CLC Genomics Workbench "Hydrophobicity scales" reference.
     /// </summary>
     private static readonly Dictionary<char, double> HydropathyScale = new()
     {
@@ -589,6 +758,11 @@ public static class ProteinMotifFinder
         {'S', -0.8}, {'T', -0.7}, {'W', -0.9}, {'Y', -1.3}, {'V', 4.2}
     };
 
+    /// <summary>
+    /// Computes the Kyte-Doolittle sliding-window hydropathy profile as the arithmetic mean of the
+    /// per-residue scores in each window (Biopython <c>protein_scale</c> with edge weight 1.0).
+    /// Non-standard residues (X, B, Z, *) carry no scale value and are excluded from the mean.
+    /// </summary>
     private static List<double> CalculateHydropathyProfile(string sequence, int windowSize)
     {
         var profile = new List<double>();
@@ -710,101 +884,153 @@ public static class ProteinMotifFinder
 
     #region Coiled-Coil Prediction
 
+    // --- Coiled-coil heptad-repeat constants (all source-traceable) ---
+
+    // Heptad repeat is denoted (abcdefg)n; the hydrophobic core positions are a and d.
+    // Lupas A, Van Dyke M, Stock J (1991) Science 252:1162-1164; Mason JM, Arndt KM (2004)
+    // ChemBioChem 5(2):170-176.
+    private const int HeptadLength = 7;          // a,b,c,d,e,f,g
+    private const int HeptadPositionA = 0;        // core position a
+    private const int HeptadPositionD = 3;        // core position d
+
+    // Hydrophobic-core residues at positions a and d: "isoleucine, leucine, or valine"
+    // (Wikipedia "Coiled coil", citing Mason & Arndt 2004).
+    private static readonly char[] CoiledCoilCoreResidues = { 'I', 'L', 'V' };
+
+    // Default scoring window = 28 residues (4 heptads) and 7 candidate registers per Lupas (1991):
+    // "a window can be assigned seven different heptad repeat frames ... 28 positions in a gliding window".
+    private const int DefaultCoiledCoilWindow = 28;
+
+    // Default threshold = 0.5: a window is coiled-coil if MORE THAN HALF (>= 50%) of its a/d positions
+    // are occupied by hydrophobic-core residues ("predominantly hydrophobic at a and d", Mason & Arndt 2004).
+    private const double DefaultCoiledCoilThreshold = 0.5;
+
+    // Minimum reported region length = 21 residues (3 heptads): naturally occurring coiled coils are
+    // built from multiple heptads, (abcdefg)1-(abcdefg)2-(abcdefg)3... (Mason & Arndt 2004).
+    private const int MinCoiledCoilRegion = 3 * HeptadLength;
+
     /// <summary>
-    /// Predicts coiled-coil regions using heptad repeat analysis.
+    /// Predicts coiled-coil regions by heptad-repeat analysis. For every residue window the score is the
+    /// fraction of its heptad a/d core positions occupied by a hydrophobic core residue (I, L or V),
+    /// maximised over the seven possible heptad registers (frames); contiguous windows scoring at or above
+    /// <paramref name="threshold"/> form a region. This is the fully-specified heptad a/d occupancy model
+    /// (Lupas 1991; Mason &amp; Arndt 2004); it deliberately does NOT use the COILS position-specific
+    /// scoring matrix, whose weights were not available from authoritative sources.
     /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence (case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window length in residues (default 28 = 4 heptads).</param>
+    /// <param name="threshold">Minimum a/d hydrophobic-core occupancy fraction in [0,1] (default 0.5).</param>
+    /// <returns>Non-overlapping regions (Start, End inclusive 0-based; Score = peak occupancy fraction).</returns>
     public static IEnumerable<(int Start, int End, double Score)> PredictCoiledCoils(
         string proteinSequence,
-        int windowSize = 28,
-        double threshold = 0.5)
+        int windowSize = DefaultCoiledCoilWindow,
+        double threshold = DefaultCoiledCoilThreshold)
     {
         if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
+        var coreResidues = new HashSet<char>(CoiledCoilCoreResidues);
 
-        // Coiled-coil scoring based on heptad positions (a-g)
-        // Positions a and d favor hydrophobic residues
-        var positionWeights = new Dictionary<int, Dictionary<char, double>>
+        int windowCount = upper.Length - windowSize + 1;
+        var profile = new double[windowCount];
+        for (int i = 0; i < windowCount; i++)
         {
-            // Position a (hydrophobic)
-            { 0, new Dictionary<char, double> { {'L', 0.9}, {'I', 0.8}, {'V', 0.7}, {'M', 0.6}, {'A', 0.4} } },
-            // Position d (hydrophobic)
-            { 3, new Dictionary<char, double> { {'L', 0.9}, {'I', 0.8}, {'V', 0.7}, {'M', 0.6}, {'A', 0.4} } },
-            // Position e (charged, negative)
-            { 4, new Dictionary<char, double> { {'E', 0.8}, {'D', 0.6}, {'Q', 0.4}, {'N', 0.4} } },
-            // Position g (charged, positive)
-            { 6, new Dictionary<char, double> { {'K', 0.8}, {'R', 0.7}, {'E', 0.5}, {'Q', 0.4} } }
-        };
-
-        var profile = new List<double>();
-
-        for (int i = 0; i <= upper.Length - windowSize; i++)
-        {
-            double score = 0;
-            int count = 0;
-
-            for (int j = 0; j < windowSize; j++)
-            {
-                int pos = j % 7;
-                char aa = upper[i + j];
-
-                if (positionWeights.TryGetValue(pos, out var weights))
-                {
-                    if (weights.TryGetValue(aa, out double weight))
-                    {
-                        score += weight;
-                    }
-                }
-                count++;
-            }
-
-            profile.Add(score / (windowSize / 7 * 4));
+            profile[i] = BestHeptadOccupancy(upper, i, windowSize, coreResidues);
         }
 
-        // Find regions above threshold
+        // Group contiguous above-threshold windows into regions; a window at profile index i covers
+        // residues [i, i + windowSize - 1]. Region score = peak window occupancy in the run.
         int? regionStart = null;
-        double maxScore = 0;
+        double peak = 0;
 
-        for (int i = 0; i < profile.Count; i++)
+        for (int i = 0; i < profile.Length; i++)
         {
             if (profile[i] >= threshold)
             {
-                if (regionStart == null)
+                if (regionStart is null)
                 {
                     regionStart = i;
-                    maxScore = profile[i];
+                    peak = profile[i];
                 }
                 else
                 {
-                    maxScore = Math.Max(maxScore, profile[i]);
+                    peak = Math.Max(peak, profile[i]);
                 }
             }
-            else if (regionStart != null)
+            else if (regionStart is not null)
             {
-                int start = regionStart.Value;
-                int end = i - 1 + windowSize;
-
-                if (end - start >= 21) // Minimum 3 heptads
-                {
-                    yield return (start, Math.Min(end, upper.Length - 1), maxScore);
-                }
-
+                var region = BuildRegion(regionStart.Value, i - 1, windowSize, peak);
+                if (region.HasValue)
+                    yield return region.Value;
                 regionStart = null;
-                maxScore = 0;
+                peak = 0;
             }
         }
 
-        if (regionStart != null)
+        if (regionStart is not null)
         {
-            int start = regionStart.Value;
-            int end = profile.Count - 1 + windowSize;
-
-            if (end - start >= 21)
-            {
-                yield return (start, Math.Min(end, upper.Length - 1), maxScore);
-            }
+            var region = BuildRegion(regionStart.Value, profile.Length - 1, windowSize, peak);
+            if (region.HasValue)
+                yield return region.Value;
         }
+    }
+
+    /// <summary>
+    /// Returns the maximum, over the seven heptad registers, of the fraction of a/d core positions in the
+    /// window starting at <paramref name="windowStart"/> that are occupied by a hydrophobic core residue.
+    /// </summary>
+    private static double BestHeptadOccupancy(
+        string upper, int windowStart, int windowSize, HashSet<char> coreResidues)
+    {
+        double best = 0;
+        for (int register = 0; register < HeptadLength; register++)
+        {
+            int coreCount = 0;
+            int hydrophobicCount = 0;
+            for (int j = 0; j < windowSize; j++)
+            {
+                int index = windowStart + j;
+                int heptadPosition = Mod(index - register, HeptadLength);
+                if (heptadPosition != HeptadPositionA && heptadPosition != HeptadPositionD)
+                    continue;
+
+                coreCount++;
+                if (coreResidues.Contains(upper[index]))
+                    hydrophobicCount++;
+            }
+
+            if (coreCount == 0)
+                continue;
+
+            double occupancy = (double)hydrophobicCount / coreCount;
+            if (occupancy > best)
+                best = occupancy;
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Maps a run of above-threshold window indices [<paramref name="firstWindow"/>,
+    /// <paramref name="lastWindow"/>] to a residue region, keeping it only if it spans at least
+    /// <see cref="MinCoiledCoilRegion"/> residues.
+    /// </summary>
+    private static (int Start, int End, double Score)? BuildRegion(
+        int firstWindow, int lastWindow, int windowSize, double peak)
+    {
+        int start = firstWindow;
+        int end = lastWindow + windowSize - 1;
+        if (end - start + 1 < MinCoiledCoilRegion)
+            return null;
+        return (start, end, peak);
+    }
+
+    /// <summary>Non-negative modulo (C# % can be negative for negative operands).</summary>
+    private static int Mod(int value, int modulus)
+    {
+        int result = value % modulus;
+        return result < 0 ? result + modulus : result;
     }
 
     #endregion
@@ -812,60 +1038,124 @@ public static class ProteinMotifFinder
     #region Low Complexity Regions
 
     /// <summary>
-    /// Finds low complexity regions (compositionally biased).
+    /// Default SEG sliding-window length W. Source: NCBI SEG man page ("Trigger window length
+    /// [Default 12]") and NCBI blast_seg.c (<c>kSegWindow = 12</c>).
     /// </summary>
-    public static IEnumerable<(int Start, int End, char DominantAa, double Frequency)> FindLowComplexityRegions(
+    private const int DefaultSegWindow = 12;
+
+    /// <summary>
+    /// Default SEG trigger complexity K1 (locut), in bits/residue. A window with complexity ≤ K1
+    /// triggers a low-complexity segment. Source: NCBI SEG man page ("Trigger complexity [Default 2.2]")
+    /// and blast_seg.c (<c>kSegLocut = 2.2</c>).
+    /// </summary>
+    private const double DefaultSegTriggerComplexity = 2.2;
+
+    /// <summary>
+    /// Default SEG extension complexity K2 (hicut), in bits/residue. A triggered segment is extended
+    /// over neighbouring windows whose complexity is ≤ K2. Source: NCBI SEG man page
+    /// ("Extension complexity [Default 2.5]") and blast_seg.c (<c>kSegHicut = 2.5</c>).
+    /// </summary>
+    private const double DefaultSegExtensionComplexity = 2.5;
+
+    /// <summary>
+    /// Finds low-complexity regions in a protein sequence using the SEG algorithm of
+    /// Wootton &amp; Federhen (1993). Local complexity is the Shannon entropy of the residue
+    /// composition in a sliding window, measured in bits per residue:
+    /// K = −Σ pᵢ·log₂(pᵢ), with maximum log₂(20) ≈ 4.322 for the 20 amino acids.
+    /// A window with complexity ≤ <paramref name="triggerComplexity"/> (K1) triggers a
+    /// low-complexity segment, which is then extended over adjacent windows whose complexity
+    /// is ≤ <paramref name="extensionComplexity"/> (K2).
+    /// References: Wootton &amp; Federhen (1993) Comput. Chem. 17:149–163, eq. (3);
+    /// NCBI SEG (ncbi-seg) man page; NCBI blast_seg.c (s_Entropy).
+    /// </summary>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive).</param>
+    /// <param name="windowSize">Sliding-window length W (default 12).</param>
+    /// <param name="triggerComplexity">Trigger complexity K1 in bits/residue (default 2.2).</param>
+    /// <param name="extensionComplexity">Extension complexity K2 in bits/residue (default 2.5).</param>
+    /// <returns>
+    /// 0-based, inclusive low-complexity regions as <c>(Start, End, Complexity)</c>, where
+    /// <c>Complexity</c> is the minimum window complexity (bits/residue) observed inside the region.
+    /// Empty if the sequence is null/empty or shorter than the window.
+    /// </returns>
+    public static IEnumerable<(int Start, int End, double Complexity)> FindLowComplexityRegions(
         string proteinSequence,
-        int windowSize = 12,
-        double threshold = 0.4)
+        int windowSize = DefaultSegWindow,
+        double triggerComplexity = DefaultSegTriggerComplexity,
+        double extensionComplexity = DefaultSegExtensionComplexity)
     {
+        if (windowSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), "Window size must be positive.");
+
         if (string.IsNullOrEmpty(proteinSequence) || proteinSequence.Length < windowSize)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
+        int windowCount = upper.Length - windowSize + 1;
 
-        int? regionStart = null;
-        char dominantAa = ' ';
-        double maxFreq = 0;
+        // Per-window SEG complexity (bits/residue) for every window start position.
+        var windowComplexity = new double[windowCount];
+        for (int i = 0; i < windowCount; i++)
+            windowComplexity[i] = CalculateSegComplexity(upper.AsSpan(i, windowSize));
 
-        for (int i = 0; i <= upper.Length - windowSize; i++)
+        // SEG pass 1: find trigger windows (complexity ≤ K1); pass 2: extend over adjacent
+        // windows with complexity ≤ K2. Windows form a contiguous run; the residue span of the
+        // run is [firstStart, lastStart + W - 1] (0-based inclusive).
+        int i2 = 0;
+        while (i2 < windowCount)
         {
-            string window = upper.Substring(i, windowSize);
-            var composition = window.GroupBy(c => c)
-                .OrderByDescending(g => g.Count())
-                .First();
-
-            double freq = (double)composition.Count() / windowSize;
-
-            if (freq >= threshold)
+            if (windowComplexity[i2] > extensionComplexity)
             {
-                if (regionStart == null)
-                {
-                    regionStart = i;
-                    dominantAa = composition.Key;
-                    maxFreq = freq;
-                }
-                else
-                {
-                    if (freq > maxFreq)
-                    {
-                        dominantAa = composition.Key;
-                        maxFreq = freq;
-                    }
-                }
+                i2++;
+                continue;
             }
-            else if (regionStart != null)
+
+            // Start of a maximal run of windows with complexity ≤ K2.
+            int runStart = i2;
+            double minComplexity = windowComplexity[i2];
+            bool triggered = windowComplexity[i2] <= triggerComplexity;
+            int runEnd = i2;
+            while (runEnd + 1 < windowCount && windowComplexity[runEnd + 1] <= extensionComplexity)
             {
-                yield return (regionStart.Value, i - 1 + windowSize, dominantAa, maxFreq);
-                regionStart = null;
-                maxFreq = 0;
+                runEnd++;
+                if (windowComplexity[runEnd] < minComplexity)
+                    minComplexity = windowComplexity[runEnd];
+                if (windowComplexity[runEnd] <= triggerComplexity)
+                    triggered = true;
             }
+
+            // Only emit the run if at least one window actually triggered (complexity ≤ K1).
+            if (triggered)
+                yield return (runStart, runEnd + windowSize - 1, minComplexity);
+
+            i2 = runEnd + 1;
+        }
+    }
+
+    /// <summary>
+    /// Computes the SEG local complexity of a residue window as Shannon entropy in bits/residue:
+    /// K = −Σ pᵢ·log₂(pᵢ), where pᵢ is the fraction of the window occupied by residue type i.
+    /// A homopolymer window yields 0; a window of W distinct residues yields log₂(W).
+    /// Source: Wootton &amp; Federhen (1993) eq. (3); NCBI blast_seg.c s_Entropy; SeqComplex `ce`.
+    /// </summary>
+    private static double CalculateSegComplexity(ReadOnlySpan<char> window)
+    {
+        Span<int> counts = stackalloc int[char.MaxValue + 1];
+        foreach (char c in window)
+            counts[c]++;
+
+        double length = window.Length;
+        double entropy = 0.0;
+        foreach (char c in window)
+        {
+            // Visit each distinct residue once: tally on the first occurrence only.
+            if (counts[c] == 0)
+                continue;
+            double p = counts[c] / length;
+            entropy -= p * Math.Log2(p);
+            counts[c] = 0; // mark consumed so duplicates are not double-counted
         }
 
-        if (regionStart != null)
-        {
-            yield return (regionStart.Value, upper.Length - 1, dominantAa, maxFreq);
-        }
+        return entropy;
     }
 
     #endregion

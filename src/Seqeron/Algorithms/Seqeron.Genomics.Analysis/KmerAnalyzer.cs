@@ -189,13 +189,35 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Computes the k-mer distance between two sequences using Euclidean distance.
+    /// Computes the alignment-free k-mer distance between two sequences as the Euclidean
+    /// distance between their normalized k-mer frequency vectors.
     /// </summary>
+    /// <remarks>
+    /// Each sequence is mapped to a vector of k-mer frequencies, where a frequency is the
+    /// k-mer count divided by the total number of k-mer windows (sequence length − k + 1).
+    /// The distance is √(Σ (f1[w] − f2[w])²) taken over the union of k-mers occurring in
+    /// either sequence; a k-mer absent from a sequence contributes a 0 component.
+    /// Identical sequences yield 0. This is the frequency (relative-count) variant of the
+    /// word-composition Euclidean distance: counts are normalized per Lau et al. (2022) and
+    /// the Euclidean metric is applied to the relative-frequency vectors per Boden et al.
+    /// (2014); the word-vector model follows Zielezinski et al. (2017) Fig. 1 and
+    /// Vinga &amp; Almeida (2003).
+    /// </remarks>
+    /// <param name="seq1">First sequence. Null/empty or sequences shorter than <paramref name="k"/>
+    /// produce an empty frequency vector (treated as the zero vector).</param>
+    /// <param name="seq2">Second sequence, same conventions as <paramref name="seq1"/>.</param>
+    /// <param name="k">K-mer length; must be positive.</param>
+    /// <returns>Non-negative Euclidean distance between the two frequency vectors; 0 when both are empty or equal.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
     public static double KmerDistance(string seq1, string seq2, int k)
     {
+        if (k <= 0)
+            throw new ArgumentOutOfRangeException(nameof(k), "K must be positive.");
+
         var freq1 = GetKmerFrequencies(seq1, k);
         var freq2 = GetKmerFrequencies(seq2, k);
 
+        // Distance spans the union of k-mers in either sequence; absent k-mers are 0.
         var allKmers = new HashSet<string>(freq1.Keys);
         allKmers.UnionWith(freq2.Keys);
 
@@ -210,18 +232,45 @@ public static class KmerAnalyzer
         return Math.Sqrt(sumSquares);
     }
 
+    // A k-mer is "unique" when it appears exactly once in the sequence
+    // (frequency = 1), as opposed to "distinct" (each different k-mer counted
+    // once). See BioInfoLogics — k-mer counting, part I (2018):
+    // "Unique k-mers are those that appear only once."
+    private const int UniqueKmerCount = 1;
+
     /// <summary>
-    /// Finds unique k-mers that appear only once in the sequence.
+    /// Finds the unique k-mers of length <paramref name="k"/> — those that occur
+    /// exactly once (overlapping occurrence count = 1) in <paramref name="sequence"/>.
     /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>
+    /// The k-mers whose occurrence count equals 1. Empty when the sequence is
+    /// null/empty or when <paramref name="k"/> exceeds the sequence length
+    /// (L − k + 1 ≤ 0). Order is unspecified.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static IEnumerable<string> FindUniqueKmers(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
-        return counts.Where(kvp => kvp.Value == 1).Select(kvp => kvp.Key);
+        return counts.Where(kvp => kvp.Value == UniqueKmerCount).Select(kvp => kvp.Key);
     }
 
     /// <summary>
-    /// Finds k-mers that appear at least a minimum number of times.
+    /// Finds k-mers of length <paramref name="k"/> whose overlapping occurrence
+    /// count is at least <paramref name="minCount"/> (recurrent k-mers,
+    /// Count(Text, Pattern) ≥ t per Compeau &amp; Pevzner), ordered by count descending.
     /// </summary>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="minCount">Inclusive minimum occurrence count threshold.</param>
+    /// <returns>
+    /// (k-mer, Count) pairs with Count ≥ <paramref name="minCount"/>, ordered by
+    /// Count descending. Empty when the sequence is null/empty or k exceeds the
+    /// sequence length. With <paramref name="minCount"/> ≤ 1 every distinct k-mer
+    /// qualifies.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static IEnumerable<(string Kmer, int Count)> FindKmersWithMinCount(
         string sequence, int k, int minCount)
     {
@@ -233,10 +282,20 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Generates all possible k-mers for a given alphabet.
+    /// Generates all possible k-mers over a given alphabet: the k-fold Cartesian
+    /// product of the alphabet. The number of k-mers produced is
+    /// <c>alphabet.Length^k</c> (4^k for the default DNA alphabet), per the k-mer
+    /// universe size n^k (Wikipedia — K-mer; Clavijo 2018, BioInfoLogics).
+    /// When the alphabet is supplied in sorted order the k-mers are emitted in
+    /// lexicographic order, with the rightmost position advancing fastest
+    /// (odometer ordering, cf. Python itertools.product). The default alphabet
+    /// "ACGT" is already sorted, so DNA k-mers are produced AAA, AAC, ..., TTT.
     /// </summary>
-    /// <param name="k">The k-mer length.</param>
-    /// <param name="alphabet">The alphabet to use (default: DNA = "ACGT").</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <param name="alphabet">The alphabet to use (default: DNA = "ACGT"). Must be non-empty.</param>
+    /// <returns>All <c>alphabet.Length^k</c> distinct k-mers.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> is not positive.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="alphabet"/> is null or empty.</exception>
     public static IEnumerable<string> GenerateAllKmers(int k, string alphabet = "ACGT")
     {
         if (k <= 0)
@@ -348,8 +407,28 @@ public static class KmerAnalyzer
     }
 
     /// <summary>
-    /// Finds the positions of all occurrences of a k-mer in a sequence.
+    /// Finds all starting positions where a k-mer occurs in a sequence.
     /// </summary>
+    /// <remarks>
+    /// Solves the Pattern Matching Problem: "find all occurrences of a pattern in a string"
+    /// and report "all starting positions in Genome where Pattern appears as a substring"
+    /// using 0-based indexing (Rosalind BA1D; Compeau &amp; Pevzner, <i>Bioinformatics
+    /// Algorithms</i>). Occurrences may overlap and every overlapping start is reported,
+    /// e.g. <c>AA</c> in <c>AAAA</c> yields 0, 1, 2. There are at most
+    /// <c>L − k + 1</c> candidate positions for a length-L sequence (Wikipedia, "k-mer").
+    /// Matching is case-insensitive (both arguments are upper-cased), mirroring the sibling
+    /// <see cref="CountKmers(string,int)"/> methods. Positions are produced in ascending
+    /// order via a single forward scan; the repository <c>SuffixTree.FindAllOccurrences</c>
+    /// was evaluated but rejected for this single-query case because it returns positions
+    /// unordered and needs O(n) construction per text (see algorithm doc §5.2).
+    /// </remarks>
+    /// <param name="sequence">The sequence to search (case-insensitive).</param>
+    /// <param name="kmer">The k-mer / pattern to locate (case-insensitive).</param>
+    /// <returns>
+    /// Ascending 0-based start positions of every (possibly overlapping) occurrence.
+    /// Empty when <paramref name="sequence"/> or <paramref name="kmer"/> is null/empty,
+    /// when the k-mer is longer than the sequence, or when the k-mer does not occur.
+    /// </returns>
     public static IEnumerable<int> FindKmerPositions(string sequence, string kmer)
     {
         if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(kmer))
@@ -358,37 +437,94 @@ public static class KmerAnalyzer
         var seq = sequence.ToUpperInvariant();
         var km = kmer.ToUpperInvariant();
 
+        // L − k + 1 candidate start positions; scan every one to count overlapping
+        // occurrences (Rosalind BA1D: overlapping occurrences are all reported).
         for (int i = 0; i <= seq.Length - km.Length; i++)
         {
-            if (seq.Substring(i, km.Length) == km)
+            if (seq.AsSpan(i, km.Length).SequenceEqual(km.AsSpan()))
                 yield return i;
         }
     }
 
     /// <summary>
-    /// Counts k-mers on both strands (forward and reverse complement).
+    /// Counts every k-mer over BOTH strands of double-stranded DNA: the reported
+    /// count of a k-mer <c>w</c> is its overlapping occurrences on the forward
+    /// strand plus its overlapping occurrences on the reverse-complement strand.
     /// </summary>
-    public static Dictionary<string, int> CountKmersBothStrands(DnaSequence dna, int k)
+    /// <remarks>
+    /// Because double-stranded DNA carries information on both strands, a strand-aware
+    /// profile sums each k-mer's count with that of its complementary reading. Counting
+    /// <c>w</c> on the reverse-complement strand (read 5'→3') equals counting its reverse
+    /// complement <c>RC(w)</c> on the forward strand, so this method yields
+    /// <c>count[w] = forward[w] + forward[RC(w)]</c>. This is the "balance" operation of
+    /// kPAL — "adding the values of each k-mer to its reverse complement" (Anvar et al.,
+    /// 2014) — and reflects the generalized second Chargaff rule / inversion symmetry,
+    /// whereby a k-mer's count on one strand equals its reverse-complement's count on the
+    /// other (Shporer et al., 2016). Unlike canonical k-mer counting (Marçais &amp;
+    /// Kingsford, 2011), which collapses the pair onto a single lexicographically-smaller
+    /// key, this method retains a key for every observed k-mer; w and RC(w) carry equal
+    /// counts. The total over all k-mers is 2·(L − k + 1).
+    /// </remarks>
+    /// <param name="sequence">The DNA sequence (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>
+    /// Dictionary mapping each observed k-mer to its summed forward + reverse-complement
+    /// strand occurrence count. Empty when the sequence is null/empty or k exceeds the
+    /// sequence length (L − k + 1 ≤ 0).
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    public static Dictionary<string, int> CountKmersBothStrands(string sequence, int k)
     {
-        var forwardCounts = CountKmers(dna.Sequence, k);
-        var revCompCounts = CountKmers(dna.ReverseComplement().Sequence, k);
+        var forwardCounts = CountKmers(sequence, k);
+        var revCompCounts = CountKmers(DnaSequence.GetReverseComplementString(sequence ?? string.Empty), k);
 
         var combined = new Dictionary<string, int>(forwardCounts);
 
         foreach (var kvp in revCompCounts)
         {
-            if (combined.ContainsKey(kvp.Key))
+            if (!combined.TryAdd(kvp.Key, kvp.Value))
                 combined[kvp.Key] += kvp.Value;
-            else
-                combined[kvp.Key] = kvp.Value;
         }
 
         return combined;
     }
 
     /// <summary>
-    /// Analyzes k-mer composition and returns statistics.
+    /// Counts k-mers on both strands (forward and reverse complement) of a
+    /// <see cref="DnaSequence"/>. Convenience overload of
+    /// <see cref="CountKmersBothStrands(string, int)"/>.
     /// </summary>
+    /// <param name="dna">The DNA sequence.</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>Dictionary mapping each observed k-mer to its summed forward + reverse-complement count.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
+    public static Dictionary<string, int> CountKmersBothStrands(DnaSequence dna, int k)
+        => CountKmersBothStrands(dna.Sequence, k);
+
+    /// <summary>
+    /// Computes comprehensive k-mer composition statistics for a sequence: the
+    /// total number of (overlapping) k-mers, the number of distinct k-mers, the
+    /// maximum/minimum/average multiplicity, and the Shannon entropy of the k-mer
+    /// frequency distribution.
+    /// </summary>
+    /// <remarks>
+    /// The total k-mer count is the number of overlapping length-k windows,
+    /// L − k + 1 (Wikipedia — K-mer; BioInfoLogics, k-mer counting part I, 2018).
+    /// <see cref="KmerStatistics.UniqueKmers"/> reports the number of <i>distinct</i>
+    /// k-mers (each different k-mer counted once) — not the count-1 "unique" set of
+    /// <see cref="FindUniqueKmers"/>. <see cref="KmerStatistics.AverageCount"/> is the
+    /// mean multiplicity total/distinct, rounded to two decimals for display.
+    /// <see cref="KmerStatistics.Entropy"/> is the k-mer Shannon entropy
+    /// E_k = −Σ p(α) log₂ p(α) with p(α) = mult(α) / (L − k + 1), the relative
+    /// frequency of k-mer α over the L − k + 1 windows (Manca et al., 2021,
+    /// "Spectral concepts in genome informational analysis", arXiv:2106.15351;
+    /// log base 2 ⇒ bits). An empty sequence or k exceeding the length yields an
+    /// all-zero result (L − k + 1 ≤ 0 ⇒ no k-mers).
+    /// </remarks>
+    /// <param name="sequence">The sequence to analyze (case-insensitive; upper-cased internally).</param>
+    /// <param name="k">The k-mer length. Must be positive.</param>
+    /// <returns>A <see cref="KmerStatistics"/> record with the composition statistics; all-zero when no k-mers exist.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> ≤ 0.</exception>
     public static KmerStatistics AnalyzeKmers(string sequence, int k)
     {
         var counts = CountKmers(sequence, k);
@@ -425,8 +561,14 @@ public static class KmerAnalyzer
 }
 
 /// <summary>
-/// Statistics about k-mers in a sequence.
+/// Comprehensive k-mer composition statistics for a sequence.
 /// </summary>
+/// <param name="TotalKmers">Total number of overlapping k-mers, L − k + 1.</param>
+/// <param name="UniqueKmers">Number of <i>distinct</i> k-mers (each different k-mer counted once).</param>
+/// <param name="MaxCount">Maximum k-mer multiplicity observed.</param>
+/// <param name="MinCount">Minimum k-mer multiplicity observed.</param>
+/// <param name="AverageCount">Mean multiplicity (TotalKmers / UniqueKmers), rounded to two decimals.</param>
+/// <param name="Entropy">Shannon entropy of the k-mer frequency distribution, −Σ p log₂ p, in bits.</param>
 public readonly record struct KmerStatistics(
     int TotalKmers,
     int UniqueKmers,

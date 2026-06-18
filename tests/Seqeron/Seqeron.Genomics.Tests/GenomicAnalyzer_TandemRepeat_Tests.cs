@@ -284,6 +284,32 @@ public class GenomicAnalyzer_TandemRepeat_Tests
         });
     }
 
+    /// <summary>
+    /// M14: Wikipedia "Tandem repeat" verbatim worked example — "ATTCG ATTCG ATTCG,
+    /// in which the sequence ATTCG is repeated three times."
+    /// Source: https://en.wikipedia.org/wiki/Tandem_repeat (accessed 2026-06-16).
+    /// Externally-sourced expectation: unit ATTCG (period 5), 0-based start 0,
+    /// copy number 3, total length 15. This locks the canonical worked example of the
+    /// definition itself, not a substitute motif.
+    /// </summary>
+    [Test]
+    public void FindTandemRepeats_WikipediaWorkedExample_ATTCG()
+    {
+        var dna = new DnaSequence("ATTCGATTCGATTCG");
+
+        var tandems = GenomicAnalyzer.FindTandemRepeats(dna, minUnitLength: 5, minRepetitions: 2).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tandems, Has.Count.EqualTo(1), "Exactly one period-5 tandem repeat");
+            Assert.That(tandems[0].Unit, Is.EqualTo("ATTCG"), "Unit is the period-5 pattern ATTCG");
+            Assert.That(tandems[0].Position, Is.EqualTo(0), "0-based start is 0");
+            Assert.That(tandems[0].Repetitions, Is.EqualTo(3), "Copy number is 3");
+            Assert.That(tandems[0].TotalLength, Is.EqualTo(15), "Total length 5 x 3 = 15");
+            Assert.That(tandems[0].FullSequence, Is.EqualTo("ATTCGATTCGATTCG"));
+        });
+    }
+
     #endregion
 
     #region SHOULD Tests - Important Edge Cases

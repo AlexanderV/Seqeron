@@ -53,10 +53,7 @@ public class AnnotationSnapshotTests
         return Verify(new { MotifCount = motifs.Count, TopMotifs = motifs });
     }
 
-    [Test]
-    public Task CodingPotential_KnownSequence_MatchesSnapshot()
-    {
-        double potential = GenomeAnnotator.CalculateCodingPotential(TestSequence);
-        return Verify(new { CodingPotential = Math.Round(potential, 4) });
-    }
+    // NOTE: CodingPotential snapshot removed in ANNOT-CODING-001 — CalculateCodingPotential now
+    // requires coding/non-coding hexamer frequency tables (CPAT, Wang et al. 2013); it is covered
+    // by exact-value tests in GenomeAnnotator_CalculateCodingPotential_Tests.cs.
 }

@@ -6,7 +6,7 @@
 | Test Unit ID | CRISPR-OFF-001 |
 | Related Projects | N/A |
 | Implementation Status | Simplified |
-| Last Reviewed | 2026-04-30 |
+| Last Reviewed | 2026-06-18 |
 
 ## 1. Overview
 
@@ -121,13 +121,13 @@ The current implementation enumerates PAM sites first and then compares the guid
 
 **Intentionally simplified:**
 
-- Off-target scoring uses only two positional weights (`5` in the seed region and `2` outside it); **consequence:** base-specific and context-specific models such as CFD or MIT-style scoring are not represented.
+- The `FindOffTargets` / `CalculateSpecificityScore` heuristic uses only two positional weights (`5` in the seed region and `2` outside it); **consequence:** this heuristic does not itself represent base-specific or context-specific models — for those call the dedicated `CalculateCfdScore` (Doench 2016 CFD) or `CalculateMitHitScore` / `CalculateMitSpecificityScore` (MIT/Hsu 2013) methods.
 - The implementation uses strict PAM matching for the chosen system; **consequence:** off-targets at other PAMs are ignored unless that PAM is modeled as its own system (for example `SpCas9_NAG`).
 - Only base mismatches are considered; **consequence:** bulges and gap-containing alignments are out of scope.
 
 **Not implemented:**
 
-- Chromatin accessibility, bulge-aware alignment, and richer off-target scoring models; **users should rely on:** external experimental or specialized computational off-target tools when those factors matter.
+- Chromatin accessibility and bulge-aware (gap-containing) alignment; **users should rely on:** the dedicated `CalculateCfdScore` / `CalculateMitHitScore` methods for published off-target scoring (both now implemented), and external/experimental tools for accessibility and bulge-aware search.
 
 ## 6. Edge Cases and Limitations
 

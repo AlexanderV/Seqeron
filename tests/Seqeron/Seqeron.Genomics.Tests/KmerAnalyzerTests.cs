@@ -10,65 +10,19 @@ namespace Seqeron.Genomics.Tests
     /// - KMER-FREQ-001: KmerAnalyzer_Frequency_Tests.cs
     /// - KMER-FIND-001: KmerAnalyzer_Find_Tests.cs
     /// 
+    /// - KMER-DIST-001: KmerAnalyzer_KmerDistance_Tests.cs
+    ///
     /// This file contains tests for auxiliary methods:
-    /// - KmerDistance
-    /// - FindKmersWithMinCount
     /// - GenerateAllKmers
     /// - FindKmerPositions
     /// - AnalyzeKmers
+    ///
+    /// FindUniqueKmers / FindKmersWithMinCount are covered by KMER-UNIQUE-001:
+    /// KmerAnalyzer_FindUniqueAndMinCount_Tests.cs (deep, evidence-based).
     /// </summary>
     [TestFixture]
     public class KmerAnalyzerTests
     {
-        #region K-mer Distance
-
-        [Test]
-        public void KmerDistance_IdenticalSequences_ReturnsZero()
-        {
-            double distance = KmerAnalyzer.KmerDistance("ACGT", "ACGT", 2);
-            Assert.That(distance, Is.EqualTo(0.0).Within(0.0001));
-        }
-
-        [Test]
-        public void KmerDistance_DifferentSequences_ReturnsPositive()
-        {
-            double distance = KmerAnalyzer.KmerDistance("AAAA", "TTTT", 2);
-            Assert.That(distance, Is.GreaterThan(0));
-        }
-
-        [Test]
-        public void KmerDistance_SimilarSequences_SmallDistance()
-        {
-            double distance1 = KmerAnalyzer.KmerDistance("ACGT", "ACGA", 2);
-            double distance2 = KmerAnalyzer.KmerDistance("ACGT", "TTTT", 2);
-
-            Assert.That(distance1, Is.LessThan(distance2));
-        }
-
-        #endregion
-
-        #region K-mers With Min Count
-
-        [Test]
-        public void FindKmersWithMinCount_FiltersCorrectly()
-        {
-            var kmers = KmerAnalyzer.FindKmersWithMinCount("ACGTACGT", 4, 2).ToList();
-
-            Assert.That(kmers, Has.Count.EqualTo(1));
-            Assert.That(kmers[0].Kmer, Is.EqualTo("ACGT"));
-            Assert.That(kmers[0].Count, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void FindKmersWithMinCount_OrdersByCountDescending()
-        {
-            var kmers = KmerAnalyzer.FindKmersWithMinCount("AAAACGT", 2, 1).ToList();
-
-            Assert.That(kmers[0].Count, Is.GreaterThanOrEqualTo(kmers[^1].Count));
-        }
-
-        #endregion
-
         #region Generate All K-mers
 
         [Test]

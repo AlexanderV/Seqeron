@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -14,6 +14,13 @@
     <Description>Molecular biology tools: primer design, probe design, CRISPR design, codon optimization.</Description>
     <PackageTags>bioinformatics;genomics;primer;crispr;codon-optimization</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Doench 2016 Rule Set 2 / Azimuth trained models (compact binary blobs; see
+         scripts/azimuth/extract_azimuth_model.py for provenance and the binary format). -->
+    <EmbeddedResource Include="Resources\azimuth_rs2_nopos.bin" />
+    <EmbeddedResource Include="Resources\azimuth_rs2_full.bin" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Seqeron.Genomics.Infrastructure\Seqeron.Genomics.Infrastructure.csproj" />

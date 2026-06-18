@@ -142,96 +142,162 @@ public static class SequenceStatistics
 
     #region Molecular Weight
 
-    // Amino acid molecular weights (Da) - average isotopic mass
+    // Average isotopic mass of one water molecule (Da).
+    // Expasy FindMod "Other mass values": H2O = 18.01524; Biopython SeqUtils uses water = 18.0153.
+    // Source: https://web.expasy.org/findmod/findmod_masses.html ;
+    //         Biopython Bio/SeqUtils/__init__.py (molecular_weight).
+    private const double AverageWaterMass = 18.0153;
+
+    // Average molecular masses of the 20 standard free amino acids (Da).
+    // Source: Biopython Bio/Data/IUPACData.py `protein_weights` (master), "Mass data taken from PubChem";
+    // consistent with Expasy FindMod average residue masses + AverageWaterMass.
     private static readonly Dictionary<char, double> AminoAcidWeights = new()
     {
-        { 'A', 89.09 },   { 'R', 174.20 }, { 'N', 132.12 }, { 'D', 133.10 },
-        { 'C', 121.16 },  { 'E', 147.13 }, { 'Q', 146.15 }, { 'G', 75.07 },
-        { 'H', 155.16 },  { 'I', 131.18 }, { 'L', 131.18 }, { 'K', 146.19 },
-        { 'M', 149.21 },  { 'F', 165.19 }, { 'P', 115.13 }, { 'S', 105.09 },
-        { 'T', 119.12 },  { 'W', 204.23 }, { 'Y', 181.19 }, { 'V', 117.15 },
-        { 'U', 168.05 },  { 'O', 255.31 }, { 'B', 132.61 }, { 'Z', 146.64 },
-        { 'X', 110.0 }    // Average for unknown
+        { 'A', 89.0932 },  { 'C', 121.1582 }, { 'D', 133.1027 }, { 'E', 147.1293 },
+        { 'F', 165.1891 }, { 'G', 75.0666 },  { 'H', 155.1546 }, { 'I', 131.1729 },
+        { 'K', 146.1876 }, { 'L', 131.1729 }, { 'M', 149.2113 }, { 'N', 132.1179 },
+        { 'P', 115.1305 }, { 'Q', 146.1445 }, { 'R', 174.201 },  { 'S', 105.0926 },
+        { 'T', 119.1192 }, { 'V', 117.1463 }, { 'W', 204.2252 }, { 'Y', 181.1885 }
+    };
+
+    // Average molecular masses of DNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython Bio/Data/IUPACData.py `unambiguous_dna_weights`.
+    private static readonly Dictionary<char, double> DnaNucleotideWeights = new()
+    {
+        { 'A', 331.2218 }, { 'C', 307.1971 }, { 'G', 347.2212 }, { 'T', 322.2085 }
+    };
+
+    // Average molecular masses of RNA mononucleotides (5'-monophosphate, Da).
+    // Source: Biopython Bio/Data/IUPACData.py `unambiguous_rna_weights`.
+    private static readonly Dictionary<char, double> RnaNucleotideWeights = new()
+    {
+        { 'A', 347.2212 }, { 'C', 323.1965 }, { 'G', 363.2206 }, { 'U', 324.1813 }
     };
 
     /// <summary>
-    /// Calculates molecular weight of a protein sequence (Da).
+    /// Calculates the average-isotopic molecular weight of a protein sequence (Da).
     /// </summary>
+    /// <remarks>
+    /// Implements the Expasy Compute pI/Mw definition: the sum of the average isotopic
+    /// masses of the amino acids plus the average isotopic mass of one water molecule.
+    /// Equivalently (Biopython): sum(free amino-acid masses) − (n − 1) × water, removing
+    /// one water per peptide bond. Unknown symbols are skipped (contribute no mass and no bond).
+    /// </remarks>
+    /// <param name="proteinSequence">Protein sequence (case-insensitive, one-letter codes).</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateMolecularWeight(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
             return 0;
 
-        double weight = 18.015; // Water molecule (for peptide bond formation)
+        double weight = 0;
+        int residues = 0;
 
         foreach (char aa in proteinSequence.ToUpperInvariant())
         {
             if (AminoAcidWeights.TryGetValue(aa, out double aaWeight))
             {
-                weight += aaWeight - 18.015; // Subtract water for each peptide bond
+                weight += aaWeight;
+                residues++;
             }
         }
 
-        return weight + 18.015; // Add back water for N and C terminus
+        if (residues == 0)
+            return 0;
+
+        // One water is lost per peptide bond; n residues form (n − 1) bonds.
+        return weight - (residues - 1) * AverageWaterMass;
     }
 
     /// <summary>
-    /// Calculates molecular weight of a DNA/RNA sequence.
+    /// Calculates the average-isotopic molecular weight of a DNA or RNA sequence (Da).
     /// </summary>
+    /// <remarks>
+    /// Uses average monophosphate (5'-phosphate) mononucleotide masses and removes one
+    /// water per phosphodiester bond: sum(monophosphate masses) − (n − 1) × water
+    /// (Biopython Bio.SeqUtils.molecular_weight). Unknown symbols are skipped.
+    /// </remarks>
+    /// <param name="sequence">Nucleotide sequence (case-insensitive).</param>
+    /// <param name="isDna">True for DNA (uses A/C/G/T table); false for RNA (A/C/G/U table).</param>
+    /// <returns>Molecular weight in daltons; 0 for null/empty input.</returns>
     public static double CalculateNucleotideMolecularWeight(string sequence, bool isDna = true)
     {
         if (string.IsNullOrEmpty(sequence))
             return 0;
 
-        // Average molecular weights for nucleotides (as monophosphates)
-        double aWeight = isDna ? 331.2 : 347.2;
-        double tWeight = 322.2;  // DNA only
-        double uWeight = 324.2;  // RNA only
-        double gWeight = isDna ? 347.2 : 363.2;
-        double cWeight = isDna ? 307.2 : 323.2;
+        Dictionary<char, double> table = isDna ? DnaNucleotideWeights : RnaNucleotideWeights;
 
         double weight = 0;
+        int monomers = 0;
+
         foreach (char ch in sequence.ToUpperInvariant())
         {
-            weight += ch switch
+            if (table.TryGetValue(ch, out double ntWeight))
             {
-                'A' => aWeight,
-                'T' => tWeight,
-                'U' => uWeight,
-                'G' => gWeight,
-                'C' => cWeight,
-                _ => 330.0 // Average
-            };
+                weight += ntWeight;
+                monomers++;
+            }
         }
 
-        return weight;
+        if (monomers == 0)
+            return 0;
+
+        // One water is lost per phosphodiester bond; n monomers form (n − 1) bonds.
+        return weight - (monomers - 1) * AverageWaterMass;
     }
 
     #endregion
 
     #region Isoelectric Point
 
-    // pKa values for ionizable groups
+    // pKa values for ionizable side chains — EMBOSS Epk.dat scale (EMBOSS iep documentation).
+    // charge: +1 = basic group (protonated, positive at low pH); -1 = acidic group (deprotonated, negative at high pH).
+    // Source: EMBOSS iep, https://emboss.sourceforge.net/emboss/apps/iep.html (accessed 2026-06-13).
     private static readonly Dictionary<char, (double pKa, int charge)> IonizableGroups = new()
     {
-        { 'D', (3.9, -1) },  // Aspartic acid
-        { 'E', (4.1, -1) },  // Glutamic acid
-        { 'C', (8.3, -1) },  // Cysteine
-        { 'Y', (10.1, -1) }, // Tyrosine
-        { 'H', (6.0, 1) },   // Histidine
-        { 'K', (10.5, 1) },  // Lysine
-        { 'R', (12.5, 1) }   // Arginine
+        { 'D', (3.9, -1) },  // Aspartic acid — EMBOSS pKa 3.9
+        { 'E', (4.1, -1) },  // Glutamic acid — EMBOSS pKa 4.1
+        { 'C', (8.5, -1) },  // Cysteine — EMBOSS pKa 8.5
+        { 'Y', (10.1, -1) }, // Tyrosine — EMBOSS pKa 10.1
+        { 'H', (6.5, 1) },   // Histidine — EMBOSS pKa 6.5
+        { 'K', (10.8, 1) },  // Lysine — EMBOSS pKa 10.8
+        { 'R', (12.5, 1) }   // Arginine — EMBOSS pKa 12.5
     };
 
+    // Terminal-group pKa values — EMBOSS Epk.dat scale (EMBOSS iep documentation).
+    private const double NTerminusPka = 8.6; // EMBOSS "Amino" (N-terminus) pKa
+    private const double CTerminusPka = 3.6; // EMBOSS "Carboxyl" (C-terminus) pKa
+
+    // Bisection search bounds and convergence — pI lies in the standard pH window [0, 14].
+    private const double MinPh = 0.0;
+    private const double MaxPh = 14.0;
+    private const double PiBisectionPrecision = 0.01; // pH resolution of the returned pI
+
+    // pI returned for empty/null input: pI is undefined for a zero-length protein (a real
+    // protein always has both termini); neutral 7.0 is used as a documented input-guard sentinel.
+    private const double NeutralPhDefault = 7.0;
+
+    private const int PiDecimalPlaces = 2;
+
     /// <summary>
-    /// Calculates the isoelectric point (pI) of a protein.
+    /// Calculates the theoretical isoelectric point (pI) of a protein: the pH at which the net
+    /// charge is zero. Uses the EMBOSS Epk.dat pKa scale and the Henderson–Hasselbalch net-charge
+    /// model, with charge contributions summed over ionizable side chains and both termini.
+    /// The pH where net charge crosses zero is located by bisection over [0, 14].
     /// </summary>
+    /// <param name="proteinSequence">Single-letter amino-acid sequence (case-insensitive). Non-ionizable
+    /// residues are ignored. Null or empty returns the neutral sentinel 7.0.</param>
+    /// <returns>The isoelectric point in [0, 14], rounded to two decimal places.</returns>
+    /// <remarks>
+    /// pKa values and charge formula: EMBOSS iep (https://emboss.sourceforge.net/emboss/apps/iep.html)
+    /// and Peptides charge model (Osorio et al. 2015, Henderson–Hasselbalch per Moore 1985).
+    /// </remarks>
     public static double CalculateIsoelectricPoint(string proteinSequence)
     {
         if (string.IsNullOrEmpty(proteinSequence))
-            return 7.0;
+            return NeutralPhDefault;
 
-        // Count ionizable residues
+        // Count ionizable residues (composition-only model; sequence order does not affect pI).
         var counts = new Dictionary<char, int>();
         foreach (char aa in proteinSequence.ToUpperInvariant())
         {
@@ -239,59 +305,57 @@ public static class SequenceStatistics
                 counts[aa] = counts.GetValueOrDefault(aa) + 1;
         }
 
-        // Binary search for pH where net charge = 0
-        double pHLow = 0.0;
-        double pHHigh = 14.0;
-        double pH = 7.0;
-        const double precision = 0.01;
+        // Bisection for the pH where net charge = 0.
+        double pHLow = MinPh;
+        double pHHigh = MaxPh;
+        double pH = NeutralPhDefault;
 
-        // N-terminus pKa = 9.6, C-terminus pKa = 2.3
-        const double nTermPka = 9.6;
-        const double cTermPka = 2.3;
-
-        while (pHHigh - pHLow > precision)
+        while (pHHigh - pHLow > PiBisectionPrecision)
         {
             pH = (pHLow + pHHigh) / 2.0;
+            double charge = NetCharge(counts, pH);
 
-            // Calculate net charge at this pH
-            double charge = 0;
-
-            // N-terminus (positive)
-            charge += 1.0 / (1.0 + Math.Pow(10, pH - nTermPka));
-
-            // C-terminus (negative)
-            charge -= 1.0 / (1.0 + Math.Pow(10, cTermPka - pH));
-
-            // Side chains
-            foreach (var (aa, count) in counts)
-            {
-                var (pKa, baseCharge) = IonizableGroups[aa];
-                if (baseCharge > 0)
-                {
-                    // Positive residue
-                    charge += count * 1.0 / (1.0 + Math.Pow(10, pH - pKa));
-                }
-                else
-                {
-                    // Negative residue
-                    charge -= count * 1.0 / (1.0 + Math.Pow(10, pKa - pH));
-                }
-            }
-
+            // Net charge is monotonically non-increasing in pH: positive ⇒ pI is higher.
             if (charge > 0)
                 pHLow = pH;
             else
                 pHHigh = pH;
         }
 
-        return Math.Round(pH, 2);
+        return Math.Round(pH, PiDecimalPlaces);
+    }
+
+    /// <summary>
+    /// Net charge of a protein at a given pH from its ionizable-residue counts, using the
+    /// Henderson–Hasselbalch model: basic groups contribute +1/(1+10^(pH−pKa)), acidic groups
+    /// contribute −1/(1+10^(pKa−pH)). Both termini are counted once.
+    /// Source: Peptides charge_pI.cpp (Osorio et al. 2015); EMBOSS iep pKa scale.
+    /// </summary>
+    private static double NetCharge(Dictionary<char, int> counts, double pH)
+    {
+        // N-terminus (basic) and C-terminus (acidic).
+        double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPka));
+        charge -= 1.0 / (1.0 + Math.Pow(10, CTerminusPka - pH));
+
+        foreach (var (aa, count) in counts)
+        {
+            var (pKa, baseCharge) = IonizableGroups[aa];
+            if (baseCharge > 0)
+                charge += count / (1.0 + Math.Pow(10, pH - pKa));   // basic group
+            else
+                charge -= count / (1.0 + Math.Pow(10, pKa - pH));   // acidic group
+        }
+
+        return charge;
     }
 
     #endregion
 
     #region Hydrophobicity
 
-    // Kyte-Doolittle hydrophobicity scale
+    // Kyte-Doolittle hydropathy scale (kcal-derived index, the 20 standard residues).
+    // Values per Kyte J, Doolittle RF (1982) J Mol Biol 157:105-132; identical to
+    // Biopython Bio.SeqUtils.ProtParamData.kd.
     private static readonly Dictionary<char, double> HydrophobicityScale = new()
     {
         { 'A', 1.8 },  { 'R', -4.5 }, { 'N', -3.5 }, { 'D', -3.5 },
@@ -301,8 +365,15 @@ public static class SequenceStatistics
         { 'T', -0.7 }, { 'W', -0.9 }, { 'Y', -1.3 }, { 'V', 4.2 }
     };
 
+    // Default sliding-window size; Kyte & Doolittle (1982) report window 9 gives the
+    // best results for surface regions of globular proteins (per GCAT/Davidson summary).
+    private const int DefaultHydropathyWindow = 9;
+
     /// <summary>
-    /// Calculates the grand average of hydropathy (GRAVY) index.
+    /// Calculates the grand average of hydropathy (GRAVY) index: the sum of Kyte-Doolittle
+    /// hydropathy values of all recognized residues divided by the residue count.
+    /// Positive values indicate hydrophobic, negative hydrophilic. Non-standard residues
+    /// are skipped (not counted). Returns 0 for null/empty input or no recognized residues.
     /// </summary>
     public static double CalculateHydrophobicity(string proteinSequence)
     {
@@ -325,11 +396,14 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates hydrophobicity profile using a sliding window.
+    /// Calculates the sliding-window hydropathy profile: the unweighted mean Kyte-Doolittle
+    /// value over each window of <paramref name="windowSize"/> residues. Yields exactly
+    /// N - windowSize + 1 values; yields nothing when the window exceeds the sequence length
+    /// or the input is null/empty. Non-standard residues contribute 0 to a window's sum.
     /// </summary>
     public static IEnumerable<double> CalculateHydrophobicityProfile(
         string proteinSequence,
-        int windowSize = 9)
+        int windowSize = DefaultHydropathyWindow)
     {
         if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
             yield break;
@@ -352,7 +426,12 @@ public static class SequenceStatistics
 
     #region DNA Thermodynamics
 
-    // Nearest-neighbor thermodynamic parameters (kcal/mol for ΔH and ΔS)
+    // Unified nearest-neighbor thermodynamic parameters for Watson-Crick base pairs
+    // in 1 M NaCl, ΔH in kcal/mol and ΔS in cal/(mol·K).
+    // Source: Allawi HT, SantaLucia J (1997), Biochemistry 36(34):10581-10594,
+    //         Table 1 (also tabulated as DNA_NN3 in Biopython Bio.SeqUtils.MeltingTemp).
+    // Each entry and its Watson-Crick complement share the same values
+    // (e.g. AA/TT, CA/TG), so all 16 dinucleotides are listed explicitly.
     private static readonly Dictionary<string, (double dH, double dS)> NearestNeighborParams = new()
     {
         { "AA", (-7.9, -22.2) }, { "TT", (-7.9, -22.2) },
@@ -367,6 +446,35 @@ public static class SequenceStatistics
         { "GG", (-8.0, -19.9) }, { "CC", (-8.0, -19.9) }
     };
 
+    // Helix-initiation parameters applied once at EACH duplex terminus,
+    // selected by whether that terminal base pair is G·C or A·T.
+    // Source: Allawi & SantaLucia (1997), Table 1; "init. w/ term. G·C" and
+    // "init. w/ term. A·T" (Biopython DNA_NN3 keys init_G/C, init_A/T).
+    private const double InitTerminalGcDeltaH = 0.1;   // kcal/mol
+    private const double InitTerminalGcDeltaS = -2.8;  // cal/(mol·K)
+    private const double InitTerminalAtDeltaH = 2.3;   // kcal/mol
+    private const double InitTerminalAtDeltaS = 4.1;   // cal/(mol·K)
+
+    // Salt (Na+) entropy correction per SantaLucia (1998) "method 5":
+    // ΔS(salt) = 0.368 * (N-1) * ln[Na+], [Na+] in mol/L.
+    // Source: SantaLucia J (1998), PNAS 95(4):1460-1465; Biopython salt_correction method 5.
+    private const double SaltEntropyCoefficient = 0.368;
+
+    // Gas constant R in cal/(mol·K) used in the Tm equation.
+    // Source: Allawi & SantaLucia (1997); Biopython Tm_NN uses R = 1.987.
+    private const double GasConstantCalPerMolK = 1.987;
+
+    // Reference temperature for ΔG° calculation: 37 °C = 310.15 K.
+    private const double ReferenceTemperatureKelvin = 310.15;
+
+    // Kelvin-to-Celsius offset.
+    private const double KelvinToCelsiusOffset = 273.15;
+
+    // Total-strand-concentration divisor F for the Tm equation.
+    // For two non-self-complementary strands in equal amount, F = 4 (default);
+    // Source: SantaLucia (1998); MELTING 5 user guide §4.2 ("F is 4 ... by default").
+    private const double NonSelfComplementaryFactor = 4.0;
+
     /// <summary>
     /// DNA thermodynamic properties.
     /// </summary>
@@ -377,8 +485,20 @@ public static class SequenceStatistics
         double MeltingTemperature);
 
     /// <summary>
-    /// Calculates thermodynamic properties of a DNA duplex.
+    /// Calculates thermodynamic properties (ΔH°, ΔS°, ΔG°₃₇ and Tm) of a DNA duplex
+    /// using the unified nearest-neighbor model of Allawi &amp; SantaLucia (1997) /
+    /// SantaLucia (1998), with the SantaLucia (1998) "method 5" Na+ salt correction.
     /// </summary>
+    /// <param name="dnaSequence">DNA sequence (5'→3'); requires length ≥ 2.</param>
+    /// <param name="naConcentration">Na+ concentration in mol/L (default 0.05 = 50 mM).</param>
+    /// <param name="primerConcentration">
+    /// Total strand concentration C_T in mol/L (default 2.5e-7 = 250 nM); the Tm equation
+    /// divides this by F = 4 for two non-self-complementary strands in equal amount.
+    /// </param>
+    /// <returns>
+    /// ΔH° (kcal/mol), ΔS° (cal/(mol·K)), ΔG°₃₇ (kcal/mol) and Tm (°C). For an empty or
+    /// length-1 input all four fields are 0.
+    /// </returns>
     public static ThermodynamicProperties CalculateThermodynamics(
         string dnaSequence,
         double naConcentration = 0.05, // 50 mM
@@ -389,23 +509,16 @@ public static class SequenceStatistics
 
         string upper = dnaSequence.ToUpperInvariant();
 
-        // Calculate ΔH and ΔS using nearest-neighbor method
+        // Calculate ΔH and ΔS using the nearest-neighbor method.
         double dH = 0;
         double dS = 0;
 
-        // Initiation parameters
-        if (upper[0] == 'G' || upper[0] == 'C')
-        {
-            dH += 0.1;
-            dS += -2.8;
-        }
-        else
-        {
-            dH += 2.3;
-            dS += 4.1;
-        }
+        // Helix-initiation parameters are applied at BOTH duplex termini
+        // (first and last base pair) per Allawi & SantaLucia (1997), Table 1.
+        AddTerminalInitiation(upper[0], ref dH, ref dS);
+        AddTerminalInitiation(upper[^1], ref dH, ref dS);
 
-        // Sum nearest-neighbor contributions
+        // Sum nearest-neighbor contributions over each overlapping dinucleotide.
         for (int i = 0; i < upper.Length - 1; i++)
         {
             string dinuc = upper.Substring(i, 2);
@@ -416,24 +529,38 @@ public static class SequenceStatistics
             }
         }
 
-        // Salt correction for ΔS
-        double saltCorrection = 0.368 * (upper.Length - 1) * Math.Log(naConcentration);
+        // Salt correction for ΔS (SantaLucia 1998, method 5).
+        double saltCorrection = SaltEntropyCoefficient * (upper.Length - 1) * Math.Log(naConcentration);
         dS += saltCorrection;
 
-        // Calculate ΔG at 37°C (310.15 K)
-        double dG = dH - (310.15 * dS / 1000.0);
+        // ΔG° at 37 °C: ΔG° = ΔH° - T·ΔS° (ΔS° converted from cal to kcal).
+        double dG = dH - (ReferenceTemperatureKelvin * dS / 1000.0);
 
-        // Calculate Tm
-        // Tm = ΔH / (ΔS + R * ln(Ct/4))
-        // R = 1.987 cal/(mol·K)
-        double R = 1.987;
-        double tm = (dH * 1000) / (dS + R * Math.Log(primerConcentration / 4.0)) - 273.15;
+        // Tm = ΔH° / (ΔS° + R · ln(C_T / F)) - 273.15, with ΔH° converted to cal.
+        double tm = (dH * 1000) /
+                    (dS + GasConstantCalPerMolK * Math.Log(primerConcentration / NonSelfComplementaryFactor))
+                    - KelvinToCelsiusOffset;
 
         return new ThermodynamicProperties(
             DeltaH: Math.Round(dH, 2),
             DeltaS: Math.Round(dS, 2),
             DeltaG: Math.Round(dG, 2),
             MeltingTemperature: Math.Round(tm, 1));
+    }
+
+    // Adds the helix-initiation contribution for one terminal base.
+    private static void AddTerminalInitiation(char terminalBase, ref double dH, ref double dS)
+    {
+        if (terminalBase is 'G' or 'C')
+        {
+            dH += InitTerminalGcDeltaH;
+            dS += InitTerminalGcDeltaS;
+        }
+        else
+        {
+            dH += InitTerminalAtDeltaH;
+            dS += InitTerminalAtDeltaS;
+        }
     }
 
     /// <summary>
@@ -467,7 +594,10 @@ public static class SequenceStatistics
     #region Sequence Patterns
 
     /// <summary>
-    /// Calculates dinucleotide frequencies.
+    /// Calculates normalized dinucleotide frequencies f_XY = count(XY) / (number of dinucleotide
+    /// positions, i.e. N-1) over the alphabet {A,T,G,C,U}. Non-alphabet dinucleotides are excluded.
+    /// Frequency normalization follows the Karlin genomic-signature convention
+    /// (Karlin S., "Pervasive properties of the genomic signature", PMC126251).
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideFrequencies(string sequence)
     {
@@ -501,7 +631,12 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates observed vs expected dinucleotide ratios (CpG ratio, etc.).
+    /// Calculates the dinucleotide relative abundance (odds ratio) ρ_XY = f_XY / (f_X · f_Y),
+    /// where f_XY is the dinucleotide frequency and f_X, f_Y are single-base frequencies.
+    /// ρ = 1 indicates no bias (observed equals the product of base frequencies); ρ &gt; 1
+    /// over-representation and ρ &lt; 1 under-representation
+    /// (Karlin S., PMC126251; Karlin &amp; Burge 1995, Trends Genet 11(7):283-290).
+    /// When a constituent base is absent the expected frequency is 0 and the ratio is reported as 0.
     /// </summary>
     public static IReadOnlyDictionary<string, double> CalculateDinucleotideRatios(string sequence)
     {
@@ -538,24 +673,38 @@ public static class SequenceStatistics
     }
 
     /// <summary>
-    /// Calculates codon usage frequencies.
+    /// Calculates codon usage frequencies by reading consecutive, non-overlapping triplets from the
+    /// given reading frame: frequency = count(codon) / total counted codons. Triplets containing any
+    /// non-ACGT base are excluded and trailing 1-2 leftover bases are ignored. This is the count/total
+    /// fraction used by the Kazusa Codon Usage Database (CUTG); it equals the CUTG per-thousand
+    /// frequency divided by 1000, and is distinct from the per-amino-acid "fraction" reported by
+    /// EMBOSS cusp. Input shorter than 3 bases, or with no valid codon (total = 0), yields an empty
+    /// table. Sources: Nakamura, Gojobori, Ikemura (2000), Nucleic Acids Res 28(1):292,
+    /// DOI 10.1093/nar/28.1.292; Kazusa CUTG README, https://www.kazusa.or.jp/codon/readme_codon.html.
     /// </summary>
+    /// <param name="dnaSequence">DNA coding sequence; case-insensitive, non-ACGT bases excluded.</param>
+    /// <param name="readingFrame">0-based offset of the first codon (0, 1, or 2 in practice).</param>
+    /// <returns>Map of codon to its frequency (count / total counted codons); empty if no valid codon.</returns>
     public static IReadOnlyDictionary<string, double> CalculateCodonFrequencies(
         string dnaSequence,
         int readingFrame = 0)
     {
+        // Codon length is fixed by the genetic code (non-overlapping triplets), per Kazusa CUTG.
+        const int CodonLength = 3;
+
         var counts = new Dictionary<string, int>();
         var freq = new Dictionary<string, double>();
 
-        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < 3)
+        if (string.IsNullOrEmpty(dnaSequence) || dnaSequence.Length < CodonLength)
             return freq;
 
         string upper = dnaSequence.ToUpperInvariant();
         int total = 0;
 
-        for (int i = readingFrame; i <= upper.Length - 3; i += 3)
+        for (int i = readingFrame; i <= upper.Length - CodonLength; i += CodonLength)
         {
-            string codon = upper.Substring(i, 3);
+            string codon = upper.Substring(i, CodonLength);
+            // Kazusa CUTG: codons containing an ambiguous (non-ACGT) base are excluded from the count.
             if (codon.All(c => "ATGC".Contains(c)))
             {
                 counts[codon] = counts.GetValueOrDefault(codon) + 1;
@@ -563,6 +712,8 @@ public static class SequenceStatistics
             }
         }
 
+        // total == 0 (no valid codon) leaves counts empty, so this loop yields an empty table
+        // and avoids any division by zero.
         foreach (var (codon, count) in counts)
         {
             freq[codon] = (double)count / total;
@@ -647,29 +798,50 @@ public static class SequenceStatistics
 
     #region Protein Secondary Structure
 
-    // Chou-Fasman propensity parameters
-    private static readonly Dictionary<char, (double helix, double sheet, double turn)> SecondaryStructurePropensity = new()
+    // Chou-Fasman conformational parameters (Pa = helix, Pb = sheet, Pt = turn),
+    // expressed as propensities (the published integer parameters / 100).
+    // Values verbatim from Chou PY, Fasman GD (1978) "Empirical predictions of protein
+    // conformation" Annu Rev Biochem 47:251-276, as reproduced in the cited academic
+    // tables and reference implementation. See docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md.
+    private static readonly Dictionary<char, (double Helix, double Sheet, double Turn)> SecondaryStructurePropensity = new()
     {
         { 'A', (1.42, 0.83, 0.66) }, { 'R', (0.98, 0.93, 0.95) },
         { 'N', (0.67, 0.89, 1.56) }, { 'D', (1.01, 0.54, 1.46) },
         { 'C', (0.70, 1.19, 1.19) }, { 'E', (1.51, 0.37, 0.74) },
         { 'Q', (1.11, 1.10, 0.98) }, { 'G', (0.57, 0.75, 1.56) },
         { 'H', (1.00, 0.87, 0.95) }, { 'I', (1.08, 1.60, 0.47) },
-        { 'L', (1.21, 1.30, 0.59) }, { 'K', (1.16, 0.74, 1.01) },
+        { 'L', (1.21, 1.30, 0.59) }, { 'K', (1.14, 0.74, 1.01) },
         { 'M', (1.45, 1.05, 0.60) }, { 'F', (1.13, 1.38, 0.60) },
         { 'P', (0.57, 0.55, 1.52) }, { 'S', (0.77, 0.75, 1.43) },
         { 'T', (0.83, 1.19, 0.96) }, { 'W', (1.08, 1.37, 0.96) },
         { 'Y', (0.69, 1.47, 1.14) }, { 'V', (1.06, 1.70, 0.50) }
     };
 
+    // Default sliding-window length. Chou & Fasman (1978) scan a hexapeptide window for
+    // helix nucleation (4 of 6) and a pentapeptide window for sheet nucleation (3 of 5);
+    // this profile uses a single configurable window whose default is the helix window + 1
+    // residue of context. The window length is a caller parameter, not a Chou-Fasman constant.
+    private const int DefaultWindowSize = 7;
+
     /// <summary>
-    /// Predicts secondary structure propensities using Chou-Fasman parameters.
+    /// Computes per-window mean Chou-Fasman conformational propensities (helix Pa,
+    /// sheet Pb, turn Pt) along a protein sequence. Each emitted tuple is the average
+    /// propensity over a sliding window of <paramref name="windowSize"/> residues, stepping
+    /// one residue at a time. A window mean &gt; 1.0 indicates a residue stretch that favours
+    /// the corresponding conformation. Unknown residues (e.g. X, B, Z, gaps) are skipped and
+    /// excluded from the per-window average.
     /// </summary>
+    /// <param name="proteinSequence">Amino-acid sequence in one-letter code; case-insensitive.</param>
+    /// <param name="windowSize">Sliding-window length (residues). Must be positive and
+    /// not exceed the sequence length.</param>
+    /// <returns>One (Helix, Sheet, Turn) mean-propensity tuple per window position, in
+    /// order from the N-terminus. Empty when the sequence is null/empty, the window is
+    /// larger than the sequence, or the window is non-positive.</returns>
     public static IEnumerable<(double Helix, double Sheet, double Turn)> PredictSecondaryStructure(
         string proteinSequence,
-        int windowSize = 7)
+        int windowSize = DefaultWindowSize)
     {
-        if (string.IsNullOrEmpty(proteinSequence) || windowSize > proteinSequence.Length)
+        if (string.IsNullOrEmpty(proteinSequence) || windowSize < 1 || windowSize > proteinSequence.Length)
             yield break;
 
         string upper = proteinSequence.ToUpperInvariant();
@@ -683,9 +855,9 @@ public static class SequenceStatistics
             {
                 if (SecondaryStructurePropensity.TryGetValue(upper[i + j], out var prop))
                 {
-                    helixSum += prop.helix;
-                    sheetSum += prop.sheet;
-                    turnSum += prop.turn;
+                    helixSum += prop.Helix;
+                    sheetSum += prop.Sheet;
+                    turnSum += prop.Turn;
                     count++;
                 }
             }
@@ -701,12 +873,38 @@ public static class SequenceStatistics
 
     #region Sequence Windows
 
+    // GC content is expressed as a percentage per the GC-content definition
+    // GC% = (G + C) / (A + T + G + C) × 100  [Wikipedia GC-content; Biopython gc_fraction ×100].
+    private const double PercentScale = 100.0;
+    // Default sliding-window width for GC profiling (bp); a window of 100 is a common
+    // local-GC resolution and matches the sibling profile methods in this class.
+    private const int DefaultGcProfileWindow = 100;
+
     /// <summary>
-    /// Calculates GC content in sliding windows.
+    /// Calculates the GC-content profile of a sequence: the GC content of each sliding
+    /// window of length <paramref name="windowSize"/> advanced by <paramref name="stepSize"/>,
+    /// expressed as a percentage GC% = (G + C) / (A + T + G + C) × 100.
     /// </summary>
+    /// <param name="sequence">Input nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="windowSize">Window width W in bases (default 100). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in bases (default 1).</param>
+    /// <returns>
+    /// One GC% value per window position, in order, for offsets 0, stepSize, 2·stepSize, …
+    /// up to (length − windowSize); empty when the sequence is null/empty or
+    /// <paramref name="windowSize"/> exceeds its length. The denominator counts only the
+    /// standard bases A/T/U/G/C in the window (ambiguous symbols such as N are excluded,
+    /// matching Biopython gc_fraction's default <c>ambiguous="remove"</c>); a window with no
+    /// standard base yields 0.
+    /// </returns>
+    /// <remarks>
+    /// GC-content definition: (G + C) / (A + T + G + C) × 100 — Wikipedia, GC-content
+    /// (citing primary literature); Biopython <c>Bio.SeqUtils.gc_fraction</c> returns the
+    /// same quantity as a fraction in [0, 1] (×100 here). U is treated as a non-GC base
+    /// equivalent to T.
+    /// </remarks>
     public static IEnumerable<double> CalculateGcContentProfile(
         string sequence,
-        int windowSize = 100,
+        int windowSize = DefaultGcProfileWindow,
         int stepSize = 1)
     {
         if (string.IsNullOrEmpty(sequence) || windowSize > sequence.Length)
@@ -733,13 +931,29 @@ public static class SequenceStatistics
                 }
             }
 
-            yield return total > 0 ? (double)gc / total : 0;
+            yield return total > 0 ? (double)gc / total * PercentScale : 0;
         }
     }
 
     /// <summary>
-    /// Calculates entropy in sliding windows.
+    /// Calculates the Shannon entropy profile of a sequence: the per-symbol Shannon
+    /// entropy H = -Σ pᵢ log₂ pᵢ (in bits) of each sliding window of length
+    /// <paramref name="windowSize"/>, advanced by <paramref name="stepSize"/>.
+    /// Per-window entropy is delegated to <see cref="CalculateShannonEntropy"/>.
     /// </summary>
+    /// <param name="sequence">Input sequence; symbol frequencies are taken over its letters (case-folded).</param>
+    /// <param name="windowSize">Window width W in symbols (default 50). Must be ≤ sequence length for any window to be produced.</param>
+    /// <param name="stepSize">Window advance in symbols (default 1).</param>
+    /// <returns>
+    /// One entropy value (bits) per window position, in order, for offsets
+    /// 0, stepSize, 2·stepSize, … up to (length − windowSize); empty when the
+    /// sequence is null/empty or <paramref name="windowSize"/> exceeds its length.
+    /// </returns>
+    /// <remarks>
+    /// Shannon C. E. (1948), A Mathematical Theory of Communication, Bell Syst. Tech. J.
+    /// 27(3):379–423. Base-2 logarithm yields bits; maximum is log₂k for k distinct symbols
+    /// (2 bits for the 4-letter DNA alphabet).
+    /// </remarks>
     public static IEnumerable<double> CalculateEntropyProfile(
         string sequence,
         int windowSize = 50,
@@ -773,12 +987,18 @@ public static class SequenceStatistics
     /// <summary>
     /// Generates comprehensive summary statistics for a DNA/RNA sequence.
     /// </summary>
-    public static SequenceSummary SummarizeNucleotideSequence(string sequence)
+    public static SequenceSummary SummarizeNucleotideSequence(string? sequence)
     {
-        var comp = CalculateNucleotideComposition(sequence);
-        double entropy = CalculateShannonEntropy(sequence);
-        double complexity = CalculateLinguisticComplexity(sequence);
-        double tm = CalculateMeltingTemperature(sequence, useWallaceRule: sequence.Length < 14);
+        // Treat null and empty identically (each per-metric method guards IsNullOrEmpty);
+        // normalizing null to empty avoids dereferencing a null length when selecting the
+        // Tm formula branch and keeps every per-metric call non-null.
+        string seq = sequence ?? string.Empty;
+        var comp = CalculateNucleotideComposition(seq);
+        double entropy = CalculateShannonEntropy(seq);
+        double complexity = CalculateLinguisticComplexity(seq);
+        // Wallace rule applies to short oligos (length < WallaceMaxLength); the GC/Marmur-Doty
+        // formula applies otherwise. Boundary per SEQ-TM-001 (ThermoConstants.WallaceMaxLength = 14).
+        double tm = CalculateMeltingTemperature(seq, useWallaceRule: seq.Length < ThermoConstants.WallaceMaxLength);
 
         var composition = new Dictionary<char, int>
         {

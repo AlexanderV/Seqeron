@@ -132,14 +132,17 @@ public class AnnotationTools
 
     /// <summary>Score the coding potential of a DNA sequence.</summary>
     [McpServerTool(Name = "coding_potential", Title = "Annotation — Coding Potential", ReadOnly = true)]
-    [Description("Score the coding potential of a DNA sequence using stop-codon and GC3 heuristics.")]
+    [Description("Score the coding potential of a DNA sequence using the CPAT hexamer usage-bias log-likelihood (Wang et al. 2013). Positive = coding, negative = non-coding.")]
     public static CodingPotentialResult CodingPotential(
-        [Description("DNA sequence to score")] string sequence)
+        [Description("DNA sequence to score")] string sequence,
+        [Description("In-frame hexamer frequency table from a coding (CDS) training set: 6-mer -> count/proportion")] IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+        [Description("In-frame hexamer frequency table from a non-coding (background) training set: 6-mer -> count/proportion")] IReadOnlyDictionary<string, double> noncodingHexamerFrequencies)
     {
         if (string.IsNullOrEmpty(sequence))
             throw new ArgumentException("Sequence cannot be null or empty", nameof(sequence));
 
-        var score = GenomeAnnotator.CalculateCodingPotential(sequence);
+        var score = GenomeAnnotator.CalculateCodingPotential(
+            sequence, codingHexamerFrequencies, noncodingHexamerFrequencies);
         return new CodingPotentialResult(score);
     }
 
@@ -977,12 +980,15 @@ public class AnnotationTools
     [Description("Estimate epigenetic age (Horvath-clock-style) from methylation values at clock CpGs.")]
     public static EpigeneticAgeResult EpigeneticAge(
         [Description("Methylation values at clock CpGs (CpG ID → methylation 0..1)")] Dictionary<string, double> methylationAtClockCpGs,
-        [Description("Optional clock coefficients (CpG ID → coefficient); uses built-in defaults when null")] Dictionary<string, double>? coefficients = null)
+        [Description("Clock coefficients (CpG ID → coefficient); required — caller supplies the published clock table")] Dictionary<string, double> coefficients,
+        [Description("Model intercept added to the weighted sum before the Horvath inverse transform")] double intercept = 0.0)
     {
         if (methylationAtClockCpGs is null || methylationAtClockCpGs.Count == 0)
             throw new ArgumentException("Methylation map cannot be null or empty", nameof(methylationAtClockCpGs));
+        if (coefficients is null || coefficients.Count == 0)
+            throw new ArgumentException("Clock coefficient table cannot be null or empty", nameof(coefficients));
 
-        var age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylationAtClockCpGs, coefficients);
+        var age = EpigeneticsAnalyzer.CalculateEpigeneticAge(methylationAtClockCpGs, coefficients, intercept);
         return new EpigeneticAgeResult(age);
     }
 

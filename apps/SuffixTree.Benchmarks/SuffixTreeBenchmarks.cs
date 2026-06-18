@@ -6,11 +6,11 @@ namespace SuffixTree.Benchmarks;
 
 /// <summary>
 /// Benchmarks for SuffixTree operations.
-/// JIT baseline:  dotnet run -c Release -f net9.0 -- --filter "*Build*" "*Contains*"
-/// AOT publish:   dotnet publish -c Release -r win-x64 -f net9.0 /p:PublishAot=true /p:OptimizationPreference=Speed /p:IlcInstructionSet=native
+/// JIT baseline:  dotnet run -c Release -f net10.0 -- --filter "*Build*" "*Contains*"
+/// AOT publish:   dotnet publish -c Release -r win-x64 -f net10.0 /p:PublishAot=true /p:OptimizationPreference=Speed /p:IlcInstructionSet=native
 /// AOT run:       .\publish\SuffixTree.Benchmarks.exe --inprocess --filter "*Build*" "*Contains*"
 /// </summary>
-[SimpleJob(RuntimeMoniker.Net90)]
+[SimpleJob(RuntimeMoniker.Net10_0)]
 [MemoryDiagnoser]
 [RankColumn]
 public class SuffixTreeBenchmarks

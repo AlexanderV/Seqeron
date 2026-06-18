@@ -127,6 +127,10 @@ public class SequenceAlignerTests
     [Test]
     public void FormatAlignment_ShowsMismatches()
     {
+        // ALIGN-STATS-001: markup follows the EMBOSS srspair legend
+        // ('|' identity, ':' similarity, space gap/mismatch). Under the default DNA model
+        // a mismatch scores negatively, so it renders as a SPACE, not '.'.
+        // Source: https://emboss.sourceforge.net/docs/themes/AlignFormats.html
         var result = new AlignmentResult(
             AlignedSequence1: "ATGC",
             AlignedSequence2: "ATTC",
@@ -137,7 +141,10 @@ public class SequenceAlignerTests
 
         string formatted = SequenceAligner.FormatAlignment(result);
 
-        Assert.That(formatted, Does.Contain(".")); // Mismatch indicator
+        // Markup line for ATGC/ATTC: "|| |" (identity, identity, mismatch=space, identity).
+        string markup = formatted.Replace("\r\n", "\n").Split('\n')[1];
+        Assert.That(markup, Is.EqualTo("|| |"),
+            "srspair: a negative-scoring (DNA) mismatch column renders as a space, not a dot.");
     }
 
     [Test]

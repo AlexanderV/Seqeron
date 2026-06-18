@@ -120,17 +120,45 @@ public static class SequenceComplexity
     }
 
     /// <summary>
-    /// Calculates Shannon entropy using k-mers.
+    /// Calculates the Shannon entropy (in bits) of the overlapping k-mer frequency
+    /// distribution of the sequence.
     /// </summary>
+    /// <remarks>
+    /// The sequence is decomposed into its L-k+1 overlapping k-mers (sliding window,
+    /// one base step). With n_i the count of distinct k-mer i and N = L-k+1 the total
+    /// number of k-mers, p_i = n_i / N and the entropy is H = -Σ p_i · log₂(p_i)
+    /// (Shannon 1948). Entropy is reported in bits (log base 2): it is 0 when a single
+    /// k-mer dominates (deterministic distribution) and reaches log₂(N) when every k-mer
+    /// is distinct (uniform distribution). See longdust (Li 2025) for the k-mer-frequency
+    /// formulation used to detect low-complexity DNA.
+    /// </remarks>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="k">K-mer size (default: 2 for dinucleotides).</param>
-    /// <returns>Shannon entropy based on k-mer frequencies.</returns>
+    /// <param name="k">K-mer size (default: 2 for dinucleotides). Must be ≥ 1.</param>
+    /// <returns>Shannon entropy (bits) of the k-mer frequency distribution; 0 when L &lt; k.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> &lt; 1.</exception>
     public static double CalculateKmerEntropy(DnaSequence sequence, int k = 2)
     {
         ArgumentNullException.ThrowIfNull(sequence);
         if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
 
         return CalculateKmerEntropyCore(sequence.Sequence, k);
+    }
+
+    /// <summary>
+    /// Calculates the Shannon entropy (in bits) of the overlapping k-mer frequency
+    /// distribution from a raw sequence string. The string is upper-cased to match the
+    /// normalization applied by <see cref="DnaSequence"/>.
+    /// </summary>
+    /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
+    /// <param name="k">K-mer size (default: 2 for dinucleotides). Must be ≥ 1.</param>
+    /// <returns>Shannon entropy (bits) of the k-mer frequency distribution; 0 when L &lt; k.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="k"/> &lt; 1.</exception>
+    public static double CalculateKmerEntropy(string sequence, int k = 2)
+    {
+        if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateKmerEntropyCore(sequence.ToUpperInvariant(), k);
     }
 
     private static double CalculateKmerEntropyCore(string seq, int k)
@@ -164,8 +192,17 @@ public static class SequenceComplexity
 
     #region Sliding Window Complexity
 
+    // Per-window linguistic-complexity vocabulary cap. Following Gabrielian & Bolshoy (1999),
+    // the linguistic-complexity assessment limits vocabulary evaluation to a bounded set of
+    // word lengths (W) rather than all N-1 lengths, for computational efficiency. Sequence
+    // complexity and DNA curvature, Comput. Chem. 23(3-4):263-274. doi:10.1016/S0097-8485(99)00007-8
+    private const int WindowLcMaxWordLength = 6;
+
     /// <summary>
-    /// Calculates complexity across the sequence using a sliding window.
+    /// Calculates complexity across the sequence using a sliding window (a complexity
+    /// profile, in the sense of Troyanskaya et al. (2002)). For each window fully contained
+    /// in the sequence the per-window Shannon entropy (bits, Shannon 1948) and linguistic
+    /// complexity (summation form) are reported with the window's coordinates.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
     /// <param name="windowSize">Size of the sliding window (default: 64).</param>
@@ -192,7 +229,7 @@ public static class SequenceComplexity
         {
             string window = seq.Substring(i, windowSize);
             double entropy = CalculateShannonEntropyCore(window);
-            double lc = CalculateLinguisticComplexityCore(window, Math.Min(6, windowSize));
+            double lc = CalculateLinguisticComplexityCore(window, Math.Min(WindowLcMaxWordLength, windowSize));
 
             yield return new ComplexityPoint(
                 Position: i + windowSize / 2,
@@ -286,24 +323,44 @@ public static class SequenceComplexity
 
     #region Dust Score
 
+    // DUST/SDUST uses overlapping nucleotide triplets (3-mers) as the default word.
+    // k = 3 is hardcoded in the reference implementation; Morgulis et al. (2006),
+    // J Comput Biol 13(5):1028-1040, doi:10.1089/cmb.2006.13.1028, and lh3/sdust.
+    private const int DustWordSize = 3;
+
+    // Mask/low-complexity threshold for the DUST score: 2.0, corresponding to the
+    // reference default level T = 20 (lh3/sdust: "rw*10 > L*T" ⇔ score > T/10 = 2.0).
+    private const double DustMaskThreshold = 2.0;
+
     /// <summary>
-    /// Calculates DUST score for low-complexity filtering (as used in BLAST).
-    /// Higher scores indicate lower complexity.
+    /// Calculates the DUST low-complexity score of a sequence (Morgulis et al. 2006).
+    /// The score is Σ_t c_t·(c_t−1)/2 over all overlapping words t, divided by the number
+    /// of words (L − wordSize + 1, equal to L − 2 for triplets). A HIGHER score indicates
+    /// LOWER complexity (more repeated words); fully distinct words give 0.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <param name="wordSize">Triplet word size (default: 3).</param>
-    /// <returns>DUST score.</returns>
-    public static double CalculateDustScore(DnaSequence sequence, int wordSize = 3)
+    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
+    /// <returns>DUST score (≥ 0); 0 when the sequence is shorter than one word.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    public static double CalculateDustScore(DnaSequence sequence, int wordSize = DustWordSize)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
         return CalculateDustScoreCore(sequence.Sequence, wordSize);
     }
 
     /// <summary>
-    /// Calculates DUST score from a raw sequence string.
+    /// Calculates the DUST low-complexity score from a raw sequence string. The string is
+    /// upper-cased to match the normalization applied by <see cref="DnaSequence"/>.
     /// </summary>
-    public static double CalculateDustScore(string sequence, int wordSize = 3)
+    /// <param name="sequence">Raw sequence string; null or empty yields 0.</param>
+    /// <param name="wordSize">Word size (default: 3, as defined by DUST/SDUST).</param>
+    /// <returns>DUST score (≥ 0); 0 when null/empty or shorter than one word.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="wordSize"/> &lt; 1.</exception>
+    public static double CalculateDustScore(string sequence, int wordSize = DustWordSize)
     {
+        if (wordSize < 1) throw new ArgumentOutOfRangeException(nameof(wordSize));
         if (string.IsNullOrEmpty(sequence)) return 0;
         return CalculateDustScoreCore(sequence.ToUpperInvariant(), wordSize);
     }
@@ -312,27 +369,31 @@ public static class SequenceComplexity
     {
         if (seq.Length < wordSize) return 0;
 
-        var tripletCounts = new Dictionary<string, int>();
-        int total = seq.Length - wordSize + 1;
+        var wordCounts = new Dictionary<string, int>();
 
-        for (int i = 0; i <= seq.Length - wordSize; i++)
+        // Number of overlapping words; equals L − 2 for the default triplet word.
+        int wordCount = seq.Length - wordSize + 1;
+
+        for (int i = 0; i < wordCount; i++)
         {
-            string triplet = seq.Substring(i, wordSize);
-            if (tripletCounts.ContainsKey(triplet))
-                tripletCounts[triplet]++;
+            string word = seq.Substring(i, wordSize);
+            if (wordCounts.ContainsKey(word))
+                wordCounts[word]++;
             else
-                tripletCounts[triplet] = 1;
+                wordCounts[word] = 1;
         }
 
-        // DUST score is sum of (count * (count - 1) / 2) for each triplet
-        double score = 0;
-        foreach (int count in tripletCounts.Values)
+        // DUST score numerator: Σ_t c_t·(c_t−1)/2 over all distinct words
+        // (Morgulis et al. 2006; longdust restatement S = Σ c(c−1)/2 / (L−2), Li 2025).
+        double sum = 0;
+        foreach (int count in wordCounts.Values)
         {
-            score += count * (count - 1) / 2.0;
+            sum += count * (count - 1) / 2.0;
         }
 
-        // Normalize by window length
-        return total > 1 ? score / (total - 1) : 0;
+        // Normalize by the number of words (L − wordSize + 1 = L − 2 for triplets), per
+        // the 1/(L−2) factor in Li (2025) and lh3/sdust's per-triplet running length.
+        return sum / wordCount;
     }
 
     /// <summary>
@@ -346,7 +407,7 @@ public static class SequenceComplexity
     public static string MaskLowComplexity(
         DnaSequence sequence,
         int windowSize = 64,
-        double threshold = 2.0,
+        double threshold = DustMaskThreshold,
         char maskChar = 'N')
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -364,7 +425,7 @@ public static class SequenceComplexity
         for (int i = 0; i + windowSize <= seq.Length; i++)
         {
             string window = seq.Substring(i, windowSize);
-            double dustScore = CalculateDustScoreCore(window, 3);
+            double dustScore = CalculateDustScoreCore(window, DustWordSize);
 
             if (dustScore > threshold)
             {
@@ -380,59 +441,140 @@ public static class SequenceComplexity
 
     #endregion
 
-    #region Compression Ratio
+    #region Lempel-Ziv Complexity (compression-based)
+
+    // Lempel-Ziv (1976) complexity: the number of distinct components (substrings)
+    // produced by an exhaustive-history left-to-right parse of the sequence.
+    // Ref: Lempel A, Ziv J (1976) "On the Complexity of Finite Sequences",
+    // IEEE Trans. Inf. Theory 22(1):75-81, doi:10.1109/TIT.1976.1055501.
+    // Parsing rule and worked values cross-checked against the reference
+    // implementation Naereen/Lempel-Ziv_Complexity (lempel_ziv_complexity.py).
 
     /// <summary>
-    /// Estimates sequence complexity using compression ratio.
-    /// Lower ratios indicate more repetitive/less complex sequences.
+    /// Calculates the raw Lempel–Ziv (1976) complexity of a DNA sequence: the number
+    /// of distinct components produced by an exhaustive-history left-to-right parse.
+    /// Higher values indicate more complex (less compressible) sequences.
     /// </summary>
     /// <param name="sequence">DNA sequence.</param>
-    /// <returns>Estimated compression ratio (0 to 1).</returns>
+    /// <returns>Number of Lempel–Ziv components (≥ 0).</returns>
+    public static int CalculateLempelZivComplexity(DnaSequence sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateLempelZivComplexityCore(sequence.Sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the raw Lempel–Ziv (1976) complexity from a raw sequence string.
+    /// </summary>
+    public static int CalculateLempelZivComplexity(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateLempelZivComplexityCore(sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the normalized Lempel–Ziv complexity: c / (n / log_b(n)), where
+    /// c is the raw complexity, n the sequence length and b the alphabet size
+    /// (number of distinct symbols present). Normalization removes the length
+    /// dependence of the raw count (Zhang et al. 2009).
+    /// Following the reference implementation (entropy/antropy <c>lziv_complexity</c>),
+    /// when fewer than two distinct symbols are present the base is clamped to 2 so
+    /// log_b(n) stays defined (b := max(b, 2)). For the degenerate single-symbol
+    /// length-1 input (log_b(1) = 0) the raw complexity is returned.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <returns>Normalized Lempel–Ziv complexity.</returns>
+    public static double CalculateNormalizedLempelZivComplexity(DnaSequence sequence)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        return CalculateNormalizedLempelZivComplexityCore(sequence.Sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Calculates the normalized Lempel–Ziv complexity from a raw sequence string.
+    /// </summary>
+    public static double CalculateNormalizedLempelZivComplexity(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence)) return 0;
+        return CalculateNormalizedLempelZivComplexityCore(sequence.ToUpperInvariant());
+    }
+
+    /// <summary>
+    /// Estimates sequence complexity using a compression-based measure.
+    /// Returns the normalized Lempel–Ziv complexity (c / (n / log_b(n))); lower
+    /// values indicate more repetitive/less complex sequences.
+    /// </summary>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <returns>Normalized Lempel–Ziv complexity.</returns>
     public static double EstimateCompressionRatio(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
-        return EstimateCompressionRatioCore(sequence.Sequence);
+        return CalculateNormalizedLempelZivComplexity(sequence);
     }
 
     /// <summary>
-    /// Estimates compression ratio from a raw sequence string.
+    /// Estimates compression-based complexity (normalized Lempel–Ziv) from a raw
+    /// sequence string.
     /// </summary>
     public static double EstimateCompressionRatio(string sequence)
     {
-        if (string.IsNullOrEmpty(sequence)) return 0;
-        return EstimateCompressionRatioCore(sequence.ToUpperInvariant());
+        return CalculateNormalizedLempelZivComplexity(sequence);
     }
 
-    private static double EstimateCompressionRatioCore(string seq)
+    private static int CalculateLempelZivComplexityCore(string seq)
     {
-        if (seq.Length == 0) return 0;
+        // Exhaustive-history parse: grow the running substring while it is already
+        // a seen component; otherwise add it as a new component and restart.
+        var components = new HashSet<string>();
+        int ind = 0;
+        int inc = 1;
 
-        // Use LZ77-like approach: count unique substrings
-        var seen = new HashSet<string>();
-        int uniqueCount = 0;
-
-        for (int len = 1; len <= Math.Min(10, seq.Length); len++)
+        while (ind + inc <= seq.Length)
         {
-            for (int i = 0; i <= seq.Length - len; i++)
+            string sub = seq.Substring(ind, inc);
+            if (components.Contains(sub))
             {
-                string sub = seq.Substring(i, len);
-                if (!seen.Contains(sub))
-                {
-                    seen.Add(sub);
-                    uniqueCount++;
-                }
+                inc++;
+            }
+            else
+            {
+                components.Add(sub);
+                ind += inc;
+                inc = 1;
             }
         }
 
-        // Calculate expected unique substrings for random sequence
-        double expected = 0;
-        for (int len = 1; len <= Math.Min(10, seq.Length); len++)
-        {
-            expected += Math.Min(Math.Pow(4, len), seq.Length - len + 1);
-        }
-
-        return expected > 0 ? (double)uniqueCount / expected : 0;
+        return components.Count;
     }
+
+    private static double CalculateNormalizedLempelZivComplexityCore(string seq)
+    {
+        int n = seq.Length;
+        if (n == 0) return 0;
+
+        int c = CalculateLempelZivComplexityCore(seq);
+
+        // Alphabet size b = number of distinct symbols actually present.
+        var alphabet = new HashSet<char>();
+        foreach (char ch in seq) alphabet.Add(ch);
+        int b = alphabet.Count;
+
+        // entropy/antropy reference: `base = 2 if base < 2 else base`. The log base
+        // is clamped to 2 (never returns the raw count for a single-symbol input).
+        if (b < MinAlphabetForNormalization) b = MinAlphabetForNormalization;
+
+        // b(n) = n / log_b(n); normalized complexity = c / b(n).
+        double logBaseN = Math.Log(n) / Math.Log(b);
+        if (logBaseN <= 0) return c; // n == 1 ⇒ log_b(1) = 0 (degenerate guard)
+
+        double upperBound = n / logBaseN;
+        return c / upperBound;
+    }
+
+    // Reference (entropy/antropy lziv_complexity) clamps the log base to 2 when fewer
+    // than 2 distinct symbols are present, so log_b(n) stays defined.
+    // Ref: Zhang et al. (2009) normalized LZ; entropy/antropy lziv_complexity.
+    private const int MinAlphabetForNormalization = 2;
 
     #endregion
 }

@@ -9,6 +9,12 @@ namespace Seqeron.Genomics.Core
     /// </summary>
     public static class Translator
     {
+        // A codon is exactly three nucleotides (NCBI genetic code tables).
+        private const int CodonLength = 3;
+
+        // A double-stranded sequence has three forward reading frames at
+        // offsets 0, 1, 2 (Biopython six_frame_translations; EMBOSS transeq).
+        private const int ReadingFramesPerStrand = 3;
         /// <summary>
         /// Translates a DNA sequence to protein using the specified genetic code.
         /// </summary>
@@ -93,6 +99,16 @@ namespace Seqeron.Genomics.Core
         /// <summary>
         /// Translates all six reading frames of a DNA sequence.
         /// </summary>
+        /// <remarks>
+        /// Reverse-frame numbering follows the Biopython
+        /// <c>SeqUtils.six_frame_translations</c> convention: frame -k is the
+        /// translation of the reverse complement read at offset (k-1), i.e.
+        /// <c>frames[-(i+1)] = translate(reverse_complement(seq)[i:])</c>. This
+        /// is the "alternative" convention explicitly documented by EMBOSS transeq
+        /// (frame -1 = frame 1 of the reverse complement), as opposed to the
+        /// EMBOSS phase-locked default. Frames render internal stop codons as '*'
+        /// (translation is not terminated early).
+        /// </remarks>
         /// <param name="dna">The DNA sequence to translate.</param>
         /// <param name="geneticCode">The genetic code to use (default: Standard).</param>
         /// <returns>Dictionary with frame keys (-3 to +3, excluding 0) and protein values.</returns>
@@ -105,16 +121,16 @@ namespace Seqeron.Genomics.Core
             var code = geneticCode ?? GeneticCode.Standard;
             var result = new Dictionary<int, ProteinSequence>();
 
-            // Forward strand: frames +1, +2, +3
-            result[1] = TranslateSequence(dna.Sequence, code, 0, false);
-            result[2] = TranslateSequence(dna.Sequence, code, 1, false);
-            result[3] = TranslateSequence(dna.Sequence, code, 2, false);
-
-            // Reverse complement: frames -1, -2, -3
+            // Forward strand: frames +1, +2, +3 at offsets 0, 1, 2.
             var revComp = dna.ReverseComplement();
-            result[-1] = TranslateSequence(revComp.Sequence, code, 0, false);
-            result[-2] = TranslateSequence(revComp.Sequence, code, 1, false);
-            result[-3] = TranslateSequence(revComp.Sequence, code, 2, false);
+            for (int offset = 0; offset < ReadingFramesPerStrand; offset++)
+            {
+                // Forward frame numbers are 1-based: offset 0 -> +1, etc.
+                result[offset + 1] = TranslateSequence(dna.Sequence, code, offset, false);
+
+                // Reverse complement: frame -k = reverse complement at offset (k-1).
+                result[-(offset + 1)] = TranslateSequence(revComp.Sequence, code, offset, false);
+            }
 
             return result;
         }
@@ -129,9 +145,11 @@ namespace Seqeron.Genomics.Core
             var rnaSequence = sequence.Replace('T', 'U');
             var sb = new StringBuilder();
 
-            for (int i = frame; i + 3 <= rnaSequence.Length; i += 3)
+            // Trailing nucleotides that cannot form a full codon are ignored
+            // (Biopython six_frame_translations: fragment_length = 3*((len-i)//3)).
+            for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
             {
-                string codon = rnaSequence.Substring(i, 3);
+                string codon = rnaSequence.Substring(i, CodonLength);
                 char aa = geneticCode.Translate(codon);
 
                 if (toFirstStop && aa == '*')
@@ -148,14 +166,17 @@ namespace Seqeron.Genomics.Core
         {
             var rnaSequence = sequence.Replace('T', 'U');
 
-            for (int frame = 0; frame < 3; frame++)
+            // ORF = region from a START codon to a STOP codon
+            // (EMBOSS getorf -find 1: "a region that begins with a START codon
+            // and ends with a STOP codon"). Scanned in all three frames.
+            for (int frame = 0; frame < ReadingFramesPerStrand; frame++)
             {
                 int? currentOrfStart = null;
                 var currentProtein = new StringBuilder();
 
-                for (int i = frame; i + 3 <= rnaSequence.Length; i += 3)
+                for (int i = frame; i + CodonLength <= rnaSequence.Length; i += CodonLength)
                 {
-                    string codon = rnaSequence.Substring(i, 3);
+                    string codon = rnaSequence.Substring(i, CodonLength);
                     char aa = geneticCode.Translate(codon);
 
                     if (currentOrfStart == null)
@@ -178,7 +199,9 @@ namespace Seqeron.Genomics.Core
                             {
                                 yield return new OrfResult(
                                     currentOrfStart.Value,
-                                    i + 2,
+                                    // Inclusive end = last base of the stop codon
+                                    // (EMBOSS getorf positions include the STOP).
+                                    i + (CodonLength - 1),
                                     isReverseComplement ? -(frame + 1) : frame + 1,
                                     new ProteinSequence(currentProtein.ToString())
                                 );

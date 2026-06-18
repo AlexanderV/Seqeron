@@ -427,42 +427,8 @@ public class SequenceComplexityTests
 
     #endregion
 
-    #region Windowed Complexity Tests
-
-    [Test]
-    public void CalculateWindowedComplexity_ReturnsCorrectPointCount()
-    {
-        // 50A + 50T + 80bp = 180 total; floor((180-20)/20)+1 = 9 windows
-        var sequence = new DnaSequence(new string('A', 50) + new string('T', 50) + string.Concat(Enumerable.Repeat("ATGCATGC", 10)));
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 20).ToList();
-
-        Assert.That(points.Count, Is.EqualTo(9));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_IncludesBothMetrics_ExactValues()
-    {
-        // 68bp of repeated ATGC: each 20bp window has equal base distribution
-        // Shannon entropy of 20bp "ATGCATGCATGCATGCATGC" = 2.0 (4 bases equally distributed)
-        // LC computed with maxWordLength=min(6,20)=6 for each window
-        var sequence = new DnaSequence("ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC");
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 10).ToList();
-
-        Assert.That(points[0].ShannonEntropy, Is.EqualTo(2.0).Within(1e-10));
-        Assert.That(points[0].LinguisticComplexity, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_PositionsAreCorrect()
-    {
-        var sequence = new DnaSequence(new string('A', 100));
-        var points = SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 20, stepSize: 20).ToList();
-
-        Assert.That(points[0].Position, Is.EqualTo(10)); // Center of first window
-        Assert.That(points[1].Position, Is.EqualTo(30)); // Center of second window
-    }
-
-    #endregion
+    // Windowed complexity tests moved to canonical file
+    // SequenceComplexity_CalculateWindowedComplexity_Tests.cs (SEQ-COMPLEX-WINDOW-001).
 
     #region Low Complexity Region Tests
 
@@ -513,25 +479,25 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_LowComplexity_ReturnsHigh()
     {
-        // "AAAAAAAAAAAAAAAAAA" (N=18): 16 AAA triplets
-        // score = 16×15/2 = 120, DUST = 120/(16-1) = 8.0
-        // Source: Morgulis et al. (2006) symmetric DUST formula
+        // "AAAAAAAAAAAAAAAAAA" (L=18): 16 AAA triplets
+        // score = 16×15/2 = 120, DUST = 120/(L-2) = 120/16 = 7.5
+        // Source: Li (2025) longdust restatement S = Σ c(c-1)/2 / (L-2); Morgulis et al. (2006)
         var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAA");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(8.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(7.5).Within(1e-10));
     }
 
     [Test]
     public void CalculateDustScore_HighComplexity_ReturnsLow()
     {
-        // "ATGCTAGCATGCTAGC" (N=16): diverse triplets, low pair counts
-        // Hand-calculated: score=6/(14-1) = 6/13
-        // Source: Morgulis et al. (2006)
+        // "ATGCTAGCATGCTAGC" (L=16): 14 triplets, ATG,TGC,GCT,CTA,TAG,AGC each ×2 (GCA,CAT ×1)
+        // Σ = 6×(2·1/2) = 6, DUST = 6/(L-2) = 6/14 = 3/7
+        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
         var sequence = new DnaSequence("ATGCTAGCATGCTAGC");
         double dust = SequenceComplexity.CalculateDustScore(sequence);
 
-        Assert.That(dust, Is.EqualTo(6.0 / 13.0).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(6.0 / 14.0).Within(1e-10));
     }
 
     [Test]
@@ -552,11 +518,11 @@ public class SequenceComplexityTests
     [Test]
     public void CalculateDustScore_StringOverload_ReturnsExact()
     {
-        // "AAAAAAA" (N=7): 5 triplets, all AAA
-        // score = 5×4/2 = 10, DUST = 10/(5-1) = 2.5
-        // Source: Morgulis et al. (2006) symmetric formula
+        // "AAAAAAA" (L=7): 5 triplets, all AAA
+        // score = 5×4/2 = 10, DUST = 10/(L-2) = 10/5 = 2.0
+        // Source: Li (2025) longdust S = Σ c(c-1)/2 / (L-2)
         double dust = SequenceComplexity.CalculateDustScore("AAAAAAA");
-        Assert.That(dust, Is.EqualTo(2.5).Within(1e-10));
+        Assert.That(dust, Is.EqualTo(2.0).Within(1e-10));
     }
 
     #endregion
@@ -602,43 +568,16 @@ public class SequenceComplexityTests
 
     #region Compression Ratio Tests
 
-    [Test]
-    public void EstimateCompressionRatio_HighComplexity_ReturnsExact()
-    {
-        // "ATGCTAGCATGCAATGCTAGCATGCAATGC" (N=30): diverse vocabulary
-        // unique substrings = 112, expected = 216 → ratio = 112/216 = 14/27
-        var sequence = new DnaSequence("ATGCTAGCATGCAATGCTAGCATGCAATGC");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.EqualTo(14.0 / 27.0).Within(1e-10));
-    }
-
-    [Test]
-    public void EstimateCompressionRatio_LowComplexity_ReturnsExact()
-    {
-        // 31×A: only 1 unique substring per length → unique=10, expected=224
-        // ratio = 10/224 = 5/112
-        var sequence = new DnaSequence("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.EqualTo(5.0 / 112.0).Within(1e-10));
-    }
+    // Canonical Lempel–Ziv / compression-ratio tests live in
+    // SequenceComplexity_EstimateCompressionRatio_Tests.cs (SEQ-COMPLEX-COMPRESS-001).
+    // The earlier heuristic-output assertions were removed when the implementation
+    // was corrected to the source-backed Lempel–Ziv (1976) complexity.
 
     [Test]
     public void EstimateCompressionRatio_EmptySequence_ReturnsZero()
     {
         double ratio = SequenceComplexity.EstimateCompressionRatio("");
         Assert.That(ratio, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void EstimateCompressionRatio_RangeIsZeroToOne()
-    {
-        var sequence = new DnaSequence("ATGCATGCATGC");
-        double ratio = SequenceComplexity.EstimateCompressionRatio(sequence);
-
-        Assert.That(ratio, Is.GreaterThanOrEqualTo(0));
-        Assert.That(ratio, Is.LessThanOrEqualTo(1));
     }
 
     #endregion
@@ -657,13 +596,6 @@ public class SequenceComplexityTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             SequenceComplexity.CalculateShannonEntropy((DnaSequence)null!));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_NullSequence_ThrowsException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity((DnaSequence)null!).ToList());
     }
 
     [Test]
@@ -726,22 +658,6 @@ public class SequenceComplexityTests
         string masked = SequenceComplexity.MaskLowComplexity(sequence, windowSize: 64, threshold: 1.0);
 
         Assert.That(masked.Length, Is.EqualTo(sequence.Length));
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_ZeroWindowSize_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 0).ToList());
-    }
-
-    [Test]
-    public void CalculateWindowedComplexity_ZeroStepSize_ThrowsException()
-    {
-        var sequence = new DnaSequence("ATGCATGCATGCATGCATGC");
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            SequenceComplexity.CalculateWindowedComplexity(sequence, windowSize: 10, stepSize: 0).ToList());
     }
 
     [Test]

@@ -96,78 +96,14 @@ public class ProteinMotifFinderTests
 
     #endregion
 
-    #region Coiled-Coil Prediction Tests
+    // Coiled-coil prediction tests moved to the canonical file
+    // ProteinMotifFinder_PredictCoiledCoils_Tests.cs (PROTMOTIF-CC-001). The previous tests here
+    // encoded the now-removed fabricated position-weight table and are superseded.
 
-    [Test]
-    public void PredictCoiledCoils_HeptadPattern_FindsCoil()
-    {
-        // Ideal coiled-coil: L at a,d positions, E at e, K at g
-        // abcdefg pattern repeated 6 times = 42 residues
-        string coiledCoil = "";
-        for (int i = 0; i < 6; i++)
-        {
-            coiledCoil += "LAEALEK"; // L-A-E-A-L-E-K pattern
-        }
-
-        var coils = PredictCoiledCoils(coiledCoil, threshold: 0.3).ToList();
-
-        Assert.That(coils, Has.Count.EqualTo(5), "Five overlapping coiled-coil windows");
-        Assert.That(coils[0].Start, Is.EqualTo(0));
-        Assert.That(coils[0].Score, Is.EqualTo(0.525).Within(0.01));
-    }
-
-    [Test]
-    public void PredictCoiledCoils_NoPattern_ReturnsEmpty()
-    {
-        string protein = new string('P', 50); // Proline breaks helices
-        var coils = PredictCoiledCoils(protein, threshold: 0.5).ToList();
-
-        Assert.That(coils, Is.Empty);
-    }
-
-    [Test]
-    public void PredictCoiledCoils_ShortSequence_ReturnsEmpty()
-    {
-        var coils = PredictCoiledCoils("LAELAE").ToList();
-        Assert.That(coils, Is.Empty);
-    }
-
-    #endregion
-
-    #region Low Complexity Tests
-
-    [Test]
-    public void FindLowComplexityRegions_PolyAlanine_Finds()
-    {
-        string protein = "MKKK" + new string('A', 15) + "VVVV";
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Has.Count.EqualTo(1), "Single low-complexity region");
-        Assert.That(regions[0].DominantAa, Is.EqualTo('A'));
-        Assert.That(regions[0].Frequency, Is.EqualTo(1.0).Within(0.01), "Pure poly-A frequency");
-    }
-
-    [Test]
-    public void FindLowComplexityRegions_Diverse_ReturnsEmpty()
-    {
-        string protein = "ACDEFGHIKLMNPQRSTVWY"; // All different
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Is.Empty);
-    }
-
-    [Test]
-    public void FindLowComplexityRegions_MultipleRegions_FindsAll()
-    {
-        string protein = new string('G', 12) + "MKLVFP" + new string('S', 12);
-        var regions = FindLowComplexityRegions(protein, threshold: 0.5).ToList();
-
-        Assert.That(regions, Has.Count.EqualTo(2), "Two low-complexity regions: poly-G and poly-S");
-        Assert.That(regions[0].DominantAa, Is.EqualTo('G'));
-        Assert.That(regions[1].DominantAa, Is.EqualTo('S'));
-    }
-
-    #endregion
+    // Low-complexity-region tests moved to the canonical file
+    // ProteinMotifFinder_FindLowComplexityRegions_Tests.cs (PROTMOTIF-LC-001). The previous tests here
+    // encoded an invented "dominant single-AA frequency" rule (now removed in favour of the SEG
+    // Wootton & Federhen complexity measure) and are superseded.
 
     // Domain Finding tests moved to ProteinMotifFinder_DomainPrediction_Tests.cs (PROTMOTIF-DOMAIN-001)
 
@@ -187,14 +123,12 @@ public class ProteinMotifFinderTests
                         "EEEEE";
 
         var motifs = FindCommonMotifs(protein).ToList();
-        var signal = PredictSignalPeptide(protein);
+        // Signal-peptide prediction is covered by PROTMOTIF-SP-001
+        // (ProteinMotifFinder_PredictSignalPeptide_Tests.cs).
 
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(64), "Total motifs including NES, SUMO, glycosylation, PKC, RGD, leucine zipper");
-            Assert.That(signal, Is.Not.Null, "Signal peptide must be detected — classic tripartite structure");
-            Assert.That(signal!.Value.CleavagePosition, Is.EqualTo(25),
-                "Cleavage at position 25 after c-region LASAG");
             Assert.That(motifs.Any(m => m.MotifName == "RGD"), Is.True, "RGD cell attachment motif");
             Assert.That(motifs.Any(m => m.MotifName == "ASN_GLYCOSYLATION"), Is.True, "N-glycosylation site");
         });
@@ -210,17 +144,15 @@ public class ProteinMotifFinderTests
             .Select(_ => aas[random.Next(aas.Length)]).ToArray());
 
         var motifs = FindCommonMotifs(protein).ToList();
-        var signal = PredictSignalPeptide(protein);
         var tm = PredictTransmembraneHelices(protein).ToList();
         var disorder = PredictDisorderedRegions(protein).ToList();
         var domains = FindDomains(protein).ToList();
+        // Signal-peptide prediction is covered by PROTMOTIF-SP-001
+        // (ProteinMotifFinder_PredictSignalPeptide_Tests.cs).
 
         Assert.Multiple(() =>
         {
             Assert.That(motifs, Has.Count.EqualTo(23), "Deterministic motif count for seed=42");
-            // Random protein correctly yields no signal peptide with strict criteria:
-            // {A,G,S} at -1/-3 per von Heijne (1983), h-region ≥ 7 per von Heijne (1985)
-            Assert.That(signal, Is.Null, "Random sequence lacks signal peptide structure");
             Assert.That(tm, Is.Empty, "No TM helices in random sequence");
             Assert.That(disorder, Has.Count.EqualTo(23), "Disordered regions in random sequence");
             Assert.That(domains, Is.Empty, "No domains in random sequence");

@@ -9,7 +9,8 @@ namespace Seqeron.Genomics.Tests
     /// <summary>
     /// Tests for KMER-COUNT-001: K-mer Counting.
     /// 
-    /// Canonical methods: KmerAnalyzer.CountKmers, CountKmersSpan, CountKmersBothStrands
+    /// Canonical methods: KmerAnalyzer.CountKmers, CountKmersSpan
+    /// (CountKmersBothStrands is covered by KMER-BOTH-001 / KmerAnalyzer_CountKmersBothStrands_Tests.cs)
     /// 
     /// Evidence:
     /// - Wikipedia: K-mer definition, L − k + 1 formula, algorithm pseudocode
@@ -365,65 +366,7 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region Both Strands (CountKmersBothStrands)
-
-        /// <summary>
-        /// M11: CountKmersBothStrands combines forward and reverse complement counts.
-        /// Evidence: DNA double-helix - both strands are biologically relevant.
-        /// </summary>
-        [Test]
-        public void CountKmersBothStrands_CombinesForwardAndReverseComplement()
-        {
-            // ACGT reverse complement is ACGT (palindromic)
-            // Forward 2-mers: AC, CG, GT
-            // RevComp 2-mers: AC, CG, GT (ACGT → ACGT)
-            var dna = new DnaSequence("ACGT");
-            var counts = KmerAnalyzer.CountKmersBothStrands(dna, 2);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(counts["AC"], Is.EqualTo(2)); // 1 forward + 1 revcomp
-                Assert.That(counts["CG"], Is.EqualTo(2));
-                Assert.That(counts["GT"], Is.EqualTo(2));
-            });
-        }
-
-        /// <summary>
-        /// M11 variant: Non-palindromic sequence adds different k-mers from reverse complement.
-        /// </summary>
-        [Test]
-        public void CountKmersBothStrands_NonPalindromicSequence_AddsNewKmers()
-        {
-            // "AAA" forward: AA (count 2)
-            // "AAA" reverse complement: TTT → TT (count 2)
-            var dna = new DnaSequence("AAA");
-            var counts = KmerAnalyzer.CountKmersBothStrands(dna, 2);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(counts["AA"], Is.EqualTo(2));
-                Assert.That(counts["TT"], Is.EqualTo(2));
-            });
-        }
-
-        /// <summary>
-        /// M11: Total invariant - both strands contribute L − k + 1 each.
-        /// </summary>
-        [Test]
-        public void CountKmersBothStrands_TotalCountInvariant()
-        {
-            var dna = new DnaSequence("ACGTACGT");
-            int k = 3;
-            var counts = KmerAnalyzer.CountKmersBothStrands(dna, k);
-
-            // Each strand contributes L - k + 1 = 8 - 3 + 1 = 6
-            int expectedTotal = 2 * (dna.Sequence.Length - k + 1);
-            int actualTotal = counts.Values.Sum();
-
-            Assert.That(actualTotal, Is.EqualTo(expectedTotal));
-        }
-
-        #endregion
+        // CountKmersBothStrands tests moved to KmerAnalyzer_CountKmersBothStrands_Tests.cs (KMER-BOTH-001).
 
         #region DnaSequence Wrapper
 

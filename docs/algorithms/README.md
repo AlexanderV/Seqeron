@@ -2,6 +2,25 @@
 
 This directory contains algorithm and method documentation grouped by area.
 
+## Canonicalization
+
+- [Canonical Algorithm Map](CANONICAL_MAP.md)
+
+### Current ID Aliases
+
+| Alias ID | Canonical ID |
+|---|---|
+| `SEQ-COMPOSITION-001` | `SEQ-STATS-001` |
+| `SEQ-TM-001` | `SEQ-THERMO-001` |
+| `GENOMIC-TANDEM-001` | `REP-TANDEM-001` |
+
+### Taxonomy Alias Notes
+
+- `Molecular_Tools` is being normalized into `MolTools`.
+- `PopGen` is treated as a short ID label; canonical docs live in `Population_Genetics`.
+- `K-mer_Analysis` is being normalized into `K-mer`.
+- `RNA_Secondary_Structure` and `RNA_Structure` are being normalized into `RnaStructure`.
+
 ## Annotation
 
 - [Gene Prediction](Annotation/Gene_Prediction.md)

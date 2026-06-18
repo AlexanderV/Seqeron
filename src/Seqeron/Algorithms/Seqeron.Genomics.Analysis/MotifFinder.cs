@@ -362,9 +362,96 @@ public static class MotifFinder
         return consensus.ToString();
     }
 
+    /// <summary>
+    /// Nucleotide alphabet in alphabetical order, used both for column counting and for
+    /// deterministic tie-breaking. The order A &lt; C &lt; G &lt; T realises the alphabetical
+    /// tie-break rule: "In the event of a tie, the residue letter occurring earlier in the
+    /// alphabet was chosen" (Los Alamos HIV Database / Geneious consensus documentation).
+    /// </summary>
+    private static readonly char[] ConsensusAlphabet = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// Creates a consensus sequence from a multiple alignment by selecting, at each column,
+    /// the most frequent nucleotide (the symbol with the maximum count in that column of the
+    /// profile matrix). This is the classical "most common symbol per position" consensus
+    /// (Rosalind CONS; Wikipedia "Consensus sequence"), not the IUPAC-degenerate variant
+    /// produced by <see cref="GenerateConsensus(IEnumerable{string})"/>.
+    /// </summary>
+    /// <param name="alignedSequences">
+    /// Aligned DNA sequences of equal length over the alphabet {A, C, G, T} (case-insensitive).
+    /// </param>
+    /// <returns>
+    /// The consensus string. Each position is the most frequent base in that column; ties are
+    /// broken alphabetically (A &lt; C &lt; G &lt; T) for determinism. Returns an empty string for
+    /// an empty collection.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="alignedSequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the sequences are not all of equal length, or contain a non-ACGT character.
+    /// </exception>
+    public static string CreateConsensusFromAlignment(IEnumerable<string> alignedSequences)
+    {
+        ArgumentNullException.ThrowIfNull(alignedSequences);
+
+        var seqList = alignedSequences.Select(s => s.ToUpperInvariant()).ToList();
+        if (seqList.Count == 0) return "";
+
+        int length = seqList[0].Length;
+        if (!seqList.All(s => s.Length == length))
+            throw new ArgumentException(
+                "All aligned sequences must have the same length.", nameof(alignedSequences));
+
+        var consensus = new StringBuilder(length);
+
+        for (int col = 0; col < length; col++)
+        {
+            // Profile counts for this column in alphabetical order (A, C, G, T).
+            var counts = new int[ConsensusAlphabet.Length];
+
+            for (int s = 0; s < seqList.Count; s++)
+            {
+                char nucleotide = seqList[s][col];
+                int index = Array.IndexOf(ConsensusAlphabet, nucleotide);
+                if (index < 0)
+                    throw new ArgumentException(
+                        $"Invalid character '{nucleotide}' at position {col} in sequence {s}. " +
+                        "Only A, C, G, T are valid nucleotide characters.",
+                        nameof(alignedSequences));
+
+                counts[index]++;
+            }
+
+            // Most frequent base; iterating the alphabet in order makes ties resolve to the
+            // alphabetically-earliest base (strict '>' keeps the first maximum).
+            int bestIndex = 0;
+            for (int b = 1; b < counts.Length; b++)
+            {
+                if (counts[b] > counts[bestIndex])
+                    bestIndex = b;
+            }
+
+            consensus.Append(ConsensusAlphabet[bestIndex]);
+        }
+
+        return consensus.ToString();
+    }
+
+    /// <summary>
+    /// Minimum column frequency (as a fraction of the number of aligned sequences) a base must
+    /// exceed to be included in the position's IUPAC degeneracy code. The "combine the bases
+    /// that pass a frequency threshold into the IUPAC symbol for that set" rule is the standard
+    /// threshold-consensus mechanism (Bioconductor DECIPHER <c>ConsensusSequence</c>: "removes
+    /// the least frequent characters … so long as they represent less than <c>threshold</c> …");
+    /// the set→symbol mapping itself follows NC-IUB 1984 (Cornish-Bowden, NAR 13(9):3021). The
+    /// 0.25 cut and strict '&gt;' boundary are this implementation's documented design constant
+    /// (a base must be present in more than a quarter of the sequences). See
+    /// docs/Evidence/MOTIF-GENERATE-001-Evidence.md.
+    /// </summary>
+    private const double IupacInclusionThreshold = 0.25;
+
     private static char GetIupacCode(Dictionary<char, int> counts, int total)
     {
-        double threshold = total * 0.25; // Base must be > 25% to be included
+        double threshold = total * IupacInclusionThreshold; // base count must be strictly > threshold
 
         var present = counts.Where(kv => kv.Value > threshold)
                            .Select(kv => kv.Key)
@@ -403,12 +490,28 @@ public static class MotifFinder
     #region Motif Discovery
 
     /// <summary>
+    /// Size of the DNA nucleotide alphabet {A, C, G, T}; the base of the
+    /// 4^k count of distinct k-mers used in the expected-occurrence formula.
+    /// </summary>
+    private const int DnaAlphabetSize = 4;
+
+    /// <summary>
     /// Discovers overrepresented k-mers that may represent motifs.
     /// </summary>
+    /// <remarks>
+    /// Overrepresentation is measured by the observed-over-expected (O/E) ratio. Under the
+    /// zero-order (i.i.d. uniform) background model in which each of the four nucleotides is
+    /// equally likely (probability 1/4), the expected number of occurrences of any specific
+    /// k-mer in a string of length N is E = (N − k + 1) / 4^k (Compeau &amp; Pevzner,
+    /// <i>Bioinformatics Algorithms: An Active Learning Approach</i>; the (N − k + 1) factor
+    /// is the number of length-k windows and 4^k is the number of distinct k-mers). The
+    /// <see cref="DiscoveredMotif.Enrichment"/> field is the observed count divided by E, so a
+    /// value &gt; 1 means the k-mer occurs more often than chance predicts.
+    /// </remarks>
     /// <param name="sequence">DNA sequence to analyze.</param>
     /// <param name="k">K-mer length (default: 6).</param>
     /// <param name="minCount">Minimum occurrence count (default: 2).</param>
-    /// <returns>Overrepresented k-mers with their counts and positions.</returns>
+    /// <returns>Overrepresented k-mers with their counts, positions, and O/E enrichment.</returns>
     public static IEnumerable<DiscoveredMotif> DiscoverMotifs(
         DnaSequence sequence,
         int k = 6,
@@ -420,7 +523,7 @@ public static class MotifFinder
         string seq = sequence.Sequence;
         var kmerPositions = new Dictionary<string, List<int>>();
 
-        // Count k-mers
+        // Count k-mers at every length-k window (0-based start positions).
         for (int i = 0; i <= seq.Length - k; i++)
         {
             string kmer = seq.Substring(i, k);
@@ -431,16 +534,19 @@ public static class MotifFinder
             kmerPositions[kmer].Add(i);
         }
 
-        // Calculate expected frequency
-        double expectedFreq = seq.Length - k + 1.0;
-        double expectedCount = expectedFreq / Math.Pow(4, k);
+        // Expected occurrences of a specific k-mer under the i.i.d. uniform background:
+        // E = (N - k + 1) / 4^k  (Compeau & Pevzner, Bioinformatics Algorithms).
+        // windowCount = N - k + 1 is the number of length-k windows; it is >= 1 whenever
+        // at least one k-mer was counted, so E is strictly positive here.
+        double windowCount = seq.Length - k + 1.0;
+        double expectedCount = windowCount / Math.Pow(DnaAlphabetSize, k);
 
-        // Return overrepresented k-mers
+        // Return overrepresented k-mers with their observed/expected (O/E) ratio.
         foreach (var (kmer, positions) in kmerPositions)
         {
             if (positions.Count >= minCount)
             {
-                double enrichment = positions.Count / Math.Max(expectedCount, 0.1);
+                double enrichment = positions.Count / expectedCount;
 
                 yield return new DiscoveredMotif(
                     Sequence: kmer,
@@ -451,20 +557,39 @@ public static class MotifFinder
         }
     }
 
+    // Default oligonucleotide (word) length for shared-motif enumeration. RSAT oligo-analysis
+    // permits any oligo length in [1,8]; 6 is a common default and sits inside that range.
+    // Source: RSAT oligo-analysis manual (https://rsat.eead.csic.es/plants/help.oligo-analysis.html).
+    private const int DefaultSharedMotifLength = 6;
+
+    // Default quorum: a word must occur in at least this many input sequences ("matching
+    // sequences") to be reported. 2 is the minimum meaningful "shared" threshold.
+    // Source: word-enumeration quorum (Das & Dai 2007, BMC Bioinformatics 8(S7):S21).
+    private const int DefaultMinMatchingSequences = 2;
+
     /// <summary>
-    /// Finds common motifs shared between multiple sequences.
+    /// Finds fixed-length words (oligonucleotides) shared across multiple DNA sequences,
+    /// using the "matching sequences" quorum of the van Helden / RSAT oligo-analysis method:
+    /// each length-<paramref name="k"/> word is scored by the number of input sequences that
+    /// contain at least one (exact) occurrence of it, and words whose matching-sequence count
+    /// is at least <paramref name="minSequences"/> are reported.
+    /// A word repeated several times within one sequence still contributes 1 to its
+    /// matching-sequence count. Matching is exact (no degenerate/substituted matches).
     /// </summary>
-    /// <param name="sequences">Collection of DNA sequences.</param>
-    /// <param name="k">K-mer length (default: 6).</param>
-    /// <param name="minSequences">Minimum sequences containing the motif (default: 2).</param>
-    /// <returns>Shared motifs with occurrence information.</returns>
+    /// <param name="sequences">Collection of DNA sequences (each scanned for its distinct words).</param>
+    /// <param name="k">Word (oligonucleotide) length; must be ≥ 1. Default: 6.</param>
+    /// <param name="minSequences">Quorum: minimum number of distinct sequences a word must occur in. Must be ≥ 1. Default: 2.</param>
+    /// <returns>Shared words with their distinct sequence indices and prevalence (matching sequences / total sequences).</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">When <paramref name="k"/> &lt; 1 or <paramref name="minSequences"/> &lt; 1.</exception>
     public static IEnumerable<SharedMotif> FindSharedMotifs(
         IEnumerable<DnaSequence> sequences,
-        int k = 6,
-        int minSequences = 2)
+        int k = DefaultSharedMotifLength,
+        int minSequences = DefaultMinMatchingSequences)
     {
         ArgumentNullException.ThrowIfNull(sequences);
         if (k < 1) throw new ArgumentOutOfRangeException(nameof(k));
+        if (minSequences < 1) throw new ArgumentOutOfRangeException(nameof(minSequences));
 
         var seqList = sequences.ToList();
         var kmerOccurrences = new Dictionary<string, List<int>>();
@@ -513,34 +638,42 @@ public static class MotifFinder
     /// </summary>
     public static class KnownMotifs
     {
-        /// <summary>TATA box consensus: TATAAA</summary>
+        // Eukaryotic core-promoter consensus per Bucher (1990) weight-matrix analysis of 502 promoters.
+        /// <summary>TATA box consensus: TATAAA (eukaryotic RNA Pol II core promoter, Bucher 1990).</summary>
         public const string TataBox = "TATAAA";
 
-        /// <summary>CAAT box consensus: CCAAT</summary>
+        /// <summary>CCAAT box consensus pentanucleotide: CCAAT (Bucher 1990).</summary>
         public const string CaatBox = "CCAAT";
 
-        /// <summary>GC box consensus: GGGCGG</summary>
+        /// <summary>GC box (Sp1) consensus: GGGCGG (Lundin, Nehlin &amp; Ronne 1994).</summary>
         public const string GcBox = "GGGCGG";
 
-        /// <summary>Kozak consensus: GCCGCCACC (around start codon)</summary>
+        // Prokaryotic sigma-70 promoter hexamers per Harley &amp; Reynolds (1987) compilation.
+        /// <summary>-10 (Pribnow) box consensus hexamer: TATAAT (Pribnow 1975; Harley &amp; Reynolds 1987).</summary>
+        public const string MinusTenBox = "TATAAT";
+
+        /// <summary>-35 box consensus hexamer: TTGACA (Harley &amp; Reynolds 1987).</summary>
+        public const string MinusThirtyFiveBox = "TTGACA";
+
+        /// <summary>Kozak optimal-context sequence: GCCGCCACCATGG (Kozak 1987, most-preferred bases -9..+4).</summary>
         public const string Kozak = "GCCGCCACCATGG";
 
-        /// <summary>Shine-Dalgarno (bacterial RBS): AGGAGG</summary>
+        /// <summary>Shine-Dalgarno (bacterial RBS) consensus: AGGAGG (complementary to 3' end of 16S rRNA).</summary>
         public const string ShineDalgarno = "AGGAGG";
 
-        /// <summary>Poly(A) signal: AATAAA</summary>
+        /// <summary>Poly(A) signal hexamer: AATAAA (Proudfoot &amp; Brownlee 1976).</summary>
         public const string PolyASignal = "AATAAA";
 
-        /// <summary>E-box consensus: CANNTG (using IUPAC)</summary>
+        /// <summary>E-box consensus (IUPAC): CANNTG (Massari &amp; Murre 2000).</summary>
         public const string EBox = "CANNTG";
 
-        /// <summary>AP-1 binding site: TGAGTCA</summary>
-        public const string Ap1 = "TGAGTCA";
+        /// <summary>AP-1 (TRE) recognition motif: TGACTCA (Lee, Mitchell &amp; Tjian 1987).</summary>
+        public const string Ap1 = "TGACTCA";
 
-        /// <summary>NF-kB consensus: GGGACTTTCC</summary>
+        /// <summary>NF-κB κB site: GGGACTTTCC (consensus GGGRNWYYCC; Sen &amp; Baltimore 1986).</summary>
         public const string NfKb = "GGGACTTTCC";
 
-        /// <summary>CREB binding site: TGACGTCA</summary>
+        /// <summary>CREB CRE palindrome: TGACGTCA (Montminy et al. 1986).</summary>
         public const string Creb = "TGACGTCA";
     }
 
@@ -555,9 +688,11 @@ public static class MotifFinder
 
         var patterns = new (string Name, string Pattern, string Description)[]
         {
-            ("TATA Box", KnownMotifs.TataBox, "Core promoter element"),
+            ("TATA Box", KnownMotifs.TataBox, "Eukaryotic core promoter element"),
             ("CAAT Box", KnownMotifs.CaatBox, "Promoter element"),
             ("GC Box", KnownMotifs.GcBox, "Sp1 binding site"),
+            ("-10 Box", KnownMotifs.MinusTenBox, "Prokaryotic Pribnow box"),
+            ("-35 Box", KnownMotifs.MinusThirtyFiveBox, "Prokaryotic -35 promoter element"),
             ("Kozak", KnownMotifs.Kozak, "Translation initiation"),
             ("Shine-Dalgarno", KnownMotifs.ShineDalgarno, "Bacterial ribosome binding"),
             ("Poly(A) Signal", KnownMotifs.PolyASignal, "Polyadenylation signal"),

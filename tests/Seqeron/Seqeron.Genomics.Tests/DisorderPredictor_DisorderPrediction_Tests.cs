@@ -188,48 +188,9 @@ public class DisorderPredictor_DisorderPrediction_Tests
 
     #endregion
 
-    #region M8: Disorder Propensity Values Match TOP-IDP Scale — Campen et al. (2008)
-
-    [Test]
-    public void GetDisorderPropensity_AllTwentyAminoAcids_MatchScale()
-    {
-        // TOP-IDP scale values from Campen et al. (2008) Table 2.
-        // Source: PMC2676888, PMID 18991772.
-        var expected = new Dictionary<char, double>
-        {
-            ['A'] = 0.060,
-            ['R'] = 0.180,
-            ['N'] = 0.007,
-            ['D'] = 0.192,
-            ['C'] = 0.020,
-            ['Q'] = 0.318,
-            ['E'] = 0.736,
-            ['G'] = 0.166,
-            ['H'] = 0.303,
-            ['I'] = -0.486,
-            ['L'] = -0.326,
-            ['K'] = 0.586,
-            ['M'] = -0.397,
-            ['F'] = -0.697,
-            ['P'] = 0.987,
-            ['S'] = 0.341,
-            ['T'] = 0.059,
-            ['W'] = -0.884,
-            ['Y'] = -0.510,
-            ['V'] = -0.121
-        };
-
-        Assert.Multiple(() =>
-        {
-            foreach (var (aa, value) in expected)
-            {
-                Assert.That(DisorderPredictor.GetDisorderPropensity(aa), Is.EqualTo(value).Within(0.001),
-                    $"Propensity for {aa} must match TOP-IDP scale value {value} — Campen et al. (2008)");
-            }
-        });
-    }
-
-    #endregion
+    // Tests for GetDisorderPropensity / IsDisorderPromoting / classification properties
+    // moved to DisorderPredictor_GetDisorderPropensity_Tests.cs (unit DISORDER-PROPENSITY-001),
+    // which owns those four methods per the Method Index in ALGORITHMS_CHECKLIST_V2.md.
 
     #region M8b: Normalized TOP-IDP Score Formula — Campen et al. (2008)
 
@@ -259,109 +220,6 @@ public class DisorderPredictor_DisorderPrediction_Tests
         var resultI = DisorderPredictor.PredictDisorder(new string('I', 30));
         Assert.That(resultI.ResiduePredictions[15].DisorderScore, Is.EqualTo(0.2127).Within(0.0005),
             "Poly-Ile: normalized TOP-IDP = 0.2127 — Campen et al. (2008)");
-    }
-
-    #endregion
-
-    #region M9: Disorder-Promoting Residues → True — Dunker (2001)
-
-    [Test]
-    [TestCase('A', TestName = "IsDisorderPromoting_Ala_True")]
-    [TestCase('R', TestName = "IsDisorderPromoting_Arg_True")]
-    [TestCase('Q', TestName = "IsDisorderPromoting_Gln_True")]
-    [TestCase('E', TestName = "IsDisorderPromoting_Glu_True")]
-    [TestCase('G', TestName = "IsDisorderPromoting_Gly_True")]
-    [TestCase('K', TestName = "IsDisorderPromoting_Lys_True")]
-    [TestCase('P', TestName = "IsDisorderPromoting_Pro_True")]
-    [TestCase('S', TestName = "IsDisorderPromoting_Ser_True")]
-    public void IsDisorderPromoting_DisorderPromotingResidues_ReturnsTrue(char aa)
-    {
-        Assert.That(DisorderPredictor.IsDisorderPromoting(aa), Is.True,
-            $"'{aa}' must be disorder-promoting — Dunker et al. (2001)");
-    }
-
-    #endregion
-
-    #region M10: Order-Promoting Residues → False — Dunker (2001)
-
-    [Test]
-    [TestCase('C', TestName = "IsDisorderPromoting_Cys_False")]
-    [TestCase('F', TestName = "IsDisorderPromoting_Phe_False")]
-    [TestCase('I', TestName = "IsDisorderPromoting_Ile_False")]
-    [TestCase('L', TestName = "IsDisorderPromoting_Leu_False")]
-    [TestCase('N', TestName = "IsDisorderPromoting_Asn_False")]
-    [TestCase('V', TestName = "IsDisorderPromoting_Val_False")]
-    [TestCase('W', TestName = "IsDisorderPromoting_Trp_False")]
-    [TestCase('Y', TestName = "IsDisorderPromoting_Tyr_False")]
-    public void IsDisorderPromoting_OrderPromotingResidues_ReturnsFalse(char aa)
-    {
-        Assert.That(DisorderPredictor.IsDisorderPromoting(aa), Is.False,
-            $"'{aa}' must be order-promoting — Dunker et al. (2001)");
-    }
-
-    #endregion
-
-    #region M10b: Ambiguous Residues → False — Dunker (2001)
-
-    [Test]
-    [TestCase('D', TestName = "IsDisorderPromoting_Asp_False")]
-    [TestCase('H', TestName = "IsDisorderPromoting_His_False")]
-    [TestCase('M', TestName = "IsDisorderPromoting_Met_False")]
-    [TestCase('T', TestName = "IsDisorderPromoting_Thr_False")]
-    public void IsDisorderPromoting_AmbiguousResidues_ReturnsFalse(char aa)
-    {
-        Assert.That(DisorderPredictor.IsDisorderPromoting(aa), Is.False,
-            $"'{aa}' is ambiguous per Dunker (2001) and must not be classified as disorder-promoting");
-    }
-
-    #endregion
-
-    #region M11: DisorderPromotingAminoAcids Contains Dunker (2001) Set
-
-    [Test]
-    public void DisorderPromotingAminoAcids_ContainsAllExpected()
-    {
-        var promoting = DisorderPredictor.DisorderPromotingAminoAcids;
-
-        // Dunker et al. (2001): disorder-promoting = {A, R, G, Q, S, P, E, K}
-        char[] expected = { 'A', 'E', 'G', 'K', 'P', 'Q', 'R', 'S' };
-
-        Assert.Multiple(() =>
-        {
-            foreach (char aa in expected)
-            {
-                Assert.That(promoting, Does.Contain(aa),
-                    $"DisorderPromotingAminoAcids must contain '{aa}' — Dunker et al. (2001)");
-            }
-
-            Assert.That(promoting.Count, Is.EqualTo(expected.Length),
-                $"DisorderPromotingAminoAcids count must be {expected.Length}");
-        });
-    }
-
-    #endregion
-
-    #region M12: OrderPromotingAminoAcids Contains Dunker (2001) Set
-
-    [Test]
-    public void OrderPromotingAminoAcids_ContainsAllExpected()
-    {
-        var ordering = DisorderPredictor.OrderPromotingAminoAcids;
-
-        // Dunker et al. (2001): order-promoting = {W, C, F, I, Y, V, L, N}
-        char[] expected = { 'C', 'F', 'I', 'L', 'N', 'V', 'W', 'Y' };
-
-        Assert.Multiple(() =>
-        {
-            foreach (char aa in expected)
-            {
-                Assert.That(ordering, Does.Contain(aa),
-                    $"OrderPromotingAminoAcids must contain '{aa}' — Dunker et al. (2001)");
-            }
-
-            Assert.That(ordering.Count, Is.EqualTo(expected.Length),
-                $"OrderPromotingAminoAcids count must be {expected.Length}");
-        });
     }
 
     #endregion
@@ -478,39 +336,8 @@ public class DisorderPredictor_DisorderPrediction_Tests
 
     #endregion
 
-    #region S6: Unknown Residue Propensity Returns Zero
-
-    [Test]
-    public void GetDisorderPropensity_UnknownResidue_ReturnsZero()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(DisorderPredictor.GetDisorderPropensity('X'), Is.EqualTo(0.0),
-                "Unknown residue 'X' propensity must be 0.0");
-            Assert.That(DisorderPredictor.GetDisorderPropensity('Z'), Is.EqualTo(0.0),
-                "Unknown residue 'Z' propensity must be 0.0");
-            Assert.That(DisorderPredictor.GetDisorderPropensity('B'), Is.EqualTo(0.0),
-                "Unknown residue 'B' propensity must be 0.0");
-        });
-    }
-
-    #endregion
-
-    #region S7: Lowercase Input Handled — Case Insensitivity
-
-    [Test]
-    public void GetDisorderPropensity_LowercaseInput_SameAsUppercase()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(DisorderPredictor.GetDisorderPropensity('p'), Is.EqualTo(0.987).Within(0.001),
-                "Lowercase 'p' must return same propensity as 'P'");
-            Assert.That(DisorderPredictor.GetDisorderPropensity('w'), Is.EqualTo(-0.884).Within(0.001),
-                "Lowercase 'w' must return same propensity as 'W'");
-        });
-    }
-
-    #endregion
+    // GetDisorderPropensity edge cases (unknown residue, lowercase) moved to
+    // DisorderPredictor_GetDisorderPropensity_Tests.cs (DISORDER-PROPENSITY-001).
 
     #region C1: Mixed Ordered/Disordered Sequence Finds Transition
 
@@ -568,30 +395,8 @@ public class DisorderPredictor_DisorderPrediction_Tests
 
     #endregion
 
-    #region C3: AmbiguousAminoAcids Contains Dunker (2001) Set
-
-    [Test]
-    public void AmbiguousAminoAcids_ContainsAllExpected()
-    {
-        var ambiguous = DisorderPredictor.AmbiguousAminoAcids;
-
-        // Dunker et al. (2001): ambiguous = {D, H, M, T}
-        char[] expected = { 'D', 'H', 'M', 'T' };
-
-        Assert.Multiple(() =>
-        {
-            foreach (char aa in expected)
-            {
-                Assert.That(ambiguous, Does.Contain(aa),
-                    $"AmbiguousAminoAcids must contain '{aa}' — Dunker et al. (2001)");
-            }
-
-            Assert.That(ambiguous.Count, Is.EqualTo(expected.Length),
-                $"AmbiguousAminoAcids count must be {expected.Length}");
-        });
-    }
-
-    #endregion
+    // AmbiguousAminoAcids and the classification-set disjointness tests moved to
+    // DisorderPredictor_GetDisorderPropensity_Tests.cs (DISORDER-PROPENSITY-001).
 
     #region C4: CalculateHydropathy Returns Mean Kyte-Doolittle Value
 
@@ -625,36 +430,6 @@ public class DisorderPredictor_DisorderPrediction_Tests
     {
         Assert.That(DisorderPredictor.CalculateHydropathy("ai"),
             Is.EqualTo(DisorderPredictor.CalculateHydropathy("AI")).Within(0.001));
-    }
-
-    #endregion
-
-    #region C5: Three Classification Sets Are Disjoint And Cover All 20 AA
-
-    [Test]
-    public void ClassificationSets_AreDisjointAndCoverAll20()
-    {
-        var disorder = DisorderPredictor.DisorderPromotingAminoAcids;
-        var order = DisorderPredictor.OrderPromotingAminoAcids;
-        var ambiguous = DisorderPredictor.AmbiguousAminoAcids;
-
-        var all = disorder.Concat(order).Concat(ambiguous).ToList();
-
-        Assert.Multiple(() =>
-        {
-            // Total = 20
-            Assert.That(all.Count, Is.EqualTo(20),
-                "Three sets must cover all 20 standard amino acids");
-
-            // Disjoint
-            Assert.That(all.Distinct().Count(), Is.EqualTo(20),
-                "Three sets must be pairwise disjoint");
-
-            // Counts: 8 + 8 + 4 = 20
-            Assert.That(disorder.Count, Is.EqualTo(8), "Disorder-promoting: 8 AA");
-            Assert.That(order.Count, Is.EqualTo(8), "Order-promoting: 8 AA");
-            Assert.That(ambiguous.Count, Is.EqualTo(4), "Ambiguous: 4 AA");
-        });
     }
 
     #endregion

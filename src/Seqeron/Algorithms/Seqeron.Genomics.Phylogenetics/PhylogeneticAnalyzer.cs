@@ -15,13 +15,71 @@ public static class PhylogeneticAnalyzer
     /// <summary>
     /// Represents a node in a phylogenetic tree.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The tree model is <b>N-ary (multifurcating)</b>: an internal node holds an ordered
+    /// collection of <see cref="Children"/> rather than a fixed left/right pair. A node with
+    /// 0 children is a leaf (taxon); 2 children is the common bifurcation; ≥3 children is a
+    /// <i>multifurcation</i> / <i>polytomy</i> — an unresolved or hard polytomy
+    /// (Newick format; a node "is multifurcating if it has three or more immediate descendant lineages").
+    /// This enables genuine Newick multifurcations <c>(A,B,C);</c> and the natural unrooted
+    /// trifurcation of Neighbor-Joining (Saitou &amp; Nei 1987).
+    /// </para>
+    /// <para>
+    /// <see cref="Left"/> and <see cref="Right"/> are convenience accessors over the first two
+    /// children for the common binary case; reading them on a node with fewer children yields
+    /// <c>null</c>, and assigning them rewrites <see cref="Children"/>[0]/[1] (growing the list
+    /// as needed). Code that must handle multifurcations should traverse <see cref="Children"/>.
+    /// </para>
+    /// </remarks>
     public class PhyloNode
     {
         public string Name { get; set; } = "";
         public double BranchLength { get; set; }
-        public PhyloNode? Left { get; set; }
-        public PhyloNode? Right { get; set; }
-        public bool IsLeaf => Left == null && Right == null;
+
+        /// <summary>
+        /// The ordered child subtrees. Empty for a leaf, 2 for a bifurcation, ≥3 for a multifurcation.
+        /// </summary>
+        public List<PhyloNode> Children { get; set; } = new();
+
+        /// <summary>
+        /// Convenience accessor for the first child (binary-tree compatibility).
+        /// Returns <c>null</c> when there are no children. Setting to a non-null value places
+        /// the node at <see cref="Children"/>[0]; setting to <c>null</c> removes the first child.
+        /// </summary>
+        public PhyloNode? Left
+        {
+            get => Children.Count > 0 ? Children[0] : null;
+            set => SetChildAt(0, value);
+        }
+
+        /// <summary>
+        /// Convenience accessor for the second child (binary-tree compatibility).
+        /// Returns <c>null</c> when there are fewer than two children. Setting to a non-null value
+        /// places the node at <see cref="Children"/>[1]; setting to <c>null</c> removes the second child.
+        /// </summary>
+        public PhyloNode? Right
+        {
+            get => Children.Count > 1 ? Children[1] : null;
+            set => SetChildAt(1, value);
+        }
+
+        private void SetChildAt(int index, PhyloNode? value)
+        {
+            if (value == null)
+            {
+                if (Children.Count > index)
+                    Children.RemoveAt(index);
+                return;
+            }
+            while (Children.Count <= index)
+                Children.Add(value);
+            Children[index] = value;
+        }
+
+        /// <summary>A leaf is a node with no children (a terminal taxon/OTU).</summary>
+        public bool IsLeaf => Children.Count == 0;
+
         public List<string> Taxa { get; set; } = new();
 
         public PhyloNode() { }
@@ -357,6 +415,15 @@ public static class PhylogeneticAnalyzer
     /// <summary>
     /// Builds a tree using Neighbor-Joining algorithm.
     /// </summary>
+    /// <remarks>
+    /// Neighbor-Joining infers an <b>unrooted</b> tree, so the algorithm stops when three OTUs
+    /// remain and connects them to a single central node — the characteristic
+    /// <i>trifurcation</i> at the centre of the unrooted tree (Saitou &amp; Nei 1987; the
+    /// three final branch lengths are obtained from the three pairwise distances via the
+    /// standard additive system <c>L_ix = (d_ij + d_ik − d_jk)/2</c>). Under the N-ary
+    /// <see cref="PhyloNode"/> model this final node carries three children rather than two,
+    /// so an NJ tree round-trips through Newick as a genuine trifurcation.
+    /// </remarks>
     private static PhyloNode BuildNeighborJoining(List<string> taxa, double[,] distMatrix)
     {
         int n = taxa.Count;
@@ -373,7 +440,9 @@ public static class PhylogeneticAnalyzer
         Array.Copy(distMatrix, dist, distMatrix.Length);
         var active = Enumerable.Range(0, n).ToList();
 
-        while (active.Count > 2)
+        // Stop at three remaining OTUs: NJ yields an unrooted tree whose centre is a
+        // trifurcation of the last three nodes (Saitou & Nei 1987).
+        while (active.Count > 3)
         {
             int m = active.Count;
 
@@ -441,7 +510,34 @@ public static class PhylogeneticAnalyzer
             active.Remove(minJ);
         }
 
-        // Join last two nodes
+        // Final step: connect the last three OTUs to one central node (NJ trifurcation).
+        // The three branch lengths solve the additive 3-taxon system (Saitou & Nei 1987):
+        //   L_i = (d_ij + d_ik − d_jk)/2, and symmetrically for j and k.
+        if (active.Count == 3)
+        {
+            int i = active[0];
+            int j = active[1];
+            int k = active[2];
+
+            double dij = dist[i, j];
+            double dik = dist[i, k];
+            double djk = dist[j, k];
+
+            nodes[i].BranchLength = (dij + dik - djk) / 2;
+            nodes[j].BranchLength = (dij + djk - dik) / 2;
+            nodes[k].BranchLength = (dik + djk - dij) / 2;
+
+            var root = new PhyloNode
+            {
+                Name = $"({nodes[i].Name},{nodes[j].Name},{nodes[k].Name})",
+                Children = new List<PhyloNode> { nodes[i], nodes[j], nodes[k] },
+                Taxa = nodes[i].Taxa.Concat(nodes[j].Taxa).Concat(nodes[k].Taxa).ToList()
+            };
+
+            return root;
+        }
+
+        // Two-taxon degenerate input: a single edge between the two leaves.
         if (active.Count == 2)
         {
             int i = active[0];
@@ -451,8 +547,7 @@ public static class PhylogeneticAnalyzer
             var root = new PhyloNode
             {
                 Name = $"({nodes[i].Name},{nodes[j].Name})",
-                Left = nodes[i],
-                Right = nodes[j],
+                Children = new List<PhyloNode> { nodes[i], nodes[j] },
                 Taxa = nodes[i].Taxa.Concat(nodes[j].Taxa).ToList()
             };
 
@@ -486,24 +581,19 @@ public static class PhylogeneticAnalyzer
         }
         else
         {
+            // N-ary: emit every child (≥2), comma-separated, per the Newick grammar
+            // Internal → "(" BranchSet ")" Name where BranchSet is a comma-separated
+            // list of Branch entries. A node with ≥3 children is a multifurcation.
             sb.Append('(');
-            if (node.Left != null)
+            for (int c = 0; c < node.Children.Count; c++)
             {
-                ToNewickRecursive(node.Left, sb, includeBranchLengths, isRoot: false);
+                if (c > 0) sb.Append(',');
+                var child = node.Children[c];
+                ToNewickRecursive(child, sb, includeBranchLengths, isRoot: false);
                 if (includeBranchLengths)
                 {
                     sb.Append(':');
-                    sb.Append(node.Left.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
-                }
-            }
-            sb.Append(',');
-            if (node.Right != null)
-            {
-                ToNewickRecursive(node.Right, sb, includeBranchLengths, isRoot: false);
-                if (includeBranchLengths)
-                {
-                    sb.Append(':');
-                    sb.Append(node.Right.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
+                    sb.Append(child.BranchLength.ToString("F4", CultureInfo.InvariantCulture));
                 }
             }
             sb.Append(')');
@@ -577,44 +667,46 @@ public static class PhylogeneticAnalyzer
         {
             pos++; // skip '('
 
-            // Parse left child
-            node.Left = ParseNewickRecursive(newick, ref pos);
-            node.Taxa.AddRange(node.Left.Taxa);
-
-            // Parse branch length for left child
-            if (pos < newick.Length && newick[pos] == ':')
+            // N-ary descendant list: parse one or more children separated by commas.
+            // Newick grammar: BranchSet → Branch | Branch "," BranchSet. A node with three or
+            // more children is a genuine multifurcation (polytomy) and is parsed faithfully.
+            while (true)
             {
-                pos++;
-                node.Left.BranchLength = ParseNumber(newick, ref pos);
+                var child = ParseNewickRecursive(newick, ref pos);
+
+                // Parse branch length for this child
+                if (pos < newick.Length && newick[pos] == ':')
+                {
+                    pos++;
+                    child.BranchLength = ParseNumber(newick, ref pos);
+                }
+
+                node.Children.Add(child);
+                node.Taxa.AddRange(child.Taxa);
+
+                if (pos < newick.Length && newick[pos] == ',')
+                {
+                    pos++; // consume separator, parse the next child
+                    continue;
+                }
+                break;
             }
 
-            // Skip comma
-            if (pos < newick.Length && newick[pos] == ',')
-                pos++;
-
-            // Parse right child
-            node.Right = ParseNewickRecursive(newick, ref pos);
-            node.Taxa.AddRange(node.Right.Taxa);
-
-            // Parse branch length for right child
-            if (pos < newick.Length && newick[pos] == ':')
-            {
-                pos++;
-                node.Right.BranchLength = ParseNumber(newick, ref pos);
-            }
-
-            // Reject multifurcation: after the first two children, a comma here means a
-            // third (or further) child at this level. The binary PhyloNode model (Left/Right)
-            // cannot represent this faithfully, so we throw instead of silently dropping the
-            // extra child(ren). Full N-ary Newick support is out of scope (binary tree model).
-            if (pos < newick.Length && newick[pos] == ',')
-                throw new FormatException(
-                    $"Multifurcating (non-binary) Newick trees are not supported by the binary tree model; " +
-                    $"encountered a third child at position {pos}.");
-
-            // Skip ')'
+            // Require the matching ')'. The Newick grammar (Olsen; Wikipedia) defines an
+            // internal node as Internal → "(" BranchSet ")" Name: the closing parenthesis is
+            // mandatory. An opened descendant list that is never closed (e.g. "(A,B" or
+            // "((A,B);") is a malformed tree with unbalanced parentheses and must be rejected
+            // rather than silently accepted as a (truncated/degenerate) tree.
             if (pos < newick.Length && newick[pos] == ')')
+            {
                 pos++;
+            }
+            else
+            {
+                throw new FormatException(
+                    "Malformed Newick string: unbalanced parentheses — an opening '(' has no " +
+                    $"matching ')' (unexpected end of descendant list at position {pos}).");
+            }
 
             // Parse internal node name (if any)
             if (pos < newick.Length && newick[pos] != ':' && newick[pos] != ',' &&
@@ -664,8 +756,14 @@ public static class PhylogeneticAnalyzer
     }
 
     /// <summary>
-    /// Gets all leaf nodes (taxa) from the tree.
+    /// Gets all leaf (terminal) nodes of the tree in left-to-right (pre-order) traversal order.
+    /// A leaf is a node with no children (<see cref="PhyloNode.IsLeaf"/>); in a phylogenetic tree
+    /// the leaves are the taxa/operational taxonomic units.
+    /// Source: a leaf is "a vertex with no children" (Tree (graph theory)); Biopython
+    /// <c>Tree.get_terminals</c> returns "all of this tree's terminal (leaf) nodes".
     /// </summary>
+    /// <param name="root">The root of the (sub)tree. A <c>null</c> root yields no leaves.</param>
+    /// <returns>The leaf nodes; empty when <paramref name="root"/> is null.</returns>
     public static IEnumerable<PhyloNode> GetLeaves(PhyloNode root)
     {
         if (root == null) yield break;
@@ -676,40 +774,67 @@ public static class PhylogeneticAnalyzer
         }
         else
         {
-            if (root.Left != null)
-                foreach (var leaf in GetLeaves(root.Left))
-                    yield return leaf;
-            if (root.Right != null)
-                foreach (var leaf in GetLeaves(root.Right))
+            foreach (var child in root.Children)
+                foreach (var leaf in GetLeaves(child))
                     yield return leaf;
         }
     }
 
     /// <summary>
-    /// Calculates the total tree length (sum of all branch lengths).
+    /// Calculates the total tree length: the sum of the branch lengths of every node in the
+    /// (sub)tree rooted at <paramref name="root"/>. This is the quantity minimized by the
+    /// minimum-evolution criterion (Rzhetsky &amp; Nei 1992).
+    /// Source: DendroPy <c>Tree.length()</c> — "the sum of edge lengths of self"; Biopython
+    /// <c>Tree.total_branch_length</c> — "the sum of all the branch lengths in this tree".
     /// </summary>
+    /// <param name="root">The root of the (sub)tree.</param>
+    /// <returns>
+    /// The sum of all branch lengths; <c>0</c> for a null tree (no edges) and for a tree whose
+    /// branch lengths are all zero. (DendroPy treats undefined edge lengths as 0; here the default
+    /// <see cref="PhyloNode.BranchLength"/> is 0.)
+    /// </returns>
     public static double CalculateTreeLength(PhyloNode root)
     {
         if (root == null) return 0;
 
         double length = root.BranchLength;
-        if (root.Left != null) length += CalculateTreeLength(root.Left);
-        if (root.Right != null) length += CalculateTreeLength(root.Right);
+        foreach (var child in root.Children)
+            length += CalculateTreeLength(child);
 
         return length;
     }
 
+    /// <summary>Height of an empty tree (no vertices), by convention.</summary>
+    /// <remarks>
+    /// "Conventionally, an empty tree (a tree with no vertices, if such are allowed) has depth and
+    /// height −1." (Tree (graph theory) / Tree (abstract data type)).
+    /// </remarks>
+    private const int EmptyTreeHeight = -1;
+
     /// <summary>
-    /// Gets the depth (height) of the tree.
+    /// Gets the height (topological depth) of the tree: the number of edges on the longest
+    /// downward path from <paramref name="root"/> to a leaf. The height of the tree is the height
+    /// of its root.
+    /// Source: "The height of a node is the length of the longest downward path to a leaf from that
+    /// node. The height of the root is the height of the tree." (Tree (abstract data type)).
     /// </summary>
+    /// <param name="root">The root of the tree.</param>
+    /// <returns>
+    /// The height in edges: <c>0</c> for a single-node (leaf-only) tree — "a tree with only a single
+    /// node ... has depth and height zero" — and <c>-1</c> for a null/empty tree by the cited
+    /// convention.
+    /// </returns>
     public static int GetTreeDepth(PhyloNode root)
     {
-        if (root == null || root.IsLeaf) return 0;
+        // Empty tree (null): height -1 by convention; a single leaf node has height 0.
+        if (root == null) return EmptyTreeHeight;
+        if (root.IsLeaf) return 0;
 
-        int leftDepth = root.Left != null ? GetTreeDepth(root.Left) : 0;
-        int rightDepth = root.Right != null ? GetTreeDepth(root.Right) : 0;
+        int maxChildDepth = 0;
+        foreach (var child in root.Children)
+            maxChildDepth = Math.Max(maxChildDepth, GetTreeDepth(child));
 
-        return 1 + Math.Max(leftDepth, rightDepth);
+        return 1 + maxChildDepth;
     }
 
     /// <summary>
@@ -735,6 +860,154 @@ public static class PhylogeneticAnalyzer
         return clades;
     }
 
+    /// <summary>
+    /// Calculates the <b>unrooted</b> Robinson–Foulds distance between two trees,
+    /// as the symmetric difference of their sets of non-trivial <i>bipartitions</i>
+    /// (splits) — the original Robinson &amp; Foulds (1981) metric.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is an additive alternative to <see cref="RobinsonFouldsDistance"/>, which
+    /// compares rooted <i>clades</i>. Removing any internal edge of a tree partitions
+    /// the leaf set into two complementary subsets; that unordered pair is a
+    /// <i>bipartition</i> (split). The unrooted RF distance is
+    /// <c>RF = |A\B| + |B\A|</c> over the bipartition sets A = splits(T1), B = splits(T2).
+    /// </para>
+    /// <para>
+    /// <b>Root invariance.</b> A bipartition is an <i>unordered</i> {S, complement} pair,
+    /// so it does not depend on where the tree is rooted. Two binary rooted trees that
+    /// describe the same unrooted topology but are rooted on different edges therefore
+    /// have unrooted RF = 0, even though their rooted-clade RF can be non-zero. This is the
+    /// distinguishing behaviour of this metric.
+    /// </para>
+    /// <para>
+    /// <b>Trivial splits are excluded.</b> Splits induced by terminal (leaf) edges —
+    /// a single leaf versus all-but-one — are shared by every tree on the same taxa and
+    /// carry no topological information, so only splits with at least 2 leaves on each side
+    /// are counted. The binary <see cref="PhyloNode"/> model is read as unrooted by ignoring
+    /// the root placement when forming bipartitions.
+    /// </para>
+    /// </remarks>
+    /// <param name="tree1">First tree (root of a binary <see cref="PhyloNode"/> tree).</param>
+    /// <param name="tree2">Second tree.</param>
+    /// <returns>The unrooted RF distance (a non-negative, even integer).</returns>
+    /// <exception cref="ArgumentNullException">Either tree is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either tree has fewer than 3 leaves (no non-trivial split is possible), or the two
+    /// trees do not have identical leaf sets (the RF metric is only defined on a common taxon set).
+    /// </exception>
+    public static int CalculateUnrootedRobinsonFoulds(PhyloNode tree1, PhyloNode tree2)
+    {
+        if (tree1 == null) throw new ArgumentNullException(nameof(tree1));
+        if (tree2 == null) throw new ArgumentNullException(nameof(tree2));
+
+        var leaves1 = GetLeaves(tree1).Select(l => l.Name).ToList();
+        var leaves2 = GetLeaves(tree2).Select(l => l.Name).ToList();
+
+        if (leaves1.Count < 3 || leaves2.Count < 3)
+            throw new ArgumentException(
+                "Unrooted Robinson–Foulds distance requires at least 3 leaves per tree " +
+                "(no non-trivial bipartition exists below that).");
+
+        var taxa1 = new HashSet<string>(leaves1);
+        var taxa2 = new HashSet<string>(leaves2);
+        if (!taxa1.SetEquals(taxa2))
+            throw new ArgumentException(
+                "Unrooted Robinson–Foulds distance is only defined for trees over the same leaf set.");
+
+        var splits1 = GetBipartitions(tree1, taxa1);
+        var splits2 = GetBipartitions(tree2, taxa2);
+
+        return splits1.Except(splits2).Count() + splits2.Except(splits1).Count();
+    }
+
+    /// <summary>
+    /// Calculates the <b>normalized</b> unrooted Robinson–Foulds distance:
+    /// <c>RF / (2n − 6)</c>, where <c>n</c> is the number of leaves. The denominator is the
+    /// maximum possible unrooted RF for two fully-resolved (binary) trees on <c>n</c> leaves
+    /// (each has <c>n − 3</c> internal edges, so the symmetric difference is at most
+    /// <c>2(n − 3) = 2n − 6</c>). The result is in [0, 1] for binary trees.
+    /// </summary>
+    /// <param name="tree1">First tree.</param>
+    /// <param name="tree2">Second tree.</param>
+    /// <returns>Normalized RF in [0, 1] for binary trees; 0 when n &lt; 4 (no internal split possible).</returns>
+    /// <exception cref="ArgumentNullException">Either tree is null.</exception>
+    /// <exception cref="ArgumentException">Fewer than 3 leaves, or mismatched leaf sets.</exception>
+    public static double CalculateNormalizedUnrootedRobinsonFoulds(PhyloNode tree1, PhyloNode tree2)
+    {
+        int rf = CalculateUnrootedRobinsonFoulds(tree1, tree2);
+
+        int n = GetLeaves(tree1).Count();
+        int denominator = 2 * n - 6;
+        // n == 3 ⇒ denominator 0: only one unrooted topology exists, RF is always 0.
+        if (denominator <= 0) return 0.0;
+
+        return (double)rf / denominator;
+    }
+
+    /// <summary>
+    /// Collects the set of non-trivial bipartitions (splits) of a tree, read as unrooted.
+    /// Each internal edge induces a split of the leaf set; the split is canonicalised to its
+    /// smaller side (ties broken lexicographically) so that {S, complement} is represented once,
+    /// independent of root placement.
+    /// </summary>
+    private static HashSet<string> GetBipartitions(PhyloNode root, HashSet<string> allTaxa)
+    {
+        var splits = new HashSet<string>();
+        CollectBipartitions(root, splits, allTaxa);
+        return splits;
+    }
+
+    private static List<string> CollectBipartitions(
+        PhyloNode? node, HashSet<string> splits, HashSet<string> allTaxa)
+    {
+        if (node == null) return new List<string>();
+
+        if (node.IsLeaf)
+            return new List<string> { node.Name };
+
+        // Each internal node corresponds to one edge (incident to its parent); the leaves
+        // beneath it are one side of the induced split. A multifurcation simply produces one
+        // such side (one candidate split) instead of the two an internal binary node would —
+        // i.e. an unresolved node contributes fewer non-trivial bipartitions (Robinson–Foulds:
+        // collapsing/contracting an internal edge removes its split from Σ(T)).
+        var subtreeTaxa = new List<string>();
+        foreach (var child in node.Children)
+            subtreeTaxa.AddRange(CollectBipartitions(child, splits, allTaxa));
+
+        int total = allTaxa.Count;
+        int side = subtreeTaxa.Count;
+        // Non-trivial split: at least 2 leaves on each side. A side of size 0/1 (leaf edge)
+        // or total-1 (the complementary leaf edge) is trivial and shared by all trees.
+        if (side >= 2 && total - side >= 2)
+        {
+            var key = CanonicalSplitKey(subtreeTaxa, allTaxa);
+            splits.Add(key);
+        }
+
+        return subtreeTaxa;
+    }
+
+    /// <summary>
+    /// Builds a root-invariant key for a bipartition: the lexicographically sorted leaf names
+    /// of whichever side is smaller (lexicographically smaller side on a size tie), so the same
+    /// {S, complement} pair maps to one key regardless of which side the edge removal exposed.
+    /// </summary>
+    private static string CanonicalSplitKey(List<string> oneSide, HashSet<string> allTaxa)
+    {
+        var sideA = oneSide.OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var setA = new HashSet<string>(oneSide);
+        var sideB = allTaxa.Where(t => !setA.Contains(t))
+                           .OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+        // Choose the smaller side (by count, then lexicographically) for a canonical, unordered key.
+        bool aFirst = sideA.Count < sideB.Count ||
+                      (sideA.Count == sideB.Count &&
+                       string.CompareOrdinal(string.Join("|", sideA), string.Join("|", sideB)) <= 0);
+
+        return aFirst ? string.Join("|", sideA) : string.Join("|", sideB);
+    }
+
     private static List<string> CollectClades(PhyloNode node, HashSet<string> clades, int totalLeaves)
     {
         if (node == null) return new List<string>();
@@ -744,9 +1017,13 @@ public static class PhylogeneticAnalyzer
             return new List<string> { node.Name };
         }
 
-        var leftTaxa = node.Left != null ? CollectClades(node.Left, clades, totalLeaves) : new List<string>();
-        var rightTaxa = node.Right != null ? CollectClades(node.Right, clades, totalLeaves) : new List<string>();
-        var subtreeTaxa = leftTaxa.Concat(rightTaxa).OrderBy(n => n).ToList();
+        // N-ary: a clade is the set of taxa beneath an internal node, gathered over all children.
+        // A multifurcation contributes a single clade (its own subtree) rather than the nested
+        // clades a fully-resolved binary subtree would, so an unresolved node yields fewer clades.
+        var collected = new List<string>();
+        foreach (var child in node.Children)
+            collected.AddRange(CollectClades(child, clades, totalLeaves));
+        var subtreeTaxa = collected.OrderBy(n => n).ToList();
 
         // Non-trivial clade: more than one taxon (not a leaf) and fewer than all (not root).
         // Each clade is represented as the sorted, joined taxon names of the subtree.
@@ -786,13 +1063,26 @@ public static class PhylogeneticAnalyzer
             return node.Name == taxon1 || node.Name == taxon2 ? node : null;
         }
 
-        var leftResult = FindMRCAInternal(node.Left!, taxon1, taxon2);
-        var rightResult = FindMRCAInternal(node.Right!, taxon1, taxon2);
+        // N-ary: recurse into every child. The MRCA is the deepest node whose subtree contains
+        // both taxa. If two (or more) distinct children each return a hit, the split between the
+        // taxa happens here, so this node is the MRCA. If exactly one child returns a hit, the
+        // MRCA lies within (or is) that child's result and is propagated upward.
+        PhyloNode? singleHit = null;
+        int childrenWithHit = 0;
 
-        if (leftResult != null && rightResult != null)
-            return node;
+        foreach (var child in node.Children)
+        {
+            var childResult = FindMRCAInternal(child, taxon1, taxon2);
+            if (childResult != null)
+            {
+                childrenWithHit++;
+                if (childrenWithHit >= 2)
+                    return node;
+                singleHit = childResult;
+            }
+        }
 
-        return leftResult ?? rightResult;
+        return singleHit;
     }
 
     /// <summary>
@@ -816,26 +1106,61 @@ public static class PhylogeneticAnalyzer
         if (node.IsLeaf)
             return node.Name == taxon ? 0 : double.NaN;
 
-        double leftDist = DistanceToTaxon(node.Left!, taxon);
-        if (!double.IsNaN(leftDist))
-            return leftDist + (node.Left?.BranchLength ?? 0);
-
-        double rightDist = DistanceToTaxon(node.Right!, taxon);
-        if (!double.IsNaN(rightDist))
-            return rightDist + (node.Right?.BranchLength ?? 0);
+        // N-ary: descend into whichever child subtree contains the taxon, accumulating that
+        // child's branch length onto the distance returned from below it.
+        foreach (var child in node.Children)
+        {
+            double childDist = DistanceToTaxon(child, taxon);
+            if (!double.IsNaN(childDist))
+                return childDist + child.BranchLength;
+        }
 
         return double.NaN;
     }
 
+    /// <summary>Default number of bootstrap replicates (Felsenstein 1985 uses ≈100+ replicates).</summary>
+    private const int DefaultBootstrapReplicates = 100;
+
     /// <summary>
-    /// Bootstrap analysis - builds multiple trees from resampled alignments.
+    /// Default RNG seed for the column-resampling step. Fixed so that, for a given
+    /// alignment and parameters, the returned support values are reproducible.
     /// </summary>
+    private const int DefaultBootstrapSeed = 42;
+
+    /// <summary>
+    /// Felsenstein's phylogenetic bootstrap: estimates clade support by resampling
+    /// alignment columns (sites) with replacement and rebuilding the tree on each replicate.
+    /// </summary>
+    /// <remarks>
+    /// Procedure (Felsenstein 1985; Lemoine et al. 2018; Biopython <c>Bio.Phylo.Consensus</c>):
+    /// keep all taxa, resample the alignment columns with replacement to a pseudo-alignment of the
+    /// <em>same length</em> as the original, rebuild a tree, and for every non-trivial clade of the
+    /// reference (original-data) tree count the proportion of replicate trees that contain a clade
+    /// with the identical set of leaf names. The returned support is that proportion in [0,1]
+    /// (multiply by 100 for the published percentage).
+    /// </remarks>
+    /// <param name="sequences">Named aligned sequences (≥2, equal length).</param>
+    /// <param name="replicates">Number of bootstrap replicates (≥1).</param>
+    /// <param name="distanceMethod">Distance method used to build each tree.</param>
+    /// <param name="treeMethod">Tree-construction method used for the reference and replicate trees.</param>
+    /// <param name="seed">RNG seed for column resampling; fixed value makes results reproducible.</param>
+    /// <returns>Map from clade (sorted, '|'-joined leaf names) to bootstrap support in [0,1].</returns>
+    /// <exception cref="ArgumentNullException">When <paramref name="sequences"/> is null.</exception>
+    /// <exception cref="ArgumentException">When fewer than 2 sequences are supplied, or <paramref name="replicates"/> &lt; 1.</exception>
     public static IReadOnlyDictionary<string, double> Bootstrap(
         IReadOnlyDictionary<string, string> sequences,
-        int replicates = 100,
+        int replicates = DefaultBootstrapReplicates,
         DistanceMethod distanceMethod = DistanceMethod.JukesCantor,
-        TreeMethod treeMethod = TreeMethod.UPGMA)
+        TreeMethod treeMethod = TreeMethod.UPGMA,
+        int seed = DefaultBootstrapSeed)
     {
+        if (sequences == null)
+            throw new ArgumentNullException(nameof(sequences));
+        if (sequences.Count < 2)
+            throw new ArgumentException("At least 2 sequences required.", nameof(sequences));
+        if (replicates < 1)
+            throw new ArgumentException("At least 1 replicate required.", nameof(replicates));
+
         var taxa = sequences.Keys.ToList();
         var seqs = sequences.Values.ToList();
         int alignmentLength = seqs[0].Length;
@@ -849,11 +1174,12 @@ public static class PhylogeneticAnalyzer
         foreach (var clade in refClades)
             supportCounts[clade] = 0;
 
-        var random = new Random(42);
+        var random = new Random(seed);
 
         for (int rep = 0; rep < replicates; rep++)
         {
-            // Resample columns with replacement
+            // Resample alignmentLength columns with replacement (Felsenstein 1985:
+            // pseudo-alignments are the same size as the original; Biopython bootstrap_trees).
             var resampledSeqs = new Dictionary<string, string>();
             var columns = new int[alignmentLength];
             for (int i = 0; i < alignmentLength; i++)

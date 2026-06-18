@@ -60,7 +60,7 @@ outcome in the ledger and write a report.
 
 ## Environment (build & test)
 
-The repo targets **net8.0**. The SDK is installed at `~/.dotnet` (no system PATH). Prefix
+The repo targets **net10.0**. The SDK is installed at `~/.dotnet` (no system PATH). Prefix
 commands or export PATH:
 
 ```bash

@@ -348,6 +348,189 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
 
     #endregion
 
+    #region Unrooted-Bipartition Robinson-Foulds Tests (C3)
+
+    // Evidence (sources retrieved this session):
+    //   - Robinson & Foulds (1981): RF = symmetric difference of the sets of bipartitions (splits).
+    //   - Wikipedia "Robinson–Foulds metric": RF = A + B, partitions of one tree absent in the other.
+    //   - Rice CS comp571 tree-metrics worked example (cs.rice.edu/~ogilvie/comp571/tree-metrics/):
+    //       T1 internal splits {BC|ADE, ABC|DE}, T2 internal splits {AB|CDE, ABC|DE}
+    //       differ in exactly one internal split each → unrooted RF = 1 + 1 = 2.
+    //   - Trivial splits (terminal/leaf edges: single leaf vs all-but-one) are excluded.
+    //   - Normalization: RF / (2n−6); 2n−6 = 2(n−3) is the max for unrooted binary trees (n−3 internal edges).
+
+    // Builds a binary rooted tree from a Newick-like nested structure via the existing parser.
+    private static PhylogeneticAnalyzer.PhyloNode Tree(string newick)
+        => PhylogeneticAnalyzer.ParseNewick(newick);
+
+    /// <summary>
+    /// Five-taxon tree T1 rooted so its non-trivial bipartitions are {BC|ADE, DE|ABC}.
+    /// Newick: ((B,C),(A,(D,E)))
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode CreateFiveTaxa_T1()
+        => Tree("((B,C),(A,(D,E)));");
+
+    /// <summary>
+    /// Five-taxon tree T2 differing from T1 by a single NNI: {AB|CDE, DE|ABC}.
+    /// Newick: ((A,B),(C,(D,E)))
+    /// </summary>
+    private static PhylogeneticAnalyzer.PhyloNode CreateFiveTaxa_T2()
+        => Tree("((A,B),(C,(D,E)));");
+
+    [Test]
+    [Description("URF-M01: Identical trees → unrooted RF = 0 (Robinson & Foulds 1981).")]
+    public void UnrootedRobinsonFoulds_IdenticalTrees_ReturnsZero()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T1();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(0), "Identical trees share all bipartitions → RF = 0");
+    }
+
+    [Test]
+    [Description("URF-M02: Single NNI rearrangement → unrooted RF = 2 " +
+                 "(Rice comp571 worked example: one internal split differs in each tree).")]
+    public void UnrootedRobinsonFoulds_SingleNni_ReturnsExact2()
+    {
+        // T1 splits: {BC|ADE, DE|ABC};  T2 splits: {AB|CDE, DE|ABC}
+        // DE|ABC shared; BC|ADE unique to T1; AB|CDE unique to T2 → RF = 1 + 1 = 2.
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(2), "One internal split differs in each tree → RF = 2");
+    }
+
+    [Test]
+    [Description("URF-M03: Unrooted RF is symmetric (metric property).")]
+    public void UnrootedRobinsonFoulds_IsSymmetric()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+            Is.EqualTo(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t2, t1)),
+            "RF(T1,T2) = RF(T2,T1)");
+    }
+
+    [Test]
+    [Description("URF-ROOT: ROOT-INVARIANCE — two binary trees that are the SAME unrooted tree " +
+                 "but rooted on different edges have unrooted RF = 0, while rooted-clade RF ≠ 0. " +
+                 "This is the whole point of the unrooted metric.")]
+    public void UnrootedRobinsonFoulds_DifferByRootPositionOnly_IsZero_WhileRootedRfIsNonZero()
+    {
+        // Same unrooted topology, two root placements:
+        //   X = ((A,B),(C,(D,E)))   — rooted on the AB|CDE edge
+        //   Y = (((A,B),C),(D,E))   — rooted on the DE|ABC edge (the SAME unrooted tree)
+        // Unrooted bipartitions of BOTH = {AB|CDE, DE|ABC}  →  unrooted RF = 0.
+        // Rooted clades:  X = {A,B},{D,E},{C,D,E};  Y = {A,B},{D,E},{A,B,C}
+        //   → {C,D,E} unique to X, {A,B,C} unique to Y → rooted RF = 2 ≠ 0.
+        var x = Tree("((A,B),(C,(D,E)));");
+        var y = Tree("(((A,B),C),(D,E));");
+
+        int unrooted = PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(x, y);
+        int rooted = PhylogeneticAnalyzer.RobinsonFouldsDistance(x, y);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unrooted, Is.EqualTo(0),
+                "Re-rooting the same unrooted tree must not change its bipartitions → RF = 0");
+            Assert.That(rooted, Is.EqualTo(2),
+                "The existing rooted-clade RF is non-zero for the same pair (it is root-sensitive)");
+        });
+    }
+
+    [Test]
+    [Description("URF-M04: Maximally different 5-taxon binary trees → unrooted RF = 2(n−3) = 4.")]
+    public void UnrootedRobinsonFoulds_MaximallyDifferent_ReturnsExact4()
+    {
+        // T1 = ((A,B),(C,(D,E)))  splits {AB|CDE, DE|ABC}
+        // T3 = ((A,C),(B,(D,E)))  splits {AC|BDE, DE|ABC}? — choose a tree sharing NO internal split.
+        // T3 = (((A,C),E),(B,D)): splits {AC|BDE, ACE|BD}; T1 has {AB|CDE, DE|ABC}; disjoint → RF = 4.
+        var t1 = Tree("((A,B),(C,(D,E)));");
+        var t3 = Tree("(((A,C),E),(B,D));");
+
+        // n = 5 → max unrooted RF for binary trees = 2(n−3) = 4.
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t3),
+            Is.EqualTo(4), "No shared internal split → RF = 2(n−3) = 4");
+    }
+
+    [Test]
+    [Description("URF-N01: Normalized unrooted RF = RF / (2n−6). " +
+                 "Single NNI on 5 taxa: 2 / (2·5−6) = 2/4 = 0.5; identical = 0; max = 1.")]
+    public void UnrootedRobinsonFoulds_Normalized_ExactValues()
+    {
+        var t1 = CreateFiveTaxa_T1();
+        var t2 = CreateFiveTaxa_T2();
+        var t3 = Tree("(((A,C),E),(B,D));");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t1),
+                Is.EqualTo(0.0).Within(1e-12), "identical → 0");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0.5).Within(1e-12), "single NNI: 2/(2·5−6) = 0.5");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t3),
+                Is.EqualTo(1.0).Within(1e-12), "maximally different: 4/4 = 1");
+        });
+    }
+
+    [Test]
+    [Description("URF-N02: For n = 3 the denominator 2n−6 = 0 (one unrooted topology); normalized RF = 0.")]
+    public void UnrootedRobinsonFoulds_Normalized_ThreeTaxa_IsZero()
+    {
+        // Both 3-taxon trees are the SAME unrooted star; no internal split exists.
+        var t1 = CreateThreeTaxaTree();      // ((A,B),C)
+        var t2 = CreateThreeTaxaTree_ACB();  // ((A,C),B)
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0), "3 taxa: only one unrooted topology → no differing split → RF = 0");
+            Assert.That(PhylogeneticAnalyzer.CalculateNormalizedUnrootedRobinsonFoulds(t1, t2),
+                Is.EqualTo(0.0).Within(1e-12), "n=3: denominator 2n−6 = 0 → defined as 0");
+        });
+    }
+
+    [Test]
+    [Description("URF-E01: Fewer than 3 leaves throws (no non-trivial bipartition can exist).")]
+    public void UnrootedRobinsonFoulds_FewerThanThreeLeaves_Throws()
+    {
+        var two = CreateTwoTaxaTree();
+
+        Assert.Throws<System.ArgumentException>(
+            () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(two, two));
+    }
+
+    [Test]
+    [Description("URF-E02: Different leaf sets throw (RF defined only on a common taxon set).")]
+    public void UnrootedRobinsonFoulds_DifferentLeafSets_Throws()
+    {
+        var abcde = CreateFiveTaxa_T1();             // {A,B,C,D,E}
+        var abcdf = Tree("((B,C),(A,(D,F)));");      // {A,B,C,D,F}
+
+        Assert.Throws<System.ArgumentException>(
+            () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(abcde, abcdf));
+    }
+
+    [Test]
+    [Description("URF-E03: Null tree throws ArgumentNullException.")]
+    public void UnrootedRobinsonFoulds_NullTree_Throws()
+    {
+        var t1 = CreateFiveTaxa_T1();
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<System.ArgumentNullException>(
+                () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(null!, t1));
+            Assert.Throws<System.ArgumentNullException>(
+                () => PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(t1, null!));
+        });
+    }
+
+    #endregion
+
     #region FindMRCA Tests
 
     [Test]
@@ -775,51 +958,101 @@ public class PhylogeneticAnalyzer_TreeComparison_Tests
 
     #endregion
 
-    #region Bootstrap Tests (Different Scope - Kept for Coverage)
+    #region Multifurcation (N-ary) — RF with collapsed edges, MRCA over a polytomy (C2)
 
     [Test]
-    [Description("Bootstrap returns supports in valid range")]
-    public void Bootstrap_ReturnsSupportsInValidRange()
+    [Description("C2 / RF-MULTI-ROOTED: rooted-clade RF between a fully-resolved binary tree and its multifurcating (one collapsed internal edge) version equals exactly the number of resolved clades lost (1). Hand-derived: clades((((A,B),C),(D,E))) = {A|B, A|B|C, D|E}; collapsing the (A,B) edge gives ((A,B,C),(D,E)) with clades {A|B|C, D|E}; the only differing clade is {A,B} -> RF = 1.")]
+    public void RobinsonFoulds_BinaryVsCollapsedMultifurcation_EqualsResolvedCladesLost()
     {
-        // Arrange
-        var sequences = new Dictionary<string, string>
-        {
-            ["A"] = "ACGTACGTAC",
-            ["B"] = "ACGTACGTAC",
-            ["C"] = "TCGTACGTAC",
-            ["D"] = "TCGTACGTAC"
-        };
+        // Source: Robinson & Foulds (1981); RF = |Σ(T1) △ Σ(T2)|. Contracting an internal edge
+        // (creating a multifurcation) removes exactly that edge's split from Σ(T).
+        var binary = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+        var collapsed = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
 
-        // Act
-        var supports = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 10);
+        // Sanity: the collapsed tree's root-side polytomy node really has 3 children.
+        var abc = collapsed.Left!;
+        Assert.That(abc.Children.Count, Is.EqualTo(3), "Collapsed node (A,B,C) is a 3-child polytomy");
 
-        // Assert
+        int rf = PhylogeneticAnalyzer.RobinsonFouldsDistance(binary, collapsed);
+
+        Assert.That(rf, Is.EqualTo(1),
+            "Exactly one resolved clade ({A,B}) is lost when the (A,B) edge is collapsed.");
+
+        // Mutation guard: an identity comparison would report 0; a wrong-direction count would
+        // differ. RF of a tree with itself is 0 (so 1 here is meaningful).
+        Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(binary, binary), Is.EqualTo(0));
+        Assert.That(PhylogeneticAnalyzer.RobinsonFouldsDistance(collapsed, collapsed), Is.EqualTo(0));
+    }
+
+    [Test]
+    [Description("C2 / RF-MULTI-UNROOTED: unrooted-bipartition RF between a binary tree and its collapsed-edge version equals the number of internal splits lost (1). Hand-derived: a binary 5-taxon tree has n-3=2 non-trivial splits {A,B|C,D,E} and {A,B,C|D,E}; collapsing the (A,B) edge removes the {A,B|C,D,E} split, leaving 1; symmetric difference = 1.")]
+    public void UnrootedRobinsonFoulds_BinaryVsCollapsedMultifurcation_EqualsSplitsLost()
+    {
+        var binary = PhylogeneticAnalyzer.ParseNewick("(((A,B),C),(D,E));");
+        var collapsed = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
+
+        int rf = PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(binary, collapsed);
+
+        Assert.That(rf, Is.EqualTo(1),
+            "Collapsing one internal edge removes exactly one non-trivial bipartition.");
+
+        // A multifurcating tree compared with itself has RF 0 (the metric is well-defined over it).
+        Assert.That(PhylogeneticAnalyzer.CalculateUnrootedRobinsonFoulds(collapsed, collapsed),
+            Is.EqualTo(0));
+    }
+
+    [Test]
+    [Description("C2 / MRCA-POLYTOMY: MRCA over a multifurcating (3-child) node. In ((A,B,C),(D,E)) the MRCA of any two of A,B,C is the polytomy node (its 3 children are leaves A,B,C); MRCA of A and D is the root. Hand-derived from the tree shape.")]
+    public void FindMRCA_OverMultifurcatingNode_ReturnsPolytomyNode()
+    {
+        var tree = PhylogeneticAnalyzer.ParseNewick("((A,B,C),(D,E));");
+        var polytomy = tree.Left!;            // the (A,B,C) node
+        var root = tree;
+
         Assert.Multiple(() =>
         {
-            Assert.That(supports, Is.Not.Empty);
-            Assert.That(supports.Values, Has.All.InRange(0.0, 1.0));
+            // Any pair drawn from {A,B,C} shares the polytomy node as MRCA.
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "B"), Is.SameAs(polytomy));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "B", "C"), Is.SameAs(polytomy));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "C"), Is.SameAs(polytomy));
+
+            // A taxon under the polytomy vs a taxon on the other side -> the root.
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "D"), Is.SameAs(root));
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "C", "E"), Is.SameAs(root));
+
+            // Missing taxon -> null (the polytomy traversal still reports absence correctly).
+            Assert.That(PhylogeneticAnalyzer.FindMRCA(tree, "A", "Z"), Is.Null);
         });
     }
 
     [Test]
-    [Description("Bootstrap with distinct groups shows high support")]
-    public void Bootstrap_DistinctGroups_HighSupport()
+    [Description("C2 / STATS-POLYTOMY: tree statistics traverse all children of a polytomy. For ((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6); the leaf count is 5, the total tree length is the sum over ALL children (0.1+0.2+0.3+0.0+0.4+0.5+0.6 = 2.1), and depth is 2. Hand-derived from the branch lengths.")]
+    public void TreeStatistics_OverMultifurcatingNode_TraverseAllChildren()
     {
-        // Arrange - Groups with very different sequences should have high bootstrap support
-        var sequences = new Dictionary<string, string>
+        var tree = PhylogeneticAnalyzer.ParseNewick("((A:0.1,B:0.2,C:0.3):0.0,(D:0.4,E:0.5):0.6);");
+
+        Assert.Multiple(() =>
         {
-            ["A"] = "AAAAAAAAAA",
-            ["B"] = "AAAAAAAAAC",
-            ["C"] = "CCCCCCCCCC",
-            ["D"] = "CCCCCCCCCA"
-        };
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(tree).Count(), Is.EqualTo(5),
+                "All 5 leaves under the polytomy + binary node are counted.");
+            Assert.That(PhylogeneticAnalyzer.CalculateTreeLength(tree),
+                Is.EqualTo(2.1).Within(1e-9),
+                "Total length sums branch lengths over all children, including the 3rd child C.");
+            Assert.That(PhylogeneticAnalyzer.GetTreeDepth(tree), Is.EqualTo(2),
+                "Depth = 2 edges from root to any leaf.");
 
-        // Act
-        var supports = PhylogeneticAnalyzer.Bootstrap(sequences, replicates: 50);
-
-        // Assert - At least some splits should have high support
-        Assert.That(supports.Values.Any(v => v >= 0.5), Is.True);
+            // Patristic distance across the polytomy: A->B = 0.1 + 0.2 = 0.3 (both under polytomy).
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "B"),
+                Is.EqualTo(0.3).Within(1e-9));
+            // A->C must include the 3rd child C (0.1 + 0.3) — a binary-only traversal that ignored
+            // the 3rd child would fail to find C and return NaN.
+            Assert.That(PhylogeneticAnalyzer.PatristicDistance(tree, "A", "C"),
+                Is.EqualTo(0.4).Within(1e-9));
+        });
     }
 
     #endregion
+
+    // Bootstrap tests moved to the canonical PHYLO-BOOT-001 fixture:
+    // PhylogeneticAnalyzer_Bootstrap_Tests.cs (the two prior weak tests were superseded).
 }

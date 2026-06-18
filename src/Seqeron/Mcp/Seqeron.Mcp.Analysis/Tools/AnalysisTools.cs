@@ -608,17 +608,17 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "predict_signal_peptide", Title = "Protein — Signal Peptide (von Heijne)", ReadOnly = true)]
-    [Description("Tripartite (n/h/c regions) signal-peptide cleavage-site prediction (von Heijne).")]
+    [Description("von Heijne (1986) weight-matrix signal-peptide cleavage-site prediction (EMBOSS sigcleave).")]
     public static SignalPeptideResult PredictSignalPeptide(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Maximum N-terminal scan length (default 70).")] int maxLength = 70)
+        [Description("Score against the prokaryotic matrix instead of the default eukaryotic one.")] bool prokaryote = false)
     {
         var sp = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .PredictSignalPeptide(proteinSequence ?? string.Empty, maxLength);
+            .PredictSignalPeptide(proteinSequence ?? string.Empty, prokaryote);
         if (sp is null)
-            return new SignalPeptideResult(false, 0, "", "", "", 0.0, 0.0);
+            return new SignalPeptideResult(false, 0, 0.0, "", "", false);
         var v = sp.Value;
-        return new SignalPeptideResult(true, v.CleavagePosition, v.NRegion, v.HRegion, v.CRegion, v.Score, v.Probability);
+        return new SignalPeptideResult(true, v.CleavagePosition, v.Score, v.SignalSequence, v.WindowSequence, v.IsLikelySignalPeptide);
     }
 
     [McpServerTool(Name = "predict_transmembrane_helices", Title = "Protein — Transmembrane Helices (Kyte-Doolittle)", ReadOnly = true)]
@@ -650,15 +650,16 @@ public class AnalysisTools
     }
 
     [McpServerTool(Name = "find_protein_low_complexity_regions", Title = "Protein — Low-Complexity Regions", ReadOnly = true)]
-    [Description("Compositionally biased regions in a protein: window with single AA frequency above threshold.")]
+    [Description("Low-complexity regions in a protein via the SEG algorithm (Wootton & Federhen 1993): sliding-window Shannon entropy in bits/residue, two-pass trigger/extension.")]
     public static FindProteinLowComplexityRegionsResult FindProteinLowComplexityRegions(
         [Description("Protein sequence.")] string proteinSequence,
-        [Description("Sliding window size (default 12).")] int windowSize = 12,
-        [Description("Frequency threshold (default 0.4).")] double threshold = 0.4)
+        [Description("Sliding window size W (default 12).")] int windowSize = 12,
+        [Description("Trigger complexity K1 in bits/residue (default 2.2).")] double triggerComplexity = 2.2,
+        [Description("Extension complexity K2 in bits/residue (default 2.5).")] double extensionComplexity = 2.5)
     {
         var items = global::Seqeron.Genomics.Analysis.ProteinMotifFinder
-            .FindLowComplexityRegions(proteinSequence ?? string.Empty, windowSize, threshold)
-            .Select(t => new ProteinLowComplexityItem(t.Start, t.End, t.DominantAa, t.Frequency))
+            .FindLowComplexityRegions(proteinSequence ?? string.Empty, windowSize, triggerComplexity, extensionComplexity)
+            .Select(t => new ProteinLowComplexityItem(t.Start, t.End, t.Complexity))
             .ToArray();
         return new FindProteinLowComplexityRegionsResult(items);
     }
@@ -1020,11 +1021,10 @@ public class AnalysisTools
     [McpServerTool(Name = "predict_replication_origin", Title = "GC Skew — Predict Origin/Terminus", ReadOnly = true)]
     [Description("Predicts replication origin and terminus from cumulative GC skew extrema. Best on complete circular bacterial genomes.")]
     public static PredictReplicationOriginResult PredictReplicationOrigin(
-        [Description("DNA sequence (ideally complete circular genome).")] string sequence,
-        [Description("Window size (default 1000).")] int windowSize = 1000)
+        [Description("DNA sequence (ideally complete circular genome).")] string sequence)
     {
         var dna = RequireDna(sequence, nameof(sequence));
-        var r = GcSkewCalculator.PredictReplicationOrigin(dna, windowSize);
+        var r = GcSkewCalculator.PredictReplicationOrigin(dna);
         return new PredictReplicationOriginResult(
             r.PredictedOrigin, r.PredictedTerminus, r.OriginSkew, r.TerminusSkew, r.IsSignificant);
     }

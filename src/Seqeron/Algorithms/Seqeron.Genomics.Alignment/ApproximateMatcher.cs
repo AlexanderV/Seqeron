@@ -10,6 +10,11 @@ namespace Seqeron.Genomics.Alignment
     /// </summary>
     public static class ApproximateMatcher
     {
+        // DNA alphabet over which the d-neighborhood is generated.
+        // Per Compeau & Pevzner, Bioinformatics Algorithms ch.1 (ROSALIND BA1N),
+        // Neighbors(Pattern, d) enumerates substitutions over {A, C, G, T}.
+        private const string DnaAlphabet = "ACGT";
+
         /// <summary>
         /// Finds all approximate matches of a pattern in a sequence with at most k mismatches.
         /// Uses Hamming distance (substitutions only).
@@ -231,11 +236,15 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Finds the best approximate match (minimum distance) of a pattern in a sequence.
+        /// Finds the best approximate match (minimum Hamming distance) of a pattern over all
+        /// equal-length windows of the sequence. When several windows tie for the minimum
+        /// distance, the leftmost one is returned (an exact match short-circuits the scan).
+        /// Distance follows the Hamming definition of an approximate occurrence in
+        /// Compeau &amp; Pevzner, Bioinformatics Algorithms ch.1 (ROSALIND BA1H).
         /// </summary>
         /// <param name="sequence">The sequence to search in.</param>
         /// <param name="pattern">The pattern to find.</param>
-        /// <returns>The best match result, or null if sequence is too short.</returns>
+        /// <returns>The best match result, or null if either input is empty or the pattern is longer than the sequence.</returns>
         public static ApproximateMatchResult? FindBestMatch(string sequence, string pattern)
         {
             if (string.IsNullOrEmpty(sequence) || string.IsNullOrEmpty(pattern))
@@ -279,7 +288,10 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Counts the number of approximate occurrences of a pattern in a sequence.
+        /// Counts the number of approximate occurrences of a pattern in a sequence, i.e.
+        /// Count_d(Text, Pattern) — the number of start positions where the equal-length window
+        /// has Hamming distance at most <paramref name="maxMismatches"/> from the pattern
+        /// (Compeau &amp; Pevzner, Bioinformatics Algorithms ch.1; ROSALIND BA1H/BA1I).
         /// </summary>
         public static int CountApproximateOccurrences(string sequence, string pattern, int maxMismatches)
         {
@@ -287,12 +299,16 @@ namespace Seqeron.Genomics.Alignment
         }
 
         /// <summary>
-        /// Finds the most frequent approximate k-mers (with up to d mismatches).
+        /// Finds the most frequent k-mers with up to d mismatches (the Frequent Words with
+        /// Mismatches Problem; Compeau &amp; Pevzner, Bioinformatics Algorithms ch.1, ROSALIND BA1I).
+        /// Each window's full d-neighborhood (Hamming ball, which includes the window itself) is
+        /// tallied; ALL k-mers achieving the maximum Count_d are returned. The result may include
+        /// k-mers that do not occur exactly in the sequence.
         /// </summary>
         /// <param name="sequence">The sequence to analyze.</param>
         /// <param name="k">K-mer length.</param>
         /// <param name="d">Maximum mismatches.</param>
-        /// <returns>List of most frequent k-mers with their counts.</returns>
+        /// <returns>All most-frequent k-mers (ties included) with their Count_d.</returns>
         public static IEnumerable<(string Kmer, int Count)> FindFrequentKmersWithMismatches(
             string sequence, int k, int d)
         {
@@ -344,7 +360,7 @@ namespace Seqeron.Genomics.Alignment
 
             if (pattern.Length == 1)
             {
-                foreach (char c in "ACGT")
+                foreach (char c in DnaAlphabet)
                     yield return c.ToString();
                 yield break;
             }
@@ -357,7 +373,7 @@ namespace Seqeron.Genomics.Alignment
                 if (HammingDistanceFast(suffix, neighborSuffix) < d)
                 {
                     // Can change first character
-                    foreach (char c in "ACGT")
+                    foreach (char c in DnaAlphabet)
                         yield return c + neighborSuffix;
                 }
                 else

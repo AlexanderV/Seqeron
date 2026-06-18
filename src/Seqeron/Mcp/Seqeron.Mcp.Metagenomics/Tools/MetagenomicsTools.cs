@@ -16,37 +16,43 @@ public class MetagenomicsTools
     #region MetagenomicsAnalyzer
 
     /// <summary>
-    /// Classify metagenomic reads using exact k-mer matching against a taxonomic
-    /// k-mer database (Kraken-style; canonical k-mer convention,
-    /// Wood &amp; Salzberg 2014).
+    /// Classify metagenomic reads with the Kraken k-mer / LCA algorithm: collect each read's
+    /// canonical k-mer hits, build the classification tree over the hit taxa weighted by k-mer
+    /// count, and assign the leaf of the maximum-scoring root-to-leaf path (LCA-of-leaves on ties).
+    /// Reads with no hits are assigned the root / unclassified taxon (Wood &amp; Salzberg 2014).
     /// </summary>
     [McpServerTool(Name = "classify_reads", Title = "Metagenomics — Classify Reads", ReadOnly = true)]
-    [Description("Classify metagenomic reads against a k-mer→taxon database (Kraken-style). Returns per-read taxonomy lineage and confidence.")]
+    [Description("Classify metagenomic reads with the Kraken k-mer/LCA algorithm against a canonical-k-mer→taxon-id database and a taxonomy tree. Returns the assigned taxon, RTL score, lineage and C/Q confidence per read.")]
     public static ClassifyReadsResult ClassifyReads(
         [Description("Reads to classify (id + nucleotide sequence).")] IReadOnlyList<ReadInput> reads,
-        [Description("Flattened k-mer→taxon database. Keys must be canonical k-mers (lex-min of forward / reverse complement); taxon strings use ';' or '|' rank separators.")] IReadOnlyList<KmerDatabaseEntry> kmerDatabase,
+        [Description("Flattened canonical-k-mer→taxon-id database. Keys must be canonical k-mers (lex-min of forward / reverse complement); values are taxon ids in the taxonomy tree.")] IReadOnlyList<KmerDatabaseEntry> kmerDatabase,
+        [Description("Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.")] IReadOnlyList<TaxonNodeInput> taxonomy,
         [Description("k-mer length (default 31, per Kraken).")] int k = 31)
     {
-        var dict = new Dictionary<string, string>(kmerDatabase.Count);
+        var dict = new Dictionary<string, int>(kmerDatabase.Count);
         foreach (var entry in kmerDatabase)
             dict[entry.Kmer] = entry.TaxonId;
 
+        var tree = ToTaxonomyTree(taxonomy);
         var inputs = reads.Select(r => (r.Id, r.Sequence));
-        var classifications = MetagenomicsAnalyzer.ClassifyReads(inputs, dict, k).ToList();
+        var classifications = MetagenomicsAnalyzer.ClassifyReads(inputs, dict, tree, k).ToList();
         return new ClassifyReadsResult(classifications);
     }
 
     /// <summary>
-    /// Build a canonical-k-mer→taxon database from reference genomes.
+    /// Build a Kraken canonical-k-mer→taxon-id database from labeled reference sequences:
+    /// each shared k-mer is mapped to the lowest common ancestor of its owning taxa.
     /// </summary>
     [McpServerTool(Name = "build_kmer_database", Title = "Metagenomics — Build K-mer Database", ReadOnly = true)]
-    [Description("Build a canonical-k-mer→taxon database from reference genomes (Kraken-style). Skips ambiguous nucleotides; first taxon to claim a k-mer wins.")]
+    [Description("Build a Kraken canonical-k-mer→taxon-id database from labeled reference sequences. Skips ambiguous nucleotides; a k-mer shared by several taxa maps to their lowest common ancestor in the taxonomy tree.")]
     public static BuildKmerDatabaseResult BuildKmerDatabase(
-        [Description("Reference genomes (taxon id + sequence).")] IReadOnlyList<ReferenceGenomeInput> referenceGenomes,
+        [Description("Reference sequences (taxon id + nucleotide sequence).")] IReadOnlyList<ReferenceGenomeInput> referenceGenomes,
+        [Description("Taxonomy tree nodes (id, name, rank, parent id); the root is self-parented.")] IReadOnlyList<TaxonNodeInput> taxonomy,
         [Description("k-mer length (default 31).")] int k = 31)
     {
+        var tree = ToTaxonomyTree(taxonomy);
         var inputs = referenceGenomes.Select(g => (g.TaxonId, g.Sequence));
-        var dict = MetagenomicsAnalyzer.BuildKmerDatabase(inputs, k);
+        var dict = MetagenomicsAnalyzer.BuildKmerDatabase(inputs, tree, k);
         var entries = dict.Select(kv => new KmerDatabaseEntry(kv.Key, kv.Value)).ToList();
         return new BuildKmerDatabaseResult(entries, entries.Count);
     }
@@ -281,19 +287,19 @@ public class MetagenomicsTools
     }
 
     /// <summary>
-    /// Fit Heaps' law to pan-genome size growth via permuted gene-accumulation
-    /// curves and log-linear regression (Tettelin et al. 2008).
+    /// Fit Heaps' law to the pan-genome new-gene-discovery curve via permuted
+    /// presence/absence orderings (Tettelin et al. 2008; micropan heaps()).
     /// </summary>
     [McpServerTool(Name = "fit_heaps_law", Title = "Pan-genome — Fit Heaps' Law", ReadOnly = true)]
-    [Description("Fit Heaps' law P(N) = K · N^gamma to permuted gene-accumulation curves (Tettelin 2008). Callers reconstruct the predictor as k * pow(n, gamma).")]
+    [Description("Fit Heaps' law n(N) = Intercept · N^(-Alpha) to the permuted new-gene-discovery curve (Tettelin 2008; micropan heaps). Pan-genome is open when Alpha < 1.")]
     public static HeapsLawFitDto FitHeapsLaw(
         [Description("Genomes (id + ordered list of genes).")] IReadOnlyList<GenomeInput> genomes,
-        [Description("Sequence-identity threshold (currently unused by the simplified estimator; default 0.9).")] double identityThreshold = 0.9,
-        [Description("Number of random genome-order permutations to average over (default 10).")] int permutations = 10)
+        [Description("Sequence-identity threshold for ortholog clustering (default 0.9).")] double identityThreshold = 0.9,
+        [Description("Number of random genome-order permutations to pool over (default 100).")] int permutations = 100)
     {
         var dict = ToGenomesDict(genomes);
         var fit = PanGenomeAnalyzer.FitHeapsLaw(dict, identityThreshold, permutations);
-        return new HeapsLawFitDto(fit.K, fit.Gamma, fit.RSquared);
+        return new HeapsLawFitDto(fit.Intercept, fit.Alpha, fit.IsOpen);
     }
 
     /// <summary>
@@ -365,27 +371,38 @@ public class MetagenomicsTools
     }
 
     /// <summary>
-    /// Pick informative phylogenetic-marker clusters from the core set: those
-    /// with average identity in [<paramref name="minIdentity"/>,
-    /// <paramref name="maxIdentity"/>], ranked by consensus length, capped at
-    /// <paramref name="maxMarkers"/>.
+    /// Pick phylogenetic-marker clusters from the core set: single-copy core clusters
+    /// (present in all <paramref name="totalGenomes"/> genomes with exactly one gene per
+    /// genome) that contain at least one parsimony-informative site, ranked by descending
+    /// parsimony-informative-site count and capped at <paramref name="maxMarkers"/>
+    /// (Ding et al. 2018, panX; Page et al. 2015, Roary).
     /// </summary>
     [McpServerTool(Name = "select_phylogenetic_markers", Title = "Pan-genome — Select Phylogenetic Markers", ReadOnly = true)]
-    [Description("Pick informative phylogenetic-marker clusters from the core set: those with average identity in [minIdentity, maxIdentity], ranked by consensus length and identity, capped at maxMarkers.")]
+    [Description("Pick phylogenetic markers: single-copy core clusters (present in all genomes with exactly one gene each) with >= 1 parsimony-informative site, ranked by descending parsimony-informative-site count, capped at maxMarkers (panX/Roary).")]
     public static SelectPhylogeneticMarkersResult SelectPhylogeneticMarkers(
-        [Description("Core gene clusters to filter.")]
+        [Description("Genomes (id + ordered list of genes), used to recover each cluster's member sequences.")]
+        IReadOnlyList<GenomeInput> genomes,
+        [Description("Core gene clusters to filter (e.g. from core_gene_clusters).")]
         IReadOnlyList<PanGenomeAnalyzer.GeneCluster> coreClusters,
-        [Description("Maximum number of markers to return (default 100).")] int maxMarkers = 100,
-        [Description("Minimum average within-cluster identity (default 0.7).")] double minIdentity = 0.7,
-        [Description("Maximum average within-cluster identity (default 0.99).")] double maxIdentity = 0.99)
+        [Description("Total number of genomes in the analysis.")] int totalGenomes,
+        [Description("Maximum number of markers to return (default 100).")] int maxMarkers = 100)
     {
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(coreClusters, maxMarkers, minIdentity, maxIdentity).ToList();
+        var dict = ToGenomesDict(genomes);
+        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(dict, coreClusters, totalGenomes, maxMarkers).ToList();
         return new SelectPhylogeneticMarkersResult(markers);
     }
 
     #endregion
 
     #region Helpers
+
+    private static Seqeron.Genomics.Metagenomics.TaxonomyTree ToTaxonomyTree(
+        IReadOnlyList<TaxonNodeInput> nodes)
+    {
+        var taxa = nodes.Select(n =>
+            new Seqeron.Genomics.Metagenomics.TaxonNode(n.Id, n.Name, n.Rank, n.ParentId));
+        return new Seqeron.Genomics.Metagenomics.TaxonomyTree(taxa);
+    }
 
     private static List<AbundanceItem> ToAbundanceList(IReadOnlyDictionary<string, double> dict)
     {

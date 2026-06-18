@@ -1,660 +1,529 @@
 using NUnit.Framework;
-using Seqeron.Genomics;
+using Seqeron.Genomics.Metagenomics;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Seqeron.Genomics.Tests;
 
 /// <summary>
-/// Test suite for META-CLASS-001: Taxonomic Classification.
-/// Covers MetagenomicsAnalyzer.ClassifyReads and BuildKmerDatabase methods.
-/// 
-/// Evidence sources:
-/// - Wikipedia (Metagenomics): K-mer based classification principles
-/// - Kraken (CCB JHU): Canonical k-mer algorithm, k=31 default
-/// - Wood &amp; Salzberg (2014): Kraken paper
+/// Test suite for META-CLASS-001: Kraken-style taxonomic classification
+/// (taxonomy tree + k-mer LCA database + per-read RTL classification).
+///
+/// Source: Wood DE, Salzberg SL. "Kraken: ultrafast metagenomic sequence classification
+/// using exact alignments." Genome Biology 2014, 15:R46. doi:10.1186/gb-2014-15-3-r46.
+/// Verbatim rules used here:
+/// - DB build: a record is "a k-mer and the LCA of all organisms whose genomes contain that
+///   k-mer"; when a k-mer's LCA is already set, store "the LCA of the stored value and the
+///   current sequence's taxon".
+/// - Classification: hit taxa and their ancestors form the classification tree; "Each node ...
+///   is weighted with the number of k-mers ... that mapped to the taxon associated with that
+///   node"; "each root-to-leaf (RTL) path ... is scored by ... the sum of all node weights along
+///   the path. The maximum scoring RTL path ... is the classification path"; ties → "the LCA of
+///   all those paths' leaves is selected". No hits → unclassified (root here).
+///
+/// All expected taxa below are hand-derived from these rules on a fixed hand-built taxonomy, and
+/// every k-mer used is its own canonical form (kmer == min(kmer, revcomp)) at k = 4, so the
+/// k-mer→taxon mapping is fully controlled and Q/C are countable by hand.
 /// </summary>
 [TestFixture]
 public class MetagenomicsAnalyzer_TaxonomicClassification_Tests
 {
-    #region BuildKmerDatabase Tests
+    // ------------------------------------------------------------------
+    // Hand-built taxonomy (NCBI-style ids):
+    //
+    //                         root(1)
+    //              ┌────────────┴───────────────┐
+    //         Archaea(5)                    Bacteria(2) [domain]
+    //          [domain]                         │
+    //                                  Proteobacteria(3) [phylum]
+    //                                           │
+    //                              Gammaproteobacteria(4) [class]
+    //                                           │
+    //                            Enterobacteriaceae(10) [family]
+    //                              ┌────────────┴───────────┐
+    //                       Escherichia(20)[genus]   Salmonella(21)[genus]
+    //                        ┌────────┴────────┐            │
+    //                  E.coli(100)     E.fergusonii(101)  S.enterica(200)
+    //                   [species]        [species]         [species]
+    //
+    // Hand-derived LCAs:
+    //   Lca(100,101) = 20  (siblings → parent genus)
+    //   Lca(100,200) = 10  (different genera → family)
+    //   Lca(20,100)  = 20  (ancestor/descendant → ancestor)
+    //   Lca(100,100) = 100 (self)
+    //   Lca(100,5)   = 1   (disjoint top branches → root)
+    // ------------------------------------------------------------------
+    private static TaxonomyTree BuildTaxonomy() => new(new[]
+    {
+        new TaxonNode(1,   "root",                "root",    1),
+        new TaxonNode(5,   "Archaea",             "domain",  1),
+        new TaxonNode(2,   "Bacteria",            "domain",  1),
+        new TaxonNode(3,   "Proteobacteria",      "phylum",  2),
+        new TaxonNode(4,   "Gammaproteobacteria", "class",   3),
+        new TaxonNode(10,  "Enterobacteriaceae",  "family",  4),
+        new TaxonNode(20,  "Escherichia",         "genus",   10),
+        new TaxonNode(21,  "Salmonella",          "genus",   10),
+        new TaxonNode(100, "Escherichia coli",    "species", 20),
+        new TaxonNode(101, "Escherichia fergusonii", "species", 20),
+        new TaxonNode(200, "Salmonella enterica", "species", 21),
+    });
+
+    #region TaxonomyTree.Lca unit tests (hand-derived)
 
     [Test]
-    [Description("M1: Empty input returns empty database")]
-    public void BuildKmerDatabase_EmptyInput_ReturnsEmptyDatabase()
+    [Description("LCA: siblings → their shared parent")]
+    public void Lca_Siblings_ReturnsParent()
     {
-        var references = new List<(string TaxonId, string Sequence)>();
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references);
-
-        Assert.That(database, Is.Empty);
+        var t = BuildTaxonomy();
+        // E.coli(100) and E.fergusonii(101) are siblings under Escherichia(20).
+        Assert.That(t.Lca(100, 101), Is.EqualTo(20));
+        // Order independent.
+        Assert.That(t.Lca(101, 100), Is.EqualTo(20));
     }
 
     [Test]
-    [Description("M2: Sequence shorter than k produces no k-mers")]
-    public void BuildKmerDatabase_SequenceShorterThanK_ReturnsEmpty()
+    [Description("LCA: ancestor/descendant → the ancestor")]
+    public void Lca_AncestorDescendant_ReturnsAncestor()
     {
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Bacteria|Test", "ATGC") // 4 bp, shorter than k=31
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 31);
-
-        Assert.That(database, Is.Empty);
+        var t = BuildTaxonomy();
+        Assert.That(t.Lca(20, 100), Is.EqualTo(20));
+        Assert.That(t.Lca(100, 20), Is.EqualTo(20));
     }
 
     [Test]
-    [Description("M3: Valid reference produces k-mers in database")]
-    public void BuildKmerDatabase_ValidReference_ProducesKmers()
+    [Description("LCA: a node with itself → itself")]
+    public void Lca_SameNode_ReturnsItself()
     {
-        // k=5, "ACGTACTGAC" (10bp) → 6 k-mers, all unique after canonicalization:
-        //   i=0: ACGTA (canon: ACGTA, A<T)
-        //   i=1: CGTAC (canon: CGTAC, C<G)
-        //   i=2: GTACT (canon: AGTAC, A<G)
-        //   i=3: TACTG (canon: CAGTA, C<T)
-        //   i=4: ACTGA (canon: ACTGA, A<T)
-        //   i=5: CTGAC (canon: CTGAC, C<G)
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Bacteria|Escherichia", "ACGTACTGAC")
-        };
+        var t = BuildTaxonomy();
+        Assert.That(t.Lca(100, 100), Is.EqualTo(100));
+    }
 
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 5);
+    [Test]
+    [Description("LCA: disjoint top-level branches → root")]
+    public void Lca_DisjointBranches_ReturnsRoot()
+    {
+        var t = BuildTaxonomy();
+        // Archaea(5) and E.coli(100) share only the root.
+        Assert.That(t.Lca(5, 100), Is.EqualTo(1));
+    }
 
+    [Test]
+    [Description("LCA: different genera resolve to their common family")]
+    public void Lca_DifferentGenera_ReturnsFamily()
+    {
+        var t = BuildTaxonomy();
+        // E.coli(100, genus Escherichia) vs S.enterica(200, genus Salmonella) → family(10).
+        Assert.That(t.Lca(100, 200), Is.EqualTo(10));
+    }
+
+    [Test]
+    [Description("LCA over a set folds pairwise: {100,101,200} → family(10)")]
+    public void Lca_OfSet_FoldsPairwise()
+    {
+        var t = BuildTaxonomy();
+        // Lca(100,101)=20, then Lca(20,200)=10.
+        Assert.That(t.Lca(new[] { 100, 101, 200 }), Is.EqualTo(10));
+    }
+
+    [Test]
+    [Description("Tree helpers: path-to-root, depth, ancestry")]
+    public void Tree_PathAndAncestry_AreCorrect()
+    {
+        var t = BuildTaxonomy();
         Assert.Multiple(() =>
         {
-            Assert.That(database.Count, Is.EqualTo(6), "10-5+1 = 6 unique canonical k-mers");
-            Assert.That(database.Values.All(v => v == "Bacteria|Escherichia"), Is.True,
-                "All k-mers should map to the reference taxon");
+            Assert.That(t.GetPathToRoot(100), Is.EqualTo(new[] { 100, 20, 10, 4, 3, 2, 1 }));
+            Assert.That(t.GetDepth(1), Is.EqualTo(0));
+            Assert.That(t.GetDepth(100), Is.EqualTo(6));
+            Assert.That(t.IsAncestorOf(20, 100), Is.True);
+            Assert.That(t.IsAncestorOf(100, 20), Is.False);
+            Assert.That(t.IsAncestorOf(100, 100), Is.True, "a taxon is its own ancestor");
         });
-    }
-
-    [Test]
-    [Description("M4: Uses canonical k-mers (lexicographically smaller of kmer or reverse complement)")]
-    public void BuildKmerDatabase_UsesCanonicalKmers()
-    {
-        // "AAAAAAAAAA" is its own reverse complement as "TTTTTTTTTT"
-        // Canonical is "AAAAAAAAAA" (lexicographically smaller)
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Taxon1", "AAAAAAAAAAAAAAAAAAAA") // 20 A's
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 10);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(database.ContainsKey("AAAAAAAAAA"), Is.True, "Should contain canonical k-mer AAAAAAAAAA");
-            Assert.That(database.ContainsKey("TTTTTTTTTT"), Is.False, "Should not contain non-canonical TTTTTTTTTT");
-        });
-    }
-
-    [Test]
-    [Description("M4b: Canonical k-mer uses reverse complement when it is lexicographically smaller")]
-    public void BuildKmerDatabase_CanonicalKmer_UsesReverseComplementWhenSmaller()
-    {
-        // Sequence starting with T's - reverse complement starts with A's
-        // T's RC = A's, so A's should be canonical
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Taxon1", "TTTTTTTTTTTTTTTTTTTT") // 20 T's
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 10);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(database.ContainsKey("AAAAAAAAAA"), Is.True, "Should contain canonical k-mer AAAAAAAAAA (RC of TTTTTTTTTT)");
-            Assert.That(database.ContainsKey("TTTTTTTTTT"), Is.False, "Should not contain non-canonical TTTTTTTTTT");
-        });
-    }
-
-    [Test]
-    [Description("M5: Non-ACGT characters excluded from k-mers")]
-    public void BuildKmerDatabase_NonAcgtCharacters_Excluded()
-    {
-        // Sequence with N in the middle - k-mers containing N should be excluded
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Taxon1", "ATGCATGCATGCNNNNATGCATGCATGC") // Contains N's
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 10);
-
-        // All k-mers in database should only contain ACGT
-        foreach (var kmer in database.Keys)
-        {
-            Assert.That(kmer, Does.Match("^[ACGT]+$"), $"K-mer '{kmer}' contains non-ACGT characters");
-        }
-    }
-
-    [Test]
-    [Description("M6: Database k-mer count follows formula for valid sequences")]
-    public void BuildKmerDatabase_KmerCount_FollowsFormula()
-    {
-        // Non-repeating sequence where all canonical k-mers are unique:
-        // k=5, "ACGTACTGAC" (10bp) → 6 raw k-mers, all distinct after canonicalization
-        const int k = 5;
-        const string sequence = "ACGTACTGAC";
-        int expectedKmers = sequence.Length - k + 1; // 6
-
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Taxon1", sequence)
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: k);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(database.Count, Is.EqualTo(expectedKmers),
-                "For non-repeating sequences with unique canonical k-mers: count = len-k+1 = 6");
-            foreach (var kmer in database.Keys)
-            {
-                Assert.That(kmer.Length, Is.EqualTo(k), $"K-mer '{kmer}' should have length k={k}");
-            }
-        });
-    }
-
-    [Test]
-    [Description("S1: Mixed case input handled correctly")]
-    public void BuildKmerDatabase_MixedCase_NormalizedToUppercase()
-    {
-        var references = new List<(string TaxonId, string Sequence)>
-        {
-            ("Taxon1", "atgcatgcatgcatgcatgc") // lowercase
-        };
-
-        var database = MetagenomicsAnalyzer.BuildKmerDatabase(references, k: 10);
-
-        Assert.That(database.Count, Is.GreaterThan(0), "Should process lowercase sequences");
-
-        // All keys should be uppercase
-        foreach (var kmer in database.Keys)
-        {
-            Assert.That(kmer, Is.EqualTo(kmer.ToUpperInvariant()), "K-mer should be uppercase");
-        }
     }
 
     #endregion
 
-    #region ClassifyReads Tests
+    #region BuildKmerDatabase tests
 
     [Test]
-    [Description("M7: Empty sequence returns Unclassified with Confidence=0")]
-    public void ClassifyReads_EmptySequence_ReturnsUnclassified()
+    [Description("Empty reference set → empty database")]
+    public void BuildKmerDatabase_EmptyInput_ReturnsEmpty()
     {
-        var database = new Dictionary<string, string>();
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "")
-        };
+        var t = BuildTaxonomy();
+        var db = MetagenomicsAnalyzer.BuildKmerDatabase(
+            new List<(int, string)>(), t, k: 4);
+        Assert.That(db, Is.Empty);
+    }
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+    [Test]
+    [Description("Reference shorter than k → no k-mers")]
+    public void BuildKmerDatabase_SequenceShorterThanK_ReturnsEmpty()
+    {
+        var t = BuildTaxonomy();
+        var db = MetagenomicsAnalyzer.BuildKmerDatabase(
+            new[] { (100, "AGC") }, t, k: 4);
+        Assert.That(db, Is.Empty);
+    }
+
+    [Test]
+    [Description("Single reference: each canonical k-mer maps to that taxon")]
+    public void BuildKmerDatabase_SingleReference_MapsToTaxon()
+    {
+        var t = BuildTaxonomy();
+        // "AAAACAA" (k=4): windows AAAA, AAAC, AACA, ACAA — all distinct, all self-canonical.
+        var db = MetagenomicsAnalyzer.BuildKmerDatabase(
+            new[] { (100, "AAAACAA") }, t, k: 4);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results.Count, Is.EqualTo(1));
-            Assert.That(results[0].ReadId, Is.EqualTo("read1"));
-            Assert.That(results[0].Kingdom, Is.EqualTo("Unclassified"));
-            Assert.That(results[0].Confidence, Is.EqualTo(0));
-            Assert.That(results[0].TotalKmers, Is.EqualTo(0));
+            Assert.That(db.Count, Is.EqualTo(4), "7 - 4 + 1 = 4 distinct canonical k-mers");
+            Assert.That(db.Values.All(v => v == 100), Is.True);
+            Assert.That(db.ContainsKey("AAAA"), Is.True);
         });
     }
 
     [Test]
-    [Description("M8: Sequence shorter than k returns Unclassified")]
-    public void ClassifyReads_SequenceShorterThanK_ReturnsUnclassified()
+    [Description("Kraken DB-build LCA: a k-mer shared by two species collapses to their LCA (genus)")]
+    public void BuildKmerDatabase_SharedKmer_CollapsesToLca()
     {
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Bacteria|Test" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGC") // 4 bp, shorter than k=14
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var t = BuildTaxonomy();
+        // Both references contain the (palindromic, self-canonical) k-mer AGCT:
+        //   E.coli(100)        ref "AGCTAAAA" → AGCT, GCTA, CTAA, TAAA
+        //   E.fergusonii(101)  ref "AGCTCCCC" → AGCT(shared), GCTC(canon GAGC), CTCC, TCCC(canon GGGA)
+        // AGCT is owned by 100 and 101 ⇒ stored value = Lca(100,101) = Escherichia(20).
+        var db = MetagenomicsAnalyzer.BuildKmerDatabase(
+            new[] { (100, "AGCTAAAA"), (101, "AGCTCCCC") }, t, k: 4);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Unclassified"));
-            Assert.That(results[0].TotalKmers, Is.EqualTo(0));
+            Assert.That(db["AGCT"], Is.EqualTo(20), "shared k-mer → LCA = genus Escherichia(20)");
+            Assert.That(db["GCTA"], Is.EqualTo(100), "E.coli-only k-mer stays at species 100");
+            Assert.That(db["GAGC"], Is.EqualTo(101), "E.fergusonii-only k-mer (canon of GCTC) stays at species 101");
         });
     }
 
     [Test]
-    [Description("M9: No database matches returns Unclassified")]
-    public void ClassifyReads_NoMatch_ReturnsUnclassified()
+    [Description("DB build skips ambiguous (non-ACGT) k-mers and uppercases input")]
+    public void BuildKmerDatabase_AmbiguousSkipped_MixedCaseHandled()
     {
-        var database = new Dictionary<string, string>
-        {
-            { "CCCCCCCCCCCCCC", "Bacteria|Other" } // canonical form of GGGG... (C < G)
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCGATCGATCGATCGATCG") // No matching k-mers
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var t = BuildTaxonomy();
+        // lowercase + an N: only the all-ACGT windows are indexed; all keys uppercase ACGT.
+        var db = MetagenomicsAnalyzer.BuildKmerDatabase(
+            new[] { (100, "aaaaNcaa") }, t, k: 4);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Unclassified"));
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(0));
-            Assert.That(results[0].TotalKmers, Is.GreaterThan(0));
+            Assert.That(db.Count, Is.GreaterThan(0));
+            foreach (var key in db.Keys)
+                Assert.That(key, Does.Match("^[ACGT]+$"), $"k-mer '{key}' must be uppercase ACGT");
         });
     }
 
     [Test]
-    [Description("M10: Matching k-mers classify to correct taxon")]
-    public void ClassifyReads_MatchingKmers_ClassifiesCorrectly()
+    [Description("DB build rejects a reference taxon not present in the taxonomy tree")]
+    public void BuildKmerDatabase_UnknownTaxon_Throws()
     {
-        var database = new Dictionary<string, string>
+        var t = BuildTaxonomy();
+        Assert.Throws<KeyNotFoundException>(() =>
+            MetagenomicsAnalyzer.BuildKmerDatabase(new[] { (999, "AAAACAA") }, t, k: 4));
+    }
+
+    #endregion
+
+    #region ClassifyReads tests (RTL / LCA, hand-derived)
+
+    private static MetagenomicsAnalyzer.TaxonomicClassification ClassifyOne(
+        string sequence, IReadOnlyDictionary<string, int> db, TaxonomyTree tree, int k = 4)
+        => MetagenomicsAnalyzer.ClassifyReads(new[] { ("r", sequence) }, db, tree, k).Single();
+
+    [Test]
+    [Description("Read hitting one species → that species (RTL path = single leaf)")]
+    public void ClassifyReads_SingleSpecies_AssignsThatSpecies()
+    {
+        var t = BuildTaxonomy();
+        // All 4 windows of "AAAACAA" map to E.coli(100).
+        var db = new Dictionary<string, int>
         {
-            { "ATGCGATCGATCGA", "Bacteria|Proteobacteria|Gammaproteobacteria|Enterobacterales|Enterobacteriaceae|Escherichia|coli" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCGATCGATCGATCGATCG")
+            ["AAAA"] = 100, ["AAAC"] = 100, ["AACA"] = 100, ["ACAA"] = 100,
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var r = ClassifyOne("AAAACAA", db, t);
 
-        // 21bp, k=14 → 8 k-mers; only i=0 (ATGCGATCGATCGA, palindromic) matches the DB entry
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"));
-            Assert.That(results[0].Phylum, Is.EqualTo("Proteobacteria"));
-            Assert.That(results[0].Genus, Is.EqualTo("Escherichia"));
-            Assert.That(results[0].Species, Is.EqualTo("coli"));
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(1), "Only the first k-mer matches the DB entry");
-            Assert.That(results[0].TotalKmers, Is.EqualTo(8), "21-14+1 = 8 non-ambiguous k-mers");
-            Assert.That(results[0].Confidence, Is.EqualTo(0.125).Within(0.001), "Confidence = 1/8 = 0.125");
+            Assert.That(r.TaxonId, Is.EqualTo(100), "single leaf 100 → assigned E.coli");
+            Assert.That(r.TaxonName, Is.EqualTo("Escherichia coli"));
+            Assert.That(r.Rank, Is.EqualTo("species"));
+            Assert.That(r.RtlScore, Is.EqualTo(4), "RTL score = sum of node weights on root→100 = 4");
+            Assert.That(r.TotalKmers, Is.EqualTo(4), "Q = 4 non-ambiguous k-mers");
+            Assert.That(r.MatchedKmers, Is.EqualTo(4), "C = clade(100) k-mers = 4");
+            Assert.That(r.Confidence, Is.EqualTo(1.0).Within(1e-9));
+            Assert.That(r.Genus, Is.EqualTo("Escherichia"));
+            Assert.That(r.Species, Is.EqualTo("Escherichia coli"));
         });
     }
 
     [Test]
-    [Description("M11: Output count equals input read count")]
-    public void ClassifyReads_OutputCountEqualsInputCount()
+    [Description("Read splitting equally between two species of one genus → the genus (LCA of tied leaves)")]
+    public void ClassifyReads_SplitWithinGenus_AssignsGenusLca()
     {
-        var database = new Dictionary<string, string>
+        var t = BuildTaxonomy();
+        // 2 windows → E.coli(100), 2 windows → E.fergusonii(101).
+        // Leaves {100,101} each score 2 (own weight only; sibling paths are disjoint below genus).
+        // Tie → Lca(100,101) = Escherichia(20).
+        var db = new Dictionary<string, int>
         {
-            { "ATGCATGCATGCAT", "Bacteria|Test|Genus|species" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGCATGC"),
-            ("read2", "ATGCATGCATGCATGCATGC"),
-            ("read3", "GGGGGGGGGGGGGGGGGGGG"),
-            ("read4", ""),
-            ("read5", "AT")
+            ["AAAA"] = 100, ["AAAC"] = 100, ["AACA"] = 101, ["ACAA"] = 101,
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
-
-        Assert.That(results.Count, Is.EqualTo(reads.Count), "Output count must equal input count");
-    }
-
-    [Test]
-    [Description("M12: Confidence = MatchedKmers / TotalKmers")]
-    public void ClassifyReads_ConfidenceCalculation_IsCorrect()
-    {
-        // Create a read where we know exactly how many k-mers will match
-        const int k = 10;
-        const string kmer = "ATGCATGCAT"; // 10 bp k-mer
-        var database = new Dictionary<string, string>
-        {
-            { kmer, "Bacteria|Test" }
-        };
-
-        // Read that contains exactly this k-mer once: ATGCATGCAT + extra
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATG") // 11 bp → 2 k-mers, first one matches
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
+        var r = ClassifyOne("AAAACAA", db, t);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].TotalKmers, Is.EqualTo(2), "Should have 2 k-mers (11-10+1)");
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(1), "Should have 1 matching k-mer");
-            Assert.That(results[0].Confidence, Is.EqualTo(0.5).Within(0.01), "Confidence should be 1/2 = 0.5");
+            Assert.That(r.TaxonId, Is.EqualTo(20), "tied species leaves → LCA = genus Escherichia(20)");
+            Assert.That(r.TaxonName, Is.EqualTo("Escherichia"));
+            Assert.That(r.Rank, Is.EqualTo("genus"));
+            Assert.That(r.RtlScore, Is.EqualTo(2), "each tied RTL path scores 2");
+            Assert.That(r.TotalKmers, Is.EqualTo(4));
+            Assert.That(r.MatchedKmers, Is.EqualTo(4), "C = clade(20) = both species' 4 k-mers");
+            Assert.That(r.Confidence, Is.EqualTo(1.0).Within(1e-9));
         });
     }
 
     [Test]
-    [Description("M13: TotalKmers = non-ambiguous k-mers count; equals max(0, len - k + 1) for all-ACGT sequences")]
-    public void ClassifyReads_TotalKmers_MatchesFormula()
+    [Description("Read splitting equally across two genera → their family (LCA of tied leaves)")]
+    public void ClassifyReads_SplitAcrossGenera_AssignsFamilyLca()
     {
-        const int k = 10;
-        var database = new Dictionary<string, string>();
-        var reads = new List<(string Id, string Sequence)>
+        var t = BuildTaxonomy();
+        // 2 windows → E.coli(100), 2 windows → S.enterica(200). Tie → Lca(100,200)=family(10).
+        var db = new Dictionary<string, int>
         {
-            ("read1", "ATGCATGCATGCATGCATGC"), // 20 bp → 11 k-mers
-            ("read2", "ATGCATGCAT"),            // 10 bp → 1 k-mer
-            ("read3", "ATGCATGCA"),             // 9 bp → 0 k-mers (shorter than k)
-            ("read4", "")                        // 0 bp → 0 k-mers
+            ["AAAA"] = 100, ["AAAC"] = 100, ["AACA"] = 200, ["ACAA"] = 200,
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
+        var r = ClassifyOne("AAAACAA", db, t);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].TotalKmers, Is.EqualTo(11), "20 - 10 + 1 = 11");
-            Assert.That(results[1].TotalKmers, Is.EqualTo(1), "10 - 10 + 1 = 1");
-            Assert.That(results[2].TotalKmers, Is.EqualTo(0), "9 < 10, so 0");
-            Assert.That(results[3].TotalKmers, Is.EqualTo(0), "Empty sequence");
+            Assert.That(r.TaxonId, Is.EqualTo(10), "tied across genera → LCA = Enterobacteriaceae(10)");
+            Assert.That(r.Rank, Is.EqualTo("family"));
+            Assert.That(r.RtlScore, Is.EqualTo(2));
+            Assert.That(r.MatchedKmers, Is.EqualTo(4), "C = clade(10) = all 4 k-mers");
+            Assert.That(r.Confidence, Is.EqualTo(1.0).Within(1e-9));
         });
     }
 
     [Test]
-    [Description("M14: MatchedKmers ≤ TotalKmers")]
-    public void ClassifyReads_MatchedKmers_BoundedByTotal()
+    [Description("RTL with ancestor weight: a clear single max path wins (no tie)")]
+    public void ClassifyReads_RtlAncestorWeight_SingleWinner()
     {
-        var database = new Dictionary<string, string>
+        var t = BuildTaxonomy();
+        // Hits: E.coli(100)×1, E.fergusonii(101)×2, genus Escherichia(20)×1 (a collapsed shared k-mer).
+        // Leaves = {100,101} (20 is their ancestor → internal node, contributes weight to both paths).
+        //   RTL(100) = w(100)+w(20) = 1+1 = 2
+        //   RTL(101) = w(101)+w(20) = 2+1 = 3   ← unique maximum
+        // Assigned = 101 (E.fergusonii). C = clade(101) = 2; Q = 4.
+        var db = new Dictionary<string, int>
         {
-            { "ATGCATGCATGCAT", "Bacteria|Test" },
-            { "CATGCATGCATGCA", "Bacteria|Test" } // canonical of TGCATGCATGCATG
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGCATGCATGCATGCATGC")
+            ["AAAA"] = 100, ["AAAC"] = 101, ["AACA"] = 101, ["ACAA"] = 20,
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var r = ClassifyOne("AAAACAA", db, t);
 
-        Assert.That(results[0].MatchedKmers, Is.LessThanOrEqualTo(results[0].TotalKmers),
-            "MatchedKmers must be ≤ TotalKmers");
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.TaxonId, Is.EqualTo(101), "max RTL path leaf = E.fergusonii(101)");
+            Assert.That(r.RtlScore, Is.EqualTo(3), "RTL(101) = w(101)+w(20) = 2+1 = 3");
+            Assert.That(r.TotalKmers, Is.EqualTo(4));
+            Assert.That(r.MatchedKmers, Is.EqualTo(2), "C = clade(101) k-mers = 2 (genus hit is outside the clade)");
+            Assert.That(r.Confidence, Is.EqualTo(0.5).Within(1e-9), "C/Q = 2/4");
+        });
     }
 
     [Test]
-    [Description("M15: Multiple reads all classified")]
-    public void ClassifyReads_MultipleReads_AllClassified()
+    [Description("Read with no k-mer hits → unclassified (root, taxon 1), confidence 0")]
+    public void ClassifyReads_NoHits_Unclassified()
     {
-        var database = new Dictionary<string, string>
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int> { ["GGGG"] = 100 }; // nothing the read produces
+        var r = ClassifyOne("AAAACAA", db, t);
+
+        Assert.Multiple(() =>
         {
-            { "ATGCATGCATGCAT", "Bacteria|Genus1|species1" },
-            { "GCTAGCTAGCTAGC", "Bacteria|Genus2|species2" }
-        };
-        var reads = new List<(string Id, string Sequence)>
+            Assert.That(r.TaxonId, Is.EqualTo(TaxonomyTree.RootId), "no hits → root/unclassified");
+            Assert.That(r.TaxonName, Is.EqualTo("root"));
+            Assert.That(r.RtlScore, Is.EqualTo(0));
+            Assert.That(r.MatchedKmers, Is.EqualTo(0));
+            Assert.That(r.TotalKmers, Is.EqualTo(4), "Q still counts the 4 queried k-mers");
+            Assert.That(r.Confidence, Is.EqualTo(0.0));
+        });
+    }
+
+    [Test]
+    [Description("Empty / short reads → unclassified with Q = 0")]
+    public void ClassifyReads_EmptyOrShort_Unclassified()
+    {
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int> { ["AAAA"] = 100 };
+
+        var empty = ClassifyOne("", db, t);
+        var shortRead = ClassifyOne("AAA", db, t); // shorter than k=4
+
+        Assert.Multiple(() =>
         {
-            ("read1", "ATGCATGCATGCATGCATGC"),
-            ("read2", "GCTAGCTAGCTAGCTAGCTAG"),
-            ("read3", "AAAAAAAAAAAAAAAAAAAA") // No match
+            Assert.That(empty.TaxonId, Is.EqualTo(TaxonomyTree.RootId));
+            Assert.That(empty.TotalKmers, Is.EqualTo(0));
+            Assert.That(shortRead.TaxonId, Is.EqualTo(TaxonomyTree.RootId));
+            Assert.That(shortRead.TotalKmers, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    [Description("Ambiguous k-mers are excluded from Q (Kraken: only non-ambiguous k-mers are queried)")]
+    public void ClassifyReads_AmbiguousKmers_ExcludedFromQ()
+    {
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int> { ["AAAA"] = 100 };
+        // "NNNNNNN": every window contains N → Q = 0 → unclassified.
+        var r = ClassifyOne("NNNNNNN", db, t);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.TotalKmers, Is.EqualTo(0), "no non-ambiguous k-mers queried");
+            Assert.That(r.TaxonId, Is.EqualTo(TaxonomyTree.RootId));
+        });
+    }
+
+    [Test]
+    [Description("Canonical lookup: a read window's reverse complement matches a self-canonical DB key")]
+    public void ClassifyReads_CanonicalLookup_MatchesReverseComplement()
+    {
+        var t = BuildTaxonomy();
+        // DB key AACC (self-canonical; its reverse complement is GGTT) → E.coli(100).
+        // Read "AGGTT" windows: AGGT (canon ACCT, not in DB), GGTT (canon AACC → 100).
+        // The read contains no literal "AACC" — the match is via canonicalization of GGTT. Q=2.
+        var db = new Dictionary<string, int> { ["AACC"] = 100 };
+        var r = ClassifyOne("AGGTT", db, t);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.TaxonId, Is.EqualTo(100), "RC window GGTT canonicalizes to DB key AACC");
+            Assert.That(r.TotalKmers, Is.EqualTo(2));
+            Assert.That(r.MatchedKmers, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    [Description("Output count equals input read count, in order")]
+    public void ClassifyReads_OutputCountAndOrder_Preserved()
+    {
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int> { ["AAAA"] = 100 };
+        var reads = new[]
+        {
+            ("read1", "AAAACAA"),
+            ("read2", ""),
+            ("read3", "GGGGGGGG"),
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var results = MetagenomicsAnalyzer.ClassifyReads(reads, db, t, k: 4).ToList();
 
         Assert.Multiple(() =>
         {
             Assert.That(results.Count, Is.EqualTo(3));
-            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "Read1 matches Genus1 DB entry");
-            Assert.That(results[1].Kingdom, Is.EqualTo("Bacteria"), "Read2 matches Genus2 DB entry");
-            Assert.That(results[2].Kingdom, Is.EqualTo("Unclassified"), "Read3 has no DB matches");
-        });
-    }
-
-    [Test]
-    [Description("M16: Taxonomy string parsed correctly (pipe-delimited)")]
-    public void ClassifyReads_TaxonomyParsing_PipeDelimited()
-    {
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Kingdom|Phylum|Class|Order|Family|Genus|Species" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGCATGC")
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Kingdom"));
-            Assert.That(results[0].Phylum, Is.EqualTo("Phylum"));
-            Assert.That(results[0].Class, Is.EqualTo("Class"));
-            Assert.That(results[0].Order, Is.EqualTo("Order"));
-            Assert.That(results[0].Family, Is.EqualTo("Family"));
-            Assert.That(results[0].Genus, Is.EqualTo("Genus"));
-            Assert.That(results[0].Species, Is.EqualTo("Species"));
-        });
-    }
-
-    [Test]
-    [Description("M16b: Taxonomy string parsed correctly (semicolon-delimited)")]
-    public void ClassifyReads_TaxonomyParsing_SemicolonDelimited()
-    {
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Kingdom;Phylum;Class;Order;Family;Genus;Species" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGCATGC")
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Kingdom"));
-            Assert.That(results[0].Phylum, Is.EqualTo("Phylum"));
-            Assert.That(results[0].Genus, Is.EqualTo("Genus"));
-            Assert.That(results[0].Species, Is.EqualTo("Species"));
-        });
-    }
-
-    [Test]
-    [Description("S1: Mixed case input handled")]
-    public void ClassifyReads_MixedCaseInput_Handled()
-    {
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Bacteria|Test" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "atgcatgcatgcatgcatgc") // lowercase
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
-
-        // Uppercased read = "ATGCATGCATGCATGCATGC" (20bp, k=14, 7 k-mers)
-        // i=0,4: ATGCATGCATGCAT (palindromic) → match; rest don't match
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "Should classify correctly despite case");
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(2), "Should match same k-mers as uppercase input");
-        });
-    }
-
-    [Test]
-    [Description("S2: Multiple taxon matches resolves to highest count")]
-    public void ClassifyReads_MultipleTaxonMatches_ResolvesToHighestCount()
-    {
-        // First k-mer matches Taxon1, next two match Taxon2
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Bacteria|Taxon1" },
-            { "CATGCATGCATGCA", "Bacteria|Taxon2" }, // canonical of TGCATGCATGCATG
-            { "GCATGCATGCATGC", "Bacteria|Taxon2" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGC") // 16 bp → 3 k-mers
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
-
-        // Should classify to Taxon2 (2 hits) rather than Taxon1 (1 hit)
-        Assert.That(results[0].Phylum, Is.EqualTo("Taxon2"), "Should resolve to taxon with most hits");
-    }
-
-    [Test]
-    [Description("S3: ClassifyReads uses canonical k-mers for database lookup (non-palindromic k-mer)")]
-    public void ClassifyReads_CanonicalKmerLookup_MatchesReverseComplement()
-    {
-        // DB has canonical form AAAAAAAAAA (A < T, so forward is canonical).
-        // Read contains TTTTTTTTTT which canonicalizes to AAAAAAAAAA → should match.
-        const int k = 10;
-        var database = new Dictionary<string, string>
-        {
-            { "AAAAAAAAAA", "Bacteria|CanonTest" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "TTTTTTTTTTT") // 11 bp → 2 k-mers, both TTTTTTTTTT → canon AAAAAAAAAA
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Bacteria"), "RC k-mer should match canonical DB entry");
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(2), "Both k-mers should match via canonicalization");
-            Assert.That(results[0].TotalKmers, Is.EqualTo(2));
-            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(0.001));
-        });
-    }
-
-    [Test]
-    [Description("S4: Ambiguous nucleotides excluded from TotalKmers (per Kraken: Q = non-ambiguous k-mers only)")]
-    public void ClassifyReads_AmbiguousNucleotides_ExcludedFromTotalKmers()
-    {
-        // Read: ATGCATGCA N ATGCATGCAT (20 bp, N at position 9)
-        // k=10 → 11 raw k-mers, but 10 of them span the N → only 1 valid k-mer
-        // Valid k-mer at i=10: ATGCATGCAT (palindromic)
-        const int k = 10;
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCAT", "Bacteria|AmbigTest" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCANATGCATGCAT") // N at position 9
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].TotalKmers, Is.EqualTo(1),
-                "Only 1 of 11 k-mers is non-ambiguous (per Kraken: Q excludes k-mers with non-ACGT)");
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(1));
-            Assert.That(results[0].Confidence, Is.EqualTo(1.0).Within(0.001));
-        });
-    }
-
-    [Test]
-    [Description("S5: Confidence C/Q where C = k-mers supporting winning taxon only (per Kraken scoring)")]
-    public void ClassifyReads_MultiTaxon_ConfidenceUsesWinningTaxonCount()
-    {
-        // Read: ATGCATGCATGCATGCA (17 bp, k=14 → 4 k-mers)
-        // Canonical k-mers:
-        //   i=0: ATGCATGCATGCAT (palindromic) → Taxon1
-        //   i=1: TGCATGCATGCATG → canon CATGCATGCATGCA → Taxon1
-        //   i=2: GCATGCATGCATGC (palindromic) → Taxon2
-        //   i=3: CATGCATGCATGCA → Taxon1
-        // Taxon1: 3 hits, Taxon2: 1 hit → winner = Taxon1
-        // Per Kraken: C = 3 (winning taxon), Q = 4 → Confidence = 0.75
-        const int k = 14;
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Bacteria|Taxon1" },
-            { "CATGCATGCATGCA", "Bacteria|Taxon1" },
-            { "GCATGCATGCATGC", "Bacteria|Taxon2" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "ATGCATGCATGCATGCA") // 17 bp → 4 k-mers
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: k).ToList();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(results[0].Phylum, Is.EqualTo("Taxon1"), "Should classify to taxon with most hits");
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(3),
-                "C = k-mers supporting winning taxon only (not all 4 matched k-mers)");
-            Assert.That(results[0].TotalKmers, Is.EqualTo(4), "Q = all non-ambiguous k-mers");
-            Assert.That(results[0].Confidence, Is.EqualTo(0.75).Within(0.001),
-                "Confidence = C/Q = 3/4 = 0.75 per Kraken formula");
+            Assert.That(results.Select(r => r.ReadId), Is.EqualTo(new[] { "read1", "read2", "read3" }));
         });
     }
 
     #endregion
 
-    #region Invariant Tests
+    #region Invariants
 
     [Test]
-    [Description("Invariant: All outputs have valid confidence range [0, 1]")]
-    public void ClassifyReads_AllOutputs_HaveValidConfidence()
+    [Description("Invariant: confidence ∈ [0,1] for every read; MatchedKmers ≤ TotalKmers")]
+    public void ClassifyReads_Invariants_Hold()
     {
-        var database = new Dictionary<string, string>
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int>
         {
-            { "ATGCATGCATGCAT", "Bacteria|Test" }
+            ["AAAA"] = 100, ["AAAC"] = 101, ["AACA"] = 200, ["ACAA"] = 20,
         };
-        var reads = new List<(string Id, string Sequence)>
+        var reads = new[]
         {
-            ("read1", "ATGCATGCATGCATGCATGC"),
-            ("read2", "GGGGGGGGGGGGGGGGGGGG"),
-            ("read3", ""),
-            ("read4", "AT")
+            ("a", "AAAACAA"),
+            ("b", "NNNNNNN"),
+            ("c", ""),
+            ("d", "GGGGGGGG"),
         };
 
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var results = MetagenomicsAnalyzer.ClassifyReads(reads, db, t, k: 4).ToList();
 
-        foreach (var result in results)
+        foreach (var r in results)
         {
-            Assert.That(result.Confidence, Is.InRange(0.0, 1.0),
-                $"Confidence for {result.ReadId} should be in [0, 1]");
+            Assert.That(r.Confidence, Is.InRange(0.0, 1.0), $"confidence for {r.ReadId}");
+            Assert.That(r.MatchedKmers, Is.LessThanOrEqualTo(r.TotalKmers), $"C ≤ Q for {r.ReadId}");
         }
     }
 
     [Test]
-    [Description("Invariant: Unclassified reads have MatchedKmers = 0")]
-    public void ClassifyReads_UnclassifiedReads_HaveZeroMatchedKmers()
+    [Description("Invariant: unclassified reads have MatchedKmers = 0 and taxon = root")]
+    public void ClassifyReads_Unclassified_ZeroMatched()
     {
-        var database = new Dictionary<string, string>
-        {
-            { "ATGCATGCATGCAT", "Bacteria|Test" }
-        };
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("read1", "GGGGGGGGGGGGGGGGGGGG") // No matches
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int> { ["AAAA"] = 100 };
+        var r = ClassifyOne("GGGGGGGG", db, t);
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].Kingdom, Is.EqualTo("Unclassified"));
-            Assert.That(results[0].MatchedKmers, Is.EqualTo(0));
+            Assert.That(r.TaxonId, Is.EqualTo(TaxonomyTree.RootId));
+            Assert.That(r.MatchedKmers, Is.EqualTo(0));
         });
     }
 
     [Test]
-    [Description("Invariant: ReadId preserved in output")]
-    public void ClassifyReads_ReadIdPreserved()
+    [Description("Validation: null/invalid arguments are rejected")]
+    public void ClassifyReads_InvalidArguments_Throw()
     {
-        var database = new Dictionary<string, string>();
-        var reads = new List<(string Id, string Sequence)>
-        {
-            ("unique_id_123", "ATGCATGCATGCATGCATGC"),
-            ("another-id", "GCTAGCTAGCTAGCTAGCTAG")
-        };
-
-        var results = MetagenomicsAnalyzer.ClassifyReads(reads, database, k: 14).ToList();
+        var t = BuildTaxonomy();
+        var db = new Dictionary<string, int>();
+        var reads = new[] { ("r", "AAAACAA") };
 
         Assert.Multiple(() =>
         {
-            Assert.That(results[0].ReadId, Is.EqualTo("unique_id_123"));
-            Assert.That(results[1].ReadId, Is.EqualTo("another-id"));
+            Assert.Throws<System.ArgumentNullException>(() =>
+                MetagenomicsAnalyzer.ClassifyReads(null!, db, t, 4).ToList());
+            Assert.Throws<System.ArgumentNullException>(() =>
+                MetagenomicsAnalyzer.ClassifyReads(reads, null!, t, 4).ToList());
+            Assert.Throws<System.ArgumentNullException>(() =>
+                MetagenomicsAnalyzer.ClassifyReads(reads, db, null!, 4).ToList());
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                MetagenomicsAnalyzer.ClassifyReads(reads, db, t, 0).ToList());
+        });
+    }
+
+    [Test]
+    [Description("TaxonomyTree construction rejects malformed trees")]
+    public void TaxonomyTree_Construction_ValidatesShape()
+    {
+        Assert.Multiple(() =>
+        {
+            // No root.
+            Assert.Throws<System.ArgumentException>(() => new TaxonomyTree(new[]
+            {
+                new TaxonNode(2, "a", "x", 1), // parent 1 missing & not self-parented
+            }));
+            // Two roots.
+            Assert.Throws<System.ArgumentException>(() => new TaxonomyTree(new[]
+            {
+                new TaxonNode(1, "r1", "root", 1),
+                new TaxonNode(2, "r2", "root", 2),
+            }));
+            // Duplicate id.
+            Assert.Throws<System.ArgumentException>(() => new TaxonomyTree(new[]
+            {
+                new TaxonNode(1, "r", "root", 1),
+                new TaxonNode(1, "dup", "x", 1),
+            }));
         });
     }
 

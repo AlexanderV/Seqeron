@@ -161,9 +161,16 @@ public static class GcSkewCalculator
     #region AT Skew Calculation
 
     /// <summary>
-    /// Calculates AT skew for a sequence.
-    /// AT skew = (A - T) / (A + T).
+    /// Calculates AT skew for a sequence: (A - T) / (A + T).
+    /// The result lies in [-1, 1]; +1 when no T, -1 when no A. Returns 0 when the
+    /// sequence contains no A and no T (A + T = 0).
     /// </summary>
+    /// <remarks>
+    /// AT skew = (A - T) / (A + T) per Charneski et al. (2011) PLoS Genet 7(9):e1002283
+    /// and Lobry (1996) Mol Biol Evol 13(5):660-665. Only A and T are counted; all other
+    /// symbols are ignored (cf. Biopython Bio.SeqUtils.GC_skew, which ignores non-G/C bases).
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static double CalculateAtSkew(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
@@ -171,8 +178,14 @@ public static class GcSkewCalculator
     }
 
     /// <summary>
-    /// Calculates AT skew from a raw sequence string.
+    /// Calculates AT skew from a raw sequence string: (A - T) / (A + T).
+    /// Counting is case-insensitive; symbols other than A/T are ignored. Returns 0 for
+    /// null/empty input or when A + T = 0.
     /// </summary>
+    /// <remarks>
+    /// AT skew = (A - T) / (A + T) per Charneski et al. (2011) PLoS Genet 7(9):e1002283
+    /// and Lobry (1996) Mol Biol Evol 13(5):660-665.
+    /// </remarks>
     public static double CalculateAtSkew(string sequence)
     {
         if (string.IsNullOrEmpty(sequence))
@@ -187,6 +200,8 @@ public static class GcSkewCalculator
         int tCount = seq.Count(c => c == 'T');
         int total = aCount + tCount;
 
+        // (A - T) / (A + T); zero denominator (no A and no T) -> 0
+        // per Biopython GC_skew ZeroDivisionError -> 0.0 convention.
         return total > 0 ? (double)(aCount - tCount) / total : 0;
     }
 
@@ -194,37 +209,79 @@ public static class GcSkewCalculator
 
     #region Origin/Terminus Prediction
 
+    // Per-nucleotide skew increments for the cumulative skew diagram:
+    // G contributes +1, C contributes -1, A/T contribute 0.
+    // Grigoriev A (1998) Nucleic Acids Res 26(10):2286-2290; Rosalind BA1F "Minimum Skew Problem".
+    private const int GuanineSkewIncrement = +1;
+    private const int CytosineSkewIncrement = -1;
+
     /// <summary>
-    /// Predicts the origin and terminus of replication based on cumulative GC skew.
+    /// Predicts the origin and terminus of replication from the cumulative GC-skew diagram.
     /// </summary>
-    /// <param name="sequence">DNA sequence (should be complete circular genome).</param>
-    /// <param name="windowSize">Window size for analysis (default: 1000).</param>
-    /// <returns>Predicted origin and terminus positions.</returns>
-    public static ReplicationOriginPrediction PredictReplicationOrigin(
-        DnaSequence sequence,
-        int windowSize = 1000)
+    /// <remarks>
+    /// The cumulative skew Skew_i is the running difference (#G − #C) over the prefix
+    /// Genome[0..i): Skew_0 = 0 and each base updates the running total by +1 for G, −1 for C,
+    /// and 0 for A/T (Grigoriev 1998; Rosalind BA1F). The global <b>minimum</b> of this
+    /// diagram marks the replication <b>origin</b> and the global <b>maximum</b> marks the
+    /// <b>terminus</b> (Lobry 1996; Grigoriev 1998; GC-skew Wikipedia citing both). Positions
+    /// are 0-based prefix indices i ∈ [0, n], so position i refers to the boundary <i>before</i>
+    /// base i, matching the Rosalind BA1F convention (its sample returns 53 and 97). When
+    /// several positions tie for the extreme value, the first (smallest index) is reported.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence (typically a complete bacterial chromosome).</param>
+    /// <returns>Predicted origin and terminus positions and their cumulative skew values.
+    /// <see cref="ReplicationOriginPrediction.IsSignificant"/> is true when the diagram has a
+    /// non-zero amplitude (max &gt; min), i.e. a detectable strand-composition asymmetry.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(DnaSequence sequence)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return PredictReplicationOriginCore(sequence.Sequence);
+    }
 
-        var cumulativePoints = CalculateCumulativeGcSkewCore(sequence.Sequence, windowSize).ToList();
-
-        if (cumulativePoints.Count == 0)
-        {
+    /// <summary>
+    /// Predicts the origin and terminus of replication from the cumulative GC-skew diagram of a
+    /// raw sequence string. Counting is case-insensitive; only G and C affect the skew.
+    /// Returns a zero prediction with <c>IsSignificant = false</c> for null/empty input.
+    /// </summary>
+    public static ReplicationOriginPrediction PredictReplicationOrigin(string sequence)
+    {
+        if (string.IsNullOrEmpty(sequence))
             return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        return PredictReplicationOriginCore(sequence.ToUpperInvariant());
+    }
+
+    private static ReplicationOriginPrediction PredictReplicationOriginCore(string seq)
+    {
+        if (seq.Length == 0)
+            return new ReplicationOriginPrediction(0, 0, 0, 0, false);
+
+        // Build the cumulative skew diagram and track its first global min/max prefix index.
+        int cumulative = 0;          // Skew_0 = 0
+        int minSkew = 0, maxSkew = 0;
+        int minPos = 0, maxPos = 0;
+
+        for (int i = 0; i < seq.Length; i++)
+        {
+            char c = seq[i];
+            if (c == 'G') cumulative += GuanineSkewIncrement;
+            else if (c == 'C') cumulative += CytosineSkewIncrement;
+            // A, T and any other symbol leave the cumulative skew unchanged.
+
+            int prefixIndex = i + 1; // Skew_{i+1} is defined after consuming base i.
+            if (cumulative < minSkew) { minSkew = cumulative; minPos = prefixIndex; }
+            if (cumulative > maxSkew) { maxSkew = cumulative; maxPos = prefixIndex; }
         }
 
-        // Find minimum (origin) and maximum (terminus)
-        var minPoint = cumulativePoints.MinBy(p => p.CumulativeGcSkew);
-        var maxPoint = cumulativePoints.MaxBy(p => p.CumulativeGcSkew);
-
-        double skewAmplitude = maxPoint!.CumulativeGcSkew - minPoint!.CumulativeGcSkew;
-        bool isSignificant = Math.Abs(skewAmplitude) > cumulativePoints.Count * 0.01;
+        // Amplitude > 0 means the strands differ in G/C composition (a detectable origin signal).
+        bool isSignificant = maxSkew > minSkew;
 
         return new ReplicationOriginPrediction(
-            PredictedOrigin: minPoint.Position,
-            PredictedTerminus: maxPoint.Position,
-            OriginSkew: minPoint.CumulativeGcSkew,
-            TerminusSkew: maxPoint.CumulativeGcSkew,
+            PredictedOrigin: minPos,
+            PredictedTerminus: maxPos,
+            OriginSkew: minSkew,
+            TerminusSkew: maxSkew,
             IsSignificant: isSignificant);
     }
 
@@ -233,21 +290,57 @@ public static class GcSkewCalculator
     #region Comprehensive GC Analysis
 
     /// <summary>
-    /// Gets comprehensive GC analysis including skew, content, and variability.
+    /// Gets comprehensive GC analysis including overall GC content, GC skew, AT skew, sliding-window
+    /// GC-skew/GC-content profiles, and the compositional variability of those windows.
     /// </summary>
+    /// <remarks>
+    /// Combines the per-metric definitions used elsewhere in this class:
+    /// GC content = (G+C)/(A+T+G+C)·100 (Madigan &amp; Martinko, <i>Brock Biology of Microorganisms</i>,
+    /// via Wikipedia "GC-content"); GC skew = (G−C)/(G+C) and AT skew = (A−T)/(A+T) (Lobry 1996;
+    /// Charneski et al. 2011). "Variability" is the <b>population</b> variance σ² = Σ(xᵢ−μ)²/N of the
+    /// per-window values (the windows form the complete population for this sequence; cf. the
+    /// population-variance definition Σ(x−μ)²/N). When the sequence is shorter than the window no full
+    /// window exists, so the windowed lists are empty and both window-derived variances are 0; the
+    /// overall scalar metrics are still computed over the whole sequence.
+    /// </remarks>
+    /// <param name="sequence">DNA sequence.</param>
+    /// <param name="windowSize">Sliding-window length for the profiles (default: 1000).</param>
+    /// <param name="stepSize">Step between window starts (default: 100).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
     public static GcAnalysisResult AnalyzeGcContent(
         DnaSequence sequence,
         int windowSize = 1000,
         int stepSize = 100)
     {
         ArgumentNullException.ThrowIfNull(sequence);
+        return AnalyzeGcContentCore(sequence.Sequence, windowSize, stepSize);
+    }
 
-        var windowedSkew = CalculateWindowedGcSkewCore(sequence.Sequence, windowSize, stepSize).ToList();
-        var windowedContent = CalculateWindowedGcContentCore(sequence.Sequence, windowSize, stepSize).ToList();
+    /// <summary>
+    /// Gets comprehensive GC analysis from a raw sequence string. Counting is case-insensitive; only
+    /// A/T/G/C contribute to the metrics, other symbols are ignored. Returns a zero result with empty
+    /// windowed profiles for null/empty input.
+    /// </summary>
+    /// <remarks>See <see cref="AnalyzeGcContent(DnaSequence,int,int)"/> for the formulas and conventions.</remarks>
+    public static GcAnalysisResult AnalyzeGcContent(
+        string sequence,
+        int windowSize = 1000,
+        int stepSize = 100)
+    {
+        if (string.IsNullOrEmpty(sequence))
+            return new GcAnalysisResult(0, 0, 0, 0, 0, Array.Empty<GcSkewPoint>(), Array.Empty<GcContentPoint>(), 0);
 
-        double overallGcContent = CalculateGcContent(sequence.Sequence);
-        double overallGcSkew = CalculateGcSkewCore(sequence.Sequence);
-        double overallAtSkew = CalculateAtSkewCore(sequence.Sequence);
+        return AnalyzeGcContentCore(sequence.ToUpperInvariant(), windowSize, stepSize);
+    }
+
+    private static GcAnalysisResult AnalyzeGcContentCore(string seq, int windowSize, int stepSize)
+    {
+        var windowedSkew = CalculateWindowedGcSkewCore(seq, windowSize, stepSize).ToList();
+        var windowedContent = CalculateWindowedGcContentCore(seq, windowSize, stepSize).ToList();
+
+        double overallGcContent = CalculateGcContent(seq);
+        double overallGcSkew = CalculateGcSkewCore(seq);
+        double overallAtSkew = CalculateAtSkewCore(seq);
 
         double gcContentVariance = windowedContent.Count > 0
             ? CalculateVariance(windowedContent.Select(w => w.GcContent).ToList())
@@ -265,7 +358,7 @@ public static class GcSkewCalculator
             GcSkewVariance: gcSkewVariance,
             WindowedGcSkew: windowedSkew,
             WindowedGcContent: windowedContent,
-            SequenceLength: sequence.Length);
+            SequenceLength: seq.Length);
     }
 
     private static IEnumerable<GcContentPoint> CalculateWindowedGcContentCore(
@@ -286,13 +379,20 @@ public static class GcSkewCalculator
         }
     }
 
+    // GC content as a percentage of all bases: GC% = (G+C)/(A+T+G+C)·100
+    // per Madigan & Martinko, Brock Biology of Microorganisms (via Wikipedia "GC-content").
+    private const double PercentScale = 100.0;
+
     private static double CalculateGcContent(string seq)
     {
         if (string.IsNullOrEmpty(seq)) return 0;
         int gcCount = seq.Count(c => c is 'G' or 'C');
-        return (double)gcCount / seq.Length * 100;
+        return (double)gcCount / seq.Length * PercentScale;
     }
 
+    // Population variance σ² = Σ(xᵢ−μ)²/N (division by N, not Bessel-corrected N−1):
+    // the windows are the complete population for this sequence. Population-variance definition
+    // Σ(x−μ)²/N (Cuemath "Population Variance"; worked example {12,13,12,14,19} -> 6.8).
     private static double CalculateVariance(IList<double> values)
     {
         if (values.Count == 0) return 0;

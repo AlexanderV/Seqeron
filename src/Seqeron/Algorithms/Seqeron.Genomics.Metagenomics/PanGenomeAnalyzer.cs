@@ -65,13 +65,33 @@ public static class PanGenomeAnalyzer
         int PresentGenes);
 
     /// <summary>
-    /// Result of heaps law fitting for pan-genome size prediction.
+    /// Result of fitting Heaps' law to the pan-genome new-gene-discovery curve
+    /// (Tettelin et al., 2008; micropan <c>heaps()</c>). The fitted model is
+    /// <c>n(N) = Intercept · N^(-Alpha)</c>, the number of <em>new</em> gene clusters
+    /// contributed by the N-th genome.
     /// </summary>
+    /// <param name="Intercept">
+    /// The Heaps' law intercept K (micropan "Intercept" parameter), constrained to
+    /// [0, 10000] per the micropan <c>heaps()</c> reference implementation.
+    /// </param>
+    /// <param name="Alpha">
+    /// The Heaps' law decay exponent α (micropan "alpha" parameter), constrained to
+    /// [0, 2]. Per Tettelin et al. (2008) the pan-genome is OPEN when α &lt; 1 and
+    /// CLOSED when α &gt; 1.
+    /// </param>
+    /// <param name="IsOpen">
+    /// <c>true</c> when α &lt; 1 (open pan-genome), otherwise <c>false</c>
+    /// (Tettelin et al., 2008).
+    /// </param>
+    /// <param name="PredictNewGenes">
+    /// Predictor n(N) = Intercept · N^(-Alpha): the expected number of new gene
+    /// clusters added by the N-th genome.
+    /// </param>
     public readonly record struct HeapsLawFit(
-        double K,
-        double Gamma,
-        double RSquared,
-        Func<int, double> PredictPanGenomeSize);
+        double Intercept,
+        double Alpha,
+        bool IsOpen,
+        Func<int, double> PredictNewGenes);
 
     #endregion
 
@@ -99,7 +119,6 @@ public static class PanGenomeAnalyzer
         var clusters = ClusterGenes(genomes, identityThreshold).ToList();
 
         int totalGenomes = genomes.Count;
-        int coreThreshold = (int)(totalGenomes * coreFraction);
 
         var coreGenes = new List<string>();
         var accessoryGenes = new List<string>();
@@ -107,7 +126,12 @@ public static class PanGenomeAnalyzer
 
         foreach (var cluster in clusters)
         {
-            if (cluster.GenomeCount >= coreThreshold)
+            // Roary core definition (Page et al., 2015): "a gene being in at least 99% of
+            // samples", i.e. occupancy/N >= coreFraction. This is a fractional (percentage)
+            // test, NOT floor(coreFraction*N): a 2-of-3 (66.7%) cluster is NOT core under a
+            // 0.99 threshold. A small epsilon absorbs the exact-boundary float round-off
+            // (e.g. 0.99*100 = 98.999...).
+            if (IsCoreOccupancy(cluster.GenomeCount, totalGenomes, coreFraction))
             {
                 coreGenes.Add(cluster.ClusterId);
             }
@@ -147,72 +171,129 @@ public static class PanGenomeAnalyzer
         return new PanGenomeResult(coreGenes, accessoryGenes, uniqueGenes, genomeToGenes, stats);
     }
 
+    // Float tolerance for the fractional core-occupancy boundary (absorbs e.g. the
+    // 0.99*100 = 98.99999999999999 round-off so a 99/100 cluster is correctly core).
+    private const double CoreOccupancyEpsilon = 1e-9;
+
     /// <summary>
-    /// Clusters genes into ortholog groups based on sequence similarity.
+    /// Roary core-membership test (Page et al., 2015): a gene cluster is core when it is
+    /// present in at least <paramref name="coreFraction"/> of the genomes — that is, when
+    /// its occupancy fraction <c>occupancy / totalGenomes &gt;= coreFraction</c>. This is a
+    /// fractional ("at least 99% of samples") test, not <c>floor(coreFraction*totalGenomes)</c>.
     /// </summary>
+    private static bool IsCoreOccupancy(int occupancy, int totalGenomes, double coreFraction)
+    {
+        if (totalGenomes <= 0)
+            return false;
+        return (double)occupancy / totalGenomes >= coreFraction - CoreOccupancyEpsilon;
+    }
+
+    // CD-HIT default sequence-identity clustering threshold (-c option, default 0.9):
+    // "sequence identity threshold, default 0.9" (Li & Godzik 2006; CD-HIT User's Guide).
+    private const double DefaultIdentityThreshold = 0.9;
+
+    /// <summary>
+    /// Clusters genes into ortholog (homolog) groups using the CD-HIT greedy incremental
+    /// clustering model (Li &amp; Godzik, 2006): sequences are sorted from longest to
+    /// shortest; the longest sequence becomes the representative of the first cluster, and
+    /// each remaining sequence joins the first existing representative whose global
+    /// sequence identity meets <paramref name="identityThreshold"/>, otherwise it becomes
+    /// the representative of a new cluster. Global sequence identity is the number of
+    /// identical residues in the (ungapped) alignment divided by the length of the shorter
+    /// sequence (CD-HIT "-G 1" default).
+    /// </summary>
+    /// <param name="genomes">Genome id → list of (gene id, sequence) entries.</param>
+    /// <param name="identityThreshold">
+    /// Global sequence-identity cutoff in [0,1]; a gene joins a cluster only when its
+    /// identity to that cluster's representative is &gt;= this value (CD-HIT -c, default 0.9).
+    /// </param>
     public static IEnumerable<GeneCluster> ClusterGenes(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        double identityThreshold = 0.9)
+        double identityThreshold = DefaultIdentityThreshold)
     {
-        var allGenes = new List<(string GenomeId, string GeneId, string Sequence)>();
+        if (genomes == null)
+            yield break;
 
+        var allGenes = new List<(string GenomeId, string GeneId, string Sequence)>();
         foreach (var (genomeId, genes) in genomes)
         {
+            if (genes == null)
+                continue;
             foreach (var (geneId, sequence) in genes)
-            {
                 allGenes.Add((genomeId, geneId, sequence));
-            }
         }
 
         if (allGenes.Count == 0)
             yield break;
 
-        var assigned = new HashSet<int>();
-        int clusterId = 1;
+        // CD-HIT: "sorts the input sequences from long to short, and processes them
+        // sequentially from the longest to the shortest." Ties are broken by original
+        // order via a stable sort so the result is deterministic.
+        var order = Enumerable.Range(0, allGenes.Count)
+            .OrderByDescending(i => allGenes[i].Sequence?.Length ?? 0)
+            .ToList();
 
-        for (int i = 0; i < allGenes.Count; i++)
+        // Each cluster keeps its representative's index plus its accumulated members.
+        var representatives = new List<int>();
+        var members = new List<List<int>>();
+
+        foreach (int idx in order)
         {
-            if (assigned.Contains(i))
-                continue;
+            string seq = allGenes[idx].Sequence ?? string.Empty;
 
-            var clusterMembers = new List<int> { i };
-            assigned.Add(i);
-
-            for (int j = i + 1; j < allGenes.Count; j++)
+            int joined = -1;
+            // "each query sequence ... is compared to the representative sequences found
+            // before it, and is classified as redundant ... if it is similar to one of the
+            // existing representative sequences." First match wins (greedy).
+            for (int c = 0; c < representatives.Count; c++)
             {
-                if (assigned.Contains(j))
-                    continue;
-
-                double identity = CalculateSequenceIdentity(allGenes[i].Sequence, allGenes[j].Sequence);
+                double identity = CalculateSequenceIdentity(seq, allGenes[representatives[c]].Sequence ?? string.Empty);
                 if (identity >= identityThreshold)
                 {
-                    clusterMembers.Add(j);
-                    assigned.Add(j);
+                    joined = c;
+                    break;
                 }
             }
 
+            if (joined >= 0)
+            {
+                members[joined].Add(idx);
+            }
+            else
+            {
+                representatives.Add(idx);
+                members.Add(new List<int> { idx });
+            }
+        }
+
+        int clusterId = 1;
+        foreach (var clusterMembers in members)
+        {
             var geneIds = clusterMembers.Select(m => allGenes[m].GeneId).ToList();
             var genomeIds = clusterMembers.Select(m => allGenes[m].GenomeId).Distinct().ToList();
 
-            // Calculate average identity within cluster
+            // Average pairwise global identity within the cluster (1.0 for singletons,
+            // which are 100% identical to themselves).
             double avgIdentity = 1.0;
             if (clusterMembers.Count > 1)
             {
-                var identities = new List<double>();
+                double sum = 0;
+                int pairs = 0;
                 for (int a = 0; a < clusterMembers.Count; a++)
                 {
                     for (int b = a + 1; b < clusterMembers.Count; b++)
                     {
-                        identities.Add(CalculateSequenceIdentity(
-                            allGenes[clusterMembers[a]].Sequence,
-                            allGenes[clusterMembers[b]].Sequence));
+                        sum += CalculateSequenceIdentity(
+                            allGenes[clusterMembers[a]].Sequence ?? string.Empty,
+                            allGenes[clusterMembers[b]].Sequence ?? string.Empty);
+                        pairs++;
                     }
                 }
-                avgIdentity = identities.Count > 0 ? identities.Average() : 1.0;
+                avgIdentity = pairs > 0 ? sum / pairs : 1.0;
             }
 
-            // Get consensus (just use first sequence for simplicity)
-            string consensus = allGenes[clusterMembers[0]].Sequence;
+            // The cluster representative (longest member, per CD-HIT) is its consensus.
+            string consensus = allGenes[clusterMembers[0]].Sequence ?? string.Empty;
 
             yield return new GeneCluster(
                 ClusterId: $"cluster_{clusterId++}",
@@ -224,35 +305,41 @@ public static class PanGenomeAnalyzer
         }
     }
 
+    /// <summary>
+    /// Computes CD-HIT global sequence identity between two sequences: the number of
+    /// identical residues in the ungapped positional alignment divided by the length of
+    /// the shorter sequence (Li &amp; Godzik, 2006; CD-HIT "-G 1" default). Two empty
+    /// sequences are defined as identical (1.0); one empty and one non-empty are 0.0.
+    /// </summary>
     private static double CalculateSequenceIdentity(string seq1, string seq2)
     {
-        if (string.IsNullOrEmpty(seq1) || string.IsNullOrEmpty(seq2))
-            return 0;
+        seq1 ??= string.Empty;
+        seq2 ??= string.Empty;
 
-        int minLen = Math.Min(seq1.Length, seq2.Length);
-        int maxLen = Math.Max(seq1.Length, seq2.Length);
+        int len1 = seq1.Length;
+        int len2 = seq2.Length;
 
-        if (maxLen == 0)
-            return 1;
+        // Two empty sequences: identical by convention (0 differences over 0 positions).
+        if (len1 == 0 && len2 == 0)
+            return 1.0;
 
-        // Quick k-mer based similarity
-        int k = 7;
-        if (minLen < k)
-            return seq1 == seq2 ? 1 : 0;
+        // One empty, one not: no shared residues -> 0% identity.
+        if (len1 == 0 || len2 == 0)
+            return 0.0;
 
-        var kmers1 = new HashSet<string>();
-        var kmers2 = new HashSet<string>();
+        int shorter = Math.Min(len1, len2);
 
-        for (int i = 0; i <= seq1.Length - k; i++)
-            kmers1.Add(seq1.Substring(i, k));
+        // Ungapped alignment: compare residues position-by-position over the shared prefix.
+        // Positions beyond the shorter length count as non-identical (no residue to match).
+        int identical = 0;
+        for (int i = 0; i < shorter; i++)
+        {
+            if (seq1[i] == seq2[i])
+                identical++;
+        }
 
-        for (int i = 0; i <= seq2.Length - k; i++)
-            kmers2.Add(seq2.Substring(i, k));
-
-        int shared = kmers1.Intersect(kmers2).Count();
-        int total = kmers1.Union(kmers2).Count();
-
-        return total > 0 ? (double)shared / total : 0;
+        // Global identity denominator is the full length of the shorter sequence.
+        return (double)identical / shorter;
     }
 
     #endregion
@@ -354,8 +441,22 @@ public static class PanGenomeAnalyzer
         return pairCount > 0 ? totalFluidity / pairCount : 0;
     }
 
+    // Heaps' law openness criterion: the number of NEW gene clusters added by the
+    // k-th genome follows a power law n_new(k) = K * k^(-alpha). The pan-genome is
+    // OPEN when alpha < 1 (new genes keep accumulating without bound) and CLOSED when
+    // alpha > 1. Per Tettelin et al. (2008) Curr Opin Microbiol 11:472, and the
+    // micropan heaps() reference implementation: "If alpha<1.0 the pan-genome is open,
+    // if alpha>1.0 it is closed."
+    private const double HeapsOpennessThreshold = 1.0;
+
+    // The decay exponent is only meaningful once several genomes have accumulated; the
+    // new-gene curve is degenerate below this many genomes (Tettelin 2008; micropan).
+    private const int MinGenomesForOpennessFit = 3;
+
     /// <summary>
-    /// Determines if pan-genome is open or closed based on gene accumulation.
+    /// Determines whether the pan-genome is open or closed using the Heaps' law decay
+    /// exponent of newly observed gene clusters per added genome (Tettelin et al., 2008).
+    /// Open when the decay exponent alpha &lt; 1, closed when alpha &gt; 1.
     /// </summary>
     private static PanGenomeType DeterminePanGenomeType(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
@@ -363,80 +464,314 @@ public static class PanGenomeAnalyzer
     {
         var clusterList = clusters.ToList();
 
-        // Simple heuristic: if unique genes > 10% of total, likely open
-        int uniqueGenes = clusterList.Count(c => c.GenomeCount == 1);
-        int totalGenes = clusterList.Count;
+        // Below the minimum count the decay exponent cannot be estimated; the conservative
+        // default is Closed (no evidence of unbounded growth).
+        if (genomes.Count < MinGenomesForOpennessFit || clusterList.Count == 0)
+            return PanGenomeType.Closed;
 
-        double uniqueFraction = totalGenes > 0 ? (double)uniqueGenes / totalGenes : 0;
+        double alpha = EstimateHeapsDecayExponent(genomes, clusterList);
 
-        return uniqueFraction > 0.1 ? PanGenomeType.Open : PanGenomeType.Closed;
+        // alpha == threshold is the boundary; treat the non-open boundary as Closed.
+        return alpha < HeapsOpennessThreshold ? PanGenomeType.Open : PanGenomeType.Closed;
     }
 
     /// <summary>
-    /// Fits Heaps' law to predict pan-genome size growth.
+    /// Estimates the Heaps' law decay exponent alpha of the new-gene-cluster curve
+    /// n_new(k) = K * k^(-alpha) by log-log least-squares regression over the cumulative
+    /// gene-cluster accumulation as genomes are added in dictionary order.
     /// </summary>
-    public static HeapsLawFit FitHeapsLaw(
+    private static double EstimateHeapsDecayExponent(
         IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
-        double identityThreshold = 0.9,
-        int permutations = 10)
+        IReadOnlyList<GeneCluster> clusterList)
     {
-        if (genomes.Count < 3)
+        // Map each genome to the set of cluster IDs it contains.
+        var genomeToClusters = new Dictionary<string, HashSet<string>>();
+        foreach (var genomeId in genomes.Keys)
+            genomeToClusters[genomeId] = new HashSet<string>();
+
+        foreach (var cluster in clusterList)
         {
-            return new HeapsLawFit(0, 0, 0, n => 0);
-        }
-
-        var genomeList = genomes.Keys.ToList();
-        var dataPoints = new List<(int N, double PanSize)>();
-        var random = new Random(42);
-
-        for (int perm = 0; perm < permutations; perm++)
-        {
-            var shuffled = genomeList.OrderBy(_ => random.Next()).ToList();
-            var accumulatedGenes = new HashSet<string>();
-
-            for (int i = 0; i < shuffled.Count; i++)
+            foreach (var genomeId in cluster.GenomeIds)
             {
-                var genomeGenes = genomes[shuffled[i]];
-
-                foreach (var (geneId, sequence) in genomeGenes)
-                {
-                    bool isNew = true;
-                    foreach (var existingGene in accumulatedGenes.ToList())
-                    {
-                        // Simplified: just use gene ID matching
-                        if (geneId == existingGene)
-                        {
-                            isNew = false;
-                            break;
-                        }
-                    }
-
-                    if (isNew)
-                        accumulatedGenes.Add(geneId);
-                }
-
-                dataPoints.Add((i + 1, accumulatedGenes.Count));
+                if (genomeToClusters.TryGetValue(genomeId, out var set))
+                    set.Add(cluster.ClusterId);
             }
         }
 
-        // Average pan-genome size at each N
-        var avgSizes = dataPoints
-            .GroupBy(p => p.N)
-            .ToDictionary(g => g.Key, g => g.Average(p => p.PanSize));
+        // Accumulate genomes in order; record the count of NEW clusters contributed at
+        // each step k = 2, 3, ... (the first genome has no "new" baseline to compare).
+        var accumulated = new HashSet<string>();
+        var logK = new List<double>();
+        var logNew = new List<double>();
 
-        // Fit Heaps' law: P(N) = K * N^gamma
-        // Using log-linear regression: log(P) = log(K) + gamma * log(N)
-        var logN = avgSizes.Keys.Select(n => Math.Log(n)).ToList();
-        var logP = avgSizes.Values.Select(p => Math.Log(Math.Max(p, 1))).ToList();
+        int k = 0;
+        foreach (var genomeId in genomes.Keys)
+        {
+            k++;
+            int before = accumulated.Count;
+            accumulated.UnionWith(genomeToClusters[genomeId]);
+            int newClusters = accumulated.Count - before;
 
-        var (slope, intercept, rSquared) = LinearRegression(logN, logP);
+            // Only positions k >= 2 are part of the decay curve; log requires positive
+            // new-cluster counts, so zero-novelty steps are mapped to the minimum (1) to
+            // keep the curve defined (cumulative curve flattening drives alpha upward).
+            if (k >= 2)
+            {
+                logK.Add(Math.Log(k));
+                logNew.Add(Math.Log(Math.Max(newClusters, 1)));
+            }
+        }
 
-        double gamma = slope;
-        double k = Math.Exp(intercept);
+        if (logK.Count < 2)
+            return HeapsOpennessThreshold; // not enough points to fit -> boundary (Closed)
 
-        Func<int, double> predictor = n => k * Math.Pow(n, gamma);
+        // log(n_new) = log(K) - alpha * log(k); slope of the regression is -alpha.
+        var (slope, _, _) = LinearRegression(logK, logNew);
+        return -slope;
+    }
 
-        return new HeapsLawFit(k, gamma, rSquared, predictor);
+    // micropan heaps() classification rule (Tettelin et al., 2008): the pan-genome is
+    // OPEN when the decay exponent alpha < 1 and CLOSED when alpha > 1.
+    private const double HeapsAlphaOpenThreshold = 1.0;
+
+    // Lower/upper bounds on the fitted parameters, copied verbatim from the micropan
+    // heaps() reference implementation:
+    //   optim(p0, objectFun, ..., lower = c(0, 0), upper = c(10000, 2))
+    // i.e. Intercept K in [0, 10000] and decay exponent alpha in [0, 2].
+    private const double HeapsInterceptLowerBound = 0.0;
+    private const double HeapsInterceptUpperBound = 10000.0;
+    private const double HeapsAlphaLowerBound = 0.0;
+    private const double HeapsAlphaUpperBound = 2.0;
+
+    // Heaps' law is fit to new-gene counts at genome indices N = 2, 3, ... ; the first
+    // genome has no predecessor against which "new" can be defined (micropan: x = 2:ng).
+    private const int HeapsFirstFittedIndex = 2;
+
+    // micropan default number of random genome-order permutations (heaps() n.perm
+    // default = 100; "The default value of 100 is certainly a minimum.").
+    private const int DefaultHeapsPermutations = 100;
+
+    // Deterministic RNG seed so the permutation-averaged fit is reproducible.
+    private const int HeapsPermutationSeed = 42;
+
+    /// <summary>
+    /// Fits Heaps' law to the pan-genome new-gene-discovery curve from a gene
+    /// presence/absence matrix, following the micropan <c>heaps()</c> reference
+    /// implementation (Tettelin et al., 2008). For each of <paramref name="permutations"/>
+    /// random genome orderings, the number of new gene clusters contributed by the N-th
+    /// genome is recorded; the model <c>n(N) = K · N^(-alpha)</c> is then fit to the pooled
+    /// (N, new-gene-count) points for N = 2..G by minimizing
+    /// <c>J = sqrt(Σ (y − K·x^(−alpha))²) / |x|</c> over K ∈ [0,10000], alpha ∈ [0,2].
+    /// </summary>
+    /// <param name="matrix">
+    /// Gene presence/absence rows (one per genome), e.g. from
+    /// <see cref="CreatePresenceAbsenceMatrix"/>. A cluster is present in a genome when its
+    /// entry in <see cref="GenePresenceRow.GenePresence"/> is <c>true</c>.
+    /// </param>
+    /// <param name="permutations">Number of random genome-order permutations to pool over
+    /// (micropan n.perm; default 100).</param>
+    /// <returns>The fitted Intercept (K), decay exponent (alpha), open/closed flag, and a
+    /// predictor for new genes at the N-th genome.</returns>
+    public static HeapsLawFit FitHeapsLaw(
+        IEnumerable<GenePresenceRow> matrix,
+        int permutations = DefaultHeapsPermutations)
+    {
+        var rows = matrix?.ToList() ?? new List<GenePresenceRow>();
+        return FitHeapsLawFromOrderings(BuildPermutedNewGeneCurves(rows, permutations));
+    }
+
+    /// <summary>
+    /// Convenience overload that clusters <paramref name="genomes"/> into ortholog groups,
+    /// builds the presence/absence matrix, and fits Heaps' law (micropan <c>heaps()</c>;
+    /// Tettelin et al., 2008). See <see cref="FitHeapsLaw(IEnumerable{GenePresenceRow}, int)"/>.
+    /// </summary>
+    public static HeapsLawFit FitHeapsLaw(
+        IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
+        double identityThreshold = DefaultIdentityThreshold,
+        int permutations = DefaultHeapsPermutations)
+    {
+        if (genomes == null || genomes.Count == 0)
+            return EmptyHeapsFit();
+
+        var clusters = ClusterGenes(genomes, identityThreshold).ToList();
+        var matrix = CreatePresenceAbsenceMatrix(genomes, clusters);
+        return FitHeapsLaw(matrix, permutations);
+    }
+
+    /// <summary>
+    /// Builds, for each random genome ordering, the per-step count of newly observed gene
+    /// clusters. A cluster is "new" at ordering position i (1-based, i &gt;= 2) when it is
+    /// present at position i but absent in all positions 1..i-1 — micropan's
+    /// <c>rowSums((cm == 1)[2:ng,] &amp; (cm == 0)[1:(ng-1),])</c> over the binary matrix.
+    /// </summary>
+    private static List<int[]> BuildPermutedNewGeneCurves(
+        IReadOnlyList<GenePresenceRow> rows, int permutations)
+    {
+        var curves = new List<int[]>();
+        int genomeCount = rows.Count;
+        if (genomeCount < HeapsFirstFittedIndex)
+            return curves;
+
+        // Stable cluster ordering across all rows (the matrix columns).
+        var clusterIds = rows
+            .SelectMany(r => r.GenePresence.Keys)
+            .Distinct()
+            .ToList();
+        if (clusterIds.Count == 0)
+            return curves;
+
+        // Binary presence vector per genome (micropan: pan.matrix[pan.matrix > 0] <- 1).
+        var presence = rows
+            .Select(r => clusterIds
+                .Select(c => r.GenePresence.TryGetValue(c, out bool p) && p)
+                .ToArray())
+            .ToArray();
+
+        int permCount = Math.Max(1, permutations);
+        var random = new Random(HeapsPermutationSeed);
+
+        for (int perm = 0; perm < permCount; perm++)
+        {
+            int[] order = Enumerable.Range(0, genomeCount).ToArray();
+            // First permutation uses the natural input order so a single-permutation,
+            // fixed-order fit is exactly reproducible; the rest are Fisher-Yates shuffles.
+            if (perm > 0)
+            {
+                for (int i = genomeCount - 1; i > 0; i--)
+                {
+                    int j = random.Next(i + 1);
+                    (order[i], order[j]) = (order[j], order[i]);
+                }
+            }
+
+            var seen = new bool[clusterIds.Count];
+            // Seed "seen" with the first genome; new counts are recorded from position 2.
+            for (int c = 0; c < clusterIds.Count; c++)
+                seen[c] = presence[order[0]][c];
+
+            var newCounts = new int[genomeCount - 1]; // for positions 2..G
+            for (int pos = 1; pos < genomeCount; pos++)
+            {
+                int added = 0;
+                var pv = presence[order[pos]];
+                for (int c = 0; c < clusterIds.Count; c++)
+                {
+                    if (pv[c] && !seen[c])
+                    {
+                        seen[c] = true;
+                        added++;
+                    }
+                }
+                newCounts[pos - 1] = added;
+            }
+            curves.Add(newCounts);
+        }
+
+        return curves;
+    }
+
+    /// <summary>
+    /// Fits n(N) = K · N^(-alpha) to the pooled (N, new-gene-count) points and returns the
+    /// micropan-style result. Pooling and the objective follow micropan <c>heaps()</c>:
+    /// x = rep(2:ng, n.perm), y = stacked new-gene counts.
+    /// </summary>
+    private static HeapsLawFit FitHeapsLawFromOrderings(List<int[]> curves)
+    {
+        if (curves.Count == 0)
+            return EmptyHeapsFit();
+
+        var x = new List<double>();
+        var y = new List<double>();
+        foreach (var curve in curves)
+        {
+            for (int k = 0; k < curve.Length; k++)
+            {
+                x.Add(HeapsFirstFittedIndex + k); // genome index N = 2, 3, ...
+                y.Add(curve[k]);
+            }
+        }
+
+        if (x.Count == 0)
+            return EmptyHeapsFit();
+
+        // micropan start values: p0 = c(mean(y at x==2), 1).
+        double meanAtFirst = y.Where((_, i) => x[i] == HeapsFirstFittedIndex).DefaultIfEmpty(0).Average();
+        double k0 = Math.Clamp(meanAtFirst, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
+
+        var (intercept, alpha) = MinimizeHeapsObjective(x, y, k0, HeapsAlphaOpenThreshold);
+
+        bool isOpen = alpha < HeapsAlphaOpenThreshold;
+        Func<int, double> predictor = n => intercept * Math.Pow(n, -alpha);
+        return new HeapsLawFit(intercept, alpha, isOpen, predictor);
+    }
+
+    private static HeapsLawFit EmptyHeapsFit()
+    {
+        // Below 2 genomes (or no clusters) the new-gene curve is undefined: report a
+        // degenerate, closed fit with a zero predictor rather than inventing parameters.
+        return new HeapsLawFit(0, 0, IsOpen: false, n => 0);
+    }
+
+    /// <summary>
+    /// Heaps' law least-squares objective from micropan heaps():
+    /// <c>J(K, alpha) = sqrt(Σ (y − K·x^(−alpha))²) / |x|</c>.
+    /// </summary>
+    private static double HeapsObjective(IReadOnlyList<double> x, IReadOnlyList<double> y,
+        double k, double alpha)
+    {
+        double ss = 0;
+        for (int i = 0; i < x.Count; i++)
+        {
+            double yHat = k * Math.Pow(x[i], -alpha);
+            double r = y[i] - yHat;
+            ss += r * r;
+        }
+        return Math.Sqrt(ss) / x.Count;
+    }
+
+    /// <summary>
+    /// Bounded minimization of the Heaps' law objective over K ∈ [0,10000], alpha ∈ [0,2]
+    /// (the micropan optim() bounds). Deterministic coordinate descent with geometric
+    /// step refinement from the micropan start point; for data lying exactly on a power
+    /// curve within the bounds it recovers the analytic (K, alpha) to machine precision.
+    /// </summary>
+    private static (double K, double Alpha) MinimizeHeapsObjective(
+        IReadOnlyList<double> x, IReadOnlyList<double> y, double k0, double alpha0)
+    {
+        double k = Math.Clamp(k0, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
+        double alpha = Math.Clamp(alpha0, HeapsAlphaLowerBound, HeapsAlphaUpperBound);
+        double best = HeapsObjective(x, y, k, alpha);
+
+        double kStep = Math.Max(k, 1.0);
+        double alphaStep = HeapsAlphaUpperBound;
+        const double minStep = 1e-12;
+        const int maxIterations = 200_000;
+
+        int iterations = 0;
+        while ((kStep > minStep || alphaStep > minStep) && iterations < maxIterations)
+        {
+            bool improved = false;
+            foreach (double dk in new[] { kStep, -kStep })
+            {
+                double nk = Math.Clamp(k + dk, HeapsInterceptLowerBound, HeapsInterceptUpperBound);
+                double j = HeapsObjective(x, y, nk, alpha);
+                if (j < best) { best = j; k = nk; improved = true; }
+            }
+            foreach (double da in new[] { alphaStep, -alphaStep })
+            {
+                double na = Math.Clamp(alpha + da, HeapsAlphaLowerBound, HeapsAlphaUpperBound);
+                double j = HeapsObjective(x, y, k, na);
+                if (j < best) { best = j; alpha = na; improved = true; }
+            }
+            if (!improved)
+            {
+                kStep *= 0.5;
+                alphaStep *= 0.5;
+            }
+            iterations++;
+        }
+
+        return (k, alpha);
     }
 
     private static (double Slope, double Intercept, double RSquared) LinearRegression(
@@ -477,8 +812,10 @@ public static class PanGenomeAnalyzer
         int totalGenomes,
         double threshold = 0.99)
     {
-        int minGenomes = (int)(totalGenomes * threshold);
-        return clusters.Where(c => c.GenomeCount >= minGenomes);
+        // Roary core definition (Page et al., 2015): present in at least `threshold` of the
+        // genomes, i.e. occupancy/totalGenomes >= threshold (a fractional test, not
+        // floor(threshold*totalGenomes)).
+        return clusters.Where(c => IsCoreOccupancy(c.GenomeCount, totalGenomes, threshold));
     }
 
     /// <summary>
@@ -561,20 +898,148 @@ public static class PanGenomeAnalyzer
 
     #region Phylogenetic Marker Selection
 
+    // panX default number of markers to retain; chosen by the caller. micropan/panX rank
+    // single-copy core genes by phylogenetic informativeness and take the top-scoring set.
+    private const int DefaultMaxMarkers = 100;
+
+    // A column is parsimony-informative only when at least two distinct states each occur
+    // in at least this many sequences (Zvelebil & Baum 2008, "Understanding Bioinformatics";
+    // via Wikipedia "Informative site"): "at least two different character states and each
+    // of those states occurs in at least two of the sequences."
+    private const int MinSequencesPerState = 2;
+
+    // A parsimony-informative column needs at least this many distinct character states
+    // (Zvelebil & Baum 2008): monomorphic columns carry no phylogenetic signal.
+    private const int MinDistinctStates = 2;
+
+    // A phylogenetic marker must contain at least this many parsimony-informative sites;
+    // panX "extracts all variable positions" — a fully conserved (0-PIS) core gene carries
+    // no phylogenetic signal and is not a usable marker (Ding et al. 2018, panX).
+    private const int MinInformativeSites = 1;
+
     /// <summary>
-    /// Selects informative markers from core genes for phylogenetic analysis.
+    /// Counts the parsimony-informative sites in a multiple sequence alignment. A column
+    /// (position) is parsimony-informative when it has at least two different character
+    /// states and each of at least two of those states occurs in at least two sequences
+    /// (Zvelebil &amp; Baum, <em>Understanding Bioinformatics</em>, 2008). Monomorphic
+    /// columns (one state) and singleton columns (a variant appearing in only one sequence)
+    /// are not informative because they imply the same number of changes on every topology.
     /// </summary>
-    public static IEnumerable<GeneCluster> SelectPhylogeneticMarkers(
-        IEnumerable<GeneCluster> coreClusters,
-        int maxMarkers = 100,
-        double minIdentity = 0.7,
-        double maxIdentity = 0.99)
+    /// <param name="alignedSequences">
+    /// Aligned sequences (rows) of equal length; column <c>j</c> is the <c>j</c>-th
+    /// character of every sequence. Fewer than two rows, empty rows, null, or rows of
+    /// unequal length yield 0 (no common alignment over which columns can be compared).
+    /// </param>
+    /// <returns>The number of parsimony-informative columns (0 ≤ result ≤ alignment length).</returns>
+    public static int CountParsimonyInformativeSites(IReadOnlyList<string> alignedSequences)
     {
-        return coreClusters
-            .Where(c => c.AverageIdentity >= minIdentity && c.AverageIdentity <= maxIdentity)
-            .OrderByDescending(c => c.ConsensusSequence.Length)
-            .ThenBy(c => c.AverageIdentity)
-            .Take(maxMarkers);
+        if (alignedSequences == null || alignedSequences.Count < MinSequencesPerState)
+            return 0;
+
+        int length = alignedSequences[0]?.Length ?? -1;
+        if (length <= 0)
+            return 0;
+
+        // Parsimony-informative counting is only defined over aligned columns: every row
+        // must share the same length (Assumption 1 — no in-repo aligner, so unequal lengths
+        // mean "no common alignment" and contribute no countable columns).
+        foreach (var seq in alignedSequences)
+        {
+            if (seq == null || seq.Length != length)
+                return 0;
+        }
+
+        int informative = 0;
+        var stateCounts = new Dictionary<char, int>();
+
+        for (int col = 0; col < length; col++)
+        {
+            stateCounts.Clear();
+            foreach (var seq in alignedSequences)
+            {
+                char state = seq[col];
+                stateCounts[state] = stateCounts.TryGetValue(state, out int n) ? n + 1 : 1;
+            }
+
+            if (stateCounts.Count < MinDistinctStates)
+                continue; // monomorphic column
+
+            // Count distinct states that each occur in >= MinSequencesPerState rows.
+            int statesWithSupport = stateCounts.Values.Count(c => c >= MinSequencesPerState);
+
+            // Informative when at least two distinct states are each supported by >= 2 rows.
+            if (statesWithSupport >= MinDistinctStates)
+                informative++;
+        }
+
+        return informative;
+    }
+
+    /// <summary>
+    /// Selects single-copy core gene clusters as phylogenetic markers, ranked by their
+    /// number of parsimony-informative sites. A cluster qualifies as a marker when it is a
+    /// <em>single-copy core</em> cluster — present in all <paramref name="totalGenomes"/>
+    /// genomes with exactly one gene per genome (Ding et al. 2018, panX: "gene clusters in
+    /// which all strains are represented exactly once"; Page et al. 2015, Roary: paralog-
+    /// containing clusters are filtered out) — and it contains at least one parsimony-
+    /// informative site (panX extracts the variable positions; fully conserved clusters
+    /// carry no signal). Qualifying markers are returned ordered by descending parsimony-
+    /// informative-site count (most informative first), capped at <paramref name="maxMarkers"/>.
+    /// </summary>
+    /// <param name="genomes">Genome id → list of (gene id, sequence) entries, used to
+    /// recover each cluster's per-genome member sequences for parsimony scoring.</param>
+    /// <param name="coreClusters">Candidate clusters (typically the core set from
+    /// <see cref="GetCoreGeneClusters"/>).</param>
+    /// <param name="totalGenomes">Total number of genomes in the analysis; a marker must be
+    /// present in all of them with exactly one gene each.</param>
+    /// <param name="maxMarkers">Maximum number of markers to return (panX/micropan keep the
+    /// top-scoring set; default 100).</param>
+    public static IEnumerable<GeneCluster> SelectPhylogeneticMarkers(
+        IReadOnlyDictionary<string, IReadOnlyList<(string GeneId, string Sequence)>> genomes,
+        IEnumerable<GeneCluster> coreClusters,
+        int totalGenomes,
+        int maxMarkers = DefaultMaxMarkers)
+    {
+        if (genomes == null || coreClusters == null || totalGenomes <= 0 || maxMarkers <= 0)
+            return Enumerable.Empty<GeneCluster>();
+
+        // Map every gene id to its sequence for fast per-cluster member lookup.
+        var geneSequences = new Dictionary<string, string>();
+        foreach (var genes in genomes.Values)
+        {
+            if (genes == null)
+                continue;
+            foreach (var (geneId, sequence) in genes)
+                geneSequences[geneId] = sequence ?? string.Empty;
+        }
+
+        var scored = new List<(GeneCluster Cluster, int Pis)>();
+
+        foreach (var cluster in coreClusters)
+        {
+            // Single-copy core: present in every genome with exactly one gene per genome
+            // (panX "all strains represented exactly once"; Roary paralog filtering).
+            if (cluster.GenomeCount != totalGenomes)
+                continue; // not core (absent from at least one genome)
+            if (cluster.GeneIds.Count != totalGenomes)
+                continue; // a genome contributes 0 or >= 2 genes -> not single-copy (paralog)
+
+            var members = cluster.GeneIds
+                .Select(g => geneSequences.TryGetValue(g, out var s) ? s : string.Empty)
+                .ToList();
+
+            int pis = CountParsimonyInformativeSites(members);
+
+            // panX keeps only the variable (informative) markers.
+            if (pis >= MinInformativeSites)
+                scored.Add((cluster, pis));
+        }
+
+        return scored
+            .OrderByDescending(t => t.Pis)
+            .ThenBy(t => t.Cluster.ClusterId, StringComparer.Ordinal) // deterministic ties
+            .Take(maxMarkers)
+            .Select(t => t.Cluster);
     }
 
     #endregion

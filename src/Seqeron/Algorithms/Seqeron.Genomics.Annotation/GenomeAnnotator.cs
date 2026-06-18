@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Annotation;
 
@@ -241,29 +242,123 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences.
+    /// Consensus Shine-Dalgarno motifs (purine-rich, complementary to the anti-SD
+    /// 3' tail of 16S rRNA 5'-...PyACCUCCUUA-3'). Longest first so the highest score wins.
+    /// Source: Shine &amp; Dalgarno (1975) Nature 254:34-38; full consensus AGGAGG.
     /// </summary>
+    private static readonly string[] ShineDalgarnoMotifs =
+        { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+
+    /// <summary>
+    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on the FORWARD
+    /// strand only. The motif AGGAGG (and shorter variants) is sought upstream of every
+    /// forward-strand ORF start codon at an aligned spacing within [minDistance, maxDistance].
+    /// </summary>
+    /// <remarks>
+    /// This overload preserves the original forward-strand-only behaviour. To also report
+    /// reverse-strand Shine-Dalgarno hits, use
+    /// <see cref="FindRibosomeBindingSitesBothStrands"/>.
+    /// </remarks>
     public static IEnumerable<(int position, string sequence, double score)> FindRibosomeBindingSites(
         string dnaSequence,
         int upstreamWindow = 20,
         int minDistance = 4,
         int maxDistance = 15)
     {
-        // Consensus Shine-Dalgarno: AGGAGG (binds to 3' end of 16S rRNA)
-        string[] sdMotifs = { "AGGAGG", "GGAGG", "AGGAG", "GAGG", "AGGA" };
+        if (string.IsNullOrEmpty(dnaSequence))
+            yield break;
 
-        var orfs = FindOrfs(dnaSequence, minLength: 30).ToList();
+        var orfs = FindOrfs(dnaSequence, minLength: 30)
+            .Where(o => !o.IsReverseComplement)
+            .ToList();
 
-        foreach (var orf in orfs.Where(o => !o.IsReverseComplement))
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, orfs, upstreamWindow, minDistance, maxDistance))
+        {
+            yield return (hit.position, hit.sequence, hit.score);
+        }
+    }
+
+    /// <summary>
+    /// Finds potential Shine-Dalgarno (ribosome binding site) sequences on BOTH strands,
+    /// reporting the strand of each hit. Forward-strand hits are scanned exactly as in
+    /// <see cref="FindRibosomeBindingSites"/>; reverse-strand hits are found by applying the
+    /// same scan to the reverse complement (i.e. the mRNA orientation of reverse-strand
+    /// genes) and mapping the motif position back to a forward-strand genomic coordinate.
+    /// </summary>
+    /// <remarks>
+    /// For a reverse-strand gene the mRNA is the reverse complement of the forward genomic
+    /// strand, so the AGGAGG Shine-Dalgarno motif lies upstream of that gene's start codon
+    /// on the reverse strand — which is downstream (higher forward coordinate) of the ORF on
+    /// the forward strand. The reported <c>position</c> is the forward-strand index of the
+    /// motif's 5' base; <c>sequence</c> is the motif as read 5'→3' on the reverse strand
+    /// (so reverse-strand hits read AGGAGG, GGAGG, … just like forward hits); <c>strand</c>
+    /// is '+' or '-'.
+    /// </remarks>
+    public static IEnumerable<(int position, string sequence, double score, char strand)>
+        FindRibosomeBindingSitesBothStrands(
+        string dnaSequence,
+        int upstreamWindow = 20,
+        int minDistance = 4,
+        int maxDistance = 15)
+    {
+        if (string.IsNullOrEmpty(dnaSequence))
+            yield break;
+
+        var allOrfs = FindOrfs(dnaSequence, minLength: 30).ToList();
+
+        // Forward strand: scan the genomic sequence as-is.
+        var forwardOrfs = allOrfs.Where(o => !o.IsReverseComplement).ToList();
+        foreach (var hit in ScanStrandForShineDalgarno(dnaSequence, forwardOrfs, upstreamWindow, minDistance, maxDistance))
+        {
+            yield return (hit.position, hit.sequence, hit.score, '+');
+        }
+
+        // Reverse strand: the reverse complement is the mRNA orientation of reverse-strand
+        // genes, where the SD motif again reads 5'→3' upstream of the (now forward-facing)
+        // start codon. We rebuild the reverse-complement ORFs in that coordinate space and
+        // reuse the identical scan, then map each motif's reverse-strand coordinate back to a
+        // forward-strand genomic coordinate.
+        int len = dnaSequence.Length;
+        string revComp = DnaSequence.GetReverseComplementString(dnaSequence);
+
+        var reverseOrfsInRevComp = allOrfs
+            .Where(o => o.IsReverseComplement)
+            // FindOrfs already mapped Start/End into forward coordinates; undo that mapping to
+            // recover the ORF position within the reverse-complement string used for scanning.
+            .Select(o => o with { Start = len - o.End, End = len - o.Start })
+            .ToList();
+
+        foreach (var hit in ScanStrandForShineDalgarno(revComp, reverseOrfsInRevComp, upstreamWindow, minDistance, maxDistance))
+        {
+            // hit.position is the 5' base of the motif within the reverse-complement string;
+            // the motif occupies revComp[position, position+len) ↔ forward
+            // [len - position - motifLen, len - position).
+            int forwardPosition = len - hit.position - hit.sequence.Length;
+            yield return (forwardPosition, hit.sequence, hit.score, '-');
+        }
+    }
+
+    /// <summary>
+    /// Scans a single strand sequence for Shine-Dalgarno motifs upstream of the supplied ORFs'
+    /// start codons. Positions are reported in the coordinate space of <paramref name="sequence"/>.
+    /// </summary>
+    private static IEnumerable<(int position, string sequence, double score)> ScanStrandForShineDalgarno(
+        string sequence,
+        IReadOnlyList<OpenReadingFrame> orfs,
+        int upstreamWindow,
+        int minDistance,
+        int maxDistance)
+    {
+        foreach (var orf in orfs)
         {
             int searchStart = Math.Max(0, orf.Start - upstreamWindow);
             int searchEnd = orf.Start - minDistance;
 
             if (searchEnd <= searchStart) continue;
 
-            string upstream = dnaSequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
+            string upstream = sequence.Substring(searchStart, searchEnd - searchStart).ToUpperInvariant();
 
-            foreach (string motif in sdMotifs)
+            foreach (string motif in ShineDalgarnoMotifs)
             {
                 int pos = upstream.IndexOf(motif, StringComparison.Ordinal);
                 while (pos >= 0)
@@ -515,71 +610,167 @@ public static class GenomeAnnotator
     }
 
     /// <summary>
-    /// Calculates coding potential using hexamer frequency bias.
+    /// Default k-mer (hexamer) word size used by the CPAT hexamer-usage score.
     /// </summary>
-    public static double CalculateCodingPotential(string sequence)
-    {
-        if (sequence.Length < 6) return 0;
-
-        // Simplified approach: measure in-frame vs out-of-frame hexamer usage
-        // In real implementation, would use pre-computed coding/non-coding hexamer tables
-
-        sequence = sequence.ToUpperInvariant();
-
-        // Count in-frame vs out-of-frame codon usage patterns
-        int validCodons = 0;
-        int totalCodons = 0;
-
-        for (int i = 0; i <= sequence.Length - 3; i += 3)
-        {
-            string codon = sequence.Substring(i, 3);
-            if (codon.All(c => "ACGT".Contains(c)))
-            {
-                totalCodons++;
-                // Stop codons indicate non-coding in middle
-                if (!StopCodons.Contains(codon) || i == sequence.Length - 3)
-                {
-                    validCodons++;
-                }
-            }
-        }
-
-        if (totalCodons == 0) return 0;
-
-        // Additional factors: GC content in third position (wobble)
-        int gc3 = 0;
-        for (int i = 2; i < sequence.Length; i += 3)
-        {
-            if (sequence[i] == 'G' || sequence[i] == 'C')
-                gc3++;
-        }
-
-        double gc3ratio = totalCodons > 0 ? (double)gc3 / totalCodons : 0;
-        double validRatio = (double)validCodons / totalCodons;
-
-        // Combine factors (simplified scoring)
-        return validRatio * 0.7 + Math.Abs(gc3ratio - 0.5) * 0.6;
-    }
+    /// <remarks>
+    /// Per Wang et al. (2013), CPAT scores hexamers (6-mers); the reference
+    /// implementation calls <c>kmer_ratio(seq, word_size, step_size, ...)</c>
+    /// with <c>word_size = 6</c>.
+    /// CPAT: Wang L et al. (2013). Nucleic Acids Res 41(6):e74. https://doi.org/10.1093/nar/gkt006
+    /// FrameKmer.kmer_ratio: https://github.com/WGLab/lncScore/blob/master/tools/cpmodule/FrameKmer.py
+    /// </remarks>
+    private const int HexamerWordSize = 6;
 
     /// <summary>
-    /// Finds repetitive elements in the sequence.
+    /// Default step size for the in-frame hexamer sliding window.
     /// </summary>
+    /// <remarks>
+    /// CPAT extracts hexamers in-frame: the sliding window advances by 3
+    /// nucleotides (one codon) so successive 6-mers stay on codon boundaries
+    /// (FrameKmer.word_generator with step_size = 3, frame = 0).
+    /// </remarks>
+    private const int HexamerStepSize = 3;
+
+    /// <summary>
+    /// Calculates the coding potential of a DNA sequence using the CPAT hexamer
+    /// usage-bias log-likelihood score (Wang et al. 2013).
+    /// </summary>
+    /// <param name="sequence">DNA sequence to score (case-insensitive).</param>
+    /// <param name="codingHexamerFrequencies">
+    /// In-frame hexamer frequency table built from a coding (CDS) training set.
+    /// Keys are uppercase 6-mers over A/C/G/T; values are non-negative counts or
+    /// proportions.
+    /// </param>
+    /// <param name="noncodingHexamerFrequencies">
+    /// In-frame hexamer frequency table built from a non-coding (background)
+    /// training set, in the same units as <paramref name="codingHexamerFrequencies"/>.
+    /// </param>
+    /// <param name="wordSize">Hexamer length (default 6, per CPAT).</param>
+    /// <param name="stepSize">In-frame window step (default 3, per CPAT).</param>
+    /// <returns>
+    /// The mean per-hexamer log-likelihood ratio. Positive values indicate a
+    /// coding sequence, negative values a non-coding sequence. Returns 0 when the
+    /// sequence is shorter than <paramref name="wordSize"/> or when no scorable
+    /// hexamer is found.
+    /// </returns>
+    /// <remarks>
+    /// Implements <c>FrameKmer.kmer_ratio</c> (frame 0) from the CPAT reference
+    /// implementation. For each in-frame hexamer present in both tables the score
+    /// adds <c>ln(coding[k] / noncoding[k])</c>; a hexamer found only in the
+    /// coding table adds +1, one found only in the non-coding table subtracts 1;
+    /// hexamers missing from either table (e.g. containing N) are skipped. The sum
+    /// is divided by the number of scored hexamers.
+    /// CPAT: Wang L et al. (2013). Nucleic Acids Res 41(6):e74. https://doi.org/10.1093/nar/gkt006
+    /// </remarks>
+    public static double CalculateCodingPotential(
+        string sequence,
+        IReadOnlyDictionary<string, double> codingHexamerFrequencies,
+        IReadOnlyDictionary<string, double> noncodingHexamerFrequencies,
+        int wordSize = HexamerWordSize,
+        int stepSize = HexamerStepSize)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(codingHexamerFrequencies);
+        ArgumentNullException.ThrowIfNull(noncodingHexamerFrequencies);
+        if (wordSize <= 0) throw new ArgumentOutOfRangeException(nameof(wordSize));
+        if (stepSize <= 0) throw new ArgumentOutOfRangeException(nameof(stepSize));
+
+        // kmer_ratio: sequences shorter than one word yield no hexamer → score 0.
+        if (sequence.Length < wordSize) return 0;
+
+        string seq = sequence.ToUpperInvariant();
+
+        double sumOfLogRatio = 0.0;
+        int scoredHexamers = 0;
+
+        // word_generator(frame=0): start at 0, advance by stepSize, keep only
+        // full-length words.
+        for (int i = 0; i + wordSize <= seq.Length; i += stepSize)
+        {
+            string kmer = seq.Substring(i, wordSize);
+
+            bool inCoding = codingHexamerFrequencies.TryGetValue(kmer, out double coding);
+            bool inNoncoding = noncodingHexamerFrequencies.TryGetValue(kmer, out double noncoding);
+
+            // Skip hexamers absent from either table (matches has_key guard).
+            if (!inCoding || !inNoncoding) continue;
+
+            if (coding > 0 && noncoding > 0)
+                sumOfLogRatio += Math.Log(coding / noncoding);
+            else if (coding > 0 && noncoding == 0)
+                sumOfLogRatio += 1;
+            else if (coding == 0 && noncoding == 0)
+                continue; // both-zero: skipped, NOT counted (FrameKmer.kmer_ratio).
+            else if (coding == 0 && noncoding > 0)
+                sumOfLogRatio -= 1;
+            else
+                continue; // any other case (e.g. negative values): skipped.
+
+            scoredHexamers++;
+        }
+
+        if (scoredHexamers == 0) return 0;
+
+        return sumOfLogRatio / scoredHexamers;
+    }
+
+    // Tandem-repeat unit upper bound. Microsatellite (STR) motifs are 1-6 bp and
+    // minisatellite (VNTR) motifs 10-60 bp per Wikipedia "Tandem repeat" (cites
+    // Duitama et al. 2014, Nucleic Acids Res 42(9):5728-5741). 60 bp covers both.
+    private const int MaxTandemUnitLength = 60;
+
+    // Inverted-repeat arm upper bound (each arm of the WGW^R stem). Bounded for
+    // tractability of the O(n^2) scan; arms beyond this are not reported.
+    private const int MaxInvertedArmLength = 100;
+
+    // Default maximum gap (loop/spacer length |G|) between inverted-repeat arms.
+    // The IUPACpal definition allows |G| >= 0 (Hampson et al. 2021); the cited
+    // hairpin/stem-loop literature uses loops up to ~50 nt, matching the repo's
+    // RepeatFinder default loop bound.
+    private const int DefaultMaxInvertedGap = 50;
+
+    /// <summary>
+    /// Finds repetitive elements in a DNA sequence: tandem repeats (head-to-tail
+    /// consecutive copies of a primitive motif) and inverted repeats (a sequence
+    /// followed downstream by its reverse complement, form WGW^R).
+    /// </summary>
+    /// <param name="dnaSequence">DNA sequence to scan (case-insensitive).</param>
+    /// <param name="minRepeatLength">Minimum total span (bp) of a reported element.</param>
+    /// <param name="minCopies">Minimum number of adjacent copies for a tandem repeat (>= 2).</param>
+    /// <returns>
+    /// Tuples of (start, end, type, sequence) where start is 0-based inclusive,
+    /// end is exclusive, and type is "tandem_repeat" or "inverted_repeat".
+    /// </returns>
+    /// <exception cref="ArgumentNullException">dnaSequence is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">minRepeatLength &lt; 1 or minCopies &lt; 2.</exception>
     public static IEnumerable<(int start, int end, string type, string sequence)> FindRepetitiveElements(
         string dnaSequence,
         int minRepeatLength = 10,
         int minCopies = 2)
     {
-        // Find tandem repeats
-        foreach (var repeat in FindTandemRepeats(dnaSequence, minRepeatLength, minCopies))
-        {
-            yield return repeat;
-        }
+        ArgumentNullException.ThrowIfNull(dnaSequence);
+        // A tandem repeat requires "two or more" adjacent copies (Wikipedia: Tandem repeat).
+        if (minCopies < 2) throw new ArgumentOutOfRangeException(nameof(minCopies));
+        if (minRepeatLength < 1) throw new ArgumentOutOfRangeException(nameof(minRepeatLength));
 
-        // Find inverted repeats
-        foreach (var repeat in FindInvertedRepeats(dnaSequence, minRepeatLength))
-        {
+        return FindRepetitiveElementsCore(dnaSequence, minRepeatLength, minCopies);
+    }
+
+    private static IEnumerable<(int start, int end, string type, string sequence)> FindRepetitiveElementsCore(
+        string dnaSequence,
+        int minRepeatLength,
+        int minCopies)
+    {
+        if (dnaSequence.Length == 0)
+            yield break;
+
+        string sequence = dnaSequence.ToUpperInvariant();
+
+        foreach (var repeat in FindTandemRepeats(sequence, minRepeatLength, minCopies))
             yield return repeat;
-        }
+
+        foreach (var repeat in FindInvertedRepeats(sequence, minRepeatLength, DefaultMaxInvertedGap))
+            yield return repeat;
     }
 
     private static IEnumerable<(int start, int end, string type, string sequence)> FindTandemRepeats(
@@ -587,61 +778,192 @@ public static class GenomeAnnotator
         int minLength,
         int minCopies)
     {
-        sequence = sequence.ToUpperInvariant();
+        // Span de-duplication: a single maximal tandem array can be discovered from
+        // several start/unit-length combinations (e.g. AAAAAA via unit "A" or "AA").
+        // We report each maximal array once, using its primitive (shortest) period.
+        var reported = new HashSet<(int Start, int End)>();
 
-        for (int unitLen = 1; unitLen <= sequence.Length / minCopies && unitLen <= 50; unitLen++)
+        for (int unitLen = 1; unitLen <= sequence.Length / minCopies && unitLen <= MaxTandemUnitLength; unitLen++)
         {
-            for (int start = 0; start <= sequence.Length - unitLen * minCopies; start++)
+            int lastStart = sequence.Length - unitLen * minCopies;
+            for (int start = 0; start <= lastStart; start++)
             {
                 string unit = sequence.Substring(start, unitLen);
+
+                // Only consider primitive units: a unit that is itself a tandem array
+                // of a shorter period (e.g. "AA" = "A"x2) double-counts. Skip it so the
+                // primitive period is the one reported (Wikipedia: non-primitive corner case).
+                if (!IsPrimitive(unit))
+                    continue;
+
                 int copies = 1;
                 int pos = start + unitLen;
-
                 while (pos + unitLen <= sequence.Length &&
-                       sequence.Substring(pos, unitLen) == unit)
+                       string.CompareOrdinal(sequence, pos, sequence, start, unitLen) == 0)
                 {
                     copies++;
                     pos += unitLen;
                 }
 
-                if (copies >= minCopies && unitLen * copies >= minLength)
+                if (copies < minCopies)
+                    continue;
+
+                int end = start + unitLen * copies;
+                if (end - start < minLength)
+                    continue;
+
+                // Only report a left-maximal array: if the previous unit-length block
+                // equals the unit, this array was already counted from an earlier start.
+                if (start - unitLen >= 0 &&
+                    string.CompareOrdinal(sequence, start - unitLen, sequence, start, unitLen) == 0)
+                    continue;
+
+                if (reported.Add((start, end)))
                 {
-                    int end = start + unitLen * copies;
                     string repeatSeq = sequence.Substring(start, end - start);
                     yield return (start, end, "tandem_repeat", repeatSeq);
-
-                    // Skip past this repeat
-                    start = end - 1;
                 }
             }
         }
     }
 
+    /// <summary>
+    /// Returns true if <paramref name="unit"/> is primitive (not itself a tandem
+    /// repeat of a shorter period). "ATAT" is not primitive ("AT"x2); "AT" is.
+    /// </summary>
+    private static bool IsPrimitive(string unit)
+    {
+        int n = unit.Length;
+        for (int period = 1; period <= n / 2; period++)
+        {
+            if (n % period != 0) continue;
+            bool isRepeat = true;
+            for (int i = period; i < n; i++)
+            {
+                if (unit[i] != unit[i % period]) { isRepeat = false; break; }
+            }
+            if (isRepeat) return false;
+        }
+        return true;
+    }
+
     private static IEnumerable<(int start, int end, string type, string sequence)> FindInvertedRepeats(
         string sequence,
-        int minLength)
+        int minArmLength,
+        int maxGap)
     {
-        sequence = sequence.ToUpperInvariant();
+        // Inverted repeat = left arm W followed by gap G (|G|>=0) then right arm W^R
+        // (reverse complement of W). Per Hampson et al. (2021): form WGW^R.
+        var reported = new HashSet<(int Start, int End)>();
 
-        for (int i = 0; i <= sequence.Length - minLength * 2; i++)
+        for (int i = 0; i + minArmLength * 2 <= sequence.Length; i++)
         {
-            for (int len = minLength; len <= (sequence.Length - i) / 2 && len <= 100; len++)
+            int maxLen = Math.Min(MaxInvertedArmLength, (sequence.Length - i) / 2);
+            for (int len = minArmLength; len <= maxLen; len++)
             {
                 string arm1 = sequence.Substring(i, len);
                 string arm1RevComp = DnaSequence.GetReverseComplementString(arm1);
 
-                // Look for reverse complement downstream
-                for (int j = i + len; j <= sequence.Length - len; j++)
+                // Right arm must start after the left arm plus a gap of 0..maxGap.
+                int firstRight = i + len;
+                int lastRight = Math.Min(sequence.Length - len, firstRight + maxGap);
+                for (int j = firstRight; j <= lastRight; j++)
                 {
-                    string arm2 = sequence.Substring(j, len);
+                    if (string.CompareOrdinal(sequence, j, arm1RevComp, 0, len) != 0)
+                        continue;
 
-                    if (arm2 == arm1RevComp)
-                    {
-                        yield return (i, j + len, "inverted_repeat", arm1 + "..." + arm2);
-                    }
+                    int end = j + len;
+                    if (!reported.Add((i, end)))
+                        continue;
+
+                    string gap = sequence.Substring(firstRight, j - firstRight);
+                    string arm2 = sequence.Substring(j, len);
+                    string composite = gap.Length == 0 ? arm1 + arm2 : arm1 + "[" + gap + "]" + arm2;
+                    yield return (i, end, "inverted_repeat", composite);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Classifies a repeat sequence against a repeat-element library, mirroring the
+    /// RepeatMasker convention of screening the query for occurrences of known
+    /// library elements and assigning the class of the best (longest) match. Matching
+    /// here is exact substring containment of a library element within the query
+    /// (the query is a region harbouring the known repeat); when no library entry
+    /// matches, the query falls back to a simple-repeat class by primitive motif
+    /// size (STR 1-6 bp) or "Unknown".
+    /// </summary>
+    /// <param name="sequence">Repeat sequence to classify (case-insensitive).</param>
+    /// <param name="repeatDb">
+    /// Library mapping a known repeat element sequence to its class label
+    /// (e.g. "SINE/Alu", "LINE/L1", "LTR", "DNA", "Satellite").
+    /// </param>
+    /// <returns>The class label of the matched library entry, or a fallback class.</returns>
+    /// <exception cref="ArgumentNullException">sequence or repeatDb is null.</exception>
+    public static string ClassifyRepeat(string sequence, IReadOnlyDictionary<string, string> repeatDb)
+    {
+        ArgumentNullException.ThrowIfNull(sequence);
+        ArgumentNullException.ThrowIfNull(repeatDb);
+
+        if (sequence.Length == 0)
+            return SimpleRepeatClass;
+
+        string query = sequence.ToUpperInvariant();
+
+        // Best library match: prefer the longest known element that occurs within the
+        // query — approximates RepeatMasker's model of screening a query sequence for
+        // occurrences of known repeat elements and reporting the best match. Matching
+        // is one-directional (element ⊆ query): a query that merely is a *substring of*
+        // a longer consensus is not a meaningful match (e.g. a single base "A" must not
+        // be classified as a SINE just because an Alu consensus happens to contain an A).
+        string? bestClass = null;
+        int bestLen = -1;
+        foreach (var entry in repeatDb)
+        {
+            string element = entry.Key.ToUpperInvariant();
+            if (element.Length == 0) continue;
+            bool matches = query.Contains(element, StringComparison.Ordinal);
+            if (matches && element.Length > bestLen)
+            {
+                bestLen = element.Length;
+                bestClass = entry.Value;
+            }
+        }
+
+        if (bestClass is not null)
+            return bestClass;
+
+        // No library match: if the query is a tandem repeat of a short primitive
+        // motif (1-6 bp), it is a simple repeat (microsatellite); otherwise Unknown.
+        return IsSimpleRepeat(query) ? SimpleRepeatClass : UnknownClass;
+    }
+
+    // RepeatMasker output class labels (Smit/Hubley/Green; Repbase Update).
+    private const string SimpleRepeatClass = "Simple_repeat";
+    private const string UnknownClass = "Unknown";
+
+    // STR/microsatellite motifs are 1-6 bp (Wikipedia: Tandem repeat).
+    private const int MaxSimpleRepeatMotif = 6;
+
+    /// <summary>
+    /// True if <paramref name="query"/> is a perfect tandem repeat of a primitive
+    /// motif of length 1-6 bp (a microsatellite / simple repeat).
+    /// </summary>
+    private static bool IsSimpleRepeat(string query)
+    {
+        int n = query.Length;
+        for (int period = 1; period <= MaxSimpleRepeatMotif && period <= n / 2; period++)
+        {
+            if (n % period != 0) continue;
+            bool isRepeat = true;
+            for (int i = period; i < n; i++)
+            {
+                if (query[i] != query[i % period]) { isRepeat = false; break; }
+            }
+            if (isRepeat) return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -662,5 +984,104 @@ public static class GenomeAnnotator
         }
 
         return usage;
+    }
+
+    // RSCU is defined only over sense codons; codons encoding this character in the
+    // genetic-code table are stop codons and are excluded (CodonU uses forward_table,
+    // i.e. sense codons only — SouradiptoC/CodonU internal_comp.py `rscu`).
+    private const char StopCodonSymbol = '*';
+
+    // A codon is exactly three nucleotides.
+    private const int CodonLength = 3;
+
+    /// <summary>
+    /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
+    /// (DNA) sequences using the Standard genetic code (NCBI translation table 1).
+    /// </summary>
+    /// <remarks>
+    /// RSCU for codon <c>j</c> of amino acid <c>i</c> is
+    /// <c>RSCU = n_i · x_(i,j) / Σ_j x_(i,j)</c>, where <c>n_i</c> is the number of
+    /// synonymous codons for amino acid <c>i</c> and <c>x_(i,j)</c> is the observed
+    /// count of codon <c>j</c> (Sharp &amp; Li 1986, NAR 14(19):7737–7749). An RSCU of
+    /// 1.0 indicates no codon bias; values above 1 indicate a preferred codon.
+    /// Codon counts are pooled across all input sequences before the RSCU is computed.
+    /// Stop codons are excluded; an unobserved synonymous family yields RSCU 0.0 for
+    /// each of its codons (the CAI 0.5 pseudocount is intentionally not applied).
+    /// </remarks>
+    /// <param name="codingSequences">The coding (CDS) DNA sequences. Read in frame
+    /// from position 0 in steps of three; a partial trailing codon is ignored. Only
+    /// codons over the alphabet A/C/G/T are counted.</param>
+    /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> is null.</exception>
+    public static IReadOnlyDictionary<string, double> GetCodonUsage(IEnumerable<string> codingSequences)
+        => GetCodonUsage(codingSequences, GeneticCode.Standard);
+
+    /// <summary>
+    /// Computes the Relative Synonymous Codon Usage (RSCU) over a set of coding
+    /// (DNA) sequences using the supplied genetic code.
+    /// </summary>
+    /// <param name="codingSequences">The coding (CDS) DNA sequences (see the
+    /// Standard-code overload for framing and alphabet rules).</param>
+    /// <param name="code">The genetic code defining synonymous codon families.</param>
+    /// <returns>A dictionary from each sense codon (uppercase DNA) to its RSCU value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="codingSequences"/> or
+    /// <paramref name="code"/> is null.</exception>
+    public static IReadOnlyDictionary<string, double> GetCodonUsage(
+        IEnumerable<string> codingSequences,
+        GeneticCode code)
+    {
+        ArgumentNullException.ThrowIfNull(codingSequences);
+        ArgumentNullException.ThrowIfNull(code);
+
+        // Pool observed counts across all coding sequences (CodonU pools the whole
+        // reference set before computing RSCU).
+        var counts = new Dictionary<string, long>();
+        foreach (string sequence in codingSequences)
+        {
+            if (string.IsNullOrEmpty(sequence)) continue;
+            string seq = sequence.ToUpperInvariant();
+            for (int i = 0; i <= seq.Length - CodonLength; i += CodonLength)
+            {
+                string codon = seq.Substring(i, CodonLength);
+                if (codon.All(c => "ACGT".Contains(c)))
+                {
+                    counts[codon] = counts.GetValueOrDefault(codon, 0) + 1;
+                }
+            }
+        }
+
+        // Group sense codons by the amino acid they encode (the synonymous families).
+        // GeneticCode.CodonTable is keyed by RNA codons, so convert DNA T -> U.
+        var familyByAminoAcid = new Dictionary<char, List<string>>();
+        foreach (KeyValuePair<string, char> entry in code.CodonTable)
+        {
+            if (entry.Value == StopCodonSymbol) continue; // sense codons only
+            string dnaCodon = entry.Key.Replace('U', 'T');
+            if (!familyByAminoAcid.TryGetValue(entry.Value, out List<string>? family))
+            {
+                family = new List<string>();
+                familyByAminoAcid[entry.Value] = family;
+            }
+            family.Add(dnaCodon);
+        }
+
+        var rscu = new Dictionary<string, double>();
+        foreach (List<string> family in familyByAminoAcid.Values)
+        {
+            int nI = family.Count; // number of synonymous codons for this amino acid
+            long familyTotal = 0;
+            foreach (string codon in family)
+                familyTotal += counts.GetValueOrDefault(codon, 0);
+
+            foreach (string codon in family)
+            {
+                long x = counts.GetValueOrDefault(codon, 0);
+                // RSCU = n_i * x / Σ(synonymous counts); an unobserved family (total 0)
+                // yields 0.0 for every member (no preferred codon).
+                rscu[codon] = familyTotal == 0 ? 0.0 : (double)nI * x / familyTotal;
+            }
+        }
+
+        return rscu;
     }
 }

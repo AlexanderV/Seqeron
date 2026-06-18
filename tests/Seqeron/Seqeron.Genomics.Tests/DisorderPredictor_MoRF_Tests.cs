@@ -1,210 +1,266 @@
+// DISORDER-MORF-001 — MoRF (Molecular Recognition Feature) Prediction
+// Evidence: docs/Evidence/DISORDER-MORF-001-Evidence.md
+// TestSpec: tests/TestSpecs/DISORDER-MORF-001.md
+// Source: Mohan A et al. (2006) J Mol Biol 362(5):1043-1059 (PMID 16935303);
+//         Cheng/Oldfield et al. PMC2570644 ("dips", threshold 0.5);
+//         Campen A et al. (2008) Protein Pept Lett 15(9):956-963 (per-residue TOP-IDP scores).
+//
+// Definition under test: a MoRF is a short region of relative ORDER (a "dip",
+// per-residue disorder score < 0.5) embedded WITHIN a longer disordered region
+// (flanked by disorder on both sides), of length 10-70 residues.
+//
+// Expected coordinates and scores are derived independently of the implementation
+// from the normalized TOP-IDP scale (Campen 2008 Table 2) and the disorder window
+// (size 21) used by PredictDisorder. P (normalized 1.000) is disordered; L (0.298)
+// and I (0.213) are ordered. Window smoothing makes the sub-0.5 "dip" narrower than
+// the raw ordered run; the dip coordinates ARE the MoRF, per Cheng/Oldfield.
+
+using System.Linq;
 using NUnit.Framework;
 using Seqeron.Genomics.Analysis;
 
 namespace Seqeron.Genomics.Tests;
 
-/// <summary>
-/// DISORDER-MORF-001: Molecular Recognition Feature Prediction
-///
-/// Tests for <see cref="DisorderPredictor.PredictMoRFs"/>.
-/// Heuristic: hydrophobic island detection within IDRs.
-/// Definition: Mohan et al. (2006) J Mol Biol 362:1043-1059.
-/// Hydropathy: Kyte &amp; Doolittle (1982) J Mol Biol 157:105-132.
-/// Note: annotation heuristic, not an ML predictor.
-/// </summary>
 [TestFixture]
 public class DisorderPredictor_MoRF_Tests
 {
-    // Flanking IDR: E/K are disorder-promoting (TOP-IDP) and very hydrophilic (KD).
-    private const string FlankEK = "EEEKKKEEEKKKEEEKKK"; // 18 AA
+    // 25 disordered P + 30 ordered L + 25 disordered P (length 80).
+    // Smoothed disorder profile dips below 0.5 over residues 29-50 (length 22).
+    private static readonly string DipInDisorderL =
+        new string('P', 25) + new string('L', 30) + new string('P', 25);
 
-    // Hydrophobic island: G is disorder-promoting (TOP-IDP) but near-neutral KD (−0.4).
-    private const string IslandG = "GGGGGGGGGGG"; // 11 AA
+    // Same flanks with a deeper-ordering I core (TOP-IDP -0.486 < L's -0.326).
+    private static readonly string DipInDisorderI =
+        new string('P', 25) + new string('I', 30) + new string('P', 25);
 
-    // Full test sequence: 18 (flank) + 11 (island) + 18 (flank) = 47 AA.
-    // All residues are disorder-promoting → one long IDR.
-    // IDR mean KD ≈ −2.88. Island KD = −0.4. Diff ≈ 2.48.
-    private const string SeqWithIsland = FlankEK + IslandG + FlankEK;
-
-    #region S — Smoke Tests
+    #region PredictMoRFs — MUST
 
     [Test]
-    public void S1_OrderedProtein_NoMoRFs()
+    public void M1_OrderedDipWithinDisorder_DetectedAtExactCoordinates()
     {
-        // All-leucine: L has TOP-IDP normalized score ≈ 0.298 < 0.542.
-        // No IDRs → no MoRFs.
-        string ordered = new string('L', 40);
+        // 25P + 30L + 25P: a single ordered dip embedded in disorder.
+        // Derived: smoothed disorder < 0.5 over residues [29,50] (length 22, in 10-70);
+        // mean disorder over the dip = 0.362033 → score = (0.5-0.362033)/0.5 = 0.275934.
+        var morfs = DisorderPredictor.PredictMoRFs(DipInDisorderL).ToList();
 
-        var morfs = DisorderPredictor.PredictMoRFs(ordered).ToList();
-
-        Assert.That(morfs, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(morfs, Has.Count.EqualTo(1),
+                "exactly one dip-in-disorder MoRF expected (Cheng/Oldfield dip definition)");
+            Assert.That(morfs[0].Start, Is.EqualTo(29),
+                "dip start where smoothed disorder first drops below 0.5");
+            Assert.That(morfs[0].End, Is.EqualTo(50),
+                "dip end where smoothed disorder rises to >= 0.5");
+            Assert.That(morfs[0].Score, Is.EqualTo(0.275934).Within(1e-6),
+                "score = (0.5 - mean disorder 0.362033) / 0.5");
+        });
     }
 
     [Test]
-    public void S2_UniformIDR_NoMoRFs()
+    public void M2_FullyOrderedSequence_NoMoRFs()
     {
-        // All-proline: TOP-IDP normalized = 1.0 → disordered.
-        // KD = −1.6 uniform throughout → no hydropathy enrichment → no MoRFs.
-        string uniform = new string('P', 40);
+        // All-L: ordered throughout, no surrounding disorder to embed a dip.
+        var morfs = DisorderPredictor.PredictMoRFs(new string('L', 40)).ToList();
 
-        var morfs = DisorderPredictor.PredictMoRFs(uniform).ToList();
-
-        Assert.That(morfs, Is.Empty);
+        Assert.That(morfs, Is.Empty,
+            "no MoRF without disorder flanking the ordered region (Cheng/Oldfield)");
     }
 
     [Test]
-    public void S3_HydrophobicIslandInIDR_DetectedAsMoRF()
+    public void M3_FullyDisorderedSequence_NoMoRFs()
     {
-        // G-island (KD −0.4) in E/K context (KD ≈ −3.7): large hydropathy contrast.
-        // All residues disorder-promoting → entire sequence is one IDR.
-        // The G-island should be detected as a MoRF.
-        var morfs = DisorderPredictor.PredictMoRFs(SeqWithIsland).ToList();
+        // All-P: disordered throughout, no ordered dip exists.
+        var morfs = DisorderPredictor.PredictMoRFs(new string('P', 40)).ToList();
 
-        Assert.That(morfs, Has.Count.GreaterThanOrEqualTo(1));
-
-        // Best MoRF should overlap with the G-island (positions 18–28)
-        var best = morfs.OrderByDescending(m => m.Score).First();
-        Assert.That(best.Start, Is.InRange(13, 23), "MoRF start near G-island");
-        Assert.That(best.End, Is.InRange(23, 33), "MoRF end near G-island");
-        Assert.That(best.Score, Is.GreaterThan(0.5), "Substantial hydropathy enrichment");
+        Assert.That(morfs, Is.Empty,
+            "no MoRF without an ordered dip (Cheng/Oldfield threshold 0.5)");
     }
 
-    #endregion
-
-    #region C — Corner Cases
-
     [Test]
-    public void C1_ShortSequence_NoMoRFs()
+    public void M4_DipShorterThanTenResidues_NotAMoRF()
     {
-        // 5 AA is too short for a 10-AA MoRF within any IDR.
-        string seq = "EEKPP";
+        // 25P + 16L + 25P: smoothed dip is only 8 residues (< 10) → not a MoRF.
+        string seq = new string('P', 25) + new string('L', 16) + new string('P', 25);
 
         var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
 
-        Assert.That(morfs, Is.Empty);
+        Assert.That(morfs, Is.Empty,
+            "dip below the 10-residue minimum is not a MoRF (Mohan 2006 10-70 band)");
     }
 
     [Test]
-    public void C2_IDRShorterThanMinLength_NoMoRFs()
+    public void M5_DipLongerThanSeventyResidues_NotAMoRF()
     {
-        // Ordered flanks + short 8-residue IDR: no 10-AA MoRF can fit.
-        string ordered = new string('L', 20);
-        string idr = "PPPPPPPP"; // 8 P's
-        string sequence = ordered + idr + ordered;
+        // 25P + 95L + 25P: smoothed dip is 87 residues (> 70) → not a MoRF.
+        string seq = new string('P', 25) + new string('L', 95) + new string('P', 25);
 
-        var morfs = DisorderPredictor.PredictMoRFs(sequence, minLength: 10).ToList();
+        var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
 
-        Assert.That(morfs, Is.Empty);
+        Assert.That(morfs, Is.Empty,
+            "dip above the 70-residue maximum is not a MoRF (Mohan 2006 10-70 band)");
+    }
+
+    [Test]
+    public void M6_DipAtTerminus_NotAMoRF()
+    {
+        // 15L + 30P: the ordered dip touches the N-terminus, so it is not flanked
+        // by disorder on both sides → not "within a longer region of disorder".
+        string seq = new string('L', 15) + new string('P', 30);
+
+        var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
+
+        Assert.That(morfs, Is.Empty,
+            "terminal dip is not embedded in disorder (Oldfield 2005 / Mohan 2006)");
+    }
+
+    [Test]
+    public void M7_DeeperDipScoresHigher_BothBounded()
+    {
+        // I core (TOP-IDP -0.486) gives a deeper dip than L core (-0.326).
+        // Derived: I-dip score = 0.399608 > L-dip score = 0.275934; both in [0,1].
+        var morfL = DisorderPredictor.PredictMoRFs(DipInDisorderL).Single();
+        var morfI = DisorderPredictor.PredictMoRFs(DipInDisorderI).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(morfI.Score, Is.EqualTo(0.399608).Within(1e-6),
+                "deeper I-dip score = (0.5 - mean disorder 0.300196) / 0.5");
+            Assert.That(morfL.Score, Is.EqualTo(0.275934).Within(1e-6),
+                "shallower L-dip score = (0.5 - mean disorder 0.362033) / 0.5");
+            Assert.That(morfI.Score, Is.GreaterThan(morfL.Score),
+                "score is monotone in dip depth (deeper order = higher score)");
+            Assert.That(morfI.Score, Is.InRange(0.0, 1.0), "score bounded in [0,1]");
+            Assert.That(morfL.Score, Is.InRange(0.0, 1.0), "score bounded in [0,1]");
+        });
     }
 
     #endregion
 
-    #region M — Method Tests
+    #region PredictMoRFs — SHOULD
 
     [Test]
-    public void M1_ScoreReflectsHydropathyContrast()
+    public void S1_TwoSeparateDips_TwoNonOverlappingMoRFs()
     {
-        // G-island: KD = −0.4, high contrast with E/K context (KD ≈ −3.7).
-        // S-island: KD = −0.8, lower contrast.
-        // G-island should produce a higher score.
-        string sIsland = "SSSSSSSSSSS"; // 11 S, KD = −0.8
-        string seqS = FlankEK + sIsland + FlankEK;
+        // 25P + 30L + 30P + 30L + 25P: two ordered dips separated by disorder.
+        // Derived: dips at [29,50] and [89,110].
+        string seq = new string('P', 25) + new string('L', 30) + new string('P', 30)
+                   + new string('L', 30) + new string('P', 25);
 
-        var morfsG = DisorderPredictor.PredictMoRFs(SeqWithIsland).ToList();
-        var morfsS = DisorderPredictor.PredictMoRFs(seqS).ToList();
+        var morfs = DisorderPredictor.PredictMoRFs(seq).OrderBy(m => m.Start).ToList();
 
-        if (morfsG.Count > 0 && morfsS.Count > 0)
+        Assert.Multiple(() =>
         {
-            double maxG = morfsG.Max(m => m.Score);
-            double maxS = morfsS.Max(m => m.Score);
-            Assert.That(maxG, Is.GreaterThan(maxS),
-                "G-island (KD −0.4) should score higher than S-island (KD −0.8)");
-        }
+            Assert.That(morfs, Has.Count.EqualTo(2), "two independent dips → two MoRFs");
+            Assert.That(morfs[0].Start, Is.EqualTo(29), "first dip start");
+            Assert.That(morfs[0].End, Is.EqualTo(50), "first dip end");
+            Assert.That(morfs[1].Start, Is.EqualTo(89), "second dip start");
+            Assert.That(morfs[1].End, Is.EqualTo(110), "second dip end");
+            Assert.That(morfs[1].Start, Is.GreaterThan(morfs[0].End), "non-overlapping");
+        });
     }
 
     [Test]
-    public void M2_MaxLengthRespected()
+    public void S2_CaseInsensitive_SameResultAsUpperCase()
     {
-        int maxLen = 15;
-        var morfs = DisorderPredictor.PredictMoRFs(SeqWithIsland, maxLength: maxLen).ToList();
+        var upper = DisorderPredictor.PredictMoRFs(DipInDisorderL).ToList();
+        var lower = DisorderPredictor.PredictMoRFs(DipInDisorderL.ToLowerInvariant()).ToList();
 
-        foreach (var morf in morfs)
+        Assert.Multiple(() =>
         {
-            int len = morf.End - morf.Start + 1;
-            Assert.That(len, Is.LessThanOrEqualTo(maxLen));
-        }
+            Assert.That(lower, Has.Count.EqualTo(upper.Count), "same MoRF count");
+            Assert.That(lower[0].Start, Is.EqualTo(upper[0].Start), "same start");
+            Assert.That(lower[0].End, Is.EqualTo(upper[0].End), "same end");
+            Assert.That(lower[0].Score, Is.EqualTo(upper[0].Score).Within(1e-12), "same score");
+        });
     }
 
     [Test]
-    public void M3_MinLengthRespected()
+    public void S3_CustomMaxLength_ExcludesDipBeyondBound()
     {
-        int minLen = 10;
-        var morfs = DisorderPredictor.PredictMoRFs(SeqWithIsland, minLength: minLen).ToList();
+        // The L-dip has length 22. With maxLength 20 it falls outside the band → excluded.
+        var morfs = DisorderPredictor.PredictMoRFs(DipInDisorderL, minLength: 10, maxLength: 20).ToList();
 
-        foreach (var morf in morfs)
-        {
-            int len = morf.End - morf.Start + 1;
-            Assert.That(len, Is.GreaterThanOrEqualTo(minLen));
-        }
+        Assert.That(morfs, Is.Empty,
+            "dip length 22 exceeds custom maxLength 20 → not reported (INV-2)");
     }
 
     [Test]
-    public void M4_CaseInsensitive()
+    public void S3_CustomMinLength_ExcludesDipBelowBound()
     {
-        string lower = SeqWithIsland.ToLowerInvariant();
+        // The L-dip has length 22. With minLength 23 it falls below the band → excluded.
+        var morfs = DisorderPredictor.PredictMoRFs(DipInDisorderL, minLength: 23, maxLength: 70).ToList();
 
-        var morfsUpper = DisorderPredictor.PredictMoRFs(SeqWithIsland).ToList();
-        var morfsLower = DisorderPredictor.PredictMoRFs(lower).ToList();
-
-        Assert.That(morfsLower.Count, Is.EqualTo(morfsUpper.Count));
+        Assert.That(morfs, Is.Empty,
+            "dip length 22 below custom minLength 23 → not reported (INV-2)");
     }
 
     #endregion
 
-    #region INV — Invariants
+    #region PredictMoRFs — COULD (guards)
 
-    [TestCase(SeqWithIsland)]
-    [TestCase("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")]
-    [TestCase("LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")]
-    public void INV1_ValidBoundaries(string sequence)
+    [Test]
+    public void C1_NullInput_ReturnsEmpty()
     {
-        var morfs = DisorderPredictor.PredictMoRFs(sequence).ToList();
-
-        foreach (var morf in morfs)
-        {
-            Assert.That(morf.Start, Is.GreaterThanOrEqualTo(0));
-            Assert.That(morf.End, Is.LessThan(sequence.Length));
-            Assert.That(morf.Start, Is.LessThanOrEqualTo(morf.End));
-            Assert.That(morf.Score, Is.InRange(0.0, 1.0));
-        }
+        var morfs = DisorderPredictor.PredictMoRFs(null!).ToList();
+        Assert.That(morfs, Is.Empty, "null input → empty");
     }
 
-    [TestCase(SeqWithIsland)]
-    public void INV2_MoRFsWithinIDR(string sequence)
+    [Test]
+    public void C1_EmptyInput_ReturnsEmpty()
     {
-        var prediction = DisorderPredictor.PredictDisorder(sequence);
-        var morfs = DisorderPredictor.PredictMoRFs(sequence).ToList();
-
-        foreach (var morf in morfs)
-        {
-            bool withinSomeIDR = prediction.DisorderedRegions.Any(
-                idr => morf.Start >= idr.Start && morf.End <= idr.End);
-            Assert.That(withinSomeIDR, Is.True,
-                $"MoRF [{morf.Start}-{morf.End}] not within any IDR");
-        }
+        var morfs = DisorderPredictor.PredictMoRFs("").ToList();
+        Assert.That(morfs, Is.Empty, "empty input → empty");
     }
 
-    [TestCase(SeqWithIsland)]
-    public void INV3_NoOverlappingMoRFs(string sequence)
+    [Test]
+    public void C2_SequenceShorterThanMinLength_ReturnsEmpty()
     {
-        var morfs = DisorderPredictor.PredictMoRFs(sequence)
-            .OrderBy(m => m.Start).ToList();
+        var morfs = DisorderPredictor.PredictMoRFs("EEKPP").ToList();
+        Assert.That(morfs, Is.Empty, "5-residue sequence cannot contain a 10-residue MoRF");
+    }
 
-        for (int i = 1; i < morfs.Count; i++)
+    #endregion
+
+    #region Invariants
+
+    [Test]
+    public void INV_BoundariesScoreAndOrdering_HoldOnMultiDipSequence()
+    {
+        string seq = new string('P', 25) + new string('L', 30) + new string('P', 30)
+                   + new string('L', 30) + new string('P', 25);
+
+        var prediction = DisorderPredictor.PredictDisorder(seq);
+        var morfs = DisorderPredictor.PredictMoRFs(seq).OrderBy(m => m.Start).ToList();
+
+        Assert.Multiple(() =>
         {
-            Assert.That(morfs[i].Start, Is.GreaterThan(morfs[i - 1].End),
-                $"MoRF {i} overlaps MoRF {i - 1}");
-        }
+            for (int i = 0; i < morfs.Count; i++)
+            {
+                var m = morfs[i];
+                // INV-1: valid coordinates.
+                Assert.That(m.Start, Is.GreaterThanOrEqualTo(0), "INV-1 start >= 0");
+                Assert.That(m.End, Is.LessThan(seq.Length), "INV-1 end < length");
+                Assert.That(m.Start, Is.LessThanOrEqualTo(m.End), "INV-1 start <= end");
+
+                // INV-2: length within default band 10-70.
+                int len = m.End - m.Start + 1;
+                Assert.That(len, Is.InRange(10, 70), "INV-2 length in 10-70");
+
+                // INV-5: score bounded.
+                Assert.That(m.Score, Is.InRange(0.0, 1.0), "INV-5 score in [0,1]");
+
+                // INV-3: flanked by disorder (score >= 0.5) on both sides.
+                Assert.That(prediction.ResiduePredictions[m.Start - 1].DisorderScore,
+                    Is.GreaterThanOrEqualTo(0.5), "INV-3 left flank disordered");
+                Assert.That(prediction.ResiduePredictions[m.End + 1].DisorderScore,
+                    Is.GreaterThanOrEqualTo(0.5), "INV-3 right flank disordered");
+
+                // INV-4: non-overlapping, ordered.
+                if (i > 0)
+                    Assert.That(m.Start, Is.GreaterThan(morfs[i - 1].End),
+                        "INV-4 non-overlapping and ordered by start");
+            }
+        });
     }
 
     #endregion

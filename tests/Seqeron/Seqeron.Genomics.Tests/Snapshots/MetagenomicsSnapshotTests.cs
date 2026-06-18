@@ -67,20 +67,30 @@ public class MetagenomicsSnapshotTests
     [Test]
     public Task ClassifyReads_KnownDatabase_MatchesSnapshot()
     {
-        // Build a minimal k-mer database
-        var kmerDb = new Dictionary<string, string>
+        // Tiny taxonomy: root → E_coli, B_subtilis.
+        var tree = new TaxonomyTree(new[]
         {
-            ["ACGTACGTACGTACGTACGTACGTACGTACGT"] = "E_coli",
-            ["TTTTAAAACCCCGGGGTTTTAAAACCCCGGGG"] = "B_subtilis"
-        };
+            new TaxonNode(1, "root", "root", 1),
+            new TaxonNode(100, "E_coli", "species", 1),
+            new TaxonNode(200, "B_subtilis", "species", 1),
+        });
+
+        // Build the canonical-k-mer → taxon-id database (k=31) from reference sequences so the
+        // k-mer lengths are guaranteed consistent with the reads.
+        var kmerDb = MetagenomicsAnalyzer.BuildKmerDatabase(new[]
+        {
+            (100, "ACGTACGTACGTACGTACGTACGTACGTACGTACGT"),
+            (200, "TTTTAAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"),
+        }, tree, k: 31);
+
         var reads = new[]
         {
             ("read1", "ACGTACGTACGTACGTACGTACGTACGTACGTACGT"),
             ("read2", "TTTTAAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"),
             ("read3", "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN")
         };
-        var classifications = MetagenomicsAnalyzer.ClassifyReads(reads, kmerDb, k: 31)
-            .Select(c => new { c.ReadId, c.Confidence, c.MatchedKmers })
+        var classifications = MetagenomicsAnalyzer.ClassifyReads(reads, kmerDb, tree, k: 31)
+            .Select(c => new { c.ReadId, c.TaxonId, c.TaxonName, c.RtlScore, c.Confidence, c.MatchedKmers, c.TotalKmers })
             .ToList();
 
         return Verify(new { Classifications = classifications });
@@ -92,14 +102,16 @@ public class MetagenomicsSnapshotTests
         // Create mock classifications using positional construction
         var classifications = new MetagenomicsAnalyzer.TaxonomicClassification[]
         {
-            new("read1", "Bacteria", "Proteobacteria",
-                "Gammaproteobacteria", "Enterobacterales",
-                "Enterobacteriaceae", "Escherichia", "E_coli",
-                0.95, 10, 11),
-            new("read2", "Bacteria", "Firmicutes",
-                "Bacilli", "Bacillales",
-                "Bacillaceae", "Bacillus", "B_subtilis",
-                0.90, 8, 10)
+            new("read1", TaxonId: 100, TaxonName: "E_coli", Rank: "species", RtlScore: 10,
+                Confidence: 0.95, MatchedKmers: 10, TotalKmers: 11,
+                Kingdom: "Bacteria", Phylum: "Proteobacteria",
+                Class: "Gammaproteobacteria", Order: "Enterobacterales",
+                Family: "Enterobacteriaceae", Genus: "Escherichia", Species: "E_coli"),
+            new("read2", TaxonId: 200, TaxonName: "B_subtilis", Rank: "species", RtlScore: 8,
+                Confidence: 0.90, MatchedKmers: 8, TotalKmers: 10,
+                Kingdom: "Bacteria", Phylum: "Firmicutes",
+                Class: "Bacilli", Order: "Bacillales",
+                Family: "Bacillaceae", Genus: "Bacillus", Species: "B_subtilis")
         };
 
         var profile = MetagenomicsAnalyzer.GenerateTaxonomicProfile(classifications);

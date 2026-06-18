@@ -117,43 +117,8 @@ public class VariantCallerTests
 
     #endregion
 
-    #region Indel Detection Tests
-
-    [Test]
-    public void FindInsertions_ReturnsOnlyInsertions()
-    {
-        var reference = new DnaSequence("ATGC");
-        var query = new DnaSequence("ATGGC"); // G inserted
-
-        var insertions = VariantCaller.FindInsertions(reference, query).ToList();
-
-        Assert.That(insertions.All(v => v.Type == VariantType.Insertion));
-    }
-
-    [Test]
-    public void FindDeletions_ReturnsOnlyDeletions()
-    {
-        var reference = new DnaSequence("ATGGC");
-        var query = new DnaSequence("ATGC"); // G deleted
-
-        var deletions = VariantCaller.FindDeletions(reference, query).ToList();
-
-        Assert.That(deletions.All(v => v.Type == VariantType.Deletion));
-    }
-
-    [Test]
-    public void FindIndels_ReturnsBothTypes()
-    {
-        var reference = new DnaSequence("ATGC");
-        var query = new DnaSequence("ATGC");
-
-        var indels = VariantCaller.FindIndels(reference, query).ToList();
-
-        Assert.That(indels.All(v =>
-            v.Type == VariantType.Insertion || v.Type == VariantType.Deletion));
-    }
-
-    #endregion
+    // Indel detection (FindInsertions / FindDeletions / FindIndels) is covered by the
+    // canonical VARIANT-INDEL-001 fixture: VariantCaller_FindIndels_Tests.cs.
 
     #region Mutation Classification Tests
 

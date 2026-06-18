@@ -8,98 +8,11 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class PanGenomeAnalyzerTests
 {
-    #region Pan-Genome Construction Tests
-
-    [Test]
-    public void ConstructPanGenome_ThreeGenomes_IdentifiesCoreAccessoryUnique()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["genome1"] = new List<(string, string)>
-            {
-                ("geneA", "ATGCGATCGATCGATCG"),
-                ("geneB", "GCTAGCTAGCTAGCTAG"),
-                ("geneC", "TACGTACGTACGTACGT")
-            },
-            ["genome2"] = new List<(string, string)>
-            {
-                ("geneA", "ATGCGATCGATCGATCG"),
-                ("geneB", "GCTAGCTAGCTAGCTAG"),
-                ("geneD", "AAAAAAAAAAAAAAAAAA")
-            },
-            ["genome3"] = new List<(string, string)>
-            {
-                ("geneA", "ATGCGATCGATCGATCG"),
-                ("geneB", "GCTAGCTAGCTAGCTAG"),
-                ("geneE", "TTTTTTTTTTTTTTTTTT")
-            }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 0.99);
-
-        Assert.That(result.Statistics.TotalGenomes, Is.EqualTo(3));
-        Assert.That(result.Statistics.CoreGeneCount, Is.GreaterThan(0));
-        Assert.That(result.Statistics.TotalGenes, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void ConstructPanGenome_EmptyInput_ReturnsEmptyResult()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>();
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes);
-
-        Assert.That(result.CoreGenes.Count, Is.EqualTo(0));
-        Assert.That(result.Statistics.TotalGenomes, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void ConstructPanGenome_SingleGenome_AllUnique()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["genome1"] = new List<(string, string)>
-            {
-                ("gene1", "ATGCGATCG"),
-                ("gene2", "GCTAGCTAG")
-            }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes);
-
-        Assert.That(result.Statistics.TotalGenomes, Is.EqualTo(1));
-        Assert.That(result.Statistics.TotalGenes, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void ConstructPanGenome_CalculatesCoreFraction()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC"), ("b", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("a", "ATGC"), ("c", "TTTT") }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 0.5);
-
-        Assert.That(result.Statistics.CoreFraction, Is.GreaterThanOrEqualTo(0).And.LessThanOrEqualTo(1));
-    }
-
-    [Test]
-    public void ConstructPanGenome_IdentifiesAccessoryGenes()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("core", "ATGC"), ("accessory", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("core", "ATGC"), ("accessory", "GCTA") },
-            ["g3"] = new List<(string, string)> { ("core", "ATGC"), ("unique3", "AAAA") }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes, coreFraction: 0.99);
-
-        Assert.That(result.Statistics.AccessoryGeneCount + result.Statistics.UniqueGeneCount, Is.GreaterThan(0));
-    }
-
-    #endregion
+    // NOTE: ConstructPanGenome partition/core-fraction/accessory/single/empty/type/fluidity
+    // and GetCoreGeneClusters threshold tests now live canonically in
+    // PanGenomeAnalyzer_ConstructPanGenome_Tests.cs (Test Unit PANGEN-CORE-001) with exact,
+    // evidence-based assertions. This file retains tests for methods owned by other units
+    // (clustering, presence/absence, Heaps' law fit, accessory analysis, markers, alignment).
 
     #region Gene Clustering Tests
 
@@ -158,8 +71,11 @@ public class PanGenomeAnalyzerTests
             "Two identical genes MUST form a multi-gene cluster");
 
         var multiGeneCluster = clusters.First(c => c.GeneIds.Count > 1);
-        Assert.That(multiGeneCluster.AverageIdentity, Is.GreaterThan(0.9),
-            "Identical sequences should have >90% average identity");
+        // Two identical sequences have CD-HIT global identity 30/30 = 1.0 exactly
+        // (identical residues / shorter length), so the single-pair mean is 1.0
+        // (CD-HIT User's Guide -G 1). Exact, not a lower bound.
+        Assert.That(multiGeneCluster.AverageIdentity, Is.EqualTo(1.0).Within(1e-10),
+            "Identical sequences -> mean pairwise global identity exactly 1.0 (CD-HIT -G 1).");
     }
 
     [Test]
@@ -180,112 +96,14 @@ public class PanGenomeAnalyzerTests
 
     #endregion
 
-    #region Presence/Absence Matrix Tests
-
-    [Test]
-    public void CreatePresenceAbsenceMatrix_CreatesCorrectMatrix()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("gene1", "ATGC"), ("gene2", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("gene1", "ATGC") }
-        };
-
-        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
-        var matrix = PanGenomeAnalyzer.CreatePresenceAbsenceMatrix(genomes, clusters).ToList();
-
-        Assert.That(matrix.Count, Is.EqualTo(2));
-        Assert.That(matrix.First(r => r.GenomeId == "g1").PresentGenes, Is.EqualTo(2));
-        Assert.That(matrix.First(r => r.GenomeId == "g2").PresentGenes, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void CreatePresenceAbsenceMatrix_RecordsTotalGenes()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "AAAA"), ("b", "TTTT"), ("c", "GGGG") },
-            ["g2"] = new List<(string, string)> { ("a", "AAAA") }
-        };
-
-        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes).ToList();
-        var matrix = PanGenomeAnalyzer.CreatePresenceAbsenceMatrix(genomes, clusters).ToList();
-
-        Assert.That(matrix[0].TotalGenes, Is.EqualTo(clusters.Count));
-    }
-
-    #endregion
-
-    #region Heaps Law Tests
-
-    [Test]
-    public void FitHeapsLaw_WithMultipleGenomes_ReturnsValidFit()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a1", "ATGC"), ("b1", "GCTA"), ("c1", "TTTT") },
-            ["g2"] = new List<(string, string)> { ("a2", "ATGC"), ("b2", "GCTA"), ("d2", "AAAA") },
-            ["g3"] = new List<(string, string)> { ("a3", "ATGC"), ("b3", "GCTA"), ("e3", "GGGG") },
-            ["g4"] = new List<(string, string)> { ("a4", "ATGC"), ("f4", "CCCC"), ("g4", "TATA") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes, permutations: 5);
-
-        Assert.That(fit.K, Is.GreaterThan(0));
-        Assert.That(fit.PredictPanGenomeSize, Is.Not.Null);
-    }
-
-    [Test]
-    public void FitHeapsLaw_PredictorWorks()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC"), ("b", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("c", "TTTT"), ("d", "AAAA") },
-            ["g3"] = new List<(string, string)> { ("e", "GGGG"), ("f", "CCCC") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes, permutations: 3);
-
-        double predicted5 = fit.PredictPanGenomeSize(5);
-        double predicted10 = fit.PredictPanGenomeSize(10);
-
-        Assert.That(predicted10, Is.GreaterThanOrEqualTo(predicted5));
-    }
-
-    [Test]
-    public void FitHeapsLaw_TooFewGenomes_ReturnsEmpty()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC") }
-        };
-
-        var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes);
-
-        Assert.That(fit.K, Is.EqualTo(0));
-    }
-
-    #endregion
+    // Presence/absence matrix and Heaps' law fit tests now live canonically in
+    // PanGenomeAnalyzer_FitHeapsLaw_Tests.cs (Test Unit PANGEN-HEAP-001) with exact,
+    // evidence-based assertions against the micropan heaps() reference model.
 
     #region Core Genome Tests
 
-    [Test]
-    public void GetCoreGeneClusters_FiltersByThreshold()
-    {
-        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
-        {
-            new("c1", new[] { "g1" }, new[] { "genome1", "genome2", "genome3" }, 3, 0.95, "ATGC"),
-            new("c2", new[] { "g2" }, new[] { "genome1", "genome2" }, 2, 0.95, "GCTA"),
-            new("c3", new[] { "g3" }, new[] { "genome1" }, 1, 1.0, "TTTT")
-        };
-
-        // threshold=1.0 means all genomes required, so only c1 (3/3) qualifies
-        var core = PanGenomeAnalyzer.GetCoreGeneClusters(clusters, totalGenomes: 3, threshold: 1.0).ToList();
-
-        Assert.That(core.Count, Is.EqualTo(1));
-        Assert.That(core[0].ClusterId, Is.EqualTo("c1"));
-    }
+    // GetCoreGeneClusters threshold filtering is covered canonically in
+    // PanGenomeAnalyzer_ConstructPanGenome_Tests.cs (PANGEN-CORE-001).
 
     [Test]
     public void CreateCoreGenomeAlignment_ConcatenatesGenes()
@@ -379,75 +197,11 @@ public class PanGenomeAnalyzerTests
 
     #endregion
 
-    #region Phylogenetic Marker Tests
+    // Phylogenetic marker selection (single-copy core genes ranked by parsimony-informative
+    // sites) is covered canonically in PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs
+    // (PANGEN-MARKER-001). The previous identity-band + consensus-length heuristic tests were
+    // removed because that heuristic was unsourced and the method now conforms to panX/Roary.
 
-    [Test]
-    public void SelectPhylogeneticMarkers_FiltersAndLimits()
-    {
-        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
-        {
-            new("c1", new[] { "g1" }, new[] { "g1", "g2", "g3" }, 3, 0.85, "ATGCATGCATGC"),
-            new("c2", new[] { "g2" }, new[] { "g1", "g2", "g3" }, 3, 0.95, "ATGC"),
-            new("c3", new[] { "g3" }, new[] { "g1", "g2", "g3" }, 3, 0.99, "ATGCAT"),
-            new("c4", new[] { "g4" }, new[] { "g1", "g2", "g3" }, 3, 0.65, "ATGCATGCATGCAT") // Too divergent
-        };
-
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(
-            clusters, maxMarkers: 2, minIdentity: 0.7, maxIdentity: 0.99).ToList();
-
-        Assert.That(markers.Count, Is.LessThanOrEqualTo(2));
-        Assert.That(markers.All(m => m.AverageIdentity >= 0.7 && m.AverageIdentity <= 0.99), Is.True);
-    }
-
-    [Test]
-    public void SelectPhylogeneticMarkers_PrefersLongerSequences()
-    {
-        var clusters = new List<PanGenomeAnalyzer.GeneCluster>
-        {
-            new("short", new[] { "g1" }, new[] { "g1" }, 1, 0.9, "ATGC"),
-            new("long", new[] { "g2" }, new[] { "g1" }, 1, 0.9, "ATGCATGCATGCATGC")
-        };
-
-        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(clusters, maxMarkers: 1).ToList();
-
-        Assert.That(markers, Has.Count.EqualTo(1), "Should return exactly 1 marker");
-        Assert.That(markers[0].ClusterId, Is.EqualTo("long"),
-            "Should prefer longer sequence (16bp) over shorter (4bp)");
-    }
-
-    #endregion
-
-    #region Pan-Genome Type Tests
-
-    [Test]
-    public void ConstructPanGenome_DeterminesPanGenomeType()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("core", "ATGC"), ("u1", "AAAA") },
-            ["g2"] = new List<(string, string)> { ("core", "ATGC"), ("u2", "TTTT") },
-            ["g3"] = new List<(string, string)> { ("core", "ATGC"), ("u3", "GGGG") }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes);
-
-        Assert.That(result.Statistics.Type, Is.EqualTo(PanGenomeAnalyzer.PanGenomeType.Open)
-            .Or.EqualTo(PanGenomeAnalyzer.PanGenomeType.Closed));
-    }
-
-    [Test]
-    public void ConstructPanGenome_CalculatesGenomeFluidity()
-    {
-        var genomes = new Dictionary<string, IReadOnlyList<(string GeneId, string Sequence)>>
-        {
-            ["g1"] = new List<(string, string)> { ("a", "ATGC"), ("b", "GCTA") },
-            ["g2"] = new List<(string, string)> { ("a", "ATGC"), ("c", "TTTT") }
-        };
-
-        var result = PanGenomeAnalyzer.ConstructPanGenome(genomes);
-
-        Assert.That(result.Statistics.GenomeFluidity, Is.GreaterThanOrEqualTo(0));
-    }
-
-    #endregion
+    // Pan-genome open/closed classification and genome fluidity are covered canonically in
+    // PanGenomeAnalyzer_ConstructPanGenome_Tests.cs (PANGEN-CORE-001) with exact values.
 }

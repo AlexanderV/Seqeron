@@ -128,6 +128,40 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
     }
 
     [Test]
+    [Description("C2 / UPGMA-STAYS-BINARY: under the N-ary model UPGMA still produces a strictly bifurcating rooted (ultrametric) tree — every internal node has exactly 2 children. Verified on a 5-taxon alignment by inspecting Children.Count of every internal node.")]
+    public void BuildTree_UPGMA_EveryInternalNodeHasExactlyTwoChildren()
+    {
+        var sequences = new Dictionary<string, string>
+        {
+            ["A"] = "ACGTACGTAC",
+            ["B"] = "ACGTACGTAA",
+            ["C"] = "ACGTACATAC",
+            ["D"] = "TCATACATAC",
+            ["E"] = "TCATACACGC",
+        };
+
+        var tree = PhylogeneticAnalyzer.BuildTree(sequences, treeMethod: PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        var internalChildCounts = new List<int>();
+        void Walk(PhylogeneticAnalyzer.PhyloNode n)
+        {
+            if (n.IsLeaf) return;
+            internalChildCounts.Add(n.Children.Count);
+            foreach (var c in n.Children) Walk(c);
+        }
+        Walk(tree.Root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(internalChildCounts, Is.Not.Empty, "Tree has internal nodes");
+            Assert.That(internalChildCounts, Has.All.EqualTo(2),
+                "UPGMA is strictly bifurcating: no internal node may be a polytomy.");
+            // n leaves -> n-1 internal nodes for a binary rooted tree (5 -> 4).
+            Assert.That(internalChildCounts.Count, Is.EqualTo(4));
+        });
+    }
+
+    [Test]
     [Description("M06: Three sequences create valid binary tree structure")]
     public void BuildTree_ThreeSequences_CreatesValidBinaryTree()
     {
@@ -554,6 +588,130 @@ public class PhylogeneticAnalyzer_TreeConstruction_Tests
                 "δ(a,u) should be 2");
             Assert.That(leafB!.BranchLength, Is.EqualTo(3.0).Within(1e-10),
                 "δ(b,u) should be 3");
+        });
+    }
+
+    [Test]
+    [Description("C2 / NJ-TRIFURCATION: NeighborJoining on the Wikipedia 5-taxon additive matrix produces an unrooted tree whose centre is a TRIFURCATION (Saitou & Nei 1987), and that tree round-trips through Newick identically. Hand-derived: NJ stops at three OTUs {((a,b),c), d, e}; the final central node has 3 children; the three final branch lengths solve the additive 3-taxon system. The full additive matrix is reproduced by PatristicDistance (covered separately), so the trifurcation branch lengths are correct.")]
+    public void BuildTree_NJ_FinalNodeIsTrifurcation_RoundTripsThroughNewick()
+    {
+        // The root of an NJ tree is the unrooted-tree centre: exactly 3 children, not 2.
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        Assert.That(tree.Root.Children.Count, Is.EqualTo(3),
+            "The NJ centre is a trifurcation of the last three OTUs (Saitou & Nei 1987).");
+
+        // Round-trip: ToNewick -> ParseNewick -> ToNewick must be identical, and the reparsed
+        // root must still be a genuine 3-child node (not silently re-binarised).
+        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root);
+        var reparsed = PhylogeneticAnalyzer.ParseNewick(newick);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reparsed.Children.Count, Is.EqualTo(3),
+                "Re-parsed NJ tree keeps the trifurcating centre.");
+            Assert.That(PhylogeneticAnalyzer.ToNewick(reparsed), Is.EqualTo(newick),
+                "NJ trifurcation round-trips through Newick byte-for-byte.");
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(reparsed).Select(l => l.Name),
+                Is.EquivalentTo(WikipediaNJTaxa));
+        });
+    }
+
+    [Test]
+    [Description("S02d / NJ-TRIFURCATION-EXACT: hand-derived Saitou-Nei (1987) run on the Wikipedia 5-taxon additive matrix. Join 1: (a,b) Q=-50, δ(a)=2, δ(b)=3. Join 2: (u1,c) Q=-28, δ(c)=4, δ(u1)=3. Final three OTUs {u2=((a,b),c), d, e}: trifurcation branch lengths from the additive 3-taxon system δ_i=(d_ij+d_ik-d_jk)/2 → δ(u2)=2, δ(d)=2, δ(e)=1. Every branch length is pinned to the value derived by hand from the algorithm, NOT read off the code. A bifurcation-collapse (root with 2 children) cannot reproduce the 3-child node and fails Children.Count; a wrong trifurcation formula fails the δ assertions.")]
+    public void BuildTree_NJ_WikipediaExample_ExactTrifurcationBranchLengths()
+    {
+        // Hand-derived in this validation session (see report PHYLO-TREE-001):
+        //   join order: (a,b)->u1 ; (u1,c)->u2 ; centre {u2,d,e}
+        //   leaf/inner branches: a=2, b=3, u1->u2=3, c=4
+        //   trifurcation: u2=2, d=2, e=1
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        // The NJ centre must be a TRUE trifurcation: exactly 3 children. This is the
+        // headline capability of the N-ary refactor; a regression to a bifurcating NJ
+        // (2-child root + an extra internal node) fails here.
+        Assert.That(tree.Root.Children.Count, Is.EqualTo(3),
+            "NJ centre is a trifurcation of the last three OTUs (Saitou & Nei 1987).");
+
+        // Identify the three children of the centre: two leaves (d, e) and one internal
+        // clade ((a,b),c). Pin the exact trifurcation branch lengths (δ_i=(d_ij+d_ik-d_jk)/2).
+        var childD = tree.Root.Children.Single(c => c.IsLeaf && c.Name == "d");
+        var childE = tree.Root.Children.Single(c => c.IsLeaf && c.Name == "e");
+        var childClade = tree.Root.Children.Single(c => !c.IsLeaf);
+
+        // The internal child must be the clade ((a,b),c): leaves {a,b,c}, NOT {a,b} or {a,b,c,?}.
+        var cladeLeaves = PhylogeneticAnalyzer.GetLeaves(childClade).Select(l => l.Name).ToHashSet();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(childD.BranchLength, Is.EqualTo(2.0).Within(1e-10), "δ(d) trifurcation = 2");
+            Assert.That(childE.BranchLength, Is.EqualTo(1.0).Within(1e-10), "δ(e) trifurcation = 1");
+            Assert.That(childClade.BranchLength, Is.EqualTo(2.0).Within(1e-10),
+                "δ(((a,b),c)) trifurcation = 2");
+            Assert.That(cladeLeaves, Is.EquivalentTo(new[] { "a", "b", "c" }),
+                "Centre's internal child is the clade ((a,b),c).");
+        });
+    }
+
+    [Test]
+    [Description("S02e / NJ-NEWICK-EXACT: the entire hand-derived NJ tree serialises to the exact Newick string and round-trips byte-for-byte with the trifurcating centre preserved. The expected string is built from the hand-derived branch lengths (a=2,b=3,u1=3,c=4 | trifurcation u2=2,d=2,e=1), NOT captured from the code. The top-level descendant list has THREE comma-separated members — a bifurcating NJ would emit only two top-level members and fail this exact-string assertion.")]
+    public void BuildTree_NJ_WikipediaExample_ExactNewickRoundTrip()
+    {
+        // F4 formatting, InvariantCulture, per ToNewick. Top level = 3 members (trifurcation).
+        const string expected =
+            "(((a:2.0000,b:3.0000):3.0000,c:4.0000):2.0000,d:2.0000,e:1.0000);";
+
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaNJTaxa, WikipediaNJMatrix,
+            PhylogeneticAnalyzer.TreeMethod.NeighborJoining);
+
+        string newick = PhylogeneticAnalyzer.ToNewick(tree.Root);
+        Assert.That(newick, Is.EqualTo(expected),
+            "NJ serialises to the hand-derived trifurcating Newick string exactly.");
+
+        var reparsed = PhylogeneticAnalyzer.ParseNewick(newick);
+        Assert.Multiple(() =>
+        {
+            Assert.That(reparsed.Children.Count, Is.EqualTo(3),
+                "Re-parsed tree keeps the 3-child trifurcating centre.");
+            Assert.That(PhylogeneticAnalyzer.ToNewick(reparsed), Is.EqualTo(expected),
+                "build -> ToNewick -> ParseNewick -> ToNewick is byte-for-byte stable.");
+        });
+    }
+
+    [Test]
+    [Description("S01d / UPGMA-NEWICK-EXACT: the full hand-derived UPGMA tree (Wikipedia 5S rRNA example) serialises to the exact ultrametric Newick string and every internal node is strictly binary (Children.Count==2). String built from hand-derived heights/branches (a=b=8.5, u=2.5, e=11, c=d=14, v=5.5, w=2.5), NOT captured from code. A non-binary UPGMA (any polytomy) changes the descendant-list arity and fails the exact string.")]
+    public void BuildTree_UPGMA_WikipediaExample_ExactNewickAndStrictlyBinary()
+    {
+        // Hand-derived: (((a,b):2.5,e):5.5,(c,d):2.5) with leaf branches a=b=8.5, e=11, c=d=14.
+        const string expected =
+            "(((a:8.5000,b:8.5000):2.5000,e:11.0000):5.5000,(c:14.0000,d:14.0000):2.5000);";
+
+        var tree = PhylogeneticAnalyzer.BuildTreeFromMatrix(
+            WikipediaUPGMATaxa, WikipediaUPGMAMatrix,
+            PhylogeneticAnalyzer.TreeMethod.UPGMA);
+
+        var internalChildCounts = new List<int>();
+        void Walk(PhylogeneticAnalyzer.PhyloNode n)
+        {
+            if (n.IsLeaf) return;
+            internalChildCounts.Add(n.Children.Count);
+            foreach (var c in n.Children) Walk(c);
+        }
+        Walk(tree.Root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PhylogeneticAnalyzer.ToNewick(tree.Root), Is.EqualTo(expected),
+                "UPGMA serialises to the hand-derived ultrametric Newick string exactly.");
+            Assert.That(internalChildCounts, Has.All.EqualTo(2),
+                "UPGMA is strictly bifurcating: no polytomy.");
+            Assert.That(internalChildCounts.Count, Is.EqualTo(4),
+                "5 leaves -> 4 internal binary nodes.");
         });
     }
 

@@ -216,9 +216,24 @@ public static class GenomeAssemblyAnalyzer
         return sequence.Count(c => c != 'N' && c != 'n');
     }
 
+    // Nx/Lx threshold percentage for the N50/L50 statistics.
+    // Source: Miller, Koren & Sutton (2010), Genomics 95(6):315-327, §1.2 —
+    // "the smallest contig ... whose combined length represents at least 50% of the assembly".
+    private const int N50ThresholdPercent = 50;
+
     /// <summary>
-    /// Calculates Nx and Lx statistics.
+    /// Calculates Nx and Lx statistics from contig/scaffold lengths.
     /// </summary>
+    /// <remarks>
+    /// Nx is the length of the shortest sequence such that sequences of that length or
+    /// longer cover at least x% of the assembly; Lx is the count of those sequences.
+    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2. The
+    /// inclusive "at least x%" cumulative comparison matches the QUAST reference
+    /// implementation (quast_libs/N50.py, NG50_and_LG50).
+    /// </remarks>
+    /// <param name="sortedLengths">Sequence lengths sorted in descending order.</param>
+    /// <param name="totalLength">Sum of all sequence lengths (the assembly size).</param>
+    /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
     public static NxStatistics CalculateNx(
         IReadOnlyList<int> sortedLengths,
         long totalLength,
@@ -227,7 +242,6 @@ public static class GenomeAssemblyAnalyzer
         if (sortedLengths.Count == 0 || totalLength == 0)
             return new NxStatistics(threshold, 0, 0, 0);
 
-        long targetLength = (long)(totalLength * threshold / 100.0);
         long cumulative = 0;
         int count = 0;
 
@@ -236,13 +250,50 @@ public static class GenomeAssemblyAnalyzer
             cumulative += length;
             count++;
 
-            if (cumulative >= targetLength)
+            // Inclusive "at least threshold%" test, evaluated with integer arithmetic to
+            // avoid floating-point rounding of the cutoff. Equivalent to QUAST's
+            // "reference_length - cumulative <= reference_length * (100 - threshold) / 100".
+            // Source: QUAST quast_libs/N50.py NG50_and_LG50; Miller et al. (2010) §1.2.
+            if (cumulative * 100 >= totalLength * threshold)
             {
                 return new NxStatistics(threshold, length, count, cumulative);
             }
         }
 
         return new NxStatistics(threshold, sortedLengths[^1], count, cumulative);
+    }
+
+    /// <summary>
+    /// Calculates Nx and Lx statistics directly from an unsorted set of contig lengths.
+    /// </summary>
+    /// <remarks>
+    /// Convenience overload that sorts the lengths descending and computes the assembly
+    /// total internally, then delegates to <see cref="CalculateNx(IReadOnlyList{int},long,int)"/>.
+    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2.
+    /// </remarks>
+    /// <param name="lengths">Contig/scaffold lengths (any order).</param>
+    /// <param name="threshold">Percentage threshold x in [0, 100] (50 for N50/L50).</param>
+    public static NxStatistics CalculateNx(IEnumerable<int> lengths, int threshold)
+    {
+        var sorted = lengths.OrderByDescending(l => l).ToList();
+        long total = sorted.Sum(l => (long)l);
+        return CalculateNx(sorted, total, threshold);
+    }
+
+    /// <summary>
+    /// Calculates the N50 statistic: the length of the shortest contig in the smallest
+    /// set of longest contigs whose combined length is at least 50% of the assembly.
+    /// </summary>
+    /// <remarks>
+    /// Source: Miller, Koren &amp; Sutton (2010), Genomics 95(6):315-327, §1.2 —
+    /// "The contig N50 is the length of the smallest contig in the set that contains the
+    /// fewest (largest) contigs whose combined length represents at least 50% of the
+    /// assembly." Returns 0 for an empty input.
+    /// </remarks>
+    /// <param name="lengths">Contig/scaffold lengths (any order).</param>
+    public static int CalculateN50(IEnumerable<int> lengths)
+    {
+        return CalculateNx(lengths, N50ThresholdPercent).Nx;
     }
 
     /// <summary>

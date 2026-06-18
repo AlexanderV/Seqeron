@@ -635,28 +635,94 @@ public class PhylogeneticAnalyzer_NewickIO_Tests
 
     #endregion
 
-    #region Multifurcation / Malformed Input (PHYLO-NEWICK-001 fix: reject, don't silently truncate)
+    #region Multifurcation (N-ary) support — PHYLO-NEWICK-001 (C2): parse + write genuine polytomies
 
     [Test]
-    [Description("MUST: ParseNewick throws on a multifurcating (3-child) root instead of silently truncating ('(A,B,C);')")]
-    public void ParseNewick_MultifurcatingRoot_Throws()
+    [Description("MUST: ParseNewick parses a multifurcating (3-child) root '(A,B,C);' into a node with exactly 3 children (polytomy), not a truncated/binary node.")]
+    public void ParseNewick_MultifurcatingRoot_ParsesThreeChildren()
     {
-        // Source: Wikipedia/PHYLIP allow N-ary BranchSet; the binary PhyloNode model cannot
-        // represent it, so the parser must reject rather than silently drop the third child.
-        var ex = Assert.Throws<FormatException>(() =>
-            PhylogeneticAnalyzer.ParseNewick("(A,B,C);"));
+        // Newick grammar: BranchSet → Branch ("," Branch)* — a node with ≥3 children is a
+        // genuine multifurcation/polytomy (Wikipedia "Newick format"). Hand-derived: the root
+        // of "(A,B,C);" has 3 leaf children named A, B, C, in input order.
+        var root = PhylogeneticAnalyzer.ParseNewick("(A,B,C);");
 
-        Assert.That(ex!.Message, Does.Contain("ultifurcat"),
-            "Exception message should explain that multifurcating trees are unsupported");
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.IsLeaf, Is.False, "Root with 3 children is internal");
+            Assert.That(root.Children.Count, Is.EqualTo(3), "Root must have exactly 3 children (polytomy)");
+            Assert.That(root.Children[0].Name, Is.EqualTo("A"));
+            Assert.That(root.Children[1].Name, Is.EqualTo("B"));
+            Assert.That(root.Children[2].Name, Is.EqualTo("C"));
+            Assert.That(root.Children.All(c => c.IsLeaf), Is.True, "All three children are leaves");
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(root).Select(l => l.Name),
+                Is.EqualTo(new[] { "A", "B", "C" }), "Leaves in input order");
+        });
     }
 
     [Test]
-    [Description("MUST: ParseNewick throws on a multifurcating nested subtree ('(A,B,(C,D,E));')")]
-    public void ParseNewick_MultifurcatingNestedSubtree_Throws()
+    [Description("MUST: '(A,B,C);' round-trips identically through ToNewick (no branch lengths) — write of a 3-child node yields '(A,B,C);'.")]
+    public void ParseNewick_MultifurcatingRoot_RoundTripsIdentically()
     {
-        Assert.Throws<FormatException>(() =>
-            PhylogeneticAnalyzer.ParseNewick("(A,B,(C,D,E));"));
+        // Hand-derived: a 3-leaf polytomy with no branch lengths serialises to "(A,B,C);"
+        // exactly (open paren, comma-separated children in order, close paren, ';').
+        var root = PhylogeneticAnalyzer.ParseNewick("(A,B,C);");
+
+        string written = PhylogeneticAnalyzer.ToNewick(root, includeBranchLengths: false);
+
+        Assert.That(written, Is.EqualTo("(A,B,C);"),
+            "A 3-child polytomy must write back byte-for-byte as '(A,B,C);'");
+
+        // And re-parsing the written form yields the same 3-child shape.
+        var reparsed = PhylogeneticAnalyzer.ParseNewick(written);
+        Assert.That(reparsed.Children.Count, Is.EqualTo(3));
     }
+
+    [Test]
+    [Description("MUST: ParseNewick parses a multifurcating nested subtree '(A,B,(C,D,E));' — outer node has 3 children, the third being a 3-child polytomy.")]
+    public void ParseNewick_MultifurcatingNestedSubtree_ParsesNestedPolytomy()
+    {
+        // Hand-derived from the grammar: outer BranchSet = A, B, (C,D,E). The third child is
+        // itself an internal node with 3 leaf children C, D, E. Total 5 leaves.
+        var root = PhylogeneticAnalyzer.ParseNewick("(A,B,(C,D,E));");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children.Count, Is.EqualTo(3), "Outer node has 3 children");
+            Assert.That(root.Children[0].Name, Is.EqualTo("A"));
+            Assert.That(root.Children[1].Name, Is.EqualTo("B"));
+            Assert.That(root.Children[2].IsLeaf, Is.False, "Third child is the nested polytomy");
+            Assert.That(root.Children[2].Children.Count, Is.EqualTo(3), "Nested polytomy has 3 children");
+            Assert.That(root.Children[2].Children.Select(c => c.Name),
+                Is.EqualTo(new[] { "C", "D", "E" }));
+            Assert.That(PhylogeneticAnalyzer.GetLeaves(root).Count(), Is.EqualTo(5));
+        });
+
+        // Round-trip preserves the nested polytomy exactly.
+        string written = PhylogeneticAnalyzer.ToNewick(root, includeBranchLengths: false);
+        Assert.That(written, Is.EqualTo("(A,B,(C,D,E));"));
+    }
+
+    [Test]
+    [Description("MUST: multifurcation with branch lengths '(A:0.1,B:0.2,C:0.3);' parses to 3 children with the exact per-child branch lengths and round-trips.")]
+    public void ParseNewick_MultifurcationWithBranchLengths_PreservesLengths()
+    {
+        var root = PhylogeneticAnalyzer.ParseNewick("(A:0.1,B:0.2,C:0.3);");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children.Count, Is.EqualTo(3));
+            Assert.That(root.Children[0].BranchLength, Is.EqualTo(0.1).Within(1e-9));
+            Assert.That(root.Children[1].BranchLength, Is.EqualTo(0.2).Within(1e-9));
+            Assert.That(root.Children[2].BranchLength, Is.EqualTo(0.3).Within(1e-9));
+        });
+
+        string written = PhylogeneticAnalyzer.ToNewick(root, includeBranchLengths: true);
+        Assert.That(written, Is.EqualTo("(A:0.1000,B:0.2000,C:0.3000);"));
+    }
+
+    #endregion
+
+    #region Malformed Input (PHYLO-NEWICK-001: reject trailing garbage)
 
     [Test]
     [Description("MUST: ParseNewick throws on trailing garbage instead of silently ignoring it ('(A,B);extra')")]
@@ -667,6 +733,46 @@ public class PhylogeneticAnalyzer_NewickIO_Tests
 
         Assert.That(ex!.Message, Does.Contain("trailing").IgnoreCase,
             "Exception message should indicate unexpected trailing input");
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on an extra ')' — unbalanced parentheses ('(A,B));').")]
+    public void ParseNewick_ExtraCloseParen_Throws()
+    {
+        // Grammar: Internal → "(" BranchSet ")" Name. A surplus ')' is unconsumed input after
+        // the root subtree, i.e. a malformed (unbalanced) tree. Must throw, not silently accept.
+        Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("(A,B));"));
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on an unclosed '(' — unbalanced parentheses ('(A,B' / '(A,B;').")]
+    public void ParseNewick_UnclosedParen_Throws()
+    {
+        // The Newick grammar requires the matching ')' (Internal → "(" BranchSet ")" Name).
+        // An opening '(' with no closing ')' is a malformed tree. Previously this was silently
+        // accepted as a complete "(A,B)" — a grammar violation and silent data corruption.
+        Assert.Multiple(() =>
+        {
+            var ex1 = Assert.Throws<FormatException>(() =>
+                PhylogeneticAnalyzer.ParseNewick("(A,B"));
+            Assert.That(ex1!.Message, Does.Contain("unbalanced").IgnoreCase,
+                "Message should indicate unbalanced parentheses");
+
+            // Same defect even when a terminating ';' is present.
+            Assert.Throws<FormatException>(() =>
+                PhylogeneticAnalyzer.ParseNewick("(A,B;"));
+        });
+    }
+
+    [Test]
+    [Description("MUST: ParseNewick throws on a missing inner ')' that yields a degenerate single-child node ('((A,B);').")]
+    public void ParseNewick_MissingInnerCloseParen_Throws()
+    {
+        // "((A,B);" has two '(' but only one ')'. Under the lenient old parser this produced a
+        // degenerate single-child wrapper node "((A,B))" — wrong topology. The grammar rejects it.
+        Assert.Throws<FormatException>(() =>
+            PhylogeneticAnalyzer.ParseNewick("((A,B);"));
     }
 
     #endregion

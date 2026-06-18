@@ -6,40 +6,9 @@ namespace Seqeron.Genomics.Tests
     [TestFixture]
     public class GenomicAnalyzerTests
     {
-        #region Repeat Finding
-
-        [Test]
-        public void FindLongestRepeat_SimpleRepeat_FindsIt()
-        {
-            var dna = new DnaSequence("ACGTACGT");
-            var repeat = GenomicAnalyzer.FindLongestRepeat(dna);
-
-            Assert.That(repeat.Sequence, Is.EqualTo("ACGT"));
-            Assert.That(repeat.Count, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void FindLongestRepeat_NoRepeat_ReturnsEmpty()
-        {
-            var dna = new DnaSequence("ACGT");
-            var repeat = GenomicAnalyzer.FindLongestRepeat(dna);
-
-            Assert.That(repeat.IsEmpty, Is.True);
-        }
-
-        // NOTE: FindTandemRepeats tests moved to GenomicAnalyzer_TandemRepeat_Tests.cs
-        // as part of REP-TANDEM-001 consolidation with comprehensive coverage.
-
-        [Test]
-        public void FindRepeats_MultipleRepeats_FindsAll()
-        {
-            var dna = new DnaSequence("ACGTACGTTTTTACGT");
-            var repeats = GenomicAnalyzer.FindRepeats(dna, minLength: 3).ToList();
-
-            Assert.That(repeats.Any(r => r.Sequence == "ACGT"), Is.True);
-        }
-
-        #endregion
+        // NOTE: FindLongestRepeat / FindRepeats tests live in GenomicAnalyzer_FindRepeats_Tests.cs
+        // (GENOMIC-REPEAT-001 consolidation, evidence-based coverage). The previous weak tests here
+        // were removed. FindTandemRepeats tests are in GenomicAnalyzer_TandemRepeat_Tests.cs (REP-TANDEM-001).
 
         #region Motif Finding
 
@@ -164,44 +133,7 @@ namespace Seqeron.Genomics.Tests
 
         #endregion
 
-        #region Open Reading Frames
-
-        [Test]
-        public void FindOpenReadingFrames_SimpleOrf_FindsIt()
-        {
-            // ATG (start) + 30 codons + TAA (stop) = 99bp ORF
-            string seq = "ATG" + new string('A', 93) + "TAA";
-            var dna = new DnaSequence(seq);
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 90).ToList();
-
-            Assert.That(orfs, Has.Count.GreaterThanOrEqualTo(1));
-            Assert.That(orfs.Any(o => o.Sequence.StartsWith("ATG")), Is.True);
-        }
-
-        [Test]
-        public void FindOpenReadingFrames_MultipleFrames_FindsAll()
-        {
-            // ORF in frame 1
-            string seq = "ATGAAAAAATAA" + "ATGCCCCCCTAGATGGGGGGGTGA";
-            var dna = new DnaSequence(seq);
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 9).ToList();
-
-            // Should find ORFs starting with ATG
-            Assert.That(orfs.All(o => o.Sequence.StartsWith("ATG")), Is.True);
-        }
-
-        [Test]
-        public void FindOpenReadingFrames_NoOrf_ReturnsEmpty()
-        {
-            var dna = new DnaSequence("TTTTTTTTT");
-
-            var orfs = GenomicAnalyzer.FindOpenReadingFrames(dna, minLength: 30).ToList();
-
-            Assert.That(orfs, Is.Empty);
-        }
-
-        #endregion
+        // ORF tests for GenomicAnalyzer.FindOpenReadingFrames are the canonical fixture
+        // GenomicAnalyzer_FindOpenReadingFrames_Tests.cs (GENOMIC-ORF-001).
     }
 }

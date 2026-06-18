@@ -13,9 +13,14 @@ public static class GenomicAnalyzer
     #region Repeat Finding
 
     /// <summary>
-    /// Finds the longest repeated region in a DNA sequence.
-    /// Useful for detecting tandem repeats, transposable elements, etc.
-    /// Time complexity: O(n) using suffix tree.
+    /// Finds the longest repeated substring (LRS) of a DNA sequence: the longest
+    /// substring that occurs at least twice (occurrences may overlap). This is the
+    /// classical suffix-tree application — the deepest internal node, whose path label
+    /// spells a longest substring occurring ≥ 2 times (CMU 15-451 Lecture #10 §2.1;
+    /// Wikipedia, Longest repeated substring problem). Returns <see cref="RepeatInfo.None"/>
+    /// when no substring repeats (including the empty sequence).
+    /// Time complexity: O(n) for the deepest-node query after O(n) suffix-tree construction
+    /// (Ukkonen); occurrence enumeration adds O(occ). See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static RepeatInfo FindLongestRepeat(DnaSequence sequence)
     {
@@ -32,12 +37,24 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds all repeated substrings of at least the specified length.
+    /// Finds every distinct substring that occurs at least twice and has length ≥ <paramref name="minLength"/>.
+    /// A substring occurs ≥ 2 times iff it is a prefix of the longest common prefix (LCP) of some
+    /// pair of adjacent suffixes in sorted order; the method enumerates every such prefix of length
+    /// ≥ <paramref name="minLength"/> (not only the full LCP) and returns each distinct one occurring
+    /// ≥ 2 times (CMU 15-451 Lecture #10 §2.1; GeeksforGeeks, Suffix Tree Application 3). Worst-case
+    /// time O(n²) because adjacent-suffix prefix comparison and occurrence enumeration are over O(n)
+    /// suffixes of up to O(n) length.
+    /// See docs/algorithms/Repeat_Analysis/Repeat_Detection.md.
     /// </summary>
     public static IEnumerable<RepeatInfo> FindRepeats(DnaSequence sequence, int minLength)
     {
         var tree = sequence.SuffixTree;
         var found = new HashSet<string>();
+
+        // A repeat is a NON-EMPTY substring occurring >=2 times (the path label of an internal
+        // node, never the root). The empty string is not a repeat, so the effective minimum is
+        // at least 1 even when the caller passes minLength <= 0. (CMU 15-451 Lecture #10 §2.1.)
+        int effectiveMinLength = Math.Max(1, minLength);
 
         // Get all suffixes and find common prefixes
         var suffixes = tree.GetAllSuffixes().OrderBy(s => s).ToList();
@@ -55,12 +72,18 @@ public static class GenomicAnalyzer
                 lcpLen++;
             }
 
-            if (lcpLen >= minLength)
+            // A substring occurs >= 2 times iff it is a prefix of the longest common prefix of
+            // some pair of adjacent suffixes in sorted order (standard LCP-array result). The
+            // adjacent-pair LCP itself is only the *longest* such shared prefix; every shorter
+            // prefix (down to effectiveMinLength) is also a repeated substring with its own,
+            // possibly larger, occurrence set. Emitting only the full LCP would drop those
+            // shorter repeats, so we enumerate every qualifying prefix. (CMU 15-451 Lecture #10
+            // §2.1: a repeat is any substring occurring >= 2 times.)
+            for (int prefixLen = effectiveMinLength; prefixLen <= lcpLen; prefixLen++)
             {
-                string repeat = s1.Substring(0, lcpLen);
-                if (!found.Contains(repeat))
+                string repeat = s1.Substring(0, prefixLen);
+                if (found.Add(repeat))
                 {
-                    found.Add(repeat);
                     var positions = tree.FindAllOccurrences(repeat).OrderBy(p => p).ToList();
                     if (positions.Count >= 2)
                     {
@@ -144,22 +167,60 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Searches for a set of known motifs in a sequence.
+    /// Searches a sequence for a set of known motifs, returning, for each motif that occurs,
+    /// the 0-based start positions of <b>all</b> its occurrences. This is the classical exact
+    /// set-matching problem ("find all occurrences of each pattern P in text T") solved over the
+    /// generalized index of one text: each query is matched against this sequence's suffix tree
+    /// (Gusfield 1997, ISBN 0-521-58519-8; exact-matching definition, Tufts COMP 150GEN exact.html).
+    /// <para>
+    /// <b>Overlapping occurrences are all reported</b> — e.g. motif "AAA" in "AAAAA" yields
+    /// {0, 1, 2}, mirroring Biopython's overlap-aware semantics (<c>Seq("AAAA").count_overlap("AA") == 3</c>).
+    /// </para>
+    /// Motifs are upper-cased before searching (DNA is processed upper-cased, per Biopython
+    /// <c>Bio.Seq</c>); the result is keyed by the upper-cased motif. Empty or whitespace-only
+    /// motifs are skipped (the empty string is not a motif; mirrors <see cref="FindMotif"/>), and a
+    /// motif with no occurrence is omitted from the result. Positions for each motif are returned
+    /// <b>sorted ascending</b> for a deterministic, stable contract (the suffix tree enumerates
+    /// occurrences in DFS order, which is not inherently sorted). Duplicate motifs that normalize to
+    /// the same upper-cased key collapse to a single entry.
+    /// Time complexity: O(n) suffix-tree construction (Ukkonen) plus O(|m| + occ) per motif query
+    /// and O(occ·log occ) to sort each motif's positions. See
+    /// docs/algorithms/Motif_Analysis/Known_Motif_Search.md.
     /// </summary>
     public static Dictionary<string, IReadOnlyList<int>> FindKnownMotifs(
         DnaSequence sequence,
         IEnumerable<string> motifs)
     {
+        if (motifs is null)
+        {
+            throw new ArgumentNullException(nameof(motifs));
+        }
+
         var result = new Dictionary<string, IReadOnlyList<int>>();
         var tree = sequence.SuffixTree;
 
         foreach (var motif in motifs)
         {
+            // The empty string is not a motif (suffix-tree FindAllOccurrences("") would return
+            // every position, which is not a meaningful match). Skip empty/whitespace motifs,
+            // consistent with FindMotif's empty-pattern guard.
+            if (string.IsNullOrWhiteSpace(motif))
+            {
+                continue;
+            }
+
             string normalized = motif.ToUpperInvariant();
+            if (result.ContainsKey(normalized))
+            {
+                continue; // duplicate motif key — already searched
+            }
+
             var positions = tree.FindAllOccurrences(normalized);
             if (positions.Count > 0)
             {
-                result[normalized] = positions;
+                // Suffix-tree occurrence enumeration is DFS-order (not sorted); sort ascending
+                // so each motif's positions form the deterministic exact-matching set.
+                result[normalized] = positions.OrderBy(p => p).ToList();
             }
         }
 
@@ -171,9 +232,16 @@ public static class GenomicAnalyzer
     #region Sequence Comparison
 
     /// <summary>
-    /// Finds the longest common subsequence between two DNA sequences.
-    /// Useful for identifying conserved regions, gene homology, etc.
-    /// Time complexity: O(n + m) using suffix tree.
+    /// Finds the longest common <b>substring</b> (a longest <i>contiguous</i> string that is a
+    /// substring of both sequences), not a gapped subsequence — Wikipedia "Longest common substring";
+    /// the contiguous distinction is explicit there. Computed via the generalized suffix tree of
+    /// <paramref name="sequence1"/>: the deepest node whose subtree has leaves from both strings spells
+    /// the answer (Gusfield 1997, ISBN 0-521-58519-8; GeeksforGeeks "Suffix Tree Application 5").
+    /// On a length tie, the substring first found in <paramref name="sequence2"/> is returned
+    /// (documented tie-break of <see cref="SuffixTree.SuffixTree.LongestCommonSubstringInfo(string)"/>).
+    /// Returns <see cref="CommonRegion.None"/> when there is no shared substring (including any empty input).
+    /// Time complexity: O(n + m) with the generalized suffix tree (Gusfield 1997).
+    /// See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </summary>
     public static CommonRegion FindLongestCommonRegion(DnaSequence sequence1, DnaSequence sequence2)
     {
@@ -189,7 +257,23 @@ public static class GenomicAnalyzer
     }
 
     /// <summary>
-    /// Finds all common regions of at least the specified length.
+    /// For each start position in <paramref name="sequence2"/>, finds the <b>single longest</b> contiguous
+    /// substring (per Wikipedia "Longest common substring") of length ≥ <paramref name="minLength"/> that
+    /// also occurs in <paramref name="sequence1"/>, located via the generalized suffix tree; distinct such
+    /// substrings are reported once, with the first occurrence position in <paramref name="sequence1"/> and
+    /// the start position in <paramref name="sequence2"/>.
+    /// <para>
+    /// This is the set of right-maximal common substrings keyed by start position in
+    /// <paramref name="sequence2"/>, <b>not</b> the full set of every common substring: shorter prefixes
+    /// that share a start position with a longer match are not reported (e.g. for <c>ACGTACGT</c> vs
+    /// <c>TTACGTGG</c> with minLength 3 the result is <c>{TACGT, ACGT, CGT}</c> — the prefixes
+    /// <c>TAC</c>, <c>TACG</c>, <c>ACG</c> of those matches are omitted).
+    /// </para>
+    /// A common substring is non-empty, so values of
+    /// <paramref name="minLength"/> below 1 are treated as 1 (the empty string is not a region).
+    /// Time complexity: O(n + m·log m) — O(n + m) suffix-tree construction plus a per-position
+    /// binary search using O(m) <see cref="SuffixTree.SuffixTree.Contains(string)"/> lookups
+    /// (Gusfield 1997, ISBN 0-521-58519-8). See docs/algorithms/Sequence_Comparison/Common_Region_Detection.md.
     /// </summary>
     public static IEnumerable<CommonRegion> FindCommonRegions(
         DnaSequence sequence1,
@@ -200,11 +284,15 @@ public static class GenomicAnalyzer
         string seq2 = sequence2.Sequence;
         var found = new HashSet<string>();
 
+        // A common region is a NON-EMPTY contiguous substring; the empty string is not a region,
+        // so the effective minimum length is at least 1 (Wikipedia "Longest common substring").
+        int effectiveMinLength = Math.Max(1, minLength);
+
         // Slide through sequence2 and find matches
-        for (int i = 0; i < seq2.Length - minLength + 1; i++)
+        for (int i = 0; i < seq2.Length - effectiveMinLength + 1; i++)
         {
             // Binary search for longest match at this position
-            int lo = minLength, hi = seq2.Length - i;
+            int lo = effectiveMinLength, hi = seq2.Length - i;
             string? bestMatch = null;
 
             while (lo <= hi)
@@ -232,48 +320,124 @@ public static class GenomicAnalyzer
         }
     }
 
+    // Default k-mer length. Mash uses k=21 for whole genomes; for short DNA
+    // sequences a smaller default is appropriate. The value only sets the
+    // resolution of the comparison and does not change the Jaccard formula.
+    private const int DefaultKmerSize = 5;
+
+    // Jaccard index is defined on [0, 1] (Jaccard 1901). This factor only
+    // re-expresses that ratio as a percentage for reporting; it is not part
+    // of the formal coefficient.
+    private const double PercentScale = 100.0;
+
     /// <summary>
-    /// Calculates sequence similarity as percentage of matching k-mers.
+    /// Computes the k-mer Jaccard similarity index between two DNA sequences,
+    /// reported as a percentage in [0, 100].
     /// </summary>
-    public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = 5)
+    /// <remarks>
+    /// <para>
+    /// Each sequence is decomposed into its <b>set</b> of distinct length-<paramref name="kmerSize"/>
+    /// substrings (k-mers). The Jaccard index is the size of the intersection of the two
+    /// k-mer sets divided by the size of their union:
+    /// <c>J(A,B) = |A ∩ B| / |A ∪ B|</c> (Jaccard, 1901). Applied to k-mer sets this is the
+    /// fraction of shared k-mers out of all distinct k-mers in the two sequences (Ondov et al.,
+    /// Mash, 2016). The result is multiplied by 100 to report a percentage.
+    /// </para>
+    /// <para>
+    /// The Jaccard index is undefined when the union is empty (Jaccard 1901 is stated for
+    /// non-empty sets). This occurs only when both k-mer sets are empty (e.g. both sequences
+    /// are empty or shorter than <paramref name="kmerSize"/>); this method returns 0 in that case.
+    /// </para>
+    /// </remarks>
+    /// <param name="sequence1">First DNA sequence.</param>
+    /// <param name="sequence2">Second DNA sequence.</param>
+    /// <param name="kmerSize">k-mer length; must be ≥ 1.</param>
+    /// <returns>Jaccard similarity as a percentage in [0, 100].</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence1"/> or <paramref name="sequence2"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="kmerSize"/> is less than 1.</exception>
+    public static double CalculateSimilarity(DnaSequence sequence1, DnaSequence sequence2, int kmerSize = DefaultKmerSize)
     {
-        var kmers1 = GetKmers(sequence1.Sequence, kmerSize);
-        var kmers2 = GetKmers(sequence2.Sequence, kmerSize);
+        if (sequence1 is null)
+        {
+            throw new ArgumentNullException(nameof(sequence1));
+        }
 
-        int intersection = kmers1.Intersect(kmers2).Count();
-        int union = kmers1.Union(kmers2).Count();
+        if (sequence2 is null)
+        {
+            throw new ArgumentNullException(nameof(sequence2));
+        }
 
-        return union == 0 ? 0 : (double)intersection / union * 100;
+        if (kmerSize < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(kmerSize), kmerSize, "k-mer size must be at least 1.");
+        }
+
+        HashSet<string> kmers1 = GetKmers(sequence1.Sequence, kmerSize);
+        HashSet<string> kmers2 = GetKmers(sequence2.Sequence, kmerSize);
+
+        // |A ∪ B| = |A| + |B| − |A ∩ B|, computed on the distinct-k-mer sets.
+        int intersection = kmers1.Count(kmers2.Contains);
+        int union = kmers1.Count + kmers2.Count - intersection;
+
+        // Union is empty only when both k-mer sets are empty; Jaccard is undefined there.
+        return union == 0 ? 0.0 : (double)intersection / union * PercentScale;
     }
 
     #endregion
 
     #region Open Reading Frames
 
+    // Standard genetic code (NCBI transl_table=1): start codon ATG, stop codons TAA/TAG/TGA.
+    // NCBI Genetic Codes, https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi (accessed 2026-06-14).
+    private const string StartCodon = "ATG";
+    private static readonly string[] StopCodons = { "TAA", "TAG", "TGA" };
+
+    // A codon is three nucleotides.
+    private const int CodonLength = 3;
+
+    // Number of reading frames per strand (offsets 0,1,2). Six-frame search uses both strands.
+    // Open reading frame, https://en.wikipedia.org/wiki/Open_reading_frame (accessed 2026-06-14).
+    private const int FramesPerStrand = 3;
+
     /// <summary>
-    /// Finds potential Open Reading Frames (ORFs) - regions that could encode proteins.
-    /// An ORF starts with ATG (start codon) and ends with TAA, TAG, or TGA (stop codons).
+    /// Finds potential Open Reading Frames (ORFs) in all six reading frames (three on the
+    /// forward strand and three on the reverse complement).
     /// </summary>
+    /// <remarks>
+    /// An ORF starts at a start codon (ATG) and ends at the first in-frame stop codon
+    /// (TAA, TAG, or TGA). Following the canonical ORF definition (Rosalind "Open Reading
+    /// Frames"; NCBI ORFfinder with "ATG only"), <b>every</b> in-frame ATG that is terminated
+    /// by a downstream in-frame stop is reported — including nested/overlapping ORFs that share
+    /// the same stop codon. A reading begun at an ATG that has no downstream in-frame stop is
+    /// not a complete ORF and is not reported. The reported <see cref="OrfInfo.Sequence"/>
+    /// spans the start codon through the stop codon inclusive, so its length is divisible by 3;
+    /// the encoded protein candidate is the translation up to (excluding) the stop.
+    /// </remarks>
+    /// <param name="sequence">The DNA sequence to scan.</param>
+    /// <param name="minLength">
+    /// Minimum ORF length in nucleotides (inclusive lower bound), matching NCBI ORFfinder's
+    /// nucleotide length filter. ORFs with length &lt; <paramref name="minLength"/> are excluded.
+    /// </param>
     public static IEnumerable<OrfInfo> FindOpenReadingFrames(DnaSequence sequence, int minLength = 100)
     {
-        string seq = sequence.Sequence;
-        var startCodon = "ATG";
-        var stopCodons = new[] { "TAA", "TAG", "TGA" };
-
-        // Check all 3 reading frames on forward strand
-        for (int frame = 0; frame < 3; frame++)
+        if (sequence is null)
         {
-            foreach (var orf in FindOrfsInFrame(seq, frame, startCodon, stopCodons, minLength, false))
+            throw new ArgumentNullException(nameof(sequence));
+        }
+
+        string seq = sequence.Sequence;
+        for (int frame = 0; frame < FramesPerStrand; frame++)
+        {
+            foreach (var orf in FindOrfsInFrame(seq, frame, minLength, isReverseComplement: false))
             {
                 yield return orf;
             }
         }
 
-        // Check all 3 reading frames on reverse complement
         string revComp = sequence.ReverseComplement().Sequence;
-        for (int frame = 0; frame < 3; frame++)
+        for (int frame = 0; frame < FramesPerStrand; frame++)
         {
-            foreach (var orf in FindOrfsInFrame(revComp, frame, startCodon, stopCodons, minLength, true))
+            foreach (var orf in FindOrfsInFrame(revComp, frame, minLength, isReverseComplement: true))
             {
                 yield return orf;
             }
@@ -281,32 +445,54 @@ public static class GenomicAnalyzer
     }
 
     private static IEnumerable<OrfInfo> FindOrfsInFrame(
-        string seq, int frame, string startCodon, string[] stopCodons, int minLength, bool isReverseComplement)
+        string seq, int frame, int minLength, bool isReverseComplement)
     {
-        int? orfStart = null;
-
-        for (int i = frame; i <= seq.Length - 3; i += 3)
+        // Scan codon positions in this frame. At each ATG, find the first in-frame stop
+        // downstream; report that ATG→stop span. Every ATG is considered independently, so
+        // nested ORFs sharing a stop are all reported (canonical Rosalind ORF semantics).
+        for (int start = frame; start <= seq.Length - CodonLength; start += CodonLength)
         {
-            string codon = seq.Substring(i, 3);
-
-            if (orfStart == null && codon == startCodon)
+            if (!IsCodon(seq, start, StartCodon))
             {
-                orfStart = i;
+                continue;
             }
-            else if (orfStart != null && stopCodons.Contains(codon))
+
+            for (int i = start; i <= seq.Length - CodonLength; i += CodonLength)
             {
-                int length = i + 3 - orfStart.Value;
+                if (!IsStopCodon(seq, i))
+                {
+                    continue;
+                }
+
+                int length = i + CodonLength - start;
                 if (length >= minLength)
                 {
                     yield return new OrfInfo(
-                        seq.Substring(orfStart.Value, length),
-                        orfStart.Value,
+                        seq.Substring(start, length),
+                        start,
                         frame + 1,
                         isReverseComplement);
                 }
-                orfStart = null;
+
+                break; // ORF ends at the first in-frame stop.
             }
         }
+    }
+
+    private static bool IsCodon(string seq, int index, string codon) =>
+        string.CompareOrdinal(seq, index, codon, 0, CodonLength) == 0;
+
+    private static bool IsStopCodon(string seq, int index)
+    {
+        foreach (string stop in StopCodons)
+        {
+            if (IsCodon(seq, index, stop))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #endregion

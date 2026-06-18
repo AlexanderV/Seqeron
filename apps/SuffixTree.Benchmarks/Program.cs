@@ -8,11 +8,11 @@ using SuffixTree.Benchmarks;
 // Two-phase JIT vs NativeAOT benchmark strategy:
 //
 // Phase 1 — JIT baseline (fast, ~2 min):
-//   dotnet run --project apps\SuffixTree.Benchmarks -c Release -f net9.0 -- \
+//   dotnet run --project apps\SuffixTree.Benchmarks -c Release -f net10.0 -- \
 //     --filter "*Build_Short*" "*Build_DNA*" "*Contains*" "*LRS*"
 //
 // Phase 2 — Publish as NativeAOT ONCE (~5 min):
-//   dotnet publish apps\SuffixTree.Benchmarks -c Release -r win-x64 -f net9.0 \
+//   dotnet publish apps\SuffixTree.Benchmarks -c Release -r win-x64 -f net10.0 \
 //     /p:PublishAot=true /p:OptimizationPreference=Speed \
 //     /p:IlcInstructionSet=native /p:IlcFoldIdenticalMethodBodies=true \
 //     /p:StripSymbols=true /p:InvariantGlobalization=true
@@ -41,8 +41,8 @@ if (useInProcess)
 else
 {
     // Run all benchmark classes that match the filter.
-    // Persistent benchmarks (net9.0 only):
-    //   dotnet run -c Release -f net9.0 -- --filter "*Persistent*"
+    // Persistent benchmarks (net10.0 only):
+    //   dotnet run -c Release -f net10.0 -- --filter "*Persistent*"
     BenchmarkSwitcher
         .FromAssembly(typeof(SuffixTreeBenchmarks).Assembly)
         .Run(filteredArgs);

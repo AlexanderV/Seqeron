@@ -218,15 +218,14 @@ public record FindProteinMotifsResult(ProteinMotifMatchItem[] Items);
 /// <summary>Result of <c>prosite_to_regex</c>.</summary>
 public record PrositeRegexResult(string Regex);
 
-/// <summary>Signal peptide prediction (von Heijne tripartite model).</summary>
+/// <summary>Signal-peptide cleavage-site prediction (von Heijne 1986 weight-matrix method).</summary>
 public record SignalPeptideResult(
     bool Found,
     int CleavagePosition,
-    string NRegion,
-    string HRegion,
-    string CRegion,
     double Score,
-    double Probability);
+    string SignalSequence,
+    string WindowSequence,
+    bool IsLikelySignalPeptide);
 
 /// <summary>A scored region (start, end, score) — used for TM helices and coiled-coils.</summary>
 public record RegionScoreItem(int Start, int End, double Score);
@@ -237,8 +236,8 @@ public record PredictTransmembraneHelicesResult(RegionScoreItem[] Items);
 /// <summary>Result of <c>predict_coiled_coils</c>.</summary>
 public record PredictCoiledCoilsResult(RegionScoreItem[] Items);
 
-/// <summary>A protein low-complexity region.</summary>
-public record ProteinLowComplexityItem(int Start, int End, char DominantAa, double Frequency);
+/// <summary>A protein low-complexity region (SEG): 0-based inclusive span and minimum window complexity in bits/residue.</summary>
+public record ProteinLowComplexityItem(int Start, int End, double Complexity);
 
 /// <summary>Result of <c>find_protein_low_complexity_regions</c>.</summary>
 public record FindProteinLowComplexityRegionsResult(ProteinLowComplexityItem[] Items);

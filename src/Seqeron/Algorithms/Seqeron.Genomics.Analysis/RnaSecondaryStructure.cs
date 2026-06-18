@@ -94,6 +94,21 @@ public static class RnaSecondaryStructure
         IReadOnlyList<Pseudoknot> Pseudoknots,
         double MinimumFreeEnergy);
 
+    /// <summary>
+    /// Result of the McCaskill equilibrium partition-function computation over the
+    /// full ensemble of (pseudoknot-free) secondary structures of a sequence.
+    /// </summary>
+    /// <param name="PartitionFunction">
+    /// Z = Σ_S exp(−E(S)/RT) over all admissible structures S (McCaskill 1990, Z = Q₁ₙ).
+    /// </param>
+    /// <param name="BasePairProbabilities">
+    /// P[i,j] = (Σ_{S ∋ (i,j)} exp(−E(S)/RT)) / Z, the equilibrium base-pair probability
+    /// for every pair (i,j) that can form, indexed by 0-based (i,j) with i &lt; j.
+    /// </param>
+    public readonly record struct PartitionFunctionResult(
+        double PartitionFunction,
+        IReadOnlyDictionary<(int I, int J), double> BasePairProbabilities);
+
     #endregion
 
     #region Free Energy Parameters
@@ -1532,33 +1547,52 @@ public static class RnaSecondaryStructure
 
     /// <summary>
     /// Detects pseudoknots in a set of base pairs.
-    /// A pseudoknot occurs when pairs cross: i < i' < j < j' for pairs (i,j) and (i',j').
+    /// Two base pairs (i,j) and (k,l) — written with open &lt; close positions — form a
+    /// pseudoknot when they CROSS, i.e. i &lt; k &lt; j &lt; l. Nested pairs (i &lt; k &lt; l &lt; j) and
+    /// disjoint pairs (j &lt; k) are not pseudoknots. Each crossing pair-of-pairs is reported
+    /// as one <see cref="Pseudoknot"/>.
     /// </summary>
+    /// <remarks>
+    /// Crossing condition per Antczak et al. (2018) Bioinformatics 34(8):1304–1312 and
+    /// biotite.structure.pseudoknots: a pseudoknot is a non-nested ("crossing") arrangement
+    /// of base pairs. Endpoints are normalized to (open &lt; close) before the comparison.
+    /// </remarks>
+    /// <param name="basePairs">The base pairs to scan. A <c>null</c> set yields no pseudoknots.</param>
+    /// <returns>One <see cref="Pseudoknot"/> per crossing pair-of-pairs, in deterministic input order.</returns>
     public static IEnumerable<Pseudoknot> DetectPseudoknots(IReadOnlyList<BasePair> basePairs)
     {
-        var crossingGroups = new List<List<BasePair>>();
+        // A pseudoknot requires two base pairs that cross; fewer than two cannot.
+        if (basePairs is null || basePairs.Count < 2)
+            yield break;
 
-        for (int i = 0; i < basePairs.Count; i++)
+        for (int a = 0; a < basePairs.Count; a++)
         {
-            for (int j = i + 1; j < basePairs.Count; j++)
+            for (int b = a + 1; b < basePairs.Count; b++)
             {
-                var bp1 = basePairs[i];
-                var bp2 = basePairs[j];
+                var bp1 = basePairs[a];
+                var bp2 = basePairs[b];
 
-                // Check for crossing: i < i' < j < j'
-                int i1 = Math.Min(bp1.Position1, bp1.Position2);
-                int j1 = Math.Max(bp1.Position1, bp1.Position2);
-                int i2 = Math.Min(bp2.Position1, bp2.Position2);
-                int j2 = Math.Max(bp2.Position1, bp2.Position2);
+                // Normalize each pair to (open < close) so storage order does not matter.
+                int i = Math.Min(bp1.Position1, bp1.Position2);
+                int j = Math.Max(bp1.Position1, bp1.Position2);
+                int k = Math.Min(bp2.Position1, bp2.Position2);
+                int l = Math.Max(bp2.Position1, bp2.Position2);
 
-                if (i1 < i2 && i2 < j1 && j1 < j2)
+                // Order the two pairs by their opening position so the crossing test is
+                // direction-independent: the pair that opens first plays the role of (i,j).
+                if (k < i)
                 {
-                    // Found crossing pairs
+                    (i, j, k, l) = (k, l, i, j);
+                }
+
+                // Crossing (pseudoknot) condition: i < k < j < l.
+                if (i < k && k < j && j < l)
+                {
                     yield return new Pseudoknot(
-                        Start1: i1,
-                        End1: j1,
-                        Start2: i2,
-                        End2: j2,
+                        Start1: i,
+                        End1: j,
+                        Start2: k,
+                        End2: l,
                         CrossingPairs: new List<BasePair> { bp1, bp2 });
                 }
             }
@@ -1606,134 +1640,429 @@ public static class RnaSecondaryStructure
         return new string(notation);
     }
 
+    // Dot-bracket / extended WUSS bracket pairs. Each opening symbol pairs ONLY with
+    // its matching closing symbol; the four bracket families are independent pairing
+    // systems so crossing (pseudoknotted) helices can be annotated.
+    // Sources: ViennaRNA RNA Structure Notations — nested base pairs annotated by matching
+    //   pairs of <> () {} []; Infernal/WUSS — "any matching nested pair of (), [], {}
+    //   indicates a base pair ... so long as the left and right partners match up".
+    private static readonly IReadOnlyDictionary<char, char> ClosingToOpening = new Dictionary<char, char>
+    {
+        [')'] = '(',
+        [']'] = '[',
+        ['}'] = '{',
+        ['>'] = '<',
+    };
+
+    private static readonly IReadOnlyDictionary<char, char> OpeningToClosing = new Dictionary<char, char>
+    {
+        ['('] = ')',
+        ['['] = ']',
+        ['{'] = '}',
+        ['<'] = '>',
+    };
+
     /// <summary>
-    /// Parses dot-bracket notation to extract base pairs.
+    /// Parses dot-bracket / extended WUSS notation to extract base pairs as
+    /// (5' position, 3' position) index tuples (zero-based).
     /// </summary>
+    /// <remarks>
+    /// Each bracket family (<c>()</c>, <c>[]</c>, <c>{}</c>, <c>&lt;&gt;</c>) is matched on
+    /// its own stack, and uppercase/lowercase letter pairs (<c>Aa</c>, <c>Bb</c>, ...) are
+    /// matched as independent pseudoknot systems, per ViennaRNA / WUSS conventions.
+    /// An opening symbol is paired with the nearest unmatched opening of the SAME family
+    /// (correct nesting). Dots and any other symbols denote unpaired residues and are skipped.
+    /// Closing symbols with no open partner are ignored (parse is best-effort; use
+    /// <see cref="ValidateDotBracket"/> to test well-formedness first).
+    /// </remarks>
     public static IEnumerable<(int Position1, int Position2)> ParseDotBracket(string dotBracket)
     {
-        var stack = new Stack<int>();
+        if (string.IsNullOrEmpty(dotBracket))
+            yield break;
+
+        // One independent stack per opening symbol (brackets + uppercase letters).
+        var stacks = new Dictionary<char, Stack<int>>();
 
         for (int i = 0; i < dotBracket.Length; i++)
         {
-            switch (dotBracket[i])
-            {
-                case '(':
-                case '[':
-                case '{':
-                case '<':
-                    stack.Push(i);
-                    break;
+            char c = dotBracket[i];
 
-                case ')':
-                case ']':
-                case '}':
-                case '>':
-                    if (stack.Count > 0)
-                    {
-                        int j = stack.Pop();
-                        yield return (j, i);
-                    }
-                    break;
+            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
+            {
+                if (!stacks.TryGetValue(c, out var stack))
+                {
+                    stack = new Stack<int>();
+                    stacks[c] = stack;
+                }
+                stack.Push(i);
             }
+            else if (ClosingToOpening.TryGetValue(c, out char opener))
+            {
+                if (stacks.TryGetValue(opener, out var stack) && stack.Count > 0)
+                    yield return (stack.Pop(), i);
+            }
+            else if (char.IsLetter(c) && char.IsLower(c))
+            {
+                char up = char.ToUpperInvariant(c);
+                if (stacks.TryGetValue(up, out var stack) && stack.Count > 0)
+                    yield return (stack.Pop(), i);
+            }
+            // '.', ',', '-', ':', '_', '~' and any other symbol => unpaired, skip.
         }
     }
 
     /// <summary>
-    /// Validates dot-bracket notation.
+    /// Validates dot-bracket / extended WUSS notation: every closing symbol must match an
+    /// earlier unmatched opening symbol of the SAME family, and no opening symbol may be left
+    /// unclosed. Each bracket family and each letter (case) pair is checked independently, so a
+    /// mismatched pairing such as <c>(]</c> is rejected even though the total count is balanced.
     /// </summary>
+    /// <remarks>
+    /// Sources: ViennaRNA — base pairs are matching pairs of <c>()</c> (and extended <c>[]{}&lt;&gt;</c>,
+    /// letters) and the structure must be balanced; WUSS — left and right partners must match up.
+    /// </remarks>
     public static bool ValidateDotBracket(string dotBracket)
     {
-        int count = 0;
+        if (string.IsNullOrEmpty(dotBracket))
+            return true;
+
+        var stacks = new Dictionary<char, Stack<int>>();
+
         foreach (char c in dotBracket)
         {
-            if (c == '(' || c == '[' || c == '{' || c == '<')
-                count++;
-            else if (c == ')' || c == ']' || c == '}' || c == '>')
-                count--;
-
-            if (count < 0)
-                return false;
+            if (OpeningToClosing.ContainsKey(c) || (char.IsLetter(c) && char.IsUpper(c)))
+            {
+                if (!stacks.TryGetValue(c, out var stack))
+                {
+                    stack = new Stack<int>();
+                    stacks[c] = stack;
+                }
+                stack.Push(0);
+            }
+            else if (ClosingToOpening.TryGetValue(c, out char opener))
+            {
+                if (!stacks.TryGetValue(opener, out var stack) || stack.Count == 0)
+                    return false;
+                stack.Pop();
+            }
+            else if (char.IsLetter(c) && char.IsLower(c))
+            {
+                char up = char.ToUpperInvariant(c);
+                if (!stacks.TryGetValue(up, out var stack) || stack.Count == 0)
+                    return false;
+                stack.Pop();
+            }
+            // unpaired symbol => ignore.
         }
-        return count == 0;
+
+        foreach (var stack in stacks.Values)
+            if (stack.Count != 0)
+                return false;
+        return true;
     }
 
     #endregion
 
     #region Utility Methods
 
+    // Default parameters for inverted-repeat detection.
+    // Minimum arm length: an arm shorter than this is not reported (IUPACpal "minimum length").
+    // Source: Alamro et al. (2021) IUPACpal, BMC Bioinformatics 22:51. https://doi.org/10.1186/s12859-021-03983-2
+    private const int DefaultMinArmLength = 4;
+    // Minimum loop length: a stable RNA hairpin loop needs at least 3 unpaired nucleotides.
+    // Source: IUPACpal gap |G| >= 0; EMBOSS einverted loop. 3-nt minimum is the repository RNA convention.
+    private const int DefaultMinLoopLength = 3;
+    // Maximum loop length searched (bounds the gap G; IUPACpal "maximum gap size").
+    private const int DefaultMaxLoopLength = 100;
+
     /// <summary>
-    /// Finds inverted repeats (potential stem regions).
+    /// Finds inverted repeats (potential RNA stem regions): a left arm <c>W</c> followed by a
+    /// loop and then a right arm equal to the <b>reverse complement</b> of <c>W</c>, i.e. the
+    /// pattern <c>W G W̄ᴿ</c> with a perfect (zero-mismatch) antiparallel stem. The two arms form
+    /// the stem of a potential hairpin and the intervening region is the loop.
     /// </summary>
+    /// <param name="sequence">Nucleotide sequence (DNA or RNA; case-insensitive).</param>
+    /// <param name="minLength">Minimum arm length; arms shorter than this are not reported (default 4).</param>
+    /// <param name="minSpacing">Minimum loop length between the two arms (default 3).</param>
+    /// <param name="maxSpacing">Maximum loop length between the two arms (default 100).</param>
+    /// <returns>
+    /// Maximal, non-overlapping inverted repeats as tuples: left arm <c>[Start1..End1]</c>,
+    /// right arm <c>[Start2..End2]</c> (both 0-based inclusive), and the common arm <c>Length</c>.
+    /// For every reported repeat and every k in [0,Length), the antiparallel pairing
+    /// <c>complement(seq[Start2+Length-1-k]) == seq[Start1+k]</c> holds (strict Watson-Crick/IUPAC).
+    /// </returns>
+    /// <remarks>
+    /// Sources: an inverted repeat is "a single stranded sequence ... followed downstream by its
+    /// reverse complement", formally <c>WGW̄ᴿ</c> with |G| >= 0 (Alamro et al. 2021, IUPACpal,
+    /// https://doi.org/10.1186/s12859-021-03983-2; Ussery et al. 2008 via Wikipedia). This is the
+    /// k = 0 (perfect) case; the scored mismatch/gap variant (EMBOSS einverted) is out of scope.
+    /// Search reuse: the repository SuffixTree was evaluated and not used — matching here is
+    /// antiparallel reverse-complement extension over a bounded loop window, not exact substring
+    /// occurrence enumeration, which is the established approach (EMBOSS einverted uses local DP).
+    /// </remarks>
     public static IEnumerable<(int Start1, int End1, int Start2, int End2, int Length)> FindInvertedRepeats(
         string sequence,
-        int minLength = 4,
-        int minSpacing = 3,
-        int maxSpacing = 100)
+        int minLength = DefaultMinArmLength,
+        int minSpacing = DefaultMinLoopLength,
+        int maxSpacing = DefaultMaxLoopLength)
     {
-        if (string.IsNullOrEmpty(sequence) || sequence.Length < minLength * 2 + minSpacing)
+        if (string.IsNullOrEmpty(sequence) || minLength < 1 || minSpacing < 0 || maxSpacing < minSpacing)
             yield break;
 
         string upper = sequence.ToUpperInvariant();
+        int n = upper.Length;
+        // Smallest sequence that can hold two arms of minLength plus the minimum loop.
+        if (n < 2 * minLength + minSpacing)
+            yield break;
 
-        for (int i = 0; i <= upper.Length - minLength * 2 - minSpacing; i++)
+        // Scan loop boundaries: p = last index of the left arm, q = first index of the right arm,
+        // with loop length (q - p - 1) in [minSpacing, maxSpacing]. The innermost base pair is
+        // (seq[p], seq[q]); the stem extends OUTWARD: seq[p-k] pairs antiparallel with seq[q+k].
+        // This realizes the W G W̄ᴿ pattern where the right arm is the reverse complement of the left.
+        // Collect the best (maximal) stem per loop boundary, then report non-overlapping repeats
+        // preferring the longest stems first (einverted-style maximal local alignment).
+        var candidates = new List<(int Start1, int End1, int Start2, int End2, int Length)>();
+        for (int p = 0; p < n; p++)
         {
-            for (int spacing = minSpacing; spacing <= Math.Min(maxSpacing, upper.Length - i - minLength * 2); spacing++)
+            int firstQ = p + 1 + minSpacing;
+            int lastQ = Math.Min(p + 1 + maxSpacing, n - 1);
+            int bestLen = 0;
+            int bestRightEnd = -1;
+            for (int q = firstQ; q <= lastQ; q++)
             {
-                int j = i + minLength + spacing;
-                int maxPossibleLen = Math.Min(upper.Length - j, j - i - minSpacing);
-
-                // Check for ANTIPARALLEL complementary regions (biologically correct for RNA hairpin stems)
-                // Position i+k should pair with position j+len-1-k (antiparallel)
-                int matchLen = 0;
-                for (int len = minLength; len <= maxPossibleLen; len++)
+                // Extend the stem outward while complementary; arms may not cross into the loop
+                // (left stays >= 0, right stays <= n-1, and they may not overlap each other).
+                int maxExtend = Math.Min(p + 1, n - q);
+                int len = 0;
+                while (len < maxExtend &&
+                       GetComplement(upper[q + len]) == upper[p - len])
                 {
-                    // Check if all positions in this length form valid base pairs
-                    bool valid = true;
-                    for (int k = 0; k < len && valid; k++)
-                    {
-                        // Antiparallel: i+k pairs with j+len-1-k
-                        char left = upper[i + k];
-                        char right = upper[j + len - 1 - k];
-                        if (left != GetComplement(right))
-                            valid = false;
-                    }
-                    if (valid)
-                        matchLen = len;
-                    else
-                        break; // If shorter length fails, longer will too
+                    len++;
                 }
 
-                if (matchLen >= minLength)
+                if (len < minLength)
+                    continue;
+
+                // Prefer the longest arm; on ties prefer the smaller loop (q closer to p).
+                if (len > bestLen)
                 {
-                    yield return (i, i + matchLen - 1, j, j + matchLen - 1, matchLen);
-                    // Skip overlapping matches
-                    i += matchLen - 1;
-                    break;
+                    bestLen = len;
+                    bestRightEnd = q + len - 1;
                 }
             }
+
+            if (bestLen >= minLength)
+                candidates.Add((p - bestLen + 1, p, bestRightEnd - bestLen + 1, bestRightEnd, bestLen));
+        }
+
+        // Greedy non-overlapping selection: longest stems first; ties broken by left position then loop.
+        candidates.Sort((a, b) =>
+        {
+            int c = b.Length.CompareTo(a.Length);
+            if (c != 0) return c;
+            c = a.Start1.CompareTo(b.Start1);
+            if (c != 0) return c;
+            return a.Start2.CompareTo(b.Start2);
+        });
+
+        var occupied = new bool[n];
+        foreach (var cand in candidates)
+        {
+            bool overlaps = false;
+            for (int idx = cand.Start1; idx <= cand.End1 && !overlaps; idx++)
+                if (occupied[idx]) overlaps = true;
+            for (int idx = cand.Start2; idx <= cand.End2 && !overlaps; idx++)
+                if (occupied[idx]) overlaps = true;
+            if (overlaps)
+                continue;
+
+            for (int idx = cand.Start1; idx <= cand.End1; idx++) occupied[idx] = true;
+            for (int idx = cand.Start2; idx <= cand.End2; idx++) occupied[idx] = true;
+            yield return cand;
         }
     }
 
-    /// <summary>
-    /// Calculates the probability of a structure forming based on partition function (simplified).
-    /// </summary>
-    public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = 310.15)
-    {
-        const double R = 1.987; // cal/(mol·K)
-        double RT = R * temperature / 1000.0; // kcal/mol
+    // McCaskill partition function — physical constants.
+    // R = 1.987 cal/(mol·K) (molar gas constant); RT expressed in kcal/mol matches
+    // the kcal/mol energy unit used by the simplified model below.
+    // ViennaRNA documents the same Boltzmann constant k ≈ 1.987e-3 kcal/(mol·K)
+    // and p(s) = exp(−βE(s))/Z with β = 1/kT.  Source: ViennaRNA pf_fold reference;
+    // McCaskill JS (1990) Biopolymers 29:1105-1119 (PMID 1695107).
+    private const double GasConstant_CalPerMolK = 1.987;
+    // Default folding temperature 37 °C = 310.15 K (ViennaRNA / NNDB default).
+    private const double DefaultTemperatureKelvin = 310.15;
+    // Minimum number of unpaired bases enclosed by a hairpin loop. A pair (i,j) is
+    // sterically admissible only when j − i > MinHairpinLoop. The classic value is 3
+    // (Nussinov 1980 / standard nearest-neighbour models forbid loops shorter than 3 nt).
+    private const int MinHairpinLoop = 3;
+    // Per-base-pair free-energy increment for the SIMPLIFIED energy model (kcal/mol).
+    // Each base pair contributes a fixed term E_bp (Freiburg RNA teaching model:
+    // "each base pair of a structure contributes a fixed energy term E_bp").
+    private const double SimplifiedBasePairEnergy = -1.0;
 
-        double boltzmann = Math.Exp(-structureEnergy / RT);
-        double partition = Math.Exp(-ensembleEnergy / RT);
+    /// <summary>
+    /// Computes the McCaskill equilibrium partition function Z and the equilibrium
+    /// base-pair probabilities P[i,j] over the full ensemble of pseudoknot-free
+    /// secondary structures of the given RNA sequence.
+    /// </summary>
+    /// <remarks>
+    /// Implements the McCaskill (1990) inside recursion Q/Q^b with Z = Q₁ₙ in O(n³) time,
+    /// O(n²) space, followed by the external base-pair-probability formula
+    /// P[i,j] = Q(1,i−1)·Q^b(i,j)·Q(j+1,n)/Z. The energy model is the simplified
+    /// fixed-per-pair model (each pair contributes <c>basePairEnergy</c>); this is the
+    /// model documented by the Freiburg RNA McCaskill teaching tool. The well-defined
+    /// partition-function mathematics (Z ≥ 1, probabilities in [0,1], normalisation,
+    /// symmetry) hold independently of the energy parameter.
+    /// </remarks>
+    /// <param name="sequence">RNA sequence (A/C/G/U, case-insensitive; T is treated as U).</param>
+    /// <param name="basePairEnergy">Fixed free energy E_bp (kcal/mol) per base pair.</param>
+    /// <param name="temperature">Absolute temperature in Kelvin (default 310.15 K = 37 °C).</param>
+    /// <exception cref="ArgumentNullException"><paramref name="sequence"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="temperature"/> is not positive.</exception>
+    public static PartitionFunctionResult CalculatePartitionFunction(
+        string sequence,
+        double basePairEnergy = SimplifiedBasePairEnergy,
+        double temperature = DefaultTemperatureKelvin)
+    {
+        if (sequence is null)
+            throw new ArgumentNullException(nameof(sequence));
+        if (temperature <= 0)
+            throw new ArgumentOutOfRangeException(nameof(temperature), "Temperature must be positive (Kelvin).");
+
+        int n = sequence.Length;
+        var empty = new Dictionary<(int, int), double>();
+        if (n == 0)
+            return new PartitionFunctionResult(1.0, empty); // empty sequence: only the empty structure, Z = 1.
+
+        string s = sequence.ToUpperInvariant();
+
+        // RT in kcal/mol, β = 1/RT; Boltzmann weight of one base pair = exp(−β·E_bp).
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0;
+        double pairWeight = Math.Exp(-basePairEnergy / rt);
+
+        // Inside matrices, 0-based inclusive sub-sequences [i..j].
+        // Q[i,j]  = partition function of [i..j]; empty interval (i > j) is defined as 1.
+        // Qb[i,j] = partition function of [i..j] restricted to structures with (i,j) paired.
+        var q = new double[n, n];
+        var qb = new double[n, n];
+
+        double GetQ(int i, int j) => i > j ? 1.0 : q[i, j];
+
+        // Fill by increasing sub-sequence length so dependencies are already computed.
+        for (int length = 1; length <= n; length++)
+        {
+            for (int i = 0; i + length - 1 < n; i++)
+            {
+                int j = i + length - 1;
+
+                // Q^b recursion (simplified model): a closing pair contributes pairWeight
+                // times the partition function of the enclosed interval.
+                if (j - i > MinHairpinLoop && CanPair(s[i], s[j]))
+                    qb[i, j] = pairWeight * GetQ(i + 1, j - 1);
+                else
+                    qb[i, j] = 0.0;
+
+                // Q recursion: Q[i,j] = Q[i,j-1] + Σ_k Q[i,k-1]·Q^b[k,j]
+                // (McCaskill / Will 18.417: structures where j is unpaired, plus structures
+                // where j pairs with some k, splitting the interval unambiguously).
+                double val = GetQ(i, j - 1);
+                for (int k = i; k <= j; k++)
+                {
+                    if (j - k > MinHairpinLoop && CanPair(s[k], s[j]))
+                        val += GetQ(i, k - 1) * qb[k, j];
+                }
+                q[i, j] = val;
+            }
+        }
+
+        double z = GetQ(0, n - 1); // Z = Q(1,n) in 1-based notation.
+
+        // McCaskill (1990) base-pair probabilities via the outside recursion.
+        // p[i,j] = Q^b(i,j)·O(i,j)/Z, where O(i,j) is the OUTSIDE partition function: the sum
+        // of Boltzmann weights of every structure of the parts of the sequence that lie outside
+        // [i..j] (and of every pair that encloses (i,j)). It obeys
+        //     O(i,j) = Q(0,i-1)·Q(j+1,n-1)                                  (external: (i,j) unenclosed)
+        //            + Σ_{k<i, l>j, CanPair(k,l), l-k>m}  w·Q(k+1,i-1)·Q(j+1,l-1)·O(k,l)
+        // where w = exp(−β·E_bp) is the per-pair Boltzmann weight: an enclosing pair (k,l)
+        // contributes its own weight w, the two gap regions (k+1..i-1) and (j+1..l-1) fold
+        // freely (Q), and the structure outside (k,l) is O(k,l) (computed recursively).
+        // Using only the external term (the first line) is WRONG for any pair that can be
+        // nested inside another pair — it omits the enclosing contributions and under-reports
+        // those pairs. Sources: McCaskill JS (1990) Biopolymers 29:1105-1119; Will S., MIT
+        // 18.417 McCaskill base-pair-probability slides (mccaskill2.pdf); ViennaRNA pf_fold.
+        var probabilities = new Dictionary<(int I, int J), double>();
+        var outside = new double[n, n];
+        if (z > 0)
+        {
+            // Collect admissible pairs and process them outermost-first (decreasing span)
+            // so that every enclosing pair's outside value O(k,l) is already known.
+            var pairs = new List<(int I, int J)>();
+            for (int i = 0; i < n; i++)
+                for (int j = i + 1; j < n; j++)
+                    if (qb[i, j] > 0)
+                        pairs.Add((i, j));
+            pairs.Sort((a, b) => (b.J - b.I).CompareTo(a.J - a.I));
+
+            foreach (var (i, j) in pairs)
+            {
+                // External term: (i,j) is not enclosed by any other pair.
+                double o = GetQ(0, i - 1) * GetQ(j + 1, n - 1);
+
+                // Enclosing terms: every pair (k,l) with k<i, j<l that can directly enclose (i,j).
+                for (int k = 0; k < i; k++)
+                {
+                    for (int l = j + 1; l < n; l++)
+                    {
+                        if (qb[k, l] > 0)
+                        {
+                            o += pairWeight * GetQ(k + 1, i - 1) * GetQ(j + 1, l - 1) * outside[k, l];
+                        }
+                    }
+                }
+
+                outside[i, j] = o;
+                probabilities[(i, j)] = qb[i, j] * o / z;
+            }
+        }
+
+        return new PartitionFunctionResult(z, probabilities);
+    }
+
+    /// <summary>
+    /// Calculates the Boltzmann probability of a single structure within the ensemble:
+    /// p(S) = exp(−E_S/RT) / exp(−E_ensemble/RT), where E_ensemble = −RT·ln Z is the
+    /// ensemble free energy. Equivalent to the McCaskill normalisation p(S) = exp(−E_S/RT)/Z.
+    /// </summary>
+    /// <remarks>
+    /// Source: McCaskill JS (1990) Biopolymers 29:1105-1119, p(P|S) = Z⁻¹·exp(−βE(P));
+    /// ViennaRNA pf_fold reference (β = 1/kT, k ≈ 1.987e-3 kcal/(mol·K)).
+    /// </remarks>
+    public static double CalculateStructureProbability(double structureEnergy, double ensembleEnergy, double temperature = DefaultTemperatureKelvin)
+    {
+        double rt = GasConstant_CalPerMolK * temperature / 1000.0; // kcal/mol
+
+        double boltzmann = Math.Exp(-structureEnergy / rt);
+        double partition = Math.Exp(-ensembleEnergy / rt);
 
         return partition > 0 ? boltzmann / partition : 0;
     }
 
     /// <summary>
-    /// Generates a random RNA sequence.
+    /// Generates a random RNA sequence with the given target GC content.
+    /// Uses a non-deterministic seed; for reproducible output use the seeded overload.
     /// </summary>
     public static string GenerateRandomRna(int length, double gcContent = 0.5)
+        => GenerateRandomRna(length, new Random(), gcContent);
+
+    /// <summary>
+    /// Generates a random RNA sequence with the given target GC content using a
+    /// caller-supplied <see cref="Random"/> instance (deterministic when seeded).
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="random"/> is null.</exception>
+    public static string GenerateRandomRna(int length, Random random, double gcContent = 0.5)
     {
-        var random = new Random();
+        if (random is null)
+            throw new ArgumentNullException(nameof(random));
         var sb = new StringBuilder(length);
 
         for (int i = 0; i < length; i++)

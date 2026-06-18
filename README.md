@@ -15,9 +15,9 @@
 >
 > See [LICENSE](LICENSE) for full terms.
 
-C#/.NET toolkit for bioinformatics (.NET 9): sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
+C#/.NET toolkit for bioinformatics (.NET 10): sequence models, core algorithms, and file-format parsers. A primary integration path is MCP (Model Context Protocol) servers that expose the APIs as tools for AI/agent workflows.
 
-[![.NET](https://img.shields.io/badge/.NET-9-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Quickstart (Library)
@@ -324,7 +324,7 @@ The benchmark project uses a **two-phase strategy** to avoid the common pitfall 
 #### Phase 1 — JIT Baseline (~3 min)
 
 ```bash
-dotnet run --project apps/SuffixTree.Benchmarks -c Release -f net9.0 -- \
+dotnet run --project apps/SuffixTree.Benchmarks -c Release -f net10.0 -- \
   --filter "*Build_Short*" "*Build_DNA*" "*Contains*" "*LRS*" \
   --iterationCount 3 --warmupCount 1
 ```
@@ -332,7 +332,7 @@ dotnet run --project apps/SuffixTree.Benchmarks -c Release -f net9.0 -- \
 #### Phase 2 — Publish NativeAOT Once (~5 min)
 
 ```bash
-dotnet publish apps/SuffixTree.Benchmarks -c Release -r win-x64 -f net9.0 \
+dotnet publish apps/SuffixTree.Benchmarks -c Release -r win-x64 -f net10.0 \
   /p:PublishAot=true /p:OptimizationPreference=Speed \
   /p:IlcInstructionSet=native /p:IlcFoldIdenticalMethodBodies=true \
   /p:StripSymbols=true /p:InvariantGlobalization=true
@@ -341,7 +341,7 @@ dotnet publish apps/SuffixTree.Benchmarks -c Release -r win-x64 -f net9.0 \
 #### Phase 3 — Run AOT Binary with InProcess Toolchain (~3 min)
 
 ```bash
-./apps/SuffixTree.Benchmarks/bin/Release/net9.0/win-x64/publish/SuffixTree.Benchmarks.exe \
+./apps/SuffixTree.Benchmarks/bin/Release/net10.0/win-x64/publish/SuffixTree.Benchmarks.exe \
   --inprocess --filter "*Build_Short*" "*Build_DNA*" "*Contains*" "*LRS*"
 ```
 

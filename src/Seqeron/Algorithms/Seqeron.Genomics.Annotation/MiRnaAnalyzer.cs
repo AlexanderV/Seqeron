@@ -318,11 +318,12 @@ public static class MiRnaAnalyzer
 
     /// <summary>
     /// Checks if two bases can pair (Watson-Crick or G-U wobble).
+    /// Inputs are case-insensitive and DNA T is treated as RNA U.
     /// </summary>
     public static bool CanPair(char base1, char base2)
     {
-        char b1 = char.ToUpperInvariant(base1);
-        char b2 = char.ToUpperInvariant(base2);
+        char b1 = NormalizeBase(base1);
+        char b2 = NormalizeBase(base2);
 
         return (b1 == 'A' && b2 == 'U') || (b1 == 'U' && b2 == 'A') ||
                (b1 == 'G' && b2 == 'C') || (b1 == 'C' && b2 == 'G') ||
@@ -331,13 +332,23 @@ public static class MiRnaAnalyzer
 
     /// <summary>
     /// Checks if a pair is a G-U wobble.
+    /// Inputs are case-insensitive and DNA T is treated as RNA U.
     /// </summary>
     public static bool IsWobblePair(char base1, char base2)
     {
-        char b1 = char.ToUpperInvariant(base1);
-        char b2 = char.ToUpperInvariant(base2);
+        char b1 = NormalizeBase(base1);
+        char b2 = NormalizeBase(base2);
 
         return (b1 == 'G' && b2 == 'U') || (b1 == 'U' && b2 == 'G');
+    }
+
+    /// <summary>
+    /// Normalizes a nucleotide to the uppercase RNA alphabet (DNA T → RNA U).
+    /// </summary>
+    private static char NormalizeBase(char b)
+    {
+        char u = char.ToUpperInvariant(b);
+        return u == 'T' ? 'U' : u;
     }
 
     #endregion
@@ -357,14 +368,16 @@ public static class MiRnaAnalyzer
         string mirna = miRnaSequence.ToUpperInvariant().Replace('T', 'U');
         string target = targetSequence.ToUpperInvariant().Replace('T', 'U');
 
-        // Reverse target for 5'-3' alignment (miRNA binds 3' UTR in reverse orientation)
+        // miRNA pairs antiparallel to the target: miRNA 5'→3' index i pairs with the target
+        // base read 3'→5', i.e. target[target.Length-1-i].
+        // Source: Lewis BP et al. (2005) Cell 120:15–20 — targets are the reverse complement
+        // of the miRNA seed; Watson-Crick (A-U, C-G) + G:U wobble (Crick 1966).
         var alignmentChars = new char[Math.Min(mirna.Length, target.Length)];
         int matches = 0, mismatches = 0, wobbles = 0;
 
         for (int i = 0; i < alignmentChars.Length; i++)
         {
             char m = mirna[i];
-            // Target is read in reverse (5' to 3' of target = 3' to 5' of miRNA binding)
             int targetIdx = target.Length - 1 - i;
             if (targetIdx < 0) break;
 
@@ -403,29 +416,35 @@ public static class MiRnaAnalyzer
             FreeEnergy: freeEnergy);
     }
 
+    /// <summary>
+    /// Estimates the miRNA:target duplex folding free energy (kcal/mol, 37 °C) by summing
+    /// Turner 2004 nearest-neighbor stacking energies over consecutive Watson-Crick / G:U
+    /// paired positions of the antiparallel duplex. Simplified: only stacking terms are
+    /// summed (no loop, bulge, or coaxial terms); see algorithm doc §5.3. All stacking
+    /// values are the NNDB Turner 2004 set in <see cref="StackingEnergies"/>.
+    /// </summary>
     private static double CalculateDuplexEnergy(string mirna, string target, char[] alignment)
     {
-        // Simplified energy calculation
         double energy = 0;
 
         for (int i = 0; i < alignment.Length - 1; i++)
         {
-            if (alignment[i] == '|' && i + 1 < alignment.Length && alignment[i + 1] == '|')
-            {
-                energy -= 2.0; // Stacking bonus
-            }
-            else if (alignment[i] == '|')
-            {
-                energy -= 1.0; // Single match
-            }
-            else if (alignment[i] == ':')
-            {
-                energy -= 0.5; // Wobble
-            }
-            else
-            {
-                energy += 0.5; // Mismatch penalty
-            }
+            bool pairedI = alignment[i] == '|' || alignment[i] == ':';
+            bool pairedNext = alignment[i + 1] == '|' || alignment[i + 1] == ':';
+
+            if (!pairedI || !pairedNext)
+                continue;
+
+            // Antiparallel nearest-neighbor stack for miRNA positions i, i+1:
+            // key = 5'-[m_i][m_{i+1}]-3' / 3'-[t_i][t_{i+1}]-5', where t_i = target[Len-1-i].
+            char mi = mirna[i];
+            char mn = mirna[i + 1];
+            char ti = target[target.Length - 1 - i];
+            char tn = target[target.Length - 1 - (i + 1)];
+
+            string key = $"{mi}{mn}/{ti}{tn}";
+            if (StackingEnergies.TryGetValue(key, out double stackE))
+                energy += stackE;
         }
 
         return energy;

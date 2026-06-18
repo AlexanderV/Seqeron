@@ -130,59 +130,8 @@ public class SequenceStatisticsTests
 
     #endregion
 
-    #region Molecular Weight Tests
-
-    [Test]
-    public void CalculateMolecularWeight_ValidProtein_ReturnsPositive()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("MKVLWAIFGAPV");
-
-        Assert.That(mw, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_SingleAminoAcid_ReturnsWeight()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("A");
-
-        Assert.That(mw, Is.GreaterThan(70)); // Alanine ~89 Da
-        Assert.That(mw, Is.LessThan(110));
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_LongerProtein_IncreasesProperly()
-    {
-        double mw1 = SequenceStatistics.CalculateMolecularWeight("AAA");
-        double mw2 = SequenceStatistics.CalculateMolecularWeight("AAAAAA");
-
-        Assert.That(mw2, Is.GreaterThan(mw1));
-    }
-
-    [Test]
-    public void CalculateNucleotideMolecularWeight_Dna_ReturnsPositive()
-    {
-        double mw = SequenceStatistics.CalculateNucleotideMolecularWeight("ATGCATGC", isDna: true);
-
-        Assert.That(mw, Is.GreaterThan(2000)); // ~8 * 330 Da
-    }
-
-    [Test]
-    public void CalculateNucleotideMolecularWeight_Rna_ReturnsDifferentWeight()
-    {
-        double dnaMw = SequenceStatistics.CalculateNucleotideMolecularWeight("ATGC", isDna: true);
-        double rnaMw = SequenceStatistics.CalculateNucleotideMolecularWeight("AUGC", isDna: false);
-
-        Assert.That(rnaMw, Is.GreaterThan(dnaMw)); // RNA has extra OH groups
-    }
-
-    [Test]
-    public void CalculateMolecularWeight_EmptyString_ReturnsZero()
-    {
-        double mw = SequenceStatistics.CalculateMolecularWeight("");
-        Assert.That(mw, Is.EqualTo(0));
-    }
-
-    #endregion
+    // Molecular Weight tests moved to the canonical SEQ-MW-001 fixture:
+    // SequenceStatistics_CalculateMolecularWeight_Tests.cs (evidence-based exact values).
 
     #region Isoelectric Point Tests
 
@@ -336,37 +285,6 @@ public class SequenceStatisticsTests
 
     #endregion
 
-    #region Codon Frequency Tests
-
-    [Test]
-    public void CalculateCodonFrequencies_ReturnsFrequencies()
-    {
-        var freq = SequenceStatistics.CalculateCodonFrequencies("ATGATGATGATG");
-
-        Assert.That(freq, Is.Not.Empty);
-        Assert.That(freq.ContainsKey("ATG"), Is.True);
-    }
-
-    [Test]
-    public void CalculateCodonFrequencies_DifferentReadingFrame()
-    {
-        string seq = "AATGATGATG";
-        var frame0 = SequenceStatistics.CalculateCodonFrequencies(seq, readingFrame: 0);
-        var frame1 = SequenceStatistics.CalculateCodonFrequencies(seq, readingFrame: 1);
-
-        // Different frames should give different codon sets
-        Assert.That(frame0.Keys, Is.Not.EquivalentTo(frame1.Keys));
-    }
-
-    [Test]
-    public void CalculateCodonFrequencies_ShortSequence_ReturnsEmpty()
-    {
-        var freq = SequenceStatistics.CalculateCodonFrequencies("AT");
-        Assert.That(freq, Is.Empty);
-    }
-
-    #endregion
-
     #region Entropy and Complexity Tests
 
     [Test]
@@ -456,24 +374,8 @@ public class SequenceStatisticsTests
 
     #region Profile Tests
 
-    [Test]
-    public void CalculateGcContentProfile_ReturnsCorrectCount()
-    {
-        string seq = string.Concat(Enumerable.Repeat("ATGCATGCATGC", 10));
-        int windowSize = 20;
-
-        var profile = SequenceStatistics.CalculateGcContentProfile(seq, windowSize, stepSize: 10).ToList();
-
-        Assert.That(profile, Has.Count.GreaterThan(0));
-    }
-
-    [Test]
-    public void CalculateGcContentProfile_AllGc_Returns100Percent()
-    {
-        var profile = SequenceStatistics.CalculateGcContentProfile("GGGGGGGGGGCCCCCCCCCC", 10).ToList();
-
-        Assert.That(profile.All(p => p >= 0.99));
-    }
+    // GC content profile tests live in the canonical SEQ-GC-PROFILE-001 fixture:
+    // SequenceStatistics_CalculateGcContentProfile_Tests.cs (evidence-based, exact %).
 
     [Test]
     public void CalculateEntropyProfile_ReturnsCorrectCount()
@@ -484,14 +386,6 @@ public class SequenceStatisticsTests
         var profile = SequenceStatistics.CalculateEntropyProfile(seq, windowSize).ToList();
 
         Assert.That(profile, Has.Count.EqualTo(seq.Length - windowSize + 1));
-    }
-
-    [Test]
-    public void CalculateGcContentProfile_WindowTooLarge_ReturnsEmpty()
-    {
-        var profile = SequenceStatistics.CalculateGcContentProfile("ATGC", windowSize: 100).ToList();
-
-        Assert.That(profile, Is.Empty);
     }
 
     #endregion

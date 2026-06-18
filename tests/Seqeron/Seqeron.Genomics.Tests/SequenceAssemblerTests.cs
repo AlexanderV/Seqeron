@@ -8,87 +8,8 @@ namespace Seqeron.Genomics.Tests;
 [TestFixture]
 public class SequenceAssemblerTests
 {
-    #region FindOverlap Tests
-
-    [Test]
-    public void FindOverlap_PerfectOverlap_ReturnsCorrect()
-    {
-        string seq1 = "ACGTACGTACGT";
-        string seq2 = "ACGTACGTTTT";  // 8-base overlap with seq1's suffix "ACGTACGT"
-
-        var overlap = SequenceAssembler.FindOverlap(seq1, seq2, minOverlap: 8, minIdentity: 1.0);
-
-        Assert.That(overlap, Is.Not.Null);
-        Assert.That(overlap.Value.length, Is.EqualTo(8));
-    }
-
-    [Test]
-    public void FindOverlap_NoOverlap_ReturnsNull()
-    {
-        string seq1 = "AAAAAAAAAA";
-        string seq2 = "CCCCCCCCCC";
-
-        var overlap = SequenceAssembler.FindOverlap(seq1, seq2, minOverlap: 5);
-
-        Assert.That(overlap, Is.Null);
-    }
-
-    [Test]
-    public void FindOverlap_MinOverlapNotMet_ReturnsNull()
-    {
-        string seq1 = "ACGTACGT";
-        string seq2 = "CGTAAAAA"; // 3-base overlap
-
-        var overlap = SequenceAssembler.FindOverlap(seq1, seq2, minOverlap: 5);
-
-        Assert.That(overlap, Is.Null);
-    }
-
-    [Test]
-    public void FindOverlap_WithMismatches_RespectsIdentityThreshold()
-    {
-        string seq1 = "ACGTACGTACGT";
-        string seq2 = "ACGTACCTAAAA"; // 1 mismatch in 8-base overlap
-
-        // 7/8 = 0.875 identity
-        var overlap85 = SequenceAssembler.FindOverlap(seq1, seq2, minOverlap: 8, minIdentity: 0.85);
-        Assert.That(overlap85, Is.Not.Null);
-
-        var overlap95 = SequenceAssembler.FindOverlap(seq1, seq2, minOverlap: 8, minIdentity: 0.95);
-        Assert.That(overlap95, Is.Null);
-    }
-
-    #endregion
-
-    #region FindAllOverlaps Tests
-
-    [Test]
-    public void FindAllOverlaps_ReturnsAllValidOverlaps()
-    {
-        var reads = new List<string>
-        {
-            "ACGTACGTACGT",
-            "ACGTACGTTTTT",
-            "TTTTACGTACGT"
-        };
-
-        var overlaps = SequenceAssembler.FindAllOverlaps(reads, minOverlap: 4);
-
-        Assert.That(overlaps.Count, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void FindAllOverlaps_NoSelfOverlaps()
-    {
-        var reads = new List<string> { "ACGTACGT", "CGTACGTA" };
-
-        var overlaps = SequenceAssembler.FindAllOverlaps(reads, minOverlap: 4);
-
-        // No read should overlap with itself
-        Assert.That(overlaps.All(o => o.ReadIndex1 != o.ReadIndex2), Is.True);
-    }
-
-    #endregion
+    // NOTE: FindOverlap and FindAllOverlaps tests were moved to the canonical
+    // ASSEMBLY-OLC-001 fixture: SequenceAssembler_AssembleOLC_Tests.cs.
 
     #region CalculateIdentity Tests
 
@@ -136,68 +57,8 @@ public class SequenceAssemblerTests
 
     #endregion
 
-    #region AssembleOLC Tests
-
-    [Test]
-    public void AssembleOLC_OverlappingReads_ProducesContigs()
-    {
-        var reads = new List<string>
-        {
-            "ACGTACGTACGT",
-            "ACGTACGTTTTT",
-            "TTTTACGTACGT"
-        };
-
-        var result = SequenceAssembler.AssembleOLC(reads, new SequenceAssembler.AssemblyParameters(
-            MinOverlap: 4, MinContigLength: 10));
-
-        Assert.That(result.Contigs.Count, Is.GreaterThan(0));
-        Assert.That(result.TotalReads, Is.EqualTo(3));
-    }
-
-    [Test]
-    public void AssembleOLC_PerfectOverlappingReads_MergesIntoOne()
-    {
-        var reads = new List<string>
-        {
-            "AAAAACCCCC",
-            "CCCCCGGGGG",
-            "GGGGGTTTTTT"
-        };
-
-        var result = SequenceAssembler.AssembleOLC(reads, new SequenceAssembler.AssemblyParameters(
-            MinOverlap: 5, MinContigLength: 10, MinIdentity: 1.0));
-
-        // Should produce contigs that include the merged result
-        Assert.That(result.TotalLength, Is.GreaterThanOrEqualTo(15));
-    }
-
-    [Test]
-    public void AssembleOLC_NoOverlaps_ReturnsSingletonContigs()
-    {
-        var reads = new List<string>
-        {
-            "AAAAAAAAAA",
-            "CCCCCCCCCC",
-            "GGGGGGGGGG"
-        };
-
-        var result = SequenceAssembler.AssembleOLC(reads, new SequenceAssembler.AssemblyParameters(
-            MinOverlap: 5, MinContigLength: 5));
-
-        Assert.That(result.Contigs.Count, Is.EqualTo(3));
-    }
-
-    [Test]
-    public void AssembleOLC_EmptyReads_ReturnsEmptyResult()
-    {
-        var result = SequenceAssembler.AssembleOLC(new List<string>());
-
-        Assert.That(result.Contigs.Count, Is.EqualTo(0));
-        Assert.That(result.TotalLength, Is.EqualTo(0));
-    }
-
-    #endregion
+    // NOTE: AssembleOLC tests were moved to the canonical ASSEMBLY-OLC-001 fixture:
+    // SequenceAssembler_AssembleOLC_Tests.cs.
 
     #region AssembleDeBruijn Tests
 
@@ -358,101 +219,11 @@ public class SequenceAssemblerTests
 
     #endregion
 
-    #region ComputeConsensus Tests
+    // ComputeConsensus tests consolidated into SequenceAssembler_ComputeConsensus_Tests.cs
+    // (canonical file for ASSEMBLY-CONSENSUS-001).
 
-    [Test]
-    public void ComputeConsensus_IdenticalReads_ReturnsRead()
-    {
-        var reads = new List<string> { "ACGT", "ACGT", "ACGT" };
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus, Is.EqualTo("ACGT"));
-    }
-
-    [Test]
-    public void ComputeConsensus_MajorityVote()
-    {
-        var reads = new List<string>
-        {
-            "ACGT",
-            "ACGT",
-            "TCGT"  // First position differs
-        };
-
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus[0], Is.EqualTo('A')); // Majority
-    }
-
-    [Test]
-    public void ComputeConsensus_IgnoresGaps()
-    {
-        var reads = new List<string>
-        {
-            "A-GT",
-            "ACGT",
-            "ACGT"
-        };
-
-        string consensus = SequenceAssembler.ComputeConsensus(reads);
-
-        Assert.That(consensus, Is.EqualTo("ACGT"));
-    }
-
-    [Test]
-    public void ComputeConsensus_EmptyReads_ReturnsEmpty()
-    {
-        string consensus = SequenceAssembler.ComputeConsensus(new List<string>());
-        Assert.That(consensus, Is.EqualTo(""));
-    }
-
-    #endregion
-
-    #region QualityTrimReads Tests
-
-    [Test]
-    public void QualityTrimReads_TrimsLowQualityEnds()
-    {
-        // Quality scores: '!' = 0, 'I' = 40 (Phred+33)
-        var reads = new List<(string, string)>
-        {
-            ("ACGTACGT", "!!IIII!!") // Low quality at ends
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 2);
-
-        Assert.That(trimmed.Count, Is.EqualTo(1));
-        Assert.That(trimmed[0].Length, Is.LessThan(8));
-    }
-
-    [Test]
-    public void QualityTrimReads_RemovesTooShort()
-    {
-        var reads = new List<(string, string)>
-        {
-            ("ACGT", "!!!!") // All low quality
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 50);
-
-        Assert.That(trimmed.Count, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void QualityTrimReads_KeepsHighQuality()
-    {
-        var reads = new List<(string, string)>
-        {
-            ("ACGTACGT", "IIIIIIII") // All high quality
-        };
-
-        var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 5);
-
-        Assert.That(trimmed.Count, Is.EqualTo(1));
-        Assert.That(trimmed[0], Is.EqualTo("ACGTACGT"));
-    }
-
-    #endregion
+    // QualityTrimReads tests consolidated into SequenceAssembler_QualityTrimReads_Tests.cs
+    // (canonical file for ASSEMBLY-TRIM-001).
 
     #region ErrorCorrectReads Tests
 
@@ -490,26 +261,4 @@ public class SequenceAssemblerTests
 
     #endregion
 
-    #region Integration Tests
-
-    [Test]
-    public void Assembly_RealWorldScenario_ProducesValidContigs()
-    {
-        // Simulate reads from a known sequence
-        string genome = "ACGTACGTACGTACGTACGTACGTACGTACGT";
-
-        var reads = new List<string>();
-        for (int i = 0; i <= genome.Length - 15; i += 5)
-        {
-            reads.Add(genome.Substring(i, 15));
-        }
-
-        var result = SequenceAssembler.AssembleOLC(reads, new SequenceAssembler.AssemblyParameters(
-            MinOverlap: 8, MinContigLength: 15));
-
-        Assert.That(result.Contigs.Count, Is.GreaterThan(0));
-        Assert.That(result.LongestContig, Is.GreaterThanOrEqualTo(15));
-    }
-
-    #endregion
 }

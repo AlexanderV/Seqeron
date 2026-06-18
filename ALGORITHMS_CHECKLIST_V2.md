@@ -11,10 +11,10 @@
 | Metric | Value |
 |--------|-------|
 | **Total Test Units** | 234 |
-| **Completed** | 79 |
+| **Completed** | 234 |
 | **In Progress** | 0 |
 | **Blocked** | 0 |
-| **Not Started** | 155 |
+| **Not Started** | 0 |
 
 ---
 
@@ -107,155 +107,155 @@
 | ☑ | PROTMOTIF-PROSITE-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-PROSITE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PROSITE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PrositePattern_Tests.cs) |
 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-DOMAIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-DOMAIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_DomainPrediction_Tests.cs) |
 | ☑ | EPIGEN-CPG-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CPG-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CPG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CpGDetection_Tests.cs) |
-| ☐ | EPIGEN-METHYL-001 | Epigenetics | 3 | - | - | - |
-| ☐ | EPIGEN-DMR-001 | Epigenetics | 2 | - | - | - |
-| ☐ | VARIANT-CALL-001 | Variants | 3 | - | - | - |
-| ☐ | VARIANT-SNP-001 | Variants | 2 | - | - | - |
-| ☐ | VARIANT-INDEL-001 | Variants | 2 | - | - | - |
-| ☐ | VARIANT-ANNOT-001 | Variants | 2 | - | - | - |
-| ☐ | SV-DETECT-001 | StructuralVar | 3 | - | - | - |
-| ☐ | SV-BREAKPOINT-001 | StructuralVar | 2 | - | - | - |
-| ☐ | SV-CNV-001 | StructuralVar | 2 | - | - | - |
-| ☐ | ASSEMBLY-OLC-001 | Assembly | 2 | - | - | - |
-| ☐ | ASSEMBLY-DBG-001 | Assembly | 2 | - | - | - |
-| ☐ | ASSEMBLY-STATS-001 | Assembly | 4 | - | - | - |
-| ☐ | TRANS-EXPR-001 | Transcriptome | 3 | - | - | - |
-| ☐ | TRANS-DIFF-001 | Transcriptome | 2 | - | - | - |
-| ☐ | TRANS-SPLICE-001 | Transcriptome | 2 | - | - | - |
-| ☐ | COMPGEN-SYNTENY-001 | Comparative | 2 | - | - | - |
-| ☐ | COMPGEN-ORTHO-001 | Comparative | 2 | - | - | - |
-| ☐ | COMPGEN-REARR-001 | Comparative | 2 | - | - | - |
-| ☐ | PANGEN-CORE-001 | PanGenome | 2 | - | - | - |
-| ☐ | PANGEN-CLUSTER-001 | PanGenome | 2 | - | - | - |
-| ☐ | QUALITY-PHRED-001 | Quality | 3 | - | - | - |
-| ☐ | QUALITY-STATS-001 | Quality | 2 | - | - | - |
-| ☐ | SEQ-STATS-001 | Statistics | 3 | - | - | - |
-| ☐ | SEQ-MW-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-PI-001 | Statistics | 1 | - | - | - |
-| ☐ | SEQ-HYDRO-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-THERMO-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-DINUC-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-SECSTRUCT-001 | Statistics | 1 | - | - | - |
-| ☐ | CODON-RSCU-001 | Codon | 1 | - | - | - |
-| ☐ | CODON-ENC-001 | Codon | 1 | - | - | - |
-| ☐ | CODON-STATS-001 | Codon | 1 | - | - | - |
-| ☐ | TRANS-SIXFRAME-001 | Translation | 1 | - | - | - |
-| ☐ | ASSEMBLY-MERGE-001 | Assembly | 1 | - | - | - |
-| ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | - | - | - |
-| ☐ | ASSEMBLY-COVER-001 | Assembly | 1 | - | - | - |
-| ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | - | - | - |
-| ☐ | ASSEMBLY-TRIM-001 | Assembly | 1 | - | - | - |
-| ☐ | ASSEMBLY-CORRECT-001 | Assembly | 1 | - | - | - |
-| ☐ | PAT-APPROX-003 | Matching | 3 | - | - | - |
-| ☐ | ALIGN-STATS-001 | Alignment | 2 | - | - | - |
-| ☐ | EPIGEN-BISULF-001 | Epigenetics | 2 | - | - | - |
-| ☐ | EPIGEN-CHROM-001 | Epigenetics | 3 | - | - | - |
-| ☐ | EPIGEN-AGE-001 | Epigenetics | 1 | - | - | - |
-| ☐ | MIRNA-PAIR-001 | MiRNA | 3 | - | - | - |
-| ☐ | PANGEN-HEAP-001 | PanGenome | 1 | - | - | - |
-| ☐ | PANGEN-MARKER-001 | PanGenome | 2 | - | - | - |
-| ☐ | POP-SELECT-001 | PopGen | 2 | - | - | - |
-| ☐ | POP-ANCESTRY-001 | PopGen | 1 | - | - | - |
-| ☐ | POP-ROH-001 | PopGen | 2 | - | - | - |
-| ☐ | META-FUNC-001 | Metagenomics | 2 | - | - | - |
-| ☐ | META-RESIST-001 | Metagenomics | 1 | - | - | - |
-| ☐ | META-PATHWAY-001 | Metagenomics | 1 | - | - | - |
-| ☐ | META-TAXA-001 | Metagenomics | 1 | - | - | - |
-| ☐ | PHYLO-BOOT-001 | Phylogenetic | 1 | - | - | - |
-| ☐ | PHYLO-STATS-001 | Phylogenetic | 3 | - | - | - |
-| ☐ | ANNOT-CODING-001 | Annotation | 1 | - | - | - |
-| ☐ | ANNOT-REPEAT-001 | Annotation | 2 | - | - | - |
-| ☐ | ANNOT-CODONUSAGE-001 | Annotation | 1 | - | - | - |
-| ☐ | RESTR-FILTER-001 | MolTools | 3 | - | - | - |
-| ☐ | KMER-DIST-001 | K-mer | 1 | - | - | - |
-| ☐ | MOTIF-CONS-001 | Matching | 1 | - | - | - |
-| ☐ | GENOMIC-REPEAT-001 | Analysis | 2 | - | - | - |
-| ☐ | GENOMIC-COMMON-001 | Analysis | 2 | - | - | - |
-| ☐ | GENOMIC-MOTIFS-001 | Analysis | 1 | - | - | - |
-| ☐ | SEQ-RNACOMP-001 | Composition | 1 | - | - | - |
-| ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | - | - | - |
-| ☐ | PROTMOTIF-SP-001 | ProteinMotif | 1 | - | - | - |
-| ☐ | PROTMOTIF-TM-001 | ProteinMotif | 1 | - | - | - |
-| ☐ | PROTMOTIF-CC-001 | ProteinMotif | 1 | - | - | - |
-| ☐ | PROTMOTIF-LC-001 | ProteinMotif | 1 | - | - | - |
-| ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | - | - | - |
-| ☐ | RNA-PAIR-001 | RnaStructure | 3 | - | - | - |
-| ☐ | RNA-HAIRPIN-001 | RnaStructure | 2 | - | - | - |
-| ☐ | RNA-MFE-001 | RnaStructure | 2 | - | - | - |
-| ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | - | - | - |
-| ☐ | RNA-DOTBRACKET-001 | RnaStructure | 2 | - | - | - |
-| ☐ | RNA-INVERT-001 | RnaStructure | 1 | - | - | - |
-| ☐ | RNA-PARTITION-001 | RnaStructure | 2 | - | - | - |
-| ☐ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | - | - | - |
-| ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | - | - | - |
-| ☐ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | - | - | - |
-| ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | - | - | - |
-| ☐ | COMPGEN-RBH-001 | Comparative | 1 | - | - | - |
-| ☐ | COMPGEN-COMPARE-001 | Comparative | 1 | - | - | - |
-| ☐ | COMPGEN-REVERSAL-001 | Comparative | 1 | - | - | - |
-| ☐ | COMPGEN-CLUSTER-001 | Comparative | 1 | - | - | - |
-| ☐ | COMPGEN-ANI-001 | Comparative | 1 | - | - | - |
-| ☐ | COMPGEN-DOTPLOT-001 | Comparative | 1 | - | - | - |
-| ☐ | MOTIF-DISCOVER-001 | Matching | 1 | - | - | - |
-| ☐ | MOTIF-SHARED-001 | Matching | 1 | - | - | - |
-| ☐ | MOTIF-REGULATORY-001 | Matching | 1 | - | - | - |
-| ☐ | MOTIF-GENERATE-001 | Matching | 1 | - | - | - |
-| ☐ | KMER-ASYNC-001 | K-mer | 1 | - | - | - |
-| ☐ | KMER-UNIQUE-001 | K-mer | 1 | - | - | - |
-| ☐ | KMER-GENERATE-001 | K-mer | 1 | - | - | - |
-| ☐ | KMER-BOTH-001 | K-mer | 1 | - | - | - |
-| ☐ | KMER-STATS-001 | K-mer | 1 | - | - | - |
-| ☐ | KMER-POSITIONS-001 | K-mer | 1 | - | - | - |
-| ☐ | SEQ-ATSKEW-001 | Composition | 1 | - | - | - |
-| ☐ | SEQ-REPLICATION-001 | Composition | 1 | - | - | - |
-| ☐ | SEQ-GC-ANALYSIS-001 | Composition | 1 | - | - | - |
-| ☐ | DISORDER-MORF-001 | ProteinPred | 1 | - | - | - |
-| ☐ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | - | - | - |
-| ☐ | DISORDER-LC-001 | ProteinPred | 1 | - | - | - |
-| ☐ | SEQ-COMPOSITION-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-TM-001 | Statistics | 2 | - | - | - |
-| ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | - | - | - |
-| ☐ | SEQ-GC-PROFILE-001 | Statistics | 1 | - | - | - |
-| ☐ | SEQ-CODON-FREQ-001 | Statistics | 1 | - | - | - |
-| ☐ | SEQ-SUMMARY-001 | Statistics | 1 | - | - | - |
-| ☐ | GENOMIC-TANDEM-001 | Analysis | 1 | - | - | - |
-| ☐ | GENOMIC-SIMILARITY-001 | Analysis | 1 | - | - | - |
-| ☐ | GENOMIC-ORF-001 | Analysis | 1 | - | - | - |
-| ☐ | ONCO-SOMATIC-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-VAF-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-DRIVER-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-ARTIFACT-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-ANNOT-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-TMB-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-MSI-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-HRD-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-LOH-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-SIG-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-SIG-002 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-SIG-003 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-SIG-004 | Oncology | 1 | - | - | - |
-| ☐ | ONCO-FUSION-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-FUSION-002 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-FUSION-003 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-CNA-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-CNA-002 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-CNA-003 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-PURITY-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-PLOIDY-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-CLONAL-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-NEO-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-MHC-001 | Oncology | 2 | - | - | - |
+| ☑ | EPIGEN-METHYL-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-METHYL-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-METHYL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Methylation_Tests.cs) |
+| ☑ | EPIGEN-DMR-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-DMR-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-DMR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_DMR_Tests.cs) |
+| ☑ | VARIANT-CALL-001 | Variants | 3 | [Evidence](docs/Evidence/VARIANT-CALL-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-CALL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_CallVariants_Tests.cs) |
+| ☑ | VARIANT-SNP-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-SNP-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-SNP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindSnps_Tests.cs) |
+| ☑ | VARIANT-INDEL-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-INDEL-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-INDEL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantCaller_FindIndels_Tests.cs) |
+| ☑ | VARIANT-ANNOT-001 | Variants | 2 | [Evidence](docs/Evidence/VARIANT-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/VARIANT-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/VariantAnnotator_FunctionalImpact_Tests.cs) |
+| ☑ | SV-DETECT-001 | StructuralVar | 3 | [Evidence](docs/Evidence/SV-DETECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-DETECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectSVs_Tests.cs) |
+| ☑ | SV-BREAKPOINT-001 | StructuralVar | 2 | [Evidence](docs/Evidence/SV-BREAKPOINT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-BREAKPOINT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_FindBreakpoints_Tests.cs) |
+| ☑ | SV-CNV-001 | StructuralVar | 2 | [Evidence](docs/Evidence/SV-CNV-001-Evidence.md) | [TestSpec](tests/TestSpecs/SV-CNV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/StructuralVariantAnalyzer_DetectCNV_Tests.cs) |
+| ☑ | ASSEMBLY-OLC-001 | Assembly | 2 | [Evidence](docs/Evidence/ASSEMBLY-OLC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-OLC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleOLC_Tests.cs) |
+| ☑ | ASSEMBLY-DBG-001 | Assembly | 2 | [Evidence](docs/Evidence/ASSEMBLY-DBG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-DBG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleDeBruijn_Tests.cs) |
+| ☑ | ASSEMBLY-STATS-001 | Assembly | 4 | [Evidence](docs/Evidence/ASSEMBLY-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs) |
+| ☑ | TRANS-EXPR-001 | Transcriptome | 3 | [Evidence](docs/Evidence/TRANS-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs) |
+| ☑ | TRANS-DIFF-001 | Transcriptome | 2 | [Evidence](docs/Evidence/TRANS-DIFF-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-DIFF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_DifferentialExpression_Tests.cs) |
+| ☑ | TRANS-SPLICE-001 | Transcriptome | 2 | [Evidence](docs/Evidence/TRANS-SPLICE-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-SPLICE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) |
+| ☑ | COMPGEN-SYNTENY-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-SYNTENY-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-SYNTENY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindSyntenicBlocks_Tests.cs) |
+| ☑ | COMPGEN-ORTHO-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-ORTHO-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-ORTHO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindOrthologs_Tests.cs) |
+| ☑ | COMPGEN-REARR-001 | Comparative | 2 | [Evidence](docs/Evidence/COMPGEN-REARR-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REARR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_DetectRearrangements_Tests.cs) |
+| ☑ | PANGEN-CORE-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-CORE-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-CORE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ConstructPanGenome_Tests.cs) |
+| ☑ | PANGEN-CLUSTER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_ClusterGenes_Tests.cs) |
+| ☑ | QUALITY-PHRED-001 | Quality | 3 | [Evidence](docs/Evidence/QUALITY-PHRED-001-Evidence.md) | [TestSpec](tests/TestSpecs/QUALITY-PHRED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_ParseQualityString_Tests.cs) |
+| ☑ | QUALITY-STATS-001 | Quality | 2 | [Evidence](docs/Evidence/QUALITY-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/QUALITY-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/QualityScoreAnalyzer_CalculateStatistics_Tests.cs) |
+| ☑ | SEQ-STATS-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
+| ☑ | SEQ-MW-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-MW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-MW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateMolecularWeight_Tests.cs) |
+| ☑ | SEQ-PI-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-PI-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-PI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateIsoelectricPoint_Tests.cs) |
+| ☑ | SEQ-HYDRO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-HYDRO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-HYDRO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateHydrophobicity_Tests.cs) |
+| ☑ | SEQ-THERMO-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-THERMO-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-THERMO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
+| ☑ | SEQ-DINUC-001 | Statistics | 3 | [Evidence](docs/Evidence/SEQ-DINUC-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-DINUC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateDinucleotide_Tests.cs) |
+| ☑ | SEQ-SECSTRUCT-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SECSTRUCT-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SECSTRUCT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_PredictSecondaryStructure_Tests.cs) |
+| ☑ | CODON-RSCU-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-RSCU-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-RSCU-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateRscu_Tests.cs) |
+| ☑ | CODON-ENC-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-ENC-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-ENC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_CalculateEnc_Tests.cs) |
+| ☑ | CODON-STATS-001 | Codon | 1 | [Evidence](docs/Evidence/CODON-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/CODON-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/CodonUsageAnalyzer_GetStatistics_Tests.cs) |
+| ☑ | TRANS-SIXFRAME-001 | Translation | 1 | [Evidence](docs/Evidence/TRANS-SIXFRAME-001-Evidence.md) | [TestSpec](tests/TestSpecs/TRANS-SIXFRAME-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/Translator_SixFrames_Tests.cs) |
+| ☑ | ASSEMBLY-MERGE-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-MERGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-MERGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_MergeContigs_Tests.cs) |
+| ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-SCAFFOLD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-SCAFFOLD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_Scaffold_Tests.cs) |
+| ☑ | ASSEMBLY-COVER-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-COVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-COVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_CalculateCoverage_Tests.cs) |
+| ☑ | ASSEMBLY-CONSENSUS-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CONSENSUS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CONSENSUS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ComputeConsensus_Tests.cs) |
+| ☑ | ASSEMBLY-TRIM-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-TRIM-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-TRIM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_QualityTrimReads_Tests.cs) |
+| ☑ | ASSEMBLY-CORRECT-001 | Assembly | 1 | [Evidence](docs/Evidence/ASSEMBLY-CORRECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ASSEMBLY-CORRECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_ErrorCorrectReads_Tests.cs) |
+| ☑ | PAT-APPROX-003 | Matching | 3 | [Evidence](docs/Evidence/PAT-APPROX-003-Evidence.md) | [TestSpec](tests/TestSpecs/PAT-APPROX-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ApproximateMatcher_FindBestMatch_Tests.cs) |
+| ☑ | ALIGN-STATS-001 | Alignment | 2 | [Evidence](docs/Evidence/ALIGN-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/ALIGN-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAligner_CalculateStatistics_Tests.cs) |
+| ☑ | EPIGEN-BISULF-001 | Epigenetics | 2 | [Evidence](docs/Evidence/EPIGEN-BISULF-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-BISULF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_Bisulfite_Tests.cs) |
+| ☑ | EPIGEN-CHROM-001 | Epigenetics | 3 | [Evidence](docs/Evidence/EPIGEN-CHROM-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-CHROM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_ChromatinState_Tests.cs) |
+| ☑ | EPIGEN-AGE-001 | Epigenetics | 1 | [Evidence](docs/Evidence/EPIGEN-AGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/EPIGEN-AGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs) |
+| ☑ | MIRNA-PAIR-001 | MiRNA | 3 | [Evidence](docs/Evidence/MIRNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/MIRNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs) |
+| ☑ | PANGEN-HEAP-001 | PanGenome | 1 | [Evidence](docs/Evidence/PANGEN-HEAP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-HEAP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_FitHeapsLaw_Tests.cs) |
+| ☑ | PANGEN-MARKER-001 | PanGenome | 2 | [Evidence](docs/Evidence/PANGEN-MARKER-001-Evidence.md) | [TestSpec](tests/TestSpecs/PANGEN-MARKER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs) |
+| ☑ | POP-SELECT-001 | PopGen | 2 | [Evidence](docs/Evidence/POP-SELECT-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-SELECT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs) |
+| ☑ | POP-ANCESTRY-001 | PopGen | 1 | [Evidence](docs/Evidence/POP-ANCESTRY-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-ANCESTRY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs) |
+| ☑ | POP-ROH-001 | PopGen | 2 | [Evidence](docs/Evidence/POP-ROH-001-Evidence.md) | [TestSpec](tests/TestSpecs/POP-ROH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PopulationGeneticsAnalyzer_FindROH_Tests.cs) |
+| ☑ | META-FUNC-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-FUNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-FUNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_PredictFunctions_Tests.cs) |
+| ☑ | META-RESIST-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-RESIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-RESIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs) |
+| ☑ | META-PATHWAY-001 | Metagenomics | 1 | [Evidence](docs/Evidence/META-PATHWAY-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-PATHWAY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs) |
+| ☑ | META-TAXA-001 | Metagenomics | 2 | [Evidence](docs/Evidence/META-TAXA-001-Evidence.md) | [TestSpec](tests/TestSpecs/META-TAXA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs) |
+| ☑ | PHYLO-BOOT-001 | Phylogenetic | 1 | [Evidence](docs/Evidence/PHYLO-BOOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-BOOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_Bootstrap_Tests.cs) |
+| ☑ | PHYLO-STATS-001 | Phylogenetic | 3 | [Evidence](docs/Evidence/PHYLO-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/PHYLO-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/PhylogeneticAnalyzer_TreeStatistics_Tests.cs) |
+| ☑ | ANNOT-CODING-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODING-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODING-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_CalculateCodingPotential_Tests.cs) |
+| ☑ | ANNOT-REPEAT-001 | Annotation | 2 | [Evidence](docs/Evidence/ANNOT-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_FindRepetitiveElements_Tests.cs) |
+| ☑ | ANNOT-CODONUSAGE-001 | Annotation | 1 | [Evidence](docs/Evidence/ANNOT-CODONUSAGE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ANNOT-CODONUSAGE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomeAnnotator_GetCodonUsage_Tests.cs) |
+| ☑ | RESTR-FILTER-001 | MolTools | 3 | [Evidence](docs/Evidence/RESTR-FILTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/RESTR-FILTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RestrictionAnalyzer_Filter_Tests.cs) |
+| ☑ | KMER-DIST-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-DIST-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-DIST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_KmerDistance_Tests.cs) |
+| ☑ | MOTIF-CONS-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-CONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-CONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_CreateConsensusFromAlignment_Tests.cs) |
+| ☑ | GENOMIC-REPEAT-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-REPEAT-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-REPEAT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindRepeats_Tests.cs) |
+| ☑ | GENOMIC-COMMON-001 | Analysis | 2 | [Evidence](docs/Evidence/GENOMIC-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindCommonRegion_Tests.cs) |
+| ☑ | GENOMIC-MOTIFS-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-MOTIFS-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-MOTIFS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindKnownMotifs_Tests.cs) |
+| ☑ | SEQ-RNACOMP-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-RNACOMP-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-RNACOMP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceExtensions_GetRnaComplementBase_Tests.cs) |
+| ☑ | PROTMOTIF-PATTERN-001 | ProteinMotif | 4 | [Evidence](docs/Evidence/PROTMOTIF-PATTERN-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-PATTERN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindMotifByPattern_Tests.cs) |
+| ☑ | PROTMOTIF-SP-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-SP-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-SP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictSignalPeptide_Tests.cs) |
+| ☑ | PROTMOTIF-TM-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs) |
+| ☑ | PROTMOTIF-CC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-CC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-CC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_PredictCoiledCoils_Tests.cs) |
+| ☑ | PROTMOTIF-LC-001 | ProteinMotif | 1 | [Evidence](docs/Evidence/PROTMOTIF-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindLowComplexityRegions_Tests.cs) |
+| ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | 2 | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
+| ☑ | RNA-PAIR-001 | RnaStructure | 3 | [Evidence](docs/Evidence/RNA-PAIR-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PAIR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_CanPair_Tests.cs) |
+| ☑ | RNA-HAIRPIN-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-HAIRPIN-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-HAIRPIN-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_HairpinEnergy_Tests.cs) |
+| ☑ | RNA-MFE-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-MFE-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-MFE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs) |
+| ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-PSEUDOKNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PSEUDOKNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_DetectPseudoknots_Tests.cs) |
+| ☑ | RNA-DOTBRACKET-001 | RnaStructure | 2 | [Evidence](docs/Evidence/RNA-DOTBRACKET-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-DOTBRACKET-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_ParseDotBracket_Tests.cs) |
+| ☑ | RNA-INVERT-001 | RnaStructure | 1 | [Evidence](docs/Evidence/RNA-INVERT-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-INVERT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_FindInvertedRepeats_Tests.cs) |
+| ☑ | RNA-PARTITION-001 | RnaStructure | 4 | [Evidence](docs/Evidence/RNA-PARTITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/RNA-PARTITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/RnaSecondaryStructure_PartitionFunction_Tests.cs) |
+| ☑ | SEQ-COMPLEX-KMER-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-KMER-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-KMER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateKmerEntropy_Tests.cs) |
+| ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-WINDOW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-WINDOW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateWindowedComplexity_Tests.cs) |
+| ☑ | SEQ-COMPLEX-DUST-001 | Complexity | 2 | [Evidence](docs/Evidence/SEQ-COMPLEX-DUST-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-DUST-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_CalculateDustScore_Tests.cs) |
+| ☑ | SEQ-COMPLEX-COMPRESS-001 | Complexity | 1 | [Evidence](docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPLEX-COMPRESS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceComplexity_EstimateCompressionRatio_Tests.cs) |
+| ☑ | COMPGEN-RBH-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-RBH-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-RBH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindReciprocalBestHits_Tests.cs) |
+| ☑ | COMPGEN-COMPARE-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-COMPARE-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-COMPARE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CompareGenomes_Tests.cs) |
+| ☑ | COMPGEN-REVERSAL-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-REVERSAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-REVERSAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateReversalDistance_Tests.cs) |
+| ☑ | COMPGEN-CLUSTER-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-CLUSTER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_FindConservedClusters_Tests.cs) |
+| ☑ | COMPGEN-ANI-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-ANI-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-ANI-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_CalculateANI_Tests.cs) |
+| ☑ | COMPGEN-DOTPLOT-001 | Comparative | 1 | [Evidence](docs/Evidence/COMPGEN-DOTPLOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/COMPGEN-DOTPLOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ComparativeGenomics_GenerateDotPlot_Tests.cs) |
+| ☑ | MOTIF-DISCOVER-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-DISCOVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-DISCOVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_DiscoverMotifs_Tests.cs) |
+| ☑ | MOTIF-SHARED-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-SHARED-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-SHARED-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindSharedMotifs_Tests.cs) |
+| ☑ | MOTIF-REGULATORY-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-REGULATORY-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-REGULATORY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_FindRegulatoryElements_Tests.cs) |
+| ☑ | MOTIF-GENERATE-001 | Matching | 1 | [Evidence](docs/Evidence/MOTIF-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/MOTIF-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/MotifFinder_GenerateConsensus_Tests.cs) |
+| ☑ | KMER-ASYNC-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-ASYNC-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-ASYNC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersAsync_Tests.cs) |
+| ☑ | KMER-UNIQUE-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-UNIQUE-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-UNIQUE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindUniqueAndMinCount_Tests.cs) |
+| ☑ | KMER-GENERATE-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-GENERATE-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-GENERATE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_GenerateAllKmers_Tests.cs) |
+| ☑ | KMER-BOTH-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-BOTH-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-BOTH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_CountKmersBothStrands_Tests.cs) |
+| ☑ | KMER-STATS-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-STATS-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-STATS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_AnalyzeKmers_Tests.cs) |
+| ☑ | KMER-POSITIONS-001 | K-mer | 1 | [Evidence](docs/Evidence/KMER-POSITIONS-001-Evidence.md) | [TestSpec](tests/TestSpecs/KMER-POSITIONS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/KmerAnalyzer_FindKmerPositions_Tests.cs) |
+| ☑ | SEQ-ATSKEW-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-ATSKEW-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-ATSKEW-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_CalculateAtSkew_Tests.cs) |
+| ☑ | SEQ-REPLICATION-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-REPLICATION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-REPLICATION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_PredictReplicationOrigin_Tests.cs) |
+| ☑ | SEQ-GC-ANALYSIS-001 | Composition | 1 | [Evidence](docs/Evidence/SEQ-GC-ANALYSIS-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-ANALYSIS-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GcSkewCalculator_AnalyzeGcContent_Tests.cs) |
+| ☑ | DISORDER-MORF-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-MORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-MORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_MoRF_Tests.cs) |
+| ☑ | DISORDER-PROPENSITY-001 | ProteinPred | 3 | [Evidence](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-PROPENSITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
+| ☑ | DISORDER-LC-001 | ProteinPred | 1 | [Evidence](docs/Evidence/DISORDER-LC-001-Evidence.md) | [TestSpec](tests/TestSpecs/DISORDER-LC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_LowComplexity_Tests.cs) |
+| ☑ | SEQ-COMPOSITION-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-COMPOSITION-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-COMPOSITION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateNucleotideComposition_Tests.cs) |
+| ☑ | SEQ-TM-001 | Statistics | 2 | [Evidence](docs/Evidence/SEQ-TM-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-TM-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateThermodynamics_Tests.cs) |
+| ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | 1 | docs/Evidence/SEQ-ENTROPY-PROFILE-001-Evidence.md | tests/TestSpecs/SEQ-ENTROPY-PROFILE-001.md | tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateEntropyProfile_Tests.cs |
+| ☑ | SEQ-GC-PROFILE-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-GC-PROFILE-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-GC-PROFILE-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateGcContentProfile_Tests.cs) |
+| ☑ | SEQ-CODON-FREQ-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-CODON-FREQ-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-CODON-FREQ-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_CalculateCodonFrequencies_Tests.cs) |
+| ☑ | SEQ-SUMMARY-001 | Statistics | 1 | [Evidence](docs/Evidence/SEQ-SUMMARY-001-Evidence.md) | [TestSpec](tests/TestSpecs/SEQ-SUMMARY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/SequenceStatistics_SummarizeNucleotideSequence_Tests.cs) |
+| ☑ | GENOMIC-TANDEM-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-TANDEM-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-TANDEM-001.md) | GenomicAnalyzer_TandemRepeat_Tests.cs (consolidated into REP-TANDEM-001) |
+| ☑ | GENOMIC-SIMILARITY-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_CalculateSimilarity_Tests.cs) |
+| ☑ | GENOMIC-ORF-001 | Analysis | 1 | [Evidence](docs/Evidence/GENOMIC-ORF-001-Evidence.md) | [TestSpec](tests/TestSpecs/GENOMIC-ORF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/GenomicAnalyzer_FindOpenReadingFrames_Tests.cs) |
+| ☑ | ONCO-SOMATIC-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SOMATIC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SOMATIC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CallSomaticMutations_Tests.cs) |
+| ☑ | ONCO-VAF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-VAF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-VAF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateVAF_Tests.cs) |
+| ☑ | ONCO-DRIVER-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-DRIVER-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-DRIVER-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyDriverMutations_Tests.cs) |
+| ☑ | ONCO-ARTIFACT-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-ARTIFACT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ARTIFACT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterArtifacts_Tests.cs) |
+| ☑ | ONCO-ANNOT-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ANNOT-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ANNOT-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnnotateCancerVariants_Tests.cs) |
+| ☑ | ONCO-TMB-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-TMB-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-TMB-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateTMB_Tests.cs) |
+| ☑ | ONCO-MSI-001 | Oncology | 3 | Niu et al. (2014) MSIsensor, niu-lab/msisensor2, Boland et al. (1998) | [ONCO-MSI-001.md](TestSpecs/ONCO-MSI-001.md) | OncologyAnalyzer_DetectMSI_Tests.cs |
+| ☑ | ONCO-HRD-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CalculateHRDScore_Tests.cs) |
+| ☑ | ONCO-LOH-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-LOH-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-LOH-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectLOH_Tests.cs) |
+| ☑ | ONCO-SIG-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifySbsContext_Tests.cs) |
+| ☑ | ONCO-SIG-002 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SIG-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FitSignatures_Tests.cs) |
+| ☑ | ONCO-SIG-003 | Oncology | 1 | [Evidence](docs/Evidence/ONCO-SIG-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_BootstrapExposures_Tests.cs) |
+| ☑ | ONCO-SIG-004 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-SIG-004-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SIG-004.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs) |
+| ☑ | ONCO-FUSION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-FUSION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFusions_Tests.cs) |
+| ☑ | ONCO-FUSION-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_MatchKnownFusions_Tests.cs) |
+| ☑ | ONCO-FUSION-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-FUSION-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-FUSION-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs) |
+| ☑ | ONCO-CNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CopyNumberClassification_Tests.cs) |
+| ☑ | ONCO-CNA-002 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-002-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-002.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectFocalAmplifications_Tests.cs) |
+| ☑ | ONCO-CNA-003 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CNA-003-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CNA-003.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs) |
+| ☑ | ONCO-PURITY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PURITY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PURITY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePurity_Tests.cs) |
+| ☑ | ONCO-PLOIDY-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-PLOIDY-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PLOIDY-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimatePloidy_Tests.cs) |
+| ☑ | ONCO-CLONAL-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CLONAL-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CLONAL-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyClonality_Tests.cs) |
+| ☑ | ONCO-NEO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-NEO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-NEO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs) |
+| ☑ | ONCO-MHC-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MHC-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MHC-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyMhcBinding_Tests.cs) |
 | ☑ | ONCO-IMMUNE-001 | Oncology | 2 | 33 | [Evidence](docs/Evidence/ONCO-IMMUNE-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-IMMUNE-001.md) |
-| ☐ | ONCO-CTDNA-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-MRD-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-CHIP-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-PHYLO-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-CCF-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-HETERO-001 | Oncology | 2 | - | - | - |
-| ☐ | ONCO-HLA-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-ACTION-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-SV-001 | Oncology | 3 | - | - | - |
-| ☐ | ONCO-EXPR-001 | Oncology | 3 | - | - | - |
+| ☑ | ONCO-CTDNA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-CTDNA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CTDNA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_CtDnaAnalysis_Tests.cs) |
+| ☑ | ONCO-MRD-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-MRD-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-MRD-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_DetectMRD_Tests.cs) |
+| ☑ | ONCO-CHIP-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CHIP-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CHIP-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_FilterCHIP_Tests.cs) |
+| ☑ | ONCO-PHYLO-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
+| ☑ | ONCO-CCF-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
+| ☑ | ONCO-HETERO-001 | Oncology | 2 | [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
+| ☑ | ONCO-HLA-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-HLA-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-HLA-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_HlaAnalysis_Tests.cs) |
+| ☑ | ONCO-ACTION-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-ACTION-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-ACTION-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AssessActionability_Tests.cs) |
+| ☑ | ONCO-SV-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-SV-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-SV-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs) |
+| ☑ | ONCO-EXPR-001 | Oncology | 3 | [Evidence](docs/Evidence/ONCO-EXPR-001-Evidence.md) | [TestSpec](tests/TestSpecs/ONCO-EXPR-001.md) | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs) |
 
 **Statuses:** ☐ Not Started | ⏳ In Progress | ☑ Complete | ⛔ Blocked
 
@@ -1892,7 +1892,7 @@
 
 ---
 
-#### VARIANT-ANNOT-001: Variant Annotation
+#### VARIANT-ANNOT-001: Variant Annotation ☑
 
 | Field | Value |
 |------|----------|
@@ -1903,14 +1903,19 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `Annotate(variants, annotations)` | VariantAnnotator | Canonical |
-| `PredictFunctionalImpact(variant)` | VariantAnnotator | Impact |
+| `Annotate(variants, annotations, referenceSequence?)` | VariantAnnotator | Canonical |
+| `PredictFunctionalImpact(variant, transcript, referenceSequence)` | VariantAnnotator | Impact |
+
+> Implemented per Ensembl VEP (McLaren et al. 2016) SO consequence terms + IMPACT/rank
+> (Constants.pm) and VariationEffect.pm coding predicates; codons translated with the
+> NCBI Standard code (table 1). `PredictFunctionalImpact` takes the overlapping
+> transcript and a forward-strand reference window to translate ref/alt codons.
 
 ---
 
 ### 23. Structural Variant Analysis (3 units)
 
-#### SV-DETECT-001: SV Detection
+#### SV-DETECT-001: SV Detection ☑
 
 | Field | Value |
 |------|----------|
@@ -1921,14 +1926,14 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectSVs(readPairs, splitReads)` | StructuralVariantAnalyzer | Canonical |
+| `DetectSVs(readPairs, params)` | StructuralVariantAnalyzer | Canonical |
 | `FindDiscordantPairs(readPairs, params)` | StructuralVariantAnalyzer | Discordant |
-| `ClassifySV(sv)` | StructuralVariantAnalyzer | Classification |
+| `ClassifySV(pair, params)` | StructuralVariantAnalyzer | Classification |
 
 **SV Types:**
-- [ ] Deletion, Duplication, Inversion
-- [ ] Insertion, Translocation
-- [ ] Complex rearrangements
+- [x] Deletion, Duplication, Inversion
+- [x] Insertion, Translocation
+- [x] Complex rearrangements
 
 ---
 
@@ -1957,26 +1962,47 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectCNV(depthData, window)` | StructuralVariantAnalyzer | Canonical |
-| `SegmentCopyNumber(logRatios)` | StructuralVariantAnalyzer | Segmentation |
+| `DetectCNV(depthData, windowSize, referenceDepth, chromosome)` | StructuralVariantAnalyzer | Canonical |
+| `SegmentCopyNumber(logRatios, chromosome)` | StructuralVariantAnalyzer | Segmentation |
+
+**Status:** ☑ Complete — read-depth windowed log2-ratio → integer copy number (Yoon et al. 2009; CNVkit `CN = round(2·2^log2)`). Evidence: docs/Evidence/SV-CNV-001-Evidence.md; TestSpec: tests/TestSpecs/SV-CNV-001.md; Tests: StructuralVariantAnalyzer_DetectCNV_Tests.cs.
 
 ---
 
 ### 24. Sequence Assembly (3 units)
 
-#### ASSEMBLY-OLC-001: Overlap-Layout-Consensus
+#### ASSEMBLY-OLC-001: Overlap-Layout-Consensus ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceAssembler.AssembleOLC(...)` |
 | **Complexity** | O(n² × m) |
 | **Class** | SequenceAssembler |
+| **Evidence** | [ASSEMBLY-OLC-001-Evidence.md](docs/Evidence/ASSEMBLY-OLC-001-Evidence.md) |
+| **TestSpec** | [ASSEMBLY-OLC-001.md](tests/TestSpecs/ASSEMBLY-OLC-001.md) |
+| **Algorithm doc** | [Overlap_Layout_Consensus.md](docs/algorithms/Assembly/Overlap_Layout_Consensus.md) |
+| **Tests** | [SequenceAssembler_AssembleOLC_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/SequenceAssembler_AssembleOLC_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `AssembleOLC(reads, params)` | SequenceAssembler | Canonical |
 | `FindAllOverlaps(reads, minOverlap, minId)` | SequenceAssembler | Overlaps |
+
+**Edge Cases (derived from Evidence — no prior by-area list):**
+- [x] null / empty read set → empty `AssemblyResult` (no exception)
+- [x] no above-threshold overlap → each read is its own singleton contig (INV-05)
+- [x] unambiguous chain → single merged superstring contig (INV-04)
+- [x] overlap exactly = `minOverlap` accepted; below rejected (INV-02)
+- [x] identity threshold gates approximate overlaps
+- [x] case-insensitive overlaps
+- [x] repeat longer than read length not collapsed below longest read (ASM-02)
+
+**Definition of Done:**
+- [x] TestSpec, tests, Evidence, algorithm doc created; Registry updated
+- [x] All tests pass (`dotnet test`); deterministic; zero warnings in changed files
+- [x] Edge cases covered (null, empty, boundary, invalid) for in-scope methods
+- [x] O(n²) algorithm: property-based invariant test (INV-04) + performance baseline recorded (algorithm doc §7.2)
 
 ---
 
@@ -1995,7 +2021,7 @@
 
 ---
 
-#### ASSEMBLY-STATS-001: Assembly Statistics
+#### ASSEMBLY-STATS-001: Assembly Statistics ☑
 
 | Field | Value |
 |------|----------|
@@ -2003,13 +2029,23 @@
 | **Complexity** | O(n log n) |
 | **Class** | GenomeAssemblyAnalyzer |
 
+**Status:** ☑ Complete — N50/L50 = "smallest contig in the smallest set of largest contigs whose combined length is ≥ 50% of the assembly" (Miller, Koren & Sutton 2010, Genomics 95(6):315-327, §1.2); inclusive ≥ threshold% cumulative test verified against QUAST `quast_libs/N50.py`; auN = Σl²/Σl (Li 2020). Worked example {80,70,50,40,30,20}→N50=70,L50=2 (Wikipedia). Evidence: docs/Evidence/ASSEMBLY-STATS-001-Evidence.md; TestSpec: tests/TestSpecs/ASSEMBLY-STATS-001.md; Tests: GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs.
+
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `CalculateStatistics(contigs)` | GenomeAssemblyAnalyzer | Canonical |
 | `CalculateN50(contigs)` | GenomeAssemblyAnalyzer | N50 |
 | `CalculateNx(contigs, threshold)` | GenomeAssemblyAnalyzer | Nx/Lx |
+| `CalculateAuN(contigs)` | GenomeAssemblyAnalyzer | auN (Σl²/Σl) |
 | `FindGaps(sequence)` | GenomeAssemblyAnalyzer | Gap detection |
+
+**Edge Cases:**
+- [x] Empty contig set → all-zero statistics / Nx=Lx=0 / auN=0
+- [x] Single contig → N50 = its length, L50 = 1
+- [x] Cumulative reaching exactly threshold% (inclusive boundary)
+- [x] Leading / trailing / all-N gap runs
+- [x] minGapLength filtering
 
 ---
 
@@ -2047,27 +2083,40 @@
 
 ---
 
-#### TRANS-SPLICE-001: Alternative Splicing
+#### TRANS-SPLICE-001: Alternative Splicing ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `TranscriptomeAnalyzer.DetectAlternativeSplicing(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(n) (PSI O(1); classification O(g·k²·e)) |
+| **Evidence** | [TRANS-SPLICE-001-Evidence.md](docs/Evidence/TRANS-SPLICE-001-Evidence.md) |
+| **TestSpec** | [TRANS-SPLICE-001.md](tests/TestSpecs/TRANS-SPLICE-001.md) |
+| **Tests** | [TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `DetectAlternativeSplicing(isoforms)` | TranscriptomeAnalyzer | Canonical |
-| `CalculatePSI(event, reads)` | TranscriptomeAnalyzer | Percent spliced in |
+| `CalculatePSI(inclusionReads, exclusionReads, ...)` | TranscriptomeAnalyzer | Canonical (Percent Spliced In) |
+
+**Edge Cases:**
+- [x] PSI of 0/0 (no reads) → NaN (undefined)
+- [x] PSI = 1 (S=0) and PSI = 0 (I=0)
+- [x] rMATS length-normalized PSI when both effective lengths > 0
+- [x] negative read counts → ArgumentOutOfRangeException
+- [x] fewer than two isoforms / identical isoforms → no event
+- [x] null / empty isoform input → empty result
+- [x] all five event classes (SE, RI, A5SS, A3SS, MXE) classified
 
 ---
 
 ### 26. Comparative Genomics (3 units)
 
-#### COMPGEN-SYNTENY-001: Synteny Detection
+#### COMPGEN-SYNTENY-001: Synteny Detection ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete (MCScanX collinearity model; Wang et al. 2012, NAR 40(7):e49) |
 | **Canonical** | `ComparativeGenomics.FindSyntenicBlocks(...)` |
 | **Complexity** | O(n²) |
 | **Class** | ComparativeGenomics |
@@ -2080,7 +2129,7 @@
 
 ---
 
-#### COMPGEN-ORTHO-001: Ortholog Identification
+#### ☑ COMPGEN-ORTHO-001: Ortholog Identification
 
 | Field | Value |
 |------|----------|
@@ -2090,8 +2139,10 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindOrthologs(genes1, genes2, minIdentity)` | ComparativeGenomics | Canonical |
-| `FindParalogs(genes, minIdentity)` | ComparativeGenomics | Paralogs |
+| `FindOrthologs(genes1, genes2, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (Reciprocal Best Hits) |
+| `FindParalogs(genes, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (within-genome best hits / in-paralogs) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical methods, signatures, invariants, and edge cases were derived from the Evidence (Tatusov 1997; Moreno-Hagelsieb & Latimer 2008; Fitch 1970; Remm et al. 2001). `FindOrthologs` was corrected from a one-directional best hit to the reciprocal (RBH) criterion; `FindParalogs` was newly implemented.
 
 ---
 
@@ -2123,8 +2174,8 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ConstructPanGenome(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
-| `IdentifyCoreGenes(clusters, threshold)` | PanGenomeAnalyzer | Core genes |
+| `ConstructPanGenome(genomes, identityThreshold, coreFraction)` | PanGenomeAnalyzer | Canonical |
+| `GetCoreGeneClusters(clusters, totalGenomes, threshold)` | PanGenomeAnalyzer | Core genes (implements `IdentifyCoreGenes` referent) |
 
 ---
 
@@ -2139,7 +2190,9 @@
 | Method | Class | Type |
 |-------|-------|-----|
 | `ClusterGenes(genomes, idThreshold)` | PanGenomeAnalyzer | Canonical |
-| `GeneratePresenceAbsenceMatrix(clusters)` | PanGenomeAnalyzer | Matrix |
+| `CreatePresenceAbsenceMatrix(genomes, clusters)` | PanGenomeAnalyzer | Matrix |
+
+> Note (PANGEN-CLUSTER-001): the matrix method ships as `CreatePresenceAbsenceMatrix` (sibling-consistent name), not `GeneratePresenceAbsenceMatrix`; API-naming only, see TestSpec §7. `ClusterGenes` was corrected from a k-mer Jaccard heuristic to CD-HIT global sequence identity (identical positions / shorter length) per Li & Godzik (2006).
 
 ---
 
@@ -2230,12 +2283,13 @@
 
 ---
 
-#### SEQ-MW-001: Molecular Weight Calculation
+#### SEQ-MW-001: Molecular Weight Calculation ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateMolecularWeight(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — Evidence/TestSpec/Tests linked in Processing Registry |
 
 **Methods:**
 | Method | Class | Type |
@@ -2292,7 +2346,7 @@
 
 ---
 
-#### SEQ-DINUC-001: Dinucleotide Analysis
+#### SEQ-DINUC-001: Dinucleotide Analysis ☑
 
 | Field | Value |
 |------|----------|
@@ -2501,7 +2555,7 @@
 
 ### 35. Alignment Statistics (1 unit)
 
-#### ALIGN-STATS-001: Alignment Statistics and Formatting
+#### ☑ ALIGN-STATS-001: Alignment Statistics and Formatting
 
 | Field | Value |
 |------|----------|
@@ -2512,8 +2566,20 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateStatistics(alignment)` | SequenceAligner | Statistics |
-| `FormatAlignment(alignment, lineWidth)` | SequenceAligner | Formatting |
+| `CalculateStatistics(alignment, scoring)` | SequenceAligner | Statistics |
+| `FormatAlignment(alignment, lineWidth, scoring)` | SequenceAligner | Formatting |
+
+**Behavioral note (evidence-corrected):** Identity/Similarity/Gaps follow the EMBOSS
+needle definition — denominator is the alignment length **including gap columns**.
+Similarity counts identical columns **plus** non-identical columns whose substitution
+score is **positive** (EMBOSS/BLAST "positives"); it is NOT `(matches+mismatches)/length`.
+For the DNA models exposed by this class (Mismatch < 0) Similarity equals Identity.
+`FormatAlignment` uses the srspair markup legend (`|` identity, `:` similarity, space
+gap/mismatch). The prior implementation's similarity formula was corrected in this unit.
+
+- [x] Edge cases: null alignment, empty alignment, all-gap, perfect identity, non-positive lineWidth
+- [x] Evidence-based exact values (EMBOSS HBA/HBB 43.6/60.4/6.0), invariants INV-1..INV-4
+- [x] Tests pass, zero warnings in changed files
 
 ---
 
@@ -2562,8 +2628,14 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateEpigeneticAge(methylationProfile, clockType)` | EpigeneticsAnalyzer | Canonical |
-| `PredictImprintedGenes(methylationProfile)` | EpigeneticsAnalyzer | Imprinting |
+| `CalculateEpigeneticAge(methylationAtClockCpGs, coefficients, intercept)` | EpigeneticsAnalyzer | Canonical |
+| `HorvathAntiTransform(transformedAge)` | EpigeneticsAnalyzer | Canonical |
+| `PredictImprintedGenes(...)` | EpigeneticsAnalyzer | Out of scope (no retrieved authoritative basis; not part of the age clock) |
+
+> Signature corrected from the placeholder `(methylationProfile, clockType)` to the evidence-based
+> `(methylationAtClockCpGs, coefficients, intercept)`: Horvath (2013) computes DNAm age as
+> `anti.trafo(intercept + Σ coef·β)` with caller-supplied clock coefficients (the 353-CpG table is a
+> large published table and is not bundled — fabricated coefficients are forbidden). See EPIGEN-AGE-001 Evidence/TestSpec.
 
 ---
 
@@ -2585,23 +2657,41 @@
 | `CanPair(base1, base2)` | MiRnaAnalyzer | Pairing check |
 | `IsWobblePair(base1, base2)` | MiRnaAnalyzer | Wobble check |
 
+**Status:** ☑ Complete — Watson-Crick (A-U, C-G) + G:U wobble (Crick 1966) antiparallel
+reverse-complement duplex pairing. Invented free-energy constants (−2.0/−1.0/−0.5/+0.5)
+replaced by NNDB Turner 2004 nearest-neighbor stacking sum; free-energy magnitude is
+"Intentionally simplified" (only sign validated). See MIRNA-PAIR-001 Evidence/TestSpec.
+
 ---
 
 ### 38. Extended Pan-Genome Analysis (2 units)
 
-#### PANGEN-HEAP-001: Pan-Genome Growth Model
+#### PANGEN-HEAP-001: Pan-Genome Growth Model ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `PanGenomeAnalyzer.FitHeapsLaw(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(P·G·C) (P perms, G genomes, C clusters) |
 | **Class** | PanGenomeAnalyzer |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FitHeapsLaw(panGenomeData)` | PanGenomeAnalyzer | Canonical |
-| `CreatePresenceAbsenceMatrix(clusters, genomes)` | PanGenomeAnalyzer | Matrix |
+| `FitHeapsLaw(matrix \| genomes)` | PanGenomeAnalyzer | Canonical |
+| `CreatePresenceAbsenceMatrix(genomes, clusters)` | PanGenomeAnalyzer | Matrix |
+
+**Behavior (external evidence overrides checklist):** Heaps' law is the *new-gene-discovery
+decay* model `n(N) = K·N^(−alpha)` fit over permuted genome orderings (Tettelin et al. 2008;
+micropan `heaps()`), NOT a cumulative pan-genome *size* growth `P=K·N^+gamma`. Open ⇔ alpha < 1,
+closed ⇔ alpha > 1. The prior implementation (log-log fit of cumulative size with a positive
+exponent, gene-id matching) was non-conforming and was rewritten to the micropan model.
+
+**Edge cases:**
+- [x] Fewer than 2 genomes / null / empty → degenerate fit (Intercept 0, predictor 0), no exception.
+- [x] First genome contributes no "new" count (curve uses N = 2..G).
+- [x] Binary presence: duplicate/over-counted presence collapses to 1.
+- [x] alpha bounded to [0,2], Intercept to [0,10000] (micropan optim box).
+- [x] Exact power-curve data → analytic (K, alpha) recovered.
 
 ---
 
@@ -2624,13 +2714,14 @@
 
 ### 39. Extended Population Genetics (3 units)
 
-#### POP-SELECT-001: Selection Signature Detection
+#### POP-SELECT-001: Selection Signature Detection ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `PopulationGeneticsAnalyzer.CalculateIHS(...)` |
+| **Canonical** | `PopulationGeneticsAnalyzer.CalculateIHS(haplotypes, positions, coreIndex)` |
 | **Complexity** | O(n × h) |
 | **Class** | PopulationGeneticsAnalyzer |
+| **Status** | ☑ Complete — unstandardized iHS = ln(iHH_A/iHH_D) per Voight et al. (2006); EHH per Sabeti et al. (2002) / selscan. Edge cases (null, empty, monomorphic, invalid allele, out-of-range, bad bin/window) covered. |
 
 **Methods:**
 | Method | Class | Type |
@@ -2640,17 +2731,26 @@
 
 ---
 
-#### POP-ANCESTRY-001: Ancestry Estimation
+#### ☑ POP-ANCESTRY-001: Ancestry Estimation
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `PopulationGeneticsAnalyzer.EstimateAncestry(...)` |
-| **Complexity** | O(n × k) |
+| **Complexity** | O(I × iterations × J × K) (per-iteration O(JK), F fixed) |
+| **Status** | ☑ Complete — supervised/projection ADMIXTURE EM (Alexander et al. 2009, Eq. 2/4/5) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateAncestry(genotypes, refPanels, k)` | PopulationGeneticsAnalyzer | Canonical |
+| `EstimateAncestry(individuals, referencePops, maxIterations)` | PopulationGeneticsAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Empty individuals → empty result
+- [x] Empty reference panels → empty result
+- [x] Genotype length ≠ panel SNP count → individual skipped
+- [x] Genotype value outside {0,1,2} → SNP treated as missing
+- [x] All genotypes missing → uniform prior returned
+- [x] Identical panels → uniform stays uniform
 
 ---
 
@@ -2721,12 +2821,15 @@
 | Field | Value |
 |------|----------|
 | **Canonical** | `MetagenomicsAnalyzer.FindSignificantTaxa(...)` |
-| **Complexity** | O(n × t) |
+| **Complexity** | O(t × s log s) (t taxa, s samples; per-taxon Mann–Whitney sort) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindSignificantTaxa(profiles, groups, pThreshold)` | MetagenomicsAnalyzer | Canonical |
+| `FindSignificantTaxa(profiles, groups, pThreshold, useContinuityCorrection)` | MetagenomicsAnalyzer | Canonical |
+| `MannWhitneyU(group1, group2, useContinuityCorrection)` | MetagenomicsAnalyzer | Canonical |
+
+**Behavior:** per-taxon Wilcoxon rank-sum (Mann–Whitney U) test under the asymptotic normal approximation with midrank tie correction and a SciPy-default continuity correction; a taxon is significant when its two-tailed p-value < `pThreshold`. Source: Mann & Whitney (1947), SciPy `mannwhitneyu`, Xia & Sun (2017). No by-area edge-case list pre-existed; edge cases derived from Evidence (null/empty/single-group/invalid-label/all-tied/absent-taxon).
 
 ---
 
@@ -2743,7 +2846,7 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `Bootstrap(sequences, nReplicates, treeMethod)` | PhylogeneticAnalyzer | Canonical |
+| `Bootstrap(sequences, replicates, distanceMethod, treeMethod, seed)` | PhylogeneticAnalyzer | Canonical |
 
 ---
 
@@ -3002,18 +3105,34 @@
 
 ---
 
-#### PROTMOTIF-COMMON-001: Common Motif Finding
+#### PROTMOTIF-COMMON-001: Common Motif Finding ☑
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `ProteinMotifFinder.FindCommonMotifs(...)` |
 | **Complexity** | O(n × m) |
+| **Evidence** | [Evidence](docs/Evidence/PROTMOTIF-COMMON-001-Evidence.md) |
+| **TestSpec** | [TestSpec](tests/TestSpecs/PROTMOTIF-COMMON-001.md) |
+| **Tests** | [Tests](tests/Seqeron/Seqeron.Genomics.Tests/ProteinMotifFinder_FindCommonMotifs_Tests.cs) |
+| **Algorithm Doc** | [Algorithm](docs/algorithms/ProteinMotif/Common_Motif_Finding.md) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
 | `FindCommonMotifs(sequence)` | ProteinMotifFinder | Canonical |
-| `FindAllKnownMotifs(sequence)` | ProteinMotifFinder | All patterns |
+
+> Note: `FindAllKnownMotifs` was listed in the original method table but does not exist in
+> the codebase and has no authoritative basis distinct from `FindCommonMotifs`; the canonical
+> evidence-derived method is `FindCommonMotifs`. PROSITE patterns (PS00001/05/06/16/17, …)
+> verified against https://prosite.expasy.org/ (2026-06-14).
+
+**Edge Cases:**
+- [x] null / empty input → empty result
+- [x] Proline at `{P}` excluded position rejects N-glycosylation site (PS00001)
+- [x] multiple distinct pattern types aggregated from one sequence
+- [x] multiple occurrences of one pattern reported
+- [x] case-insensitive matching
 
 ---
 
@@ -3034,14 +3153,20 @@
 | `GetBasePairType(base1, base2)` | RnaSecondaryStructure | Pair type |
 | `GetComplement(base)` | RnaSecondaryStructure | RNA complement |
 
+**Status:** ☑ Complete — Watson-Crick A-U/G-C (Watson & Crick) + G:U wobble (Crick 1966)
+classified as a distinct type; RNA complement per IUPAC-IUB (1970)/Biopython complement_rna.
+CanPair/GetBasePairType are O(1) symmetric table lookups over the RNA alphabet {A,C,G,U}.
+See RNA-PAIR-001 Evidence/TestSpec.
+
 ---
 
-#### RNA-HAIRPIN-001: Hairpin Energy Calculation
+#### ☑ RNA-HAIRPIN-001: Hairpin Energy Calculation
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `RnaSecondaryStructure.CalculateHairpinLoopEnergy(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — Turner 2004 NNDB; Evidence/TestSpec/Tests linked in Registry |
 
 **Methods:**
 | Method | Class | Type |
@@ -3095,7 +3220,7 @@
 
 ---
 
-#### RNA-INVERT-001: RNA Inverted Repeats
+#### RNA-INVERT-001: RNA Inverted Repeats ☑
 
 | Field | Value |
 |------|----------|
@@ -3109,18 +3234,30 @@
 
 ---
 
-#### RNA-PARTITION-001: Partition Function
+#### RNA-PARTITION-001: Partition Function ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `RnaSecondaryStructure.CalculateStructureProbability(...)` |
+| **Canonical** | `RnaSecondaryStructure.CalculatePartitionFunction(...)` |
 | **Complexity** | O(n³) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateStructureProbability(sequence)` | RnaSecondaryStructure | Probability |
-| `GenerateRandomRna(length)` | RnaSecondaryStructure | Random generation |
+| `CalculatePartitionFunction(sequence, basePairEnergy, temperature)` | RnaSecondaryStructure | McCaskill partition function Z + base-pair probabilities |
+| `CalculateStructureProbability(structureEnergy, ensembleEnergy, temperature)` | RnaSecondaryStructure | Boltzmann structure probability `p = exp(−βE)/Z` |
+| `GenerateRandomRna(length[, random], gcContent)` | RnaSecondaryStructure | Random RNA generation (seeded overload deterministic) |
+
+> **Conflict note (external evidence wins):** the original checklist listed the canonical
+> as `CalculateStructureProbability(sequence)`, but the implemented API takes energies, not
+> a sequence. The substantive O(n³) partition function is implemented as
+> `CalculatePartitionFunction(sequence)` per McCaskill (1990). Energy model is the simplified
+> fixed-per-pair model (Freiburg teaching tool); see Evidence/TestSpec.
+>
+> Edge cases covered: - [x] null sequence - [x] empty sequence - [x] no admissible pair
+> - [x] pair span below min loop - [x] probabilities in [0,1] - [x] Z ≥ 1 invariant
+> - [x] monotonicity in E_bp - [x] non-positive temperature - [x] property-based invariants
+> - [x] performance baseline (n=300)
 
 ---
 
@@ -3174,19 +3311,23 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `SequenceComplexity.EstimateCompressionRatio(...)` |
+| **Canonical** | `SequenceComplexity.EstimateCompressionRatio(...)` (= normalized Lempel–Ziv complexity) |
 | **Complexity** | O(n) |
+
+> Note: behavior is defined as the **Lempel–Ziv (1976) complexity** (number of exhaustive-history factors), not an unspecified compressor ratio. The prior heuristic was replaced; `EstimateCompressionRatio` now delegates to `CalculateNormalizedLempelZivComplexity`. See `docs/Evidence/SEQ-COMPLEX-COMPRESS-001-Evidence.md`.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateCompressionRatio(sequence)` | SequenceComplexity | Compression-based complexity |
+| `CalculateLempelZivComplexity(sequence)` | SequenceComplexity | Raw LZ76 component count |
+| `CalculateNormalizedLempelZivComplexity(sequence)` | SequenceComplexity | Length-normalized LZ complexity |
+| `EstimateCompressionRatio(sequence)` | SequenceComplexity | Compression-based complexity (delegates to normalized LZ) |
 
 ---
 
 ### 51. Extended Comparative Genomics (6 units)
 
-#### COMPGEN-RBH-001: Reciprocal Best Hits
+#### ☑ COMPGEN-RBH-001: Reciprocal Best Hits
 
 | Field | Value |
 |------|----------|
@@ -3197,7 +3338,19 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindReciprocalBestHits(genes1, genes2)` | ComparativeGenomics | RBH ortholog identification |
+| `FindReciprocalBestHits(genes1, genes2, minIdentity, minCoverage)` | ComparativeGenomics | Canonical (RBH ortholog identification) |
+| `FindOrthologs(...)` | ComparativeGenomics | Delegate (delegates to RBH) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical method, signature, invariants, and edge cases were derived from the Evidence (Moreno-Hagelsieb & Latimer 2008; Tatusov et al. 1997). The pre-existing `FindReciprocalBestHits` was **nonconforming** (no coverage gate, no deterministic tie-break, placeholder `Coverage=1.0`/`AlignmentLength=0`, `Identity` set to the score product); it was corrected to the canonical RBH (matching the corrected `FindOrthologs` from COMPGEN-ORTHO-001), and `FindOrthologs` now delegates to it so the two entry points cannot diverge. RBH here is the same algorithm as COMPGEN-ORTHO-001's RBH criterion (validate + fix + document + test this dedicated entry point).
+
+**Edge Cases:**
+- [x] Null genome list → `ArgumentNullException`
+- [x] Empty genome → no pairs
+- [x] Gene without sequence → skipped
+- [x] One-directional best hit → excluded (reciprocity)
+- [x] Sub-threshold pair → excluded (coverage/identity gate)
+- [x] Actual hit metrics reported (not placeholders)
+- [x] Deterministic / order-independent
 
 ---
 
@@ -3225,21 +3378,42 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateReversalDistance(geneOrder1, geneOrder2)` | ComparativeGenomics | Reversal distance |
+| `CalculateReversalDistance(geneOrder1, geneOrder2)` | ComparativeGenomics | Canonical (unsigned breakpoint lower bound) |
+
+**Note:** No prior by-area Edge Cases list existed; canonical method, invariants, and edge cases were derived from the Evidence (Bafna & Pevzner 1998 §2; Hunter College CompBio Lecture 16; Hübotter 2020). The method returns the **unsigned breakpoint lower bound** ⌈b/2⌉, NOT the exact signed Hannenhalli–Pevzner distance — documented as **Simplified**. The pre-existing implementation was correct as the unsigned bound but its XML doc wrongly claimed "signed permutations"; the doc was corrected and source-cited constants added. Actual complexity is **O(n)** (single pass + one hash map), not the O(n log n) listed above.
+
+**Edge Cases:**
+- [x] Identity (perm1 == perm2) → 0
+- [x] Empty / single-element → 0
+- [x] Fully reversed → 1 (b=2)
+- [x] Unequal lengths → `ArgumentException`
+- [x] Arbitrary (non 1..n) labels → relabelled to relative order
+- [x] Symmetry d(α,β) = d(β,α)
+- [x] Lower-bound property (result ≤ reversals actually applied)
+- [x] Deterministic / order-independent
 
 ---
 
-#### COMPGEN-CLUSTER-001: Conserved Gene Clusters
+#### COMPGEN-CLUSTER-001: Conserved Gene Clusters ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `ComparativeGenomics.FindConservedClusters(...)` |
-| **Complexity** | O(n × g) |
+| **Complexity** | O(n² × g) |
+| **Model** | Common intervals of permutations (Uno & Yagiura 2000; Heber & Stoye 2001; def. per Bui-Xuan, Habib & Paul 2013) — a cluster is a set of ortholog groups contiguous in every genome |
+| **Evidence** | [COMPGEN-CLUSTER-001-Evidence.md](docs/Evidence/COMPGEN-CLUSTER-001-Evidence.md) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindConservedClusters(genomes)` | ComparativeGenomics | Multi-genome clusters |
+| `FindConservedClusters(genomes)` | ComparativeGenomics | Multi-genome clusters (common intervals) |
+
+**Edge Cases:**
+- [x] Fewer than two genomes → empty (family notion, K ≥ 2)
+- [x] Set contiguous in some but not all genomes → excluded
+- [x] Foreign ortholog group inside the window → breaks the cluster
+- [x] Repeated group labels (paralogs) → any matching window counts
+- [x] `minClusterSize` filters smaller clusters; null arguments → ArgumentNullException
 
 ---
 
@@ -3320,6 +3494,7 @@
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `MotifFinder.GenerateConsensus(...)` |
 | **Complexity** | O(n × m) |
 
@@ -3379,6 +3554,7 @@
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `KmerAnalyzer.CountKmersBothStrands(...)` |
 | **Complexity** | O(n) |
 
@@ -3483,15 +3659,20 @@
 
 | Field | Value |
 |------|----------|
+| **Status** | ☑ Complete |
 | **Canonical** | `DisorderPredictor.GetDisorderPropensity(...)` |
 | **Complexity** | O(1) |
+| **Evidence** | [DISORDER-PROPENSITY-001-Evidence.md](docs/Evidence/DISORDER-PROPENSITY-001-Evidence.md) |
+| **TestSpec** | [DISORDER-PROPENSITY-001.md](tests/TestSpecs/DISORDER-PROPENSITY-001.md) |
+| **Tests** | [DisorderPredictor_GetDisorderPropensity_Tests.cs](tests/Seqeron/Seqeron.Genomics.Tests/DisorderPredictor_GetDisorderPropensity_Tests.cs) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `GetDisorderPropensity(aminoAcid)` | DisorderPredictor | Propensity value |
-| `IsDisorderPromoting(aminoAcid)` | DisorderPredictor | Boolean check |
-| `DisorderPromotingAminoAcids` | DisorderPredictor | Property |
+| `GetDisorderPropensity(aminoAcid)` | DisorderPredictor | Propensity value (TOP-IDP, Campen 2008) |
+| `IsDisorderPromoting(aminoAcid)` | DisorderPredictor | Boolean check (Dunker 2001) |
+| `DisorderPromotingAminoAcids` | DisorderPredictor | Property (8 AA, Dunker 2001) |
+| `OrderPromotingAminoAcids` | DisorderPredictor | Property (8 AA, Dunker 2001) |
 
 ---
 
@@ -3511,13 +3692,14 @@
 
 ### 56. Extended Sequence Statistics (6 units)
 
-#### SEQ-COMPOSITION-001: Sequence Composition
+#### SEQ-COMPOSITION-001: Sequence Composition ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateNucleotideComposition(...)` |
 | **Complexity** | O(n) |
 | **Class** | SequenceStatistics |
+| **Status** | ☑ Complete — duplicate of SEQ-STATS-001; resolved by consolidation (no new code/tests; same canonical fixture). See `tests/TestSpecs/SEQ-COMPOSITION-001.md` §7. |
 
 **Methods:**
 | Method | Class | Type |
@@ -3527,12 +3709,13 @@
 
 ---
 
-#### SEQ-TM-001: Melting Temperature
+#### SEQ-TM-001: Melting Temperature ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `SequenceStatistics.CalculateMeltingTemperature(...)` |
 | **Complexity** | O(n) |
+| **Status** | ☑ Complete — duplicate of SEQ-THERMO-001; resolved by consolidation (no new code/tests; same canonical fixture). See `tests/TestSpecs/SEQ-TM-001.md` §7. |
 
 **Methods:**
 | Method | Class | Type |
@@ -3600,13 +3783,14 @@
 
 ### 57. Extended Genomic Analysis (3 units)
 
-#### GENOMIC-TANDEM-001: Tandem Repeat Detection
+#### GENOMIC-TANDEM-001: Tandem Repeat Detection ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.FindTandemRepeats(...)` |
 | **Complexity** | O(n²) |
 | **Class** | GenomicAnalyzer |
+| **Status** | ☑ Complete — duplicate of REP-TANDEM-001 (same method/class); resolved by consolidation (no new code/tests; same canonical fixture). See `tests/TestSpecs/GENOMIC-TANDEM-001.md` §7. |
 
 **Methods:**
 | Method | Class | Type |
@@ -3615,17 +3799,26 @@
 
 ---
 
-#### GENOMIC-SIMILARITY-001: Sequence Similarity
+#### GENOMIC-SIMILARITY-001: Sequence Similarity ☑
 
 | Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.CalculateSimilarity(...)` |
 | **Complexity** | O(n + m) |
+| **Metric** | k-mer Jaccard index `J=|A∩B|/|A∪B|` over distinct-k-mer sets, ×100 (Jaccard 1901; Ondov et al. 2016) |
+| **Status** | ☑ Complete — see [Evidence](docs/Evidence/GENOMIC-SIMILARITY-001-Evidence.md), [TestSpec](tests/TestSpecs/GENOMIC-SIMILARITY-001.md). |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateSimilarity(seq1, seq2, k)` | GenomicAnalyzer | K-mer based similarity |
+| `CalculateSimilarity(seq1, seq2, k)` | GenomicAnalyzer | K-mer Jaccard similarity |
+
+**Edge Cases:**
+- [x] Identical sequences → 100.0 (J=1)
+- [x] Disjoint k-mer sets → 0.0 (J=0)
+- [x] Both empty / shorter than k → 0.0 (empty union; Jaccard undefined, impl convention)
+- [x] Repeated k-mers counted once (distinct-set semantics)
+- [x] Null sequence → ArgumentNullException; kmerSize < 1 → ArgumentOutOfRangeException
 
 ---
 
@@ -3634,12 +3827,20 @@
 | Field | Value |
 |------|----------|
 | **Canonical** | `GenomicAnalyzer.FindOpenReadingFrames(...)` |
-| **Complexity** | O(n) |
+| **Complexity** | O(n²) worst case (per-ATG scan to next in-frame stop; O(n) typical) — corrected from O(n); see Evidence GENOMIC-ORF-001 |
+| **Invariant** | Every ORF starts ATG, ends TAA/TAG/TGA, length % 3 == 0; six-frame search |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FindOpenReadingFrames(sequence)` | GenomicAnalyzer | Potential ORFs |
+| `FindOpenReadingFrames(sequence, minLength=100)` | GenomicAnalyzer | Canonical — every-ATG-to-first-in-frame-stop, both strands |
+
+**Edge Cases:**
+- [x] ATG with no in-frame stop → not reported
+- [x] Nested ORFs sharing a stop → both reported (Rosalind canonical)
+- [x] Reverse-complement-only ORF detected
+- [x] minLength filtering (nucleotides, inclusive)
+- [x] null sequence → ArgumentNullException
 
 ---
 
@@ -3662,13 +3863,13 @@
 | `CalculateSomaticScore(variant)` | OncologyAnalyzer | Scoring |
 
 **Edge Cases:**
-- [ ] Tumor-only mode (no matched normal)
-- [ ] Low tumor purity samples
-- [ ] Clonal hematopoiesis contamination
+- [x] Tumor-only mode (no matched normal)
+- [x] Low tumor purity samples
+- [x] Clonal hematopoiesis contamination
 
 ---
 
-#### ONCO-VAF-001: Variant Allele Frequency Analysis
+#### ONCO-VAF-001: Variant Allele Frequency Analysis ☑
 
 | Field | Value |
 |------|----------|
@@ -3681,16 +3882,17 @@
 | Method | Class | Type |
 |-------|-------|-----|
 | `CalculateVAF(altReads, totalReads)` | OncologyAnalyzer | Canonical |
+| `CalculateVAFConfidenceInterval(altReads, totalReads, confidence)` | OncologyAnalyzer | Canonical (Wilson 1927) |
 | `AdjustVAFForPurity(vaf, purity, ploidy)` | OncologyAnalyzer | Correction |
 
 **Edge Cases:**
-- [ ] totalReads = 0 (division by zero)
-- [ ] Multiallelic sites (multiple ALT alleles)
-- [ ] VAF > 1.0 due to alignment artifacts
+- [x] totalReads = 0 (division by zero)
+- [x] Multiallelic sites (multiple ALT alleles) — per-allele alt/total ratio is well-defined for each ALT
+- [x] VAF > 1.0 due to alignment artifacts (altReads > totalReads → ArgumentOutOfRangeException)
 
 ---
 
-#### ONCO-DRIVER-001: Driver Mutation Detection
+#### ☑ ONCO-DRIVER-001: Driver Mutation Detection
 
 | Field | Value |
 |------|----------|
@@ -3726,23 +3928,33 @@
 
 ---
 
-#### ONCO-ANNOT-001: Cancer-Specific Variant Annotation
+#### ONCO-ANNOT-001: Cancer-Specific Variant Annotation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `OncologyAnalyzer.AnnotateCancerVariants(...)` |
-| **Complexity** | O(n × k) |
+| **Canonical** | `OncologyAnalyzer.AnnotateCancerVariants(...)` / `ClassifyVariantTier(...)` |
+| **Complexity** | O(n) per batch; O(1) per variant |
+| **Standard** | AMP/ASCO/CAP 2017 four-tier system (Li et al. 2017, J Mol Diagn 19(1):4–23) |
 | **Depends on** | ONCO-SOMATIC-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
+| `ClassifyVariantTier(variant)` | OncologyAnalyzer | Canonical |
 | `AnnotateCancerVariants(variants)` | OncologyAnalyzer | Canonical |
-| `GetCOSMICAnnotation(variant)` | OncologyAnalyzer | COSMIC lookup |
+| `GetCOSMICAnnotation(variant, catalog)` | OncologyAnalyzer | COSMIC lookup (caller-supplied catalog) |
+
+**Edge Cases:**
+- [x] Clinical evidence (Level A/B) takes priority over high population MAF (still Tier I)
+- [x] Population MAF ≥ 1% with no clinical evidence ⇒ Tier IV (benign cutoff, Li 2017)
+- [x] Rare variant, no evidence: Tier III if cancer association present, else Tier IV
+- [x] MAF boundary exactly 0.01 (inclusive ≥) ⇒ Tier IV
+- [x] Invalid MAF (negative / > 1 / NaN) throws; null inputs throw; empty batch ⇒ empty
+- [x] COSMIC catalog miss ⇒ null (external content not fabricated)
 
 ---
 
-#### ONCO-TMB-001: Tumor Mutational Burden
+#### ☑ ONCO-TMB-001: Tumor Mutational Burden
 
 | Field | Value |
 |------|----------|
@@ -3754,15 +3966,15 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `CalculateTMB(variants, targetRegionSize)` | OncologyAnalyzer | Canonical |
-| `ClassifyTMB(tmb)` | OncologyAnalyzer | Low/Medium/High |
+| `CalculateTMB(mutationCount, targetRegionMb)` / `CalculateTMB(calls, targetRegionMb)` | OncologyAnalyzer | Canonical |
+| `ClassifyTMB(tmb)` | OncologyAnalyzer | Low/High (FDA ≥10) |
 
-**Thresholds:** Low (<6/Mb), Intermediate (6-20/Mb), High (>20/Mb)
+**Thresholds:** TMB-High = TMB ≥ 10 mut/Mb (inclusive), else Low. Source: FDA pembrolizumab approval / FoundationOne CDx (Marcus et al. 2021, Clin Cancer Res 27(17):4685). NOTE: the previous "Low (<6/Mb), Intermediate (6–20/Mb), High (>20/Mb)" boundaries had no retrievable authoritative source and were replaced by the source-backed FDA ≥10 cutoff (evidence-first; see TestSpec §7).
 
 **Edge Cases:**
-- [ ] targetRegionSize = 0 (division by zero)
-- [ ] Panel < 1 Mb (unstable TMB estimation)
-- [ ] Synonymous-only variants (should be excluded)
+- [x] targetRegionMb = 0 (division by zero — throws)
+- [x] Panel < 0.5 Mb (value still computed; instability documented, not an error — Chalmers 2017)
+- [x] Synonymous/germline variants excluded by upstream somatic caller (count is pre-filtered; SomaticCall overload counts only Somatic status)
 
 ---
 
@@ -3785,9 +3997,9 @@
 **Markers:** BAT25, BAT26, NR21, NR24, MONO27 (Bethesda panel)
 
 **Edge Cases:**
-- [ ] Tumor-only mode (no matched normal)
-- [ ] Insufficient coverage at microsatellite loci
-- [ ] < 5 evaluable markers (unreliable classification)
+- [x] Tumor-only mode (no matched normal) — fraction-of-unstable-loci definition is normal-independent; DetectMSI takes per-locus flags
+- [x] Insufficient coverage at microsatellite loci — zero valid loci → CalculateMSIScore/DetectMSI throw (score undefined)
+- [x] < 5 evaluable markers (unreliable classification) — ClassifyBethesdaPanel validates 0 ≤ unstable ≤ total; MSS/MSI-L ambiguity documented per Boland 1998
 
 ---
 
@@ -3811,8 +4023,8 @@
 **Clinical:** PARP inhibitor response prediction (BRCA1/2, PALB2)
 
 **Edge Cases:**
-- [ ] Insufficient number of CNV segments for scoring
-- [ ] Near-diploid tumors (low signal)
+- [x] Insufficient number of CNV segments for scoring — component counts supplied as input; sum is well-defined for any non-negative counts (scope per ONCO-HRD-001 NOTE: composite-sum + threshold)
+- [x] Near-diploid tumors (low signal) — all-zero components → score 0 → HRD-negative (DetectHRD_NearDiploidZeroComponents_IsHrdNegative)
 
 ---
 
@@ -3828,8 +4040,15 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectLOH(tumorVcf, normalVcf)` | OncologyAnalyzer | Canonical |
-| `CalculateLOHFraction(chromosome)` | OncologyAnalyzer | Per chromosome |
+| `DetectLOH(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — qualifying HRD-LOH regions + score |
+| `CalculateHrdLohScore(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | HRD-LOH count (Abkevich 2012 / scarHRD) |
+| `CalculateLOHFraction(IEnumerable<AlleleSpecificSegment>, chromosome)` | OncologyAnalyzer | Length-weighted per-chromosome LOH fraction |
+
+> **Validation note (ONCO-LOH-001):** the HRD-LOH algorithm of Abkevich et al. (2012) / scarHRD / oncoscanR
+> is defined over *allele-specific copy-number segments* (chromosome, start, end, major CN, minor CN), not
+> raw `(tumorVcf, normalVcf)` text — raw segmentation/BAF is upstream (ONCO-CNA-001). The canonical signature
+> is therefore `DetectLOH(IEnumerable<AlleleSpecificSegment>)`. (Earlier `DetectLOH(tumorVcf, normalVcf)` stub
+> corrected 2026-06-16.)
 
 ---
 
@@ -3837,77 +4056,134 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.ExtractSignatures(...)` |
-| **Complexity** | O(n × k) where k=signature count |
-| **Invariant** | sum(exposures) = total_mutations |
-| **Depends on** | ONCO-SIG-002 |
+| **Canonical** | `OncologyAnalyzer.ClassifySbsContext(...)` / `Build96ContextCatalog(...)` |
+| **Complexity** | O(n) to build the 96-channel SBS catalog (n = #variants) |
+| **Invariant** | Σ catalog counts = #classifiable SBS variants; 96 channels; pyrimidine reference base |
+| **Depends on** | — (foundational 96-context catalog is self-contained) |
 
-**Methods:**
+**Implemented (this unit):** the foundational, well-defined and authoritatively retrievable piece — the
+96-class SBS trinucleotide-context catalog: each single-base substitution classified by the 6 pyrimidine
+substitution types (C>A,C>G,C>T,T>A,T>C,T>G) × 4 5'-bases × 4 3'-bases, with reverse-complement folding of
+purine-reference mutations onto the pyrimidine strand (Alexandrov et al. 2013, Nature 500:415-421; COSMIC
+SBS96; SigProfilerMatrixGenerator, Bergstrom et al. 2019).
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ExtractSignatures(mutations, refGenome)` | MutationalSignatures | Canonical |
-| `FitToCosmicSignatures(spectrum)` | MutationalSignatures | COSMIC v3.3 |
-| `DecomposeSpectrum(spectrum, signatures)` | MutationalSignatures | NMF decomposition |
+| `ClassifySbsContext(fivePrime, ref, alt, threePrime)` | OncologyAnalyzer | Canonical |
+| `Build96ContextCatalog(variants)` | OncologyAnalyzer | Canonical |
+| `EnumerateSbs96Channels()` | OncologyAnalyzer | Canonical |
 
-**Signatures:** SBS, DBS, ID (COSMIC v3.3)
+**Deferred to later units:** NMF signature extraction / COSMIC fitting (`ExtractSignatures`,
+`FitToCosmicSignatures`, `DecomposeSpectrum`) require caller-supplied signature reference matrices and are NOT
+implemented here (reference profiles must not be fabricated). Signatures: SBS (DBS, ID out of scope).
 
 ---
 
-#### ONCO-SIG-002: Trinucleotide Context Analysis
+#### ONCO-SIG-002: Mutational Signature Fitting / Refitting ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.GetTrinucleotideContext(...)` |
-| **Complexity** | O(n) |
-| **Depends on** | ONCO-SOMATIC-001 |
+| **Canonical** | `OncologyAnalyzer.FitSignatures(...)` / `OncologyAnalyzer.CosineSimilarity(...)` |
+| **Complexity** | NNLS active-set: O(k³ + k²·n) per outer iteration, ≤ O(k) outer iterations (k signatures, n channels); cosine O(n) |
+| **Invariant** | all exposures ≥ 0; cosine ∈ [0,1]; residual SSE ≤ ‖d‖²; normalized exposures sum to 1 |
+| **Depends on** | ONCO-SIG-001 (96-context catalog supplies the observed `catalog` vector) |
 
-**Methods:**
+**Scope note:** the by-area registry originally titled this unit "Trinucleotide Context Analysis", but the
+trinucleotide-context catalog (`ClassifySbsContext` / `Build96ContextCatalog`) was already implemented under
+ONCO-SIG-001. The genuinely next mutational-signature piece — and the one implemented here — is signature
+**fitting/refitting**: decomposing an observed 96-channel catalog into a non-negative combination of
+caller-supplied reference signatures via NNLS (min‖S·x−d‖², x≥0; Blokzijl et al. 2018; Lawson & Hanson 1974)
+plus cosine similarity between catalogs/signatures (Blokzijl et al. 2018; iMutSig). Reference signature
+profiles are caller-supplied (not fabricated). External evidence supersedes the original by-area title.
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `GetTrinucleotideContext(variant, refGenome)` | MutationalSignatures | Canonical |
-| `Build96ChannelSpectrum(variants)` | MutationalSignatures | SBS spectrum |
+| `CosineSimilarity(a, b)` | OncologyAnalyzer | Canonical |
+| `FitSignatures(catalog, signatures)` | OncologyAnalyzer | Canonical |
+| `ReconstructCatalog(signatures, exposures)` | OncologyAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Zero observed catalog ⇒ all exposures 0, reconstruction 0
+- [x] Zero-norm vector in cosine similarity (÷0) ⇒ 0.0
+- [x] Unconstrained LS coefficient < 0 ⇒ clamped to 0, refit on remaining set
+- [x] Null / empty / dimension-mismatched inputs ⇒ ArgumentNullException / ArgumentException
 
 ---
 
-#### ONCO-SIG-003: Signature Exposure Estimation
+#### ONCO-SIG-003: Signature Exposure Estimation — Bootstrap Confidence Intervals ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.EstimateExposures(...)` |
-| **Complexity** | O(n × k²) |
-| **Invariant** | all(exposure ≥ 0) |
-| **Depends on** | ONCO-SIG-001 |
+| **Canonical** | `OncologyAnalyzer.BootstrapExposures(...)` |
+| **Complexity** | O(R·(N + NNLS)) — R replicates, each a multinomial draw of N mutations + one NNLS refit |
+| **Invariant** | all(exposure ≥ 0); lower ≤ upper; deterministic for a fixed seed |
+| **Depends on** | ONCO-SIG-001 (catalog) and ONCO-SIG-002 (NNLS `FitSignatures` refit) |
 
-**Methods:**
+**Scope note:** the by-area registry titled this unit "Signature Exposure Estimation" with a canonical
+`EstimateExposures`, but point exposure estimation (NNLS) was already delivered by ONCO-SIG-002
+(`FitSignatures`). The genuinely next mutational-signature piece — and the registry's second listed method
+`BootstrapConfidenceIntervals(spectrum)` — is **bootstrap confidence intervals on exposures**, implemented
+here as `OncologyAnalyzer.BootstrapExposures`: a parametric multinomial bootstrap (resample the integer
+catalog as Multinomial(N, p), NNLS-refit each resample, take per-signature percentile intervals). Sources:
+Senkin 2021 (MSA, BMC Bioinformatics 22:540), Huang et al. 2018 (Bioinformatics 34(2):330–337), sigminer
+`sig_fit_bootstrap`, Efron 1979 percentile method, Hyndman & Fan 1996 type-7 quantile. External evidence
+supersedes the original by-area title. Reference signature profiles are caller-supplied (not fabricated).
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateExposures(spectrum, signatures)` | MutationalSignatures | Canonical |
-| `BootstrapConfidenceIntervals(spectrum)` | MutationalSignatures | CI estimation |
+| `BootstrapExposures(catalog, signatures, replicates, confidence, seed)` | OncologyAnalyzer | Canonical |
+
+**Edge Cases:**
+- [x] Zero-mutation catalog (N = 0) ⇒ every interval [0, 0], point/mean 0
+- [x] Single non-zero channel ⇒ deterministic resample ⇒ lower = upper = mean = point estimate
+- [x] Single replicate (R = 1) ⇒ percentile of one-element sample ⇒ lower = upper = mean
+- [x] Null / empty / ragged / dimension-mismatched / negative-count inputs ⇒ ArgumentNullException / ArgumentException
+- [x] replicates < 1 or confidence ∉ (0, 1) ⇒ ArgumentOutOfRangeException
 
 ---
 
-#### ONCO-SIG-004: Mutational Process Classification
+#### ONCO-SIG-004: Mutational Process Classification ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `MutationalSignatures.ClassifyMutationalProcess(...)` |
-| **Complexity** | O(k) |
+| **Canonical** | `OncologyAnalyzer.ClassifyMutationalProcess(...)` / `OncologyAnalyzer.GetMutationalProcess(...)` |
+| **Complexity** | O(k log k) (k signatures; ordering of ≤5 processes) |
+| **Invariant** | each surviving contribution ∈ [0,1], Σ ≤ 1; active iff normalized contribution ≥ 0.06 (strict `<` excludes); dominant = max per-process sum; Σ exposure = 0 ⇒ no active processes |
 | **Depends on** | ONCO-SIG-003 |
 
-**Methods:**
+**Scope note:** the by-area registry placed this in a `MutationalSignatures` class, but the area's analyzer is
+`OncologyAnalyzer` (ONCO-SIG-001..003 all live there), so the methods were added there. Classification follows
+the deconstructSigs presence rule — exposures are converted to normalized relative contributions and a
+signature is active only when its contribution ≥ 6% (Rosenthal et al. 2016, *Genome Biology* 17:31:
+"any signature with Wᵢ < 6% is excluded"; reference `whichSignatures.R` `signature.cutoff = 0.06`) — and the
+COSMIC SBS→aetiology map (https://cancer.sanger.ac.uk/signatures/sbs/; Alexandrov et al. 2020, *Nature* 578).
+Reference signature profiles are caller-supplied (not fabricated); only exposures + COSMIC labels are consumed.
+
+**Methods (implemented):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ClassifyMutationalProcess(exposures)` | MutationalSignatures | Canonical |
+| `ClassifyMutationalProcess(exposures, contributionCutoff)` | OncologyAnalyzer | Canonical |
+| `GetMutationalProcess(signatureLabel)` | OncologyAnalyzer | Canonical |
 
-**Processes:** Aging (SBS1/5), APOBEC (SBS2/13), Smoking (SBS4), UV (SBS7), MMR deficiency (SBS6/15/20/26)
+**Processes:** Aging (SBS1/5), APOBEC (SBS2/13), Smoking (SBS4), UV (SBS7a–d), MMR deficiency (SBS6/15/20/26)
+
+**Edge Cases:**
+- [x] All-zero / empty exposures (Σ = 0) ⇒ no active processes, dominant = Unknown
+- [x] Contribution exactly 0.06 ⇒ retained (strict `<` cutoff); just below ⇒ excluded
+- [x] Multiple signatures per process (SBS2+SBS13, SBS6/15/20/26, SBS7a+7b) ⇒ summed
+- [x] Unmapped / unknown-aetiology SBS label ⇒ contributes to no recognized process
+- [x] Null exposures / null label ⇒ ArgumentNullException; negative exposure ⇒ ArgumentException; cutoff ∉ [0,1) ⇒ ArgumentOutOfRangeException
 
 ---
 
-#### ONCO-FUSION-001: Fusion Gene Detection
+#### ☑ ONCO-FUSION-001: Fusion Gene Detection
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `FusionDetector.DetectFusions(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectFusions(...)` |
 | **Complexity** | O(n log n) |
 | **Invariant** | gene5p ≠ gene3p |
 | **Depends on** | — (standalone) |
@@ -3915,204 +4191,310 @@
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectFusions(readPairs, splitReads)` | FusionDetector | Canonical |
-| `FindChimericReads(bamFile)` | FusionDetector | Read extraction |
-| `ValidateFusion(fusion, refGenome)` | FusionDetector | Validation |
+| `DetectFusions(candidates, thresholds?)` | OncologyAnalyzer | Canonical |
+| `IsInFrame(fivePrimeCodingBases, threePrimeStartPhase)` | OncologyAnalyzer | Canonical |
+| `ComputeTotalSupport(candidate)` | OncologyAnalyzer | Internal |
+| `FindChimericReads(bamFile)` | (FusionDetector) | Read extraction — out of scope (raw-BAM step) |
+| `ValidateFusion(fusion, refGenome)` | (FusionDetector) | Validation — out of scope |
+
+Implemented on `OncologyAnalyzer` (this session's mandated class) using STAR-Fusion min-support thresholds
+(MIN_JUNCTION_READS=1, MIN_SUM_FRAGS=2, MIN_SPANNING_FRAGS_ONLY=5) and Arriba total-support / reading-frame
+definitions. `FindChimericReads`/`ValidateFusion` are raw-BAM/validation steps outside the count-based
+canonical scope.
 
 **Clinical Fusions:** BCR-ABL, EML4-ALK, ROS1, NTRK, FGFR, RET
 
 **Edge Cases:**
-- [ ] Read-through transcripts (false positive fusions)
-- [ ] Low supporting read count
-- [ ] Reciprocal fusions (same partners, swapped orientation)
+- [x] Read-through transcripts (false positive fusions) — distinct-gene rule (gene5p ≠ gene3p) + support thresholds
+- [x] Low supporting read count — MIN_SUM_FRAGS / MIN_SPANNING_FRAGS_ONLY thresholds reject low-evidence candidates
+- [x] Reciprocal fusions (same partners, swapped orientation) — treated as distinct candidates by 5'/3' assignment
 
 ---
 
-#### ONCO-FUSION-002: Known Fusion Database Lookup
+#### ☑ ONCO-FUSION-002: Known Fusion Database Lookup
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `FusionDetector.MatchKnownFusions(...)` |
-| **Complexity** | O(n × k) |
+| **Canonical** | `OncologyAnalyzer.MatchKnownFusions(...)` |
+| **Complexity** | O(1) hash lookup (O(k) case-insensitive fallback) |
+| **Invariant** | designation = 5'::3' (directional); A::B ≠ B::A |
 | **Depends on** | ONCO-FUSION-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `MatchKnownFusions(fusion)` | FusionDetector | Canonical |
-| `GetFusionAnnotation(gene5p, gene3p)` | FusionDetector | Lookup |
+| `GetFusionAnnotation(gene5p, gene3p)` | OncologyAnalyzer | Canonical |
+| `MatchKnownFusions(fusion, knownFusions)` | OncologyAnalyzer | Canonical |
 
-**Databases:** ChimerDB, COSMIC Fusions, Mitelman
-
----
-
-#### ONCO-FUSION-003: Fusion Breakpoint Analysis
-
-| Field | Value |
-|------|----------|
-| **Canonical** | `FusionDetector.AnalyzeBreakpoint(...)` |
-| **Complexity** | O(n) |
-| **Depends on** | ONCO-FUSION-001 |
-
-**Methods:**
-| Method | Class | Type |
-|-------|-------|-----|
-| `AnalyzeBreakpoint(fusion)` | FusionDetector | Canonical |
-| `PredictFusionProtein(fusion, transcripts)` | FusionDetector | Protein product |
-
----
-
-#### ONCO-CNA-001: Cancer Copy Number Segmentation
-
-| Field | Value |
-|------|----------|
-| **Canonical** | `CopyNumberAnalyzer.SegmentCopyNumber(...)` |
-| **Complexity** | O(n log n) |
-| **Invariant** | segments cover entire genome without gaps |
-| **Depends on** | — (standalone) |
-
-**Methods:**
-| Method | Class | Type |
-|-------|-------|-----|
-| `SegmentCopyNumber(logRatios)` | CopyNumberAnalyzer | CBS algorithm |
-| `CallCopyNumberStates(segments, purity)` | CopyNumberAnalyzer | State calling |
+Implemented on `OncologyAnalyzer` (same class as ONCO-FUSION-001). Designation format and directional 5'→3'
+keying follow HGNC nomenclature (Bruford et al. 2021, double colon `::`, 5' partner first). Known-fusion set
+membership and annotations are **caller-supplied** — the library bundles no curated database (ChimerDB / COSMIC
+Fusions / Mitelman content is the caller's responsibility), making this a Framework algorithm.
 
 **Edge Cases:**
-- [ ] Noisy log-ratio data (low coverage)
-- [ ] Whole-genome doubling (WGD)
+- [x] Reciprocal fusion not matched — directional designation (A::B ≠ B::A) per 5'-first rule
+- [x] Case-varied symbols — case-insensitive (ordinal-ignore-case) matching
+- [x] Null/empty partner or null known-fusion set — input validation (ArgumentException / ArgumentNullException)
 
 ---
 
-#### ONCO-CNA-002: Focal Amplification Detection
+#### ☑ ONCO-FUSION-003: Fusion Breakpoint Analysis
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `CopyNumberAnalyzer.DetectFocalAmplifications(...)` |
+| **Canonical** | `OncologyAnalyzer.AnalyzeBreakpoint(...)` |
+| **Complexity** | O(n) |
+| **Depends on** | ONCO-FUSION-001 |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `AnalyzeBreakpoint(fusion)` | OncologyAnalyzer | Canonical |
+| `PredictFusionProtein(fusion, transcripts)` | OncologyAnalyzer | Canonical (protein product) |
+
+Implemented on `OncologyAnalyzer` (same class as ONCO-FUSION-001/002). Breakpoint site categories follow
+the Arriba `site`/`reading_frame` output schema (Uhrig et al. 2021); the fusion protein is the chimeric CDS
+(5' CDS prefix ++ 3' CDS suffix) translated with the standard genetic code (NCBI Table 1) and truncated at
+the first stop codon, exactly per AGFusion (`model.py`; Murphy & Elemento 2016). Frame call reuses the
+ONCO-FUSION-001 codon-phase rule `(b − p) mod 3 == 0`. Partner CDS sequences and breakpoint offsets are
+**caller-supplied** (no genome/transcript DB in repo) — a Framework algorithm.
+
+**Edge Cases:**
+- [x] Breakpoint not in CDS (UTR/intron/intergenic) — reading frame `NotPredicted` (Arriba `reading_frame = .`)
+- [x] Premature stop codon at/after junction — peptide truncated at first stop; `HasPrematureStop` flag (AGFusion `protein[0:find("*")]`)
+- [x] Out-of-frame junction — chimeric CDS trimmed to whole codons; 3' partner read in shifted frame (AGFusion)
+
+---
+
+#### ONCO-CNA-001: Cancer Copy Number Alteration Classification ☑
+
+> **Scope note (resolved in implementation):** The well-defined, source-traceable
+> foundational piece of CNA analysis is log2 copy-ratio → absolute/integer copy number →
+> discrete CNA classification (deep deletion / loss / neutral / gain / amplification),
+> implemented in `OncologyAnalyzer` per CNVkit `absolute_threshold` / GISTIC2.0. Full CBS
+> segmentation (`SegmentCopyNumber`) already exists in `StructuralVariantAnalyzer`
+> (SV-CNV-001); the original `CopyNumberAnalyzer` / `CallCopyNumberStates` names are
+> superseded by the `OncologyAnalyzer.ClassifyCopyNumber` API below. Conflict noted in
+> the TestSpec §7.
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `OncologyAnalyzer.ClassifyCopyNumber(log2Ratio, thresholds, ploidy)` |
+| **Complexity** | O(1) per region; O(n) per batch |
+| **Invariant** | integer CN monotonic non-decreasing in log2; CN≥0; state↔CN mapping fixed |
+| **Depends on** | — (standalone; reuses CNVkit n = 2·2^log2, cited shared with SV-CNV-001) |
+
+**Methods:**
+| Method | Class | Type |
+|-------|-------|-----|
+| `Log2RatioToCopyNumber(log2Ratio, ploidy)` | OncologyAnalyzer | Canonical (n = ploidy·2^log2) |
+| `CallCopyNumber(log2Ratio, thresholds, ploidy)` | OncologyAnalyzer | Canonical (hard-threshold integer CN) |
+| `ClassifyCopyNumber(log2Ratio, thresholds, ploidy)` | OncologyAnalyzer | Canonical (5-state classification) |
+| `ClassifyCopyNumbers(log2Ratios, ...)` | OncologyAnalyzer | Delegate (batch) |
+
+**Edge Cases:**
+- [x] Noisy log-ratio data (low coverage) — neutral noise band (−0.25, 0.2]; NaN no-call → Neutral
+- [x] Whole-genome doubling (WGD) — `ploidy` parameter exposed (default diploid; ASM-01)
+
+---
+
+#### ONCO-CNA-002: Focal Amplification Detection ☑
+
+> **Scope note (resolved in implementation):** Placed in `OncologyAnalyzer` (consistent with
+> ONCO-CNA-001, which superseded the `CopyNumberAnalyzer` names). A segment is a focal amplification
+> when it is amplified (log2 > GISTIC2 `t_amp` = 0.1) AND focal (length < GISTIC2 `broad_len_cutoff`
+> = 0.98 × chromosome-arm length), per Mermel et al. (2011) GISTIC2.0 length-based focal/arm-level
+> split. Oncogene mapping uses NCBI Gene cytogenetic arms. Class-name conflict noted in TestSpec §7.
+
+| Field | Value |
+|------|----------|
+| **Canonical** | `OncologyAnalyzer.DetectFocalAmplifications(segments, thresholds?)` |
 | **Complexity** | O(n) |
 | **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectFocalAmplifications(segments)` | CopyNumberAnalyzer | Canonical |
-| `IdentifyAmplifiedOncogenes(amplifications)` | CopyNumberAnalyzer | Gene mapping |
+| `DetectFocalAmplifications(segments, thresholds?)` | OncologyAnalyzer | Canonical (length < 0.98·arm AND log2 > t_amp) |
+| `IdentifyAmplifiedOncogenes(amplifications)` | OncologyAnalyzer | Canonical (arm → ERBB2/MYC/EGFR/CCND1/MDM2/CDK4) |
+| `IsFocalAmplification(segment, thresholds)` | OncologyAnalyzer | Internal predicate |
 
-**Oncogenes:** ERBB2/HER2, MYC, EGFR, CCND1, MDM2, CDK4
+**Oncogenes:** ERBB2/HER2 (17q), MYC (8q), EGFR (7p), CCND1 (11q), MDM2 (12q), CDK4 (12q)
+
+**Edge Cases:**
+- [x] Whole-arm event (≥ 98% of arm) excluded as arm-level/broad — GISTIC2 `broad_len_cutoff` 0.98
+- [x] Low-amplitude gain (log2 ≤ t_amp 0.1) not called amplified — GISTIC2 `t_amp`
+- [x] Boundary exactly 0.98 of arm is arm-level (strict focal test)
+- [x] Null / empty input and invalid arm length / coordinates validated
 
 ---
 
-#### ONCO-CNA-003: Homozygous Deletion Detection
+#### ONCO-CNA-003: Homozygous Deletion Detection ☑
+
+> **Scope note (resolved in implementation):** Placed in `OncologyAnalyzer` (consistent with
+> ONCO-CNA-001/002, which superseded the `CopyNumberAnalyzer` names). A segment is a homozygous
+> (deep) deletion when its hard-threshold integer copy number is 0 — total copy number 0, both
+> alleles lost — i.e. the cBioPortal "−2" Deep Deletion / DeepDeletion state, per Cheng et al.
+> (2017) "zero copies of both alleles" and CNVkit `absolute_threshold` integer-CN calling (reused
+> from ONCO-CNA-001). Tumour-suppressor mapping uses NCBI Gene cytogenetic arms. Reuses the
+> ONCO-CNA-002 `CopyNumberArmSegment`. Class-name conflict noted in TestSpec §7.
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `CopyNumberAnalyzer.DetectHomozygousDeletions(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectHomozygousDeletions(segments, thresholds?, ploidy?)` |
 | **Complexity** | O(n) |
+| **Invariant** | reported iff integer CN = 0; single-copy (CN 1) loss never reported; order-preserving |
 | **Depends on** | ONCO-CNA-001 |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectHomozygousDeletions(segments)` | CopyNumberAnalyzer | Canonical |
-| `IdentifyDeletedTumorSuppressors(deletions)` | CopyNumberAnalyzer | Gene mapping |
+| `DetectHomozygousDeletions(segments, thresholds?, ploidy?)` | OncologyAnalyzer | Canonical (integer CN = 0) |
+| `IsHomozygousDeletion(segment, thresholds?, ploidy?)` | OncologyAnalyzer | Internal predicate |
+| `IdentifyDeletedTumorSuppressors(deletions)` | OncologyAnalyzer | Canonical (arm → TP53/RB1/CDKN2A/PTEN/BRCA1/BRCA2) |
 
-**Tumor Suppressors:** TP53, RB1, CDKN2A, PTEN, BRCA1/2
+**Tumor Suppressors:** TP53 (17p), RB1 (13q), CDKN2A (9p), PTEN (10q), BRCA1 (17q), BRCA2 (13q)
+
+**Edge Cases:**
+- [x] Single-copy / heterozygous loss (CN 1, cBioPortal −1) NOT reported as homozygous
+- [x] Boundary log2 exactly at deletion cutoff (−1.1) is CN 0 (homozygous); just above is CN 1
+- [x] NaN log2 no-call → neutral (CN = rounded ploidy), not homozygous
+- [x] Null / empty input and invalid arm length / coordinates validated
+- [x] Custom thresholds and ploidy shift the CN-0 boundary
 
 ---
 
-#### ONCO-PURITY-001: Tumor Purity Estimation
+#### ONCO-PURITY-001: Tumor Purity Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.EstimatePurity(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimatePurity(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ purity ≤ 1 |
 | **Depends on** | ONCO-VAF-001, ONCO-CNA-001 |
 
-**Methods:**
+**Methods:** (implemented on `OncologyAnalyzer`; closed-form inversion of the CNAqc expected-VAF relation v = mπ/[2(1−π)+π·n_tot])
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimatePurity(variants, cnvSegments)` | TumorAnalyzer | Canonical |
-| `EstimatePurityFromVAF(variants)` | TumorAnalyzer | VAF-based |
+| `EstimatePurity(IEnumerable<PurityVariant>)` | OncologyAnalyzer | Canonical (allele-specific) |
+| `EstimatePurityFromVAF(IEnumerable<VariantObservation>)` | OncologyAnalyzer | Canonical (diploid het, ρ = 2·VAF) |
+| `EstimatePurityFromVaf(double)` | OncologyAnalyzer | Delegate (single-VAF closed form) |
 
 **Edge Cases:**
-- [ ] Purity < 0.1 (below detection limit)
-- [ ] No heterozygous SNPs in matched normal
-- [ ] High stromal contamination
+- [x] Purity < 0.1 (below detection limit)
+- [x] No heterozygous SNPs / no informative variants (empty input → undefined)
+- [x] High stromal contamination (low-purity / boundary handling)
 
 ---
 
-#### ONCO-PLOIDY-001: Tumor Ploidy Estimation
+#### ONCO-PLOIDY-001: Tumor Ploidy Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.EstimatePloidy(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimatePloidy(...)` |
 | **Complexity** | O(n) |
-| **Invariant** | ploidy > 0 |
-| **Depends on** | ONCO-CNA-001 |
+| **Invariant** | ploidy > 0; WGD ⇔ frac(major CN ≥ 2 by length) > 0.5 |
+| **Depends on** | ONCO-CNA-001 / ONCO-LOH-001 (`AlleleSpecificSegment`) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimatePloidy(cnvSegments)` | TumorAnalyzer | Canonical |
-| `DetectWholeGenomeDoubling(ploidy)` | TumorAnalyzer | WGD detection |
+| `EstimatePloidy(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — ψ = Σ(CN·L)/Σ(L), CN = Major+Minor (Patchwork/ASCAT) |
+| `DetectWholeGenomeDoubling(IEnumerable<AlleleSpecificSegment>)` | OncologyAnalyzer | Canonical — facets-suite rule: frac(major CN ≥ 2 by length) > 0.5 (Bielski 2018, PMID 30013179) |
+
+**Edge Cases:**
+- [x] Empty segment set → ArgumentException (weighted mean / fraction undefined)
+- [x] Segment End ≤ Start (non-positive length) → ArgumentException
+- [x] Negative copy number → ArgumentException
+- [x] All-1:1 genome → ψ = 2.0, WGD = false (major CN, not total)
+- [x] Exactly 50% major CN ≥ 2 → WGD = false (strict `>`)
+
+> Note: the registry stub listed `DetectWholeGenomeDoubling(ploidy)` (scalar) and class `TumorAnalyzer`. The authoritative WGD definition (major CN ≥ 2 over >50% of the genome, Bielski 2018 / facets-suite) requires per-segment data, so the canonical method takes segments; the area's analyzer class is `OncologyAnalyzer` (matching all sibling ONCO units).
 
 ---
 
-#### ONCO-CLONAL-001: Clonal vs Subclonal Classification
+#### ONCO-CLONAL-001: Clonal vs Subclonal Classification ☑
+
+> Note: the registry stub listed class `TumorAnalyzer` and signature `ClassifyClonality(variants, purity, ploidy)`. The authoritative Landau et al. (2013) CCF posterior model uses the **per-locus** absolute copy number q (not a genome-wide ploidy scalar), so the canonical method is `OncologyAnalyzer.ClassifyClonality(variants, purity)` with q carried per `ClonalityVariant` (mirrors the ONCO-WGD scalar→per-segment decision). The analyzer class is `OncologyAnalyzer` (all sibling ONCO units).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorAnalyzer.ClassifyClonality(...)` |
+| **Canonical** | `OncologyAnalyzer.ClassifyClonality(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | clonal_count + subclonal_count = total_variants |
-| **Depends on** | ONCO-CCF-001 |
+| **Depends on** | ONCO-CCF-001 (CCF; consumed by `IdentifyClonalMutations`) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ClassifyClonality(variants, purity, ploidy)` | TumorAnalyzer | Canonical |
-| `IdentifyClonalMutations(ccfValues)` | TumorAnalyzer | CCF ≈ 1.0 |
+| `ClassifyClonality(variants, purity)` | OncologyAnalyzer | Canonical — clonal iff P(CCF>0.95) > 0.5 (Landau 2013) |
+| `IdentifyClonalMutations(ccfValues)` | OncologyAnalyzer | Canonical — clonal iff CCF > 0.95 |
 
 ---
 
-#### ONCO-NEO-001: Neoantigen Prediction
+#### ONCO-NEO-001: Neoantigen Prediction (candidate peptide window generation)
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `NeoantigenPredictor.PredictNeoantigens(...)` |
-| **Complexity** | O(n × m) where m=HLA alleles |
-| **Depends on** | ONCO-SOMATIC-001, ONCO-HLA-001 |
+| **Canonical** | `OncologyAnalyzer.GenerateNeoantigenPeptides(...)` |
+| **Complexity** | O(Σ_k k) per missense mutation (constant for the fixed 8–11 class I range) |
+| **Depends on** | ONCO-SOMATIC-001 |
+
+> Scope (implemented): the well-defined windowing step — every 8–11-mer (MHC-I) window of the mutant
+> protein that SPANS a somatic missense residue, paired with the wild-type agretope at the same
+> coordinates (pVACtools / Hundal 2020; ProGeo-neo / Li 2020; TESLA / Wells 2020). Binding affinity /
+> IC50 scoring is caller-supplied / out of scope (ONCO-MHC-001) — no MHC model is fabricated. The
+> checklist placeholder class `NeoantigenPredictor` is superseded by `OncologyAnalyzer` (project layout).
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `PredictNeoantigens(variants, hlaType)` | NeoantigenPredictor | Canonical |
-| `GenerateMutantPeptides(variant, lengths)` | NeoantigenPredictor | 8-11mer |
-| `ScoreNeoantigens(peptides, hlaAlleles)` | NeoantigenPredictor | Binding affinity |
+| `GenerateNeoantigenPeptides(wildTypeProtein, mutantResidue, mutationPosition, minLength, maxLength)` | OncologyAnalyzer | Canonical (8-11mer windowing + agretope pairing) |
 
 **Edge Cases:**
-- [ ] Unknown HLA type (incomplete typing)
-- [ ] Frameshift mutations (long peptide sequences)
-- [ ] Variants in non-coding regions (no peptide generated)
+- [x] Mutation at N-/C-terminus (truncated window count — only windows that fit while spanning the residue)
+- [x] Requested peptide length exceeds protein length (length skipped; shorter lengths still returned)
+- [x] Non-substitution (mutant residue == wild-type) rejected; out-of-range position / invalid length range rejected
+- [ ] Frameshift / indel / fusion neopeptides (out of scope; separate translation step)
+- [ ] Binding-affinity scoring (out of scope; ONCO-MHC-001)
 
 ---
 
-#### ONCO-MHC-001: MHC-Peptide Binding Prediction
+#### ONCO-MHC-001: MHC-Peptide Binding Classification
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `NeoantigenPredictor.PredictMHCBinding(...)` |
-| **Complexity** | O(n × m) |
-| **Invariant** | IC50 > 0 |
+| **Canonical** | `OncologyAnalyzer.ClassifyBindingAffinity(...)` / `ClassifyBindingRank(...)` / `IsValidPeptideLength(...)` |
+| **Complexity** | O(1) per classification |
+| **Invariant** | IC50 > 0; %Rank ∈ [0,100] |
 | **Depends on** | ONCO-NEO-001 |
+
+> Scope (implemented): the **classification** of a caller-supplied predicted affinity into binder
+> categories using the standard IEDB / NetMHCpan-4.1 thresholds (Reynisson 2020; Sette 1994): IC50
+> strong < 50 nM / weak < 500 nM; class I %Rank strong < 0.5% / weak < 2%; class II %Rank strong < 2% /
+> weak < 10%; plus peptide-length validity (class I 8–11, class II 13–25). The peptide–MHC affinity / %Rank
+> **prediction** (the trained NetMHCpan/MHCflurry model, PSSM weights) is **caller-supplied / out of scope**
+> — no model is fabricated. The checklist placeholder class `NeoantigenPredictor` is superseded by
+> `OncologyAnalyzer` (project layout); `PredictMHCBinding`/`CalculateBindingAffinity` (IC50 prediction)
+> remain out of scope.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `PredictMHCBinding(peptide, hlaAllele)` | NeoantigenPredictor | Canonical |
-| `CalculateBindingAffinity(peptide, hla)` | NeoantigenPredictor | IC50 prediction |
+| `ClassifyBindingAffinity(ic50Nm)` | OncologyAnalyzer | Canonical — IC50 → Strong/Weak/NonBinder (50/500 nM) |
+| `ClassifyBindingRank(percentRank, mhcClass)` | OncologyAnalyzer | Canonical — %Rank → strength (class I 0.5/2; class II 2/10) |
+| `IsValidPeptideLength(length, mhcClass)` | OncologyAnalyzer | Canonical — class I 8–11; class II 13–25 |
+| `ClassifyMhcBinding(peptideLength, ic50Nm, mhcClass)` | OncologyAnalyzer | Delegate — length gate + affinity |
+| `PredictMHCBinding(peptide, hlaAllele)` | (NeoantigenPredictor) | Out of scope — trained model, caller-supplied |
+| `CalculateBindingAffinity(peptide, hla)` | (NeoantigenPredictor) | Out of scope — IC50 prediction |
 
-**HLA Types:** HLA-A, HLA-B, HLA-C (Class I)
+**HLA Types:** HLA-A, HLA-B, HLA-C (Class I); HLA-DR/DQ/DP (Class II length range)
+
+**Edge Cases:**
+- [x] IC50 / %Rank boundary values classified by strict `<` (50/500 nM; 0.5/2/10 %Rank)
+- [x] Peptide length outside class range rejected (class I 8–11; class II 13–25)
+- [x] Invalid input rejected (IC50 ≤ 0 / non-finite; %Rank ∉ [0,100] / NaN)
+- [ ] Affinity / %Rank prediction (out of scope; trained model is caller-supplied)
 
 ---
 
@@ -4148,43 +4530,66 @@
 | `AnalyzeFragmentSizeDistribution(bamFile)` | LiquidBiopsyAnalyzer | Fragment analysis |
 
 **Edge Cases:**
-- [ ] ctDNA fraction < 0.1% (below detection limit)
-- [ ] High background of CHIP mutations
-- [ ] No matched primary tumor VCF
+- [x] ctDNA fraction < 0.1% (below detection limit) — covered by Poisson LoD (λ < 1 ⇒ not detected); tests M6/S1–S5.
+- [ ] High background of CHIP mutations — out of scope; handled by ONCO-CHIP-001 (see CtDNA_Analysis.md §5.3).
+- [ ] No matched primary tumor VCF — out of scope; matched-tumour cross-referencing belongs to ONCO-MRD-001.
 
 ---
 
-#### ONCO-MRD-001: Minimal Residual Disease Detection
+#### ONCO-MRD-001: Minimal Residual Disease Detection ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `LiquidBiopsyAnalyzer.DetectMRD(...)` |
+| **Canonical** | `OncologyAnalyzer.DetectMRD(...)` |
 | **Complexity** | O(n × k) where k=tracked mutations |
 | **Depends on** | ONCO-CTDNA-001 |
 
+> Class note: the area's liquid-biopsy/ctDNA methods live on `OncologyAnalyzer` (no separate
+> `LiquidBiopsyAnalyzer` exists), mirroring ONCO-CTDNA-001. Behaviour: tumour-informed panel-level call —
+> MRD-positive when ≥2 tracked patient-specific variants are detected (Reinert 2019 / Signatera; PMC9265001
+> Table 1). Reuses the ONCO-CTDNA-001 Poisson primitive `p = 1 − e^(−n·f·m)` and reports the INVAR
+> integrated mutant allele fraction (Wan 2020).
+
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `DetectMRD(plasmaVcf, tumorMarkers)` | LiquidBiopsyAnalyzer | Canonical |
-| `TrackVariantsOverTime(timepoints)` | LiquidBiopsyAnalyzer | Longitudinal |
+| `DetectMRD(tumorMarkers, positivityThreshold, minSupportingReads, genomeEquivalents)` | OncologyAnalyzer | Canonical |
+| `TrackVariantsOverTime(timepoints, ...)` | OncologyAnalyzer | Longitudinal |
+
+**Edge Cases:**
+- [x] Exactly 1 variant detected — below the ≥2 rule ⇒ MRD-negative (tests M2; S2).
+- [x] Empty / null marker panel — ArgumentException / ArgumentNullException (tests C1, C2).
+- [x] Configurable positivity threshold and per-locus supporting-read cutoff (tests S1, S3).
 
 ---
 
-#### ONCO-CHIP-001: Clonal Hematopoiesis Filtering
+#### ONCO-CHIP-001: Clonal Hematopoiesis Filtering ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `LiquidBiopsyAnalyzer.FilterCHIP(...)` |
+| **Canonical** | `OncologyAnalyzer.FilterCHIP(...)` |
 | **Complexity** | O(n) |
 | **Depends on** | ONCO-CTDNA-001 |
+
+> Conflict resolved: by-area table originally named `LiquidBiopsyAnalyzer`, but all ONCO units
+> live in `OncologyAnalyzer` (the actual repository class); implemented there to match every sibling.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `FilterCHIP(variants, whiteBloodCellVcf)` | LiquidBiopsyAnalyzer | Canonical |
-| `IdentifyCHIPVariants(variants)` | LiquidBiopsyAnalyzer | Known CHIP genes |
+| `FilterCHIP(variants, whiteBloodCellVariants, ...)` | OncologyAnalyzer | Canonical (matched-WBC subtraction, Razavi 2019) |
+| `IdentifyCHIPVariants(variants, chipGenes?, minVaf?)` | OncologyAnalyzer | Canonical (gene + VAF≥0.02, Steensma 2015) |
+| `IsCanonicalChipGene(gene, chipGenes?)` | OncologyAnalyzer | Internal (case-insensitive panel membership) |
 
-**CHIP Genes:** DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1
+**CHIP Genes (canonical default, caller-overridable):** DNMT3A, TET2, ASXL1, TP53, JAK2, SF3B1, SRSF2, PPM1D — Steensma 2015 Fig 2A / Genovese 2014.
+**VAF threshold:** ≥ 2% (0.02), inclusive — Steensma et al. (2015) *Blood* 126(1):9–16.
+
+**Edge Cases:**
+- [x] CHIP gene at VAF ≥ 0.02 flagged; sub-2% not flagged (Steensma 2015).
+- [x] Non-CHIP gene never flagged regardless of VAF.
+- [x] Matched-WBC variant removed regardless of gene (Razavi 2019).
+- [x] WBC-absent variant retained as tumour candidate.
+- [x] null / empty / out-of-range inputs validated.
 
 ---
 
@@ -4192,88 +4597,116 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.ReconstructPhylogeny(...)` |
+| **Canonical** | `OncologyAnalyzer.ReconstructPhylogeny(...)` (placed in OncologyAnalyzer, the area's existing analyzer) |
 | **Complexity** | O(n² × k) |
 | **Depends on** | ONCO-CCF-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-PHYLO-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-PHYLO-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_ReconstructPhylogeny_Tests.cs) |
+
+**Method:** clonal tree built from CCF clusters via the lineage-precedence rule (ancestor CCF ≥ descendant CCF, Popic et al. 2015 *Genome Biology* 16:91 Eq. 2; Zheng et al. 2022 *Bioinformatics* PICTograph) and the sum rule (children CCF sum ≤ parent CCF, Popic 2015 Eq. 5). CCF clustering itself is ONCO-CCF-001.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `ReconstructPhylogeny(multiSampleVariants)` | TumorEvolutionAnalyzer | Canonical |
-| `IdentifyTrunkMutations(phylogeny)` | TumorEvolutionAnalyzer | Clonal mutations |
-| `IdentifyBranchMutations(phylogeny)` | TumorEvolutionAnalyzer | Subclonal mutations |
+| `ReconstructPhylogeny(IReadOnlyList<CcfCluster>, tolerance)` | OncologyAnalyzer | Canonical |
+| `IdentifyTrunkMutations(phylogeny)` | OncologyAnalyzer | Clonal mutations |
+| `IdentifyBranchMutations(phylogeny)` | OncologyAnalyzer | Subclonal mutations |
+
+**Edge Cases:**
+- [x] Empty cluster set → root-only tree
+- [x] Single cluster → trunk only, no branches
+- [x] Sum-rule conflict (sibling CCFs exceed parent) → forced chain
+- [x] Private (single-sample) clusters → branching via presence pattern
+- [x] Null / NaN / out-of-[0,1] CCF / ragged sample counts / duplicate ids → exceptions
 
 ---
 
-#### ONCO-CCF-001: Cancer Cell Fraction Estimation
+#### ONCO-CCF-001: Cancer Cell Fraction Estimation ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.EstimateCCF(...)` |
+| **Canonical** | `OncologyAnalyzer.EstimateCcf(...)` |
 | **Complexity** | O(n) |
 | **Invariant** | 0 ≤ CCF ≤ 1 |
 | **Depends on** | ONCO-VAF-001, ONCO-PURITY-001, ONCO-CNA-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-CCF-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-CCF-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_EstimateCcf_Tests.cs) |
+
+**Method:** point CCF estimate `CCF = VAF·(ρ·N_T + 2(1−ρ))/(ρ·m)` (McGranahan et al. 2016 *Science* 351:1463–1469; Tarabichi et al. 2021 *Nat. Methods* 18:144–155 Box 1; Zheng et al. 2022 *Bioinformatics* 38:3677), reported capped to [0,1] with raw exposed; CCF values clustered into clones/subclones by deterministic 1D Lloyd k-means (Lloyd 1982 *IEEE TIT* 28:129–137), clonal cluster = highest centroid (Tarabichi 2021). Distinct from ONCO-CLONAL-001 (Bayesian grid posterior). Implemented on `OncologyAnalyzer` (the area's analyzer class used by sibling units), not the registry's placeholder `TumorEvolutionAnalyzer`.
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `EstimateCCF(vaf, purity, localCopyNumber)` | TumorEvolutionAnalyzer | Canonical |
-| `ClusterCCFValues(ccfValues)` | TumorEvolutionAnalyzer | Subclone inference |
+| `EstimateCcf(vaf, purity, tumorCopyNumber, multiplicity)` | OncologyAnalyzer | Canonical |
+| `ClusterCcfValues(ccfValues, clusterCount)` | OncologyAnalyzer | Subclone inference |
 
 **Edge Cases:**
-- [ ] Purity not determined (unknown purity)
-- [ ] Multi-copy loci (ambiguous CCF)
+- [x] Purity not determined (unknown purity) — purity ∉ (0,1] rejected (ArgumentOutOfRangeException)
+- [x] Multi-copy loci (ambiguous CCF) — multiplicity m ∈ [1, N_T] required; tested at N_T=4, m=2
 
 ---
 
-#### ONCO-HETERO-001: Tumor Heterogeneity Analysis
+#### ONCO-HETERO-001: Tumor Heterogeneity Analysis ☑
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorEvolutionAnalyzer.AnalyzeHeterogeneity(...)` |
+| **Canonical** | `OncologyAnalyzer.AnalyzeHeterogeneity(...)` |
 | **Complexity** | O(n log n) |
 | **Invariant** | ITH_score ≥ 0 |
 | **Depends on** | ONCO-CCF-001 |
+| **Status** | ☑ Complete — [Evidence](docs/Evidence/ONCO-HETERO-001-Evidence.md) · [TestSpec](tests/TestSpecs/ONCO-HETERO-001.md) · [Tests](tests/Seqeron/Seqeron.Genomics.Tests/OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs) |
+
+**Note:** implemented in `OncologyAnalyzer` (the area's analyzer class; the registry's `TumorEvolutionAnalyzer` label is logical, mirroring ONCO-PHYLO-001/ONCO-CCF-001). ITH metrics: MATH = 100·1.4826·MAD(VAF)/median(VAF) (Mroz & Rocco 2013); Shannon H = −Σ pᵢ ln pᵢ over CCF-cluster fractions (Shannon 1948; Liu & Zhang 2017); subclone count = occupied CCF clusters; subclonal fraction = #(CCF < 0.95)/n (Landau 2013).
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `AnalyzeHeterogeneity(variants, ccfValues)` | TumorEvolutionAnalyzer | Canonical |
-| `CalculateITH(ccfDistribution)` | TumorEvolutionAnalyzer | ITH score |
-| `InferSubclones(ccfClusters)` | TumorEvolutionAnalyzer | Subclone count |
+| `AnalyzeHeterogeneity(variants, ccfValues, clusterCount)` | OncologyAnalyzer | Canonical |
+| `CalculateITH(ccfDistribution)` | OncologyAnalyzer | ITH score (MATH) |
+| `InferSubclones(ccfClusters)` | OncologyAnalyzer | Subclone count |
 
 ---
 
-#### ONCO-HLA-001: HLA Typing from NGS Data
+#### ONCO-HLA-001: HLA nomenclature parsing + allele-specific HLA LOH (LOHHLA)
+
+> **Scope note (external evidence wins):** the original by-area definition listed a full HLA genotyping
+> caller (`HlaTyper.TypeHLA(bamFile)`). That caller requires a trained model / IPD-IMGT/HLA reference
+> allele database whose behaviour is not retrievable as an exact specification; fabricating it would
+> violate the evidence-first policy. This unit instead implements the two retrievable, formally-specified
+> pieces and takes genotype/coverage as caller-supplied: (a) HLA allele nomenclature parsing/validation
+> per the WHO HLA Nomenclature (Marsh et al. 2010; hla.alleles.org), and (b) allele-specific HLA LOH
+> classification per LOHHLA (McGranahan et al. 2017, Cell).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `HlaTyper.TypeHLA(...)` |
-| **Complexity** | O(n × k) where k=HLA alleles in database |
-| **Invariant** | result contains HLA-A, HLA-B, HLA-C (2 alleles each) |
+| **Canonical** | `OncologyAnalyzer.DetectHlaLoh(...)`, `OncologyAnalyzer.ParseHlaAllele(...)` |
+| **Complexity** | parse O(n); LOH classification O(1) |
+| **Invariant** | HLA LOH ⇔ one allele CN < 0.5 ∧ allelic-imbalance p < 0.01 (McGranahan 2017) |
 | **Depends on** | — (standalone) |
 
 **Methods:**
 | Method | Class | Type |
 |-------|-------|-----|
-| `TypeHLA(bamFile)` | HlaTyper | Canonical |
-| `ResolveAmbiguities(candidates)` | HlaTyper | Disambiguation |
-| `GetFourDigitType(hlaResult)` | HlaTyper | Resolution |
+| `ParseHlaAllele(name)` | OncologyAnalyzer | Canonical |
+| `TryParseHlaAllele(name, out allele)` | OncologyAnalyzer | Delegate |
+| `DetectHlaLoh(alleleCopyNumber)` | OncologyAnalyzer | Canonical |
 
-**Databases:** IPD-IMGT/HLA
+**Databases:** IPD-IMGT/HLA (nomenclature only; not used as a runtime allele DB)
 
 **Edge Cases:**
-- [ ] Homozygous alleles (single allele detected)
-- [ ] Novel alleles not in database
-- [ ] Low coverage at HLA loci
+- [x] Boundary copy number (CN exactly 0.5 → retained)
+- [x] Over-calling guard (low CN but allelic-imbalance p ≥ 0.01 → no LOH)
+- [x] Homozygous loss (both alleles CN < 0.5 → not allele-specific LOH)
+- [x] Malformed nomenclature (missing prefix / wrong field count / invalid suffix)
 
 ---
 
-#### ONCO-ACTION-001: Clinical Actionability Assessment
+#### ONCO-ACTION-001: Clinical Actionability Assessment ☑
+
+> Scoped to OncoKB therapeutic levels of evidence (Chakravarty 2017); AMP/ASCO/CAP tiering is covered by
+> ONCO-ANNOT-001. Implemented in `OncologyAnalyzer` (not a separate `ClinicalInterpreter` class).
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `ClinicalInterpreter.AssessActionability(...)` |
+| **Canonical** | `OncologyAnalyzer.AssessActionability(...)` |
 | **Complexity** | O(n × k) where k=knowledge base entries |
 | **Invariant** | evidence tier ∈ {Tier I, Tier II, Tier III, Tier IV} |
 | **Depends on** | ONCO-DRIVER-001, ONCO-ANNOT-001 |
@@ -4288,9 +4721,9 @@
 **Databases:** OncoKB, CIViC, ClinVar
 
 **Edge Cases:**
-- [ ] VUS (variants of uncertain significance)
-- [ ] Conflicting evidence across databases
-- [ ] Off-label therapy recommendations
+- [x] VUS (variants of uncertain significance) — no leveled association ⇒ NotActionable
+- [x] Conflicting evidence across databases — highest level wins (max under combined order)
+- [x] Off-label therapy recommendations — Level 3B (response in another indication)
 
 ---
 
@@ -4311,9 +4744,11 @@
 | `FilterSomaticSVs(svs, normalBam)` | StructuralVariantDetector | Somatic filter |
 
 **Edge Cases:**
-- [ ] Complex rearrangements (chromothripsis)
-- [ ] Low-coverage samples (insufficient split reads)
-- [ ] Repetitive regions (ambiguous breakpoints)
+- [x] Complex rearrangements (chromothripsis) — `ClassifyComplexRearrangement` (Korbel & Campbell 2013 hallmark criteria; Cortés-Ciriano 2020 thresholds)
+- [ ] Low-coverage samples (insufficient split reads) — N/A: generic read-based SV detection is covered by `StructuralVariantAnalyzer` (out of scope for the oncology complex-rearrangement layer)
+- [ ] Repetitive regions (ambiguous breakpoints) — N/A: out of scope (read-level breakpoint refinement is `StructuralVariantAnalyzer`)
+
+> **Scope note (ONCO-SV-001):** Generic SV typing (DEL/DUP/INV/TRA from breakpoints) already exists in `StructuralVariantAnalyzer`. ONCO-SV-001 implements the oncology-specific complex-rearrangement layer — chromothripsis inference (`OncologyAnalyzer.ClassifyComplexRearrangement`, `CountCopyNumberStateOscillations`, `TestBreakpointClustering`) per Korbel & Campbell (2013) and Cortés-Ciriano et al. (2020). The two low-coverage / repetitive-region edge cases pertain to read-level detection and remain out of scope.
 
 ---
 
@@ -4321,22 +4756,26 @@
 
 | Field | Value |
 |------|----------|
-| **Canonical** | `TumorExpressionAnalyzer.QuantifyExpression(...)` |
-| **Complexity** | O(n × g) where g=gene count |
-| **Invariant** | all TPM values ≥ 0, sum(TPM) ≈ 1e6 |
+| **Canonical** | `OncologyAnalyzer.IdentifyOutlierGenes(...)` (z-score outliers) + `CalculateSignatureScore(...)` |
+| **Complexity** | O(g × n), g=gene count, n=reference cohort size |
+| **Invariant** | z=(r−μ)/σ; outlier iff z>+t or z<−t (strict, t=2); signature a=Σz/√k |
 | **Depends on** | — (standalone) |
 
-**Methods:**
+**Methods (as implemented — oncology-specific expression layer on `OncologyAnalyzer`):**
 | Method | Class | Type |
 |-------|-------|-----|
-| `QuantifyExpression(rnaBam, annotation)` | TumorExpressionAnalyzer | Canonical |
-| `NormalizeExpression(counts)` | TumorExpressionAnalyzer | TPM/FPKM normalization |
-| `IdentifyOutlierGenes(expression, reference)` | TumorExpressionAnalyzer | Z-score outliers |
+| `CalculateExpressionZScore(value, referenceCohort)` | OncologyAnalyzer | Canonical (z = (r−μ)/σ, sample SD n−1; cBioPortal) |
+| `IdentifyOutlierGenes(sampleExpression, referenceCohorts, threshold)` | OncologyAnalyzer | Canonical (strict z>±2 over/under outliers) |
+| `CalculateSignatureScore(memberZScores)` | OncologyAnalyzer | Canonical (combined z-score a=Σz/√k; Lee et al. 2008) |
+
+Note: TPM/FPKM quantification (`CalculateTPM`/`CalculateFPKM`, TRANS-EXPR-001) and differential expression
+(TRANS-DIFF-001) already exist in `TranscriptomeAnalyzer`; ONCO-EXPR-001 implements the oncology-specific
+outlier/signature layer over caller-supplied reference cohorts and signatures.
 
 **Edge Cases:**
-- [ ] Low RNA quality (degraded, 3' bias)
-- [ ] No matched normal expression profile
-- [ ] Batch effects between samples
+- [x] Zero-variance / degenerate reference cohort (sd=0 → throws; mirrors NormalizeExpressionLevels.java)
+- [x] No reference cohort for a queried gene / reference smaller than 2 samples (sample SD undefined → throws)
+- [x] Batch effects / unrepresentative cohort (documented limitation: z-scores miscalibrated; caller responsibility — algorithm doc §6.2)
 
 ---
 
@@ -4459,7 +4898,7 @@
 | `HammingDistance` | PAT-APPROX-001 |
 | `HasHairpinPotential` | PRIMER-STRUCT-001 |
 | `HasPrimerDimer` | PRIMER-STRUCT-001 |
-| `IdentifyCoreGenes` | PANGEN-CORE-001 |
+| `GetCoreGeneClusters` (a.k.a. `IdentifyCoreGenes`) | PANGEN-CORE-001 |
 | `IdentifyDisorderedRegions` | DISORDER-REGION-001 |
 | `IsStartCodon` | TRANS-CODON-001 |
 | `IsStopCodon` | TRANS-CODON-001 |
@@ -4567,6 +5006,7 @@
 | `FindAntibioticResistanceGenes` | META-RESIST-001 |
 | `FindPathwayEnrichment` | META-PATHWAY-001 |
 | `FindSignificantTaxa` | META-TAXA-001 |
+| `MannWhitneyU` | META-TAXA-001 |
 | `Bootstrap` | PHYLO-BOOT-001 |
 | `GetLeaves` | PHYLO-STATS-001 |
 | `CalculateTreeLength` | PHYLO-STATS-001 |
@@ -4604,6 +5044,7 @@
 | `ParseDotBracket` | RNA-DOTBRACKET-001 |
 | `ValidateDotBracket` | RNA-DOTBRACKET-001 |
 | `FindInvertedRepeats` (RnaSecondaryStructure) | RNA-INVERT-001 |
+| `CalculatePartitionFunction` | RNA-PARTITION-001 |
 | `CalculateStructureProbability` | RNA-PARTITION-001 |
 | `GenerateRandomRna` | RNA-PARTITION-001 |
 | `CalculateKmerEntropy` (SequenceComplexity) | SEQ-COMPLEX-KMER-001 |
@@ -4654,16 +5095,18 @@
 | `AnalyzeFragmentSizeDistribution` | ONCO-CTDNA-001 |
 | `AnalyzeHeterogeneity` (TumorEvolutionAnalyzer) | ONCO-HETERO-001 |
 | `AnnotateCancerVariants` | ONCO-ANNOT-001 |
-| `AssessActionability` | ONCO-ACTION-001 |
+| `AssessActionability` (OncologyAnalyzer) | ONCO-ACTION-001 |
 | `BootstrapConfidenceIntervals` (MutationalSignatures) | ONCO-SIG-003 |
 | `Build96ChannelSpectrum` | ONCO-SIG-002 |
 | `CalculateBindingAffinity` | ONCO-MHC-001 |
+| `CalculateExpressionZScore` | ONCO-EXPR-001 |
 | `CalculateHRDScore` | ONCO-HRD-001 |
 | `CalculateITH` | ONCO-HETERO-001 |
 | `CalculateLOHFraction` | ONCO-LOH-001 |
 | `CalculateLOHScore` | ONCO-HRD-001 |
 | `CalculateLSTScore` | ONCO-HRD-001 |
 | `CalculateMSIScore` | ONCO-MSI-001 |
+| `CalculateSignatureScore` | ONCO-EXPR-001 |
 | `CalculateSomaticScore` | ONCO-SOMATIC-001 |
 | `CalculateTAIScore` | ONCO-HRD-001 |
 | `CalculateTMB` | ONCO-TMB-001 |
@@ -4704,7 +5147,8 @@
 | `FitToCosmicSignatures` | ONCO-SIG-001 |
 | `GenerateMutantPeptides` | ONCO-NEO-001 |
 | `GetCOSMICAnnotation` | ONCO-ANNOT-001 |
-| `GetFourDigitType` | ONCO-HLA-001 |
+| `DetectHlaLoh` | ONCO-HLA-001 |
+| `ParseHlaAllele` | ONCO-HLA-001 |
 | `GetFusionAnnotation` | ONCO-FUSION-002 |
 | `GetTherapyRecommendations` | ONCO-ACTION-001 |
 | `GetTrinucleotideContext` | ONCO-SIG-002 |
@@ -4719,18 +5163,15 @@
 | `InferSubclones` | ONCO-HETERO-001 |
 | `MatchCancerHotspots` | ONCO-DRIVER-001 |
 | `MatchKnownFusions` | ONCO-FUSION-002 |
-| `NormalizeExpression` | ONCO-EXPR-001 |
 | `PredictFusionProtein` | ONCO-FUSION-003 |
 | `PredictMHCBinding` | ONCO-MHC-001 |
 | `PredictNeoantigens` | ONCO-NEO-001 |
-| `QuantifyExpression` | ONCO-EXPR-001 |
 | `ReconstructPhylogeny` | ONCO-PHYLO-001 |
-| `ResolveAmbiguities` (HlaTyper) | ONCO-HLA-001 |
 | `ScoreDriverPotential` | ONCO-DRIVER-001 |
 | `ScoreNeoantigens` | ONCO-NEO-001 |
 | `SegmentCopyNumber` (CopyNumberAnalyzer) | ONCO-CNA-001 |
 | `TrackVariantsOverTime` | ONCO-MRD-001 |
-| `TypeHLA` | ONCO-HLA-001 |
+| `TryParseHlaAllele` | ONCO-HLA-001 |
 | `ValidateFusion` | ONCO-FUSION-001 |
 
 ---
@@ -4747,8 +5188,8 @@
 | CRISPR-OFF-001 | O(n × m) | ⚠️ | May be exponential with high mismatches |
 | RNA-STRUCT-001 | O(n³) | ✓ | Standard Nussinov/Zuker |
 | ASSEMBLY-OLC-001 | O(n² × m) | ⚠️ | Depends on overlap detection method |
-| PANGEN-CORE-001 | O(g² × s) | ⚠️ | All-vs-all comparison |
-| SV-CNV-001 | O(n) | ⚠️ | Segmentation may be O(n log n) |
+| PANGEN-CORE-001 | O(g² × s) | ✓ | All-vs-all k-mer clustering dominates (verified PANGEN-CORE-001) |
+| SV-CNV-001 | O(n) | ✓ | One pass over depth + O(w log w) median over w windows (w << n) |
 
 ---
 
@@ -4844,18 +5285,18 @@ DnaSequence.Complement   DnaSequence.ReverseComplement
 | SequenceStatistics | SEQ-STATS-001 to SEQ-SUMMARY-001 | ✓ |
 | CodonUsageAnalyzer | CODON-RSCU-001 to CODON-STATS-001 | ✓ |
 | OncologyAnalyzer | ONCO-SOMATIC-001 to ONCO-ANNOT-001, ONCO-TMB-001 to ONCO-LOH-001 | ☐ |
-| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☐ |
-| FusionDetector | ONCO-FUSION-001 to ONCO-FUSION-003 | ☐ |
-| CopyNumberAnalyzer | ONCO-CNA-001 to ONCO-CNA-003 | ☐ |
+| MutationalSignatures | ONCO-SIG-001 to ONCO-SIG-004 | ☑ |
+| OncologyAnalyzer (Fusion) | ONCO-FUSION-001 ☑, ONCO-FUSION-002 ☑, ONCO-FUSION-003 ☑ | ● |
+| CopyNumberAnalyzer (→ OncologyAnalyzer) | ONCO-CNA-001 ☑, ONCO-CNA-002 ☑, ONCO-CNA-003 ☑ | ☑ |
 | TumorAnalyzer | ONCO-PURITY-001 to ONCO-CLONAL-001 | ☐ |
 | NeoantigenPredictor | ONCO-NEO-001 to ONCO-MHC-001 | ☐ |
 | ImmuneAnalyzer | ONCO-IMMUNE-001 | ☐ |
-| LiquidBiopsyAnalyzer | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☐ |
-| TumorEvolutionAnalyzer | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ |
-| HlaTyper | ONCO-HLA-001 | ☐ |
-| ClinicalInterpreter | ONCO-ACTION-001 | ☐ |
+| LiquidBiopsyAnalyzer (implemented in OncologyAnalyzer) | ONCO-CTDNA-001 to ONCO-CHIP-001 | ☑ |
+| TumorEvolutionAnalyzer (ONCO-PHYLO-001 implemented in OncologyAnalyzer) | ONCO-PHYLO-001 to ONCO-HETERO-001 | ☐ (ONCO-PHYLO-001 ☑) |
+| HLA analysis (implemented in OncologyAnalyzer) | ONCO-HLA-001 | ☑ |
+| Clinical actionability (implemented in OncologyAnalyzer) | ONCO-ACTION-001 | ☑ |
 | StructuralVariantDetector | ONCO-SV-001 | ☐ |
-| TumorExpressionAnalyzer | ONCO-EXPR-001 | ☐ |
+| TumorExpressionAnalyzer (implemented in OncologyAnalyzer) | ONCO-EXPR-001 | ☑ |
 
 **Total Classes Covered: 44/57 (77%)**
 

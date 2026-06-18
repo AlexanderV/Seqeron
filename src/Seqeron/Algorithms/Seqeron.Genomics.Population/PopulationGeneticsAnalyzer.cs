@@ -93,6 +93,32 @@ public static class PopulationGeneticsAnalyzer
         string Interpretation);
 
     /// <summary>
+    /// Holds the unstandardized integrated haplotype score for a focal SNP together with
+    /// its component integrated EHH areas and the derived allele frequency used for
+    /// frequency-binned standardization (Voight et al. 2006).
+    /// </summary>
+    /// <param name="UnstandardizedIHS">ln(iHH_A / iHH_D) per Voight et al. (2006).</param>
+    /// <param name="IhhAncestral">Integrated EHH (area under EHH curve) for the ancestral allele.</param>
+    /// <param name="IhhDerived">Integrated EHH (area under EHH curve) for the derived allele.</param>
+    /// <param name="DerivedAlleleFrequency">Frequency of the derived (core) allele in the sample.</param>
+    public readonly record struct IhsResult(
+        double UnstandardizedIHS,
+        double IhhAncestral,
+        double IhhDerived,
+        double DerivedAlleleFrequency);
+
+    /// <summary>
+    /// Summarizes a genome-wide selection scan window: the fraction of SNPs whose
+    /// absolute standardized iHS exceeds the extreme threshold (|iHS| &gt; 2) per
+    /// Voight et al. (2006).
+    /// </summary>
+    public readonly record struct SelectionScanWindow(
+        int WindowIndex,
+        int SnpCount,
+        int ExtremeCount,
+        double ProportionExtreme);
+
+    /// <summary>
     /// Represents ancestry proportion.
     /// </summary>
     public readonly record struct AncestryProportion(
@@ -915,13 +941,325 @@ public static class PopulationGeneticsAnalyzer
         return 2 * (1 - StatisticsHelper.NormalCDF(z));
     }
 
+    // ----- Canonical iHS pipeline (Voight et al. 2006; Sabeti et al. 2002; Szpiech & Hernandez 2014) -----
+
+    // EHH integration is truncated where EHH first drops below this cutoff, per Voight et al.
+    // (2006) Materials and Methods ("nearest points ... where the EHH drops below 0.05") and the
+    // rehh default parameter limehh = 0.05 (Gautier et al. 2017).
+    private const double EhhIntegrationCutoff = 0.05;
+
+    // A standardized iHS is "extreme" when its magnitude exceeds 2; genome-wide selection is
+    // quantified by the proportion of SNPs with |iHS| > 2 (Voight et al. 2006, Materials and
+    // Methods: "quantified by the proportion of SNPs with |iHS| > 2").
+    private const double ExtremeIhsThreshold = 2.0;
+
+    /// <summary>
+    /// Computes Extended Haplotype Homozygosity (EHH) for the chromosomes carrying a given core
+    /// allele, extended over a marker window. EHH is the probability that two randomly chosen
+    /// core-carrying chromosomes are identical over the window:
+    /// EHH = Σ_h C(n_h, 2) / C(n_c, 2), where n_h is the count of each distinct extended haplotype
+    /// and n_c the number of core-carrying chromosomes (Sabeti et al. 2002; Szpiech &amp; Hernandez
+    /// 2014, Eq. 3).
+    /// </summary>
+    /// <param name="extendedHaplotypes">
+    /// The extended haplotype string (alleles over the window) for each core-carrying chromosome.
+    /// </param>
+    /// <returns>
+    /// EHH in [0, 1]. Returns 1 for a single chromosome (a sample of one is trivially homozygous);
+    /// returns 0 for an empty sample.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="extendedHaplotypes"/> is null.</exception>
+    public static double CalculateEhh(IReadOnlyList<string> extendedHaplotypes)
+    {
+        if (extendedHaplotypes is null)
+            throw new ArgumentNullException(nameof(extendedHaplotypes));
+
+        int nc = extendedHaplotypes.Count;
+        if (nc == 0)
+            return 0;
+        if (nc == 1)
+            return 1;
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (string hap in extendedHaplotypes)
+            counts[hap] = counts.TryGetValue(hap, out int c) ? c + 1 : 1;
+
+        double numerator = 0;
+        foreach (int nh in counts.Values)
+            numerator += Choose2(nh);
+
+        return numerator / Choose2(nc);
+    }
+
+    /// <summary>
+    /// Computes the unstandardized integrated haplotype score (iHS) at a focal SNP from phased
+    /// haplotypes. EHH is tracked outward in both directions for the ancestral (0) and derived (1)
+    /// core alleles, the EHH curves are integrated by the trapezoidal rule against marker positions
+    /// (truncating where EHH first drops below 0.05), and the score is
+    /// unstandardized iHS = ln(iHH_A / iHH_D) (Voight et al. 2006).
+    /// </summary>
+    /// <param name="haplotypes">
+    /// Phased haplotypes; each string holds one allele per marker ('0' = ancestral, '1' = derived).
+    /// All strings must have the same length, equal to <paramref name="positions"/>.Count.
+    /// </param>
+    /// <param name="positions">Chromosomal (or genetic) positions of the markers, strictly increasing.</param>
+    /// <param name="coreIndex">Index of the focal SNP within each haplotype.</param>
+    /// <returns>
+    /// The iHS result. <see cref="IhsResult.UnstandardizedIHS"/> follows the Voight et al. (2006)
+    /// sign convention ln(iHH_A / iHH_D): negative values indicate unusually long haplotypes on the
+    /// derived allele (candidate positive selection on the derived allele).
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when haplotype lengths are inconsistent or the core is monomorphic.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="coreIndex"/> is out of range.</exception>
+    public static IhsResult CalculateIHS(
+        IReadOnlyList<string> haplotypes,
+        IReadOnlyList<int> positions,
+        int coreIndex)
+    {
+        if (haplotypes is null)
+            throw new ArgumentNullException(nameof(haplotypes));
+        if (positions is null)
+            throw new ArgumentNullException(nameof(positions));
+        if (haplotypes.Count == 0)
+            throw new ArgumentException("At least one haplotype is required.", nameof(haplotypes));
+        if (coreIndex < 0 || coreIndex >= positions.Count)
+            throw new ArgumentOutOfRangeException(nameof(coreIndex));
+
+        int markerCount = positions.Count;
+        foreach (string hap in haplotypes)
+        {
+            if (hap is null)
+                throw new ArgumentException("Haplotype strings cannot be null.", nameof(haplotypes));
+            if (hap.Length != markerCount)
+                throw new ArgumentException("Each haplotype must have one allele per position.", nameof(haplotypes));
+        }
+
+        var ancestral = new List<int>();
+        var derived = new List<int>();
+        for (int h = 0; h < haplotypes.Count; h++)
+        {
+            char allele = haplotypes[h][coreIndex];
+            if (allele == '0')
+                ancestral.Add(h);
+            else if (allele == '1')
+                derived.Add(h);
+            else
+                throw new ArgumentException("Core alleles must be '0' (ancestral) or '1' (derived).", nameof(haplotypes));
+        }
+
+        if (ancestral.Count == 0 || derived.Count == 0)
+            throw new ArgumentException("The focal SNP must be polymorphic (both ancestral and derived alleles present).", nameof(haplotypes));
+
+        double ihhAncestral = IntegrateEhh(haplotypes, positions, coreIndex, ancestral);
+        double ihhDerived = IntegrateEhh(haplotypes, positions, coreIndex, derived);
+
+        double derivedFreq = (double)derived.Count / (ancestral.Count + derived.Count);
+        double unstandardized = (ihhAncestral <= 0 || ihhDerived <= 0)
+            ? 0
+            : Math.Log(ihhAncestral / ihhDerived);
+
+        return new IhsResult(unstandardized, ihhAncestral, ihhDerived, derivedFreq);
+    }
+
+    /// <summary>
+    /// Standardizes unstandardized iHS scores within derived-allele-frequency bins so the result is
+    /// approximately standard normal and comparable across allele frequencies:
+    /// iHS = (x − E_p[x]) / SD_p[x], where the expectation and standard deviation are taken over the
+    /// empirical distribution of SNPs whose derived allele frequency p falls in the same bin
+    /// (Voight et al. 2006).
+    /// </summary>
+    /// <param name="scores">Unstandardized iHS values with their derived allele frequencies.</param>
+    /// <param name="binCount">Number of equal-width frequency bins over (0, 1). Default 20 (bin width 0.05).</param>
+    /// <returns>Standardized iHS values aligned with the input order.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scores"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="binCount"/> &lt; 1.</exception>
+    public static IReadOnlyList<double> StandardizeIHS(
+        IReadOnlyList<(double Unstandardized, double DerivedAlleleFrequency)> scores,
+        int binCount = 20)
+    {
+        if (scores is null)
+            throw new ArgumentNullException(nameof(scores));
+        if (binCount < 1)
+            throw new ArgumentOutOfRangeException(nameof(binCount), binCount, "Bin count must be at least 1.");
+
+        // Group SNP indices by frequency bin.
+        var bins = new Dictionary<int, List<int>>();
+        for (int i = 0; i < scores.Count; i++)
+        {
+            double p = scores[i].DerivedAlleleFrequency;
+            int bin = (int)(p * binCount);
+            if (bin >= binCount)
+                bin = binCount - 1; // include p == 1.0 in the top bin
+            if (bin < 0)
+                bin = 0;
+            if (!bins.TryGetValue(bin, out var list))
+                bins[bin] = list = new List<int>();
+            list.Add(i);
+        }
+
+        var result = new double[scores.Count];
+        foreach (var indices in bins.Values)
+        {
+            double mean = 0;
+            foreach (int idx in indices)
+                mean += scores[idx].Unstandardized;
+            mean /= indices.Count;
+
+            double variance = 0;
+            foreach (int idx in indices)
+            {
+                double d = scores[idx].Unstandardized - mean;
+                variance += d * d;
+            }
+            // Sample standard deviation of the empirical bin distribution.
+            double sd = indices.Count > 1 ? Math.Sqrt(variance / (indices.Count - 1)) : 0;
+
+            foreach (int idx in indices)
+                result[idx] = sd > 0 ? (scores[idx].Unstandardized - mean) / sd : 0;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Performs a genome-wide selection scan over fixed windows of consecutive SNPs, quantifying
+    /// each window by the proportion of SNPs with |iHS| &gt; 2 (Voight et al. 2006, Materials and
+    /// Methods). SNPs are assumed to be supplied in genomic order.
+    /// </summary>
+    /// <param name="standardizedScores">Standardized iHS value for each SNP, in genomic order.</param>
+    /// <param name="windowSize">Number of consecutive SNPs per window (Voight et al. used 50).</param>
+    /// <returns>One <see cref="SelectionScanWindow"/> per non-overlapping window.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="standardizedScores"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="windowSize"/> &lt; 1.</exception>
+    public static IEnumerable<SelectionScanWindow> ScanForSelection(
+        IReadOnlyList<double> standardizedScores,
+        int windowSize = 50)
+    {
+        if (standardizedScores is null)
+            throw new ArgumentNullException(nameof(standardizedScores));
+        if (windowSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(windowSize), windowSize, "Window size must be at least 1.");
+
+        int windowIndex = 0;
+        for (int start = 0; start < standardizedScores.Count; start += windowSize)
+        {
+            int end = Math.Min(start + windowSize, standardizedScores.Count);
+            int snpCount = end - start;
+            int extreme = 0;
+            for (int i = start; i < end; i++)
+            {
+                if (Math.Abs(standardizedScores[i]) > ExtremeIhsThreshold)
+                    extreme++;
+            }
+
+            yield return new SelectionScanWindow(
+                WindowIndex: windowIndex++,
+                SnpCount: snpCount,
+                ExtremeCount: extreme,
+                ProportionExtreme: (double)extreme / snpCount);
+        }
+    }
+
+    /// <summary>
+    /// Integrates the EHH decay curve for one core-allele subset outward in both directions from the
+    /// focal SNP using the trapezoidal rule, summing the areas to the left and right and truncating
+    /// each direction where EHH first drops below the 0.05 cutoff (Voight et al. 2006; Szpiech &amp;
+    /// Hernandez 2014, Eq. 4/7).
+    /// </summary>
+    private static double IntegrateEhh(
+        IReadOnlyList<string> haplotypes,
+        IReadOnlyList<int> positions,
+        int coreIndex,
+        IReadOnlyList<int> coreChromosomes)
+    {
+        double area = 0;
+        area += IntegrateDirection(haplotypes, positions, coreIndex, coreChromosomes, step: +1);
+        area += IntegrateDirection(haplotypes, positions, coreIndex, coreChromosomes, step: -1);
+        return area;
+    }
+
+    private static double IntegrateDirection(
+        IReadOnlyList<string> haplotypes,
+        IReadOnlyList<int> positions,
+        int coreIndex,
+        IReadOnlyList<int> coreChromosomes,
+        int step)
+    {
+        // At the core itself every core-carrying chromosome is identical, so EHH = 1.
+        double previousEhh = 1;
+        int previousPos = positions[coreIndex];
+        double area = 0;
+
+        for (int marker = coreIndex + step; marker >= 0 && marker < positions.Count; marker += step)
+        {
+            int lo = Math.Min(coreIndex, marker);
+            int hi = Math.Max(coreIndex, marker);
+            var window = new List<string>(coreChromosomes.Count);
+            foreach (int chrom in coreChromosomes)
+                window.Add(haplotypes[chrom].Substring(lo, hi - lo + 1));
+
+            double ehh = CalculateEhh(window);
+            int pos = positions[marker];
+
+            // Add the trapezoid up to this marker, then stop once EHH has decayed below the cutoff.
+            area += (previousEhh + ehh) / 2 * Math.Abs(pos - previousPos);
+
+            if (ehh < EhhIntegrationCutoff)
+                break;
+
+            previousEhh = ehh;
+            previousPos = pos;
+        }
+
+        return area;
+    }
+
+    /// <summary>
+    /// Number of unordered pairs C(n, 2) = n(n − 1) / 2.
+    /// </summary>
+    private static double Choose2(int n) => n * (n - 1) / 2.0;
+
     #endregion
 
     #region Ancestry Analysis
 
+    // ADMIXTURE default stopping criterion ε for the convergence rule (Equation 5):
+    // declare convergence once the log-likelihood gain falls below ε.
+    // Alexander, Novembre & Lange (2009), Genome Research 19(9):1655–1664, Eq. 5
+    // ("we choose ε = 10⁻⁴ as the default stopping criterion in ADMIXTURE").
+    private const double AncestryLogLikelihoodTolerance = 1e-4;
+
     /// <summary>
-    /// Estimates ancestry proportions using a simplified ADMIXTURE-like approach.
+    /// Estimates individual ancestry (admixture) proportions by maximum likelihood given
+    /// <b>fixed</b> reference-population allele frequencies, i.e. the supervised / projection
+    /// mode of ADMIXTURE. For each individual the ancestry vector q (one fraction per reference
+    /// population) is found with the FRAPPE expectation-maximization update on the binomial
+    /// admixture log-likelihood of Alexander, Novembre &amp; Lange (2009).
     /// </summary>
+    /// <param name="individuals">
+    /// Individuals to estimate. <c>Genotypes[j]</c> is the observed number of copies of allele 1
+    /// at SNP <c>j</c> (0, 1, or 2); any other value is treated as missing and that SNP is skipped
+    /// for the individual. The genotype length must equal the reference-panel SNP count.
+    /// </param>
+    /// <param name="referencePops">
+    /// Reference populations with fixed allele-1 frequencies (one per SNP, in [0,1]); all panels
+    /// must cover the same SNP set in the same order.
+    /// </param>
+    /// <param name="maxIterations">Maximum EM iterations per individual (default 100).</param>
+    /// <returns>
+    /// One <see cref="AncestryProportion"/> per valid individual, whose <c>Proportions</c> are
+    /// keyed by reference-population id and sum to 1.
+    /// </returns>
+    /// <remarks>
+    /// Model (Alexander et al. 2009): q_ik is the fraction of individual i's genome from
+    /// population k; f_kj is the allele-1 frequency in population k at SNP j. With F fixed, the
+    /// EM update (their Equation 4) is
+    /// q_ik^{n+1} = (1/2J) Σ_j [ g_ij·a_ijk + (2−g_ij)·b_ijk ], where
+    /// a_ijk = q_ik f_kj / Σ_m q_im f_mj and b_ijk = q_ik (1−f_kj) / Σ_m q_im (1−f_mj).
+    /// Iteration stops early once the log-likelihood gain (Equation 2) falls below
+    /// <see cref="AncestryLogLikelihoodTolerance"/> (their Equation 5).
+    /// </remarks>
     public static IEnumerable<AncestryProportion> EstimateAncestry(
         IEnumerable<(string IndividualId, IReadOnlyList<int> Genotypes)> individuals,
         IEnumerable<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> referencePops,
@@ -941,80 +1279,171 @@ public static class PopulationGeneticsAnalyzer
             if (genotypes.Count != m)
                 continue;
 
-            // Initialize proportions uniformly
-            var proportions = new double[k];
-            for (int i = 0; i < k; i++)
-                proportions[i] = 1.0 / k;
+            double[] proportions = EstimateIndividualAncestry(genotypes, refList, k, m, maxIterations);
 
-            // EM-like optimization (simplified)
-            for (int iter = 0; iter < maxIterations; iter++)
-            {
-                var newProportions = new double[k];
-
-                for (int snp = 0; snp < m; snp++)
-                {
-                    int geno = genotypes[snp];
-
-                    // Calculate likelihood for each population
-                    var likelihoods = new double[k];
-                    double totalLik = 0;
-
-                    for (int pop = 0; pop < k; pop++)
-                    {
-                        double p = refList[pop].AlleleFrequencies[snp];
-
-                        // Genotype probability under HWE
-                        double prob = geno switch
-                        {
-                            0 => (1 - p) * (1 - p),
-                            1 => 2 * p * (1 - p),
-                            2 => p * p,
-                            _ => 0.25
-                        };
-
-                        likelihoods[pop] = proportions[pop] * prob;
-                        totalLik += likelihoods[pop];
-                    }
-
-                    if (totalLik > 0)
-                    {
-                        for (int pop = 0; pop < k; pop++)
-                        {
-                            newProportions[pop] += likelihoods[pop] / totalLik;
-                        }
-                    }
-                }
-
-                // Normalize
-                double sum = newProportions.Sum();
-                for (int pop = 0; pop < k; pop++)
-                {
-                    proportions[pop] = sum > 0 ? newProportions[pop] / sum : 1.0 / k;
-                }
-            }
-
-            // Create result
-            var propDict = new Dictionary<string, double>();
+            var propDict = new Dictionary<string, double>(k);
             for (int pop = 0; pop < k; pop++)
-            {
                 propDict[refList[pop].PopulationId] = proportions[pop];
-            }
 
             yield return new AncestryProportion(indId, propDict);
         }
+    }
+
+    /// <summary>
+    /// Runs the FRAPPE EM (Alexander et al. 2009, Eq. 4) for one individual with the reference
+    /// allele frequencies held fixed, returning ancestry fractions that sum to 1.
+    /// </summary>
+    private static double[] EstimateIndividualAncestry(
+        IReadOnlyList<int> genotypes,
+        List<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> refList,
+        int k,
+        int m,
+        int maxIterations)
+    {
+        // Initialize q uniformly over the K reference populations.
+        var q = new double[k];
+        for (int pop = 0; pop < k; pop++)
+            q[pop] = 1.0 / k;
+
+        double previousLogLik = AncestryLogLikelihood(genotypes, refList, q, k, m);
+
+        for (int iter = 0; iter < maxIterations; iter++)
+        {
+            var next = new double[k];
+
+            // EM update q_ik^{n+1} = (1/2J) Σ_j [ g_ij a_ijk + (2-g_ij) b_ijk ]  (Eq. 4),
+            // where J counts only the informative (non-missing) SNPs for this individual.
+            int informativeSnps = 0;
+            for (int snp = 0; snp < m; snp++)
+            {
+                int g = genotypes[snp];
+                if (g < 0 || g > 2)
+                    continue; // missing genotype contributes no likelihood term (Eq. 2)
+                informativeSnps++;
+
+                // Admixed allele-1 / allele-2 frequencies for this individual: Σ_m q_im f_mj.
+                double mixAllele1 = 0;
+                double mixAllele2 = 0;
+                for (int pop = 0; pop < k; pop++)
+                {
+                    double f = refList[pop].AlleleFrequencies[snp];
+                    mixAllele1 += q[pop] * f;
+                    mixAllele2 += q[pop] * (1 - f);
+                }
+
+                for (int pop = 0; pop < k; pop++)
+                {
+                    double f = refList[pop].AlleleFrequencies[snp];
+                    double a = mixAllele1 > 0 ? q[pop] * f / mixAllele1 : 0;
+                    double b = mixAllele2 > 0 ? q[pop] * (1 - f) / mixAllele2 : 0;
+                    next[pop] += g * a + (2 - g) * b;
+                }
+            }
+
+            if (informativeSnps == 0)
+                break; // nothing informative: keep the uniform prior
+
+            // Divide by 2J (J = informative SNP count). The EM preserves Σ_k q_ik = 1 exactly.
+            double normalizer = 2.0 * informativeSnps;
+            for (int pop = 0; pop < k; pop++)
+                q[pop] = next[pop] / normalizer;
+
+            double logLik = AncestryLogLikelihood(genotypes, refList, q, k, m);
+            if (logLik - previousLogLik < AncestryLogLikelihoodTolerance)
+            {
+                previousLogLik = logLik;
+                break; // converged per Eq. 5
+            }
+            previousLogLik = logLik;
+        }
+
+        return q;
+    }
+
+    /// <summary>
+    /// Binomial admixture log-likelihood for one individual given fixed allele frequencies
+    /// (Alexander et al. 2009, Equation 2), summed over informative SNPs.
+    /// </summary>
+    private static double AncestryLogLikelihood(
+        IReadOnlyList<int> genotypes,
+        List<(string PopulationId, IReadOnlyList<double> AlleleFrequencies)> refList,
+        double[] q,
+        int k,
+        int m)
+    {
+        double logLik = 0;
+        for (int snp = 0; snp < m; snp++)
+        {
+            int g = genotypes[snp];
+            if (g < 0 || g > 2)
+                continue;
+
+            double mixAllele1 = 0;
+            double mixAllele2 = 0;
+            for (int pop = 0; pop < k; pop++)
+            {
+                double f = refList[pop].AlleleFrequencies[snp];
+                mixAllele1 += q[pop] * f;
+                mixAllele2 += q[pop] * (1 - f);
+            }
+
+            if (g > 0 && mixAllele1 > 0)
+                logLik += g * Math.Log(mixAllele1);
+            if (g < 2 && mixAllele2 > 0)
+                logLik += (2 - g) * Math.Log(mixAllele2);
+        }
+        return logLik;
     }
 
     #endregion
 
     #region Inbreeding
 
+    // Default minimum number of homozygous SNPs a run must contain to be retained.
+    // PLINK 1.9 --homozyg-snp default is 100 consecutive SNPs (Chang et al. 2015,
+    // PLINK 1.9 "Runs of homozygosity" documentation, --homozyg-snp).
+    private const int DefaultRohMinSnps = 100;
+
+    // Default minimum physical length (in base pairs) for a retained run.
+    // PLINK 1.9 --homozyg-kb default is 1000 kb = 1,000,000 bp (Chang et al. 2015).
+    private const int DefaultRohMinLengthBp = 1_000_000;
+
+    // Default maximum number of heterozygous (opposite) genotypes tolerated inside a
+    // single run before it is broken. The consecutive-runs method of Marras et al.
+    // (2015) allows a small number of opposite genotypes (maxOppRun) to account for
+    // genotyping error; PLINK's scanning window likewise permits one heterozygous call
+    // per window (--homozyg-window-het default 1).
+    private const int DefaultRohMaxHeterozygotes = 1;
+
+    // Default maximum physical gap (in base pairs) between two consecutive SNPs that may
+    // still belong to the same run. PLINK 1.9 --homozyg-gap default is 1000 kb =
+    // 1,000,000 bp (Chang et al. 2015): SNPs farther apart than this break the run.
+    private const int DefaultRohMaxGapBp = 1_000_000;
+
     /// <summary>
-    /// Calculates inbreeding coefficient from runs of homozygosity.
+    /// Calculates the genomic inbreeding coefficient F_ROH from runs of homozygosity:
+    /// F_ROH = (Σ L_ROH) / L_AUTO, the total length of an individual's runs of homozygosity
+    /// (above a chosen minimum length) divided by the length of the autosomal genome covered
+    /// by SNPs (McQuillan et al. 2008, Eq. for F_roh = ΣL_roh / L_auto).
     /// </summary>
+    /// <param name="rohSegments">
+    /// Half-open ROH intervals <c>[Start, End)</c>; each contributes length <c>End − Start</c>.
+    /// </param>
+    /// <param name="genomeLength">
+    /// L_AUTO — the SNP-covered autosomal genome length in the same units as the segments
+    /// (base pairs). Must be positive.
+    /// </param>
+    /// <returns>
+    /// F_ROH in [0, 1] when segments lie within the genome. Returns 0 when
+    /// <paramref name="genomeLength"/> is non-positive (no defined denominator).
+    /// </returns>
     public static double CalculateInbreedingFromROH(
         IEnumerable<(int Start, int End)> rohSegments,
         int genomeLength)
     {
+        if (rohSegments is null)
+            throw new ArgumentNullException(nameof(rohSegments));
+
         if (genomeLength <= 0)
             return 0;
 
@@ -1023,62 +1452,131 @@ public static class PopulationGeneticsAnalyzer
     }
 
     /// <summary>
-    /// Identifies runs of homozygosity (ROH).
+    /// Identifies runs of homozygosity (ROH) with the window-free consecutive-runs method
+    /// of Marras et al. (2015): the genome is scanned SNP by SNP in ascending position
+    /// order; a candidate run is extended while it contains at most
+    /// <paramref name="maxHeterozygotes"/> opposite (heterozygous) genotypes and no gap
+    /// between consecutive SNPs exceeds <paramref name="maxGap"/>. A run that violates either
+    /// limit is closed (ending at the last SNP that still satisfied them), and a new run
+    /// starts at the breaking SNP. A closed run is reported only when it contains at least
+    /// <paramref name="minSnps"/> homozygous SNPs and spans at least <paramref name="minLength"/>
+    /// base pairs (PLINK 1.9 --homozyg-snp / --homozyg-kb thresholds; Chang et al. 2015).
     /// </summary>
+    /// <param name="genotypes">
+    /// Per-SNP <c>(Position, Genotype)</c> pairs, where genotype 0 = homozygous reference and
+    /// 2 = homozygous alternate (both homozygous) and 1 = heterozygous (opposite). Positions
+    /// need not be pre-sorted; they are ordered ascending internally.
+    /// </param>
+    /// <param name="minSnps">Minimum number of SNPs in a retained run (default 100; PLINK --homozyg-snp).</param>
+    /// <param name="minLength">Minimum physical length in bp of a retained run (default 1,000,000; PLINK --homozyg-kb 1000).</param>
+    /// <param name="maxHeterozygotes">Maximum opposite (heterozygous) genotypes tolerated within a run (default 1).</param>
+    /// <param name="maxGap">Maximum bp gap between consecutive SNPs in one run (default 1,000,000; PLINK --homozyg-gap 1000).</param>
+    /// <returns>
+    /// The retained runs as <c>(Start, End, SnpCount)</c>, where Start/End are the positions of
+    /// the first and last SNP of the run (inclusive) and SnpCount is the number of SNPs in it,
+    /// emitted in ascending Start order.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="genotypes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="minSnps"/> &lt; 1, or any of <paramref name="minLength"/>,
+    /// <paramref name="maxHeterozygotes"/>, <paramref name="maxGap"/> is negative.
+    /// </exception>
     public static IEnumerable<(int Start, int End, int SnpCount)> FindROH(
         IEnumerable<(int Position, int Genotype)> genotypes,
-        int minSnps = 50,
-        int minLength = 1_000_000,
-        int maxHeterozygotes = 1)
+        int minSnps = DefaultRohMinSnps,
+        int minLength = DefaultRohMinLengthBp,
+        int maxHeterozygotes = DefaultRohMaxHeterozygotes,
+        int maxGap = DefaultRohMaxGapBp)
+    {
+        if (genotypes is null)
+            throw new ArgumentNullException(nameof(genotypes));
+        if (minSnps < 1)
+            throw new ArgumentOutOfRangeException(nameof(minSnps), minSnps, "Minimum SNP count must be at least 1.");
+        if (minLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(minLength), minLength, "Minimum length cannot be negative.");
+        if (maxHeterozygotes < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxHeterozygotes), maxHeterozygotes, "Maximum heterozygotes cannot be negative.");
+        if (maxGap < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxGap), maxGap, "Maximum gap cannot be negative.");
+
+        return FindROHIterator(genotypes, minSnps, minLength, maxHeterozygotes, maxGap);
+    }
+
+    private static IEnumerable<(int Start, int End, int SnpCount)> FindROHIterator(
+        IEnumerable<(int Position, int Genotype)> genotypes,
+        int minSnps,
+        int minLength,
+        int maxHeterozygotes,
+        int maxGap)
     {
         var genoList = genotypes.OrderBy(g => g.Position).ToList();
-
-        if (genoList.Count < minSnps)
+        if (genoList.Count == 0)
             yield break;
 
-        int segmentStart = genoList[0].Position;
-        int snpCount = 0;
-        int hetCount = 0;
+        // State of the currently growing run. The run is reported on the closed interval
+        // [runStartIndex .. lastHomIndex]: a run must begin and end on a homozygous SNP, so
+        // trailing tolerated heterozygotes are not part of the emitted run. snpCountAtLastHom
+        // is the SNP count of that emitted interval (interior tolerated heterozygotes included).
+        int runStartIndex = 0;     // first SNP of the current run (homozygous)
+        int snpCount = 0;          // SNPs scanned into the current run so far
+        int hetCount = 0;          // opposite genotypes inside the current run so far
+        int lastHomIndex = 0;      // index of the most recent homozygous SNP in the run
+        int snpCountAtLastHom = 0; // snpCount as of lastHomIndex (the emitted interval size)
+
+        bool QualifiesForEmit(out (int, int, int) run)
+        {
+            int start = genoList[runStartIndex].Position;
+            int end = genoList[lastHomIndex].Position;
+            run = (start, end, snpCountAtLastHom);
+            return snpCountAtLastHom >= minSnps && end - start >= minLength;
+        }
 
         for (int i = 0; i < genoList.Count; i++)
         {
             var (pos, geno) = genoList[i];
+            bool isHet = geno == 1;
 
-            if (geno == 1) // Heterozygous
+            // A gap larger than maxGap breaks the run before this SNP is considered.
+            bool gapBreak = snpCount > 0 && pos - genoList[i - 1].Position > maxGap;
+            // Adding this SNP would push opposite-genotype count past the tolerance.
+            bool hetBreak = isHet && hetCount + 1 > maxHeterozygotes;
+
+            if (snpCount > 0 && (gapBreak || hetBreak))
             {
-                hetCount++;
+                if (QualifiesForEmit(out var run))
+                    yield return run;
+
+                // Restart a fresh run at the breaking SNP. A heterozygous breaker cannot seed a
+                // homozygous run, so begin counting from the next homozygous SNP instead.
+                runStartIndex = i;
+                snpCount = isHet ? 0 : 1;
+                hetCount = 0;
+                lastHomIndex = i;
+                snpCountAtLastHom = isHet ? 0 : 1;
+                continue;
+            }
+
+            if (snpCount == 0)
+            {
+                if (isHet)
+                    continue; // skip leading heterozygous SNPs until a run can start
+                runStartIndex = i;
             }
 
             snpCount++;
-
-            if (hetCount > maxHeterozygotes)
+            if (isHet)
             {
-                // End segment
-                if (snpCount >= minSnps)
-                {
-                    int segmentEnd = genoList[i - 1].Position;
-                    if (segmentEnd - segmentStart >= minLength)
-                    {
-                        yield return (segmentStart, segmentEnd, snpCount - 1);
-                    }
-                }
-
-                // Start new segment
-                segmentStart = pos;
-                snpCount = 1;
-                hetCount = geno == 1 ? 1 : 0;
+                hetCount++;
+            }
+            else
+            {
+                lastHomIndex = i;
+                snpCountAtLastHom = snpCount;
             }
         }
 
-        // Check final segment
-        if (snpCount >= minSnps)
-        {
-            int segmentEnd = genoList.Last().Position;
-            if (segmentEnd - segmentStart >= minLength)
-            {
-                yield return (segmentStart, segmentEnd, snpCount);
-            }
-        }
+        if (snpCount > 0 && QualifiesForEmit(out var finalRun))
+            yield return finalRun;
     }
 
     #endregion

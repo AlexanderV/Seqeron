@@ -14,20 +14,50 @@ public static class MetagenomicsAnalyzer
     #region Records and Types
 
     /// <summary>
-    /// Represents a taxonomic classification result.
+    /// Represents the taxonomic classification of a single read by the Kraken-style
+    /// k-mer / lowest-common-ancestor classifier.
     /// </summary>
+    /// <param name="ReadId">Input read identifier.</param>
+    /// <param name="TaxonId">
+    /// Assigned taxon id — the leaf of the maximum-scoring root-to-leaf (RTL) path in the read's
+    /// classification tree (Wood &amp; Salzberg 2014). Reads with no k-mer hits are assigned the
+    /// root / unclassified taxon (<see cref="TaxonomyTree.RootId"/>).
+    /// </param>
+    /// <param name="TaxonName">Name of the assigned taxon, from the taxonomy tree.</param>
+    /// <param name="Rank">Rank label of the assigned taxon, from the taxonomy tree.</param>
+    /// <param name="RtlScore">
+    /// Score of the winning RTL path: the sum of node weights (k-mer hit counts) along the path
+    /// from the root to the assigned leaf.
+    /// </param>
+    /// <param name="Confidence">
+    /// Kraken C/Q confidence: C = number of k-mers mapped to a taxon in the clade rooted at the
+    /// assigned label, Q = number of non-ambiguous k-mers queried. 0 when there are no hits.
+    /// </param>
+    /// <param name="MatchedKmers">C — k-mers supporting the assigned clade.</param>
+    /// <param name="TotalKmers">Q — non-ambiguous k-mers queried against the database.</param>
+    /// <param name="Kingdom">Kingdom on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Phylum">Phylum on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Class">Class on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Order">Order on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Family">Family on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Genus">Genus on the assigned taxon's lineage, or empty.</param>
+    /// <param name="Species">Species on the assigned taxon's lineage, or empty.</param>
     public readonly record struct TaxonomicClassification(
         string ReadId,
+        int TaxonId,
+        string TaxonName,
+        string Rank,
+        int RtlScore,
+        double Confidence,
+        int MatchedKmers,
+        int TotalKmers,
         string Kingdom,
         string Phylum,
         string Class,
         string Order,
         string Family,
         string Genus,
-        string Species,
-        double Confidence,
-        int MatchedKmers,
-        int TotalKmers);
+        string Species);
 
     /// <summary>
     /// Represents a taxonomic profile of a metagenomic sample.
@@ -92,6 +122,20 @@ public static class MetagenomicsAnalyzer
         double BitScore);
 
     /// <summary>
+    /// Result of a pathway over-representation (enrichment) test.
+    /// <paramref name="PValue"/> is the right-tail hypergeometric probability
+    /// P(X ≥ Overlap): the chance of seeing at least this many query genes in the
+    /// pathway by random sampling from the background.
+    /// </summary>
+    public readonly record struct PathwayEnrichment(
+        string Pathway,
+        int Overlap,
+        int PathwaySize,
+        int QuerySize,
+        int BackgroundSize,
+        double PValue);
+
+    /// <summary>
     /// K-mer database entry for taxonomic classification.
     /// </summary>
     public readonly record struct KmerTaxonEntry(
@@ -102,146 +146,268 @@ public static class MetagenomicsAnalyzer
 
     #endregion
 
-    #region K-mer Based Classification
+    #region K-mer / LCA Taxonomic Classification (Kraken)
+
+    // Kraken (Wood & Salzberg 2014, Genome Biology 15:R46) taxonomic classifier.
+    //
+    // Database build: "a database that contains records consisting of a k-mer and the LCA of all
+    // organisms whose genomes contain that k-mer". As reference sequences are processed, "if a
+    // k-mer from a sequence has had its LCA value previously set, then the LCA of the stored value
+    // and the current sequence's taxon is calculated" and stored.
+    //
+    // Per-read classification: the read's hit taxa "and their ancestors in the taxonomy tree form
+    // what we term the classification tree ... Each node in the classification tree is weighted with
+    // the number of k-mers in K(S) that mapped to the taxon associated with that node. ... each
+    // root-to-leaf (RTL) path in the classification tree is scored by calculating the sum of all
+    // node weights along the path. The maximum scoring RTL path in the classification tree is the
+    // classification path [and its leaf is the assigned label]." Tie-break: "if there are multiple
+    // maximally scoring paths, the LCA of all those paths' leaves is selected."
+    //
+    // Unclassified: "Sequences for which none of the k-mers in K(S) are found in any genome are left
+    // unclassified by this algorithm" — reported here as the root taxon (TaxonomyTree.RootId).
+    //
+    // Confidence reuses Kraken 2's C/Q score: C = k-mers mapped to a taxon in the clade rooted at the
+    // assigned label, Q = non-ambiguous k-mers queried.
+
+    private const string AcgtAlphabet = "ACGT";
 
     /// <summary>
-    /// Classifies metagenomic reads using k-mer matching with a flat best-hit rule.
+    /// Classifies metagenomic reads with the Kraken k-mer / LCA algorithm: for each read it
+    /// collects the (canonical) k-mer hits, builds the classification tree over the hit taxa and
+    /// their ancestors weighted by k-mer count, finds the maximum-scoring root-to-leaf (RTL) path,
+    /// and assigns the leaf of that path (LCA-of-leaves on ties). Reads with no hits are assigned
+    /// the root / unclassified taxon.
     /// </summary>
-    /// <remarks>
-    /// Each read is assigned to the single taxon with the highest count of matching (canonical)
-    /// k-mers. This is a BEST-HIT (highest k-mer count) classifier — it is NOT an LCA / Kraken
-    /// weighted root-to-leaf classifier: there is no taxonomy tree, no lowest-common-ancestor
-    /// resolution, and no per-rank weighting. Each database k-mer maps to exactly one taxon
-    /// (see <see cref="BuildKmerDatabase"/>). Ties (two or more taxa with the same best k-mer count)
-    /// resolve to an arbitrary best-count taxon determined by dictionary/enumeration ordering.
-    /// Confidence is simply matched-best-taxon k-mers / total non-ambiguous k-mers.
-    /// </remarks>
+    /// <param name="reads">Reads to classify (id + nucleotide sequence).</param>
+    /// <param name="kmerDatabase">
+    /// Canonical-k-mer → taxon-id database (see <see cref="BuildKmerDatabase"/>). Keys are canonical
+    /// k-mers; values are taxon ids present in <paramref name="taxonomy"/>.
+    /// </param>
+    /// <param name="taxonomy">Taxonomy tree providing parent chains and the LCA operation.</param>
+    /// <param name="k">K-mer length (default 31, per Kraken). Must be positive.</param>
+    /// <returns>One <see cref="TaxonomicClassification"/> per input read, in input order.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is not positive.</exception>
     public static IEnumerable<TaxonomicClassification> ClassifyReads(
         IEnumerable<(string Id, string Sequence)> reads,
-        IReadOnlyDictionary<string, string> kmerDatabase,
+        IReadOnlyDictionary<string, int> kmerDatabase,
+        TaxonomyTree taxonomy,
         int k = 31)
     {
-        foreach (var (id, sequence) in reads)
+        ArgumentNullException.ThrowIfNull(reads);
+        ArgumentNullException.ThrowIfNull(kmerDatabase);
+        ArgumentNullException.ThrowIfNull(taxonomy);
+        if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), k, "k must be positive.");
+
+        return Iterate();
+
+        IEnumerable<TaxonomicClassification> Iterate()
         {
-            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
-            {
-                yield return new TaxonomicClassification(
-                    id, "Unclassified", "", "", "", "", "", "", 0, 0, 0);
-                continue;
-            }
-
-            var taxonCounts = new Dictionary<string, int>();
-            int totalKmers = 0;
-
-            for (int i = 0; i <= sequence.Length - k; i++)
-            {
-                string kmer = sequence.Substring(i, k).ToUpperInvariant();
-
-                // Skip k-mers containing ambiguous nucleotides (Kraken-style filtering)
-                if (!kmer.All(c => "ACGT".Contains(c)))
-                    continue;
-
-                // Use canonical k-mer (strand-independent) for database lookup
-                string canonical = GetCanonicalKmer(kmer);
-                totalKmers++;
-
-                if (kmerDatabase.TryGetValue(canonical, out string? taxon))
-                {
-                    if (!taxonCounts.ContainsKey(taxon))
-                        taxonCounts[taxon] = 0;
-                    taxonCounts[taxon]++;
-                }
-            }
-
-            if (taxonCounts.Count == 0)
-            {
-                yield return new TaxonomicClassification(
-                    id, "Unclassified", "", "", "", "", "", "", 0, 0, totalKmers);
-                continue;
-            }
-
-            // Best-hit rule: classify to the taxon with the most k-mer hits.
-            // NOT an LCA — ties resolve to an arbitrary best-count taxon (enumeration order).
-            var bestTaxon = taxonCounts.OrderByDescending(kv => kv.Value).First();
-            // C = k-mers supporting the chosen classification, Q = non-ambiguous k-mers
-            int matchedKmers = bestTaxon.Value;
-            double confidence = totalKmers > 0 ? (double)matchedKmers / totalKmers : 0;
-
-            var taxonomy = ParseTaxonomyString(bestTaxon.Key);
-
-            yield return new TaxonomicClassification(
-                ReadId: id,
-                Kingdom: taxonomy.GetValueOrDefault("kingdom", ""),
-                Phylum: taxonomy.GetValueOrDefault("phylum", ""),
-                Class: taxonomy.GetValueOrDefault("class", ""),
-                Order: taxonomy.GetValueOrDefault("order", ""),
-                Family: taxonomy.GetValueOrDefault("family", ""),
-                Genus: taxonomy.GetValueOrDefault("genus", ""),
-                Species: taxonomy.GetValueOrDefault("species", ""),
-                Confidence: confidence,
-                MatchedKmers: matchedKmers,
-                TotalKmers: totalKmers);
+            foreach (var (id, sequence) in reads)
+                yield return ClassifyRead(id, sequence, kmerDatabase, taxonomy, k);
         }
     }
 
-    /// <summary>
-    /// Builds a flat k-mer → taxon database from reference genomes.
-    /// </summary>
-    /// <remarks>
-    /// Each canonical k-mer is mapped to exactly ONE taxon — the FIRST reference genome in which
-    /// it is encountered (subsequent occurrences in other taxa are ignored). This is NOT a Kraken
-    /// LCA database: there is no taxonomy tree and no lowest-common-ancestor assignment for k-mers
-    /// shared across taxa. The resulting database supports only the flat best-hit classification
-    /// performed by <see cref="ClassifyReads"/>.
-    /// </remarks>
-    public static Dictionary<string, string> BuildKmerDatabase(
-        IEnumerable<(string TaxonId, string Sequence)> referenceGenomes,
-        int k = 31)
+    private static TaxonomicClassification ClassifyRead(
+        string id,
+        string sequence,
+        IReadOnlyDictionary<string, int> kmerDatabase,
+        TaxonomyTree taxonomy,
+        int k)
     {
-        var database = new Dictionary<string, string>();
+        // Collect per-taxon k-mer hit counts (the leaf weights of the classification tree) and Q.
+        var hitCounts = new Dictionary<int, int>();
+        int totalKmers = 0; // Q = non-ambiguous k-mers queried
 
-        foreach (var (taxonId, sequence) in referenceGenomes)
+        if (!string.IsNullOrEmpty(sequence) && sequence.Length >= k)
         {
-            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
-                continue;
-
             string seq = sequence.ToUpperInvariant();
-
             for (int i = 0; i <= seq.Length - k; i++)
             {
                 string kmer = seq.Substring(i, k);
-                if (kmer.All(c => "ACGT".Contains(c)))
-                {
-                    // Use canonical k-mer (lexicographically smaller of forward/reverse)
-                    string canonical = GetCanonicalKmer(kmer);
+                if (!IsAcgtOnly(kmer))
+                    continue; // skip ambiguous k-mers (not counted in Q)
 
-                    if (!database.ContainsKey(canonical))
-                        database[canonical] = taxonId;
+                totalKmers++;
+                string canonical = GetCanonicalKmer(kmer);
+                if (kmerDatabase.TryGetValue(canonical, out int taxon) && taxonomy.Contains(taxon))
+                {
+                    hitCounts.TryGetValue(taxon, out int c);
+                    hitCounts[taxon] = c + 1;
                 }
+            }
+        }
+
+        if (hitCounts.Count == 0)
+            return BuildResult(id, taxonomy.Root, 0, 0, totalKmers, taxonomy);
+
+        // Classification tree node weights: weight[node] = k-mers mapped to that exact taxon
+        // (= hitCounts). The RTL score of a leaf L is Σ weight over taxa lying on the path Root..L.
+        //
+        // Leaves of the classification tree = hit taxa that are not a proper ancestor of another hit
+        // taxon. (A hit taxon that is an ancestor of another hit taxon is an internal node, never a
+        // leaf, since the deeper hit extends the path.) Score each candidate leaf as the sum of
+        // hit-weights over taxa lying on its root path.
+        var hitTaxa = hitCounts.Keys.ToList();
+        var leaves = new List<int>();
+        foreach (int candidate in hitTaxa)
+        {
+            bool isAncestorOfAnother = hitTaxa.Any(other =>
+                other != candidate && taxonomy.IsAncestorOf(candidate, other));
+            if (!isAncestorOfAnother)
+                leaves.Add(candidate);
+        }
+
+        int bestScore = int.MinValue;
+        var bestLeaves = new List<int>();
+        foreach (int leaf in leaves)
+        {
+            int score = 0;
+            foreach (int node in taxonomy.GetPathToRoot(leaf))
+                if (hitCounts.TryGetValue(node, out int w))
+                    score += w;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestLeaves.Clear();
+                bestLeaves.Add(leaf);
+            }
+            else if (score == bestScore)
+            {
+                bestLeaves.Add(leaf);
+            }
+        }
+
+        // Tie-break: LCA of all maximally-scoring leaves.
+        int assigned = bestLeaves.Count == 1 ? bestLeaves[0] : taxonomy.Lca(bestLeaves);
+
+        // C = k-mers mapped to any taxon in the clade rooted at the assigned label.
+        int cladeKmers = 0;
+        foreach (var (taxon, weight) in hitCounts)
+            if (taxonomy.IsAncestorOf(assigned, taxon))
+                cladeKmers += weight;
+
+        return BuildResult(id, assigned, bestScore, cladeKmers, totalKmers, taxonomy);
+    }
+
+    private static TaxonomicClassification BuildResult(
+        string id, int assignedTaxon, int rtlScore, int cladeKmers, int totalKmers, TaxonomyTree taxonomy)
+    {
+        var node = taxonomy.GetNode(assignedTaxon);
+        double confidence = totalKmers > 0 ? (double)cladeKmers / totalKmers : 0.0;
+        var ranks = ExtractRankLineage(assignedTaxon, taxonomy);
+
+        return new TaxonomicClassification(
+            ReadId: id,
+            TaxonId: assignedTaxon,
+            TaxonName: node.Name,
+            Rank: node.Rank,
+            RtlScore: rtlScore,
+            Confidence: confidence,
+            MatchedKmers: cladeKmers,
+            TotalKmers: totalKmers,
+            Kingdom: ranks.GetValueOrDefault("kingdom", ""),
+            Phylum: ranks.GetValueOrDefault("phylum", ""),
+            Class: ranks.GetValueOrDefault("class", ""),
+            Order: ranks.GetValueOrDefault("order", ""),
+            Family: ranks.GetValueOrDefault("family", ""),
+            Genus: ranks.GetValueOrDefault("genus", ""),
+            Species: ranks.GetValueOrDefault("species", ""));
+    }
+
+    /// <summary>
+    /// Reads the seven standard ranks off the assigned taxon's lineage (root path), keyed by the
+    /// lowercased rank label on each node, for compatibility with the downstream profile.
+    /// </summary>
+    private static Dictionary<string, string> ExtractRankLineage(int taxonId, TaxonomyTree taxonomy)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (int node in taxonomy.GetPathToRoot(taxonId))
+        {
+            var n = taxonomy.GetNode(node);
+            string rank = (n.Rank ?? "").ToLowerInvariant();
+            switch (rank)
+            {
+                case "kingdom":
+                case "domain":
+                    result["kingdom"] = n.Name; break;
+                case "phylum":
+                case "class":
+                case "order":
+                case "family":
+                case "genus":
+                case "species":
+                    result[rank] = n.Name; break;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Builds a Kraken-style canonical-k-mer → taxon database from labeled reference sequences.
+    /// Each canonical k-mer is mapped to the <em>lowest common ancestor</em> of the taxa of all
+    /// references that contain it: the first reference sets the k-mer's taxon, and every subsequent
+    /// reference replaces the stored value with its LCA against that reference's taxon.
+    /// </summary>
+    /// <param name="referenceSequences">
+    /// Labeled references (taxon id + nucleotide sequence). The taxon id must exist in
+    /// <paramref name="taxonomy"/>.
+    /// </param>
+    /// <param name="taxonomy">Taxonomy tree used to compute the LCA of shared k-mers.</param>
+    /// <param name="k">K-mer length (default 31). Must be positive.</param>
+    /// <returns>A canonical-k-mer → taxon-id database for <see cref="ClassifyReads"/>.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="k"/> is not positive.</exception>
+    /// <exception cref="KeyNotFoundException">A reference's taxon id is not in <paramref name="taxonomy"/>.</exception>
+    public static Dictionary<string, int> BuildKmerDatabase(
+        IEnumerable<(int TaxonId, string Sequence)> referenceSequences,
+        TaxonomyTree taxonomy,
+        int k = 31)
+    {
+        ArgumentNullException.ThrowIfNull(referenceSequences);
+        ArgumentNullException.ThrowIfNull(taxonomy);
+        if (k <= 0) throw new ArgumentOutOfRangeException(nameof(k), k, "k must be positive.");
+
+        var database = new Dictionary<string, int>();
+
+        foreach (var (taxonId, sequence) in referenceSequences)
+        {
+            if (string.IsNullOrEmpty(sequence) || sequence.Length < k)
+                continue;
+            if (!taxonomy.Contains(taxonId))
+                throw new KeyNotFoundException($"Reference taxon id {taxonId} is not in the taxonomy tree.");
+
+            string seq = sequence.ToUpperInvariant();
+            for (int i = 0; i <= seq.Length - k; i++)
+            {
+                string kmer = seq.Substring(i, k);
+                if (!IsAcgtOnly(kmer))
+                    continue;
+
+                string canonical = GetCanonicalKmer(kmer);
+                if (database.TryGetValue(canonical, out int existing))
+                    database[canonical] = taxonomy.Lca(existing, taxonId); // collapse to LCA
+                else
+                    database[canonical] = taxonId;
             }
         }
 
         return database;
     }
 
+    private static bool IsAcgtOnly(string kmer)
+    {
+        foreach (char c in kmer)
+            if (AcgtAlphabet.IndexOf(c) < 0)
+                return false;
+        return true;
+    }
+
     private static string GetCanonicalKmer(string kmer)
     {
         string revComp = DnaSequence.GetReverseComplementString(kmer);
         return string.Compare(kmer, revComp, StringComparison.Ordinal) <= 0 ? kmer : revComp;
-    }
-
-    private static Dictionary<string, string> ParseTaxonomyString(string taxonomy)
-    {
-        var result = new Dictionary<string, string>();
-        var ranks = new[] { "kingdom", "phylum", "class", "order", "family", "genus", "species" };
-
-        var parts = taxonomy.Split(';', '|');
-        for (int i = 0; i < Math.Min(parts.Length, ranks.Length); i++)
-        {
-            result[ranks[i]] = parts[i].Trim();
-        }
-
-        return result;
     }
 
     #endregion
@@ -698,37 +864,133 @@ public static class MetagenomicsAnalyzer
 
     #region Functional Profiling
 
+    // Ungapped Karlin-Altschul parameters for the BLOSUM62 scoring system, taken from
+    // the first (ungapped) row of `blosum62_values` in NCBI's BLAST core blast_stat.c.
+    // Source: NCBI C BLAST Toolkit, algo/blast/core/blast_stat.c.
+    private const double Blosum62UngappedLambda = 0.3176;
+    private const double Blosum62UngappedK = 0.134;
+
+    // ln(2): the bit-score normalization divides by ln 2 so the score is expressed in bits.
+    // Source: Altschul et al., NCBI BLAST tutorial, "The Statistics of Sequence Similarity Scores".
+    private static readonly double Ln2 = Math.Log(2.0);
+
+    // BLOSUM62 diagonal (self-match) substitution scores per amino acid.
+    // An exact (ungapped) self-alignment of a protein segment scores the sum of these
+    // entries over its residues. Source: NCBI BLOSUM62 matrix file (blast/matrices/BLOSUM62).
+    private static readonly IReadOnlyDictionary<char, int> Blosum62Diagonal = new Dictionary<char, int>
+    {
+        ['A'] = 4, ['R'] = 5, ['N'] = 6, ['D'] = 6, ['C'] = 9, ['Q'] = 5, ['E'] = 5,
+        ['G'] = 6, ['H'] = 8, ['I'] = 4, ['L'] = 4, ['K'] = 5, ['M'] = 5, ['F'] = 6,
+        ['P'] = 7, ['S'] = 4, ['T'] = 5, ['W'] = 11, ['Y'] = 7, ['V'] = 4,
+    };
+
     /// <summary>
-    /// Predicts functional annotations using HMM profiles (simplified simulation).
+    /// Predicts functional annotations by homology-based annotation transfer: each query
+    /// protein is matched against a signature database; for every database signature that
+    /// occurs exactly in the protein, the ungapped BLOSUM62 raw score of the matched
+    /// segment is converted into a bit score and an E-value using Karlin-Altschul
+    /// statistics, and the annotation (function, pathway, KO) of the single best hit
+    /// (lowest E-value) is transferred to the gene.
     /// </summary>
+    /// <remarks>
+    /// Bit score: S' = (λ·S − ln K) / ln 2; E-value: E = K·m·n·e^(−λ·S), equivalently
+    /// E = m·n·2^(−S'), with the ungapped BLOSUM62 λ = 0.3176, K = 0.134 (NCBI blast_stat.c)
+    /// and the matched-segment raw score S summed from BLOSUM62 diagonal scores. m and n are
+    /// the lengths of the query protein and the matched signature. Source: Altschul et al.,
+    /// NCBI BLAST tutorial.
+    /// </remarks>
+    /// <param name="proteins">Query genes as (GeneId, ProteinSequence) pairs (single-letter amino acids).</param>
+    /// <param name="functionDatabase">Maps a signature (subsequence) to its (Function, Pathway, KO).</param>
+    /// <returns>One best-hit <see cref="FunctionalAnnotation"/> per gene that matched at least one signature.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="proteins"/> or <paramref name="functionDatabase"/> is null.</exception>
     public static IEnumerable<FunctionalAnnotation> PredictFunctions(
         IEnumerable<(string GeneId, string ProteinSequence)> proteins,
         IReadOnlyDictionary<string, (string Function, string Pathway, string Ko)> functionDatabase)
     {
-        foreach (var (geneId, sequence) in proteins)
-        {
-            if (string.IsNullOrEmpty(sequence))
-                continue;
+        if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+        if (functionDatabase is null) throw new ArgumentNullException(nameof(functionDatabase));
 
-            // Simplified: look for conserved motifs
-            foreach (var entry in functionDatabase)
+        return Iterate();
+
+        IEnumerable<FunctionalAnnotation> Iterate()
+        {
+            foreach (var (geneId, sequence) in proteins)
             {
-                string motif = entry.Key;
-                if (sequence.Contains(motif))
+                if (string.IsNullOrWhiteSpace(sequence))
+                    continue;
+
+                FunctionalAnnotation? best = null;
+
+                foreach (var entry in functionDatabase)
                 {
+                    string signature = entry.Key;
+                    if (string.IsNullOrEmpty(signature) || !sequence.Contains(signature, StringComparison.Ordinal))
+                        continue;
+
+                    int rawScore = Blosum62SelfScore(signature);
+                    double bitScore = FunctionalBitScore(rawScore);
+                    // m·n is the search space: query length × matched-signature length.
+                    double eValue = ExpectedValue(rawScore, sequence.Length, signature.Length);
+
                     var (function, pathway, ko) = entry.Value;
-                    yield return new FunctionalAnnotation(
+                    var candidate = new FunctionalAnnotation(
                         GeneId: geneId,
                         Function: function,
                         Pathway: pathway,
                         KoNumber: ko,
                         CogCategory: InferCogCategory(function),
-                        EValue: 1e-10, // Simulated
-                        BitScore: motif.Length * 2.0);
+                        EValue: eValue,
+                        BitScore: bitScore);
+
+                    // Best hit = lowest E-value (most significant). Source: BLAST E-value ranks significance.
+                    if (best is null || candidate.EValue < best.Value.EValue)
+                        best = candidate;
                 }
+
+                if (best is not null)
+                    yield return best.Value;
             }
         }
     }
+
+    /// <summary>
+    /// Ungapped BLOSUM62 raw self-alignment score of a protein segment: the sum of the
+    /// BLOSUM62 diagonal scores over its residues. Unknown residues contribute 0.
+    /// Source: NCBI BLOSUM62 matrix file.
+    /// </summary>
+    public static int Blosum62SelfScore(string segment)
+    {
+        if (string.IsNullOrEmpty(segment))
+            return 0;
+
+        int score = 0;
+        foreach (char residue in segment)
+        {
+            if (Blosum62Diagonal.TryGetValue(char.ToUpperInvariant(residue), out int s))
+                score += s;
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    /// Bit (normalized) score from a raw ungapped BLOSUM62 alignment score:
+    /// S' = (λ·S − ln K) / ln 2. Source: Altschul et al., NCBI BLAST tutorial.
+    /// </summary>
+    public static double FunctionalBitScore(double rawScore)
+        => (Blosum62UngappedLambda * rawScore - Math.Log(Blosum62UngappedK)) / Ln2;
+
+    /// <summary>
+    /// Karlin-Altschul E-value of an ungapped BLOSUM62 alignment with raw score
+    /// <paramref name="rawScore"/> over a search space of size m·n:
+    /// E = K·m·n·e^(−λ·S). Source: Altschul et al., NCBI BLAST tutorial.
+    /// </summary>
+    /// <param name="rawScore">Raw alignment score S.</param>
+    /// <param name="queryLength">Query length m.</param>
+    /// <param name="subjectLength">Matched-subject length n.</param>
+    public static double ExpectedValue(double rawScore, int queryLength, int subjectLength)
+        => Blosum62UngappedK * queryLength * subjectLength
+           * Math.Exp(-Blosum62UngappedLambda * rawScore);
 
     private static string InferCogCategory(string function)
     {
@@ -742,6 +1004,138 @@ public static class MetagenomicsAnalyzer
         if (function.Contains("membrane")) return "M"; // Cell membrane
 
         return "S"; // Function unknown
+    }
+
+    /// <summary>
+    /// Pathway over-representation (enrichment) analysis using the hypergeometric test.
+    /// For each pathway, computes the right-tail probability of observing at least as many
+    /// query genes in the pathway as were observed, by random sampling from the background:
+    /// P(X ≥ x) = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n), where N = background size,
+    /// M = pathway size, n = query size, x = overlap. Source: PNNL Proteomics Data Analysis
+    /// §8.2 Over-Representation Analysis.
+    /// </summary>
+    /// <param name="queryGenes">The gene set of interest (e.g. predicted/differential genes).</param>
+    /// <param name="pathwayDatabase">Maps pathway id → its member genes.</param>
+    /// <param name="backgroundGenes">
+    /// The background gene universe. If null or empty, the union of all pathway members is
+    /// used as the background.
+    /// </param>
+    /// <returns>One <see cref="PathwayEnrichment"/> per pathway, ascending by p-value.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="queryGenes"/> or <paramref name="pathwayDatabase"/> is null.</exception>
+    public static IReadOnlyList<PathwayEnrichment> FindPathwayEnrichment(
+        IEnumerable<string> queryGenes,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> pathwayDatabase,
+        IEnumerable<string>? backgroundGenes = null)
+    {
+        if (queryGenes is null) throw new ArgumentNullException(nameof(queryGenes));
+        if (pathwayDatabase is null) throw new ArgumentNullException(nameof(pathwayDatabase));
+
+        var query = new HashSet<string>(queryGenes, StringComparer.Ordinal);
+
+        var background = backgroundGenes is not null
+            ? new HashSet<string>(backgroundGenes, StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
+        if (background.Count == 0)
+        {
+            foreach (var members in pathwayDatabase.Values)
+                foreach (var gene in members)
+                    background.Add(gene);
+        }
+        // The query is part of the universe being sampled from.
+        background.UnionWith(query);
+
+        int n = query.Count;            // sample size (interesting genes)
+        int bigN = background.Count;    // population size (background)
+
+        var results = new List<PathwayEnrichment>(pathwayDatabase.Count);
+        foreach (var (pathwayId, rawMembers) in pathwayDatabase)
+        {
+            // Count pathway members and overlap relative to the background universe.
+            var members = new HashSet<string>(rawMembers, StringComparer.Ordinal);
+            members.IntersectWith(background);
+
+            int bigM = members.Count;   // successes in population (pathway size)
+            int x = 0;                  // observed successes in sample (overlap)
+            foreach (var gene in query)
+                if (members.Contains(gene)) x++;
+
+            double pValue = HypergeometricUpperTail(x, bigN, bigM, n);
+            results.Add(new PathwayEnrichment(pathwayId, x, bigM, n, bigN, pValue));
+        }
+
+        results.Sort((a, b) => a.PValue.CompareTo(b.PValue));
+        return results;
+    }
+
+    /// <summary>
+    /// Right-tail hypergeometric probability P(X ≥ x) for drawing <paramref name="n"/> items
+    /// from a population of <paramref name="bigN"/> containing <paramref name="bigM"/> successes:
+    /// P(X ≥ x) = Σ_{i=x}^{min(n,M)} C(M,i)·C(N−M, n−i) / C(N, n)
+    ///          = 1 − Σ_{i=0}^{x−1} C(M,i)·C(N−M, n−i) / C(N, n).
+    /// The upper tail is summed directly (i = x … min(n, M)) rather than as 1 − lower-tail, to
+    /// avoid catastrophic cancellation when the tail probability is tiny (e.g. 7.88e-8 for the
+    /// PNNL §8.2 example): subtracting a sum ≈ 1 from 1.0 would destroy the small result.
+    /// Each PMF term is computed in log-space (log-Gamma) for numerical stability.
+    /// Source: PNNL ORA §8.2; Boyle et al. (2004), Bioinformatics 20(18):3710-3715.
+    /// </summary>
+    public static double HypergeometricUpperTail(int x, int bigN, int bigM, int n)
+    {
+        // Degenerate / empty-sum cases: no over-representation possible ⇒ p = 1.
+        if (x <= 0 || bigM <= 0 || n <= 0 || bigN <= 0)
+            return 1.0;
+
+        double logDenom = LogChoose(bigN, n);
+        double tail = 0.0; // Σ_{i=x}^{min(n,M)} P(X = i)
+        int upper = Math.Min(n, bigM); // beyond this, C(M,i) = 0 (cannot draw more successes than exist)
+        for (int i = x; i <= upper; i++)
+        {
+            // P(X = i) is 0 when the partial table is infeasible (LogChoose → −∞).
+            double logTerm = LogChoose(bigM, i) + LogChoose(bigN - bigM, n - i) - logDenom;
+            if (!double.IsNegativeInfinity(logTerm))
+                tail += Math.Exp(logTerm);
+        }
+
+        return Math.Clamp(tail, 0.0, 1.0);
+    }
+
+    /// <summary>Log of the binomial coefficient C(n, k) via log-Gamma; −∞ when k ∉ [0, n].</summary>
+    private static double LogChoose(int n, int k)
+    {
+        if (k < 0 || k > n)
+            return double.NegativeInfinity;
+
+        return LogGamma(n + 1) - LogGamma(k + 1) - LogGamma(n - k + 1);
+    }
+
+    /// <summary>Lanczos approximation of ln Γ(x) for x &gt; 0.</summary>
+    private static double LogGamma(double x)
+    {
+        if (x <= 0)
+            return double.PositiveInfinity;
+
+        // Lanczos approximation coefficients.
+        double[] c =
+        {
+            76.18009172947146,
+            -86.50532032941677,
+            24.01409824083091,
+            -1.231739572450155,
+            0.1208650973866179e-2,
+            -0.5395239384953e-5,
+        };
+
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.Log(tmp);
+
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++)
+        {
+            y += 1;
+            ser += c[j] / y;
+        }
+
+        return -tmp + Math.Log(2.5066282746310005 * ser / x);
     }
 
     /// <summary>
@@ -783,6 +1177,176 @@ public static class MetagenomicsAnalyzer
     #endregion
 
     #region Antibiotic Resistance Gene Detection
+
+    // ResFinder-style acquired-resistance-gene detection thresholds.
+    // ResFinder reports the best-matching database gene found by a sequence search and
+    // applies a percent-identity (%ID) cutoff and a coverage (length) cutoff.
+    // Zankari et al. (2012) JAC 67(11):2640-2644: the web service default %ID is 100% and
+    // is user-selectable; a gene must "cover at least 2/5 of the length of the resistance
+    // gene in the database". The 90% identity / 60% coverage pair is the documented
+    // ResFinder web-service operating point (Zankari et al. 2017, JAC 72(10):2764-2768).
+    // Source URLs recorded in docs/Evidence/META-RESIST-001-Evidence.md.
+
+    /// <summary>Default minimum percent identity (0–1) for calling a resistance gene present.</summary>
+    public const double DefaultResistanceIdentityThreshold = 0.90;   // ResFinder web service default %ID.
+
+    /// <summary>Default minimum coverage (0–1) of the reference gene length.</summary>
+    public const double DefaultResistanceCoverageThreshold = 0.60;   // ResFinder min coverage (Zankari 2012/2017).
+
+    /// <summary>
+    /// A detected antibiotic-resistance gene: the best-matching reference gene for a contig
+    /// that meets the identity and coverage thresholds.
+    /// </summary>
+    /// <param name="ContigId">Identifier of the query contig/gene that was searched.</param>
+    /// <param name="ResistanceGene">Name of the matched reference resistance gene.</param>
+    /// <param name="AntibioticClass">Antibiotic class conferred by the matched gene.</param>
+    /// <param name="PercentIdentity">
+    /// BLAST-style percent identity (0–1): identical positions divided by the gapless
+    /// alignment length of the best ungapped match.
+    /// </param>
+    /// <param name="Coverage">
+    /// Fraction (0–1) of the reference gene length spanned by the best ungapped match.
+    /// </param>
+    public readonly record struct ResistanceHit(
+        string ContigId,
+        string ResistanceGene,
+        string AntibioticClass,
+        double PercentIdentity,
+        double Coverage);
+
+    /// <summary>
+    /// Detects acquired antibiotic-resistance genes in assembled contigs against a
+    /// caller-supplied reference database, following the ResFinder methodology: for each
+    /// reference gene the best ungapped alignment to the contig is located, percent identity
+    /// and reference coverage are computed, and the reference gene is reported only when it
+    /// passes both thresholds. For each contig the single best-matching reference gene is
+    /// reported (highest identity, ties broken by higher coverage), mirroring ResFinder's
+    /// "best-matching gene" output.
+    /// </summary>
+    /// <param name="contigs">Assembled contigs (id + nucleotide sequence) to screen.</param>
+    /// <param name="referenceGenes">
+    /// Reference resistance genes (id, full nucleotide sequence, gene name, antibiotic class).
+    /// The caller supplies the curated database (e.g. ResFinder/CARD); no gene list is hard-coded.
+    /// </param>
+    /// <param name="identityThreshold">Minimum percent identity (0–1). Defaults to the ResFinder web-service value.</param>
+    /// <param name="coverageThreshold">Minimum reference coverage (0–1). Defaults to the ResFinder value.</param>
+    /// <returns>One <see cref="ResistanceHit"/> per contig that has a passing best match.</returns>
+    /// <exception cref="ArgumentNullException">If <paramref name="contigs"/> or <paramref name="referenceGenes"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If a threshold is outside [0, 1].</exception>
+    public static IEnumerable<ResistanceHit> FindAntibioticResistanceGenes(
+        IEnumerable<(string ContigId, string Sequence)> contigs,
+        IEnumerable<(string GeneId, string Sequence, string Name, string AntibioticClass)> referenceGenes,
+        double identityThreshold = DefaultResistanceIdentityThreshold,
+        double coverageThreshold = DefaultResistanceCoverageThreshold)
+    {
+        if (contigs is null) throw new ArgumentNullException(nameof(contigs));
+        if (referenceGenes is null) throw new ArgumentNullException(nameof(referenceGenes));
+        if (identityThreshold < 0.0 || identityThreshold > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(identityThreshold), identityThreshold, "Identity threshold must be in [0, 1].");
+        if (coverageThreshold < 0.0 || coverageThreshold > 1.0)
+            throw new ArgumentOutOfRangeException(nameof(coverageThreshold), coverageThreshold, "Coverage threshold must be in [0, 1].");
+
+        var refList = referenceGenes
+            .Where(r => !string.IsNullOrEmpty(r.Sequence))
+            .ToList();
+
+        return Iterate();
+
+        IEnumerable<ResistanceHit> Iterate()
+        {
+            foreach (var (contigId, sequence) in contigs)
+            {
+                if (string.IsNullOrEmpty(sequence))
+                    continue;
+
+                ResistanceHit? best = null;
+
+                foreach (var reference in refList)
+                {
+                    var (identity, coverage) = BestUngappedMatch(sequence, reference.Sequence);
+
+                    // ResFinder: report only matches passing both the %ID and coverage cutoffs.
+                    if (identity < identityThreshold || coverage < coverageThreshold)
+                        continue;
+
+                    var candidate = new ResistanceHit(
+                        ContigId: contigId,
+                        ResistanceGene: reference.Name,
+                        AntibioticClass: reference.AntibioticClass,
+                        PercentIdentity: identity,
+                        Coverage: coverage);
+
+                    // Best-matching gene: highest identity, ties broken by greater coverage.
+                    if (best is null
+                        || candidate.PercentIdentity > best.Value.PercentIdentity
+                        || (candidate.PercentIdentity == best.Value.PercentIdentity
+                            && candidate.Coverage > best.Value.Coverage))
+                    {
+                        best = candidate;
+                    }
+                }
+
+                if (best is not null)
+                    yield return best.Value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds the best ungapped (gapless) alignment of <paramref name="reference"/> within
+    /// <paramref name="contig"/> and returns its BLAST-style percent identity and reference
+    /// coverage. The reference is slid across the contig at every offset (including offsets
+    /// where it overhangs an end, so partially assembled genes on a contig edge are scored);
+    /// for each offset identical positions are counted over the overlapping window. The
+    /// returned identity = identical positions / window length (gaps are not introduced, so
+    /// the gapless alignment length equals the overlap length); coverage = window length /
+    /// reference length. The offset maximizing identical positions is chosen; on an equal
+    /// match count the higher-identity (shorter) window is preferred so the alignment is never
+    /// padded with flanking mismatches (a padded window would lower identity and could spuriously
+    /// fail the identity threshold even when a perfect HSP exists).
+    /// </summary>
+    private static (double Identity, double Coverage) BestUngappedMatch(string contig, string reference)
+    {
+        int n = contig.Length;
+        int m = reference.Length;
+        int bestMatches = 0;
+        int bestWindow = 0;
+
+        // Offsets from -(m-1) (reference overhangs the left end) to (n-1) (overhangs the right end).
+        for (int offset = -(m - 1); offset <= n - 1; offset++)
+        {
+            int start = Math.Max(0, offset);
+            int end = Math.Min(n, offset + m);     // exclusive on the contig
+            int window = end - start;
+            if (window <= 0)
+                continue;
+
+            int matches = 0;
+            for (int i = 0; i < window; i++)
+            {
+                // contig[start + i] aligns to reference[(start - offset) + i]
+                if (contig[start + i] == reference[start - offset + i])
+                    matches++;
+            }
+
+            // Prefer the window with the most identical positions; on an equal match count
+            // favour the shorter (higher-identity) window so the chosen alignment is not padded
+            // with mismatching flanks. bestWindow == 0 marks the unset state.
+            if (matches > bestMatches
+                || (matches == bestMatches && bestWindow != 0 && window < bestWindow))
+            {
+                bestMatches = matches;
+                bestWindow = window;
+            }
+        }
+
+        if (bestWindow == 0)
+            return (0.0, 0.0);
+
+        double identity = (double)bestMatches / bestWindow;   // identical positions / gapless alignment length
+        double coverage = (double)bestWindow / m;             // fraction of reference gene length covered
+        return (identity, coverage);
+    }
 
     /// <summary>
     /// Searches for antibiotic resistance genes.
@@ -874,6 +1438,194 @@ public static class MetagenomicsAnalyzer
 
         // Approximate p-value using normal distribution
         return 2 * (1 - StatisticsHelper.NormalCDF(t));
+    }
+
+    #endregion
+
+    #region Significant Taxa Detection (Mann–Whitney U)
+
+    // Normal-approximation constants for the Mann–Whitney U statistic.
+    // Mean m_U = n1*n2/2 and variance n1*n2*(n1+n2+1)/12 per Mann & Whitney (1947),
+    // Ann. Math. Statist. 18(1):50–60 (see docs/Evidence/META-TAXA-001-Evidence.md).
+    private const double MannWhitneyVarianceDivisor = 12.0;
+    // Continuity correction subtracts 0.5 from |U − m_U| (SciPy mannwhitneyu, use_continuity=True default).
+    private const double ContinuityCorrection = 0.5;
+
+    /// <summary>
+    /// Result of a single taxon's two-group differential-abundance test.
+    /// </summary>
+    /// <param name="Taxon">Taxon identifier.</param>
+    /// <param name="U">Mann–Whitney U statistic (the larger of U1, U2 used for the z-score).</param>
+    /// <param name="Z">Normal-approximation z-score, <c>(|U − m_U| − cc) / σ_U</c>.</param>
+    /// <param name="PValue">Two-tailed asymptotic p-value, <c>2·SF(|z|)</c>, clamped to [0,1].</param>
+    /// <param name="Significant"><c>PValue &lt; pThreshold</c>.</param>
+    public readonly record struct SignificantTaxon(
+        string Taxon,
+        double U,
+        double Z,
+        double PValue,
+        bool Significant);
+
+    /// <summary>
+    /// Result of the Mann–Whitney U (Wilcoxon rank-sum) test under the normal approximation.
+    /// </summary>
+    /// <param name="U1">U statistic for <c>group1</c>: <c>R1 − n1(n1+1)/2</c>.</param>
+    /// <param name="U2">U statistic for <c>group2</c>: <c>n1·n2 − U1</c>.</param>
+    /// <param name="Z">z-score from the larger U: <c>(|U − m_U| − cc) / σ_U</c>.</param>
+    /// <param name="PValue">Two-tailed asymptotic p-value <c>2·SF(|z|)</c>, clamped to [0,1].</param>
+    public readonly record struct MannWhitneyResult(double U1, double U2, double Z, double PValue);
+
+    /// <summary>
+    /// Computes the Mann–Whitney U (Wilcoxon rank-sum) test between two independent samples using
+    /// the asymptotic normal approximation with midrank tie handling.
+    /// </summary>
+    /// <remarks>
+    /// U1 = R1 − n1(n1+1)/2 where R1 is the rank sum of <paramref name="group1"/> in the pooled
+    /// midrank ranking; U2 = n1·n2 − U1. The z-score uses m_U = n1·n2/2 and the tie-corrected
+    /// σ_U = sqrt(n1·n2·(n1+n2+1)/12 − n1·n2·Σ(t³−t)/(12·n·(n−1))). Mann &amp; Whitney (1947).
+    /// </remarks>
+    /// <param name="group1">First sample's observations (e.g., abundances). Must be non-empty.</param>
+    /// <param name="group2">Second sample's observations. Must be non-empty.</param>
+    /// <param name="useContinuityCorrection">Subtract 0.5 from |U − m_U| (default true, matching SciPy).</param>
+    /// <returns>U1, U2, z, and the two-tailed asymptotic p-value.</returns>
+    /// <exception cref="ArgumentNullException">A group is null.</exception>
+    /// <exception cref="ArgumentException">A group is empty.</exception>
+    public static MannWhitneyResult MannWhitneyU(
+        IReadOnlyList<double> group1,
+        IReadOnlyList<double> group2,
+        bool useContinuityCorrection = true)
+    {
+        ArgumentNullException.ThrowIfNull(group1);
+        ArgumentNullException.ThrowIfNull(group2);
+        if (group1.Count == 0 || group2.Count == 0)
+            throw new ArgumentException("Both groups must contain at least one observation.");
+
+        int n1 = group1.Count;
+        int n2 = group2.Count;
+        int n = n1 + n2;
+
+        // Pool both samples and assign midranks (ties share the average of their positions).
+        var pooled = new (double Value, int Group)[n];
+        for (int i = 0; i < n1; i++) pooled[i] = (group1[i], 1);
+        for (int j = 0; j < n2; j++) pooled[n1 + j] = (group2[j], 2);
+        Array.Sort(pooled, (a, b) => a.Value.CompareTo(b.Value));
+
+        var ranks = new double[n];
+        double tieTermSum = 0; // Σ (t_k³ − t_k) over tie groups
+        int idx = 0;
+        while (idx < n)
+        {
+            int start = idx;
+            while (idx < n && pooled[idx].Value == pooled[start].Value) idx++;
+            int tieCount = idx - start;
+            // Ranks are 1-based; midrank = average of the (start+1 .. idx) positions.
+            double midRank = (start + 1 + idx) / 2.0;
+            for (int k = start; k < idx; k++) ranks[k] = midRank;
+            if (tieCount > 1)
+            {
+                double t = tieCount;
+                tieTermSum += t * t * t - t;
+            }
+        }
+
+        double r1 = 0;
+        for (int k = 0; k < n; k++)
+            if (pooled[k].Group == 1) r1 += ranks[k];
+
+        // U1 = R1 − n1(n1+1)/2 ; U2 = n1·n2 − U1  (Mann & Whitney 1947).
+        double u1 = r1 - (double)n1 * (n1 + 1) / 2.0;
+        double nProduct = (double)n1 * n2;
+        double u2 = nProduct - u1;
+
+        double meanU = nProduct / 2.0;
+        // Tie-corrected variance: n1·n2/12 · [(n+1) − Σ(t³−t)/(n(n−1))].
+        double variance = n > 1
+            ? nProduct / MannWhitneyVarianceDivisor * ((n + 1) - tieTermSum / ((double)n * (n - 1)))
+            : 0.0;
+
+        double z;
+        double pValue;
+        if (variance <= 0)
+        {
+            // Degenerate: all observations tied → σ = 0, no evidence against H0.
+            z = 0.0;
+            pValue = 1.0;
+        }
+        else
+        {
+            double sigma = Math.Sqrt(variance);
+            double uForZ = Math.Max(u1, u2);
+            double distance = Math.Abs(uForZ - meanU);
+            if (useContinuityCorrection)
+                distance = Math.Max(0.0, distance - ContinuityCorrection);
+            z = distance / sigma;
+            // Two-tailed: 2·SF(|z|) = 2·(1 − Φ(|z|)). Clamp to [0,1] for tiny numerical overshoot.
+            pValue = Math.Clamp(2.0 * (1.0 - StatisticsHelper.NormalCDF(z)), 0.0, 1.0);
+        }
+
+        return new MannWhitneyResult(u1, u2, z, pValue);
+    }
+
+    /// <summary>
+    /// Identifies taxa whose abundances differ significantly between two sample groups using a
+    /// per-taxon Mann–Whitney U (Wilcoxon rank-sum) test, the standard non-parametric approach for
+    /// differential abundance in metagenomics (Xia &amp; Sun 2017).
+    /// </summary>
+    /// <param name="profiles">Per-sample taxon→abundance maps. A taxon absent in a profile counts as abundance 0.</param>
+    /// <param name="groups">Group label (1 or 2) for each profile, aligned by index with <paramref name="profiles"/>.</param>
+    /// <param name="pThreshold">Significance threshold; a taxon is significant when its p-value is below it.</param>
+    /// <param name="useContinuityCorrection">Passed to <see cref="MannWhitneyU"/> (default true).</param>
+    /// <returns>One <see cref="SignificantTaxon"/> per taxon observed in any profile, ordered by ascending p-value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="profiles"/> or <paramref name="groups"/> is null.</exception>
+    /// <exception cref="ArgumentException">Counts mismatch, fewer than two groups present, or a profile lacks a 1/2 label.</exception>
+    public static IReadOnlyList<SignificantTaxon> FindSignificantTaxa(
+        IReadOnlyList<IReadOnlyDictionary<string, double>> profiles,
+        IReadOnlyList<int> groups,
+        double pThreshold = 0.05,
+        bool useContinuityCorrection = true)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+        ArgumentNullException.ThrowIfNull(groups);
+        if (profiles.Count != groups.Count)
+            throw new ArgumentException("profiles and groups must have the same length.");
+        if (profiles.Count == 0)
+            return Array.Empty<SignificantTaxon>();
+
+        var group1Indices = new List<int>();
+        var group2Indices = new List<int>();
+        for (int i = 0; i < groups.Count; i++)
+        {
+            if (groups[i] == 1) group1Indices.Add(i);
+            else if (groups[i] == 2) group2Indices.Add(i);
+            else throw new ArgumentException($"Group label at index {i} must be 1 or 2.");
+        }
+
+        if (group1Indices.Count == 0 || group2Indices.Count == 0)
+            throw new ArgumentException("Both group 1 and group 2 must contain at least one profile.");
+
+        var allTaxa = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var profile in profiles)
+            foreach (var taxon in profile.Keys)
+                allTaxa.Add(taxon);
+
+        var results = new List<SignificantTaxon>(allTaxa.Count);
+        foreach (var taxon in allTaxa)
+        {
+            var g1 = group1Indices.Select(i => profiles[i].GetValueOrDefault(taxon, 0.0)).ToList();
+            var g2 = group2Indices.Select(i => profiles[i].GetValueOrDefault(taxon, 0.0)).ToList();
+
+            var mw = MannWhitneyU(g1, g2, useContinuityCorrection);
+            double u = Math.Max(mw.U1, mw.U2);
+            results.Add(new SignificantTaxon(taxon, u, mw.Z, mw.PValue, mw.PValue < pThreshold));
+        }
+
+        // Deterministic ordering: ascending p-value, then taxon name for stable ties.
+        results.Sort((a, b) =>
+        {
+            int cmp = a.PValue.CompareTo(b.PValue);
+            return cmp != 0 ? cmp : string.CompareOrdinal(a.Taxon, b.Taxon);
+        });
+        return results;
     }
 
     #endregion
