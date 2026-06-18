@@ -1236,4 +1236,614 @@ public class OncologyProperties
         Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AdjustVAFForPurity(0.4, 0.8, ploidy));
 
     #endregion
+
+    #region ONCO-DRIVER-001 — Driver Mutation Detection (20/20 Rule)
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (transcribed from Driver_Mutation_Detection.md §2.2/§2.4,
+    // NOT routed through production constants). The 20/20-rule threshold, the
+    // recurrent-position min count, and the truncating consequence set are LOCAL
+    // literals here, so a self-consistent-but-wrong production constant is caught.
+    //
+    // DOC AMBIGUITY (resolved against the SOURCE): the doc's INV-02 phrases the
+    // dual-pass tie-break as "Oncogene needs f_OG ≥ f_TSG", which would label an
+    // exact f_OG == f_TSG tie Oncogene; but §4.1/§5.3/§6 (and the implementation,
+    // OncologyAnalyzer.ClassifyGene) treat an EXACT tie with BOTH fractions > 0.20
+    // as Ambiguous. We follow the SOURCE: the property generators are constructed so
+    // they NEVER emit an exact-tie dual-pass case (we assert dominant-fraction roles
+    // only), and the exact-tie corner is pinned in a dedicated [Test] anchor below
+    // (Driver_DualPassExactTie_IsAmbiguous) with this note.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Literal 20/20-rule driver fraction threshold (strict <c>&gt;</c>), Vogelstein 2013 / Tokheim 2020.</summary>
+    private const double DriverThreshold = 0.20;
+
+    /// <summary>Literal recurrent-position minimum count: a position is recurrent at ≥ 2 missense (Miller 2017).</summary>
+    private const int RecurrentMinCount = 2;
+
+    /// <summary>
+    /// INV-05 fraction oracle, recomputed INDEPENDENTLY of the production grouping:
+    /// N = total mutations; recurrentMissenseCount = sum over protein positions with ≥ 2 missense of their
+    /// FULL missense count; truncatingCount = #(consequence ∈ {Nonsense, Frameshift, SpliceSite});
+    /// f_OG = recurrentMissenseCount / N, f_TSG = truncatingCount / N (both 0 on empty).
+    /// </summary>
+    private static (double fOg, double fTsg) ExpectedFractions(IReadOnlyList<OncologyAnalyzer.GeneMutation> mutations)
+    {
+        int n = mutations.Count;
+        if (n == 0)
+        {
+            return (0.0, 0.0);
+        }
+
+        int truncatingCount = mutations.Count(IsTruncatingOracle);
+
+        int recurrentMissenseCount = mutations
+            .Where(m => m.Consequence == OncologyAnalyzer.MutationConsequence.Missense)
+            .GroupBy(m => m.ProteinPosition)
+            .Where(g => g.Count() >= RecurrentMinCount)
+            .Sum(g => g.Count());
+
+        return ((double)recurrentMissenseCount / n, (double)truncatingCount / n);
+    }
+
+    /// <summary>Independent truncating predicate: nonsense, frameshift, or splice-site (Schroeder 2014; Miller 2017).</summary>
+    private static bool IsTruncatingOracle(OncologyAnalyzer.GeneMutation m) =>
+        m.Consequence is OncologyAnalyzer.MutationConsequence.Nonsense
+            or OncologyAnalyzer.MutationConsequence.Frameshift
+            or OncologyAnalyzer.MutationConsequence.SpliceSite;
+
+    /// <summary>
+    /// INV-02/INV-03 role oracle (full 20/20 rule, transcribed from the SOURCE — NOT the doc's literal
+    /// INV-02 phrasing): only f_OG &gt; 0.20 ⇒ Oncogene; only f_TSG &gt; 0.20 ⇒ TumorSuppressor; both &gt; 0.20
+    /// with a STRICTLY dominant fraction ⇒ that fraction's role; both &gt; 0.20 with an EXACT tie ⇒ Ambiguous
+    /// (the documented dual-pass tie behavior, §4.1/§5.3/§6); neither ⇒ Ambiguous. The dedicated-role property
+    /// generators never emit an exact tie, but this oracle is also used by the multi-gene membership property
+    /// (which CAN), so it must encode the exact-tie⇒Ambiguous resolution to stay an honest independent oracle.
+    /// </summary>
+    private static OncologyAnalyzer.DriverGeneRole ExpectedRole(double fOg, double fTsg)
+    {
+        bool isOg = fOg > DriverThreshold;
+        bool isTsg = fTsg > DriverThreshold;
+
+        if (isOg && isTsg)
+        {
+            if (fOg > fTsg)
+            {
+                return OncologyAnalyzer.DriverGeneRole.Oncogene;
+            }
+
+            return fTsg > fOg
+                ? OncologyAnalyzer.DriverGeneRole.TumorSuppressor
+                : OncologyAnalyzer.DriverGeneRole.Ambiguous; // exact tie
+        }
+
+        if (isOg)
+        {
+            return OncologyAnalyzer.DriverGeneRole.Oncogene;
+        }
+
+        return isTsg
+            ? OncologyAnalyzer.DriverGeneRole.TumorSuppressor
+            : OncologyAnalyzer.DriverGeneRole.Ambiguous;
+    }
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>Small gene-symbol pool, so IdentifyDriverMutations groups several mutations per gene.</summary>
+    private static readonly string[] DriverGenePool = { "KRAS", "TP53", "EGFR", "BRAF", "PTEN" };
+
+    /// <summary>All consequence categories the generator may draw, including non-driver <c>Other</c>.</summary>
+    private static readonly OncologyAnalyzer.MutationConsequence[] DriverConsequencePool =
+    {
+        OncologyAnalyzer.MutationConsequence.Missense,
+        OncologyAnalyzer.MutationConsequence.Nonsense,
+        OncologyAnalyzer.MutationConsequence.Frameshift,
+        OncologyAnalyzer.MutationConsequence.SpliceSite,
+        OncologyAnalyzer.MutationConsequence.Other,
+    };
+
+    /// <summary>A single random mutation: a gene from the pool, a position in a SMALL range (to force recurrence), any consequence.</summary>
+    private static Gen<OncologyAnalyzer.GeneMutation> DriverMutationGen(string gene) =>
+        from posObj in Gen.Choose(1, 4) // tiny range ⇒ collisions ⇒ recurrent positions
+        from consObj in Gen.Elements(DriverConsequencePool)
+        select new OncologyAnalyzer.GeneMutation(gene, posObj, consObj);
+
+    /// <summary>A list (1..12) of mutations for ONE gene — the contract for ClassifyGene/ScoreDriverPotential.</summary>
+    private static Arbitrary<OncologyAnalyzer.GeneMutation[]> SingleGeneMutationsArbitrary() =>
+        (from gene in Gen.Elements(DriverGenePool)
+         from n in Gen.Choose(1, 12)
+         from arr in DriverMutationGen(gene).ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    /// <summary>A list (0..18) of mutations across SEVERAL genes — the contract for IdentifyDriverMutations.</summary>
+    private static Arbitrary<OncologyAnalyzer.GeneMutation[]> MultiGeneMutationsArbitrary() =>
+        (from n in Gen.Choose(0, 18)
+         from arr in (from gene in Gen.Elements(DriverGenePool)
+                      from m in DriverMutationGen(gene)
+                      select m).ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    /// <summary>
+    /// Builds a PURE-ONCOGENE gene: <paramref name="recurrent"/> missense ALL at one position (≥ 2 ⇒ recurrent)
+    /// plus <paramref name="filler"/> non-recurrent, non-truncating <c>Other</c> mutations at distinct positions.
+    /// f_OG = recurrent/(recurrent+filler); f_TSG = 0. With recurrent &gt; filler·(0.25) it exceeds 0.20.
+    /// </summary>
+    private static OncologyAnalyzer.GeneMutation[] BuildPureOncogene(string gene, int recurrent, int filler)
+    {
+        var list = new List<OncologyAnalyzer.GeneMutation>();
+        for (int i = 0; i < recurrent; i++)
+        {
+            list.Add(new OncologyAnalyzer.GeneMutation(gene, 100, OncologyAnalyzer.MutationConsequence.Missense));
+        }
+
+        for (int i = 0; i < filler; i++)
+        {
+            list.Add(new OncologyAnalyzer.GeneMutation(gene, 200 + i, OncologyAnalyzer.MutationConsequence.Other));
+        }
+
+        return list.ToArray();
+    }
+
+    /// <summary>
+    /// Builds a PURE-TSG gene: <paramref name="truncating"/> nonsense mutations (at distinct positions, so they
+    /// contribute to f_TSG only) plus <paramref name="filler"/> non-recurrent <c>Other</c> mutations.
+    /// f_TSG = truncating/(truncating+filler); f_OG = 0.
+    /// </summary>
+    private static OncologyAnalyzer.GeneMutation[] BuildPureTsg(string gene, int truncating, int filler)
+    {
+        var list = new List<OncologyAnalyzer.GeneMutation>();
+        for (int i = 0; i < truncating; i++)
+        {
+            list.Add(new OncologyAnalyzer.GeneMutation(gene, 300 + i, OncologyAnalyzer.MutationConsequence.Nonsense));
+        }
+
+        for (int i = 0; i < filler; i++)
+        {
+            list.Add(new OncologyAnalyzer.GeneMutation(gene, 500 + i, OncologyAnalyzer.MutationConsequence.Other));
+        }
+
+        return list.ToArray();
+    }
+
+    /// <summary>
+    /// Builds an AMBIGUOUS gene: only <c>Other</c> and single (non-recurrent) missense / single truncating,
+    /// so BOTH fractions are 0 (≤ 0.20). Distinct positions ⇒ no recurrence; one truncating over a large N.
+    /// </summary>
+    private static OncologyAnalyzer.GeneMutation[] BuildAmbiguous(string gene, int filler)
+    {
+        var list = new List<OncologyAnalyzer.GeneMutation>();
+        // One isolated missense (not recurrent) + one truncating, drowned by Other filler.
+        list.Add(new OncologyAnalyzer.GeneMutation(gene, 700, OncologyAnalyzer.MutationConsequence.Missense));
+        for (int i = 0; i < filler; i++)
+        {
+            list.Add(new OncologyAnalyzer.GeneMutation(gene, 800 + i, OncologyAnalyzer.MutationConsequence.Other));
+        }
+
+        return list.ToArray();
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-05: fraction oracle
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-05: <c>RecurrentMissenseFraction</c> and <c>TruncatingFraction</c> equal the INDEPENDENTLY recomputed
+    /// counts/N (recurrent = missense positions with ≥ 2 missense, full count; truncating = nonsense+frameshift+
+    /// splice), within 1e-9; <c>MutationCount</c> == N; both fractions ∈ [0, 1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_Fractions_MatchIndependentOracle()
+    {
+        return Prop.ForAll(SingleGeneMutationsArbitrary(), mutations =>
+        {
+            var c = OncologyAnalyzer.ClassifyGene(mutations);
+            var (fOg, fTsg) = ExpectedFractions(mutations);
+
+            bool ogOk = Math.Abs(c.RecurrentMissenseFraction - fOg) < 1e-9;
+            bool tsgOk = Math.Abs(c.TruncatingFraction - fTsg) < 1e-9;
+            bool countOk = c.MutationCount == mutations.Length;
+            bool inRange = c.RecurrentMissenseFraction is >= 0.0 and <= 1.0
+                           && c.TruncatingFraction is >= 0.0 and <= 1.0;
+
+            return (ogOk && tsgOk && countOk && inRange)
+                .Label($"f_OG {c.RecurrentMissenseFraction}/{fOg}, f_TSG {c.TruncatingFraction}/{fTsg}, " +
+                       $"count {c.MutationCount}/{mutations.Length}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-02/INV-03: role (unambiguous cases only — generators exclude exact ties)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-02/INV-03: <c>Role</c> matches the independent 20/20-rule oracle for the UNAMBIGUOUS cases. The
+    /// fraction generator is built so an exact f_OG == f_TSG dual pass is impossible: a pure-oncogene gene has
+    /// f_TSG = 0, a pure-TSG gene has f_OG = 0, an ambiguous gene has both 0. Thus the role is fully determined
+    /// by the single non-zero criterion (or Ambiguous when neither exceeds 0.20).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_Role_MatchesOracle_NoExactTie()
+    {
+        // Each scenario yields f_OG=0 XOR f_TSG=0 (or both 0) ⇒ never an exact dual-pass tie over 0.20.
+        var scenarioGen =
+            from gene in Gen.Elements(DriverGenePool)
+            from kind in Gen.Choose(0, 2)
+            from major in Gen.Choose(1, 10)
+            from filler in Gen.Choose(0, 10)
+            select kind switch
+            {
+                0 => BuildPureOncogene(gene, major + 1, filler), // ≥ 2 missense ⇒ recurrent
+                1 => BuildPureTsg(gene, major, filler),
+                _ => BuildAmbiguous(gene, filler),
+            };
+
+        return Prop.ForAll(scenarioGen.ToArbitrary(), mutations =>
+        {
+            var c = OncologyAnalyzer.ClassifyGene(mutations);
+            var (fOg, fTsg) = ExpectedFractions(mutations);
+            var expected = ExpectedRole(fOg, fTsg);
+            return (c.Role == expected)
+                .Label($"role {c.Role} != oracle {expected} (f_OG={fOg}, f_TSG={fTsg})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // R / INV-04: ScoreDriverPotential
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-04: <c>ScoreDriverPotential</c> equals <c>max(f_OG, f_TSG)</c> (independent oracle, within 1e-9)
+    /// and lies in [0, 1] — driver score ≥ 0 always.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_Score_IsMaxFractionAndInUnitRange()
+    {
+        return Prop.ForAll(SingleGeneMutationsArbitrary(), mutations =>
+        {
+            double score = OncologyAnalyzer.ScoreDriverPotential(mutations);
+            var (fOg, fTsg) = ExpectedFractions(mutations);
+            double expected = Math.Max(fOg, fTsg);
+            return (Math.Abs(score - expected) < 1e-9 && score is >= 0.0 and <= 1.0)
+                .Label($"score {score} != max({fOg},{fTsg})={expected}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M: more recurrent / hotspot → higher driver likelihood
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// M (monotone construction): a gene whose mutations are ALL missense at ONE position (f_OG = 1.0 ⇒ score
+    /// 1.0) scores ≥ ANY mixed gene of the same size that adds non-recurrent <c>Other</c> filler (which only
+    /// lowers the recurrent-missense fraction). Concretely, score(all-recurrent) == 1.0 ≥ score(recurrent+filler),
+    /// strictly &gt; whenever filler &gt; 0. Constructed, not a vague claim.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_Score_MoreRecurrent_IsHigher()
+    {
+        var gen =
+            from gene in Gen.Elements(DriverGenePool)
+            from recurrent in Gen.Choose(2, 10) // ≥ 2 ⇒ recurrent
+            from filler in Gen.Choose(0, 10)
+            select (gene, recurrent, filler);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            // Pure recurrent: f_OG = 1.0 ⇒ score 1.0.
+            var pure = BuildPureOncogene(t.gene, t.recurrent, 0);
+            // Diluted: same recurrent block + non-recurrent Other filler ⇒ f_OG < 1 when filler > 0.
+            var diluted = BuildPureOncogene(t.gene, t.recurrent, t.filler);
+
+            double pureScore = OncologyAnalyzer.ScoreDriverPotential(pure);
+            double dilutedScore = OncologyAnalyzer.ScoreDriverPotential(diluted);
+
+            bool pureIsOne = Math.Abs(pureScore - 1.0) < 1e-9;
+            bool monotone = pureScore >= dilutedScore - 1e-12;
+            bool strictWhenDiluted = t.filler == 0 || pureScore > dilutedScore + 1e-12;
+
+            return (pureIsOne && monotone && strictWhenDiluted)
+                .Label($"pure={pureScore} (expect 1.0), diluted={dilutedScore}, filler={t.filler}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-01 / P: IdentifyDriverMutations subset + MatchCancerHotspots membership
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-01 + P: <c>IdentifyDriverMutations</c> returns a SUBSET of the input in INPUT ORDER, and every
+    /// returned mutation is justified — its gene is a driver gene (Oncogene/TumorSuppressor by the independent
+    /// oracle) OR its (gene, position) is a known hotspot. Conversely no NON-driver, NON-hotspot mutation is
+    /// returned. Driven with a random hotspot set built from the input's own (gene, position) keys.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_Identify_IsJustifiedSubsetInOrder()
+    {
+        var gen =
+            from mutations in MultiGeneMutationsArbitrary().Generator
+            // Hotspot set: a random subset of the input's (gene, position) keys.
+            from mask in Gen.Choose(0, 1).ArrayOf(mutations.Length)
+            select (mutations, mask);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var hotspots = t.mutations
+                .Where((_, i) => t.mask.Length > i && t.mask[i] == 1)
+                .Select(m => (m.Gene, m.ProteinPosition))
+                .ToHashSet();
+            IReadOnlySet<(string, int)> hotspotSet = hotspots;
+
+            var drivers = OncologyAnalyzer.IdentifyDriverMutations(t.mutations, hotspotSet);
+
+            // Independent oracle: a gene is a driver gene iff its oracle role != Ambiguous.
+            var driverGenes = t.mutations
+                .GroupBy(m => m.Gene, StringComparer.Ordinal)
+                .Where(g =>
+                {
+                    var (fOg, fTsg) = ExpectedFractions(g.ToList());
+                    return ExpectedRole(fOg, fTsg) != OncologyAnalyzer.DriverGeneRole.Ambiguous;
+                })
+                .Select(g => g.Key)
+                .ToHashSet(StringComparer.Ordinal);
+
+            bool IsExpectedDriver(OncologyAnalyzer.GeneMutation m) =>
+                driverGenes.Contains(m.Gene) || hotspots.Contains((m.Gene, m.ProteinPosition));
+
+            // Expected = exactly the input mutations satisfying the predicate, in input order.
+            var expected = t.mutations.Where(IsExpectedDriver).ToList();
+
+            bool sameLength = drivers.Count == expected.Count;
+            bool sameOrder = sameLength && drivers.Zip(expected, (a, b) => a.Equals(b)).All(x => x);
+            bool allJustified = drivers.All(IsExpectedDriver);
+
+            return (sameLength && sameOrder && allJustified)
+                .Label($"drivers {drivers.Count} vs expected {expected.Count}, order={sameOrder}");
+        });
+    }
+
+    /// <summary>
+    /// P (construction): an Oncogene-classified gene ⇒ ALL its mutations are returned; a hotspot-only mutation
+    /// in an Ambiguous gene ⇒ returned IFF its (gene, position) ∈ knownHotspots.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_Identify_OncogeneAllReturned_HotspotGatesAmbiguous()
+    {
+        // KRAS: pure oncogene (3 missense at pos 100) ⇒ all 3 returned regardless of hotspots.
+        var kras = BuildPureOncogene("KRAS", 3, 0);
+        // PTEN: ambiguous (1 isolated missense + Other filler) ⇒ only hotspot mutation returned.
+        var pten = BuildAmbiguous("PTEN", 3);
+        var input = kras.Concat(pten).ToArray();
+
+        // Hotspot only on the PTEN isolated missense at position 700.
+        IReadOnlySet<(string, int)> hotspots = new HashSet<(string, int)> { ("PTEN", 700) };
+
+        var drivers = OncologyAnalyzer.IdentifyDriverMutations(input, hotspots);
+
+        Assert.Multiple(() =>
+        {
+            // All KRAS oncogene mutations present.
+            Assert.That(drivers.Count(m => m.Gene == "KRAS"), Is.EqualTo(3));
+            // Exactly the single hotspot PTEN mutation present (the Other filler is neither driver nor hotspot).
+            Assert.That(drivers.Count(m => m.Gene == "PTEN"), Is.EqualTo(1));
+            Assert.That(drivers.Single(m => m.Gene == "PTEN").ProteinPosition, Is.EqualTo(700));
+            // Subset of input.
+            Assert.That(drivers.All(input.Contains), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// P: <c>MatchCancerHotspots</c> is true ⟺ (gene, position) ∈ the supplied set, over arbitrary mutations
+    /// and a random hotspot set drawn from the gene/position space.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_MatchHotspots_IsSetMembership()
+    {
+        var gen =
+            from gene in Gen.Elements(DriverGenePool)
+            from pos in Gen.Choose(1, 6)
+            from cons in Gen.Elements(DriverConsequencePool)
+            from inSetFlag in Gen.Choose(0, 1)
+            select (mutation: new OncologyAnalyzer.GeneMutation(gene, pos, cons), inSet: inSetFlag == 1);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var set = new HashSet<(string, int)>();
+            if (t.inSet)
+            {
+                set.Add((t.mutation.Gene, t.mutation.ProteinPosition));
+            }
+
+            IReadOnlySet<(string, int)> hotspots = set;
+            bool matched = OncologyAnalyzer.MatchCancerHotspots(t.mutation, hotspots);
+            bool expected = set.Contains((t.mutation.Gene, t.mutation.ProteinPosition));
+            return (matched == expected)
+                .Label($"matched={matched}, expected={expected}, inSet={t.inSet}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D: determinism
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D (determinism): identical inputs ⇒ identical classification (record equality), identical score, and an
+    /// identical driver list (same length, entrywise equal) across repeated calls.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Driver_IsDeterministic()
+    {
+        return Prop.ForAll(MultiGeneMutationsArbitrary(), mutations =>
+        {
+            var c1 = OncologyAnalyzer.ClassifyGene(mutations);
+            var c2 = OncologyAnalyzer.ClassifyGene(mutations);
+            double s1 = OncologyAnalyzer.ScoreDriverPotential(mutations);
+            double s2 = OncologyAnalyzer.ScoreDriverPotential(mutations);
+            var d1 = OncologyAnalyzer.IdentifyDriverMutations(mutations);
+            var d2 = OncologyAnalyzer.IdentifyDriverMutations(mutations);
+
+            bool classOk = c1.Equals(c2);
+            bool scoreOk = s1.Equals(s2);
+            bool driversOk = d1.Count == d2.Count && d1.Zip(d2, (a, b) => a.Equals(b)).All(x => x);
+
+            return (classOk && scoreOk && driversOk)
+                .Label($"classOk={classOk}, scoreOk={scoreOk}, driversOk={driversOk}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Edge cases / validation (READ-from-source behavior, §3.3 / §6.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Edge (§3.3): null mutations ⇒ <see cref="ArgumentNullException"/> on every entry point.</summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_NullMutations_Throws() =>
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ClassifyGene(null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.ScoreDriverPotential(null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.IdentifyDriverMutations(null!));
+        });
+
+    /// <summary>
+    /// Edge (SOURCE behavior): <c>IdentifyDriverMutations</c> treats a null <c>knownHotspots</c> as EMPTY
+    /// (does NOT throw) — the parameter is nullable with a null-coalescing default in OncologyAnalyzer. This is
+    /// the actual implementation behavior; the doc §3.3's blanket "null knownHotspots throws" applies to
+    /// <c>MatchCancerHotspots</c> (whose set parameter is NON-nullable and DOES throw — asserted separately).
+    /// With no hotspots, an Oncogene gene's mutations are still returned (gene-driven), proving null⇒empty
+    /// rather than null⇒throw.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_Identify_NullHotspots_TreatedAsEmpty()
+    {
+        var kras = BuildPureOncogene("KRAS", 3, 0);
+        IReadOnlyList<OncologyAnalyzer.GeneMutation> drivers =
+            OncologyAnalyzer.IdentifyDriverMutations(kras, null);
+        // No throw; the oncogene's mutations are returned via gene classification, not via hotspots.
+        Assert.That(drivers.Count, Is.EqualTo(3));
+    }
+
+    /// <summary>Edge (§3.3): <c>MatchCancerHotspots</c> with a null set ⇒ <see cref="ArgumentNullException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_MatchHotspots_NullSet_Throws() =>
+        Assert.Throws<ArgumentNullException>(() =>
+            OncologyAnalyzer.MatchCancerHotspots(
+                new OncologyAnalyzer.GeneMutation("KRAS", 12, OncologyAnalyzer.MutationConsequence.Missense),
+                null!));
+
+    /// <summary>Edge (§6.1): an empty mutation list ⇒ Ambiguous, both fractions 0, count 0, score 0.</summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_EmptyList_AmbiguousZeroFractions()
+    {
+        var c = OncologyAnalyzer.ClassifyGene(Array.Empty<OncologyAnalyzer.GeneMutation>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.Role, Is.EqualTo(OncologyAnalyzer.DriverGeneRole.Ambiguous));
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.0));
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.0));
+            Assert.That(c.MutationCount, Is.EqualTo(0));
+            Assert.That(OncologyAnalyzer.ScoreDriverPotential(Array.Empty<OncologyAnalyzer.GeneMutation>()),
+                Is.EqualTo(0.0));
+        });
+    }
+
+    /// <summary>
+    /// Edge (§6.1, strict threshold): a truncating fraction EXACTLY 0.20 is NOT a TumorSuppressor — 1 nonsense
+    /// among 5 mutations (f_TSG = 0.20) classifies Ambiguous, since the rule is strict <c>&gt;</c> 0.20.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_TruncatingFractionExactly020_NotTumorSuppressor()
+    {
+        var mutations = new[]
+        {
+            new OncologyAnalyzer.GeneMutation("TP53", 1, OncologyAnalyzer.MutationConsequence.Nonsense),
+            new OncologyAnalyzer.GeneMutation("TP53", 2, OncologyAnalyzer.MutationConsequence.Other),
+            new OncologyAnalyzer.GeneMutation("TP53", 3, OncologyAnalyzer.MutationConsequence.Other),
+            new OncologyAnalyzer.GeneMutation("TP53", 4, OncologyAnalyzer.MutationConsequence.Other),
+            new OncologyAnalyzer.GeneMutation("TP53", 5, OncologyAnalyzer.MutationConsequence.Other),
+        };
+        var c = OncologyAnalyzer.ClassifyGene(mutations);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.20).Within(1e-12));
+            Assert.That(c.Role, Is.Not.EqualTo(OncologyAnalyzer.DriverGeneRole.TumorSuppressor));
+            Assert.That(c.Role, Is.EqualTo(OncologyAnalyzer.DriverGeneRole.Ambiguous));
+        });
+    }
+
+    /// <summary>
+    /// Edge (§6.1): a SINGLE missense at a position is NOT recurrent — three distinct-position single missenses
+    /// give f_OG = 0 (recurrence requires ≥ 2 at one position).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_SingleMissensePerPosition_NotRecurrent()
+    {
+        var mutations = new[]
+        {
+            new OncologyAnalyzer.GeneMutation("EGFR", 10, OncologyAnalyzer.MutationConsequence.Missense),
+            new OncologyAnalyzer.GeneMutation("EGFR", 20, OncologyAnalyzer.MutationConsequence.Missense),
+            new OncologyAnalyzer.GeneMutation("EGFR", 30, OncologyAnalyzer.MutationConsequence.Missense),
+        };
+        var c = OncologyAnalyzer.ClassifyGene(mutations);
+        Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.0));
+    }
+
+    /// <summary>
+    /// Dual-pass EXACT-TIE corner (DOC AMBIGUITY): a gene with f_OG == f_TSG, BOTH strictly &gt; 0.20, is
+    /// Ambiguous per the SOURCE (OncologyAnalyzer.ClassifyGene resolves an exact tie to Ambiguous; §4.1/§5.3/§6),
+    /// NOT Oncogene as a literal reading of doc INV-02's "f_OG ≥ f_TSG" would suggest. Construction: 2 recurrent
+    /// missense (one position) + 2 nonsense over N=4 ⇒ f_OG = f_TSG = 0.50.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_DualPassExactTie_IsAmbiguous()
+    {
+        var mutations = new[]
+        {
+            new OncologyAnalyzer.GeneMutation("BRAF", 600, OncologyAnalyzer.MutationConsequence.Missense),
+            new OncologyAnalyzer.GeneMutation("BRAF", 600, OncologyAnalyzer.MutationConsequence.Missense),
+            new OncologyAnalyzer.GeneMutation("BRAF", 1, OncologyAnalyzer.MutationConsequence.Nonsense),
+            new OncologyAnalyzer.GeneMutation("BRAF", 2, OncologyAnalyzer.MutationConsequence.Nonsense),
+        };
+        var c = OncologyAnalyzer.ClassifyGene(mutations);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(0.50).Within(1e-12));
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.50).Within(1e-12));
+            Assert.That(c.Role, Is.EqualTo(OncologyAnalyzer.DriverGeneRole.Ambiguous));
+        });
+    }
+
+    /// <summary>
+    /// IDH1 anchor (§7.1): 10 missense at codon 132 ⇒ Role Oncogene, RecurrentMissenseFraction 1.0,
+    /// TruncatingFraction 0.0, ScoreDriverPotential 1.0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Driver_Idh1WorkedExample_Anchor()
+    {
+        var idh1 = Enumerable.Range(0, 10)
+            .Select(_ => new OncologyAnalyzer.GeneMutation("IDH1", 132, OncologyAnalyzer.MutationConsequence.Missense))
+            .ToArray();
+        var c = OncologyAnalyzer.ClassifyGene(idh1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(c.Role, Is.EqualTo(OncologyAnalyzer.DriverGeneRole.Oncogene));
+            Assert.That(c.RecurrentMissenseFraction, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(c.TruncatingFraction, Is.EqualTo(0.0));
+            Assert.That(OncologyAnalyzer.ScoreDriverPotential(idh1), Is.EqualTo(1.0).Within(1e-12));
+        });
+    }
+
+    #endregion
 }
