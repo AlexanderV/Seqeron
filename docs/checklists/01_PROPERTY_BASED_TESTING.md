@@ -53,7 +53,7 @@ Property-based testing генерирует сотни случайных вхо
 | 21 | ☑ | PRIMER-TM-001 | MolTools | R: Tm > 0; M: longer GC-rich → higher Tm; D: deterministic; P: Tm in biologically valid range | PrimerProbeProperties.cs |
 | 22 | ☑ | PRIMER-DESIGN-001 | MolTools | R: primer len ∈ [min,max]; P: GC% in range; R: Tm in range; D: deterministic | PrimerProbeProperties.cs |
 | 23 | ☑ | PRIMER-STRUCT-001 | MolTools | R: hairpin ΔG ≤ 0; R: dimer score ≥ 0; D: deterministic | PrimerProbeProperties.cs |
-| 24 | ☐ | PROBE-DESIGN-001 | MolTools | R: probe len ∈ [min,max]; M: stricter Tm → fewer probes; P: GC% in range | PrimerProbeProperties.cs |
+| 24 | ☑ | PROBE-DESIGN-001 | MolTools | R: probe len ∈ [min,max]; M: stricter Tm → fewer probes; P: GC% in range | PrimerProbeProperties.cs |
 | 25 | ☐ | PROBE-VALID-001 | MolTools | R: validation pass/fail; D: deterministic; P: Tm in expected range | PrimerProbeProperties.cs |
 | 26 | ☑ | RESTR-FIND-001 | MolTools | R: positions valid; P: site sequence matches enzyme recognition; D: deterministic | RestrictionProperties.cs |
 | 27 | ☑ | RESTR-DIGEST-001 | MolTools | P: sum(fragment lengths) = seq length; R: fragments ≥ 1; D: deterministic | RestrictionProperties.cs |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 69 |
-| ☐ Not started | 157 |
+| ☑ Complete | 70 |
+| ☐ Not started | 156 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

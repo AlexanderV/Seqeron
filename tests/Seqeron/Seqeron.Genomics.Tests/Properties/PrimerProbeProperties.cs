@@ -1227,49 +1227,339 @@ public class PrimerProbeProperties
 
     #endregion
 
-    // -- PROBE-DESIGN-001 --
+    #region Generators &amp; Theory Oracle (PROBE-DESIGN-001)
 
     /// <summary>
-    /// Designed probes have GC content within valid range.
+    /// Independent GC fraction oracle: (#G + #C) / length on the uppercased sequence, computed
+    /// from raw base counts — NOT routed through any production helper. Returns 0 for empty input.
+    /// (The production code stores GcContent as a fraction in [0,1], cf. INV-02.)
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DesignProbes_GcContent_InRange()
+    private static double ExpectedGcFraction(string seq)
     {
-        string target = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 10));
-        var probes = ProbeDesigner.DesignProbes(target).ToList();
-
-        foreach (var p in probes)
-            Assert.That(p.GcContent, Is.InRange(0.0, 1.0));
+        if (seq.Length == 0) return 0;
+        var (_, gc) = CountAtGc(seq);
+        return (double)gc / seq.Length;
     }
 
     /// <summary>
-    /// Designed probes have finite melting temperature.
+    /// Generates a randomized probe-design scenario: a target long enough to host probe windows,
+    /// plus a randomized parameter window (the design "config knobs" — length, GC and Tm bands).
+    /// The windows are deliberately varied so the invariants are exercised across configurations
+    /// rather than a single hard-coded preset (cf. ADVANCED_TESTING_CHECKLIST multi-knob probe
+    /// mention: length range + GC range + Tm range). Lengths are kept short (probe windows
+    /// ~12-26 bp) so hundreds of cases run quickly while still spanning the length filter.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void DesignProbes_Tm_IsFinite()
-    {
-        string target = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 10));
-        var probes = ProbeDesigner.DesignProbes(target).ToList();
+    private static Arbitrary<(string target, ProbeDesigner.ProbeParameters param)>
+        ProbeScenarioArbitrary() =>
+        (from minLen in Gen.Choose(12, 18)
+         from extra in Gen.Choose(0, 8)
+         let maxLen = minLen + extra
+         from minGcPct in Gen.Choose(25, 50)
+         from gcSpanPct in Gen.Choose(10, 40)
+         let maxGcPct = Math.Min(95, minGcPct + gcSpanPct)
+         from minTm in Gen.Choose(30, 60)
+         from tmSpan in Gen.Choose(5, 35)
+         let maxTm = minTm + tmSpan
+         // Target must be at least maxLen long so windows exist; add slack for multiple windows.
+         from slack in Gen.Choose(0, 30)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(maxLen + slack)
+         let param = new ProbeDesigner.ProbeParameters(
+             MinLength: minLen, MaxLength: maxLen,
+             MinTm: minTm, MaxTm: maxTm,
+             MinGc: minGcPct / 100.0, MaxGc: maxGcPct / 100.0,
+             MaxHomopolymer: 6,
+             AvoidSecondaryStructure: false,
+             MaxSelfComplementarity: 0.5)
+         select (new string(chars), param)).ToArbitrary();
 
-        foreach (var p in probes)
-            Assert.That(double.IsFinite(p.Tm), Is.True);
+    /// <summary>
+    /// Generates a target plus two NESTED Tm windows (B ⊆ A) over the same length/GC parameters,
+    /// for the subset-monotonicity property. Both windows share identical length and GC bands so
+    /// the only difference is the Tm acceptance band — window B is strictly no wider than window A.
+    /// </summary>
+    private static Arbitrary<(string target, ProbeDesigner.ProbeParameters wide, ProbeDesigner.ProbeParameters narrow)>
+        NestedTmScenarioArbitrary() =>
+        (from minLen in Gen.Choose(12, 18)
+         from extra in Gen.Choose(0, 6)
+         let maxLen = minLen + extra
+         // Wide Tm window [aMin, aMax]; narrow window [bMin, bMax] nested inside it.
+         from aMin in Gen.Choose(20, 50)
+         from aSpan in Gen.Choose(30, 70)
+         let aMax = aMin + aSpan
+         from bLeftPad in Gen.Choose(0, aSpan / 2)
+         from bRightPad in Gen.Choose(0, aSpan / 2)
+         let bMin = aMin + bLeftPad
+         let bMax = aMax - bRightPad
+         from slack in Gen.Choose(10, 40)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(maxLen + slack)
+         let wide = new ProbeDesigner.ProbeParameters(
+             MinLength: minLen, MaxLength: maxLen,
+             MinTm: aMin, MaxTm: aMax,
+             MinGc: 0.30, MaxGc: 0.70,
+             MaxHomopolymer: 6, AvoidSecondaryStructure: false, MaxSelfComplementarity: 0.5)
+         let narrow = wide with { MinTm = bMin, MaxTm = bMax }
+         select (new string(chars), wide, narrow)).ToArbitrary();
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — Length Invariant (R: strict, by construction)
+
+    /// <summary>
+    /// INV-R-len (strict, by construction): EVERY returned <see cref="ProbeDesigner.Probe"/> has
+    /// Sequence.Length within [MinLength, MaxLength], with coordinates consistent
+    /// (End − Start + 1 == Sequence.Length, Start ≥ 0, End &lt; target.Length). This is a HARD
+    /// guarantee: the candidate loop only emits windows whose length lies in the configured range
+    /// (ProbeDesigner.cs §DesignProbesOptimized). Exercised across randomized targets AND randomized
+    /// length windows so the bound is a true config-driven invariant. Source: §4.1 step 3; the
+    /// length filter is structural, never a soft penalty.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignProbes_Length_StrictlyInConfiguredWindow()
+    {
+        return Prop.ForAll(ProbeScenarioArbitrary(), s =>
+        {
+            var (target, param) = s;
+            var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 100000).ToList();
+
+            foreach (var p in probes)
+            {
+                if (p.Sequence.Length < param.MinLength || p.Sequence.Length > param.MaxLength)
+                    return false.Label(
+                        $"length {p.Sequence.Length} outside [{param.MinLength},{param.MaxLength}]");
+                if (p.End - p.Start + 1 != p.Sequence.Length)
+                    return false.Label($"coords inconsistent: {p.Start}..{p.End} vs len {p.Sequence.Length}");
+                if (p.Start < 0 || p.End >= target.Length)
+                    return false.Label($"coords out of target bounds: {p.Start}..{p.End}, target len {target.Length}");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — GC Invariant (P: RELAXED band + warning equivalence)
+
+    /// <summary>
+    /// INV-P-GC (RELAXED band, NOT strict): GC is only a −0.3 soft penalty in
+    /// <c>EvaluateProbeWithGc</c>; the sole HARD GC bound is the early-rejection filter
+    /// <c>gc &lt; MinGc − 0.1 || gc &gt; MaxGc + 0.1</c>. Therefore the guaranteed invariant is
+    /// GcContent ∈ [MinGc − 0.1, MaxGc + 0.1] (a fraction) — NOT the strict [MinGc, MaxGc].
+    /// The production GcContent is also recomputed independently (ExpectedGcFraction) to confirm
+    /// the stored fraction is itself correct (INV-02: gcCount/length). Source: ProbeDesigner.cs
+    /// §DesignProbesOptimized early-rejection; §2.2 penalty table; doc §6 "outside range" is a warning.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignProbes_GcContent_WithinRelaxedBand_AndMatchesOracle()
+    {
+        return Prop.ForAll(ProbeScenarioArbitrary(), s =>
+        {
+            var (target, param) = s;
+            var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 100000).ToList();
+
+            foreach (var p in probes)
+            {
+                double oracleGc = ExpectedGcFraction(p.Sequence);
+                if (Math.Abs(p.GcContent - oracleGc) > 1e-9)
+                    return false.Label($"GcContent {p.GcContent} != oracle {oracleGc} for '{p.Sequence}'");
+
+                // Relaxed hard band: [MinGc − 0.1, MaxGc + 0.1]. A small epsilon absorbs fp jitter.
+                if (p.GcContent < param.MinGc - 0.1 - 1e-9 || p.GcContent > param.MaxGc + 0.1 + 1e-9)
+                    return false.Label(
+                        $"GcContent {p.GcContent} outside relaxed band " +
+                        $"[{param.MinGc - 0.1},{param.MaxGc + 0.1}]");
+            }
+
+            return true.ToProperty();
+        });
     }
 
     /// <summary>
-    /// Probe score is in [0, 1].
+    /// INV-P-GC-warning (equivalence): a returned probe carries a GC warning IFF its GcContent is
+    /// strictly outside the configured [MinGc, MaxGc] band. The GC penalty branch in
+    /// <c>EvaluateProbeWithGc</c> adds exactly the "GC content … outside range" warning precisely
+    /// when <c>gc &lt; MinGc || gc &gt; MaxGc</c>. We recompute the GC fraction independently and
+    /// verify the warning⇔outside-strict-range biconditional. This is the honest replacement for a
+    /// (WRONG) strict-band assertion. Source: ProbeDesigner.cs §EvaluateProbeWithGc.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignProbes_GcWarning_IffOutsideStrictBand()
+    {
+        return Prop.ForAll(ProbeScenarioArbitrary(), s =>
+        {
+            var (target, param) = s;
+            var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 100000).ToList();
+
+            foreach (var p in probes)
+            {
+                double gc = ExpectedGcFraction(p.Sequence);
+                bool outsideStrict = gc < param.MinGc || gc > param.MaxGc;
+                bool hasGcWarning = p.Warnings.Any(w => w.StartsWith("GC content"));
+
+                if (outsideStrict != hasGcWarning)
+                    return false.Label(
+                        $"GC warning {hasGcWarning} != outsideStrict {outsideStrict} " +
+                        $"(gc {gc}, band [{param.MinGc},{param.MaxGc}]) for '{p.Sequence}'");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — Tm Monotonicity (M: SUBSET, not naive count)
+
+    /// <summary>
+    /// INV-M-Tm (subset monotonicity): Tm is only a −0.3 soft penalty (never a hard filter);
+    /// probes are dropped solely when total Score ≤ 0, then the top <c>maxProbes</c> by score are
+    /// returned. So for the SAME target and parameters identical except the Tm band, if window
+    /// B ⊆ window A (B narrower) then count(B) ≤ count(A): each probe's score under B is ≤ its
+    /// score under A (the only difference is possibly an extra −0.3 Tm penalty), so the
+    /// positive-score set under B is a subset of that under A. A LARGE maxProbes (100000) is used
+    /// so neither result saturates at the cap — otherwise both saturate and the relation is vacuous.
+    /// This is the HONEST monotonic claim, NOT the naive "narrower window ⇒ fewer windows scanned".
+    /// Source: ProbeDesigner.cs §EvaluateProbeWithGc Tm penalty + §DesignProbesOptimized score gate.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignProbes_NarrowerTmWindow_NeverMoreProbes()
+    {
+        return Prop.ForAll(NestedTmScenarioArbitrary(), s =>
+        {
+            var (target, wide, narrow) = s;
+            const int cap = 100000;
+            int countWide = ProbeDesigner.DesignProbes(target, wide, maxProbes: cap).Count();
+            int countNarrow = ProbeDesigner.DesignProbes(target, narrow, maxProbes: cap).Count();
+
+            return (countNarrow <= countWide)
+                .Label($"narrower Tm window produced MORE probes: " +
+                       $"narrow [{narrow.MinTm},{narrow.MaxTm}]={countNarrow} > " +
+                       $"wide [{wide.MinTm},{wide.MaxTm}]={countWide}");
+        });
+    }
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — Determinism &amp; Edge Cases
+
+    /// <summary>
+    /// INV-D (Determinism): identical (target, params, maxProbes) ⇒ identical probe list —
+    /// same sequences, starts, Tm, GcContent, Score, AND order. Two runs are compared element-wise.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DesignProbes_IsDeterministic()
+    {
+        return Prop.ForAll(ProbeScenarioArbitrary(), s =>
+        {
+            var (target, param) = s;
+            var a = ProbeDesigner.DesignProbes(target, param, maxProbes: 50).ToList();
+            var b = ProbeDesigner.DesignProbes(target, param, maxProbes: 50).ToList();
+
+            if (a.Count != b.Count)
+                return false.Label($"count differs: {a.Count} vs {b.Count}");
+
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i].Sequence != b[i].Sequence || a[i].Start != b[i].Start ||
+                    !a[i].Tm.Equals(b[i].Tm) || !a[i].GcContent.Equals(b[i].GcContent) ||
+                    !a[i].Score.Equals(b[i].Score))
+                    return false.Label($"probe #{i} differs between runs");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-Edge: null and empty targets yield no probes; a target shorter than MinLength yields
+    /// no probes (the explicit early return in <see cref="ProbeDesigner.DesignProbes"/>).
+    /// Source: ProbeDesigner.cs §DesignProbes guard; doc §6.1 edge cases.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void DesignProbes_Score_InRange()
+    public void DesignProbes_NullEmptyOrTooShort_ReturnsNoProbes()
     {
-        string target = string.Concat(Enumerable.Repeat("ACGTACGTACGTACGT", 10));
-        var probes = ProbeDesigner.DesignProbes(target).ToList();
-
-        foreach (var p in probes)
-            Assert.That(p.Score, Is.InRange(0.0, 1.0));
+        var param = ProbeDesigner.Defaults.qPCR; // MinLength 20
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProbeDesigner.DesignProbes(null!, param).ToList(), Is.Empty, "null target");
+            Assert.That(ProbeDesigner.DesignProbes("", param).ToList(), Is.Empty, "empty target");
+            Assert.That(ProbeDesigner.DesignProbes(new string('A', 19), param).ToList(), Is.Empty,
+                "target shorter than MinLength (20)");
+        });
     }
+
+    #endregion
+
+    #region PROBE-DESIGN-001 — Evidence-Based Engineered Anchors
+
+    /// <summary>
+    /// Engineered length + GC anchor with hand-computed expectations. A 24-mer with exactly 50%
+    /// GC, in a window forcing MinLength == MaxLength == 24 and a GC band that contains 0.50, must
+    /// return a single probe whose Sequence is the whole target, whose length is 24, whose
+    /// coordinates are 0..23, and whose GcContent equals the independently computed 12/24 = 0.5.
+    /// Because GC is inside the strict band, NO GC warning is present.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DesignProbes_EngineeredFiftyPercentGc_FixedLengthWindow()
+    {
+        // 24 bases: 12 G/C (ACGT repeated 6× → 6 G + 6 C = 12) ⇒ GC fraction = 12/24 = 0.5.
+        const string target = "ACGTACGTACGTACGTACGTACGT";
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: 24, MaxLength: 24,
+            MinTm: 0, MaxTm: 200,        // wide Tm so no Tm penalty drops the probe
+            MinGc: 0.40, MaxGc: 0.60,    // 0.50 is strictly inside
+            MaxHomopolymer: 6, AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
+
+        var probes = ProbeDesigner.DesignProbes(target, param, maxProbes: 10).ToList();
+
+        Assert.That(probes, Has.Count.EqualTo(1), "exactly one length-24 window exists");
+        var p = probes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.Sequence, Is.EqualTo(target));
+            Assert.That(p.Sequence.Length, Is.EqualTo(24));
+            Assert.That(p.Start, Is.EqualTo(0));
+            Assert.That(p.End, Is.EqualTo(23));
+            Assert.That(p.GcContent, Is.EqualTo(0.5).Within(1e-9), "12 G/C of 24 bases = 0.5");
+            Assert.That(p.Warnings.Any(w => w.StartsWith("GC content")), Is.False,
+                "GC 0.5 is inside [0.40,0.60] ⇒ no GC warning");
+        });
+    }
+
+    /// <summary>
+    /// Engineered warning anchor: a low-GC target (20% GC) whose fraction (0.20) is still inside
+    /// the RELAXED band [MinGc − 0.1, MaxGc + 0.1] = [0.20, 0.70] but strictly BELOW the configured
+    /// MinGc = 0.30 ⇒ the returned probe survives the early-rejection filter yet MUST carry a GC
+    /// warning. Demonstrates the relaxed-band + warning-equivalence contract on a concrete case.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DesignProbes_GcInsideRelaxedBandButBelowStrict_CarriesWarning()
+    {
+        // 20 bases, 4 of them G/C (G,C,G,C) ⇒ GC fraction = 4/20 = 0.20.
+        const string target20 = "AAGCAAGCAAAAAAAAAAAA";
+        var param = new ProbeDesigner.ProbeParameters(
+            MinLength: 20, MaxLength: 20,
+            MinTm: 0, MaxTm: 200,
+            MinGc: 0.30, MaxGc: 0.60,   // strict band; relaxed band = [0.20, 0.70]
+            MaxHomopolymer: 20, AvoidSecondaryStructure: false, MaxSelfComplementarity: 1.0);
+
+        var probes = ProbeDesigner.DesignProbes(target20, param, maxProbes: 10).ToList();
+
+        Assert.That(probes, Has.Count.EqualTo(1), "0.20 is the lower edge of the relaxed band ⇒ retained");
+        var p = probes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(p.GcContent, Is.EqualTo(0.20).Within(1e-9), "4 G/C of 20 bases = 0.20");
+            Assert.That(p.GcContent, Is.LessThan(param.MinGc), "0.20 < strict MinGc 0.30");
+            Assert.That(p.Warnings.Any(w => w.StartsWith("GC content")), Is.True,
+                "GC below strict MinGc ⇒ GC warning present");
+        });
+    }
+
+    #endregion
 
     // -- PROBE-VALID-001 --
 
