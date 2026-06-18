@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for pan-genome analysis (PanGenomeAnalyzer): gene clustering, core/accessory
 /// partition, Heaps' law openness, and phylogenetic marker selection.
 ///
-/// Test Units: PANGEN-CLUSTER-001
+/// Test Units: PANGEN-CLUSTER-001, PANGEN-CORE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -128,6 +128,82 @@ public class PanGenomeProperties
             Assert.That(strict, Is.EqualTo(2), "70%-identical genes are separate at 0.9");
             Assert.That(loose, Is.EqualTo(1), "70%-identical genes merge at 0.6");
             Assert.That(loose2, Is.EqualTo(loose), "deterministic");
+        });
+    }
+
+    #endregion
+
+    #region PANGEN-CORE-001: P: core ⊆ every genome; P: core+accessory+unique = pan; M: more genomes → ≤ core; D: deterministic
+
+    // ConstructPanGenome partitions ortholog clusters into core (≥ coreFraction of genomes),
+    // accessory, and unique (single-genome) sets (Tettelin et al. 2005; Roary core rule, Page 2015).
+
+    /// <summary>
+    /// INV-1 (P): the core, accessory and unique cluster sets are disjoint and together exhaust the
+    /// pan-genome (the total cluster count), with counts matching the statistics.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PanGenome_CategoriesPartitionThePan()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            var r = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 0.99);
+            var all = r.CoreGenes.Concat(r.AccessoryGenes).Concat(r.UniqueGenes).ToList();
+            bool disjoint = all.Distinct().Count() == all.Count;
+            bool exhausts = all.Count == r.Statistics.TotalGenes;
+            bool countsMatch = r.CoreGenes.Count == r.Statistics.CoreGeneCount
+                               && r.AccessoryGenes.Count == r.Statistics.AccessoryGeneCount
+                               && r.UniqueGenes.Count == r.Statistics.UniqueGeneCount;
+            return (disjoint && exhausts && countsMatch).Label("core/accessory/unique do not partition the pan-genome");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): with coreFraction = 1.0 every core cluster is present in every genome.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PanGenome_CoreIsInEveryGenome()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            var clusterOccupancy = PanGenomeAnalyzer.ClusterGenes(genomes, 0.9)
+                .ToDictionary(c => c.ClusterId, c => c.GenomeCount);
+            var r = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 1.0);
+            return r.CoreGenes.All(id => clusterOccupancy[id] == genomes.Count)
+                .Label("a core gene was not present in every genome");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): adding a genome of entirely novel genes cannot increase the (strict) core size.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PanGenome_MoreGenomes_CoreDoesNotGrow()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            int baseCore = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 1.0).Statistics.CoreGeneCount;
+
+            var extended = new Dictionary<string, IReadOnlyList<(string, string)>>(
+                genomes.ToDictionary(kv => kv.Key, kv => kv.Value));
+            extended["GX"] = new[] { ("novel_gene", "TTTTGGGGCCCCAAAATTTT") }; // a fresh family
+            int extCore = PanGenomeAnalyzer.ConstructPanGenome(extended, 0.9, 1.0).Statistics.CoreGeneCount;
+
+            return (extCore <= baseCore).Label($"core grew when a genome was added ({extCore} > {baseCore})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Pan-genome construction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PanGenome_IsDeterministic()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            var a = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 0.99).Statistics;
+            var b = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 0.99).Statistics;
+            return (a == b).Label("ConstructPanGenome must be deterministic");
         });
     }
 
