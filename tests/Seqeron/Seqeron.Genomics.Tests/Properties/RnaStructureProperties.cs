@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -461,6 +461,71 @@ public class RnaStructureProperties
             Assert.That(RnaSecondaryStructure.ValidateDotBracket("(()"), Is.False, "unbalanced rejected");
             Assert.That(RnaSecondaryStructure.ValidateDotBracket("(]"), Is.False, "family mismatch rejected");
             Assert.That(RnaSecondaryStructure.ValidateDotBracket("())"), Is.False, "extra close rejected");
+        });
+    }
+
+    #endregion
+
+    #region RNA-HAIRPIN-001: R: sub-minimal loops are prohibitive; M: larger destabilising loop → higher energy; D: deterministic
+
+    // CalculateHairpinLoopEnergy returns the Turner 2004 hairpin loop ΔG. Loops shorter than the 3-nt
+    // steric minimum return a prohibitive +100 kcal/mol; for very large loops the Jacobson-Stockmayer
+    // extrapolation ΔG(n) = ΔG(9) + 1.75·RT·ln(n/9) grows with loop size.
+
+    /// <summary>
+    /// INV-1 (R): A loop below the 3-nt steric minimum is assigned a prohibitive (large positive)
+    /// energy, while a feasible loop (≥ 3 nt) has a finite, far smaller energy.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Hairpin_SubMinimalLoop_IsProhibitive()
+    {
+        double tooShort = RnaSecondaryStructure.CalculateHairpinLoopEnergy("AA", 'G', 'C');   // size 2
+        double feasible = RnaSecondaryStructure.CalculateHairpinLoopEnergy("AAA", 'G', 'C');  // size 3
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tooShort, Is.EqualTo(100.0), "loops < 3 nt must be prohibitive");
+            Assert.That(feasible, Is.LessThan(100.0), "a 3-nt loop must be feasible");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): In the Jacobson-Stockmayer regime (loops &gt; 30 nt) a larger loop is more
+    /// destabilising — energy is non-decreasing in loop size when composition and closing pair are
+    /// held fixed (all-A loop, G-C closure keep the sequence-dependent terms constant).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_LargerLoop_HasHigherEnergy()
+    {
+        var sizes = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int a = 31 + rng.Next(120);
+            int b = a + 1 + rng.Next(50);
+            return (a, b);
+        }).ToArbitrary();
+
+        return Prop.ForAll(sizes, ab =>
+        {
+            double ea = RnaSecondaryStructure.CalculateHairpinLoopEnergy(new string('A', ab.a), 'G', 'C');
+            double eb = RnaSecondaryStructure.CalculateHairpinLoopEnergy(new string('A', ab.b), 'G', 'C');
+            return (eb >= ea).Label($"loop {ab.b} (ΔG={eb}) not ≥ loop {ab.a} (ΔG={ea})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Hairpin loop energy is deterministic and finite for feasible loops.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hairpin_Energy_IsDeterministicAndFinite()
+    {
+        return Prop.ForAll(RnaArbitrary(4), loop =>
+        {
+            double e1 = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
+            double e2 = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
+            return (e1 == e2 && double.IsFinite(e1))
+                .Label($"hairpin energy non-deterministic or non-finite: {e1}");
         });
     }
 
