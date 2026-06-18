@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001.
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -653,6 +653,107 @@ public class EpigeneticsProperties
             Assert.That(b, Is.EqualTo(a), "deterministic");
             Assert.That(a, Is.EqualTo("ATCGT"), "pos1 C→T, pos2 C protected, others unchanged");
             Assert.That(EpigeneticsAnalyzer.SimulateBisulfiteConversion(""), Is.EqualTo(""));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-CHROM-001: P: each region assigned a state; R: positions preserved; D: deterministic
+
+    // AnnotateHistoneModifications labels each region by its single histone mark's canonical Roadmap
+    // chromatin state, or LowSignal when the mark's signal is below the presence threshold.
+
+    private const double ChromThreshold = 1.0;
+
+    private static EpigeneticsAnalyzer.ChromatinState ExpectedState(string mark, double signal) =>
+        signal < ChromThreshold ? EpigeneticsAnalyzer.ChromatinState.LowSignal : mark.ToUpperInvariant() switch
+        {
+            "H3K4ME3" => EpigeneticsAnalyzer.ChromatinState.ActivePromoter,
+            "H3K4ME1" => EpigeneticsAnalyzer.ChromatinState.WeakEnhancer,
+            "H3K27AC" => EpigeneticsAnalyzer.ChromatinState.ActiveEnhancer,
+            "H3K36ME3" => EpigeneticsAnalyzer.ChromatinState.Transcribed,
+            "H3K27ME3" => EpigeneticsAnalyzer.ChromatinState.Repressed,
+            "H3K9ME3" => EpigeneticsAnalyzer.ChromatinState.Heterochromatin,
+            "H3K9AC" => EpigeneticsAnalyzer.ChromatinState.ActivePromoter,
+            _ => EpigeneticsAnalyzer.ChromatinState.LowSignal,
+        };
+
+    private static readonly string[] ChromMarks =
+        { "H3K4me3", "H3K4me1", "H3K27ac", "H3K36me3", "H3K27me3", "H3K9me3", "H3K9ac", "H3Kunknown" };
+
+    private static Arbitrary<(int Start, int End, string Mark, double Signal)[]> HistoneRegionsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(6);
+            var arr = new (int, int, string, double)[n];
+            for (int i = 0; i < n; i++)
+                arr[i] = (i * 100, i * 100 + 99, ChromMarks[rng.Next(ChromMarks.Length)], rng.NextDouble() * 2.0);
+            return arr;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): one annotation per region, preserving Start/End/Mark/Signal, with the predicted
+    /// state matching the present-mark rule (independently computed).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Chromatin_EachRegion_AssignedCorrectState()
+    {
+        return Prop.ForAll(HistoneRegionsArbitrary(), regions =>
+        {
+            var result = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).ToList();
+            if (result.Count != regions.Length) return false.Label("region count changed");
+            for (int i = 0; i < regions.Length; i++)
+            {
+                var r = result[i];
+                var (s, e, m, sig) = regions[i];
+                if (r.Start != s || r.End != e || r.Mark != m || r.Signal != sig)
+                    return false.Label($"region {i} fields not preserved");
+                if (r.PredictedState != ExpectedState(m, sig))
+                    return false.Label($"region {i} state {r.PredictedState} ≠ expected {ExpectedState(m, sig)}");
+            }
+            return true.Label("all regions correctly annotated");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, golden): canonical marks above threshold map to their Roadmap states; below-threshold
+    /// or unknown marks map to LowSignal.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Chromatin_KnownMarks_MapToStates()
+    {
+        var regions = new (int, int, string, double)[]
+        {
+            (0, 99, "H3K4me3", 5.0),
+            (100, 199, "H3K27ac", 5.0),
+            (200, 299, "H3K9me3", 5.0),
+            (300, 399, "H3K4me3", 0.1),   // below threshold
+            (400, 499, "H3Kbogus", 5.0),  // unknown mark
+        };
+        var result = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.ActivePromoter));
+            Assert.That(result[1].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.ActiveEnhancer));
+            Assert.That(result[2].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.Heterochromatin));
+            Assert.That(result[3].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.LowSignal));
+            Assert.That(result[4].PredictedState, Is.EqualTo(EpigeneticsAnalyzer.ChromatinState.LowSignal));
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Annotation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Chromatin_IsDeterministic()
+    {
+        return Prop.ForAll(HistoneRegionsArbitrary(), regions =>
+        {
+            var a = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
+            var b = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
+            return a.SequenceEqual(b).Label("AnnotateHistoneModifications must be deterministic");
         });
     }
 
