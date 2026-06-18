@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for population genetics calculations.
 /// Verifies allele frequency, Hardy-Weinberg, and Fst invariants.
 ///
-/// Test Units: POP-FREQ-001, POP-DIV-001, POP-HW-001, POP-FST-001, POP-LD-001
+/// Test Units: POP-FREQ-001, POP-DIV-001, POP-HW-001, POP-FST-001, POP-LD-001, POP-ANCESTRY-001, POP-ROH-001, POP-SELECT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -510,6 +510,64 @@ public class PopulationGeneticsProperties
 
         Assert.That(r1.RSquared, Is.EqualTo(r2.RSquared));
         Assert.That(r1.DPrime, Is.EqualTo(r2.DPrime));
+    }
+
+    #endregion
+
+    #region POP-ANCESTRY-001: R: each proportion ∈ [0,1]; P: Σ proportions = 1.0; D: deterministic
+
+    // EstimateAncestry runs the FRAPPE EM with fixed reference allele frequencies (Alexander et al.
+    // 2009); each individual's ancestry fractions are a probability simplex summing to 1.
+
+    private static Arbitrary<(List<(string, IReadOnlyList<int>)> inds, List<(string, IReadOnlyList<double>)> refs)>
+        AncestryArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int k = 2 + rng.Next(2);   // 2..3 reference populations
+            int m = 5 + rng.Next(6);   // 5..10 markers
+            var refs = new List<(string, IReadOnlyList<double>)>();
+            for (int p = 0; p < k; p++)
+                refs.Add(($"pop{p}", (IReadOnlyList<double>)Enumerable.Range(0, m).Select(_ => rng.NextDouble()).ToList()));
+            var inds = new List<(string, IReadOnlyList<int>)>();
+            for (int i = 0; i < 1 + rng.Next(3); i++)
+                inds.Add(($"ind{i}", (IReadOnlyList<int>)Enumerable.Range(0, m).Select(_ => rng.Next(0, 3)).ToList()));
+            return (inds, refs);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): each individual's ancestry proportions are in [0,1], sum to 1, and are keyed by
+    /// the reference population ids.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Ancestry_ProportionsAreSimplex()
+    {
+        return Prop.ForAll(AncestryArbitrary(), input =>
+        {
+            var (inds, refs) = input;
+            var popIds = refs.Select(r => r.Item1).ToHashSet();
+            var results = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).ToList();
+            bool ok = results.All(a =>
+                a.Proportions.Values.All(v => v is >= -1e-9 and <= 1.0 + 1e-9) &&
+                Math.Abs(a.Proportions.Values.Sum() - 1.0) < 1e-6 &&
+                a.Proportions.Keys.ToHashSet().SetEquals(popIds));
+            return ok.Label("ancestry proportions were not a simplex over the reference populations");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Ancestry estimation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Ancestry_IsDeterministic()
+    {
+        return Prop.ForAll(AncestryArbitrary(), input =>
+        {
+            var (inds, refs) = input;
+            var a = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).SelectMany(x => x.Proportions.OrderBy(p => p.Key).Select(p => p.Value)).ToList();
+            var b = PopulationGeneticsAnalyzer.EstimateAncestry(inds, refs).SelectMany(x => x.Proportions.OrderBy(p => p.Key).Select(p => p.Value)).ToList();
+            return a.SequenceEqual(b).Label("EstimateAncestry must be deterministic");
+        });
     }
 
     #endregion
