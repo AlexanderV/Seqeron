@@ -7078,4 +7078,175 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-PURITY-001 — Tumor Purity Estimation (CNAqc expected-VAF inversion)
+
+    // -------------------------------------------------------------------------
+    // Theory (Antonello et al. 2024 CNAqc; Carter 2012 ABSOLUTE; Shen & Seshan 2016 FACETS):
+    //   • Expected clonal VAF: v = m·π / [2(1−π) + π·n_tot].                               (CNAqc)
+    //   • Copy-neutral diploid het (m=1, n_tot=2): v = π/2 ⇒ ρ = 2·v.                       (INV-2)
+    //   • Allele-specific inversion: π = 2·v / [m + v·(2 − n_tot)].                          (INV-3)
+    //   • Per-variant estimates aggregated by median; purity ∈ [0,1]; ρ=2v monotone in v.    (INV-1/4)
+    //
+    // The expected-VAF forward model is reconstructed here independently; EstimatePurity is
+    // then checked to invert it (round-trip recovering the generating purity) — NOT routed
+    // through production's inversion formula — so a wrong algebraic inverse is caught.
+    // -------------------------------------------------------------------------
+
+    private const double PurityClosedFormTolerance = 1e-9;
+    private const double PurityRecoveryTolerance = 1e-7;
+
+    private static double OracleMedian(IReadOnlyList<double> values)
+    {
+        double[] sorted = values.ToArray();
+        Array.Sort(sorted);
+        int n = sorted.Length, mid = n / 2;
+        return n % 2 == 1 ? sorted[mid] : 0.5 * (sorted[mid - 1] + sorted[mid]);
+    }
+
+    /// <summary>A het diploid SNV observation with VAF ≤ 0.5 (alt ≤ half of total reads).</summary>
+    private static Gen<OncologyAnalyzer.VariantObservation> HetDiploidObservationGen() =>
+        from total in Gen.Choose(2, 400)
+        from alt in Gen.Choose(0, total / 2)
+        select new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", alt, total, 0, 0);
+
+    /// <summary>
+    /// A constructible allele-specific variant with a KNOWN generating purity: choose π ∈ (0,1], n_tot ∈ [1,6],
+    /// multiplicity m ∈ [1, n_tot] (a mutation cannot exceed its total copies), then forward-compute the
+    /// expected VAF v = m·π / [2 + π·(n_tot−2)] ∈ [0,1]. EstimatePurity must recover π.
+    /// </summary>
+    private static Gen<(double pi, int m, int nTot, double vaf)> KnownPurityVariantGen() =>
+        from nTot in Gen.Choose(1, 6)
+        from m in Gen.Choose(1, nTot)
+        from piMilli in Gen.Choose(1, 1000)
+        let pi = piMilli / 1000.0
+        let vaf = m * pi / (2.0 + pi * (nTot - 2))
+        select (pi, m, nTot, vaf);
+
+    /// <summary>
+    /// INV-2 + INV-1 + INV-4: the single-VAF estimator is the exact closed form ρ = 2·v in [0,1] for any
+    /// clonal het diploid VAF v ∈ [0,0.5], with ρ = 0 at v = 0 and strictly increasing in v. (CNAqc ρ=2v)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurityFromVaf_IsTwiceVaf_InUnitRange_AndIncreasing()
+    {
+        var arb = (from vMilli in Gen.Choose(0, 500)
+                   from riseMilli in Gen.Choose(1, 500)
+                   let v = vMilli / 1000.0
+                   let vHigh = Math.Min(0.5, (vMilli + riseMilli) / 1000.0)
+                   select (v, vHigh)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double rho = OncologyAnalyzer.EstimatePurityFromVaf(t.v);
+            bool closedForm = Math.Abs(rho - 2.0 * t.v) < PurityClosedFormTolerance;
+            bool inRange = rho >= 0.0 && rho <= 1.0;
+            bool zeroAtZero = t.v != 0.0 || rho == 0.0;
+            bool nonDecreasing = OncologyAnalyzer.EstimatePurityFromVaf(t.vHigh) >= rho - PurityClosedFormTolerance;
+            return (closedForm && inRange && zeroAtZero && nonDecreasing)
+                .Label($"ρ({t.v})={rho} (expected {2.0 * t.v}); ρ({t.vHigh})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 + median aggregation: <c>EstimatePurityFromVAF</c> returns the median of the per-variant
+    /// ρ = 2·(alt/total) over clonal het diploid observations, within [0,1]. (CNAqc; robust median)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurityFromVAF_IsMedianOfTwiceVaf()
+    {
+        var arb = (from n in Gen.Choose(1, 7)
+                   from obs in HetDiploidObservationGen().ArrayOf(n)
+                   select obs).ToArbitrary();
+
+        return Prop.ForAll(arb, observations =>
+        {
+            double purity = OncologyAnalyzer.EstimatePurityFromVAF(observations);
+            var oracle = OracleMedian(observations.Select(o => 2.0 * ((double)o.TumorAltReads / o.TumorTotalReads)).ToList());
+            return (Math.Abs(purity - oracle) < PurityClosedFormTolerance && purity is >= 0.0 and <= 1.0)
+                .Label($"purity {purity} ≠ median(2·VAF) {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, round-trip inversion): <c>EstimatePurity</c> recovers the purity that generated each VAF
+    /// under the forward model v = m·π / [2 + π·(n_tot−2)] — the median of single in-domain variants equals
+    /// the median of their generating purities, within [0,1]. (CNAqc inversion; INV-1)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_InvertsExpectedVafModel_RecoveringGeneratingPurity()
+    {
+        var arb = (from n in Gen.Choose(1, 6)
+                   from variants in KnownPurityVariantGen().ArrayOf(n)
+                   select variants).ToArbitrary();
+
+        return Prop.ForAll(arb, variants =>
+        {
+            var purityVariants = variants
+                .Select(v => new OncologyAnalyzer.PurityVariant(v.vaf, v.m, v.nTot))
+                .ToArray();
+            double estimated = OncologyAnalyzer.EstimatePurity(purityVariants);
+            double oracleMedianPi = OracleMedian(variants.Select(v => v.pi).ToList());
+
+            return (Math.Abs(estimated - oracleMedianPi) < PurityRecoveryTolerance && estimated is >= 0.0 and <= 1.0)
+                .Label($"recovered purity {estimated} ≠ median generating π {oracleMedianPi}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 consistency: for a copy-neutral diploid het variant (m=1, n_tot=2) the allele-specific estimator
+    /// agrees with the closed-form ρ = 2·v — the diploid het case is the special case of the inversion.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_DiploidHet_AgreesWithTwiceVaf()
+    {
+        var arb = Gen.Choose(0, 500).Select(v => v / 1000.0).ToArbitrary(); // VAF ∈ [0, 0.5]
+
+        return Prop.ForAll(arb, vaf =>
+        {
+            double allele = OncologyAnalyzer.EstimatePurity(new[] { new OncologyAnalyzer.PurityVariant(vaf, 1, 2) });
+            return (Math.Abs(allele - 2.0 * vaf) < PurityClosedFormTolerance)
+                .Label($"allele-specific {allele} ≠ 2·{vaf} = {2.0 * vaf}");
+        });
+    }
+
+    /// <summary>D (determinism): both estimators return identical purity for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePurity_IsDeterministic()
+    {
+        var arb = (from n in Gen.Choose(1, 6)
+                   from variants in KnownPurityVariantGen().ArrayOf(n)
+                   select variants).ToArbitrary();
+
+        return Prop.ForAll(arb, variants =>
+        {
+            var pv = variants.Select(v => new OncologyAnalyzer.PurityVariant(v.vaf, v.m, v.nTot)).ToArray();
+            return (OncologyAnalyzer.EstimatePurity(pv) == OncologyAnalyzer.EstimatePurity(pv))
+                .Label("EstimatePurity is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the CNAqc 60%/30% example (VAF 0.30 ⇒ purity 0.60); VAF 0.50 ⇒ purity 1.0; VAF 0 ⇒ 0; a
+    /// VAF &gt; 0.5 under the diploid het model is rejected; an empty variant set is rejected. (CNAqc)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EstimatePurity_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.30), Is.EqualTo(0.60).Within(PurityClosedFormTolerance),
+                "CNAqc: VAF 30% ⇒ purity 60%.");
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.50), Is.EqualTo(1.0).Within(PurityClosedFormTolerance),
+                "VAF 0.5 ⇒ purity 1.0 (diploid het maximum).");
+            Assert.That(OncologyAnalyzer.EstimatePurityFromVaf(0.0), Is.EqualTo(0.0), "VAF 0 ⇒ purity 0.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimatePurityFromVaf(0.6),
+                "VAF > 0.5 implies purity > 1 under the diploid het model.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimatePurity(Array.Empty<OncologyAnalyzer.PurityVariant>()),
+                "Purity is undefined for an empty variant set.");
+        });
+    }
+
+    #endregion
 }
