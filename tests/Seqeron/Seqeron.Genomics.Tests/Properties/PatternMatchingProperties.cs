@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions)
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -371,6 +371,87 @@ public class PatternMatchingProperties
             var pwm = MotifFinder.CreatePwm(training);
             return (pwm.Length == motifLen)
                 .Label($"PWM length {pwm.Length} should equal training length {motifLen}");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-CONS-001: P: consensus length = alignment width; P: each column = majority residue; D: deterministic
+
+    // CreateConsensusFromAlignment selects, per column, the most frequent base (ties broken
+    // alphabetically A<C<G<T) — the classical per-position consensus (Rosalind CONS).
+
+    /// <summary>Generates 2..5 aligned DNA sequences of equal length 4..10.</summary>
+    private static Arbitrary<string[]> AlignedDnaArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int rows = 2 + rng.Next(4);
+            int cols = 4 + rng.Next(7);
+            const string bases = "ACGT";
+            var rowsArr = new string[rows];
+            for (int r = 0; r < rows; r++)
+            {
+                var c = new char[cols];
+                for (int j = 0; j < cols; j++) c[j] = bases[rng.Next(4)];
+                rowsArr[r] = new string(c);
+            }
+            return rowsArr;
+        }).ToArbitrary();
+
+    private static char ColumnMajority(string[] aln, int col)
+    {
+        var counts = new int[4]; // A,C,G,T
+        foreach (var row in aln) counts["ACGT".IndexOf(row[col])]++;
+        int best = 0;
+        for (int b = 1; b < 4; b++) if (counts[b] > counts[best]) best = b;
+        return "ACGT"[best];
+    }
+
+    /// <summary>
+    /// INV-1 (P): The consensus length equals the alignment width.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentConsensus_Length_EqualsWidth()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+            (MotifFinder.CreateConsensusFromAlignment(aln).Length == aln[0].Length)
+                .Label("consensus length ≠ alignment width"));
+    }
+
+    /// <summary>
+    /// INV-2 (P): Each consensus position is the most frequent base of that column (ties broken
+    /// alphabetically), verified against an independent per-column majority.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentConsensus_EachColumn_IsMajority()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+        {
+            string consensus = MotifFinder.CreateConsensusFromAlignment(aln);
+            bool ok = Enumerable.Range(0, aln[0].Length).All(c => consensus[c] == ColumnMajority(aln, c));
+            return ok.Label("a consensus position was not the column majority");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + boundary): consensus is deterministic; empty input is empty; ragged or non-ACGT
+    /// alignments are rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AlignmentConsensus_DeterministicAndBoundary()
+    {
+        var aln = new[] { "ACGT", "AGGT", "ACGA" };
+        string first = MotifFinder.CreateConsensusFromAlignment(aln);
+        string second = MotifFinder.CreateConsensusFromAlignment(aln);
+        Assert.Multiple(() =>
+        {
+            Assert.That(second, Is.EqualTo(first), "deterministic");
+            Assert.That(first, Is.EqualTo("ACGT"), "column majorities");
+            Assert.That(MotifFinder.CreateConsensusFromAlignment(Array.Empty<string>()), Is.EqualTo(""));
+            Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "AC" }));
+            Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "ACGN" }));
         });
     }
 
