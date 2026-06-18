@@ -1232,4 +1232,299 @@ public class MetagenomicsProperties
     }
 
     #endregion
+
+    #region META-BIN-001: R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic
+
+    // META-BIN-001 — Genome binning (doc: docs/algorithms/Metagenomics/Genome_Binning.md).
+    //
+    // BinContigs groups contigs into bins (MAGs) via deterministic k-means over composition/coverage.
+    // k-means cluster membership cannot be predicted easily, so these tests are HEURISTIC-INDEPENDENT:
+    // for WHATEVER bins are produced, every reported field must be CONSISTENT with that bin's reported
+    // ContigIds, recomputed independently from the input contig map. The oracles below are derived from
+    // the doc §2.2/§4.2 formulas and the source contract, NOT from the code's output:
+    //   * TotalLength   = Σ member sequence lengths.
+    //   * GcContent     = mean of per-member GC FRACTION = (#G+#C)/len over uppercase ACGT.
+    //   * Coverage      = mean of raw member coverage.
+    //   * Completeness  = min(TotalLength / expectedGenomeSize · 100, 100).
+    //   * Contamination = 0 if <2 members, else min( popStdDev(member GC fractions) / 0.5 · 100, 100 ),
+    //                     where popStdDev uses POPULATION variance (divide by count, not count-1).
+    //   * PredictedTaxonomy == "".
+    // INV-01 (R): contig-disjointness — the multiset of all ContigIds across bins has no duplicate, and
+    //             every id is an input id (some inputs may appear in 0 bins; >1 is forbidden).
+    // INV-02:     Completeness, Contamination ∈ [0,100]. INV-03: every emitted bin TotalLength ≥ minBinSize.
+    // D:          identical input ⇒ identical bin sequence (GC-sorted centroid init ⇒ deterministic).
+    //
+    // Defaults (minBinSize=500000, expectedGenomeSize=4_000_000) are too large for fast tests, so the
+    // tests pass SMALL parameters and short uppercase A/C/G/T contigs so bins are actually emitted.
+
+    /// <summary>Test-scale binning parameters: small so bins are emitted for short test contigs.</summary>
+    private const double BinMinBinSize = 50.0;
+    private const double BinExpectedGenomeSize = 1000.0;
+
+    /// <summary>Independent GC-fraction oracle = (#G+#C)/len over uppercase ACGT (mirrors CalculateGcFractionFast).</summary>
+    private static double GcFractionOracle(string seq)
+    {
+        if (string.IsNullOrEmpty(seq)) return 0.0;
+        int gc = 0, valid = 0;
+        foreach (char c in seq)
+        {
+            switch (c)
+            {
+                case 'G' or 'C': gc++; valid++; break;
+                case 'A' or 'T': valid++; break;
+            }
+        }
+        return valid == 0 ? 0.0 : (double)gc / valid;
+    }
+
+    /// <summary>Independent contamination oracle: population GC std-dev / 0.5 · 100, clamped to 100; 0 if &lt;2 members.</summary>
+    private static double ContaminationOracle(IReadOnlyList<double> gcFractions)
+    {
+        if (gcFractions.Count < 2) return 0.0;
+        double mean = gcFractions.Average();
+        double variance = gcFractions.Sum(g => (g - mean) * (g - mean)) / gcFractions.Count; // population variance
+        double stdDev = Math.Sqrt(variance);
+        return Math.Min(stdDev / 0.5 * 100.0, 100.0);
+    }
+
+    /// <summary>
+    /// Generates a small list of contigs with UNIQUE ids, uppercase ACGT sequences (length 20–120),
+    /// and finite non-negative coverage. Pure ACGT so the GC-fraction oracle matches the implementation.
+    /// </summary>
+    private static Arbitrary<List<(string ContigId, string Sequence, double Coverage)>> BinContigsArbitrary() =>
+        Gen.Choose(1, 12)
+            .SelectMany(n =>
+                BinContigPartGen().ArrayOf(n)
+                    .Select(parts =>
+                    {
+                        var list = new List<(string, string, double)>(n);
+                        for (int i = 0; i < n; i++)
+                            list.Add(($"contig_{i}", parts[i].Seq, parts[i].Cov));
+                        return list;
+                    }))
+            .ToArbitrary();
+
+    /// <summary>Generates one contig's (sequence, coverage): uppercase ACGT of length 20–120, coverage ≥ 0.</summary>
+    private static Gen<(string Seq, double Cov)> BinContigPartGen() =>
+        Gen.Choose(20, 120).SelectMany(len =>
+            Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len).SelectMany(cs =>
+                Gen.Choose(0, 1000).Select(cov => (new string(cs), cov / 10.0))));
+
+    /// <summary>
+    /// P (GC consistent) + derived-field oracle: for EVERY output bin, all reported numeric fields are
+    /// consistent with that bin's reported ContigIds recomputed from the input map — GcContent = mean
+    /// member GC fraction, TotalLength = Σ member lengths, Coverage = mean member coverage,
+    /// Completeness = min(TotalLength/expectedGenomeSize·100,100), Contamination = population GC-stddev
+    /// oracle. Source: doc §2.2 / §3.2 / §4.2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_ReportedFields_MatchMemberOracle()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var map = contigs.ToDictionary(c => c.ContigId, c => c);
+            var bins = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+            foreach (var bin in bins)
+            {
+                var members = bin.ContigIds.Select(id => map[id]).ToList();
+                var gcFractions = members.Select(m => GcFractionOracle(m.Sequence)).ToList();
+
+                double expTotalLength = members.Sum(m => (double)m.Sequence.Length);
+                double expGc = gcFractions.Average();
+                double expCoverage = members.Average(m => m.Coverage);
+                double expCompleteness = Math.Min(expTotalLength / BinExpectedGenomeSize * 100.0, 100.0);
+                double expContamination = ContaminationOracle(gcFractions);
+
+                if (Math.Abs(bin.TotalLength - expTotalLength) > 1e-9 ||
+                    Math.Abs(bin.GcContent - expGc) > 1e-9 ||
+                    Math.Abs(bin.Coverage - expCoverage) > 1e-9 ||
+                    Math.Abs(bin.Completeness - expCompleteness) > 1e-9 ||
+                    Math.Abs(bin.Contamination - expContamination) > 1e-9)
+                {
+                    return false.Label(
+                        $"bin {bin.BinId}: len {bin.TotalLength} vs {expTotalLength}, gc {bin.GcContent:F12} vs {expGc:F12}, " +
+                        $"cov {bin.Coverage:F12} vs {expCoverage:F12}, comp {bin.Completeness:F12} vs {expCompleteness:F12}, " +
+                        $"contam {bin.Contamination:F12} vs {expContamination:F12}");
+                }
+            }
+            return true.Label("all reported bin fields must match the member-derived oracle");
+        });
+    }
+
+    /// <summary>
+    /// INV-01 (R: each contig in ≤ 1 bin): the multiset of all ContigIds across all output bins has NO
+    /// duplicate contig id, and every reported id is a member of the input set. Source: doc §2.4 INV-01
+    /// (k-means assigns each contig to exactly one cluster ⇒ disjoint bins).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_ContigIds_AreDisjointAndFromInput()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var inputIds = contigs.Select(c => c.ContigId).ToHashSet();
+            var bins = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+            var all = bins.SelectMany(b => b.ContigIds).ToList();
+            bool noDuplicate = all.Count == all.Distinct().Count();
+            bool allFromInput = all.All(inputIds.Contains);
+            return (noDuplicate && allFromInput)
+                .Label($"contig ids must be disjoint across bins and ⊆ input: total={all.Count}, distinct={all.Distinct().Count()}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02: every output bin has Completeness ∈ [0,100] and Contamination ∈ [0,100], because both
+    /// proxy formulas clamp via Math.Min(..., 100) and are non-negative. Source: doc §2.4 INV-02.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_CompletenessAndContamination_InRange()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var bins = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+            bool ok = bins.All(b =>
+                b.Completeness >= -1e-9 && b.Completeness <= 100.0 + 1e-9 &&
+                b.Contamination >= -1e-9 && b.Contamination <= 100.0 + 1e-9);
+            return ok.Label("Completeness and Contamination must lie in [0,100] for every bin");
+        });
+    }
+
+    /// <summary>
+    /// INV-03: every emitted bin has TotalLength ≥ minBinSize — sub-threshold clusters are filtered out.
+    /// Source: doc §2.4 INV-03 / §4.1 step 7.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_EmittedBins_MeetMinBinSize()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var bins = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+            return bins.All(b => b.TotalLength >= BinMinBinSize - 1e-9)
+                .Label($"every emitted bin must have TotalLength ≥ {BinMinBinSize}");
+        });
+    }
+
+    /// <summary>
+    /// PredictedTaxonomy: the current implementation emits an empty string for every bin (no taxonomy
+    /// assignment). Source: doc §3.2 / §5.2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_PredictedTaxonomy_IsEmpty()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var bins = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+            return bins.All(b => b.PredictedTaxonomy == "")
+                .Label("every bin's PredictedTaxonomy must be the empty string");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical input ⇒ identical bin sequence — BinId order, ContigIds, and all
+    /// numeric fields. k-means here uses deterministic GC-sorted centroid initialization. Source: doc
+    /// §5.2 (deterministic centroid init).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BinContigs_IsDeterministic()
+    {
+        return Prop.ForAll(BinContigsArbitrary(), contigs =>
+        {
+            var r1 = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+            var r2 = MetagenomicsAnalyzer.BinContigs(
+                contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+            if (r1.Count != r2.Count) return false.Label($"bin count differs: {r1.Count} vs {r2.Count}");
+            for (int i = 0; i < r1.Count; i++)
+            {
+                bool same = r1[i].BinId == r2[i].BinId
+                            && r1[i].ContigIds.SequenceEqual(r2[i].ContigIds)
+                            && Math.Abs(r1[i].TotalLength - r2[i].TotalLength) < 1e-12
+                            && Math.Abs(r1[i].GcContent - r2[i].GcContent) < 1e-12
+                            && Math.Abs(r1[i].Coverage - r2[i].Coverage) < 1e-12
+                            && Math.Abs(r1[i].Completeness - r2[i].Completeness) < 1e-12
+                            && Math.Abs(r1[i].Contamination - r2[i].Contamination) < 1e-12
+                            && r1[i].PredictedTaxonomy == r2[i].PredictedTaxonomy;
+                if (!same) return false.Label($"bin {i} differs between identical runs");
+            }
+            return true.Label("BinContigs must be deterministic for identical input");
+        });
+    }
+
+    /// <summary>
+    /// Edge (doc §6.1): empty input collection ⇒ no bins are returned.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BinContigs_EmptyInput_ReturnsNoBins()
+    {
+        var bins = MetagenomicsAnalyzer.BinContigs(
+            Array.Empty<(string, string, double)>(),
+            numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+        Assert.That(bins, Is.Empty, "empty input must yield no bins");
+    }
+
+    /// <summary>
+    /// Edge anchor: a single contig of length ≥ minBinSize ⇒ exactly one bin containing it, with
+    /// Contamination == 0 (only one member ⇒ &lt;2 GC values) and GcContent == its GC fraction.
+    /// Source: doc §6.1 (single-contig bin ⇒ Contamination = 0).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BinContigs_SingleContig_OneBinZeroContaminationGcFraction()
+    {
+        // 60 bp, 30 G/C ⇒ GC fraction = 0.5, length 60 ≥ minBinSize 50.
+        const string seq = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCATATATATATATATATATATATATATATAT";
+        var contigs = new[] { ("contig_solo", seq, 12.5) };
+
+        var bins = MetagenomicsAnalyzer.BinContigs(
+            contigs, numBins: 10, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bins, Has.Count.EqualTo(1), "one above-threshold contig ⇒ exactly one bin");
+            Assert.That(bins[0].ContigIds, Is.EquivalentTo(new[] { "contig_solo" }));
+            Assert.That(bins[0].Contamination, Is.EqualTo(0.0), "single member ⇒ Contamination = 0");
+            Assert.That(bins[0].GcContent, Is.EqualTo(GcFractionOracle(seq)).Within(1e-9));
+            Assert.That(bins[0].GcContent, Is.EqualTo(0.5).Within(1e-9), "30 G/C of 60 bp ⇒ GC fraction 0.5");
+            Assert.That(bins[0].TotalLength, Is.EqualTo(seq.Length));
+            Assert.That(bins[0].Coverage, Is.EqualTo(12.5).Within(1e-9));
+            Assert.That(bins[0].PredictedTaxonomy, Is.EqualTo(""));
+        });
+    }
+
+    /// <summary>
+    /// Edge (doc §6.1): numBins larger than the contig count is accepted — k is clamped to the contig
+    /// count, so two distinct above-threshold contigs still produce at most two bins covering both ids.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BinContigs_NumBinsLargerThanContigCount_IsAccepted()
+    {
+        const string seqA = "GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC"; // high GC
+        const string seqB = "ATATATATATATATATATATATATATATATATATATATATATATATATATATATATATAT"; // low GC
+        var contigs = new[] { ("contig_a", seqA, 5.0), ("contig_b", seqB, 50.0) };
+
+        var bins = MetagenomicsAnalyzer.BinContigs(
+            contigs, numBins: 100, minBinSize: BinMinBinSize, expectedGenomeSize: BinExpectedGenomeSize).ToList();
+
+        var coveredIds = bins.SelectMany(b => b.ContigIds).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(bins.Count, Is.GreaterThanOrEqualTo(1).And.LessThanOrEqualTo(2),
+                "k clamped to contig count ⇒ at most two bins");
+            Assert.That(coveredIds, Is.Unique, "no contig appears in more than one bin");
+            Assert.That(coveredIds, Is.EquivalentTo(new[] { "contig_a", "contig_b" }),
+                "both above-threshold contigs are binned");
+        });
+    }
+
+    #endregion
 }

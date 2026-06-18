@@ -86,7 +86,7 @@ Property-based testing генерирует сотни случайных вхо
 | 54 | ☑ | META-PROF-001 | Metagenomics | R: abundances sum to 1.0; R: abundance ∈ [0,1]; D: deterministic | MetagenomicsProperties.cs (new) |
 | 55 | ☑ | META-ALPHA-001 | Metagenomics | R: Shannon ≥ 0; R: Simpson ∈ [0,1]; M: more species → higher diversity; D: deterministic | MetagenomicsProperties.cs |
 | 56 | ☑ | META-BETA-001 | Metagenomics | S: dist(a,b)=dist(b,a); R: dist ∈ [0,1]; I: dist(x,x)=0; D: deterministic | MetagenomicsProperties.cs |
-| 57 | ☐ | META-BIN-001 | Metagenomics | R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic | MetagenomicsProperties.cs (new) |
+| 57 | ☑ | META-BIN-001 | Metagenomics | R: each contig in ≤ 1 bin; P: bin GC% consistent within bin; D: deterministic | MetagenomicsProperties.cs (new) |
 | 58 | ☑ | CODON-OPT-001 | Codon | P: optimized translates to same protein; R: only valid codons; D: deterministic | CodonProperties.cs |
 | 59 | ☑ | CODON-CAI-001 | Codon | R: CAI ∈ [0,1]; M: all optimal codons → CAI close to 1.0; D: deterministic | CodonProperties.cs |
 | 60 | ☑ | CODON-RARE-001 | Codon | R: rare codon positions valid; M: lower threshold → more rare codons; D: deterministic | CodonProperties.cs |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 78 |
-| ☐ Not started | 148 |
+| ☑ Complete | 79 |
+| ☐ Not started | 147 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
