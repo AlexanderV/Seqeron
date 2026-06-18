@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001, KMER-POSITIONS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -492,6 +492,94 @@ public class KmerProperties
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => KmerAnalyzer.GenerateAllKmers(0).ToList());
             Assert.Throws<ArgumentException>(() => KmerAnalyzer.GenerateAllKmers(2, "").ToList());
+        });
+    }
+
+    #endregion
+
+    #region KMER-POSITIONS-001: R: positions ∈ [0, len−k]; P: seq[pos..pos+k] = kmer; D: deterministic
+
+    // FindKmerPositions reports every overlapping start position of a k-mer in the sequence
+    // (Rosalind BA1D). Each position p satisfies 0 ≤ p ≤ len−k and seq[p..p+k] == kmer.
+
+    /// <summary>Generates a sequence together with one of its own substrings as the query k-mer.</summary>
+    private static Arbitrary<(string seq, string kmer)> SeqAndSubstringArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int len = 15 + rng.Next(15);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++) chars[i] = bases[rng.Next(4)];
+            string seq = new string(chars);
+            int k = 2 + rng.Next(4);
+            int start = rng.Next(len - k + 1);
+            return (seq, seq.Substring(start, k));
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every reported position is in [0, len−k], the substring there equals the query
+    /// k-mer, positions are ascending, and at least one occurrence is found (the source position).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerPositions_AreValidOccurrences()
+    {
+        return Prop.ForAll(SeqAndSubstringArbitrary(), input =>
+        {
+            var (seq, kmer) = input;
+            var pos = KmerAnalyzer.FindKmerPositions(seq, kmer).ToList();
+            bool valid = pos.All(p => p >= 0 && p <= seq.Length - kmer.Length
+                                      && seq.Substring(p, kmer.Length) == kmer);
+            bool ascending = pos.SequenceEqual(pos.OrderBy(x => x));
+            return (pos.Count >= 1 && valid && ascending)
+                .Label($"positions invalid/empty/unsorted for kmer '{kmer}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (completeness): the reported positions are exactly all overlapping occurrences, matched
+    /// against an independent scan.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerPositions_AreComplete()
+    {
+        return Prop.ForAll(SeqAndSubstringArbitrary(), input =>
+        {
+            var (seq, kmer) = input;
+            var pos = KmerAnalyzer.FindKmerPositions(seq, kmer).ToList();
+            var expected = Enumerable.Range(0, seq.Length - kmer.Length + 1)
+                .Where(i => seq.Substring(i, kmer.Length) == kmer).ToList();
+            return pos.SequenceEqual(expected).Label($"positions ≠ independent scan for '{kmer}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Position finding is deterministic; empty/oversized queries yield no positions.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerPositions_IsDeterministic()
+    {
+        return Prop.ForAll(SeqAndSubstringArbitrary(), input =>
+        {
+            var (seq, kmer) = input;
+            return KmerAnalyzer.FindKmerPositions(seq, kmer)
+                .SequenceEqual(KmerAnalyzer.FindKmerPositions(seq, kmer))
+                .Label("FindKmerPositions must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): empty sequence/k-mer and over-long k-mers return no positions.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void KmerPositions_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(KmerAnalyzer.FindKmerPositions("", "AC"), Is.Empty);
+            Assert.That(KmerAnalyzer.FindKmerPositions("ACGT", ""), Is.Empty);
+            Assert.That(KmerAnalyzer.FindKmerPositions("AC", "ACGT"), Is.Empty, "k-mer longer than sequence");
         });
     }
 
