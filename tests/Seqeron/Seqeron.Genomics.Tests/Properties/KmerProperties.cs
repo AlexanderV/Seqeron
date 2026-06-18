@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions)
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -258,6 +258,46 @@ public class KmerProperties
             double entropy = KmerAnalyzer.CalculateKmerEntropy(homo, 1);
             return (Math.Abs(entropy) < 0.0001)
                 .Label($"Homopolymer '{b}' entropy={entropy:F4}, expected=0");
+        });
+    }
+
+    #endregion
+
+    #region KMER-ASYNC-001: P: async result = sync result; D: deterministic
+
+    // CountKmersAsync wraps the synchronous counter in Task.Run, so it must return exactly the same
+    // k-mer multiplicities as CountKmers for any input — concurrency must not change the result.
+
+    /// <summary>
+    /// INV-1 (P): The async counter returns the same k-mer → count map as the synchronous counter.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountKmersAsync_EqualsSync()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var sync = KmerAnalyzer.CountKmers(seq, k);
+            var async = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+            bool same = sync.Count == async.Count
+                        && sync.All(kv => async.TryGetValue(kv.Key, out int v) && v == kv.Value);
+            return same.Label($"async result differs from sync (k={k}, len={seq.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Repeated async invocations on the same input yield identical results.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountKmersAsync_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var a = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+            var b = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
+            bool same = a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value);
+            return same.Label("CountKmersAsync must be deterministic");
         });
     }
 

@@ -185,7 +185,7 @@ Property-based testing генерирует сотни случайных вхо
 | 153 | ☑ | RNA-PAIR-001 | RnaStructure | P: only A-U, G-C, G-U pair; S: canPair(a,b)=canPair(b,a); D: deterministic | RnaStructureProperties.cs |
 | 154 | ☑ | RNA-PARTITION-001 | RnaStructure | R: Z > 0; R: base-pair probability ∈ [0,1]; D: deterministic | RnaStructureProperties.cs |
 | 155 | ☑ | RNA-PSEUDOKNOT-001 | RnaStructure | P: detects crossing pairs; R: positions valid; D: deterministic | RnaStructureProperties.cs |
-| 156 | ☐ | KMER-ASYNC-001 | K-mer | P: async result = sync result; D: deterministic | KmerProperties.cs |
+| 156 | ☑ | KMER-ASYNC-001 | K-mer | P: async result = sync result; D: deterministic | KmerProperties.cs |
 | 157 | ☐ | KMER-BOTH-001 | K-mer | P: count = forward + reverse-complement; S: strand-symmetric; D: deterministic | KmerProperties.cs |
 | 158 | ☐ | KMER-DIST-001 | K-mer | R: distance ≥ 0; S: d(a,b)=d(b,a); I: d(x,x)=0; D: deterministic | KmerProperties.cs |
 | 159 | ☐ | KMER-GENERATE-001 | K-mer | R: count = 4^k (DNA); P: all distinct; D: deterministic | KmerProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 155 |
-| ☐ Not started | 79 |
+| ☑ Complete | 156 |
+| ☐ Not started | 78 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
