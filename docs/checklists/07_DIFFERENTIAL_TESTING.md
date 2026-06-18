@@ -156,6 +156,24 @@ Differential testing сравнивает выходы двух независи
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | manual calc | Exact match |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamics | nearest-neighbour reference | Match within tolerance |
 | 130 | ☐ | SEQ-TM-001 | Statistics | Tm | Marmur-Doty/Wallace by hand | Match within tolerance |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI | fastANI-style reference | Correlated ANI |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | Conserved clusters | identity-threshold reference | Same clusters |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | Genome comparison | manual metric calc | Concordant metrics |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | Dot plot | k-mer match reference | Same coordinates |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | Orthologs | OrthoFinder-style reference | Concordant pairs |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | RBH | BLAST-RBH reference | Same pairs |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | Rearrangements | breakpoint reference | Same breakpoints |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | Reversal distance | GRIMM-style reference | Exact distance |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks | MCScanX-style reference | Concordant blocks |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | Consensus | majority-vote by hand | Exact match |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Error correction | k-mer spectrum reference | Concordant reads |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage | total-bases/length by hand | Exact match |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | DBG assembly | Velvet-style reference | Concordant contigs |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Contig merge | overlap reference | Same merges |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC assembly | overlap-graph reference | Concordant contigs |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffolding | mate-pair reference | Same layout |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly stats | QUAST-style reference | Exact N50/L50 |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Quality trim | sliding-window reference | Same trimmed reads |
 
 ---
 
@@ -163,9 +181,9 @@ Differential testing сравнивает выходы двух независи
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 0 |
-| ☐ Not started | 130 |
+| ☐ Not started | 148 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

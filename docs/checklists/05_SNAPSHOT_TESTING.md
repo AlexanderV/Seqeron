@@ -156,6 +156,24 @@ Snapshot (approval) тесты сериализуют полный выход а
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary output | StatisticsSnapshotTests.cs (new) |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamic parameters (ΔG/ΔH/ΔS) | StatisticsSnapshotTests.cs (new) |
 | 130 | ☐ | SEQ-TM-001 | Statistics | Sequence-level Tm value | StatisticsSnapshotTests.cs (new) |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI matrix output | ComparativeGenomicsSnapshotTests.cs (new) |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | Conserved cluster output | ComparativeGenomicsSnapshotTests.cs (new) |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | Genome comparison report | ComparativeGenomicsSnapshotTests.cs (new) |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | Dot-plot coordinates | ComparativeGenomicsSnapshotTests.cs (new) |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | Ortholog pairs | ComparativeGenomicsSnapshotTests.cs (new) |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | Reciprocal-best-hit pairs | ComparativeGenomicsSnapshotTests.cs (new) |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | Rearrangement breakpoints | ComparativeGenomicsSnapshotTests.cs (new) |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | Reversal distance value | ComparativeGenomicsSnapshotTests.cs (new) |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks output | ComparativeGenomicsSnapshotTests.cs (new) |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | Consensus sequence | AssemblySnapshotTests.cs (new) |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Corrected read set | AssemblySnapshotTests.cs (new) |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage profile | AssemblySnapshotTests.cs (new) |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | De Bruijn contigs | AssemblySnapshotTests.cs (new) |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Merged contigs | AssemblySnapshotTests.cs (new) |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC contigs | AssemblySnapshotTests.cs (new) |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffold layout | AssemblySnapshotTests.cs (new) |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly statistics (N50, L50, ...) | AssemblySnapshotTests.cs (new) |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Trimmed read set | AssemblySnapshotTests.cs (new) |
 
 ---
 
@@ -163,8 +181,8 @@ Snapshot (approval) тесты сериализуют полный выход а
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 55 |
-| ☐ Not started | 75 |
+| ☐ Not started | 93 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

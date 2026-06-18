@@ -158,6 +158,24 @@ Metamorphic testing решает «проблему оракула» — ког�
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | INV: permutation invariant for composition fields; SHIFT: length additive on concatenation |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | MON: more GC pairs → lower ΔG; INV: permutation changes nearest-neighbour context only |
 | 130 | ☐ | SEQ-TM-001 | Statistics | MON: more GC → higher Tm; INV: case-insensitive |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | SYM: ANI(A,B)=ANI(B,A); INV: ANI(A,A)=100; MON: more mutations → lower ANI |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | MON: lower identity threshold → superset; INV: genome order independent |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | SYM: order independent; MON: more shared genes → higher similarity |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | INV: revcomp maps diagonal → anti-diagonal; SHIFT: prepend flank shifts dots |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | SYM: ortholog relation symmetric; INV: genome order independent |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | SYM: RBH symmetric; INV: input order independent |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | INV: identity → no rearrangements; SYM: (A,B) consistent with (B,A) |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | SYM: symmetric; INV: identical permutation → 0; MON: more reversals applied → ≥ distance |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | MON: lower minBlockSize → superset; INV: revcomp preserves block count |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | INV: read order independent; MON: adding a concordant read preserves consensus |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | INV: error-free reads unchanged; MON: more coverage → ≤ residual errors |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | INV: read order independent; ADD: coverage additive over reads |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | INV: read order independent; MON: larger k → ≤ spurious joins |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | INV: merge order independent for compatible contigs |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | INV: read order independent; MON: higher minOverlap → ≤ joins |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | INV: link order independent |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | INV: contig order independent; MON: splitting a contig → ≤ N50 |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | MON: higher cutoff → subset of bases; INV: read order independent |
 
 ---
 
@@ -165,7 +183,7 @@ Metamorphic testing решает «проблему оракула» — ког�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 7 |
-| ☐ Not started | 123 |
+| ☐ Not started | 141 |
 | MR relations defined | ~200+ |

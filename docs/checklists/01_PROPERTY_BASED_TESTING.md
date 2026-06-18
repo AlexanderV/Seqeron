@@ -160,6 +160,24 @@ Property-based testing генерирует сотни случайных вхо
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | P: reported length = sequence length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | R: ΔG, ΔH, ΔS finite; M: more GC → more stable (lower ΔG); D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 130 | ☐ | SEQ-TM-001 | Statistics | R: Tm ≥ 0; M: more GC → higher Tm; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | R: ANI ∈ [0,100]%; S: ANI(A,B)=ANI(B,A); I: ANI(A,A)=100; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | R: cluster size ≥ 1; P: cluster genes conserved across genomes; M: lower identity threshold → ≥ clusters; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | S: compare(A,B) metrics symmetric; R: similarity ∈ [0,1]; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | R: dot positions valid (i<lenA, j<lenB); P: main diagonal for identical seqs; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | P: ortholog pairs bidirectional; R: positions valid; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | S: RBH(A,B)=RBH(B,A); P: each gene in ≤ 1 RBH pair; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | R: breakpoint count ≥ 0; P: rearrangement preserves gene content; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | R: distance ≥ 0; S: d(A,B)=d(B,A); I: d(A,A)=0; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | R: block positions valid; M: lower minBlockSize → ≥ blocks; P: blocks collinear; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | R: consensus length ≥ 0; P: each position = majority base; D: deterministic | AssemblyProperties.cs (new) |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | P: corrected reads keep length; M: more coverage → fewer errors; D: deterministic | AssemblyProperties.cs (new) |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | R: coverage ≥ 0; P: mean coverage = total bases / ref length; D: deterministic | AssemblyProperties.cs (new) |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | R: contig positions valid; P: contigs are k-mer paths; M: larger k → ≤ branching; D: deterministic | AssemblyProperties.cs (new) |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | P: merged length ≥ max input; P: overlap consistent; D: deterministic | AssemblyProperties.cs (new) |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | R: contig count ≥ 1; P: overlaps ≥ minOverlap; D: deterministic | AssemblyProperties.cs (new) |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | P: scaffold order respects links; R: gap sizes ≥ 0; D: deterministic | AssemblyProperties.cs (new) |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | R: N50 ≥ 0; P: Σ contig lengths = total; M: longer contigs → higher N50; D: deterministic | AssemblyProperties.cs (new) |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | P: trimmed length ≤ original; M: higher quality cutoff → shorter reads; D: deterministic | AssemblyProperties.cs (new) |
 
 ---
 
@@ -167,8 +185,8 @@ Property-based testing генерирует сотни случайных вхо
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 67 |
-| ☐ Not started | 63 |
+| ☐ Not started | 81 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

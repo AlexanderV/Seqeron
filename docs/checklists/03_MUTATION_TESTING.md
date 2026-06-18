@@ -158,6 +158,24 @@ Mutation testing измеряет эффективность тестового 
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 | 130 | ☐ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateANI_Tests.cs | ≥ 80% |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindConservedClusters_Tests.cs | ≥ 80% |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CompareGenomes_Tests.cs | ≥ 80% |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_GenerateDotPlot_Tests.cs | ≥ 80% |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindOrthologs_Tests.cs | ≥ 80% |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindReciprocalBestHits_Tests.cs | ≥ 80% |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_DetectRearrangements_Tests.cs | ≥ 80% |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_CalculateReversalDistance_Tests.cs | ≥ 80% |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | ComparativeGenomics.cs | ComparativeGenomics_FindSyntenicBlocks_Tests.cs | ≥ 80% |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ComputeConsensus_Tests.cs | ≥ 80% |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_ErrorCorrectReads_Tests.cs | ≥ 80% |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_CalculateCoverage_Tests.cs | ≥ 80% |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleDeBruijn_Tests.cs | ≥ 80% |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_MergeContigs_Tests.cs | ≥ 80% |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_AssembleOLC_Tests.cs | ≥ 80% |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
 
 ---
 
@@ -165,8 +183,8 @@ Mutation testing измеряет эффективность тестового 
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete (run + killers written) | 8 |
-| ☐ Not started | 122 |
+| ☐ Not started | 140 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

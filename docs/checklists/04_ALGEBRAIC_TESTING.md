@@ -160,6 +160,24 @@ Algebraic testing проверяет выполнение алгебраичес
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | ID: empty → zero length; IDEMP: deterministic |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
 | 130 | ☐ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ID: ANI(A,A)=100; COMM: ANI symmetric |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | IDEMP: deterministic; ID: single genome → trivial clusters |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | COMM: symmetric; IDEMP: deterministic |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | IDEMP: deterministic; ID: A vs A → main diagonal |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | COMM: symmetric relation; IDEMP: deterministic |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | COMM: symmetric; IDEMP: RBH∘RBH = RBH |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | ID: identical genomes → empty; IDEMP: deterministic |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | ID: d(A,A)=0; COMM: symmetric; TRIANGLE: d(A,C) ≤ d(A,B)+d(B,C) |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | IDEMP: deterministic; ID: A vs A → whole-genome block |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | ID: single read → that read; IDEMP: consensus∘consensus = consensus |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | IDEMP: correct∘correct = correct; ID: clean reads unchanged |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | ID: no reads → 0; ADD: coverage additive |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | IDEMP: deterministic; ID: single read → single contig |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | IDEMP: merge∘merge = merge; ID: non-overlapping contigs unchanged |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | IDEMP: deterministic; ID: single read → itself |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | IDEMP: deterministic; ID: no links → unchanged contigs |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | ID: empty → 0; IDEMP: deterministic |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | IDEMP: trim∘trim = trim; ID: high-quality read unchanged |
 
 ---
 
@@ -167,7 +185,7 @@ Algebraic testing проверяет выполнение алгебраичес
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 0 |
-| ☐ Not started | 130 |
+| ☐ Not started | 148 |
 | Laws verified | ~172 (≈2 per algorithm) |

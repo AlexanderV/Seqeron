@@ -161,6 +161,24 @@ Combinatorial (pairwise) тестирование генерирует мини�
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | seqType(3) × seqLen(3) | 9 | 9 | Low |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | saltConc(3) × seqLen(3) × gcContent(3) | 27 | 12 | Med |
 | 130 | ☐ | SEQ-TM-001 | Statistics | method(2) × seqLen(3) × gcContent(3) | 18 | 9 | Med |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | kmerSize(3) × genomeLen(3) × divergence(3) | 27 | 12 | Med |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | nGenomes(3) × identityThreshold(3) | 9 | 9 | Med |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | nGenomes(3) × metric(3) | 9 | 9 | Low |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | wordSize(3) × seqLen(3) × strand(2) | 18 | 9 | Med |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | nGenes(3) × identityThreshold(3) × eValue(2) | 18 | 9 | Med |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | nGenes(3) × scoreThreshold(3) | 9 | 9 | Low |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | nBlocks(3) × minBlockSize(3) | 9 | 9 | Med |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | nGenes(3) × nReversals(3) | 9 | 9 | Med |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | nAnchors(3) × minBlockSize(3) × maxGap(3) | 27 | 12 | Med |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | nReads(3) × coverage(3) × errorRate(2) | 18 | 9 | Med |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | k(3) × coverage(3) × errorRate(3) | 27 | 12 | High |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | nReads(3) × readLen(3) | 9 | 9 | Low |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | k(3) × coverage(3) × errorRate(3) | 27 | 12 | High |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | nContigs(3) × minOverlap(3) | 9 | 9 | Med |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | nReads(3) × minOverlap(3) × errorRate(2) | 18 | 9 | High |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | nContigs(3) × nLinks(3) × insertSize(2) | 18 | 9 | Med |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | nContigs(3) × lengthDist(3) | 9 | 9 | Low |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | qualityCutoff(3) × windowSize(3) × readLen(3) | 27 | 12 | Med |
 
 ---
 
@@ -168,9 +186,9 @@ Combinatorial (pairwise) тестирование генерирует мини�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 0 |
-| ☐ Not started | 130 |
+| ☐ Not started | 148 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |
 | Low priority (≤2 params) | 19 |

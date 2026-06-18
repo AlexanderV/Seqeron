@@ -163,6 +163,24 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | Summary-field change |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamic parameters | NN-parameter change |
 | 130 | ☐ | SEQ-TM-001 | Statistics | Tm value | Formula change |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | ANI matrix | Identity / k-mer method change |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | Conserved clusters | Threshold change |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | Comparison report | Metric change |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | Dot-plot coordinates | Word size change |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | Ortholog pairs | Detection algorithm change |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | RBH pairs | Scoring change |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | Rearrangement output | Breakpoint logic change |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | Reversal distance | Algorithm change |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | Syntenic blocks | minBlockSize / chaining change |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | Consensus sequence | Voting rule change |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | Corrected reads | Correction threshold change |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | Coverage profile | Calculation change |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | De Bruijn contigs | k / graph-cleaning change |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | Merged contigs | Overlap rule change |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | OLC contigs | minOverlap change |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffold layout | Linking rule change |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly statistics | Metric-definition change |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Trimmed reads | Quality cutoff / window change |
 
 ---
 
@@ -170,10 +188,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 0 |
-| ☐ Not started | 130 |
-| Applies on-demand (before refactoring) | All 130 |
+| ☐ Not started | 148 |
+| Applies on-demand (before refactoring) | All 148 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |

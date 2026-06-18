@@ -158,6 +158,24 @@ Fuzzing подаёт случайные, невалидные или погра�
 | 128 | ☐ | SEQ-SUMMARY-001 | Statistics | BE | empty, single base, very long, mixed case |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | BE | empty, single base, all-AT, all-GC |
 | 130 | ☐ | SEQ-TM-001 | Statistics | BE | empty, single base, all-AT, all-GC, non-ACGT |
+| 131 | ☐ | COMPGEN-ANI-001 | Comparative | BE | identical genomes, no shared k-mers, empty genome, single base |
+| 132 | ☐ | COMPGEN-CLUSTER-001 | Comparative | BE | single genome, no conserved genes, identical genomes |
+| 133 | ☐ | COMPGEN-COMPARE-001 | Comparative | BE | empty genome, A vs A, disjoint genomes |
+| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | BE | empty, single base, palindrome, repeat-rich |
+| 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | BE, MC | no homologs, all-identical, empty gene set |
+| 136 | ☐ | COMPGEN-RBH-001 | Comparative | BE | no hits, ties, single gene each |
+| 137 | ☐ | COMPGEN-REARR-001 | Comparative | BE | identical order, full reversal, single gene |
+| 138 | ☐ | COMPGEN-REVERSAL-001 | Comparative | BE | identity permutation, full reversal, singleton |
+| 139 | ☐ | COMPGEN-SYNTENY-001 | Comparative | BE | no synteny, whole-genome block, single anchor |
+| 140 | ☐ | ASSEMBLY-CONSENSUS-001 | Assembly | BE | single read, conflicting reads, empty, all-N |
+| 141 | ☐ | ASSEMBLY-CORRECT-001 | Assembly | BE | zero coverage, all-error reads, empty |
+| 142 | ☐ | ASSEMBLY-COVER-001 | Assembly | BE | no reads, zero-length ref, single read |
+| 143 | ☐ | ASSEMBLY-DBG-001 | Assembly | BE | k>read length, single read, all-identical reads |
+| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | BE | no overlap, full containment, identical contigs |
+| 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | BE | minOverlap>read length, single read, no overlaps |
+| 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | BE | no links, conflicting links, single contig |
+| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | BE | empty assembly, single contig, equal-length contigs |
+| 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | BE | all-low-quality, all-high-quality, empty, quality cutoff 0 |
 
 ---
 
@@ -165,9 +183,9 @@ Fuzzing подаёт случайные, невалидные или погра�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 130 |
+| Total algorithms | 148 |
 | ☑ Complete | 0 |
-| ☐ Not started | 130 |
+| ☐ Not started | 148 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |
