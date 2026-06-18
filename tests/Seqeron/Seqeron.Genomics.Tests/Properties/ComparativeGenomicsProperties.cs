@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001, COMPGEN-REARR-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001, COMPGEN-REARR-001, COMPGEN-REVERSAL-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -844,6 +844,108 @@ public class ComparativeGenomicsProperties
         Assert.That(events, Is.Not.Empty, "a whole-genome reversal must register breakpoints");
         Assert.That(events.All(e => e.Type == ComparativeGenomics.RearrangementType.Inversion), Is.True,
             "every breakpoint of a strand-flipped reversal must classify as an inversion");
+    }
+
+    #endregion
+
+    #region COMPGEN-REVERSAL-001: R: distance ≥ 0; S: d(A,B)=d(B,A); I: d(A,A)=0; D: deterministic
+
+    // CalculateReversalDistance returns the unsigned breakpoint lower bound ⌈b/2⌉ on the reversal
+    // distance (Bafna & Pevzner 1998): a single reversal removes at most two breakpoints, so
+    // d(π) ≥ b(π)/2. Breakpoint distance is a metric-like quantity over permutations of a marker set.
+
+    private static Arbitrary<int[]> IntPermArbitrary(int n = 7) =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            var perm = Enumerable.Range(0, n).ToArray();
+            for (int i = n - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (perm[i], perm[j]) = (perm[j], perm[i]);
+            }
+            return perm;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): The reversal-distance lower bound is non-negative for any two orderings of a marker
+    /// set (it is ⌈b/2⌉ with b ≥ 0).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReversalDistance_IsNonNegative()
+    {
+        return Prop.ForAll(IntPermArbitrary(), IntPermArbitrary(), (a, b) =>
+        {
+            int d = ComparativeGenomics.CalculateReversalDistance(a, b);
+            return (d >= 0).Label($"reversal distance {d} must be ≥ 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (I): Self-distance is zero — a gene order requires no reversals to reach itself
+    /// (the relative permutation is the identity, with no breakpoints).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReversalDistance_SelfIsZero()
+    {
+        return Prop.ForAll(IntPermArbitrary(), a =>
+        {
+            int d = ComparativeGenomics.CalculateReversalDistance(a, a);
+            return (d == 0).Label($"d(A,A)={d}, expected 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (S): The distance is symmetric — d(A,B) = d(B,A). The breakpoint count depends only on
+    /// the (unordered) shared adjacencies and matching endpoints of the two orderings.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReversalDistance_IsSymmetric()
+    {
+        return Prop.ForAll(IntPermArbitrary(), IntPermArbitrary(), (a, b) =>
+        {
+            int ab = ComparativeGenomics.CalculateReversalDistance(a, b);
+            int ba = ComparativeGenomics.CalculateReversalDistance(b, a);
+            return (ab == ba).Label($"d(A,B)={ab} ≠ d(B,A)={ba}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Distance computation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ReversalDistance_IsDeterministic()
+    {
+        return Prop.ForAll(IntPermArbitrary(), IntPermArbitrary(), (a, b) =>
+        {
+            return (ComparativeGenomics.CalculateReversalDistance(a, b)
+                    == ComparativeGenomics.CalculateReversalDistance(a, b))
+                .Label("CalculateReversalDistance must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (positive control): a single whole-sequence reversal is one reversal away from the
+    /// identity — d(identity, reverse) = 1 (two endpoint breakpoints, ⌈2/2⌉ = 1).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ReversalDistance_WholeReversal_IsOne()
+    {
+        var identity = new[] { 0, 1, 2, 3, 4 };
+        var reversed = new[] { 4, 3, 2, 1, 0 };
+        Assert.That(ComparativeGenomics.CalculateReversalDistance(identity, reversed), Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// INV-6 (boundary): orderings over marker sets of different sizes are not comparable.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ReversalDistance_LengthMismatch_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            () => ComparativeGenomics.CalculateReversalDistance(new[] { 0, 1, 2 }, new[] { 0, 1 }));
     }
 
     #endregion
