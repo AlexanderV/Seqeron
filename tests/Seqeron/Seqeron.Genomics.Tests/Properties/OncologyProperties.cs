@@ -6905,4 +6905,177 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CNA-003 — Homozygous Deletion Detection (integer CN 0)
+
+    // -------------------------------------------------------------------------
+    // Theory (Cheng 2017; cBioPortal −2; CNVkit integer CN):
+    //   • A segment is a homozygous (deep) deletion iff its hard-threshold integer CN is 0.   (INV-1)
+    //   • A single-copy loss (integer CN 1) is heterozygous, never homozygous.                 (INV-2)
+    //   • DetectHomozygousDeletions keeps the input subset (CN 0), in input order.             (INV-3)
+    //   • A stricter (more negative) deletion cutoff yields ≤ deletions (subset).              (M)
+    //   • Tumour suppressor reported iff a homozygous deletion lies on its arm: TP53 17p,      (INV-4)
+    //     RB1 13q, CDKN2A 9p, PTEN 10q, BRCA1 17q, BRCA2 13q.
+    //
+    // The CN-0 predicate is reconstructed via the independent CNVkit threshold oracle
+    // (OracleCallCopyNumber, shared with ONCO-CNA-001) and the arm→gene map is restated
+    // from NCBI Gene — NOT routed through production.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] DeletionArmPool = { "17p", "13q", "9p", "10q", "17q", "8q", "3p", "Xp" };
+
+    private static readonly (string gene, string arm)[] TumorSuppressorArmsOracle =
+    {
+        ("TP53", "17p"), ("RB1", "13q"), ("CDKN2A", "9p"), ("PTEN", "10q"), ("BRCA1", "17q"), ("BRCA2", "13q"),
+    };
+
+    private static Gen<OncologyAnalyzer.CopyNumberArmSegment> DeletionSegmentGen() =>
+        from arm in Gen.Elements(DeletionArmPool)
+        from armLen in Gen.Choose(100_000, 2_000_000)
+        from segLen in Gen.Choose(1, 2_000_000)
+        from log2Milli in Gen.Choose(-2500, 1000) // biased negative so CN 0 occurs
+        select new OncologyAnalyzer.CopyNumberArmSegment(arm, 0, segLen, armLen, log2Milli / 1000.0);
+
+    private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, double[] cutoffs, double ploidy)>
+        DeletionProblemArbitrary() =>
+        (from segments in DeletionSegmentGen().ArrayOf()
+         from cutoffs in AscendingThresholdsArbitrary().Generator
+         from ploidy in PloidyGen()
+         select (segments, cutoffs, ploidy)).ToArbitrary();
+
+    /// <summary>
+    /// INV-1/INV-2/INV-3 (P "CN ≈ 0 over deletion", R): the detected set equals exactly the input segments
+    /// whose independent CNVkit integer copy number is 0, in input order — a subset with no fabrication, so
+    /// single-copy losses (CN 1) are never reported. (Cheng 2017; cBioPortal; CNVkit)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_EqualsIntegerCnZeroSubset_InOrder()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            var expected = p.segments.Where(s => OracleCallCopyNumber(s.Log2Ratio, p.cutoffs, p.ploidy) == 0).ToList();
+            return detected.SequenceEqual(expected)
+                .Label($"detected {detected.Count} ≠ CN-0 subset {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2 (per-call): every reported deletion has integer CN exactly 0 (DeepDeletion state) and
+    /// valid coordinates (End &gt; Start, ArmLength &gt; 0); none is a single-copy (CN 1) loss.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_EveryCall_IsIntegerCnZero_WithValidCoordinates()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            return detected.All(s =>
+                OncologyAnalyzer.CallCopyNumber(s.Log2Ratio, p.cutoffs, p.ploidy) == 0
+                && s.End > s.Start && s.ArmLength > 0)
+                .Label("a reported homozygous deletion was not integer CN 0 with valid coordinates");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher CN threshold → ≤ deletions"): a stricter (more negative) deletion cutoff can
+    /// only shrink the detected set — every segment called homozygous under the stricter cutoff is also
+    /// homozygous under the looser one (log2 ≤ stricter ⇒ log2 ≤ looser). (CNVkit ≤ binning)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_StricterDeletionCutoff_YieldsSubset()
+    {
+        var arb = (from segments in DeletionSegmentGen().ArrayOf()
+                   from cutoffs in AscendingThresholdsArbitrary().Generator
+                   from drop in Gen.Choose(1, 3000).Select(v => v / 1000.0)
+                   from ploidy in PloidyGen()
+                   select (segments, looser: cutoffs, stricter: new[] { cutoffs[0] - drop, cutoffs[1], cutoffs[2], cutoffs[3] }, ploidy))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var stricterDetected = OncologyAnalyzer.DetectHomozygousDeletions(t.segments, t.stricter, t.ploidy);
+            var looserDetected = OncologyAnalyzer.DetectHomozygousDeletions(t.segments, t.looser, t.ploidy);
+
+            bool subsetCount = stricterDetected.Count <= looserDetected.Count;
+            bool everyStricterIsAlsoLooser = stricterDetected.All(s =>
+                OncologyAnalyzer.CallCopyNumber(s.Log2Ratio, t.looser, t.ploidy) == 0);
+            return (subsetCount && everyStricterIsAlsoLooser)
+                .Label($"stricter cutoff produced {stricterDetected.Count} deletions, looser {looserDetected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: <c>IdentifyDeletedTumorSuppressors</c> reports exactly the panel tumour suppressors whose arm
+    /// is present among the supplied deletions (TP53 17p, RB1 13q, CDKN2A 9p, PTEN 10q, BRCA1 17q, BRCA2 13q),
+    /// each once, in panel order — matching an independent arm→gene oracle. (NCBI Gene loci)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyDeletedTumorSuppressors_MapsArmsToPanelGenes_InOrder()
+    {
+        return Prop.ForAll(DeletionSegmentGen().ArrayOf().ToArbitrary(), segments =>
+        {
+            var genes = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(segments);
+
+            var arms = segments.Select(s => s.Arm).Where(a => !string.IsNullOrEmpty(a)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = TumorSuppressorArmsOracle.Where(g => arms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"genes [{string.Join(",", genes)}] ≠ oracle [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (composition): a tumour suppressor is reported only when a genuine homozygous deletion falls on
+    /// its arm — <c>IdentifyDeletedTumorSuppressors(DetectHomozygousDeletions(segs))</c> equals the panel
+    /// genes on deleted arms. (mapping operates on homozygous deletions only)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DeletedTumorSuppressors_ReportedOnlyForArmsWithAHomozygousDeletion()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+        {
+            var deletions = OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy);
+            var genes = OncologyAnalyzer.IdentifyDeletedTumorSuppressors(deletions);
+
+            var deletedArms = deletions.Select(s => s.Arm).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = TumorSuppressorArmsOracle.Where(g => deletedArms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"suppressors [{string.Join(",", genes)}] not exactly those on deleted arms [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>D (determinism): homozygous-deletion detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHomozygousDeletions_IsDeterministic()
+    {
+        return Prop.ForAll(DeletionProblemArbitrary(), p =>
+            OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy)
+                .SequenceEqual(OncologyAnalyzer.DetectHomozygousDeletions(p.segments, p.cutoffs, p.ploidy))
+                .Label("DetectHomozygousDeletions is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (default thresholds, diploid): a log2 −2.0 segment is a homozygous deletion (CN 0); a log2
+    /// −1.0 single-copy loss (CN 1) is not; 13q deletions map to both RB1 and BRCA2 in panel order.
+    /// (Cheng 2017; cBioPortal; NCBI Gene)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectHomozygousDeletions_CanonicalCases()
+    {
+        var deep = new OncologyAnalyzer.CopyNumberArmSegment("9p", 0, 100_000, 1_000_000, -2.0);
+        var shallow = new OncologyAnalyzer.CopyNumberArmSegment("10q", 0, 100_000, 1_000_000, -1.0);
+        var del13q = new OncologyAnalyzer.CopyNumberArmSegment("13q", 0, 100_000, 1_000_000, -2.0);
+
+        var detected = OncologyAnalyzer.DetectHomozygousDeletions(new[] { deep, shallow, del13q });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(detected, Is.EqualTo(new[] { deep, del13q }), "Only the CN-0 deep deletions survive; the CN-1 loss is excluded.");
+            Assert.That(OncologyAnalyzer.IdentifyDeletedTumorSuppressors(new[] { del13q }), Is.EqualTo(new[] { "RB1", "BRCA2" }),
+                "13q deletion ⇒ both RB1 and BRCA2 in panel order.");
+        });
+    }
+
+    #endregion
 }
