@@ -414,50 +414,396 @@ public class PrimerProbeProperties
 
     #endregion
 
-    // -- PRIMER-STRUCT-001 --
+    #region Generators &amp; Theory Oracle (PRIMER-STRUCT-001)
 
     /// <summary>
-    /// Self-complementary primer has hairpin potential.
+    /// Independent SantaLucia (1998) nearest-neighbor ΔG°37 oracle for the 3' terminal 5-mer.
+    /// Constants are transcribed LITERALLY from Primer_Structure_Analysis.md §2.2/§4.2 and the
+    /// SantaLucia (1998) unified table — deliberately NOT routed through production, so a wrong
+    /// production constant is caught. ΔG = Σ(four NN dinucleotide steps) + two terminal initiation
+    /// terms (+0.98 for a terminal G·C, +1.03 for a terminal A·T). Mirrors the doc anchors
+    /// GCGCG = −6.86 (most stable) and TATAT = −0.86 (least stable).
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void HasHairpinPotential_SelfComplementary_ReturnsTrue()
+    private static double ExpectedThreePrimeStability(string sequence)
     {
-        // GCGC...GCGC is self-complementary
-        string selfComp = "GCGCGCTTTTGCGCGC";
-        bool result = PrimerDesigner.HasHairpinPotential(selfComp, minStemLength: 4, minLoopLength: 3);
-        Assert.That(result, Is.True, "Self-complementary primer should have hairpin potential");
-    }
+        if (string.IsNullOrEmpty(sequence) || sequence.Length < 5)
+            return 0;
 
-    /// <summary>
-    /// Primer dimer detection: identical forward/reverse with self-complementary 3' ends.
-    /// Source: Wikipedia Primer-dimer — A₂₀ vs A₂₀, revcomp = T₂₀, A-T complementary.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void HasPrimerDimer_SelfComplementaryPair_ReturnsTrue()
-    {
-        // AAAAAAAA vs AAAAAAAA: revcomp(AAAAAAAA) = TTTTTTTT
-        // 3' end (A) vs 5' revcomp (T) = A-T complementary
-        bool result = PrimerDesigner.HasPrimerDimer("AAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAA", minComplementarity: 4);
-        Assert.That(result, Is.True, "Poly-A self-dimer: A-T complementarity with revcomp");
-    }
-
-    /// <summary>
-    /// 3' stability score is finite and negative for valid sequences.
-    /// Source: SantaLucia (1998) — all NN ΔG values are negative.
-    /// </summary>
-    [Test]
-    [Category("Property")]
-    public void Calculate3PrimeStability_ValidSequence_IsNegativeAndFinite()
-    {
-        double stability = PrimerDesigner.Calculate3PrimeStability("ACGTACGTACGTACGT");
-        Assert.Multiple(() =>
+        // Unified NN ΔG°37 (kcal/mol), SantaLucia (1998) — written here independently.
+        var nn = new Dictionary<string, double>
         {
-            Assert.That(double.IsFinite(stability), Is.True);
-            Assert.That(stability, Is.LessThan(0.0));
+            ["AA"] = -1.00, ["TT"] = -1.00,
+            ["AT"] = -0.88,
+            ["TA"] = -0.58,
+            ["CA"] = -1.45, ["TG"] = -1.45,
+            ["GT"] = -1.44, ["AC"] = -1.44,
+            ["CT"] = -1.28, ["AG"] = -1.28,
+            ["GA"] = -1.30, ["TC"] = -1.30,
+            ["CG"] = -2.17,
+            ["GC"] = -2.24,
+            ["GG"] = -1.84, ["CC"] = -1.84,
+        };
+
+        string last5 = sequence.ToUpperInvariant()[^5..];
+        double dg = 0;
+        for (int i = 0; i < last5.Length - 1; i++)
+            if (nn.TryGetValue(last5.Substring(i, 2), out double step))
+                dg += step;
+
+        // Terminal initiation: +0.98 kcal/mol per terminal G·C, +1.03 per terminal A·T.
+        dg += last5[0] is 'G' or 'C' ? 0.98 : 1.03;
+        dg += last5[^1] is 'G' or 'C' ? 0.98 : 1.03;
+        return dg;
+    }
+
+    /// <summary>Generates valid ACGT sequences with length ≥ 5 (the 3'-stability operating regime).</summary>
+    private static Arbitrary<string> StabilitySequenceArbitrary() =>
+        ValidPrimerGen(5, 40).ToArbitrary();
+
+    /// <summary>
+    /// Generates a valid ACGT sequence together with hairpin stem/loop knobs. The sequence length
+    /// is drawn small enough to frequently fall below the structural minimum 2·stem + loop, so
+    /// INV-01 is exercised on both sides of the threshold.
+    /// </summary>
+    private static Arbitrary<(string seq, int stem, int loop)> HairpinKnobArbitrary() =>
+        (from stem in Gen.Choose(2, 6)
+         from loop in Gen.Choose(1, 6)
+         from len in Gen.Choose(1, 40)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+         select (new string(chars), stem, loop)).ToArbitrary();
+
+    /// <summary>
+    /// Generates a pair of valid ACGT primers together with two complementarity thresholds, for
+    /// HasPrimerDimer monotonicity. Primers are ≥ 8 bases so the 3' comparison window is full.
+    /// </summary>
+    private static Arbitrary<(string p1, string p2, int thrLo, int thrHi)> DimerThresholdArbitrary() =>
+        (from p1 in ValidPrimerGen(8, 30)
+         from p2 in ValidPrimerGen(8, 30)
+         from a in Gen.Choose(1, 8)
+         from b in Gen.Choose(1, 8)
+         select (p1, p2, Math.Min(a, b), Math.Max(a, b))).ToArbitrary();
+
+    /// <summary>
+    /// Independent transcription of the production complement relation (A↔T, G↔C). Used to
+    /// recompute the terminal complementary-pair count for HasPrimerDimer anchors.
+    /// </summary>
+    private static bool IsWatsonCrick(char a, char b) =>
+        (a, b) is ('A', 'T') or ('T', 'A') or ('G', 'C') or ('C', 'G');
+
+    /// <summary>Reverse complement built independently (no production helper) for dimer oracle work.</summary>
+    private static string RevComp(string s)
+    {
+        var chars = s.ToUpperInvariant().ToCharArray();
+        Array.Reverse(chars);
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = chars[i] switch { 'A' => 'T', 'T' => 'A', 'G' => 'C', 'C' => 'G', var c => c };
+        return new string(chars);
+    }
+
+    #endregion
+
+    #region PRIMER-STRUCT-001 — Calculate3PrimeStability (R: ΔG ≤ 0, NN oracle)
+
+    /// <summary>
+    /// INV-NN-oracle: for ANY ACGT sequence of length ≥ 5, production
+    /// <see cref="PrimerDesigner.Calculate3PrimeStability"/> equals the independent SantaLucia
+    /// nearest-neighbor oracle within 1e-9. This is the rigorous core: it pins every NN step and
+    /// both initiation terms to literally transcribed published constants rather than the code's own.
+    /// Source: SantaLucia (1998); Primer_Structure_Analysis.md §2.2/§4.2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Calculate3PrimeStability_MatchesSantaLuciaOracle()
+    {
+        return Prop.ForAll(StabilitySequenceArbitrary(), seq =>
+        {
+            double actual = PrimerDesigner.Calculate3PrimeStability(seq);
+            double expected = ExpectedThreePrimeStability(seq);
+            return (Math.Abs(actual - expected) < 1e-9)
+                .Label($"ΔG mismatch for '{seq}': {actual} vs oracle {expected}");
         });
     }
+
+    /// <summary>
+    /// INV-01 (R): ΔG ≤ 0 for every sequence of length ≥ 5. Every NN step is negative and the
+    /// most positive initiation pair (+1.03 twice) cannot outweigh the four steps, so the duplex
+    /// stability is never positive (the anchor TATAT = −0.86 is the documented least-stable case).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Calculate3PrimeStability_IsNonPositive_ForLengthAtLeast5()
+    {
+        return Prop.ForAll(StabilitySequenceArbitrary(), seq =>
+        {
+            double dg = PrimerDesigner.Calculate3PrimeStability(seq);
+            return (dg <= 0.0 && double.IsFinite(dg))
+                .Label($"ΔG {dg} not ≤ 0 (finite) for '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (Edge): ΔG = 0 for any sequence shorter than 5 nt (the method short-circuits).
+    /// Source: Primer_Structure_Analysis.md §2.4 INV-02.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Calculate3PrimeStability_IsZero_ForLengthBelow5()
+    {
+        var shortGen = (from len in Gen.Choose(0, 4)
+                        from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                        select new string(chars)).ToArbitrary();
+        return Prop.ForAll(shortGen, seq =>
+            (PrimerDesigner.Calculate3PrimeStability(seq) == 0.0)
+                .Label($"ΔG not 0 for short '{seq}'"));
+    }
+
+    /// <summary>
+    /// INV-M (terminal G·C ⇒ not less stable): replacing the terminal A/T of an A/T-flanked 5-mer
+    /// with G/C makes the duplex no LESS stable (ΔG not greater). G·C contributes a stronger NN
+    /// step and a lower initiation penalty (+0.98 vs +1.03), so more terminal G/C ⇒ ΔG decreases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Calculate3PrimeStability_MoreTerminalGc_NotLessStable()
+    {
+        // Inner trinucleotide is fixed; only the two terminal bases vary A/T → G/C.
+        var arb = (from inner in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(3)
+                   select new string(inner)).ToArbitrary();
+        return Prop.ForAll(arb, inner =>
+        {
+            double dgAt = PrimerDesigner.Calculate3PrimeStability("A" + inner + "T");
+            double dgGc = PrimerDesigner.Calculate3PrimeStability("G" + inner + "C");
+            return (dgGc <= dgAt + 1e-9)
+                .Label($"GC-terminal not ≤ AT-terminal for inner '{inner}': {dgGc} vs {dgAt}");
+        });
+    }
+
+    /// <summary>
+    /// INV-D (Determinism): repeated evaluation of the same sequence is bit-identical.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Calculate3PrimeStability_IsDeterministic()
+    {
+        return Prop.ForAll(StabilitySequenceArbitrary(), seq =>
+        {
+            double a = PrimerDesigner.Calculate3PrimeStability(seq);
+            double b = PrimerDesigner.Calculate3PrimeStability(seq);
+            return a.Equals(b).Label($"non-deterministic ΔG for '{seq}': {a} vs {b}");
+        });
+    }
+
+    /// <summary>
+    /// Evidence anchors: the two canonical 5-mers documented in §2.2 with literal published values —
+    /// GCGCG = −6.86 kcal/mol (most stable) and TATAT = −0.86 (least stable). A shared-but-wrong
+    /// constant in production+oracle could pass the oracle property; these absolute values cannot.
+    /// </summary>
+    [TestCase("GCGCG", -6.86, TestName = "SantaLucia: GCGCG → −6.86 (most stable)")]
+    [TestCase("TATAT", -0.86, TestName = "SantaLucia: TATAT → −0.86 (least stable)")]
+    [Category("Property")]
+    public void Calculate3PrimeStability_CanonicalAnchors(string seq, double expected)
+    {
+        double actual = PrimerDesigner.Calculate3PrimeStability(seq);
+        Assert.That(actual, Is.EqualTo(expected).Within(0.01),
+            $"ΔG for '{seq}' must match the documented SantaLucia value {expected} kcal/mol");
+    }
+
+    #endregion
+
+    #region PRIMER-STRUCT-001 — HasHairpinPotential (INV-01, monotonicity, case)
+
+    /// <summary>
+    /// INV-01 (R): HasHairpinPotential returns false whenever the sequence is shorter than the
+    /// structural minimum 2·minStemLength + minLoopLength — a valid stem-loop cannot fit. Exercised
+    /// over randomized sequences AND randomized stem/loop knobs. Source: §2.4 INV-01.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasHairpinPotential_BelowMinStructureSize_IsFalse()
+    {
+        return Prop.ForAll(HairpinKnobArbitrary(), t =>
+        {
+            var (seq, stem, loop) = t;
+            if (seq.Length >= 2 * stem + loop)
+                return true.ToProperty(); // property only constrains the sub-minimum regime.
+            return (!PrimerDesigner.HasHairpinPotential(seq, stem, loop))
+                .Label($"hairpin reported below min size: len {seq.Length} < 2·{stem}+{loop} for '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-M (monotonicity in permissiveness): a shorter required stem is strictly more permissive,
+    /// so if a hairpin is detected at stem = k it must still be detected at stem = k−1 (loop fixed).
+    /// Detection sets are nested: lowering the stem threshold never turns true into false.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasHairpinPotential_LowerStem_NeverLosesDetection()
+    {
+        var arb = (from stem in Gen.Choose(3, 6)
+                   from loop in Gen.Choose(1, 4)
+                   from len in Gen.Choose(2 * stem + loop, 60)
+                   from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+                   select (new string(chars), stem, loop)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var (seq, stem, loop) = t;
+            bool atK = PrimerDesigner.HasHairpinPotential(seq, stem, loop);
+            bool atKMinus1 = PrimerDesigner.HasHairpinPotential(seq, stem - 1, loop);
+            // detected at stricter stem ⇒ must be detected at more permissive (shorter) stem.
+            return (!atK || atKMinus1)
+                .Label($"monotonicity broken for '{seq}' loop={loop}: stem {stem}={atK}, stem {stem - 1}={atKMinus1}");
+        });
+    }
+
+    /// <summary>
+    /// INV-P (case-insensitivity): upper-, lower-, and mixed-case spellings of the same sequence
+    /// give the identical hairpin verdict (the source upper-cases before comparison). Source: §3.3.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasHairpinPotential_IsCaseInsensitive()
+    {
+        return Prop.ForAll(ValidPrimerArbitrary(1, 40), seq =>
+        {
+            char[] m = seq.ToCharArray();
+            for (int i = 0; i < m.Length; i += 2) m[i] = char.ToLowerInvariant(m[i]);
+            bool up = PrimerDesigner.HasHairpinPotential(seq.ToUpperInvariant());
+            bool lo = PrimerDesigner.HasHairpinPotential(seq.ToLowerInvariant());
+            bool mi = PrimerDesigner.HasHairpinPotential(new string(m));
+            return (up == lo && up == mi)
+                .Label($"case sensitivity for '{seq}': up={up}, lo={lo}, mixed={mi}");
+        });
+    }
+
+    /// <summary>
+    /// INV-D (Determinism): the hairpin verdict is identical across repeated calls.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasHairpinPotential_IsDeterministic()
+    {
+        return Prop.ForAll(HairpinKnobArbitrary(), t =>
+        {
+            var (seq, stem, loop) = t;
+            bool a = PrimerDesigner.HasHairpinPotential(seq, stem, loop);
+            bool b = PrimerDesigner.HasHairpinPotential(seq, stem, loop);
+            return (a == b).Label($"non-deterministic hairpin for '{seq}'");
+        });
+    }
+
+    /// <summary>
+    /// Constructed positive anchor: a 5' stem, a loop, then the reverse complement of the stem as
+    /// the 3' stem forms a genuine stem-loop. Stem "GGGG" (positions 0-3), loop "AAA" (3 nt ≥
+    /// minLoop), 3' stem "CCCC" = revcomp("GGGG"). With minStem=4/minLoop=3 this must be detected.
+    /// Source: §2.2 stem-loop model; §6.1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void HasHairpinPotential_EngineeredStemLoop_ReturnsTrue()
+    {
+        // 5' stem GGGG | loop AAA | 3' stem CCCC (= reverse complement of GGGG read 3'→5').
+        const string hairpin = "GGGGAAACCCC";
+        Assert.That(PrimerDesigner.HasHairpinPotential(hairpin, minStemLength: 4, minLoopLength: 3),
+            Is.True, "engineered stem(GGGG)+loop(AAA)+revcomp-stem(CCCC) must form a hairpin");
+    }
+
+    /// <summary>
+    /// Constructed negative anchor: a homopolymer has no self-complementary stem (A never pairs with
+    /// A), so no hairpin is possible regardless of length. Source: §6.1 "No self-complementary regions".
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void HasHairpinPotential_Homopolymer_ReturnsFalse()
+    {
+        Assert.That(PrimerDesigner.HasHairpinPotential(new string('A', 40)),
+            Is.False, "a poly-A run has no complementary stem and cannot form a hairpin");
+    }
+
+    #endregion
+
+    #region PRIMER-STRUCT-001 — HasPrimerDimer (empty, monotonicity, constructed)
+
+    /// <summary>
+    /// INV-Edge: an empty or null primer on either side yields false — no terminal complementarity
+    /// can be evaluated. Source: §3.3 / §6.1.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void HasPrimerDimer_EmptyOrNull_ReturnsFalse()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PrimerDesigner.HasPrimerDimer("", "ACGTACGT"), Is.False);
+            Assert.That(PrimerDesigner.HasPrimerDimer("ACGTACGT", ""), Is.False);
+            Assert.That(PrimerDesigner.HasPrimerDimer(null!, "ACGTACGT"), Is.False);
+            Assert.That(PrimerDesigner.HasPrimerDimer("ACGTACGT", null!), Is.False);
+        });
+    }
+
+    /// <summary>
+    /// INV-M (monotonicity in threshold): a higher minComplementarity is stricter, so if a dimer is
+    /// flagged at the high threshold it must also be flagged at the lower one (same primers). Raising
+    /// the threshold can never INCREASE detections. Source: §2.2 (threshold on terminal window).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasPrimerDimer_HigherThreshold_NeverIncreasesDetection()
+    {
+        return Prop.ForAll(DimerThresholdArbitrary(), t =>
+        {
+            var (p1, p2, lo, hi) = t;
+            bool atHi = PrimerDesigner.HasPrimerDimer(p1, p2, hi);
+            bool atLo = PrimerDesigner.HasPrimerDimer(p1, p2, lo);
+            // detected at the stricter (higher) threshold ⇒ must be detected at the looser (lower) one.
+            return (!atHi || atLo)
+                .Label($"threshold monotonicity broken for '{p1}'/'{p2}': thr {hi}={atHi}, thr {lo}={atLo}");
+        });
+    }
+
+    /// <summary>
+    /// INV-D (Determinism): the dimer verdict is identical across repeated calls.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property HasPrimerDimer_IsDeterministic()
+    {
+        return Prop.ForAll(DimerThresholdArbitrary(), t =>
+        {
+            var (p1, p2, _, thr) = t;
+            bool a = PrimerDesigner.HasPrimerDimer(p1, p2, thr);
+            bool b = PrimerDesigner.HasPrimerDimer(p1, p2, thr);
+            return (a == b).Label($"non-deterministic dimer for '{p1}'/'{p2}'");
+        });
+    }
+
+    /// <summary>
+    /// Constructed positive anchor with independent recomputation: the production rule compares the
+    /// last min(8,len) bases of primer1 against the FIRST min(8,len) bases of revcomp(primer2) and
+    /// counts Watson-Crick pairs. We build a primer pair whose terminal windows are fully complementary
+    /// and verify (a) production flags the dimer at minComplementarity=4, and (b) the independently
+    /// recomputed complementary count equals 8 (the full window) — confirming the rule, not just the bit.
+    /// Source: §2.2 / §5.2 (last min(8,len) bases vs start of revcomp of the other primer).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void HasPrimerDimer_EngineeredComplementaryEnds_ReturnsTrue()
+    {
+        // primer2 fixed; choose primer1 so its 3' 8-mer == first 8 of revcomp(primer2) ⇒ all complementary.
+        const string primer2 = "TTTTTTTTGGCCAATT";
+        string rc2 = RevComp(primer2);                 // independent reverse complement
+        string window2 = rc2.Substring(0, 8);          // first 8 bases of revcomp(primer2)
+        // Make primer1 end in a stretch that is Watson-Crick complementary to window2 base-by-base.
+        var tail = new char[8];
+        for (int i = 0; i < 8; i++)
+            tail[i] = window2[i] switch { 'A' => 'T', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => 'A' };
+        string primer1 = "ACGTACGT" + new string(tail); // length 16, last 8 = engineered complement
+
+        // Independent recomputation of the terminal complementary-pair count.
+        string end1 = primer1.Substring(primer1.Length - 8);
+        int comp = 0;
+        for (int i = 0; i < 8; i++)
+            if (IsWatsonCrick(end1[i], window2[i])) comp++;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(comp, Is.EqualTo(8), "engineered terminal window must be fully complementary");
+            Assert.That(PrimerDesigner.HasPrimerDimer(primer1, primer2, minComplementarity: 4),
+                Is.True, "fully complementary 3' ends must be flagged as a primer-dimer");
+        });
+    }
+
+    #endregion
 
     #region Generators &amp; Theory Oracle (PRIMER-DESIGN-001)
 
