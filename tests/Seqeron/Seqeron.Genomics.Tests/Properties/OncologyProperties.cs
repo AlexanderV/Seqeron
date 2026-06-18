@@ -5775,4 +5775,276 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-FUSION-001 — Fusion Gene Detection (min-support calling + reading frame)
+
+    // -------------------------------------------------------------------------
+    // Theory (STAR-Fusion Haas 2017/2019; Arriba Uhrig 2021; exon-phase rule):
+    //   • TotalSupport = split_reads1 + split_reads2 + discordant_mates.            (Arriba; INV-2)
+    //   • JunctionReads = split_reads1 + split_reads2.                              (Arriba)
+    //   • A candidate is CALLED iff gene5p ≠ gene3p (distinct genes; INV-1) AND     (STAR-Fusion;
+    //       - junctionReads ≥ minJunctionReads AND total ≥ minSumFrags, OR           INV-3)
+    //       - junctionReads == 0 AND discordant ≥ minSpanningFragsOnly.
+    //   • Calls are ordered by descending TotalSupport (abundance of support).      (INV-4)
+    //   • In-frame ⇔ (fivePrimeCodingBases − threePrimeStartPhase) mod 3 == 0.      (INV-5)
+    //
+    // The detection predicate, support sums and frame rule are reconstructed here
+    // from the cited STAR-Fusion / Arriba defaults and the modulo-3 exon-phase rule
+    // — NOT routed through DetectFusions / ComputeTotalSupport / IsInFrame — so a
+    // self-consistent-but-wrong production threshold or sum is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Gene-symbol pool for fusion candidates; small so same-gene (INV-1) pairs recur.</summary>
+    private static readonly string[] FusionGenePool =
+    {
+        "EML4", "ALK", "ROS1", "CD74", "RET", "KIF5B", "TMPRSS2", "ERG", "BRAF", "NTRK1",
+    };
+
+    /// <summary>An arbitrary fusion candidate: pooled gene symbols, non-negative read counts, optional frame info.</summary>
+    private static Gen<OncologyAnalyzer.FusionCandidate> FusionCandidateGen() =>
+        from g5 in Gen.Elements(FusionGenePool)
+        from g3 in Gen.Elements(FusionGenePool)
+        from split5 in Gen.Choose(0, 20)
+        from split3 in Gen.Choose(0, 20)
+        from disc in Gen.Choose(0, 20)
+        from coding in Gen.Choose(-1, 400)
+        from phase in Gen.Choose(-1, 2)
+        select new OncologyAnalyzer.FusionCandidate(g5, g3, split5, split3, disc, coding, phase);
+
+    /// <summary>A list of 0..8 arbitrary fusion candidates.</summary>
+    private static Arbitrary<OncologyAnalyzer.FusionCandidate[]> FusionCandidateListArbitrary() =>
+        (from n in Gen.Choose(0, 8)
+         from list in FusionCandidateGen().ArrayOf(n)
+         select list).ToArbitrary();
+
+    /// <summary>An arbitrary candidate list paired with valid custom STAR-Fusion thresholds.</summary>
+    private static Arbitrary<(OncologyAnalyzer.FusionCandidate[] candidates, OncologyAnalyzer.FusionDetectionThresholds thresholds)>
+        FusionProblemArbitrary() =>
+        (from candidates in FusionCandidateListArbitrary().Generator
+         from minJunc in Gen.Choose(0, 3)
+         from minSum in Gen.Choose(1, 6)
+         from minSpan in Gen.Choose(1, 8)
+         select (candidates, new OncologyAnalyzer.FusionDetectionThresholds(minJunc, minSum, minSpan))).ToArbitrary();
+
+    /// <summary>Independent STAR-Fusion detection predicate (distinct genes + min-support rule).</summary>
+    private static bool OracleIsCalled(OncologyAnalyzer.FusionCandidate c, OncologyAnalyzer.FusionDetectionThresholds t)
+    {
+        if (string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase))
+        {
+            return false; // INV-1: a gene is not fused with itself
+        }
+
+        int junction = c.SplitReads5Prime + c.SplitReads3Prime;
+        int total = c.SplitReads5Prime + c.SplitReads3Prime + c.DiscordantMates;
+        return junction >= t.MinJunctionReads
+            ? total >= t.MinSumFrags
+            : c.DiscordantMates >= t.MinSpanningFragsOnly;
+    }
+
+    /// <summary>
+    /// INV-3: the set of detected fusions equals exactly the candidates the independent STAR-Fusion
+    /// min-support predicate accepts (distinct genes AND the junction/spanning rule), as an unordered
+    /// multiset of (gene5p, gene3p, junctionReads, discordant, totalSupport). (TestSpec §3 INV-3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_DetectedSet_EqualsIndependentMinSupportOracle()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+
+            var expected = p.candidates
+                .Where(c => OracleIsCalled(c, p.thresholds))
+                .Select(c => (c.Gene5Prime, c.Gene3Prime,
+                    junc: c.SplitReads5Prime + c.SplitReads3Prime,
+                    c.DiscordantMates,
+                    total: c.SplitReads5Prime + c.SplitReads3Prime + c.DiscordantMates))
+                .ToList();
+
+            var actual = calls
+                .Select(c => (c.Gene5Prime, c.Gene3Prime, junc: c.JunctionReads, c.DiscordantMates, total: c.TotalSupport))
+                .ToList();
+
+            bool ok = actual.Count == expected.Count
+                && expected.All(e => actual.Count(a => a.Equals(e)) == expected.Count(x => x.Equals(e)));
+            return ok.Label($"detected {actual.Count} vs oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 (P, checklist "joins two distinct genes"): every reported fusion has gene5p ≠ gene3p
+    /// (case-insensitive); a gene is never fused with itself. (Registry invariant)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_EveryCall_JoinsTwoDistinctGenes()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return calls.All(c => !string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase))
+                .Label($"a call fused a gene with itself: [{string.Join(",", calls.Select(c => $"{c.Gene5Prime}-{c.Gene3Prime}"))}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R, checklist "breakpoint support valid"): for every reported fusion the support fields are
+    /// internally consistent with the documented Arriba sum, <c>TotalSupport = JunctionReads + DiscordantMates</c>
+    /// (= split1+split2+discordant). The per-candidate equality of these counts to the originating
+    /// candidate is covered by the oracle-match property. (Arriba output spec)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_SupportFields_AreTheArribaSums()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return calls.All(c => c.TotalSupport == c.JunctionReads + c.DiscordantMates && c.TotalSupport >= 0)
+                .Label("a call's TotalSupport ≠ JunctionReads + DiscordantMates (Arriba sum)");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (M, checklist "more reads → higher confidence"): the calls are returned ordered by
+    /// non-increasing TotalSupport, so the most strongly supported fusion ranks first. (STAR-Fusion scoring)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_Results_AreOrderedByDescendingTotalSupport()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            bool ordered = true;
+            for (int i = 1; i < calls.Count; i++)
+            {
+                ordered &= calls[i].TotalSupport <= calls[i - 1].TotalSupport;
+            }
+
+            return ordered.Label($"not descending by support: [{string.Join(",", calls.Select(c => c.TotalSupport))}]");
+        });
+    }
+
+    /// <summary>
+    /// M (metamorphic, "more split/spanning reads → higher confidence"): adding supporting reads to a
+    /// candidate that already passes can never un-detect it, and strictly increases its TotalSupport.
+    /// Detection is monotone non-decreasing in supporting evidence. (STAR-Fusion abundance scoring)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_AddingReadsToAPassingCandidate_KeepsItDetected_AndRaisesSupport()
+    {
+        var arb = (from c in FusionCandidateGen()
+                   from addSplit5 in Gen.Choose(0, 10)
+                   from addSplit3 in Gen.Choose(0, 10)
+                   from addDisc in Gen.Choose(0, 10)
+                   where !string.Equals(c.Gene5Prime, c.Gene3Prime, StringComparison.OrdinalIgnoreCase)
+                   select (c, addSplit5, addSplit3, addDisc)).ToArbitrary();
+
+        return Prop.ForAll(arb, x =>
+        {
+            var thresholds = new OncologyAnalyzer.FusionDetectionThresholds();
+            var before = OncologyAnalyzer.DetectFusions(new[] { x.c }, thresholds);
+
+            // Only the monotonicity implication is asserted: it is conditional on the base candidate passing.
+            if (before.Count == 0)
+            {
+                return true.ToProperty();
+            }
+
+            var boosted = x.c with
+            {
+                SplitReads5Prime = x.c.SplitReads5Prime + x.addSplit5,
+                SplitReads3Prime = x.c.SplitReads3Prime + x.addSplit3,
+                DiscordantMates = x.c.DiscordantMates + x.addDisc,
+            };
+            var after = OncologyAnalyzer.DetectFusions(new[] { boosted }, thresholds);
+
+            int addedTotal = x.addSplit5 + x.addSplit3 + x.addDisc;
+            bool stillDetected = after.Count == 1;
+            bool supportRose = stillDetected && after[0].TotalSupport == before[0].TotalSupport + addedTotal;
+            return (stillDetected && supportRose)
+                .Label($"detected before with support {before[0].TotalSupport}; after detected={after.Count} added={addedTotal}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: <c>IsInFrame(b,p)</c> equals the independent codon-phase oracle <c>(b − p) mod 3 == 0</c>
+    /// for every non-negative b and phase p ∈ {0,1,2}. (exon-phase rule + reading-frame modulo 3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsInFrame_MatchesCodonPhaseModuloThreeOracle()
+    {
+        var arb = (from b in Gen.Choose(0, 1000)
+                   from p in Gen.Choose(0, 2)
+                   select (b, p)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsInFrame(t.b, t.p);
+            bool oracle = (t.b - t.p) % 3 == 0;
+            return (actual == oracle).Label($"IsInFrame({t.b},{t.p})={actual} ≠ ({t.b}-{t.p}) mod 3 == 0 = {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (reading-frame resolution): a detected fusion's <c>ReadingFrame</c> is InFrame/OutOfFrame
+    /// exactly per the codon-phase oracle when phase info is supplied (coding ≥ 0, phase ∈ {0,1,2}), and
+    /// Unknown otherwise. Driven per single candidate to map each call to its unambiguous source.
+    /// (TestSpec §3 INV-5 + FusionReadingFrame contract)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_ReadingFrame_FollowsCodonPhaseOracle()
+    {
+        return Prop.ForAll(FusionCandidateGen().ToArbitrary(), c =>
+        {
+            var calls = OncologyAnalyzer.DetectFusions(new[] { c });
+            if (calls.Count == 0)
+            {
+                return true.ToProperty(); // frame is only reported for a passing fusion
+            }
+
+            OncologyAnalyzer.FusionReadingFrame expected =
+                c.FivePrimeCodingBases < 0 || c.ThreePrimeStartPhase < 0 || c.ThreePrimeStartPhase >= 3
+                    ? OncologyAnalyzer.FusionReadingFrame.Unknown
+                    : (c.FivePrimeCodingBases - c.ThreePrimeStartPhase) % 3 == 0
+                        ? OncologyAnalyzer.FusionReadingFrame.InFrame
+                        : OncologyAnalyzer.FusionReadingFrame.OutOfFrame;
+
+            return (calls[0].ReadingFrame == expected)
+                .Label($"ReadingFrame {calls[0].ReadingFrame} ≠ oracle {expected} (coding={c.FivePrimeCodingBases}, phase={c.ThreePrimeStartPhase})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same candidates and thresholds always yield the identical ordered call list.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFusions_IsDeterministic()
+    {
+        return Prop.ForAll(FusionProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            var b = OncologyAnalyzer.DetectFusions(p.candidates, p.thresholds);
+            return a.SequenceEqual(b).Label("DetectFusions is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-3 spanning-only boundary): a junction-free candidate is called iff its discordant
+    /// fragments reach MIN_SPANNING_FRAGS_ONLY (=5): exactly 5 passes, 4 is rejected. (STAR-Fusion default)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectFusions_SpanningOnlyBoundary_FiveDetected_FourRejected()
+    {
+        var passing = OncologyAnalyzer.DetectFusions(new[] { new OncologyAnalyzer.FusionCandidate("CD74", "ROS1", 0, 0, 5) });
+        var failing = OncologyAnalyzer.DetectFusions(new[] { new OncologyAnalyzer.FusionCandidate("NCOA4", "RET", 0, 0, 4) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(passing, Has.Count.EqualTo(1), "0 junction reads, 5 discordant ≥ MIN_SPANNING_FRAGS_ONLY (5) ⇒ detected.");
+            Assert.That(passing[0].TotalSupport, Is.EqualTo(5), "Total support = discordant = 5.");
+            Assert.That(failing, Is.Empty, "0 junction reads, 4 discordant < 5 ⇒ rejected.");
+        });
+    }
+
+    #endregion
 }

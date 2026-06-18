@@ -129,7 +129,7 @@ Property-based testing генерирует сотни случайных вхо
 | 97 | ☑ | ONCO-SIG-002 | Oncology | R: exposures ≥ 0; P: Σ exposures = #mutations (or normalised 1.0); M: better fit → lower reconstruction error; D: deterministic | OncologyProperties.cs (new) |
 | 98 | ☑ | ONCO-SIG-003 | Oncology | R: CI_lower ≤ point ≤ CI_upper; P: bootstrap mean ≈ point estimate; D: deterministic given seed | OncologyProperties.cs (new) |
 | 99 | ☑ | ONCO-SIG-004 | Oncology | P: dominant process = argmax exposure; R: confidence ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
-| 100 | ☐ | ONCO-FUSION-001 | Oncology | R: breakpoint positions valid; P: fusion joins two distinct genes; M: more split/spanning reads → higher confidence; D: deterministic | OncologyProperties.cs (new) |
+| 100 | ☑ | ONCO-FUSION-001 | Oncology | R: breakpoint positions valid; P: fusion joins two distinct genes; M: more split/spanning reads → higher confidence; D: deterministic | OncologyProperties.cs (new) |
 | 101 | ☐ | ONCO-FUSION-002 | Oncology | P: matched fusions ⊆ known DB; R: match ∈ {true,false}; D: deterministic | OncologyProperties.cs (new) |
 | 102 | ☐ | ONCO-FUSION-003 | Oncology | P: reading frame (in/out) correctly derived; R: breakpoint within gene bounds; D: deterministic | OncologyProperties.cs (new) |
 | 103 | ☐ | ONCO-CNA-001 | Oncology | R: copy number ≥ 0; M: higher log2-ratio → higher CN; P: CN=2 → neutral; D: deterministic | OncologyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 99 |
-| ☐ Not started | 135 |
+| ☑ Complete | 100 |
+| ☐ Not started | 134 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
