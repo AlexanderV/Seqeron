@@ -649,4 +649,87 @@ public class PopulationGeneticsProperties
     }
 
     #endregion
+
+    #region POP-SELECT-001: R: statistic finite; M: stronger differentiation → higher signal; D: deterministic
+
+    // ScanForSelection flags regions whose Tajima's D / Fst / iHS exceed selection thresholds; the
+    // signal Score carries the test statistic. CalculateTajimasD is a finite summary statistic.
+
+    /// <summary>
+    /// INV-1 (R): Tajima's D is finite for valid samples (S ≥ 1, n ≥ 4, kHat ≥ 0).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TajimasD_IsFinite()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return (kHat: rng.NextDouble() * 10, s: 1 + rng.Next(50), n: 4 + rng.Next(47));
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, d =>
+            double.IsFinite(PopulationGeneticsAnalyzer.CalculateTajimasD(d.kHat, d.s, d.n))
+                .Label("Tajima's D must be finite"));
+    }
+
+    /// <summary>
+    /// INV-2 (R): every emitted selection signal has a finite score, ordered coordinates, and a
+    /// non-empty test type.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Selection_SignalsAreWellFormed()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return Enumerable.Range(0, 1 + rng.Next(4))
+                .Select(i => ($"r{i}", i * 1000, i * 1000 + 999,
+                    (rng.NextDouble() - 0.5) * 6, rng.NextDouble(), (rng.NextDouble() - 0.5) * 6))
+                .ToList();
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, regions =>
+        {
+            var signals = PopulationGeneticsAnalyzer.ScanForSelection(regions).ToList();
+            return signals.All(s => double.IsFinite(s.Score) && s.Start <= s.End && !string.IsNullOrEmpty(s.TestType))
+                .Label("a selection signal was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): stronger differentiation (higher Fst) above the threshold is flagged, and a higher
+    /// Fst gives a higher Fst-signal score; a below-threshold Fst is not flagged.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Selection_HigherFst_StrongerSignal()
+    {
+        (string, int, int, double, double, double) Region(string id, double fst) => (id, 0, 999, 0.0, fst, 0.0);
+
+        var lowFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.10) }).Where(s => s.TestType == "Fst").ToList();
+        var midFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.30) }).Where(s => s.TestType == "Fst").ToList();
+        var highFst = PopulationGeneticsAnalyzer.ScanForSelection(new[] { Region("r", 0.60) }).Where(s => s.TestType == "Fst").ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowFst, Is.Empty, "Fst below threshold is not flagged");
+            Assert.That(midFst, Has.Count.EqualTo(1), "Fst above threshold is flagged");
+            Assert.That(highFst.Single().Score, Is.GreaterThan(midFst.Single().Score), "higher Fst → higher signal score");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Selection scanning is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Selection_IsDeterministic()
+    {
+        var regions = new[] { ("r0", 0, 999, -2.5, 0.4, 3.0), ("r1", 1000, 1999, 0.5, 0.1, 0.2) };
+        var a = PopulationGeneticsAnalyzer.ScanForSelection(regions).Select(s => (s.TestType, s.Score)).ToList();
+        var b = PopulationGeneticsAnalyzer.ScanForSelection(regions).Select(s => (s.TestType, s.Score)).ToList();
+        Assert.That(b, Is.EqualTo(a));
+    }
+
+    #endregion
 }
