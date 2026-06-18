@@ -139,7 +139,7 @@ Property-based testing генерирует сотни случайных вхо
 | 107 | ☑ | ONCO-PLOIDY-001 | Oncology | R: ploidy > 0; M: more amplified genome → higher ploidy; D: deterministic | OncologyProperties.cs (new) |
 | 108 | ☑ | ONCO-CLONAL-001 | Oncology | P: clonal ⟺ CCF ≈ 1, else subclonal; R: class ∈ enum; D: deterministic | OncologyProperties.cs (new) |
 | 109 | ☑ | ONCO-NEO-001 | Oncology | R: peptide length ∈ [8,11]; P: mutated residue inside every peptide window; P: peptides tile the mutation; D: deterministic | OncologyProperties.cs (new) |
-| 110 | ☐ | ONCO-MHC-001 | Oncology | R: %rank ∈ [0,100]; M: lower IC50 → stronger binding; P: strong binder ⟺ rank ≤ threshold; D: deterministic | OncologyProperties.cs (new) |
+| 110 | ☑ | ONCO-MHC-001 | Oncology | R: %rank ∈ [0,100]; M: lower IC50 → stronger binding; P: strong binder ⟺ rank ≤ threshold; D: deterministic | OncologyProperties.cs (new) |
 | 111 | ☐ | ONCO-CTDNA-001 | Oncology | R: ctDNA fraction ∈ [0,1]; M: more tumor-supporting reads → higher fraction; D: deterministic | OncologyProperties.cs (new) |
 | 112 | ☐ | ONCO-MRD-001 | Oncology | R: detection ∈ {positive,negative}; M: more tracked variants observed → MRD-positive; R: sensitivity ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
 | 113 | ☐ | ONCO-CHIP-001 | Oncology | P: CHIP flagged by gene list ∧ VAF band; P: survivors ⊆ input; D: deterministic | OncologyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 109 |
-| ☐ Not started | 125 |
+| ☑ Complete | 110 |
+| ☐ Not started | 124 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

@@ -7742,4 +7742,175 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-MHC-001 — MHC Binding Classification (IC50 / %Rank cutoffs)
+
+    // -------------------------------------------------------------------------
+    // Theory (Sette 1994 / IEDB IC50; Reynisson 2020 NetMHCpan-4.1 %Rank; IEDB lengths):
+    //   • IC50: Strong < 50 nM, Weak < 500 nM, else NonBinder (strict <).
+    //   • %Rank: class I Strong < 0.5%, Weak < 2%; class II Strong < 2%, Weak < 10% (strict).
+    //   • Valid length: class I 8–11, class II 13–25 (inclusive).
+    //   • Lower IC50 / lower %Rank ⇒ stronger (or equal) binding.   (M)
+    //   • ClassifyMhcBinding: invalid length ⇒ NonBinder, else affinity classification.
+    //
+    // The cutoffs and length ranges are restated independently from the cited conventions —
+    // NOT routed through production constants — so a wrong threshold or boundary sense
+    // (e.g. ≤ vs <) is caught. Enum order Strong(0) < Weak(1) < NonBinder(2) encodes strength.
+    // -------------------------------------------------------------------------
+
+    private static int Strength(OncologyAnalyzer.BindingStrength s) => (int)s;
+
+    private static Gen<double> Ic50Gen() => Gen.Choose(1, 100_000).Select(v => v / 100.0); // 0.01 .. 1000 nM
+
+    private static Gen<double> RankGen() => Gen.Choose(0, 10_000).Select(v => v / 100.0); // 0 .. 100 %
+
+    private static Gen<OncologyAnalyzer.MhcClass> MhcClassGen() =>
+        Gen.Elements(OncologyAnalyzer.MhcClass.ClassI, OncologyAnalyzer.MhcClass.ClassII);
+
+    /// <summary>
+    /// IC50 classification matches the independent IEDB cutoffs (Strong &lt; 50 nM, Weak &lt; 500 nM, else
+    /// NonBinder) and is monotone: a lower IC50 yields an equal-or-stronger category. (Sette 1994; IEDB)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyBindingAffinity_MatchesIc50Cutoffs_AndIsMonotone()
+    {
+        var arb = (from a in Ic50Gen()
+                   from b in Ic50Gen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var lowAffinity = OncologyAnalyzer.ClassifyBindingAffinity(t.lo);
+            var highAffinity = OncologyAnalyzer.ClassifyBindingAffinity(t.hi);
+
+            OncologyAnalyzer.BindingStrength expectedLow = t.lo < 50.0
+                ? OncologyAnalyzer.BindingStrength.Strong
+                : t.lo < 500.0 ? OncologyAnalyzer.BindingStrength.Weak : OncologyAnalyzer.BindingStrength.NonBinder;
+
+            bool oracleOk = lowAffinity == expectedLow;
+            bool monotone = Strength(lowAffinity) <= Strength(highAffinity); // lower IC50 ⇒ stronger (≤ enum)
+            return (oracleOk && monotone)
+                .Label($"IC50 {t.lo}→{lowAffinity} (expected {expectedLow}); {t.hi}→{highAffinity}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "strong binder ⟺ rank below threshold") + R (%Rank ∈ [0,100]): %Rank classification
+    /// matches the NetMHCpan class cutoffs, Strong ⟺ rank &lt; the class strong cutoff, and is monotone in
+    /// the rank (lower rank ⇒ stronger or equal). (Reynisson 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyBindingRank_MatchesClassCutoffs_StrongIffBelowStrongThreshold()
+    {
+        var arb = (from a in RankGen()
+                   from b in RankGen()
+                   from mhc in MhcClassGen()
+                   select (lo: Math.Min(a, b), hi: Math.Max(a, b), mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double strongCutoff = t.mhc == OncologyAnalyzer.MhcClass.ClassI ? 0.5 : 2.0;
+            double weakCutoff = t.mhc == OncologyAnalyzer.MhcClass.ClassI ? 2.0 : 10.0;
+
+            var low = OncologyAnalyzer.ClassifyBindingRank(t.lo, t.mhc);
+            var high = OncologyAnalyzer.ClassifyBindingRank(t.hi, t.mhc);
+
+            OncologyAnalyzer.BindingStrength expectedLow = t.lo < strongCutoff
+                ? OncologyAnalyzer.BindingStrength.Strong
+                : t.lo < weakCutoff ? OncologyAnalyzer.BindingStrength.Weak : OncologyAnalyzer.BindingStrength.NonBinder;
+
+            bool oracleOk = low == expectedLow;
+            bool strongIff = (low == OncologyAnalyzer.BindingStrength.Strong) == (t.lo < strongCutoff);
+            bool monotone = Strength(low) <= Strength(high);
+            return (oracleOk && strongIff && monotone)
+                .Label($"{t.mhc} rank {t.lo}→{low} (expected {expectedLow}); {t.hi}→{high}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsValidPeptideLength</c> matches the class length ranges exactly: class I ⟺ 8 ≤ len ≤ 11, class II
+    /// ⟺ 13 ≤ len ≤ 25 (both inclusive). (IEDB / Reynisson 2020 default class I 8–11)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsValidPeptideLength_MatchesClassRanges()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from mhc in MhcClassGen()
+                   select (len, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
+            bool expected = t.mhc == OncologyAnalyzer.MhcClass.ClassI
+                ? t.len is >= 8 and <= 11
+                : t.len is >= 13 and <= 25;
+            return (actual == expected).Label($"{t.mhc} len {t.len}: {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>
+    /// <c>ClassifyMhcBinding</c> gates on length: an invalid peptide length for the class is a NonBinder
+    /// regardless of IC50; a valid length defers to the IC50 affinity classification. (length gate + IC50)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMhcBinding_InvalidLengthIsNonBinder_ElseAffinity()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from ic50 in Ic50Gen()
+                   from mhc in MhcClassGen()
+                   select (len, ic50, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var actual = OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc);
+            bool validLength = OncologyAnalyzer.IsValidPeptideLength(t.len, t.mhc);
+            var expected = validLength
+                ? OncologyAnalyzer.ClassifyBindingAffinity(t.ic50)
+                : OncologyAnalyzer.BindingStrength.NonBinder;
+            return (actual == expected).Label($"len {t.len} ({t.mhc}), IC50 {t.ic50}: {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>D (determinism): all MHC-binding classifiers return identical categories for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MhcBindingClassifiers_AreDeterministic()
+    {
+        var arb = (from len in Gen.Choose(0, 30)
+                   from ic50 in Ic50Gen()
+                   from rank in RankGen()
+                   from mhc in MhcClassGen()
+                   select (len, ic50, rank, mhc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool affinityOk = OncologyAnalyzer.ClassifyBindingAffinity(t.ic50) == OncologyAnalyzer.ClassifyBindingAffinity(t.ic50);
+            bool rankOk = OncologyAnalyzer.ClassifyBindingRank(t.rank, t.mhc) == OncologyAnalyzer.ClassifyBindingRank(t.rank, t.mhc);
+            bool bindOk = OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc) == OncologyAnalyzer.ClassifyMhcBinding(t.len, t.ic50, t.mhc);
+            return (affinityOk && rankOk && bindOk).Label("MHC binding classification is not deterministic");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the strict IC50 boundaries (50 nM ⇒ Weak, 500 nM ⇒ NonBinder), the class I %Rank boundary
+    /// (0.5 ⇒ Weak), an invalid length ⇒ NonBinder, and the IC50/%Rank domain guards. (Sette 1994; Reynisson 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MhcBinding_BoundaryAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(49.9), Is.EqualTo(OncologyAnalyzer.BindingStrength.Strong), "< 50 ⇒ Strong.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(50.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak), "50 is not < 50 ⇒ Weak.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingAffinity(500.0), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder), "500 ⇒ NonBinder.");
+            Assert.That(OncologyAnalyzer.ClassifyBindingRank(0.5, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.Weak),
+                "Class I rank 0.5 is not < 0.5 ⇒ Weak.");
+            Assert.That(OncologyAnalyzer.ClassifyMhcBinding(12, 1.0, OncologyAnalyzer.MhcClass.ClassI), Is.EqualTo(OncologyAnalyzer.BindingStrength.NonBinder),
+                "Length 12 is invalid for class I ⇒ NonBinder regardless of IC50.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingAffinity(0.0), "IC50 must be > 0.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyBindingRank(101.0, OncologyAnalyzer.MhcClass.ClassI), "%Rank must be ≤ 100.");
+        });
+    }
+
+    #endregion
 }
