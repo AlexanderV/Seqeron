@@ -579,10 +579,22 @@ public class MiRnaProperties
                (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
     }
 
+    /// <summary>True only for the two G:U wobble pairs (G-U, U-G).</summary>
+    private static bool OracleIsWobble(char a, char b)
+    {
+        char x = a == 'T' ? 'U' : char.ToUpperInvariant(a);
+        char y = b == 'T' ? 'U' : char.ToUpperInvariant(b);
+        return (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
+    }
+
     /// <summary>
     /// Independent antiparallel duplex match/mismatch count over the first
     /// min(|miRNA|,|target|) positions: miRNA index i pairs with target[len-1-i]
-    /// (INV-05). A position is a mismatch when it cannot Watson-Crick / wobble pair.
+    /// (INV-05). Mirrors <c>AlignMiRnaToTarget</c> EXACTLY: a Watson-Crick pair counts
+    /// as a match, a G:U wobble counts as NEITHER match nor mismatch (it is tracked
+    /// separately as a wobble in the implementation), and a non-pairing position is a
+    /// mismatch. This distinction matters because the §5.2 score's "+0.05 when matches &gt; 10"
+    /// bonus is driven by the Watson-Crick match count only.
     /// </summary>
     private static (int matches, int mismatches) OracleDuplex(string mirna, string target)
     {
@@ -592,10 +604,12 @@ public class MiRnaProperties
         int matches = 0, mismatches = 0;
         for (int i = 0; i < len; i++)
         {
-            if (OracleCanPair(m[i], t[t.Length - 1 - i]))
-                matches++;
-            else
+            char a = m[i], b = t[t.Length - 1 - i];
+            if (!OracleCanPair(a, b))
                 mismatches++;
+            else if (!OracleIsWobble(a, b))
+                matches++;
+            // G:U wobble: counted as neither match nor mismatch (matches the implementation).
         }
         return (matches, mismatches);
     }
