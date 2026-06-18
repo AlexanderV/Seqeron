@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001, ASSEMBLY-SCAFFOLD-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001, ASSEMBLY-SCAFFOLD-001, ASSEMBLY-STATS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -749,6 +749,98 @@ public class AssemblyProperties
         var contigs = new[] { "ACGT", "TTTT", "GGCC" };
         var scaffolds = SequenceAssembler.Scaffold(contigs, Array.Empty<(int, int, int)>());
         Assert.That(scaffolds, Is.EqualTo(contigs));
+    }
+
+    #endregion
+
+    #region ASSEMBLY-STATS-001: R: N50 ≥ 0 and within length range; P: total length = Σ contig lengths; M: longer contigs → higher N50; D: deterministic
+
+    // N50 is the length of the shortest contig in the smallest set of longest contigs covering ≥ 50%
+    // of the assembly (Miller, Koren & Sutton 2010). Total length is the sum of contig lengths.
+
+    private static Arbitrary<int[]> LengthsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(6);
+            var arr = new int[n];
+            for (int i = 0; i < n; i++) arr[i] = 1 + rng.Next(1000);
+            return arr;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): N50 is non-negative and, for a non-empty assembly, lies within the contig-length
+    /// range (it is itself one of the contig lengths).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Stats_N50_IsWithinLengthRange()
+    {
+        return Prop.ForAll(LengthsArbitrary(), lengths =>
+        {
+            int n50 = GenomeAssemblyAnalyzer.CalculateN50(lengths);
+            return (n50 >= lengths.Min() && n50 <= lengths.Max())
+                .Label($"N50={n50} outside [{lengths.Min()},{lengths.Max()}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): Total assembly length equals the sum of contig lengths, and the largest/smallest
+    /// contig metrics match the extremes.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Stats_TotalLength_EqualsSumOfContigs()
+    {
+        return Prop.ForAll(LengthsArbitrary(), lengths =>
+        {
+            var seqs = lengths.Select((len, i) => ($"c{i}", new string('A', len)));
+            var stats = GenomeAssemblyAnalyzer.CalculateStatistics(seqs);
+            return (stats.TotalLength == lengths.Sum(l => (long)l)
+                    && stats.LargestContig == lengths.Max()
+                    && stats.SmallestContig == lengths.Min()
+                    && stats.TotalSequences == lengths.Length)
+                .Label($"total {stats.TotalLength} ≠ Σ {lengths.Sum(l => (long)l)}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): N50 grows with contig length — scaling every contig by a constant scales N50 by the
+    /// same constant (longer contigs ⇒ proportionally larger N50).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Stats_N50_ScalesWithContigLength()
+    {
+        return Prop.ForAll(LengthsArbitrary(), lengths =>
+        {
+            int n50 = GenomeAssemblyAnalyzer.CalculateN50(lengths);
+            int n50Scaled = GenomeAssemblyAnalyzer.CalculateN50(lengths.Select(l => l * 3).ToArray());
+            return (n50Scaled == 3 * n50).Label($"N50 scaling broken: {n50Scaled} ≠ 3×{n50}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Statistics are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Stats_AreDeterministic()
+    {
+        return Prop.ForAll(LengthsArbitrary(), lengths =>
+            (GenomeAssemblyAnalyzer.CalculateN50(lengths) == GenomeAssemblyAnalyzer.CalculateN50(lengths))
+                .Label("CalculateN50 must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (golden/boundary): the textbook N50 of {2,3,4,5,6} is 5; an empty assembly has N50 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Stats_GoldenAndBoundary()
+    {
+        Assert.Multiple(() =>
+        {
+            // Sorted desc 6,5,4,3,2 (total 20); cumulative reaches ≥50% (10) at 5 → N50 = 5.
+            Assert.That(GenomeAssemblyAnalyzer.CalculateN50(new[] { 2, 3, 4, 5, 6 }), Is.EqualTo(5));
+            Assert.That(GenomeAssemblyAnalyzer.CalculateN50(Array.Empty<int>()), Is.EqualTo(0));
+        });
     }
 
     #endregion

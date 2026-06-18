@@ -176,7 +176,7 @@ Property-based testing генерирует сотни случайных вхо
 | 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | P: merged length ≥ max input; P: overlap consistent; D: deterministic | AssemblyProperties.cs (new) |
 | 145 | ☑ | ASSEMBLY-OLC-001 | Assembly | R: contig count ≥ 1; P: overlaps ≥ minOverlap; D: deterministic | AssemblyProperties.cs (new) |
 | 146 | ☑ | ASSEMBLY-SCAFFOLD-001 | Assembly | P: scaffold order respects links; R: gap sizes ≥ 0; D: deterministic | AssemblyProperties.cs (new) |
-| 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | R: N50 ≥ 0; P: Σ contig lengths = total; M: longer contigs → higher N50; D: deterministic | AssemblyProperties.cs (new) |
+| 147 | ☑ | ASSEMBLY-STATS-001 | Assembly | R: N50 ≥ 0; P: Σ contig lengths = total; M: longer contigs → higher N50; D: deterministic | AssemblyProperties.cs (new) |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | P: trimmed length ≤ original; M: higher quality cutoff → shorter reads; D: deterministic | AssemblyProperties.cs (new) |
 | 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format = identity; P: balanced brackets → valid pairs; R: pair count ≤ len/2; D: deterministic | RnaStructureProperties.cs |
 | 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | R: loop size ≥ minLoop; M: larger destabilising loop → higher energy; D: deterministic | RnaStructureProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 146 |
-| ☐ Not started | 88 |
+| ☑ Complete | 147 |
+| ☐ Not started | 87 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
