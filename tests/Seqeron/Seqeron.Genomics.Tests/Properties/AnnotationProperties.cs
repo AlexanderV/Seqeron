@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for genome annotation: ORF detection, gene prediction,
 /// promoter motif detection, and GFF3 round-trip I/O.
 ///
-/// Test Units: ANNOT-ORF-001, ANNOT-GENE-001, ANNOT-PROM-001, ANNOT-GFF-001
+/// Test Units: ANNOT-ORF-001, ANNOT-GENE-001, ANNOT-PROM-001, ANNOT-GFF-001, ANNOT-CODING-001, ANNOT-CODONUSAGE-001, ANNOT-REPEAT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -515,6 +515,180 @@ public class AnnotationProperties
 
         Assert.That(lines1.SequenceEqual(lines2), Is.True,
             "GFF3 serialization must be deterministic");
+    }
+
+    #endregion
+
+    #region ANNOT-CODING-001: R: score finite; M: coding-like → higher score; D: deterministic
+
+    // CalculateCodingPotential is the CPAT/FrameKmer log-likelihood ratio of coding vs noncoding
+    // hexamer frequencies: it is a real-valued score (positive ⇒ coding-like, negative ⇒ noncoding),
+    // NOT a [0,1] probability — the checklist's [0,1] describes a calibrated score, not this raw LLR.
+
+    private static readonly IReadOnlyDictionary<string, double> CodingHex =
+        new Dictionary<string, double> { ["AAAAAA"] = 0.5, ["TTTTTT"] = 0.1 };
+    private static readonly IReadOnlyDictionary<string, double> NoncodingHex =
+        new Dictionary<string, double> { ["AAAAAA"] = 0.1, ["TTTTTT"] = 0.5 };
+
+    /// <summary>
+    /// INV-1 (R): the coding potential is finite for any sequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodingPotential_IsFinite()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+            double.IsFinite(GenomeAnnotator.CalculateCodingPotential(seq, CodingHex, NoncodingHex))
+                .Label("coding potential must be finite"));
+    }
+
+    /// <summary>
+    /// INV-2 (M): a sequence built from coding-enriched hexamers scores higher than one built from
+    /// noncoding-enriched hexamers.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CodingPotential_CodingLike_ScoresHigher()
+    {
+        double coding = GenomeAnnotator.CalculateCodingPotential(string.Concat(Enumerable.Repeat("AAAAAA", 5)), CodingHex, NoncodingHex);
+        double noncoding = GenomeAnnotator.CalculateCodingPotential(string.Concat(Enumerable.Repeat("TTTTTT", 5)), CodingHex, NoncodingHex);
+        Assert.Multiple(() =>
+        {
+            Assert.That(coding, Is.GreaterThan(0), "coding-enriched hexamers → positive score");
+            Assert.That(noncoding, Is.LessThan(coding), "coding-like must score higher than noncoding-like");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Coding-potential scoring is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodingPotential_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+            (GenomeAnnotator.CalculateCodingPotential(seq, CodingHex, NoncodingHex)
+             == GenomeAnnotator.CalculateCodingPotential(seq, CodingHex, NoncodingHex))
+                .Label("CalculateCodingPotential must be deterministic"));
+    }
+
+    #endregion
+
+    #region ANNOT-CODONUSAGE-001: R: RSCU ≥ 0; P: sum per amino acid = degeneracy; D: deterministic
+
+    // GenomeAnnotator.GetCodonUsage returns RSCU over a reference set: RSCU_j = n·x_j/Σx_k, so per
+    // amino-acid family it sums to the family degeneracy n (and 0 when unobserved). The relative-
+    // frequency form (sum 1 per family) is RSCU/n.
+
+    private static Arbitrary<string[]> CodingSeqsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int n = 1 + rng.Next(3);
+            var seqs = new string[n];
+            for (int s = 0; s < n; s++)
+            {
+                int codons = 5 + rng.Next(10);
+                var c = new char[codons * 3];
+                for (int i = 0; i < c.Length; i++) c[i] = bases[rng.Next(4)];
+                seqs[s] = new string(c);
+            }
+            return seqs;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): all RSCU values are non-negative and, per amino acid, sum to the family
+    /// degeneracy (number of synonymous codons) when observed, else 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonUsage_RscuSumsToDegeneracy()
+    {
+        return Prop.ForAll(CodingSeqsArbitrary(), seqs =>
+        {
+            var rscu = GenomeAnnotator.GetCodonUsage(seqs);
+            if (rscu.Values.Any(v => v < 0)) return false.Label("negative RSCU");
+            foreach (var aaGroup in rscu.GroupBy(kv => GeneticCode.Standard.Translate(kv.Key.Replace('T', 'U'))))
+            {
+                var vals = aaGroup.Select(kv => kv.Value).ToList();
+                double sum = vals.Sum();
+                double expected = vals.Any(v => v > 0) ? vals.Count : 0.0;
+                if (Math.Abs(sum - expected) > 1e-9) return false.Label($"AA '{aaGroup.Key}': sum {sum} ≠ {expected}");
+            }
+            return true.Label("RSCU sums to degeneracy per amino acid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Codon-usage (RSCU) computation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonUsage_IsDeterministic()
+    {
+        return Prop.ForAll(CodingSeqsArbitrary(), seqs =>
+        {
+            var a = GenomeAnnotator.GetCodonUsage(seqs);
+            var b = GenomeAnnotator.GetCodonUsage(seqs);
+            return (a.Count == b.Count && a.All(kv => Math.Abs(kv.Value - b[kv.Key]) < 1e-12))
+                .Label("GetCodonUsage must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region ANNOT-REPEAT-001: R: positions valid; M: lower minLength → ≥ elements; D: deterministic
+
+    // FindRepetitiveElements reports tandem and inverted repeats as (start, end, type, sequence) with
+    // start 0-based inclusive and end exclusive.
+
+    /// <summary>
+    /// INV-1 (R): every reported element has valid 0-based [start,end) coordinates within the
+    /// sequence, a non-empty descriptor, and a recognised type. (Tandem descriptors are the raw
+    /// substring; inverted descriptors are the composite arm[gap]arm form.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Repeats_PositionsAndTypesAreValid()
+    {
+        return Prop.ForAll(DnaArbitrary(50), seq =>
+        {
+            var elements = GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: 6, minCopies: 2).ToList();
+            return elements.All(e =>
+                e.start >= 0 && e.start < e.end && e.end <= seq.Length &&
+                !string.IsNullOrEmpty(e.sequence) &&
+                (e.type == "tandem_repeat"
+                    ? seq.Substring(e.start, e.end - e.start) == e.sequence
+                    : e.type == "inverted_repeat"))
+                .Label("a repetitive element had invalid coordinates/sequence/type");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower minimum repeat length never reports fewer elements.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Repeats_LowerMinLength_MoreElements()
+    {
+        return Prop.ForAll(DnaArbitrary(50), seq =>
+        {
+            int loose = GenomeAnnotator.FindRepetitiveElements(seq, 6, 2).Count();
+            int strict = GenomeAnnotator.FindRepetitiveElements(seq, 20, 2).Count();
+            return (loose >= strict).Label($"lower minLength gave fewer elements ({loose} < {strict})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): a clear tandem repeat is detected; detection is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Repeats_TandemDetected_AndDeterministic()
+    {
+        string seq = string.Concat(Enumerable.Repeat("ATG", 6)) + "CCCCCCCCCCCC";
+        var a = GenomeAnnotator.FindRepetitiveElements(seq, 6, 2).ToList();
+        var b = GenomeAnnotator.FindRepetitiveElements(seq, 6, 2).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Any(e => e.type == "tandem_repeat"), Is.True, "ATG×6 tandem repeat expected");
+            Assert.That(b.Select(e => (e.start, e.end, e.type)), Is.EqualTo(a.Select(e => (e.start, e.end, e.type))), "deterministic");
+        });
     }
 
     #endregion

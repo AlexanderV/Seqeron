@@ -245,9 +245,9 @@ Property-based testing генерирует сотни случайных вхо
 | 213 | ☑ | CODON-ENC-001 | Codon | R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic | CodonProperties.cs |
 | 214 | ☑ | CODON-RSCU-001 | Codon | R: RSCU ≥ 0; P: mean RSCU per amino acid = 1; D: deterministic | CodonProperties.cs |
 | 215 | ☑ | CODON-STATS-001 | Codon | R: counts ≥ 0; P: Σ codon counts = len/3; D: deterministic | CodonProperties.cs |
-| 216 | ☐ | ANNOT-CODING-001 | Annotation | R: coding score ∈ [0,1]; M: real ORF → higher score; D: deterministic | AnnotationProperties.cs |
-| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | R: frequencies ≥ 0; P: sum per amino acid = 1.0; D: deterministic | AnnotationProperties.cs |
-| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | R: positions valid; M: lower minLen → ≥ elements; D: deterministic | AnnotationProperties.cs |
+| 216 | ☑ | ANNOT-CODING-001 | Annotation | R: coding score ∈ [0,1]; M: real ORF → higher score; D: deterministic | AnnotationProperties.cs |
+| 217 | ☑ | ANNOT-CODONUSAGE-001 | Annotation | R: frequencies ≥ 0; P: sum per amino acid = 1.0; D: deterministic | AnnotationProperties.cs |
+| 218 | ☑ | ANNOT-REPEAT-001 | Annotation | R: positions valid; M: lower minLen → ≥ elements; D: deterministic | AnnotationProperties.cs |
 | 219 | ☐ | QUALITY-PHRED-001 | Quality | R: Q ≥ 0; P: Q = ASCII − offset; RT: encode∘decode = identity; D: deterministic | FileIOProperties.cs |
 | 220 | ☐ | QUALITY-STATS-001 | Quality | R: mean Q ≥ 0; P: len(scores) = len(sequence); D: deterministic | FileIOProperties.cs |
 | 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | R: support ∈ [0,100]; M: more replicates → stable support; D: deterministic given seed | PhylogeneticProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 215 |
-| ☐ Not started | 19 |
+| ☑ Complete | 218 |
+| ☐ Not started | 16 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
