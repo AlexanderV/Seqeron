@@ -143,12 +143,13 @@ tm_diff_c = 4.1
 
 ## What’s Inside
 
-- DNA/RNA/Protein models with validation and common operations.
-- Algorithms: pattern matching, k-mer analysis, repeat analysis, annotation, molecular tools.
-- Parsers/writers for genomics formats (FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL).
-- Suffix tree implementation for fast substring queries.
-- MCP servers for Core, Sequence, and Parsers toolsets.
-- Benchmarks, stress harness, and extensive unit tests.
+- DNA/RNA/Protein sequence models with validation and common operations.
+- Parsers/writers for common genomics formats (FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL).
+- A broad algorithm library spanning alignment, k-mer/motif/repeat/complexity analysis, annotation and variant calling, phylogenetics, population genetics, metagenomics, comparative and structural genomics, transcriptome and translation, RNA secondary structure, epigenetics, oncology, chromosome-level analysis, and molecular tools (primer/probe/CRISPR design, codon optimization, restriction analysis).
+- High-performance suffix tree (Ukkonen) for fast substring queries, plus a persistent on-disk variant.
+- MCP servers exposing the toolsets to LLM/agent workflows — one per domain (sequence, parsers, alignment, analysis, annotation, phylogenetics, population, metagenomics, chromosome, molecular tools) plus the core suffix-tree server.
+- Evidence-based validation: algorithm parameters and coefficients reproduced from primary literature and reference implementations, tracked under [docs/Validation](docs/Validation) (235 test-spec units).
+- Benchmarks, stress harness, and extensive unit tests. Targets .NET 10.
 
 ## Repository Layout
 
@@ -170,21 +171,29 @@ src/
 │   │   ├── Seqeron.Genomics.Phylogenetics/ # Phylogenetic analysis
 │   │   ├── Seqeron.Genomics.Population/    # Population genetics
 │   │   ├── Seqeron.Genomics.Metagenomics/  # Metagenomic analysis
-│   │   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, CRISPR, etc.)
+│   │   ├── Seqeron.Genomics.MolTools/      # Molecular tools (primers, probes, CRISPR, codon opt.)
 │   │   ├── Seqeron.Genomics.Chromosome/    # Chromosome-level analysis
+│   │   ├── Seqeron.Genomics.Oncology/      # Cancer genomics (CNV, drivers, clonality)
 │   │   └── Seqeron.Genomics.Reports/       # Report generation
-│   └── Mcp/
-│       ├── Seqeron.Mcp.Sequence/           # MCP server: sequence analysis tools
-│       └── Seqeron.Mcp.Parsers/            # MCP server: parser and format tools
+│   └── Mcp/                            # MCP servers, one per domain:
+│       ├── Seqeron.Mcp.Sequence/           #   sequence analysis tools
+│       ├── Seqeron.Mcp.Parsers/            #   parser and format tools
+│       ├── Seqeron.Mcp.Alignment/          #   alignment tools
+│       ├── Seqeron.Mcp.Analysis/           #   k-mer / motif / repeat tools
+│       ├── Seqeron.Mcp.Annotation/         #   annotation tools
+│       ├── Seqeron.Mcp.Phylogenetics/      #   phylogenetics tools
+│       ├── Seqeron.Mcp.Population/          #   population-genetics tools
+│       ├── Seqeron.Mcp.Metagenomics/       #   metagenomics tools
+│       ├── Seqeron.Mcp.Chromosome/         #   chromosome tools
+│       └── Seqeron.Mcp.MolTools/           #   molecular-tools
 tests/
 ├── SuffixTree/
 │   ├── SuffixTree.Tests/               # Suffix tree tests
 │   ├── SuffixTree.Persistent.Tests/    # Persistent suffix-tree tests
 │   └── SuffixTree.Mcp.Core.Tests/      # MCP core tool tests
 └── Seqeron/
-    ├── Seqeron.Genomics.Tests/         # Genomics tests
-    ├── Seqeron.Mcp.Sequence.Tests/     # MCP sequence tool tests
-    └── Seqeron.Mcp.Parsers.Tests/      # MCP parser tool tests
+    ├── Seqeron.Genomics.Tests/         # Genomics algorithm tests (the bulk of the suite)
+    └── Seqeron.Mcp.*.Tests/            # Per-domain MCP server tests
 apps/
 ├── SuffixTree.Benchmarks/              # Benchmarks
 ├── SuffixTree.Console/                 # Stress and verification harness
@@ -217,6 +226,7 @@ graph TD
         META[Metagenomics]
         MOL[MolTools]
         CHR[Chromosome]
+        ONC[Oncology]
     end
     
     subgraph "Level 4"
@@ -242,6 +252,7 @@ graph TD
     CORE --> MOL
     INF --> MOL
     ANA --> CHR
+    ANA --> ONC
     
     ANN --> REP
     ANA --> REP
@@ -289,7 +300,7 @@ Performance-critical libraries and executables are configured for aggressive Nat
 <IsTrimmable>true</IsTrimmable>           <!-- Dead code elimination -->
 ```
 
-**Executables** (`SuffixTree.Console`, `SuffixTree.Mcp.Core`, `Seqeron.Mcp.Parsers`, `Seqeron.Mcp.Sequence`):
+**Executables** (all MCP servers — `Seqeron.Mcp.*` and `SuffixTree.Mcp.Core` — plus the `SuffixTree.Console` harness):
 
 ```xml
 <PublishAot>true</PublishAot>               <!-- Full native compilation, no JIT/CLR -->

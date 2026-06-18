@@ -26,8 +26,8 @@ For HTTP-based MCP, the client usually needs a URL instead of a command.
 
 ## How to use in practice
 
-1) Start the server you need (Sequence / Parsers / Core).
-2) Register it in your MCP client.
+1) Start the server(s) you need — one per domain (see the table below).
+2) Register them in your MCP client.
 3) Use the tool docs to build prompts and tool calls.
 
 ## Example workflows (prompts and outputs)
@@ -116,21 +116,35 @@ tm_diff_c = 4.1
 
 ## Servers in this repo (and why split)
 
-Servers are split so you can attach only what you need:
+Servers are split by domain so you can attach only what you need (~440 tools across 11 servers):
 
-- **Seqeron.Mcp.Sequence** — DNA/RNA/Protein models, statistics, complexity, k‑mers.
-- **Seqeron.Mcp.Parsers** — FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing and utilities.
-- **SuffixTree.Mcp.Core** — suffix tree, distances, similarity.
+| Server | Domain | Tools |
+|--------|--------|------:|
+| `Seqeron.Mcp.Sequence` | DNA/RNA/Protein models, statistics, complexity, k‑mers | 36 |
+| `Seqeron.Mcp.Parsers` | FASTA/FASTQ/GenBank/GFF/VCF/BED/EMBL parsing and utilities | 42 |
+| `Seqeron.Mcp.Alignment` | Pairwise and multiple sequence alignment | 23 |
+| `Seqeron.Mcp.Analysis` | K‑mer, motif, repeat, and complexity analysis | 92 |
+| `Seqeron.Mcp.Annotation` | Gene/ORF/promoter annotation and variant calling | 98 |
+| `Seqeron.Mcp.Phylogenetics` | Distances, tree building, phylogenetic statistics | 14 |
+| `Seqeron.Mcp.Population` | Population genetics | 19 |
+| `Seqeron.Mcp.Metagenomics` | Taxonomic classification and metagenomic profiling | 20 |
+| `Seqeron.Mcp.Chromosome` | Chromosome‑level analysis | 33 |
+| `Seqeron.Mcp.MolTools` | Primer/probe/CRISPR design, codon optimization, restriction | 48 |
+| `SuffixTree.Mcp.Core` | Suffix tree, distances, similarity | 14 |
 
-This keeps the tool surface focused, faster to load, and easier to reason about.
+This keeps each tool surface focused, faster to load, and easier to reason about.
 
 ## Tool catalog and schemas
 
-Tool schemas and examples live here:
+Worked tool schemas and examples are documented for:
 
-- `docs/mcp/tools/core`
-- `docs/mcp/tools/sequence`
-- `docs/mcp/tools/parsers`
+- [`docs/mcp/tools/core`](tools/core)
+- [`docs/mcp/tools/sequence`](tools/sequence)
+- [`docs/mcp/tools/parsers`](tools/parsers)
+
+Every server also advertises its full tool list — names, descriptions, and JSON input/output
+schemas — at runtime via MCP discovery, so any MCP‑aware client can introspect the remaining
+domains directly.
 
 ## Connect to Codex (CLI or IDE)
 
@@ -145,6 +159,9 @@ codex mcp add seqeron-sequence -- dotnet run --project Seqeron.Mcp.Sequence
 codex mcp add seqeron-parsers  -- dotnet run --project Seqeron.Mcp.Parsers
 codex mcp add seqeron-core     -- dotnet run --project SuffixTree.Mcp.Core
 ```
+
+Add any other server the same way — the `--project` name matches the server in the table above
+(e.g. `Seqeron.Mcp.Analysis`, `Seqeron.Mcp.Annotation`, `Seqeron.Mcp.MolTools`, …).
 
 Verify:
 

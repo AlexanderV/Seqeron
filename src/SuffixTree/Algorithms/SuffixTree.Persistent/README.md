@@ -1,6 +1,6 @@
 # SuffixTree.Persistent
 
-A high-performance, disk-backed persistent suffix tree implementation for .NET 9.
+A high-performance, disk-backed persistent suffix tree implementation for .NET 10.
 
 Built on Ukkonen's algorithm, the library indexes and searches large volumes of text
 without loading the tree into managed heap memory. Memory-mapped files (MMF) keep the
@@ -258,9 +258,9 @@ child lists, deferred jump entries) to release GC pressure before the tree is re
 
 ## Quality Assurance
 
-As of 2026-02-24 (`dotnet test tests/SuffixTree/SuffixTree.Persistent.Tests/SuffixTree.Persistent.Tests.csproj -c Release`):
+As of 2026-06-18 (`dotnet test tests/SuffixTree/SuffixTree.Persistent.Tests/SuffixTree.Persistent.Tests.csproj -c Release`, .NET 10):
 
-- **471 tests passed**, 0 failed, 0 skipped.
+- **510 tests passed**, 0 failed, 0 skipped.
 
 Test suites cover core API behavior, format/hybrid transitions, parity with in-memory tree,
 safety/dispose/concurrency, serialization invariants, and load/contract validation.
