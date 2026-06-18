@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for structural-variant analysis (StructuralVariantAnalyzer): breakpoint
 /// clustering, copy-number detection, and SV calling.
 ///
-/// Test Units: SV-BREAKPOINT-001, SV-CNV-001
+/// Test Units: SV-BREAKPOINT-001, SV-CNV-001, SV-DETECT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -151,6 +151,81 @@ public class StructuralVariantProperties
             var a = StructuralVariantAnalyzer.DetectCNV(depth, 5).Select(s => (s.Start, s.CopyNumber)).ToList();
             var b = StructuralVariantAnalyzer.DetectCNV(depth, 5).Select(s => (s.Start, s.CopyNumber)).ToList();
             return a.SequenceEqual(b).Label("DetectCNV must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region SV-DETECT-001: R: SV type ∈ enum; positions valid; D: deterministic
+
+    // DetectSVs finds discordant read pairs and clusters them into SV candidates (BreakDancer-style).
+
+    /// <summary>Generates 2..6 clustered, large-insert (deletion-like) discordant read pairs on chr1.</summary>
+    private static Arbitrary<(string, string, int, char, string, int, char, int)[]> DiscordantPairsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 2 + rng.Next(5);
+            int center = 1000;
+            var pairs = new (string, string, int, char, string, int, char, int)[n];
+            for (int i = 0; i < n; i++)
+            {
+                int pos1 = center + rng.Next(-100, 100);
+                int insert = 1500 + rng.Next(1000);   // far above the 400 ± cutoff expectation
+                pairs[i] = ($"r{i}", "chr1", pos1, '+', "chr1", pos1 + insert, '-', insert);
+            }
+            return pairs;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): every detected SV has a defined SV type, ordered non-negative coordinates,
+    /// non-negative length, finite quality, and meets the support threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Svs_AreValid()
+    {
+        return Prop.ForAll(DiscordantPairsArbitrary(), pairs =>
+        {
+            const int minSupport = 2;
+            var svs = StructuralVariantAnalyzer.DetectSVs(pairs, minSupport: minSupport).ToList();
+            return svs.All(s =>
+                Enum.IsDefined(s.Type) &&
+                s.Start >= 0 && s.Start <= s.End &&
+                s.Length >= 0 && double.IsFinite(s.Quality) &&
+                s.SupportingReads >= minSupport)
+                .Label("a detected SV was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (positive control): clustered large-insert pairs yield at least one SV with a defined type.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Svs_DeletionSignature_IsDetected()
+    {
+        var pairs = Enumerable.Range(0, 4)
+            .Select(i => ($"r{i}", "chr1", 1000 + i, '+', "chr1", 1000 + i + 2000, '-', 2000))
+            .ToArray();
+        var svs = StructuralVariantAnalyzer.DetectSVs(pairs, minSupport: 2).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(svs, Is.Not.Empty, "a clear deletion signature must be detected");
+            Assert.That(svs.All(s => Enum.IsDefined(s.Type)), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): SV detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Svs_AreDeterministic()
+    {
+        return Prop.ForAll(DiscordantPairsArbitrary(), pairs =>
+        {
+            var a = StructuralVariantAnalyzer.DetectSVs(pairs, minSupport: 2).Select(s => (s.Start, s.End, s.Type)).ToList();
+            var b = StructuralVariantAnalyzer.DetectSVs(pairs, minSupport: 2).Select(s => (s.Start, s.End, s.Type)).ToList();
+            return a.SequenceEqual(b).Label("DetectSVs must be deterministic");
         });
     }
 

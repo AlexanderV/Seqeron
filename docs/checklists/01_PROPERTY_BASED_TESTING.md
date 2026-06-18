@@ -232,7 +232,7 @@ Property-based testing генерирует сотни случайных вхо
 | 200 | ☑ | TRANS-SPLICE-001 | Transcriptome | R: PSI ∈ [0,1]; P: exon coordinates valid; D: deterministic | TranscriptomeProperties.cs (new) |
 | 201 | ☑ | SV-BREAKPOINT-001 | StructuralVar | R: breakpoint positions valid; M: more split reads → ≥ confidence; D: deterministic | StructuralVariantProperties.cs (new) |
 | 202 | ☑ | SV-CNV-001 | StructuralVar | R: copy number ≥ 0; M: higher coverage ratio → higher CN; D: deterministic | StructuralVariantProperties.cs (new) |
-| 203 | ☐ | SV-DETECT-001 | StructuralVar | R: SV type ∈ enum; P: positions valid; D: deterministic | StructuralVariantProperties.cs (new) |
+| 203 | ☑ | SV-DETECT-001 | StructuralVar | R: SV type ∈ enum; P: positions valid; D: deterministic | StructuralVariantProperties.cs (new) |
 | 204 | ☐ | DISORDER-LC-001 | ProteinPred | R: region start < end; M: lower complexity threshold → ≥ regions; D: deterministic | DisorderProperties.cs |
 | 205 | ☐ | DISORDER-MORF-001 | ProteinPred | P: MoRF lies within a disordered region; R: positions valid; D: deterministic | DisorderProperties.cs |
 | 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | R: propensity ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 202 |
-| ☐ Not started | 32 |
+| ☑ Complete | 203 |
+| ☐ Not started | 31 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
