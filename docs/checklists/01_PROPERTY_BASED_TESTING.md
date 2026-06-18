@@ -207,7 +207,7 @@ Property-based testing генерирует сотни случайных вхо
 | 175 | ☑ | GENOMIC-COMMON-001 | Analysis | P: common region ⊆ all inputs; R: positions valid; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 176 | ☑ | GENOMIC-MOTIFS-001 | Analysis | R: positions valid; P: motif matches known set; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 177 | ☑ | GENOMIC-ORF-001 | Analysis | R: start < end; P: starts ATG, ends stop; R: len % 3 = 0; D: deterministic | GenomicAnalyzerProperties.cs (new) |
-| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | R: positions valid; M: lower minLen → ≥ repeats; D: deterministic | GenomicAnalyzerProperties.cs (new) |
+| 178 | ☑ | GENOMIC-REPEAT-001 | Analysis | R: positions valid; M: lower minLen → ≥ repeats; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | R: similarity ∈ [0,1]; S: sim(a,b)=sim(b,a); I: sim(x,x)=1; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | R: repeat count ≥ minReps; P: unit repeated contiguously; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | R: age ≥ 0; M: more methylation at clock sites → higher age; D: deterministic | EpigeneticsProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 177 |
-| ☐ Not started | 57 |
+| ☑ Complete | 178 |
+| ☐ Not started | 56 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

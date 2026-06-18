@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for the high-level GenomicAnalyzer façade: common regions, known motifs,
 /// ORFs, repeats, similarity, and tandem repeats.
 ///
-/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001
+/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001, GENOMIC-REPEAT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -266,6 +266,67 @@ public class GenomicAnalyzerProperties
     private static Arbitrary<string> SeqArbitrary(int minLen) =>
         Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= minLen)
             .Select(a => new string(a)).ToArbitrary();
+
+    #endregion
+
+    #region GENOMIC-REPEAT-001: R: positions valid; M: lower minLen → ≥ repeats; D: deterministic
+
+    // FindRepeats returns every distinct substring of length ≥ minLength occurring at least twice
+    // (suffix-tree / LCP repeats; CMU 15-451).
+
+    /// <summary>
+    /// INV-1 (R): every repeat has length ≥ minLength, occurs ≥ 2 times at distinct ascending valid
+    /// positions whose substrings equal the repeat.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Repeats_AreValid()
+    {
+        return Prop.ForAll(SeqArbitrary(15), seq =>
+        {
+            const int minLength = 2;
+            var repeats = GenomicAnalyzer.FindRepeats(new DnaSequence(seq), minLength).ToList();
+            bool ok = repeats.All(r =>
+                r.Length >= minLength && r.Count >= 2 &&
+                r.Positions.SequenceEqual(r.Positions.OrderBy(p => p)) &&
+                r.Positions.Distinct().Count() == r.Positions.Count &&
+                r.Positions.All(p => p >= 0 && p + r.Length <= seq.Length && seq.Substring(p, r.Length) == r.Sequence));
+            return ok.Label("a repeat was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower minimum length reports at least as many repeats — minLen 3 ⊆ minLen 2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Repeats_LowerMinLength_IsSuperset()
+    {
+        return Prop.ForAll(SeqArbitrary(15), seq =>
+        {
+            var loose = GenomicAnalyzer.FindRepeats(new DnaSequence(seq), 2).Select(r => r.Sequence).ToHashSet();
+            var strict = GenomicAnalyzer.FindRepeats(new DnaSequence(seq), 3).Select(r => r.Sequence).ToHashSet();
+            return strict.IsSubsetOf(loose).Label("minLen 3 repeats not ⊆ minLen 2 repeats");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): repeats are deterministic; a tandem "ATGATGATG" reports the ATG
+    /// repeat at positions {0,3,6}.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Repeats_DeterministicAndGolden()
+    {
+        var dna = new DnaSequence("ATGATGATG");
+        var a = GenomicAnalyzer.FindRepeats(dna, 3).Select(r => r.Sequence).OrderBy(s => s).ToList();
+        var b = GenomicAnalyzer.FindRepeats(dna, 3).Select(r => r.Sequence).OrderBy(s => s).ToList();
+        var atg = GenomicAnalyzer.FindRepeats(dna, 3).FirstOrDefault(r => r.Sequence == "ATG");
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.That(atg.Sequence, Is.EqualTo("ATG"));
+            Assert.That(atg.Positions, Is.EqualTo(new[] { 0, 3, 6 }));
+        });
+    }
 
     #endregion
 }
