@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -292,6 +292,127 @@ public class ComparativeGenomicsProperties
                 .Select(c => string.Join(",", c)).ToList();
             return first.SequenceEqual(second)
                 .Label("FindConservedClusters must be deterministic in content and order");
+        });
+    }
+
+    #endregion
+
+    #region COMPGEN-COMPARE-001: S: shared/specific metrics symmetric; R: synteny ∈ [0,1]; P: core+specific = genome size; D: deterministic
+
+    // CompareGenomes partitions genes into the conserved (RBH) core and each genome's dispensable
+    // set (pan-genome model, Tettelin et al. 2005) and reports OverallSynteny as a fraction.
+    // RBH is a symmetric (bidirectional best hit) matching (Moreno-Hagelsieb & Latimer 2008), so
+    // the conserved count is order-independent and the genome-specific counts swap under swapping.
+
+    private static Gen<string> DnaGen(int len) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= len).Select(a => new string(a, 0, len));
+
+    /// <summary>1..5 genes, each a 20-base DNA sequence (long enough for the k=5 similarity).</summary>
+    private static Arbitrary<string[]> GenomeSeqsArbitrary() =>
+        DnaGen(20).ArrayOf().Where(a => a.Length is >= 1 and <= 5).ToArbitrary();
+
+    private static IReadOnlyList<ComparativeGenomics.Gene> MakeGenome(string genomeId, string[] seqs) =>
+        seqs.Select((s, i) => new ComparativeGenomics.Gene($"{genomeId}_{i}", genomeId, i * 100, i * 100 + s.Length, '+', s))
+            .ToList();
+
+    /// <summary>
+    /// INV-1 (S): The conserved-gene count is symmetric and the genome-specific counts swap under
+    /// argument swapping, because RBH is a bidirectional-best-hit matching independent of which
+    /// genome is the query (Moreno-Hagelsieb &amp; Latimer 2008).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Compare_SharedAndSpecificCounts_AreSymmetric()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var ab = ComparativeGenomics.CompareGenomes(g1, g2);
+            var ba = ComparativeGenomics.CompareGenomes(g2, g1);
+            return (ab.ConservedGenes == ba.ConservedGenes
+                    && ab.GenomeSpecificGenes1 == ba.GenomeSpecificGenes2
+                    && ab.GenomeSpecificGenes2 == ba.GenomeSpecificGenes1)
+                .Label($"asymmetry: conserved {ab.ConservedGenes}/{ba.ConservedGenes}, " +
+                       $"specific ({ab.GenomeSpecificGenes1},{ab.GenomeSpecificGenes2}) vs ({ba.GenomeSpecificGenes1},{ba.GenomeSpecificGenes2})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): OverallSynteny is a fraction in [0,1] (syntenic genes ÷ smaller genome, clamped).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Compare_OverallSynteny_InUnitInterval()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var result = ComparativeGenomics.CompareGenomes(MakeGenome("A", s1), MakeGenome("B", s2));
+            return (result.OverallSynteny is >= 0.0 and <= 1.0)
+                .Label($"OverallSynteny={result.OverallSynteny} outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): Pan-genome partition is exact — for each genome, conserved (core) + genome-specific
+    /// (dispensable) equals its gene count (Tettelin et al. 2005); RBH maps each gene at most once.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Compare_CorePlusSpecific_EqualsGenomeSize()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var r = ComparativeGenomics.CompareGenomes(g1, g2);
+            return (r.ConservedGenes + r.GenomeSpecificGenes1 == g1.Count
+                    && r.ConservedGenes + r.GenomeSpecificGenes2 == g2.Count)
+                .Label($"partition broken: core={r.ConservedGenes}, spec1={r.GenomeSpecificGenes1}/{g1.Count}, spec2={r.GenomeSpecificGenes2}/{g2.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Comparison is deterministic across all reported metrics.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Compare_IsDeterministic()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var a = ComparativeGenomics.CompareGenomes(g1, g2);
+            var b = ComparativeGenomics.CompareGenomes(g1, g2);
+            return (a.ConservedGenes == b.ConservedGenes
+                    && a.GenomeSpecificGenes1 == b.GenomeSpecificGenes1
+                    && a.GenomeSpecificGenes2 == b.GenomeSpecificGenes2
+                    && a.OverallSynteny == b.OverallSynteny
+                    && a.Orthologs.Count == b.Orthologs.Count
+                    && a.SyntenicBlocks.Count == b.SyntenicBlocks.Count)
+                .Label("CompareGenomes must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (non-vacuity, positive control): two genomes sharing two near-identical genes plus one
+    /// unique gene each yield exactly 2 conserved genes and 1 genome-specific gene per genome.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Compare_SharedGenes_AreCountedAsConserved()
+    {
+        const string x = "AAAAACCCCCGGGGGTTTTT";
+        const string y = "TTTTTGGGGGCCCCCAAAAA";
+        const string z = "ACGTACGTACGTACGTACGT"; // genome-1 only
+        const string w = "GATCGATCGATCGATCGATC"; // genome-2 only
+
+        var g1 = MakeGenome("A", new[] { x, y, z });
+        var g2 = MakeGenome("B", new[] { x, y, w });
+        var r = ComparativeGenomics.CompareGenomes(g1, g2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.ConservedGenes, Is.EqualTo(2), "shared genes X,Y must be conserved (RBH)");
+            Assert.That(r.GenomeSpecificGenes1, Is.EqualTo(1), "Z is genome-1 specific");
+            Assert.That(r.GenomeSpecificGenes2, Is.EqualTo(1), "W is genome-2 specific");
         });
     }
 
