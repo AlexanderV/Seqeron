@@ -114,6 +114,40 @@ Fuzzing подаёт случайные, невалидные или погра�
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | BE | Protein shorter than min domain, empty, all X residues |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | BE | No CG dinucleotides, all CG, empty seq, windowSize=0, windowSize > seqLen |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | BE, MC | 0 expression, all NaN, negative expression, empty gene set, unknown genes |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | BE, MC | 0 depth, alt>depth, tumor=normal, empty reads, all-N bases |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | BE | ref=alt=0, alt>total, negative counts, huge depth |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | BE, MC | empty mutation list, all-passenger, duplicate hotspots, unknown gene |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | BE | zero depth, extreme strand bias, all-pass, all-fail |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | MC | out-of-bounds coords, ref≠genome, empty alt, unknown chrom |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | BE | zero mutations, panel size 0, negative size, huge counts |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | BE | zero loci, all-stable, all-unstable, single read |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | BE | no events, negative component, extreme counts |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | BE | BAF=0.5 everywhere, BAF=0/1, single SNP |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | MC | non-SNV variant, ambiguous base, no flanking context, empty set |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | BE | zero catalogue, singular signature matrix, negative counts |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | BE | 0 bootstrap reps, 1 mutation, fixed-seed extremes |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | BE | tied exposures, all-zero exposures |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | MC | no chimeric reads, self-fusion, identical genes, empty reads |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | BE | empty DB, exact match, near-miss partner |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | BE | breakpoint at gene boundary, intronic, out-of-bounds |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | BE | log2=±∞, NaN ratio, single bin |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | BE | genome-wide amp, single-bin focal, threshold edge |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | BE | CN exactly 0, near-0, single-bin deletion |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | BE | all-VAF=0, all-VAF=1, single variant |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | BE | flat diploid, fully amplified, empty segments |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | BE | CCF at threshold, CCF>1, CCF=0 |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | MC | mutation at protein terminus, stop-gain, non-coding, length<8 |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | BE | IC50=0, IC50=∞, peptide too short/long, unknown allele |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | BE | zero tumor reads, 100% tumor, ultra-low depth |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | BE | no tracked variants, all-detected, single low-VAF read |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | BE | empty gene list, VAF at band edges, all-CHIP |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | BE | single clone, identical clones, no shared mutations |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | BE | purity=0, CN=0, VAF>purity |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | BE | single VAF, all-equal VAFs, VAF=0 |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | MC | ambiguous allele, homozygous locus, no coverage |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | BE | no evidence, conflicting tiers, unknown drug |
+| 119 | ☐ | ONCO-SV-001 | Oncology | BE | zero breakpoints, single breakpoint, genome-wide shattering |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | BE | zero variance, single sample, all-equal expression, NaN |
 
 ---
 
@@ -121,9 +155,9 @@ Fuzzing подаёт случайные, невалидные или погра�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
+| ☐ Not started | 120 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |

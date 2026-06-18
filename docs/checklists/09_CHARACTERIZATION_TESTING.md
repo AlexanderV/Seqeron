@@ -119,6 +119,40 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | Domain predictions | Profile/HMM update |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | CpG island regions | O/E criteria change |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | Immune scores full output | Gene set / algorithm change |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | Somatic call set golden master | Caller logic / threshold change |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | VAF outputs for fixed pileups | Counting / rounding change |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | Driver list + scores | Scoring / gene-list change |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | Surviving variant set | Filter threshold change |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | Annotation records | Consequence rules / DB change |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | TMB value + class | Panel-size / counting change |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MSI status + loci | Threshold / locus-panel change |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score + components | Component formula change |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | LOH regions | BAF threshold change |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | 96-channel SBS matrix | Context-assignment change |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | Exposure vector | Fit algorithm change |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap CIs | Resampling / seed change |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | Process classification | Classification rule change |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | Fusion call set | Detection logic change |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion matches | DB change |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint / frame output | Frame logic change |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | CN classification | log2→CN mapping change |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification calls | Threshold change |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion calls | Threshold change |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | Purity estimate | Estimator change |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | Ploidy estimate | Estimator change |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | Clonality classification | CCF threshold change |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | Neoantigen peptides | Window / length change |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | Binding classification | Affinity model change |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ctDNA fraction + output | Estimator change |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MRD status | Detection threshold change |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | CHIP flags | Gene-list / VAF band change |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | Tumor phylogeny (Newick) | Reconstruction algorithm change |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | CCF estimates | Formula change |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | MATH / heterogeneity output | Metric change |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | HLA alleles | Typing algorithm change |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability tiers | Evidence DB / tier change |
+| 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV classification | Pattern rules change |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier gene list | z-score threshold change |
 
 ---
 
@@ -126,10 +160,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
-| Applies on-demand (before refactoring) | All 86 |
+| ☐ Not started | 120 |
+| Applies on-demand (before refactoring) | All 120 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |

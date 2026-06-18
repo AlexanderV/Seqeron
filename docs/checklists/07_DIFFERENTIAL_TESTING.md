@@ -112,6 +112,40 @@ Differential testing сравнивает выходы двух независи
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | Domain predictor | HMM profile scan | Correlated domains |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | CpG island detector | Sliding window O/E calc | Same islands |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | Immune infiltration | ssGSEA manual calc | Correlated scores |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | Somatic caller | Mutect2-style manual calc | Concordant call set |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | VAF calc | alt/(ref+alt) by hand | Exact match |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | Driver scoring | OncoKB / dN-dS reference | Concordant driver ranking |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | Artifact filter | strand-bias formula | Same survivors |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | Variant annotation | VEP / SnpEff consequence | Same consequence class |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | TMB calc | count/Mb by hand | Exact match |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MSI detection | MSIsensor logic | Concordant MSI status |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score | LOH+TAI+LST reference | Same composite |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | LOH detection | BAF-deviation reference | Same regions |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | SBS context | manual trinucleotide assignment | Identical 96-vector |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | Signature fit | NNLS reference solver | Correlated exposures |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap CI | resampling by hand | Overlapping CIs |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | Process classify | argmax reference | Same dominant process |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | Fusion detection | STAR-Fusion-style logic | Concordant fusions |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion match | DB lookup | Same matches |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint frame | manual frame calc | Same in/out-of-frame |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | CN classification | log2→CN reference | Same CN class |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification | GISTIC-style threshold | Same focal calls |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion | CN≈0 reference | Same deletions |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | Purity estimate | ASCAT-style reference | Correlated purity |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | Ploidy estimate | weighted-CN reference | Correlated ploidy |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | Clonality | CCF-threshold reference | Same class |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | Neoantigen peptides | sliding-window reference | Same peptide set |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | MHC binding | NetMHC-style rank | Concordant binders |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ctDNA fraction | tumor-read fraction by hand | Correlated fraction |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MRD detection | tumor-informed reference | Same MRD status |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | CHIP filter | gene+VAF reference | Same flags |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | Tumor phylogeny | parsimony reference | Concordant topology |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | CCF estimate | VAF·CN/purity by hand | Match within tolerance |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | Heterogeneity | MATH formula | Exact MATH |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | HLA typing | OptiType-style reference | Concordant alleles |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability | OncoKB tier reference | Same tier |
+| 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV class | breakpoint-pattern reference | Same class |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier genes | z-score reference | Same outliers |
 
 ---
 
@@ -119,9 +153,9 @@ Differential testing сравнивает выходы двух независи
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
+| ☐ Not started | 120 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

@@ -117,6 +117,40 @@ Combinatorial (pairwise) тестирование генерирует мини�
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | eValueThreshold(3) × minDomainLen(3) × nProfiles(3) | 27 | 12 | Med |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | windowSize(3) × minOE(3) × minGC(3) × minLen(3) | 81 | 15 | High |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | geneSetSize(3) × normalization(3) × nPermutations(3) | 27 | 12 | Med |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | minVaf(3) × minDepth(3) × strandBias(2) | 18 | 9 | High |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | depth(3) × altCount(3) | 9 | 9 | Low |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | recurrence(3) × hotspot(2) × geneList(2) | 12 | 8 | Med |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | strandBias(3) × baseQual(3) × position(2) | 18 | 9 | Med |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | consequenceType(3) × region(3) | 9 | 9 | Low |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | panelSize(3) × mutationCount(3) × includeSilent(2) | 18 | 9 | Med |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | nLoci(3) × instabilityThreshold(3) | 9 | 9 | Med |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | LOH(3) × TAI(3) × LST(3) | 27 | 12 | Med |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | bafThreshold(3) × segLen(3) | 9 | 9 | Low |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | nVariants(3) × contextSource(2) | 6 | 6 | Low |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | nSignatures(3) × nMutations(3) × solver(2) | 18 | 9 | High |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | nBootstrap(3) × seed(2) × nMutations(3) | 18 | 9 | Med |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | nProcesses(3) × confidenceThreshold(3) | 9 | 9 | Low |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | splitReads(3) × spanningReads(3) × minMapQ(2) | 18 | 9 | High |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | dbSize(3) × matchMode(2) | 6 | 6 | Low |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | breakpointPos(3) × frame(2) | 6 | 6 | Low |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | log2Range(3) × binSize(3) × ploidy(2) | 18 | 9 | Med |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | cnThreshold(3) × segLen(3) | 9 | 9 | Med |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | cnThreshold(3) × segLen(3) | 9 | 9 | Med |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | nVariants(3) × vafDist(3) × cnModel(2) | 18 | 9 | High |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | nSegments(3) × cnDist(3) | 9 | 9 | Med |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | ccfThreshold(3) × nVariants(3) | 9 | 9 | Low |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | peptideLen(3) × mutationPos(3) × mutationType(2) | 18 | 9 | Med |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | allele(3) × peptideLen(3) × affinityThreshold(2) | 18 | 9 | Med |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | tumorFraction(3) × depth(3) × errorRate(2) | 18 | 9 | High |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | nTrackedVariants(3) × depth(3) × detectionThreshold(2) | 18 | 9 | High |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | geneList(3) × vafBand(3) | 9 | 9 | Med |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | nClones(3) × nMutations(3) × method(2) | 18 | 9 | Med |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | vaf(3) × copyNumber(3) × purity(3) | 27 | 12 | High |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | nVariants(3) × vafSpread(3) | 9 | 9 | Med |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | locus(3) × zygosity(2) × coverage(3) | 18 | 9 | Med |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | evidenceLevel(4) × variantType(3) | 12 | 12 | Med |
+| 119 | ☐ | ONCO-SV-001 | Oncology | nBreakpoints(3) × clustering(3) × svType(3) | 27 | 12 | Med |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | nGenes(3) × zThreshold(3) × normalization(2) | 18 | 9 | Med |
 
 ---
 
@@ -124,9 +158,9 @@ Combinatorial (pairwise) тестирование генерирует мини�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 0 |
-| ☐ Not started | 86 |
+| ☐ Not started | 120 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |
 | Low priority (≤2 params) | 19 |

@@ -112,6 +112,40 @@ Snapshot (approval) тесты сериализуют полный выход а
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | Domain prediction output | ProteinMotifSnapshotTests.cs |
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | CpG island detection output | EpigeneticsSnapshotTests.cs |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | Immune infiltration analysis output | OncologySnapshotTests.cs (new) |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | Somatic mutation call set (full output) | OncologySnapshotTests.cs (new) |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | VAF values for known pileups | OncologySnapshotTests.cs (new) |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | Driver mutation list and scores | OncologySnapshotTests.cs (new) |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | Artifact-filtered variant set | OncologySnapshotTests.cs (new) |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | Cancer variant annotations | OncologySnapshotTests.cs (new) |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | TMB value and classification | OncologySnapshotTests.cs (new) |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MSI status and unstable-loci output | OncologySnapshotTests.cs (new) |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | HRD score with component breakdown | OncologySnapshotTests.cs (new) |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | LOH regions output | OncologySnapshotTests.cs (new) |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | 96-channel SBS context matrix | OncologySnapshotTests.cs (new) |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | Signature exposures | OncologySnapshotTests.cs (new) |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | Bootstrap exposure confidence intervals | OncologySnapshotTests.cs (new) |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | Dominant mutational process classification | OncologySnapshotTests.cs (new) |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | Detected fusions (full output) | OncologySnapshotTests.cs (new) |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | Known-fusion matches | OncologySnapshotTests.cs (new) |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | Breakpoint analysis output | OncologySnapshotTests.cs (new) |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | Copy-number segment classification | OncologySnapshotTests.cs (new) |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | Focal amplification calls | OncologySnapshotTests.cs (new) |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | Homozygous deletion calls | OncologySnapshotTests.cs (new) |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | Tumor purity estimate | OncologySnapshotTests.cs (new) |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | Ploidy estimate | OncologySnapshotTests.cs (new) |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | Clonality classification output | OncologySnapshotTests.cs (new) |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | Neoantigen peptide set | OncologySnapshotTests.cs (new) |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | MHC binding classification | OncologySnapshotTests.cs (new) |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | ctDNA analysis output | OncologySnapshotTests.cs (new) |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MRD detection output | OncologySnapshotTests.cs (new) |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | CHIP-filtered variants | OncologySnapshotTests.cs (new) |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | Tumor phylogeny (Newick + clones) | OncologySnapshotTests.cs (new) |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | CCF estimates | OncologySnapshotTests.cs (new) |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | Heterogeneity (MATH) output | OncologySnapshotTests.cs (new) |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | HLA typing output | OncologySnapshotTests.cs (new) |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability tiers | OncologySnapshotTests.cs (new) |
+| 119 | ☐ | ONCO-SV-001 | Oncology | Complex rearrangement classification | OncologySnapshotTests.cs (new) |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier gene list | OncologySnapshotTests.cs (new) |
 
 ---
 
@@ -119,8 +153,8 @@ Snapshot (approval) тесты сериализуют полный выход а
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 55 |
-| ☐ Not started | 31 |
+| ☐ Not started | 65 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

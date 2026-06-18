@@ -114,6 +114,40 @@ Mutation testing измеряет эффективность тестового 
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_DomainPrediction_Tests.cs | ≥ 80% |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CpGDetection_Tests.cs | ≥ 80% |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | ImmuneAnalyzer.cs | ImmuneAnalyzer_ImmuneInfiltration_Tests.cs | ≥ 80% |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CallSomaticMutations_Tests.cs | ≥ 80% |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateVAF_Tests.cs | ≥ 80% |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyDriverMutations_Tests.cs | ≥ 80% |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterArtifacts_Tests.cs | ≥ 80% |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnnotateCancerVariants_Tests.cs | ≥ 80% |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateTMB_Tests.cs | ≥ 80% |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMSI_Tests.cs | ≥ 80% |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CalculateHRDScore_Tests.cs | ≥ 80% |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectLOH_Tests.cs | ≥ 80% |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifySbsContext_Tests.cs | ≥ 80% |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FitSignatures_Tests.cs | ≥ 80% |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_BootstrapExposures_Tests.cs | ≥ 80% |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMutationalProcess_Tests.cs | ≥ 80% |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectFusions_Tests.cs | ≥ 80% |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_MatchKnownFusions_Tests.cs | ≥ 80% |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnalyzeBreakpoint_Tests.cs | ≥ 80% |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CopyNumberClassification_Tests.cs | ≥ 80% |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectFocalAmplifications_Tests.cs | ≥ 80% |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectHomozygousDeletions_Tests.cs | ≥ 80% |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePurity_Tests.cs | ≥ 80% |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimatePloidy_Tests.cs | ≥ 80% |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyClonality_Tests.cs | ≥ 80% |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_GenerateNeoantigenPeptides_Tests.cs | ≥ 80% |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyMhcBinding_Tests.cs | ≥ 80% |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_CtDnaAnalysis_Tests.cs | ≥ 80% |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_DetectMRD_Tests.cs | ≥ 80% |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_FilterCHIP_Tests.cs | ≥ 80% |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ReconstructPhylogeny_Tests.cs | ≥ 80% |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_EstimateCcf_Tests.cs | ≥ 80% |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AnalyzeHeterogeneity_Tests.cs | ≥ 80% |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_HlaAnalysis_Tests.cs | ≥ 80% |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AssessActionability_Tests.cs | ≥ 80% |
+| 119 | ☐ | ONCO-SV-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs | ≥ 80% |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs | ≥ 80% |
 
 ---
 
@@ -121,8 +155,8 @@ Mutation testing измеряет эффективность тестового 
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete (run + killers written) | 8 |
-| ☐ Not started | 78 |
+| ☐ Not started | 112 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

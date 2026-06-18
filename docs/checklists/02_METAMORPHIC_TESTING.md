@@ -114,6 +114,40 @@ Metamorphic testing решает «проблему оракула» — ког�
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | INV: domain intact after non-domain insertion; MON: longer domain seq → higher confidence |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | MON: more CG dinucleotides → higher CpG ratio; INV: non-CG flank doesn't change island detection; SHIFT: flank shifts positions |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | INV: scaling expression → same relative infiltration; MON: higher marker expression → higher cell fraction; SYM: sample order independent |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | MON: deeper tumor coverage → superset of calls; INV: adding pure-reference reads adds no somatic calls; SYM: read order independent |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | INV: scaling ref+alt depth equally → same VAF; MON: +k alt reads → higher VAF; INV: read order independent |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | MON: more samples sharing a mutation → ≥ driver score; INV: relabeling passenger genes preserves driver set |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | MON: stricter threshold → subset of survivors; INV: duplicating a passing variant keeps it passing |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | INV: shifting all coordinates by a constant shifts annotations equally; INV: variant order independent |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | INV: doubling panel-Mb and mutations → same TMB density; MON: +1 coding mutation → ≥ TMB; INV: order independent |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | MON: more unstable loci → ≥ MSI score; INV: locus order independent |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | MON: adding an LOH/TAI/LST event → ≥ HRD; INV: event order independent |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | INV: swapping A/B allele labels preserves LOH calls; MON: lower BAF-dev threshold → superset |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | INV: reverse-complementing a variant maps to the same pyrimidine channel; INV: variant order independent |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | INV: scaling the catalogue by k scales exposures by k; MON: adding signature-consistent mutations → ≥ that exposure |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | INV: same seed → identical CI; MON: more bootstrap reps → non-wider CI |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | INV: scaling all exposures preserves the dominant process; INV: signature order independent |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | INV: prepending flank shifts breakpoints but preserves fusion count; MON: more split reads → ≥ confidence |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | SUB: matched ⊆ known DB; INV: 5'/3' gene-pair orientation preserved under coordinate shift |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | INV: coordinate shift preserves in/out-of-frame classification |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | MON: higher log2-ratio → ≥ CN class; INV: segment order independent |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | MON: higher CN keeps focal amplification; INV: prepend flank shifts focal coordinates |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | MON: lower CN keeps homozygous deletion; INV: segment order independent |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | MON: scaling clonal VAFs up → ≥ purity; INV: variant order independent |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | MON: amplifying more segments → ≥ ploidy; INV: segment order independent |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | MON: higher CCF keeps a clonal call clonal; INV: variant order independent |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | INV: flanking-context shift preserves the peptide set tiling the mutation |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | MON: lower IC50 → stronger-or-equal binding class; INV: peptide order independent |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | MON: spiking tumor reads → ≥ ctDNA fraction; INV: read order independent |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | MON: observing more tracked variants keeps MRD positive; INV: variant order independent |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | SUB: survivors ⊆ input; INV: duplicating a CHIP variant keeps it flagged |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | INV: sample relabeling preserves topology; SYM: pairwise clone distance symmetric |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | MON: higher VAF → ≥ CCF at fixed CN/purity; INV: variant order independent |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | INV: scaling all VAFs equally preserves MATH; MON: wider VAF spread → ≥ heterogeneity |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | INV: read order independent; INV: allele-string normalisation stable |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | MON: stronger evidence → ≥ tier; INV: variant order independent |
+| 119 | ☐ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | INV: scaling all expression equally preserves z-scores/outliers; MON: lower threshold → superset |
 
 ---
 
@@ -121,7 +155,7 @@ Metamorphic testing решает «проблему оракула» — ког�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 7 |
-| ☐ Not started | 79 |
+| ☐ Not started | 113 |
 | MR relations defined | ~200+ |

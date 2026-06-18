@@ -116,6 +116,40 @@ Property-based testing генерирует сотни случайных вхо
 | 84 | ☑ | PROTMOTIF-DOMAIN-001 | ProteinMotif | R: domain start < end; D: deterministic; P: domain score above threshold | ProteinMotifProperties.cs |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | R: CpG ratio ≥ 0; R: GC% ∈ [0,1]; M: more CG → higher ratio; D: deterministic | EpigeneticsProperties.cs (new) |
 | 86 | ☐ | ONCO-IMMUNE-001 | Oncology | R: infiltration score ∈ [0,1]; P: sum(cell fractions) ≤ 1.0; D: deterministic | OncologyProperties.cs (new) |
+| 87 | ☐ | ONCO-SOMATIC-001 | Oncology | R: VAF ∈ [0,1]; P: somatic calls absent in matched normal; M: higher tumor depth → ≥ confident calls; D: deterministic | OncologyProperties.cs (new) |
+| 88 | ☐ | ONCO-VAF-001 | Oncology | R: VAF = alt/(alt+ref) ∈ [0,1]; M: more alt reads → higher VAF; R: VAF=0 when no alt reads; D: deterministic | OncologyProperties.cs (new) |
+| 89 | ☐ | ONCO-DRIVER-001 | Oncology | R: driver score ≥ 0; M: more recurrent/hotspot → higher driver likelihood; P: known oncogenes flagged; D: deterministic | OncologyProperties.cs (new) |
+| 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | P: passing set ⊆ input; M: stricter thresholds → ≤ survivors; R: strand-bias ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
+| 91 | ☐ | ONCO-ANNOT-001 | Oncology | R: consequence ∈ SO vocabulary; P: annotation preserves variant coordinates; D: deterministic | OncologyProperties.cs (new) |
+| 92 | ☐ | ONCO-TMB-001 | Oncology | R: TMB ≥ 0 mut/Mb; M: more nonsynonymous mutations → higher TMB; P: TMB = count / panel-Mb; D: deterministic | OncologyProperties.cs (new) |
+| 93 | ☐ | ONCO-MSI-001 | Oncology | R: MSI fraction ∈ [0,1]; M: more unstable loci → higher score; P: MSI-H ⟺ score ≥ threshold; D: deterministic | OncologyProperties.cs (new) |
+| 94 | ☐ | ONCO-HRD-001 | Oncology | R: HRD = LOH+TAI+LST ≥ 0; M: more genomic scars → higher HRD; P: additive of three components; D: deterministic | OncologyProperties.cs (new) |
+| 95 | ☐ | ONCO-LOH-001 | Oncology | R: region positions valid; P: LOH ⟺ BAF → 0/1 (one allele lost); M: lower BAF-dev threshold → ≥ LOH; D: deterministic | OncologyProperties.cs (new) |
+| 96 | ☐ | ONCO-SIG-001 | Oncology | R: exactly 96 SBS channels; P: each SNV → one pyrimidine-centred trinucleotide; P: channel counts sum = #SNVs; D: deterministic | OncologyProperties.cs (new) |
+| 97 | ☐ | ONCO-SIG-002 | Oncology | R: exposures ≥ 0; P: Σ exposures = #mutations (or normalised 1.0); M: better fit → lower reconstruction error; D: deterministic | OncologyProperties.cs (new) |
+| 98 | ☐ | ONCO-SIG-003 | Oncology | R: CI_lower ≤ point ≤ CI_upper; P: bootstrap mean ≈ point estimate; D: deterministic given seed | OncologyProperties.cs (new) |
+| 99 | ☐ | ONCO-SIG-004 | Oncology | P: dominant process = argmax exposure; R: confidence ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
+| 100 | ☐ | ONCO-FUSION-001 | Oncology | R: breakpoint positions valid; P: fusion joins two distinct genes; M: more split/spanning reads → higher confidence; D: deterministic | OncologyProperties.cs (new) |
+| 101 | ☐ | ONCO-FUSION-002 | Oncology | P: matched fusions ⊆ known DB; R: match ∈ {true,false}; D: deterministic | OncologyProperties.cs (new) |
+| 102 | ☐ | ONCO-FUSION-003 | Oncology | P: reading frame (in/out) correctly derived; R: breakpoint within gene bounds; D: deterministic | OncologyProperties.cs (new) |
+| 103 | ☐ | ONCO-CNA-001 | Oncology | R: copy number ≥ 0; M: higher log2-ratio → higher CN; P: CN=2 → neutral; D: deterministic | OncologyProperties.cs (new) |
+| 104 | ☐ | ONCO-CNA-002 | Oncology | P: focal segment length < arm-level cutoff; M: higher CN → amplified; R: positions valid; D: deterministic | OncologyProperties.cs (new) |
+| 105 | ☐ | ONCO-CNA-003 | Oncology | P: CN ≈ 0 over deletion; R: positions valid; M: higher CN threshold → ≤ deletions; D: deterministic | OncologyProperties.cs (new) |
+| 106 | ☐ | ONCO-PURITY-001 | Oncology | R: purity ∈ [0,1]; M: higher clonal VAF → higher purity; D: deterministic | OncologyProperties.cs (new) |
+| 107 | ☐ | ONCO-PLOIDY-001 | Oncology | R: ploidy > 0; M: more amplified genome → higher ploidy; D: deterministic | OncologyProperties.cs (new) |
+| 108 | ☐ | ONCO-CLONAL-001 | Oncology | P: clonal ⟺ CCF ≈ 1, else subclonal; R: class ∈ enum; D: deterministic | OncologyProperties.cs (new) |
+| 109 | ☐ | ONCO-NEO-001 | Oncology | R: peptide length ∈ [8,11]; P: mutated residue inside every peptide window; P: peptides tile the mutation; D: deterministic | OncologyProperties.cs (new) |
+| 110 | ☐ | ONCO-MHC-001 | Oncology | R: %rank ∈ [0,100]; M: lower IC50 → stronger binding; P: strong binder ⟺ rank ≤ threshold; D: deterministic | OncologyProperties.cs (new) |
+| 111 | ☐ | ONCO-CTDNA-001 | Oncology | R: ctDNA fraction ∈ [0,1]; M: more tumor-supporting reads → higher fraction; D: deterministic | OncologyProperties.cs (new) |
+| 112 | ☐ | ONCO-MRD-001 | Oncology | R: detection ∈ {positive,negative}; M: more tracked variants observed → MRD-positive; R: sensitivity ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
+| 113 | ☐ | ONCO-CHIP-001 | Oncology | P: CHIP flagged by gene list ∧ VAF band; P: survivors ⊆ input; D: deterministic | OncologyProperties.cs (new) |
+| 114 | ☐ | ONCO-PHYLO-001 | Oncology | R: #leaves = #clones/samples; P: trunk mutations shared by all clones; R: branch lengths ≥ 0; D: deterministic | OncologyProperties.cs (new) |
+| 115 | ☐ | ONCO-CCF-001 | Oncology | R: CCF ∈ [0,1]; P: CCF derived from VAF, CN, purity; M: higher VAF → higher CCF; D: deterministic | OncologyProperties.cs (new) |
+| 116 | ☐ | ONCO-HETERO-001 | Oncology | R: heterogeneity (MATH) ≥ 0; M: wider VAF spread → higher heterogeneity; D: deterministic | OncologyProperties.cs (new) |
+| 117 | ☐ | ONCO-HLA-001 | Oncology | P: alleles valid HLA nomenclature; R: ≤ 2 alleles per locus; D: deterministic | OncologyProperties.cs (new) |
+| 118 | ☐ | ONCO-ACTION-001 | Oncology | R: evidence tier ∈ ordered levels (A>B>C>D); P: known actionable variant → tier assigned; D: deterministic | OncologyProperties.cs (new) |
+| 119 | ☐ | ONCO-SV-001 | Oncology | P: chromothripsis/chromoplexy classified by breakpoint pattern; R: breakpoint count ≥ 0; D: deterministic | OncologyProperties.cs (new) |
+| 120 | ☐ | ONCO-EXPR-001 | Oncology | P: outlier ⟺ |z-score| > threshold; M: lower threshold → ≥ outliers; R: z-scores finite; D: deterministic | OncologyProperties.cs (new) |
 
 ---
 
@@ -123,8 +157,8 @@ Property-based testing генерирует сотни случайных вхо
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 86 |
+| Total algorithms | 120 |
 | ☑ Complete | 67 |
-| ☐ Not started | 19 |
+| ☐ Not started | 53 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
