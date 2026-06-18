@@ -13,7 +13,8 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// from the cited theory/doc (never routed through production constants), so a
 /// self-consistent-but-wrong production constant is still caught.
 ///
-/// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001, ONCO-VAF-001
+/// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001, ONCO-VAF-001, ONCO-DRIVER-001,
+/// ONCO-ARTIFACT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1843,6 +1844,469 @@ public class OncologyProperties
             Assert.That(c.TruncatingFraction, Is.EqualTo(0.0));
             Assert.That(OncologyAnalyzer.ScoreDriverPotential(idh1), Is.EqualTo(1.0).Within(1e-12));
         });
+    }
+
+    #endregion
+
+    #region ONCO-ARTIFACT-001 — Sequencing Artifact Detection (OxoG / FFPE / Strand Bias)
+
+    // -------------------------------------------------------------------------
+    // Independent oracles, transcribed from Sequencing_Artifact_Detection.md
+    // (§2.2 substitution classes, §2.4 INV-01..INV-05, §4.2 decision table),
+    // NOT routed through production constants. The substitution map, GIV ratio
+    // and flag rule are recomputed here from literals so a self-consistent-but-
+    // wrong production constant is still caught.
+    //
+    // Checklist-row remap notes (two row items are bogus and are NOT tested as
+    // written):
+    //  * "R: strand-bias ∈ [0,1]" is WRONG — FisherStrand FS is Phred-scaled and
+    //    UNBOUNDED above (e.g. 108.384). The genuine contract (INV-03) is FS ≥ 0,
+    //    which is what we assert; the [0,1] claim is dropped.
+    //  * "M: stricter thresholds → ≤ survivors" does NOT map — FilterArtifacts has
+    //    no tunable threshold (OxoG uses the fixed 1.5). It is remapped to GIV/damage
+    //    monotonicity: for an OxoG substitution, once IsArtifact is true at some GIV
+    //    (GIV > 1.5), it stays true at any higher GIV — raising the imbalance can
+    //    never turn a flagged OxoG variant back into a survivor.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Documented damaged-GIV threshold = 1.5 (literal, Nature Methods 2017 / Chen et al. 2017).</summary>
+    private const double ArtifactDamagedGivThreshold = 1.5;
+
+    /// <summary>
+    /// INV-04 classification oracle: the substitution map on UPPER-cased (ref, alt).
+    /// {C&gt;T, G&gt;A} ⇒ FfpeDeamination; {G&gt;T, C&gt;A} ⇒ OxoG; everything else ⇒ None. The two
+    /// artifact classes are disjoint. Recomputed independently from §2.2 / §4.2.
+    /// </summary>
+    private static OncologyAnalyzer.ArtifactType ExpectedArtifactType(char reference, char alternate)
+    {
+        char r = char.ToUpperInvariant(reference);
+        char a = char.ToUpperInvariant(alternate);
+        return (r, a) switch
+        {
+            ('C', 'T') => OncologyAnalyzer.ArtifactType.FfpeDeamination,
+            ('G', 'A') => OncologyAnalyzer.ArtifactType.FfpeDeamination,
+            ('G', 'T') => OncologyAnalyzer.ArtifactType.OxoG,
+            ('C', 'A') => OncologyAnalyzer.ArtifactType.OxoG,
+            _ => OncologyAnalyzer.ArtifactType.None
+        };
+    }
+
+    /// <summary>
+    /// INV-02 GIV oracle: GIV = r2 == 0 ? (r1 == 0 ? 1.0 : +∞) : r1 / r2. Recomputed from §6.1 / §2.2.
+    /// </summary>
+    private static double ExpectedGiv(int r1, int r2) =>
+        r2 == 0 ? (r1 == 0 ? 1.0 : double.PositiveInfinity) : (double)r1 / r2;
+
+    /// <summary>
+    /// INV-04 flag oracle (§4.2 decision table): FFPE ⇒ always flagged; OxoG ⇒ flagged iff GIV &gt; 1.5;
+    /// None ⇒ never flagged. Recomputed independently from the documented rule.
+    /// </summary>
+    private static bool ExpectedIsArtifact(OncologyAnalyzer.ArtifactType type, double giv) => type switch
+    {
+        OncologyAnalyzer.ArtifactType.FfpeDeamination => true,
+        OncologyAnalyzer.ArtifactType.OxoG => giv > ArtifactDamagedGivThreshold,
+        _ => false
+    };
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    private static readonly char[] ArtifactBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// Generates a full <see cref="OncologyAnalyzer.ArtifactObservation"/> with ref/alt drawn from
+    /// {A,C,G,T} (so all four artifact pairs AND non-artifact pairs are reached) and non-negative strand
+    /// and read-mate counts. Read-mate counts span the GIV branches (r2 = 0 reachable).
+    /// </summary>
+    private static Arbitrary<OncologyAnalyzer.ArtifactObservation> ArtifactObservationArbitrary() =>
+        (from refIdx in Gen.Choose(0, 3)
+         from altIdx in Gen.Choose(0, 3)
+         from refFwd in Gen.Choose(0, 400)
+         from refRev in Gen.Choose(0, 400)
+         from altFwd in Gen.Choose(0, 400)
+         from altRev in Gen.Choose(0, 400)
+         from r1 in Gen.Choose(0, 400)
+         from r2 in Gen.Choose(0, 400)
+         select new OncologyAnalyzer.ArtifactObservation(
+             ArtifactBases[refIdx], ArtifactBases[altIdx],
+             refFwd, refRev, altFwd, altRev, r1, r2))
+        .ToArbitrary();
+
+    /// <summary>Generates a list (0..12) of contract-valid observations, preserving order.</summary>
+    private static Arbitrary<OncologyAnalyzer.ArtifactObservation[]> ArtifactListArbitrary() =>
+        (from n in Gen.Choose(0, 12)
+         from arr in ArtifactObservationArbitrary().Generator.ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    /// <summary>Generates an (r1, r2) pair across all GIV branches, including r2 = 0.</summary>
+    private static Arbitrary<(int r1, int r2)> GivPairArbitrary() =>
+        (from r1 in Gen.Choose(0, 500)
+         from r2 in Gen.Choose(0, 500)
+         select (r1, r2))
+        .ToArbitrary();
+
+    /// <summary>Generates a balanced strand table (refFwd == refRev, altFwd == altRev) ⇒ FS = 0.</summary>
+    private static Arbitrary<(int refSym, int altSym)> BalancedTableArbitrary() =>
+        (from refSym in Gen.Choose(0, 300)
+         from altSym in Gen.Choose(0, 300)
+         select (refSym, altSym))
+        .ToArbitrary();
+
+    /// <summary>Generates an arbitrary non-negative strand table for the FS ≥ 0 universal property.</summary>
+    private static Arbitrary<(int refFwd, int refRev, int altFwd, int altRev)> StrandTableArbitrary() =>
+        (from refFwd in Gen.Choose(0, 300)
+         from refRev in Gen.Choose(0, 300)
+         from altFwd in Gen.Choose(0, 300)
+         from altRev in Gen.Choose(0, 300)
+         select (refFwd, refRev, altFwd, altRev))
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // Classification (INV-04) — substitution map + flag rule
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-04: <c>ClassifyArtifact</c>.Type matches the independent substitution map EXACTLY (the two
+    /// artifact classes disjoint, None for everything else), and <c>IsArtifact</c> matches the §4.2 flag
+    /// rule (FFPE always; OxoG iff GIV &gt; 1.5; None never), driven over random ref/alt/counts.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Classification_MatchesSubstitutionAndFlagOracle()
+    {
+        return Prop.ForAll(ArtifactObservationArbitrary(), o =>
+        {
+            var call = OncologyAnalyzer.ClassifyArtifact(o);
+            var expectedType = ExpectedArtifactType(o.ReferenceAllele, o.AlternateAllele);
+            double expectedGiv = ExpectedGiv(o.AltReadsR1, o.AltReadsR2);
+            bool expectedFlag = ExpectedIsArtifact(expectedType, expectedGiv);
+            return (call.Type == expectedType && call.IsArtifact == expectedFlag)
+                .Label($"{o.ReferenceAllele}>{o.AlternateAllele}: type {call.Type}/{expectedType}, " +
+                       $"flag {call.IsArtifact}/{expectedFlag} (giv={expectedGiv})");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 (case-insensitivity, §3.3): lower-cased bases classify identically to their upper-cased
+    /// counterparts — same Type and IsArtifact.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Classification_IsCaseInsensitive()
+    {
+        return Prop.ForAll(ArtifactObservationArbitrary(), o =>
+        {
+            var upper = OncologyAnalyzer.ClassifyArtifact(o);
+            var lower = OncologyAnalyzer.ClassifyArtifact(o with
+            {
+                ReferenceAllele = char.ToLowerInvariant(o.ReferenceAllele),
+                AlternateAllele = char.ToLowerInvariant(o.AlternateAllele)
+            });
+            return (upper.Type == lower.Type && upper.IsArtifact == lower.IsArtifact)
+                .Label($"upper {upper.Type}/{upper.IsArtifact} vs lower {lower.Type}/{lower.IsArtifact}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // GIV (INV-02) — ratio oracle + non-negativity
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-02: <c>CalculateGivScore</c> equals the independently recomputed ratio (1.0 when both 0,
+    /// +∞ when only r2 = 0, else r1/r2), is always ≥ 0, and equal positive counts ⇒ exactly 1.0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Giv_MatchesRatioOracle()
+    {
+        return Prop.ForAll(GivPairArbitrary(), p =>
+        {
+            double giv = OncologyAnalyzer.CalculateGivScore(p.r1, p.r2);
+            double expected = ExpectedGiv(p.r1, p.r2);
+            bool matches = double.IsPositiveInfinity(expected)
+                ? double.IsPositiveInfinity(giv)
+                : Math.Abs(giv - expected) < 1e-12;
+            bool nonNegative = giv >= 0.0;
+            bool equalCountsOne = p.r1 != p.r2 || p.r1 == 0 || Math.Abs(giv - 1.0) < 1e-12;
+            return (matches && nonNegative && equalCountsOne)
+                .Label($"giv {giv} vs {expected} (r1={p.r1}, r2={p.r2})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // FisherStrand FS (INV-03, INV-05) — FS ≥ 0, balanced ⇒ 0, monotone segregation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-03: <c>CalculateStrandBias</c> (FS) is ALWAYS ≥ 0 over arbitrary non-negative tables (Phred of
+    /// a p ≤ 1). NOTE: this is the genuine contract; the bogus checklist claim "strand-bias ∈ [0,1]" is
+    /// dropped — FS is unbounded above.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_StrandBias_IsNonNegative()
+    {
+        return Prop.ForAll(StrandTableArbitrary(), t =>
+        {
+            double fs = OncologyAnalyzer.CalculateStrandBias(t.refFwd, t.refRev, t.altFwd, t.altRev);
+            return (fs >= 0.0)
+                .Label($"FS={fs} for [{t.refFwd},{t.refRev},{t.altFwd},{t.altRev}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-03: a symmetric/balanced table (refFwd == refRev AND altFwd == altRev, incl. all-zero) has no
+    /// strand bias (p = 1) ⇒ FS = 0 (within 1e-9).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_StrandBias_BalancedTableIsZero()
+    {
+        return Prop.ForAll(BalancedTableArbitrary(), t =>
+        {
+            double fs = OncologyAnalyzer.CalculateStrandBias(t.refSym, t.refSym, t.altSym, t.altSym);
+            return (Math.Abs(fs) < 1e-9)
+                .Label($"FS={fs} for balanced [{t.refSym},{t.refSym},{t.altSym},{t.altSym}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-05: greater strand segregation ⇒ FS non-decreasing. Family of fully-segregated tables
+    /// [n, 0, 0, n] for growing n; the Fisher p decreases (more extreme), so FS must be non-decreasing.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_StrandBias_MonotoneInSegregation()
+    {
+        return Prop.ForAll(Gen.Choose(1, 60).ToArbitrary(), n =>
+        {
+            double fsLo = OncologyAnalyzer.CalculateStrandBias(n, 0, 0, n);
+            double fsHi = OncologyAnalyzer.CalculateStrandBias(n + 1, 0, 0, n + 1);
+            return (fsHi >= fsLo - 1e-9)
+                .Label($"FS({n})={fsLo} > FS({n + 1})={fsHi}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M (remapped) — GIV/damage monotonicity for OxoG
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// M (remapped from the bogus "stricter thresholds → ≤ survivors"): for a fixed OxoG substitution,
+    /// raising the GIV (more read-1 imbalance) can never un-flag the variant — if it is flagged at a lower
+    /// GIV (GIV &gt; 1.5) it stays flagged at any higher GIV. We hold r2 fixed and let r1 grow.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_OxoG_FlagMonotoneInGiv()
+    {
+        var gen = (from r2 in Gen.Choose(1, 200)
+                   from r1Lo in Gen.Choose(0, 600)
+                   from delta in Gen.Choose(0, 600)
+                   select (r2, r1Lo, r1Hi: r1Lo + delta)).ToArbitrary();
+        return Prop.ForAll(gen, t =>
+        {
+            // G>T is the canonical OxoG substitution.
+            var lo = new OncologyAnalyzer.ArtifactObservation('G', 'T', 10, 10, 5, 5, t.r1Lo, t.r2);
+            var hi = lo with { AltReadsR1 = t.r1Hi };
+            var callLo = OncologyAnalyzer.ClassifyArtifact(lo);
+            var callHi = OncologyAnalyzer.ClassifyArtifact(hi);
+            // Higher GIV (r1Hi ≥ r1Lo) ⇒ if flagged at lo, still flagged at hi.
+            bool monotone = !callLo.IsArtifact || callHi.IsArtifact;
+            return monotone
+                .Label($"r2={t.r2}: lo(r1={t.r1Lo}) flag={callLo.IsArtifact}, hi(r1={t.r1Hi}) flag={callHi.IsArtifact}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // P (INV-01) — FilterArtifacts is a non-flagged subset in input order
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P / INV-01: <c>FilterArtifacts</c> returns EXACTLY the non-flagged inputs in input order — i.e. it
+    /// equals <c>input.Where(x =&gt; !ClassifyArtifact(x).IsArtifact)</c>. The result is a subset of the input,
+    /// preserves order, and every survivor is non-flagged.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Filter_IsNonFlaggedSubsetInOrder()
+    {
+        return Prop.ForAll(ArtifactListArbitrary(), variants =>
+        {
+            var survivors = OncologyAnalyzer.FilterArtifacts(variants);
+            var expected = variants.Where(x => !OncologyAnalyzer.ClassifyArtifact(x).IsArtifact).ToArray();
+            bool matchesOracle = survivors.SequenceEqual(expected);
+            bool allNonFlagged = survivors.All(x => !OncologyAnalyzer.ClassifyArtifact(x).IsArtifact);
+            return (matchesOracle && allNonFlagged)
+                .Label($"survivors={survivors.Count}, expected={expected.Length}, allNonFlagged={allNonFlagged}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DetectOxoGArtifacts — exactly the OxoG calls with GIV > 1.5
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>DetectOxoGArtifacts</c> returns exactly the calls whose Type is OxoG AND GIV &gt; 1.5 (the OxoG
+    /// flag rule), in input order, recomputed independently from the substitution map and GIV oracle.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_DetectOxoG_ReturnsExactlyDamagedOxoG()
+    {
+        return Prop.ForAll(ArtifactListArbitrary(), variants =>
+        {
+            var detected = OncologyAnalyzer.DetectOxoGArtifacts(variants);
+            var expected = variants
+                .Where(o => ExpectedArtifactType(o.ReferenceAllele, o.AlternateAllele)
+                                == OncologyAnalyzer.ArtifactType.OxoG
+                            && ExpectedGiv(o.AltReadsR1, o.AltReadsR2) > ArtifactDamagedGivThreshold)
+                .Select(o => OncologyAnalyzer.ClassifyArtifact(o))
+                .ToArray();
+            return detected.SequenceEqual(expected)
+                .Label($"detected={detected.Count}, expected={expected.Length}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D (determinism)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D: identical inputs ⇒ identical results — <c>ClassifyArtifact</c> returns an equal <c>ArtifactCall</c>
+    /// (all fields; +∞ == +∞ via record equality) across two independent calls.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Classification_IsDeterministic()
+    {
+        return Prop.ForAll(ArtifactObservationArbitrary(), o =>
+        {
+            var a = OncologyAnalyzer.ClassifyArtifact(o);
+            var b = OncologyAnalyzer.ClassifyArtifact(o);
+            return a.Equals(b).Label($"{a} != {b}");
+        });
+    }
+
+    /// <summary>D: <c>FilterArtifacts</c> is deterministic — two runs over the same list yield equal results.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Artifact_Filter_IsDeterministic()
+    {
+        return Prop.ForAll(ArtifactListArbitrary(), variants =>
+        {
+            var a = OncologyAnalyzer.FilterArtifacts(variants);
+            var b = OncologyAnalyzer.FilterArtifacts(variants);
+            return a.SequenceEqual(b).Label($"a={a.Count}, b={b.Count}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Edge cases and worked-example anchors (§6.1, §7.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>§6.1: GIV with r2 = 0, r1 = 0 ⇒ 1.0 (no imbalance evidence).</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Giv_BothZero_IsOne()
+    {
+        Assert.That(OncologyAnalyzer.CalculateGivScore(0, 0), Is.EqualTo(1.0));
+    }
+
+    /// <summary>§6.1: GIV with r2 = 0, r1 &gt; 0 ⇒ +∞ (maximal one-sided imbalance).</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Giv_OnlyR2Zero_IsPositiveInfinity()
+    {
+        Assert.That(OncologyAnalyzer.CalculateGivScore(7, 0), Is.EqualTo(double.PositiveInfinity));
+    }
+
+    /// <summary>§6.1: equal positive counts ⇒ GIV = 1.0 (balanced library).</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Giv_EqualPositiveCounts_IsOne()
+    {
+        Assert.That(OncologyAnalyzer.CalculateGivScore(50, 50), Is.EqualTo(1.0).Within(1e-12));
+    }
+
+    /// <summary>§6.1: a balanced strand table ⇒ FS = 0 (p = 1).</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_StrandBias_BalancedAnchor_IsZero()
+    {
+        Assert.That(OncologyAnalyzer.CalculateStrandBias(20, 20, 10, 10), Is.EqualTo(0.0).Within(1e-9));
+    }
+
+    /// <summary>§7.1 numerical walk-through: table [20,0,0,20] ⇒ FS ≈ 108.384 (within 1e-2).</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_StrandBias_WorkedExampleAnchor()
+    {
+        double fs = OncologyAnalyzer.CalculateStrandBias(20, 0, 0, 20);
+        Assert.That(fs, Is.EqualTo(108.384).Within(1e-2));
+    }
+
+    /// <summary>§6.1: a non-artifact substitution (A&gt;G) ⇒ Type None, never flagged.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_NonArtifactSubstitution_IsNoneNotFlagged()
+    {
+        var o = new OncologyAnalyzer.ArtifactObservation('A', 'G', 10, 10, 10, 10, 100, 1);
+        var call = OncologyAnalyzer.ClassifyArtifact(o);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.Type, Is.EqualTo(OncologyAnalyzer.ArtifactType.None));
+            Assert.That(call.IsArtifact, Is.False);
+        });
+    }
+
+    /// <summary>
+    /// §7.1 worked example: G&gt;T with r1 = 200, r2 = 100 ⇒ GIV = 2.0 (&gt; 1.5), Type OxoG, IsArtifact true.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_OxoGWorkedExample_Anchor()
+    {
+        var v = new OncologyAnalyzer.ArtifactObservation('G', 'T', 20, 18, 12, 10, 200, 100);
+        var call = OncologyAnalyzer.ClassifyArtifact(v);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.GivScore, Is.EqualTo(2.0).Within(1e-12));
+            Assert.That(call.Type, Is.EqualTo(OncologyAnalyzer.ArtifactType.OxoG));
+            Assert.That(call.IsArtifact, Is.True);
+        });
+    }
+
+    /// <summary>INV-01: an empty variant list ⇒ empty filter result.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Filter_EmptyList_IsEmpty()
+    {
+        Assert.That(OncologyAnalyzer.FilterArtifacts(Array.Empty<OncologyAnalyzer.ArtifactObservation>()),
+            Is.Empty);
+    }
+
+    /// <summary>§6.1 API contract: a null variant list ⇒ <c>ArgumentNullException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Filter_NullList_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.FilterArtifacts(null!));
+    }
+
+    /// <summary>§6.1 API contract: <c>DetectOxoGArtifacts</c> with a null list ⇒ <c>ArgumentNullException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_DetectOxoG_NullList_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.DetectOxoGArtifacts(null!));
+    }
+
+    /// <summary>§3.3 validation: a negative GIV count ⇒ <c>ArgumentOutOfRangeException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_Giv_NegativeCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateGivScore(-1, 5));
+    }
+
+    /// <summary>§3.3 validation: a negative strand-table cell ⇒ <c>ArgumentOutOfRangeException</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Artifact_StrandBias_NegativeCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateStrandBias(-1, 0, 0, 0));
     }
 
     #endregion
