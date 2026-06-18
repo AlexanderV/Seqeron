@@ -585,4 +585,141 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-SECSTRUCT-001 — Secondary Structure Propensity (Chou-Fasman)
+
+    // -------------------------------------------------------------------------
+    // Theory (Chou & Fasman 1978):
+    //   • Per-window mean conformational propensities Pa (helix), Pb (sheet), Pt (turn).
+    //   • All published propensities are positive ⇒ every emitted propensity ≥ 0.        (R ≥ 0)
+    //   • A pure-residue sequence of length N with window w yields N−w+1 windows, each of
+    //     which assigns a dominant class H/E/C (argmax of the three propensities).         (P every residue → H/E/C)
+    //
+    // The Chou-Fasman table and the per-window mean are reconstructed independently.
+    // -------------------------------------------------------------------------
+
+    private static readonly Dictionary<char, (double Helix, double Sheet, double Turn)> ChouFasmanOracle = new()
+    {
+        ['A'] = (1.42, 0.83, 0.66), ['R'] = (0.98, 0.93, 0.95), ['N'] = (0.67, 0.89, 1.56), ['D'] = (1.01, 0.54, 1.46),
+        ['C'] = (0.70, 1.19, 1.19), ['E'] = (1.51, 0.37, 0.74), ['Q'] = (1.11, 1.10, 0.98), ['G'] = (0.57, 0.75, 1.56),
+        ['H'] = (1.00, 0.87, 0.95), ['I'] = (1.08, 1.60, 0.47), ['L'] = (1.21, 1.30, 0.59), ['K'] = (1.14, 0.74, 1.01),
+        ['M'] = (1.45, 1.05, 0.60), ['F'] = (1.13, 1.38, 0.60), ['P'] = (0.57, 0.55, 1.52), ['S'] = (0.77, 0.75, 1.43),
+        ['T'] = (0.83, 1.19, 0.96), ['W'] = (1.08, 1.37, 0.96), ['Y'] = (0.69, 1.47, 1.14), ['V'] = (1.06, 1.70, 0.50),
+    };
+
+    private static Arbitrary<(string seq, int window)> SecStructProblemArbitrary() =>
+        (from n in Gen.Choose(1, 20)
+         from chars in Gen.Elements("ARNDCEQGHILKMFPSTWYV".ToCharArray()).ArrayOf(n)
+         from w in Gen.Choose(1, n)
+         select (new string(chars), w)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "each propensity ≥ 0") + formula: each window's (Helix, Sheet, Turn) equals the
+    /// independent mean Chou-Fasman propensity over its residues, and every value is finite and ≥ 0.
+    /// (Chou & Fasman 1978)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SecondaryStructure_PerWindowMeans_AreNonNegative_AndMatchOracle()
+    {
+        return Prop.ForAll(SecStructProblemArbitrary(), t =>
+        {
+            var windows = SequenceStatistics.PredictSecondaryStructure(t.seq, t.window).ToList();
+            bool ok = true;
+            for (int i = 0; ok && i < windows.Count; i++)
+            {
+                double h = 0, s = 0, turn = 0;
+                for (int j = 0; j < t.window; j++)
+                {
+                    var p = ChouFasmanOracle[t.seq[i + j]];
+                    h += p.Helix; s += p.Sheet; turn += p.Turn;
+                }
+
+                h /= t.window; s /= t.window; turn /= t.window;
+                var w = windows[i];
+                ok &= Math.Abs(w.Helix - h) < CompTolerance && Math.Abs(w.Sheet - s) < CompTolerance && Math.Abs(w.Turn - turn) < CompTolerance
+                      && w.Helix >= 0 && w.Sheet >= 0 && w.Turn >= 0
+                      && double.IsFinite(w.Helix) && double.IsFinite(w.Sheet) && double.IsFinite(w.Turn);
+            }
+
+            return ok.Label($"window means mismatch or negative ({windows.Count} windows, w={t.window})");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "every residue assigned H/E/C"): a pure-residue sequence of length N with window w yields
+    /// exactly N−w+1 windows, and each window admits a dominant class (one of helix/sheet/turn is the maximum).
+    /// (Chou & Fasman 1978 sliding window)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SecondaryStructure_WindowCount_AndClassAssignment()
+    {
+        return Prop.ForAll(SecStructProblemArbitrary(), t =>
+        {
+            var windows = SequenceStatistics.PredictSecondaryStructure(t.seq, t.window).ToList();
+            bool countOk = windows.Count == t.seq.Length - t.window + 1;
+            bool classOk = windows.All(w =>
+            {
+                double max = Math.Max(w.Helix, Math.Max(w.Sheet, w.Turn));
+                return max == w.Helix || max == w.Sheet || max == w.Turn; // a class is always assignable
+            });
+            return (countOk && classOk).Label($"windows {windows.Count} ≠ N−w+1 = {t.seq.Length - t.window + 1}");
+        });
+    }
+
+    /// <summary>
+    /// Metamorphic: a homopolymer yields a constant profile — every window mean equals that residue's
+    /// propensity (mean of identical values). (Chou & Fasman 1978)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SecondaryStructure_Homopolymer_IsConstantProfile()
+    {
+        var arb = (from aa in Gen.Elements("ARNDCEQGHILKMFPSTWYV".ToCharArray())
+                   from reps in Gen.Choose(1, 12)
+                   from w in Gen.Choose(1, reps)
+                   select (seq: new string(aa, reps), aa, w)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var windows = SequenceStatistics.PredictSecondaryStructure(t.seq, t.w).ToList();
+            var p = ChouFasmanOracle[t.aa];
+            return windows.All(win =>
+                Math.Abs(win.Helix - p.Helix) < CompTolerance
+                && Math.Abs(win.Sheet - p.Sheet) < CompTolerance
+                && Math.Abs(win.Turn - p.Turn) < CompTolerance)
+                .Label($"homopolymer {t.aa} profile not constant at its propensity");
+        });
+    }
+
+    /// <summary>D (determinism): the secondary-structure profile is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property SecondaryStructure_IsDeterministic()
+    {
+        return Prop.ForAll(SecStructProblemArbitrary(), t =>
+            SequenceStatistics.PredictSecondaryStructure(t.seq, t.window)
+                .SequenceEqual(SequenceStatistics.PredictSecondaryStructure(t.seq, t.window))
+                .Label("PredictSecondaryStructure is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: a window over "AAAAA" (w=5) is alanine's propensity (1.42, 0.83, 0.66); a window larger than
+    /// the sequence yields no profile; the empty sequence yields no profile. (Chou & Fasman 1978)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SecondaryStructure_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var ala = SequenceStatistics.PredictSecondaryStructure("AAAAA", 5).ToList();
+            Assert.That(ala, Has.Count.EqualTo(1));
+            Assert.That(ala[0].Helix, Is.EqualTo(1.42).Within(CompTolerance));
+            Assert.That(ala[0].Sheet, Is.EqualTo(0.83).Within(CompTolerance));
+            Assert.That(ala[0].Turn, Is.EqualTo(0.66).Within(CompTolerance));
+
+            Assert.That(SequenceStatistics.PredictSecondaryStructure("AA", 5), Is.Empty, "Window > length ⇒ no profile.");
+            Assert.That(SequenceStatistics.PredictSecondaryStructure("", 3), Is.Empty, "Empty ⇒ no profile.");
+        });
+    }
+
+    #endregion
 }
