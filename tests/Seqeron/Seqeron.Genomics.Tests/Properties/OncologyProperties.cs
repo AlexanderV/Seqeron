@@ -13,7 +13,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// from the cited theory/doc (never routed through production constants), so a
 /// self-consistent-but-wrong production constant is still caught.
 ///
-/// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001
+/// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001, ONCO-VAF-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -840,6 +840,400 @@ public class OncologyProperties
             Assert.That(call.SomaticScore, Is.EqualTo(expectedScore).Within(1e-9));
         });
     }
+
+    #endregion
+
+    #region ONCO-VAF-001 — Variant Allele Frequency Analysis
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (transcribed from Variant_Allele_Frequency.md §2.2,
+    // NOT routed through production constants). The empirical VAF, the Wilson
+    // score interval (literal z = 1.96), and the purity/ploidy correction are
+    // recomputed here from literals so a self-consistent-but-wrong production
+    // constant is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Literal 95% standard-normal quantile z = 1.96 (Wilson 1927, via the binomial-proportion
+    /// confidence-interval specification). Declared as a LOCAL literal so the oracle never routes
+    /// through the production <c>ZScore95</c> constant.
+    /// </summary>
+    private const double VafZScore95 = 1.96;
+
+    /// <summary>The only supported (and default) confidence level for the Wilson interval.</summary>
+    private const double VafConfidence95 = 0.95;
+
+    /// <summary>
+    /// INV-01 empirical-VAF oracle: <c>VAF = totalReads == 0 ? 0 : altReads / totalReads</c>,
+    /// recomputed independently (§2.2 / §4.1).
+    /// </summary>
+    private static double ExpectedVafEmpirical(int altReads, int totalReads) =>
+        totalReads == 0 ? 0.0 : (double)altReads / totalReads;
+
+    /// <summary>
+    /// Independent Wilson score interval oracle (§2.2) with literal z = 1.96:
+    /// <c>center = (p̂ + z²/2n)/(1 + z²/n)</c>,
+    /// <c>margin = (z/(1 + z²/n))·√(p̂(1−p̂)/n + z²/4n²)</c>, then bounds clamped to [0, 1].
+    /// Returns (lower, upper).
+    /// </summary>
+    private static (double lower, double upper) ExpectedWilsonInterval(int altReads, int totalReads)
+    {
+        double n = totalReads;
+        double pHat = (double)altReads / totalReads;
+        double z2 = VafZScore95 * VafZScore95;
+        double denom = 1.0 + z2 / n;
+        double center = (pHat + z2 / (2.0 * n)) / denom;
+        double margin = (VafZScore95 / denom) * Math.Sqrt(pHat * (1.0 - pHat) / n + z2 / (4.0 * n * n));
+        return (Math.Max(0.0, center - margin), Math.Min(1.0, center + margin));
+    }
+
+    /// <summary>
+    /// INV-04 purity/ploidy-correction oracle (§2.2): <c>adjusted = vaf·(2(1−π) + π·n_tot)/π</c>,
+    /// with the normal contribution fixed at the literal diploid 2. Recomputed independently.
+    /// </summary>
+    private static double ExpectedAdjustedVaf(double vaf, double purity, double ploidy) =>
+        vaf * (2.0 * (1.0 - purity) + purity * ploidy) / purity;
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// (alt, total) honouring the contract 0 ≤ alt ≤ total, with total = 0 included so the VAF-0 /
+    /// no-coverage branch (INV-01 / §6.1) is exercised.
+    /// </summary>
+    private static Arbitrary<(int alt, int total)> VafCountsArbitrary() =>
+        (from total in Gen.Choose(0, 5000)
+         from alt in Gen.Choose(0, total)
+         select (alt, total))
+        .ToArbitrary();
+
+    /// <summary>(alt, total) with total ≥ 1, so the Wilson interval is always defined (CI requires coverage).</summary>
+    private static Arbitrary<(int alt, int total)> VafCoveredCountsArbitrary() =>
+        (from total in Gen.Choose(1, 5000)
+         from alt in Gen.Choose(0, total)
+         select (alt, total))
+        .ToArbitrary();
+
+    /// <summary>
+    /// Monotonicity generator: a shared total ≥ 2 and two ORDERED, DISTINCT alt counts (lo &lt; hi),
+    /// both in [0, total], so increasing alt strictly increases the empirical VAF.
+    /// </summary>
+    private static Arbitrary<(int total, int altLo, int altHi)> VafMonotoneArbitrary() =>
+        (from total in Gen.Choose(2, 5000)
+         from a1 in Gen.Choose(0, total)
+         from a2 in Gen.Choose(0, total)
+         where a1 != a2
+         select (total, Math.Min(a1, a2), Math.Max(a1, a2)))
+        .ToArbitrary();
+
+    /// <summary>Tumor purity π ∈ (0, 1] (in 1/1000 steps, excluding 0).</summary>
+    private static Arbitrary<double> PurityArbitrary() =>
+        Gen.Choose(1, 1000).Select(x => x / 1000.0).ToArbitrary();
+
+    /// <summary>Tumor total copy number n_tot &gt; 0 (in 1/10 steps).</summary>
+    private static Arbitrary<double> PloidyArbitrary() =>
+        Gen.Choose(1, 80).Select(x => x / 10.0).ToArbitrary();
+
+    /// <summary>(vaf, purity, ploidy) with vaf ∈ [0, 1], purity ∈ (0, 1], ploidy &gt; 0.</summary>
+    private static Arbitrary<(double vaf, double purity, double ploidy)> PurityCorrectionArbitrary() =>
+        (from vafMilli in Gen.Choose(0, 1000)
+         from purityMilli in Gen.Choose(1, 1000)
+         from ploidyTenth in Gen.Choose(1, 80)
+         select (vafMilli / 1000.0, purityMilli / 1000.0, ploidyTenth / 10.0))
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // CalculateVAF (R + INV-01, M, R: VAF==0 at no alt reads, D)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-01: <c>CalculateVAF</c> equals the independently recomputed
+    /// <c>totalReads == 0 ? 0 : altReads/totalReads</c> and always lies in [0, 1] (since 0 ≤ alt ≤ total).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_Empirical_MatchesOracleAndInUnitRange()
+    {
+        return Prop.ForAll(VafCountsArbitrary(), c =>
+        {
+            double vaf = OncologyAnalyzer.CalculateVAF(c.alt, c.total);
+            double expected = ExpectedVafEmpirical(c.alt, c.total);
+            bool matches = Math.Abs(vaf - expected) < 1e-12;
+            bool inRange = vaf is >= 0.0 and <= 1.0;
+            return (matches && inRange)
+                .Label($"vaf {vaf} vs oracle {expected} (alt={c.alt}, total={c.total}), inRange={inRange}");
+        });
+    }
+
+    /// <summary>
+    /// R (§6.1): <c>CalculateVAF</c> returns exactly 0 when altReads == 0 and total &gt; 0 (no alt support).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_ZeroAltReads_IsZero()
+    {
+        return Prop.ForAll(Gen.Choose(1, 5000).ToArbitrary(), total =>
+        {
+            double vaf = OncologyAnalyzer.CalculateVAF(0, total);
+            return (vaf == 0.0).Label($"VAF for 0/{total} = {vaf}, expected 0");
+        });
+    }
+
+    /// <summary>
+    /// M (§2.4 corollary): at a FIXED totalReads, increasing altReads STRICTLY increases the VAF —
+    /// more alt reads ⇒ higher VAF. Driven over ordered distinct alt counts on a shared total.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_StrictlyIncreasesWithAltReads()
+    {
+        return Prop.ForAll(VafMonotoneArbitrary(), t =>
+        {
+            double lo = OncologyAnalyzer.CalculateVAF(t.altLo, t.total);
+            double hi = OncologyAnalyzer.CalculateVAF(t.altHi, t.total);
+            return (hi > lo)
+                .Label($"VAF not strictly increasing: {t.altLo}/{t.total}={lo} vs {t.altHi}/{t.total}={hi}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical (alt, total) inputs ⇒ bit-identical <c>CalculateVAF</c> output.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_Empirical_IsDeterministic()
+    {
+        return Prop.ForAll(VafCountsArbitrary(), c =>
+        {
+            double a = OncologyAnalyzer.CalculateVAF(c.alt, c.total);
+            double b = OncologyAnalyzer.CalculateVAF(c.alt, c.total);
+            return a.Equals(b).Label($"non-deterministic CalculateVAF: {a} vs {b} for {c.alt}/{c.total}");
+        });
+    }
+
+    /// <summary>§7.1 anchor: <c>CalculateVAF(25, 100) == 0.25</c>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_WorkedExample_25Of100_IsQuarter() =>
+        Assert.That(OncologyAnalyzer.CalculateVAF(25, 100), Is.EqualTo(0.25).Within(1e-12));
+
+    // -------------------------------------------------------------------------
+    // Wilson score confidence interval (INV-02, INV-03)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-02 + INV-03: the returned Wilson bounds match the independent z = 1.96 oracle (§2.2) and obey
+    /// <c>0 ≤ Lower ≤ Upper ≤ 1</c>; the <c>Vaf</c> field equals the empirical p̂ and <c>Confidence == 0.95</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_WilsonInterval_MatchesOracleAndIsBounded()
+    {
+        return Prop.ForAll(VafCoveredCountsArbitrary(), c =>
+        {
+            var ci = OncologyAnalyzer.CalculateVAFConfidenceInterval(c.alt, c.total);
+            var (expLower, expUpper) = ExpectedWilsonInterval(c.alt, c.total);
+            double expVaf = ExpectedVafEmpirical(c.alt, c.total);
+
+            bool boundsMatch = Math.Abs(ci.Lower - expLower) < 1e-9 && Math.Abs(ci.Upper - expUpper) < 1e-9;
+            bool vafIsPHat = Math.Abs(ci.Vaf - expVaf) < 1e-12;
+            bool ordered = ci.Lower <= ci.Upper;
+            bool bounded = ci.Lower >= 0.0 && ci.Upper <= 1.0;
+            bool conf = ci.Confidence == VafConfidence95;
+
+            return (boundsMatch && vafIsPHat && ordered && bounded && conf)
+                .Label($"alt={c.alt}/{c.total}: Lower {ci.Lower}/{expLower}, Upper {ci.Upper}/{expUpper}, " +
+                       $"Vaf {ci.Vaf}/{expVaf}, conf {ci.Confidence}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical inputs ⇒ identical <see cref="OncologyAnalyzer.VafConfidenceInterval"/>
+    /// (all fields, via record equality).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_WilsonInterval_IsDeterministic()
+    {
+        return Prop.ForAll(VafCoveredCountsArbitrary(), c =>
+        {
+            var a = OncologyAnalyzer.CalculateVAFConfidenceInterval(c.alt, c.total);
+            var b = OncologyAnalyzer.CalculateVAFConfidenceInterval(c.alt, c.total);
+            return a.Equals(b).Label($"non-deterministic CI: {a} vs {b} for {c.alt}/{c.total}");
+        });
+    }
+
+    /// <summary>
+    /// §7.1 worked example anchor: 25/100 at 95% (z = 1.96) ⇒ Vaf 0.25, Lower ≈ 0.1754509,
+    /// Upper ≈ 0.3430465 (the exact §7.1 numbers, within 1e-6), Confidence 0.95.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_WilsonInterval_WorkedExample_25Of100()
+    {
+        var ci = OncologyAnalyzer.CalculateVAFConfidenceInterval(25, 100);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ci.Vaf, Is.EqualTo(0.25).Within(1e-12));
+            Assert.That(ci.Lower, Is.EqualTo(0.1754509).Within(1e-6));
+            Assert.That(ci.Upper, Is.EqualTo(0.3430465).Within(1e-6));
+            Assert.That(ci.Confidence, Is.EqualTo(0.95));
+        });
+    }
+
+    /// <summary>
+    /// §6.1 edge (p̂ = 0): alt 0 with coverage ⇒ Wilson Lower == 0 and Upper &gt; 0 (no overshoot,
+    /// non-zero width).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_WilsonInterval_PHatZero_LowerIsZeroUpperPositive()
+    {
+        var ci = OncologyAnalyzer.CalculateVAFConfidenceInterval(0, 100);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ci.Vaf, Is.EqualTo(0.0));
+            Assert.That(ci.Lower, Is.EqualTo(0.0));
+            Assert.That(ci.Upper, Is.GreaterThan(0.0));
+            Assert.That(ci.Upper, Is.LessThanOrEqualTo(1.0));
+        });
+    }
+
+    /// <summary>
+    /// §6.1 edge (p̂ = 1): alt == total ⇒ Wilson Upper == 1 (no overshoot — the upper bound reaches but
+    /// does not exceed 1; equals 1 in exact arithmetic, within fp tolerance) and Lower &lt; 1 (non-zero
+    /// width). Per INV-03 (§2.4) the upper bound is ≤ 1; the §6.1 "upper = 1" is the exact-arithmetic value
+    /// and the implementation's Min-clamp does not lift the sub-ulp fp drift up to a literal 1.0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_WilsonInterval_PHatOne_UpperIsOneLowerBelowOne()
+    {
+        var ci = OncologyAnalyzer.CalculateVAFConfidenceInterval(100, 100);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ci.Vaf, Is.EqualTo(1.0));
+            Assert.That(ci.Upper, Is.EqualTo(1.0).Within(1e-12)); // reaches 1 (no overshoot, INV-03)
+            Assert.That(ci.Upper, Is.LessThanOrEqualTo(1.0));
+            Assert.That(ci.Lower, Is.LessThan(1.0));
+            Assert.That(ci.Lower, Is.GreaterThanOrEqualTo(0.0));
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // AdjustVAFForPurity (INV-04)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-04 formula: <c>AdjustVAFForPurity</c> equals the independent oracle
+    /// <c>vaf·(2(1−π) + π·ploidy)/π</c> (§2.2), over random vaf ∈ [0, 1], π ∈ (0, 1], ploidy &gt; 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_PurityCorrection_MatchesOracle()
+    {
+        return Prop.ForAll(PurityCorrectionArbitrary(), t =>
+        {
+            double adjusted = OncologyAnalyzer.AdjustVAFForPurity(t.vaf, t.purity, t.ploidy);
+            double expected = ExpectedAdjustedVaf(t.vaf, t.purity, t.ploidy);
+            return (Math.Abs(adjusted - expected) < 1e-9)
+                .Label($"adjusted {adjusted} vs oracle {expected} (vaf={t.vaf}, π={t.purity}, ploidy={t.ploidy})");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 round-trip: for a diploid heterozygous clonal SNV the expected VAF is v = π/2, so
+    /// <c>AdjustVAFForPurity(π/2, π, 2) == 1</c> for random π ∈ (0, 1] (within 1e-9).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_PurityCorrection_DiploidHetRoundTripIsOne()
+    {
+        return Prop.ForAll(PurityArbitrary(), purity =>
+        {
+            double adjusted = OncologyAnalyzer.AdjustVAFForPurity(purity / 2.0, purity, 2.0);
+            return (Math.Abs(adjusted - 1.0) < 1e-9)
+                .Label($"round-trip ≠ 1: AdjustVAFForPurity({purity / 2.0}, {purity}, 2) = {adjusted}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical inputs ⇒ bit-identical <c>AdjustVAFForPurity</c> output.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Vaf_PurityCorrection_IsDeterministic()
+    {
+        return Prop.ForAll(PurityCorrectionArbitrary(), t =>
+        {
+            double a = OncologyAnalyzer.AdjustVAFForPurity(t.vaf, t.purity, t.ploidy);
+            double b = OncologyAnalyzer.AdjustVAFForPurity(t.vaf, t.purity, t.ploidy);
+            return a.Equals(b).Label($"non-deterministic AdjustVAFForPurity: {a} vs {b}");
+        });
+    }
+
+    /// <summary>§7.1 anchor: <c>AdjustVAFForPurity(0.40, 0.80, 2) == 1.0</c> (clonal het, diploid).</summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_PurityCorrection_WorkedExample_IsOne() =>
+        Assert.That(OncologyAnalyzer.AdjustVAFForPurity(0.40, 0.80, 2.0), Is.EqualTo(1.0).Within(1e-9));
+
+    // -------------------------------------------------------------------------
+    // Edge cases / validation (§3.3 / §6.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Edge: <c>CalculateVAF</c> with altReads &lt; 0 or altReads &gt; totalReads ⇒ ArgumentOutOfRangeException.</summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_InvalidCounts_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateVAF(-1, 100));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateVAF(120, 100));
+        });
+    }
+
+    /// <summary>Edge (§6.1): <c>CalculateVAF</c> with totalReads == 0 ⇒ returns 0 (no coverage).</summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_ZeroCoverage_ReturnsZero() =>
+        Assert.That(OncologyAnalyzer.CalculateVAF(0, 0), Is.EqualTo(0.0));
+
+    /// <summary>Edge (§6.1): the confidence interval with totalReads == 0 ⇒ ArgumentOutOfRangeException (undefined).</summary>
+    [Test]
+    [Category("Property")]
+    public void Vaf_ConfidenceInterval_ZeroCoverage_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateVAFConfidenceInterval(0, 0));
+
+    /// <summary>
+    /// Edge (§3.3): a confidence level outside (0, 1), or any level other than the supported 0.95,
+    /// ⇒ ArgumentOutOfRangeException.
+    /// </summary>
+    [TestCase(-0.01)]
+    [TestCase(0.0)]
+    [TestCase(0.90)]
+    [TestCase(0.99)]
+    [TestCase(1.0)]
+    [TestCase(1.5)]
+    [Category("Property")]
+    public void Vaf_ConfidenceInterval_UnsupportedConfidence_Throws(double confidence) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            OncologyAnalyzer.CalculateVAFConfidenceInterval(25, 100, confidence));
+
+    /// <summary>Edge (§3.3): <c>AdjustVAFForPurity</c> with vaf outside [0, 1] ⇒ ArgumentOutOfRangeException.</summary>
+    [TestCase(-0.01)]
+    [TestCase(1.01)]
+    [Category("Property")]
+    public void Vaf_PurityCorrection_VafOutOfRange_Throws(double vaf) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AdjustVAFForPurity(vaf, 0.8, 2.0));
+
+    /// <summary>Edge (§3.3): <c>AdjustVAFForPurity</c> with purity outside (0, 1] ⇒ ArgumentOutOfRangeException.</summary>
+    [TestCase(0.0)]
+    [TestCase(-0.5)]
+    [TestCase(1.01)]
+    [Category("Property")]
+    public void Vaf_PurityCorrection_PurityOutOfRange_Throws(double purity) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AdjustVAFForPurity(0.4, purity, 2.0));
+
+    /// <summary>Edge (§3.3): <c>AdjustVAFForPurity</c> with ploidy ≤ 0 ⇒ ArgumentOutOfRangeException.</summary>
+    [TestCase(0.0)]
+    [TestCase(-1.0)]
+    [Category("Property")]
+    public void Vaf_PurityCorrection_PloidyNonPositive_Throws(double ploidy) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.AdjustVAFForPurity(0.4, 0.8, ploidy));
 
     #endregion
 }
