@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -523,6 +523,79 @@ public class PatternMatchingProperties
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             () => MotifFinder.DiscoverMotifs(new DnaSequence("ACGTACGT"), 0).ToList());
+    }
+
+    #endregion
+
+    #region MOTIF-GENERATE-001: P: IUPAC consensus from column counts; R: length = motif width; D: deterministic
+
+    // GenerateConsensus builds the IUPAC-degenerate consensus: per column, bases occurring in more
+    // than 25% of the sequences are combined into the NC-IUB symbol for that set (else the majority base).
+
+    private static readonly IReadOnlyDictionary<string, char> IupacBySet = new Dictionary<string, char>
+    {
+        ["A"] = 'A', ["C"] = 'C', ["G"] = 'G', ["T"] = 'T',
+        ["AG"] = 'R', ["CT"] = 'Y', ["CG"] = 'S', ["AT"] = 'W', ["GT"] = 'K', ["AC"] = 'M',
+        ["CGT"] = 'B', ["AGT"] = 'D', ["ACT"] = 'H', ["ACG"] = 'V', ["ACGT"] = 'N',
+    };
+
+    private static char ExpectedIupac(string[] aln, int col)
+    {
+        var counts = new Dictionary<char, int> { ['A'] = 0, ['C'] = 0, ['G'] = 0, ['T'] = 0 };
+        foreach (var row in aln) counts[row[col]]++;
+        double threshold = aln.Length * 0.25;
+        var present = counts.Where(kv => kv.Value > threshold).Select(kv => kv.Key).OrderBy(c => c).ToList();
+        if (present.Count == 0)
+            return counts.MaxBy(kv => kv.Value).Key;
+        return IupacBySet.GetValueOrDefault(string.Join("", present), 'N');
+    }
+
+    /// <summary>
+    /// INV-1 (R): The IUPAC consensus length equals the alignment width.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IupacConsensus_Length_EqualsWidth()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+            (MotifFinder.GenerateConsensus(aln).Length == aln[0].Length)
+                .Label("IUPAC consensus length ≠ width"));
+    }
+
+    /// <summary>
+    /// INV-2 (P): each consensus symbol is the IUPAC code of the bases occupying &gt; 25% of the column
+    /// (or the majority base when none passes), verified against an independent computation.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IupacConsensus_EachColumn_FromCounts()
+    {
+        return Prop.ForAll(AlignedDnaArbitrary(), aln =>
+        {
+            string consensus = MotifFinder.GenerateConsensus(aln);
+            bool ok = Enumerable.Range(0, aln[0].Length).All(c => consensus[c] == ExpectedIupac(aln, c));
+            return ok.Label("a consensus symbol did not match the IUPAC-from-counts rule");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + golden): consensus is deterministic; identical sequences reproduce themselves; a
+    /// purine column (A,G) yields 'R'; an equal four-base column yields 'N'.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void IupacConsensus_DeterministicAndGolden()
+    {
+        string c1 = MotifFinder.GenerateConsensus(new[] { "ACGT", "ACGT" });
+        string c2 = MotifFinder.GenerateConsensus(new[] { "ACGT", "ACGT" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(c2, Is.EqualTo(c1), "deterministic");
+            Assert.That(c1, Is.EqualTo("ACGT"), "identical sequences reproduce themselves");
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "G" }), Is.EqualTo("R"), "A,G → purine R");
+            // Four equal bases: each is exactly 25%, none exceeds the strict >25% cutoff, so the
+            // majority base (alphabetically first on the tie) is emitted rather than 'N'.
+            Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" }), Is.EqualTo("A"),
+                "no base exceeds 25% → majority base");
+        });
     }
 
     #endregion
