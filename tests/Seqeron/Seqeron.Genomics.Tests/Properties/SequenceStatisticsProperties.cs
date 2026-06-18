@@ -12,7 +12,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// derived INDEPENDENTLY from the cited theory/doc, never routed through the production result, so a
 /// self-consistent-but-wrong production formula is still caught.
 ///
-/// Test Units: SEQ-COMPOSITION-001
+/// Test Units: SEQ-COMPOSITION-001, SEQ-CODON-FREQ-001, SEQ-ENTROPY-PROFILE-001, SEQ-GC-PROFILE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -988,6 +988,115 @@ public class SequenceStatisticsProperties
             Assert.That(SequenceStatistics.CalculateMeltingTemperature("GGCC"), Is.EqualTo(16.0).Within(CompTolerance), "4·4 = 16.");
             Assert.That(SequenceStatistics.CalculateMeltingTemperature(""), Is.EqualTo(0.0), "Empty ⇒ 0.");
         });
+    }
+
+    #endregion
+
+    #region Profile generators
+
+    private static Arbitrary<string> ProfileDnaArbitrary(int minLen) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= minLen)
+            .Select(a => new string(a)).ToArbitrary();
+
+    /// <summary>DNA of length a multiple of 3 (≥ 3), all ACGT — full codons in frame 0.</summary>
+    private static Arbitrary<string> CodonDnaArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= 3)
+            .Select(a => new string(a, 0, a.Length - a.Length % 3)).Where(s => s.Length >= 3)
+            .ToArbitrary();
+
+    #endregion
+
+    #region SEQ-CODON-FREQ-001: R: each freq ≥ 0; P: Σ frequencies = 1 (Σ counts = len/3); D: deterministic
+
+    // CalculateCodonFrequencies returns count/total per codon, so the frequencies sum to 1 over the
+    // len/3 in-frame codons (Kazusa CUTG; ambiguous codons excluded — none here as input is ACGT).
+
+    /// <summary>
+    /// INV-1 (R + P): every codon frequency is in [0,1] and the frequencies sum to 1 (i.e. the codon
+    /// counts sum to the number of in-frame codons, len/3).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonFrequencies_NonNegative_SumToOne()
+    {
+        return Prop.ForAll(CodonDnaArbitrary(), seq =>
+        {
+            var freq = SequenceStatistics.CalculateCodonFrequencies(seq);
+            bool nonNeg = freq.Values.All(v => v is >= 0.0 and <= 1.0);
+            bool sumsToOne = Math.Abs(freq.Values.Sum() - 1.0) < 1e-9;
+            return (nonNeg && sumsToOne).Label($"freqs non-negative={nonNeg}, sum={freq.Values.Sum()}");
+        });
+    }
+
+    /// <summary>INV-2 (D): codon frequencies are deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property CodonFrequencies_AreDeterministic()
+    {
+        return Prop.ForAll(CodonDnaArbitrary(), seq =>
+        {
+            var a = SequenceStatistics.CalculateCodonFrequencies(seq);
+            var b = SequenceStatistics.CalculateCodonFrequencies(seq);
+            return (a.Count == b.Count && a.All(kv => Math.Abs(kv.Value - b[kv.Key]) < 1e-12))
+                .Label("CalculateCodonFrequencies must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region SEQ-ENTROPY-PROFILE-001: R: each entropy ≥ 0; P: profile length = len−w+1; D: deterministic
+
+    private const int ProfileWindow = 10;
+
+    /// <summary>
+    /// INV-1 (R + P): the entropy profile has len−w+1 entries (step 1), each a non-negative Shannon
+    /// entropy.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EntropyProfile_LengthAndNonNegative()
+    {
+        return Prop.ForAll(ProfileDnaArbitrary(20), seq =>
+        {
+            var profile = SequenceStatistics.CalculateEntropyProfile(seq, ProfileWindow, 1).ToList();
+            return (profile.Count == seq.Length - ProfileWindow + 1 && profile.All(e => e >= -1e-12))
+                .Label($"entropy profile length {profile.Count}, expected {seq.Length - ProfileWindow + 1}");
+        });
+    }
+
+    /// <summary>INV-2 (D): the entropy profile is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property EntropyProfile_IsDeterministic()
+    {
+        return Prop.ForAll(ProfileDnaArbitrary(20), seq =>
+            SequenceStatistics.CalculateEntropyProfile(seq, ProfileWindow, 1)
+                .SequenceEqual(SequenceStatistics.CalculateEntropyProfile(seq, ProfileWindow, 1))
+                .Label("CalculateEntropyProfile must be deterministic"));
+    }
+
+    #endregion
+
+    #region SEQ-GC-PROFILE-001: R: each GC% ∈ [0,100]; P: profile length = len−w+1; D: deterministic
+
+    /// <summary>
+    /// INV-1 (R + P): the GC profile has len−w+1 entries (step 1), each a GC percentage in [0,100].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GcProfile_LengthAndRange()
+    {
+        return Prop.ForAll(ProfileDnaArbitrary(20), seq =>
+        {
+            var profile = SequenceStatistics.CalculateGcContentProfile(seq, ProfileWindow, 1).ToList();
+            return (profile.Count == seq.Length - ProfileWindow + 1 && profile.All(g => g is >= 0.0 and <= 100.0))
+                .Label($"GC profile length {profile.Count}, expected {seq.Length - ProfileWindow + 1}");
+        });
+    }
+
+    /// <summary>INV-2 (D): the GC profile is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property GcProfile_IsDeterministic()
+    {
+        return Prop.ForAll(ProfileDnaArbitrary(20), seq =>
+            SequenceStatistics.CalculateGcContentProfile(seq, ProfileWindow, 1)
+                .SequenceEqual(SequenceStatistics.CalculateGcContentProfile(seq, ProfileWindow, 1))
+                .Label("CalculateGcContentProfile must be deterministic"));
     }
 
     #endregion
