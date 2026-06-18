@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -454,6 +454,87 @@ public class ProteinMotifProperties
             var b = ProteinMotifFinder.FindCommonMotifs(seq).Select(m => (m.Start, m.End, m.MotifName)).ToList();
             return a.SequenceEqual(b).Label("FindCommonMotifs must be deterministic");
         });
+    }
+
+    #endregion
+
+    #region PROTMOTIF-LC-001: R: region start < end; M: higher complexity threshold → ≥ coverage; D: deterministic
+
+    // FindLowComplexityRegions implements SEG (Wootton & Federhen 1993): a window with Shannon
+    // complexity ≤ K1 triggers a region, extended over adjacent windows with complexity ≤ K2. NOTE:
+    // because windows are flagged when complexity ≤ threshold, RAISING the threshold flags more, so
+    // coverage is monotone increasing in the threshold (the checklist's wording is in the inverse
+    // sense). The reported Complexity is the minimum window entropy in the region.
+
+    private static HashSet<int> CoveredResidues(IEnumerable<(int Start, int End, double Complexity)> regions)
+    {
+        var set = new HashSet<int>();
+        foreach (var (s, e, _) in regions)
+            for (int p = s; p <= e; p++) set.Add(p);
+        return set;
+    }
+
+    /// <summary>
+    /// INV-1 (R + P): every region has Start &lt; End within bounds, spans at least one window, and its
+    /// reported complexity does not exceed the trigger threshold (it is genuinely low-complexity).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_Regions_AreValidAndLowComplexity()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var regions = ProteinMotifFinder.FindLowComplexityRegions(seq).ToList();
+            bool ok = regions.All(r =>
+                r.Start >= 0 && r.Start < r.End && r.End < seq.Length &&
+                r.End - r.Start + 1 >= 12 &&
+                r.Complexity <= 2.2 + 1e-9);
+            return ok.Label("a low-complexity region was invalid or above the trigger complexity");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): Raising the complexity thresholds never reduces the residues flagged as
+    /// low-complexity — the low-threshold coverage is a subset of the high-threshold coverage.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_HigherThreshold_CoversMore()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var low = CoveredResidues(ProteinMotifFinder.FindLowComplexityRegions(seq, 12, 1.0, 1.5));
+            var high = CoveredResidues(ProteinMotifFinder.FindLowComplexityRegions(seq, 12, 3.0, 3.5));
+            return low.IsSubsetOf(high)
+                .Label($"low-threshold coverage ({low.Count}) not ⊆ high-threshold coverage ({high.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, positive control): a homopolymer run is detected as a low-complexity region with
+    /// complexity 0; a maximally diverse window is not flagged at the default thresholds.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void LowComplexity_Homopolymer_IsDetected()
+    {
+        var regions = ProteinMotifFinder.FindLowComplexityRegions(new string('G', 20)).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions, Is.Not.Empty, "a homopolymer must be low-complexity");
+            Assert.That(regions.Min(r => r.Complexity), Is.EqualTo(0.0).Within(1e-9));
+            // 20 distinct amino acids in a 20-residue window → maximal complexity, not flagged.
+            Assert.That(ProteinMotifFinder.FindLowComplexityRegions("ACDEFGHIKLMNPQRSTVWY"), Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Low-complexity detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+            ProteinMotifFinder.FindLowComplexityRegions(seq).SequenceEqual(ProteinMotifFinder.FindLowComplexityRegions(seq))
+                .Label("FindLowComplexityRegions must be deterministic"));
     }
 
     #endregion
