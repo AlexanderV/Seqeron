@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -130,6 +130,122 @@ public class AssemblyProperties
                 "gaps are excluded from the column tally");
         });
     }
+
+    #endregion
+
+    #region ASSEMBLY-CORRECT-001: P: corrected reads keep length/count; M: more coverage → fewer errors; D: deterministic
+
+    // ErrorCorrectReads is Musket/Quake two-sided k-mer-spectrum correction (Liu et al. 2013; Kelley
+    // et al. 2010): a k-mer is trusted when its multiplicity ≥ cut-off; an untrusted position is
+    // changed to the unique base that makes all covering k-mers trusted. Corrections are single-base
+    // substitutions, so length and read count are preserved.
+
+    private static int Hamming(string a, string b)
+    {
+        int d = 0;
+        for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) d++;
+        return d;
+    }
+
+    /// <summary>
+    /// INV-1 (P): Correction preserves the read count and every read's length (substitution-only model).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Correct_PreservesCountAndLengths()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+        {
+            var corrected = SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 3, minKmerFrequency: 2);
+            bool ok = corrected.Count == reads.Length
+                      && corrected.Select((c, i) => c.Length == reads[i].Length).All(x => x);
+            return ok.Label("read count or a read length changed during correction");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, no spurious corrections): error-free data (all reads identical, fully solid) is
+    /// returned unchanged — correction never edits a base covered by a trusted k-mer.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Correct_ErrorFreeData_IsUnchanged()
+    {
+        return Prop.ForAll(DnaReadArbitrary(20), seq =>
+        {
+            var reads = Enumerable.Repeat(seq, 4).ToArray();
+            var corrected = SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 5, minKmerFrequency: 2);
+            return corrected.All(c => c == seq).Label("a correction was applied to error-free data");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Error correction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Correct_IsDeterministic()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+        {
+            var a = SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 3, minKmerFrequency: 2);
+            var b = SequenceAssembler.ErrorCorrectReads(reads, kmerSize: 3, minKmerFrequency: 2);
+            return a.SequenceEqual(b).Label("ErrorCorrectReads must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (M, coverage → correction): a single substitution error is recovered when many correct
+    /// copies make the true k-mers solid, but is left uncorrected at coverage too low for the true
+    /// k-mers to be trusted — more coverage yields fewer residual errors.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Correct_HigherCoverage_RemovesMoreErrors()
+    {
+        // Non-repetitive (distinct 5-mers) so a true k-mer's multiplicity tracks coverage, not
+        // internal periodicity — the coverage effect is then isolated.
+        const string truth = "TTGACCAGTCGAATGCCTAG";
+        // One erroneous copy: substitute the base at position 10 (A→C).
+        char[] e = truth.ToCharArray();
+        e[10] = e[10] == 'C' ? 'G' : 'C';
+        string erroneous = new string(e);
+
+        // Low coverage: 1 correct + 1 erroneous (true k-mers seen once < cut-off 2).
+        var low = new[] { truth, erroneous };
+        var lowCorrected = SequenceAssembler.ErrorCorrectReads(low, kmerSize: 5, minKmerFrequency: 2);
+        int lowErrors = Hamming(lowCorrected[1], truth);
+
+        // High coverage: 4 correct + 1 erroneous (true k-mers solid, error k-mers rare).
+        var high = new[] { truth, truth, truth, truth, erroneous };
+        var highCorrected = SequenceAssembler.ErrorCorrectReads(high, kmerSize: 5, minKmerFrequency: 2);
+        int highErrors = Hamming(highCorrected[4], truth);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(highErrors, Is.LessThan(lowErrors), "more coverage must reduce residual errors");
+            Assert.That(highErrors, Is.EqualTo(0), "sufficient coverage must recover the true sequence");
+            Assert.That(lowErrors, Is.EqualTo(1), "insufficient coverage must leave the error uncorrected");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): k &lt; 1 throws; reads shorter than k are returned unchanged (upper-cased).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Correct_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => SequenceAssembler.ErrorCorrectReads(new[] { "ACGT" }, kmerSize: 0));
+            var shortReads = SequenceAssembler.ErrorCorrectReads(new[] { "acg" }, kmerSize: 5, minKmerFrequency: 2);
+            Assert.That(shortReads, Is.EqualTo(new[] { "ACG" }), "reads shorter than k are upper-cased and unchanged");
+        });
+    }
+
+    /// <summary>Generates a single DNA read of the given length.</summary>
+    private static Arbitrary<string> DnaReadArbitrary(int len) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= len)
+            .Select(a => new string(a, 0, len)).ToArbitrary();
 
     #endregion
 }
