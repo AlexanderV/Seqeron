@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for metagenomics diversity analysis:
 /// alpha diversity indices and beta diversity metrics.
 ///
-/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001
+/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1605,6 +1605,82 @@ public class MetagenomicsProperties
             var a = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
             var b = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
             return a.SequenceEqual(b).Label("PredictFunctions must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-PATHWAY-001: R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic
+
+    // FindPathwayEnrichment is a hypergeometric over-representation test: each pathway's p-value is
+    // the upper-tail probability of seeing at least the observed query/pathway overlap.
+
+    /// <summary>Generates a pathway DB (3 pathways over a 20-gene universe) and a random query subset.</summary>
+    private static Arbitrary<(string[] query, Dictionary<string, IReadOnlyCollection<string>> db)> EnrichmentArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            var universe = Enumerable.Range(0, 20).Select(i => $"gene{i}").ToArray();
+            var db = new Dictionary<string, IReadOnlyCollection<string>>();
+            for (int p = 0; p < 3; p++)
+                db[$"P{p}"] = universe.Where(_ => rng.Next(2) == 0).ToArray();
+            var query = universe.Where(_ => rng.Next(3) == 0).ToArray();
+            return (query, db);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): every pathway p-value is a probability in [0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pathway_PValues_InUnitInterval()
+    {
+        return Prop.ForAll(EnrichmentArbitrary(), input =>
+        {
+            var (query, db) = input;
+            var results = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db);
+            return results.All(r => r.PValue is >= 0.0 and <= 1.0)
+                .Label("a pathway p-value fell outside [0,1]");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): for a fixed pathway/background and equal query size, a larger query∩pathway overlap
+    /// gives a smaller (more significant) p-value.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pathway_MoreOverlap_LowerPValue()
+    {
+        var pathwayMembers = Enumerable.Range(0, 10).Select(i => $"p{i}").ToArray();
+        var nonMembers = Enumerable.Range(0, 10).Select(i => $"n{i}").ToArray();
+        var db = new Dictionary<string, IReadOnlyCollection<string>> { ["P"] = pathwayMembers };
+        var background = pathwayMembers.Concat(nonMembers).ToArray();
+
+        // Same query size (5), different overlap with the pathway.
+        var lowOverlap = new[] { "p0", "n0", "n1", "n2", "n3" };   // x = 1
+        var highOverlap = new[] { "p0", "p1", "p2", "p3", "p4" };  // x = 5
+
+        double pLow = MetagenomicsAnalyzer.FindPathwayEnrichment(lowOverlap, db, background).Single().PValue;
+        double pHigh = MetagenomicsAnalyzer.FindPathwayEnrichment(highOverlap, db, background).Single().PValue;
+
+        Assert.That(pHigh, Is.LessThanOrEqualTo(pLow + 1e-12), "more overlap must not increase the p-value");
+    }
+
+    /// <summary>
+    /// INV-3 (boundary + D): zero overlap gives p = 1; the test is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pathway_NoOverlap_PIsOne_AndDeterministic()
+    {
+        var db = new Dictionary<string, IReadOnlyCollection<string>> { ["P"] = new[] { "p0", "p1", "p2" } };
+        var query = new[] { "q0", "q1" }; // disjoint from the pathway
+        double p1 = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db).Single().PValue;
+        double p2 = MetagenomicsAnalyzer.FindPathwayEnrichment(query, db).Single().PValue;
+        Assert.Multiple(() =>
+        {
+            Assert.That(p1, Is.EqualTo(1.0).Within(1e-12), "no overlap → p = 1");
+            Assert.That(p2, Is.EqualTo(p1), "deterministic");
         });
     }
 

@@ -224,7 +224,7 @@ Property-based testing генерирует сотни случайных вхо
 | 192 | ☑ | PANGEN-HEAP-001 | PanGenome | R: Heaps' α > 0; P: open vs closed by α threshold; D: deterministic | PanGenomeProperties.cs (new) |
 | 193 | ☑ | PANGEN-MARKER-001 | PanGenome | P: markers ⊆ core genes; R: marker count ≤ requested; D: deterministic | PanGenomeProperties.cs (new) |
 | 194 | ☑ | META-FUNC-001 | Metagenomics | R: function scores ≥ 0; P: assigned function in DB; D: deterministic | MetagenomicsProperties.cs |
-| 195 | ☐ | META-PATHWAY-001 | Metagenomics | R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic | MetagenomicsProperties.cs |
+| 195 | ☑ | META-PATHWAY-001 | Metagenomics | R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic | MetagenomicsProperties.cs |
 | 196 | ☐ | META-RESIST-001 | Metagenomics | P: hit matches resistance DB; R: positions valid; D: deterministic | MetagenomicsProperties.cs |
 | 197 | ☐ | META-TAXA-001 | Metagenomics | R: p-value ∈ [0,1]; P: significant ⟺ p ≤ α; D: deterministic | MetagenomicsProperties.cs |
 | 198 | ☐ | TRANS-DIFF-001 | Transcriptome | R: |log2FC| ≥ 0; S: FC(A,B) = −FC(B,A); R: p-value ∈ [0,1]; D: deterministic | TranscriptomeProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 194 |
-| ☐ Not started | 40 |
+| ☑ Complete | 195 |
+| ☐ Not started | 39 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
