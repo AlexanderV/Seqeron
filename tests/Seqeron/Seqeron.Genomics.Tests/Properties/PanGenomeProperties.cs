@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for pan-genome analysis (PanGenomeAnalyzer): gene clustering, core/accessory
 /// partition, Heaps' law openness, and phylogenetic marker selection.
 ///
-/// Test Units: PANGEN-CLUSTER-001, PANGEN-CORE-001
+/// Test Units: PANGEN-CLUSTER-001, PANGEN-CORE-001, PANGEN-HEAP-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -204,6 +204,69 @@ public class PanGenomeProperties
             var a = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 0.99).Statistics;
             var b = PanGenomeAnalyzer.ConstructPanGenome(genomes, 0.9, 0.99).Statistics;
             return (a == b).Label("ConstructPanGenome must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region PANGEN-HEAP-001: R: α ∈ [0,2]; P: open ⟺ α < 1; predictor = K·N^(−α)
+
+    // FitHeapsLaw fits n(N) = K·N^(−α) to the new-gene-discovery curve (Tettelin et al. 2008;
+    // micropan heaps()). The pan-genome is OPEN when α < 1, CLOSED when α ≥ 1.
+
+    private static Dictionary<string, IReadOnlyList<(string, string)>> BuildGenomes(params string[][] familiesPerGenome)
+    {
+        var rng = new Random(12345);
+        var d = new Dictionary<string, IReadOnlyList<(string, string)>>();
+        int gid = 0;
+        for (int g = 0; g < familiesPerGenome.Length; g++)
+        {
+            var genes = familiesPerGenome[g].Select(fam => ($"gene{gid++}", fam)).ToList();
+            d[$"G{g}"] = genes;
+        }
+        return d;
+    }
+
+    /// <summary>
+    /// INV-1 (R + P): the fit has α ∈ [0,2], intercept ∈ [0,10000], the open flag equals α &lt; 1, and
+    /// the predictor reproduces K·N^(−α) and is non-negative.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Heaps_FitIsWellFormed()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            var fit = PanGenomeAnalyzer.FitHeapsLaw(genomes);
+            bool ranges = fit.Alpha is >= 0.0 and <= 2.0 && fit.Intercept is >= 0.0 and <= 10000.0;
+            bool openFlag = fit.IsOpen == (fit.Alpha < 1.0);
+            double pred = fit.PredictNewGenes(2);
+            bool predictor = Math.Abs(pred - fit.Intercept * Math.Pow(2, -fit.Alpha)) < 1e-6 && pred >= 0;
+            return (ranges && openFlag && predictor).Label($"α={fit.Alpha}, open={fit.IsOpen}, K={fit.Intercept}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive controls): genomes with entirely unique gene content give an OPEN pan-genome
+    /// (α &lt; 1); genomes with identical gene content give a CLOSED one (α ≥ 1).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Heaps_OpenVsClosed_AreClassified()
+    {
+        var shared = new[] { "AAAACCCCGGGGTTTTACGT", "TTTTGGGGCCCCAAAATGCA", "ACACACACGTGTGTGTACGT" };
+        // Closed: every genome carries the same gene families.
+        var closed = BuildGenomes(shared, shared, shared, shared);
+        // Open: every genome carries its own unique families.
+        var open = BuildGenomes(
+            new[] { "AAAAAAAAAAAAAAAAAAAA", "CCCCCCCCCCCCCCCCCCCC" },
+            new[] { "GGGGGGGGGGGGGGGGGGGG", "TTTTTTTTTTTTTTTTTTTT" },
+            new[] { "ACGTACGTACGTACGTACGT", "TGCATGCATGCATGCATGCA" },
+            new[] { "AGAGAGAGAGAGAGAGAGAG", "TCTCTCTCTCTCTCTCTCTC" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(PanGenomeAnalyzer.FitHeapsLaw(closed).IsOpen, Is.False, "identical gene content → closed");
+            Assert.That(PanGenomeAnalyzer.FitHeapsLaw(open).IsOpen, Is.True, "all-unique gene content → open");
         });
     }
 

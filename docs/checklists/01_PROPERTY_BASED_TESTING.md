@@ -221,7 +221,7 @@ Property-based testing генерирует сотни случайных вхо
 | 189 | ☑ | VARIANT-SNP-001 | Variants | P: ref/alt single bases, ref≠alt; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | P: each gene in exactly one cluster; M: lower identity → ≥ merging; D: deterministic | PanGenomeProperties.cs (new) |
 | 191 | ☑ | PANGEN-CORE-001 | PanGenome | P: core ⊆ every genome; P: core + accessory = pan; M: more genomes → ≤ core size; D: deterministic | PanGenomeProperties.cs (new) |
-| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | R: Heaps' α > 0; P: open vs closed by α threshold; D: deterministic | PanGenomeProperties.cs (new) |
+| 192 | ☑ | PANGEN-HEAP-001 | PanGenome | R: Heaps' α > 0; P: open vs closed by α threshold; D: deterministic | PanGenomeProperties.cs (new) |
 | 193 | ☐ | PANGEN-MARKER-001 | PanGenome | P: markers ⊆ core genes; R: marker count ≤ requested; D: deterministic | PanGenomeProperties.cs (new) |
 | 194 | ☐ | META-FUNC-001 | Metagenomics | R: function scores ≥ 0; P: assigned function in DB; D: deterministic | MetagenomicsProperties.cs |
 | 195 | ☐ | META-PATHWAY-001 | Metagenomics | R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic | MetagenomicsProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 191 |
-| ☐ Not started | 43 |
+| ☑ Complete | 192 |
+| ☐ Not started | 42 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
