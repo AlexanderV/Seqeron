@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001, PROTMOTIF-PATTERN-001, PROTMOTIF-SP-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001, PROTMOTIF-PATTERN-001, PROTMOTIF-SP-001, PROTMOTIF-TM-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -685,6 +685,77 @@ public class ProteinMotifProperties
             Assert.That(a, Is.EqualTo(b), "PredictSignalPeptide must be deterministic");
             Assert.That(ProteinMotifFinder.PredictSignalPeptide("MKTLLL"), Is.Null, "too short → null");
         });
+    }
+
+    #endregion
+
+    #region PROTMOTIF-TM-001: R: helix length ≥ window; P: hydrophobic stretch detected; M: lower threshold → ≥ coverage; D: deterministic
+
+    // PredictTransmembraneHelices uses the Kyte & Doolittle (1982) hydropathy method: a sliding
+    // 19-residue window whose mean hydropathy exceeds the threshold marks a membrane-spanning segment.
+
+    /// <summary>
+    /// INV-1 (R): every predicted helix spans at least the window width, has valid positions, and a
+    /// peak score at or above the threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Transmembrane_Helices_AreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(25), seq =>
+        {
+            var helices = ProteinMotifFinder.PredictTransmembraneHelices(seq).ToList();
+            bool ok = helices.All(h =>
+                h.Start >= 0 && h.Start <= h.End && h.End < seq.Length &&
+                h.End - h.Start + 1 >= 19 &&
+                h.Score >= 1.6 - 1e-9);
+            return ok.Label("a TM helix had invalid length/position/score");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): a hydrophobic poly-leucine stretch is detected as a transmembrane helix, while a
+    /// charged poly-glutamate stretch (negative hydropathy) is not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Transmembrane_HydrophobicStretch_IsDetected()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProteinMotifFinder.PredictTransmembraneHelices(new string('L', 25)), Is.Not.Empty,
+                "a 25-residue hydrophobic stretch must be a TM helix");
+            Assert.That(ProteinMotifFinder.PredictTransmembraneHelices(new string('E', 25)), Is.Empty,
+                "a charged stretch has negative hydropathy → no TM helix");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): a lower hydropathy threshold detects at least as much — a moderately hydrophobic
+    /// stretch (poly-alanine, KD 1.8) is a helix at threshold 1.6 but not at 2.5.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Transmembrane_LowerThreshold_DetectsMore()
+    {
+        string ala = new string('A', 25);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ProteinMotifFinder.PredictTransmembraneHelices(ala, 19, 1.6), Is.Not.Empty,
+                "poly-Ala (KD 1.8) passes threshold 1.6");
+            Assert.That(ProteinMotifFinder.PredictTransmembraneHelices(ala, 19, 2.5), Is.Empty,
+                "poly-Ala does not pass the higher threshold 2.5");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Transmembrane prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Transmembrane_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(25), seq =>
+            ProteinMotifFinder.PredictTransmembraneHelices(seq).SequenceEqual(ProteinMotifFinder.PredictTransmembraneHelices(seq))
+                .Label("PredictTransmembraneHelices must be deterministic"));
     }
 
     #endregion
