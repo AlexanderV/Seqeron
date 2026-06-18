@@ -6047,4 +6047,221 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-FUSION-002 — Known Fusion Database Lookup (HGNC designation + directional match)
+
+    // -------------------------------------------------------------------------
+    // Theory (Bruford et al. 2021, HGNC gene-fusion nomenclature):
+    //   • Designation = gene5p + "::" + gene3p — 5' partner always first, double colon.   (INV-1)
+    //   • Directional: A::B ≠ B::A for A ≠ B (reciprocal fusions are distinct).             (INV-2)
+    //   • A known-fusion match requires the DIRECTIONAL key 5'::3'; the reciprocal           (INV-3)
+    //     3'::5' key does NOT match.
+    //   • Symbol comparison is case-insensitive but order-preserving.                        (INV-4)
+    //
+    // The designation string and the directional, case-insensitive membership test are
+    // reconstructed here from the HGNC rule — NOT routed through GetFusionAnnotation /
+    // MatchKnownFusions — so a self-consistent-but-wrong separator or unordered keying
+    // is still caught. The "matched ⊆ known DB" checklist property is asserted as: a true
+    // match's annotation is the value of a genuine case-insensitive key of the supplied map.
+    // -------------------------------------------------------------------------
+
+    private const string FusionSeparatorOracle = "::";
+
+    /// <summary>HGNC-style gene-symbol pool for designation/lookup properties.</summary>
+    private static readonly string[] HgncFusionGenePool =
+    {
+        "BCR", "ABL1", "EML4", "ALK", "TMPRSS2", "ERG", "ROS1", "CD74", "RET", "NTRK1",
+    };
+
+    /// <summary>A fusion call carrying only the gene pair (support fields are irrelevant to the lookup).</summary>
+    private static OncologyAnalyzer.FusionCall GenePairCall(string g5, string g3) =>
+        new(g5, g3, 0, 0, 0, OncologyAnalyzer.FusionReadingFrame.Unknown);
+
+    /// <summary>An ordered pair of DISTINCT pooled gene symbols (for directionality properties).</summary>
+    private static Arbitrary<(string g5, string g3)> DistinctGenePairArbitrary() =>
+        (from g5 in Gen.Elements(HgncFusionGenePool)
+         from g3 in Gen.Elements(HgncFusionGenePool)
+         where !string.Equals(g5, g3, StringComparison.OrdinalIgnoreCase)
+         select (g5, g3)).ToArbitrary();
+
+    /// <summary>
+    /// A lookup problem: a known-fusion map (ordinal comparer, distinct directional designations) plus a
+    /// query gene pair that hits a stored fusion roughly half the time. The ordinal comparer forces the
+    /// production fallback case-insensitive scan to be exercised.
+    /// </summary>
+    private static Arbitrary<(Dictionary<string, string> known, string q5, string q3)> FusionLookupProblemArbitrary() =>
+        (from pairCount in Gen.Choose(0, 6)
+         from g5s in Gen.Elements(HgncFusionGenePool).ArrayOf(pairCount)
+         from g3s in Gen.Elements(HgncFusionGenePool).ArrayOf(pairCount)
+         from q5 in Gen.Elements(HgncFusionGenePool)
+         from q3 in Gen.Elements(HgncFusionGenePool)
+         select BuildLookupProblem(g5s, g3s, q5, q3)).ToArbitrary();
+
+    private static (Dictionary<string, string> known, string q5, string q3) BuildLookupProblem(
+        string[] g5s, string[] g3s, string q5, string q3)
+    {
+        var known = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int i = 0; i < g5s.Length; i++)
+        {
+            if (string.Equals(g5s[i], g3s[i], StringComparison.OrdinalIgnoreCase))
+            {
+                continue; // a gene is not fused with itself
+            }
+
+            string designation = g5s[i] + FusionSeparatorOracle + g3s[i];
+            known[designation] = "ann-" + designation; // distinct directional keys, no case collisions
+        }
+
+        return (known, q5, q3);
+    }
+
+    /// <summary>
+    /// INV-1: <c>GetFusionAnnotation(g5,g3)</c> is exactly <c>g5 + "::" + g3</c> (5' first, double colon) and
+    /// splits back into the two original symbols (pool symbols contain no "::"). (Bruford 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetFusionAnnotation_IsFivePrimeDoubleColonThreePrime()
+    {
+        var arb = (from g5 in Gen.Elements(HgncFusionGenePool)
+                   from g3 in Gen.Elements(HgncFusionGenePool)
+                   select (g5, g3)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            string actual = OncologyAnalyzer.GetFusionAnnotation(t.g5, t.g3);
+            string oracle = t.g5 + FusionSeparatorOracle + t.g3;
+            string[] parts = actual.Split(FusionSeparatorOracle);
+            bool ok = actual == oracle && parts.Length == 2 && parts[0] == t.g5 && parts[1] == t.g3;
+            return ok.Label($"GetFusionAnnotation({t.g5},{t.g3}) = '{actual}' ≠ '{oracle}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2: the designation is directional — for two distinct genes the reciprocal designation differs,
+    /// so <c>Annotation(A,B) ≠ Annotation(B,A)</c>. Reciprocal fusions are never conflated. (Bruford 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetFusionAnnotation_IsDirectional_ReciprocalDiffers()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            string ab = OncologyAnalyzer.GetFusionAnnotation(t.g5, t.g3);
+            string ba = OncologyAnalyzer.GetFusionAnnotation(t.g3, t.g5);
+            return (ab != ba).Label($"reciprocal designations collided: '{ab}' == '{ba}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + R + "matched ⊆ known DB": a fusion matches iff its DIRECTIONAL designation is a
+    /// case-insensitive key of the supplied map. The reported designation always equals
+    /// <c>GetFusionAnnotation</c>; a true match returns the annotation of a genuine matching key and false
+    /// returns null. (Bruford 2021 directional keying; TestSpec §3 INV-3)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_MatchesIffDirectionalDesignationIsAKnownKey()
+    {
+        return Prop.ForAll(FusionLookupProblemArbitrary(), p =>
+        {
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+
+            string designation = p.q5 + FusionSeparatorOracle + p.q3;
+            bool oracleKnown = p.known.Keys.Any(k => string.Equals(k, designation, StringComparison.OrdinalIgnoreCase));
+
+            bool designationOk = result.Designation == designation;
+            bool knownOk = result.IsKnown == oracleKnown;
+            bool annotationOk = oracleKnown
+                ? result.Annotation != null && p.known.Any(kv =>
+                    string.Equals(kv.Key, designation, StringComparison.OrdinalIgnoreCase) && kv.Value == result.Annotation)
+                : result.Annotation == null;
+
+            return (designationOk && knownOk && annotationOk)
+                .Label($"query {designation}: IsKnown={result.IsKnown} (oracle {oracleKnown}), annotation={result.Annotation ?? "<null>"}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (reciprocal absent): when the known set contains ONLY the reciprocal key <c>3'::5'</c> for a
+    /// distinct gene pair, the forward query <c>5'::3'</c> does not match — directional keying is not
+    /// collapsed to an unordered pair. (Bruford 2021, 5'-first rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_ReciprocalOnlyKey_DoesNotMatch()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            // Known set holds only the reciprocal designation 3'::5'.
+            var known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [t.g3 + FusionSeparatorOracle + t.g5] = "reciprocal",
+            };
+
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(t.g5, t.g3), known);
+            return (!result.IsKnown && result.Annotation == null)
+                .Label($"forward {t.g5}::{t.g3} wrongly matched a reciprocal-only key {t.g3}::{t.g5}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: matching is case-insensitive but order-preserving — a forward query in any letter case still
+    /// matches a stored forward key, and the reported designation preserves the caller's input case.
+    /// (Evidence Assumption 2; verbatim-concatenation designation)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_IsCaseInsensitive_AndPreservesQueryCase()
+    {
+        return Prop.ForAll(DistinctGenePairArbitrary(), t =>
+        {
+            var known = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [t.g5.ToUpperInvariant() + FusionSeparatorOracle + t.g3.ToUpperInvariant()] = "known",
+            };
+
+            string q5 = t.g5.ToLowerInvariant();
+            string q3 = t.g3.ToLowerInvariant();
+            var result = OncologyAnalyzer.MatchKnownFusions(GenePairCall(q5, q3), known);
+
+            bool matched = result.IsKnown && result.Annotation == "known";
+            bool casePreserved = result.Designation == q5 + FusionSeparatorOracle + q3;
+            return (matched && casePreserved)
+                .Label($"case-insensitive match failed or designation lost case: IsKnown={result.IsKnown}, designation={result.Designation}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same fusion and known-set yield the identical match result every time.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MatchKnownFusions_IsDeterministic()
+    {
+        return Prop.ForAll(FusionLookupProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+            var b = OncologyAnalyzer.MatchKnownFusions(GenePairCall(p.q5, p.q3), p.known);
+            return a.Equals(b).Label("MatchKnownFusions is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-1/INV-3, canonical): the HGNC example BCR::ABL1 matches a forward key and its reciprocal
+    /// ABL1::BCR does not, while the designation is the verbatim 5'::3' string. (Bruford 2021)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MatchKnownFusions_BcrAbl1_ForwardMatches_ReciprocalDoesNot()
+    {
+        var known = new Dictionary<string, string>(StringComparer.Ordinal) { ["BCR::ABL1"] = "Philadelphia chromosome" };
+
+        var forward = OncologyAnalyzer.MatchKnownFusions(GenePairCall("BCR", "ABL1"), known);
+        var reciprocal = OncologyAnalyzer.MatchKnownFusions(GenePairCall("ABL1", "BCR"), known);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward.Designation, Is.EqualTo("BCR::ABL1"), "5' partner first, double colon.");
+            Assert.That(forward.IsKnown, Is.True, "Forward designation is a known key.");
+            Assert.That(forward.Annotation, Is.EqualTo("Philadelphia chromosome"), "Returns the stored annotation.");
+            Assert.That(reciprocal.IsKnown, Is.False, "Reciprocal ABL1::BCR is a different fusion and is not known.");
+        });
+    }
+
+    #endregion
 }
