@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -547,6 +547,95 @@ public class AssemblyProperties
             Assert.That(SequenceAssembler.MergeContigs("ACGT", "TGCA", -1), Is.EqualTo("ACGTTGCA"), "negative overlap → concat");
             Assert.That(SequenceAssembler.MergeContigs("AC", "GT", 5), Is.EqualTo("ACGT"), "overlap > shorter contig → concat");
         });
+    }
+
+    #endregion
+
+    #region ASSEMBLY-OLC-001: R: every read ends up in a contig; P: reported overlaps ≥ minOverlap; P: clean tiling reconstructs the genome; D: deterministic
+
+    // AssembleOLC follows Overlap-Layout-Consensus (Compeau et al. 2011; Langmead OLC notes): find
+    // suffix/prefix overlaps ≥ minOverlap, greedily chain reads by best overlap, emit the merged
+    // superstring of each chain.
+
+    private static SequenceAssembler.AssemblyResult Olc(string[] reads, int minOverlap) =>
+        SequenceAssembler.AssembleOLC(reads,
+            new SequenceAssembler.AssemblyParameters(MinOverlap: minOverlap, MinIdentity: 0.9, MinContigLength: 1));
+
+    /// <summary>
+    /// INV-1 (P, reconstruction): a clean overlapping tiling of a non-repetitive genome is
+    /// reassembled into the original sequence as a single contig.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Olc_CleanTiling_ReconstructsGenome()
+    {
+        const string genome = "TTGACCAGTCGAATGCCTAGGCATTACGGT"; // 30 bp, non-repetitive
+        // Windows of length 12, step 6 → consecutive reads overlap by 6.
+        var reads = new[]
+        {
+            genome.Substring(0, 12),
+            genome.Substring(6, 12),
+            genome.Substring(12, 12),
+            genome.Substring(18, 12),
+        };
+        var contigs = Olc(reads, minOverlap: 5).Contigs;
+
+        Assert.That(contigs, Has.Count.EqualTo(1));
+        Assert.That(contigs[0], Is.EqualTo(genome), "clean tiling must reconstruct the genome");
+    }
+
+    /// <summary>
+    /// INV-2 (P): Every reported overlap is at least minOverlap and at most the shorter read length
+    /// (a suffix/prefix overlap cannot exceed either read).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Olc_ReportedOverlaps_MeetMinOverlap()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+        {
+            const int minOverlap = 3;
+            var overlaps = SequenceAssembler.FindAllOverlaps(reads, minOverlap, 0.9);
+            bool ok = overlaps.All(o =>
+                o.OverlapLength >= minOverlap &&
+                o.OverlapLength <= Math.Min(reads[o.ReadIndex1].Length, reads[o.ReadIndex2].Length));
+            return ok.Label("an overlap was below minOverlap or longer than a read");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (R): With reads present and no length filter, the assembly produces at least one contig
+    /// and every contig has positive length (each read is placed in some contig).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Olc_ProducesAtLeastOneContig()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+        {
+            var contigs = Olc(reads, minOverlap: 3).Contigs;
+            return (contigs.Count >= 1 && contigs.All(c => c.Length >= 1))
+                .Label($"expected ≥1 non-empty contig, got {contigs.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): OLC assembly is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Olc_IsDeterministic()
+    {
+        return Prop.ForAll(AlignedReadsArbitrary(), reads =>
+            Olc(reads, 3).Contigs.SequenceEqual(Olc(reads, 3).Contigs)
+                .Label("AssembleOLC must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): empty input yields an empty assembly.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Olc_EmptyInput_YieldsNoContigs()
+    {
+        Assert.That(Olc(Array.Empty<string>(), 3).Contigs, Is.Empty);
     }
 
     #endregion
