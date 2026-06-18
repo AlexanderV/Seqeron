@@ -6724,4 +6724,185 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CNA-002 — Focal Amplification Detection (GISTIC2 length + amplitude)
+
+    // -------------------------------------------------------------------------
+    // Theory (Mermel 2011 GISTIC2.0; GISTIC2 t_amp / broad_len_cutoff; NCBI Gene):
+    //   • Focal ⟺ segment length / arm length < broad_len_cutoff (default 0.98, strict).   (INV-1)
+    //   • Amplified ⟺ log2 > t_amp (default 0.1, strict).                                    (INV-2)
+    //   • DetectFocalAmplifications keeps the input subset (amplified ∧ focal), in order.    (INV-3)
+    //   • Oncogene reported iff a focal amp lies on its arm: ERBB2 17q, MYC 8q, EGFR 7p,     (INV-4)
+    //     CCND1 11q, MDM2 12q, CDK4 12q.
+    //
+    // The focal/amplitude predicate and the oncogene-arm map are reconstructed here from
+    // GISTIC2 / NCBI Gene — NOT routed through production — so a wrong boundary sense or
+    // gene-arm assignment is still caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] FocalArmPool = { "17q", "8q", "7p", "11q", "12q", "3p", "Xq", "5q" };
+
+    private static readonly (string gene, string arm)[] OncogeneArmsOracle =
+    {
+        ("ERBB2", "17q"), ("MYC", "8q"), ("EGFR", "7p"), ("CCND1", "11q"), ("MDM2", "12q"), ("CDK4", "12q"),
+    };
+
+    private static Gen<OncologyAnalyzer.CopyNumberArmSegment> ArmSegmentGen() =>
+        from arm in Gen.Elements(FocalArmPool)
+        from armLen in Gen.Choose(100_000, 2_000_000)
+        from segLen in Gen.Choose(1, 2_200_000)
+        from log2Milli in Gen.Choose(-2000, 2000)
+        select new OncologyAnalyzer.CopyNumberArmSegment(arm, 0, segLen, armLen, log2Milli / 1000.0);
+
+    private static Arbitrary<(OncologyAnalyzer.CopyNumberArmSegment[] segments, OncologyAnalyzer.FocalAmplificationThresholds thresholds)>
+        FocalProblemArbitrary() =>
+        (from segments in ArmSegmentGen().ArrayOf()
+         from tampMilli in Gen.Choose(-200, 500)
+         from cutoffMilli in Gen.Choose(500, 990)
+         select (segments, new OncologyAnalyzer.FocalAmplificationThresholds(tampMilli / 1000.0, cutoffMilli / 1000.0)))
+        .ToArbitrary();
+
+    private static bool OracleIsFocalAmp(OncologyAnalyzer.CopyNumberArmSegment s, OncologyAnalyzer.FocalAmplificationThresholds t) =>
+        s.Log2Ratio > t.AmplificationLog2Threshold && (double)(s.End - s.Start) / s.ArmLength < t.BroadLengthCutoff;
+
+    /// <summary>
+    /// INV-1/INV-2/INV-3 (P "focal length &lt; cutoff", R): the detected set equals exactly the input
+    /// segments passing the independent GISTIC2 predicate (log2 &gt; t_amp ∧ length/arm &lt; cutoff), in input
+    /// order — a length/order-preserving subset with no fabricated segments. (Mermel 2011; GISTIC2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_EqualsGistic2PredicateSubset_InOrder()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            var expected = p.segments.Where(s => OracleIsFocalAmp(s, p.thresholds)).ToList();
+            return detected.SequenceEqual(expected)
+                .Label($"detected {detected.Count} ≠ predicate subset {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2 (per-call bounds): every reported focal amplification is strictly below the focal/broad
+    /// length cutoff AND strictly above the amplitude threshold, with valid coordinates (End &gt; Start,
+    /// ArmLength &gt; 0). (GISTIC2 broad_len_cutoff / t_amp)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_EveryCall_IsFocalAndAmplified_WithValidCoordinates()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var detected = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            return detected.All(s =>
+                s.ArmFraction < p.thresholds.BroadLengthCutoff
+                && s.Log2Ratio > p.thresholds.AmplificationLog2Threshold
+                && s.End > s.Start && s.ArmLength > 0)
+                .Label("a reported focal amp violated the length/amplitude/coordinate bounds");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher CN → amplified"): raising a focal segment's log2 ratio is monotone for
+    /// detection — a focal segment that is already amplified stays amplified when its log2 increases.
+    /// (GISTIC2 amplitude threshold is a lower bound on log2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsFocalAmplification_IsMonotoneInLog2()
+    {
+        var arb = (from s in ArmSegmentGen()
+                   from rise in Gen.Choose(1, 3000).Select(v => v / 1000.0)
+                   select (s, rise)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var thresholds = OncologyAnalyzer.FocalAmplificationThresholds.Default;
+            if (!OncologyAnalyzer.IsFocalAmplification(t.s, thresholds))
+            {
+                return true.ToProperty(); // implication is conditional on the base segment being detected
+            }
+
+            var higher = t.s with { Log2Ratio = t.s.Log2Ratio + t.rise };
+            return OncologyAnalyzer.IsFocalAmplification(higher, thresholds)
+                .ToProperty()
+                .Label($"raising log2 from {t.s.Log2Ratio} by {t.rise} un-detected a focal amp");
+        });
+    }
+
+    /// <summary>
+    /// INV-4: <c>IdentifyAmplifiedOncogenes</c> reports exactly the panel oncogenes whose chromosome arm is
+    /// present among the supplied amplifications (ERBB2 17q, MYC 8q, EGFR 7p, CCND1 11q, MDM2 12q, CDK4 12q),
+    /// each once, in panel order — matching an independent arm→gene oracle. (NCBI Gene loci)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyAmplifiedOncogenes_MapsArmsToPanelGenes_InOrder()
+    {
+        return Prop.ForAll(ArmSegmentGen().ArrayOf().ToArbitrary(), segments =>
+        {
+            var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(segments);
+
+            var arms = segments.Select(s => s.Arm).Where(a => !string.IsNullOrEmpty(a)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = OncogeneArmsOracle.Where(g => arms.Contains(g.arm)).Select(g => g.gene).ToList();
+
+            return genes.SequenceEqual(expected)
+                .Label($"genes [{string.Join(",", genes)}] ≠ oracle [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (composition): an oncogene is reported only when a genuine focal amplification falls on its arm —
+    /// <c>IdentifyAmplifiedOncogenes(DetectFocalAmplifications(segs))</c> contains a gene iff some focal amp
+    /// sits on its arm. (mapping operates on focal amplifications only)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AmplifiedOncogenes_ReportedOnlyForArmsWithAFocalAmplification()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+        {
+            var focal = OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds);
+            var genes = OncologyAnalyzer.IdentifyAmplifiedOncogenes(focal);
+
+            var focalArms = focal.Select(s => s.Arm).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var expected = OncogeneArmsOracle.Where(g => focalArms.Contains(g.arm)).Select(g => g.gene).ToList();
+            return genes.SequenceEqual(expected)
+                .Label($"oncogenes [{string.Join(",", genes)}] not exactly those on focal-amp arms [{string.Join(",", expected)}]");
+        });
+    }
+
+    /// <summary>D (determinism): focal-amplification detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectFocalAmplifications_IsDeterministic()
+    {
+        return Prop.ForAll(FocalProblemArbitrary(), p =>
+            OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds)
+                .SequenceEqual(OncologyAnalyzer.DetectFocalAmplifications(p.segments, p.thresholds))
+                .Label("DetectFocalAmplifications is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (GISTIC2 defaults): a 0.50-arm log2-1.0 segment on 17q is focal and maps to ERBB2; a
+    /// whole-arm 0.99 segment is arm-level (not focal); a 0.98 segment is exactly at the cutoff and not
+    /// focal (strict &lt;); 12q maps to both MDM2 and CDK4. (Mermel 2011; NCBI Gene)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectFocalAmplifications_CanonicalGistic2Cases()
+    {
+        var focal17q = new OncologyAnalyzer.CopyNumberArmSegment("17q", 0, 500_000, 1_000_000, 1.0);
+        var armLevel = new OncologyAnalyzer.CopyNumberArmSegment("8q", 0, 990_000, 1_000_000, 1.5);
+        var boundary = new OncologyAnalyzer.CopyNumberArmSegment("11q", 0, 980_000, 1_000_000, 1.0);
+        var focal12q = new OncologyAnalyzer.CopyNumberArmSegment("12q", 0, 300_000, 1_000_000, 1.0);
+
+        var detected = OncologyAnalyzer.DetectFocalAmplifications(new[] { focal17q, armLevel, boundary, focal12q });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(detected, Is.EqualTo(new[] { focal17q, focal12q }), "Only the two focal amps survive, in input order.");
+            Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { focal17q }), Is.EqualTo(new[] { "ERBB2" }),
+                "17q focal amp ⇒ ERBB2.");
+            Assert.That(OncologyAnalyzer.IdentifyAmplifiedOncogenes(new[] { focal12q }), Is.EqualTo(new[] { "MDM2", "CDK4" }),
+                "12q focal amp ⇒ both MDM2 and CDK4 in panel order.");
+        });
+    }
+
+    #endregion
 }
