@@ -471,4 +471,118 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-PI-001 — Isoelectric Point (EMBOSS pKa / Henderson-Hasselbalch)
+
+    // -------------------------------------------------------------------------
+    // Theory (EMBOSS iep; Henderson-Hasselbalch; Osorio 2015):
+    //   • pI is the pH where the net charge is zero, found by bisection over [0,14].   (R pI ∈ [0,14])
+    //   • Net charge is monotone decreasing in pH; at the returned pI the independent
+    //     net-charge oracle is ≈ 0 (within the bisection bracket × max slope).          (P charge ≈ 0)
+    //
+    // The pKa scale, termini and the net-charge formula are reconstructed independently.
+    // -------------------------------------------------------------------------
+
+    private static readonly Dictionary<char, (double pKa, int sign)> IonizableOracle = new()
+    {
+        ['D'] = (3.9, -1), ['E'] = (4.1, -1), ['C'] = (8.5, -1), ['Y'] = (10.1, -1),
+        ['H'] = (6.5, 1), ['K'] = (10.8, 1), ['R'] = (12.5, 1),
+    };
+
+    private const double NTerminusPkaOracle = 8.6;
+    private const double CTerminusPkaOracle = 3.6;
+
+    private static (double charge, int groups) OracleNetCharge(string seq, double pH)
+    {
+        double charge = 1.0 / (1.0 + Math.Pow(10, pH - NTerminusPkaOracle))
+                        - 1.0 / (1.0 + Math.Pow(10, CTerminusPkaOracle - pH));
+        int groups = 2; // both termini
+        foreach (char aa in seq.ToUpperInvariant())
+        {
+            if (IonizableOracle.TryGetValue(aa, out var g))
+            {
+                groups++;
+                if (g.sign > 0)
+                {
+                    charge += 1.0 / (1.0 + Math.Pow(10, pH - g.pKa));
+                }
+                else
+                {
+                    charge -= 1.0 / (1.0 + Math.Pow(10, g.pKa - pH));
+                }
+            }
+        }
+
+        return (charge, groups);
+    }
+
+    private static Arbitrary<string> BoundedProteinArbitrary(int maxLen) =>
+        (from n in Gen.Choose(0, maxLen)
+         from chars in Gen.Elements("ARNDCEQGHILKMFPSTWYV".ToCharArray()).ArrayOf(n)
+         select new string(chars)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "pI ∈ [0,14]"): the isoelectric point of any protein lies within the standard pH window
+    /// [0, 14]. (EMBOSS iep bisection bounds)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPoint_InPhWindow()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+        {
+            double pi = SequenceStatistics.CalculateIsoelectricPoint(seq);
+            return (pi is >= 0.0 and <= 14.0).Label($"pI {pi} outside [0,14]");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "net charge at pI ≈ 0"): the independent Henderson-Hasselbalch net charge evaluated at the
+    /// returned pI is ≈ 0 — within the bisection bracket (0.01 pH) times the maximum charge slope
+    /// (ln10/4 per ionizable group). (EMBOSS iep / Osorio 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPoint_NetChargeIsApproximatelyZero()
+    {
+        return Prop.ForAll(BoundedProteinArbitrary(25), seq =>
+        {
+            double pi = SequenceStatistics.CalculateIsoelectricPoint(seq);
+            if (string.IsNullOrEmpty(seq))
+            {
+                return true.ToProperty(); // empty input returns the neutral 7.0 sentinel, not a charge zero
+            }
+
+            (double charge, int groups) = OracleNetCharge(seq, pi);
+            // |charge(pI)| ≤ maxSlope·bracket; maxSlope = (ln10/4)·groups, bracket ≤ 0.01, +rounding margin.
+            double tolerance = Math.Log(10) / 4.0 * groups * 0.02 + 0.05;
+            return (Math.Abs(charge) < tolerance)
+                .Label($"net charge {charge} at pI {pi} exceeds tolerance {tolerance} (groups {groups})");
+        });
+    }
+
+    /// <summary>D (determinism): the isoelectric point is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property IsoelectricPoint_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+            (SequenceStatistics.CalculateIsoelectricPoint(seq) == SequenceStatistics.CalculateIsoelectricPoint(seq))
+                .Label("CalculateIsoelectricPoint is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: an acidic protein (poly-Asp) has a low pI (&lt; 7), a basic one (poly-Lys) a high pI (&gt; 7),
+    /// and the empty sentinel is the neutral 7.0. (EMBOSS iep)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void IsoelectricPoint_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("DDDDDD"), Is.LessThan(7.0), "Acidic ⇒ low pI.");
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint("KKKKKK"), Is.GreaterThan(7.0), "Basic ⇒ high pI.");
+            Assert.That(SequenceStatistics.CalculateIsoelectricPoint(""), Is.EqualTo(7.0), "Empty ⇒ neutral sentinel 7.0.");
+        });
+    }
+
+    #endregion
 }
