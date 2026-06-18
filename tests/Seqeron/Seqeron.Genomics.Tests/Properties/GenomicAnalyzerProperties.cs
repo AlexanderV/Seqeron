@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for the high-level GenomicAnalyzer façade: common regions, known motifs,
 /// ORFs, repeats, similarity, and tandem repeats.
 ///
-/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001
+/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -193,6 +193,79 @@ public class GenomicAnalyzerProperties
                 .Label("FindKnownMotifs must be deterministic");
         });
     }
+
+    #endregion
+
+    #region GENOMIC-ORF-001: P: starts ATG, ends stop, no internal stop; R: length %3 = 0, positions valid; D: deterministic
+
+    // FindOpenReadingFrames reports each ATG→(first in-frame stop) span across all six frames
+    // (Rosalind ORF semantics). The reported sequence spans the start through the stop inclusive.
+
+    private static readonly string[] StopCodons = { "TAA", "TAG", "TGA" };
+
+    private static bool IsValidOrf(string orf, int minLength)
+    {
+        if (orf.Length < minLength || orf.Length % 3 != 0) return false;
+        if (!orf.StartsWith("ATG", StringComparison.Ordinal)) return false;
+        if (!StopCodons.Contains(orf[^3..])) return false;
+        // No in-frame stop before the final (terminating) codon.
+        for (int i = 0; i <= orf.Length - 6; i += 3)
+            if (StopCodons.Contains(orf.Substring(i, 3))) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// INV-1 (P + R): every ORF starts with ATG, ends with an in-frame stop with no earlier in-frame
+    /// stop, has length divisible by 3 and ≥ minLength, and valid coordinates on its strand.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orfs_AreWellFormed()
+    {
+        return Prop.ForAll(SeqArbitrary(30), seq =>
+        {
+            const int minLength = 6;
+            int len = seq.Length;
+            var orfs = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(seq), minLength).ToList();
+            bool ok = orfs.All(o =>
+                IsValidOrf(o.Sequence, minLength) &&
+                o.Position >= 0 && o.Position + o.Length <= len &&
+                o.Frame is >= 1 and <= 3);
+            return ok.Label("a reported ORF was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): an embedded forward ORF is found exactly.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Orfs_EmbeddedOrf_IsFound()
+    {
+        var orfs = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence("ATGAAATAA"), minLength: 9).ToList();
+        Assert.That(orfs.Any(o => o.Sequence == "ATGAAATAA" && !o.IsReverseComplement && o.Position == 0), Is.True,
+            "the ATG-AAA-TAA ORF must be reported on the forward strand");
+    }
+
+    /// <summary>
+    /// INV-3 (D): ORF detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orfs_IsDeterministic()
+    {
+        return Prop.ForAll(SeqArbitrary(30), seq =>
+        {
+            var a = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(seq), 6)
+                .Select(o => (o.Sequence, o.Position, o.Frame, o.IsReverseComplement)).ToList();
+            var b = GenomicAnalyzer.FindOpenReadingFrames(new DnaSequence(seq), 6)
+                .Select(o => (o.Sequence, o.Position, o.Frame, o.IsReverseComplement)).ToList();
+            return a.SequenceEqual(b).Label("FindOpenReadingFrames must be deterministic");
+        });
+    }
+
+    /// <summary>Generates a DNA sequence of at least <paramref name="minLen"/> bases.</summary>
+    private static Arbitrary<string> SeqArbitrary(int minLen) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Where(a => a.Length >= minLen)
+            .Select(a => new string(a)).ToArbitrary();
 
     #endregion
 }
