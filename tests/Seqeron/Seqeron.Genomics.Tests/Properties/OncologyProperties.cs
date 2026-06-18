@@ -9054,4 +9054,208 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-ACTION-001 — Clinical Actionability (OncoKB therapeutic levels)
+
+    // -------------------------------------------------------------------------
+    // Theory (Chakravarty 2017 OncoKB; oncokb-annotator HIGHEST_LEVEL order):
+    //   • Combined actionability order R1 > 1 > 2 > 3A > 3B > 4 > R2 (> None).      (R ordered tiers)
+    //   • ClassifyActionabilityLevel = highest combined level over associations.    (P known → tier)
+    //   • AssessActionability: highest sensitivity (1>2>3A>3B>4), highest resistance
+    //     (R1>R2), highest combined; combined = max(sensitive, resistance).
+    //   • Standard-care levels are {1, 2, R1}.
+    //
+    // The level ranking, the per-axis maxima and the standard-care set are reconstructed
+    // independently — NOT routed through production — so a wrong order or partition is caught.
+    // -------------------------------------------------------------------------
+
+    // Combined order, highest first (None ranks below every leveled value). (oncokb-annotator)
+    private static readonly OncologyAnalyzer.OncoKbLevel[] OncoKbOrderHighestFirst =
+    {
+        OncologyAnalyzer.OncoKbLevel.R1, OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.Level2, OncologyAnalyzer.OncoKbLevel.Level3A,
+        OncologyAnalyzer.OncoKbLevel.Level3B, OncologyAnalyzer.OncoKbLevel.Level4, OncologyAnalyzer.OncoKbLevel.R2,
+    };
+
+    private static readonly HashSet<OncologyAnalyzer.OncoKbLevel> SensitivityOracle = new()
+    {
+        OncologyAnalyzer.OncoKbLevel.Level1, OncologyAnalyzer.OncoKbLevel.Level2, OncologyAnalyzer.OncoKbLevel.Level3A, OncologyAnalyzer.OncoKbLevel.Level3B, OncologyAnalyzer.OncoKbLevel.Level4,
+    };
+
+    private static readonly HashSet<OncologyAnalyzer.OncoKbLevel> ResistanceOracle = new() { OncologyAnalyzer.OncoKbLevel.R1, OncologyAnalyzer.OncoKbLevel.R2 };
+
+    private static int OncoKbRank(OncologyAnalyzer.OncoKbLevel l)
+    {
+        int idx = Array.IndexOf(OncoKbOrderHighestFirst, l);
+        return idx < 0 ? OncoKbOrderHighestFirst.Length : idx; // None (and anything unlisted) ranks lowest
+    }
+
+    private static OncologyAnalyzer.OncoKbLevel OracleHighest(IEnumerable<OncologyAnalyzer.OncoKbLevel> levels, HashSet<OncologyAnalyzer.OncoKbLevel>? allowed)
+    {
+        OncologyAnalyzer.OncoKbLevel best = OncologyAnalyzer.OncoKbLevel.None;
+        foreach (var l in levels)
+        {
+            if (allowed is not null && !allowed.Contains(l))
+            {
+                continue;
+            }
+
+            if (OncoKbRank(l) < OncoKbRank(best))
+            {
+                best = l;
+            }
+        }
+
+        return best;
+    }
+
+    private static Gen<OncologyAnalyzer.OncoKbLevel> KbLevelGen() => Gen.Elements(Enum.GetValues<OncologyAnalyzer.OncoKbLevel>());
+
+    private static Gen<OncologyAnalyzer.VariantActionabilityInput> ActionabilityInputGen() =>
+        from n in Gen.Choose(0, 6)
+        from levels in KbLevelGen().ArrayOf(n)
+        select new OncologyAnalyzer.VariantActionabilityInput(
+            "BRAF", "p.V600E",
+            levels.Select((l, i) => new OncologyAnalyzer.TherapyAssociation("drug" + i, l)).ToList());
+
+    /// <summary>
+    /// R (checklist "evidence tier ∈ ordered levels"): <c>CompareLevels</c> realises the documented combined
+    /// order R1 &gt; 1 &gt; 2 &gt; 3A &gt; 3B &gt; 4 &gt; R2 &gt; None — its sign matches an independent rank
+    /// oracle for every pair of levels. (oncokb-annotator HIGHEST_LEVEL)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CompareLevels_RealisesCombinedActionabilityOrder()
+    {
+        var arb = (from a in KbLevelGen() from b in KbLevelGen() select (a, b)).ToArbitrary();
+        return Prop.ForAll(arb, t =>
+        {
+            int actual = Math.Sign(OncologyAnalyzer.CompareLevels(t.a, t.b));
+            int oracle = Math.Sign(OncoKbRank(t.b) - OncoKbRank(t.a)); // lower rank = more actionable
+            return (actual == oracle).Label($"CompareLevels({t.a},{t.b}) sign {actual} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "known actionable variant → tier assigned"): <c>ClassifyActionabilityLevel</c> is the
+    /// highest combined level over the associations (None only when no leveled association exists), so any
+    /// variant with a leveled association is actionable. (oncokb-annotator HIGHEST_LEVEL)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyActionabilityLevel_IsHighestCombinedLevel()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ToArbitrary(), variant =>
+        {
+            var level = OncologyAnalyzer.ClassifyActionabilityLevel(variant);
+            var oracle = OracleHighest(variant.Associations.Select(a => a.Level), allowed: null);
+            bool actionableIffLeveled = (level != OncologyAnalyzer.OncoKbLevel.None)
+                == variant.Associations.Any(a => a.Level != OncologyAnalyzer.OncoKbLevel.None);
+            return (level == oracle && actionableIffLeveled).Label($"level {level} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// R (ordered tiers) + per-axis maxima: <c>AssessActionability</c> reports the highest sensitivity level
+    /// (1>2>3A>3B>4), highest resistance level (R1>R2) and highest combined level, with combined =
+    /// max(sensitive, resistance), IsActionable ⟺ combined ≠ None, preserving input order. (Chakravarty 2017)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AssessActionability_ComputesPerAxisAndCombinedMaxima_InOrder()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ArrayOf().ToArbitrary(), variants =>
+        {
+            var assessments = OncologyAnalyzer.AssessActionability(variants);
+
+            bool ok = assessments.Count == variants.Length;
+            for (int i = 0; ok && i < variants.Length; i++)
+            {
+                var levels = variants[i].Associations.Select(a => a.Level).ToList();
+                var sensitive = OracleHighest(levels, SensitivityOracle);
+                var resistance = OracleHighest(levels, ResistanceOracle);
+                var combined = OracleHighest(levels, allowed: null);
+
+                var a = assessments[i];
+                ok &= a.HighestSensitiveLevel == sensitive
+                      && a.HighestResistanceLevel == resistance
+                      && a.HighestCombinedLevel == combined
+                      && a.HighestCombinedLevel == (OncoKbRank(sensitive) <= OncoKbRank(resistance) ? sensitive : resistance)
+                      && a.IsActionable == (combined != OncologyAnalyzer.OncoKbLevel.None);
+            }
+
+            return ok.Label($"assessed {assessments.Count}/{variants.Length}");
+        });
+    }
+
+    /// <summary>
+    /// <c>GetTherapyRecommendations</c> returns the same associations ordered most-actionable first
+    /// (non-increasing combined level). (oncokb-annotator HIGHEST_LEVEL ordering)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GetTherapyRecommendations_OrdersMostActionableFirst()
+    {
+        return Prop.ForAll(ActionabilityInputGen().ToArbitrary(), variant =>
+        {
+            var ordered = OncologyAnalyzer.GetTherapyRecommendations(variant);
+
+            bool sameMultiset = ordered.Count == variant.Associations.Count
+                && ordered.OrderBy(a => a.Level).ThenBy(a => a.Drug).SequenceEqual(
+                    variant.Associations.OrderBy(a => a.Level).ThenBy(a => a.Drug));
+            bool descending = true;
+            for (int i = 1; i < ordered.Count; i++)
+            {
+                descending &= OncoKbRank(ordered[i].Level) >= OncoKbRank(ordered[i - 1].Level);
+            }
+
+            return (sameMultiset && descending).Label("recommendations not the same set ordered most-actionable first");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsStandardCare</c> is true exactly for the OncoKB standard-care levels {1, 2, R1}. (OncoKB Curation SOP)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsStandardCare_IsExactlyLevels1_2_R1()
+    {
+        return Prop.ForAll(KbLevelGen().ToArbitrary(), level =>
+        {
+            bool actual = OncologyAnalyzer.IsStandardCare(level);
+            bool expected = level is OncologyAnalyzer.OncoKbLevel.Level1 or OncologyAnalyzer.OncoKbLevel.Level2 or OncologyAnalyzer.OncoKbLevel.R1;
+            return (actual == expected).Label($"IsStandardCare({level}) = {actual} ≠ {expected}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a Level-1 sensitivity association ⇒ combined/sensitive Level1, actionable; adding an R1
+    /// resistance association raises the combined level to R1 (R1 &gt; 1); an empty variant is not actionable.
+    /// (oncokb-annotator; Chakravarty 2017)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AssessActionability_CanonicalCases()
+    {
+        var level1 = new OncologyAnalyzer.VariantActionabilityInput("BRAF", "p.V600E",
+            new[] { new OncologyAnalyzer.TherapyAssociation("Vemurafenib", OncologyAnalyzer.OncoKbLevel.Level1) });
+        var withR1 = new OncologyAnalyzer.VariantActionabilityInput("EGFR", "p.T790M",
+            new[]
+            {
+                new OncologyAnalyzer.TherapyAssociation("DrugA", OncologyAnalyzer.OncoKbLevel.Level1),
+                new OncologyAnalyzer.TherapyAssociation("DrugB", OncologyAnalyzer.OncoKbLevel.R1),
+            });
+        var empty = new OncologyAnalyzer.VariantActionabilityInput("X", "p.?", Array.Empty<OncologyAnalyzer.TherapyAssociation>());
+
+        Assert.Multiple(() =>
+        {
+            var a1 = OncologyAnalyzer.AssessActionability(new[] { level1 })[0];
+            Assert.That(a1.HighestCombinedLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.Level1));
+            Assert.That(a1.HighestSensitiveLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.Level1));
+            Assert.That(a1.IsActionable, Is.True);
+
+            var ar1 = OncologyAnalyzer.AssessActionability(new[] { withR1 })[0];
+            Assert.That(ar1.HighestCombinedLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.R1), "R1 > Level 1 in the combined order.");
+            Assert.That(ar1.HighestResistanceLevel, Is.EqualTo(OncologyAnalyzer.OncoKbLevel.R1));
+
+            Assert.That(OncologyAnalyzer.ClassifyActionabilityLevel(empty), Is.EqualTo(OncologyAnalyzer.OncoKbLevel.None), "No associations ⇒ None.");
+            Assert.That(OncologyAnalyzer.AssessActionability(new[] { empty })[0].IsActionable, Is.False);
+        });
+    }
+
+    #endregion
 }
