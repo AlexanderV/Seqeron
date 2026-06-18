@@ -14,7 +14,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// self-consistent-but-wrong production constant is still caught.
 ///
 /// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001, ONCO-VAF-001, ONCO-DRIVER-001,
-/// ONCO-ARTIFACT-001, ONCO-ANNOT-001
+/// ONCO-ARTIFACT-001, ONCO-ANNOT-001, ONCO-TMB-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -2755,6 +2755,298 @@ public class OncologyProperties
                 Is.EqualTo(OncologyAnalyzer.VariantTier.TierI_StrongClinicalSignificance));
             Assert.That(OncologyAnalyzer.GetCOSMICAnnotation(v, catalog), Is.EqualTo("COSV56056643"));
         });
+    }
+
+    #endregion
+
+    #region ONCO-TMB-001 — Tumor Mutational Burden
+
+    // -------------------------------------------------------------------------
+    // Theory oracle (literal published constant — NOT routed through production)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// FDA TMB-High cutoff transcribed LITERALLY from Marcus et al. (2021) — pembrolizumab approved for
+    /// solid tumors with "TMB ≥ 10 mut/Mb", inclusive boundary. Kept as a LOCAL literal (not
+    /// <c>OncologyAnalyzer.TmbHighThreshold</c>) so a wrong production constant is still caught.
+    /// </summary>
+    private const double FdaTmbHighCutoff = 10.0;
+
+    /// <summary>Generates a mutation count in [0, 100_000] (≥ 0; spans 0 and large counts).</summary>
+    private static Arbitrary<int> TmbCountArbitrary() =>
+        Gen.Choose(0, 100_000).ToArbitrary();
+
+    /// <summary>
+    /// Generates a finite, strictly-positive target region size in Mb. Drawn from integer milli-Mb in
+    /// [1, 5_000] (i.e. 0.001 .. 5.0 Mb) so values stay in a sane range that keeps the n/r quotient exact
+    /// to within 1e-12 and avoids floating-point noise.
+    /// </summary>
+    private static Arbitrary<double> TmbRegionMbArbitrary() =>
+        Gen.Choose(1, 5_000).Select(milli => milli / 1_000.0).ToArbitrary();
+
+    /// <summary>
+    /// Generates a TMB value ≥ 0 spanning the classification boundary: exact 10.0, just below (9.999),
+    /// just above (10.001), 0, plus random finite values straddling the cutoff.
+    /// </summary>
+    private static Arbitrary<double> TmbValueArbitrary() =>
+        Gen.OneOf(
+            Gen.Constant(0.0),
+            Gen.Constant(9.999),
+            Gen.Constant(10.0),
+            Gen.Constant(10.001),
+            Gen.Choose(0, 20_000).Select(milli => milli / 1_000.0)) // 0.000 .. 20.000
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates a list of <see cref="OncologyAnalyzer.SomaticCall"/> with MIXED statuses
+    /// (Somatic / Germline / NotDetected), so the overload's Somatic-only counting can be verified
+    /// against an independent count. Length 0..40. Numeric fields are arbitrary-but-valid placeholders;
+    /// only <c>Status</c> drives the TMB count.
+    /// </summary>
+    private static Arbitrary<OncologyAnalyzer.SomaticCall[]> SomaticCallListArbitrary() =>
+        (from n in Gen.Choose(0, 40)
+         from statuses in Gen.Elements(
+                 OncologyAnalyzer.SomaticStatus.Somatic,
+                 OncologyAnalyzer.SomaticStatus.Germline,
+                 OncologyAnalyzer.SomaticStatus.NotDetected)
+             .ArrayOf(n)
+         select statuses
+             .Select((s, i) => new OncologyAnalyzer.SomaticCall(
+                 new OncologyAnalyzer.VariantObservation(
+                     "chr1", i + 1, "A", "T", 30, 60, 0, 60),
+                 TumorVaf: 0.5,
+                 NormalVaf: 0.0,
+                 Status: s,
+                 SomaticScore: 0.9))
+             .ToArray())
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // P + INV-01: TMB = count / Mb (exact ratio, mutationCount==0 ⇒ 0)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P + INV-01 (§2.2/§2.4 — TMB = mutationCount / targetRegionMb): for every n ≥ 0 and finite r > 0,
+    /// <c>CalculateTMB(n, r)</c> equals the independently computed quotient <c>n / (double)r</c> to within
+    /// 1e-12. The oracle is plain division, NOT routed through any production helper.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Calculate_EqualsCountOverMb()
+    {
+        return Prop.ForAll(TmbCountArbitrary(), TmbRegionMbArbitrary(), (n, r) =>
+        {
+            double actual = OncologyAnalyzer.CalculateTMB(n, r);
+            double expected = n / r;
+            return (Math.Abs(actual - expected) <= 1e-12)
+                .Label($"CalculateTMB({n},{r})={actual}, expected n/r={expected}");
+        });
+    }
+
+    /// <summary>
+    /// P + INV-01 boundary (§6.1 — mutationCount = 0 ⇒ TMB = 0): zero somatic mutations give exactly 0
+    /// mut/Mb for any finite r > 0 (quotient of zero).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Calculate_ZeroCount_IsZero()
+    {
+        return Prop.ForAll(TmbRegionMbArbitrary(), r =>
+        {
+            double actual = OncologyAnalyzer.CalculateTMB(0, r);
+            return (actual == 0.0).Label($"CalculateTMB(0,{r})={actual}, expected 0");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // R + INV-02: TMB ≥ 0
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-02 (§2.4 — TMB ≥ 0 for n ≥ 0, r > 0): the quotient of a non-negative count by a positive
+    /// region is always non-negative.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Calculate_IsNonNegative()
+    {
+        return Prop.ForAll(TmbCountArbitrary(), TmbRegionMbArbitrary(), (n, r) =>
+        {
+            double actual = OncologyAnalyzer.CalculateTMB(n, r);
+            return (actual >= 0.0).Label($"CalculateTMB({n},{r})={actual} is negative");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M + INV-03: monotonicity (strict in count at fixed r; strict-decreasing in r at fixed count>0)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// M + INV-03 (§2.4 — non-decreasing in count): at a FIXED region size, increasing the mutation count
+    /// strictly increases TMB. Driven over (n, r) with the comparison count n+1; division by a positive
+    /// constant is strictly increasing, so the inequality is strict.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Calculate_StrictlyIncreasingInCount()
+    {
+        return Prop.ForAll(TmbCountArbitrary(), TmbRegionMbArbitrary(), (n, r) =>
+        {
+            double lo = OncologyAnalyzer.CalculateTMB(n, r);
+            double hi = OncologyAnalyzer.CalculateTMB(n + 1, r);
+            return (hi > lo).Label($"TMB({n},{r})={lo} should be < TMB({n + 1},{r})={hi}");
+        });
+    }
+
+    /// <summary>
+    /// M + INV-03 (§2.4 — non-increasing in r): at a FIXED count &gt; 0, increasing the region size
+    /// strictly decreases TMB. The count is forced ≥ 1 (a 0 count gives 0 for any r, no strict change),
+    /// and the larger region is r + 1 Mb.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Calculate_StrictlyDecreasingInRegion()
+    {
+        var positiveCount = Gen.Choose(1, 100_000).ToArbitrary();
+        return Prop.ForAll(positiveCount, TmbRegionMbArbitrary(), (n, r) =>
+        {
+            double smallRegion = OncologyAnalyzer.CalculateTMB(n, r);
+            double largeRegion = OncologyAnalyzer.CalculateTMB(n, r + 1.0);
+            return (largeRegion < smallRegion)
+                .Label($"TMB({n},{r})={smallRegion} should be > TMB({n},{r + 1.0})={largeRegion}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-04: classification at the inclusive ≥ 10 cutoff
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-04 (§2.4/§4.2 — ClassifyTMB(tmb) = High ⇔ tmb ≥ 10, inclusive): for random tmb ≥ 0 (including
+    /// the exact boundary 10.0 ⇒ High, just below ⇒ Low, and 0 ⇒ Low), the production result equals the
+    /// independent rule recomputed with a LOCAL literal 10.0 cutoff.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_Classify_MatchesInclusiveCutoffOracle()
+    {
+        return Prop.ForAll(TmbValueArbitrary(), tmb =>
+        {
+            var actual = OncologyAnalyzer.ClassifyTMB(tmb);
+            var expected = tmb >= FdaTmbHighCutoff
+                ? OncologyAnalyzer.TmbStatus.High
+                : OncologyAnalyzer.TmbStatus.Low;
+            return (actual == expected)
+                .Label($"ClassifyTMB({tmb})={actual}, expected {expected} (cutoff {FdaTmbHighCutoff})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // SomaticCall overload: counts ONLY Somatic-status calls
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// SomaticCall overload (§3.1/§5.1 — only <c>Somatic</c> calls counted): for a mixed list of
+    /// Somatic / Germline / NotDetected calls, <c>CalculateTMB(calls, r)</c> equals the INDEPENDENT count
+    /// of Somatic-status entries divided by r (within 1e-12) — proving Germline and NotDetected are
+    /// excluded from the burden.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_CalculateFromCalls_CountsOnlySomatic()
+    {
+        return Prop.ForAll(SomaticCallListArbitrary(), TmbRegionMbArbitrary(), (calls, r) =>
+        {
+            double actual = OncologyAnalyzer.CalculateTMB(calls, r);
+            int somatic = calls.Count(c => c.Status == OncologyAnalyzer.SomaticStatus.Somatic);
+            double expected = somatic / r;
+            return (Math.Abs(actual - expected) <= 1e-12)
+                .Label($"CalculateTMB(calls[{calls.Length}],{r})={actual}, somatic={somatic}, expected {expected}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D: determinism (identical inputs ⇒ identical TMB / status)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D (deterministic): repeated calls on identical inputs yield identical TMB (both overloads) and
+    /// identical classification — no hidden state or nondeterminism.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tmb_IsDeterministic()
+    {
+        return Prop.ForAll(SomaticCallListArbitrary(), TmbCountArbitrary(), TmbRegionMbArbitrary(),
+            (calls, n, r) =>
+            {
+                bool intStable = OncologyAnalyzer.CalculateTMB(n, r) == OncologyAnalyzer.CalculateTMB(n, r);
+                bool callsStable = OncologyAnalyzer.CalculateTMB(calls, r) == OncologyAnalyzer.CalculateTMB(calls, r);
+                double tmb = OncologyAnalyzer.CalculateTMB(n, r);
+                bool classifyStable = OncologyAnalyzer.ClassifyTMB(tmb) == OncologyAnalyzer.ClassifyTMB(tmb);
+                return (intStable && callsStable && classifyStable)
+                    .Label($"non-deterministic: int={intStable}, calls={callsStable}, classify={classifyStable}");
+            });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation / edge cases (§3.3 / §6.1) and anchors (§7.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>§3.3: negative mutationCount ⇒ ArgumentOutOfRangeException.</summary>
+    [Test]
+    [Category("Property")]
+    public void Tmb_Calculate_NegativeCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateTMB(-1, 1.1));
+    }
+
+    /// <summary>§3.3/§6.1: non-finite or ≤ 0 targetRegionMb ⇒ ArgumentOutOfRangeException (TMB undefined).</summary>
+    [TestCase(0.0)]
+    [TestCase(-1.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    [Category("Property")]
+    public void Tmb_Calculate_InvalidRegion_Throws(double region)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CalculateTMB(11, region));
+    }
+
+    /// <summary>§3.3: null calls collection ⇒ ArgumentNullException.</summary>
+    [Test]
+    [Category("Property")]
+    public void Tmb_CalculateFromCalls_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => OncologyAnalyzer.CalculateTMB((IEnumerable<OncologyAnalyzer.SomaticCall>)null!, 1.1));
+    }
+
+    /// <summary>§3.3: negative or non-finite tmb ⇒ ArgumentOutOfRangeException from ClassifyTMB.</summary>
+    [TestCase(-0.0001)]
+    [TestCase(-1.0)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    [Category("Property")]
+    public void Tmb_Classify_InvalidValue_Throws(double tmb)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyTMB(tmb));
+    }
+
+    /// <summary>§7.1 worked example: 11 mutations / 1.1 Mb = 10.0 mut/Mb ⇒ TMB-High (inclusive cutoff).</summary>
+    [Test]
+    [Category("Property")]
+    public void Tmb_WorkedExample_11Over1Point1_Is10_High()
+    {
+        double tmb = OncologyAnalyzer.CalculateTMB(11, 1.1);
+        Assert.Multiple(() =>
+        {
+            Assert.That(tmb, Is.EqualTo(10.0).Within(1e-12));
+            Assert.That(OncologyAnalyzer.ClassifyTMB(tmb), Is.EqualTo(OncologyAnalyzer.TmbStatus.High));
+        });
+    }
+
+    /// <summary>§6.1 boundary anchor: tmb = 10.0 ⇒ High (inclusive); tmb = 9.999 ⇒ Low.</summary>
+    [TestCase(10.0, OncologyAnalyzer.TmbStatus.High)]
+    [TestCase(9.999, OncologyAnalyzer.TmbStatus.Low)]
+    [TestCase(0.0, OncologyAnalyzer.TmbStatus.Low)]
+    [Category("Property")]
+    public void Tmb_Classify_BoundaryAnchors(double tmb, OncologyAnalyzer.TmbStatus expected)
+    {
+        Assert.That(OncologyAnalyzer.ClassifyTMB(tmb), Is.EqualTo(expected));
     }
 
     #endregion

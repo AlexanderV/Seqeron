@@ -121,7 +121,7 @@ Property-based testing генерирует сотни случайных вхо
 | 89 | ☑ | ONCO-DRIVER-001 | Oncology | R: driver score ≥ 0; M: more recurrent/hotspot → higher driver likelihood; P: known oncogenes flagged; D: deterministic | OncologyProperties.cs |
 | 90 | ☑ | ONCO-ARTIFACT-001 | Oncology | P: passing set ⊆ input; M: stricter thresholds → ≤ survivors; R: strand-bias ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
 | 91 | ☑ | ONCO-ANNOT-001 | Oncology | R: consequence ∈ SO vocabulary; P: annotation preserves variant coordinates; D: deterministic | OncologyProperties.cs (new) |
-| 92 | ☐ | ONCO-TMB-001 | Oncology | R: TMB ≥ 0 mut/Mb; M: more nonsynonymous mutations → higher TMB; P: TMB = count / panel-Mb; D: deterministic | OncologyProperties.cs (new) |
+| 92 | ☑ | ONCO-TMB-001 | Oncology | R: TMB ≥ 0 mut/Mb; M: more nonsynonymous mutations → higher TMB; P: TMB = count / panel-Mb; D: deterministic | OncologyProperties.cs (new) |
 | 93 | ☐ | ONCO-MSI-001 | Oncology | R: MSI fraction ∈ [0,1]; M: more unstable loci → higher score; P: MSI-H ⟺ score ≥ threshold; D: deterministic | OncologyProperties.cs (new) |
 | 94 | ☐ | ONCO-HRD-001 | Oncology | R: HRD = LOH+TAI+LST ≥ 0; M: more genomic scars → higher HRD; P: additive of three components; D: deterministic | OncologyProperties.cs (new) |
 | 95 | ☐ | ONCO-LOH-001 | Oncology | R: region positions valid; P: LOH ⟺ BAF → 0/1 (one allele lost); M: lower BAF-dev threshold → ≥ LOH; D: deterministic | OncologyProperties.cs (new) |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 90 |
-| ☐ Not started | 136 |
+| ☑ Complete | 91 |
+| ☐ Not started | 135 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
