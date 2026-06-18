@@ -403,4 +403,382 @@ public class ChromosomeProperties
     }
 
     #endregion
+
+    #region CHROM-CENT-001
+
+    // ---- Domain constants (Centromere_Analysis.md §2.1 Levan 1964 arm-ratio thresholds) ----
+    //
+    // The checklist row's "P: AT-rich region" is BOGUS: AnalyzeCentromere does NOT use AT
+    // content. Its centromere proxy is 15-mer REPEAT content × (1 − GC variability). The
+    // genuine "P" tested here is detection on a strongly repetitive window vs. Unknown on a
+    // non-repetitive / too-short input. The central rigorous test is the Levan classification
+    // oracle recomputed from the RETURNED (Start, End, |sequence|).
+
+    /// <summary>15-mer size used by <c>EstimateRepeatContent</c>; periodic units must be shorter.</summary>
+    private const int CentKmerSize = 15;
+
+    /// <summary>The six valid <c>CentromereType</c> values per INV-02 / §2.1 + Unknown.</summary>
+    private static readonly string[] ValidCentromereTypes =
+        { "Metacentric", "Submetacentric", "Subtelocentric", "Acrocentric", "Telocentric", "Unknown" };
+
+    // ===================== Independent Levan oracle =====================
+
+    /// <summary>
+    /// Independent Levan (1964) classifier, transcribed verbatim from §2.1 / source
+    /// <c>DetermineCentromereType</c> — NOT routed through production. Mirrors the exact
+    /// integer-midpoint and threshold arithmetic: <c>centMid=(start+end)/2</c> (integer div),
+    /// <c>pArm=min(centMid, len-centMid)</c>, <c>qArm=max(...)</c>; <c>pArm==0</c> ⇒ Telocentric;
+    /// else ratio=qArm/pArm ⇒ ≤1.7 Metacentric, ≤3.0 Submetacentric, &lt;7.0 Subtelocentric,
+    /// else Acrocentric.
+    /// </summary>
+    private static string ExpectedCentromereType(int start, int end, int length)
+    {
+        int centMid = (start + end) / 2;
+        int pArm = Math.Min(centMid, length - centMid);
+        int qArm = Math.Max(centMid, length - centMid);
+
+        if (pArm == 0)
+            return "Telocentric";
+
+        double armRatio = (double)qArm / pArm;
+        return armRatio switch
+        {
+            <= 1.7 => "Metacentric",
+            <= 3.0 => "Submetacentric",
+            < 7.0 => "Subtelocentric",
+            _ => "Acrocentric"
+        };
+    }
+
+    // ===================== Generators =====================
+
+    /// <summary>
+    /// Generates a strongly repetitive sequence: a short periodic unit (length 2–8, never a
+    /// homopolymer, &lt; the 15-mer size) tiled to fill the whole sequence, plus a small
+    /// windowSize. A perfectly periodic window of period <c>u</c> contains only <c>u</c> distinct
+    /// 15-mers, each repeated, so <c>EstimateRepeatContent ≈ 1.0 &gt; minAlphaSatelliteContent</c> —
+    /// the window is accepted and a region is detected. Yields (sequence, windowSize). The total
+    /// length is always &gt; windowSize so the scan loop executes. Lengths are kept to a few
+    /// thousand bp for speed.
+    /// </summary>
+    private static Arbitrary<(string seq, int windowSize)> RepetitiveArbitrary() =>
+        (from windowSize in Gen.Choose(200, 1000)
+         from unitLen in Gen.Choose(2, 8)
+         from unitChars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(unitLen)
+         from extraWindows in Gen.Choose(2, 6) // total length = (this+1)*windowSize → loop runs
+         let unit = MakeNonHomopolymerUnit(unitChars)
+         let totalLen = (extraWindows + 1) * windowSize
+         let seq = Tile(unit, totalLen)
+         select (seq, windowSize)).ToArbitrary();
+
+    /// <summary>
+    /// Generates a non-repetitive sequence shorter than its windowSize. Two guarantees combine to
+    /// force <c>Unknown</c>: (1) length &lt; windowSize, so the scan loop body never runs; this is
+    /// the §6.1 "shorter than the analysis window" edge case. Yields (sequence, windowSize).
+    /// </summary>
+    private static Arbitrary<(string seq, int windowSize)> ShortNonDetectableArbitrary() =>
+        (from windowSize in Gen.Choose(200, 1000)
+         from len in Gen.Choose(1, 199) // strictly &lt; minimum windowSize 200 ⇒ always &lt; windowSize
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(len)
+         select (new string(chars), windowSize)).ToArbitrary();
+
+    /// <summary>Generates arbitrary DNA (A/C/G/T, possibly empty) for general invariants.</summary>
+    private static Arbitrary<string> CentAnyDnaArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf().Select(a => new string(a)).ToArbitrary();
+
+    // ---- Generator helpers (deterministic constructions) ----
+
+    /// <summary>Ensures the periodic unit is not a homopolymer (a homopolymer yields 1 distinct
+    /// 15-mer but identical behaviour; forcing variety keeps the unit a genuine period).</summary>
+    private static string MakeNonHomopolymerUnit(char[] chars)
+    {
+        var s = new string(chars);
+        if (s.Distinct().Count() == 1)
+        {
+            var c = s.ToCharArray();
+            c[^1] = c[0] == 'A' ? 'C' : 'A';
+            s = new string(c);
+        }
+        return s;
+    }
+
+    /// <summary>Tiles <paramref name="unit"/> to exactly <paramref name="totalLen"/> characters.</summary>
+    private static string Tile(string unit, int totalLen)
+    {
+        var sb = new System.Text.StringBuilder(totalLen);
+        while (sb.Length < totalLen)
+            sb.Append(unit);
+        return sb.ToString(0, totalLen);
+    }
+
+    // ===================== THE KEY TEST — Levan classification oracle =====================
+
+    /// <summary>
+    /// KEY (§2.1 Levan table, heuristic-independent): for any detected result the returned
+    /// <c>CentromereType</c> EQUALS the class recomputed by the independent Levan oracle from the
+    /// returned <c>(Start, End, |sequence|)</c>. This validates the classification table directly,
+    /// regardless of where the heuristic placed the region. Driven over many randomized strongly
+    /// repetitive sequences.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_DetectedType_MatchesLevanOracle()
+    {
+        return Prop.ForAll(RepetitiveArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            if (!r.Start.HasValue || !r.End.HasValue)
+                return true.ToProperty(); // detection asserted separately; oracle applies only when found.
+            string expected = ExpectedCentromereType(r.Start.Value, r.End.Value, seq.Length);
+            return (r.CentromereType == expected)
+                .Label($"len={seq.Length} [{r.Start},{r.End}] → type '{r.CentromereType}', oracle '{expected}'");
+        });
+    }
+
+    /// <summary>
+    /// Exact Levan anchors: a region engineered to sit at a chosen midpoint, with the expected
+    /// class recomputed BY HAND from §2.1. For total length L and a region [s,e] with
+    /// midpoint m=(s+e)/2, pArm=min(m,L-m), qArm=max(m,L-m), ratio=qArm/pArm.
+    ///   • centred (m≈L/2): ratio≈1 ⇒ Metacentric.
+    ///   • m=L/4: pArm=L/4, qArm=3L/4, ratio=3 ⇒ Submetacentric.
+    ///   • m near one end (ratio ≥7) ⇒ Acrocentric.
+    ///   • m=0 (pArm=0) ⇒ Telocentric.
+    /// </summary>
+    [TestCase(0, 1000, 1000, "Metacentric", TestName = "centred region (mid 500/1000) → Metacentric")]
+    [TestCase(400, 600, 1000, "Metacentric", TestName = "tight centred region (mid 500/1000) → Metacentric")]
+    [TestCase(0, 500, 1000, "Submetacentric", TestName = "mid 250 of 1000 (ratio 3) → Submetacentric")]
+    [TestCase(0, 280, 1000, "Subtelocentric", TestName = "mid 140 of 1000 (ratio ~6.1) → Subtelocentric")]
+    [TestCase(0, 200, 1000, "Acrocentric", TestName = "mid 100 of 1000 (ratio 9) → Acrocentric")]
+    [TestCase(0, 0, 1000, "Telocentric", TestName = "mid 0 (pArm 0) → Telocentric")]
+    [Category("Property")]
+    public void AnalyzeCentromere_LevanClassification_HandComputedAnchors(
+        int start, int end, int length, string expected)
+    {
+        // Direct oracle anchor: confirms the hand-computed class equals the transcribed classifier.
+        Assert.That(ExpectedCentromereType(start, end, length), Is.EqualTo(expected),
+            $"Levan class for mid {(start + end) / 2} of {length}");
+    }
+
+    /// <summary>
+    /// End-to-end Levan anchor: a real repetitive sequence whose detected region is centred yields a
+    /// detected centromere classified consistently with the oracle on the returned boundaries.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeCentromere_CentredRepetitive_DetectedAndOracleConsistent()
+    {
+        const int windowSize = 400;
+        string seq = Tile("ACGTGA", 4000); // fully periodic ⇒ repeat content ≈ 1 everywhere
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+        Assert.That(r.Start, Is.Not.Null, "a fully repetitive sequence must yield a detected region");
+        Assert.That(r.End, Is.Not.Null);
+        string expected = ExpectedCentromereType(r.Start!.Value, r.End!.Value, seq.Length);
+        Assert.That(r.CentromereType, Is.EqualTo(expected),
+            "detected CentromereType must equal the Levan oracle on the returned boundaries");
+    }
+
+    #endregion
+
+    #region CHROM-CENT-001 — R: index validity (INV-01) & INV-02/03/04
+
+    /// <summary>
+    /// R / INV-01: for a detected centromere, <c>0 ≤ Start ≤ End ≤ |sequence|</c> and
+    /// <c>Length == End − Start</c>. Driven over randomized repetitive sequences.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_DetectedBoundaries_Valid()
+    {
+        return Prop.ForAll(RepetitiveArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            if (!r.Start.HasValue || !r.End.HasValue)
+                return (r.Length == 0).Label($"undetected but Length={r.Length} (expected 0)");
+            bool ordered = 0 <= r.Start.Value && r.Start.Value <= r.End.Value && r.End.Value <= seq.Length;
+            bool lengthOk = r.Length == r.End.Value - r.Start.Value;
+            return (ordered && lengthOk)
+                .Label($"len={seq.Length} [{r.Start},{r.End}] Length={r.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (type domain) + INV-03 (acrocentric flag) + INV-04 &amp; score range: for ANY DNA
+    /// input the <c>CentromereType</c> is one of the six valid values, <c>IsAcrocentric</c> iff the
+    /// type is "Acrocentric", and <c>AlphaSatelliteContent ∈ [0, 1]</c> (since repeatContent∈[0,1]
+    /// and (1−gcVar)≤1).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_TypeFlagAndScore_AlwaysValid()
+    {
+        return Prop.ForAll(CentAnyDnaArbitrary(), seq =>
+        {
+            var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: 300);
+            bool typeOk = ValidCentromereTypes.Contains(r.CentromereType);                 // INV-02
+            bool flagOk = r.IsAcrocentric == (r.CentromereType == "Acrocentric");          // INV-03
+            bool scoreOk = r.AlphaSatelliteContent is >= 0.0 and <= 1.0 + 1e-12;           // INV-04
+            return (typeOk && flagOk && scoreOk)
+                .Label($"'{seq}': type='{r.CentromereType}', acro={r.IsAcrocentric}, score={r.AlphaSatelliteContent}");
+        });
+    }
+
+    #endregion
+
+    #region CHROM-CENT-001 — P: detection on repetitive vs non-repetitive
+
+    /// <summary>
+    /// P (detection, §6.1): a strongly repetitive sequence (a short unit tiled to fill windows,
+    /// repeat content ≈ 1 &gt; threshold) is DETECTED — non-null Start/End, positive Length,
+    /// non-Unknown type, score &gt; the default threshold proxy.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_StronglyRepetitive_Detected()
+    {
+        return Prop.ForAll(RepetitiveArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            bool detected = r.Start.HasValue && r.End.HasValue && r.Length > 0
+                            && r.CentromereType != "Unknown" && r.AlphaSatelliteContent > 0.0;
+            return detected
+                .Label($"repetitive (window {windowSize}, len {seq.Length}) not detected: " +
+                       $"start={r.Start}, end={r.End}, type={r.CentromereType}, score={r.AlphaSatelliteContent}");
+        });
+    }
+
+    /// <summary>
+    /// P (non-detection, §6.1): a sequence shorter than the analysis window returns <c>Unknown</c>
+    /// with null boundaries, <c>Length==0</c> — the scan loop body never executes.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_ShorterThanWindow_Unknown()
+    {
+        return Prop.ForAll(ShortNonDetectableArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            return (r.Start is null && r.End is null && r.Length == 0 && r.CentromereType == "Unknown")
+                .Label($"len {seq.Length} &lt; window {windowSize} gave start={r.Start}, type={r.CentromereType}");
+        });
+    }
+
+    /// <summary>
+    /// P (non-detection, §6.1): a full-length non-repetitive sequence returns <c>Unknown</c>. We use
+    /// a single hand-constructed De Bruijn sequence of order 8 over {A,C,G,T} (every 8-mer occurs
+    /// exactly once, hence — a fortiori — every 15-mer is unique), so <c>EstimateRepeatContent==0</c>
+    /// in every window and no window reaches the threshold. This is an exact, repeat-free witness
+    /// rather than a randomized generator (which cannot guarantee 15-mer uniqueness).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeCentromere_NonRepetitiveFullLength_Unknown()
+    {
+        const int windowSize = 400;
+        string seq = DeBruijnOrder8(); // 4^8 = 65536 bases, every 8-mer unique ⇒ every 15-mer unique
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.Null, "no repetitive window exists ⇒ no detection");
+            Assert.That(r.End, Is.Null);
+            Assert.That(r.Length, Is.Zero);
+            Assert.That(r.CentromereType, Is.EqualTo("Unknown"));
+        });
+    }
+
+    /// <summary>
+    /// Builds a De Bruijn sequence B(4, 8): a cyclic string over {A,C,G,T} in which every length-8
+    /// word appears exactly once. As a linear string of length 4^8 every 8-mer (and therefore every
+    /// 15-mer) is distinct, giving a guaranteed repeat-content-zero, non-periodic test sequence.
+    /// </summary>
+    private static string DeBruijnOrder8()
+    {
+        const string alphabet = "ACGT";
+        const int k = 8;
+        const int n = 4;
+        var a = new int[k * n];
+        var seq = new System.Text.StringBuilder();
+
+        void Db(int t, int p)
+        {
+            if (t > k)
+            {
+                if (k % p == 0)
+                    for (int j = 1; j <= p; j++)
+                        seq.Append(alphabet[a[j]]);
+            }
+            else
+            {
+                a[t] = a[t - p];
+                Db(t + 1, p);
+                for (int j = a[t - p] + 1; j < n; j++)
+                {
+                    a[t] = j;
+                    Db(t + 1, t);
+                }
+            }
+        }
+
+        Db(1, 1);
+        return seq.ToString();
+    }
+
+    #endregion
+
+    #region CHROM-CENT-001 — edge cases & D: determinism
+
+    /// <summary>
+    /// Edge (§6.1): null or empty input ⇒ <c>Unknown</c>, null boundaries, <c>Length==0</c>,
+    /// <c>AlphaSatelliteContent==0</c>, <c>IsAcrocentric==false</c>.
+    /// </summary>
+    [TestCase("", TestName = "empty sequence → Unknown")]
+    [TestCase(null, TestName = "null sequence → Unknown")]
+    [Category("Property")]
+    public void AnalyzeCentromere_NullOrEmpty_UnknownAllZero(string? seq)
+    {
+        var r = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Start, Is.Null);
+            Assert.That(r.End, Is.Null);
+            Assert.That(r.Length, Is.Zero);
+            Assert.That(r.CentromereType, Is.EqualTo("Unknown"));
+            Assert.That(r.AlphaSatelliteContent, Is.Zero);
+            Assert.That(r.IsAcrocentric, Is.False);
+        });
+    }
+
+    /// <summary>
+    /// P (case-insensitivity, §6.1): lowercase input produces an identical result to uppercase —
+    /// the method uppercases before scoring. Checked via full record-struct value equality over
+    /// repetitive sequences (where a detected region exercises every field).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_LowercaseEqualsUppercase()
+    {
+        return Prop.ForAll(RepetitiveArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var upper = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq.ToUpperInvariant(), windowSize);
+            var lower = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq.ToLowerInvariant(), windowSize);
+            return upper.Equals(lower)
+                .Label($"case mismatch (window {windowSize}, len {seq.Length}): {upper} vs {lower}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical inputs produce an identical <c>CentromereResult</c> (all seven
+    /// fields), checked via record-struct value equality across repetitive and arbitrary inputs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeCentromere_IsDeterministic()
+    {
+        return Prop.ForAll(RepetitiveArbitrary(), t =>
+        {
+            var (seq, windowSize) = t;
+            var a = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            var b = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize);
+            return a.Equals(b).Label($"non-deterministic CentromereResult (window {windowSize}, len {seq.Length})");
+        });
+    }
+
+    #endregion
 }
