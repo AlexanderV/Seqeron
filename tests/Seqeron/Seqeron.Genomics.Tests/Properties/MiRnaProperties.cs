@@ -528,4 +528,508 @@ public class MiRnaProperties
     }
 
     #endregion
+
+    #region MIRNA-TARGET-001
+
+    // ---------------------------------------------------------------------
+    // MIRNA-TARGET-001 — Target Site Prediction (MiRnaAnalyzer.FindTargetSites)
+    //
+    // Reference: docs/algorithms/MiRNA/Target_Site_Prediction.md
+    //   §2.2 seedRC = revcomp(seed); 6mer core = seedRC[2..7] (0-based [1..6]),
+    //        offset 6mer = seedRC[1..6] (0-based [0..5]); canonical site table.
+    //   §2.4 INV-01 (0<=Score<=1), INV-02 (SeedMatchLength∈{6,7,8}),
+    //        INV-03 (zero-based inclusive End=Start+len-1), INV-04 (canonical
+    //        seed sites suppress overlapping offset-6mer), INV-05 (antiparallel).
+    //   §5.2 BASE SCORES: 8mer=1.0, 7mer-m8=0.52, 7mer-A1=0.32, 6mer=0.15,
+    //        offset-6mer=0.10; +0.05 when duplex Matches>10; -0.01 per mismatch;
+    //        clamp to [0,1].
+    //   §6.1 edge cases: empty/null mRNA, empty miRNA, seed<7nt ⇒ no sites;
+    //        minScore>1.0 ⇒ no sites.
+    //   §7.1 worked example: let-7a / "GGGGGCUACCUCAGGGGG" / minScore 0.1
+    //        ⇒ sites[0] is Seed8mer with SeedMatchLength 8.
+    //
+    // ALL expected values are derived INDEPENDENTLY here: an independent
+    // reverse-complement, an independent antiparallel WC + G:U duplex match/
+    // mismatch counter, and an independent re-statement of the §5.2 score
+    // formula. Nothing is read back from the implementation under test.
+    // ---------------------------------------------------------------------
+
+    /// <summary>Pure RNA alphabet for constructing valid (T→U normalized) miRNAs and mRNAs.</summary>
+    private static readonly char[] RnaAlphabet = { 'A', 'C', 'G', 'U' };
+
+    /// <summary>Independent reverse complement over the RNA alphabet (A↔U, G↔C); other → 'N'.</summary>
+    private static string OracleRevComp(string s)
+    {
+        char[] r = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = char.ToUpperInvariant(s[s.Length - 1 - i]);
+            r[i] = c switch { 'A' => 'U', 'U' => 'A', 'T' => 'A', 'G' => 'C', 'C' => 'G', _ => 'N' };
+        }
+        return new string(r);
+    }
+
+    /// <summary>Independent base-pairing predicate: Watson-Crick (A-U,U-A,G-C,C-G) or G:U wobble; DNA T≡U.</summary>
+    private static bool OracleCanPair(char a, char b)
+    {
+        char x = a == 'T' ? 'U' : char.ToUpperInvariant(a);
+        char y = b == 'T' ? 'U' : char.ToUpperInvariant(b);
+        return (x == 'A' && y == 'U') || (x == 'U' && y == 'A') ||
+               (x == 'G' && y == 'C') || (x == 'C' && y == 'G') ||
+               (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
+    }
+
+    /// <summary>
+    /// Independent antiparallel duplex match/mismatch count over the first
+    /// min(|miRNA|,|target|) positions: miRNA index i pairs with target[len-1-i]
+    /// (INV-05). A position is a mismatch when it cannot Watson-Crick / wobble pair.
+    /// </summary>
+    private static (int matches, int mismatches) OracleDuplex(string mirna, string target)
+    {
+        string m = mirna.ToUpperInvariant().Replace('T', 'U');
+        string t = target.ToUpperInvariant().Replace('T', 'U');
+        int len = Math.Min(m.Length, t.Length);
+        int matches = 0, mismatches = 0;
+        for (int i = 0; i < len; i++)
+        {
+            if (OracleCanPair(m[i], t[t.Length - 1 - i]))
+                matches++;
+            else
+                mismatches++;
+        }
+        return (matches, mismatches);
+    }
+
+    /// <summary>Independent §5.2 base score per emitted site class.</summary>
+    private static double OracleBaseScore(MiRnaAnalyzer.TargetSiteType type) => type switch
+    {
+        MiRnaAnalyzer.TargetSiteType.Seed8mer => 1.0,
+        MiRnaAnalyzer.TargetSiteType.Seed7merM8 => 0.52,
+        MiRnaAnalyzer.TargetSiteType.Seed7merA1 => 0.32,
+        MiRnaAnalyzer.TargetSiteType.Seed6mer => 0.15,
+        MiRnaAnalyzer.TargetSiteType.Offset6mer => 0.10,
+        _ => 0.01
+    };
+
+    /// <summary>
+    /// Independent §5.2 score formula: base(class) + (Matches>10 ? +0.05) - 0.01·Mismatches,
+    /// clamped to [0,1]. The duplex is the full extended target window (miRNA-length or tail).
+    /// </summary>
+    private static double OracleScore(MiRnaAnalyzer.TargetSiteType type, string mirna, string extendedTarget)
+    {
+        var (matches, mismatches) = OracleDuplex(mirna, extendedTarget);
+        double s = OracleBaseScore(type);
+        if (matches > 10) s += 0.05;
+        s -= mismatches * 0.01;
+        return Math.Max(0.0, Math.Min(1.0, s));
+    }
+
+    /// <summary>The extended target window the finder scores: from <paramref name="pos"/>, min(|miRNA|, tail).</summary>
+    private static string ExtendedWindow(string mrna, int pos, int mirnaLen)
+    {
+        string normalized = mrna.ToUpperInvariant().Replace('T', 'U');
+        int len = Math.Min(mirnaLen, normalized.Length - pos);
+        return normalized.Substring(pos, len);
+    }
+
+    /// <summary>Generates random pure-RNA strings of length in [minLen,maxLen].</summary>
+    private static Gen<string> RnaGen(int minLen, int maxLen) =>
+        from len in Gen.Choose(minLen, maxLen)
+        from chars in Gen.Elements(RnaAlphabet).ArrayOf(len)
+        select new string(chars);
+
+    /// <summary>A valid miRNA (length ≥ 8 ⇒ canonical 7-nt seed) and a random RNA mRNA to scan.</summary>
+    private static Arbitrary<(MiRnaAnalyzer.MiRna miRna, string mrna)> MiRnaAndMrnaArbitrary() =>
+        (from mirnaSeq in RnaGen(8, 26)
+         from mrna in RnaGen(0, 60)
+         select (MiRnaAnalyzer.CreateMiRna("rnd", mirnaSeq), mrna)).ToArbitrary();
+
+    /// <summary>
+    /// Builds an mRNA that embeds a PERFECT canonical 8mer for a miRNA that begins with 'U'.
+    /// The target's 8-nt site window is exactly revcomp(miRNA[0..7]) placed at the mRNA tail, so
+    /// the antiparallel duplex over those 8 positions is fully Watson-Crick paired: the
+    /// position-8 base = comp(miRNA[7]) (= seedRC[0]) sits at the site start, the 6mer core
+    /// follows, and the A1 slot = comp(miRNA[0]) = 'A' (since miRNA[0]=='U'). With the window
+    /// length pinned to 8 (no tail beyond), there are zero duplex mismatches and no &gt;10-match
+    /// bonus, so §5.2 gives an exact score of 1.0. The site starts at <c>leftPad.Length</c>.
+    /// </summary>
+    private static (string mrna, int siteStart) BuildClean8mer(string mirnaSeq, string leftPad)
+    {
+        // Window must equal revcomp(miRNA[0..7]) and be the whole tail (extended length == 8).
+        string window = OracleRevComp(mirnaSeq.Substring(0, 8));
+        return (leftPad + window, leftPad.Length);
+    }
+
+    /// <summary>
+    /// Builds an mRNA with a CLEAN 6mer-only site: the 6mer core (revcomp of miRNA pos 2-7)
+    /// is placed at target index 0 so no upstream position-8 base can exist, and the base
+    /// immediately downstream is forced to a non-'A' so the A1 rule fails — yielding Seed6mer.
+    /// The remainder of the window is the reverse complement of the miRNA so the duplex is
+    /// fully paired (zero mismatches), making the §5.2 score exactly predictable.
+    /// </summary>
+    private static string BuildClean6mer(string mirnaSeq)
+    {
+        // Full antiparallel-perfect target, then trim everything left of the 6mer core so the
+        // core starts at index 0 (kills position-8). revcomp(miRNA) places the core at index
+        // |miRNA|-7; the base at index |miRNA|-1 (the A1 slot) is comp(miRNA[0]).
+        string full = OracleRevComp(mirnaSeq);          // length = |miRNA|
+        int coreIdx = mirnaSeq.Length - 7;              // documented core offset within revcomp
+        string fromCore = full.Substring(coreIdx);      // 7 chars: core(6) + A1 slot(1)
+        // fromCore[6] is the A1 slot = comp(miRNA[0]); force it to a guaranteed non-'A' base.
+        char a1 = fromCore[6];
+        char forcedNonA = a1 == 'C' ? 'G' : 'C';        // never 'A'
+        return string.Concat(fromCore.AsSpan(0, 6), forcedNonA.ToString());
+    }
+
+    // -- INV-01 / INV-02 / INV-03 / P : invariants over arbitrary inputs --
+
+    /// <summary>
+    /// INV-01 (R: score ∈ [0,1]): every emitted site has 0.0 ≤ Score ≤ 1.0 for arbitrary
+    /// (mRNA, miRNA). minScore is left at a permissive 0.0 so the widest set of sites is checked.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_Score_InUnitInterval()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+            bool ok = sites.All(s => s.Score >= 0.0 && s.Score <= 1.0);
+            return ok.Label($"INV-01: scores={string.Join(",", sites.Select(s => s.Score))} mrna='{mrna}' seed='{miRna.SeedSequence}'");
+        });
+    }
+
+    /// <summary>INV-02: every emitted site has SeedMatchLength ∈ {6,7,8}.</summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_SeedMatchLength_Is6Or7Or8()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+            bool ok = sites.All(s => s.SeedMatchLength is 6 or 7 or 8);
+            return ok.Label($"INV-02: lengths={string.Join(",", sites.Select(s => s.SeedMatchLength))}");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (coordinates): 0 ≤ Start ≤ End &lt; |mRNA|, and the canonical-window length is
+    /// consistent with End = Start + length - 1, where length is fixed by the site class
+    /// (8mer→8, 7mer→7, 6mer/offset→6).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_Coordinates_AreConsistentAndInBounds()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+
+            foreach (var s in sites)
+            {
+                int classLen = s.Type switch
+                {
+                    MiRnaAnalyzer.TargetSiteType.Seed8mer => 8,
+                    MiRnaAnalyzer.TargetSiteType.Seed7merM8 => 7,
+                    MiRnaAnalyzer.TargetSiteType.Seed7merA1 => 7,
+                    _ => 6 // Seed6mer / Offset6mer
+                };
+                bool ok = s.Start >= 0 && s.Start <= s.End && s.End < mrna.Length
+                          && s.End == s.Start + classLen - 1;
+                if (!ok)
+                    return false.Label($"INV-03: Start={s.Start} End={s.End} type={s.Type} len={mrna.Length}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// P (no spurious sites): every emitted site's target really contains the miRNA seed
+    /// reverse-complement core. Independently recompute the 6mer core = revcomp(seed)[1..6]
+    /// and the offset pattern = revcomp(seed)[0..5], then assert the mRNA carries that exact
+    /// 6-mer at the documented offset of the reported site.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_EverySite_CarriesSeedReverseComplementCore()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            string normalized = mrna.ToUpperInvariant().Replace('T', 'U');
+            string seedRC = OracleRevComp(miRna.SeedSequence);
+            if (seedRC.Length < 7) return true.ToProperty();
+
+            string sixmerCore = seedRC.Substring(1, 6); // RC of miRNA positions 2-7
+            string offsetPat = seedRC.Substring(0, 6);  // RC of miRNA positions 3-8
+
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+            foreach (var s in sites)
+            {
+                // Canonical classes: core starts one past Start for 8mer/7mer-m8 (which include
+                // the upstream position-8 base), at Start for 7mer-A1/6mer. Offset uses Start.
+                int coreOffset = s.Type switch
+                {
+                    MiRnaAnalyzer.TargetSiteType.Seed8mer => s.Start + 1,
+                    MiRnaAnalyzer.TargetSiteType.Seed7merM8 => s.Start + 1,
+                    MiRnaAnalyzer.TargetSiteType.Seed7merA1 => s.Start,
+                    MiRnaAnalyzer.TargetSiteType.Seed6mer => s.Start,
+                    _ => s.Start // Offset6mer
+                };
+                string expectedCore = s.Type == MiRnaAnalyzer.TargetSiteType.Offset6mer ? offsetPat : sixmerCore;
+                string actual = normalized.Substring(coreOffset, 6);
+                if (actual != expectedCore)
+                    return false.Label($"P: site {s.Type}@{s.Start} core='{actual}' expected='{expectedCore}' in '{normalized}'");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// Score == independent §5.2 oracle: for every emitted site, the implementation's Score
+    /// equals base(class) + (Matches>10?+0.05) - 0.01·Mismatches clamped to [0,1], where
+    /// matches/mismatches are computed by the independent antiparallel duplex oracle over the
+    /// extended target window. (Proves the documented scoring formula, not the code's output.)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_Score_MatchesDocFormula()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+            foreach (var s in sites)
+            {
+                string window = ExtendedWindow(mrna, s.Start, miRna.Sequence.Length);
+                double expected = OracleScore(s.Type, miRna.Sequence, window);
+                if (Math.Abs(s.Score - expected) > 1e-9)
+                    return false.Label($"score: {s.Type}@{s.Start} got={s.Score} expected={expected} window='{window}'");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    // -- M : perfect seed match → higher score (central business invariant) --
+
+    /// <summary>Generates a valid miRNA that BEGINS WITH 'U' (so revcomp(miRNA) yields a canonical 8mer).</summary>
+    private static Arbitrary<MiRnaAnalyzer.MiRna> UStartMiRnaArbitrary() =>
+        (from rest in Gen.Elements(RnaAlphabet).ArrayOf(11) // total length 12 ⇒ canonical 7-nt seed
+         select MiRnaAnalyzer.CreateMiRna("u", "U" + new string(rest))).ToArbitrary();
+
+    /// <summary>
+    /// M (perfect seed match → higher score): for the SAME miRNA, a constructed perfect canonical
+    /// 8mer always scores exactly 1.0 (§5.2, clamped) and strictly higher than a constructed
+    /// clean 6mer-only site. Both site classes are built independently from the seed reverse
+    /// complement; the 8mer/6mer classification and ordering are asserted directly.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PerfectSeedMatch_ScoresHigherThanSixmer()
+    {
+        return Prop.ForAll(UStartMiRnaArbitrary(), miRna =>
+        {
+            var (mrna8, start8) = BuildClean8mer(miRna.Sequence, "GG");
+            string mrna6 = BuildClean6mer(miRna.Sequence);
+
+            var site8 = MiRnaAnalyzer.FindTargetSites(mrna8, miRna, minScore: 0.0)
+                .FirstOrDefault(s => s.Start == start8 && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+            var site6 = MiRnaAnalyzer.FindTargetSites(mrna6, miRna, minScore: 0.0)
+                .FirstOrDefault(s => s.Type == MiRnaAnalyzer.TargetSiteType.Seed6mer);
+
+            bool eight = site8.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer
+                         && site8.SeedMatchLength == 8
+                         && Math.Abs(site8.Score - 1.0) < 1e-9;
+            bool six = site6.Type == MiRnaAnalyzer.TargetSiteType.Seed6mer
+                       && site6.SeedMatchLength == 6;
+            bool higher = site8.Score > site6.Score;
+
+            return (eight && six && higher)
+                .Label($"M: 8mer score={site8.Score} ({site8.Type}) vs 6mer score={site6.Score} ({site6.Type}) for {miRna.Sequence}");
+        });
+    }
+
+    // -- minScore filtering: monotonic superset & threshold edges --
+
+    /// <summary>
+    /// minScore monotonic superset: lowering the threshold never removes a site. The site set
+    /// at the higher threshold is a subset of the set at the lower threshold for the same
+    /// (mRNA, miRNA). Compared on the full record so identity is exact.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_LowerMinScore_IsSuperset()
+    {
+        var arb = (from mirnaSeq in RnaGen(8, 26)
+                   from mrna in RnaGen(0, 60)
+                   from t1 in Gen.Choose(0, 100)
+                   from t2 in Gen.Choose(0, 100)
+                   select (MiRnaAnalyzer.CreateMiRna("rnd", mirnaSeq), mrna, t1 / 100.0, t2 / 100.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, input =>
+        {
+            var (miRna, mrna, ta, tb) = input;
+            double hi = Math.Max(ta, tb);
+            double lo = Math.Min(ta, tb);
+
+            var atHi = MiRnaAnalyzer.FindTargetSites(mrna, miRna, hi).ToList();
+            var atLo = MiRnaAnalyzer.FindTargetSites(mrna, miRna, lo).ToList();
+
+            bool subset = atHi.All(s => atLo.Contains(s));
+            return subset.Label($"superset: |hi({hi})|={atHi.Count} ⊄ |lo({lo})|={atLo.Count}");
+        });
+    }
+
+    /// <summary>minScore &gt; 1.0 ⇒ no sites (all scores are clamped to ≤ 1.0; §6.1).</summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_MinScoreAboveOne_YieldsNoSites()
+    {
+        var arb = (from mirnaSeq in RnaGen(8, 26)
+                   from mrna in RnaGen(0, 60)
+                   select (MiRnaAnalyzer.CreateMiRna("rnd", mirnaSeq), mrna)).ToArbitrary();
+
+        return Prop.ForAll(arb, input =>
+        {
+            var (miRna, mrna) = input;
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 1.0001).ToList();
+            return (sites.Count == 0).Label($"minScore>1: got {sites.Count} sites");
+        });
+    }
+
+    // -- INV-04 : canonical sites suppress overlapping offset-6mer --
+
+    /// <summary>
+    /// INV-04 (priority): a clean canonical 8mer covers positions that would otherwise also be
+    /// read as an offset-6mer; no Offset6mer site may be emitted overlapping the canonical
+    /// coordinates. Constructed on a miRNA beginning with U so the 8mer is guaranteed.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_CanonicalSite_SuppressesOverlappingOffset6mer()
+    {
+        return Prop.ForAll(UStartMiRnaArbitrary(), miRna =>
+        {
+            var (mrna, start8) = BuildClean8mer(miRna.Sequence, "GG");
+            var sites = MiRnaAnalyzer.FindTargetSites(mrna, miRna, minScore: 0.0).ToList();
+
+            var canonical = sites.FirstOrDefault(s => s.Start == start8 && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+            if (canonical.Type != MiRnaAnalyzer.TargetSiteType.Seed8mer)
+                return false.Label($"INV-04 setup: expected 8mer at {start8} in '{mrna}'");
+
+            bool noOverlappingOffset = !sites.Any(s =>
+                s.Type == MiRnaAnalyzer.TargetSiteType.Offset6mer &&
+                s.Start <= canonical.End && s.End >= canonical.Start);
+
+            return noOverlappingOffset
+                .Label($"INV-04: offset-6mer overlaps canonical [{canonical.Start},{canonical.End}] in '{mrna}'");
+        });
+    }
+
+    // -- D : determinism --
+
+    /// <summary>
+    /// D (determinism): identical (mRNA, miRNA, minScore) ⇒ identical site list, field-for-field
+    /// and in the same order.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindTargetSites_IsDeterministic()
+    {
+        return Prop.ForAll(MiRnaAndMrnaArbitrary(), input =>
+        {
+            var (miRna, mrna) = input;
+            var run1 = MiRnaAnalyzer.FindTargetSites(mrna, miRna, 0.0).ToList();
+            var run2 = MiRnaAnalyzer.FindTargetSites(mrna, miRna, 0.0).ToList();
+            return run1.SequenceEqual(run2).Label($"D: {run1.Count} vs {run2.Count} sites for '{mrna}'");
+        });
+    }
+
+    // -- Edge cases (§6.1) --
+
+    /// <summary>Edge: empty or null mRNA ⇒ no sites (§6.1).</summary>
+    [TestCase("")]
+    [TestCase(null)]
+    public void Anchor_EmptyOrNullMrna_YieldsNoSites(string? mrna)
+    {
+        var let7a = MiRnaAnalyzer.CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
+        Assert.That(MiRnaAnalyzer.FindTargetSites(mrna!, let7a, 0.0).ToList(), Is.Empty);
+    }
+
+    /// <summary>Edge: empty miRNA sequence ⇒ no sites (§6.1).</summary>
+    [Test]
+    public void Anchor_EmptyMiRnaSequence_YieldsNoSites()
+    {
+        var empty = MiRnaAnalyzer.CreateMiRna("empty", "");
+        Assert.That(MiRnaAnalyzer.FindTargetSites("GGGGGCUACCUCAGGGGG", empty, 0.0).ToList(), Is.Empty);
+    }
+
+    /// <summary>Edge: miRNA shorter than 8 nt has an empty seed (seedRC &lt; 7) ⇒ no sites (§6.1).</summary>
+    [TestCase("U")]
+    [TestCase("UGAGGUA")] // 7 nt — still too short to yield a canonical seed
+    public void Anchor_SeedTooShort_YieldsNoSites(string shortMiRna)
+    {
+        var m = MiRnaAnalyzer.CreateMiRna("short", shortMiRna);
+        Assert.That(m.SeedSequence, Is.Empty); // independent precondition: no canonical seed
+        Assert.That(MiRnaAnalyzer.FindTargetSites("GGGGGCUACCUCAGGGGG", m, 0.0).ToList(), Is.Empty);
+    }
+
+    // -- Anchored examples (deterministic, doc-derived) --
+
+    /// <summary>
+    /// Worked example (§7.1): let-7a vs "GGGGGCUACCUCAGGGGG" with minScore 0.1 yields a first
+    /// site of type Seed8mer with SeedMatchLength 8 (the documented assertion). Start/End are the
+    /// independently derived seed-RC offsets (core "UACCUC" at index 6 ⇒ 8mer Start 5, End 12),
+    /// and the Score equals the independent §5.2 oracle over the same extended window.
+    /// </summary>
+    [Test]
+    public void Anchor_WorkedExample_Let7a_Yields8mer()
+    {
+        var let7a = MiRnaAnalyzer.CreateMiRna("let-7a", "UGAGGUAGUAGGUUGUAUAGUU");
+        var sites = MiRnaAnalyzer.FindTargetSites("GGGGGCUACCUCAGGGGG", let7a, minScore: 0.1).ToList();
+
+        Assert.That(sites, Is.Not.Empty);
+        Assert.That(sites[0].Type, Is.EqualTo(MiRnaAnalyzer.TargetSiteType.Seed8mer));
+        Assert.That(sites[0].SeedMatchLength, Is.EqualTo(8));
+        Assert.That(sites[0].Start, Is.EqualTo(5));   // §2.2 worked offsets: core at 6 ⇒ 8mer start 5
+        Assert.That(sites[0].End, Is.EqualTo(12));     // End = Start + 8 - 1
+
+        string window = ExtendedWindow("GGGGGCUACCUCAGGGGG", 5, let7a.Sequence.Length);
+        double expected = OracleScore(MiRnaAnalyzer.TargetSiteType.Seed8mer, let7a.Sequence, window);
+        Assert.That(sites[0].Score, Is.EqualTo(expected).Within(1e-9));
+    }
+
+    /// <summary>
+    /// §5.2 base-score anchor — perfect 8mer ⇒ exactly 1.0. Constructed so the antiparallel
+    /// duplex is fully Watson-Crick paired (zero mismatches); the 8mer base 1.0 plus the
+    /// &gt;10-match bonus both clamp to 1.0.
+    /// </summary>
+    [Test]
+    public void Anchor_Clean8mer_ScoresExactlyOne()
+    {
+        var miRna = MiRnaAnalyzer.CreateMiRna("u8", "UACGUACGUACG"); // begins with U ⇒ 8mer
+        var (mrna, start) = BuildClean8mer(miRna.Sequence, "GG");
+
+        var site = MiRnaAnalyzer.FindTargetSites(mrna, miRna, 0.0)
+            .Single(s => s.Start == start && s.Type == MiRnaAnalyzer.TargetSiteType.Seed8mer);
+
+        Assert.That(site.Score, Is.EqualTo(1.0).Within(1e-9));
+    }
+
+    /// <summary>
+    /// §5.2 base-score anchor — clean 6mer ⇒ base 0.15 minus 0.01 per duplex mismatch, with no
+    /// &gt;10-match bonus (short window). The expected value is computed by the independent
+    /// duplex oracle over the same window, then asserted against the implementation.
+    /// </summary>
+    [Test]
+    public void Anchor_Clean6mer_ScoresPerDocFormula()
+    {
+        var miRna = MiRnaAnalyzer.CreateMiRna("m6", "GACGUCAUCGUACG");
+        string mrna = BuildClean6mer(miRna.Sequence);
+
+        var site = MiRnaAnalyzer.FindTargetSites(mrna, miRna, 0.0)
+            .Single(s => s.Type == MiRnaAnalyzer.TargetSiteType.Seed6mer);
+
+        string window = ExtendedWindow(mrna, site.Start, miRna.Sequence.Length);
+        double expected = OracleScore(MiRnaAnalyzer.TargetSiteType.Seed6mer, miRna.Sequence, window);
+
+        Assert.That(expected, Is.LessThanOrEqualTo(0.15)); // base 0.15, no >10-match bonus possible
+        Assert.That(site.Score, Is.EqualTo(expected).Within(1e-9));
+        Assert.That(site.Score, Is.LessThan(1.0)); // strictly below a perfect 8mer
+    }
+
+    #endregion
 }
