@@ -571,4 +571,82 @@ public class PopulationGeneticsProperties
     }
 
     #endregion
+
+    #region POP-ROH-001: R: ROH start < end; M: lower minLength → ≥ ROH; P: homozygous within run; D: deterministic
+
+    // FindROH detects runs of homozygosity: maximal runs that begin/end on a homozygous SNP and
+    // tolerate at most maxHeterozygotes interior heterozygous calls (PLINK ROH model).
+
+    /// <summary>Generates 10..30 SNPs at increasing positions, mostly homozygous (0/2) with some het (1).</summary>
+    private static Arbitrary<(int Position, int Genotype)[]> RohGenotypesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 10 + rng.Next(21);
+            var g = new (int, int)[n];
+            for (int i = 0; i < n; i++)
+            {
+                int geno = rng.Next(10) < 7 ? (rng.Next(2) == 0 ? 0 : 2) : 1; // ~70% homozygous
+                g[i] = (i * 1000, geno);
+            }
+            return g;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every ROH starts and ends on a homozygous SNP at Start &lt; End, spans ≥ minSnps
+    /// SNPs, and tolerates at most maxHeterozygotes interior heterozygotes.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Roh_RunsAreHomozygous()
+    {
+        return Prop.ForAll(RohGenotypesArbitrary(), genotypes =>
+        {
+            const int maxHet = 1;
+            var byPos = genotypes.ToDictionary(g => g.Position, g => g.Genotype);
+            var rohs = PopulationGeneticsAnalyzer.FindROH(genotypes, minSnps: 2, minLength: 0, maxHeterozygotes: maxHet, maxGap: 100_000).ToList();
+            bool ok = rohs.All(r =>
+            {
+                if (!(r.Start < r.End && r.Start >= 0 && r.SnpCount >= 2)) return false;
+                if (byPos[r.Start] == 1 || byPos[r.End] == 1) return false; // bounded by homozygous SNPs
+                int het = genotypes.Count(g => g.Position >= r.Start && g.Position <= r.End && g.Genotype == 1);
+                return het <= maxHet;
+            });
+            return ok.Label("a ROH violated the homozygosity/boundary/tolerance rules");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower minimum length never reports fewer ROH.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Roh_LowerMinLength_MoreRuns()
+    {
+        return Prop.ForAll(RohGenotypesArbitrary(), genotypes =>
+        {
+            int loose = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 1, 100_000).Count();
+            int strict = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 15_000, 1, 100_000).Count();
+            return (loose >= strict).Label($"lower minLength gave fewer ROH ({loose} < {strict})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): an all-homozygous stretch is one ROH; detection is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Roh_AllHomozygous_IsOneRun_AndDeterministic()
+    {
+        var genotypes = Enumerable.Range(0, 10).Select(i => (i * 1000, 0)).ToArray();
+        var a = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 0, 100_000).ToList();
+        var b = PopulationGeneticsAnalyzer.FindROH(genotypes, 2, 0, 0, 100_000).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(a, Has.Count.EqualTo(1), "a fully homozygous stretch is a single ROH");
+            Assert.That(a[0].Start, Is.EqualTo(0));
+            Assert.That(a[0].End, Is.EqualTo(9000));
+            Assert.That(b.Select(r => (r.Start, r.End)), Is.EqualTo(a.Select(r => (r.Start, r.End))), "deterministic");
+        });
+    }
+
+    #endregion
 }

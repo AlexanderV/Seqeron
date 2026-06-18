@@ -237,7 +237,7 @@ Property-based testing генерирует сотни случайных вхо
 | 205 | ☑ | DISORDER-MORF-001 | ProteinPred | P: MoRF lies within a disordered region; R: positions valid; D: deterministic | DisorderProperties.cs |
 | 206 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | R: propensity ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
 | 207 | ☑ | POP-ANCESTRY-001 | PopGen | R: each proportion ∈ [0,1]; P: Σ proportions = 1.0; D: deterministic | PopulationGeneticsProperties.cs |
-| 208 | ☐ | POP-ROH-001 | PopGen | R: ROH start < end; M: lower minLen → ≥ ROH; P: homozygous within run; D: deterministic | PopulationGeneticsProperties.cs |
+| 208 | ☑ | POP-ROH-001 | PopGen | R: ROH start < end; M: lower minLen → ≥ ROH; P: homozygous within run; D: deterministic | PopulationGeneticsProperties.cs |
 | 209 | ☐ | POP-SELECT-001 | PopGen | R: statistic finite; M: stronger differentiation → higher signal; D: deterministic | PopulationGeneticsProperties.cs |
 | 210 | ☐ | SEQ-ATSKEW-001 | Composition | R: skew ∈ [−1,1]; S: complement reverses sign; D: deterministic | GcSkewProperties.cs |
 | 211 | ☐ | SEQ-REPLICATION-001 | Composition | R: origin index ∈ [0, len]; P: at cumulative-skew extremum; D: deterministic | GcSkewProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 207 |
-| ☐ Not started | 27 |
+| ☑ Complete | 208 |
+| ☐ Not started | 26 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
