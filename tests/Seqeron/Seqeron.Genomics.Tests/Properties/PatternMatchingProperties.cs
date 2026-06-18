@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001, MOTIF-SHARED-001
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001, MOTIF-SHARED-001, PAT-APPROX-003
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -762,6 +762,103 @@ public class PatternMatchingProperties
             Assert.That(b, Is.EqualTo(a), "deterministic");
             Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 0).ToList());
             Assert.Throws<ArgumentOutOfRangeException>(() => MotifFinder.FindSharedMotifs(seqs, 4, 0).ToList());
+        });
+    }
+
+    #endregion
+
+    #region PAT-APPROX-003: R: best distance ≥ 0; P: exact match → 0; M: best ≤ any window distance; D: deterministic
+
+    // ApproximateMatcher.FindBestMatch returns the leftmost window with the minimum Hamming distance
+    // to the pattern (ROSALIND BA1H; Compeau & Pevzner ch.1).
+
+    /// <summary>Generates a sequence and a random pattern of length 3..5 (≤ sequence length).</summary>
+    private static Arbitrary<(string seq, string pattern)> SeqPatternArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string seq = RandDnaStr(rng, 12 + rng.Next(9));
+            return (seq, RandDnaStr(rng, 3 + rng.Next(3)));
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + M): the best match has a non-negative distance equal to the minimum Hamming distance
+    /// over all windows, at a valid position whose substring it reports.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_IsMinimumOverWindows()
+    {
+        return Prop.ForAll(SeqPatternArbitrary(), input =>
+        {
+            var (seq, pattern) = input;
+            var best = ApproximateMatcher.FindBestMatch(seq, pattern);
+            if (best is null) return false.Label("expected a match (pattern fits)");
+            var v = best.Value;
+
+            int independentMin = Enumerable.Range(0, seq.Length - pattern.Length + 1)
+                .Min(i => ApproximateMatcher.HammingDistance(pattern.ToUpperInvariant(), seq.Substring(i, pattern.Length).ToUpperInvariant()));
+
+            bool ok = v.Distance >= 0
+                      && v.Position >= 0 && v.Position + pattern.Length <= seq.Length
+                      && v.MatchedSequence == seq.Substring(v.Position, pattern.Length).ToUpperInvariant()
+                      && v.Distance == independentMin;
+            return ok.Label($"best distance {v.Distance} ≠ min over windows {independentMin}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): when the pattern occurs exactly in the sequence, the best match has distance 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_ExactSubstring_IsZeroDistance()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string seq = RandDnaStr(rng, 12 + rng.Next(9));
+            int len = 3 + rng.Next(3);
+            int start = rng.Next(seq.Length - len + 1);
+            return (seq, seq.Substring(start, len));
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, input =>
+        {
+            var (seq, pattern) = input;
+            var best = ApproximateMatcher.FindBestMatch(seq, pattern);
+            return (best is not null && best.Value.Distance == 0 && best.Value.IsExact)
+                .Label("an exact substring did not yield distance 0");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Best-match search is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ApproxBest_IsDeterministic()
+    {
+        return Prop.ForAll(SeqPatternArbitrary(), input =>
+        {
+            var (seq, pattern) = input;
+            var a = ApproximateMatcher.FindBestMatch(seq, pattern);
+            var b = ApproximateMatcher.FindBestMatch(seq, pattern);
+            // Compare meaningful scalar fields (MismatchPositions is a list compared by reference).
+            return (a?.Position == b?.Position && a?.Distance == b?.Distance && a?.MatchedSequence == b?.MatchedSequence)
+                .Label("FindBestMatch must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): an over-long or empty pattern yields no best match.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ApproxBest_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ApproximateMatcher.FindBestMatch("ACGT", "ACGTACGT"), Is.Null, "pattern longer than sequence");
+            Assert.That(ApproximateMatcher.FindBestMatch("ACGT", ""), Is.Null, "empty pattern");
+            Assert.That(ApproximateMatcher.FindBestMatch("", "AC"), Is.Null, "empty sequence");
         });
     }
 

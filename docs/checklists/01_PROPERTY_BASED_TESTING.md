@@ -203,7 +203,7 @@ Property-based testing генерирует сотни случайных вхо
 | 171 | ☑ | MOTIF-GENERATE-001 | Matching | P: consensus from counts; R: length = motif width; D: deterministic | PatternMatchingProperties.cs |
 | 172 | ☑ | MOTIF-REGULATORY-001 | Matching | R: positions valid; P: match conforms to known element; D: deterministic | PatternMatchingProperties.cs |
 | 173 | ☑ | MOTIF-SHARED-001 | Matching | P: shared motif present in all inputs; R: positions valid; D: deterministic | PatternMatchingProperties.cs |
-| 174 | ☐ | PAT-APPROX-003 | Matching | R: best distance ≥ 0; P: exact match → distance 0; M: best ≤ any match distance; D: deterministic | PatternMatchingProperties.cs |
+| 174 | ☑ | PAT-APPROX-003 | Matching | R: best distance ≥ 0; P: exact match → distance 0; M: best ≤ any match distance; D: deterministic | PatternMatchingProperties.cs |
 | 175 | ☐ | GENOMIC-COMMON-001 | Analysis | P: common region ⊆ all inputs; R: positions valid; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | R: positions valid; P: motif matches known set; D: deterministic | GenomicAnalyzerProperties.cs (new) |
 | 177 | ☐ | GENOMIC-ORF-001 | Analysis | R: start < end; P: starts ATG, ends stop; R: len % 3 = 0; D: deterministic | GenomicAnalyzerProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 173 |
-| ☐ Not started | 61 |
+| ☑ Complete | 174 |
+| ☐ Not started | 60 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
