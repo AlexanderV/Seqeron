@@ -3050,4 +3050,400 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-MSI-001 — Microsatellite Instability (MSI) Detection
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (transcribed from Microsatellite_Instability_Detection.md
+    // §2.2/§2.4, NOT routed through production constants). The score, the continuous
+    // 0.20 cutoff and the Bethesda count rule are recomputed here from LOCAL literals
+    // so a self-consistent-but-wrong production constant is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-03 cutoff transcribed as a LOCAL literal (MSIsensor2: "msi high: msi score &gt;= 20%").
+    /// Deliberately NOT <see cref="OncologyAnalyzer.MsiHighScoreThreshold"/> so the test is an
+    /// independent oracle rather than a tautology against the production constant.
+    /// </summary>
+    private const double MsiHighCutoffOracle = 0.20;
+
+    /// <summary>
+    /// INV-01/INV-02 score oracle: score = u / n (exact rational, computed in double). Recomputed
+    /// independently of <see cref="OncologyAnalyzer.CalculateMSIScore"/>.
+    /// </summary>
+    private static double ExpectedMsiScore(int unstableLoci, int totalLoci) =>
+        (double)unstableLoci / totalLoci;
+
+    /// <summary>
+    /// INV-03 continuous-status oracle, transcribed literally: MSI-H iff score ≥ 0.20 (inclusive),
+    /// else MSS. The continuous classifier never yields MSI_Low.
+    /// </summary>
+    private static OncologyAnalyzer.MsiStatus ExpectedContinuousStatus(double score) =>
+        score >= MsiHighCutoffOracle
+            ? OncologyAnalyzer.MsiStatus.MSI_High
+            : OncologyAnalyzer.MsiStatus.MSS;
+
+    /// <summary>
+    /// INV-04 Bethesda oracle, transcribed literally from Boland et al. (1998): depends ONLY on the
+    /// absolute unstable-marker count — ≥2 ⇒ MSI-H, exactly 1 ⇒ MSI-L, 0 ⇒ MSS — irrespective of the
+    /// panel size (confirmed against <c>ClassifyBethesdaPanel</c>, which branches on the count alone).
+    /// </summary>
+    private static OncologyAnalyzer.MsiStatus ExpectedBethesdaStatus(int unstableMarkers) =>
+        unstableMarkers >= 2
+            ? OncologyAnalyzer.MsiStatus.MSI_High
+            : unstableMarkers == 1
+                ? OncologyAnalyzer.MsiStatus.MSI_Low
+                : OncologyAnalyzer.MsiStatus.MSS;
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Generates a contract-valid loci pair (u, n) with n ≥ 1 and 0 ≤ u ≤ n, covering the degenerate
+    /// extremes u = 0 (score 0) and u = n (score 1).
+    /// </summary>
+    private static Arbitrary<(int unstable, int total)> MsiLociArbitrary() =>
+        (from total in Gen.Choose(1, 500)
+         from unstable in Gen.Choose(0, total)
+         select (unstable, total))
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates, at a FIXED total, two ordered unstable counts u_lo ≤ u_hi (both ≤ total) for the
+    /// monotonicity check.
+    /// </summary>
+    private static Arbitrary<(int total, int uLo, int uHi)> MsiMonotoneArbitrary() =>
+        (from total in Gen.Choose(1, 500)
+         from a in Gen.Choose(0, total)
+         from b in Gen.Choose(0, total)
+         select (total, Math.Min(a, b), Math.Max(a, b)))
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates an MSI score as a fraction in [0,1], biased to include the 0.20 boundary and points just
+    /// below/above it (so the inclusive cutoff is exercised), plus the extremes 0 and 1.
+    /// </summary>
+    private static Arbitrary<double> MsiScoreArbitrary() =>
+        Gen.OneOf(
+            Gen.Choose(0, 1000).Select(x => x / 1000.0),               // uniform over [0,1]
+            Gen.Elements(0.0, 0.199999, 0.2, 0.200001, 1.0))          // boundary anchors
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates a contract-valid Bethesda count pair (u, total) with total ≥ 1 and 0 ≤ u ≤ total,
+    /// over panel sizes both equal to and different from the classical 5 (so the count-only rule is probed).
+    /// </summary>
+    private static Arbitrary<(int unstable, int total)> BethesdaArbitrary() =>
+        (from total in Gen.Choose(1, 20)
+         from unstable in Gen.Choose(0, total)
+         select (unstable, total))
+        .ToArbitrary();
+
+    /// <summary>Generates a non-empty per-locus boolean flag list (length 1..50) for <c>DetectMSI</c>.</summary>
+    private static Arbitrary<bool[]> MsiFlagsArbitrary() =>
+        (from n in Gen.Choose(1, 50)
+         from arr in Gen.Elements(true, false).ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // R + INV-01/INV-02: score = u/n exactly, and ∈ [0,1]
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-01/INV-02: <c>CalculateMSIScore(u,n)</c> equals the independently recomputed u/n (within
+    /// 1e-12) and lies in [0,1] for every contract-valid 0 ≤ u ≤ n, n ≥ 1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_Score_EqualsFractionAndInUnitRange()
+    {
+        return Prop.ForAll(MsiLociArbitrary(), p =>
+        {
+            double score = OncologyAnalyzer.CalculateMSIScore(p.unstable, p.total);
+            double expected = ExpectedMsiScore(p.unstable, p.total);
+            bool matches = Math.Abs(score - expected) < 1e-12;
+            bool inRange = score is >= 0.0 and <= 1.0;
+            return (matches && inRange)
+                .Label($"score {score} != u/n {expected} (u={p.unstable}, n={p.total}), inRange={inRange}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M: more unstable loci → strictly higher score
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// M: at a FIXED total, a strictly greater unstable count yields a strictly greater score
+    /// (u_lo &lt; u_hi ⇒ score(u_lo) &lt; score(u_hi)); equal counts give equal scores.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_Score_StrictlyMonotoneInUnstableCount()
+    {
+        return Prop.ForAll(MsiMonotoneArbitrary(), t =>
+        {
+            double lo = OncologyAnalyzer.CalculateMSIScore(t.uLo, t.total);
+            double hi = OncologyAnalyzer.CalculateMSIScore(t.uHi, t.total);
+            bool ok = t.uLo < t.uHi ? hi > lo : hi == lo;
+            return ok.Label($"n={t.total}: score({t.uLo})={lo}, score({t.uHi})={hi}");
+        });
+    }
+
+    /// <summary>
+    /// M (end-to-end): adding one more <c>true</c> flag to a list of the same length (one stable flag
+    /// flipped to unstable) strictly raises <c>DetectMSI(...).Score</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_DetectMSI_MoreTrueFlagsRaisesScore()
+    {
+        var gen =
+            from n in Gen.Choose(1, 50)
+            from k in Gen.Choose(0, n - 1)                  // current unstable count, leaving ≥1 stable to flip
+            select (n, k);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            // base list: k unstable, (n-k) stable; flipped list: one extra unstable.
+            var baseFlags = new bool[t.n];
+            for (int i = 0; i < t.k; i++)
+            {
+                baseFlags[i] = true;
+            }
+
+            var moreFlags = (bool[])baseFlags.Clone();
+            moreFlags[t.k] = true; // flip one stable → unstable (same total length)
+
+            double baseScore = OncologyAnalyzer.DetectMSI(baseFlags).Score;
+            double moreScore = OncologyAnalyzer.DetectMSI(moreFlags).Score;
+            return (moreScore > baseScore)
+                .Label($"n={t.n}, k={t.k}: base={baseScore}, more={moreScore}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // P + INV-03: continuous status = MSI-H iff score ≥ 0.20 (inclusive); never MSI_Low
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P + INV-03: <c>ClassifyMSIStatus(score)</c> equals the independent literal-cutoff oracle
+    /// (score ≥ 0.20 ⇒ MSI_High else MSS) over random scores in [0,1] including the inclusive 0.20
+    /// boundary, and is NEVER MSI_Low.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_ContinuousStatus_MatchesInclusiveCutoffOracle()
+    {
+        return Prop.ForAll(MsiScoreArbitrary(), score =>
+        {
+            var actual = OncologyAnalyzer.ClassifyMSIStatus(score);
+            var expected = ExpectedContinuousStatus(score);
+            bool notLow = actual != OncologyAnalyzer.MsiStatus.MSI_Low;
+            return (actual == expected && notLow)
+                .Label($"score={score}: actual={actual}, oracle={expected}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-04: Bethesda categorical = f(count only): ≥2→MSI-H, 1→MSI-L, 0→MSS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-04: <c>ClassifyBethesdaPanel(u,total)</c> equals the independent count-only oracle
+    /// (≥2 ⇒ MSI-H, 1 ⇒ MSI-L, 0 ⇒ MSS) over random valid (u,total). Confirms the result depends on the
+    /// absolute unstable count alone, irrespective of the panel size.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_Bethesda_MatchesCountOnlyOracle()
+    {
+        return Prop.ForAll(BethesdaArbitrary(), p =>
+        {
+            var actual = OncologyAnalyzer.ClassifyBethesdaPanel(p.unstable, p.total);
+            var expected = ExpectedBethesdaStatus(p.unstable);
+            return (actual == expected)
+                .Label($"u={p.unstable}, total={p.total}: actual={actual}, oracle={expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 (count independence): for the SAME unstable count, two different (valid) panel sizes give the
+    /// SAME Bethesda status — proving the classification ignores the total.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_Bethesda_IsIndependentOfPanelSize()
+    {
+        var gen =
+            from u in Gen.Choose(0, 20)
+            from t1 in Gen.Choose(u <= 0 ? 1 : u, 25)
+            from t2 in Gen.Choose(u <= 0 ? 1 : u, 25)
+            select (u, t1, t2);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            var a = OncologyAnalyzer.ClassifyBethesdaPanel(t.u, t.t1);
+            var b = OncologyAnalyzer.ClassifyBethesdaPanel(t.u, t.t2);
+            return (a == b).Label($"u={t.u}: total {t.t1}→{a}, total {t.t2}→{b}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // DetectMSI end-to-end: counts, score, status all consistent
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// DetectMSI end-to-end: <c>UnstableLoci</c> = #true, <c>TotalLoci</c> = count, <c>Score</c> = #true/count
+    /// (within 1e-12), and <c>Status</c> = <c>ClassifyMSIStatus(Score)</c> — each recomputed independently.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_DetectMSI_FieldsAreConsistent()
+    {
+        return Prop.ForAll(MsiFlagsArbitrary(), flags =>
+        {
+            int trueCount = flags.Count(f => f);
+            int total = flags.Length;
+            var r = OncologyAnalyzer.DetectMSI(flags);
+
+            double expectedScore = (double)trueCount / total;
+            var expectedStatus = ExpectedContinuousStatus(expectedScore);
+
+            bool ok = r.UnstableLoci == trueCount
+                      && r.TotalLoci == total
+                      && Math.Abs(r.Score - expectedScore) < 1e-12
+                      && r.Status == expectedStatus;
+            return ok.Label(
+                $"u={r.UnstableLoci}/{trueCount}, n={r.TotalLoci}/{total}, score={r.Score}/{expectedScore}, status={r.Status}/{expectedStatus}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D: determinism — identical inputs ⇒ identical results for all four methods
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D: <c>CalculateMSIScore</c>, <c>ClassifyMSIStatus</c>, <c>ClassifyBethesdaPanel</c> and <c>DetectMSI</c>
+    /// each return identical results on repeated identical inputs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Msi_AllMethods_AreDeterministic()
+    {
+        var gen =
+            from loci in MsiLociArbitrary().Generator
+            from score in MsiScoreArbitrary().Generator
+            from beth in BethesdaArbitrary().Generator
+            from flags in MsiFlagsArbitrary().Generator
+            select (loci, score, beth, flags);
+
+        return Prop.ForAll(gen.ToArbitrary(), t =>
+        {
+            bool scoreDet = OncologyAnalyzer.CalculateMSIScore(t.loci.unstable, t.loci.total)
+                            == OncologyAnalyzer.CalculateMSIScore(t.loci.unstable, t.loci.total);
+            bool contDet = OncologyAnalyzer.ClassifyMSIStatus(t.score)
+                           == OncologyAnalyzer.ClassifyMSIStatus(t.score);
+            bool bethDet = OncologyAnalyzer.ClassifyBethesdaPanel(t.beth.unstable, t.beth.total)
+                           == OncologyAnalyzer.ClassifyBethesdaPanel(t.beth.unstable, t.beth.total);
+            bool detectDet = OncologyAnalyzer.DetectMSI(t.flags) == OncologyAnalyzer.DetectMSI(t.flags);
+            return (scoreDet && contDet && bethDet && detectDet)
+                .Label($"score={scoreDet}, cont={contDet}, beth={bethDet}, detect={detectDet}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation / edge cases (§3.3, §6.1) and worked-example anchors (§7.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>§3.3: <c>CalculateMSIScore</c> rejects totalLoci ≤ 0, unstableLoci &lt; 0, or unstableLoci &gt; totalLoci.</summary>
+    [TestCase(0, 0)]    // totalLoci ≤ 0
+    [TestCase(1, 0)]    // totalLoci ≤ 0
+    [TestCase(0, -1)]   // totalLoci ≤ 0
+    [TestCase(-1, 10)]  // unstableLoci < 0
+    [TestCase(11, 10)]  // unstableLoci > totalLoci
+    [Category("Property")]
+    public void Msi_CalculateMSIScore_RejectsInvalidLoci(int unstableLoci, int totalLoci)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.CalculateMSIScore(unstableLoci, totalLoci));
+    }
+
+    /// <summary>§3.3: <c>ClassifyMSIStatus</c> rejects non-finite scores or scores outside [0,1].</summary>
+    [TestCase(-0.0001)]
+    [TestCase(1.0001)]
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    [Category("Property")]
+    public void Msi_ClassifyMSIStatus_RejectsOutOfRangeScore(double score)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.ClassifyMSIStatus(score));
+    }
+
+    /// <summary>§3.3: <c>ClassifyBethesdaPanel</c> rejects totalMarkers ≤ 0, unstable &lt; 0, or unstable &gt; total.</summary>
+    [TestCase(0, 0)]
+    [TestCase(1, 0)]
+    [TestCase(0, -1)]
+    [TestCase(-1, 5)]
+    [TestCase(6, 5)]
+    [Category("Property")]
+    public void Msi_ClassifyBethesdaPanel_RejectsInvalidCounts(int unstableMarkers, int totalMarkers)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => OncologyAnalyzer.ClassifyBethesdaPanel(unstableMarkers, totalMarkers));
+    }
+
+    /// <summary>§3.3: <c>DetectMSI</c> rejects a null sequence.</summary>
+    [Test]
+    [Category("Property")]
+    public void Msi_DetectMSI_NullThrows()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.DetectMSI(null!));
+    }
+
+    /// <summary>§3.3/§6.1: <c>DetectMSI</c> rejects an empty sequence (no valid loci).</summary>
+    [Test]
+    [Category("Property")]
+    public void Msi_DetectMSI_EmptyThrows()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.DetectMSI(Array.Empty<bool>()));
+    }
+
+    /// <summary>§6.1 boundary anchors: score 0.20 ⇒ MSI-H (inclusive); 0.0 ⇒ MSS; 0.199999 ⇒ MSS; 1.0 ⇒ MSI-H.</summary>
+    [TestCase(0.20, OncologyAnalyzer.MsiStatus.MSI_High)]
+    [TestCase(0.0, OncologyAnalyzer.MsiStatus.MSS)]
+    [TestCase(0.199999, OncologyAnalyzer.MsiStatus.MSS)]
+    [TestCase(1.0, OncologyAnalyzer.MsiStatus.MSI_High)]
+    [Category("Property")]
+    public void Msi_ClassifyMSIStatus_BoundaryAnchors(double score, OncologyAnalyzer.MsiStatus expected)
+    {
+        Assert.That(OncologyAnalyzer.ClassifyMSIStatus(score), Is.EqualTo(expected));
+    }
+
+    /// <summary>§7.1 worked example: 6 unstable of 20 loci ⇒ score 0.30 ⇒ MSI-High.</summary>
+    [Test]
+    [Category("Property")]
+    public void Msi_DetectMSI_WorkedExample_6Of20_IsMsiHigh()
+    {
+        var flags = new bool[20];
+        for (int i = 0; i < 6; i++)
+        {
+            flags[i] = true;
+        }
+
+        var r = OncologyAnalyzer.DetectMSI(flags);
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.UnstableLoci, Is.EqualTo(6));
+            Assert.That(r.TotalLoci, Is.EqualTo(20));
+            Assert.That(r.Score, Is.EqualTo(0.30).Within(1e-12));
+            Assert.That(r.Status, Is.EqualTo(OncologyAnalyzer.MsiStatus.MSI_High));
+        });
+    }
+
+    /// <summary>§7.1 / §6.1 Bethesda anchors: (2,5) ⇒ MSI-H, (1,5) ⇒ MSI-L, (0,5) ⇒ MSS.</summary>
+    [TestCase(2, 5, OncologyAnalyzer.MsiStatus.MSI_High)]
+    [TestCase(1, 5, OncologyAnalyzer.MsiStatus.MSI_Low)]
+    [TestCase(0, 5, OncologyAnalyzer.MsiStatus.MSS)]
+    [Category("Property")]
+    public void Msi_ClassifyBethesdaPanel_Anchors(int unstable, int total, OncologyAnalyzer.MsiStatus expected)
+    {
+        Assert.That(OncologyAnalyzer.ClassifyBethesdaPanel(unstable, total), Is.EqualTo(expected));
+    }
+
+    #endregion
 }
