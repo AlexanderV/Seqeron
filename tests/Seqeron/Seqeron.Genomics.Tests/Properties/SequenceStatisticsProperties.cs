@@ -822,4 +822,91 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-THERMO-001 — DNA Duplex Thermodynamics (nearest-neighbor)
+
+    // -------------------------------------------------------------------------
+    // Theory (Allawi & SantaLucia 1997; SantaLucia 1998):
+    //   • ΔH°, ΔS°, ΔG° from the unified nearest-neighbor model; all finite for len ≥ 2.   (R finite)
+    //   • ΔG°₃₇ = ΔH° − T·ΔS°/1000 with T = 310.15 K (internal consistency).
+    //   • A GC-rich duplex is more stable (lower, more-negative ΔG) than an AT-rich one
+    //     of the same length.                                                              (M more GC → lower ΔG)
+    //
+    // The ΔG = ΔH − T·ΔS/1000 relation is reconstructed independently (within rounding).
+    // -------------------------------------------------------------------------
+
+    private const double ThermoRefTempKelvin = 310.15;
+
+    private static Arbitrary<string> DuplexDnaArbitrary() =>
+        (from n in Gen.Choose(2, 30)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(n)
+         select new string(chars)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "ΔG, ΔH, ΔS finite"): for any DNA duplex (length ≥ 2) the nearest-neighbor ΔH°, ΔS°, ΔG°
+    /// and Tm are all finite, and ΔG° equals the independent ΔH° − T·ΔS°/1000 within rounding.
+    /// (Allawi & SantaLucia 1997)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Thermodynamics_AreFinite_AndDeltaGIsConsistent()
+    {
+        return Prop.ForAll(DuplexDnaArbitrary(), seq =>
+        {
+            var t = SequenceStatistics.CalculateThermodynamics(seq);
+            bool finite = double.IsFinite(t.DeltaH) && double.IsFinite(t.DeltaS)
+                          && double.IsFinite(t.DeltaG) && double.IsFinite(t.MeltingTemperature);
+            double oracleG = t.DeltaH - (ThermoRefTempKelvin * t.DeltaS / 1000.0);
+            bool consistent = Math.Abs(t.DeltaG - oracleG) < 0.02; // both fields rounded to 2 dp
+            return (finite && consistent).Label($"ΔH={t.DeltaH}, ΔS={t.DeltaS}, ΔG={t.DeltaG} vs {oracleG}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more GC → more stable, lower ΔG"): at any matched length a GC-rich duplex (GCGC…) has a
+    /// strictly lower (more negative) ΔG° than an AT-rich duplex (ATAT…) — GC pairs stabilize the duplex.
+    /// (Allawi & SantaLucia 1997)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Thermodynamics_GcRich_IsMoreStableThanAtRich()
+    {
+        return Prop.ForAll(Gen.Choose(2, 30).ToArbitrary(), n =>
+        {
+            string gc = string.Concat(Enumerable.Range(0, n).Select(i => i % 2 == 0 ? 'G' : 'C'));
+            string at = string.Concat(Enumerable.Range(0, n).Select(i => i % 2 == 0 ? 'A' : 'T'));
+            double gcG = SequenceStatistics.CalculateThermodynamics(gc).DeltaG;
+            double atG = SequenceStatistics.CalculateThermodynamics(at).DeltaG;
+            return (gcG < atG).Label($"ΔG(GC)={gcG} not < ΔG(AT)={atG} at length {n}");
+        });
+    }
+
+    /// <summary>D (determinism): duplex thermodynamics are identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Thermodynamics_IsDeterministic()
+    {
+        return Prop.ForAll(DuplexDnaArbitrary(), seq =>
+            SequenceStatistics.CalculateThermodynamics(seq).Equals(SequenceStatistics.CalculateThermodynamics(seq))
+                .Label("CalculateThermodynamics is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: a GC duplex has negative (stable) ΔG; a sequence shorter than 2 yields all-zero properties.
+    /// (Allawi & SantaLucia 1997)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Thermodynamics_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var gc = SequenceStatistics.CalculateThermodynamics("GCGCGCGC");
+            Assert.That(gc.DeltaG, Is.LessThan(0.0), "A GC-rich duplex is thermodynamically stable (ΔG < 0).");
+            Assert.That(double.IsFinite(gc.DeltaH) && double.IsFinite(gc.DeltaS), Is.True);
+
+            var tooShort = SequenceStatistics.CalculateThermodynamics("A");
+            Assert.That(tooShort.DeltaH, Is.EqualTo(0.0));
+            Assert.That(tooShort.DeltaG, Is.EqualTo(0.0));
+        });
+    }
+
+    #endregion
 }
