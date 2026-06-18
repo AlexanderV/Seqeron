@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for metagenomics diversity analysis:
 /// alpha diversity indices and beta diversity metrics.
 ///
-/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001
+/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001, META-RESIST-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1681,6 +1681,89 @@ public class MetagenomicsProperties
         {
             Assert.That(p1, Is.EqualTo(1.0).Within(1e-12), "no overlap → p = 1");
             Assert.That(p2, Is.EqualTo(p1), "deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-RESIST-001: P: hit matches resistance DB; R: identity ∈ (0,1]; D: deterministic
+
+    // FindResistanceGenes reports a hit when a resistance-marker motif is contained in a gene; the
+    // reported name/class come from the matching DB entry and identity = motifLen / geneLen.
+
+    private static readonly IReadOnlyDictionary<string, (string Name, string AntibioticClass)> ResistanceDb =
+        new Dictionary<string, (string, string)>
+        {
+            ["BLA"] = ("blaTEM", "beta-lactam"),
+            ["TET"] = ("tetA", "tetracycline"),
+            ["VAN"] = ("vanA", "glycopeptide"),
+        };
+
+    private static Arbitrary<(string GeneId, string Seq)[]> ResistanceGenesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string aa = "ACDEFGHIKLMNPQRSTVWY";
+            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            var motifs = ResistanceDb.Keys.ToList();
+            int n = 1 + rng.Next(4);
+            var genes = new (string, string)[n];
+            for (int i = 0; i < n; i++)
+            {
+                // Embed a motif in some genes; leave others to chance.
+                string body = rng.Next(2) == 0 ? motifs[rng.Next(motifs.Count)] : "";
+                genes[i] = ($"g{i}", Rand(rng.Next(6)) + body + Rand(rng.Next(6)));
+            }
+            return genes;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every hit's name/class come from a DB entry whose motif is contained in the
+    /// gene, with identity in (0,1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Resistance_HitsMatchDatabase()
+    {
+        return Prop.ForAll(ResistanceGenesArbitrary(), genes =>
+        {
+            var byId = genes.ToDictionary(g => g.GeneId, g => g.Seq);
+            var hits = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            bool ok = hits.All(h =>
+                h.Identity is > 0.0 and <= 1.0 &&
+                ResistanceDb.Any(kv => kv.Value.Name == h.ResistanceGene && kv.Value.AntibioticClass == h.AntibioticClass
+                                       && byId[h.GeneId].Contains(kv.Key, StringComparison.Ordinal)));
+            return ok.Label("a resistance hit did not match a contained DB motif");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive/negative control): a gene carrying the BLA motif is reported as blaTEM; a
+    /// gene with no marker yields no hit.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Resistance_EmbeddedMotif_IsReported()
+    {
+        var genes = new[] { ("g1", "AKBLAQR"), ("g2", "AKDEFGH") };
+        var hits = MetagenomicsAnalyzer.FindResistanceGenes(genes, ResistanceDb).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(hits.Any(h => h.GeneId == "g1" && h.ResistanceGene == "blaTEM" && h.AntibioticClass == "beta-lactam"), Is.True);
+            Assert.That(hits.Any(h => h.GeneId == "g2"), Is.False, "gene without a marker yields no hit");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Resistance detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Resistance_IsDeterministic()
+    {
+        return Prop.ForAll(ResistanceGenesArbitrary(), genes =>
+        {
+            var a = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            var b = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
+            return a.SequenceEqual(b).Label("FindResistanceGenes must be deterministic");
         });
     }
 
