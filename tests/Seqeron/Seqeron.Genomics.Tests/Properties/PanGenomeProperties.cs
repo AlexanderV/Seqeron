@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for pan-genome analysis (PanGenomeAnalyzer): gene clustering, core/accessory
 /// partition, Heaps' law openness, and phylogenetic marker selection.
 ///
-/// Test Units: PANGEN-CLUSTER-001, PANGEN-CORE-001, PANGEN-HEAP-001
+/// Test Units: PANGEN-CLUSTER-001, PANGEN-CORE-001, PANGEN-HEAP-001, PANGEN-MARKER-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -267,6 +267,80 @@ public class PanGenomeProperties
         {
             Assert.That(PanGenomeAnalyzer.FitHeapsLaw(closed).IsOpen, Is.False, "identical gene content → closed");
             Assert.That(PanGenomeAnalyzer.FitHeapsLaw(open).IsOpen, Is.True, "all-unique gene content → open");
+        });
+    }
+
+    #endregion
+
+    #region PANGEN-MARKER-001: P: markers ⊆ single-copy core clusters; R: marker count ≤ requested; D: deterministic
+
+    // SelectPhylogeneticMarkers keeps single-copy core clusters (present once in every genome) that
+    // carry at least one parsimony-informative site, capped at maxMarkers (panX/Roary marker rule).
+
+    /// <summary>
+    /// INV-1 (P + R): every marker is one of the candidate clusters, is single-copy core (present once
+    /// per genome), and the number of markers never exceeds the requested cap.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Markers_AreSingleCopyCore_AndCapped()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            const int maxMarkers = 2;
+            int total = genomes.Count;
+            var clusters = PanGenomeAnalyzer.ClusterGenes(genomes, 0.9).ToList();
+            var clusterIds = clusters.Select(c => c.ClusterId).ToHashSet();
+            var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(genomes, clusters, total, maxMarkers).ToList();
+
+            bool ok = markers.Count <= maxMarkers
+                      && markers.All(m => clusterIds.Contains(m.ClusterId)
+                                          && m.GenomeCount == total
+                                          && m.GeneIds.Count == total);
+            return ok.Label($"markers not single-copy core or exceeded cap ({markers.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a single-copy core family with a parsimony-informative column is
+    /// selected as a marker; markers are a subset of the core clusters.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Markers_VariableSingleCopyCore_IsSelected()
+    {
+        // Four genomes; each has one near-identical marker gene. Position 0 reads A,A,C,C across the
+        // four genomes → a parsimony-informative site; the rest are conserved (clusters at 0.9).
+        var genomes = new Dictionary<string, IReadOnlyList<(string, string)>>
+        {
+            ["G0"] = new[] { ("m0", "AAAAAAAAAAAAAAAAAAAA") },
+            ["G1"] = new[] { ("m1", "AAAAAAAAAAAAAAAAAAAA") },
+            ["G2"] = new[] { ("m2", "CAAAAAAAAAAAAAAAAAAA") },
+            ["G3"] = new[] { ("m3", "CAAAAAAAAAAAAAAAAAAA") },
+        };
+        var clusters = PanGenomeAnalyzer.ClusterGenes(genomes, 0.9).ToList();
+        var markers = PanGenomeAnalyzer.SelectPhylogeneticMarkers(genomes, clusters, 4, 100).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(markers, Has.Count.EqualTo(1), "the variable single-copy core family is a marker");
+            Assert.That(markers[0].GenomeCount, Is.EqualTo(4));
+            Assert.That(markers[0].GeneIds, Has.Count.EqualTo(4));
+            Assert.That(clusters.Select(c => c.ClusterId), Does.Contain(markers[0].ClusterId), "marker ⊆ clusters");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Marker selection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Markers_AreDeterministic()
+    {
+        return Prop.ForAll(GenomesArbitrary(), genomes =>
+        {
+            var clusters = PanGenomeAnalyzer.ClusterGenes(genomes, 0.9).ToList();
+            var a = PanGenomeAnalyzer.SelectPhylogeneticMarkers(genomes, clusters, genomes.Count, 100).Select(m => m.ClusterId).ToList();
+            var b = PanGenomeAnalyzer.SelectPhylogeneticMarkers(genomes, clusters, genomes.Count, 100).Select(m => m.ClusterId).ToList();
+            return a.SequenceEqual(b).Label("SelectPhylogeneticMarkers must be deterministic");
         });
     }
 
