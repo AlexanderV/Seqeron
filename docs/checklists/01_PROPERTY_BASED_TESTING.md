@@ -80,7 +80,7 @@ Property-based testing генерирует сотни случайных вхо
 | 48 | ☑ | CHROM-TELO-001 | Chromosome | R: positions valid; P: telomere seq contains TTAGGG; M: more repeats → longer region; D: deterministic | ChromosomeProperties.cs (new) |
 | 49 | ☑ | CHROM-CENT-001 | Chromosome | R: centromere index ∈ [0, seqLen]; D: deterministic; P: AT-rich region | ChromosomeProperties.cs (new) |
 | 50 | ☑ | CHROM-KARYO-001 | Chromosome | R: chromosome count > 0; D: deterministic; P: each chrom has classification | ChromosomeProperties.cs (new) |
-| 51 | ☐ | CHROM-ANEU-001 | Chromosome | R: copy number ≥ 0; M: higher depth → higher CN; D: deterministic | ChromosomeProperties.cs (new) |
+| 51 | ☑ | CHROM-ANEU-001 | Chromosome | R: copy number ≥ 0; M: higher depth → higher CN; D: deterministic | ChromosomeProperties.cs (new) |
 | 52 | ☐ | CHROM-SYNT-001 | Chromosome | R: block positions valid; S: synteny(A,B) symmetric with B,A; D: deterministic | ChromosomeProperties.cs (new) |
 | 53 | ☐ | META-CLASS-001 | Metagenomics | R: confidence ∈ [0,1]; P: assigned taxon in database; D: deterministic | MetagenomicsProperties.cs (new) |
 | 54 | ☐ | META-PROF-001 | Metagenomics | R: abundances sum to 1.0; R: abundance ∈ [0,1]; D: deterministic | MetagenomicsProperties.cs (new) |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 74 |
-| ☐ Not started | 152 |
+| ☑ Complete | 75 |
+| ☐ Not started | 151 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

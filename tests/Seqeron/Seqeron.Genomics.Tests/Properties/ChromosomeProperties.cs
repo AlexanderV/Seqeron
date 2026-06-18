@@ -1188,4 +1188,438 @@ public class ChromosomeProperties
     }
 
     #endregion
+
+    #region CHROM-ANEU-001
+
+    // Covers ChromosomeAnalyzer.DetectAneuploidy and ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy
+    // (Aneuploidy_Detection.md §2.4 INV-01..INV-03, §4.2 per-bin formula + ratio table +
+    // whole-chromosome label map, §3 contract, §6 edge cases).
+    //
+    //   R  copy number ≥ 0 (INV-01: CopyNumber ∈ [0,10]); confidence ∈ [0,1] (INV-02)
+    //   M  higher depth → higher CN (CopyNumber = clamp(round(2·mean/median),0,10) is monotone non-decreasing in mean)
+    //   D  deterministic (identical inputs → identical output sequences for both methods)
+    //
+    // Key algebraic simplification used by the oracles: the source computes
+    //   logRatio   = Math.Log2(meanDepth / medianDepth)
+    //   copyNumber = round(2 ^ logRatio · 2)
+    // and since 2 ^ log2(mean/median) = mean/median exactly, this is round(2 · mean/median).
+    // observed = 2 ^ logRatio = mean/median, expected = copyNumber/2.0.
+    // All oracles below are transcribed INDEPENDENTLY from the doc/source semantics and are
+    // NEVER routed through production.
+
+    // ===================== Independent oracles =====================
+
+    /// <summary>
+    /// Independent per-bin oracle for one bin, transcribed verbatim from Aneuploidy_Detection.md
+    /// §4.2 / source: <c>observed = meanDepth / medianDepth</c>;
+    /// <c>logRatio = Math.Log2(observed)</c>;
+    /// <c>copyNumber = clamp((int)Math.Round(2 · observed), 0, 10)</c> using .NET banker's rounding
+    /// (<see cref="MidpointRounding.ToEven"/>, the default of <see cref="Math.Round(double)"/>);
+    /// <c>expected = copyNumber / 2.0</c>;
+    /// <c>confidence = 1 - min(1, |expected - observed|)</c>;
+    /// <c>Start = binIndex · binSize</c>, <c>End = (binIndex + 1) · binSize - 1</c>.
+    /// </summary>
+    private static ChromosomeAnalyzer.CopyNumberState ExpectedBinState(
+        string chromosome, int binIndex, int binSize, double meanDepth, double medianDepth)
+    {
+        double observed = meanDepth / medianDepth;
+        double logRatio = Math.Log2(observed);
+        int copyNumber = (int)Math.Round(observed * 2.0); // round-half-to-even, matching source
+        copyNumber = Math.Max(0, Math.Min(10, copyNumber));
+        double expected = copyNumber / 2.0;
+        double confidence = 1.0 - Math.Min(1.0, Math.Abs(expected - observed));
+        return new ChromosomeAnalyzer.CopyNumberState(
+            chromosome,
+            binIndex * binSize,
+            (binIndex + 1) * binSize - 1,
+            copyNumber,
+            logRatio,
+            confidence);
+    }
+
+    /// <summary>
+    /// Independent <c>DetectAneuploidy</c> oracle: replicate grouping by chromosome then by
+    /// <c>Position / binSize</c>, average depths inside each bin, and emit one bin state per
+    /// chromosome/bin in ascending bin order. Returns a flat list grouped per chromosome.
+    /// </summary>
+    private static List<ChromosomeAnalyzer.CopyNumberState> ExpectedAneuploidy(
+        IReadOnlyList<(string Chromosome, int Position, double Depth)> data,
+        double medianDepth,
+        int binSize)
+    {
+        var result = new List<ChromosomeAnalyzer.CopyNumberState>();
+        if (data.Count == 0 || medianDepth <= 0)
+            return result;
+
+        foreach (var chromGroup in data.GroupBy(d => d.Chromosome))
+        {
+            var bins = chromGroup
+                .GroupBy(d => d.Position / binSize)
+                .OrderBy(g => g.Key);
+            foreach (var bin in bins)
+            {
+                double mean = bin.Average(d => d.Depth);
+                result.Add(ExpectedBinState(chromGroup.Key, bin.Key, binSize, mean, medianDepth));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Independent cytogenetic label oracle (§4.2 whole-chromosome map):
+    /// 0→Nullisomy, 1→Monosomy, 3→Trisomy, 4→Tetrasomy, 5→Pentasomy, else <c>Copy number = {cn}</c>.
+    /// </summary>
+    private static string ExpectedWholeChromType(int cn) => cn switch
+    {
+        0 => "Nullisomy",
+        1 => "Monosomy",
+        3 => "Trisomy",
+        4 => "Tetrasomy",
+        5 => "Pentasomy",
+        _ => $"Copy number = {cn}"
+    };
+
+    /// <summary>
+    /// Independent <c>IdentifyWholeChromosomeAneuploidy</c> oracle (§2.4 INV-03): per chromosome,
+    /// the dominant copy number is the one occupying the largest bin fraction; emit
+    /// <c>(chrom, dominantCN, type)</c> only when <c>dominantFraction ≥ minFraction</c> AND
+    /// <c>dominantCN != 2</c>. Returned as a set keyed by chromosome (production order is
+    /// GroupBy-dependent and not part of the contract). Generators below avoid fraction ties so
+    /// tie-break order is irrelevant.
+    /// </summary>
+    private static HashSet<(string Chromosome, int CopyNumber, string Type)> ExpectedWholeChrom(
+        IReadOnlyList<ChromosomeAnalyzer.CopyNumberState> states, double minFraction)
+    {
+        var result = new HashSet<(string, int, string)>();
+        foreach (var chromGroup in states.GroupBy(s => s.Chromosome))
+        {
+            int total = chromGroup.Count();
+            var dominant = chromGroup
+                .GroupBy(s => s.CopyNumber)
+                .Select(g => (CopyNumber: g.Key, Fraction: g.Count() / (double)total))
+                .OrderByDescending(g => g.Fraction)
+                .First();
+            if (dominant.Fraction >= minFraction && dominant.CopyNumber != 2)
+                result.Add((chromGroup.Key, dominant.CopyNumber, ExpectedWholeChromType(dominant.CopyNumber)));
+        }
+        return result;
+    }
+
+    // ===================== Generators =====================
+
+    /// <summary>
+    /// Generates depth observations grouped into a few chromosomes and bins, plus a positive
+    /// <c>medianDepth</c> and a modest positive <c>binSize</c>. Positions stay small (a handful of
+    /// bins) so <c>binIndex · binSize</c> never overflows <c>int</c>; depths are finite positives.
+    /// Yields (observations, medianDepth, binSize).
+    /// </summary>
+    private static Arbitrary<(List<(string Chromosome, int Position, double Depth)> data, double median, int binSize)>
+        DepthDataArbitrary() =>
+        (from binSize in Gen.Choose(10, 1000)
+         from chromCount in Gen.Choose(1, 3)
+         from n in Gen.Choose(1, 40)
+         from median in Gen.Choose(1, 8000).Select(i => i / 100.0)
+         from obs in
+             (from chromIdx in Gen.Choose(0, chromCount - 1)
+              from binIdx in Gen.Choose(0, 4)
+              from offset in Gen.Choose(0, binSize - 1)
+              from depthMilli in Gen.Choose(1, 2_000_000)
+              select ($"chr{chromIdx}", binIdx * binSize + offset, depthMilli / 1000.0)).ListOf(n)
+         select (obs, median, binSize)).ToArbitrary();
+
+    /// <summary>
+    /// Generates a <c>CopyNumberState</c> list for one or more chromosomes, each with a CLEAR
+    /// dominant copy number: a controllable number of "dominant" bins of a chosen CN plus strictly
+    /// fewer "noise" bins of a different CN, so no fraction tie can occur. The dominant CN and its
+    /// fraction span disomy (⇒ nothing emitted), sub-threshold dominance (⇒ nothing emitted), and
+    /// clearly-dominant non-disomic states (⇒ emitted). The non-state fields (Start/End/LogRatio/
+    /// Confidence) are irrelevant to whole-chromosome classification and set to fixed dummies.
+    /// Yields (states, minFraction).
+    /// </summary>
+    private static Arbitrary<(List<ChromosomeAnalyzer.CopyNumberState> states, double minFraction)>
+        WholeChromArbitrary() =>
+        (from chromCount in Gen.Choose(1, 3)
+         from minFraction in Gen.Choose(50, 100).Select(i => i / 100.0)
+         from perChrom in
+             (from dominantCn in Gen.Choose(0, 6)
+              from noiseDelta in Gen.Choose(1, 4)
+              from dominantBins in Gen.Choose(2, 10)
+              from noiseBins in Gen.Choose(0, 1) // strictly fewer ⇒ no tie; 0 allows a pure chromosome
+              select (dominantCn, noiseCn: (dominantCn + noiseDelta) % 11, dominantBins, noiseBins))
+             .ListOf(chromCount)
+         let states = perChrom
+             .SelectMany((p, ci) =>
+                 Enumerable.Repeat(p.dominantCn, p.dominantBins)
+                     .Concat(Enumerable.Repeat(p.noiseCn, p.noiseBins))
+                     .Select((cn, bi) => new ChromosomeAnalyzer.CopyNumberState(
+                         $"chr{ci}", bi * 1000, (bi + 1) * 1000 - 1, cn, 0.0, 0.5)))
+             .ToList()
+         select (states, minFraction)).ToArbitrary();
+
+    // ===================== DetectAneuploidy — per-bin field oracle =====================
+
+    /// <summary>
+    /// §4.2 per-bin oracle (INV-01/INV-02 + coordinates): for arbitrary grouped depth data the
+    /// production <c>DetectAneuploidy</c> output equals the independent oracle field-by-field —
+    /// same chromosome ordering, same ascending bin order, integer fields exact, doubles
+    /// (LogRatio, Confidence) within 1e-9. The oracle recomputes <c>CopyNumber =
+    /// clamp(round(2·mean/median),0,10)</c>, <c>LogRatio = log2(mean/median)</c>, and
+    /// <c>Confidence = 1 - min(1, |CopyNumber/2 - mean/median|)</c> independently of the code.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectAneuploidy_PerBin_MatchesOracle()
+    {
+        return Prop.ForAll(DepthDataArbitrary(), t =>
+        {
+            var (data, median, binSize) = t;
+            var actual = ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize).ToList();
+            var expected = ExpectedAneuploidy(data, median, binSize);
+
+            if (actual.Count != expected.Count)
+                return false.Label($"count {actual.Count} != oracle {expected.Count}");
+
+            for (int i = 0; i < actual.Count; i++)
+            {
+                var a = actual[i];
+                var e = expected[i];
+                bool same = a.Chromosome == e.Chromosome
+                            && a.Start == e.Start
+                            && a.End == e.End
+                            && a.CopyNumber == e.CopyNumber
+                            && Math.Abs(a.LogRatio - e.LogRatio) < 1e-9
+                            && Math.Abs(a.Confidence - e.Confidence) < 1e-9;
+                if (!same)
+                    return false.Label($"bin {i}: got {a}, oracle {e}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-01 (R: copy number ≥ 0) + INV-02 + valid coordinates: for arbitrary inputs every emitted
+    /// state has <c>CopyNumber ∈ [0,10]</c>, <c>Confidence ∈ [0,1]</c>, <c>Start ≤ End</c>, and the
+    /// bin coordinates satisfy <c>End = Start + binSize - 1</c> with <c>Start</c> a non-negative
+    /// multiple of <c>binSize</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectAneuploidy_Invariants_AlwaysHold()
+    {
+        return Prop.ForAll(DepthDataArbitrary(), t =>
+        {
+            var (data, median, binSize) = t;
+            foreach (var s in ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize))
+            {
+                bool cnOk = s.CopyNumber is >= 0 and <= 10;                       // INV-01
+                bool confOk = s.Confidence is >= 0.0 and <= 1.0 + 1e-12;          // INV-02
+                bool coordOk = s.Start <= s.End
+                               && s.End == s.Start + binSize - 1
+                               && s.Start >= 0
+                               && s.Start % binSize == 0;
+                if (!(cnOk && confOk && coordOk))
+                    return false.Label($"invariant violated for {s} (binSize {binSize})");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// §4.2 ratio-table anchors (observed-ratio ⇒ copy number): a single bin whose mean depth is
+    /// <c>ratio · median</c> yields <c>CopyNumber = round(2·ratio)</c>. Confirms 0.5⇒1, 1.0⇒2,
+    /// 1.5⇒3, 2.0⇒4, 2.5⇒5 exactly. Each uses one observation so the bin mean is the value itself.
+    /// </summary>
+    [TestCase(0.5, 1, TestName = "ratio 0.5 → CN 1")]
+    [TestCase(1.0, 2, TestName = "ratio 1.0 → CN 2")]
+    [TestCase(1.5, 3, TestName = "ratio 1.5 → CN 3")]
+    [TestCase(2.0, 4, TestName = "ratio 2.0 → CN 4")]
+    [TestCase(2.5, 5, TestName = "ratio 2.5 → CN 5")]
+    [Category("Property")]
+    public void DetectAneuploidy_RatioTable_Anchors(double ratio, int expectedCn)
+    {
+        const double median = 30.0;
+        var data = new[] { ("chr1", 0, ratio * median) };
+        var states = ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize: 1000).ToList();
+        Assert.That(states, Has.Count.EqualTo(1));
+        Assert.That(states[0].CopyNumber, Is.EqualTo(expectedCn),
+            $"observed ratio {ratio} must map to copy number {expectedCn}");
+    }
+
+    // ===================== M: higher depth → higher CN (central business invariant) =====================
+
+    /// <summary>
+    /// M (monotonicity, central business invariant): with chromosome, position, median and binSize
+    /// fixed, feeding a single bin with a lower mean depth never yields a HIGHER copy number than a
+    /// higher mean depth — <c>CN(lo) ≤ CN(hi)</c> whenever <c>depthLo ≤ depthHi</c>. This holds
+    /// because <c>CopyNumber = clamp(round(2·mean/median),0,10)</c> is monotone non-decreasing in
+    /// the mean, and the clamp/round preserve order.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectAneuploidy_HigherDepth_NeverLowerCopyNumber()
+    {
+        var arb = (from median in Gen.Choose(1, 5000).Select(i => i / 100.0)
+                   from dLo in Gen.Choose(1, 2_000_000).Select(i => i / 1000.0)
+                   from dHi in Gen.Choose(1, 2_000_000).Select(i => i / 1000.0)
+                   select (median, lo: Math.Min(dLo, dHi), hi: Math.Max(dLo, dHi))).ToArbitrary();
+        return Prop.ForAll(arb, t =>
+        {
+            var (median, lo, hi) = t;
+            int cnLo = ChromosomeAnalyzer.DetectAneuploidy(new[] { ("chr1", 0, lo) }, median, 1000)
+                .Single().CopyNumber;
+            int cnHi = ChromosomeAnalyzer.DetectAneuploidy(new[] { ("chr1", 0, hi) }, median, 1000)
+                .Single().CopyNumber;
+            return (cnLo <= cnHi)
+                .Label($"median={median}: depth {lo}→CN {cnLo} but depth {hi}→CN {cnHi} (must be non-decreasing)");
+        });
+    }
+
+    // ===================== DetectAneuploidy — edge cases =====================
+
+    /// <summary>Edge (§6.1): empty depth data ⇒ no output, for any positive median/binSize.</summary>
+    [Test]
+    [Category("Property")]
+    public void DetectAneuploidy_EmptyInput_NoOutput()
+    {
+        var states = ChromosomeAnalyzer.DetectAneuploidy(
+            Enumerable.Empty<(string, int, double)>(), medianDepth: 30.0, binSize: 1000);
+        Assert.That(states, Is.Empty);
+    }
+
+    /// <summary>Edge (§6.1): a non-positive <c>medianDepth</c> (0 or negative) ⇒ no output.</summary>
+    [TestCase(0.0, TestName = "median 0 → no output")]
+    [TestCase(-5.0, TestName = "median negative → no output")]
+    [Category("Property")]
+    public void DetectAneuploidy_NonPositiveMedian_NoOutput(double median)
+    {
+        var data = new[] { ("chr1", 0, 30.0), ("chr1", 100, 60.0) };
+        var states = ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize: 1000);
+        Assert.That(states, Is.Empty);
+    }
+
+    // ===================== IdentifyWholeChromosomeAneuploidy — INV-03 oracle =====================
+
+    /// <summary>
+    /// INV-03 (§2.4 / §4.2): production <c>IdentifyWholeChromosomeAneuploidy</c> output equals the
+    /// independent oracle as a set — a whole-chromosome call is emitted exactly for chromosomes whose
+    /// dominant copy number occupies <c>≥ minFraction</c> of bins AND is non-disomic, with the label
+    /// recomputed by the independent map. Generators guarantee a clear dominant CN (no fraction
+    /// ties), and the random fraction/dominant-CN spans the suppressed cases (disomy dominant;
+    /// dominant fraction below threshold) and the emitted cases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyWholeChromosome_MatchesOracle()
+    {
+        return Prop.ForAll(WholeChromArbitrary(), t =>
+        {
+            var (states, minFraction) = t;
+            var actual = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction).ToHashSet();
+            var expected = ExpectedWholeChrom(states, minFraction);
+            return actual.SetEquals(expected)
+                .Label($"minFraction={minFraction}: got [{string.Join("|", actual)}] vs oracle [{string.Join("|", expected)}]");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 suppression anchor (dominant disomy): a chromosome whose dominant state is disomic
+    /// (CopyNumber 2) emits NOTHING even when fully dominant, because the rule excludes
+    /// <c>CopyNumber == 2</c>.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void IdentifyWholeChromosome_DominantDisomy_EmitsNothing()
+    {
+        var states = Enumerable.Range(0, 10)
+            .Select(i => new ChromosomeAnalyzer.CopyNumberState("chr1", i * 1000, (i + 1) * 1000 - 1, 2, 0.0, 1.0))
+            .ToList();
+        var calls = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction: 0.8);
+        Assert.That(calls, Is.Empty, "a dominant disomic chromosome is never reported");
+    }
+
+    /// <summary>
+    /// INV-03 suppression anchor (sub-threshold dominance): a chromosome whose dominant non-disomic
+    /// state occupies only 6/10 = 0.6 of bins is NOT reported when <c>minFraction = 0.8</c>.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void IdentifyWholeChromosome_BelowMinFraction_EmitsNothing()
+    {
+        var states = new List<ChromosomeAnalyzer.CopyNumberState>();
+        for (int i = 0; i < 6; i++)
+            states.Add(new ChromosomeAnalyzer.CopyNumberState("chr1", i * 1000, (i + 1) * 1000 - 1, 3, 0.0, 1.0));
+        for (int i = 6; i < 10; i++)
+            states.Add(new ChromosomeAnalyzer.CopyNumberState("chr1", i * 1000, (i + 1) * 1000 - 1, 2, 0.0, 1.0));
+        var calls = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction: 0.8);
+        Assert.That(calls, Is.Empty, "dominant fraction 0.6 < 0.8 ⇒ no whole-chromosome call");
+    }
+
+    /// <summary>
+    /// INV-03 label anchors (§4.2 map): a fully dominant chromosome of each non-disomic copy number
+    /// is reported with the exact cytogenetic label — 0 Nullisomy, 1 Monosomy, 3 Trisomy, 4
+    /// Tetrasomy, 5 Pentasomy, and a fallback <c>Copy number = 6</c> for other non-disomic values.
+    /// </summary>
+    [TestCase(0, "Nullisomy", TestName = "CN 0 → Nullisomy")]
+    [TestCase(1, "Monosomy", TestName = "CN 1 → Monosomy")]
+    [TestCase(3, "Trisomy", TestName = "CN 3 → Trisomy")]
+    [TestCase(4, "Tetrasomy", TestName = "CN 4 → Tetrasomy")]
+    [TestCase(5, "Pentasomy", TestName = "CN 5 → Pentasomy")]
+    [TestCase(6, "Copy number = 6", TestName = "CN 6 → fallback label")]
+    [Category("Property")]
+    public void IdentifyWholeChromosome_LabelAnchors(int cn, string expectedType)
+    {
+        var states = Enumerable.Range(0, 10)
+            .Select(i => new ChromosomeAnalyzer.CopyNumberState("chr1", i * 1000, (i + 1) * 1000 - 1, cn, 0.0, 1.0))
+            .ToList();
+        var calls = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction: 0.8).ToList();
+        Assert.That(calls, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(calls[0].Chromosome, Is.EqualTo("chr1"));
+            Assert.That(calls[0].CopyNumber, Is.EqualTo(cn));
+            Assert.That(calls[0].Type, Is.EqualTo(expectedType));
+        });
+    }
+
+    /// <summary>Edge: empty state input ⇒ no whole-chromosome output.</summary>
+    [Test]
+    [Category("Property")]
+    public void IdentifyWholeChromosome_EmptyInput_NoOutput()
+    {
+        var calls = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(
+            Enumerable.Empty<ChromosomeAnalyzer.CopyNumberState>());
+        Assert.That(calls, Is.Empty);
+    }
+
+    // ===================== D: determinism =====================
+
+    /// <summary>
+    /// D (determinism): identical depth inputs ⇒ identical <c>DetectAneuploidy</c> output sequences
+    /// (field-by-field, in order).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectAneuploidy_IsDeterministic()
+    {
+        return Prop.ForAll(DepthDataArbitrary(), t =>
+        {
+            var (data, median, binSize) = t;
+            var a = ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize).ToList();
+            var b = ChromosomeAnalyzer.DetectAneuploidy(data, median, binSize).ToList();
+            return a.SequenceEqual(b).Label($"non-deterministic DetectAneuploidy (n={data.Count}, binSize={binSize})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical state inputs ⇒ identical <c>IdentifyWholeChromosomeAneuploidy</c>
+    /// output sequences.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyWholeChromosome_IsDeterministic()
+    {
+        return Prop.ForAll(WholeChromArbitrary(), t =>
+        {
+            var (states, minFraction) = t;
+            var a = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction).ToList();
+            var b = ChromosomeAnalyzer.IdentifyWholeChromosomeAneuploidy(states, minFraction).ToList();
+            return a.SequenceEqual(b).Label($"non-deterministic IdentifyWholeChromosomeAneuploidy (n={states.Count})");
+        });
+    }
+
+    #endregion
 }
