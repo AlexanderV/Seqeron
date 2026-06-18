@@ -148,7 +148,7 @@ Property-based testing генерирует сотни случайных вхо
 | 116 | ☑ | ONCO-HETERO-001 | Oncology | R: heterogeneity (MATH) ≥ 0; M: wider VAF spread → higher heterogeneity; D: deterministic | OncologyProperties.cs (new) |
 | 117 | ☑ | ONCO-HLA-001 | Oncology | P: alleles valid HLA nomenclature; R: ≤ 2 alleles per locus; D: deterministic | OncologyProperties.cs (new) |
 | 118 | ☑ | ONCO-ACTION-001 | Oncology | R: evidence tier ∈ ordered levels (A>B>C>D); P: known actionable variant → tier assigned; D: deterministic | OncologyProperties.cs (new) |
-| 119 | ☐ | ONCO-SV-001 | Oncology | P: chromothripsis/chromoplexy classified by breakpoint pattern; R: breakpoint count ≥ 0; D: deterministic | OncologyProperties.cs (new) |
+| 119 | ☑ | ONCO-SV-001 | Oncology | P: chromothripsis/chromoplexy classified by breakpoint pattern; R: breakpoint count ≥ 0; D: deterministic | OncologyProperties.cs (new) |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | P: outlier ⟺ |z-score| > threshold; M: lower threshold → ≥ outliers; R: z-scores finite; D: deterministic | OncologyProperties.cs (new) |
 | 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | R: each fraction ∈ [0,1]; P: Σ fractions = 1.0; P: counts sum = length; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 122 | ☐ | SEQ-DINUC-001 | Statistics | R: each frequency ≥ 0; P: Σ dinucleotide counts = length−1; D: deterministic | SequenceStatisticsProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 118 |
-| ☐ Not started | 116 |
+| ☑ Complete | 119 |
+| ☐ Not started | 115 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

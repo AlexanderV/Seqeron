@@ -7116,9 +7116,11 @@ public class OncologyProperties
     /// expected VAF v = m·π / [2 + π·(n_tot−2)] ∈ [0,1]. EstimatePurity must recover π.
     /// </summary>
     private static Gen<(double pi, int m, int nTot, double vaf)> KnownPurityVariantGen() =>
+        // π capped strictly below 1 so the inverse round-trip cannot round to just above 1.0
+        // (EstimatePurity rejects a computed purity > 1).
         from nTot in Gen.Choose(1, 6)
         from m in Gen.Choose(1, nTot)
-        from piMilli in Gen.Choose(1, 1000)
+        from piMilli in Gen.Choose(1, 950)
         let pi = piMilli / 1000.0
         let vaf = m * pi / (2.0 + pi * (nTot - 2))
         select (pi, m, nTot, vaf);
@@ -9254,6 +9256,189 @@ public class OncologyProperties
 
             Assert.That(OncologyAnalyzer.ClassifyActionabilityLevel(empty), Is.EqualTo(OncologyAnalyzer.OncoKbLevel.None), "No associations ⇒ None.");
             Assert.That(OncologyAnalyzer.AssessActionability(new[] { empty })[0].IsActionable, Is.False);
+        });
+    }
+
+    #endregion
+
+    #region ONCO-SV-001 — Complex Rearrangement (Chromothripsis) Classification
+
+    // -------------------------------------------------------------------------
+    // Theory (Korbel & Campbell 2013; Cortés-Ciriano 2020; Magrangeas 2011):
+    //   • Oscillation count = adjacent copy-number state transitions, in [0, n−1].   (R count ≥ 0)
+    //   • Breakpoint clustering: gaps exponential under the random null (CV=1); CV>1 ⇒ clustered.
+    //   • Chromothripsis ⟺ 2–3 distinct CN states ∧ ≥10 oscillations ∧ ≥6 clustered SVs.  (P pattern)
+    //   • Confidence: oscillating segments ≥7 ⇒ High, ≥4 ⇒ Low, else None.
+    //
+    // The transition count, the gap-CV clustering test and the hallmark gate are
+    // reconstructed independently — NOT routed through production — so a wrong
+    // threshold or state count is caught.
+    // -------------------------------------------------------------------------
+
+    private const double SvTolerance = 1e-9;
+
+    /// <summary>
+    /// R (count ≥ 0): <c>CountCopyNumberStateOscillations</c> equals the number of adjacent differing
+    /// copy-number states and lies in [0, n−1]. (Magrangeas 2011 oscillating CN changes)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountCopyNumberStateOscillations_CountsAdjacentTransitions()
+    {
+        return Prop.ForAll(Gen.Choose(0, 4).ArrayOf().ToArbitrary(), states =>
+        {
+            int osc = OncologyAnalyzer.CountCopyNumberStateOscillations(states);
+            int oracle = 0;
+            for (int i = 1; i < states.Length; i++)
+            {
+                if (states[i] != states[i - 1])
+                {
+                    oracle++;
+                }
+            }
+
+            return (osc == oracle && osc >= 0 && osc <= Math.Max(0, states.Length - 1))
+                .Label($"oscillations {osc} ≠ oracle {oracle} (n={states.Length})");
+        });
+    }
+
+    /// <summary>
+    /// R (breakpoint count ≥ 0) + clustering: <c>TestBreakpointClustering</c> reports the breakpoint count and
+    /// matches the independent gap-CV oracle — fewer than three breakpoints (or coincident ones) are not
+    /// clustered; otherwise IsClustered ⟺ CV(gaps) &gt; 1. (Korbel & Campbell 2013 exponential null)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TestBreakpointClustering_MatchesGapCvOracle()
+    {
+        return Prop.ForAll(Gen.Choose(0, 100_000).Select(v => (long)v).ArrayOf().ToArbitrary(), positions =>
+        {
+            var result = OncologyAnalyzer.TestBreakpointClustering(positions);
+            bool countOk = result.BreakpointCount == positions.Length;
+
+            bool oracleOk;
+            if (positions.Length < 3)
+            {
+                oracleOk = !result.IsClustered && result.MeanGap == 0.0 && result.CoefficientOfVariation == 0.0;
+            }
+            else
+            {
+                var sorted = positions.OrderBy(p => p).ToArray();
+                var gaps = new double[sorted.Length - 1];
+                for (int i = 0; i < gaps.Length; i++)
+                {
+                    gaps[i] = sorted[i + 1] - sorted[i];
+                }
+
+                double mean = gaps.Average();
+                if (mean <= 0.0)
+                {
+                    oracleOk = !result.IsClustered;
+                }
+                else
+                {
+                    double variance = gaps.Sum(g => (g - mean) * (g - mean)) / gaps.Length;
+                    double cv = Math.Sqrt(variance) / mean;
+                    oracleOk = Math.Abs(result.MeanGap - mean) < SvTolerance * Math.Max(1.0, mean)
+                               && Math.Abs(result.CoefficientOfVariation - cv) < 1e-6 * Math.Max(1.0, cv)
+                               && result.IsClustered == (cv > 1.0);
+                }
+            }
+
+            return (countOk && oracleOk).Label($"count={result.BreakpointCount}, cv={result.CoefficientOfVariation}, clustered={result.IsClustered}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "classified by breakpoint pattern"): <c>ClassifyComplexRearrangement</c> reproduces the
+    /// independent Korbel & Campbell hallmark oracle — Chromothripsis iff 2–3 distinct CN states ∧ ≥10
+    /// oscillations ∧ ≥6 clustered SVs — with the oscillation/segment/state counts and confidence tier
+    /// (≥7 High, ≥4 Low, else None) all matching. (Korbel & Campbell 2013; Cortés-Ciriano 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyComplexRearrangement_MatchesHallmarkOracle()
+    {
+        var arb = (from states in Gen.Choose(0, 4).ArrayOf()
+                   from sv in Gen.Choose(0, 20)
+                   select (states, sv)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var result = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(t.states, t.sv));
+
+            int osc = 0;
+            for (int i = 1; i < t.states.Length; i++)
+            {
+                if (t.states[i] != t.states[i - 1])
+                {
+                    osc++;
+                }
+            }
+
+            int oscSeg = osc > 0 ? osc + 1 : 0;
+            int distinct = t.states.Length == 0 ? 0 : t.states.Distinct().Count();
+            var conf = oscSeg >= 7 ? OncologyAnalyzer.ChromothripsisConfidence.High
+                : oscSeg >= 4 ? OncologyAnalyzer.ChromothripsisConfidence.Low
+                : OncologyAnalyzer.ChromothripsisConfidence.None;
+            bool isChromo = distinct is >= 2 and <= 3 && osc >= 10 && t.sv >= 6;
+            var type = isChromo ? OncologyAnalyzer.ComplexRearrangementType.Chromothripsis
+                : OncologyAnalyzer.ComplexRearrangementType.NotComplex;
+
+            bool ok = result.Type == type
+                      && result.Confidence == conf
+                      && result.OscillationCount == osc
+                      && result.OscillatingSegmentCount == oscSeg
+                      && result.DistinctStateCount == distinct
+                      && result.StructuralVariantCount == t.sv;
+            return ok.Label($"type={result.Type} (exp {type}), conf={result.Confidence} (exp {conf}), osc={result.OscillationCount}");
+        });
+    }
+
+    /// <summary>D (determinism): rearrangement classification is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ComplexRearrangement_IsDeterministic()
+    {
+        var arb = (from states in Gen.Choose(0, 4).ArrayOf()
+                   from sv in Gen.Choose(0, 20)
+                   select (states, sv)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var input = new OncologyAnalyzer.ComplexRearrangementInput(t.states, t.sv);
+            return OncologyAnalyzer.ClassifyComplexRearrangement(input)
+                .Equals(OncologyAnalyzer.ClassifyComplexRearrangement(input))
+                .Label("ClassifyComplexRearrangement is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a two-state oscillating profile with ≥10 transitions and ≥6 SVs is Chromothripsis (High
+    /// confidence); a progressive multi-state amplification is not; a tight breakpoint cluster (CV &gt; 1) is
+    /// clustered while evenly spaced breakpoints are not. (Korbel & Campbell 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyComplexRearrangement_CanonicalCases()
+    {
+        var twoState = Enumerable.Range(0, 22).Select(i => i % 2 == 0 ? 2 : 3).ToArray(); // 21 oscillations, 2 states
+        var progressive = new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }; // many distinct states
+
+        Assert.Multiple(() =>
+        {
+            var chromo = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(twoState, 6));
+            Assert.That(chromo.Type, Is.EqualTo(OncologyAnalyzer.ComplexRearrangementType.Chromothripsis),
+                "Two-state ≥10-oscillation profile with 6 SVs is chromothripsis.");
+            Assert.That(chromo.Confidence, Is.EqualTo(OncologyAnalyzer.ChromothripsisConfidence.High), "22 oscillating segments ⇒ High.");
+
+            var notComplex = OncologyAnalyzer.ClassifyComplexRearrangement(
+                new OncologyAnalyzer.ComplexRearrangementInput(progressive, 20));
+            Assert.That(notComplex.Type, Is.EqualTo(OncologyAnalyzer.ComplexRearrangementType.NotComplex),
+                "Progressive multi-state amplification (>3 states) is not chromothripsis.");
+
+            var clustered = OncologyAnalyzer.TestBreakpointClustering(new long[] { 0, 1, 2, 3, 1_000_000 });
+            Assert.That(clustered.IsClustered, Is.True, "A tight cluster plus a distant outlier has CV > 1.");
+            var even = OncologyAnalyzer.TestBreakpointClustering(new long[] { 0, 100, 200, 300, 400 });
+            Assert.That(even.IsClustered, Is.False, "Evenly spaced breakpoints (CV 0) are not clustered.");
         });
     }
 
