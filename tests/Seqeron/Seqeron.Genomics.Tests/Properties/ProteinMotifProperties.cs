@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001, PROTMOTIF-PATTERN-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001, PROTMOTIF-PATTERN-001, PROTMOTIF-SP-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -611,6 +611,80 @@ public class ProteinMotifProperties
             ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).Select(m => (m.Start, m.End))
                 .SequenceEqual(ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).Select(m => (m.Start, m.End)))
                 .Label("FindMotifByPattern must be deterministic"));
+    }
+
+    #endregion
+
+    #region PROTMOTIF-SP-001: R: cleavage site ∈ [1, len]; P: N-terminal signal detected; D: deterministic
+
+    // PredictSignalPeptide is von Heijne (1986) / EMBOSS sigcleave weight-matrix cleavage-site
+    // prediction. The cleavage position is the 1-based start of the mature protein; the signal
+    // sequence is the N-terminal prefix preceding it.
+
+    // UniProt P17644 (ACH2_DROME): a real secreted protein with an N-terminal signal peptide;
+    // EMBOSS sigcleave scores 13.739 with the mature protein starting at residue 42.
+    private const string Ach2Drome =
+        "MAPGCCTTRPRPIALLAHIWRHCKPLCLLLVLLLLCETVQANPDAKRLYDDLLSNYNRLI" +
+        "RPVSNNTDTVLVKLGLRLSQLIDLNLKDQILTTNVWLEHEWQDHKFKWDPSEYGGVTELY" +
+        "VPSEHIWLPDIVLYNNADGEYVVTTMTKAILHYTGKVVWTPPAIFKSSCEIDVRYFPFDQ" +
+        "QTCFMKFGSWTYDGDQIDLKHISQKNDKDNKVEIGIDLREYYPSVEWDILGVPAERHEKY" +
+        "YPCCAEPYPDIFFNITLRRKTLFYTVNLIIPCVGISYLSVLVFYLPADSGEKIALCISIL" +
+        "LSQTMFFLLISEIIPSTSLALPLLGKYLLFTMLLVGLSVVITIIILNIHYRKPSTHKMRP";
+
+    /// <summary>
+    /// INV-1 (R): when a prediction is returned, the cleavage position is in [1,len], the signal
+    /// sequence is exactly the N-terminal prefix preceding it, and the likely-flag matches the score
+    /// threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SignalPeptide_CleavageAndPrefix_AreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var sp = ProteinMotifFinder.PredictSignalPeptide(seq);
+            if (sp is null) return true.Label("no prediction (too short)");
+            var v = sp.Value;
+            bool ok = v.CleavagePosition >= 1 && v.CleavagePosition <= seq.Length
+                      && v.SignalSequence == seq.Substring(0, v.CleavagePosition - 1)
+                      && v.IsLikelySignalPeptide == (v.Score >= 3.5);
+            return ok.Label($"invalid cleavage/prefix/flag: pos={v.CleavagePosition}, len={seq.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a real N-terminal signal peptide (P17644) is detected as likely
+    /// with cleavage at residue 42, and its signal sequence is the N-terminal prefix.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SignalPeptide_RealSignal_IsDetected()
+    {
+        var sp = ProteinMotifFinder.PredictSignalPeptide(Ach2Drome);
+        Assert.That(sp, Is.Not.Null);
+        var v = sp!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.IsLikelySignalPeptide, Is.True, "score ≥ 3.5 → likely signal peptide");
+            Assert.That(v.CleavagePosition, Is.EqualTo(42), "EMBOSS sigcleave mature start");
+            Assert.That(v.SignalSequence, Is.EqualTo(Ach2Drome.Substring(0, 41)), "signal = N-terminal prefix");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + boundary): prediction is deterministic; sequences shorter than the scoring window
+    /// return null.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SignalPeptide_DeterministicAndBoundary()
+    {
+        var a = ProteinMotifFinder.PredictSignalPeptide(Ach2Drome);
+        var b = ProteinMotifFinder.PredictSignalPeptide(Ach2Drome);
+        Assert.Multiple(() =>
+        {
+            Assert.That(a, Is.EqualTo(b), "PredictSignalPeptide must be deterministic");
+            Assert.That(ProteinMotifFinder.PredictSignalPeptide("MKTLLL"), Is.Null, "too short → null");
+        });
     }
 
     #endregion

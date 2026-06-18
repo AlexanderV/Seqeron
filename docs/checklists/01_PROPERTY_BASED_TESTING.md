@@ -196,7 +196,7 @@ Property-based testing генерирует сотни случайных вхо
 | 164 | ☑ | PROTMOTIF-COMMON-001 | ProteinMotif | R: positions valid; M: more sequences sharing → ≥ support; D: deterministic | ProteinMotifProperties.cs |
 | 165 | ☑ | PROTMOTIF-LC-001 | ProteinMotif | R: region start < end; M: lower complexity threshold → ≥ regions; D: deterministic | ProteinMotifProperties.cs |
 | 166 | ☑ | PROTMOTIF-PATTERN-001 | ProteinMotif | P: match conforms to pattern; R: positions valid; D: deterministic | ProteinMotifProperties.cs |
-| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | R: cleavage site ∈ [1, len]; P: N-terminal hydrophobic signal; D: deterministic | ProteinMotifProperties.cs |
+| 167 | ☑ | PROTMOTIF-SP-001 | ProteinMotif | R: cleavage site ∈ [1, len]; P: N-terminal hydrophobic signal; D: deterministic | ProteinMotifProperties.cs |
 | 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | R: helix length in range; P: hydrophobic stretch; M: lower threshold → ≥ helices; D: deterministic | ProteinMotifProperties.cs |
 | 169 | ☐ | MOTIF-CONS-001 | Matching | P: consensus length = alignment width; P: each column = majority residue; D: deterministic | PatternMatchingProperties.cs |
 | 170 | ☐ | MOTIF-DISCOVER-001 | Matching | R: motif length = k; M: lower support → ≥ motifs; D: deterministic | PatternMatchingProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 166 |
-| ☐ Not started | 68 |
+| ☑ Complete | 167 |
+| ☐ Not started | 67 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
