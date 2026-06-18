@@ -239,8 +239,8 @@ Property-based testing генерирует сотни случайных вхо
 | 207 | ☑ | POP-ANCESTRY-001 | PopGen | R: each proportion ∈ [0,1]; P: Σ proportions = 1.0; D: deterministic | PopulationGeneticsProperties.cs |
 | 208 | ☑ | POP-ROH-001 | PopGen | R: ROH start < end; M: lower minLen → ≥ ROH; P: homozygous within run; D: deterministic | PopulationGeneticsProperties.cs |
 | 209 | ☑ | POP-SELECT-001 | PopGen | R: statistic finite; M: stronger differentiation → higher signal; D: deterministic | PopulationGeneticsProperties.cs |
-| 210 | ☐ | SEQ-ATSKEW-001 | Composition | R: skew ∈ [−1,1]; S: complement reverses sign; D: deterministic | GcSkewProperties.cs |
-| 211 | ☐ | SEQ-REPLICATION-001 | Composition | R: origin index ∈ [0, len]; P: at cumulative-skew extremum; D: deterministic | GcSkewProperties.cs |
+| 210 | ☑ | SEQ-ATSKEW-001 | Composition | R: skew ∈ [−1,1]; S: complement reverses sign; D: deterministic | GcSkewProperties.cs |
+| 211 | ☑ | SEQ-REPLICATION-001 | Composition | R: origin index ∈ [0, len]; P: at cumulative-skew extremum; D: deterministic | GcSkewProperties.cs |
 | 212 | ☐ | SEQ-RNACOMP-001 | Composition | I: complement∘complement = identity; P: A↔U, G↔C; D: deterministic | SequenceProperties.cs |
 | 213 | ☐ | CODON-ENC-001 | Codon | R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic | CodonProperties.cs |
 | 214 | ☐ | CODON-RSCU-001 | Codon | R: RSCU ≥ 0; P: mean RSCU per amino acid = 1; D: deterministic | CodonProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 209 |
-| ☐ Not started | 25 |
+| ☑ Complete | 211 |
+| ☐ Not started | 23 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
