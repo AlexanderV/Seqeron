@@ -6264,4 +6264,238 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-FUSION-003 — Fusion Breakpoint Analysis (reading-frame consequence + protein prediction)
+
+    // -------------------------------------------------------------------------
+    // Theory (Arriba Uhrig 2021; AGFusion Murphy & Elemento 2016; reading frames in triplets):
+    //   • A frame call is made ONLY for a CDS-to-CDS junction; otherwise NotPredicted.    (INV-1, Arriba '.')
+    //   • InFrame ⟺ (fivePrimeCodingBases − threePrimeStartPhase) mod 3 == 0.             (INV-2, AGFusion)
+    //   • Chimeric CDS = 5' CDS prefix [0:junction5] ++ 3' CDS suffix [junction3:].        (INV-4, AGFusion)
+    //   • Peptide = translate(chimeric, NCBI table 1) truncated at the first stop '*',     (INV-3, AGFusion)
+    //     translating only whole codons (a trailing partial codon is dropped).             (INV-5)
+    //
+    // The frame rule, the chimeric concatenation and the translation are reconstructed
+    // here from theory — the standard genetic code is rebuilt from the canonical NCBI
+    // transl_table=1 strings, NOT routed through production's GeneticCode — so a wrong
+    // codon mapping or off-by-one slice is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Independent NCBI standard genetic code (transl_table=1), built from the canonical base/AA strings,
+    /// so the translation oracle does not share code with production's <c>GeneticCode</c>.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, char> StandardCodonTableOracle = BuildStandardCodonTableOracle();
+
+    private static Dictionary<string, char> BuildStandardCodonTableOracle()
+    {
+        const string aas =   "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
+        const string base1 = "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG";
+        const string base2 = "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG";
+        const string base3 = "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG";
+
+        var map = new Dictionary<string, char>(64);
+        for (int i = 0; i < 64; i++)
+        {
+            map[$"{base1[i]}{base2[i]}{base3[i]}"] = aas[i];
+        }
+
+        return map;
+    }
+
+    /// <summary>Independent AGFusion translation oracle: whole-codon translation truncated at the first stop.</summary>
+    private static (string peptide, bool hasStop) OracleTranslate(string chimericCds)
+    {
+        int translatable = chimericCds.Length - (chimericCds.Length % 3);
+        var peptide = new System.Text.StringBuilder(translatable / 3);
+        for (int i = 0; i < translatable; i += 3)
+        {
+            char aa = StandardCodonTableOracle[chimericCds.Substring(i, 3)];
+            if (aa == '*')
+            {
+                return (peptide.ToString(), true); // truncate at first stop
+            }
+
+            peptide.Append(aa);
+        }
+
+        return (peptide.ToString(), false);
+    }
+
+    private static Gen<string> DnaStringGen(int length) =>
+        Gen.Elements('A', 'C', 'G', 'T').ArrayOf(length).Select(cs => new string(cs));
+
+    /// <summary>An arbitrary breakpoint for AnalyzeBreakpoint: random sites and a valid codon phase (0..2).</summary>
+    private static Arbitrary<OncologyAnalyzer.FusionBreakpoint> BreakpointArbitrary() =>
+        (from site5 in Gen.Elements(Enum.GetValues<OncologyAnalyzer.BreakpointSite>())
+         from site3 in Gen.Elements(Enum.GetValues<OncologyAnalyzer.BreakpointSite>())
+         from coding in Gen.Choose(0, 300)
+         from phase in Gen.Choose(0, 2)
+         select new OncologyAnalyzer.FusionBreakpoint("GENE5", "GENE3", site5, site3, coding, phase)).ToArbitrary();
+
+    /// <summary>
+    /// A protein-prediction problem: two short DNA CDS sequences with in-range junction offsets
+    /// (j5 ∈ [0, len5] as the 5' prefix length; j3 ∈ [0, len3] as the 3' suffix start, possibly &gt; 2).
+    /// </summary>
+    private static Arbitrary<(string cds5, string cds3, int j5, int j3)> FusionProteinProblemArbitrary() =>
+        (from len5 in Gen.Choose(0, 15)
+         from cds5 in DnaStringGen(len5)
+         from len3 in Gen.Choose(0, 15)
+         from cds3 in DnaStringGen(len3)
+         from j5 in Gen.Choose(0, len5)
+         from j3 in Gen.Choose(0, len3)
+         select (cds5, cds3, j5, j3)).ToArbitrary();
+
+    private static OncologyAnalyzer.FusionBreakpoint CdsBreakpoint(int j5, int j3) =>
+        new("GENE5", "GENE3", OncologyAnalyzer.BreakpointSite.Cds, OncologyAnalyzer.BreakpointSite.Cds, j5, j3);
+
+    /// <summary>
+    /// INV-1 + INV-2 (P, checklist "reading frame correctly derived"): AnalyzeBreakpoint reports
+    /// BreakpointInCoding iff both sites are CDS; a frame call is made only then and equals InFrame ⟺
+    /// (coding − phase) mod 3 == 0, OutOfFrame otherwise; non-coding junctions are NotPredicted. Sites are
+    /// carried through unchanged. (TestSpec §3 INV-1/2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeBreakpoint_FrameCall_MatchesCodonPhaseOracle_OnlyForCodingJunctions()
+    {
+        return Prop.ForAll(BreakpointArbitrary(), bp =>
+        {
+            var result = OncologyAnalyzer.AnalyzeBreakpoint(bp);
+
+            bool bothCoding = bp.Site5Prime == OncologyAnalyzer.BreakpointSite.Cds
+                              && bp.Site3Prime == OncologyAnalyzer.BreakpointSite.Cds;
+            OncologyAnalyzer.BreakpointFrameStatus expected = bothCoding
+                ? ((bp.FivePrimeCodingBases - bp.ThreePrimeStartPhase) % 3 == 0
+                    ? OncologyAnalyzer.BreakpointFrameStatus.InFrame
+                    : OncologyAnalyzer.BreakpointFrameStatus.OutOfFrame)
+                : OncologyAnalyzer.BreakpointFrameStatus.NotPredicted;
+
+            bool ok = result.BreakpointInCoding == bothCoding
+                      && result.FrameStatus == expected
+                      && result.Site5Prime == bp.Site5Prime
+                      && result.Site3Prime == bp.Site3Prime;
+            return ok.Label($"sites={bp.Site5Prime}/{bp.Site3Prime} coding={bp.FivePrimeCodingBases} phase={bp.ThreePrimeStartPhase}: " +
+                $"frame={result.FrameStatus} (expected {expected}), inCoding={result.BreakpointInCoding}");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (R + chimeric composition): the chimeric CDS equals the upper-cased 5' prefix <c>[0:j5]</c>
+    /// concatenated with the 3' suffix <c>[j3:]</c>, recomputed independently. Breakpoint offsets within
+    /// the CDS bounds are accepted. (AGFusion concat; TestSpec §3 INV-4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_ChimericCds_IsPrefixPlusSuffix()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            string oracle = t.cds5.ToUpperInvariant().Substring(0, t.j5) + t.cds3.ToUpperInvariant().Substring(t.j3);
+            return (prediction.ChimericCds == oracle)
+                .Label($"chimeric '{prediction.ChimericCds}' ≠ prefix++suffix '{oracle}' (j5={t.j5}, j3={t.j3})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + INV-5: the predicted peptide equals the independent NCBI-table-1 translation of the chimeric
+    /// CDS — whole codons only, truncated at the first stop — contains no internal stop '*', has the
+    /// matching premature-stop flag, and never exceeds ⌊|chimeric|/3⌋ residues. (AGFusion translate+truncate)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_Peptide_IsFirstStopTruncatedStandardTranslation()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            (string oraclePeptide, bool oracleStop) = OracleTranslate(prediction.ChimericCds);
+
+            bool ok = prediction.Peptide == oraclePeptide
+                      && prediction.HasPrematureStop == oracleStop
+                      && !prediction.Peptide.Contains('*')
+                      && prediction.Peptide.Length <= prediction.ChimericCds.Length / 3;
+            return ok.Label($"peptide '{prediction.Peptide}' (stop={prediction.HasPrematureStop}) vs oracle '{oraclePeptide}' (stop={oracleStop})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (effect in prediction): the reported frame Effect is InFrame iff the junction keeps codon phase
+    /// (j3 ∈ {0,1,2} and (j5 − j3) mod 3 == 0), OutOfFrame otherwise — the AGFusion 3'-gene-frame rule.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_Effect_FollowsCodonPhaseRule()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(t.j5, t.j3), (t.cds5, t.cds3));
+            OncologyAnalyzer.BreakpointFrameStatus expected = t.j3 < 3 && (t.j5 - t.j3) % 3 == 0
+                ? OncologyAnalyzer.BreakpointFrameStatus.InFrame
+                : OncologyAnalyzer.BreakpointFrameStatus.OutOfFrame;
+            return (prediction.Effect == expected)
+                .Label($"effect {prediction.Effect} ≠ expected {expected} (j5={t.j5}, j3={t.j3})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): AnalyzeBreakpoint and PredictFusionProtein both return identical results for
+    /// identical inputs (each driven by its own valid-input generator).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FusionBreakpointAnalysis_IsDeterministic()
+    {
+        return Prop.ForAll(BreakpointArbitrary(), bp =>
+            OncologyAnalyzer.AnalyzeBreakpoint(bp).Equals(OncologyAnalyzer.AnalyzeBreakpoint(bp))
+                .Label("AnalyzeBreakpoint is not deterministic for identical arguments"));
+    }
+
+    /// <summary>D (determinism): PredictFusionProtein returns the identical prediction for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property PredictFusionProtein_IsDeterministic()
+    {
+        return Prop.ForAll(FusionProteinProblemArbitrary(), t =>
+        {
+            var bp = CdsBreakpoint(t.j5, t.j3);
+            return OncologyAnalyzer.PredictFusionProtein(bp, (t.cds5, t.cds3))
+                .Equals(OncologyAnalyzer.PredictFusionProtein(bp, (t.cds5, t.cds3)))
+                .Label("PredictFusionProtein is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "breakpoint within gene bounds"): a junction offset beyond its CDS length is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void PredictFusionProtein_OffsetOutOfCdsBounds_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(7, 0), ("ATGAAA", "GGG")),
+                "5' prefix length 7 exceeds the 6-base 5' CDS.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(0, 4), ("ATGAAA", "GGG")),
+                "3' suffix start 4 exceeds the 3-base 3' CDS.");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-2/INV-3/INV-4, canonical): in-frame BCR-style junction ATGAAA ++ GATGGT ⇒ chimeric
+    /// ATGAAAGATGGT, peptide MKDG, no premature stop. (AGFusion worked example)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void PredictFusionProtein_InFrameNoStop_TranslatesWholeChimera()
+    {
+        var prediction = OncologyAnalyzer.PredictFusionProtein(CdsBreakpoint(6, 0), ("ATGAAA", "GATGGT"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prediction.ChimericCds, Is.EqualTo("ATGAAAGATGGT"), "Chimeric = 5' prefix ++ 3' suffix.");
+            Assert.That(prediction.Peptide, Is.EqualTo("MKDG"), "ATG-AAA-GAT-GGT translates to M-K-D-G.");
+            Assert.That(prediction.Effect, Is.EqualTo(OncologyAnalyzer.BreakpointFrameStatus.InFrame), "(6−0) mod 3 = 0.");
+            Assert.That(prediction.HasPrematureStop, Is.False, "No stop codon in the chimeric ORF.");
+        });
+    }
+
+    #endregion
 }
