@@ -219,7 +219,7 @@ Property-based testing генерирует сотни случайных вхо
 | 187 | ☑ | VARIANT-CALL-001 | Variants | R: positions valid; P: called only where pileup differs from ref; M: higher depth → ≥ confidence; D: deterministic | VariantProperties.cs (new) |
 | 188 | ☑ | VARIANT-INDEL-001 | Variants | R: indel length > 0; P: ref and alt lengths differ; R: positions valid; D: deterministic | VariantProperties.cs (new) |
 | 189 | ☑ | VARIANT-SNP-001 | Variants | P: ref/alt single bases, ref≠alt; R: positions valid; D: deterministic | VariantProperties.cs (new) |
-| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | P: each gene in exactly one cluster; M: lower identity → ≥ merging; D: deterministic | PanGenomeProperties.cs (new) |
+| 190 | ☑ | PANGEN-CLUSTER-001 | PanGenome | P: each gene in exactly one cluster; M: lower identity → ≥ merging; D: deterministic | PanGenomeProperties.cs (new) |
 | 191 | ☐ | PANGEN-CORE-001 | PanGenome | P: core ⊆ every genome; P: core + accessory = pan; M: more genomes → ≤ core size; D: deterministic | PanGenomeProperties.cs (new) |
 | 192 | ☐ | PANGEN-HEAP-001 | PanGenome | R: Heaps' α > 0; P: open vs closed by α threshold; D: deterministic | PanGenomeProperties.cs (new) |
 | 193 | ☐ | PANGEN-MARKER-001 | PanGenome | P: markers ⊆ core genes; R: marker count ≤ requested; D: deterministic | PanGenomeProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 189 |
-| ☐ Not started | 45 |
+| ☑ Complete | 190 |
+| ☐ Not started | 44 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
