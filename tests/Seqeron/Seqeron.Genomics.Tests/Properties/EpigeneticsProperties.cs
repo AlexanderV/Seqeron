@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001, EPIGEN-DMR-001.
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001, EPIGEN-DMR-001, EPIGEN-METHYL-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -839,6 +839,104 @@ public class EpigeneticsProperties
             Assert.That(a, Has.Count.EqualTo(1));
             Assert.That(a[0].Annotation, Is.EqualTo("Hypermethylated"));
             Assert.That(a[0].MeanDifference, Is.EqualTo(0.8).Within(1e-9));
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-METHYL-001: R: level ∈ [0,1]; P: level = methylated/total; D: deterministic
+
+    // CalculateMethylationFromBisulfite (Bismark call rule): at each reference CpG, a read base C is a
+    // methylated call and T an unmethylated call; level = C / (C+T), Coverage = valid C/T calls.
+
+    /// <summary>A reference and a few reads aligned at random start positions.</summary>
+    private static Arbitrary<(string reference, (string, int)[] reads)> MethylInputArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int refLen = 20;
+            var rc = new char[refLen];
+            for (int i = 0; i < refLen; i++) rc[i] = bases[rng.Next(4)];
+            string reference = new string(rc);
+
+            int n = 1 + rng.Next(4);
+            var reads = new (string, int)[n];
+            for (int r = 0; r < n; r++)
+            {
+                int rl = 5 + rng.Next(6);
+                var c = new char[rl];
+                for (int i = 0; i < rl; i++) c[i] = bases[rng.Next(4)];
+                reads[r] = (new string(c), rng.Next(refLen));
+            }
+            return (reference, reads);
+        }).ToArbitrary();
+
+    /// <summary>Independent (Bismark-rule) recomputation of (methylated, total) at a CpG position.</summary>
+    private static (int meth, int total) RecomputeCall(string reference, (string seq, int start)[] reads, int site)
+    {
+        int meth = 0, total = 0;
+        foreach (var (seq, start) in reads)
+        {
+            string read = seq.ToUpperInvariant();
+            for (int i = 0; i < read.Length && start + i < reference.Length - 1; i++)
+            {
+                if (start + i != site) continue;
+                if (read[i] == 'C') { meth++; total++; }
+                else if (read[i] == 'T') { total++; }
+            }
+        }
+        return (meth, total);
+    }
+
+    /// <summary>
+    /// INV-1 (R + P): every returned site is a reference CpG with level ∈ [0,1] equal to its
+    /// methylated/total Bismark call fraction and Coverage equal to the valid C/T call count.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Methylation_LevelEqualsMethylatedOverTotal()
+    {
+        return Prop.ForAll(MethylInputArbitrary(), input =>
+        {
+            var (reference, reads) = input;
+            var sites = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, reads).ToList();
+            bool ok = sites.All(s =>
+            {
+                bool isCpg = s.Position + 1 < reference.Length && reference[s.Position] == 'C' && reference[s.Position + 1] == 'G';
+                var (meth, total) = RecomputeCall(reference, reads, s.Position);
+                return isCpg && s.Coverage > 0 && total == s.Coverage &&
+                       s.MethylationLevel is >= 0.0 and <= 1.0 &&
+                       Math.Abs(s.MethylationLevel - (double)meth / total) < 1e-9 &&
+                       s.Type == EpigeneticsAnalyzer.MethylationType.CpG;
+            });
+            return ok.Label("a methylation call did not equal methylated/total at a CpG");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D + golden): all-C reads give level 1, all-T reads give 0, a half/half mix gives 0.5;
+    /// calling is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Methylation_DeterministicAndGolden()
+    {
+        const string reference = "TCGAA"; // CpG at index 1
+        var allC = new[] { ("TCGAA", 0), ("TCGAA", 0) };  // 'C' at index 1
+        var allT = new[] { ("TTGAA", 0), ("TTGAA", 0) };  // 'T' at index 1
+        var mix = new[] { ("TCGAA", 0), ("TTGAA", 0) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, allC).Single().MethylationLevel,
+                Is.EqualTo(1.0).Within(1e-9), "all methylated");
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, allT).Single().MethylationLevel,
+                Is.EqualTo(0.0).Within(1e-9), "all unmethylated");
+            Assert.That(EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Single().MethylationLevel,
+                Is.EqualTo(0.5).Within(1e-9), "half methylated");
+            var once = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Select(s => s.MethylationLevel).ToList();
+            var twice = EpigeneticsAnalyzer.CalculateMethylationFromBisulfite(reference, mix).Select(s => s.MethylationLevel).ToList();
+            Assert.That(twice, Is.EqualTo(once), "deterministic");
         });
     }
 
