@@ -8876,4 +8876,182 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-HLA-001 — HLA Nomenclature Parsing & Allele-Specific LOH
+
+    // -------------------------------------------------------------------------
+    // Theory (WHO HLA Nomenclature / Marsh 2010; McGranahan 2017 LOHHLA):
+    //   • Valid name: HLA-<Gene>*F1:F2[:F3[:F4]][suffix] — 2–4 numeric fields.   (P valid nomenclature)
+    //   • A locus is diploid: exactly two alleles (allele1, allele2).             (R ≤ 2 per locus)
+    //   • HLA LOH ⟺ exactly one allele CN < 0.5 AND allelic-imbalance p < 0.01;
+    //     both < 0.5 ⇒ homozygous loss (Both), not allele-specific LOH.
+    //
+    // Parsing is checked by round-trip (parse∘format = identity) and the LOH rule by an
+    // independent decision oracle — NOT routed through production.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] HlaGenePool = { "A", "B", "C", "DRB1", "DQB1" };
+
+    private static char? HlaSuffixLetter(OncologyAnalyzer.HlaExpressionSuffix s) => s switch
+    {
+        OncologyAnalyzer.HlaExpressionSuffix.Null => 'N',
+        OncologyAnalyzer.HlaExpressionSuffix.Low => 'L',
+        OncologyAnalyzer.HlaExpressionSuffix.Secreted => 'S',
+        OncologyAnalyzer.HlaExpressionSuffix.Cytoplasm => 'C',
+        OncologyAnalyzer.HlaExpressionSuffix.Aberrant => 'A',
+        OncologyAnalyzer.HlaExpressionSuffix.Questionable => 'Q',
+        _ => null,
+    };
+
+    /// <summary>A well-formed HLA allele: gene, 2–4 two-digit numeric fields, optional expression suffix.</summary>
+    private static Gen<(string gene, string[] fields, OncologyAnalyzer.HlaExpressionSuffix suffix, string name)> HlaAlleleGen() =>
+        from gene in Gen.Elements(HlaGenePool)
+        from fieldCount in Gen.Choose(2, 4)
+        from nums in Gen.Choose(0, 99).ArrayOf(fieldCount)
+        from suffix in Gen.Elements(Enum.GetValues<OncologyAnalyzer.HlaExpressionSuffix>())
+        let fields = nums.Select(n => n.ToString("D2")).ToArray()
+        let letter = HlaSuffixLetter(suffix)
+        let name = "HLA-" + gene + "*" + string.Join(":", fields) + (letter.HasValue ? letter.Value.ToString() : "")
+        select (gene, fields, suffix, name);
+
+    private static Arbitrary<OncologyAnalyzer.HlaAlleleCopyNumber> HlaCopyNumberArbitrary() =>
+        (from cn1 in Gen.Choose(0, 1500).Select(v => v / 1000.0)
+         from cn2 in Gen.Choose(0, 1500).Select(v => v / 1000.0)
+         from pMicro in Gen.Choose(0, 200).Select(v => v / 10000.0) // p ∈ [0, 0.02], straddles 0.01
+         select new OncologyAnalyzer.HlaAlleleCopyNumber("HLA-A*01:01", cn1, "HLA-A*02:01", cn2, pMicro)).ToArbitrary();
+
+    /// <summary>
+    /// P (checklist "alleles valid HLA nomenclature") + RT: a well-formed HLA name parses to its gene
+    /// (upper-cased), its 2–4 numeric fields and suffix, and parse∘format is the identity — reparsing the
+    /// canonical <c>Name</c> reproduces the same gene/fields/suffix. (WHO HLA Nomenclature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ParseHlaAllele_RoundTripsValidNames()
+    {
+        return Prop.ForAll(HlaAlleleGen().ToArbitrary(), t =>
+        {
+            var parsed = OncologyAnalyzer.ParseHlaAllele(t.name);
+            bool fieldsOk = parsed.Fields.Count is >= 2 and <= 4 && parsed.Fields.SequenceEqual(t.fields);
+            bool geneOk = parsed.Gene == t.gene.ToUpperInvariant();
+            bool suffixOk = parsed.Suffix == t.suffix;
+
+            var reparsed = OncologyAnalyzer.ParseHlaAllele(parsed.Name);
+            bool roundTrip = reparsed.Gene == parsed.Gene
+                && reparsed.Fields.SequenceEqual(parsed.Fields)
+                && reparsed.Suffix == parsed.Suffix;
+
+            return (fieldsOk && geneOk && suffixOk && roundTrip)
+                .Label($"name '{t.name}' → gene={parsed.Gene}, fields=[{string.Join(":", parsed.Fields)}], suffix={parsed.Suffix}; reparse {parsed.Name}");
+        });
+    }
+
+    /// <summary>
+    /// <c>TryParseHlaAllele</c> succeeds for well-formed names (returning the same parse) and is consistent
+    /// with the throwing parser. (WHO HLA Nomenclature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TryParseHlaAllele_AgreesWithParseForValidNames()
+    {
+        return Prop.ForAll(HlaAlleleGen().ToArbitrary(), t =>
+        {
+            bool ok = OncologyAnalyzer.TryParseHlaAllele(t.name, out var allele);
+            var direct = OncologyAnalyzer.ParseHlaAllele(t.name);
+            return (ok && allele.Gene == direct.Gene && allele.Fields.SequenceEqual(direct.Fields) && allele.Suffix == direct.Suffix)
+                .Label($"TryParse failed or disagreed for valid '{t.name}'");
+        });
+    }
+
+    /// <summary>
+    /// R (≤ 2 alleles per locus) + LOH rule: <c>DetectHlaLoh</c> matches the independent LOHHLA decision —
+    /// allele-specific LOH iff exactly one allele CN &lt; 0.5 AND p &lt; 0.01; both &lt; 0.5 ⇒ homozygous loss
+    /// (Both, not LOH); the lost allele and imbalance flag are correct. (McGranahan 2017)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectHlaLoh_MatchesLohhlaDecisionOracle()
+    {
+        return Prop.ForAll(HlaCopyNumberArbitrary(), acn =>
+        {
+            var result = OncologyAnalyzer.DetectHlaLoh(acn);
+
+            bool a1Lost = acn.Allele1CopyNumber < 0.5;
+            bool a2Lost = acn.Allele2CopyNumber < 0.5;
+            bool imbalance = acn.AllelicImbalancePValue < 0.01;
+
+            bool expectedIsLoh;
+            OncologyAnalyzer.HlaLostAllele expectedLost;
+            if (a1Lost && a2Lost)
+            {
+                (expectedIsLoh, expectedLost) = (false, OncologyAnalyzer.HlaLostAllele.Both);
+            }
+            else if (imbalance && a1Lost)
+            {
+                (expectedIsLoh, expectedLost) = (true, OncologyAnalyzer.HlaLostAllele.Allele1);
+            }
+            else if (imbalance && a2Lost)
+            {
+                (expectedIsLoh, expectedLost) = (true, OncologyAnalyzer.HlaLostAllele.Allele2);
+            }
+            else
+            {
+                (expectedIsLoh, expectedLost) = (false, OncologyAnalyzer.HlaLostAllele.None);
+            }
+
+            bool ok = result.IsLoh == expectedIsLoh
+                      && result.LostAllele == expectedLost
+                      && result.AllelicImbalanceSignificant == imbalance;
+            return ok.Label($"cn1={acn.Allele1CopyNumber}, cn2={acn.Allele2CopyNumber}, p={acn.AllelicImbalancePValue}: " +
+                $"IsLoh={result.IsLoh} (exp {expectedIsLoh}), lost={result.LostAllele} (exp {expectedLost})");
+        });
+    }
+
+    /// <summary>D (determinism): HLA parsing and LOH detection are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hla_IsDeterministic()
+    {
+        var arb = (from a in HlaAlleleGen()
+                   from acn in HlaCopyNumberArbitrary().Generator
+                   select (a.name, acn)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var p1 = OncologyAnalyzer.ParseHlaAllele(t.name);
+            var p2 = OncologyAnalyzer.ParseHlaAllele(t.name);
+            bool parseOk = p1.Gene == p2.Gene && p1.Fields.SequenceEqual(p2.Fields) && p1.Suffix == p2.Suffix;
+            bool lohOk = OncologyAnalyzer.DetectHlaLoh(t.acn).Equals(OncologyAnalyzer.DetectHlaLoh(t.acn));
+            return (parseOk && lohOk).Label("HLA parsing/LOH is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: canonical names parse (HLA-A*02:01, suffix N); malformed names are rejected (no prefix, one
+    /// field, five fields, non-numeric); the LOHHLA rule (one allele &lt; 0.5 with p &lt; 0.01 ⇒ LOH; both
+    /// &lt; 0.5 ⇒ Both). (WHO HLA Nomenclature; McGranahan 2017)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Hla_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var a = OncologyAnalyzer.ParseHlaAllele("HLA-A*02:01");
+            Assert.That(a.Gene, Is.EqualTo("A"));
+            Assert.That(a.Fields, Is.EqualTo(new[] { "02", "01" }));
+            Assert.That(OncologyAnalyzer.ParseHlaAllele("HLA-A*24:02:01:02N").Suffix, Is.EqualTo(OncologyAnalyzer.HlaExpressionSuffix.Null));
+
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("A*02:01"), "Missing HLA- prefix.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*02"), "Only one field.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*02:01:01:01:01"), "Five fields.");
+            Assert.Throws<FormatException>(() => OncologyAnalyzer.ParseHlaAllele("HLA-A*0X:01"), "Non-numeric field.");
+            Assert.That(OncologyAnalyzer.TryParseHlaAllele("nonsense", out _), Is.False, "TryParse returns false on malformed input.");
+
+            var loh = OncologyAnalyzer.DetectHlaLoh(new OncologyAnalyzer.HlaAlleleCopyNumber("a1", 0.2, "a2", 1.4, 0.001));
+            Assert.That(loh.IsLoh, Is.True);
+            Assert.That(loh.LostAllele, Is.EqualTo(OncologyAnalyzer.HlaLostAllele.Allele1));
+            var both = OncologyAnalyzer.DetectHlaLoh(new OncologyAnalyzer.HlaAlleleCopyNumber("a1", 0.2, "a2", 0.3, 0.001));
+            Assert.That(both.LostAllele, Is.EqualTo(OncologyAnalyzer.HlaLostAllele.Both), "Both alleles < 0.5 ⇒ homozygous loss.");
+            Assert.That(both.IsLoh, Is.False, "Homozygous loss is not allele-specific LOH.");
+        });
+    }
+
+    #endregion
 }
