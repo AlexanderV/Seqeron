@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for intrinsically disordered protein prediction.
 /// Verifies score range, length preservation, and determinism invariants.
 ///
-/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001, DISORDER-LC-001
+/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001, DISORDER-LC-001, DISORDER-MORF-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -343,6 +343,70 @@ public class DisorderProperties
             Assert.That(DisorderPredictor.PredictLowComplexityRegions("ACDEFGHIKLMNPQRSTVWY"), Is.Empty,
                 "a maximally diverse window is not low-complexity");
         });
+    }
+
+    #endregion
+
+    #region DISORDER-MORF-001: P: MoRF is an ordered dip within disorder; R: positions valid; D: deterministic
+
+    // PredictMoRFs finds short ordered dips (disorder < 0.5) of length 10–70 flanked by disorder
+    // (≥ 0.5) on both sides — Molecular Recognition Features embedded in disordered regions.
+
+    private const double MoRFThreshold = 0.5;
+
+    /// <summary>
+    /// INV-1 (R + P): every MoRF lies in [10,70] residues with a score in [0,1] at valid positions,
+    /// its residues are ordered (disorder &lt; 0.5), and it is flanked by disorder on both sides —
+    /// verified against the disorder profile.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MoRFs_AreOrderedDipsWithinDisorder()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+        {
+            var profile = DisorderPredictor.PredictDisorder(seq).ResiduePredictions;
+            var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
+            bool ok = morfs.All(m =>
+            {
+                int len = m.End - m.Start + 1;
+                bool basics = m.Start >= 0 && m.Start <= m.End && m.End < seq.Length
+                              && len is >= 10 and <= 70 && m.Score is >= 0.0 and <= 1.0;
+                bool ordered = Enumerable.Range(m.Start, len).All(i => profile[i].DisorderScore < MoRFThreshold);
+                bool flanked = m.Start > 0 && profile[m.Start - 1].DisorderScore >= MoRFThreshold
+                               && m.End < seq.Length - 1 && profile[m.End + 1].DisorderScore >= MoRFThreshold;
+                return basics && ordered && flanked;
+            });
+            return ok.Label("a MoRF was not an ordered dip flanked by disorder");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): an order-promoting block flanked by disorder-promoting blocks
+    /// yields a MoRF inside the ordered block.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MoRFs_OrderedBlockInDisorder_IsDetected()
+    {
+        // P (strongly disorder-promoting) flanks; W (order-promoting) core of length 15 (∈ [10,70]).
+        string seq = new string('P', 25) + new string('W', 15) + new string('P', 25);
+        var morfs = DisorderPredictor.PredictMoRFs(seq).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(morfs, Is.Not.Empty, "an ordered block within disorder must yield a MoRF");
+            Assert.That(morfs.All(m => m.End - m.Start + 1 is >= 10 and <= 70), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): MoRF prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MoRFs_AreDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(30), seq =>
+            DisorderPredictor.PredictMoRFs(seq).SequenceEqual(DisorderPredictor.PredictMoRFs(seq))
+                .Label("PredictMoRFs must be deterministic"));
     }
 
     #endregion
