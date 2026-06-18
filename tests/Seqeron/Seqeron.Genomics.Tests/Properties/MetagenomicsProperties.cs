@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for metagenomics diversity analysis:
 /// alpha diversity indices and beta diversity metrics.
 ///
-/// Test Units: META-ALPHA-001, META-BETA-001
+/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1523,6 +1523,88 @@ public class MetagenomicsProperties
             Assert.That(coveredIds, Is.Unique, "no contig appears in more than one bin");
             Assert.That(coveredIds, Is.EquivalentTo(new[] { "contig_a", "contig_b" }),
                 "both above-threshold contigs are binned");
+        });
+    }
+
+    #endregion
+
+    #region META-FUNC-001: R: function scores ≥ 0; P: assigned function in DB (signature in gene); D: deterministic
+
+    // PredictFunctions assigns each gene its best-hit (lowest E-value) function whose DB signature is
+    // a substring of the gene's protein sequence (BLAST-style ranking).
+
+    private static readonly IReadOnlyDictionary<string, (string Function, string Pathway, string Ko)> FunctionDb =
+        new Dictionary<string, (string, string, string)>
+        {
+            ["GGG"] = ("Glycine-rich", "P1", "K001"),
+            ["WWY"] = ("Aromatic", "P2", "K002"),
+            ["MKMK"] = ("Initiator-like", "P3", "K003"),
+        };
+
+    /// <summary>Genes whose sequences embed a random DB signature inside random protein flanks.</summary>
+    private static Arbitrary<(string GeneId, string Seq)[]> FunctionGenesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string aa = "ACDEFGHIKLMNPQRSTVWY";
+            string Rand(int n) { var c = new char[n]; for (int i = 0; i < n; i++) c[i] = aa[rng.Next(aa.Length)]; return new string(c); }
+            var sigs = FunctionDb.Keys.ToList();
+            int n = 1 + rng.Next(4);
+            var genes = new (string, string)[n];
+            for (int i = 0; i < n; i++)
+            {
+                string sig = sigs[rng.Next(sigs.Count)];
+                genes[i] = ($"g{i}", Rand(rng.Next(5)) + sig + Rand(rng.Next(5)));
+            }
+            return genes;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every annotation has non-negative scores and an assigned function that comes
+    /// from a DB entry whose signature is actually contained in that gene's sequence.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Functions_AreInDbAndScoresNonNegative()
+    {
+        return Prop.ForAll(FunctionGenesArbitrary(), genes =>
+        {
+            var byId = genes.ToDictionary(g => g.GeneId, g => g.Seq);
+            var annotations = MetagenomicsAnalyzer.PredictFunctions(
+                genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).ToList();
+            bool ok = annotations.All(a =>
+                a.BitScore >= 0 && a.EValue >= 0 &&
+                FunctionDb.Any(kv => kv.Value.Function == a.Function && byId[a.GeneId].Contains(kv.Key, StringComparison.Ordinal)));
+            return ok.Label("an annotation had a negative score or a function not backed by a contained signature");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): a gene containing the GGG signature is annotated Glycine-rich.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Functions_EmbeddedSignature_IsAnnotated()
+    {
+        var genes = new[] { ("gene1", "AKAGGGAK"), ("gene2", "ACDEFHIK") };
+        var annotations = MetagenomicsAnalyzer.PredictFunctions(genes, FunctionDb).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(annotations.Any(a => a.GeneId == "gene1" && a.Function == "Glycine-rich"), Is.True);
+            Assert.That(annotations.Any(a => a.GeneId == "gene2"), Is.False, "gene with no signature is unannotated");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Functional prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Functions_AreDeterministic()
+    {
+        return Prop.ForAll(FunctionGenesArbitrary(), genes =>
+        {
+            var a = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
+            var b = MetagenomicsAnalyzer.PredictFunctions(genes.Select(g => (g.GeneId, g.Seq)), FunctionDb).Select(x => (x.GeneId, x.Function)).ToList();
+            return a.SequenceEqual(b).Label("PredictFunctions must be deterministic");
         });
     }
 
