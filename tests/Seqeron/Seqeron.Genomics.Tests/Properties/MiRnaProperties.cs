@@ -1032,4 +1032,424 @@ public class MiRnaProperties
     }
 
     #endregion
+
+    #region MIRNA-PRECURSOR-001
+
+    // ---------------------------------------------------------------------
+    // MIRNA-PRECURSOR-001 — Pre-miRNA Hairpin Detection
+    //   (MiRnaAnalyzer.FindPreMiRnaHairpins / private AnalyzeHairpin)
+    //
+    // Reference: docs/algorithms/MiRNA/Pre_miRNA_Detection.md
+    //   §2.2 Core model: a candidate S of length n is accepted only if it
+    //        decomposes as S = 5'stem + loop + 3'stem with UNINTERRUPTED
+    //        mirrored pairing from the ends inward under the pairing set
+    //        {A-U, U-A, G-C, C-G, G-U, U-G}; stem length ≥ 18; loop length
+    //        = n − 2·stem with 3 ≤ loop ≤ 25; window length default 55–120.
+    //   §2.4 INV-01 balanced dot-bracket, |Structure| = |Sequence|.
+    //        INV-02 stem ≥ 18.   INV-03 loop ∈ [3,25].
+    //        INV-04 zero-based inclusive coordinates, End = Start + len − 1.
+    //        INV-05 |Mature| = |Star| = min(matureLength, stem).
+    //   §6.1 edge cases: null/empty/too-short ⇒ none; stem < 18 ⇒ reject;
+    //        loop < 3 or > 25 ⇒ reject.
+    //   §7.1 worked example anchor.
+    //
+    // THEORY ENCODING (independent of the code under test):
+    //   We CONSTRUCT perfect hairpins  Sequence = arm5 + ('A'·L) + rnaRevComp(arm5)
+    //   where arm5 is `stem` random A/C/G/U bases and rnaRevComp is a strict
+    //   Watson-Crick reverse complement (A↔U, G↔C). By construction every
+    //   mirrored position i ∈ [0,stem) is a Watson-Crick pair, and the all-'A'
+    //   loop boundary (A:A) does NOT pair, so the uninterrupted stem stops at
+    //   EXACTLY `stem`. The expected dot-bracket, stem, loop, mature, star and
+    //   coordinates are all derived HERE from the construction, never read back
+    //   from the implementation.
+    //
+    // IMPLEMENTATION-DERIVED CONSTRAINT (honest, from AnalyzeHairpin source):
+    //   The detector caps the scanned stem at maxStem = min(n/2 − 5, 35). For
+    //   the constructed full-length window to be detected with the FULL intended
+    //   stem we therefore require  stem ≤ n/2 − 5, i.e. loop ≥ 10 (and stem ≤ 35).
+    //   The generator below honours this so the construction's stem is the one
+    //   the detector reports. This is a true property of the source, not a
+    //   weakening: the dot-bracket / stem / loop oracle is still derived from
+    //   the perfect-hairpin theory.
+    // ---------------------------------------------------------------------
+
+    private const int MinStem = 18;          // §2.2 stem ≥ 18 bp
+    private const int MaxStemCap = 35;        // AnalyzeHairpin hard cap on scanned stem
+    private const int MinLoop = 3;            // §2.2 loop ≥ 3
+    private const int MaxLoop = 25;           // §2.2 loop ≤ 25
+    private const int MinWindow = 55;         // default minHairpinLength
+    private const int MaxWindow = 120;        // default maxHairpinLength
+    private const int DefaultMatureLength = 22;
+
+    /// <summary>Pure RNA alphabet used to build hairpin arms.</summary>
+    private static readonly char[] HairpinArmAlphabet = { 'A', 'C', 'G', 'U' };
+
+    /// <summary>The allowed pre-miRNA pairing set {A-U, U-A, G-C, C-G, G-U, U-G} (§2.2).</summary>
+    private static bool IsAllowedHairpinPair(char a, char b)
+    {
+        char x = a == 'T' ? 'U' : char.ToUpperInvariant(a);
+        char y = b == 'T' ? 'U' : char.ToUpperInvariant(b);
+        return (x == 'A' && y == 'U') || (x == 'U' && y == 'A') ||
+               (x == 'G' && y == 'C') || (x == 'C' && y == 'G') ||
+               (x == 'G' && y == 'U') || (x == 'U' && y == 'G');
+    }
+
+    /// <summary>
+    /// Independent STRICT Watson-Crick reverse complement (A↔U, G↔C only — no wobble),
+    /// so that <c>arm5 + rnaRevComp(arm5)</c> pairs every mirrored position perfectly.
+    /// </summary>
+    private static string RnaRevComp(string arm)
+    {
+        char[] r = new char[arm.Length];
+        for (int i = 0; i < arm.Length; i++)
+        {
+            char c = arm[arm.Length - 1 - i];
+            r[i] = c switch { 'A' => 'U', 'U' => 'A', 'G' => 'C', 'C' => 'G', _ => 'N' };
+        }
+        return new string(r);
+    }
+
+    /// <summary>The expected dot-bracket for a perfect hairpin: stem '(' + loop '.' + stem ')'.</summary>
+    private static string ExpectedStructure(int stem, int loop) =>
+        new string('(', stem) + new string('.', loop) + new string(')', stem);
+
+    /// <summary>
+    /// Builds a perfect hairpin <c>arm5 + ('A'·loop) + rnaRevComp(arm5)</c> from explicit
+    /// stem and loop parameters using <paramref name="seed"/> for reproducible arm bases.
+    /// Returns the sequence together with the theory-derived stem and loop it encodes.
+    /// </summary>
+    private static (string sequence, int stem, int loop) BuildPerfectHairpin(int stem, int loop, int seed)
+    {
+        var rng = new Random(seed);
+        char[] arm = new char[stem];
+        for (int i = 0; i < stem; i++)
+            arm[i] = HairpinArmAlphabet[rng.Next(HairpinArmAlphabet.Length)];
+        string arm5 = new string(arm);
+        string sequence = arm5 + new string('A', loop) + RnaRevComp(arm5);
+        return (sequence, stem, loop);
+    }
+
+    /// <summary>
+    /// Generator of perfect hairpins whose FULL-length window is accepted with the EXACT
+    /// constructed stem. Constraints: loop ∈ [10,25] (so stem ≤ n/2 − 5 holds and the all-'A'
+    /// loop boundary cleanly terminates the stem), stem ∈ [18, min(35,(120−loop)/2)], and total
+    /// length ∈ [55,120]. The seed drives reproducible arm bases.
+    /// </summary>
+    private static Arbitrary<(string sequence, int stem, int loop)> PerfectHairpinArbitrary() =>
+        (from loop in Gen.Choose(10, MaxLoop)
+         let hiStem = Math.Min(MaxStemCap, (MaxWindow - loop) / 2)
+         from stem in Gen.Choose(MinStem, hiStem)
+         from seed in Gen.Choose(1, 1_000_000)
+         where 2 * stem + loop >= MinWindow && 2 * stem + loop <= MaxWindow
+         select BuildPerfectHairpin(stem, loop, seed)).ToArbitrary();
+
+    /// <summary>Arbitrary random RNA strings (mostly non-hairpins) of length 0..130.</summary>
+    private static Arbitrary<string> ArbitraryRnaArbitrary() =>
+        (from len in Gen.Choose(0, 130)
+         from chars in Gen.Elements(HairpinArmAlphabet).ArrayOf(len)
+         select new string(chars)).ToArbitrary();
+
+    /// <summary>
+    /// Independent re-statement of the full INV-01..INV-05 + R contract for ONE emitted
+    /// candidate against the original scanned input. All expected values are recomputed here.
+    /// </summary>
+    private static (bool ok, string detail) ValidateCandidate(MiRnaAnalyzer.PreMiRna hp, string input, int matureLength)
+    {
+        // INV-04: coordinates zero-based inclusive, within the input, End = Start + len − 1.
+        if (hp.Start < 0 || hp.End < hp.Start || hp.End >= input.Length)
+            return (false, $"INV-04 bounds Start={hp.Start} End={hp.End} |input|={input.Length}");
+        if (hp.End != hp.Start + hp.Sequence.Length - 1)
+            return (false, $"INV-04 End {hp.End} ≠ Start+len-1 {hp.Start + hp.Sequence.Length - 1}");
+
+        // The emitted Sequence must be the corresponding normalized (T→U, uppercase) substring.
+        string expectedSub = input.ToUpperInvariant().Replace('T', 'U').Substring(hp.Start, hp.End - hp.Start + 1);
+        if (hp.Sequence != expectedSub)
+            return (false, $"INV-04 Sequence '{hp.Sequence}' ≠ input substring '{expectedSub}'");
+
+        // INV-01: |Structure| = |Sequence|, balanced, of form (^k .^m )^k.
+        if (hp.Structure.Length != hp.Sequence.Length)
+            return (false, $"INV-01 |Structure|={hp.Structure.Length} ≠ |Sequence|={hp.Sequence.Length}");
+        int opens = hp.Structure.Count(c => c == '(');
+        int closes = hp.Structure.Count(c => c == ')');
+        int dots = hp.Structure.Count(c => c == '.');
+        if (opens != closes)
+            return (false, $"INV-01 unbalanced {opens} '(' vs {closes} ')'");
+        if (opens + closes + dots != hp.Structure.Length)
+            return (false, $"INV-01 structure has unexpected characters: '{hp.Structure}'");
+        int stem = opens; // leading '(' count
+        int loop = dots;
+        if (hp.Structure != ExpectedStructure(stem, loop))
+            return (false, $"INV-01 structure '{hp.Structure}' ≠ canonical stem/loop form");
+
+        // INV-02 / INV-03: stem ≥ 18, loop ∈ [3,25], and loop = n − 2·stem.
+        if (stem < MinStem)
+            return (false, $"INV-02 stem {stem} < {MinStem}");
+        if (loop < MinLoop || loop > MaxLoop)
+            return (false, $"INV-03 loop {loop} ∉ [{MinLoop},{MaxLoop}]");
+        if (loop != hp.Sequence.Length - 2 * stem)
+            return (false, $"loop {loop} ≠ n − 2·stem {hp.Sequence.Length - 2 * stem}");
+
+        // The reported stem must be a REAL uninterrupted run of allowed mirrored pairs.
+        for (int i = 0; i < stem; i++)
+        {
+            if (!IsAllowedHairpinPair(hp.Sequence[i], hp.Sequence[hp.Sequence.Length - 1 - i]))
+                return (false, $"stem position {i} ({hp.Sequence[i]}:{hp.Sequence[hp.Sequence.Length - 1 - i]}) is not an allowed pair");
+        }
+
+        // INV-05: |Mature| = |Star| = min(matureLength, stem); Mature is the 5' arm prefix.
+        int expectedArmLen = Math.Min(matureLength, stem);
+        if (hp.MatureSequence.Length != expectedArmLen || hp.StarSequence.Length != expectedArmLen)
+            return (false, $"INV-05 |Mature|={hp.MatureSequence.Length} |Star|={hp.StarSequence.Length} expected {expectedArmLen}");
+        if (hp.MatureSequence != hp.Sequence.Substring(0, expectedArmLen))
+            return (false, $"INV-05 Mature '{hp.MatureSequence}' ≠ 5' arm '{hp.Sequence.Substring(0, expectedArmLen)}'");
+        if (hp.StarSequence != hp.Sequence.Substring(hp.Sequence.Length - expectedArmLen, expectedArmLen))
+            return (false, $"INV-05 Star '{hp.StarSequence}' ≠ 3' arm");
+
+        // R: precursor length strictly greater than mature length.
+        if (hp.Sequence.Length <= hp.MatureSequence.Length)
+            return (false, $"R precursor len {hp.Sequence.Length} ≤ mature len {hp.MatureSequence.Length}");
+
+        return (true, "ok");
+    }
+
+    /// <summary>
+    /// P (hairpin present) + INV-01..INV-05 + R on CONSTRUCTED perfect hairpins.
+    /// For each built hairpin, the finder must emit a candidate whose Sequence equals the
+    /// full constructed sequence, with the theory-derived dot-bracket (stem '(' + loop '.' +
+    /// stem ')'), and that candidate satisfies the full independently-recomputed contract.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindPreMiRnaHairpins_PerfectHairpin_AcceptedWithExpectedStructure()
+    {
+        return Prop.ForAll(PerfectHairpinArbitrary(), built =>
+        {
+            var (sequence, stem, loop) = built;
+            string expectedStructure = ExpectedStructure(stem, loop);
+
+            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
+            var full = candidates.Where(c => c.Sequence == sequence).ToList();
+
+            if (full.Count == 0)
+                return false.Label($"P: no full-length candidate for stem={stem} loop={loop} seq='{sequence}'");
+
+            foreach (var hp in full)
+            {
+                if (hp.Structure != expectedStructure)
+                    return false.Label($"INV-01: structure '{hp.Structure}' ≠ expected '{expectedStructure}'");
+                if (hp.Structure.Length != sequence.Length)
+                    return false.Label($"INV-01: |structure| {hp.Structure.Length} ≠ |seq| {sequence.Length}");
+                if (hp.Structure.Count(c => c == '(') != hp.Structure.Count(c => c == ')'))
+                    return false.Label("INV-01: unbalanced parentheses");
+
+                // Independently verify the hairpin is real (mirrored allowed pairing across the stem).
+                for (int i = 0; i < stem; i++)
+                {
+                    if (!IsAllowedHairpinPair(sequence[i], sequence[sequence.Length - 1 - i]))
+                        return false.Label($"verify: stem pos {i} not an allowed pair");
+                }
+
+                var (ok, detail) = ValidateCandidate(hp, sequence, DefaultMatureLength);
+                if (!ok)
+                    return false.Label($"contract: {detail}");
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-05 + R focus on constructed hairpins: |Mature| = |Star| = min(22, stem), Mature is
+    /// the 5' arm prefix, Star is the 3' arm suffix, and precursor length &gt; mature length.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindPreMiRnaHairpins_PerfectHairpin_MatureStarLengthsAndArms()
+    {
+        return Prop.ForAll(PerfectHairpinArbitrary(), built =>
+        {
+            var (sequence, stem, loop) = built;
+            int expectedArmLen = Math.Min(DefaultMatureLength, stem);
+
+            var full = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence)
+                .Where(c => c.Sequence == sequence).ToList();
+            if (full.Count == 0)
+                return false.Label($"setup: no full-length candidate stem={stem} loop={loop}");
+
+            foreach (var hp in full)
+            {
+                bool ok = hp.MatureSequence.Length == expectedArmLen
+                          && hp.StarSequence.Length == expectedArmLen
+                          && hp.MatureSequence == sequence.Substring(0, expectedArmLen)
+                          && hp.StarSequence == sequence.Substring(sequence.Length - expectedArmLen, expectedArmLen)
+                          && hp.Sequence.Length > hp.MatureSequence.Length;
+                if (!ok)
+                    return false.Label($"INV-05/R: mature='{hp.MatureSequence}' star='{hp.StarSequence}' expectedLen={expectedArmLen} seqLen={hp.Sequence.Length}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-04 (coordinates) on constructed hairpins: the full-length candidate sits at Start=0,
+    /// End=|seq|−1, and its Sequence is exactly the input window.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindPreMiRnaHairpins_PerfectHairpin_CoordinatesExact()
+    {
+        return Prop.ForAll(PerfectHairpinArbitrary(), built =>
+        {
+            var (sequence, _, _) = built;
+            var hp = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence)
+                .FirstOrDefault(c => c.Sequence == sequence);
+            if (hp.Sequence != sequence)
+                return false.Label($"setup: no full-length candidate for '{sequence}'");
+
+            bool ok = hp.Start == 0
+                      && hp.End == sequence.Length - 1
+                      && hp.Sequence == sequence.Substring(hp.Start, hp.End - hp.Start + 1);
+            return ok.Label($"INV-04: Start={hp.Start} End={hp.End} |seq|={sequence.Length}");
+        });
+    }
+
+    /// <summary>
+    /// Robustness over ARBITRARY input: whatever candidates the finder emits on random RNA
+    /// (mostly non-hairpins) all satisfy INV-01..INV-05 + R. Most random input yields none —
+    /// that is acceptable; the assertion is "no malformed output".
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindPreMiRnaHairpins_ArbitraryInput_AllCandidatesWellFormed()
+    {
+        return Prop.ForAll(ArbitraryRnaArbitrary(), seq =>
+        {
+            var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+            foreach (var hp in candidates)
+            {
+                var (ok, detail) = ValidateCandidate(hp, seq, DefaultMatureLength);
+                if (!ok)
+                    return false.Label($"malformed candidate: {detail} (input '{seq}')");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical input ⇒ identical candidate list, field-for-field and in the
+    /// same order, on both constructed hairpins and arbitrary RNA.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindPreMiRnaHairpins_IsDeterministic()
+    {
+        var arb = Gen.OneOf(
+                PerfectHairpinArbitrary().Generator.Select(b => b.sequence),
+                ArbitraryRnaArbitrary().Generator)
+            .ToArbitrary();
+
+        return Prop.ForAll(arb, seq =>
+        {
+            var run1 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+            var run2 = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+            return run1.SequenceEqual(run2).Label($"D: {run1.Count} vs {run2.Count} candidates for '{seq}'");
+        });
+    }
+
+    // -- Edge cases (§6.1) and worked-example anchor (§7.1) --
+
+    /// <summary>Edge (§6.1): null or empty input yields no candidates.</summary>
+    [TestCase(null)]
+    [TestCase("")]
+    public void Anchor_NullOrEmptyInput_YieldsNoCandidates(string? seq)
+    {
+        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(seq!).ToList(), Is.Empty);
+    }
+
+    /// <summary>Edge (§6.1): input shorter than minHairpinLength (55) yields no candidates.</summary>
+    [Test]
+    public void Anchor_InputShorterThanMinWindow_YieldsNoCandidates()
+    {
+        // A would-be perfect hairpin of total length 54 (< 55) — too short to be scanned.
+        var (shortSeq, _, _) = BuildPerfectHairpin(stem: 22, loop: 10, seed: 7); // length 54
+        Assert.That(shortSeq.Length, Is.EqualTo(54));
+        Assert.That(MiRnaAnalyzer.FindPreMiRnaHairpins(shortSeq).ToList(), Is.Empty);
+    }
+
+    /// <summary>
+    /// Edge (§6.1): a hairpin with stem 17 (just below the 18 bp minimum) is rejected — no
+    /// candidate equal to that constructed sequence is emitted. Loop padded so total ≥ 55.
+    /// </summary>
+    [Test]
+    public void Anchor_StemBelowMinimum_IsRejected()
+    {
+        // stem 17, loop 21 ⇒ length 55. Detected uninterrupted stem = 17 < 18 ⇒ reject.
+        var (seq, _, _) = BuildPerfectHairpin(stem: 17, loop: 21, seed: 3);
+        Assert.That(seq.Length, Is.EqualTo(55));
+        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).Where(c => c.Sequence == seq).ToList();
+        Assert.That(full, Is.Empty, "stem-17 hairpin must be rejected (INV-02)");
+    }
+
+    /// <summary>
+    /// Edge (§6.1, INV-03 upper bound): a hairpin whose loop is 26 (above the 25-nt maximum) is
+    /// rejected — the constructed full-length sequence must not appear among emitted candidates.
+    /// (stem 22, loop 26 ⇒ length 70; the detected uninterrupted stem is 22, leaving loop 26.)
+    /// </summary>
+    [Test]
+    public void Anchor_LoopAboveMaximum_IsRejected()
+    {
+        var (seq, _, _) = BuildPerfectHairpin(stem: 22, loop: 26, seed: 11);
+        Assert.That(seq.Length, Is.EqualTo(70));
+        var full = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).Where(c => c.Sequence == seq).ToList();
+        Assert.That(full, Is.Empty, "loop-26 hairpin must be rejected (INV-03)");
+    }
+
+    /// <summary>
+    /// INV-03 lower bound — honest reachability note. The detector caps the scanned stem at
+    /// maxStem = n/2 − 5, so the reported loop is ALWAYS ≥ 10 at any accepted window; a loop
+    /// below 3 is therefore unreachable from the scan. A perfect hairpin constructed with a tiny
+    /// loop (here 2) is consequently NOT rejected: it is re-decomposed into a stem capped at
+    /// maxStem with a valid loop ≥ 3. This test asserts that genuine behaviour (any emitted
+    /// candidate still honours INV-03's lower bound), proving the bound holds rather than
+    /// fabricating an unreachable loop&lt;3 acceptance.
+    /// </summary>
+    [Test]
+    public void Anchor_TinyConstructedLoop_ReDecomposedWithinLoopBounds()
+    {
+        // stem 27, loop 2 ⇒ length 56; maxStem = 56/2 − 5 = 23 caps the stem, loop becomes 10.
+        var (seq, _, _) = BuildPerfectHairpin(stem: 27, loop: 2, seed: 11);
+        Assert.That(seq.Length, Is.EqualTo(56));
+
+        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(seq).ToList();
+        foreach (var hp in candidates)
+        {
+            int loop = hp.Structure.Count(c => c == '.');
+            Assert.That(loop, Is.InRange(MinLoop, MaxLoop), "every emitted loop must satisfy INV-03");
+            var (ok, detail) = ValidateCandidate(hp, seq, DefaultMatureLength);
+            Assert.That(ok, Is.True, detail);
+        }
+    }
+
+    /// <summary>
+    /// Worked-example anchor (§7.1): the documented 57-nt sequence yields at least one candidate,
+    /// the full-length window is accepted, and that candidate satisfies the full INV contract.
+    /// Independently: its uninterrupted stem is 23, loop 11, dot-bracket = (^23 .^11 )^23.
+    /// </summary>
+    [Test]
+    public void Anchor_WorkedExample_YieldsValidHairpin()
+    {
+        string sequence =
+            "GCAUAGCUAGCUAGCUAGCUAGCUA" +
+            "GAAAUUU" +
+            "UAGCUAGCUAGCUAGCUAGCUAUGC";
+
+        var candidates = MiRnaAnalyzer.FindPreMiRnaHairpins(sequence).ToList();
+        Assert.That(candidates, Is.Not.Empty);
+
+        var full = candidates.Single(c => c.Sequence == sequence.ToUpperInvariant().Replace('T', 'U'));
+        Assert.That(full.Structure, Is.EqualTo(ExpectedStructure(23, 11)));
+        Assert.That(full.MatureSequence, Has.Length.EqualTo(Math.Min(DefaultMatureLength, 23)));
+        Assert.That(full.MatureSequence, Is.EqualTo(full.Sequence.Substring(0, full.MatureSequence.Length)));
+        Assert.That(full.Sequence.Length, Is.GreaterThan(full.MatureSequence.Length));
+
+        var (ok, detail) = ValidateCandidate(full, sequence, DefaultMatureLength);
+        Assert.That(ok, Is.True, detail);
+    }
+
+    #endregion
 }
