@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001.
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001, EPIGEN-BISULF-001, EPIGEN-CHROM-001, EPIGEN-DMR-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -754,6 +754,91 @@ public class EpigeneticsProperties
             var a = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
             var b = EpigeneticsAnalyzer.AnnotateHistoneModifications(regions, ChromThreshold).Select(r => r.PredictedState).ToList();
             return a.SequenceEqual(b).Label("AnnotateHistoneModifications must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-DMR-001: R: start < end; M: lower threshold → ≥ DMRs; P: |Δmethylation| > threshold; D: deterministic
+
+    // FindDMRs (methylKit tiling model): positions are grouped into fixed windows; a window is a DMR
+    // when |mean(sample2 − sample1)| exceeds the cutoff and it has ≥ minCpGCount covered cytosines.
+
+    private static EpigeneticsAnalyzer.MethylationSite Site(int pos, double level) =>
+        new(pos, EpigeneticsAnalyzer.MethylationType.CpG, "CG", level, 10);
+
+    /// <summary>Two single-window samples of 3..8 CpGs with random per-site methylation levels.</summary>
+    private static Arbitrary<(EpigeneticsAnalyzer.MethylationSite[] s1, EpigeneticsAnalyzer.MethylationSite[] s2)>
+        DmrSamplesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 3 + rng.Next(6);
+            var s1 = new EpigeneticsAnalyzer.MethylationSite[n];
+            var s2 = new EpigeneticsAnalyzer.MethylationSite[n];
+            for (int i = 0; i < n; i++)
+            {
+                s1[i] = Site(i, rng.NextDouble());
+                s2[i] = Site(i, rng.NextDouble());
+            }
+            return (s1, s2);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): every DMR has Start &lt; End, at least minCpGCount cytosines, an absolute mean
+    /// difference exceeding the cutoff, and a hyper/hypo annotation consistent with its sign.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dmr_RegionsAreValid()
+    {
+        return Prop.ForAll(DmrSamplesArbitrary(), input =>
+        {
+            var (s1, s2) = input;
+            const double minDiff = 0.25;
+            var dmrs = EpigeneticsAnalyzer.FindDMRs(s1, s2, windowSize: 1000, minDifference: minDiff, minCpGCount: 3).ToList();
+            bool ok = dmrs.All(d =>
+                d.Start < d.End && d.CpGCount >= 3 &&
+                Math.Abs(d.MeanDifference) > minDiff &&
+                d.Annotation == (d.MeanDifference > 0 ? "Hypermethylated" : "Hypomethylated"));
+            return ok.Label("a DMR was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower difference cutoff reports at least as many DMRs — the strict-cutoff region
+    /// starts are a subset of the loose-cutoff region starts.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Dmr_LowerThreshold_IsSuperset()
+    {
+        return Prop.ForAll(DmrSamplesArbitrary(), input =>
+        {
+            var (s1, s2) = input;
+            var loose = EpigeneticsAnalyzer.FindDMRs(s1, s2, 1000, 0.1, 3).Select(d => d.Start).ToHashSet();
+            var strict = EpigeneticsAnalyzer.FindDMRs(s1, s2, 1000, 0.5, 3).Select(d => d.Start).ToHashSet();
+            return (strict.IsSubsetOf(loose) && strict.Count <= loose.Count)
+                .Label($"strict DMRs ({strict.Count}) not ⊆ loose DMRs ({loose.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D + positive control): DMR calling is deterministic; a clear hypo→hyper shift is called
+    /// as one Hypermethylated DMR.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Dmr_DeterministicAndGolden()
+    {
+        var control = new[] { Site(0, 0.1), Site(1, 0.1), Site(2, 0.1), Site(3, 0.1) };
+        var treatment = new[] { Site(0, 0.9), Site(1, 0.9), Site(2, 0.9), Site(3, 0.9) };
+        var a = EpigeneticsAnalyzer.FindDMRs(control, treatment, 1000, 0.25, 3).ToList();
+        var b = EpigeneticsAnalyzer.FindDMRs(control, treatment, 1000, 0.25, 3).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(a.Select(d => d.Start), Is.EqualTo(b.Select(d => d.Start)), "deterministic");
+            Assert.That(a, Has.Count.EqualTo(1));
+            Assert.That(a[0].Annotation, Is.EqualTo("Hypermethylated"));
+            Assert.That(a[0].MeanDifference, Is.EqualTo(0.8).Within(1e-9));
         });
     }
 
