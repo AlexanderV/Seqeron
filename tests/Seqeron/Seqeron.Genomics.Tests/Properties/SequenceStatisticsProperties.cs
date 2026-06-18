@@ -236,4 +236,111 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-HYDRO-001 — Hydrophobicity (Kyte-Doolittle GRAVY)
+
+    // -------------------------------------------------------------------------
+    // Theory (Kyte & Doolittle 1982; Biopython ProtParam kd):
+    //   • GRAVY = mean Kyte-Doolittle hydropathy over the recognized residues.
+    //   • Each KD value ∈ [−4.5 (R), 4.5 (I)], so the mean ∈ [−4.5, 4.5] and is finite.   (R)
+    //   • Appending the most hydrophobic residue (I=4.5) cannot lower GRAVY; appending the
+    //     least (R=−4.5) cannot raise it (more hydrophobic residues → higher mean).        (M)
+    //
+    // The KD scale and the mean are reconstructed independently here.
+    // -------------------------------------------------------------------------
+
+    private static readonly Dictionary<char, double> KdScaleOracle = new()
+    {
+        ['A'] = 1.8, ['R'] = -4.5, ['N'] = -3.5, ['D'] = -3.5, ['C'] = 2.5, ['E'] = -3.5, ['Q'] = -3.5,
+        ['G'] = -0.4, ['H'] = -3.2, ['I'] = 4.5, ['L'] = 3.8, ['K'] = -3.9, ['M'] = 1.9, ['F'] = 2.8,
+        ['P'] = -1.6, ['S'] = -0.8, ['T'] = -0.7, ['W'] = -0.9, ['Y'] = -1.3, ['V'] = 4.2,
+    };
+
+    /// <summary>Protein strings over the 20 standard residues plus non-standard symbols (B/Z/X, skipped).</summary>
+    private static Arbitrary<string> ProteinArbitrary() =>
+        Gen.Elements("ARNDCEQGHILKMFPSTWYVBZX".ToCharArray())
+            .ArrayOf()
+            .Select(a => new string(a))
+            .ToArbitrary();
+
+    private static double OracleGravy(string seq)
+    {
+        double sum = 0;
+        int count = 0;
+        foreach (char aa in seq.ToUpperInvariant())
+        {
+            if (KdScaleOracle.TryGetValue(aa, out double v))
+            {
+                sum += v;
+                count++;
+            }
+        }
+
+        return count > 0 ? sum / count : 0.0;
+    }
+
+    /// <summary>
+    /// R (checklist "score finite within scale range"): GRAVY equals the independent mean Kyte-Doolittle
+    /// hydropathy over the recognized residues, lies in [−4.5, 4.5], and is finite (0 when no residue is
+    /// recognized). (Kyte & Doolittle 1982)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hydrophobicity_EqualsMeanKyteDoolittle_InScaleRange()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+        {
+            double gravy = SequenceStatistics.CalculateHydrophobicity(seq);
+            double oracle = OracleGravy(seq);
+            return (Math.Abs(gravy - oracle) < CompTolerance && double.IsFinite(gravy)
+                    && gravy is >= -4.5 - CompTolerance and <= 4.5 + CompTolerance)
+                .Label($"GRAVY {gravy} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more hydrophobic residues → higher mean"): appending the most hydrophobic residue (I,
+    /// 4.5) never decreases GRAVY, and appending the least hydrophobic (R, −4.5) never increases it — a mean
+    /// moves toward any appended value beyond its current level. (Kyte & Doolittle 1982)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Hydrophobicity_AppendingExtremeResidue_IsMonotone()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+        {
+            double baseGravy = SequenceStatistics.CalculateHydrophobicity(seq);
+            double withIle = SequenceStatistics.CalculateHydrophobicity(seq + "I");
+            double withArg = SequenceStatistics.CalculateHydrophobicity(seq + "R");
+            return (withIle >= baseGravy - CompTolerance && withArg <= baseGravy + CompTolerance)
+                .Label($"base {baseGravy}, +I {withIle}, +R {withArg}");
+        });
+    }
+
+    /// <summary>D (determinism): GRAVY is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Hydrophobicity_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(), seq =>
+            (SequenceStatistics.CalculateHydrophobicity(seq) == SequenceStatistics.CalculateHydrophobicity(seq))
+                .Label("CalculateHydrophobicity is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: all-Ile is the scale maximum 4.5, all-Arg the minimum −4.5, "AAAA" is 1.8, and an empty or
+    /// fully non-standard sequence is 0. (Kyte & Doolittle 1982)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Hydrophobicity_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateHydrophobicity("IIII"), Is.EqualTo(4.5).Within(CompTolerance), "All Ile ⇒ max 4.5.");
+            Assert.That(SequenceStatistics.CalculateHydrophobicity("RRRR"), Is.EqualTo(-4.5).Within(CompTolerance), "All Arg ⇒ min −4.5.");
+            Assert.That(SequenceStatistics.CalculateHydrophobicity("AAAA"), Is.EqualTo(1.8).Within(CompTolerance), "Ala = 1.8.");
+            Assert.That(SequenceStatistics.CalculateHydrophobicity(""), Is.EqualTo(0.0), "Empty ⇒ 0.");
+            Assert.That(SequenceStatistics.CalculateHydrophobicity("BZX"), Is.EqualTo(0.0), "No recognized residue ⇒ 0.");
+        });
+    }
+
+    #endregion
 }

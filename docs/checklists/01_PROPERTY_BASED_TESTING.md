@@ -152,7 +152,7 @@ Property-based testing генерирует сотни случайных вхо
 | 120 | ☑ | ONCO-EXPR-001 | Oncology | P: outlier ⟺ |z-score| > threshold; M: lower threshold → ≥ outliers; R: z-scores finite; D: deterministic | OncologyProperties.cs (new) |
 | 121 | ☑ | SEQ-COMPOSITION-001 | Statistics | R: each fraction ∈ [0,1]; P: Σ fractions = 1.0; P: counts sum = length; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 122 | ☑ | SEQ-DINUC-001 | Statistics | R: each frequency ≥ 0; P: Σ dinucleotide counts = length−1; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 123 | ☐ | SEQ-HYDRO-001 | Statistics | R: score finite within scale range (Kyte-Doolittle ∈ [−4.5,4.5]); M: more hydrophobic residues → higher mean; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 123 | ☑ | SEQ-HYDRO-001 | Statistics | R: score finite within scale range (Kyte-Doolittle ∈ [−4.5,4.5]); M: more hydrophobic residues → higher mean; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 124 | ☐ | SEQ-MW-001 | Statistics | R: MW > 0 for non-empty; M: longer sequence → higher MW; P: MW additive over residues; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 125 | ☐ | SEQ-PI-001 | Statistics | R: pI ∈ [0,14]; P: net charge at pI ≈ 0; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | R: each propensity ≥ 0; P: every residue assigned H/E/C; D: deterministic | SequenceStatisticsProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 122 |
-| ☐ Not started | 112 |
+| ☑ Complete | 123 |
+| ☐ Not started | 111 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
