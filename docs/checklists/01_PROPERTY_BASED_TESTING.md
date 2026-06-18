@@ -252,7 +252,7 @@ Property-based testing генерирует сотни случайных вхо
 | 220 | ☑ | QUALITY-STATS-001 | Quality | R: mean Q ≥ 0; P: len(scores) = len(sequence); D: deterministic | FileIOProperties.cs |
 | 221 | ☑ | PHYLO-BOOT-001 | Phylogenetic | R: support ∈ [0,100]; M: more replicates → stable support; D: deterministic given seed | PhylogeneticProperties.cs |
 | 222 | ☑ | PHYLO-STATS-001 | Phylogenetic | R: tree depth ≥ 0; P: leaf count consistent; D: deterministic | PhylogeneticProperties.cs |
-| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | R: exactly 6 frames; P: 3 forward + 3 reverse-complement; D: deterministic | CodonProperties.cs |
+| 223 | ☑ | TRANS-SIXFRAME-001 | Translation | R: exactly 6 frames; P: 3 forward + 3 reverse-complement; D: deterministic | CodonProperties.cs |
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | P: filtered ⊆ all sites; M: stricter criteria → ≤ sites; D: deterministic | RestrictionProperties.cs |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | P: seed region paired; R: alignment score ≥ 0; D: deterministic | MiRnaProperties.cs |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | R: identity ∈ [0,1]; P: matches+mismatches+gaps = alignment length; D: deterministic | AlignmentProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 222 |
-| ☐ Not started | 12 |
+| ☑ Complete | 223 |
+| ☐ Not started | 11 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

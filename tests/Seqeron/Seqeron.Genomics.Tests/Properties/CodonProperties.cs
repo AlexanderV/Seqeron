@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for codon tables, translation, and codon usage.
 /// Verifies invariants of the genetic code and translation process.
 ///
-/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001, CODON-OPT-001, CODON-ENC-001, CODON-RSCU-001, CODON-STATS-001
+/// Test Units: TRANS-CODON-001, TRANS-PROT-001, CODON-USAGE-001, CODON-CAI-001, CODON-OPT-001, CODON-ENC-001, CODON-RSCU-001, CODON-STATS-001, TRANS-SIXFRAME-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -893,6 +893,60 @@ public class CodonProperties
             return (a.TotalCodons == b.TotalCodons && a.Enc == b.Enc
                     && a.CodonCounts.Count == b.CodonCounts.Count)
                 .Label("GetStatistics must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region TRANS-SIXFRAME-001: R: exactly 6 frames; P: 3 forward + 3 reverse-complement; D: deterministic
+
+    // TranslateSixFrames returns the six reading frames keyed +1..+3 (forward) and −1..−3 (reverse
+    // complement); the reverse frames are the forward frames of the reverse complement.
+
+    /// <summary>
+    /// INV-1 (R): there are exactly six frames, keyed {±1, ±2, ±3}.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_HasExactlySixFrames()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var frames = Translator.TranslateSixFrames(new DnaSequence(seq));
+            var expected = new[] { 1, 2, 3, -1, -2, -3 };
+            return (frames.Count == 6 && expected.All(frames.ContainsKey))
+                .Label($"frame keys: {string.Join(",", frames.Keys)}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): each reverse frame (−k) equals the corresponding forward frame (+k) of the reverse
+    /// complement — the three reverse frames are reverse-complement translations.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_ReverseFramesAreReverseComplement()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var frames = Translator.TranslateSixFrames(dna);
+            var rcFrames = Translator.TranslateSixFrames(dna.ReverseComplement());
+            bool ok = Enumerable.Range(1, 3).All(k => frames[-k].Sequence == rcFrames[k].Sequence);
+            return ok.Label("a reverse frame did not match the reverse-complement forward frame");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Six-frame translation is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SixFrames_IsDeterministic()
+    {
+        return Prop.ForAll(CodingDnaArbitrary(), seq =>
+        {
+            var a = Translator.TranslateSixFrames(new DnaSequence(seq));
+            var b = Translator.TranslateSixFrames(new DnaSequence(seq));
+            return a.All(kv => b[kv.Key].Sequence == kv.Value.Sequence)
+                .Label("TranslateSixFrames must be deterministic");
         });
     }
 
