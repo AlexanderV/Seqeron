@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001, RNA-MFE-001, RNA-PAIR-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -663,6 +663,87 @@ public class RnaStructureProperties
         return Prop.ForAll(RnaArbitrary(8), seq =>
             (RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq) == RnaSecondaryStructure.CalculateMinimumFreeEnergy(seq))
                 .Label("CalculateMinimumFreeEnergy must be deterministic"));
+    }
+
+    #endregion
+
+    #region RNA-PAIR-001: P: only A-U, G-C, G-U pair; S: canPair(a,b)=canPair(b,a); D: deterministic
+
+    // CanPair recognises the six canonical RNA base pairs — Watson-Crick A-U/G-C and the G-U wobble —
+    // in either order and case-insensitively. GetBasePairType classifies them as WatsonCrick / Wobble.
+
+    /// <summary>Bases plus a few non-RNA / mixed-case symbols to exercise the negative cases.</summary>
+    private static Arbitrary<char> BaseCharArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'U', 'T', 'N', 'a', 'c', 'g', 'u').ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): Over {A,C,G,U}, CanPair is true exactly for the six canonical pairs (A-U, U-A,
+    /// G-C, C-G, G-U, U-G) and false for everything else (e.g. A-A, G-A); DNA 'T' does not pair.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Pair_OnlyCanonicalPairs_AreAccepted()
+    {
+        var canonical = new HashSet<(char, char)>
+        {
+            ('A','U'), ('U','A'), ('G','C'), ('C','G'), ('G','U'), ('U','G')
+        };
+        foreach (char a in "ACGU")
+            foreach (char b in "ACGU")
+                Assert.That(RnaSecondaryStructure.CanPair(a, b), Is.EqualTo(canonical.Contains((a, b))),
+                    $"CanPair({a},{b}) mismatch");
+
+        Assert.That(RnaSecondaryStructure.CanPair('A', 'T'), Is.False, "RNA pairing does not accept DNA T");
+    }
+
+    /// <summary>
+    /// INV-2 (S): Pairing is symmetric — CanPair(a,b) == CanPair(b,a) for any bases.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_IsSymmetric()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+            (RnaSecondaryStructure.CanPair(a, b) == RnaSecondaryStructure.CanPair(b, a))
+                .Label($"CanPair({a},{b}) ≠ CanPair({b},{a})"));
+    }
+
+    /// <summary>
+    /// INV-3 (P, case-insensitive): pairing ignores case.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_IsCaseInsensitive()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+        {
+            char ta = char.IsUpper(a) ? char.ToLowerInvariant(a) : char.ToUpperInvariant(a);
+            char tb = char.IsUpper(b) ? char.ToLowerInvariant(b) : char.ToUpperInvariant(b);
+            return (RnaSecondaryStructure.CanPair(a, b) == RnaSecondaryStructure.CanPair(ta, tb))
+                .Label($"case sensitivity at ({a},{b})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, classification): GetBasePairType agrees with CanPair and labels Watson-Crick vs
+    /// Wobble correctly — A-U/G-C are WatsonCrick, G-U is Wobble, all others null.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Pair_TypeClassification_IsConsistent()
+    {
+        return Prop.ForAll(BaseCharArbitrary(), BaseCharArbitrary(), (a, b) =>
+        {
+            var type = RnaSecondaryStructure.GetBasePairType(a, b);
+            bool can = RnaSecondaryStructure.CanPair(a, b);
+            char ua = char.ToUpperInvariant(a), ub = char.ToUpperInvariant(b);
+            bool isWobble = (ua == 'G' && ub == 'U') || (ua == 'U' && ub == 'G');
+            bool expectedWc = can && !isWobble;
+
+            bool ok = (can == (type != null))
+                      && (!can || (isWobble
+                            ? type == RnaSecondaryStructure.BasePairType.Wobble
+                            : type == RnaSecondaryStructure.BasePairType.WatsonCrick))
+                      && (!expectedWc || type == RnaSecondaryStructure.BasePairType.WatsonCrick);
+            return ok.Label($"type inconsistent for ({a},{b}): can={can}, type={type}");
+        });
     }
 
     #endregion
