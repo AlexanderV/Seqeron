@@ -4194,4 +4194,380 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-SIG-001 — SBS-96 Trinucleotide Context Catalog
+
+    // =========================================================================
+    // ONCO-SIG-001 — SBS-96 Trinucleotide Context Catalog
+    // Doc: docs/algorithms/Oncology/SBS96_Trinucleotide_Context_Catalog.md
+    // Source: Alexandrov et al. (2013) Nature 500:415-421; COSMIC SBS96;
+    //         Bergstrom et al. (2019) BMC Genomics 20:685.
+    // Checklist row #96: R exactly 96 SBS channels; P each SNV → one
+    //   pyrimidine-centred trinucleotide; P channel counts sum = #SNVs;
+    //   D deterministic.
+    // Invariants (doc §2.4): INV-01 every channel's ref base is a pyrimidine
+    //   (C/T); INV-02 channel space is exactly 96 distinct labels; INV-03
+    //   Σ counts = #classifiable variants; INV-04 folding is reverse-complement
+    //   (a purine-ref variant and its pyrimidine-strand form share a channel).
+    //
+    // Every expected value below is derived from independent oracles re-built
+    // here from the doc (the pyrimidine fold rule §2.2, the 6×4×4 channel set
+    // §2.3, and the group-by partition §2.4), never from the implementation.
+    // =========================================================================
+
+    /// <summary>The four DNA bases, used to build oracle generators and the 96-channel set independently.</summary>
+    private static readonly char[] SbsBases = { 'A', 'C', 'G', 'T' };
+
+    /// <summary>
+    /// The six pyrimidine substitutions of the SBS-96 classification (doc §2.2): C&gt;A, C&gt;G, C&gt;T,
+    /// T&gt;A, T&gt;C, T&gt;G. Declared independently of the implementation.
+    /// </summary>
+    private static readonly (char Ref, char Alt)[] SbsPyrimidineSubstitutions =
+    {
+        ('C', 'A'), ('C', 'G'), ('C', 'T'), ('T', 'A'), ('T', 'C'), ('T', 'G')
+    };
+
+    /// <summary>Watson-Crick complement A↔T, C↔G (doc §4.2). Independent oracle helper.</summary>
+    private static char SbsComplement(char b) => b switch
+    {
+        'A' => 'T',
+        'T' => 'A',
+        'C' => 'G',
+        'G' => 'C',
+        _ => throw new ArgumentOutOfRangeException(nameof(b), b, "non-ACGT base in oracle"),
+    };
+
+    /// <summary>
+    /// INDEPENDENT pyrimidine-strand fold oracle (doc §2.2 / INV-01, INV-04). Upper-cases the bases, then:
+    /// if ref ∈ {C,T} the mutation is already on the pyrimidine strand → <c>"{5'}[{ref}&gt;{alt}]{3'}"</c>;
+    /// if ref ∈ {A,G} it is reverse-complemented → <c>"{comp(3')}[{comp(ref)}&gt;{comp(alt)}]{comp(5')}"</c>.
+    /// This is recomputed from the doc, NOT copied from <see cref="OncologyAnalyzer.ClassifySbsContext"/>.
+    /// </summary>
+    private static string FoldChannelOracle(char five, char reference, char alt, char three)
+    {
+        char f = char.ToUpperInvariant(five);
+        char r = char.ToUpperInvariant(reference);
+        char a = char.ToUpperInvariant(alt);
+        char t = char.ToUpperInvariant(three);
+
+        if (r is 'A' or 'G')
+        {
+            return $"{SbsComplement(t)}[{SbsComplement(r)}>{SbsComplement(a)}]{SbsComplement(f)}";
+        }
+
+        return $"{f}[{r}>{a}]{t}";
+    }
+
+    /// <summary>
+    /// INDEPENDENT 96-channel set oracle (doc §2.3 / INV-02): all <c>5'[s&gt;e]3'</c> over the six pyrimidine
+    /// substitutions × 4 5'-bases × 4 3'-bases. Built here, not read from the implementation.
+    /// </summary>
+    private static HashSet<string> BuildExpected96ChannelSet()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (r, a) in SbsPyrimidineSubstitutions)
+        {
+            foreach (char five in SbsBases)
+            {
+                foreach (char three in SbsBases)
+                {
+                    set.Add($"{five}[{r}>{a}]{three}");
+                }
+            }
+        }
+
+        return set;
+    }
+
+    /// <summary>Generator for one valid SNV (5', ref, alt, 3') over A/C/G/T with ref ≠ alt.</summary>
+    private static Gen<(char Five, char Ref, char Alt, char Three)> SnvGen() =>
+        from five in Gen.Elements(SbsBases)
+        from reference in Gen.Elements(SbsBases)
+        from altOffset in Gen.Choose(1, 3) // ref ≠ alt: pick one of the 3 other bases deterministically
+        from three in Gen.Elements(SbsBases)
+        let alt = SbsBases[(Array.IndexOf(SbsBases, reference) + altOffset) % 4]
+        select (five, reference, alt, three);
+
+    private static Arbitrary<(char Five, char Ref, char Alt, char Three)> SnvArbitrary() =>
+        SnvGen().ToArbitrary();
+
+    /// <summary>Generator for a multiset (list, length 0–40) of valid SNVs — drives the catalog properties.</summary>
+    private static Arbitrary<(char Five, char Ref, char Alt, char Three)[]> SnvListArbitrary() =>
+        (from n in Gen.Choose(0, 40)
+         from arr in SnvGen().ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // R + INV-02 — exactly 96 distinct channels equal to the recomputed set
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-02: <see cref="OncologyAnalyzer.EnumerateSbs96Channels"/> has exactly 96 entries, all DISTINCT,
+    /// and as a set equals the independently recomputed 6×4×4 channel set. Also pins
+    /// <c>Sbs96ChannelCount == 96</c>. This is a deterministic fact, asserted as a single [Test].
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Sbs96_Enumerate_IsExactly96DistinctChannels_EqualToRecomputedSet()
+    {
+        var channels = OncologyAnalyzer.EnumerateSbs96Channels();
+        var expected = BuildExpected96ChannelSet();
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.Sbs96ChannelCount, Is.EqualTo(96), "Sbs96ChannelCount");
+            Assert.That(channels, Has.Count.EqualTo(96), "enumerated count");
+            Assert.That(channels.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(96), "distinct count");
+            Assert.That(expected, Has.Count.EqualTo(96), "oracle set size");
+            Assert.That(
+                new HashSet<string>(channels, StringComparer.Ordinal).SetEquals(expected),
+                Is.True,
+                "enumerated channels must equal the recomputed 6×4×4 set");
+        });
+    }
+
+    /// <summary>
+    /// R + INV-02: every <see cref="OncologyAnalyzer.ClassifySbsContext"/> result for an arbitrary valid SNV is
+    /// a member of the independently recomputed 96-channel set.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Classify_AlwaysYieldsAChannelInThe96Set()
+    {
+        var expected = BuildExpected96ChannelSet();
+        return Prop.ForAll(SnvArbitrary(), snv =>
+        {
+            string channel = OncologyAnalyzer.ClassifySbsContext(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            return expected.Contains(channel)
+                .Label($"{snv.Five}[{snv.Ref}>{snv.Alt}]{snv.Three} → {channel} not in 96-set");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // P + INV-01 / INV-04 — each SNV folds to one pyrimidine-centred channel
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P + INV-01/INV-04: <see cref="OncologyAnalyzer.ClassifySbsContext"/> equals the INDEPENDENT pyrimidine
+    /// fold oracle for every valid (5', ref, alt, 3'); the reference base in the result (the char before '&gt;')
+    /// is ALWAYS a pyrimidine C/T (INV-01).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Classify_MatchesFoldOracle_AndRefIsPyrimidine()
+    {
+        return Prop.ForAll(SnvArbitrary(), snv =>
+        {
+            string actual = OncologyAnalyzer.ClassifySbsContext(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            string expected = FoldChannelOracle(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            char refBase = actual[2]; // "5'[R>A]3'": index 2 is R
+            bool pyrimidine = refBase is 'C' or 'T';
+            return (actual == expected && pyrimidine)
+                .Label($"{snv.Five}[{snv.Ref}>{snv.Alt}]{snv.Three}: actual={actual}, oracle={expected}, refPyr={pyrimidine}");
+        });
+    }
+
+    /// <summary>
+    /// P (case-insensitivity, doc §3.1 / §6.1): lower-cased inputs classify identically to upper-cased inputs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Classify_IsCaseInsensitive()
+    {
+        return Prop.ForAll(SnvArbitrary(), snv =>
+        {
+            string upper = OncologyAnalyzer.ClassifySbsContext(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            string lower = OncologyAnalyzer.ClassifySbsContext(
+                char.ToLowerInvariant(snv.Five),
+                char.ToLowerInvariant(snv.Ref),
+                char.ToLowerInvariant(snv.Alt),
+                char.ToLowerInvariant(snv.Three));
+            return (upper == lower).Label($"upper={upper} != lower={lower}");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 (strand equivalence): a variant and its reverse-complement strand form map to the SAME channel —
+    /// <c>Classify(5',ref,alt,3') == Classify(comp(3'),comp(ref),comp(alt),comp(5'))</c>, over arbitrary valid SNVs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Classify_FoldsRevCompToSameChannel_INV04()
+    {
+        return Prop.ForAll(SnvArbitrary(), snv =>
+        {
+            char fU = char.ToUpperInvariant(snv.Five);
+            char rU = char.ToUpperInvariant(snv.Ref);
+            char aU = char.ToUpperInvariant(snv.Alt);
+            char tU = char.ToUpperInvariant(snv.Three);
+
+            string forward = OncologyAnalyzer.ClassifySbsContext(fU, rU, aU, tU);
+            string revComp = OncologyAnalyzer.ClassifySbsContext(
+                SbsComplement(tU), SbsComplement(rU), SbsComplement(aU), SbsComplement(fU));
+            return (forward == revComp)
+                .Label($"{fU}[{rU}>{aU}]{tU} → {forward} ; revcomp → {revComp}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // P (Σ counts = #SNVs) + INV-03 — catalog partition / group-by oracle
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P + INV-03: <see cref="OncologyAnalyzer.Build96ContextCatalog"/> has exactly 96 keys equal to the
+    /// enumerated channel set (all present, zero-count included), Σ values == #variants, and each channel's
+    /// count equals the number of input variants that fold to it under the INDEPENDENT group-by oracle.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Catalog_MatchesGroupByOracle_AndSumsToVariantCount()
+    {
+        var channelSet = BuildExpected96ChannelSet();
+        return Prop.ForAll(SnvListArbitrary(), variants =>
+        {
+            var catalog = OncologyAnalyzer.Build96ContextCatalog(
+                variants.Select(v => (v.Five, v.Ref, v.Alt, v.Three)));
+
+            // Independent group-by oracle: fold each variant, tally per channel.
+            var oracle = channelSet.ToDictionary(c => c, _ => 0, StringComparer.Ordinal);
+            foreach (var v in variants)
+            {
+                oracle[FoldChannelOracle(v.Five, v.Ref, v.Alt, v.Three)]++;
+            }
+
+            bool keysMatch = catalog.Count == 96
+                             && new HashSet<string>(catalog.Keys, StringComparer.Ordinal).SetEquals(channelSet);
+            bool sumMatches = catalog.Values.Sum() == variants.Length;
+            bool entriesMatch = oracle.All(kv => catalog[kv.Key] == kv.Value);
+
+            return (keysMatch && sumMatches && entriesMatch)
+                .Label($"keys={keysMatch}, sum={catalog.Values.Sum()}/{variants.Length}, entries={entriesMatch}");
+        });
+    }
+
+    /// <summary>
+    /// P (edge, doc §6.1): an empty variant collection yields all 96 channels present, each with count 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Sbs96_Catalog_Empty_HasAll96ChannelsAtZero()
+    {
+        var catalog = OncologyAnalyzer.Build96ContextCatalog(
+            Array.Empty<(char, char, char, char)>());
+        var channelSet = BuildExpected96ChannelSet();
+        Assert.Multiple(() =>
+        {
+            Assert.That(catalog, Has.Count.EqualTo(96));
+            Assert.That(
+                new HashSet<string>(catalog.Keys, StringComparer.Ordinal).SetEquals(channelSet),
+                Is.True);
+            Assert.That(catalog.Values, Is.All.EqualTo(0));
+            Assert.That(catalog.Values.Sum(), Is.EqualTo(0));
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D — determinism
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D: identical inputs ⇒ identical classification (same SNV classified twice yields the same channel).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Classify_IsDeterministic()
+    {
+        return Prop.ForAll(SnvArbitrary(), snv =>
+        {
+            string a = OncologyAnalyzer.ClassifySbsContext(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            string b = OncologyAnalyzer.ClassifySbsContext(snv.Five, snv.Ref, snv.Alt, snv.Three);
+            return (a == b).Label($"{a} != {b}");
+        });
+    }
+
+    /// <summary>
+    /// D: identical variant collections ⇒ identical catalogs (entrywise over all 96 channels).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Sbs96_Catalog_IsDeterministic()
+    {
+        return Prop.ForAll(SnvListArbitrary(), variants =>
+        {
+            var c1 = OncologyAnalyzer.Build96ContextCatalog(variants.Select(v => (v.Five, v.Ref, v.Alt, v.Three)));
+            var c2 = OncologyAnalyzer.Build96ContextCatalog(variants.Select(v => (v.Five, v.Ref, v.Alt, v.Three)));
+            bool equal = c1.Count == c2.Count && c1.All(kv => c2.TryGetValue(kv.Key, out int v) && v == kv.Value);
+            return equal.Label("catalogs differ entrywise");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation / edge cases (doc §3.3, §6.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>Validation: a non-ACGT base in ANY of the four positions raises <see cref="ArgumentException"/>.</summary>
+    [TestCase('X', 'C', 'A', 'A')]
+    [TestCase('A', 'X', 'A', 'A')]
+    [TestCase('A', 'C', 'X', 'A')]
+    [TestCase('A', 'C', 'A', 'X')]
+    [TestCase('N', 'C', 'A', 'A')]
+    [TestCase('1', 'C', 'A', 'A')]
+    [Category("Property")]
+    public void Sbs96_Classify_NonAcgtBase_Throws(char five, char reference, char alt, char three)
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.ClassifySbsContext(five, reference, alt, three));
+    }
+
+    /// <summary>Validation (doc §3.3): reference == alternate is not a substitution ⇒ <see cref="ArgumentException"/>.</summary>
+    [TestCase('A', 'C', 'C', 'A')]
+    [TestCase('T', 'G', 'G', 'A')]
+    [TestCase('A', 'A', 'A', 'A')]
+    [Category("Property")]
+    public void Sbs96_Classify_RefEqualsAlt_Throws(char five, char reference, char alt, char three)
+    {
+        Assert.Throws<ArgumentException>(
+            () => OncologyAnalyzer.ClassifySbsContext(five, reference, alt, three));
+    }
+
+    /// <summary>Validation (doc §3.3): <see cref="OncologyAnalyzer.Build96ContextCatalog"/>(null) ⇒ <see cref="ArgumentNullException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Sbs96_Catalog_Null_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.Build96ContextCatalog(null!));
+    }
+
+    /// <summary>Anchor (doc §7.1): a G&gt;T at 5'-TGA-3' folds to <c>T[C&gt;A]A</c>; lower-case input is identical.</summary>
+    [TestCase('T', 'G', 'T', 'A', "T[C>A]A")]
+    [TestCase('t', 'g', 't', 'a', "T[C>A]A")]
+    [TestCase('A', 'C', 'A', 'A', "A[C>A]A")]
+    [Category("Property")]
+    public void Sbs96_Classify_WorkedExample_Section71(char five, char reference, char alt, char three, string expected)
+    {
+        Assert.That(
+            OncologyAnalyzer.ClassifySbsContext(five, reference, alt, three),
+            Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// Anchor (doc §7.1 catalog walk-through): A[C&gt;A]A and the folded T[C&gt;A]A each count 1, all other
+    /// 94 channels count 0; total = 2.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Sbs96_Catalog_WorkedExample_Section71()
+    {
+        var catalog = OncologyAnalyzer.Build96ContextCatalog(new[]
+        {
+            ('A', 'C', 'A', 'A'), // A[C>A]A (pyrimidine, unchanged)
+            ('T', 'G', 'T', 'A'), // folds to T[C>A]A
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(catalog, Has.Count.EqualTo(96));
+            Assert.That(catalog["A[C>A]A"], Is.EqualTo(1));
+            Assert.That(catalog["T[C>A]A"], Is.EqualTo(1));
+            Assert.That(catalog.Values.Sum(), Is.EqualTo(2));
+            Assert.That(
+                catalog.Where(kv => kv.Key is not ("A[C>A]A" or "T[C>A]A")).All(kv => kv.Value == 0),
+                Is.True,
+                "all other 94 channels must be 0");
+        });
+    }
+
+    #endregion
 }

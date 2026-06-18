@@ -125,7 +125,7 @@ Property-based testing генерирует сотни случайных вхо
 | 93 | ☑ | ONCO-MSI-001 | Oncology | R: MSI fraction ∈ [0,1]; M: more unstable loci → higher score; P: MSI-H ⟺ score ≥ threshold; D: deterministic | OncologyProperties.cs (new) |
 | 94 | ☑ | ONCO-HRD-001 | Oncology | R: HRD = LOH+TAI+LST ≥ 0; M: more genomic scars → higher HRD; P: additive of three components; D: deterministic | OncologyProperties.cs (new) |
 | 95 | ☑ | ONCO-LOH-001 | Oncology | R: region positions valid; P: LOH ⟺ BAF → 0/1 (one allele lost); M: lower BAF-dev threshold → ≥ LOH; D: deterministic | OncologyProperties.cs (new) |
-| 96 | ☐ | ONCO-SIG-001 | Oncology | R: exactly 96 SBS channels; P: each SNV → one pyrimidine-centred trinucleotide; P: channel counts sum = #SNVs; D: deterministic | OncologyProperties.cs (new) |
+| 96 | ☑ | ONCO-SIG-001 | Oncology | R: exactly 96 SBS channels; P: each SNV → one pyrimidine-centred trinucleotide; P: channel counts sum = #SNVs; D: deterministic | OncologyProperties.cs (new) |
 | 97 | ☐ | ONCO-SIG-002 | Oncology | R: exposures ≥ 0; P: Σ exposures = #mutations (or normalised 1.0); M: better fit → lower reconstruction error; D: deterministic | OncologyProperties.cs (new) |
 | 98 | ☐ | ONCO-SIG-003 | Oncology | R: CI_lower ≤ point ≤ CI_upper; P: bootstrap mean ≈ point estimate; D: deterministic given seed | OncologyProperties.cs (new) |
 | 99 | ☐ | ONCO-SIG-004 | Oncology | P: dominant process = argmax exposure; R: confidence ∈ [0,1]; D: deterministic | OncologyProperties.cs (new) |
@@ -264,7 +264,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 226 |
-| ☑ Complete | 94 |
-| ☐ Not started | 132 |
+| ☑ Complete | 95 |
+| ☐ Not started | 131 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
