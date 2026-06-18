@@ -8259,4 +8259,175 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CHIP-001 — Clonal Hematopoiesis Filtering (gene+VAF heuristic + matched-WBC)
+
+    // -------------------------------------------------------------------------
+    // Theory (Steensma 2015 CHIP definition; Genovese 2014 driver genes; Razavi 2019 matched WBC):
+    //   • CHIP heuristic: gene in the driver panel AND plasma VAF ≥ 2% (default).   (P gene ∧ VAF band)
+    //   • IdentifyCHIPVariants keeps the input subset meeting the heuristic, in order.
+    //   • FilterCHIP retains a cfDNA variant iff it is NOT in the matched WBC at the    (P survivors ⊆ input)
+    //     same locus (alt ≥ cutoff) AND does NOT meet the CHIP heuristic.
+    //
+    // The panel membership, heuristic and matched-WBC subtraction are reconstructed
+    // independently — NOT routed through production — so a wrong gene set, VAF sense,
+    // or locus key is caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly string[] ChipPanelOracle =
+        { "DNMT3A", "TET2", "ASXL1", "TP53", "JAK2", "SF3B1", "SRSF2", "PPM1D" };
+
+    private static readonly string[] ChipGenePool =
+        { "DNMT3A", "TET2", "ASXL1", "TP53", "JAK2", "SF3B1", "SRSF2", "PPM1D", "EGFR", "KRAS", "BRAF", "XYZ1" };
+
+    private static bool OracleInPanel(string gene) =>
+        ChipPanelOracle.Any(g => string.Equals(g, gene, StringComparison.OrdinalIgnoreCase));
+
+    private static Gen<OncologyAnalyzer.ChipVariant> ChipVariantGen() =>
+        from chrom in Gen.Elements("1", "2")
+        from pos in Gen.Choose(1, 5)
+        from gene in Gen.Elements(ChipGenePool)
+        from vafMilli in Gen.Choose(0, 1000)
+        from alt in Gen.Choose(0, 5)
+        select new OncologyAnalyzer.ChipVariant(chrom, pos, "A", "T", gene, vafMilli / 1000.0, alt);
+
+    /// <summary>
+    /// P (checklist "CHIP flagged by gene list ∧ VAF band"): <c>IdentifyCHIPVariants</c> keeps exactly the
+    /// input variants whose gene is in the panel AND whose VAF ≥ minVaf, in input order — matching an
+    /// independent gene∧VAF oracle. (Steensma 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyCHIPVariants_FlagsGeneAndVafBandSubset()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from minVafMilli in Gen.Choose(10, 200)
+                   select (variants, minVaf: minVafMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var flagged = OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle, t.minVaf);
+            var expected = t.variants.Where(v => OracleInPanel(v.Gene) && v.Vaf >= t.minVaf).ToList();
+            return flagged.SequenceEqual(expected).Label($"flagged {flagged.Count} ≠ oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "survivors ⊆ input"): <c>FilterCHIP</c> retains exactly the cfDNA variants that are NOT
+    /// present in the matched WBC (alt ≥ cutoff at the same locus) AND do NOT meet the gene∧VAF CHIP
+    /// heuristic, in input order — matching an independent oracle. (Razavi 2019; Steensma 2015)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_RetainsNonWbcNonChipSubset_InOrder()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   from minVafMilli in Gen.Choose(10, 200)
+                   from minWbc in Gen.Choose(1, 3)
+                   select (variants, wbc, minVaf: minVafMilli / 1000.0, minWbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var retained = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle, t.minVaf, t.minWbc);
+
+            var wbcLoci = t.wbc.Where(w => w.AltReads >= t.minWbc)
+                .Select(w => (w.Chromosome, w.Position, w.ReferenceAllele, w.AlternateAllele))
+                .ToHashSet();
+            var expected = t.variants.Where(v =>
+                !wbcLoci.Contains((v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele))
+                && !(OracleInPanel(v.Gene) && v.Vaf >= t.minVaf)).ToList();
+
+            return retained.SequenceEqual(expected).Label($"retained {retained.Count} ≠ oracle {expected.Count}");
+        });
+    }
+
+    /// <summary>
+    /// P (survivors ⊆ input, soundness): every cfDNA variant FilterCHIP retains is one of the inputs and is
+    /// neither a matched-WBC locus nor a CHIP-heuristic variant — no confounder survives, nothing is fabricated.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_Survivors_AreCleanInputVariants()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   select (variants, wbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var retained = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle);
+            var wbcLoci = t.wbc.Where(w => w.AltReads >= 1)
+                .Select(w => (w.Chromosome, w.Position, w.ReferenceAllele, w.AlternateAllele))
+                .ToHashSet();
+
+            return retained.All(v =>
+                t.variants.Contains(v)
+                && !wbcLoci.Contains((v.Chromosome, v.Position, v.ReferenceAllele, v.AlternateAllele))
+                && !(OracleInPanel(v.Gene) && v.Vaf >= OncologyAnalyzer.ChipVafThreshold))
+                .Label("a retained variant was a WBC/CHIP confounder or not an input");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsCanonicalChipGene</c> reports panel membership case-insensitively and is false for null/empty
+    /// gene symbols. (Steensma 2015 / Genovese 2014 driver panel)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsCanonicalChipGene_MatchesPanelMembership()
+    {
+        return Prop.ForAll(Gen.Elements(ChipGenePool).ToArbitrary(), gene =>
+        {
+            bool actualExact = OncologyAnalyzer.IsCanonicalChipGene(gene, ChipPanelOracle);
+            bool actualLower = OncologyAnalyzer.IsCanonicalChipGene(gene.ToLowerInvariant(), ChipPanelOracle);
+            bool expected = OracleInPanel(gene);
+            return (actualExact == expected && actualLower == expected)
+                .Label($"{gene}: exact={actualExact}, lower={actualLower}, expected={expected}");
+        });
+    }
+
+    /// <summary>D (determinism): CHIP identification and filtering are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property FilterCHIP_IsDeterministic()
+    {
+        var arb = (from variants in ChipVariantGen().ArrayOf()
+                   from wbc in ChipVariantGen().ArrayOf()
+                   select (variants, wbc)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool idOk = OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle)
+                .SequenceEqual(OncologyAnalyzer.IdentifyCHIPVariants(t.variants, ChipPanelOracle));
+            bool filterOk = OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle)
+                .SequenceEqual(OncologyAnalyzer.FilterCHIP(t.variants, t.wbc, ChipPanelOracle));
+            return (idOk && filterOk).Label("CHIP filtering is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (Steensma 2015 / Razavi 2019): DNMT3A at VAF 0.05 is flagged CHIP; a non-panel gene and a
+    /// sub-2% VAF are not; FilterCHIP removes a matched-WBC locus regardless of gene and a CHIP-heuristic
+    /// variant, retaining a clean tumour variant; gene matching is case-insensitive.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FilterCHIP_CanonicalCases()
+    {
+        var dnmt3a = new OncologyAnalyzer.ChipVariant("2", 25, "A", "T", "DNMT3A", 0.05);
+        var lowVaf = new OncologyAnalyzer.ChipVariant("2", 26, "A", "T", "DNMT3A", 0.01);
+        var nonPanel = new OncologyAnalyzer.ChipVariant("7", 100, "A", "T", "EGFR", 0.40);
+        var wbcShared = new OncologyAnalyzer.ChipVariant("7", 100, "A", "T", "EGFR", 0.45, AltReads: 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.IdentifyCHIPVariants(new[] { dnmt3a, lowVaf, nonPanel }).Select(v => v.Gene),
+                Is.EqualTo(new[] { "DNMT3A" }), "Only DNMT3A at VAF ≥ 0.02 is flagged CHIP.");
+            Assert.That(OncologyAnalyzer.IsCanonicalChipGene("dnmt3a"), Is.True, "Panel match is case-insensitive.");
+
+            // cfDNA: a clean tumour EGFR variant elsewhere, a CHIP DNMT3A, and an EGFR variant shared with WBC.
+            var clean = new OncologyAnalyzer.ChipVariant("12", 500, "C", "G", "EGFR", 0.30);
+            var retained = OncologyAnalyzer.FilterCHIP(new[] { clean, dnmt3a, nonPanel }, new[] { wbcShared });
+            Assert.That(retained, Is.EqualTo(new[] { clean }),
+                "DNMT3A (CHIP heuristic) and the WBC-shared EGFR locus are removed; the clean variant survives.");
+        });
+    }
+
+    #endregion
 }
