@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for transcriptome analysis (TranscriptomeAnalyzer): differential expression,
 /// TPM quantification, and alternative-splicing PSI.
 ///
-/// Test Units: TRANS-DIFF-001
+/// Test Units: TRANS-DIFF-001, TRANS-EXPR-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -110,6 +110,69 @@ public class TranscriptomeProperties
             var (a, b) = input;
             return (TranscriptomeAnalyzer.CalculateFoldChange(a, b) == TranscriptomeAnalyzer.CalculateFoldChange(a, b))
                 .Label("CalculateFoldChange must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region TRANS-EXPR-001: R: TPM ≥ 0; P: Σ TPM = 1e6; D: deterministic
+
+    // CalculateTPM: TPM_i = (X_i/l_i)/Σ(X_j/l_j)·1e6, so TPM within a sample sums to one million
+    // (or all zero when every count is zero).
+
+    /// <summary>Generates 1..6 genes with non-negative counts and positive lengths.</summary>
+    private static Arbitrary<(string GeneId, double RawCount, int Length)[]> GeneCountsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(6);
+            var genes = new (string, double, int)[n];
+            for (int i = 0; i < n; i++)
+                genes[i] = ($"g{i}", rng.Next(0, 1000), 1 + rng.Next(2000));
+            return genes;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): all TPM are non-negative, and they sum to 1e6 when any count is positive (else
+    /// all zero).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tpm_NonNegative_AndSumsToMillion()
+    {
+        return Prop.ForAll(GeneCountsArbitrary(), genes =>
+        {
+            var expr = TranscriptomeAnalyzer.CalculateTPM(genes.Select(g => (g.GeneId, g.RawCount, g.Length))).ToList();
+            bool nonNeg = expr.All(e => e.TPM >= 0);
+            double sum = expr.Sum(e => e.TPM);
+            bool anyPositive = genes.Any(g => g.RawCount > 0);
+            bool sumOk = anyPositive ? Math.Abs(sum - 1_000_000.0) < 1e-3 : sum == 0;
+            return (nonNeg && sumOk).Label($"TPM sum={sum}, anyPositive={anyPositive}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (boundary): all-zero counts yield all-zero TPM.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Tpm_AllZeroCounts_AreZero()
+    {
+        var genes = new[] { ("g0", 0.0, 100), ("g1", 0.0, 200) };
+        var expr = TranscriptomeAnalyzer.CalculateTPM(genes).ToList();
+        Assert.That(expr.All(e => e.TPM == 0), Is.True);
+    }
+
+    /// <summary>
+    /// INV-3 (D): TPM is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tpm_IsDeterministic()
+    {
+        return Prop.ForAll(GeneCountsArbitrary(), genes =>
+        {
+            var a = TranscriptomeAnalyzer.CalculateTPM(genes.Select(g => (g.GeneId, g.RawCount, g.Length))).Select(e => e.TPM).ToList();
+            var b = TranscriptomeAnalyzer.CalculateTPM(genes.Select(g => (g.GeneId, g.RawCount, g.Length))).Select(e => e.TPM).ToList();
+            return a.SequenceEqual(b).Label("CalculateTPM must be deterministic");
         });
     }
 
