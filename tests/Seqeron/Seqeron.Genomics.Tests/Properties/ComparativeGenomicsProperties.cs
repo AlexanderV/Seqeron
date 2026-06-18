@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -140,6 +140,158 @@ public class ComparativeGenomicsProperties
             // Reference shorter than the fragment: no full-length placement exists.
             Assert.That(ComparativeGenomics.CalculateANI(new string('A', FragLen), "ACGT", fragmentLength: FragLen),
                 Is.EqualTo(0.0), "reference shorter than fragment");
+        });
+    }
+
+    #endregion
+
+    #region COMPGEN-CLUSTER-001: R: cluster size ≥ minClusterSize; P: cluster is a common interval of every genome; M: lower minClusterSize → ≥ clusters; D: deterministic
+
+    // A conserved gene cluster is a COMMON INTERVAL of the ortholog-group permutations: a set of
+    // group labels that forms a contiguous window in every genome (Uno & Yagiura 2000; Heber &
+    // Stoye 2001; Bui-Xuan, Habib & Paul 2013, Def. 1). The checklist's "lower threshold → ≥
+    // clusters" knob is minClusterSize here (this model has no identity threshold).
+
+    private static readonly string[] Alphabet = { "1", "2", "3", "4", "5", "6" };
+
+    /// <summary>A permutation of <see cref="Alphabet"/> produced deterministically from a seed.</summary>
+    private static Arbitrary<string[]> PermutationArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(Permute).ToArbitrary();
+
+    private static string[] Permute(int seed)
+    {
+        var arr = (string[])Alphabet.Clone();
+        var rng = new Random(seed);
+        for (int i = arr.Length - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (arr[i], arr[j]) = (arr[j], arr[i]);
+        }
+        return arr;
+    }
+
+    /// <summary>Builds gene-ordered genomes (one gene per group label) plus the gene→group map.</summary>
+    private static (List<IReadOnlyList<ComparativeGenomics.Gene>> genomes, Dictionary<string, string> map)
+        Build(params string[][] orders)
+    {
+        var genomes = new List<IReadOnlyList<ComparativeGenomics.Gene>>(orders.Length);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int gi = 0; gi < orders.Length; gi++)
+        {
+            var genes = new List<ComparativeGenomics.Gene>(orders[gi].Length);
+            for (int i = 0; i < orders[gi].Length; i++)
+            {
+                string id = $"G{gi}_{i}";
+                genes.Add(new ComparativeGenomics.Gene(id, $"G{gi}", i * 100, i * 100 + 50, '+'));
+                map[id] = orders[gi][i];
+            }
+            genomes.Add(genes);
+        }
+        return (genomes, map);
+    }
+
+    /// <summary>
+    /// Independent (definition-level) test that a label set occupies a contiguous window of a
+    /// permutation: the indices of its members span a gap-free range of exactly its own size.
+    /// </summary>
+    private static bool IsCommonInterval(string[][] orders, IReadOnlyList<string> cluster)
+    {
+        var set = cluster.ToHashSet(StringComparer.Ordinal);
+        foreach (var order in orders)
+        {
+            int min = int.MaxValue, max = int.MinValue, count = 0;
+            for (int i = 0; i < order.Length; i++)
+            {
+                if (!set.Contains(order[i])) continue;
+                count++;
+                if (i < min) min = i;
+                if (i > max) max = i;
+            }
+            if (count != set.Count || max - min != set.Count - 1)
+                return false;
+        }
+        return true;
+    }
+
+    private static HashSet<string> KeySet(IEnumerable<IReadOnlyList<string>> clusters)
+        => clusters.Select(c => string.Join(",", c.OrderBy(x => x, StringComparer.Ordinal)))
+                   .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// INV-1 (P): Every reported cluster is genuinely a common interval — a contiguous window in
+    /// EVERY genome — verified by an independent definition-level check, not the implementation's
+    /// own routine. The full alphabet is always such an interval, so the result is also non-empty
+    /// (guards against vacuous success).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Clusters_AreCommonIntervalsOfEveryGenome()
+    {
+        return Prop.ForAll(PermutationArbitrary(), PermutationArbitrary(), PermutationArbitrary(),
+            (p1, p2, p3) =>
+        {
+            var orders = new[] { p1, p2, p3 };
+            var (genomes, map) = Build(orders);
+            var clusters = ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 2).ToList();
+
+            bool allValid = clusters.All(c => IsCommonInterval(orders, c));
+            bool fullSetPresent = clusters.Any(c => c.Count == Alphabet.Length);
+            return (allValid && fullSetPresent)
+                .Label($"validAll={allValid}, fullSetPresent={fullSetPresent}, n={clusters.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every reported cluster has at least <c>minClusterSize</c> distinct groups
+    /// (and never fewer than 2, the smallest meaningful interval).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Clusters_RespectMinClusterSize()
+    {
+        return Prop.ForAll(PermutationArbitrary(), PermutationArbitrary(), (p1, p2) =>
+        {
+            const int minSize = 3;
+            var (genomes, map) = Build(p1, p2);
+            var clusters = ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: minSize).ToList();
+            return clusters.All(c => c.Count >= minSize)
+                .Label($"a cluster smaller than {minSize} was reported");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): Lowering minClusterSize cannot remove clusters — the size-3 result is a subset of
+    /// the size-2 result. Evidence: shrinking the size threshold only admits more candidate windows;
+    /// the common-interval test itself is independent of the threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Clusters_LowerMinSize_IsSuperset()
+    {
+        return Prop.ForAll(PermutationArbitrary(), PermutationArbitrary(), PermutationArbitrary(),
+            (p1, p2, p3) =>
+        {
+            var (genomes, map) = Build(p1, p2, p3);
+            var loose = KeySet(ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 2));
+            var strict = KeySet(ComparativeGenomics.FindConservedClusters(genomes, map, minClusterSize: 3));
+            return strict.IsSubsetOf(loose)
+                .Label($"min=3 result ({strict.Count}) not ⊆ min=2 result ({loose.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Cluster detection is deterministic in both content and order.
+    /// Evidence: FindConservedClusters sorts its output by size then label, with no random state.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Clusters_AreDeterministic()
+    {
+        return Prop.ForAll(PermutationArbitrary(), PermutationArbitrary(), (p1, p2) =>
+        {
+            var (genomes, map) = Build(p1, p2);
+            var first = ComparativeGenomics.FindConservedClusters(genomes, map)
+                .Select(c => string.Join(",", c)).ToList();
+            var second = ComparativeGenomics.FindConservedClusters(genomes, map)
+                .Select(c => string.Join(",", c)).ToList();
+            return first.SequenceEqual(second)
+                .Label("FindConservedClusters must be deterministic in content and order");
         });
     }
 
