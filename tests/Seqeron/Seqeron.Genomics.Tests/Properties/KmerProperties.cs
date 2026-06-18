@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -363,6 +363,66 @@ public class KmerProperties
             return (a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value))
                 .Label("CountKmersBothStrands must be deterministic");
         });
+    }
+
+    #endregion
+
+    #region KMER-DIST-001: R: distance ≥ 0; S: d(a,b)=d(b,a); I: d(x,x)=0; D: deterministic
+
+    // KmerDistance is the Euclidean distance between k-mer relative-frequency vectors (Vinga &
+    // Almeida 2003; Zielezinski et al. 2017) — a metric: non-negative, symmetric, zero on equal
+    // inputs, and satisfying the triangle inequality.
+
+    private const int DistK = 3;
+
+    /// <summary>INV-1 (R): k-mer distance is non-negative.</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_IsNonNegative()
+    {
+        return Prop.ForAll(DnaArbitrary(5), DnaArbitrary(5), (a, b) =>
+            (KmerAnalyzer.KmerDistance(a, b, DistK) >= 0.0).Label("distance must be ≥ 0"));
+    }
+
+    /// <summary>INV-2 (S): distance is symmetric.</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_IsSymmetric()
+    {
+        return Prop.ForAll(DnaArbitrary(5), DnaArbitrary(5), (a, b) =>
+        {
+            double ab = KmerAnalyzer.KmerDistance(a, b, DistK);
+            double ba = KmerAnalyzer.KmerDistance(b, a, DistK);
+            return (Math.Abs(ab - ba) < 1e-12).Label($"d(a,b)={ab} ≠ d(b,a)={ba}");
+        });
+    }
+
+    /// <summary>INV-3 (I): self-distance is zero.</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_SelfIsZero()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+            (KmerAnalyzer.KmerDistance(seq, seq, DistK) < 1e-12).Label("d(x,x) must be 0"));
+    }
+
+    /// <summary>INV-4 (metric): the triangle inequality holds, d(a,c) ≤ d(a,b)+d(b,c).</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_TriangleInequality()
+    {
+        return Prop.ForAll(DnaArbitrary(5), DnaArbitrary(5), DnaArbitrary(5), (a, b, c) =>
+        {
+            double ac = KmerAnalyzer.KmerDistance(a, c, DistK);
+            double ab = KmerAnalyzer.KmerDistance(a, b, DistK);
+            double bc = KmerAnalyzer.KmerDistance(b, c, DistK);
+            return (ac <= ab + bc + 1e-9).Label($"triangle violated: {ac} > {ab}+{bc}");
+        });
+    }
+
+    /// <summary>INV-5 (D): distance is deterministic.</summary>
+    [FsCheck.NUnit.Property]
+    public Property KmerDistance_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(5), DnaArbitrary(5), (a, b) =>
+            (KmerAnalyzer.KmerDistance(a, b, DistK) == KmerAnalyzer.KmerDistance(a, b, DistK))
+                .Label("KmerDistance must be deterministic"));
     }
 
     #endregion
