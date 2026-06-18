@@ -190,7 +190,7 @@ Property-based testing генерирует сотни случайных вхо
 | 158 | ☑ | KMER-DIST-001 | K-mer | R: distance ≥ 0; S: d(a,b)=d(b,a); I: d(x,x)=0; D: deterministic | KmerProperties.cs |
 | 159 | ☑ | KMER-GENERATE-001 | K-mer | R: count = 4^k (DNA); P: all distinct; D: deterministic | KmerProperties.cs |
 | 160 | ☑ | KMER-POSITIONS-001 | K-mer | R: positions ∈ [0, len−k]; P: seq[pos..pos+k] = kmer; D: deterministic | KmerProperties.cs |
-| 161 | ☐ | KMER-STATS-001 | K-mer | R: counts ≥ 0; P: Σ counts = len−k+1; D: deterministic | KmerProperties.cs |
+| 161 | ☑ | KMER-STATS-001 | K-mer | R: counts ≥ 0; P: Σ counts = len−k+1; D: deterministic | KmerProperties.cs |
 | 162 | ☐ | KMER-UNIQUE-001 | K-mer | P: unique k-mers have count 1; R: minCount ≥ 1; D: deterministic | KmerProperties.cs |
 | 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | R: score ∈ [0,1]; P: heptad periodicity detected; D: deterministic | ProteinMotifProperties.cs |
 | 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | R: positions valid; M: more sequences sharing → ≥ support; D: deterministic | ProteinMotifProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 160 |
-| ☐ Not started | 74 |
+| ☑ Complete | 161 |
+| ☐ Not started | 73 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

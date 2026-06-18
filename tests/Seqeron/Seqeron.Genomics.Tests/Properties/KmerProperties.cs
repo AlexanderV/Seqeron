@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001, KMER-POSITIONS-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001, KMER-POSITIONS-001, KMER-STATS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -580,6 +580,77 @@ public class KmerProperties
             Assert.That(KmerAnalyzer.FindKmerPositions("", "AC"), Is.Empty);
             Assert.That(KmerAnalyzer.FindKmerPositions("ACGT", ""), Is.Empty);
             Assert.That(KmerAnalyzer.FindKmerPositions("AC", "ACGT"), Is.Empty, "k-mer longer than sequence");
+        });
+    }
+
+    #endregion
+
+    #region KMER-STATS-001: R: counts ≥ 0; P: total k-mers = len−k+1; D: deterministic
+
+    // AnalyzeKmers summarises k-mer composition: TotalKmers is the number of overlapping windows
+    // L−k+1, UniqueKmers the distinct count, with consistent max/min/average multiplicity and entropy.
+
+    /// <summary>
+    /// INV-1 (P): The reported total k-mer count equals len − k + 1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKmers_TotalEqualsWindowCount()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var stats = KmerAnalyzer.AnalyzeKmers(seq, k);
+            return (stats.TotalKmers == seq.Length - k + 1)
+                .Label($"TotalKmers={stats.TotalKmers}, expected {seq.Length - k + 1}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Statistics are internally consistent — counts non-negative, every distinct k-mer
+    /// observed at least once, max ≥ min, distinct ≤ total, entropy ≥ 0, average = total/distinct.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKmers_StatsAreConsistent()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var s = KmerAnalyzer.AnalyzeKmers(seq, k);
+            bool ok = s.MinCount >= 1 && s.MaxCount >= s.MinCount
+                      && s.UniqueKmers >= 1 && s.UniqueKmers <= s.TotalKmers
+                      && s.Entropy >= -1e-9
+                      && Math.Abs(s.AverageCount - Math.Round((double)s.TotalKmers / s.UniqueKmers, 2)) < 1e-9;
+            return ok.Label($"inconsistent stats: {s}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Statistics are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKmers_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            return (KmerAnalyzer.AnalyzeKmers(seq, k) == KmerAnalyzer.AnalyzeKmers(seq, k))
+                .Label("AnalyzeKmers must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): when k exceeds the length there are no k-mers and all stats are zero.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeKmers_NoKmers_AllZero()
+    {
+        var s = KmerAnalyzer.AnalyzeKmers("ACG", 5);
+        Assert.Multiple(() =>
+        {
+            Assert.That(s.TotalKmers, Is.Zero);
+            Assert.That(s.UniqueKmers, Is.Zero);
+            Assert.That(s.Entropy, Is.Zero);
         });
     }
 
