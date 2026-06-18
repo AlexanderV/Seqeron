@@ -1561,33 +1561,423 @@ public class PrimerProbeProperties
 
     #endregion
 
-    // -- PROBE-VALID-001 --
+    #region Generators &amp; Independent Oracles (PROBE-VALID-001)
 
     /// <summary>
-    /// ValidateProbe returns a valid ProbeValidation with specificity in [0, 1].
+    /// Independent reverse-complement oracle over an uppercased ACGT string, built char-by-char
+    /// from the complement map A↔T, C↔G and then reversed — deliberately NOT routed through any
+    /// production helper, so a wrong complement table is caught. Non-ACGT chars are mapped to 'N'.
     /// </summary>
-    [Test]
-    [Category("Property")]
-    public void ValidateProbe_Specificity_InRange()
+    private static string OracleReverseComplement(string seq)
     {
-        string probe = "ACGTACGTACGTACGTACGTACGT";
-        var refs = new[] { "ACGTACGTACGTACGTACGTACGTACGTACGT", "TTTTTTTTTTTTTTTTTTTTTTTT" };
-        var validation = ProbeDesigner.ValidateProbe(probe, refs);
-
-        Assert.That(validation.SpecificityScore, Is.InRange(0.0, 1.0));
+        var chars = new char[seq.Length];
+        for (int i = 0; i < seq.Length; i++)
+        {
+            char c = char.ToUpperInvariant(seq[i]);
+            chars[seq.Length - 1 - i] = c switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'C' => 'G',
+                'G' => 'C',
+                _ => 'N'
+            };
+        }
+        return new string(chars);
     }
 
     /// <summary>
-    /// ValidateProbe off-target hits is non-negative.
+    /// Independent self-complementarity oracle (INV-02): fraction of positions i where
+    /// <c>seq[i] == reverseComplement(seq)[i]</c>, over the uppercased probe. Mirrors the
+    /// definition in ProbeDesigner §CalculateSelfComplementarity but with its OWN revcomp.
+    /// </summary>
+    private static double OracleSelfComplementarity(string seq)
+    {
+        string up = seq.ToUpperInvariant();
+        string rc = OracleReverseComplement(up);
+        int matches = 0;
+        for (int i = 0; i < up.Length; i++)
+            if (up[i] == rc[i]) matches++;
+        return up.Length == 0 ? 0.0 : matches / (double)up.Length;
+    }
+
+    /// <summary>
+    /// Independent off-target counter (INV-03): substitution-only, fixed-length, ungapped sliding
+    /// window over each reference (both probe and reference uppercased), counting every start
+    /// position whose Hamming distance to the probe over the window is ≤ maxMismatches, summed
+    /// across all references. Re-implemented from the doc §4.1 / §5.2 — NOT from production
+    /// internals — so it is a true oracle for <c>FindApproximateMatches</c>.
+    /// </summary>
+    private static int OracleOffTargetHits(string probe, IEnumerable<string> references, int maxMismatches)
+    {
+        string p = probe.ToUpperInvariant();
+        int total = 0;
+        foreach (var reference in references)
+        {
+            string text = reference.ToUpperInvariant();
+            for (int i = 0; i + p.Length <= text.Length; i++)
+            {
+                int mismatches = 0;
+                for (int j = 0; j < p.Length; j++)
+                {
+                    if (text[i + j] != p[j]) mismatches++;
+                    if (mismatches > maxMismatches) break;
+                }
+                if (mismatches <= maxMismatches) total++;
+            }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Independent specificity map (INV-01 / INV-04 / §2.2): 0 hits ⇒ 0.0, 1 hit ⇒ 1.0,
+    /// N&gt;1 hits ⇒ 1.0/N. Re-derived purely from a hit count, not from production.
+    /// </summary>
+    private static double OracleSpecificity(int offTargetHits) =>
+        offTargetHits == 0 ? 0.0 : offTargetHits == 1 ? 1.0 : 1.0 / offTargetHits;
+
+    /// <summary>
+    /// Generates a probe-validation scenario: a random ACGT probe (8-20 bp), a set of 0-4 reference
+    /// sequences, and a mismatch tolerance. References are deliberately MIXED in kind so the
+    /// off-target counter is exercised across the interesting regimes:
+    /// (a) references that EMBED the probe verbatim 0/1/several times (exact hits),
+    /// (b) references that embed a NEAR-match (the probe with 1-3 substitutions — within tolerance),
+    /// (c) unrelated filler (no hits). Lengths are kept short so hundreds of cases run quickly.
+    /// </summary>
+    private static Arbitrary<(string probe, string[] refs, int maxMismatches)>
+        ProbeValidationScenarioArbitrary() =>
+        (from plen in Gen.Choose(8, 20)
+         from pchars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(plen)
+         let probe = new string(pchars)
+         from maxMismatches in Gen.Choose(0, 4)
+         from refCount in Gen.Choose(0, 4)
+         from refs in BuildReferenceGen(probe, maxMismatches).ArrayOf(refCount)
+         select (probe, refs, maxMismatches)).ToArbitrary();
+
+    /// <summary>
+    /// Builds a single reference sequence around the probe: random ACGT flanks plus, with varying
+    /// probability, an embedded exact copy of the probe or a perturbed copy carrying a controlled
+    /// number of substitutions (0..probeLen). The perturbed copy may or may not be within tolerance,
+    /// so both "counted" and "not counted" near-matches are produced.
+    /// </summary>
+    private static Gen<string> BuildReferenceGen(string probe, int maxMismatches)
+    {
+        return
+            from leftLen in Gen.Choose(0, 8)
+            from rightLen in Gen.Choose(0, 8)
+            from left in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(leftLen)
+            from right in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(rightLen)
+            from kind in Gen.Choose(0, 3) // 0=no insert, 1=exact, 2=near-match, 3=double exact
+            from subs in Gen.Choose(0, probe.Length)
+            let middle = kind switch
+            {
+                1 => probe,
+                2 => PerturbProbe(probe, subs),
+                3 => probe + probe,
+                _ => string.Empty
+            }
+            select new string(left) + middle + new string(right);
+    }
+
+    /// <summary>
+    /// Returns a copy of the probe with the first <paramref name="count"/> positions substituted to
+    /// a DIFFERENT base (deterministic 'A'→'C', else→'A'), producing exactly <paramref name="count"/>
+    /// guaranteed mismatches at known positions.
+    /// </summary>
+    private static string PerturbProbe(string probe, int count)
+    {
+        var chars = probe.ToCharArray();
+        for (int i = 0; i < count && i < chars.Length; i++)
+            chars[i] = chars[i] == 'A' ? 'C' : 'A';
+        return new string(chars);
+    }
+
+    #endregion
+
+    #region PROBE-VALID-001 — Score-Range Invariants (R: INV-01, INV-02, INV-03)
+
+    /// <summary>
+    /// INV-01 (R): <c>SpecificityScore ∈ [0.0, 1.0]</c> for EVERY input. The score is mapped from
+    /// a non-negative hit count to 0, 1, or 1/hits (all ≤ 1), so it can never leave the unit
+    /// interval. A small epsilon absorbs fp jitter. Source: doc §2.4 INV-01; ProbeDesigner.cs
+    /// §ValidateProbe specificity mapping.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_Specificity_InUnitInterval()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            return (v.SpecificityScore >= -1e-12 && v.SpecificityScore <= 1.0 + 1e-12)
+                .Label($"SpecificityScore {v.SpecificityScore} outside [0,1] " +
+                       $"(hits={v.OffTargetHits}, probe='{probe}')");
+        });
+    }
+
+    /// <summary>
+    /// INV-02 (R): <c>SelfComplementarity ∈ [0.0, 1.0]</c> AND equals the independent oracle
+    /// (fraction of positions where probe[i] == revComp(probe)[i]) within 1e-9. The oracle uses its
+    /// OWN complement table, so a wrong production complement map or counting bug is caught.
+    /// Source: doc §2.4 INV-02; ProbeDesigner.cs §CalculateSelfComplementarity.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_SelfComplementarity_MatchesOracle_AndInRange()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            double oracle = OracleSelfComplementarity(probe);
+
+            if (v.SelfComplementarity < -1e-12 || v.SelfComplementarity > 1.0 + 1e-12)
+                return false.Label($"SelfComplementarity {v.SelfComplementarity} outside [0,1]");
+            if (Math.Abs(v.SelfComplementarity - oracle) > 1e-9)
+                return false.Label($"SelfComplementarity {v.SelfComplementarity} != oracle {oracle} " +
+                                   $"for probe '{probe}'");
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (R, core business logic): <c>OffTargetHits ≥ 0</c> AND equals the independent
+    /// substitution-only fixed-length sliding-window count summed across all references (the
+    /// <see cref="OracleOffTargetHits"/> re-implementation from the doc, NOT production internals).
+    /// This is the heart of the contract — the production count must match the oracle EXACTLY.
+    /// Source: doc §2.4 INV-03, §4.1; ProbeDesigner.cs §FindApproximateMatches.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_OffTargetHits_MatchOracle_AndNonNegative()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            int oracle = OracleOffTargetHits(probe, refs, maxMismatches);
+
+            if (v.OffTargetHits < 0)
+                return false.Label($"OffTargetHits {v.OffTargetHits} is negative");
+            return (v.OffTargetHits == oracle)
+                .Label($"OffTargetHits {v.OffTargetHits} != oracle {oracle} " +
+                       $"(probe='{probe}', maxMm={maxMismatches}, refs=[{string.Join(",", refs)}])");
+        });
+    }
+
+    #endregion
+
+    #region PROBE-VALID-001 — Specificity Piecewise Map (P: INV-04, §2.2)
+
+    /// <summary>
+    /// Specificity piecewise map (P): re-derived from the INDEPENDENT hit count, production's
+    /// <c>SpecificityScore</c> must equal <c>0 hits ⇒ 0.0</c>, <c>1 hit ⇒ 1.0</c> (INV-04),
+    /// <c>N&gt;1 hits ⇒ 1.0/N</c> (within 1e-9). This couples the score to the oracle hit count,
+    /// not to production's own hits, so a mapping OR a counting error is caught. Source: doc §2.2
+    /// piecewise definition, §2.4 INV-04.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_Specificity_FollowsPiecewiseMap()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            int oracleHits = OracleOffTargetHits(probe, refs, maxMismatches);
+            double expected = OracleSpecificity(oracleHits);
+
+            return (Math.Abs(v.SpecificityScore - expected) > 1e-9
+                    ? false.Label($"Specificity {v.SpecificityScore} != map({oracleHits})={expected}")
+                    : true.ToProperty());
+        });
+    }
+
+    #endregion
+
+    #region PROBE-VALID-001 — IsValid Rule (R: pass/fail) &amp; Determinism (D)
+
+    /// <summary>
+    /// IsValid rule (R, pass/fail): recomputed INDEPENDENTLY as
+    /// <c>Issues.Count == 0 || (OffTargetHits ≤ 1 &amp;&amp; SelfComplementarity ≤ 0.4)</c> and asserted to
+    /// match production. (Issues are recorded for &gt;1 off-target hits, self-comp above the threshold,
+    /// and secondary structure.) We feed the recomputation production's own Issues/hits/selfComp,
+    /// so this isolates the BOOLEAN decision rule itself. Source: doc §5.2; ProbeDesigner.cs
+    /// §ValidateProbe isValid expression.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_IsValid_FollowsDecisionRule()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            bool expected = v.Issues.Count == 0 || (v.OffTargetHits <= 1 && v.SelfComplementarity <= 0.4);
+            return (v.IsValid == expected)
+                .Label($"IsValid {v.IsValid} != rule {expected} " +
+                       $"(issues={v.Issues.Count}, hits={v.OffTargetHits}, selfComp={v.SelfComplementarity})");
+        });
+    }
+
+    /// <summary>
+    /// INV-D (Determinism): identical inputs ⇒ identical <see cref="ProbeDesigner.ProbeValidation"/> —
+    /// every field (IsValid, SpecificityScore, OffTargetHits, SelfComplementarity,
+    /// HasSecondaryStructure, and the Issues list element-wise) compared across two runs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ValidateProbe_IsDeterministic()
+    {
+        return Prop.ForAll(ProbeValidationScenarioArbitrary(), s =>
+        {
+            var (probe, refs, maxMismatches) = s;
+            var a = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+            var b = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches);
+
+            bool same = a.IsValid == b.IsValid
+                        && a.SpecificityScore.Equals(b.SpecificityScore)
+                        && a.OffTargetHits == b.OffTargetHits
+                        && a.SelfComplementarity.Equals(b.SelfComplementarity)
+                        && a.HasSecondaryStructure == b.HasSecondaryStructure
+                        && a.Issues.SequenceEqual(b.Issues);
+            return same.Label($"non-deterministic ProbeValidation for probe '{probe}'");
+        });
+    }
+
+    #endregion
+
+    #region PROBE-VALID-001 — Edge Cases (contract: §3, §6)
+
+    /// <summary>
+    /// Contract §3: a null probe sequence throws <see cref="ArgumentNullException"/>.
     /// </summary>
     [Test]
     [Category("Property")]
-    public void ValidateProbe_OffTargetHits_NonNegative()
+    public void ValidateProbe_NullProbe_Throws()
     {
-        string probe = "ACGTACGTACGTACGTACGTACGT";
-        var refs = new[] { "TTTTTTTTTTTTTTTTTTTTTTTTTTTT" };
-        var validation = ProbeDesigner.ValidateProbe(probe, refs);
-
-        Assert.That(validation.OffTargetHits, Is.GreaterThanOrEqualTo(0));
+        Assert.Throws<ArgumentNullException>(
+            () => ProbeDesigner.ValidateProbe(null!, new[] { "ACGT" }));
     }
+
+    /// <summary>
+    /// Contract §3: a null reference collection throws <see cref="ArgumentNullException"/>.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ValidateProbe_NullReferences_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => ProbeDesigner.ValidateProbe("ACGT", null!));
+    }
+
+    /// <summary>
+    /// Contract §3.3 / §6.1: an empty probe yields a structured invalid result —
+    /// IsValid == false, SpecificityScore == 0.0, OffTargetHits == 0, and Issues contains the exact
+    /// "Empty probe sequence" entry. This is a defined special case, NOT an exception.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ValidateProbe_EmptyProbe_StructuredInvalidResult()
+    {
+        var v = ProbeDesigner.ValidateProbe("", new[] { "ACGTACGT", "TTTTTTTT" });
+        Assert.Multiple(() =>
+        {
+            Assert.That(v.IsValid, Is.False, "empty probe must be invalid");
+            Assert.That(v.SpecificityScore, Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(v.OffTargetHits, Is.EqualTo(0));
+            Assert.That(v.SelfComplementarity, Is.EqualTo(0.0).Within(1e-12));
+            Assert.That(v.HasSecondaryStructure, Is.False);
+            Assert.That(v.Issues, Does.Contain("Empty probe sequence"));
+        });
+    }
+
+    #endregion
+
+    #region PROBE-VALID-001 — Evidence-Based Engineered Anchors
+
+    /// <summary>
+    /// Engineered exact-occurrence anchor: an 8-mer probe present EXACTLY TWICE across the references
+    /// (once in each reference, no near-matches in tolerance 0) ⇒ OffTargetHits hand-counted as 2 and
+    /// Specificity = 1/2 = 0.5. The flanks are chosen so no additional ≤0-mismatch window exists.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ValidateProbe_ProbeTwiceAcrossRefs_HitsTwo_SpecificityHalf()
+    {
+        const string probe = "ACGTACGT"; // 8-mer
+        // Two references, each containing the probe exactly once; flanks avoid extra exact windows.
+        var refs = new[]
+        {
+            "TTTACGTACGTTTT", // probe at index 3, once
+            "GGGACGTACGTGGG"  // probe at index 3, once
+        };
+
+        var v = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches: 0);
+
+        // Independent hand count: exact (0-mismatch) windows of "ACGTACGT".
+        int oracleHits = OracleOffTargetHits(probe, refs, 0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(oracleHits, Is.EqualTo(2), "oracle: probe occurs exactly twice");
+            Assert.That(v.OffTargetHits, Is.EqualTo(2), "production matches hand count");
+            Assert.That(v.SpecificityScore, Is.EqualTo(0.5).Within(1e-9), "1/2 = 0.5");
+        });
+    }
+
+    /// <summary>
+    /// Engineered single-mismatch anchor: a unique reference window that differs from the probe by
+    /// exactly ONE substitution is counted as a hit when maxMismatches ≥ 1 (⇒ 1 hit, Specificity
+    /// 1.0) but NOT counted when maxMismatches == 0 (⇒ 0 hits, Specificity 0.0). Demonstrates the
+    /// substitution-tolerant window contract on a concrete case.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ValidateProbe_SingleMismatchWithinTolerance_CountedAsHit()
+    {
+        const string probe = "ACGTACGT";
+        // Reference contains the probe with one substitution at position 0 (A→T), unique window.
+        var refs = new[] { "GG" + "TCGTACGT" + "GG" };
+
+        var withTolerance = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches: 1);
+        var noTolerance = ProbeDesigner.ValidateProbe(probe, refs, maxMismatches: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OracleOffTargetHits(probe, refs, 1), Is.EqualTo(1), "oracle: 1 hit at mm=1");
+            Assert.That(withTolerance.OffTargetHits, Is.EqualTo(1), "1-mismatch window counted at mm=1");
+            Assert.That(withTolerance.SpecificityScore, Is.EqualTo(1.0).Within(1e-9), "unique ⇒ 1.0");
+            Assert.That(OracleOffTargetHits(probe, refs, 0), Is.EqualTo(0), "oracle: 0 hits at mm=0");
+            Assert.That(noTolerance.OffTargetHits, Is.EqualTo(0), "1-mismatch window NOT counted at mm=0");
+            Assert.That(noTolerance.SpecificityScore, Is.EqualTo(0.0).Within(1e-9), "no hit ⇒ 0.0");
+        });
+    }
+
+    /// <summary>
+    /// CheckSpecificity suffix-tree anchor (0 / 1 / 1/hits exact-hit map): a genome containing the
+    /// probe EXACTLY TWICE ⇒ 0.5; a unique probe ⇒ 1.0; an absent probe ⇒ 0.0. Uses a real
+    /// <c>global::SuffixTree.SuffixTree.Build(...)</c> index, with the occurrence count cross-checked
+    /// via <c>FindAllOccurrences</c>. Source: ProbeDesigner.cs §CheckSpecificity.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CheckSpecificity_SuffixTree_ExactHitMap()
+    {
+        // "GATTACA" appears twice; "CCCCCCC" is absent; "ACAGTC" unique.
+        const string genome = "GATTACAGTCAAGATTACATTTT";
+        var index = global::SuffixTree.SuffixTree.Build(genome);
+
+        Assert.Multiple(() =>
+        {
+            int twiceCount = index.FindAllOccurrences("GATTACA").Count;
+            Assert.That(twiceCount, Is.EqualTo(2), "GATTACA occurs exactly twice");
+            Assert.That(ProbeDesigner.CheckSpecificity("GATTACA", index),
+                Is.EqualTo(0.5).Within(1e-9), "2 hits ⇒ 1/2");
+
+            Assert.That(index.FindAllOccurrences("CCCCCCC").Count, Is.EqualTo(0), "absent probe");
+            Assert.That(ProbeDesigner.CheckSpecificity("CCCCCCC", index),
+                Is.EqualTo(0.0).Within(1e-9), "0 hits ⇒ 0.0");
+
+            Assert.That(index.FindAllOccurrences("ACAGTC").Count, Is.EqualTo(1), "unique window");
+            Assert.That(ProbeDesigner.CheckSpecificity("ACAGTC", index),
+                Is.EqualTo(1.0).Within(1e-9), "1 hit ⇒ 1.0");
+        });
+    }
+
+    #endregion
 }
