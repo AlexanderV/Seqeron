@@ -3719,4 +3719,479 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-LOH-001 — Loss of Heterozygosity (HRD-LOH)
+
+    // -------------------------------------------------------------------------
+    // Independent scarHRD/Abkevich oracle, transcribed from
+    // Loss_Of_Heterozygosity.md §2.2/§2.4 (INV-01..INV-06) and §4.1, NOT routed
+    // through any production helper. The LOH predicate, the whole-chromosome
+    // exclusion, the adjacent-same-state merge and the strict 15 Mb count are all
+    // recomputed here from literals, so a self-consistent-but-wrong implementation
+    // is still caught.
+    //
+    // Checklist-row refinement (the row wording is loose / partly bogus):
+    //   * "P: LOH ⟺ BAF → 0/1" — the implementation takes NO BAF input. The real
+    //     contract (INV-03 / §2.2) is: a segment is LOH iff cn_minor == 0 AND
+    //     cn_major != 0. That is what we test.
+    //   * "M: lower BAF-dev threshold → ≥ LOH" — there is NO tunable threshold; the
+    //     region-size limit is the FIXED constant 15,000,000 bp. This monotonicity
+    //     item does NOT apply and is dropped; in its place we pin the fixed strict
+    //     15 Mb boundary (INV-04, §6.1).
+    // -------------------------------------------------------------------------
+
+    /// <summary>Documented strict minimum HRD-LOH region length, 15 Mb (literal, Abkevich 2012 / scarHRD <c>sizelimitLOH = 15e6</c>).</summary>
+    private const long LohMinRegionLengthBp = 15_000_000L;
+
+    /// <summary>The handful of chromosomes used by the generators (kept small so collisions and merges are exercised).</summary>
+    private static readonly string[] LohChromosomes = { "1", "2", "3", "X" };
+
+    /// <summary>
+    /// INV-03 LOH predicate, transcribed literally from §2.2: a segment is LOH iff the minor-allele copy
+    /// number is 0 and the major-allele copy number is non-zero (homozygous deletion 0|0 is NOT LOH;
+    /// heterozygous retention minor≠0 is NOT LOH).
+    /// </summary>
+    private static bool OracleIsLoh(OncologyAnalyzer.AlleleSpecificSegment s)
+        => s.MinorCopyNumber == 0 && s.MajorCopyNumber != 0;
+
+    /// <summary>
+    /// Independent scarHRD HRD-LOH oracle (INV-01,03,04,05,06). Reproduces §4.1 from scratch: group by
+    /// chromosome; EXCLUDE any chromosome whose every segment has cn_minor == 0 (whole-chromosome LOH,
+    /// scarHRD <c>chrDel</c>); within each remaining chromosome sort by start and merge adjacent segments of
+    /// the SAME LOH state when the gap is ≤ 1 bp; count merged LOH-state runs whose length (end − start) is
+    /// STRICTLY &gt; 15,000,000 bp. Returns both the count and the surviving (chr,start,end) runs.
+    /// </summary>
+    private static (int score, List<(string chr, long start, long end)> regions) OracleHrdLoh(
+        IEnumerable<OncologyAnalyzer.AlleleSpecificSegment> segments)
+    {
+        // Group preserving nothing about order — the oracle is set-based per chromosome (INV-06).
+        var byChr = new Dictionary<string, List<OncologyAnalyzer.AlleleSpecificSegment>>(StringComparer.Ordinal);
+        foreach (var s in segments)
+        {
+            if (!byChr.TryGetValue(s.Chromosome, out var list))
+            {
+                list = new List<OncologyAnalyzer.AlleleSpecificSegment>();
+                byChr[s.Chromosome] = list;
+            }
+
+            list.Add(s);
+        }
+
+        var regions = new List<(string chr, long start, long end)>();
+        foreach (var kv in byChr)
+        {
+            var group = kv.Value;
+
+            // Whole-chromosome LOH: every segment has minor == 0 → excluded entirely (INV-05).
+            if (group.All(s => s.MinorCopyNumber == 0))
+            {
+                continue;
+            }
+
+            // Sort by start (ties by end) then merge adjacent same-LOH-state runs (gap ≤ 1 bp).
+            var sorted = group.OrderBy(s => s.Start).ThenBy(s => s.End).ToList();
+            var runs = new List<(bool loh, long start, long end)>();
+            foreach (var s in sorted)
+            {
+                bool loh = OracleIsLoh(s);
+                if (runs.Count == 0)
+                {
+                    runs.Add((loh, s.Start, s.End));
+                    continue;
+                }
+
+                var last = runs[^1];
+                bool sameState = last.loh == loh;
+                bool adjacent = s.Start - last.end <= 1L;
+                if (sameState && adjacent)
+                {
+                    runs[^1] = (last.loh, last.start, Math.Max(last.end, s.End));
+                }
+                else
+                {
+                    runs.Add((loh, s.Start, s.End));
+                }
+            }
+
+            foreach (var run in runs)
+            {
+                // INV-04: strict > 15 Mb; INV-03: only LOH-state runs counted.
+                if (run.loh && (run.end - run.start) > LohMinRegionLengthBp)
+                {
+                    regions.Add((kv.Key, run.start, run.end));
+                }
+            }
+        }
+
+        return (regions.Count, regions);
+    }
+
+    /// <summary>
+    /// Independent LOH-fraction oracle (INV-02, §5.2): (Σ LOH-segment lengths on <paramref name="chromosome"/>)
+    /// ÷ (Σ all covered segment lengths on that chromosome), with NO 15 Mb filter and NO whole-chromosome
+    /// exclusion. A chromosome absent from the input (zero covered length) yields 0.0.
+    /// </summary>
+    private static double OracleLohFraction(
+        IEnumerable<OncologyAnalyzer.AlleleSpecificSegment> segments, string chromosome)
+    {
+        long total = 0;
+        long loh = 0;
+        foreach (var s in segments)
+        {
+            if (!string.Equals(s.Chromosome, chromosome, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            total += s.End - s.Start;
+            if (OracleIsLoh(s))
+            {
+                loh += s.End - s.Start;
+            }
+        }
+
+        return total == 0 ? 0.0 : (double)loh / total;
+    }
+
+    // -------------------------------------------------------------------------
+    // Generators — non-overlapping ascending segments over a few chromosomes,
+    // with varied major/minor CN (LOH / het / homozygous-deletion) and lengths
+    // straddling the 15 Mb boundary so the strict filter is exercised on both
+    // sides.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Generates a single chromosome's segment list: contiguous, ascending, non-overlapping segments whose
+    /// individual lengths straddle the 15 Mb boundary, with copy numbers spanning LOH (minor 0, major≥1),
+    /// heterozygous (minor≥1) and homozygous deletion (0|0). Gaps between segments are 0 or 1 bp so the
+    /// merge step is exercised.
+    /// </summary>
+    private static Gen<OncologyAnalyzer.AlleleSpecificSegment[]> SegmentsForChromosomeGen(string chr) =>
+        from n in Gen.Choose(0, 5)
+        from lengthsMb in Gen.Choose(1, 40).ArrayOf(n)   // 1..40 Mb per segment (straddles 15 Mb)
+        from gaps in Gen.Choose(0, 1).ArrayOf(n)          // 0 or 1 bp gaps → adjacency/merge
+        from majors in Gen.Choose(0, 4).ArrayOf(n)        // major CN incl. 0 (homozygous deletion)
+        from minors in Gen.Choose(0, 3).ArrayOf(n)        // minor CN incl. 0 (LOH candidate)
+        select BuildChromosomeSegments(chr, lengthsMb, gaps, majors, minors);
+
+    private static OncologyAnalyzer.AlleleSpecificSegment[] BuildChromosomeSegments(
+        string chr, int[] lengthsMb, int[] gaps, int[] majors, int[] minors)
+    {
+        var result = new OncologyAnalyzer.AlleleSpecificSegment[lengthsMb.Length];
+        long cursor = 0;
+        for (int i = 0; i < lengthsMb.Length; i++)
+        {
+            long start = cursor + (i == 0 ? 0 : gaps[i]);
+            long end = start + (long)lengthsMb[i] * 1_000_000L;
+            result[i] = new OncologyAnalyzer.AlleleSpecificSegment(chr, start, end, majors[i], minors[i]);
+            cursor = end;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Generates a full multi-chromosome segment set (contract-valid: End &gt; Start, CN ≥ 0) over the
+    /// generator's small chromosome pool. Some chromosomes may be whole-chromosome LOH, some empty.
+    /// </summary>
+    private static Arbitrary<OncologyAnalyzer.AlleleSpecificSegment[]> SegmentSetArbitrary() =>
+        (from c0 in SegmentsForChromosomeGen(LohChromosomes[0])
+         from c1 in SegmentsForChromosomeGen(LohChromosomes[1])
+         from c2 in SegmentsForChromosomeGen(LohChromosomes[2])
+         from c3 in SegmentsForChromosomeGen(LohChromosomes[3])
+         select c0.Concat(c1).Concat(c2).Concat(c3).ToArray())
+        .ToArbitrary();
+
+    /// <summary>FsCheck-friendly shuffle of a segment array (drives INV-06 order independence).</summary>
+    private static Gen<OncologyAnalyzer.AlleleSpecificSegment[]> ShuffleGen(
+        OncologyAnalyzer.AlleleSpecificSegment[] source) =>
+        Gen.Choose(int.MinValue, int.MaxValue).ArrayOf(source.Length)
+            .Select(keys => source
+                .Select((seg, idx) => (seg, key: keys.Length == 0 ? 0 : keys[idx]))
+                .OrderBy(t => t.key)
+                .Select(t => t.seg)
+                .ToArray());
+
+    // -------------------------------------------------------------------------
+    // HRD-LOH score vs. independent oracle (INV-01, INV-03, INV-04, INV-05)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-01/03/04/05: <c>CalculateHrdLohScore</c> and <c>DetectLOH(...).Score</c> both equal the independent
+    /// scarHRD oracle (LOH = minor 0 &amp; major≠0; whole-chromosome LOH excluded; adjacent same-state merge;
+    /// strict &gt; 15 Mb), and the score is ≥ 0 (INV-01).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Loh_HrdScore_MatchesScarHrdOracle()
+    {
+        return Prop.ForAll(SegmentSetArbitrary(), segs =>
+        {
+            int expected = OracleHrdLoh(segs).score;
+            int score = OncologyAnalyzer.CalculateHrdLohScore(segs);
+            int detectScore = OncologyAnalyzer.DetectLOH(segs).Score;
+            return (score == expected && detectScore == expected && score >= 0)
+                .Label($"score={score}, detect={detectScore}, oracle={expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-06: the HRD-LOH score is invariant under input-segment-order shuffles (per-chromosome aggregation
+    /// is set-based). The shuffled score equals the original score equals the oracle.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Loh_HrdScore_OrderIndependent()
+    {
+        return Prop.ForAll(SegmentSetArbitrary(), segs =>
+            Prop.ForAll(ShuffleGen(segs).ToArbitrary(), shuffled =>
+            {
+                int baseline = OncologyAnalyzer.CalculateHrdLohScore(segs);
+                int permuted = OncologyAnalyzer.CalculateHrdLohScore(shuffled);
+                int oracle = OracleHrdLoh(segs).score;
+                return (baseline == permuted && permuted == oracle)
+                    .Label($"baseline={baseline}, permuted={permuted}, oracle={oracle}");
+            }));
+    }
+
+    // -------------------------------------------------------------------------
+    // Per-region invariants (R, INV-03/04/05)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-03/04/05: every region returned by <c>DetectLOH</c> has Start &lt; End, length (End − Start)
+    /// strictly &gt; 15 Mb, a non-empty chromosome that is NOT whole-chromosome-LOH, and matches a region the
+    /// independent oracle also produced (LOH state on a kept chromosome). <c>Length</c> equals End − Start.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Loh_DetectedRegions_SatisfyContract()
+    {
+        return Prop.ForAll(SegmentSetArbitrary(), segs =>
+        {
+            var result = OncologyAnalyzer.DetectLOH(segs);
+            var oracleRegions = OracleHrdLoh(segs).regions
+                .Select(r => (r.chr, r.start, r.end))
+                .ToHashSet();
+
+            foreach (var region in result.Regions)
+            {
+                bool positions = region.Start < region.End;
+                bool lengthField = region.Length == region.End - region.Start;
+                bool strict15 = region.End - region.Start > LohMinRegionLengthBp;
+                bool inOracle = oracleRegions.Contains((region.Chromosome, region.Start, region.End));
+                if (!(positions && lengthField && strict15 && inOracle))
+                {
+                    return false.Label(
+                        $"bad region chr={region.Chromosome} [{region.Start},{region.End}] len={region.Length} " +
+                        $"pos={positions} lenField={lengthField} strict15={strict15} inOracle={inOracle}");
+                }
+            }
+
+            // Regions.Count must equal Score (and the oracle count).
+            return (result.Regions.Count == result.Score && result.Score == oracleRegions.Count)
+                .Label($"count={result.Regions.Count}, score={result.Score}, oracle={oracleRegions.Count}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // CalculateLOHFraction (INV-02, §5.2)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-02 + §5.2: <c>CalculateLOHFraction</c> lies in [0, 1] and equals the independent fraction oracle
+    /// (Σ LOH lengths / Σ covered lengths on the chromosome; no size filter, no whole-chromosome exclusion)
+    /// for every chromosome in the pool. Absent chromosomes (zero coverage) give 0.0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Loh_Fraction_MatchesOracleAndInUnitRange()
+    {
+        return Prop.ForAll(SegmentSetArbitrary(), segs =>
+        {
+            foreach (var chr in LohChromosomes.Append("absent-chromosome"))
+            {
+                double frac = OncologyAnalyzer.CalculateLOHFraction(segs, chr);
+                double expected = OracleLohFraction(segs, chr);
+                bool inRange = frac is >= 0.0 and <= 1.0;
+                bool matches = Math.Abs(frac - expected) < 1e-12;
+                if (!(inRange && matches))
+                {
+                    return false.Label($"chr={chr}: frac={frac}, oracle={expected}, inRange={inRange}");
+                }
+            }
+
+            return true.ToProperty();
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // D (determinism)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D: identical input ⇒ identical result. Two independent calls over the same segments yield the same
+    /// score, the same ordered region list, and the same per-chromosome fraction.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Loh_Deterministic()
+    {
+        return Prop.ForAll(SegmentSetArbitrary(), segs =>
+        {
+            var a = OncologyAnalyzer.DetectLOH(segs);
+            var b = OncologyAnalyzer.DetectLOH(segs);
+            bool sameScore = a.Score == b.Score;
+            bool sameRegions = a.Regions.SequenceEqual(b.Regions);
+            bool sameFraction = LohChromosomes.All(chr =>
+                OncologyAnalyzer.CalculateLOHFraction(segs, chr)
+                    == OncologyAnalyzer.CalculateLOHFraction(segs, chr));
+            return (sameScore && sameRegions && sameFraction)
+                .Label($"sameScore={sameScore}, sameRegions={sameRegions}, sameFraction={sameFraction}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation / edge anchors (§3.3, §6.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>§3.3: null segments ⇒ ArgumentNullException on all three entry points.</summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_NullSegments_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.DetectLOH(null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateHrdLohScore(null!));
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateLOHFraction(null!, "1"));
+        });
+    }
+
+    /// <summary>§3.3: a null chromosome to <c>CalculateLOHFraction</c> ⇒ ArgumentNullException.</summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_NullChromosome_Throws()
+    {
+        var segs = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 1, 0) };
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CalculateLOHFraction(segs, null!));
+    }
+
+    /// <summary>§3.3 / §6.1: a segment with End ≤ Start ⇒ ArgumentException.</summary>
+    [TestCase(100L, 100L)]
+    [TestCase(100L, 50L)]
+    [Category("Property")]
+    public void Loh_NonPositiveLength_Throws(long start, long end)
+    {
+        var segs = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", start, end, 1, 0) };
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.DetectLOH(segs));
+    }
+
+    /// <summary>§3.3 / §6.1: a negative copy number ⇒ ArgumentException.</summary>
+    [TestCase(-1, 0)]
+    [TestCase(0, -1)]
+    [Category("Property")]
+    public void Loh_NegativeCopyNumber_Throws(int major, int minor)
+    {
+        var segs = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 20_000_000, major, minor) };
+        Assert.Throws<ArgumentException>(() => OncologyAnalyzer.DetectLOH(segs));
+    }
+
+    /// <summary>§6.1: empty input ⇒ score 0 and fraction 0.</summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_EmptyInput_ScoreAndFractionZero()
+    {
+        var empty = Array.Empty<OncologyAnalyzer.AlleleSpecificSegment>();
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateHrdLohScore(empty), Is.EqualTo(0));
+            Assert.That(OncologyAnalyzer.DetectLOH(empty).Score, Is.EqualTo(0));
+            Assert.That(OncologyAnalyzer.CalculateLOHFraction(empty, "1"), Is.EqualTo(0.0));
+        });
+    }
+
+    /// <summary>
+    /// INV-04 / §6.1: an LOH region of length EXACTLY 15,000,000 bp is NOT counted (strict &gt;); 15,000,001 IS
+    /// counted. A trailing heterozygous segment keeps the chromosome out of the whole-chromosome-LOH
+    /// exclusion (INV-05), so the size filter alone is under test.
+    /// </summary>
+    [TestCase(15_000_000L, 0)]
+    [TestCase(15_000_001L, 1)]
+    [Category("Property")]
+    public void Loh_FifteenMbStrictBoundary(long lohEnd, int expectedScore)
+    {
+        var segs = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, lohEnd, 1, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("1", lohEnd + 1, lohEnd + 5_000_000, 1, 1),
+        };
+        Assert.That(OncologyAnalyzer.CalculateHrdLohScore(segs), Is.EqualTo(expectedScore));
+    }
+
+    /// <summary>INV-03 / §6.1: homozygous deletion (minor 0, major 0) is NOT LOH ⇒ not counted, even &gt; 15 Mb.</summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_HomozygousDeletion_NotCounted()
+    {
+        var segs = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 20_000_000, 0, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 20_000_000, 60_000_000, 1, 1),
+        };
+        Assert.That(OncologyAnalyzer.CalculateHrdLohScore(segs), Is.EqualTo(0));
+    }
+
+    /// <summary>INV-03 / §6.1: heterozygous retention (minor ≠ 0) is NOT LOH ⇒ not counted, even &gt; 15 Mb.</summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_HeterozygousRetained_NotCounted()
+    {
+        var segs = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 30_000_000, 2, 1),
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 30_000_000, 60_000_000, 1, 1),
+        };
+        Assert.That(OncologyAnalyzer.CalculateHrdLohScore(segs), Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// INV-05 / §6.1: a whole-chromosome-LOH chromosome (every segment minor 0) is excluded — its &gt; 15 Mb
+    /// LOH run is NOT counted, while an equivalent run on a non-whole-chromosome-LOH chromosome IS counted.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_WholeChromosomeLoh_NotCounted()
+    {
+        // chr1: every segment LOH → whole-chromosome LOH → excluded.
+        // chr2: a 20 Mb LOH run plus a het segment → NOT whole-chromosome → counted once.
+        var segs = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 20_000_000, 1, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 20_000_000, 60_000_000, 2, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("2", 0, 20_000_000, 1, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("2", 20_000_000, 60_000_000, 1, 1),
+        };
+        Assert.That(OncologyAnalyzer.CalculateHrdLohScore(segs), Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// §7.1 worked example: 20 Mb LOH on "1" (counted) + het on "1" + 10 Mb LOH on "2" (≤ 15 Mb, not counted)
+    /// ⇒ score 1; CalculateLOHFraction("1") = 20M / 60M = 0.3333…
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Loh_WorkedExample_Section71()
+    {
+        var segments = new[]
+        {
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 20_000_000, 1, 0),
+            new OncologyAnalyzer.AlleleSpecificSegment("1", 20_000_000, 60_000_000, 1, 1),
+            new OncologyAnalyzer.AlleleSpecificSegment("2", 0, 10_000_000, 2, 0),
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateHrdLohScore(segments), Is.EqualTo(1));
+            Assert.That(
+                OncologyAnalyzer.CalculateLOHFraction(segments, "1"),
+                Is.EqualTo(20_000_000.0 / 60_000_000.0).Within(1e-12));
+        });
+    }
+
+    #endregion
 }
