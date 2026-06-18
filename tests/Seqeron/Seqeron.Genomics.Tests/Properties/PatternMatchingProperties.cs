@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -453,6 +453,76 @@ public class PatternMatchingProperties
             Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "AC" }));
             Assert.Throws<ArgumentException>(() => MotifFinder.CreateConsensusFromAlignment(new[] { "ACGT", "ACGN" }));
         });
+    }
+
+    #endregion
+
+    #region MOTIF-DISCOVER-001: R: motif length = k; M: lower support → ≥ motifs; D: deterministic
+
+    // DiscoverMotifs reports k-mers occurring at least minCount times, with their positions and an
+    // observed/expected enrichment (Compeau & Pevzner i.i.d. background).
+
+    /// <summary>
+    /// INV-1 (R): every discovered motif has length k, Count = #positions ≥ minCount, valid positions
+    /// pointing at genuine occurrences, and positive enrichment.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_AreWellFormed()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            const int k = 2;
+            const int minCount = 2;
+            var dna = new DnaSequence(seq);
+            var motifs = MotifFinder.DiscoverMotifs(dna, k, minCount).ToList();
+            bool ok = motifs.All(m =>
+                m.Sequence.Length == k &&
+                m.Count >= minCount && m.Count == m.Positions.Count &&
+                m.Enrichment > 0 &&
+                m.Positions.All(p => p >= 0 && p + k <= seq.Length && seq.Substring(p, k) == m.Sequence));
+            return ok.Label("a discovered motif was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): a lower support threshold reports at least as many motifs — minCount 3 ⊆ minCount 2.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_LowerSupport_IsSuperset()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var loose = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => m.Sequence).ToHashSet();
+            var strict = MotifFinder.DiscoverMotifs(dna, 2, 3).Select(m => m.Sequence).ToHashSet();
+            return strict.IsSubsetOf(loose).Label("minCount 3 result not ⊆ minCount 2 result");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Motif discovery is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DiscoverMotifs_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(12), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var a = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => (m.Sequence, m.Count)).ToHashSet();
+            var b = MotifFinder.DiscoverMotifs(dna, 2, 2).Select(m => (m.Sequence, m.Count)).ToHashSet();
+            return a.SetEquals(b).Label("DiscoverMotifs must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): k &lt; 1 is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DiscoverMotifs_InvalidK_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => MotifFinder.DiscoverMotifs(new DnaSequence("ACGTACGT"), 0).ToList());
     }
 
     #endregion
