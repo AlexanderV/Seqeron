@@ -7404,4 +7404,167 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CLONAL-001 — Clonal vs Subclonal Classification (CCF posterior)
+
+    // -------------------------------------------------------------------------
+    // Theory (Landau et al. 2013 Cell; DeCiFering/Satas 2021 multiplicity):
+    //   • Posterior over CCF c on a grid, P(c) ∝ Binomial(a | N, f(c)),
+    //     f(c) = ρ·M·c / [2(1−ρ) + ρ·q].
+    //   • Clonal ⟺ P(c > 0.95) > 0.5; else Subclonal.   (status ↔ reported probability)
+    //   • CCF point estimate (posterior mean) ∈ [0.01, 1]; ProbabilityClonal ∈ [0,1].
+    //   • Higher observed alt fraction ⇒ higher CCF and clonal probability (binomial MLR).
+    //   • IdentifyClonalMutations: indices with CCF > 0.95.
+    //
+    // The classification rule (status ↔ probability), bounds, counts and the CCF>0.95
+    // index selection are verified directly; monotonicity in alt reads is checked
+    // metamorphically rather than by mirroring the grid posterior.
+    // -------------------------------------------------------------------------
+
+    private const double ClonalTolerance = 1e-9;
+
+    private static Gen<OncologyAnalyzer.ClonalityVariant> ClonalityVariantGen() =>
+        from total in Gen.Choose(1, 200)
+        from alt in Gen.Choose(0, total)
+        from q in Gen.Choose(1, 6)
+        from m in Gen.Choose(1, q)
+        select new OncologyAnalyzer.ClonalityVariant(alt, total, q, m);
+
+    private static Arbitrary<(OncologyAnalyzer.ClonalityVariant[] variants, double purity)> ClonalityProblemArbitrary() =>
+        (from n in Gen.Choose(0, 6)
+         from variants in ClonalityVariantGen().ArrayOf(n)
+         from purityMilli in Gen.Choose(100, 1000)
+         select (variants, purityMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "class ∈ enum") + status rule + counts: every call reports a CCF ∈ [0.01,1] and a
+    /// clonal probability ∈ [0,1], its Status is Clonal iff that probability exceeds 0.5, the calls are in
+    /// input order, and the clonal/subclonal counts and clonal fraction are consistent. (Landau 2013)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_StatusMatchesProbability_BoundsAndCountsConsistent()
+    {
+        return Prop.ForAll(ClonalityProblemArbitrary(), p =>
+        {
+            var result = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+
+            bool ok = result.Calls.Count == p.variants.Length;
+            for (int i = 0; ok && i < result.Calls.Count; i++)
+            {
+                var c = result.Calls[i];
+                ok &= c.Variant.Equals(p.variants[i]);
+                ok &= c.Ccf >= 0.01 - ClonalTolerance && c.Ccf <= 1.0 + ClonalTolerance;
+                ok &= c.ProbabilityClonal >= -ClonalTolerance && c.ProbabilityClonal <= 1.0 + ClonalTolerance;
+                bool clonalByProb = c.ProbabilityClonal > OncologyAnalyzer.ClonalProbabilityThreshold;
+                ok &= c.Status == (clonalByProb ? OncologyAnalyzer.ClonalityStatus.Clonal : OncologyAnalyzer.ClonalityStatus.Subclonal);
+            }
+
+            int clonal = result.Calls.Count(c => c.Status == OncologyAnalyzer.ClonalityStatus.Clonal);
+            int subclonal = result.Calls.Count - clonal;
+            ok &= result.ClonalCount == clonal && result.SubclonalCount == subclonal;
+            double expectedFraction = result.Calls.Count == 0 ? 0.0 : (double)clonal / result.Calls.Count;
+            ok &= Math.Abs(result.ClonalFraction - expectedFraction) < ClonalTolerance;
+
+            return ok.Label($"clonal={result.ClonalCount}, subclonal={result.SubclonalCount}, fraction={result.ClonalFraction}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "clonal ⟺ CCF ≈ 1") / M: at a fixed depth, copy state and purity, observing more
+    /// alternate reads can only raise the CCF estimate and the clonal probability — the binomial likelihood
+    /// has monotone likelihood ratio in the success count, so higher VAF ⇒ higher (more clonal) CCF.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_MoreAltReads_RaiseCcfAndClonalProbability()
+    {
+        var arb = (from total in Gen.Choose(1, 200)
+                   from a1 in Gen.Choose(0, total)
+                   from a2 in Gen.Choose(0, total)
+                   from q in Gen.Choose(1, 6)
+                   from m in Gen.Choose(1, q)
+                   from purityMilli in Gen.Choose(100, 1000)
+                   select (total, lo: Math.Min(a1, a2), hi: Math.Max(a1, a2), q, m, purity: purityMilli / 1000.0))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var low = OncologyAnalyzer.ClassifyClonality(
+                new[] { new OncologyAnalyzer.ClonalityVariant(t.lo, t.total, t.q, t.m) }, t.purity).Calls[0];
+            var high = OncologyAnalyzer.ClassifyClonality(
+                new[] { new OncologyAnalyzer.ClonalityVariant(t.hi, t.total, t.q, t.m) }, t.purity).Calls[0];
+
+            bool ccfMonotone = high.Ccf >= low.Ccf - ClonalTolerance;
+            bool probMonotone = high.ProbabilityClonal >= low.ProbabilityClonal - ClonalTolerance;
+            return (ccfMonotone && probMonotone)
+                .Label($"a={t.lo}->{t.hi}: CCF {low.Ccf}->{high.Ccf}, P(clonal) {low.ProbabilityClonal}->{high.ProbabilityClonal}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IdentifyClonalMutations</c> returns exactly the input indices whose CCF strictly exceeds 0.95, in
+    /// input order — matching an independent index oracle. (Landau 2013 CCF &gt; 0.95 clonal threshold)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyClonalMutations_SelectsIndicesAboveClonalThreshold()
+    {
+        var arb = Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf().ToArbitrary();
+
+        return Prop.ForAll(arb, ccfValues =>
+        {
+            var indices = OncologyAnalyzer.IdentifyClonalMutations(ccfValues);
+            var oracle = ccfValues
+                .Select((ccf, i) => (ccf, i))
+                .Where(x => x.ccf > OncologyAnalyzer.ClonalCcfThreshold)
+                .Select(x => x.i)
+                .ToList();
+            return indices.SequenceEqual(oracle)
+                .Label($"indices [{string.Join(",", indices)}] ≠ oracle [{string.Join(",", oracle)}]");
+        });
+    }
+
+    /// <summary>D (determinism): clonality classification is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyClonality_IsDeterministic()
+    {
+        return Prop.ForAll(ClonalityProblemArbitrary(), p =>
+        {
+            var a = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+            var b = OncologyAnalyzer.ClassifyClonality(p.variants, p.purity);
+            return (a.Calls.SequenceEqual(b.Calls) && a.ClonalCount == b.ClonalCount
+                    && a.SubclonalCount == b.SubclonalCount && a.ClonalFraction == b.ClonalFraction)
+                .Label("ClassifyClonality is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: at full purity a mutation on both copies (M=2, n_tot=2 ⇒ f(c)=c) observed at VAF 0.99 has
+    /// CCF ≈ 0.99 ⇒ clonal, while VAF 0.20 ⇒ CCF ≈ 0.20 ⇒ subclonal; purity ∉ (0,1] and a NaN CCF are
+    /// rejected. (Landau 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyClonality_CanonicalAndGuardCases()
+    {
+        var clonal = OncologyAnalyzer.ClassifyClonality(
+            new[] { new OncologyAnalyzer.ClonalityVariant(99, 100, 2, 2) }, purity: 1.0).Calls[0];
+        var subclonal = OncologyAnalyzer.ClassifyClonality(
+            new[] { new OncologyAnalyzer.ClonalityVariant(20, 100, 2, 2) }, purity: 1.0).Calls[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clonal.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Clonal),
+                "VAF 0.99 with f(c)=c ⇒ CCF ≈ 0.99 ⇒ clonal.");
+            Assert.That(clonal.Ccf, Is.GreaterThan(0.9), "Clonal CCF point estimate is near 1.");
+            Assert.That(subclonal.Status, Is.EqualTo(OncologyAnalyzer.ClonalityStatus.Subclonal),
+                "VAF 0.20 ⇒ CCF ≈ 0.20 ⇒ subclonal.");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => OncologyAnalyzer.ClassifyClonality(Array.Empty<OncologyAnalyzer.ClonalityVariant>(), 0.0),
+                "Purity must be in (0,1].");
+            Assert.Throws<ArgumentException>(
+                () => OncologyAnalyzer.IdentifyClonalMutations(new[] { double.NaN }),
+                "A NaN CCF is invalid.");
+        });
+    }
+
+    #endregion
 }
