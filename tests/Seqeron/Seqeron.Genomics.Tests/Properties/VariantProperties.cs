@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for variant calling and annotation (VariantCaller).
 ///
-/// Test Units: VARIANT-ANNOT-001, VARIANT-CALL-001
+/// Test Units: VARIANT-ANNOT-001, VARIANT-CALL-001, VARIANT-INDEL-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -194,6 +194,75 @@ public class VariantProperties
             var b = VariantCaller.CallVariants(new DnaSequence(r), new DnaSequence(q)).ToList();
             return (a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second))
                 .Label("CallVariants must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region VARIANT-INDEL-001: P: indel has a gap allele on exactly one side; R: positions valid; D: deterministic
+
+    // FindIndels returns the insertion/deletion variants. In this representation an indel carries the
+    // gap allele "-" on exactly one side (Ref="-" for insertions, Alt="-" for deletions).
+
+    private static bool IsWellFormedIndel(Variant v) => v.Type switch
+    {
+        VariantType.Insertion => v.ReferenceAllele == "-" && v.AlternateAllele.Length == 1 && v.AlternateAllele != "-",
+        VariantType.Deletion => v.AlternateAllele == "-" && v.ReferenceAllele.Length == 1 && v.ReferenceAllele != "-",
+        _ => false,
+    };
+
+    /// <summary>
+    /// INV-1 (P + R): every reported indel is a well-formed gap-allele insertion or deletion at a
+    /// valid position.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Indels_AreWellFormed()
+    {
+        return Prop.ForAll(SeqPairArbitrary(), input =>
+        {
+            var (r, q) = input;
+            var indels = VariantCaller.FindIndels(new DnaSequence(r), new DnaSequence(q)).ToList();
+            return indels.All(v => IsWellFormedIndel(v) && v.Position >= 0 && v.Position <= r.Length)
+                .Label("a reported indel was malformed");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive controls): a single-base deletion and insertion are detected with the
+    /// correct gap-allele orientation.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Indels_SingleBaseDelAndIns_AreDetected()
+    {
+        const string reference = "ACGTACGTAC";
+        string deletion = reference.Remove(4, 1);            // query missing one base → deletion
+        string insertion = reference.Insert(4, "G");          // query has an extra base → insertion
+
+        var dels = VariantCaller.FindIndels(new DnaSequence(reference), new DnaSequence(deletion)).ToList();
+        var ins = VariantCaller.FindIndels(new DnaSequence(reference), new DnaSequence(insertion)).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dels.Any(v => v.Type == VariantType.Deletion), Is.True, "deletion expected");
+            Assert.That(ins.Any(v => v.Type == VariantType.Insertion), Is.True, "insertion expected");
+            Assert.That(dels.Concat(ins).All(IsWellFormedIndel), Is.True, "indels well-formed");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Indel detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Indels_IsDeterministic()
+    {
+        return Prop.ForAll(SeqPairArbitrary(), input =>
+        {
+            var (r, q) = input;
+            var a = VariantCaller.FindIndels(new DnaSequence(r), new DnaSequence(q)).ToList();
+            var b = VariantCaller.FindIndels(new DnaSequence(r), new DnaSequence(q)).ToList();
+            return (a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second))
+                .Label("FindIndels must be deterministic");
         });
     }
 
