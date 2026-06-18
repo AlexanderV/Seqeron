@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for metagenomics diversity analysis:
 /// alpha diversity indices and beta diversity metrics.
 ///
-/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001, META-RESIST-001
+/// Test Units: META-ALPHA-001, META-BETA-001, META-FUNC-001, META-PATHWAY-001, META-RESIST-001, META-TAXA-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -1764,6 +1764,87 @@ public class MetagenomicsProperties
             var a = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
             var b = MetagenomicsAnalyzer.FindResistanceGenes(genes.Select(g => (g.GeneId, g.Seq)), ResistanceDb).ToList();
             return a.SequenceEqual(b).Label("FindResistanceGenes must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region META-TAXA-001: R: p-value ∈ [0,1]; P: significant ⟺ p < threshold; D: deterministic
+
+    // FindSignificantTaxa runs a Mann–Whitney U test per taxon between two groups; a taxon is
+    // significant when its p-value is below the threshold.
+
+    private static Arbitrary<(IReadOnlyList<IReadOnlyDictionary<string, double>> profiles, IReadOnlyList<int> groups)>
+        TaxaProfilesArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 4 + rng.Next(5);
+            var profiles = new List<IReadOnlyDictionary<string, double>>();
+            var groups = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                var prof = new Dictionary<string, double>
+                {
+                    ["t0"] = rng.NextDouble() * 10,
+                    ["t1"] = rng.NextDouble() * 10,
+                    ["t2"] = rng.NextDouble() * 10,
+                };
+                profiles.Add(prof);
+                groups.Add((i % 2) + 1); // alternate 1,2 → both groups present
+            }
+            return ((IReadOnlyList<IReadOnlyDictionary<string, double>>)profiles, (IReadOnlyList<int>)groups);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R + P): each taxon's p-value is in [0,1] and its significance flag equals p &lt; threshold.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Taxa_PValuesAndSignificanceFlag()
+    {
+        return Prop.ForAll(TaxaProfilesArbitrary(), input =>
+        {
+            const double threshold = 0.05;
+            var (profiles, groups) = input;
+            var results = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, threshold);
+            bool ok = results.All(r => r.PValue is >= 0.0 and <= 1.0 && r.Significant == (r.PValue < threshold));
+            return ok.Label("a taxon p-value was out of range or the significance flag disagreed with p<α");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive/negative control): a fully separated taxon is significant; a constant taxon
+    /// is not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Taxa_SeparatedIsSignificant_ConstantIsNot()
+    {
+        var profiles = new List<IReadOnlyDictionary<string, double>>();
+        var groups = new List<int>();
+        for (int i = 0; i < 5; i++) { profiles.Add(new Dictionary<string, double> { ["sep"] = 1, ["same"] = 5 }); groups.Add(1); }
+        for (int i = 0; i < 5; i++) { profiles.Add(new Dictionary<string, double> { ["sep"] = 100, ["same"] = 5 }); groups.Add(2); }
+
+        var results = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups, 0.05);
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Single(r => r.Taxon == "sep").Significant, Is.True, "fully separated taxon is significant");
+            Assert.That(results.Single(r => r.Taxon == "same").Significant, Is.False, "constant taxon is not significant");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Significant-taxa detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Taxa_IsDeterministic()
+    {
+        return Prop.ForAll(TaxaProfilesArbitrary(), input =>
+        {
+            var (profiles, groups) = input;
+            var a = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups).Select(r => (r.Taxon, r.PValue, r.Significant)).ToList();
+            var b = MetagenomicsAnalyzer.FindSignificantTaxa(profiles, groups).Select(r => (r.Taxon, r.PValue, r.Significant)).ToList();
+            return a.SequenceEqual(b).Label("FindSignificantTaxa must be deterministic");
         });
     }
 
