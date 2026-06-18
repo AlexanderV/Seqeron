@@ -5127,4 +5127,306 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-SIG-003 — Signature Exposure Bootstrap Confidence Intervals
+
+    // -------------------------------------------------------------------------
+    // Theory (Senkin 2021 MSA; Huang 2018; Efron 1979 percentile; Hyndman & Fan 1996 type-7):
+    //   • Parametric bootstrap: each replicate resamples the integer catalog as a multinomial draw of
+    //     N = Σ catalog mutations with pₖ = catalogₖ/N, then refits by NNLS.            (TestSpec §1.2.1–2)
+    //   • Per-signature interval = [½(1−c), 1−½(1−c)] percentiles of the replicate exposures. (§1.2.3)
+    //   • Point estimate = NNLS exposure of the OBSERVED (un-resampled) catalog.            (§1.2.5, INV-5)
+    //   • Corner cases: N = 0 ⇒ all-zero; a single non-zero channel ⇒ deterministic collapse. (§1.3)
+    //
+    // GUARANTEED invariants are asserted on ARBITRARY problems: per-signature ordering (INV-2),
+    // non-negativity (INV-1), determinism under a fixed seed (INV-4), the point-estimate contract
+    // (INV-5), and percentile-bound monotonicity in the confidence level. The bracketing
+    // "Lower ≤ point ≤ Upper" (checklist R) and "bootstrap mean ≈ point estimate" (checklist P)
+    // are only mathematically EXACT on the deterministic-collapse construction (single non-zero
+    // channel) and the N = 0 case — a percentile bracket of a skewed stochastic bootstrap need not
+    // contain its own mean — so they are proven there as exact equalities, with one concrete
+    // non-degenerate anchor (default 1000 replicates) verifying the statistical bracketing.
+    // -------------------------------------------------------------------------
+
+    private const double SigBootstrapTolerance = 1e-9;
+
+    /// <summary>Reproducible RNG seed reused across the randomized bootstrap properties (INV-4).</summary>
+    private const int SigBootstrapSeed = 42;
+
+    /// <summary>Modest replicate count keeping randomized property runs fast yet non-degenerate.</summary>
+    private const int SigBootstrapReplicates = 60;
+
+    /// <summary>
+    /// An arbitrary bootstrap problem: n channels (1..6), k signatures (non-negative finite vectors), and
+    /// a non-negative INTEGER catalog of length n. Integer counts (not proportions) are required because
+    /// the multinomial resample needs the total N = Σ catalog (TestSpec §1.4.2).
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, int[] catalog)> BootstrapProblemArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from k in Gen.Choose(1, 4)
+         from sigs in NonNegVectorGen(n).ArrayOf(k)
+         from catalog in Gen.Choose(0, 40).ArrayOf(n)
+         select (sigs, catalog)).ToArbitrary();
+
+    /// <summary>
+    /// A deterministic-collapse problem: standard-basis signatures over n channels (so NNLS recovers the
+    /// catalog exactly, exposure[j] = catalog[j]) and a catalog with exactly ONE positive channel. A
+    /// multinomial draw of N over a single non-zero probability is deterministic ⇒ every resample equals
+    /// the observed catalog ⇒ every replicate exposure equals the point estimate. (TestSpec §1.3)
+    /// </summary>
+    private static Arbitrary<(double[][] signatures, int[] catalog)> DeterministicCollapseArbitrary() =>
+        (from n in Gen.Choose(1, 5)
+         from hot in Gen.Choose(0, n - 1)
+         from count in Gen.Choose(1, 500)
+         select BuildCollapseProblem(n, hot, count)).ToArbitrary();
+
+    private static (double[][] signatures, int[] catalog) BuildCollapseProblem(int n, int hot, int count)
+    {
+        // Signature j = e_j over n channels ⇒ S = identity ⇒ NNLS exposure[j] = catalog[j].
+        var sigs = new double[n][];
+        for (int j = 0; j < n; j++)
+        {
+            sigs[j] = new double[n];
+            sigs[j][j] = 1.0;
+        }
+
+        var catalog = new int[n];
+        catalog[hot] = count; // single non-zero channel ⇒ deterministic multinomial resample
+        return (sigs, catalog);
+    }
+
+    /// <summary>
+    /// INV-5 (contract): exactly one interval per signature, in signature order, and each interval's
+    /// <c>PointEstimate</c> equals the NNLS exposure of the OBSERVED (un-resampled) catalog — recomputed
+    /// independently via <see cref="OncologyAnalyzer.FitSignatures(IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>
+    /// (the documented point estimate, Senkin 2021; Huang 2018). The reported confidence is the one requested.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_PointEstimate_IsObservedNnlsFit_OneIntervalPerSignatureInOrder()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            double[] observed = t.catalog.Select(c => (double)c).ToArray();
+            IReadOnlyList<double> fit = OncologyAnalyzer.FitSignatures(observed, sigs).Exposures;
+
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, sigs, SigBootstrapReplicates, OncologyAnalyzer.DefaultBootstrapConfidence, SigBootstrapSeed);
+
+            bool ok = intervals.Count == t.signatures.Length;
+            for (int j = 0; ok && j < intervals.Count; j++)
+            {
+                ok &= Math.Abs(intervals[j].PointEstimate - fit[j]) < SigBootstrapTolerance;
+                ok &= Math.Abs(intervals[j].Confidence - OncologyAnalyzer.DefaultBootstrapConfidence) < SigBootstrapTolerance;
+            }
+
+            return ok.Label(
+                $"point estimate ≠ observed NNLS fit, or interval count {intervals.Count} ≠ #signatures {t.signatures.Length}");
+        });
+    }
+
+    /// <summary>
+    /// INV-1 + INV-2: on an arbitrary catalog every interval is ordered (<c>Lower ≤ Upper</c>) and all of
+    /// <c>Lower</c>, <c>Upper</c>, <c>Mean</c>, <c>PointEstimate</c> are non-negative — resampled counts are
+    /// ≥ 0 and the NNLS constraint forces x ≥ 0, while the lower percentile probability ½(1−c) is strictly
+    /// below the upper 1−½(1−c) (Efron 1979). (checklist R; TestSpec INV-1/INV-2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_IntervalsOrdered_AndAllBoundsNonNegative()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, AsSignatures(t.signatures), SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = true;
+            foreach (var ci in intervals)
+            {
+                ok &= ci.Lower <= ci.Upper + SigBootstrapTolerance;
+                ok &= ci.Lower >= -SigBootstrapTolerance;
+                ok &= ci.Upper >= -SigBootstrapTolerance;
+                ok &= ci.Mean >= -SigBootstrapTolerance;
+                ok &= ci.PointEstimate >= -SigBootstrapTolerance;
+            }
+
+            return ok.Label("an interval was not ordered (Lower ≤ Upper) or a bound/mean/point was negative");
+        });
+    }
+
+    /// <summary>
+    /// Percentile-bound monotonicity in the confidence level: re-using the SAME replicate distribution
+    /// (identical seed), a wider confidence c widens each interval — the lower bound moves down (or stays)
+    /// and the upper bound moves up (or stays). Direct consequence of the type-7 quantile being monotone
+    /// non-decreasing in its probability, with ½(1−c) decreasing and 1−½(1−c) increasing as c grows.
+    /// (TestSpec S1; Hyndman &amp; Fan 1996)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_WiderConfidence_WidensOrKeepsInterval()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var narrow = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.50, SigBootstrapSeed);
+            var wide = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = narrow.Count == wide.Count;
+            for (int j = 0; ok && j < narrow.Count; j++)
+            {
+                ok &= wide[j].Lower <= narrow[j].Lower + SigBootstrapTolerance; // lower bound non-increasing in c
+                ok &= wide[j].Upper >= narrow[j].Upper - SigBootstrapTolerance; // upper bound non-decreasing in c
+            }
+
+            return ok.Label("a wider confidence level produced a strictly narrower interval");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (determinism): identical <c>(catalog, signatures, replicates, confidence, seed)</c> arguments
+    /// produce element-wise identical intervals (every field equal). The fixed RNG seed makes the
+    /// multinomial resampling reproducible. (TestSpec INV-4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_SameArguments_AreDeterministic()
+    {
+        return Prop.ForAll(BootstrapProblemArbitrary(), t =>
+        {
+            var sigs = AsSignatures(t.signatures);
+            var a = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+            var b = OncologyAnalyzer.BootstrapExposures(t.catalog, sigs, SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = a.Count == b.Count;
+            for (int j = 0; ok && j < a.Count; j++)
+            {
+                ok &= a[j].Equals(b[j]); // record struct ⇒ structural, field-wise equality
+            }
+
+            return ok.Label("BootstrapExposures is not deterministic for identical (…, seed) arguments");
+        });
+    }
+
+    /// <summary>
+    /// Checklist P + R, made EXACT (TestSpec §1.3 single-non-zero-channel collapse): with standard-basis
+    /// signatures and a catalog whose single non-zero channel carries the whole mutation load, the
+    /// multinomial resample is deterministic, so every replicate exposure equals the point estimate. Hence
+    /// for every signature j the bootstrap <c>Mean</c>, <c>Lower</c> and <c>Upper</c> all equal the
+    /// <c>PointEstimate</c> = <c>catalog[j]</c>, and trivially <c>Lower ≤ point ≤ Upper</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property BootstrapExposures_DeterministicCollapse_MeanAndBoundsEqualPointEstimate()
+    {
+        return Prop.ForAll(DeterministicCollapseArbitrary(), t =>
+        {
+            var intervals = OncologyAnalyzer.BootstrapExposures(
+                t.catalog, AsSignatures(t.signatures), SigBootstrapReplicates, 0.95, SigBootstrapSeed);
+
+            bool ok = intervals.Count == t.signatures.Length;
+            for (int j = 0; ok && j < intervals.Count; j++)
+            {
+                double expected = t.catalog[j]; // basis recovery, constant across all resamples
+                var ci = intervals[j];
+                ok &= Math.Abs(ci.PointEstimate - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Mean - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Lower - expected) < SigBootstrapTolerance;
+                ok &= Math.Abs(ci.Upper - expected) < SigBootstrapTolerance;
+                ok &= ci.Lower <= ci.PointEstimate + SigBootstrapTolerance
+                      && ci.PointEstimate <= ci.Upper + SigBootstrapTolerance;
+            }
+
+            return ok.Label("deterministic-collapse interval did not degenerate to the exact point estimate");
+        });
+    }
+
+    /// <summary>
+    /// Edge (TestSpec §1.3, N = 0): a zero-mutation catalog gives an all-zero resample every replicate, so
+    /// every signature's interval is degenerate at 0 — point, mean, lower and upper all 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_ZeroCatalog_AllIntervalFieldsZero()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0, 0 }, new double[] { 0, 1, 0 } };
+        var intervals = OncologyAnalyzer.BootstrapExposures(new[] { 0, 0, 0 }, sigs, replicates: 100, confidence: 0.95, seed: 42);
+
+        Assert.That(intervals, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            foreach (var ci in intervals)
+            {
+                Assert.That(ci.PointEstimate, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Mean, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Lower, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+                Assert.That(ci.Upper, Is.EqualTo(0.0).Within(SigBootstrapTolerance));
+            }
+        });
+    }
+
+    /// <summary>
+    /// Statistical anchor (checklist R + P; TestSpec C1): on a concrete non-degenerate catalog with the
+    /// default 1000 replicates, the percentile interval brackets the point estimate
+    /// (<c>Lower ≤ point ≤ Upper</c>) for every signature, and the bootstrap mean is close to the point
+    /// estimate. With standard-basis signatures the replicate exposure of channel j is the resampled count
+    /// ~ Binomial(N, catalogⱼ/N), whose mean N·pⱼ equals the observed count (Senkin 2021).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_NonDegenerateDefaultReplicates_BracketsPointEstimate()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        var catalog = new[] { 40, 10 }; // N = 50, signature 0 dominant
+        var intervals = OncologyAnalyzer.BootstrapExposures(catalog, sigs); // defaults: 1000 reps, 0.95, seed 42
+
+        Assert.That(intervals, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            foreach (var ci in intervals)
+            {
+                Assert.That(ci.Lower, Is.LessThanOrEqualTo(ci.PointEstimate + SigBootstrapTolerance),
+                    "Lower bound must not exceed the point estimate.");
+                Assert.That(ci.Upper, Is.GreaterThanOrEqualTo(ci.PointEstimate - SigBootstrapTolerance),
+                    "Upper bound must not fall below the point estimate.");
+            }
+
+            Assert.That(intervals[0].Mean, Is.EqualTo(40.0).Within(1.5),
+                "Bootstrap mean of the dominant signature ≈ its point estimate (N·p = 50·0.8).");
+            Assert.That(intervals[1].Mean, Is.EqualTo(10.0).Within(1.5),
+                "Bootstrap mean of the minor signature ≈ its point estimate (N·p = 50·0.2).");
+        });
+    }
+
+    /// <summary>
+    /// Validation: <c>replicates &lt; 1</c> or a confidence outside the open interval (0, 1) throws
+    /// <see cref="ArgumentOutOfRangeException"/>. (TestSpec failure modes)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_InvalidReplicatesOrConfidence_Throw()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, replicates: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, confidence: 0.0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 1 }, sigs, confidence: 1.0));
+        });
+    }
+
+    /// <summary>
+    /// Validation: a null catalog throws <see cref="ArgumentNullException"/>; a negative count or a catalog
+    /// whose length differs from the signature channel count throws <see cref="ArgumentException"/>.
+    /// (TestSpec failure modes)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void BootstrapExposures_NullNegativeOrMismatchedCatalog_Throw()
+    {
+        var sigs = new IReadOnlyList<double>[] { new double[] { 1, 0 }, new double[] { 0, 1 } };
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.BootstrapExposures(null!, sigs));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.BootstrapExposures(new[] { -1, 2 }, sigs));
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.BootstrapExposures(new[] { 1, 2, 3 }, sigs));
+        });
+    }
+
+    #endregion
 }
