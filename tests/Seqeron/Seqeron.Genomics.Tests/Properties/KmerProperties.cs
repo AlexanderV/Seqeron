@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -298,6 +298,70 @@ public class KmerProperties
             var b = KmerAnalyzer.CountKmersAsync(seq, k).GetAwaiter().GetResult();
             bool same = a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value);
             return same.Label("CountKmersAsync must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region KMER-BOTH-001: P: count = forward + reverse-complement; S: strand-symmetric; D: deterministic
+
+    // CountKmersBothStrands sums each k-mer's forward count and its count on the reverse-complement
+    // strand (kPAL; Chargaff/inversion symmetry). Total = 2·(L−k+1); count(w) = count(RC(w)).
+
+    /// <summary>
+    /// INV-1 (P): The both-strands count of each k-mer equals its forward count plus the forward
+    /// count of the reverse-complement sequence, and the grand total is 2·(L−k+1).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountBothStrands_EqualsForwardPlusReverseComplement()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var both = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            var fwd = KmerAnalyzer.CountKmers(seq, k);
+            var rc = KmerAnalyzer.CountKmers(DnaSequence.GetReverseComplementString(seq), k);
+
+            bool decomposes = both.All(kv =>
+                kv.Value == fwd.GetValueOrDefault(kv.Key) + rc.GetValueOrDefault(kv.Key));
+            bool totalOk = both.Values.Sum() == 2 * (seq.Length - k + 1);
+            return (decomposes && totalOk)
+                .Label($"decompose={decomposes}, total={both.Values.Sum()} vs {2 * (seq.Length - k + 1)}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (S): Strand symmetry — a k-mer and its reverse complement carry equal both-strands counts.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountBothStrands_IsStrandSymmetric()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var both = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            bool symmetric = both.All(kv =>
+            {
+                string rc = DnaSequence.GetReverseComplementString(kv.Key);
+                return both.TryGetValue(rc, out int v) && v == kv.Value;
+            });
+            return symmetric.Label("count(w) ≠ count(RC(w)) — strand symmetry violated");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Both-strands counting is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CountBothStrands_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(5), seq =>
+        {
+            int k = Math.Min(3, seq.Length);
+            var a = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            var b = KmerAnalyzer.CountKmersBothStrands(seq, k);
+            return (a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value))
+                .Label("CountKmersBothStrands must be deterministic");
         });
     }
 
