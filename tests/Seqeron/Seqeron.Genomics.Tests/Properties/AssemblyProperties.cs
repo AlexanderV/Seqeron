@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001, ASSEMBLY-SCAFFOLD-001, ASSEMBLY-STATS-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001, ASSEMBLY-SCAFFOLD-001, ASSEMBLY-STATS-001, ASSEMBLY-TRIM-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -840,6 +840,126 @@ public class AssemblyProperties
             // Sorted desc 6,5,4,3,2 (total 20); cumulative reaches ≥50% (10) at 5 → N50 = 5.
             Assert.That(GenomeAssemblyAnalyzer.CalculateN50(new[] { 2, 3, 4, 5, 6 }), Is.EqualTo(5));
             Assert.That(GenomeAssemblyAnalyzer.CalculateN50(Array.Empty<int>()), Is.EqualTo(0));
+        });
+    }
+
+    #endregion
+
+    #region ASSEMBLY-TRIM-001: P: trimmed read is a substring no longer than the original; M: higher cutoff → shorter reads; D: deterministic
+
+    // QualityTrimReads applies the cutadapt/BWA running-sum trimming to both ends and drops reads
+    // whose surviving window is shorter than minLength. A higher quality cutoff can only shrink the
+    // kept window; a cutoff < 1 disables trimming.
+
+    /// <summary>Generates 1..4 reads of length 30 with random Phred+33 qualities (Q 0..40).</summary>
+    private static Arbitrary<(string seq, string qual)[]> TrimReadsArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(4);
+            const int len = 30;
+            var reads = new (string, string)[n];
+            for (int r = 0; r < n; r++)
+            {
+                var seq = new char[len];
+                var qual = new char[len];
+                for (int i = 0; i < len; i++)
+                {
+                    seq[i] = "ACGT"[rng.Next(4)];
+                    qual[i] = (char)(33 + rng.Next(41)); // Phred 0..40
+                }
+                reads[r] = (new string(seq), new string(qual));
+            }
+            return reads;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): With no length filter, each trimmed read is a substring of its source read and no
+    /// longer than it — trimming only removes end bases, never adds or substitutes any.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Trim_Result_IsShorterSubstringOfSource()
+    {
+        return Prop.ForAll(TrimReadsArbitrary(), reads =>
+        {
+            var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 0);
+            // minLength:0 keeps one output per read, in order.
+            for (int i = 0; i < reads.Length; i++)
+            {
+                if (trimmed[i].Length > reads[i].seq.Length) return false.Label("trimmed longer than source");
+                if (trimmed[i].Length > 0 && !reads[i].seq.Contains(trimmed[i], StringComparison.Ordinal))
+                    return false.Label($"read {i}: trimmed not a substring of source");
+            }
+            return true.Label("all trimmed reads are shorter substrings");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, count): the number of surviving reads never exceeds the input count.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Trim_SurvivorCount_DoesNotExceedInput()
+    {
+        return Prop.ForAll(TrimReadsArbitrary(), reads =>
+        {
+            var trimmed = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 10);
+            return (trimmed.Count <= reads.Length).Label($"more survivors ({trimmed.Count}) than reads ({reads.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (M): A higher quality cutoff yields reads no longer than a lower cutoff — the kept window
+    /// shrinks monotonically with the cutoff.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Trim_HigherCutoff_ProducesShorterReads()
+    {
+        return Prop.ForAll(TrimReadsArbitrary(), reads =>
+        {
+            var low = SequenceAssembler.QualityTrimReads(reads, minQuality: 2, minLength: 0);
+            var mid = SequenceAssembler.QualityTrimReads(reads, minQuality: 20, minLength: 0);
+            var high = SequenceAssembler.QualityTrimReads(reads, minQuality: 40, minLength: 0);
+            for (int i = 0; i < reads.Length; i++)
+            {
+                if (!(high[i].Length <= mid[i].Length && mid[i].Length <= low[i].Length))
+                    return false.Label($"read {i}: lengths not monotone ({low[i].Length},{mid[i].Length},{high[i].Length})");
+            }
+            return true.Label("trimmed lengths monotone in cutoff");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Trimming is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Trim_IsDeterministic()
+    {
+        return Prop.ForAll(TrimReadsArbitrary(), reads =>
+            SequenceAssembler.QualityTrimReads(reads, 20, 10)
+                .SequenceEqual(SequenceAssembler.QualityTrimReads(reads, 20, 10))
+                .Label("QualityTrimReads must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (golden/boundary): a uniformly high-quality read is kept intact; an all-low-quality read
+    /// is trimmed away; a cutoff &lt; 1 disables trimming and keeps the full read.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Trim_GoldenAndBoundary()
+    {
+        const string seq = "ACGTACGTACGTACGTACGT"; // 20 bp
+        string high = new string('I', 20); // Phred 40
+        string low = new string('!', 20);  // Phred 0
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.QualityTrimReads(new[] { (seq, high) }, minQuality: 20, minLength: 10),
+                Is.EqualTo(new[] { seq }), "uniformly high quality is kept intact");
+            Assert.That(SequenceAssembler.QualityTrimReads(new[] { (seq, low) }, minQuality: 20, minLength: 10),
+                Is.Empty, "all-low-quality read is trimmed away and dropped");
+            Assert.That(SequenceAssembler.QualityTrimReads(new[] { (seq, low) }, minQuality: 0, minLength: 10),
+                Is.EqualTo(new[] { seq }), "cutoff < 1 disables trimming");
         });
     }
 
