@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -350,6 +350,117 @@ public class RnaStructureProperties
             var stemLoops = RnaSecondaryStructure.FindStemLoops(seq).ToList();
             return stemLoops.All(sl => double.IsFinite(sl.TotalFreeEnergy))
                 .Label("All stem-loop energies must be finite");
+        });
+    }
+
+    #endregion
+
+    #region RNA-DOTBRACKET-001: RT: parse∘format = identity; P: balanced brackets → valid pairs; R: pair count ≤ len/2; D: deterministic
+
+    // ParseDotBracket extracts base pairs from dot-bracket notation (ViennaRNA/WUSS); ValidateDotBracket
+    // tests well-formedness. For nested round-bracket structures, parsing then re-rendering the pairs
+    // reproduces the original string.
+
+    /// <summary>Generates a well-formed, nested (no pseudoknot) dot-bracket string over '(', ')', '.'.</summary>
+    private static Arbitrary<string> BalancedDotBracketArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int steps = 5 + rng.Next(20);
+            var chars = new List<char>(steps);
+            int open = 0;
+            for (int i = 0; i < steps; i++)
+            {
+                int r = rng.Next(3);
+                if (r == 0) { chars.Add('('); open++; }
+                else if (r == 1 && open > 0) { chars.Add(')'); open--; }
+                else chars.Add('.');
+            }
+            while (open-- > 0) chars.Add(')');
+            return new string(chars.ToArray());
+        }).ToArbitrary();
+
+    private static string RenderPairs(int length, IEnumerable<(int Position1, int Position2)> pairs)
+    {
+        var arr = new char[length];
+        Array.Fill(arr, '.');
+        foreach (var (p1, p2) in pairs) { arr[p1] = '('; arr[p2] = ')'; }
+        return new string(arr);
+    }
+
+    /// <summary>
+    /// INV-1 (RT): For a nested round-bracket structure, parsing to base pairs and re-rendering those
+    /// pairs reproduces the original dot-bracket string exactly (parse ∘ format = identity).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_ParseFormat_RoundTrips()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket(s).ToList();
+            return (RenderPairs(s.Length, pairs) == s)
+                .Label($"round-trip failed: '{RenderPairs(s.Length, pairs)}' ≠ '{s}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): A balanced structure validates, and every parsed pair opens before it closes with
+    /// each position used at most once (a proper matching).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_Balanced_YieldsValidPairs()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket(s).ToList();
+            bool ordered = pairs.All(p => p.Position1 < p.Position2);
+            var positions = pairs.SelectMany(p => new[] { p.Position1, p.Position2 }).ToList();
+            bool disjoint = positions.Distinct().Count() == positions.Count;
+            return (RnaSecondaryStructure.ValidateDotBracket(s) && ordered && disjoint)
+                .Label("balanced string failed validation or produced overlapping/inverted pairs");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (R): The number of base pairs is at most ⌊len/2⌋ (each pair occupies two positions).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_PairCount_AtMostHalfLength()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+        {
+            int pairs = RnaSecondaryStructure.ParseDotBracket(s).Count();
+            return (2 * pairs <= s.Length).Label($"{pairs} pairs > len/2 ({s.Length})");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Parsing is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotBracket_Parse_IsDeterministic()
+    {
+        return Prop.ForAll(BalancedDotBracketArbitrary(), s =>
+            RnaSecondaryStructure.ParseDotBracket(s).SequenceEqual(RnaSecondaryStructure.ParseDotBracket(s))
+                .Label("ParseDotBracket must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-5 (golden/negative): nested pairs are recovered; unbalanced or family-mismatched strings
+    /// are rejected by validation.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DotBracket_GoldenAndInvalidCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var pairs = RnaSecondaryStructure.ParseDotBracket("(())").OrderBy(p => p.Position1).ToList();
+            Assert.That(pairs, Is.EqualTo(new[] { (0, 3), (1, 2) }), "nested pairs recovered");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("((..))"), Is.True);
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("(()"), Is.False, "unbalanced rejected");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("(]"), Is.False, "family mismatch rejected");
+            Assert.That(RnaSecondaryStructure.ValidateDotBracket("())"), Is.False, "extra close rejected");
         });
     }
 
