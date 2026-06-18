@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -314,6 +314,67 @@ public class ProteinMotifProperties
             Assert.That(end, Is.LessThan(protein.Length)); // 0-based inclusive index (INV-02: End ≤ length-1)
             Assert.That(double.IsFinite(score), Is.True);
         }
+    }
+
+    #endregion
+
+    #region PROTMOTIF-CC-001: R: score ∈ [0,1]; P: heptad periodicity detected; D: deterministic
+
+    // PredictCoiledCoils scores each window by the fraction of heptad a/d core positions occupied by a
+    // hydrophobic core residue (I/L/V), maximised over the 7 registers (Lupas 1991; Mason & Arndt 2004).
+    // Contiguous windows ≥ threshold form a region spanning at least 3 heptads (21 residues).
+
+    /// <summary>
+    /// INV-1 (R): every reported coiled-coil region has a score in [threshold,1], valid positions,
+    /// and a length of at least 3 heptads (21 residues).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CoiledCoil_Regions_AreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(40), seq =>
+        {
+            var regions = ProteinMotifFinder.PredictCoiledCoils(seq).ToList();
+            bool ok = regions.All(r =>
+                r.Score >= 0.5 - 1e-9 && r.Score <= 1.0 + 1e-9 &&
+                r.Start >= 0 && r.Start <= r.End && r.End < seq.Length &&
+                r.End - r.Start + 1 >= 21);
+            return ok.Label("a coiled-coil region had an out-of-range score, position, or length");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): A sequence with hydrophobic core residues placed at every heptad a/d position is
+    /// detected as a coiled coil with peak occupancy 1.0; a sequence with no core residues is not.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CoiledCoil_HeptadPeriodicity_IsDetected()
+    {
+        // 6 heptads (42 residues): L at positions a(0) and d(3) of each heptad, A elsewhere.
+        var chars = new char[42];
+        for (int i = 0; i < 42; i++) chars[i] = (i % 7 == 0 || i % 7 == 3) ? 'L' : 'A';
+        string coiled = new string(chars);
+        string noCore = new string('A', 42);
+
+        var regions = ProteinMotifFinder.PredictCoiledCoils(coiled).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(regions, Is.Not.Empty, "perfect heptad pattern must be detected");
+            Assert.That(regions.Max(r => r.Score), Is.EqualTo(1.0).Within(1e-9), "a/d core fully occupied → score 1");
+            Assert.That(ProteinMotifFinder.PredictCoiledCoils(noCore), Is.Empty,
+                "no hydrophobic core residues → no coiled coil");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Coiled-coil prediction is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CoiledCoil_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(40), seq =>
+            ProteinMotifFinder.PredictCoiledCoils(seq).SequenceEqual(ProteinMotifFinder.PredictCoiledCoils(seq))
+                .Label("PredictCoiledCoils must be deterministic"));
     }
 
     #endregion
