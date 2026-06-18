@@ -8746,4 +8746,134 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-HETERO-001 — Tumor Heterogeneity (MATH score)
+
+    // -------------------------------------------------------------------------
+    // Theory (Mroz & Rocco 2013; Mroz 2015; maftools mathScore.R):
+    //   • MATH = 100 · 1.4826 · MAD(VAF) / median(VAF), MAD = median(|vᵢ − median|).   (R ≥ 0)
+    //   • A wider VAF spread (larger MAD) gives a higher MATH; identical VAFs ⇒ 0.       (M)
+    //
+    // The MATH formula (median, MAD, 1.4826, ×100) is reconstructed independently — NOT
+    // routed through production — so a wrong scaling constant or ratio is caught.
+    // Monotonicity is shown by affine scaling around the median: vᵢ ↦ m + α(vᵢ − m) with
+    // α ≥ 1 keeps the median m and multiplies the MAD (hence MATH) by α.
+    // -------------------------------------------------------------------------
+
+    private const double MathTolerance = 1e-9;
+    private const double MadConsistencyConstantOracle = 1.4826;
+
+    private static double OracleMath(IReadOnlyList<double> values)
+    {
+        double median = OracleMedian(values);
+        double mad = OracleMedian(values.Select(v => Math.Abs(v - median)).ToList());
+        return 100.0 * MadConsistencyConstantOracle * mad / median;
+    }
+
+    /// <summary>
+    /// R (checklist "MATH ≥ 0") + formula: <c>CalculateITH</c> equals the independent
+    /// 100·1.4826·MAD/median MATH score and is non-negative, for positive VAF distributions. (Mroz 2013)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_EqualsMathFormula_AndIsNonNegative()
+    {
+        var arb = (from n in Gen.Choose(1, 10)
+                   from values in Gen.Choose(1, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, values =>
+        {
+            double math = OncologyAnalyzer.CalculateITH(values);
+            double oracle = OracleMath(values);
+            return (Math.Abs(math - oracle) <= MathTolerance * Math.Max(1.0, oracle) && math >= 0.0)
+                .Label($"MATH {math} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "wider VAF spread → higher heterogeneity"): scaling every VAF away from the median by a
+    /// factor α ≥ 1 (vᵢ ↦ m + α(vᵢ − m)) preserves the median and multiplies the MATH score by α, so a more
+    /// dispersed VAF distribution has an equal-or-higher MATH. (Mroz 2013 MAD/median)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_WiderSpread_RaisesMath()
+    {
+        // Values in [0.4,0.6] keep m ± 2·MAD within [0,1] for any α ∈ [1,2].
+        var arb = (from n in Gen.Choose(1, 8)
+                   from values in Gen.Choose(400, 600).Select(v => v / 1000.0).ArrayOf(n)
+                   from tMilli in Gen.Choose(0, 1000)
+                   select (values, alpha: 1.0 + tMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double m = OracleMedian(t.values);
+            double baseMath = OncologyAnalyzer.CalculateITH(t.values);
+            var widened = t.values.Select(v => m + t.alpha * (v - m)).ToArray();
+            double wideMath = OncologyAnalyzer.CalculateITH(widened);
+
+            bool monotone = wideMath >= baseMath - MathTolerance;
+            bool scaled = Math.Abs(wideMath - t.alpha * baseMath) <= 1e-6 * Math.Max(1.0, t.alpha * baseMath);
+            return (monotone && scaled).Label($"α={t.alpha}: MATH {baseMath} → {wideMath} (expected {t.alpha * baseMath})");
+        });
+    }
+
+    /// <summary>D (determinism): the MATH score is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateITH_IsDeterministic()
+    {
+        var arb = (from n in Gen.Choose(1, 10)
+                   from values in Gen.Choose(1, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   select values).ToArbitrary();
+
+        return Prop.ForAll(arb, values =>
+            (OncologyAnalyzer.CalculateITH(values) == OncologyAnalyzer.CalculateITH(values))
+                .Label("CalculateITH is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// <c>InferSubclones</c> equals the number of distinct cluster labels actually occupied by the assigned
+    /// CCF values (clonal richness). (Liu 2017 richness; via ClusterCcfValues)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InferSubclones_CountsOccupiedClusters()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+            int subclones = OncologyAnalyzer.InferSubclones(clustering);
+            int oracle = clustering.Assignments.Distinct().Count();
+            return (subclones == oracle && subclones >= 1)
+                .Label($"subclones {subclones} ≠ distinct assignments {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: a wider distribution has a higher MATH ({0.3,0.5,0.7} ⇒ 59.304 &gt; {0.4,0.5,0.6} ⇒ 29.652);
+    /// identical VAFs ⇒ MATH 0; a zero median and an empty set are rejected. (Mroz 2013)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CalculateITH_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.3, 0.5, 0.7 }), Is.EqualTo(59.304).Within(1e-6),
+                "MAD 0.2 ⇒ MATH = 100·1.4826·0.2/0.5.");
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.4, 0.5, 0.6 }), Is.EqualTo(29.652).Within(1e-6),
+                "Narrower spread (MAD 0.1) ⇒ lower MATH.");
+            Assert.That(OncologyAnalyzer.CalculateITH(new[] { 0.5, 0.5, 0.5 }), Is.EqualTo(0.0).Within(MathTolerance),
+                "Identical VAFs ⇒ MAD 0 ⇒ MATH 0.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(new[] { 0.0, 0.0 }),
+                "Zero median ⇒ MATH undefined.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateITH(Array.Empty<double>()),
+                "An empty distribution is rejected.");
+        });
+    }
+
+    #endregion
 }
