@@ -6,7 +6,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for exact/IUPAC/PWM pattern matching.
 ///
-/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001
+/// Test Units: PAT-EXACT-001, PAT-IUPAC-001, PAT-PWM-001 (Property Extensions), MOTIF-CONS-001, MOTIF-DISCOVER-001, MOTIF-GENERATE-001, MOTIF-REGULATORY-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -595,6 +595,89 @@ public class PatternMatchingProperties
             // majority base (alphabetically first on the tie) is emitted rather than 'N'.
             Assert.That(MotifFinder.GenerateConsensus(new[] { "A", "C", "G", "T" }), Is.EqualTo("A"),
                 "no base exceeds 25% → majority base");
+        });
+    }
+
+    #endregion
+
+    #region MOTIF-REGULATORY-001: R: positions valid; P: match conforms to known element; D: deterministic
+
+    // FindRegulatoryElements scans a curated catalogue of regulatory motifs (TATA box, E-box, AP-1,
+    // …) via IUPAC-degenerate matching; each reported element should conform to its (known) pattern.
+
+    private static readonly IReadOnlyDictionary<char, string> Iupac = new Dictionary<char, string>
+    {
+        ['A'] = "A", ['C'] = "C", ['G'] = "G", ['T'] = "T",
+        ['R'] = "AG", ['Y'] = "CT", ['S'] = "CG", ['W'] = "AT", ['K'] = "GT", ['M'] = "AC",
+        ['B'] = "CGT", ['D'] = "AGT", ['H'] = "ACT", ['V'] = "ACG", ['N'] = "ACGT",
+    };
+
+    private static readonly HashSet<string> KnownPatterns = new()
+    {
+        MotifFinder.KnownMotifs.TataBox, MotifFinder.KnownMotifs.CaatBox, MotifFinder.KnownMotifs.GcBox,
+        MotifFinder.KnownMotifs.MinusTenBox, MotifFinder.KnownMotifs.MinusThirtyFiveBox,
+        MotifFinder.KnownMotifs.Kozak, MotifFinder.KnownMotifs.ShineDalgarno, MotifFinder.KnownMotifs.PolyASignal,
+        MotifFinder.KnownMotifs.EBox, MotifFinder.KnownMotifs.Ap1, MotifFinder.KnownMotifs.NfKb,
+        MotifFinder.KnownMotifs.Creb,
+    };
+
+    private static bool Conforms(string sequence, string pattern) =>
+        sequence.Length == pattern.Length &&
+        Enumerable.Range(0, pattern.Length).All(j => Iupac[pattern[j]].Contains(sequence[j]));
+
+    /// <summary>
+    /// INV-1 (R + P): every regulatory element has a valid position, its reported sequence is the
+    /// substring there, its pattern is one of the known motifs, and the sequence conforms to that
+    /// (IUPAC) pattern.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegulatoryElements_AreValidAndConform()
+    {
+        return Prop.ForAll(DnaArbitrary(14), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var elements = MotifFinder.FindRegulatoryElements(dna).ToList();
+            bool ok = elements.All(e =>
+                e.Position >= 0 && e.Position + e.Pattern.Length <= seq.Length &&
+                seq.Substring(e.Position, e.Pattern.Length) == e.Sequence &&
+                KnownPatterns.Contains(e.Pattern) &&
+                Conforms(e.Sequence, e.Pattern));
+            return ok.Label("a regulatory element was invalid or non-conforming");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, positive control): embedded TATA box and poly(A) signal are recovered with the right
+    /// names at the right positions.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void RegulatoryElements_EmbeddedMotifs_AreFound()
+    {
+        // TATAAA at 5, AATAAA at 17.
+        var dna = new DnaSequence("GGGGG" + "TATAAA" + "GGGGGG" + "AATAAA" + "GG");
+        var elements = MotifFinder.FindRegulatoryElements(dna).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(elements.Any(e => e.Name == "TATA Box" && e.Position == 5), Is.True, "TATA box at 5");
+            Assert.That(elements.Any(e => e.Name == "Poly(A) Signal" && e.Position == 17), Is.True, "poly(A) at 17");
+            Assert.That(elements.All(e => Conforms(e.Sequence, e.Pattern)), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Regulatory-element scanning is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property RegulatoryElements_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(14), seq =>
+        {
+            var dna = new DnaSequence(seq);
+            var a = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
+            var b = MotifFinder.FindRegulatoryElements(dna).Select(e => (e.Name, e.Position)).ToList();
+            return a.SequenceEqual(b).Label("FindRegulatoryElements must be deterministic");
         });
     }
 
