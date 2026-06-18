@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for K-mer analysis.
 /// Verifies counting invariants that must hold for ALL valid DNA sequences.
 ///
-/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001, KMER-POSITIONS-001, KMER-STATS-001
+/// Test Units: KMER-COUNT-001, KMER-FREQ-001, KMER-FIND-001 (Property Extensions), KMER-ASYNC-001, KMER-BOTH-001, KMER-DIST-001, KMER-GENERATE-001, KMER-POSITIONS-001, KMER-STATS-001, KMER-UNIQUE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -651,6 +651,90 @@ public class KmerProperties
             Assert.That(s.TotalKmers, Is.Zero);
             Assert.That(s.UniqueKmers, Is.Zero);
             Assert.That(s.Entropy, Is.Zero);
+        });
+    }
+
+    #endregion
+
+    #region KMER-UNIQUE-001: P: unique k-mers have count 1; P: min-count filter is exact and monotone; D: deterministic
+
+    // FindUniqueKmers returns the k-mers occurring exactly once; FindKmersWithMinCount returns those
+    // occurring ≥ minCount, ordered by count descending (Compeau & Pevzner recurrent k-mers).
+
+    private const int UniqueK = 2; // small k so repeats (count > 1) actually arise
+
+    /// <summary>
+    /// INV-1 (P): FindUniqueKmers is exactly the set of k-mers with occurrence count 1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property UniqueKmers_AreExactlyCountOne()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            var counts = KmerAnalyzer.CountKmers(seq, UniqueK);
+            var unique = KmerAnalyzer.FindUniqueKmers(seq, UniqueK).ToHashSet();
+            var expected = counts.Where(c => c.Value == 1).Select(c => c.Key).ToHashSet();
+            return unique.SetEquals(expected).Label("FindUniqueKmers ≠ {k-mers with count 1}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): FindKmersWithMinCount returns exactly the k-mers with count ≥ minCount, ordered by
+    /// count descending.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MinCountKmers_AreExactAndOrdered()
+    {
+        var gen = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            const string bases = "ACGT";
+            int len = 10 + rng.Next(15);
+            var chars = new char[len];
+            for (int i = 0; i < len; i++) chars[i] = bases[rng.Next(4)];
+            return (new string(chars), 1 + rng.Next(4)); // minCount 1..4
+        }).ToArbitrary();
+
+        return Prop.ForAll(gen, input =>
+        {
+            var (seq, minCount) = input;
+            var res = KmerAnalyzer.FindKmersWithMinCount(seq, UniqueK, minCount).ToList();
+            var counts = KmerAnalyzer.CountKmers(seq, UniqueK);
+            var expected = counts.Where(c => c.Value >= minCount).Select(c => c.Key).ToHashSet();
+
+            bool exact = res.Select(r => r.Kmer).ToHashSet().SetEquals(expected);
+            bool meetsMin = res.All(r => r.Count >= minCount);
+            bool ordered = res.Select(r => r.Count).SequenceEqual(res.Select(r => r.Count).OrderByDescending(x => x));
+            return (exact && meetsMin && ordered)
+                .Label($"minCount={minCount}: exact={exact}, meetsMin={meetsMin}, ordered={ordered}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, monotone): a lower minCount returns a superset — min-count 1 contains all min-count 2 k-mers.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MinCountKmers_LowerThreshold_IsSuperset()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            var loose = KmerAnalyzer.FindKmersWithMinCount(seq, UniqueK, 1).Select(r => r.Kmer).ToHashSet();
+            var strict = KmerAnalyzer.FindKmersWithMinCount(seq, UniqueK, 2).Select(r => r.Kmer).ToHashSet();
+            return strict.IsSubsetOf(loose).Label("min-count 2 result not ⊆ min-count 1 result");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Both finders are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property UniqueKmers_AreDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(10), seq =>
+        {
+            var a = KmerAnalyzer.FindUniqueKmers(seq, UniqueK).ToHashSet();
+            var b = KmerAnalyzer.FindUniqueKmers(seq, UniqueK).ToHashSet();
+            return a.SetEquals(b).Label("FindUniqueKmers must be deterministic");
         });
     }
 
