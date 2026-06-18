@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for RNA secondary structure prediction.
 /// Verifies structural, stem-loop, and energy invariants using FsCheck.
 ///
-/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001
+/// Test Units: RNA-STRUCT-001, RNA-STEMLOOP-001, RNA-ENERGY-001, RNA-DOTBRACKET-001, RNA-HAIRPIN-001, RNA-INVERT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -526,6 +526,92 @@ public class RnaStructureProperties
             double e2 = RnaSecondaryStructure.CalculateHairpinLoopEnergy(loop, 'G', 'C');
             return (e1 == e2 && double.IsFinite(e1))
                 .Label($"hairpin energy non-deterministic or non-finite: {e1}");
+        });
+    }
+
+    #endregion
+
+    #region RNA-INVERT-001: P: arms reverse-complementary; R: positions valid; D: deterministic
+
+    // FindInvertedRepeats reports W G W̄ᴿ patterns: a left arm, a loop, and a right arm equal to the
+    // reverse complement of the left (antiparallel stem). The stem extends outward while
+    // GetComplement(seq[q+k]) == seq[p−k] (Alamro et al. 2021, IUPACpal).
+
+    private static string RandRna(Random rng, int len)
+    {
+        const string bases = "ACGU";
+        var chars = new char[len];
+        for (int i = 0; i < len; i++) chars[i] = bases[rng.Next(4)];
+        return new string(chars);
+    }
+
+    /// <summary>Builds left-arm + loop + reverseComplement(left-arm) so a perfect inverted repeat is present.</summary>
+    private static Arbitrary<string> EmbeddedInvertedRepeatArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            string left = RandRna(rng, 4 + rng.Next(5));      // arm length 4..8
+            string right = new string(left.Reverse().Select(RnaSecondaryStructure.GetComplement).ToArray());
+            string loop = RandRna(rng, 3 + rng.Next(4));       // loop length 3..6
+            return left + loop + right;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P + R): every reported inverted repeat has valid, non-overlapping arm coordinates of
+    /// equal length with a loop in [minSpacing, maxSpacing], and its two arms are antiparallel
+    /// reverse complements (GetComplement(seq[Start2+m]) == seq[End1−m]). A sequence built to contain
+    /// a perfect stem yields at least one such repeat (non-vacuous).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeats_AreValidReverseComplementaryArms()
+    {
+        return Prop.ForAll(EmbeddedInvertedRepeatArbitrary(), seq =>
+        {
+            var reps = RnaSecondaryStructure.FindInvertedRepeats(seq).ToList();
+            if (reps.Count == 0)
+                return false.Label("expected at least one inverted repeat in a constructed stem");
+
+            bool allValid = reps.All(r =>
+                0 <= r.Start1 && r.Start1 <= r.End1 && r.End1 < r.Start2 && r.Start2 <= r.End2 && r.End2 < seq.Length
+                && r.End1 - r.Start1 + 1 == r.Length && r.End2 - r.Start2 + 1 == r.Length
+                && r.Length >= 4
+                && (r.Start2 - r.End1 - 1) >= 3 && (r.Start2 - r.End1 - 1) <= 100
+                && Enumerable.Range(0, r.Length)
+                    .All(m => RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]) == seq[r.End1 - m]));
+            return allValid.Label("a reported repeat had invalid coordinates or non-complementary arms");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D): Inverted-repeat detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property InvertedRepeats_AreDeterministic()
+    {
+        return Prop.ForAll(RnaArbitrary(20), seq =>
+            RnaSecondaryStructure.FindInvertedRepeats(seq).SequenceEqual(RnaSecondaryStructure.FindInvertedRepeats(seq))
+                .Label("FindInvertedRepeats must be deterministic"));
+    }
+
+    /// <summary>
+    /// INV-3 (golden): the constructed stem AAGG-UUU-CCUU is detected as a single inverted repeat
+    /// with reverse-complementary arms.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void InvertedRepeats_GoldenStem_IsDetected()
+    {
+        const string seq = "AAGGUUUCCUU"; // arm AAGG, loop UUU, arm CCUU = revcomp(AAGG)
+        var reps = RnaSecondaryStructure.FindInvertedRepeats(seq).ToList();
+
+        Assert.That(reps, Is.Not.Empty);
+        var r = reps[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(r.Length, Is.GreaterThanOrEqualTo(4));
+            for (int m = 0; m < r.Length; m++)
+                Assert.That(RnaSecondaryStructure.GetComplement(seq[r.Start2 + m]), Is.EqualTo(seq[r.End1 - m]),
+                    $"arm position {m} not reverse-complementary");
         });
     }
 

@@ -180,7 +180,7 @@ Property-based testing генерирует сотни случайных вхо
 | 148 | ☑ | ASSEMBLY-TRIM-001 | Assembly | P: trimmed length ≤ original; M: higher quality cutoff → shorter reads; D: deterministic | AssemblyProperties.cs (new) |
 | 149 | ☑ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format = identity; P: balanced brackets → valid pairs; R: pair count ≤ len/2; D: deterministic | RnaStructureProperties.cs |
 | 150 | ☑ | RNA-HAIRPIN-001 | RnaStructure | R: loop size ≥ minLoop; M: larger destabilising loop → higher energy; D: deterministic | RnaStructureProperties.cs |
-| 151 | ☐ | RNA-INVERT-001 | RnaStructure | P: arms reverse-complementary; R: positions valid; D: deterministic | RnaStructureProperties.cs |
+| 151 | ☑ | RNA-INVERT-001 | RnaStructure | P: arms reverse-complementary; R: positions valid; D: deterministic | RnaStructureProperties.cs |
 | 152 | ☐ | RNA-MFE-001 | RnaStructure | R: MFE ≤ 0; M: more GC pairs → lower energy; D: deterministic | RnaStructureProperties.cs |
 | 153 | ☐ | RNA-PAIR-001 | RnaStructure | P: only A-U, G-C, G-U pair; S: canPair(a,b)=canPair(b,a); D: deterministic | RnaStructureProperties.cs |
 | 154 | ☐ | RNA-PARTITION-001 | RnaStructure | R: Z > 0; R: base-pair probability ∈ [0,1]; D: deterministic | RnaStructureProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 150 |
-| ☐ Not started | 84 |
+| ☑ Complete | 151 |
+| ☐ Not started | 83 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
