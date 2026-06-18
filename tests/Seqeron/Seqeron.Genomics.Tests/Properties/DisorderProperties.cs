@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for intrinsically disordered protein prediction.
 /// Verifies score range, length preservation, and determinism invariants.
 ///
-/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001
+/// Test Units: DISORDER-PRED-001, DISORDER-REGION-001, DISORDER-LC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -278,6 +278,70 @@ public class DisorderProperties
                             .All(pair => pair.First.Start == pair.Second.Start &&
                                          pair.First.End == pair.Second.End);
             return same.Label("DisorderedRegion detection must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region DISORDER-LC-001: R: region start ≤ end; M: higher threshold → ≥ coverage; D: deterministic
+
+    // PredictLowComplexityRegions implements SEG (Wootton & Federhen 1993). As in all SEG variants a
+    // window is flagged when entropy ≤ threshold, so RAISING the threshold flags more — coverage is
+    // monotone increasing in the threshold (the checklist's wording is the inverse sense).
+
+    private static HashSet<int> Covered(IEnumerable<(int Start, int End, string Type)> regions)
+    {
+        var set = new HashSet<int>();
+        foreach (var (s, e, _) in regions)
+            for (int p = s; p <= e; p++) set.Add(p);
+        return set;
+    }
+
+    /// <summary>
+    /// INV-1 (R): every reported low-complexity region has Start ≤ End within bounds and a non-empty
+    /// classification.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_RegionsAreValid()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var regions = DisorderPredictor.PredictLowComplexityRegions(seq).ToList();
+            return regions.All(r => r.Start >= 0 && r.Start <= r.End && r.End < seq.Length && !string.IsNullOrEmpty(r.Type))
+                .Label("a low-complexity region was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): raising the SEG thresholds never reduces the flagged residues.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property LowComplexity_HigherThreshold_CoversMore()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var low = Covered(DisorderPredictor.PredictLowComplexityRegions(seq, 12, 1.0, 1.5));
+            var high = Covered(DisorderPredictor.PredictLowComplexityRegions(seq, 12, 3.0, 3.5));
+            return low.IsSubsetOf(high).Label($"low-threshold coverage ({low.Count}) not ⊆ high ({high.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, positive control + D): a homopolymer is low-complexity; a maximally diverse window is
+    /// not; detection is deterministic.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void LowComplexity_HomopolymerDetected_AndDeterministic()
+    {
+        var homo = DisorderPredictor.PredictLowComplexityRegions(new string('Q', 20)).ToList();
+        var homo2 = DisorderPredictor.PredictLowComplexityRegions(new string('Q', 20)).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(homo, Is.Not.Empty, "homopolymer is low-complexity");
+            Assert.That(homo.Select(r => (r.Start, r.End)), Is.EqualTo(homo2.Select(r => (r.Start, r.End))), "deterministic");
+            Assert.That(DisorderPredictor.PredictLowComplexityRegions("ACDEFGHIKLMNPQRSTVWY"), Is.Empty,
+                "a maximally diverse window is not low-complexity");
         });
     }
 
