@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for the high-level GenomicAnalyzer façade: common regions, known motifs,
 /// ORFs, repeats, similarity, and tandem repeats.
 ///
-/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001, GENOMIC-REPEAT-001, GENOMIC-SIMILARITY-001
+/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001, GENOMIC-REPEAT-001, GENOMIC-SIMILARITY-001, GENOMIC-TANDEM-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -382,6 +382,51 @@ public class GenomicAnalyzerProperties
             Assert.That(b, Is.EqualTo(a), "deterministic");
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => GenomicAnalyzer.CalculateSimilarity(new DnaSequence("ACGT"), new DnaSequence("ACGT"), 0));
+        });
+    }
+
+    #endregion
+
+    #region GENOMIC-TANDEM-001: R: repetitions ≥ minReps; P: unit repeated contiguously; D: deterministic
+
+    // FindTandemRepeats locates consecutive repeating units (e.g. ATGATGATG = ATG × 3).
+
+    /// <summary>
+    /// INV-1 (R + P): every tandem repeat has Repetitions ≥ minReps, unit length ≥ minUnit, valid
+    /// position, and the unit appears contiguously Repetitions times at that position.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Tandem_UnitsRepeatContiguously()
+    {
+        return Prop.ForAll(SeqArbitrary(12), seq =>
+        {
+            const int minUnit = 2;
+            const int minReps = 2;
+            var tandems = GenomicAnalyzer.FindTandemRepeats(new DnaSequence(seq), minUnit, minReps).ToList();
+            bool ok = tandems.All(t =>
+                t.Repetitions >= minReps && t.Unit.Length >= minUnit &&
+                t.Position >= 0 && t.Position + t.TotalLength <= seq.Length &&
+                seq.Substring(t.Position, t.TotalLength) == string.Concat(Enumerable.Repeat(t.Unit, t.Repetitions)));
+            return ok.Label("a tandem repeat unit did not repeat contiguously");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (D + positive control): tandem detection is deterministic; "ATGATGATG" yields the ATG×3
+    /// tandem at position 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Tandem_DeterministicAndGolden()
+    {
+        var dna = new DnaSequence("ATGATGATG");
+        var a = GenomicAnalyzer.FindTandemRepeats(dna, 3, 2).Select(t => (t.Unit, t.Position, t.Repetitions)).ToList();
+        var b = GenomicAnalyzer.FindTandemRepeats(dna, 3, 2).Select(t => (t.Unit, t.Position, t.Repetitions)).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.That(a.Any(t => t.Unit == "ATG" && t.Position == 0 && t.Repetitions == 3), Is.True,
+                "ATG×3 tandem expected");
         });
     }
 
