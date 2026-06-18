@@ -7567,4 +7567,179 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-NEO-001 — Neoantigen Peptide Generation (windowing + agretope pairing)
+
+    // -------------------------------------------------------------------------
+    // Theory (Hundal 2020 pVACtools; Li 2020 ProGeo-neo; Wells 2020 TESLA):
+    //   • Class I candidate peptides are 8–11-mers (default range).                       (INV-1)
+    //   • Every window spans the substituted residue: it is a length-k window [s, s+k−1]   (INV-2/5)
+    //     with s ∈ [max(0, mutIdx−k+1), min(mutIdx, L−k)] — exactly k windows when the
+    //     mutation is ≥ k−1 residues from both ends.
+    //   • Mutant/wild-type peptides (the agretope) share length and differ only at the     (INV-3/4)
+    //     mutated offset; mutant carries the substituted residue, WT the original.
+    //   • Ordered by length asc then start asc.                                            (INV-6)
+    //
+    // The whole window set is reconstructed independently from the spanning definition
+    // (NOT routed through GenerateNeoantigenPeptides), so an off-by-one in the window
+    // enumeration or a wrong agretope is caught.
+    // -------------------------------------------------------------------------
+
+    private static readonly char[] NeoAminoAcids = "ACDEFGHIKLMNPQRSTVWY".ToCharArray();
+
+    /// <summary>A protein, a 1-based mutation position, and a mutant residue that differs from the wild type.</summary>
+    private static Gen<(string protein, int pos, char mutant)> MissenseGen() =>
+        from len in Gen.Choose(8, 30)
+        from chars in Gen.Elements(NeoAminoAcids).ArrayOf(len)
+        from pos in Gen.Choose(1, len)
+        from mIdx in Gen.Choose(0, NeoAminoAcids.Length - 1)
+        let protein = new string(chars)
+        let wt = protein[pos - 1]
+        let mutant = NeoAminoAcids[mIdx] == wt ? NeoAminoAcids[(mIdx + 1) % NeoAminoAcids.Length] : NeoAminoAcids[mIdx]
+        select (protein, pos, mutant);
+
+    /// <summary>Independent windowing oracle reconstructing every length-k window that spans the mutation.</summary>
+    private static List<OncologyAnalyzer.NeoantigenPeptide> OracleNeoantigens(
+        string protein, char mutant, int pos, int minLen, int maxLen)
+    {
+        int mutIdx = pos - 1;
+        int len = protein.Length;
+        char[] mc = protein.ToCharArray();
+        mc[mutIdx] = mutant;
+        string mutantProtein = new(mc);
+
+        var list = new List<OncologyAnalyzer.NeoantigenPeptide>();
+        for (int k = minLen; k <= maxLen; k++)
+        {
+            if (k > len)
+            {
+                continue;
+            }
+
+            int firstStart = Math.Max(0, mutIdx - k + 1);
+            int lastStart = Math.Min(mutIdx, len - k);
+            for (int s = firstStart; s <= lastStart; s++)
+            {
+                list.Add(new OncologyAnalyzer.NeoantigenPeptide(
+                    k, s + 1, mutantProtein.Substring(s, k), protein.Substring(s, k), mutIdx - s));
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// INV-1/INV-2/INV-5/INV-6: <c>GenerateNeoantigenPeptides</c> reproduces the independent spanning-window
+    /// oracle exactly (same peptides, start positions, offsets and order) for an arbitrary length range. This
+    /// pins the window count, the "every window spans the mutation" rule and the ascending order. (Li 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_MatchesSpanningWindowOracle()
+    {
+        var arb = (from g in MissenseGen()
+                   from minLen in Gen.Choose(1, 6)
+                   from extra in Gen.Choose(0, 6)
+                   select (g.protein, g.pos, g.mutant, minLen, maxLen: minLen + extra)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var actual = OncologyAnalyzer.GenerateNeoantigenPeptides(t.protein, t.mutant, t.pos, t.minLen, t.maxLen);
+            var oracle = OracleNeoantigens(t.protein, t.mutant, t.pos, t.minLen, t.maxLen);
+            return actual.SequenceEqual(oracle)
+                .Label($"got {actual.Count} peptides vs oracle {oracle.Count} (L={t.protein.Length}, pos={t.pos}, k∈[{t.minLen},{t.maxLen}])");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "length ∈ [8,11]") + INV-2 (P "mutated residue inside every window"): with default
+    /// lengths every peptide is an 8–11-mer that spans the mutation — offset ∈ [0, Length) and
+    /// StartPosition + offset == mutationPosition, within the protein bounds. (Hundal 2020; Li 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_DefaultLengths_SpanMutation_In8To11()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+        {
+            var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
+            return peptides.All(p =>
+                p.Length is >= 8 and <= 11
+                && p.MutationOffset >= 0 && p.MutationOffset < p.Length
+                && p.StartPosition + p.MutationOffset == g.pos
+                && p.StartPosition >= 1 && p.StartPosition + p.Length - 1 <= g.protein.Length)
+                .Label("a peptide is outside 8–11 or does not span the mutation");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 + INV-4 (P "tile the mutation" / agretope): for every peptide the mutant and wild-type k-mers
+    /// have equal length and differ at exactly one index — the mutation offset — where the mutant carries the
+    /// substituted residue and the wild type the original; all other residues are identical. (Wells 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_MutantAndWildType_DifferOnlyAtMutationOffset()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+        {
+            var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos);
+            char wildType = g.protein[g.pos - 1];
+
+            return peptides.All(p =>
+            {
+                if (p.MutantPeptide.Length != p.Length || p.WildTypePeptide.Length != p.Length)
+                {
+                    return false;
+                }
+
+                int differing = 0;
+                for (int i = 0; i < p.Length; i++)
+                {
+                    if (p.MutantPeptide[i] != p.WildTypePeptide[i])
+                    {
+                        differing++;
+                    }
+                }
+
+                return differing == 1
+                    && p.MutantPeptide[p.MutationOffset] == g.mutant
+                    && p.WildTypePeptide[p.MutationOffset] == wildType;
+            }).Label("a peptide's mutant/wild-type pair did not differ at exactly the mutation offset");
+        });
+    }
+
+    /// <summary>D (determinism): neoantigen generation is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property GenerateNeoantigenPeptides_IsDeterministic()
+    {
+        return Prop.ForAll(MissenseGen().ToArbitrary(), g =>
+            OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos)
+                .SequenceEqual(OncologyAnalyzer.GenerateNeoantigenPeptides(g.protein, g.mutant, g.pos))
+                .Label("GenerateNeoantigenPeptides is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors: the canonical Y5C example (protein MKTAYIAKQRSTVWLNDEFGH) yields default 8–11-mer windows all
+    /// spanning position 5; a non-substitution and an out-of-range position are rejected. (Hundal 2020; Li 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void GenerateNeoantigenPeptides_CanonicalAndGuardCases()
+    {
+        const string protein = "MKTAYIAKQRSTVWLNDEFGH"; // L = 21, wild-type residue at position 5 is 'Y'
+        var peptides = OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'C', 5);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(peptides, Is.Not.Empty, "Position 5 of a 21-mer admits 8–11-mer windows.");
+            Assert.That(peptides.All(p => p.Length is >= 8 and <= 11), Is.True, "Default class I lengths 8–11.");
+            Assert.That(peptides.All(p => p.StartPosition + p.MutationOffset == 5), Is.True, "Every window spans position 5.");
+            Assert.That(peptides.All(p => p.MutantPeptide[p.MutationOffset] == 'C' && p.WildTypePeptide[p.MutationOffset] == 'Y'),
+                Is.True, "Mutant carries C, wild type carries Y at the offset.");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'Y', 5),
+                "Y5Y is not a substitution.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.GenerateNeoantigenPeptides(protein, 'C', 22),
+                "Position 22 is outside [1, 21].");
+        });
+    }
+
+    #endregion
 }
