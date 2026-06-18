@@ -178,6 +178,84 @@ Algebraic testing проверяет выполнение алгебраичес
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | IDEMP: deterministic; ID: no links → unchanged contigs |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | ID: empty → 0; IDEMP: deterministic |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | IDEMP: trim∘trim = trim; ID: high-quality read unchanged |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format = identity; ID: empty → no pairs |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | IDEMP: deterministic; ID: loop < minLoop → no hairpin |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | INVOL: revcomp of arm twice = identity; ID: no complementarity → none |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | ID: unpaired sequence → 0; IDEMP: deterministic |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | COMM: canPair symmetric; IDEMP: deterministic |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | ID: single base → Z = 1; IDEMP: deterministic |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | ID: nested structure → none; IDEMP: deterministic |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | ID: empty → empty; IDEMP: async = sync |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | ADD: counts additive; COMM: strand-symmetric |
+| 158 | ☐ | KMER-DIST-001 | K-mer | ID: d(x,x)=0; COMM: symmetric; TRIANGLE: d(a,c) ≤ d(a,b)+d(b,c) |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | ID: k=0 → empty; IDEMP: deterministic |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | ID: absent k-mer → empty; IDEMP: deterministic |
+| 161 | ☐ | KMER-STATS-001 | K-mer | ID: empty → zeros; ADD: counts additive on concatenation |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | IDEMP: deterministic; ID: all-distinct → all unique |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | ID: empty → 0; IDEMP: deterministic |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | IDEMP: deterministic; ID: single sequence → trivial |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | IDEMP: deterministic; ID: high-complexity → none |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | ID: empty pattern → none; IDEMP: deterministic |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | IDEMP: deterministic; ID: no hydrophobic N-term → none |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | IDEMP: deterministic; ID: hydrophilic → none |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | IDEMP: deterministic; ID: single row → that row |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | IDEMP: deterministic; ID: no recurrence → none |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | IDEMP: deterministic; ID: single column → its base |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | IDEMP: deterministic; ID: empty → none |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | IDEMP: shared∘shared = shared; ID: single input → all its motifs |
+| 174 | ☐ | PAT-APPROX-003 | Matching | ID: exact present → 0; IDEMP: deterministic |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | IDEMP: common∘common = common; ID: single input → itself |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | IDEMP: deterministic; ID: empty → none |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | ID: no ATG → none; IDEMP: deterministic |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | IDEMP: deterministic; ID: no repeat → none |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | ID: sim(x,x)=1; COMM: symmetric |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | IDEMP: deterministic; ID: no tandem → none |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | ID: no methylation → baseline; IDEMP: deterministic |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | IDEMP: bisulfite∘bisulfite = bisulfite; ID: no C → unchanged |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | IDEMP: deterministic; ID: empty → none |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | ID: identical methylomes → no DMR; COMM: |Δ| symmetric |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | ID: no reads → 0; ADD: counts additive |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | IDEMP: annotate∘annotate = annotate; ID: empty → empty |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | ID: tumor = ref → no calls; IDEMP: deterministic |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | ID: no indel → none; IDEMP: deterministic |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | ID: ref = alt → none; IDEMP: deterministic |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | IDEMP: cluster∘cluster = cluster; ID: single gene → singleton |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | ID: single genome → core = that genome; IDEMP: deterministic |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | IDEMP: deterministic; ID: single genome → degenerate fit |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | SUB: markers ⊆ core; IDEMP: deterministic |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | IDEMP: deterministic; ID: empty → none |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | ID: no pathway genes → p=1; IDEMP: deterministic |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | IDEMP: deterministic; ID: empty → none |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | ID: no difference → p=1; IDEMP: deterministic |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | ID: A = B → FC = 0; INVOL: FC(A,B) = −FC(B,A) |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | HOMO: scaling depth → same TPM; ID: empty → 0 |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | ID: single isoform → PSI = 1; IDEMP: deterministic |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | ID: identical → none; IDEMP: deterministic |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | ID: ratio = 1 → CN = 2; IDEMP: deterministic |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | ID: identical genomes → none; IDEMP: deterministic |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | IDEMP: deterministic; ID: high-complexity → none |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | IDEMP: deterministic; ID: fully ordered → none |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | ID: empty → empty; IDEMP: deterministic |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | ID: single population → 100%; P: proportions sum to 1 |
+| 208 | ☐ | POP-ROH-001 | PopGen | IDEMP: deterministic; ID: all-heterozygous → none |
+| 209 | ☐ | POP-SELECT-001 | PopGen | ID: neutral → baseline; IDEMP: deterministic |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | ID: balanced AT → 0; INVOL: complement negates skew |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | IDEMP: deterministic; ID: flat skew → midpoint |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | INVOL: complement∘complement = identity; ID: defined per base |
+| 213 | ☐ | CODON-ENC-001 | Codon | ID: uniform usage → ENC = 61; IDEMP: deterministic |
+| 214 | ☐ | CODON-RSCU-001 | Codon | ID: uniform usage → RSCU = 1; P: per-AA mean = 1 |
+| 215 | ☐ | CODON-STATS-001 | Codon | ID: empty → zeros; ADD: counts additive on concatenation |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | IDEMP: deterministic; ID: random sequence → low score |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | ID: empty → empty; P: per-AA sum = 1 |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | IDEMP: deterministic; ID: no repeat → none |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | RT: encode∘decode = identity; ID: defined per char |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | ID: empty → 0; ADD: counts additive |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | IDEMP: same seed → same support; ID: single tree → trivial |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | ID: single leaf → depth 0; IDEMP: deterministic |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | INVOL: frames symmetric under revcomp; ID: defined for all 6 |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | IDEMP: filter∘filter = filter; SUB: filtered ⊆ all |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | IDEMP: deterministic; ID: no complementarity → no pairing |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | ID: identity(x,x)=1; COMM: symmetric |
 
 ---
 
@@ -185,7 +263,7 @@ Algebraic testing проверяет выполнение алгебраичес
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 148 |
+| Total algorithms | 226 |
 | ☑ Complete | 0 |
-| ☐ Not started | 148 |
+| ☐ Not started | 226 |
 | Laws verified | ~172 (≈2 per algorithm) |

@@ -176,6 +176,84 @@ Fuzzing подаёт случайные, невалидные или погра�
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | BE | no links, conflicting links, single contig |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | BE | empty assembly, single contig, equal-length contigs |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | BE | all-low-quality, all-high-quality, empty, quality cutoff 0 |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | MC | unbalanced brackets, illegal chars, empty, length mismatch |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | BE | loop<minLoop, no stem, empty |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | BE | palindrome, no complementarity, single base |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | BE | empty, single base, all-A (no pairs), homopolymer |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | BE, MC | non-RNA base, lowercase, gap char |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | BE | empty, single base, all-unpaired |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | BE | nested-only, fully crossing, empty |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | BE | empty, k>len, cancellation, huge input |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | BE | palindromic k-mer, k>len, empty |
+| 158 | ☐ | KMER-DIST-001 | K-mer | BE | identical, disjoint, empty, different k |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | BE | k=0, large k, non-DNA alphabet |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | BE | absent k-mer, overlapping, k>len |
+| 161 | ☐ | KMER-STATS-001 | K-mer | BE | empty, k>len, homopolymer |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | BE | all-identical, all-distinct, empty |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | BE, MC | empty, non-amino-acid, single residue |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | BE | single sequence, no common motif, identical inputs |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | BE | homopolymer, high-complexity, empty |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | MC | empty pattern, invalid regex, no match |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | BE | no signal, very short, all-hydrophobic |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | BE | all-hydrophilic, all-hydrophobic, short |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | BE, MC | unequal row lengths, empty alignment, single row |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | BE | k=1, k>len, no recurrence |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | BE | empty counts, single column, ties |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | BE | empty, no element, overlapping |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | BE | single input, disjoint inputs, identical |
+| 174 | ☐ | PAT-APPROX-003 | Matching | BE | pattern>text, empty, exact present |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | BE | single input, disjoint, identical |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | BE | empty, no motif, overlapping |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | BE | no ATG, no stop, nested ORFs |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | BE | no repeat, full repeat, minLen edge |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | BE | identical, disjoint, different lengths |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | BE | no tandem, full tandem, single unit |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | BE | no clock sites, all-methylated, empty |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | BE | no C, all-C, all-methylated, empty |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | BE | empty, single region, no marks |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | BE | identical methylomes, threshold edge, single site |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | BE | no reads, all-methylated, zero coverage |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | MC | out-of-bounds, unknown consequence, empty |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | BE | zero depth, tumor=normal, all-N |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | BE | length-0 indel, indel at edge, empty |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | BE | ref=alt, multi-allelic, zero depth |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | BE | single gene, all-identical, identity edge |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | BE | single genome, disjoint genomes, empty |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | BE | single genome, 2 genomes, identical |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | BE | empty core, more markers than core |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | BE | empty, unknown genes, no DB hit |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | BE | no pathway genes, all-pathway, empty |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | BE | no resistance gene, empty DB, partial hit |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | BE | identical samples, single taxon, empty |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | BE | A=B, zero counts, single replicate |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | BE | zero reads, single transcript, all-multimapped |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | BE | single isoform, no junction reads, empty |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | BE | identical, single breakpoint, no split reads |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | BE | ratio=1, zero coverage, single bin |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | BE | identical genomes, overlapping SVs, empty |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | BE | homopolymer, high-complexity, empty |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | BE | fully ordered, fully disordered, short |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | BE, MC | empty, non-amino-acid, single residue |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | BE | single population, admixed 50/50, empty |
+| 208 | ☐ | POP-ROH-001 | PopGen | BE | all-heterozygous, all-homozygous, minLen edge |
+| 209 | ☐ | POP-SELECT-001 | PopGen | BE | neutral, fixed locus, single locus |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | BE | balanced AT, all-A, no AT, window edge |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | BE | flat skew, single minimum, circular wrap |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | BE, MC | non-RNA base, T instead of U, lowercase |
+| 213 | ☐ | CODON-ENC-001 | Codon | BE | single codon, uniform usage, length not %3 |
+| 214 | ☐ | CODON-RSCU-001 | Codon | BE | single codon, missing amino acid, empty |
+| 215 | ☐ | CODON-STATS-001 | Codon | BE | length not %3, empty, single codon |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | BE | random seq, perfect ORF, empty |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | BE | empty, single codon, length not %3 |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | BE | no repeat, full repeat, minLen edge |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | BE, MC | empty, out-of-range char, wrong offset |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | BE | empty, single base, all-equal quality |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | BE | single tree, 0 replicates, identical sequences |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | BE | single leaf, star tree, deep ladder |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | BE | length not %3, empty, single base |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | BE | no sites, all-pass, all-fail |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | BE | no complementarity, perfect match, short miRNA |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | BE | identical, no overlap, all-gap, empty |
 
 ---
 
@@ -183,9 +261,9 @@ Fuzzing подаёт случайные, невалидные или погра�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 148 |
+| Total algorithms | 226 |
 | ☑ Complete | 0 |
-| ☐ Not started | 148 |
+| ☐ Not started | 226 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |

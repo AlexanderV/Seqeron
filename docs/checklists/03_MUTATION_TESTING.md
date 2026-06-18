@@ -176,6 +176,84 @@ Mutation testing измеряет эффективность тестового 
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_Scaffold_Tests.cs | ≥ 80% |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | GenomeAssemblyAnalyzer.cs | GenomeAssemblyAnalyzer_AssemblyStatistics_Tests.cs | ≥ 80% |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | SequenceAssembler.cs | SequenceAssembler_QualityTrimReads_Tests.cs | ≥ 80% |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_ParseDotBracket_Tests.cs | ≥ 80% |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_HairpinEnergy_Tests.cs | ≥ 80% |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_FindInvertedRepeats_Tests.cs | ≥ 80% |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_MinimumFreeEnergy_Tests.cs | ≥ 80% |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_CanPair_Tests.cs | ≥ 80% |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_PartitionFunction_Tests.cs | ≥ 80% |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | RnaSecondaryStructure.cs | RnaSecondaryStructure_DetectPseudoknots_Tests.cs | ≥ 80% |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersAsync_Tests.cs | ≥ 80% |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_CountKmersBothStrands_Tests.cs | ≥ 80% |
+| 158 | ☐ | KMER-DIST-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_KmerDistance_Tests.cs | ≥ 80% |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_GenerateAllKmers_Tests.cs | ≥ 80% |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindKmerPositions_Tests.cs | ≥ 80% |
+| 161 | ☐ | KMER-STATS-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_AnalyzeKmers_Tests.cs | ≥ 80% |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | KmerAnalyzer.cs | KmerAnalyzer_FindUniqueAndMinCount_Tests.cs | ≥ 80% |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictCoiledCoils_Tests.cs | ≥ 80% |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindCommonMotifs_Tests.cs | ≥ 80% |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindLowComplexityRegions_Tests.cs | ≥ 80% |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_FindMotifByPattern_Tests.cs | ≥ 80% |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictSignalPeptide_Tests.cs | ≥ 80% |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | ProteinMotifFinder.cs | ProteinMotifFinder_PredictTransmembraneHelices_Tests.cs | ≥ 80% |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | MotifFinder.cs | MotifFinder_CreateConsensusFromAlignment_Tests.cs | ≥ 80% |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | MotifFinder.cs | MotifFinder_DiscoverMotifs_Tests.cs | ≥ 80% |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | MotifFinder.cs | MotifFinder_GenerateConsensus_Tests.cs | ≥ 80% |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | MotifFinder.cs | MotifFinder_FindRegulatoryElements_Tests.cs | ≥ 80% |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | MotifFinder.cs | MotifFinder_FindSharedMotifs_Tests.cs | ≥ 80% |
+| 174 | ☐ | PAT-APPROX-003 | Matching | ApproximateMatcher.cs | ApproximateMatcher_FindBestMatch_Tests.cs | ≥ 80% |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindCommonRegion_Tests.cs | ≥ 80% |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindKnownMotifs_Tests.cs | ≥ 80% |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindOpenReadingFrames_Tests.cs | ≥ 80% |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_FindRepeats_Tests.cs | ≥ 80% |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_CalculateSimilarity_Tests.cs | ≥ 80% |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | GenomicAnalyzer.cs | GenomicAnalyzer_TandemRepeat_Tests.cs | ≥ 80% |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_CalculateEpigeneticAge_Tests.cs | ≥ 80% |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Bisulfite_Tests.cs | ≥ 80% |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_ChromatinState_Tests.cs | ≥ 80% |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_DMR_Tests.cs | ≥ 80% |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | EpigeneticsAnalyzer.cs | EpigeneticsAnalyzer_Methylation_Tests.cs | ≥ 80% |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | VariantAnnotator.cs | VariantAnnotator_FunctionalImpact_Tests.cs | ≥ 80% |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | VariantCaller.cs | VariantCaller_CallVariants_Tests.cs | ≥ 80% |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | VariantCaller.cs | VariantCaller_FindIndels_Tests.cs | ≥ 80% |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | VariantCaller.cs | VariantCaller_FindSnps_Tests.cs | ≥ 80% |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ClusterGenes_Tests.cs | ≥ 80% |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_ConstructPanGenome_Tests.cs | ≥ 80% |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_FitHeapsLaw_Tests.cs | ≥ 80% |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | PanGenomeAnalyzer.cs | PanGenomeAnalyzer_SelectPhylogeneticMarkers_Tests.cs | ≥ 80% |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_PredictFunctions_Tests.cs | ≥ 80% |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindPathwayEnrichment_Tests.cs | ≥ 80% |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindAntibioticResistanceGenes_Tests.cs | ≥ 80% |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | MetagenomicsAnalyzer.cs | MetagenomicsAnalyzer_FindSignificantTaxa_Tests.cs | ≥ 80% |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_DifferentialExpression_Tests.cs | ≥ 80% |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_ExpressionQuantification_Tests.cs | ≥ 80% |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | TranscriptomeAnalyzer.cs | TranscriptomeAnalyzer_AlternativeSplicing_Tests.cs | ≥ 80% |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_FindBreakpoints_Tests.cs | ≥ 80% |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectCNV_Tests.cs | ≥ 80% |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | StructuralVariantAnalyzer.cs | StructuralVariantAnalyzer_DetectSVs_Tests.cs | ≥ 80% |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_LowComplexity_Tests.cs | ≥ 80% |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_MoRF_Tests.cs | ≥ 80% |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | DisorderPredictor.cs | DisorderPredictor_GetDisorderPropensity_Tests.cs | ≥ 80% |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_EstimateAncestry_Tests.cs | ≥ 80% |
+| 208 | ☐ | POP-ROH-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_FindROH_Tests.cs | ≥ 80% |
+| 209 | ☐ | POP-SELECT-001 | PopGen | PopulationGeneticsAnalyzer.cs | PopulationGeneticsAnalyzer_SelectionSignature_Tests.cs | ≥ 80% |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_CalculateAtSkew_Tests.cs | ≥ 80% |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | GcSkewCalculator.cs | GcSkewCalculator_PredictReplicationOrigin_Tests.cs | ≥ 80% |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | SequenceExtensions.cs | SequenceExtensions_GetRnaComplementBase_Tests.cs | ≥ 80% |
+| 213 | ☐ | CODON-ENC-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateEnc_Tests.cs | ≥ 80% |
+| 214 | ☐ | CODON-RSCU-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_CalculateRscu_Tests.cs | ≥ 80% |
+| 215 | ☐ | CODON-STATS-001 | Codon | CodonUsageAnalyzer.cs | CodonUsageAnalyzer_GetStatistics_Tests.cs | ≥ 80% |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_CalculateCodingPotential_Tests.cs | ≥ 80% |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_GetCodonUsage_Tests.cs | ≥ 80% |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | GenomeAnnotator.cs | GenomeAnnotator_FindRepetitiveElements_Tests.cs | ≥ 80% |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_ParseQualityString_Tests.cs | ≥ 80% |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | QualityScoreAnalyzer.cs | QualityScoreAnalyzer_CalculateStatistics_Tests.cs | ≥ 80% |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_Bootstrap_Tests.cs | ≥ 80% |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | PhylogeneticAnalyzer.cs | PhylogeneticAnalyzer_TreeStatistics_Tests.cs | ≥ 80% |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Translator.cs | Translator_SixFrames_Tests.cs | ≥ 80% |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | RestrictionAnalyzer.cs | RestrictionAnalyzer_Filter_Tests.cs | ≥ 80% |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | MiRnaAnalyzer.cs | MiRnaAnalyzer_AlignMiRnaToTarget_Tests.cs | ≥ 80% |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | SequenceAligner.cs | SequenceAligner_CalculateStatistics_Tests.cs | ≥ 80% |
 
 ---
 
@@ -183,8 +261,8 @@ Mutation testing измеряет эффективность тестового 
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 148 |
+| Total algorithms | 226 |
 | ☑ Complete (run + killers written) | 8 |
-| ☐ Not started | 140 |
+| ☐ Not started | 218 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

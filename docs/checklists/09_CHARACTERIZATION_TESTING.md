@@ -181,6 +181,84 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | Scaffold layout | Linking rule change |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | Assembly statistics | Metric-definition change |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | Trimmed reads | Quality cutoff / window change |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | Parsed pairs | Notation / parser change |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | Hairpin energy | Energy model change |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | Inverted repeats | Detection logic change |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | MFE structure | Energy parameter change |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | Pairing table | Pairing rule change |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | Pair probabilities | Algorithm change |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | Pseudoknots | Detection logic change |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | Async counts | Counting change |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | Both-strand counts | Counting change |
+| 158 | ☐ | KMER-DIST-001 | K-mer | Distance value | Metric change |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | Generated set | Generation change |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | Positions | Indexing change |
+| 161 | ☐ | KMER-STATS-001 | K-mer | Statistics | Calculation change |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | Unique k-mers | Threshold change |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | Coiled-coil scores | Scoring change |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | Common motifs | Algorithm change |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | Low-complexity regions | Threshold change |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | Pattern matches | Pattern engine change |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | Signal-peptide call | Model change |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | TM helices | Threshold change |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | Consensus | Voting change |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | Discovered motifs | Algorithm change |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | Consensus | Tie-break change |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | Regulatory elements | Reference-set change |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | Shared motifs | Algorithm change |
+| 174 | ☐ | PAT-APPROX-003 | Matching | Best match | Distance metric change |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | Common region | Algorithm change |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | Motif hits | Reference change |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | ORF list | ORF rule change |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | Repeats | Parameter change |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | Similarity | Metric change |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | Tandem repeats | Parameter change |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | Age value | Clock model change |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | Converted sequence | Conversion rule change |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | Chromatin states | Model change |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | DMRs | Threshold change |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | Methylation | Calculation change |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | Annotations | Rule / DB change |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | Calls | Caller threshold change |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | Indels | Detection change |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | SNPs | Detection change |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | Clusters | Identity change |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | Core / accessory | Definition change |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | Heaps fit | Regression change |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | Markers | Selection change |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | Functions | DB change |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | Enrichment | Statistic change |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | Resistance hits | DB change |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | Significant taxa | Statistic change |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | DE table | Model change |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | Expression | Normalization change |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | Splicing | Algorithm change |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | Breakpoints | Detection change |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | CNV calls | Threshold change |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | SV calls | Detection change |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | Low-complexity regions | Threshold change |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | MoRFs | Model change |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | Propensity | Scale change |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | Ancestry | Model change |
+| 208 | ☐ | POP-ROH-001 | PopGen | ROH segments | Parameter change |
+| 209 | ☐ | POP-SELECT-001 | PopGen | Selection signal | Statistic change |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | AT-skew array | Calculation change |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | Origin | Method change |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | RNA complement | Mapping change |
+| 213 | ☐ | CODON-ENC-001 | Codon | ENC | Formula change |
+| 214 | ☐ | CODON-RSCU-001 | Codon | RSCU | Calculation change |
+| 215 | ☐ | CODON-STATS-001 | Codon | Statistics | Calculation change |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | Coding score | Model change |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | Codon usage | Calculation change |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | Repetitive elements | Parameter change |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | Phred scores | Offset change |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | Quality stats | Calculation change |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | Support values | Resampling change |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | Tree stats | Metric change |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | Six frames | Table change |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | Filtered sites | Criteria change |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | Alignment | Pairing rule change |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | Statistics | Calculation change |
 
 ---
 
@@ -188,10 +266,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 148 |
+| Total algorithms | 226 |
 | ☑ Complete | 0 |
-| ☐ Not started | 148 |
-| Applies on-demand (before refactoring) | All 148 |
+| ☐ Not started | 226 |
+| Applies on-demand (before refactoring) | All 226 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |

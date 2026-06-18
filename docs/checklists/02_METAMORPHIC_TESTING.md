@@ -176,6 +176,84 @@ Metamorphic testing решает «проблему оракула» — ког�
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | INV: link order independent |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | INV: contig order independent; MON: splitting a contig → ≤ N50 |
 | 148 | ☐ | ASSEMBLY-TRIM-001 | Assembly | MON: higher cutoff → subset of bases; INV: read order independent |
+| 149 | ☐ | RNA-DOTBRACKET-001 | RnaStructure | RT: parse∘format identity; INV: pairing preserved under reparse |
+| 150 | ☐ | RNA-HAIRPIN-001 | RnaStructure | MON: larger loop → higher (less stable) energy; INV: closing-pair context preserved |
+| 151 | ☐ | RNA-INVERT-001 | RnaStructure | SYM: arms reverse-complementary; INV: revcomp preserves count |
+| 152 | ☐ | RNA-MFE-001 | RnaStructure | MON: more GC pairs → lower MFE; INV: U/T case-insensitive |
+| 153 | ☐ | RNA-PAIR-001 | RnaStructure | SYM: canPair(a,b)=canPair(b,a); INV: case-insensitive |
+| 154 | ☐ | RNA-PARTITION-001 | RnaStructure | MON: more pairing options → higher Z; INV: deterministic |
+| 155 | ☐ | RNA-PSEUDOKNOT-001 | RnaStructure | INV: nested structure → no pseudoknot; SHIFT: prepend flank shifts positions |
+| 156 | ☐ | KMER-ASYNC-001 | K-mer | INV: async = sync; INV: read order independent |
+| 157 | ☐ | KMER-BOTH-001 | K-mer | SYM: reverse-complement invariance; ADD: counts additive on concatenation |
+| 158 | ☐ | KMER-DIST-001 | K-mer | SYM: d(a,b)=d(b,a); INV: d(x,x)=0 |
+| 159 | ☐ | KMER-GENERATE-001 | K-mer | INV: order independent; P: set closed under all k-mers |
+| 160 | ☐ | KMER-POSITIONS-001 | K-mer | SHIFT: prepend flank shifts positions; INV: order independent |
+| 161 | ☐ | KMER-STATS-001 | K-mer | INV: permutation changes positions not counts; ADD: counts additive on concatenation |
+| 162 | ☐ | KMER-UNIQUE-001 | K-mer | MON: duplicating a k-mer removes it from unique set; INV: order independent |
+| 163 | ☐ | PROTMOTIF-CC-001 | ProteinMotif | INV: deterministic; SHIFT: prepend flank shifts positions |
+| 164 | ☐ | PROTMOTIF-COMMON-001 | ProteinMotif | MON: more sequences sharing → ≥ support; INV: input order independent |
+| 165 | ☐ | PROTMOTIF-LC-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts regions |
+| 166 | ☐ | PROTMOTIF-PATTERN-001 | ProteinMotif | SHIFT: prepend flank shifts matches; SUB: broader pattern → ≥ matches |
+| 167 | ☐ | PROTMOTIF-SP-001 | ProteinMotif | INV: C-terminal extension doesn't change N-terminal signal |
+| 168 | ☐ | PROTMOTIF-TM-001 | ProteinMotif | MON: lower threshold → superset; SHIFT: prepend flank shifts helices |
+| 169 | ☐ | MOTIF-CONS-001 | Matching | INV: row order independent; INV: duplicating a row preserves consensus |
+| 170 | ☐ | MOTIF-DISCOVER-001 | Matching | MON: lower support → superset; SHIFT: prepend flank shifts positions |
+| 171 | ☐ | MOTIF-GENERATE-001 | Matching | INV: row order independent |
+| 172 | ☐ | MOTIF-REGULATORY-001 | Matching | SHIFT: prepend flank shifts positions; SUB: broader set → ≥ matches |
+| 173 | ☐ | MOTIF-SHARED-001 | Matching | INV: input order independent; SUB: fewer inputs → ⊇ shared set |
+| 174 | ☐ | PAT-APPROX-003 | Matching | INV: exact match → 0; MON: best ≤ any candidate distance |
+| 175 | ☐ | GENOMIC-COMMON-001 | Analysis | INV: input order independent; SUB: more inputs → ⊆ common |
+| 176 | ☐ | GENOMIC-MOTIFS-001 | Analysis | SHIFT: prepend flank shifts positions; INV: deterministic |
+| 177 | ☐ | GENOMIC-ORF-001 | Analysis | SHIFT: prepend in-frame flank shifts ORFs; INV: revcomp gives reverse-strand ORFs |
+| 178 | ☐ | GENOMIC-REPEAT-001 | Analysis | MON: lower minLen → superset; SHIFT: prepend flank shifts positions |
+| 179 | ☐ | GENOMIC-SIMILARITY-001 | Analysis | SYM: sim(a,b)=sim(b,a); INV: sim(x,x)=1 |
+| 180 | ☐ | GENOMIC-TANDEM-001 | Analysis | MON: lower minReps → superset; SHIFT: prepend flank shifts positions |
+| 181 | ☐ | EPIGEN-AGE-001 | Epigenetics | MON: more clock-site methylation → higher age; INV: site order independent |
+| 182 | ☐ | EPIGEN-BISULF-001 | Epigenetics | INV: methylated-C set preserved; SHIFT: prepend flank shifts conversions |
+| 183 | ☐ | EPIGEN-CHROM-001 | Epigenetics | INV: region order independent; SHIFT: prepend flank shifts states |
+| 184 | ☐ | EPIGEN-DMR-001 | Epigenetics | MON: lower threshold → superset; SYM: DMR(A,B) consistent with (B,A) |
+| 185 | ☐ | EPIGEN-METHYL-001 | Epigenetics | INV: read order independent; ADD: counts additive over reads |
+| 186 | ☐ | VARIANT-ANNOT-001 | Variants | SHIFT: coordinate shift shifts annotations; INV: variant order independent |
+| 187 | ☐ | VARIANT-CALL-001 | Variants | MON: deeper coverage → superset of confident calls; INV: read order independent |
+| 188 | ☐ | VARIANT-INDEL-001 | Variants | SHIFT: prepend flank shifts indel positions; INV: read order independent |
+| 189 | ☐ | VARIANT-SNP-001 | Variants | SHIFT: prepend flank shifts SNP positions; INV: read order independent |
+| 190 | ☐ | PANGEN-CLUSTER-001 | PanGenome | MON: lower identity → coarser clusters; INV: gene order independent |
+| 191 | ☐ | PANGEN-CORE-001 | PanGenome | MON: more genomes → ⊆ core; INV: genome order independent |
+| 192 | ☐ | PANGEN-HEAP-001 | PanGenome | INV: genome order independent; MON: more genomes → better fit |
+| 193 | ☐ | PANGEN-MARKER-001 | PanGenome | SUB: markers ⊆ core; INV: genome order independent |
+| 194 | ☐ | META-FUNC-001 | Metagenomics | INV: read order independent; SUB: larger DB → ≥ assignments |
+| 195 | ☐ | META-PATHWAY-001 | Metagenomics | MON: more pathway genes → higher enrichment; INV: gene order independent |
+| 196 | ☐ | META-RESIST-001 | Metagenomics | INV: read order independent; SUB: larger DB → ≥ hits |
+| 197 | ☐ | META-TAXA-001 | Metagenomics | INV: sample order independent; MON: larger effect → lower p-value |
+| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | SYM: FC(A,B) = −FC(B,A); INV: gene order independent |
+| 199 | ☐ | TRANS-EXPR-001 | Transcriptome | INV: read order independent; HOMO: scaling depth preserves TPM |
+| 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | INV: read order independent; SHIFT: prepend flank shifts exon coords |
+| 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | SHIFT: prepend flank shifts breakpoints; MON: more split reads → ≥ confidence |
+| 202 | ☐ | SV-CNV-001 | StructuralVar | MON: higher coverage ratio → higher CN; INV: bin order independent |
+| 203 | ☐ | SV-DETECT-001 | StructuralVar | INV: identical genomes → no SV; SHIFT: coordinate shift shifts SVs |
+| 204 | ☐ | DISORDER-LC-001 | ProteinPred | MON: lower threshold → superset; SHIFT: prepend flank shifts regions |
+| 205 | ☐ | DISORDER-MORF-001 | ProteinPred | INV: deterministic; SHIFT: prepend flank shifts MoRFs |
+| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | SHIFT: prepend flank shifts profile; INV: deterministic |
+| 207 | ☐ | POP-ANCESTRY-001 | PopGen | INV: individual order independent; P: proportions sum to 1 |
+| 208 | ☐ | POP-ROH-001 | PopGen | MON: lower minLen → superset; SHIFT: prepend flank shifts ROH |
+| 209 | ☐ | POP-SELECT-001 | PopGen | INV: locus order independent; MON: stronger selection → higher signal |
+| 210 | ☐ | SEQ-ATSKEW-001 | Composition | SYM: complement reverses sign; INV: cumulative length = seq length |
+| 211 | ☐ | SEQ-REPLICATION-001 | Composition | INV: rotation shifts predicted origin; SYM: complement reflects origin |
+| 212 | ☐ | SEQ-RNACOMP-001 | Composition | INV: complement∘complement = identity; P: A↔U, G↔C |
+| 213 | ☐ | CODON-ENC-001 | Codon | MON: more biased usage → lower ENC; INV: codon order independent |
+| 214 | ☐ | CODON-RSCU-001 | Codon | INV: codon order independent; P: per-AA RSCU mean = 1 |
+| 215 | ☐ | CODON-STATS-001 | Codon | INV: order independent; ADD: counts additive on concatenation |
+| 216 | ☐ | ANNOT-CODING-001 | Annotation | INV: deterministic; MON: real ORF → higher score |
+| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | INV: codon order independent; P: per-AA sum = 1 |
+| 218 | ☐ | ANNOT-REPEAT-001 | Annotation | MON: lower minLen → superset; SHIFT: prepend flank shifts elements |
+| 219 | ☐ | QUALITY-PHRED-001 | Quality | RT: encode∘decode identity; INV: offset consistency |
+| 220 | ☐ | QUALITY-STATS-001 | Quality | INV: order independent for mean; ADD: counts additive |
+| 221 | ☐ | PHYLO-BOOT-001 | Phylogenetic | INV: same seed → same support; SYM: distance symmetric |
+| 222 | ☐ | PHYLO-STATS-001 | Phylogenetic | INV: leaf relabeling preserves stats; INV: deterministic |
+| 223 | ☐ | TRANS-SIXFRAME-001 | Translation | INV: frames 4–6 = translation of revcomp; P: exactly 6 frames |
+| 224 | ☐ | RESTR-FILTER-001 | MolTools | SUB: filtered ⊆ all; MON: stricter criteria → subset |
+| 225 | ☐ | MIRNA-PAIR-001 | MiRNA | SHIFT: prepend flank shifts alignment; INV: deterministic |
+| 226 | ☐ | ALIGN-STATS-001 | Alignment | SYM: stats(a,b)=stats(b,a); P: identity(x,x)=1 |
 
 ---
 
@@ -183,7 +261,7 @@ Metamorphic testing решает «проблему оракула» — ког�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 148 |
+| Total algorithms | 226 |
 | ☑ Complete | 7 |
-| ☐ Not started | 141 |
+| ☐ Not started | 219 |
 | MR relations defined | ~200+ |
