@@ -235,7 +235,7 @@ Property-based testing генерирует сотни случайных вхо
 | 203 | ☑ | SV-DETECT-001 | StructuralVar | R: SV type ∈ enum; P: positions valid; D: deterministic | StructuralVariantProperties.cs (new) |
 | 204 | ☑ | DISORDER-LC-001 | ProteinPred | R: region start < end; M: lower complexity threshold → ≥ regions; D: deterministic | DisorderProperties.cs |
 | 205 | ☑ | DISORDER-MORF-001 | ProteinPred | P: MoRF lies within a disordered region; R: positions valid; D: deterministic | DisorderProperties.cs |
-| 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | R: propensity ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
+| 206 | ☑ | DISORDER-PROPENSITY-001 | ProteinPred | R: propensity ∈ [0,1]; P: len(scores) = len(sequence); D: deterministic | DisorderProperties.cs |
 | 207 | ☐ | POP-ANCESTRY-001 | PopGen | R: each proportion ∈ [0,1]; P: Σ proportions = 1.0; D: deterministic | PopulationGeneticsProperties.cs |
 | 208 | ☐ | POP-ROH-001 | PopGen | R: ROH start < end; M: lower minLen → ≥ ROH; P: homozygous within run; D: deterministic | PopulationGeneticsProperties.cs |
 | 209 | ☐ | POP-SELECT-001 | PopGen | R: statistic finite; M: stronger differentiation → higher signal; D: deterministic | PopulationGeneticsProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 205 |
-| ☐ Not started | 29 |
+| ☑ Complete | 206 |
+| ☐ Not started | 28 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
