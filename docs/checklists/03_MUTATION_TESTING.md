@@ -148,6 +148,16 @@ Mutation testing измеряет эффективность тестового 
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_AssessActionability_Tests.cs | ≥ 80% |
 | 119 | ☐ | ONCO-SV-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_ClassifyComplexRearrangement_Tests.cs | ≥ 80% |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | OncologyAnalyzer.cs | OncologyAnalyzer_IdentifyOutlierGenes_Tests.cs | ≥ 80% |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateDinucleotide_Tests.cs | ≥ 80% |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateHydrophobicity_Tests.cs | ≥ 80% |
+| 124 | ☐ | SEQ-MW-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateMolecularWeight_Tests.cs | ≥ 80% |
+| 125 | ☐ | SEQ-PI-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateIsoelectricPoint_Tests.cs | ≥ 80% |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_PredictSecondaryStructure_Tests.cs | ≥ 80% |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateNucleotideComposition_Tests.cs | ≥ 80% |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_SummarizeNucleotideSequence_Tests.cs | ≥ 80% |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
+| 130 | ☐ | SEQ-TM-001 | Statistics | SequenceStatistics.cs | SequenceStatistics_CalculateThermodynamics_Tests.cs | ≥ 80% |
 
 ---
 
@@ -155,8 +165,8 @@ Mutation testing измеряет эффективность тестового 
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete (run + killers written) | 8 |
-| ☐ Not started | 112 |
+| ☐ Not started | 122 |
 | Unique source files to mutate | ~25 |
 | Target mutation score per file | ≥ 80% |

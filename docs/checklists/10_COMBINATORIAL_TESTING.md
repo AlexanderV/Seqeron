@@ -151,6 +151,16 @@ Combinatorial (pairwise) тестирование генерирует мини�
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | evidenceLevel(4) × variantType(3) | 12 | 12 | Med |
 | 119 | ☐ | ONCO-SV-001 | Oncology | nBreakpoints(3) × clustering(3) × svType(3) | 27 | 12 | Med |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | nGenes(3) × zThreshold(3) × normalization(2) | 18 | 9 | Med |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | alphabet(3) × seqLen(3) | 9 | 9 | Low |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | alphabet(3) × seqLen(3) | 9 | 9 | Low |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | scale(2) × windowSize(3) × seqLen(3) | 18 | 9 | Med |
+| 124 | ☐ | SEQ-MW-001 | Statistics | moleculeType(2: DNA/protein) × seqLen(3) | 6 | 6 | Low |
+| 125 | ☐ | SEQ-PI-001 | Statistics | pKaSet(2) × seqLen(3) | 6 | 6 | Low |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | method(2) × windowSize(3) × seqLen(3) | 18 | 9 | Med |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | alphabet(3) × seqLen(3) | 9 | 9 | Low |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | seqType(3) × seqLen(3) | 9 | 9 | Low |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | saltConc(3) × seqLen(3) × gcContent(3) | 27 | 12 | Med |
+| 130 | ☐ | SEQ-TM-001 | Statistics | method(2) × seqLen(3) × gcContent(3) | 18 | 9 | Med |
 
 ---
 
@@ -158,9 +168,9 @@ Combinatorial (pairwise) тестирование генерирует мини�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 0 |
-| ☐ Not started | 120 |
+| ☐ Not started | 130 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |
 | Low priority (≤2 params) | 19 |

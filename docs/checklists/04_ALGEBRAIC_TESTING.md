@@ -150,6 +150,16 @@ Algebraic testing проверяет выполнение алгебраичес
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | IDEMP: deterministic; ID: no evidence → lowest tier |
 | 119 | ☐ | ONCO-SV-001 | Oncology | IDEMP: deterministic; ID: no breakpoints → no rearrangement |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | ID: zero variance → no outliers; INVOL: z-score sign flips under expression negation |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | ID: empty → all-zero; ADD: composition(a+b)=composition(a)+composition(b) |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | ID: length<2 → empty; ADD: counts additive on gap-free concatenation |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
+| 124 | ☐ | SEQ-MW-001 | Statistics | ID: empty → 0; ADD: MW additive (minus water per peptide bond) |
+| 125 | ☐ | SEQ-PI-001 | Statistics | IDEMP: deterministic; INVOL: charge symmetry around pI |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | IDEMP: deterministic; ID: empty → empty |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | ID: empty → zeros; ADD: counts additive on concatenation |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | ID: empty → zero length; IDEMP: deterministic |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | ID: empty → 0; IDEMP: deterministic |
+| 130 | ☐ | SEQ-TM-001 | Statistics | ID: empty → 0; HOMO: homopolymer Tm scales linearly with length (Wallace) |
 
 ---
 
@@ -157,7 +167,7 @@ Algebraic testing проверяет выполнение алгебраичес
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 0 |
-| ☐ Not started | 120 |
+| ☐ Not started | 130 |
 | Laws verified | ~172 (≈2 per algorithm) |

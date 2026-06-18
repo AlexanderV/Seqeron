@@ -153,6 +153,16 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability tiers | Evidence DB / tier change |
 | 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV classification | Pattern rules change |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier gene list | z-score threshold change |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | Composition vector | Counting / normalization change |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | Dinucleotide table | Counting change |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | Hydrophobicity profile | Scale / window change |
+| 124 | ☐ | SEQ-MW-001 | Statistics | Molecular weight | Residue-mass table change |
+| 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point | pKa table change |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure assignment | Propensity table change |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | Composition statistics | Calculation change |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | Summary-field change |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamic parameters | NN-parameter change |
+| 130 | ☐ | SEQ-TM-001 | Statistics | Tm value | Formula change |
 
 ---
 
@@ -160,10 +170,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 0 |
-| ☐ Not started | 120 |
-| Applies on-demand (before refactoring) | All 120 |
+| ☐ Not started | 130 |
+| Applies on-demand (before refactoring) | All 130 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |

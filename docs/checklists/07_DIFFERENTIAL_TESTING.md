@@ -146,6 +146,16 @@ Differential testing сравнивает выходы двух независи
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability | OncoKB tier reference | Same tier |
 | 119 | ☐ | ONCO-SV-001 | Oncology | Complex SV class | breakpoint-pattern reference | Same class |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier genes | z-score reference | Same outliers |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | Composition | manual count/length | Exact match |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | Dinucleotide freq | manual sliding count | Exact match |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | Hydrophobicity | Kyte-Doolittle by hand | Exact match |
+| 124 | ☐ | SEQ-MW-001 | Statistics | Molecular weight | residue-MW sum reference | Match within tolerance |
+| 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point | Henderson-Hasselbalch reference | Match within tolerance |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure | Chou-Fasman reference | Same assignment |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | Composition stats | manual calc | Exact match |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary | manual calc | Exact match |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamics | nearest-neighbour reference | Match within tolerance |
+| 130 | ☐ | SEQ-TM-001 | Statistics | Tm | Marmur-Doty/Wallace by hand | Match within tolerance |
 
 ---
 
@@ -153,9 +163,9 @@ Differential testing сравнивает выходы двух независи
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 0 |
-| ☐ Not started | 120 |
+| ☐ Not started | 130 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

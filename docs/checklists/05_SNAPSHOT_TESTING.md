@@ -146,6 +146,16 @@ Snapshot (approval) тесты сериализуют полный выход а
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | Actionability tiers | OncologySnapshotTests.cs (new) |
 | 119 | ☐ | ONCO-SV-001 | Oncology | Complex rearrangement classification | OncologySnapshotTests.cs (new) |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | Outlier gene list | OncologySnapshotTests.cs (new) |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | Nucleotide composition table | StatisticsSnapshotTests.cs (new) |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | Dinucleotide frequency table | StatisticsSnapshotTests.cs (new) |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | Hydrophobicity profile | StatisticsSnapshotTests.cs (new) |
+| 124 | ☐ | SEQ-MW-001 | Statistics | Molecular weight value | StatisticsSnapshotTests.cs (new) |
+| 125 | ☐ | SEQ-PI-001 | Statistics | Isoelectric point value | StatisticsSnapshotTests.cs (new) |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | Secondary structure assignment | StatisticsSnapshotTests.cs (new) |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | Composition statistics output | StatisticsSnapshotTests.cs (new) |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | Sequence summary output | StatisticsSnapshotTests.cs (new) |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | Thermodynamic parameters (ΔG/ΔH/ΔS) | StatisticsSnapshotTests.cs (new) |
+| 130 | ☐ | SEQ-TM-001 | Statistics | Sequence-level Tm value | StatisticsSnapshotTests.cs (new) |
 
 ---
 
@@ -153,8 +163,8 @@ Snapshot (approval) тесты сериализуют полный выход а
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 55 |
-| ☐ Not started | 65 |
+| ☐ Not started | 75 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

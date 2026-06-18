@@ -148,6 +148,16 @@ Metamorphic testing решает «проблему оракула» — ког�
 | 118 | ☐ | ONCO-ACTION-001 | Oncology | MON: stronger evidence → ≥ tier; INV: variant order independent |
 | 119 | ☐ | ONCO-SV-001 | Oncology | INV: coordinate shift preserves rearrangement class; MON: more clustered breakpoints → chromothripsis |
 | 120 | ☐ | ONCO-EXPR-001 | Oncology | INV: scaling all expression equally preserves z-scores/outliers; MON: lower threshold → superset |
+| 121 | ☐ | SEQ-COMPOSITION-001 | Statistics | INV: permutation invariant; P: complement swaps A↔T and C↔G counts |
+| 122 | ☐ | SEQ-DINUC-001 | Statistics | INV: reverse-complement maps each dinucleotide to its revcomp; SHIFT: prepend flank adds only boundary dinucleotides |
+| 123 | ☐ | SEQ-HYDRO-001 | Statistics | INV: permutation changes profile but not mean; MON: adding a hydrophobic residue → ≥ mean |
+| 124 | ☐ | SEQ-MW-001 | Statistics | ADD: MW(a+b) = MW(a)+MW(b) − water; INV: permutation invariant |
+| 125 | ☐ | SEQ-PI-001 | Statistics | INV: permutation invariant; MON: more acidic residues → lower pI |
+| 126 | ☐ | SEQ-SECSTRUCT-001 | Statistics | SHIFT: prepend flank shifts assignments; INV: deterministic |
+| 127 | ☐ | SEQ-STATS-001 | Statistics | INV: permutation invariant; P: concatenation sums counts |
+| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | INV: permutation invariant for composition fields; SHIFT: length additive on concatenation |
+| 129 | ☐ | SEQ-THERMO-001 | Statistics | MON: more GC pairs → lower ΔG; INV: permutation changes nearest-neighbour context only |
+| 130 | ☐ | SEQ-TM-001 | Statistics | MON: more GC → higher Tm; INV: case-insensitive |
 
 ---
 
@@ -155,7 +165,7 @@ Metamorphic testing решает «проблему оракула» — ког�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 120 |
+| Total algorithms | 130 |
 | ☑ Complete | 7 |
-| ☐ Not started | 113 |
+| ☐ Not started | 123 |
 | MR relations defined | ~200+ |
