@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for the high-level GenomicAnalyzer façade: common regions, known motifs,
 /// ORFs, repeats, similarity, and tandem repeats.
 ///
-/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001, GENOMIC-REPEAT-001
+/// Test Units: GENOMIC-COMMON-001, GENOMIC-MOTIFS-001, GENOMIC-ORF-001, GENOMIC-REPEAT-001, GENOMIC-SIMILARITY-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -325,6 +325,63 @@ public class GenomicAnalyzerProperties
             Assert.That(b, Is.EqualTo(a), "deterministic");
             Assert.That(atg.Sequence, Is.EqualTo("ATG"));
             Assert.That(atg.Positions, Is.EqualTo(new[] { 0, 3, 6 }));
+        });
+    }
+
+    #endregion
+
+    #region GENOMIC-SIMILARITY-001: R: similarity ∈ [0,100]; S: sym; I: sim(x,x)=100; D: deterministic
+
+    // CalculateSimilarity is the k-mer Jaccard index reported as a percentage in [0,100]
+    // (Jaccard 1901; Ondov et al. Mash 2016). NOTE: this implementation returns a PERCENTAGE,
+    // so the self-identity value is 100 (not 1) — the checklist's [0,1]/sim(x,x)=1 is in fractions.
+
+    /// <summary>INV-1 (R): similarity is a percentage in [0,100].</summary>
+    [FsCheck.NUnit.Property]
+    public Property Similarity_InZeroToHundred()
+    {
+        return Prop.ForAll(SeqArbitrary(8), SeqArbitrary(8), (s1, s2) =>
+        {
+            double sim = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(s1), new DnaSequence(s2));
+            return (sim is >= 0.0 and <= 100.0).Label($"similarity {sim} outside [0,100]");
+        });
+    }
+
+    /// <summary>INV-2 (S): similarity is symmetric.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Similarity_IsSymmetric()
+    {
+        return Prop.ForAll(SeqArbitrary(8), SeqArbitrary(8), (s1, s2) =>
+        {
+            double ab = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(s1), new DnaSequence(s2));
+            double ba = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(s2), new DnaSequence(s1));
+            return (Math.Abs(ab - ba) < 1e-9).Label($"sim(a,b)={ab} ≠ sim(b,a)={ba}");
+        });
+    }
+
+    /// <summary>INV-3 (I): a sequence (with at least one k-mer) is 100% similar to itself.</summary>
+    [FsCheck.NUnit.Property]
+    public Property Similarity_SelfIsHundred()
+    {
+        return Prop.ForAll(SeqArbitrary(8), seq =>
+        {
+            double sim = GenomicAnalyzer.CalculateSimilarity(new DnaSequence(seq), new DnaSequence(seq));
+            return (Math.Abs(sim - 100.0) < 1e-9).Label($"sim(x,x)={sim}, expected 100");
+        });
+    }
+
+    /// <summary>INV-4 (D + boundary): deterministic; invalid k-mer size rejected.</summary>
+    [Test]
+    [Category("Property")]
+    public void Similarity_DeterministicAndBoundary()
+    {
+        var a = GenomicAnalyzer.CalculateSimilarity(new DnaSequence("ACGTACGT"), new DnaSequence("ACGTTTGG"));
+        var b = GenomicAnalyzer.CalculateSimilarity(new DnaSequence("ACGTACGT"), new DnaSequence("ACGTTTGG"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(b, Is.EqualTo(a), "deterministic");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => GenomicAnalyzer.CalculateSimilarity(new DnaSequence("ACGT"), new DnaSequence("ACGT"), 0));
         });
     }
 
