@@ -9,7 +9,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for structural-variant analysis (StructuralVariantAnalyzer): breakpoint
 /// clustering, copy-number detection, and SV calling.
 ///
-/// Test Units: SV-BREAKPOINT-001
+/// Test Units: SV-BREAKPOINT-001, SV-CNV-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -82,6 +82,75 @@ public class StructuralVariantProperties
             var a = StructuralVariantAnalyzer.FindBreakpoints(reads, 5, 2).Select(b => (b.Position1, b.SupportingReads)).ToList();
             var b = StructuralVariantAnalyzer.FindBreakpoints(reads, 5, 2).Select(x => (x.Position1, x.SupportingReads)).ToList();
             return a.SequenceEqual(b).Label("FindBreakpoints must be deterministic");
+        });
+    }
+
+    #endregion
+
+    #region SV-CNV-001: R: copy number ≥ 0; M: higher coverage ratio → higher CN; D: deterministic
+
+    // DetectCNV computes per-window log2(meanDepth/reference) → CN = round(2·2^log2) (read-depth CNV;
+    // Yoon et al. 2009; CNVkit).
+
+    /// <summary>Generates 10..40 per-base depths in [0,100].</summary>
+    private static Arbitrary<int[]> DepthArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 10 + rng.Next(31);
+            var d = new int[n];
+            for (int i = 0; i < n; i++) d[i] = rng.Next(0, 101);
+            return d;
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (R): every called segment has a non-negative copy number, ordered coordinates within the
+    /// data, and a finite log-ratio.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Cnv_SegmentsAreValid()
+    {
+        return Prop.ForAll(DepthArbitrary(), depth =>
+        {
+            var segs = StructuralVariantAnalyzer.DetectCNV(depth, windowSize: 5).ToList();
+            return segs.All(s =>
+                s.CopyNumber >= 0 &&
+                s.Start <= s.End && s.Start >= 0 && s.End < depth.Length &&
+                double.IsFinite(s.LogRatio))
+                .Label("a copy-number segment was invalid");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (M): with a fixed reference, a window of higher mean depth yields a higher copy number.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Cnv_HigherDepth_HigherCopyNumber()
+    {
+        // Window 0 at depth 10 (= reference → CN 2); window 1 at depth 20 (log2 1 → CN 4).
+        var depth = Enumerable.Repeat(10, 5).Concat(Enumerable.Repeat(20, 5)).ToArray();
+        var segs = StructuralVariantAnalyzer.DetectCNV(depth, windowSize: 5, referenceDepth: 10).ToList();
+
+        Assert.That(segs, Has.Count.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(segs[0].CopyNumber, Is.EqualTo(2), "depth == reference → neutral CN 2");
+            Assert.That(segs[1].CopyNumber, Is.GreaterThan(segs[0].CopyNumber), "double depth → higher CN");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): CNV detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Cnv_IsDeterministic()
+    {
+        return Prop.ForAll(DepthArbitrary(), depth =>
+        {
+            var a = StructuralVariantAnalyzer.DetectCNV(depth, 5).Select(s => (s.Start, s.CopyNumber)).ToList();
+            var b = StructuralVariantAnalyzer.DetectCNV(depth, 5).Select(s => (s.Start, s.CopyNumber)).ToList();
+            return a.SequenceEqual(b).Label("DetectCNV must be deterministic");
         });
     }
 
