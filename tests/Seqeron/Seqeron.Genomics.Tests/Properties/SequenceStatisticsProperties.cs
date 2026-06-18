@@ -722,4 +722,104 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-STATS-001 / SEQ-SUMMARY-001 — Sequence Summary Statistics
+
+    // -------------------------------------------------------------------------
+    // Theory (summary statistics over a nucleotide sequence):
+    //   • Composition counts ≥ 0; over {A,T,G,C,U,N} they sum to the sequence length.   (#127 R, P)
+    //   • GcContent (fraction, ≡ GC%/100) ∈ [0,1].                                       (#127/#128 R GC%∈[0,100])
+    //   • Reported Length equals the input length; summary fields agree with the         (#128 P length)
+    //     standalone composition/GC computation.                                          (consistency)
+    //
+    // Verified against the standalone CalculateNucleotideComposition (a sibling already
+    // pinned to an independent oracle in SEQ-COMPOSITION-001).
+    // -------------------------------------------------------------------------
+
+    private static Arbitrary<string> AtgcunArbitrary() =>
+        Gen.Elements('A', 'T', 'G', 'C', 'U', 'N', 'a', 't', 'g', 'c', 'u', 'n')
+            .ArrayOf()
+            .Select(a => new string(a))
+            .ToArbitrary();
+
+    /// <summary>
+    /// SEQ-STATS-001 — R (counts ≥ 0) + P (Σ counts = length over A/T/G/C/U/N): every composition count is
+    /// non-negative, and for a sequence drawn from {A,T,G,C,U,N} the six counts sum to the sequence length;
+    /// the summary GC fraction is in [0,1] (≡ GC% ∈ [0,100]).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SequenceSummary_CompositionCountsPartition_AndGcInRange()
+    {
+        return Prop.ForAll(AtgcunArbitrary(), seq =>
+        {
+            var summary = SequenceStatistics.SummarizeNucleotideSequence(seq);
+            bool nonNeg = summary.Composition.Values.All(v => v >= 0);
+            bool sumOk = summary.Composition.Values.Sum() == seq.Length; // all chars are A/T/G/C/U/N
+            bool gcOk = summary.GcContent is >= 0.0 and <= 1.0;
+            return (nonNeg && sumOk && gcOk)
+                .Label($"counts sum {summary.Composition.Values.Sum()} ≠ length {seq.Length}; GC {summary.GcContent}");
+        });
+    }
+
+    /// <summary>
+    /// SEQ-SUMMARY-001 — P (reported length = sequence length) + R (GC% ∈ [0,100]) + consistency: the summary
+    /// reports the input length, a GC fraction in [0,1], and its GcContent/Composition agree with the
+    /// standalone <c>CalculateNucleotideComposition</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property SequenceSummary_ReportsLength_GcInRange_AndAgreesWithComposition()
+    {
+        return Prop.ForAll(MixedSequenceArbitrary(), seq =>
+        {
+            var summary = SequenceStatistics.SummarizeNucleotideSequence(seq);
+            var comp = SequenceStatistics.CalculateNucleotideComposition(seq);
+
+            bool lengthOk = summary.Length == seq.Length;
+            bool gcOk = summary.GcContent is >= 0.0 and <= 1.0 && Math.Abs(summary.GcContent - comp.GcContent) < CompTolerance;
+            bool compOk = summary.Composition['A'] == comp.CountA && summary.Composition['T'] == comp.CountT
+                          && summary.Composition['G'] == comp.CountG && summary.Composition['C'] == comp.CountC
+                          && summary.Composition['U'] == comp.CountU && summary.Composition['N'] == comp.CountN;
+            return (lengthOk && gcOk && compOk)
+                .Label($"summary length {summary.Length} vs {seq.Length}; GC {summary.GcContent} vs {comp.GcContent}");
+        });
+    }
+
+    /// <summary>D (determinism): the sequence summary is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property SequenceSummary_IsDeterministic()
+    {
+        return Prop.ForAll(MixedSequenceArbitrary(), seq =>
+        {
+            var a = SequenceStatistics.SummarizeNucleotideSequence(seq);
+            var b = SequenceStatistics.SummarizeNucleotideSequence(seq);
+            return (a.Length == b.Length && a.GcContent == b.GcContent && a.Entropy == b.Entropy
+                    && a.Complexity == b.Complexity && a.MeltingTemperature == b.MeltingTemperature
+                    && a.Composition.Count == b.Composition.Count
+                    && a.Composition.All(kv => b.Composition.TryGetValue(kv.Key, out int v) && v == kv.Value))
+                .Label("SummarizeNucleotideSequence is not deterministic for identical input");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: "ATGCGC" reports length 6, GC fraction 4/6; null and empty both report length 0 and GC 0.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void SequenceSummary_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var s = SequenceStatistics.SummarizeNucleotideSequence("ATGCGC");
+            Assert.That(s.Length, Is.EqualTo(6));
+            Assert.That(s.GcContent, Is.EqualTo(4.0 / 6.0).Within(CompTolerance), "G/C = 4 of 6.");
+            Assert.That(s.Composition.Values.Sum(), Is.EqualTo(6));
+
+            var nul = SequenceStatistics.SummarizeNucleotideSequence(null);
+            Assert.That(nul.Length, Is.EqualTo(0));
+            Assert.That(nul.GcContent, Is.EqualTo(0.0));
+            Assert.That(SequenceStatistics.SummarizeNucleotideSequence("").Length, Is.EqualTo(0));
+        });
+    }
+
+    #endregion
 }

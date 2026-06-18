@@ -156,8 +156,8 @@ Property-based testing генерирует сотни случайных вхо
 | 124 | ☑ | SEQ-MW-001 | Statistics | R: MW > 0 for non-empty; M: longer sequence → higher MW; P: MW additive over residues; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 125 | ☑ | SEQ-PI-001 | Statistics | R: pI ∈ [0,14]; P: net charge at pI ≈ 0; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 126 | ☑ | SEQ-SECSTRUCT-001 | Statistics | R: each propensity ≥ 0; P: every residue assigned H/E/C; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 127 | ☐ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
-| 128 | ☐ | SEQ-SUMMARY-001 | Statistics | P: reported length = sequence length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 127 | ☑ | SEQ-STATS-001 | Statistics | R: counts ≥ 0; P: Σ counts = length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
+| 128 | ☑ | SEQ-SUMMARY-001 | Statistics | P: reported length = sequence length; R: GC% ∈ [0,100]; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 129 | ☐ | SEQ-THERMO-001 | Statistics | R: ΔG, ΔH, ΔS finite; M: more GC → more stable (lower ΔG); D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 130 | ☐ | SEQ-TM-001 | Statistics | R: Tm ≥ 0; M: more GC → higher Tm; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 131 | ☐ | COMPGEN-ANI-001 | Comparative | R: ANI ∈ [0,100]%; S: ANI(A,B)=ANI(B,A); I: ANI(A,A)=100; D: deterministic | ComparativeGenomicsProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 126 |
-| ☐ Not started | 108 |
+| ☑ Complete | 128 |
+| ☐ Not started | 106 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
