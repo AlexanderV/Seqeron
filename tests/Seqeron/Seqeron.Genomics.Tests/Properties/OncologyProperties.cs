@@ -8086,4 +8086,177 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-MRD-001 — Minimal Residual Disease (tumour-informed panel calling)
+
+    // -------------------------------------------------------------------------
+    // Theory (Reinert 2019 / Signatera ≥2-variant rule; Wan 2020 INVAR IMAF; Avanzini 2020):
+    //   • A marker is detected iff PlasmaAltReads ≥ minSupportingReads.
+    //   • MRD-positive ⟺ detected variants ≥ positivity threshold (default 2).   (R, M)
+    //   • IMAF = Σ alt / Σ total (depth-weighted plasma VAF) ∈ [0,1].             (R sensitivity)
+    //   • Panel detection p = 1 − e^(−n·IMAF·m) ∈ [0,1], m = tracked markers.
+    //   • Longitudinal: per-timepoint DetectMRD; first positive index = earliest positive.
+    //
+    // The detection count, status, IMAF and Poisson p are reconstructed independently
+    // — NOT routed through production — so a wrong threshold or weighting is caught.
+    // -------------------------------------------------------------------------
+
+    private static Gen<OncologyAnalyzer.TumorMarker> TumorMarkerGen() =>
+        from alt in Gen.Choose(0, 50)
+        from extra in Gen.Choose(0, 100)
+        select new OncologyAnalyzer.TumorMarker("1", 1, "A", "T", alt, alt + extra); // total ≥ alt ⇒ IMAF ≤ 1
+
+    private static Arbitrary<(OncologyAnalyzer.TumorMarker[] panel, int posThresh, int minReads, int n)>
+        MrdProblemArbitrary() =>
+        (from count in Gen.Choose(1, 8)
+         from panel in TumorMarkerGen().ArrayOf(count)
+         from posThresh in Gen.Choose(1, 5)
+         from minReads in Gen.Choose(1, 5)
+         from n in Gen.Choose(0, 10_000)
+         select (panel, posThresh, minReads, n)).ToArbitrary();
+
+    /// <summary>
+    /// R (status enum, sensitivity ∈ [0,1]) + counts: <c>DetectMRD</c> reproduces the independent panel
+    /// oracle — detected count = markers with alt ≥ minReads, tracked count = panel size, Positive ⟺ detected
+    /// ≥ threshold, IMAF = Σalt/Σtotal ∈ [0,1], and Poisson p = 1 − e^(−n·IMAF·m) ∈ [0,1]. (Reinert 2019; Wan 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_MatchesIndependentPanelOracle()
+    {
+        return Prop.ForAll(MrdProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n);
+
+            int detected = t.panel.Count(m => m.PlasmaAltReads >= t.minReads);
+            int tracked = t.panel.Length;
+            long altSum = t.panel.Sum(m => (long)Math.Max(0, m.PlasmaAltReads));
+            long totalSum = t.panel.Sum(m => (long)Math.Max(0, m.PlasmaTotalReads));
+            double imaf = totalSum == 0 ? 0.0 : (double)altSum / totalSum;
+            double p = 1.0 - Math.Exp(-t.n * imaf * tracked);
+            var expectedStatus = detected >= t.posThresh ? OncologyAnalyzer.MrdStatus.Positive : OncologyAnalyzer.MrdStatus.Negative;
+
+            bool ok = result.DetectedVariantCount == detected
+                      && result.TrackedVariantCount == tracked
+                      && result.Status == expectedStatus
+                      && Math.Abs(result.IntegratedMutantAlleleFraction - imaf) < CtDnaTolerance
+                      && result.IntegratedMutantAlleleFraction is >= 0.0 and <= 1.0
+                      && Math.Abs(result.DetectionProbability - p) < CtDnaTolerance
+                      && result.DetectionProbability is >= 0.0 and <= 1.0;
+            return ok.Label($"detected={result.DetectedVariantCount}/{result.TrackedVariantCount}, status={result.Status} (exp {expectedStatus}), IMAF={result.IntegratedMutantAlleleFraction}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tracked variants observed → MRD-positive"): appending a detected marker raises the
+    /// detected count by one and can only move the call toward positive — a sample already MRD-positive stays
+    /// positive. Detection is monotone in the number of observed variants. (Reinert 2019 ≥2 rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_AddingADetectedMarker_RaisesCount_AndPreservesPositivity()
+    {
+        var arb = (from count in Gen.Choose(1, 8)
+                   from panel in TumorMarkerGen().ArrayOf(count)
+                   from posThresh in Gen.Choose(1, 5)
+                   from minReads in Gen.Choose(1, 5)
+                   from surplus in Gen.Choose(0, 10)
+                   select (panel, posThresh, minReads, surplus)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var baseResult = OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads);
+            // A marker guaranteed detected: alt = minReads + surplus (≥ minReads), total ≥ alt.
+            int alt = t.minReads + t.surplus;
+            var detectedMarker = new OncologyAnalyzer.TumorMarker("1", 2, "A", "T", alt, alt + 5);
+            var augmented = t.panel.Append(detectedMarker).ToArray();
+            var augResult = OncologyAnalyzer.DetectMRD(augmented, t.posThresh, t.minReads);
+
+            bool countRose = augResult.DetectedVariantCount == baseResult.DetectedVariantCount + 1;
+            bool positivityPreserved = baseResult.Status != OncologyAnalyzer.MrdStatus.Positive
+                                       || augResult.Status == OncologyAnalyzer.MrdStatus.Positive;
+            return (countRose && positivityPreserved)
+                .Label($"base detected={baseResult.DetectedVariantCount} status={baseResult.Status}; aug detected={augResult.DetectedVariantCount} status={augResult.Status}");
+        });
+    }
+
+    /// <summary>
+    /// <c>TrackVariantsOverTime</c> applies <c>DetectMRD</c> to each timepoint in input order and reports the
+    /// earliest MRD-positive timepoint index (or −1 if none) — matching an independent first-positive oracle.
+    /// (Reinert 2019 serial surveillance)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property TrackVariantsOverTime_PreservesOrder_AndFindsFirstPositive()
+    {
+        var arb = (from tpCount in Gen.Choose(0, 5)
+                   from panels in (from c in Gen.Choose(1, 5) from p in TumorMarkerGen().ArrayOf(c) select p).ArrayOf(tpCount)
+                   from posThresh in Gen.Choose(1, 4)
+                   from minReads in Gen.Choose(1, 3)
+                   select (panels, posThresh, minReads)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var result = OncologyAnalyzer.TrackVariantsOverTime(t.panels, t.posThresh, t.minReads);
+
+            bool ok = result.Timepoints.Count == t.panels.Length;
+            int oracleFirstPositive = -1;
+            for (int i = 0; ok && i < t.panels.Length; i++)
+            {
+                var expected = OncologyAnalyzer.DetectMRD(t.panels[i], t.posThresh, t.minReads);
+                ok &= result.Timepoints[i].TimepointIndex == i && result.Timepoints[i].Result.Equals(expected);
+                if (oracleFirstPositive < 0 && expected.Status == OncologyAnalyzer.MrdStatus.Positive)
+                {
+                    oracleFirstPositive = i;
+                }
+            }
+
+            ok &= result.FirstPositiveIndex == oracleFirstPositive;
+            return ok.Label($"firstPositive={result.FirstPositiveIndex} (oracle {oracleFirstPositive}), timepoints={result.Timepoints.Count}");
+        });
+    }
+
+    /// <summary>D (determinism): MRD detection is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectMRD_IsDeterministic()
+    {
+        return Prop.ForAll(MrdProblemArbitrary(), t =>
+            OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n)
+                .Equals(OncologyAnalyzer.DetectMRD(t.panel, t.posThresh, t.minReads, t.n))
+                .Label("DetectMRD is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors (Signatera ≥2 rule): two detected markers ⇒ MRD-positive; one detected ⇒ negative; IMAF is the
+    /// depth-weighted plasma VAF; an empty panel is rejected. (Reinert 2019; Wan 2020)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectMRD_CanonicalAndGuardCases()
+    {
+        var twoDetected = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("1", 10, "A", "T", 3, 1000),
+            new OncologyAnalyzer.TumorMarker("2", 20, "C", "G", 2, 1000),
+            new OncologyAnalyzer.TumorMarker("3", 30, "G", "A", 0, 1000),
+        };
+        var oneDetected = new[]
+        {
+            new OncologyAnalyzer.TumorMarker("1", 10, "A", "T", 3, 1000),
+            new OncologyAnalyzer.TumorMarker("2", 20, "C", "G", 0, 1000),
+        };
+
+        Assert.Multiple(() =>
+        {
+            var pos = OncologyAnalyzer.DetectMRD(twoDetected);
+            Assert.That(pos.Status, Is.EqualTo(OncologyAnalyzer.MrdStatus.Positive), "2 detected ≥ threshold 2 ⇒ Positive.");
+            Assert.That(pos.DetectedVariantCount, Is.EqualTo(2), "Two markers have alt reads ≥ 1.");
+            Assert.That(pos.IntegratedMutantAlleleFraction, Is.EqualTo(5.0 / 3000.0).Within(CtDnaTolerance), "IMAF = (3+2+0)/(3·1000).");
+
+            var neg = OncologyAnalyzer.DetectMRD(oneDetected);
+            Assert.That(neg.Status, Is.EqualTo(OncologyAnalyzer.MrdStatus.Negative), "1 detected < threshold 2 ⇒ Negative.");
+
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.DetectMRD(Array.Empty<OncologyAnalyzer.TumorMarker>()),
+                "An empty marker panel cannot be assessed.");
+        });
+    }
+
+    #endregion
 }
