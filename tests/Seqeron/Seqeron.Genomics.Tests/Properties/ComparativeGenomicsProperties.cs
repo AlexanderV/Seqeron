@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001, COMPGEN-RBH-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -614,6 +614,99 @@ public class ComparativeGenomicsProperties
 
         Assert.That(pairs, Is.EquivalentTo(new[] { ("A_0", "B_0"), ("A_1", "B_1") }),
             "X↔X and Y↔Y must be the only reciprocal best hits");
+    }
+
+    #endregion
+
+    #region COMPGEN-RBH-001: S: RBH(A,B)=RBH(B,A); P: each gene ≤ 1 RBH pair; P: only mutual best hits; D: deterministic
+
+    // FindReciprocalBestHits keeps a pair (g1,g2) iff g1's best qualifying hit in genome 2 is g2 AND
+    // g2's best qualifying hit in genome 1 is g1 (Tatusov et al. 1997; Moreno-Hagelsieb & Latimer
+    // 2008). A one-directional best hit is explicitly NOT an ortholog.
+
+    /// <summary>
+    /// INV-1 (S): RBH is symmetric — the pair set of RBH(A,B) equals that of RBH(B,A) with the gene
+    /// roles swapped, since the mutual-best-hit condition is symmetric in its arguments.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rbh_IsSymmetric()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var ab = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(g1, g2));
+            var ba = ComparativeGenomics.FindReciprocalBestHits(g2, g1)
+                .Select(p => (p.Gene2Id, p.Gene1Id)).ToHashSet();
+            return ab.SetEquals(ba).Label($"RBH(A,B)≠RBH(B,A): {ab.Count} vs {ba.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): The RBH set is a matching — each gene of either genome occurs in at most one pair.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rbh_FormsAMatching()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var pairs = ComparativeGenomics.FindReciprocalBestHits(MakeGenome("A", s1), MakeGenome("B", s2)).ToList();
+            return (pairs.Select(p => p.Gene1Id).Distinct().Count() == pairs.Count
+                    && pairs.Select(p => p.Gene2Id).Distinct().Count() == pairs.Count)
+                .Label("a gene appeared in more than one RBH pair");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): RBH detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Rbh_IsDeterministic()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var a = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(g1, g2));
+            var b = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(g1, g2));
+            return a.SetEquals(b).Label("FindReciprocalBestHits must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (P, reciprocity): comparing a genome of distinct genes to itself pairs every gene with
+    /// itself — the canonical mutual-best-hit fixpoint (each gene's best match is itself, identity 1).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Rbh_SelfComparison_PairsEachGeneWithItself()
+    {
+        var genome = MakeGenome("A", new[]
+        {
+            "AAAAACCCCCGGGGGTTTTT",
+            "TTTTTGGGGGCCCCCAAAAA",
+            "ACGTACGTACGTACGTACGT"
+        });
+        var pairs = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(genome, genome));
+        Assert.That(pairs, Is.EquivalentTo(new[] { ("A_0", "A_0"), ("A_1", "A_1"), ("A_2", "A_2") }));
+    }
+
+    /// <summary>
+    /// INV-5 (P, one-directional exclusion): when two genome-1 genes are equally the best hit of a
+    /// single genome-2 gene, only the reciprocal one is kept; the other is a one-directional best hit
+    /// and is excluded ("a one-directional best hit is NOT an ortholog").
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Rbh_OneDirectionalHit_IsExcluded()
+    {
+        const string seq = "AAAAACCCCCGGGGGTTTTT";
+        var g1 = MakeGenome("A", new[] { seq, seq }); // A_0 and A_1 both identical to the genome-2 gene
+        var g2 = MakeGenome("B", new[] { seq });      // B_0 best-hits A_0 (ordinal tie-break), not A_1
+
+        var pairs = OrthoPairs(ComparativeGenomics.FindReciprocalBestHits(g1, g2));
+        Assert.That(pairs, Is.EquivalentTo(new[] { ("A_0", "B_0") }),
+            "only the reciprocal pair survives; A_1's hit is one-directional");
     }
 
     #endregion
