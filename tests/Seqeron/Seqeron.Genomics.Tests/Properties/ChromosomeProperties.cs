@@ -781,4 +781,411 @@ public class ChromosomeProperties
     }
 
     #endregion
+
+    #region CHROM-KARYO-001
+
+    // Covers ChromosomeAnalyzer.AnalyzeKaryotype and ChromosomeAnalyzer.DetectPloidy
+    // (Karyotype_Analysis.md §2.4 INV-01..INV-04, §4.2 ploidy formula + aneuploidy table, §6 edges).
+    //
+    //   R  chromosome count > 0 for non-empty input; depth-ploidy ∈ [1,8], confidence ∈ [0,1]
+    //   D  identical input → identical result (both methods)
+    //   P  every karyotype field recomputed by an independent oracle, including the
+    //      per-autosome-group aneuploidy classification (P: each chrom group has a classification)
+    //
+    // All oracles below are transcribed INDEPENDENTLY from the doc/source semantics and are
+    // NEVER routed through production.
+
+    // ===================== Independent oracles =====================
+
+    /// <summary>
+    /// Independent base-name oracle, transcribed verbatim from the source helper
+    /// <c>GetChromosomeBaseName</c> (Karyotype_Analysis.md §3.3 / §5.2): strip a trailing
+    /// <c>_&lt;digits&gt;</c> suffix ONLY (e.g. <c>chr1_2 → chr1</c>); a letter suffix such as
+    /// <c>chr1a</c> is left intact, and a leading-underscore name is not altered.
+    /// </summary>
+    private static string ExpectedBaseName(string name)
+    {
+        int underscoreIdx = name.LastIndexOf('_');
+        if (underscoreIdx > 0 && underscoreIdx < name.Length - 1
+            && int.TryParse(name[(underscoreIdx + 1)..], out _))
+        {
+            return name[..underscoreIdx];
+        }
+        return name;
+    }
+
+    /// <summary>
+    /// Independent cytogenetic-term oracle, transcribed verbatim from the source helper
+    /// <c>GetAneuploidyTerm</c> (§4.2 absolute-term table): 0→Nullisomy, 1→Monosomy, 2→Disomy,
+    /// 3→Trisomy, 4→Tetrasomy, 5→Pentasomy, else <c>Polysomy ({n} copies)</c>.
+    /// </summary>
+    private static string ExpectedAneuploidyTerm(int copyCount) => copyCount switch
+    {
+        0 => "Nullisomy",
+        1 => "Monosomy",
+        2 => "Disomy",
+        3 => "Trisomy",
+        4 => "Tetrasomy",
+        5 => "Pentasomy",
+        _ => $"Polysomy ({copyCount} copies)"
+    };
+
+    /// <summary>
+    /// Independent abnormality-set oracle (§2.4 INV-03 + §5.4 deviation #1): group ONLY the
+    /// autosomes (sex chromosomes are excluded from grouping) by <see cref="ExpectedBaseName"/>;
+    /// a group is abnormal iff its copy count differs from <paramref name="expectedPloidyLevel"/>;
+    /// each abnormality string is <c>"{term} {baseName}"</c>. Returned as a set (production order
+    /// is GroupBy-dependent and not part of the contract).
+    /// </summary>
+    private static HashSet<string> ExpectedAbnormalitySet(
+        IReadOnlyList<(string Name, long Length, bool IsSexChromosome)> chroms,
+        int expectedPloidyLevel)
+    {
+        return chroms
+            .Where(c => !c.IsSexChromosome)
+            .GroupBy(c => ExpectedBaseName(c.Name))
+            .Where(g => g.Count() != expectedPloidyLevel)
+            .Select(g => $"{ExpectedAneuploidyTerm(g.Count())} {g.Key}")
+            .ToHashSet();
+    }
+
+    /// <summary>
+    /// Independent ploidy oracle, transcribed verbatim from the source/§4.2 arithmetic.
+    /// Median is the TRUE median of the sorted depths (average of the two middle values for an
+    /// even count); <c>ratio = median / expectedDiploidDepth</c>;
+    /// <c>ploidy = clamp(Math.Round(ratio*2), 1, 8)</c> using .NET banker's rounding
+    /// (<see cref="MidpointRounding.ToEven"/>, the default of <see cref="Math.Round(double)"/>);
+    /// <c>confidence = max(0, 1 − |ratio*2 − ploidy| · 2)</c> using the CLAMPED ploidy.
+    /// Empty input ⇒ (2, 0).
+    /// </summary>
+    private static (int PloidyLevel, double Confidence) ExpectedPloidy(
+        IReadOnlyList<double> depths, double expectedDiploidDepth)
+    {
+        if (depths.Count == 0)
+            return (2, 0);
+
+        var sorted = depths.OrderBy(d => d).ToList();
+        double median = sorted.Count % 2 == 1
+            ? sorted[sorted.Count / 2]
+            : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2.0;
+        double ratio = median / expectedDiploidDepth;
+
+        int ploidy = (int)Math.Round(ratio * 2); // banker's rounding (round-half-to-even)
+        ploidy = Math.Max(1, Math.Min(8, ploidy));
+
+        double confidence = Math.Max(0.0, 1.0 - Math.Abs(ratio * 2 - ploidy) * 2);
+        return (ploidy, confidence);
+    }
+
+    // ===================== Generators =====================
+
+    /// <summary>
+    /// Generates a chromosome tuple list with controllable base names, optional <c>_N</c> copy
+    /// suffixes, sex flags, and positive lengths. Several distinct base names are emitted per
+    /// group with varying copy counts (1..6) so aneuploidy grouping and classification are
+    /// exercised across all term branches; a configurable subset is flagged as sex chromosomes
+    /// (which must be excluded from abnormality grouping). Lengths are kept ≤ 250M and counts
+    /// small so Σ never approaches <c>long</c> overflow. Empty list is NOT produced here (the
+    /// empty edge case is a dedicated test).
+    /// </summary>
+    private static Arbitrary<List<(string Name, long Length, bool IsSexChromosome)>> KaryotypeArbitrary() =>
+        (from groupCount in Gen.Choose(1, 5)
+         from groups in GenGroups(groupCount)
+         from sexCount in Gen.Choose(0, 3)
+         let sex = Enumerable.Range(0, sexCount)
+             .Select(i => ($"chrSex{i}", (long)(1_000_000 + i), true))
+             .ToList()
+         let all = groups.Concat(sex).ToList()
+         select Shuffle(all)).ToArbitrary();
+
+    /// <summary>Generates <paramref name="groupCount"/> autosome groups, each a base name with a
+    /// random copy count (1..6) expanded into <c>base_1..base_n</c> tuples with positive lengths.</summary>
+    private static Gen<List<(string Name, long Length, bool IsSexChromosome)>> GenGroups(int groupCount) =>
+        from copies in Gen.Choose(1, 6).ListOf(groupCount)
+        let tuples = copies
+            .SelectMany((count, gi) =>
+                Enumerable.Range(1, count).Select(ci =>
+                    ($"chrA{gi}_{ci}", (long)(10_000_000 + gi * 1_000 + ci), false)))
+            .ToList()
+        select tuples;
+
+    /// <summary>Deterministic Fisher-Yates-free shuffle by a fixed index permutation derived from
+    /// the list — keeps the ordering nontrivial yet reproducible so generation stays deterministic.</summary>
+    private static List<T> Shuffle<T>(List<T> items)
+    {
+        // Rotate by a length-derived offset: cheap, deterministic, and decouples sex/autosome order.
+        if (items.Count <= 1) return items;
+        int offset = items.Count / 2 + 1;
+        return items.Skip(offset).Concat(items.Take(offset)).ToList();
+    }
+
+    /// <summary>
+    /// Generates a non-empty normalized-depth list plus a positive <c>expectedDiploidDepth</c>.
+    /// Depths and the divisor are finite positives in a sane range to avoid div-by-zero and
+    /// floating noise.
+    /// </summary>
+    private static Arbitrary<(List<double> depths, double expectedDiploid)> DepthsArbitrary() =>
+        (from n in Gen.Choose(1, 40)
+         from raw in Gen.Choose(1, 8000).Select(i => i / 1000.0).ListOf(n)
+         from divInt in Gen.Choose(500, 4000)
+         select (raw, divInt / 1000.0)).ToArbitrary();
+
+    // ===================== AnalyzeKaryotype — INV-01/02/03 field oracle =====================
+
+    /// <summary>
+    /// INV-01/02/03 (R + P): every field of the returned <see cref="ChromosomeAnalyzer.Karyotype"/>
+    /// equals the independent oracle recomputed from the input list —
+    /// <c>TotalChromosomes == input.Count == AutosomeCount + SexChromosomes.Count</c> (INV-01);
+    /// <c>TotalGenomeSize == Σ lengths</c>, <c>MeanChromosomeLength == TotalGenomeSize/count</c>,
+    /// autosome count and the ordered sex-chromosome names (INV-02);
+    /// the abnormality SET and <c>HasAneuploidy ⟺ abnormalities non-empty</c> with sex
+    /// chromosomes excluded from grouping (INV-03); and <c>PloidyLevel == expectedPloidyLevel</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKaryotype_AllFields_MatchIndependentOracle()
+    {
+        var arb = (from chroms in KaryotypeArbitrary().Generator
+                   from ploidy in Gen.Choose(1, 4)
+                   select (chroms, ploidy)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var (chroms, expectedPloidy) = t;
+            var k = ChromosomeAnalyzer.AnalyzeKaryotype(chroms, expectedPloidy);
+
+            int count = chroms.Count;
+            long totalSize = chroms.Sum(c => c.Length);
+            double meanLen = totalSize / (double)count;
+            var expectedSex = chroms.Where(c => c.IsSexChromosome).Select(c => c.Name).ToList();
+            int expectedAutosomes = chroms.Count(c => !c.IsSexChromosome);
+            var expectedAbn = ExpectedAbnormalitySet(chroms, expectedPloidy);
+
+            bool inv01 = k.TotalChromosomes == count
+                         && k.TotalChromosomes == k.AutosomeCount + k.SexChromosomes.Count;
+            bool inv02 = k.TotalGenomeSize == totalSize
+                         && Math.Abs(k.MeanChromosomeLength - meanLen) < 1e-9
+                         && k.AutosomeCount == expectedAutosomes
+                         && k.SexChromosomes.SequenceEqual(expectedSex);
+            bool inv03 = k.Abnormalities.ToHashSet().SetEquals(expectedAbn)
+                         && k.HasAneuploidy == (expectedAbn.Count > 0);
+            bool ploidyEcho = k.PloidyLevel == expectedPloidy;
+
+            return (inv01 && inv02 && inv03 && ploidyEcho)
+                .Label($"count={count}, ploidy={expectedPloidy}: " +
+                       $"INV01={inv01}, INV02={inv02}, INV03={inv03}, ploidyEcho={ploidyEcho}; " +
+                       $"abn=[{string.Join("|", k.Abnormalities)}] vs oracle=[{string.Join("|", expectedAbn)}]");
+        });
+    }
+
+    /// <summary>
+    /// R (count &gt; 0): for any non-empty input the chromosome count is strictly positive and
+    /// equals the input size — the checklist's literal "chromosome count &gt; 0" invariant.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKaryotype_NonEmpty_PositiveCount()
+    {
+        return Prop.ForAll(KaryotypeArbitrary(), chroms =>
+        {
+            var k = ChromosomeAnalyzer.AnalyzeKaryotype(chroms);
+            return (k.TotalChromosomes > 0 && k.TotalChromosomes == chroms.Count)
+                .Label($"count={k.TotalChromosomes} for input of {chroms.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (sex exclusion, §5.4 deviation #1): a karyotype whose ONLY abnormal-count group is a
+    /// sex chromosome produces NO abnormality. Here X is present three times (abnormal for diploid)
+    /// but flagged as a sex chromosome, while every autosome group is disomic. Expect
+    /// <c>HasAneuploidy == false</c> and an empty abnormality list.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeKaryotype_SexChromosomeAbnormalCount_NotReported()
+    {
+        var chroms = new List<(string, long, bool)>
+        {
+            ("chr1_1", 100, false), ("chr1_2", 100, false), // disomic autosome
+            ("chrX_1", 50, true), ("chrX_2", 50, true), ("chrX_3", 50, true) // triple X, but sex → ignored
+        };
+        var k = ChromosomeAnalyzer.AnalyzeKaryotype(chroms, expectedPloidyLevel: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(k.HasAneuploidy, Is.False, "sex-chromosome copy abnormalities are excluded from grouping");
+            Assert.That(k.Abnormalities, Is.Empty);
+            Assert.That(k.SexChromosomes, Is.EquivalentTo(new[] { "chrX_1", "chrX_2", "chrX_3" }));
+            Assert.That(k.AutosomeCount, Is.EqualTo(2));
+            Assert.That(k.TotalChromosomes, Is.EqualTo(5));
+        });
+    }
+
+    /// <summary>
+    /// INV-03 labeling anchor (§4.2 table): a hand-built karyotype exercises every term branch —
+    /// Monosomy (1 copy), Trisomy (3), Tetrasomy (4), Pentasomy (5), Polysomy (7), and a normal
+    /// disomic group that produces no label. Asserts the exact abnormality set.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeKaryotype_AneuploidyTerms_ExactLabels()
+    {
+        List<(string, long, bool)> Copies(string b, int n) =>
+            Enumerable.Range(1, n).Select(i => ($"{b}_{i}", (long)100, false)).ToList();
+
+        var chroms = new List<(string, long, bool)>();
+        chroms.AddRange(Copies("chrMono", 1));
+        chroms.AddRange(Copies("chrDi", 2));   // normal → no label
+        chroms.AddRange(Copies("chrTri", 3));
+        chroms.AddRange(Copies("chrTetra", 4));
+        chroms.AddRange(Copies("chrPenta", 5));
+        chroms.AddRange(Copies("chrPoly", 7));
+
+        var k = ChromosomeAnalyzer.AnalyzeKaryotype(chroms, expectedPloidyLevel: 2);
+        var expected = new[]
+        {
+            "Monosomy chrMono",
+            "Trisomy chrTri",
+            "Tetrasomy chrTetra",
+            "Pentasomy chrPenta",
+            "Polysomy (7 copies) chrPoly"
+        };
+        Assert.Multiple(() =>
+        {
+            Assert.That(k.Abnormalities, Is.EquivalentTo(expected));
+            Assert.That(k.HasAneuploidy, Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Edge (§6.1): empty input ⇒ a fully zeroed <see cref="ChromosomeAnalyzer.Karyotype"/> —
+    /// counts and sizes 0, empty sex/abnormality lists, PloidyLevel 0, no aneuploidy.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void AnalyzeKaryotype_Empty_ZeroedResult()
+    {
+        var k = ChromosomeAnalyzer.AnalyzeKaryotype(
+            Enumerable.Empty<(string, long, bool)>(), expectedPloidyLevel: 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(k.TotalChromosomes, Is.Zero);
+            Assert.That(k.AutosomeCount, Is.Zero);
+            Assert.That(k.SexChromosomes, Is.Empty);
+            Assert.That(k.TotalGenomeSize, Is.Zero);
+            Assert.That(k.MeanChromosomeLength, Is.Zero);
+            Assert.That(k.PloidyLevel, Is.Zero);
+            Assert.That(k.HasAneuploidy, Is.False);
+            Assert.That(k.Abnormalities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical input ⇒ an identical <see cref="ChromosomeAnalyzer.Karyotype"/>.
+    /// Record-struct equality covers value-typed fields; the list fields are compared element-wise.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AnalyzeKaryotype_IsDeterministic()
+    {
+        return Prop.ForAll(KaryotypeArbitrary(), chroms =>
+        {
+            var a = ChromosomeAnalyzer.AnalyzeKaryotype(chroms, 2);
+            var b = ChromosomeAnalyzer.AnalyzeKaryotype(chroms, 2);
+            bool same = a.TotalChromosomes == b.TotalChromosomes
+                        && a.AutosomeCount == b.AutosomeCount
+                        && a.SexChromosomes.SequenceEqual(b.SexChromosomes)
+                        && a.TotalGenomeSize == b.TotalGenomeSize
+                        && a.MeanChromosomeLength.Equals(b.MeanChromosomeLength)
+                        && a.PloidyLevel == b.PloidyLevel
+                        && a.HasAneuploidy == b.HasAneuploidy
+                        && a.Abnormalities.SequenceEqual(b.Abnormalities);
+            return same.Label("non-deterministic Karyotype for identical input");
+        });
+    }
+
+    // ===================== DetectPloidy — INV-04 + formula oracle =====================
+
+    /// <summary>
+    /// INV-04 + §4.2 formula: production <c>DetectPloidy</c> equals the independent oracle exactly
+    /// (PloidyLevel identical, Confidence within 1e-9), reproducing TRUE-median + banker's-rounding
+    /// arithmetic. Also confirms the range guarantees <c>PloidyLevel ∈ [1,8]</c> and
+    /// <c>Confidence ∈ [0,1]</c> for non-empty input.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectPloidy_MatchesFormulaOracle()
+    {
+        return Prop.ForAll(DepthsArbitrary(), t =>
+        {
+            var (depths, expectedDiploid) = t;
+            var (ploidy, conf) = ChromosomeAnalyzer.DetectPloidy(depths, expectedDiploid);
+            var (oPloidy, oConf) = ExpectedPloidy(depths, expectedDiploid);
+
+            bool matches = ploidy == oPloidy && Math.Abs(conf - oConf) < 1e-9;
+            bool ranges = ploidy is >= 1 and <= 8 && conf is >= 0.0 and <= 1.0 + 1e-12;
+            return (matches && ranges)
+                .Label($"depths(n={depths.Count}), diploid={expectedDiploid}: " +
+                       $"got ({ploidy},{conf}), oracle ({oPloidy},{oConf})");
+        });
+    }
+
+    /// <summary>
+    /// INV-04 banker's-rounding witness: an EVEN number of depths whose median lands exactly on a
+    /// rounding half-point. With median 1.25 and diploid 1.0, <c>ratio*2 = 2.5</c>; .NET's
+    /// round-half-to-even gives ploidy 2 (NOT 3, which arithmetic floor(x+0.5) would give). Confirms
+    /// the oracle and production both use <see cref="MidpointRounding.ToEven"/>.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectPloidy_HalfwayMedian_UsesBankersRounding()
+    {
+        var depths = new List<double> { 1.0, 1.5 }; // even count → median 1.25 → ratio*2 = 2.5
+        var (ploidy, _) = ChromosomeAnalyzer.DetectPloidy(depths, expectedDiploidDepth: 1.0);
+        Assert.That(ploidy, Is.EqualTo(2), "2.5 rounds to even (2), not up to 3");
+        Assert.That(ExpectedPloidy(depths, 1.0).PloidyLevel, Is.EqualTo(2), "oracle agrees");
+    }
+
+    /// <summary>
+    /// §4.2/§6.1 boundary anchors: ratio 0.5 ⇒ ploidy 1, conf 1; ratio 1.0 ⇒ ploidy 2, conf 1;
+    /// ratio 2.0 ⇒ ploidy 4, conf 1; an extreme ratio (depth 10) ⇒ ploidy clamped to 8 with
+    /// confidence 0. Each uses a single-element depth list so the median is the value itself.
+    /// </summary>
+    [TestCase(0.5, 1, 1.0, TestName = "ratio 0.5 → ploidy 1, conf 1")]
+    [TestCase(1.0, 2, 1.0, TestName = "ratio 1.0 → ploidy 2, conf 1")]
+    [TestCase(2.0, 4, 1.0, TestName = "ratio 2.0 → ploidy 4, conf 1")]
+    [TestCase(10.0, 8, 0.0, TestName = "ratio 10 → ploidy clamped 8, conf 0")]
+    [Category("Property")]
+    public void DetectPloidy_BoundaryRatios(double depth, int expectedPloidy, double expectedConf)
+    {
+        var (ploidy, conf) = ChromosomeAnalyzer.DetectPloidy(new[] { depth }, expectedDiploidDepth: 1.0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ploidy, Is.EqualTo(expectedPloidy));
+            Assert.That(conf, Is.EqualTo(expectedConf).Within(1e-9));
+        });
+    }
+
+    /// <summary>Edge (§6.1): empty depth list ⇒ exactly (2, 0).</summary>
+    [Test]
+    [Category("Property")]
+    public void DetectPloidy_Empty_ReturnsDiploidZeroConfidence()
+    {
+        var (ploidy, conf) = ChromosomeAnalyzer.DetectPloidy(Enumerable.Empty<double>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(ploidy, Is.EqualTo(2));
+            Assert.That(conf, Is.Zero);
+        });
+    }
+
+    /// <summary>D (determinism): identical depth inputs ⇒ identical <c>(PloidyLevel, Confidence)</c>.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectPloidy_IsDeterministic()
+    {
+        return Prop.ForAll(DepthsArbitrary(), t =>
+        {
+            var (depths, expectedDiploid) = t;
+            var a = ChromosomeAnalyzer.DetectPloidy(depths, expectedDiploid);
+            var b = ChromosomeAnalyzer.DetectPloidy(depths, expectedDiploid);
+            return (a == b).Label($"non-deterministic DetectPloidy for n={depths.Count}");
+        });
+    }
+
+    #endregion
 }
