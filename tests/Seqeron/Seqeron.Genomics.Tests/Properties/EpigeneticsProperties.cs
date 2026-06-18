@@ -7,7 +7,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// <summary>
 /// Property-based tests for epigenetics algorithms.
 ///
-/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands).
+/// Test Units: EPIGEN-CPG-001 (CpG site detection, observed/expected ratio, CpG islands), EPIGEN-AGE-001.
 /// Future siblings (EPIGEN-AGE/BISULF/CHROM/DMR/METHYL-001) extend this fixture in their own regions.
 ///
 /// Theory: CpG dinucleotide scanning (Gardiner-Garden &amp; Frommer 1987; Wikipedia "CpG site");
@@ -463,6 +463,102 @@ public class EpigeneticsProperties
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands(shortRich).ToList(), Is.Empty, "len 199 < 200");
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands(null!).ToList(), Is.Empty, "null");
             Assert.That(EpigeneticsAnalyzer.FindCpGIslands("").ToList(), Is.Empty, "empty");
+        });
+    }
+
+    #endregion
+
+    #region EPIGEN-AGE-001: M: more methylation at (positively-weighted) clock sites → higher age; D: deterministic
+
+    // CalculateEpigeneticAge = Horvath (2013) linear predictor (intercept + Σ coef·β) mapped through
+    // the monotone anti-transform F⁻¹. NOTE: the anti-transform infimum is −1 (as x→−∞), so the
+    // theoretical lower bound is age > −1, not the checklist's ≥ 0 — we test the true bound.
+
+    /// <summary>Clock with positive coefficients and two profiles where methHigh ≥ methLow everywhere.</summary>
+    private static Arbitrary<(Dictionary<string, double> coeffs, Dictionary<string, double> low, Dictionary<string, double> high)>
+        ClockArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 1 + rng.Next(5);
+            var coeffs = new Dictionary<string, double>();
+            var low = new Dictionary<string, double>();
+            var high = new Dictionary<string, double>();
+            for (int i = 0; i < n; i++)
+            {
+                string cg = $"cg{i}";
+                coeffs[cg] = 0.1 + rng.NextDouble();           // strictly positive weight
+                double a = rng.NextDouble();                    // β in [0,1]
+                low[cg] = a;
+                high[cg] = a + (1.0 - a) * rng.NextDouble();    // ≥ a, ≤ 1
+            }
+            return (coeffs, low, high);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (M): with positive clock coefficients, raising methylation at the clock CpGs does not
+    /// lower the predicted age.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EpigeneticAge_MoreMethylation_RaisesAge()
+    {
+        return Prop.ForAll(ClockArbitrary(), c =>
+        {
+            double ageLow = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.low, c.coeffs);
+            double ageHigh = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.high, c.coeffs);
+            return (ageHigh >= ageLow - 1e-9).Label($"age dropped with more methylation: {ageHigh} < {ageLow}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R, true bound): the predicted age is always greater than −1 (the anti-transform infimum).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EpigeneticAge_IsAboveAntiTransformInfimum()
+    {
+        return Prop.ForAll(ClockArbitrary(), c =>
+        {
+            double age = EpigeneticsAnalyzer.CalculateEpigeneticAge(c.low, c.coeffs);
+            return (age > -1.0).Label($"age {age} ≤ −1");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (monotone calibration): the Horvath anti-transform is non-decreasing and equals 20 at 0.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AntiTransform_IsMonotone()
+    {
+        var pairs = Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            double x1 = (rng.NextDouble() - 0.5) * 20;
+            double x2 = x1 + rng.NextDouble() * 10;
+            return (x1, x2);
+        }).ToArbitrary();
+
+        return Prop.ForAll(pairs, p =>
+            (EpigeneticsAnalyzer.HorvathAntiTransform(p.x1) <= EpigeneticsAnalyzer.HorvathAntiTransform(p.x2) + 1e-9)
+                .Label("anti-transform must be non-decreasing"));
+    }
+
+    /// <summary>
+    /// INV-4 (D + boundary): age is deterministic; an empty coefficient table is rejected.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EpigeneticAge_DeterministicAndBoundary()
+    {
+        var beta = new Dictionary<string, double> { ["cg0"] = 0.5 };
+        var coeffs = new Dictionary<string, double> { ["cg0"] = 1.0 };
+        double age1 = EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, coeffs);
+        double age2 = EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, coeffs);
+        Assert.Multiple(() =>
+        {
+            Assert.That(age2, Is.EqualTo(age1), "deterministic");
+            Assert.That(EpigeneticsAnalyzer.HorvathAntiTransform(0.0), Is.EqualTo(20.0).Within(1e-9));
+            Assert.Throws<ArgumentException>(
+                () => EpigeneticsAnalyzer.CalculateEpigeneticAge(beta, new Dictionary<string, double>()));
         });
     }
 
