@@ -8609,4 +8609,141 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CCF-001 — Cancer Cell Fraction Estimation & Clustering
+
+    // -------------------------------------------------------------------------
+    // Theory (McGranahan 2016; Tarabichi 2021; Zheng 2022):
+    //   • CCF = VAF·(ρ·N_T + 2(1−ρ)) / (ρ·m); reported Ccf = min(1, raw).        (P, R)
+    //   • Higher VAF ⇒ higher CCF (monotone in VAF for fixed ρ, N_T, m).          (M)
+    //   • Clustering: ascending centroids, valid assignments, clonal = highest centroid.
+    //
+    // The CCF formula and the normal 2(1−ρ) term are reconstructed independently —
+    // NOT routed through production — so a wrong denominator or cap is caught.
+    // -------------------------------------------------------------------------
+
+    private const double CcfTolerance = 1e-9;
+
+    private static Arbitrary<(double vaf, double purity, int cn, int m)> CcfProblemArbitrary() =>
+        (from vafMilli in Gen.Choose(0, 1000)
+         from purityMilli in Gen.Choose(1, 1000)
+         from cn in Gen.Choose(1, 6)
+         from m in Gen.Choose(1, cn)
+         select (vafMilli / 1000.0, purityMilli / 1000.0, cn, m)).ToArbitrary();
+
+    /// <summary>
+    /// P (checklist "CCF derived from VAF, CN, purity") + R (CCF ∈ [0,1]): <c>EstimateCcf</c> RawCcf equals the
+    /// independent McGranahan formula VAF·(ρ·N_T + 2(1−ρ))/(ρ·m), the reported Ccf is min(1, raw) capped to
+    /// [0,1], and Ccf ≤ RawCcf. (McGranahan 2016; Tarabichi 2021)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_MatchesMcGranahanFormula_CappedToUnit()
+    {
+        return Prop.ForAll(CcfProblemArbitrary(), t =>
+        {
+            var estimate = OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m);
+            double totalDna = t.purity * t.cn + 2.0 * (1.0 - t.purity);
+            double oracleRaw = t.vaf * totalDna / (t.purity * t.m);
+
+            bool rawOk = Math.Abs(estimate.RawCcf - oracleRaw) <= CcfTolerance * Math.Max(1.0, Math.Abs(oracleRaw));
+            bool cappedOk = Math.Abs(estimate.Ccf - Math.Min(1.0, oracleRaw)) <= CcfTolerance;
+            bool inRange = estimate.Ccf is >= 0.0 and <= 1.0 && estimate.Ccf <= estimate.RawCcf + CcfTolerance;
+            return (rawOk && cappedOk && inRange)
+                .Label($"raw={estimate.RawCcf} (oracle {oracleRaw}), ccf={estimate.Ccf}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "higher VAF → higher CCF"): at fixed purity, copy number and multiplicity, both the raw
+    /// and capped CCF are monotonically non-decreasing in the VAF, and a VAF of 0 yields CCF 0. (McGranahan 2016)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_IsMonotoneInVaf_ZeroAtZero()
+    {
+        var arb = (from v1 in Gen.Choose(0, 1000)
+                   from v2 in Gen.Choose(0, 1000)
+                   from purityMilli in Gen.Choose(1, 1000)
+                   from cn in Gen.Choose(1, 6)
+                   from m in Gen.Choose(1, cn)
+                   select (lo: Math.Min(v1, v2) / 1000.0, hi: Math.Max(v1, v2) / 1000.0, purity: purityMilli / 1000.0, cn, m))
+                  .ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var low = OncologyAnalyzer.EstimateCcf(t.lo, t.purity, t.cn, t.m);
+            var high = OncologyAnalyzer.EstimateCcf(t.hi, t.purity, t.cn, t.m);
+            var zero = OncologyAnalyzer.EstimateCcf(0.0, t.purity, t.cn, t.m);
+
+            bool monotone = high.RawCcf >= low.RawCcf - CcfTolerance && high.Ccf >= low.Ccf - CcfTolerance;
+            bool zeroAtZero = zero.Ccf == 0.0 && zero.RawCcf == 0.0;
+            return (monotone && zeroAtZero).Label($"VAF {t.lo}->{t.hi}: CCF {low.Ccf}->{high.Ccf}; zero={zero.Ccf}");
+        });
+    }
+
+    /// <summary>D (determinism): the CCF estimate is identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimateCcf_IsDeterministic()
+    {
+        return Prop.ForAll(CcfProblemArbitrary(), t =>
+            OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m)
+                .Equals(OncologyAnalyzer.EstimateCcf(t.vaf, t.purity, t.cn, t.m))
+                .Label("EstimateCcf is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// <c>ClusterCcfValues</c> produces ascending centroids, one valid assignment per input value (in [0,k)),
+    /// and reports the highest-centroid cluster (last index) as clonal. (Tarabichi 2021 highest-CP-clonal)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClusterCcfValues_AscendingCentroids_ValidAssignments_HighestIsClonal()
+    {
+        var arb = (from n in Gen.Choose(1, 12)
+                   from values in Gen.Choose(0, 1000).Select(v => v / 1000.0).ArrayOf(n)
+                   from k in Gen.Choose(1, n)
+                   select (values, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var clustering = OncologyAnalyzer.ClusterCcfValues(t.values, t.k);
+
+            bool centroidCount = clustering.Centroids.Count == t.k;
+            bool ascending = true;
+            for (int i = 1; i < clustering.Centroids.Count; i++)
+            {
+                ascending &= clustering.Centroids[i] >= clustering.Centroids[i - 1] - CcfTolerance;
+            }
+
+            bool assignmentsOk = clustering.Assignments.Count == t.values.Length
+                && clustering.Assignments.All(a => a >= 0 && a < t.k);
+            bool clonalIsHighest = clustering.ClonalClusterIndex == t.k - 1;
+
+            return (centroidCount && ascending && assignmentsOk && clonalIsHighest)
+                .Label($"k={t.k}, centroids=[{string.Join(",", clustering.Centroids)}], clonalIndex={clustering.ClonalClusterIndex}");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the McGranahan worked case (VAF 0.25, ρ 1.0, N_T 2, m 1 ⇒ CCF 0.5); a high-VAF case caps at 1
+    /// while RawCcf exceeds 1; guards on VAF, purity and multiplicity. (McGranahan 2016)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void EstimateCcf_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var half = OncologyAnalyzer.EstimateCcf(0.25, 1.0, 2, 1);
+            Assert.That(half.Ccf, Is.EqualTo(0.5).Within(CcfTolerance), "VAF 0.25, ρ 1, N_T 2, m 1 ⇒ CCF = 0.25·2/1 = 0.5.");
+
+            var capped = OncologyAnalyzer.EstimateCcf(0.9, 1.0, 2, 1);
+            Assert.That(capped.RawCcf, Is.EqualTo(1.8).Within(CcfTolerance), "Raw = 0.9·2 = 1.8.");
+            Assert.That(capped.Ccf, Is.EqualTo(1.0).Within(CcfTolerance), "Reported CCF capped at 1.");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateCcf(1.5, 1.0, 2, 1), "VAF must be in [0,1].");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.EstimateCcf(0.3, 0.0, 2, 1), "Purity must be in (0,1].");
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.EstimateCcf(0.3, 1.0, 2, 3), "Multiplicity must be ≤ copy number.");
+        });
+    }
+
+    #endregion
 }
