@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for protein motif finding: common motifs, PROSITE patterns,
 /// domain prediction. Uses FsCheck for invariant verification with random protein sequences.
 ///
-/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001
+/// Test Units: PROTMOTIF-FIND-001, PROTMOTIF-PROSITE-001, PROTMOTIF-DOMAIN-001, PROTMOTIF-CC-001, PROTMOTIF-COMMON-001, PROTMOTIF-LC-001, PROTMOTIF-PATTERN-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -535,6 +535,82 @@ public class ProteinMotifProperties
         return Prop.ForAll(ProteinArbitrary(30), seq =>
             ProteinMotifFinder.FindLowComplexityRegions(seq).SequenceEqual(ProteinMotifFinder.FindLowComplexityRegions(seq))
                 .Label("FindLowComplexityRegions must be deterministic"));
+    }
+
+    #endregion
+
+    #region PROTMOTIF-PATTERN-001: P: match conforms to pattern; R: positions valid; D: deterministic
+
+    // FindMotifByPattern reports every (overlapping) occurrence of a regex pattern (ScanProsite
+    // lookahead style); FindMotifByProsite converts PROSITE notation to a regex first.
+
+    private const string TestPattern = "[AC].[GT]"; // length-3 motif
+
+    /// <summary>
+    /// INV-1 (P + R): every match is a length-3 occurrence at valid coordinates whose reported
+    /// sequence both equals the substring there and conforms to the pattern.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PatternMatches_ConformAndHaveValidPositions()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var matches = ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).ToList();
+            bool ok = matches.All(m =>
+                m.Start >= 0 && m.End == m.Start + 2 && m.End < seq.Length &&
+                seq.Substring(m.Start, 3) == m.Sequence &&
+                System.Text.RegularExpressions.Regex.IsMatch(m.Sequence, "^(?:" + TestPattern + ")$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            return ok.Label("a pattern match had invalid positions or did not conform");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (completeness): the reported start positions are exactly all overlapping occurrences of
+    /// the pattern, matched against an independent lookahead scan.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PatternMatches_AreComplete()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+        {
+            var got = ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).Select(m => m.Start).ToList();
+            var rx = new System.Text.RegularExpressions.Regex("(?=(" + TestPattern + "))",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var expected = rx.Matches(seq.ToUpperInvariant()).Select(m => m.Index).ToList();
+            return got.SequenceEqual(expected).Label("pattern occurrences incomplete");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, PROSITE): a PROSITE pattern is converted to a regex and its matches conform to that
+    /// regex — the N-glycosylation pattern N-{P}-[ST]-{P} is recovered in the test protein.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void PrositeMatches_ConformToConvertedRegex()
+    {
+        const string prosite = "N-{P}-[ST]-{P}";
+        string regex = ProteinMotifFinder.ConvertPrositeToRegex(prosite);
+        var matches = ProteinMotifFinder.FindMotifByProsite(TestProtein, prosite).ToList();
+
+        Assert.That(matches, Is.Not.Empty, "the test protein contains N-glycosylation sites");
+        foreach (var m in matches)
+            Assert.That(System.Text.RegularExpressions.Regex.IsMatch(m.Sequence, "^(?:" + regex + ")$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase), Is.True,
+                $"match '{m.Sequence}' does not conform to {prosite}");
+    }
+
+    /// <summary>
+    /// INV-4 (D): Pattern matching is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property PatternMatches_IsDeterministic()
+    {
+        return Prop.ForAll(ProteinArbitrary(20), seq =>
+            ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).Select(m => (m.Start, m.End))
+                .SequenceEqual(ProteinMotifFinder.FindMotifByPattern(seq, TestPattern).Select(m => (m.Start, m.End)))
+                .Label("FindMotifByPattern must be deterministic"));
     }
 
     #endregion
