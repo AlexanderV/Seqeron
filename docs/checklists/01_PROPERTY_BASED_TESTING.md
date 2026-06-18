@@ -163,7 +163,7 @@ Property-based testing генерирует сотни случайных вхо
 | 131 | ☑ | COMPGEN-ANI-001 | Comparative | R: ANI ∈ [0,100]%; S: ANI(A,B)=ANI(B,A); I: ANI(A,A)=100; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 132 | ☑ | COMPGEN-CLUSTER-001 | Comparative | R: cluster size ≥ 1; P: cluster genes conserved across genomes; M: lower identity threshold → ≥ clusters; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 133 | ☑ | COMPGEN-COMPARE-001 | Comparative | S: compare(A,B) metrics symmetric; R: similarity ∈ [0,1]; D: deterministic | ComparativeGenomicsProperties.cs (new) |
-| 134 | ☐ | COMPGEN-DOTPLOT-001 | Comparative | R: dot positions valid (i<lenA, j<lenB); P: main diagonal for identical seqs; D: deterministic | ComparativeGenomicsProperties.cs (new) |
+| 134 | ☑ | COMPGEN-DOTPLOT-001 | Comparative | R: dot positions valid (i<lenA, j<lenB); P: main diagonal for identical seqs; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 135 | ☐ | COMPGEN-ORTHO-001 | Comparative | P: ortholog pairs bidirectional; R: positions valid; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 136 | ☐ | COMPGEN-RBH-001 | Comparative | S: RBH(A,B)=RBH(B,A); P: each gene in ≤ 1 RBH pair; D: deterministic | ComparativeGenomicsProperties.cs (new) |
 | 137 | ☐ | COMPGEN-REARR-001 | Comparative | R: breakpoint count ≥ 0; P: rearrangement preserves gene content; D: deterministic | ComparativeGenomicsProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 133 |
-| ☐ Not started | 101 |
+| ☑ Complete | 134 |
+| ☐ Not started | 100 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

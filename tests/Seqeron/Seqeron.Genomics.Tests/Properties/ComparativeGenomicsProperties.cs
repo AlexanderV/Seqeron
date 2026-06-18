@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -413,6 +413,99 @@ public class ComparativeGenomicsProperties
             Assert.That(r.ConservedGenes, Is.EqualTo(2), "shared genes X,Y must be conserved (RBH)");
             Assert.That(r.GenomeSpecificGenes1, Is.EqualTo(1), "Z is genome-1 specific");
             Assert.That(r.GenomeSpecificGenes2, Is.EqualTo(1), "W is genome-2 specific");
+        });
+    }
+
+    #endregion
+
+    #region COMPGEN-DOTPLOT-001: R: dot positions valid; P: each dot is a true word match; P: full main diagonal for identical seqs; D: deterministic
+
+    // GenerateDotPlot is an EMBOSS-dottup-style word-match dot matrix (Gibbs & McIntyre 1970): it
+    // reports every (x,y) where the wordSize-mer starting at sequence1[x] exactly equals the one at
+    // sequence2[y]. Regions of similarity form diagonal runs; identical sequences put the whole main
+    // diagonal in the plot.
+
+    private const int DotWordSize = 4;
+
+    /// <summary>
+    /// INV-1 (R): Every reported dot lies in range — x ∈ [0, len1−w] and y ∈ [0, len2−w] — so a
+    /// full word fits at both coordinates.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotPlot_Coordinates_AreInRange()
+    {
+        return Prop.ForAll(DnaArbitrary(20), DnaArbitrary(25), (s1, s2) =>
+        {
+            var dots = ComparativeGenomics.GenerateDotPlot(s1, s2, wordSize: DotWordSize).ToList();
+            bool inRange = dots.All(d =>
+                d.x >= 0 && d.x <= s1.Length - DotWordSize &&
+                d.y >= 0 && d.y <= s2.Length - DotWordSize);
+            return inRange.Label($"a dot fell outside the valid coordinate range (n={dots.Count})");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P): Every reported dot is a genuine exact word match — sequence1[x..x+w] equals
+    /// sequence2[y..y+w]. This is the defining property of a word-match dot plot.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotPlot_EveryDot_IsAnExactWordMatch()
+    {
+        return Prop.ForAll(DnaArbitrary(20), DnaArbitrary(25), (s1, s2) =>
+        {
+            var dots = ComparativeGenomics.GenerateDotPlot(s1, s2, wordSize: DotWordSize).ToList();
+            bool allMatch = dots.All(d =>
+                string.Equals(s1.Substring(d.x, DotWordSize), s2.Substring(d.y, DotWordSize), StringComparison.Ordinal));
+            return allMatch.Label($"a reported dot was not an exact {DotWordSize}-mer match");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): For identical sequences the entire main diagonal {(i,i)} is present, because every
+    /// word of a sequence trivially matches itself at the same offset.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotPlot_IdenticalSequences_ContainFullMainDiagonal()
+    {
+        return Prop.ForAll(DnaArbitrary(20), seq =>
+        {
+            var dots = ComparativeGenomics.GenerateDotPlot(seq, seq, wordSize: DotWordSize).ToHashSet();
+            bool diagonalComplete = Enumerable.Range(0, seq.Length - DotWordSize + 1)
+                .All(i => dots.Contains((i, i)));
+            return diagonalComplete.Label("main diagonal incomplete for identical sequences");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): The dot set is deterministic for a given input.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DotPlot_IsDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(20), DnaArbitrary(25), (s1, s2) =>
+        {
+            var a = ComparativeGenomics.GenerateDotPlot(s1, s2, wordSize: DotWordSize).ToList();
+            var b = ComparativeGenomics.GenerateDotPlot(s1, s2, wordSize: DotWordSize).ToList();
+            return a.SequenceEqual(b).Label("GenerateDotPlot must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): empty when a sequence is shorter than the word; invalid word/step sizes
+    /// throw <see cref="ArgumentOutOfRangeException"/>.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DotPlot_Boundaries()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ComparativeGenomics.GenerateDotPlot("ACG", "ACGTACGT", wordSize: DotWordSize).Any(),
+                Is.False, "sequence shorter than word must yield no dots");
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ComparativeGenomics.GenerateDotPlot("ACGTACGT", "ACGTACGT", wordSize: 0).ToList());
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ComparativeGenomics.GenerateDotPlot("ACGTACGT", "ACGTACGT", wordSize: DotWordSize, stepSize: 0).ToList());
         });
     }
 
