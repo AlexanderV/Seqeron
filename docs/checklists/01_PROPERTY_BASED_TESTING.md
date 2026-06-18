@@ -255,7 +255,7 @@ Property-based testing генерирует сотни случайных вхо
 | 223 | ☑ | TRANS-SIXFRAME-001 | Translation | R: exactly 6 frames; P: 3 forward + 3 reverse-complement; D: deterministic | CodonProperties.cs |
 | 224 | ☑ | RESTR-FILTER-001 | MolTools | P: filtered ⊆ all sites; M: stricter criteria → ≤ sites; D: deterministic | RestrictionProperties.cs |
 | 225 | ☑ | MIRNA-PAIR-001 | MiRNA | P: seed region paired; R: alignment score ≥ 0; D: deterministic | MiRnaProperties.cs |
-| 226 | ☐ | ALIGN-STATS-001 | Alignment | R: identity ∈ [0,1]; P: matches+mismatches+gaps = alignment length; D: deterministic | AlignmentProperties.cs |
+| 226 | ☑ | ALIGN-STATS-001 | Alignment | R: identity ∈ [0,1]; P: matches+mismatches+gaps = alignment length; D: deterministic | AlignmentProperties.cs |
 | 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | R: each freq ≥ 0; P: Σ codon counts = len/3; D: deterministic | SequenceStatisticsProperties.cs (new) |
 | 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | R: ratio ∈ (0,1]; M: repetitive → lower ratio; D: deterministic | SequenceComplexityProperties.cs (new) |
 | 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | R: DUST score ≥ 0; M: low-complexity → higher score; D: deterministic | SequenceComplexityProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 225 |
-| ☐ Not started | 9 |
+| ☑ Complete | 226 |
+| ☐ Not started | 8 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

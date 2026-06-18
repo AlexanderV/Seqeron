@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for global, local, semi-global, and multiple alignment.
 /// Verifies structural invariants of alignment results.
 ///
-/// Test Units: ALIGN-GLOBAL-001, ALIGN-LOCAL-001, ALIGN-SEMI-001, ALIGN-MULTI-001
+/// Test Units: ALIGN-GLOBAL-001, ALIGN-LOCAL-001, ALIGN-SEMI-001, ALIGN-MULTI-001, ALIGN-STATS-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -380,6 +380,62 @@ public class AlignmentProperties
                 "Identity ≤ Similarity (matches ≤ matches + mismatches)");
             Assert.That(stats.Similarity + stats.GapPercent, Is.EqualTo(100.0).Within(0.001),
                 "Similarity + GapPercent = 100 (all positions accounted for)");
+        });
+    }
+
+    #endregion
+
+    #region ALIGN-STATS-001: P: matches+mismatches+gaps = length; R: identity ∈ [0,100]; D: deterministic
+
+    // CalculateStatistics tallies an alignment's columns. NOTE: Identity/Similarity/GapPercent are
+    // EMBOSS-style PERCENTAGES in [0,100] (the checklist's [0,1] is the fraction = percentage/100).
+
+    /// <summary>
+    /// INV-1 (P + R): for any aligned pair, matches+mismatches+gaps equals the alignment length,
+    /// identity equals matches/length·100 and lies in [0,100].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentStats_PartitionAndIdentity()
+    {
+        return Prop.ForAll(DnaArbitrary(6), DnaArbitrary(6), (s1, s2) =>
+        {
+            var result = SequenceAligner.GlobalAlign(s1, s2);
+            var stats = SequenceAligner.CalculateStatistics(result);
+            bool partition = stats.Matches + stats.Mismatches + stats.Gaps == stats.AlignmentLength;
+            bool identityOk = stats.Identity is >= 0.0 and <= 100.0
+                              && Math.Abs(stats.Identity - (double)stats.Matches / stats.AlignmentLength * 100) < 1e-6;
+            return (partition && identityOk).Label($"partition={partition}, identity={stats.Identity}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (positive control): identical sequences align to 100% identity with no gaps/mismatches.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentStats_IdenticalSequences_FullIdentity()
+    {
+        return Prop.ForAll(DnaArbitrary(6), seq =>
+        {
+            var stats = SequenceAligner.CalculateStatistics(SequenceAligner.GlobalAlign(seq, seq));
+            return (stats.Matches == stats.AlignmentLength && stats.Mismatches == 0 && stats.Gaps == 0
+                    && Math.Abs(stats.Identity - 100.0) < 1e-9)
+                .Label($"identical alignment not 100% identity: {stats.Identity}");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Alignment statistics are deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property AlignmentStats_AreDeterministic()
+    {
+        return Prop.ForAll(DnaArbitrary(6), DnaArbitrary(6), (s1, s2) =>
+        {
+            var result = SequenceAligner.GlobalAlign(s1, s2);
+            var a = SequenceAligner.CalculateStatistics(result);
+            var b = SequenceAligner.CalculateStatistics(result);
+            return (a.Matches == b.Matches && a.Identity == b.Identity && a.AlignmentLength == b.AlignmentLength)
+                .Label("CalculateStatistics must be deterministic");
         });
     }
 
