@@ -2,7 +2,7 @@
 
 **Priority:** P3  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -257,6 +257,14 @@ Combinatorial (pairwise) тестирование генерирует мини�
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | enzyme(3) × criteria(3) | 9 | 9 | Med |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | seedType(3) × utrLen(3) | 9 | 9 | Med |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | alignType(3) × seqLen(3) | 9 | 9 | Low |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | seqType(2) × seqLen(3) | 6 | 6 | Low |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | seqType(3) × seqLen(3) | 9 | 9 | Low |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | seqType(3) × window(3) | 9 | 9 | Med |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | seqType(3) × k(3) | 9 | 9 | Med |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | seqType(3) × window(3) × step(2) | 18 | 9 | Med |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | seqType(3) × window(3) | 9 | 9 | Low |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | seqType(2) × window(3) | 6 | 6 | Low |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | seqType(2) × window(3) | 6 | 6 | Low |
 
 ---
 
@@ -264,9 +272,9 @@ Combinatorial (pairwise) тестирование генерирует мини�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 226 |
+| ☐ Not started | 234 |
 | High priority (≥4 params, >50 full combos) | 15 |
 | Medium priority (3 params) | 52 |
 | Low priority (≤2 params) | 19 |

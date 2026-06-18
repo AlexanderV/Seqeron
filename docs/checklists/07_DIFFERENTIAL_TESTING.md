@@ -2,7 +2,7 @@
 
 **Priority:** P2
 **Date:** 2026-03-19
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -252,6 +252,14 @@ Differential testing сравнивает выходы двух независи
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | Filter sites | criteria reference | Same survivors |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | miRNA align | seed-pairing reference | Concordant alignment |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | Alignment stats | manual calc | Exact match |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Triplet scan | LINQ GroupBy | Exact frequencies |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Built-in compression estimate | GZip ratio | Ratio within tolerance |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST score | SDUST reference | Concordant score |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy | manual Shannon calc | Exact entropy |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Sliding window | naive per-window recompute | Identical profile |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | Windowed scan | LINQ Count-based | Exact GC% |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | Sliding window | naive per-window recompute | Identical profile |
 
 ---
 
@@ -259,9 +267,9 @@ Differential testing сравнивает выходы двух независи
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 226 |
+| ☐ Not started | 234 |
 | High-value pairs (ALT/BRUTE feasible) | ~25 |
 | Medium-value pairs (REF comparison) | ~35 |
 | Lower priority (DUAL re-impl needed) | ~26 |

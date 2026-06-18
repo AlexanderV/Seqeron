@@ -3,7 +3,7 @@
 **Priority:** P1  
 **Framework:** Verify + VerifyNUnit  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -252,6 +252,14 @@ Snapshot (approval) тесты сериализуют полный выход а
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | Filtered restriction sites | RestrictionSnapshotTests.cs |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | miRNA-target alignment | MiRnaSnapshotTests.cs |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | Alignment statistics | AlignmentSnapshotTests.cs |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Codon frequency table for known CDS | SequenceStatisticsSnapshotTests.cs (new) |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Compression ratio for known seqs | SequenceComplexitySnapshotTests.cs (new) |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST scores for known seqs | SequenceComplexitySnapshotTests.cs (new) |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy for known seqs | SequenceComplexitySnapshotTests.cs (new) |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Windowed complexity profile | SequenceComplexitySnapshotTests.cs (new) |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Windowed entropy profile | SequenceStatisticsSnapshotTests.cs (new) |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GC content analysis report | CompositionSnapshotTests.cs |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | Windowed GC% profile | SequenceStatisticsSnapshotTests.cs (new) |
 
 ---
 
@@ -259,8 +267,8 @@ Snapshot (approval) тесты сериализуют полный выход а
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 55 |
-| ☐ Not started | 171 |
+| ☐ Not started | 179 |
 | New snapshot test files needed | 5 (Composition, Kmer, Translation, Oncology) |
 | Existing snapshot files to extend | ~10 |

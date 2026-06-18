@@ -2,7 +2,7 @@
 
 **Priority:** P1  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -256,6 +256,14 @@ Algebraic testing проверяет выполнение алгебраичес
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | IDEMP: filter∘filter = filter; SUB: filtered ⊆ all |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | IDEMP: deterministic; ID: no complementarity → no pairing |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | ID: identity(x,x)=1; COMM: symmetric |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | ID: freq("")=∅; IDEMP: deterministic; DIST: Σ counts = len/3 |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | IDEMP: deterministic; ID: homopolymer → minimal ratio |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | IDEMP: deterministic; INVAR: DUST(complement(x))=DUST(x) |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | ID: entropy(homopolymer)=0; IDEMP: deterministic; INVAR: reverse-invariant |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | IDEMP: deterministic; DIST: window count = len−w+1 |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | ID: GC("")=0; IDEMP: deterministic; DIST: GC(seq)=GC(complement(seq)) |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | IDEMP: deterministic; INVAR: complement-invariant; DIST: length = len−w+1 |
 
 ---
 
@@ -263,7 +271,7 @@ Algebraic testing проверяет выполнение алгебраичес
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 226 |
+| ☐ Not started | 234 |
 | Laws verified | ~172 (≈2 per algorithm) |

@@ -2,7 +2,7 @@
 
 **Priority:** P3  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -259,6 +259,14 @@ Characterization tests (golden master tests) фиксируют текущее �
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | Filtered sites | Criteria change |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | Alignment | Pairing rule change |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | Statistics | Calculation change |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | Codon frequencies for 10+ CDS | Counting optimization |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | Compression ratios for edge seqs | Compression algorithm change |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | DUST scores for edge seqs | Scoring change |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | K-mer entropy for edge seqs | Entropy formula change |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | Windowed complexity profile | Window-stepping optimization |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | Entropy profile for edge seqs | Window-stepping optimization |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | GC analysis for edge seqs | Span-based optimization |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | GC profile for edge seqs | Window-stepping optimization |
 
 ---
 
@@ -266,10 +274,10 @@ Characterization tests (golden master tests) фиксируют текущее �
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 226 |
-| Applies on-demand (before refactoring) | All 226 |
+| ☐ Not started | 234 |
+| Applies on-demand (before refactoring) | All 234 |
 | High refactoring risk (complex algorithms) | ~20 (Alignment, Phylogenetic, RNA, Annotation) |
 | Medium refactoring risk | ~40 |
 | Lower refactoring risk (simple calculation) | ~26 |

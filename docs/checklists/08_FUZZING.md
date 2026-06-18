@@ -2,7 +2,7 @@
 
 **Priority:** P2  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -254,6 +254,14 @@ Fuzzing подаёт случайные, невалидные или погра�
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | BE | no sites, all-pass, all-fail |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | BE | no complementarity, perfect match, short miRNA |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | BE | identical, no overlap, all-gap, empty |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | BE | empty, len not multiple of 3, non-ACGT, lowercase, very long |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | BE | empty, single char, homopolymer, random, very long |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | BE | empty, shorter than window, homopolymer, non-ACGT |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | BE | empty, len < k, k=0, homopolymer, very long |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | BE | window > len, window=0, empty, single char |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | BE | window > len, window=0, empty, single char |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | BE | empty, all-GC, all-AT, non-ACGT, very long |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | BE | window > len, window=0, empty, single char |
 
 ---
 
@@ -261,9 +269,9 @@ Fuzzing подаёт случайные, невалидные или погра�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 0 |
-| ☐ Not started | 226 |
+| ☐ Not started | 234 |
 | High-priority (parsers + validation) | 12 |
 | Medium-priority (boundary inputs) | 45 |
 | Lower-priority (algorithm-specific edge cases) | 29 |

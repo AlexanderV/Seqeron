@@ -2,7 +2,7 @@
 
 **Priority:** P0  
 **Date:** 2026-03-19  
-**Total algorithms:** 86
+**Total algorithms:** 234
 
 ---
 
@@ -254,6 +254,14 @@ Metamorphic testing решает «проблему оракула» — ког�
 | 224 | ☐ | RESTR-FILTER-001 | MolTools | SUB: filtered ⊆ all; MON: stricter criteria → subset |
 | 225 | ☐ | MIRNA-PAIR-001 | MiRNA | SHIFT: prepend flank shifts alignment; INV: deterministic |
 | 226 | ☐ | ALIGN-STATS-001 | Alignment | SYM: stats(a,b)=stats(b,a); P: identity(x,x)=1 |
+| 227 | ☐ | SEQ-CODON-FREQ-001 | Statistics | INV: codon-preserving shuffle keeps frequencies; SCALE: triplicating seq preserves freqs |
+| 228 | ☐ | SEQ-COMPLEX-COMPRESS-001 | Complexity | INV: case change preserves ratio; ORDER: concatenating repeats lowers ratio |
+| 229 | ☐ | SEQ-COMPLEX-DUST-001 | Complexity | INV: complement preserves DUST; MONO: adding homopolymer run raises score |
+| 230 | ☐ | SEQ-COMPLEX-KMER-001 | Complexity | INV: reverse preserves k-mer entropy; MONO: more distinct k-mers → higher entropy |
+| 231 | ☐ | SEQ-COMPLEX-WINDOW-001 | Complexity | INV: complement preserves per-window score; SHIFT: prepend flank shifts profile |
+| 232 | ☐ | SEQ-ENTROPY-PROFILE-001 | Statistics | INV: complement preserves profile; SHIFT: prepend flank shifts profile |
+| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | INV: complement preserves GC%; INV: shuffle preserves GC% |
+| 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | INV: complement preserves GC profile; SHIFT: prepend flank shifts profile |
 
 ---
 
@@ -261,7 +269,7 @@ Metamorphic testing решает «проблему оракула» — ког�
 
 | Metric | Value |
 |--------|-------|
-| Total algorithms | 226 |
+| Total algorithms | 234 |
 | ☑ Complete | 7 |
-| ☐ Not started | 219 |
+| ☐ Not started | 227 |
 | MR relations defined | ~200+ |
