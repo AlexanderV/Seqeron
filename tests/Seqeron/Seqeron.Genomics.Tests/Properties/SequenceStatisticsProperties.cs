@@ -909,4 +909,86 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-TM-001 — Melting Temperature (Wallace / Marmur-Doty)
+
+    // -------------------------------------------------------------------------
+    // Theory (Wallace rule; Marmur-Doty):
+    //   • Short oligos (length < 14): Tm = 2·(A+T) + 4·(G+C).
+    //   • Longer: Marmur-Doty Tm increasing in GC fraction. Both give Tm ≥ 0.            (R Tm ≥ 0)
+    //   • More GC ⇒ higher Tm (G/C contribute 4 vs 2 in Wallace; positive GC coefficient
+    //     in Marmur-Doty).                                                                (M more GC → higher Tm)
+    //
+    // The Wallace rule is reconstructed independently for the short-oligo regime.
+    // -------------------------------------------------------------------------
+
+    private static Arbitrary<string> DnaAnyLengthArbitrary() =>
+        (from n in Gen.Choose(1, 40)
+         from chars in Gen.Elements('A', 'C', 'G', 'T').ArrayOf(n)
+         select new string(chars)).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "Tm ≥ 0"): the melting temperature is non-negative for any DNA sequence, and for short
+    /// oligos (length &lt; 14) it equals the independent Wallace rule 2·(A+T) + 4·(G+C). (Wallace rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_NonNegative_AndWallaceForShortOligos()
+    {
+        return Prop.ForAll(DnaAnyLengthArbitrary(), seq =>
+        {
+            double tm = SequenceStatistics.CalculateMeltingTemperature(seq);
+            bool nonNeg = tm >= 0.0;
+
+            bool wallaceOk = true;
+            if (seq.Length < 14)
+            {
+                int at = seq.Count(c => c is 'A' or 'T');
+                int gc = seq.Count(c => c is 'G' or 'C');
+                wallaceOk = Math.Abs(tm - (2 * at + 4 * gc)) < CompTolerance;
+            }
+
+            return (nonNeg && wallaceOk).Label($"Tm {tm} (len {seq.Length})");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more GC → higher Tm"): at any matched length a GC-only sequence has a strictly higher
+    /// melting temperature than an AT-only sequence. (Wallace 4 vs 2; Marmur-Doty positive GC coefficient)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_GcRich_IsHigherThanAtRich()
+    {
+        return Prop.ForAll(Gen.Choose(1, 40).ToArbitrary(), n =>
+        {
+            double gcTm = SequenceStatistics.CalculateMeltingTemperature(new string('G', n));
+            double atTm = SequenceStatistics.CalculateMeltingTemperature(new string('A', n));
+            return (gcTm > atTm).Label($"Tm(G×{n})={gcTm} not > Tm(A×{n})={atTm}");
+        });
+    }
+
+    /// <summary>D (determinism): melting temperature is identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property MeltingTemperature_IsDeterministic()
+    {
+        return Prop.ForAll(DnaAnyLengthArbitrary(), seq =>
+            (SequenceStatistics.CalculateMeltingTemperature(seq) == SequenceStatistics.CalculateMeltingTemperature(seq))
+                .Label("CalculateMeltingTemperature is not deterministic for identical input"));
+    }
+
+    /// <summary>
+    /// Anchors: Wallace rule "AATT" ⇒ 8 °C, "GGCC" ⇒ 16 °C; empty ⇒ 0. (Wallace rule)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void MeltingTemperature_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature("AATT"), Is.EqualTo(8.0).Within(CompTolerance), "2·4 = 8.");
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature("GGCC"), Is.EqualTo(16.0).Within(CompTolerance), "4·4 = 16.");
+            Assert.That(SequenceStatistics.CalculateMeltingTemperature(""), Is.EqualTo(0.0), "Empty ⇒ 0.");
+        });
+    }
+
+    #endregion
 }
