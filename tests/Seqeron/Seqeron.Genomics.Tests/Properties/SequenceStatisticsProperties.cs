@@ -132,4 +132,108 @@ public class SequenceStatisticsProperties
     }
 
     #endregion
+
+    #region SEQ-DINUC-001 — Dinucleotide Frequencies (Karlin genomic signature)
+
+    // -------------------------------------------------------------------------
+    // Theory (Karlin genomic signature, PMC126251):
+    //   • f_XY = count(XY) / total, total = number of ATGCU-only adjacent dinucleotides.
+    //   • Each frequency ≥ 0 (in (0,1]); the frequencies sum to 1 when any valid dinucleotide exists.
+    //   • For a pure ATGCU sequence of length N every adjacent pair is valid, so total = N−1
+    //     (the "Σ dinucleotide counts = length−1" invariant).
+    //
+    // The adjacent-pair counts and the normalization are recomputed independently.
+    // -------------------------------------------------------------------------
+
+    private static Arbitrary<string> PureDnaRnaArbitrary() =>
+        Gen.Elements('A', 'C', 'G', 'T', 'U')
+            .ArrayOf()
+            .Where(a => a.Length >= 2)
+            .Select(a => new string(a))
+            .ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "each frequency ≥ 0") + P (sum to 1): every dinucleotide frequency is in (0,1] and the
+    /// frequencies sum to 1 whenever the sequence contains at least one ATGCU dinucleotide; each key is a
+    /// two-character ATGCU dinucleotide. (Karlin genomic signature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DinucleotideFrequencies_NonNegative_AndSumToOne()
+    {
+        return Prop.ForAll(MixedSequenceArbitrary(), seq =>
+        {
+            var freq = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+
+            bool valuesOk = freq.Values.All(f => f is > 0.0 and <= 1.0 + CompTolerance);
+            bool keysOk = freq.Keys.All(k => k.Length == 2 && k.All(c => "ATGCU".Contains(c)));
+            bool sumOk = freq.Count == 0 || Math.Abs(freq.Values.Sum() - 1.0) < CompTolerance;
+            return (valuesOk && keysOk && sumOk)
+                .Label($"dinuc freqs sum {freq.Values.Sum()} over {freq.Count} keys");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "Σ dinucleotide counts = length−1"): for a pure ATGCU sequence of length N every adjacent
+    /// pair is a valid dinucleotide, so the implied counts (f_XY × total) sum to N−1 and each frequency equals
+    /// the independent adjacent-pair-count / (N−1) oracle. (Karlin genomic signature)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DinucleotideFrequencies_PureSequence_MatchesAdjacentPairOracle()
+    {
+        return Prop.ForAll(PureDnaRnaArbitrary(), seq =>
+        {
+            var freq = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+
+            var counts = new Dictionary<string, int>();
+            string upper = seq.ToUpperInvariant();
+            for (int i = 0; i < upper.Length - 1; i++)
+            {
+                string d = upper.Substring(i, 2);
+                counts[d] = counts.GetValueOrDefault(d) + 1;
+            }
+
+            int total = upper.Length - 1; // every adjacent pair is valid in a pure ATGCU sequence
+            bool keysMatch = freq.Count == counts.Count;
+            bool valuesMatch = counts.All(kv =>
+                freq.TryGetValue(kv.Key, out double f) && Math.Abs(f - (double)kv.Value / total) < CompTolerance);
+            bool countsSumToLengthMinusOne = counts.Values.Sum() == total;
+
+            return (keysMatch && valuesMatch && countsSumToLengthMinusOne)
+                .Label($"freq keys {freq.Count} vs counts {counts.Count}; total {total} (len {seq.Length})");
+        });
+    }
+
+    /// <summary>D (determinism): dinucleotide frequencies are identical for identical input.</summary>
+    [FsCheck.NUnit.Property]
+    public Property DinucleotideFrequencies_IsDeterministic()
+    {
+        return Prop.ForAll(MixedSequenceArbitrary(), seq =>
+        {
+            var a = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+            var b = SequenceStatistics.CalculateDinucleotideFrequencies(seq);
+            return (a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out double v) && v == kv.Value))
+                .Label("CalculateDinucleotideFrequencies is not deterministic for identical input");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: "AAAA" ⇒ a single AA dinucleotide at frequency 1.0 (3 of 3 positions); a sequence shorter
+    /// than 2 yields no dinucleotides.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DinucleotideFrequencies_CanonicalCases()
+    {
+        Assert.Multiple(() =>
+        {
+            var aaaa = SequenceStatistics.CalculateDinucleotideFrequencies("AAAA");
+            Assert.That(aaaa["AA"], Is.EqualTo(1.0).Within(CompTolerance), "All three dinucleotides are AA ⇒ freq 1.");
+            Assert.That(aaaa.Values.Sum(), Is.EqualTo(1.0).Within(CompTolerance));
+
+            Assert.That(SequenceStatistics.CalculateDinucleotideFrequencies("A"), Is.Empty, "Length < 2 ⇒ no dinucleotides.");
+            Assert.That(SequenceStatistics.CalculateDinucleotideFrequencies(""), Is.Empty);
+        });
+    }
+
+    #endregion
 }
