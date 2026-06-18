@@ -13,7 +13,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// from the cited theory/doc (never routed through production constants), so a
 /// self-consistent-but-wrong production constant is still caught.
 ///
-/// Test Units: ONCO-IMMUNE-001
+/// Test Units: ONCO-IMMUNE-001, ONCO-SOMATIC-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -411,6 +411,435 @@ public class OncologyProperties
     [Category("Property")]
     public void DeconvoluteImmuneCells_NullProfile_Throws() =>
         Assert.Throws<ArgumentNullException>(() => ImmuneAnalyzer.DeconvoluteImmuneCells(null!));
+
+    #endregion
+
+    #region ONCO-SOMATIC-001 — Somatic Mutation Calling
+
+    // -------------------------------------------------------------------------
+    // Independent oracles (transcribed from Somatic_Mutation_Calling.md §2.2/§2.4,
+    // NOT routed through production constants). The decision rule, VAF, and score
+    // are recomputed here from literals so a self-consistent-but-wrong production
+    // constant is still caught.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Documented tumor detection threshold τ_t = 0.05 (literal, Yan et al. 2021).</summary>
+    private const double TauT = 0.05;
+
+    /// <summary>Documented normal absence ceiling τ_n = 0.01 (literal, Saunders et al. 2012).</summary>
+    private const double TauN = 0.01;
+
+    /// <summary>
+    /// INV-05 VAF oracle: f = totalReads == 0 ? 0 : altReads / totalReads. Recomputed independently.
+    /// </summary>
+    private static double ExpectedVaf(int altReads, int totalReads) =>
+        totalReads == 0 ? 0.0 : (double)altReads / totalReads;
+
+    /// <summary>
+    /// INV-01/INV-02 status oracle, transcribed literally from the §4.2 decision table:
+    /// f_t &lt; τ_t ⇒ NotDetected; f_t ≥ τ_t ∧ f_n ≤ τ_n ⇒ Somatic; f_t ≥ τ_t ∧ f_n &gt; τ_n ⇒ Germline.
+    /// </summary>
+    private static OncologyAnalyzer.SomaticStatus ExpectedStatus(double fT, double fN, double tauT, double tauN)
+    {
+        if (fT < tauT)
+        {
+            return OncologyAnalyzer.SomaticStatus.NotDetected;
+        }
+
+        return fN <= tauN
+            ? OncologyAnalyzer.SomaticStatus.Somatic
+            : OncologyAnalyzer.SomaticStatus.Germline;
+    }
+
+    /// <summary>INV-03 score oracle: the allele-frequency separation max(0, f_t − f_n).</summary>
+    private static double ExpectedSeparationScore(double fT, double fN) => Math.Max(0.0, fT - fN);
+
+    // -------------------------------------------------------------------------
+    // Generators
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Generates a read-count pair (alt, total) honouring the contract 0 ≤ alt ≤ total. Includes the
+    /// uncovered site (total = 0) so the VAF-0 branch (INV-05) is exercised.
+    /// </summary>
+    private static Gen<(int alt, int total)> ReadCountGen() =>
+        from total in Gen.Choose(0, 500)
+        from alt in Gen.Choose(0, total)
+        select (alt, total);
+
+    /// <summary>
+    /// Generates a contract-valid <see cref="OncologyAnalyzer.VariantObservation"/> (0 ≤ alt ≤ total in
+    /// both tumor and normal), with tumor totals drawn ≥ 1 so f_t can land on either side of τ_t.
+    /// </summary>
+    private static Arbitrary<OncologyAnalyzer.VariantObservation> VariantArbitrary() =>
+        (from tTotal in Gen.Choose(1, 500)
+         from tAlt in Gen.Choose(0, tTotal)
+         from nTotal in Gen.Choose(0, 500)
+         from nAlt in Gen.Choose(0, Math.Max(0, nTotal))
+         from pos in Gen.Choose(1, 1_000_000)
+         select new OncologyAnalyzer.VariantObservation(
+             "chr1", pos, "A", "T", tAlt, tTotal, nAlt, nTotal))
+        .ToArbitrary();
+
+    /// <summary>
+    /// Generates a variant together with random thresholds τ_t, τ_n ∈ [0, 1], so the status oracle is
+    /// exercised against arbitrary cutoffs rather than only the defaults.
+    /// </summary>
+    private static Arbitrary<(OncologyAnalyzer.VariantObservation variant, double tauT, double tauN)>
+        VariantWithThresholdsArbitrary() =>
+        (from variant in VariantArbitrary().Generator
+         from tt in Gen.Choose(0, 1000).Select(x => x / 1000.0)
+         from tn in Gen.Choose(0, 1000).Select(x => x / 1000.0)
+         select (variant, tt, tn))
+        .ToArbitrary();
+
+    /// <summary>Generates a list (0..12) of contract-valid variants, preserving order.</summary>
+    private static Arbitrary<OncologyAnalyzer.VariantObservation[]> VariantListArbitrary() =>
+        (from n in Gen.Choose(0, 12)
+         from arr in VariantArbitrary().Generator.ArrayOf(n)
+         select arr)
+        .ToArbitrary();
+
+    // -------------------------------------------------------------------------
+    // VAF (R: VAF ∈ [0,1], INV-05)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// R + INV-05: <c>TumorVaf</c> and <c>NormalVaf</c> equal the independently recomputed
+    /// altReads/totalReads (0 when totalReads = 0), and both lie in [0, 1] (since 0 ≤ alt ≤ total).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_Vaf_MatchesOracleAndInUnitRange()
+    {
+        return Prop.ForAll(VariantArbitrary(), v =>
+        {
+            var call = OncologyAnalyzer.Classify(v);
+            double expectedT = ExpectedVaf(v.TumorAltReads, v.TumorTotalReads);
+            double expectedN = ExpectedVaf(v.NormalAltReads, v.NormalTotalReads);
+            bool matches = Math.Abs(call.TumorVaf - expectedT) < 1e-12
+                           && Math.Abs(call.NormalVaf - expectedN) < 1e-12;
+            bool inRange = call.TumorVaf is >= 0.0 and <= 1.0 && call.NormalVaf is >= 0.0 and <= 1.0;
+            return (matches && inRange)
+                .Label($"tVaf {call.TumorVaf}/{expectedT}, nVaf {call.NormalVaf}/{expectedN}, inRange={inRange}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Status decision rule (INV-01, INV-02)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-01/INV-02: <c>Status</c> matches the independent §4.2 decision oracle EXACTLY, driven over
+    /// random read counts AND random thresholds τ_t, τ_n ∈ [0, 1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_Status_MatchesDecisionOracle()
+    {
+        return Prop.ForAll(VariantWithThresholdsArbitrary(), t =>
+        {
+            var call = OncologyAnalyzer.Classify(t.variant, t.tauT, t.tauN);
+            double fT = ExpectedVaf(t.variant.TumorAltReads, t.variant.TumorTotalReads);
+            double fN = ExpectedVaf(t.variant.NormalAltReads, t.variant.NormalTotalReads);
+            var expected = ExpectedStatus(fT, fN, t.tauT, t.tauN);
+            return (call.Status == expected)
+                .Label($"status {call.Status} != oracle {expected} (fT={fT}, fN={fN}, τt={t.tauT}, τn={t.tauN})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // P: somatic calls absent in matched normal
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// P: every call classified <see cref="OncologyAnalyzer.SomaticStatus.Somatic"/> has its matched-normal
+    /// VAF ≤ τ_n (absent in normal) AND tumor VAF ≥ τ_t (present in tumor), over random thresholds.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_SomaticCalls_AbsentInMatchedNormal()
+    {
+        return Prop.ForAll(VariantWithThresholdsArbitrary(), t =>
+        {
+            var call = OncologyAnalyzer.Classify(t.variant, t.tauT, t.tauN);
+            if (call.Status != OncologyAnalyzer.SomaticStatus.Somatic)
+            {
+                return true.ToProperty();
+            }
+
+            return (call.NormalVaf <= t.tauN && call.TumorVaf >= t.tauT)
+                .Label($"somatic but nVaf={call.NormalVaf} (>τn {t.tauN}) or tVaf={call.TumorVaf} (<τt {t.tauT})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-03: SomaticScore
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-03: <c>SomaticCall.SomaticScore == (Status==Somatic ? max(0, f_t − f_n) : 0)</c> and ∈ [0, 1].
+    /// The SomaticCall score is gated on the Somatic status (it is 0 for Germline/NotDetected), recomputed
+    /// independently from the VAF separation. Random thresholds.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_SomaticCallScore_IsGatedSeparationAndInUnitRange()
+    {
+        return Prop.ForAll(VariantWithThresholdsArbitrary(), t =>
+        {
+            var call = OncologyAnalyzer.Classify(t.variant, t.tauT, t.tauN);
+            double fT = ExpectedVaf(t.variant.TumorAltReads, t.variant.TumorTotalReads);
+            double fN = ExpectedVaf(t.variant.NormalAltReads, t.variant.NormalTotalReads);
+            double expected = call.Status == OncologyAnalyzer.SomaticStatus.Somatic
+                ? ExpectedSeparationScore(fT, fN)
+                : 0.0;
+            bool matches = Math.Abs(call.SomaticScore - expected) < 1e-9;
+            bool inRange = call.SomaticScore is >= 0.0 and <= 1.0;
+            return (matches && inRange)
+                .Label($"score {call.SomaticScore} != {expected} (status {call.Status}), inRange={inRange}");
+        });
+    }
+
+    /// <summary>
+    /// INV-03 (standalone): <c>CalculateSomaticScore(variant) == max(0, f_t − f_n)</c> ALWAYS — the standalone
+    /// scorer is status-INDEPENDENT (no NotDetected/Germline gating), unlike the SomaticCall score — and ∈ [0, 1].
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_StandaloneScore_IsUngatedSeparationAndInUnitRange()
+    {
+        return Prop.ForAll(VariantArbitrary(), v =>
+        {
+            double score = OncologyAnalyzer.CalculateSomaticScore(v);
+            double fT = ExpectedVaf(v.TumorAltReads, v.TumorTotalReads);
+            double fN = ExpectedVaf(v.NormalAltReads, v.NormalTotalReads);
+            double expected = ExpectedSeparationScore(fT, fN);
+            return (Math.Abs(score - expected) < 1e-9 && score is >= 0.0 and <= 1.0)
+                .Label($"standalone score {score} != {expected} (fT={fT}, fN={fN})");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // M (REMAPPED): the checklist's "higher tumor depth → more confident" is FALSE for this rule —
+    // the score is max(0, f_t − f_n), which is DEPTH-INDEPENDENT (scaling alt & total together leaves
+    // the VAF, hence the score, unchanged). The honest monotonicity is in the VAF SEPARATION:
+    //   • holding the normal and totals fixed, raising tumorAltReads (⇒ higher f_t) never DECREASES the
+    //     SomaticScore and never turns a detected (Somatic/Germline) call into NotDetected;
+    //   • holding the tumor and totals fixed, raising normalAltReads (⇒ higher f_n) never INCREASES the
+    //     standalone separation score.
+    // -------------------------------------------------------------------------
+
+    /// <summary>Generator for the tumor-alt monotonicity check: shared totals, two ordered tumor-alt counts.</summary>
+    private static Arbitrary<(int tTotal, int tAltLo, int tAltHi, int nTotal, int nAlt)> TumorAltMonotoneArbitrary() =>
+        (from tTotal in Gen.Choose(1, 500)
+         from a1 in Gen.Choose(0, tTotal)
+         from a2 in Gen.Choose(0, tTotal)
+         from nTotal in Gen.Choose(0, 500)
+         from nAlt in Gen.Choose(0, Math.Max(0, nTotal))
+         select (tTotal, Math.Min(a1, a2), Math.Max(a1, a2), nTotal, nAlt))
+        .ToArbitrary();
+
+    /// <summary>
+    /// M (remapped, tumor side): with normal and totals fixed, increasing tumorAltReads (⇒ higher f_t) never
+    /// DECREASES the standalone separation score and never demotes a detected call to NotDetected.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_Score_MonotoneNonDecreasingInTumorAlt()
+    {
+        return Prop.ForAll(TumorAltMonotoneArbitrary(), t =>
+        {
+            var lo = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.tAltLo, t.tTotal, t.nAlt, t.nTotal);
+            var hi = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.tAltHi, t.tTotal, t.nAlt, t.nTotal);
+
+            double scoreLo = OncologyAnalyzer.CalculateSomaticScore(lo);
+            double scoreHi = OncologyAnalyzer.CalculateSomaticScore(hi);
+
+            var callLo = OncologyAnalyzer.Classify(lo);
+            var callHi = OncologyAnalyzer.Classify(hi);
+
+            bool scoreMonotone = scoreHi >= scoreLo - 1e-12;
+            // If the lower-alt call was detected, the higher-alt call (≥ f_t) cannot become NotDetected.
+            bool detectionMonotone =
+                callLo.Status == OncologyAnalyzer.SomaticStatus.NotDetected
+                || callHi.Status != OncologyAnalyzer.SomaticStatus.NotDetected;
+
+            return (scoreMonotone && detectionMonotone)
+                .Label($"scoreLo={scoreLo}, scoreHi={scoreHi}, statusLo={callLo.Status}, statusHi={callHi.Status}");
+        });
+    }
+
+    /// <summary>Generator for the normal-alt monotonicity check: shared tumor & totals, two ordered normal-alt counts.</summary>
+    private static Arbitrary<(int tTotal, int tAlt, int nTotal, int nAltLo, int nAltHi)> NormalAltMonotoneArbitrary() =>
+        (from tTotal in Gen.Choose(1, 500)
+         from tAlt in Gen.Choose(0, tTotal)
+         from nTotal in Gen.Choose(1, 500)
+         from a1 in Gen.Choose(0, nTotal)
+         from a2 in Gen.Choose(0, nTotal)
+         select (tTotal, tAlt, nTotal, Math.Min(a1, a2), Math.Max(a1, a2)))
+        .ToArbitrary();
+
+    /// <summary>
+    /// M (remapped, normal side): with tumor and totals fixed, increasing normalAltReads (⇒ higher f_n) never
+    /// INCREASES the standalone separation score (it is non-increasing in f_n).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_Score_MonotoneNonIncreasingInNormalAlt()
+    {
+        return Prop.ForAll(NormalAltMonotoneArbitrary(), t =>
+        {
+            var lo = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.tAlt, t.tTotal, t.nAltLo, t.nTotal);
+            var hi = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.tAlt, t.tTotal, t.nAltHi, t.nTotal);
+
+            double scoreLo = OncologyAnalyzer.CalculateSomaticScore(lo);
+            double scoreHi = OncologyAnalyzer.CalculateSomaticScore(hi);
+
+            return (scoreHi <= scoreLo + 1e-12)
+                .Label($"normalAlt {t.nAltLo}->{t.nAltHi}: scoreLo={scoreLo}, scoreHi={scoreHi}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // INV-04: FilterGermlineVariants
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// INV-04: <c>FilterGermlineVariants</c> returns EXACTLY the Somatic subset of
+    /// <c>CallSomaticMutations</c>, in input order (same length and same calls).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_FilterGermline_IsSomaticSubsetInOrder()
+    {
+        return Prop.ForAll(VariantListArbitrary(), variants =>
+        {
+            var filtered = OncologyAnalyzer.FilterGermlineVariants(variants);
+            var expected = OncologyAnalyzer.CallSomaticMutations(variants)
+                .Where(c => c.Status == OncologyAnalyzer.SomaticStatus.Somatic)
+                .ToList();
+
+            bool sameLength = filtered.Count == expected.Count;
+            bool allSomatic = filtered.All(c => c.Status == OncologyAnalyzer.SomaticStatus.Somatic);
+            bool sameOrder = sameLength && filtered.Zip(expected, (a, b) => a.Equals(b)).All(x => x);
+
+            return (sameLength && allSomatic && sameOrder)
+                .Label($"filtered {filtered.Count} vs expected {expected.Count}, allSomatic={allSomatic}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Order/count preservation + D (determinism)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// D + order/count preservation: <c>CallSomaticMutations</c> output has the same length and order as the
+    /// input (its embedded <c>Variant</c> matches positionally), and identical inputs ⇒ identical results
+    /// (all fields, via record equality).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Somatic_CallSomaticMutations_PreservesOrderAndIsDeterministic()
+    {
+        return Prop.ForAll(VariantListArbitrary(), variants =>
+        {
+            var a = OncologyAnalyzer.CallSomaticMutations(variants);
+            var b = OncologyAnalyzer.CallSomaticMutations(variants);
+
+            bool lengthOk = a.Count == variants.Length;
+            bool orderOk = a.Select((c, i) => c.Variant.Equals(variants[i])).All(x => x);
+            bool deterministic = a.Count == b.Count && a.Zip(b, (x, y) => x.Equals(y)).All(z => z);
+
+            return (lengthOk && orderOk && deterministic)
+                .Label($"length={a.Count}/{variants.Length}, orderOk={orderOk}, deterministic={deterministic}");
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Edge cases / validation
+    // -------------------------------------------------------------------------
+
+    /// <summary>Edge: null variants ⇒ <see cref="ArgumentNullException"/>.</summary>
+    [Test]
+    [Category("Property")]
+    public void Somatic_NullVariants_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => OncologyAnalyzer.CallSomaticMutations(null!));
+
+    /// <summary>Edge: a tumor threshold outside [0, 1] ⇒ <see cref="ArgumentOutOfRangeException"/>.</summary>
+    [TestCase(-0.01)]
+    [TestCase(1.01)]
+    [Category("Property")]
+    public void Somatic_TumorThresholdOutOfRange_Throws(double tauT) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            OncologyAnalyzer.CallSomaticMutations(Array.Empty<OncologyAnalyzer.VariantObservation>(), tauT, 0.01));
+
+    /// <summary>Edge: a normal threshold outside [0, 1] ⇒ <see cref="ArgumentOutOfRangeException"/>.</summary>
+    [TestCase(-0.01)]
+    [TestCase(1.01)]
+    [Category("Property")]
+    public void Somatic_NormalThresholdOutOfRange_Throws(double tauN) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            OncologyAnalyzer.CallSomaticMutations(Array.Empty<OncologyAnalyzer.VariantObservation>(), 0.05, tauN));
+
+    /// <summary>
+    /// Edge: a variant with negative reads or alt &gt; total ⇒ <see cref="ArgumentOutOfRangeException"/>,
+    /// thrown by the VAF computation inside <c>Classify</c>/<c>CallSomaticMutations</c> (not the ctor).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Somatic_NegativeReads_Throws()
+    {
+        var negative = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", -1, 100, 0, 100);
+        var altExceedsTotal = new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", 120, 100, 0, 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.Classify(negative));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.Classify(altExceedsTotal));
+        });
+    }
+
+    /// <summary>Edge: empty input ⇒ empty output.</summary>
+    [Test]
+    [Category("Property")]
+    public void Somatic_EmptyInput_EmptyOutput() =>
+        Assert.That(
+            OncologyAnalyzer.CallSomaticMutations(Array.Empty<OncologyAnalyzer.VariantObservation>()),
+            Is.Empty);
+
+    /// <summary>
+    /// Edge: tumor-only (normalTotal = 0 ⇒ f_n = 0) with f_t ≥ τ_t ⇒ Somatic (ℓ_n = 1 analogue, §6.1).
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Somatic_TumorOnly_AboveThreshold_IsSomatic()
+    {
+        var v = new OncologyAnalyzer.VariantObservation("chr1", 100, "A", "T", 30, 100, 0, 0);
+        var call = OncologyAnalyzer.Classify(v);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.NormalVaf, Is.EqualTo(0.0));
+            Assert.That(call.Status, Is.EqualTo(OncologyAnalyzer.SomaticStatus.Somatic));
+            Assert.That(call.SomaticScore, Is.EqualTo(0.30).Within(1e-9));
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Worked-example anchors (Somatic_Mutation_Calling.md §7.1)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// §7.1 anchor: (25/100 tumor, 0/100 normal) ⇒ Somatic, score 0.25; (48/100 tumor, 50/100 normal)
+    /// ⇒ Germline, score 0.0; (4/100 tumor) ⇒ NotDetected.
+    /// </summary>
+    [TestCase(25, 100, 0, 100, OncologyAnalyzer.SomaticStatus.Somatic, 0.25)]
+    [TestCase(48, 100, 50, 100, OncologyAnalyzer.SomaticStatus.Germline, 0.0)]
+    [TestCase(4, 100, 0, 100, OncologyAnalyzer.SomaticStatus.NotDetected, 0.0)]
+    [Category("Property")]
+    public void Somatic_WorkedExample_Anchors(
+        int tAlt, int tTotal, int nAlt, int nTotal,
+        OncologyAnalyzer.SomaticStatus expectedStatus, double expectedScore)
+    {
+        var v = new OncologyAnalyzer.VariantObservation("chr1", 100, "A", "T", tAlt, tTotal, nAlt, nTotal);
+        var call = OncologyAnalyzer.Classify(v);
+        Assert.Multiple(() =>
+        {
+            Assert.That(call.Status, Is.EqualTo(expectedStatus));
+            Assert.That(call.SomaticScore, Is.EqualTo(expectedScore).Within(1e-9));
+        });
+    }
 
     #endregion
 }
