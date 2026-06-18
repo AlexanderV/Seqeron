@@ -227,7 +227,7 @@ Property-based testing генерирует сотни случайных вхо
 | 195 | ☑ | META-PATHWAY-001 | Metagenomics | R: p-value ∈ [0,1]; M: more pathway genes → higher enrichment; D: deterministic | MetagenomicsProperties.cs |
 | 196 | ☑ | META-RESIST-001 | Metagenomics | P: hit matches resistance DB; R: positions valid; D: deterministic | MetagenomicsProperties.cs |
 | 197 | ☑ | META-TAXA-001 | Metagenomics | R: p-value ∈ [0,1]; P: significant ⟺ p ≤ α; D: deterministic | MetagenomicsProperties.cs |
-| 198 | ☐ | TRANS-DIFF-001 | Transcriptome | R: |log2FC| ≥ 0; S: FC(A,B) = −FC(B,A); R: p-value ∈ [0,1]; D: deterministic | TranscriptomeProperties.cs (new) |
+| 198 | ☑ | TRANS-DIFF-001 | Transcriptome | R: |log2FC| ≥ 0; S: FC(A,B) = −FC(B,A); R: p-value ∈ [0,1]; D: deterministic | TranscriptomeProperties.cs (new) |
 | 199 | ☐ | TRANS-EXPR-001 | Transcriptome | R: expression ≥ 0; P: Σ TPM = 1e6; D: deterministic | TranscriptomeProperties.cs (new) |
 | 200 | ☐ | TRANS-SPLICE-001 | Transcriptome | R: PSI ∈ [0,1]; P: exon coordinates valid; D: deterministic | TranscriptomeProperties.cs (new) |
 | 201 | ☐ | SV-BREAKPOINT-001 | StructuralVar | R: breakpoint positions valid; M: more split reads → ≥ confidence; D: deterministic | StructuralVariantProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 197 |
-| ☐ Not started | 37 |
+| ☑ Complete | 198 |
+| ☐ Not started | 36 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
