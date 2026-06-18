@@ -1622,4 +1622,537 @@ public class ChromosomeProperties
     }
 
     #endregion
+
+    #region CHROM-SYNT-001
+
+    // Covers ChromosomeAnalyzer.FindSyntenyBlocks and ChromosomeAnalyzer.DetectRearrangements
+    // (Synteny_Analysis.md §2.4 INV-01..INV-04, §2.1/§4.2 rearrangement signature table,
+    //  §3 contract — maxGap is in MEGABASES (×1,000,000), minGenes default 3 — §6 edges, §7.1 example).
+    //
+    //   R  block positions valid (INV-02): Species1Start ≤ Species1End, Species2Start ≤ Species2End,
+    //      GeneCount ≥ minGenes; plus INV-01 (Strand ∈ {'+','-'}), INV-03 (SequenceIdentity is NaN).
+    //   S  role-swap transposition symmetry on FORWARD-collinear input: swapping (genome1↔genome2)
+    //      roles in the ortholog tuples transposes the single resulting block. NOT asserted for the
+    //      general/reverse coordinate heuristic, which is documented as not globally symmetric.
+    //   D  determinism: identical input → identical block / rearrangement sequences.
+    //
+    // The forward-block CONTENT oracle recomputes the expected block independently from the
+    // generated run (first/last gene coordinates), proving the exact block contract — not echoing
+    // the implementation. INV-04 is proven by the rearrangement Type ∈ the four-label set, with
+    // hand-built inversion/translocation anchors. maxGap megabase semantics is proven by a split.
+
+    // Ortholog tuple type used by FindSyntenyBlocks.
+    private record struct Ortholog(
+        string Chr1, int Start1, int End1, string Gene1,
+        string Chr2, int Start2, int End2, string Gene2);
+
+    /// <summary>One MB in base pairs — the factor <c>FindSyntenyBlocks</c> multiplies <c>maxGap</c> by.</summary>
+    private const int OneMegabase = 1_000_000;
+
+    /// <summary>The four valid rearrangement <c>Type</c> labels per INV-04 / §2.1.</summary>
+    private static readonly string[] ValidRearrangementTypes =
+        { "Inversion", "Translocation", "Deletion", "Duplication" };
+
+    // ===================== Helpers (independent constructions) =====================
+
+    /// <summary>
+    /// Converts <see cref="Ortholog"/> records to the value-tuple shape expected by
+    /// <c>FindSyntenyBlocks</c>.
+    /// </summary>
+    private static IEnumerable<(string Chr1, int Start1, int End1, string Gene1,
+        string Chr2, int Start2, int End2, string Gene2)> ToTuples(IEnumerable<Ortholog> orthologs) =>
+        orthologs.Select(o => (o.Chr1, o.Start1, o.End1, o.Gene1, o.Chr2, o.Start2, o.End2, o.Gene2));
+
+    /// <summary>
+    /// Swaps the genome roles of an ortholog list exactly as the symmetry contract specifies:
+    /// <c>(Chr1,Start1,End1,Gene1,Chr2,Start2,End2,Gene2) → (Chr2,Start2,End2,Gene2,Chr1,Start1,End1,Gene1)</c>.
+    /// </summary>
+    private static List<Ortholog> SwapRoles(IEnumerable<Ortholog> orthologs) =>
+        orthologs.Select(o => new Ortholog(
+            o.Chr2, o.Start2, o.End2, o.Gene2,
+            o.Chr1, o.Start1, o.End1, o.Gene1)).ToList();
+
+    /// <summary>
+    /// Treats two <see cref="ChromosomeAnalyzer.SyntenyBlock"/> values as equal with NaN==NaN for
+    /// <c>SequenceIdentity</c> (record-struct equality already treats NaN==NaN via bit-equality, but
+    /// this makes the determinism intent explicit and independent).
+    /// </summary>
+    private static bool BlocksEqual(
+        ChromosomeAnalyzer.SyntenyBlock a, ChromosomeAnalyzer.SyntenyBlock b) =>
+        a.Species1Chromosome == b.Species1Chromosome
+        && a.Species1Start == b.Species1Start
+        && a.Species1End == b.Species1End
+        && a.Species2Chromosome == b.Species2Chromosome
+        && a.Species2Start == b.Species2Start
+        && a.Species2End == b.Species2End
+        && a.Strand == b.Strand
+        && a.GeneCount == b.GeneCount
+        && (double.IsNaN(a.SequenceIdentity)
+            ? double.IsNaN(b.SequenceIdentity)
+            : a.SequenceIdentity == b.SequenceIdentity);
+
+    // ===================== Generators =====================
+
+    /// <summary>
+    /// Generates one clean forward-collinear ortholog run on a single chromosome pair:
+    /// <c>n ∈ [minGenes, 8]</c> genes strictly ascending in BOTH genomes, with every inter-gene gap
+    /// well inside <c>maxGap·1e6</c> (spacing in the low thousands of bp, maxGap=10 ⇒ 10 Mb ceiling).
+    /// Forward orientation is guaranteed because each <c>curr.Start2 &gt; prev.End2</c>. Coordinates
+    /// stay modest (≤ ~100k) to avoid overflow when the implementation computes <c>maxGap·1e6</c>.
+    /// Yields the ortholog list (the single expected block is recomputed independently by the oracle).
+    /// </summary>
+    private static Arbitrary<List<Ortholog>> ForwardCollinearRunArbitrary() =>
+        (from n in Gen.Choose(3, 8)
+         from geneLen in Gen.Choose(500, 2000)
+         from gap in Gen.Choose(100, 5000) // « maxGap·1e6 (=10 Mb) so the run never splits
+         from start1 in Gen.Choose(1_000, 50_000)
+         from start2 in Gen.Choose(1_000, 50_000)
+         let step = geneLen + gap
+         let genes = Enumerable.Range(0, n).Select(i => new Ortholog(
+             "chr1", start1 + i * step, start1 + i * step + geneLen, $"g1_{i}",
+             "chrA", start2 + i * step, start2 + i * step + geneLen, $"gA_{i}")).ToList()
+         select genes).ToArbitrary();
+
+    // ===================== R / INV-01 / INV-02 / INV-03 — positions valid =====================
+
+    /// <summary>
+    /// INV-02 (R: positions valid) + INV-01 + INV-03 over ARBITRARY ortholog input: for EVERY emitted
+    /// block <c>Species1Start ≤ Species1End</c>, <c>Species2Start ≤ Species2End</c>,
+    /// <c>GeneCount ≥ minGenes</c> (INV-02); <c>Strand ∈ {'+','-'}</c> (INV-01); and
+    /// <c>SequenceIdentity</c> is NaN (INV-03). The generator mixes chromosomes, forward and reverse
+    /// orders, and gaps so the heuristic is exercised broadly — not just on clean runs.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindSyntenyBlocks_EmittedBlocks_AlwaysValid()
+    {
+        var arb =
+            (from n in Gen.Choose(0, 12)
+             from rows in (from chrIdx in Gen.Choose(0, 1)
+                           from s1 in Gen.Choose(1_000, 80_000)
+                           from len1 in Gen.Choose(200, 3_000)
+                           from s2 in Gen.Choose(1_000, 80_000)
+                           from len2 in Gen.Choose(200, 3_000)
+                           select new Ortholog(
+                               $"chr{chrIdx}", s1, s1 + len1, "g",
+                               "chrA", s2, s2 + len2, "gA")).ListOf(n)
+             select rows).ToArbitrary();
+
+        const int minGenes = 3;
+        return Prop.ForAll(arb, rows =>
+        {
+            var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(rows), minGenes: minGenes).ToList();
+            foreach (var b in blocks)
+            {
+                bool inv02 = b.Species1Start <= b.Species1End
+                             && b.Species2Start <= b.Species2End
+                             && b.GeneCount >= minGenes;
+                bool inv01 = b.Strand is '+' or '-';
+                bool inv03 = double.IsNaN(b.SequenceIdentity);
+                if (!(inv02 && inv01 && inv03))
+                    return false.Label(
+                        $"invalid block: [{b.Species1Start},{b.Species1End}]→[{b.Species2Start},{b.Species2End}] " +
+                        $"strand={b.Strand} genes={b.GeneCount} id={b.SequenceIdentity}");
+            }
+            return true.ToProperty();
+        });
+    }
+
+    // ===================== Forward-block content oracle (exact contract) =====================
+
+    /// <summary>
+    /// Forward block CONTENT oracle: a single clean forward-collinear run of <c>n ≥ minGenes</c> genes
+    /// (strictly ascending in both genomes, gaps ≤ maxGap·1e6) produces EXACTLY ONE block whose fields
+    /// equal those recomputed independently from the run —
+    /// <c>Species1Start = first.Start1</c>, <c>Species1End = last.End1</c>,
+    /// <c>Species2Start = first.Start2</c>, <c>Species2End = last.End2</c> (ascending ⇒ first=min,
+    /// last=max), <c>Strand = '+'</c>, <c>GeneCount = n</c>, <c>SequenceIdentity = NaN</c>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindSyntenyBlocks_ForwardCollinearRun_MatchesContentOracle()
+    {
+        return Prop.ForAll(ForwardCollinearRunArbitrary(), genes =>
+        {
+            var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(genes), minGenes: 3, maxGap: 10).ToList();
+            if (blocks.Count != 1)
+                return false.Label($"expected exactly 1 block for a clean run of {genes.Count}, got {blocks.Count}");
+
+            var b = blocks[0];
+            var first = genes[0];
+            var last = genes[^1];
+            bool match = b.Species1Chromosome == "chr1"
+                         && b.Species1Start == first.Start1
+                         && b.Species1End == last.End1
+                         && b.Species2Chromosome == "chrA"
+                         && b.Species2Start == first.Start2
+                         && b.Species2End == last.End2
+                         && b.Strand == '+'
+                         && b.GeneCount == genes.Count
+                         && double.IsNaN(b.SequenceIdentity);
+            return match.Label(
+                $"block [{b.Species1Start},{b.Species1End}]→[{b.Species2Start},{b.Species2End}] " +
+                $"strand={b.Strand} genes={b.GeneCount} vs run of {genes.Count} " +
+                $"([{first.Start1},{last.End1}]→[{first.Start2},{last.End2}])");
+        });
+    }
+
+    /// <summary>
+    /// Exact forward anchor — §7.1 worked example: three collinear orthologs on chr1→chrA produce one
+    /// forward block spanning the run with GeneCount 3 and NaN identity.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_WorkedExample_SingleForwardBlock()
+    {
+        var pairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "gene1", "chrA", 1000, 2000, "geneA"),
+            ("chr1", 3000, 4000, "gene2", "chrA", 3000, 4000, "geneB"),
+            ("chr1", 5000, 6000, "gene3", "chrA", 5000, 6000, "geneC"),
+        };
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(pairs, minGenes: 3, maxGap: 10).ToList();
+        Assert.That(blocks, Has.Count.EqualTo(1));
+        var b = blocks[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(b.Species1Chromosome, Is.EqualTo("chr1"));
+            Assert.That(b.Species2Chromosome, Is.EqualTo("chrA"));
+            Assert.That(b.Species1Start, Is.EqualTo(1000));
+            Assert.That(b.Species1End, Is.EqualTo(6000));
+            Assert.That(b.Species2Start, Is.EqualTo(1000));
+            Assert.That(b.Species2End, Is.EqualTo(6000));
+            Assert.That(b.Strand, Is.EqualTo('+'));
+            Assert.That(b.GeneCount, Is.EqualTo(3));
+            Assert.That(double.IsNaN(b.SequenceIdentity), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Reverse block (INV-01 '-' branch): genes ascending in genome 1 but strictly DESCENDING in
+    /// genome 2 form a reverse-collinear run ⇒ a single block with <c>Strand = '-'</c>. Boundaries
+    /// use min/max so Species2Start/End remain ordered (INV-02). Hand-built anchor.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_ReverseCollinearRun_NegativeStrand()
+    {
+        // genome1 ascending; genome2 descending (each curr.Start2 < prev.End2 ⇒ not forward).
+        var pairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "g1", "chrA", 9000, 10000, "gA"),
+            ("chr1", 3000, 4000, "g2", "chrA", 6000, 7000, "gB"),
+            ("chr1", 5000, 6000, "g3", "chrA", 3000, 4000, "gC"),
+        };
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(pairs, minGenes: 3, maxGap: 10).ToList();
+        Assert.That(blocks, Has.Count.EqualTo(1));
+        var b = blocks[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(b.Strand, Is.EqualTo('-'), "descending genome-2 order ⇒ reverse strand");
+            Assert.That(b.GeneCount, Is.EqualTo(3));
+            Assert.That(b.Species1Start, Is.LessThanOrEqualTo(b.Species1End));
+            Assert.That(b.Species2Start, Is.LessThanOrEqualTo(b.Species2End));
+        });
+    }
+
+    // ===================== S — role-swap transposition symmetry =====================
+
+    /// <summary>
+    /// S (symmetry, provable case): for a clean forward-collinear single-group input, swapping the
+    /// genome roles of every ortholog tuple TRANSPOSES the single resulting block —
+    /// <c>swapped.Species1* == original.Species2*</c> and <c>swapped.Species2* == original.Species1*</c>
+    /// (chromosome, start, end), with equal <c>GeneCount</c> and both blocks forward (<c>'+'</c>).
+    /// Symmetry is asserted ONLY on this provable forward case, per the documented heuristic caveat.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindSyntenyBlocks_RoleSwap_TransposesForwardBlock()
+    {
+        return Prop.ForAll(ForwardCollinearRunArbitrary(), genes =>
+        {
+            var original = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(genes), minGenes: 3, maxGap: 10).ToList();
+            var swapped = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(SwapRoles(genes)), minGenes: 3, maxGap: 10).ToList();
+
+            if (original.Count != 1 || swapped.Count != 1)
+                return false.Label($"expected one block each; original={original.Count}, swapped={swapped.Count}");
+
+            var o = original[0];
+            var s = swapped[0];
+            bool transpose =
+                s.Species1Chromosome == o.Species2Chromosome
+                && s.Species1Start == o.Species2Start
+                && s.Species1End == o.Species2End
+                && s.Species2Chromosome == o.Species1Chromosome
+                && s.Species2Start == o.Species1Start
+                && s.Species2End == o.Species1End
+                && s.GeneCount == o.GeneCount
+                && o.Strand == '+' && s.Strand == '+';
+            return transpose.Label(
+                $"not a transpose: original [{o.Species1Start},{o.Species1End}]→[{o.Species2Start},{o.Species2End}] " +
+                $"vs swapped [{s.Species1Start},{s.Species1End}]→[{s.Species2Start},{s.Species2End}]");
+        });
+    }
+
+    // ===================== minGenes threshold & empty input (edges) =====================
+
+    /// <summary>
+    /// Edge (§6.1): fewer than <c>minGenes</c> total ortholog pairs ⇒ no blocks (the total count is
+    /// checked before scanning). Driven over runs of length 0..minGenes-1.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindSyntenyBlocks_FewerThanMinGenes_NoBlocks()
+    {
+        var arb = (from n in Gen.Choose(0, 4)
+                   select n).ToArbitrary();
+        return Prop.ForAll(arb, n =>
+        {
+            const int minGenes = 5; // n ∈ [0,4] is always < minGenes
+            var rows = Enumerable.Range(0, n).Select(i => new Ortholog(
+                "chr1", 1000 + i * 4000, 2000 + i * 4000, $"g{i}",
+                "chrA", 1000 + i * 4000, 2000 + i * 4000, $"gA{i}")).ToList();
+            var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(rows), minGenes: minGenes).ToList();
+            return (blocks.Count == 0).Label($"n={n} < minGenes={minGenes} produced {blocks.Count} blocks");
+        });
+    }
+
+    /// <summary>
+    /// Edge (§6.1): a collinear run STRICTLY shorter than <c>minGenes</c> (but with enough total pairs
+    /// to pass the global count gate) is discarded. Two short runs of 2 genes each on different
+    /// chromosome pairs total 4 ≥ minGenes=3, yet each run of 2 &lt; 3 ⇒ no blocks survive.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_RunShorterThanMinGenes_Discarded()
+    {
+        var pairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "g1", "chrA", 1000, 2000, "gA"),
+            ("chr1", 3000, 4000, "g2", "chrA", 3000, 4000, "gB"),
+            ("chr2", 1000, 2000, "g3", "chrB", 1000, 2000, "gC"),
+            ("chr2", 3000, 4000, "g4", "chrB", 3000, 4000, "gD"),
+        };
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(pairs, minGenes: 3, maxGap: 10).ToList();
+        Assert.That(blocks, Is.Empty, "each chromosome-pair run of 2 < minGenes=3 must be discarded");
+    }
+
+    /// <summary>Edge (§6.1): empty ortholog input ⇒ no blocks.</summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_EmptyInput_NoBlocks()
+    {
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(
+            Enumerable.Empty<(string, int, int, string, string, int, int, string)>());
+        Assert.That(blocks, Is.Empty);
+    }
+
+    // ===================== maxGap megabase splitting =====================
+
+    /// <summary>
+    /// maxGap megabase semantics (§3.1 / §5.2 / §6.1): inserting a genome-1 gap GREATER than
+    /// <c>maxGap·1e6</c> between two otherwise-collinear forward sub-runs SPLITS the run into two
+    /// blocks. Built with <c>maxGap=1</c> (⇒ 1,000,000 bp ceiling): two 3-gene sub-runs are placed so
+    /// the within-run gaps are tiny but the gap BETWEEN them exceeds 1 Mb. Confirms the value is read
+    /// in megabases, not base pairs.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_GapOverMaxGap_SplitsRun()
+    {
+        const int maxGap = 1; // 1 Mb ceiling
+        // First sub-run near origin; second sub-run shifted by > 1 Mb in BOTH genomes.
+        int shift = 3 * OneMegabase; // 3 Mb >> 1 Mb ceiling
+        var pairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "g1", "chrA", 1000, 2000, "gA"),
+            ("chr1", 3000, 4000, "g2", "chrA", 3000, 4000, "gB"),
+            ("chr1", 5000, 6000, "g3", "chrA", 5000, 6000, "gC"),
+            ("chr1", 1000 + shift, 2000 + shift, "g4", "chrA", 1000 + shift, 2000 + shift, "gD"),
+            ("chr1", 3000 + shift, 4000 + shift, "g5", "chrA", 3000 + shift, 4000 + shift, "gE"),
+            ("chr1", 5000 + shift, 6000 + shift, "g6", "chrA", 5000 + shift, 6000 + shift, "gF"),
+        };
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(pairs, minGenes: 3, maxGap: maxGap).ToList();
+        Assert.That(blocks, Has.Count.EqualTo(2),
+            "a genome-1 gap > maxGap·1e6 must split the run into two blocks");
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocks.All(b => b.GeneCount == 3), Is.True, "each split block keeps 3 genes");
+            Assert.That(blocks.All(b => b.Strand == '+'), Is.True);
+        });
+    }
+
+    /// <summary>
+    /// Counterpart to the split test: the SAME shifted layout, but with a generous <c>maxGap=10</c>
+    /// (10 Mb &gt; 3 Mb inter-run gap), keeps everything in ONE block — confirming the split above is
+    /// caused by the threshold, not the layout.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void FindSyntenyBlocks_GapWithinMaxGap_SingleBlock()
+    {
+        int shift = 3 * OneMegabase;
+        var pairs = new List<(string, int, int, string, string, int, int, string)>
+        {
+            ("chr1", 1000, 2000, "g1", "chrA", 1000, 2000, "gA"),
+            ("chr1", 3000, 4000, "g2", "chrA", 3000, 4000, "gB"),
+            ("chr1", 5000, 6000, "g3", "chrA", 5000, 6000, "gC"),
+            ("chr1", 1000 + shift, 2000 + shift, "g4", "chrA", 1000 + shift, 2000 + shift, "gD"),
+            ("chr1", 3000 + shift, 4000 + shift, "g5", "chrA", 3000 + shift, 4000 + shift, "gE"),
+            ("chr1", 5000 + shift, 6000 + shift, "g6", "chrA", 5000 + shift, 6000 + shift, "gF"),
+        };
+        var blocks = ChromosomeAnalyzer.FindSyntenyBlocks(pairs, minGenes: 3, maxGap: 10).ToList();
+        Assert.That(blocks, Has.Count.EqualTo(1), "a 3 Mb gap is within the 10 Mb ceiling ⇒ one block");
+        Assert.That(blocks[0].GeneCount, Is.EqualTo(6));
+    }
+
+    // ===================== DetectRearrangements — INV-04 type set & anchors =====================
+
+    /// <summary>
+    /// Builds a forward synteny block from explicit coordinates (SequenceIdentity = NaN, as the
+    /// implementation emits) for assembling rearrangement anchors independently of block detection.
+    /// </summary>
+    private static ChromosomeAnalyzer.SyntenyBlock MakeBlock(
+        string chr1, int s1, int e1, string chr2, int s2, int e2, char strand, int genes) =>
+        new(chr1, s1, e1, chr2, s2, e2, strand, genes, double.NaN);
+
+    /// <summary>
+    /// INV-04 over ARBITRARY block lists: every emitted rearrangement <c>Type</c> is one of the four
+    /// valid labels. Blocks are generated with mixed chromosomes, strands and overlapping intervals so
+    /// all four detection branches can fire.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectRearrangements_TypesAlwaysValid()
+    {
+        var blockGen =
+            from chr1Idx in Gen.Choose(0, 1)
+            from chr2Idx in Gen.Choose(0, 1)
+            from s1 in Gen.Choose(1_000, 50_000)
+            from len1 in Gen.Choose(500, 20_000)
+            from s2 in Gen.Choose(1_000, 50_000)
+            from len2 in Gen.Choose(500, 20_000)
+            from strandFwd in Gen.Elements(true, false)
+            from genes in Gen.Choose(3, 8)
+            select MakeBlock($"chr{chr1Idx}", s1, s1 + len1, $"chr{chr2Idx}A",
+                s2, s2 + len2, strandFwd ? '+' : '-', genes);
+
+        var arb = blockGen.ListOf().Select(l => l.ToList()).ToArbitrary();
+        return Prop.ForAll(arb, blocks =>
+        {
+            var events = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+            foreach (var e in events)
+                if (!ValidRearrangementTypes.Contains(e.Type))
+                    return false.Label($"invalid rearrangement Type '{e.Type}'");
+            return true.ToProperty();
+        });
+    }
+
+    /// <summary>
+    /// INV-04 anchor — Inversion: two adjacent blocks on the SAME (Chr1, Chr2) with OPPOSITE strands
+    /// (§2.1 signature: strand change within the same chromosome pair) ⇒ an "Inversion" event.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectRearrangements_OppositeStrandsSamePair_Inversion()
+    {
+        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
+        {
+            MakeBlock("chr1", 1_000, 5_000, "chrA", 1_000, 5_000, '+', 3),
+            MakeBlock("chr1", 10_000, 15_000, "chrA", 10_000, 15_000, '-', 3),
+        };
+        var events = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+        Assert.That(events.Any(e => e.Type == "Inversion"), Is.True,
+            "opposite strands on the same chromosome pair must report an Inversion");
+        Assert.That(events.All(e => ValidRearrangementTypes.Contains(e.Type)), Is.True);
+    }
+
+    /// <summary>
+    /// INV-04 anchor — Translocation: two adjacent blocks on the SAME Chr1 but DIFFERENT Chr2 (§2.1
+    /// signature: change in target chromosome) ⇒ a "Translocation" event.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void DetectRearrangements_DifferentTargetChromosome_Translocation()
+    {
+        var blocks = new List<ChromosomeAnalyzer.SyntenyBlock>
+        {
+            MakeBlock("chr1", 1_000, 5_000, "chrA", 1_000, 5_000, '+', 3),
+            MakeBlock("chr1", 10_000, 15_000, "chrB", 10_000, 15_000, '+', 3),
+        };
+        var events = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+        Assert.That(events.Any(e => e.Type == "Translocation"), Is.True,
+            "different target chromosomes on adjacent same-source blocks must report a Translocation");
+        Assert.That(events.All(e => ValidRearrangementTypes.Contains(e.Type)), Is.True);
+    }
+
+    /// <summary>Edge (§6.1): empty block input ⇒ no rearrangements.</summary>
+    [Test]
+    [Category("Property")]
+    public void DetectRearrangements_EmptyInput_NoEvents()
+    {
+        var events = ChromosomeAnalyzer.DetectRearrangements(
+            Enumerable.Empty<ChromosomeAnalyzer.SyntenyBlock>());
+        Assert.That(events, Is.Empty);
+    }
+
+    /// <summary>Edge (§6.1): a single block ⇒ no rearrangements (heuristics need ≥ 2 blocks).</summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectRearrangements_SingleBlock_NoEvents()
+    {
+        var blockGen =
+            from s1 in Gen.Choose(1_000, 50_000)
+            from len1 in Gen.Choose(500, 5_000)
+            from s2 in Gen.Choose(1_000, 50_000)
+            from len2 in Gen.Choose(500, 5_000)
+            from strandFwd in Gen.Elements(true, false)
+            select MakeBlock("chr1", s1, s1 + len1, "chrA", s2, s2 + len2, strandFwd ? '+' : '-', 3);
+        return Prop.ForAll(blockGen.ToArbitrary(), block =>
+        {
+            var events = ChromosomeAnalyzer.DetectRearrangements(new[] { block }).ToList();
+            return (events.Count == 0).Label($"single block produced {events.Count} events");
+        });
+    }
+
+    // ===================== D — determinism =====================
+
+    /// <summary>
+    /// D (determinism): identical ortholog input ⇒ identical <c>FindSyntenyBlocks</c> output sequences
+    /// (all nine fields in order, NaN==NaN for SequenceIdentity).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property FindSyntenyBlocks_IsDeterministic()
+    {
+        return Prop.ForAll(ForwardCollinearRunArbitrary(), genes =>
+        {
+            var a = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(genes), minGenes: 3, maxGap: 10).ToList();
+            var b = ChromosomeAnalyzer.FindSyntenyBlocks(ToTuples(genes), minGenes: 3, maxGap: 10).ToList();
+            bool same = a.Count == b.Count && a.Zip(b, BlocksEqual).All(x => x);
+            return same.Label($"non-deterministic FindSyntenyBlocks (n={genes.Count})");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): identical block input ⇒ identical <c>DetectRearrangements</c> output sequences
+    /// (record-struct value equality, field-by-field in order).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectRearrangements_IsDeterministic()
+    {
+        var blockGen =
+            from chr1Idx in Gen.Choose(0, 1)
+            from chr2Idx in Gen.Choose(0, 1)
+            from s1 in Gen.Choose(1_000, 50_000)
+            from len1 in Gen.Choose(500, 20_000)
+            from s2 in Gen.Choose(1_000, 50_000)
+            from len2 in Gen.Choose(500, 20_000)
+            from strandFwd in Gen.Elements(true, false)
+            select MakeBlock($"chr{chr1Idx}", s1, s1 + len1, $"chr{chr2Idx}A",
+                s2, s2 + len2, strandFwd ? '+' : '-', 3);
+        var arb = blockGen.ListOf().Select(l => l.ToList()).ToArbitrary();
+
+        return Prop.ForAll(arb, blocks =>
+        {
+            var a = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+            var b = ChromosomeAnalyzer.DetectRearrangements(blocks).ToList();
+            return a.SequenceEqual(b).Label($"non-deterministic DetectRearrangements (n={blocks.Count})");
+        });
+    }
+
+    #endregion
 }
