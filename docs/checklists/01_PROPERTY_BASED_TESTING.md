@@ -173,7 +173,7 @@ Property-based testing генерирует сотни случайных вхо
 | 141 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | P: corrected reads keep length; M: more coverage → fewer errors; D: deterministic | AssemblyProperties.cs (new) |
 | 142 | ☑ | ASSEMBLY-COVER-001 | Assembly | R: coverage ≥ 0; P: mean coverage = total bases / ref length; D: deterministic | AssemblyProperties.cs (new) |
 | 143 | ☑ | ASSEMBLY-DBG-001 | Assembly | R: contig positions valid; P: contigs are k-mer paths; M: larger k → ≤ branching; D: deterministic | AssemblyProperties.cs (new) |
-| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | P: merged length ≥ max input; P: overlap consistent; D: deterministic | AssemblyProperties.cs (new) |
+| 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | P: merged length ≥ max input; P: overlap consistent; D: deterministic | AssemblyProperties.cs (new) |
 | 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | R: contig count ≥ 1; P: overlaps ≥ minOverlap; D: deterministic | AssemblyProperties.cs (new) |
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | P: scaffold order respects links; R: gap sizes ≥ 0; D: deterministic | AssemblyProperties.cs (new) |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | R: N50 ≥ 0; P: Σ contig lengths = total; M: longer contigs → higher N50; D: deterministic | AssemblyProperties.cs (new) |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 143 |
-| ☐ Not started | 91 |
+| ☑ Complete | 144 |
+| ☐ Not started | 90 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |

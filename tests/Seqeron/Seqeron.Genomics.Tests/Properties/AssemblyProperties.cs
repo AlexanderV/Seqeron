@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -443,6 +443,109 @@ public class AssemblyProperties
         {
             Assert.That(Dbg(Array.Empty<string>(), 4).Contigs, Is.Empty, "no reads → no contigs");
             Assert.Throws<ArgumentOutOfRangeException>(() => SequenceAssembler.BuildDeBruijnGraph(new[] { "ACGT" }, 1));
+        });
+    }
+
+    #endregion
+
+    #region ASSEMBLY-MERGE-001: P: merged length ≥ longer contig; P: result is a superstring (overlap collapsed once); D: deterministic
+
+    // MergeContigs collapses a known suffix/prefix overlap of length l so the shared region appears
+    // once: merged = contig1 + contig2[l:], length |c1|+|c2|−l (Langmead SCS notes). An invalid
+    // overlap (≤ 0 or > min length) falls back to plain concatenation.
+
+    private static string RandDna(Random rng, int len)
+    {
+        const string bases = "ACGT";
+        var chars = new char[len];
+        for (int i = 0; i < len; i++) chars[i] = bases[rng.Next(4)];
+        return new string(chars);
+    }
+
+    /// <summary>Two random contigs plus an arbitrary (possibly invalid) overlap length 0..15.</summary>
+    private static Arbitrary<(string c1, string c2, int overlap)> MergeArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            return (RandDna(rng, 3 + rng.Next(8)), RandDna(rng, 3 + rng.Next(8)), rng.Next(0, 16));
+        }).ToArbitrary();
+
+    /// <summary>A pair sharing a genuine overlap g: c1 = prefix+g, c2 = g+suffix, overlap = |g|.</summary>
+    private static Arbitrary<(string c1, string c2, int overlap)> GenuineOverlapArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int l = 1 + rng.Next(5);
+            string g = RandDna(rng, l);
+            string c1 = RandDna(rng, rng.Next(6)) + g;
+            string c2 = g + RandDna(rng, rng.Next(6));
+            return (c1, c2, l);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): The merged length is |c1|+|c2|−l for a valid overlap (else |c1|+|c2|), and is never
+    /// shorter than the longer input contig.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Merge_Length_IsCorrectAndAtLeastLongerContig()
+    {
+        return Prop.ForAll(MergeArbitrary(), t =>
+        {
+            var (c1, c2, l) = t;
+            string merged = SequenceAssembler.MergeContigs(c1, c2, l);
+            bool validOverlap = l > 0 && l <= Math.Min(c1.Length, c2.Length);
+            int expected = validOverlap ? c1.Length + c2.Length - l : c1.Length + c2.Length;
+            return (merged.Length == expected && merged.Length >= Math.Max(c1.Length, c2.Length))
+                .Label($"merged length {merged.Length} ≠ expected {expected}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (P, superstring): for a genuine suffix/prefix overlap the merged contig contains both
+    /// inputs — c1 is its prefix and c2 is its suffix — with the shared region collapsed once.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Merge_GenuineOverlap_YieldsSuperstring()
+    {
+        return Prop.ForAll(GenuineOverlapArbitrary(), t =>
+        {
+            var (c1, c2, l) = t;
+            string merged = SequenceAssembler.MergeContigs(c1, c2, l);
+            return (merged.StartsWith(c1, StringComparison.Ordinal)
+                    && merged.EndsWith(c2, StringComparison.Ordinal)
+                    && merged.Length == c1.Length + c2.Length - l)
+                .Label($"merge of overlap {l}: '{merged}' is not a superstring of '{c1}' and '{c2}'");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (D): Merging is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Merge_IsDeterministic()
+    {
+        return Prop.ForAll(MergeArbitrary(), t =>
+        {
+            var (c1, c2, l) = t;
+            return (SequenceAssembler.MergeContigs(c1, c2, l) == SequenceAssembler.MergeContigs(c1, c2, l))
+                .Label("MergeContigs must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (boundary): non-positive and over-long overlaps fall back to concatenation; the
+    /// canonical Langmead trace BAA + AAB at overlap 2 collapses to BAAB.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Merge_BoundaryAndGoldenCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(SequenceAssembler.MergeContigs("BAA", "AAB", 2), Is.EqualTo("BAAB"), "overlap collapsed once");
+            Assert.That(SequenceAssembler.MergeContigs("ACGT", "TGCA", 0), Is.EqualTo("ACGTTGCA"), "no overlap → concat");
+            Assert.That(SequenceAssembler.MergeContigs("ACGT", "TGCA", -1), Is.EqualTo("ACGTTGCA"), "negative overlap → concat");
+            Assert.That(SequenceAssembler.MergeContigs("AC", "GT", 5), Is.EqualTo("ACGT"), "overlap > shorter contig → concat");
         });
     }
 
