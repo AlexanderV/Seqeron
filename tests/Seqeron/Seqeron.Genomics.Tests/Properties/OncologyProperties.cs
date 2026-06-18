@@ -7913,4 +7913,177 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-CTDNA-001 — ctDNA Detection & Tumor Fraction (Poisson model)
+
+    // -------------------------------------------------------------------------
+    // Theory (US Patent 11,085,084 B2 / Avanzini 2020 Poisson; Newman 2014; CNAqc 2024):
+    //   • Expected mutant molecules λ = n·d·k.
+    //   • Detection probability p = 1 − e^(−λ) ∈ [0,1], increasing in n, d, k.   (R, M)
+    //   • Detected ⟺ λ ≥ 1 AND p ≥ minDetectionProbability (default 0.95).
+    //   • Tumor fraction = clamp(2·mean(plasma VAF), [0,1]); more tumor-supporting   (R, M)
+    //     reads (higher VAF) ⇒ higher fraction.
+    //
+    // The Poisson model and the TF formula are reconstructed independently — NOT
+    // routed through production — so a wrong exponent or factor is caught.
+    // -------------------------------------------------------------------------
+
+    private const double CtDnaTolerance = 1e-9;
+
+    private static Gen<int> GenomeEquivalentsGen() => Gen.Choose(0, 100_000);
+
+    private static Gen<double> MafGen() => Gen.Choose(0, 1000).Select(v => v / 1000.0); // d ∈ [0,1]
+
+    private static Gen<int> ReporterCountGen() => Gen.Choose(1, 10);
+
+    /// <summary>
+    /// R (probability ∈ [0,1]): <c>CtDnaDetectionProbability</c> equals the independent Poisson form
+    /// 1 − e^(−n·d·k) and lies in [0,1]; <c>ExpectedMutantMolecules</c> equals n·d·k. (Avanzini 2020)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDnaDetectionProbability_IsPoissonOneMinusExpMinusLambda()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, d, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double lambda = (double)t.n * t.d * t.k;
+            double p = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k);
+            double expectedLambda = OncologyAnalyzer.ExpectedMutantMolecules(t.n, t.d, t.k);
+
+            bool probOk = Math.Abs(p - (1.0 - Math.Exp(-lambda))) < CtDnaTolerance && p is >= 0.0 and <= 1.0;
+            bool lambdaOk = Math.Abs(expectedLambda - lambda) < CtDnaTolerance * Math.Max(1.0, lambda);
+            return (probOk && lambdaOk).Label($"n={t.n}, d={t.d}, k={t.k}: p={p}, λ={expectedLambda} (exp {lambda})");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tumor-supporting reads → higher fraction" applied to the detection model): the
+    /// detection probability is monotonically non-decreasing in the mutant allele fraction (and hence in λ).
+    /// (Poisson detection model)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDnaDetectionProbability_IsMonotoneInAlleleFraction()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d1 in MafGen()
+                   from d2 in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, lo: Math.Min(d1, d2), hi: Math.Max(d1, d2), k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double pLow = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.lo, t.k);
+            double pHigh = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.hi, t.k);
+            return (pHigh >= pLow - CtDnaTolerance).Label($"p({t.lo})={pLow} > p({t.hi})={pHigh}");
+        });
+    }
+
+    /// <summary>
+    /// <c>IsCtDnaDetected</c> equals the independent rule "λ ≥ 1 AND p ≥ minDetectionProbability" — at least
+    /// one mutant molecule expected and the Poisson probability reaches the operating point. (Avanzini 2020; Newman 2014)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IsCtDnaDetected_RequiresLambdaAtLeastOne_AndProbabilityThreshold()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   from minPMilli in Gen.Choose(1, 1000)
+                   select (n, d, k, minP: minPMilli / 1000.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool actual = OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k, t.minP);
+            double lambda = (double)t.n * t.d * t.k;
+            bool oracle = lambda >= 1.0 && (1.0 - Math.Exp(-lambda)) >= t.minP;
+            return (actual == oracle).Label($"detected={actual} ≠ oracle {oracle} (λ={lambda}, minP={t.minP})");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist "ctDNA fraction ∈ [0,1]") + formula: <c>CalculateTumorFraction</c> equals
+    /// clamp(2·mean plasma VAF, [0,1]) over clonal het diploid SNVs and lies in [0,1]. (CNAqc v = TF/2)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateTumorFraction_IsTwiceMeanVaf_ClampedToUnit()
+    {
+        var arb = (from n in Gen.Choose(1, 8)
+                   from obs in HetDiploidObservationGen().ArrayOf(n)
+                   select obs).ToArbitrary();
+
+        return Prop.ForAll(arb, observations =>
+        {
+            double tf = OncologyAnalyzer.CalculateTumorFraction(observations);
+            double meanVaf = observations.Average(o => (double)o.TumorAltReads / o.TumorTotalReads);
+            double oracle = Math.Min(1.0, 2.0 * meanVaf);
+            return (Math.Abs(tf - oracle) < CtDnaTolerance && tf is >= 0.0 and <= 1.0)
+                .Label($"TF {tf} ≠ clamp(2·{meanVaf}) {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more tumor-supporting reads → higher fraction"): raising the alternate-read count of a
+    /// single plasma variant (at fixed depth, keeping VAF ≤ 0.5) does not decrease the estimated tumor fraction.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateTumorFraction_RisesWithMoreAltReads()
+    {
+        var arb = (from total in Gen.Choose(2, 400)
+                   from a1 in Gen.Choose(0, total / 2)
+                   from a2 in Gen.Choose(0, total / 2)
+                   select (total, lo: Math.Min(a1, a2), hi: Math.Max(a1, a2))).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double low = OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.lo, t.total, 0, 0) });
+            double high = OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", t.hi, t.total, 0, 0) });
+            return (high >= low - CtDnaTolerance).Label($"TF dropped: alt {t.lo}->{t.hi}, TF {low}->{high}");
+        });
+    }
+
+    /// <summary>D (determinism): the ctDNA model and tumor-fraction estimate are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property CtDna_IsDeterministic()
+    {
+        var arb = (from n in GenomeEquivalentsGen()
+                   from d in MafGen()
+                   from k in ReporterCountGen()
+                   select (n, d, k)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            bool pOk = OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k) == OncologyAnalyzer.CtDnaDetectionProbability(t.n, t.d, t.k);
+            bool detectOk = OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k) == OncologyAnalyzer.IsCtDnaDetected(t.n, t.d, t.k);
+            return (pOk && detectOk).Label("ctDNA model is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchors: the Pessoa worked example (n=15000, d=0.001 ⇒ λ=15, p≈1, detected); a λ &lt; 1 case is not
+    /// detected; tumor fraction of a single VAF-0.30 plasma SNV is 0.60; guards on d and min-probability.
+    /// (Avanzini 2020; Pessoa 2023; CNAqc 2024)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void CtDna_CanonicalAndGuardCases()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.ExpectedMutantMolecules(15_000, 0.001), Is.EqualTo(15.0).Within(CtDnaTolerance),
+                "Pessoa: λ = 15000·0.001 = 15.");
+            Assert.That(OncologyAnalyzer.CtDnaDetectionProbability(15_000, 0.001), Is.GreaterThan(0.999), "λ = 15 ⇒ p ≈ 1.");
+            Assert.That(OncologyAnalyzer.IsCtDnaDetected(15_000, 0.001), Is.True, "λ = 15 ≥ 1 and p ≈ 1 ≥ 0.95 ⇒ detected.");
+            Assert.That(OncologyAnalyzer.IsCtDnaDetected(100, 0.001), Is.False, "λ = 0.1 < 1 ⇒ not detected.");
+            Assert.That(OncologyAnalyzer.CalculateTumorFraction(new[] { new OncologyAnalyzer.VariantObservation("chr1", 1, "A", "T", 30, 100, 0, 0) }),
+                Is.EqualTo(0.60).Within(CtDnaTolerance), "TF = 2·0.30 = 0.60.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.CtDnaDetectionProbability(100, 1.5), "d must be in [0,1].");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.IsCtDnaDetected(100, 0.1, 1, 0.0), "min probability must be in (0,1].");
+        });
+    }
+
+    #endregion
 }
