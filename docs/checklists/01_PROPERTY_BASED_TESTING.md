@@ -242,9 +242,9 @@ Property-based testing генерирует сотни случайных вхо
 | 210 | ☑ | SEQ-ATSKEW-001 | Composition | R: skew ∈ [−1,1]; S: complement reverses sign; D: deterministic | GcSkewProperties.cs |
 | 211 | ☑ | SEQ-REPLICATION-001 | Composition | R: origin index ∈ [0, len]; P: at cumulative-skew extremum; D: deterministic | GcSkewProperties.cs |
 | 212 | ☑ | SEQ-RNACOMP-001 | Composition | I: complement∘complement = identity; P: A↔U, G↔C; D: deterministic | SequenceProperties.cs |
-| 213 | ☐ | CODON-ENC-001 | Codon | R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic | CodonProperties.cs |
-| 214 | ☐ | CODON-RSCU-001 | Codon | R: RSCU ≥ 0; P: mean RSCU per amino acid = 1; D: deterministic | CodonProperties.cs |
-| 215 | ☐ | CODON-STATS-001 | Codon | R: counts ≥ 0; P: Σ codon counts = len/3; D: deterministic | CodonProperties.cs |
+| 213 | ☑ | CODON-ENC-001 | Codon | R: ENC ∈ [20,61]; M: more biased usage → lower ENC; D: deterministic | CodonProperties.cs |
+| 214 | ☑ | CODON-RSCU-001 | Codon | R: RSCU ≥ 0; P: mean RSCU per amino acid = 1; D: deterministic | CodonProperties.cs |
+| 215 | ☑ | CODON-STATS-001 | Codon | R: counts ≥ 0; P: Σ codon counts = len/3; D: deterministic | CodonProperties.cs |
 | 216 | ☐ | ANNOT-CODING-001 | Annotation | R: coding score ∈ [0,1]; M: real ORF → higher score; D: deterministic | AnnotationProperties.cs |
 | 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | R: frequencies ≥ 0; P: sum per amino acid = 1.0; D: deterministic | AnnotationProperties.cs |
 | 218 | ☐ | ANNOT-REPEAT-001 | Annotation | R: positions valid; M: lower minLen → ≥ elements; D: deterministic | AnnotationProperties.cs |
@@ -272,7 +272,7 @@ Property-based testing генерирует сотни случайных вхо
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 212 |
-| ☐ Not started | 22 |
+| ☑ Complete | 215 |
+| ☐ Not started | 19 |
 | New property files needed | 4 (Chromosome, Epigenetics, Oncology) |
 | Existing property files to extend | 15 |
