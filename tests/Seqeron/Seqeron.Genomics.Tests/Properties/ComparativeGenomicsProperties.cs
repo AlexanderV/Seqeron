@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for comparative genomics algorithms.
 /// Verifies invariants drawn from the literature each algorithm implements.
 ///
-/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001
+/// Test Units: COMPGEN-ANI-001, COMPGEN-CLUSTER-001, COMPGEN-COMPARE-001, COMPGEN-DOTPLOT-001, COMPGEN-ORTHO-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -507,6 +507,113 @@ public class ComparativeGenomicsProperties
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => ComparativeGenomics.GenerateDotPlot("ACGTACGT", "ACGTACGT", wordSize: DotWordSize, stepSize: 0).ToList());
         });
+    }
+
+    #endregion
+
+    #region COMPGEN-ORTHO-001: P: ortholog pairs bidirectional (RBH); R: ids/metrics valid; P: matching (each gene ≤ 1 pair); D: deterministic
+
+    // FindOrthologs is reciprocal-best-hit ortholog detection (Tatusov et al. 1997; Moreno-Hagelsieb
+    // & Latimer 2008): a pair (g1,g2) is orthologous iff each is the other's best qualifying hit in
+    // the opposite genome. The RBH condition is symmetric in its two arguments.
+
+    private static HashSet<(string, string)> OrthoPairs(IEnumerable<ComparativeGenomics.OrthologPair> pairs) =>
+        pairs.Select(p => (p.Gene1Id, p.Gene2Id)).ToHashSet();
+
+    /// <summary>
+    /// INV-1 (P): Orthology is bidirectional — FindOrthologs(A,B) and FindOrthologs(B,A) describe the
+    /// same matching with the gene roles swapped. This is the reciprocal-best-hit symmetry.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orthologs_AreBidirectional()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var ab = OrthoPairs(ComparativeGenomics.FindOrthologs(g1, g2));
+            var baSwapped = ComparativeGenomics.FindOrthologs(g2, g1)
+                .Select(p => (p.Gene2Id, p.Gene1Id)).ToHashSet();
+            return ab.SetEquals(baSwapped)
+                .Label($"RBH not bidirectional: AB={ab.Count}, BA(swapped)={baSwapped.Count}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Each pair references a real gene of each genome and carries metrics in range —
+    /// identity and coverage in [threshold,1], alignment length positive.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orthologs_HaveValidMembershipAndMetrics()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var ids1 = g1.Select(g => g.Id).ToHashSet();
+            var ids2 = g2.Select(g => g.Id).ToHashSet();
+            var pairs = ComparativeGenomics.FindOrthologs(g1, g2).ToList();
+            bool ok = pairs.All(p =>
+                ids1.Contains(p.Gene1Id) && ids2.Contains(p.Gene2Id) &&
+                p.Identity is >= 0.3 and <= 1.0 &&
+                p.Coverage is >= 0.5 and <= 1.0 &&
+                p.AlignmentLength > 0);
+            return ok.Label("an ortholog pair had an unknown gene id or out-of-range metric");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P): The result is a matching — every gene of either genome appears in at most one pair
+    /// (RBH maps each gene at most once).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orthologs_FormAMatching()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var pairs = ComparativeGenomics.FindOrthologs(MakeGenome("A", s1), MakeGenome("B", s2)).ToList();
+            bool gene1Unique = pairs.Select(p => p.Gene1Id).Distinct().Count() == pairs.Count;
+            bool gene2Unique = pairs.Select(p => p.Gene2Id).Distinct().Count() == pairs.Count;
+            return (gene1Unique && gene2Unique)
+                .Label("a gene appeared in more than one ortholog pair");
+        });
+    }
+
+    /// <summary>
+    /// INV-4 (D): Ortholog detection is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Orthologs_AreDeterministic()
+    {
+        return Prop.ForAll(GenomeSeqsArbitrary(), GenomeSeqsArbitrary(), (s1, s2) =>
+        {
+            var g1 = MakeGenome("A", s1);
+            var g2 = MakeGenome("B", s2);
+            var a = OrthoPairs(ComparativeGenomics.FindOrthologs(g1, g2));
+            var b = OrthoPairs(ComparativeGenomics.FindOrthologs(g1, g2));
+            return a.SetEquals(b).Label("FindOrthologs must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (non-vacuity, positive control): two shared near-identical genes are recovered as the
+    /// exact ortholog pairs; unrelated genes are not paired.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Orthologs_RecoverSharedGenes()
+    {
+        const string x = "AAAAACCCCCGGGGGTTTTT";
+        const string y = "TTTTTGGGGGCCCCCAAAAA";
+        const string z = "ACGTACGTACGTACGTACGT"; // genome-1 only
+        const string w = "GATCGATCGATCGATCGATC"; // genome-2 only
+
+        var g1 = MakeGenome("A", new[] { x, y, z });
+        var g2 = MakeGenome("B", new[] { x, y, w });
+        var pairs = OrthoPairs(ComparativeGenomics.FindOrthologs(g1, g2));
+
+        Assert.That(pairs, Is.EquivalentTo(new[] { ("A_0", "B_0"), ("A_1", "B_1") }),
+            "X↔X and Y↔Y must be the only reciprocal best hits");
     }
 
     #endregion
