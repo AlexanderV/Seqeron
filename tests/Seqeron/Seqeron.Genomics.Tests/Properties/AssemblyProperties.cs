@@ -8,7 +8,7 @@ namespace Seqeron.Genomics.Tests.Properties;
 /// Property-based tests for sequence/genome assembly algorithms (SequenceAssembler).
 /// Verifies invariants from the literature each algorithm implements.
 ///
-/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001
+/// Test Units: ASSEMBLY-CONSENSUS-001, ASSEMBLY-CORRECT-001, ASSEMBLY-COVER-001, ASSEMBLY-DBG-001, ASSEMBLY-MERGE-001, ASSEMBLY-OLC-001, ASSEMBLY-SCAFFOLD-001
 /// </summary>
 [TestFixture]
 [Category("Property")]
@@ -636,6 +636,119 @@ public class AssemblyProperties
     public void Olc_EmptyInput_YieldsNoContigs()
     {
         Assert.That(Olc(Array.Empty<string>(), 3).Contigs, Is.Empty);
+    }
+
+    #endregion
+
+    #region ASSEMBLY-SCAFFOLD-001: P: each contig placed exactly once; P: order respects links; R: gap sizes ≥ 0; D: deterministic
+
+    // Scaffold orders contigs along paired-end link paths, separating consecutive contigs by a run of
+    // gap characters (ABySS 2.0, Jackman et al. 2017). A non-positive gap estimate is emitted as the
+    // GenBank unknown-gap length (100). Each contig is placed in at most one scaffold.
+
+    /// <summary>Generates 2..5 gap-free (ACGT) contigs and up to 4 random links over their indices.</summary>
+    private static Arbitrary<(string[] contigs, (int, int, int)[] links)> ScaffoldArbitrary() =>
+        Gen.Choose(0, int.MaxValue).Select(seed =>
+        {
+            var rng = new Random(seed);
+            int n = 2 + rng.Next(4);
+            var contigs = new string[n];
+            for (int i = 0; i < n; i++) contigs[i] = RandDna(rng, 4 + rng.Next(5));
+
+            int m = rng.Next(5);
+            var links = new (int, int, int)[m];
+            for (int k = 0; k < m; k++)
+                links[k] = (rng.Next(n), rng.Next(n), rng.Next(-2, 150));
+            return (contigs, links);
+        }).ToArbitrary();
+
+    /// <summary>
+    /// INV-1 (P): Every contig is placed exactly once. Since contigs contain no gap character,
+    /// stripping gap characters from all scaffolds and summing lengths recovers the total contig
+    /// length — no contig is lost or duplicated.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Scaffold_PlacesEachContigExactlyOnce()
+    {
+        return Prop.ForAll(ScaffoldArbitrary(), input =>
+        {
+            var (contigs, links) = input;
+            var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+            long stripped = scaffolds.Sum(s => s.Count(ch => ch != 'N'));
+            long total = contigs.Sum(c => (long)c.Length);
+            return (stripped == total)
+                .Label($"contig content {stripped} ≠ total {total} (contig lost or duplicated)");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (R): Every maximal run of the gap character has positive length — gaps are never negative
+    /// (a non-positive estimate becomes the 100-character unknown gap).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Scaffold_GapRuns_ArePositive()
+    {
+        return Prop.ForAll(ScaffoldArbitrary(), input =>
+        {
+            var (contigs, links) = input;
+            var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+            foreach (string s in scaffolds)
+            {
+                int run = 0;
+                foreach (char ch in s)
+                {
+                    if (ch == 'N') run++;
+                    else { if (run < 0) return false.Label("negative gap"); run = 0; }
+                }
+            }
+            // A gap-free contig set never starts/ends a scaffold with 'N'.
+            bool noEdgeGaps = scaffolds.All(s => s.Length == 0 || (s[0] != 'N' && s[^1] != 'N'));
+            return noEdgeGaps.Label("a scaffold began or ended with a gap");
+        });
+    }
+
+    /// <summary>
+    /// INV-3 (P, order respects links): a link chain 0→1→2 places the contigs in that order with the
+    /// requested gap sizes; a non-positive gap becomes the 100-character unknown gap.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Scaffold_LinkChain_PreservesOrderAndGaps()
+    {
+        var contigs = new[] { "AAAA", "CCCC", "GGGG" };
+        var links = new[] { (0, 1, 3), (1, 2, -1) };
+        var scaffolds = SequenceAssembler.Scaffold(contigs, links);
+
+        Assert.That(scaffolds, Has.Count.EqualTo(1));
+        Assert.That(scaffolds[0], Is.EqualTo("AAAA" + new string('N', 3) + "CCCC" + new string('N', 100) + "GGGG"),
+            "scaffold must follow link order with the requested (and unknown) gaps");
+    }
+
+    /// <summary>
+    /// INV-4 (D): Scaffolding is deterministic.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property Scaffold_IsDeterministic()
+    {
+        return Prop.ForAll(ScaffoldArbitrary(), input =>
+        {
+            var (contigs, links) = input;
+            return SequenceAssembler.Scaffold(contigs, links)
+                .SequenceEqual(SequenceAssembler.Scaffold(contigs, links))
+                .Label("Scaffold must be deterministic");
+        });
+    }
+
+    /// <summary>
+    /// INV-5 (boundary): with no links every contig becomes its own single-contig scaffold, in order.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void Scaffold_NoLinks_OneScaffoldPerContig()
+    {
+        var contigs = new[] { "ACGT", "TTTT", "GGCC" };
+        var scaffolds = SequenceAssembler.Scaffold(contigs, Array.Empty<(int, int, int)>());
+        Assert.That(scaffolds, Is.EqualTo(contigs));
     }
 
     #endregion
