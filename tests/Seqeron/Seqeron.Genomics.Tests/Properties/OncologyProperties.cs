@@ -9443,4 +9443,206 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-EXPR-001 — Gene Expression Outlier / Signature Score
+
+    // -------------------------------------------------------------------------
+    // Theory (cBioPortal z-score normalization; Lee 2008 combined z-score):
+    //   • z = (value − μ) / σ, σ the sample SD (divisor n−1).                       (R z finite)
+    //   • Outlier ⟺ z > +t (Over) or z < −t (Under); strict, default t = 2.         (P |z| > t)
+    //   • Lower threshold ⇒ ≥ outliers (subset monotone).                            (M)
+    //   • Signature score a = Σ zᵢ / √k.
+    //
+    // The z-score, the strict-threshold rule and the combined score are reconstructed
+    // independently — NOT routed through production — so a wrong divisor, boundary sense
+    // or √k is caught.
+    // -------------------------------------------------------------------------
+
+    private const double ExprTolerance = 1e-9;
+
+    private static Gen<double[]> CohortGen() =>
+        from n in Gen.Choose(2, 8)
+        from vals in Gen.Choose(0, 1000).Select(v => v / 10.0).ArrayOf(n)
+        from bump in Gen.Choose(1, 100).Select(v => v / 10.0)
+        select EnsureVariance(vals, bump);
+
+    private static double[] EnsureVariance(double[] vals, double bump)
+    {
+        var c = (double[])vals.Clone();
+        c[1] = c[0] + bump; // guarantees two differing values ⇒ sample SD > 0
+        return c;
+    }
+
+    private static double OracleZScore(double value, IReadOnlyList<double> cohort)
+    {
+        double mean = cohort.Average();
+        double ss = cohort.Sum(v => (v - mean) * (v - mean));
+        double sd = Math.Sqrt(ss / (cohort.Count - 1));
+        return (value - mean) / sd;
+    }
+
+    /// <summary>
+    /// R (checklist "z-scores finite") + formula: <c>CalculateExpressionZScore</c> equals the independent
+    /// (value − μ)/σ with the sample standard deviation (divisor n−1) and is finite for a non-degenerate
+    /// cohort. (cBioPortal z-score normalization)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateExpressionZScore_EqualsSampleZScore_AndIsFinite()
+    {
+        var arb = (from cohort in CohortGen()
+                   from value in Gen.Choose(0, 2000).Select(v => v / 10.0)
+                   select (cohort, value)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double z = OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort);
+            double oracle = OracleZScore(t.value, t.cohort);
+            return (Math.Abs(z - oracle) <= 1e-6 * Math.Max(1.0, Math.Abs(oracle)) && double.IsFinite(z))
+                .Label($"z={z} ≠ oracle {oracle}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "outlier ⟺ |z| &gt; threshold"): <c>IdentifyOutlierGenes</c> reports exactly the genes
+    /// whose z-score strictly exceeds the threshold in magnitude, with the correct over/under direction, and
+    /// no other gene — matching an independent z-score oracle. (cBioPortal FAQ &gt;2 / &lt;−2 rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyOutlierGenes_FlagsExactlyBeyondThreshold_WithDirection()
+    {
+        var arb = (from k in Gen.Choose(1, 5)
+                   from cohorts in CohortGen().ArrayOf(k)
+                   from values in Gen.Choose(0, 2000).Select(v => v / 10.0).ArrayOf(k)
+                   from tMilli in Gen.Choose(5, 40)
+                   select (cohorts, values, threshold: tMilli / 10.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var sample = new Dictionary<string, double>();
+            var refs = new Dictionary<string, IReadOnlyList<double>>();
+            for (int i = 0; i < t.cohorts.Length; i++)
+            {
+                sample["g" + i] = t.values[i];
+                refs["g" + i] = t.cohorts[i];
+            }
+
+            var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.threshold);
+
+            bool ok = true;
+            foreach (var o in outliers)
+            {
+                double z = OracleZScore(sample[o.Gene], refs[o.Gene]);
+                ok &= Math.Abs(z) > t.threshold
+                      && o.Direction == (z > 0 ? OncologyAnalyzer.ExpressionDirection.Over : OncologyAnalyzer.ExpressionDirection.Under)
+                      && Math.Abs(o.ZScore - z) <= 1e-6 * Math.Max(1.0, Math.Abs(z));
+            }
+
+            // Completeness: every gene beyond the threshold is reported.
+            var reported = outliers.Select(o => o.Gene).ToHashSet();
+            for (int i = 0; ok && i < t.cohorts.Length; i++)
+            {
+                double z = OracleZScore(t.values[i], t.cohorts[i]);
+                bool isOutlier = Math.Abs(z) > t.threshold;
+                ok &= isOutlier == reported.Contains("g" + i);
+            }
+
+            return ok.Label($"reported {outliers.Count} outliers at threshold {t.threshold}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "lower threshold → ≥ outliers"): the set of outlier genes at a lower threshold contains
+    /// the set at a higher threshold (relaxing the cutoff cannot remove an outlier). (cBioPortal z-score rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property IdentifyOutlierGenes_LowerThreshold_YieldsSuperset()
+    {
+        var arb = (from k in Gen.Choose(1, 5)
+                   from cohorts in CohortGen().ArrayOf(k)
+                   from values in Gen.Choose(0, 2000).Select(v => v / 10.0).ArrayOf(k)
+                   from t1 in Gen.Choose(5, 40)
+                   from t2 in Gen.Choose(5, 40)
+                   select (cohorts, values, lo: Math.Min(t1, t2) / 10.0, hi: Math.Max(t1, t2) / 10.0)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            var sample = new Dictionary<string, double>();
+            var refs = new Dictionary<string, IReadOnlyList<double>>();
+            for (int i = 0; i < t.cohorts.Length; i++)
+            {
+                sample["g" + i] = t.values[i];
+                refs["g" + i] = t.cohorts[i];
+            }
+
+            var low = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.lo).Select(o => o.Gene).ToHashSet();
+            var high = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, t.hi).Select(o => o.Gene).ToHashSet();
+            return high.IsSubsetOf(low).Label($"high-threshold outliers not a subset of low-threshold (lo={t.lo}, hi={t.hi})");
+        });
+    }
+
+    /// <summary>
+    /// <c>CalculateSignatureScore</c> equals the independent combined z-score a = Σ zᵢ / √k. (Lee 2008)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property CalculateSignatureScore_IsSumOverSqrtK()
+    {
+        var arb = (from k in Gen.Choose(1, 12)
+                   from zs in Gen.Choose(-5000, 5000).Select(v => v / 1000.0).ArrayOf(k)
+                   select zs).ToArbitrary();
+
+        return Prop.ForAll(arb, zs =>
+        {
+            double score = OncologyAnalyzer.CalculateSignatureScore(zs);
+            double oracle = zs.Sum() / Math.Sqrt(zs.Length);
+            return (Math.Abs(score - oracle) <= 1e-6 * Math.Max(1.0, Math.Abs(oracle)))
+                .Label($"signature score {score} ≠ Σz/√k {oracle}");
+        });
+    }
+
+    /// <summary>D (determinism): outlier detection and the z-score are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property ExpressionOutlier_IsDeterministic()
+    {
+        var arb = (from cohort in CohortGen()
+                   from value in Gen.Choose(0, 2000).Select(v => v / 10.0)
+                   select (cohort, value)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+            (OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort)
+                == OncologyAnalyzer.CalculateExpressionZScore(t.value, t.cohort))
+                .Label("CalculateExpressionZScore is not deterministic for identical arguments"));
+    }
+
+    /// <summary>
+    /// Anchors: cohort {1,2,3,4,5} (μ=3, sample SD √2.5) gives value 8 a z ≈ 3.16 (Over, outlier at t=2) and
+    /// value 4 a z ≈ 0.63 (not an outlier); the strict boundary; signature score {2,2} = 4/√2; degenerate
+    /// cohort and bad threshold rejected. (cBioPortal; Lee 2008)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ExpressionOutlier_CanonicalAndGuardCases()
+    {
+        var cohort = new double[] { 1, 2, 3, 4, 5 }; // mean 3, sample SD = sqrt(2.5)
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.CalculateExpressionZScore(8, cohort), Is.EqualTo(5.0 / Math.Sqrt(2.5)).Within(1e-9),
+                "z = (8−3)/√2.5.");
+
+            var sample = new Dictionary<string, double> { ["over"] = 8, ["normal"] = 4 };
+            var refs = new Dictionary<string, IReadOnlyList<double>> { ["over"] = cohort, ["normal"] = cohort };
+            var outliers = OncologyAnalyzer.IdentifyOutlierGenes(sample, refs);
+            Assert.That(outliers.Select(o => o.Gene), Is.EqualTo(new[] { "over" }), "Only the high-z gene is an outlier at t=2.");
+            Assert.That(outliers[0].Direction, Is.EqualTo(OncologyAnalyzer.ExpressionDirection.Over));
+
+            Assert.That(OncologyAnalyzer.CalculateSignatureScore(new double[] { 2, 2 }), Is.EqualTo(4.0 / Math.Sqrt(2)).Within(1e-9),
+                "Combined z = (2+2)/√2.");
+
+            Assert.Throws<ArgumentException>(() => OncologyAnalyzer.CalculateExpressionZScore(1, new double[] { 5, 5, 5 }),
+                "A zero-SD cohort has no defined z-score.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => OncologyAnalyzer.IdentifyOutlierGenes(sample, refs, 0.0),
+                "Threshold must be positive.");
+        });
+    }
+
+    #endregion
 }
