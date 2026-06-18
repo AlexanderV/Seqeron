@@ -449,8 +449,15 @@ public static class RepeatFinder
             .ToDictionary(g => g.Key, g => g.ToList());
 
         int totalBases = microsatellites.Sum(m => m.TotalLength);
+
+        // PercentageOfSequence is the fraction of the sequence that is tandem-repeat, so it must use the
+        // DISTINCT bases covered by any microsatellite (the union of their spans), not the raw sum of repeat
+        // lengths: overlapping repeats (e.g. a homopolymer run also matched as a dinucleotide repeat) would
+        // otherwise double-count bases and push the percentage above 100. Covered bases ≤ sequence length, so
+        // the percentage is always in [0, 100]. TotalRepeatBases keeps the (possibly overlapping) repeat content.
+        long coveredBases = CountCoveredBases(microsatellites, sequence.Length);
         double percentageOfSequence = sequence.Length > 0
-            ? (double)totalBases / sequence.Length * 100
+            ? (double)coveredBases / sequence.Length * 100
             : 0;
 
         return new TandemRepeatSummary(
@@ -466,6 +473,48 @@ public static class RepeatFinder
                 .GroupBy(m => m.RepeatUnit)
                 .OrderByDescending(g => g.Count())
                 .FirstOrDefault()?.Key);
+    }
+
+    /// <summary>
+    /// Counts the number of distinct sequence bases covered by at least one microsatellite, i.e. the length
+    /// of the union of the half-open spans <c>[Position, Position + TotalLength)</c>. Spans are clamped to the
+    /// sequence length and merged in start order, so the result never exceeds <paramref name="sequenceLength"/>.
+    /// </summary>
+    private static long CountCoveredBases(
+        IReadOnlyList<MicrosatelliteResult> microsatellites, int sequenceLength)
+    {
+        if (microsatellites.Count == 0)
+        {
+            return 0;
+        }
+
+        var intervals = microsatellites
+            .Select(m => (Start: m.Position, End: Math.Min(sequenceLength, m.Position + m.TotalLength)))
+            .Where(iv => iv.End > iv.Start)
+            .OrderBy(iv => iv.Start)
+            .ToList();
+
+        long covered = 0;
+        int currentStart = -1;
+        int currentEnd = -1;
+        foreach (var iv in intervals)
+        {
+            if (iv.Start > currentEnd)
+            {
+                // Disjoint from the current run: close it out and start a new one.
+                covered += currentEnd - currentStart;
+                currentStart = iv.Start;
+                currentEnd = iv.End;
+            }
+            else
+            {
+                // Overlapping or adjacent: extend the current run.
+                currentEnd = Math.Max(currentEnd, iv.End);
+            }
+        }
+
+        covered += currentEnd - currentStart;
+        return covered;
     }
 
     #endregion
