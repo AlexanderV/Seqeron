@@ -5429,4 +5429,350 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-SIG-004 — Mutational Process Classification (active processes + dominant aetiology)
+
+    // -------------------------------------------------------------------------
+    // Theory (Rosenthal 2016 deconstructSigs; COSMIC SBS aetiologies; Alexandrov 2020):
+    //   • Normalized contribution of signature i = exposureᵢ / Σ exposure.            (Rosenthal 2016)
+    //   • A signature is ACTIVE iff its normalized contribution ≥ cutoff (strict <    (deconstructSigs
+    //     excludes), default 0.06 = signature.cutoff.                                  weights<cutoff<-0)
+    //   • Surviving signatures are mapped to a COSMIC mutational process and the       (COSMIC SBS map;
+    //     per-process contribution is the SUM of its surviving members.                 INV-3, additive)
+    //   • Dominant process = active process with the largest aggregated contribution,   (INV-4)
+    //     ties broken by the MutationalProcess enum; none ⇒ Unknown.
+    //   • Σ exposure = 0 ⇒ no active processes, dominant = Unknown.                     (INV-5)
+    //
+    // The SBS→process map and the whole classification are reconstructed here from the
+    // cited COSMIC aetiologies and the deconstructSigs cutoff rule — NOT routed through
+    // GetMutationalProcess / ClassifyMutationalProcess — so a self-consistent-but-wrong
+    // production map or aggregation is still caught (TestSpec §3 INV-1..5).
+    // -------------------------------------------------------------------------
+
+    private const double SigProcessTolerance = 1e-9;
+
+    /// <summary>The deconstructSigs default presence cutoff (0.06), restated for the oracle.</summary>
+    private const double SigProcessDefaultCutoff = 0.06;
+
+    /// <summary>
+    /// Independent COSMIC SBS-label → mutational-process map, transcribed from the COSMIC proposed
+    /// aetiologies (Alexandrov 2020; ONCO-SIG-004 Evidence §Online Sources), NOT from production.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, OncologyAnalyzer.MutationalProcess> SigProcessOracleMap =
+        new Dictionary<string, OncologyAnalyzer.MutationalProcess>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["SBS1"] = OncologyAnalyzer.MutationalProcess.Aging,
+            ["SBS5"] = OncologyAnalyzer.MutationalProcess.Aging,
+            ["SBS2"] = OncologyAnalyzer.MutationalProcess.Apobec,
+            ["SBS13"] = OncologyAnalyzer.MutationalProcess.Apobec,
+            ["SBS4"] = OncologyAnalyzer.MutationalProcess.TobaccoSmoking,
+            ["SBS7a"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7b"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7c"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS7d"] = OncologyAnalyzer.MutationalProcess.UltravioletLight,
+            ["SBS6"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS15"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS20"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+            ["SBS26"] = OncologyAnalyzer.MutationalProcess.MismatchRepairDeficiency,
+        };
+
+    /// <summary>
+    /// Label pool blending every mapped COSMIC aetiology subtype (so aggregation, ties and dominance are
+    /// exercised) with unmapped/unknown-aetiology labels (SBS3, SBS8, SBS99) that must contribute to no
+    /// process. Lower-case "sbs2" probes the documented case-insensitive lookup.
+    /// </summary>
+    private static readonly string[] SigLabelPool =
+    {
+        "SBS1", "SBS5", "SBS2", "SBS13", "SBS4",
+        "SBS7a", "SBS7b", "SBS7c", "SBS7d",
+        "SBS6", "SBS15", "SBS20", "SBS26",
+        "sbs2", "SBS3", "SBS8", "SBS99",
+    };
+
+    /// <summary>
+    /// An arbitrary classification problem: 1..8 (label, non-negative integer exposure) pairs drawn from
+    /// <see cref="SigLabelPool"/> and a cutoff in the valid half-open interval [0, 0.5). Integer exposures
+    /// keep the normalized contributions exactly representable, so the oracle and production agree bit-for-bit.
+    /// </summary>
+    private static Arbitrary<((string label, double exposure)[] exposures, double cutoff)> ClassificationProblemArbitrary() =>
+        (from count in Gen.Choose(1, 8)
+         from labels in Gen.Elements(SigLabelPool).ArrayOf(count)
+         from raws in Gen.Choose(0, 200).ArrayOf(count)
+         from cutoffMilli in Gen.Choose(0, 499)
+         select (labels.Zip(raws, (l, r) => (l, (double)r)).ToArray(), cutoffMilli / 1000.0)).ToArbitrary();
+
+    /// <summary>
+    /// Independent deconstructSigs/COSMIC oracle: normalize by Σ exposure, drop signatures below the cutoff
+    /// (strict &lt;), map survivors to processes, sum per process, order by descending contribution then
+    /// process enum. Accumulates in input order so the summed contributions match production bit-for-bit.
+    /// </summary>
+    private static (List<(OncologyAnalyzer.MutationalProcess process, double contribution)> active,
+        OncologyAnalyzer.MutationalProcess dominant) OracleClassify(
+        IReadOnlyList<(string label, double exposure)> exposures, double cutoff)
+    {
+        var empty = (new List<(OncologyAnalyzer.MutationalProcess, double)>(),
+            OncologyAnalyzer.MutationalProcess.Unknown);
+
+        double total = 0.0;
+        foreach ((string _, double exposure) in exposures)
+        {
+            total += exposure;
+        }
+
+        if (total <= 0.0)
+        {
+            return empty;
+        }
+
+        var byProcess = new Dictionary<OncologyAnalyzer.MutationalProcess, double>();
+        foreach ((string label, double exposure) in exposures)
+        {
+            double contribution = exposure / total;
+            if (contribution < cutoff)
+            {
+                continue;
+            }
+
+            if (!SigProcessOracleMap.TryGetValue(label, out OncologyAnalyzer.MutationalProcess process))
+            {
+                continue; // unmapped aetiology contributes to no named process
+            }
+
+            byProcess.TryGetValue(process, out double accumulated);
+            byProcess[process] = accumulated + contribution;
+        }
+
+        if (byProcess.Count == 0)
+        {
+            return empty;
+        }
+
+        var active = byProcess
+            .Select(kv => (kv.Key, kv.Value))
+            .OrderByDescending(p => p.Value)
+            .ThenBy(p => p.Key)
+            .ToList();
+
+        return (active, active[0].Key);
+    }
+
+    /// <summary>
+    /// INV-2 + INV-3 + INV-4: the production classification reproduces the independent deconstructSigs/COSMIC
+    /// oracle exactly — same active processes in the same descending-contribution order, each aggregated
+    /// contribution within 1e-9, and the same dominant process. (TestSpec §3 INV-2/3/4)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_MatchesIndependentDeconstructSigsOracle()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            (var oracleActive, OncologyAnalyzer.MutationalProcess oracleDominant) = OracleClassify(t.exposures, t.cutoff);
+
+            bool ok = result.ActiveProcesses.Count == oracleActive.Count
+                      && result.DominantProcess == oracleDominant;
+            for (int i = 0; ok && i < oracleActive.Count; i++)
+            {
+                ok &= result.ActiveProcesses[i].Process == oracleActive[i].process;
+                ok &= Math.Abs(result.ActiveProcesses[i].Contribution - oracleActive[i].contribution) < SigProcessTolerance;
+            }
+
+            return ok.Label(
+                $"got dominant={result.DominantProcess} active=[{string.Join(",", result.ActiveProcesses.Select(a => $"{a.Process}:{a.Contribution:F4}"))}] " +
+                $"vs oracle dominant={oracleDominant} active=[{string.Join(",", oracleActive.Select(a => $"{a.process}:{a.contribution:F4}"))}]");
+        });
+    }
+
+    /// <summary>
+    /// R (checklist confidence ∈ [0,1]) + INV-1: every active-process aggregated contribution lies in [0,1]
+    /// and the surviving contributions sum to at most 1 (sub-cutoff mass is dropped, never invented).
+    /// (TestSpec §3 INV-1; Rosenthal 2016 "weights normalized between 0 and 1")
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_Contributions_AreInUnitRange_AndSumAtMostOne()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            bool inRange = result.ActiveProcesses.All(
+                a => a.Contribution >= -SigProcessTolerance && a.Contribution <= 1.0 + SigProcessTolerance);
+            double sum = result.ActiveProcesses.Sum(a => a.Contribution);
+            bool sumOk = sum <= 1.0 + SigProcessTolerance;
+            return (inRange && sumOk).Label($"Σ contributions = {sum}; inRange = {inRange}");
+        });
+    }
+
+    /// <summary>
+    /// P (checklist "dominant = argmax") + INV-4: when any process is active the active list is ordered by
+    /// non-increasing contribution and the dominant process is its head (the contribution maximum); when no
+    /// process is active the dominant process is <see cref="OncologyAnalyzer.MutationalProcess.Unknown"/>.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_DominantProcess_IsArgmaxOfActiveContributions()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            var active = result.ActiveProcesses;
+
+            if (active.Count == 0)
+            {
+                return (result.DominantProcess == OncologyAnalyzer.MutationalProcess.Unknown)
+                    .Label($"no active process ⇒ dominant must be Unknown, got {result.DominantProcess}");
+            }
+
+            double max = active.Max(a => a.Contribution);
+            bool dominantIsHead = result.DominantProcess == active[0].Process;
+            bool headIsMax = Math.Abs(active[0].Contribution - max) < SigProcessTolerance;
+            bool sortedDescending = true;
+            for (int i = 1; i < active.Count; i++)
+            {
+                sortedDescending &= active[i].Contribution <= active[i - 1].Contribution + SigProcessTolerance;
+            }
+
+            return (dominantIsHead && headIsMax && sortedDescending)
+                .Label($"dominant={result.DominantProcess} head={active[0].Process}:{active[0].Contribution} max={max} sorted={sortedDescending}");
+        });
+    }
+
+    /// <summary>
+    /// INV-2 (lower bound): every active process's aggregated contribution is at least the cutoff. Each
+    /// surviving signature has contribution ≥ cutoff and a process is a sum of ≥ 1 such survivors, so a
+    /// process that clears the cutoff can never report sub-cutoff activity. (deconstructSigs 6% rule)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_EveryActiveProcess_MeetsTheCutoff()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            return result.ActiveProcesses.All(a => a.Contribution >= t.cutoff - SigProcessTolerance)
+                .Label($"cutoff={t.cutoff}; contributions=[{string.Join(",", result.ActiveProcesses.Select(a => a.Contribution))}]");
+        });
+    }
+
+    /// <summary>
+    /// M (metamorphic) / normalization: scaling every exposure by a positive constant leaves the
+    /// classification unchanged — absolute mutation counts and proportions give the same active set,
+    /// order and dominant process, because contributions depend only on exposureᵢ / Σ exposure.
+    /// (Rosenthal 2016: weights are normalized relative contributions)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_IsInvariantUnderPositiveScaling()
+    {
+        var arb = (from t in ClassificationProblemArbitrary().Generator
+                   from k in Gen.Choose(2, 1000)
+                   select (t.exposures, t.cutoff, k: (double)k)).ToArbitrary();
+
+        return Prop.ForAll(arb, x =>
+        {
+            var baseResult = OncologyAnalyzer.ClassifyMutationalProcess(x.exposures, x.cutoff);
+            var scaled = x.exposures.Select(e => (e.label, e.exposure * x.k)).ToArray();
+            var scaledResult = OncologyAnalyzer.ClassifyMutationalProcess(scaled, x.cutoff);
+
+            bool ok = baseResult.DominantProcess == scaledResult.DominantProcess
+                      && baseResult.ActiveProcesses.Count == scaledResult.ActiveProcesses.Count;
+            for (int i = 0; ok && i < baseResult.ActiveProcesses.Count; i++)
+            {
+                ok &= baseResult.ActiveProcesses[i].Process == scaledResult.ActiveProcesses[i].Process;
+                ok &= Math.Abs(baseResult.ActiveProcesses[i].Contribution - scaledResult.ActiveProcesses[i].Contribution)
+                    < SigProcessTolerance;
+            }
+
+            return ok.Label($"scaling by {x.k} changed the classification (dominant {baseResult.DominantProcess} → {scaledResult.DominantProcess})");
+        });
+    }
+
+    /// <summary>
+    /// INV-5: when the total exposure is zero (every exposure 0) normalization is undefined, so no process
+    /// is active and the dominant process is <see cref="OncologyAnalyzer.MutationalProcess.Unknown"/>,
+    /// regardless of which COSMIC labels are present. (TestSpec §3 INV-5)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_ZeroTotalExposure_YieldsNoActiveProcesses()
+    {
+        var arb = (from count in Gen.Choose(1, 8)
+                   from labels in Gen.Elements(SigLabelPool).ArrayOf(count)
+                   select labels).ToArbitrary();
+
+        return Prop.ForAll(arb, labels =>
+        {
+            var exposures = labels.Select(l => (l, 0.0)).ToArray();
+            var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+            return (result.ActiveProcesses.Count == 0
+                    && result.DominantProcess == OncologyAnalyzer.MutationalProcess.Unknown)
+                .Label($"all-zero exposures must give empty/Unknown, got dominant={result.DominantProcess} count={result.ActiveProcesses.Count}");
+        });
+    }
+
+    /// <summary>
+    /// D (determinism): the same exposures and cutoff always yield the identical classification — same
+    /// active processes in the same order with identical contributions and the same dominant process.
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property ClassifyMutationalProcess_IsDeterministic()
+    {
+        return Prop.ForAll(ClassificationProblemArbitrary(), t =>
+        {
+            var a = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+            var b = OncologyAnalyzer.ClassifyMutationalProcess(t.exposures, t.cutoff);
+
+            bool ok = a.DominantProcess == b.DominantProcess
+                      && a.ActiveProcesses.Count == b.ActiveProcesses.Count;
+            for (int i = 0; ok && i < a.ActiveProcesses.Count; i++)
+            {
+                ok &= a.ActiveProcesses[i].Process == b.ActiveProcesses[i].Process;
+                ok &= a.ActiveProcesses[i].Contribution == b.ActiveProcesses[i].Contribution;
+            }
+
+            return ok.Label("ClassifyMutationalProcess is not deterministic for identical arguments");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (INV-3 aggregation + INV-4 dominance, exact arithmetic): the hand-derived deconstructSigs
+    /// dataset {SBS2:50, SBS13:30, SBS1:15, SBS4:5} (Σ = 100) ⇒ APOBEC = 0.80, Aging = 0.15, Tobacco dropped
+    /// (0.05 &lt; 0.06), dominant = APOBEC. (Evidence §Test Datasets)
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyMutationalProcess_CanonicalDataset_AggregatesAndPicksDominant()
+    {
+        var exposures = new (string, double)[] { ("SBS2", 50), ("SBS13", 30), ("SBS1", 15), ("SBS4", 5) };
+        var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.DominantProcess, Is.EqualTo(OncologyAnalyzer.MutationalProcess.Apobec),
+                "APOBEC (0.80) > Aging (0.15) ⇒ dominant = APOBEC.");
+            Assert.That(result.ActiveProcesses.Select(a => a.Process),
+                Is.EquivalentTo(new[] { OncologyAnalyzer.MutationalProcess.Apobec, OncologyAnalyzer.MutationalProcess.Aging }),
+                "Active processes are APOBEC and Aging; Tobacco (SBS4 = 0.05) is below the 0.06 cutoff.");
+            Assert.That(result.ActiveProcesses.Single(a => a.Process == OncologyAnalyzer.MutationalProcess.Apobec).Contribution,
+                Is.EqualTo(0.80).Within(SigProcessTolerance), "APOBEC = (50+30)/100.");
+            Assert.That(result.ActiveProcesses.Single(a => a.Process == OncologyAnalyzer.MutationalProcess.Aging).Contribution,
+                Is.EqualTo(0.15).Within(SigProcessTolerance), "Aging = 15/100.");
+        });
+    }
+
+    /// <summary>
+    /// Anchor (unmapped aetiologies): a sample composed only of labels outside the COSMIC map has no
+    /// recognized active process even with large exposures, and reports a dominant process of Unknown.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void ClassifyMutationalProcess_OnlyUnmappedLabels_YieldNoProcess()
+    {
+        var exposures = new (string, double)[] { ("SBS3", 500), ("SBS8", 300), ("SBS99", 200) };
+        var result = OncologyAnalyzer.ClassifyMutationalProcess(exposures);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.ActiveProcesses, Is.Empty, "Unmapped labels contribute to no recognized process.");
+            Assert.That(result.DominantProcess, Is.EqualTo(OncologyAnalyzer.MutationalProcess.Unknown),
+                "No process active ⇒ dominant = Unknown.");
+        });
+    }
+
+    #endregion
 }
