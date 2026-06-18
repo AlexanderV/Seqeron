@@ -7249,4 +7249,159 @@ public class OncologyProperties
     }
 
     #endregion
+
+    #region ONCO-PLOIDY-001 — Tumor Ploidy Estimation (length-weighted mean CN + WGD)
+
+    // -------------------------------------------------------------------------
+    // Theory (Patchwork / ASCAT length-weighted ploidy; facets-suite WGD, Bielski 2018):
+    //   • ψ = Σ(CN_i · L_i) / Σ(L_i), CN_i = Major + Minor, L_i = End − Start.            (Patchwork)
+    //   • A balanced diploid genome (all 1:1) has ψ = 2; ψ lies within [min CN, max CN].
+    //   • WGD ⟺ fraction of genome length with major-allele CN ≥ 2 is strictly > 0.5.       (facets-suite)
+    //
+    // The weighted mean and the WGD fraction are reconstructed here independently — NOT
+    // routed through production — so a wrong weighting or threshold sense is caught.
+    // -------------------------------------------------------------------------
+
+    private const double PloidyTolerance = 1e-9;
+
+    private static Gen<OncologyAnalyzer.AlleleSpecificSegment> AlleleSegmentGen() =>
+        from len in Gen.Choose(1, 1_000_000)
+        from major in Gen.Choose(0, 5)
+        from minor in Gen.Choose(0, major) // minor ≤ major by allele-specific convention
+        select new OncologyAnalyzer.AlleleSpecificSegment("1", 0, len, major, minor);
+
+    private static Arbitrary<OncologyAnalyzer.AlleleSpecificSegment[]> NonEmptySegmentsArbitrary() =>
+        (from n in Gen.Choose(1, 6)
+         from segs in AlleleSegmentGen().ArrayOf(n)
+         select segs).ToArbitrary();
+
+    /// <summary>
+    /// R (checklist "ploidy &gt; 0") + formula: <c>EstimatePloidy</c> equals the independent length-weighted
+    /// mean of per-segment total copy number Σ(CN·L)/ΣL, lies within [min CN, max CN], and is &gt; 0 whenever
+    /// any segment carries a positive copy number. (Patchwork length-weighted ploidy)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePloidy_IsLengthWeightedMeanTotalCopyNumber_WithinCnExtremes()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            double psi = OncologyAnalyzer.EstimatePloidy(segs);
+
+            double weighted = segs.Sum(s => (double)(s.MajorCopyNumber + s.MinorCopyNumber) * s.Length);
+            double totalLen = segs.Sum(s => (double)s.Length);
+            double oracle = weighted / totalLen;
+
+            int minCn = segs.Min(s => s.MajorCopyNumber + s.MinorCopyNumber);
+            int maxCn = segs.Max(s => s.MajorCopyNumber + s.MinorCopyNumber);
+            bool anyPositive = segs.Any(s => s.MajorCopyNumber + s.MinorCopyNumber > 0);
+
+            bool formulaOk = Math.Abs(psi - oracle) <= PloidyTolerance * Math.Max(1.0, oracle);
+            bool withinExtremes = psi >= minCn - PloidyTolerance && psi <= maxCn + PloidyTolerance;
+            bool positivity = !anyPositive || psi > 0.0;
+            return (formulaOk && withinExtremes && positivity)
+                .Label($"ψ={psi} vs oracle {oracle}; extremes [{minCn},{maxCn}]; anyPositive={anyPositive}");
+        });
+    }
+
+    /// <summary>
+    /// M (checklist "more amplified genome → higher ploidy"): raising the copy number of any single segment
+    /// strictly increases the length-weighted ploidy (the segment has positive length, hence positive weight).
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property EstimatePloidy_RisesWhenASegmentCopyNumberIncreases()
+    {
+        var arb = (from segs in NonEmptySegmentsArbitrary().Generator
+                   from idx in Gen.Choose(0, segs.Length - 1)
+                   from bump in Gen.Choose(1, 4)
+                   select (segs, idx, bump)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            double before = OncologyAnalyzer.EstimatePloidy(t.segs);
+            var raised = (OncologyAnalyzer.AlleleSpecificSegment[])t.segs.Clone();
+            raised[t.idx] = raised[t.idx] with { MajorCopyNumber = raised[t.idx].MajorCopyNumber + t.bump };
+            double after = OncologyAnalyzer.EstimatePloidy(raised);
+            return (after > before).Label($"ψ did not increase: before={before}, after={after} (bump={t.bump})");
+        });
+    }
+
+    /// <summary>
+    /// WGD oracle: <c>DetectWholeGenomeDoubling</c> equals the independent test "fraction of genome length
+    /// with major-allele CN ≥ 2 is strictly &gt; 0.5". (facets-suite is_genome_doubled)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectWholeGenomeDoubling_MatchesElevatedMajorCnFractionOracle()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            bool actual = OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+
+            double elevated = segs.Where(s => s.MajorCopyNumber >= 2).Sum(s => (double)s.Length);
+            double total = segs.Sum(s => (double)s.Length);
+            bool oracle = elevated / total > 0.5;
+
+            return (actual == oracle).Label($"WGD={actual} ≠ oracle {oracle} (elevated frac {elevated / total})");
+        });
+    }
+
+    /// <summary>
+    /// M (WGD monotone): raising every segment's major-allele copy number can only enlarge the elevated
+    /// fraction, so a genome already called whole-genome doubled stays doubled. (more amplified ⇒ stays WGD)
+    /// </summary>
+    [FsCheck.NUnit.Property]
+    public Property DetectWholeGenomeDoubling_RaisingMajorCopyNumber_KeepsDoubling()
+    {
+        var arb = (from segs in NonEmptySegmentsArbitrary().Generator
+                   from bump in Gen.Choose(1, 3)
+                   select (segs, bump)).ToArbitrary();
+
+        return Prop.ForAll(arb, t =>
+        {
+            if (!OncologyAnalyzer.DetectWholeGenomeDoubling(t.segs))
+            {
+                return true.ToProperty(); // implication is conditional on the base genome being doubled
+            }
+
+            var raised = t.segs.Select(s => s with { MajorCopyNumber = s.MajorCopyNumber + t.bump }).ToArray();
+            return OncologyAnalyzer.DetectWholeGenomeDoubling(raised).ToProperty()
+                .Label("raising major CN un-doubled a WGD genome");
+        });
+    }
+
+    /// <summary>D (determinism): ploidy and WGD are identical for identical inputs.</summary>
+    [FsCheck.NUnit.Property]
+    public Property TumorPloidy_IsDeterministic()
+    {
+        return Prop.ForAll(NonEmptySegmentsArbitrary(), segs =>
+        {
+            bool ploidyOk = OncologyAnalyzer.EstimatePloidy(segs) == OncologyAnalyzer.EstimatePloidy(segs);
+            bool wgdOk = OncologyAnalyzer.DetectWholeGenomeDoubling(segs) == OncologyAnalyzer.DetectWholeGenomeDoubling(segs);
+            return (ploidyOk && wgdOk).Label("tumor ploidy estimation is not deterministic");
+        });
+    }
+
+    /// <summary>
+    /// Anchors (facets-suite / ASCAT): a balanced diploid genome (all 1:1) has ψ = 2 and is NOT doubled; an
+    /// all-2:2 genome has ψ = 4 and IS doubled; a 2:0 LOH genome is doubled (major CN 2) yet has ψ = 2.
+    /// </summary>
+    [Test]
+    [Category("Property")]
+    public void TumorPloidy_CanonicalGenomes()
+    {
+        var diploid = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 1, 1) };
+        var doubled = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 2) };
+        var lohDoubled = new[] { new OncologyAnalyzer.AlleleSpecificSegment("1", 0, 1_000_000, 2, 0) };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OncologyAnalyzer.EstimatePloidy(diploid), Is.EqualTo(2.0).Within(PloidyTolerance), "1:1 ⇒ ψ = 2.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(diploid), Is.False, "Balanced diploid is not doubled (major CN 1).");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(doubled), Is.EqualTo(4.0).Within(PloidyTolerance), "2:2 ⇒ ψ = 4.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(doubled), Is.True, "2:2 genome is doubled.");
+            Assert.That(OncologyAnalyzer.EstimatePloidy(lohDoubled), Is.EqualTo(2.0).Within(PloidyTolerance), "2:0 ⇒ ψ = 2.");
+            Assert.That(OncologyAnalyzer.DetectWholeGenomeDoubling(lohDoubled), Is.True, "2:0 LOH has major CN 2 ⇒ doubled.");
+        });
+    }
+
+    #endregion
 }
