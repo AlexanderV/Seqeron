@@ -287,4 +287,87 @@ public class CodonMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CODON-RARE-001 — rare-codon detection (Codon).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 60.
+    //
+    // API under test (CodonOptimizer.FindRareCodons):
+    //   Scans a CDS codon-by-codon and reports every codon whose target-organism usage
+    //   fraction is strictly below a threshold τ:  flagged(τ) = { i : f(codon_i) < τ }.
+    //   Each hit carries (Position = 3·i, Codon, AminoAcid, Frequency).
+    //
+    // Relations (derived from the f < τ predicate, NOT from output):
+    //   • MON (raising τ ⇒ superset): the predicate f < τ is monotone in τ, so
+    //          τ₁ ≤ τ₂ ⇒ flagged(τ₁) ⊆ flagged(τ₂); the flagged set never shrinks as
+    //          the threshold rises, and grows exactly by the codons whose frequency lies
+    //          in [τ₁, τ₂). (NOTE: this is the opposite direction to the loosely-worded
+    //          checklist hint — the implementation flags codons BELOW the threshold, so
+    //          a HIGHER threshold flags more.)
+    //   • INV (no rare codons ⇒ empty): if no codon satisfies f < τ — e.g. τ = 0 (no
+    //          frequency is negative) or a sequence built only from codons whose usage is
+    //          ≥ τ — the result is empty.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region CODON-RARE-001 — Helpers
+
+    /// <summary>The set of codon indices (Position / 3) flagged as rare at a given threshold.</summary>
+    private static HashSet<int> RarePositions(string seq, double threshold) =>
+        CodonOptimizer.FindRareCodons(seq, CodonOptimizer.EColiK12, threshold)
+            .Select(r => r.Position / 3)
+            .ToHashSet();
+
+    #endregion
+
+    #region CODON-RARE-001 MON — raising the threshold yields a superset of flagged codons
+
+    [Test]
+    [Description("MON: f < τ is monotone in τ, so a higher threshold flags a superset of the codons flagged by a lower threshold, growing exactly by codons whose frequency falls in the opened band.")]
+    public void FindRareCodons_HigherThreshold_YieldsSuperset()
+    {
+        // Codons chosen to span the E. coli usage range so each threshold step opens a new band:
+        //   CUA Leu 0.04 | ACU Thr 0.16 | AUC Ile 0.42 | CUG Leu 0.50
+        const string seq = "CUAACUAUCCUG";
+
+        double[] thresholds = { 0.0, 0.05, 0.20, 0.45, 0.51, 1.0 };
+
+        HashSet<int>? previous = null;
+        foreach (double tau in thresholds)
+        {
+            var flagged = RarePositions(seq, tau);
+
+            if (previous is not null)
+                flagged.IsSupersetOf(previous).Should().BeTrue(
+                    because: $"raising the threshold to {tau} can only add codons (f < τ is monotone in τ), never remove them");
+
+            previous = flagged;
+        }
+
+        // Endpoints and the intermediate bands follow directly from the f < τ predicate.
+        RarePositions(seq, 0.0).Should().BeEmpty(because: "no usage fraction is < 0");
+        RarePositions(seq, 0.05).Should().BeEquivalentTo(new[] { 0 }, because: "only CUA (0.04) is below 0.05");
+        RarePositions(seq, 0.20).Should().BeEquivalentTo(new[] { 0, 1 }, because: "CUA (0.04) and ACU (0.16) are below 0.20");
+        RarePositions(seq, 0.45).Should().BeEquivalentTo(new[] { 0, 1, 2 }, because: "CUA, ACU and AUC (0.42) are below 0.45");
+        RarePositions(seq, 0.51).Should().BeEquivalentTo(new[] { 0, 1, 2, 3 }, because: "all four codons (max 0.50) are below 0.51");
+    }
+
+    #endregion
+
+    #region CODON-RARE-001 INV — no codon below threshold ⇒ empty result
+
+    [Test]
+    [Description("INV: when no codon satisfies f < τ the result is empty — both for τ = 0 (no frequency is negative) and for a sequence built only from codons whose usage is at or above τ.")]
+    public void FindRareCodons_NoCodonBelowThreshold_ReturnsEmpty()
+    {
+        // (a) τ = 0: nothing can be strictly below zero, regardless of how rare the codons are.
+        CodonOptimizer.FindRareCodons("CUACUACUA", CodonOptimizer.EColiK12, threshold: 0.0)
+            .Should().BeEmpty(because: "no usage fraction is < 0, so even an all-rare sequence flags nothing at τ = 0");
+
+        // (b) All-common sequence under the default threshold: CUG (0.50), CCG (0.53), ACC (0.44)
+        //     are each well above 0.15, so none is rare.
+        CodonOptimizer.FindRareCodons("CUGCCGACC", CodonOptimizer.EColiK12, threshold: 0.15)
+            .Should().BeEmpty(because: "every codon's usage exceeds the threshold, so no codon is flagged as rare");
+    }
+
+    #endregion
 }
