@@ -549,4 +549,60 @@ public class MetagenomicsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: META-PATHWAY-001 — pathway enrichment (Metagenomics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 195.
+    //
+    // API under test (MetagenomicsAnalyzer.FindPathwayEnrichment):
+    //   Hypergeometric over-representation test; a smaller p-value means stronger enrichment.
+    //
+    // Relations (derived from the hypergeometric upper tail, NOT from output):
+    //   • MON  (more pathway genes ⇒ higher enrichment): increasing the query's overlap with a
+    //          pathway (query size fixed) lowers P(X ≥ x), i.e. raises enrichment.
+    //   • INV  (gene order independent): the query and background are sets, so reordering the query
+    //          genes leaves the enrichment unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly string[] EnrichPathway = Enumerable.Range(1, 10).Select(i => $"p{i}").ToArray();
+    private static readonly Dictionary<string, IReadOnlyCollection<string>> EnrichDb = new() { ["P"] = EnrichPathway };
+    private static readonly List<string> EnrichBackground =
+        EnrichPathway.Concat(Enumerable.Range(1, 90).Select(i => $"b{i}")).ToList();
+
+    // Query of fixed size 10 with k pathway genes and (10-k) background non-pathway genes.
+    private static IEnumerable<string> EnrichQuery(int pathwayGenes) =>
+        EnrichPathway.Take(pathwayGenes).Concat(Enumerable.Range(1, 10 - pathwayGenes).Select(i => $"b{i}"));
+
+    #region META-PATHWAY-001 MON — more pathway genes raise enrichment
+
+    [Test]
+    [Description("MON: at fixed query size, increasing the overlap with the pathway lowers the hypergeometric p-value (stronger enrichment).")]
+    public void Pathway_MoreOverlap_HigherEnrichment()
+    {
+        double previous = double.MaxValue;
+        foreach (int k in new[] { 2, 4, 6, 8 })
+        {
+            double p = MetagenomicsAnalyzer.FindPathwayEnrichment(EnrichQuery(k), EnrichDb, EnrichBackground)
+                .Single(e => e.Pathway == "P").PValue;
+            p.Should().BeLessThan(previous, because: $"a query with {k} of the pathway's genes is more enriched (lower p) than one with fewer");
+            previous = p;
+        }
+    }
+
+    #endregion
+
+    #region META-PATHWAY-001 INV — enrichment is independent of gene order
+
+    [Test]
+    [Description("INV: query and background are treated as sets, so reordering the query genes yields the same enrichment p-value.")]
+    public void Pathway_GeneOrder_Invariant()
+    {
+        var query = EnrichQuery(5).ToList();
+        double forward = MetagenomicsAnalyzer.FindPathwayEnrichment(query, EnrichDb, EnrichBackground).Single(e => e.Pathway == "P").PValue;
+        double reversed = MetagenomicsAnalyzer.FindPathwayEnrichment(((IEnumerable<string>)query).Reverse(), EnrichDb, EnrichBackground).Single(e => e.Pathway == "P").PValue;
+
+        reversed.Should().Be(forward, because: "the hypergeometric test depends on the gene sets, not their order");
+    }
+
+    #endregion
 }
