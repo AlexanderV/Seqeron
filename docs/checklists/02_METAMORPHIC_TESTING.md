@@ -36,7 +36,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 6 | ☑ | SEQ-ENTROPY-001 | Composition | INV: permutation preserves Shannon entropy; MON: uniform → max entropy; MON: single symbol → 0 |
 | 7 | ☑ | SEQ-GCSKEW-001 | Composition | SYM: complement flips skew sign; INV: reverse flips cumulative skew; INV: all-G → max positive |
 | 8 | ☑ | PAT-EXACT-001 | Matching | SHIFT: prepend flank shifts positions by flank.len; COMP: exact ⊆ hamming(maxDist=0); INV: duplicate → doubled count |
-| 9 | ☐ | PAT-APPROX-001 | Matching | SYM: hamming(a,b)=hamming(b,a); MON: higher maxDist → ≥ matches; COMP: exact ⊆ approx(d=0) |
+| 9 | ☑ | PAT-APPROX-001 | Matching | SYM: hamming(a,b)=hamming(b,a); MON: higher maxDist → ≥ matches; COMP: exact ⊆ approx(d=0) |
 | 10 | ☑ | PAT-APPROX-002 | Matching | MON: higher maxEdits → superset; COMP: exact ⊆ approximate; SYM: editDist(a,b)=editDist(b,a); INV: prefix extension; R: non-negativity |
 | 11 | ☑ | PAT-IUPAC-001 | Matching | SUB: degeneracy hierarchy (N ⊇ all); INV: shift-invariance; MON: more degenerate → ≥ matches |
 | 12 | ☑ | PAT-PWM-001 | Matching | INV: permuted training set → same PWM; INV: duplicated set → same consensus; SUB: lower threshold → ≥ matches |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 15 |
-| ☐ Not started | 219 |
+| ☑ Complete | 16 |
+| ☐ Not started | 218 |
 | MR relations defined | ~200+ |

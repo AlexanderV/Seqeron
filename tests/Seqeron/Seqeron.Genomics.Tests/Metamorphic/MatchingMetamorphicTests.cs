@@ -18,8 +18,9 @@ namespace Seqeron.Genomics.Tests;
 /// *definition*, not from the current implementation's output.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
-/// Unit: PAT-EXACT-001 — exact pattern/motif matching (Matching).
-/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 8.
+/// Units: PAT-EXACT-001 — exact pattern/motif matching (Matching);
+///        PAT-APPROX-001 — approximate (Hamming-distance) matching (Matching).
+/// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, rows 8 and 9.
 /// Relations (row 8):
 ///   • SHIFT: prepend flank shifts positions by |flank|.
 ///   • COMP:  exact ⊆ hamming(maxDist=0)  (in fact set equality).
@@ -327,6 +328,308 @@ public class MatchingMetamorphicTests
             doubled.Should().BeGreaterThanOrEqualTo(2 * k,
                 because: $"S+S contains both copies of every occurrence of '{pat}' in '{seq}', so the count is at least doubled (junction may add more)");
         }
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PAT-APPROX-001 — approximate (Hamming-distance) matching
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    //  Relations (checklist row 9):
+    //    • SYM:  hamming(a,b) = hamming(b,a)            (metric symmetry; corollary d(a,a)=0)
+    //    • MON:  higher maxDist → ⊇ matches             (positions monotone in the threshold)
+    //    • COMP: exact ⊆ approx(d=0)                    (in fact set equality)
+    //
+    //  Source (Hamming-distance definition):
+    //    d_H(s,t) = |{ i : s[i] ≠ t[i], 0 ≤ i < n }| for equal-length s,t (case-insensitive).
+    //    Approximate matching with at most k mismatches compares the pattern to every
+    //    equal-length window of the text and reports windows with d_H ≤ k.
+    //    — docs/algorithms/Pattern_Matching/Approximate_Matching_Hamming.md §2.2, §2.4
+    //      (INV-01 non-negativity, INV-02 d=0 iff identical, INV-03 symmetry); Hamming 1950;
+    //      Rosalind HAMM; Navarro 2001; Compeau & Pevzner ch.1 (ROSALIND BA1H/BA1I).
+    //
+    //  APIs under test:
+    //    • ApproximateMatcher.HammingDistance(string, string)
+    //        → int; throws ArgumentException on unequal lengths; case-insensitive.
+    //    • ApproximateMatcher.FindWithMismatches(string seq, string pat, int maxMismatches)
+    //        → IEnumerable<ApproximateMatchResult>; equal-length window scan, d_H ≤ k.
+    //    • MotifFinder.FindExactMotif(DnaSequence, string)  (via ExactPositions, for COMP).
+    //
+    //  Differentiation from PAT-APPROX-002 (already done in MetamorphicTests.cs): that unit
+    //  covers the EDIT-distance path — FindWithEdits/EditDistance maxEdits-monotonicity,
+    //  EditDistance symmetry/non-negativity, exact ⊆ approximate under EDIT distance. THIS
+    //  unit exercises the HAMMING/substitution path exclusively: HammingDistance(string,string)
+    //  symmetry and the FindWithMismatches mismatch-threshold monotonicity — disjoint surfaces.
+
+    #region MR4: SYM — Hamming distance is symmetric (and d(a,a)=0)
+
+    /// <summary>
+    /// MR4: <c>HammingDistance(a, b) == HammingDistance(b, a)</c> for every equal-length
+    /// pair — positionwise mismatch counting is order-independent (doc INV-03). The metric
+    /// corollary <c>d(a, a) == 0</c> (doc INV-02) is asserted alongside, and a hand-computed
+    /// anchor (Rosalind HAMM sample, expected 7) pins the absolute value to theory.
+    /// </summary>
+    [Test]
+    public void HammingDistance_SwapArguments_IsSymmetric()
+    {
+        // Fixed anchors with a hand-known distance, plus randomized equal-length pairs.
+        var fixedPairs = new[]
+        {
+            (a: "ACGT", b: "ACGT", d: 0),
+            (a: "ACGT", b: "TGCA", d: 4),
+            (a: "AAAA", b: "AAAT", d: 1),
+            // Rosalind HAMM sample — independently known distance = 7.
+            (a: "GAGCCTACTAACGGGAT", b: "CATCGTAATGACGGCCT", d: 7),
+        };
+
+        foreach (var (a, b, d) in fixedPairs)
+        {
+            int ab = ApproximateMatcher.HammingDistance(a, b);
+            int ba = ApproximateMatcher.HammingDistance(b, a);
+
+            ab.Should().Be(d,
+                because: $"d_H('{a}','{b}') counts the positions where the two strings differ, which is {d}");
+            ab.Should().Be(ba,
+                because: $"positionwise mismatch counting is order-independent, so d_H('{a}','{b}') = d_H('{b}','{a}') (doc INV-03)");
+        }
+
+        // Randomized equal-length pairs (fixed seed) — symmetry, non-negativity, and the
+        // self-distance corollary must hold for every pair.
+        for (int t = 0; t < 40; t++)
+        {
+            int len = 1 + Rng.Next(60);
+            string a = RandomDna(len);
+            string b = RandomDna(len);
+
+            int ab = ApproximateMatcher.HammingDistance(a, b);
+            int ba = ApproximateMatcher.HammingDistance(b, a);
+
+            ab.Should().Be(ba,
+                because: "Hamming distance is symmetric: swapping the operands cannot change the per-position mismatch count");
+            ab.Should().BeGreaterThanOrEqualTo(0,
+                because: "a Hamming distance is a count of mismatching positions, hence never negative (doc INV-01)");
+            ApproximateMatcher.HammingDistance(a, a).Should().Be(0,
+                because: "a string has zero mismatches against itself (doc INV-02, identity corollary)");
+        }
+    }
+
+    /// <summary>
+    /// MR4-b: symmetry is robust to the case-insensitive comparison — uppercasing one
+    /// operand does not perturb the distance, and the swap remains symmetric. Guards
+    /// against a case-folding asymmetry between the two argument positions.
+    /// </summary>
+    [Test]
+    public void HammingDistance_CaseFolding_PreservesSymmetry()
+    {
+        foreach (var (a, b) in new[]
+        {
+            (a: "acgt", b: "ACGT"),
+            (a: "AcGtAcGt", b: "acGTacGT"),
+            (a: "GATTACA", b: "gattaca"),
+        })
+        {
+            int ab = ApproximateMatcher.HammingDistance(a, b);
+            int ba = ApproximateMatcher.HammingDistance(b, a);
+
+            ab.Should().Be(ba,
+                because: "case-insensitive comparison must treat both argument positions identically, so the distance stays symmetric");
+            ApproximateMatcher.HammingDistance(a.ToUpperInvariant(), b.ToUpperInvariant())
+                .Should().Be(ab,
+                because: "uppercasing the inputs cannot change a case-insensitive Hamming distance");
+        }
+    }
+
+    /// <summary>
+    /// MR4-c: unequal-length operands are outside the Hamming metric's domain, so the
+    /// distance is undefined and the implementation must reject them (doc §3.3). This
+    /// fixes the equal-length precondition that the SYM relation relies on.
+    /// </summary>
+    [Test]
+    public void HammingDistance_UnequalLengths_Throws()
+    {
+        Action act = () => ApproximateMatcher.HammingDistance("ACGT", "ACG");
+        act.Should().Throw<ArgumentException>(
+            because: "Hamming distance is defined only for equal-length strings, so a length mismatch is rejected");
+    }
+
+    #endregion
+
+    #region MR5: MON — a higher mismatch threshold yields a superset of matches
+
+    /// <summary>
+    /// MR5: the approximate-occurrence position set is monotone non-decreasing in the
+    /// mismatch threshold. A window with Hamming distance ≤ k also has distance ≤ k+1,
+    /// so for every k:
+    ///   positions(seq, pat, k) ⊆ positions(seq, pat, k+1),
+    /// and |positions(·, k)| ≤ |positions(·, k+1)|. We build a chain k = 0,1,2,…,|pat|
+    /// and assert subset + non-decreasing count along the whole chain. (HAMMING/mismatch
+    /// matcher — distinct from the edit-distance MON of PAT-APPROX-002.)
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_HigherThreshold_YieldsSupersetOfPositions()
+    {
+        var cases = new[]
+        {
+            (seq: "ATGCATGCATGC", pat: "ATGC"),
+            (seq: "GATATATGCATATACTT", pat: "ATAT"),
+            (seq: "AAAAAAAA", pat: "AAA"),
+            (seq: RandomDna(200), pat: "GTAC"),
+            (seq: RandomDna(200), pat: "CGT"),
+            (seq: RandomDna(150), pat: RandomDna(5)),
+        };
+
+        foreach (var (seq, pat) in cases)
+        {
+            // Chain of thresholds 0..|pat| (at |pat| every window qualifies).
+            for (int k = 0; k < pat.Length; k++)
+            {
+                var lower = MismatchPositions(seq, pat, k);
+                var higher = MismatchPositions(seq, pat, k + 1);
+
+                lower.Should().BeSubsetOf(higher,
+                    because: $"a window with ≤{k} mismatches of '{pat}' also has ≤{k + 1}, so raising maxMismatches never drops a match");
+                higher.Count.Should().BeGreaterThanOrEqualTo(lower.Count,
+                    because: $"the occurrence count of '{pat}' is non-decreasing in the mismatch threshold (k={k} → k={k + 1})");
+            }
+        }
+    }
+
+    /// <summary>
+    /// MR5-b: at <c>maxMismatches = |pat|</c> every equal-length window qualifies, so the
+    /// match count equals the number of windows, |seq| − |pat| + 1 — the saturation point
+    /// of the monotone chain (a window can differ in at most |pat| positions). Anchored to
+    /// an independent naive Hamming scan to pin the set, not just the count.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_ThresholdAtPatternLength_MatchesEveryWindow()
+    {
+        foreach (var (seq, pat) in new[]
+        {
+            (seq: "ATGCATGC", pat: "ACGT"),
+            (seq: RandomDna(80), pat: "GAT"),
+            (seq: RandomDna(80), pat: "TTTT"),
+        })
+        {
+            var saturated = MismatchPositions(seq, pat, pat.Length);
+            var allWindows = Enumerable.Range(0, seq.Length - pat.Length + 1).ToList();
+
+            saturated.Should().Equal(allWindows,
+                because: $"with maxMismatches = |pat| = {pat.Length} every length-{pat.Length} window of '{seq}' qualifies, so all {allWindows.Count} start positions are reported");
+
+            // Independent oracle: a naive Hamming scan at the same threshold agrees.
+            saturated.Should().Equal(NaiveHammingPositions(seq, pat, pat.Length),
+                because: "the production mismatch scan must reproduce the definition's occurrence set at the saturating threshold");
+        }
+    }
+
+    /// <summary>
+    /// MR5-c: at every threshold along the chain the production matcher agrees with an
+    /// independent naive Hamming scan, AND each reported result's <c>Distance</c> is the
+    /// true Hamming distance of its window and is ≤ the threshold — so the monotone chain
+    /// is anchored to theory at each link, not merely internally consistent.
+    /// </summary>
+    [Test]
+    public void FindWithMismatches_AtEachThreshold_AgreesWithNaiveHammingScan()
+    {
+        var cases = new[]
+        {
+            (seq: "GATATATGCATATACTT", pat: "ATAT"),
+            (seq: RandomDna(120), pat: "ACG"),
+            (seq: RandomDna(120), pat: RandomDna(4)),
+        };
+
+        foreach (var (seq, pat) in cases)
+        {
+            for (int k = 0; k <= pat.Length; k++)
+            {
+                MismatchPositions(seq, pat, k).Should().Equal(NaiveHammingPositions(seq, pat, k),
+                    because: $"FindWithMismatches must report exactly the windows of '{pat}' in '{seq}' with Hamming distance ≤ {k}");
+
+                foreach (var r in ApproximateMatcher.FindWithMismatches(seq, pat, k))
+                {
+                    r.Distance.Should().BeLessThanOrEqualTo(k,
+                        because: $"a reported match must be within the requested threshold {k}");
+                    r.Distance.Should().Be(
+                        ApproximateMatcher.HammingDistance(pat, seq.Substring(r.Position, pat.Length)),
+                        because: $"the reported Distance must equal the true Hamming distance of the window at position {r.Position}");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region MR6: COMP — exact ⊆ approx(d=0) (and in fact set equality)
+
+    /// <summary>
+    /// MR6: every exact-match position appears among the 0-mismatch approximate matches,
+    /// and the two sets are equal — a 0-mismatch Hamming window IS an exact occurrence and
+    /// vice versa. Both surfaces are anchored to the naive definition scan:
+    ///   exact(S,P) ⊆ approx(S,P,0)  AND  approx(S,P,0) ⊆ exact(S,P),  i.e. set equality.
+    /// </summary>
+    [Test]
+    public void ExactMatch_IsSubsetOf_ApproxDistanceZero_AndEqual()
+    {
+        var cases = new[]
+        {
+            (seq: "ATGCATGCATGC", pat: "ATGC"),
+            (seq: "GATATATGCATATACTT", pat: "ATAT"),
+            (seq: "AAAAAA", pat: "AA"),
+            (seq: "ACGTACGTACGTACGT", pat: "TTTTT"), // absent — both sets empty
+            (seq: RandomDna(180), pat: "GAT"),
+            (seq: RandomDna(180), pat: RandomDna(4)),
+        };
+
+        foreach (var (seq, pat) in cases)
+        {
+            var exact = ExactPositions(seq, pat);
+            var approx0 = MismatchPositions(seq, pat, 0);
+            var reference = NaivePositions(seq, pat);
+
+            exact.Should().BeSubsetOf(approx0,
+                because: $"every exact occurrence of '{pat}' is a window at Hamming distance 0, hence a 0-mismatch match");
+            approx0.Should().BeSubsetOf(exact,
+                because: $"a 0-mismatch (Hamming-distance-0) window of '{pat}' is by definition an exact occurrence");
+            approx0.Should().Equal(exact,
+                because: $"exact matching and approx(d=0) describe the same occurrence set for '{pat}'");
+
+            exact.Should().Equal(reference,
+                because: $"the exact matcher must reproduce the definition's occurrence set for '{pat}' in '{seq}'");
+            approx0.Should().Equal(reference,
+                because: $"maxMismatches = 0 is equivalent to exact matching, so approx(d=0) must equal the definition set for '{pat}'");
+        }
+    }
+
+    #endregion
+
+    #region Helpers — Hamming (approximate) matching
+
+    /// <summary>0-based start positions of approximate (Hamming) matches with ≤ k mismatches, sorted.</summary>
+    private static List<int> MismatchPositions(string text, string pattern, int maxMismatches) =>
+        ApproximateMatcher.FindWithMismatches(text, pattern, maxMismatches)
+            .Select(r => r.Position).OrderBy(p => p).ToList();
+
+    /// <summary>
+    /// Naive reference scan of every equal-length window, reporting starts whose Hamming
+    /// distance to the (uppercased) pattern is ≤ maxMismatches. The textbook definition of
+    /// an approximate occurrence — independent of the production matcher, so the MON/COMP
+    /// relations are pinned to THEORY rather than to code output.
+    /// </summary>
+    private static List<int> NaiveHammingPositions(string text, string pattern, int maxMismatches)
+    {
+        var result = new List<int>();
+        if (pattern.Length == 0 || pattern.Length > text.Length) return result;
+        string t = text.ToUpperInvariant();
+        string p = pattern.ToUpperInvariant();
+        for (int i = 0; i <= t.Length - p.Length; i++)
+        {
+            int d = 0;
+            for (int j = 0; j < p.Length; j++)
+                if (t[i + j] != p[j]) d++;
+            if (d <= maxMismatches) result.Add(i);
+        }
+        return result;
     }
 
     #endregion
