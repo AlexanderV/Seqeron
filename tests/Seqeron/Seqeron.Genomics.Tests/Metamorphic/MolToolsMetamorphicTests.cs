@@ -18,7 +18,8 @@ namespace Seqeron.Genomics.Tests;
 /// PAM motif occurs and the guide-length target fits within sequence bounds.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
-/// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design).
+/// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design),
+///        CRISPR-OFF-001 (off-target scoring).
 /// ───────────────────────────────────────────────────────────────────────────
 /// Unit: CRISPR-PAM-001 — CRISPR PAM-site finding (MolTools).
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 18.
@@ -563,6 +564,301 @@ public class MolToolsMetamorphicTests
             again.IsForwardStrand.Should().Be(reference.IsForwardStrand);
             again.Score.Should().Be(reference.Score,
                 because: "the composition-only score reads only the protospacer, so it is invariant to distant context");
+        }
+    }
+
+    #endregion
+
+    #endregion
+
+    #region CRISPR-OFF-001 — off-target scoring
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: CRISPR-OFF-001 — CRISPR off-target scoring (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 20.
+    //
+    // API under test (CrisprDesigner.cs):
+    //   FindOffTargets(guide, genome, maxMismatches, systemType)
+    //     → OffTargetSite.OffTargetScore: a POSITION-WEIGHTED PENALTY (higher = worse;
+    //       grows as mismatches accumulate). Per the spec, seed mismatch = 5, non-seed = 2.
+    //   CalculateSpecificityScore(guide, genome, systemType)
+    //     → an off-target SCORE in [0,100] (higher = better / more specific):
+    //       100 − Σ off-target penalties, clamped to [0,100]; 100 when no off-target.
+    //
+    // The MR phrase "off-target score" denotes the higher-is-better SCORE for which a
+    // documented MAXIMUM exists and which DECREASES with off-target burden — i.e. the
+    // specificity score (max = 100; the spec's "No off-targets found ⇒ 100"). The
+    // complementary penalty (OffTargetScore) is the dual: it is NON-DECREASING as
+    // mismatches accumulate. Both directions are asserted.
+    //
+    // Relation DIRECTIONS are derived from the cited source/spec, NOT from code output:
+    //   Source: docs/algorithms/MolTools/Off_Target_Analysis.md
+    //     §2.1 — "PAM-proximal mismatches are especially important for specificity"
+    //            (Hsu 2013, Fu 2013): a seed mismatch costs MORE specificity than a
+    //            PAM-distal one.
+    //     §2.2 / §4.2 — seed region = the 12 PAM-proximal positions (SpCas9: last 12 =
+    //            positions 8..19); penalty(seed) > penalty(non-seed); the score is
+    //            max(0, 100 − Σ penalties).
+    //     §6.1 — "No off-targets found ⇒ specificity 100" (the MAX endpoint).
+    //
+    //   • COMP (0 mismatches → max score): a candidate identical to the guide is the
+    //     on-target (0 mismatches), which is NOT an off-target (INV-01), so it adds no
+    //     penalty; with no off-target the specificity score is the documented MAXIMUM 100.
+    //   • MON (more mismatches → lower score): along a chain that adds mismatches at
+    //     fixed positions, the off-target PENALTY is non-decreasing and the specificity
+    //     SCORE is non-increasing; strictly so when the added position carries a
+    //     non-zero penalty (every position does: seed=5, non-seed=2 > 0).
+    //   • MON (seed mismatch penalized more): a single mismatch placed in the
+    //     PAM-PROXIMAL seed region yields a LOWER specificity score (HIGHER penalty)
+    //     than the same single mismatch placed at a PAM-distal position — derived from
+    //     the source's "PAM-proximal mismatches matter more" structure, not from W values.
+    //
+    // Construction (SpCas9: NGG PAM 3' of target, 20-nt guide, seed = positions 8..19):
+    //   A genome of the form  TARGET(20) + "AGG"  has exactly one forward PAM at index
+    //   20, whose protospacer is TARGET. We start from a clean 20-nt guide with no GG/CC
+    //   dinucleotide (so the only PAM is the appended AGG and the target window is
+    //   unambiguous), then introduce mismatches at chosen positions by an A↔T / C↔G flip
+    //   (transversion within the same {weak|strong} pair) so a flip never creates a new
+    //   GG/CC PAM motif inside the window. Several fixed-seed random guides are included.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>SpCas9 seed region = the 12 PAM-proximal positions of a 20-nt guide: indices 8..19.</summary>
+    private const int SeedStartSpCas9 = 8;
+
+    /// <summary>
+    /// A 20-nt guide with no GG and no CC dinucleotide, so appending "AGG" yields a
+    /// single unambiguous forward PAM and a single protospacer window.
+    /// </summary>
+    private const string OffGuide20 = "ACGTACGTACGTACGTACGT";
+
+    /// <summary>
+    /// Flip a base to a guaranteed mismatch WITHOUT creating a new G/C run: A↔T and
+    /// C↔G keep the base within its weak/strong pair, so neither a GG nor a CC
+    /// dinucleotide can be introduced by the flip.
+    /// </summary>
+    private static char FlipBase(char b) => b switch
+    {
+        'A' => 'T',
+        'T' => 'A',
+        'C' => 'G',
+        'G' => 'C',
+        _ => throw new ArgumentException($"Unexpected base '{b}'.", nameof(b)),
+    };
+
+    /// <summary>
+    /// Returns a copy of <paramref name="target"/> with a mismatch (vs itself) introduced
+    /// at each position in <paramref name="positions"/> via <see cref="FlipBase"/>.
+    /// </summary>
+    private static string MutateAt(string target, params int[] positions)
+    {
+        var chars = target.ToCharArray();
+        foreach (int p in positions)
+            chars[p] = FlipBase(chars[p]);
+        return new string(chars);
+    }
+
+    /// <summary>Builds the SpCas9 genome TARGET(20)+"AGG" whose sole forward protospacer is <paramref name="target"/>.</summary>
+    private static DnaSequence OffGenome(string target) => new(target + "AGG");
+
+    /// <summary>Off-target specificity score (higher = better; 100 = no off-target) for guide vs genome TARGET+AGG.</summary>
+    private static double Specificity(string guide, string target)
+        => CrisprDesigner.CalculateSpecificityScore(guide, OffGenome(target), CrisprSystemType.SpCas9);
+
+    /// <summary>The single off-target penalty (OffTargetScore) for guide against TARGET+AGG, or 0 if no off-target (exact match).</summary>
+    private static double OffTargetPenalty(string guide, string target)
+        => CrisprDesigner.FindOffTargets(guide, OffGenome(target), 5, CrisprSystemType.SpCas9)
+            .Select(ot => ot.OffTargetScore)
+            .DefaultIfEmpty(0)
+            .Sum();
+
+    /// <summary>
+    /// 20-nt guides with no GG/CC dinucleotide (clean single-PAM windows) plus fixed-seed
+    /// random guides — relations must hold for arbitrary input. Random guides are sanitized
+    /// to remove GG/CC so the appended AGG stays the only PAM.
+    /// </summary>
+    private static IEnumerable<string> OffGuides()
+    {
+        yield return OffGuide20;
+        yield return "ATATATATATATATATATAT";          // weak-only
+        yield return "ACATACATACATACATACAT";          // mixed, GG/CC-free
+        yield return "TGTATGTATGTATGTATGTA";          // GG/CC-free
+        for (int i = 0; i < 3; i++)
+            yield return SanitizeNoGgCc(RandomDna(20)); // fixed-seed random, sanitized
+    }
+
+    /// <summary>Removes GG and CC dinucleotides by flipping the second base of any such pair (keeps it a valid 20-nt guide).</summary>
+    private static string SanitizeNoGgCc(string s)
+    {
+        var c = s.ToCharArray();
+        for (int i = 1; i < c.Length; i++)
+            if ((c[i] == 'G' && c[i - 1] == 'G') || (c[i] == 'C' && c[i - 1] == 'C'))
+                c[i] = c[i] == 'G' ? 'A' : 'T';
+        return new string(c);
+    }
+
+    #region COMP — 0 mismatches → maximum off-target score (specificity = 100)
+
+    [Test]
+    [Description("COMP: a candidate identical to the guide is the on-target (0 mismatches), not an off-target, so the off-target score is the documented MAXIMUM (100).")]
+    public void CalculateSpecificityScore_GuideIdenticalToTarget_IsMaximum100()
+    {
+        foreach (var guide in OffGuides())
+        {
+            // The genome's protospacer equals the guide → 0 mismatches → excluded as off-target.
+            double score = Specificity(guide, target: guide);
+
+            score.Should().Be(100.0,
+                because: "a 0-mismatch candidate is the on-target (INV-01: not an off-target), so no penalty " +
+                         "accrues and the specificity score is the documented maximum endpoint of 100");
+
+            // Dual: with no off-target the accumulated penalty is exactly 0 (the penalty's minimum).
+            OffTargetPenalty(guide, target: guide).Should().Be(0.0,
+                because: "an exact (0-mismatch) match is filtered out by the mismatches>0 rule, so it contributes no off-target penalty");
+        }
+    }
+
+    #endregion
+
+    #region MON — more mismatches → lower off-target score (penalty non-decreasing, specificity non-increasing)
+
+    [Test]
+    [Description("MON: along a chain that adds mismatches at fixed positions, the off-target score is non-increasing — and strictly decreasing, since every added position carries a positive penalty.")]
+    public void CalculateSpecificityScore_AddingMismatches_ScoreStrictlyDecreasing()
+    {
+        // A fixed chain of distinct positions; each step ADDS one more mismatch to the
+        // off-target window. The set is the same for every guide, so the relation is
+        // a property of the SCORING MODEL, not of any one input.
+        //
+        // The chain is kept to 4 positions: CalculateSpecificityScore evaluates off-targets
+        // with a FIXED mismatch cap of 4 (spec §3.3 / §5.2). A candidate with >4 mismatches
+        // leaves the off-target search window entirely (INV-02) — it is no longer an
+        // off-target, so its penalty vanishes and the score returns to the no-off-target
+        // maximum (100). The strict monotone-decrease relation is therefore stated where it
+        // is theoretically guaranteed: while the candidate remains an in-window off-target
+        // (1..4 mismatches). (The dual penalty, probed via FindOffTargets with cap 5, is
+        // separately covered up to its own bound.)
+        int[] chainPositions = { 0, 7, 12, 19 };
+
+        foreach (var guide in OffGuides())
+        {
+            double previousScore = 100.0;   // 0 mismatches ⇒ on-target ⇒ specificity 100
+            double previousPenalty = 0.0;
+            var applied = new List<int>();
+
+            foreach (int pos in chainPositions)
+            {
+                applied.Add(pos);
+                string target = MutateAt(guide, applied.ToArray());
+
+                double score = Specificity(guide, target);
+                double penalty = OffTargetPenalty(guide, target);
+
+                score.Should().BeLessThan(previousScore,
+                    because: $"adding a mismatch at position {pos} adds a positive penalty (seed=5 or non-seed=2), " +
+                             "so the specificity score must strictly drop relative to the previous step in the chain");
+                penalty.Should().BeGreaterThan(previousPenalty,
+                    because: $"the dual off-target penalty is non-decreasing in mismatches and strictly increases at position {pos} (penalty > 0)");
+
+                previousScore = score;
+                previousPenalty = penalty;
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: a candidate with a SUPERSET of another's mismatch positions never scores higher (penalty never lower) — non-strict monotonicity over arbitrary position sets.")]
+    public void CalculateSpecificityScore_SupersetOfMismatches_NeverScoresHigher()
+    {
+        // Pairs (subset ⊂ superset) of mismatch-position sets, fixed across guides.
+        var cases = new[]
+        {
+            (Subset: new[] { 5 },           Superset: new[] { 5, 12 }),
+            (Subset: new[] { 0, 1 },        Superset: new[] { 0, 1, 18 }),
+            (Subset: new[] { 9, 14 },       Superset: new[] { 2, 9, 14, 17 }),
+            (Subset: new[] { 19 },          Superset: new[] { 4, 8, 19 }),
+        };
+
+        foreach (var guide in OffGuides())
+        {
+            foreach (var (subset, superset) in cases)
+            {
+                double subScore = Specificity(guide, MutateAt(guide, subset));
+                double supScore = Specificity(guide, MutateAt(guide, superset));
+
+                supScore.Should().BeLessThanOrEqualTo(subScore,
+                    because: "a superset of mismatch positions accumulates at least the subset's penalty plus more, " +
+                             "so the specificity score is non-increasing as the mismatch set grows");
+
+                double subPenalty = OffTargetPenalty(guide, MutateAt(guide, subset));
+                double supPenalty = OffTargetPenalty(guide, MutateAt(guide, superset));
+                supPenalty.Should().BeGreaterThanOrEqualTo(subPenalty,
+                    because: "adding positions to a mismatch set can only add penalty, never remove it");
+            }
+        }
+    }
+
+    #endregion
+
+    #region MON — a seed-region mismatch is penalized more than a PAM-distal one
+
+    [Test]
+    [Description("MON: a single mismatch in the PAM-proximal SEED region yields a LOWER off-target score (higher penalty) than the same single mismatch at a PAM-distal position.")]
+    public void CalculateSpecificityScore_SeedMismatch_LowerScoreThanDistalMismatch()
+    {
+        // Distal positions: 0..7 (outside seed 8..19). Seed positions: 8..19.
+        // Derived from the source: PAM-proximal (seed) mismatches matter MORE for
+        // specificity ⇒ score(seed-mismatch) < score(distal-mismatch). We pair one
+        // distal and one seed position so each candidate carries EXACTLY ONE mismatch.
+        var pairs = new[]
+        {
+            (Distal: 0,  Seed: 8),
+            (Distal: 3,  Seed: 12),
+            (Distal: 7,  Seed: 19),
+            (Distal: 2,  Seed: 15),
+        };
+
+        foreach (var guide in OffGuides())
+        {
+            foreach (var (distal, seed) in pairs)
+            {
+                distal.Should().BeLessThan(SeedStartSpCas9, because: "the distal position must lie OUTSIDE the seed (indices 8..19)");
+                seed.Should().BeGreaterThanOrEqualTo(SeedStartSpCas9, because: "the seed position must lie INSIDE the seed (indices 8..19)");
+
+                double distalScore = Specificity(guide, MutateAt(guide, distal));
+                double seedScore = Specificity(guide, MutateAt(guide, seed));
+
+                seedScore.Should().BeLessThan(distalScore,
+                    because: $"a single seed mismatch (pos {seed}) is weighted more heavily than a single distal mismatch " +
+                             $"(pos {distal}) per the source (PAM-proximal mismatches matter more), so it lowers the score more");
+
+                // Dual on the penalty: the seed mismatch's penalty strictly exceeds the distal one's.
+                double distalPenalty = OffTargetPenalty(guide, MutateAt(guide, distal));
+                double seedPenalty = OffTargetPenalty(guide, MutateAt(guide, seed));
+                seedPenalty.Should().BeGreaterThan(distalPenalty,
+                    because: "the seed-region mismatch penalty exceeds the PAM-distal mismatch penalty (seed weighted heavier)");
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: ordering is consistent across the whole guide — moving a single mismatch from any distal position into the seed never raises the off-target score.")]
+    public void CalculateSpecificityScore_MovingMismatchIntoSeed_NeverRaisesScore()
+    {
+        foreach (var guide in OffGuides())
+        {
+            // Every distal position (0..7) paired against every seed position (8..19):
+            // a single-mismatch in the seed is never better-scored than one PAM-distal.
+            for (int distal = 0; distal < SeedStartSpCas9; distal++)
+            {
+                double distalScore = Specificity(guide, MutateAt(guide, distal));
+                for (int seed = SeedStartSpCas9; seed < 20; seed++)
+                {
+                    double seedScore = Specificity(guide, MutateAt(guide, seed));
+                    seedScore.Should().BeLessThanOrEqualTo(distalScore,
+                        because: $"relocating a single mismatch from distal {distal} into seed {seed} weights it more heavily, " +
+                                 "so the specificity score cannot increase");
+                }
+            }
         }
     }
 
