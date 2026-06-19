@@ -633,4 +633,55 @@ public class MatchingMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: MOTIF-CONS-001 — IUPAC consensus from aligned rows (Matching).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 169.
+    //
+    // API under test (MotifFinder.GenerateConsensus):
+    //   Per column, bases whose fraction exceeds the IUPAC inclusion threshold are merged into a
+    //   degenerate IUPAC code.
+    //
+    // Relations (derived from the fraction-based column rule, NOT from output):
+    //   • INV  (row order independent): each column tally is a multiset, so reordering the rows yields
+    //          the same consensus.
+    //   • INV  (duplicating the rows preserves consensus): replicating every row scales counts and the
+    //          total equally, so every column fraction — and the consensus — is unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly string[] ConsensusRows =
+    {
+        "ACGTACGT",
+        "ACGTACGT",
+        "ACGAACGT",
+        "TCGTACGA",
+    };
+
+    #region MOTIF-CONS-001 INV — consensus is independent of row order
+
+    [Test]
+    [Description("INV: each column's base tally is a multiset, so reversing (permuting) the row order yields the identical consensus.")]
+    public void Consensus_RowOrder_Invariant()
+    {
+        string original = MotifFinder.GenerateConsensus(ConsensusRows);
+        MotifFinder.GenerateConsensus(ConsensusRows.Reverse().ToList()).Should().Be(original,
+            because: "the per-column IUPAC code depends only on the base multiset, not the row order");
+    }
+
+    #endregion
+
+    #region MOTIF-CONS-001 INV — duplicating the rows preserves the consensus
+
+    [Test]
+    [Description("INV: replicating every row scales each column's counts and the total equally, so all fractions — and therefore the IUPAC consensus — are unchanged.")]
+    public void Consensus_DuplicateRows_Unchanged()
+    {
+        string original = MotifFinder.GenerateConsensus(ConsensusRows);
+        var duplicated = ConsensusRows.Concat(ConsensusRows).ToList();
+
+        MotifFinder.GenerateConsensus(duplicated).Should().Be(original,
+            because: "doubling every row leaves every per-column base fraction identical");
+    }
+
+    #endregion
 }
