@@ -1767,4 +1767,85 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-PHYLO-001 — clonal phylogeny reconstruction (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 114.
+    //
+    // API under test (OncologyAnalyzer.ReconstructPhylogeny):
+    //   Builds a rooted clone tree from per-sample CCF clusters using per-sample lineage and
+    //   sum-rule constraints (applied identically to every sample column).
+    //
+    // Relations (derived from the per-sample constraints, NOT from output):
+    //   • INV  (sample relabeling preserves topology): permuting the CCF sample columns (the same
+    //          permutation for every cluster) leaves the reconstructed edge set unchanged — the
+    //          constraints are symmetric over the sample index.
+    //   • SYM  (pairwise clone distance symmetric): the tree path-distance between two clones is
+    //          symmetric, d(a,b) = d(b,a).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.CcfCluster Clone(int id, params double[] ccf) =>
+        new(id, ccf);
+
+    private static int ClonePathDistance(OncologyAnalyzer.ClonalPhylogeny p, int a, int b)
+    {
+        var adjacency = new Dictionary<int, List<int>>();
+        void Link(int x, int y)
+        {
+            (adjacency.TryGetValue(x, out var l) ? l : adjacency[x] = new List<int>()).Add(y);
+        }
+        foreach (var e in p.Edges) { Link(e.ParentId, e.ChildId); Link(e.ChildId, e.ParentId); }
+
+        var dist = new Dictionary<int, int> { [a] = 0 };
+        var queue = new Queue<int>();
+        queue.Enqueue(a);
+        while (queue.Count > 0)
+        {
+            int u = queue.Dequeue();
+            if (u == b) return dist[u];
+            foreach (int v in adjacency.GetValueOrDefault(u, new List<int>()))
+                if (!dist.ContainsKey(v)) { dist[v] = dist[u] + 1; queue.Enqueue(v); }
+        }
+        return dist.GetValueOrDefault(b, -1);
+    }
+
+    #region ONCO-PHYLO-001 INV — permuting sample columns preserves the topology
+
+    [Test]
+    [Description("INV: the lineage/sum constraints are applied identically per sample, so permuting the CCF sample columns (same permutation for every cluster) leaves the reconstructed edge set unchanged.")]
+    public void ReconstructPhylogeny_SamplePermutation_PreservesTopology()
+    {
+        var clusters = new[] { Clone(1, 1.0, 0.9), Clone(2, 0.6, 0.3), Clone(3, 0.3, 0.5) };
+
+        var baseEdges = OncologyAnalyzer.ReconstructPhylogeny(clusters).Edges
+            .Select(e => (e.ParentId, e.ChildId)).ToHashSet();
+
+        // Swap the two sample columns consistently across all clusters.
+        var swapped = clusters.Select(c => Clone(c.Id, c.CcfPerSample[1], c.CcfPerSample[0])).ToArray();
+        var swappedEdges = OncologyAnalyzer.ReconstructPhylogeny(swapped).Edges
+            .Select(e => (e.ParentId, e.ChildId)).ToHashSet();
+
+        swappedEdges.Should().BeEquivalentTo(baseEdges,
+            because: "the per-sample constraints are symmetric over the sample index, so reordering samples cannot change the tree");
+    }
+
+    #endregion
+
+    #region ONCO-PHYLO-001 SYM — pairwise clone distance is symmetric
+
+    [Test]
+    [Description("SYM: the reconstructed tree induces a symmetric pairwise clone path-distance, d(a,b) = d(b,a).")]
+    public void ReconstructPhylogeny_CloneDistance_Symmetric()
+    {
+        var phylogeny = OncologyAnalyzer.ReconstructPhylogeny(new[]
+        {
+            Clone(1, 1.0, 0.9), Clone(2, 0.6, 0.3), Clone(3, 0.3, 0.5),
+        });
+
+        foreach (var (a, b) in new[] { (1, 2), (2, 3), (1, 3) })
+            ClonePathDistance(phylogeny, a, b).Should().Be(ClonePathDistance(phylogeny, b, a),
+                because: $"the tree path distance between clones {a} and {b} is symmetric");
+    }
+
+    #endregion
 }
