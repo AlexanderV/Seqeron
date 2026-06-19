@@ -244,7 +244,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 214 | ☑ | CODON-RSCU-001 | Codon | INV: codon order independent; P: per-AA RSCU mean = 1 |
 | 215 | ☑ | CODON-STATS-001 | Codon | INV: order independent; ADD: counts additive on concatenation |
 | 216 | ☑ | ANNOT-CODING-001 | Annotation | INV: deterministic; MON: real ORF → higher score |
-| 217 | ☐ | ANNOT-CODONUSAGE-001 | Annotation | INV: codon order independent; P: per-AA sum = 1 |
+| 217 | ☑ | ANNOT-CODONUSAGE-001 | Annotation | INV: codon order independent; P: per-AA sum = 1 |
 | 218 | ☐ | ANNOT-REPEAT-001 | Annotation | MON: lower minLen → superset; SHIFT: prepend flank shifts elements |
 | 219 | ☐ | QUALITY-PHRED-001 | Quality | RT: encode∘decode identity; INV: offset consistency |
 | 220 | ☐ | QUALITY-STATS-001 | Quality | INV: order independent for mean; ADD: counts additive |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 216 |
-| ☐ Not started | 18 |
+| ☑ Complete | 217 |
+| ☐ Not started | 17 |
 | MR relations defined | ~200+ |

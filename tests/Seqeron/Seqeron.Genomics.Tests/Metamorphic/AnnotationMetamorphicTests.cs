@@ -5,6 +5,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics;
 using Seqeron.Genomics.Annotation;
+using Seqeron.Genomics.Core;
 
 namespace Seqeron.Genomics.Tests;
 
@@ -662,6 +663,109 @@ public class AnnotationMetamorphicTests
         coding.Should().BePositive(because: "a CDS-signature sequence is scored as coding");
         noncoding.Should().BeNegative(because: "a background sequence is scored as non-coding");
         neutral.Should().BeApproximately(0.0, 1e-12, because: "equal coding and non-coding frequencies give ln 1 = 0");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ANNOT-CODONUSAGE-001 — relative synonymous codon usage over a CDS set (Annotation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 217.
+    //
+    // API under test (GenomeAnnotator.GetCodonUsage(IEnumerable<string>)):
+    //   Pools codon counts across the coding sequences and returns RSCU per sense codon:
+    //   RSCU_j = nᵢ·x_j/Σx over the synonymous family of amino acid i (Sharp & Li 1986).
+    //
+    // Relations (derived from the RSCU normalisation, NOT from output):
+    //   • INV (codon order independent): RSCU depends only on the POOLED codon counts, so permuting
+    //         the codons within a sequence — or reordering the input sequences — leaves it unchanged.
+    //   • P   (per-AA sum = 1, frequency form): for each present amino acid ΣRSCU = nᵢ (its
+    //         degeneracy), so the normalised frequency RSCU/nᵢ sums to exactly 1 over the family.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ANNOT-CODONUSAGE-001 — Helpers
+
+    // A coding sequence exercising the F/I/V/L families (degeneracy 2/3/4/6), each with a 2:1
+    // preference on its first codon so the RSCU values genuinely depart from 1.
+    private const string AnnotCodingSeq =
+        "TTTTTTTTC" +                            // F: TTT×2, TTC×1
+        "ATTATTATCATA" +                         // I: ATT×2, ATC×1, ATA×1
+        "GTTGTTGTCGTAGTG" +                      // V: GTT×2, GTC×1, GTA×1, GTG×1
+        "CTTCTTCTCCTACTGTTATTG";                 // L: CTT×2, CTC×1, CTA×1, CTG×1, TTA×1, TTG×1
+
+    private static List<string> SplitCodons(string seq)
+    {
+        var codons = new List<string>();
+        for (int i = 0; i + 3 <= seq.Length; i += 3)
+            codons.Add(seq.Substring(i, 3));
+        return codons;
+    }
+
+    // Synonymous families (DNA codons) for each sense amino acid of the Standard code.
+    private static IEnumerable<(char Aa, List<string> Codons)> SenseFamilies() =>
+        GeneticCode.Standard.CodonTable
+            .Where(kv => kv.Value != '*')
+            .GroupBy(kv => kv.Value, kv => kv.Key.Replace('U', 'T'))
+            .Select(g => (g.Key, g.ToList()));
+
+    #endregion
+
+    #region ANNOT-CODONUSAGE-001 INV — RSCU is independent of codon and sequence order
+
+    [Test]
+    [Description("INV: RSCU depends only on the pooled codon counts, so permuting codons within a sequence and reordering the input sequences leave it unchanged.")]
+    public void CodonUsage_OrderInvariant()
+    {
+        var original = GenomeAnnotator.GetCodonUsage(new[] { AnnotCodingSeq });
+
+        // Permute the codons of the sequence.
+        var codons = SplitCodons(AnnotCodingSeq);
+        var rng = new Random(20260620);
+        for (int i = codons.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (codons[i], codons[j]) = (codons[j], codons[i]);
+        }
+        string shuffled = string.Concat(codons);
+
+        GenomeAnnotator.GetCodonUsage(new[] { shuffled }).Should().BeEquivalentTo(original,
+            because: "RSCU is a function of the pooled codon multiset, not codon order");
+
+        // Splitting the same codons across two sequences, supplied in the opposite order, pools identically.
+        int half = (codons.Count / 2) * 3;
+        var partA = shuffled.Substring(0, half);
+        var partB = shuffled.Substring(half);
+        GenomeAnnotator.GetCodonUsage(new[] { partB, partA }).Should().BeEquivalentTo(original,
+            because: "counts are pooled across all coding sequences before RSCU, so input order is irrelevant");
+    }
+
+    #endregion
+
+    #region ANNOT-CODONUSAGE-001 P — each present amino acid's RSCU sums to its degeneracy (freq form sums to 1)
+
+    [Test]
+    [Description("P: for each present amino acid ΣRSCU = degeneracy nᵢ, so the normalised frequency RSCU/nᵢ sums to exactly 1 over the family.")]
+    public void CodonUsage_PerAminoAcid_FrequencyFormSumsToOne()
+    {
+        var rscu = GenomeAnnotator.GetCodonUsage(new[] { AnnotCodingSeq });
+
+        var present = new HashSet<char>();
+        foreach (var (aa, family) in SenseFamilies())
+        {
+            double sum = family.Sum(c => rscu.GetValueOrDefault(c, 0.0));
+            if (sum <= 0) continue; // amino acid absent from the CDS set
+
+            present.Add(aa);
+            int degeneracy = family.Count;
+            sum.Should().BeApproximately(degeneracy, 1e-9,
+                because: $"amino acid '{aa}' has {degeneracy} synonymous codons, so its RSCU values sum to {degeneracy}");
+
+            double frequencySum = family.Sum(c => rscu.GetValueOrDefault(c, 0.0) / degeneracy);
+            frequencySum.Should().BeApproximately(1.0, 1e-9,
+                because: $"the frequency form RSCU/nᵢ sums to 1 over amino acid '{aa}'");
+        }
+
+        present.Should().Contain(new[] { 'F', 'I', 'V', 'L' }, because: "the fixture encodes those four amino acids");
+        rscu.Values.Should().Contain(v => v > 1.0 + 1e-9, because: "the over-used preferred codons have RSCU > 1 — a non-vacuous fixture");
     }
 
     #endregion
