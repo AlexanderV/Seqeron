@@ -216,4 +216,127 @@ public class AnnotationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ANNOT-GENE-001 — gene prediction (Annotation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 29.
+    //
+    // API under test (GenomeAnnotator.PredictGenes):
+    //   PredictGenes(dna, minOrfLength = 100, prefix = "gene")
+    //     = FindOrfs(dna, minOrfLength, searchBothStrands: true, requireStartCodon: true),
+    //       ORDERED by Start, each ORF emitted as a CDS GeneAnnotation whose span is the
+    //       ORF span (Start, End), Strand = '+' forward / '-' reverse, with the ORF's frame,
+    //       protein length and translation copied into Attributes. GeneId is the 1-based rank
+    //       in the Start-ordered list ("{prefix}_{n:D4}").
+    //
+    // Relations (derived from this ORF→gene mapping, NOT from output):
+    //   • COMP (gene ⊃ ORF): PredictGenes is a 1:1 image of FindOrfs — each gene's span
+    //           equals an ORF's span and carries that ORF's translation, so the gene set is
+    //           in bijection with the ORF set (gene count = ORF count, equal span sets).
+    //   • INV  (non-coding insertion doesn't affect upstream): genes are ORFs, so a forward
+    //           gene entirely upstream of an insertion point keeps its span/strand/product
+    //           regardless of what is inserted downstream (the order-dependent GeneId is
+    //           excluded, since downstream/other-strand shifts can renumber later genes).
+    //   • MON  (longer seq → ≥ genes): genes are ORFs; an IN-FRAME append (|X| ≡ 0 mod 3)
+    //           preserves every forward ORF and keeps the reverse-complement frames aligned,
+    //           so the gene count is non-decreasing (and strictly grows when the appended
+    //           region contributes a new ORF).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static (int Start, int End, char Strand) GeneSpan(GenomeAnnotator.GeneAnnotation g)
+        => (g.Start, g.End, g.Strand);
+
+    private static (int Start, int End, char Strand) OrfSpan(GenomeAnnotator.OpenReadingFrame o)
+        => (o.Start, o.End, o.IsReverseComplement ? '-' : '+');
+
+    #region COMP — every predicted gene is exactly an ORF (1:1 image of FindOrfs)
+
+    [Test]
+    [Description("COMP: PredictGenes is a 1:1 image of FindOrfs — gene count equals ORF count, gene spans equal ORF spans, and each gene carries its ORF's translation.")]
+    public void PredictGenes_IsBijectiveImageOfFindOrfs()
+    {
+        foreach (var body in OrfBodies())
+        {
+            var genes = GenomeAnnotator.PredictGenes(body, MinAa).ToList();
+            var orfs = GenomeAnnotator.FindOrfs(body, MinAa, searchBothStrands: true, requireStartCodon: true).ToList();
+
+            genes.Count.Should().Be(orfs.Count, because: "PredictGenes emits exactly one gene per ORF");
+            genes.Select(GeneSpan).ToHashSet().SetEquals(orfs.Select(OrfSpan).ToHashSet()).Should().BeTrue(
+                because: "each gene's [Start,End) and strand are copied verbatim from an ORF, so the span sets coincide (gene region ⊇ the ORF)");
+
+            genes.Should().OnlyContain(g => g.End > g.Start && g.Type == "CDS",
+                because: "a gene built from an ORF spans the coding interval and is annotated as a CDS");
+
+            // Each gene carries its ORF's translation — the gene genuinely contains the ORF.
+            foreach (var gene in genes)
+            {
+                var orf = orfs.Single(o => OrfSpan(o) == GeneSpan(gene));
+                gene.Attributes["translation"].Should().Be(orf.ProteinSequence,
+                    because: "the gene's translation attribute is the ORF's protein sequence");
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — inserting downstream does not change genes entirely upstream of it
+
+    [Test]
+    [Description("INV: inserting any region at a codon boundary leaves every forward gene that lies entirely upstream of the insertion point unchanged in span, strand, type and product.")]
+    public void PredictGenes_InsertDownstream_UpstreamForwardGenesUnchanged()
+    {
+        const string prefix = "ATGAAACCCAAATAA";           // forward CDS [0,15)
+        const string suffix = "GGGATGCCCAAACCCTGA";          // a downstream CDS (will move)
+        int insertPos = prefix.Length;
+
+        (int, int, char, string, string) GeneKey(GenomeAnnotator.GeneAnnotation g)
+            => (g.Start, g.End, g.Strand, g.Type, g.Product);
+
+        var baseUpstream = GenomeAnnotator.PredictGenes(prefix + suffix, MinAa)
+            .Where(g => g.Strand == '+' && g.End <= insertPos).Select(GeneKey).ToHashSet();
+        baseUpstream.Should().NotBeEmpty(because: "the prefix contains a complete forward CDS upstream of the insertion point");
+
+        foreach (var insert in new[] { "CCC", "CCCCCCCCC", RandomDna(9), "ATGTTTGGGTAA" })
+        {
+            var changedUpstream = GenomeAnnotator.PredictGenes(prefix + insert + suffix, MinAa)
+                .Where(g => g.Strand == '+' && g.End <= insertPos).Select(GeneKey).ToHashSet();
+
+            changedUpstream.SetEquals(baseUpstream).Should().BeTrue(
+                because: "a forward gene ending at or before the insertion point reads only upstream codons, so a downstream insertion leaves its span/strand/product unchanged (GeneId aside)");
+        }
+    }
+
+    #endregion
+
+    #region MON — extending the sequence in frame never reduces the gene count
+
+    [Test]
+    [Description("MON: appending an in-frame region (|X| ≡ 0 mod 3) never reduces the predicted-gene count; appending a region that carries an ORF strictly increases it.")]
+    public void PredictGenes_InFrameAppend_GeneCountNonDecreasing()
+    {
+        bool sawStrictIncrease = false;
+
+        foreach (var body in OrfBodies())
+        {
+            int baseCount = GenomeAnnotator.PredictGenes(body, MinAa).Count();
+
+            // All appends have length ≡ 0 (mod 3) so the reverse-complement frames stay aligned.
+            foreach (var ext in new[] { "CCCCCC", "CCCCCCCCCCCC", RandomDna(9), RandomDna(12) })
+            {
+                int extCount = GenomeAnnotator.PredictGenes(body + ext, MinAa).Count();
+                extCount.Should().BeGreaterThanOrEqualTo(baseCount,
+                    because: $"an in-frame append preserves every forward ORF and keeps the reverse-strand frames aligned, so the gene count cannot drop (|ext| = {ext.Length})");
+            }
+
+            // Appending an explicit in-frame ORF adds at least that gene.
+            int withOrf = GenomeAnnotator.PredictGenes(body + "ATGAAACCCTAA", MinAa).Count();
+            withOrf.Should().BeGreaterThanOrEqualTo(baseCount);
+            if (withOrf > baseCount) sawStrictIncrease = true;
+        }
+
+        sawStrictIncrease.Should().BeTrue(
+            because: "appending a fresh ATG…TAA ORF introduces a new gene for at least one body — the monotone relation is exercised, not vacuous");
+    }
+
+    #endregion
 }
