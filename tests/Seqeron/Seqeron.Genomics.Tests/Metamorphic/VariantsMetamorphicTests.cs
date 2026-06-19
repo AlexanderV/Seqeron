@@ -195,4 +195,52 @@ public class VariantsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: VARIANT-SNP-001 — SNP detection (Variants).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 189.
+    //
+    // API under test (VariantCaller.FindSnpsDirect):
+    //   Reports a SNP at every position where the aligned reference and query bases differ.
+    //
+    // Relations (derived from positional comparison, NOT from output):
+    //   • SHIFT (prepend flank shifts SNP positions): prepending an identical flank to both shifts
+    //          every SNP position by the flank length.
+    //   • INV  (deterministic): the SNP set is a pure function of the inputs.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string SnpReference = "ACGTACGTAC";
+    private const string SnpQuery = "ACTTACGAAC"; // substitutions at positions 2 and 7
+
+    #region VARIANT-SNP-001 SHIFT — a prepended flank shifts SNP positions
+
+    [Test]
+    [Description("SHIFT: prepending an identical flank to both sequences shifts every SNP position by the flank length.")]
+    public void Snps_PrependFlank_ShiftsPositions()
+    {
+        var original = VariantCaller.FindSnpsDirect(SnpReference, SnpQuery).Select(v => v.Position).ToList();
+        original.Should().Equal(2, 7);
+
+        foreach (var flank in new[] { "GG", "TTTTT" })
+        {
+            var shifted = VariantCaller.FindSnpsDirect(flank + SnpReference, flank + SnpQuery).Select(v => v.Position).ToList();
+            shifted.Should().Equal(original.Select(p => p + flank.Length),
+                because: $"the identical {flank.Length}-base flank shifts every SNP by {flank.Length}");
+        }
+    }
+
+    #endregion
+
+    #region VARIANT-SNP-001 INV — SNP detection is deterministic
+
+    [Test]
+    [Description("INV: SNP detection is a pure function, so repeated calls return the identical SNP positions.")]
+    public void Snps_Deterministic()
+    {
+        VariantCaller.FindSnpsDirect(SnpReference, SnpQuery).Select(v => v.Position).ToList()
+            .Should().Equal(VariantCaller.FindSnpsDirect(SnpReference, SnpQuery).Select(v => v.Position).ToList(),
+                because: "SNP calling has no hidden state");
+    }
+
+    #endregion
 }
