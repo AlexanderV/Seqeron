@@ -4,6 +4,7 @@ using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
 using Seqeron.Genomics.Alignment;
+using Seqeron.Genomics.Core;
 using Seqeron.Genomics.Infrastructure;
 
 namespace Seqeron.Genomics.Tests;
@@ -99,6 +100,16 @@ public class AlignmentMetamorphicTests
         for (int i = 0; i < length; i++)
             chars[i] = bases[Rng.Next(bases.Length)];
         return new string(chars);
+    }
+
+    /// <summary>The reference characters aligned opposite a non-gap query character (the fitted core window).</summary>
+    private static string AlignedCore(AlignmentResult r)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < r.AlignedSequence1.Length; i++)
+            if (r.AlignedSequence1[i] != '-')
+                sb.Append(r.AlignedSequence2[i]);
+        return sb.ToString();
     }
 
     private static readonly ScoringMatrix[] ScoringMatrices =
@@ -360,6 +371,95 @@ public class AlignmentMetamorphicTests
                         because: "the optimal local region is still exactly the shared core, unaffected by unmatchable flanks");
                     flanked.AlignedSequence2.Should().Be(bare.AlignedSequence2,
                         because: "the optimal local region is still exactly the shared core, unaffected by unmatchable flanks");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ALIGN-SEMI-001 — semi-global / fitting alignment (Alignment).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 37.
+    //
+    // API under test (SequenceAligner.SemiGlobalAlign):
+    //   A fitting alignment — the query seq1 is aligned end-to-end (no free gaps), while the
+    //   reference seq2 has FREE end gaps: its prefix (row 0 initialised to 0) and its suffix
+    //   (the optimum is the maximum of the LAST row) are skipped at no cost. Linear gap cost.
+    //
+    // Relations (derived from that fitting definition, NOT from output):
+    //   • MON (more matching overlap ⇒ higher score): when the query occurs verbatim inside
+    //          the reference, the whole query fits to that window, scoring exactly |query|·Match
+    //          (the maximum, since the fully-aligned query offers at most |query| matched
+    //          columns). A longer embedded query has more matched columns, so the score
+    //          strictly increases.
+    //   • INV (extend the non-overlapping part ⇒ same core alignment): the reference prefix
+    //          and suffix are free-gap regions, so lengthening them — with symbols ('G') absent
+    //          from the {A,C} query, ruling out any rival placement — leaves both the score and
+    //          the fitted core window (reference bases opposite the query) unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MON — a longer embedded query (more overlap) raises the fitting score
+
+    [Test]
+    [Description("MON: embedding a longer query verbatim in the reference yields a fitting score of exactly |query|·Match that strictly increases with the query length.")]
+    public void SemiGlobalAlign_MoreMatchingOverlap_IncreasesScore()
+    {
+        foreach (var scoring in ScoringMatrices)
+        {
+            int previous = int.MinValue;
+
+            foreach (int queryLen in new[] { 3, 5, 8, 12, 16 })
+            {
+                string query = RandomCoreAC(queryLen);
+                string reference = "GGGG" + query + "GGGG";   // 'G' absent from the {A,C} query
+
+                int score = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring).Score;
+
+                score.Should().Be(queryLen * scoring.Match,
+                    because: "the fully-aligned query fits to its verbatim occurrence, matching every one of its |query| columns");
+                score.Should().BeGreaterThan(previous,
+                    because: "a longer embedded query contributes more matched columns, so the fitting score strictly increases");
+                previous = score;
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — extending the free-gap reference flanks preserves score and fitted core
+
+    [Test]
+    [Description("INV: lengthening the reference prefix/suffix (free-gap regions, built from a symbol absent from the query) changes neither the fitting score nor the reference window fitted to the query.")]
+    public void SemiGlobalAlign_ExtendNonOverlappingFlank_PreservesCoreAlignment()
+    {
+        foreach (var scoring in ScoringMatrices)
+        {
+            foreach (int queryLen in new[] { 6, 10, 16 })
+            {
+                string query = RandomCoreAC(queryLen);
+
+                int? refScore = null;
+                string? refCore = null;
+
+                foreach (int flank in new[] { 2, 4, 8, 16 })
+                {
+                    string g = new string('G', flank);
+                    string reference = g + query + g;
+
+                    var result = SequenceAligner.SemiGlobalAlign(new DnaSequence(query), new DnaSequence(reference), scoring);
+
+                    result.Score.Should().Be(queryLen * scoring.Match,
+                        because: "the flanks are free-gap regions made of an unmatchable symbol, so they add nothing to the score");
+                    AlignedCore(result).Should().Be(query,
+                        because: "the query still fits exactly to its verbatim occurrence — the fitted reference window is the query itself");
+
+                    refScore ??= result.Score;
+                    refCore ??= AlignedCore(result);
+                    result.Score.Should().Be(refScore!.Value,
+                        because: "extending free-gap flanks must not change the optimal fitting score");
+                    AlignedCore(result).Should().Be(refCore,
+                        because: "extending free-gap flanks must not move or alter the fitted core window");
                 }
             }
         }

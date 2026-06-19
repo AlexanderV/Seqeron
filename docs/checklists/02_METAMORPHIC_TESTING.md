@@ -64,7 +64,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 34 | ☑ | KMER-FIND-001 | K-mer | MON: lower minFreq → ≥ k-mers; SUB: top-1 ⊆ top-5; INV: repeat seq → high frequency for unit k-mer |
 | 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | SYM: score(a,b)=score(b,a); MON: more matches → higher score; COMP: identity → max score; INV: gap-only insert → score change = gap penalty |
 | 36 | ☑ | ALIGN-LOCAL-001 | Alignment | SUB: local score ≥ 0; MON: extend matching region → ≥ score; COMP: local for identical = global; INV: distant flank → same local alignment |
-| 37 | ☐ | ALIGN-SEMI-001 | Alignment | MON: more matching overlap → higher score; INV: extend non-overlapping part → same core alignment |
+| 37 | ☑ | ALIGN-SEMI-001 | Alignment | MON: more matching overlap → higher score; INV: extend non-overlapping part → same core alignment |
 | 38 | ☐ | ALIGN-MULTI-001 | Alignment | INV: column permutation doesn't affect per-column scores; MON: add identical seq → score stays or increases |
 | 39 | ☐ | PHYLO-DIST-001 | Phylogenetic | SYM: d(a,b)=d(b,a); MON: more mutations → higher distance; COMP: triangle inequality; INV: d(x,x)=0 |
 | 40 | ☐ | PHYLO-TREE-001 | Phylogenetic | INV: UPGMA — permuting input order → same topology; MON: closer seqs → shorter branch lengths |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 36 |
-| ☐ Not started | 198 |
+| ☑ Complete | 37 |
+| ☐ Not started | 197 |
 | MR relations defined | ~200+ |
