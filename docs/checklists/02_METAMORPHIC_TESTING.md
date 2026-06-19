@@ -119,7 +119,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 89 | ☑ | ONCO-DRIVER-001 | Oncology | MON: more samples sharing a mutation → ≥ driver score; INV: relabeling passenger genes preserves driver set |
 | 90 | ☑ | ONCO-ARTIFACT-001 | Oncology | MON: stricter artifact evidence (higher GIV) → subset of survivors; INV: duplicating a passing variant keeps it passing |
 | 91 | ☑ | ONCO-ANNOT-001 | Oncology | INV: uniform identity shift carries annotations equally (no coordinate field; identity is the analog); INV: variant order independent |
-| 92 | ☐ | ONCO-TMB-001 | Oncology | INV: doubling panel-Mb and mutations → same TMB density; MON: +1 coding mutation → ≥ TMB; INV: order independent |
+| 92 | ☑ | ONCO-TMB-001 | Oncology | INV: doubling panel-Mb and mutations → same TMB density; MON: +1 coding mutation → ≥ TMB; INV: order independent |
 | 93 | ☐ | ONCO-MSI-001 | Oncology | MON: more unstable loci → ≥ MSI score; INV: locus order independent |
 | 94 | ☐ | ONCO-HRD-001 | Oncology | MON: adding an LOH/TAI/LST event → ≥ HRD; INV: event order independent |
 | 95 | ☐ | ONCO-LOH-001 | Oncology | INV: swapping A/B allele labels preserves LOH calls; MON: lower BAF-dev threshold → superset |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 91 |
-| ☐ Not started | 143 |
+| ☑ Complete | 92 |
+| ☐ Not started | 142 |
 | MR relations defined | ~200+ |

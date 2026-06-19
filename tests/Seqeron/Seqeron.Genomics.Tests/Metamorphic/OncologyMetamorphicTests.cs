@@ -496,4 +496,66 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-TMB-001 — tumor mutational burden (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 92.
+    //
+    // API under test (OncologyAnalyzer.CalculateTMB):
+    //   TMB = (#somatic coding mutations) / (panel size in Mb) — a density.
+    //
+    // Relations (derived from the density definition, NOT from output):
+    //   • INV  (doubling mutations and Mb ⇒ same density): scaling numerator and denominator
+    //          equally leaves the ratio unchanged.
+    //   • MON  (+1 coding mutation ⇒ ≥ TMB): at fixed panel size, one more mutation raises TMB.
+    //   • INV  (order independent): TMB from a call set counts somatic calls — order irrelevant.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-TMB-001 INV — doubling mutations and panel size preserves TMB
+
+    [Test]
+    [Description("INV: scaling the mutation count and the panel Mb by the same factor leaves the TMB density unchanged.")]
+    public void Tmb_DoubleMutationsAndPanel_SameDensity()
+    {
+        double baseTmb = OncologyAnalyzer.CalculateTMB(100, 2.0);
+        foreach (int k in new[] { 2, 3, 10 })
+            OncologyAnalyzer.CalculateTMB(100 * k, 2.0 * k).Should().BeApproximately(baseTmb, 1e-12,
+                because: $"scaling mutations and Mb by {k} cancels in mutations/Mb");
+    }
+
+    #endregion
+
+    #region ONCO-TMB-001 MON — one more mutation raises TMB
+
+    [Test]
+    [Description("MON: at fixed panel size, each additional coding mutation strictly raises TMB.")]
+    public void Tmb_OneMoreMutation_HigherTmb()
+    {
+        const double panelMb = 5.0;
+        double previous = double.MinValue;
+        foreach (int count in new[] { 0, 1, 10, 100 })
+        {
+            double tmb = OncologyAnalyzer.CalculateTMB(count, panelMb);
+            if (count > 0) tmb.Should().BeGreaterThan(previous, because: "more mutations at fixed Mb raise the density");
+            previous = tmb;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-TMB-001 INV — TMB from a call set is order independent
+
+    [Test]
+    [Description("INV: TMB counts the somatic calls, so it is independent of the order of the call list.")]
+    public void Tmb_CallOrder_Independent()
+    {
+        var calls = OncologyAnalyzer.CallSomaticMutations(Panel(), TumorThr, NormalThr);
+        const double panelMb = 1.5;
+
+        OncologyAnalyzer.CalculateTMB(calls.Reverse(), panelMb)
+            .Should().Be(OncologyAnalyzer.CalculateTMB(calls, panelMb),
+                because: "TMB is a count of somatic calls divided by Mb — order cannot matter");
+    }
+
+    #endregion
 }
