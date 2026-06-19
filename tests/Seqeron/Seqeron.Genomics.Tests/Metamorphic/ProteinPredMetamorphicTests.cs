@@ -438,4 +438,80 @@ public class ProteinPredMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: DISORDER-PROPENSITY-001 — per-residue disorder-propensity profile (ProteinPred).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 206.
+    //
+    // API under test (DisorderPredictor.PredictDisorder → ResiduePredictions[].DisorderScore):
+    //   The propensity profile is the array of per-residue scores, each the average normalised
+    //   TOP-IDP propensity over a sliding window of size w (half-window h = w/2). Position i's score
+    //   depends only on the window [i−h, i+h].
+    //
+    // Relations (derived from the windowed-average definition, NOT from output):
+    //   • INV   (deterministic): the profile is a pure, case-insensitive function of the sequence.
+    //   • SHIFT (prepend flank shifts profile): because score i sees only [i−h, i+h], prepending a
+    //           flank of length L leaves every interior window (original i ≥ h) intact but at
+    //           coordinate i+L — so profile_ext[i+L] = profile_orig[i] exactly, independent of the
+    //           flank's content. This is the positional-translation covariance of the profile.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region DISORDER-PROPENSITY-001 — Helpers
+
+    // A compositionally varied protein region (ordered W/F/I/V and disordered P/E/K/S stretches), so
+    // the propensity profile is genuinely non-constant — a meaningful, non-vacuous fixture.
+    private const string PropensityTestSeq = "MKKLLPESTQRGSAADEWFYILVNPPPQEKRGGSSEEDDKKRRWWFFIIVVNNCCTT";
+
+    private static double[] PropensityProfile(string sequence, int windowSize) =>
+        DisorderPredictor.PredictDisorder(sequence, windowSize: windowSize).ResiduePredictions
+            .Select(r => r.DisorderScore).ToArray();
+
+    #endregion
+
+    #region DISORDER-PROPENSITY-001 INV — the propensity profile is deterministic and case-insensitive
+
+    [Test]
+    [Description("INV: the per-residue propensity profile is a pure, case-insensitive function — repeated calls and upper/lower case give identical profiles.")]
+    public void PropensityProfile_SameSequence_SameProfile()
+    {
+        const int windowSize = 21;
+
+        var profile = PropensityProfile(PropensityTestSeq, windowSize);
+        profile.Distinct().Should().HaveCountGreaterThan(1, because: "the test sequence yields a genuinely varying profile — a non-vacuous fixture");
+
+        PropensityProfile(PropensityTestSeq, windowSize).Should().Equal(profile, because: "the profile computation has no hidden state");
+        PropensityProfile(PropensityTestSeq.ToLowerInvariant(), windowSize).Should().Equal(profile,
+            because: "the sequence is upper-cased before scoring, so case does not matter");
+    }
+
+    #endregion
+
+    #region DISORDER-PROPENSITY-001 SHIFT — prepending a flank translates the interior profile
+
+    [Test]
+    [Description("SHIFT: score i depends only on the window [i−h, i+h], so prepending a flank of length L translates every interior score (original i ≥ h) to coordinate i+L unchanged, regardless of the flank's content.")]
+    public void PropensityProfile_PrependFlank_ShiftsInteriorProfile()
+    {
+        foreach (int windowSize in new[] { 11, 21 })
+        {
+            int halfWindow = windowSize / 2;
+            var original = PropensityProfile(PropensityTestSeq, windowSize);
+
+            // The flank content is deliberately arbitrary: the relation holds for ANY prepended
+            // residues because interior windows never reach into the flank.
+            foreach (string flank in new[] { "GGGGGGG", "ACDEFGHIKLMNP" })
+            {
+                int offset = flank.Length;
+                var extended = PropensityProfile(flank + PropensityTestSeq, windowSize);
+
+                extended.Should().HaveCount(original.Length + offset, because: "the profile has one score per residue");
+
+                for (int i = halfWindow; i < PropensityTestSeq.Length; i++)
+                    extended[i + offset].Should().Be(original[i],
+                        because: $"residue {i}'s window [{i - halfWindow},{i + halfWindow}] is clear of the {offset}-residue flank, so its score only translates by {offset}");
+            }
+        }
+    }
+
+    #endregion
 }
