@@ -922,4 +922,66 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-SIG-004 — mutational-process classification (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 99.
+    //
+    // API under test (OncologyAnalyzer.ClassifyMutationalProcess):
+    //   Normalizes per-signature exposures to relative contributions, drops sub-cutoff ones,
+    //   aggregates by aetiology process, and reports the active processes and the dominant one.
+    //
+    // Relations (derived from the normalize-then-aggregate model, NOT from output):
+    //   • INV  (scale exposures ⇒ same dominant process): normalization cancels a common factor,
+    //          so scaling all exposures preserves the active processes and the dominant one.
+    //   • INV  (signature order independent): aggregation by process and the deterministic
+    //          ordering make the result independent of the input signature order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static (string, double)[] ExposurePanel() => new[]
+    {
+        ("SBS4", 60.0),  // TobaccoSmoking (dominant)
+        ("SBS1", 30.0),  // Aging
+        ("SBS2", 10.0),  // Apobec
+    };
+
+    #region ONCO-SIG-004 INV — scaling exposures preserves the dominant process
+
+    [Test]
+    [Description("INV: contributions are normalized, so scaling every exposure by a positive constant preserves the active processes and the dominant process.")]
+    public void ClassifyProcess_ScaleExposures_SameDominant()
+    {
+        var baseResult = OncologyAnalyzer.ClassifyMutationalProcess(ExposurePanel());
+        baseResult.DominantProcess.Should().NotBe(OncologyAnalyzer.MutationalProcess.Unknown,
+            because: "the panel has mapped signatures, so a dominant process exists");
+
+        foreach (double k in new[] { 2.0, 100.0, 0.25 })
+        {
+            var scaled = OncologyAnalyzer.ClassifyMutationalProcess(
+                ExposurePanel().Select(e => (e.Item1, e.Item2 * k)).ToList());
+
+            scaled.DominantProcess.Should().Be(baseResult.DominantProcess,
+                because: $"scaling all exposures by {k} cancels in the normalization");
+            scaled.ActiveProcesses.Select(p => p.Process).Should().Equal(baseResult.ActiveProcesses.Select(p => p.Process),
+                because: "the relative contributions — and hence the active-process ranking — are unchanged");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-SIG-004 INV — signature order independent
+
+    [Test]
+    [Description("INV: aggregation by process and deterministic ordering make the dominant process and active-process set independent of the input signature order.")]
+    public void ClassifyProcess_SignatureOrder_Independent()
+    {
+        var forward = OncologyAnalyzer.ClassifyMutationalProcess(ExposurePanel());
+        var reversed = OncologyAnalyzer.ClassifyMutationalProcess(ExposurePanel().Reverse().ToList());
+
+        reversed.DominantProcess.Should().Be(forward.DominantProcess, because: "the dominant process does not depend on input order");
+        reversed.ActiveProcesses.Should().Equal(forward.ActiveProcesses,
+            because: "active processes are emitted in a deterministic (contribution, then process) order");
+    }
+
+    #endregion
 }
