@@ -769,4 +769,76 @@ public class AnnotationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ANNOT-REPEAT-001 — repetitive-element detection (Annotation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 218.
+    //
+    // API under test (GenomeAnnotator.FindRepetitiveElements):
+    //   Reports tandem repeats (≥ minCopies adjacent primitive-unit copies) and inverted repeats,
+    //   filtered to a minimum span of minRepeatLength. Each element is (start, end, type, sequence).
+    //
+    // Relations (derived from the span filter + position-translation, NOT from output):
+    //   • MON  (lower minLen ⇒ superset): minRepeatLength only filters candidates by span, so lowering
+    //          it admits a superset of the identical elements.
+    //   • SHIFT (prepend flank shifts elements): translating the sequence by a flank shifts every
+    //          interior element's coordinates by the flank length (its (type, sequence) unchanged).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ANNOT-REPEAT-001 — Helpers
+
+    // Two A-runs (span 4 and span 10) separated by a single G. Over {A,G} only: a reverse complement
+    // would need T/C, which never occur, so there are NO inverted repeats — the result is purely the
+    // two tandem A-arrays, making the relations clean.
+    private const string RepeatFixture = "AAAAGAAAAAAAAAA";
+
+    private static List<(int start, int end, string type, string sequence)> Repeats(string seq, int minLen) =>
+        GenomeAnnotator.FindRepetitiveElements(seq, minRepeatLength: minLen, minCopies: 2).ToList();
+
+    #endregion
+
+    #region ANNOT-REPEAT-001 MON — lowering minRepeatLength admits a superset
+
+    [Test]
+    [Description("MON: minRepeatLength only filters candidates by span, so lowering it admits a superset of the identical elements.")]
+    public void Repeats_LowerMinLength_SupersetOfElements()
+    {
+        var lenient = Repeats(RepeatFixture, 4);  // both A-runs (span 4 and 10)
+        var strict = Repeats(RepeatFixture, 8);   // only the span-10 run
+
+        lenient.Should().HaveCount(2, because: "both tandem A-runs clear a span-4 floor");
+        strict.Should().NotBeEmpty(because: "the span-10 run clears the span-8 floor");
+
+        strict.Should().BeSubsetOf(lenient, because: "raising minRepeatLength only drops whole elements, never alters them");
+        strict.Should().HaveCountLessThan(lenient.Count, because: "the span-4 run is filtered at minLen = 8 but present at minLen = 4");
+    }
+
+    #endregion
+
+    #region ANNOT-REPEAT-001 SHIFT — prepending a flank translates the elements
+
+    [Test]
+    [Description("SHIFT: prepending a flank shifts every interior repeat's coordinates by the flank length while preserving its type and sequence.")]
+    public void Repeats_PrependFlank_ShiftsElements()
+    {
+        var baseline = Repeats(RepeatFixture, 4);
+        baseline.Should().HaveCount(2, because: "the fixture has two tandem A-runs");
+
+        // Flanks over {A,G} ending in G: G prevents the leading A-run from merging leftwards, and the
+        // {A,G} alphabet keeps the whole sequence free of inverted repeats.
+        foreach (string flank in new[] { "GAG", "GGAGAAG" })
+        {
+            int offset = flank.Length;
+            var shifted = Repeats(flank + RepeatFixture, 4);
+
+            var expected = baseline.Select(e => (e.start + offset, e.end + offset, e.type, e.sequence));
+
+            // Elements lying inside the original region (start ≥ offset) are exactly the baseline,
+            // translated by the flank length; any element the flank itself spawns sits before offset.
+            shifted.Where(e => e.start >= offset).Should().BeEquivalentTo(expected,
+                because: $"prepending {offset} bases shifts every interior repeat's coordinates by {offset}");
+        }
+    }
+
+    #endregion
 }
