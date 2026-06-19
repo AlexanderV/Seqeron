@@ -585,4 +585,61 @@ public class RnaStructureMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: RNA-PARTITION-001 — McCaskill partition function (RnaStructure).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 154.
+    //
+    // API under test (RnaSecondaryStructure.CalculatePartitionFunction):
+    //   Z = Σ over all pseudoknot-free structures of exp(−βE); with the simplified fixed-per-pair
+    //   model every additional admissible pair adds Boltzmann-weighted structures to the ensemble.
+    //
+    // Relations (derived from the ensemble sum, NOT from output):
+    //   • MON  (more pairing options ⇒ higher Z): a sequence with no possible pair has Z = 1 (only
+    //          the empty structure); adding complementary content introduces extra structures, each
+    //          with positive Boltzmann weight, so Z strictly increases.
+    //   • INV  (deterministic): Z is a pure function of the sequence and parameters.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region RNA-PARTITION-001 MON — more pairing options raise Z
+
+    [Test]
+    [Description("MON: lengthening a hairpin stem adds admissible base pairs, each contributing extra Boltzmann-weighted structures, so the partition function Z strictly increases (from Z=1 for a non-pairing sequence).")]
+    public void Partition_MorePairingOptions_HigherZ()
+    {
+        var sequences = new[]
+        {
+            "AAAAAA",          // no complementary pair possible ⇒ Z = 1
+            "GAAAAC",          // one possible pair
+            "GGAAAACC",        // nested pairs
+            "GGGAAAACCC",      // more nested pairs
+        };
+
+        double previous = 0.0;
+        bool first = true;
+        foreach (var seq in sequences)
+        {
+            double z = RnaSecondaryStructure.CalculatePartitionFunction(seq).PartitionFunction;
+            if (first) z.Should().Be(1.0, because: "a sequence with no admissible pair has only the empty structure");
+            z.Should().BeGreaterThan(previous, because: $"'{seq}' admits more base-pair options, adding ensemble structures");
+            previous = z;
+            first = false;
+        }
+    }
+
+    #endregion
+
+    #region RNA-PARTITION-001 INV — the partition function is deterministic
+
+    [Test]
+    [Description("INV: Z is a pure function of the sequence, so repeated evaluations give the identical partition function.")]
+    public void Partition_SameSequence_SameZ()
+    {
+        const string seq = "GGGAAAACCC";
+        RnaSecondaryStructure.CalculatePartitionFunction(seq).PartitionFunction
+            .Should().Be(RnaSecondaryStructure.CalculatePartitionFunction(seq).PartitionFunction,
+                because: "the partition function has no hidden state");
+    }
+
+    #endregion
 }
