@@ -1899,4 +1899,64 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-HETERO-001 — intratumour heterogeneity (MATH) (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 116.
+    //
+    // API under test (OncologyAnalyzer.AnalyzeHeterogeneity):
+    //   The MATH score is 100·(scaled MAD)/median of the VAFs (Mroz & Rocco 2013) — a
+    //   coefficient-of-dispersion-like ratio.
+    //
+    // Relations (derived from the MAD/median ratio, NOT from output):
+    //   • INV  (scaling all VAFs equally preserves MATH): MAD and median scale together, so the
+    //          ratio (MATH) is unchanged.
+    //   • MON  (wider VAF spread ⇒ ≥ heterogeneity): at a fixed median, a wider VAF spread raises
+    //          the MAD and hence the MATH score.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static double Math(double[] vafs) =>
+        OncologyAnalyzer.AnalyzeHeterogeneity(vafs, vafs, 1).MathScore;
+
+    #region ONCO-HETERO-001 INV — scaling all VAFs equally preserves MATH
+
+    [Test]
+    [Description("INV: MATH = 100·MAD/median, so scaling every VAF by the same positive factor (MAD and median scale together) leaves MATH unchanged.")]
+    public void Math_ScaleAllVafs_Unchanged()
+    {
+        var vafs = new[] { 0.1, 0.2, 0.3, 0.4 };
+        double baseMath = Math(vafs);
+
+        foreach (double k in new[] { 0.5, 1.5, 2.0 })
+        {
+            var scaled = vafs.Select(v => v * k).ToArray(); // stays within [0,1] for these k
+            Math(scaled).Should().BeApproximately(baseMath, 1e-9,
+                because: $"scaling all VAFs by {k} scales MAD and median together, leaving the ratio unchanged");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-HETERO-001 MON — a wider VAF spread raises MATH
+
+    [Test]
+    [Description("MON: at a fixed median, widening the VAF spread raises the MAD and hence the MATH score.")]
+    public void Math_WiderSpread_HigherHeterogeneity()
+    {
+        double previous = double.MinValue;
+        // All share median 0.35; the spread around it widens.
+        foreach (var vafs in new[]
+                 {
+                     new[] { 0.33, 0.35, 0.37 },
+                     new[] { 0.25, 0.35, 0.45 },
+                     new[] { 0.10, 0.35, 0.60 },
+                 })
+        {
+            double math = Math(vafs);
+            math.Should().BeGreaterThan(previous, because: "a wider VAF spread at fixed median raises the MAD and thus MATH");
+            previous = math;
+        }
+    }
+
+    #endregion
 }
