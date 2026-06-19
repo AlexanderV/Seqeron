@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using FluentAssertions;
@@ -167,6 +168,58 @@ public class EpigeneticsMetamorphicTests
         EpigeneticsAnalyzer.CalculateEpigeneticAge(reordered, ClockCoefficients)
             .Should().BeApproximately(EpigeneticsAnalyzer.CalculateEpigeneticAge(forward, ClockCoefficients), 1e-9,
                 because: "the weighted sum over CpGs does not depend on the map's insertion order");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: EPIGEN-BISULF-001 — in-silico bisulfite conversion (Epigenetics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 182.
+    //
+    // API under test (EpigeneticsAnalyzer.SimulateBisulfiteConversion):
+    //   Converts every unmethylated cytosine to thymine; methylated (protected) cytosines stay C.
+    //
+    // Relations (derived from the conversion rule, NOT from output):
+    //   • INV  (methylated-C set preserved): the cytosines surviving conversion are exactly the
+    //          protected (methylated) positions.
+    //   • SHIFT (prepend flank shifts conversions): shifting the protected positions by a prepended
+    //          flank reproduces the original converted region unchanged at the shifted offset.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region EPIGEN-BISULF-001 INV — surviving cytosines are exactly the methylated set
+
+    [Test]
+    [Description("INV: every unmethylated C converts to T, so the positions that remain C after conversion are exactly the protected (methylated) cytosine positions.")]
+    public void Bisulfite_SurvivingCytosines_AreMethylatedSet()
+    {
+        const string seq = "ACGCGTCC";              // C at 1,3,6,7
+        var methylated = new HashSet<int> { 3, 6 }; // protected cytosines
+
+        string converted = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+
+        var survivingC = Enumerable.Range(0, converted.Length).Where(i => converted[i] == 'C').ToHashSet();
+        survivingC.Should().BeEquivalentTo(methylated, because: "only protected cytosines stay C; all others become T");
+    }
+
+    #endregion
+
+    #region EPIGEN-BISULF-001 SHIFT — a prepended flank shifts the conversions
+
+    [Test]
+    [Description("SHIFT: shifting the protected positions by a prepended flank reproduces the original converted region unchanged at the shifted offset.")]
+    public void Bisulfite_PrependFlank_ShiftsConversions()
+    {
+        const string seq = "ACGCGTCC";
+        var methylated = new HashSet<int> { 3, 6 };
+        string original = EpigeneticsAnalyzer.SimulateBisulfiteConversion(seq, methylated);
+
+        foreach (var flank in new[] { "TTC", "GGCCAA" })
+        {
+            var shiftedMeth = methylated.Select(p => p + flank.Length).ToHashSet();
+            string full = EpigeneticsAnalyzer.SimulateBisulfiteConversion(flank + seq, shiftedMeth);
+            full.Substring(flank.Length).Should().Be(original,
+                because: $"shifting the protected positions by {flank.Length} converts the original region identically");
+        }
     }
 
     #endregion
