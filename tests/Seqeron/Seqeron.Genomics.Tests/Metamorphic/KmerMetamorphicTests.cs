@@ -333,4 +333,157 @@ public class KmerMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-FIND-001 — frequent / recurrent k-mer selection (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 34.
+    //
+    // APIs under test:
+    //   FindKmersWithMinCount(seq, k, minCount) = { (w, count(w)) : count(w) ≥ minCount },
+    //     ordered by count DESCENDING (Compeau & Pevzner "Count(Text,Pattern) ≥ t").
+    //   FindMostFrequentKmers(seq, k) = the k-mers whose count equals the maximum count
+    //     (the top tier; ties all returned). Both empty when k > |seq|.
+    //
+    // Relations (derived from the definitions, NOT from output):
+    //   • MON (threshold antitone ⇒ result monotone): the qualifying set
+    //          {w : count(w) ≥ t} shrinks as the threshold t rises, so a LOWER minCount
+    //          yields a SUPERSET and a non-decreasing result size.
+    //   • SUB (most-frequent ⊆ any lower threshold): the maximal-count k-mers clear every
+    //          threshold ≤ maxCount, so FindMostFrequentKmers ⊆ FindKmersWithMinCount(·,t)
+    //          for all t ≤ maxCount, and equals exactly the tier at t = maxCount. The
+    //          descending-ranked list also nests by prefix — top-1 ⊆ top-5 — with counts
+    //          non-increasing along it (the "top-N" reading of the checklist).
+    //   • INV (repeat ⇒ unit k-mer dominates): for a tandem repeat U^m with k ≤ |U| the
+    //          string has period |U|, so a window's content depends only on its start
+    //          residue mod |U|. By pigeonhole the maximum count is ≥ m−1 (it grows with m),
+    //          and every most-frequent k-mer is a substring of U·U — i.e. a k-mer of the
+    //          repeat unit, not an artefact of the flanks.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MON — lower minCount yields a superset (more recurrent k-mers)
+
+    [Test]
+    [Description("MON: FindKmersWithMinCount with a lower threshold returns a superset of the higher-threshold result, and the result size is non-increasing as the threshold rises.")]
+    public void FindKmersWithMinCount_LowerThreshold_YieldsSuperset()
+    {
+        foreach (var body in KmerBodies())
+        {
+            foreach (int k in KValues)
+            {
+                if (body.Length < k)
+                    continue;
+
+                int maxCount = KmerAnalyzer.CountKmers(body, k).Values.Max();
+
+                for (int t = 1; t < maxCount; t++)
+                {
+                    var lower = KmerAnalyzer.FindKmersWithMinCount(body, k, t).Select(x => x.Kmer).ToHashSet();
+                    var higher = KmerAnalyzer.FindKmersWithMinCount(body, k, t + 1).Select(x => x.Kmer).ToHashSet();
+
+                    higher.Should().BeSubsetOf(lower,
+                        because: $"requiring count ≥ {t + 1} is strictly stronger than count ≥ {t}, so the qualifying set can only shrink");
+                    lower.Count.Should().BeGreaterThanOrEqualTo(higher.Count,
+                        because: "a superset has at least as many elements");
+                }
+            }
+        }
+    }
+
+    #endregion
+
+    #region SUB — most-frequent k-mers sit atop every lower threshold; ranked prefixes nest
+
+    [Test]
+    [Description("SUB: the most-frequent k-mers equal the tier at minCount = maxCount and are a subset of every lower-threshold result.")]
+    public void FindMostFrequentKmers_AreTheTopThresholdTier()
+    {
+        foreach (var body in KmerBodies())
+        {
+            foreach (int k in KValues)
+            {
+                if (body.Length < k)
+                    continue;
+
+                var mostFrequent = KmerAnalyzer.FindMostFrequentKmers(body, k).ToHashSet();
+                int maxCount = KmerAnalyzer.CountKmers(body, k).Values.Max();
+
+                var atMax = KmerAnalyzer.FindKmersWithMinCount(body, k, maxCount).Select(x => x.Kmer).ToHashSet();
+                mostFrequent.Should().BeEquivalentTo(atMax,
+                    because: "the most-frequent k-mers are exactly those whose count reaches the maximum, i.e. those clearing the threshold minCount = maxCount");
+
+                for (int t = 1; t <= maxCount; t++)
+                {
+                    var tier = KmerAnalyzer.FindKmersWithMinCount(body, k, t).Select(x => x.Kmer).ToHashSet();
+                    mostFrequent.Should().BeSubsetOf(tier,
+                        because: $"a maximal-count k-mer clears every threshold t = {t} ≤ {maxCount}, so it appears in that tier");
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("SUB: FindKmersWithMinCount is ranked by count descending, so its prefixes nest (top-1 ⊆ top-5) and the counts are non-increasing along the list.")]
+    public void FindKmersWithMinCount_RankedPrefixes_Nest()
+    {
+        foreach (var body in KmerBodies())
+        {
+            foreach (int k in KValues)
+            {
+                if (body.Length < k)
+                    continue;
+
+                var ranked = KmerAnalyzer.FindKmersWithMinCount(body, k, 1).ToList();
+
+                for (int i = 1; i < ranked.Count; i++)
+                    ranked[i].Count.Should().BeLessThanOrEqualTo(ranked[i - 1].Count,
+                        because: "the API documents a count-descending order, so each rank's count is ≤ the previous rank's");
+
+                var top1 = ranked.Take(1).Select(x => x.Kmer).ToHashSet();
+                var top5 = ranked.Take(5).Select(x => x.Kmer).ToHashSet();
+                top1.Should().BeSubsetOf(top5,
+                    because: "the top-1 of a ranked list is a prefix of the top-5, hence a subset");
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — a tandem repeat makes its unit k-mers dominate (count grows with copies)
+
+    [Test]
+    [Description("INV: for a tandem repeat U^m with k ≤ |U|, the maximum k-mer count is ≥ m−1 and grows with m, and every most-frequent k-mer is a substring of U·U (a k-mer of the repeat unit).")]
+    public void FindMostFrequentKmers_TandemRepeat_UnitKmerDominates()
+    {
+        string[] units = { "ACGT", "ATG", "GATTACA", "AAC" };
+
+        foreach (var unit in units)
+        {
+            string doubledUnit = unit + unit;
+
+            foreach (int k in new[] { 1, 2, 3 })
+            {
+                if (k > unit.Length)
+                    continue;
+
+                int prevMax = 0;
+                foreach (int m in new[] { 2, 3, 5, 8 })
+                {
+                    string repeat = string.Concat(Enumerable.Repeat(unit, m));
+
+                    int maxCount = KmerAnalyzer.CountKmers(repeat, k).Values.Max();
+                    maxCount.Should().BeGreaterThanOrEqualTo(m - 1,
+                        because: $"U^{m} has period |U|={unit.Length}, so by pigeonhole over {unit.Length} start residues some length-{k} k-mer recurs ≥ m−1 times");
+                    maxCount.Should().BeGreaterThanOrEqualTo(prevMax,
+                        because: "appending another copy of the unit adds one window per residue class, so the maximum count cannot decrease as m grows");
+                    prevMax = maxCount;
+
+                    foreach (var w in KmerAnalyzer.FindMostFrequentKmers(repeat, k))
+                        doubledUnit.Should().Contain(w,
+                            because: $"every length-{k} window of U^{m} (k ≤ |U|) is a substring of U·U, so a dominating k-mer is a k-mer of the repeat unit — not a flank artefact");
+                }
+            }
+        }
+    }
+
+    #endregion
 }
