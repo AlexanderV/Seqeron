@@ -1502,4 +1502,51 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-NEO-001 — neoantigen peptide tiling (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 109.
+    //
+    // API under test (OncologyAnalyzer.GenerateNeoantigenPeptides):
+    //   Enumerates every length-k window (k ∈ [min,max]) of the mutant protein that spans the
+    //   substituted residue, paired with the wild-type window. The peptide content depends only
+    //   on the ±(k−1) local context of the mutation, not its absolute position.
+    //
+    // Relation (derived from the windowing rule, NOT from output):
+    //   • INV  (flanking-context shift preserves the tiling peptide set): prepending an
+    //          N-terminal flank shifts every window's start position but, when the mutation keeps
+    //          ≥ maxLength−1 residues of original context on each side, leaves the set of
+    //          mutant/wild-type peptide strings spanning the mutation unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-NEO-001 INV — a flanking shift preserves the tiling peptides
+
+    [Test]
+    [Description("INV: prepending an N-terminal flank shifts the peptide start positions but preserves the set of mutant/wild-type peptide strings tiling the mutation.")]
+    public void GenerateNeoantigenPeptides_FlankShift_PreservesPeptideSet()
+    {
+        // 25-mer with the mutation at position 13 → ≥ 10 residues of context on each side (max k = 11).
+        const string wildType = "ACDEFGHIKLMNPQRSTVWYACDEF";
+        const char mutant = 'G';      // substitute the wild-type 'P' at position 13
+        const int position = 13;
+
+        var basePeptides = OncologyAnalyzer.GenerateNeoantigenPeptides(wildType, mutant, position);
+        basePeptides.Should().NotBeEmpty();
+
+        foreach (int flankLength in new[] { 1, 5, 20 })
+        {
+            string flank = new string('W', flankLength);
+            var shifted = OncologyAnalyzer.GenerateNeoantigenPeptides(flank + wildType, mutant, position + flankLength);
+
+            shifted.Select(p => (p.Length, p.MutantPeptide, p.WildTypePeptide)).ToHashSet()
+                .Should().BeEquivalentTo(basePeptides.Select(p => (p.Length, p.MutantPeptide, p.WildTypePeptide)).ToHashSet(),
+                    because: "the windows tiling the mutation depend only on its local context, which the distant flank does not touch");
+
+            shifted.Select(p => p.StartPosition).OrderBy(s => s)
+                .Should().Equal(basePeptides.Select(p => p.StartPosition + flankLength).OrderBy(s => s),
+                    because: $"every window's start shifts by the {flankLength}-residue flank");
+        }
+    }
+
+    #endregion
 }
