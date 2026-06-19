@@ -439,4 +439,63 @@ public class ComparativeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: COMPGEN-REARR-001 — rearrangement detection (Comparative).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 137.
+    //
+    // API under test (ComparativeGenomics.DetectRearrangements):
+    //   Reads the genome-1 orthologs (in order) as a signed permutation of their genome-2 ranks and
+    //   reports each breakpoint of the extended permutation (Bafna & Pevzner 1998).
+    //
+    // Relations (derived from the breakpoint model, NOT from output):
+    //   • INV  (identity ⇒ no rearrangements): when the ortholog order and strands are identical the
+    //          relative permutation is the identity, which has no breakpoints, so no events are reported.
+    //   • SYM  ((A,B) consistent with (B,A)): the breakpoint distance of a permutation equals that of
+    //          its inverse, so swapping the genomes (and the ortholog map) reports the same number of
+    //          breakpoints.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    // Builds a genome whose genes carry the given ortholog-group ids in list order (all '+' strand).
+    private static List<ComparativeGenomics.Gene> OrderedGenome(string genomeId, params int[] groupOrder) =>
+        groupOrder.Select((grp, pos) => new ComparativeGenomics.Gene($"{genomeId}{grp}", genomeId, pos, pos, '+'))
+                  .ToList();
+
+    // Ortholog map linking each group's gene in genome A to the same group's gene in genome B.
+    private static Dictionary<string, string> GroupMap(string fromGenome, string toGenome, int groupCount) =>
+        Enumerable.Range(0, groupCount).ToDictionary(g => $"{fromGenome}{g}", g => $"{toGenome}{g}");
+
+    #region COMPGEN-REARR-001 INV — identical order yields no rearrangements
+
+    [Test]
+    [Description("INV: when genome 2 has the same ortholog order and strands as genome 1 the relative permutation is the identity, which has no breakpoints, so no rearrangements are reported.")]
+    public void Rearrangements_IdenticalOrder_None()
+    {
+        var g1 = OrderedGenome("A", 0, 1, 2, 3, 4);
+        var g2 = OrderedGenome("B", 0, 1, 2, 3, 4);
+
+        ComparativeGenomics.DetectRearrangements(g1, g2, GroupMap("A", "B", 5))
+            .Should().BeEmpty(because: "an identity permutation has no breakpoints");
+    }
+
+    #endregion
+
+    #region COMPGEN-REARR-001 SYM — swapping the genomes reports the same breakpoint count
+
+    [Test]
+    [Description("SYM: the breakpoint distance of a permutation equals that of its inverse, so DetectRearrangements(A,B) and (B,A) report the same number of breakpoints.")]
+    public void Rearrangements_SwapGenomes_SameBreakpointCount()
+    {
+        int[] permuted = { 2, 0, 4, 1, 3 };
+        var g1 = OrderedGenome("A", 0, 1, 2, 3, 4);
+        var g2 = OrderedGenome("B", permuted);
+
+        int forward = ComparativeGenomics.DetectRearrangements(g1, g2, GroupMap("A", "B", 5)).Count();
+        int reverse = ComparativeGenomics.DetectRearrangements(g2, g1, GroupMap("B", "A", 5)).Count();
+
+        forward.Should().BeGreaterThan(0, because: "the chosen order is a non-trivial permutation, so breakpoints exist");
+        reverse.Should().Be(forward, because: "a permutation and its inverse share the same breakpoint distance");
+    }
+
+    #endregion
 }
