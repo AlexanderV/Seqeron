@@ -276,4 +276,40 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-MERGE-001 — overlap-collapsing contig merge (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 144.
+    //
+    // API under test (SequenceAssembler.MergeContigs):
+    //   Merges contig1 and contig2 over a known suffix/prefix overlap, keeping the shared region
+    //   once: result = contig1 + contig2[overlap:].
+    //
+    // Relations (derived from the merge definition, NOT from output):
+    //   • INV  (merge order independent for compatible contigs): collapsing overlaps is associative
+    //          along a compatible chain A→B→C, so folding left (merge(merge(A,B),C)) equals folding
+    //          right (merge(A,merge(B,C))) — both reconstruct the original superstring.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ASSEMBLY-MERGE-001 INV — overlap-collapsing merge is associative
+
+    [Test]
+    [Description("INV: for a compatible overlap chain A→B→C, collapsing overlaps is associative, so left-folding and right-folding the merges give the same superstring (here the original sequence).")]
+    public void MergeContigs_CompatibleChain_OrderIndependent()
+    {
+        const string genome = "ACGTACGTTTGGCCAATT";
+        string a = genome.Substring(0, 10);  // ACGTACGTTT
+        string b = genome.Substring(6, 10);  // GTTTGGCCAA  (overlap with A = 4: "GTTT")
+        string c = genome.Substring(12, 6);  // CCAATT      (overlap with B = 4: "CCAA")
+        const int overlapAb = 4;
+        const int overlapBc = 4;
+
+        string leftFold = SequenceAssembler.MergeContigs(SequenceAssembler.MergeContigs(a, b, overlapAb), c, overlapBc);
+        string rightFold = SequenceAssembler.MergeContigs(a, SequenceAssembler.MergeContigs(b, c, overlapBc), overlapAb);
+
+        leftFold.Should().Be(rightFold, because: "collapsing compatible overlaps is associative, so the merge order does not matter");
+        leftFold.Should().Be(genome, because: "the compatible chain reconstructs the original superstring");
+    }
+
+    #endregion
 }

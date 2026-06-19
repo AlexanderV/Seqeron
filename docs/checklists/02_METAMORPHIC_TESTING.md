@@ -171,7 +171,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 141 | ☑ | ASSEMBLY-CORRECT-001 | Assembly | INV: error-free reads unchanged; MON: more coverage → ≤ residual errors |
 | 142 | ☑ | ASSEMBLY-COVER-001 | Assembly | INV: read order independent; ADD: coverage additive over reads |
 | 143 | ☑ | ASSEMBLY-DBG-001 | Assembly | INV: read order independent; MON: larger k → ≤ spurious joins |
-| 144 | ☐ | ASSEMBLY-MERGE-001 | Assembly | INV: merge order independent for compatible contigs |
+| 144 | ☑ | ASSEMBLY-MERGE-001 | Assembly | INV: merge order independent for compatible contigs |
 | 145 | ☐ | ASSEMBLY-OLC-001 | Assembly | INV: read order independent; MON: higher minOverlap → ≤ joins |
 | 146 | ☐ | ASSEMBLY-SCAFFOLD-001 | Assembly | INV: link order independent |
 | 147 | ☐ | ASSEMBLY-STATS-001 | Assembly | INV: contig order independent; MON: splitting a contig → ≤ N50 |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 143 |
-| ☐ Not started | 91 |
+| ☑ Complete | 144 |
+| ☐ Not started | 90 |
 | MR relations defined | ~200+ |
