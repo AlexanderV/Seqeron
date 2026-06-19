@@ -109,7 +109,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 79 | ☑ | SPLICE-PREDICT-001 | Splicing | COMP: donor + acceptor → exon/intron boundary; MON: more consensus → higher confidence; INV: exonic mutations don't change boundaries |
 | 80 | ☑ | DISORDER-PRED-001 | ProteinPred | INV: single residue change → local effect only; MON: more proline/charge → higher disorder; INV: same seq → same scores |
 | 81 | ☑ | DISORDER-REGION-001 | ProteinPred | MON: lower threshold → larger/more regions; SUB: strict threshold ⊂ lenient regions; INV: ordered region insert → doesn't affect distant disorder |
-| 82 | ☐ | PROTMOTIF-FIND-001 | ProteinMotif | INV: flanking change → same motif detected; MON: broader pattern → ≥ matches; SHIFT: prepend shifts positions |
+| 82 | ☑ | PROTMOTIF-FIND-001 | ProteinMotif | INV: flanking change → same motif detected; MON: broader pattern → ≥ matches; SHIFT: prepend shifts positions |
 | 83 | ☐ | PROTMOTIF-PROSITE-001 | ProteinMotif | SUB: specific pattern ⊂ generalized pattern matches; INV: non-matching flank doesn't affect detection |
 | 84 | ☐ | PROTMOTIF-DOMAIN-001 | ProteinMotif | INV: domain intact after non-domain insertion; MON: longer domain seq → higher confidence |
 | 85 | ☐ | EPIGEN-CPG-001 | Epigenetics | MON: more CG dinucleotides → higher CpG ratio; INV: non-CG flank doesn't change island detection; SHIFT: flank shifts positions |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 81 |
-| ☐ Not started | 153 |
+| ☑ Complete | 82 |
+| ☐ Not started | 152 |
 | MR relations defined | ~200+ |
