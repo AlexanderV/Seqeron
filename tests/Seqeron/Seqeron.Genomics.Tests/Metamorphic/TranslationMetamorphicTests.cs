@@ -154,4 +154,112 @@ public class TranslationMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: TRANS-PROT-001 — sequence-to-protein translation (Translation).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 63.
+    //
+    // API under test (Translator.Translate):
+    //   Reads a DNA/RNA sequence codon-by-codon from a given reading frame and maps each
+    //   codon through the genetic code. With toFirstStop = true it terminates at the first
+    //   stop codon; otherwise stop codons are rendered as '*' and translation continues.
+    //   Trailing 1–2 nucleotides that cannot form a codon are dropped.
+    //
+    // Relations (derived from the codon→residue mapping over a frame, NOT from output):
+    //   • INV  (synonymous codon swap ⇒ same protein): the code is degenerate, so replacing
+    //          any codon by a synonym of the SAME amino acid leaves the translated protein
+    //          byte-for-byte identical.
+    //   • COMP (stop codon ⇒ truncation): with toFirstStop the protein is exactly the full
+    //          translation cut at its first '*', and is therefore invariant to whatever is
+    //          appended after that stop codon.
+    //   • SHIFT/INV (frame shift): reading at frame f re-partitions the codons, so
+    //          Translate(seq, frame f) ≡ Translate(seq with its first f bases dropped, frame 0);
+    //          because the partition changes, the three frames generally give DIFFERENT proteins.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region TRANS-PROT-001 INV — synonymous codon substitution preserves the protein
+
+    [Test]
+    [Description("INV: the genetic code is degenerate, so swapping each codon for a synonym of the same amino acid yields an identical protein.")]
+    public void Translate_SynonymousCodonSwap_PreservesProtein()
+    {
+        // Both spellings encode Met-Leu-Lys-Arg-Gly-Ser using DIFFERENT synonymous codons:
+        //   variantA: AUG CUG AAA CGU GGU AGC
+        //   variantB: AUG UUA AAG CGC GGA UCU
+        const string variantA = "ATGCTGAAACGTGGTAGC";
+        const string variantB = "ATGTTAAAGCGCGGATCT";
+
+        variantA.Should().NotBe(variantB, because: "the two coding sequences must differ at the nucleotide level for the test to be meaningful");
+
+        string proteinA = Translator.Translate(variantA).Sequence;
+        string proteinB = Translator.Translate(variantB).Sequence;
+
+        proteinB.Should().Be(proteinA,
+            because: "synonymous codons encode the same amino acid, so codon swaps cannot change the protein");
+        proteinA.Should().Be("MLKRGS", because: "the chosen codons spell Met-Leu-Lys-Arg-Gly-Ser");
+    }
+
+    #endregion
+
+    #region TRANS-PROT-001 COMP — toFirstStop truncates at the first stop codon
+
+    [Test]
+    [Description("COMP: with toFirstStop the protein equals the full '*'-rendered translation cut at its first stop, and is invariant to any codons appended after that stop.")]
+    public void Translate_ToFirstStop_TruncatesAtFirstStopAndIgnoresDownstream()
+    {
+        // AUG AAA UAA CCC GGG — a stop (UAA) sits after Met-Lys, followed by more codons.
+        const string seq = "ATGAAATAACCCGGG";
+
+        string full = Translator.Translate(seq, toFirstStop: false).Sequence;
+        string truncated = Translator.Translate(seq, toFirstStop: true).Sequence;
+
+        full.Should().Be("MK*PG", because: "without early termination every codon is rendered, the stop as '*'");
+
+        int firstStop = full.IndexOf('*');
+        truncated.Should().Be(full.Substring(0, firstStop),
+            because: "toFirstStop terminates translation at the first stop codon");
+
+        // Appending arbitrary codons after the stop cannot change the truncated protein.
+        foreach (string tail in new[] { "", "TTTGGGAAA", "ATGATGATG", "TAGTAA" })
+            Translator.Translate(seq + tail, toFirstStop: true).Sequence.Should().Be(truncated,
+                because: "nothing downstream of the first stop is translated when toFirstStop is set");
+    }
+
+    #endregion
+
+    #region TRANS-PROT-001 SHIFT/INV — frame shift re-partitions codons
+
+    [Test]
+    [Description("SHIFT: translating at frame f equals translating the f-base-dropped sequence at frame 0 — the exact re-partition identity that defines a reading frame.")]
+    public void Translate_FrameShift_EqualsOffsetSequenceAtFrameZero()
+    {
+        const string seq = "ATGCATGCATGCATGCATGC";
+
+        for (int frame = 0; frame <= 2; frame++)
+        {
+            string framed = Translator.Translate(seq, frame: frame).Sequence;
+            string offset = Translator.Translate(seq.Substring(frame), frame: 0).Sequence;
+
+            framed.Should().Be(offset,
+                because: $"frame {frame} starts the codon partition at base {frame}, identical to dropping the first {frame} bases and reading at frame 0");
+        }
+    }
+
+    [Test]
+    [Description("SHIFT: because each frame imposes a different codon partition, the three reading frames of a designed sequence give pairwise-distinct proteins.")]
+    public void Translate_DifferentFrames_GiveDifferentProteins()
+    {
+        // A sequence engineered so the three frames read disjoint codon sets.
+        const string seq = "ATGCATGCATGCATGCATGC";
+
+        string f0 = Translator.Translate(seq, frame: 0).Sequence;
+        string f1 = Translator.Translate(seq, frame: 1).Sequence;
+        string f2 = Translator.Translate(seq, frame: 2).Sequence;
+
+        f0.Should().NotBe(f1, because: "shifting the frame by one base changes every codon, so the protein differs");
+        f0.Should().NotBe(f2, because: "shifting the frame by two bases changes every codon, so the protein differs");
+        f1.Should().NotBe(f2, because: "frames 1 and 2 impose different codon partitions");
+    }
+
+    #endregion
 }

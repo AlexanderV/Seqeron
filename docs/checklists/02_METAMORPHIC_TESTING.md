@@ -90,7 +90,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 60 | ☑ | CODON-RARE-001 | Codon | MON: higher threshold → superset of flagged codons (f < τ monotone in τ); INV: no rare codons → empty result |
 | 61 | ☑ | CODON-USAGE-001 | Codon | INV: duplicate sequence → same usage ratios; COMP: sum per AA = 1.0 |
 | 62 | ☑ | TRANS-CODON-001 | Translation | COMP: standard code covers all 64 codons; INV: same code table always; INV: geneticCode idempotent |
-| 63 | ☐ | TRANS-PROT-001 | Translation | INV: synonymous codon swap → same protein; COMP: stop codon → truncation; INV: frame shift → different protein |
+| 63 | ☑ | TRANS-PROT-001 | Translation | INV: synonymous codon swap → same protein; COMP: stop codon → truncation; INV: frame shift → different protein |
 | 64 | ☐ | PARSE-FASTA-001 | FileIO | COMP: write→parse→write = write; INV: adding empty lines → same records; INV: trailing newline irrelevant |
 | 65 | ☐ | PARSE-FASTQ-001 | FileIO | COMP: round-trip; INV: quality encoding offset consistent; INV: interleaved order preserved |
 | 66 | ☐ | PARSE-BED-001 | FileIO | INV: sorting doesn't change record content; COMP: round-trip; SHIFT: chromStart/End integrity |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 62 |
-| ☐ Not started | 172 |
+| ☑ Complete | 63 |
+| ☐ Not started | 171 |
 | MR relations defined | ~200+ |
