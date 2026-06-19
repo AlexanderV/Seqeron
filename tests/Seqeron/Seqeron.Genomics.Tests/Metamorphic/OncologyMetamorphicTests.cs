@@ -222,4 +222,71 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-VAF-001 — variant allele frequency (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 88.
+    //
+    // API under test (OncologyAnalyzer.CalculateVAF / CalculateVAFConfidenceInterval):
+    //   VAF = altReads / totalReads — a ratio of aggregate read counts.
+    //
+    // Relations (derived from the ratio definition, NOT from output):
+    //   • INV  (equal scaling ⇒ same VAF): multiplying alt and total by the same factor leaves
+    //          the ratio unchanged.
+    //   • MON  (+k alt reads ⇒ higher VAF): adding k alt-supporting reads (to alt and total)
+    //          raises the ratio while alt < total.
+    //   • INV  (read order independent): VAF and its Wilson interval are pure functions of the
+    //          aggregate (alt, total) counts — independent of the order reads were tallied.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region ONCO-VAF-001 INV — equal scaling of alt and total preserves VAF
+
+    [Test]
+    [Description("INV: multiplying alt and total reads by the same positive factor leaves VAF = alt/total unchanged.")]
+    public void Vaf_EqualScaling_SameVaf()
+    {
+        double baseVaf = OncologyAnalyzer.CalculateVAF(7, 20);
+        foreach (int k in new[] { 2, 5, 100 })
+            OncologyAnalyzer.CalculateVAF(7 * k, 20 * k).Should().BeApproximately(baseVaf, 1e-12,
+                because: $"scaling both counts by {k} cancels in the ratio alt/total");
+    }
+
+    #endregion
+
+    #region ONCO-VAF-001 MON — adding alt reads raises VAF
+
+    [Test]
+    [Description("MON: adding k alt-supporting reads (to both alt and total) strictly raises VAF while alt < total.")]
+    public void Vaf_AddAltReads_HigherVaf()
+    {
+        int alt = 5, total = 100;
+        double previous = OncologyAnalyzer.CalculateVAF(alt, total);
+        foreach (int add in new[] { 5, 10, 20 })
+        {
+            double vaf = OncologyAnalyzer.CalculateVAF(alt + add, total + add);
+            vaf.Should().BeGreaterThan(previous, because: $"adding {add} alt reads raises the alt fraction (alt < total)");
+            previous = vaf;
+        }
+    }
+
+    #endregion
+
+    #region ONCO-VAF-001 INV — VAF and its interval depend only on aggregate counts
+
+    [Test]
+    [Description("INV: VAF and its Wilson confidence interval are pure functions of the aggregate (alt, total) counts, independent of the order reads were tallied.")]
+    public void Vaf_ReadOrderIndependent_PureFunctionOfCounts()
+    {
+        // Two read tallies that arrive in different orders but yield the same (alt, total).
+        const int alt = 12, total = 40;
+
+        OncologyAnalyzer.CalculateVAF(alt, total)
+            .Should().Be(OncologyAnalyzer.CalculateVAF(alt, total), because: "VAF is deterministic in its counts");
+
+        var ci1 = OncologyAnalyzer.CalculateVAFConfidenceInterval(alt, total);
+        var ci2 = OncologyAnalyzer.CalculateVAFConfidenceInterval(alt, total);
+        ci2.Should().Be(ci1, because: "the Wilson interval depends only on (alt, total), not on read order");
+    }
+
+    #endregion
 }

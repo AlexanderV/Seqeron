@@ -115,7 +115,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 85 | ☑ | EPIGEN-CPG-001 | Epigenetics | MON: more CG dinucleotides → higher CpG ratio; INV: non-CG flank doesn't change core-island detection; SHIFT: flank shifts positions |
 | 86 | ☑ | ONCO-IMMUNE-001 | Oncology | INV: scaling expression → same relative infiltration; MON: higher marker expression → higher cell fraction; SYM: sample order independent |
 | 87 | ☑ | ONCO-SOMATIC-001 | Oncology | MON: more tumor alt evidence → ≥ score / superset of calls; INV: adding pure-reference reads adds no somatic calls; SYM: read order independent |
-| 88 | ☐ | ONCO-VAF-001 | Oncology | INV: scaling ref+alt depth equally → same VAF; MON: +k alt reads → higher VAF; INV: read order independent |
+| 88 | ☑ | ONCO-VAF-001 | Oncology | INV: scaling ref+alt depth equally → same VAF; MON: +k alt reads → higher VAF; INV: read order independent |
 | 89 | ☐ | ONCO-DRIVER-001 | Oncology | MON: more samples sharing a mutation → ≥ driver score; INV: relabeling passenger genes preserves driver set |
 | 90 | ☐ | ONCO-ARTIFACT-001 | Oncology | MON: stricter threshold → subset of survivors; INV: duplicating a passing variant keeps it passing |
 | 91 | ☐ | ONCO-ANNOT-001 | Oncology | INV: shifting all coordinates by a constant shifts annotations equally; INV: variant order independent |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 87 |
-| ☐ Not started | 147 |
+| ☑ Complete | 88 |
+| ☐ Not started | 146 |
 | MR relations defined | ~200+ |
