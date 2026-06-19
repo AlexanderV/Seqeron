@@ -112,6 +112,51 @@ public class AlignmentMetamorphicTests
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Column-based sum-of-pairs score, re-implemented verbatim from the documented SP
+    /// convention (gap-gap = 0, gap-residue = GapExtend, match/mismatch from the matrix).
+    /// Used as the oracle for the column-decomposability relation; bound to the production
+    /// TotalScore by an equality assertion before it is trusted.
+    /// </summary>
+    private static int SumOfPairs(IReadOnlyList<string> rows, ScoringMatrix s)
+    {
+        if (rows.Count < 2)
+            return 0;
+
+        int width = rows.Max(r => r.Length);
+        int total = 0;
+
+        for (int pos = 0; pos < width; pos++)
+            for (int i = 0; i < rows.Count; i++)
+            {
+                char ci = pos < rows[i].Length ? rows[i][pos] : '-';
+                for (int j = i + 1; j < rows.Count; j++)
+                {
+                    char cj = pos < rows[j].Length ? rows[j][pos] : '-';
+                    if (ci == '-' && cj == '-') continue;
+                    else if (ci == '-' || cj == '-') total += s.GapExtend;
+                    else if (ci == cj) total += s.Match;
+                    else total += s.Mismatch;
+                }
+            }
+
+        return total;
+    }
+
+    /// <summary>Applies the same column permutation to every row of an equal-width alignment.</summary>
+    private static List<string> PermuteColumns(IReadOnlyList<string> rows, int[] permutation)
+    {
+        var permuted = new List<string>(rows.Count);
+        foreach (var row in rows)
+        {
+            var chars = new char[permutation.Length];
+            for (int c = 0; c < permutation.Length; c++)
+                chars[c] = row[permutation[c]];
+            permuted.Add(new string(chars));
+        }
+        return permuted;
+    }
+
     private static readonly ScoringMatrix[] ScoringMatrices =
     {
         SequenceAligner.SimpleDna,
@@ -461,6 +506,96 @@ public class AlignmentMetamorphicTests
                     AlignedCore(result).Should().Be(refCore,
                         because: "extending free-gap flanks must not move or alter the fitted core window");
                 }
+            }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ALIGN-MULTI-001 — multiple sequence alignment / star MSA (Alignment).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 38.
+    //
+    // API under test (SequenceAligner.MultipleAlign):
+    //   Anchor-based star MSA. Returns equal-width aligned rows, a per-column majority
+    //   consensus, and TotalScore = the column-based sum-of-pairs (SP) score: for each
+    //   column and each of the C(k,2) row pairs, gap-gap = 0, gap-residue = GapExtend,
+    //   match = Match, mismatch = Mismatch.
+    //
+    // Relations (derived from the SP definition, NOT from output):
+    //   • INV (column permutation ⇒ SP unchanged): the SP score is a SUM over independent
+    //          columns, so reordering the alignment columns cannot change it. The test binds
+    //          a re-implemented SP oracle to the production TotalScore, then shows that oracle
+    //          is invariant under an arbitrary column permutation of the produced alignment.
+    //   • MON (add an identical sequence ⇒ score increases): for k identical copies of S the
+    //          optimal MSA is the gapless stack, scoring exactly C(k,2)·|S|·Match; adding one
+    //          more copy adds k positive all-match pairs, so the SP score strictly increases.
+    //          (The general progressive heuristic may re-lay-out gaps, so the rigorous monotone
+    //          guarantee is asserted on this canonical identical-sequence family.)
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region INV — permuting the alignment columns leaves the sum-of-pairs score unchanged
+
+    [Test]
+    [Description("INV: the sum-of-pairs TotalScore is a column-wise sum, so an arbitrary permutation of the produced alignment's columns leaves it unchanged (verified against an SP oracle bound to the production score).")]
+    public void MultipleAlign_ColumnPermutation_PreservesSumOfPairsScore()
+    {
+        // Related sequences (a base plus substitutions and an indel) so the MSA contains gaps.
+        string baseSeq = "ACGTACGTACGTACGT";
+        var inputs = new[]
+        {
+            new DnaSequence(baseSeq),
+            new DnaSequence("ACGTACCTACGTACGT"),          // one substitution
+            new DnaSequence("ACGTACGTAGTACGT"),           // one deletion (forces a gap column)
+            new DnaSequence("ACGTACGTACGTTACGT"),         // one insertion
+        };
+
+        foreach (var scoring in ScoringMatrices)
+        {
+            var msa = SequenceAligner.MultipleAlign(inputs, scoring);
+            var rows = msa.AlignedSequences;
+
+            int oracle = SumOfPairs(rows, scoring);
+            oracle.Should().Be(msa.TotalScore,
+                because: "the re-implemented SP oracle must reproduce the production TotalScore before it can be trusted to probe the relation");
+
+            int width = rows[0].Length;
+            var permutation = Enumerable.Range(0, width).Reverse().ToArray();   // a concrete non-identity permutation
+            var permuted = PermuteColumns(rows, permutation);
+
+            SumOfPairs(permuted, scoring).Should().Be(msa.TotalScore,
+                because: "the SP score sums independent per-column contributions, so reordering the columns cannot change the total");
+        }
+    }
+
+    #endregion
+
+    #region MON — adding an identical sequence strictly increases the sum-of-pairs score
+
+    [Test]
+    [Description("MON: for k identical sequences the optimal MSA is the gapless stack scoring C(k,2)·|S|·Match; adding one more identical copy strictly increases the SP score.")]
+    public void MultipleAlign_AddIdenticalSequence_IncreasesScore()
+    {
+        string s = "ACGTACGTAC";
+
+        foreach (var scoring in ScoringMatrices)
+        {
+            int previous = int.MinValue;
+
+            for (int k = 2; k <= 6; k++)
+            {
+                var inputs = Enumerable.Range(0, k).Select(_ => new DnaSequence(s)).ToArray();
+                var msa = SequenceAligner.MultipleAlign(inputs, scoring);
+
+                msa.AlignedSequences.Should().OnlyContain(r => r == s,
+                    because: "identical sequences align gaplessly — every row is the original sequence");
+
+                int expected = k * (k - 1) / 2 * s.Length * scoring.Match;
+                msa.TotalScore.Should().Be(expected,
+                    because: "the gapless stack scores Match in every column for each of the C(k,2) pairs");
+                msa.TotalScore.Should().BeGreaterThan(previous,
+                    because: "adding one more identical copy contributes k positive all-match pairs, so the SP score strictly increases");
+                previous = msa.TotalScore;
             }
         }
     }
