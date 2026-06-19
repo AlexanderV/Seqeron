@@ -59,7 +59,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 29 | ☑ | ANNOT-GENE-001 | Annotation | COMP: gene ⊃ ORF; INV: non-coding insertion doesn't affect upstream; MON: longer seq → ≥ genes |
 | 30 | ☑ | ANNOT-PROM-001 | Annotation | MON: lower score threshold → ≥ promoters; SHIFT: prepend shifts; INV: downstream change → same promoter |
 | 31 | ☑ | ANNOT-GFF-001 | Annotation | INV: re-serialization preserves line count; COMP: parse(write(x))=x; INV: attribute order irrelevant |
-| 32 | ☐ | KMER-COUNT-001 | K-mer | INV: total k-mer instances = seqLen - k + 1; MON: k+1 → ≤ distinct k-mers; INV: reverse → same set (canonical) |
+| 32 | ☑ | KMER-COUNT-001 | K-mer | INV: total k-mer instances = seqLen - k + 1; MON: k+1 → ≤ distinct k-mers; INV: reverse → same set (canonical) |
 | 33 | ☐ | KMER-FREQ-001 | K-mer | INV: duplicate seq → same freqs; SYM: complement has related frequency profile; INV: sum(freq)=1 |
 | 34 | ☐ | KMER-FIND-001 | K-mer | MON: lower minFreq → ≥ k-mers; SUB: top-1 ⊆ top-5; INV: repeat seq → high frequency for unit k-mer |
 | 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | SYM: score(a,b)=score(b,a); MON: more matches → higher score; COMP: identity → max score; INV: gap-only insert → score change = gap penalty |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 31 |
-| ☐ Not started | 203 |
+| ☑ Complete | 32 |
+| ☐ Not started | 202 |
 | MR relations defined | ~200+ |
