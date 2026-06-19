@@ -229,8 +229,8 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 199 | ☑ | TRANS-EXPR-001 | Transcriptome | INV: read order independent; HOMO: scaling depth preserves TPM |
 | 200 | ☑ | TRANS-SPLICE-001 | Transcriptome | INV: read order independent; SHIFT: prepend flank shifts exon coords |
 | 201 | ☑ | SV-BREAKPOINT-001 | StructuralVar | SHIFT: prepend flank shifts breakpoints; MON: more split reads → ≥ confidence |
-| 202 | ☐ | SV-CNV-001 | StructuralVar | MON: higher coverage ratio → higher CN; INV: bin order independent |
-| 203 | ☐ | SV-DETECT-001 | StructuralVar | INV: identical genomes → no SV; SHIFT: coordinate shift shifts SVs |
+| 202 | ☑ | SV-CNV-001 | StructuralVar | MON: higher coverage ratio → higher CN; INV: bin order independent |
+| 203 | ☑ | SV-DETECT-001 | StructuralVar | INV: identical genomes → no SV; SHIFT: coordinate shift shifts SVs |
 | 204 | ☐ | DISORDER-LC-001 | ProteinPred | MON: lower threshold → superset; SHIFT: prepend flank shifts regions |
 | 205 | ☐ | DISORDER-MORF-001 | ProteinPred | INV: deterministic; SHIFT: prepend flank shifts MoRFs |
 | 206 | ☐ | DISORDER-PROPENSITY-001 | ProteinPred | SHIFT: prepend flank shifts profile; INV: deterministic |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 201 |
-| ☐ Not started | 33 |
+| ☑ Complete | 203 |
+| ☐ Not started | 31 |
 | MR relations defined | ~200+ |
