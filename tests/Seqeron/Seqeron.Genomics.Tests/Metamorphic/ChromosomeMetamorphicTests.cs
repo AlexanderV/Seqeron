@@ -364,4 +364,83 @@ public class ChromosomeMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CHROM-ANEU-001 — ploidy / copy-number from read depth (Chromosome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 51.
+    //
+    // API under test (ChromosomeAnalyzer.DetectPloidy):
+    //   ploidy = round(2 · median(normalizedDepths) / expectedDiploidDepth), clamped to [1,8].
+    //
+    // Relations (derived from that formula, NOT from output):
+    //   • MON (doubled depth ⇒ doubled CN): doubling every depth doubles the median and hence
+    //          the ratio, so the rounded copy number doubles (within the [1,8] clamp); and CN is
+    //          non-decreasing in depth.
+    //   • INV (neighbouring region doesn't affect local CN): the estimate is a function of the
+    //          MEDIAN, which is robust — appending a minority of contaminating depths from a
+    //          neighbouring amplified/deleted region (fewer than the local count) does not move
+    //          the median, so the local copy number is unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region MON — doubling all depths doubles the copy-number estimate
+
+    [Test]
+    [Description("MON: doubling every normalized depth doubles the median and the rounded copy number (within the [1,8] clamp).")]
+    public void DetectPloidy_DoubledDepth_DoublesCopyNumber()
+    {
+        foreach (double c in new[] { 0.5, 1.0, 1.5, 2.0 })   // base ploidy 1,2,3,4 ⇒ doubled 2,4,6,8 (in range)
+        {
+            var baseDepths = Enumerable.Repeat(c, 25).ToList();
+            var doubled = baseDepths.Select(d => 2 * d).ToList();
+
+            int basePloidy = ChromosomeAnalyzer.DetectPloidy(baseDepths).PloidyLevel;
+            int doubledPloidy = ChromosomeAnalyzer.DetectPloidy(doubled).PloidyLevel;
+
+            doubledPloidy.Should().Be(2 * basePloidy,
+                because: $"the median doubles from {c} to {2 * c}, so round(2·median) doubles the copy number");
+        }
+    }
+
+    [Test]
+    [Description("MON: the copy-number estimate is non-decreasing as the (uniform) read depth increases.")]
+    public void DetectPloidy_HigherDepth_DoesNotDecreaseCopyNumber()
+    {
+        int previous = int.MinValue;
+        foreach (double c in new[] { 0.4, 0.6, 1.0, 1.4, 1.8, 2.5, 3.5 })
+        {
+            int ploidy = ChromosomeAnalyzer.DetectPloidy(Enumerable.Repeat(c, 25).ToList()).PloidyLevel;
+            ploidy.Should().BeGreaterThanOrEqualTo(previous,
+                because: "a higher median depth maps to a higher-or-equal rounded copy number");
+            previous = ploidy;
+        }
+    }
+
+    #endregion
+
+    #region INV — a minority of neighbouring-region depths does not change the local CN
+
+    [Test]
+    [Description("INV: appending a minority of contaminating depths from a neighbouring amplified or deleted region leaves the median-based local copy number unchanged.")]
+    public void DetectPloidy_MinorityNeighbourContamination_PreservesLocalCopyNumber()
+    {
+        const int localCount = 25;
+        const double localDepth = 1.0;   // diploid local region
+        int localPloidy = ChromosomeAnalyzer.DetectPloidy(
+            Enumerable.Repeat(localDepth, localCount).ToList()).PloidyLevel;
+
+        foreach (double neighbourDepth in new[] { 4.0, 0.05 })   // a neighbouring amplification / deletion
+        {
+            foreach (int k in new[] { 1, 5, 12 })   // strictly fewer than the local count ⇒ median stays local
+            {
+                var contaminated = Enumerable.Repeat(localDepth, localCount)
+                    .Concat(Enumerable.Repeat(neighbourDepth, k))
+                    .ToList();
+
+                ChromosomeAnalyzer.DetectPloidy(contaminated).PloidyLevel.Should().Be(localPloidy,
+                    because: $"a minority ({k} < {localCount}) of neighbouring-region depths cannot move the median off the local depth, so the local copy number is unchanged");
+            }
+        }
+    }
+
+    #endregion
 }

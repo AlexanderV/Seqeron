@@ -78,7 +78,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 48 | ☑ | CHROM-TELO-001 | Chromosome | MON: more TTAGGG repeats → longer telomere; INV: flanking seq doesn't affect core; SHIFT: flank shifts position |
 | 49 | ☑ | CHROM-CENT-001 | Chromosome | INV: non-centromeric flank append → same centromere position; MON: more AT-rich → higher score |
 | 50 | ☑ | CHROM-KARYO-001 | Chromosome | COMP: N chromosomes → karyotype with N entries; INV: chromosome order doesn't affect classification |
-| 51 | ☐ | CHROM-ANEU-001 | Chromosome | MON: doubled depth → doubled CN estimate; INV: neighbouring region doesn't affect local CN |
+| 51 | ☑ | CHROM-ANEU-001 | Chromosome | MON: doubled depth → doubled CN estimate; INV: neighbouring region doesn't affect local CN |
 | 52 | ☐ | CHROM-SYNT-001 | Chromosome | SYM: synteny(A,B) blocks = synteny(B,A) reversed; INV: non-syntenic insert → same blocks |
 | 53 | ☐ | META-CLASS-001 | Metagenomics | INV: duplicate read → same classification; MON: more reference genomes → ≥ classified reads |
 | 54 | ☐ | META-PROF-001 | Metagenomics | INV: doubling all reads → same relative abundances; COMP: sum(abundances)=1 |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 50 |
-| ☐ Not started | 184 |
+| ☑ Complete | 51 |
+| ☐ Not started | 183 |
 | MR relations defined | ~200+ |
