@@ -446,4 +446,43 @@ public class ProteinMotifMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PROTMOTIF-SP-001 — signal-peptide cleavage prediction (ProteinMotif).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 167.
+    //
+    // API under test (ProteinMotifFinder.PredictSignalPeptide):
+    //   EMBOSS sigcleave: scans a 15-column weight matrix for the best N-terminal cleavage site.
+    //
+    // Relations (derived from the N-terminal scoring window, NOT from output):
+    //   • INV  (C-terminal extension doesn't change the N-terminal signal): the best cleavage
+    //          window lies near the N-terminus; appending residues that introduce no higher-scoring
+    //          window (here non-standard X residues, which contribute zero weight) leaves the
+    //          predicted cleavage site, signal sequence and score unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PROTMOTIF-SP-001 INV — a C-terminal extension preserves the N-terminal signal
+
+    [Test]
+    [Description("INV: appending zero-weight (non-standard) residues to the C-terminus introduces no higher-scoring cleavage window, so the predicted N-terminal signal (cleavage site, signal sequence, score) is unchanged.")]
+    public void SignalPeptide_CTerminalExtension_PreservesSignal()
+    {
+        // A serum-albumin-style N-terminal signal peptide followed by mature-protein residues.
+        const string protein = "MKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGE";
+        var baseline = ProteinMotifFinder.PredictSignalPeptide(protein);
+        baseline.Should().NotBeNull();
+
+        foreach (int extLen in new[] { 5, 20 })
+        {
+            string extended = protein + new string('X', extLen); // X contributes zero weight (EMBOSS)
+            var result = ProteinMotifFinder.PredictSignalPeptide(extended);
+
+            result.Should().NotBeNull();
+            result!.Value.CleavagePosition.Should().Be(baseline!.Value.CleavagePosition, because: "the best cleavage window is N-terminal and unaffected by a C-terminal extension");
+            result.Value.SignalSequence.Should().Be(baseline.Value.SignalSequence, because: "the predicted signal sequence is unchanged");
+            result.Value.Score.Should().BeApproximately(baseline.Value.Score, 1e-9, because: "the winning window's score does not change");
+        }
+    }
+
+    #endregion
 }
