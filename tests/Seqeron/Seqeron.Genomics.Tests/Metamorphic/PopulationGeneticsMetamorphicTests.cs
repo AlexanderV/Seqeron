@@ -767,4 +767,78 @@ public class PopulationGeneticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: POP-SELECT-001 — multi-test selection scan (PopGen).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 209.
+    //
+    // API under test (PopulationGeneticsAnalyzer.ScanForSelection over regions):
+    //   Each region carrying (Tajima's D, Fst, iHS) is tested independently against its threshold;
+    //   a signal is emitted per test that crosses (TajimaD < τ_D, Fst > τ_Fst, |iHS| > τ_iHS), with
+    //   Score = the statistic and PValue = a normal-approximation tail probability of |Score|.
+    //
+    // Relations (derived from the per-region threshold test, NOT from output):
+    //   • INV  (locus order independent): each region is scored on its own, so permuting the region
+    //          list yields the same multiset of signals.
+    //   • MON  (stronger selection ⇒ higher signal): along one test (Fst), a larger statistic gives
+    //          a greater Score and a strictly smaller p-value — stronger evidence of selection.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Helpers (Selection)
+
+    // Four regions, one per signal channel plus a quiet control below every threshold
+    // (defaults: TajimaD < −2, Fst > 0.25, |iHS| > 2).
+    private static List<(string Region, int Start, int End, double TajimaD, double Fst, double IHS)> SelectionRegions() => new()
+    {
+        ("r_fst",    1000, 2000,  0.0, 0.50, 0.0), // high differentiation → Fst signal
+        ("r_tajima", 3000, 4000, -3.0, 0.10, 0.0), // excess rare variants → Tajima's D signal
+        ("r_ihs",    5000, 6000,  0.0, 0.10, 3.0), // extended haplotype → iHS signal
+        ("r_quiet",  7000, 8000,  0.0, 0.10, 0.0), // below every threshold → no signal
+    };
+
+    #endregion
+
+    #region POP-SELECT-001 INV — the signal set is independent of region order
+
+    [Test]
+    [Description("INV: each region is scored against its threshold independently, so permuting the region list yields the same multiset of selection signals.")]
+    public void Selection_RegionOrder_Invariant()
+    {
+        var forward = PopulationGeneticsAnalyzer.ScanForSelection(SelectionRegions()).ToList();
+        forward.Should().HaveCount(3, because: "three of the four regions cross exactly one threshold; the quiet control crosses none");
+
+        var reorderedInput = SelectionRegions();
+        reorderedInput.Reverse();
+        var reordered = PopulationGeneticsAnalyzer.ScanForSelection(reorderedInput).ToList();
+
+        reordered.Should().BeEquivalentTo(forward,
+            because: "the set of selection signals does not depend on the order in which regions are supplied");
+    }
+
+    #endregion
+
+    #region POP-SELECT-001 MON — a stronger statistic gives a stronger signal
+
+    [Test]
+    [Description("MON: along the Fst test, a larger statistic yields a greater Score and a strictly smaller p-value — stronger evidence of selection.")]
+    public void Selection_StrongerStatistic_StrongerSignal()
+    {
+        double previousScore = double.MinValue;
+        double previousPValue = double.MaxValue;
+
+        foreach (double fst in new[] { 0.30, 0.40, 0.50, 0.60 }) // all above the 0.25 Fst threshold
+        {
+            var region = new[] { ("r", 0, 100, 0.0, fst, 0.0) };
+            var signal = PopulationGeneticsAnalyzer.ScanForSelection(region).Single();
+
+            signal.TestType.Should().Be("Fst", because: "only the Fst statistic crosses its threshold");
+            signal.Score.Should().BeGreaterThan(previousScore, because: "a higher Fst is a stronger differentiation signal");
+            signal.PValue.Should().BeLessThan(previousPValue, because: "a more extreme statistic has a smaller tail probability");
+
+            previousScore = signal.Score;
+            previousPValue = signal.PValue;
+        }
+    }
+
+    #endregion
 }
