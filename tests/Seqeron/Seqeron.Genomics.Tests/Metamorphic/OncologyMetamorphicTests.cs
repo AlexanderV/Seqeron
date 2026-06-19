@@ -1651,4 +1651,62 @@ public class OncologyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ONCO-MRD-001 — minimal-residual-disease detection (Oncology).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 112.
+    //
+    // API under test (OncologyAnalyzer.DetectMRD):
+    //   MRD is Positive when the number of detected tracked variants (PlasmaAltReads ≥ minimum)
+    //   reaches the positivity threshold; the panel is aggregated by counting.
+    //
+    // Relations (derived from the detected-count threshold, NOT from output):
+    //   • MON  (more detected tracked variants keeps MRD positive): once positive, observing
+    //          additional detected variants keeps it positive (detected count only grows).
+    //   • INV  (variant order independent): the detected count, status and IMAF are aggregates,
+    //          independent of marker order.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private static OncologyAnalyzer.TumorMarker Marker(int pos, int alt) =>
+        new("1", pos, "A", "T", alt, 100);
+
+    #region ONCO-MRD-001 MON — more detected variants keeps MRD positive
+
+    [Test]
+    [Description("MON: once MRD is positive, observing additional detected tracked variants keeps it positive and the detected count grows.")]
+    public void DetectMRD_MoreDetectedVariants_StaysPositive()
+    {
+        foreach (int extra in new[] { 0, 1, 3 })
+        {
+            var panel = new[] { Marker(1, 5), Marker(2, 5) }                       // 2 detected → positive (threshold 2)
+                .Concat(Enumerable.Range(0, extra).Select(i => Marker(10 + i, 5))) // more detected variants
+                .ToList();
+
+            var result = OncologyAnalyzer.DetectMRD(panel);
+            result.Status.Should().Be(OncologyAnalyzer.MrdStatus.Positive,
+                because: "observing more detected tracked variants cannot turn a positive panel negative");
+            result.DetectedVariantCount.Should().Be(2 + extra, because: "every alt-supported marker is counted as detected");
+        }
+    }
+
+    #endregion
+
+    #region ONCO-MRD-001 INV — variant order independent
+
+    [Test]
+    [Description("INV: the MRD status, detected count and IMAF are aggregates over the panel, independent of marker order.")]
+    public void DetectMRD_VariantOrder_Independent()
+    {
+        var panel = new[] { Marker(1, 5), Marker(2, 0), Marker(3, 8), Marker(4, 0), Marker(5, 2) };
+
+        var forward = OncologyAnalyzer.DetectMRD(panel);
+        var reversed = OncologyAnalyzer.DetectMRD(panel.Reverse());
+
+        reversed.Status.Should().Be(forward.Status, because: "the MRD status is a count threshold, order-independent");
+        reversed.DetectedVariantCount.Should().Be(forward.DetectedVariantCount);
+        reversed.IntegratedMutantAlleleFraction.Should().BeApproximately(forward.IntegratedMutantAlleleFraction, 1e-12,
+            because: "IMAF is a read-pooled aggregate, independent of marker order");
+    }
+
+    #endregion
 }
