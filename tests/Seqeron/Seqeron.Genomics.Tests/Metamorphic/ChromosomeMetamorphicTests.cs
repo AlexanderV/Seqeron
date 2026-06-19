@@ -58,6 +58,18 @@ public class ChromosomeMetamorphicTests
 
     private static string RevComp(string s) => DnaSequence.GetReverseComplementString(s);
 
+    private static readonly Random Rng = new(20260619);
+
+    /// <summary>Pseudo-random non-repetitive DNA (15-mers essentially unique ⇒ ~0 repeat content).</summary>
+    private static string RandomDna(int length)
+    {
+        const string bases = "ACGT";
+        var chars = new char[length];
+        for (int i = 0; i < length; i++)
+            chars[i] = bases[Rng.Next(bases.Length)];
+        return new string(chars);
+    }
+
     #endregion
 
     #region MON — more terminal repeats give a longer telomere
@@ -137,6 +149,114 @@ public class ChromosomeMetamorphicTests
             because: "the swapped tracts carry the same residues, so their purities swap too");
         reversed.RepeatPurity3Prime.Should().BeApproximately(forward.RepeatPurity5Prime, 1e-12,
             because: "the swapped tracts carry the same residues, so their purities swap too");
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: CHROM-CENT-001 — centromere analysis (Chromosome).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 49.
+    //
+    // API under test (ChromosomeAnalyzer.AnalyzeCentromere):
+    //   Scans fixed-width windows for the centromeric signal score = repeatContent·(1−gcVariability)
+    //   and reports the best-scoring region (Start/End) and its score as AlphaSatelliteContent.
+    //   repeatContent = fraction of window positions whose 15-mer recurs; for windows below the
+    //   1000-bp GC sub-window the gcVariability term is 0, so the score reduces to repeatContent.
+    //
+    // Relations (derived from the actual scoring, NOT from output):
+    //   • MON (more satellite-repeat content ⇒ higher score): embedding a longer tandem array
+    //          raises the window's repeat content, so AlphaSatelliteContent is non-decreasing in
+    //          the array length, and a long array is detected while pure-random sequence is not.
+    //          ── Reconciliation: the checklist says "more AT-rich → higher score", but the
+    //          implementation scores TANDEM-REPEAT content (and GC uniformity), NOT base
+    //          composition — a GC-only tandem array scores just as high as an AT-only one. The
+    //          rigorous monotone driver (repeat content, the alpha-satellite array signal) is
+    //          therefore what is tested, rather than a composition relation the code does not compute.
+    //   • INV (non-centromeric flank append ⇒ same position): appending non-repetitive sequence
+    //          AFTER the satellite array leaves the detected Start/End unchanged.
+    //   • SHIFT (prepended flank shifts the position): prepending p bases of non-repetitive
+    //          sequence (p on the scan grid) shifts both Start and End by exactly p.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region Centromere helpers
+
+    private const int CentWindow = 400;   // < 1000 ⇒ gcVariability term is 0 ⇒ score = repeatContent
+    private static string Satellite(int length) => Repeat("AT", length / 2);
+
+    #endregion
+
+    #region MON — a longer satellite array gives a non-decreasing centromere score
+
+    [Test]
+    [Description("MON: embedding a longer tandem (alpha-satellite-like) array raises the repeat-content score, so AlphaSatelliteContent is non-decreasing in array length; a long array is detected while random sequence is not.")]
+    public void AnalyzeCentromere_MoreRepeatContent_IncreasesScore()
+    {
+        double previous = double.NegativeInfinity;
+        ChromosomeAnalyzer.CentromereResult? smallest = null, largest = null;
+
+        foreach (int arrayLen in new[] { 0, 100, 300, 800 })
+        {
+            string seq = RandomDna(400) + Satellite(arrayLen) + RandomDna(400);
+            var result = ChromosomeAnalyzer.AnalyzeCentromere("chr", seq, windowSize: CentWindow);
+
+            result.AlphaSatelliteContent.Should().BeGreaterThanOrEqualTo(previous - 1e-12,
+                because: "a longer tandem array raises the window's repeat content, so the centromere score does not decrease");
+            previous = result.AlphaSatelliteContent;
+
+            smallest ??= result;
+            largest = result;
+        }
+
+        largest!.Value.AlphaSatelliteContent.Should().BeGreaterThan(smallest!.Value.AlphaSatelliteContent,
+            because: "an 800-bp satellite array carries far more repeat content than pure-random sequence");
+        largest.Value.Start.Should().NotBeNull(
+            because: "a long satellite array exceeds the alpha-satellite content threshold and is detected as a centromere");
+    }
+
+    #endregion
+
+    #region INV — appending non-centromeric sequence preserves the centromere position
+
+    [Test]
+    [Description("INV: appending non-repetitive sequence after the satellite array leaves the detected centromere Start/End unchanged.")]
+    public void AnalyzeCentromere_AppendNonCentromericFlank_PreservesPosition()
+    {
+        string core = Satellite(800);
+        var baseline = ChromosomeAnalyzer.AnalyzeCentromere("chr", core + RandomDna(800), windowSize: CentWindow);
+        baseline.Start.Should().NotBeNull(because: "the 800-bp satellite array is detected as a centromere");
+
+        foreach (int extra in new[] { 400, 1200, 3000 })
+        {
+            var grown = ChromosomeAnalyzer.AnalyzeCentromere("chr", core + RandomDna(800 + extra), windowSize: CentWindow);
+
+            grown.Start.Should().Be(baseline.Start,
+                because: "the satellite array stays at the front, so appending non-repetitive sequence cannot move the centromere start");
+            grown.End.Should().Be(baseline.End,
+                because: "right-extension stops at the array/flank boundary regardless of how much non-repetitive sequence follows");
+        }
+    }
+
+    #endregion
+
+    #region SHIFT — prepending non-centromeric sequence shifts the centromere position
+
+    [Test]
+    [Description("SHIFT: prepending p bases of non-repetitive sequence (p on the scan grid) shifts both the centromere Start and End by exactly p.")]
+    public void AnalyzeCentromere_PrependFlank_ShiftsPosition()
+    {
+        string core = Satellite(800);
+        var baseline = ChromosomeAnalyzer.AnalyzeCentromere("chr", core + RandomDna(800), windowSize: CentWindow);
+        baseline.Start.Should().NotBeNull();
+
+        foreach (int p in new[] { 100, 200, 400 })   // multiples of the scan step (windowSize / 4 = 100)
+        {
+            var shifted = ChromosomeAnalyzer.AnalyzeCentromere("chr", RandomDna(p) + core + RandomDna(800), windowSize: CentWindow);
+
+            shifted.Start.Should().Be(baseline.Start + p,
+                because: $"prepending {p} non-repetitive bases moves the satellite array — and the detected start — right by {p}");
+            shifted.End.Should().Be(baseline.End + p,
+                because: $"the whole detected region is translated right by the {p}-base prefix");
+        }
     }
 
     #endregion
