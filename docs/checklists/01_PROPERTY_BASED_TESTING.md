@@ -9,18 +9,18 @@
 
 ## Description
 
-Property-based testing генерирует сотни случайных входов и проверяет, что алгоритм удовлетворяет математическим инвариантам (range bounds, symmetry, idempotence, monotonicity). FsCheck интегрирован в проект через `FsCheck.NUnit`. Каждый геномный алгоритм имеет как минимум один выражаемый инвариант.
+Property-based testing генерує сотні випадкових входів і перевіряє, що алгоритм задовольняє математичні інваріанти (range bounds, symmetry, idempotence, monotonicity). FsCheck інтегровано в проєкт через `FsCheck.NUnit`. Кожен геномний алгоритм має щонайменше один виражуваний інваріант.
 
-**Текущее покрытие:** 22 файла в `Properties/` — GcContent, GcSkew, Sequence, EditDistance, Hamming, FASTA, FileIO, Alignment, Codon, CRISPR, K-mer, MiRNA, PatternMatching, Phylogenetic, PopGen, PrimerProbe, ProteinMotif, RepeatFinder, Restriction, RnaStructure, SequenceComposition, Splicing.
+**Поточне покриття:** 22 файли в `Properties/` — GcContent, GcSkew, Sequence, EditDistance, Hamming, FASTA, FileIO, Alignment, Codon, CRISPR, K-mer, MiRNA, PatternMatching, Phylogenetic, PopGen, PrimerProbe, ProteinMotif, RepeatFinder, Restriction, RnaStructure, SequenceComposition, Splicing.
 
-**Типы инвариантов:**
-- **R** = Range (результат в допустимом диапазоне)
+**Типи інваріантів:**
+- **R** = Range (результат у допустимому діапазоні)
 - **S** = Symmetry (f(a,b) = f(b,a))
 - **I** = Idempotence / Involution (f(f(x)) = x)
-- **M** = Monotonicity (больше X → больше/меньше Y)
-- **P** = Preservation (свойство сохраняется при трансформации)
+- **M** = Monotonicity (більше X → більше/менше Y)
+- **P** = Preservation (властивість зберігається при трансформації)
 - **RT** = Round-trip (parse(serialize(x)) = x)
-- **D** = Determinism (одинаковый вход → одинаковый выход)
+- **D** = Determinism (однаковий вхід → однаковий вихід)
 
 ---
 
