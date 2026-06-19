@@ -18,6 +18,8 @@ namespace Seqeron.Genomics.Tests;
 /// PAM motif occurs and the guide-length target fits within sequence bounds.
 ///
 /// ───────────────────────────────────────────────────────────────────────────
+/// Units: CRISPR-PAM-001 (PAM-site finding), CRISPR-GUIDE-001 (guide-RNA design).
+/// ───────────────────────────────────────────────────────────────────────────
 /// Unit: CRISPR-PAM-001 — CRISPR PAM-site finding (MolTools).
 /// Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 18.
 /// Relations:
@@ -283,6 +285,288 @@ public class MolToolsMetamorphicTests
         shiftedPam.Position.Should().Be(20 + flankLen,
             because: $"prepending {flankLen} A/T bases shifts the forward AGG PAM to position {20 + flankLen}");
     }
+
+    #endregion
+
+    #region CRISPR-GUIDE-001 — guide RNA design
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unit: CRISPR-GUIDE-001 — CRISPR guide-RNA design (MolTools).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 19.
+    //
+    // API under test (CrisprDesigner.cs):
+    //   DesignGuideRnas(DnaSequence, regionStart, regionEnd, systemType, GuideRnaParameters?)
+    //     1. FindPamSitesCore over the WHOLE sequence,
+    //     2. keep sites whose cut-site lies in [regionStart, regionEnd] (IsInRegion),
+    //     3. EvaluateGuideRna(pamSite.TargetSequence) → a heuristic Score in [0,100],
+    //     4. yield candidates with Score >= effectiveParams.MinScore.
+    //   A designed guide's identity is (Sequence, Position, IsForwardStrand) where
+    //   Sequence == pamSite.TargetSequence (the 20-nt protospacer adjacent to the PAM),
+    //   Position == pamSite.TargetStart, IsForwardStrand == pamSite.IsForwardStrand.
+    //
+    // Relations (derived from the design definition, NOT from observed output):
+    //   • SUB — every designed guide corresponds to a real PAM site: its protospacer
+    //           is the TargetSequence of an actual site reported by FindPamSites, and
+    //           the guide set is ⊆ the candidate PAM-adjacent windows in the region.
+    //           Filtering (MinScore + cut-site-in-region) only REMOVES, never invents;
+    //           hence guide count ≤ in-region PAM-site count ≤ total PAM-site count.
+    //   • MON — MinScore is the real filtering threshold. A guide's Score is fixed by
+    //           its protospacer sequence alone (EvaluateGuideRna is composition-only),
+    //           so raising MinScore can only DROP guides whose score < threshold:
+    //           the higher-threshold guide set is a SUBSET of the lower one and the
+    //           count is non-increasing along a threshold chain.
+    //   • INV — Score, Sequence, Position and IsForwardStrand of a guide depend ONLY
+    //           on the local PAM-adjacent window (EvaluateGuideRna never scans the
+    //           genome; the protospacer/PAM are read from a fixed local slice). A
+    //           sequence edit FAR downstream — introducing no new PAM motif and whose
+    //           cut-site is outside the design region — therefore leaves the in-region
+    //           guide set IDENTICAL (same sequences, positions, strands, scores).
+    //           Scope encoded: the LOCAL guide IDENTITY (Sequence/Position/Strand) and
+    //           its Score, for a design region pinned away from the edited tail.
+    //
+    // Sequence construction reuses the CRISPR-PAM-001 helpers above:
+    //   - Pad / NonPamRegion(): A/T-only, GG-free and CC-free, so they create no
+    //     SpCas9 PAM (forward NGG = GG; reverse NGG = forward CC) on either strand and
+    //     none across any junction (they start and end in A/T).
+    //   - "AGG"/"CGG"/"TGG" embed forward NGG PAMs at known offsets.
+    //   GG/CC-free 20-nt guide windows keep each protospacer unambiguous.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A 20-nt protospacer with no GG/CC dinucleotide and a comfortable GC content,
+    /// so when followed by an NGG PAM it forms a single clean, high-scoring candidate.
+    /// "ACGTACGTACGTACGTACGT" = 50% GC, no poly-T, seed GC in range ⇒ score 100.
+    /// </summary>
+    private const string CleanGuide20 = "ACGTACGTACGTACGTACGT";
+
+    /// <summary>
+    /// Sequences carrying one or more forward-strand SpCas9 PAMs, each preceded by a
+    /// 20-nt protospacer, plus fixed-seed random sequences. Used as design templates.
+    /// The cut site for an SpCas9 forward PAM at index p is p−3, i.e. inside the
+    /// protospacer, so passing the whole sequence as the region captures every PAM.
+    /// </summary>
+    private static IEnumerable<string> GuideTemplates()
+    {
+        // Single clean PAM: 20-nt guide + AGG.
+        yield return CleanGuide20 + "AGG";
+        // Three tandem clean PAMs (distinct N in NGG).
+        yield return CleanGuide20 + "AGG" + CleanGuide20 + "CGG" + CleanGuide20 + "TGG";
+        // Mixed-quality protospacers so MinScore actually discriminates:
+        //   high-GC guide (penalised) then a clean guide.
+        yield return "GCGCGCGCGCGCGCGCGCGC" + "AGG" + CleanGuide20 + "CGG";
+        // Fixed-seed random templates with appended PAMs (relations hold for any input).
+        yield return RandomDna(40) + "AGG" + RandomDna(20) + "TGG";
+        yield return RandomDna(60) + "CGG" + RandomDna(30) + "AGG" + RandomDna(20) + "TGG";
+        yield return RandomDna(100) + "AGG";
+    }
+
+    private static List<GuideRnaCandidate> Design(string sequence, GuideRnaParameters? parameters = null)
+        => CrisprDesigner.DesignGuideRnas(
+                new DnaSequence(sequence), 0, sequence.Length - 1, CrisprSystemType.SpCas9, parameters)
+            .ToList();
+
+    /// <summary>Run-order-independent identity of a designed guide.</summary>
+    private static (int Position, string Sequence, bool Fwd) GuideId(GuideRnaCandidate g)
+        => (g.Position, g.Sequence, g.IsForwardStrand);
+
+    private static HashSet<(int, string, bool)> GuideIdSet(IEnumerable<GuideRnaCandidate> guides)
+        => guides.Select(GuideId).ToHashSet();
+
+    #region SUB — every guide comes from a real PAM site; guides ⊆ candidate windows
+
+    [Test]
+    [Description("SUB: each designed guide's protospacer is the TargetSequence of an actual PAM site found by FindPamSites.")]
+    public void DesignGuideRnas_EveryGuide_MapsToARealPamSite()
+    {
+        foreach (var template in GuideTemplates())
+        {
+            var pamTargets = CrisprDesigner.FindPamSites(template, CrisprSystemType.SpCas9)
+                .Select(p => (p.TargetSequence, p.TargetStart, p.IsForwardStrand))
+                .ToHashSet();
+
+            foreach (var guide in Design(template))
+            {
+                pamTargets.Should().Contain((guide.Sequence, guide.Position, guide.IsForwardStrand),
+                    because: "a designed guide is never invented — its protospacer/position/strand are copied " +
+                             "verbatim from a PAM site that FindPamSites reports for the same sequence");
+            }
+        }
+    }
+
+    [Test]
+    [Description("SUB: guide count never exceeds the number of PAM sites — filtering only removes candidates.")]
+    public void DesignGuideRnas_GuideCount_DoesNotExceedPamSiteCount()
+    {
+        foreach (var template in GuideTemplates())
+        {
+            int pamCount = CrisprDesigner.FindPamSites(template, CrisprSystemType.SpCas9).Count();
+            int guideCount = Design(template).Count;
+
+            guideCount.Should().BeLessThanOrEqualTo(pamCount,
+                because: "DesignGuideRnas draws guides from PAM sites and then DROPS some (cut-site-in-region " +
+                         "and MinScore filters); it can never produce more guides than there are PAM sites");
+        }
+    }
+
+    [Test]
+    [Description("SUB: dropping the MinScore floor to 0 makes guides ⊆ in-region PAM-adjacent windows (one guide per kept site).")]
+    public void DesignGuideRnas_NoScoreFloor_GuidesSubsetOfInRegionPamWindows()
+    {
+        var permissive = GuideRnaParameters.Default with { MinScore = 0 };
+
+        foreach (var template in GuideTemplates())
+        {
+            var allTargets = CrisprDesigner.FindPamSites(template, CrisprSystemType.SpCas9)
+                .Select(p => (p.TargetStart, p.TargetSequence, p.IsForwardStrand))
+                .ToHashSet();
+
+            var guideIds = GuideIdSet(Design(template, permissive));
+
+            allTargets.IsSupersetOf(guideIds).Should().BeTrue(
+                because: "with no score floor every kept guide still maps onto a distinct PAM-adjacent candidate " +
+                         "window — the guide set is a subset of the candidate windows, never a superset");
+        }
+    }
+
+    #endregion
+
+    #region MON — stricter scoring (higher MinScore) → subset of guides, non-increasing count
+
+    [Test]
+    [Description("MON: along an increasing MinScore chain the guide set shrinks monotonically (each stricter set ⊆ the looser).")]
+    public void DesignGuideRnas_RaisingMinScore_YieldsSubset_CountNonIncreasing()
+    {
+        // A protospacer's Score is fixed by its sequence, so MinScore is a pure cutoff.
+        double[] thresholdChain = { 0, 25, 50, 75, 90, 100, 101 };
+
+        foreach (var template in GuideTemplates())
+        {
+            HashSet<(int, string, bool)>? previousSet = null;
+            int previousCount = int.MaxValue;
+
+            foreach (var minScore in thresholdChain)
+            {
+                var current = Design(template, GuideRnaParameters.Default with { MinScore = minScore });
+                var currentSet = GuideIdSet(current);
+
+                if (previousSet is not null)
+                {
+                    previousSet.IsSupersetOf(currentSet).Should().BeTrue(
+                        because: $"raising MinScore to {minScore} can only DROP guides whose fixed score falls below it, " +
+                                 "so the stricter guide set is a subset of the looser one");
+                    current.Count.Should().BeLessThanOrEqualTo(previousCount,
+                        because: $"a stricter MinScore ({minScore}) removes-or-keeps each candidate, never adds one — count is non-increasing");
+                }
+
+                previousSet = currentSet;
+                previousCount = current.Count;
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON: a MinScore strictly above every candidate's score yields no guides; a floor of 0 yields the most.")]
+    public void DesignGuideRnas_ThresholdAboveAllScores_Empties_WhileZeroFloorIsMaximal()
+    {
+        foreach (var template in GuideTemplates())
+        {
+            int floorZero = Design(template, GuideRnaParameters.Default with { MinScore = 0 }).Count;
+            int above100 = Design(template, GuideRnaParameters.Default with { MinScore = 101 }).Count;
+
+            above100.Should().Be(0,
+                because: "the heuristic score is clamped to [0,100], so a MinScore of 101 excludes every candidate");
+            floorZero.Should().BeGreaterThanOrEqualTo(above100,
+                because: "the most permissive floor keeps a superset of any stricter floor's guides");
+        }
+    }
+
+    #endregion
+
+    #region INV — a distant downstream change preserves each guide's local identity & score
+
+    [Test]
+    [Description("INV: editing a far-downstream non-PAM tail, with the design region pinned upstream, leaves the in-region guide set identical.")]
+    public void DesignGuideRnas_DistantDownstreamChange_PreservesInRegionGuides()
+    {
+        // Build: [protospacer + PAM core] anchored at the 5' end, then a long A/T spacer,
+        // then a downstream tail we will MUTATE. The design region covers only the core,
+        // so the tail is outside it. The A/T spacer keeps any tail PAM ≥ 20 nt away from
+        // the core, and the tail itself never reaches back into the core protospacer.
+        const string core = CleanGuide20 + "AGG"; // one clean forward PAM, cut-site inside the protospacer
+        string spacer = NonPamRegion(40);          // ≥ guide length of A/T padding, no PAM
+        int regionEnd = core.Length - 1;           // design region = the core only
+
+        DnaSequence Build(string tail) => new(core + spacer + tail);
+
+        var baseGuides = CrisprDesigner
+            .DesignGuideRnas(Build(NonPamRegion(30)), 0, regionEnd, CrisprSystemType.SpCas9)
+            .ToList();
+        var baseSet = GuideIdSet(baseGuides);
+        baseSet.Should().NotBeEmpty(
+            because: "the clean 20-nt protospacer + AGG yields a high-scoring guide inside the design region");
+
+        // Several distinct downstream tails, including PAM-rich and fixed-seed random ones.
+        foreach (var tail in new[]
+                 {
+                     NonPamRegion(60),                       // different length / content, still no PAM
+                     "AGGTGGCCACCT" + NonPamRegion(20),      // PAM-rich tail (outside the region)
+                     "GGGGGGGGGGGG" + NonPamRegion(20),
+                     RandomDna(50),
+                     RandomDna(120),
+                 })
+        {
+            var changedGuides = CrisprDesigner
+                .DesignGuideRnas(Build(tail), 0, regionEnd, CrisprSystemType.SpCas9)
+                .ToList();
+
+            GuideIdSet(changedGuides).SetEquals(baseSet).Should().BeTrue(
+                because: "the in-region guides' identities depend only on the upstream local windows, " +
+                         "which the distant-tail edit does not touch — same sequences, positions, strands");
+
+            // And the local INV is exact down to the heuristic Score (composition-only metric).
+            foreach (var g in changedGuides)
+            {
+                var twin = baseGuides.Single(b => GuideId(b) == GuideId(g));
+                g.Score.Should().Be(twin.Score,
+                    because: "EvaluateGuideRna scores the protospacer alone and never inspects the genome, " +
+                             "so a distant change cannot move a guide's score");
+            }
+        }
+    }
+
+    [Test]
+    [Description("INV: a single guide's identity & score are byte-for-byte stable as the downstream context is rewritten.")]
+    public void DesignGuideRnas_SingleGuide_IdentityAndScoreStableUnderDownstreamRewrite()
+    {
+        const string core = CleanGuide20 + "AGG";
+        string spacer = NonPamRegion(40);
+        int regionEnd = core.Length - 1;
+
+        var reference = CrisprDesigner
+            .DesignGuideRnas(new DnaSequence(core + spacer + NonPamRegion(10)), 0, regionEnd, CrisprSystemType.SpCas9)
+            .Single();
+
+        reference.Sequence.Should().Be(CleanGuide20,
+            because: "the protospacer is the 20 nt immediately 5' of the AGG PAM");
+        reference.IsForwardStrand.Should().BeTrue();
+
+        foreach (var tail in new[] { NonPamRegion(80), "TGGAGGCGG" + RandomDna(40), RandomDna(70) })
+        {
+            var again = CrisprDesigner
+                .DesignGuideRnas(new DnaSequence(core + spacer + tail), 0, regionEnd, CrisprSystemType.SpCas9)
+                .Single();
+
+            again.Sequence.Should().Be(reference.Sequence,
+                because: "the protospacer is a fixed local slice, independent of the downstream tail");
+            again.Position.Should().Be(reference.Position,
+                because: "the guide's position is anchored to its local PAM, untouched by the distant edit");
+            again.IsForwardStrand.Should().Be(reference.IsForwardStrand);
+            again.Score.Should().Be(reference.Score,
+                because: "the composition-only score reads only the protospacer, so it is invariant to distant context");
+        }
+    }
+
+    #endregion
 
     #endregion
 }
