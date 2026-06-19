@@ -240,4 +240,50 @@ public class StatisticsMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: SEQ-PI-001 — isoelectric point (Statistics).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 125.
+    //
+    // API under test (SequenceStatistics.CalculateIsoelectricPoint):
+    //   pI = the pH at which the net charge from the ionisable groups is zero — a function of
+    //   the charged-residue counts.
+    //
+    // Relations (derived from the charge model, NOT from output):
+    //   • INV  (permutation invariant): pI depends only on the residue counts, not their order.
+    //   • MON  (more acidic residues ⇒ lower pI): adding acidic residues (Asp) shifts the
+    //          net-charge curve down, lowering the pI.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region SEQ-PI-001 INV — permutation invariant
+
+    [Test]
+    [Description("INV: pI is a function of the charged-residue counts, so reordering the residues leaves it unchanged.")]
+    public void IsoelectricPoint_Permutation_Invariant()
+    {
+        const string protein = "MKLVAGWTYSDERH";
+        SequenceStatistics.CalculateIsoelectricPoint(new string(protein.Reverse().ToArray()))
+            .Should().BeApproximately(SequenceStatistics.CalculateIsoelectricPoint(protein), 1e-9,
+                because: "pI depends only on the counts of ionisable residues, which a permutation preserves");
+    }
+
+    #endregion
+
+    #region SEQ-PI-001 MON — more acidic residues lower the pI
+
+    [Test]
+    [Description("MON: adding acidic residues (Asp) shifts the net-charge curve down, monotonically lowering the isoelectric point.")]
+    public void IsoelectricPoint_MoreAcidicResidues_LowerPi()
+    {
+        const string basicCore = "KRKR"; // basic residues → high pI
+        double previous = double.MaxValue;
+        foreach (int aspartates in new[] { 0, 1, 3, 6 })
+        {
+            double pi = SequenceStatistics.CalculateIsoelectricPoint(basicCore + new string('D', aspartates));
+            pi.Should().BeLessThan(previous, because: $"adding {aspartates} acidic Asp residues lowers the pI");
+            previous = pi;
+        }
+    }
+
+    #endregion
 }
