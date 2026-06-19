@@ -312,4 +312,78 @@ public class AssemblyMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: ASSEMBLY-OLC-001 — Overlap-Layout-Consensus assembly (Assembly).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 145.
+    //
+    // API under test (SequenceAssembler.AssembleOLC):
+    //   Finds suffix/prefix overlaps, greedily chains reads by best overlap into contigs.
+    //
+    // Relations (derived from the overlap-chaining model, NOT from output):
+    //   • INV  (read order independent): for an unambiguous tiling the best-overlap chain is
+    //          determined by the read content, so reordering the reads yields the same contig set.
+    //   • MON  (higher minOverlap ⇒ ≤ joins): raising the minimum overlap can only remove overlap
+    //          edges, so the number of joins (reads − contigs) is non-increasing.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private const string OlcGenome = "ACGTTGCAACCGGATTCAGTCCGATACGATGCATTGAC";
+
+    #region ASSEMBLY-OLC-001 INV — assembly is independent of read order
+
+    [Test]
+    [Description("INV: for an unambiguous tiling the greedy best-overlap chain depends only on the read content, so reordering the reads produces the same set of contigs.")]
+    public void Olc_ReadOrder_Invariant()
+    {
+        // Three reads tiling the genome with 4-base consecutive overlaps.
+        string r0 = OlcGenome.Substring(0, 14);
+        string r1 = OlcGenome.Substring(10, 14);
+        string r2 = OlcGenome.Substring(20, 18);
+        var param = new SequenceAssembler.AssemblyParameters(MinOverlap: 4, MinContigLength: 1);
+
+        var ordered = SequenceAssembler.AssembleOLC(new[] { r0, r1, r2 }, param).Contigs.OrderBy(c => c).ToList();
+        var shuffled = SequenceAssembler.AssembleOLC(new[] { r2, r0, r1 }, param).Contigs.OrderBy(c => c).ToList();
+
+        shuffled.Should().Equal(ordered, because: "the unambiguous best-overlap tiling does not depend on the input order of the reads");
+    }
+
+    #endregion
+
+    #region ASSEMBLY-OLC-001 MON — higher minOverlap cannot increase the number of joins
+
+    [Test]
+    [Description("MON: raising the minimum overlap only removes overlap edges, so the number of joins (reads − contigs) is non-increasing.")]
+    public void Olc_HigherMinOverlap_FewerOrEqualJoins()
+    {
+        // Four reads with consecutive overlaps 8, 6, 4.
+        var reads = new[]
+        {
+            OlcGenome.Substring(0, 14),   // r0
+            OlcGenome.Substring(6, 14),   // r1: overlap 8 with r0
+            OlcGenome.Substring(14, 14),  // r2: overlap 6 with r1
+            OlcGenome.Substring(24, 14),  // r3: overlap 4 with r2
+        };
+
+        int previous = int.MaxValue;
+        int loosest = -1, strictest = -1;
+        int[] minOverlaps = { 4, 5, 7, 9 };
+
+        foreach (int minOverlap in minOverlaps)
+        {
+            var param = new SequenceAssembler.AssemblyParameters(MinOverlap: minOverlap, MinContigLength: 1);
+            var result = SequenceAssembler.AssembleOLC(reads, param);
+            int joins = result.TotalReads - result.Contigs.Count;
+
+            joins.Should().BeLessThanOrEqualTo(previous, because: $"raising minOverlap to {minOverlap} removes overlap edges, so joins cannot increase");
+            previous = joins;
+
+            if (minOverlap == minOverlaps.First()) loosest = joins;
+            if (minOverlap == minOverlaps.Last()) strictest = joins;
+        }
+
+        loosest.Should().BeGreaterThan(strictest, because: "the loosest overlap admits joins that the strictest (above every overlap length) rejects");
+        strictest.Should().Be(0, because: "no overlap reaches 9, so every read stays its own contig");
+    }
+
+    #endregion
 }
