@@ -62,7 +62,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 32 | ☑ | KMER-COUNT-001 | K-mer | INV: total k-mer instances = seqLen - k + 1; MON: k+1 → ≤ distinct k-mers; INV: reverse → same set (canonical) |
 | 33 | ☑ | KMER-FREQ-001 | K-mer | INV: duplicate seq → same freqs; SYM: complement has related frequency profile; INV: sum(freq)=1 |
 | 34 | ☑ | KMER-FIND-001 | K-mer | MON: lower minFreq → ≥ k-mers; SUB: top-1 ⊆ top-5; INV: repeat seq → high frequency for unit k-mer |
-| 35 | ☐ | ALIGN-GLOBAL-001 | Alignment | SYM: score(a,b)=score(b,a); MON: more matches → higher score; COMP: identity → max score; INV: gap-only insert → score change = gap penalty |
+| 35 | ☑ | ALIGN-GLOBAL-001 | Alignment | SYM: score(a,b)=score(b,a); MON: more matches → higher score; COMP: identity → max score; INV: gap-only insert → score change = gap penalty |
 | 36 | ☐ | ALIGN-LOCAL-001 | Alignment | SUB: local score ≥ 0; MON: extend matching region → ≥ score; COMP: local for identical = global; INV: distant flank → same local alignment |
 | 37 | ☐ | ALIGN-SEMI-001 | Alignment | MON: more matching overlap → higher score; INV: extend non-overlapping part → same core alignment |
 | 38 | ☐ | ALIGN-MULTI-001 | Alignment | INV: column permutation doesn't affect per-column scores; MON: add identical seq → score stays or increases |
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 34 |
-| ☐ Not started | 200 |
+| ☑ Complete | 35 |
+| ☐ Not started | 199 |
 | MR relations defined | ~200+ |
