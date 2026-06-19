@@ -260,7 +260,7 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | 230 | ☑ | SEQ-COMPLEX-KMER-001 | Complexity | INV: reverse preserves k-mer entropy; MONO: more distinct k-mers → higher entropy |
 | 231 | ☑ | SEQ-COMPLEX-WINDOW-001 | Complexity | INV: complement preserves per-window score; SHIFT: prepend flank shifts profile |
 | 232 | ☑ | SEQ-ENTROPY-PROFILE-001 | Statistics | INV: complement preserves profile; SHIFT: prepend flank shifts profile |
-| 233 | ☐ | SEQ-GC-ANALYSIS-001 | Composition | INV: complement preserves GC%; INV: shuffle preserves GC% |
+| 233 | ☑ | SEQ-GC-ANALYSIS-001 | Composition | INV: complement preserves GC%; INV: shuffle preserves GC% |
 | 234 | ☐ | SEQ-GC-PROFILE-001 | Statistics | INV: complement preserves GC profile; SHIFT: prepend flank shifts profile |
 
 ---
@@ -270,6 +270,6 @@ Metamorphic testing розв'язує «проблему оракула» — к
 | Metric | Value |
 |--------|-------|
 | Total algorithms | 234 |
-| ☑ Complete | 232 |
-| ☐ Not started | 2 |
+| ☑ Complete | 233 |
+| ☐ Not started | 1 |
 | MR relations defined | ~200+ |

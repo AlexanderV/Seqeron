@@ -1544,4 +1544,57 @@ public class CompositionMetamorphicTests
     #endregion
 
     #endregion
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  SEQ-GC-ANALYSIS-001 — comprehensive GC analysis
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // API under test (GcSkewCalculator.AnalyzeGcContent → OverallGcContent):
+    //   Overall GC% = (G + C) / (A + T + G + C) × 100, plus windowed profiles.
+    //
+    // Relations (derived from the (G+C)/total ratio, NOT from output):
+    //   • INV (complement preserves GC%): complement maps C↔G (and A↔T), so the G+C count — and the
+    //         overall GC% — is invariant.
+    //   • INV (shuffle preserves GC%): GC% is a composition ratio, independent of base order, so any
+    //         permutation leaves it unchanged.
+
+    #region SEQ-GC-ANALYSIS-001 — comprehensive GC analysis
+
+    #region INV — complement preserves overall GC%
+
+    [Test]
+    public void GcAnalysis_Complement_PreservesOverallGcContent()
+    {
+        foreach (var s in SampleSequences())
+        {
+            var seq = new DnaSequence(s);
+            double original = GcSkewCalculator.AnalyzeGcContent(seq).OverallGcContent;
+
+            GcSkewCalculator.AnalyzeGcContent(seq.Complement()).OverallGcContent
+                .Should().BeApproximately(original, Tolerance,
+                    because: $"complement maps C↔G (G+C count invariant), so the overall GC% of '{s}' is preserved");
+        }
+    }
+
+    #endregion
+
+    #region INV — shuffle (permutation) preserves overall GC%
+
+    [Test]
+    public void GcAnalysis_Shuffle_PreservesOverallGcContent()
+    {
+        foreach (var s in SampleSequences())
+        {
+            double original = GcSkewCalculator.AnalyzeGcContent(s).OverallGcContent;
+
+            for (int t = 0; t < 5; t++)
+                GcSkewCalculator.AnalyzeGcContent(Shuffle(s)).OverallGcContent
+                    .Should().BeApproximately(original, Tolerance,
+                        because: $"overall GC% depends only on composition, not order, so shuffling '{s}' must not change it");
+        }
+    }
+
+    #endregion
+
+    #endregion
 }
