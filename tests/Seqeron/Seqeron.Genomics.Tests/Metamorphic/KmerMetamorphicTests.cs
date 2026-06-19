@@ -60,6 +60,22 @@ public class KmerMetamorphicTests
 
     private static string Reverse(string s) => new(s.Reverse().ToArray());
 
+    /// <summary>Watson–Crick complement WITHOUT reversal — a position-preserving relabel A↔T, C↔G.</summary>
+    private static string Complement(string s)
+    {
+        var chars = new char[s.Length];
+        for (int i = 0; i < s.Length; i++)
+            chars[i] = s[i] switch
+            {
+                'A' => 'T',
+                'T' => 'A',
+                'C' => 'G',
+                'G' => 'C',
+                _ => throw new ArgumentException($"non-ACGT base '{s[i]}'", nameof(s)),
+            };
+        return new string(chars);
+    }
+
     /// <summary>Canonical histogram keyed by min(kmer, reverse(kmer)) — invariant under sequence reversal.</summary>
     private static Dictionary<string, int> CanonicalHistogram(Dictionary<string, int> counts)
     {
@@ -166,6 +182,152 @@ public class KmerMetamorphicTests
 
                 CanonicalHistogram(rev).Should().BeEquivalentTo(CanonicalHistogram(forward),
                     because: "min(kmer, reverse(kmer)) is invariant under reversal, so the canonical k-mer histogram is the same for s and reverse(s)");
+            }
+        }
+    }
+
+    #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: KMER-FREQ-001 — normalized k-mer frequencies (K-mer).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 33.
+    //
+    // API under test (KmerAnalyzer.GetKmerFrequencies):
+    //   GetKmerFrequencies(sequence, k) = CountKmers(sequence, k) normalized by the total
+    //   instance count, i.e. freq(w) = count(w) / (|seq| − k + 1). Case-insensitive; the
+    //   empty map when k > |seq| (no windows ⇒ nothing to normalize).
+    //
+    // Relations (derived from the definition — a probability distribution over k-mers — NOT
+    // from output):
+    //   • INV (normalization / sum = 1): for any non-empty result the frequencies form a
+    //          probability distribution, so they sum to 1 and each lies in (0, 1]; when
+    //          k > |seq| the result is empty (sum 0).
+    //   • INV (duplicate ⇒ same freqs): frequency is scale-invariant — multiplying every
+    //          k-mer count by the same constant leaves count/total unchanged. Self-
+    //          concatenation S·S is the boundary-free realization of this at k = 1 (each
+    //          mononucleotide count doubles, the total doubles), and likewise any m-fold
+    //          repeat S^m. For k ≥ 2 the m−1 junctions inject k−1 extra windows each, so the
+    //          relation is exact only at k = 1 — that boundary effect is asserted explicitly
+    //          rather than pretending the equality holds verbatim for all k.
+    //   • SYM (complement ⇒ relabelled profile): the Watson–Crick complement (A↔T, C↔G,
+    //          WITHOUT reversal) is a position-preserving bijection on the sequence, so
+    //          window i of comp(S) is comp(window i of S). Hence freq_{comp(S)}(comp(w)) =
+    //          freq_S(w) exactly for every k, and the multiset of frequency VALUES is
+    //          identical between S and comp(S).
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region INV — frequencies form a probability distribution (sum to 1; empty when k > |seq|)
+
+    [Test]
+    [Description("INV: normalized k-mer frequencies sum to 1 and each lies in (0, 1] whenever there is at least one window; the result is empty when k exceeds the sequence length.")]
+    public void GetKmerFrequencies_FormProbabilityDistribution()
+    {
+        foreach (var body in KmerBodies())
+        {
+            foreach (int k in KValues)
+            {
+                var freqs = KmerAnalyzer.GetKmerFrequencies(body, k);
+
+                if (body.Length < k)
+                {
+                    freqs.Should().BeEmpty(
+                        because: $"there are no length-{k} windows in a sequence of length {body.Length}, so there is nothing to normalize");
+                    continue;
+                }
+
+                freqs.Values.Sum().Should().BeApproximately(1.0, 1e-9,
+                    because: "every window contributes one k-mer instance and frequencies divide by the total instance count, so the frequencies partition probability mass 1");
+                freqs.Values.Should().OnlyContain(f => f > 0.0 && f <= 1.0,
+                    because: "a frequency is a strictly positive count over the total, capped at 1 when a single k-mer fills every window");
+            }
+        }
+    }
+
+    #endregion
+
+    #region INV — frequency is scale-invariant: duplicating the sequence preserves it (exact at k = 1)
+
+    [Test]
+    [Description("INV: self-concatenation and m-fold repetition leave the k=1 frequency distribution unchanged, because every base count scales by the same factor and frequency is count/total.")]
+    public void GetKmerFrequencies_RepeatingSequence_PreservesMononucleotideFrequencies()
+    {
+        foreach (var body in KmerBodies())
+        {
+            var single = KmerAnalyzer.GetKmerFrequencies(body, 1);
+
+            foreach (int m in new[] { 2, 3, 5 })
+            {
+                string repeated = string.Concat(Enumerable.Repeat(body, m));
+                var repeatedFreqs = KmerAnalyzer.GetKmerFrequencies(repeated, 1);
+
+                repeatedFreqs.Keys.Should().BeEquivalentTo(single.Keys,
+                    because: "repeating a sequence introduces no new bases, so the support of the mononucleotide distribution is unchanged");
+                foreach (var (baseLetter, freq) in single)
+                {
+                    repeatedFreqs[baseLetter].Should().BeApproximately(freq, 1e-9,
+                        because: $"repeating S {m}× multiplies the count of '{baseLetter}' and the total by {m}, so count/total — the frequency — is unchanged");
+                }
+            }
+        }
+    }
+
+    [Test]
+    [Description("MON/boundary: for k ≥ 2 self-concatenation perturbs frequencies only through the k−1 junction windows, so the total absolute frequency change is bounded by 2·(k−1)/(2|seq|−k+1) — exactly 0 at k = 1.")]
+    public void GetKmerFrequencies_SelfConcatenation_DeviationBoundedByJunctionWindows()
+    {
+        foreach (var body in KmerBodies())
+        {
+            foreach (int k in KValues)
+            {
+                if (body.Length < k)
+                    continue;
+
+                var single = KmerAnalyzer.GetKmerFrequencies(body, k);
+                var doubled = KmerAnalyzer.GetKmerFrequencies(body + body, k);
+
+                double l1 = single.Keys.Union(doubled.Keys)
+                    .Sum(w => Math.Abs(single.GetValueOrDefault(w) - doubled.GetValueOrDefault(w)));
+
+                // The doubled sequence has 2n−k+1 windows; exactly k−1 of them straddle the junction
+                // and can carry mass the single copy lacks (and the renormalization touches the rest).
+                int doubledWindows = 2 * body.Length - k + 1;
+                double bound = 2.0 * (k - 1) / doubledWindows + 1e-12;
+
+                l1.Should().BeLessThanOrEqualTo(bound,
+                    because: $"only the {k - 1} junction window(s) differ between S·S and two independent copies of S, so the frequency vectors agree up to that bounded perturbation (exactly when k = 1)");
+            }
+        }
+    }
+
+    #endregion
+
+    #region SYM — complement is a position-preserving relabel: freq_{comp(S)}(comp(w)) = freq_S(w)
+
+    [Test]
+    [Description("SYM: the Watson–Crick complement (A↔T, C↔G, no reversal) relabels each k-mer to its complement at the same positions, so freq_{comp(S)}(comp(w)) = freq_S(w) and the multiset of frequency values is identical.")]
+    public void GetKmerFrequencies_Complement_RelabelsProfileByComplement()
+    {
+        foreach (var body in KmerBodies())
+        {
+            string comp = Complement(body);
+
+            foreach (int k in KValues)
+            {
+                if (body.Length < k)
+                    continue;
+
+                var forward = KmerAnalyzer.GetKmerFrequencies(body, k);
+                var complemented = KmerAnalyzer.GetKmerFrequencies(comp, k);
+
+                foreach (var (w, freq) in forward)
+                {
+                    complemented[Complement(w)].Should().BeApproximately(freq, 1e-9,
+                        because: $"complementing is positional, so every occurrence of '{w}' in S is an occurrence of '{Complement(w)}' in comp(S) at the same window — the frequencies must match exactly");
+                }
+
+                complemented.Values.OrderBy(f => f).Should().Equal(
+                    forward.Values.OrderBy(f => f),
+                    because: "k-mer ↔ complement is a bijection, so the complement merely relabels the distribution and the multiset of frequency values is preserved");
             }
         }
     }
