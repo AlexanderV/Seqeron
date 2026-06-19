@@ -462,4 +462,119 @@ public class FileIoMetamorphicTests
     }
 
     #endregion
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Unit: PARSE-GFF-001 — GFF3 parsing / serialization (FileIO).
+    // Checklist: docs/checklists/02_METAMORPHIC_TESTING.md, row 68.
+    //
+    // API under test (GffParser.Parse / WriteToStream):
+    //   GFF3 stores features as 9 tab-delimited columns (seqid source type start end score
+    //   strand phase attributes) preceded by '##' directives and '#' comments. Column 9 is a
+    //   ';'-separated set of key=value attribute pairs — an unordered map.
+    //
+    // Relations (derived from the format, NOT from output):
+    //   • COMP (round-trip): serialising feature records and re-parsing recovers every column,
+    //          and re-serialising reproduces the exact text.
+    //   • INV  (attribute order): column-9 attributes are an unordered map, so permuting them
+    //          yields semantically identical features (same attribute map, same columns).
+    //   • INV  (comment lines): '##' directives, '#' comments and blank lines carry no feature
+    //          data, so inserting them anywhere leaves the parsed features unchanged.
+    // ───────────────────────────────────────────────────────────────────────────
+
+    #region PARSE-GFF-001 — Helpers
+
+    /// <summary>Run-order- and attribute-order-independent identity of a GFF feature.</summary>
+    private static (string Seqid, string Source, string Type, int Start, int End, double? Score, char Strand, int? Phase, string Attrs)
+        GffKey(GffParser.GffRecord r) =>
+        (
+            r.Seqid, r.Source, r.Type, r.Start, r.End, r.Score, r.Strand, r.Phase,
+            string.Join(';', r.Attributes.OrderBy(kv => kv.Key, System.StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        );
+
+    private static string WriteGff(IEnumerable<GffParser.GffRecord> records)
+    {
+        using var sw = new StringWriter();
+        GffParser.WriteToStream(sw, records, GffParser.GffFormat.GFF3);
+        return sw.ToString();
+    }
+
+    private static GffParser.GffRecord[] SampleGffRecords() => new[]
+    {
+        new GffParser.GffRecord("chr1", "ensembl", "gene", 1000, 5000, null, '+', null,
+            new Dictionary<string, string>(System.StringComparer.Ordinal) { ["ID"] = "gene1", ["Name"] = "BRCA1" }),
+        new GffParser.GffRecord("chr1", "ensembl", "exon", 1000, 1200, 0.0, '+', 0,
+            new Dictionary<string, string>(System.StringComparer.Ordinal) { ["ID"] = "exon1", ["Parent"] = "gene1" }),
+    };
+
+    #endregion
+
+    #region PARSE-GFF-001 COMP — write→parse→write reproduces the features and text
+
+    [Test]
+    [Description("COMP: serialising GFF3 features and re-parsing recovers every column, and re-serialising the parsed features reproduces the exact text.")]
+    public void Gff_WriteParseWrite_IsIdempotentAndRecordPreserving()
+    {
+        var records = SampleGffRecords();
+
+        string written = WriteGff(records);
+        var parsed = GffParser.Parse(written).ToList();
+
+        parsed.Select(GffKey).Should().Equal(records.Select(GffKey),
+            because: "parsing a GFF3 serialisation must recover all nine columns of every feature");
+
+        WriteGff(parsed).Should().Be(written,
+            because: "serialisation is a canonical fixed point: write∘parse∘write = write");
+    }
+
+    #endregion
+
+    #region PARSE-GFF-001 INV — attribute order is irrelevant
+
+    [Test]
+    [Description("INV: column-9 attributes are an unordered map, so permuting them yields a feature with the same attribute map and identical other columns.")]
+    public void Gff_AttributeOrder_IsIrrelevant()
+    {
+        const string header = "##gff-version 3\n";
+
+        string orderA = header + "chr1\tensembl\tgene\t1\t100\t.\t+\t.\tID=g1;Name=BRCA;biotype=protein_coding\n";
+        string orderB = header + "chr1\tensembl\tgene\t1\t100\t.\t+\t.\tbiotype=protein_coding;Name=BRCA;ID=g1\n";
+
+        var recordA = GffParser.Parse(orderA).Single();
+        var recordB = GffParser.Parse(orderB).Single();
+
+        GffKey(recordB).Should().Be(GffKey(recordA),
+            because: "the attribute column is a set of key=value pairs, so its order does not change the parsed feature");
+        recordB.Attributes.Should().BeEquivalentTo(recordA.Attributes,
+            because: "the attribute map (ID, Name, biotype) is identical regardless of order");
+    }
+
+    #endregion
+
+    #region PARSE-GFF-001 INV — directives, comments and blank lines do not affect features
+
+    [Test]
+    [Description("INV: '##' directives, '#' comments and blank lines are skipped, so scattering them through the file leaves the parsed features unchanged.")]
+    public void Gff_CommentAndBlankLines_DoNotAffectFeatures()
+    {
+        const string compact =
+            "##gff-version 3\n" +
+            "chr1\tensembl\tgene\t1000\t5000\t.\t+\t.\tID=gene1;Name=BRCA1\n" +
+            "chr1\tensembl\texon\t1000\t1200\t.\t+\t.\tID=exon1;Parent=gene1\n";
+
+        const string withComments =
+            "##gff-version 3\n" +
+            "##sequence-region chr1 1 100000\n" +
+            "# a free-text comment\n" +
+            "\n" +
+            "chr1\tensembl\tgene\t1000\t5000\t.\t+\t.\tID=gene1;Name=BRCA1\n" +
+            "# comment between features\n" +
+            "\n" +
+            "chr1\tensembl\texon\t1000\t1200\t.\t+\t.\tID=exon1;Parent=gene1\n";
+
+        GffParser.Parse(withComments).Select(GffKey)
+            .Should().Equal(GffParser.Parse(compact).Select(GffKey),
+                because: "directives, comments and blank lines carry no feature data, so they cannot change the parsed features");
+    }
+
+    #endregion
 }
